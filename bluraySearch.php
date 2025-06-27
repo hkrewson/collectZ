@@ -1,7 +1,7 @@
 <?php
     
-    
-$url = "https://www.blu-ray.com/search/?quicksearch=1&quicksearch_country=US&quicksearch_keyword=sinners&section=bluraymovies"; // Replace with your desired URL
+$searchtitle = ""
+$url = "https://www.blu-ray.com/search/?quicksearch=1&quicksearch_country=US&quicksearch_keyword=" . $searchtitle . "&section=bluraymovies";
 
 $options = [
     "http" => [
