@@ -1,0 +1,84 @@
+# Environment Variables
+.env
+.env.local
+.env.production
+.env.*.local
+
+# Secrets
+*.key
+*.pem
+*.crt
+acme.json
+
+# Node modules
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# Build outputs
+backend/dist/
+backend/build/
+frontend/build/
+frontend/dist/
+
+# Docker
+*.tar
+*.tar.gz
+
+# Uploads and data
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Database dumps
+*.sql.backup
+backup.sql
+*.dump
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+lerna-debug.log*
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*~
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# Testing
+coverage/
+.nyc_output/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# SSL certificates (unless self-signed for dev)
+nginx/ssl/*.pem
+nginx/ssl/*.key
+nginx/ssl/*.crt
+
+# Keep example files
+!.env.example
