@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   db:
     image: postgres:16-alpine
@@ -7,15 +5,15 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-mediavault}
-      POSTGRES_USER: ${POSTGRES_USER:-mediavault}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_USER: ${DB_USER:-mediavault}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - internal
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mediavault}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-mediavault}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -45,11 +43,29 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3001
-      DATABASE_URL: postgresql://${POSTGRES_USER:-mediavault}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-mediavault}
+      DATABASE_SSL: ${DATABASE_SSL:-false}
+      DATABASE_URL: postgresql://${DB_USER:-mediavault}:${DB_PASSWORD}@db:5432/${POSTGRES_DB:-mediavault}
       REDIS_URL: redis://default:${REDIS_PASSWORD}@redis:6379
       JWT_SECRET: ${JWT_SECRET}
+      INTEGRATION_ENCRYPTION_KEY: ${INTEGRATION_ENCRYPTION_KEY:-}
+      TMDB_PRESET: ${TMDB_PRESET:-tmdb}
+      TMDB_PROVIDER: ${TMDB_PROVIDER:-tmdb}
+      TMDB_API_URL: ${TMDB_API_URL:-https://api.themoviedb.org/3/search/movie}
       TMDB_API_KEY: ${TMDB_API_KEY}
-      ALLOWED_ORIGINS: http://localhost
+      TMDB_API_KEY_HEADER: ${TMDB_API_KEY_HEADER:-}
+      TMDB_API_KEY_QUERY_PARAM: ${TMDB_API_KEY_QUERY_PARAM:-api_key}
+      BARCODE_PRESET: ${BARCODE_PRESET:-upcitemdb}
+      BARCODE_PROVIDER: ${BARCODE_PROVIDER:-upcitemdb}
+      BARCODE_API_URL: ${BARCODE_API_URL:-https://api.upcitemdb.com/prod/trial/lookup}
+      BARCODE_API_KEY: ${BARCODE_API_KEY}
+      BARCODE_API_KEY_HEADER: ${BARCODE_API_KEY_HEADER:-x-api-key}
+      BARCODE_QUERY_PARAM: ${BARCODE_QUERY_PARAM:-upc}
+      VISION_PRESET: ${VISION_PRESET:-ocrspace}
+      VISION_PROVIDER: ${VISION_PROVIDER:-ocrspace}
+      VISION_API_URL: ${VISION_API_URL:-https://api.ocr.space/parse/image}
+      VISION_API_KEY: ${VISION_API_KEY}
+      VISION_API_KEY_HEADER: ${VISION_API_KEY_HEADER:-apikey}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
     volumes:
       - media_uploads:/app/uploads
     depends_on:
@@ -70,7 +86,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        REACT_APP_API_URL: http://backend:3001
+        REACT_APP_API_URL: /api
     image: mediavault-frontend:latest
     container_name: mediavault-frontend
     restart: unless-stopped

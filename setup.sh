@@ -62,7 +62,8 @@ cat > package.json << 'BACKEND_PKG'
     "jsonwebtoken": "^9.0.2",
     "multer": "^1.4.5-lts.1",
     "pg": "^8.11.3",
-    "axios": "^1.6.2"
+    "axios": "^1.6.2",
+    "form-data": "^4.0.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
@@ -154,6 +155,8 @@ COPY package*.json ./
 RUN npm install
 
 COPY . .
+ARG REACT_APP_API_URL=/api
+ENV REACT_APP_API_URL=$REACT_APP_API_URL
 RUN npm run build
 
 FROM nginx:alpine
@@ -212,10 +215,130 @@ cat > src/index.css << 'FRONTEND_CSS'
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  font-family: 'Avenir Next', 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.app-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: linear-gradient(145deg, #f7f8fb 0%, #d9e7ff 50%, #eef6ef 100%);
+}
+
+.auth-card {
+  width: min(460px, 100%);
+  background: #ffffff;
+  border: 1px solid #d9e0ee;
+  border-radius: 18px;
+  padding: 1.5rem;
+  box-shadow: 0 18px 45px rgba(16, 36, 73, 0.12);
+}
+
+.auth-card h1 {
+  color: #15315f;
+  font-size: 2rem;
+}
+
+.subtitle {
+  margin-top: 0.25rem;
+  color: #5d6a84;
+}
+
+.tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin: 1rem 0 1.25rem;
+}
+
+.tabs button {
+  border: 1px solid #d4ddf1;
+  background: #f5f8ff;
+  color: #2c4678;
+  border-radius: 10px;
+  height: 40px;
+  cursor: pointer;
+}
+
+.tabs button.active {
+  border-color: #2f5ec9;
+  background: #2f5ec9;
+  color: #ffffff;
+}
+
+form {
+  display: grid;
+  gap: 0.9rem;
+}
+
+label {
+  display: grid;
+  gap: 0.35rem;
+  color: #2f3e5a;
+  font-size: 0.95rem;
+}
+
+input {
+  height: 42px;
+  padding: 0 0.75rem;
+  border: 1px solid #cad4ea;
+  border-radius: 10px;
+  font-size: 1rem;
+}
+
+input:focus {
+  outline: 2px solid #b8cbf8;
+  border-color: #5f85db;
+}
+
+.submit {
+  margin-top: 0.5rem;
+  height: 44px;
+  border: 0;
+  border-radius: 10px;
+  background: #15315f;
+  color: #ffffff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.submit:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.message {
+  margin-top: 0.85rem;
+  padding: 0.7rem 0.8rem;
+  border-radius: 10px;
+  font-size: 0.92rem;
+}
+
+.message.error {
+  background: #fff0f2;
+  color: #9a1c2f;
+  border: 1px solid #f0c2cb;
+}
+
+.message.success {
+  background: #eefcf3;
+  color: #166a39;
+  border: 1px solid #badfc8;
+}
+
+.token {
+  margin-top: 0.85rem;
+  color: #4e5d78;
+  font-size: 0.86rem;
+  word-break: break-all;
 }
 FRONTEND_CSS
 
@@ -236,36 +359,133 @@ FRONTEND_INDEX
 
 # Create src/App.js
 cat > src/App.js << 'FRONTEND_APP'
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+const API_URL = process.env.REACT_APP_API_URL || '/api';
 
 function App() {
-  const [status, setStatus] = useState('Checking connection...');
+  const [route, setRoute] = useState(window.location.pathname === '/register' ? 'register' : 'login');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [token, setToken] = useState('');
+  const pageTitle = useMemo(() => (route === 'register' ? 'Create account' : 'Welcome back'), [route]);
 
   useEffect(() => {
-    axios.get(`${API_URL}/health`)
-      .then(() => setStatus('Connected to backend!'))
-      .catch(() => setStatus('Backend connection failed'));
+    const syncRoute = () => {
+      setRoute(window.location.pathname === '/register' ? 'register' : 'login');
+      setError('');
+      setSuccess('');
+    };
+
+    window.addEventListener('popstate', syncRoute);
+    return () => window.removeEventListener('popstate', syncRoute);
   }, []);
 
+  const navigate = (nextRoute) => {
+    const path = nextRoute === 'register' ? '/register' : '/login';
+    window.history.pushState({}, '', path);
+    setRoute(nextRoute);
+    setError('');
+    setSuccess('');
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const payload = route === 'register'
+        ? { email, password, name }
+        : { email, password };
+      const endpoint = route === 'register' ? '/auth/register' : '/auth/login';
+      const response = await axios.post(`${API_URL}${endpoint}`, payload);
+
+      setToken(response.data?.token || '');
+      setSuccess(
+        route === 'register'
+          ? 'Account created. You are now logged in.'
+          : 'Login successful.'
+      );
+      setPassword('');
+    } catch (requestError) {
+      setError(requestError.response?.data?.error || 'Request failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      color: 'white',
-      fontFamily: 'system-ui'
-    }}>
-      <div style={{ textAlign: 'center' }}>
-        <h1 style={{ fontSize: '3rem', marginBottom: '1rem' }}>MediaVault</h1>
-        <p style={{ fontSize: '1.2rem' }}>{status}</p>
-        <p style={{ marginTop: '2rem', opacity: 0.8 }}>
-          Your media management solution
-        </p>
+    <div className="app-shell">
+      <div className="auth-card">
+        <h1>MediaVault</h1>
+        <p className="subtitle">{pageTitle}</p>
+
+        <div className="tabs">
+          <button
+            type="button"
+            className={route === 'login' ? 'active' : ''}
+            onClick={() => navigate('login')}
+          >
+            Login
+          </button>
+          <button
+            type="button"
+            className={route === 'register' ? 'active' : ''}
+            onClick={() => navigate('register')}
+          >
+            Register
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          {route === 'register' && (
+            <label>
+              Name
+              <input
+                type="text"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                required
+              />
+            </label>
+          )}
+          <label>
+            Email
+            <input
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              required
+            />
+          </label>
+          <label>
+            Password
+            <input
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              required
+            />
+          </label>
+          <button className="submit" type="submit" disabled={loading}>
+            {loading ? 'Submitting...' : route === 'register' ? 'Create account' : 'Sign in'}
+          </button>
+        </form>
+
+        {error && <p className="message error">{error}</p>}
+        {success && <p className="message success">{success}</p>}
+        {token && (
+          <p className="token">
+            Token issued: <code>{`${token.slice(0, 24)}...`}</code>
+          </p>
+        )}
       </div>
     </div>
   );
