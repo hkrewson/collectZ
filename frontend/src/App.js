@@ -116,6 +116,10 @@ function App() {
   const [authInviteToken, setAuthInviteToken] = useState('');
 
   const [activeTab, setActiveTab] = useState('library');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 900);
+  const [isMobileNav, setIsMobileNav] = useState(window.innerWidth <= 900);
+  const [adminMenuOpen, setAdminMenuOpen] = useState(true);
   const [librarySearch, setLibrarySearch] = useState('');
   const [libraryFormat, setLibraryFormat] = useState('all');
   const [mediaItems, setMediaItems] = useState([]);
@@ -150,6 +154,7 @@ function App() {
   const [invitesError, setInvitesError] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteMessage, setInviteMessage] = useState('');
+  const [inviteUrlMessage, setInviteUrlMessage] = useState('');
   const [profileForm, setProfileForm] = useState({ name: '', email: '', password: '' });
   const [profileMessage, setProfileMessage] = useState('');
   const [profileSaving, setProfileSaving] = useState(false);
@@ -197,8 +202,16 @@ function App() {
     vision: 'unknown',
     tmdb: 'unknown'
   });
+  const [generalSettings, setGeneralSettings] = useState({
+    theme: 'system',
+    density: 'comfortable'
+  });
+  const [generalSettingsSaving, setGeneralSettingsSaving] = useState(false);
+  const [generalSettingsMessage, setGeneralSettingsMessage] = useState('');
 
   const isAdmin = user?.role === 'admin';
+  const isLibraryTab = activeTab === 'library' || activeTab === 'library-add';
+  const isAdminSubtab = activeTab === 'admin-integrations' || activeTab === 'admin-settings' || activeTab === 'admin-users';
   const pageTitle = useMemo(() => {
     if (route === 'register') return 'Create your account';
     if (route === 'dashboard') return 'Media dashboard';
@@ -216,6 +229,15 @@ function App() {
       headers
     });
     return response.data;
+  };
+
+  const applyDisplaySettings = (theme, density) => {
+    const themeClass = `theme-${theme || 'system'}`;
+    const densityClass = `density-${density || 'comfortable'}`;
+    document.body.classList.remove('theme-system', 'theme-light', 'theme-dark');
+    document.body.classList.remove('density-comfortable', 'density-compact');
+    document.body.classList.add(themeClass);
+    document.body.classList.add(densityClass);
   };
 
   const clearAuthMessages = () => {
@@ -237,6 +259,15 @@ function App() {
     window.history.pushState({}, '', path);
     setRoute(nextRoute);
     clearAuthMessages();
+  };
+
+  const closeSidebarForMobile = () => {
+    if (isMobileNav) setSidebarOpen(false);
+  };
+
+  const selectTab = (nextTab) => {
+    setActiveTab(nextTab);
+    closeSidebarForMobile();
   };
 
   const hydrateSession = (nextToken, nextUser) => {
@@ -322,6 +353,18 @@ function App() {
     }
   };
 
+  const loadGeneralSettings = async () => {
+    try {
+      const data = await apiCall('get', '/settings/general');
+      const theme = data.theme || 'system';
+      const density = data.density || 'comfortable';
+      setGeneralSettings({ theme, density });
+      applyDisplaySettings(theme, density);
+    } catch (_) {
+      applyDisplaySettings('system', 'comfortable');
+    }
+  };
+
   const applyBarcodePreset = (presetName) => {
     const preset = BARCODE_PRESETS[presetName] || BARCODE_PRESETS.custom;
     setIntegrationForm((prev) => ({ ...prev, ...preset }));
@@ -400,6 +443,16 @@ function App() {
   }, []);
 
   useEffect(() => {
+    const onResize = () => {
+      const mobile = window.innerWidth <= 900;
+      setIsMobileNav(mobile);
+      if (!mobile) setSidebarOpen(true);
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  useEffect(() => {
     if (route === 'dashboard' && !token) {
       window.history.replaceState({}, '', '/login');
       setRoute('login');
@@ -407,9 +460,19 @@ function App() {
   }, [route, token]);
 
   useEffect(() => {
+    if (route !== 'register') return;
+    const params = new URLSearchParams(window.location.search);
+    const invite = params.get('invite') || '';
+    const email = params.get('email') || '';
+    if (invite) setAuthInviteToken(invite);
+    if (email) setAuthEmail(email);
+  }, [route]);
+
+  useEffect(() => {
     if (route === 'dashboard' && token) {
       loadMe();
       loadMedia();
+      loadGeneralSettings();
       if (isAdmin) {
         loadIntegrationSettings();
       }
@@ -426,17 +489,21 @@ function App() {
   }, [route, token, isAdmin]);
 
   useEffect(() => {
-    if (activeTab === 'admin-settings') {
+    if (activeTab === 'admin-integrations') {
       setIntegrationTab('barcode');
     }
   }, [activeTab]);
 
   useEffect(() => {
-    if (activeTab === 'admin-settings' && isAdmin) {
+    if (activeTab === 'admin-integrations' && isAdmin) {
       loadIntegrationSettings();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, isAdmin]);
+
+  useEffect(() => {
+    applyDisplaySettings(generalSettings.theme, generalSettings.density);
+  }, [generalSettings.theme, generalSettings.density]);
 
   const submitAuth = async (event) => {
     event.preventDefault();
@@ -678,7 +745,9 @@ function App() {
     setInviteMessage('');
     try {
       const data = await apiCall('post', '/invites', { email: inviteEmail });
+      const url = `${window.location.origin}/register?invite=${encodeURIComponent(data.token)}&email=${encodeURIComponent(data.email)}`;
       setInviteMessage(`Invite created for ${data.email}`);
+      setInviteUrlMessage(url);
       setInviteEmail('');
       loadInvites();
     } catch (error) {
@@ -686,12 +755,30 @@ function App() {
     }
   };
 
-  const copyInviteToken = async (inviteToken) => {
+  const copyInviteValue = async (value) => {
     try {
-      await navigator.clipboard.writeText(inviteToken);
-      setInviteMessage('Invite token copied to clipboard.');
+      await navigator.clipboard.writeText(value);
+      setInviteMessage('Copied to clipboard.');
     } catch (_) {
-      setInviteMessage(`Invite token: ${inviteToken}`);
+      setInviteMessage(value);
+    }
+  };
+
+  const saveGeneralSettings = async (event) => {
+    event.preventDefault();
+    setGeneralSettingsSaving(true);
+    setGeneralSettingsMessage('');
+    try {
+      const updated = await apiCall('put', '/admin/settings/general', generalSettings);
+      const theme = updated.theme || 'system';
+      const density = updated.density || 'comfortable';
+      setGeneralSettings({ theme, density });
+      applyDisplaySettings(theme, density);
+      setGeneralSettingsMessage('Settings saved.');
+    } catch (error) {
+      setGeneralSettingsMessage(error.response?.data?.error || 'Failed to save settings');
+    } finally {
+      setGeneralSettingsSaving(false);
     }
   };
 
@@ -919,32 +1006,85 @@ function App() {
   }
 
   return (
-    <div className="dashboard-shell">
-      <header className="topbar card">
-        <div>
-          <h1>MediaVault</h1>
-          <p className="subtitle">{user?.name} ({user?.role})</p>
-        </div>
-        <div className="topbar-actions">
-          <button type="button" className="secondary" onClick={loadMedia}>Refresh</button>
-          <button type="button" className="secondary" onClick={logout}>Logout</button>
-        </div>
-      </header>
+    <div className={`dashboard-shell ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
+      {isMobileNav && sidebarOpen && (
+        <button type="button" className="sidebar-backdrop" aria-label="Close navigation" onClick={() => setSidebarOpen(false)} />
+      )}
 
-      <nav className="tab-strip">
-        <button type="button" className={activeTab === 'library' ? 'active' : ''} onClick={() => setActiveTab('library')}>Library</button>
-        <button type="button" className={activeTab === 'add' ? 'active' : ''} onClick={() => setActiveTab('add')}>Add media</button>
-        <button type="button" className={activeTab === 'profile' ? 'active' : ''} onClick={() => setActiveTab('profile')}>Profile</button>
-        {isAdmin && (
-          <button type="button" className={activeTab === 'admin-settings' ? 'active' : ''} onClick={() => setActiveTab('admin-settings')}>Admin Settings</button>
-        )}
-        {isAdmin && (
-          <button type="button" className={activeTab === 'users' ? 'active' : ''} onClick={() => setActiveTab('users')}>Users</button>
-        )}
-        {isAdmin && (
-          <button type="button" className={activeTab === 'invites' ? 'active' : ''} onClick={() => setActiveTab('invites')}>Invites</button>
-        )}
-      </nav>
+      <aside className={`sidebar card ${sidebarOpen ? 'open' : ''}`}>
+        <div className="sidebar-header">
+          <h2>MediaVault</h2>
+          {!isMobileNav && (
+            <button type="button" className="sidebar-toggle secondary small" onClick={() => setSidebarCollapsed((prev) => !prev)}>
+              {sidebarCollapsed ? 'Expand' : 'Collapse'}
+            </button>
+          )}
+          {isMobileNav && (
+            <button type="button" className="sidebar-toggle secondary small" onClick={() => setSidebarOpen(false)}>
+              Close
+            </button>
+          )}
+        </div>
+
+        <nav className="sidebar-nav">
+          <button type="button" className={isLibraryTab ? 'active' : ''} onClick={() => selectTab('library')}>
+            <span>Library</span>
+          </button>
+
+          <div className="sidebar-divider" />
+
+          {isAdmin && (
+            <div className="sidebar-admin">
+              <button
+                type="button"
+                className={isAdminSubtab ? 'active' : ''}
+                onClick={() => {
+                  setAdminMenuOpen((prev) => !prev);
+                }}
+              >
+                <span>Admin Settings</span>
+              </button>
+              {adminMenuOpen && (
+                <div className="sidebar-subnav">
+                  <button type="button" className={activeTab === 'admin-integrations' ? 'active' : ''} onClick={() => selectTab('admin-integrations')}>
+                    <span>Integrations</span>
+                  </button>
+                  <button type="button" className={activeTab === 'admin-settings' ? 'active' : ''} onClick={() => selectTab('admin-settings')}>
+                    <span>Settings</span>
+                  </button>
+                  <button type="button" className={activeTab === 'admin-users' ? 'active' : ''} onClick={() => selectTab('admin-users')}>
+                    <span>Users</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          <button type="button" className={activeTab === 'profile' ? 'active' : ''} onClick={() => selectTab('profile')}>
+            <span>Profile</span>
+          </button>
+        </nav>
+      </aside>
+
+      <main className="dashboard-main">
+        <header className="topbar card">
+          <div className="topbar-title">
+            {isMobileNav && (
+              <button type="button" className="hamburger-btn" aria-label="Open navigation" onClick={() => setSidebarOpen(true)}>
+                <span />
+                <span />
+              </button>
+            )}
+            <div>
+              <h1>MediaVault</h1>
+              <p className="subtitle">{user?.name} ({user?.role})</p>
+            </div>
+          </div>
+          <div className="topbar-actions">
+            <button type="button" className="secondary" onClick={loadMedia}>Refresh</button>
+            <button type="button" className="secondary" onClick={logout}>Logout</button>
+          </div>
+        </header>
 
       {activeTab === 'library' && (
         <section className="card section">
@@ -963,6 +1103,9 @@ function App() {
                 ))}
               </select>
               <button type="button" className="primary small" onClick={loadMedia}>Apply</button>
+              <button type="button" className="secondary small" onClick={() => setActiveTab('library-add')}>
+                Add media
+              </button>
             </div>
           </div>
           {mediaError && <p className="message error">{mediaError}</p>}
@@ -1025,9 +1168,14 @@ function App() {
         </section>
       )}
 
-      {activeTab === 'add' && (
+      {activeTab === 'library-add' && (
         <section className="card section">
-          <h2>Add Media</h2>
+          <div className="section-head">
+            <h2>Add Media</h2>
+            <button type="button" className="secondary small" onClick={() => setActiveTab('library')}>
+              Back to library
+            </button>
+          </div>
           <p className="subtitle">Add by title/year, UPC scan input, or cover upload + metadata.</p>
           <div className="tabs inline">
             <button type="button" className={addMode === 'title' ? 'active' : ''} onClick={() => setAddMode('title')}>Title/Year</button>
@@ -1239,7 +1387,7 @@ function App() {
         </section>
       )}
 
-      {activeTab === 'admin-settings' && isAdmin && (
+      {activeTab === 'admin-integrations' && isAdmin && (
         <section className="card section">
           <h2>Admin Integrations</h2>
           <p className="subtitle">Global provider settings used by all users for barcode, vision, and TMDB.</p>
@@ -1420,7 +1568,43 @@ function App() {
         </section>
       )}
 
-      {activeTab === 'users' && isAdmin && (
+      {activeTab === 'admin-settings' && isAdmin && (
+        <section className="card section">
+          <h2>Admin Settings</h2>
+          <p className="subtitle">Global UI preferences applied to all authenticated sessions.</p>
+          <form className="form-grid" onSubmit={saveGeneralSettings}>
+            <label>
+              Theme
+              <select
+                value={generalSettings.theme}
+                onChange={(event) => setGeneralSettings((prev) => ({ ...prev, theme: event.target.value }))}
+              >
+                <option value="system">System</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+              </select>
+            </label>
+            <label>
+              UI density
+              <select
+                value={generalSettings.density}
+                onChange={(event) => setGeneralSettings((prev) => ({ ...prev, density: event.target.value }))}
+              >
+                <option value="comfortable">Comfortable</option>
+                <option value="compact">Compact</option>
+              </select>
+            </label>
+            <div className="inline-controls full">
+              <button type="submit" className="primary small" disabled={generalSettingsSaving}>
+                {generalSettingsSaving ? 'Saving settings...' : 'Save settings'}
+              </button>
+            </div>
+          </form>
+          {generalSettingsMessage && <p className="message success">{generalSettingsMessage}</p>}
+        </section>
+      )}
+
+      {activeTab === 'admin-users' && isAdmin && (
         <section className="card section">
           <h2>User management</h2>
           {usersError && <p className="message error">{usersError}</p>}
@@ -1454,11 +1638,7 @@ function App() {
               ))}
             </div>
           )}
-        </section>
-      )}
 
-      {activeTab === 'invites' && isAdmin && (
-        <section className="card section">
           <h2>Invites</h2>
           <form onSubmit={createInvite} className="invite-form">
             <input
@@ -1471,6 +1651,17 @@ function App() {
             <button type="submit" className="primary small">Create invite</button>
           </form>
           {inviteMessage && <p className="message success">{inviteMessage}</p>}
+          {inviteUrlMessage && (
+            <div className="invite-url-wrap">
+              <p className="subtitle">Generated invite URL</p>
+              <code className="invite-url">{inviteUrlMessage}</code>
+              <div className="inline-controls">
+                <button type="button" className="secondary small" onClick={() => copyInviteValue(inviteUrlMessage)}>
+                  Copy invite URL
+                </button>
+              </div>
+            </div>
+          )}
           {invitesError && <p className="message error">{invitesError}</p>}
           {invitesLoading ? <p>Loading invites...</p> : (
             <div className="list">
@@ -1478,18 +1669,29 @@ function App() {
                 <div className="list-row" key={invite.id}>
                   <div>
                     <strong>{invite.email}</strong>
+                    <p className="invite-url">{`${window.location.origin}/register?invite=${encodeURIComponent(invite.token)}&email=${encodeURIComponent(invite.email)}`}</p>
                     <p>Expires {new Date(invite.expires_at).toLocaleString()}</p>
                     <p>Status: {invite.used ? 'used' : 'active'}</p>
                   </div>
-                  <button type="button" className="secondary small" onClick={() => copyInviteToken(invite.token)}>
-                    Copy token
-                  </button>
+                  <div className="inline-controls">
+                    <button type="button" className="secondary small" onClick={() => copyInviteValue(invite.token)}>
+                      Copy token
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary small"
+                      onClick={() => copyInviteValue(`${window.location.origin}/register?invite=${encodeURIComponent(invite.token)}&email=${encodeURIComponent(invite.email)}`)}
+                    >
+                      Copy URL
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
           )}
         </section>
       )}
+      </main>
     </div>
   );
 }
