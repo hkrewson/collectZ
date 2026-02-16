@@ -429,7 +429,48 @@ label.checkbox input {
 }
 
 .library-view-toggle {
-  max-width: 210px;
+  max-width: 180px;
+}
+
+.library-view-toggle button {
+  min-height: 34px;
+  padding: 0 0.65rem;
+}
+
+.library-head {
+  align-items: flex-start;
+}
+
+.library-title-group {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.library-search-controls {
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: nowrap;
+}
+
+.library-search-controls input {
+  min-width: 0;
+  flex: 1;
+}
+
+.library-search-controls .primary {
+  min-width: 88px;
+  flex: 0 0 auto;
+}
+
+.library-search-controls select {
+  min-width: 170px;
+  width: 170px;
+  flex: 0 0 170px;
+}
+
+.library-view-controls {
+  align-items: center;
+  justify-content: flex-start;
 }
 
 .media-card {
@@ -826,6 +867,35 @@ label.checkbox input {
 
   .media-list-row .inline-controls {
     grid-column: 1 / -1;
+  }
+
+  .library-head {
+    align-items: stretch;
+  }
+
+  .library-search-controls input,
+  .library-search-controls select,
+  .library-search-controls button {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .library-search-controls {
+    flex-wrap: wrap;
+  }
+
+  .library-view-controls {
+    width: 100%;
+  }
+
+  .library-view-controls .library-view-toggle {
+    width: 100%;
+    max-width: none;
+  }
+
+  .library-view-controls .library-view-toggle button,
+  .library-view-controls > button {
+    width: 100%;
   }
 
   .media-image-wrap {
