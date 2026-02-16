@@ -63,6 +63,30 @@ CREATE TABLE IF NOT EXISTS activity_log (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- User integration settings (per-user API/provider config)
+CREATE TABLE IF NOT EXISTS user_integrations (
+    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    barcode_preset VARCHAR(100) DEFAULT 'upcitemdb',
+    barcode_provider VARCHAR(100),
+    barcode_api_url TEXT,
+    barcode_api_key_encrypted TEXT,
+    barcode_api_key_header VARCHAR(100),
+    barcode_query_param VARCHAR(100),
+    vision_preset VARCHAR(100) DEFAULT 'ocrspace',
+    vision_provider VARCHAR(100),
+    vision_api_url TEXT,
+    vision_api_key_encrypted TEXT,
+    vision_api_key_header VARCHAR(100),
+    tmdb_preset VARCHAR(100) DEFAULT 'tmdb',
+    tmdb_provider VARCHAR(100),
+    tmdb_api_url TEXT,
+    tmdb_api_key_encrypted TEXT,
+    tmdb_api_key_header VARCHAR(100),
+    tmdb_api_key_query_param VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indexes for performance
 CREATE INDEX idx_media_title ON media(title);
 CREATE INDEX idx_media_format ON media(format);
@@ -87,6 +111,17 @@ CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
 
 CREATE TRIGGER update_media_updated_at BEFORE UPDATE ON media
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_trigger WHERE tgname = 'update_user_integrations_updated_at'
+    ) THEN
+        CREATE TRIGGER update_user_integrations_updated_at
+        BEFORE UPDATE ON user_integrations
+        FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+END $$;
 
 -- Sample data (optional - remove in production)
 -- Note: Password is 'admin123' hashed with bcrypt
