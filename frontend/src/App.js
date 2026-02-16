@@ -1182,41 +1182,45 @@ function App() {
             </div>
           ) : (
             <>
-              <div className="section-head">
-                <h2>Library</h2>
-                <div className="inline-controls">
-                  <input
-                    placeholder="Search title/director"
-                    value={librarySearch}
-                    onChange={(event) => setLibrarySearch(event.target.value)}
-                  />
-                  <select value={libraryFormat} onChange={(event) => setLibraryFormat(event.target.value)}>
-                    <option value="all">All formats</option>
-                    {MEDIA_FORMATS.map((format) => (
-                      <option key={format} value={format}>{format}</option>
-                    ))}
-                  </select>
-                  <button type="button" className="primary small" onClick={loadMedia}>Apply</button>
-                  <div className="tabs inline library-view-toggle">
-                    <button
-                      type="button"
-                      className={libraryViewMode === 'cards' ? 'active' : ''}
-                      onClick={() => setLibraryViewMode('cards')}
-                    >
-                      Cards
-                    </button>
-                    <button
-                      type="button"
-                      className={libraryViewMode === 'list' ? 'active' : ''}
-                      onClick={() => setLibraryViewMode('list')}
-                    >
-                      List
-                    </button>
-                  </div>
-                  <button type="button" className="secondary small" onClick={() => setActiveTab('library-add')}>
-                    Add media
+              <div className="section-head library-head">
+                <div className="library-title-group">
+                  <h2>Library</h2>
+                </div>
+              </div>
+              <div className="inline-controls library-search-controls">
+                <input
+                  placeholder="Search title/director"
+                  value={librarySearch}
+                  onChange={(event) => setLibrarySearch(event.target.value)}
+                />
+                <button type="button" className="primary small" onClick={loadMedia}>Apply</button>
+                <select value={libraryFormat} onChange={(event) => setLibraryFormat(event.target.value)}>
+                  <option value="all">All formats</option>
+                  {MEDIA_FORMATS.map((format) => (
+                    <option key={format} value={format}>{format}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="inline-controls library-view-controls">
+                <div className="tabs inline library-view-toggle">
+                  <button
+                    type="button"
+                    className={libraryViewMode === 'cards' ? 'active' : ''}
+                    onClick={() => setLibraryViewMode('cards')}
+                  >
+                    Cards
+                  </button>
+                  <button
+                    type="button"
+                    className={libraryViewMode === 'list' ? 'active' : ''}
+                    onClick={() => setLibraryViewMode('list')}
+                  >
+                    List
                   </button>
                 </div>
+                <button type="button" className="secondary small" onClick={() => setActiveTab('library-add')}>
+                  Add media
+                </button>
               </div>
               {mediaError && <p className="message error">{mediaError}</p>}
               {mediaLoading ? (
