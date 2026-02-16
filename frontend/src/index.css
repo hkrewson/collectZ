@@ -428,6 +428,10 @@ label.checkbox input {
   gap: 0.8rem;
 }
 
+.library-view-toggle {
+  max-width: 210px;
+}
+
 .media-card {
   border: 1px solid #d6e1f4;
   border-radius: 12px;
@@ -515,6 +519,44 @@ label.checkbox input {
   display: flex;
   flex-wrap: wrap;
   gap: 0.55rem;
+}
+
+.media-list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.media-list-row {
+  border: 1px solid #d6e1f4;
+  border-radius: 10px;
+  background: #fbfdff;
+  padding: 0.55rem;
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.media-list-poster {
+  width: 58px;
+  height: 80px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #e8eef9;
+}
+
+.media-list-meta {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.media-list-meta h3 {
+  font-size: 0.98rem;
+}
+
+.media-list-meta p {
+  font-size: 0.88rem;
+  color: #536b95;
 }
 
 .tmdb-results {
@@ -771,6 +813,19 @@ label.checkbox input {
 
   .media-grid {
     grid-template-columns: 1fr;
+  }
+
+  .media-list-row {
+    grid-template-columns: 52px minmax(0, 1fr);
+  }
+
+  .media-list-poster {
+    width: 52px;
+    height: 72px;
+  }
+
+  .media-list-row .inline-controls {
+    grid-column: 1 / -1;
   }
 
   .media-image-wrap {

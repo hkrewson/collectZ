@@ -122,6 +122,7 @@ function App() {
   const [adminMenuOpen, setAdminMenuOpen] = useState(true);
   const [librarySearch, setLibrarySearch] = useState('');
   const [libraryFormat, setLibraryFormat] = useState('all');
+  const [libraryViewMode, setLibraryViewMode] = useState('cards');
   const [mediaItems, setMediaItems] = useState([]);
   const [mediaLoading, setMediaLoading] = useState(false);
   const [mediaError, setMediaError] = useState('');
@@ -733,6 +734,12 @@ function App() {
     if (ok) cancelEditMedia();
   };
 
+  const confirmDeleteFromLibrary = async (id) => {
+    const confirmed = window.confirm('Delete this media item? This cannot be undone.');
+    if (!confirmed) return;
+    await removeMedia(id);
+  };
+
   const updateUserRole = async (id, role) => {
     try {
       const updated = await apiCall('patch', `/users/${id}/role`, { role });
@@ -1190,6 +1197,22 @@ function App() {
                     ))}
                   </select>
                   <button type="button" className="primary small" onClick={loadMedia}>Apply</button>
+                  <div className="tabs inline library-view-toggle">
+                    <button
+                      type="button"
+                      className={libraryViewMode === 'cards' ? 'active' : ''}
+                      onClick={() => setLibraryViewMode('cards')}
+                    >
+                      Cards
+                    </button>
+                    <button
+                      type="button"
+                      className={libraryViewMode === 'list' ? 'active' : ''}
+                      onClick={() => setLibraryViewMode('list')}
+                    >
+                      List
+                    </button>
+                  </div>
                   <button type="button" className="secondary small" onClick={() => setActiveTab('library-add')}>
                     Add media
                   </button>
@@ -1198,7 +1221,7 @@ function App() {
               {mediaError && <p className="message error">{mediaError}</p>}
               {mediaLoading ? (
                 <p>Loading media...</p>
-              ) : (
+              ) : libraryViewMode === 'cards' ? (
                 <div className="media-grid">
                   {mediaItems.length === 0 && <p>No media records found.</p>}
                   {mediaItems.map((item) => (
@@ -1220,7 +1243,31 @@ function App() {
                       </div>
                       <div className="inline-controls">
                         <button type="button" className="secondary small" onClick={() => startEditMedia(item)}>Edit</button>
-                        <button type="button" className="danger small" onClick={() => removeMedia(item.id)}>Delete</button>
+                        <button type="button" className="danger small" onClick={() => confirmDeleteFromLibrary(item.id)}>Delete</button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <div className="media-list">
+                  {mediaItems.length === 0 && <p>No media records found.</p>}
+                  {mediaItems.map((item) => (
+                    <article key={item.id} className="media-list-row">
+                      <div className="media-list-poster">
+                        {posterUrl(item.poster_path) ? (
+                          <img className="media-image" src={posterUrl(item.poster_path)} alt={item.title} />
+                        ) : (
+                          <div className="media-placeholder">No cover</div>
+                        )}
+                      </div>
+                      <div className="media-list-meta">
+                        <h3>{item.title}</h3>
+                        <p>{item.year || 'Unknown year'}</p>
+                        <p>{item.format || 'Unknown format'}</p>
+                      </div>
+                      <div className="inline-controls">
+                        <button type="button" className="secondary small" onClick={() => startEditMedia(item)}>Edit</button>
+                        <button type="button" className="danger small" onClick={() => confirmDeleteFromLibrary(item.id)}>Delete</button>
                       </div>
                     </article>
                   ))}
