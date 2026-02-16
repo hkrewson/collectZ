@@ -191,6 +191,15 @@ const loadAdminIntegrationConfig = async () => {
   return normalizeIntegrationRecord(result.rows[0]);
 };
 
+const loadGeneralSettings = async () => {
+  const result = await pool.query('SELECT * FROM app_settings WHERE id = 1');
+  const row = result.rows[0] || {};
+  return {
+    theme: row.theme || 'system',
+    density: row.density || 'comfortable'
+  };
+};
+
 const ensureSchema = async () => {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS app_integrations (
@@ -212,6 +221,16 @@ const ensureSchema = async () => {
       tmdb_api_key_encrypted TEXT,
       tmdb_api_key_header VARCHAR(100),
       tmdb_api_key_query_param VARCHAR(100),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS app_settings (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      theme VARCHAR(20) DEFAULT 'system',
+      density VARCHAR(20) DEFAULT 'comfortable',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
@@ -254,6 +273,8 @@ const ensureSchema = async () => {
   await pool.query(`ALTER TABLE app_integrations ADD COLUMN IF NOT EXISTS tmdb_api_key_encrypted TEXT`);
   await pool.query(`ALTER TABLE app_integrations ADD COLUMN IF NOT EXISTS tmdb_api_key_header VARCHAR(100)`);
   await pool.query(`ALTER TABLE app_integrations ADD COLUMN IF NOT EXISTS tmdb_api_key_query_param VARCHAR(100)`);
+  await pool.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS theme VARCHAR(20) DEFAULT 'system'`);
+  await pool.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS density VARCHAR(20) DEFAULT 'comfortable'`);
 
   await pool.query(`
     DO $$
@@ -266,6 +287,16 @@ const ensureSchema = async () => {
         ) THEN
           CREATE TRIGGER update_app_integrations_updated_at
           BEFORE UPDATE ON app_integrations
+          FOR EACH ROW
+          EXECUTE FUNCTION update_updated_at_column();
+        END IF;
+        IF NOT EXISTS (
+          SELECT 1
+          FROM pg_trigger
+          WHERE tgname = 'update_app_settings_updated_at'
+        ) THEN
+          CREATE TRIGGER update_app_settings_updated_at
+          BEFORE UPDATE ON app_settings
           FOR EACH ROW
           EXECUTE FUNCTION update_updated_at_column();
         END IF;
@@ -286,6 +317,11 @@ const ensureSchema = async () => {
 
   await pool.query(`
     INSERT INTO app_integrations (id)
+    VALUES (1)
+    ON CONFLICT (id) DO NOTHING
+  `);
+  await pool.query(`
+    INSERT INTO app_settings (id)
     VALUES (1)
     ON CONFLICT (id) DO NOTHING
   `);
@@ -546,6 +582,42 @@ app.patch('/api/profile', authenticateToken, async (req, res) => {
   } catch (error) {
     logError('Update profile', error);
     res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
+app.get('/api/settings/general', authenticateToken, async (req, res) => {
+  try {
+    const settings = await loadGeneralSettings();
+    res.json(settings);
+  } catch (error) {
+    logError('Load general settings', error);
+    res.status(500).json({ error: 'Failed to load general settings' });
+  }
+});
+
+app.put('/api/admin/settings/general', authenticateToken, requireRole('admin'), async (req, res) => {
+  try {
+    const themeOptions = new Set(['system', 'light', 'dark']);
+    const densityOptions = new Set(['comfortable', 'compact']);
+    const incomingTheme = String(req.body?.theme || '').trim();
+    const incomingDensity = String(req.body?.density || '').trim();
+    const settings = await loadGeneralSettings();
+    const theme = themeOptions.has(incomingTheme) ? incomingTheme : settings.theme;
+    const density = densityOptions.has(incomingDensity) ? incomingDensity : settings.density;
+
+    const result = await pool.query(
+      `INSERT INTO app_settings (id, theme, density)
+       VALUES (1, $1, $2)
+       ON CONFLICT (id) DO UPDATE SET
+         theme = EXCLUDED.theme,
+         density = EXCLUDED.density
+       RETURNING theme, density`,
+      [theme, density]
+    );
+    res.json(result.rows[0]);
+  } catch (error) {
+    logError('Update general settings', error);
+    res.status(500).json({ error: 'Failed to update general settings' });
   }
 });
 
