@@ -212,6 +212,7 @@ function App() {
   const isAdmin = user?.role === 'admin';
   const isLibraryTab = activeTab === 'library' || activeTab === 'library-add';
   const isAdminSubtab = activeTab === 'admin-integrations' || activeTab === 'admin-settings' || activeTab === 'admin-users';
+  const editingItem = mediaItems.find((item) => item.id === editingMediaId) || null;
   const pageTitle = useMemo(() => {
     if (route === 'register') return 'Create your account';
     if (route === 'dashboard') return 'Media dashboard';
@@ -671,8 +672,10 @@ function App() {
     try {
       await apiCall('delete', `/media/${id}`);
       setMediaItems((prev) => prev.filter((item) => item.id !== id));
+      return true;
     } catch (error) {
       setMediaError(error.response?.data?.error || 'Failed to delete media');
+      return false;
     }
   };
 
@@ -720,6 +723,14 @@ function App() {
     } finally {
       setEditSaving(false);
     }
+  };
+
+  const deleteFromEditScreen = async () => {
+    if (!editingItem) return;
+    const confirmed = window.confirm('Delete this media item? This cannot be undone.');
+    if (!confirmed) return;
+    const ok = await removeMedia(editingItem.id);
+    if (ok) cancelEditMedia();
   };
 
   const updateUserRole = async (id, role) => {
@@ -1088,83 +1099,135 @@ function App() {
 
       {activeTab === 'library' && (
         <section className="card section">
-          <div className="section-head">
-            <h2>Library</h2>
-            <div className="inline-controls">
-              <input
-                placeholder="Search title/director"
-                value={librarySearch}
-                onChange={(event) => setLibrarySearch(event.target.value)}
-              />
-              <select value={libraryFormat} onChange={(event) => setLibraryFormat(event.target.value)}>
-                <option value="all">All formats</option>
-                {MEDIA_FORMATS.map((format) => (
-                  <option key={format} value={format}>{format}</option>
-                ))}
-              </select>
-              <button type="button" className="primary small" onClick={loadMedia}>Apply</button>
-              <button type="button" className="secondary small" onClick={() => setActiveTab('library-add')}>
-                Add media
-              </button>
-            </div>
-          </div>
-          {mediaError && <p className="message error">{mediaError}</p>}
-          {mediaLoading ? (
-            <p>Loading media...</p>
-          ) : (
-            <div className="media-grid">
-              {mediaItems.length === 0 && <p>No media records found.</p>}
-              {mediaItems.map((item) => (
-                <article key={item.id} className="media-card">
-                  <div className="media-image-wrap">
-                    {posterUrl(item.poster_path) ? (
-                      <img className="media-image" src={posterUrl(item.poster_path)} alt={item.title} />
-                    ) : (
-                      <div className="media-placeholder">No cover</div>
-                    )}
-                  </div>
-                  {editingMediaId === item.id && editForm ? (
-                    <div className="edit-grid">
-                      <input value={editForm.title} onChange={(event) => setEditForm((prev) => ({ ...prev, title: event.target.value }))} placeholder="Title" />
-                      <input value={editForm.year} onChange={(event) => setEditForm((prev) => ({ ...prev, year: event.target.value }))} placeholder="Year" />
+          {editingItem && editForm ? (
+            <div className="media-edit-screen">
+              <div className="section-head">
+                <h2>Edit Media</h2>
+              </div>
+              <p className="subtitle">{editingItem.title}</p>
+              <div className="media-edit-layout">
+                <div className="media-edit-poster">
+                  {posterUrl(editingItem.poster_path) ? (
+                    <img className="media-image" src={posterUrl(editingItem.poster_path)} alt={editingItem.title} />
+                  ) : (
+                    <div className="media-placeholder">No cover</div>
+                  )}
+                </div>
+                <form className="media-edit-form" onSubmit={(event) => { event.preventDefault(); saveEditMedia(editingItem.id); }}>
+                  <div className="media-edit-row row-1">
+                    <label>
+                      Title
+                      <input value={editForm.title} onChange={(event) => setEditForm((prev) => ({ ...prev, title: event.target.value }))} />
+                    </label>
+                    <label>
+                      Year
+                      <input value={editForm.year} onChange={(event) => setEditForm((prev) => ({ ...prev, year: event.target.value }))} inputMode="numeric" />
+                    </label>
+                    <label>
+                      Format
                       <select value={editForm.format} onChange={(event) => setEditForm((prev) => ({ ...prev, format: event.target.value }))}>
                         {MEDIA_FORMATS.map((format) => (
                           <option key={format} value={format}>{format}</option>
                         ))}
                       </select>
-                      <input value={editForm.director} onChange={(event) => setEditForm((prev) => ({ ...prev, director: event.target.value }))} placeholder="Director" />
-                      <input value={editForm.genre} onChange={(event) => setEditForm((prev) => ({ ...prev, genre: event.target.value }))} placeholder="Genre" />
-                      <input value={editForm.rating} onChange={(event) => setEditForm((prev) => ({ ...prev, rating: event.target.value }))} placeholder="Rating" />
-                      <input value={editForm.runtime} onChange={(event) => setEditForm((prev) => ({ ...prev, runtime: event.target.value }))} placeholder="Runtime" />
-                      <input value={editForm.upc} onChange={(event) => setEditForm((prev) => ({ ...prev, upc: event.target.value }))} placeholder="UPC" />
-                      <input value={editForm.location} onChange={(event) => setEditForm((prev) => ({ ...prev, location: event.target.value }))} placeholder="Location" />
-                      <textarea rows="2" value={editForm.notes} onChange={(event) => setEditForm((prev) => ({ ...prev, notes: event.target.value }))} placeholder="Notes" />
-                      <div className="inline-controls">
-                        <button type="button" className="primary small" onClick={() => saveEditMedia(item.id)} disabled={editSaving}>
-                          {editSaving ? 'Saving...' : 'Save'}
-                        </button>
-                        <button type="button" className="secondary small" onClick={cancelEditMedia}>Cancel</button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="media-details">
-                      <h3>{item.title}</h3>
-                      <p>{item.year || 'Unknown year'} • {item.format || 'Unknown format'}</p>
-                      {item.director && <p>Director: {item.director}</p>}
-                      {item.upc && <p>UPC: {item.upc}</p>}
-                      {item.location && <p>Location: {item.location}</p>}
-                      {item.notes && <p>Notes: {item.notes}</p>}
-                    </div>
-                  )}
-                  <div className="inline-controls">
-                    <button type="button" className="secondary small" onClick={() => startEditMedia(item)}>Edit</button>
-                    <button type="button" className="danger small" onClick={() => removeMedia(item.id)}>Delete</button>
+                    </label>
                   </div>
-                </article>
-              ))}
+                  <div className="media-edit-row row-2">
+                    <label>
+                      Director
+                      <input value={editForm.director} onChange={(event) => setEditForm((prev) => ({ ...prev, director: event.target.value }))} />
+                    </label>
+                    <label>
+                      Genre
+                      <input value={editForm.genre} onChange={(event) => setEditForm((prev) => ({ ...prev, genre: event.target.value }))} />
+                    </label>
+                    <label>
+                      Rating
+                      <input value={editForm.rating} onChange={(event) => setEditForm((prev) => ({ ...prev, rating: event.target.value }))} />
+                    </label>
+                    <label>
+                      Runtime
+                      <input value={editForm.runtime} onChange={(event) => setEditForm((prev) => ({ ...prev, runtime: event.target.value }))} inputMode="numeric" />
+                    </label>
+                  </div>
+                  <div className="media-edit-row row-full">
+                    <label>
+                      Location
+                      <input value={editForm.location} onChange={(event) => setEditForm((prev) => ({ ...prev, location: event.target.value }))} />
+                    </label>
+                  </div>
+                  <div className="media-edit-row row-full">
+                    <label>
+                      Notes
+                      <textarea rows="4" value={editForm.notes} onChange={(event) => setEditForm((prev) => ({ ...prev, notes: event.target.value }))} />
+                    </label>
+                  </div>
+                  <div className="media-edit-actions">
+                    <button type="submit" className="primary small" disabled={editSaving}>
+                      {editSaving ? 'Saving...' : 'Save'}
+                    </button>
+                    <button type="button" className="secondary small" onClick={cancelEditMedia}>Cancel</button>
+                    <button type="button" className="danger small" onClick={deleteFromEditScreen}>Delete</button>
+                  </div>
+                </form>
+              </div>
+              {editMessage && <p className="message success">{editMessage}</p>}
             </div>
+          ) : (
+            <>
+              <div className="section-head">
+                <h2>Library</h2>
+                <div className="inline-controls">
+                  <input
+                    placeholder="Search title/director"
+                    value={librarySearch}
+                    onChange={(event) => setLibrarySearch(event.target.value)}
+                  />
+                  <select value={libraryFormat} onChange={(event) => setLibraryFormat(event.target.value)}>
+                    <option value="all">All formats</option>
+                    {MEDIA_FORMATS.map((format) => (
+                      <option key={format} value={format}>{format}</option>
+                    ))}
+                  </select>
+                  <button type="button" className="primary small" onClick={loadMedia}>Apply</button>
+                  <button type="button" className="secondary small" onClick={() => setActiveTab('library-add')}>
+                    Add media
+                  </button>
+                </div>
+              </div>
+              {mediaError && <p className="message error">{mediaError}</p>}
+              {mediaLoading ? (
+                <p>Loading media...</p>
+              ) : (
+                <div className="media-grid">
+                  {mediaItems.length === 0 && <p>No media records found.</p>}
+                  {mediaItems.map((item) => (
+                    <article key={item.id} className="media-card">
+                      <div className="media-image-wrap">
+                        {posterUrl(item.poster_path) ? (
+                          <img className="media-image" src={posterUrl(item.poster_path)} alt={item.title} />
+                        ) : (
+                          <div className="media-placeholder">No cover</div>
+                        )}
+                      </div>
+                      <div className="media-details">
+                        <h3>{item.title}</h3>
+                        <p>{item.year || 'Unknown year'} • {item.format || 'Unknown format'}</p>
+                        {item.director && <p>Director: {item.director}</p>}
+                        {item.upc && <p>UPC: {item.upc}</p>}
+                        {item.location && <p>Location: {item.location}</p>}
+                        {item.notes && <p>Notes: {item.notes}</p>}
+                      </div>
+                      <div className="inline-controls">
+                        <button type="button" className="secondary small" onClick={() => startEditMedia(item)}>Edit</button>
+                        <button type="button" className="danger small" onClick={() => removeMedia(item.id)}>Delete</button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </>
           )}
-          {editMessage && <p className="message success">{editMessage}</p>}
         </section>
       )}
 
