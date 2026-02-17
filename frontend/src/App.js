@@ -21,6 +21,8 @@ const DEFAULT_MEDIA_FORM = {
   notes: '',
   overview: '',
   tmdb_id: '',
+  tmdb_url: '',
+  trailer_url: '',
   poster_path: '',
   backdrop_path: ''
 };
@@ -160,6 +162,78 @@ function StarRating({ value = 0, onChange, readOnly = false }) {
   );
 }
 
+const ChevronRight = ({ className = '' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="9 18 15 12 9 6" />
+  </svg>
+);
+
+const MenuToggle = ({ collapsed }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    {collapsed ? (
+      <>
+        <line x1="3" y1="8" x2="21" y2="8" />
+        <line x1="3" y1="16" x2="21" y2="16" />
+      </>
+    ) : (
+      <>
+        <line x1="3" y1="8" x2="17" y2="8" />
+        <line x1="3" y1="16" x2="21" y2="16" />
+      </>
+    )}
+  </svg>
+);
+
+const LibraryIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+    <line x1="10" y1="8" x2="16" y2="8" />
+    <line x1="10" y1="12" x2="14" y2="12" />
+  </svg>
+);
+
+const AdminIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="3" />
+    <path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14" />
+    <path d="M15.54 8.46a5 5 0 0 1 0 7.07M8.46 8.46a5 5 0 0 0 0 7.07" />
+  </svg>
+);
+
+const ProfileIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+    <circle cx="12" cy="7" r="4" />
+  </svg>
+);
+
+const IntegrationsIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="3" width="6" height="6" rx="1" />
+    <rect x="16" y="3" width="6" height="6" rx="1" />
+    <rect x="9" y="15" width="6" height="6" rx="1" />
+    <path d="M5 9v3a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9" />
+    <line x1="12" y1="13" x2="12" y2="15" />
+  </svg>
+);
+
+const SettingsIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="3" />
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+  </svg>
+);
+
+const UsersIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+  </svg>
+);
+
 function App() {
   const [route, setRoute] = useState(routeFromPath(window.location.pathname));
   const [token, setToken] = useState(localStorage.getItem(TOKEN_KEY) || '');
@@ -192,6 +266,7 @@ function App() {
   const [mediaSubmitMessage, setMediaSubmitMessage] = useState('');
   const [tmdbResults, setTmdbResults] = useState([]);
   const [tmdbLoading, setTmdbLoading] = useState(false);
+  const [tmdbDetailLoading, setTmdbDetailLoading] = useState(false);
   const [coverFile, setCoverFile] = useState(null);
   const [coverUploadMessage, setCoverUploadMessage] = useState('');
   const [barcodeLookupLoading, setBarcodeLookupLoading] = useState(false);
@@ -612,7 +687,20 @@ function App() {
     }
   };
 
-  const selectTmdbResult = (result) => {
+  const loadTmdbDetailsForForm = async (tmdbId) => {
+    if (!tmdbId) return null;
+    try {
+      setTmdbDetailLoading(true);
+      return await apiCall('get', `/media/tmdb/${tmdbId}/details`);
+    } catch (_) {
+      return null;
+    } finally {
+      setTmdbDetailLoading(false);
+    }
+  };
+
+  const selectTmdbResult = async (result) => {
+    const details = await loadTmdbDetailsForForm(result.id);
     const genres = (result.genre_ids || []).map((id) => TMDB_GENRE_MAP[id]).filter(Boolean).join(', ');
     setMediaForm((prev) => ({
       ...prev,
@@ -622,16 +710,21 @@ function App() {
       year: result.release_date ? String(result.release_date).slice(0, 4) : prev.year,
       genre: genres || prev.genre,
       rating: result.vote_average ? Number(result.vote_average).toFixed(1) : prev.rating,
+      director: details?.director || prev.director,
       overview: result.overview || prev.overview,
       tmdb_id: result.id || prev.tmdb_id,
+      tmdb_url: details?.tmdb_url || `https://www.themoviedb.org/movie/${result.id}` || prev.tmdb_url,
+      trailer_url: details?.trailer_url || prev.trailer_url,
       poster_path: result.poster_path || prev.poster_path,
-      backdrop_path: result.backdrop_path || prev.backdrop_path
+      backdrop_path: result.backdrop_path || prev.backdrop_path,
+      runtime: details?.runtime || prev.runtime
     }));
     setMediaSubmitMessage('TMDB details applied.');
   };
 
-  const applyLookupMatch = (match) => {
+  const applyLookupMatch = async (match) => {
     const tmdb = match.tmdb || null;
+    const details = tmdb?.id ? await loadTmdbDetailsForForm(tmdb.id) : null;
     const genres = (tmdb?.genre_ids || []).map((id) => TMDB_GENRE_MAP[id]).filter(Boolean).join(', ');
     setMediaForm((prev) => ({
       ...prev,
@@ -640,10 +733,14 @@ function App() {
       release_date: tmdb?.release_date || prev.release_date,
       year: tmdb?.release_date ? String(tmdb.release_date).slice(0, 4) : prev.year,
       genre: genres || prev.genre,
+      director: details?.director || prev.director,
       overview: tmdb?.overview || match.description || prev.overview,
       tmdb_id: tmdb?.id || prev.tmdb_id,
+      tmdb_url: details?.tmdb_url || (tmdb?.id ? `https://www.themoviedb.org/movie/${tmdb.id}` : prev.tmdb_url),
+      trailer_url: details?.trailer_url || prev.trailer_url,
       poster_path: tmdb?.poster_path || match.image || prev.poster_path,
-      backdrop_path: tmdb?.backdrop_path || prev.backdrop_path
+      backdrop_path: tmdb?.backdrop_path || prev.backdrop_path,
+      runtime: details?.runtime || prev.runtime
     }));
     setMediaSubmitMessage('Lookup details applied to form.');
   };
@@ -766,6 +863,8 @@ function App() {
       rating: item.rating || '',
       user_rating: item.user_rating || 0,
       runtime: item.runtime || '',
+      tmdb_url: item.tmdb_url || '',
+      trailer_url: item.trailer_url || '',
       upc: item.upc || '',
       location: item.location || '',
       notes: item.notes || ''
@@ -816,6 +915,16 @@ function App() {
     const confirmed = window.confirm('Delete this media item? This cannot be undone.');
     if (!confirmed) return;
     await removeMedia(id);
+  };
+
+  const updateMediaUserRating = async (id, rating) => {
+    try {
+      const updated = await apiCall('patch', `/media/${id}`, { user_rating: rating });
+      setMediaItems((prev) => prev.map((item) => (item.id === id ? updated : item)));
+      setMediaSubmitMessage('Your rating updated.');
+    } catch (error) {
+      setMediaError(error.response?.data?.error || 'Failed to update rating');
+    }
   };
 
   const updateUserRole = async (id, role) => {
@@ -1109,57 +1218,81 @@ function App() {
 
       <aside className={`sidebar card ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
-          <h2>MediaVault</h2>
-          {!isMobileNav && (
-            <button type="button" className="sidebar-toggle secondary small" onClick={() => setSidebarCollapsed((prev) => !prev)}>
-              {sidebarCollapsed ? 'Expand' : 'Collapse'}
-            </button>
-          )}
+          <div className="logo-mark">MV</div>
+          <span className="logo-text">MediaVault</span>
           {isMobileNav && (
-            <button type="button" className="sidebar-toggle secondary small" onClick={() => setSidebarOpen(false)}>
-              Close
+            <button type="button" className="sidebar-close-btn" onClick={() => setSidebarOpen(false)} aria-label="Close navigation">
+              <ChevronRight className="close-icon" />
             </button>
           )}
         </div>
 
         <nav className="sidebar-nav">
-          <button type="button" className={isLibraryTab ? 'active' : ''} onClick={() => selectTab('library')}>
-            <span>Library</span>
-          </button>
-
-          <div className="sidebar-divider" />
+          <div className="nav-item-wrapper">
+            <button type="button" className={`nav-item ${isLibraryTab ? 'active' : ''}`} onClick={() => selectTab('library')}>
+              <span className="nav-icon"><LibraryIcon /></span>
+              <span className="nav-label">Library</span>
+            </button>
+            {sidebarCollapsed && !isMobileNav && <div className="tooltip">Library</div>}
+          </div>
 
           {isAdmin && (
-            <div className="sidebar-admin">
+            <div className="nav-item-wrapper">
               <button
                 type="button"
-                className={isAdminSubtab ? 'active' : ''}
+                className={`nav-item ${isAdminSubtab ? 'active' : ''}`}
                 onClick={() => {
-                  setAdminMenuOpen((prev) => !prev);
+                  if (sidebarCollapsed && !isMobileNav) {
+                    setSidebarCollapsed(false);
+                    setAdminMenuOpen(true);
+                  } else {
+                    setAdminMenuOpen((prev) => !prev);
+                  }
                 }}
               >
-                <span>Admin Settings</span>
+                <span className="nav-icon"><AdminIcon /></span>
+                <span className="nav-label">Admin Settings</span>
+                <span className={`chevron ${adminMenuOpen ? 'open' : ''}`}>
+                  <ChevronRight />
+                </span>
               </button>
-              {adminMenuOpen && (
-                <div className="sidebar-subnav">
-                  <button type="button" className={activeTab === 'admin-integrations' ? 'active' : ''} onClick={() => selectTab('admin-integrations')}>
-                    <span>Integrations</span>
+              {sidebarCollapsed && !isMobileNav && <div className="tooltip">Admin Settings</div>}
+              <div className={`sub-nav ${adminMenuOpen && !sidebarCollapsed ? 'open' : ''}`}>
+                <div className="sub-nav-inner">
+                  <button type="button" className={`sub-item ${activeTab === 'admin-integrations' ? 'active' : ''}`} onClick={() => selectTab('admin-integrations')}>
+                    <span className="sub-icon"><IntegrationsIcon /></span>
+                    Integrations
                   </button>
-                  <button type="button" className={activeTab === 'admin-settings' ? 'active' : ''} onClick={() => selectTab('admin-settings')}>
-                    <span>Settings</span>
+                  <button type="button" className={`sub-item ${activeTab === 'admin-settings' ? 'active' : ''}`} onClick={() => selectTab('admin-settings')}>
+                    <span className="sub-icon"><SettingsIcon /></span>
+                    Settings
                   </button>
-                  <button type="button" className={activeTab === 'admin-users' ? 'active' : ''} onClick={() => selectTab('admin-users')}>
-                    <span>Users</span>
+                  <button type="button" className={`sub-item ${activeTab === 'admin-users' ? 'active' : ''}`} onClick={() => selectTab('admin-users')}>
+                    <span className="sub-icon"><UsersIcon /></span>
+                    Users
                   </button>
                 </div>
-              )}
+              </div>
             </div>
           )}
 
-          <button type="button" className={activeTab === 'profile' ? 'active' : ''} onClick={() => selectTab('profile')}>
-            <span>Profile</span>
-          </button>
+          <div className="nav-item-wrapper">
+            <button type="button" className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => selectTab('profile')}>
+              <span className="nav-icon"><ProfileIcon /></span>
+              <span className="nav-label">Profile</span>
+            </button>
+            {sidebarCollapsed && !isMobileNav && <div className="tooltip">Profile</div>}
+          </div>
         </nav>
+
+        {!isMobileNav && (
+          <div className="sidebar-footer">
+            <button type="button" className="toggle-btn" onClick={() => setSidebarCollapsed((prev) => !prev)}>
+              <span className="toggle-icon"><MenuToggle collapsed={sidebarCollapsed} /></span>
+              <span className="toggle-label">{sidebarCollapsed ? 'Expand' : 'Collapse'}</span>
+            </button>
+          </div>
+        )}
       </aside>
 
       <main className="dashboard-main">
@@ -1167,8 +1300,7 @@ function App() {
           <div className="topbar-title">
             {isMobileNav && (
               <button type="button" className="hamburger-btn" aria-label="Open navigation" onClick={() => setSidebarOpen(true)}>
-                <span />
-                <span />
+                <MenuToggle collapsed />
               </button>
             )}
             <div>
@@ -1237,6 +1369,12 @@ function App() {
                   </div>
                   <div className="media-edit-row row-full">
                     <label>
+                      Your rating
+                      <StarRating value={editForm.user_rating || 0} onChange={(next) => setEditForm((prev) => ({ ...prev, user_rating: next }))} />
+                    </label>
+                  </div>
+                  <div className="media-edit-row row-full">
+                    <label>
                       Location
                       <input value={editForm.location} onChange={(event) => setEditForm((prev) => ({ ...prev, location: event.target.value }))} />
                     </label>
@@ -1282,8 +1420,22 @@ function App() {
                     <div><strong>Release date:</strong> {detailMedia.release_date ? String(detailMedia.release_date).slice(0, 10) : 'n/a'}</div>
                     <div><strong>Genres:</strong> {detailMedia.genre || 'n/a'}</div>
                     <div><strong>TMDB rating:</strong> {detailMedia.rating ?? 'n/a'}</div>
-                    <div className="full"><strong>Poster path:</strong> {detailMedia.poster_path || 'n/a'}</div>
-                    <div className="full"><strong>Backdrop path:</strong> {detailMedia.backdrop_path || 'n/a'}</div>
+                    <div className="full">
+                      <strong>TMDB page:</strong>{' '}
+                      {detailMedia.tmdb_url ? (
+                        <a href={detailMedia.tmdb_url} target="_blank" rel="noreferrer">Open on TMDB</a>
+                      ) : (
+                        'n/a'
+                      )}
+                    </div>
+                    <div className="full">
+                      <strong>Trailer:</strong>{' '}
+                      {detailMedia.trailer_url ? (
+                        <a href={detailMedia.trailer_url} target="_blank" rel="noreferrer">Watch trailer</a>
+                      ) : (
+                        'n/a'
+                      )}
+                    </div>
                   </div>
                   <div className="media-detail-overview">
                     <strong>Overview</strong>
@@ -1297,7 +1449,7 @@ function App() {
                   )}
                   <div className="media-detail-user-rating">
                     <strong>Your rating</strong>
-                    <StarRating value={detailMedia.user_rating || 0} readOnly />
+                    <StarRating value={detailMedia.user_rating || 0} onChange={(next) => updateMediaUserRating(detailMedia.id, next)} />
                   </div>
                 </div>
               </div>
@@ -1618,25 +1770,25 @@ function App() {
               />
             </label>
             <label className="full">
+              TMDB link
+              <input
+                value={mediaForm.tmdb_url}
+                onChange={(event) => setMediaForm((prev) => ({ ...prev, tmdb_url: event.target.value }))}
+              />
+            </label>
+            <label className="full">
+              Trailer link
+              <input
+                value={mediaForm.trailer_url}
+                onChange={(event) => setMediaForm((prev) => ({ ...prev, trailer_url: event.target.value }))}
+              />
+            </label>
+            <label className="full">
               Overview
               <textarea
                 rows="3"
                 value={mediaForm.overview}
                 onChange={(event) => setMediaForm((prev) => ({ ...prev, overview: event.target.value }))}
-              />
-            </label>
-            <label className="full">
-              Poster path
-              <input
-                value={mediaForm.poster_path}
-                onChange={(event) => setMediaForm((prev) => ({ ...prev, poster_path: event.target.value }))}
-              />
-            </label>
-            <label className="full">
-              Backdrop path
-              <input
-                value={mediaForm.backdrop_path}
-                onChange={(event) => setMediaForm((prev) => ({ ...prev, backdrop_path: event.target.value }))}
               />
             </label>
             <div className="inline-controls full">
@@ -1650,6 +1802,7 @@ function App() {
           </form>
 
           {mediaSubmitMessage && <p className="message success">{mediaSubmitMessage}</p>}
+          {tmdbDetailLoading && <p className="message success">Loading TMDB details...</p>}
 
           {barcodeLookupResults.length > 0 && (
             <div className="tmdb-results">
