@@ -201,6 +201,10 @@ const loadGeneralSettings = async () => {
 };
 
 const ensureSchema = async () => {
+  await pool.query(`ALTER TABLE media ADD COLUMN IF NOT EXISTS original_title VARCHAR(500)`);
+  await pool.query(`ALTER TABLE media ADD COLUMN IF NOT EXISTS release_date DATE`);
+  await pool.query(`ALTER TABLE media ADD COLUMN IF NOT EXISTS user_rating DECIMAL(2,1)`);
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS app_integrations (
       id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -1231,11 +1235,14 @@ app.post('/api/media', authenticateToken, async (req, res) => {
   try {
     const {
       title,
+      original_title,
+      release_date,
       year,
       format,
       genre,
       director,
       rating,
+      user_rating,
       tmdb_id,
       poster_path,
       backdrop_path,
@@ -1248,20 +1255,23 @@ app.post('/api/media', authenticateToken, async (req, res) => {
 
     const result = await pool.query(
       `INSERT INTO media (
-        title, year, format, genre, director, rating, tmdb_id, poster_path,
+        title, original_title, release_date, year, format, genre, director, rating, user_rating, tmdb_id, poster_path,
         backdrop_path, overview, runtime, upc, location, notes, added_by
       ) 
        VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8,
-        $9, $10, $11, $12, $13, $14, $15
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
+        $12, $13, $14, $15, $16, $17, $18
       ) RETURNING *`,
       [
         title,
+        original_title || null,
+        release_date || null,
         year,
         format,
         genre,
         director,
         rating,
+        user_rating,
         tmdb_id,
         poster_path,
         backdrop_path,
@@ -1287,11 +1297,14 @@ app.patch('/api/media/:id', authenticateToken, async (req, res) => {
     const { id } = req.params;
     const allowedFields = [
       'title',
+      'original_title',
+      'release_date',
       'year',
       'format',
       'genre',
       'director',
       'rating',
+      'user_rating',
       'tmdb_id',
       'poster_path',
       'backdrop_path',

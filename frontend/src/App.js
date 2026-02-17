@@ -7,11 +7,14 @@ const USER_KEY = 'mediavault_user';
 
 const DEFAULT_MEDIA_FORM = {
   title: '',
+  original_title: '',
+  release_date: '',
   year: '',
   format: 'Blu-ray',
   genre: '',
   director: '',
   rating: '',
+  user_rating: 0,
   runtime: '',
   upc: '',
   location: '',
@@ -77,6 +80,27 @@ const TMDB_PRESETS = {
     tmdbApiKeyQueryParam: 'api_key'
   }
 };
+const TMDB_GENRE_MAP = {
+  28: 'Action',
+  12: 'Adventure',
+  16: 'Animation',
+  35: 'Comedy',
+  80: 'Crime',
+  99: 'Documentary',
+  18: 'Drama',
+  10751: 'Family',
+  14: 'Fantasy',
+  36: 'History',
+  27: 'Horror',
+  10402: 'Music',
+  9648: 'Mystery',
+  10749: 'Romance',
+  878: 'Science Fiction',
+  10770: 'TV Movie',
+  53: 'Thriller',
+  10752: 'War',
+  37: 'Western'
+};
 
 function routeFromPath(pathname) {
   if (pathname === '/register') return 'register';
@@ -102,6 +126,40 @@ function posterUrl(path) {
   return path;
 }
 
+function StarRating({ value = 0, onChange, readOnly = false }) {
+  const safeValue = Number(value) || 0;
+  const stars = [1, 2, 3, 4, 5];
+
+  const selectFromClick = (star, event) => {
+    if (readOnly || !onChange) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const isHalf = event.clientX - rect.left < rect.width / 2;
+    onChange(isHalf ? star - 0.5 : star);
+  };
+
+  return (
+    <div className={`star-rating ${readOnly ? 'readonly' : ''}`}>
+      {stars.map((star) => {
+        const fill = safeValue >= star ? 1 : safeValue >= star - 0.5 ? 0.5 : 0;
+        return (
+          <button
+            key={star}
+            type="button"
+            className="star-button"
+            onClick={(event) => selectFromClick(star, event)}
+            disabled={readOnly}
+            aria-label={`${star} star`}
+          >
+            <span className="star-base">★</span>
+            <span className="star-fill" style={{ width: `${fill * 100}%` }}>★</span>
+          </button>
+        );
+      })}
+      <span className="star-value">{safeValue ? safeValue.toFixed(1) : '0.0'}</span>
+    </div>
+  );
+}
+
 function App() {
   const [route, setRoute] = useState(routeFromPath(window.location.pathname));
   const [token, setToken] = useState(localStorage.getItem(TOKEN_KEY) || '');
@@ -123,6 +181,7 @@ function App() {
   const [librarySearch, setLibrarySearch] = useState('');
   const [libraryFormat, setLibraryFormat] = useState('all');
   const [libraryViewMode, setLibraryViewMode] = useState('cards');
+  const [detailMediaId, setDetailMediaId] = useState(null);
   const [mediaItems, setMediaItems] = useState([]);
   const [mediaLoading, setMediaLoading] = useState(false);
   const [mediaError, setMediaError] = useState('');
@@ -214,6 +273,7 @@ function App() {
   const isLibraryTab = activeTab === 'library' || activeTab === 'library-add';
   const isAdminSubtab = activeTab === 'admin-integrations' || activeTab === 'admin-settings' || activeTab === 'admin-users';
   const editingItem = mediaItems.find((item) => item.id === editingMediaId) || null;
+  const detailMedia = mediaItems.find((item) => item.id === detailMediaId) || null;
   const pageTitle = useMemo(() => {
     if (route === 'register') return 'Create your account';
     if (route === 'dashboard') return 'Media dashboard';
@@ -285,6 +345,7 @@ function App() {
     setToken('');
     setUser(null);
     setMediaItems([]);
+    setDetailMediaId(null);
     setUsers([]);
     setInvites([]);
     setAuthEmail('');
@@ -552,10 +613,14 @@ function App() {
   };
 
   const selectTmdbResult = (result) => {
+    const genres = (result.genre_ids || []).map((id) => TMDB_GENRE_MAP[id]).filter(Boolean).join(', ');
     setMediaForm((prev) => ({
       ...prev,
       title: result.title || prev.title,
+      original_title: result.original_title || prev.original_title,
+      release_date: result.release_date || prev.release_date,
       year: result.release_date ? String(result.release_date).slice(0, 4) : prev.year,
+      genre: genres || prev.genre,
       rating: result.vote_average ? Number(result.vote_average).toFixed(1) : prev.rating,
       overview: result.overview || prev.overview,
       tmdb_id: result.id || prev.tmdb_id,
@@ -567,10 +632,14 @@ function App() {
 
   const applyLookupMatch = (match) => {
     const tmdb = match.tmdb || null;
+    const genres = (tmdb?.genre_ids || []).map((id) => TMDB_GENRE_MAP[id]).filter(Boolean).join(', ');
     setMediaForm((prev) => ({
       ...prev,
       title: tmdb?.title || match.title || prev.title,
+      original_title: tmdb?.original_title || prev.original_title,
+      release_date: tmdb?.release_date || prev.release_date,
       year: tmdb?.release_date ? String(tmdb.release_date).slice(0, 4) : prev.year,
+      genre: genres || prev.genre,
       overview: tmdb?.overview || match.description || prev.overview,
       tmdb_id: tmdb?.id || prev.tmdb_id,
       poster_path: tmdb?.poster_path || match.image || prev.poster_path,
@@ -651,8 +720,10 @@ function App() {
     try {
       await apiCall('post', '/media', {
         ...mediaForm,
+        release_date: mediaForm.release_date || null,
         year: mediaForm.year ? Number(mediaForm.year) : null,
         rating: mediaForm.rating ? Number(mediaForm.rating) : null,
+        user_rating: mediaForm.user_rating ? Number(mediaForm.user_rating) : null,
         runtime: mediaForm.runtime ? Number(mediaForm.runtime) : null,
         tmdb_id: mediaForm.tmdb_id ? Number(mediaForm.tmdb_id) : null
       });
@@ -673,6 +744,7 @@ function App() {
     try {
       await apiCall('delete', `/media/${id}`);
       setMediaItems((prev) => prev.filter((item) => item.id !== id));
+      if (detailMediaId === id) setDetailMediaId(null);
       return true;
     } catch (error) {
       setMediaError(error.response?.data?.error || 'Failed to delete media');
@@ -681,14 +753,18 @@ function App() {
   };
 
   const startEditMedia = (item) => {
+    setDetailMediaId(null);
     setEditingMediaId(item.id);
     setEditForm({
       title: item.title || '',
+      original_title: item.original_title || '',
+      release_date: item.release_date ? String(item.release_date).slice(0, 10) : '',
       year: item.year || '',
       format: item.format || 'Blu-ray',
       genre: item.genre || '',
       director: item.director || '',
       rating: item.rating || '',
+      user_rating: item.user_rating || 0,
       runtime: item.runtime || '',
       upc: item.upc || '',
       location: item.location || '',
@@ -710,8 +786,10 @@ function App() {
     try {
       const payload = {
         ...editForm,
+        release_date: editForm.release_date || null,
         year: editForm.year ? Number(editForm.year) : null,
         rating: editForm.rating ? Number(editForm.rating) : null,
+        user_rating: editForm.user_rating ? Number(editForm.user_rating) : null,
         runtime: editForm.runtime ? Number(editForm.runtime) : null
       };
       const updated = await apiCall('patch', `/media/${id}`, payload);
@@ -1180,6 +1258,54 @@ function App() {
               </div>
               {editMessage && <p className="message success">{editMessage}</p>}
             </div>
+          ) : detailMedia ? (
+            <div className="media-detail-screen">
+              <div className="section-head">
+                <h2>{detailMedia.title}</h2>
+                <button type="button" className="secondary small" onClick={() => setDetailMediaId(null)}>
+                  Back to library
+                </button>
+              </div>
+              <div className="media-detail-layout">
+                <div className="media-detail-poster">
+                  {posterUrl(detailMedia.poster_path) ? (
+                    <img className="media-image" src={posterUrl(detailMedia.poster_path)} alt={detailMedia.title} />
+                  ) : (
+                    <div className="media-placeholder">No cover</div>
+                  )}
+                </div>
+                <div className="media-detail-content">
+                  <div className="media-detail-grid">
+                    <div><strong>TMDB ID:</strong> {detailMedia.tmdb_id || 'n/a'}</div>
+                    <div><strong>Title:</strong> {detailMedia.title || 'n/a'}</div>
+                    <div><strong>Original title:</strong> {detailMedia.original_title || 'n/a'}</div>
+                    <div><strong>Release date:</strong> {detailMedia.release_date ? String(detailMedia.release_date).slice(0, 10) : 'n/a'}</div>
+                    <div><strong>Genres:</strong> {detailMedia.genre || 'n/a'}</div>
+                    <div><strong>TMDB rating:</strong> {detailMedia.rating ?? 'n/a'}</div>
+                    <div className="full"><strong>Poster path:</strong> {detailMedia.poster_path || 'n/a'}</div>
+                    <div className="full"><strong>Backdrop path:</strong> {detailMedia.backdrop_path || 'n/a'}</div>
+                  </div>
+                  <div className="media-detail-overview">
+                    <strong>Overview</strong>
+                    <p>{detailMedia.overview || 'No overview available.'}</p>
+                  </div>
+                  {posterUrl(detailMedia.backdrop_path) && (
+                    <div className="media-detail-backdrop">
+                      <strong>Backdrop</strong>
+                      <img className="media-image" src={posterUrl(detailMedia.backdrop_path)} alt={`${detailMedia.title} backdrop`} />
+                    </div>
+                  )}
+                  <div className="media-detail-user-rating">
+                    <strong>Your rating</strong>
+                    <StarRating value={detailMedia.user_rating || 0} readOnly />
+                  </div>
+                </div>
+              </div>
+              <div className="inline-controls">
+                <button type="button" className="secondary small" onClick={() => startEditMedia(detailMedia)}>Edit</button>
+                <button type="button" className="danger small" onClick={() => confirmDeleteFromLibrary(detailMedia.id)}>Delete</button>
+              </div>
+            </div>
           ) : (
             <>
               <div className="section-head library-head">
@@ -1229,7 +1355,19 @@ function App() {
                 <div className="media-grid">
                   {mediaItems.length === 0 && <p>No media records found.</p>}
                   {mediaItems.map((item) => (
-                    <article key={item.id} className="media-card">
+                    <article
+                      key={item.id}
+                      className="media-card"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setDetailMediaId(item.id)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          setDetailMediaId(item.id);
+                        }
+                      }}
+                    >
                       <div className="media-image-wrap">
                         {posterUrl(item.poster_path) ? (
                           <img className="media-image" src={posterUrl(item.poster_path)} alt={item.title} />
@@ -1246,8 +1384,26 @@ function App() {
                         {item.notes && <p>Notes: {item.notes}</p>}
                       </div>
                       <div className="inline-controls">
-                        <button type="button" className="secondary small" onClick={() => startEditMedia(item)}>Edit</button>
-                        <button type="button" className="danger small" onClick={() => confirmDeleteFromLibrary(item.id)}>Delete</button>
+                        <button
+                          type="button"
+                          className="secondary small"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            startEditMedia(item);
+                          }}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="danger small"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            confirmDeleteFromLibrary(item.id);
+                          }}
+                        >
+                          Delete
+                        </button>
                       </div>
                     </article>
                   ))}
@@ -1256,7 +1412,19 @@ function App() {
                 <div className="media-list">
                   {mediaItems.length === 0 && <p>No media records found.</p>}
                   {mediaItems.map((item) => (
-                    <article key={item.id} className="media-list-row">
+                    <article
+                      key={item.id}
+                      className="media-list-row"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setDetailMediaId(item.id)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          setDetailMediaId(item.id);
+                        }
+                      }}
+                    >
                       <div className="media-list-poster">
                         {posterUrl(item.poster_path) ? (
                           <img className="media-image" src={posterUrl(item.poster_path)} alt={item.title} />
@@ -1270,8 +1438,26 @@ function App() {
                         <p>{item.format || 'Unknown format'}</p>
                       </div>
                       <div className="inline-controls">
-                        <button type="button" className="secondary small" onClick={() => startEditMedia(item)}>Edit</button>
-                        <button type="button" className="danger small" onClick={() => confirmDeleteFromLibrary(item.id)}>Delete</button>
+                        <button
+                          type="button"
+                          className="secondary small"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            startEditMedia(item);
+                          }}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="danger small"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            confirmDeleteFromLibrary(item.id);
+                          }}
+                        >
+                          Delete
+                        </button>
                       </div>
                     </article>
                   ))}
@@ -1304,6 +1490,21 @@ function App() {
                 value={mediaForm.title}
                 onChange={(event) => setMediaForm((prev) => ({ ...prev, title: event.target.value }))}
                 required
+              />
+            </label>
+            <label>
+              Original title
+              <input
+                value={mediaForm.original_title}
+                onChange={(event) => setMediaForm((prev) => ({ ...prev, original_title: event.target.value }))}
+              />
+            </label>
+            <label>
+              Release date
+              <input
+                type="date"
+                value={mediaForm.release_date}
+                onChange={(event) => setMediaForm((prev) => ({ ...prev, release_date: event.target.value }))}
               />
             </label>
             <label>
@@ -1361,7 +1562,7 @@ function App() {
             {visionMessage && <p className="message success">{visionMessage}</p>}
 
             <label>
-              Genre
+              Genres
               <input
                 value={mediaForm.genre}
                 onChange={(event) => setMediaForm((prev) => ({ ...prev, genre: event.target.value }))}
@@ -1375,12 +1576,16 @@ function App() {
               />
             </label>
             <label>
-              Rating
+              TMDB rating
               <input
                 value={mediaForm.rating}
                 onChange={(event) => setMediaForm((prev) => ({ ...prev, rating: event.target.value }))}
                 inputMode="decimal"
               />
+            </label>
+            <label className="full">
+              Your rating
+              <StarRating value={mediaForm.user_rating || 0} onChange={(next) => setMediaForm((prev) => ({ ...prev, user_rating: next }))} />
             </label>
             <label>
               Runtime (min)
@@ -1406,11 +1611,32 @@ function App() {
               />
             </label>
             <label className="full">
+              TMDB ID
+              <input
+                value={mediaForm.tmdb_id}
+                onChange={(event) => setMediaForm((prev) => ({ ...prev, tmdb_id: event.target.value }))}
+              />
+            </label>
+            <label className="full">
               Overview
               <textarea
                 rows="3"
                 value={mediaForm.overview}
                 onChange={(event) => setMediaForm((prev) => ({ ...prev, overview: event.target.value }))}
+              />
+            </label>
+            <label className="full">
+              Poster path
+              <input
+                value={mediaForm.poster_path}
+                onChange={(event) => setMediaForm((prev) => ({ ...prev, poster_path: event.target.value }))}
+              />
+            </label>
+            <label className="full">
+              Backdrop path
+              <input
+                value={mediaForm.backdrop_path}
+                onChange={(event) => setMediaForm((prev) => ({ ...prev, backdrop_path: event.target.value }))}
               />
             </label>
             <div className="inline-controls full">

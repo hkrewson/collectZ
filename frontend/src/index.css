@@ -480,6 +480,7 @@ label.checkbox input {
   display: grid;
   gap: 0.55rem;
   background: #fdfefe;
+  cursor: pointer;
 }
 
 .media-image-wrap {
@@ -562,6 +563,115 @@ label.checkbox input {
   gap: 0.55rem;
 }
 
+.media-detail-screen {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.media-detail-layout {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 0.9rem;
+}
+
+.media-detail-poster {
+  height: 360px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #e8eef9;
+}
+
+.media-detail-content {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.media-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem 0.8rem;
+  font-size: 0.92rem;
+  color: #2f456f;
+}
+
+.media-detail-grid .full {
+  grid-column: 1 / -1;
+}
+
+.media-detail-overview {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.media-detail-overview p {
+  color: #3a4f78;
+}
+
+.media-detail-backdrop {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.media-detail-backdrop img {
+  max-height: 180px;
+  border-radius: 10px;
+  object-fit: cover;
+}
+
+.media-detail-user-rating {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.star-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.star-button {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+}
+
+.star-button:disabled {
+  opacity: 1;
+}
+
+.star-base,
+.star-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  line-height: 1;
+  font-size: 22px;
+}
+
+.star-base {
+  color: #c6cfde;
+}
+
+.star-fill {
+  color: #f2aa2e;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.star-rating.readonly .star-button {
+  cursor: default;
+}
+
+.star-value {
+  margin-left: 0.35rem;
+  color: #415b88;
+  font-size: 0.88rem;
+}
+
 .media-list {
   display: grid;
   gap: 0.55rem;
@@ -576,6 +686,7 @@ label.checkbox input {
   grid-template-columns: 58px minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.65rem;
+  cursor: pointer;
 }
 
 .media-list-poster {
@@ -811,7 +922,15 @@ label.checkbox input {
     grid-template-columns: 1fr;
   }
 
+  .media-detail-layout {
+    grid-template-columns: 1fr;
+  }
+
   .media-edit-poster {
+    height: 220px;
+  }
+
+  .media-detail-poster {
     height: 220px;
   }
 
@@ -822,6 +941,10 @@ label.checkbox input {
 
   .media-edit-actions {
     display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .media-detail-grid {
     grid-template-columns: 1fr;
   }
 
