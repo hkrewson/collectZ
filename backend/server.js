@@ -204,6 +204,8 @@ const ensureSchema = async () => {
   await pool.query(`ALTER TABLE media ADD COLUMN IF NOT EXISTS original_title VARCHAR(500)`);
   await pool.query(`ALTER TABLE media ADD COLUMN IF NOT EXISTS release_date DATE`);
   await pool.query(`ALTER TABLE media ADD COLUMN IF NOT EXISTS user_rating DECIMAL(2,1)`);
+  await pool.query(`ALTER TABLE media ADD COLUMN IF NOT EXISTS tmdb_url TEXT`);
+  await pool.query(`ALTER TABLE media ADD COLUMN IF NOT EXISTS trailer_url TEXT`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS app_integrations (
@@ -343,22 +345,67 @@ const searchTmdbMovie = async (title, year, integrationConfig = null) => {
     throw new Error('TMDB API key is not configured');
   }
 
-  const params = {
-    query: title,
-    year: year || undefined
-  };
+  const params = { query: title, year: year || undefined };
   const headers = {};
-  if (apiKeyHeader) {
-    headers[apiKeyHeader] = apiKey;
-  } else {
-    params[apiKeyQueryParam] = apiKey;
-  }
+  if (apiKeyHeader) headers[apiKeyHeader] = apiKey;
+  else params[apiKeyQueryParam] = apiKey;
 
   const response = await axios.get(apiUrl, {
     params,
     headers
   });
   return response.data?.results || [];
+};
+
+const tmdbBaseUrlFromSearchUrl = (searchUrl) => {
+  try {
+    const parsed = new URL(searchUrl || 'https://api.themoviedb.org/3/search/movie');
+    parsed.pathname = '/3';
+    parsed.search = '';
+    parsed.hash = '';
+    return parsed.toString().replace(/\/$/, '');
+  } catch (_) {
+    return 'https://api.themoviedb.org/3';
+  }
+};
+
+const fetchTmdbMovieDetails = async (movieId, integrationConfig = null) => {
+  if (!movieId) return {};
+  const config = integrationConfig || normalizeIntegrationRecord(null);
+  const apiKey = config.tmdbApiKey || process.env.TMDB_API_KEY || '';
+  const apiKeyQueryParam = config.tmdbApiKeyQueryParam || 'api_key';
+  const apiKeyHeader = config.tmdbApiKeyHeader || '';
+  const apiBaseUrl = tmdbBaseUrlFromSearchUrl(config.tmdbApiUrl);
+
+  if (!apiKey) {
+    throw new Error('TMDB API key is not configured');
+  }
+
+  const params = { append_to_response: 'credits,videos' };
+  const headers = {};
+  if (apiKeyHeader) headers[apiKeyHeader] = apiKey;
+  else params[apiKeyQueryParam] = apiKey;
+
+  const response = await axios.get(`${apiBaseUrl}/movie/${movieId}`, { params, headers });
+  const details = response.data || {};
+  const crew = Array.isArray(details.credits?.crew) ? details.credits.crew : [];
+  const director = crew.find((person) => person.job === 'Director')?.name
+    || crew.find((person) => person.department === 'Directing')?.name
+    || '';
+
+  const videos = Array.isArray(details.videos?.results) ? details.videos.results : [];
+  const trailer = videos.find((video) => video.type === 'Trailer' && video.site === 'YouTube' && video.official)
+    || videos.find((video) => video.type === 'Trailer' && video.site === 'YouTube')
+    || videos.find((video) => video.site === 'YouTube')
+    || null;
+  const trailerUrl = trailer?.key ? `https://www.youtube.com/watch?v=${trailer.key}` : '';
+
+  return {
+    director,
+    runtime: details.runtime || null,
+    trailer_url: trailerUrl,
+    tmdb_url: `https://www.themoviedb.org/movie/${movieId}`
+  };
 };
 
 const normalizeBarcodeMatches = (payload) => {
@@ -1086,6 +1133,21 @@ app.post('/api/media/search-tmdb', authenticateToken, async (req, res) => {
   }
 });
 
+app.get('/api/media/tmdb/:id/details', authenticateToken, async (req, res) => {
+  try {
+    const movieId = Number(req.params.id);
+    if (!Number.isFinite(movieId) || movieId <= 0) {
+      return res.status(400).json({ error: 'Valid TMDB id is required' });
+    }
+    const config = await loadAdminIntegrationConfig();
+    const details = await fetchTmdbMovieDetails(movieId, config);
+    res.json(details);
+  } catch (error) {
+    logError('TMDB details', error);
+    res.status(500).json({ error: 'TMDB details lookup failed' });
+  }
+});
+
 app.post('/api/media/lookup-upc', authenticateToken, async (req, res) => {
   try {
     const { upc } = req.body;
@@ -1244,9 +1306,11 @@ app.post('/api/media', authenticateToken, async (req, res) => {
       rating,
       user_rating,
       tmdb_id,
+      tmdb_url,
       poster_path,
       backdrop_path,
       overview,
+      trailer_url,
       runtime,
       upc,
       location,
@@ -1255,12 +1319,12 @@ app.post('/api/media', authenticateToken, async (req, res) => {
 
     const result = await pool.query(
       `INSERT INTO media (
-        title, original_title, release_date, year, format, genre, director, rating, user_rating, tmdb_id, poster_path,
-        backdrop_path, overview, runtime, upc, location, notes, added_by
+        title, original_title, release_date, year, format, genre, director, rating, user_rating, tmdb_id, tmdb_url, poster_path,
+        backdrop_path, overview, trailer_url, runtime, upc, location, notes, added_by
       ) 
        VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
-        $12, $13, $14, $15, $16, $17, $18
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
+        $13, $14, $15, $16, $17, $18, $19, $20
       ) RETURNING *`,
       [
         title,
@@ -1273,9 +1337,11 @@ app.post('/api/media', authenticateToken, async (req, res) => {
         rating,
         user_rating,
         tmdb_id,
+        tmdb_url || null,
         poster_path,
         backdrop_path,
         overview,
+        trailer_url || null,
         runtime,
         upc,
         location,
@@ -1306,9 +1372,11 @@ app.patch('/api/media/:id', authenticateToken, async (req, res) => {
       'rating',
       'user_rating',
       'tmdb_id',
+      'tmdb_url',
       'poster_path',
       'backdrop_path',
       'overview',
+      'trailer_url',
       'runtime',
       'upc',
       'location',
