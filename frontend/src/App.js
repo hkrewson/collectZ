@@ -2,6 +2,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 
 const API_URL = process.env.REACT_APP_API_URL || '/api';
+const APP_VERSION = process.env.REACT_APP_VERSION || '1.6.2';
+const BUILD_SHA = process.env.REACT_APP_GIT_SHA || 'dev';
+const APP_BUILD_LABEL = `v ${APP_VERSION} (${BUILD_SHA})`;
 const TOKEN_KEY = 'mediavault_token';
 const USER_KEY = 'mediavault_user';
 
@@ -1219,7 +1222,10 @@ function App() {
       <aside className={`sidebar card ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
           <div className="logo-mark">MV</div>
-          <span className="logo-text">MediaVault</span>
+          <div className="logo-block">
+            <span className="logo-text">MediaVault</span>
+            <span className="logo-version">{APP_BUILD_LABEL}</span>
+          </div>
           {isMobileNav && (
             <button type="button" className="sidebar-close-btn" onClick={() => setSidebarOpen(false)} aria-label="Close navigation">
               <ChevronRight className="close-icon" />
@@ -1285,14 +1291,14 @@ function App() {
           </div>
         </nav>
 
-        {!isMobileNav && (
-          <div className="sidebar-footer">
+        <div className="sidebar-footer">
+          {!isMobileNav && (
             <button type="button" className="toggle-btn" onClick={() => setSidebarCollapsed((prev) => !prev)}>
               <span className="toggle-icon"><MenuToggle collapsed={sidebarCollapsed} /></span>
               <span className="toggle-label">{sidebarCollapsed ? 'Expand' : 'Collapse'}</span>
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </aside>
 
       <main className="dashboard-main">

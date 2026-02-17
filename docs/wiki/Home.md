@@ -9,6 +9,7 @@ Start here for deployment and operations guidance.
 3. [Docker Compose Setup](./03-Docker-Compose-Setup.md)
 4. [Docker CLI and Portainer Deployment](./04-Docker-CLI-and-Portainer-Deploy.md)
 5. [Portainer Stack Build](./05-Portainer-Stack.md)
+6. [Versioning and Build Metadata](./06-Versioning-and-Build-Metadata.md)
 
 ## Default Seeded Admin (Important)
 
