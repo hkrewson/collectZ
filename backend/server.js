@@ -16,6 +16,10 @@ const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const APP_VERSION = process.env.APP_VERSION || '1.6.2';
+const GIT_SHA = process.env.GIT_SHA || 'dev';
+const BUILD_DATE = process.env.BUILD_DATE || 'unknown';
+const BUILD_LABEL = `v${APP_VERSION}+${GIT_SHA}`;
 app.set('trust proxy', 1);
 const useDatabaseSSL = process.env.DATABASE_SSL === 'true' || process.env.DATABASE_SSL === '1';
 const integrationEncryptionKey = crypto
@@ -1429,11 +1433,11 @@ app.post('/api/media/upload-cover', authenticateToken, upload.single('cover'), a
 
 // Health check
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok' });
+  res.json({ status: 'ok', version: APP_VERSION, gitSha: GIT_SHA, buildDate: BUILD_DATE, build: BUILD_LABEL });
 });
 
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok' });
+  res.json({ status: 'ok', version: APP_VERSION, gitSha: GIT_SHA, buildDate: BUILD_DATE, build: BUILD_LABEL });
 });
 
 const startServer = async () => {

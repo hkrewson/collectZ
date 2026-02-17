@@ -37,6 +37,14 @@ These can be set in `.env`, but admin settings in UI now control active global i
 
 - `REACT_APP_API_URL` (default: `/api`)
 
+## Build Metadata (Recommended)
+
+- `APP_VERSION`: semantic version shown in UI and health response (example: `1.6.2`).
+- `GIT_SHA`: short git commit hash appended as build metadata (example: `2c9a862`).
+- `BUILD_DATE`: UTC build timestamp (example: `2026-02-17T06:00:00Z`).
+
+These are optional in `.env`; you can also pass them inline on deploy.
+
 ## Included But Currently Not Used By Backend Code
 
 Present in `env.example` for future extension:

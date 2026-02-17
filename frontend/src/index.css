@@ -143,6 +143,24 @@ textarea:focus {
   max-width: 140px;
 }
 
+.logo-block {
+  display: grid;
+  gap: 0.05rem;
+  min-width: 0;
+}
+
+.logo-version {
+  font-size: 11px;
+  line-height: 1.2;
+  color: #5f7398;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: opacity 220ms ease, max-width 220ms ease;
+  max-width: 140px;
+}
+
 .sidebar-close-btn {
   margin-left: auto;
   border: 1px solid #d3ddf3;
@@ -325,6 +343,8 @@ textarea:focus {
 .sidebar-footer {
   padding: 0.65rem 0.55rem 0.72rem;
   border-top: 1px solid #e0e8f7;
+  display: grid;
+  gap: 0.45rem;
 }
 
 .toggle-btn {
@@ -379,7 +399,8 @@ textarea:focus {
 }
 
 .dashboard-shell.sidebar-collapsed .nav-label,
-.dashboard-shell.sidebar-collapsed .toggle-label {
+.dashboard-shell.sidebar-collapsed .toggle-label,
+.dashboard-shell.sidebar-collapsed .logo-version {
   opacity: 0;
   pointer-events: none;
 }
@@ -1138,7 +1159,8 @@ label.checkbox input {
   .dashboard-shell.sidebar-collapsed .logo-text,
   .dashboard-shell.sidebar-collapsed .nav-label,
   .dashboard-shell.sidebar-collapsed .toggle-label,
-  .dashboard-shell.sidebar-collapsed .chevron {
+  .dashboard-shell.sidebar-collapsed .chevron,
+  .dashboard-shell.sidebar-collapsed .logo-version {
     opacity: 1;
     max-width: 140px;
     pointer-events: auto;

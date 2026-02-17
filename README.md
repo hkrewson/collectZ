@@ -25,3 +25,4 @@ Required env values:
 - [Docker Compose Setup](docs/wiki/03-Docker-Compose-Setup.md)
 - [Docker CLI and Portainer Deployment](docs/wiki/04-Docker-CLI-and-Portainer-Deploy.md)
 - [Portainer Stack Build](docs/wiki/05-Portainer-Stack.md)
+- [Versioning and Build Metadata](docs/wiki/06-Versioning-and-Build-Metadata.md)
