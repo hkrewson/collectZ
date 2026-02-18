@@ -1,6 +1,6 @@
 {
   "name": "mediavault-backend",
-  "version": "1.6.2",
+  "version": "1.6.3",
   "description": "MediaVault Backend API",
   "main": "server.js",
   "scripts": {

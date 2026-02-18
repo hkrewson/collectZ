@@ -34,14 +34,7 @@ services:
       retries: 5
 
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-      args:
-        APP_VERSION: ${APP_VERSION:-1.6.3}
-        GIT_SHA: ${GIT_SHA:-dev}
-        BUILD_DATE: ${BUILD_DATE:-unknown}
-    image: mediavault-backend:latest
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-hkrewson}/collectz-backend:${IMAGE_TAG:-1.6.3}
     container_name: mediavault-backend
     restart: unless-stopped
     environment:
@@ -70,9 +63,6 @@ services:
       VISION_API_KEY: ${VISION_API_KEY}
       VISION_API_KEY_HEADER: ${VISION_API_KEY_HEADER:-apikey}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
-      APP_VERSION: ${APP_VERSION:-1.6.3}
-      GIT_SHA: ${GIT_SHA:-dev}
-      BUILD_DATE: ${BUILD_DATE:-unknown}
     volumes:
       - media_uploads:/app/uploads
     depends_on:
@@ -89,15 +79,7 @@ services:
       retries: 3
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        REACT_APP_API_URL: /api
-        REACT_APP_VERSION: ${APP_VERSION:-1.6.3}
-        REACT_APP_GIT_SHA: ${GIT_SHA:-dev}
-        REACT_APP_BUILD_DATE: ${BUILD_DATE:-unknown}
-    image: mediavault-frontend:latest
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-hkrewson}/collectz-frontend:${IMAGE_TAG:-1.6.3}
     container_name: mediavault-frontend
     restart: unless-stopped
     depends_on:
@@ -111,23 +93,6 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-
-# # Nginx to serve everything on one port
-# nginx:
-#   image: nginx:alpine
-#   container_name: mediavault-nginx
-#   restart: unless-stopped
-#   ports:
-#     - "80:80"
-#     - "443:443"
-#   volumes:
-#     - ./nginx/standalone.conf:/etc/nginx/conf.d/default.conf:ro
-#     - ./nginx/ssl:/etc/nginx/ssl:ro
-#   depends_on:
-#     - frontend
-#     - backend
-#   networks:
-#     - internal
 
 volumes:
   postgres_data:

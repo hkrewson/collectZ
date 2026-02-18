@@ -74,6 +74,40 @@ Goal: first usable Plex import flow under current single-library model.
 - Integration settings payload/response extended for Plex.
 - Keep existing integration endpoints backward compatible.
 
+## 1.6.4 (Admin Audit UX Patch)
+
+Goal: make admin audit history usable at higher event volume without changing core data contracts.
+
+### Scope
+
+- Add activity log filtering UI (action, user, date range, text match).
+- Add corresponding server-side query filters for `/api/admin/activity`.
+- Keep default behavior backward compatible when no filters are sent.
+- Change user-role management UX to explicit edit + save (no immediate auto-save on select change).
+
+### Acceptance Criteria
+
+- Admin can narrow activity results by action type and time window.
+- Admin can search activity details text quickly.
+- Unfiltered request still returns latest entries in descending order.
+- Role changes are only persisted after clicking `Save` for that user row.
+
+### DB Checklist
+
+- Reuse existing `activity_log` table.
+- Add indexes only if needed after profiling filtered queries.
+
+### API Checklist
+
+- Extend `GET /api/admin/activity` with optional query params:
+  - `action`
+  - `userId`
+  - `from`
+  - `to`
+  - `q`
+  - `limit`
+- Preserve current response shape.
+
 ## 1.8.0 (Sync Reliability + Library Quality)
 
 Goal: improve import robustness and usability before multi-space migration.
@@ -84,6 +118,10 @@ Goal: improve import robustness and usability before multi-space migration.
 - Add sync status model (`idle`, `running`, `failed`, `succeeded`).
 - Add richer search/filter/sort controls.
 - Add merge/resolve UI for near-duplicate titles.
+- Add CSV import framework with two modes:
+  - Generic CSV import (required fields + downloadable template with example rows).
+  - Delicious Library CSV import (format-specific parser/mapping).
+- Expose CSV import options in both user-library and admin-library contexts.
 
 ### Acceptance Criteria
 
@@ -91,18 +129,27 @@ Goal: improve import robustness and usability before multi-space migration.
 - UI shows job progress/status and final result.
 - Users can resolve duplicates from UI without direct DB edits.
 - Search/filter/sort remains responsive on larger libraries.
+- User can download a CSV template and import valid generic CSV rows.
+- Delicious Library export imports successfully using mapped fields from known export format.
+- Validation clearly reports row-level errors without failing the entire import batch.
 
 ### DB Checklist
 
 - Add `sync_jobs` table (provider, scope, status, started_at, finished_at, error, summary).
 - Add dedupe-support metadata only if required by UI.
 - Add indexes for job queries by status/created_at.
+- Add optional `import_source` metadata (`csv_generic`, `csv_delicious`, etc.) for traceability.
 
 ### API Checklist
 
 - `POST /api/media/import-plex` can enqueue job mode.
 - `GET /api/sync-jobs` and `GET /api/sync-jobs/:id`.
 - Clear contract for job result summary payload.
+- Add CSV endpoints:
+  - `GET /api/media/import/template-csv`
+  - `POST /api/media/import-csv` (generic)
+  - `POST /api/media/import-csv/delicious` (format-specific)
+- Ensure role rules support both standard users and admins for allowed library scope.
 
 ## 1.9.0 (2.0 Migration Prep)
 

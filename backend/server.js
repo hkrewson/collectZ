@@ -16,7 +16,7 @@ const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const APP_VERSION = process.env.APP_VERSION || '1.6.2';
+const APP_VERSION = process.env.APP_VERSION || '1.6.3';
 const GIT_SHA = process.env.GIT_SHA || 'dev';
 const BUILD_DATE = process.env.BUILD_DATE || 'unknown';
 const BUILD_LABEL = `v${APP_VERSION}+${GIT_SHA}`;
@@ -1167,6 +1167,24 @@ app.get('/api/invites', authenticateToken, requireRole('admin'), async (req, res
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to fetch invites' });
+  }
+});
+
+app.get('/api/admin/activity', authenticateToken, requireRole('admin'), async (req, res) => {
+  try {
+    const limitRaw = Number(req.query.limit || 100);
+    const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(500, limitRaw)) : 100;
+    const result = await pool.query(
+      `SELECT id, user_id, action, entity_type, entity_id, details, ip_address, created_at
+       FROM activity_log
+       ORDER BY id DESC
+       LIMIT $1`,
+      [limit]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    logError('Load admin activity', error);
+    res.status(500).json({ error: 'Failed to load activity log' });
   }
 });
 
