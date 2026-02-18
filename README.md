@@ -26,3 +26,6 @@ Required env values:
 - [Docker CLI and Portainer Deployment](docs/wiki/04-Docker-CLI-and-Portainer-Deploy.md)
 - [Portainer Stack Build](docs/wiki/05-Portainer-Stack.md)
 - [Versioning and Build Metadata](docs/wiki/06-Versioning-and-Build-Metadata.md)
+- [Release Roadmap](docs/wiki/07-Release-Roadmap.md)
+- [Backup and Restore](docs/wiki/08-Backup-and-Restore.md)
+- [Smoke Test Checklist](docs/wiki/09-Smoke-Test-Checklist.md)
