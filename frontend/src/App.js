@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 
 const API_URL = process.env.REACT_APP_API_URL || '/api';
-const APP_VERSION = process.env.REACT_APP_VERSION || '1.6.2';
+const APP_VERSION = process.env.REACT_APP_VERSION || '1.6.3';
 const BUILD_SHA = process.env.REACT_APP_GIT_SHA || 'dev';
 const APP_BUILD_LABEL = `v ${APP_VERSION} (${BUILD_SHA})`;
 const TOKEN_KEY = 'mediavault_token';
@@ -237,6 +237,12 @@ const UsersIcon = () => (
   </svg>
 );
 
+const ActivityIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 12h4l2.5-7 4 14 2.5-7H21" />
+  </svg>
+);
+
 function App() {
   const [route, setRoute] = useState(routeFromPath(window.location.pathname));
   const [token, setToken] = useState(localStorage.getItem(TOKEN_KEY) || '');
@@ -286,6 +292,9 @@ function App() {
   const [users, setUsers] = useState([]);
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersError, setUsersError] = useState('');
+  const [activityItems, setActivityItems] = useState([]);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [activityError, setActivityError] = useState('');
 
   const [invites, setInvites] = useState([]);
   const [invitesLoading, setInvitesLoading] = useState(false);
@@ -349,7 +358,7 @@ function App() {
 
   const isAdmin = user?.role === 'admin';
   const isLibraryTab = activeTab === 'library' || activeTab === 'library-add';
-  const isAdminSubtab = activeTab === 'admin-integrations' || activeTab === 'admin-settings' || activeTab === 'admin-users';
+  const isAdminSubtab = activeTab === 'admin-integrations' || activeTab === 'admin-settings' || activeTab === 'admin-users' || activeTab === 'admin-activity';
   const editingItem = mediaItems.find((item) => item.id === editingMediaId) || null;
   const detailMedia = mediaItems.find((item) => item.id === detailMediaId) || null;
   const pageTitle = useMemo(() => {
@@ -566,6 +575,20 @@ function App() {
     }
   };
 
+  const loadActivity = async () => {
+    if (!isAdmin) return;
+    setActivityLoading(true);
+    setActivityError('');
+    try {
+      const data = await apiCall('get', '/admin/activity?limit=100');
+      setActivityItems(Array.isArray(data) ? data : []);
+    } catch (error) {
+      setActivityError(error.response?.data?.error || 'Failed to load activity log');
+    } finally {
+      setActivityLoading(false);
+    }
+  };
+
   useEffect(() => {
     const syncRoute = () => {
       const nextRoute = routeFromPath(window.location.pathname);
@@ -638,6 +661,13 @@ function App() {
   useEffect(() => {
     if (activeTab === 'admin-integrations' && isAdmin) {
       loadIntegrationSettings();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, isAdmin]);
+
+  useEffect(() => {
+    if (activeTab === 'admin-activity' && isAdmin) {
+      loadActivity();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, isAdmin]);
@@ -940,6 +970,8 @@ function App() {
   };
 
   const removeUser = async (id) => {
+    const confirmed = window.confirm('Delete this user? This cannot be undone.');
+    if (!confirmed) return;
     try {
       await apiCall('delete', `/users/${id}`);
       setUsers((prev) => prev.filter((entry) => entry.id !== id));
@@ -1276,6 +1308,10 @@ function App() {
                   <button type="button" className={`sub-item ${activeTab === 'admin-users' ? 'active' : ''}`} onClick={() => selectTab('admin-users')}>
                     <span className="sub-icon"><UsersIcon /></span>
                     Users
+                  </button>
+                  <button type="button" className={`sub-item ${activeTab === 'admin-activity' ? 'active' : ''}`} onClick={() => selectTab('admin-activity')}>
+                    <span className="sub-icon"><ActivityIcon /></span>
+                    Activity
                   </button>
                 </div>
               </div>
@@ -2183,6 +2219,35 @@ function App() {
                     >
                       Copy URL
                     </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {activeTab === 'admin-activity' && isAdmin && (
+        <section className="card section">
+          <div className="section-head">
+            <h2>Admin activity log</h2>
+            <button type="button" className="secondary small" onClick={loadActivity}>Refresh activity</button>
+          </div>
+          {activityError && <p className="message error">{activityError}</p>}
+          {activityLoading ? <p>Loading activity...</p> : (
+            <div className="list">
+              {activityItems.length === 0 && <p>No activity entries found.</p>}
+              {activityItems.map((entry) => (
+                <div className="list-row" key={entry.id}>
+                  <div>
+                    <strong>{entry.action}</strong>
+                    <p>
+                      {entry.entity_type || 'n/a'} #{entry.entity_id ?? 'n/a'} • user {entry.user_id ?? 'n/a'} • {entry.ip_address || 'n/a'}
+                    </p>
+                    <p>{entry.created_at ? new Date(entry.created_at).toLocaleString() : 'n/a'}</p>
+                    {entry.details && (
+                      <p><code>{JSON.stringify(entry.details)}</code></p>
+                    )}
                   </div>
                 </div>
               ))}

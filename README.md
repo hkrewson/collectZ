@@ -29,3 +29,4 @@ Required env values:
 - [Release Roadmap](docs/wiki/07-Release-Roadmap.md)
 - [Backup and Restore](docs/wiki/08-Backup-and-Restore.md)
 - [Smoke Test Checklist](docs/wiki/09-Smoke-Test-Checklist.md)
+- [CI/CD and Registry Deploy](docs/wiki/10-CI-CD-and-Registry-Deploy.md)
