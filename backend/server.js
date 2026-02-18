@@ -469,6 +469,36 @@ const extractTitleCandidates = (rawText) => {
   return unique.slice(0, 12);
 };
 
+const extractRequestIp = (req) => {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (forwarded) {
+    const first = String(forwarded).split(',')[0].trim();
+    return first || null;
+  }
+  return req.ip || req.socket?.remoteAddress || null;
+};
+
+const logActivity = async (req, action, entityType = null, entityId = null, details = null) => {
+  try {
+    const userId = req.user?.id || null;
+    const ipAddress = extractRequestIp(req);
+    await pool.query(
+      `INSERT INTO activity_log (user_id, action, entity_type, entity_id, details, ip_address)
+       VALUES ($1, $2, $3, $4, $5::jsonb, $6)`,
+      [
+        userId,
+        action,
+        entityType,
+        entityId,
+        details ? JSON.stringify(details) : null,
+        ipAddress
+      ]
+    );
+  } catch (error) {
+    logError('Activity log write', error);
+  }
+};
+
 const logError = (context, error) => {
   const message = error?.message || String(error);
   const status = error?.response?.status;
@@ -669,6 +699,7 @@ app.put('/api/admin/settings/general', authenticateToken, requireRole('admin'), 
        RETURNING theme, density`,
       [theme, density]
     );
+    await logActivity(req, 'admin.settings.general.update', 'app_settings', 1, { theme, density });
     res.json(result.rows[0]);
   } catch (error) {
     logError('Update general settings', error);
@@ -816,6 +847,30 @@ app.put('/api/admin/settings/integrations', authenticateToken, requireRole('admi
     );
 
     const config = normalizeIntegrationRecord(result.rows[0]);
+    await logActivity(req, 'admin.settings.integrations.update', 'app_integrations', 1, {
+      barcodePreset: config.barcodePreset,
+      barcodeProvider: config.barcodeProvider,
+      barcodeApiUrl: config.barcodeApiUrl,
+      barcodeApiKeySet: Boolean(config.barcodeApiKey),
+      visionPreset: config.visionPreset,
+      visionProvider: config.visionProvider,
+      visionApiUrl: config.visionApiUrl,
+      visionApiKeySet: Boolean(config.visionApiKey),
+      tmdbPreset: config.tmdbPreset,
+      tmdbProvider: config.tmdbProvider,
+      tmdbApiUrl: config.tmdbApiUrl,
+      tmdbApiKeySet: Boolean(config.tmdbApiKey),
+      keyUpdates: {
+        barcode: Boolean(barcodeApiKey),
+        vision: Boolean(visionApiKey),
+        tmdb: Boolean(tmdbApiKey)
+      },
+      keyClears: {
+        barcode: Boolean(clearBarcodeApiKey),
+        vision: Boolean(clearVisionApiKey),
+        tmdb: Boolean(clearTmdbApiKey)
+      }
+    });
     res.json({
       barcodePreset: config.barcodePreset,
       barcodeProvider: config.barcodeProvider,
@@ -1037,11 +1092,20 @@ app.patch('/api/users/:id/role', authenticateToken, requireRole('admin'), async 
   try {
     const { id } = req.params;
     const { role } = req.body;
+    const targetBefore = await pool.query('SELECT id, email, role FROM users WHERE id = $1', [id]);
+    if (targetBefore.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
 
     const result = await pool.query(
       'UPDATE users SET role = $1 WHERE id = $2 RETURNING id, email, name, role',
       [role, id]
     );
+    await logActivity(req, 'admin.user.role.update', 'user', Number(id), {
+      email: result.rows[0]?.email || targetBefore.rows[0].email,
+      previousRole: targetBefore.rows[0].role,
+      nextRole: result.rows[0]?.role || role
+    });
     res.json(result.rows[0]);
   } catch (error) {
     console.error(error);
@@ -1053,7 +1117,14 @@ app.patch('/api/users/:id/role', authenticateToken, requireRole('admin'), async 
 app.delete('/api/users/:id', authenticateToken, requireRole('admin'), async (req, res) => {
   try {
     const { id } = req.params;
+    const target = await pool.query('SELECT id, email, role FROM users WHERE id = $1', [id]);
     await pool.query('DELETE FROM users WHERE id = $1', [id]);
+    if (target.rows[0]) {
+      await logActivity(req, 'admin.user.delete', 'user', Number(id), {
+        email: target.rows[0].email,
+        role: target.rows[0].role
+      });
+    }
     res.json({ message: 'User deleted' });
   } catch (error) {
     console.error(error);
@@ -1072,6 +1143,10 @@ app.post('/api/invites', authenticateToken, requireRole('admin'), async (req, re
       'INSERT INTO invites (email, token, expires_at, created_by) VALUES ($1, $2, $3, $4) RETURNING *',
       [email, token, expiresAt, req.user.id]
     );
+    await logActivity(req, 'admin.invite.create', 'invite', result.rows[0].id, {
+      email: result.rows[0].email,
+      expiresAt: result.rows[0].expires_at
+    });
 
     res.json(result.rows[0]);
   } catch (error) {
