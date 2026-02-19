@@ -1,804 +1,657 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import axios from 'axios';
 
 const API_URL = process.env.REACT_APP_API_URL || '/api';
-const APP_VERSION = process.env.REACT_APP_VERSION || '1.6.3';
-const BUILD_SHA = process.env.REACT_APP_GIT_SHA || 'dev';
-const APP_BUILD_LABEL = `v ${APP_VERSION} (${BUILD_SHA})`;
-const TOKEN_KEY = 'mediavault_token';
-const USER_KEY = 'mediavault_user';
-
-const DEFAULT_MEDIA_FORM = {
-  title: '',
-  original_title: '',
-  release_date: '',
-  year: '',
-  format: 'Blu-ray',
-  genre: '',
-  director: '',
-  rating: '',
-  user_rating: 0,
-  runtime: '',
-  upc: '',
-  location: '',
-  notes: '',
-  overview: '',
-  tmdb_id: '',
-  tmdb_url: '',
-  trailer_url: '',
-  poster_path: '',
-  backdrop_path: ''
-};
+const APP_VERSION = process.env.REACT_APP_VERSION || '1.6.4';
+const BUILD_SHA   = process.env.REACT_APP_GIT_SHA || 'dev';
+const USER_KEY  = 'mediavault_user';
 
 const MEDIA_FORMATS = ['VHS', 'Blu-ray', 'Digital', 'DVD', '4K UHD'];
-const USER_ROLES = ['admin', 'user', 'viewer'];
-const BARCODE_PRESETS = {
-  upcitemdb: {
-    barcodePreset: 'upcitemdb',
-    barcodeProvider: 'upcitemdb',
-    barcodeApiUrl: 'https://api.upcitemdb.com/prod/trial/lookup',
-    barcodeApiKeyHeader: 'x-api-key',
-    barcodeQueryParam: 'upc'
-  },
-  barcodelookup: {
-    barcodePreset: 'barcodelookup',
-    barcodeProvider: 'barcodelookup',
-    barcodeApiUrl: 'https://api.barcodelookup.com/v3/products',
-    barcodeApiKeyHeader: 'Authorization',
-    barcodeQueryParam: 'barcode'
-  },
-  custom: {
-    barcodePreset: 'custom',
-    barcodeProvider: 'custom',
-    barcodeApiUrl: '',
-    barcodeApiKeyHeader: 'x-api-key',
-    barcodeQueryParam: 'upc'
-  }
-};
-const VISION_PRESETS = {
-  ocrspace: {
-    visionPreset: 'ocrspace',
-    visionProvider: 'ocrspace',
-    visionApiUrl: 'https://api.ocr.space/parse/image',
-    visionApiKeyHeader: 'apikey'
-  },
-  custom: {
-    visionPreset: 'custom',
-    visionProvider: 'custom',
-    visionApiUrl: '',
-    visionApiKeyHeader: 'x-api-key'
-  }
-};
-const TMDB_PRESETS = {
-  tmdb: {
-    tmdbPreset: 'tmdb',
-    tmdbProvider: 'tmdb',
-    tmdbApiUrl: 'https://api.themoviedb.org/3/search/movie',
-    tmdbApiKeyHeader: '',
-    tmdbApiKeyQueryParam: 'api_key'
-  },
-  custom: {
-    tmdbPreset: 'custom',
-    tmdbProvider: 'custom',
-    tmdbApiUrl: '',
-    tmdbApiKeyHeader: '',
-    tmdbApiKeyQueryParam: 'api_key'
-  }
-};
+const USER_ROLES    = ['admin', 'user', 'viewer'];
+
 const TMDB_GENRE_MAP = {
-  28: 'Action',
-  12: 'Adventure',
-  16: 'Animation',
-  35: 'Comedy',
-  80: 'Crime',
-  99: 'Documentary',
-  18: 'Drama',
-  10751: 'Family',
-  14: 'Fantasy',
-  36: 'History',
-  27: 'Horror',
-  10402: 'Music',
-  9648: 'Mystery',
-  10749: 'Romance',
-  878: 'Science Fiction',
-  10770: 'TV Movie',
-  53: 'Thriller',
-  10752: 'War',
-  37: 'Western'
+  28:'Action',12:'Adventure',16:'Animation',35:'Comedy',80:'Crime',
+  99:'Documentary',18:'Drama',10751:'Family',14:'Fantasy',36:'History',
+  27:'Horror',10402:'Music',9648:'Mystery',10749:'Romance',878:'Science Fiction',
+  10770:'TV Movie',53:'Thriller',10752:'War',37:'Western'
 };
 
-function routeFromPath(pathname) {
-  if (pathname === '/register') return 'register';
-  if (pathname === '/dashboard') return 'dashboard';
+const BARCODE_PRESETS = {
+  upcitemdb:    { barcodePreset:'upcitemdb',    barcodeProvider:'upcitemdb',    barcodeApiUrl:'https://api.upcitemdb.com/prod/trial/lookup',      barcodeApiKeyHeader:'x-api-key',   barcodeQueryParam:'upc' },
+  barcodelookup:{ barcodePreset:'barcodelookup',barcodeProvider:'barcodelookup',barcodeApiUrl:'https://api.barcodelookup.com/v3/products',         barcodeApiKeyHeader:'Authorization',barcodeQueryParam:'barcode' },
+  custom:       { barcodePreset:'custom',       barcodeProvider:'custom',       barcodeApiUrl:'',                                                   barcodeApiKeyHeader:'x-api-key',   barcodeQueryParam:'upc' },
+};
+const VISION_PRESETS = {
+  ocrspace:{ visionPreset:'ocrspace',visionProvider:'ocrspace',visionApiUrl:'https://api.ocr.space/parse/image',visionApiKeyHeader:'apikey' },
+  custom:  { visionPreset:'custom',  visionProvider:'custom',  visionApiUrl:'',                                 visionApiKeyHeader:'x-api-key' },
+};
+const TMDB_PRESETS = {
+  tmdb:  { tmdbPreset:'tmdb',  tmdbProvider:'tmdb',  tmdbApiUrl:'https://api.themoviedb.org/3/search/movie',tmdbApiKeyHeader:'',tmdbApiKeyQueryParam:'api_key' },
+  custom:{ tmdbPreset:'custom',tmdbProvider:'custom', tmdbApiUrl:'',                                          tmdbApiKeyHeader:'',tmdbApiKeyQueryParam:'api_key' },
+};
+
+const DEFAULT_MEDIA_FORM = {
+  title:'',original_title:'',release_date:'',year:'',format:'Blu-ray',genre:'',
+  director:'',rating:'',user_rating:0,runtime:'',upc:'',location:'',notes:'',
+  overview:'',tmdb_id:'',tmdb_url:'',trailer_url:'',poster_path:'',backdrop_path:''
+};
+
+// ─── Utilities ───────────────────────────────────────────────────────────────
+
+function routeFromPath(p) {
+  if (p === '/register') return 'register';
+  if (p === '/dashboard') return 'dashboard';
   return 'login';
 }
 
 function readStoredUser() {
-  const raw = localStorage.getItem(USER_KEY);
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw);
-  } catch (_) {
-    return null;
-  }
+  try { return JSON.parse(localStorage.getItem(USER_KEY)); } catch { return null; }
 }
 
 function posterUrl(path) {
   if (!path) return '';
-  if (path.startsWith('http://') || path.startsWith('https://')) return path;
-  if (path.startsWith('/uploads/')) return path;
-  if (path.startsWith('/')) return `https://image.tmdb.org/t/p/w500${path}`;
+  if (path.startsWith('http')) return path;
+  if (path.startsWith('/uploads/') || path.startsWith('/')) {
+    if (path.startsWith('/t/') || path.match(/\/p\//)) return `https://image.tmdb.org/t/p/w500${path}`;
+    if (path.startsWith('/uploads/')) return path;
+    return `https://image.tmdb.org/t/p/w500${path}`;
+  }
   return path;
 }
 
+function cx(...classes) { return classes.filter(Boolean).join(' '); }
+
+// ─── Icons ───────────────────────────────────────────────────────────────────
+
+const Icon = ({ d, size = 20, className = '', strokeWidth = 1.75 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round"
+    strokeLinejoin="round" className={className}>
+    <path d={d} />
+  </svg>
+);
+
+const Icons = {
+  Library:     () => <Icon d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />,
+  Plus:        () => <Icon d="M12 5v14M5 12h14" />,
+  Search:      () => <Icon d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />,
+  Settings:    () => <Icon d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />,
+  Users:       () => <Icon d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />,
+  Activity:    () => <Icon d="M3 12h4l2.5-7 4 14 2.5-7H21" />,
+  Profile:     () => <Icon d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />,
+  Integrations:() => <Icon d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 17h6M17 14v6" />,
+  ChevronDown: () => <Icon d="M6 9l6 6 6-6" size={16} />,
+  ChevronRight:() => <Icon d="M9 18l6-6-6-6" size={16} />,
+  ChevronLeft: () => <Icon d="M15 18l-6-6 6-6" size={16} />,
+  Menu:        () => <Icon d="M3 12h18M3 6h18M3 18h18" />,
+  X:           () => <Icon d="M18 6L6 18M6 6l12 12" />,
+  Trash:       () => <Icon d="M3 6h18M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M9 6V4h6v2" />,
+  Edit:        () => <Icon d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />,
+  Film:        () => <Icon d="M2 8h20M2 16h20M7 2v20M17 2v20M2 4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4z" />,
+  Barcode:     () => <Icon d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14M21 5v14" />,
+  Eye:         () => <Icon d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z" />,
+  EyeOff:      () => <Icon d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24M1 1l22 22" />,
+  Upload:      () => <Icon d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />,
+  Star:        () => <Icon d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />,
+  LogOut:      () => <Icon d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />,
+  Copy:        () => <Icon d="M20 9H11a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2zM5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 0 2 2v1" />,
+  Check:       () => <Icon d="M20 6L9 17l-5-5" />,
+  Refresh:     () => <Icon d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />,
+  Play:        () => <Icon d="M5 3l14 9-14 9V3z" />,
+  Link:        () => <Icon d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />,
+};
+
+// ─── Shared components ────────────────────────────────────────────────────────
+
 function StarRating({ value = 0, onChange, readOnly = false }) {
-  const safeValue = Number(value) || 0;
-  const stars = [1, 2, 3, 4, 5];
-
-  const selectFromClick = (star, event) => {
-    if (readOnly || !onChange) return;
-    const rect = event.currentTarget.getBoundingClientRect();
-    const isHalf = event.clientX - rect.left < rect.width / 2;
-    onChange(isHalf ? star - 0.5 : star);
-  };
-
+  const safe = Number(value) || 0;
   return (
-    <div className={`star-rating ${readOnly ? 'readonly' : ''}`}>
-      {stars.map((star) => {
-        const fill = safeValue >= star ? 1 : safeValue >= star - 0.5 ? 0.5 : 0;
+    <div className="star-wrap">
+      {[1,2,3,4,5].map(star => {
+        const fill = safe >= star ? 1 : safe >= star - 0.5 ? 0.5 : 0;
         return (
-          <button
-            key={star}
-            type="button"
-            className="star-button"
-            onClick={(event) => selectFromClick(star, event)}
-            disabled={readOnly}
-            aria-label={`${star} star`}
-          >
+          <button key={star} type="button" disabled={readOnly}
+            className={cx('star-btn', !readOnly && 'hover:scale-110 transition-transform')}
+            onClick={e => {
+              if (readOnly || !onChange) return;
+              const half = e.clientX - e.currentTarget.getBoundingClientRect().left < e.currentTarget.offsetWidth / 2;
+              onChange(half ? star - 0.5 : star);
+            }}>
             <span className="star-base">★</span>
             <span className="star-fill" style={{ width: `${fill * 100}%` }}>★</span>
           </button>
         );
       })}
-      <span className="star-value">{safeValue ? safeValue.toFixed(1) : '0.0'}</span>
+      <span className="ml-1.5 text-xs text-ghost font-mono">{safe.toFixed(1)}</span>
     </div>
   );
 }
 
-const ChevronRight = ({ className = '' }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="9 18 15 12 9 6" />
-  </svg>
-);
+function StatusBadge({ status }) {
+  const map = { ok:'badge-ok', configured:'badge-ok', auth_failed:'badge-err', error:'badge-err', missing:'badge-warn', unknown:'badge-dim' };
+  const labels = { ok:'Connected', configured:'Configured', auth_failed:'Auth Failed', error:'Error', missing:'Missing Key', unknown:'Unknown' };
+  return <span className={cx('badge', map[status] || 'badge-dim')}>{labels[status] || 'Unknown'}</span>;
+}
 
-const MenuToggle = ({ collapsed }) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    {collapsed ? (
-      <>
-        <line x1="3" y1="8" x2="21" y2="8" />
-        <line x1="3" y1="16" x2="21" y2="16" />
-      </>
-    ) : (
-      <>
-        <line x1="3" y1="8" x2="17" y2="8" />
-        <line x1="3" y1="16" x2="21" y2="16" />
-      </>
-    )}
-  </svg>
-);
+function Spinner({ size = 16 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" className="animate-spin text-gold" fill="none">
+      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="31.4" strokeDashoffset="10" strokeLinecap="round" />
+    </svg>
+  );
+}
 
-const LibraryIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-    <line x1="10" y1="8" x2="16" y2="8" />
-    <line x1="10" y1="12" x2="14" y2="12" />
-  </svg>
-);
+function EmptyState({ icon, title, subtitle, action }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
+      <div className="w-16 h-16 rounded-2xl bg-raised border border-edge flex items-center justify-center text-ghost">
+        {icon}
+      </div>
+      <div>
+        <p className="font-display text-2xl tracking-wider text-dim">{title}</p>
+        {subtitle && <p className="text-sm text-ghost mt-1">{subtitle}</p>}
+      </div>
+      {action}
+    </div>
+  );
+}
 
-const AdminIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="3" />
-    <path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14" />
-    <path d="M15.54 8.46a5 5 0 0 1 0 7.07M8.46 8.46a5 5 0 0 0 0 7.07" />
-  </svg>
-);
+function LabeledField({ label, className = '', children }) {
+  return (
+    <div className={cx('field', className)}>
+      <label className="label">{label}</label>
+      {children}
+    </div>
+  );
+}
 
-const ProfileIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-    <circle cx="12" cy="7" r="4" />
-  </svg>
-);
+function Toast({ message, type = 'ok', onDismiss }) {
+  useEffect(() => {
+    const t = setTimeout(onDismiss, 3500);
+    return () => clearTimeout(t);
+  }, [onDismiss]);
+  const styles = { ok: 'border-ok/30 bg-ok/10 text-ok', error: 'border-err/30 bg-err/10 text-err', info: 'border-gold/30 bg-gold/10 text-gold' };
+  return (
+    <div className={cx('fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-lg border shadow-deep animate-slide-up', styles[type] || styles.ok)}>
+      <span className="text-sm font-medium">{message}</span>
+      <button onClick={onDismiss} className="ml-2 opacity-60 hover:opacity-100"><Icons.X /></button>
+    </div>
+  );
+}
 
-const IntegrationsIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="2" y="3" width="6" height="6" rx="1" />
-    <rect x="16" y="3" width="6" height="6" rx="1" />
-    <rect x="9" y="15" width="6" height="6" rx="1" />
-    <path d="M5 9v3a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9" />
-    <line x1="12" y1="13" x2="12" y2="15" />
-  </svg>
-);
+// ─── Auth pages ───────────────────────────────────────────────────────────────
 
-const SettingsIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="3" />
-    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-  </svg>
-);
-
-const UsersIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-    <circle cx="9" cy="7" r="4" />
-    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-  </svg>
-);
-
-const ActivityIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M3 12h4l2.5-7 4 14 2.5-7H21" />
-  </svg>
-);
-
-function App() {
-  const [route, setRoute] = useState(routeFromPath(window.location.pathname));
-  const [token, setToken] = useState(localStorage.getItem(TOKEN_KEY) || '');
-  const [user, setUser] = useState(readStoredUser());
-  const [authLoading, setAuthLoading] = useState(false);
-  const [authError, setAuthError] = useState('');
-  const [authSuccess, setAuthSuccess] = useState('');
-
-  const [authName, setAuthName] = useState('');
-  const [authEmail, setAuthEmail] = useState('');
-  const [authPassword, setAuthPassword] = useState('');
-  const [authInviteToken, setAuthInviteToken] = useState('');
-
-  const [activeTab, setActiveTab] = useState('library');
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 900);
-  const [isMobileNav, setIsMobileNav] = useState(window.innerWidth <= 900);
-  const [adminMenuOpen, setAdminMenuOpen] = useState(true);
-  const [librarySearch, setLibrarySearch] = useState('');
-  const [libraryFormat, setLibraryFormat] = useState('all');
-  const [libraryViewMode, setLibraryViewMode] = useState('cards');
-  const [detailMediaId, setDetailMediaId] = useState(null);
-  const [mediaItems, setMediaItems] = useState([]);
-  const [mediaLoading, setMediaLoading] = useState(false);
-  const [mediaError, setMediaError] = useState('');
-
-  const [mediaForm, setMediaForm] = useState(DEFAULT_MEDIA_FORM);
-  const [addMode, setAddMode] = useState('title');
-  const [mediaSubmitting, setMediaSubmitting] = useState(false);
-  const [mediaSubmitMessage, setMediaSubmitMessage] = useState('');
-  const [tmdbResults, setTmdbResults] = useState([]);
-  const [tmdbLoading, setTmdbLoading] = useState(false);
-  const [tmdbDetailLoading, setTmdbDetailLoading] = useState(false);
-  const [coverFile, setCoverFile] = useState(null);
-  const [coverUploadMessage, setCoverUploadMessage] = useState('');
-  const [barcodeLookupLoading, setBarcodeLookupLoading] = useState(false);
-  const [barcodeLookupMessage, setBarcodeLookupMessage] = useState('');
-  const [barcodeLookupResults, setBarcodeLookupResults] = useState([]);
-  const [visionLoading, setVisionLoading] = useState(false);
-  const [visionMessage, setVisionMessage] = useState('');
-  const [visionResults, setVisionResults] = useState([]);
-  const [editingMediaId, setEditingMediaId] = useState(null);
-  const [editForm, setEditForm] = useState(null);
-  const [editSaving, setEditSaving] = useState(false);
-  const [editMessage, setEditMessage] = useState('');
-
-  const [users, setUsers] = useState([]);
-  const [usersLoading, setUsersLoading] = useState(false);
-  const [usersError, setUsersError] = useState('');
-  const [activityItems, setActivityItems] = useState([]);
-  const [activityLoading, setActivityLoading] = useState(false);
-  const [activityError, setActivityError] = useState('');
-
-  const [invites, setInvites] = useState([]);
-  const [invitesLoading, setInvitesLoading] = useState(false);
-  const [invitesError, setInvitesError] = useState('');
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteMessage, setInviteMessage] = useState('');
-  const [inviteUrlMessage, setInviteUrlMessage] = useState('');
-  const [profileForm, setProfileForm] = useState({ name: '', email: '', password: '' });
-  const [profileMessage, setProfileMessage] = useState('');
-  const [profileSaving, setProfileSaving] = useState(false);
-  const [integrationForm, setIntegrationForm] = useState({
-    barcodePreset: 'upcitemdb',
-    barcodeProvider: 'upcitemdb',
-    barcodeApiUrl: '',
-    barcodeApiKey: '',
-    barcodeApiKeyHeader: 'x-api-key',
-    barcodeQueryParam: 'upc',
-    clearBarcodeApiKey: false,
-    visionPreset: 'ocrspace',
-    visionProvider: 'ocrspace',
-    visionApiUrl: '',
-    visionApiKey: '',
-    visionApiKeyHeader: 'apikey',
-    clearVisionApiKey: false,
-    tmdbPreset: 'tmdb',
-    tmdbProvider: 'tmdb',
-    tmdbApiUrl: 'https://api.themoviedb.org/3/search/movie',
-    tmdbApiKey: '',
-    tmdbApiKeyHeader: '',
-    tmdbApiKeyQueryParam: 'api_key',
-    clearTmdbApiKey: false
-  });
-  const [integrationMeta, setIntegrationMeta] = useState({
-    barcodeApiKeySet: false,
-    barcodeApiKeyMasked: '',
-    visionApiKeySet: false,
-    visionApiKeyMasked: '',
-    tmdbApiKeySet: false,
-    tmdbApiKeyMasked: ''
-  });
-  const [integrationMessage, setIntegrationMessage] = useState('');
-  const [integrationSaving, setIntegrationSaving] = useState(false);
-  const [integrationTab, setIntegrationTab] = useState('barcode');
-  const [integrationTestLoading, setIntegrationTestLoading] = useState('');
-  const [integrationTestMessage, setIntegrationTestMessage] = useState('');
-  const [barcodeTestUpc, setBarcodeTestUpc] = useState('012569828708');
-  const [visionTestImageUrl, setVisionTestImageUrl] = useState('https://upload.wikimedia.org/wikipedia/en/c/c1/The_Matrix_Poster.jpg');
-  const [tmdbTestTitle, setTmdbTestTitle] = useState('The Matrix');
-  const [tmdbTestYear, setTmdbTestYear] = useState('1999');
-  const [integrationStatus, setIntegrationStatus] = useState({
-    barcode: 'unknown',
-    vision: 'unknown',
-    tmdb: 'unknown'
-  });
-  const [generalSettings, setGeneralSettings] = useState({
-    theme: 'system',
-    density: 'comfortable'
-  });
-  const [generalSettingsSaving, setGeneralSettingsSaving] = useState(false);
-  const [generalSettingsMessage, setGeneralSettingsMessage] = useState('');
-
-  const isAdmin = user?.role === 'admin';
-  const isLibraryTab = activeTab === 'library' || activeTab === 'library-add';
-  const isAdminSubtab = activeTab === 'admin-integrations' || activeTab === 'admin-settings' || activeTab === 'admin-users' || activeTab === 'admin-activity';
-  const editingItem = mediaItems.find((item) => item.id === editingMediaId) || null;
-  const detailMedia = mediaItems.find((item) => item.id === detailMediaId) || null;
-  const pageTitle = useMemo(() => {
-    if (route === 'register') return 'Create your account';
-    if (route === 'dashboard') return 'Media dashboard';
-    return 'Welcome back';
-  }, [route]);
-
-  const apiCall = async (method, path, data, config = {}) => {
-    const headers = { ...(config.headers || {}) };
-    if (token) headers.Authorization = `Bearer ${token}`;
-    const response = await axios({
-      method,
-      url: `${API_URL}${path}`,
-      data,
-      ...config,
-      headers
-    });
-    return response.data;
-  };
-
-  const applyDisplaySettings = (theme, density) => {
-    const themeClass = `theme-${theme || 'system'}`;
-    const densityClass = `density-${density || 'comfortable'}`;
-    document.body.classList.remove('theme-system', 'theme-light', 'theme-dark');
-    document.body.classList.remove('density-comfortable', 'density-compact');
-    document.body.classList.add(themeClass);
-    document.body.classList.add(densityClass);
-  };
-
-  const clearAuthMessages = () => {
-    setAuthError('');
-    setAuthSuccess('');
-  };
-
-  const clearMediaMessages = () => {
-    setMediaError('');
-    setMediaSubmitMessage('');
-    setCoverUploadMessage('');
-    setBarcodeLookupMessage('');
-    setVisionMessage('');
-    setEditMessage('');
-  };
-
-  const navigate = (nextRoute) => {
-    const path = nextRoute === 'register' ? '/register' : nextRoute === 'dashboard' ? '/dashboard' : '/login';
-    window.history.pushState({}, '', path);
-    setRoute(nextRoute);
-    clearAuthMessages();
-  };
-
-  const closeSidebarForMobile = () => {
-    if (isMobileNav) setSidebarOpen(false);
-  };
-
-  const selectTab = (nextTab) => {
-    setActiveTab(nextTab);
-    closeSidebarForMobile();
-  };
-
-  const hydrateSession = (nextToken, nextUser) => {
-    localStorage.setItem(TOKEN_KEY, nextToken);
-    localStorage.setItem(USER_KEY, JSON.stringify(nextUser));
-    setToken(nextToken);
-    setUser(nextUser);
-  };
-
-  const logout = () => {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
-    setToken('');
-    setUser(null);
-    setMediaItems([]);
-    setDetailMediaId(null);
-    setUsers([]);
-    setInvites([]);
-    setAuthEmail('');
-    setAuthPassword('');
-    setAuthInviteToken('');
-    setAuthName('');
-    navigate('login');
-  };
-
-  const loadMe = async () => {
-    if (!token) return;
-    try {
-      const me = await apiCall('get', '/profile');
-      setUser(me);
-      setProfileForm((prev) => ({
-        ...prev,
-        name: me.name || '',
-        email: me.email || '',
-        password: ''
-      }));
-      localStorage.setItem(USER_KEY, JSON.stringify(me));
-    } catch (_) {
-      logout();
-    }
-  };
-
-  const loadIntegrationSettings = async () => {
-    try {
-      const data = await apiCall('get', '/admin/settings/integrations');
-      setIntegrationForm((prev) => ({
-        ...prev,
-        barcodePreset: data.barcodePreset || 'upcitemdb',
-        barcodeProvider: data.barcodeProvider || '',
-        barcodeApiUrl: data.barcodeApiUrl || '',
-        barcodeApiKey: '',
-        barcodeApiKeyHeader: data.barcodeApiKeyHeader || 'x-api-key',
-        barcodeQueryParam: data.barcodeQueryParam || 'upc',
-        clearBarcodeApiKey: false,
-        visionPreset: data.visionPreset || 'ocrspace',
-        visionProvider: data.visionProvider || '',
-        visionApiUrl: data.visionApiUrl || '',
-        visionApiKey: '',
-        visionApiKeyHeader: data.visionApiKeyHeader || 'apikey',
-        clearVisionApiKey: false,
-        tmdbPreset: data.tmdbPreset || 'tmdb',
-        tmdbProvider: data.tmdbProvider || '',
-        tmdbApiUrl: data.tmdbApiUrl || '',
-        tmdbApiKey: '',
-        tmdbApiKeyHeader: data.tmdbApiKeyHeader || '',
-        tmdbApiKeyQueryParam: data.tmdbApiKeyQueryParam || 'api_key',
-        clearTmdbApiKey: false
-      }));
-      setIntegrationMeta({
-        barcodeApiKeySet: Boolean(data.barcodeApiKeySet),
-        barcodeApiKeyMasked: data.barcodeApiKeyMasked || '',
-        visionApiKeySet: Boolean(data.visionApiKeySet),
-        visionApiKeyMasked: data.visionApiKeyMasked || '',
-        tmdbApiKeySet: Boolean(data.tmdbApiKeySet),
-        tmdbApiKeyMasked: data.tmdbApiKeyMasked || ''
-      });
-      setIntegrationStatus({
-        barcode: data.barcodeApiKeySet ? 'configured' : 'missing',
-        vision: data.visionApiKeySet ? 'configured' : 'missing',
-        tmdb: data.tmdbApiKeySet ? 'configured' : 'missing'
-      });
-    } catch (error) {
-      setIntegrationMessage(error.response?.data?.error || 'Failed to load integration settings');
-    }
-  };
-
-  const loadGeneralSettings = async () => {
-    try {
-      const data = await apiCall('get', '/settings/general');
-      const theme = data.theme || 'system';
-      const density = data.density || 'comfortable';
-      setGeneralSettings({ theme, density });
-      applyDisplaySettings(theme, density);
-    } catch (_) {
-      applyDisplaySettings('system', 'comfortable');
-    }
-  };
-
-  const applyBarcodePreset = (presetName) => {
-    const preset = BARCODE_PRESETS[presetName] || BARCODE_PRESETS.custom;
-    setIntegrationForm((prev) => ({ ...prev, ...preset }));
-  };
-
-  const applyVisionPreset = (presetName) => {
-    const preset = VISION_PRESETS[presetName] || VISION_PRESETS.custom;
-    setIntegrationForm((prev) => ({ ...prev, ...preset }));
-  };
-
-  const applyTmdbPreset = (presetName) => {
-    const preset = TMDB_PRESETS[presetName] || TMDB_PRESETS.custom;
-    setIntegrationForm((prev) => ({ ...prev, ...preset }));
-  };
-
-  const loadMedia = async () => {
-    setMediaLoading(true);
-    setMediaError('');
-    try {
-      const params = new URLSearchParams();
-      if (librarySearch.trim()) params.set('search', librarySearch.trim());
-      if (libraryFormat && libraryFormat !== 'all') params.set('format', libraryFormat);
-      const query = params.toString();
-      const data = await apiCall('get', `/media${query ? `?${query}` : ''}`);
-      setMediaItems(data);
-    } catch (error) {
-      setMediaError(error.response?.data?.error || 'Failed to load media');
-    } finally {
-      setMediaLoading(false);
-    }
-  };
-
-  const loadUsers = async () => {
-    if (!isAdmin) return;
-    setUsersLoading(true);
-    setUsersError('');
-    try {
-      const data = await apiCall('get', '/users');
-      setUsers(data);
-    } catch (error) {
-      setUsersError(error.response?.data?.error || 'Failed to load users');
-    } finally {
-      setUsersLoading(false);
-    }
-  };
-
-  const loadInvites = async () => {
-    if (!isAdmin) return;
-    setInvitesLoading(true);
-    setInvitesError('');
-    try {
-      const data = await apiCall('get', '/invites');
-      setInvites(data);
-    } catch (error) {
-      setInvitesError(error.response?.data?.error || 'Failed to load invites');
-    } finally {
-      setInvitesLoading(false);
-    }
-  };
-
-  const loadActivity = async () => {
-    if (!isAdmin) return;
-    setActivityLoading(true);
-    setActivityError('');
-    try {
-      const data = await apiCall('get', '/admin/activity?limit=100');
-      setActivityItems(Array.isArray(data) ? data : []);
-    } catch (error) {
-      setActivityError(error.response?.data?.error || 'Failed to load activity log');
-    } finally {
-      setActivityLoading(false);
-    }
-  };
+function AuthPage({ route, onNavigate, onAuth }) {
+  const [email, setEmail]       = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName]         = useState('');
+  const [invite, setInvite]     = useState('');
+  const [showPw, setShowPw]     = useState(false);
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState('');
+  const isRegister = route === 'register';
 
   useEffect(() => {
-    const syncRoute = () => {
-      const nextRoute = routeFromPath(window.location.pathname);
-      if (nextRoute === 'dashboard' && !localStorage.getItem(TOKEN_KEY)) {
-        window.history.replaceState({}, '', '/login');
-        setRoute('login');
-        return;
-      }
-      setRoute(nextRoute);
-      clearAuthMessages();
-    };
-
-    syncRoute();
-    window.addEventListener('popstate', syncRoute);
-    return () => window.removeEventListener('popstate', syncRoute);
-  }, []);
-
-  useEffect(() => {
-    const onResize = () => {
-      const mobile = window.innerWidth <= 900;
-      setIsMobileNav(mobile);
-      if (!mobile) setSidebarOpen(true);
-    };
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
-
-  useEffect(() => {
-    if (route === 'dashboard' && !token) {
-      window.history.replaceState({}, '', '/login');
-      setRoute('login');
-    }
-  }, [route, token]);
-
-  useEffect(() => {
-    if (route !== 'register') return;
     const params = new URLSearchParams(window.location.search);
-    const invite = params.get('invite') || '';
-    const email = params.get('email') || '';
-    if (invite) setAuthInviteToken(invite);
-    if (email) setAuthEmail(email);
+    if (params.get('invite')) setInvite(params.get('invite'));
+    if (params.get('email'))  setEmail(params.get('email'));
   }, [route]);
 
-  useEffect(() => {
-    if (route === 'dashboard' && token) {
-      loadMe();
-      loadMedia();
-      loadGeneralSettings();
-      if (isAdmin) {
-        loadIntegrationSettings();
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [route, token, isAdmin]);
-
-  useEffect(() => {
-    if (route === 'dashboard' && token && isAdmin) {
-      loadUsers();
-      loadInvites();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [route, token, isAdmin]);
-
-  useEffect(() => {
-    if (activeTab === 'admin-integrations') {
-      setIntegrationTab('barcode');
-    }
-  }, [activeTab]);
-
-  useEffect(() => {
-    if (activeTab === 'admin-integrations' && isAdmin) {
-      loadIntegrationSettings();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, isAdmin]);
-
-  useEffect(() => {
-    if (activeTab === 'admin-activity' && isAdmin) {
-      loadActivity();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, isAdmin]);
-
-  useEffect(() => {
-    applyDisplaySettings(generalSettings.theme, generalSettings.density);
-  }, [generalSettings.theme, generalSettings.density]);
-
-  const submitAuth = async (event) => {
-    event.preventDefault();
-    setAuthLoading(true);
-    clearAuthMessages();
+  const submit = async e => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
     try {
-      const endpoint = route === 'register' ? '/auth/register' : '/auth/login';
-      const payload = route === 'register'
-        ? {
-            name: authName,
-            email: authEmail,
-            password: authPassword,
-            inviteToken: authInviteToken || undefined
-          }
-        : { email: authEmail, password: authPassword };
-      const data = await apiCall('post', endpoint, payload);
-      hydrateSession(data.token, data.user);
-      setAuthPassword('');
-      setAuthInviteToken('');
-      setAuthSuccess(route === 'register' ? 'Registration complete.' : 'Login successful.');
-      navigate('dashboard');
-    } catch (error) {
-      setAuthError(error.response?.data?.error || 'Authentication failed');
+      const endpoint = isRegister ? '/auth/register' : '/auth/login';
+      const payload  = isRegister ? { name, email, password, inviteToken: invite || undefined } : { email, password };
+      const data = await axios.post(`${API_URL}${endpoint}`, payload, { withCredentials: true });
+      onAuth(data.data.user);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Authentication failed');
     } finally {
-      setAuthLoading(false);
+      setLoading(false);
     }
   };
+
+  return (
+    <div className="min-h-screen bg-void flex">
+      {/* Left — branding panel */}
+      <div className="hidden lg:flex lg:w-1/2 xl:w-3/5 relative overflow-hidden flex-col justify-between p-12">
+        <div className="absolute inset-0 bg-gradient-to-br from-abyss via-deep to-void" />
+        <div className="absolute inset-0 bg-gradient-to-r from-void/20 via-void/50 to-void" />
+        <div className="relative z-10">
+          <span className="font-display text-3xl tracking-widest text-gold">COLLECTZ</span>
+        </div>
+        <div className="relative z-10 space-y-4">
+          <h1 className="font-display text-6xl xl:text-7xl tracking-wider text-ink leading-none">
+            YOUR COLLECTION.<br />
+            <span className="text-gold">PERFECTLY</span><br />
+            CATALOGUED.
+          </h1>
+          <p className="text-dim text-lg max-w-md leading-relaxed">
+            Track every disc, stream, and tape in your library. Powered by TMDB. Built for collectors.
+          </p>
+        </div>
+        <div className="relative z-10 flex items-center gap-6">
+          {['VHS', 'Blu-ray', '4K UHD', 'Digital'].map(f => (
+            <span key={f} className="text-xs text-ghost tracking-widest uppercase border border-ghost/20 px-2 py-1 rounded">{f}</span>
+          ))}
+        </div>
+      </div>
+
+      {/* Right — auth form */}
+      <div className="w-full lg:w-1/2 xl:w-2/5 flex items-center justify-center p-8">
+        <div className="w-full max-w-sm space-y-8">
+          {/* Logo (mobile only) */}
+          <div className="lg:hidden text-center">
+            <span className="font-display text-4xl tracking-widest text-gold">COLLECTZ</span>
+          </div>
+
+          {/* Tab toggle */}
+          <div className="tab-strip">
+            <button className={cx('tab flex-1', !isRegister && 'active')} onClick={() => onNavigate('login')}>Sign In</button>
+            <button className={cx('tab flex-1', isRegister && 'active')} onClick={() => onNavigate('register')}>Register</button>
+          </div>
+
+          <form onSubmit={submit} className="space-y-4">
+            {isRegister && (
+              <div className="field">
+                <label className="label">Name</label>
+                <input className="input input-lg" placeholder="Your name" value={name} onChange={e => setName(e.target.value)} required />
+              </div>
+            )}
+            <div className="field">
+              <label className="label">Email</label>
+              <input className="input input-lg" type="email" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} required />
+            </div>
+            <div className="field">
+              <label className="label">Password</label>
+              <div className="relative">
+                <input className="input input-lg pr-10" type={showPw ? 'text' : 'password'} placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required />
+                <button type="button" tabIndex={-1} onClick={() => setShowPw(p => !p)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-ghost hover:text-dim transition-colors">
+                  {showPw ? <Icons.EyeOff /> : <Icons.Eye />}
+                </button>
+              </div>
+            </div>
+            {isRegister && (
+              <div className="field">
+                <label className="label">Invite Token <span className="text-ghost normal-case">(required after first user)</span></label>
+                <input className="input input-lg font-mono" placeholder="Paste token here" value={invite} onChange={e => setInvite(e.target.value)} />
+              </div>
+            )}
+
+            {error && <p className="text-sm text-err bg-err/10 border border-err/20 rounded px-3 py-2">{error}</p>}
+
+            <button type="submit" disabled={loading}
+              className="btn-primary btn-lg w-full mt-2 font-display tracking-widest text-base">
+              {loading ? <Spinner size={18} /> : isRegister ? 'CREATE ACCOUNT' : 'SIGN IN'}
+            </button>
+          </form>
+
+          <p className="text-center text-xs text-ghost">
+            collectZ v{APP_VERSION} · {BUILD_SHA}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Sidebar ──────────────────────────────────────────────────────────────────
+
+function Sidebar({ user, activeTab, onSelect, onLogout, collapsed, onToggle, mobileOpen, onMobileClose }) {
+  const isAdmin = user?.role === 'admin';
+  const [adminOpen, setAdminOpen] = useState(true);
+
+  const NavLink = ({ id, icon, label, sub = false }) => {
+    const active = activeTab === id;
+    return (
+      <button onClick={() => { onSelect(id); onMobileClose(); }}
+        className={cx(
+          'w-full flex items-center gap-3 rounded transition-all duration-150 text-left',
+          sub ? 'pl-8 pr-3 py-2 text-xs' : 'px-3 py-2.5 text-sm font-medium',
+          active ? 'bg-raised border border-edge text-ink' : 'text-dim hover:text-ink hover:bg-raised/50',
+          collapsed && !sub && 'justify-center px-0'
+        )}>
+        {!sub && <span className={cx('shrink-0', active && 'text-gold')}>{icon}</span>}
+        {sub && <span className="w-1 h-1 rounded-full bg-current mr-1 opacity-50" />}
+        {(!collapsed || sub) && <span className="truncate">{label}</span>}
+        {!collapsed && !sub && active && <span className="ml-auto w-1 h-4 rounded-full bg-gold" />}
+      </button>
+    );
+  };
+
+  return (
+    <>
+      {/* Mobile overlay */}
+      {mobileOpen && <div className="fixed inset-0 bg-void/80 z-30 lg:hidden" onClick={onMobileClose} />}
+
+      <aside className={cx(
+        'fixed top-0 left-0 h-full bg-abyss border-r border-edge flex flex-col z-40',
+        'transition-all duration-300',
+        collapsed ? 'w-16' : 'w-56',
+        mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+      )}>
+        {/* Logo */}
+        <div className={cx('flex items-center gap-3 px-4 py-5 border-b border-edge shrink-0', collapsed && 'justify-center px-0')}>
+          <div className="w-8 h-8 rounded bg-gold flex items-center justify-center text-void font-display text-sm shrink-0">C</div>
+          {!collapsed && (
+            <div className="min-w-0">
+              <div className="font-display text-base tracking-wider text-ink leading-none">COLLECTZ</div>
+              <div className="text-ghost text-[10px] font-mono mt-0.5">v{APP_VERSION}</div>
+            </div>
+          )}
+        </div>
+
+        {/* Nav */}
+        <nav className="flex-1 p-3 space-y-1 overflow-y-auto no-scrollbar">
+          <NavLink id="library" icon={<Icons.Library />} label="Library" />
+
+          {isAdmin && (
+            <div>
+              <button onClick={() => setAdminOpen(o => !o)}
+                className={cx('w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded text-dim hover:text-ink hover:bg-raised/50 transition-all',
+                  collapsed && 'justify-center px-0')}>
+                <span className="shrink-0"><Icons.Settings /></span>
+                {!collapsed && <>
+                  <span className="flex-1 text-left">Admin</span>
+                  <span className={cx('transition-transform duration-200', adminOpen && 'rotate-180')}><Icons.ChevronDown /></span>
+                </>}
+              </button>
+              {adminOpen && !collapsed && (
+                <div className="mt-1 space-y-0.5">
+                  <NavLink id="admin-integrations" icon={null} label="Integrations" sub />
+                  <NavLink id="admin-settings"     icon={null} label="Settings"     sub />
+                  <NavLink id="admin-users"         icon={null} label="Users"        sub />
+                  <NavLink id="admin-activity"      icon={null} label="Activity"     sub />
+                </div>
+              )}
+            </div>
+          )}
+
+          <NavLink id="profile" icon={<Icons.Profile />} label="Profile" />
+        </nav>
+
+        {/* Footer */}
+        <div className="p-3 border-t border-edge shrink-0 space-y-1">
+          <button onClick={onLogout}
+            className={cx('w-full flex items-center gap-3 px-3 py-2.5 text-sm text-dim hover:text-err rounded hover:bg-err/10 transition-all', collapsed && 'justify-center px-0')}>
+            <Icons.LogOut />
+            {!collapsed && <span>Sign out</span>}
+          </button>
+          <button onClick={onToggle}
+            className={cx('w-full flex items-center gap-3 px-3 py-2 text-xs text-ghost hover:text-dim rounded hover:bg-raised/50 transition-all', collapsed && 'justify-center px-0')}>
+            {collapsed ? <Icons.ChevronRight /> : <><Icons.ChevronLeft /><span>Collapse</span></>}
+          </button>
+        </div>
+      </aside>
+    </>
+  );
+}
+
+// ─── Media card ───────────────────────────────────────────────────────────────
+
+function MediaCard({ item, onOpen, onEdit, onDelete }) {
+  return (
+    <article
+      className="group relative cursor-pointer animate-fade-in"
+      onClick={() => onOpen(item)}>
+      {/* Poster */}
+      <div className="poster rounded-lg overflow-hidden shadow-card">
+        {posterUrl(item.poster_path)
+          ? <img src={posterUrl(item.poster_path)} alt={item.title} className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
+          : <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-ghost">
+              <Icons.Film />
+              <span className="text-xs text-center px-3 leading-tight">{item.title}</span>
+            </div>
+        }
+        {/* Overlay on hover */}
+        <div className="absolute inset-0 bg-card-fade opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+        {/* Format badge */}
+        <div className="absolute top-2 left-2">
+          <span className="badge badge-dim text-[10px] backdrop-blur-sm bg-void/60 border-ghost/20">{item.format || '—'}</span>
+        </div>
+        {/* Actions on hover */}
+        <div className="absolute bottom-0 left-0 right-0 p-3 translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
+          <div className="flex gap-2">
+            <button onClick={e => { e.stopPropagation(); onEdit(item); }}
+              className="btn-secondary btn-sm flex-1 backdrop-blur-sm bg-void/60 border-ghost/30">
+              <Icons.Edit />Edit
+            </button>
+            <button onClick={e => { e.stopPropagation(); onDelete(item.id); }}
+              className="btn-icon btn-sm backdrop-blur-sm bg-void/60 border-ghost/30 text-err hover:bg-err/20">
+              <Icons.Trash />
+            </button>
+          </div>
+        </div>
+      </div>
+      {/* Title below */}
+      <div className="mt-2 px-0.5">
+        <p className="text-sm font-medium text-ink truncate">{item.title}</p>
+        <p className="text-xs text-ghost">{item.year || '—'}{item.director ? ` · ${item.director}` : ''}</p>
+      </div>
+    </article>
+  );
+}
+
+// ─── Media list row ───────────────────────────────────────────────────────────
+
+function MediaListRow({ item, onOpen, onEdit, onDelete }) {
+  return (
+    <article onClick={() => onOpen(item)}
+      className="group flex items-center gap-4 p-3 rounded-lg bg-surface border border-edge hover:border-muted hover:bg-raised cursor-pointer transition-all duration-150 animate-fade-in">
+      <div className="w-10 shrink-0" style={{ aspectRatio: '2/3' }}>
+        <div className="poster rounded w-full h-full">
+          {posterUrl(item.poster_path)
+            ? <img src={posterUrl(item.poster_path)} alt={item.title} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+            : <div className="absolute inset-0 flex items-center justify-center text-ghost"><Icons.Film /></div>
+          }
+        </div>
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="font-medium text-ink truncate">{item.title}</p>
+        <p className="text-sm text-ghost">{[item.year, item.format, item.director].filter(Boolean).join(' · ')}</p>
+        {item.genre && <p className="text-xs text-ghost/70 mt-0.5 truncate">{item.genre}</p>}
+      </div>
+      {item.user_rating > 0 && <StarRating value={item.user_rating} readOnly />}
+      <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+        <button onClick={e => { e.stopPropagation(); onEdit(item); }} className="btn-ghost btn-sm"><Icons.Edit /></button>
+        <button onClick={e => { e.stopPropagation(); onDelete(item.id); }} className="btn-ghost btn-sm text-err hover:bg-err/10"><Icons.Trash /></button>
+      </div>
+    </article>
+  );
+}
+
+// ─── Media detail drawer ──────────────────────────────────────────────────────
+
+function MediaDetail({ item, onClose, onEdit, onDelete, onRating }) {
+  if (!item) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex">
+      <div className="absolute inset-0 bg-void/80 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative ml-auto w-full max-w-xl h-full bg-abyss border-l border-edge flex flex-col animate-slide-in">
+        {/* Backdrop hero */}
+        {posterUrl(item.backdrop_path) && (
+          <div className="relative h-48 shrink-0 overflow-hidden">
+            <img src={posterUrl(item.backdrop_path)} alt="" className="w-full h-full object-cover" />
+            <div className="absolute inset-0 bg-hero-fade" />
+          </div>
+        )}
+        {/* Header */}
+        <div className="flex items-start gap-4 px-6 pt-6 pb-4 shrink-0">
+          <div className="w-20 shrink-0 -mt-16 relative z-10 shadow-deep">
+            <div className="poster rounded-md">
+              {posterUrl(item.poster_path)
+                ? <img src={posterUrl(item.poster_path)} alt={item.title} className="absolute inset-0 w-full h-full object-cover" />
+                : <div className="absolute inset-0 flex items-center justify-center text-ghost"><Icons.Film /></div>
+              }
+            </div>
+          </div>
+          <div className="flex-1 min-w-0 mt-1">
+            <h2 className="font-display text-2xl tracking-wider text-ink leading-tight">{item.title}</h2>
+            <p className="text-sm text-dim mt-1">{[item.year, item.director].filter(Boolean).join(' · ')}</p>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {item.format && <span className="badge badge-gold">{item.format}</span>}
+              {item.genre?.split(',').slice(0,2).map(g => <span key={g} className="badge badge-dim">{g.trim()}</span>)}
+            </div>
+          </div>
+          <button onClick={onClose} className="btn-icon btn-sm shrink-0"><Icons.X /></button>
+        </div>
+
+        <div className="divider" />
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto scroll-area p-6 space-y-6">
+          {item.overview && (
+            <div>
+              <p className="label mb-2">Overview</p>
+              <p className="text-sm text-dim leading-relaxed">{item.overview}</p>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            {[
+              ['Runtime', item.runtime ? `${item.runtime} min` : null],
+              ['Rating', item.rating ? `${item.rating} / 10` : null],
+              ['Release', item.release_date ? String(item.release_date).slice(0,10) : null],
+              ['UPC', item.upc],
+              ['Location', item.location],
+            ].filter(([,v]) => v).map(([k,v]) => (
+              <div key={k}><p className="label">{k}</p><p className="text-ink">{v}</p></div>
+            ))}
+          </div>
+
+          {(item.tmdb_url || item.trailer_url) && (
+            <div className="flex gap-3">
+              {item.tmdb_url && <a href={item.tmdb_url} target="_blank" rel="noreferrer" className="btn-secondary btn-sm"><Icons.Link />TMDB</a>}
+              {item.trailer_url && <a href={item.trailer_url} target="_blank" rel="noreferrer" className="btn-primary btn-sm"><Icons.Play />Trailer</a>}
+            </div>
+          )}
+
+          {item.notes && (
+            <div><p className="label mb-1">Notes</p><p className="text-sm text-dim">{item.notes}</p></div>
+          )}
+
+          <div>
+            <p className="label mb-2">Your Rating</p>
+            <StarRating value={item.user_rating || 0} onChange={r => onRating(item.id, r)} />
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="p-4 border-t border-edge flex gap-3 shrink-0">
+          <button onClick={() => onEdit(item)} className="btn-secondary flex-1"><Icons.Edit />Edit</button>
+          <button onClick={() => { if (window.confirm('Delete this item?')) { onDelete(item.id); onClose(); } }} className="btn-danger"><Icons.Trash /></button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Add / Edit media form ────────────────────────────────────────────────────
+
+function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, title = 'Add Media', apiCall }) {
+  const [form, setForm] = useState(initial);
+  const [addMode, setAddMode]             = useState('title');
+  const [tmdbResults, setTmdbResults]     = useState([]);
+  const [tmdbLoading, setTmdbLoading]     = useState(false);
+  const [barcodeResults, setBarcodeResults] = useState([]);
+  const [barcodeLoading, setBarcodeLoading] = useState(false);
+  const [visionResults, setVisionResults] = useState([]);
+  const [visionLoading, setVisionLoading] = useState(false);
+  const [coverFile, setCoverFile]         = useState(null);
+  const [saving, setSaving]               = useState(false);
+  const [msg, setMsg]                     = useState('');
+  const [msgType, setMsgType]             = useState('ok');
+
+  const set = patch => setForm(f => ({ ...f, ...patch }));
+  const notify = (text, type = 'ok') => { setMsg(text); setMsgType(type); };
 
   const searchTmdb = async () => {
-    if (!mediaForm.title.trim()) return;
+    if (!form.title.trim()) return;
     setTmdbLoading(true);
-    setMediaSubmitMessage('');
     try {
-      const results = await apiCall('post', '/media/search-tmdb', {
-        title: mediaForm.title.trim(),
-        year: mediaForm.year || undefined
-      });
-      setTmdbResults(results || []);
-    } catch (error) {
-      setMediaSubmitMessage(error.response?.data?.error || 'TMDB search failed');
-    } finally {
-      setTmdbLoading(false);
-    }
+      const data = await apiCall('post', '/media/search-tmdb', { title: form.title.trim(), year: form.year || undefined });
+      setTmdbResults(data || []);
+    } catch { notify('TMDB search failed', 'error'); }
+    finally { setTmdbLoading(false); }
   };
 
-  const loadTmdbDetailsForForm = async (tmdbId) => {
-    if (!tmdbId) return null;
+  const applyTmdb = async result => {
+    let details = null;
     try {
-      setTmdbDetailLoading(true);
-      return await apiCall('get', `/media/tmdb/${tmdbId}/details`);
-    } catch (_) {
-      return null;
-    } finally {
-      setTmdbDetailLoading(false);
-    }
+      setTmdbLoading(true);
+      details = await apiCall('get', `/media/tmdb/${result.id}/details`);
+    } catch {} finally { setTmdbLoading(false); }
+    const genres = (result.genre_ids || []).map(id => TMDB_GENRE_MAP[id]).filter(Boolean).join(', ');
+    set({
+      title: result.title || form.title,
+      original_title: result.original_title || form.original_title,
+      release_date: result.release_date || form.release_date,
+      year: result.release_date ? String(result.release_date).slice(0, 4) : form.year,
+      genre: genres || form.genre,
+      rating: result.vote_average ? Number(result.vote_average).toFixed(1) : form.rating,
+      director: details?.director || form.director,
+      overview: result.overview || form.overview,
+      tmdb_id: result.id || form.tmdb_id,
+      tmdb_url: details?.tmdb_url || `https://www.themoviedb.org/movie/${result.id}`,
+      trailer_url: details?.trailer_url || form.trailer_url,
+      poster_path: result.poster_path || form.poster_path,
+      backdrop_path: result.backdrop_path || form.backdrop_path,
+      runtime: details?.runtime || form.runtime,
+    });
+    setTmdbResults([]);
+    notify('TMDB data applied');
   };
 
-  const selectTmdbResult = async (result) => {
-    const details = await loadTmdbDetailsForForm(result.id);
-    const genres = (result.genre_ids || []).map((id) => TMDB_GENRE_MAP[id]).filter(Boolean).join(', ');
-    setMediaForm((prev) => ({
-      ...prev,
-      title: result.title || prev.title,
-      original_title: result.original_title || prev.original_title,
-      release_date: result.release_date || prev.release_date,
-      year: result.release_date ? String(result.release_date).slice(0, 4) : prev.year,
-      genre: genres || prev.genre,
-      rating: result.vote_average ? Number(result.vote_average).toFixed(1) : prev.rating,
-      director: details?.director || prev.director,
-      overview: result.overview || prev.overview,
-      tmdb_id: result.id || prev.tmdb_id,
-      tmdb_url: details?.tmdb_url || `https://www.themoviedb.org/movie/${result.id}` || prev.tmdb_url,
-      trailer_url: details?.trailer_url || prev.trailer_url,
-      poster_path: result.poster_path || prev.poster_path,
-      backdrop_path: result.backdrop_path || prev.backdrop_path,
-      runtime: details?.runtime || prev.runtime
-    }));
-    setMediaSubmitMessage('TMDB details applied.');
-  };
-
-  const applyLookupMatch = async (match) => {
-    const tmdb = match.tmdb || null;
-    const details = tmdb?.id ? await loadTmdbDetailsForForm(tmdb.id) : null;
-    const genres = (tmdb?.genre_ids || []).map((id) => TMDB_GENRE_MAP[id]).filter(Boolean).join(', ');
-    setMediaForm((prev) => ({
-      ...prev,
-      title: tmdb?.title || match.title || prev.title,
-      original_title: tmdb?.original_title || prev.original_title,
-      release_date: tmdb?.release_date || prev.release_date,
-      year: tmdb?.release_date ? String(tmdb.release_date).slice(0, 4) : prev.year,
-      genre: genres || prev.genre,
-      director: details?.director || prev.director,
-      overview: tmdb?.overview || match.description || prev.overview,
-      tmdb_id: tmdb?.id || prev.tmdb_id,
-      tmdb_url: details?.tmdb_url || (tmdb?.id ? `https://www.themoviedb.org/movie/${tmdb.id}` : prev.tmdb_url),
-      trailer_url: details?.trailer_url || prev.trailer_url,
-      poster_path: tmdb?.poster_path || match.image || prev.poster_path,
-      backdrop_path: tmdb?.backdrop_path || prev.backdrop_path,
-      runtime: details?.runtime || prev.runtime
-    }));
-    setMediaSubmitMessage('Lookup details applied to form.');
-  };
-
-  const lookupUpc = async () => {
-    if (!mediaForm.upc.trim()) {
-      setBarcodeLookupMessage('Enter a UPC first.');
-      return;
-    }
-    setBarcodeLookupLoading(true);
-    setBarcodeLookupMessage('');
-    setBarcodeLookupResults([]);
+  const lookupBarcode = async () => {
+    if (!form.upc.trim()) { notify('Enter a UPC first', 'error'); return; }
+    setBarcodeLoading(true);
+    setBarcodeResults([]);
     try {
-      const data = await apiCall('post', '/media/lookup-upc', { upc: mediaForm.upc.trim() });
-      setBarcodeLookupResults(data.matches || []);
-      setBarcodeLookupMessage((data.matches || []).length ? 'UPC lookup completed.' : 'No UPC matches found.');
-    } catch (error) {
-      setBarcodeLookupMessage(
-        error.response?.data?.detail
-          || error.response?.data?.error
-          || 'UPC lookup failed'
-      );
-    } finally {
-      setBarcodeLookupLoading(false);
-    }
+      const data = await apiCall('post', '/media/lookup-upc', { upc: form.upc.trim() });
+      setBarcodeResults(data.matches || []);
+      if (!data.matches?.length) notify('No UPC matches found', 'error');
+    } catch (e) { notify(e.response?.data?.detail || 'UPC lookup failed', 'error'); }
+    finally { setBarcodeLoading(false); }
+  };
+
+  const applyBarcode = async match => {
+    const tmdb = match.tmdb;
+    let details = null;
+    if (tmdb?.id) { try { details = await apiCall('get', `/media/tmdb/${tmdb.id}/details`); } catch {} }
+    const genres = (tmdb?.genre_ids || []).map(id => TMDB_GENRE_MAP[id]).filter(Boolean).join(', ');
+    set({
+      title: tmdb?.title || match.title || form.title,
+      original_title: tmdb?.original_title || form.original_title,
+      release_date: tmdb?.release_date || form.release_date,
+      year: tmdb?.release_date ? String(tmdb.release_date).slice(0,4) : form.year,
+      genre: genres || form.genre,
+      director: details?.director || form.director,
+      overview: tmdb?.overview || match.description || form.overview,
+      tmdb_id: tmdb?.id || form.tmdb_id,
+      tmdb_url: details?.tmdb_url || (tmdb?.id ? `https://www.themoviedb.org/movie/${tmdb.id}` : form.tmdb_url),
+      trailer_url: details?.trailer_url || form.trailer_url,
+      poster_path: tmdb?.poster_path || match.image || form.poster_path,
+      backdrop_path: tmdb?.backdrop_path || form.backdrop_path,
+      runtime: details?.runtime || form.runtime,
+    });
+    setBarcodeResults([]);
+    notify('Barcode data applied');
+  };
+
+  const recognizeCover = async () => {
+    if (!coverFile) { notify('Choose an image first', 'error'); return; }
+    setVisionLoading(true);
+    try {
+      const body = new FormData();
+      body.append('cover', coverFile);
+      const data = await apiCall('post', '/media/recognize-cover', body, { headers: { 'Content-Type': 'multipart/form-data' } });
+      setVisionResults(data.tmdbMatches || []);
+      if (!data.tmdbMatches?.length) notify('No matches found', 'error');
+    } catch (e) { notify(e.response?.data?.detail || 'Recognition failed', 'error'); }
+    finally { setVisionLoading(false); }
   };
 
   const uploadCover = async () => {
@@ -806,1458 +659,947 @@ function App() {
     const body = new FormData();
     body.append('cover', coverFile);
     try {
-      const data = await apiCall('post', '/media/upload-cover', body, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+      const data = await apiCall('post', '/media/upload-cover', body, { headers: { 'Content-Type': 'multipart/form-data' } });
+      set({ poster_path: data.path });
+      notify('Cover uploaded');
+    } catch { notify('Upload failed', 'error'); }
+  };
+
+  const submit = async e => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await onSave({
+        ...form,
+        release_date: form.release_date || null,
+        year: form.year ? Number(form.year) : null,
+        rating: form.rating ? Number(form.rating) : null,
+        user_rating: form.user_rating ? Number(form.user_rating) : null,
+        runtime: form.runtime ? Number(form.runtime) : null,
+        tmdb_id: form.tmdb_id ? Number(form.tmdb_id) : null,
       });
-      setMediaForm((prev) => ({ ...prev, poster_path: data.path }));
-      setCoverUploadMessage('Cover uploaded. Save media to persist.');
-    } catch (error) {
-      setCoverUploadMessage(error.response?.data?.error || 'Cover upload failed');
-    }
+    } catch (e) {
+      notify(e.response?.data?.error || 'Save failed', 'error');
+    } finally { setSaving(false); }
   };
 
-  const recognizeCover = async () => {
-    if (!coverFile) {
-      setVisionMessage('Choose a cover image first.');
-      return;
-    }
-    setVisionLoading(true);
-    setVisionMessage('');
-    setVisionResults([]);
-    const body = new FormData();
-    body.append('cover', coverFile);
-    try {
-      const data = await apiCall('post', '/media/recognize-cover', body, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      setVisionResults(data.tmdbMatches || []);
-      setVisionMessage((data.tmdbMatches || []).length ? 'Cover recognition completed.' : 'No likely matches found.');
-    } catch (error) {
-      setVisionMessage(
-        error.response?.data?.detail
-          || error.response?.data?.error
-          || 'Cover recognition failed'
-      );
-    } finally {
-      setVisionLoading(false);
-    }
-  };
+  const allTmdbMatches = [...tmdbResults, ...visionResults].filter((v,i,a) => a.findIndex(x => x.id === v.id) === i);
 
-  const submitMedia = async (event) => {
-    event.preventDefault();
-    setMediaSubmitting(true);
-    clearMediaMessages();
-    try {
-      await apiCall('post', '/media', {
-        ...mediaForm,
-        release_date: mediaForm.release_date || null,
-        year: mediaForm.year ? Number(mediaForm.year) : null,
-        rating: mediaForm.rating ? Number(mediaForm.rating) : null,
-        user_rating: mediaForm.user_rating ? Number(mediaForm.user_rating) : null,
-        runtime: mediaForm.runtime ? Number(mediaForm.runtime) : null,
-        tmdb_id: mediaForm.tmdb_id ? Number(mediaForm.tmdb_id) : null
-      });
-      setMediaSubmitMessage('Media added successfully.');
-      setMediaForm(DEFAULT_MEDIA_FORM);
-      setTmdbResults([]);
-      setCoverFile(null);
-      loadMedia();
-      setActiveTab('library');
-    } catch (error) {
-      setMediaSubmitMessage(error.response?.data?.error || 'Failed to save media');
-    } finally {
-      setMediaSubmitting(false);
-    }
-  };
+  return (
+    <div className="flex flex-col h-full">
+      {/* Sticky header */}
+      <div className="flex items-center gap-3 px-6 py-4 border-b border-edge shrink-0">
+        <button onClick={onCancel} className="btn-icon btn-sm"><Icons.ChevronLeft /></button>
+        <h2 className="font-display text-xl tracking-wider text-ink flex-1">{title.toUpperCase()}</h2>
+        {onDelete && (
+          <button onClick={() => { if (window.confirm('Delete this item?')) onDelete(); }} className="btn-danger btn-sm">
+            <Icons.Trash />Delete
+          </button>
+        )}
+      </div>
 
-  const removeMedia = async (id) => {
-    try {
-      await apiCall('delete', `/media/${id}`);
-      setMediaItems((prev) => prev.filter((item) => item.id !== id));
-      if (detailMediaId === id) setDetailMediaId(null);
-      return true;
-    } catch (error) {
-      setMediaError(error.response?.data?.error || 'Failed to delete media');
-      return false;
-    }
-  };
-
-  const startEditMedia = (item) => {
-    setDetailMediaId(null);
-    setEditingMediaId(item.id);
-    setEditForm({
-      title: item.title || '',
-      original_title: item.original_title || '',
-      release_date: item.release_date ? String(item.release_date).slice(0, 10) : '',
-      year: item.year || '',
-      format: item.format || 'Blu-ray',
-      genre: item.genre || '',
-      director: item.director || '',
-      rating: item.rating || '',
-      user_rating: item.user_rating || 0,
-      runtime: item.runtime || '',
-      tmdb_url: item.tmdb_url || '',
-      trailer_url: item.trailer_url || '',
-      upc: item.upc || '',
-      location: item.location || '',
-      notes: item.notes || ''
-    });
-    setEditMessage('');
-  };
-
-  const cancelEditMedia = () => {
-    setEditingMediaId(null);
-    setEditForm(null);
-    setEditMessage('');
-  };
-
-  const saveEditMedia = async (id) => {
-    if (!editForm) return;
-    setEditSaving(true);
-    setEditMessage('');
-    try {
-      const payload = {
-        ...editForm,
-        release_date: editForm.release_date || null,
-        year: editForm.year ? Number(editForm.year) : null,
-        rating: editForm.rating ? Number(editForm.rating) : null,
-        user_rating: editForm.user_rating ? Number(editForm.user_rating) : null,
-        runtime: editForm.runtime ? Number(editForm.runtime) : null
-      };
-      const updated = await apiCall('patch', `/media/${id}`, payload);
-      setMediaItems((prev) => prev.map((item) => (item.id === id ? updated : item)));
-      setEditMessage('Media updated.');
-      setEditingMediaId(null);
-      setEditForm(null);
-    } catch (error) {
-      setEditMessage(error.response?.data?.error || 'Failed to update media');
-    } finally {
-      setEditSaving(false);
-    }
-  };
-
-  const deleteFromEditScreen = async () => {
-    if (!editingItem) return;
-    const confirmed = window.confirm('Delete this media item? This cannot be undone.');
-    if (!confirmed) return;
-    const ok = await removeMedia(editingItem.id);
-    if (ok) cancelEditMedia();
-  };
-
-  const confirmDeleteFromLibrary = async (id) => {
-    const confirmed = window.confirm('Delete this media item? This cannot be undone.');
-    if (!confirmed) return;
-    await removeMedia(id);
-  };
-
-  const updateMediaUserRating = async (id, rating) => {
-    try {
-      const updated = await apiCall('patch', `/media/${id}`, { user_rating: rating });
-      setMediaItems((prev) => prev.map((item) => (item.id === id ? updated : item)));
-      setMediaSubmitMessage('Your rating updated.');
-    } catch (error) {
-      setMediaError(error.response?.data?.error || 'Failed to update rating');
-    }
-  };
-
-  const updateUserRole = async (id, role) => {
-    try {
-      const updated = await apiCall('patch', `/users/${id}/role`, { role });
-      setUsers((prev) => prev.map((entry) => (entry.id === id ? { ...entry, ...updated } : entry)));
-    } catch (error) {
-      setUsersError(error.response?.data?.error || 'Failed to update role');
-    }
-  };
-
-  const removeUser = async (id) => {
-    const confirmed = window.confirm('Delete this user? This cannot be undone.');
-    if (!confirmed) return;
-    try {
-      await apiCall('delete', `/users/${id}`);
-      setUsers((prev) => prev.filter((entry) => entry.id !== id));
-    } catch (error) {
-      setUsersError(error.response?.data?.error || 'Failed to delete user');
-    }
-  };
-
-  const createInvite = async (event) => {
-    event.preventDefault();
-    setInviteMessage('');
-    try {
-      const data = await apiCall('post', '/invites', { email: inviteEmail });
-      const url = `${window.location.origin}/register?invite=${encodeURIComponent(data.token)}&email=${encodeURIComponent(data.email)}`;
-      setInviteMessage(`Invite created for ${data.email}`);
-      setInviteUrlMessage(url);
-      setInviteEmail('');
-      loadInvites();
-    } catch (error) {
-      setInviteMessage(error.response?.data?.error || 'Failed to create invite');
-    }
-  };
-
-  const copyInviteValue = async (value) => {
-    try {
-      await navigator.clipboard.writeText(value);
-      setInviteMessage('Copied to clipboard.');
-    } catch (_) {
-      setInviteMessage(value);
-    }
-  };
-
-  const saveGeneralSettings = async (event) => {
-    event.preventDefault();
-    setGeneralSettingsSaving(true);
-    setGeneralSettingsMessage('');
-    try {
-      const updated = await apiCall('put', '/admin/settings/general', generalSettings);
-      const theme = updated.theme || 'system';
-      const density = updated.density || 'comfortable';
-      setGeneralSettings({ theme, density });
-      applyDisplaySettings(theme, density);
-      setGeneralSettingsMessage('Settings saved.');
-    } catch (error) {
-      setGeneralSettingsMessage(error.response?.data?.error || 'Failed to save settings');
-    } finally {
-      setGeneralSettingsSaving(false);
-    }
-  };
-
-  const saveProfile = async (event) => {
-    event.preventDefault();
-    setProfileSaving(true);
-    setProfileMessage('');
-    try {
-      const payload = {
-        name: profileForm.name,
-        email: profileForm.email
-      };
-      if (profileForm.password) payload.password = profileForm.password;
-      const updated = await apiCall('patch', '/profile', payload);
-      setUser(updated);
-      localStorage.setItem(USER_KEY, JSON.stringify(updated));
-      setProfileForm((prev) => ({ ...prev, password: '' }));
-      setProfileMessage('Profile updated.');
-    } catch (error) {
-      setProfileMessage(error.response?.data?.error || 'Failed to update profile');
-    } finally {
-      setProfileSaving(false);
-    }
-  };
-
-  const getProviderPortalUrl = (section) => {
-    if (section === 'barcode') {
-      if (integrationForm.barcodePreset === 'barcodelookup') return 'https://www.barcodelookup.com/api';
-      if (integrationForm.barcodePreset === 'upcitemdb') return 'https://www.upcitemdb.com/api/explorer';
-      return 'https://www.google.com/search?q=barcode+api+key';
-    }
-    if (section === 'vision') {
-      if (integrationForm.visionPreset === 'ocrspace') return 'https://ocr.space/ocrapi';
-      return 'https://www.google.com/search?q=vision+api+key';
-    }
-    if (integrationForm.tmdbPreset === 'tmdb') return 'https://www.themoviedb.org/settings/api';
-    return 'https://www.google.com/search?q=tmdb+api+key';
-  };
-
-  const saveIntegrationSection = async (section) => {
-    setIntegrationSaving(true);
-    setIntegrationMessage('');
-    try {
-      const payload = {};
-      if (section === 'barcode') {
-        payload.barcodePreset = integrationForm.barcodePreset;
-        payload.barcodeProvider = integrationForm.barcodeProvider;
-        payload.barcodeApiUrl = integrationForm.barcodeApiUrl;
-        payload.barcodeApiKeyHeader = integrationForm.barcodeApiKeyHeader;
-        payload.barcodeQueryParam = integrationForm.barcodeQueryParam;
-        payload.clearBarcodeApiKey = integrationForm.clearBarcodeApiKey;
-        if (integrationForm.barcodeApiKey) payload.barcodeApiKey = integrationForm.barcodeApiKey;
-      } else if (section === 'vision') {
-        payload.visionPreset = integrationForm.visionPreset;
-        payload.visionProvider = integrationForm.visionProvider;
-        payload.visionApiUrl = integrationForm.visionApiUrl;
-        payload.visionApiKeyHeader = integrationForm.visionApiKeyHeader;
-        payload.clearVisionApiKey = integrationForm.clearVisionApiKey;
-        if (integrationForm.visionApiKey) payload.visionApiKey = integrationForm.visionApiKey;
-      } else {
-        payload.tmdbPreset = integrationForm.tmdbPreset;
-        payload.tmdbProvider = integrationForm.tmdbProvider;
-        payload.tmdbApiUrl = integrationForm.tmdbApiUrl;
-        payload.tmdbApiKeyHeader = integrationForm.tmdbApiKeyHeader;
-        payload.tmdbApiKeyQueryParam = integrationForm.tmdbApiKeyQueryParam;
-        payload.clearTmdbApiKey = integrationForm.clearTmdbApiKey;
-        if (integrationForm.tmdbApiKey) payload.tmdbApiKey = integrationForm.tmdbApiKey;
-      }
-
-      const updated = await apiCall('put', '/admin/settings/integrations', payload);
-      setIntegrationMeta({
-        barcodeApiKeySet: Boolean(updated.barcodeApiKeySet),
-        barcodeApiKeyMasked: updated.barcodeApiKeyMasked || '',
-        visionApiKeySet: Boolean(updated.visionApiKeySet),
-        visionApiKeyMasked: updated.visionApiKeyMasked || '',
-        tmdbApiKeySet: Boolean(updated.tmdbApiKeySet),
-        tmdbApiKeyMasked: updated.tmdbApiKeyMasked || ''
-      });
-      setIntegrationForm((prev) => ({
-        ...prev,
-        barcodeApiKey: section === 'barcode' ? '' : prev.barcodeApiKey,
-        visionApiKey: section === 'vision' ? '' : prev.visionApiKey,
-        tmdbApiKey: section === 'tmdb' ? '' : prev.tmdbApiKey,
-        clearBarcodeApiKey: section === 'barcode' ? false : prev.clearBarcodeApiKey,
-        clearVisionApiKey: section === 'vision' ? false : prev.clearVisionApiKey,
-        clearTmdbApiKey: section === 'tmdb' ? false : prev.clearTmdbApiKey
-      }));
-      setIntegrationStatus({
-        barcode: updated.barcodeApiKeySet ? 'configured' : 'missing',
-        vision: updated.visionApiKeySet ? 'configured' : 'missing',
-        tmdb: updated.tmdbApiKeySet ? 'configured' : 'missing'
-      });
-      setIntegrationMessage(`${section.toUpperCase()} settings saved.`);
-    } catch (error) {
-      setIntegrationMessage(error.response?.data?.error || `Failed to save ${section} settings`);
-    } finally {
-      setIntegrationSaving(false);
-    }
-  };
-
-  const renderStatusBadge = (status) => {
-    const labelMap = {
-      ok: 'Connected',
-      auth_failed: 'Auth Failed',
-      configured: 'Configured',
-      missing: 'Missing Key',
-      error: 'Error',
-      unknown: 'Unknown'
-    };
-    return (
-      <span className={`status-badge ${status || 'unknown'}`}>
-        {labelMap[status] || 'Unknown'}
-      </span>
-    );
-  };
-
-  const isIntegrationConfigured = (section) => {
-    if (section === 'barcode') return integrationMeta.barcodeApiKeySet;
-    if (section === 'vision') return integrationMeta.visionApiKeySet;
-    return integrationMeta.tmdbApiKeySet;
-  };
-
-  const testBarcodeIntegration = async () => {
-    setIntegrationTestLoading('barcode');
-    setIntegrationTestMessage('');
-    try {
-      const result = await apiCall('post', '/admin/settings/integrations/test-barcode', { upc: barcodeTestUpc });
-      setIntegrationStatus((prev) => ({ ...prev, barcode: result.authenticated ? 'ok' : 'auth_failed' }));
-      setIntegrationTestMessage(
-        `Barcode test: ${result.authenticated ? 'OK' : 'AUTH FAILED'} (status ${result.status}) - ${result.detail}`
-      );
-    } catch (error) {
-      setIntegrationStatus((prev) => ({ ...prev, barcode: 'error' }));
-      setIntegrationTestMessage(error.response?.data?.detail || error.response?.data?.error || 'Barcode test failed');
-    } finally {
-      setIntegrationTestLoading('');
-    }
-  };
-
-  const testVisionIntegration = async () => {
-    setIntegrationTestLoading('vision');
-    setIntegrationTestMessage('');
-    try {
-      const result = await apiCall('post', '/admin/settings/integrations/test-vision', { imageUrl: visionTestImageUrl });
-      setIntegrationStatus((prev) => ({ ...prev, vision: result.authenticated ? 'ok' : 'auth_failed' }));
-      setIntegrationTestMessage(
-        `Vision test: ${result.authenticated ? 'OK' : 'AUTH FAILED'} (status ${result.status}) - ${result.detail}`
-      );
-    } catch (error) {
-      setIntegrationStatus((prev) => ({ ...prev, vision: 'error' }));
-      setIntegrationTestMessage(error.response?.data?.detail || error.response?.data?.error || 'Vision test failed');
-    } finally {
-      setIntegrationTestLoading('');
-    }
-  };
-
-  const testTmdbIntegration = async () => {
-    setIntegrationTestLoading('tmdb');
-    setIntegrationTestMessage('');
-    try {
-      const result = await apiCall('post', '/admin/settings/integrations/test-tmdb', {
-        title: tmdbTestTitle,
-        year: tmdbTestYear
-      });
-      setIntegrationStatus((prev) => ({ ...prev, tmdb: result.authenticated ? 'ok' : 'auth_failed' }));
-      setIntegrationTestMessage(
-        `TMDB test: ${result.authenticated ? 'OK' : 'AUTH FAILED'} (status ${result.status}) - ${result.detail}`
-      );
-    } catch (error) {
-      setIntegrationStatus((prev) => ({ ...prev, tmdb: 'error' }));
-      setIntegrationTestMessage(error.response?.data?.detail || error.response?.data?.error || 'TMDB test failed');
-    } finally {
-      setIntegrationTestLoading('');
-    }
-  };
-
-  if (route !== 'dashboard') {
-    return (
-      <div className="app-shell">
-        <div className="card auth-card">
-          <h1>MediaVault</h1>
-          <p className="subtitle">{pageTitle}</p>
-          <div className="tabs">
-            <button type="button" className={route === 'login' ? 'active' : ''} onClick={() => navigate('login')}>
-              Login
-            </button>
-            <button type="button" className={route === 'register' ? 'active' : ''} onClick={() => navigate('register')}>
-              Register
-            </button>
+      <div className="flex-1 overflow-y-auto scroll-area">
+        {/* Preview poster + mode selector */}
+        <div className="p-6 flex gap-6">
+          {/* Poster preview */}
+          <div className="w-28 shrink-0">
+            <div className="poster rounded-md shadow-card">
+              {posterUrl(form.poster_path)
+                ? <img src={posterUrl(form.poster_path)} alt="poster" className="absolute inset-0 w-full h-full object-cover" />
+                : <div className="absolute inset-0 flex items-center justify-center text-ghost"><Icons.Film /></div>
+              }
+            </div>
           </div>
-          <form onSubmit={submitAuth}>
-            {route === 'register' && (
-              <label>
-                Name
-                <input value={authName} onChange={(event) => setAuthName(event.target.value)} required />
-              </label>
-            )}
-            <label>
-              Email
-              <input type="email" value={authEmail} onChange={(event) => setAuthEmail(event.target.value)} required />
-            </label>
-            <label>
-              Password
-              <input type="password" value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} required />
-            </label>
-            {route === 'register' && (
-              <label>
-                Invite token
-                <input
-                  value={authInviteToken}
-                  onChange={(event) => setAuthInviteToken(event.target.value)}
-                  placeholder="Required after initial bootstrap user"
-                />
-              </label>
-            )}
-            <button className="primary" type="submit" disabled={authLoading}>
-              {authLoading ? 'Working...' : route === 'register' ? 'Create account' : 'Sign in'}
-            </button>
-          </form>
-          {authError && <p className="message error">{authError}</p>}
-          {authSuccess && <p className="message success">{authSuccess}</p>}
+
+          {/* Mode tabs + core title/format row */}
+          <div className="flex-1 space-y-4">
+            <div className="tab-strip">
+              {['title','upc','cover'].map(m => (
+                <button key={m} className={cx('tab flex-1 capitalize', addMode === m && 'active')} onClick={() => setAddMode(m)}>
+                  {m === 'title' ? 'Title Search' : m === 'upc' ? 'Barcode' : 'Cover OCR'}
+                </button>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <LabeledField label="Format" className="col-span-1">
+                <select className="select" value={form.format} onChange={e => set({ format: e.target.value })}>
+                  {MEDIA_FORMATS.map(f => <option key={f}>{f}</option>)}
+                </select>
+              </LabeledField>
+              <LabeledField label="Year" className="col-span-1">
+                <input className="input" placeholder="2024" value={form.year} onChange={e => set({ year: e.target.value })} inputMode="numeric" />
+              </LabeledField>
+            </div>
+          </div>
         </div>
+
+        <div className="px-6 space-y-5 pb-32">
+          {/* Title + search */}
+          <LabeledField label="Title *">
+            <div className="flex gap-2">
+              <input className="input flex-1" placeholder="Movie title" value={form.title} onChange={e => set({ title: e.target.value })} required />
+              {addMode === 'title' && (
+                <button type="button" onClick={searchTmdb} disabled={tmdbLoading} className="btn-secondary btn-sm shrink-0 min-w-[100px]">
+                  {tmdbLoading ? <Spinner size={14} /> : <><Icons.Search />Search</>}
+                </button>
+              )}
+            </div>
+          </LabeledField>
+
+          {/* Mode-specific controls */}
+          {addMode === 'upc' && (
+            <LabeledField label="UPC / Barcode">
+              <div className="flex gap-2">
+                <input className="input flex-1 font-mono" placeholder="012345678901" value={form.upc} onChange={e => set({ upc: e.target.value })} />
+                <button type="button" onClick={lookupBarcode} disabled={barcodeLoading} className="btn-secondary btn-sm shrink-0 min-w-[100px]">
+                  {barcodeLoading ? <Spinner size={14} /> : <><Icons.Barcode />Lookup</>}
+                </button>
+              </div>
+            </LabeledField>
+          )}
+
+          {addMode === 'cover' && (
+            <div className="space-y-2">
+              <label className="label">Cover Image</label>
+              <input type="file" accept="image/*" onChange={e => setCoverFile(e.target.files?.[0] || null)}
+                className="block w-full text-sm text-ghost file:btn-secondary file:btn-sm file:border-0 file:mr-3" />
+              <div className="flex gap-2">
+                <button type="button" onClick={uploadCover} disabled={!coverFile} className="btn-secondary btn-sm"><Icons.Upload />Upload cover</button>
+                <button type="button" onClick={recognizeCover} disabled={!coverFile || visionLoading} className="btn-secondary btn-sm">
+                  {visionLoading ? <Spinner size={14} /> : <><Icons.Eye />Recognize cover</>}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* TMDB / barcode results */}
+          {allTmdbMatches.length > 0 && (
+            <div className="space-y-2">
+              <p className="label">TMDB Matches — click to apply</p>
+              <div className="space-y-1.5 max-h-52 overflow-y-auto scroll-area pr-1">
+                {allTmdbMatches.slice(0,8).map(r => (
+                  <button key={r.id} type="button" onClick={() => applyTmdb(r)}
+                    className="w-full flex items-center gap-3 p-2.5 rounded-lg bg-raised border border-edge hover:border-gold/40 hover:bg-gold/5 transition-all text-left group">
+                    {r.poster_path && <img src={`https://image.tmdb.org/t/p/w92${r.poster_path}`} alt="" className="w-8 h-12 object-cover rounded shrink-0" />}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-ink truncate">{r.title}</p>
+                      <p className="text-xs text-ghost">{(r.release_date || '').slice(0,4) || 'n/a'}</p>
+                    </div>
+                    <span className="text-xs text-gold opacity-0 group-hover:opacity-100 shrink-0">Apply →</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {barcodeResults.length > 0 && (
+            <div className="space-y-2">
+              <p className="label">Barcode Matches — click to apply</p>
+              <div className="space-y-1.5 max-h-40 overflow-y-auto scroll-area pr-1">
+                {barcodeResults.map((m,i) => (
+                  <button key={i} type="button" onClick={() => applyBarcode(m)}
+                    className="w-full flex items-center gap-3 p-2.5 rounded-lg bg-raised border border-edge hover:border-gold/40 hover:bg-gold/5 transition-all text-left group">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-ink truncate">{m.tmdb?.title || m.title || 'Unknown'}</p>
+                      <p className="text-xs text-ghost">{m.description || ''}</p>
+                    </div>
+                    <span className="text-xs text-gold opacity-0 group-hover:opacity-100 shrink-0">Apply →</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Core metadata */}
+          <div className="grid grid-cols-2 gap-3">
+            <LabeledField label="Original Title" className="col-span-2">
+              <input className="input" value={form.original_title} onChange={e => set({ original_title: e.target.value })} />
+            </LabeledField>
+            <LabeledField label="Director">
+              <input className="input" value={form.director} onChange={e => set({ director: e.target.value })} />
+            </LabeledField>
+            <LabeledField label="Genre">
+              <input className="input" placeholder="Action, Drama…" value={form.genre} onChange={e => set({ genre: e.target.value })} />
+            </LabeledField>
+            <LabeledField label="Release Date">
+              <input className="input" type="date" value={form.release_date} onChange={e => set({ release_date: e.target.value })} />
+            </LabeledField>
+            <LabeledField label="Runtime (min)">
+              <input className="input" inputMode="numeric" value={form.runtime} onChange={e => set({ runtime: e.target.value })} />
+            </LabeledField>
+            <LabeledField label="TMDB Rating">
+              <input className="input" inputMode="decimal" placeholder="0.0 – 10.0" value={form.rating} onChange={e => set({ rating: e.target.value })} />
+            </LabeledField>
+            {addMode !== 'upc' && (
+              <LabeledField label="UPC">
+                <input className="input font-mono" value={form.upc} onChange={e => set({ upc: e.target.value })} />
+              </LabeledField>
+            )}
+          </div>
+
+          <LabeledField label="Your Rating">
+            <StarRating value={form.user_rating || 0} onChange={v => set({ user_rating: v })} />
+          </LabeledField>
+
+          <LabeledField label="Storage Location">
+            <input className="input" placeholder="Shelf A3, Box 2…" value={form.location} onChange={e => set({ location: e.target.value })} />
+          </LabeledField>
+
+          <LabeledField label="Overview">
+            <textarea className="textarea" rows={3} value={form.overview} onChange={e => set({ overview: e.target.value })} />
+          </LabeledField>
+
+          <LabeledField label="Notes">
+            <textarea className="textarea" rows={2} value={form.notes} onChange={e => set({ notes: e.target.value })} />
+          </LabeledField>
+
+          {/* Collapsed advanced fields */}
+          <details className="group">
+            <summary className="cursor-pointer text-xs text-ghost hover:text-dim list-none flex items-center gap-2 select-none">
+              <span className="transition-transform group-open:rotate-90"><Icons.ChevronRight /></span>
+              Advanced (TMDB links, poster path)
+            </summary>
+            <div className="mt-3 grid grid-cols-1 gap-3">
+              <LabeledField label="TMDB ID"><input className="input font-mono" value={form.tmdb_id} onChange={e => set({ tmdb_id: e.target.value })} /></LabeledField>
+              <LabeledField label="TMDB URL"><input className="input" value={form.tmdb_url} onChange={e => set({ tmdb_url: e.target.value })} /></LabeledField>
+              <LabeledField label="Trailer URL"><input className="input" value={form.trailer_url} onChange={e => set({ trailer_url: e.target.value })} /></LabeledField>
+              <LabeledField label="Poster Path"><input className="input" value={form.poster_path} onChange={e => set({ poster_path: e.target.value })} /></LabeledField>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      {/* Sticky action bar */}
+      <div className="shrink-0 border-t border-edge bg-abyss px-6 py-4 flex items-center gap-3">
+        {msg && (
+          <span className={cx('text-sm flex-1', msgType === 'error' ? 'text-err' : 'text-ok')}>{msg}</span>
+        )}
+        <div className="flex gap-3 ml-auto">
+          <button type="button" onClick={onCancel} className="btn-secondary">Cancel</button>
+          <button type="button" onClick={submit} disabled={saving} className="btn-primary min-w-[100px]">
+            {saving ? <Spinner size={16} /> : 'Save'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Library view ─────────────────────────────────────────────────────────────
+
+function LibraryView({ mediaItems, loading, error, onRefresh, onOpen, onEdit, onDelete, onRating, apiCall }) {
+  const [search, setSearch]     = useState('');
+  const [format, setFormat]     = useState('all');
+  const [viewMode, setViewMode] = useState('cards');
+  const [adding, setAdding]     = useState(false);
+  const [editing, setEditing]   = useState(null);
+  const [detail, setDetail]     = useState(null);
+
+  const filtered = useMemo(() => {
+    let items = mediaItems;
+    if (format !== 'all') items = items.filter(i => i.format === format);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      items = items.filter(i => i.title?.toLowerCase().includes(q) || i.director?.toLowerCase().includes(q));
+    }
+    return items;
+  }, [mediaItems, format, search]);
+
+  if (adding || editing) {
+    const isEdit = Boolean(editing);
+    return (
+      <div className="h-full flex flex-col">
+        <MediaForm
+          title={isEdit ? 'Edit Media' : 'Add to Library'}
+          initial={isEdit ? {
+            ...DEFAULT_MEDIA_FORM, ...editing,
+            release_date: editing.release_date ? String(editing.release_date).slice(0,10) : '',
+          } : DEFAULT_MEDIA_FORM}
+          apiCall={apiCall}
+          onCancel={() => { setAdding(false); setEditing(null); }}
+          onDelete={isEdit ? () => { onDelete(editing.id); setEditing(null); } : undefined}
+          onSave={async payload => {
+            if (isEdit) { await onEdit(editing.id, payload); setEditing(null); }
+            else { await onOpen(payload); setAdding(false); }
+          }}
+        />
       </div>
     );
   }
 
   return (
-    <div className={`dashboard-shell ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
-      {isMobileNav && sidebarOpen && (
-        <button type="button" className="sidebar-backdrop" aria-label="Close navigation" onClick={() => setSidebarOpen(false)} />
-      )}
-
-      <aside className={`sidebar card ${sidebarOpen ? 'open' : ''}`}>
-        <div className="sidebar-header">
-          <div className="logo-mark">MV</div>
-          <div className="logo-block">
-            <span className="logo-text">MediaVault</span>
-            <span className="logo-version">{APP_BUILD_LABEL}</span>
+    <div className="flex flex-col h-full">
+      {/* Toolbar */}
+      <div className="px-6 py-4 border-b border-edge shrink-0">
+        <div className="flex items-center gap-3 flex-wrap">
+          <h1 className="section-title">Library</h1>
+          <span className="badge badge-dim ml-1">{filtered.length}</span>
+          <div className="flex-1" />
+          {/* Search */}
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ghost pointer-events-none"><Icons.Search /></span>
+            <input className="input pl-9 w-56" placeholder="Search title, director…"
+              value={search} onChange={e => setSearch(e.target.value)} />
           </div>
-          {isMobileNav && (
-            <button type="button" className="sidebar-close-btn" onClick={() => setSidebarOpen(false)} aria-label="Close navigation">
-              <ChevronRight className="close-icon" />
+          {/* Format filter */}
+          <select className="select w-36" value={format} onChange={e => setFormat(e.target.value)}>
+            <option value="all">All formats</option>
+            {MEDIA_FORMATS.map(f => <option key={f} value={f}>{f}</option>)}
+          </select>
+          {/* View toggle */}
+          <div className="tab-strip">
+            <button className={cx('tab', viewMode === 'cards' && 'active')} onClick={() => setViewMode('cards')}>
+              <Icons.Film />
             </button>
-          )}
+            <button className={cx('tab', viewMode === 'list' && 'active')} onClick={() => setViewMode('list')}>
+              <Icons.Activity />
+            </button>
+          </div>
+          <button onClick={onRefresh} className="btn-icon" title="Refresh"><Icons.Refresh /></button>
+          <button onClick={() => setAdding(true)} className="btn-primary">
+            <Icons.Plus />Add
+          </button>
         </div>
+      </div>
 
-        <nav className="sidebar-nav">
-          <div className="nav-item-wrapper">
-            <button type="button" className={`nav-item ${isLibraryTab ? 'active' : ''}`} onClick={() => selectTab('library')}>
-              <span className="nav-icon"><LibraryIcon /></span>
-              <span className="nav-label">Library</span>
-            </button>
-            {sidebarCollapsed && !isMobileNav && <div className="tooltip">Library</div>}
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto scroll-area p-6">
+        {error && <p className="text-sm text-err mb-4">{error}</p>}
+        {loading && (
+          <div className="flex items-center justify-center py-20"><Spinner size={32} /></div>
+        )}
+        {!loading && filtered.length === 0 && (
+          <EmptyState
+            icon={<Icons.Film />}
+            title="No items found"
+            subtitle={search || format !== 'all' ? 'Try adjusting your filters' : 'Add your first title to get started'}
+            action={!search && format === 'all' && <button onClick={() => setAdding(true)} className="btn-primary"><Icons.Plus />Add Media</button>}
+          />
+        )}
+        {!loading && viewMode === 'cards' && filtered.length > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+            {filtered.map(item => (
+              <MediaCard key={item.id} item={item}
+                onOpen={() => setDetail(item)}
+                onEdit={() => setEditing(item)}
+                onDelete={id => { if (window.confirm('Delete this item?')) onDelete(id); }}
+              />
+            ))}
           </div>
-
-          {isAdmin && (
-            <div className="nav-item-wrapper">
-              <button
-                type="button"
-                className={`nav-item ${isAdminSubtab ? 'active' : ''}`}
-                onClick={() => {
-                  if (sidebarCollapsed && !isMobileNav) {
-                    setSidebarCollapsed(false);
-                    setAdminMenuOpen(true);
-                  } else {
-                    setAdminMenuOpen((prev) => !prev);
-                  }
-                }}
-              >
-                <span className="nav-icon"><AdminIcon /></span>
-                <span className="nav-label">Admin Settings</span>
-                <span className={`chevron ${adminMenuOpen ? 'open' : ''}`}>
-                  <ChevronRight />
-                </span>
-              </button>
-              {sidebarCollapsed && !isMobileNav && <div className="tooltip">Admin Settings</div>}
-              <div className={`sub-nav ${adminMenuOpen && !sidebarCollapsed ? 'open' : ''}`}>
-                <div className="sub-nav-inner">
-                  <button type="button" className={`sub-item ${activeTab === 'admin-integrations' ? 'active' : ''}`} onClick={() => selectTab('admin-integrations')}>
-                    <span className="sub-icon"><IntegrationsIcon /></span>
-                    Integrations
-                  </button>
-                  <button type="button" className={`sub-item ${activeTab === 'admin-settings' ? 'active' : ''}`} onClick={() => selectTab('admin-settings')}>
-                    <span className="sub-icon"><SettingsIcon /></span>
-                    Settings
-                  </button>
-                  <button type="button" className={`sub-item ${activeTab === 'admin-users' ? 'active' : ''}`} onClick={() => selectTab('admin-users')}>
-                    <span className="sub-icon"><UsersIcon /></span>
-                    Users
-                  </button>
-                  <button type="button" className={`sub-item ${activeTab === 'admin-activity' ? 'active' : ''}`} onClick={() => selectTab('admin-activity')}>
-                    <span className="sub-icon"><ActivityIcon /></span>
-                    Activity
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="nav-item-wrapper">
-            <button type="button" className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => selectTab('profile')}>
-              <span className="nav-icon"><ProfileIcon /></span>
-              <span className="nav-label">Profile</span>
-            </button>
-            {sidebarCollapsed && !isMobileNav && <div className="tooltip">Profile</div>}
+        )}
+        {!loading && viewMode === 'list' && filtered.length > 0 && (
+          <div className="space-y-2">
+            {filtered.map(item => (
+              <MediaListRow key={item.id} item={item}
+                onOpen={() => setDetail(item)}
+                onEdit={() => setEditing(item)}
+                onDelete={id => { if (window.confirm('Delete this item?')) onDelete(id); }}
+              />
+            ))}
           </div>
-        </nav>
+        )}
+      </div>
 
-        <div className="sidebar-footer">
-          {!isMobileNav && (
-            <button type="button" className="toggle-btn" onClick={() => setSidebarCollapsed((prev) => !prev)}>
-              <span className="toggle-icon"><MenuToggle collapsed={sidebarCollapsed} /></span>
-              <span className="toggle-label">{sidebarCollapsed ? 'Expand' : 'Collapse'}</span>
-            </button>
-          )}
-        </div>
-      </aside>
-
-      <main className="dashboard-main">
-        <header className="topbar card">
-          <div className="topbar-title">
-            {isMobileNav && (
-              <button type="button" className="hamburger-btn" aria-label="Open navigation" onClick={() => setSidebarOpen(true)}>
-                <MenuToggle collapsed />
-              </button>
-            )}
-            <div>
-              <h1>MediaVault</h1>
-              <p className="subtitle">{user?.name} ({user?.role})</p>
-            </div>
-          </div>
-          <div className="topbar-actions">
-            <button type="button" className="secondary" onClick={loadMedia}>Refresh</button>
-            <button type="button" className="secondary" onClick={logout}>Logout</button>
-          </div>
-        </header>
-
-      {activeTab === 'library' && (
-        <section className="card section">
-          {editingItem && editForm ? (
-            <div className="media-edit-screen">
-              <div className="section-head">
-                <h2>Edit Media</h2>
-              </div>
-              <p className="subtitle">{editingItem.title}</p>
-              <div className="media-edit-layout">
-                <div className="media-edit-poster">
-                  {posterUrl(editingItem.poster_path) ? (
-                    <img className="media-image" src={posterUrl(editingItem.poster_path)} alt={editingItem.title} />
-                  ) : (
-                    <div className="media-placeholder">No cover</div>
-                  )}
-                </div>
-                <form className="media-edit-form" onSubmit={(event) => { event.preventDefault(); saveEditMedia(editingItem.id); }}>
-                  <div className="media-edit-row row-1">
-                    <label>
-                      Title
-                      <input value={editForm.title} onChange={(event) => setEditForm((prev) => ({ ...prev, title: event.target.value }))} />
-                    </label>
-                    <label>
-                      Year
-                      <input value={editForm.year} onChange={(event) => setEditForm((prev) => ({ ...prev, year: event.target.value }))} inputMode="numeric" />
-                    </label>
-                    <label>
-                      Format
-                      <select value={editForm.format} onChange={(event) => setEditForm((prev) => ({ ...prev, format: event.target.value }))}>
-                        {MEDIA_FORMATS.map((format) => (
-                          <option key={format} value={format}>{format}</option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
-                  <div className="media-edit-row row-2">
-                    <label>
-                      Director
-                      <input value={editForm.director} onChange={(event) => setEditForm((prev) => ({ ...prev, director: event.target.value }))} />
-                    </label>
-                    <label>
-                      Genre
-                      <input value={editForm.genre} onChange={(event) => setEditForm((prev) => ({ ...prev, genre: event.target.value }))} />
-                    </label>
-                    <label>
-                      Rating
-                      <input value={editForm.rating} onChange={(event) => setEditForm((prev) => ({ ...prev, rating: event.target.value }))} />
-                    </label>
-                    <label>
-                      Runtime
-                      <input value={editForm.runtime} onChange={(event) => setEditForm((prev) => ({ ...prev, runtime: event.target.value }))} inputMode="numeric" />
-                    </label>
-                  </div>
-                  <div className="media-edit-row row-full">
-                    <label>
-                      Your rating
-                      <StarRating value={editForm.user_rating || 0} onChange={(next) => setEditForm((prev) => ({ ...prev, user_rating: next }))} />
-                    </label>
-                  </div>
-                  <div className="media-edit-row row-full">
-                    <label>
-                      Location
-                      <input value={editForm.location} onChange={(event) => setEditForm((prev) => ({ ...prev, location: event.target.value }))} />
-                    </label>
-                  </div>
-                  <div className="media-edit-row row-full">
-                    <label>
-                      Notes
-                      <textarea rows="4" value={editForm.notes} onChange={(event) => setEditForm((prev) => ({ ...prev, notes: event.target.value }))} />
-                    </label>
-                  </div>
-                  <div className="media-edit-actions">
-                    <button type="submit" className="primary small" disabled={editSaving}>
-                      {editSaving ? 'Saving...' : 'Save'}
-                    </button>
-                    <button type="button" className="secondary small" onClick={cancelEditMedia}>Cancel</button>
-                    <button type="button" className="danger small" onClick={deleteFromEditScreen}>Delete</button>
-                  </div>
-                </form>
-              </div>
-              {editMessage && <p className="message success">{editMessage}</p>}
-            </div>
-          ) : detailMedia ? (
-            <div className="media-detail-screen">
-              <div className="section-head">
-                <h2>{detailMedia.title}</h2>
-                <button type="button" className="secondary small" onClick={() => setDetailMediaId(null)}>
-                  Back to library
-                </button>
-              </div>
-              <div className="media-detail-layout">
-                <div className="media-detail-poster">
-                  {posterUrl(detailMedia.poster_path) ? (
-                    <img className="media-image" src={posterUrl(detailMedia.poster_path)} alt={detailMedia.title} />
-                  ) : (
-                    <div className="media-placeholder">No cover</div>
-                  )}
-                </div>
-                <div className="media-detail-content">
-                  <div className="media-detail-grid">
-                    <div><strong>TMDB ID:</strong> {detailMedia.tmdb_id || 'n/a'}</div>
-                    <div><strong>Title:</strong> {detailMedia.title || 'n/a'}</div>
-                    <div><strong>Original title:</strong> {detailMedia.original_title || 'n/a'}</div>
-                    <div><strong>Release date:</strong> {detailMedia.release_date ? String(detailMedia.release_date).slice(0, 10) : 'n/a'}</div>
-                    <div><strong>Genres:</strong> {detailMedia.genre || 'n/a'}</div>
-                    <div><strong>TMDB rating:</strong> {detailMedia.rating ?? 'n/a'}</div>
-                    <div className="full">
-                      <strong>TMDB page:</strong>{' '}
-                      {detailMedia.tmdb_url ? (
-                        <a href={detailMedia.tmdb_url} target="_blank" rel="noreferrer">Open on TMDB</a>
-                      ) : (
-                        'n/a'
-                      )}
-                    </div>
-                    <div className="full">
-                      <strong>Trailer:</strong>{' '}
-                      {detailMedia.trailer_url ? (
-                        <a href={detailMedia.trailer_url} target="_blank" rel="noreferrer">Watch trailer</a>
-                      ) : (
-                        'n/a'
-                      )}
-                    </div>
-                  </div>
-                  <div className="media-detail-overview">
-                    <strong>Overview</strong>
-                    <p>{detailMedia.overview || 'No overview available.'}</p>
-                  </div>
-                  {posterUrl(detailMedia.backdrop_path) && (
-                    <div className="media-detail-backdrop">
-                      <strong>Backdrop</strong>
-                      <img className="media-image" src={posterUrl(detailMedia.backdrop_path)} alt={`${detailMedia.title} backdrop`} />
-                    </div>
-                  )}
-                  <div className="media-detail-user-rating">
-                    <strong>Your rating</strong>
-                    <StarRating value={detailMedia.user_rating || 0} onChange={(next) => updateMediaUserRating(detailMedia.id, next)} />
-                  </div>
-                </div>
-              </div>
-              <div className="inline-controls">
-                <button type="button" className="secondary small" onClick={() => startEditMedia(detailMedia)}>Edit</button>
-                <button type="button" className="danger small" onClick={() => confirmDeleteFromLibrary(detailMedia.id)}>Delete</button>
-              </div>
-            </div>
-          ) : (
-            <>
-              <div className="section-head library-head">
-                <div className="library-title-group">
-                  <h2>Library</h2>
-                </div>
-              </div>
-              <div className="inline-controls library-search-controls">
-                <input
-                  placeholder="Search title/director"
-                  value={librarySearch}
-                  onChange={(event) => setLibrarySearch(event.target.value)}
-                />
-                <button type="button" className="primary small" onClick={loadMedia}>Apply</button>
-                <select value={libraryFormat} onChange={(event) => setLibraryFormat(event.target.value)}>
-                  <option value="all">All formats</option>
-                  {MEDIA_FORMATS.map((format) => (
-                    <option key={format} value={format}>{format}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="inline-controls library-view-controls">
-                <div className="tabs inline library-view-toggle">
-                  <button
-                    type="button"
-                    className={libraryViewMode === 'cards' ? 'active' : ''}
-                    onClick={() => setLibraryViewMode('cards')}
-                  >
-                    Cards
-                  </button>
-                  <button
-                    type="button"
-                    className={libraryViewMode === 'list' ? 'active' : ''}
-                    onClick={() => setLibraryViewMode('list')}
-                  >
-                    List
-                  </button>
-                </div>
-                <button type="button" className="secondary small" onClick={() => setActiveTab('library-add')}>
-                  Add media
-                </button>
-              </div>
-              {mediaError && <p className="message error">{mediaError}</p>}
-              {mediaLoading ? (
-                <p>Loading media...</p>
-              ) : libraryViewMode === 'cards' ? (
-                <div className="media-grid">
-                  {mediaItems.length === 0 && <p>No media records found.</p>}
-                  {mediaItems.map((item) => (
-                    <article
-                      key={item.id}
-                      className="media-card"
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => setDetailMediaId(item.id)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                          event.preventDefault();
-                          setDetailMediaId(item.id);
-                        }
-                      }}
-                    >
-                      <div className="media-image-wrap">
-                        {posterUrl(item.poster_path) ? (
-                          <img className="media-image" src={posterUrl(item.poster_path)} alt={item.title} />
-                        ) : (
-                          <div className="media-placeholder">No cover</div>
-                        )}
-                      </div>
-                      <div className="media-details">
-                        <h3>{item.title}</h3>
-                        <p>{item.year || 'Unknown year'} • {item.format || 'Unknown format'}</p>
-                        {item.director && <p>Director: {item.director}</p>}
-                        {item.upc && <p>UPC: {item.upc}</p>}
-                        {item.location && <p>Location: {item.location}</p>}
-                        {item.notes && <p>Notes: {item.notes}</p>}
-                      </div>
-                      <div className="inline-controls">
-                        <button
-                          type="button"
-                          className="secondary small"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            startEditMedia(item);
-                          }}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          className="danger small"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            confirmDeleteFromLibrary(item.id);
-                          }}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              ) : (
-                <div className="media-list">
-                  {mediaItems.length === 0 && <p>No media records found.</p>}
-                  {mediaItems.map((item) => (
-                    <article
-                      key={item.id}
-                      className="media-list-row"
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => setDetailMediaId(item.id)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                          event.preventDefault();
-                          setDetailMediaId(item.id);
-                        }
-                      }}
-                    >
-                      <div className="media-list-poster">
-                        {posterUrl(item.poster_path) ? (
-                          <img className="media-image" src={posterUrl(item.poster_path)} alt={item.title} />
-                        ) : (
-                          <div className="media-placeholder">No cover</div>
-                        )}
-                      </div>
-                      <div className="media-list-meta">
-                        <h3>{item.title}</h3>
-                        <p>{item.year || 'Unknown year'}</p>
-                        <p>{item.format || 'Unknown format'}</p>
-                      </div>
-                      <div className="inline-controls">
-                        <button
-                          type="button"
-                          className="secondary small"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            startEditMedia(item);
-                          }}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          className="danger small"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            confirmDeleteFromLibrary(item.id);
-                          }}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-        </section>
+      {/* Detail drawer */}
+      {detail && (
+        <MediaDetail item={detail} onClose={() => setDetail(null)}
+          onEdit={item => { setDetail(null); setEditing(item); }}
+          onDelete={id => { onDelete(id); setDetail(null); }}
+          onRating={onRating}
+        />
       )}
-
-      {activeTab === 'library-add' && (
-        <section className="card section">
-          <div className="section-head">
-            <h2>Add Media</h2>
-            <button type="button" className="secondary small" onClick={() => setActiveTab('library')}>
-              Back to library
-            </button>
-          </div>
-          <p className="subtitle">Add by title/year, UPC scan input, or cover upload + metadata.</p>
-          <div className="tabs inline">
-            <button type="button" className={addMode === 'title' ? 'active' : ''} onClick={() => setAddMode('title')}>Title/Year</button>
-            <button type="button" className={addMode === 'upc' ? 'active' : ''} onClick={() => setAddMode('upc')}>UPC</button>
-            <button type="button" className={addMode === 'cover' ? 'active' : ''} onClick={() => setAddMode('cover')}>Cover Upload</button>
-          </div>
-
-          <form onSubmit={submitMedia} className="form-grid">
-            <label>
-              Title
-              <input
-                value={mediaForm.title}
-                onChange={(event) => setMediaForm((prev) => ({ ...prev, title: event.target.value }))}
-                required
-              />
-            </label>
-            <label>
-              Original title
-              <input
-                value={mediaForm.original_title}
-                onChange={(event) => setMediaForm((prev) => ({ ...prev, original_title: event.target.value }))}
-              />
-            </label>
-            <label>
-              Release date
-              <input
-                type="date"
-                value={mediaForm.release_date}
-                onChange={(event) => setMediaForm((prev) => ({ ...prev, release_date: event.target.value }))}
-              />
-            </label>
-            <label>
-              Release year
-              <input
-                value={mediaForm.year}
-                onChange={(event) => setMediaForm((prev) => ({ ...prev, year: event.target.value }))}
-                inputMode="numeric"
-              />
-            </label>
-            <label>
-              Format
-              <select
-                value={mediaForm.format}
-                onChange={(event) => setMediaForm((prev) => ({ ...prev, format: event.target.value }))}
-              >
-                {MEDIA_FORMATS.map((format) => (
-                  <option key={format} value={format}>{format}</option>
-                ))}
-              </select>
-            </label>
-            {(addMode === 'upc' || addMode === 'cover') && (
-              <label>
-                UPC
-                <input
-                  value={mediaForm.upc}
-                  onChange={(event) => setMediaForm((prev) => ({ ...prev, upc: event.target.value }))}
-                  placeholder="Scanner-friendly input field"
-                />
-              </label>
-            )}
-            {addMode === 'upc' && (
-              <button type="button" className="secondary small" onClick={lookupUpc} disabled={barcodeLookupLoading}>
-                {barcodeLookupLoading ? 'Looking up UPC...' : 'Lookup UPC'}
-              </button>
-            )}
-            {addMode === 'cover' && (
-              <label>
-                Cover image
-                <input type="file" accept="image/*" onChange={(event) => setCoverFile(event.target.files?.[0] || null)} />
-              </label>
-            )}
-            {addMode === 'cover' && (
-              <div className="inline-controls">
-                <button type="button" className="secondary small" onClick={uploadCover} disabled={!coverFile}>
-                  Upload cover
-                </button>
-                <button type="button" className="secondary small" onClick={recognizeCover} disabled={!coverFile || visionLoading}>
-                  {visionLoading ? 'Recognizing...' : 'Recognize cover'}
-                </button>
-              </div>
-            )}
-            {coverUploadMessage && <p className="message success">{coverUploadMessage}</p>}
-            {barcodeLookupMessage && <p className="message success">{barcodeLookupMessage}</p>}
-            {visionMessage && <p className="message success">{visionMessage}</p>}
-
-            <label>
-              Genres
-              <input
-                value={mediaForm.genre}
-                onChange={(event) => setMediaForm((prev) => ({ ...prev, genre: event.target.value }))}
-              />
-            </label>
-            <label>
-              Director
-              <input
-                value={mediaForm.director}
-                onChange={(event) => setMediaForm((prev) => ({ ...prev, director: event.target.value }))}
-              />
-            </label>
-            <label>
-              TMDB rating
-              <input
-                value={mediaForm.rating}
-                onChange={(event) => setMediaForm((prev) => ({ ...prev, rating: event.target.value }))}
-                inputMode="decimal"
-              />
-            </label>
-            <label className="full">
-              Your rating
-              <StarRating value={mediaForm.user_rating || 0} onChange={(next) => setMediaForm((prev) => ({ ...prev, user_rating: next }))} />
-            </label>
-            <label>
-              Runtime (min)
-              <input
-                value={mediaForm.runtime}
-                onChange={(event) => setMediaForm((prev) => ({ ...prev, runtime: event.target.value }))}
-                inputMode="numeric"
-              />
-            </label>
-            <label>
-              Storage location
-              <input
-                value={mediaForm.location}
-                onChange={(event) => setMediaForm((prev) => ({ ...prev, location: event.target.value }))}
-              />
-            </label>
-            <label className="full">
-              Notes
-              <textarea
-                rows="3"
-                value={mediaForm.notes}
-                onChange={(event) => setMediaForm((prev) => ({ ...prev, notes: event.target.value }))}
-              />
-            </label>
-            <label className="full">
-              TMDB ID
-              <input
-                value={mediaForm.tmdb_id}
-                onChange={(event) => setMediaForm((prev) => ({ ...prev, tmdb_id: event.target.value }))}
-              />
-            </label>
-            <label className="full">
-              TMDB link
-              <input
-                value={mediaForm.tmdb_url}
-                onChange={(event) => setMediaForm((prev) => ({ ...prev, tmdb_url: event.target.value }))}
-              />
-            </label>
-            <label className="full">
-              Trailer link
-              <input
-                value={mediaForm.trailer_url}
-                onChange={(event) => setMediaForm((prev) => ({ ...prev, trailer_url: event.target.value }))}
-              />
-            </label>
-            <label className="full">
-              Overview
-              <textarea
-                rows="3"
-                value={mediaForm.overview}
-                onChange={(event) => setMediaForm((prev) => ({ ...prev, overview: event.target.value }))}
-              />
-            </label>
-            <div className="inline-controls full">
-              <button type="button" className="secondary small" onClick={searchTmdb} disabled={tmdbLoading}>
-                {tmdbLoading ? 'Searching TMDB...' : 'Search TMDB'}
-              </button>
-              <button className="primary small" type="submit" disabled={mediaSubmitting}>
-                {mediaSubmitting ? 'Saving...' : 'Save media'}
-              </button>
-            </div>
-          </form>
-
-          {mediaSubmitMessage && <p className="message success">{mediaSubmitMessage}</p>}
-          {tmdbDetailLoading && <p className="message success">Loading TMDB details...</p>}
-
-          {barcodeLookupResults.length > 0 && (
-            <div className="tmdb-results">
-              <h3>UPC matches</h3>
-              {barcodeLookupResults.map((match, index) => (
-                <button type="button" className="tmdb-item" key={`${match.title || 'match'}-${index}`} onClick={() => applyLookupMatch(match)}>
-                  <span>{match.tmdb?.title || match.title || 'Unknown item'}</span>
-                  <span>Use</span>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {tmdbResults.length > 0 && (
-            <div className="tmdb-results">
-              <h3>TMDB matches</h3>
-              {tmdbResults.slice(0, 8).map((result) => (
-                <button type="button" className="tmdb-item" key={result.id} onClick={() => selectTmdbResult(result)}>
-                  <span>{result.title} ({(result.release_date || '').slice(0, 4) || 'n/a'})</span>
-                  <span>Use</span>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {visionResults.length > 0 && (
-            <div className="tmdb-results">
-              <h3>Cover recognition matches</h3>
-              {visionResults.slice(0, 8).map((result) => (
-                <button type="button" className="tmdb-item" key={`vision-${result.id}`} onClick={() => selectTmdbResult(result)}>
-                  <span>{result.title} ({(result.release_date || '').slice(0, 4) || 'n/a'})</span>
-                  <span>Use</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </section>
-      )}
-
-      {activeTab === 'profile' && (
-        <section className="card section">
-          <h2>My Profile</h2>
-          <form onSubmit={saveProfile} className="form-grid">
-            <label>
-              Name
-              <input
-                value={profileForm.name}
-                onChange={(event) => setProfileForm((prev) => ({ ...prev, name: event.target.value }))}
-              />
-            </label>
-            <label>
-              Email
-              <input
-                type="email"
-                value={profileForm.email}
-                onChange={(event) => setProfileForm((prev) => ({ ...prev, email: event.target.value }))}
-              />
-            </label>
-            <label className="full">
-              New password
-              <input
-                type="password"
-                value={profileForm.password}
-                onChange={(event) => setProfileForm((prev) => ({ ...prev, password: event.target.value }))}
-                placeholder="Leave empty to keep existing password"
-              />
-            </label>
-            <div className="inline-controls full">
-              <button type="submit" className="primary small" disabled={profileSaving}>
-                {profileSaving ? 'Saving profile...' : 'Save profile'}
-              </button>
-            </div>
-          </form>
-          {profileMessage && <p className="message success">{profileMessage}</p>}
-        </section>
-      )}
-
-      {activeTab === 'admin-integrations' && isAdmin && (
-        <section className="card section">
-          <h2>Admin Integrations</h2>
-          <p className="subtitle">Global provider settings used by all users for barcode, vision, and TMDB.</p>
-          <div className="integration-tabs">
-            <button
-              type="button"
-              className={integrationTab === 'barcode' ? 'active' : ''}
-              onClick={() => setIntegrationTab('barcode')}
-            >
-              Barcode <span className={`integration-check ${isIntegrationConfigured('barcode') ? 'configured' : 'missing'}`}>✓</span>
-            </button>
-            <button
-              type="button"
-              className={integrationTab === 'vision' ? 'active' : ''}
-              onClick={() => setIntegrationTab('vision')}
-            >
-              Vision <span className={`integration-check ${isIntegrationConfigured('vision') ? 'configured' : 'missing'}`}>✓</span>
-            </button>
-            <button
-              type="button"
-              className={integrationTab === 'tmdb' ? 'active' : ''}
-              onClick={() => setIntegrationTab('tmdb')}
-            >
-              TMDB <span className={`integration-check ${isIntegrationConfigured('tmdb') ? 'configured' : 'missing'}`}>✓</span>
-            </button>
-          </div>
-          <div className="status-row">
-            <div className="status-item">{integrationTab.toUpperCase()} {renderStatusBadge(integrationStatus[integrationTab])}</div>
-          </div>
-
-          {integrationTab === 'barcode' && (
-            <form className="form-grid" onSubmit={(event) => { event.preventDefault(); saveIntegrationSection('barcode'); }}>
-              <p className="subtitle full">
-                Barcode provider portal: <a href={getProviderPortalUrl('barcode')} target="_blank" rel="noreferrer">{getProviderPortalUrl('barcode')}</a>
-              </p>
-              <label>
-                Barcode preset
-                <select value={integrationForm.barcodePreset} onChange={(event) => applyBarcodePreset(event.target.value)}>
-                  <option value="upcitemdb">UPCItemDB</option>
-                  <option value="barcodelookup">BarcodeLookup</option>
-                  <option value="custom">Custom</option>
-                </select>
-              </label>
-              <label>
-                Barcode provider
-                <input value={integrationForm.barcodeProvider} onChange={(event) => setIntegrationForm((prev) => ({ ...prev, barcodeProvider: event.target.value }))} />
-              </label>
-              <label>
-                Barcode API URL
-                <input value={integrationForm.barcodeApiUrl} onChange={(event) => setIntegrationForm((prev) => ({ ...prev, barcodeApiUrl: event.target.value }))} />
-              </label>
-              <label>
-                Barcode API key header
-                <input value={integrationForm.barcodeApiKeyHeader} onChange={(event) => setIntegrationForm((prev) => ({ ...prev, barcodeApiKeyHeader: event.target.value }))} />
-              </label>
-              <label>
-                Barcode query param
-                <input value={integrationForm.barcodeQueryParam} onChange={(event) => setIntegrationForm((prev) => ({ ...prev, barcodeQueryParam: event.target.value }))} />
-              </label>
-              <label>
-                Barcode API key
-                <input type="password" value={integrationForm.barcodeApiKey} onChange={(event) => setIntegrationForm((prev) => ({ ...prev, barcodeApiKey: event.target.value }))} placeholder={integrationMeta.barcodeApiKeyMasked || 'Enter new key'} />
-              </label>
-              <label className="full checkbox">
-                <input type="checkbox" checked={integrationForm.clearBarcodeApiKey} onChange={(event) => setIntegrationForm((prev) => ({ ...prev, clearBarcodeApiKey: event.target.checked }))} />
-                Clear saved barcode key
-              </label>
-              <div className="inline-controls full">
-                <input value={barcodeTestUpc} onChange={(event) => setBarcodeTestUpc(event.target.value)} placeholder="Test UPC" />
-                <button type="button" className="secondary small" onClick={testBarcodeIntegration} disabled={integrationTestLoading === 'barcode'}>
-                  {integrationTestLoading === 'barcode' ? 'Testing...' : 'Test barcode key'}
-                </button>
-                <button type="submit" className="primary small" disabled={integrationSaving}>
-                  {integrationSaving ? 'Saving...' : 'Save barcode settings'}
-                </button>
-              </div>
-            </form>
-          )}
-
-          {integrationTab === 'vision' && (
-            <form className="form-grid" onSubmit={(event) => { event.preventDefault(); saveIntegrationSection('vision'); }}>
-              <p className="subtitle full">
-                Vision provider portal: <a href={getProviderPortalUrl('vision')} target="_blank" rel="noreferrer">{getProviderPortalUrl('vision')}</a>
-              </p>
-              <label>
-                Vision preset
-                <select value={integrationForm.visionPreset} onChange={(event) => applyVisionPreset(event.target.value)}>
-                  <option value="ocrspace">OCR.Space</option>
-                  <option value="custom">Custom</option>
-                </select>
-              </label>
-              <label>
-                Vision provider
-                <input value={integrationForm.visionProvider} onChange={(event) => setIntegrationForm((prev) => ({ ...prev, visionProvider: event.target.value }))} />
-              </label>
-              <label>
-                Vision API URL
-                <input value={integrationForm.visionApiUrl} onChange={(event) => setIntegrationForm((prev) => ({ ...prev, visionApiUrl: event.target.value }))} />
-              </label>
-              <label>
-                Vision API key header
-                <input value={integrationForm.visionApiKeyHeader} onChange={(event) => setIntegrationForm((prev) => ({ ...prev, visionApiKeyHeader: event.target.value }))} />
-              </label>
-              <label className="full">
-                Vision API key
-                <input type="password" value={integrationForm.visionApiKey} onChange={(event) => setIntegrationForm((prev) => ({ ...prev, visionApiKey: event.target.value }))} placeholder={integrationMeta.visionApiKeyMasked || 'Enter new key'} />
-              </label>
-              <label className="full checkbox">
-                <input type="checkbox" checked={integrationForm.clearVisionApiKey} onChange={(event) => setIntegrationForm((prev) => ({ ...prev, clearVisionApiKey: event.target.checked }))} />
-                Clear saved vision key
-              </label>
-              <div className="inline-controls full">
-                <input value={visionTestImageUrl} onChange={(event) => setVisionTestImageUrl(event.target.value)} placeholder="Test image URL" />
-                <button type="button" className="secondary small" onClick={testVisionIntegration} disabled={integrationTestLoading === 'vision'}>
-                  {integrationTestLoading === 'vision' ? 'Testing...' : 'Test vision key'}
-                </button>
-                <button type="submit" className="primary small" disabled={integrationSaving}>
-                  {integrationSaving ? 'Saving...' : 'Save vision settings'}
-                </button>
-              </div>
-            </form>
-          )}
-
-          {integrationTab === 'tmdb' && (
-            <form className="form-grid" onSubmit={(event) => { event.preventDefault(); saveIntegrationSection('tmdb'); }}>
-              <p className="subtitle full">
-                TMDB portal: <a href={getProviderPortalUrl('tmdb')} target="_blank" rel="noreferrer">{getProviderPortalUrl('tmdb')}</a>
-              </p>
-              <label>
-                TMDB preset
-                <select value={integrationForm.tmdbPreset} onChange={(event) => applyTmdbPreset(event.target.value)}>
-                  <option value="tmdb">TMDB</option>
-                  <option value="custom">Custom</option>
-                </select>
-              </label>
-              <label>
-                TMDB provider
-                <input value={integrationForm.tmdbProvider} onChange={(event) => setIntegrationForm((prev) => ({ ...prev, tmdbProvider: event.target.value }))} />
-              </label>
-              <label>
-                TMDB API URL
-                <input value={integrationForm.tmdbApiUrl} onChange={(event) => setIntegrationForm((prev) => ({ ...prev, tmdbApiUrl: event.target.value }))} />
-              </label>
-              <label>
-                TMDB key header (optional)
-                <input value={integrationForm.tmdbApiKeyHeader} onChange={(event) => setIntegrationForm((prev) => ({ ...prev, tmdbApiKeyHeader: event.target.value }))} />
-              </label>
-              <label>
-                TMDB key query param
-                <input value={integrationForm.tmdbApiKeyQueryParam} onChange={(event) => setIntegrationForm((prev) => ({ ...prev, tmdbApiKeyQueryParam: event.target.value }))} />
-              </label>
-              <label>
-                TMDB API key
-                <input type="password" value={integrationForm.tmdbApiKey} onChange={(event) => setIntegrationForm((prev) => ({ ...prev, tmdbApiKey: event.target.value }))} placeholder={integrationMeta.tmdbApiKeyMasked || 'Enter new key'} />
-              </label>
-              <label className="full checkbox">
-                <input type="checkbox" checked={integrationForm.clearTmdbApiKey} onChange={(event) => setIntegrationForm((prev) => ({ ...prev, clearTmdbApiKey: event.target.checked }))} />
-                Clear saved TMDB key
-              </label>
-              <div className="inline-controls full">
-                <input value={tmdbTestTitle} onChange={(event) => setTmdbTestTitle(event.target.value)} placeholder="TMDB test title" />
-                <input value={tmdbTestYear} onChange={(event) => setTmdbTestYear(event.target.value)} placeholder="TMDB test year" />
-                <button type="button" className="secondary small" onClick={testTmdbIntegration} disabled={integrationTestLoading === 'tmdb'}>
-                  {integrationTestLoading === 'tmdb' ? 'Testing...' : 'Test TMDB key'}
-                </button>
-                <button type="submit" className="primary small" disabled={integrationSaving}>
-                  {integrationSaving ? 'Saving...' : 'Save TMDB settings'}
-                </button>
-              </div>
-            </form>
-          )}
-
-          <div className="inline-controls">
-            <button type="button" className="secondary small" onClick={loadIntegrationSettings}>Reload integration settings</button>
-          </div>
-          {integrationMessage && <p className="message success">{integrationMessage}</p>}
-          {integrationTestMessage && <p className="message success">{integrationTestMessage}</p>}
-        </section>
-      )}
-
-      {activeTab === 'admin-settings' && isAdmin && (
-        <section className="card section">
-          <h2>Admin Settings</h2>
-          <p className="subtitle">Global UI preferences applied to all authenticated sessions.</p>
-          <form className="form-grid" onSubmit={saveGeneralSettings}>
-            <label>
-              Theme
-              <select
-                value={generalSettings.theme}
-                onChange={(event) => setGeneralSettings((prev) => ({ ...prev, theme: event.target.value }))}
-              >
-                <option value="system">System</option>
-                <option value="light">Light</option>
-                <option value="dark">Dark</option>
-              </select>
-            </label>
-            <label>
-              UI density
-              <select
-                value={generalSettings.density}
-                onChange={(event) => setGeneralSettings((prev) => ({ ...prev, density: event.target.value }))}
-              >
-                <option value="comfortable">Comfortable</option>
-                <option value="compact">Compact</option>
-              </select>
-            </label>
-            <div className="inline-controls full">
-              <button type="submit" className="primary small" disabled={generalSettingsSaving}>
-                {generalSettingsSaving ? 'Saving settings...' : 'Save settings'}
-              </button>
-            </div>
-          </form>
-          {generalSettingsMessage && <p className="message success">{generalSettingsMessage}</p>}
-        </section>
-      )}
-
-      {activeTab === 'admin-users' && isAdmin && (
-        <section className="card section">
-          <h2>User management</h2>
-          {usersError && <p className="message error">{usersError}</p>}
-          {usersLoading ? <p>Loading users...</p> : (
-            <div className="list">
-              {users.map((entry) => (
-                <div className="list-row" key={entry.id}>
-                  <div>
-                    <strong>{entry.name}</strong>
-                    <p>{entry.email}</p>
-                  </div>
-                  <div className="inline-controls">
-                    <select
-                      value={entry.role}
-                      onChange={(event) => updateUserRole(entry.id, event.target.value)}
-                    >
-                      {USER_ROLES.map((role) => (
-                        <option key={role} value={role}>{role}</option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      className="danger small"
-                      disabled={entry.id === user?.id}
-                      onClick={() => removeUser(entry.id)}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <h2>Invites</h2>
-          <form onSubmit={createInvite} className="invite-form">
-            <input
-              type="email"
-              required
-              placeholder="teammate@example.com"
-              value={inviteEmail}
-              onChange={(event) => setInviteEmail(event.target.value)}
-            />
-            <button type="submit" className="primary small">Create invite</button>
-          </form>
-          {inviteMessage && <p className="message success">{inviteMessage}</p>}
-          {inviteUrlMessage && (
-            <div className="invite-url-wrap">
-              <p className="subtitle">Generated invite URL</p>
-              <code className="invite-url">{inviteUrlMessage}</code>
-              <div className="inline-controls">
-                <button type="button" className="secondary small" onClick={() => copyInviteValue(inviteUrlMessage)}>
-                  Copy invite URL
-                </button>
-              </div>
-            </div>
-          )}
-          {invitesError && <p className="message error">{invitesError}</p>}
-          {invitesLoading ? <p>Loading invites...</p> : (
-            <div className="list">
-              {invites.map((invite) => (
-                <div className="list-row" key={invite.id}>
-                  <div>
-                    <strong>{invite.email}</strong>
-                    <p className="invite-url">{`${window.location.origin}/register?invite=${encodeURIComponent(invite.token)}&email=${encodeURIComponent(invite.email)}`}</p>
-                    <p>Expires {new Date(invite.expires_at).toLocaleString()}</p>
-                    <p>Status: {invite.used ? 'used' : 'active'}</p>
-                  </div>
-                  <div className="inline-controls">
-                    <button type="button" className="secondary small" onClick={() => copyInviteValue(invite.token)}>
-                      Copy token
-                    </button>
-                    <button
-                      type="button"
-                      className="secondary small"
-                      onClick={() => copyInviteValue(`${window.location.origin}/register?invite=${encodeURIComponent(invite.token)}&email=${encodeURIComponent(invite.email)}`)}
-                    >
-                      Copy URL
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-      )}
-
-      {activeTab === 'admin-activity' && isAdmin && (
-        <section className="card section">
-          <div className="section-head">
-            <h2>Admin activity log</h2>
-            <button type="button" className="secondary small" onClick={loadActivity}>Refresh activity</button>
-          </div>
-          {activityError && <p className="message error">{activityError}</p>}
-          {activityLoading ? <p>Loading activity...</p> : (
-            <div className="list">
-              {activityItems.length === 0 && <p>No activity entries found.</p>}
-              {activityItems.map((entry) => (
-                <div className="list-row" key={entry.id}>
-                  <div>
-                    <strong>{entry.action}</strong>
-                    <p>
-                      {entry.entity_type || 'n/a'} #{entry.entity_id ?? 'n/a'} • user {entry.user_id ?? 'n/a'} • {entry.ip_address || 'n/a'}
-                    </p>
-                    <p>{entry.created_at ? new Date(entry.created_at).toLocaleString() : 'n/a'}</p>
-                    {entry.details && (
-                      <p><code>{JSON.stringify(entry.details)}</code></p>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-      )}
-      </main>
     </div>
   );
 }
 
-export default App;
+// ─── Profile ──────────────────────────────────────────────────────────────────
+
+function ProfileView({ user, apiCall, onToast }) {
+  const [form, setForm] = useState({ name: user?.name || '', email: user?.email || '', password: '' });
+  const [saving, setSaving] = useState(false);
+
+  const save = async e => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const payload = { name: form.name, email: form.email };
+      if (form.password) payload.password = form.password;
+      await apiCall('patch', '/profile', payload);
+      onToast('Profile updated');
+      setForm(f => ({ ...f, password: '' }));
+    } catch (err) { onToast(err.response?.data?.error || 'Update failed', 'error'); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <div className="p-6 max-w-lg">
+      <h1 className="section-title mb-6">Profile</h1>
+      <div className="card p-6 space-y-4">
+        <div className="flex items-center gap-4 pb-4 border-b border-edge">
+          <div className="w-14 h-14 rounded-xl bg-gold/10 border border-gold/20 flex items-center justify-center text-gold font-display text-2xl">
+            {user?.name?.[0]?.toUpperCase() || '?'}
+          </div>
+          <div>
+            <p className="font-medium text-ink">{user?.name}</p>
+            <p className="text-sm text-ghost">{user?.email}</p>
+            <span className="badge badge-gold mt-1">{user?.role}</span>
+          </div>
+        </div>
+        <form onSubmit={save} className="space-y-4">
+          <div className="field"><label className="label">Name</label>
+            <input className="input" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} /></div>
+          <div className="field"><label className="label">Email</label>
+            <input className="input" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} /></div>
+          <div className="field"><label className="label">New Password <span className="normal-case text-ghost font-normal">(leave blank to keep)</span></label>
+            <input className="input" type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} /></div>
+          <button type="submit" disabled={saving} className="btn-primary">{saving ? <Spinner size={16} /> : 'Save Changes'}</button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ─── Admin views ──────────────────────────────────────────────────────────────
+
+function AdminUsers({ apiCall, onToast, currentUserId }) {
+  const [users, setUsers]     = useState([]);
+  const [invites, setInvites] = useState([]);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteUrl, setInviteUrl]     = useState('');
+  const [loading, setLoading] = useState(true);
+  const [pendingRoles, setPendingRoles] = useState({});
+
+  useEffect(() => {
+    Promise.all([
+      apiCall('get', '/admin/users').then(setUsers),
+      apiCall('get', '/admin/invites').then(setInvites),
+    ]).finally(() => setLoading(false));
+  }, []);
+
+  const createInvite = async e => {
+    e.preventDefault();
+    try {
+      const data = await apiCall('post', '/admin/invites', { email: inviteEmail });
+      const url = `${window.location.origin}/register?invite=${encodeURIComponent(data.token)}&email=${encodeURIComponent(data.email)}`;
+      setInviteUrl(url);
+      setInviteEmail('');
+      setInvites(i => [data, ...i]);
+      onToast(`Invite created for ${data.email}`);
+    } catch (err) { onToast(err.response?.data?.error || 'Failed to create invite', 'error'); }
+  };
+
+  const saveRole = async (id) => {
+    const role = pendingRoles[id];
+    if (!role) return;
+    try {
+      await apiCall('patch', `/admin/users/${id}/role`, { role });
+      setUsers(u => u.map(x => x.id === id ? { ...x, role } : x));
+      setPendingRoles(r => { const n = { ...r }; delete n[id]; return n; });
+      onToast('Role updated');
+    } catch (err) { onToast(err.response?.data?.error || 'Failed', 'error'); }
+  };
+
+  const deleteUser = async id => {
+    if (!window.confirm('Delete this user?')) return;
+    try {
+      await apiCall('delete', `/admin/users/${id}`);
+      setUsers(u => u.filter(x => x.id !== id));
+      onToast('User deleted');
+    } catch (err) { onToast(err.response?.data?.error || 'Failed', 'error'); }
+  };
+
+  const copy = async text => {
+    await navigator.clipboard.writeText(text);
+    onToast('Copied');
+  };
+
+  if (loading) return <div className="p-6 flex items-center gap-3 text-dim"><Spinner />Loading…</div>;
+
+  return (
+    <div className="p-6 space-y-8 max-w-3xl">
+      <h1 className="section-title">Users</h1>
+
+      <div className="card divide-y divide-edge">
+        {users.map(u => (
+          <div key={u.id} className="flex items-center gap-4 px-4 py-3">
+            <div className="w-9 h-9 rounded-lg bg-raised border border-edge flex items-center justify-center text-dim font-display">
+              {u.name?.[0]?.toUpperCase()}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-ink">{u.name}</p>
+              <p className="text-xs text-ghost">{u.email}</p>
+            </div>
+            <select className="select w-28"
+              value={pendingRoles[u.id] ?? u.role}
+              onChange={e => setPendingRoles(r => ({ ...r, [u.id]: e.target.value }))}>
+              {USER_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
+            {pendingRoles[u.id] && pendingRoles[u.id] !== u.role && (
+              <button onClick={() => saveRole(u.id)} className="btn-primary btn-sm">Save</button>
+            )}
+            <button onClick={() => deleteUser(u.id)} disabled={u.id === currentUserId}
+              className="btn-ghost btn-sm text-err hover:bg-err/10 disabled:opacity-30"><Icons.Trash /></button>
+          </div>
+        ))}
+      </div>
+
+      <div>
+        <h2 className="font-display text-xl tracking-wider text-ink mb-4">Invites</h2>
+        <form onSubmit={createInvite} className="flex gap-3 mb-4">
+          <input className="input flex-1" type="email" placeholder="teammate@example.com" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} required />
+          <button type="submit" className="btn-primary shrink-0">Create Invite</button>
+        </form>
+        {inviteUrl && (
+          <div className="card p-3 mb-4 flex items-center gap-3">
+            <code className="text-xs text-gold flex-1 truncate font-mono">{inviteUrl}</code>
+            <button onClick={() => copy(inviteUrl)} className="btn-icon btn-sm shrink-0"><Icons.Copy /></button>
+          </div>
+        )}
+        <div className="card divide-y divide-edge">
+          {invites.length === 0 && <p className="px-4 py-6 text-sm text-ghost text-center">No invites yet</p>}
+          {invites.map(inv => (
+            <div key={inv.id} className="flex items-center gap-3 px-4 py-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-ink">{inv.email}</p>
+                <p className="text-xs text-ghost">Expires {new Date(inv.expires_at).toLocaleDateString()} · {inv.used ? 'Used' : 'Active'}</p>
+              </div>
+              <span className={cx('badge', inv.used ? 'badge-dim' : 'badge-ok')}>{inv.used ? 'Used' : 'Active'}</span>
+              <button onClick={() => copy(`${window.location.origin}/register?invite=${encodeURIComponent(inv.token)}&email=${encodeURIComponent(inv.email)}`)}
+                className="btn-ghost btn-sm"><Icons.Copy /></button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AdminActivity({ apiCall }) {
+  const [items, setItems]   = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState({ action: '', from: '', to: '', q: '' });
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ limit: 100 });
+      if (filters.action) params.set('action', filters.action);
+      if (filters.from)   params.set('from', filters.from);
+      if (filters.to)     params.set('to', filters.to);
+      if (filters.q)      params.set('q', filters.q);
+      const data = await apiCall('get', `/admin/activity?${params}`);
+      setItems(Array.isArray(data) ? data : []);
+    } finally { setLoading(false); }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  return (
+    <div className="p-6 max-w-4xl space-y-4">
+      <div className="flex items-center gap-3">
+        <h1 className="section-title flex-1">Activity Log</h1>
+        <button onClick={load} className="btn-icon"><Icons.Refresh /></button>
+      </div>
+      <div className="flex gap-3 flex-wrap">
+        <input className="input w-44" placeholder="Filter by action…" value={filters.action} onChange={e => setFilters(f => ({ ...f, action: e.target.value }))} />
+        <input className="input w-36" type="date" value={filters.from} onChange={e => setFilters(f => ({ ...f, from: e.target.value }))} />
+        <input className="input w-36" type="date" value={filters.to} onChange={e => setFilters(f => ({ ...f, to: e.target.value }))} />
+        <input className="input flex-1 min-w-36" placeholder="Search details…" value={filters.q} onChange={e => setFilters(f => ({ ...f, q: e.target.value }))} />
+        <button onClick={load} className="btn-primary">Apply</button>
+      </div>
+      {loading ? <div className="flex justify-center py-12"><Spinner size={28} /></div> : (
+        <div className="card divide-y divide-edge">
+          {items.length === 0 && <p className="px-4 py-6 text-sm text-ghost text-center">No activity entries</p>}
+          {items.map(entry => (
+            <div key={entry.id} className="px-4 py-3 space-y-1">
+              <div className="flex items-center gap-3">
+                <span className="badge badge-dim font-mono text-[10px]">{entry.action}</span>
+                <span className="text-xs text-ghost ml-auto">{new Date(entry.created_at).toLocaleString()}</span>
+              </div>
+              <p className="text-xs text-ghost">
+                {entry.entity_type && <span>entity: {entry.entity_type} #{entry.entity_id} · </span>}
+                user: {entry.user_id ?? '–'} · {entry.ip_address || '–'}
+              </p>
+              {entry.details && <p className="text-xs text-ghost/60 font-mono truncate">{JSON.stringify(entry.details)}</p>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AdminSettings({ apiCall, onToast }) {
+  const [settings, setSettings] = useState({ theme: 'system', density: 'comfortable' });
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => { apiCall('get', '/settings/general').then(setSettings).catch(() => {}); }, []);
+
+  const save = async e => {
+    e.preventDefault();
+    setSaving(true);
+    try { await apiCall('put', '/admin/settings/general', settings); onToast('Settings saved'); }
+    catch { onToast('Save failed', 'error'); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <div className="p-6 max-w-sm">
+      <h1 className="section-title mb-6">General Settings</h1>
+      <div className="card p-6">
+        <form onSubmit={save} className="space-y-4">
+          <div className="field">
+            <label className="label">Theme</label>
+            <select className="select" value={settings.theme} onChange={e => setSettings(s => ({ ...s, theme: e.target.value }))}>
+              <option value="system">System</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
+          </div>
+          <div className="field">
+            <label className="label">Density</label>
+            <select className="select" value={settings.density} onChange={e => setSettings(s => ({ ...s, density: e.target.value }))}>
+              <option value="comfortable">Comfortable</option>
+              <option value="compact">Compact</option>
+            </select>
+          </div>
+          <button type="submit" disabled={saving} className="btn-primary">{saving ? <Spinner size={16} /> : 'Save'}</button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function AdminIntegrations({ apiCall, onToast }) {
+  const [section, setSection] = useState('barcode');
+  const [form, setForm] = useState({
+    barcodePreset:'upcitemdb',barcodeProvider:'upcitemdb',barcodeApiUrl:'',barcodeApiKey:'',
+    barcodeApiKeyHeader:'x-api-key',barcodeQueryParam:'upc',clearBarcodeApiKey:false,
+    visionPreset:'ocrspace',visionProvider:'ocrspace',visionApiUrl:'',visionApiKey:'',
+    visionApiKeyHeader:'apikey',clearVisionApiKey:false,
+    tmdbPreset:'tmdb',tmdbProvider:'tmdb',tmdbApiUrl:'https://api.themoviedb.org/3/search/movie',
+    tmdbApiKey:'',tmdbApiKeyHeader:'',tmdbApiKeyQueryParam:'api_key',clearTmdbApiKey:false,
+  });
+  const [meta, setMeta] = useState({ barcodeApiKeySet:false,barcodeApiKeyMasked:'',visionApiKeySet:false,visionApiKeyMasked:'',tmdbApiKeySet:false,tmdbApiKeyMasked:'' });
+  const [status, setStatus] = useState({ barcode:'unknown',vision:'unknown',tmdb:'unknown' });
+  const [testLoading, setTestLoading] = useState('');
+  const [testMsg, setTestMsg] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    apiCall('get', '/admin/settings/integrations').then(data => {
+      setForm(f => ({ ...f, barcodePreset:data.barcodePreset||'upcitemdb',barcodeProvider:data.barcodeProvider||'',barcodeApiUrl:data.barcodeApiUrl||'',barcodeApiKeyHeader:data.barcodeApiKeyHeader||'x-api-key',barcodeQueryParam:data.barcodeQueryParam||'upc',visionPreset:data.visionPreset||'ocrspace',visionProvider:data.visionProvider||'',visionApiUrl:data.visionApiUrl||'',visionApiKeyHeader:data.visionApiKeyHeader||'apikey',tmdbPreset:data.tmdbPreset||'tmdb',tmdbProvider:data.tmdbProvider||'',tmdbApiUrl:data.tmdbApiUrl||'',tmdbApiKeyHeader:data.tmdbApiKeyHeader||'',tmdbApiKeyQueryParam:data.tmdbApiKeyQueryParam||'api_key' }));
+      setMeta({ barcodeApiKeySet:Boolean(data.barcodeApiKeySet),barcodeApiKeyMasked:data.barcodeApiKeyMasked||'',visionApiKeySet:Boolean(data.visionApiKeySet),visionApiKeyMasked:data.visionApiKeyMasked||'',tmdbApiKeySet:Boolean(data.tmdbApiKeySet),tmdbApiKeyMasked:data.tmdbApiKeyMasked||'' });
+      setStatus({ barcode:data.barcodeApiKeySet?'configured':'missing', vision:data.visionApiKeySet?'configured':'missing', tmdb:data.tmdbApiKeySet?'configured':'missing' });
+    }).catch(() => {});
+  }, []);
+
+  const applyBarcodePreset = p => setForm(f => ({ ...f, ...(BARCODE_PRESETS[p] || {}) }));
+  const applyVisionPreset  = p => setForm(f => ({ ...f, ...(VISION_PRESETS[p]  || {}) }));
+  const applyTmdbPreset    = p => setForm(f => ({ ...f, ...(TMDB_PRESETS[p]    || {}) }));
+
+  const saveSection = async sec => {
+    setSaving(true);
+    const payload = {};
+    if (sec === 'barcode') Object.assign(payload, { barcodePreset:form.barcodePreset,barcodeProvider:form.barcodeProvider,barcodeApiUrl:form.barcodeApiUrl,barcodeApiKeyHeader:form.barcodeApiKeyHeader,barcodeQueryParam:form.barcodeQueryParam,clearBarcodeApiKey:form.clearBarcodeApiKey,...(form.barcodeApiKey && { barcodeApiKey:form.barcodeApiKey }) });
+    else if (sec === 'vision') Object.assign(payload, { visionPreset:form.visionPreset,visionProvider:form.visionProvider,visionApiUrl:form.visionApiUrl,visionApiKeyHeader:form.visionApiKeyHeader,clearVisionApiKey:form.clearVisionApiKey,...(form.visionApiKey && { visionApiKey:form.visionApiKey }) });
+    else Object.assign(payload, { tmdbPreset:form.tmdbPreset,tmdbProvider:form.tmdbProvider,tmdbApiUrl:form.tmdbApiUrl,tmdbApiKeyHeader:form.tmdbApiKeyHeader,tmdbApiKeyQueryParam:form.tmdbApiKeyQueryParam,clearTmdbApiKey:form.clearTmdbApiKey,...(form.tmdbApiKey && { tmdbApiKey:form.tmdbApiKey }) });
+    try {
+      const updated = await apiCall('put', '/admin/settings/integrations', payload);
+      setMeta({ barcodeApiKeySet:Boolean(updated.barcodeApiKeySet),barcodeApiKeyMasked:updated.barcodeApiKeyMasked||'',visionApiKeySet:Boolean(updated.visionApiKeySet),visionApiKeyMasked:updated.visionApiKeyMasked||'',tmdbApiKeySet:Boolean(updated.tmdbApiKeySet),tmdbApiKeyMasked:updated.tmdbApiKeyMasked||'' });
+      setStatus(s => ({ ...s, [sec]: updated[`${sec}ApiKeySet`] ? 'configured' : 'missing' }));
+      setForm(f => ({ ...f, barcodeApiKey:'',visionApiKey:'',tmdbApiKey:'',clearBarcodeApiKey:false,clearVisionApiKey:false,clearTmdbApiKey:false }));
+      onToast(`${sec.toUpperCase()} settings saved`);
+    } catch (err) { onToast(err.response?.data?.error || 'Save failed', 'error'); }
+    finally { setSaving(false); }
+  };
+
+  const test = async sec => {
+    setTestLoading(sec); setTestMsg('');
+    try {
+      const result = await apiCall('post', `/admin/settings/integrations/test-${sec}`, sec === 'tmdb' ? { title:'The Matrix',year:'1999' } : {});
+      setStatus(s => ({ ...s, [sec]: result.authenticated ? 'ok' : 'auth_failed' }));
+      setTestMsg(`${sec.toUpperCase()}: ${result.authenticated ? 'Connected' : 'Auth failed'} — ${result.detail}`);
+    } catch (err) { setTestMsg(err.response?.data?.detail || `${sec} test failed`); }
+    finally { setTestLoading(''); }
+  };
+
+  const sections = ['barcode','vision','tmdb'];
+
+  return (
+    <div className="p-6 max-w-2xl space-y-6">
+      <h1 className="section-title">Integrations</h1>
+
+      <div className="flex gap-3">
+        {sections.map(s => (
+          <button key={s} onClick={() => setSection(s)}
+            className={cx('btn flex-1 uppercase tracking-wider text-xs font-display', section === s ? 'btn-primary' : 'btn-secondary')}>
+            {s} <StatusBadge status={status[s]} />
+          </button>
+        ))}
+      </div>
+
+      <div className="card p-5 space-y-4">
+        {section === 'barcode' && <>
+          <LabeledField label="Preset"><select className="select" value={form.barcodePreset} onChange={e => applyBarcodePreset(e.target.value)}>
+            <option value="upcitemdb">UPCItemDB</option><option value="barcodelookup">BarcodeLookup</option><option value="custom">Custom</option>
+          </select></LabeledField>
+          <LabeledField label="API URL"><input className="input" value={form.barcodeApiUrl} onChange={e => setForm(f => ({ ...f, barcodeApiUrl: e.target.value }))} /></LabeledField>
+          <div className="grid grid-cols-2 gap-3">
+            <LabeledField label="Key Header"><input className="input" value={form.barcodeApiKeyHeader} onChange={e => setForm(f => ({ ...f, barcodeApiKeyHeader: e.target.value }))} /></LabeledField>
+            <LabeledField label="Query Param"><input className="input" value={form.barcodeQueryParam} onChange={e => setForm(f => ({ ...f, barcodeQueryParam: e.target.value }))} /></LabeledField>
+          </div>
+          <LabeledField label={`API Key ${meta.barcodeApiKeySet ? `(set: ${meta.barcodeApiKeyMasked})` : '(not set)'}`}>
+            <input className="input font-mono" type="password" placeholder="Enter new key to update" value={form.barcodeApiKey} onChange={e => setForm(f => ({ ...f, barcodeApiKey: e.target.value }))} />
+          </LabeledField>
+          <label className="flex items-center gap-2 text-sm text-dim cursor-pointer">
+            <input type="checkbox" checked={form.clearBarcodeApiKey} onChange={e => setForm(f => ({ ...f, clearBarcodeApiKey: e.target.checked }))} className="rounded" />
+            Clear saved key
+          </label>
+        </>}
+
+        {section === 'vision' && <>
+          <LabeledField label="Preset"><select className="select" value={form.visionPreset} onChange={e => applyVisionPreset(e.target.value)}>
+            <option value="ocrspace">OCR.Space</option><option value="custom">Custom</option>
+          </select></LabeledField>
+          <LabeledField label="API URL"><input className="input" value={form.visionApiUrl} onChange={e => setForm(f => ({ ...f, visionApiUrl: e.target.value }))} /></LabeledField>
+          <LabeledField label="Key Header"><input className="input" value={form.visionApiKeyHeader} onChange={e => setForm(f => ({ ...f, visionApiKeyHeader: e.target.value }))} /></LabeledField>
+          <LabeledField label={`API Key ${meta.visionApiKeySet ? `(set: ${meta.visionApiKeyMasked})` : '(not set)'}`}>
+            <input className="input font-mono" type="password" placeholder="Enter new key to update" value={form.visionApiKey} onChange={e => setForm(f => ({ ...f, visionApiKey: e.target.value }))} />
+          </LabeledField>
+          <label className="flex items-center gap-2 text-sm text-dim cursor-pointer">
+            <input type="checkbox" checked={form.clearVisionApiKey} onChange={e => setForm(f => ({ ...f, clearVisionApiKey: e.target.checked }))} className="rounded" />
+            Clear saved key
+          </label>
+        </>}
+
+        {section === 'tmdb' && <>
+          <LabeledField label="Preset"><select className="select" value={form.tmdbPreset} onChange={e => applyTmdbPreset(e.target.value)}>
+            <option value="tmdb">TMDB</option><option value="custom">Custom</option>
+          </select></LabeledField>
+          <LabeledField label="API URL"><input className="input" value={form.tmdbApiUrl} onChange={e => setForm(f => ({ ...f, tmdbApiUrl: e.target.value }))} /></LabeledField>
+          <div className="grid grid-cols-2 gap-3">
+            <LabeledField label="Key Header (opt)"><input className="input" value={form.tmdbApiKeyHeader} onChange={e => setForm(f => ({ ...f, tmdbApiKeyHeader: e.target.value }))} /></LabeledField>
+            <LabeledField label="Key Query Param"><input className="input" value={form.tmdbApiKeyQueryParam} onChange={e => setForm(f => ({ ...f, tmdbApiKeyQueryParam: e.target.value }))} /></LabeledField>
+          </div>
+          <LabeledField label={`API Key ${meta.tmdbApiKeySet ? `(set: ${meta.tmdbApiKeyMasked})` : '(not set)'}`}>
+            <input className="input font-mono" type="password" placeholder="Enter new key to update" value={form.tmdbApiKey} onChange={e => setForm(f => ({ ...f, tmdbApiKey: e.target.value }))} />
+          </LabeledField>
+          <label className="flex items-center gap-2 text-sm text-dim cursor-pointer">
+            <input type="checkbox" checked={form.clearTmdbApiKey} onChange={e => setForm(f => ({ ...f, clearTmdbApiKey: e.target.checked }))} className="rounded" />
+            Clear saved key
+          </label>
+        </>}
+
+        <div className="flex gap-3 pt-2 border-t border-edge">
+          <button onClick={() => test(section)} disabled={testLoading === section} className="btn-secondary btn-sm">
+            {testLoading === section ? <Spinner size={14} /> : 'Test'}
+          </button>
+          <button onClick={() => saveSection(section)} disabled={saving} className="btn-primary btn-sm">
+            {saving ? <Spinner size={14} /> : `Save ${section.toUpperCase()}`}
+          </button>
+        </div>
+        {testMsg && <p className="text-xs text-dim font-mono bg-raised rounded px-3 py-2">{testMsg}</p>}
+      </div>
+    </div>
+  );
+}
+
+// ─── App root ─────────────────────────────────────────────────────────────────
+
+export default function App() {
+  const [route, setRoute]       = useState(routeFromPath(window.location.pathname));
+  const [user, setUser]         = useState(readStoredUser());
+  const [authChecked, setAuthChecked] = useState(false);
+  const [activeTab, setActiveTab] = useState('library');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen]       = useState(false);
+  const [mediaItems, setMediaItems]   = useState([]);
+  const [mediaLoading, setMediaLoading] = useState(false);
+  const [mediaError, setMediaError]   = useState('');
+  const [toast, setToast] = useState(null);
+
+  const isAdmin = user?.role === 'admin';
+
+  // Navigation
+  const navigate = nextRoute => {
+    window.history.pushState({}, '', nextRoute === 'register' ? '/register' : nextRoute === 'dashboard' ? '/dashboard' : '/login');
+    setRoute(nextRoute);
+  };
+
+  useEffect(() => {
+    const sync = () => setRoute(routeFromPath(window.location.pathname));
+    window.addEventListener('popstate', sync);
+    return () => window.removeEventListener('popstate', sync);
+  }, []);
+
+  // API helper
+  const apiCall = async (method, path, data, config = {}) => {
+    const response = await axios({
+      method,
+      url: `${API_URL}${path}`,
+      data,
+      ...config,
+      withCredentials: true
+    });
+    return response.data;
+  };
+
+  // Auth
+  const handleAuth = (usr) => {
+    localStorage.setItem(USER_KEY, JSON.stringify(usr || null));
+    setUser(usr || null);
+    setAuthChecked(true);
+    navigate('dashboard');
+  };
+
+  const logout = async () => {
+    try { await apiCall('post', '/auth/logout'); } catch (_) {}
+    localStorage.removeItem(USER_KEY);
+    localStorage.removeItem('mediavault_token'); // Cleanup for legacy builds.
+    setUser(null);
+    setAuthChecked(true);
+    setMediaItems([]);
+    navigate('login');
+  };
+
+  // Media
+  const loadMedia = async () => {
+    setMediaLoading(true); setMediaError('');
+    try { setMediaItems(await apiCall('get', '/media')); }
+    catch (err) { setMediaError(err.response?.data?.error || 'Failed to load media'); }
+    finally { setMediaLoading(false); }
+  };
+
+  const addMedia = async payload => {
+    const created = await apiCall('post', '/media', payload);
+    setMediaItems(m => [created, ...m]);
+    showToast('Added to library');
+  };
+
+  const editMedia = async (id, payload) => {
+    const updated = await apiCall('patch', `/media/${id}`, payload);
+    setMediaItems(m => m.map(i => i.id === id ? updated : i));
+    showToast('Saved');
+  };
+
+  const deleteMedia = async id => {
+    await apiCall('delete', `/media/${id}`);
+    setMediaItems(m => m.filter(i => i.id !== id));
+    showToast('Deleted');
+  };
+
+  const rateMedia = async (id, rating) => {
+    const updated = await apiCall('patch', `/media/${id}`, { user_rating: rating });
+    setMediaItems(m => m.map(i => i.id === id ? updated : i));
+  };
+
+  useEffect(() => {
+    if (route !== 'dashboard') {
+      setAuthChecked(true);
+      return;
+    }
+    let active = true;
+    (async () => {
+      try {
+        const me = await apiCall('get', '/auth/me');
+        if (!active) return;
+        setUser(me);
+        localStorage.setItem(USER_KEY, JSON.stringify(me));
+      } catch (_) {
+        if (!active) return;
+        setUser(null);
+        localStorage.removeItem(USER_KEY);
+        window.history.replaceState({}, '', '/login');
+        setRoute('login');
+      } finally {
+        if (active) setAuthChecked(true);
+      }
+    })();
+    return () => { active = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [route]);
+
+  useEffect(() => {
+    if (route === 'dashboard' && authChecked && user) loadMedia();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [route, authChecked, user?.id]);
+
+  const showToast = (message, type = 'ok') => setToast({ message, type });
+
+  // Auth pages
+  if (route !== 'dashboard') {
+    return <AuthPage route={route} onNavigate={navigate} onAuth={handleAuth} />;
+  }
+
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen bg-void flex items-center justify-center text-dim">
+        <div className="flex items-center gap-3"><Spinner size={18} />Checking session...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <AuthPage route="login" onNavigate={navigate} onAuth={handleAuth} />;
+  }
+
+  const tabContent = () => {
+    switch (activeTab) {
+      case 'library':
+        return (
+          <LibraryView
+            mediaItems={mediaItems} loading={mediaLoading} error={mediaError}
+            onRefresh={loadMedia}
+            onOpen={addMedia}
+            onEdit={editMedia}
+            onDelete={deleteMedia}
+            onRating={rateMedia}
+            apiCall={apiCall}
+          />
+        );
+      case 'profile':          return <ProfileView user={user} apiCall={apiCall} onToast={showToast} />;
+      case 'admin-users':      return <AdminUsers apiCall={apiCall} onToast={showToast} currentUserId={user?.id} />;
+      case 'admin-activity':   return <AdminActivity apiCall={apiCall} />;
+      case 'admin-settings':   return <AdminSettings apiCall={apiCall} onToast={showToast} />;
+      case 'admin-integrations': return <AdminIntegrations apiCall={apiCall} onToast={showToast} />;
+      default:                 return null;
+    }
+  };
+
+  return (
+    <div className="flex h-screen overflow-hidden bg-void">
+      <Sidebar
+        user={user}
+        activeTab={activeTab}
+        onSelect={setActiveTab}
+        onLogout={logout}
+        collapsed={sidebarCollapsed}
+        onToggle={() => setSidebarCollapsed(c => !c)}
+        mobileOpen={mobileNavOpen}
+        onMobileClose={() => setMobileNavOpen(false)}
+      />
+
+      {/* Main content */}
+      <div className={cx(
+        'flex-1 flex flex-col min-w-0 transition-all duration-300',
+        sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-56'
+      )}>
+        {/* Mobile topbar */}
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-edge lg:hidden shrink-0">
+          <button onClick={() => setMobileNavOpen(true)} className="btn-icon"><Icons.Menu /></button>
+          <span className="font-display text-lg tracking-wider text-gold">COLLECTZ</span>
+        </div>
+
+        {/* Page */}
+        <div className="flex-1 overflow-hidden">
+          {tabContent()}
+        </div>
+      </div>
+
+      {/* Toast */}
+      {toast && <Toast message={toast.message} type={toast.type} onDismiss={() => setToast(null)} />}
+    </div>
+  );
+}

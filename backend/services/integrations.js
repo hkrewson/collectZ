@@ -1,0 +1,55 @@
+const pool = require('../db/pool');
+const { decryptSecret } = require('./crypto');
+const { resolveBarcodePreset } = require('./barcode');
+const { resolveVisionPreset } = require('./vision');
+const { resolveTmdbPreset } = require('./tmdb');
+
+const normalizeIntegrationRecord = (row) => {
+  const envBarcodePreset = process.env.BARCODE_PRESET || process.env.BARCODE_PROVIDER || 'upcitemdb';
+  const envVisionPreset = process.env.VISION_PRESET || process.env.VISION_PROVIDER || 'ocrspace';
+  const envTmdbPreset = process.env.TMDB_PRESET || 'tmdb';
+
+  const barcodePreset = resolveBarcodePreset(row?.barcode_preset || envBarcodePreset);
+  const visionPreset = resolveVisionPreset(row?.vision_preset || envVisionPreset);
+  const tmdbPreset = resolveTmdbPreset(row?.tmdb_preset || envTmdbPreset);
+
+  const barcodeApiKey = decryptSecret(row?.barcode_api_key_encrypted) || process.env.BARCODE_API_KEY || '';
+  const visionApiKey = decryptSecret(row?.vision_api_key_encrypted) || process.env.VISION_API_KEY || '';
+  const tmdbApiKey = decryptSecret(row?.tmdb_api_key_encrypted) || process.env.TMDB_API_KEY || '';
+
+  return {
+    barcodePreset: row?.barcode_preset || envBarcodePreset,
+    barcodeProvider: row?.barcode_provider || barcodePreset.provider,
+    barcodeApiUrl: row?.barcode_api_url || barcodePreset.apiUrl || process.env.BARCODE_API_URL || '',
+    barcodeApiKeyHeader: row?.barcode_api_key_header || barcodePreset.apiKeyHeader || 'x-api-key',
+    barcodeQueryParam: row?.barcode_query_param || barcodePreset.queryParam || 'upc',
+    barcodeApiKey,
+    visionPreset: row?.vision_preset || envVisionPreset,
+    visionProvider: row?.vision_provider || visionPreset.provider,
+    visionApiUrl: row?.vision_api_url || visionPreset.apiUrl || process.env.VISION_API_URL || '',
+    visionApiKeyHeader: row?.vision_api_key_header || visionPreset.apiKeyHeader || 'apikey',
+    visionApiKey,
+    tmdbPreset: row?.tmdb_preset || envTmdbPreset,
+    tmdbProvider: row?.tmdb_provider || tmdbPreset.provider,
+    tmdbApiUrl: row?.tmdb_api_url || tmdbPreset.apiUrl || process.env.TMDB_API_URL || 'https://api.themoviedb.org/3/search/movie',
+    tmdbApiKeyHeader: row?.tmdb_api_key_header || tmdbPreset.apiKeyHeader || '',
+    tmdbApiKeyQueryParam: row?.tmdb_api_key_query_param || tmdbPreset.apiKeyQueryParam || 'api_key',
+    tmdbApiKey
+  };
+};
+
+const loadAdminIntegrationConfig = async () => {
+  const result = await pool.query('SELECT * FROM app_integrations WHERE id = 1');
+  return normalizeIntegrationRecord(result.rows[0]);
+};
+
+const loadGeneralSettings = async () => {
+  const result = await pool.query('SELECT * FROM app_settings WHERE id = 1');
+  const row = result.rows[0] || {};
+  return {
+    theme: row.theme || 'system',
+    density: row.density || 'comfortable'
+  };
+};
+
+module.exports = { normalizeIntegrationRecord, loadAdminIntegrationConfig, loadGeneralSettings };

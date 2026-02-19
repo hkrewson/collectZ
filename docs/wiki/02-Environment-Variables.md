@@ -8,7 +8,7 @@ These must be set for a working deployment:
 
 - `DB_PASSWORD`: Postgres app user password.
 - `REDIS_PASSWORD`: Redis password.
-- `JWT_SECRET`: JWT signing secret.
+- `SESSION_SECRET`: session security secret (used for session/cookie infrastructure and secure fallbacks).
 - `INTEGRATION_ENCRYPTION_KEY`: secret used to encrypt integration API keys at rest.
 
 Recommended generation:

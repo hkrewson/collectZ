@@ -14,6 +14,7 @@ Start here for deployment and operations guidance.
 8. [Backup and Restore](./08-Backup-and-Restore.md)
 9. [Smoke Test Checklist](./09-Smoke-Test-Checklist.md)
 10. [CI/CD and Registry Deploy](./10-CI-CD-and-Registry-Deploy.md)
+11. [Spaces and Libraries Model](./11-Spaces-and-Libraries-Model.md)
 
 ## Default Seeded Admin (Important)
 
