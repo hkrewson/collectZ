@@ -38,7 +38,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
       args:
-        APP_VERSION: ${APP_VERSION:-1.6.3}
+        APP_VERSION: ${APP_VERSION:-1.6.4}
         GIT_SHA: ${GIT_SHA:-dev}
         BUILD_DATE: ${BUILD_DATE:-unknown}
     image: mediavault-backend:latest
@@ -46,11 +46,12 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
       PORT: 3001
       DATABASE_SSL: ${DATABASE_SSL:-false}
       DATABASE_URL: postgresql://${DB_USER:-mediavault}:${DB_PASSWORD}@db:5432/${POSTGRES_DB:-mediavault}
       REDIS_URL: redis://default:${REDIS_PASSWORD}@redis:6379
-      JWT_SECRET: ${JWT_SECRET}
+      SESSION_SECRET: ${SESSION_SECRET}
       INTEGRATION_ENCRYPTION_KEY: ${INTEGRATION_ENCRYPTION_KEY:-}
       TMDB_PRESET: ${TMDB_PRESET:-tmdb}
       TMDB_PROVIDER: ${TMDB_PROVIDER:-tmdb}
@@ -70,7 +71,7 @@ services:
       VISION_API_KEY: ${VISION_API_KEY}
       VISION_API_KEY_HEADER: ${VISION_API_KEY_HEADER:-apikey}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
-      APP_VERSION: ${APP_VERSION:-1.6.3}
+      APP_VERSION: ${APP_VERSION:-1.6.4}
       GIT_SHA: ${GIT_SHA:-dev}
       BUILD_DATE: ${BUILD_DATE:-unknown}
     volumes:
@@ -94,7 +95,7 @@ services:
       dockerfile: Dockerfile
       args:
         REACT_APP_API_URL: /api
-        REACT_APP_VERSION: ${APP_VERSION:-1.6.3}
+        REACT_APP_VERSION: ${APP_VERSION:-1.6.4}
         REACT_APP_GIT_SHA: ${GIT_SHA:-dev}
         REACT_APP_BUILD_DATE: ${BUILD_DATE:-unknown}
     image: mediavault-frontend:latest

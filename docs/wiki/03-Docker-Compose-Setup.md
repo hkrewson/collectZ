@@ -12,7 +12,7 @@ cp env.example .env
 
 - `DB_PASSWORD`
 - `REDIS_PASSWORD`
-- `JWT_SECRET`
+- `SESSION_SECRET`
 - `INTEGRATION_ENCRYPTION_KEY`
 
 3. Start stack:

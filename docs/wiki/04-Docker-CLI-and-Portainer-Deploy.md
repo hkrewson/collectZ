@@ -15,7 +15,7 @@ docker compose --env-file .env up -d --build
 Versioned deploy (recommended):
 
 ```bash
-APP_VERSION=1.6.3 \
+APP_VERSION=1.6.4 \
 GIT_SHA=$(git rev-parse --short HEAD) \
 BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
 docker compose --env-file .env up -d --build
@@ -50,7 +50,7 @@ Set these in stack environment:
 
 - `DB_PASSWORD`
 - `REDIS_PASSWORD`
-- `JWT_SECRET`
+- `SESSION_SECRET`
 - `INTEGRATION_ENCRYPTION_KEY`
 
 ## Post-Deploy Checks

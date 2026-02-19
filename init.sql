@@ -1,3 +1,12 @@
+-- collectZ database initialization
+--
+-- This file runs ONCE when the Postgres volume is first created.
+-- It seeds the database schema tracked by db/migrations.js.
+--
+-- DO NOT add ad-hoc ALTER TABLE statements here — use a new migration instead.
+-- DO NOT add seed users here. The first user to register becomes admin automatically
+-- when the user table is empty. See docs/wiki/01-Configuration-and-Use.md.
+
 -- Users table
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
@@ -47,7 +56,7 @@ CREATE TABLE IF NOT EXISTS media (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Media metadata table (for additional flexible data)
+-- Media metadata table
 CREATE TABLE IF NOT EXISTS media_metadata (
     id SERIAL PRIMARY KEY,
     media_id INTEGER REFERENCES media(id) ON DELETE CASCADE,
@@ -68,7 +77,18 @@ CREATE TABLE IF NOT EXISTS activity_log (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- User integration settings (per-user API/provider config)
+-- Opaque cookie sessions
+CREATE TABLE IF NOT EXISTS user_sessions (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash VARCHAR(64) UNIQUE NOT NULL,
+    ip_address INET,
+    user_agent TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL
+);
+
+-- Per-user integration settings (reserved for future per-user overrides)
 CREATE TABLE IF NOT EXISTS user_integrations (
     user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     barcode_preset VARCHAR(100) DEFAULT 'upcitemdb',
@@ -92,16 +112,59 @@ CREATE TABLE IF NOT EXISTS user_integrations (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Indexes for performance
-CREATE INDEX idx_media_title ON media(title);
-CREATE INDEX idx_media_format ON media(format);
-CREATE INDEX idx_media_year ON media(year);
-CREATE INDEX idx_media_tmdb_id ON media(tmdb_id);
-CREATE INDEX idx_invites_token ON invites(token);
-CREATE INDEX idx_activity_log_user_id ON activity_log(user_id);
-CREATE INDEX idx_activity_log_created_at ON activity_log(created_at);
+-- App-level integration settings (admin-managed)
+CREATE TABLE IF NOT EXISTS app_integrations (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    barcode_preset VARCHAR(100) DEFAULT 'upcitemdb',
+    barcode_provider VARCHAR(100),
+    barcode_api_url TEXT,
+    barcode_api_key_encrypted TEXT,
+    barcode_api_key_header VARCHAR(100),
+    barcode_query_param VARCHAR(100),
+    vision_preset VARCHAR(100) DEFAULT 'ocrspace',
+    vision_provider VARCHAR(100),
+    vision_api_url TEXT,
+    vision_api_key_encrypted TEXT,
+    vision_api_key_header VARCHAR(100),
+    tmdb_preset VARCHAR(100) DEFAULT 'tmdb',
+    tmdb_provider VARCHAR(100),
+    tmdb_api_url TEXT,
+    tmdb_api_key_encrypted TEXT,
+    tmdb_api_key_header VARCHAR(100),
+    tmdb_api_key_query_param VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
--- Updated at trigger function
+-- App-level display settings
+CREATE TABLE IF NOT EXISTS app_settings (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    theme VARCHAR(20) DEFAULT 'system',
+    density VARCHAR(20) DEFAULT 'comfortable',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Migration tracking (used by db/migrations.js)
+CREATE TABLE IF NOT EXISTS schema_migrations (
+    version INTEGER PRIMARY KEY,
+    description TEXT NOT NULL,
+    applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_media_title ON media(title);
+CREATE INDEX IF NOT EXISTS idx_media_format ON media(format);
+CREATE INDEX IF NOT EXISTS idx_media_year ON media(year);
+CREATE INDEX IF NOT EXISTS idx_media_tmdb_id ON media(tmdb_id);
+CREATE INDEX IF NOT EXISTS idx_invites_token ON invites(token);
+CREATE INDEX IF NOT EXISTS idx_activity_log_user_id ON activity_log(user_id);
+CREATE INDEX IF NOT EXISTS idx_activity_log_created_at ON activity_log(created_at);
+CREATE INDEX IF NOT EXISTS idx_activity_log_action ON activity_log(action);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_expires_at ON user_sessions(expires_at);
+
+-- Updated-at trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -110,26 +173,40 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- Triggers for updated_at
-CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_media_updated_at BEFORE UPDATE ON media
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
+-- Triggers
 DO $$
 BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_trigger WHERE tgname = 'update_user_integrations_updated_at'
-    ) THEN
-        CREATE TRIGGER update_user_integrations_updated_at
-        BEFORE UPDATE ON user_integrations
-        FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_users_updated_at') THEN
+        CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
     END IF;
-END $$;
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_media_updated_at') THEN
+        CREATE TRIGGER update_media_updated_at BEFORE UPDATE ON media
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_app_integrations_updated_at') THEN
+        CREATE TRIGGER update_app_integrations_updated_at BEFORE UPDATE ON app_integrations
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_app_settings_updated_at') THEN
+        CREATE TRIGGER update_app_settings_updated_at BEFORE UPDATE ON app_settings
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_user_integrations_updated_at') THEN
+        CREATE TRIGGER update_user_integrations_updated_at BEFORE UPDATE ON user_integrations
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+END;
+$$;
 
--- Sample data (optional - remove in production)
--- Note: Password is 'admin123' hashed with bcrypt
-INSERT INTO users (email, password, name, role) VALUES 
-('admin@example.com', 'RADYwtaMkc9jqrUnJKHcLmLf', 'Admin User', 'admin')
-ON CONFLICT (email) DO NOTHING;
+-- Seed singleton rows
+INSERT INTO app_integrations (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+INSERT INTO app_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+
+-- Mark both migrations as applied since init.sql creates everything directly.
+-- This prevents the migration runner from re-applying v1/v2 on first startup.
+INSERT INTO schema_migrations (version, description) VALUES
+    (1, 'Initial schema from init.sql'),
+    (2, 'Activity log extended filter index'),
+    (3, 'Opaque cookie sessions table')
+ON CONFLICT (version) DO NOTHING;

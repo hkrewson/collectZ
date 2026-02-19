@@ -26,7 +26,7 @@ Pipeline behavior:
   - `ghcr.io/<owner>/collectz-backend`
   - `ghcr.io/<owner>/collectz-frontend`
 - Tags include:
-  - `<semver>` (example `1.6.3`)
+  - `<semver>` (example `1.6.4`)
   - `<major.minor>` (example `1.6`)
   - `sha-<commit>`
   - `latest` (default branch only)
@@ -49,14 +49,14 @@ cp env.example .env
 
 - `DB_PASSWORD`
 - `REDIS_PASSWORD`
-- `JWT_SECRET`
+- `SESSION_SECRET`
 - `INTEGRATION_ENCRYPTION_KEY`
 
 3. Optional image source values in `.env`:
 
 - `IMAGE_REGISTRY=ghcr.io`
 - `IMAGE_NAMESPACE=hkrewson`
-- `IMAGE_TAG=1.6.3`
+- `IMAGE_TAG=1.6.4`
 
 4. Deploy:
 
@@ -81,4 +81,3 @@ docker compose --env-file .env -f docker-compose.registry.yml up -d
 2. Commit and push.
 3. CI builds and publishes images with embedded build metadata.
 4. Optionally create git tag `vX.Y.Z`.
-
