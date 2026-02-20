@@ -26,7 +26,7 @@ Pipeline behavior:
   - `ghcr.io/<owner>/collectz-backend`
   - `ghcr.io/<owner>/collectz-frontend`
 - Tags include:
-  - `<semver>` (example `1.6.4`)
+  - `<semver>` (example `1.6.5`)
   - `<major.minor>` (example `1.6`)
   - `sha-<commit>`
   - `latest` (default branch only)
@@ -56,7 +56,7 @@ cp env.example .env
 
 - `IMAGE_REGISTRY=ghcr.io`
 - `IMAGE_NAMESPACE=hkrewson`
-- `IMAGE_TAG=1.6.4`
+- `IMAGE_TAG=1.6.5`
 
 4. Deploy:
 

@@ -1,9 +1,10 @@
-import React, { useEffect, useMemo, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
+import appMeta from './app-meta.json';
 
 const API_URL = process.env.REACT_APP_API_URL || '/api';
-const APP_VERSION = process.env.REACT_APP_VERSION || '1.6.4';
-const BUILD_SHA   = process.env.REACT_APP_GIT_SHA || 'dev';
+const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.version || '1.6.5';
+const BUILD_SHA   = process.env.REACT_APP_GIT_SHA || appMeta?.build?.gitShaDefault || 'dev';
 const USER_KEY  = 'mediavault_user';
 
 const MEDIA_FORMATS = ['VHS', 'Blu-ray', 'Digital', 'DVD', '4K UHD'];
@@ -78,6 +79,7 @@ const Icons = {
   Settings:    () => <Icon d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />,
   Users:       () => <Icon d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />,
   Activity:    () => <Icon d="M3 12h4l2.5-7 4 14 2.5-7H21" />,
+  List:        () => <Icon d="M4 7h16M4 12h16M4 17h16" />,
   Profile:     () => <Icon d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />,
   Integrations:() => <Icon d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 17h6M17 14v6" />,
   ChevronDown: () => <Icon d="M6 9l6 6 6-6" size={16} />,
@@ -392,7 +394,7 @@ function Sidebar({ user, activeTab, onSelect, onLogout, collapsed, onToggle, mob
 
 // ─── Media card ───────────────────────────────────────────────────────────────
 
-function MediaCard({ item, onOpen, onEdit, onDelete }) {
+function MediaCard({ item, onOpen, onEdit, onDelete, onRating }) {
   return (
     <article
       className="group relative cursor-pointer animate-fade-in"
@@ -430,6 +432,9 @@ function MediaCard({ item, onOpen, onEdit, onDelete }) {
       <div className="mt-2 px-0.5">
         <p className="text-sm font-medium text-ink truncate">{item.title}</p>
         <p className="text-xs text-ghost">{item.year || '—'}{item.director ? ` · ${item.director}` : ''}</p>
+        <div className="mt-1" onClick={e => e.stopPropagation()}>
+          <StarRating value={item.user_rating || 0} onChange={r => onRating(item.id, r)} />
+        </div>
       </div>
     </article>
   );
@@ -437,7 +442,7 @@ function MediaCard({ item, onOpen, onEdit, onDelete }) {
 
 // ─── Media list row ───────────────────────────────────────────────────────────
 
-function MediaListRow({ item, onOpen, onEdit, onDelete }) {
+function MediaListRow({ item, onOpen, onEdit, onDelete, onRating }) {
   return (
     <article onClick={() => onOpen(item)}
       className="group flex items-center gap-4 p-3 rounded-lg bg-surface border border-edge hover:border-muted hover:bg-raised cursor-pointer transition-all duration-150 animate-fade-in">
@@ -454,7 +459,9 @@ function MediaListRow({ item, onOpen, onEdit, onDelete }) {
         <p className="text-sm text-ghost">{[item.year, item.format, item.director].filter(Boolean).join(' · ')}</p>
         {item.genre && <p className="text-xs text-ghost/70 mt-0.5 truncate">{item.genre}</p>}
       </div>
-      {item.user_rating > 0 && <StarRating value={item.user_rating} readOnly />}
+      <div onClick={e => e.stopPropagation()}>
+        <StarRating value={item.user_rating || 0} onChange={r => onRating(item.id, r)} />
+      </div>
       <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
         <button onClick={e => { e.stopPropagation(); onEdit(item); }} className="btn-ghost btn-sm"><Icons.Edit /></button>
         <button onClick={e => { e.stopPropagation(); onDelete(item.id); }} className="btn-ghost btn-sm text-err hover:bg-err/10"><Icons.Trash /></button>
@@ -906,6 +913,11 @@ function LibraryView({ mediaItems, loading, error, onRefresh, onOpen, onEdit, on
     return items;
   }, [mediaItems, format, search]);
 
+  const rate = async (id, rating) => {
+    await onRating(id, rating);
+    setDetail(d => (d && d.id === id ? { ...d, user_rating: rating } : d));
+  };
+
   if (adding || editing) {
     const isEdit = Boolean(editing);
     return (
@@ -953,7 +965,7 @@ function LibraryView({ mediaItems, loading, error, onRefresh, onOpen, onEdit, on
               <Icons.Film />
             </button>
             <button className={cx('tab', viewMode === 'list' && 'active')} onClick={() => setViewMode('list')}>
-              <Icons.Activity />
+              <Icons.List />
             </button>
           </div>
           <button onClick={onRefresh} className="btn-icon" title="Refresh"><Icons.Refresh /></button>
@@ -984,6 +996,7 @@ function LibraryView({ mediaItems, loading, error, onRefresh, onOpen, onEdit, on
                 onOpen={() => setDetail(item)}
                 onEdit={() => setEditing(item)}
                 onDelete={id => { if (window.confirm('Delete this item?')) onDelete(id); }}
+                onRating={rate}
               />
             ))}
           </div>
@@ -995,6 +1008,7 @@ function LibraryView({ mediaItems, loading, error, onRefresh, onOpen, onEdit, on
                 onOpen={() => setDetail(item)}
                 onEdit={() => setEditing(item)}
                 onDelete={id => { if (window.confirm('Delete this item?')) onDelete(id); }}
+                onRating={rate}
               />
             ))}
           </div>
@@ -1006,7 +1020,7 @@ function LibraryView({ mediaItems, loading, error, onRefresh, onOpen, onEdit, on
         <MediaDetail item={detail} onClose={() => setDetail(null)}
           onEdit={item => { setDetail(null); setEditing(item); }}
           onDelete={id => { onDelete(id); setDetail(null); }}
-          onRating={onRating}
+          onRating={rate}
         />
       )}
     </div>
@@ -1068,13 +1082,29 @@ function AdminUsers({ apiCall, onToast, currentUserId }) {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteUrl, setInviteUrl]     = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [pendingRoles, setPendingRoles] = useState({});
 
   useEffect(() => {
-    Promise.all([
-      apiCall('get', '/admin/users').then(setUsers),
-      apiCall('get', '/admin/invites').then(setInvites),
-    ]).finally(() => setLoading(false));
+    let active = true;
+    (async () => {
+      setLoading(true);
+      setLoadError('');
+      const [usersRes, invitesRes] = await Promise.allSettled([
+        apiCall('get', '/admin/users'),
+        apiCall('get', '/admin/invites')
+      ]);
+      if (!active) return;
+
+      if (usersRes.status === 'fulfilled') setUsers(usersRes.value || []);
+      else setLoadError('Failed to load users.');
+
+      if (invitesRes.status === 'fulfilled') setInvites(invitesRes.value || []);
+      else setLoadError(prev => (prev ? `${prev} Failed to load invites.` : 'Failed to load invites.'));
+
+      setLoading(false);
+    })();
+    return () => { active = false; };
   }, []);
 
   const createInvite = async e => {
@@ -1086,7 +1116,9 @@ function AdminUsers({ apiCall, onToast, currentUserId }) {
       setInviteEmail('');
       setInvites(i => [data, ...i]);
       onToast(`Invite created for ${data.email}`);
-    } catch (err) { onToast(err.response?.data?.error || 'Failed to create invite', 'error'); }
+    } catch (err) {
+      onToast(err.response?.data?.error || err.response?.data?.detail || 'Failed to create invite', 'error');
+    }
   };
 
   const saveRole = async (id) => {
@@ -1119,6 +1151,7 @@ function AdminUsers({ apiCall, onToast, currentUserId }) {
   return (
     <div className="p-6 space-y-8 max-w-3xl">
       <h1 className="section-title">Users</h1>
+      {loadError && <p className="text-sm text-err">{loadError}</p>}
 
       <div className="card divide-y divide-edge">
         {users.map(u => (
@@ -1230,16 +1263,26 @@ function AdminActivity({ apiCall }) {
   );
 }
 
-function AdminSettings({ apiCall, onToast }) {
+function AdminSettings({ apiCall, onToast, onSettingsChange }) {
   const [settings, setSettings] = useState({ theme: 'system', density: 'comfortable' });
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => { apiCall('get', '/settings/general').then(setSettings).catch(() => {}); }, []);
+  useEffect(() => {
+    apiCall('get', '/settings/general').then(data => {
+      setSettings(data);
+      onSettingsChange?.(data);
+    }).catch(() => {});
+  }, []);
 
   const save = async e => {
     e.preventDefault();
     setSaving(true);
-    try { await apiCall('put', '/admin/settings/general', settings); onToast('Settings saved'); }
+    try {
+      const updated = await apiCall('put', '/admin/settings/general', settings);
+      setSettings(updated);
+      onSettingsChange?.(updated);
+      onToast('Settings saved');
+    }
     catch { onToast('Save failed', 'error'); }
     finally { setSaving(false); }
   };
@@ -1418,6 +1461,7 @@ export default function App() {
   const [mediaItems, setMediaItems]   = useState([]);
   const [mediaLoading, setMediaLoading] = useState(false);
   const [mediaError, setMediaError]   = useState('');
+  const [uiSettings, setUiSettings] = useState({ theme: 'system', density: 'comfortable' });
   const [toast, setToast] = useState(null);
 
   const isAdmin = user?.role === 'admin';
@@ -1435,7 +1479,7 @@ export default function App() {
   }, []);
 
   // API helper
-  const apiCall = async (method, path, data, config = {}) => {
+  const apiCall = useCallback(async (method, path, data, config = {}) => {
     const response = await axios({
       method,
       url: `${API_URL}${path}`,
@@ -1444,7 +1488,7 @@ export default function App() {
       withCredentials: true
     });
     return response.data;
-  };
+  }, []);
 
   // Auth
   const handleAuth = (usr) => {
@@ -1494,6 +1538,43 @@ export default function App() {
     const updated = await apiCall('patch', `/media/${id}`, { user_rating: rating });
     setMediaItems(m => m.map(i => i.id === id ? updated : i));
   };
+
+  useEffect(() => {
+    if (!(route === 'dashboard' && authChecked && user)) return;
+    apiCall('get', '/settings/general')
+      .then(data => setUiSettings(data))
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [route, authChecked, user?.id]);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const resolveTheme = () => (
+      uiSettings.theme === 'system'
+        ? (mq.matches ? 'dark' : 'light')
+        : uiSettings.theme
+    );
+
+    const apply = () => {
+      const theme = resolveTheme();
+      root.classList.remove('theme-light', 'theme-dark', 'density-compact', 'density-comfortable');
+      root.classList.add(theme === 'light' ? 'theme-light' : 'theme-dark');
+      root.classList.add(uiSettings.density === 'compact' ? 'density-compact' : 'density-comfortable');
+      root.style.colorScheme = theme;
+    };
+
+    apply();
+    const onSystemThemeChange = () => {
+      if (uiSettings.theme === 'system') apply();
+    };
+    if (mq.addEventListener) mq.addEventListener('change', onSystemThemeChange);
+    else mq.addListener(onSystemThemeChange);
+    return () => {
+      if (mq.removeEventListener) mq.removeEventListener('change', onSystemThemeChange);
+      else mq.removeListener(onSystemThemeChange);
+    };
+  }, [uiSettings.theme, uiSettings.density]);
 
   useEffect(() => {
     if (route !== 'dashboard') {
@@ -1562,7 +1643,7 @@ export default function App() {
       case 'profile':          return <ProfileView user={user} apiCall={apiCall} onToast={showToast} />;
       case 'admin-users':      return <AdminUsers apiCall={apiCall} onToast={showToast} currentUserId={user?.id} />;
       case 'admin-activity':   return <AdminActivity apiCall={apiCall} />;
-      case 'admin-settings':   return <AdminSettings apiCall={apiCall} onToast={showToast} />;
+      case 'admin-settings':   return <AdminSettings apiCall={apiCall} onToast={showToast} onSettingsChange={setUiSettings} />;
       case 'admin-integrations': return <AdminIntegrations apiCall={apiCall} onToast={showToast} />;
       default:                 return null;
     }

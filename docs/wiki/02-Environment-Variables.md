@@ -24,6 +24,11 @@ openssl rand -hex 32
 - `DATABASE_SSL` (`false` by default)
 - `NODE_ENV` (`production` by default)
 - `ALLOWED_ORIGINS` (comma-separated origins)
+- `AUDIT_LOG_MODE` (`failures` by default): request-level activity logging verbosity.
+  - `off`: disable request outcome audit entries
+  - `failures`: log failed API requests only
+  - `mutations`: log write requests (`POST/PUT/PATCH/DELETE`) plus failures
+  - `all`: log all API requests
 
 ## Integration Defaults (Can Be Managed in Admin UI)
 
@@ -42,6 +47,11 @@ These can be set in `.env`, but admin settings in UI now control active global i
 - `APP_VERSION`: semantic version shown in UI and health response (example: `1.6.2`).
 - `GIT_SHA`: short git commit hash appended as build metadata (example: `2c9a862`).
 - `BUILD_DATE`: UTC build timestamp (example: `2026-02-17T06:00:00Z`).
+
+Metadata source of truth:
+
+- `app-meta.json` in repo root
+- Sync command: `node scripts/sync-app-meta.js`
 
 These are optional in `.env`; you can also pass them inline on deploy.
 

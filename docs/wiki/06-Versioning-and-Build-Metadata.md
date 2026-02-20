@@ -9,25 +9,32 @@ This project uses **Semantic Versioning** with Docker build metadata.
 - `MINOR` (`1.X.0`): new features.
 - `PATCH` (`1.6.X`): fixes/refinements.
 
-Current project version: `1.6.4`.
+Current project version: `1.6.5`.
 
 ## Source of Truth
 
-- Keep SemVer in both package files:
-  - `frontend/package.json`
+- Canonical metadata file: `app-meta.json` at repo root.
+- Synced targets:
   - `backend/package.json`
-- Keep these two version values aligned for each release.
+  - `frontend/package.json`
+  - `backend/app-meta.json`
+  - `frontend/src/app-meta.json`
+- Sync command:
+
+```bash
+node scripts/sync-app-meta.js
+```
 
 ## Build Identifier
 
 At build/deploy time, append git metadata as build info:
 
 - Display format: `v<semver>+<git_sha>`
-- Example: `v1.6.4+2c9a862`
+- Example: `v1.6.5+2c9a862`
 
 Build metadata values:
 
-- `APP_VERSION` (SemVer, e.g. `1.6.4`)
+- `APP_VERSION` (SemVer, e.g. `1.6.5`)
 - `GIT_SHA` (short commit hash)
 - `BUILD_DATE` (UTC timestamp)
 
@@ -36,7 +43,7 @@ Build metadata values:
 Use this command for local or server deploys:
 
 ```bash
-APP_VERSION=1.6.4 \
+APP_VERSION=1.6.5 \
 GIT_SHA=$(git rev-parse --short HEAD) \
 BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
 docker compose --env-file .env up -d --build
@@ -51,7 +58,8 @@ docker compose --env-file .env up -d --build
 
 ## Release Bump Checklist
 
-1. Update both `frontend/package.json` and `backend/package.json`.
-2. Commit the version bump.
-3. Build/deploy with `APP_VERSION`, `GIT_SHA`, and `BUILD_DATE`.
-4. Confirm version in sidebar and `/api/health`.
+1. Update `app-meta.json` version.
+2. Run `node scripts/sync-app-meta.js`.
+3. Commit the version bump.
+4. Build/deploy with `APP_VERSION`, `GIT_SHA`, and `BUILD_DATE` (or rely on CI build args).
+5. Confirm version in sidebar and `/api/health`.
