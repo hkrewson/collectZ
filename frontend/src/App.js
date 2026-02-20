@@ -1047,7 +1047,7 @@ function ProfileView({ user, apiCall, onToast }) {
   };
 
   return (
-    <div className="p-6 max-w-lg">
+    <div className="h-full overflow-y-auto p-6 max-w-lg">
       <h1 className="section-title mb-6">Profile</h1>
       <div className="card p-6 space-y-4">
         <div className="flex items-center gap-4 pb-4 border-b border-edge">
@@ -1149,7 +1149,7 @@ function AdminUsers({ apiCall, onToast, currentUserId }) {
   if (loading) return <div className="p-6 flex items-center gap-3 text-dim"><Spinner />Loading…</div>;
 
   return (
-    <div className="p-6 space-y-8 max-w-3xl">
+    <div className="h-full overflow-y-auto p-6 space-y-8 max-w-3xl">
       <h1 className="section-title">Users</h1>
       {loadError && <p className="text-sm text-err">{loadError}</p>}
 
@@ -1189,7 +1189,7 @@ function AdminUsers({ apiCall, onToast, currentUserId }) {
             <button onClick={() => copy(inviteUrl)} className="btn-icon btn-sm shrink-0"><Icons.Copy /></button>
           </div>
         )}
-        <div className="card divide-y divide-edge">
+        <div className="card divide-y divide-edge max-h-[24rem] overflow-y-auto">
           {invites.length === 0 && <p className="px-4 py-6 text-sm text-ghost text-center">No invites yet</p>}
           {invites.map(inv => (
             <div key={inv.id} className="flex items-center gap-3 px-4 py-3">
@@ -1212,24 +1212,46 @@ function AdminActivity({ apiCall }) {
   const [items, setItems]   = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({ action: '', from: '', to: '', q: '' });
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [pageSizeMode, setPageSizeMode] = useState('auto');
+  const [autoPageSize, setAutoPageSize] = useState(50);
+  const pageSize = pageSizeMode === 'auto' ? autoPageSize : Number(pageSizeMode);
 
-  const load = async () => {
+  useEffect(() => {
+    const computeAutoSize = () => {
+      const raw = Math.floor((window.innerHeight - 320) / 72);
+      const bounded = Math.max(10, Math.min(100, raw));
+      setAutoPageSize(bounded);
+    };
+    computeAutoSize();
+    window.addEventListener('resize', computeAutoSize);
+    return () => window.removeEventListener('resize', computeAutoSize);
+  }, []);
+
+  const load = async (targetPage = page) => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ limit: 100 });
+      const params = new URLSearchParams({
+        limit: String(pageSize),
+        offset: String((targetPage - 1) * pageSize)
+      });
       if (filters.action) params.set('action', filters.action);
       if (filters.from)   params.set('from', filters.from);
       if (filters.to)     params.set('to', filters.to);
       if (filters.q)      params.set('q', filters.q);
       const data = await apiCall('get', `/admin/activity?${params}`);
-      setItems(Array.isArray(data) ? data : []);
+      const rows = Array.isArray(data) ? data : [];
+      setItems(rows);
+      setHasMore(rows.length === pageSize);
+      setPage(targetPage);
     } finally { setLoading(false); }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(1); }, [pageSizeMode, autoPageSize]);
 
   return (
-    <div className="p-6 max-w-4xl space-y-4">
+    <div className="h-full overflow-y-auto p-6 max-w-4xl space-y-4">
       <div className="flex items-center gap-3">
         <h1 className="section-title flex-1">Activity Log</h1>
         <button onClick={load} className="btn-icon"><Icons.Refresh /></button>
@@ -1239,7 +1261,18 @@ function AdminActivity({ apiCall }) {
         <input className="input w-36" type="date" value={filters.from} onChange={e => setFilters(f => ({ ...f, from: e.target.value }))} />
         <input className="input w-36" type="date" value={filters.to} onChange={e => setFilters(f => ({ ...f, to: e.target.value }))} />
         <input className="input flex-1 min-w-36" placeholder="Search details…" value={filters.q} onChange={e => setFilters(f => ({ ...f, q: e.target.value }))} />
-        <button onClick={load} className="btn-primary">Apply</button>
+        <button onClick={() => load(1)} className="btn-primary">Apply</button>
+        <select className="select w-36" value={pageSizeMode} onChange={e => setPageSizeMode(e.target.value)}>
+          <option value="auto">Page size: Auto ({autoPageSize})</option>
+          <option value="25">Page size: 25</option>
+          <option value="50">Page size: 50</option>
+          <option value="100">Page size: 100</option>
+        </select>
+      </div>
+      <div className="flex items-center gap-2">
+        <button onClick={() => load(Math.max(1, page - 1))} disabled={loading || page <= 1} className="btn-secondary btn-sm">Previous</button>
+        <span className="text-xs text-ghost font-mono">Page {page}</span>
+        <button onClick={() => load(page + 1)} disabled={loading || !hasMore} className="btn-secondary btn-sm">Next</button>
       </div>
       {loading ? <div className="flex justify-center py-12"><Spinner size={28} /></div> : (
         <div className="card divide-y divide-edge">
@@ -1254,7 +1287,7 @@ function AdminActivity({ apiCall }) {
                 {entry.entity_type && <span>entity: {entry.entity_type} #{entry.entity_id} · </span>}
                 user: {entry.user_id ?? '–'} · {entry.ip_address || '–'}
               </p>
-              {entry.details && <p className="text-xs text-ghost/60 font-mono truncate">{JSON.stringify(entry.details)}</p>}
+              {entry.details && <p className="text-xs text-ghost/60 font-mono whitespace-pre-wrap break-words">{JSON.stringify(entry.details, null, 2)}</p>}
             </div>
           ))}
         </div>
@@ -1288,7 +1321,7 @@ function AdminSettings({ apiCall, onToast, onSettingsChange }) {
   };
 
   return (
-    <div className="p-6 max-w-sm">
+    <div className="h-full overflow-y-auto p-6 max-w-sm">
       <h1 className="section-title mb-6">General Settings</h1>
       <div className="card p-6">
         <form onSubmit={save} className="space-y-4">
@@ -1371,7 +1404,7 @@ function AdminIntegrations({ apiCall, onToast }) {
   const sections = ['barcode','vision','tmdb'];
 
   return (
-    <div className="p-6 max-w-2xl space-y-6">
+    <div className="h-full overflow-y-auto p-6 max-w-2xl space-y-6">
       <h1 className="section-title">Integrations</h1>
 
       <div className="flex gap-3">

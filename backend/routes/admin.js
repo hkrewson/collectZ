@@ -108,6 +108,8 @@ router.get('/invites', asyncHandler(async (req, res) => {
 router.get('/activity', asyncHandler(async (req, res) => {
   const limitRaw = Number(req.query.limit || 100);
   const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(500, limitRaw)) : 100;
+  const offsetRaw = Number(req.query.offset || 0);
+  const offset = Number.isFinite(offsetRaw) ? Math.max(0, offsetRaw) : 0;
 
   const conditions = [];
   const params = [];
@@ -142,13 +144,15 @@ router.get('/activity', asyncHandler(async (req, res) => {
 
   const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
   params.push(limit);
+  params.push(offset);
 
   const result = await pool.query(
     `SELECT id, user_id, action, entity_type, entity_id, details, ip_address, created_at
      FROM activity_log
      ${where}
      ORDER BY id DESC
-     LIMIT $${params.length}`,
+     LIMIT $${params.length - 1}
+     OFFSET $${params.length}`,
     params
   );
   res.json(result.rows);
