@@ -21,9 +21,11 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const cookieParser = require('cookie-parser');
+const appMeta = require('./app-meta.json');
 
 const { runMigrations } = require('./db/migrations');
 const { requestLogger, errorHandler } = require('./middleware/errors');
+const { auditRequestOutcome, getMode } = require('./middleware/audit');
 
 const authRouter = require('./routes/auth');
 const mediaRouter = require('./routes/media');
@@ -32,9 +34,9 @@ const integrationsRouter = require('./routes/integrations');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const APP_VERSION = process.env.APP_VERSION || '1.6.4';
-const GIT_SHA = process.env.GIT_SHA || 'dev';
-const BUILD_DATE = process.env.BUILD_DATE || 'unknown';
+const APP_VERSION = process.env.APP_VERSION || appMeta.version || '1.6.5';
+const GIT_SHA = process.env.GIT_SHA || appMeta?.build?.gitShaDefault || 'dev';
+const BUILD_DATE = process.env.BUILD_DATE || appMeta?.build?.buildDateDefault || 'unknown';
 const BUILD_LABEL = `v${APP_VERSION}+${GIT_SHA}`;
 
 // ── Trust proxy (required when behind nginx/Traefik) ─────────────────────────
@@ -54,6 +56,7 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+app.use(auditRequestOutcome);
 
 // ── Rate limiting ─────────────────────────────────────────────────────────────
 const apiLimiter = rateLimit({
@@ -85,7 +88,7 @@ app.use('/api/auth', authRouter);
 app.use('/api', authRouter);
 app.use('/api/media', mediaRouter);
 app.use('/api', integrationsRouter);
-app.use('/api', adminRouter);
+app.use('/api/admin', adminRouter);
 
 // ── Health check ──────────────────────────────────────────────────────────────
 const healthPayload = () => ({
@@ -99,6 +102,13 @@ const healthPayload = () => ({
 app.get('/health', (_req, res) => res.json(healthPayload()));
 app.get('/api/health', (_req, res) => res.json(healthPayload()));
 
+// 404 JSON for unmatched API routes so failures are explicit and loggable.
+app.use('/api', (req, _res, next) => {
+  const err = new Error(`API route not found: ${req.method} ${req.originalUrl}`);
+  err.status = 404;
+  next(err);
+});
+
 // ── Centralized error handler ─────────────────────────────────────────────────
 // Must be registered LAST, after all routes.
 app.use(errorHandler);
@@ -108,7 +118,7 @@ const startServer = async () => {
   try {
     await runMigrations();
     app.listen(PORT, '0.0.0.0', () => {
-      console.log(`collectZ backend v${BUILD_LABEL} listening on port ${PORT}`);
+      console.log(`collectZ backend ${BUILD_LABEL} listening on port ${PORT} (audit=${getMode()})`);
     });
   } catch (error) {
     console.error('Fatal startup error:', error.message);

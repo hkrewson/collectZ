@@ -5,6 +5,7 @@ const { asyncHandler } = require('../middleware/errors');
 const { authenticateToken, SESSION_COOKIE_OPTIONS } = require('../middleware/auth');
 const { validate, registerSchema, loginSchema, profileUpdateSchema } = require('../middleware/validate');
 const { createSession, revokeSessionByToken } = require('../services/sessions');
+const { logActivity } = require('../services/audit');
 
 const router = express.Router();
 
@@ -51,6 +52,11 @@ router.post('/register', validate(registerSchema), asyncHandler(async (req, res)
   });
 
   res.cookie('session_token', token, SESSION_COOKIE_OPTIONS);
+  await logActivity(req, 'auth.user.register', 'user', result.rows[0].id, {
+    email: result.rows[0].email,
+    role: result.rows[0].role,
+    inviteTokenUsed: Boolean(inviteToken)
+  });
   res.json({ user: result.rows[0] });
 }));
 
@@ -77,6 +83,7 @@ router.post('/login', validate(loginSchema), asyncHandler(async (req, res) => {
 
   const { password: _, ...userWithoutPassword } = user;
   res.cookie('session_token', token, SESSION_COOKIE_OPTIONS);
+  await logActivity(req, 'auth.user.login', 'user', user.id, { email: user.email });
   res.json({ user: userWithoutPassword });
 }));
 
@@ -93,6 +100,7 @@ router.post('/logout', asyncHandler(async (req, res) => {
     secure: SESSION_COOKIE_OPTIONS.secure,
     path: SESSION_COOKIE_OPTIONS.path
   });
+  await logActivity(req, 'auth.user.logout', 'user', req.user?.id || null, null);
   res.json({ message: 'Logged out' });
 }));
 
@@ -124,6 +132,14 @@ router.get('/profile', authenticateToken, asyncHandler(async (req, res) => {
 
 router.patch('/profile', authenticateToken, validate(profileUpdateSchema), asyncHandler(async (req, res) => {
   const { name, email, password } = req.body;
+  const previous = await pool.query(
+    'SELECT id, email, name FROM users WHERE id = $1',
+    [req.user.id]
+  );
+  if (previous.rows.length === 0) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+
   const updates = [];
   const values = [];
 
@@ -156,6 +172,14 @@ router.patch('/profile', authenticateToken, validate(profileUpdateSchema), async
      RETURNING id, email, name, role, created_at, updated_at`,
     values
   );
+
+  await logActivity(req, 'auth.profile.update', 'user', req.user.id, {
+    previousName: previous.rows[0].name,
+    previousEmail: previous.rows[0].email,
+    nextName: result.rows[0].name,
+    nextEmail: result.rows[0].email,
+    passwordChanged: Boolean(password)
+  });
 
   res.json(result.rows[0]);
 }));

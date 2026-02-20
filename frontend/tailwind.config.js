@@ -24,19 +24,19 @@ module.exports = {
         dim:     '#8b9ab8',
         ghost:   '#4a5a78',
 
-        // Brand accent — amber/gold, cinematic warmth
+        // Brand accent — blue
         gold: {
-          DEFAULT: '#f5a623',
-          50:  '#fff8eb',
-          100: '#feefc3',
-          200: '#fdda82',
-          300: '#fcc042',
-          400: '#f5a623',
-          500: '#e8890a',
-          600: '#c96805',
-          700: '#a14c08',
-          800: '#833d0d',
-          900: '#6d330f',
+          DEFAULT: '#3b82f6',
+          50:  '#eff6ff',
+          100: '#dbeafe',
+          200: '#bfdbfe',
+          300: '#93c5fd',
+          400: '#60a5fa',
+          500: '#3b82f6',
+          600: '#2563eb',
+          700: '#1d4ed8',
+          800: '#1e40af',
+          900: '#1e3a8a',
         },
 
         // Status
@@ -55,7 +55,7 @@ module.exports = {
       },
       boxShadow: {
         'card':  '0 4px 24px rgba(0,0,0,0.5), 0 1px 4px rgba(0,0,0,0.3)',
-        'glow':  '0 0 24px rgba(245,166,35,0.25)',
+        'glow':  '0 0 24px rgba(59,130,246,0.25)',
         'raise': '0 8px 32px rgba(0,0,0,0.6)',
         'deep':  '0 20px 60px rgba(0,0,0,0.8)',
       },
@@ -79,7 +79,7 @@ module.exports = {
         fadeIn:    { from: { opacity: 0 }, to: { opacity: 1 } },
         slideUp:   { from: { opacity: 0, transform: 'translateY(12px)' }, to: { opacity: 1, transform: 'translateY(0)' } },
         slideIn:   { from: { opacity: 0, transform: 'translateX(-16px)' }, to: { opacity: 1, transform: 'translateX(0)' } },
-        pulseGold: { '0%,100%': { boxShadow: '0 0 0 0 rgba(245,166,35,0)' }, '50%': { boxShadow: '0 0 0 6px rgba(245,166,35,0.15)' } },
+        pulseGold: { '0%,100%': { boxShadow: '0 0 0 0 rgba(59,130,246,0)' }, '50%': { boxShadow: '0 0 0 6px rgba(59,130,246,0.15)' } },
       },
     },
   },

@@ -15,6 +15,39 @@ This roadmap converts product direction into implementation milestones with acce
 
 ---
 
+## 1.6.5 — Auditability and Auth Operations
+
+**Goal:** Improve troubleshooting during development/testing by expanding activity logging coverage and making audit verbosity configurable.
+
+### Scope
+
+- Add request-outcome activity logging with environment toggle:
+  - `AUDIT_LOG_MODE=off`
+  - `AUDIT_LOG_MODE=failures` (default)
+  - `AUDIT_LOG_MODE=mutations`
+  - `AUDIT_LOG_MODE=all`
+- Ensure profile and user lifecycle changes emit explicit activity events:
+  - register
+  - login
+  - logout
+  - profile updates (including password-change flag)
+  - admin user role updates/deletes
+- Keep explicit admin/domain events while adding generic request-failure visibility.
+
+### Acceptance Criteria
+
+- Failed API actions appear in Activity log with method, path, status, and error summary.
+- Profile and user updates are visible in Activity log with sufficient context to troubleshoot.
+- Audit verbosity can be changed by setting `AUDIT_LOG_MODE` in `.env` / compose runtime.
+
+### API/Ops Checklist
+
+- Document `AUDIT_LOG_MODE` in env/deploy docs.
+- Keep default mode `failures` for production-like noise levels.
+- Use `mutations` or `all` during active development when deeper traceability is needed.
+
+---
+
 ## 1.6.4 — Security Hardening & Code Health (Next Release)
 
 **Goal:** Close confirmed security gaps, fix silent bugs, and establish code structure that supports safe iteration through 1.7 and beyond. This is a required stepping stone — no new features ship before these are resolved.
