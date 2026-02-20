@@ -15,7 +15,7 @@ docker compose --env-file .env up -d --build
 Versioned deploy (recommended):
 
 ```bash
-APP_VERSION=1.6.5 \
+APP_VERSION=1.6.5-r1 \
 GIT_SHA=$(git rev-parse --short HEAD) \
 BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
 docker compose --env-file .env up -d --build

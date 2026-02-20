@@ -15,7 +15,7 @@ This roadmap converts product direction into implementation milestones with acce
 
 ---
 
-## 1.6.5 — Auditability and Auth Operations
+## 1.6.5-r1 — Auditability and Auth Operations
 
 **Goal:** Improve troubleshooting during development/testing by expanding activity logging coverage and making audit verbosity configurable.
 
@@ -45,6 +45,45 @@ This roadmap converts product direction into implementation milestones with acce
 - Document `AUDIT_LOG_MODE` in env/deploy docs.
 - Keep default mode `failures` for production-like noise levels.
 - Use `mutations` or `all` during active development when deeper traceability is needed.
+
+---
+
+## 1.6.6 — Members and Invitations UX
+
+**Goal:** Improve admin usability and lifecycle management for users/invites without introducing major schema risk.
+
+### Scope
+
+- Rename admin nav label from `Users` to `Members`.
+- Split current mixed admin view into two tabs:
+  - `Members`
+  - `Invitations`
+- Invitation lifecycle controls:
+  - add explicit invalidate/revoke for unused invites
+  - hide used invites from default view (with optional filter to show historical)
+- Invitation history visibility:
+  - include claim event in activity log (`invite.claimed`) with invite id, claimed-by user, email, timestamp
+  - include creator identity where available
+- Add member detail drawer (slide-over) with:
+  - profile basics
+  - role editing
+  - last login
+  - contribution counters (media additions, last edit timestamp)
+  - a simple contribution score metric
+
+### Acceptance Criteria
+
+- Admin can switch clearly between Members and Invitations without mixed content.
+- Admin can revoke an active invite; revoked invite cannot be used.
+- Used invites no longer clutter default invitation list.
+- Activity log includes invite claim/revoke lifecycle events.
+- Member drawer opens from list row and supports at least role updates + read-only activity metrics.
+
+### API/DB Checklist
+
+- Add invite revoke endpoint (admin-only).
+- Add `invite.claimed` and `invite.revoked` activity event coverage.
+- If needed, add non-breaking user activity summary endpoint for drawer stats.
 
 ---
 
