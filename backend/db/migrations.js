@@ -31,6 +31,9 @@ const MIGRATIONS = [
         email VARCHAR(255) NOT NULL,
         token VARCHAR(255) UNIQUE NOT NULL,
         used BOOLEAN DEFAULT false,
+        revoked BOOLEAN DEFAULT false,
+        used_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        used_at TIMESTAMP,
         expires_at TIMESTAMP NOT NULL,
         created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -203,6 +206,26 @@ const MIGRATIONS = [
 
       CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
       CREATE INDEX IF NOT EXISTS idx_user_sessions_expires_at ON user_sessions(expires_at);
+    `
+  },
+  {
+    version: 4,
+    description: 'Invite lifecycle fields for revocation and claim metadata',
+    up: `
+      ALTER TABLE invites
+        ADD COLUMN IF NOT EXISTS revoked BOOLEAN DEFAULT false;
+
+      ALTER TABLE invites
+        ADD COLUMN IF NOT EXISTS used_by INTEGER REFERENCES users(id) ON DELETE SET NULL;
+
+      ALTER TABLE invites
+        ADD COLUMN IF NOT EXISTS used_at TIMESTAMP;
+
+      UPDATE invites
+      SET revoked = false
+      WHERE revoked IS NULL;
+
+      CREATE INDEX IF NOT EXISTS idx_invites_active ON invites(used, revoked, expires_at);
     `
   }
 ];

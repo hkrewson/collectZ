@@ -24,6 +24,9 @@ CREATE TABLE IF NOT EXISTS invites (
     email VARCHAR(255) NOT NULL,
     token VARCHAR(255) UNIQUE NOT NULL,
     used BOOLEAN DEFAULT false,
+    revoked BOOLEAN DEFAULT false,
+    used_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    used_at TIMESTAMP,
     expires_at TIMESTAMP NOT NULL,
     created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -158,6 +161,7 @@ CREATE INDEX IF NOT EXISTS idx_media_format ON media(format);
 CREATE INDEX IF NOT EXISTS idx_media_year ON media(year);
 CREATE INDEX IF NOT EXISTS idx_media_tmdb_id ON media(tmdb_id);
 CREATE INDEX IF NOT EXISTS idx_invites_token ON invites(token);
+CREATE INDEX IF NOT EXISTS idx_invites_active ON invites(used, revoked, expires_at);
 CREATE INDEX IF NOT EXISTS idx_activity_log_user_id ON activity_log(user_id);
 CREATE INDEX IF NOT EXISTS idx_activity_log_created_at ON activity_log(created_at);
 CREATE INDEX IF NOT EXISTS idx_activity_log_action ON activity_log(action);
@@ -203,10 +207,11 @@ $$;
 INSERT INTO app_integrations (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
 INSERT INTO app_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
 
--- Mark both migrations as applied since init.sql creates everything directly.
--- This prevents the migration runner from re-applying v1/v2 on first startup.
+-- Mark bootstrap migrations as applied since init.sql creates everything directly.
+-- This prevents the migration runner from re-applying them on first startup.
 INSERT INTO schema_migrations (version, description) VALUES
     (1, 'Initial schema from init.sql'),
     (2, 'Activity log extended filter index'),
-    (3, 'Opaque cookie sessions table')
+    (3, 'Opaque cookie sessions table'),
+    (4, 'Invite lifecycle fields for revocation and claim metadata')
 ON CONFLICT (version) DO NOTHING;
