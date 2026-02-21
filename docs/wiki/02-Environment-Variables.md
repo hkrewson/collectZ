@@ -37,6 +37,7 @@ These can be set in `.env`, but admin settings in UI now control active global i
 - TMDB: `TMDB_PRESET`, `TMDB_PROVIDER`, `TMDB_API_URL`, `TMDB_API_KEY`, `TMDB_API_KEY_HEADER`, `TMDB_API_KEY_QUERY_PARAM`
 - Barcode: `BARCODE_PRESET`, `BARCODE_PROVIDER`, `BARCODE_API_URL`, `BARCODE_API_KEY`, `BARCODE_API_KEY_HEADER`, `BARCODE_QUERY_PARAM`
 - Vision: `VISION_PRESET`, `VISION_PROVIDER`, `VISION_API_URL`, `VISION_API_KEY`, `VISION_API_KEY_HEADER`
+- Plex: `PLEX_PRESET`, `PLEX_PROVIDER`, `PLEX_API_URL`, `PLEX_SERVER_NAME`, `PLEX_API_KEY`
 
 ## Frontend
 
@@ -44,7 +45,7 @@ These can be set in `.env`, but admin settings in UI now control active global i
 
 ## Build Metadata (Recommended)
 
-- `APP_VERSION`: semantic version shown in UI and health response (example: `1.6.2`).
+- `APP_VERSION`: semantic version shown in UI and health response (example: `1.7.0`).
 - `GIT_SHA`: short git commit hash appended as build metadata (example: `2c9a862`).
 - `BUILD_DATE`: UTC build timestamp (example: `2026-02-17T06:00:00Z`).
 

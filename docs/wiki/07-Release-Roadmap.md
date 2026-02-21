@@ -240,7 +240,10 @@ This roadmap converts product direction into implementation milestones with acce
 
 - Add merge/resolve UI for near-duplicate titles (same title, different years or formats).
 - Add sort controls to the library view: by title, year, format, date added, user rating.
-- Add additional filter dimensions: genre, rating range, user rating range.
+  - Title sort must ignore leading articles (`A`, `An`, `The`) for ordering while still displaying full titles.
+- Add additional filter dimensions: director, actor/cast, year, resolution, genre, rating range, user rating range.
+  - Resolution filter values should support at least: `SD`, `720p`, `1080p`, `4K`.
+  - Actor filtering requires actor metadata ingestion from TMDB/Plex import paths (or manual metadata extension) before UI filter is enabled.
 
 ### Acceptance Criteria
 
