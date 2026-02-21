@@ -20,8 +20,11 @@ Workflow file:
 
 Pipeline behavior:
 
-- Reads version from `backend/package.json` and `frontend/package.json`.
-- Fails if backend/frontend versions do not match.
+- Reads version from `app-meta.json` and validates it matches:
+  - `backend/package.json`
+  - `frontend/package.json`
+- Fails if any version value is out of sync.
+- On tag builds (`v*`), validates tag version equals `app-meta.json` version.
 - Builds and pushes images to GHCR:
   - `ghcr.io/<owner>/collectz-backend`
   - `ghcr.io/<owner>/collectz-frontend`
@@ -34,6 +37,7 @@ Pipeline behavior:
   - `APP_VERSION` / `REACT_APP_VERSION`
   - `GIT_SHA` / `REACT_APP_GIT_SHA`
   - `BUILD_DATE` / `REACT_APP_BUILD_DATE`
+  - `GIT_SHA` is injected as short SHA for cleaner UI display.
 
 Result: nav/version + `/api/health` build fields come from image build, not operator runtime commands.
 
@@ -77,7 +81,8 @@ docker compose --env-file .env -f docker-compose.registry.yml up -d
 
 ## Maintainer Release Process
 
-1. Bump backend/frontend package versions.
-2. Commit and push.
-3. CI builds and publishes images with embedded build metadata.
-4. Optionally create git tag `vX.Y.Z`.
+1. Update `app-meta.json` version.
+2. Run `node scripts/sync-app-meta.js` to sync backend/frontend package versions.
+3. Commit and push.
+4. CI builds and publishes images with embedded build metadata.
+5. Optionally create git tag `vX.Y.Z` (or pre-release like `v1.6.5-r1`).
