@@ -103,7 +103,7 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/collectz_ci
           DATABASE_SSL: "false"
         run: |
-          node -e "const pool=require('./db/pool'); (async()=>{const checks=[['app_integrations','plex_api_url'],['app_integrations','plex_library_sections'],['invites','revoked'],['invites','used_by']]; for (const [table,column] of checks){const r=await pool.query('SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2',[table,column]); if (r.rows.length===0){throw new Error('Missing '+table+'.'+column);} } await pool.end();})().catch(async(e)=>{console.error(e); try{await pool.end();}catch{} process.exit(1);});"
+          node -e "const pool=require('./db/pool'); (async()=>{const checks=[['app_integrations','plex_api_url'],['app_integrations','plex_library_sections'],['invites','revoked'],['invites','used_by']]; for (const [table,column] of checks){const r=await pool.query('SELECT 1 FROM information_schema.columns WHERE table_name = \\$1 AND column_name = \\$2',[table,column]); if (r.rows.length===0){throw new Error('Missing '+table+'.'+column);} } await pool.end();})().catch(async(e)=>{console.error(e); try{await pool.end();}catch{} process.exit(1);});"
 
   backend:
     runs-on: ubuntu-latest
