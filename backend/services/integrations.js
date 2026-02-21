@@ -3,19 +3,23 @@ const { decryptSecret } = require('./crypto');
 const { resolveBarcodePreset } = require('./barcode');
 const { resolveVisionPreset } = require('./vision');
 const { resolveTmdbPreset } = require('./tmdb');
+const { resolvePlexPreset } = require('./plex');
 
 const normalizeIntegrationRecord = (row) => {
   const envBarcodePreset = process.env.BARCODE_PRESET || process.env.BARCODE_PROVIDER || 'upcitemdb';
   const envVisionPreset = process.env.VISION_PRESET || process.env.VISION_PROVIDER || 'ocrspace';
   const envTmdbPreset = process.env.TMDB_PRESET || 'tmdb';
+  const envPlexPreset = process.env.PLEX_PRESET || process.env.PLEX_PROVIDER || 'plex';
 
   const barcodePreset = resolveBarcodePreset(row?.barcode_preset || envBarcodePreset);
   const visionPreset = resolveVisionPreset(row?.vision_preset || envVisionPreset);
   const tmdbPreset = resolveTmdbPreset(row?.tmdb_preset || envTmdbPreset);
+  const plexPreset = resolvePlexPreset(row?.plex_preset || envPlexPreset);
 
   const barcodeApiKey = decryptSecret(row?.barcode_api_key_encrypted) || process.env.BARCODE_API_KEY || '';
   const visionApiKey = decryptSecret(row?.vision_api_key_encrypted) || process.env.VISION_API_KEY || '';
   const tmdbApiKey = decryptSecret(row?.tmdb_api_key_encrypted) || process.env.TMDB_API_KEY || '';
+  const plexApiKey = decryptSecret(row?.plex_api_key_encrypted) || process.env.PLEX_API_KEY || '';
 
   return {
     barcodePreset: row?.barcode_preset || envBarcodePreset,
@@ -34,7 +38,16 @@ const normalizeIntegrationRecord = (row) => {
     tmdbApiUrl: row?.tmdb_api_url || tmdbPreset.apiUrl || process.env.TMDB_API_URL || 'https://api.themoviedb.org/3/search/movie',
     tmdbApiKeyHeader: row?.tmdb_api_key_header || tmdbPreset.apiKeyHeader || '',
     tmdbApiKeyQueryParam: row?.tmdb_api_key_query_param || tmdbPreset.apiKeyQueryParam || 'api_key',
-    tmdbApiKey
+    tmdbApiKey,
+    plexPreset: row?.plex_preset || envPlexPreset,
+    plexProvider: row?.plex_provider || plexPreset.provider,
+    plexApiUrl: row?.plex_api_url || plexPreset.apiUrl || process.env.PLEX_API_URL || '',
+    plexServerName: row?.plex_server_name || process.env.PLEX_SERVER_NAME || '',
+    plexApiKeyQueryParam: row?.plex_api_key_query_param || plexPreset.apiKeyQueryParam || 'X-Plex-Token',
+    plexApiKey,
+    plexLibrarySections: Array.isArray(row?.plex_library_sections)
+      ? row.plex_library_sections
+      : []
   };
 };
 

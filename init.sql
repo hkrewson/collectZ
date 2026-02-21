@@ -68,6 +68,30 @@ CREATE TABLE IF NOT EXISTS media_metadata (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Media variants (edition / file-level details, primarily from Plex)
+CREATE TABLE IF NOT EXISTS media_variants (
+    id SERIAL PRIMARY KEY,
+    media_id INTEGER NOT NULL REFERENCES media(id) ON DELETE CASCADE,
+    source VARCHAR(50) NOT NULL DEFAULT 'plex',
+    source_item_key VARCHAR(255),
+    source_media_id VARCHAR(255),
+    source_part_id VARCHAR(255),
+    edition VARCHAR(255),
+    file_path TEXT,
+    container VARCHAR(50),
+    video_codec VARCHAR(50),
+    audio_codec VARCHAR(50),
+    resolution VARCHAR(50),
+    video_width INTEGER,
+    video_height INTEGER,
+    audio_channels INTEGER,
+    duration_ms INTEGER,
+    runtime_minutes INTEGER,
+    raw_json JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Activity log
 CREATE TABLE IF NOT EXISTS activity_log (
     id SERIAL PRIMARY KEY,
@@ -135,6 +159,13 @@ CREATE TABLE IF NOT EXISTS app_integrations (
     tmdb_api_key_encrypted TEXT,
     tmdb_api_key_header VARCHAR(100),
     tmdb_api_key_query_param VARCHAR(100),
+    plex_preset VARCHAR(100) DEFAULT 'plex',
+    plex_provider VARCHAR(100),
+    plex_api_url TEXT,
+    plex_server_name VARCHAR(255),
+    plex_api_key_encrypted TEXT,
+    plex_api_key_query_param VARCHAR(100),
+    plex_library_sections JSONB DEFAULT '[]'::jsonb,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -160,6 +191,9 @@ CREATE INDEX IF NOT EXISTS idx_media_title ON media(title);
 CREATE INDEX IF NOT EXISTS idx_media_format ON media(format);
 CREATE INDEX IF NOT EXISTS idx_media_year ON media(year);
 CREATE INDEX IF NOT EXISTS idx_media_tmdb_id ON media(tmdb_id);
+CREATE INDEX IF NOT EXISTS idx_media_variants_media_id ON media_variants(media_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_media_variants_plex_part ON media_variants (source, source_part_id) WHERE source = 'plex' AND source_part_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_media_variants_plex_item ON media_variants (source, source_item_key) WHERE source = 'plex' AND source_item_key IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_invites_token ON invites(token);
 CREATE INDEX IF NOT EXISTS idx_invites_active ON invites(used, revoked, expires_at);
 CREATE INDEX IF NOT EXISTS idx_activity_log_user_id ON activity_log(user_id);
@@ -188,6 +222,10 @@ BEGIN
         CREATE TRIGGER update_media_updated_at BEFORE UPDATE ON media
             FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_media_variants_updated_at') THEN
+        CREATE TRIGGER update_media_variants_updated_at BEFORE UPDATE ON media_variants
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_app_integrations_updated_at') THEN
         CREATE TRIGGER update_app_integrations_updated_at BEFORE UPDATE ON app_integrations
             FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -213,5 +251,7 @@ INSERT INTO schema_migrations (version, description) VALUES
     (1, 'Initial schema from init.sql'),
     (2, 'Activity log extended filter index'),
     (3, 'Opaque cookie sessions table'),
-    (4, 'Invite lifecycle fields for revocation and claim metadata')
+    (4, 'Invite lifecycle fields for revocation and claim metadata'),
+    (5, 'Plex integration settings fields'),
+    (6, 'Media variants table for edition and file-level metadata')
 ON CONFLICT (version) DO NOTHING;

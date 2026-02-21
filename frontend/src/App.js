@@ -3,7 +3,7 @@ import axios from 'axios';
 import appMeta from './app-meta.json';
 
 const API_URL = process.env.REACT_APP_API_URL || '/api';
-const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.version || '1.6.6';
+const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.version || '1.7.1';
 const BUILD_SHA   = process.env.REACT_APP_GIT_SHA || appMeta?.build?.gitShaDefault || 'dev';
 const USER_KEY  = 'mediavault_user';
 
@@ -29,6 +29,10 @@ const VISION_PRESETS = {
 const TMDB_PRESETS = {
   tmdb:  { tmdbPreset:'tmdb',  tmdbProvider:'tmdb',  tmdbApiUrl:'https://api.themoviedb.org/3/search/movie',tmdbApiKeyHeader:'',tmdbApiKeyQueryParam:'api_key' },
   custom:{ tmdbPreset:'custom',tmdbProvider:'custom', tmdbApiUrl:'',                                          tmdbApiKeyHeader:'',tmdbApiKeyQueryParam:'api_key' },
+};
+const PLEX_PRESETS = {
+  plex:  { plexPreset:'plex', plexProvider:'plex', plexApiUrl:'', plexApiKeyQueryParam:'X-Plex-Token' },
+  custom:{ plexPreset:'custom', plexProvider:'custom', plexApiUrl:'', plexApiKeyQueryParam:'X-Plex-Token' }
 };
 
 const DEFAULT_MEDIA_FORM = {
@@ -472,7 +476,23 @@ function MediaListRow({ item, onOpen, onEdit, onDelete, onRating }) {
 
 // ─── Media detail drawer ──────────────────────────────────────────────────────
 
-function MediaDetail({ item, onClose, onEdit, onDelete, onRating }) {
+function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall }) {
+  const [variants, setVariants] = useState([]);
+  const [variantLoading, setVariantLoading] = useState(false);
+  useEffect(() => {
+    if (!item?.id) {
+      setVariants([]);
+      setVariantLoading(false);
+      return;
+    }
+    let active = true;
+    setVariantLoading(true);
+    apiCall('get', `/media/${item.id}/variants`)
+      .then((rows) => { if (active) setVariants(Array.isArray(rows) ? rows : []); })
+      .catch(() => { if (active) setVariants([]); })
+      .finally(() => { if (active) setVariantLoading(false); });
+    return () => { active = false; };
+  }, [apiCall, item?.id]);
   if (!item) return null;
   return (
     <div className="fixed inset-0 z-50 flex">
@@ -535,6 +555,23 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating }) {
               {item.trailer_url && <a href={item.trailer_url} target="_blank" rel="noreferrer" className="btn-primary btn-sm"><Icons.Play />Trailer</a>}
             </div>
           )}
+
+          <div>
+            <p className="label mb-2">Variants</p>
+            {variantLoading && <p className="text-sm text-ghost">Loading variants…</p>}
+            {!variantLoading && variants.length === 0 && <p className="text-sm text-ghost">No variant data yet</p>}
+            {!variantLoading && variants.length > 0 && (
+              <div className="space-y-2">
+                {variants.map((v) => (
+                  <div key={v.id} className="card p-3">
+                    <p className="text-sm text-ink font-medium">{v.edition || 'Default edition'}</p>
+                    <p className="text-xs text-ghost mt-1">{[v.resolution, v.container, v.video_codec, v.audio_codec, v.audio_channels ? `${v.audio_channels}ch` : null].filter(Boolean).join(' · ')}</p>
+                    {v.file_path && <p className="text-xs text-ghost/80 font-mono mt-1 break-all">{v.file_path}</p>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           {item.notes && (
             <div><p className="label mb-1">Notes</p><p className="text-sm text-dim">{item.notes}</p></div>
@@ -895,27 +932,45 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
 
 // ─── Library view ─────────────────────────────────────────────────────────────
 
-function LibraryView({ mediaItems, loading, error, onRefresh, onOpen, onEdit, onDelete, onRating, apiCall }) {
-  const [search, setSearch]     = useState('');
-  const [format, setFormat]     = useState('all');
+function LibraryView({ mediaItems, loading, error, pagination, onRefresh, onOpen, onEdit, onDelete, onRating, apiCall, canImportPlex }) {
+  const [searchInput, setSearchInput] = useState('');
+  const [formatInput, setFormatInput] = useState('all');
+  const [filters, setFilters]   = useState({ search: '', format: 'all' });
+  const [page, setPage]         = useState(1);
+  const [pageSize, setPageSize] = useState(50);
   const [viewMode, setViewMode] = useState('cards');
   const [adding, setAdding]     = useState(false);
   const [editing, setEditing]   = useState(null);
   const [detail, setDetail]     = useState(null);
+  const [importingPlex, setImportingPlex] = useState(false);
 
-  const filtered = useMemo(() => {
-    let items = mediaItems;
-    if (format !== 'all') items = items.filter(i => i.format === format);
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      items = items.filter(i => i.title?.toLowerCase().includes(q) || i.director?.toLowerCase().includes(q));
-    }
-    return items;
-  }, [mediaItems, format, search]);
+  useEffect(() => {
+    onRefresh({ page, limit: pageSize, search: filters.search, format: filters.format });
+  }, [filters, page, pageSize, onRefresh]);
 
   const rate = async (id, rating) => {
     await onRating(id, rating);
     setDetail(d => (d && d.id === id ? { ...d, user_rating: rating } : d));
+  };
+
+  const applyFilters = () => {
+    setFilters({ search: searchInput.trim(), format: formatInput });
+    setPage(1);
+  };
+
+  const runPlexImport = async () => {
+    if (!window.confirm('Start manual import from Plex using saved integration settings?')) return;
+    setImportingPlex(true);
+    try {
+      const result = await apiCall('post', '/media/import-plex', {});
+      const summary = result?.summary || {};
+      alert(`Plex import complete\nCreated: ${summary.created || 0}\nUpdated: ${summary.updated || 0}\nSkipped: ${summary.skipped || 0}\nErrors: ${(summary.errors || []).length}`);
+      onRefresh({ page, limit: pageSize, search: filters.search, format: filters.format });
+    } catch (err) {
+      alert(err.response?.data?.error || 'Plex import failed');
+    } finally {
+      setImportingPlex(false);
+    }
   };
 
   if (adding || editing) {
@@ -946,16 +1001,18 @@ function LibraryView({ mediaItems, loading, error, onRefresh, onOpen, onEdit, on
       <div className="px-6 py-4 border-b border-edge shrink-0">
         <div className="flex items-center gap-3 flex-wrap">
           <h1 className="section-title">Library</h1>
-          <span className="badge badge-dim ml-1">{filtered.length}</span>
+          <span className="badge badge-dim ml-1">{pagination?.total ?? mediaItems.length}</span>
           <div className="flex-1" />
           {/* Search */}
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ghost pointer-events-none"><Icons.Search /></span>
             <input className="input pl-9 w-56" placeholder="Search title, director…"
-              value={search} onChange={e => setSearch(e.target.value)} />
+              value={searchInput} onChange={e => setSearchInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') applyFilters(); }} />
           </div>
+          <button onClick={applyFilters} className="btn-secondary btn-sm">Apply</button>
           {/* Format filter */}
-          <select className="select w-36" value={format} onChange={e => setFormat(e.target.value)}>
+          <select className="select w-36" value={formatInput} onChange={e => setFormatInput(e.target.value)}>
             <option value="all">All formats</option>
             {MEDIA_FORMATS.map(f => <option key={f} value={f}>{f}</option>)}
           </select>
@@ -968,7 +1025,12 @@ function LibraryView({ mediaItems, loading, error, onRefresh, onOpen, onEdit, on
               <Icons.List />
             </button>
           </div>
-          <button onClick={onRefresh} className="btn-icon" title="Refresh"><Icons.Refresh /></button>
+          <button onClick={() => onRefresh({ page, limit: pageSize, search: filters.search, format: filters.format })} className="btn-icon" title="Refresh"><Icons.Refresh /></button>
+          {canImportPlex && (
+            <button onClick={runPlexImport} className="btn-secondary" disabled={importingPlex}>
+              {importingPlex ? <Spinner size={14} /> : <><Icons.Upload />Import Plex</>}
+            </button>
+          )}
           <button onClick={() => setAdding(true)} className="btn-primary">
             <Icons.Plus />Add
           </button>
@@ -981,17 +1043,17 @@ function LibraryView({ mediaItems, loading, error, onRefresh, onOpen, onEdit, on
         {loading && (
           <div className="flex items-center justify-center py-20"><Spinner size={32} /></div>
         )}
-        {!loading && filtered.length === 0 && (
+        {!loading && mediaItems.length === 0 && (
           <EmptyState
             icon={<Icons.Film />}
             title="No items found"
-            subtitle={search || format !== 'all' ? 'Try adjusting your filters' : 'Add your first title to get started'}
-            action={!search && format === 'all' && <button onClick={() => setAdding(true)} className="btn-primary"><Icons.Plus />Add Media</button>}
+            subtitle={filters.search || filters.format !== 'all' ? 'Try adjusting your filters' : 'Add your first title to get started'}
+            action={!filters.search && filters.format === 'all' && <button onClick={() => setAdding(true)} className="btn-primary"><Icons.Plus />Add Media</button>}
           />
         )}
-        {!loading && viewMode === 'cards' && filtered.length > 0 && (
+        {!loading && viewMode === 'cards' && mediaItems.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-            {filtered.map(item => (
+            {mediaItems.map(item => (
               <MediaCard key={item.id} item={item}
                 onOpen={() => setDetail(item)}
                 onEdit={() => setEditing(item)}
@@ -1001,9 +1063,9 @@ function LibraryView({ mediaItems, loading, error, onRefresh, onOpen, onEdit, on
             ))}
           </div>
         )}
-        {!loading && viewMode === 'list' && filtered.length > 0 && (
+        {!loading && viewMode === 'list' && mediaItems.length > 0 && (
           <div className="space-y-2">
-            {filtered.map(item => (
+            {mediaItems.map(item => (
               <MediaListRow key={item.id} item={item}
                 onOpen={() => setDetail(item)}
                 onEdit={() => setEditing(item)}
@@ -1015,12 +1077,27 @@ function LibraryView({ mediaItems, loading, error, onRefresh, onOpen, onEdit, on
         )}
       </div>
 
+      <div className="shrink-0 border-t border-edge px-6 py-3 flex items-center gap-3 flex-wrap">
+        <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={loading || page <= 1} className="btn-secondary btn-sm">Previous</button>
+        <span className="text-xs text-ghost font-mono">Page {page} / {pagination?.totalPages || 1}</span>
+        <button onClick={() => setPage(p => p + 1)} disabled={loading || !(pagination?.hasMore)} className="btn-secondary btn-sm">Next</button>
+        <div className="ml-auto flex items-center gap-2">
+          <label className="text-xs text-ghost">Page size</label>
+          <select className="select w-24" value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(1); }}>
+            <option value={25}>25</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+          </select>
+        </div>
+      </div>
+
       {/* Detail drawer */}
       {detail && (
         <MediaDetail item={detail} onClose={() => setDetail(null)}
           onEdit={item => { setDetail(null); setEditing(item); }}
           onDelete={id => { onDelete(id); setDetail(null); }}
           onRating={rate}
+          apiCall={apiCall}
         />
       )}
     </div>
@@ -1530,36 +1607,85 @@ function AdminIntegrations({ apiCall, onToast }) {
     visionApiKeyHeader:'apikey',clearVisionApiKey:false,
     tmdbPreset:'tmdb',tmdbProvider:'tmdb',tmdbApiUrl:'https://api.themoviedb.org/3/search/movie',
     tmdbApiKey:'',tmdbApiKeyHeader:'',tmdbApiKeyQueryParam:'api_key',clearTmdbApiKey:false,
+    plexPreset:'plex',plexProvider:'plex',plexApiUrl:'',plexServerName:'',
+    plexApiKey:'',plexApiKeyQueryParam:'X-Plex-Token',plexLibrarySections:'',clearPlexApiKey:false
   });
-  const [meta, setMeta] = useState({ barcodeApiKeySet:false,barcodeApiKeyMasked:'',visionApiKeySet:false,visionApiKeyMasked:'',tmdbApiKeySet:false,tmdbApiKeyMasked:'' });
-  const [status, setStatus] = useState({ barcode:'unknown',vision:'unknown',tmdb:'unknown' });
+  const [meta, setMeta] = useState({
+    barcodeApiKeySet:false,barcodeApiKeyMasked:'',
+    visionApiKeySet:false,visionApiKeyMasked:'',
+    tmdbApiKeySet:false,tmdbApiKeyMasked:'',
+    plexApiKeySet:false,plexApiKeyMasked:''
+  });
+  const [status, setStatus] = useState({ barcode:'unknown',vision:'unknown',tmdb:'unknown',plex:'unknown' });
   const [testLoading, setTestLoading] = useState('');
   const [testMsg, setTestMsg] = useState('');
   const [saving, setSaving] = useState(false);
+  const [importingPlex, setImportingPlex] = useState(false);
+  const [plexAvailableSections, setPlexAvailableSections] = useState([]);
 
   useEffect(() => {
     apiCall('get', '/admin/settings/integrations').then(data => {
-      setForm(f => ({ ...f, barcodePreset:data.barcodePreset||'upcitemdb',barcodeProvider:data.barcodeProvider||'',barcodeApiUrl:data.barcodeApiUrl||'',barcodeApiKeyHeader:data.barcodeApiKeyHeader||'x-api-key',barcodeQueryParam:data.barcodeQueryParam||'upc',visionPreset:data.visionPreset||'ocrspace',visionProvider:data.visionProvider||'',visionApiUrl:data.visionApiUrl||'',visionApiKeyHeader:data.visionApiKeyHeader||'apikey',tmdbPreset:data.tmdbPreset||'tmdb',tmdbProvider:data.tmdbProvider||'',tmdbApiUrl:data.tmdbApiUrl||'',tmdbApiKeyHeader:data.tmdbApiKeyHeader||'',tmdbApiKeyQueryParam:data.tmdbApiKeyQueryParam||'api_key' }));
-      setMeta({ barcodeApiKeySet:Boolean(data.barcodeApiKeySet),barcodeApiKeyMasked:data.barcodeApiKeyMasked||'',visionApiKeySet:Boolean(data.visionApiKeySet),visionApiKeyMasked:data.visionApiKeyMasked||'',tmdbApiKeySet:Boolean(data.tmdbApiKeySet),tmdbApiKeyMasked:data.tmdbApiKeyMasked||'' });
-      setStatus({ barcode:data.barcodeApiKeySet?'configured':'missing', vision:data.visionApiKeySet?'configured':'missing', tmdb:data.tmdbApiKeySet?'configured':'missing' });
+      setForm(f => ({
+        ...f,
+        barcodePreset:data.barcodePreset||'upcitemdb',barcodeProvider:data.barcodeProvider||'',barcodeApiUrl:data.barcodeApiUrl||'',barcodeApiKeyHeader:data.barcodeApiKeyHeader||'x-api-key',barcodeQueryParam:data.barcodeQueryParam||'upc',
+        visionPreset:data.visionPreset||'ocrspace',visionProvider:data.visionProvider||'',visionApiUrl:data.visionApiUrl||'',visionApiKeyHeader:data.visionApiKeyHeader||'apikey',
+        tmdbPreset:data.tmdbPreset||'tmdb',tmdbProvider:data.tmdbProvider||'',tmdbApiUrl:data.tmdbApiUrl||'',tmdbApiKeyHeader:data.tmdbApiKeyHeader||'',tmdbApiKeyQueryParam:data.tmdbApiKeyQueryParam||'api_key',
+        plexPreset:data.plexPreset||'plex',plexProvider:data.plexProvider||'plex',plexApiUrl:data.plexApiUrl||'',plexServerName:data.plexServerName||'',plexApiKeyQueryParam:data.plexApiKeyQueryParam||'X-Plex-Token',
+        plexLibrarySections:Array.isArray(data.plexLibrarySections) ? data.plexLibrarySections.join(',') : ''
+      }));
+      setMeta({
+        barcodeApiKeySet:Boolean(data.barcodeApiKeySet),barcodeApiKeyMasked:data.barcodeApiKeyMasked||'',
+        visionApiKeySet:Boolean(data.visionApiKeySet),visionApiKeyMasked:data.visionApiKeyMasked||'',
+        tmdbApiKeySet:Boolean(data.tmdbApiKeySet),tmdbApiKeyMasked:data.tmdbApiKeyMasked||'',
+        plexApiKeySet:Boolean(data.plexApiKeySet),plexApiKeyMasked:data.plexApiKeyMasked||''
+      });
+      setStatus({
+        barcode:data.barcodeApiKeySet?'configured':'missing',
+        vision:data.visionApiKeySet?'configured':'missing',
+        tmdb:data.tmdbApiKeySet?'configured':'missing',
+        plex:data.plexApiKeySet?'configured':'missing'
+      });
     }).catch(() => {});
   }, []);
 
   const applyBarcodePreset = p => setForm(f => ({ ...f, ...(BARCODE_PRESETS[p] || {}) }));
   const applyVisionPreset  = p => setForm(f => ({ ...f, ...(VISION_PRESETS[p]  || {}) }));
   const applyTmdbPreset    = p => setForm(f => ({ ...f, ...(TMDB_PRESETS[p]    || {}) }));
+  const applyPlexPreset    = p => setForm(f => ({ ...f, ...(PLEX_PRESETS[p]    || {}) }));
+  const plexSectionIds = useMemo(
+    () => form.plexLibrarySections.split(',').map(v => v.trim()).filter(Boolean),
+    [form.plexLibrarySections]
+  );
+
+  const togglePlexSection = (id) => {
+    const next = new Set(plexSectionIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setForm(f => ({ ...f, plexLibrarySections: [...next].join(',') }));
+  };
 
   const saveSection = async sec => {
     setSaving(true);
     const payload = {};
     if (sec === 'barcode') Object.assign(payload, { barcodePreset:form.barcodePreset,barcodeProvider:form.barcodeProvider,barcodeApiUrl:form.barcodeApiUrl,barcodeApiKeyHeader:form.barcodeApiKeyHeader,barcodeQueryParam:form.barcodeQueryParam,clearBarcodeApiKey:form.clearBarcodeApiKey,...(form.barcodeApiKey && { barcodeApiKey:form.barcodeApiKey }) });
     else if (sec === 'vision') Object.assign(payload, { visionPreset:form.visionPreset,visionProvider:form.visionProvider,visionApiUrl:form.visionApiUrl,visionApiKeyHeader:form.visionApiKeyHeader,clearVisionApiKey:form.clearVisionApiKey,...(form.visionApiKey && { visionApiKey:form.visionApiKey }) });
-    else Object.assign(payload, { tmdbPreset:form.tmdbPreset,tmdbProvider:form.tmdbProvider,tmdbApiUrl:form.tmdbApiUrl,tmdbApiKeyHeader:form.tmdbApiKeyHeader,tmdbApiKeyQueryParam:form.tmdbApiKeyQueryParam,clearTmdbApiKey:form.clearTmdbApiKey,...(form.tmdbApiKey && { tmdbApiKey:form.tmdbApiKey }) });
+    else if (sec === 'tmdb') Object.assign(payload, { tmdbPreset:form.tmdbPreset,tmdbProvider:form.tmdbProvider,tmdbApiUrl:form.tmdbApiUrl,tmdbApiKeyHeader:form.tmdbApiKeyHeader,tmdbApiKeyQueryParam:form.tmdbApiKeyQueryParam,clearTmdbApiKey:form.clearTmdbApiKey,...(form.tmdbApiKey && { tmdbApiKey:form.tmdbApiKey }) });
+    else Object.assign(payload, {
+      plexPreset:form.plexPreset,plexProvider:form.plexProvider,plexApiUrl:form.plexApiUrl,plexServerName:form.plexServerName,
+      plexApiKeyQueryParam:form.plexApiKeyQueryParam,clearPlexApiKey:form.clearPlexApiKey,
+      plexLibrarySections:form.plexLibrarySections.split(',').map(v => v.trim()).filter(Boolean),
+      ...(form.plexApiKey && { plexApiKey:form.plexApiKey })
+    });
     try {
       const updated = await apiCall('put', '/admin/settings/integrations', payload);
-      setMeta({ barcodeApiKeySet:Boolean(updated.barcodeApiKeySet),barcodeApiKeyMasked:updated.barcodeApiKeyMasked||'',visionApiKeySet:Boolean(updated.visionApiKeySet),visionApiKeyMasked:updated.visionApiKeyMasked||'',tmdbApiKeySet:Boolean(updated.tmdbApiKeySet),tmdbApiKeyMasked:updated.tmdbApiKeyMasked||'' });
+      setMeta({
+        barcodeApiKeySet:Boolean(updated.barcodeApiKeySet),barcodeApiKeyMasked:updated.barcodeApiKeyMasked||'',
+        visionApiKeySet:Boolean(updated.visionApiKeySet),visionApiKeyMasked:updated.visionApiKeyMasked||'',
+        tmdbApiKeySet:Boolean(updated.tmdbApiKeySet),tmdbApiKeyMasked:updated.tmdbApiKeyMasked||'',
+        plexApiKeySet:Boolean(updated.plexApiKeySet),plexApiKeyMasked:updated.plexApiKeyMasked||''
+      });
       setStatus(s => ({ ...s, [sec]: updated[`${sec}ApiKeySet`] ? 'configured' : 'missing' }));
-      setForm(f => ({ ...f, barcodeApiKey:'',visionApiKey:'',tmdbApiKey:'',clearBarcodeApiKey:false,clearVisionApiKey:false,clearTmdbApiKey:false }));
+      setForm(f => ({ ...f, barcodeApiKey:'',visionApiKey:'',tmdbApiKey:'',plexApiKey:'',clearBarcodeApiKey:false,clearVisionApiKey:false,clearTmdbApiKey:false,clearPlexApiKey:false }));
       onToast(`${sec.toUpperCase()} settings saved`);
     } catch (err) { onToast(err.response?.data?.error || 'Save failed', 'error'); }
     finally { setSaving(false); }
@@ -1571,11 +1697,30 @@ function AdminIntegrations({ apiCall, onToast }) {
       const result = await apiCall('post', `/admin/settings/integrations/test-${sec}`, sec === 'tmdb' ? { title:'The Matrix',year:'1999' } : {});
       setStatus(s => ({ ...s, [sec]: result.authenticated ? 'ok' : 'auth_failed' }));
       setTestMsg(`${sec.toUpperCase()}: ${result.authenticated ? 'Connected' : 'Auth failed'} — ${result.detail}`);
+      if (sec === 'plex') {
+        setPlexAvailableSections(Array.isArray(result.sections) ? result.sections : []);
+      }
     } catch (err) { setTestMsg(err.response?.data?.detail || `${sec} test failed`); }
     finally { setTestLoading(''); }
   };
 
-  const sections = ['barcode','vision','tmdb'];
+  const runPlexImport = async () => {
+    setImportingPlex(true);
+    try {
+      const result = await apiCall('post', '/media/import-plex', {
+        sectionIds: plexSectionIds
+      });
+      const summary = result?.summary || {};
+      setTestMsg(`PLEX import: created ${summary.created || 0}, updated ${summary.updated || 0}, skipped ${summary.skipped || 0}, errors ${(summary.errors || []).length}`);
+      onToast('Plex import complete');
+    } catch (err) {
+      onToast(err.response?.data?.error || 'Plex import failed', 'error');
+    } finally {
+      setImportingPlex(false);
+    }
+  };
+
+  const sections = ['barcode','vision','tmdb','plex'];
 
   return (
     <div className="h-full overflow-y-auto p-6 max-w-2xl space-y-6">
@@ -1642,6 +1787,49 @@ function AdminIntegrations({ apiCall, onToast }) {
           </label>
         </>}
 
+        {section === 'plex' && <>
+          <LabeledField label="Preset"><select className="select" value={form.plexPreset} onChange={e => applyPlexPreset(e.target.value)}>
+            <option value="plex">Plex</option><option value="custom">Custom</option>
+          </select></LabeledField>
+          <LabeledField label="Plex API URL"><input className="input" placeholder="https://plex-host:32400" value={form.plexApiUrl} onChange={e => setForm(f => ({ ...f, plexApiUrl: e.target.value }))} /></LabeledField>
+          <LabeledField label="Server Name (optional)"><input className="input" value={form.plexServerName} onChange={e => setForm(f => ({ ...f, plexServerName: e.target.value }))} /></LabeledField>
+          <div className="grid grid-cols-2 gap-3">
+            <LabeledField label="Token Query Param"><input className="input" value={form.plexApiKeyQueryParam} onChange={e => setForm(f => ({ ...f, plexApiKeyQueryParam: e.target.value }))} /></LabeledField>
+            <LabeledField label="Library Section IDs">
+              <input className="input font-mono" placeholder="1,2,5" value={form.plexLibrarySections} onChange={e => setForm(f => ({ ...f, plexLibrarySections: e.target.value }))} />
+            </LabeledField>
+          </div>
+          <div className="text-xs text-ghost">
+            Import will use section IDs: <span className="font-mono text-dim">{plexSectionIds.length ? plexSectionIds.join(',') : '(none selected)'}</span>
+          </div>
+          {plexAvailableSections.length > 0 && (
+            <div className="card p-3 space-y-2">
+              <p className="text-xs text-ghost">Detected Plex Libraries</p>
+              <div className="space-y-1.5">
+                {plexAvailableSections.map((sec) => (
+                  <label key={sec.id} className="flex items-center gap-2 text-sm text-dim cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={plexSectionIds.includes(String(sec.id))}
+                      onChange={() => togglePlexSection(String(sec.id))}
+                      className="rounded" />
+                    <span className="font-medium text-ink">{sec.title || `Section ${sec.id}`}</span>
+                    <span className="text-ghost">({sec.type || 'unknown'})</span>
+                    <span className="ml-auto font-mono text-xs text-ghost">#{sec.id}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+          <LabeledField label={`Plex API Key ${meta.plexApiKeySet ? `(set: ${meta.plexApiKeyMasked})` : '(not set)'}`}>
+            <input className="input font-mono" type="password" placeholder="Enter new key to update" value={form.plexApiKey} onChange={e => setForm(f => ({ ...f, plexApiKey: e.target.value }))} />
+          </LabeledField>
+          <label className="flex items-center gap-2 text-sm text-dim cursor-pointer">
+            <input type="checkbox" checked={form.clearPlexApiKey} onChange={e => setForm(f => ({ ...f, clearPlexApiKey: e.target.checked }))} className="rounded" />
+            Clear saved key
+          </label>
+        </>}
+
         <div className="flex gap-3 pt-2 border-t border-edge">
           <button onClick={() => test(section)} disabled={testLoading === section} className="btn-secondary btn-sm">
             {testLoading === section ? <Spinner size={14} /> : 'Test'}
@@ -1649,6 +1837,11 @@ function AdminIntegrations({ apiCall, onToast }) {
           <button onClick={() => saveSection(section)} disabled={saving} className="btn-primary btn-sm">
             {saving ? <Spinner size={14} /> : `Save ${section.toUpperCase()}`}
           </button>
+          {section === 'plex' && (
+            <button onClick={runPlexImport} disabled={importingPlex} className="btn-secondary btn-sm">
+              {importingPlex ? <Spinner size={14} /> : 'Import from Plex'}
+            </button>
+          )}
         </div>
         {testMsg && <p className="text-xs text-dim font-mono bg-raised rounded px-3 py-2">{testMsg}</p>}
       </div>
@@ -1668,6 +1861,7 @@ export default function App() {
   const [mediaItems, setMediaItems]   = useState([]);
   const [mediaLoading, setMediaLoading] = useState(false);
   const [mediaError, setMediaError]   = useState('');
+  const [mediaPagination, setMediaPagination] = useState({ page: 1, limit: 50, total: 0, totalPages: 1, hasMore: false });
   const [uiSettings, setUiSettings] = useState({ theme: 'system', density: 'comfortable' });
   const [toast, setToast] = useState(null);
 
@@ -1714,12 +1908,27 @@ export default function App() {
   };
 
   // Media
-  const loadMedia = async () => {
+  const loadMedia = useCallback(async (opts = {}) => {
+    const params = new URLSearchParams();
+    if (opts.page) params.set('page', String(opts.page));
+    if (opts.limit) params.set('limit', String(opts.limit));
+    if (opts.search) params.set('search', String(opts.search));
+    if (opts.format && opts.format !== 'all') params.set('format', String(opts.format));
+    const query = params.toString();
     setMediaLoading(true); setMediaError('');
-    try { setMediaItems(await apiCall('get', '/media')); }
+    try {
+      const payload = await apiCall('get', `/media${query ? `?${query}` : ''}`);
+      if (Array.isArray(payload)) {
+        setMediaItems(payload);
+        setMediaPagination({ page: 1, limit: payload.length, total: payload.length, totalPages: 1, hasMore: false });
+      } else {
+        setMediaItems(payload?.items || []);
+        setMediaPagination(payload?.pagination || { page: 1, limit: 50, total: 0, totalPages: 1, hasMore: false });
+      }
+    }
     catch (err) { setMediaError(err.response?.data?.error || 'Failed to load media'); }
     finally { setMediaLoading(false); }
-  };
+  }, [apiCall]);
 
   const addMedia = async payload => {
     const created = await apiCall('post', '/media', payload);
@@ -1837,12 +2046,14 @@ export default function App() {
         return (
           <LibraryView
             mediaItems={mediaItems} loading={mediaLoading} error={mediaError}
+            pagination={mediaPagination}
             onRefresh={loadMedia}
             onOpen={addMedia}
             onEdit={editMedia}
             onDelete={deleteMedia}
             onRating={rateMedia}
             apiCall={apiCall}
+            canImportPlex={user?.role === 'admin'}
           />
         );
       case 'profile':          return <ProfileView user={user} apiCall={apiCall} onToast={showToast} />;
