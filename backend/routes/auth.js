@@ -17,14 +17,19 @@ router.post('/register', validate(registerSchema), asyncHandler(async (req, res)
   const userCountResult = await pool.query('SELECT COUNT(*)::int AS count FROM users');
   const existingUserCount = userCountResult.rows[0]?.count || 0;
 
+  let claimedInvite = null;
   if (inviteToken) {
     const invite = await pool.query(
-      'SELECT * FROM invites WHERE token = $1 AND used = false AND expires_at > NOW()',
+      'SELECT * FROM invites WHERE token = $1 AND used = false AND revoked = false AND expires_at > NOW()',
       [inviteToken]
     );
     if (invite.rows.length === 0) {
       return res.status(400).json({ error: 'Invalid or expired invite token' });
     }
+    if (String(invite.rows[0].email).toLowerCase() !== String(email).toLowerCase()) {
+      return res.status(400).json({ error: 'Invite token is not valid for this email address' });
+    }
+    claimedInvite = invite.rows[0];
   } else if (existingUserCount > 0) {
     return res.status(400).json({ error: 'An invite token is required to register' });
   }
@@ -43,7 +48,14 @@ router.post('/register', validate(registerSchema), asyncHandler(async (req, res)
   );
 
   if (inviteToken) {
-    await pool.query('UPDATE invites SET used = true WHERE token = $1', [inviteToken]);
+    await pool.query(
+      'UPDATE invites SET used = true, used_by = $2, used_at = NOW() WHERE token = $1',
+      [inviteToken, result.rows[0].id]
+    );
+    await logActivity({ ...req, user: { id: result.rows[0].id } }, 'invite.claimed', 'invite', claimedInvite?.id || null, {
+      inviteEmail: claimedInvite?.email || null,
+      claimedByEmail: result.rows[0].email
+    });
   }
 
   const token = await createSession(result.rows[0].id, {
@@ -164,6 +176,15 @@ router.patch('/profile', authenticateToken, validate(profileUpdateSchema), async
     const hashed = await bcrypt.hash(password, 12);
     values.push(hashed);
     updates.push(`password = $${values.length}`);
+  }
+
+  if (updates.length === 0) {
+    return res.json({
+      id: previous.rows[0].id,
+      email: previous.rows[0].email,
+      name: previous.rows[0].name,
+      role: req.user.role
+    });
   }
 
   values.push(req.user.id);

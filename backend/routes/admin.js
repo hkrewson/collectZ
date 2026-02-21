@@ -39,6 +39,65 @@ router.get('/users', asyncHandler(async (req, res) => {
   res.json(result.rows);
 }));
 
+router.get('/users/:id/summary', asyncHandler(async (req, res) => {
+  const userId = Number(req.params.id);
+  if (!Number.isFinite(userId) || userId <= 0) {
+    return res.status(400).json({ error: 'Invalid user id' });
+  }
+
+  const userResult = await pool.query(
+    'SELECT id, email, name, role, created_at FROM users WHERE id = $1',
+    [userId]
+  );
+  if (userResult.rows.length === 0) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+
+  const [loginResult, additionsResult, editsResult, ratingsResult] = await Promise.all([
+    pool.query(
+      `SELECT MAX(created_at) AS last_login_at
+       FROM activity_log
+       WHERE user_id = $1
+         AND action = 'auth.user.login'`,
+      [userId]
+    ),
+    pool.query(
+      `SELECT COUNT(*)::int AS additions_count
+       FROM media
+       WHERE added_by = $1`,
+      [userId]
+    ),
+    pool.query(
+      `SELECT MAX(updated_at) AS last_media_edit_at
+       FROM media
+       WHERE added_by = $1`,
+      [userId]
+    ),
+    pool.query(
+      `SELECT COUNT(*)::int AS rated_count
+       FROM media
+       WHERE added_by = $1
+         AND user_rating IS NOT NULL`,
+      [userId]
+    )
+  ]);
+
+  const additionsCount = additionsResult.rows[0]?.additions_count || 0;
+  const ratedCount = ratingsResult.rows[0]?.rated_count || 0;
+  const contributionScore = Math.min(100, additionsCount * 10 + ratedCount * 5);
+
+  res.json({
+    user: userResult.rows[0],
+    metrics: {
+      lastLoginAt: loginResult.rows[0]?.last_login_at || null,
+      additionsCount,
+      lastMediaEditAt: editsResult.rows[0]?.last_media_edit_at || null,
+      ratedCount,
+      contributionScore
+    }
+  });
+}));
+
 router.patch('/users/:id/role', validate(roleUpdateSchema), asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { role } = req.body;
@@ -85,7 +144,9 @@ router.post('/invites', validate(inviteCreateSchema), asyncHandler(async (req, r
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
   const result = await pool.query(
-    'INSERT INTO invites (email, token, expires_at, created_by) VALUES ($1, $2, $3, $4) RETURNING *',
+    `INSERT INTO invites (email, token, expires_at, created_by)
+     VALUES ($1, $2, $3, $4)
+     RETURNING id, email, token, used, revoked, used_by, used_at, expires_at, created_at`,
     [email, token, expiresAt, req.user.id]
   );
   await logActivity(req, 'admin.invite.create', 'invite', result.rows[0].id, {
@@ -97,9 +158,48 @@ router.post('/invites', validate(inviteCreateSchema), asyncHandler(async (req, r
 
 router.get('/invites', asyncHandler(async (req, res) => {
   const result = await pool.query(
-    'SELECT id, email, token, used, expires_at, created_at FROM invites ORDER BY created_at DESC'
+    `SELECT i.id, i.email, i.token, i.used, i.revoked, i.used_by, i.used_at,
+            i.expires_at, i.created_at, creator.email AS created_by_email,
+            claimer.email AS used_by_email
+     FROM invites i
+     LEFT JOIN users creator ON creator.id = i.created_by
+     LEFT JOIN users claimer ON claimer.id = i.used_by
+     ORDER BY i.created_at DESC`
   );
   res.json(result.rows);
+}));
+
+router.patch('/invites/:id/revoke', asyncHandler(async (req, res) => {
+  const inviteId = Number(req.params.id);
+  if (!Number.isFinite(inviteId) || inviteId <= 0) {
+    return res.status(400).json({ error: 'Invalid invite id' });
+  }
+
+  const result = await pool.query(
+    `UPDATE invites
+     SET revoked = true
+     WHERE id = $1
+       AND used = false
+       AND revoked = false
+     RETURNING id, email, used, revoked, expires_at, created_at`,
+    [inviteId]
+  );
+  if (result.rows.length === 0) {
+    const invite = await pool.query('SELECT id, used, revoked FROM invites WHERE id = $1', [inviteId]);
+    if (invite.rows.length === 0) {
+      return res.status(404).json({ error: 'Invite not found' });
+    }
+    if (invite.rows[0].used) {
+      return res.status(400).json({ error: 'Invite has already been used' });
+    }
+    if (invite.rows[0].revoked) {
+      return res.status(400).json({ error: 'Invite is already revoked' });
+    }
+    return res.status(400).json({ error: 'Invite cannot be revoked' });
+  }
+
+  await logActivity(req, 'admin.invite.revoke', 'invite', inviteId, { email: result.rows[0].email });
+  res.json(result.rows[0]);
 }));
 
 // ── Activity log ──────────────────────────────────────────────────────────────
