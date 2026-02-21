@@ -19,6 +19,7 @@ jobs:
       version: ${{ steps.vars.outputs.version }}
       major_minor: ${{ steps.vars.outputs.major_minor }}
       build_date: ${{ steps.vars.outputs.build_date }}
+      git_sha_short: ${{ steps.vars.outputs.git_sha_short }}
       owner_lc: ${{ steps.owner.outputs.owner_lc }}
     steps:
       - name: Checkout
@@ -27,17 +28,30 @@ jobs:
       - name: Read version
         id: vars
         run: |
+          META_VERSION=$(node -p "require('./app-meta.json').version")
           BACKEND_VERSION=$(node -p "require('./backend/package.json').version")
           FRONTEND_VERSION=$(node -p "require('./frontend/package.json').version")
-          if [ "$BACKEND_VERSION" != "$FRONTEND_VERSION" ]; then
-            echo "Version mismatch: backend=$BACKEND_VERSION frontend=$FRONTEND_VERSION"
+          if [ "$META_VERSION" != "$BACKEND_VERSION" ] || [ "$META_VERSION" != "$FRONTEND_VERSION" ]; then
+            echo "Version mismatch: app-meta=$META_VERSION backend=$BACKEND_VERSION frontend=$FRONTEND_VERSION"
             exit 1
           fi
-          MAJOR_MINOR=$(echo "$BACKEND_VERSION" | awk -F. '{print $1 "." $2}')
+          MAJOR_MINOR=$(echo "$META_VERSION" | awk -F. '{print $1 "." $2}')
           BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          echo "version=$BACKEND_VERSION" >> "$GITHUB_OUTPUT"
+          GIT_SHA_SHORT=$(echo "${GITHUB_SHA}" | cut -c1-7)
+          echo "version=$META_VERSION" >> "$GITHUB_OUTPUT"
           echo "major_minor=$MAJOR_MINOR" >> "$GITHUB_OUTPUT"
           echo "build_date=$BUILD_DATE" >> "$GITHUB_OUTPUT"
+          echo "git_sha_short=$GIT_SHA_SHORT" >> "$GITHUB_OUTPUT"
+
+      - name: Validate tag matches version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          META_VERSION=$(node -p "require('./app-meta.json').version")
+          if [ "$TAG_VERSION" != "$META_VERSION" ]; then
+            echo "Tag/version mismatch: tag=$TAG_VERSION app-meta=$META_VERSION"
+            exit 1
+          fi
 
       - name: Lowercase owner
         id: owner
@@ -82,7 +96,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             APP_VERSION=${{ needs.prepare.outputs.version }}
-            GIT_SHA=${{ github.sha }}
+            GIT_SHA=${{ needs.prepare.outputs.git_sha_short }}
             BUILD_DATE=${{ needs.prepare.outputs.build_date }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -126,7 +140,7 @@ jobs:
           build-args: |
             REACT_APP_API_URL=/api
             REACT_APP_VERSION=${{ needs.prepare.outputs.version }}
-            REACT_APP_GIT_SHA=${{ github.sha }}
+            REACT_APP_GIT_SHA=${{ needs.prepare.outputs.git_sha_short }}
             REACT_APP_BUILD_DATE=${{ needs.prepare.outputs.build_date }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

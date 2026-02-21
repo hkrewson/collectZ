@@ -1511,20 +1511,6 @@ export default function App() {
     return () => window.removeEventListener('popstate', sync);
   }, []);
 
-  // Guard against mobile overlay getting stuck after navigation/resize.
-  useEffect(() => {
-    const closeOnDesktop = () => {
-      if (window.innerWidth >= 1024) setMobileNavOpen(false);
-    };
-    closeOnDesktop();
-    window.addEventListener('resize', closeOnDesktop);
-    return () => window.removeEventListener('resize', closeOnDesktop);
-  }, []);
-
-  useEffect(() => {
-    setMobileNavOpen(false);
-  }, [route, activeTab]);
-
   // API helper
   const apiCall = useCallback(async (method, path, data, config = {}) => {
     const response = await axios({
