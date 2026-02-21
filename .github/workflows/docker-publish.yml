@@ -4,12 +4,10 @@ on:
   push:
     branches:
       - main
-    tags:
-      - "v*"
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   packages: write
 
 jobs:
@@ -24,6 +22,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
 
       - name: Read version
         id: vars
@@ -42,16 +45,6 @@ jobs:
           echo "major_minor=$MAJOR_MINOR" >> "$GITHUB_OUTPUT"
           echo "build_date=$BUILD_DATE" >> "$GITHUB_OUTPUT"
           echo "git_sha_short=$GIT_SHA_SHORT" >> "$GITHUB_OUTPUT"
-
-      - name: Validate tag matches version
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: |
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
-          META_VERSION=$(node -p "require('./app-meta.json').version")
-          if [ "$TAG_VERSION" != "$META_VERSION" ]; then
-            echo "Tag/version mismatch: tag=$TAG_VERSION app-meta=$META_VERSION"
-            exit 1
-          fi
 
       - name: Lowercase owner
         id: owner
@@ -83,12 +76,18 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-          cache-dependency-path: backend/package-lock.json
 
       - name: Install backend deps
         working-directory: backend
-        run: npm ci
+        run: npm install --no-audit --no-fund
+
+      - name: Wait for Postgres
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/collectz_ci
+          DATABASE_SSL: "false"
+        run: |
+          node -e "const {Client}=require('pg'); (async()=>{for(let i=0;i<30;i++){const c=new Client({connectionString:process.env.DATABASE_URL, ssl:false}); try{await c.connect(); await c.end(); console.log('Postgres ready'); process.exit(0);}catch(e){try{await c.end();}catch{} await new Promise(r=>setTimeout(r,2000));}} console.error('Postgres service did not become ready in time'); process.exit(1);})();"
 
       - name: Run migrations
         working-directory: backend
@@ -192,3 +191,29 @@ jobs:
             REACT_APP_BUILD_DATE=${{ needs.prepare.outputs.build_date }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  auto-tag:
+    runs-on: ubuntu-latest
+    needs: [prepare, migration-check, backend, frontend]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create release tag if missing
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          SHA: ${{ github.sha }}
+        run: |
+          TAG="v${VERSION}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag ${TAG} already exists; skipping"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" "$SHA" -m "Release ${TAG}"
+          git push origin "$TAG"
