@@ -23,6 +23,246 @@ const storage = multer.diskStorage({
 const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
 
 const MEDIA_FORMATS = ['VHS', 'Blu-ray', 'Digital', 'DVD', '4K UHD'];
+const SORT_COLUMNS = {
+  title: 'title',
+  year: 'year',
+  format: 'format',
+  created_at: 'created_at',
+  user_rating: 'user_rating',
+  rating: 'rating'
+};
+
+function normalizeResolution(value) {
+  if (!value || value === 'all') return null;
+  const normalized = String(value).trim().toLowerCase();
+  if (normalized === '4k') return '4k';
+  if (normalized === '1080p') return '1080';
+  if (normalized === '720p') return '720';
+  if (normalized === 'sd') return 'sd';
+  return normalized;
+}
+
+function parseCsvLine(line = '') {
+  const cells = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i += 1) {
+    const ch = line[i];
+    const next = line[i + 1];
+    if (ch === '"') {
+      if (inQuotes && next === '"') {
+        current += '"';
+        i += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+    if (ch === ',' && !inQuotes) {
+      cells.push(current);
+      current = '';
+      continue;
+    }
+    current += ch;
+  }
+  cells.push(current);
+  return cells.map((c) => c.trim());
+}
+
+function parseCsv(text = '') {
+  const lines = String(text)
+    .replace(/^\uFEFF/, '')
+    .split(/\r?\n/)
+    .filter((line) => line.trim().length > 0);
+  if (lines.length === 0) {
+    return { headers: [], rows: [] };
+  }
+  const headers = parseCsvLine(lines[0]);
+  const rows = lines.slice(1).map((line) => {
+    const cols = parseCsvLine(line);
+    const row = {};
+    headers.forEach((h, idx) => { row[h] = cols[idx] ?? ''; });
+    return row;
+  });
+  return { headers, rows };
+}
+
+function normalizeMediaFormat(formatValue) {
+  if (!formatValue) return 'Digital';
+  const raw = String(formatValue).trim().toLowerCase();
+  if (!raw) return 'Digital';
+  if (raw.includes('blu')) return 'Blu-ray';
+  if (raw.includes('dvd')) return 'DVD';
+  if (raw.includes('vhs')) return 'VHS';
+  if (raw.includes('digital') || raw.includes('stream')) return 'Digital';
+  if (raw.includes('4k') || raw.includes('uhd')) return '4K UHD';
+  return MEDIA_FORMATS.includes(formatValue) ? formatValue : 'Digital';
+}
+
+function parseYear(value) {
+  if (!value) return null;
+  const yearMatch = String(value).match(/\b(18|19|20)\d{2}\b/);
+  if (!yearMatch) return null;
+  const year = Number(yearMatch[0]);
+  return Number.isFinite(year) ? year : null;
+}
+
+function parseDateOnly(value) {
+  if (!value) return null;
+  const d = new Date(String(value));
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString().slice(0, 10);
+}
+
+async function enrichImportItemWithTmdb(item, config, cache) {
+  if (!config?.tmdbApiKey || !item?.title) return item;
+
+  const cacheKey = item.tmdb_id
+    ? `id:${item.tmdb_id}`
+    : `q:${String(item.title).toLowerCase()}|${item.year || ''}`;
+  const cached = cache.get(cacheKey);
+  if (cached) {
+    return {
+      ...item,
+      ...cached,
+      format: item.format || 'Digital'
+    };
+  }
+
+  try {
+    let candidate = null;
+    if (item.tmdb_id) {
+      candidate = { id: item.tmdb_id };
+    } else {
+      const results = await searchTmdbMovie(item.title, item.year || undefined, config);
+      candidate = results?.[0] || null;
+    }
+    if (!candidate?.id) {
+      cache.set(cacheKey, {});
+      return item;
+    }
+
+    const details = await fetchTmdbMovieDetails(candidate.id, config);
+    const enriched = {
+      tmdb_id: candidate.id,
+      tmdb_url: details?.tmdb_url || `https://www.themoviedb.org/movie/${candidate.id}`,
+      poster_path: details?.poster_path || candidate?.poster_path || null,
+      backdrop_path: details?.backdrop_path || candidate?.backdrop_path || null,
+      overview: details?.overview || candidate?.overview || null,
+      rating: details?.rating ?? candidate?.rating ?? candidate?.vote_average ?? null,
+      runtime: details?.runtime || item.runtime || null,
+      director: details?.director || item.director || null,
+      trailer_url: details?.trailer_url || item.trailer_url || null,
+      release_date: details?.release_date || item.release_date || null,
+      year: item.year || parseYear(details?.release_date),
+      original_title: item.original_title || candidate?.original_title || null
+    };
+    cache.set(cacheKey, enriched);
+    return { ...item, ...enriched, format: item.format || 'Digital' };
+  } catch (_error) {
+    cache.set(cacheKey, {});
+    return item;
+  }
+}
+
+async function upsertImportedMedia({ userId, item, importSource }) {
+  const title = String(item.title || '').trim();
+  if (!title) {
+    return { type: 'invalid', detail: 'Missing title' };
+  }
+  const year = item.year ?? null;
+  const existing = await pool.query(
+    `SELECT id
+     FROM media
+     WHERE LOWER(TRIM(title)) = LOWER(TRIM($1))
+       AND (($2::int IS NOT NULL AND year = $2::int) OR ($2::int IS NULL))
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [title, year]
+  );
+  if (existing.rows[0]) {
+    await pool.query(
+      `UPDATE media SET
+         original_title = COALESCE($1, original_title),
+         release_date = COALESCE($2, release_date),
+         year = COALESCE($3, year),
+         format = COALESCE($4, format),
+         genre = COALESCE($5, genre),
+         director = COALESCE($6, director),
+         rating = COALESCE($7, rating),
+         user_rating = COALESCE($8, user_rating),
+         tmdb_id = COALESCE($9, tmdb_id),
+         tmdb_url = COALESCE($10, tmdb_url),
+         poster_path = COALESCE($11, poster_path),
+         backdrop_path = COALESCE($12, backdrop_path),
+         overview = COALESCE($13, overview),
+         trailer_url = COALESCE($14, trailer_url),
+         runtime = COALESCE($15, runtime),
+         upc = COALESCE($16, upc),
+         location = COALESCE($17, location),
+         notes = COALESCE($18, notes),
+         import_source = COALESCE($19, import_source)
+       WHERE id = $20`,
+      [
+        item.original_title || null,
+        item.release_date || null,
+        item.year || null,
+        item.format || null,
+        item.genre || null,
+        item.director || null,
+        item.rating || null,
+        item.user_rating || null,
+        item.tmdb_id || null,
+        item.tmdb_url || null,
+        item.poster_path || null,
+        item.backdrop_path || null,
+        item.overview || null,
+        item.trailer_url || null,
+        item.runtime || null,
+        item.upc || null,
+        item.location || null,
+        item.notes || null,
+        importSource || null,
+        existing.rows[0].id
+      ]
+    );
+    return { type: 'updated' };
+  }
+
+  await pool.query(
+    `INSERT INTO media (
+       title, original_title, release_date, year, format, genre, director,
+       rating, user_rating, tmdb_id, tmdb_url, poster_path, backdrop_path, overview, trailer_url,
+       runtime, upc, location, notes, added_by, import_source
+     ) VALUES (
+       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22
+     )`,
+    [
+      title,
+      item.original_title || null,
+      item.release_date || null,
+      item.year || null,
+      item.format || 'Digital',
+      item.genre || null,
+      item.director || null,
+      item.rating || null,
+      item.user_rating || null,
+      item.tmdb_id || null,
+      item.tmdb_url || null,
+      item.poster_path || null,
+      item.backdrop_path || null,
+      item.overview || null,
+      item.trailer_url || null,
+      item.runtime || null,
+      item.upc || null,
+      item.location || null,
+      item.notes || null,
+      userId,
+      importSource || null
+    ]
+  );
+  return { type: 'created' };
+}
 
 // All routes require auth
 router.use(authenticateToken);
@@ -30,12 +270,24 @@ router.use(authenticateToken);
 // ── List / search ─────────────────────────────────────────────────────────────
 
 router.get('/', asyncHandler(async (req, res) => {
-  const { format, search, page, limit } = req.query;
+  const {
+    format, search, page, limit,
+    sortBy, sortDir,
+    director, genre, resolution,
+    yearMin, yearMax,
+    ratingMin, ratingMax,
+    userRatingMin, userRatingMax
+  } = req.query;
   const pageNum = Number.isFinite(Number(page)) ? Math.max(1, Number(page)) : 1;
   const limitNum = Number.isFinite(Number(limit)) ? Math.max(1, Math.min(200, Number(limit))) : 50;
   const offset = (pageNum - 1) * limitNum;
   let where = 'WHERE 1=1';
   const params = [];
+  const safeSortBy = SORT_COLUMNS[String(sortBy || '').toLowerCase()] || 'title';
+  const safeSortDir = String(sortDir || '').toLowerCase() === 'desc' ? 'DESC' : 'ASC';
+  const sortExpression = safeSortBy === 'title'
+    ? `regexp_replace(lower(coalesce(title, '')), '^(the|an|a)\\s+', '', 'i') ${safeSortDir}, lower(title) ${safeSortDir}`
+    : `${safeSortBy} ${safeSortDir} NULLS LAST`;
 
   if (format && format !== 'all' && MEDIA_FORMATS.includes(format)) {
     params.push(format);
@@ -44,7 +296,65 @@ router.get('/', asyncHandler(async (req, res) => {
 
   if (search) {
     params.push(`%${search}%`);
-    where += ` AND (title ILIKE $${params.length} OR director ILIKE $${params.length})`;
+    where += ` AND (title ILIKE $${params.length} OR director ILIKE $${params.length} OR genre ILIKE $${params.length})`;
+  }
+
+  if (director) {
+    params.push(`%${director}%`);
+    where += ` AND director ILIKE $${params.length}`;
+  }
+
+  if (genre) {
+    params.push(`%${genre}%`);
+    where += ` AND genre ILIKE $${params.length}`;
+  }
+
+  if (Number.isFinite(Number(yearMin))) {
+    params.push(Number(yearMin));
+    where += ` AND year >= $${params.length}`;
+  }
+
+  if (Number.isFinite(Number(yearMax))) {
+    params.push(Number(yearMax));
+    where += ` AND year <= $${params.length}`;
+  }
+
+  if (Number.isFinite(Number(ratingMin))) {
+    params.push(Number(ratingMin));
+    where += ` AND rating >= $${params.length}`;
+  }
+
+  if (Number.isFinite(Number(ratingMax))) {
+    params.push(Number(ratingMax));
+    where += ` AND rating <= $${params.length}`;
+  }
+
+  if (Number.isFinite(Number(userRatingMin))) {
+    params.push(Number(userRatingMin));
+    where += ` AND user_rating >= $${params.length}`;
+  }
+
+  if (Number.isFinite(Number(userRatingMax))) {
+    params.push(Number(userRatingMax));
+    where += ` AND user_rating <= $${params.length}`;
+  }
+
+  const normalizedResolution = normalizeResolution(resolution);
+  if (normalizedResolution) {
+    params.push(normalizedResolution);
+    const idx = params.length;
+    where += ` AND EXISTS (
+      SELECT 1
+      FROM media_variants mv
+      WHERE mv.media_id = media.id
+        AND (
+          ($${idx} = '4k' AND (mv.resolution ILIKE '%4k%' OR mv.video_height >= 2000))
+          OR ($${idx} = '1080' AND (mv.resolution ILIKE '%1080%' OR (mv.video_height >= 1000 AND mv.video_height < 2000)))
+          OR ($${idx} = '720' AND (mv.resolution ILIKE '%720%' OR (mv.video_height >= 700 AND mv.video_height < 1000)))
+          OR ($${idx} = 'sd' AND (mv.resolution ILIKE '%sd%' OR (mv.video_height > 0 AND mv.video_height < 700)))
+          OR (mv.resolution ILIKE '%' || $${idx} || '%')
+        )
+    )`;
   }
 
   const countResult = await pool.query(
@@ -58,7 +368,7 @@ router.get('/', asyncHandler(async (req, res) => {
   const result = await pool.query(
     `SELECT * FROM media
      ${where}
-     ORDER BY created_at DESC
+     ORDER BY ${sortExpression}
      LIMIT $${params.length - 1}
      OFFSET $${params.length}`,
     params
@@ -218,6 +528,190 @@ router.post('/upload-cover', upload.single('cover'), asyncHandler(async (req, re
     return res.status(400).json({ error: 'No file uploaded' });
   }
   res.json({ path: `/uploads/${req.file.filename}` });
+}));
+
+// ── CSV import ────────────────────────────────────────────────────────────────
+
+router.get('/import/template-csv', asyncHandler(async (_req, res) => {
+  const template = [
+    'title,year,format,director,genre,rating,user_rating,runtime,upc,location,notes',
+    '"The Matrix",1999,"Blu-ray","Lana Wachowski, Lilly Wachowski","Science Fiction",8.7,4.5,136,085391163545,"Living Room","Example row"'
+  ].join('\n');
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="collectz-template.csv"');
+  res.send(template);
+}));
+
+router.post('/import-csv', upload.single('file'), asyncHandler(async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'CSV file is required (multipart field: file)' });
+  }
+  let text = '';
+  try {
+    text = await fs.promises.readFile(req.file.path, 'utf8');
+  } finally {
+    await fs.promises.unlink(req.file.path).catch(() => {});
+  }
+
+  const { headers, rows } = parseCsv(text);
+  if (headers.length === 0) {
+    return res.status(400).json({ error: 'CSV is empty' });
+  }
+  const canonical = headers.map((h) => String(h).trim().toLowerCase());
+  if (!canonical.includes('title')) {
+    return res.status(400).json({ error: 'CSV must include a title column' });
+  }
+
+  const summary = { created: 0, updated: 0, skipped_invalid: 0, errors: [] };
+  const auditRows = [];
+  const config = await loadAdminIntegrationConfig();
+  const tmdbCache = new Map();
+  for (let idx = 0; idx < rows.length; idx += 1) {
+    const row = rows[idx];
+    const value = (name) => {
+      const key = Object.keys(row).find((k) => String(k).trim().toLowerCase() === name);
+      return key ? row[key] : '';
+    };
+    const mapped = {
+      title: value('title'),
+      original_title: value('original_title') || '',
+      release_date: parseDateOnly(value('release_date')),
+      year: parseYear(value('year') || value('release_date')),
+      format: normalizeMediaFormat(value('format')),
+      genre: value('genre'),
+      director: value('director'),
+      rating: value('rating') ? Number(value('rating')) : null,
+      user_rating: value('user_rating') ? Number(value('user_rating')) : null,
+      runtime: value('runtime') ? Number(value('runtime')) : null,
+      upc: value('upc'),
+      location: value('location'),
+      notes: value('notes')
+    };
+    try {
+      const enriched = await enrichImportItemWithTmdb(mapped, config, tmdbCache);
+      const result = await upsertImportedMedia({
+        userId: req.user.id,
+        item: enriched,
+        importSource: 'csv_generic'
+      });
+      if (result.type === 'created') {
+        summary.created += 1;
+        auditRows.push({ row: idx + 2, title: mapped.title || '', status: 'created', detail: '' });
+      } else if (result.type === 'updated') {
+        summary.updated += 1;
+        auditRows.push({ row: idx + 2, title: mapped.title || '', status: 'updated', detail: '' });
+      } else {
+        summary.skipped_invalid += 1;
+        auditRows.push({ row: idx + 2, title: mapped.title || '', status: 'skipped_invalid', detail: result.detail || 'Invalid row' });
+      }
+    } catch (error) {
+      summary.errors.push({ row: idx + 2, detail: error.message });
+      auditRows.push({ row: idx + 2, title: mapped.title || '', status: 'error', detail: error.message });
+    }
+  }
+
+  await logActivity(req, 'media.import.csv', 'media', null, {
+    created: summary.created,
+    updated: summary.updated,
+    skipped_invalid: summary.skipped_invalid,
+    errorCount: summary.errors.length
+  });
+
+  res.json({ ok: true, rows: rows.length, summary, auditRows });
+}));
+
+router.post('/import-csv/delicious', upload.single('file'), asyncHandler(async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'Delicious CSV file is required (multipart field: file)' });
+  }
+  let text = '';
+  try {
+    text = await fs.promises.readFile(req.file.path, 'utf8');
+  } finally {
+    await fs.promises.unlink(req.file.path).catch(() => {});
+  }
+
+  const { rows } = parseCsv(text);
+  const summary = {
+    created: 0,
+    updated: 0,
+    skipped_non_movie: 0,
+    skipped_invalid: 0,
+    errors: []
+  };
+  const auditRows = [];
+  const config = await loadAdminIntegrationConfig();
+  const tmdbCache = new Map();
+
+  for (let idx = 0; idx < rows.length; idx += 1) {
+    const row = rows[idx];
+    const value = (name) => {
+      const key = Object.keys(row).find((k) => String(k).trim().toLowerCase() === name);
+      return key ? row[key] : '';
+    };
+    const itemType = String(value('item type') || '').trim().toLowerCase();
+    if (itemType && itemType !== 'movie') {
+      summary.skipped_non_movie += 1;
+      auditRows.push({
+        row: idx + 2,
+        title: String(value('title') || '').trim(),
+        status: 'skipped_non_movie',
+        detail: `item type: ${itemType || 'unknown'}`
+      });
+      continue;
+    }
+
+    const title = String(value('title') || '').trim();
+    if (!title) {
+      summary.skipped_invalid += 1;
+      auditRows.push({ row: idx + 2, title: '', status: 'skipped_invalid', detail: 'Missing title' });
+      continue;
+    }
+
+    const mapped = {
+      title,
+      year: parseYear(value('release date')) || parseYear(value('creation date')),
+      release_date: parseDateOnly(value('release date')),
+      format: normalizeMediaFormat(value('format')),
+      genre: value('genres'),
+      director: value('creator'),
+      user_rating: value('rating') ? Number(value('rating')) : null,
+      upc: value('ean') || value('isbn'),
+      notes: [value('notes'), value('edition'), value('platform')].filter(Boolean).join(' | ')
+    };
+
+    try {
+      const enriched = await enrichImportItemWithTmdb(mapped, config, tmdbCache);
+      const result = await upsertImportedMedia({
+        userId: req.user.id,
+        item: enriched,
+        importSource: 'csv_delicious'
+      });
+      if (result.type === 'created') {
+        summary.created += 1;
+        auditRows.push({ row: idx + 2, title, status: 'created', detail: '' });
+      } else if (result.type === 'updated') {
+        summary.updated += 1;
+        auditRows.push({ row: idx + 2, title, status: 'updated', detail: '' });
+      } else {
+        summary.skipped_invalid += 1;
+        auditRows.push({ row: idx + 2, title, status: 'skipped_invalid', detail: result.detail || 'Invalid row' });
+      }
+    } catch (error) {
+      summary.errors.push({ row: idx + 2, detail: error.message });
+      auditRows.push({ row: idx + 2, title, status: 'error', detail: error.message });
+    }
+  }
+
+  await logActivity(req, 'media.import.csv.delicious', 'media', null, {
+    created: summary.created,
+    updated: summary.updated,
+    skipped_non_movie: summary.skipped_non_movie,
+    skipped_invalid: summary.skipped_invalid,
+    errorCount: summary.errors.length
+  });
+
+  res.json({ ok: true, rows: rows.length, summary, auditRows });
 }));
 
 // ── Plex import (admin only) ─────────────────────────────────────────────────
@@ -462,7 +956,8 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
              overview = COALESCE($10, overview),
              tmdb_id = COALESCE($11, tmdb_id),
              tmdb_url = COALESCE($12, tmdb_url),
-             notes = COALESCE($13, notes)
+             notes = COALESCE($13, notes),
+             import_source = 'plex'
            WHERE id = $14`,
           [
             media.original_title,
@@ -490,9 +985,9 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
         const inserted = await pool.query(
           `INSERT INTO media (
              title, original_title, release_date, year, format, director, rating,
-             runtime, poster_path, backdrop_path, overview, tmdb_id, tmdb_url, notes, added_by
+             runtime, poster_path, backdrop_path, overview, tmdb_id, tmdb_url, notes, added_by, import_source
            ) VALUES (
-             $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15
+             $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16
            )
            RETURNING id`,
           [
@@ -510,7 +1005,8 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
             media.tmdb_id,
             media.tmdb_url,
             `Imported from Plex section ${item.sectionId}`,
-            req.user.id
+            req.user.id,
+            'plex'
           ]
         );
         const insertedId = inserted.rows[0]?.id;
@@ -557,23 +1053,23 @@ router.post('/', validate(mediaCreateSchema), asyncHandler(async (req, res) => {
   const {
     title, original_title, release_date, year, format, genre, director, rating,
     user_rating, tmdb_id, tmdb_url, poster_path, backdrop_path, overview,
-    trailer_url, runtime, upc, location, notes
+    trailer_url, runtime, upc, location, notes, import_source
   } = req.body;
 
   const result = await pool.query(
     `INSERT INTO media (
        title, original_title, release_date, year, format, genre, director, rating,
        user_rating, tmdb_id, tmdb_url, poster_path, backdrop_path, overview,
-       trailer_url, runtime, upc, location, notes, added_by
+       trailer_url, runtime, upc, location, notes, added_by, import_source
      ) VALUES (
-       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20
+       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21
      ) RETURNING *`,
     [
       title, original_title || null, release_date || null, year || null, format || null,
       genre || null, director || null, rating || null, user_rating || null,
       tmdb_id || null, tmdb_url || null, poster_path || null, backdrop_path || null,
       overview || null, trailer_url || null, runtime || null, upc || null,
-      location || null, notes || null, req.user.id
+      location || null, notes || null, req.user.id, import_source || 'manual'
     ]
   );
   res.status(201).json(result.rows[0]);

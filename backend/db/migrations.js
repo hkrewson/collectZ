@@ -60,6 +60,7 @@ const MIGRATIONS = [
         upc VARCHAR(50),
         location VARCHAR(255),
         notes TEXT,
+        import_source VARCHAR(50) DEFAULT 'manual',
         added_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -338,6 +339,28 @@ const MIGRATIONS = [
         END IF;
       END;
       $$;
+    `
+  },
+  {
+    version: 7,
+    description: 'Media import_source traceability field',
+    up: `
+      ALTER TABLE media
+        ADD COLUMN IF NOT EXISTS import_source VARCHAR(50) DEFAULT 'manual';
+
+      UPDATE media m
+      SET import_source = 'plex'
+      WHERE import_source IS NULL
+        AND EXISTS (
+          SELECT 1
+          FROM media_metadata mm
+          WHERE mm.media_id = m.id
+            AND mm."key" IN ('plex_guid', 'plex_item_key')
+        );
+
+      UPDATE media
+      SET import_source = 'manual'
+      WHERE import_source IS NULL;
     `
   }
 ];

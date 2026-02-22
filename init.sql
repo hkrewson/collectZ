@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS media (
     upc VARCHAR(50),
     location VARCHAR(255),
     notes TEXT,
+    import_source VARCHAR(50) DEFAULT 'manual',
     added_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -253,5 +254,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (3, 'Opaque cookie sessions table'),
     (4, 'Invite lifecycle fields for revocation and claim metadata'),
     (5, 'Plex integration settings fields'),
-    (6, 'Media variants table for edition and file-level metadata')
+    (6, 'Media variants table for edition and file-level metadata'),
+    (7, 'Media import_source traceability field')
 ON CONFLICT (version) DO NOTHING;
