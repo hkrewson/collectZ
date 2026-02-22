@@ -13,14 +13,16 @@ const { normalizeBarcodeMatches } = require('../services/barcode');
 const { extractVisionText, extractTitleCandidates } = require('../services/vision');
 const { fetchPlexLibraryItems } = require('../services/plex');
 const { logError, logActivity } = require('../services/audit');
+const { uploadBuffer } = require('../services/storage');
 
 const router = express.Router();
 
-const storage = multer.diskStorage({
+const tempDiskStorage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, 'uploads/'),
   filename: (_req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`)
 });
-const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
+const tempUpload = multer({ storage: tempDiskStorage, limits: { fileSize: 10 * 1024 * 1024 } });
+const memoryUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 const MEDIA_FORMATS = ['VHS', 'Blu-ray', 'Digital', 'DVD', '4K UHD'];
 const SORT_COLUMNS = {
@@ -471,7 +473,7 @@ router.post('/lookup-upc', asyncHandler(async (req, res) => {
 
 // ── Cover recognition ─────────────────────────────────────────────────────────
 
-router.post('/recognize-cover', upload.single('cover'), asyncHandler(async (req, res) => {
+router.post('/recognize-cover', tempUpload.single('cover'), asyncHandler(async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'Cover image file is required' });
   }
@@ -523,11 +525,12 @@ router.post('/recognize-cover', upload.single('cover'), asyncHandler(async (req,
 
 // ── Cover upload ──────────────────────────────────────────────────────────────
 
-router.post('/upload-cover', upload.single('cover'), asyncHandler(async (req, res) => {
+router.post('/upload-cover', memoryUpload.single('cover'), asyncHandler(async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
   }
-  res.json({ path: `/uploads/${req.file.filename}` });
+  const stored = await uploadBuffer(req.file.buffer, req.file.originalname, req.file.mimetype);
+  res.json({ path: stored.url, provider: stored.provider });
 }));
 
 // ── CSV import ────────────────────────────────────────────────────────────────
@@ -542,7 +545,7 @@ router.get('/import/template-csv', asyncHandler(async (_req, res) => {
   res.send(template);
 }));
 
-router.post('/import-csv', upload.single('file'), asyncHandler(async (req, res) => {
+router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'CSV file is required (multipart field: file)' });
   }
@@ -620,7 +623,7 @@ router.post('/import-csv', upload.single('file'), asyncHandler(async (req, res) 
   res.json({ ok: true, rows: rows.length, summary, auditRows });
 }));
 
-router.post('/import-csv/delicious', upload.single('file'), asyncHandler(async (req, res) => {
+router.post('/import-csv/delicious', tempUpload.single('file'), asyncHandler(async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'Delicious CSV file is required (multipart field: file)' });
   }
