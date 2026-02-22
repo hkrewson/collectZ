@@ -39,6 +39,25 @@ These can be set in `.env`, but admin settings in UI now control active global i
 - Vision: `VISION_PRESET`, `VISION_PROVIDER`, `VISION_API_URL`, `VISION_API_KEY`, `VISION_API_KEY_HEADER`
 - Plex: `PLEX_PRESET`, `PLEX_PROVIDER`, `PLEX_API_URL`, `PLEX_SERVER_NAME`, `PLEX_API_KEY`
 
+
+## Storage Provider
+
+Cover image upload storage is configurable:
+
+- `STORAGE_PROVIDER` (`local` default, `s3` optional)
+
+When `STORAGE_PROVIDER=s3`, configure:
+
+- `S3_BUCKET`
+- `S3_ACCESS_KEY_ID`
+- `S3_SECRET_ACCESS_KEY`
+- `S3_REGION` (default `us-east-1`)
+- `S3_ENDPOINT` (optional, required for MinIO/B2-compatible endpoints)
+- `S3_FORCE_PATH_STYLE` (`true` default; useful for S3-compatible providers)
+- `S3_PUBLIC_BASE_URL` (optional; override returned public URL base, e.g. CDN/custom domain)
+
+`local` mode stores files under the backend `uploads/` directory and serves them at `/uploads/...`.
+
 ## Frontend
 
 - `REACT_APP_API_URL` (default: `/api`)
@@ -61,7 +80,6 @@ These are optional in `.env`; you can also pass them inline on deploy.
 Present in `env.example` for future extension:
 
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`
-- `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_REGION`
 
 ## Validation Tip
 

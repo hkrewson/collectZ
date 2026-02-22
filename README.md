@@ -56,6 +56,11 @@ Strongly recommended:
 - `INTEGRATION_ENCRYPTION_KEY`
 - `ALLOWED_ORIGINS`
 
+Storage selection:
+
+- `STORAGE_PROVIDER=local` (default) stores uploads on local filesystem (`/uploads`)
+- `STORAGE_PROVIDER=s3` stores uploads in S3-compatible object storage (set `S3_*` vars)
+
 See `env.example` and docs in `docs/wiki/` for full configuration details.
 
 ## Import Workflows
