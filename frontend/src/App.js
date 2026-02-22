@@ -3,11 +3,16 @@ import axios from 'axios';
 import appMeta from './app-meta.json';
 
 const API_URL = process.env.REACT_APP_API_URL || '/api';
-const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.version || '1.8.0';
+const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.version || '1.9.1';
 const BUILD_SHA   = process.env.REACT_APP_GIT_SHA || appMeta?.build?.gitShaDefault || 'dev';
 const USER_KEY  = 'mediavault_user';
 
 const MEDIA_FORMATS = ['VHS', 'Blu-ray', 'Digital', 'DVD', '4K UHD'];
+const MEDIA_TYPES = [
+  { value: 'movie', label: 'Movie' },
+  { value: 'tv_series', label: 'TV Series' },
+  { value: 'other', label: 'Other' }
+];
 const USER_ROLES    = ['admin', 'user', 'viewer'];
 
 const TMDB_GENRE_MAP = {
@@ -36,9 +41,11 @@ const PLEX_PRESETS = {
 };
 
 const DEFAULT_MEDIA_FORM = {
+  media_type:'movie',
   title:'',original_title:'',release_date:'',year:'',format:'Blu-ray',genre:'',
   director:'',rating:'',user_rating:0,runtime:'',upc:'',location:'',notes:'',
-  overview:'',tmdb_id:'',tmdb_url:'',trailer_url:'',poster_path:'',backdrop_path:''
+  overview:'',tmdb_id:'',tmdb_media_type:'movie',tmdb_url:'',trailer_url:'',poster_path:'',backdrop_path:'',
+  season_number:'',episode_number:'',episode_title:'',network:''
 };
 
 // ─── Utilities ───────────────────────────────────────────────────────────────
@@ -65,6 +72,26 @@ function posterUrl(path) {
 }
 
 function cx(...classes) { return classes.filter(Boolean).join(' '); }
+
+function inferTmdbSearchType(mediaType) {
+  return mediaType === 'tv_series' || mediaType === 'tv_episode' ? 'tv' : 'movie';
+}
+
+function tmdbTitle(result) {
+  return result?.title || result?.name || '';
+}
+
+function tmdbOriginalTitle(result) {
+  return result?.original_title || result?.original_name || '';
+}
+
+function tmdbReleaseDate(result) {
+  return result?.release_date || result?.first_air_date || '';
+}
+
+function mediaTypeLabel(value) {
+  return MEDIA_TYPES.find((m) => m.value === value)?.label || 'Movie';
+}
 
 function isInteractiveTarget(target) {
   return Boolean(target?.closest?.('button,a,input,select,textarea,label,[role="button"]'));
@@ -316,6 +343,8 @@ function AuthPage({ route, onNavigate, onAuth }) {
 function Sidebar({ user, activeTab, onSelect, onLogout, collapsed, onToggle, mobileOpen, onMobileClose }) {
   const isAdmin = user?.role === 'admin';
   const [adminOpen, setAdminOpen] = useState(true);
+  const [libraryOpen, setLibraryOpen] = useState(true);
+  const isLibraryActive = ['library', 'library-movies', 'library-tv', 'library-other'].includes(activeTab);
 
   const NavLink = ({ id, icon, label, sub = false }) => {
     const active = activeTab === id;
@@ -359,7 +388,27 @@ function Sidebar({ user, activeTab, onSelect, onLogout, collapsed, onToggle, mob
 
         {/* Nav */}
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto no-scrollbar">
-          <NavLink id="library" icon={<Icons.Library />} label="Library" />
+          <div>
+            <button onClick={() => { if (collapsed) onSelect('library-movies'); else setLibraryOpen(o => !o); }}
+              className={cx(
+                'w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded transition-all',
+                isLibraryActive ? 'bg-raised border border-edge text-ink' : 'text-dim hover:text-ink hover:bg-raised/50',
+                collapsed && 'justify-center px-0'
+              )}>
+              <span className={cx('shrink-0', isLibraryActive && 'text-gold')}><Icons.Library /></span>
+              {!collapsed && <>
+                <span className="flex-1 text-left">Library</span>
+                <span className={cx('transition-transform duration-200', libraryOpen && 'rotate-180')}><Icons.ChevronDown /></span>
+              </>}
+            </button>
+            {libraryOpen && !collapsed && (
+              <div className="mt-1 space-y-0.5">
+                <NavLink id="library-movies" icon={null} label="Movies" sub />
+                <NavLink id="library-tv" icon={null} label="TV" sub />
+                <NavLink id="library-other" icon={null} label="Other" sub />
+              </div>
+            )}
+          </div>
           <NavLink id="library-import" icon={<Icons.Upload />} label="Import" />
 
           {isAdmin && (
@@ -435,6 +484,9 @@ function MediaCard({ item, onOpen, onEdit, onDelete, onRating, supportsHover }) 
         <div className="absolute top-2 left-2">
           <span className="badge badge-dim text-[10px] backdrop-blur-sm bg-void/60 border-ghost/20">{item.format || '—'}</span>
         </div>
+        <div className="absolute top-2 right-2">
+          <span className="badge badge-dim text-[10px] backdrop-blur-sm bg-void/60 border-ghost/20">{mediaTypeLabel(item.media_type)}</span>
+        </div>
         {/* Actions on hover */}
         <div className={cx(
           'absolute bottom-0 left-0 right-0 p-3 transition-all duration-300',
@@ -486,7 +538,7 @@ function MediaListRow({ item, onOpen, onEdit, onDelete, onRating, supportsHover 
       </div>
       <div className="flex-1 min-w-0">
         <p className="font-medium text-ink truncate">{item.title}</p>
-        <p className="text-sm text-ghost">{[item.year, item.format, item.director].filter(Boolean).join(' · ')}</p>
+        <p className="text-sm text-ghost">{[item.year, item.format, mediaTypeLabel(item.media_type), item.director].filter(Boolean).join(' · ')}</p>
         {item.genre && <p className="text-xs text-ghost/70 mt-0.5 truncate">{item.genre}</p>}
       </div>
       <div onClick={e => e.stopPropagation()}>
@@ -546,6 +598,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall }) {
             <p className="text-sm text-dim mt-1">{[item.year, item.director].filter(Boolean).join(' · ')}</p>
             <div className="flex flex-wrap gap-2 mt-2">
               {item.format && <span className="badge badge-gold">{item.format}</span>}
+              {item.media_type && <span className="badge badge-dim">{mediaTypeLabel(item.media_type)}</span>}
               {item.genre?.split(',').slice(0,2).map(g => <span key={g} className="badge badge-dim">{g.trim()}</span>)}
             </div>
           </div>
@@ -583,16 +636,22 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall }) {
           )}
 
           <div>
-            <p className="label mb-2">Variants</p>
+            <p className="label mb-2">{item.media_type === 'tv_series' ? 'Seasons' : 'Editions'}</p>
             {variantLoading && <p className="text-sm text-ghost">Loading variants…</p>}
-            {!variantLoading && variants.length === 0 && <p className="text-sm text-ghost">No variant data yet</p>}
+            {!variantLoading && variants.length === 0 && (
+              <p className="text-sm text-ghost">{item.media_type === 'tv_series' ? 'No season data yet' : 'No edition data yet'}</p>
+            )}
             {!variantLoading && variants.length > 0 && (
               <div className="space-y-2">
-                {variants.map((v) => (
+                {variants
+                  .filter((v) => item.media_type !== 'tv_series' || Boolean(v.edition))
+                  .map((v) => (
                   <div key={v.id} className="card p-3">
                     <p className="text-sm text-ink font-medium">{v.edition || 'Default edition'}</p>
-                    <p className="text-xs text-ghost mt-1">{[v.resolution, v.container, v.video_codec, v.audio_codec, v.audio_channels ? `${v.audio_channels}ch` : null].filter(Boolean).join(' · ')}</p>
-                    {v.file_path && <p className="text-xs text-ghost/80 font-mono mt-1 break-all">{v.file_path}</p>}
+                    {item.media_type !== 'tv_series' && (
+                      <p className="text-xs text-ghost mt-1">{[v.resolution, v.container, v.video_codec, v.audio_codec, v.audio_channels ? `${v.audio_channels}ch` : null].filter(Boolean).join(' · ')}</p>
+                    )}
+                    {item.media_type !== 'tv_series' && v.file_path && <p className="text-xs text-ghost/80 font-mono mt-1 break-all">{v.file_path}</p>}
                   </div>
                 ))}
               </div>
@@ -624,6 +683,9 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall }) {
 
 function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, title = 'Add Media', apiCall }) {
   const [form, setForm] = useState(initial);
+  const [tvSeasonsText, setTvSeasonsText] = useState(
+    Array.isArray(initial?.tv_seasons) ? initial.tv_seasons.join(', ') : ''
+  );
   const [addMode, setAddMode]             = useState('title');
   const [tmdbResults, setTmdbResults]     = useState([]);
   const [tmdbLoading, setTmdbLoading]     = useState(false);
@@ -643,7 +705,11 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
     if (!form.title.trim()) return;
     setTmdbLoading(true);
     try {
-      const data = await apiCall('post', '/media/search-tmdb', { title: form.title.trim(), year: form.year || undefined });
+      const data = await apiCall('post', '/media/search-tmdb', {
+        title: form.title.trim(),
+        year: form.year || undefined,
+        mediaType: inferTmdbSearchType(form.media_type)
+      });
       setTmdbResults(data || []);
     } catch { notify('TMDB search failed', 'error'); }
     finally { setTmdbLoading(false); }
@@ -653,20 +719,24 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
     let details = null;
     try {
       setTmdbLoading(true);
-      details = await apiCall('get', `/media/tmdb/${result.id}/details`);
+      const tmdbType = result?.tmdb_media_type || inferTmdbSearchType(form.media_type);
+      details = await apiCall('get', `/media/tmdb/${result.id}/details?mediaType=${tmdbType}`);
     } catch {} finally { setTmdbLoading(false); }
     const genres = (result.genre_ids || []).map(id => TMDB_GENRE_MAP[id]).filter(Boolean).join(', ');
+    const releaseDate = tmdbReleaseDate(result);
+    const tmdbType = result?.tmdb_media_type || inferTmdbSearchType(form.media_type);
     set({
-      title: result.title || form.title,
-      original_title: result.original_title || form.original_title,
-      release_date: result.release_date || form.release_date,
-      year: result.release_date ? String(result.release_date).slice(0, 4) : form.year,
+      title: tmdbTitle(result) || form.title,
+      original_title: tmdbOriginalTitle(result) || form.original_title,
+      release_date: releaseDate || form.release_date,
+      year: releaseDate ? String(releaseDate).slice(0, 4) : form.year,
       genre: genres || form.genre,
       rating: result.vote_average ? Number(result.vote_average).toFixed(1) : form.rating,
       director: details?.director || form.director,
       overview: result.overview || form.overview,
       tmdb_id: result.id || form.tmdb_id,
-      tmdb_url: details?.tmdb_url || `https://www.themoviedb.org/movie/${result.id}`,
+      tmdb_media_type: tmdbType,
+      tmdb_url: details?.tmdb_url || `https://www.themoviedb.org/${tmdbType}/${result.id}`,
       trailer_url: details?.trailer_url || form.trailer_url,
       poster_path: result.poster_path || form.poster_path,
       backdrop_path: result.backdrop_path || form.backdrop_path,
@@ -691,18 +761,26 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
   const applyBarcode = async match => {
     const tmdb = match.tmdb;
     let details = null;
-    if (tmdb?.id) { try { details = await apiCall('get', `/media/tmdb/${tmdb.id}/details`); } catch {} }
+    if (tmdb?.id) {
+      try {
+        const tmdbType = tmdb?.tmdb_media_type || inferTmdbSearchType(form.media_type);
+        details = await apiCall('get', `/media/tmdb/${tmdb.id}/details?mediaType=${tmdbType}`);
+      } catch {}
+    }
     const genres = (tmdb?.genre_ids || []).map(id => TMDB_GENRE_MAP[id]).filter(Boolean).join(', ');
+    const releaseDate = tmdbReleaseDate(tmdb);
+    const tmdbType = tmdb?.tmdb_media_type || inferTmdbSearchType(form.media_type);
     set({
-      title: tmdb?.title || match.title || form.title,
-      original_title: tmdb?.original_title || form.original_title,
-      release_date: tmdb?.release_date || form.release_date,
-      year: tmdb?.release_date ? String(tmdb.release_date).slice(0,4) : form.year,
+      title: tmdbTitle(tmdb) || match.title || form.title,
+      original_title: tmdbOriginalTitle(tmdb) || form.original_title,
+      release_date: releaseDate || form.release_date,
+      year: releaseDate ? String(releaseDate).slice(0,4) : form.year,
       genre: genres || form.genre,
       director: details?.director || form.director,
       overview: tmdb?.overview || match.description || form.overview,
       tmdb_id: tmdb?.id || form.tmdb_id,
-      tmdb_url: details?.tmdb_url || (tmdb?.id ? `https://www.themoviedb.org/movie/${tmdb.id}` : form.tmdb_url),
+      tmdb_media_type: tmdbType,
+      tmdb_url: details?.tmdb_url || (tmdb?.id ? `https://www.themoviedb.org/${tmdbType}/${tmdb.id}` : form.tmdb_url),
       trailer_url: details?.trailer_url || form.trailer_url,
       poster_path: tmdb?.poster_path || match.image || form.poster_path,
       backdrop_path: tmdb?.backdrop_path || form.backdrop_path,
@@ -740,7 +818,11 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
     e.preventDefault();
     setSaving(true);
     try {
-      await onSave({
+      const parsedTvSeasons = tvSeasonsText
+        .split(',')
+        .map((v) => Number(String(v).trim()))
+        .filter((n) => Number.isInteger(n) && n > 0 && n <= 999);
+      const saved = await onSave({
         ...form,
         release_date: form.release_date || null,
         year: form.year ? Number(form.year) : null,
@@ -748,7 +830,15 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
         user_rating: form.user_rating ? Number(form.user_rating) : null,
         runtime: form.runtime ? Number(form.runtime) : null,
         tmdb_id: form.tmdb_id ? Number(form.tmdb_id) : null,
+        tmdb_media_type: form.tmdb_media_type || null,
+        season_number: form.season_number ? Number(form.season_number) : null,
+        episode_number: form.episode_number ? Number(form.episode_number) : null,
+        episode_title: form.episode_title || null,
+        network: form.network || null
       });
+      if (form.media_type === 'tv_series' && saved?.id && parsedTvSeasons.length > 0) {
+        await apiCall('put', `/media/${saved.id}/tv-seasons`, { seasons: parsedTvSeasons });
+      }
     } catch (e) {
       notify(e.response?.data?.error || 'Save failed', 'error');
     } finally { setSaving(false); }
@@ -792,7 +882,12 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
               ))}
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
+              <LabeledField label="Type" className="col-span-1">
+                <select className="select" value={form.media_type} onChange={e => set({ media_type: e.target.value })}>
+                  {MEDIA_TYPES.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+                </select>
+              </LabeledField>
               <LabeledField label="Format" className="col-span-1">
                 <select className="select" value={form.format} onChange={e => set({ format: e.target.value })}>
                   {MEDIA_FORMATS.map(f => <option key={f}>{f}</option>)}
@@ -809,7 +904,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
           {/* Title + search */}
           <LabeledField label="Title *">
             <div className="flex gap-2">
-              <input className="input flex-1" placeholder="Movie title" value={form.title} onChange={e => set({ title: e.target.value })} required />
+              <input className="input flex-1" placeholder={form.media_type === 'movie' ? 'Movie title' : 'Title'} value={form.title} onChange={e => set({ title: e.target.value })} required />
               {addMode === 'title' && (
                 <button type="button" onClick={searchTmdb} disabled={tmdbLoading} className="btn-secondary btn-sm shrink-0 min-w-[100px]">
                   {tmdbLoading ? <Spinner size={14} /> : <><Icons.Search />Search</>}
@@ -854,8 +949,8 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
                     className="w-full flex items-center gap-3 p-2.5 rounded-lg bg-raised border border-edge hover:border-gold/40 hover:bg-gold/5 transition-all text-left group">
                     {r.poster_path && <img src={`https://image.tmdb.org/t/p/w92${r.poster_path}`} alt="" className="w-8 h-12 object-cover rounded shrink-0" />}
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-ink truncate">{r.title}</p>
-                      <p className="text-xs text-ghost">{(r.release_date || '').slice(0,4) || 'n/a'}</p>
+                      <p className="text-sm font-medium text-ink truncate">{tmdbTitle(r)}</p>
+                      <p className="text-xs text-ghost">{(tmdbReleaseDate(r) || '').slice(0,4) || 'n/a'}</p>
                     </div>
                     <span className="text-xs text-gold opacity-0 group-hover:opacity-100 shrink-0">Apply →</span>
                   </button>
@@ -872,7 +967,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
                   <button key={i} type="button" onClick={() => applyBarcode(m)}
                     className="w-full flex items-center gap-3 p-2.5 rounded-lg bg-raised border border-edge hover:border-gold/40 hover:bg-gold/5 transition-all text-left group">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-ink truncate">{m.tmdb?.title || m.title || 'Unknown'}</p>
+                      <p className="text-sm font-medium text-ink truncate">{tmdbTitle(m.tmdb) || m.title || 'Unknown'}</p>
                       <p className="text-xs text-ghost">{m.description || ''}</p>
                     </div>
                     <span className="text-xs text-gold opacity-0 group-hover:opacity-100 shrink-0">Apply →</span>
@@ -907,6 +1002,34 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
                 <input className="input font-mono" value={form.upc} onChange={e => set({ upc: e.target.value })} />
               </LabeledField>
             )}
+            {form.media_type === 'tv_series' && (
+              <>
+                <LabeledField label="Network" className="col-span-2">
+                  <input className="input" value={form.network} onChange={e => set({ network: e.target.value })} />
+                </LabeledField>
+                <LabeledField label="Owned Seasons" className="col-span-2">
+                  <input
+                    className="input"
+                    placeholder="1, 2, 3"
+                    value={tvSeasonsText}
+                    onChange={(e) => setTvSeasonsText(e.target.value)}
+                  />
+                </LabeledField>
+              </>
+            )}
+            {form.media_type === 'tv_episode' && (
+              <>
+                <LabeledField label="Season">
+                  <input className="input" inputMode="numeric" value={form.season_number} onChange={e => set({ season_number: e.target.value })} />
+                </LabeledField>
+                <LabeledField label="Episode">
+                  <input className="input" inputMode="numeric" value={form.episode_number} onChange={e => set({ episode_number: e.target.value })} />
+                </LabeledField>
+                <LabeledField label="Episode Title" className="col-span-2">
+                  <input className="input" value={form.episode_title} onChange={e => set({ episode_title: e.target.value })} />
+                </LabeledField>
+              </>
+            )}
           </div>
 
           <LabeledField label="Your Rating">
@@ -933,6 +1056,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
             </summary>
             <div className="mt-3 grid grid-cols-1 gap-3">
               <LabeledField label="TMDB ID"><input className="input font-mono" value={form.tmdb_id} onChange={e => set({ tmdb_id: e.target.value })} /></LabeledField>
+              <LabeledField label="TMDB Media Type"><input className="input font-mono" value={form.tmdb_media_type} onChange={e => set({ tmdb_media_type: e.target.value })} /></LabeledField>
               <LabeledField label="TMDB URL"><input className="input" value={form.tmdb_url} onChange={e => set({ tmdb_url: e.target.value })} /></LabeledField>
               <LabeledField label="Trailer URL"><input className="input" value={form.trailer_url} onChange={e => set({ trailer_url: e.target.value })} /></LabeledField>
               <LabeledField label="Poster Path"><input className="input" value={form.poster_path} onChange={e => set({ poster_path: e.target.value })} /></LabeledField>
@@ -959,10 +1083,11 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
 
 // ─── Library view ─────────────────────────────────────────────────────────────
 
-function LibraryView({ mediaItems, loading, error, pagination, onRefresh, onOpen, onEdit, onDelete, onRating, apiCall }) {
+function LibraryView({ mediaItems, loading, error, pagination, onRefresh, onOpen, onEdit, onDelete, onRating, apiCall, forcedMediaType }) {
   const [searchInput, setSearchInput] = useState('');
   const [resolutionInput, setResolutionInput] = useState('all');
   const [filters, setFilters]   = useState({
+    media_type: forcedMediaType || 'movie',
     search: '',
     resolution: 'all',
     sortBy: 'title',
@@ -983,6 +1108,12 @@ function LibraryView({ mediaItems, loading, error, pagination, onRefresh, onOpen
     onRefresh({ page, limit: pageSize, ...filters });
   }, [filters, page, pageSize, onRefresh]);
 
+  useEffect(() => {
+    if (!forcedMediaType) return;
+    setFilters((f) => ({ ...f, media_type: forcedMediaType }));
+    setPage(1);
+  }, [forcedMediaType]);
+
   const rate = async (id, rating) => {
     await onRating(id, rating);
     setDetail(d => (d && d.id === id ? { ...d, user_rating: rating } : d));
@@ -990,6 +1121,7 @@ function LibraryView({ mediaItems, loading, error, pagination, onRefresh, onOpen
 
   const applySearch = () => {
     setFilters({
+      media_type: forcedMediaType || 'movie',
       search: searchInput.trim(),
       resolution: resolutionInput,
       sortBy: 'title',
@@ -1012,8 +1144,14 @@ function LibraryView({ mediaItems, loading, error, pagination, onRefresh, onOpen
           onCancel={() => { setAdding(false); setEditing(null); }}
           onDelete={isEdit ? () => { onDelete(editing.id); setEditing(null); } : undefined}
           onSave={async payload => {
-            if (isEdit) { await onEdit(editing.id, payload); setEditing(null); }
-            else { await onOpen(payload); setAdding(false); }
+            if (isEdit) {
+              const updated = await onEdit(editing.id, payload);
+              setEditing(null);
+              return updated;
+            }
+            const created = await onOpen(payload);
+            setAdding(false);
+            return created;
           }}
         />
       </div>
@@ -1085,12 +1223,14 @@ function LibraryView({ mediaItems, loading, error, pagination, onRefresh, onOpen
             icon={<Icons.Film />}
             title="No items found"
             subtitle={
+              filters.media_type !== 'movie' ||
               filters.search ||
               filters.resolution !== 'all'
                 ? 'Try adjusting your filters'
                 : 'Add your first title to get started'
             }
             action={
+              filters.media_type === 'movie' &&
               !filters.search &&
               filters.resolution === 'all' &&
               <button onClick={() => setAdding(true)} className="btn-primary"><Icons.Plus />Add Media</button>
@@ -1257,7 +1397,7 @@ function ImportView({ apiCall, onToast, onImported, canImportPlex }) {
       <div className="card p-5 space-y-4">
         {tab === 'plex' && (
           <>
-            <p className="text-sm text-dim">Import movies from your configured Plex server and selected sections.</p>
+            <p className="text-sm text-dim">Import titles from your configured Plex server and selected sections.</p>
             <p className="text-xs text-ghost">Uses saved Admin Integrations Plex settings. Import is deduplicated and TMDB enrichment is applied when possible.</p>
             <button onClick={runPlexImport} className="btn-primary" disabled={busy === 'plex'}>
               {busy === 'plex' ? <Spinner size={14} /> : <><Icons.Upload />Start Plex Import</>}
@@ -2079,7 +2219,7 @@ export default function App() {
   const [route, setRoute]       = useState(routeFromPath(window.location.pathname));
   const [user, setUser]         = useState(readStoredUser());
   const [authChecked, setAuthChecked] = useState(false);
-  const [activeTab, setActiveTab] = useState('library');
+  const [activeTab, setActiveTab] = useState('library-movies');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen]       = useState(false);
   const [mediaItems, setMediaItems]   = useState([]);
@@ -2143,7 +2283,7 @@ export default function App() {
   const loadMedia = useCallback(async (opts = {}) => {
     const params = new URLSearchParams();
     const passthrough = [
-      'page', 'limit', 'search', 'format', 'sortBy', 'sortDir',
+      'page', 'limit', 'search', 'format', 'media_type', 'sortBy', 'sortDir',
       'director', 'genre', 'resolution',
       'yearMin', 'yearMax',
       'ratingMin', 'ratingMax',
@@ -2176,12 +2316,14 @@ export default function App() {
     const created = await apiCall('post', '/media', payload);
     setMediaItems(m => [created, ...m]);
     showToast('Added to library');
+    return created;
   };
 
   const editMedia = async (id, payload) => {
     const updated = await apiCall('patch', `/media/${id}`, payload);
     setMediaItems(m => m.map(i => i.id === id ? updated : i));
     showToast('Saved');
+    return updated;
   };
 
   const deleteMedia = async id => {
@@ -2283,8 +2425,15 @@ export default function App() {
   }
 
   const tabContent = () => {
+    const forcedMediaType =
+      activeTab === 'library-tv' ? 'tv'
+      : activeTab === 'library-other' ? 'other'
+      : 'movie';
     switch (activeTab) {
       case 'library':
+      case 'library-movies':
+      case 'library-tv':
+      case 'library-other':
         return (
           <LibraryView
             mediaItems={mediaItems} loading={mediaLoading} error={mediaError}
@@ -2295,6 +2444,7 @@ export default function App() {
             onDelete={deleteMedia}
             onRating={rateMedia}
             apiCall={apiCall}
+            forcedMediaType={forcedMediaType}
           />
         );
       case 'library-import':

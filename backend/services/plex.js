@@ -97,27 +97,35 @@ const parseTmdbIdFromGuid = (guidRaw) => {
 };
 
 const normalizePlexItem = (item) => {
+  const rawType = String(item.type || '').toLowerCase();
+  const isTv = rawType === 'show' || rawType === 'episode';
+  const seriesTitle = item.grandparentTitle || item.parentTitle || item.title || item.originalTitle || null;
+  const seriesRatingKey = item.grandparentRatingKey || item.parentRatingKey || item.ratingKey || null;
   const year = item.year ? Number(item.year) : null;
   const runtime = item.duration ? Math.round(Number(item.duration) / 60000) : null;
   const tmdbId = parseTmdbIdFromGuid(item.guid);
   const thumb = item.thumb || item.art || null;
   const posterPath = thumb && String(thumb).startsWith('http') ? thumb : null;
   return {
-    title: item.title || item.originalTitle || null,
+    title: isTv ? seriesTitle : (item.title || item.originalTitle || null),
+    media_type: isTv ? 'tv_series' : 'movie',
     original_title: item.originalTitle || null,
     year: Number.isFinite(year) ? year : null,
     release_date: item.originallyAvailableAt || null,
     runtime: Number.isFinite(runtime) ? runtime : null,
     overview: item.summary || null,
     director: item.director || null,
+    network: item.studio || null,
+    season_number: item.parentIndex ? Number(item.parentIndex) : null,
     rating: item.rating ? Number(item.rating) : null,
     poster_path: posterPath,
     backdrop_path: posterPath,
     tmdb_id: tmdbId,
-    tmdb_url: tmdbId ? `https://www.themoviedb.org/movie/${tmdbId}` : null,
+    tmdb_url: tmdbId ? `https://www.themoviedb.org/${isTv ? 'tv' : 'movie'}/${tmdbId}` : null,
+    tmdb_media_type: isTv ? 'tv' : 'movie',
     format: 'Digital',
     plex_guid: item.guid ? String(item.guid) : null,
-    plex_rating_key: item.ratingKey ? String(item.ratingKey) : null
+    plex_rating_key: seriesRatingKey ? String(seriesRatingKey) : null
   };
 };
 
@@ -130,18 +138,26 @@ const extractEditionFromPath = (filePath) => {
 };
 
 const normalizePlexVariant = (item, sectionId) => {
+  const rawType = String(item.type || '').toLowerCase();
   const media = Array.isArray(item.Media) ? item.Media[0] : item.Media;
   const part = media?.Part && Array.isArray(media.Part) ? media.Part[0] : media?.Part;
-  const sourceItemKey = item.ratingKey ? `${sectionId}:${item.ratingKey}` : null;
+  const seasonNumber = item.parentIndex ? Number(item.parentIndex) : null;
+  const tvSeriesKey = item.grandparentRatingKey || item.parentRatingKey || item.ratingKey || null;
+  const sourceItemKey = rawType === 'episode' && tvSeriesKey && Number.isInteger(seasonNumber)
+    ? `${sectionId}:show:${tvSeriesKey}:season:${seasonNumber}`
+    : (item.ratingKey ? `${sectionId}:${item.ratingKey}` : null);
   const sourcePartId = part?.id ? String(part.id) : null;
   const sourceMediaId = media?.id ? String(media.id) : null;
   const filePath = part?.file || null;
+  const derivedEdition = Number.isInteger(seasonNumber) && seasonNumber > 0
+    ? `Season ${seasonNumber}`
+    : null;
   return {
     source: 'plex',
     source_item_key: sourceItemKey,
     source_media_id: sourceMediaId,
-    source_part_id: sourcePartId,
-    edition: extractEditionFromPath(filePath),
+    source_part_id: rawType === 'episode' ? null : sourcePartId,
+    edition: derivedEdition || extractEditionFromPath(filePath),
     file_path: filePath,
     container: media?.container || part?.container || null,
     video_codec: media?.videoCodec || null,
@@ -186,9 +202,19 @@ const fetchPlexSections = async (config) => {
 const fetchPlexLibraryItems = async (config, sectionIds = []) => {
   const sections = sectionIds.length > 0 ? sectionIds : (config.plexLibrarySections || []);
   const uniqueSections = [...new Set(sections.map(String).filter(Boolean))];
+  let sectionTypeMap = new Map();
+  try {
+    const discovered = await fetchPlexSections(config);
+    sectionTypeMap = new Map(
+      discovered.map((section) => [String(section.id), String(section.type || '').toLowerCase()])
+    );
+  } catch (_error) {
+    sectionTypeMap = new Map();
+  }
   const items = [];
 
   for (const sectionId of uniqueSections) {
+    const sectionType = sectionTypeMap.get(String(sectionId)) || '';
     const response = await plexRequest(config, `/library/sections/${sectionId}/all`);
     if (response.status >= 400) {
       const message = typeof response.data === 'string'
@@ -202,7 +228,13 @@ const fetchPlexLibraryItems = async (config, sectionIds = []) => {
       .filter((entry) => entry.title || entry.originalTitle)
       .filter((entry) => {
         const type = String(entry.type || '').toLowerCase();
-        return !type || type === 'movie' || type === 'video' || type === 'clip';
+        if (sectionType === 'show') {
+          return type === 'show' || type === 'episode' || type === 'season';
+        }
+        if (sectionType === 'movie') {
+          return !type || type === 'movie' || type === 'video' || type === 'clip';
+        }
+        return !type || type === 'movie' || type === 'video' || type === 'show' || type === 'episode';
       });
 
     for (const video of candidates) {
