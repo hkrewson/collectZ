@@ -3,7 +3,7 @@ import axios from 'axios';
 import appMeta from './app-meta.json';
 
 const API_URL = process.env.REACT_APP_API_URL || '/api';
-const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.version || '1.9.1';
+const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.version || '1.9.2';
 const BUILD_SHA   = process.env.REACT_APP_GIT_SHA || appMeta?.build?.gitShaDefault || 'dev';
 const USER_KEY  = 'mediavault_user';
 

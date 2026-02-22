@@ -1,12 +1,23 @@
 const crypto = require('crypto');
 
+const resolveIntegrationKeyMaterial = () => {
+  const explicitKey = process.env.INTEGRATION_ENCRYPTION_KEY;
+  if (explicitKey) return explicitKey;
+
+  const isProduction = process.env.NODE_ENV === 'production';
+  if (isProduction) {
+    throw new Error('INTEGRATION_ENCRYPTION_KEY is required in production');
+  }
+
+  const devFallback = process.env.SESSION_SECRET || 'dev-only-secret';
+  // Dev fallback is allowed for local iteration only.
+  console.warn('[crypto] INTEGRATION_ENCRYPTION_KEY missing; using development fallback key material');
+  return devFallback;
+};
+
 const integrationEncryptionKey = crypto
   .createHash('sha256')
-  .update(
-    process.env.INTEGRATION_ENCRYPTION_KEY
-    || process.env.SESSION_SECRET
-    || 'dev-only-secret'
-  )
+  .update(resolveIntegrationKeyMaterial())
   .digest();
 
 const encryptSecret = (plaintext) => {
@@ -21,7 +32,7 @@ const encryptSecret = (plaintext) => {
   return `${iv.toString('base64')}:${tag.toString('base64')}:${encrypted.toString('base64')}`;
 };
 
-const decryptSecret = (encryptedText) => {
+const decryptSecret = (encryptedText, contextLabel = '') => {
   if (!encryptedText) return '';
   try {
     const [ivB64, tagB64, dataB64] = encryptedText.split(':');
@@ -36,7 +47,9 @@ const decryptSecret = (encryptedText) => {
       decipher.final()
     ]);
     return decrypted.toString('utf8');
-  } catch (_) {
+  } catch (error) {
+    const suffix = contextLabel ? ` (${contextLabel})` : '';
+    console.warn(`[crypto] Failed to decrypt integration secret${suffix}: ${error.message}`);
     return '';
   }
 };

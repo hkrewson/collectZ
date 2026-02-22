@@ -337,6 +337,166 @@ This roadmap converts product direction into implementation milestones with acce
 
 ---
 
+## 1.9.2 → 1.9.9 — Assessment Remediation Track (Pre-2.0 Hardening)
+
+This track converts the 1.9.1 external assessment findings into executable milestones. Goal: enter 2.0 with lower security risk, better migration confidence, and predictable import behavior at scale.
+
+### Concern/Recommendation Register
+
+- Enforce independent encryption secret for integrations; do not fall back to session or dev default in production.
+- Log integration key decryption failures (no silent empty-string behavior).
+- Move long-running Plex import out of blocking request path (async jobs / queue).
+- Expose enrichment failures in per-row audit output (no silent swallow).
+- Add DB-level uniqueness for metadata keys per media item (`media_metadata(media_id, key)`).
+- Replace custom CSV parser with a battle-tested parser library.
+- Cap or periodically prune user sessions outside login hot path.
+- Normalize/optimize genre and director filtering for scale.
+- Reconcile rate-limit behavior between nginx and Express and document authority.
+- Split oversized frontend `App.js` into maintainable component modules.
+- Remove misleading auth-role UX dependence on `localStorage` cache.
+- Consolidate TMDB TV/movie normalization in one layer to prevent drift.
+- Add operational feature flag service behavior and audit coverage.
+- Improve migration fidelity/rollback tooling before 2.0 (down strategy + rehearsal automation).
+- Resolve migration-history clarity gap where v1 is a snapshot schema.
+
+## 1.9.2 — Secret and Crypto Hardening
+
+**Goal:** Eliminate risky secret fallbacks and make crypto failures observable.
+
+### Scope
+
+- Require `INTEGRATION_ENCRYPTION_KEY` in production startup (fail fast with clear error).
+- Remove production fallback to `SESSION_SECRET`/hardcoded dev-only value for integration encryption.
+- Add warning/error logging when decryption fails (include key type/provider context, never secret value).
+- Add key-rotation guidance and failure modes to deployment docs.
+- Make `trust proxy` configurable by env and document required topology assumptions.
+
+### Acceptance Criteria
+
+- Production startup fails when integration encryption key is missing.
+- Decryption failures are visible in logs and activity events.
+- Proxy trust behavior is explicit, configurable, and documented.
+
+## 1.9.3 — Import Reliability and Async Execution
+
+**Goal:** Make large imports durable and observable without HTTP timeout risk.
+
+### Scope
+
+- Implement async import job path (`sync_jobs` + background worker).
+- Add concurrency controls and provider-aware throttling for TMDB/plex enrichment calls.
+- Persist import progress and expose status endpoints for frontend polling.
+- Include enrichment-failure detail per item in import audit output.
+
+### Acceptance Criteria
+
+- Large Plex import no longer requires a single long-running HTTP request.
+- Import results contain explicit enrichment miss/failure reasons.
+- Frontend can track job progress and completion summary.
+
+## 1.9.4 — Data Integrity and Query Performance
+
+**Goal:** Prevent subtle data drift and keep filters fast as libraries grow.
+
+### Scope
+
+- Add uniqueness guarantee for `media_metadata` (`UNIQUE(media_id, key)`), with migration cleanup for duplicates.
+- Add/optimize index strategy for genre/director filtering (GIN/trigram or normalized tables by chosen approach).
+- Add periodic session cleanup job and configurable max sessions per user policy.
+- Ensure import dedupe/update logic remains deterministic under concurrent execution.
+
+### Acceptance Criteria
+
+- Duplicate metadata keys cannot accumulate per media item.
+- Director/genre filtering remains performant on large datasets.
+- Session table growth is bounded without relying on login-triggered cleanup.
+
+## 1.9.5 — Parsing and Normalization Consistency
+
+**Goal:** Remove parser edge-case risk and centralize media normalization.
+
+### Scope
+
+- Replace hand-rolled CSV parsing with a maintained parser library.
+- Add import tests for quoted/multiline/escaped CSV edge cases.
+- Consolidate TMDB TV/movie field normalization into one canonical layer (backend contract).
+- Simplify frontend to consume normalized API response without duplicate normalization logic.
+
+### Acceptance Criteria
+
+- CSV import handles edge-case rows reliably.
+- TV/movie mapping logic has a single source of truth.
+- Frontend and backend normalization cannot drift silently.
+
+## 1.9.6 — Frontend Maintainability and Auth UX Clarity
+
+**Goal:** Reduce frontend complexity and remove misleading security UX.
+
+### Scope
+
+- Refactor `frontend/src/App.js` into component/page modules.
+- Keep role-gated rendering based on server-confirmed session state; treat local cache as non-authoritative or remove it.
+- Add clear loading/forbidden UX patterns for server-authoritative role checks.
+- Add smoke tests for navigation, role-gated views, and critical library flows.
+
+### Acceptance Criteria
+
+- App entry file is significantly reduced and componentized.
+- UI role visibility aligns with server authorization behavior.
+- Core UI flows are covered by repeatable smoke checks.
+
+## 1.9.7 — Rate Limiting and Edge Policy Alignment
+
+**Goal:** Make rate-limiting behavior predictable across deployment topologies.
+
+### Scope
+
+- Define authoritative rate-limit layer per endpoint class (edge vs app).
+- Align nginx and Express settings to avoid conflicting or multiplicative limits.
+- Document single-node vs multi-node behavior expectations.
+- Add validation checklist for Portainer/homelab deployments.
+
+### Acceptance Criteria
+
+- Effective limits are deterministic and documented.
+- Auth/media/admin endpoints have intentional rate-limit ownership.
+
+## 1.9.8 — Feature Flag Operationalization
+
+**Goal:** Turn feature flag scaffolding into an operational control plane.
+
+### Scope
+
+- Implement feature flag read/service layer used by real code paths.
+- Add admin visibility/edit capability for safe flags (or env-backed read-only mode with docs).
+- Add activity/audit entries for all flag changes.
+- Add `created_at` and updater metadata as needed for governance.
+
+### Acceptance Criteria
+
+- Feature flags are active controls, not inert schema.
+- All flag changes are auditable and reversible.
+
+## 1.9.9 — Migration Fidelity and Rollback Readiness
+
+**Goal:** Enter 2.0 with proven migration/rollback discipline.
+
+### Scope
+
+- Add rollback strategy support for critical migrations (or scripted restore workflow with automated verification).
+- Add CI rehearsal: apply forward migrations on snapshot fixture and validate rollback path.
+- Reconcile migration-history clarity:
+  - keep append-only production migrations,
+  - add documented baseline strategy for fresh-install clarity.
+- Publish reproducible migration rehearsal evidence for 2.0 readiness.
+
+### Acceptance Criteria
+
+- 2.0 preflight includes a tested rollback path.
+- Migration behavior is reproducible in CI and documented for operators.
+
+---
+
 ## 2.0.0 — Multi-Space + Multi-Library Architecture
 
 **Goal:** Each user can belong to one or more spaces, and each space can contain multiple libraries with isolated media and integrations.
