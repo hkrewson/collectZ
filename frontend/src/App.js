@@ -1,9 +1,9 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import appMeta from './app-meta.json';
 
 const API_URL = process.env.REACT_APP_API_URL || '/api';
-const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.version || '1.7.1';
+const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.version || '1.8.0';
 const BUILD_SHA   = process.env.REACT_APP_GIT_SHA || appMeta?.build?.gitShaDefault || 'dev';
 const USER_KEY  = 'mediavault_user';
 
@@ -66,6 +66,10 @@ function posterUrl(path) {
 
 function cx(...classes) { return classes.filter(Boolean).join(' '); }
 
+function isInteractiveTarget(target) {
+  return Boolean(target?.closest?.('button,a,input,select,textarea,label,[role="button"]'));
+}
+
 // ─── Icons ───────────────────────────────────────────────────────────────────
 
 const Icon = ({ d, size = 20, className = '', strokeWidth = 1.75 }) => (
@@ -98,6 +102,7 @@ const Icons = {
   Eye:         () => <Icon d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z" />,
   EyeOff:      () => <Icon d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24M1 1l22 22" />,
   Upload:      () => <Icon d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />,
+  Download:    () => <Icon d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />,
   Star:        () => <Icon d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />,
   LogOut:      () => <Icon d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />,
   Copy:        () => <Icon d="M20 9H11a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2zM5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 0 2 2v1" />,
@@ -105,6 +110,8 @@ const Icons = {
   Refresh:     () => <Icon d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />,
   Play:        () => <Icon d="M5 3l14 9-14 9V3z" />,
   Link:        () => <Icon d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />,
+  ArrowUp:     () => <Icon d="M12 19V5M5 12l7-7 7 7" />,
+  ArrowDown:   () => <Icon d="M12 5v14M19 12l-7 7-7-7" />,
 };
 
 // ─── Shared components ────────────────────────────────────────────────────────
@@ -353,6 +360,7 @@ function Sidebar({ user, activeTab, onSelect, onLogout, collapsed, onToggle, mob
         {/* Nav */}
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto no-scrollbar">
           <NavLink id="library" icon={<Icons.Library />} label="Library" />
+          <NavLink id="library-import" icon={<Icons.Upload />} label="Import" />
 
           {isAdmin && (
             <div>
@@ -398,11 +406,17 @@ function Sidebar({ user, activeTab, onSelect, onLogout, collapsed, onToggle, mob
 
 // ─── Media card ───────────────────────────────────────────────────────────────
 
-function MediaCard({ item, onOpen, onEdit, onDelete, onRating }) {
+function MediaCard({ item, onOpen, onEdit, onDelete, onRating, supportsHover }) {
+  const onPointerUp = (e) => {
+    if (e.pointerType !== 'touch') return;
+    if (isInteractiveTarget(e.target)) return;
+    onOpen(item);
+  };
   return (
     <article
       className="group relative cursor-pointer animate-fade-in"
-      onClick={() => onOpen(item)}>
+      onClick={() => onOpen(item)}
+      onPointerUp={onPointerUp}>
       {/* Poster */}
       <div className="poster rounded-lg overflow-hidden shadow-card">
         {posterUrl(item.poster_path)
@@ -413,13 +427,19 @@ function MediaCard({ item, onOpen, onEdit, onDelete, onRating }) {
             </div>
         }
         {/* Overlay on hover */}
-        <div className="absolute inset-0 bg-card-fade opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+        <div className={cx(
+          'absolute inset-0 bg-card-fade transition-opacity duration-300',
+          supportsHover ? 'opacity-0 group-hover:opacity-100' : 'opacity-10'
+        )} />
         {/* Format badge */}
         <div className="absolute top-2 left-2">
           <span className="badge badge-dim text-[10px] backdrop-blur-sm bg-void/60 border-ghost/20">{item.format || '—'}</span>
         </div>
         {/* Actions on hover */}
-        <div className="absolute bottom-0 left-0 right-0 p-3 translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
+        <div className={cx(
+          'absolute bottom-0 left-0 right-0 p-3 transition-all duration-300',
+          supportsHover ? 'translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100' : 'translate-y-0 opacity-100'
+        )}>
           <div className="flex gap-2">
             <button onClick={e => { e.stopPropagation(); onEdit(item); }}
               className="btn-secondary btn-sm flex-1 backdrop-blur-sm bg-void/60 border-ghost/30">
@@ -446,9 +466,15 @@ function MediaCard({ item, onOpen, onEdit, onDelete, onRating }) {
 
 // ─── Media list row ───────────────────────────────────────────────────────────
 
-function MediaListRow({ item, onOpen, onEdit, onDelete, onRating }) {
+function MediaListRow({ item, onOpen, onEdit, onDelete, onRating, supportsHover }) {
+  const onPointerUp = (e) => {
+    if (e.pointerType !== 'touch') return;
+    if (isInteractiveTarget(e.target)) return;
+    onOpen(item);
+  };
   return (
     <article onClick={() => onOpen(item)}
+      onPointerUp={onPointerUp}
       className="group flex items-center gap-4 p-3 rounded-lg bg-surface border border-edge hover:border-muted hover:bg-raised cursor-pointer transition-all duration-150 animate-fade-in">
       <div className="w-10 shrink-0" style={{ aspectRatio: '2/3' }}>
         <div className="poster rounded w-full h-full">
@@ -466,7 +492,7 @@ function MediaListRow({ item, onOpen, onEdit, onDelete, onRating }) {
       <div onClick={e => e.stopPropagation()}>
         <StarRating value={item.user_rating || 0} onChange={r => onRating(item.id, r)} />
       </div>
-      <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+      <div className={cx('flex gap-2 transition-opacity duration-150', supportsHover ? 'opacity-0 group-hover:opacity-100' : 'opacity-100')}>
         <button onClick={e => { e.stopPropagation(); onEdit(item); }} className="btn-ghost btn-sm"><Icons.Edit /></button>
         <button onClick={e => { e.stopPropagation(); onDelete(item.id); }} className="btn-ghost btn-sm text-err hover:bg-err/10"><Icons.Trash /></button>
       </div>
@@ -585,6 +611,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall }) {
 
         {/* Footer */}
         <div className="p-4 border-t border-edge flex gap-3 shrink-0">
+          <button onClick={onClose} className="btn-ghost">Close</button>
           <button onClick={() => onEdit(item)} className="btn-secondary flex-1"><Icons.Edit />Edit</button>
           <button onClick={() => { if (window.confirm('Delete this item?')) { onDelete(item.id); onClose(); } }} className="btn-danger"><Icons.Trash /></button>
         </div>
@@ -932,20 +959,28 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
 
 // ─── Library view ─────────────────────────────────────────────────────────────
 
-function LibraryView({ mediaItems, loading, error, pagination, onRefresh, onOpen, onEdit, onDelete, onRating, apiCall, canImportPlex }) {
+function LibraryView({ mediaItems, loading, error, pagination, onRefresh, onOpen, onEdit, onDelete, onRating, apiCall }) {
   const [searchInput, setSearchInput] = useState('');
-  const [formatInput, setFormatInput] = useState('all');
-  const [filters, setFilters]   = useState({ search: '', format: 'all' });
+  const [resolutionInput, setResolutionInput] = useState('all');
+  const [filters, setFilters]   = useState({
+    search: '',
+    resolution: 'all',
+    sortBy: 'title',
+    sortDir: 'asc'
+  });
   const [page, setPage]         = useState(1);
   const [pageSize, setPageSize] = useState(50);
   const [viewMode, setViewMode] = useState('cards');
   const [adding, setAdding]     = useState(false);
   const [editing, setEditing]   = useState(null);
   const [detail, setDetail]     = useState(null);
-  const [importingPlex, setImportingPlex] = useState(false);
+  const supportsHover = useMemo(
+    () => window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches,
+    []
+  );
 
   useEffect(() => {
-    onRefresh({ page, limit: pageSize, search: filters.search, format: filters.format });
+    onRefresh({ page, limit: pageSize, ...filters });
   }, [filters, page, pageSize, onRefresh]);
 
   const rate = async (id, rating) => {
@@ -953,24 +988,14 @@ function LibraryView({ mediaItems, loading, error, pagination, onRefresh, onOpen
     setDetail(d => (d && d.id === id ? { ...d, user_rating: rating } : d));
   };
 
-  const applyFilters = () => {
-    setFilters({ search: searchInput.trim(), format: formatInput });
+  const applySearch = () => {
+    setFilters({
+      search: searchInput.trim(),
+      resolution: resolutionInput,
+      sortBy: 'title',
+      sortDir: filters.sortDir
+    });
     setPage(1);
-  };
-
-  const runPlexImport = async () => {
-    if (!window.confirm('Start manual import from Plex using saved integration settings?')) return;
-    setImportingPlex(true);
-    try {
-      const result = await apiCall('post', '/media/import-plex', {});
-      const summary = result?.summary || {};
-      alert(`Plex import complete\nCreated: ${summary.created || 0}\nUpdated: ${summary.updated || 0}\nSkipped: ${summary.skipped || 0}\nErrors: ${(summary.errors || []).length}`);
-      onRefresh({ page, limit: pageSize, search: filters.search, format: filters.format });
-    } catch (err) {
-      alert(err.response?.data?.error || 'Plex import failed');
-    } finally {
-      setImportingPlex(false);
-    }
   };
 
   if (adding || editing) {
@@ -1008,13 +1033,22 @@ function LibraryView({ mediaItems, loading, error, pagination, onRefresh, onOpen
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ghost pointer-events-none"><Icons.Search /></span>
             <input className="input pl-9 w-56" placeholder="Search title, director…"
               value={searchInput} onChange={e => setSearchInput(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') applyFilters(); }} />
+              onKeyDown={e => { if (e.key === 'Enter') applySearch(); }} />
           </div>
-          <button onClick={applyFilters} className="btn-secondary btn-sm">Apply</button>
-          {/* Format filter */}
-          <select className="select w-36" value={formatInput} onChange={e => setFormatInput(e.target.value)}>
-            <option value="all">All formats</option>
-            {MEDIA_FORMATS.map(f => <option key={f} value={f}>{f}</option>)}
+          <select
+            className="select w-36"
+            value={resolutionInput}
+            onChange={e => {
+              const value = e.target.value;
+              setResolutionInput(value);
+              setFilters(f => ({ ...f, resolution: value }));
+              setPage(1);
+            }}>
+            <option value="all">All resolutions</option>
+            <option value="SD">SD</option>
+            <option value="720p">720p</option>
+            <option value="1080p">1080p</option>
+            <option value="4K">4K</option>
           </select>
           {/* View toggle */}
           <div className="tab-strip">
@@ -1025,12 +1059,15 @@ function LibraryView({ mediaItems, loading, error, pagination, onRefresh, onOpen
               <Icons.List />
             </button>
           </div>
-          <button onClick={() => onRefresh({ page, limit: pageSize, search: filters.search, format: filters.format })} className="btn-icon" title="Refresh"><Icons.Refresh /></button>
-          {canImportPlex && (
-            <button onClick={runPlexImport} className="btn-secondary" disabled={importingPlex}>
-              {importingPlex ? <Spinner size={14} /> : <><Icons.Upload />Import Plex</>}
-            </button>
-          )}
+          <button
+            onClick={() => {
+              setFilters(f => ({ ...f, sortDir: f.sortDir === 'asc' ? 'desc' : 'asc' }));
+              setPage(1);
+            }}
+            className="btn-icon"
+            title={filters.sortDir === 'asc' ? 'Sort ascending' : 'Sort descending'}>
+            {filters.sortDir === 'asc' ? <Icons.ArrowUp /> : <Icons.ArrowDown />}
+          </button>
           <button onClick={() => setAdding(true)} className="btn-primary">
             <Icons.Plus />Add
           </button>
@@ -1047,8 +1084,17 @@ function LibraryView({ mediaItems, loading, error, pagination, onRefresh, onOpen
           <EmptyState
             icon={<Icons.Film />}
             title="No items found"
-            subtitle={filters.search || filters.format !== 'all' ? 'Try adjusting your filters' : 'Add your first title to get started'}
-            action={!filters.search && filters.format === 'all' && <button onClick={() => setAdding(true)} className="btn-primary"><Icons.Plus />Add Media</button>}
+            subtitle={
+              filters.search ||
+              filters.resolution !== 'all'
+                ? 'Try adjusting your filters'
+                : 'Add your first title to get started'
+            }
+            action={
+              !filters.search &&
+              filters.resolution === 'all' &&
+              <button onClick={() => setAdding(true)} className="btn-primary"><Icons.Plus />Add Media</button>
+            }
           />
         )}
         {!loading && viewMode === 'cards' && mediaItems.length > 0 && (
@@ -1059,6 +1105,7 @@ function LibraryView({ mediaItems, loading, error, pagination, onRefresh, onOpen
                 onEdit={() => setEditing(item)}
                 onDelete={id => { if (window.confirm('Delete this item?')) onDelete(id); }}
                 onRating={rate}
+                supportsHover={supportsHover}
               />
             ))}
           </div>
@@ -1071,6 +1118,7 @@ function LibraryView({ mediaItems, loading, error, pagination, onRefresh, onOpen
                 onEdit={() => setEditing(item)}
                 onDelete={id => { if (window.confirm('Delete this item?')) onDelete(id); }}
                 onRating={rate}
+                supportsHover={supportsHover}
               />
             ))}
           </div>
@@ -1099,6 +1147,182 @@ function LibraryView({ mediaItems, loading, error, pagination, onRefresh, onOpen
           onRating={rate}
           apiCall={apiCall}
         />
+      )}
+    </div>
+  );
+}
+
+function ImportView({ apiCall, onToast, onImported, canImportPlex }) {
+  const [tab, setTab] = useState(canImportPlex ? 'plex' : 'csv');
+  const [busy, setBusy] = useState('');
+  const [result, setResult] = useState('');
+  const [auditRows, setAuditRows] = useState([]);
+  const [auditName, setAuditName] = useState('');
+  const csvInputRef = useRef(null);
+  const deliciousInputRef = useRef(null);
+
+  const downloadAudit = () => {
+    if (!auditRows.length) return;
+    const esc = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+    const lines = [
+      ['row', 'status', 'title', 'detail'].map(esc).join(','),
+      ...auditRows.map((r) => [r.row, r.status, r.title, r.detail].map(esc).join(','))
+    ];
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    a.download = `collectz-import-audit-${auditName || 'report'}-${stamp}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const runPlexImport = async () => {
+    if (!canImportPlex) return;
+    setBusy('plex');
+    setResult('');
+    setAuditRows([]);
+    setAuditName('');
+    try {
+      const res = await apiCall('post', '/media/import-plex', {});
+      const s = res?.summary || {};
+      setResult(
+        `Plex import complete\nCreated: ${s.created || 0}\nUpdated: ${s.updated || 0}\nSkipped: ${s.skipped || 0}\nErrors: ${(s.errors || []).length}`
+      );
+      onToast('Plex import complete');
+      onImported?.();
+    } catch (err) {
+      const msg = err.response?.data?.error || 'Plex import failed';
+      setResult(msg);
+      onToast(msg, 'error');
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const runCsvImport = async (file, endpoint, label) => {
+    if (!file) return;
+    setBusy(label);
+    setResult('');
+    setAuditRows([]);
+    setAuditName('');
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await apiCall('post', endpoint, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      const s = res?.summary || {};
+      setAuditRows(Array.isArray(res?.auditRows) ? res.auditRows : []);
+      setAuditName(label.toLowerCase());
+      setResult(
+        `${label} import complete\nCreated: ${s.created || 0}\nUpdated: ${s.updated || 0}\n` +
+        `Skipped invalid: ${s.skipped_invalid || 0}\nSkipped non-movie: ${s.skipped_non_movie || 0}\nErrors: ${(s.errors || []).length}`
+      );
+      onToast(`${label} import complete`);
+      onImported?.();
+    } catch (err) {
+      const msg = err.response?.data?.error || `${label} import failed`;
+      setResult(msg);
+      onToast(msg, 'error');
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const tabs = [
+    ...(canImportPlex ? [{ id: 'plex', label: 'Plex' }] : []),
+    { id: 'csv', label: 'Generic CSV' },
+    { id: 'delicious', label: 'Delicious CSV' }
+  ];
+
+  return (
+    <div className="h-full overflow-y-auto p-6 max-w-3xl space-y-6">
+      <div>
+        <h1 className="section-title">Import Media</h1>
+        <p className="text-sm text-ghost mt-1">Add titles from external sources into your library.</p>
+      </div>
+
+      <div className="tab-strip w-full max-w-xl">
+        {tabs.map((t) => (
+          <button key={t.id} className={cx('tab flex-1', tab === t.id && 'active')} onClick={() => setTab(t.id)}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="card p-5 space-y-4">
+        {tab === 'plex' && (
+          <>
+            <p className="text-sm text-dim">Import movies from your configured Plex server and selected sections.</p>
+            <p className="text-xs text-ghost">Uses saved Admin Integrations Plex settings. Import is deduplicated and TMDB enrichment is applied when possible.</p>
+            <button onClick={runPlexImport} className="btn-primary" disabled={busy === 'plex'}>
+              {busy === 'plex' ? <Spinner size={14} /> : <><Icons.Upload />Start Plex Import</>}
+            </button>
+          </>
+        )}
+
+        {tab === 'csv' && (
+          <>
+            <p className="text-sm text-dim">Import from a CSV file using collectZ columns.</p>
+            <p className="text-xs text-ghost">Required: title. Optional: year, format, director, genre, rating, user_rating, runtime, upc, location, notes.</p>
+            <div className="flex flex-wrap gap-3">
+              <button onClick={() => csvInputRef.current?.click()} className="btn-primary" disabled={busy === 'CSV'}>
+                {busy === 'CSV' ? <Spinner size={14} /> : <><Icons.Upload />Choose CSV File</>}
+              </button>
+              <a href={`${API_URL}/media/import/template-csv`} className="btn-secondary"><Icons.Download />Download Template</a>
+            </div>
+            <input
+              ref={csvInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = '';
+                runCsvImport(file, '/media/import-csv', 'CSV');
+              }}
+            />
+          </>
+        )}
+
+        {tab === 'delicious' && (
+          <>
+            <p className="text-sm text-dim">Import a Delicious export CSV.</p>
+            <p className="text-xs text-ghost">Movie rows only are imported. Non-movie rows are skipped. Data is enriched from TMDB when available.</p>
+            <button onClick={() => deliciousInputRef.current?.click()} className="btn-primary" disabled={busy === 'Delicious'}>
+              {busy === 'Delicious' ? <Spinner size={14} /> : <><Icons.Upload />Choose Delicious CSV</>}
+            </button>
+            <input
+              ref={deliciousInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = '';
+                runCsvImport(file, '/media/import-csv/delicious', 'Delicious');
+              }}
+            />
+          </>
+        )}
+      </div>
+
+      <div className="card p-4 text-xs text-ghost space-y-1">
+        <p>Import behavior:</p>
+        <p>- Existing titles are updated by title + year match.</p>
+        <p>- New titles are created when no match exists.</p>
+        <p>- TMDB enrichment runs during import when configured.</p>
+      </div>
+
+      {result && <pre className="card p-4 text-xs text-dim whitespace-pre-wrap">{result}</pre>}
+      {auditRows.length > 0 && (
+        <div className="flex">
+          <button onClick={downloadAudit} className="btn-secondary"><Icons.Download />Download Audit CSV</button>
+        </div>
       )}
     </div>
   );
@@ -1877,6 +2101,13 @@ export default function App() {
     return () => window.removeEventListener('popstate', sync);
   }, []);
 
+  useEffect(() => {
+    if (route !== 'dashboard' && user) {
+      window.history.replaceState({}, '', '/dashboard');
+      setRoute('dashboard');
+    }
+  }, [route, user]);
+
   // API helper
   const apiCall = useCallback(async (method, path, data, config = {}) => {
     const response = await axios({
@@ -1894,7 +2125,8 @@ export default function App() {
     localStorage.setItem(USER_KEY, JSON.stringify(usr || null));
     setUser(usr || null);
     setAuthChecked(true);
-    navigate('dashboard');
+    window.history.replaceState({}, '', '/dashboard');
+    setRoute('dashboard');
   };
 
   const logout = async () => {
@@ -1910,10 +2142,20 @@ export default function App() {
   // Media
   const loadMedia = useCallback(async (opts = {}) => {
     const params = new URLSearchParams();
-    if (opts.page) params.set('page', String(opts.page));
-    if (opts.limit) params.set('limit', String(opts.limit));
-    if (opts.search) params.set('search', String(opts.search));
-    if (opts.format && opts.format !== 'all') params.set('format', String(opts.format));
+    const passthrough = [
+      'page', 'limit', 'search', 'format', 'sortBy', 'sortDir',
+      'director', 'genre', 'resolution',
+      'yearMin', 'yearMax',
+      'ratingMin', 'ratingMax',
+      'userRatingMin', 'userRatingMax'
+    ];
+    passthrough.forEach((key) => {
+      const value = opts[key];
+      if (value === undefined || value === null || value === '') return;
+      if (key === 'format' && value === 'all') return;
+      if (key === 'resolution' && value === 'all') return;
+      params.set(key, String(value));
+    });
     const query = params.toString();
     setMediaLoading(true); setMediaError('');
     try {
@@ -2053,7 +2295,15 @@ export default function App() {
             onDelete={deleteMedia}
             onRating={rateMedia}
             apiCall={apiCall}
+          />
+        );
+      case 'library-import':
+        return (
+          <ImportView
+            apiCall={apiCall}
+            onToast={showToast}
             canImportPlex={user?.role === 'admin'}
+            onImported={() => loadMedia()}
           />
         );
       case 'profile':          return <ProfileView user={user} apiCall={apiCall} onToast={showToast} />;
