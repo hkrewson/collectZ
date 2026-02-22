@@ -8,8 +8,8 @@ These must be set for a working deployment:
 
 - `DB_PASSWORD`: Postgres app user password.
 - `REDIS_PASSWORD`: Redis password.
-- `SESSION_SECRET`: session security secret (used for session/cookie infrastructure and secure fallbacks).
-- `INTEGRATION_ENCRYPTION_KEY`: secret used to encrypt integration API keys at rest.
+- `SESSION_SECRET`: session security secret for cookie/session infrastructure.
+- `INTEGRATION_ENCRYPTION_KEY`: secret used to encrypt integration API keys at rest. Required in production.
 
 Recommended generation:
 
@@ -23,6 +23,7 @@ openssl rand -hex 32
 - `POSTGRES_DB` (default: `mediavault`)
 - `DATABASE_SSL` (`false` by default)
 - `NODE_ENV` (`production` by default)
+- `TRUST_PROXY` (`1` recommended behind one reverse proxy hop; `false` when backend is exposed directly)
 - `ALLOWED_ORIGINS` (comma-separated origins)
 - `AUDIT_LOG_MODE` (`failures` by default): request-level activity logging verbosity.
   - `off`: disable request outcome audit entries
@@ -90,3 +91,13 @@ docker compose --env-file .env config >/dev/null
 ```
 
 If Compose warns a required variable is unset, fix `.env` before `up`.
+
+## Integration Key Rotation Notes
+
+- `INTEGRATION_ENCRYPTION_KEY` protects encrypted integration credentials stored in `app_integrations`.
+- Rotating this key without re-encrypting existing secrets will make old encrypted values undecryptable.
+- If rotation is required:
+  1. export/decrypt current integration keys while old key is active,
+  2. update `INTEGRATION_ENCRYPTION_KEY`,
+  3. re-save integration keys through Admin Integrations UI.
+- Decryption failures are logged by the backend as warnings to make this state visible.

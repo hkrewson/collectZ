@@ -16,10 +16,10 @@ const normalizeIntegrationRecord = (row) => {
   const tmdbPreset = resolveTmdbPreset(row?.tmdb_preset || envTmdbPreset);
   const plexPreset = resolvePlexPreset(row?.plex_preset || envPlexPreset);
 
-  const barcodeApiKey = decryptSecret(row?.barcode_api_key_encrypted) || process.env.BARCODE_API_KEY || '';
-  const visionApiKey = decryptSecret(row?.vision_api_key_encrypted) || process.env.VISION_API_KEY || '';
-  const tmdbApiKey = decryptSecret(row?.tmdb_api_key_encrypted) || process.env.TMDB_API_KEY || '';
-  const plexApiKey = decryptSecret(row?.plex_api_key_encrypted) || process.env.PLEX_API_KEY || '';
+  const barcodeApiKey = decryptSecret(row?.barcode_api_key_encrypted, 'barcode_api_key_encrypted') || process.env.BARCODE_API_KEY || '';
+  const visionApiKey = decryptSecret(row?.vision_api_key_encrypted, 'vision_api_key_encrypted') || process.env.VISION_API_KEY || '';
+  const tmdbApiKey = decryptSecret(row?.tmdb_api_key_encrypted, 'tmdb_api_key_encrypted') || process.env.TMDB_API_KEY || '';
+  const plexApiKey = decryptSecret(row?.plex_api_key_encrypted, 'plex_api_key_encrypted') || process.env.PLEX_API_KEY || '';
 
   return {
     barcodePreset: row?.barcode_preset || envBarcodePreset,
