@@ -22,6 +22,14 @@ What this plan intentionally does not include yet:
 - Per-library custom fields.
 - Advanced media-type plugins.
 
+## TV Series Direction
+
+- TV series should be tracked as series-first records in `media`.
+- Season ownership should use a dedicated model (`media_seasons`) instead of overloading `media_variants`.
+- `media_variants` remains focused on edition/file variants (for example: movie editions from Plex).
+- Season completeness should be supported (`expected_episodes`, `available_episodes`, `is_complete`) so future watch-state features have a stable base.
+- Watch-state and watchlist tracking should support both manual updates and provider sync (Plex first, additional providers later where licensing/API access permits).
+
 ## Data Model Direction
 
 ### 1.9 Prep (non-breaking)

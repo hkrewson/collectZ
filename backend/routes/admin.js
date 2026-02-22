@@ -5,6 +5,7 @@ const { authenticateToken, requireRole } = require('../middleware/auth');
 const { validate, roleUpdateSchema, inviteCreateSchema, generalSettingsSchema } = require('../middleware/validate');
 const { logActivity } = require('../services/audit');
 const { loadGeneralSettings } = require('../services/integrations');
+const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
 const crypto = require('crypto');
 
 const router = express.Router();
@@ -40,6 +41,7 @@ router.get('/users', asyncHandler(async (req, res) => {
 }));
 
 router.get('/users/:id/summary', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
   const userId = Number(req.params.id);
   if (!Number.isFinite(userId) || userId <= 0) {
     return res.status(400).json({ error: 'Invalid user id' });
@@ -53,6 +55,8 @@ router.get('/users/:id/summary', asyncHandler(async (req, res) => {
     return res.status(404).json({ error: 'User not found' });
   }
 
+  const mediaScopeParams = [userId];
+  const mediaScopeClause = appendScopeSql(mediaScopeParams, scopeContext);
   const [loginResult, additionsResult, editsResult, ratingsResult] = await Promise.all([
     pool.query(
       `SELECT MAX(created_at) AS last_login_at
@@ -64,21 +68,21 @@ router.get('/users/:id/summary', asyncHandler(async (req, res) => {
     pool.query(
       `SELECT COUNT(*)::int AS additions_count
        FROM media
-       WHERE added_by = $1`,
-      [userId]
+       WHERE added_by = $1${mediaScopeClause}`,
+      mediaScopeParams
     ),
     pool.query(
       `SELECT MAX(updated_at) AS last_media_edit_at
        FROM media
-       WHERE added_by = $1`,
-      [userId]
+       WHERE added_by = $1${mediaScopeClause}`,
+      mediaScopeParams
     ),
     pool.query(
       `SELECT COUNT(*)::int AS rated_count
        FROM media
        WHERE added_by = $1
-         AND user_rating IS NOT NULL`,
-      [userId]
+         AND user_rating IS NOT NULL${mediaScopeClause}`,
+      mediaScopeParams
     )
   ]);
 
@@ -139,15 +143,16 @@ router.delete('/users/:id', asyncHandler(async (req, res) => {
 // ── Invites ───────────────────────────────────────────────────────────────────
 
 router.post('/invites', validate(inviteCreateSchema), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
   const { email } = req.body;
   const token = crypto.randomBytes(32).toString('hex');
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
   const result = await pool.query(
-    `INSERT INTO invites (email, token, expires_at, created_by)
-     VALUES ($1, $2, $3, $4)
+    `INSERT INTO invites (email, token, expires_at, created_by, space_id)
+     VALUES ($1, $2, $3, $4, $5)
      RETURNING id, email, token, used, revoked, used_by, used_at, expires_at, created_at`,
-    [email, token, expiresAt, req.user.id]
+    [email, token, expiresAt, req.user.id, scopeContext.spaceId]
   );
   await logActivity(req, 'admin.invite.create', 'invite', result.rows[0].id, {
     email: result.rows[0].email,
@@ -157,6 +162,9 @@ router.post('/invites', validate(inviteCreateSchema), asyncHandler(async (req, r
 }));
 
 router.get('/invites', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const params = [];
+  const scopeClause = appendScopeSql(params, scopeContext, { libraryColumn: null });
   const result = await pool.query(
     `SELECT i.id, i.email, i.token, i.used, i.revoked, i.used_by, i.used_at,
             i.expires_at, i.created_at, creator.email AS created_by_email,
@@ -164,28 +172,35 @@ router.get('/invites', asyncHandler(async (req, res) => {
      FROM invites i
      LEFT JOIN users creator ON creator.id = i.created_by
      LEFT JOIN users claimer ON claimer.id = i.used_by
+     WHERE 1=1${scopeClause}
      ORDER BY i.created_at DESC`
+    , params
   );
   res.json(result.rows);
 }));
 
 router.patch('/invites/:id/revoke', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
   const inviteId = Number(req.params.id);
   if (!Number.isFinite(inviteId) || inviteId <= 0) {
     return res.status(400).json({ error: 'Invalid invite id' });
   }
 
+  const params = [inviteId];
+  const scopeClause = appendScopeSql(params, scopeContext, { libraryColumn: null, spaceColumn: 'space_id' });
   const result = await pool.query(
     `UPDATE invites
      SET revoked = true
      WHERE id = $1
        AND used = false
-       AND revoked = false
+       AND revoked = false${scopeClause}
      RETURNING id, email, used, revoked, expires_at, created_at`,
-    [inviteId]
+    params
   );
   if (result.rows.length === 0) {
-    const invite = await pool.query('SELECT id, used, revoked FROM invites WHERE id = $1', [inviteId]);
+    const inviteCheckParams = [inviteId];
+    const inviteCheckClause = appendScopeSql(inviteCheckParams, scopeContext, { libraryColumn: null, spaceColumn: 'space_id' });
+    const invite = await pool.query(`SELECT id, used, revoked FROM invites WHERE id = $1${inviteCheckClause}`, inviteCheckParams);
     if (invite.rows.length === 0) {
       return res.status(404).json({ error: 'Invite not found' });
     }

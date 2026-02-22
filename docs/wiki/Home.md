@@ -15,6 +15,7 @@ Start here for deployment and operations guidance.
 9. [Smoke Test Checklist](./09-Smoke-Test-Checklist.md)
 10. [CI/CD and Registry Deploy](./10-CI-CD-and-Registry-Deploy.md)
 11. [Spaces and Libraries Model](./11-Spaces-and-Libraries-Model.md)
+12. [2.0 Migration Rehearsal Runbook](./12-Migration-Rehearsal-Runbook.md)
 
 ## Default Seeded Admin (Important)
 

@@ -362,6 +362,94 @@ const MIGRATIONS = [
       SET import_source = 'manual'
       WHERE import_source IS NULL;
     `
+  },
+  {
+    version: 8,
+    description: 'Media type and multi-library scaffolding',
+    up: `
+      ALTER TABLE media
+        ADD COLUMN IF NOT EXISTS media_type VARCHAR(20) DEFAULT 'movie';
+
+      ALTER TABLE media
+        ADD COLUMN IF NOT EXISTS tmdb_media_type VARCHAR(20);
+
+      ALTER TABLE media
+        ADD COLUMN IF NOT EXISTS season_number INTEGER;
+
+      ALTER TABLE media
+        ADD COLUMN IF NOT EXISTS episode_number INTEGER;
+
+      ALTER TABLE media
+        ADD COLUMN IF NOT EXISTS episode_title VARCHAR(500);
+
+      ALTER TABLE media
+        ADD COLUMN IF NOT EXISTS network VARCHAR(255);
+
+      ALTER TABLE media
+        ADD COLUMN IF NOT EXISTS series_id INTEGER REFERENCES media(id) ON DELETE SET NULL;
+
+      ALTER TABLE media
+        ADD COLUMN IF NOT EXISTS space_id INTEGER;
+
+      ALTER TABLE media
+        ADD COLUMN IF NOT EXISTS library_id INTEGER;
+
+      ALTER TABLE invites
+        ADD COLUMN IF NOT EXISTS space_id INTEGER;
+
+      CREATE TABLE IF NOT EXISTS libraries (
+        id SERIAL PRIMARY KEY,
+        space_id INTEGER,
+        name VARCHAR(255) NOT NULL,
+        description TEXT,
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        archived_at TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS feature_flags (
+        key VARCHAR(100) PRIMARY KEY,
+        enabled BOOLEAN DEFAULT false,
+        description TEXT,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      UPDATE media
+      SET media_type = 'movie'
+      WHERE media_type IS NULL;
+
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1
+          FROM pg_constraint
+          WHERE conname = 'media_media_type_check'
+        ) THEN
+          ALTER TABLE media
+            ADD CONSTRAINT media_media_type_check
+            CHECK (media_type IN ('movie', 'tv_series', 'tv_episode', 'other'));
+        END IF;
+      END;
+      $$;
+
+      CREATE INDEX IF NOT EXISTS idx_media_media_type ON media(media_type);
+      CREATE INDEX IF NOT EXISTS idx_media_library_id ON media(library_id);
+      CREATE INDEX IF NOT EXISTS idx_media_space_id ON media(space_id);
+      CREATE INDEX IF NOT EXISTS idx_media_format_year ON media(format, year);
+      CREATE INDEX IF NOT EXISTS idx_media_genre_year ON media(genre, year);
+      CREATE INDEX IF NOT EXISTS idx_libraries_name ON libraries(name);
+    `
+  },
+  {
+    version: 9,
+    description: 'Scope scaffolding on app integrations',
+    up: `
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS space_id INTEGER;
+
+      CREATE INDEX IF NOT EXISTS idx_app_integrations_space_id ON app_integrations(space_id);
+    `
   }
 ];
 

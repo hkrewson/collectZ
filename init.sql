@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS invites (
     revoked BOOLEAN DEFAULT false,
     used_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
     used_at TIMESTAMP,
+    space_id INTEGER,
     expires_at TIMESTAMP NOT NULL,
     created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -36,6 +37,7 @@ CREATE TABLE IF NOT EXISTS invites (
 CREATE TABLE IF NOT EXISTS media (
     id SERIAL PRIMARY KEY,
     title VARCHAR(500) NOT NULL,
+    media_type VARCHAR(20) DEFAULT 'movie' CHECK (media_type IN ('movie', 'tv_series', 'tv_episode', 'other')),
     original_title VARCHAR(500),
     release_date DATE,
     year INTEGER,
@@ -45,6 +47,7 @@ CREATE TABLE IF NOT EXISTS media (
     rating DECIMAL(3,1),
     user_rating DECIMAL(2,1),
     tmdb_id INTEGER,
+    tmdb_media_type VARCHAR(20),
     tmdb_url TEXT,
     poster_path TEXT,
     backdrop_path TEXT,
@@ -54,6 +57,13 @@ CREATE TABLE IF NOT EXISTS media (
     upc VARCHAR(50),
     location VARCHAR(255),
     notes TEXT,
+    season_number INTEGER,
+    episode_number INTEGER,
+    episode_title VARCHAR(500),
+    network VARCHAR(255),
+    series_id INTEGER REFERENCES media(id) ON DELETE SET NULL,
+    space_id INTEGER,
+    library_id INTEGER,
     import_source VARCHAR(50) DEFAULT 'manual',
     added_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -143,6 +153,7 @@ CREATE TABLE IF NOT EXISTS user_integrations (
 -- App-level integration settings (admin-managed)
 CREATE TABLE IF NOT EXISTS app_integrations (
     id INTEGER PRIMARY KEY CHECK (id = 1),
+    space_id INTEGER,
     barcode_preset VARCHAR(100) DEFAULT 'upcitemdb',
     barcode_provider VARCHAR(100),
     barcode_api_url TEXT,
@@ -180,6 +191,25 @@ CREATE TABLE IF NOT EXISTS app_settings (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Future library scaffolding (1.9 prep, activated in 2.0)
+CREATE TABLE IF NOT EXISTS libraries (
+    id SERIAL PRIMARY KEY,
+    space_id INTEGER,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    archived_at TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS feature_flags (
+    key VARCHAR(100) PRIMARY KEY,
+    enabled BOOLEAN DEFAULT false,
+    description TEXT,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Migration tracking (used by db/migrations.js)
 CREATE TABLE IF NOT EXISTS schema_migrations (
     version INTEGER PRIMARY KEY,
@@ -192,6 +222,11 @@ CREATE INDEX IF NOT EXISTS idx_media_title ON media(title);
 CREATE INDEX IF NOT EXISTS idx_media_format ON media(format);
 CREATE INDEX IF NOT EXISTS idx_media_year ON media(year);
 CREATE INDEX IF NOT EXISTS idx_media_tmdb_id ON media(tmdb_id);
+CREATE INDEX IF NOT EXISTS idx_media_media_type ON media(media_type);
+CREATE INDEX IF NOT EXISTS idx_media_library_id ON media(library_id);
+CREATE INDEX IF NOT EXISTS idx_media_space_id ON media(space_id);
+CREATE INDEX IF NOT EXISTS idx_media_format_year ON media(format, year);
+CREATE INDEX IF NOT EXISTS idx_media_genre_year ON media(genre, year);
 CREATE INDEX IF NOT EXISTS idx_media_variants_media_id ON media_variants(media_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_media_variants_plex_part ON media_variants (source, source_part_id) WHERE source = 'plex' AND source_part_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_media_variants_plex_item ON media_variants (source, source_item_key) WHERE source = 'plex' AND source_item_key IS NOT NULL;
@@ -199,9 +234,11 @@ CREATE INDEX IF NOT EXISTS idx_invites_token ON invites(token);
 CREATE INDEX IF NOT EXISTS idx_invites_active ON invites(used, revoked, expires_at);
 CREATE INDEX IF NOT EXISTS idx_activity_log_user_id ON activity_log(user_id);
 CREATE INDEX IF NOT EXISTS idx_activity_log_created_at ON activity_log(created_at);
+CREATE INDEX IF NOT EXISTS idx_app_integrations_space_id ON app_integrations(space_id);
 CREATE INDEX IF NOT EXISTS idx_activity_log_action ON activity_log(action);
 CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_sessions_expires_at ON user_sessions(expires_at);
+CREATE INDEX IF NOT EXISTS idx_libraries_name ON libraries(name);
 
 -- Updated-at trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -255,5 +292,7 @@ INSERT INTO schema_migrations (version, description) VALUES
     (4, 'Invite lifecycle fields for revocation and claim metadata'),
     (5, 'Plex integration settings fields'),
     (6, 'Media variants table for edition and file-level metadata'),
-    (7, 'Media import_source traceability field')
+    (7, 'Media import_source traceability field'),
+    (8, 'Media type and multi-library scaffolding'),
+    (9, 'Scope scaffolding on app integrations')
 ON CONFLICT (version) DO NOTHING;

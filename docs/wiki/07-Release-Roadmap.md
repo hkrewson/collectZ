@@ -284,6 +284,8 @@ This roadmap converts product direction into implementation milestones with acce
 - For TV series, add series-level fields: `series_id` (self-referential FK for episodes), `season_number`, `episode_number`, `episode_title`, `network`.
 - Extend TMDB integration to use the TV search and details endpoints (`/3/search/tv`, `/3/tv/{id}`) in addition to the existing movie endpoints. Add `tmdb_media_type` to distinguish which TMDB endpoint produced the record.
 - Frontend add/edit forms adapt based on selected media type.
+- Library navigation exposes media type as a Library submenu (`Movies`, `TV`, `Other`) instead of a top-level filter control.
+- TV workflow defaults to series-level tracking; season ownership is currently represented in variants (`Season N`) as an interim implementation, with a planned move to a dedicated `media_seasons` model.
 - Library view supports filtering by `media_type`.
 
 **2.0 migration prep:**
@@ -388,8 +390,35 @@ This roadmap converts product direction into implementation milestones with acce
 
 ## Post-2.0 (Later Milestones)
 
+- Import match review workflow:
+  - Add backend confidence scoring for enrichment/import matches across providers.
+  - Persist low-confidence or ambiguous rows to an `import_match_reviews` queue (by import job/source row).
+  - Add a `Library -> Import Review` UI for resolving poor matches after import completes (non-blocking).
+  - Resolution actions: `Accept suggested`, `Choose alternate`, `Search again`, `Skip/Keep manual`.
+  - Show unresolved review count badge in navigation.
+  - Record all review decisions in audit logs.
+- Physical boxed-set decomposition (optional fallback track):
+  - Add `collections` + `collection_items` model for package-level imports (for example, boxed sets and marathons).
+  - Detect boxed-set candidates during import and extract expected title count when present (for example, `4-movie`, `8-film`).
+  - Resolve contained titles using provider-first strategy (UPC/product APIs + movie/TV APIs), then confidence score results.
+  - Add optional web lookup fallback for unresolved sets (strictly gated by legal/ToS/robots constraints and feature flag).
+  - Keep web-fallback results in manual review queue by default (no silent auto-apply).
+  - Add side-project spike: evaluate provider reliability and legal risk for Blu-ray-focused scraping before enabling in production.
+- TV data model hardening:
+  - Move season ownership out of `media_variants` into a dedicated `media_seasons` table keyed by `media_id` (TV series).
+  - Keep `media_variants` for movie/file editions only.
+  - Add season completeness fields (`expected_episodes`, `available_episodes`, `is_complete`).
+  - Optional episode-level inventory remains future/opt-in.
+- Watch status foundation:
+  - Add series/season watch state fields (`unwatched`, `in_progress`, `completed`) with `last_watched_at`.
+  - Add watchlist flags for planned viewing.
+  - UI status indicators:
+    - Show a green check icon on season rows marked `completed`.
+    - Show a green check icon on TV series cards/posts when all tracked seasons are `completed`.
+  - Prepare provider sync strategy for Plex as source-of-truth first, then optional outbound sync providers.
 - Watchlist provider abstraction (Plex-first, then Trakt, Letterboxd).
 - Per-space scheduled Plex sync automation.
+- External status sync exploration (future): evaluate JustWatch and other services based on API availability and licensing constraints.
 - Library-type specializations and templates (movies, music, books, games, comics) with domain-specific field sets.
 - Shared vs. private user annotations and ratings controls.
 - Mobile-optimized barcode scanning UI (camera input with real-time scan feedback).
