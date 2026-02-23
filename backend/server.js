@@ -35,7 +35,7 @@ const { cleanupExpiredSessions, SESSION_MAX_PER_USER, SESSION_TTL_DAYS } = requi
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const APP_VERSION = process.env.APP_VERSION || appMeta.version || '1.9.5-r1';
+const APP_VERSION = process.env.APP_VERSION || appMeta.version || '1.9.6';
 const GIT_SHA = process.env.GIT_SHA || appMeta?.build?.gitShaDefault || 'dev';
 const BUILD_DATE = process.env.BUILD_DATE || appMeta?.build?.buildDateDefault || 'unknown';
 const BUILD_LABEL = `v${APP_VERSION}+${GIT_SHA}`;
