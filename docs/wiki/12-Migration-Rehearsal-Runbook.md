@@ -14,6 +14,16 @@ This runbook is the repeatable process for testing the 2.0 schema migration safe
 - The target application revision and migration code in this repo.
 - Docker host with enough free disk for duplicate DB data.
 
+## Baseline Strategy (Fresh-Install Clarity)
+
+- Production migrations remain append-only in `backend/db/migrations.js`.
+- `version: 1` is the historical baseline snapshot schema (not a reversible down migration).
+- Rollback readiness is implemented as restore-based rollback:
+  - take/retain a pre-upgrade database snapshot,
+  - validate forward migration on a rehearsal copy,
+  - restore snapshot to recover baseline behavior.
+- CI automates this path using a synthetic legacy fixture DB + clone/restore validation.
+
 ## Rehearsal Steps
 
 1. Export a fresh backup from production (read-only operation).
@@ -66,6 +76,17 @@ WHERE table_name = 'app_integrations'
 - Core smoke flows pass.
 - No unexpected row-count drops in critical tables.
 - Rollback on rehearsal copy is documented and validated.
+
+## CI Evidence
+
+- GitHub Actions job `migration-check` runs:
+  1. forward migration check,
+  2. restore-based rollback rehearsal (`npm run test:migration-rehearsal`),
+  3. artifact upload.
+- Artifact: `migration-rehearsal-evidence.json`
+  - includes baseline/latest version checks,
+  - pre-upgrade, post-upgrade, rollback row counts,
+  - rollback parity assertion.
 
 ## Notes
 
