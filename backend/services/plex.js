@@ -178,6 +178,9 @@ const plexRequest = async (config, path, params = {}) => {
   const reqParams = { ...params, [queryParam]: config.plexApiKey };
   return axios.get(`${urlBase}${path}`, {
     params: reqParams,
+    headers: {
+      Accept: 'application/json'
+    },
     timeout: 25000,
     validateStatus: () => true
   });
