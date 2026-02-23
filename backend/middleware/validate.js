@@ -1,5 +1,9 @@
 const { z } = require('zod');
 
+const emptyStringToNull = (value) => (
+  typeof value === 'string' && value.trim() === '' ? null : value
+);
+
 // ── Auth ─────────────────────────────────────────────────────────────────────
 
 const registerSchema = z.object({
@@ -18,12 +22,20 @@ const loginSchema = z.object({
 
 const MEDIA_FORMATS = ['VHS', 'Blu-ray', 'Digital', 'DVD', '4K UHD'];
 const MEDIA_TYPES = ['movie', 'tv_series', 'tv_episode', 'other'];
+const nullableDateSchema = z.preprocess(
+  emptyStringToNull,
+  z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (YYYY-MM-DD)').optional().nullable()
+);
+const nullableUrlSchema = z.preprocess(
+  emptyStringToNull,
+  z.string().url().optional().nullable()
+);
 
 const mediaCreateSchema = z.object({
   title: z.string().min(1, 'Title is required').max(500),
   media_type: z.enum(MEDIA_TYPES).optional().nullable(),
   original_title: z.string().max(500).optional().nullable(),
-  release_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (YYYY-MM-DD)').optional().nullable(),
+  release_date: nullableDateSchema,
   year: z.number().int().min(1888).max(2100).optional().nullable(),
   format: z.enum(MEDIA_FORMATS).optional().nullable(),
   genre: z.string().max(100).optional().nullable(),
@@ -37,8 +49,8 @@ const mediaCreateSchema = z.object({
   overview: z.string().max(10000).optional().nullable(),
   tmdb_id: z.number().int().positive().optional().nullable(),
   tmdb_media_type: z.enum(['movie', 'tv']).optional().nullable(),
-  tmdb_url: z.string().url().optional().nullable(),
-  trailer_url: z.string().url().optional().nullable(),
+  tmdb_url: nullableUrlSchema,
+  trailer_url: nullableUrlSchema,
   poster_path: z.string().max(1000).optional().nullable(),
   backdrop_path: z.string().max(1000).optional().nullable(),
   season_number: z.number().int().min(0).max(200).optional().nullable(),

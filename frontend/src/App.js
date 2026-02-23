@@ -7,7 +7,7 @@ import ImportViewComponent from './components/ImportView';
 import AdminFeatureFlagsView from './components/AdminFeatureFlagsView';
 
 const API_URL = process.env.REACT_APP_API_URL || '/api';
-const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.version || '1.9.13';
+const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.version || '1.9.14';
 const BUILD_SHA   = process.env.REACT_APP_GIT_SHA || appMeta?.build?.gitShaDefault || 'dev';
 const IMPORT_JOBS_KEY = 'collectz_import_jobs';
 const IMPORT_POLL_LEADER_KEY = 'collectz_import_poll_leader';
@@ -77,6 +77,18 @@ function inferTmdbSearchType(mediaType) {
 
 function mediaTypeLabel(value) {
   return MEDIA_TYPES.find((m) => m.value === value)?.label || 'Movie';
+}
+
+function readCookie(name) {
+  const raw = document.cookie
+    .split('; ')
+    .find((row) => row.startsWith(`${name}=`));
+  if (!raw) return '';
+  try {
+    return decodeURIComponent(raw.split('=').slice(1).join('='));
+  } catch (_) {
+    return raw.split('=').slice(1).join('=');
+  }
 }
 
 function isInteractiveTarget(target) {
@@ -760,6 +772,10 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
         runtime: form.runtime ? Number(form.runtime) : null,
         tmdb_id: form.tmdb_id ? Number(form.tmdb_id) : null,
         tmdb_media_type: form.tmdb_media_type || null,
+        tmdb_url: form.tmdb_url ? String(form.tmdb_url).trim() || null : null,
+        trailer_url: form.trailer_url ? String(form.trailer_url).trim() || null : null,
+        poster_path: form.poster_path ? String(form.poster_path).trim() || null : null,
+        backdrop_path: form.backdrop_path ? String(form.backdrop_path).trim() || null : null,
         season_number: form.season_number ? Number(form.season_number) : null,
         episode_number: form.episode_number ? Number(form.episode_number) : null,
         episode_title: form.episode_title || null,
@@ -2056,11 +2072,31 @@ export default function App() {
 
   // API helper
   const apiCall = useCallback(async (method, path, data, config = {}) => {
+    const methodUpper = String(method || 'GET').toUpperCase();
+    const needsCsrf = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(methodUpper);
+    const headers = { ...(config.headers || {}) };
+
+    if (needsCsrf && !headers['x-csrf-token']) {
+      let csrfToken = readCookie('csrf_token');
+      if (!csrfToken) {
+        try {
+          const csrfResp = await axios.get(`${API_URL}/auth/csrf-token`, { withCredentials: true });
+          csrfToken = csrfResp.data?.csrfToken || readCookie('csrf_token');
+        } catch (_) {
+          csrfToken = readCookie('csrf_token');
+        }
+      }
+      if (csrfToken) {
+        headers['x-csrf-token'] = csrfToken;
+      }
+    }
+
     const response = await axios({
       method,
       url: `${API_URL}${path}`,
       data,
       ...config,
+      headers,
       withCredentials: true
     });
     return response.data;

@@ -27,6 +27,7 @@ const { runMigrations } = require('./db/migrations');
 const pool = require('./db/pool');
 const { requestLogger, errorHandler } = require('./middleware/errors');
 const { auditRequestOutcome, getMode } = require('./middleware/audit');
+const { csrfProtection } = require('./middleware/csrf');
 
 const authRouter = require('./routes/auth');
 const mediaRouter = require('./routes/media');
@@ -36,7 +37,7 @@ const { cleanupExpiredSessions, SESSION_MAX_PER_USER, SESSION_TTL_DAYS } = requi
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const APP_VERSION = process.env.APP_VERSION || appMeta.version || '1.9.13';
+const APP_VERSION = process.env.APP_VERSION || appMeta.version || '1.9.14';
 const GIT_SHA = process.env.GIT_SHA || appMeta?.build?.gitShaDefault || 'dev';
 const BUILD_DATE = process.env.BUILD_DATE || appMeta?.build?.buildDateDefault || 'unknown';
 const BUILD_LABEL = `v${APP_VERSION}+${GIT_SHA}`;
@@ -88,6 +89,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(auditRequestOutcome);
+app.use('/api', csrfProtection);
 
 // ── Rate limiting ─────────────────────────────────────────────────────────────
 const makeLimiter = ({ max, message, skip }) => rateLimit({

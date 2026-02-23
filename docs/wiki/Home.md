@@ -17,14 +17,12 @@ Start here for deployment and operations guidance.
 11. [Spaces and Libraries Model](./11-Spaces-and-Libraries-Model.md)
 12. [2.0 Migration Rehearsal Runbook](./12-Migration-Rehearsal-Runbook.md)
 13. [Rate Limit Policy](./13-Rate-Limit-Policy.md)
+14. [Engineering Delivery Policy](./14-Engineering-Delivery-Policy.md)
 
-## Default Seeded Admin (Important)
+## Default Admin Behavior (Important)
 
-`init.sql` currently includes an optional sample admin user row:
+`init.sql` does not seed a default admin user.
 
-- Email: `admin@example.com`
-- Intended password: `admin123`
+First user registration on an empty database becomes admin automatically.
 
-If this row exists in your initialized database, first-run registration will require an invite token because at least one user already exists.
-
-Use these docs to remove the seed user from a running stack and from `init.sql` for future clean deployments.
+Use invite-based registration for all additional users after bootstrap.
