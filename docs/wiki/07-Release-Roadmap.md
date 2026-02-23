@@ -12,6 +12,7 @@ This roadmap converts product direction into implementation milestones with acce
 - Security fixes and access control gaps take priority over new features.
 - Every milestone should leave the deployment story simpler, not more complex.
 - The CI/CD pipeline is a first-class concern — changes must be deployable via `docker compose pull && up -d` for homelab users.
+- Delivery and modularity controls in `14-Engineering-Delivery-Policy.md` are mandatory for pre-2.0 releases.
 
 ---
 
@@ -503,6 +504,151 @@ This track converts the 1.9.1 external assessment findings into executable miles
 - 2.0 preflight includes a tested rollback path.
 - Migration behavior is reproducible in CI and documented for operators.
 
+## 1.9.14 — CSRF Defense and Session Cookie Hardening
+
+**Goal:** Add explicit cross-site request forgery protection for cookie-authenticated write operations.
+
+### Scope
+
+- Implement CSRF token issuance endpoint and middleware verification for mutating API routes (`POST`, `PUT`, `PATCH`, `DELETE`).
+- Keep existing `SameSite`/`httpOnly` cookie settings and add explicit CSRF token check as defense in depth.
+- Add frontend CSRF bootstrap and automatic token attachment on mutating calls.
+- Add clear 403 error shape for missing/invalid CSRF tokens and document troubleshooting.
+- Add activity log event(s) for CSRF validation failures.
+
+### Acceptance Criteria
+
+- Cross-site form/post attempts without valid CSRF token are rejected.
+- All authenticated mutating endpoints require and validate CSRF token.
+- Frontend user flows continue to work without manual token handling by users.
+
+## 1.9.15 — Invite Security Hardening (Token Hashing + Lifecycle Controls)
+
+**Goal:** Remove plaintext invite-token risk and strengthen invitation lifecycle controls.
+
+### Scope
+
+- Store invite tokens hashed at rest (similar model to session token hashing).
+- Return raw token only at invite creation time; never return stored raw token on list/read endpoints.
+- Add explicit invite invalidation and one-time claim enforcement checks with consistent error responses.
+- Bind invite claim strictly to invited email (already partially present; make behavior canonical and tested).
+- Add audit coverage for invite create, claim, revoke, and failed claim attempts.
+
+### Acceptance Criteria
+
+- Database does not store plaintext invite tokens.
+- Used/revoked/expired tokens cannot be replayed.
+- Invite list endpoint no longer leaks reusable token material.
+
+## 1.9.16 — Credential Recovery and Password Reset Workflow
+
+**Goal:** Harden account credential changes and provide robust admin recovery paths.
+
+### Scope
+
+- Require current password for any self-service password change.
+- On successful self-service password change:
+  - revoke all other active sessions for that user,
+  - optionally keep current session alive (documented behavior).
+- Add admin-initiated password reset flow:
+  - create one-time-use reset token + expiry,
+  - generate reset URL for user delivery,
+  - require token consumption to set a new password.
+- Add "force reset" and "reset token invalidation" controls for admins.
+- Add break-glass admin recovery documentation with CLI commands for cases where admin account access is lost.
+- Add full audit coverage for password-change and reset lifecycle events (start/success/failure/invalidation).
+
+### Acceptance Criteria
+
+- Users cannot change password without current password verification.
+- Admin can issue one-time reset URLs and invalidation works.
+- Recovery commands are documented and tested against a running container stack.
+
+## 1.9.17 — Scope Authority and Membership Enforcement
+
+**Goal:** Ensure space/library access is server-authoritative and not client-header-authoritative.
+
+### Scope
+
+- Move active `space_id`/`library_id` resolution to server-side session/membership context.
+- Treat request headers/query overrides (`x-space-id`, `x-library-id`) as non-authoritative hints only when explicitly allowed.
+- Enforce membership checks on all scoped endpoints (media, invites, admin operations).
+- Add explicit 403 errors for invalid scope access attempts.
+- Add audit entries for rejected cross-scope access attempts.
+
+### Acceptance Criteria
+
+- Users cannot access non-member scopes by altering headers/query params.
+- Scope enforcement behavior is consistent across read/write/admin endpoints.
+- Cross-scope leakage tests pass.
+
+## 1.9.18 — Runtime Dependency Rationalization (Redis Decision)
+
+**Goal:** Remove ambiguous runtime dependencies before 2.0 and simplify deploy/security posture.
+
+### Scope
+
+- Decide and implement one of:
+  - fully remove Redis from compose/env/dependencies if unused, or
+  - reintroduce Redis-backed runtime features intentionally with documented purpose.
+- Remove dead env vars/deps/docs related to unused runtime components.
+- Update health checks and deploy docs to match the chosen runtime architecture.
+- Add CI check that blocks reintroduction of undeclared runtime dependencies.
+
+### Acceptance Criteria
+
+- Runtime topology is explicit and minimal.
+- Homelab deployment docs and compose files match actual runtime requirements.
+- No orphan/unused secret requirements remain.
+
+## 1.9.19 — CI Security Gates and Release Checklist Enforcement
+
+**Goal:** Make secure release behavior mandatory and automated.
+
+### Scope
+
+- Add CI security gates:
+  - dependency vulnerability scan for backend/frontend,
+  - container image scan,
+  - SBOM artifact generation and retention.
+- Enforce version/release checklist in CI (not manual-only):
+  - version parity checks,
+  - migration checks,
+  - health/smoke checks against compose stack,
+  - release-note checklist marker validation.
+- Fail builds when required release gates are not satisfied.
+- Document triage policy for vulnerabilities (blocker thresholds + exception process).
+
+### Acceptance Criteria
+
+- CI blocks releases missing mandatory release checks.
+- CI artifacts include scan reports/SBOM for each release build.
+- Release process is reproducible by operators, not dependent on developer memory.
+
+## 1.9.20 — Frontend Modularity Guardrails (App.js and Feature-Creep Policy)
+
+**Goal:** Prevent monolith regression in frontend architecture and maintain iteration speed.
+
+### Scope
+
+- Define and enforce frontend module boundaries:
+  - `App.js` retains shell/routing/composition only,
+  - page-level containers under dedicated module paths,
+  - shared UI and state hooks in separate modules.
+- Add size-budget checks for `frontend/src/App.js` and other high-risk files.
+- Add feature-creep policy and PR checklist requiring:
+  - explicit scope statement,
+  - rationale for new module vs existing module,
+  - no unrelated refactors in feature PRs.
+- Add roadmap discipline rule: milestone scope changes require explicit roadmap/doc update in same PR.
+- Add lint or static checks that fail CI when modularity guardrails are violated.
+
+### Acceptance Criteria
+
+- `App.js` remains within defined size/complexity budget.
+- New frontend features land in modules, not by expanding the app shell monolith.
+- PR and CI checks enforce scope discipline and modularity standards.
+
 ---
 
 ## 2.0.0 — Multi-Space + Multi-Library Architecture
@@ -610,13 +756,14 @@ Homelab deployers continue to use `docker compose -f docker-compose.registry.yml
 ## Release Operations Checklist (Each Version)
 
 1. Update `frontend/package.json` and `backend/package.json` to the new version (must match).
-2. Document release scope, migration notes, and any breaking changes.
-3. Run CI pipeline — lint, smoke test, migration validation must all pass.
-4. Build and push images via CI with `APP_VERSION`, `GIT_SHA`, `BUILD_DATE` injected.
-5. Validate on a staging or local deployment:
+2. Publish full release notes in `docs/releases/vX.Y.Z.md` (required).
+3. Document release scope, migration notes, and any breaking changes.
+4. Run CI pipeline — lint, smoke test, migration validation must all pass.
+5. Build and push images via CI with `APP_VERSION`, `GIT_SHA`, `BUILD_DATE` injected.
+6. Validate on a staging or local deployment:
    - Nav shows expected `v<semver> (<sha>)` string.
    - `/api/health` returns expected version/build fields.
    - Smoke test checklist passes (see `09-Smoke-Test-Checklist.md`).
-6. Tag release in git: `vX.Y.Z`.
+7. Tag release in git: `vX.Y.Z`.
 7. Update `docker-compose.registry.yml` default `IMAGE_TAG` value.
 8. Notify homelab users via release notes of any env var changes required.

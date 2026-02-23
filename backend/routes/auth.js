@@ -6,8 +6,15 @@ const { authenticateToken, SESSION_COOKIE_OPTIONS } = require('../middleware/aut
 const { validate, registerSchema, loginSchema, profileUpdateSchema } = require('../middleware/validate');
 const { createSession, revokeSessionByToken } = require('../services/sessions');
 const { logActivity } = require('../services/audit');
+const { issueCsrfToken, clearCsrfToken } = require('../middleware/csrf');
 
 const router = express.Router();
+
+// ── CSRF token bootstrap ──────────────────────────────────────────────────────
+router.get('/csrf-token', asyncHandler(async (req, res) => {
+  const token = issueCsrfToken(res);
+  res.json({ csrfToken: token });
+}));
 
 // ── Register ──────────────────────────────────────────────────────────────────
 
@@ -64,6 +71,7 @@ router.post('/register', validate(registerSchema), asyncHandler(async (req, res)
   });
 
   res.cookie('session_token', token, SESSION_COOKIE_OPTIONS);
+  issueCsrfToken(res);
   await logActivity(req, 'auth.user.register', 'user', result.rows[0].id, {
     email: result.rows[0].email,
     role: result.rows[0].role,
@@ -95,6 +103,7 @@ router.post('/login', validate(loginSchema), asyncHandler(async (req, res) => {
 
   const { password: _, ...userWithoutPassword } = user;
   res.cookie('session_token', token, SESSION_COOKIE_OPTIONS);
+  issueCsrfToken(res);
   await logActivity(req, 'auth.user.login', 'user', user.id, { email: user.email });
   res.json({ user: userWithoutPassword });
 }));
@@ -112,6 +121,7 @@ router.post('/logout', asyncHandler(async (req, res) => {
     secure: SESSION_COOKIE_OPTIONS.secure,
     path: SESSION_COOKIE_OPTIONS.path
   });
+  clearCsrfToken(res);
   await logActivity(req, 'auth.user.logout', 'user', req.user?.id || null, null);
   res.json({ message: 'Logged out' });
 }));

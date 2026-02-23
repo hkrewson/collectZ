@@ -1,4 +1,5 @@
 const { getSessionUserByToken } = require('../services/sessions');
+const { SESSION_TTL_DAYS } = require('../services/sessions');
 
 const parseBoolean = (value, fallback) => {
   if (value === undefined || value === null || value === '') return fallback;
@@ -70,7 +71,15 @@ const SESSION_COOKIE_OPTIONS = {
   sameSite: 'strict',
   secure: parseBoolean(process.env.SESSION_COOKIE_SECURE, process.env.NODE_ENV === 'production'),
   path: '/',
-  maxAge: 1000 * 60 * 60 * 24 * 7 // 7 days in ms
+  maxAge: 1000 * 60 * 60 * 24 * SESSION_TTL_DAYS
 };
 
-module.exports = { authenticateToken, requireRole, SESSION_COOKIE_OPTIONS };
+const CSRF_COOKIE_OPTIONS = {
+  httpOnly: false,
+  sameSite: SESSION_COOKIE_OPTIONS.sameSite,
+  secure: SESSION_COOKIE_OPTIONS.secure,
+  path: SESSION_COOKIE_OPTIONS.path,
+  maxAge: SESSION_COOKIE_OPTIONS.maxAge
+};
+
+module.exports = { authenticateToken, requireRole, SESSION_COOKIE_OPTIONS, CSRF_COOKIE_OPTIONS };

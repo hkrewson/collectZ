@@ -46,6 +46,34 @@ jobs:
           echo "build_date=$BUILD_DATE" >> "$GITHUB_OUTPUT"
           echo "git_sha_short=$GIT_SHA_SHORT" >> "$GITHUB_OUTPUT"
 
+      - name: Verify release notes exist and include required sections
+        run: |
+          VERSION="${{ steps.vars.outputs.version }}"
+          NOTE_FILE="docs/releases/v${VERSION}.md"
+          if [ ! -f "$NOTE_FILE" ]; then
+            echo "Missing release notes file: $NOTE_FILE"
+            exit 1
+          fi
+          required_sections=(
+            "## Version and date"
+            "## Milestone target and status"
+            "## Summary"
+            "## What changed"
+            "## Breaking changes"
+            "## Environment/config changes"
+            "## Migration and data impact"
+            "## Deployment and verification"
+            "## Rollback guidance"
+            "## Known issues and follow-up"
+          )
+          for section in "${required_sections[@]}"; do
+            if ! grep -Fq "$section" "$NOTE_FILE"; then
+              echo "Release notes missing section '$section' in $NOTE_FILE"
+              exit 1
+            fi
+          done
+          echo "Release notes check passed for $NOTE_FILE"
+
       - name: Lowercase owner
         id: owner
         run: |
