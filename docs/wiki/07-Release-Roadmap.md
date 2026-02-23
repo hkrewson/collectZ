@@ -421,12 +421,14 @@ This track converts the 1.9.1 external assessment findings into executable miles
 - Add import tests for quoted/multiline/escaped CSV edge cases.
 - Consolidate TMDB TV/movie field normalization into one canonical layer (backend contract).
 - Simplify frontend to consume normalized API response without duplicate normalization logic.
+- Add integration-secret health check/reporting for decrypt failures (e.g., stale `INTEGRATION_ENCRYPTION_KEY`) with a clear admin remediation path.
 
 ### Acceptance Criteria
 
 - CSV import handles edge-case rows reliably.
 - TV/movie mapping logic has a single source of truth.
 - Frontend and backend normalization cannot drift silently.
+- Integration settings clearly indicate decrypt health issues and required fix steps without blocking unrelated features.
 
 ## 1.9.6 — Frontend Maintainability and Auth UX Clarity
 
@@ -438,12 +440,15 @@ This track converts the 1.9.1 external assessment findings into executable miles
 - Keep role-gated rendering based on server-confirmed session state; treat local cache as non-authoritative or remove it.
 - Add clear loading/forbidden UX patterns for server-authoritative role checks.
 - Add smoke tests for navigation, role-gated views, and critical library flows.
+- Add activity log filter controls (action/entity/date/user) for faster incident triage during testing and admin ops.
+- Extend `Import` UI with a `Barcode` tab (parity with Plex/CSV tabs) so barcode-driven ingest is available from the unified import workflow.
 
 ### Acceptance Criteria
 
 - App entry file is significantly reduced and componentized.
 - UI role visibility aligns with server authorization behavior.
 - Core UI flows are covered by repeatable smoke checks.
+- Import menu includes `Barcode` as a first-class tab with clear success/error feedback and audit events.
 
 ## 1.9.7 — Rate Limiting and Edge Policy Alignment
 

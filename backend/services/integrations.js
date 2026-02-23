@@ -1,5 +1,5 @@
 const pool = require('../db/pool');
-const { decryptSecret } = require('./crypto');
+const { decryptSecretWithStatus } = require('./crypto');
 const { resolveBarcodePreset } = require('./barcode');
 const { resolveVisionPreset } = require('./vision');
 const { resolveTmdbPreset } = require('./tmdb');
@@ -16,10 +16,30 @@ const normalizeIntegrationRecord = (row) => {
   const tmdbPreset = resolveTmdbPreset(row?.tmdb_preset || envTmdbPreset);
   const plexPreset = resolvePlexPreset(row?.plex_preset || envPlexPreset);
 
-  const barcodeApiKey = decryptSecret(row?.barcode_api_key_encrypted, 'barcode_api_key_encrypted') || process.env.BARCODE_API_KEY || '';
-  const visionApiKey = decryptSecret(row?.vision_api_key_encrypted, 'vision_api_key_encrypted') || process.env.VISION_API_KEY || '';
-  const tmdbApiKey = decryptSecret(row?.tmdb_api_key_encrypted, 'tmdb_api_key_encrypted') || process.env.TMDB_API_KEY || '';
-  const plexApiKey = decryptSecret(row?.plex_api_key_encrypted, 'plex_api_key_encrypted') || process.env.PLEX_API_KEY || '';
+  const barcodeDecrypt = decryptSecretWithStatus(row?.barcode_api_key_encrypted, 'barcode_api_key_encrypted');
+  const visionDecrypt = decryptSecretWithStatus(row?.vision_api_key_encrypted, 'vision_api_key_encrypted');
+  const tmdbDecrypt = decryptSecretWithStatus(row?.tmdb_api_key_encrypted, 'tmdb_api_key_encrypted');
+  const plexDecrypt = decryptSecretWithStatus(row?.plex_api_key_encrypted, 'plex_api_key_encrypted');
+
+  const barcodeApiKey = barcodeDecrypt.value || process.env.BARCODE_API_KEY || '';
+  const visionApiKey = visionDecrypt.value || process.env.VISION_API_KEY || '';
+  const tmdbApiKey = tmdbDecrypt.value || process.env.TMDB_API_KEY || '';
+  const plexApiKey = plexDecrypt.value || process.env.PLEX_API_KEY || '';
+
+  const decryptWarnings = [];
+  const maybeWarn = (provider, field, encryptedValue, decryptResult) => {
+    if (!encryptedValue || !decryptResult?.error) return;
+    decryptWarnings.push({
+      provider,
+      field,
+      code: 'decrypt_failed',
+      message: decryptResult.error
+    });
+  };
+  maybeWarn('barcode', 'barcode_api_key_encrypted', row?.barcode_api_key_encrypted, barcodeDecrypt);
+  maybeWarn('vision', 'vision_api_key_encrypted', row?.vision_api_key_encrypted, visionDecrypt);
+  maybeWarn('tmdb', 'tmdb_api_key_encrypted', row?.tmdb_api_key_encrypted, tmdbDecrypt);
+  maybeWarn('plex', 'plex_api_key_encrypted', row?.plex_api_key_encrypted, plexDecrypt);
 
   return {
     barcodePreset: row?.barcode_preset || envBarcodePreset,
@@ -47,7 +67,8 @@ const normalizeIntegrationRecord = (row) => {
     plexApiKey,
     plexLibrarySections: Array.isArray(row?.plex_library_sections)
       ? row.plex_library_sections
-      : []
+      : [],
+    decryptWarnings
   };
 };
 

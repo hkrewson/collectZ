@@ -18,7 +18,7 @@ It is designed for homelab-friendly deployment with Docker, secure user auth, an
 
 ## Current Version
 
-- `1.9.3-r1`
+- `1.9.5-r1`
 
 ## Quick Start (Local Docker)
 
@@ -81,7 +81,7 @@ If using prebuilt images from GHCR:
 
 1. Configure `.env` and `docker-compose.registry.yml`
 2. Set your tag (example):
-   - `IMAGE_TAG=1.9.3-r1`
+   - `IMAGE_TAG=1.9.5-r1`
 3. Deploy:
    - `docker compose -f docker-compose.registry.yml --env-file .env pull`
    - `docker compose -f docker-compose.registry.yml --env-file .env up -d`
@@ -109,3 +109,5 @@ Registry deploy:
   - `INTEGRATION_ENCRYPTION_KEY must be set in production`
 - Set `INTEGRATION_ENCRYPTION_KEY` in `.env`, then restart:
   - `docker compose --env-file .env up -d --build backend`
+- If Admin Integrations shows a decryption warning, that key was encrypted with older key material.
+  Re-enter/save the affected key (or clear it) so it is re-encrypted with current `INTEGRATION_ENCRYPTION_KEY`.

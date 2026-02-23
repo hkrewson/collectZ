@@ -14,6 +14,44 @@ const { logActivity, logError } = require('../services/audit');
 
 const router = express.Router();
 
+const DECRYPT_REMEDIATION = 'Stored encrypted key cannot be decrypted with current INTEGRATION_ENCRYPTION_KEY. Re-enter and save the key, or clear the saved key.';
+
+const buildIntegrationResponse = (config) => ({
+  barcodePreset: config.barcodePreset,
+  barcodeProvider: config.barcodeProvider,
+  barcodeApiUrl: config.barcodeApiUrl,
+  barcodeApiKeyHeader: config.barcodeApiKeyHeader,
+  barcodeQueryParam: config.barcodeQueryParam,
+  barcodeApiKeySet: Boolean(config.barcodeApiKey),
+  barcodeApiKeyMasked: maskSecret(config.barcodeApiKey),
+  visionPreset: config.visionPreset,
+  visionProvider: config.visionProvider,
+  visionApiUrl: config.visionApiUrl,
+  visionApiKeyHeader: config.visionApiKeyHeader,
+  visionApiKeySet: Boolean(config.visionApiKey),
+  visionApiKeyMasked: maskSecret(config.visionApiKey),
+  tmdbPreset: config.tmdbPreset,
+  tmdbProvider: config.tmdbProvider,
+  tmdbApiUrl: config.tmdbApiUrl,
+  tmdbApiKeyHeader: config.tmdbApiKeyHeader,
+  tmdbApiKeyQueryParam: config.tmdbApiKeyQueryParam,
+  tmdbApiKeySet: Boolean(config.tmdbApiKey),
+  tmdbApiKeyMasked: maskSecret(config.tmdbApiKey),
+  plexPreset: config.plexPreset,
+  plexProvider: config.plexProvider,
+  plexApiUrl: config.plexApiUrl,
+  plexServerName: config.plexServerName,
+  plexApiKeyQueryParam: config.plexApiKeyQueryParam,
+  plexLibrarySections: config.plexLibrarySections || [],
+  plexApiKeySet: Boolean(config.plexApiKey),
+  plexApiKeyMasked: maskSecret(config.plexApiKey),
+  decryptHealth: {
+    hasWarnings: Array.isArray(config.decryptWarnings) && config.decryptWarnings.length > 0,
+    warnings: Array.isArray(config.decryptWarnings) ? config.decryptWarnings : [],
+    remediation: DECRYPT_REMEDIATION
+  }
+});
+
 // ── General settings (read — available to all authenticated users) ────────────
 
 router.get('/settings/general', authenticateToken, asyncHandler(async (req, res) => {
@@ -25,36 +63,7 @@ router.get('/settings/general', authenticateToken, asyncHandler(async (req, res)
 
 router.get('/admin/settings/integrations', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
   const config = await loadAdminIntegrationConfig();
-  res.json({
-    barcodePreset: config.barcodePreset,
-    barcodeProvider: config.barcodeProvider,
-    barcodeApiUrl: config.barcodeApiUrl,
-    barcodeApiKeyHeader: config.barcodeApiKeyHeader,
-    barcodeQueryParam: config.barcodeQueryParam,
-    barcodeApiKeySet: Boolean(config.barcodeApiKey),
-    barcodeApiKeyMasked: maskSecret(config.barcodeApiKey),
-    visionPreset: config.visionPreset,
-    visionProvider: config.visionProvider,
-    visionApiUrl: config.visionApiUrl,
-    visionApiKeyHeader: config.visionApiKeyHeader,
-    visionApiKeySet: Boolean(config.visionApiKey),
-    visionApiKeyMasked: maskSecret(config.visionApiKey),
-    tmdbPreset: config.tmdbPreset,
-    tmdbProvider: config.tmdbProvider,
-    tmdbApiUrl: config.tmdbApiUrl,
-    tmdbApiKeyHeader: config.tmdbApiKeyHeader,
-    tmdbApiKeyQueryParam: config.tmdbApiKeyQueryParam,
-    tmdbApiKeySet: Boolean(config.tmdbApiKey),
-    tmdbApiKeyMasked: maskSecret(config.tmdbApiKey),
-    plexPreset: config.plexPreset,
-    plexProvider: config.plexProvider,
-    plexApiUrl: config.plexApiUrl,
-    plexServerName: config.plexServerName,
-    plexApiKeyQueryParam: config.plexApiKeyQueryParam,
-    plexLibrarySections: config.plexLibrarySections || [],
-    plexApiKeySet: Boolean(config.plexApiKey),
-    plexApiKeyMasked: maskSecret(config.plexApiKey)
-  });
+  res.json(buildIntegrationResponse(config));
 }));
 
 router.put('/admin/settings/integrations', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
@@ -152,23 +161,7 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
     keyClears: { barcode: Boolean(clearBarcodeApiKey), vision: Boolean(clearVisionApiKey), tmdb: Boolean(clearTmdbApiKey), plex: Boolean(clearPlexApiKey) }
   });
 
-  res.json({
-    barcodePreset: config.barcodePreset, barcodeProvider: config.barcodeProvider,
-    barcodeApiUrl: config.barcodeApiUrl, barcodeApiKeyHeader: config.barcodeApiKeyHeader,
-    barcodeQueryParam: config.barcodeQueryParam, barcodeApiKeySet: Boolean(config.barcodeApiKey),
-    barcodeApiKeyMasked: maskSecret(config.barcodeApiKey),
-    visionPreset: config.visionPreset, visionProvider: config.visionProvider,
-    visionApiUrl: config.visionApiUrl, visionApiKeyHeader: config.visionApiKeyHeader,
-    visionApiKeySet: Boolean(config.visionApiKey), visionApiKeyMasked: maskSecret(config.visionApiKey),
-    tmdbPreset: config.tmdbPreset, tmdbProvider: config.tmdbProvider,
-    tmdbApiUrl: config.tmdbApiUrl, tmdbApiKeyHeader: config.tmdbApiKeyHeader,
-    tmdbApiKeyQueryParam: config.tmdbApiKeyQueryParam, tmdbApiKeySet: Boolean(config.tmdbApiKey),
-    tmdbApiKeyMasked: maskSecret(config.tmdbApiKey),
-    plexPreset: config.plexPreset, plexProvider: config.plexProvider,
-    plexApiUrl: config.plexApiUrl, plexServerName: config.plexServerName,
-    plexApiKeyQueryParam: config.plexApiKeyQueryParam, plexLibrarySections: config.plexLibrarySections || [],
-    plexApiKeySet: Boolean(config.plexApiKey), plexApiKeyMasked: maskSecret(config.plexApiKey)
-  });
+  res.json(buildIntegrationResponse(config));
 }));
 
 // ── Integration test endpoints ────────────────────────────────────────────────

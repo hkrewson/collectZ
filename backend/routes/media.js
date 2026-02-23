@@ -12,6 +12,7 @@ const { searchTmdbMovie, fetchTmdbMovieDetails } = require('../services/tmdb');
 const { normalizeBarcodeMatches } = require('../services/barcode');
 const { extractVisionText, extractTitleCandidates } = require('../services/vision');
 const { fetchPlexLibraryItems } = require('../services/plex');
+const { parseCsvText } = require('../services/csv');
 const { logError, logActivity } = require('../services/audit');
 const { uploadBuffer } = require('../services/storage');
 const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
@@ -46,51 +47,6 @@ function normalizeResolution(value) {
   return normalized;
 }
 
-function parseCsvLine(line = '') {
-  const cells = [];
-  let current = '';
-  let inQuotes = false;
-  for (let i = 0; i < line.length; i += 1) {
-    const ch = line[i];
-    const next = line[i + 1];
-    if (ch === '"') {
-      if (inQuotes && next === '"') {
-        current += '"';
-        i += 1;
-      } else {
-        inQuotes = !inQuotes;
-      }
-      continue;
-    }
-    if (ch === ',' && !inQuotes) {
-      cells.push(current);
-      current = '';
-      continue;
-    }
-    current += ch;
-  }
-  cells.push(current);
-  return cells.map((c) => c.trim());
-}
-
-function parseCsv(text = '') {
-  const lines = String(text)
-    .replace(/^\uFEFF/, '')
-    .split(/\r?\n/)
-    .filter((line) => line.trim().length > 0);
-  if (lines.length === 0) {
-    return { headers: [], rows: [] };
-  }
-  const headers = parseCsvLine(lines[0]);
-  const rows = lines.slice(1).map((line) => {
-    const cols = parseCsvLine(line);
-    const row = {};
-    headers.forEach((h, idx) => { row[h] = cols[idx] ?? ''; });
-    return row;
-  });
-  return { headers, rows };
-}
-
 function normalizeMediaFormat(formatValue) {
   if (!formatValue) return 'Digital';
   const raw = String(formatValue).trim().toLowerCase();
@@ -101,6 +57,13 @@ function normalizeMediaFormat(formatValue) {
   if (raw.includes('digital') || raw.includes('stream')) return 'Digital';
   if (raw.includes('4k') || raw.includes('uhd')) return '4K UHD';
   return MEDIA_FORMATS.includes(formatValue) ? formatValue : 'Digital';
+}
+
+function getRowValue(row, name) {
+  if (!row || !name) return '';
+  const normalized = String(name).trim().toLowerCase();
+  const key = Object.keys(row).find((k) => String(k).trim().toLowerCase() === normalized);
+  return key ? row[key] : '';
 }
 
 function parseYear(value) {
@@ -217,111 +180,114 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
   if (!title) {
     return { type: 'invalid', detail: 'Missing title' };
   }
-  const year = item.year ?? null;
-  const existingParams = [title, year];
-  const existingScopeClause = appendScopeSql(existingParams, scopeContext);
-  const existing = await pool.query(
-    `SELECT id
-     FROM media
-     WHERE LOWER(TRIM(title)) = LOWER(TRIM($1))
-       AND (($2::int IS NOT NULL AND year = $2::int) OR ($2::int IS NULL))
-       ${existingScopeClause}
-     ORDER BY created_at DESC
-     LIMIT 1`,
-    existingParams
-  );
-  if (existing.rows[0]) {
-    const updateParams = [
-      item.media_type || 'movie',
-      item.original_title || null,
-      item.release_date || null,
-      item.year || null,
-      item.format || null,
-      item.genre || null,
-      item.director || null,
-      item.rating || null,
-      item.user_rating || null,
-      item.tmdb_id || null,
-      item.tmdb_media_type || null,
-      item.tmdb_url || null,
-      item.poster_path || null,
-      item.backdrop_path || null,
-      item.overview || null,
-      item.trailer_url || null,
-      item.runtime || null,
-      item.upc || null,
-      item.location || null,
-      item.notes || null,
-      importSource || null,
-      existing.rows[0].id
-    ];
-    const updateScopeClause = appendScopeSql(updateParams, scopeContext);
-    await pool.query(
-      `UPDATE media SET
-         media_type = COALESCE($1, media_type),
-         original_title = COALESCE($2, original_title),
-         release_date = COALESCE($3, release_date),
-         year = COALESCE($4, year),
-         format = COALESCE($5, format),
-         genre = COALESCE($6, genre),
-         director = COALESCE($7, director),
-         rating = COALESCE($8, rating),
-         user_rating = COALESCE($9, user_rating),
-         tmdb_id = COALESCE($10, tmdb_id),
-         tmdb_media_type = COALESCE($11, tmdb_media_type),
-         tmdb_url = COALESCE($12, tmdb_url),
-         poster_path = COALESCE($13, poster_path),
-         backdrop_path = COALESCE($14, backdrop_path),
-         overview = COALESCE($15, overview),
-         trailer_url = COALESCE($16, trailer_url),
-         runtime = COALESCE($17, runtime),
-         upc = COALESCE($18, upc),
-         location = COALESCE($19, location),
-         notes = COALESCE($20, notes),
-         import_source = COALESCE($21, import_source)
-       WHERE id = $22${updateScopeClause}`,
-      updateParams
+  const dedupLockKey = buildMediaDedupLockKey({ ...item, title }, scopeContext);
+  return withDedupLock(dedupLockKey, async () => {
+    const year = item.year ?? null;
+    const existingParams = [title, year];
+    const existingScopeClause = appendScopeSql(existingParams, scopeContext);
+    const existing = await pool.query(
+      `SELECT id
+       FROM media
+       WHERE LOWER(TRIM(title)) = LOWER(TRIM($1))
+         AND (($2::int IS NOT NULL AND year = $2::int) OR ($2::int IS NULL))
+         ${existingScopeClause}
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      existingParams
     );
-    return { type: 'updated' };
-  }
+    if (existing.rows[0]) {
+      const updateParams = [
+        item.media_type || 'movie',
+        item.original_title || null,
+        item.release_date || null,
+        item.year || null,
+        item.format || null,
+        item.genre || null,
+        item.director || null,
+        item.rating || null,
+        item.user_rating || null,
+        item.tmdb_id || null,
+        item.tmdb_media_type || null,
+        item.tmdb_url || null,
+        item.poster_path || null,
+        item.backdrop_path || null,
+        item.overview || null,
+        item.trailer_url || null,
+        item.runtime || null,
+        item.upc || null,
+        item.location || null,
+        item.notes || null,
+        importSource || null,
+        existing.rows[0].id
+      ];
+      const updateScopeClause = appendScopeSql(updateParams, scopeContext);
+      await pool.query(
+        `UPDATE media SET
+           media_type = COALESCE($1, media_type),
+           original_title = COALESCE($2, original_title),
+           release_date = COALESCE($3, release_date),
+           year = COALESCE($4, year),
+           format = COALESCE($5, format),
+           genre = COALESCE($6, genre),
+           director = COALESCE($7, director),
+           rating = COALESCE($8, rating),
+           user_rating = COALESCE($9, user_rating),
+           tmdb_id = COALESCE($10, tmdb_id),
+           tmdb_media_type = COALESCE($11, tmdb_media_type),
+           tmdb_url = COALESCE($12, tmdb_url),
+           poster_path = COALESCE($13, poster_path),
+           backdrop_path = COALESCE($14, backdrop_path),
+           overview = COALESCE($15, overview),
+           trailer_url = COALESCE($16, trailer_url),
+           runtime = COALESCE($17, runtime),
+           upc = COALESCE($18, upc),
+           location = COALESCE($19, location),
+           notes = COALESCE($20, notes),
+           import_source = COALESCE($21, import_source)
+         WHERE id = $22${updateScopeClause}`,
+        updateParams
+      );
+      return { type: 'updated' };
+    }
 
-  await pool.query(
-    `INSERT INTO media (
-       title, media_type, original_title, release_date, year, format, genre, director,
-       rating, user_rating, tmdb_id, tmdb_media_type, tmdb_url, poster_path, backdrop_path, overview, trailer_url,
-       runtime, upc, location, notes, library_id, space_id, added_by, import_source
-     ) VALUES (
-       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26
-     )`,
-    [
-      title,
-      item.media_type || 'movie',
-      item.original_title || null,
-      item.release_date || null,
-      item.year || null,
-      item.format || 'Digital',
-      item.genre || null,
-      item.director || null,
-      item.rating || null,
-      item.user_rating || null,
-      item.tmdb_id || null,
-      item.tmdb_media_type || null,
-      item.tmdb_url || null,
-      item.poster_path || null,
-      item.backdrop_path || null,
-      item.overview || null,
-      item.trailer_url || null,
-      item.runtime || null,
-      item.upc || null,
-      item.location || null,
-      item.notes || null,
-      item.library_id || scopeContext?.libraryId || null,
-      item.space_id || scopeContext?.spaceId || null,
-      userId,
-      importSource || null
-    ]
-  );
-  return { type: 'created' };
+    await pool.query(
+      `INSERT INTO media (
+         title, media_type, original_title, release_date, year, format, genre, director,
+         rating, user_rating, tmdb_id, tmdb_media_type, tmdb_url, poster_path, backdrop_path, overview, trailer_url,
+         runtime, upc, location, notes, library_id, space_id, added_by, import_source
+       ) VALUES (
+         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26
+       )`,
+      [
+        title,
+        item.media_type || 'movie',
+        item.original_title || null,
+        item.release_date || null,
+        item.year || null,
+        item.format || 'Digital',
+        item.genre || null,
+        item.director || null,
+        item.rating || null,
+        item.user_rating || null,
+        item.tmdb_id || null,
+        item.tmdb_media_type || null,
+        item.tmdb_url || null,
+        item.poster_path || null,
+        item.backdrop_path || null,
+        item.overview || null,
+        item.trailer_url || null,
+        item.runtime || null,
+        item.upc || null,
+        item.location || null,
+        item.notes || null,
+        item.library_id || scopeContext?.libraryId || null,
+        item.space_id || scopeContext?.spaceId || null,
+        userId,
+        importSource || null
+      ]
+    );
+    return { type: 'created' };
+  });
 }
 
 const TMDB_IMPORT_MIN_INTERVAL_MS = Math.max(0, Number(process.env.TMDB_IMPORT_MIN_INTERVAL_MS || 50));
@@ -354,6 +320,32 @@ function jobScopePayload(scopeContext, sectionIds = []) {
     libraryId: scopeContext?.libraryId ?? null,
     sectionIds: Array.isArray(sectionIds) ? sectionIds : []
   };
+}
+
+function buildDedupScopeKey(scopeContext = null) {
+  const space = scopeContext?.spaceId ? `s:${scopeContext.spaceId}` : 's:global';
+  const library = scopeContext?.libraryId ? `l:${scopeContext.libraryId}` : 'l:all';
+  return `${space}|${library}`;
+}
+
+function buildMediaDedupLockKey(item = {}, scopeContext = null) {
+  const scope = buildDedupScopeKey(scopeContext);
+  const tmdbType = item.tmdb_media_type || 'movie';
+  if (item.plex_guid) return `media|${scope}|plex_guid|${item.plex_guid}`;
+  if (item.plex_rating_key) return `media|${scope}|plex_rating_key|${item.plex_rating_key}`;
+  if (item.tmdb_id) return `media|${scope}|tmdb|${tmdbType}|${item.tmdb_id}`;
+  const title = normalizeTitleForMatch(item.title || '');
+  const year = item.year || 'na';
+  return `media|${scope}|title_year|${title}|${year}`;
+}
+
+async function withDedupLock(lockKey, fn) {
+  await pool.query('SELECT pg_advisory_lock(hashtext($1))', [lockKey]);
+  try {
+    return await fn();
+  } finally {
+    await pool.query('SELECT pg_advisory_unlock(hashtext($1))', [lockKey]);
+  }
 }
 
 async function createSyncJob({ userId, jobType, provider, scope, progress }) {
@@ -433,14 +425,9 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
     if (!value) return;
     await pool.query(
       `INSERT INTO media_metadata (media_id, "key", "value")
-       SELECT $1::int, $2::varchar, $3::text
-       WHERE NOT EXISTS (
-         SELECT 1
-         FROM media_metadata
-         WHERE media_id = $1::int
-           AND "key" = $2::varchar
-           AND "value" = $3::text
-       )`,
+       VALUES ($1::int, $2::varchar, $3::text)
+       ON CONFLICT (media_id, "key")
+       DO UPDATE SET "value" = EXCLUDED."value"`,
       [mediaId, key, String(value)]
     );
   };
@@ -587,12 +574,16 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
     }
 
     try {
-      let existing = null;
-
       const plexGuid = media.plex_guid || null;
       const plexItemKey = media.plex_rating_key ? `${item.sectionId}:${media.plex_rating_key}` : null;
+      const dedupKey = buildMediaDedupLockKey({
+        ...media,
+        plex_rating_key: plexItemKey
+      }, scopeContext);
+      await withDedupLock(dedupKey, async () => {
+        let existing = null;
 
-      if (plexGuid) {
+        if (plexGuid) {
         const byPlexGuidParams = [plexGuid];
         const byPlexGuidScopeClause = appendScopeSql(byPlexGuidParams, scopeContext, {
           spaceColumn: 'm.space_id',
@@ -609,10 +600,10 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
            LIMIT 1`,
           byPlexGuidParams
         );
-        existing = byPlexGuid.rows[0] || null;
-      }
+          existing = byPlexGuid.rows[0] || null;
+        }
 
-      if (!existing && plexItemKey) {
+        if (!existing && plexItemKey) {
         const byPlexItemKeyParams = [plexItemKey];
         const byPlexItemKeyScopeClause = appendScopeSql(byPlexItemKeyParams, scopeContext, {
           spaceColumn: 'm.space_id',
@@ -629,10 +620,10 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
            LIMIT 1`,
           byPlexItemKeyParams
         );
-        existing = byPlexItemKey.rows[0] || null;
-      }
+          existing = byPlexItemKey.rows[0] || null;
+        }
 
-      if (!existing && media.tmdb_id) {
+        if (!existing && media.tmdb_id) {
         const byTmdbParams = [media.tmdb_id, media.tmdb_media_type || 'movie'];
         const byTmdbScopeClause = appendScopeSql(byTmdbParams, scopeContext);
         const byTmdb = await pool.query(
@@ -644,10 +635,10 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
            LIMIT 1`,
           byTmdbParams
         );
-        existing = byTmdb.rows[0] || null;
-      }
+          existing = byTmdb.rows[0] || null;
+        }
 
-      if (!existing) {
+        if (!existing) {
         const byTitleYearParams = [media.title, media.year || null];
         const byTitleYearScopeClause = appendScopeSql(byTitleYearParams, scopeContext);
         const byTitleYear = await pool.query(
@@ -663,10 +654,10 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
            LIMIT 1`,
           byTitleYearParams
         );
-        existing = byTitleYear.rows[0] || null;
-      }
+          existing = byTitleYear.rows[0] || null;
+        }
 
-      if (existing) {
+        if (existing) {
         const updateParams = [
           media.original_title,
           media.release_date,
@@ -713,8 +704,8 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
         await upsertMediaMetadata(existing.id, 'plex_item_key', plexItemKey);
         await upsertMediaMetadata(existing.id, 'plex_section_id', item.sectionId);
         await upsertMediaVariant(existing.id, item.variant);
-        summary.updated += 1;
-      } else {
+          summary.updated += 1;
+        } else {
         const inserted = await pool.query(
           `INSERT INTO media (
              title, original_title, release_date, year, format, director, rating,
@@ -748,15 +739,16 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
             'plex'
           ]
         );
-        const insertedId = inserted.rows[0]?.id;
-        if (insertedId) {
+          const insertedId = inserted.rows[0]?.id;
+          if (insertedId) {
           await upsertMediaMetadata(insertedId, 'plex_guid', plexGuid);
           await upsertMediaMetadata(insertedId, 'plex_item_key', plexItemKey);
           await upsertMediaMetadata(insertedId, 'plex_section_id', item.sectionId);
           await upsertMediaVariant(insertedId, item.variant);
+          }
+          summary.created += 1;
         }
-        summary.created += 1;
-      }
+      });
     } catch (error) {
       summary.errors.push({ title: media.title, detail: error.message });
     }
@@ -805,10 +797,7 @@ async function runGenericCsvImport({ rows, userId, scopeContext, onProgress = nu
 
   for (let idx = 0; idx < rows.length; idx += 1) {
     const row = rows[idx];
-    const value = (name) => {
-      const key = Object.keys(row).find((k) => String(k).trim().toLowerCase() === name);
-      return key ? row[key] : '';
-    };
+    const value = (name) => getRowValue(row, name);
     const mapped = {
       title: value('title'),
       media_type: 'movie',
@@ -891,10 +880,7 @@ async function runDeliciousCsvImport({ rows, userId, scopeContext, onProgress = 
 
   for (let idx = 0; idx < rows.length; idx += 1) {
     const row = rows[idx];
-    const value = (name) => {
-      const key = Object.keys(row).find((k) => String(k).trim().toLowerCase() === name);
-      return key ? row[key] : '';
-    };
+    const value = (name) => getRowValue(row, name);
     const itemType = String(value('item type') || '').trim().toLowerCase();
     if (itemType && itemType !== 'movie') {
       summary.skipped_non_movie += 1;
@@ -1356,7 +1342,13 @@ router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, r
     await fs.promises.unlink(req.file.path).catch(() => {});
   }
 
-  const { headers, rows } = parseCsv(text);
+  let parsed;
+  try {
+    parsed = parseCsvText(text);
+  } catch (error) {
+    return res.status(400).json({ error: `Invalid CSV format: ${error.message}` });
+  }
+  const { headers, rows } = parsed;
   if (headers.length === 0) {
     return res.status(400).json({ error: 'CSV is empty' });
   }
@@ -1476,7 +1468,13 @@ router.post('/import-csv/delicious', tempUpload.single('file'), asyncHandler(asy
     await fs.promises.unlink(req.file.path).catch(() => {});
   }
 
-  const { rows } = parseCsv(text);
+  let parsed;
+  try {
+    parsed = parseCsvText(text);
+  } catch (error) {
+    return res.status(400).json({ error: `Invalid CSV format: ${error.message}` });
+  }
+  const { rows } = parsed;
   const asyncMode = parseAsyncFlag(req.query?.async) || parseAsyncFlag(req.body?.async);
   const auditReq = {
     user: req.user,

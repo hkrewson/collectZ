@@ -244,6 +244,7 @@ CREATE INDEX IF NOT EXISTS idx_media_library_id ON media(library_id);
 CREATE INDEX IF NOT EXISTS idx_media_space_id ON media(space_id);
 CREATE INDEX IF NOT EXISTS idx_media_format_year ON media(format, year);
 CREATE INDEX IF NOT EXISTS idx_media_genre_year ON media(genre, year);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_media_metadata_media_id_key ON media_metadata(media_id, "key");
 CREATE INDEX IF NOT EXISTS idx_media_variants_media_id ON media_variants(media_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_media_variants_plex_part ON media_variants (source, source_part_id) WHERE source = 'plex' AND source_part_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_media_variants_plex_item ON media_variants (source, source_item_key) WHERE source = 'plex' AND source_item_key IS NOT NULL;
@@ -258,6 +259,11 @@ CREATE INDEX IF NOT EXISTS idx_user_sessions_expires_at ON user_sessions(expires
 CREATE INDEX IF NOT EXISTS idx_libraries_name ON libraries(name);
 CREATE INDEX IF NOT EXISTS idx_sync_jobs_status_created_at ON sync_jobs(status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sync_jobs_created_by_created_at ON sync_jobs(created_by, created_at DESC);
+
+-- Text search performance indexes for director/genre filters
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE INDEX IF NOT EXISTS idx_media_director_trgm ON media USING GIN (lower(COALESCE(director, '')) gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_media_genre_trgm ON media USING GIN (lower(COALESCE(genre, '')) gin_trgm_ops);
 
 -- Updated-at trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -318,5 +324,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (7, 'Media import_source traceability field'),
     (8, 'Media type and multi-library scaffolding'),
     (9, 'Scope scaffolding on app integrations'),
-    (10, 'Async sync job tracking for long-running imports')
+    (10, 'Async sync job tracking for long-running imports'),
+    (11, 'Metadata uniqueness and filter performance indexes')
 ON CONFLICT (version) DO NOTHING;
