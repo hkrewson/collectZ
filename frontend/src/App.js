@@ -3,9 +3,10 @@ import axios from 'axios';
 import appMeta from './app-meta.json';
 
 const API_URL = process.env.REACT_APP_API_URL || '/api';
-const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.version || '1.9.3';
+const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.version || '1.9.3-r1';
 const BUILD_SHA   = process.env.REACT_APP_GIT_SHA || appMeta?.build?.gitShaDefault || 'dev';
 const USER_KEY  = 'mediavault_user';
+const IMPORT_JOBS_KEY = 'collectz_import_jobs';
 
 const MEDIA_FORMATS = ['VHS', 'Blu-ray', 'Digital', 'DVD', '4K UHD'];
 const MEDIA_TYPES = [
@@ -215,6 +216,49 @@ function Toast({ message, type = 'ok', onDismiss }) {
     <div className={cx('fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-lg border shadow-deep animate-slide-up', styles[type] || styles.ok)}>
       <span className="text-sm font-medium">{message}</span>
       <button onClick={onDismiss} className="ml-2 opacity-60 hover:opacity-100"><Icons.X /></button>
+    </div>
+  );
+}
+
+function ImportStatusDock({ jobs = [], onDismiss }) {
+  if (!jobs.length) return null;
+  return (
+    <div className="fixed bottom-6 left-6 z-50 w-96 max-w-[calc(100vw-3rem)] space-y-2">
+      {jobs.map((job) => {
+        const provider = String(job.provider || '').toLowerCase();
+        const label = provider === 'plex'
+          ? 'Plex Import'
+          : provider === 'csv_delicious'
+            ? 'Delicious CSV Import'
+            : provider === 'csv_generic'
+              ? 'CSV Import'
+              : 'Import Job';
+        const isDone = job.status === 'succeeded' || job.status === 'failed';
+        const p = job.progress || {};
+        const s = job.summary || {};
+        return (
+          <div key={job.id} className="card p-3 border border-edge shadow-deep">
+            <div className="flex items-start gap-2">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-dim font-medium">{label} #{job.id} · {job.status}</p>
+                {isDone ? (
+                  <p className="text-xs text-ghost mt-1">
+                    Created {s.created || 0} · Updated {s.updated || 0} · Errors {s.errorCount || 0}
+                  </p>
+                ) : (
+                  <p className="text-xs text-ghost mt-1">
+                    Processed {p.processed || 0}/{p.total || 0} · Created {p.created || 0} · Updated {p.updated || 0} · Errors {p.errorCount || 0}
+                  </p>
+                )}
+                {job.error && <p className="text-xs text-err mt-1">{job.error}</p>}
+              </div>
+              {isDone && (
+                <button onClick={() => onDismiss(job.id)} className="btn-icon btn-sm shrink-0"><Icons.X /></button>
+              )}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -1292,15 +1336,15 @@ function LibraryView({ mediaItems, loading, error, pagination, onRefresh, onOpen
   );
 }
 
-function ImportView({ apiCall, onToast, onImported, canImportPlex }) {
+function ImportView({ apiCall, onToast, onImported, canImportPlex, onQueueJob, importJobs = [] }) {
   const [tab, setTab] = useState(canImportPlex ? 'plex' : 'csv');
   const [busy, setBusy] = useState('');
   const [result, setResult] = useState('');
-  const [plexJob, setPlexJob] = useState(null);
   const [auditRows, setAuditRows] = useState([]);
   const [auditName, setAuditName] = useState('');
   const csvInputRef = useRef(null);
   const deliciousInputRef = useRef(null);
+  const completedJobIdsRef = useRef(new Set());
 
   const downloadAudit = () => {
     if (!auditRows.length) return;
@@ -1325,52 +1369,25 @@ function ImportView({ apiCall, onToast, onImported, canImportPlex }) {
     if (!canImportPlex) return;
     setBusy('plex');
     setResult('');
-    setPlexJob(null);
     setAuditRows([]);
     setAuditName('');
     try {
       const res = await apiCall('post', '/media/import-plex?async=true', {});
       const jobId = res?.job?.id;
       if (!jobId) throw new Error('Missing import job id');
-      setPlexJob({
+      onQueueJob?.({
         id: jobId,
+        provider: 'plex',
         status: res?.job?.status || 'queued',
         progress: res?.job?.progress || null
       });
+      setResult(`Plex import queued (job #${jobId})`);
       onToast('Plex import started');
-
-      const poll = async () => {
-        const job = await apiCall('get', `/media/sync-jobs/${jobId}`);
-        setPlexJob(job);
-        if (job.status === 'queued' || job.status === 'running') {
-          setTimeout(() => { poll().catch(() => {}); }, 2000);
-          return;
-        }
-        setBusy('');
-        if (job.status === 'succeeded') {
-          const s = job?.summary || {};
-          setResult(
-            `Plex import complete\nImported: ${s.imported || 0}\nCreated: ${s.created || 0}\nUpdated: ${s.updated || 0}\nSkipped: ${s.skipped || 0}\nErrors: ${s.errorCount || 0}`
-          );
-          onToast('Plex import complete');
-          onImported?.();
-        } else {
-          const msg = job.error || 'Plex import failed';
-          setResult(msg);
-          onToast(msg, 'error');
-        }
-      };
-      poll().catch(() => {
-        setBusy('');
-        setResult('Plex import polling failed');
-        onToast('Plex import polling failed', 'error');
-      });
     } catch (err) {
       const msg = err.response?.data?.error || 'Plex import failed';
       setResult(msg);
       onToast(msg, 'error');
-      setBusy('');
-    }
+    } finally { setBusy(''); }
   };
 
   const runCsvImport = async (file, endpoint, label) => {
@@ -1382,18 +1399,20 @@ function ImportView({ apiCall, onToast, onImported, canImportPlex }) {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const res = await apiCall('post', endpoint, formData, {
+      const res = await apiCall('post', `${endpoint}?async=true`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      const s = res?.summary || {};
-      setAuditRows(Array.isArray(res?.auditRows) ? res.auditRows : []);
-      setAuditName(label.toLowerCase());
-      setResult(
-        `${label} import complete\nCreated: ${s.created || 0}\nUpdated: ${s.updated || 0}\n` +
-        `Skipped invalid: ${s.skipped_invalid || 0}\nSkipped non-movie: ${s.skipped_non_movie || 0}\nErrors: ${(s.errors || []).length}`
-      );
-      onToast(`${label} import complete`);
-      onImported?.();
+      const jobId = res?.job?.id;
+      if (!jobId) throw new Error('Missing import job id');
+      const provider = label === 'Delicious' ? 'csv_delicious' : 'csv_generic';
+      onQueueJob?.({
+        id: jobId,
+        provider,
+        status: res?.job?.status || 'queued',
+        progress: res?.job?.progress || null
+      });
+      setResult(`${label} import queued (job #${jobId})`);
+      onToast(`${label} import started`);
     } catch (err) {
       const msg = err.response?.data?.error || `${label} import failed`;
       setResult(msg);
@@ -1408,6 +1427,19 @@ function ImportView({ apiCall, onToast, onImported, canImportPlex }) {
     { id: 'csv', label: 'Generic CSV' },
     { id: 'delicious', label: 'Delicious CSV' }
   ];
+  const recentJobs = useMemo(
+    () => importJobs.filter((job) => ['plex', 'csv_generic', 'csv_delicious'].includes(job.provider)).slice(0, 5),
+    [importJobs]
+  );
+  useEffect(() => {
+    for (const job of recentJobs) {
+      if (job.status !== 'succeeded') continue;
+      const id = Number(job.id);
+      if (completedJobIdsRef.current.has(id)) continue;
+      completedJobIdsRef.current.add(id);
+      onImported?.();
+    }
+  }, [recentJobs, onImported]);
 
   return (
     <div className="h-full overflow-y-auto p-6 max-w-3xl space-y-6">
@@ -1432,16 +1464,20 @@ function ImportView({ apiCall, onToast, onImported, canImportPlex }) {
             <button onClick={runPlexImport} className="btn-primary" disabled={busy === 'plex'}>
               {busy === 'plex' ? <Spinner size={14} /> : <><Icons.Upload />Start Plex Import</>}
             </button>
-            {plexJob && (
+            {recentJobs.length > 0 && (
               <div className="card p-3 text-xs text-dim font-mono whitespace-pre-wrap">
-                Job #{plexJob.id} · {plexJob.status}
-                {plexJob.progress && (
-                  <>
-                    {'\n'}Processed: {plexJob.progress.processed || 0} / {plexJob.progress.total || 0}
-                    {'\n'}Created: {plexJob.progress.created || 0} · Updated: {plexJob.progress.updated || 0}
-                    {'\n'}Skipped: {plexJob.progress.skipped || 0} · Errors: {plexJob.progress.errorCount || 0}
-                  </>
-                )}
+                {recentJobs.map((job) => (
+                  <div key={job.id} className="mb-2 last:mb-0">
+                    Job #{job.id} · {job.provider} · {job.status}
+                    {job.progress && (
+                      <>
+                        {'\n'}Processed: {job.progress.processed || 0} / {job.progress.total || 0}
+                        {'\n'}Created: {job.progress.created || 0} · Updated: {job.progress.updated || 0}
+                        {'\n'}Skipped: {job.progress.skipped || 0} · Errors: {job.progress.errorCount || 0}
+                      </>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
           </>
@@ -2004,7 +2040,7 @@ function AdminSettings({ apiCall, onToast, onSettingsChange }) {
   );
 }
 
-function AdminIntegrations({ apiCall, onToast }) {
+function AdminIntegrations({ apiCall, onToast, onQueueJob }) {
   const [section, setSection] = useState('barcode');
   const [form, setForm] = useState({
     barcodePreset:'upcitemdb',barcodeProvider:'upcitemdb',barcodeApiUrl:'',barcodeApiKey:'',
@@ -2118,50 +2154,17 @@ function AdminIntegrations({ apiCall, onToast }) {
       });
       const jobId = enqueue?.job?.id;
       if (!jobId) throw new Error('Missing import job id');
+      onQueueJob?.({
+        id: jobId,
+        provider: 'plex',
+        status: enqueue?.job?.status || 'queued',
+        progress: enqueue?.job?.progress || null
+      });
       setTestMsg(`PLEX import queued (job #${jobId})`);
       onToast('Plex import started');
-
-      const poll = async () => {
-        const job = await apiCall('get', `/media/sync-jobs/${jobId}`);
-        const progress = job?.progress || {};
-        if (job.status === 'queued' || job.status === 'running') {
-          setTestMsg(
-            `PLEX import job #${jobId}: ${job.status}\n` +
-            `Processed ${progress.processed || 0}/${progress.total || 0} · ` +
-            `Created ${progress.created || 0} · Updated ${progress.updated || 0} · ` +
-            `Skipped ${progress.skipped || 0} · Errors ${progress.errorCount || 0}`
-          );
-          setTimeout(() => { poll().catch(() => {}); }, 2000);
-          return;
-        }
-
-        if (job.status === 'succeeded') {
-          const summary = job?.summary || {};
-          setTestMsg(
-            `PLEX import complete\n` +
-            `Imported: ${summary.imported || 0}\n` +
-            `Created: ${summary.created || 0}\n` +
-            `Updated: ${summary.updated || 0}\n` +
-            `Skipped: ${summary.skipped || 0}\n` +
-            `Errors: ${summary.errorCount || 0}`
-          );
-          onToast('Plex import complete');
-        } else {
-          const errorMsg = job.error || 'Plex import failed';
-          setTestMsg(errorMsg);
-          onToast(errorMsg, 'error');
-        }
-        setImportingPlex(false);
-      };
-      poll().catch(() => {
-        setImportingPlex(false);
-        setTestMsg('Plex import polling failed');
-        onToast('Plex import polling failed', 'error');
-      });
     } catch (err) {
-      setImportingPlex(false);
       onToast(err.response?.data?.error || 'Plex import failed', 'error');
-    }
+    } finally { setImportingPlex(false); }
   };
 
   const sections = ['barcode','vision','tmdb','plex'];
@@ -2308,6 +2311,14 @@ export default function App() {
   const [mediaPagination, setMediaPagination] = useState({ page: 1, limit: 50, total: 0, totalPages: 1, hasMore: false });
   const [uiSettings, setUiSettings] = useState({ theme: 'system', density: 'comfortable' });
   const [toast, setToast] = useState(null);
+  const [importJobs, setImportJobs] = useState(() => {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(IMPORT_JOBS_KEY) || '[]');
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
 
   // Navigation
   const navigate = nextRoute => {
@@ -2340,6 +2351,21 @@ export default function App() {
     return response.data;
   }, []);
 
+  const upsertImportJob = useCallback((job) => {
+    if (!job?.id) return;
+    setImportJobs((prev) => {
+      const next = [...prev];
+      const idx = next.findIndex((j) => Number(j.id) === Number(job.id));
+      if (idx >= 0) next[idx] = { ...next[idx], ...job };
+      else next.unshift(job);
+      return next.slice(0, 30);
+    });
+  }, []);
+
+  const dismissImportJob = useCallback((jobId) => {
+    setImportJobs((prev) => prev.filter((j) => Number(j.id) !== Number(jobId)));
+  }, []);
+
   // Auth
   const handleAuth = (usr) => {
     localStorage.setItem(USER_KEY, JSON.stringify(usr || null));
@@ -2356,6 +2382,8 @@ export default function App() {
     setUser(null);
     setAuthChecked(true);
     setMediaItems([]);
+    setImportJobs([]);
+    localStorage.removeItem(IMPORT_JOBS_KEY);
     navigate('login');
   };
 
@@ -2485,6 +2513,34 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [route, authChecked, user?.id]);
 
+  useEffect(() => {
+    localStorage.setItem(IMPORT_JOBS_KEY, JSON.stringify(importJobs));
+  }, [importJobs]);
+
+  useEffect(() => {
+    if (!user || importJobs.length === 0) return undefined;
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const rows = await apiCall('get', '/media/sync-jobs?limit=50');
+        if (cancelled || !Array.isArray(rows)) return;
+        const byId = new Map(rows.map((r) => [Number(r.id), r]));
+        setImportJobs((prev) => prev.map((job) => {
+          const fresh = byId.get(Number(job.id));
+          return fresh ? { ...job, ...fresh } : job;
+        }));
+      } catch (err) {
+        if (err?.response?.status === 401 || err?.response?.status === 429) return;
+      }
+    };
+    poll();
+    const t = setInterval(poll, 4000);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [apiCall, user, importJobs.length]);
+
   const showToast = (message, type = 'ok') => setToast({ message, type });
 
   // Auth pages
@@ -2534,13 +2590,15 @@ export default function App() {
             onToast={showToast}
             canImportPlex={user?.role === 'admin'}
             onImported={() => loadMedia()}
+            onQueueJob={upsertImportJob}
+            importJobs={importJobs}
           />
         );
       case 'profile':          return <ProfileView user={user} apiCall={apiCall} onToast={showToast} />;
       case 'admin-users':      return <AdminUsers apiCall={apiCall} onToast={showToast} currentUserId={user?.id} />;
       case 'admin-activity':   return <AdminActivity apiCall={apiCall} />;
       case 'admin-settings':   return <AdminSettings apiCall={apiCall} onToast={showToast} onSettingsChange={setUiSettings} />;
-      case 'admin-integrations': return <AdminIntegrations apiCall={apiCall} onToast={showToast} />;
+      case 'admin-integrations': return <AdminIntegrations apiCall={apiCall} onToast={showToast} onQueueJob={upsertImportJob} />;
       default:                 return null;
     }
   };
@@ -2577,6 +2635,7 @@ export default function App() {
 
       {/* Toast */}
       {toast && <Toast message={toast.message} type={toast.type} onDismiss={() => setToast(null)} />}
+      <ImportStatusDock jobs={importJobs} onDismiss={dismissImportJob} />
     </div>
   );
 }

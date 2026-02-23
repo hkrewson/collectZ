@@ -42,6 +42,7 @@ These can be set in `.env`, but admin settings in UI now control active global i
 - Async import tuning:
   - `TMDB_IMPORT_MIN_INTERVAL_MS` (default `50`): minimum delay between TMDB enrichment calls during Plex import.
   - `PLEX_JOB_PROGRESS_BATCH_SIZE` (default `25`): items processed between persisted async progress updates.
+  - `CSV_JOB_PROGRESS_BATCH_SIZE` (default `25`): rows processed between persisted progress updates for CSV imports.
 
 
 ## Storage Provider
