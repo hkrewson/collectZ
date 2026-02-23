@@ -29,6 +29,16 @@ const memoryUpload = multer({ storage: multer.memoryStorage(), limits: { fileSiz
 
 const MEDIA_FORMATS = ['VHS', 'Blu-ray', 'Digital', 'DVD', '4K UHD'];
 const MEDIA_TYPES = ['movie', 'tv_series', 'tv_episode', 'other'];
+const ALLOWED_COVER_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+const SYNC_JOB_ALLOWED_FIELDS = new Set([
+  'status',
+  'scope',
+  'progress',
+  'summary',
+  'error',
+  'started_at',
+  'finished_at'
+]);
 const SORT_COLUMNS = {
   title: 'title',
   year: 'year',
@@ -376,7 +386,14 @@ async function createSyncJob({ userId, jobType, provider, scope, progress }) {
 }
 
 async function updateSyncJob(jobId, patch = {}) {
-  const entries = Object.entries(patch).filter(([, value]) => value !== undefined);
+  const entries = [];
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === undefined) continue;
+    if (!SYNC_JOB_ALLOWED_FIELDS.has(key)) {
+      throw new Error(`Invalid sync job update field: ${key}`);
+    }
+    entries.push([key, value]);
+  }
   if (entries.length === 0) return null;
   const sets = [];
   const values = [];
@@ -1327,6 +1344,9 @@ router.post('/recognize-cover', tempUpload.single('cover'), asyncHandler(async (
 router.post('/upload-cover', memoryUpload.single('cover'), asyncHandler(async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
+  }
+  if (!ALLOWED_COVER_MIME_TYPES.has(String(req.file.mimetype || '').toLowerCase())) {
+    return res.status(400).json({ error: 'Unsupported file type. Allowed: JPEG, PNG, WEBP, GIF.' });
   }
   const stored = await uploadBuffer(req.file.buffer, req.file.originalname, req.file.mimetype);
   res.json({ path: stored.url, provider: stored.provider });
