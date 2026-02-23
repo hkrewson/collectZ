@@ -139,7 +139,8 @@ jobs:
               ['app_integrations', 'plex_api_url'],
               ['app_integrations', 'plex_library_sections'],
               ['invites', 'revoked'],
-              ['invites', 'used_by']
+              ['invites', 'used_by'],
+              ['invites', 'token_hash']
             ];
             for (const [table, column] of checks) {
               const r = await pool.query(

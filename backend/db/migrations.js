@@ -546,6 +546,32 @@ const MIGRATIONS = [
       ON CONFLICT (key) DO UPDATE
       SET description = EXCLUDED.description;
     `
+  },
+  {
+    version: 13,
+    description: 'Hash invite tokens at rest and remove plaintext storage',
+    up: `
+      CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+      ALTER TABLE invites
+        ADD COLUMN IF NOT EXISTS token_hash VARCHAR(64);
+
+      UPDATE invites
+      SET token_hash = encode(digest(token, 'sha256'), 'hex')
+      WHERE token_hash IS NULL
+        AND token IS NOT NULL;
+
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_invites_token_hash
+        ON invites(token_hash)
+        WHERE token_hash IS NOT NULL;
+
+      ALTER TABLE invites
+        ALTER COLUMN token DROP NOT NULL;
+
+      UPDATE invites
+      SET token = NULL
+      WHERE token_hash IS NOT NULL;
+    `
   }
 ];
 

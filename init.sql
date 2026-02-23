@@ -22,7 +22,8 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS invites (
     id SERIAL PRIMARY KEY,
     email VARCHAR(255) NOT NULL,
-    token VARCHAR(255) UNIQUE NOT NULL,
+    token VARCHAR(255) UNIQUE,
+    token_hash VARCHAR(64),
     used BOOLEAN DEFAULT false,
     revoked BOOLEAN DEFAULT false,
     used_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
@@ -251,6 +252,7 @@ CREATE INDEX IF NOT EXISTS idx_media_variants_media_id ON media_variants(media_i
 CREATE UNIQUE INDEX IF NOT EXISTS idx_media_variants_plex_part ON media_variants (source, source_part_id) WHERE source = 'plex' AND source_part_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_media_variants_plex_item ON media_variants (source, source_item_key) WHERE source = 'plex' AND source_item_key IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_invites_token ON invites(token);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_invites_token_hash ON invites(token_hash) WHERE token_hash IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_invites_active ON invites(used, revoked, expires_at);
 CREATE INDEX IF NOT EXISTS idx_activity_log_user_id ON activity_log(user_id);
 CREATE INDEX IF NOT EXISTS idx_activity_log_created_at ON activity_log(created_at);
