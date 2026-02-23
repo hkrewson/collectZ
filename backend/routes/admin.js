@@ -218,7 +218,7 @@ router.patch('/invites/:id/revoke', asyncHandler(async (req, res) => {
 }));
 
 // ── Activity log ──────────────────────────────────────────────────────────────
-// Supports optional query filters: action, userId, from, to, q, limit
+// Supports optional query filters: action, entity, userId, user, from, to, q, limit
 
 router.get('/activity', asyncHandler(async (req, res) => {
   const limitRaw = Number(req.query.limit || 100);
@@ -231,30 +231,49 @@ router.get('/activity', asyncHandler(async (req, res) => {
 
   if (req.query.action) {
     params.push(req.query.action);
-    conditions.push(`action = $${params.length}`);
+    conditions.push(`al.action = $${params.length}`);
   }
 
   if (req.query.userId) {
     const uid = Number(req.query.userId);
     if (Number.isFinite(uid)) {
       params.push(uid);
-      conditions.push(`user_id = $${params.length}`);
+      conditions.push(`al.user_id = $${params.length}`);
     }
+  }
+
+  if (req.query.user) {
+    const raw = String(req.query.user).trim();
+    if (raw) {
+      const asId = Number(raw);
+      if (Number.isFinite(asId)) {
+        params.push(asId);
+        conditions.push(`al.user_id = $${params.length}`);
+      } else {
+        params.push(`%${raw}%`);
+        conditions.push(`EXISTS (SELECT 1 FROM users u2 WHERE u2.id = al.user_id AND u2.email ILIKE $${params.length})`);
+      }
+    }
+  }
+
+  if (req.query.entity) {
+    params.push(String(req.query.entity));
+    conditions.push(`al.entity_type = $${params.length}`);
   }
 
   if (req.query.from) {
     params.push(req.query.from);
-    conditions.push(`created_at >= $${params.length}`);
+    conditions.push(`al.created_at >= $${params.length}`);
   }
 
   if (req.query.to) {
     params.push(req.query.to);
-    conditions.push(`created_at <= $${params.length}`);
+    conditions.push(`al.created_at <= $${params.length}`);
   }
 
   if (req.query.q) {
     params.push(`%${req.query.q}%`);
-    conditions.push(`details::text ILIKE $${params.length}`);
+    conditions.push(`al.details::text ILIKE $${params.length}`);
   }
 
   const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -262,10 +281,12 @@ router.get('/activity', asyncHandler(async (req, res) => {
   params.push(offset);
 
   const result = await pool.query(
-    `SELECT id, user_id, action, entity_type, entity_id, details, ip_address, created_at
-     FROM activity_log
+    `SELECT al.id, al.user_id, al.action, al.entity_type, al.entity_id, al.details, al.ip_address, al.created_at,
+            u.email AS user_email
+     FROM activity_log al
+     LEFT JOIN users u ON u.id = al.user_id
      ${where}
-     ORDER BY id DESC
+     ORDER BY al.id DESC
      LIMIT $${params.length - 1}
      OFFSET $${params.length}`,
     params

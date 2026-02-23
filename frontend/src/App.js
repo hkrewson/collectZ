@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import appMeta from './app-meta.json';
+import AdminActivityView from './components/AdminActivityView';
+import AuthPageView from './components/AuthPage';
+import ImportViewComponent from './components/ImportView';
 
 const API_URL = process.env.REACT_APP_API_URL || '/api';
-const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.version || '1.9.5-r1';
+const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.version || '1.9.6';
 const BUILD_SHA   = process.env.REACT_APP_GIT_SHA || appMeta?.build?.gitShaDefault || 'dev';
-const USER_KEY  = 'mediavault_user';
 const IMPORT_JOBS_KEY = 'collectz_import_jobs';
 const IMPORT_POLL_LEADER_KEY = 'collectz_import_poll_leader';
 const IMPORT_POLL_LAST_TS_KEY = 'collectz_import_poll_last_ts';
@@ -53,10 +55,6 @@ function routeFromPath(p) {
   if (p === '/register') return 'register';
   if (p === '/dashboard') return 'dashboard';
   return 'login';
-}
-
-function readStoredUser() {
-  try { return JSON.parse(localStorage.getItem(USER_KEY)); } catch { return null; }
 }
 
 function posterUrl(path) {
@@ -252,119 +250,18 @@ function ImportStatusDock({ jobs = [], onDismiss }) {
 // ─── Auth pages ───────────────────────────────────────────────────────────────
 
 function AuthPage({ route, onNavigate, onAuth }) {
-  const [email, setEmail]       = useState('');
-  const [password, setPassword] = useState('');
-  const [name, setName]         = useState('');
-  const [invite, setInvite]     = useState('');
-  const [showPw, setShowPw]     = useState(false);
-  const [loading, setLoading]   = useState(false);
-  const [error, setError]       = useState('');
-  const isRegister = route === 'register';
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('invite')) setInvite(params.get('invite'));
-    if (params.get('email'))  setEmail(params.get('email'));
-  }, [route]);
-
-  const submit = async e => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-    try {
-      const endpoint = isRegister ? '/auth/register' : '/auth/login';
-      const payload  = isRegister ? { name, email, password, inviteToken: invite || undefined } : { email, password };
-      const data = await axios.post(`${API_URL}${endpoint}`, payload, { withCredentials: true });
-      onAuth(data.data.user);
-    } catch (err) {
-      setError(err.response?.data?.error || 'Authentication failed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-void flex">
-      {/* Left — branding panel */}
-      <div className="hidden lg:flex lg:w-1/2 xl:w-3/5 relative overflow-hidden flex-col justify-between p-12">
-        <div className="absolute inset-0 bg-gradient-to-br from-abyss via-deep to-void" />
-        <div className="absolute inset-0 bg-gradient-to-r from-void/20 via-void/50 to-void" />
-        <div className="relative z-10">
-          <span className="font-display text-3xl tracking-widest text-gold">COLLECTZ</span>
-        </div>
-        <div className="relative z-10 space-y-4">
-          <h1 className="font-display text-6xl xl:text-7xl tracking-wider text-ink leading-none">
-            YOUR COLLECTION.<br />
-            <span className="text-gold">PERFECTLY</span><br />
-            CATALOGUED.
-          </h1>
-          <p className="text-dim text-lg max-w-md leading-relaxed">
-            Track every disc, stream, and tape in your library. Powered by TMDB. Built for collectors.
-          </p>
-        </div>
-        <div className="relative z-10 flex items-center gap-6">
-          {['VHS', 'Blu-ray', '4K UHD', 'Digital'].map(f => (
-            <span key={f} className="text-xs text-ghost tracking-widest uppercase border border-ghost/20 px-2 py-1 rounded">{f}</span>
-          ))}
-        </div>
-      </div>
-
-      {/* Right — auth form */}
-      <div className="w-full lg:w-1/2 xl:w-2/5 flex items-center justify-center p-8">
-        <div className="w-full max-w-sm space-y-8">
-          {/* Logo (mobile only) */}
-          <div className="lg:hidden text-center">
-            <span className="font-display text-4xl tracking-widest text-gold">COLLECTZ</span>
-          </div>
-
-          {/* Tab toggle */}
-          <div className="tab-strip">
-            <button className={cx('tab flex-1', !isRegister && 'active')} onClick={() => onNavigate('login')}>Sign In</button>
-            <button className={cx('tab flex-1', isRegister && 'active')} onClick={() => onNavigate('register')}>Register</button>
-          </div>
-
-          <form onSubmit={submit} className="space-y-4">
-            {isRegister && (
-              <div className="field">
-                <label className="label">Name</label>
-                <input className="input input-lg" placeholder="Your name" value={name} onChange={e => setName(e.target.value)} required />
-              </div>
-            )}
-            <div className="field">
-              <label className="label">Email</label>
-              <input className="input input-lg" type="email" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} required />
-            </div>
-            <div className="field">
-              <label className="label">Password</label>
-              <div className="relative">
-                <input className="input input-lg pr-10" type={showPw ? 'text' : 'password'} placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required />
-                <button type="button" tabIndex={-1} onClick={() => setShowPw(p => !p)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-ghost hover:text-dim transition-colors">
-                  {showPw ? <Icons.EyeOff /> : <Icons.Eye />}
-                </button>
-              </div>
-            </div>
-            {isRegister && (
-              <div className="field">
-                <label className="label">Invite Token <span className="text-ghost normal-case">(required after first user)</span></label>
-                <input className="input input-lg font-mono" placeholder="Paste token here" value={invite} onChange={e => setInvite(e.target.value)} />
-              </div>
-            )}
-
-            {error && <p className="text-sm text-err bg-err/10 border border-err/20 rounded px-3 py-2">{error}</p>}
-
-            <button type="submit" disabled={loading}
-              className="btn-primary btn-lg w-full mt-2 font-display tracking-widest text-base">
-              {loading ? <Spinner size={18} /> : isRegister ? 'CREATE ACCOUNT' : 'SIGN IN'}
-            </button>
-          </form>
-
-          <p className="text-center text-xs text-ghost">
-            collectZ v{APP_VERSION} · {BUILD_SHA}
-          </p>
-        </div>
-      </div>
-    </div>
+    <AuthPageView
+      route={route}
+      onNavigate={onNavigate}
+      onAuth={onAuth}
+      apiUrl={API_URL}
+      appVersion={APP_VERSION}
+      buildSha={BUILD_SHA}
+      Icons={Icons}
+      Spinner={Spinner}
+      cx={cx}
+    />
   );
 }
 
@@ -1323,212 +1220,19 @@ function LibraryView({ mediaItems, loading, error, pagination, onRefresh, onOpen
 }
 
 function ImportView({ apiCall, onToast, onImported, canImportPlex, onQueueJob, importJobs = [] }) {
-  const [tab, setTab] = useState(canImportPlex ? 'plex' : 'csv');
-  const [busy, setBusy] = useState('');
-  const [result, setResult] = useState('');
-  const [auditRows, setAuditRows] = useState([]);
-  const [auditName, setAuditName] = useState('');
-  const csvInputRef = useRef(null);
-  const deliciousInputRef = useRef(null);
-  const completedJobIdsRef = useRef(new Set());
-
-  const downloadAudit = () => {
-    if (!auditRows.length) return;
-    const esc = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
-    const lines = [
-      ['row', 'status', 'title', 'detail'].map(esc).join(','),
-      ...auditRows.map((r) => [r.row, r.status, r.title, r.detail].map(esc).join(','))
-    ];
-    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-    a.download = `collectz-import-audit-${auditName || 'report'}-${stamp}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  };
-
-  const runPlexImport = async () => {
-    if (!canImportPlex) return;
-    setBusy('plex');
-    setResult('');
-    setAuditRows([]);
-    setAuditName('');
-    try {
-      const res = await apiCall('post', '/media/import-plex?async=true', {});
-      const jobId = res?.job?.id;
-      if (!jobId) throw new Error('Missing import job id');
-      onQueueJob?.({
-        id: jobId,
-        provider: 'plex',
-        status: res?.job?.status || 'queued',
-        progress: res?.job?.progress || null
-      });
-      setResult(`Plex import queued (job #${jobId})`);
-      onToast('Plex import started');
-    } catch (err) {
-      const msg = err.response?.data?.error || 'Plex import failed';
-      setResult(msg);
-      onToast(msg, 'error');
-    } finally { setBusy(''); }
-  };
-
-  const runCsvImport = async (file, endpoint, label) => {
-    if (!file) return;
-    setBusy(label);
-    setResult('');
-    setAuditRows([]);
-    setAuditName('');
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      const res = await apiCall('post', `${endpoint}?async=true`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      const jobId = res?.job?.id;
-      if (!jobId) throw new Error('Missing import job id');
-      const provider = label === 'Delicious' ? 'csv_delicious' : 'csv_generic';
-      onQueueJob?.({
-        id: jobId,
-        provider,
-        status: res?.job?.status || 'queued',
-        progress: res?.job?.progress || null
-      });
-      setResult(`${label} import queued (job #${jobId})`);
-      onToast(`${label} import started`);
-    } catch (err) {
-      const msg = err.response?.data?.error || `${label} import failed`;
-      setResult(msg);
-      onToast(msg, 'error');
-    } finally {
-      setBusy('');
-    }
-  };
-
-  const tabs = [
-    ...(canImportPlex ? [{ id: 'plex', label: 'Plex' }] : []),
-    { id: 'csv', label: 'Generic CSV' },
-    { id: 'delicious', label: 'Delicious CSV' }
-  ];
-  const recentJobs = useMemo(
-    () => importJobs.filter((job) => ['plex', 'csv_generic', 'csv_delicious'].includes(job.provider)).slice(0, 5),
-    [importJobs]
-  );
-  useEffect(() => {
-    for (const job of recentJobs) {
-      if (job.status !== 'succeeded') continue;
-      const id = Number(job.id);
-      if (completedJobIdsRef.current.has(id)) continue;
-      completedJobIdsRef.current.add(id);
-      onImported?.();
-    }
-  }, [recentJobs, onImported]);
-
   return (
-    <div className="h-full overflow-y-auto p-6 max-w-3xl space-y-6">
-      <div>
-        <h1 className="section-title">Import Media</h1>
-        <p className="text-sm text-ghost mt-1">Add titles from external sources into your library.</p>
-      </div>
-
-      <div className="tab-strip w-full max-w-xl">
-        {tabs.map((t) => (
-          <button key={t.id} className={cx('tab flex-1', tab === t.id && 'active')} onClick={() => setTab(t.id)}>
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="card p-5 space-y-4">
-        {tab === 'plex' && (
-          <>
-            <p className="text-sm text-dim">Import titles from your configured Plex server and selected sections.</p>
-            <p className="text-xs text-ghost">Uses saved Admin Integrations Plex settings. Import runs async with progress, deduplication, and TMDB enrichment when possible.</p>
-            <button onClick={runPlexImport} className="btn-primary" disabled={busy === 'plex'}>
-              {busy === 'plex' ? <Spinner size={14} /> : <><Icons.Upload />Start Plex Import</>}
-            </button>
-            {recentJobs.length > 0 && (
-              <div className="card p-3 text-xs text-dim font-mono whitespace-pre-wrap">
-                {recentJobs.map((job) => (
-                  <div key={job.id} className="mb-2 last:mb-0">
-                    Job #{job.id} · {job.provider} · {job.status}
-                    {job.progress && (
-                      <>
-                        {'\n'}Processed: {job.progress.processed || 0} / {job.progress.total || 0}
-                        {'\n'}Created: {job.progress.created || 0} · Updated: {job.progress.updated || 0}
-                        {'\n'}Skipped: {job.progress.skipped || 0} · Errors: {job.progress.errorCount || 0}
-                      </>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
-        )}
-
-        {tab === 'csv' && (
-          <>
-            <p className="text-sm text-dim">Import from a CSV file using collectZ columns.</p>
-            <p className="text-xs text-ghost">Required: title. Optional: year, format, director, genre, rating, user_rating, runtime, upc, location, notes.</p>
-            <div className="flex flex-wrap gap-3">
-              <button onClick={() => csvInputRef.current?.click()} className="btn-primary" disabled={busy === 'CSV'}>
-                {busy === 'CSV' ? <Spinner size={14} /> : <><Icons.Upload />Choose CSV File</>}
-              </button>
-              <a href={`${API_URL}/media/import/template-csv`} className="btn-secondary"><Icons.Download />Download Template</a>
-            </div>
-            <input
-              ref={csvInputRef}
-              type="file"
-              accept=".csv,text/csv"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                e.target.value = '';
-                runCsvImport(file, '/media/import-csv', 'CSV');
-              }}
-            />
-          </>
-        )}
-
-        {tab === 'delicious' && (
-          <>
-            <p className="text-sm text-dim">Import a Delicious export CSV.</p>
-            <p className="text-xs text-ghost">Movie rows only are imported. Non-movie rows are skipped. Data is enriched from TMDB when available.</p>
-            <button onClick={() => deliciousInputRef.current?.click()} className="btn-primary" disabled={busy === 'Delicious'}>
-              {busy === 'Delicious' ? <Spinner size={14} /> : <><Icons.Upload />Choose Delicious CSV</>}
-            </button>
-            <input
-              ref={deliciousInputRef}
-              type="file"
-              accept=".csv,text/csv"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                e.target.value = '';
-                runCsvImport(file, '/media/import-csv/delicious', 'Delicious');
-              }}
-            />
-          </>
-        )}
-      </div>
-
-      <div className="card p-4 text-xs text-ghost space-y-1">
-        <p>Import behavior:</p>
-        <p>- Existing titles are updated by title + year match.</p>
-        <p>- New titles are created when no match exists.</p>
-        <p>- TMDB enrichment runs during import when configured.</p>
-      </div>
-
-      {result && <pre className="card p-4 text-xs text-dim whitespace-pre-wrap">{result}</pre>}
-      {auditRows.length > 0 && (
-        <div className="flex">
-          <button onClick={downloadAudit} className="btn-secondary"><Icons.Download />Download Audit CSV</button>
-        </div>
-      )}
-    </div>
+    <ImportViewComponent
+      apiCall={apiCall}
+      onToast={onToast}
+      onImported={onImported}
+      canImportPlex={canImportPlex}
+      onQueueJob={onQueueJob}
+      importJobs={importJobs}
+      apiUrl={API_URL}
+      Icons={Icons}
+      Spinner={Spinner}
+      cx={cx}
+    />
   );
 }
 
@@ -1888,89 +1592,16 @@ function AdminUsers({ apiCall, onToast, currentUserId }) {
 }
 
 function AdminActivity({ apiCall }) {
-  const [items, setItems]   = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({ action: '', from: '', to: '', q: '' });
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(false);
-  const [pageSizeMode, setPageSizeMode] = useState('auto');
-  const [autoPageSize, setAutoPageSize] = useState(50);
-  const pageSize = pageSizeMode === 'auto' ? autoPageSize : Number(pageSizeMode);
+  return <AdminActivityView apiCall={apiCall} Icons={Icons} Spinner={Spinner} />;
+}
 
-  useEffect(() => {
-    const computeAutoSize = () => {
-      const raw = Math.floor((window.innerHeight - 320) / 72);
-      const bounded = Math.max(10, Math.min(100, raw));
-      setAutoPageSize(bounded);
-    };
-    computeAutoSize();
-    window.addEventListener('resize', computeAutoSize);
-    return () => window.removeEventListener('resize', computeAutoSize);
-  }, []);
-
-  const load = async (targetPage = page) => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({
-        limit: String(pageSize),
-        offset: String((targetPage - 1) * pageSize)
-      });
-      if (filters.action) params.set('action', filters.action);
-      if (filters.from)   params.set('from', filters.from);
-      if (filters.to)     params.set('to', filters.to);
-      if (filters.q)      params.set('q', filters.q);
-      const data = await apiCall('get', `/admin/activity?${params}`);
-      const rows = Array.isArray(data) ? data : [];
-      setItems(rows);
-      setHasMore(rows.length === pageSize);
-      setPage(targetPage);
-    } finally { setLoading(false); }
-  };
-
-  useEffect(() => { load(1); }, [pageSizeMode, autoPageSize]);
-
+function ForbiddenView({ title = 'Access Restricted', detail = 'You do not have permission to view this section.' }) {
   return (
-    <div className="h-full overflow-y-auto p-6 max-w-4xl space-y-4">
-      <div className="flex items-center gap-3">
-        <h1 className="section-title flex-1">Activity Log</h1>
-        <button onClick={load} className="btn-icon"><Icons.Refresh /></button>
+    <div className="h-full overflow-y-auto p-6 max-w-xl">
+      <div className="card p-6 space-y-3">
+        <h1 className="section-title">{title}</h1>
+        <p className="text-sm text-dim">{detail}</p>
       </div>
-      <div className="flex gap-3 flex-wrap">
-        <input className="input w-44" placeholder="Filter by action…" value={filters.action} onChange={e => setFilters(f => ({ ...f, action: e.target.value }))} />
-        <input className="input w-36" type="date" value={filters.from} onChange={e => setFilters(f => ({ ...f, from: e.target.value }))} />
-        <input className="input w-36" type="date" value={filters.to} onChange={e => setFilters(f => ({ ...f, to: e.target.value }))} />
-        <input className="input flex-1 min-w-36" placeholder="Search details…" value={filters.q} onChange={e => setFilters(f => ({ ...f, q: e.target.value }))} />
-        <button onClick={() => load(1)} className="btn-primary">Apply</button>
-        <select className="select w-36" value={pageSizeMode} onChange={e => setPageSizeMode(e.target.value)}>
-          <option value="auto">Page size: Auto ({autoPageSize})</option>
-          <option value="25">Page size: 25</option>
-          <option value="50">Page size: 50</option>
-          <option value="100">Page size: 100</option>
-        </select>
-      </div>
-      <div className="flex items-center gap-2">
-        <button onClick={() => load(Math.max(1, page - 1))} disabled={loading || page <= 1} className="btn-secondary btn-sm">Previous</button>
-        <span className="text-xs text-ghost font-mono">Page {page}</span>
-        <button onClick={() => load(page + 1)} disabled={loading || !hasMore} className="btn-secondary btn-sm">Next</button>
-      </div>
-      {loading ? <div className="flex justify-center py-12"><Spinner size={28} /></div> : (
-        <div className="card divide-y divide-edge">
-          {items.length === 0 && <p className="px-4 py-6 text-sm text-ghost text-center">No activity entries</p>}
-          {items.map(entry => (
-            <div key={entry.id} className="px-4 py-3 space-y-1">
-              <div className="flex items-center gap-3">
-                <span className="badge badge-dim font-mono text-[10px]">{entry.action}</span>
-                <span className="text-xs text-ghost ml-auto">{new Date(entry.created_at).toLocaleString()}</span>
-              </div>
-              <p className="text-xs text-ghost">
-                {entry.entity_type && <span>entity: {entry.entity_type} #{entry.entity_id} · </span>}
-                user: {entry.user_id ?? '–'} · {entry.ip_address || '–'}
-              </p>
-              {entry.details && <p className="text-xs text-ghost/60 font-mono whitespace-pre-wrap break-words">{JSON.stringify(entry.details, null, 2)}</p>}
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
@@ -2303,7 +1934,7 @@ function AdminIntegrations({ apiCall, onToast, onQueueJob }) {
 
 export default function App() {
   const [route, setRoute]       = useState(routeFromPath(window.location.pathname));
-  const [user, setUser]         = useState(readStoredUser());
+  const [user, setUser]         = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [activeTab, setActiveTab] = useState('library-movies');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -2451,7 +2082,6 @@ export default function App() {
 
   // Auth
   const handleAuth = (usr) => {
-    localStorage.setItem(USER_KEY, JSON.stringify(usr || null));
     setUser(usr || null);
     setAuthChecked(true);
     window.history.replaceState({}, '', '/dashboard');
@@ -2460,7 +2090,6 @@ export default function App() {
 
   const logout = async () => {
     try { await apiCall('post', '/auth/logout'); } catch (_) {}
-    localStorage.removeItem(USER_KEY);
     localStorage.removeItem('mediavault_token'); // Cleanup for legacy builds.
     setUser(null);
     setAuthChecked(true);
@@ -2576,11 +2205,9 @@ export default function App() {
         const me = await apiCall('get', '/auth/me');
         if (!active) return;
         setUser(me);
-        localStorage.setItem(USER_KEY, JSON.stringify(me));
       } catch (_) {
         if (!active) return;
         setUser(null);
-        localStorage.removeItem(USER_KEY);
         window.history.replaceState({}, '', '/login');
         setRoute('login');
       } finally {
@@ -2651,6 +2278,10 @@ export default function App() {
   }
 
   const tabContent = () => {
+    const isAdminTab = String(activeTab || '').startsWith('admin-');
+    if (isAdminTab && user?.role !== 'admin') {
+      return <ForbiddenView detail="Admin permissions are required to access this view." />;
+    }
     const forcedMediaType =
       activeTab === 'library-tv' ? 'tv'
       : activeTab === 'library-other' ? 'other'

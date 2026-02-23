@@ -460,6 +460,9 @@ This track converts the 1.9.1 external assessment findings into executable miles
 - Align nginx and Express settings to avoid conflicting or multiplicative limits.
 - Document single-node vs multi-node behavior expectations.
 - Add validation checklist for Portainer/homelab deployments.
+- Activity filter UX polish (deferred from 1.9.6):
+  - Merge activity filter inputs into a streamlined search-first flow.
+  - Allow Enter key to apply filters without requiring a separate Apply click.
 
 ### Acceptance Criteria
 
