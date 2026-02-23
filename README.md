@@ -18,7 +18,7 @@ It is designed for homelab-friendly deployment with Docker, secure user auth, an
 
 ## Current Version
 
-- `1.9.2`
+- `1.9.3`
 
 ## Quick Start (Local Docker)
 
@@ -69,6 +69,7 @@ See `env.example` and docs in `docs/wiki/` for full configuration details.
 Use the `Import` section in the left navigation:
 
 - **Plex**: imports from configured Plex integration (admin-managed)
+  - Runs as an async job with progress/status tracking
 - **Generic CSV**: import from collectZ-friendly columns
 - **Delicious CSV**: imports movie rows from Delicious export CSV
 
@@ -80,7 +81,7 @@ If using prebuilt images from GHCR:
 
 1. Configure `.env` and `docker-compose.registry.yml`
 2. Set your tag (example):
-   - `IMAGE_TAG=1.9.2`
+   - `IMAGE_TAG=1.9.3`
 3. Deploy:
    - `docker compose -f docker-compose.registry.yml --env-file .env pull`
    - `docker compose -f docker-compose.registry.yml --env-file .env up -d`
@@ -101,3 +102,10 @@ Registry deploy:
 - Health checks are included for db/backend/frontend services.
 - Activity log captures operational and admin events.
 - Movie import dedupe primarily matches by TMDB ID, then title/year heuristics.
+
+## Troubleshooting
+
+- If backend startup fails in production with:
+  - `INTEGRATION_ENCRYPTION_KEY must be set in production`
+- Set `INTEGRATION_ENCRYPTION_KEY` in `.env`, then restart:
+  - `docker compose --env-file .env up -d --build backend`

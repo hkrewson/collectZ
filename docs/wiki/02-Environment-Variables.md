@@ -39,6 +39,9 @@ These can be set in `.env`, but admin settings in UI now control active global i
 - Barcode: `BARCODE_PRESET`, `BARCODE_PROVIDER`, `BARCODE_API_URL`, `BARCODE_API_KEY`, `BARCODE_API_KEY_HEADER`, `BARCODE_QUERY_PARAM`
 - Vision: `VISION_PRESET`, `VISION_PROVIDER`, `VISION_API_URL`, `VISION_API_KEY`, `VISION_API_KEY_HEADER`
 - Plex: `PLEX_PRESET`, `PLEX_PROVIDER`, `PLEX_API_URL`, `PLEX_SERVER_NAME`, `PLEX_API_KEY`
+- Async import tuning:
+  - `TMDB_IMPORT_MIN_INTERVAL_MS` (default `50`): minimum delay between TMDB enrichment calls during Plex import.
+  - `PLEX_JOB_PROGRESS_BATCH_SIZE` (default `25`): items processed between persisted async progress updates.
 
 
 ## Storage Provider
@@ -91,6 +94,14 @@ docker compose --env-file .env config >/dev/null
 ```
 
 If Compose warns a required variable is unset, fix `.env` before `up`.
+
+## Production Startup Error Reference
+
+If `INTEGRATION_ENCRYPTION_KEY` is missing in production mode, backend startup fails with:
+
+`INTEGRATION_ENCRYPTION_KEY must be set in production`
+
+Set the variable in `.env` and restart backend.
 
 ## Integration Key Rotation Notes
 
