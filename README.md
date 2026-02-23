@@ -18,7 +18,7 @@ It is designed for homelab-friendly deployment with Docker, secure user auth, an
 
 ## Current Version
 
-- `1.9.6`
+- `1.9.7`
 
 ## Quick Start (Local Docker)
 
@@ -81,7 +81,7 @@ If using prebuilt images from GHCR:
 
 1. Configure `.env` and `docker-compose.registry.yml`
 2. Set your tag (example):
-   - `IMAGE_TAG=1.9.6`
+   - `IMAGE_TAG=1.9.7`
 3. Deploy:
    - `docker compose -f docker-compose.registry.yml --env-file .env pull`
    - `docker compose -f docker-compose.registry.yml --env-file .env up -d`
