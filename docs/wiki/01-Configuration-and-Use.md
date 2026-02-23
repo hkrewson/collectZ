@@ -33,47 +33,46 @@ Registration logic:
 - If user count is `0`: first registered user becomes `admin` and no invite is required.
 - If user count is `> 0`: invite token is required.
 
-If the sample seeded admin exists, invite will be required immediately.
+There is no default seeded admin account in current releases.
 
-## Default Seeded Admin (Current Init Script)
+## Password Reset Workflows
 
-`init.sql` includes a sample row:
+- Admins can generate one-time reset URLs from `Admin Settings -> Members -> Member Details`.
+- Reset links are one-time use and expire automatically.
+- Admins can invalidate all active reset links for a member from the same panel.
+- Users changing their own password in Profile must provide current password.
 
-- Email: `admin@example.com`
-- Intended password: `admin123`
+## Break-Glass Admin Recovery (CLI)
 
-This sample user is meant for development/bootstrap only.
+Use this when no admin can sign in and UI-based reset is unavailable.
 
-## Remove Default Seed User After Containers Are Running
+1. Generate a bcrypt hash:
 
-Remove only the seeded account:
+```bash
+docker compose --env-file .env exec -T backend \
+  node -e "const bcrypt=require('bcrypt'); bcrypt.hash(process.argv[1],12).then(h=>console.log(h));" 'NewStrongPassword123!'
+```
+
+2. Update an existing admin account password:
 
 ```bash
 docker compose --env-file .env exec -T db \
   psql -U "${DB_USER:-mediavault}" -d "${POSTGRES_DB:-mediavault}" \
-  -c "DELETE FROM users WHERE email = 'admin@example.com';"
+  -c "UPDATE users SET password = '<PASTE_BCRYPT_HASH>' WHERE email = 'admin@example.com';"
 ```
 
-Verify users:
+3. If no admin exists, promote a user to admin:
 
 ```bash
 docker compose --env-file .env exec -T db \
   psql -U "${DB_USER:-mediavault}" -d "${POSTGRES_DB:-mediavault}" \
-  -c "SELECT id,email,role,created_at FROM users ORDER BY id;"
+  -c "UPDATE users SET role = 'admin' WHERE email = 'you@example.com';"
 ```
 
-## Remove Seed User From `init.sql` (Future Deployments)
+4. Invalidate all existing sessions for that account:
 
-Edit `init.sql` and remove this entire block:
-
-```sql
--- Sample data (optional - remove in production)
--- Note: Password is 'admin123' hashed with bcrypt
-INSERT INTO users (email, password, name, role) VALUES 
-('admin@example.com', 'RADYwtaMkc9jqrUnJKHcLmLf', 'Admin User', 'admin')
-ON CONFLICT (email) DO NOTHING;
+```bash
+docker compose --env-file .env exec -T db \
+  psql -U "${DB_USER:-mediavault}" -d "${POSTGRES_DB:-mediavault}" \
+  -c "DELETE FROM user_sessions WHERE user_id = (SELECT id FROM users WHERE email = 'admin@example.com');"
 ```
-
-Important: `init.sql` only runs on first database initialization (empty Postgres volume).
-
-If DB volume already exists, changing `init.sql` will not affect existing data unless you recreate the DB volume.

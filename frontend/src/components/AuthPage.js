@@ -4,17 +4,21 @@ import axios from 'axios';
 export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion, buildSha, Icons, Spinner, cx }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
   const [invite, setInvite] = useState('');
+  const [resetToken, setResetToken] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const isRegister = route === 'register';
+  const isReset = route === 'reset';
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('invite')) setInvite(params.get('invite'));
     if (params.get('email')) setEmail(params.get('email'));
+    if (params.get('token')) setResetToken(params.get('token'));
   }, [route]);
 
   const submit = async (e) => {
@@ -22,8 +26,20 @@ export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion
     setLoading(true);
     setError('');
     try {
-      const endpoint = isRegister ? '/auth/register' : '/auth/login';
-      const payload = isRegister ? { name, email, password, inviteToken: invite || undefined } : { email, password };
+      let endpoint = '/auth/login';
+      let payload = { email, password };
+      if (isReset) {
+        if (password !== confirmPassword) {
+          setError('Passwords do not match');
+          setLoading(false);
+          return;
+        }
+        endpoint = '/auth/password-reset/consume';
+        payload = { token: resetToken, email, password };
+      } else if (isRegister) {
+        endpoint = '/auth/register';
+        payload = { name, email, password, inviteToken: invite || undefined };
+      }
       const data = await axios.post(`${apiUrl}${endpoint}`, payload, { withCredentials: true });
       onAuth(data.data.user);
     } catch (err) {
@@ -64,13 +80,21 @@ export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion
             <span className="font-display text-4xl tracking-widest text-gold">COLLECTZ</span>
           </div>
 
-          <div className="tab-strip">
-            <button className={cx('tab flex-1', !isRegister && 'active')} onClick={() => onNavigate('login')}>Sign In</button>
-            <button className={cx('tab flex-1', isRegister && 'active')} onClick={() => onNavigate('register')}>Register</button>
-          </div>
+          {!isReset && (
+            <div className="tab-strip">
+              <button className={cx('tab flex-1', !isRegister && 'active')} onClick={() => onNavigate('login')}>Sign In</button>
+              <button className={cx('tab flex-1', isRegister && 'active')} onClick={() => onNavigate('register')}>Register</button>
+            </div>
+          )}
+          {isReset && (
+            <div className="space-y-2">
+              <p className="font-display text-xl tracking-wider text-ink">RESET PASSWORD</p>
+              <p className="text-xs text-ghost">Use your one-time reset link to set a new password.</p>
+            </div>
+          )}
 
           <form onSubmit={submit} className="space-y-4">
-            {isRegister && (
+            {isRegister && !isReset && (
               <div className="field">
                 <label className="label">Name</label>
                 <input className="input input-lg" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} required />
@@ -81,7 +105,7 @@ export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion
               <input className="input input-lg" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
             </div>
             <div className="field">
-              <label className="label">Password</label>
+              <label className="label">{isReset ? 'New Password' : 'Password'}</label>
               <div className="relative">
                 <input className="input input-lg pr-10" type={showPw ? 'text' : 'password'} placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
                 <button type="button" tabIndex={-1} onClick={() => setShowPw((p) => !p)}
@@ -90,18 +114,35 @@ export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion
                 </button>
               </div>
             </div>
-            {isRegister && (
+            {isReset && (
+              <div className="field">
+                <label className="label">Confirm Password</label>
+                <input
+                  className="input input-lg"
+                  type={showPw ? 'text' : 'password'}
+                  placeholder="••••••••"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required />
+              </div>
+            )}
+            {isRegister && !isReset && (
               <div className="field">
                 <label className="label">Invite Token <span className="text-ghost normal-case">(required after first user)</span></label>
                 <input className="input input-lg font-mono" placeholder="Paste token here" value={invite} onChange={(e) => setInvite(e.target.value)} />
               </div>
+            )}
+            {isReset && (
+              <button type="button" onClick={() => onNavigate('login')} className="btn-ghost btn-sm w-full">
+                Back to Sign In
+              </button>
             )}
 
             {error && <p className="text-sm text-err bg-err/10 border border-err/20 rounded px-3 py-2">{error}</p>}
 
             <button type="submit" disabled={loading}
               className="btn-primary btn-lg w-full mt-2 font-display tracking-widest text-base">
-              {loading ? <Spinner size={18} /> : isRegister ? 'CREATE ACCOUNT' : 'SIGN IN'}
+              {loading ? <Spinner size={18} /> : isReset ? 'SET PASSWORD' : isRegister ? 'CREATE ACCOUNT' : 'SIGN IN'}
             </button>
           </form>
 

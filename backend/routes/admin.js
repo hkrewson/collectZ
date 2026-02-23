@@ -180,6 +180,83 @@ router.delete('/users/:id', asyncHandler(async (req, res) => {
   res.json({ message: 'User deleted' });
 }));
 
+router.post('/users/:id/password-reset', asyncHandler(async (req, res) => {
+  const userId = Number(req.params.id);
+  if (!Number.isFinite(userId) || userId <= 0) {
+    return res.status(400).json({ error: 'Invalid user id' });
+  }
+  const userResult = await pool.query('SELECT id, email FROM users WHERE id = $1', [userId]);
+  if (userResult.rows.length === 0) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  const token = crypto.randomBytes(32).toString('hex');
+  const tokenHash = hashInviteToken(token);
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+  await pool.query(
+    `UPDATE password_reset_tokens
+     SET revoked = true
+     WHERE user_id = $1
+       AND used = false
+       AND revoked = false`,
+    [userId]
+  );
+
+  const insert = await pool.query(
+    `INSERT INTO password_reset_tokens (user_id, token_hash, expires_at, created_by)
+     VALUES ($1, $2, $3, $4)
+     RETURNING id, user_id, expires_at, created_at`,
+    [userId, tokenHash, expiresAt, req.user.id]
+  );
+
+  const email = userResult.rows[0].email;
+  const resetUrl = `${req.protocol}://${req.get('host')}/reset-password?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
+  await logActivity(req, 'admin.user.password_reset.create', 'user', userId, {
+    email,
+    resetTokenId: insert.rows[0].id,
+    expiresAt
+  });
+  res.status(201).json({
+    id: insert.rows[0].id,
+    user_id: userId,
+    email,
+    expires_at: insert.rows[0].expires_at,
+    reset_url: resetUrl,
+    token
+  });
+}));
+
+router.post('/users/:id/password-reset/invalidate', asyncHandler(async (req, res) => {
+  const userId = Number(req.params.id);
+  if (!Number.isFinite(userId) || userId <= 0) {
+    return res.status(400).json({ error: 'Invalid user id' });
+  }
+  const userResult = await pool.query('SELECT id, email FROM users WHERE id = $1', [userId]);
+  if (userResult.rows.length === 0) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+
+  const revokeResult = await pool.query(
+    `UPDATE password_reset_tokens
+     SET revoked = true
+     WHERE user_id = $1
+       AND used = false
+       AND revoked = false`,
+    [userId]
+  );
+
+  await logActivity(req, 'admin.user.password_reset.invalidate', 'user', userId, {
+    email: userResult.rows[0].email,
+    invalidatedCount: revokeResult.rowCount || 0
+  });
+
+  res.json({
+    user_id: userId,
+    email: userResult.rows[0].email,
+    invalidated_count: revokeResult.rowCount || 0
+  });
+}));
+
 // ── Invites ───────────────────────────────────────────────────────────────────
 
 router.post('/invites', validate(inviteCreateSchema), asyncHandler(async (req, res) => {

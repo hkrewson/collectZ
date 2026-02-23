@@ -3,8 +3,8 @@ const bcrypt = require('bcrypt');
 const pool = require('../db/pool');
 const { asyncHandler } = require('../middleware/errors');
 const { authenticateToken, SESSION_COOKIE_OPTIONS } = require('../middleware/auth');
-const { validate, registerSchema, loginSchema, profileUpdateSchema } = require('../middleware/validate');
-const { createSession, revokeSessionByToken } = require('../services/sessions');
+const { validate, registerSchema, loginSchema, profileUpdateSchema, passwordResetConsumeSchema } = require('../middleware/validate');
+const { createSession, revokeSessionByToken, revokeSessionsForUser } = require('../services/sessions');
 const { logActivity } = require('../services/audit');
 const { issueCsrfToken, clearCsrfToken } = require('../middleware/csrf');
 const { hashInviteToken } = require('../services/invites');
@@ -132,6 +132,64 @@ router.post('/logout', asyncHandler(async (req, res) => {
   res.json({ message: 'Logged out' });
 }));
 
+// ── Password reset consume (one-time token) ───────────────────────────────────
+router.post('/password-reset/consume', validate(passwordResetConsumeSchema), asyncHandler(async (req, res) => {
+  const { token, email, password } = req.body;
+  const tokenHash = hashInviteToken(token);
+  const resetLookup = await pool.query(
+    `SELECT prt.id, prt.user_id, u.email
+     FROM password_reset_tokens prt
+     JOIN users u ON u.id = prt.user_id
+     WHERE prt.token_hash = $1
+       AND prt.used = false
+       AND prt.revoked = false
+       AND prt.expires_at > NOW()
+     LIMIT 1`,
+    [tokenHash]
+  );
+  if (resetLookup.rows.length === 0) {
+    await logActivity(req, 'auth.password_reset.consume.failed', 'password_reset', null, {
+      email,
+      reason: 'invalid_or_expired_token'
+    });
+    return res.status(400).json({ error: 'Invalid or expired reset token' });
+  }
+  const resetRow = resetLookup.rows[0];
+  if (String(resetRow.email).toLowerCase() !== String(email).toLowerCase()) {
+    await logActivity(req, 'auth.password_reset.consume.failed', 'user', resetRow.user_id, {
+      email,
+      reason: 'email_mismatch'
+    });
+    return res.status(400).json({ error: 'Reset token is not valid for this email address' });
+  }
+
+  const hashedPassword = await bcrypt.hash(password, 12);
+  await pool.query('UPDATE users SET password = $1 WHERE id = $2', [hashedPassword, resetRow.user_id]);
+  await pool.query(
+    'UPDATE password_reset_tokens SET used = true, used_at = NOW() WHERE id = $1',
+    [resetRow.id]
+  );
+
+  const revokedCount = await revokeSessionsForUser(resetRow.user_id);
+  const newSessionToken = await createSession(resetRow.user_id, {
+    ipAddress: req.ip,
+    userAgent: req.get('user-agent') || null
+  });
+  const meResult = await pool.query(
+    'SELECT id, email, name, role, created_at, updated_at FROM users WHERE id = $1',
+    [resetRow.user_id]
+  );
+  const me = meResult.rows[0];
+
+  res.cookie('session_token', newSessionToken, SESSION_COOKIE_OPTIONS);
+  issueCsrfToken(res);
+  await logActivity(req, 'auth.password_reset.consume', 'user', resetRow.user_id, {
+    email: resetRow.email,
+    revokedSessionCount: revokedCount
+  });
+  res.json({ user: me });
+}));
+
 // ── Current user ──────────────────────────────────────────────────────────────
 
 router.get('/me', authenticateToken, asyncHandler(async (req, res) => {
@@ -159,9 +217,9 @@ router.get('/profile', authenticateToken, asyncHandler(async (req, res) => {
 }));
 
 router.patch('/profile', authenticateToken, validate(profileUpdateSchema), asyncHandler(async (req, res) => {
-  const { name, email, password } = req.body;
+  const { name, email, password, current_password: currentPassword } = req.body;
   const previous = await pool.query(
-    'SELECT id, email, name FROM users WHERE id = $1',
+    'SELECT id, email, name, password FROM users WHERE id = $1',
     [req.user.id]
   );
   if (previous.rows.length === 0) {
@@ -189,6 +247,13 @@ router.patch('/profile', authenticateToken, validate(profileUpdateSchema), async
   }
 
   if (password) {
+    const currentValid = await bcrypt.compare(currentPassword, previous.rows[0].password);
+    if (!currentValid) {
+      await logActivity(req, 'auth.profile.password_change.failed', 'user', req.user.id, {
+        reason: 'current_password_incorrect'
+      });
+      return res.status(401).json({ error: 'Current password is incorrect' });
+    }
     const hashed = await bcrypt.hash(password, 12);
     values.push(hashed);
     updates.push(`password = $${values.length}`);
@@ -210,12 +275,20 @@ router.patch('/profile', authenticateToken, validate(profileUpdateSchema), async
     values
   );
 
+  let revokedSessionCount = 0;
+  if (password) {
+    revokedSessionCount = await revokeSessionsForUser(req.user.id, {
+      keepSessionId: req.sessionId || null
+    });
+  }
+
   await logActivity(req, 'auth.profile.update', 'user', req.user.id, {
     previousName: previous.rows[0].name,
     previousEmail: previous.rows[0].email,
     nextName: result.rows[0].name,
     nextEmail: result.rows[0].email,
-    passwordChanged: Boolean(password)
+    passwordChanged: Boolean(password),
+    revokedSessionCount
   });
 
   res.json(result.rows[0]);
