@@ -34,6 +34,15 @@ openssl rand -hex 32
   - `SESSION_TTL_DAYS` (default `7`): session lifetime in days.
   - `SESSION_MAX_PER_USER` (default `10`): max active sessions retained per user.
   - `SESSION_CLEANUP_INTERVAL_MINUTES` (default `60`): periodic expired-session cleanup cadence.
+- Rate limiting controls (app-layer authoritative policy):
+  - `RATE_LIMIT_WINDOW_MINUTES` (default `15`)
+  - `RATE_LIMIT_GLOBAL_MAX` (default `600`) — global `/api/*` safety net.
+  - `RATE_LIMIT_AUTH_MAX` (default `20`) — `/api/auth/login`, `/api/auth/register`.
+  - `RATE_LIMIT_ADMIN_MAX` (default `300`) — `/api/admin/*`.
+  - `RATE_LIMIT_MEDIA_READ_MAX` (default `600`) — `GET/HEAD /api/media/*`.
+  - `RATE_LIMIT_MEDIA_WRITE_MAX` (default `240`) — write methods on `/api/media/*`.
+  - `RATE_LIMIT_IMPORT_START_MAX` (default `60`) — import start routes.
+  - `RATE_LIMIT_SYNC_POLL_MAX` (default `600`) — `/api/media/sync-jobs`.
 
 ## Integration Defaults (Can Be Managed in Admin UI)
 

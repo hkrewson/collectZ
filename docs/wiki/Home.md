@@ -16,6 +16,7 @@ Start here for deployment and operations guidance.
 10. [CI/CD and Registry Deploy](./10-CI-CD-and-Registry-Deploy.md)
 11. [Spaces and Libraries Model](./11-Spaces-and-Libraries-Model.md)
 12. [2.0 Migration Rehearsal Runbook](./12-Migration-Rehearsal-Runbook.md)
+13. [Rate Limit Policy](./13-Rate-Limit-Policy.md)
 
 ## Default Seeded Admin (Important)
 

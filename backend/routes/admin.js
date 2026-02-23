@@ -218,7 +218,7 @@ router.patch('/invites/:id/revoke', asyncHandler(async (req, res) => {
 }));
 
 // ── Activity log ──────────────────────────────────────────────────────────────
-// Supports optional query filters: action, entity, userId, user, from, to, q, limit
+// Supports optional query filters: action, entity, userId, user, from, to, q, search, limit
 
 router.get('/activity', asyncHandler(async (req, res) => {
   const limitRaw = Number(req.query.limit || 100);
@@ -274,6 +274,20 @@ router.get('/activity', asyncHandler(async (req, res) => {
   if (req.query.q) {
     params.push(`%${req.query.q}%`);
     conditions.push(`al.details::text ILIKE $${params.length}`);
+  }
+
+  if (req.query.search) {
+    const searchValue = String(req.query.search).trim();
+    if (searchValue) {
+      params.push(`%${searchValue}%`);
+      const token = `$${params.length}`;
+      conditions.push(`(
+        al.action ILIKE ${token}
+        OR COALESCE(al.entity_type, '') ILIKE ${token}
+        OR al.details::text ILIKE ${token}
+        OR EXISTS (SELECT 1 FROM users u3 WHERE u3.id = al.user_id AND u3.email ILIKE ${token})
+      )`);
+    }
   }
 
   const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';

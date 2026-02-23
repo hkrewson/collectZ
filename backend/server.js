@@ -35,11 +35,20 @@ const { cleanupExpiredSessions, SESSION_MAX_PER_USER, SESSION_TTL_DAYS } = requi
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const APP_VERSION = process.env.APP_VERSION || appMeta.version || '1.9.6';
+const APP_VERSION = process.env.APP_VERSION || appMeta.version || '1.9.7';
 const GIT_SHA = process.env.GIT_SHA || appMeta?.build?.gitShaDefault || 'dev';
 const BUILD_DATE = process.env.BUILD_DATE || appMeta?.build?.buildDateDefault || 'unknown';
 const BUILD_LABEL = `v${APP_VERSION}+${GIT_SHA}`;
 const SESSION_CLEANUP_INTERVAL_MINUTES = Math.max(1, Number(process.env.SESSION_CLEANUP_INTERVAL_MINUTES || 60));
+const RATE_LIMIT_WINDOW_MINUTES = Math.max(1, Number(process.env.RATE_LIMIT_WINDOW_MINUTES || 15));
+const RATE_LIMIT_WINDOW_MS = RATE_LIMIT_WINDOW_MINUTES * 60 * 1000;
+const RATE_LIMIT_GLOBAL_MAX = Math.max(50, Number(process.env.RATE_LIMIT_GLOBAL_MAX || 600));
+const RATE_LIMIT_AUTH_MAX = Math.max(5, Number(process.env.RATE_LIMIT_AUTH_MAX || 20));
+const RATE_LIMIT_ADMIN_MAX = Math.max(30, Number(process.env.RATE_LIMIT_ADMIN_MAX || 300));
+const RATE_LIMIT_MEDIA_READ_MAX = Math.max(60, Number(process.env.RATE_LIMIT_MEDIA_READ_MAX || 600));
+const RATE_LIMIT_MEDIA_WRITE_MAX = Math.max(20, Number(process.env.RATE_LIMIT_MEDIA_WRITE_MAX || 240));
+const RATE_LIMIT_IMPORT_START_MAX = Math.max(5, Number(process.env.RATE_LIMIT_IMPORT_START_MAX || 60));
+const RATE_LIMIT_SYNC_POLL_MAX = Math.max(30, Number(process.env.RATE_LIMIT_SYNC_POLL_MAX || 600));
 
 const parseTrustProxy = (value) => {
   if (value === undefined || value === null || value === '') {
@@ -79,26 +88,59 @@ app.use(cookieParser());
 app.use(auditRequestOutcome);
 
 // ── Rate limiting ─────────────────────────────────────────────────────────────
-const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
+const makeLimiter = ({ max, message, skip }) => rateLimit({
+  windowMs: RATE_LIMIT_WINDOW_MS,
+  max,
   standardHeaders: true,
   legacyHeaders: false,
-  // Long-running imports poll sync status; don't let that starve auth/session routes.
+  skip,
+  message
+});
+
+// Authoritative layer: app-level limits are the source of truth.
+// Nginx proxy intentionally does not enforce request-rate limits.
+const globalLimiter = makeLimiter({
+  max: RATE_LIMIT_GLOBAL_MAX,
+  message: { error: 'Rate limit exceeded for API traffic' },
+  // Import status polling is governed by a dedicated limiter below.
   skip: (req) => req.path === '/media/sync-jobs'
 });
-
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
-  standardHeaders: true,
-  legacyHeaders: false,
+const authLimiter = makeLimiter({
+  max: RATE_LIMIT_AUTH_MAX,
   message: { error: 'Too many login attempts, please try again later' }
 });
+const adminLimiter = makeLimiter({
+  max: RATE_LIMIT_ADMIN_MAX,
+  message: { error: 'Too many admin requests, please slow down' }
+});
+const mediaReadLimiter = makeLimiter({
+  max: RATE_LIMIT_MEDIA_READ_MAX,
+  message: { error: 'Too many media read requests, please slow down' },
+  skip: (req) => !['GET', 'HEAD'].includes(req.method)
+});
+const mediaWriteLimiter = makeLimiter({
+  max: RATE_LIMIT_MEDIA_WRITE_MAX,
+  message: { error: 'Too many media write requests, please slow down' },
+  skip: (req) => ['GET', 'HEAD'].includes(req.method)
+});
+const importStartLimiter = makeLimiter({
+  max: RATE_LIMIT_IMPORT_START_MAX,
+  message: { error: 'Too many import start requests, please wait and retry' }
+});
+const syncPollLimiter = makeLimiter({
+  max: RATE_LIMIT_SYNC_POLL_MAX,
+  message: { error: 'Too many import status checks, please slow down' }
+});
 
-app.use('/api/', apiLimiter);
+app.use('/api/', globalLimiter);
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
+app.use('/api/admin', adminLimiter);
+app.use('/api/media', mediaReadLimiter);
+app.use('/api/media', mediaWriteLimiter);
+app.use('/api/media/import-plex', importStartLimiter);
+app.use('/api/media/import-csv', importStartLimiter);
+app.use('/api/media/sync-jobs', syncPollLimiter);
 
 // ── Static file serving (cover uploads) ──────────────────────────────────────
 app.use('/uploads', express.static('uploads'));
@@ -154,7 +196,8 @@ const startServer = async () => {
       console.log(
         `collectZ backend ${BUILD_LABEL} listening on port ${PORT} (audit=${getMode()}, ` +
         `sessionTtlDays=${SESSION_TTL_DAYS}, sessionMaxPerUser=${SESSION_MAX_PER_USER}, ` +
-        `sessionCleanupMinutes=${SESSION_CLEANUP_INTERVAL_MINUTES})`
+        `sessionCleanupMinutes=${SESSION_CLEANUP_INTERVAL_MINUTES}, ` +
+        `rateWindowMin=${RATE_LIMIT_WINDOW_MINUTES}, globalMax=${RATE_LIMIT_GLOBAL_MAX})`
       );
     });
   } catch (error) {
