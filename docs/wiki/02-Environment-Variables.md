@@ -30,6 +30,10 @@ openssl rand -hex 32
   - `failures`: log failed API requests only
   - `mutations`: log write requests (`POST/PUT/PATCH/DELETE`) plus failures
   - `all`: log all API requests
+- Session controls:
+  - `SESSION_TTL_DAYS` (default `7`): session lifetime in days.
+  - `SESSION_MAX_PER_USER` (default `10`): max active sessions retained per user.
+  - `SESSION_CLEANUP_INTERVAL_MINUTES` (default `60`): periodic expired-session cleanup cadence.
 
 ## Integration Defaults (Can Be Managed in Admin UI)
 

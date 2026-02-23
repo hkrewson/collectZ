@@ -15,6 +15,13 @@ const TMDB_PRESETS = {
   }
 };
 
+const TMDB_GENRE_MAP = {
+  28: 'Action', 12: 'Adventure', 16: 'Animation', 35: 'Comedy', 80: 'Crime',
+  99: 'Documentary', 18: 'Drama', 10751: 'Family', 14: 'Fantasy', 36: 'History',
+  27: 'Horror', 10402: 'Music', 9648: 'Mystery', 10749: 'Romance', 878: 'Science Fiction',
+  10770: 'TV Movie', 53: 'Thriller', 10752: 'War', 37: 'Western'
+};
+
 const resolveTmdbPreset = (presetName) =>
   TMDB_PRESETS[presetName] || TMDB_PRESETS.tmdb;
 
@@ -37,17 +44,34 @@ const resolveTmdbSearchUrl = (mediaType, integrationConfig = null) => {
   return `${base}/search/${target}`;
 };
 
-const toTmdbResultShape = (item, mediaType) => {
+const normalizeTmdbSearchResult = (item, mediaType) => {
   if (!item) return item;
-  if (mediaType !== 'tv') {
-    return { ...item, tmdb_media_type: 'movie' };
-  }
+  const normalizedType = mediaType === 'tv' ? 'tv' : 'movie';
+  const title = normalizedType === 'tv'
+    ? (item.name || item.title || '')
+    : (item.title || item.name || '');
+  const originalTitle = normalizedType === 'tv'
+    ? (item.original_name || item.original_title || '')
+    : (item.original_title || item.original_name || '');
+  const releaseDate = normalizedType === 'tv'
+    ? (item.first_air_date || item.release_date || '')
+    : (item.release_date || item.first_air_date || '');
+  const releaseYear = releaseDate ? Number(String(releaseDate).slice(0, 4)) : null;
+  const genreIds = Array.isArray(item.genre_ids) ? item.genre_ids : [];
+  const genreNames = genreIds
+    .map((id) => TMDB_GENRE_MAP[Number(id)])
+    .filter(Boolean);
+
   return {
     ...item,
-    title: item.name || item.title || '',
-    original_title: item.original_name || item.original_title || '',
-    release_date: item.first_air_date || item.release_date || '',
-    tmdb_media_type: 'tv'
+    title,
+    original_title: originalTitle,
+    release_date: releaseDate,
+    release_year: Number.isFinite(releaseYear) ? releaseYear : null,
+    rating: item.vote_average ?? null,
+    genre_ids: genreIds,
+    genre_names: genreNames,
+    tmdb_media_type: normalizedType
   };
 };
 
@@ -74,7 +98,7 @@ const searchTmdbMovie = async (title, year, integrationConfig = null, mediaType 
   else params[apiKeyQueryParam] = apiKey;
 
   const response = await axios.get(apiUrl, { params, headers });
-  return (response.data?.results || []).map((r) => toTmdbResultShape(r, normalizedType));
+  return (response.data?.results || []).map((r) => normalizeTmdbSearchResult(r, normalizedType));
 };
 
 const fetchTmdbMovieDetails = async (movieId, integrationConfig = null, mediaType = 'movie') => {
@@ -111,14 +135,22 @@ const fetchTmdbMovieDetails = async (movieId, integrationConfig = null, mediaTyp
     null;
   const trailerUrl = trailer?.key ? `https://www.youtube.com/watch?v=${trailer.key}` : '';
 
+  const releaseDate = details.release_date || details.first_air_date || null;
+  const releaseYear = releaseDate ? Number(String(releaseDate).slice(0, 4)) : null;
   return {
+    title: normalizedType === 'tv' ? (details.name || details.title || null) : (details.title || details.name || null),
+    original_title: normalizedType === 'tv'
+      ? (details.original_name || details.original_title || null)
+      : (details.original_title || details.original_name || null),
     director,
     runtime: details.runtime || details.episode_run_time?.[0] || null,
     trailer_url: trailerUrl,
     tmdb_url: `https://www.themoviedb.org/${normalizedType}/${movieId}`,
     tmdb_media_type: normalizedType,
-    release_date: details.release_date || details.first_air_date || null,
+    release_date: releaseDate,
+    release_year: Number.isFinite(releaseYear) ? releaseYear : null,
     rating: details.vote_average || null,
+    genre_names: Array.isArray(details.genres) ? details.genres.map((g) => g?.name).filter(Boolean) : [],
     overview: details.overview || null,
     poster_path: details.poster_path || null,
     backdrop_path: details.backdrop_path || null
@@ -127,7 +159,9 @@ const fetchTmdbMovieDetails = async (movieId, integrationConfig = null, mediaTyp
 
 module.exports = {
   TMDB_PRESETS,
+  TMDB_GENRE_MAP,
   resolveTmdbPreset,
+  normalizeTmdbSearchResult,
   searchTmdbMovie,
   fetchTmdbMovieDetails
 };

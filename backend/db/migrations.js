@@ -486,6 +486,36 @@ const MIGRATIONS = [
       END;
       $$;
     `
+  },
+  {
+    version: 11,
+    description: 'Metadata uniqueness and filter performance indexes',
+    up: `
+      CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+      WITH ranked AS (
+        SELECT
+          id,
+          ROW_NUMBER() OVER (
+            PARTITION BY media_id, "key"
+            ORDER BY created_at DESC, id DESC
+          ) AS rn
+        FROM media_metadata
+      )
+      DELETE FROM media_metadata mm
+      USING ranked r
+      WHERE mm.id = r.id
+        AND r.rn > 1;
+
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_media_metadata_media_id_key
+        ON media_metadata(media_id, "key");
+
+      CREATE INDEX IF NOT EXISTS idx_media_director_trgm
+        ON media USING GIN (lower(COALESCE(director, '')) gin_trgm_ops);
+
+      CREATE INDEX IF NOT EXISTS idx_media_genre_trgm
+        ON media USING GIN (lower(COALESCE(genre, '')) gin_trgm_ops);
+    `
   }
 ];
 

@@ -3,10 +3,15 @@ import axios from 'axios';
 import appMeta from './app-meta.json';
 
 const API_URL = process.env.REACT_APP_API_URL || '/api';
-const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.version || '1.9.3-r1';
+const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.version || '1.9.5-r1';
 const BUILD_SHA   = process.env.REACT_APP_GIT_SHA || appMeta?.build?.gitShaDefault || 'dev';
 const USER_KEY  = 'mediavault_user';
 const IMPORT_JOBS_KEY = 'collectz_import_jobs';
+const IMPORT_POLL_LEADER_KEY = 'collectz_import_poll_leader';
+const IMPORT_POLL_LAST_TS_KEY = 'collectz_import_poll_last_ts';
+const IMPORT_POLL_HEARTBEAT_MS = 8000;
+const IMPORT_POLL_STALE_MS = 25000;
+const IMPORT_POLL_INTERVAL_MS = 10000;
 
 const MEDIA_FORMATS = ['VHS', 'Blu-ray', 'Digital', 'DVD', '4K UHD'];
 const MEDIA_TYPES = [
@@ -15,13 +20,6 @@ const MEDIA_TYPES = [
   { value: 'other', label: 'Other' }
 ];
 const USER_ROLES    = ['admin', 'user', 'viewer'];
-
-const TMDB_GENRE_MAP = {
-  28:'Action',12:'Adventure',16:'Animation',35:'Comedy',80:'Crime',
-  99:'Documentary',18:'Drama',10751:'Family',14:'Fantasy',36:'History',
-  27:'Horror',10402:'Music',9648:'Mystery',10749:'Romance',878:'Science Fiction',
-  10770:'TV Movie',53:'Thriller',10752:'War',37:'Western'
-};
 
 const BARCODE_PRESETS = {
   upcitemdb:    { barcodePreset:'upcitemdb',    barcodeProvider:'upcitemdb',    barcodeApiUrl:'https://api.upcitemdb.com/prod/trial/lookup',      barcodeApiKeyHeader:'x-api-key',   barcodeQueryParam:'upc' },
@@ -76,18 +74,6 @@ function cx(...classes) { return classes.filter(Boolean).join(' '); }
 
 function inferTmdbSearchType(mediaType) {
   return mediaType === 'tv_series' || mediaType === 'tv_episode' ? 'tv' : 'movie';
-}
-
-function tmdbTitle(result) {
-  return result?.title || result?.name || '';
-}
-
-function tmdbOriginalTitle(result) {
-  return result?.original_title || result?.original_name || '';
-}
-
-function tmdbReleaseDate(result) {
-  return result?.release_date || result?.first_air_date || '';
 }
 
 function mediaTypeLabel(value) {
@@ -766,24 +752,24 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
       const tmdbType = result?.tmdb_media_type || inferTmdbSearchType(form.media_type);
       details = await apiCall('get', `/media/tmdb/${result.id}/details?mediaType=${tmdbType}`);
     } catch {} finally { setTmdbLoading(false); }
-    const genres = (result.genre_ids || []).map(id => TMDB_GENRE_MAP[id]).filter(Boolean).join(', ');
-    const releaseDate = tmdbReleaseDate(result);
+    const genres = Array.isArray(result.genre_names) ? result.genre_names.join(', ') : '';
+    const releaseDate = result?.release_date || '';
     const tmdbType = result?.tmdb_media_type || inferTmdbSearchType(form.media_type);
     set({
-      title: tmdbTitle(result) || form.title,
-      original_title: tmdbOriginalTitle(result) || form.original_title,
+      title: result?.title || form.title,
+      original_title: result?.original_title || form.original_title,
       release_date: releaseDate || form.release_date,
-      year: releaseDate ? String(releaseDate).slice(0, 4) : form.year,
+      year: result?.release_year ? String(result.release_year) : (releaseDate ? String(releaseDate).slice(0, 4) : form.year),
       genre: genres || form.genre,
-      rating: result.vote_average ? Number(result.vote_average).toFixed(1) : form.rating,
+      rating: result?.rating ? Number(result.rating).toFixed(1) : form.rating,
       director: details?.director || form.director,
-      overview: result.overview || form.overview,
+      overview: result?.overview || form.overview,
       tmdb_id: result.id || form.tmdb_id,
       tmdb_media_type: tmdbType,
       tmdb_url: details?.tmdb_url || `https://www.themoviedb.org/${tmdbType}/${result.id}`,
       trailer_url: details?.trailer_url || form.trailer_url,
-      poster_path: result.poster_path || form.poster_path,
-      backdrop_path: result.backdrop_path || form.backdrop_path,
+      poster_path: result?.poster_path || form.poster_path,
+      backdrop_path: result?.backdrop_path || form.backdrop_path,
       runtime: details?.runtime || form.runtime,
     });
     setTmdbResults([]);
@@ -811,14 +797,14 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
         details = await apiCall('get', `/media/tmdb/${tmdb.id}/details?mediaType=${tmdbType}`);
       } catch {}
     }
-    const genres = (tmdb?.genre_ids || []).map(id => TMDB_GENRE_MAP[id]).filter(Boolean).join(', ');
-    const releaseDate = tmdbReleaseDate(tmdb);
+    const genres = Array.isArray(tmdb?.genre_names) ? tmdb.genre_names.join(', ') : '';
+    const releaseDate = tmdb?.release_date || '';
     const tmdbType = tmdb?.tmdb_media_type || inferTmdbSearchType(form.media_type);
     set({
-      title: tmdbTitle(tmdb) || match.title || form.title,
-      original_title: tmdbOriginalTitle(tmdb) || form.original_title,
+      title: tmdb?.title || match.title || form.title,
+      original_title: tmdb?.original_title || form.original_title,
       release_date: releaseDate || form.release_date,
-      year: releaseDate ? String(releaseDate).slice(0,4) : form.year,
+      year: tmdb?.release_year ? String(tmdb.release_year) : (releaseDate ? String(releaseDate).slice(0,4) : form.year),
       genre: genres || form.genre,
       director: details?.director || form.director,
       overview: tmdb?.overview || match.description || form.overview,
@@ -993,8 +979,8 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
                     className="w-full flex items-center gap-3 p-2.5 rounded-lg bg-raised border border-edge hover:border-gold/40 hover:bg-gold/5 transition-all text-left group">
                     {r.poster_path && <img src={`https://image.tmdb.org/t/p/w92${r.poster_path}`} alt="" className="w-8 h-12 object-cover rounded shrink-0" />}
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-ink truncate">{tmdbTitle(r)}</p>
-                      <p className="text-xs text-ghost">{(tmdbReleaseDate(r) || '').slice(0,4) || 'n/a'}</p>
+                      <p className="text-sm font-medium text-ink truncate">{r.title || 'Unknown'}</p>
+                      <p className="text-xs text-ghost">{r.release_year || 'n/a'}</p>
                     </div>
                     <span className="text-xs text-gold opacity-0 group-hover:opacity-100 shrink-0">Apply →</span>
                   </button>
@@ -1011,7 +997,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
                   <button key={i} type="button" onClick={() => applyBarcode(m)}
                     className="w-full flex items-center gap-3 p-2.5 rounded-lg bg-raised border border-edge hover:border-gold/40 hover:bg-gold/5 transition-all text-left group">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-ink truncate">{tmdbTitle(m.tmdb) || m.title || 'Unknown'}</p>
+                      <p className="text-sm font-medium text-ink truncate">{m.tmdb?.title || m.title || 'Unknown'}</p>
                       <p className="text-xs text-ghost">{m.description || ''}</p>
                     </div>
                     <span className="text-xs text-gold opacity-0 group-hover:opacity-100 shrink-0">Apply →</span>
@@ -2056,7 +2042,8 @@ function AdminIntegrations({ apiCall, onToast, onQueueJob }) {
     barcodeApiKeySet:false,barcodeApiKeyMasked:'',
     visionApiKeySet:false,visionApiKeyMasked:'',
     tmdbApiKeySet:false,tmdbApiKeyMasked:'',
-    plexApiKeySet:false,plexApiKeyMasked:''
+    plexApiKeySet:false,plexApiKeyMasked:'',
+    decryptHealth:{ hasWarnings:false, warnings:[], remediation:'' }
   });
   const [status, setStatus] = useState({ barcode:'unknown',vision:'unknown',tmdb:'unknown',plex:'unknown' });
   const [testLoading, setTestLoading] = useState('');
@@ -2079,7 +2066,8 @@ function AdminIntegrations({ apiCall, onToast, onQueueJob }) {
         barcodeApiKeySet:Boolean(data.barcodeApiKeySet),barcodeApiKeyMasked:data.barcodeApiKeyMasked||'',
         visionApiKeySet:Boolean(data.visionApiKeySet),visionApiKeyMasked:data.visionApiKeyMasked||'',
         tmdbApiKeySet:Boolean(data.tmdbApiKeySet),tmdbApiKeyMasked:data.tmdbApiKeyMasked||'',
-        plexApiKeySet:Boolean(data.plexApiKeySet),plexApiKeyMasked:data.plexApiKeyMasked||''
+        plexApiKeySet:Boolean(data.plexApiKeySet),plexApiKeyMasked:data.plexApiKeyMasked||'',
+        decryptHealth:data.decryptHealth || { hasWarnings:false, warnings:[], remediation:'' }
       });
       setStatus({
         barcode:data.barcodeApiKeySet?'configured':'missing',
@@ -2124,7 +2112,8 @@ function AdminIntegrations({ apiCall, onToast, onQueueJob }) {
         barcodeApiKeySet:Boolean(updated.barcodeApiKeySet),barcodeApiKeyMasked:updated.barcodeApiKeyMasked||'',
         visionApiKeySet:Boolean(updated.visionApiKeySet),visionApiKeyMasked:updated.visionApiKeyMasked||'',
         tmdbApiKeySet:Boolean(updated.tmdbApiKeySet),tmdbApiKeyMasked:updated.tmdbApiKeyMasked||'',
-        plexApiKeySet:Boolean(updated.plexApiKeySet),plexApiKeyMasked:updated.plexApiKeyMasked||''
+        plexApiKeySet:Boolean(updated.plexApiKeySet),plexApiKeyMasked:updated.plexApiKeyMasked||'',
+        decryptHealth:updated.decryptHealth || { hasWarnings:false, warnings:[], remediation:'' }
       });
       setStatus(s => ({ ...s, [sec]: updated[`${sec}ApiKeySet`] ? 'configured' : 'missing' }));
       setForm(f => ({ ...f, barcodeApiKey:'',visionApiKey:'',tmdbApiKey:'',plexApiKey:'',clearBarcodeApiKey:false,clearVisionApiKey:false,clearTmdbApiKey:false,clearPlexApiKey:false }));
@@ -2181,6 +2170,20 @@ function AdminIntegrations({ apiCall, onToast, onQueueJob }) {
           </button>
         ))}
       </div>
+
+      {meta.decryptHealth?.hasWarnings && (
+        <div className="card p-4 border border-edge bg-raised">
+          <p className="text-sm font-semibold text-ink">Integration key decryption warning</p>
+          <p className="text-xs text-dim mt-1">{meta.decryptHealth.remediation || 'Re-enter and save the affected key, or clear it.'}</p>
+          <ul className="mt-2 space-y-1">
+            {(meta.decryptHealth.warnings || []).map((w, idx) => (
+              <li key={`${w.provider || 'integration'}-${idx}`} className="text-xs text-dim font-mono">
+                {String(w.provider || 'integration').toUpperCase()}: {w.field || 'secret'} ({w.code || 'warning'})
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="card p-5 space-y-4">
         {section === 'barcode' && <>
@@ -2319,6 +2322,45 @@ export default function App() {
       return [];
     }
   });
+  const tabIdRef = useRef(`tab-${Math.random().toString(36).slice(2)}-${Date.now().toString(36)}`);
+  const [isImportPollLeader, setIsImportPollLeader] = useState(false);
+
+  const isForegroundTab = useCallback(
+    () => typeof document !== 'undefined' && document.visibilityState === 'visible' && document.hasFocus(),
+    []
+  );
+
+  const releaseImportPollLeader = useCallback(() => {
+    try {
+      const raw = localStorage.getItem(IMPORT_POLL_LEADER_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (parsed?.tabId === tabIdRef.current) localStorage.removeItem(IMPORT_POLL_LEADER_KEY);
+    } catch (_) {}
+    setIsImportPollLeader(false);
+  }, []);
+
+  const claimImportPollLeader = useCallback(() => {
+    if (!isForegroundTab()) {
+      setIsImportPollLeader(false);
+      return false;
+    }
+    try {
+      const now = Date.now();
+      const raw = localStorage.getItem(IMPORT_POLL_LEADER_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      const stale = !parsed?.tabId || !parsed?.ts || (now - Number(parsed.ts)) > IMPORT_POLL_STALE_MS;
+      if (stale || parsed.tabId === tabIdRef.current) {
+        localStorage.setItem(
+          IMPORT_POLL_LEADER_KEY,
+          JSON.stringify({ tabId: tabIdRef.current, ts: now })
+        );
+        setIsImportPollLeader(true);
+        return true;
+      }
+    } catch (_) {}
+    setIsImportPollLeader(false);
+    return false;
+  }, [isForegroundTab]);
 
   // Navigation
   const navigate = nextRoute => {
@@ -2338,6 +2380,42 @@ export default function App() {
       setRoute('dashboard');
     }
   }, [route, user]);
+
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (isForegroundTab()) claimImportPollLeader();
+      else releaseImportPollLeader();
+    };
+    const onFocus = () => claimImportPollLeader();
+    const onBlur = () => releaseImportPollLeader();
+    const onBeforeUnload = () => releaseImportPollLeader();
+    const onStorage = (event) => {
+      if (event.key !== IMPORT_POLL_LEADER_KEY) return;
+      if (isForegroundTab()) claimImportPollLeader();
+      else setIsImportPollLeader(false);
+    };
+
+    claimImportPollLeader();
+    const heartbeat = setInterval(() => {
+      if (isForegroundTab()) claimImportPollLeader();
+    }, IMPORT_POLL_HEARTBEAT_MS);
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('blur', onBlur);
+    window.addEventListener('beforeunload', onBeforeUnload);
+    window.addEventListener('storage', onStorage);
+
+    return () => {
+      clearInterval(heartbeat);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('blur', onBlur);
+      window.removeEventListener('beforeunload', onBeforeUnload);
+      window.removeEventListener('storage', onStorage);
+      releaseImportPollLeader();
+    };
+  }, [claimImportPollLeader, isForegroundTab, releaseImportPollLeader]);
 
   // API helper
   const apiCall = useCallback(async (method, path, data, config = {}) => {
@@ -2365,6 +2443,11 @@ export default function App() {
   const dismissImportJob = useCallback((jobId) => {
     setImportJobs((prev) => prev.filter((j) => Number(j.id) !== Number(jobId)));
   }, []);
+
+  const hasActiveImportJobs = useMemo(
+    () => importJobs.some((job) => job.status === 'queued' || job.status === 'running'),
+    [importJobs]
+  );
 
   // Auth
   const handleAuth = (usr) => {
@@ -2518,9 +2601,16 @@ export default function App() {
   }, [importJobs]);
 
   useEffect(() => {
-    if (!user || importJobs.length === 0) return undefined;
+    if (!user || !hasActiveImportJobs || !isImportPollLeader) return undefined;
     let cancelled = false;
     const poll = async () => {
+      if (!claimImportPollLeader()) return;
+      const now = Date.now();
+      try {
+        const lastPollTs = Number(localStorage.getItem(IMPORT_POLL_LAST_TS_KEY) || 0);
+        if (Number.isFinite(lastPollTs) && lastPollTs > 0 && now - lastPollTs < 6000) return;
+        localStorage.setItem(IMPORT_POLL_LAST_TS_KEY, String(now));
+      } catch (_) {}
       try {
         const rows = await apiCall('get', '/media/sync-jobs?limit=50');
         if (cancelled || !Array.isArray(rows)) return;
@@ -2534,12 +2624,12 @@ export default function App() {
       }
     };
     poll();
-    const t = setInterval(poll, 4000);
+    const t = setInterval(poll, IMPORT_POLL_INTERVAL_MS);
     return () => {
       cancelled = true;
       clearInterval(t);
     };
-  }, [apiCall, user, importJobs.length]);
+  }, [apiCall, claimImportPollLeader, user, hasActiveImportJobs, isImportPollLeader]);
 
   const showToast = (message, type = 'ok') => setToast({ message, type });
 

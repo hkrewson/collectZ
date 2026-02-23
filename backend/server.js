@@ -31,13 +31,15 @@ const authRouter = require('./routes/auth');
 const mediaRouter = require('./routes/media');
 const adminRouter = require('./routes/admin');
 const integrationsRouter = require('./routes/integrations');
+const { cleanupExpiredSessions, SESSION_MAX_PER_USER, SESSION_TTL_DAYS } = require('./services/sessions');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const APP_VERSION = process.env.APP_VERSION || appMeta.version || '1.9.3-r1';
+const APP_VERSION = process.env.APP_VERSION || appMeta.version || '1.9.5-r1';
 const GIT_SHA = process.env.GIT_SHA || appMeta?.build?.gitShaDefault || 'dev';
 const BUILD_DATE = process.env.BUILD_DATE || appMeta?.build?.buildDateDefault || 'unknown';
 const BUILD_LABEL = `v${APP_VERSION}+${GIT_SHA}`;
+const SESSION_CLEANUP_INTERVAL_MINUTES = Math.max(1, Number(process.env.SESSION_CLEANUP_INTERVAL_MINUTES || 60));
 
 const parseTrustProxy = (value) => {
   if (value === undefined || value === null || value === '') {
@@ -81,7 +83,9 @@ const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  // Long-running imports poll sync status; don't let that starve auth/session routes.
+  skip: (req) => req.path === '/media/sync-jobs'
 });
 
 const authLimiter = rateLimit({
@@ -136,8 +140,22 @@ const startServer = async () => {
   try {
     validateStartupSecurityConfig();
     await runMigrations();
+    // Run one cleanup pass on startup so stale rows are removed quickly.
+    await cleanupExpiredSessions();
+    const cleanupTimer = setInterval(async () => {
+      try {
+        await cleanupExpiredSessions();
+      } catch (error) {
+        console.error('Session cleanup job failed:', error.message);
+      }
+    }, SESSION_CLEANUP_INTERVAL_MINUTES * 60 * 1000);
+    cleanupTimer.unref();
     app.listen(PORT, '0.0.0.0', () => {
-      console.log(`collectZ backend ${BUILD_LABEL} listening on port ${PORT} (audit=${getMode()})`);
+      console.log(
+        `collectZ backend ${BUILD_LABEL} listening on port ${PORT} (audit=${getMode()}, ` +
+        `sessionTtlDays=${SESSION_TTL_DAYS}, sessionMaxPerUser=${SESSION_MAX_PER_USER}, ` +
+        `sessionCleanupMinutes=${SESSION_CLEANUP_INTERVAL_MINUTES})`
+      );
     });
   } catch (error) {
     console.error('Fatal startup error:', error.message);

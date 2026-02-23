@@ -32,10 +32,13 @@ const encryptSecret = (plaintext) => {
   return `${iv.toString('base64')}:${tag.toString('base64')}:${encrypted.toString('base64')}`;
 };
 
-const decryptSecret = (encryptedText, contextLabel = '') => {
-  if (!encryptedText) return '';
+const decryptSecretWithStatus = (encryptedText, contextLabel = '') => {
+  if (!encryptedText) return { value: '', error: null };
   try {
     const [ivB64, tagB64, dataB64] = encryptedText.split(':');
+    if (!ivB64 || !tagB64 || !dataB64) {
+      throw new Error('Encrypted payload format is invalid');
+    }
     const decipher = crypto.createDecipheriv(
       'aes-256-gcm',
       integrationEncryptionKey,
@@ -46,13 +49,15 @@ const decryptSecret = (encryptedText, contextLabel = '') => {
       decipher.update(Buffer.from(dataB64, 'base64')),
       decipher.final()
     ]);
-    return decrypted.toString('utf8');
+    return { value: decrypted.toString('utf8'), error: null };
   } catch (error) {
     const suffix = contextLabel ? ` (${contextLabel})` : '';
     console.warn(`[crypto] Failed to decrypt integration secret${suffix}: ${error.message}`);
-    return '';
+    return { value: '', error: error.message || 'decryption failed' };
   }
 };
+
+const decryptSecret = (encryptedText, contextLabel = '') => decryptSecretWithStatus(encryptedText, contextLabel).value;
 
 const maskSecret = (secret) => {
   if (!secret) return '';
@@ -61,4 +66,4 @@ const maskSecret = (secret) => {
   return `${'*'.repeat(Math.max(4, value.length - 4))}${value.slice(-4)}`;
 };
 
-module.exports = { encryptSecret, decryptSecret, maskSecret };
+module.exports = { encryptSecret, decryptSecret, decryptSecretWithStatus, maskSecret };
