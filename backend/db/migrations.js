@@ -549,51 +549,60 @@ const MIGRATIONS = [
   }
 ];
 
-async function runMigrations() {
+async function runMigrationsForClient(client, options = {}) {
+  const maxVersion = Number.isFinite(Number(options.maxVersion)) ? Number(options.maxVersion) : null;
+  // Create the migrations tracking table outside a transaction (DDL in PG is transactional)
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      version INTEGER PRIMARY KEY,
+      description TEXT NOT NULL,
+      applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  const applied = await client.query('SELECT version FROM schema_migrations ORDER BY version');
+  const appliedVersions = new Set(applied.rows.map(r => r.version));
+
+  const pending = MIGRATIONS
+    .filter(m => !appliedVersions.has(m.version))
+    .filter(m => maxVersion === null || m.version <= maxVersion);
+
+  if (pending.length === 0) {
+    const expectedCount = maxVersion === null
+      ? MIGRATIONS.length
+      : MIGRATIONS.filter(m => m.version <= maxVersion).length;
+    console.log(`Database schema up to date (${expectedCount} migration(s) applied).`);
+    return;
+  }
+
+  for (const migration of pending) {
+    console.log(`Applying migration v${migration.version}: ${migration.description}`);
+    await client.query('BEGIN');
+    try {
+      await client.query(migration.up);
+      await client.query(
+        'INSERT INTO schema_migrations (version, description) VALUES ($1, $2)',
+        [migration.version, migration.description]
+      );
+      await client.query('COMMIT');
+      console.log(`  ✓ Migration v${migration.version} applied.`);
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw new Error(
+        `Migration v${migration.version} failed and was rolled back: ${err.message}`
+      );
+    }
+  }
+  console.log(`Applied ${pending.length} migration(s) successfully.`);
+}
+
+async function runMigrations(options = {}) {
   const client = await pool.connect();
   try {
-    // Create the migrations tracking table outside a transaction (DDL in PG is transactional)
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS schema_migrations (
-        version INTEGER PRIMARY KEY,
-        description TEXT NOT NULL,
-        applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    const applied = await client.query('SELECT version FROM schema_migrations ORDER BY version');
-    const appliedVersions = new Set(applied.rows.map(r => r.version));
-
-    const pending = MIGRATIONS.filter(m => !appliedVersions.has(m.version));
-
-    if (pending.length === 0) {
-      console.log(`Database schema up to date (${MIGRATIONS.length} migration(s) applied).`);
-      return;
-    }
-
-    for (const migration of pending) {
-      console.log(`Applying migration v${migration.version}: ${migration.description}`);
-      await client.query('BEGIN');
-      try {
-        await client.query(migration.up);
-        await client.query(
-          'INSERT INTO schema_migrations (version, description) VALUES ($1, $2)',
-          [migration.version, migration.description]
-        );
-        await client.query('COMMIT');
-        console.log(`  ✓ Migration v${migration.version} applied.`);
-      } catch (err) {
-        await client.query('ROLLBACK');
-        throw new Error(
-          `Migration v${migration.version} failed and was rolled back: ${err.message}`
-        );
-      }
-    }
-
-    console.log(`Applied ${pending.length} migration(s) successfully.`);
+    await runMigrationsForClient(client, options);
   } finally {
     client.release();
   }
 }
 
-module.exports = { runMigrations };
+module.exports = { runMigrations, runMigrationsForClient, MIGRATIONS };
