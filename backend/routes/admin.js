@@ -8,6 +8,7 @@ const { loadGeneralSettings } = require('../services/integrations');
 const { listFeatureFlags, getFeatureFlag, updateFeatureFlag, FEATURE_FLAGS_READ_ONLY } = require('../services/featureFlags');
 const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
 const crypto = require('crypto');
+const { hashInviteToken } = require('../services/invites');
 
 const router = express.Router();
 
@@ -185,19 +186,23 @@ router.post('/invites', validate(inviteCreateSchema), asyncHandler(async (req, r
   const scopeContext = resolveScopeContext(req);
   const { email } = req.body;
   const token = crypto.randomBytes(32).toString('hex');
+  const tokenHash = hashInviteToken(token);
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
   const result = await pool.query(
-    `INSERT INTO invites (email, token, expires_at, created_by, space_id)
+    `INSERT INTO invites (email, token_hash, expires_at, created_by, space_id)
      VALUES ($1, $2, $3, $4, $5)
-     RETURNING id, email, token, used, revoked, used_by, used_at, expires_at, created_at`,
-    [email, token, expiresAt, req.user.id, scopeContext.spaceId]
+     RETURNING id, email, used, revoked, used_by, used_at, expires_at, created_at`,
+    [email, tokenHash, expiresAt, req.user.id, scopeContext.spaceId]
   );
   await logActivity(req, 'admin.invite.create', 'invite', result.rows[0].id, {
     email: result.rows[0].email,
     expiresAt: result.rows[0].expires_at
   });
-  res.status(201).json(result.rows[0]);
+  res.status(201).json({
+    ...result.rows[0],
+    token
+  });
 }));
 
 router.get('/invites', asyncHandler(async (req, res) => {
@@ -205,7 +210,7 @@ router.get('/invites', asyncHandler(async (req, res) => {
   const params = [];
   const scopeClause = appendScopeSql(params, scopeContext, { libraryColumn: null });
   const result = await pool.query(
-    `SELECT i.id, i.email, i.token, i.used, i.revoked, i.used_by, i.used_at,
+    `SELECT i.id, i.email, i.used, i.revoked, i.used_by, i.used_at,
             i.expires_at, i.created_at, creator.email AS created_by_email,
             claimer.email AS used_by_email
      FROM invites i

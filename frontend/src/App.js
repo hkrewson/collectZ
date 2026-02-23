@@ -7,7 +7,7 @@ import ImportViewComponent from './components/ImportView';
 import AdminFeatureFlagsView from './components/AdminFeatureFlagsView';
 
 const API_URL = process.env.REACT_APP_API_URL || '/api';
-const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.version || '1.9.14';
+const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.version || '1.9.15';
 const BUILD_SHA   = process.env.REACT_APP_GIT_SHA || appMeta?.build?.gitShaDefault || 'dev';
 const IMPORT_JOBS_KEY = 'collectz_import_jobs';
 const IMPORT_POLL_LEADER_KEY = 'collectz_import_poll_leader';
@@ -1365,7 +1365,8 @@ function AdminUsers({ apiCall, onToast, currentUserId }) {
       const url = `${window.location.origin}/register?invite=${encodeURIComponent(data.token)}&email=${encodeURIComponent(data.email)}`;
       setInviteUrl(url);
       setInviteEmail('');
-      setInvites(i => [data, ...i]);
+      const { token: _token, ...safeInvite } = data;
+      setInvites(i => [safeInvite, ...i]);
       onToast(`Invite created for ${data.email}`);
     } catch (err) {
       onToast(err.response?.data?.error || err.response?.data?.detail || 'Failed to create invite', 'error');
@@ -1527,7 +1528,6 @@ function AdminUsers({ apiCall, onToast, currentUserId }) {
                   status = 'Expired';
                   statusClass = 'badge-warn';
                 }
-                const inviteLink = `${window.location.origin}/register?invite=${encodeURIComponent(inv.token)}&email=${encodeURIComponent(inv.email)}`;
                 return (
                   <div key={inv.id} className="flex items-center gap-3 px-4 py-3">
                     <div className="flex-1 min-w-0">
@@ -1540,7 +1540,6 @@ function AdminUsers({ apiCall, onToast, currentUserId }) {
                     <span className={cx('badge', statusClass)}>{status}</span>
                     {!inv.used && !inv.revoked && !expired && (
                       <>
-                        <button onClick={() => copy(inviteLink)} className="btn-ghost btn-sm"><Icons.Copy /></button>
                         <button onClick={() => revokeInvite(inv.id)} className="btn-danger btn-sm">Invalidate</button>
                       </>
                     )}

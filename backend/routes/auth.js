@@ -7,6 +7,7 @@ const { validate, registerSchema, loginSchema, profileUpdateSchema } = require('
 const { createSession, revokeSessionByToken } = require('../services/sessions');
 const { logActivity } = require('../services/audit');
 const { issueCsrfToken, clearCsrfToken } = require('../middleware/csrf');
+const { hashInviteToken } = require('../services/invites');
 
 const router = express.Router();
 
@@ -26,9 +27,14 @@ router.post('/register', validate(registerSchema), asyncHandler(async (req, res)
 
   let claimedInvite = null;
   if (inviteToken) {
+    const tokenHash = hashInviteToken(inviteToken);
     const invite = await pool.query(
-      'SELECT * FROM invites WHERE token = $1 AND used = false AND revoked = false AND expires_at > NOW()',
-      [inviteToken]
+      `SELECT * FROM invites
+       WHERE (token_hash = $1 OR token = $2)
+         AND used = false
+         AND revoked = false
+         AND expires_at > NOW()`,
+      [tokenHash, inviteToken]
     );
     if (invite.rows.length === 0) {
       return res.status(400).json({ error: 'Invalid or expired invite token' });
@@ -56,8 +62,8 @@ router.post('/register', validate(registerSchema), asyncHandler(async (req, res)
 
   if (inviteToken) {
     await pool.query(
-      'UPDATE invites SET used = true, used_by = $2, used_at = NOW() WHERE token = $1',
-      [inviteToken, result.rows[0].id]
+      'UPDATE invites SET used = true, used_by = $2, used_at = NOW() WHERE id = $1',
+      [claimedInvite.id, result.rows[0].id]
     );
     await logActivity({ ...req, user: { id: result.rows[0].id } }, 'invite.claimed', 'invite', claimedInvite?.id || null, {
       inviteEmail: claimedInvite?.email || null,
