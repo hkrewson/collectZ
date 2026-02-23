@@ -5,6 +5,7 @@ const { authenticateToken, requireRole } = require('../middleware/auth');
 const { validate, roleUpdateSchema, inviteCreateSchema, generalSettingsSchema } = require('../middleware/validate');
 const { logActivity } = require('../services/audit');
 const { loadGeneralSettings } = require('../services/integrations');
+const { listFeatureFlags, getFeatureFlag, updateFeatureFlag, FEATURE_FLAGS_READ_ONLY } = require('../services/featureFlags');
 const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
 const crypto = require('crypto');
 
@@ -29,6 +30,44 @@ router.put('/settings/general', validate(generalSettingsSchema), asyncHandler(as
   );
   await logActivity(req, 'admin.settings.general.update', 'app_settings', 1, { theme, density });
   res.json(result.rows[0]);
+}));
+
+// ── Feature flags ─────────────────────────────────────────────────────────────
+
+router.get('/feature-flags', asyncHandler(async (_req, res) => {
+  const flags = await listFeatureFlags();
+  res.json({ readOnly: FEATURE_FLAGS_READ_ONLY, flags });
+}));
+
+router.patch('/feature-flags/:key', asyncHandler(async (req, res) => {
+  const key = String(req.params.key || '').trim();
+  const { enabled } = req.body || {};
+
+  if (!key) return res.status(400).json({ error: 'Feature flag key is required' });
+  if (typeof enabled !== 'boolean') return res.status(400).json({ error: 'enabled must be boolean' });
+
+  const previous = await getFeatureFlag(key);
+  if (!previous) return res.status(404).json({ error: `Unknown feature flag: ${key}` });
+
+  try {
+    const updated = await updateFeatureFlag({ key, enabled, updatedBy: req.user?.id || null });
+    await logActivity(req, 'admin.feature_flag.update', 'feature_flag', null, {
+      key,
+      previousEnabled: previous.enabled,
+      nextEnabled: updated.enabled,
+      envOverride: updated.envOverride
+    });
+    res.json(updated);
+  } catch (error) {
+    if (error?.code === 'feature_flags_read_only') {
+      await logActivity(req, 'admin.feature_flag.update.failed', 'feature_flag', null, {
+        key,
+        requestedEnabled: enabled,
+        reason: 'read_only'
+      });
+    }
+    throw error;
+  }
 }));
 
 // ── Users ─────────────────────────────────────────────────────────────────────

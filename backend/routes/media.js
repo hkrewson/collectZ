@@ -16,6 +16,7 @@ const { parseCsvText } = require('../services/csv');
 const { logError, logActivity } = require('../services/audit');
 const { uploadBuffer } = require('../services/storage');
 const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
+const { isFeatureEnabled } = require('../services/featureFlags');
 
 const router = express.Router();
 
@@ -312,6 +313,15 @@ function parseAsyncFlag(value) {
   if (value === false || value === undefined || value === null) return false;
   const normalized = String(value).trim().toLowerCase();
   return normalized === '1' || normalized === 'true' || normalized === 'yes';
+}
+
+async function assertFeatureEnabled(key) {
+  const enabled = await isFeatureEnabled(key, true);
+  if (enabled) return;
+  const error = new Error('This feature is disabled by an administrator');
+  error.status = 503;
+  error.code = 'feature_disabled';
+  throw error;
 }
 
 function jobScopePayload(scopeContext, sectionIds = []) {
@@ -1192,6 +1202,7 @@ router.put('/:id/tv-seasons', asyncHandler(async (req, res) => {
 // ── TMDB search ───────────────────────────────────────────────────────────────
 
 router.post('/search-tmdb', asyncHandler(async (req, res) => {
+  await assertFeatureEnabled('tmdb_search_enabled');
   const { title, year, mediaType } = req.body;
   if (!title?.trim()) {
     return res.status(400).json({ error: 'title is required' });
@@ -1203,6 +1214,7 @@ router.post('/search-tmdb', asyncHandler(async (req, res) => {
 }));
 
 router.get('/tmdb/:id/details', asyncHandler(async (req, res) => {
+  await assertFeatureEnabled('tmdb_search_enabled');
   const movieId = Number(req.params.id);
   if (!Number.isFinite(movieId) || movieId <= 0) {
     return res.status(400).json({ error: 'Valid numeric TMDB id is required' });
@@ -1216,6 +1228,7 @@ router.get('/tmdb/:id/details', asyncHandler(async (req, res) => {
 // ── UPC lookup ────────────────────────────────────────────────────────────────
 
 router.post('/lookup-upc', asyncHandler(async (req, res) => {
+  await assertFeatureEnabled('lookup_upc_enabled');
   const { upc } = req.body;
   if (!upc || !String(upc).trim()) {
     return res.status(400).json({ error: 'UPC is required' });
@@ -1259,6 +1272,7 @@ router.post('/lookup-upc', asyncHandler(async (req, res) => {
 // ── Cover recognition ─────────────────────────────────────────────────────────
 
 router.post('/recognize-cover', tempUpload.single('cover'), asyncHandler(async (req, res) => {
+  await assertFeatureEnabled('recognize_cover_enabled');
   if (!req.file) {
     return res.status(400).json({ error: 'Cover image file is required' });
   }
@@ -1331,6 +1345,7 @@ router.get('/import/template-csv', asyncHandler(async (_req, res) => {
 }));
 
 router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, res) => {
+  await assertFeatureEnabled('import_csv_enabled');
   const scopeContext = resolveScopeContext(req);
   if (!req.file) {
     return res.status(400).json({ error: 'CSV file is required (multipart field: file)' });
@@ -1457,6 +1472,7 @@ router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, r
 }));
 
 router.post('/import-csv/delicious', tempUpload.single('file'), asyncHandler(async (req, res) => {
+  await assertFeatureEnabled('import_csv_enabled');
   const scopeContext = resolveScopeContext(req);
   if (!req.file) {
     return res.status(400).json({ error: 'Delicious CSV file is required (multipart field: file)' });
@@ -1581,6 +1597,7 @@ router.post('/import-csv/delicious', tempUpload.single('file'), asyncHandler(asy
 // ── Plex import (admin only) ─────────────────────────────────────────────────
 
 router.post('/import-plex', asyncHandler(async (req, res) => {
+  await assertFeatureEnabled('import_plex_enabled');
   const scopeContext = resolveScopeContext(req);
   if (req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Only admins can import from Plex' });

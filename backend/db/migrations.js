@@ -516,6 +516,36 @@ const MIGRATIONS = [
       CREATE INDEX IF NOT EXISTS idx_media_genre_trgm
         ON media USING GIN (lower(COALESCE(genre, '')) gin_trgm_ops);
     `
+  },
+  {
+    version: 12,
+    description: 'Feature flag metadata and defaults',
+    up: `
+      ALTER TABLE feature_flags
+        ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+
+      ALTER TABLE feature_flags
+        ADD COLUMN IF NOT EXISTS updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL;
+
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_feature_flags_updated_at') THEN
+          CREATE TRIGGER update_feature_flags_updated_at BEFORE UPDATE ON feature_flags
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+        END IF;
+      END;
+      $$;
+
+      INSERT INTO feature_flags (key, enabled, description)
+      VALUES
+        ('import_plex_enabled', true, 'Allow Plex imports from the Import page and API'),
+        ('import_csv_enabled', true, 'Allow CSV imports (generic and Delicious)'),
+        ('tmdb_search_enabled', true, 'Allow TMDB search and details lookups'),
+        ('lookup_upc_enabled', true, 'Allow barcode/UPC lookup API usage'),
+        ('recognize_cover_enabled', true, 'Allow vision/OCR cover recognition API usage')
+      ON CONFLICT (key) DO UPDATE
+      SET description = EXCLUDED.description;
+    `
   }
 ];
 
