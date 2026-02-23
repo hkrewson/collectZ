@@ -18,7 +18,7 @@ It is designed for homelab-friendly deployment with Docker, secure user auth, an
 
 ## Current Version
 
-- `1.9.12`
+- `1.9.13`
 
 ## Quick Start (Local Docker)
 
@@ -35,6 +35,12 @@ It is designed for homelab-friendly deployment with Docker, secure user auth, an
    - `docker compose --env-file .env up -d --build`
 5. Open:
    - `http://localhost:3000`
+
+Optional preflight helper:
+
+- `./setup.sh`
+- Performs prerequisite + `.env` checks and prints deploy commands.
+- It does not modify application source files.
 
 ## First-Run Auth Behavior
 
@@ -81,7 +87,7 @@ If using prebuilt images from GHCR:
 
 1. Configure `.env` and `docker-compose.registry.yml`
 2. Set your tag (example):
-   - `IMAGE_TAG=1.9.12`
+   - `IMAGE_TAG=1.9.13`
 3. Deploy:
    - `docker compose -f docker-compose.registry.yml --env-file .env pull`
    - `docker compose -f docker-compose.registry.yml --env-file .env up -d`
