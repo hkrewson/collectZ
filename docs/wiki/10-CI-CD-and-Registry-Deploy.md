@@ -44,9 +44,11 @@ Result: nav/version + `/api/health` build fields come from image build, not oper
 Migration safety in CI:
 
 - `migration-check` runs schema migrations against ephemeral Postgres.
+- Runs `init.sql` parity check against migration-built schema to detect bootstrap drift.
 - Verifies critical columns expected by current release.
 - Runs restore-based rollback rehearsal (`npm run test:migration-rehearsal`).
 - Uploads artifact `migration-rehearsal-evidence.json` for release traceability.
+ - Uploads artifact `init-parity-evidence.json` for bootstrap parity traceability.
 
 ## Homelab Deploy Using Registry Images
 

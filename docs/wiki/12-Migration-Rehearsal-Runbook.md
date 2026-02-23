@@ -80,6 +80,7 @@ WHERE table_name = 'app_integrations'
 ## CI Evidence
 
 - GitHub Actions job `migration-check` runs:
+  1. `init.sql` parity check against migration-built schema,
   1. forward migration check,
   2. restore-based rollback rehearsal (`npm run test:migration-rehearsal`),
   3. artifact upload.
@@ -87,6 +88,10 @@ WHERE table_name = 'app_integrations'
   - includes baseline/latest version checks,
   - pre-upgrade, post-upgrade, rollback row counts,
   - rollback parity assertion.
+- Artifact: `init-parity-evidence.json`
+  - compares columns/indexes/triggers/migration rows and seeded feature flags between:
+    - fresh DB initialized from `init.sql`,
+    - fresh DB initialized by migration runner.
 
 ## Notes
 
