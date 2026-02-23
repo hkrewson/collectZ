@@ -1850,17 +1850,6 @@ router.patch('/:id', validate(mediaUpdateSchema), asyncHandler(async (req, res) 
   const scopeContext = resolveScopeContext(req);
   const { id } = req.params;
 
-  // Check the item exists and enforce ownership for non-admins
-  const existingParams = [id];
-  const existingScopeClause = appendScopeSql(existingParams, scopeContext);
-  const existing = await pool.query(`SELECT id, added_by FROM media WHERE id = $1${existingScopeClause}`, existingParams);
-  if (existing.rows.length === 0) {
-    return res.status(404).json({ error: 'Media item not found' });
-  }
-  if (req.user.role !== 'admin' && existing.rows[0].added_by !== req.user.id) {
-    return res.status(403).json({ error: 'You do not have permission to edit this item' });
-  }
-
   const ALLOWED_FIELDS = [
     'title', 'media_type', 'original_title', 'release_date', 'year', 'format', 'genre', 'director',
     'rating', 'user_rating', 'tmdb_id', 'tmdb_media_type', 'tmdb_url', 'poster_path', 'backdrop_path',
@@ -1872,15 +1861,32 @@ router.patch('/:id', validate(mediaUpdateSchema), asyncHandler(async (req, res) 
     Object.entries(req.body).filter(([key]) => ALLOWED_FIELDS.includes(key))
   );
   const keys = Object.keys(fields);
+  if (keys.length === 0) {
+    return res.status(400).json({ error: 'No valid fields provided for update' });
+  }
   const values = Object.values(fields);
 
   const setClause = keys.map((key, i) => `${key} = $${i + 1}`).join(', ');
   const updateParams = [...values, id];
+  if (req.user.role !== 'admin') updateParams.push(req.user.id);
   const updateScopeClause = appendScopeSql(updateParams, scopeContext);
+  const ownerClause = req.user.role === 'admin' ? '' : ` AND added_by = $${updateParams.length}`;
   const result = await pool.query(
-    `UPDATE media SET ${setClause} WHERE id = $${keys.length + 1}${updateScopeClause} RETURNING *`,
+    `UPDATE media
+     SET ${setClause}
+     WHERE id = $${keys.length + 1}${ownerClause}${updateScopeClause}
+     RETURNING *`,
     updateParams
   );
+  if (result.rows.length === 0) {
+    const existsParams = [id];
+    const existsScopeClause = appendScopeSql(existsParams, scopeContext);
+    const exists = await pool.query(`SELECT id FROM media WHERE id = $1${existsScopeClause}`, existsParams);
+    if (exists.rows.length === 0) {
+      return res.status(404).json({ error: 'Media item not found' });
+    }
+    return res.status(403).json({ error: 'You do not have permission to edit this item' });
+  }
   res.json(result.rows[0]);
 }));
 
