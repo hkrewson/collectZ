@@ -44,27 +44,13 @@ After deploy:
 
 1. Verify all services healthy in Portainer.
 2. Open app URL.
-3. If registration asks for invite on first use, check for seeded admin in DB.
+3. Register the first account; it becomes admin automatically when the users table is empty.
+4. For later registrations, use invite links from `Admin Settings -> Members -> Invitations`.
 
-## 5. Remove Seeded Admin (Optional but Recommended)
+## 5. Break-Glass Recovery (If Admin Access Is Lost)
 
-From host CLI:
+If you lose admin UI access, use the break-glass flow in `/docs/wiki/01-Configuration-and-Use.md` to:
 
-```bash
-docker compose --env-file .env exec -T db \
-  psql -U "${DB_USER:-mediavault}" -d "${POSTGRES_DB:-mediavault}" \
-  -c "DELETE FROM users WHERE email = 'admin@example.com';"
-```
-
-Then first registration can create the initial admin (if no other users remain).
-
-## 6. Remove Seed Block for Future New Volumes
-
-Edit `init.sql` and remove the sample `INSERT INTO users` block.
-
-If a database volume already exists, recreate DB volume to apply init changes:
-
-```bash
-docker compose --env-file .env down -v
-docker compose --env-file .env up -d --build
-```
+- reset an admin password,
+- promote a user to admin role,
+- revoke active sessions.

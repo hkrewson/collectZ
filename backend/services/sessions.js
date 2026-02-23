@@ -69,11 +69,25 @@ const revokeSessionByToken = async (token) => {
   await pool.query('DELETE FROM user_sessions WHERE token_hash = $1', [tokenHash]);
 };
 
+const revokeSessionsForUser = async (userId, { keepSessionId = null } = {}) => {
+  if (!Number.isFinite(Number(userId))) return 0;
+  if (keepSessionId && Number.isFinite(Number(keepSessionId))) {
+    const result = await pool.query(
+      'DELETE FROM user_sessions WHERE user_id = $1 AND id <> $2',
+      [userId, keepSessionId]
+    );
+    return result.rowCount || 0;
+  }
+  const result = await pool.query('DELETE FROM user_sessions WHERE user_id = $1', [userId]);
+  return result.rowCount || 0;
+};
+
 module.exports = {
   cleanupExpiredSessions,
   createSession,
   getSessionUserByToken,
   revokeSessionByToken,
+  revokeSessionsForUser,
   SESSION_TTL_DAYS,
   SESSION_MAX_PER_USER
 };

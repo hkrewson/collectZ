@@ -72,11 +72,21 @@ const mediaUpdateSchema = mediaCreateSchema.partial().refine(
 const profileUpdateSchema = z.object({
   name: z.string().min(1).max(255).optional(),
   email: z.string().email().optional(),
-  password: z.string().min(8).optional()
+  password: z.string().min(8).optional(),
+  current_password: z.string().min(1).optional()
 }).refine(
   (data) => Object.keys(data).length > 0,
   { message: 'At least one profile field is required' }
+).refine(
+  (data) => !data.password || Boolean(data.current_password),
+  { message: 'Current password is required to set a new password', path: ['current_password'] }
 );
+
+const passwordResetConsumeSchema = z.object({
+  token: z.string().min(10, 'Reset token is required'),
+  email: z.string().email('Invalid email address'),
+  password: z.string().min(8, 'Password must be at least 8 characters')
+});
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
 
@@ -121,6 +131,7 @@ module.exports = {
   mediaCreateSchema,
   mediaUpdateSchema,
   profileUpdateSchema,
+  passwordResetConsumeSchema,
   roleUpdateSchema,
   inviteCreateSchema,
   generalSettingsSchema

@@ -7,7 +7,7 @@ import ImportViewComponent from './components/ImportView';
 import AdminFeatureFlagsView from './components/AdminFeatureFlagsView';
 
 const API_URL = process.env.REACT_APP_API_URL || '/api';
-const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.version || '1.9.15';
+const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.version || '1.9.16';
 const BUILD_SHA   = process.env.REACT_APP_GIT_SHA || appMeta?.build?.gitShaDefault || 'dev';
 const IMPORT_JOBS_KEY = 'collectz_import_jobs';
 const IMPORT_POLL_LEADER_KEY = 'collectz_import_poll_leader';
@@ -54,6 +54,7 @@ const DEFAULT_MEDIA_FORM = {
 
 function routeFromPath(p) {
   if (p === '/register') return 'register';
+  if (p === '/reset-password') return 'reset';
   if (p === '/dashboard') return 'dashboard';
   return 'login';
 }
@@ -1257,7 +1258,7 @@ function ImportView({ apiCall, onToast, onImported, canImportPlex, onQueueJob, i
 // ─── Profile ──────────────────────────────────────────────────────────────────
 
 function ProfileView({ user, apiCall, onToast }) {
-  const [form, setForm] = useState({ name: user?.name || '', email: user?.email || '', password: '' });
+  const [form, setForm] = useState({ name: user?.name || '', email: user?.email || '', current_password: '', password: '' });
   const [saving, setSaving] = useState(false);
 
   const save = async e => {
@@ -1265,10 +1266,13 @@ function ProfileView({ user, apiCall, onToast }) {
     setSaving(true);
     try {
       const payload = { name: form.name, email: form.email };
-      if (form.password) payload.password = form.password;
+      if (form.password) {
+        payload.current_password = form.current_password;
+        payload.password = form.password;
+      }
       await apiCall('patch', '/profile', payload);
       onToast('Profile updated');
-      setForm(f => ({ ...f, password: '' }));
+      setForm(f => ({ ...f, current_password: '', password: '' }));
     } catch (err) { onToast(err.response?.data?.error || 'Update failed', 'error'); }
     finally { setSaving(false); }
   };
@@ -1292,6 +1296,9 @@ function ProfileView({ user, apiCall, onToast }) {
             <input className="input" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} /></div>
           <div className="field"><label className="label">Email</label>
             <input className="input" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} /></div>
+          <div className="field"><label className="label">Current Password <span className="normal-case text-ghost font-normal">(required for password change)</span></label>
+            <input className="input" type="password" value={form.current_password} onChange={e => setForm(f => ({ ...f, current_password: e.target.value }))} />
+          </div>
           <div className="field"><label className="label">New Password <span className="normal-case text-ghost font-normal">(leave blank to keep)</span></label>
             <input className="input" type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} /></div>
           <button type="submit" disabled={saving} className="btn-primary">{saving ? <Spinner size={16} /> : 'Save Changes'}</button>
@@ -1316,6 +1323,8 @@ function AdminUsers({ apiCall, onToast, currentUserId }) {
   const [selectedMemberId, setSelectedMemberId] = useState(null);
   const [memberSummary, setMemberSummary] = useState(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
+  const [resetLink, setResetLink] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
 
   const loadMembersData = useCallback(async () => {
     setLoading(true);
@@ -1339,6 +1348,7 @@ function AdminUsers({ apiCall, onToast, currentUserId }) {
   useEffect(() => {
     if (!selectedMemberId) {
       setMemberSummary(null);
+      setResetLink('');
       return;
     }
     let active = true;
@@ -1405,6 +1415,37 @@ function AdminUsers({ apiCall, onToast, currentUserId }) {
       onToast('Invitation invalidated');
     } catch (err) {
       onToast(err.response?.data?.error || 'Failed to invalidate invitation', 'error');
+    }
+  };
+
+  const createPasswordReset = async () => {
+    if (!selectedMemberId) return;
+    setResetLoading(true);
+    try {
+      const data = await apiCall('post', `/admin/users/${selectedMemberId}/password-reset`);
+      const link = data?.reset_url || '';
+      setResetLink(link);
+      if (link) onToast('Password reset link created');
+      else onToast('Reset token created, but URL unavailable', 'info');
+    } catch (err) {
+      onToast(err.response?.data?.error || 'Failed to create reset link', 'error');
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
+  const invalidatePasswordResets = async () => {
+    if (!selectedMemberId) return;
+    if (!window.confirm('Invalidate all active password reset links for this member?')) return;
+    setResetLoading(true);
+    try {
+      const data = await apiCall('post', `/admin/users/${selectedMemberId}/password-reset/invalidate`);
+      setResetLink('');
+      onToast(`Invalidated ${data?.invalidated_count ?? 0} reset link(s)`);
+    } catch (err) {
+      onToast(err.response?.data?.error || 'Failed to invalidate reset links', 'error');
+    } finally {
+      setResetLoading(false);
     }
   };
 
@@ -1575,6 +1616,32 @@ function AdminUsers({ apiCall, onToast, currentUserId }) {
                     <span className="badge badge-dim">{memberSummary.user?.role || 'user'}</span>
                     <p className="text-xs text-ghost mt-3">Created</p>
                     <p className="text-sm text-ink">{memberSummary.user?.created_at ? new Date(memberSummary.user.created_at).toLocaleString() : '—'}</p>
+                  </div>
+
+                  <div className="card p-4 space-y-3">
+                    <p className="text-xs text-ghost">Password reset</p>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={createPasswordReset}
+                        disabled={resetLoading}
+                        className="btn-secondary btn-sm">
+                        {resetLoading ? <Spinner size={14} /> : 'Generate reset link'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={invalidatePasswordResets}
+                        disabled={resetLoading}
+                        className="btn-danger btn-sm">
+                        Invalidate active links
+                      </button>
+                    </div>
+                    {resetLink && (
+                      <div className="flex items-center gap-2">
+                        <code className="text-xs text-gold flex-1 truncate font-mono">{resetLink}</code>
+                        <button onClick={() => copy(resetLink)} className="btn-icon btn-sm shrink-0"><Icons.Copy /></button>
+                      </div>
+                    )}
                   </div>
 
                   <div className="card p-4 space-y-3">
@@ -2016,7 +2083,14 @@ export default function App() {
 
   // Navigation
   const navigate = nextRoute => {
-    window.history.pushState({}, '', nextRoute === 'register' ? '/register' : nextRoute === 'dashboard' ? '/dashboard' : '/login');
+    window.history.pushState(
+      {},
+      '',
+      nextRoute === 'register' ? '/register'
+        : nextRoute === 'dashboard' ? '/dashboard'
+          : nextRoute === 'reset' ? '/reset-password'
+            : '/login'
+    );
     setRoute(nextRoute);
   };
 

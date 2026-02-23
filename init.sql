@@ -127,6 +127,18 @@ CREATE TABLE IF NOT EXISTS user_sessions (
     expires_at TIMESTAMP NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash VARCHAR(64) UNIQUE NOT NULL,
+    used BOOLEAN DEFAULT false,
+    revoked BOOLEAN DEFAULT false,
+    used_at TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL,
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Per-user integration settings (reserved for future per-user overrides)
 CREATE TABLE IF NOT EXISTS user_integrations (
     user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
@@ -260,6 +272,8 @@ CREATE INDEX IF NOT EXISTS idx_app_integrations_space_id ON app_integrations(spa
 CREATE INDEX IF NOT EXISTS idx_activity_log_action ON activity_log(action);
 CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_sessions_expires_at ON user_sessions(expires_at);
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user_id ON password_reset_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_active ON password_reset_tokens(used, revoked, expires_at);
 CREATE INDEX IF NOT EXISTS idx_libraries_name ON libraries(name);
 CREATE INDEX IF NOT EXISTS idx_sync_jobs_status_created_at ON sync_jobs(status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sync_jobs_created_by_created_at ON sync_jobs(created_by, created_at DESC);
