@@ -43,6 +43,15 @@ openssl rand -hex 32
   - `RATE_LIMIT_MEDIA_WRITE_MAX` (default `240`) — write methods on `/api/media/*`.
   - `RATE_LIMIT_IMPORT_START_MAX` (default `60`) — import start routes.
   - `RATE_LIMIT_SYNC_POLL_MAX` (default `600`) — `/api/media/sync-jobs`.
+- Feature flags:
+  - `FEATURE_FLAGS_READ_ONLY` (default `false`) — when true, admin flag updates are blocked (read-only control plane).
+  - `FEATURE_FLAGS_CACHE_TTL_SECONDS` (default `10`) — backend feature-flag cache TTL.
+  - Optional per-flag env overrides (highest precedence):
+    - `FEATURE_FLAG_IMPORT_PLEX_ENABLED`
+    - `FEATURE_FLAG_IMPORT_CSV_ENABLED`
+    - `FEATURE_FLAG_TMDB_SEARCH_ENABLED`
+    - `FEATURE_FLAG_LOOKUP_UPC_ENABLED`
+    - `FEATURE_FLAG_RECOGNIZE_COVER_ENABLED`
 
 ## Integration Defaults (Can Be Managed in Admin UI)
 

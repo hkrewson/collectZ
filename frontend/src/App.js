@@ -4,9 +4,10 @@ import appMeta from './app-meta.json';
 import AdminActivityView from './components/AdminActivityView';
 import AuthPageView from './components/AuthPage';
 import ImportViewComponent from './components/ImportView';
+import AdminFeatureFlagsView from './components/AdminFeatureFlagsView';
 
 const API_URL = process.env.REACT_APP_API_URL || '/api';
-const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.version || '1.9.7';
+const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.version || '1.9.8';
 const BUILD_SHA   = process.env.REACT_APP_GIT_SHA || appMeta?.build?.gitShaDefault || 'dev';
 const IMPORT_JOBS_KEY = 'collectz_import_jobs';
 const IMPORT_POLL_LEADER_KEY = 'collectz_import_poll_leader';
@@ -353,6 +354,7 @@ function Sidebar({ user, activeTab, onSelect, onLogout, collapsed, onToggle, mob
                 <div className="mt-1 space-y-0.5">
                   <NavLink id="admin-integrations" icon={null} label="Integrations" sub />
                   <NavLink id="admin-settings"     icon={null} label="Settings"     sub />
+                  <NavLink id="admin-flags"        icon={null} label="Feature Flags" sub />
                   <NavLink id="admin-users"         icon={null} label="Members"      sub />
                   <NavLink id="admin-activity"      icon={null} label="Activity"     sub />
                 </div>
@@ -1595,6 +1597,10 @@ function AdminActivity({ apiCall }) {
   return <AdminActivityView apiCall={apiCall} Icons={Icons} Spinner={Spinner} />;
 }
 
+function AdminFeatureFlags({ apiCall, onToast }) {
+  return <AdminFeatureFlagsView apiCall={apiCall} onToast={onToast} Spinner={Spinner} cx={cx} />;
+}
+
 function ForbiddenView({ title = 'Access Restricted', detail = 'You do not have permission to view this section.' }) {
   return (
     <div className="h-full overflow-y-auto p-6 max-w-xl">
@@ -2319,6 +2325,7 @@ export default function App() {
       case 'admin-users':      return <AdminUsers apiCall={apiCall} onToast={showToast} currentUserId={user?.id} />;
       case 'admin-activity':   return <AdminActivity apiCall={apiCall} />;
       case 'admin-settings':   return <AdminSettings apiCall={apiCall} onToast={showToast} onSettingsChange={setUiSettings} />;
+      case 'admin-flags':      return <AdminFeatureFlags apiCall={apiCall} onToast={showToast} />;
       case 'admin-integrations': return <AdminIntegrations apiCall={apiCall} onToast={showToast} onQueueJob={upsertImportJob} />;
       default:                 return null;
     }
