@@ -210,6 +210,23 @@ CREATE TABLE IF NOT EXISTS feature_flags (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Async sync jobs (long-running imports)
+CREATE TABLE IF NOT EXISTS sync_jobs (
+    id SERIAL PRIMARY KEY,
+    job_type VARCHAR(50) NOT NULL,
+    provider VARCHAR(50) NOT NULL,
+    status VARCHAR(20) NOT NULL CHECK (status IN ('queued', 'running', 'failed', 'succeeded')),
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    scope JSONB,
+    progress JSONB,
+    summary JSONB,
+    error TEXT,
+    started_at TIMESTAMP,
+    finished_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Migration tracking (used by db/migrations.js)
 CREATE TABLE IF NOT EXISTS schema_migrations (
     version INTEGER PRIMARY KEY,
@@ -239,6 +256,8 @@ CREATE INDEX IF NOT EXISTS idx_activity_log_action ON activity_log(action);
 CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_sessions_expires_at ON user_sessions(expires_at);
 CREATE INDEX IF NOT EXISTS idx_libraries_name ON libraries(name);
+CREATE INDEX IF NOT EXISTS idx_sync_jobs_status_created_at ON sync_jobs(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sync_jobs_created_by_created_at ON sync_jobs(created_by, created_at DESC);
 
 -- Updated-at trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -276,6 +295,10 @@ BEGIN
         CREATE TRIGGER update_user_integrations_updated_at BEFORE UPDATE ON user_integrations
             FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_sync_jobs_updated_at') THEN
+        CREATE TRIGGER update_sync_jobs_updated_at BEFORE UPDATE ON sync_jobs
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
 END;
 $$;
 
@@ -294,5 +317,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (6, 'Media variants table for edition and file-level metadata'),
     (7, 'Media import_source traceability field'),
     (8, 'Media type and multi-library scaffolding'),
-    (9, 'Scope scaffolding on app integrations')
+    (9, 'Scope scaffolding on app integrations'),
+    (10, 'Async sync job tracking for long-running imports')
 ON CONFLICT (version) DO NOTHING;

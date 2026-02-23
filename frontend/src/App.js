@@ -3,7 +3,7 @@ import axios from 'axios';
 import appMeta from './app-meta.json';
 
 const API_URL = process.env.REACT_APP_API_URL || '/api';
-const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.version || '1.9.2';
+const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.version || '1.9.3';
 const BUILD_SHA   = process.env.REACT_APP_GIT_SHA || appMeta?.build?.gitShaDefault || 'dev';
 const USER_KEY  = 'mediavault_user';
 
@@ -1296,6 +1296,7 @@ function ImportView({ apiCall, onToast, onImported, canImportPlex }) {
   const [tab, setTab] = useState(canImportPlex ? 'plex' : 'csv');
   const [busy, setBusy] = useState('');
   const [result, setResult] = useState('');
+  const [plexJob, setPlexJob] = useState(null);
   const [auditRows, setAuditRows] = useState([]);
   const [auditName, setAuditName] = useState('');
   const csvInputRef = useRef(null);
@@ -1324,21 +1325,50 @@ function ImportView({ apiCall, onToast, onImported, canImportPlex }) {
     if (!canImportPlex) return;
     setBusy('plex');
     setResult('');
+    setPlexJob(null);
     setAuditRows([]);
     setAuditName('');
     try {
-      const res = await apiCall('post', '/media/import-plex', {});
-      const s = res?.summary || {};
-      setResult(
-        `Plex import complete\nCreated: ${s.created || 0}\nUpdated: ${s.updated || 0}\nSkipped: ${s.skipped || 0}\nErrors: ${(s.errors || []).length}`
-      );
-      onToast('Plex import complete');
-      onImported?.();
+      const res = await apiCall('post', '/media/import-plex?async=true', {});
+      const jobId = res?.job?.id;
+      if (!jobId) throw new Error('Missing import job id');
+      setPlexJob({
+        id: jobId,
+        status: res?.job?.status || 'queued',
+        progress: res?.job?.progress || null
+      });
+      onToast('Plex import started');
+
+      const poll = async () => {
+        const job = await apiCall('get', `/media/sync-jobs/${jobId}`);
+        setPlexJob(job);
+        if (job.status === 'queued' || job.status === 'running') {
+          setTimeout(() => { poll().catch(() => {}); }, 2000);
+          return;
+        }
+        setBusy('');
+        if (job.status === 'succeeded') {
+          const s = job?.summary || {};
+          setResult(
+            `Plex import complete\nImported: ${s.imported || 0}\nCreated: ${s.created || 0}\nUpdated: ${s.updated || 0}\nSkipped: ${s.skipped || 0}\nErrors: ${s.errorCount || 0}`
+          );
+          onToast('Plex import complete');
+          onImported?.();
+        } else {
+          const msg = job.error || 'Plex import failed';
+          setResult(msg);
+          onToast(msg, 'error');
+        }
+      };
+      poll().catch(() => {
+        setBusy('');
+        setResult('Plex import polling failed');
+        onToast('Plex import polling failed', 'error');
+      });
     } catch (err) {
       const msg = err.response?.data?.error || 'Plex import failed';
       setResult(msg);
       onToast(msg, 'error');
-    } finally {
       setBusy('');
     }
   };
@@ -1398,10 +1428,22 @@ function ImportView({ apiCall, onToast, onImported, canImportPlex }) {
         {tab === 'plex' && (
           <>
             <p className="text-sm text-dim">Import titles from your configured Plex server and selected sections.</p>
-            <p className="text-xs text-ghost">Uses saved Admin Integrations Plex settings. Import is deduplicated and TMDB enrichment is applied when possible.</p>
+            <p className="text-xs text-ghost">Uses saved Admin Integrations Plex settings. Import runs async with progress, deduplication, and TMDB enrichment when possible.</p>
             <button onClick={runPlexImport} className="btn-primary" disabled={busy === 'plex'}>
               {busy === 'plex' ? <Spinner size={14} /> : <><Icons.Upload />Start Plex Import</>}
             </button>
+            {plexJob && (
+              <div className="card p-3 text-xs text-dim font-mono whitespace-pre-wrap">
+                Job #{plexJob.id} · {plexJob.status}
+                {plexJob.progress && (
+                  <>
+                    {'\n'}Processed: {plexJob.progress.processed || 0} / {plexJob.progress.total || 0}
+                    {'\n'}Created: {plexJob.progress.created || 0} · Updated: {plexJob.progress.updated || 0}
+                    {'\n'}Skipped: {plexJob.progress.skipped || 0} · Errors: {plexJob.progress.errorCount || 0}
+                  </>
+                )}
+              </div>
+            )}
           </>
         )}
 
@@ -2071,16 +2113,54 @@ function AdminIntegrations({ apiCall, onToast }) {
   const runPlexImport = async () => {
     setImportingPlex(true);
     try {
-      const result = await apiCall('post', '/media/import-plex', {
+      const enqueue = await apiCall('post', '/media/import-plex?async=true', {
         sectionIds: plexSectionIds
       });
-      const summary = result?.summary || {};
-      setTestMsg(`PLEX import: created ${summary.created || 0}, updated ${summary.updated || 0}, skipped ${summary.skipped || 0}, errors ${(summary.errors || []).length}`);
-      onToast('Plex import complete');
+      const jobId = enqueue?.job?.id;
+      if (!jobId) throw new Error('Missing import job id');
+      setTestMsg(`PLEX import queued (job #${jobId})`);
+      onToast('Plex import started');
+
+      const poll = async () => {
+        const job = await apiCall('get', `/media/sync-jobs/${jobId}`);
+        const progress = job?.progress || {};
+        if (job.status === 'queued' || job.status === 'running') {
+          setTestMsg(
+            `PLEX import job #${jobId}: ${job.status}\n` +
+            `Processed ${progress.processed || 0}/${progress.total || 0} · ` +
+            `Created ${progress.created || 0} · Updated ${progress.updated || 0} · ` +
+            `Skipped ${progress.skipped || 0} · Errors ${progress.errorCount || 0}`
+          );
+          setTimeout(() => { poll().catch(() => {}); }, 2000);
+          return;
+        }
+
+        if (job.status === 'succeeded') {
+          const summary = job?.summary || {};
+          setTestMsg(
+            `PLEX import complete\n` +
+            `Imported: ${summary.imported || 0}\n` +
+            `Created: ${summary.created || 0}\n` +
+            `Updated: ${summary.updated || 0}\n` +
+            `Skipped: ${summary.skipped || 0}\n` +
+            `Errors: ${summary.errorCount || 0}`
+          );
+          onToast('Plex import complete');
+        } else {
+          const errorMsg = job.error || 'Plex import failed';
+          setTestMsg(errorMsg);
+          onToast(errorMsg, 'error');
+        }
+        setImportingPlex(false);
+      };
+      poll().catch(() => {
+        setImportingPlex(false);
+        setTestMsg('Plex import polling failed');
+        onToast('Plex import polling failed', 'error');
+      });
     } catch (err) {
-      onToast(err.response?.data?.error || 'Plex import failed', 'error');
-    } finally {
       setImportingPlex(false);
+      onToast(err.response?.data?.error || 'Plex import failed', 'error');
     }
   };
 

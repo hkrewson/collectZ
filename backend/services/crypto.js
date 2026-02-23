@@ -6,7 +6,7 @@ const resolveIntegrationKeyMaterial = () => {
 
   const isProduction = process.env.NODE_ENV === 'production';
   if (isProduction) {
-    throw new Error('INTEGRATION_ENCRYPTION_KEY is required in production');
+    throw new Error('INTEGRATION_ENCRYPTION_KEY must be set in production');
   }
 
   const devFallback = process.env.SESSION_SECRET || 'dev-only-secret';

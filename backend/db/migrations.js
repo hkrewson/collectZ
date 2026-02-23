@@ -450,6 +450,42 @@ const MIGRATIONS = [
 
       CREATE INDEX IF NOT EXISTS idx_app_integrations_space_id ON app_integrations(space_id);
     `
+  },
+  {
+    version: 10,
+    description: 'Async sync job tracking for long-running imports',
+    up: `
+      CREATE TABLE IF NOT EXISTS sync_jobs (
+        id SERIAL PRIMARY KEY,
+        job_type VARCHAR(50) NOT NULL,
+        provider VARCHAR(50) NOT NULL,
+        status VARCHAR(20) NOT NULL CHECK (status IN ('queued', 'running', 'failed', 'succeeded')),
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        scope JSONB,
+        progress JSONB,
+        summary JSONB,
+        error TEXT,
+        started_at TIMESTAMP,
+        finished_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_sync_jobs_status_created_at
+        ON sync_jobs(status, created_at DESC);
+
+      CREATE INDEX IF NOT EXISTS idx_sync_jobs_created_by_created_at
+        ON sync_jobs(created_by, created_at DESC);
+
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_sync_jobs_updated_at') THEN
+          CREATE TRIGGER update_sync_jobs_updated_at BEFORE UPDATE ON sync_jobs
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+        END IF;
+      END;
+      $$;
+    `
   }
 ];
 

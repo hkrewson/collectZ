@@ -324,6 +324,465 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
   return { type: 'created' };
 }
 
+const TMDB_IMPORT_MIN_INTERVAL_MS = Math.max(0, Number(process.env.TMDB_IMPORT_MIN_INTERVAL_MS || 50));
+const PLEX_JOB_PROGRESS_BATCH_SIZE = Math.max(1, Number(process.env.PLEX_JOB_PROGRESS_BATCH_SIZE || 25));
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function buildTmdbThrottle() {
+  let lastAt = 0;
+  return async () => {
+    if (TMDB_IMPORT_MIN_INTERVAL_MS <= 0) return;
+    const now = Date.now();
+    const waitMs = (lastAt + TMDB_IMPORT_MIN_INTERVAL_MS) - now;
+    if (waitMs > 0) await sleep(waitMs);
+    lastAt = Date.now();
+  };
+}
+
+function parseAsyncFlag(value) {
+  if (value === true) return true;
+  if (value === false || value === undefined || value === null) return false;
+  const normalized = String(value).trim().toLowerCase();
+  return normalized === '1' || normalized === 'true' || normalized === 'yes';
+}
+
+function jobScopePayload(scopeContext, sectionIds = []) {
+  return {
+    spaceId: scopeContext?.spaceId ?? null,
+    libraryId: scopeContext?.libraryId ?? null,
+    sectionIds: Array.isArray(sectionIds) ? sectionIds : []
+  };
+}
+
+async function createSyncJob({ userId, jobType, provider, scope, progress }) {
+  const result = await pool.query(
+    `INSERT INTO sync_jobs (job_type, provider, status, created_by, scope, progress)
+     VALUES ($1, $2, 'queued', $3, $4::jsonb, $5::jsonb)
+     RETURNING id, job_type, provider, status, created_by, scope, progress, summary, error,
+               started_at, finished_at, created_at, updated_at`,
+    [
+      jobType,
+      provider,
+      userId || null,
+      JSON.stringify(scope || {}),
+      JSON.stringify(progress || {})
+    ]
+  );
+  return result.rows[0];
+}
+
+async function updateSyncJob(jobId, patch = {}) {
+  const entries = Object.entries(patch).filter(([, value]) => value !== undefined);
+  if (entries.length === 0) return null;
+  const sets = [];
+  const values = [];
+  for (const [key, value] of entries) {
+    values.push(value);
+    if (['scope', 'progress', 'summary'].includes(key)) {
+      sets.push(`${key} = $${values.length}::jsonb`);
+    } else {
+      sets.push(`${key} = $${values.length}`);
+    }
+  }
+  values.push(jobId);
+  const result = await pool.query(
+    `UPDATE sync_jobs
+     SET ${sets.join(', ')}
+     WHERE id = $${values.length}
+     RETURNING id, job_type, provider, status, created_by, scope, progress, summary, error,
+               started_at, finished_at, created_at, updated_at`,
+    values
+  );
+  return result.rows[0] || null;
+}
+
+async function getSyncJob(jobId, reqUser) {
+  const params = [jobId];
+  let where = 'WHERE id = $1';
+  if (reqUser?.role !== 'admin') {
+    params.push(reqUser?.id || null);
+    where += ` AND created_by = $${params.length}`;
+  }
+  const result = await pool.query(
+    `SELECT id, job_type, provider, status, created_by, scope, progress, summary, error,
+            started_at, finished_at, created_at, updated_at
+     FROM sync_jobs
+     ${where}
+     LIMIT 1`,
+    params
+  );
+  return result.rows[0] || null;
+}
+
+async function runPlexImport({ req, config, sectionIds = [], scopeContext = null, onProgress = null }) {
+  const summary = { created: 0, updated: 0, skipped: 0, errors: [], enrichmentErrors: [] };
+  let tmdbPosterEnriched = 0;
+  let tmdbPosterLookupMisses = 0;
+  let variantsCreated = 0;
+  let variantsUpdated = 0;
+  let items = [];
+  const tmdbEnrichmentCache = new Map();
+  const throttleTmdb = buildTmdbThrottle();
+  const updateProgress = async (progress) => {
+    if (typeof onProgress !== 'function') return;
+    await onProgress(progress);
+  };
+  const upsertMediaMetadata = async (mediaId, key, value) => {
+    if (!value) return;
+    await pool.query(
+      `INSERT INTO media_metadata (media_id, "key", "value")
+       SELECT $1::int, $2::varchar, $3::text
+       WHERE NOT EXISTS (
+         SELECT 1
+         FROM media_metadata
+         WHERE media_id = $1::int
+           AND "key" = $2::varchar
+           AND "value" = $3::text
+       )`,
+      [mediaId, key, String(value)]
+    );
+  };
+  const upsertMediaVariant = async (mediaId, variant) => {
+    if (!variant) return;
+    const payload = [
+      mediaId,
+      variant.source || 'plex',
+      variant.source_item_key || null,
+      variant.source_media_id || null,
+      variant.source_part_id || null,
+      variant.edition || null,
+      variant.file_path || null,
+      variant.container || null,
+      variant.video_codec || null,
+      variant.audio_codec || null,
+      variant.resolution || null,
+      variant.video_width || null,
+      variant.video_height || null,
+      variant.audio_channels || null,
+      variant.duration_ms || null,
+      variant.runtime_minutes || null,
+      variant.raw_json ? JSON.stringify(variant.raw_json) : null
+    ];
+
+    const byPart = variant.source_part_id
+      ? await pool.query(
+        `UPDATE media_variants
+         SET media_id = $1, source_item_key = $3, source_media_id = $4, source_part_id = $5,
+             edition = $6, file_path = $7, container = $8, video_codec = $9, audio_codec = $10,
+             resolution = $11, video_width = $12, video_height = $13, audio_channels = $14,
+             duration_ms = $15, runtime_minutes = $16, raw_json = $17::jsonb
+         WHERE source = $2
+           AND source_part_id = $5
+         RETURNING id`,
+        payload
+      )
+      : { rows: [] };
+    if (byPart.rows.length > 0) {
+      variantsUpdated += 1;
+      return;
+    }
+
+    const byItem = variant.source_item_key
+      ? await pool.query(
+        `UPDATE media_variants
+         SET media_id = $1, source_item_key = $3, source_media_id = $4, source_part_id = $5,
+             edition = $6, file_path = $7, container = $8, video_codec = $9, audio_codec = $10,
+             resolution = $11, video_width = $12, video_height = $13, audio_channels = $14,
+             duration_ms = $15, runtime_minutes = $16, raw_json = $17::jsonb
+         WHERE source = $2
+           AND source_item_key = $3
+         RETURNING id`,
+        payload
+      )
+      : { rows: [] };
+    if (byItem.rows.length > 0) {
+      variantsUpdated += 1;
+      return;
+    }
+
+    await pool.query(
+      `INSERT INTO media_variants (
+         media_id, source, source_item_key, source_media_id, source_part_id,
+         edition, file_path, container, video_codec, audio_codec, resolution,
+         video_width, video_height, audio_channels, duration_ms, runtime_minutes, raw_json
+       ) VALUES (
+         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17::jsonb
+       )`,
+      payload
+    );
+    variantsCreated += 1;
+  };
+
+  items = await fetchPlexLibraryItems(config, sectionIds);
+  await updateProgress({
+    total: items.length,
+    processed: 0,
+    created: 0,
+    updated: 0,
+    skipped: 0,
+    errorCount: 0
+  });
+
+  for (let idx = 0; idx < items.length; idx += 1) {
+    const item = items[idx];
+    const media = { ...item.normalized };
+    if (!media.title) {
+      summary.skipped += 1;
+      continue;
+    }
+
+    if (!media.poster_path && config.tmdbApiKey) {
+      const tmdbType = media.tmdb_media_type === 'tv' ? 'tv' : 'movie';
+      const cacheKey = media.tmdb_id
+        ? `${tmdbType}:id:${media.tmdb_id}`
+        : `${tmdbType}:q:${String(media.title || '').toLowerCase()}|${media.year || ''}`;
+      let cached = tmdbEnrichmentCache.get(cacheKey);
+      if (cached === undefined) {
+        cached = null;
+        try {
+          await throttleTmdb();
+          if (media.tmdb_id) {
+            const details = await fetchTmdbMovieDetails(media.tmdb_id, config, tmdbType);
+            cached = {
+              tmdb_id: media.tmdb_id,
+              tmdb_url: details?.tmdb_url || `https://www.themoviedb.org/${tmdbType}/${media.tmdb_id}`,
+              poster_path: details?.poster_path || null,
+              backdrop_path: details?.backdrop_path || null
+            };
+          } else if (media.title) {
+            const results = await searchTmdbMovie(media.title, media.year || undefined, config, tmdbType);
+            const best = pickBestTmdbMatch(results, media.title, media.year);
+            if (best) {
+              cached = {
+                tmdb_id: best.id || null,
+                tmdb_url: best.id ? `https://www.themoviedb.org/${tmdbType}/${best.id}` : null,
+                poster_path: best.poster_path || null,
+                backdrop_path: best.backdrop_path || null
+              };
+            }
+          }
+        } catch (error) {
+          cached = null;
+          summary.enrichmentErrors.push({
+            title: media.title,
+            type: 'tmdb_poster_enrichment',
+            detail: error.message || 'TMDB enrichment failed'
+          });
+          logError('Plex import TMDB poster enrichment failed', error);
+        }
+        tmdbEnrichmentCache.set(cacheKey, cached);
+      }
+
+      if (cached?.poster_path) {
+        media.poster_path = cached.poster_path;
+        media.backdrop_path = cached.backdrop_path || media.backdrop_path || cached.poster_path;
+        media.tmdb_id = media.tmdb_id || cached.tmdb_id || null;
+        media.tmdb_url = media.tmdb_url || cached.tmdb_url || (media.tmdb_id ? `https://www.themoviedb.org/${tmdbType}/${media.tmdb_id}` : null);
+        tmdbPosterEnriched += 1;
+      } else {
+        tmdbPosterLookupMisses += 1;
+      }
+    }
+
+    try {
+      let existing = null;
+
+      const plexGuid = media.plex_guid || null;
+      const plexItemKey = media.plex_rating_key ? `${item.sectionId}:${media.plex_rating_key}` : null;
+
+      if (plexGuid) {
+        const byPlexGuidParams = [plexGuid];
+        const byPlexGuidScopeClause = appendScopeSql(byPlexGuidParams, scopeContext, {
+          spaceColumn: 'm.space_id',
+          libraryColumn: 'm.library_id'
+        });
+        const byPlexGuid = await pool.query(
+          `SELECT m.id
+           FROM media m
+           JOIN media_metadata mm ON mm.media_id = m.id
+           WHERE mm."key" = 'plex_guid'
+             AND mm."value" = $1
+             ${byPlexGuidScopeClause}
+           ORDER BY m.created_at DESC
+           LIMIT 1`,
+          byPlexGuidParams
+        );
+        existing = byPlexGuid.rows[0] || null;
+      }
+
+      if (!existing && plexItemKey) {
+        const byPlexItemKeyParams = [plexItemKey];
+        const byPlexItemKeyScopeClause = appendScopeSql(byPlexItemKeyParams, scopeContext, {
+          spaceColumn: 'm.space_id',
+          libraryColumn: 'm.library_id'
+        });
+        const byPlexItemKey = await pool.query(
+          `SELECT m.id
+           FROM media m
+           JOIN media_metadata mm ON mm.media_id = m.id
+           WHERE mm."key" = 'plex_item_key'
+             AND mm."value" = $1
+             ${byPlexItemKeyScopeClause}
+           ORDER BY m.created_at DESC
+           LIMIT 1`,
+          byPlexItemKeyParams
+        );
+        existing = byPlexItemKey.rows[0] || null;
+      }
+
+      if (!existing && media.tmdb_id) {
+        const byTmdbParams = [media.tmdb_id, media.tmdb_media_type || 'movie'];
+        const byTmdbScopeClause = appendScopeSql(byTmdbParams, scopeContext);
+        const byTmdb = await pool.query(
+          `SELECT id
+           FROM media
+           WHERE tmdb_id = $1
+             AND COALESCE(tmdb_media_type, 'movie') = COALESCE($2, COALESCE(tmdb_media_type, 'movie'))
+             ${byTmdbScopeClause}
+           LIMIT 1`,
+          byTmdbParams
+        );
+        existing = byTmdb.rows[0] || null;
+      }
+
+      if (!existing) {
+        const byTitleYearParams = [media.title, media.year || null];
+        const byTitleYearScopeClause = appendScopeSql(byTitleYearParams, scopeContext);
+        const byTitleYear = await pool.query(
+          `SELECT id
+           FROM media
+           WHERE LOWER(TRIM(title)) = LOWER(TRIM($1))
+             AND (
+               ($2::int IS NOT NULL AND year = $2::int)
+               OR ($2::int IS NULL)
+             )
+             ${byTitleYearScopeClause}
+           ORDER BY created_at DESC
+           LIMIT 1`,
+          byTitleYearParams
+        );
+        existing = byTitleYear.rows[0] || null;
+      }
+
+      if (existing) {
+        const updateParams = [
+          media.original_title,
+          media.release_date,
+          media.year,
+          media.format,
+          media.director,
+          media.rating,
+          media.runtime,
+          media.poster_path,
+          media.backdrop_path,
+          media.overview,
+          media.tmdb_id,
+          media.tmdb_media_type || 'movie',
+          media.tmdb_url,
+          media.media_type || 'movie',
+          media.network,
+          `Imported from Plex section ${item.sectionId}`,
+          existing.id
+        ];
+        const updateScopeClause = appendScopeSql(updateParams, scopeContext);
+        await pool.query(
+          `UPDATE media SET
+             original_title = COALESCE($1, original_title),
+             release_date = COALESCE($2, release_date),
+             year = COALESCE($3, year),
+             format = COALESCE($4, format),
+             director = COALESCE($5, director),
+             rating = COALESCE($6, rating),
+             runtime = COALESCE($7, runtime),
+             poster_path = COALESCE($8, poster_path),
+             backdrop_path = COALESCE($9, backdrop_path),
+             overview = COALESCE($10, overview),
+             tmdb_id = COALESCE($11, tmdb_id),
+             tmdb_media_type = COALESCE($12, tmdb_media_type),
+             tmdb_url = COALESCE($13, tmdb_url),
+             media_type = COALESCE($14, media_type),
+             network = COALESCE($15, network),
+             notes = COALESCE($16, notes),
+             import_source = 'plex'
+           WHERE id = $17${updateScopeClause}`,
+          updateParams
+        );
+        await upsertMediaMetadata(existing.id, 'plex_guid', plexGuid);
+        await upsertMediaMetadata(existing.id, 'plex_item_key', plexItemKey);
+        await upsertMediaMetadata(existing.id, 'plex_section_id', item.sectionId);
+        await upsertMediaVariant(existing.id, item.variant);
+        summary.updated += 1;
+      } else {
+        const inserted = await pool.query(
+          `INSERT INTO media (
+             title, original_title, release_date, year, format, director, rating,
+             runtime, poster_path, backdrop_path, overview, tmdb_id, tmdb_media_type, tmdb_url, media_type, network, notes,
+             library_id, space_id, added_by, import_source
+           ) VALUES (
+             $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21
+           )
+           RETURNING id`,
+          [
+            media.title,
+            media.original_title,
+            media.release_date,
+            media.year,
+            media.format || 'Digital',
+            media.director,
+            media.rating,
+            media.runtime,
+            media.poster_path,
+            media.backdrop_path,
+            media.overview,
+            media.tmdb_id,
+            media.tmdb_media_type || 'movie',
+            media.tmdb_url,
+            media.media_type || 'movie',
+            media.network,
+            `Imported from Plex section ${item.sectionId}`,
+            scopeContext.libraryId || null,
+            scopeContext.spaceId || null,
+            req.user.id,
+            'plex'
+          ]
+        );
+        const insertedId = inserted.rows[0]?.id;
+        if (insertedId) {
+          await upsertMediaMetadata(insertedId, 'plex_guid', plexGuid);
+          await upsertMediaMetadata(insertedId, 'plex_item_key', plexItemKey);
+          await upsertMediaMetadata(insertedId, 'plex_section_id', item.sectionId);
+          await upsertMediaVariant(insertedId, item.variant);
+        }
+        summary.created += 1;
+      }
+    } catch (error) {
+      summary.errors.push({ title: media.title, detail: error.message });
+    }
+
+    const processed = idx + 1;
+    if (processed === items.length || processed % PLEX_JOB_PROGRESS_BATCH_SIZE === 0) {
+      await updateProgress({
+        total: items.length,
+        processed,
+        created: summary.created,
+        updated: summary.updated,
+        skipped: summary.skipped,
+        errorCount: summary.errors.length
+      });
+    }
+  }
+
+  return {
+    imported: items.length,
+    summary,
+    tmdbPosterEnriched,
+    tmdbPosterLookupMisses,
+    variantsCreated,
+    variantsUpdated
+  };
+}
+
 // All routes require auth
 router.use(authenticateToken);
 
@@ -898,362 +1357,180 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
   if (!config.plexApiKey) {
     return res.status(400).json({ error: 'Plex API key is not configured' });
   }
-
-  const summary = { created: 0, updated: 0, skipped: 0, errors: [] };
-  let tmdbPosterEnriched = 0;
-  let tmdbPosterLookupMisses = 0;
-  let variantsCreated = 0;
-  let variantsUpdated = 0;
-  let items = [];
-  const tmdbEnrichmentCache = new Map();
-  const upsertMediaMetadata = async (mediaId, key, value) => {
-    if (!value) return;
-    await pool.query(
-      `INSERT INTO media_metadata (media_id, "key", "value")
-       SELECT $1::int, $2::varchar, $3::text
-       WHERE NOT EXISTS (
-         SELECT 1
-         FROM media_metadata
-         WHERE media_id = $1::int
-           AND "key" = $2::varchar
-           AND "value" = $3::text
-       )`,
-      [mediaId, key, String(value)]
-    );
+  const asyncMode = parseAsyncFlag(req.query?.async) || parseAsyncFlag(req.body?.async);
+  const auditReq = {
+    user: req.user,
+    headers: req.headers,
+    ip: req.ip,
+    socket: req.socket
   };
-  const upsertMediaVariant = async (mediaId, variant) => {
-    if (!variant) return;
-    const payload = [
-      mediaId,
-      variant.source || 'plex',
-      variant.source_item_key || null,
-      variant.source_media_id || null,
-      variant.source_part_id || null,
-      variant.edition || null,
-      variant.file_path || null,
-      variant.container || null,
-      variant.video_codec || null,
-      variant.audio_codec || null,
-      variant.resolution || null,
-      variant.video_width || null,
-      variant.video_height || null,
-      variant.audio_channels || null,
-      variant.duration_ms || null,
-      variant.runtime_minutes || null,
-      variant.raw_json ? JSON.stringify(variant.raw_json) : null
-    ];
 
-    const byPart = variant.source_part_id
-      ? await pool.query(
-        `UPDATE media_variants
-         SET media_id = $1, source_item_key = $3, source_media_id = $4, source_part_id = $5,
-             edition = $6, file_path = $7, container = $8, video_codec = $9, audio_codec = $10,
-             resolution = $11, video_width = $12, video_height = $13, audio_channels = $14,
-             duration_ms = $15, runtime_minutes = $16, raw_json = $17::jsonb
-         WHERE source = $2
-           AND source_part_id = $5
-         RETURNING id`,
-        payload
-      )
-      : { rows: [] };
-    if (byPart.rows.length > 0) {
-      variantsUpdated += 1;
-      return;
-    }
+  if (asyncMode) {
+    const job = await createSyncJob({
+      userId: req.user.id,
+      jobType: 'media_import',
+      provider: 'plex',
+      scope: jobScopePayload(scopeContext, sectionIds),
+      progress: {
+        total: 0,
+        processed: 0,
+        created: 0,
+        updated: 0,
+        skipped: 0,
+        errorCount: 0
+      }
+    });
 
-    const byItem = variant.source_item_key
-      ? await pool.query(
-        `UPDATE media_variants
-         SET media_id = $1, source_item_key = $3, source_media_id = $4, source_part_id = $5,
-             edition = $6, file_path = $7, container = $8, video_codec = $9, audio_codec = $10,
-             resolution = $11, video_width = $12, video_height = $13, audio_channels = $14,
-             duration_ms = $15, runtime_minutes = $16, raw_json = $17::jsonb
-         WHERE source = $2
-           AND source_item_key = $3
-         RETURNING id`,
-        payload
-      )
-      : { rows: [] };
-    if (byItem.rows.length > 0) {
-      variantsUpdated += 1;
-      return;
-    }
+    setImmediate(async () => {
+      try {
+        await updateSyncJob(job.id, {
+          status: 'running',
+          started_at: new Date()
+        });
+        const result = await runPlexImport({
+          req: auditReq,
+          config,
+          sectionIds,
+          scopeContext,
+          onProgress: async (progress) => {
+            await updateSyncJob(job.id, { progress });
+          }
+        });
 
-    await pool.query(
-      `INSERT INTO media_variants (
-         media_id, source, source_item_key, source_media_id, source_part_id,
-         edition, file_path, container, video_codec, audio_codec, resolution,
-         video_width, video_height, audio_channels, duration_ms, runtime_minutes, raw_json
-       ) VALUES (
-         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17::jsonb
-       )`,
-      payload
-    );
-    variantsCreated += 1;
-  };
+        await updateSyncJob(job.id, {
+          status: 'succeeded',
+          summary: {
+            imported: result.imported,
+            created: result.summary.created,
+            updated: result.summary.updated,
+            skipped: result.summary.skipped,
+            errorCount: result.summary.errors.length,
+            tmdbPosterEnriched: result.tmdbPosterEnriched,
+            tmdbPosterLookupMisses: result.tmdbPosterLookupMisses,
+            variantsCreated: result.variantsCreated,
+            variantsUpdated: result.variantsUpdated,
+            enrichmentErrors: result.summary.enrichmentErrors || []
+          },
+          progress: {
+            total: result.imported,
+            processed: result.imported,
+            created: result.summary.created,
+            updated: result.summary.updated,
+            skipped: result.summary.skipped,
+            errorCount: result.summary.errors.length
+          },
+          finished_at: new Date()
+        });
+
+        await logActivity(auditReq, 'media.import.plex', 'media', null, {
+          sectionIds,
+          imported: result.imported,
+          created: result.summary.created,
+          updated: result.summary.updated,
+          skipped: result.summary.skipped,
+          errorCount: result.summary.errors.length,
+          tmdbPosterEnriched: result.tmdbPosterEnriched,
+          tmdbPosterLookupMisses: result.tmdbPosterLookupMisses,
+          variantsCreated: result.variantsCreated,
+          variantsUpdated: result.variantsUpdated,
+          enrichmentErrorCount: (result.summary.enrichmentErrors || []).length,
+          jobId: job.id
+        });
+      } catch (error) {
+        logError('Plex async import failed', error);
+        await updateSyncJob(job.id, {
+          status: 'failed',
+          error: error.message || 'Plex import failed',
+          finished_at: new Date()
+        });
+        await logActivity(auditReq, 'media.import.plex.failed', 'media', null, {
+          sectionIds,
+          detail: error.message || 'Plex import failed',
+          jobId: job.id
+        });
+      }
+    });
+
+    return res.status(202).json({
+      ok: true,
+      queued: true,
+      job: {
+        id: job.id,
+        status: job.status,
+        provider: job.provider,
+        progress: job.progress
+      }
+    });
+  }
+
   try {
-    items = await fetchPlexLibraryItems(config, sectionIds);
+    const result = await runPlexImport({
+      req,
+      config,
+      sectionIds,
+      scopeContext
+    });
+
+    await logActivity(req, 'media.import.plex', 'media', null, {
+      sectionIds,
+      imported: result.imported,
+      created: result.summary.created,
+      updated: result.summary.updated,
+      skipped: result.summary.skipped,
+      errorCount: result.summary.errors.length,
+      tmdbPosterEnriched: result.tmdbPosterEnriched,
+      tmdbPosterLookupMisses: result.tmdbPosterLookupMisses,
+      variantsCreated: result.variantsCreated,
+      variantsUpdated: result.variantsUpdated,
+      enrichmentErrorCount: (result.summary.enrichmentErrors || []).length
+    });
+
+    return res.json({ ok: true, ...result });
   } catch (error) {
     logError('Plex import fetch failed', error);
     await logActivity(req, 'media.import.plex.failed', 'media', null, {
       sectionIds,
-      detail: error.message || 'Plex import fetch failed'
+      detail: error.message || 'Plex import failed'
     });
-    return res.status(502).json({ error: error.message || 'Plex import fetch failed' });
+    return res.status(502).json({ error: error.message || 'Plex import failed' });
+  }
+}));
+
+router.get('/sync-jobs', asyncHandler(async (req, res) => {
+  const limitRaw = Number(req.query?.limit);
+  const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(200, limitRaw)) : 50;
+  const params = [limit];
+  let where = '';
+  if (req.user.role !== 'admin') {
+    params.push(req.user.id);
+    where = `WHERE created_by = $${params.length}`;
+  } else if (Number.isFinite(Number(req.query?.created_by))) {
+    params.push(Number(req.query.created_by));
+    where = `WHERE created_by = $${params.length}`;
   }
 
-  for (const item of items) {
-    const media = { ...item.normalized };
-    if (!media.title) {
-      summary.skipped += 1;
-      continue;
-    }
+  const result = await pool.query(
+    `SELECT id, job_type, provider, status, created_by, scope, progress, summary, error,
+            started_at, finished_at, created_at, updated_at
+     FROM sync_jobs
+     ${where}
+     ORDER BY created_at DESC
+     LIMIT $1`,
+    params
+  );
+  res.json(result.rows);
+}));
 
-    if (!media.poster_path && config.tmdbApiKey) {
-      const cacheKey = media.tmdb_id
-        ? `id:${media.tmdb_id}`
-        : `q:${String(media.title || '').toLowerCase()}|${media.year || ''}`;
-      let cached = tmdbEnrichmentCache.get(cacheKey);
-      if (cached === undefined) {
-        cached = null;
-        try {
-          const tmdbType = media.tmdb_media_type === 'tv' ? 'tv' : 'movie';
-          if (media.tmdb_id) {
-            const details = await fetchTmdbMovieDetails(media.tmdb_id, config, tmdbType);
-            cached = {
-              tmdb_id: media.tmdb_id,
-              tmdb_url: details?.tmdb_url || `https://www.themoviedb.org/${tmdbType}/${media.tmdb_id}`,
-              poster_path: details?.poster_path || null,
-              backdrop_path: details?.backdrop_path || null
-            };
-          } else if (media.title) {
-            const results = await searchTmdbMovie(media.title, media.year || undefined, config, tmdbType);
-            const best = pickBestTmdbMatch(results, media.title, media.year);
-            if (best) {
-              cached = {
-                tmdb_id: best.id || null,
-                tmdb_url: best.id ? `https://www.themoviedb.org/${tmdbType}/${best.id}` : null,
-                poster_path: best.poster_path || null,
-                backdrop_path: best.backdrop_path || null
-              };
-            }
-          }
-        } catch (error) {
-          cached = null;
-          logError('Plex import TMDB poster enrichment failed', error);
-        }
-        tmdbEnrichmentCache.set(cacheKey, cached);
-      }
-
-      if (cached?.poster_path) {
-        media.poster_path = cached.poster_path;
-        media.backdrop_path = cached.backdrop_path || media.backdrop_path || cached.poster_path;
-        media.tmdb_id = media.tmdb_id || cached.tmdb_id || null;
-        media.tmdb_url = media.tmdb_url || cached.tmdb_url || (media.tmdb_id ? `https://www.themoviedb.org/${media.tmdb_media_type === 'tv' ? 'tv' : 'movie'}/${media.tmdb_id}` : null);
-        tmdbPosterEnriched += 1;
-      } else {
-        tmdbPosterLookupMisses += 1;
-      }
-    }
-
-    try {
-      let existing = null;
-
-      const plexGuid = media.plex_guid || null;
-      const plexItemKey = media.plex_rating_key ? `${item.sectionId}:${media.plex_rating_key}` : null;
-
-      if (plexGuid) {
-        const byPlexGuidParams = [plexGuid];
-        const byPlexGuidScopeClause = appendScopeSql(byPlexGuidParams, scopeContext, {
-          spaceColumn: 'm.space_id',
-          libraryColumn: 'm.library_id'
-        });
-        const byPlexGuid = await pool.query(
-          `SELECT m.id
-           FROM media m
-           JOIN media_metadata mm ON mm.media_id = m.id
-           WHERE mm."key" = 'plex_guid'
-             AND mm."value" = $1
-             ${byPlexGuidScopeClause}
-           ORDER BY m.created_at DESC
-           LIMIT 1`,
-          byPlexGuidParams
-        );
-        existing = byPlexGuid.rows[0] || null;
-      }
-
-      if (!existing && plexItemKey) {
-        const byPlexItemKeyParams = [plexItemKey];
-        const byPlexItemKeyScopeClause = appendScopeSql(byPlexItemKeyParams, scopeContext, {
-          spaceColumn: 'm.space_id',
-          libraryColumn: 'm.library_id'
-        });
-        const byPlexItemKey = await pool.query(
-          `SELECT m.id
-           FROM media m
-           JOIN media_metadata mm ON mm.media_id = m.id
-           WHERE mm."key" = 'plex_item_key'
-             AND mm."value" = $1
-             ${byPlexItemKeyScopeClause}
-           ORDER BY m.created_at DESC
-           LIMIT 1`,
-          byPlexItemKeyParams
-        );
-        existing = byPlexItemKey.rows[0] || null;
-      }
-
-      if (!existing && media.tmdb_id) {
-        const byTmdbParams = [media.tmdb_id, media.tmdb_media_type || 'movie'];
-        const byTmdbScopeClause = appendScopeSql(byTmdbParams, scopeContext);
-        const byTmdb = await pool.query(
-          `SELECT id
-           FROM media
-           WHERE tmdb_id = $1
-             AND COALESCE(tmdb_media_type, 'movie') = COALESCE($2, COALESCE(tmdb_media_type, 'movie'))
-             ${byTmdbScopeClause}
-           LIMIT 1`,
-          byTmdbParams
-        );
-        existing = byTmdb.rows[0] || null;
-      }
-
-      if (!existing) {
-        const byTitleYearParams = [media.title, media.year || null];
-        const byTitleYearScopeClause = appendScopeSql(byTitleYearParams, scopeContext);
-        const byTitleYear = await pool.query(
-          `SELECT id
-           FROM media
-           WHERE LOWER(TRIM(title)) = LOWER(TRIM($1))
-             AND (
-               ($2::int IS NOT NULL AND year = $2::int)
-               OR ($2::int IS NULL)
-             )
-             ${byTitleYearScopeClause}
-           ORDER BY created_at DESC
-           LIMIT 1`,
-          byTitleYearParams
-        );
-        existing = byTitleYear.rows[0] || null;
-      }
-
-      if (existing) {
-        const updateParams = [
-          media.original_title,
-          media.release_date,
-          media.year,
-          media.format,
-          media.director,
-          media.rating,
-          media.runtime,
-          media.poster_path,
-          media.backdrop_path,
-          media.overview,
-          media.tmdb_id,
-          media.tmdb_media_type || 'movie',
-          media.tmdb_url,
-          media.media_type || 'movie',
-          media.network,
-          `Imported from Plex section ${item.sectionId}`,
-          existing.id
-        ];
-        const updateScopeClause = appendScopeSql(updateParams, scopeContext);
-        await pool.query(
-          `UPDATE media SET
-             original_title = COALESCE($1, original_title),
-             release_date = COALESCE($2, release_date),
-             year = COALESCE($3, year),
-             format = COALESCE($4, format),
-             director = COALESCE($5, director),
-             rating = COALESCE($6, rating),
-             runtime = COALESCE($7, runtime),
-             poster_path = COALESCE($8, poster_path),
-             backdrop_path = COALESCE($9, backdrop_path),
-             overview = COALESCE($10, overview),
-             tmdb_id = COALESCE($11, tmdb_id),
-             tmdb_media_type = COALESCE($12, tmdb_media_type),
-             tmdb_url = COALESCE($13, tmdb_url),
-             media_type = COALESCE($14, media_type),
-             network = COALESCE($15, network),
-             notes = COALESCE($16, notes),
-             import_source = 'plex'
-           WHERE id = $17${updateScopeClause}`,
-          updateParams
-        );
-        await upsertMediaMetadata(existing.id, 'plex_guid', plexGuid);
-        await upsertMediaMetadata(existing.id, 'plex_item_key', plexItemKey);
-        await upsertMediaMetadata(existing.id, 'plex_section_id', item.sectionId);
-        await upsertMediaVariant(existing.id, item.variant);
-        summary.updated += 1;
-      } else {
-        const inserted = await pool.query(
-          `INSERT INTO media (
-             title, original_title, release_date, year, format, director, rating,
-             runtime, poster_path, backdrop_path, overview, tmdb_id, tmdb_media_type, tmdb_url, media_type, network, notes,
-             library_id, space_id, added_by, import_source
-           ) VALUES (
-             $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21
-           )
-           RETURNING id`,
-          [
-            media.title,
-            media.original_title,
-            media.release_date,
-            media.year,
-            media.format || 'Digital',
-            media.director,
-            media.rating,
-            media.runtime,
-            media.poster_path,
-            media.backdrop_path,
-            media.overview,
-            media.tmdb_id,
-            media.tmdb_media_type || 'movie',
-            media.tmdb_url,
-            media.media_type || 'movie',
-            media.network,
-            `Imported from Plex section ${item.sectionId}`,
-            scopeContext.libraryId || null,
-            scopeContext.spaceId || null,
-            req.user.id,
-            'plex'
-          ]
-        );
-        const insertedId = inserted.rows[0]?.id;
-        if (insertedId) {
-          await upsertMediaMetadata(insertedId, 'plex_guid', plexGuid);
-          await upsertMediaMetadata(insertedId, 'plex_item_key', plexItemKey);
-          await upsertMediaMetadata(insertedId, 'plex_section_id', item.sectionId);
-          await upsertMediaVariant(insertedId, item.variant);
-        }
-        summary.created += 1;
-      }
-    } catch (error) {
-      summary.errors.push({ title: media.title, detail: error.message });
-    }
+router.get('/sync-jobs/:id', asyncHandler(async (req, res) => {
+  const jobId = Number(req.params.id);
+  if (!Number.isFinite(jobId) || jobId <= 0) {
+    return res.status(400).json({ error: 'Invalid job id' });
   }
-
-  await logActivity(req, 'media.import.plex', 'media', null, {
-    sectionIds,
-    imported: items.length,
-    created: summary.created,
-    updated: summary.updated,
-    skipped: summary.skipped,
-    errorCount: summary.errors.length,
-    tmdbPosterEnriched,
-    tmdbPosterLookupMisses,
-    variantsCreated,
-    variantsUpdated
-  });
-
-  res.json({
-    ok: true,
-    imported: items.length,
-    summary,
-    tmdbPosterEnriched,
-    tmdbPosterLookupMisses,
-    variantsCreated,
-    variantsUpdated
-  });
+  const job = await getSyncJob(jobId, req.user);
+  if (!job) {
+    return res.status(404).json({ error: 'Job not found' });
+  }
+  res.json(job);
 }));
 
 // ── Create ────────────────────────────────────────────────────────────────────
