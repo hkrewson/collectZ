@@ -207,6 +207,8 @@ CREATE TABLE IF NOT EXISTS feature_flags (
     key VARCHAR(100) PRIMARY KEY,
     enabled BOOLEAN DEFAULT false,
     description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -305,12 +307,24 @@ BEGIN
         CREATE TRIGGER update_sync_jobs_updated_at BEFORE UPDATE ON sync_jobs
             FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_feature_flags_updated_at') THEN
+        CREATE TRIGGER update_feature_flags_updated_at BEFORE UPDATE ON feature_flags
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
 END;
 $$;
 
 -- Seed singleton rows
 INSERT INTO app_integrations (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
 INSERT INTO app_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+INSERT INTO feature_flags (key, enabled, description) VALUES
+    ('import_plex_enabled', true, 'Allow Plex imports from the Import page and API'),
+    ('import_csv_enabled', true, 'Allow CSV imports (generic and Delicious)'),
+    ('tmdb_search_enabled', true, 'Allow TMDB search and details lookups'),
+    ('lookup_upc_enabled', true, 'Allow barcode/UPC lookup API usage'),
+    ('recognize_cover_enabled', true, 'Allow vision/OCR cover recognition API usage')
+ON CONFLICT (key) DO UPDATE
+SET description = EXCLUDED.description;
 
 -- Mark bootstrap migrations as applied since init.sql creates everything directly.
 -- This prevents the migration runner from re-applying them on first startup.
@@ -325,5 +339,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (8, 'Media type and multi-library scaffolding'),
     (9, 'Scope scaffolding on app integrations'),
     (10, 'Async sync job tracking for long-running imports'),
-    (11, 'Metadata uniqueness and filter performance indexes')
+    (11, 'Metadata uniqueness and filter performance indexes'),
+    (12, 'Feature flag metadata and defaults')
 ON CONFLICT (version) DO NOTHING;

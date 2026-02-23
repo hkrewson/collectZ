@@ -132,6 +132,21 @@ jobs:
           });
           NODE
 
+      - name: Verify init.sql parity with migrations
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/collectz_ci
+          INIT_PARITY_ADMIN_URL: postgresql://postgres:postgres@localhost:5432/postgres
+          DATABASE_SSL: "false"
+        run: |
+          INIT_PARITY_OUTPUT="artifacts/init-parity-evidence.json" npm run test:init-parity
+
+      - name: Upload init parity evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: init-parity-evidence
+          path: backend/artifacts/init-parity-evidence.json
+
       - name: Run migration restore rehearsal
         working-directory: backend
         env:
