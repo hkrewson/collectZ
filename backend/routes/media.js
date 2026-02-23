@@ -326,6 +326,7 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
 
 const TMDB_IMPORT_MIN_INTERVAL_MS = Math.max(0, Number(process.env.TMDB_IMPORT_MIN_INTERVAL_MS || 50));
 const PLEX_JOB_PROGRESS_BATCH_SIZE = Math.max(1, Number(process.env.PLEX_JOB_PROGRESS_BATCH_SIZE || 25));
+const CSV_JOB_PROGRESS_BATCH_SIZE = Math.max(1, Number(process.env.CSV_JOB_PROGRESS_BATCH_SIZE || 25));
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -783,6 +784,186 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
   };
 }
 
+async function runGenericCsvImport({ rows, userId, scopeContext, onProgress = null }) {
+  const summary = { created: 0, updated: 0, skipped_invalid: 0, errors: [] };
+  const auditRows = [];
+  const config = await loadAdminIntegrationConfig();
+  const tmdbCache = new Map();
+  const updateProgress = async (progress) => {
+    if (typeof onProgress !== 'function') return;
+    await onProgress(progress);
+  };
+
+  await updateProgress({
+    total: rows.length,
+    processed: 0,
+    created: 0,
+    updated: 0,
+    skipped: 0,
+    errorCount: 0
+  });
+
+  for (let idx = 0; idx < rows.length; idx += 1) {
+    const row = rows[idx];
+    const value = (name) => {
+      const key = Object.keys(row).find((k) => String(k).trim().toLowerCase() === name);
+      return key ? row[key] : '';
+    };
+    const mapped = {
+      title: value('title'),
+      media_type: 'movie',
+      original_title: value('original_title') || '',
+      release_date: parseDateOnly(value('release_date')),
+      year: parseYear(value('year') || value('release_date')),
+      format: normalizeMediaFormat(value('format')),
+      genre: value('genre'),
+      director: value('director'),
+      rating: value('rating') ? Number(value('rating')) : null,
+      user_rating: value('user_rating') ? Number(value('user_rating')) : null,
+      runtime: value('runtime') ? Number(value('runtime')) : null,
+      upc: value('upc'),
+      location: value('location'),
+      notes: value('notes')
+    };
+    try {
+      const enriched = await enrichImportItemWithTmdb(mapped, config, tmdbCache);
+      const result = await upsertImportedMedia({
+        userId,
+        item: enriched,
+        importSource: 'csv_generic',
+        scopeContext
+      });
+      if (result.type === 'created') {
+        summary.created += 1;
+        auditRows.push({ row: idx + 2, title: mapped.title || '', status: 'created', detail: '' });
+      } else if (result.type === 'updated') {
+        summary.updated += 1;
+        auditRows.push({ row: idx + 2, title: mapped.title || '', status: 'updated', detail: '' });
+      } else {
+        summary.skipped_invalid += 1;
+        auditRows.push({ row: idx + 2, title: mapped.title || '', status: 'skipped_invalid', detail: result.detail || 'Invalid row' });
+      }
+    } catch (error) {
+      summary.errors.push({ row: idx + 2, detail: error.message });
+      auditRows.push({ row: idx + 2, title: mapped.title || '', status: 'error', detail: error.message });
+    }
+
+    const processed = idx + 1;
+    if (processed === rows.length || processed % CSV_JOB_PROGRESS_BATCH_SIZE === 0) {
+      await updateProgress({
+        total: rows.length,
+        processed,
+        created: summary.created,
+        updated: summary.updated,
+        skipped: summary.skipped_invalid,
+        errorCount: summary.errors.length
+      });
+    }
+  }
+
+  return { rows: rows.length, summary, auditRows };
+}
+
+async function runDeliciousCsvImport({ rows, userId, scopeContext, onProgress = null }) {
+  const summary = {
+    created: 0,
+    updated: 0,
+    skipped_non_movie: 0,
+    skipped_invalid: 0,
+    errors: []
+  };
+  const auditRows = [];
+  const config = await loadAdminIntegrationConfig();
+  const tmdbCache = new Map();
+  const updateProgress = async (progress) => {
+    if (typeof onProgress !== 'function') return;
+    await onProgress(progress);
+  };
+
+  await updateProgress({
+    total: rows.length,
+    processed: 0,
+    created: 0,
+    updated: 0,
+    skipped: 0,
+    errorCount: 0
+  });
+
+  for (let idx = 0; idx < rows.length; idx += 1) {
+    const row = rows[idx];
+    const value = (name) => {
+      const key = Object.keys(row).find((k) => String(k).trim().toLowerCase() === name);
+      return key ? row[key] : '';
+    };
+    const itemType = String(value('item type') || '').trim().toLowerCase();
+    if (itemType && itemType !== 'movie') {
+      summary.skipped_non_movie += 1;
+      auditRows.push({
+        row: idx + 2,
+        title: String(value('title') || '').trim(),
+        status: 'skipped_non_movie',
+        detail: `item type: ${itemType || 'unknown'}`
+      });
+    } else {
+      const title = String(value('title') || '').trim();
+      if (!title) {
+        summary.skipped_invalid += 1;
+        auditRows.push({ row: idx + 2, title: '', status: 'skipped_invalid', detail: 'Missing title' });
+      } else {
+        const mapped = {
+          title,
+          media_type: 'movie',
+          year: parseYear(value('release date')) || parseYear(value('creation date')),
+          release_date: parseDateOnly(value('release date')),
+          format: normalizeMediaFormat(value('format')),
+          genre: value('genres'),
+          director: value('creator'),
+          user_rating: value('rating') ? Number(value('rating')) : null,
+          upc: value('ean') || value('isbn'),
+          notes: [value('notes'), value('edition'), value('platform')].filter(Boolean).join(' | ')
+        };
+
+        try {
+          const enriched = await enrichImportItemWithTmdb(mapped, config, tmdbCache);
+          const result = await upsertImportedMedia({
+            userId,
+            item: enriched,
+            importSource: 'csv_delicious',
+            scopeContext
+          });
+          if (result.type === 'created') {
+            summary.created += 1;
+            auditRows.push({ row: idx + 2, title, status: 'created', detail: '' });
+          } else if (result.type === 'updated') {
+            summary.updated += 1;
+            auditRows.push({ row: idx + 2, title, status: 'updated', detail: '' });
+          } else {
+            summary.skipped_invalid += 1;
+            auditRows.push({ row: idx + 2, title, status: 'skipped_invalid', detail: result.detail || 'Invalid row' });
+          }
+        } catch (error) {
+          summary.errors.push({ row: idx + 2, detail: error.message });
+          auditRows.push({ row: idx + 2, title, status: 'error', detail: error.message });
+        }
+      }
+    }
+
+    const processed = idx + 1;
+    if (processed === rows.length || processed % CSV_JOB_PROGRESS_BATCH_SIZE === 0) {
+      await updateProgress({
+        total: rows.length,
+        processed,
+        created: summary.created,
+        updated: summary.updated,
+        skipped: summary.skipped_invalid + summary.skipped_non_movie,
+        errorCount: summary.errors.length
+      });
+    }
+  }
+
+  return { rows: rows.length, summary, auditRows };
+}
+
 // All routes require auth
 router.use(authenticateToken);
 
@@ -1183,65 +1364,104 @@ router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, r
   if (!canonical.includes('title')) {
     return res.status(400).json({ error: 'CSV must include a title column' });
   }
+  const asyncMode = parseAsyncFlag(req.query?.async) || parseAsyncFlag(req.body?.async);
+  const auditReq = {
+    user: req.user,
+    headers: req.headers,
+    ip: req.ip,
+    socket: req.socket
+  };
 
-  const summary = { created: 0, updated: 0, skipped_invalid: 0, errors: [] };
-  const auditRows = [];
-  const config = await loadAdminIntegrationConfig();
-  const tmdbCache = new Map();
-  for (let idx = 0; idx < rows.length; idx += 1) {
-    const row = rows[idx];
-    const value = (name) => {
-      const key = Object.keys(row).find((k) => String(k).trim().toLowerCase() === name);
-      return key ? row[key] : '';
-    };
-    const mapped = {
-      title: value('title'),
-      media_type: 'movie',
-      original_title: value('original_title') || '',
-      release_date: parseDateOnly(value('release_date')),
-      year: parseYear(value('year') || value('release_date')),
-      format: normalizeMediaFormat(value('format')),
-      genre: value('genre'),
-      director: value('director'),
-      rating: value('rating') ? Number(value('rating')) : null,
-      user_rating: value('user_rating') ? Number(value('user_rating')) : null,
-      runtime: value('runtime') ? Number(value('runtime')) : null,
-      upc: value('upc'),
-      location: value('location'),
-      notes: value('notes')
-    };
-    try {
-      const enriched = await enrichImportItemWithTmdb(mapped, config, tmdbCache);
-      const result = await upsertImportedMedia({
-        userId: req.user.id,
-        item: enriched,
-        importSource: 'csv_generic',
-        scopeContext
-      });
-      if (result.type === 'created') {
-        summary.created += 1;
-        auditRows.push({ row: idx + 2, title: mapped.title || '', status: 'created', detail: '' });
-      } else if (result.type === 'updated') {
-        summary.updated += 1;
-        auditRows.push({ row: idx + 2, title: mapped.title || '', status: 'updated', detail: '' });
-      } else {
-        summary.skipped_invalid += 1;
-        auditRows.push({ row: idx + 2, title: mapped.title || '', status: 'skipped_invalid', detail: result.detail || 'Invalid row' });
+  if (asyncMode) {
+    const job = await createSyncJob({
+      userId: req.user.id,
+      jobType: 'media_import',
+      provider: 'csv_generic',
+      scope: jobScopePayload(scopeContext),
+      progress: {
+        total: rows.length,
+        processed: 0,
+        created: 0,
+        updated: 0,
+        skipped: 0,
+        errorCount: 0
       }
-    } catch (error) {
-      summary.errors.push({ row: idx + 2, detail: error.message });
-      auditRows.push({ row: idx + 2, title: mapped.title || '', status: 'error', detail: error.message });
-    }
+    });
+
+    setImmediate(async () => {
+      try {
+        await updateSyncJob(job.id, { status: 'running', started_at: new Date() });
+        const result = await runGenericCsvImport({
+          rows,
+          userId: req.user.id,
+          scopeContext,
+          onProgress: async (progress) => updateSyncJob(job.id, { progress })
+        });
+        await updateSyncJob(job.id, {
+          status: 'succeeded',
+          progress: {
+            total: result.rows,
+            processed: result.rows,
+            created: result.summary.created,
+            updated: result.summary.updated,
+            skipped: result.summary.skipped_invalid,
+            errorCount: result.summary.errors.length
+          },
+          summary: {
+            rows: result.rows,
+            created: result.summary.created,
+            updated: result.summary.updated,
+            skipped_invalid: result.summary.skipped_invalid,
+            errorCount: result.summary.errors.length
+          },
+          finished_at: new Date()
+        });
+        await logActivity(auditReq, 'media.import.csv', 'media', null, {
+          rows: result.rows,
+          created: result.summary.created,
+          updated: result.summary.updated,
+          skipped_invalid: result.summary.skipped_invalid,
+          errorCount: result.summary.errors.length,
+          jobId: job.id
+        });
+      } catch (error) {
+        await updateSyncJob(job.id, {
+          status: 'failed',
+          error: error.message || 'CSV import failed',
+          finished_at: new Date()
+        });
+        await logActivity(auditReq, 'media.import.csv.failed', 'media', null, {
+          detail: error.message || 'CSV import failed',
+          jobId: job.id
+        });
+      }
+    });
+
+    return res.status(202).json({
+      ok: true,
+      queued: true,
+      job: {
+        id: job.id,
+        status: job.status,
+        provider: job.provider,
+        progress: job.progress
+      }
+    });
   }
 
-  await logActivity(req, 'media.import.csv', 'media', null, {
-    created: summary.created,
-    updated: summary.updated,
-    skipped_invalid: summary.skipped_invalid,
-    errorCount: summary.errors.length
+  const result = await runGenericCsvImport({
+    rows,
+    userId: req.user.id,
+    scopeContext
   });
-
-  res.json({ ok: true, rows: rows.length, summary, auditRows });
+  await logActivity(req, 'media.import.csv', 'media', null, {
+    rows: result.rows,
+    created: result.summary.created,
+    updated: result.summary.updated,
+    skipped_invalid: result.summary.skipped_invalid,
+    errorCount: result.summary.errors.length
+  });
+  res.json({ ok: true, rows: result.rows, summary: result.summary, auditRows: result.auditRows });
 }));
 
 router.post('/import-csv/delicious', tempUpload.single('file'), asyncHandler(async (req, res) => {
@@ -1257,88 +1477,107 @@ router.post('/import-csv/delicious', tempUpload.single('file'), asyncHandler(asy
   }
 
   const { rows } = parseCsv(text);
-  const summary = {
-    created: 0,
-    updated: 0,
-    skipped_non_movie: 0,
-    skipped_invalid: 0,
-    errors: []
+  const asyncMode = parseAsyncFlag(req.query?.async) || parseAsyncFlag(req.body?.async);
+  const auditReq = {
+    user: req.user,
+    headers: req.headers,
+    ip: req.ip,
+    socket: req.socket
   };
-  const auditRows = [];
-  const config = await loadAdminIntegrationConfig();
-  const tmdbCache = new Map();
 
-  for (let idx = 0; idx < rows.length; idx += 1) {
-    const row = rows[idx];
-    const value = (name) => {
-      const key = Object.keys(row).find((k) => String(k).trim().toLowerCase() === name);
-      return key ? row[key] : '';
-    };
-    const itemType = String(value('item type') || '').trim().toLowerCase();
-    if (itemType && itemType !== 'movie') {
-      summary.skipped_non_movie += 1;
-      auditRows.push({
-        row: idx + 2,
-        title: String(value('title') || '').trim(),
-        status: 'skipped_non_movie',
-        detail: `item type: ${itemType || 'unknown'}`
-      });
-      continue;
-    }
-
-    const title = String(value('title') || '').trim();
-    if (!title) {
-      summary.skipped_invalid += 1;
-      auditRows.push({ row: idx + 2, title: '', status: 'skipped_invalid', detail: 'Missing title' });
-      continue;
-    }
-
-    const mapped = {
-      title,
-      media_type: 'movie',
-      year: parseYear(value('release date')) || parseYear(value('creation date')),
-      release_date: parseDateOnly(value('release date')),
-      format: normalizeMediaFormat(value('format')),
-      genre: value('genres'),
-      director: value('creator'),
-      user_rating: value('rating') ? Number(value('rating')) : null,
-      upc: value('ean') || value('isbn'),
-      notes: [value('notes'), value('edition'), value('platform')].filter(Boolean).join(' | ')
-    };
-
-    try {
-      const enriched = await enrichImportItemWithTmdb(mapped, config, tmdbCache);
-      const result = await upsertImportedMedia({
-        userId: req.user.id,
-        item: enriched,
-        importSource: 'csv_delicious',
-        scopeContext
-      });
-      if (result.type === 'created') {
-        summary.created += 1;
-        auditRows.push({ row: idx + 2, title, status: 'created', detail: '' });
-      } else if (result.type === 'updated') {
-        summary.updated += 1;
-        auditRows.push({ row: idx + 2, title, status: 'updated', detail: '' });
-      } else {
-        summary.skipped_invalid += 1;
-        auditRows.push({ row: idx + 2, title, status: 'skipped_invalid', detail: result.detail || 'Invalid row' });
+  if (asyncMode) {
+    const job = await createSyncJob({
+      userId: req.user.id,
+      jobType: 'media_import',
+      provider: 'csv_delicious',
+      scope: jobScopePayload(scopeContext),
+      progress: {
+        total: rows.length,
+        processed: 0,
+        created: 0,
+        updated: 0,
+        skipped: 0,
+        errorCount: 0
       }
-    } catch (error) {
-      summary.errors.push({ row: idx + 2, detail: error.message });
-      auditRows.push({ row: idx + 2, title, status: 'error', detail: error.message });
-    }
+    });
+
+    setImmediate(async () => {
+      try {
+        await updateSyncJob(job.id, { status: 'running', started_at: new Date() });
+        const result = await runDeliciousCsvImport({
+          rows,
+          userId: req.user.id,
+          scopeContext,
+          onProgress: async (progress) => updateSyncJob(job.id, { progress })
+        });
+        await updateSyncJob(job.id, {
+          status: 'succeeded',
+          progress: {
+            total: result.rows,
+            processed: result.rows,
+            created: result.summary.created,
+            updated: result.summary.updated,
+            skipped: result.summary.skipped_invalid + result.summary.skipped_non_movie,
+            errorCount: result.summary.errors.length
+          },
+          summary: {
+            rows: result.rows,
+            created: result.summary.created,
+            updated: result.summary.updated,
+            skipped_non_movie: result.summary.skipped_non_movie,
+            skipped_invalid: result.summary.skipped_invalid,
+            errorCount: result.summary.errors.length
+          },
+          finished_at: new Date()
+        });
+        await logActivity(auditReq, 'media.import.csv.delicious', 'media', null, {
+          rows: result.rows,
+          created: result.summary.created,
+          updated: result.summary.updated,
+          skipped_non_movie: result.summary.skipped_non_movie,
+          skipped_invalid: result.summary.skipped_invalid,
+          errorCount: result.summary.errors.length,
+          jobId: job.id
+        });
+      } catch (error) {
+        await updateSyncJob(job.id, {
+          status: 'failed',
+          error: error.message || 'Delicious CSV import failed',
+          finished_at: new Date()
+        });
+        await logActivity(auditReq, 'media.import.csv.delicious.failed', 'media', null, {
+          detail: error.message || 'Delicious CSV import failed',
+          jobId: job.id
+        });
+      }
+    });
+
+    return res.status(202).json({
+      ok: true,
+      queued: true,
+      job: {
+        id: job.id,
+        status: job.status,
+        provider: job.provider,
+        progress: job.progress
+      }
+    });
   }
 
-  await logActivity(req, 'media.import.csv.delicious', 'media', null, {
-    created: summary.created,
-    updated: summary.updated,
-    skipped_non_movie: summary.skipped_non_movie,
-    skipped_invalid: summary.skipped_invalid,
-    errorCount: summary.errors.length
+  const result = await runDeliciousCsvImport({
+    rows,
+    userId: req.user.id,
+    scopeContext
   });
-
-  res.json({ ok: true, rows: rows.length, summary, auditRows });
+  await logActivity(req, 'media.import.csv.delicious', 'media', null, {
+    rows: result.rows,
+    created: result.summary.created,
+    updated: result.summary.updated,
+    skipped_non_movie: result.summary.skipped_non_movie,
+    skipped_invalid: result.summary.skipped_invalid,
+    errorCount: result.summary.errors.length
+  });
+  res.json({ ok: true, rows: result.rows, summary: result.summary, auditRows: result.auditRows });
 }));
 
 // ── Plex import (admin only) ─────────────────────────────────────────────────
