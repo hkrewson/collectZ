@@ -24,6 +24,7 @@ const cookieParser = require('cookie-parser');
 const appMeta = require('./app-meta.json');
 
 const { runMigrations } = require('./db/migrations');
+const pool = require('./db/pool');
 const { requestLogger, errorHandler } = require('./middleware/errors');
 const { auditRequestOutcome, getMode } = require('./middleware/audit');
 
@@ -35,7 +36,7 @@ const { cleanupExpiredSessions, SESSION_MAX_PER_USER, SESSION_TTL_DAYS } = requi
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const APP_VERSION = process.env.APP_VERSION || appMeta.version || '1.9.9';
+const APP_VERSION = process.env.APP_VERSION || appMeta.version || '1.9.10';
 const GIT_SHA = process.env.GIT_SHA || appMeta?.build?.gitShaDefault || 'dev';
 const BUILD_DATE = process.env.BUILD_DATE || appMeta?.build?.buildDateDefault || 'unknown';
 const BUILD_LABEL = `v${APP_VERSION}+${GIT_SHA}`;
@@ -49,6 +50,7 @@ const RATE_LIMIT_MEDIA_READ_MAX = Math.max(60, Number(process.env.RATE_LIMIT_MED
 const RATE_LIMIT_MEDIA_WRITE_MAX = Math.max(20, Number(process.env.RATE_LIMIT_MEDIA_WRITE_MAX || 240));
 const RATE_LIMIT_IMPORT_START_MAX = Math.max(5, Number(process.env.RATE_LIMIT_IMPORT_START_MAX || 60));
 const RATE_LIMIT_SYNC_POLL_MAX = Math.max(30, Number(process.env.RATE_LIMIT_SYNC_POLL_MAX || 600));
+const RATE_LIMIT_EXTERNAL_API_MAX = Math.max(5, Number(process.env.RATE_LIMIT_EXTERNAL_API_MAX || 30));
 
 const parseTrustProxy = (value) => {
   if (value === undefined || value === null || value === '') {
@@ -131,6 +133,10 @@ const syncPollLimiter = makeLimiter({
   max: RATE_LIMIT_SYNC_POLL_MAX,
   message: { error: 'Too many import status checks, please slow down' }
 });
+const externalApiLimiter = makeLimiter({
+  max: RATE_LIMIT_EXTERNAL_API_MAX,
+  message: { error: 'Too many external provider requests, please slow down' }
+});
 
 app.use('/api/', globalLimiter);
 app.use('/api/auth/login', authLimiter);
@@ -141,6 +147,9 @@ app.use('/api/media', mediaWriteLimiter);
 app.use('/api/media/import-plex', importStartLimiter);
 app.use('/api/media/import-csv', importStartLimiter);
 app.use('/api/media/sync-jobs', syncPollLimiter);
+app.use('/api/media/search-tmdb', externalApiLimiter);
+app.use('/api/media/lookup-upc', externalApiLimiter);
+app.use('/api/media/recognize-cover', externalApiLimiter);
 
 // ── Static file serving (cover uploads) ──────────────────────────────────────
 app.use('/uploads', express.static('uploads'));
@@ -182,6 +191,17 @@ const startServer = async () => {
   try {
     validateStartupSecurityConfig();
     await runMigrations();
+    const staleJobs = await pool.query(
+      `UPDATE sync_jobs
+       SET status = 'failed',
+           error = COALESCE(error, 'Process restarted before job completion'),
+           finished_at = COALESCE(finished_at, NOW())
+       WHERE status IN ('queued', 'running')
+       RETURNING id`
+    );
+    if (staleJobs.rowCount > 0) {
+      console.warn(`Recovered ${staleJobs.rowCount} stale sync job(s) after restart`);
+    }
     // Run one cleanup pass on startup so stale rows are removed quickly.
     await cleanupExpiredSessions();
     const cleanupTimer = setInterval(async () => {
@@ -197,7 +217,8 @@ const startServer = async () => {
         `collectZ backend ${BUILD_LABEL} listening on port ${PORT} (audit=${getMode()}, ` +
         `sessionTtlDays=${SESSION_TTL_DAYS}, sessionMaxPerUser=${SESSION_MAX_PER_USER}, ` +
         `sessionCleanupMinutes=${SESSION_CLEANUP_INTERVAL_MINUTES}, ` +
-        `rateWindowMin=${RATE_LIMIT_WINDOW_MINUTES}, globalMax=${RATE_LIMIT_GLOBAL_MAX})`
+        `rateWindowMin=${RATE_LIMIT_WINDOW_MINUTES}, globalMax=${RATE_LIMIT_GLOBAL_MAX}, ` +
+        `externalApiMax=${RATE_LIMIT_EXTERNAL_API_MAX})`
       );
     });
   } catch (error) {
