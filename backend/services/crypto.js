@@ -3,16 +3,7 @@ const crypto = require('crypto');
 const resolveIntegrationKeyMaterial = () => {
   const explicitKey = process.env.INTEGRATION_ENCRYPTION_KEY;
   if (explicitKey) return explicitKey;
-
-  const isProduction = process.env.NODE_ENV === 'production';
-  if (isProduction) {
-    throw new Error('INTEGRATION_ENCRYPTION_KEY must be set in production');
-  }
-
-  const devFallback = process.env.SESSION_SECRET || 'dev-only-secret';
-  // Dev fallback is allowed for local iteration only.
-  console.warn('[crypto] INTEGRATION_ENCRYPTION_KEY missing; using development fallback key material');
-  return devFallback;
+  throw new Error('INTEGRATION_ENCRYPTION_KEY must be set');
 };
 
 const integrationEncryptionKey = crypto
