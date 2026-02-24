@@ -76,6 +76,12 @@ jobs:
           done
           echo "Release notes check passed for $NOTE_FILE"
 
+      - name: Enforce lockfile policy
+        run: |
+          test -f backend/package-lock.json || { echo "Missing required lockfile: backend/package-lock.json"; exit 1; }
+          test -f frontend/package-lock.json || { echo "Missing required lockfile: frontend/package-lock.json"; exit 1; }
+          echo "Lockfile policy check passed."
+
       - name: Enforce runtime dependency policy
         run: |
           if grep -Eq '^[[:space:]]+container_name:' docker-compose.yml docker-compose.registry.yml; then
@@ -161,11 +167,11 @@ jobs:
 
       - name: Install backend deps
         working-directory: backend
-        run: npm install --no-fund
+        run: npm ci --no-fund
 
       - name: Install frontend deps
         working-directory: frontend
-        run: npm install --no-fund
+        run: npm ci --no-fund
 
       - name: Run backend dependency audit
         working-directory: backend
@@ -291,7 +297,7 @@ jobs:
 
       - name: Install backend deps
         working-directory: backend
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
       - name: Run backend unit tests
         working-directory: backend
