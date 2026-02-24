@@ -18,6 +18,7 @@ Start here for deployment and operations guidance.
 12. [2.0 Migration Rehearsal Runbook](./12-Migration-Rehearsal-Runbook.md)
 13. [Rate Limit Policy](./13-Rate-Limit-Policy.md)
 14. [Engineering Delivery Policy](./14-Engineering-Delivery-Policy.md)
+15. [Secrets and Rotation Runbook](./15-Secrets-and-Rotation-Runbook.md)
 
 ## Default Admin Behavior (Important)
 

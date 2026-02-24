@@ -52,6 +52,7 @@ Migration safety in CI:
 
 Security and release gates in CI:
 
+- Secret leak scan (gitleaks) against repository history and current tree.
 - Dependency vulnerability scan (`npm audit`) on backend/frontend dependencies.
 - Container image vulnerability scan (Trivy) for backend/frontend images.
 - SBOM generation (CycloneDX JSON) for backend/frontend images, uploaded as CI artifacts.
@@ -64,6 +65,7 @@ Security and release gates in CI:
 
 Default blocking threshold:
 
+- Any detected committed secret blocks CI.
 - `critical` vulnerabilities block CI.
 - `high` findings are triaged and tracked for remediation.
 

@@ -25,6 +25,7 @@ Every milestone release must pass all gates below before tag/publish.
    - compose stack boots cleanly,
    - `/api/health` returns expected version/build metadata.
 4. Security checks:
+   - secret scan (committed secret detection) completed,
    - dependency vulnerability scan completed,
    - container image scan completed,
    - SBOM artifact generated.
@@ -78,6 +79,7 @@ Each release must publish full notes in a consistent format.
 
 Security scans run in CI and use these default blocker thresholds:
 
+- Secret scan (`gitleaks`): block on any detected committed secret.
 - Dependency scan (`npm audit`): block on `critical` vulnerabilities.
 - Container image scan (Trivy): block on `critical` vulnerabilities.
 - `high` severity findings do not block by default, but must be triaged and tracked.
