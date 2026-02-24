@@ -17,6 +17,7 @@ const { logError, logActivity } = require('../services/audit');
 const { uploadBuffer } = require('../services/storage');
 const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
 const { isFeatureEnabled } = require('../services/featureFlags');
+const { enforceScopeAccess } = require('../middleware/scopeAccess');
 
 const router = express.Router();
 
@@ -979,6 +980,7 @@ async function runDeliciousCsvImport({ rows, userId, scopeContext, onProgress = 
 
 // All routes require auth
 router.use(authenticateToken);
+router.use(enforceScopeAccess({ allowedHintRoles: ['admin'] }));
 
 // ── List / search ─────────────────────────────────────────────────────────────
 

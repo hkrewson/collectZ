@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS users (
     password VARCHAR(255) NOT NULL,
     name VARCHAR(255) NOT NULL,
     role VARCHAR(50) DEFAULT 'user' CHECK (role IN ('admin', 'user', 'viewer')),
+    active_space_id INTEGER,
+    active_library_id INTEGER,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -216,6 +218,14 @@ CREATE TABLE IF NOT EXISTS libraries (
     archived_at TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS library_memberships (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    library_id INTEGER NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
+    role VARCHAR(20) DEFAULT 'member',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, library_id)
+);
+
 CREATE TABLE IF NOT EXISTS feature_flags (
     key VARCHAR(100) PRIMARY KEY,
     enabled BOOLEAN DEFAULT false,
@@ -275,6 +285,8 @@ CREATE INDEX IF NOT EXISTS idx_user_sessions_expires_at ON user_sessions(expires
 CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user_id ON password_reset_tokens(user_id);
 CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_active ON password_reset_tokens(used, revoked, expires_at);
 CREATE INDEX IF NOT EXISTS idx_libraries_name ON libraries(name);
+CREATE INDEX IF NOT EXISTS idx_library_memberships_user_id ON library_memberships(user_id);
+CREATE INDEX IF NOT EXISTS idx_library_memberships_library_id ON library_memberships(library_id);
 CREATE INDEX IF NOT EXISTS idx_sync_jobs_status_created_at ON sync_jobs(status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sync_jobs_created_by_created_at ON sync_jobs(created_by, created_at DESC);
 
@@ -356,5 +368,8 @@ INSERT INTO schema_migrations (version, description) VALUES
     (9, 'Scope scaffolding on app integrations'),
     (10, 'Async sync job tracking for long-running imports'),
     (11, 'Metadata uniqueness and filter performance indexes'),
-    (12, 'Feature flag metadata and defaults')
+    (12, 'Feature flag metadata and defaults'),
+    (13, 'Hash invite tokens at rest and remove plaintext storage'),
+    (14, 'Password reset tokens table for admin-initiated one-time resets'),
+    (15, 'Server-authoritative scope state and library memberships')
 ON CONFLICT (version) DO NOTHING;

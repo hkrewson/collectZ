@@ -39,7 +39,9 @@ const authenticateToken = async (req, res, next) => {
     req.user = {
       id: sessionUser.id,
       email: sessionUser.email,
-      role: sessionUser.role
+      role: sessionUser.role,
+      activeSpaceId: sessionUser.active_space_id ?? null,
+      activeLibraryId: sessionUser.active_library_id ?? null
     };
     req.sessionId = sessionUser.session_id;
     next();

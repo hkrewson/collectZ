@@ -52,7 +52,9 @@ const getSessionUserByToken = async (token) => {
        s.id AS session_id,
        u.id,
        u.email,
-       u.role
+       u.role,
+       u.active_space_id,
+       u.active_library_id
      FROM user_sessions s
      JOIN users u ON u.id = s.user_id
      WHERE s.token_hash = $1

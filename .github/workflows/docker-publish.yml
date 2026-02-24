@@ -141,7 +141,10 @@ jobs:
               ['invites', 'revoked'],
               ['invites', 'used_by'],
               ['invites', 'token_hash'],
-              ['password_reset_tokens', 'token_hash']
+              ['password_reset_tokens', 'token_hash'],
+              ['users', 'active_space_id'],
+              ['users', 'active_library_id'],
+              ['library_memberships', 'library_id']
             ];
             for (const [table, column] of checks) {
               const r = await pool.query(
