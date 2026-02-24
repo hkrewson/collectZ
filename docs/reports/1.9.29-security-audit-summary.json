@@ -1,0 +1,20 @@
+{
+  "generatedAt": "2026-02-24T15:13:25.604Z",
+  "version": "1.9.29",
+  "backend": {
+    "info": 0,
+    "low": 0,
+    "moderate": 0,
+    "high": 0,
+    "critical": 0,
+    "total": 0
+  },
+  "frontend": {
+    "info": 0,
+    "low": 0,
+    "moderate": 0,
+    "high": 0,
+    "critical": 0,
+    "total": 0
+  }
+}
