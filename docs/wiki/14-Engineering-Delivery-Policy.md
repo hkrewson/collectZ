@@ -44,6 +44,7 @@ Every milestone release must pass all gates below before tag/publish.
 - Missing gate coverage is treated as a roadmap task, not a manual workaround.
 - A release is "not ready" if any mandatory gate fails.
 - "No release notes" is a release blocker.
+- Tagged releases must publish a CI preflight go/no-go artifact proving required evidence exists.
 
 ---
 
@@ -161,3 +162,21 @@ If a milestone needs a temporary policy exception:
 3. Add explicit expiration condition (when exception must be removed).
 
 No permanent silent exceptions.
+
+---
+
+## 5) UI Simplicity Default Policy
+
+When adding operational controls (filters, toggles, actions), default to the minimal interface that solves the common case.
+
+Rules:
+
+1. One primary input path first (for example a single search field) before adding secondary controls.
+2. Avoid mandatory extra clicks (`Apply`, `Clear`, `Refresh`) unless there is a proven performance or correctness need.
+3. Advanced filters should be hidden behind an explicit affordance, not always-on in default layout.
+4. If a control does not materially improve first-pass task success, defer it to roadmap backlog.
+
+Acceptance guidance:
+
+- Default workflows should be operable with minimal taps/clicks on mobile and desktop.
+- Added complexity must have a documented incident or operator use case.
