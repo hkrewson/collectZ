@@ -46,6 +46,15 @@ export default function SidebarNav({
     );
   };
 
+  const libraryOptionLabel = (library) => {
+    const ownerName = library?.created_by_name || library?.created_by_email || '';
+    const count = Number.isFinite(Number(library?.item_count)) ? ` · ${library.item_count}` : '';
+    if (user?.role === 'admin') {
+      return `${library?.name || 'Library'}${ownerName ? ` - ${ownerName}` : ''}${count}`;
+    }
+    return `${library?.name || 'Library'}${count}`;
+  };
+
   return (
     <>
       {mobileOpen && <div className="fixed inset-0 bg-void/80 z-30 lg:hidden" onClick={onMobileClose} />}
@@ -104,7 +113,7 @@ export default function SidebarNav({
                     {libraries.length === 0 && <option value="">No libraries</option>}
                     {libraries.map((library) => (
                       <option key={library.id} value={library.id}>
-                        {library.name}
+                        {libraryOptionLabel(library)}
                       </option>
                     ))}
                   </select>

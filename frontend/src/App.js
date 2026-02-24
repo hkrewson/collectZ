@@ -14,12 +14,11 @@ import LibraryView from './components/LibraryView';
 import { routeFromPath, readCookie, Spinner, Toast, ImportStatusDock, Icons, cx } from './components/app/AppPrimitives';
 
 const API_URL = process.env.REACT_APP_API_URL || '/api';
-const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.version || '2.0.0-alpha.2';
+const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.version || '2.0.0-alpha.5';
 const BUILD_SHA = process.env.REACT_APP_GIT_SHA || appMeta?.build?.gitShaDefault || 'dev';
 const IMPORT_JOBS_KEY = 'collectz_import_jobs';
 const IMPORT_POLL_LEADER_KEY = 'collectz_import_poll_leader';
 const IMPORT_POLL_LAST_TS_KEY = 'collectz_import_poll_last_ts';
-const ACTIVE_LIBRARY_PREF_KEY = 'collectz_active_library_id';
 const IMPORT_POLL_HEARTBEAT_MS = 8000;
 const IMPORT_POLL_STALE_MS = 25000;
 const IMPORT_POLL_INTERVAL_MS = 10000;
@@ -60,6 +59,7 @@ export default function App() {
   });
 
   const tabIdRef = useRef(`tab-${Math.random().toString(36).slice(2)}-${Date.now().toString(36)}`);
+  const mediaRequestSeqRef = useRef(0);
   const [isImportPollLeader, setIsImportPollLeader] = useState(false);
 
   const isForegroundTab = useCallback(
@@ -218,6 +218,7 @@ export default function App() {
   }, [apiCall, navigate]);
 
   const loadMedia = useCallback(async (opts = {}) => {
+    const requestSeq = ++mediaRequestSeqRef.current;
     const params = new URLSearchParams();
     const passthrough = [
       'page', 'limit', 'search', 'format', 'media_type', 'sortBy', 'sortDir',
@@ -238,6 +239,7 @@ export default function App() {
     setMediaError('');
     try {
       const payload = await apiCall('get', `/media${query ? `?${query}` : ''}`);
+      if (requestSeq !== mediaRequestSeqRef.current) return;
       if (Array.isArray(payload)) {
         setMediaItems(payload);
         setMediaPagination({ page: 1, limit: payload.length, total: payload.length, totalPages: 1, hasMore: false });
@@ -246,9 +248,10 @@ export default function App() {
         setMediaPagination(payload?.pagination || { page: 1, limit: 50, total: 0, totalPages: 1, hasMore: false });
       }
     } catch (err) {
+      if (requestSeq !== mediaRequestSeqRef.current) return;
       setMediaError(err.response?.data?.error || 'Failed to load media');
     } finally {
-      setMediaLoading(false);
+      if (requestSeq === mediaRequestSeqRef.current) setMediaLoading(false);
     }
   }, [apiCall]);
 
@@ -260,12 +263,8 @@ export default function App() {
       const payload = await apiCall('get', '/libraries');
       const nextLibraries = Array.isArray(payload?.libraries) ? payload.libraries : [];
       let nextActiveLibraryId = Number(payload?.active_library_id || 0) || null;
-
-      const preferredLibraryId = Number(localStorage.getItem(ACTIVE_LIBRARY_PREF_KEY) || 0) || null;
-      const preferredExists = preferredLibraryId && nextLibraries.some((lib) => Number(lib.id) === preferredLibraryId);
-      if (preferredExists && preferredLibraryId !== nextActiveLibraryId) {
-        const selected = await apiCall('post', '/libraries/select', { library_id: preferredLibraryId });
-        nextActiveLibraryId = Number(selected?.active_library_id || preferredLibraryId);
+      if (!nextActiveLibraryId && nextLibraries.length > 0) {
+        nextActiveLibraryId = Number(nextLibraries[0].id);
       }
 
       setLibraries(nextLibraries);
@@ -277,7 +276,6 @@ export default function App() {
           ? prev
           : { ...prev, active_library_id: nextActiveLibraryId };
       });
-      if (nextActiveLibraryId) localStorage.setItem(ACTIVE_LIBRARY_PREF_KEY, String(nextActiveLibraryId));
       return nextActiveLibraryId;
     } catch (error) {
       if (!silent) showToast(error.response?.data?.error || 'Failed to load libraries', 'error');
@@ -299,7 +297,8 @@ export default function App() {
           ? prev
           : { ...prev, active_library_id: nextActiveLibraryId };
       });
-      localStorage.setItem(ACTIVE_LIBRARY_PREF_KEY, String(nextActiveLibraryId));
+      setMediaItems([]);
+      setMediaPagination({ page: 1, limit: 50, total: 0, totalPages: 1, hasMore: false });
       await loadMedia();
       showToast(`Switched to ${selected?.library?.name || 'library'}`);
     } catch (error) {
@@ -311,7 +310,14 @@ export default function App() {
     const name = window.prompt('New library name');
     if (!name || !name.trim()) return;
     try {
-      await apiCall('post', '/libraries', { name: name.trim() });
+      const created = await apiCall('post', '/libraries', { name: name.trim() });
+      const createdLibraryId = Number(created?.active_library_id || created?.id || 0) || null;
+      if (createdLibraryId) {
+        setActiveLibraryId(createdLibraryId);
+        setUser((prev) => (prev ? { ...prev, active_library_id: createdLibraryId } : prev));
+        setMediaItems([]);
+        setMediaPagination({ page: 1, limit: 50, total: 0, totalPages: 1, hasMore: false });
+      }
       await syncLibraryContext({ silent: true });
       await loadMedia();
       showToast('Library created');
@@ -515,6 +521,7 @@ export default function App() {
 
   const isAdminTab = String(activeTab || '').startsWith('admin-');
   const forcedMediaType = activeTab === 'library-tv' ? 'tv' : activeTab === 'library-other' ? 'other' : 'movie';
+  const activeLibrary = libraries.find((library) => Number(library.id) === Number(activeLibraryId)) || null;
 
   const renderTab = () => {
     if (isAdminTab && user?.role !== 'admin') {
@@ -539,6 +546,7 @@ export default function App() {
             onRating={rateMedia}
             apiCall={apiCall}
             forcedMediaType={forcedMediaType}
+            activeLibrary={activeLibrary}
           />
         );
       case 'library-import':
@@ -554,6 +562,7 @@ export default function App() {
             Icons={Icons}
             Spinner={Spinner}
             cx={cx}
+            activeLibrary={activeLibrary}
           />
         );
       case 'profile':

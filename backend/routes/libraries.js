@@ -15,7 +15,14 @@ router.use(enforceScopeAccess({ allowedHintRoles: ['admin'] }));
 router.get('/libraries', asyncHandler(async (req, res) => {
   await ensureUserDefaultLibrary(req.user.id);
   const libraries = await listLibrariesForUser({ userId: req.user.id, role: req.user.role });
-  const activeLibraryId = Number(req.user.activeLibraryId || 0) || null;
+  const userScopeResult = await pool.query(
+    `SELECT active_library_id
+     FROM users
+     WHERE id = $1
+     LIMIT 1`,
+    [req.user.id]
+  );
+  const activeLibraryId = Number(userScopeResult.rows[0]?.active_library_id || 0) || null;
   const hasActive = activeLibraryId && libraries.some((lib) => Number(lib.id) === activeLibraryId);
   if (!hasActive && libraries.length > 0) {
     const fallbackLibraryId = libraries[0].id;
@@ -27,7 +34,9 @@ router.get('/libraries', asyncHandler(async (req, res) => {
     );
     req.user.activeLibraryId = fallbackLibraryId;
   }
-  const resolvedActiveLibraryId = Number(req.user.activeLibraryId || 0) || (libraries[0]?.id || null);
+  const resolvedActiveLibraryId = hasActive
+    ? activeLibraryId
+    : (libraries[0]?.id || null);
   res.json({
     libraries,
     active_library_id: resolvedActiveLibraryId
@@ -62,7 +71,10 @@ router.post('/libraries', validate(libraryCreateSchema), asyncHandler(async (req
   await logActivity(req, 'library.create', 'library', library.id, {
     name: library.name
   });
-  res.status(201).json(library);
+  res.status(201).json({
+    ...library,
+    active_library_id: library.id
+  });
 }));
 
 router.patch('/libraries/:id', validate(libraryUpdateSchema), asyncHandler(async (req, res) => {

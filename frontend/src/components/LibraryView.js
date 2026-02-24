@@ -614,7 +614,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
   );
 }
 
-export default function LibraryView({ mediaItems, loading, error, pagination, onRefresh, onOpen, onEdit, onDelete, onRating, apiCall, forcedMediaType }) {
+export default function LibraryView({ mediaItems, loading, error, pagination, onRefresh, onOpen, onEdit, onDelete, onRating, apiCall, forcedMediaType, activeLibrary = null }) {
   const [searchInput, setSearchInput] = useState('');
   const [resolutionInput, setResolutionInput] = useState('all');
   const [filters, setFilters] = useState({ media_type: forcedMediaType || 'movie', search: '', resolution: 'all', sortBy: 'title', sortDir: 'asc' });
@@ -683,6 +683,11 @@ export default function LibraryView({ mediaItems, loading, error, pagination, on
       <div className="px-6 py-4 border-b border-edge shrink-0">
         <div className="flex items-center gap-3 flex-wrap">
           <h1 className="section-title">Library</h1>
+          {activeLibrary && (
+            <span className="badge badge-gold">
+              {activeLibrary.name} (#{activeLibrary.id})
+            </span>
+          )}
           <span className="badge badge-dim ml-1">{pagination?.total ?? mediaItems.length}</span>
           <div className="flex-1" />
           <div className="relative">

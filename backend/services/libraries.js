@@ -9,6 +9,29 @@ async function ensureUserDefaultLibrary(userId) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    const userScope = await client.query(
+      `SELECT active_library_id
+       FROM users
+       WHERE id = $1
+       FOR UPDATE`,
+      [numericUserId]
+    );
+    const currentActiveLibraryId = userScope.rows[0]?.active_library_id || null;
+    if (currentActiveLibraryId) {
+      const activeLibraryExists = await client.query(
+        `SELECT id
+         FROM libraries
+         WHERE id = $1
+           AND archived_at IS NULL
+         LIMIT 1`,
+        [currentActiveLibraryId]
+      );
+      if (activeLibraryExists.rows.length > 0) {
+        await client.query('COMMIT');
+        return currentActiveLibraryId;
+      }
+    }
+
     const memberships = await client.query(
       `SELECT lm.library_id
        FROM library_memberships lm
@@ -40,8 +63,7 @@ async function ensureUserDefaultLibrary(userId) {
     await client.query(
       `UPDATE users
        SET active_library_id = $2
-       WHERE id = $1
-         AND (active_library_id IS NULL OR active_library_id <> $2)`,
+       WHERE id = $1`,
       [numericUserId, libraryId]
     );
 
@@ -62,6 +84,8 @@ function toLibraryResponse(row) {
     description: row.description || null,
     space_id: row.space_id || null,
     created_by: row.created_by || null,
+    created_by_email: row.created_by_email || null,
+    created_by_name: row.created_by_name || null,
     created_at: row.created_at,
     updated_at: row.updated_at,
     item_count: Number(row.item_count || 0)
@@ -76,20 +100,24 @@ async function listLibrariesForUser({ userId, role }) {
   const result = await pool.query(
     isAdmin
       ? `SELECT l.id, l.name, l.description, l.space_id, l.created_by, l.created_at, l.updated_at,
+                u.email AS created_by_email, u.name AS created_by_name,
                 COUNT(m.id)::int AS item_count
          FROM libraries l
+         LEFT JOIN users u ON u.id = l.created_by
          LEFT JOIN media m ON m.library_id = l.id
          WHERE l.archived_at IS NULL
-         GROUP BY l.id
+         GROUP BY l.id, u.email, u.name
          ORDER BY lower(l.name), l.id`
       : `SELECT l.id, l.name, l.description, l.space_id, l.created_by, l.created_at, l.updated_at,
+                u.email AS created_by_email, u.name AS created_by_name,
                 COUNT(m.id)::int AS item_count
          FROM library_memberships lm
          JOIN libraries l ON l.id = lm.library_id
+         LEFT JOIN users u ON u.id = l.created_by
          LEFT JOIN media m ON m.library_id = l.id
          WHERE lm.user_id = $1
            AND l.archived_at IS NULL
-         GROUP BY l.id
+         GROUP BY l.id, u.email, u.name
          ORDER BY lower(l.name), l.id`,
     isAdmin ? [] : [numericUserId]
   );
