@@ -1,0 +1,38 @@
+{
+  "generatedAt": "2026-02-24T13:39:43.276Z",
+  "baselineVersion": 14,
+  "latestVersion": 15,
+  "databases": {
+    "legacyDb": "collectz_rehearsal_legacy_mm0njy1p",
+    "snapshotDb": "collectz_rehearsal_snapshot_mm0njy1p",
+    "rollbackDb": "collectz_rehearsal_rollback_mm0njy1p"
+  },
+  "preUpgradeCounts": {
+    "users": 1,
+    "media": 1,
+    "invites": 1,
+    "app_integrations": 1,
+    "feature_flags": 5
+  },
+  "postUpgradeCounts": {
+    "users": 1,
+    "media": 1,
+    "invites": 1,
+    "app_integrations": 1,
+    "feature_flags": 5
+  },
+  "rollbackCounts": {
+    "users": 1,
+    "media": 1,
+    "invites": 1,
+    "app_integrations": 1,
+    "feature_flags": 5
+  },
+  "checks": {
+    "preUpgradeVersion": 14,
+    "postUpgradeVersion": 15,
+    "rollbackVersion": 14,
+    "rollbackCountsMatchPreUpgrade": true,
+    "rollbackVersionMatchesBaseline": true
+  }
+}

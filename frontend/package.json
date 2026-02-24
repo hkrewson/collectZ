@@ -1,6 +1,6 @@
 {
   "name": "mediavault-frontend",
-  "version": "1.9.26",
+  "version": "1.9.28",
   "private": true,
   "dependencies": {
     "react": "^18.2.0",
