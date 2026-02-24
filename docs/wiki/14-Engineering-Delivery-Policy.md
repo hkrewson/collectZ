@@ -74,6 +74,28 @@ Each release must publish full notes in a consistent format.
 
 ---
 
+## 1b) Vulnerability Triage Policy (CI Blocking Rules)
+
+Security scans run in CI and use these default blocker thresholds:
+
+- Dependency scan (`npm audit`): block on `critical` vulnerabilities.
+- Container image scan (Trivy): block on `critical` vulnerabilities.
+- `high` severity findings do not block by default, but must be triaged and tracked.
+
+### Exception Process
+
+If a release must proceed with a blocking finding:
+
+1. Document the finding, impact, and compensating controls in release notes.
+2. Create a roadmap item with target version and owner.
+3. Add temporary CI exception only with:
+   - explicit scope (single package/image),
+   - expiration milestone/date,
+   - linked issue/roadmap reference.
+4. Remove exception immediately after remediation ships.
+
+---
+
 ## 2) Scope Discipline and Feature-Creep Policy
 
 ### Rules

@@ -47,8 +47,25 @@ Migration safety in CI:
 - Runs `init.sql` parity check against migration-built schema to detect bootstrap drift.
 - Verifies critical columns expected by current release.
 - Runs restore-based rollback rehearsal (`npm run test:migration-rehearsal`).
-- Uploads artifact `migration-rehearsal-evidence.json` for release traceability.
+ - Uploads artifact `migration-rehearsal-evidence.json` for release traceability.
  - Uploads artifact `init-parity-evidence.json` for bootstrap parity traceability.
+
+Security and release gates in CI:
+
+- Dependency vulnerability scan (`npm audit`) on backend/frontend dependencies.
+- Container image vulnerability scan (Trivy) for backend/frontend images.
+- SBOM generation (CycloneDX JSON) for backend/frontend images, uploaded as CI artifacts.
+- Runtime topology policy check (blocks undeclared Redis/runtime drift).
+- Compose smoke check:
+  - stack boots,
+  - backend/frontend health checks pass,
+  - `/api/health` version matches release version,
+  - unauthenticated `/api/auth/me` returns `401`.
+
+Default blocking threshold:
+
+- `critical` vulnerabilities block CI.
+- `high` findings are triaged and tracked for remediation.
 
 ## Homelab Deploy Using Registry Images
 
