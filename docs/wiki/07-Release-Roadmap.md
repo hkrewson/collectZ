@@ -854,6 +854,28 @@ This track converts the 1.9.1 external assessment findings into executable miles
 - No production schema changes in this milestone.
 - Rehearsal and evidence generation only.
 
+## 1.9.29 — Pre-2.0 Security Remediation Closure
+
+**Goal:** Close remaining high-severity dependency/base-image risk before 2.0 go-live approval.
+
+### Requirements
+
+- `REQ-1`: Dependency and image scan results MUST have no untriaged `high` findings.
+- `REQ-2`: Any retained `high` finding MUST include documented compensating controls, owner, and expiration.
+- `REQ-3`: Pre-2.0 go/no-go artifact MUST be updated to `GO` only after security gate closure.
+
+### Scope
+
+- Upgrade/replace vulnerable packages where feasible without breaking production behavior.
+- Re-run dependency and image scans and attach updated artifacts.
+- Update release note/security triage and go/no-go report with final disposition.
+
+### Acceptance Criteria
+
+- `critical` and `high` findings are either remediated or approved via explicit exception process.
+- CI and release artifacts show completed security triage closure.
+- 2.0 kickoff is unblocked from a security-gate perspective.
+
 ---
 
 ## 2.0.0 — Multi-Space + Multi-Library Architecture
