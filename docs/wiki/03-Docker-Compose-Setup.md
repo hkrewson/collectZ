@@ -11,7 +11,6 @@ cp env.example .env
 2. Set at least:
 
 - `DB_PASSWORD`
-- `REDIS_PASSWORD`
 - `SESSION_SECRET`
 - `INTEGRATION_ENCRYPTION_KEY`
 

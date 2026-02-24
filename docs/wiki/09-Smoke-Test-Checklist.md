@@ -11,7 +11,6 @@ docker compose --env-file .env ps
 Expected:
 
 - `db`: healthy
-- `redis`: healthy
 - `backend`: healthy
 - `frontend`: healthy
 

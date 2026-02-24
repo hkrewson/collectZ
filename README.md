@@ -18,7 +18,7 @@ It is designed for homelab-friendly deployment with Docker, secure user auth, an
 
 ## Current Version
 
-- `1.9.17`
+- `1.9.18`
 
 ## Quick Start (Local Docker)
 
@@ -27,7 +27,6 @@ It is designed for homelab-friendly deployment with Docker, secure user auth, an
    - `cp env.example .env`
 3. Edit `.env` and set at minimum:
    - `DB_PASSWORD`
-   - `REDIS_PASSWORD`
    - `SESSION_SECRET`
    - `INTEGRATION_ENCRYPTION_KEY` (required in production)
    - `TMDB_API_KEY` (recommended for enrichment)
@@ -53,7 +52,6 @@ Optional preflight helper:
 Required for reliable operation:
 
 - `DB_PASSWORD`
-- `REDIS_PASSWORD`
 - `SESSION_SECRET`
 - `INTEGRATION_ENCRYPTION_KEY` (required in production)
 
@@ -87,7 +85,7 @@ If using prebuilt images from GHCR:
 
 1. Configure `.env` and `docker-compose.registry.yml`
 2. Set your tag (example):
-   - `IMAGE_TAG=1.9.17`
+   - `IMAGE_TAG=1.9.18`
 3. Deploy:
    - `docker compose -f docker-compose.registry.yml --env-file .env pull`
    - `docker compose -f docker-compose.registry.yml --env-file .env up -d`

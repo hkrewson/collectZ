@@ -61,7 +61,6 @@ cp env.example .env
 2. Set required secrets in `.env`:
 
 - `DB_PASSWORD`
-- `REDIS_PASSWORD`
 - `SESSION_SECRET`
 - `INTEGRATION_ENCRYPTION_KEY`
 
