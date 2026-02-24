@@ -7,7 +7,6 @@ All runtime variables are loaded from `.env` via `docker compose --env-file .env
 These must be set for a working deployment:
 
 - `DB_PASSWORD`: Postgres app user password.
-- `REDIS_PASSWORD`: Redis password.
 - `SESSION_SECRET`: session security secret for cookie/session infrastructure.
 - `INTEGRATION_ENCRYPTION_KEY`: secret used to encrypt integration API keys at rest. Required in production.
 

@@ -49,7 +49,6 @@ docker compose --env-file .env logs -f backend frontend db
 Set these in stack environment:
 
 - `DB_PASSWORD`
-- `REDIS_PASSWORD`
 - `SESSION_SECRET`
 - `INTEGRATION_ENCRYPTION_KEY`
 - `AUDIT_LOG_MODE` (recommended: `failures`, can use `mutations` during testing)

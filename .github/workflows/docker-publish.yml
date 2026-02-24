@@ -74,6 +74,23 @@ jobs:
           done
           echo "Release notes check passed for $NOTE_FILE"
 
+      - name: Enforce runtime dependency policy
+        run: |
+          if grep -Eq '^[[:space:]]+redis:' docker-compose.yml docker-compose.registry.yml; then
+            echo "Redis service found in compose files, but runtime policy is Postgres-only."
+            exit 1
+          fi
+          if grep -Eq 'REDIS_URL|REDIS_PASSWORD' docker-compose.yml docker-compose.registry.yml env.example; then
+            echo "Redis runtime env vars found in compose/env files."
+            exit 1
+          fi
+          if node -e "const pkg=require('./backend/package.json'); const deps={...(pkg.dependencies||{}),...(pkg.devDependencies||{})}; if(deps.redis||deps['connect-redis']) process.exit(1);"; then
+            echo "Runtime dependency policy check passed."
+          else
+            echo "Forbidden backend deps found (redis/connect-redis)."
+            exit 1
+          fi
+
       - name: Lowercase owner
         id: owner
         run: |

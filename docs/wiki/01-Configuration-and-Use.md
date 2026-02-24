@@ -5,7 +5,6 @@
 - `frontend`: React app served by Nginx on port `3000`
 - `backend`: Node/Express API on port `3001` (internal to compose network)
 - `db`: Postgres 16
-- `redis`: Redis 7
 
 The frontend proxies `/api/*` to backend inside the Docker network.
 

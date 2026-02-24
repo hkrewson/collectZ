@@ -8,7 +8,6 @@ Generate secure values:
 
 ```bash
 openssl rand -hex 24  # DB_PASSWORD
-openssl rand -hex 24  # REDIS_PASSWORD
 openssl rand -hex 32  # SESSION_SECRET
 openssl rand -hex 32  # INTEGRATION_ENCRYPTION_KEY
 ```
@@ -29,7 +28,6 @@ In Portainer:
 Minimum required:
 
 - `DB_PASSWORD`
-- `REDIS_PASSWORD`
 - `SESSION_SECRET`
 - `INTEGRATION_ENCRYPTION_KEY`
 

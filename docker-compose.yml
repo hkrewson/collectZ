@@ -18,27 +18,12 @@ services:
       timeout: 5s
       retries: 5
 
-  redis:
-    image: redis:7-alpine
-    container_name: mediavault-redis
-    restart: unless-stopped
-    command: redis-server --requirepass ${REDIS_PASSWORD}
-    volumes:
-      - redis_data:/data
-    networks:
-      - internal
-    healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
       args:
-        APP_VERSION: ${APP_VERSION:-1.9.17}
+        APP_VERSION: ${APP_VERSION:-1.9.18}
         GIT_SHA: ${GIT_SHA:-dev}
         BUILD_DATE: ${BUILD_DATE:-unknown}
     image: mediavault-backend:latest
@@ -51,7 +36,6 @@ services:
       PORT: 3001
       DATABASE_SSL: ${DATABASE_SSL:-false}
       DATABASE_URL: postgresql://${DB_USER:-mediavault}:${DB_PASSWORD}@db:5432/${POSTGRES_DB:-mediavault}
-      REDIS_URL: redis://default:${REDIS_PASSWORD}@redis:6379
       AUDIT_LOG_MODE: ${AUDIT_LOG_MODE:-failures}
       SESSION_SECRET: ${SESSION_SECRET}
       INTEGRATION_ENCRYPTION_KEY: ${INTEGRATION_ENCRYPTION_KEY:-}
@@ -78,15 +62,13 @@ services:
       PLEX_SERVER_NAME: ${PLEX_SERVER_NAME:-}
       PLEX_API_KEY: ${PLEX_API_KEY:-}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
-      APP_VERSION: ${APP_VERSION:-1.9.17}
+      APP_VERSION: ${APP_VERSION:-1.9.18}
       GIT_SHA: ${GIT_SHA:-dev}
       BUILD_DATE: ${BUILD_DATE:-unknown}
     volumes:
       - media_uploads:/app/uploads
     depends_on:
       db:
-        condition: service_healthy
-      redis:
         condition: service_healthy
     networks:
       - internal
@@ -102,7 +84,7 @@ services:
       dockerfile: Dockerfile
       args:
         REACT_APP_API_URL: /api
-        REACT_APP_VERSION: ${APP_VERSION:-1.9.17}
+        REACT_APP_VERSION: ${APP_VERSION:-1.9.18}
         REACT_APP_GIT_SHA: ${GIT_SHA:-dev}
         REACT_APP_BUILD_DATE: ${BUILD_DATE:-unknown}
     image: mediavault-frontend:latest
@@ -139,7 +121,6 @@ services:
 
 volumes:
   postgres_data:
-  redis_data:
   media_uploads:
 
 networks:
