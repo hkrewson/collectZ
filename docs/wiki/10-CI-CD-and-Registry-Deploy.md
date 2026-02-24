@@ -54,6 +54,7 @@ Security and release gates in CI:
 
 - Secret leak scan (gitleaks) against repository history and current tree.
 - Dependency vulnerability scan (`npm audit`) on backend/frontend dependencies.
+- RBAC regression gate (API-level ownership/role/scope allow-deny checks).
 - Container image vulnerability scan (Trivy) for backend/frontend images.
 - SBOM generation (CycloneDX JSON) for backend/frontend images, uploaded as CI artifacts.
 - Runtime topology policy check (blocks undeclared Redis/runtime drift).
