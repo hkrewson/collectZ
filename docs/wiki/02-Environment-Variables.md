@@ -136,3 +136,7 @@ Set the variable in `.env` and restart backend.
   2. update `INTEGRATION_ENCRYPTION_KEY`,
   3. re-save integration keys through Admin Integrations UI.
 - Decryption failures are logged by the backend as warnings to make this state visible.
+
+For full incident response and rotation commands, use:
+
+- `docs/wiki/15-Secrets-and-Rotation-Runbook.md`

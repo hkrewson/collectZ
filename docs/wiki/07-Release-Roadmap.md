@@ -649,6 +649,91 @@ This track converts the 1.9.1 external assessment findings into executable miles
 - New frontend features land in modules, not by expanding the app shell monolith.
 - PR and CI checks enforce scope discipline and modularity standards.
 
+## 1.9.21 — Secret Hygiene and Rotation Readiness
+
+**Goal:** Ensure no secrets are committed and operators have a deterministic key-rotation/incident process before 2.0.
+
+### Scope
+
+- Add blocking CI secret scanning gate (repo history + working tree) to release pipeline.
+- Document mandatory secret lifecycle policy:
+  - generation,
+  - storage,
+  - rotation cadence,
+  - compromise response.
+- Add operator runbook for:
+  - rotating `SESSION_SECRET`,
+  - rotating `INTEGRATION_ENCRYPTION_KEY` with key re-entry/re-encryption,
+  - forced session invalidation (`user_sessions` cleanup).
+
+### Acceptance Criteria
+
+- CI fails when a secret leak is detected.
+- Secret rotation runbook exists and is linked from wiki home.
+- Operators can execute full key rotation without ambiguous steps.
+
+## 1.9.22 — Session and Cookie Hardening Verification
+
+**Goal:** Lock in cookie-session security defaults and remove weak fallback behavior.
+
+### Scope
+
+- Validate secure cookie behavior across proxy/direct deploy modes.
+- Remove/flag any dev-only crypto/session fallback paths that could mask misconfiguration.
+- Add CI/runtime assertions for required security headers and cookie attributes in production mode.
+
+### Acceptance Criteria
+
+- Production config cannot boot with insecure session/crypto fallback.
+- Cookie/session behavior is deterministic and documented for reverse-proxy deployments.
+
+## 1.9.23 — RBAC Regression Test Pack
+
+**Goal:** Prevent privilege regressions by making scope and role checks testable and repeatable.
+
+### Scope
+
+- Add integration tests for core RBAC paths:
+  - media ownership,
+  - admin-only routes,
+  - scope membership enforcement.
+- Add CI job to run RBAC regression pack before image publish.
+
+### Acceptance Criteria
+
+- CI fails on role/scope regression.
+- Regression tests cover both allow and deny paths for critical endpoints.
+
+## 1.9.24 — Observability and Activity Triaging
+
+**Goal:** Improve operator incident diagnosis with structured, filterable, high-signal logs.
+
+### Scope
+
+- Expand activity filtering for incident workflows (action/entity/status/reason windowing).
+- Ensure import/auth/admin failure paths emit actionable log details.
+- Document operator triage flow from UI + DB query fallback.
+
+### Acceptance Criteria
+
+- Operators can quickly isolate failed actions in Activity without raw DB exploration.
+- Failure events include sufficient context to identify remediation path.
+
+## 1.9.25 — Pre-2.0 Go/No-Go Automation
+
+**Goal:** Convert the pre-2.0 go/no-go checklist into an enforceable release gate.
+
+### Scope
+
+- Add a dedicated preflight checklist artifact in CI for tagged releases.
+- Require evidence for migration rehearsal, security scans, and smoke validation in release output.
+- Add explicit release-blocking criteria and exception process references in docs.
+
+### Acceptance Criteria
+
+- Tagged builds emit a clear go/no-go result with linked evidence artifacts.
+- Missing preflight evidence blocks release publication.
+
 ---
 
 ## 2.0.0 — Multi-Space + Multi-Library Architecture
