@@ -882,6 +882,11 @@ This track converts the 1.9.1 external assessment findings into executable miles
 
 **Goal:** Each user can belong to one or more spaces, and each space can contain multiple libraries with isolated media and integrations.
 
+**Release requirement (post-alpha):**
+- Remove internal numeric library identifiers from end-user selector labels before stable `2.0.0`. Keep disambiguation human-readable:
+  - Admin selector: `LibraryName - Owner Name`
+  - User selector: `LibraryName`
+
 ### Scope
 
 - Add spaces and memberships with per-space roles.

@@ -10,7 +10,8 @@ export default function ImportView({
   apiUrl,
   Icons,
   Spinner,
-  cx
+  cx,
+  activeLibrary = null
 }) {
   const [tab, setTab] = useState(canImportPlex ? 'plex' : 'csv');
   const [busy, setBusy] = useState('');
@@ -182,6 +183,11 @@ export default function ImportView({
       <div>
         <h1 className="section-title">Import Media</h1>
         <p className="text-sm text-ghost mt-1">Add titles from external sources into your library.</p>
+        {activeLibrary && (
+          <p className="text-xs text-gold mt-2 font-mono">
+            Target library: {activeLibrary.name} (#{activeLibrary.id})
+          </p>
+        )}
       </div>
 
       <div className="tab-strip w-full max-w-xl">
