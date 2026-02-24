@@ -1247,7 +1247,7 @@ function AdminUsers({ apiCall, onToast, currentUserId }) {
 }
 
 function AdminActivity({ apiCall }) {
-  return <AdminActivityView apiCall={apiCall} Icons={Icons} Spinner={Spinner} />;
+  return <AdminActivityView apiCall={apiCall} Spinner={Spinner} />;
 }
 
 function AdminFeatureFlags({ apiCall, onToast }) {

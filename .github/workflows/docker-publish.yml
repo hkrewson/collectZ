@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 permissions:
@@ -537,6 +539,93 @@ jobs:
           path: |
             backend-sbom.cdx.json
             frontend-sbom.cdx.json
+
+  release-preflight:
+    runs-on: ubuntu-latest
+    needs: [prepare, secret-scan, dependency-scan, migration-check, compose-smoke, rbac-regression, image-security-and-sbom]
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Download dependency audit artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dependency-audit
+          path: artifacts/dependency-audit
+
+      - name: Download init parity evidence artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: init-parity-evidence
+          path: artifacts/init-parity-evidence
+
+      - name: Download migration rehearsal evidence artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: migration-rehearsal-evidence
+          path: artifacts/migration-rehearsal-evidence
+
+      - name: Download SBOM artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: sbom-cyclonedx
+          path: artifacts/sbom-cyclonedx
+
+      - name: Validate preflight evidence and generate report
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          REF: ${{ github.ref }}
+          SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          test -f artifacts/dependency-audit/backend-audit.json
+          test -f artifacts/dependency-audit/frontend-audit.json
+          test -f artifacts/init-parity-evidence/init-parity-evidence.json
+          test -f artifacts/migration-rehearsal-evidence/migration-rehearsal-evidence.json
+          test -f artifacts/sbom-cyclonedx/backend-sbom.cdx.json
+          test -f artifacts/sbom-cyclonedx/frontend-sbom.cdx.json
+
+          REPORT="preflight-go-no-go.md"
+          {
+            echo "# Pre-2.0 Go/No-Go Preflight"
+            echo
+            echo "- Version: \`${VERSION}\`"
+            echo "- Ref: \`${REF}\`"
+            echo "- Commit: \`${SHA}\`"
+            echo "- Run: https://github.com/${REPOSITORY}/actions/runs/${RUN_ID}"
+            echo
+            echo "## Gate Results"
+            echo
+            echo "- Secret scan: PASS"
+            echo "- Dependency scan: PASS"
+            echo "- Migration check: PASS"
+            echo "- Compose smoke: PASS"
+            echo "- RBAC regression: PASS"
+            echo "- Image security and SBOM: PASS"
+            echo
+            echo "## Evidence Artifacts"
+            echo
+            echo "- \`dependency-audit/backend-audit.json\`"
+            echo "- \`dependency-audit/frontend-audit.json\`"
+            echo "- \`init-parity-evidence/init-parity-evidence.json\`"
+            echo "- \`migration-rehearsal-evidence/migration-rehearsal-evidence.json\`"
+            echo "- \`sbom-cyclonedx/backend-sbom.cdx.json\`"
+            echo "- \`sbom-cyclonedx/frontend-sbom.cdx.json\`"
+            echo
+            echo "## Blocking Criteria"
+            echo
+            echo "Release is NO-GO if any required gate fails or any required artifact is missing."
+            echo
+            echo "## Exception Process"
+            echo
+            echo "Follow \`docs/wiki/14-Engineering-Delivery-Policy.md\` exception rules before any override."
+          } > "${REPORT}"
+
+      - name: Upload preflight report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: preflight-go-no-go
+          path: preflight-go-no-go.md
 
   auto-tag:
     runs-on: ubuntu-latest
