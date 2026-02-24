@@ -7,6 +7,7 @@ const { logActivity } = require('../services/audit');
 const { loadGeneralSettings } = require('../services/integrations');
 const { listFeatureFlags, getFeatureFlag, updateFeatureFlag, FEATURE_FLAGS_READ_ONLY } = require('../services/featureFlags');
 const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
+const { enforceScopeAccess } = require('../middleware/scopeAccess');
 const crypto = require('crypto');
 const { hashInviteToken } = require('../services/invites');
 
@@ -14,6 +15,7 @@ const router = express.Router();
 
 // All admin routes require authentication + admin role
 router.use(authenticateToken, requireRole('admin'));
+router.use(enforceScopeAccess({ allowedHintRoles: ['admin'] }));
 
 // ── General settings ──────────────────────────────────────────────────────────
 

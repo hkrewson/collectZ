@@ -5,27 +5,51 @@ function toNullableInt(value) {
   return parsed;
 }
 
-function resolveScopeContext(req) {
+function extractScopeHints(req) {
   const query = req?.query || {};
   const body = req?.body || {};
   const headers = req?.headers || {};
 
-  const spaceId =
-    toNullableInt(body.space_id) ??
-    toNullableInt(query.space_id) ??
-    toNullableInt(headers['x-space-id']) ??
+  const spaceRaw =
+    body.space_id ??
+    query.space_id ??
+    headers['x-space-id'] ??
     null;
-
-  const libraryIdRaw =
+  const libraryRaw =
     body.library_id ??
     query.library_id ??
     headers['x-library-id'] ??
     null;
+
+  const spaceId = toNullableInt(spaceRaw) ?? null;
+
+  const libraryIdRaw = libraryRaw;
+  const libraryProvided = libraryIdRaw !== null && libraryIdRaw !== undefined && libraryIdRaw !== '';
+  const libraryCleared = libraryProvided && String(libraryIdRaw).toLowerCase() === 'all';
   const libraryId = String(libraryIdRaw).toLowerCase() === 'all'
     ? null
     : toNullableInt(libraryIdRaw);
 
-  return { spaceId, libraryId };
+  const spaceProvided = spaceRaw !== null && spaceRaw !== undefined && spaceRaw !== '';
+
+  return {
+    spaceId,
+    libraryId,
+    spaceProvided,
+    libraryProvided,
+    libraryCleared,
+    hasHints: spaceProvided || libraryProvided
+  };
+}
+
+function resolveScopeContext(req) {
+  if (req?.scopeContext) return req.scopeContext;
+  const userSpaceId = toNullableInt(req?.user?.activeSpaceId) ?? null;
+  const userLibraryId = toNullableInt(req?.user?.activeLibraryId) ?? null;
+  return {
+    spaceId: userSpaceId,
+    libraryId: userLibraryId
+  };
 }
 
 function appendScopeSql(params, scopeContext, options = {}) {
@@ -51,6 +75,7 @@ function appendScopeSql(params, scopeContext, options = {}) {
 }
 
 module.exports = {
+  extractScopeHints,
   resolveScopeContext,
   appendScopeSql
 };

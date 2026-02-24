@@ -595,6 +595,31 @@ const MIGRATIONS = [
       CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_active
         ON password_reset_tokens(used, revoked, expires_at);
     `
+  },
+  {
+    version: 15,
+    description: 'Server-authoritative scope state and library memberships',
+    up: `
+      ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS active_space_id INTEGER;
+
+      ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS active_library_id INTEGER;
+
+      CREATE TABLE IF NOT EXISTS library_memberships (
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        library_id INTEGER NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
+        role VARCHAR(20) DEFAULT 'member',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, library_id)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_library_memberships_user_id
+        ON library_memberships(user_id);
+
+      CREATE INDEX IF NOT EXISTS idx_library_memberships_library_id
+        ON library_memberships(library_id);
+    `
   }
 ];
 

@@ -7,7 +7,7 @@ import ImportViewComponent from './components/ImportView';
 import AdminFeatureFlagsView from './components/AdminFeatureFlagsView';
 
 const API_URL = process.env.REACT_APP_API_URL || '/api';
-const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.version || '1.9.16';
+const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.version || '1.9.17';
 const BUILD_SHA   = process.env.REACT_APP_GIT_SHA || appMeta?.build?.gitShaDefault || 'dev';
 const IMPORT_JOBS_KEY = 'collectz_import_jobs';
 const IMPORT_POLL_LEADER_KEY = 'collectz_import_poll_leader';
