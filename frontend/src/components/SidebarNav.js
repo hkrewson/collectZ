@@ -10,7 +10,13 @@ export default function SidebarNav({
   onToggle,
   mobileOpen,
   onMobileClose,
-  appVersion
+  appVersion,
+  libraries = [],
+  activeLibraryId = null,
+  onSelectLibrary,
+  onCreateLibrary,
+  onRenameLibrary,
+  onDeleteLibrary
 }) {
   const isAdmin = user?.role === 'admin';
   const [adminOpen, setAdminOpen] = useState(true);
@@ -84,7 +90,46 @@ export default function SidebarNav({
               )}
             </button>
             {libraryOpen && !collapsed && (
-              <div className="mt-1 space-y-0.5">
+              <div className="mt-1 space-y-1">
+                <div className="px-2 py-1.5 rounded bg-raised/60 border border-edge/70">
+                  <label className="text-[10px] uppercase tracking-wide text-ghost block mb-1">Active Library</label>
+                  <select
+                    className="select w-full text-xs py-1.5"
+                    value={activeLibraryId || ''}
+                    onChange={(e) => {
+                      const nextId = Number(e.target.value);
+                      if (Number.isFinite(nextId) && nextId > 0 && onSelectLibrary) onSelectLibrary(nextId);
+                    }}
+                  >
+                    {libraries.length === 0 && <option value="">No libraries</option>}
+                    {libraries.map((library) => (
+                      <option key={library.id} value={library.id}>
+                        {library.name}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="mt-1.5 grid grid-cols-3 gap-1">
+                    <button className="btn-ghost btn-sm !px-2 !py-1 text-[11px]" onClick={() => onCreateLibrary && onCreateLibrary()} title="Create library">
+                      <Icons.Plus />
+                    </button>
+                    <button
+                      className="btn-ghost btn-sm !px-2 !py-1 text-[11px]"
+                      onClick={() => onRenameLibrary && onRenameLibrary()}
+                      disabled={!activeLibraryId}
+                      title="Rename active library"
+                    >
+                      <Icons.Edit />
+                    </button>
+                    <button
+                      className="btn-ghost btn-sm !px-2 !py-1 text-[11px] text-err"
+                      onClick={() => onDeleteLibrary && onDeleteLibrary()}
+                      disabled={!activeLibraryId}
+                      title="Delete active library"
+                    >
+                      <Icons.Trash />
+                    </button>
+                  </div>
+                </div>
                 <NavLink id="library-movies" icon={null} label="Movies" sub />
                 <NavLink id="library-tv" icon={null} label="TV" sub />
                 <NavLink id="library-other" icon={null} label="Other" sub />

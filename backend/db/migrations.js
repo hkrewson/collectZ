@@ -620,6 +620,91 @@ const MIGRATIONS = [
       CREATE INDEX IF NOT EXISTS idx_library_memberships_library_id
         ON library_memberships(library_id);
     `
+  },
+  {
+    version: 16,
+    description: 'Library backfill and active library defaults for 2.0',
+    up: `
+      WITH users_without_membership AS (
+        SELECT u.id
+        FROM users u
+        LEFT JOIN library_memberships lm ON lm.user_id = u.id
+        GROUP BY u.id
+        HAVING COUNT(lm.library_id) = 0
+      ),
+      created_libraries AS (
+        INSERT INTO libraries (name, description, created_by)
+        SELECT 'My Library', 'Default personal library', uwm.id
+        FROM users_without_membership uwm
+        RETURNING id, created_by
+      )
+      INSERT INTO library_memberships (user_id, library_id, role)
+      SELECT created_by, id, 'owner'
+      FROM created_libraries
+      ON CONFLICT (user_id, library_id) DO NOTHING;
+
+      INSERT INTO library_memberships (user_id, library_id, role)
+      SELECT u.id, u.active_library_id, 'owner'
+      FROM users u
+      WHERE u.active_library_id IS NOT NULL
+      ON CONFLICT (user_id, library_id) DO NOTHING;
+
+      WITH first_membership AS (
+        SELECT lm.user_id, MIN(lm.library_id) AS library_id
+        FROM library_memberships lm
+        JOIN libraries l ON l.id = lm.library_id
+        WHERE l.archived_at IS NULL
+        GROUP BY lm.user_id
+      )
+      UPDATE users u
+      SET active_library_id = fm.library_id
+      FROM first_membership fm
+      WHERE u.id = fm.user_id
+        AND (
+          u.active_library_id IS NULL
+          OR NOT EXISTS (
+            SELECT 1
+            FROM libraries l
+            WHERE l.id = u.active_library_id
+              AND l.archived_at IS NULL
+          )
+        );
+
+      UPDATE media m
+      SET library_id = u.active_library_id
+      FROM users u
+      WHERE m.library_id IS NULL
+        AND m.added_by = u.id
+        AND u.active_library_id IS NOT NULL;
+
+      INSERT INTO libraries (name, description, created_by)
+      SELECT 'Shared Library', 'Fallback library for legacy unowned media', NULL
+      WHERE EXISTS (SELECT 1 FROM media WHERE library_id IS NULL)
+        AND NOT EXISTS (
+          SELECT 1
+          FROM libraries
+          WHERE archived_at IS NULL
+            AND created_by IS NULL
+            AND lower(name) = 'shared library'
+        );
+
+      WITH fallback_library AS (
+        SELECT id
+        FROM libraries
+        WHERE archived_at IS NULL
+        ORDER BY
+          CASE
+            WHEN created_by IS NULL AND lower(name) = 'shared library' THEN 0
+            ELSE 1
+          END,
+          id
+        LIMIT 1
+      )
+      UPDATE media m
+      SET library_id = fl.id
+      FROM fallback_library fl
+      WHERE m.library_id IS NULL;
+    `
   }
 ];
 
