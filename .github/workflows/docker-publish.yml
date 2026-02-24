@@ -96,6 +96,71 @@ jobs:
         run: |
           echo "owner_lc=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
 
+  dependency-scan:
+    runs-on: ubuntu-latest
+    needs: prepare
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install backend deps
+        working-directory: backend
+        run: npm install --no-fund
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm install --no-fund
+
+      - name: Run backend dependency audit
+        working-directory: backend
+        run: npm audit --omit=dev --json > ../backend-audit.json || true
+
+      - name: Run frontend dependency audit
+        working-directory: frontend
+        run: npm audit --omit=dev --json > ../frontend-audit.json || true
+
+      - name: Enforce vulnerability threshold
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+
+          const threshold = 'critical';
+          const levels = ['low', 'moderate', 'high', 'critical'];
+          const thresholdIndex = levels.indexOf(threshold);
+          const files = ['backend-audit.json', 'frontend-audit.json'];
+
+          let failed = false;
+          for (const file of files) {
+            const raw = fs.readFileSync(file, 'utf8');
+            const parsed = JSON.parse(raw);
+            const counts = parsed?.metadata?.vulnerabilities || {};
+            const over = levels
+              .slice(thresholdIndex)
+              .reduce((acc, level) => acc + (Number(counts[level] || 0)), 0);
+            console.log(`${file}: low=${counts.low || 0} moderate=${counts.moderate || 0} high=${counts.high || 0} critical=${counts.critical || 0}`);
+            if (over > 0) {
+              failed = true;
+            }
+          }
+          if (failed) {
+            console.error(`Dependency vulnerability gate failed (threshold: ${threshold}+).`);
+            process.exit(1);
+          }
+          NODE
+
+      - name: Upload dependency audit artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-audit
+          path: |
+            backend-audit.json
+            frontend-audit.json
+
   migration-check:
     runs-on: ubuntu-latest
     needs: prepare
@@ -216,9 +281,56 @@ jobs:
           name: migration-rehearsal-evidence
           path: backend/artifacts/migration-rehearsal-evidence.json
 
-  backend:
+  compose-smoke:
     runs-on: ubuntu-latest
     needs: [prepare, migration-check]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build and start compose stack
+        env:
+          DB_PASSWORD: collectz_ci_db_password
+          SESSION_SECRET: collectz_ci_session_secret
+          INTEGRATION_ENCRYPTION_KEY: collectz_ci_encryption_key
+          APP_VERSION: ${{ needs.prepare.outputs.version }}
+          GIT_SHA: ${{ needs.prepare.outputs.git_sha_short }}
+          BUILD_DATE: ${{ needs.prepare.outputs.build_date }}
+          NODE_ENV: production
+          SESSION_COOKIE_SECURE: false
+          TRUST_PROXY: 1
+        run: |
+          set -euo pipefail
+          trap 'docker compose --env-file .env.ci down -v --remove-orphans' EXIT
+          cp env.example .env.ci
+          {
+            echo "DB_PASSWORD=${DB_PASSWORD}"
+            echo "SESSION_SECRET=${SESSION_SECRET}"
+            echo "INTEGRATION_ENCRYPTION_KEY=${INTEGRATION_ENCRYPTION_KEY}"
+            echo "APP_VERSION=${APP_VERSION}"
+            echo "GIT_SHA=${GIT_SHA}"
+            echo "BUILD_DATE=${BUILD_DATE}"
+            echo "NODE_ENV=${NODE_ENV}"
+            echo "SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE}"
+            echo "TRUST_PROXY=${TRUST_PROXY}"
+          } >> .env.ci
+          docker compose --env-file .env.ci up -d --build
+
+          timeout 120 sh -c 'until [ "$(docker inspect -f "{{.State.Health.Status}}" mediavault-backend)" = "healthy" ]; do sleep 3; done'
+          timeout 120 sh -c 'until [ "$(docker inspect -f "{{.State.Health.Status}}" mediavault-frontend)" = "healthy" ]; do sleep 3; done'
+
+          HEALTH_JSON="$(curl -s http://localhost:3000/api/health)"
+          echo "$HEALTH_JSON" | grep -q "\"status\":\"ok\""
+          echo "$HEALTH_JSON" | grep -q "\"version\":\"${APP_VERSION}\""
+          STATUS_CODE="$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/auth/me)"
+          if [ "$STATUS_CODE" != "401" ]; then
+            echo "Expected unauthenticated /api/auth/me to return 401, got $STATUS_CODE"
+            exit 1
+          fi
+
+  backend:
+    runs-on: ubuntu-latest
+    needs: [prepare, migration-check, dependency-scan, compose-smoke]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -261,7 +373,7 @@ jobs:
 
   frontend:
     runs-on: ubuntu-latest
-    needs: [prepare, migration-check]
+    needs: [prepare, migration-check, dependency-scan, compose-smoke]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -303,9 +415,62 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  image-security-and-sbom:
+    runs-on: ubuntu-latest
+    needs: [prepare, backend, frontend]
+    steps:
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Scan backend image (critical vulnerabilities)
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: ghcr.io/${{ needs.prepare.outputs.owner_lc }}/collectz-backend:${{ needs.prepare.outputs.version }}
+          format: table
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: CRITICAL
+          vuln-type: os,library
+
+      - name: Scan frontend image (critical vulnerabilities)
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: ghcr.io/${{ needs.prepare.outputs.owner_lc }}/collectz-frontend:${{ needs.prepare.outputs.version }}
+          format: table
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: CRITICAL
+          vuln-type: os,library
+
+      - name: Generate backend SBOM (CycloneDX JSON)
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: ghcr.io/${{ needs.prepare.outputs.owner_lc }}/collectz-backend:${{ needs.prepare.outputs.version }}
+          format: cyclonedx
+          output: backend-sbom.cdx.json
+
+      - name: Generate frontend SBOM (CycloneDX JSON)
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: ghcr.io/${{ needs.prepare.outputs.owner_lc }}/collectz-frontend:${{ needs.prepare.outputs.version }}
+          format: cyclonedx
+          output: frontend-sbom.cdx.json
+
+      - name: Upload SBOM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-cyclonedx
+          path: |
+            backend-sbom.cdx.json
+            frontend-sbom.cdx.json
+
   auto-tag:
     runs-on: ubuntu-latest
-    needs: [prepare, migration-check, backend, frontend]
+    needs: [prepare, migration-check, dependency-scan, compose-smoke, backend, frontend, image-security-and-sbom]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - name: Checkout full history
