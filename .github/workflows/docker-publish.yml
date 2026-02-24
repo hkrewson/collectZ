@@ -375,8 +375,8 @@ jobs:
           APP_VERSION: ${{ needs.prepare.outputs.version }}
           GIT_SHA: ${{ needs.prepare.outputs.git_sha_short }}
           BUILD_DATE: ${{ needs.prepare.outputs.build_date }}
-          NODE_ENV: development
-          SESSION_COOKIE_SECURE: false
+          NODE_ENV: production
+          SESSION_COOKIE_SECURE: true
           TRUST_PROXY: 1
         run: |
           set -euo pipefail
