@@ -40,6 +40,31 @@ function enforceScopeAccess(options = {}) {
         if (hints.libraryProvided) resolvedLibraryId = hints.libraryId;
       }
 
+      if (!resolvedLibraryId && userId) {
+        const fallbackLibrary = await pool.query(
+          role === 'admin'
+            ? `SELECT id, space_id
+               FROM libraries
+               WHERE archived_at IS NULL
+               ORDER BY created_at ASC, id ASC
+               LIMIT 1`
+            : `SELECT l.id, l.space_id
+               FROM library_memberships lm
+               JOIN libraries l ON l.id = lm.library_id
+               WHERE lm.user_id = $1
+                 AND l.archived_at IS NULL
+               ORDER BY lm.created_at ASC, lm.library_id ASC
+               LIMIT 1`,
+          role === 'admin' ? [] : [userId]
+        );
+        if (fallbackLibrary.rows.length > 0) {
+          resolvedLibraryId = fallbackLibrary.rows[0].id;
+          if (resolvedSpaceId === null || resolvedSpaceId === undefined) {
+            resolvedSpaceId = fallbackLibrary.rows[0].space_id || null;
+          }
+        }
+      }
+
       if (resolvedLibraryId) {
         const libraryLookup = await pool.query(
           `SELECT id, space_id

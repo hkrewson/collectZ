@@ -8,6 +8,7 @@ const { createSession, revokeSessionByToken, revokeSessionsForUser } = require('
 const { logActivity } = require('../services/audit');
 const { issueCsrfToken, clearCsrfToken } = require('../middleware/csrf');
 const { hashInviteToken } = require('../services/invites');
+const { ensureUserDefaultLibrary } = require('../services/libraries');
 
 const router = express.Router();
 
@@ -59,6 +60,7 @@ router.post('/register', validate(registerSchema), asyncHandler(async (req, res)
     'INSERT INTO users (email, password, name, role) VALUES ($1, $2, $3, $4) RETURNING id, email, name, role',
     [email, hashedPassword, name, role]
   );
+  const activeLibraryId = await ensureUserDefaultLibrary(result.rows[0].id);
 
   if (inviteToken) {
     await pool.query(
@@ -81,9 +83,15 @@ router.post('/register', validate(registerSchema), asyncHandler(async (req, res)
   await logActivity(req, 'auth.user.register', 'user', result.rows[0].id, {
     email: result.rows[0].email,
     role: result.rows[0].role,
-    inviteTokenUsed: Boolean(inviteToken)
+    inviteTokenUsed: Boolean(inviteToken),
+    activeLibraryId
   });
-  res.json({ user: result.rows[0] });
+  res.json({
+    user: {
+      ...result.rows[0],
+      active_library_id: activeLibraryId
+    }
+  });
 }));
 
 // ── Login ─────────────────────────────────────────────────────────────────────
@@ -101,6 +109,7 @@ router.post('/login', validate(loginSchema), asyncHandler(async (req, res) => {
   if (!validPassword) {
     return res.status(401).json({ error: 'Invalid email or password' });
   }
+  const activeLibraryId = await ensureUserDefaultLibrary(user.id);
 
   const token = await createSession(user.id, {
     ipAddress: req.ip,
@@ -111,7 +120,12 @@ router.post('/login', validate(loginSchema), asyncHandler(async (req, res) => {
   res.cookie('session_token', token, SESSION_COOKIE_OPTIONS);
   issueCsrfToken(res);
   await logActivity(req, 'auth.user.login', 'user', user.id, { email: user.email });
-  res.json({ user: userWithoutPassword });
+  res.json({
+    user: {
+      ...userWithoutPassword,
+      active_library_id: activeLibraryId
+    }
+  });
 }));
 
 // ── Logout ────────────────────────────────────────────────────────────────────
@@ -194,26 +208,36 @@ router.post('/password-reset/consume', validate(passwordResetConsumeSchema), asy
 
 router.get('/me', authenticateToken, asyncHandler(async (req, res) => {
   const result = await pool.query(
-    'SELECT id, email, name, role, created_at, updated_at FROM users WHERE id = $1',
+    'SELECT id, email, name, role, created_at, updated_at, active_space_id, active_library_id FROM users WHERE id = $1',
     [req.user.id]
   );
   if (result.rows.length === 0) {
     return res.status(404).json({ error: 'User not found' });
   }
-  res.json(result.rows[0]);
+  const row = result.rows[0];
+  res.json({
+    ...row,
+    active_space_id: req.user.activeSpaceId ?? row.active_space_id ?? null,
+    active_library_id: req.user.activeLibraryId ?? row.active_library_id ?? null
+  });
 }));
 
 // ── Profile ───────────────────────────────────────────────────────────────────
 
 router.get('/profile', authenticateToken, asyncHandler(async (req, res) => {
   const result = await pool.query(
-    'SELECT id, email, name, role, created_at, updated_at FROM users WHERE id = $1',
+    'SELECT id, email, name, role, created_at, updated_at, active_space_id, active_library_id FROM users WHERE id = $1',
     [req.user.id]
   );
   if (result.rows.length === 0) {
     return res.status(404).json({ error: 'User not found' });
   }
-  res.json(result.rows[0]);
+  const row = result.rows[0];
+  res.json({
+    ...row,
+    active_space_id: req.user.activeSpaceId ?? row.active_space_id ?? null,
+    active_library_id: req.user.activeLibraryId ?? row.active_library_id ?? null
+  });
 }));
 
 router.patch('/profile', authenticateToken, validate(profileUpdateSchema), asyncHandler(async (req, res) => {

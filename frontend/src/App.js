@@ -14,11 +14,12 @@ import LibraryView from './components/LibraryView';
 import { routeFromPath, readCookie, Spinner, Toast, ImportStatusDock, Icons, cx } from './components/app/AppPrimitives';
 
 const API_URL = process.env.REACT_APP_API_URL || '/api';
-const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.version || '1.9.26';
+const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.version || '2.0.0-alpha.2';
 const BUILD_SHA = process.env.REACT_APP_GIT_SHA || appMeta?.build?.gitShaDefault || 'dev';
 const IMPORT_JOBS_KEY = 'collectz_import_jobs';
 const IMPORT_POLL_LEADER_KEY = 'collectz_import_poll_leader';
 const IMPORT_POLL_LAST_TS_KEY = 'collectz_import_poll_last_ts';
+const ACTIVE_LIBRARY_PREF_KEY = 'collectz_active_library_id';
 const IMPORT_POLL_HEARTBEAT_MS = 8000;
 const IMPORT_POLL_STALE_MS = 25000;
 const IMPORT_POLL_INTERVAL_MS = 10000;
@@ -45,6 +46,8 @@ export default function App() {
   const [mediaLoading, setMediaLoading] = useState(false);
   const [mediaError, setMediaError] = useState('');
   const [mediaPagination, setMediaPagination] = useState({ page: 1, limit: 50, total: 0, totalPages: 1, hasMore: false });
+  const [libraries, setLibraries] = useState([]);
+  const [activeLibraryId, setActiveLibraryId] = useState(null);
   const [uiSettings, setUiSettings] = useState({ theme: 'system', density: 'comfortable' });
   const [toast, setToast] = useState(null);
   const [importJobs, setImportJobs] = useState(() => {
@@ -251,6 +254,101 @@ export default function App() {
 
   const showToast = useCallback((message, type = 'ok') => setToast({ message, type }), []);
 
+  const syncLibraryContext = useCallback(async ({ silent = false } = {}) => {
+    if (!user) return null;
+    try {
+      const payload = await apiCall('get', '/libraries');
+      const nextLibraries = Array.isArray(payload?.libraries) ? payload.libraries : [];
+      let nextActiveLibraryId = Number(payload?.active_library_id || 0) || null;
+
+      const preferredLibraryId = Number(localStorage.getItem(ACTIVE_LIBRARY_PREF_KEY) || 0) || null;
+      const preferredExists = preferredLibraryId && nextLibraries.some((lib) => Number(lib.id) === preferredLibraryId);
+      if (preferredExists && preferredLibraryId !== nextActiveLibraryId) {
+        const selected = await apiCall('post', '/libraries/select', { library_id: preferredLibraryId });
+        nextActiveLibraryId = Number(selected?.active_library_id || preferredLibraryId);
+      }
+
+      setLibraries(nextLibraries);
+      setActiveLibraryId(nextActiveLibraryId);
+      setUser((prev) => {
+        if (!prev) return prev;
+        const prevActive = Number(prev.active_library_id || 0) || null;
+        return prevActive === nextActiveLibraryId
+          ? prev
+          : { ...prev, active_library_id: nextActiveLibraryId };
+      });
+      if (nextActiveLibraryId) localStorage.setItem(ACTIVE_LIBRARY_PREF_KEY, String(nextActiveLibraryId));
+      return nextActiveLibraryId;
+    } catch (error) {
+      if (!silent) showToast(error.response?.data?.error || 'Failed to load libraries', 'error');
+      return null;
+    }
+  }, [apiCall, showToast, user]);
+
+  const selectLibrary = useCallback(async (libraryId) => {
+    const numericLibraryId = Number(libraryId);
+    if (!Number.isFinite(numericLibraryId) || numericLibraryId <= 0) return;
+    try {
+      const selected = await apiCall('post', '/libraries/select', { library_id: numericLibraryId });
+      const nextActiveLibraryId = Number(selected?.active_library_id || numericLibraryId);
+      setActiveLibraryId(nextActiveLibraryId);
+      setUser((prev) => {
+        if (!prev) return prev;
+        const prevActive = Number(prev.active_library_id || 0) || null;
+        return prevActive === nextActiveLibraryId
+          ? prev
+          : { ...prev, active_library_id: nextActiveLibraryId };
+      });
+      localStorage.setItem(ACTIVE_LIBRARY_PREF_KEY, String(nextActiveLibraryId));
+      await loadMedia();
+      showToast(`Switched to ${selected?.library?.name || 'library'}`);
+    } catch (error) {
+      showToast(error.response?.data?.error || 'Failed to switch library', 'error');
+    }
+  }, [apiCall, loadMedia, showToast]);
+
+  const createLibrary = useCallback(async () => {
+    const name = window.prompt('New library name');
+    if (!name || !name.trim()) return;
+    try {
+      await apiCall('post', '/libraries', { name: name.trim() });
+      await syncLibraryContext({ silent: true });
+      await loadMedia();
+      showToast('Library created');
+    } catch (error) {
+      showToast(error.response?.data?.error || 'Failed to create library', 'error');
+    }
+  }, [apiCall, loadMedia, showToast, syncLibraryContext]);
+
+  const renameLibrary = useCallback(async () => {
+    const target = libraries.find((library) => Number(library.id) === Number(activeLibraryId));
+    if (!target) return;
+    const name = window.prompt('Rename library', target.name);
+    if (!name || !name.trim() || name.trim() === target.name) return;
+    try {
+      await apiCall('patch', `/libraries/${target.id}`, { name: name.trim() });
+      await syncLibraryContext({ silent: true });
+      showToast('Library updated');
+    } catch (error) {
+      showToast(error.response?.data?.error || 'Failed to update library', 'error');
+    }
+  }, [activeLibraryId, apiCall, libraries, showToast, syncLibraryContext]);
+
+  const deleteLibrary = useCallback(async () => {
+    const target = libraries.find((library) => Number(library.id) === Number(activeLibraryId));
+    if (!target) return;
+    const confirmed = window.confirm(`Delete library "${target.name}"? This only works when it is empty.`);
+    if (!confirmed) return;
+    try {
+      await apiCall('delete', `/libraries/${target.id}`);
+      await syncLibraryContext({ silent: true });
+      await loadMedia();
+      showToast('Library deleted');
+    } catch (error) {
+      showToast(error.response?.data?.detail || error.response?.data?.error || 'Failed to delete library', 'error');
+    }
+  }, [activeLibraryId, apiCall, libraries, loadMedia, showToast, syncLibraryContext]);
+
   const addMedia = useCallback(async (payload) => {
     const created = await apiCall('post', '/media', payload);
     setMediaItems((m) => [created, ...m]);
@@ -332,6 +430,11 @@ export default function App() {
   useEffect(() => {
     if (route === 'dashboard' && authChecked && user) loadMedia();
   }, [route, authChecked, user, loadMedia]);
+
+  useEffect(() => {
+    if (!(route === 'dashboard' && authChecked && user)) return;
+    syncLibraryContext({ silent: true });
+  }, [route, authChecked, user, syncLibraryContext]);
 
   useEffect(() => {
     localStorage.setItem(IMPORT_JOBS_KEY, JSON.stringify(importJobs));
@@ -482,6 +585,12 @@ export default function App() {
         mobileOpen={mobileNavOpen}
         onMobileClose={() => setMobileNavOpen(false)}
         appVersion={APP_VERSION}
+        libraries={libraries}
+        activeLibraryId={activeLibraryId}
+        onSelectLibrary={selectLibrary}
+        onCreateLibrary={createLibrary}
+        onRenameLibrary={renameLibrary}
+        onDeleteLibrary={deleteLibrary}
       />
 
       <div className={cx('flex-1 flex flex-col min-w-0 transition-all duration-300', sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-56')}>

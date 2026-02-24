@@ -33,11 +33,12 @@ const authRouter = require('./routes/auth');
 const mediaRouter = require('./routes/media');
 const adminRouter = require('./routes/admin');
 const integrationsRouter = require('./routes/integrations');
+const librariesRouter = require('./routes/libraries');
 const { cleanupExpiredSessions, SESSION_MAX_PER_USER, SESSION_TTL_DAYS } = require('./services/sessions');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const APP_VERSION = process.env.APP_VERSION || appMeta.version || '1.9.25';
+const APP_VERSION = process.env.APP_VERSION || appMeta.version || '2.0.0-alpha.2';
 const GIT_SHA = process.env.GIT_SHA || appMeta?.build?.gitShaDefault || 'dev';
 const BUILD_DATE = process.env.BUILD_DATE || appMeta?.build?.buildDateDefault || 'unknown';
 const BUILD_LABEL = `v${APP_VERSION}+${GIT_SHA}`;
@@ -175,6 +176,7 @@ app.use('/api/auth', authRouter);
 app.use('/api', authRouter);
 app.use('/api/media', mediaRouter);
 app.use('/api', integrationsRouter);
+app.use('/api', librariesRouter);
 app.use('/api/admin', adminRouter);
 
 // ── Health check ──────────────────────────────────────────────────────────────

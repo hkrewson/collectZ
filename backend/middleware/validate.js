@@ -103,6 +103,20 @@ const generalSettingsSchema = z.object({
   density: z.enum(['comfortable', 'compact']).optional()
 });
 
+const libraryCreateSchema = z.object({
+  name: z.string().min(1, 'Library name is required').max(255),
+  description: z.string().max(2000).optional().nullable()
+});
+
+const libraryUpdateSchema = libraryCreateSchema.partial().refine(
+  (data) => Object.keys(data).length > 0,
+  { message: 'At least one library field is required' }
+);
+
+const librarySelectSchema = z.object({
+  library_id: z.number().int().positive('library_id must be a positive integer')
+});
+
 // ── Middleware factory ────────────────────────────────────────────────────────
 
 /**
@@ -134,5 +148,8 @@ module.exports = {
   passwordResetConsumeSchema,
   roleUpdateSchema,
   inviteCreateSchema,
-  generalSettingsSchema
+  generalSettingsSchema,
+  libraryCreateSchema,
+  libraryUpdateSchema,
+  librarySelectSchema
 };
