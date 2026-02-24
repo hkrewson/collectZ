@@ -150,6 +150,8 @@ Each PR should include:
 - `frontend/src/App.js` soft budget: <= 450 LOC.
 - `frontend/src/App.js` hard budget: <= 550 LOC (CI failure beyond this without approved exception).
 - Any file exceeding 700 LOC should be split during the next relevant milestone.
+- CI exception file for temporary App shell overage: `.ci/exceptions/app-shell-budget.json`.
+  Required fields: `reason`, `approved_by`, `expires_on` (`YYYY-MM-DD`), `max_lines`, `target_milestone`.
 
 ---
 

@@ -734,6 +734,126 @@ This track converts the 1.9.1 external assessment findings into executable miles
 - Tagged builds emit a clear go/no-go result with linked evidence artifacts.
 - Missing preflight evidence blocks release publication.
 
+## 1.9.26 — Portable Compose Topology + Security Triage Baseline
+
+**Goal:** Eliminate fixed-container deployment coupling and establish an explicit pre-2.0 vulnerability triage baseline.
+
+### Requirements
+
+- `REQ-1`: Compose files MUST NOT define `container_name`.
+- `REQ-2`: CI compose checks MUST resolve service containers dynamically (`docker compose ps -q`), never by fixed names.
+- `REQ-3`: CI MUST fail if `container_name` is reintroduced.
+- `REQ-4`: Registry compose defaults MUST enforce secure production cookie posture (`SESSION_COOKIE_SECURE=true` unless explicitly overridden for local dev).
+- `REQ-5`: Release notes MUST include a vulnerability triage summary with owner and target remediation milestone for any unresolved `high` findings.
+
+### Scope
+
+- Remove `container_name` from all compose files to allow:
+  - parallel stacks,
+  - project-name isolation,
+  - safer rehearsal environments.
+- Update CI compose health checks to resolve container IDs by service name (`docker compose ps -q`) instead of fixed names.
+- Add CI guard that fails if `container_name` is reintroduced.
+- Align registry compose defaults with current security posture:
+  - secure session cookies by default in production mode.
+- Capture baseline `high` vulnerability inventory and document remediation plan/owner in release notes.
+
+### Acceptance Criteria
+
+- Compose stacks run without fixed-name collisions (`main` and temporary project names).
+- CI no longer references hard-coded container names.
+- CI blocks `container_name` drift.
+- Release note includes explicit `high` vulnerability triage summary and target remediation milestone.
+
+### Test Plan
+
+- Run `docker compose --env-file .env config` for both local and registry compose files.
+- Run stack smoke with default project and a non-default project (`-p`), verify healthy startup.
+- Run CI locally (or equivalent scripts) for compose health checks and `container_name` policy guard.
+- Confirm release note template includes vulnerability-triage section.
+
+### API/DB Checklist
+
+- No schema/API contract changes.
+- Runtime/deploy topology only.
+
+## 1.9.27 — App Shell De-Bloat and Modularity Enforcement
+
+**Goal:** Bring frontend architecture into policy compliance before 2.0 migration complexity lands.
+
+### Requirements
+
+- `REQ-1`: `frontend/src/App.js` MUST be reduced to shell orchestration only (routing, nav, providers).
+- `REQ-2`: Feature views/stateful logic MUST live in module components/hooks under `frontend/src/components` and `frontend/src/hooks`.
+- `REQ-3`: CI MUST enforce an `App.js` line-budget gate with documented exception workflow and expiry.
+- `REQ-4`: New milestone features MUST NOT increase `App.js` net LOC unless an approved exception exists.
+
+### Scope
+
+- Reduce `frontend/src/App.js` to shell-only orchestration:
+  - routing,
+  - nav,
+  - global providers.
+- Move remaining feature-specific logic into module components/hooks.
+- Add CI modularity enforcement:
+  - fail when `App.js` exceeds hard budget unless exception is documented.
+- Add explicit exception mechanism with expiry for temporary over-budget states.
+
+### Acceptance Criteria
+
+- `App.js` is at or below policy hard budget, or approved time-bound exception exists.
+- New feature code lands outside App shell by default.
+- CI enforces modularity budget gate.
+
+### Test Plan
+
+- Run unit/smoke tests for Library/Admin/Profile flows after extraction.
+- Validate nav, auth, imports, and drawer behavior unchanged.
+- Validate CI fails when `App.js` exceeds budget without exception metadata.
+
+### API/DB Checklist
+
+- No schema/API contract changes.
+- Frontend architecture and CI policy enforcement only.
+
+## 1.9.28 — Final 2.0 Migration Readiness Rehearsal
+
+**Goal:** Produce final go/no-go evidence that 2.0 migration + rollback is safe on production-like data.
+
+### Requirements
+
+- `REQ-1`: Rehearsal MUST run on a recent production-like snapshot copy.
+- `REQ-2`: Rehearsal MUST verify both forward migration and rollback integrity checks.
+- `REQ-3`: A signed go/no-go artifact MUST exist before opening `2.0.0` implementation PR.
+- `REQ-4`: Any critical rehearsal failure MUST block 2.0 kickoff.
+
+### Scope
+
+- Run full migration rehearsal against recent production-like snapshot copy.
+- Verify:
+  - schema upgrade path,
+  - data integrity checks,
+  - rollback path evidence.
+- Publish rehearsal report and operator runbook updates.
+- Require explicit release signoff checklist completion before opening 2.0 implementation PR.
+
+### Acceptance Criteria
+
+- Rehearsal report artifact exists with pass/fail matrix for upgrade + rollback.
+- No unresolved data integrity blockers remain.
+- 2.0 kickoff requires signed checklist reference in release notes/roadmap.
+
+### Test Plan
+
+- Execute documented rehearsal script end-to-end on a snapshot clone.
+- Validate integrity queries before/after upgrade and after rollback.
+- Validate failure-mode reporting and block condition in release workflow.
+
+### API/DB Checklist
+
+- No production schema changes in this milestone.
+- Rehearsal and evidence generation only.
+
 ---
 
 ## 2.0.0 — Multi-Space + Multi-Library Architecture
@@ -789,6 +909,42 @@ This track converts the 1.9.1 external assessment findings into executable miles
 
 ## Post-2.0 (Later Milestones)
 
+## 2.1.0 — Metadata Normalization and Query Performance
+
+**Goal:** Replace comma-separated metadata fields with normalized relations for reliable search/filtering at scale.
+
+### Scope
+
+- Normalize `genre`, `director`, and actor/cast metadata into relational tables.
+- Backfill existing media records and preserve backward-compatible reads during migration window.
+- Update filter/search endpoints and indexes for normalized queries.
+
+### Acceptance Criteria
+
+- Search/filter behavior matches existing functionality with improved accuracy/performance.
+- Migration/backfill is complete with no data-loss regressions.
+
+## 2.2.0 — Observability Platform (Metrics + Alerting)
+
+**Goal:** Move from log-only triage to measurable system health with alerts.
+
+### Scope
+
+- Add structured metrics export for API/import/auth error rates and queue behavior.
+- Add baseline dashboards and alert thresholds.
+- Add operator playbook for alert triage and escalation.
+
+### Acceptance Criteria
+
+- Critical regressions are visible via alerts without manual log polling.
+- Dashboard coverage includes imports, auth failures, and admin actions.
+
+## 2.3.0 — Import Match Review + Collections Intelligence
+
+**Goal:** Improve import quality for ambiguous matches and boxed-set decomposition while keeping automation safe and operator-visible.
+
+### Scope
+
 - Import match review workflow:
   - Add backend confidence scoring for enrichment/import matches across providers.
   - Persist low-confidence or ambiguous rows to an `import_match_reviews` queue (by import job/source row).
@@ -803,6 +959,18 @@ This track converts the 1.9.1 external assessment findings into executable miles
   - Add optional web lookup fallback for unresolved sets (strictly gated by legal/ToS/robots constraints and feature flag).
   - Keep web-fallback results in manual review queue by default (no silent auto-apply).
   - Add side-project spike: evaluate provider reliability and legal risk for Blu-ray-focused scraping before enabling in production.
+
+### Acceptance Criteria
+
+- Ambiguous imports no longer auto-apply silently; they enter review queue.
+- Boxed-set imports can be represented as collection + contained items where data is available.
+
+## 2.4.0 — TV Watch-State and Provider Sync Foundation
+
+**Goal:** Build durable TV season/watch-state modeling that can sync with external providers later.
+
+### Scope
+
 - TV data model hardening:
   - Move season ownership out of `media_variants` into a dedicated `media_seasons` table keyed by `media_id` (TV series).
   - Keep `media_variants` for movie/file editions only.
@@ -819,6 +987,34 @@ This track converts the 1.9.1 external assessment findings into executable miles
 - Per-space scheduled Plex sync automation.
 - External status sync exploration (future): evaluate JustWatch and other services based on API availability and licensing constraints.
 - Library-type specializations and templates (movies, music, books, games, comics) with domain-specific field sets.
+
+### Acceptance Criteria
+
+- TV seasons are modeled independently from movie editions.
+- Series/season watch-state is visible and queryable with consistent UI indicators.
+
+## 2.5.0 — UI Refinement Sprint (Cross-Device Consistency)
+
+**Goal:** Run a focused page-by-page UI refinement pass after 2.0 stabilization, prioritizing interaction consistency and responsive usability.
+
+### Scope
+
+- Standardize primary navigation toggle behavior:
+  - replace collapse/expand control with a single hamburger-style toggle interaction,
+  - keep behavior consistent across desktop and mobile patterns.
+- Conduct structured UI review across major surfaces:
+  - Library,
+  - Import,
+  - Profile,
+  - Admin sections.
+- Apply targeted visual/interaction adjustments per page and element until review checklist passes.
+- Keep this sprint UX-only unless a blocker requires small functional fixes.
+
+### Acceptance Criteria
+
+- Desktop and mobile navigation use one consistent toggle paradigm.
+- UI review checklist is completed for each major page section.
+- Refinement changes do not introduce regression in auth, media CRUD, imports, or admin flows.
 - Shared vs. private user annotations and ratings controls.
 - Mobile-optimized barcode scanning UI (camera input with real-time scan feedback).
 - Email delivery for invites via SMTP (already stubbed in `env.example`).
