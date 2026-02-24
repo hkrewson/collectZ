@@ -311,7 +311,7 @@ jobs:
           GIT_SHA: ${{ needs.prepare.outputs.git_sha_short }}
           BUILD_DATE: ${{ needs.prepare.outputs.build_date }}
           NODE_ENV: production
-          SESSION_COOKIE_SECURE: false
+          SESSION_COOKIE_SECURE: true
           TRUST_PROXY: 1
         run: |
           set -euo pipefail
@@ -336,6 +336,24 @@ jobs:
           HEALTH_JSON="$(curl -s http://localhost:3000/api/health)"
           echo "$HEALTH_JSON" | grep -q "\"status\":\"ok\""
           echo "$HEALTH_JSON" | grep -q "\"version\":\"${APP_VERSION}\""
+          HEALTH_HEADERS="$(mktemp)"
+          curl -s -D "${HEALTH_HEADERS}" -o /dev/null http://localhost:3000/api/health
+          grep -qi '^x-content-type-options:' "${HEALTH_HEADERS}" || { echo "Missing x-content-type-options header"; exit 1; }
+          grep -qi '^x-frame-options:' "${HEALTH_HEADERS}" || { echo "Missing x-frame-options header"; exit 1; }
+          grep -qi '^strict-transport-security:' "${HEALTH_HEADERS}" || { echo "Missing strict-transport-security header"; exit 1; }
+
+          COOKIE_JAR="$(mktemp)"
+          CSRF_HEADERS="$(mktemp)"
+          CSRF_JSON="$(curl -s -c "${COOKIE_JAR}" -D "${CSRF_HEADERS}" http://localhost:3000/api/auth/csrf-token)"
+          CSRF_TOKEN="$(echo "${CSRF_JSON}" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{try{const j=JSON.parse(d);process.stdout.write(j.csrfToken||'');}catch(e){process.exit(1);}})")"
+          [ -n "${CSRF_TOKEN}" ] || { echo "Missing CSRF token"; exit 1; }
+          grep -qi 'set-cookie: csrf_token=' "${CSRF_HEADERS}" || { echo "Missing csrf cookie"; exit 1; }
+          grep -Eqi 'set-cookie: csrf_token=.*;[[:space:]]*Secure;' "${CSRF_HEADERS}" || { echo "CSRF cookie missing Secure attribute"; exit 1; }
+          grep -Eqi 'set-cookie: csrf_token=.*;[[:space:]]*SameSite=Strict' "${CSRF_HEADERS}" || { echo "CSRF cookie missing SameSite=Strict"; exit 1; }
+
+          docker compose --env-file .env.ci exec -T backend node -e \
+            "const {SESSION_COOKIE_OPTIONS}=require('./middleware/auth'); if(!(SESSION_COOKIE_OPTIONS.httpOnly===true&&SESSION_COOKIE_OPTIONS.secure===true&&String(SESSION_COOKIE_OPTIONS.sameSite).toLowerCase()==='strict')){console.error('Invalid session cookie options', SESSION_COOKIE_OPTIONS);process.exit(1);}"
+
           STATUS_CODE="$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/auth/me)"
           if [ "$STATUS_CODE" != "401" ]; then
             echo "Expected unauthenticated /api/auth/me to return 401, got $STATUS_CODE"

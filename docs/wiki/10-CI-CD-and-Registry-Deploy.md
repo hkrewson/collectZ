@@ -61,6 +61,8 @@ Security and release gates in CI:
   - stack boots,
   - backend/frontend health checks pass,
   - `/api/health` version matches release version,
+  - security headers (`x-content-type-options`, `x-frame-options`, `strict-transport-security`) are present,
+  - CSRF/session cookies are issued with secure attributes (`Secure`, `SameSite=Strict`, and `HttpOnly` for session),
   - unauthenticated `/api/auth/me` returns `401`.
 
 Default blocking threshold:

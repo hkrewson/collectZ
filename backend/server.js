@@ -37,7 +37,7 @@ const { cleanupExpiredSessions, SESSION_MAX_PER_USER, SESSION_TTL_DAYS } = requi
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const APP_VERSION = process.env.APP_VERSION || appMeta.version || '1.9.20';
+const APP_VERSION = process.env.APP_VERSION || appMeta.version || '1.9.22';
 const GIT_SHA = process.env.GIT_SHA || appMeta?.build?.gitShaDefault || 'dev';
 const BUILD_DATE = process.env.BUILD_DATE || appMeta?.build?.buildDateDefault || 'unknown';
 const BUILD_LABEL = `v${APP_VERSION}+${GIT_SHA}`;
@@ -52,6 +52,10 @@ const RATE_LIMIT_MEDIA_WRITE_MAX = Math.max(20, Number(process.env.RATE_LIMIT_ME
 const RATE_LIMIT_IMPORT_START_MAX = Math.max(5, Number(process.env.RATE_LIMIT_IMPORT_START_MAX || 60));
 const RATE_LIMIT_SYNC_POLL_MAX = Math.max(30, Number(process.env.RATE_LIMIT_SYNC_POLL_MAX || 600));
 const RATE_LIMIT_EXTERNAL_API_MAX = Math.max(5, Number(process.env.RATE_LIMIT_EXTERNAL_API_MAX || 30));
+const parseBoolean = (value, fallback = false) => {
+  if (value === undefined || value === null || value === '') return fallback;
+  return ['1', 'true', 'yes', 'on'].includes(String(value).toLowerCase().trim());
+};
 
 const parseTrustProxy = (value) => {
   if (value === undefined || value === null || value === '') {
@@ -66,8 +70,16 @@ const parseTrustProxy = (value) => {
 };
 
 const validateStartupSecurityConfig = () => {
-  if (process.env.NODE_ENV === 'production' && !process.env.INTEGRATION_ENCRYPTION_KEY) {
+  if (process.env.NODE_ENV !== 'production') return;
+
+  if (!process.env.SESSION_SECRET) {
+    throw new Error('SESSION_SECRET must be set in production');
+  }
+  if (!process.env.INTEGRATION_ENCRYPTION_KEY) {
     throw new Error('INTEGRATION_ENCRYPTION_KEY must be set in production');
+  }
+  if (!parseBoolean(process.env.SESSION_COOKIE_SECURE, true)) {
+    throw new Error('SESSION_COOKIE_SECURE must be true in production');
   }
 };
 

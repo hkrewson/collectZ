@@ -13,6 +13,7 @@ cp env.example .env
 - `DB_PASSWORD`
 - `SESSION_SECRET`
 - `INTEGRATION_ENCRYPTION_KEY`
+- `SESSION_COOKIE_SECURE=true` (required when `NODE_ENV=production`)
 
 3. Start stack:
 
@@ -32,8 +33,9 @@ docker compose --env-file .env logs -f backend frontend db
 In addition to basic setup:
 
 1. Set `ALLOWED_ORIGINS` to include production domain(s).
-2. Set integration keys (`TMDB_API_KEY`, `BARCODE_API_KEY`, `VISION_API_KEY`) or configure these in Admin Settings UI.
-3. Deploy behind reverse proxy/SSL (Nginx, Traefik, Caddy, Cloudflare tunnel).
+2. Keep `SESSION_COOKIE_SECURE=true` for TLS-backed production access.
+3. Set integration keys (`TMDB_API_KEY`, `BARCODE_API_KEY`, `VISION_API_KEY`) or configure these in Admin Settings UI.
+4. Deploy behind reverse proxy/SSL (Nginx, Traefik, Caddy, Cloudflare tunnel).
 
 Start/update:
 

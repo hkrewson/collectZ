@@ -23,6 +23,8 @@ openssl rand -hex 32
 - `DATABASE_SSL` (`false` by default)
 - `NODE_ENV` (`production` by default)
 - `TRUST_PROXY` (`1` recommended behind one reverse proxy hop; `false` when backend is exposed directly)
+- `SESSION_COOKIE_SECURE` (default `true`): must remain `true` in production.
+  - If you run plain HTTP localhost for development, use `NODE_ENV=development` and optionally set `SESSION_COOKIE_SECURE=false`.
 - `ALLOWED_ORIGINS` (comma-separated origins)
 - `AUDIT_LOG_MODE` (`failures` by default): request-level activity logging verbosity.
   - `off`: disable request outcome audit entries
@@ -126,6 +128,10 @@ If `INTEGRATION_ENCRYPTION_KEY` is missing in production mode, backend startup f
 `INTEGRATION_ENCRYPTION_KEY must be set in production`
 
 Set the variable in `.env` and restart backend.
+
+If `SESSION_COOKIE_SECURE` is set to `false` while `NODE_ENV=production`, backend startup fails with:
+
+`SESSION_COOKIE_SECURE must be true in production`
 
 ## Integration Key Rotation Notes
 
