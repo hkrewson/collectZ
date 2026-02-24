@@ -341,7 +341,8 @@ router.patch('/invites/:id/revoke', asyncHandler(async (req, res) => {
 }));
 
 // ── Activity log ──────────────────────────────────────────────────────────────
-// Supports optional query filters: action, entity, userId, user, from, to, q, search, limit
+// Supports optional query filters:
+// action, entity, userId, user, status, reason, from, to, q, search, limit, offset
 
 router.get('/activity', asyncHandler(async (req, res) => {
   const limitRaw = Number(req.query.limit || 100);
@@ -384,6 +385,39 @@ router.get('/activity', asyncHandler(async (req, res) => {
     conditions.push(`al.entity_type = $${params.length}`);
   }
 
+  if (req.query.status) {
+    const raw = String(req.query.status).trim().toLowerCase();
+    if (/^\d{3}$/.test(raw)) {
+      params.push(Number(raw));
+      conditions.push(`(
+        CASE
+          WHEN (al.details->>'status') ~ '^[0-9]+$' THEN (al.details->>'status')::int
+          ELSE NULL
+        END
+      ) = $${params.length}`);
+    } else if (/^[1-5]xx$/.test(raw)) {
+      const prefix = Number(raw[0]) * 100;
+      params.push(prefix);
+      params.push(prefix + 99);
+      conditions.push(`(
+        CASE
+          WHEN (al.details->>'status') ~ '^[0-9]+$' THEN (al.details->>'status')::int
+          ELSE NULL
+        END
+      ) BETWEEN $${params.length - 1} AND $${params.length}`);
+    } else if (raw === 'has_status') {
+      conditions.push(`(al.details->>'status') IS NOT NULL`);
+    }
+  }
+
+  if (req.query.reason) {
+    const reason = String(req.query.reason).trim();
+    if (reason) {
+      params.push(`%${reason}%`);
+      conditions.push(`COALESCE(al.details->>'reason', '') ILIKE $${params.length}`);
+    }
+  }
+
   if (req.query.from) {
     params.push(req.query.from);
     conditions.push(`al.created_at >= $${params.length}`);
@@ -407,6 +441,8 @@ router.get('/activity', asyncHandler(async (req, res) => {
       conditions.push(`(
         al.action ILIKE ${token}
         OR COALESCE(al.entity_type, '') ILIKE ${token}
+        OR COALESCE(al.details->>'reason', '') ILIKE ${token}
+        OR COALESCE(al.details->>'status', '') ILIKE ${token}
         OR al.details::text ILIKE ${token}
         OR EXISTS (SELECT 1 FROM users u3 WHERE u3.id = al.user_id AND u3.email ILIKE ${token})
       )`);
@@ -418,7 +454,10 @@ router.get('/activity', asyncHandler(async (req, res) => {
   params.push(offset);
 
   const result = await pool.query(
-    `SELECT al.id, al.user_id, al.action, al.entity_type, al.entity_id, al.details, al.ip_address, al.created_at,
+    `SELECT al.id, al.user_id, al.action, al.entity_type, al.entity_id, al.details,
+            al.details->>'reason' AS details_reason,
+            al.details->>'status' AS details_status,
+            al.ip_address, al.created_at,
             u.email AS user_email
      FROM activity_log al
      LEFT JOIN users u ON u.id = al.user_id
