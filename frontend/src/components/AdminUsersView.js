@@ -126,12 +126,17 @@ export default function AdminUsersView({ apiCall, onToast, currentUserId, Icons,
 
   const deleteLibrary = async (library) => {
     const ownerName = library?.created_by_name || library?.created_by_email || 'unknown owner';
+    const phrase = `DELETE ${library.name}`;
     const confirmName = window.prompt(
-      `You are about to delete a library owned by ${ownerName}.\nType the library name exactly to confirm deletion:`
+      `You are about to permanently delete a library owned by ${ownerName}.\nType "${phrase}" to confirm deletion:`
     );
     if (!confirmName) return;
+    if (confirmName !== phrase) {
+      onToast('Delete confirmation phrase did not match', 'error');
+      return;
+    }
     try {
-      await apiCall('delete', `/libraries/${library.id}`, { confirm_name: confirmName });
+      await apiCall('delete', `/libraries/${library.id}`, { confirm_name: library.name });
       setLibraries((rows) => rows.filter((row) => Number(row.id) !== Number(library.id)));
       onToast('Library deleted');
     } catch (err) {
@@ -140,12 +145,17 @@ export default function AdminUsersView({ apiCall, onToast, currentUserId, Icons,
   };
 
   const archiveLibrary = async (library) => {
+    const phrase = `ARCHIVE ${library.name}`;
     const confirmName = window.prompt(
-      `Archive "${library.name}"?\nType the library name exactly to confirm archive:`
+      `Archive "${library.name}"?\nType "${phrase}" to confirm archive:`
     );
     if (!confirmName) return;
+    if (confirmName !== phrase) {
+      onToast('Archive confirmation phrase did not match', 'error');
+      return;
+    }
     try {
-      await apiCall('post', `/libraries/${library.id}/archive`, { confirm_name: confirmName });
+      await apiCall('post', `/libraries/${library.id}/archive`, { confirm_name: library.name });
       setLibraries((rows) => rows.filter((row) => Number(row.id) !== Number(library.id)));
       onToast('Library archived');
     } catch (err) {
@@ -157,6 +167,17 @@ export default function AdminUsersView({ apiCall, onToast, currentUserId, Icons,
     const targetUserId = Number(transferTargets[library.id] || 0);
     if (!Number.isFinite(targetUserId) || targetUserId <= 0) {
       onToast('Select a new owner', 'error');
+      return;
+    }
+    if (Number(targetUserId) === Number(library.created_by)) {
+      onToast('Selected user already owns this library', 'error');
+      return;
+    }
+    const transferPhrase = window.prompt(
+      `Transfer "${library.name}" ownership?\nType "TRANSFER" to confirm.`
+    );
+    if (transferPhrase !== 'TRANSFER') {
+      if (transferPhrase !== null) onToast('Transfer confirmation phrase did not match', 'error');
       return;
     }
     try {
@@ -339,6 +360,11 @@ export default function AdminUsersView({ apiCall, onToast, currentUserId, Icons,
 
         {activeTab === 'libraries' && (
           <div className="card divide-y divide-edge">
+            <div className="px-4 py-3 bg-raised/60 border-b border-edge/70">
+              <p className="text-xs text-ghost">
+                Admin guardrails: transfer changes ownership, archive hides a library, delete permanently removes an empty library.
+              </p>
+            </div>
             {libraries.length === 0 && <p className="px-4 py-6 text-sm text-ghost text-center">No libraries found</p>}
             {libraries.map((library) => (
               <div key={library.id} className="px-4 py-3 space-y-3">

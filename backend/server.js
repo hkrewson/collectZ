@@ -38,7 +38,7 @@ const { cleanupExpiredSessions, SESSION_MAX_PER_USER, SESSION_TTL_DAYS } = requi
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const APP_VERSION = process.env.APP_VERSION || appMeta.version || '2.0.0-alpha.6.3';
+const APP_VERSION = process.env.APP_VERSION || appMeta.version || '2.0.0-alpha.9';
 const GIT_SHA = process.env.GIT_SHA || appMeta?.build?.gitShaDefault || 'dev';
 const BUILD_DATE = process.env.BUILD_DATE || appMeta?.build?.buildDateDefault || 'unknown';
 const BUILD_LABEL = `v${APP_VERSION}+${GIT_SHA}`;
@@ -70,6 +70,19 @@ const parseTrustProxy = (value) => {
   return process.env.NODE_ENV === 'production' ? 1 : false;
 };
 
+const resolveDbPassword = () => {
+  const direct = String(process.env.DB_PASSWORD || '').trim();
+  if (direct) return direct;
+  const databaseUrl = String(process.env.DATABASE_URL || '').trim();
+  if (!databaseUrl) return '';
+  try {
+    const parsed = new URL(databaseUrl);
+    return decodeURIComponent(parsed.password || '');
+  } catch (_) {
+    return '';
+  }
+};
+
 const WEAK_SECRET_VALUES = new Set([
   'changeme',
   'change-me',
@@ -98,7 +111,7 @@ const isWeakSecret = (value, minimumLength = 32) => {
 const validateStartupSecurityConfig = () => {
   if (process.env.NODE_ENV !== 'production') return;
 
-  if (!process.env.DB_PASSWORD) {
+  if (!resolveDbPassword()) {
     throw new Error('DB_PASSWORD must be set in production');
   }
   if (!process.env.SESSION_SECRET) {

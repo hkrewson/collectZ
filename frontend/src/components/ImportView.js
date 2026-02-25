@@ -11,7 +11,8 @@ export default function ImportView({
   Icons,
   Spinner,
   cx,
-  activeLibrary = null
+  activeLibrary = null,
+  currentUserRole = 'user'
 }) {
   const [tab, setTab] = useState(canImportPlex ? 'plex' : 'csv');
   const [busy, setBusy] = useState('');
@@ -164,6 +165,14 @@ export default function ImportView({
     { id: 'csv', label: 'Generic CSV' },
     { id: 'delicious', label: 'Delicious CSV' }
   ];
+  const activeLibraryLabel = useMemo(() => {
+    if (!activeLibrary) return 'No active library selected';
+    const ownerName = activeLibrary?.created_by_name || activeLibrary?.created_by_email || '';
+    return currentUserRole === 'admin' && ownerName
+      ? `${activeLibrary.name} - ${ownerName}`
+      : activeLibrary.name;
+  }, [activeLibrary, currentUserRole]);
+  const hasActiveLibrary = Boolean(activeLibrary?.id);
   const recentJobs = useMemo(
     () => importJobs.filter((job) => ['plex', 'csv_generic', 'csv_delicious'].includes(job.provider)).slice(0, 5),
     [importJobs]
@@ -183,11 +192,12 @@ export default function ImportView({
       <div>
         <h1 className="section-title">Import Media</h1>
         <p className="text-sm text-ghost mt-1">Add titles from external sources into your library.</p>
-        {activeLibrary && (
-          <p className="text-xs text-gold mt-2 font-mono">
-            Target library: {activeLibrary.name} (#{activeLibrary.id})
+        <div className={cx('mt-3 rounded-lg border px-3 py-2 text-xs', hasActiveLibrary ? 'border-edge bg-raised text-dim' : 'border-err/50 bg-err/10 text-err')}>
+          <p className="font-mono">
+            Target library: {activeLibraryLabel}{hasActiveLibrary ? ` (#${activeLibrary.id})` : ''}
           </p>
-        )}
+          <p className="mt-1 text-[11px] opacity-80">Imports write into the currently selected active library only.</p>
+        </div>
       </div>
 
       <div className="tab-strip w-full max-w-xl">
@@ -203,7 +213,7 @@ export default function ImportView({
           <>
             <p className="text-sm text-dim">Import titles from your configured Plex server and selected sections.</p>
             <p className="text-xs text-ghost">Uses saved Admin Integrations Plex settings. Import runs async with progress, deduplication, and TMDB enrichment when possible.</p>
-            <button onClick={runPlexImport} className="btn-primary" disabled={busy === 'plex'}>
+            <button onClick={runPlexImport} className="btn-primary" disabled={busy === 'plex' || !hasActiveLibrary}>
               {busy === 'plex' ? <Spinner size={14} /> : <><Icons.Upload />Start Plex Import</>}
             </button>
             {recentJobs.length > 0 && (
@@ -230,7 +240,7 @@ export default function ImportView({
             <p className="text-sm text-dim">Import from a CSV file using collectZ columns.</p>
             <p className="text-xs text-ghost">Required: title. Optional: year, format, director, genre, rating, user_rating, runtime, upc, location, notes.</p>
             <div className="flex flex-wrap gap-3">
-              <button onClick={() => csvInputRef.current?.click()} className="btn-primary" disabled={busy === 'CSV'}>
+              <button onClick={() => csvInputRef.current?.click()} className="btn-primary" disabled={busy === 'CSV' || !hasActiveLibrary}>
                 {busy === 'CSV' ? <Spinner size={14} /> : <><Icons.Upload />Choose CSV File</>}
               </button>
               <a href={`${apiUrl}/media/import/template-csv`} className="btn-secondary"><Icons.Download />Download Template</a>
@@ -253,7 +263,7 @@ export default function ImportView({
           <>
             <p className="text-sm text-dim">Import a Delicious export CSV.</p>
             <p className="text-xs text-ghost">Movie rows only are imported. Non-movie rows are skipped. Data is enriched from TMDB when available.</p>
-            <button onClick={() => deliciousInputRef.current?.click()} className="btn-primary" disabled={busy === 'Delicious'}>
+            <button onClick={() => deliciousInputRef.current?.click()} className="btn-primary" disabled={busy === 'Delicious' || !hasActiveLibrary}>
               {busy === 'Delicious' ? <Spinner size={14} /> : <><Icons.Upload />Choose Delicious CSV</>}
             </button>
             <input
@@ -287,7 +297,7 @@ export default function ImportView({
                   }
                 }}
               />
-              <button onClick={lookupBarcode} className="btn-primary" disabled={barcodeLookupLoading || !barcodeUpc.trim()}>
+              <button onClick={lookupBarcode} className="btn-primary" disabled={barcodeLookupLoading || !barcodeUpc.trim() || !hasActiveLibrary}>
                 {barcodeLookupLoading ? <Spinner size={14} /> : <><Icons.Barcode />Lookup</>}
               </button>
             </div>
@@ -305,7 +315,7 @@ export default function ImportView({
                           {year || 'n/a'}{m?.upc ? ` · UPC ${m.upc}` : ''}{m?.source ? ` · ${m.source}` : ''}
                         </p>
                       </div>
-                      <button className="btn-secondary btn-sm" disabled={barcodeAddingId === addId} onClick={() => addBarcodeMatch(m, idx)}>
+                      <button className="btn-secondary btn-sm" disabled={barcodeAddingId === addId || !hasActiveLibrary} onClick={() => addBarcodeMatch(m, idx)}>
                         {barcodeAddingId === addId ? <Spinner size={14} /> : 'Add'}
                       </button>
                     </div>

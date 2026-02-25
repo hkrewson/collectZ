@@ -614,7 +614,21 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
   );
 }
 
-export default function LibraryView({ mediaItems, loading, error, pagination, onRefresh, onOpen, onEdit, onDelete, onRating, apiCall, forcedMediaType, activeLibrary = null }) {
+export default function LibraryView({
+  mediaItems,
+  loading,
+  error,
+  pagination,
+  onRefresh,
+  onOpen,
+  onEdit,
+  onDelete,
+  onRating,
+  apiCall,
+  forcedMediaType,
+  activeLibrary = null,
+  currentUserRole = 'user'
+}) {
   const [searchInput, setSearchInput] = useState('');
   const [resolutionInput, setResolutionInput] = useState('all');
   const [filters, setFilters] = useState({ media_type: forcedMediaType || 'movie', search: '', resolution: 'all', sortBy: 'title', sortDir: 'asc' });
@@ -624,6 +638,13 @@ export default function LibraryView({ mediaItems, loading, error, pagination, on
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState(null);
   const [detail, setDetail] = useState(null);
+  const activeLibraryLabel = useMemo(() => {
+    if (!activeLibrary) return 'No active library selected';
+    const ownerName = activeLibrary?.created_by_name || activeLibrary?.created_by_email || '';
+    return currentUserRole === 'admin' && ownerName
+      ? `${activeLibrary.name} - ${ownerName}`
+      : activeLibrary.name;
+  }, [activeLibrary, currentUserRole]);
 
   const supportsHover = useMemo(() => window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches, []);
 
@@ -683,11 +704,9 @@ export default function LibraryView({ mediaItems, loading, error, pagination, on
       <div className="px-6 py-4 border-b border-edge shrink-0">
         <div className="flex items-center gap-3 flex-wrap">
           <h1 className="section-title">Library</h1>
-          {activeLibrary && (
-            <span className="badge badge-gold">
-              {activeLibrary.name} (#{activeLibrary.id})
-            </span>
-          )}
+          <span className={cx('badge', activeLibrary ? 'badge-gold' : 'badge-err')}>
+            Active: {activeLibraryLabel}{activeLibrary ? ` (#${activeLibrary.id})` : ''}
+          </span>
           <span className="badge badge-dim ml-1">{pagination?.total ?? mediaItems.length}</span>
           <div className="flex-1" />
           <div className="relative">

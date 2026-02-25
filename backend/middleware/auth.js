@@ -1,5 +1,6 @@
 const { getSessionUserByToken } = require('../services/sessions');
 const { SESSION_TTL_DAYS } = require('../services/sessions');
+const { logActivity } = require('../services/audit');
 
 const parseBoolean = (value, fallback) => {
   if (value === undefined || value === null || value === '') return fallback;
@@ -24,6 +25,11 @@ const authenticateToken = async (req, res, next) => {
   const token = cookieToken || bearerToken;
 
   if (!token) {
+    void logActivity(req, 'auth.access.denied', 'http_request', null, {
+      reason: 'missing_token',
+      method: req.method,
+      url: req.originalUrl
+    });
     return res.status(401).json({ error: 'Access denied' });
   }
 
@@ -33,6 +39,11 @@ const authenticateToken = async (req, res, next) => {
       if (cookieToken) {
         res.clearCookie('session_token');
       }
+      void logActivity(req, 'auth.access.denied', 'http_request', null, {
+        reason: 'invalid_or_expired_session',
+        method: req.method,
+        url: req.originalUrl
+      });
       return res.status(403).json({ error: 'Invalid or expired session' });
     }
 
@@ -59,6 +70,13 @@ const authenticateToken = async (req, res, next) => {
  */
 const requireRole = (...roles) => (req, res, next) => {
   if (!req.user || !roles.includes(req.user.role)) {
+    void logActivity(req, 'auth.permission.denied', 'http_request', null, {
+      reason: 'insufficient_permissions',
+      method: req.method,
+      url: req.originalUrl,
+      requiredRoles: roles,
+      userRole: req.user?.role || null
+    });
     return res.status(403).json({ error: 'Insufficient permissions' });
   }
   next();
