@@ -301,6 +301,8 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
   const [barcodeLoading, setBarcodeLoading] = useState(false);
   const [visionResults, setVisionResults] = useState([]);
   const [visionLoading, setVisionLoading] = useState(false);
+  const [typeEnrichResults, setTypeEnrichResults] = useState([]);
+  const [typeEnrichLoading, setTypeEnrichLoading] = useState(false);
   const [coverFile, setCoverFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
@@ -312,6 +314,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
   const isBook = form.media_type === 'book';
   const isAudio = form.media_type === 'audio';
   const isGame = form.media_type === 'game';
+  const isTypedEnrichment = isBook || isAudio || isGame;
 
   const searchTmdb = async () => {
     if (!form.title.trim()) return;
@@ -328,6 +331,80 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
     } finally {
       setTmdbLoading(false);
     }
+  };
+
+  const searchTypeEnrichment = async () => {
+    const title = form.title.trim();
+    if (!title) return;
+    const path = isBook
+      ? '/media/enrich/book/search'
+      : isAudio
+        ? '/media/enrich/audio/search'
+        : '/media/enrich/game/search';
+    setTypeEnrichLoading(true);
+    setTypeEnrichResults([]);
+    try {
+      const payload = isAudio
+        ? { title, artist: form.audio_artist || '' }
+        : isBook
+          ? { title, author: form.book_author || '' }
+          : { title };
+      const data = await apiCall('post', path, payload);
+      const matches = Array.isArray(data?.matches) ? data.matches : [];
+      setTypeEnrichResults(matches);
+      if (!matches.length) notify('No matches found', 'error');
+    } catch (e) {
+      notify(e.response?.data?.error || 'Lookup failed', 'error');
+    } finally {
+      setTypeEnrichLoading(false);
+    }
+  };
+
+  const applyTypeEnrichment = (match) => {
+    if (!match) return;
+    if (isBook) {
+      set({
+        title: match.title || form.title,
+        year: match.year ? String(match.year) : form.year,
+        release_date: match.release_date || form.release_date,
+        genre: match.genre || form.genre,
+        overview: match.overview || form.overview,
+        tmdb_url: match.external_url || form.tmdb_url,
+        poster_path: match.poster_path || form.poster_path,
+        book_author: match.type_details?.author || form.book_author,
+        book_publisher: match.type_details?.publisher || form.book_publisher,
+        book_isbn: match.type_details?.isbn || form.book_isbn,
+        book_edition: match.type_details?.edition || form.book_edition
+      });
+    } else if (isAudio) {
+      set({
+        title: match.title || form.title,
+        year: match.year ? String(match.year) : form.year,
+        release_date: match.release_date || form.release_date,
+        genre: match.genre || form.genre,
+        overview: match.overview || form.overview,
+        tmdb_url: match.external_url || form.tmdb_url,
+        poster_path: match.poster_path || form.poster_path,
+        audio_artist: match.type_details?.artist || form.audio_artist,
+        audio_album: match.type_details?.album || form.audio_album || match.title || form.title,
+        audio_track_count: match.type_details?.track_count ? String(match.type_details.track_count) : form.audio_track_count
+      });
+    } else if (isGame) {
+      set({
+        title: match.title || form.title,
+        year: match.year ? String(match.year) : form.year,
+        release_date: match.release_date || form.release_date,
+        genre: match.genre || form.genre,
+        overview: match.overview || form.overview,
+        tmdb_url: match.external_url || form.tmdb_url,
+        poster_path: match.poster_path || form.poster_path,
+        game_platform: match.type_details?.platform || form.game_platform,
+        game_developer: match.type_details?.developer || form.game_developer,
+        game_region: match.type_details?.region || form.game_region
+      });
+    }
+    setTypeEnrichResults([]);
+    notify('Lookup data applied');
   };
 
   const applyTmdb = async (result) => {
@@ -481,9 +558,9 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
         runtime: isMovieOrTv ? (form.runtime ? Number(form.runtime) : null) : null,
         tmdb_id: isMovieOrTv ? (form.tmdb_id ? Number(form.tmdb_id) : null) : null,
         tmdb_media_type: isMovieOrTv ? (form.tmdb_media_type || null) : null,
-        tmdb_url: isMovieOrTv ? (form.tmdb_url ? String(form.tmdb_url).trim() || null : null) : null,
+        tmdb_url: form.tmdb_url ? String(form.tmdb_url).trim() || null : null,
         trailer_url: isMovieOrTv ? (form.trailer_url ? String(form.trailer_url).trim() || null : null) : null,
-        poster_path: isMovieOrTv ? (form.poster_path ? String(form.poster_path).trim() || null : null) : null,
+        poster_path: form.poster_path ? String(form.poster_path).trim() || null : null,
         backdrop_path: isMovieOrTv ? (form.backdrop_path ? String(form.backdrop_path).trim() || null : null) : null,
         season_number: form.season_number ? Number(form.season_number) : null,
         episode_number: form.episode_number ? Number(form.episode_number) : null,
@@ -555,12 +632,11 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
                       patch.rating = '';
                       patch.tmdb_id = '';
                       patch.tmdb_media_type = 'movie';
-                      patch.tmdb_url = '';
                       patch.trailer_url = '';
-                      patch.poster_path = '';
                       patch.backdrop_path = '';
                     }
                     set(patch);
+                    setTypeEnrichResults([]);
                   }}
                 >
                   {MEDIA_TYPES.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
@@ -589,6 +665,11 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
               {isMovieOrTv && addMode === 'title' && (
                 <button type="button" onClick={searchTmdb} disabled={tmdbLoading} className="btn-secondary btn-sm shrink-0 min-w-[100px]">
                   {tmdbLoading ? <Spinner size={14} /> : <><Icons.Search />Search</>}
+                </button>
+              )}
+              {isTypedEnrichment && (
+                <button type="button" onClick={searchTypeEnrichment} disabled={typeEnrichLoading} className="btn-secondary btn-sm shrink-0 min-w-[100px]">
+                  {typeEnrichLoading ? <Spinner size={14} /> : <><Icons.Search />Lookup</>}
                 </button>
               )}
             </div>
@@ -645,6 +726,24 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-ink truncate">{m.tmdb?.title || m.title || 'Unknown'}</p>
                       <p className="text-xs text-ghost">{m.description || ''}</p>
+                    </div>
+                    <span className="text-xs text-gold opacity-0 group-hover:opacity-100 shrink-0">Apply →</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {isTypedEnrichment && typeEnrichResults.length > 0 && (
+            <div className="space-y-2">
+              <p className="label">Lookup Matches — click to apply</p>
+              <div className="space-y-1.5 max-h-52 overflow-y-auto scroll-area pr-1">
+                {typeEnrichResults.slice(0, 10).map((m) => (
+                  <button key={`${m.id || m.title}-${m.year || ''}`} type="button" onClick={() => applyTypeEnrichment(m)} className="w-full flex items-center gap-3 p-2.5 rounded-lg bg-raised border border-edge hover:border-gold/40 hover:bg-gold/5 transition-all text-left group">
+                    {m.poster_path && <img src={posterUrl(m.poster_path)} alt="" className="w-8 h-12 object-cover rounded shrink-0" />}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-ink truncate">{m.title || 'Unknown'}</p>
+                      <p className="text-xs text-ghost">{[m.year, m.genre].filter(Boolean).join(' · ')}</p>
                     </div>
                     <span className="text-xs text-gold opacity-0 group-hover:opacity-100 shrink-0">Apply →</span>
                   </button>
