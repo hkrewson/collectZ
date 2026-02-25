@@ -84,3 +84,6 @@ nginx/ssl/*.crt
 
 # Keep example files
 !.env.example
+
+# Local planning docs (intentionally not tracked)
+docs/wiki/roadmap-tenancy-deferred.md

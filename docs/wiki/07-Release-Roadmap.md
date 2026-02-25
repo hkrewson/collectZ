@@ -878,78 +878,77 @@ This track converts the 1.9.1 external assessment findings into executable miles
 
 ---
 
-## 2.0.0 — Multi-Space + Multi-Library Architecture
+## 2.0.0 — Homelab Core Release (Users + One Library Surface)
 
-**Goal:** Each user can belong to one or more spaces, and each space can contain multiple libraries with isolated media and integrations.
+**Goal:** Deliver a secure, usable homelab media catalog for households: multiple users, admin-managed integrations, and one unified library experience for movies, TV, books, audio, and games.
 
-**Release requirement (post-alpha):**
-- Remove internal numeric library identifiers from end-user selector labels before stable `2.0.0`. Keep disambiguation human-readable:
-  - Admin selector: `LibraryName - Owner Name`
-  - User selector: `LibraryName`
+**Product boundary for 2.0.0:**
+- No enterprise tenancy model.
+- No user-owned integration credentials.
+- No required nested library hierarchy for end users.
+- Keep multi-library internals optional and lightweight; default UX is a single primary library surface.
 
-### 2.0 Alpha Milestones
+### Milestone Path From `2.0.0-alpha.9` to Stable `2.0.0`
 
-- `2.0.0-alpha.2`: First usable multi-library foundation.
-  - Library CRUD/select APIs.
-  - Active library scoping in media/import flows.
-  - Backfill migration for existing users/media.
-- `2.0.0-alpha.3` to `2.0.0-alpha.5`: Selection correctness and scoped redraw fixes.
-  - New library auto-selection reliability.
-  - Active library persistence across refresh.
-  - Library switch consistency (no stale list bleed-through).
-- `2.0.0-alpha.6` (current target):
-  - Admin guardrails for destructive library actions (typed confirmation).
-  - Admin transfer/archive management in Admin UI.
-  - Expanded regression automation for library create/select/switch/delete/transfer.
-- `2.0.0-beta.1` gate:
-  - No known cross-library scope leaks.
-  - Migration from 1.9 snapshot verified.
-  - Regression suite passes including library-scoping tests.
+- `2.0.0-beta.1`:
+  - Lock auth/RBAC behavior for admin + normal users.
+  - Validate admin-managed integrations end-to-end (test/import/sync).
+  - UI pass for clarity and mobile usability (Library, Import, Profile, Members, Activity).
+  - Add media-type baseline coverage for `movie`, `tv_series`, `book`, `audio`, `game`, `other` in Library create/edit/list flows.
+- `2.0.0-beta.2`:
+  - Strengthen library data model for mixed media types (movies/TV/books/audio/games) without over-complicating tenancy.
+  - Finish search/filter/sort and paging ergonomics for practical collection sizes.
+  - Verify import quality and de-duplication behavior across providers.
+  - Complete media-type filter/search behavior checks so each type can be isolated and managed without cross-type confusion.
+- `2.0.0-rc.1`:
+  - Public test-server rehearsal with real tester traffic.
+  - Resolve blocker bugs from tester template + activity logs.
+  - Complete release checklist, migration rehearsal evidence, and rollback steps.
+  - Run explicit RC media-type test matrix (add/edit/delete/search/import where applicable) for movies, TV, books, audio, and games.
+- `2.0.0`:
+  - Stable homelab release with documented setup, security defaults, and operator runbooks.
 
 ### Scope
 
-- Add spaces and memberships with per-space roles.
-- Add libraries within each space (create, rename/update metadata, archive/delete behavior with safeguards).
-- Scope media by both space and library.
-- Scope invites and integrations by space.
-- Add active-space switcher in UI.
-- Replace single `Library` nav destination with library collection navigation:
-  - `Library` becomes a parent section.
-  - Child entries list available libraries in the active space.
-  - Add quick actions for `New Library` and `Manage Libraries` (role-gated).
-- Move integration settings (TMDB, Barcode, Vision, Plex) to space-level settings.
-- Enforce space isolation across all CRUD and admin paths via `scopeContext` (now fully active).
-- Legacy single-space installs auto-migrate into a default space with a default library — this migration must be reversible, documented, and tested against real snapshots from 1.9.
+- Keep multi-user support (`admin`, `user`, optional `viewer`) with secure cookie sessions and CSRF.
+- Keep integrations admin-managed at app scope:
+  - TMDB, Barcode, Vision, Plex.
+- Provide one primary library UX with category/type filtering:
+  - movies, TV, books, audio, games, other.
+- Preserve import/sync workflows:
+  - Plex import,
+  - Generic CSV import,
+  - Delicious CSV import.
+- Preserve clear audit visibility for failures and privileged actions.
+- Prioritize usability and reliability over adding tenancy complexity.
 
 ### Acceptance Criteria
 
-- User sees only media from their active space and selected library.
-- Space admins manage members, invites, integrations, and library lifecycle for their space.
-- Library CRUD is available according to role policy; deleting a library requires explicit confirmation and defined handling for existing media.
-- Cross-space data access is blocked at both the API and query layer.
-- Cross-library data leakage is blocked unless explicitly requested via allowed filters.
-- Legacy single-library deployments upgrade cleanly into a default space + default library with no data loss.
-- Rollback from 2.0 to 1.9 is documented and tested.
+- Admin can configure integrations and users; normal users can manage catalog entries safely.
+- End users can add/import/edit/delete/search media without scope confusion.
+- Media-type coverage is confirmed at RC: movies, TV, books, audio, and games are all manageable in the unified library surface.
+- Library performance remains acceptable for large personal collections.
+- Security defaults are enforced in production (strong secrets, secure cookies, CI gates).
+- Release docs support straightforward homelab deployment and recovery.
 
-### DB Checklist
+### DB/API Checklist
 
-- New tables: `spaces`, `space_memberships`, `libraries`.
-- Add FK constraints to `space_id` on `media`, `invites`, `libraries`, and integration settings tables (previously nullable, now required).
-- Add FK constraint to `media.library_id` (required in 2.0) referencing `libraries(id)`.
-- Migrate existing data: create default space + default library, attach all existing users/media/settings.
-- Add indexes on `(space_id, created_at)`, `(library_id, created_at)`, and common space/library-scoped lookup fields.
+- DB:
+  - Keep current `media` + supporting tables stable and migration-safe.
+  - Ensure indexes support high-volume browse/search/import paths.
+  - Avoid disruptive tenancy schema expansion in 2.0.0.
+- API:
+  - Keep API contracts stable for auth, media CRUD, imports, invites, and admin tooling.
+  - Maintain strict RBAC checks and explicit audit events for failures/denials.
+  - Avoid introducing new multi-space endpoint families in 2.0.0.
 
-### API Checklist
+---
 
-- All protected endpoints resolve active space from session context.
-- All media endpoints resolve active library from session/request context.
-- New endpoints:
-  - space CRUD
-  - space membership management
-  - library CRUD within active space
-  - space-scoped integrations
-- Secure RBAC at both global and space levels.
-- Role checks enforce who can create, edit, archive, and delete libraries.
+## 2.5.0 / 3.0.0 — Optional Tenancy Expansion (Deferred)
+
+Deferred tenancy planning has been moved to a separate roadmap document:
+
+- `docs/wiki/roadmap-tenancy-deferred.md` (local planning document, git-ignored)
 
 ---
 

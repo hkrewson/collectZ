@@ -283,81 +283,6 @@ export default function App() {
     }
   }, [apiCall, showToast, user]);
 
-  const selectLibrary = useCallback(async (libraryId) => {
-    const numericLibraryId = Number(libraryId);
-    if (!Number.isFinite(numericLibraryId) || numericLibraryId <= 0) return;
-    try {
-      const selected = await apiCall('post', '/libraries/select', { library_id: numericLibraryId });
-      const nextActiveLibraryId = Number(selected?.active_library_id || numericLibraryId);
-      setActiveLibraryId(nextActiveLibraryId);
-      setUser((prev) => {
-        if (!prev) return prev;
-        const prevActive = Number(prev.active_library_id || 0) || null;
-        return prevActive === nextActiveLibraryId
-          ? prev
-          : { ...prev, active_library_id: nextActiveLibraryId };
-      });
-      setMediaItems([]);
-      setMediaPagination({ page: 1, limit: 50, total: 0, totalPages: 1, hasMore: false });
-      await loadMedia();
-      showToast(`Switched to ${selected?.library?.name || 'library'}`);
-    } catch (error) {
-      showToast(error.response?.data?.error || 'Failed to switch library', 'error');
-    }
-  }, [apiCall, loadMedia, showToast]);
-
-  const createLibrary = useCallback(async () => {
-    const name = window.prompt('New library name');
-    if (!name || !name.trim()) return;
-    try {
-      const created = await apiCall('post', '/libraries', { name: name.trim() });
-      const createdLibraryId = Number(created?.active_library_id || created?.id || 0) || null;
-      if (createdLibraryId) {
-        setActiveLibraryId(createdLibraryId);
-        setUser((prev) => (prev ? { ...prev, active_library_id: createdLibraryId } : prev));
-        setMediaItems([]);
-        setMediaPagination({ page: 1, limit: 50, total: 0, totalPages: 1, hasMore: false });
-      }
-      await syncLibraryContext({ silent: true });
-      await loadMedia();
-      showToast('Library created');
-    } catch (error) {
-      showToast(error.response?.data?.error || 'Failed to create library', 'error');
-    }
-  }, [apiCall, loadMedia, showToast, syncLibraryContext]);
-
-  const renameLibrary = useCallback(async () => {
-    const target = libraries.find((library) => Number(library.id) === Number(activeLibraryId));
-    if (!target) return;
-    const name = window.prompt('Rename library', target.name);
-    if (!name || !name.trim() || name.trim() === target.name) return;
-    try {
-      await apiCall('patch', `/libraries/${target.id}`, { name: name.trim() });
-      await syncLibraryContext({ silent: true });
-      showToast('Library updated');
-    } catch (error) {
-      showToast(error.response?.data?.error || 'Failed to update library', 'error');
-    }
-  }, [activeLibraryId, apiCall, libraries, showToast, syncLibraryContext]);
-
-  const deleteLibrary = useCallback(async () => {
-    const target = libraries.find((library) => Number(library.id) === Number(activeLibraryId));
-    if (!target) return;
-    const ownerName = target?.created_by_name || target?.created_by_email || 'unknown owner';
-    const typedName = window.prompt(
-      `You are about to delete a library owned by ${ownerName}.\nType "${target.name}" to confirm deletion.`
-    );
-    if (!typedName) return;
-    try {
-      await apiCall('delete', `/libraries/${target.id}`, { confirm_name: typedName });
-      await syncLibraryContext({ silent: true });
-      await loadMedia();
-      showToast('Library deleted');
-    } catch (error) {
-      showToast(error.response?.data?.detail || error.response?.data?.error || 'Failed to delete library', 'error');
-    }
-  }, [activeLibraryId, apiCall, libraries, loadMedia, showToast, syncLibraryContext]);
-
   const addMedia = useCallback(async (payload) => {
     const created = await apiCall('post', '/media', payload);
     setMediaItems((m) => [created, ...m]);
@@ -599,12 +524,6 @@ export default function App() {
         mobileOpen={mobileNavOpen}
         onMobileClose={() => setMobileNavOpen(false)}
         appVersion={APP_VERSION}
-        libraries={libraries}
-        activeLibraryId={activeLibraryId}
-        onSelectLibrary={selectLibrary}
-        onCreateLibrary={createLibrary}
-        onRenameLibrary={renameLibrary}
-        onDeleteLibrary={deleteLibrary}
       />
 
       <div className={cx('flex-1 flex flex-col min-w-0 transition-all duration-300', sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-56')}>
