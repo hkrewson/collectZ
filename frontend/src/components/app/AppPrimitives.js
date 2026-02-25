@@ -29,11 +29,14 @@ export function inferTmdbSearchType(mediaType) {
 export const MEDIA_TYPES = [
   { value: 'movie', label: 'Movie' },
   { value: 'tv_series', label: 'TV Series' },
+  { value: 'book', label: 'Book' },
+  { value: 'audio', label: 'Audio' },
+  { value: 'game', label: 'Game' },
   { value: 'other', label: 'Other' }
 ];
 
 export function mediaTypeLabel(value) {
-  return MEDIA_TYPES.find((m) => m.value === value)?.label || 'Movie';
+  return MEDIA_TYPES.find((m) => m.value === value)?.label || 'Other';
 }
 
 export function readCookie(name) {

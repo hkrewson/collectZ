@@ -11,12 +11,16 @@ import {
 } from './app/AppPrimitives';
 
 const MEDIA_FORMATS = ['VHS', 'Blu-ray', 'Digital', 'DVD', '4K UHD'];
+const BOOK_FORMATS = ['Digital', 'Paperback', 'Hardcover', 'Trade'];
 const DEFAULT_MEDIA_FORM = {
   media_type: 'movie',
   title: '', original_title: '', release_date: '', year: '', format: 'Blu-ray', genre: '',
   director: '', rating: '', user_rating: 0, runtime: '', upc: '', location: '', notes: '',
   overview: '', tmdb_id: '', tmdb_media_type: 'movie', tmdb_url: '', trailer_url: '', poster_path: '', backdrop_path: '',
-  season_number: '', episode_number: '', episode_title: '', network: ''
+  season_number: '', episode_number: '', episode_title: '', network: '',
+  book_author: '', book_isbn: '', book_publisher: '', book_edition: '',
+  audio_artist: '', audio_album: '', audio_track_count: '',
+  game_platform: '', game_developer: '', game_region: ''
 };
 
 function StarRating({ value = 0, onChange, readOnly = false }) {
@@ -207,6 +211,22 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall }) {
             ))}
           </div>
 
+          {item.type_details && typeof item.type_details === 'object' && (
+            <div>
+              <p className="label mb-2">Type Details</p>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                {Object.entries(item.type_details)
+                  .filter(([, v]) => v !== null && v !== undefined && String(v).trim() !== '')
+                  .map(([k, v]) => (
+                    <div key={k}>
+                      <p className="label">{k.replace(/_/g, ' ')}</p>
+                      <p className="text-ink">{String(v)}</p>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+
           {(item.tmdb_url || item.trailer_url) && (
             <div className="flex gap-3">
               {item.tmdb_url && <a href={item.tmdb_url} target="_blank" rel="noreferrer" className="btn-secondary btn-sm"><Icons.Link />TMDB</a>}
@@ -256,7 +276,23 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall }) {
 }
 
 function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, title = 'Add Media', apiCall }) {
-  const [form, setForm] = useState(initial);
+  const mergeTypeDetails = (rawInitial) => {
+    const details = rawInitial?.type_details || {};
+    return {
+      ...rawInitial,
+      book_author: details?.author || '',
+      book_isbn: details?.isbn || '',
+      book_publisher: details?.publisher || '',
+      book_edition: details?.edition || '',
+      audio_artist: details?.artist || '',
+      audio_album: details?.album || '',
+      audio_track_count: details?.track_count ? String(details.track_count) : '',
+      game_platform: details?.platform || '',
+      game_developer: details?.developer || '',
+      game_region: details?.region || ''
+    };
+  };
+  const [form, setForm] = useState(mergeTypeDetails(initial));
   const [tvSeasonsText, setTvSeasonsText] = useState(Array.isArray(initial?.tv_seasons) ? initial.tv_seasons.join(', ') : '');
   const [addMode, setAddMode] = useState('title');
   const [tmdbResults, setTmdbResults] = useState([]);
@@ -272,6 +308,10 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
 
   const set = (patch) => setForm((f) => ({ ...f, ...patch }));
   const notify = (text, type = 'ok') => { setMsg(text); setMsgType(type); };
+  const isMovieOrTv = ['movie', 'tv_series', 'tv_episode'].includes(form.media_type);
+  const isBook = form.media_type === 'book';
+  const isAudio = form.media_type === 'audio';
+  const isGame = form.media_type === 'game';
 
   const searchTmdb = async () => {
     if (!form.title.trim()) return;
@@ -411,23 +451,49 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
         .split(',')
         .map((v) => Number(String(v).trim()))
         .filter((n) => Number.isInteger(n) && n > 0 && n <= 999);
+      const typeDetails = form.media_type === 'book'
+        ? {
+            author: form.book_author || null,
+            isbn: form.book_isbn || null,
+            publisher: form.book_publisher || null,
+            edition: form.book_edition || null
+          }
+        : form.media_type === 'audio'
+          ? {
+              artist: form.audio_artist || null,
+              album: form.audio_album || null,
+              track_count: form.audio_track_count ? Number(form.audio_track_count) : null
+            }
+          : form.media_type === 'game'
+            ? {
+                platform: form.game_platform || null,
+                developer: form.game_developer || null,
+                region: form.game_region || null
+              }
+            : null;
       const saved = await onSave({
         ...form,
+        original_title: isMovieOrTv ? (form.original_title || null) : null,
         release_date: form.release_date || null,
         year: form.year ? Number(form.year) : null,
-        rating: form.rating ? Number(form.rating) : null,
+        rating: isMovieOrTv ? (form.rating ? Number(form.rating) : null) : null,
         user_rating: form.user_rating ? Number(form.user_rating) : null,
-        runtime: form.runtime ? Number(form.runtime) : null,
-        tmdb_id: form.tmdb_id ? Number(form.tmdb_id) : null,
-        tmdb_media_type: form.tmdb_media_type || null,
-        tmdb_url: form.tmdb_url ? String(form.tmdb_url).trim() || null : null,
-        trailer_url: form.trailer_url ? String(form.trailer_url).trim() || null : null,
-        poster_path: form.poster_path ? String(form.poster_path).trim() || null : null,
-        backdrop_path: form.backdrop_path ? String(form.backdrop_path).trim() || null : null,
+        runtime: isMovieOrTv ? (form.runtime ? Number(form.runtime) : null) : null,
+        tmdb_id: isMovieOrTv ? (form.tmdb_id ? Number(form.tmdb_id) : null) : null,
+        tmdb_media_type: isMovieOrTv ? (form.tmdb_media_type || null) : null,
+        tmdb_url: isMovieOrTv ? (form.tmdb_url ? String(form.tmdb_url).trim() || null : null) : null,
+        trailer_url: isMovieOrTv ? (form.trailer_url ? String(form.trailer_url).trim() || null : null) : null,
+        poster_path: isMovieOrTv ? (form.poster_path ? String(form.poster_path).trim() || null : null) : null,
+        backdrop_path: isMovieOrTv ? (form.backdrop_path ? String(form.backdrop_path).trim() || null : null) : null,
         season_number: form.season_number ? Number(form.season_number) : null,
         episode_number: form.episode_number ? Number(form.episode_number) : null,
         episode_title: form.episode_title || null,
-        network: form.network || null
+        network: form.network || null,
+        director: isMovieOrTv ? (form.director || null) : null,
+        format: isBook
+          ? (BOOK_FORMATS.includes(form.format) ? form.format : 'Digital')
+          : (isMovieOrTv ? (form.format || null) : null),
+        type_details: typeDetails
       });
       if (form.media_type === 'tv_series' && saved?.id && parsedTvSeasons.length > 0) {
         await apiCall('put', `/media/${saved.id}/tv-seasons`, { seasons: parsedTvSeasons });
@@ -462,37 +528,65 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
           </div>
 
           <div className="flex-1 space-y-4">
-            <div className="tab-strip">
-              {['title', 'upc', 'cover'].map((m) => (
-                <button key={m} className={cx('tab flex-1 capitalize', addMode === m && 'active')} onClick={() => setAddMode(m)}>
-                  {m === 'title' ? 'Title Search' : m === 'upc' ? 'Barcode' : 'Cover OCR'}
-                </button>
-              ))}
-            </div>
+            {isMovieOrTv && (
+              <div className="tab-strip">
+                {['title', 'upc', 'cover'].map((m) => (
+                  <button key={m} className={cx('tab flex-1 capitalize', addMode === m && 'active')} onClick={() => setAddMode(m)}>
+                    {m === 'title' ? 'Title Search' : m === 'upc' ? 'Barcode' : 'Cover OCR'}
+                  </button>
+                ))}
+              </div>
+            )}
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className={cx('grid gap-3', isBook ? 'grid-cols-3' : 'grid-cols-2')}>
               <LabeledField label="Type" className="col-span-1">
-                <select className="select" value={form.media_type} onChange={(e) => set({ media_type: e.target.value })}>
+                <select
+                  className="select"
+                  value={form.media_type}
+                  onChange={(e) => {
+                    const nextType = e.target.value;
+                    const patch = { media_type: nextType };
+                    if (nextType === 'book' && !BOOK_FORMATS.includes(form.format)) patch.format = 'Digital';
+                    if (nextType === 'audio' || nextType === 'game') patch.format = '';
+                    if (!['movie', 'tv_series', 'tv_episode'].includes(nextType)) {
+                      patch.original_title = '';
+                      patch.director = '';
+                      patch.runtime = '';
+                      patch.rating = '';
+                      patch.tmdb_id = '';
+                      patch.tmdb_media_type = 'movie';
+                      patch.tmdb_url = '';
+                      patch.trailer_url = '';
+                      patch.poster_path = '';
+                      patch.backdrop_path = '';
+                    }
+                    set(patch);
+                  }}
+                >
                   {MEDIA_TYPES.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
                 </select>
               </LabeledField>
-              <LabeledField label="Format" className="col-span-1">
-                <select className="select" value={form.format} onChange={(e) => set({ format: e.target.value })}>
-                  {MEDIA_FORMATS.map((f) => <option key={f}>{f}</option>)}
-                </select>
-              </LabeledField>
-              <LabeledField label="Year" className="col-span-1">
-                <input className="input" placeholder="2024" value={form.year} onChange={(e) => set({ year: e.target.value })} inputMode="numeric" />
-              </LabeledField>
+              {(isMovieOrTv || isBook) && (
+                <LabeledField label="Format" className="col-span-1">
+                  <select className="select" value={form.format} onChange={(e) => set({ format: e.target.value })}>
+                    {(isBook ? BOOK_FORMATS : MEDIA_FORMATS).map((f) => <option key={f}>{f}</option>)}
+                  </select>
+                </LabeledField>
+              )}
+              {!isGame && (
+                <LabeledField label="Year" className="col-span-1">
+                  <input className="input" placeholder="2024" value={form.year} onChange={(e) => set({ year: e.target.value })} inputMode="numeric" />
+                </LabeledField>
+              )}
             </div>
           </div>
         </div>
 
         <div className="px-6 space-y-5 pb-32">
-          <LabeledField label="Title *">
+          <LabeledField label={isAudio ? 'Album *' : 'Title *'}>
             <div className="flex gap-2">
-              <input className="input flex-1" placeholder={form.media_type === 'movie' ? 'Movie title' : 'Title'} value={form.title} onChange={(e) => set({ title: e.target.value })} required />
-              {addMode === 'title' && (
+              <input className="input flex-1" placeholder={isAudio ? 'Album title' : (form.media_type === 'movie' ? 'Movie title' : 'Title')} value={form.title} onChange={(e) => set({ title: e.target.value })} required />
+              {isMovieOrTv && addMode === 'title' && (
                 <button type="button" onClick={searchTmdb} disabled={tmdbLoading} className="btn-secondary btn-sm shrink-0 min-w-[100px]">
                   {tmdbLoading ? <Spinner size={14} /> : <><Icons.Search />Search</>}
                 </button>
@@ -500,7 +594,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
             </div>
           </LabeledField>
 
-          {addMode === 'upc' && (
+          {isMovieOrTv && addMode === 'upc' && (
             <LabeledField label="UPC / Barcode">
               <div className="flex gap-2">
                 <input className="input flex-1 font-mono" placeholder="012345678901" value={form.upc} onChange={(e) => set({ upc: e.target.value })} />
@@ -511,7 +605,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
             </LabeledField>
           )}
 
-          {addMode === 'cover' && (
+          {isMovieOrTv && addMode === 'cover' && (
             <div className="space-y-2">
               <label className="label">Cover Image</label>
               <input type="file" accept="image/*" onChange={(e) => setCoverFile(e.target.files?.[0] || null)} className="block w-full text-sm text-ghost file:btn-secondary file:btn-sm file:border-0 file:mr-3" />
@@ -524,7 +618,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
             </div>
           )}
 
-          {allTmdbMatches.length > 0 && (
+          {isMovieOrTv && allTmdbMatches.length > 0 && (
             <div className="space-y-2">
               <p className="label">TMDB Matches — click to apply</p>
               <div className="space-y-1.5 max-h-52 overflow-y-auto scroll-area pr-1">
@@ -542,7 +636,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
             </div>
           )}
 
-          {barcodeResults.length > 0 && (
+          {isMovieOrTv && barcodeResults.length > 0 && (
             <div className="space-y-2">
               <p className="label">Barcode Matches — click to apply</p>
               <div className="space-y-1.5 max-h-40 overflow-y-auto scroll-area pr-1">
@@ -560,13 +654,47 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
           )}
 
           <div className="grid grid-cols-2 gap-3">
-            <LabeledField label="Original Title" className="col-span-2"><input className="input" value={form.original_title} onChange={(e) => set({ original_title: e.target.value })} /></LabeledField>
-            <LabeledField label="Director"><input className="input" value={form.director} onChange={(e) => set({ director: e.target.value })} /></LabeledField>
-            <LabeledField label="Genre"><input className="input" placeholder="Action, Drama…" value={form.genre} onChange={(e) => set({ genre: e.target.value })} /></LabeledField>
-            <LabeledField label="Release Date"><input className="input" type="date" value={form.release_date} onChange={(e) => set({ release_date: e.target.value })} /></LabeledField>
-            <LabeledField label="Runtime (min)"><input className="input" inputMode="numeric" value={form.runtime} onChange={(e) => set({ runtime: e.target.value })} /></LabeledField>
-            <LabeledField label="TMDB Rating"><input className="input" inputMode="decimal" placeholder="0.0 – 10.0" value={form.rating} onChange={(e) => set({ rating: e.target.value })} /></LabeledField>
-            {addMode !== 'upc' && <LabeledField label="UPC"><input className="input font-mono" value={form.upc} onChange={(e) => set({ upc: e.target.value })} /></LabeledField>}
+            {isMovieOrTv && (
+              <>
+                <LabeledField label="Original Title" className="col-span-2"><input className="input" value={form.original_title} onChange={(e) => set({ original_title: e.target.value })} /></LabeledField>
+                <LabeledField label="Director"><input className="input" value={form.director} onChange={(e) => set({ director: e.target.value })} /></LabeledField>
+                <LabeledField label="Genre"><input className="input" placeholder="Action, Drama…" value={form.genre} onChange={(e) => set({ genre: e.target.value })} /></LabeledField>
+                <LabeledField label="Release Date"><input className="input" type="date" value={form.release_date} onChange={(e) => set({ release_date: e.target.value })} /></LabeledField>
+                <LabeledField label="Runtime (min)"><input className="input" inputMode="numeric" value={form.runtime} onChange={(e) => set({ runtime: e.target.value })} /></LabeledField>
+                <LabeledField label="TMDB Rating"><input className="input" inputMode="decimal" placeholder="0.0 – 10.0" value={form.rating} onChange={(e) => set({ rating: e.target.value })} /></LabeledField>
+                {addMode !== 'upc' && <LabeledField label="UPC"><input className="input font-mono" value={form.upc} onChange={(e) => set({ upc: e.target.value })} /></LabeledField>}
+              </>
+            )}
+
+            {isBook && (
+              <>
+                <LabeledField label="Author"><input className="input" value={form.book_author} onChange={(e) => set({ book_author: e.target.value })} /></LabeledField>
+                <LabeledField label="Publisher"><input className="input" value={form.book_publisher} onChange={(e) => set({ book_publisher: e.target.value })} /></LabeledField>
+                <LabeledField label="Edition"><input className="input" value={form.book_edition} onChange={(e) => set({ book_edition: e.target.value })} /></LabeledField>
+                <LabeledField label="Genre"><input className="input" value={form.genre} onChange={(e) => set({ genre: e.target.value })} /></LabeledField>
+                <LabeledField label="ISBN"><input className="input font-mono" value={form.book_isbn} onChange={(e) => set({ book_isbn: e.target.value })} /></LabeledField>
+              </>
+            )}
+
+            {isGame && (
+              <>
+                <LabeledField label="Platform"><input className="input" value={form.game_platform} onChange={(e) => set({ game_platform: e.target.value })} /></LabeledField>
+                <LabeledField label="Developer"><input className="input" value={form.game_developer} onChange={(e) => set({ game_developer: e.target.value })} /></LabeledField>
+                <LabeledField label="UPC"><input className="input font-mono" value={form.upc} onChange={(e) => set({ upc: e.target.value })} /></LabeledField>
+                <LabeledField label="Genre"><input className="input" value={form.genre} onChange={(e) => set({ genre: e.target.value })} /></LabeledField>
+                <LabeledField label="Release Date"><input className="input" type="date" value={form.release_date} onChange={(e) => set({ release_date: e.target.value })} /></LabeledField>
+              </>
+            )}
+
+            {isAudio && (
+              <>
+                <LabeledField label="Artist"><input className="input" value={form.audio_artist} onChange={(e) => set({ audio_artist: e.target.value })} /></LabeledField>
+                <LabeledField label="Track Count"><input className="input" inputMode="numeric" value={form.audio_track_count} onChange={(e) => set({ audio_track_count: e.target.value })} /></LabeledField>
+                <LabeledField label="UPC"><input className="input font-mono" value={form.upc} onChange={(e) => set({ upc: e.target.value })} /></LabeledField>
+                <LabeledField label="Release Date"><input className="input" type="date" value={form.release_date} onChange={(e) => set({ release_date: e.target.value })} /></LabeledField>
+              </>
+            )}
+
             {form.media_type === 'tv_series' && (
               <>
                 <LabeledField label="Network" className="col-span-2"><input className="input" value={form.network} onChange={(e) => set({ network: e.target.value })} /></LabeledField>
@@ -587,19 +715,21 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
           <LabeledField label="Overview"><textarea className="textarea" rows={3} value={form.overview} onChange={(e) => set({ overview: e.target.value })} /></LabeledField>
           <LabeledField label="Notes"><textarea className="textarea" rows={2} value={form.notes} onChange={(e) => set({ notes: e.target.value })} /></LabeledField>
 
-          <details className="group">
-            <summary className="cursor-pointer text-xs text-ghost hover:text-dim list-none flex items-center gap-2 select-none">
-              <span className="transition-transform group-open:rotate-90"><Icons.ChevronRight /></span>
-              Advanced (TMDB links, poster path)
-            </summary>
-            <div className="mt-3 grid grid-cols-1 gap-3">
-              <LabeledField label="TMDB ID"><input className="input font-mono" value={form.tmdb_id} onChange={(e) => set({ tmdb_id: e.target.value })} /></LabeledField>
-              <LabeledField label="TMDB Media Type"><input className="input font-mono" value={form.tmdb_media_type} onChange={(e) => set({ tmdb_media_type: e.target.value })} /></LabeledField>
-              <LabeledField label="TMDB URL"><input className="input" value={form.tmdb_url} onChange={(e) => set({ tmdb_url: e.target.value })} /></LabeledField>
-              <LabeledField label="Trailer URL"><input className="input" value={form.trailer_url} onChange={(e) => set({ trailer_url: e.target.value })} /></LabeledField>
-              <LabeledField label="Poster Path"><input className="input" value={form.poster_path} onChange={(e) => set({ poster_path: e.target.value })} /></LabeledField>
-            </div>
-          </details>
+          {isMovieOrTv && (
+            <details className="group">
+              <summary className="cursor-pointer text-xs text-ghost hover:text-dim list-none flex items-center gap-2 select-none">
+                <span className="transition-transform group-open:rotate-90"><Icons.ChevronRight /></span>
+                Advanced (TMDB links, poster path)
+              </summary>
+              <div className="mt-3 grid grid-cols-1 gap-3">
+                <LabeledField label="TMDB ID"><input className="input font-mono" value={form.tmdb_id} onChange={(e) => set({ tmdb_id: e.target.value })} /></LabeledField>
+                <LabeledField label="TMDB Media Type"><input className="input font-mono" value={form.tmdb_media_type} onChange={(e) => set({ tmdb_media_type: e.target.value })} /></LabeledField>
+                <LabeledField label="TMDB URL"><input className="input" value={form.tmdb_url} onChange={(e) => set({ tmdb_url: e.target.value })} /></LabeledField>
+                <LabeledField label="Trailer URL"><input className="input" value={form.trailer_url} onChange={(e) => set({ trailer_url: e.target.value })} /></LabeledField>
+                <LabeledField label="Poster Path"><input className="input" value={form.poster_path} onChange={(e) => set({ poster_path: e.target.value })} /></LabeledField>
+              </div>
+            </details>
+          )}
         </div>
       </div>
 
@@ -625,27 +755,25 @@ export default function LibraryView({
   onDelete,
   onRating,
   apiCall,
-  forcedMediaType,
-  activeLibrary = null,
-  currentUserRole = 'user'
+  forcedMediaType
 }) {
+  const PAGE_SIZE_STORAGE_KEY = 'collectz_library_page_size';
+  const VIEW_MODE_STORAGE_KEY = 'collectz_library_view_mode';
   const [searchInput, setSearchInput] = useState('');
   const [resolutionInput, setResolutionInput] = useState('all');
   const [filters, setFilters] = useState({ media_type: forcedMediaType || 'movie', search: '', resolution: 'all', sortBy: 'title', sortDir: 'asc' });
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(50);
-  const [viewMode, setViewMode] = useState('cards');
+  const [pageSize, setPageSize] = useState(() => {
+    const saved = Number(window.localStorage.getItem(PAGE_SIZE_STORAGE_KEY));
+    return [25, 50, 100, 200].includes(saved) ? saved : 50;
+  });
+  const [viewMode, setViewMode] = useState(() => {
+    const saved = window.localStorage.getItem(VIEW_MODE_STORAGE_KEY);
+    return saved === 'list' ? 'list' : 'cards';
+  });
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState(null);
   const [detail, setDetail] = useState(null);
-  const activeLibraryLabel = useMemo(() => {
-    if (!activeLibrary) return 'No active library selected';
-    const ownerName = activeLibrary?.created_by_name || activeLibrary?.created_by_email || '';
-    return currentUserRole === 'admin' && ownerName
-      ? `${activeLibrary.name} - ${ownerName}`
-      : activeLibrary.name;
-  }, [activeLibrary, currentUserRole]);
-
   const supportsHover = useMemo(() => window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches, []);
 
   useEffect(() => {
@@ -657,6 +785,14 @@ export default function LibraryView({
     setFilters((f) => ({ ...f, media_type: forcedMediaType }));
     setPage(1);
   }, [forcedMediaType]);
+
+  useEffect(() => {
+    window.localStorage.setItem(PAGE_SIZE_STORAGE_KEY, String(pageSize));
+  }, [pageSize]);
+
+  useEffect(() => {
+    window.localStorage.setItem(VIEW_MODE_STORAGE_KEY, viewMode);
+  }, [viewMode]);
 
   const rate = async (id, rating) => {
     await onRating(id, rating);
@@ -704,9 +840,6 @@ export default function LibraryView({
       <div className="px-6 py-4 border-b border-edge shrink-0">
         <div className="flex items-center gap-3 flex-wrap">
           <h1 className="section-title">Library</h1>
-          <span className={cx('badge', activeLibrary ? 'badge-gold' : 'badge-err')}>
-            Active: {activeLibraryLabel}{activeLibrary ? ` (#${activeLibrary.id})` : ''}
-          </span>
           <span className="badge badge-dim ml-1">{pagination?.total ?? mediaItems.length}</span>
           <div className="flex-1" />
           <div className="relative">
@@ -743,8 +876,8 @@ export default function LibraryView({
           <EmptyState
             icon={<Icons.Film />}
             title="No items found"
-            subtitle={filters.media_type !== 'movie' || filters.search || filters.resolution !== 'all' ? 'Try adjusting your filters' : 'Add your first title to get started'}
-            action={filters.media_type === 'movie' && !filters.search && filters.resolution === 'all' && <button onClick={() => setAdding(true)} className="btn-primary"><Icons.Plus />Add Media</button>}
+            subtitle={filters.search || filters.resolution !== 'all' ? 'Try adjusting your filters' : 'Add your first title to get started'}
+            action={!filters.search && filters.resolution === 'all' && <button onClick={() => setAdding(true)} className="btn-primary"><Icons.Plus />Add Media</button>}
           />
         )}
 
@@ -791,6 +924,7 @@ export default function LibraryView({
             <option value={25}>25</option>
             <option value={50}>50</option>
             <option value={100}>100</option>
+            <option value={200}>200</option>
           </select>
         </div>
       </div>

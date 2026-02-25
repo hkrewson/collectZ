@@ -21,8 +21,8 @@ const loginSchema = z.object({
 
 // ── Media ─────────────────────────────────────────────────────────────────────
 
-const MEDIA_FORMATS = ['VHS', 'Blu-ray', 'Digital', 'DVD', '4K UHD'];
-const MEDIA_TYPES = ['movie', 'tv_series', 'tv_episode', 'other'];
+const MEDIA_FORMATS = ['VHS', 'Blu-ray', 'Digital', 'DVD', '4K UHD', 'Paperback', 'Hardcover', 'Trade'];
+const MEDIA_TYPES = ['movie', 'tv_series', 'tv_episode', 'book', 'audio', 'game', 'other'];
 const nullableDateSchema = z.preprocess(
   emptyStringToNull,
   z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (YYYY-MM-DD)').optional().nullable()
@@ -32,7 +32,7 @@ const nullableUrlSchema = z.preprocess(
   z.string().url().optional().nullable()
 );
 
-const mediaCreateSchema = z.object({
+const mediaBaseSchema = z.object({
   title: z.string().min(1, 'Title is required').max(500),
   media_type: z.enum(MEDIA_TYPES).optional().nullable(),
   original_title: z.string().max(500).optional().nullable(),
@@ -58,12 +58,54 @@ const mediaCreateSchema = z.object({
   episode_number: z.number().int().min(0).max(5000).optional().nullable(),
   episode_title: z.string().max(500).optional().nullable(),
   network: z.string().max(255).optional().nullable(),
+  type_details: z.record(z.union([z.string(), z.number(), z.boolean(), z.null()])).optional().nullable(),
   library_id: z.number().int().positive().optional().nullable(),
   space_id: z.number().int().positive().optional().nullable()
 });
 
+const mediaCreateSchema = mediaBaseSchema.superRefine((data, ctx) => {
+  const mediaType = data.media_type || 'movie';
+  const hasSeason = data.season_number !== undefined && data.season_number !== null;
+  const hasEpisodeNumber = data.episode_number !== undefined && data.episode_number !== null;
+  const hasEpisodeTitle = data.episode_title !== undefined && data.episode_title !== null && String(data.episode_title).trim() !== '';
+  const hasNetwork = data.network !== undefined && data.network !== null && String(data.network).trim() !== '';
+  const hasTvFields = hasSeason || hasEpisodeNumber || hasEpisodeTitle || hasNetwork;
+
+  if (!['tv_series', 'tv_episode'].includes(mediaType) && hasTvFields) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'TV-specific fields are only valid for TV media types'
+    });
+  }
+  if (mediaType === 'tv_series' && (hasEpisodeNumber || hasEpisodeTitle)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'TV series entries cannot include episode-specific fields'
+    });
+  }
+  if (data.type_details && typeof data.type_details === 'object') {
+    const allowedByType = {
+      movie: [],
+      tv_series: [],
+      tv_episode: [],
+      book: ['author', 'isbn', 'publisher', 'edition'],
+      audio: ['artist', 'album', 'track_count'],
+      game: ['platform', 'developer', 'region'],
+      other: []
+    };
+    const allowed = new Set(allowedByType[mediaType] || []);
+    const invalidKeys = Object.keys(data.type_details).filter((k) => !allowed.has(k));
+    if (invalidKeys.length > 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `Invalid type_details key(s) for ${mediaType}: ${invalidKeys.join(', ')}`
+      });
+    }
+  }
+});
+
 // Patch only requires at least one valid field — same shape, all optional
-const mediaUpdateSchema = mediaCreateSchema.partial().refine(
+const mediaUpdateSchema = mediaBaseSchema.partial().refine(
   (data) => Object.keys(data).length > 0,
   { message: 'At least one field is required for update' }
 );
