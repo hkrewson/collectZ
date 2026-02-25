@@ -1,0 +1,10 @@
+{
+  "name": "portainer-template-catalog",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Build and publish a merged Portainer templates.json",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-templates.mjs"
+  }
+}

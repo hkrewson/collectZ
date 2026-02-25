@@ -1,0 +1,13 @@
+{
+  "version": "3",
+  "sources": [
+    {
+      "id": "portainer-default-v3",
+      "url": "https://raw.githubusercontent.com/portainer/templates/v3/templates.json"
+    },
+    {
+      "id": "tomchantler",
+      "url": "https://raw.githubusercontent.com/tomchantler/portainer-templates/master/templates.json"
+    }
+  ]
+}

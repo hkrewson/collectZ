@@ -1,0 +1,19 @@
+{
+  "generatedAt": "2026-02-25T22:45:25.314Z",
+  "sourceCount": 3,
+  "outputPath": "/Users/hamlin/Development/GitHub/hkrewson/collectZ/portainer-templates/dist/templates.json",
+  "sources": [
+    {
+      "id": "custom",
+      "kind": "local",
+      "path": "/Users/hamlin/Development/GitHub/hkrewson/collectZ/portainer-templates/custom/templates.json",
+      "totalTemplates": 0,
+      "added": 0,
+      "replaced": 0
+    }
+  ],
+  "errors": [
+    "portainer-default-v3: getaddrinfo ENOTFOUND raw.githubusercontent.com",
+    "tomchantler: getaddrinfo ENOTFOUND raw.githubusercontent.com"
+  ]
+}
