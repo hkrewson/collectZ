@@ -70,14 +70,48 @@ const parseTrustProxy = (value) => {
   return process.env.NODE_ENV === 'production' ? 1 : false;
 };
 
+const WEAK_SECRET_VALUES = new Set([
+  'changeme',
+  'change-me',
+  'replace-me',
+  'replace_me',
+  'replace-this',
+  'dev',
+  'development',
+  'password',
+  'secret',
+  '123456',
+  '000000',
+  'your_session_secret',
+  'your_integration_encryption_key'
+]);
+
+const isWeakSecret = (value, minimumLength = 32) => {
+  const raw = String(value || '').trim();
+  if (raw.length < minimumLength) return true;
+  const normalized = raw.toLowerCase();
+  if (WEAK_SECRET_VALUES.has(normalized)) return true;
+  if (/^(.)\1+$/.test(raw)) return true;
+  return false;
+};
+
 const validateStartupSecurityConfig = () => {
   if (process.env.NODE_ENV !== 'production') return;
 
+  if (!process.env.DB_PASSWORD) {
+    throw new Error('DB_PASSWORD must be set in production');
+  }
   if (!process.env.SESSION_SECRET) {
     throw new Error('SESSION_SECRET must be set in production');
   }
   if (!process.env.INTEGRATION_ENCRYPTION_KEY) {
     throw new Error('INTEGRATION_ENCRYPTION_KEY must be set in production');
+  }
+  if (isWeakSecret(process.env.SESSION_SECRET, 32)) {
+    throw new Error('SESSION_SECRET is too weak in production (minimum 32 chars, non-placeholder value)');
+  }
+  if (isWeakSecret(process.env.INTEGRATION_ENCRYPTION_KEY, 32)) {
+    throw new Error('INTEGRATION_ENCRYPTION_KEY is too weak in production (minimum 32 chars, non-placeholder value)');
   }
   if (!parseBoolean(process.env.SESSION_COOKIE_SECURE, true)) {
     throw new Error('SESSION_COOKIE_SECURE must be true in production');

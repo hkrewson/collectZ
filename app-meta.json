@@ -1,5 +1,5 @@
 {
-  "version": "2.0.0-alpha.6.3",
+  "version": "2.0.0-alpha.7",
   "build": {
     "gitShaDefault": "dev",
     "buildDateDefault": "unknown"
