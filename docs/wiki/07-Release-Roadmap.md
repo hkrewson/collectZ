@@ -887,6 +887,25 @@ This track converts the 1.9.1 external assessment findings into executable miles
   - Admin selector: `LibraryName - Owner Name`
   - User selector: `LibraryName`
 
+### 2.0 Alpha Milestones
+
+- `2.0.0-alpha.2`: First usable multi-library foundation.
+  - Library CRUD/select APIs.
+  - Active library scoping in media/import flows.
+  - Backfill migration for existing users/media.
+- `2.0.0-alpha.3` to `2.0.0-alpha.5`: Selection correctness and scoped redraw fixes.
+  - New library auto-selection reliability.
+  - Active library persistence across refresh.
+  - Library switch consistency (no stale list bleed-through).
+- `2.0.0-alpha.6` (current target):
+  - Admin guardrails for destructive library actions (typed confirmation).
+  - Admin transfer/archive management in Admin UI.
+  - Expanded regression automation for library create/select/switch/delete/transfer.
+- `2.0.0-beta.1` gate:
+  - No known cross-library scope leaks.
+  - Migration from 1.9 snapshot verified.
+  - Regression suite passes including library-scoping tests.
+
 ### Scope
 
 - Add spaces and memberships with per-space roles.

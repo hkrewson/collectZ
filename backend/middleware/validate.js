@@ -117,6 +117,18 @@ const librarySelectSchema = z.object({
   library_id: z.number().int().positive('library_id must be a positive integer')
 });
 
+const libraryDeleteSchema = z.object({
+  confirm_name: z.string().min(1, 'confirm_name is required')
+});
+
+const libraryTransferSchema = z.object({
+  new_owner_user_id: z.number().int().positive('new_owner_user_id must be a positive integer')
+});
+
+const libraryArchiveSchema = z.object({
+  confirm_name: z.string().min(1, 'confirm_name is required')
+});
+
 // ── Middleware factory ────────────────────────────────────────────────────────
 
 /**
@@ -151,5 +163,8 @@ module.exports = {
   generalSettingsSchema,
   libraryCreateSchema,
   libraryUpdateSchema,
-  librarySelectSchema
+  librarySelectSchema,
+  libraryDeleteSchema,
+  libraryTransferSchema,
+  libraryArchiveSchema
 };

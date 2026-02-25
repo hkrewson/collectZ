@@ -14,7 +14,7 @@ import LibraryView from './components/LibraryView';
 import { routeFromPath, readCookie, Spinner, Toast, ImportStatusDock, Icons, cx } from './components/app/AppPrimitives';
 
 const API_URL = process.env.REACT_APP_API_URL || '/api';
-const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.version || '2.0.0-alpha.5';
+const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.version || '2.0.0-alpha.6.3';
 const BUILD_SHA = process.env.REACT_APP_GIT_SHA || appMeta?.build?.gitShaDefault || 'dev';
 const IMPORT_JOBS_KEY = 'collectz_import_jobs';
 const IMPORT_POLL_LEADER_KEY = 'collectz_import_poll_leader';
@@ -343,10 +343,13 @@ export default function App() {
   const deleteLibrary = useCallback(async () => {
     const target = libraries.find((library) => Number(library.id) === Number(activeLibraryId));
     if (!target) return;
-    const confirmed = window.confirm(`Delete library "${target.name}"? This only works when it is empty.`);
-    if (!confirmed) return;
+    const ownerName = target?.created_by_name || target?.created_by_email || 'unknown owner';
+    const typedName = window.prompt(
+      `You are about to delete a library owned by ${ownerName}.\nType "${target.name}" to confirm deletion.`
+    );
+    if (!typedName) return;
     try {
-      await apiCall('delete', `/libraries/${target.id}`);
+      await apiCall('delete', `/libraries/${target.id}`, { confirm_name: typedName });
       await syncLibraryContext({ silent: true });
       await loadMedia();
       showToast('Library deleted');
