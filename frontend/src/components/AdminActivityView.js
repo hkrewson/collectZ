@@ -1,36 +1,22 @@
 import React, { useEffect, useState } from 'react';
 
-export default function AdminActivityView({ apiCall, Icons, Spinner }) {
+export default function AdminActivityView({ apiCall, Spinner }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({ search: '', from: '', to: '' });
+  const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
-  const [pageSizeMode, setPageSizeMode] = useState('auto');
-  const [autoPageSize, setAutoPageSize] = useState(50);
-  const pageSize = pageSizeMode === 'auto' ? autoPageSize : Number(pageSizeMode);
+  const [pageSize, setPageSize] = useState(50);
 
-  useEffect(() => {
-    const computeAutoSize = () => {
-      const raw = Math.floor((window.innerHeight - 320) / 72);
-      const bounded = Math.max(10, Math.min(100, raw));
-      setAutoPageSize(bounded);
-    };
-    computeAutoSize();
-    window.addEventListener('resize', computeAutoSize);
-    return () => window.removeEventListener('resize', computeAutoSize);
-  }, []);
-
-  const load = async (targetPage = page) => {
+  const load = async (targetPage = page, searchOverride = null) => {
     setLoading(true);
     try {
+      const effectiveSearch = searchOverride !== null ? searchOverride : search;
       const params = new URLSearchParams({
         limit: String(pageSize),
         offset: String((targetPage - 1) * pageSize)
       });
-      if (filters.search) params.set('search', filters.search);
-      if (filters.from) params.set('from', filters.from);
-      if (filters.to) params.set('to', filters.to);
+      if (effectiveSearch) params.set('search', effectiveSearch);
       const data = await apiCall('get', `/admin/activity?${params}`);
       const rows = Array.isArray(data) ? data : [];
       setItems(rows);
@@ -41,34 +27,31 @@ export default function AdminActivityView({ apiCall, Icons, Spinner }) {
     }
   };
 
-  useEffect(() => { load(1); }, [pageSizeMode, autoPageSize]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(1); }, [pageSize]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="h-full overflow-y-auto p-6 max-w-4xl space-y-4">
       <div className="flex items-center gap-3">
         <h1 className="section-title flex-1">Activity Log</h1>
-        <button onClick={load} className="btn-icon"><Icons.Refresh /></button>
       </div>
       <form
-        className="flex gap-3 flex-wrap"
+        className="flex gap-3 flex-wrap items-center"
         onSubmit={(e) => {
           e.preventDefault();
-          load(1);
+          load(1, search);
         }}
       >
         <input
           className="input flex-1 min-w-56"
           placeholder="Search action, entity, user, details… (Press Enter)"
-          value={filters.search}
-          onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
         />
-        <input className="input w-36" type="date" value={filters.from} onChange={(e) => setFilters((f) => ({ ...f, from: e.target.value }))} />
-        <input className="input w-36" type="date" value={filters.to} onChange={(e) => setFilters((f) => ({ ...f, to: e.target.value }))} />
-        <select className="select w-36" value={pageSizeMode} onChange={(e) => setPageSizeMode(e.target.value)}>
-          <option value="auto">Page size: Auto ({autoPageSize})</option>
-          <option value="25">Page size: 25</option>
-          <option value="50">Page size: 50</option>
-          <option value="100">Page size: 100</option>
+        <select className="select w-24" value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))}>
+          <option value={10}>10</option>
+          <option value={25}>25</option>
+          <option value={50}>50</option>
+          <option value={100}>100</option>
         </select>
       </form>
       <div className="flex items-center gap-2">
@@ -83,6 +66,8 @@ export default function AdminActivityView({ apiCall, Icons, Spinner }) {
             <div key={entry.id} className="px-4 py-3 space-y-1">
               <div className="flex items-center gap-3">
                 <span className="badge badge-dim font-mono text-[10px]">{entry.action}</span>
+                {entry.details_status && <span className="badge badge-err font-mono text-[10px]">{entry.details_status}</span>}
+                {entry.details_reason && <span className="badge badge-warn font-mono text-[10px]">{entry.details_reason}</span>}
                 <span className="text-xs text-ghost ml-auto">{new Date(entry.created_at).toLocaleString()}</span>
               </div>
               <p className="text-xs text-ghost">

@@ -12,6 +12,9 @@ const { searchTmdbMovie, fetchTmdbMovieDetails } = require('../services/tmdb');
 const { normalizeBarcodeMatches } = require('../services/barcode');
 const { extractVisionText, extractTitleCandidates } = require('../services/vision');
 const { fetchPlexLibraryItems } = require('../services/plex');
+const { searchBooksByTitle } = require('../services/books');
+const { searchAudioByTitle } = require('../services/audio');
+const { searchGamesByTitle } = require('../services/games');
 const { parseCsvText } = require('../services/csv');
 const { logError, logActivity } = require('../services/audit');
 const { uploadBuffer } = require('../services/storage');
@@ -28,8 +31,8 @@ const tempDiskStorage = multer.diskStorage({
 const tempUpload = multer({ storage: tempDiskStorage, limits: { fileSize: 10 * 1024 * 1024 } });
 const memoryUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
-const MEDIA_FORMATS = ['VHS', 'Blu-ray', 'Digital', 'DVD', '4K UHD'];
-const MEDIA_TYPES = ['movie', 'tv_series', 'tv_episode', 'other'];
+const MEDIA_FORMATS = ['VHS', 'Blu-ray', 'Digital', 'DVD', '4K UHD', 'Paperback', 'Hardcover', 'Trade'];
+const MEDIA_TYPES = ['movie', 'tv_series', 'tv_episode', 'book', 'audio', 'game', 'other'];
 const ALLOWED_COVER_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 const SYNC_JOB_ALLOWED_FIELDS = new Set([
   'status',
@@ -48,6 +51,73 @@ const SORT_COLUMNS = {
   user_rating: 'user_rating',
   rating: 'rating'
 };
+
+function normalizeMediaType(input, fallback = 'movie') {
+  const raw = String(input || '').trim().toLowerCase();
+  if (!raw) return fallback;
+  if (raw === 'tv' || raw === 'show' || raw === 'series' || raw === 'tv_show' || raw === 'tvseries') return 'tv_series';
+  if (raw === 'tv_episode' || raw === 'episode') return 'tv_episode';
+  if (raw === 'movie' || raw === 'film') return 'movie';
+  if (raw === 'book' || raw === 'books' || raw === 'comic' || raw === 'comics') return 'book';
+  if (raw === 'audio' || raw === 'music' || raw === 'album' || raw === 'cd' || raw === 'vinyl' || raw === 'lp') return 'audio';
+  if (raw === 'game' || raw === 'games' || raw === 'video_game' || raw === 'videogame') return 'game';
+  if (raw === 'other') return 'other';
+  return fallback;
+}
+
+function mapDeliciousItemTypeToMediaType(itemTypeRaw) {
+  const raw = String(itemTypeRaw || '').trim().toLowerCase();
+  if (!raw) return 'movie';
+  if (raw.includes('movie') || raw.includes('film') || raw.includes('video')) return 'movie';
+  if (raw.includes('tv') || raw.includes('show') || raw.includes('series') || raw.includes('episode')) return 'tv_series';
+  if (raw.includes('book') || raw.includes('comic') || raw.includes('novel')) return 'book';
+  if (raw.includes('music') || raw.includes('audio') || raw.includes('cd') || raw.includes('vinyl') || raw.includes('lp')) return 'audio';
+  if (raw.includes('game')) return 'game';
+  return null;
+}
+
+function validateTypeSpecificFields(mediaType, payload = {}) {
+  const effectiveType = normalizeMediaType(mediaType, 'movie');
+  const hasSeason = payload.season_number !== undefined && payload.season_number !== null;
+  const hasEpisodeNumber = payload.episode_number !== undefined && payload.episode_number !== null;
+  const hasEpisodeTitle = payload.episode_title !== undefined && payload.episode_title !== null && String(payload.episode_title).trim() !== '';
+  const hasNetwork = payload.network !== undefined && payload.network !== null && String(payload.network).trim() !== '';
+  const hasTvFields = hasSeason || hasEpisodeNumber || hasEpisodeTitle || hasNetwork;
+
+  if (!['tv_series', 'tv_episode'].includes(effectiveType) && hasTvFields) {
+    return 'TV-specific fields are only valid for TV media types';
+  }
+  if (effectiveType === 'tv_series' && (hasEpisodeNumber || hasEpisodeTitle)) {
+    return 'TV series entries cannot include episode-specific fields';
+  }
+  return null;
+}
+
+function sanitizeTypeDetails(mediaType, rawTypeDetails) {
+  if (!rawTypeDetails || typeof rawTypeDetails !== 'object' || Array.isArray(rawTypeDetails)) {
+    return null;
+  }
+  const normalizedType = normalizeMediaType(mediaType || 'movie', 'movie');
+  const allowedByType = {
+    book: ['author', 'isbn', 'publisher', 'edition'],
+    audio: ['artist', 'album', 'track_count'],
+    game: ['platform', 'developer', 'region']
+  };
+  const allowedKeys = allowedByType[normalizedType] || [];
+  if (!allowedKeys.length) return null;
+  const sanitized = {};
+  for (const key of allowedKeys) {
+    const value = rawTypeDetails[key];
+    if (value === undefined || value === null || value === '') continue;
+    if (key === 'track_count') {
+      const numeric = Number(value);
+      if (Number.isFinite(numeric) && numeric > 0) sanitized[key] = Math.round(numeric);
+    } else {
+      sanitized[key] = String(value).trim();
+    }
+  }
+  return Object.keys(sanitized).length > 0 ? sanitized : null;
+}
 
 function normalizeResolution(value) {
   if (!value || value === 'all') return null;
@@ -68,6 +138,9 @@ function normalizeMediaFormat(formatValue) {
   if (raw.includes('vhs')) return 'VHS';
   if (raw.includes('digital') || raw.includes('stream')) return 'Digital';
   if (raw.includes('4k') || raw.includes('uhd')) return '4K UHD';
+  if (raw.includes('paperback')) return 'Paperback';
+  if (raw.includes('hardcover') || raw.includes('hard cover')) return 'Hardcover';
+  if (raw.includes('trade')) return 'Trade';
   return MEDIA_FORMATS.includes(formatValue) ? formatValue : 'Digital';
 }
 
@@ -136,7 +209,11 @@ function pickBestTmdbMatch(results = [], title, year) {
 
 async function enrichImportItemWithTmdb(item, config, cache) {
   if (!config?.tmdbApiKey || !item?.title) return item;
-  const tmdbType = item.media_type === 'tv_series' || item.media_type === 'tv_episode' ? 'tv' : 'movie';
+  const normalizedMediaType = normalizeMediaType(item.media_type || 'movie', 'movie');
+  if (!['movie', 'tv_series', 'tv_episode'].includes(normalizedMediaType)) {
+    return item;
+  }
+  const tmdbType = normalizedMediaType === 'tv_series' || normalizedMediaType === 'tv_episode' ? 'tv' : 'movie';
 
   const cacheKey = item.tmdb_id
     ? `${tmdbType}:id:${item.tmdb_id}`
@@ -192,16 +269,20 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
   if (!title) {
     return { type: 'invalid', detail: 'Missing title' };
   }
+  const normalizedMediaType = normalizeMediaType(item.media_type || 'movie', 'movie');
+  const normalizedTmdbType = normalizedMediaType === 'tv_series' || normalizedMediaType === 'tv_episode' ? 'tv' : 'movie';
+  const normalizedTypeDetails = sanitizeTypeDetails(normalizedMediaType, item.type_details);
   const dedupLockKey = buildMediaDedupLockKey({ ...item, title }, scopeContext);
   return withDedupLock(dedupLockKey, async () => {
     const year = item.year ?? null;
-    const existingParams = [title, year];
+    const existingParams = [title, year, normalizedMediaType];
     const existingScopeClause = appendScopeSql(existingParams, scopeContext);
     const existing = await pool.query(
       `SELECT id
        FROM media
        WHERE LOWER(TRIM(title)) = LOWER(TRIM($1))
          AND (($2::int IS NOT NULL AND year = $2::int) OR ($2::int IS NULL))
+         AND COALESCE(media_type, 'movie') = $3
          ${existingScopeClause}
        ORDER BY created_at DESC
        LIMIT 1`,
@@ -209,7 +290,7 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
     );
     if (existing.rows[0]) {
       const updateParams = [
-        item.media_type || 'movie',
+        normalizedMediaType,
         item.original_title || null,
         item.release_date || null,
         item.year || null,
@@ -219,7 +300,7 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
         item.rating || null,
         item.user_rating || null,
         item.tmdb_id || null,
-        item.tmdb_media_type || null,
+        item.tmdb_media_type || normalizedTmdbType,
         item.tmdb_url || null,
         item.poster_path || null,
         item.backdrop_path || null,
@@ -229,6 +310,7 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
         item.upc || null,
         item.location || null,
         item.notes || null,
+        normalizedTypeDetails ? JSON.stringify(normalizedTypeDetails) : null,
         importSource || null,
         existing.rows[0].id
       ];
@@ -255,8 +337,9 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
            upc = COALESCE($18, upc),
            location = COALESCE($19, location),
            notes = COALESCE($20, notes),
-           import_source = COALESCE($21, import_source)
-         WHERE id = $22${updateScopeClause}`,
+           type_details = COALESCE($21::jsonb, type_details),
+           import_source = COALESCE($22, import_source)
+         WHERE id = $23${updateScopeClause}`,
         updateParams
       );
       return { type: 'updated' };
@@ -266,13 +349,13 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
       `INSERT INTO media (
          title, media_type, original_title, release_date, year, format, genre, director,
          rating, user_rating, tmdb_id, tmdb_media_type, tmdb_url, poster_path, backdrop_path, overview, trailer_url,
-         runtime, upc, location, notes, library_id, space_id, added_by, import_source
+         runtime, upc, location, notes, type_details, library_id, space_id, added_by, import_source
        ) VALUES (
-         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26
+         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22::jsonb,$23,$24,$25,$26,$27
        )`,
       [
         title,
-        item.media_type || 'movie',
+        normalizedMediaType,
         item.original_title || null,
         item.release_date || null,
         item.year || null,
@@ -282,7 +365,7 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
         item.rating || null,
         item.user_rating || null,
         item.tmdb_id || null,
-        item.tmdb_media_type || null,
+        item.tmdb_media_type || normalizedTmdbType,
         item.tmdb_url || null,
         item.poster_path || null,
         item.backdrop_path || null,
@@ -292,6 +375,7 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
         item.upc || null,
         item.location || null,
         item.notes || null,
+        normalizedTypeDetails ? JSON.stringify(normalizedTypeDetails) : null,
         item.library_id || scopeContext?.libraryId || null,
         item.space_id || scopeContext?.spaceId || null,
         userId,
@@ -351,13 +435,14 @@ function buildDedupScopeKey(scopeContext = null) {
 
 function buildMediaDedupLockKey(item = {}, scopeContext = null) {
   const scope = buildDedupScopeKey(scopeContext);
-  const tmdbType = item.tmdb_media_type || 'movie';
+  const normalizedMediaType = normalizeMediaType(item.media_type || 'movie', 'movie');
+  const tmdbType = item.tmdb_media_type || (normalizedMediaType === 'tv_series' || normalizedMediaType === 'tv_episode' ? 'tv' : 'movie');
   if (item.plex_guid) return `media|${scope}|plex_guid|${item.plex_guid}`;
   if (item.plex_rating_key) return `media|${scope}|plex_rating_key|${item.plex_rating_key}`;
   if (item.tmdb_id) return `media|${scope}|tmdb|${tmdbType}|${item.tmdb_id}`;
   const title = normalizeTitleForMatch(item.title || '');
   const year = item.year || 'na';
-  return `media|${scope}|title_year|${title}|${year}`;
+  return `media|${scope}|title_year_type|${title}|${year}|${normalizedMediaType}`;
 }
 
 async function withDedupLock(lockKey, fn) {
@@ -700,7 +785,7 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
           media.tmdb_id,
           media.tmdb_media_type || 'movie',
           media.tmdb_url,
-          media.media_type || 'movie',
+          normalizeMediaType(media.media_type || 'movie', 'movie'),
           media.network,
           `Imported from Plex section ${item.sectionId}`,
           existing.id
@@ -758,7 +843,7 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
             media.tmdb_id,
             media.tmdb_media_type || 'movie',
             media.tmdb_url,
-            media.media_type || 'movie',
+            normalizeMediaType(media.media_type || 'movie', 'movie'),
             media.network,
             `Imported from Plex section ${item.sectionId}`,
             scopeContext.libraryId || null,
@@ -826,9 +911,13 @@ async function runGenericCsvImport({ rows, userId, scopeContext, onProgress = nu
   for (let idx = 0; idx < rows.length; idx += 1) {
     const row = rows[idx];
     const value = (name) => getRowValue(row, name);
+    const mappedMediaType = normalizeMediaType(
+      value('media_type') || value('media type') || value('type') || value('item type') || 'movie',
+      'movie'
+    );
     const mapped = {
       title: value('title'),
-      media_type: 'movie',
+      media_type: mappedMediaType,
       original_title: value('original_title') || '',
       release_date: parseDateOnly(value('release_date')),
       year: parseYear(value('year') || value('release_date')),
@@ -840,7 +929,19 @@ async function runGenericCsvImport({ rows, userId, scopeContext, onProgress = nu
       runtime: value('runtime') ? Number(value('runtime')) : null,
       upc: value('upc'),
       location: value('location'),
-      notes: value('notes')
+      notes: value('notes'),
+      type_details: {
+        author: value('author'),
+        isbn: value('isbn') || value('isbn13'),
+        publisher: value('publisher'),
+        edition: value('edition'),
+        artist: value('artist'),
+        album: value('album'),
+        track_count: value('track_count'),
+        platform: value('platform'),
+        developer: value('developer'),
+        region: value('region')
+      }
     };
     try {
       const enriched = await enrichImportItemWithTmdb(mapped, config, tmdbCache);
@@ -910,13 +1011,14 @@ async function runDeliciousCsvImport({ rows, userId, scopeContext, onProgress = 
     const row = rows[idx];
     const value = (name) => getRowValue(row, name);
     const itemType = String(value('item type') || '').trim().toLowerCase();
-    if (itemType && itemType !== 'movie') {
+    const mappedMediaType = mapDeliciousItemTypeToMediaType(itemType);
+    if (!mappedMediaType) {
       summary.skipped_non_movie += 1;
       auditRows.push({
         row: idx + 2,
         title: String(value('title') || '').trim(),
         status: 'skipped_non_movie',
-        detail: `item type: ${itemType || 'unknown'}`
+        detail: `unmapped item type: ${itemType || 'unknown'}`
       });
     } else {
       const title = String(value('title') || '').trim();
@@ -926,7 +1028,7 @@ async function runDeliciousCsvImport({ rows, userId, scopeContext, onProgress = 
       } else {
         const mapped = {
           title,
-          media_type: 'movie',
+          media_type: mappedMediaType,
           year: parseYear(value('release date')) || parseYear(value('creation date')),
           release_date: parseDateOnly(value('release date')),
           format: normalizeMediaFormat(value('format')),
@@ -934,7 +1036,18 @@ async function runDeliciousCsvImport({ rows, userId, scopeContext, onProgress = 
           director: value('creator'),
           user_rating: value('rating') ? Number(value('rating')) : null,
           upc: value('ean') || value('isbn'),
-          notes: [value('notes'), value('edition'), value('platform')].filter(Boolean).join(' | ')
+          notes: [value('notes'), value('edition'), value('platform')].filter(Boolean).join(' | '),
+          type_details: {
+            author: value('creator'),
+            isbn: value('isbn') || value('ean'),
+            publisher: value('publisher'),
+            edition: value('edition'),
+            artist: value('creator'),
+            album: value('title'),
+            platform: value('platform'),
+            developer: value('publisher'),
+            region: value('region')
+          }
         };
 
         try {
@@ -1002,9 +1115,10 @@ router.get('/', asyncHandler(async (req, res) => {
   const params = [];
   const safeSortBy = SORT_COLUMNS[String(sortBy || '').toLowerCase()] || 'title';
   const safeSortDir = String(sortDir || '').toLowerCase() === 'desc' ? 'DESC' : 'ASC';
+  const normalizedSearch = typeof search === 'string' ? search.trim() : '';
   const sortExpression = safeSortBy === 'title'
     ? `regexp_replace(lower(coalesce(title, '')), '^(the|an|a)\\s+', '', 'i') ${safeSortDir}, lower(title) ${safeSortDir}`
-    : `${safeSortBy} ${safeSortDir} NULLS LAST`;
+    : `${safeSortBy} ${safeSortDir} NULLS LAST, lower(title) ASC`;
 
   if (format && format !== 'all' && MEDIA_FORMATS.includes(format)) {
     params.push(format);
@@ -1018,9 +1132,19 @@ router.get('/', asyncHandler(async (req, res) => {
     where += ` AND media_type = $${params.length}`;
   }
 
-  if (search) {
-    params.push(`%${search}%`);
-    where += ` AND (title ILIKE $${params.length} OR director ILIKE $${params.length} OR genre ILIKE $${params.length})`;
+  if (normalizedSearch) {
+    params.push(normalizedSearch);
+    const tsqIdx = params.length;
+    params.push(`%${normalizedSearch}%`);
+    const likeIdx = params.length;
+    where += ` AND (
+      to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(original_title,'') || ' ' || coalesce(director,'') || ' ' || coalesce(genre,'') || ' ' || coalesce(notes,'')) @@ plainto_tsquery('simple', $${tsqIdx})
+      OR title ILIKE $${likeIdx}
+      OR original_title ILIKE $${likeIdx}
+      OR director ILIKE $${likeIdx}
+      OR genre ILIKE $${likeIdx}
+      OR notes ILIKE $${likeIdx}
+    )`;
   }
 
   if (director) {
@@ -1244,6 +1368,36 @@ router.get('/tmdb/:id/details', asyncHandler(async (req, res) => {
   res.json(details);
 }));
 
+router.post('/enrich/book/search', asyncHandler(async (req, res) => {
+  const { title, author } = req.body || {};
+  if (!String(title || '').trim()) {
+    return res.status(400).json({ error: 'title is required' });
+  }
+  const config = await loadAdminIntegrationConfig();
+  const matches = await searchBooksByTitle(String(title).trim(), config, 10, String(author || '').trim());
+  res.json({ provider: config.booksProvider || 'googlebooks', matches });
+}));
+
+router.post('/enrich/audio/search', asyncHandler(async (req, res) => {
+  const { title, artist } = req.body || {};
+  if (!String(title || '').trim()) {
+    return res.status(400).json({ error: 'title is required' });
+  }
+  const config = await loadAdminIntegrationConfig();
+  const matches = await searchAudioByTitle(String(title).trim(), config, 10, String(artist || '').trim());
+  res.json({ provider: config.audioProvider || 'discogs', matches });
+}));
+
+router.post('/enrich/game/search', asyncHandler(async (req, res) => {
+  const { title } = req.body || {};
+  if (!String(title || '').trim()) {
+    return res.status(400).json({ error: 'title is required' });
+  }
+  const config = await loadAdminIntegrationConfig();
+  const matches = await searchGamesByTitle(String(title).trim(), config, 10);
+  res.json({ provider: config.gamesProvider || 'igdb', matches });
+}));
+
 // ── UPC lookup ────────────────────────────────────────────────────────────────
 
 router.post('/lookup-upc', asyncHandler(async (req, res) => {
@@ -1358,8 +1512,8 @@ router.post('/upload-cover', memoryUpload.single('cover'), asyncHandler(async (r
 
 router.get('/import/template-csv', asyncHandler(async (_req, res) => {
   const template = [
-    'title,year,format,director,genre,rating,user_rating,runtime,upc,location,notes',
-    '"The Matrix",1999,"Blu-ray","Lana Wachowski, Lilly Wachowski","Science Fiction",8.7,4.5,136,085391163545,"Living Room","Example row"'
+    'title,media_type,year,format,director,genre,rating,user_rating,runtime,upc,location,notes',
+    '"The Matrix","movie",1999,"Blu-ray","Lana Wachowski, Lilly Wachowski","Science Fiction",8.7,4.5,136,085391163545,"Living Room","Example row"'
   ].join('\n');
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', 'attachment; filename="collectz-template.csv"');
@@ -1817,26 +1971,32 @@ router.post('/', validate(mediaCreateSchema), asyncHandler(async (req, res) => {
     title, media_type, original_title, release_date, year, format, genre, director, rating,
     user_rating, tmdb_id, tmdb_media_type, tmdb_url, poster_path, backdrop_path, overview,
     trailer_url, runtime, upc, location, notes, import_source,
-    season_number, episode_number, episode_title, network, library_id
+    season_number, episode_number, episode_title, network, type_details, library_id
     , space_id
   } = req.body;
+  const normalizedMediaType = normalizeMediaType(media_type || 'movie', 'movie');
+  const normalizedTypeDetails = sanitizeTypeDetails(normalizedMediaType, type_details);
+  const fieldValidationError = validateTypeSpecificFields(normalizedMediaType, req.body);
+  if (fieldValidationError) {
+    return res.status(400).json({ error: fieldValidationError });
+  }
 
   const result = await pool.query(
     `INSERT INTO media (
        title, media_type, original_title, release_date, year, format, genre, director, rating,
        user_rating, tmdb_id, tmdb_media_type, tmdb_url, poster_path, backdrop_path, overview,
        trailer_url, runtime, upc, location, notes, season_number, episode_number, episode_title, network,
-       library_id, space_id, added_by, import_source
+       type_details, library_id, space_id, added_by, import_source
      ) VALUES (
-       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29
+       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26::jsonb,$27,$28,$29,$30
      ) RETURNING *`,
     [
-      title, media_type || 'movie', original_title || null, release_date || null, year || null, format || null,
+      title, normalizedMediaType, original_title || null, release_date || null, year || null, format || null,
       genre || null, director || null, rating || null, user_rating || null,
       tmdb_id || null, tmdb_media_type || null, tmdb_url || null, poster_path || null, backdrop_path || null,
       overview || null, trailer_url || null, runtime || null, upc || null,
       location || null, notes || null, season_number || null, episode_number || null,
-      episode_title || null, network || null,
+      episode_title || null, network || null, normalizedTypeDetails ? JSON.stringify(normalizedTypeDetails) : null,
       library_id || scopeContext.libraryId || null,
       space_id || scopeContext.spaceId || null,
       req.user.id, import_source || 'manual'
@@ -1856,7 +2016,7 @@ router.patch('/:id', validate(mediaUpdateSchema), asyncHandler(async (req, res) 
     'title', 'media_type', 'original_title', 'release_date', 'year', 'format', 'genre', 'director',
     'rating', 'user_rating', 'tmdb_id', 'tmdb_media_type', 'tmdb_url', 'poster_path', 'backdrop_path',
     'overview', 'trailer_url', 'runtime', 'upc', 'location', 'notes', 'season_number',
-    'episode_number', 'episode_title', 'network', 'library_id', 'space_id'
+    'episode_number', 'episode_title', 'network', 'type_details', 'library_id', 'space_id'
   ];
 
   const fields = Object.fromEntries(
@@ -1866,13 +2026,41 @@ router.patch('/:id', validate(mediaUpdateSchema), asyncHandler(async (req, res) 
   if (keys.length === 0) {
     return res.status(400).json({ error: 'No valid fields provided for update' });
   }
-  const values = Object.values(fields);
+
+  const touchesTypeSpecific = ['season_number', 'episode_number', 'episode_title', 'network']
+    .some((key) => Object.prototype.hasOwnProperty.call(fields, key));
+  let effectiveMediaType = null;
+  if (fields.media_type) {
+    effectiveMediaType = normalizeMediaType(fields.media_type, 'movie');
+    fields.media_type = effectiveMediaType;
+  } else if (touchesTypeSpecific) {
+    const mediaTypeParams = [id];
+    const mediaTypeScopeClause = appendScopeSql(mediaTypeParams, scopeContext);
+    const currentTypeResult = await pool.query(
+      `SELECT media_type FROM media WHERE id = $1${mediaTypeScopeClause} LIMIT 1`,
+      mediaTypeParams
+    );
+    effectiveMediaType = normalizeMediaType(currentTypeResult.rows[0]?.media_type || 'movie', 'movie');
+  }
+  const fieldValidationError = validateTypeSpecificFields(effectiveMediaType || 'movie', fields);
+  if (fieldValidationError) {
+    return res.status(400).json({ error: fieldValidationError });
+  }
+  if (Object.prototype.hasOwnProperty.call(fields, 'type_details')) {
+    const detailType = effectiveMediaType || 'movie';
+    fields.type_details = sanitizeTypeDetails(detailType, fields.type_details);
+  }
+
+  const normalizedValues = keys.map((key) => fields[key]);
 
   const setClause = keys.map((key, i) => `${key} = $${i + 1}`).join(', ');
-  const updateParams = [...values, id];
-  if (req.user.role !== 'admin') updateParams.push(req.user.id);
+  const updateParams = [...normalizedValues, id];
+  let ownerClause = '';
+  if (req.user.role !== 'admin') {
+    updateParams.push(req.user.id);
+    ownerClause = ` AND added_by = $${updateParams.length}`;
+  }
   const updateScopeClause = appendScopeSql(updateParams, scopeContext);
-  const ownerClause = req.user.role === 'admin' ? '' : ` AND added_by = $${updateParams.length}`;
   const result = await pool.query(
     `UPDATE media
      SET ${setClause}

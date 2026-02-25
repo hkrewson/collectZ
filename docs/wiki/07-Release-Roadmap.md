@@ -734,60 +734,266 @@ This track converts the 1.9.1 external assessment findings into executable miles
 - Tagged builds emit a clear go/no-go result with linked evidence artifacts.
 - Missing preflight evidence blocks release publication.
 
----
+## 1.9.26 — Portable Compose Topology + Security Triage Baseline
 
-## 2.0.0 — Multi-Space + Multi-Library Architecture
+**Goal:** Eliminate fixed-container deployment coupling and establish an explicit pre-2.0 vulnerability triage baseline.
 
-**Goal:** Each user can belong to one or more spaces, and each space can contain multiple libraries with isolated media and integrations.
+### Requirements
+
+- `REQ-1`: Compose files MUST NOT define `container_name`.
+- `REQ-2`: CI compose checks MUST resolve service containers dynamically (`docker compose ps -q`), never by fixed names.
+- `REQ-3`: CI MUST fail if `container_name` is reintroduced.
+- `REQ-4`: Registry compose defaults MUST enforce secure production cookie posture (`SESSION_COOKIE_SECURE=true` unless explicitly overridden for local dev).
+- `REQ-5`: Release notes MUST include a vulnerability triage summary with owner and target remediation milestone for any unresolved `high` findings.
 
 ### Scope
 
-- Add spaces and memberships with per-space roles.
-- Add libraries within each space (create, rename/update metadata, archive/delete behavior with safeguards).
-- Scope media by both space and library.
-- Scope invites and integrations by space.
-- Add active-space switcher in UI.
-- Replace single `Library` nav destination with library collection navigation:
-  - `Library` becomes a parent section.
-  - Child entries list available libraries in the active space.
-  - Add quick actions for `New Library` and `Manage Libraries` (role-gated).
-- Move integration settings (TMDB, Barcode, Vision, Plex) to space-level settings.
-- Enforce space isolation across all CRUD and admin paths via `scopeContext` (now fully active).
-- Legacy single-space installs auto-migrate into a default space with a default library — this migration must be reversible, documented, and tested against real snapshots from 1.9.
+- Remove `container_name` from all compose files to allow:
+  - parallel stacks,
+  - project-name isolation,
+  - safer rehearsal environments.
+- Update CI compose health checks to resolve container IDs by service name (`docker compose ps -q`) instead of fixed names.
+- Add CI guard that fails if `container_name` is reintroduced.
+- Align registry compose defaults with current security posture:
+  - secure session cookies by default in production mode.
+- Capture baseline `high` vulnerability inventory and document remediation plan/owner in release notes.
 
 ### Acceptance Criteria
 
-- User sees only media from their active space and selected library.
-- Space admins manage members, invites, integrations, and library lifecycle for their space.
-- Library CRUD is available according to role policy; deleting a library requires explicit confirmation and defined handling for existing media.
-- Cross-space data access is blocked at both the API and query layer.
-- Cross-library data leakage is blocked unless explicitly requested via allowed filters.
-- Legacy single-library deployments upgrade cleanly into a default space + default library with no data loss.
-- Rollback from 2.0 to 1.9 is documented and tested.
+- Compose stacks run without fixed-name collisions (`main` and temporary project names).
+- CI no longer references hard-coded container names.
+- CI blocks `container_name` drift.
+- Release note includes explicit `high` vulnerability triage summary and target remediation milestone.
 
-### DB Checklist
+### Test Plan
 
-- New tables: `spaces`, `space_memberships`, `libraries`.
-- Add FK constraints to `space_id` on `media`, `invites`, `libraries`, and integration settings tables (previously nullable, now required).
-- Add FK constraint to `media.library_id` (required in 2.0) referencing `libraries(id)`.
-- Migrate existing data: create default space + default library, attach all existing users/media/settings.
-- Add indexes on `(space_id, created_at)`, `(library_id, created_at)`, and common space/library-scoped lookup fields.
+- Run `docker compose --env-file .env config` for both local and registry compose files.
+- Run stack smoke with default project and a non-default project (`-p`), verify healthy startup.
+- Run CI locally (or equivalent scripts) for compose health checks and `container_name` policy guard.
+- Confirm release note template includes vulnerability-triage section.
 
-### API Checklist
+### API/DB Checklist
 
-- All protected endpoints resolve active space from session context.
-- All media endpoints resolve active library from session/request context.
-- New endpoints:
-  - space CRUD
-  - space membership management
-  - library CRUD within active space
-  - space-scoped integrations
-- Secure RBAC at both global and space levels.
-- Role checks enforce who can create, edit, archive, and delete libraries.
+- No schema/API contract changes.
+- Runtime/deploy topology only.
+
+## 1.9.27 — App Shell De-Bloat and Modularity Enforcement
+
+**Goal:** Bring frontend architecture into policy compliance before 2.0 migration complexity lands.
+
+### Requirements
+
+- `REQ-1`: `frontend/src/App.js` MUST be reduced to shell orchestration only (routing, nav, providers).
+- `REQ-2`: Feature views/stateful logic MUST live in module components/hooks under `frontend/src/components` and `frontend/src/hooks`.
+- `REQ-3`: CI MUST enforce an `App.js` line-budget gate with documented exception workflow and expiry.
+- `REQ-4`: New milestone features MUST NOT increase `App.js` net LOC unless an approved exception exists.
+
+### Scope
+
+- Reduce `frontend/src/App.js` to shell-only orchestration:
+  - routing,
+  - nav,
+  - global providers.
+- Move remaining feature-specific logic into module components/hooks.
+- Add CI modularity enforcement:
+  - fail when `App.js` exceeds hard budget unless exception is documented.
+- Add explicit exception mechanism with expiry for temporary over-budget states.
+
+### Acceptance Criteria
+
+- `App.js` is at or below policy hard budget, or approved time-bound exception exists.
+- New feature code lands outside App shell by default.
+- CI enforces modularity budget gate.
+
+### Test Plan
+
+- Run unit/smoke tests for Library/Admin/Profile flows after extraction.
+- Validate nav, auth, imports, and drawer behavior unchanged.
+- Validate CI fails when `App.js` exceeds budget without exception metadata.
+
+### API/DB Checklist
+
+- No schema/API contract changes.
+- Frontend architecture and CI policy enforcement only.
+
+## 1.9.28 — Final 2.0 Migration Readiness Rehearsal
+
+**Goal:** Produce final go/no-go evidence that 2.0 migration + rollback is safe on production-like data.
+
+### Requirements
+
+- `REQ-1`: Rehearsal MUST run on a recent production-like snapshot copy.
+- `REQ-2`: Rehearsal MUST verify both forward migration and rollback integrity checks.
+- `REQ-3`: A signed go/no-go artifact MUST exist before opening `2.0.0` implementation PR.
+- `REQ-4`: Any critical rehearsal failure MUST block 2.0 kickoff.
+
+### Scope
+
+- Run full migration rehearsal against recent production-like snapshot copy.
+- Verify:
+  - schema upgrade path,
+  - data integrity checks,
+  - rollback path evidence.
+- Publish rehearsal report and operator runbook updates.
+- Require explicit release signoff checklist completion before opening 2.0 implementation PR.
+
+### Acceptance Criteria
+
+- Rehearsal report artifact exists with pass/fail matrix for upgrade + rollback.
+- No unresolved data integrity blockers remain.
+- 2.0 kickoff requires signed checklist reference in release notes/roadmap.
+
+### Test Plan
+
+- Execute documented rehearsal script end-to-end on a snapshot clone.
+- Validate integrity queries before/after upgrade and after rollback.
+- Validate failure-mode reporting and block condition in release workflow.
+
+### API/DB Checklist
+
+- No production schema changes in this milestone.
+- Rehearsal and evidence generation only.
+
+## 1.9.29 — Pre-2.0 Security Remediation Closure
+
+**Goal:** Close remaining high-severity dependency/base-image risk before 2.0 go-live approval.
+
+### Requirements
+
+- `REQ-1`: Dependency and image scan results MUST have no untriaged `high` findings.
+- `REQ-2`: Any retained `high` finding MUST include documented compensating controls, owner, and expiration.
+- `REQ-3`: Pre-2.0 go/no-go artifact MUST be updated to `GO` only after security gate closure.
+
+### Scope
+
+- Upgrade/replace vulnerable packages where feasible without breaking production behavior.
+- Re-run dependency and image scans and attach updated artifacts.
+- Update release note/security triage and go/no-go report with final disposition.
+
+### Acceptance Criteria
+
+- `critical` and `high` findings are either remediated or approved via explicit exception process.
+- CI and release artifacts show completed security triage closure.
+- 2.0 kickoff is unblocked from a security-gate perspective.
+
+---
+
+## 2.0.0 — Homelab Core Release (Users + One Library Surface)
+
+**Goal:** Deliver a secure, usable homelab media catalog for households: multiple users, admin-managed integrations, and one unified library experience for movies, TV, books, audio, and games.
+
+**Product boundary for 2.0.0:**
+- No enterprise tenancy model.
+- No user-owned integration credentials.
+- No required nested library hierarchy for end users.
+- Keep multi-library internals optional and lightweight; default UX is a single primary library surface.
+
+### Milestone Path From `2.0.0-alpha.9` to Stable `2.0.0`
+
+- `2.0.0-beta.1`:
+  - Lock auth/RBAC behavior for admin + normal users.
+  - Validate admin-managed integrations end-to-end (test/import/sync).
+  - UI pass for clarity and mobile usability (Library, Import, Profile, Members, Activity).
+  - Add media-type baseline coverage for `movie`, `tv_series`, `book`, `audio`, `game`, `other` in Library create/edit/list flows.
+- `2.0.0-beta.2`:
+  - Strengthen library data model for mixed media types (movies/TV/books/audio/games) without over-complicating tenancy.
+  - Finish search/filter/sort and paging ergonomics for practical collection sizes.
+  - Verify import quality and de-duplication behavior across providers.
+  - Complete media-type filter/search behavior checks so each type can be isolated and managed without cross-type confusion.
+- `2.0.0-beta.3`:
+  - Add admin-managed enrichment provider settings for Books, Audio, and Games (alongside TMDB/Barcode/Vision/Plex).
+  - Add provider test endpoints and integration status badges for Books, Audio, and Games.
+  - Add Library lookup-and-apply flows for Books, Audio, and Games in add/edit media forms.
+  - Validate that applied enrichment populates type-specific fields and persists through create/edit flows.
+- `2.0.0-rc.1`:
+  - Public test-server rehearsal with real tester traffic.
+  - Resolve blocker bugs from tester template + activity logs.
+  - Complete release checklist, migration rehearsal evidence, and rollback steps.
+  - Run explicit RC media-type test matrix (add/edit/delete/search/import where applicable) for movies, TV, books, audio, and games.
+- `2.0.0`:
+  - Stable homelab release with documented setup, security defaults, and operator runbooks.
+
+### Scope
+
+- Keep multi-user support (`admin`, `user`, optional `viewer`) with secure cookie sessions and CSRF.
+- Keep integrations admin-managed at app scope:
+  - TMDB, Barcode, Vision, Plex.
+- Provide one primary library UX with category/type filtering:
+  - movies, TV, books, audio, games, other.
+- Preserve import/sync workflows:
+  - Plex import,
+  - Generic CSV import,
+  - Delicious CSV import.
+- Preserve clear audit visibility for failures and privileged actions.
+- Prioritize usability and reliability over adding tenancy complexity.
+
+### Acceptance Criteria
+
+- Admin can configure integrations and users; normal users can manage catalog entries safely.
+- End users can add/import/edit/delete/search media without scope confusion.
+- Media-type coverage is confirmed at RC: movies, TV, books, audio, and games are all manageable in the unified library surface.
+- Library performance remains acceptable for large personal collections.
+- Security defaults are enforced in production (strong secrets, secure cookies, CI gates).
+- Release docs support straightforward homelab deployment and recovery.
+
+### DB/API Checklist
+
+- DB:
+  - Keep current `media` + supporting tables stable and migration-safe.
+  - Ensure indexes support high-volume browse/search/import paths.
+  - Avoid disruptive tenancy schema expansion in 2.0.0.
+- API:
+  - Keep API contracts stable for auth, media CRUD, imports, invites, and admin tooling.
+  - Maintain strict RBAC checks and explicit audit events for failures/denials.
+  - Avoid introducing new multi-space endpoint families in 2.0.0.
+
+---
+
+## 2.5.0 / 3.0.0 — Optional Tenancy Expansion (Deferred)
+
+Deferred tenancy planning has been moved to a separate roadmap document:
+
+- `docs/wiki/roadmap-tenancy-deferred.md` (local planning document, git-ignored)
 
 ---
 
 ## Post-2.0 (Later Milestones)
+
+## 2.1.0 — Metadata Normalization and Query Performance
+
+**Goal:** Replace comma-separated metadata fields with normalized relations for reliable search/filtering at scale.
+
+### Scope
+
+- Normalize `genre`, `director`, and actor/cast metadata into relational tables.
+- Backfill existing media records and preserve backward-compatible reads during migration window.
+- Update filter/search endpoints and indexes for normalized queries.
+
+### Acceptance Criteria
+
+- Search/filter behavior matches existing functionality with improved accuracy/performance.
+- Migration/backfill is complete with no data-loss regressions.
+
+## 2.2.0 — Observability Platform (Metrics + Alerting)
+
+**Goal:** Move from log-only triage to measurable system health with alerts.
+
+### Scope
+
+- Add structured metrics export for API/import/auth error rates and queue behavior.
+- Add baseline dashboards and alert thresholds.
+- Add operator playbook for alert triage and escalation.
+
+### Acceptance Criteria
+
+- Critical regressions are visible via alerts without manual log polling.
+- Dashboard coverage includes imports, auth failures, and admin actions.
+
+## 2.3.0 — Import Match Review + Collections Intelligence
+
+**Goal:** Improve import quality for ambiguous matches and boxed-set decomposition while keeping automation safe and operator-visible.
+
+### Scope
 
 - Import match review workflow:
   - Add backend confidence scoring for enrichment/import matches across providers.
@@ -803,6 +1009,18 @@ This track converts the 1.9.1 external assessment findings into executable miles
   - Add optional web lookup fallback for unresolved sets (strictly gated by legal/ToS/robots constraints and feature flag).
   - Keep web-fallback results in manual review queue by default (no silent auto-apply).
   - Add side-project spike: evaluate provider reliability and legal risk for Blu-ray-focused scraping before enabling in production.
+
+### Acceptance Criteria
+
+- Ambiguous imports no longer auto-apply silently; they enter review queue.
+- Boxed-set imports can be represented as collection + contained items where data is available.
+
+## 2.4.0 — TV Watch-State and Provider Sync Foundation
+
+**Goal:** Build durable TV season/watch-state modeling that can sync with external providers later.
+
+### Scope
+
 - TV data model hardening:
   - Move season ownership out of `media_variants` into a dedicated `media_seasons` table keyed by `media_id` (TV series).
   - Keep `media_variants` for movie/file editions only.
@@ -819,6 +1037,34 @@ This track converts the 1.9.1 external assessment findings into executable miles
 - Per-space scheduled Plex sync automation.
 - External status sync exploration (future): evaluate JustWatch and other services based on API availability and licensing constraints.
 - Library-type specializations and templates (movies, music, books, games, comics) with domain-specific field sets.
+
+### Acceptance Criteria
+
+- TV seasons are modeled independently from movie editions.
+- Series/season watch-state is visible and queryable with consistent UI indicators.
+
+## 2.5.0 — UI Refinement Sprint (Cross-Device Consistency)
+
+**Goal:** Run a focused page-by-page UI refinement pass after 2.0 stabilization, prioritizing interaction consistency and responsive usability.
+
+### Scope
+
+- Standardize primary navigation toggle behavior:
+  - replace collapse/expand control with a single hamburger-style toggle interaction,
+  - keep behavior consistent across desktop and mobile patterns.
+- Conduct structured UI review across major surfaces:
+  - Library,
+  - Import,
+  - Profile,
+  - Admin sections.
+- Apply targeted visual/interaction adjustments per page and element until review checklist passes.
+- Keep this sprint UX-only unless a blocker requires small functional fixes.
+
+### Acceptance Criteria
+
+- Desktop and mobile navigation use one consistent toggle paradigm.
+- UI review checklist is completed for each major page section.
+- Refinement changes do not introduce regression in auth, media CRUD, imports, or admin flows.
 - Shared vs. private user annotations and ratings controls.
 - Mobile-optimized barcode scanning UI (camera input with real-time scan feedback).
 - Email delivery for invites via SMTP (already stubbed in `env.example`).

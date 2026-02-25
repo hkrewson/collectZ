@@ -33,11 +33,12 @@ const authRouter = require('./routes/auth');
 const mediaRouter = require('./routes/media');
 const adminRouter = require('./routes/admin');
 const integrationsRouter = require('./routes/integrations');
+const librariesRouter = require('./routes/libraries');
 const { cleanupExpiredSessions, SESSION_MAX_PER_USER, SESSION_TTL_DAYS } = require('./services/sessions');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const APP_VERSION = process.env.APP_VERSION || appMeta.version || '1.9.23';
+const APP_VERSION = process.env.APP_VERSION || appMeta.version || '2.0.0-beta.3';
 const GIT_SHA = process.env.GIT_SHA || appMeta?.build?.gitShaDefault || 'dev';
 const BUILD_DATE = process.env.BUILD_DATE || appMeta?.build?.buildDateDefault || 'unknown';
 const BUILD_LABEL = `v${APP_VERSION}+${GIT_SHA}`;
@@ -69,14 +70,61 @@ const parseTrustProxy = (value) => {
   return process.env.NODE_ENV === 'production' ? 1 : false;
 };
 
+const resolveDbPassword = () => {
+  const direct = String(process.env.DB_PASSWORD || '').trim();
+  if (direct) return direct;
+  const databaseUrl = String(process.env.DATABASE_URL || '').trim();
+  if (!databaseUrl) return '';
+  try {
+    const parsed = new URL(databaseUrl);
+    return decodeURIComponent(parsed.password || '');
+  } catch (_) {
+    return '';
+  }
+};
+
+const WEAK_SECRET_VALUES = new Set([
+  'changeme',
+  'change-me',
+  'replace-me',
+  'replace_me',
+  'replace-this',
+  'dev',
+  'development',
+  'password',
+  'secret',
+  '123456',
+  '000000',
+  'your_session_secret',
+  'your_integration_encryption_key'
+]);
+
+const isWeakSecret = (value, minimumLength = 32) => {
+  const raw = String(value || '').trim();
+  if (raw.length < minimumLength) return true;
+  const normalized = raw.toLowerCase();
+  if (WEAK_SECRET_VALUES.has(normalized)) return true;
+  if (/^(.)\1+$/.test(raw)) return true;
+  return false;
+};
+
 const validateStartupSecurityConfig = () => {
   if (process.env.NODE_ENV !== 'production') return;
 
+  if (!resolveDbPassword()) {
+    throw new Error('DB_PASSWORD must be set in production');
+  }
   if (!process.env.SESSION_SECRET) {
     throw new Error('SESSION_SECRET must be set in production');
   }
   if (!process.env.INTEGRATION_ENCRYPTION_KEY) {
     throw new Error('INTEGRATION_ENCRYPTION_KEY must be set in production');
+  }
+  if (isWeakSecret(process.env.SESSION_SECRET, 32)) {
+    throw new Error('SESSION_SECRET is too weak in production (minimum 32 chars, non-placeholder value)');
+  }
+  if (isWeakSecret(process.env.INTEGRATION_ENCRYPTION_KEY, 32)) {
+    throw new Error('INTEGRATION_ENCRYPTION_KEY is too weak in production (minimum 32 chars, non-placeholder value)');
   }
   if (!parseBoolean(process.env.SESSION_COOKIE_SECURE, true)) {
     throw new Error('SESSION_COOKIE_SECURE must be true in production');
@@ -175,6 +223,7 @@ app.use('/api/auth', authRouter);
 app.use('/api', authRouter);
 app.use('/api/media', mediaRouter);
 app.use('/api', integrationsRouter);
+app.use('/api', librariesRouter);
 app.use('/api/admin', adminRouter);
 
 // ── Health check ──────────────────────────────────────────────────────────────

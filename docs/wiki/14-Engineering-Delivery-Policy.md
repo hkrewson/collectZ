@@ -44,6 +44,7 @@ Every milestone release must pass all gates below before tag/publish.
 - Missing gate coverage is treated as a roadmap task, not a manual workaround.
 - A release is "not ready" if any mandatory gate fails.
 - "No release notes" is a release blocker.
+- Tagged releases must publish a CI preflight go/no-go artifact proving required evidence exists.
 
 ---
 
@@ -149,6 +150,8 @@ Each PR should include:
 - `frontend/src/App.js` soft budget: <= 450 LOC.
 - `frontend/src/App.js` hard budget: <= 550 LOC (CI failure beyond this without approved exception).
 - Any file exceeding 700 LOC should be split during the next relevant milestone.
+- CI exception file for temporary App shell overage: `.ci/exceptions/app-shell-budget.json`.
+  Required fields: `reason`, `approved_by`, `expires_on` (`YYYY-MM-DD`), `max_lines`, `target_milestone`.
 
 ---
 
@@ -161,3 +164,76 @@ If a milestone needs a temporary policy exception:
 3. Add explicit expiration condition (when exception must be removed).
 
 No permanent silent exceptions.
+
+---
+
+## 5) UI Simplicity Default Policy
+
+When adding operational controls (filters, toggles, actions), default to the minimal interface that solves the common case.
+
+Rules:
+
+1. One primary input path first (for example a single search field) before adding secondary controls.
+2. Avoid mandatory extra clicks (`Apply`, `Clear`, `Refresh`) unless there is a proven performance or correctness need.
+3. Advanced filters should be hidden behind an explicit affordance, not always-on in default layout.
+4. If a control does not materially improve first-pass task success, defer it to roadmap backlog.
+
+Acceptance guidance:
+
+- Default workflows should be operable with minimal taps/clicks on mobile and desktop.
+- Added complexity must have a documented incident or operator use case.
+
+---
+
+## 6) Dependency Lifecycle Policy (Required)
+
+This section governs dependency awareness, update decisions, and validation.
+
+### 6.1 Lockfile and Install Rules
+
+1. `backend/package-lock.json` and `frontend/package-lock.json` are required and must be committed.
+2. CI install steps must use `npm ci` (not `npm install`) for deterministic builds.
+3. Runtime scans must use production trees (`npm audit --omit=dev`) and must be tied to lockfile state.
+
+### 6.2 Awareness and Notification
+
+1. Dependabot is required for `npm` and GitHub Actions updates.
+2. A scheduled dependency-watch workflow must run at least weekly and produce:
+   - update availability summary (current/wanted/latest),
+   - materiality classification (major/minor/patch),
+   - security context from production audit counts.
+3. Dependency-watch output must be visible in workflow summary and saved as an artifact.
+
+### 6.3 Materiality Classification
+
+- `major`: highest change risk; requires explicit review and rollout plan.
+- `minor`: moderate risk; usually grouped into maintenance batches unless security/bug urgency exists.
+- `patch`: lowest risk; can be batched regularly.
+- Security fixes supersede semantic version priority when exposure is meaningful.
+
+### 6.4 Update Decision Matrix
+
+1. Update immediately when:
+   - security remediation is required (`high`/`critical` with relevant exposure),
+   - production/runtime defect is fixed by an available dependency update.
+2. Batch update when:
+   - update is non-security and non-blocking (routine patch/minor maintenance).
+3. Defer only when:
+   - break risk is high and no security/operational pressure exists,
+   - deferral includes owner, reason, and target milestone in release notes/roadmap.
+
+### 6.5 Required Validation for Dependency Bumps
+
+Any dependency change PR must pass:
+
+1. Backend unit tests.
+2. API integration smoke checks.
+3. Compose smoke and RBAC regression gates.
+4. Dependency and image security scans.
+5. Migration rehearsal evidence for release candidates and schema-impacting milestones.
+
+### 6.6 Documentation and Traceability
+
+1. Release notes must include dependency changes and risk posture.
+2. Security triage section is mandatory when `high` findings are present.
+3. Go/no-go report must reference the latest scan evidence before 2.0+ releases.

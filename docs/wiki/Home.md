@@ -19,6 +19,8 @@ Start here for deployment and operations guidance.
 13. [Rate Limit Policy](./13-Rate-Limit-Policy.md)
 14. [Engineering Delivery Policy](./14-Engineering-Delivery-Policy.md)
 15. [Secrets and Rotation Runbook](./15-Secrets-and-Rotation-Runbook.md)
+16. [Activity Triage Runbook](./16-Activity-Triage-Runbook.md)
+17. [Release Go/No-Go Checklist](./17-Release-Go-No-Go-Checklist.md)
 
 ## Default Admin Behavior (Important)
 

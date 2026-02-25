@@ -620,6 +620,257 @@ const MIGRATIONS = [
       CREATE INDEX IF NOT EXISTS idx_library_memberships_library_id
         ON library_memberships(library_id);
     `
+  },
+  {
+    version: 16,
+    description: 'Library backfill and active library defaults for 2.0',
+    up: `
+      WITH users_without_membership AS (
+        SELECT u.id
+        FROM users u
+        LEFT JOIN library_memberships lm ON lm.user_id = u.id
+        GROUP BY u.id
+        HAVING COUNT(lm.library_id) = 0
+      ),
+      created_libraries AS (
+        INSERT INTO libraries (name, description, created_by)
+        SELECT 'My Library', 'Default personal library', uwm.id
+        FROM users_without_membership uwm
+        RETURNING id, created_by
+      )
+      INSERT INTO library_memberships (user_id, library_id, role)
+      SELECT created_by, id, 'owner'
+      FROM created_libraries
+      ON CONFLICT (user_id, library_id) DO NOTHING;
+
+      INSERT INTO library_memberships (user_id, library_id, role)
+      SELECT u.id, u.active_library_id, 'owner'
+      FROM users u
+      WHERE u.active_library_id IS NOT NULL
+      ON CONFLICT (user_id, library_id) DO NOTHING;
+
+      WITH first_membership AS (
+        SELECT lm.user_id, MIN(lm.library_id) AS library_id
+        FROM library_memberships lm
+        JOIN libraries l ON l.id = lm.library_id
+        WHERE l.archived_at IS NULL
+        GROUP BY lm.user_id
+      )
+      UPDATE users u
+      SET active_library_id = fm.library_id
+      FROM first_membership fm
+      WHERE u.id = fm.user_id
+        AND (
+          u.active_library_id IS NULL
+          OR NOT EXISTS (
+            SELECT 1
+            FROM libraries l
+            WHERE l.id = u.active_library_id
+              AND l.archived_at IS NULL
+          )
+        );
+
+      UPDATE media m
+      SET library_id = u.active_library_id
+      FROM users u
+      WHERE m.library_id IS NULL
+        AND m.added_by = u.id
+        AND u.active_library_id IS NOT NULL;
+
+      INSERT INTO libraries (name, description, created_by)
+      SELECT 'Shared Library', 'Fallback library for legacy unowned media', NULL
+      WHERE EXISTS (SELECT 1 FROM media WHERE library_id IS NULL)
+        AND NOT EXISTS (
+          SELECT 1
+          FROM libraries
+          WHERE archived_at IS NULL
+            AND created_by IS NULL
+            AND lower(name) = 'shared library'
+        );
+
+      WITH fallback_library AS (
+        SELECT id
+        FROM libraries
+        WHERE archived_at IS NULL
+        ORDER BY
+          CASE
+            WHEN created_by IS NULL AND lower(name) = 'shared library' THEN 0
+            ELSE 1
+          END,
+          id
+        LIMIT 1
+      )
+      UPDATE media m
+      SET library_id = fl.id
+      FROM fallback_library fl
+      WHERE m.library_id IS NULL;
+    `
+  },
+  {
+    version: 17,
+    description: 'Expand media type constraint for mixed media baseline',
+    up: `
+      ALTER TABLE media
+        DROP CONSTRAINT IF EXISTS media_media_type_check;
+
+      ALTER TABLE media
+        ADD CONSTRAINT media_media_type_check
+        CHECK (media_type IN ('movie', 'tv_series', 'tv_episode', 'book', 'audio', 'game', 'other'));
+    `
+  },
+  {
+    version: 18,
+    description: 'Mixed media field consistency constraints and browse indexes',
+    up: `
+      UPDATE media
+      SET season_number = NULL,
+          episode_number = NULL,
+          episode_title = NULL,
+          network = NULL
+      WHERE media_type NOT IN ('tv_series', 'tv_episode');
+
+      UPDATE media
+      SET episode_number = NULL,
+          episode_title = NULL
+      WHERE media_type = 'tv_series';
+
+      ALTER TABLE media
+        DROP CONSTRAINT IF EXISTS media_tv_fields_consistency_check;
+
+      ALTER TABLE media
+        ADD CONSTRAINT media_tv_fields_consistency_check
+        CHECK (
+          CASE
+            WHEN media_type IN ('tv_series', 'tv_episode') THEN TRUE
+            ELSE season_number IS NULL AND episode_number IS NULL AND episode_title IS NULL AND network IS NULL
+          END
+        );
+
+      ALTER TABLE media
+        DROP CONSTRAINT IF EXISTS media_tv_series_episode_fields_check;
+
+      ALTER TABLE media
+        ADD CONSTRAINT media_tv_series_episode_fields_check
+        CHECK (
+          CASE
+            WHEN media_type = 'tv_series' THEN episode_number IS NULL AND episode_title IS NULL
+            ELSE TRUE
+          END
+        );
+
+      CREATE INDEX IF NOT EXISTS idx_media_library_type_title ON media(library_id, media_type, title);
+      CREATE INDEX IF NOT EXISTS idx_media_library_type_year ON media(library_id, media_type, year);
+      CREATE INDEX IF NOT EXISTS idx_media_library_type_created_at ON media(library_id, media_type, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_media_title_normalized_sort
+        ON media ((regexp_replace(lower(coalesce(title, '')), '^(the|an|a)\\s+', '', 'i')));
+
+      CREATE INDEX IF NOT EXISTS idx_media_search_fts
+        ON media USING GIN (
+          to_tsvector(
+            'simple',
+            coalesce(title, '') || ' ' ||
+            coalesce(original_title, '') || ' ' ||
+            coalesce(director, '') || ' ' ||
+            coalesce(genre, '') || ' ' ||
+            coalesce(notes, '')
+          )
+        );
+    `
+  },
+  {
+    version: 19,
+    description: 'Add media type_details JSONB payload for type-specific metadata',
+    up: `
+      ALTER TABLE media
+        ADD COLUMN IF NOT EXISTS type_details JSONB;
+
+      CREATE INDEX IF NOT EXISTS idx_media_type_details_gin
+        ON media USING GIN (type_details);
+    `
+  },
+  {
+    version: 20,
+    description: 'Expand media format check for book formats',
+    up: `
+      DO $$
+      DECLARE
+        cname text;
+      BEGIN
+        SELECT conname INTO cname
+        FROM pg_constraint
+        WHERE conrelid = 'media'::regclass
+          AND contype = 'c'
+          AND pg_get_constraintdef(oid) ILIKE '%format%';
+
+        IF cname IS NOT NULL THEN
+          EXECUTE format('ALTER TABLE media DROP CONSTRAINT %I', cname);
+        END IF;
+      END;
+      $$;
+
+      ALTER TABLE media
+        ADD CONSTRAINT media_format_check
+        CHECK (
+          format IS NULL OR format IN (
+            'VHS', 'Blu-ray', 'Digital', 'DVD', '4K UHD',
+            'Paperback', 'Hardcover', 'Trade'
+          )
+        );
+    `
+  },
+  {
+    version: 21,
+    description: 'Add books/audio/games integration settings',
+    up: `
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS books_preset VARCHAR(100) DEFAULT 'googlebooks';
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS books_provider VARCHAR(100);
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS books_api_url TEXT;
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS books_api_key_encrypted TEXT;
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS books_api_key_header VARCHAR(100);
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS books_api_key_query_param VARCHAR(100);
+
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS audio_preset VARCHAR(100) DEFAULT 'theaudiodb';
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS audio_provider VARCHAR(100);
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS audio_api_url TEXT;
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS audio_api_key_encrypted TEXT;
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS audio_api_key_header VARCHAR(100);
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS audio_api_key_query_param VARCHAR(100);
+
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS games_preset VARCHAR(100) DEFAULT 'igdb';
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS games_provider VARCHAR(100);
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS games_api_url TEXT;
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS games_api_key_encrypted TEXT;
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS games_api_key_header VARCHAR(100);
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS games_api_key_query_param VARCHAR(100);
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS games_client_id VARCHAR(255);
+    `
+  },
+  {
+    version: 22,
+    description: 'Add encrypted games client secret for IGDB auth',
+    up: `
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS games_client_secret_encrypted TEXT;
+    `
   }
 ];
 

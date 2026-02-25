@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 permissions:
@@ -74,8 +76,18 @@ jobs:
           done
           echo "Release notes check passed for $NOTE_FILE"
 
+      - name: Enforce lockfile policy
+        run: |
+          test -f backend/package-lock.json || { echo "Missing required lockfile: backend/package-lock.json"; exit 1; }
+          test -f frontend/package-lock.json || { echo "Missing required lockfile: frontend/package-lock.json"; exit 1; }
+          echo "Lockfile policy check passed."
+
       - name: Enforce runtime dependency policy
         run: |
+          if grep -Eq '^[[:space:]]+container_name:' docker-compose.yml docker-compose.registry.yml; then
+            echo "container_name is forbidden in compose files (breaks portable topology and parallel stacks)."
+            exit 1
+          fi
           if grep -Eq '^[[:space:]]+redis:' docker-compose.yml docker-compose.registry.yml; then
             echo "Redis service found in compose files, but runtime policy is Postgres-only."
             exit 1
@@ -90,6 +102,51 @@ jobs:
             echo "Forbidden backend deps found (redis/connect-redis)."
             exit 1
           fi
+
+      - name: Enforce App.js modularity budget
+        run: |
+          APP_FILE="frontend/src/App.js"
+          HARD_BUDGET=550
+          LINE_COUNT=$(wc -l < "$APP_FILE" | tr -d ' ')
+          echo "App.js line count: $LINE_COUNT (hard budget: $HARD_BUDGET)"
+          if [ "$LINE_COUNT" -le "$HARD_BUDGET" ]; then
+            echo "App.js budget check passed."
+            exit 0
+          fi
+          EX_FILE=".ci/exceptions/app-shell-budget.json"
+          if [ ! -f "$EX_FILE" ]; then
+            echo "App.js exceeds hard budget and no exception file exists: $EX_FILE"
+            exit 1
+          fi
+          node <<'NODE'
+          const fs = require('fs');
+          const path = '.ci/exceptions/app-shell-budget.json';
+          const appFile = 'frontend/src/App.js';
+          const hardBudget = 550;
+          const lineCount = Number(fs.readFileSync(appFile, 'utf8').split('\n').length);
+          const raw = fs.readFileSync(path, 'utf8');
+          const ex = JSON.parse(raw);
+          const required = ['reason', 'approved_by', 'expires_on', 'max_lines', 'target_milestone'];
+          for (const key of required) {
+            if (!ex[key]) {
+              throw new Error(`App.js exception missing required field: ${key}`);
+            }
+          }
+          const expires = new Date(ex.expires_on);
+          if (Number.isNaN(expires.getTime())) {
+            throw new Error('App.js exception expires_on is not a valid date (YYYY-MM-DD expected).');
+          }
+          if (expires.getTime() < Date.now()) {
+            throw new Error(`App.js exception expired on ${ex.expires_on}.`);
+          }
+          if (!Number.isInteger(ex.max_lines) || ex.max_lines < hardBudget) {
+            throw new Error(`App.js exception max_lines must be an integer >= ${hardBudget}.`);
+          }
+          if (lineCount > ex.max_lines) {
+            throw new Error(`App.js line count ${lineCount} exceeds exception max_lines ${ex.max_lines}.`);
+          }
+          console.log(`App.js exception accepted through ${ex.expires_on} (target ${ex.target_milestone}).`);
+          NODE
 
       - name: Lowercase owner
         id: owner
@@ -110,11 +167,11 @@ jobs:
 
       - name: Install backend deps
         working-directory: backend
-        run: npm install --no-fund
+        run: npm ci --no-fund
 
       - name: Install frontend deps
         working-directory: frontend
-        run: npm install --no-fund
+        run: npm ci --no-fund
 
       - name: Run backend dependency audit
         working-directory: backend
@@ -151,6 +208,43 @@ jobs:
             console.error(`Dependency vulnerability gate failed (threshold: ${threshold}+).`);
             process.exit(1);
           }
+          NODE
+
+      - name: Enforce high vulnerability triage documentation
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const version = process.env.VERSION;
+          const files = ['backend-audit.json', 'frontend-audit.json'];
+          let highCount = 0;
+          for (const file of files) {
+            const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
+            const counts = parsed?.metadata?.vulnerabilities || {};
+            highCount += Number(counts.high || 0);
+          }
+          if (highCount === 0) {
+            console.log('No high vulnerabilities detected; triage note not required.');
+            process.exit(0);
+          }
+          const notePath = `docs/releases/v${version}.md`;
+          if (!fs.existsSync(notePath)) {
+            throw new Error(`Release note not found for triage check: ${notePath}`);
+          }
+          const note = fs.readFileSync(notePath, 'utf8');
+          const requiredMarkers = [
+            '## Security vulnerability triage',
+            'High findings:',
+            'Owner:',
+            'Target remediation milestone:'
+          ];
+          for (const marker of requiredMarkers) {
+            if (!note.includes(marker)) {
+              throw new Error(`Release note ${notePath} missing required triage marker: ${marker}`);
+            }
+          }
+          console.log(`High vulnerabilities detected (${highCount}); triage documentation present.`);
           NODE
 
       - name: Upload dependency audit artifacts
@@ -203,7 +297,11 @@ jobs:
 
       - name: Install backend deps
         working-directory: backend
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
+
+      - name: Run backend unit tests
+        working-directory: backend
+        run: npm run test:unit
 
       - name: Wait for Postgres
         working-directory: backend
@@ -329,9 +427,12 @@ jobs:
             echo "TRUST_PROXY=${TRUST_PROXY}"
           } >> .env.ci
           docker compose --env-file .env.ci up -d --build
-
-          timeout 120 sh -c 'until [ "$(docker inspect -f "{{.State.Health.Status}}" mediavault-backend)" = "healthy" ]; do sleep 3; done'
-          timeout 120 sh -c 'until [ "$(docker inspect -f "{{.State.Health.Status}}" mediavault-frontend)" = "healthy" ]; do sleep 3; done'
+          BACKEND_CID="$(docker compose --env-file .env.ci ps -q backend)"
+          FRONTEND_CID="$(docker compose --env-file .env.ci ps -q frontend)"
+          test -n "${BACKEND_CID}" || { echo "backend container id not found"; exit 1; }
+          test -n "${FRONTEND_CID}" || { echo "frontend container id not found"; exit 1; }
+          timeout 120 sh -c 'until [ "$(docker inspect -f "{{.State.Health.Status}}" "'"${BACKEND_CID}"'")" = "healthy" ]; do sleep 3; done'
+          timeout 120 sh -c 'until [ "$(docker inspect -f "{{.State.Health.Status}}" "'"${FRONTEND_CID}"'")" = "healthy" ]; do sleep 3; done'
 
           HEALTH_JSON="$(curl -s http://localhost:3000/api/health)"
           echo "$HEALTH_JSON" | grep -q "\"status\":\"ok\""
@@ -359,6 +460,8 @@ jobs:
             echo "Expected unauthenticated /api/auth/me to return 401, got $STATUS_CODE"
             exit 1
           fi
+
+          docker compose --env-file .env.ci exec -T backend npm run test:integration-smoke
 
   rbac-regression:
     runs-on: ubuntu-latest
@@ -394,8 +497,12 @@ jobs:
             echo "TRUST_PROXY=${TRUST_PROXY}"
           } >> .env.ci
           docker compose --env-file .env.ci up -d --build
-          timeout 120 sh -c 'until [ "$(docker inspect -f "{{.State.Health.Status}}" mediavault-backend)" = "healthy" ]; do sleep 3; done'
-          timeout 120 sh -c 'until [ "$(docker inspect -f "{{.State.Health.Status}}" mediavault-frontend)" = "healthy" ]; do sleep 3; done'
+          BACKEND_CID="$(docker compose --env-file .env.ci ps -q backend)"
+          FRONTEND_CID="$(docker compose --env-file .env.ci ps -q frontend)"
+          test -n "${BACKEND_CID}" || { echo "backend container id not found"; exit 1; }
+          test -n "${FRONTEND_CID}" || { echo "frontend container id not found"; exit 1; }
+          timeout 120 sh -c 'until [ "$(docker inspect -f "{{.State.Health.Status}}" "'"${BACKEND_CID}"'")" = "healthy" ]; do sleep 3; done'
+          timeout 120 sh -c 'until [ "$(docker inspect -f "{{.State.Health.Status}}" "'"${FRONTEND_CID}"'")" = "healthy" ]; do sleep 3; done'
           docker compose --env-file .env.ci exec -T -e BASE_URL=http://frontend:3000 backend node scripts/rbac-regression-check.js
 
   backend:
@@ -537,6 +644,93 @@ jobs:
           path: |
             backend-sbom.cdx.json
             frontend-sbom.cdx.json
+
+  release-preflight:
+    runs-on: ubuntu-latest
+    needs: [prepare, secret-scan, dependency-scan, migration-check, compose-smoke, rbac-regression, image-security-and-sbom]
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Download dependency audit artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dependency-audit
+          path: artifacts/dependency-audit
+
+      - name: Download init parity evidence artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: init-parity-evidence
+          path: artifacts/init-parity-evidence
+
+      - name: Download migration rehearsal evidence artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: migration-rehearsal-evidence
+          path: artifacts/migration-rehearsal-evidence
+
+      - name: Download SBOM artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: sbom-cyclonedx
+          path: artifacts/sbom-cyclonedx
+
+      - name: Validate preflight evidence and generate report
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          REF: ${{ github.ref }}
+          SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          test -f artifacts/dependency-audit/backend-audit.json
+          test -f artifacts/dependency-audit/frontend-audit.json
+          test -f artifacts/init-parity-evidence/init-parity-evidence.json
+          test -f artifacts/migration-rehearsal-evidence/migration-rehearsal-evidence.json
+          test -f artifacts/sbom-cyclonedx/backend-sbom.cdx.json
+          test -f artifacts/sbom-cyclonedx/frontend-sbom.cdx.json
+
+          REPORT="preflight-go-no-go.md"
+          {
+            echo "# Pre-2.0 Go/No-Go Preflight"
+            echo
+            echo "- Version: \`${VERSION}\`"
+            echo "- Ref: \`${REF}\`"
+            echo "- Commit: \`${SHA}\`"
+            echo "- Run: https://github.com/${REPOSITORY}/actions/runs/${RUN_ID}"
+            echo
+            echo "## Gate Results"
+            echo
+            echo "- Secret scan: PASS"
+            echo "- Dependency scan: PASS"
+            echo "- Migration check: PASS"
+            echo "- Compose smoke: PASS"
+            echo "- RBAC regression: PASS"
+            echo "- Image security and SBOM: PASS"
+            echo
+            echo "## Evidence Artifacts"
+            echo
+            echo "- \`dependency-audit/backend-audit.json\`"
+            echo "- \`dependency-audit/frontend-audit.json\`"
+            echo "- \`init-parity-evidence/init-parity-evidence.json\`"
+            echo "- \`migration-rehearsal-evidence/migration-rehearsal-evidence.json\`"
+            echo "- \`sbom-cyclonedx/backend-sbom.cdx.json\`"
+            echo "- \`sbom-cyclonedx/frontend-sbom.cdx.json\`"
+            echo
+            echo "## Blocking Criteria"
+            echo
+            echo "Release is NO-GO if any required gate fails or any required artifact is missing."
+            echo
+            echo "## Exception Process"
+            echo
+            echo "Follow \`docs/wiki/14-Engineering-Delivery-Policy.md\` exception rules before any override."
+          } > "${REPORT}"
+
+      - name: Upload preflight report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: preflight-go-no-go
+          path: preflight-go-no-go.md
 
   auto-tag:
     runs-on: ubuntu-latest
