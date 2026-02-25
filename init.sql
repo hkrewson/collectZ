@@ -40,11 +40,11 @@ CREATE TABLE IF NOT EXISTS invites (
 CREATE TABLE IF NOT EXISTS media (
     id SERIAL PRIMARY KEY,
     title VARCHAR(500) NOT NULL,
-    media_type VARCHAR(20) DEFAULT 'movie' CHECK (media_type IN ('movie', 'tv_series', 'tv_episode', 'other')),
+    media_type VARCHAR(20) DEFAULT 'movie' CHECK (media_type IN ('movie', 'tv_series', 'tv_episode', 'book', 'audio', 'game', 'other')),
     original_title VARCHAR(500),
     release_date DATE,
     year INTEGER,
-    format VARCHAR(50) CHECK (format IN ('VHS', 'Blu-ray', 'Digital', 'DVD', '4K UHD')),
+    format VARCHAR(50) CHECK (format IN ('VHS', 'Blu-ray', 'Digital', 'DVD', '4K UHD', 'Paperback', 'Hardcover', 'Trade')),
     genre VARCHAR(100),
     director VARCHAR(255),
     rating DECIMAL(3,1),
@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS media (
     episode_number INTEGER,
     episode_title VARCHAR(500),
     network VARCHAR(255),
+    type_details JSONB,
     series_id INTEGER REFERENCES media(id) ON DELETE SET NULL,
     space_id INTEGER,
     library_id INTEGER,
@@ -193,6 +194,26 @@ CREATE TABLE IF NOT EXISTS app_integrations (
     plex_api_key_encrypted TEXT,
     plex_api_key_query_param VARCHAR(100),
     plex_library_sections JSONB DEFAULT '[]'::jsonb,
+    books_preset VARCHAR(100) DEFAULT 'googlebooks',
+    books_provider VARCHAR(100),
+    books_api_url TEXT,
+    books_api_key_encrypted TEXT,
+    books_api_key_header VARCHAR(100),
+    books_api_key_query_param VARCHAR(100),
+    audio_preset VARCHAR(100) DEFAULT 'theaudiodb',
+    audio_provider VARCHAR(100),
+    audio_api_url TEXT,
+    audio_api_key_encrypted TEXT,
+    audio_api_key_header VARCHAR(100),
+    audio_api_key_query_param VARCHAR(100),
+    games_preset VARCHAR(100) DEFAULT 'igdb',
+    games_provider VARCHAR(100),
+    games_api_url TEXT,
+    games_api_key_encrypted TEXT,
+    games_api_key_header VARCHAR(100),
+    games_api_key_query_param VARCHAR(100),
+    games_client_id VARCHAR(255),
+    games_client_secret_encrypted TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -289,6 +310,23 @@ CREATE INDEX IF NOT EXISTS idx_library_memberships_user_id ON library_membership
 CREATE INDEX IF NOT EXISTS idx_library_memberships_library_id ON library_memberships(library_id);
 CREATE INDEX IF NOT EXISTS idx_sync_jobs_status_created_at ON sync_jobs(status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sync_jobs_created_by_created_at ON sync_jobs(created_by, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_media_library_type_title ON media(library_id, media_type, title);
+CREATE INDEX IF NOT EXISTS idx_media_library_type_year ON media(library_id, media_type, year);
+CREATE INDEX IF NOT EXISTS idx_media_library_type_created_at ON media(library_id, media_type, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_media_title_normalized_sort
+  ON media ((regexp_replace(lower(coalesce(title, '')), '^(the|an|a)\s+', '', 'i')));
+CREATE INDEX IF NOT EXISTS idx_media_search_fts
+  ON media USING GIN (
+    to_tsvector(
+      'simple',
+      coalesce(title, '') || ' ' ||
+      coalesce(original_title, '') || ' ' ||
+      coalesce(director, '') || ' ' ||
+      coalesce(genre, '') || ' ' ||
+      coalesce(notes, '')
+    )
+  );
+CREATE INDEX IF NOT EXISTS idx_media_type_details_gin ON media USING GIN (type_details);
 
 -- Text search performance indexes for director/genre filters
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
@@ -372,5 +410,11 @@ INSERT INTO schema_migrations (version, description) VALUES
     (13, 'Hash invite tokens at rest and remove plaintext storage'),
     (14, 'Password reset tokens table for admin-initiated one-time resets'),
     (15, 'Server-authoritative scope state and library memberships'),
-    (16, 'Library backfill and active library defaults for 2.0')
+    (16, 'Library backfill and active library defaults for 2.0'),
+    (17, 'Expand media type constraint for mixed media baseline'),
+    (18, 'Mixed media field consistency constraints and browse indexes'),
+    (19, 'Add media type_details JSONB payload for type-specific metadata'),
+    (20, 'Expand media format check for book formats'),
+    (21, 'Add books/audio/games integration settings'),
+    (22, 'Add encrypted games client secret for IGDB auth')
 ON CONFLICT (version) DO NOTHING;
