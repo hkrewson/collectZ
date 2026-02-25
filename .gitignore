@@ -88,3 +88,4 @@ nginx/ssl/*.crt
 
 # Local planning docs (intentionally not tracked)
 docs/wiki/roadmap-tenancy-deferred.md
+.env.ci
