@@ -403,8 +403,8 @@ jobs:
       - name: Build and start compose stack
         env:
           DB_PASSWORD: collectz_ci_db_password
-          SESSION_SECRET: collectz_ci_session_secret
-          INTEGRATION_ENCRYPTION_KEY: collectz_ci_encryption_key
+          SESSION_SECRET: collectz_ci_session_secret_32_chars_minimum_ok
+          INTEGRATION_ENCRYPTION_KEY: collectz_ci_integration_encryption_key_32_chars_min_ok
           APP_VERSION: ${{ needs.prepare.outputs.version }}
           GIT_SHA: ${{ needs.prepare.outputs.git_sha_short }}
           BUILD_DATE: ${{ needs.prepare.outputs.build_date }}
@@ -473,8 +473,8 @@ jobs:
       - name: Build and start compose stack
         env:
           DB_PASSWORD: collectz_ci_db_password
-          SESSION_SECRET: collectz_ci_session_secret
-          INTEGRATION_ENCRYPTION_KEY: collectz_ci_encryption_key
+          SESSION_SECRET: collectz_ci_session_secret_32_chars_minimum_ok
+          INTEGRATION_ENCRYPTION_KEY: collectz_ci_integration_encryption_key_32_chars_min_ok
           APP_VERSION: ${{ needs.prepare.outputs.version }}
           GIT_SHA: ${{ needs.prepare.outputs.git_sha_short }}
           BUILD_DATE: ${{ needs.prepare.outputs.build_date }}
