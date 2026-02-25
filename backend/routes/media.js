@@ -1870,9 +1870,12 @@ router.patch('/:id', validate(mediaUpdateSchema), asyncHandler(async (req, res) 
 
   const setClause = keys.map((key, i) => `${key} = $${i + 1}`).join(', ');
   const updateParams = [...values, id];
-  if (req.user.role !== 'admin') updateParams.push(req.user.id);
+  let ownerClause = '';
+  if (req.user.role !== 'admin') {
+    updateParams.push(req.user.id);
+    ownerClause = ` AND added_by = $${updateParams.length}`;
+  }
   const updateScopeClause = appendScopeSql(updateParams, scopeContext);
-  const ownerClause = req.user.role === 'admin' ? '' : ` AND added_by = $${updateParams.length}`;
   const result = await pool.query(
     `UPDATE media
      SET ${setClause}

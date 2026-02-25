@@ -5,6 +5,7 @@ const USER_ROLES = ['admin', 'user', 'viewer'];
 export default function AdminUsersView({ apiCall, onToast, currentUserId, Icons, Spinner, cx }) {
   const [activeTab, setActiveTab] = useState('members');
   const [users, setUsers] = useState([]);
+  const [libraries, setLibraries] = useState([]);
   const [invites, setInvites] = useState([]);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteUrl, setInviteUrl] = useState('');
@@ -17,13 +18,15 @@ export default function AdminUsersView({ apiCall, onToast, currentUserId, Icons,
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [resetLink, setResetLink] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
+  const [transferTargets, setTransferTargets] = useState({});
 
   const loadMembersData = useCallback(async () => {
     setLoading(true);
     setLoadError('');
-    const [usersRes, invitesRes] = await Promise.allSettled([
+    const [usersRes, invitesRes, librariesRes] = await Promise.allSettled([
       apiCall('get', '/admin/users'),
-      apiCall('get', '/admin/invites')
+      apiCall('get', '/admin/invites'),
+      apiCall('get', '/libraries')
     ]);
 
     if (usersRes.status === 'fulfilled') setUsers(usersRes.value || []);
@@ -31,6 +34,13 @@ export default function AdminUsersView({ apiCall, onToast, currentUserId, Icons,
 
     if (invitesRes.status === 'fulfilled') setInvites(invitesRes.value || []);
     else setLoadError((prev) => (prev ? `${prev} Failed to load invitations.` : 'Failed to load invitations.'));
+
+    if (librariesRes?.status === 'fulfilled') {
+      const libraryRows = Array.isArray(librariesRes.value?.libraries) ? librariesRes.value.libraries : [];
+      setLibraries(libraryRows);
+    } else {
+      setLoadError((prev) => (prev ? `${prev} Failed to load libraries.` : 'Failed to load libraries.'));
+    }
 
     setLoading(false);
   }, [apiCall]);
@@ -114,6 +124,61 @@ export default function AdminUsersView({ apiCall, onToast, currentUserId, Icons,
     }
   };
 
+  const deleteLibrary = async (library) => {
+    const ownerName = library?.created_by_name || library?.created_by_email || 'unknown owner';
+    const confirmName = window.prompt(
+      `You are about to delete a library owned by ${ownerName}.\nType the library name exactly to confirm deletion:`
+    );
+    if (!confirmName) return;
+    try {
+      await apiCall('delete', `/libraries/${library.id}`, { confirm_name: confirmName });
+      setLibraries((rows) => rows.filter((row) => Number(row.id) !== Number(library.id)));
+      onToast('Library deleted');
+    } catch (err) {
+      onToast(err.response?.data?.detail || err.response?.data?.error || 'Failed to delete library', 'error');
+    }
+  };
+
+  const archiveLibrary = async (library) => {
+    const confirmName = window.prompt(
+      `Archive "${library.name}"?\nType the library name exactly to confirm archive:`
+    );
+    if (!confirmName) return;
+    try {
+      await apiCall('post', `/libraries/${library.id}/archive`, { confirm_name: confirmName });
+      setLibraries((rows) => rows.filter((row) => Number(row.id) !== Number(library.id)));
+      onToast('Library archived');
+    } catch (err) {
+      onToast(err.response?.data?.detail || err.response?.data?.error || 'Failed to archive library', 'error');
+    }
+  };
+
+  const transferLibrary = async (library) => {
+    const targetUserId = Number(transferTargets[library.id] || 0);
+    if (!Number.isFinite(targetUserId) || targetUserId <= 0) {
+      onToast('Select a new owner', 'error');
+      return;
+    }
+    try {
+      const result = await apiCall('post', `/libraries/${library.id}/transfer`, {
+        new_owner_user_id: targetUserId
+      });
+      setLibraries((rows) => rows.map((row) => (
+        Number(row.id) === Number(library.id)
+          ? {
+              ...row,
+              created_by: result.new_owner_user_id,
+              created_by_name: result.new_owner_name || row.created_by_name,
+              created_by_email: result.new_owner_email || row.created_by_email
+            }
+          : row
+      )));
+      onToast('Library ownership transferred');
+    } catch (err) {
+      onToast(err.response?.data?.error || 'Failed to transfer ownership', 'error');
+    }
+  };
+
   const createPasswordReset = async () => {
     if (!selectedMemberId) return;
     setResetLoading(true);
@@ -174,6 +239,9 @@ export default function AdminUsersView({ apiCall, onToast, currentUserId, Icons,
             </button>
             <button type="button" className={cx('tab', activeTab === 'invitations' && 'active')} onClick={() => setActiveTab('invitations')}>
               Invitations ({displayInvites.length})
+            </button>
+            <button type="button" className={cx('tab', activeTab === 'libraries' && 'active')} onClick={() => setActiveTab('libraries')}>
+              Libraries ({libraries.length})
             </button>
           </div>
         </div>
@@ -266,6 +334,42 @@ export default function AdminUsersView({ apiCall, onToast, currentUserId, Icons,
                 );
               })}
             </div>
+          </div>
+        )}
+
+        {activeTab === 'libraries' && (
+          <div className="card divide-y divide-edge">
+            {libraries.length === 0 && <p className="px-4 py-6 text-sm text-ghost text-center">No libraries found</p>}
+            {libraries.map((library) => (
+              <div key={library.id} className="px-4 py-3 space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-ink font-medium truncate">{library.name}</p>
+                    <p className="text-xs text-ghost truncate">
+                      Owner: {library.created_by_name || library.created_by_email || 'Unassigned'} · Items: {library.item_count ?? 0}
+                    </p>
+                  </div>
+                  <span className="badge badge-dim">#{library.id}</span>
+                </div>
+                <div className="flex flex-wrap gap-2 items-center">
+                  <select
+                    className="select min-w-[12rem]"
+                    value={transferTargets[library.id] ?? ''}
+                    onChange={(e) => setTransferTargets((prev) => ({ ...prev, [library.id]: e.target.value }))}
+                  >
+                    <option value="">Transfer owner to…</option>
+                    {users.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.name || u.email} ({u.email})
+                      </option>
+                    ))}
+                  </select>
+                  <button className="btn-secondary btn-sm" onClick={() => transferLibrary(library)}>Transfer</button>
+                  <button className="btn-secondary btn-sm" onClick={() => archiveLibrary(library)}>Archive</button>
+                  <button className="btn-danger btn-sm" onClick={() => deleteLibrary(library)}>Delete</button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
