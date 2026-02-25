@@ -71,3 +71,9 @@ Expected recent actions include:
 - In sidebar header, confirm display format:
   - `v <semver> (<sha>)`
 - Match this against current deploy build.
+
+## 9. Bug Report Format (Testers)
+
+- When logging issues, use:
+  - `docs/wiki/18-Tester-Bug-Template.md`
+- Include exact role + active library for multi-library regressions.

@@ -1,4 +1,5 @@
 const { z } = require('zod');
+const { logActivity } = require('../services/audit');
 
 const emptyStringToNull = (value) => (
   typeof value === 'string' && value.trim() === '' ? null : value
@@ -144,6 +145,11 @@ const validate = (schema) => (req, res, next) => {
       field: e.path.join('.'),
       message: e.message
     }));
+    void logActivity(req, 'request.validation.failed', 'http_request', null, {
+      method: req.method,
+      url: req.originalUrl,
+      errors
+    });
     return res.status(400).json({ error: 'Validation failed', details: errors });
   }
   req.body = result.data;
