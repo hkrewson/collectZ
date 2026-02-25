@@ -216,16 +216,6 @@ app.use('/api/media/recognize-cover', externalApiLimiter);
 // ── Static file serving (cover uploads) ──────────────────────────────────────
 app.use('/uploads', express.static('uploads'));
 
-// ── Routes ────────────────────────────────────────────────────────────────────
-app.use('/api/auth', authRouter);
-// Profile endpoints live under auth routes but are exposed at /api/profile
-// for backward compatibility with existing frontend calls
-app.use('/api', authRouter);
-app.use('/api/media', mediaRouter);
-app.use('/api', integrationsRouter);
-app.use('/api', librariesRouter);
-app.use('/api/admin', adminRouter);
-
 // ── Health check ──────────────────────────────────────────────────────────────
 const healthPayload = () => ({
   status: 'ok',
@@ -237,6 +227,16 @@ const healthPayload = () => ({
 
 app.get('/health', (_req, res) => res.json(healthPayload()));
 app.get('/api/health', (_req, res) => res.json(healthPayload()));
+
+// ── Routes ────────────────────────────────────────────────────────────────────
+app.use('/api/auth', authRouter);
+// Profile endpoints live under auth routes but are exposed at /api/profile
+// for backward compatibility with existing frontend calls
+app.use('/api', authRouter);
+app.use('/api/media', mediaRouter);
+app.use('/api', integrationsRouter);
+app.use('/api', librariesRouter);
+app.use('/api/admin', adminRouter);
 
 // 404 JSON for unmatched API routes so failures are explicit and loggable.
 app.use('/api', (req, _res, next) => {

@@ -402,9 +402,6 @@ jobs:
 
       - name: Build and start compose stack
         env:
-          DB_PASSWORD: collectz_ci_db_password
-          SESSION_SECRET: collectz_ci_session_secret_32_chars_minimum_ok
-          INTEGRATION_ENCRYPTION_KEY: collectz_ci_integration_encryption_key_32_chars_min_ok
           APP_VERSION: ${{ needs.prepare.outputs.version }}
           GIT_SHA: ${{ needs.prepare.outputs.git_sha_short }}
           BUILD_DATE: ${{ needs.prepare.outputs.build_date }}
@@ -413,6 +410,9 @@ jobs:
           TRUST_PROXY: 1
         run: |
           set -euo pipefail
+          DB_PASSWORD="$(openssl rand -hex 16)"
+          SESSION_SECRET="$(openssl rand -hex 32)"
+          INTEGRATION_ENCRYPTION_KEY="$(openssl rand -hex 32)"
           trap 'docker compose --env-file .env.ci down -v --remove-orphans' EXIT
           cp env.example .env.ci
           {
@@ -472,9 +472,6 @@ jobs:
 
       - name: Build and start compose stack
         env:
-          DB_PASSWORD: collectz_ci_db_password
-          SESSION_SECRET: collectz_ci_session_secret_32_chars_minimum_ok
-          INTEGRATION_ENCRYPTION_KEY: collectz_ci_integration_encryption_key_32_chars_min_ok
           APP_VERSION: ${{ needs.prepare.outputs.version }}
           GIT_SHA: ${{ needs.prepare.outputs.git_sha_short }}
           BUILD_DATE: ${{ needs.prepare.outputs.build_date }}
@@ -483,6 +480,9 @@ jobs:
           TRUST_PROXY: 1
         run: |
           set -euo pipefail
+          DB_PASSWORD="$(openssl rand -hex 16)"
+          SESSION_SECRET="$(openssl rand -hex 32)"
+          INTEGRATION_ENCRYPTION_KEY="$(openssl rand -hex 32)"
           trap 'docker compose --env-file .env.ci down -v --remove-orphans' EXIT
           cp env.example .env.ci
           {
