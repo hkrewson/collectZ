@@ -900,6 +900,11 @@ This track converts the 1.9.1 external assessment findings into executable miles
   - Finish search/filter/sort and paging ergonomics for practical collection sizes.
   - Verify import quality and de-duplication behavior across providers.
   - Complete media-type filter/search behavior checks so each type can be isolated and managed without cross-type confusion.
+- `2.0.0-beta.3`:
+  - Add admin-managed enrichment provider settings for Books, Audio, and Games (alongside TMDB/Barcode/Vision/Plex).
+  - Add provider test endpoints and integration status badges for Books, Audio, and Games.
+  - Add Library lookup-and-apply flows for Books, Audio, and Games in add/edit media forms.
+  - Validate that applied enrichment populates type-specific fields and persists through create/edit flows.
 - `2.0.0-rc.1`:
   - Public test-server rehearsal with real tester traffic.
   - Resolve blocker bugs from tester template + activity logs.

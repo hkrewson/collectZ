@@ -817,6 +817,60 @@ const MIGRATIONS = [
           )
         );
     `
+  },
+  {
+    version: 21,
+    description: 'Add books/audio/games integration settings',
+    up: `
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS books_preset VARCHAR(100) DEFAULT 'googlebooks';
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS books_provider VARCHAR(100);
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS books_api_url TEXT;
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS books_api_key_encrypted TEXT;
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS books_api_key_header VARCHAR(100);
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS books_api_key_query_param VARCHAR(100);
+
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS audio_preset VARCHAR(100) DEFAULT 'theaudiodb';
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS audio_provider VARCHAR(100);
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS audio_api_url TEXT;
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS audio_api_key_encrypted TEXT;
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS audio_api_key_header VARCHAR(100);
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS audio_api_key_query_param VARCHAR(100);
+
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS games_preset VARCHAR(100) DEFAULT 'igdb';
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS games_provider VARCHAR(100);
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS games_api_url TEXT;
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS games_api_key_encrypted TEXT;
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS games_api_key_header VARCHAR(100);
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS games_api_key_query_param VARCHAR(100);
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS games_client_id VARCHAR(255);
+    `
+  },
+  {
+    version: 22,
+    description: 'Add encrypted games client secret for IGDB auth',
+    up: `
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS games_client_secret_encrypted TEXT;
+    `
   }
 ];
 

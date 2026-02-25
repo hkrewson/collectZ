@@ -12,6 +12,9 @@ const { searchTmdbMovie, fetchTmdbMovieDetails } = require('../services/tmdb');
 const { normalizeBarcodeMatches } = require('../services/barcode');
 const { extractVisionText, extractTitleCandidates } = require('../services/vision');
 const { fetchPlexLibraryItems } = require('../services/plex');
+const { searchBooksByTitle } = require('../services/books');
+const { searchAudioByTitle } = require('../services/audio');
+const { searchGamesByTitle } = require('../services/games');
 const { parseCsvText } = require('../services/csv');
 const { logError, logActivity } = require('../services/audit');
 const { uploadBuffer } = require('../services/storage');
@@ -1363,6 +1366,36 @@ router.get('/tmdb/:id/details', asyncHandler(async (req, res) => {
   const normalizedType = req.query.mediaType === 'tv' ? 'tv' : 'movie';
   const details = await fetchTmdbMovieDetails(movieId, config, normalizedType);
   res.json(details);
+}));
+
+router.post('/enrich/book/search', asyncHandler(async (req, res) => {
+  const { title, author } = req.body || {};
+  if (!String(title || '').trim()) {
+    return res.status(400).json({ error: 'title is required' });
+  }
+  const config = await loadAdminIntegrationConfig();
+  const matches = await searchBooksByTitle(String(title).trim(), config, 10, String(author || '').trim());
+  res.json({ provider: config.booksProvider || 'googlebooks', matches });
+}));
+
+router.post('/enrich/audio/search', asyncHandler(async (req, res) => {
+  const { title, artist } = req.body || {};
+  if (!String(title || '').trim()) {
+    return res.status(400).json({ error: 'title is required' });
+  }
+  const config = await loadAdminIntegrationConfig();
+  const matches = await searchAudioByTitle(String(title).trim(), config, 10, String(artist || '').trim());
+  res.json({ provider: config.audioProvider || 'discogs', matches });
+}));
+
+router.post('/enrich/game/search', asyncHandler(async (req, res) => {
+  const { title } = req.body || {};
+  if (!String(title || '').trim()) {
+    return res.status(400).json({ error: 'title is required' });
+  }
+  const config = await loadAdminIntegrationConfig();
+  const matches = await searchGamesByTitle(String(title).trim(), config, 10);
+  res.json({ provider: config.gamesProvider || 'igdb', matches });
 }));
 
 // ── UPC lookup ────────────────────────────────────────────────────────────────

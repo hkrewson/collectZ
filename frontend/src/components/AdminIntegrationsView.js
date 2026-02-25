@@ -17,6 +17,18 @@ const PLEX_PRESETS = {
   plex: { plexPreset: 'plex', plexProvider: 'plex', plexApiUrl: '', plexApiKeyQueryParam: 'X-Plex-Token' },
   custom: { plexPreset: 'custom', plexProvider: 'custom', plexApiUrl: '', plexApiKeyQueryParam: 'X-Plex-Token' }
 };
+const BOOKS_PRESETS = {
+  googlebooks: { booksPreset: 'googlebooks', booksProvider: 'googlebooks', booksApiUrl: 'https://www.googleapis.com/books/v1/volumes', booksApiKeyHeader: '', booksApiKeyQueryParam: 'key' },
+  custom: { booksPreset: 'custom', booksProvider: 'custom', booksApiUrl: '', booksApiKeyHeader: '', booksApiKeyQueryParam: 'key' }
+};
+const AUDIO_PRESETS = {
+  discogs: { audioPreset: 'discogs', audioProvider: 'discogs', audioApiUrl: 'https://api.discogs.com/database/search', audioApiKeyHeader: 'Authorization', audioApiKeyQueryParam: 'token' },
+  custom: { audioPreset: 'custom', audioProvider: 'custom', audioApiUrl: '', audioApiKeyHeader: 'x-api-key', audioApiKeyQueryParam: 'api_key' }
+};
+const GAMES_PRESETS = {
+  igdb: { gamesPreset: 'igdb', gamesProvider: 'igdb', gamesApiUrl: 'https://api.igdb.com/v4/games', gamesApiKeyHeader: 'Authorization', gamesApiKeyQueryParam: '' },
+  custom: { gamesPreset: 'custom', gamesProvider: 'custom', gamesApiUrl: '', gamesApiKeyHeader: 'Authorization', gamesApiKeyQueryParam: 'api_key' }
+};
 
 function LabeledField({ label, className = '', children, cx }) {
   return (
@@ -43,16 +55,26 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
     tmdbPreset: 'tmdb', tmdbProvider: 'tmdb', tmdbApiUrl: 'https://api.themoviedb.org/3/search/movie',
     tmdbApiKey: '', tmdbApiKeyHeader: '', tmdbApiKeyQueryParam: 'api_key', clearTmdbApiKey: false,
     plexPreset: 'plex', plexProvider: 'plex', plexApiUrl: '', plexServerName: '',
-    plexApiKey: '', plexApiKeyQueryParam: 'X-Plex-Token', plexLibrarySections: '', clearPlexApiKey: false
+    plexApiKey: '', plexApiKeyQueryParam: 'X-Plex-Token', plexLibrarySections: '', clearPlexApiKey: false,
+    booksPreset: 'googlebooks', booksProvider: 'googlebooks', booksApiUrl: 'https://www.googleapis.com/books/v1/volumes',
+    booksApiKey: '', booksApiKeyHeader: '', booksApiKeyQueryParam: 'key', clearBooksApiKey: false,
+    audioPreset: 'discogs', audioProvider: 'discogs', audioApiUrl: 'https://api.discogs.com/database/search',
+    audioApiKey: '', audioApiKeyHeader: '', audioApiKeyQueryParam: '', clearAudioApiKey: false,
+    gamesPreset: 'igdb', gamesProvider: 'igdb', gamesApiUrl: 'https://api.igdb.com/v4/games',
+    gamesApiKey: '', gamesApiKeyHeader: 'Authorization', gamesApiKeyQueryParam: '', gamesClientId: '', gamesClientSecret: '', clearGamesApiKey: false, clearGamesClientSecret: false
   });
   const [meta, setMeta] = useState({
     barcodeApiKeySet: false, barcodeApiKeyMasked: '',
     visionApiKeySet: false, visionApiKeyMasked: '',
     tmdbApiKeySet: false, tmdbApiKeyMasked: '',
     plexApiKeySet: false, plexApiKeyMasked: '',
+    booksApiKeySet: false, booksApiKeyMasked: '',
+    audioApiKeySet: false, audioApiKeyMasked: '',
+    gamesApiKeySet: false, gamesApiKeyMasked: '',
+    gamesClientSecretSet: false, gamesClientSecretMasked: '',
     decryptHealth: { hasWarnings: false, warnings: [], remediation: '' }
   });
-  const [status, setStatus] = useState({ barcode: 'unknown', vision: 'unknown', tmdb: 'unknown', plex: 'unknown' });
+  const [status, setStatus] = useState({ barcode: 'unknown', vision: 'unknown', tmdb: 'unknown', plex: 'unknown', books: 'unknown', audio: 'unknown', games: 'unknown' });
   const [testLoading, setTestLoading] = useState('');
   const [testMsg, setTestMsg] = useState('');
   const [saving, setSaving] = useState(false);
@@ -67,20 +89,33 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
         visionPreset: data.visionPreset || 'ocrspace', visionProvider: data.visionProvider || '', visionApiUrl: data.visionApiUrl || '', visionApiKeyHeader: data.visionApiKeyHeader || 'apikey',
         tmdbPreset: data.tmdbPreset || 'tmdb', tmdbProvider: data.tmdbProvider || '', tmdbApiUrl: data.tmdbApiUrl || '', tmdbApiKeyHeader: data.tmdbApiKeyHeader || '', tmdbApiKeyQueryParam: data.tmdbApiKeyQueryParam || 'api_key',
         plexPreset: data.plexPreset || 'plex', plexProvider: data.plexProvider || 'plex', plexApiUrl: data.plexApiUrl || '', plexServerName: data.plexServerName || '', plexApiKeyQueryParam: data.plexApiKeyQueryParam || 'X-Plex-Token',
-        plexLibrarySections: Array.isArray(data.plexLibrarySections) ? data.plexLibrarySections.join(',') : ''
+        plexLibrarySections: Array.isArray(data.plexLibrarySections) ? data.plexLibrarySections.join(',') : '',
+        booksPreset: data.booksPreset || 'googlebooks', booksProvider: data.booksProvider || 'googlebooks', booksApiUrl: data.booksApiUrl || 'https://www.googleapis.com/books/v1/volumes',
+        booksApiKeyHeader: data.booksApiKeyHeader || '', booksApiKeyQueryParam: data.booksApiKeyQueryParam || 'key',
+        audioPreset: data.audioPreset || 'discogs', audioProvider: data.audioProvider || 'discogs', audioApiUrl: data.audioApiUrl || 'https://api.discogs.com/database/search',
+        audioApiKeyHeader: data.audioApiKeyHeader || '', audioApiKeyQueryParam: data.audioApiKeyQueryParam || '',
+        gamesPreset: data.gamesPreset || 'igdb', gamesProvider: data.gamesProvider || 'igdb', gamesApiUrl: data.gamesApiUrl || 'https://api.igdb.com/v4/games',
+        gamesApiKeyHeader: data.gamesApiKeyHeader || 'Authorization', gamesApiKeyQueryParam: data.gamesApiKeyQueryParam || '', gamesClientId: data.gamesClientId || ''
       }));
       setMeta({
         barcodeApiKeySet: Boolean(data.barcodeApiKeySet), barcodeApiKeyMasked: data.barcodeApiKeyMasked || '',
         visionApiKeySet: Boolean(data.visionApiKeySet), visionApiKeyMasked: data.visionApiKeyMasked || '',
         tmdbApiKeySet: Boolean(data.tmdbApiKeySet), tmdbApiKeyMasked: data.tmdbApiKeyMasked || '',
         plexApiKeySet: Boolean(data.plexApiKeySet), plexApiKeyMasked: data.plexApiKeyMasked || '',
+        booksApiKeySet: Boolean(data.booksApiKeySet), booksApiKeyMasked: data.booksApiKeyMasked || '',
+        audioApiKeySet: Boolean(data.audioApiKeySet), audioApiKeyMasked: data.audioApiKeyMasked || '',
+        gamesApiKeySet: Boolean(data.gamesApiKeySet), gamesApiKeyMasked: data.gamesApiKeyMasked || '',
+        gamesClientSecretSet: Boolean(data.gamesClientSecretSet), gamesClientSecretMasked: data.gamesClientSecretMasked || '',
         decryptHealth: data.decryptHealth || { hasWarnings: false, warnings: [], remediation: '' }
       });
       setStatus({
         barcode: data.barcodeApiKeySet ? 'configured' : 'missing',
         vision: data.visionApiKeySet ? 'configured' : 'missing',
         tmdb: data.tmdbApiKeySet ? 'configured' : 'missing',
-        plex: data.plexApiKeySet ? 'configured' : 'missing'
+        plex: data.plexApiKeySet ? 'configured' : 'missing',
+        books: data.booksApiKeySet ? 'configured' : 'missing',
+        audio: data.audioApiKeySet ? 'configured' : 'missing',
+        games: (data.gamesApiKeySet || (data.gamesClientId && data.gamesClientSecretSet)) ? 'configured' : 'missing'
       });
     }).catch(() => {});
   }, [apiCall]);
@@ -89,6 +124,9 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
   const applyVisionPreset = (p) => setForm((f) => ({ ...f, ...(VISION_PRESETS[p] || {}) }));
   const applyTmdbPreset = (p) => setForm((f) => ({ ...f, ...(TMDB_PRESETS[p] || {}) }));
   const applyPlexPreset = (p) => setForm((f) => ({ ...f, ...(PLEX_PRESETS[p] || {}) }));
+  const applyBooksPreset = (p) => setForm((f) => ({ ...f, ...(BOOKS_PRESETS[p] || {}) }));
+  const applyAudioPreset = (p) => setForm((f) => ({ ...f, ...(AUDIO_PRESETS[p] || {}) }));
+  const applyGamesPreset = (p) => setForm((f) => ({ ...f, ...(GAMES_PRESETS[p] || {}) }));
   const plexSectionIds = useMemo(
     () => form.plexLibrarySections.split(',').map((v) => v.trim()).filter(Boolean),
     [form.plexLibrarySections]
@@ -107,11 +145,28 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
     if (sec === 'barcode') Object.assign(payload, { barcodePreset: form.barcodePreset, barcodeProvider: form.barcodeProvider, barcodeApiUrl: form.barcodeApiUrl, barcodeApiKeyHeader: form.barcodeApiKeyHeader, barcodeQueryParam: form.barcodeQueryParam, clearBarcodeApiKey: form.clearBarcodeApiKey, ...(form.barcodeApiKey && { barcodeApiKey: form.barcodeApiKey }) });
     else if (sec === 'vision') Object.assign(payload, { visionPreset: form.visionPreset, visionProvider: form.visionProvider, visionApiUrl: form.visionApiUrl, visionApiKeyHeader: form.visionApiKeyHeader, clearVisionApiKey: form.clearVisionApiKey, ...(form.visionApiKey && { visionApiKey: form.visionApiKey }) });
     else if (sec === 'tmdb') Object.assign(payload, { tmdbPreset: form.tmdbPreset, tmdbProvider: form.tmdbProvider, tmdbApiUrl: form.tmdbApiUrl, tmdbApiKeyHeader: form.tmdbApiKeyHeader, tmdbApiKeyQueryParam: form.tmdbApiKeyQueryParam, clearTmdbApiKey: form.clearTmdbApiKey, ...(form.tmdbApiKey && { tmdbApiKey: form.tmdbApiKey }) });
-    else Object.assign(payload, {
+    else if (sec === 'plex') Object.assign(payload, {
       plexPreset: form.plexPreset, plexProvider: form.plexProvider, plexApiUrl: form.plexApiUrl, plexServerName: form.plexServerName,
       plexApiKeyQueryParam: form.plexApiKeyQueryParam, clearPlexApiKey: form.clearPlexApiKey,
       plexLibrarySections: form.plexLibrarySections.split(',').map((v) => v.trim()).filter(Boolean),
       ...(form.plexApiKey && { plexApiKey: form.plexApiKey })
+    });
+    else if (sec === 'books') Object.assign(payload, {
+      booksPreset: form.booksPreset, booksProvider: form.booksProvider, booksApiUrl: form.booksApiUrl,
+      booksApiKeyHeader: form.booksApiKeyHeader, booksApiKeyQueryParam: form.booksApiKeyQueryParam,
+      clearBooksApiKey: form.clearBooksApiKey, ...(form.booksApiKey && { booksApiKey: form.booksApiKey })
+    });
+    else if (sec === 'audio') Object.assign(payload, {
+      audioPreset: form.audioPreset, audioProvider: form.audioProvider, audioApiUrl: form.audioApiUrl,
+      audioApiKeyHeader: form.audioApiKeyHeader, audioApiKeyQueryParam: form.audioApiKeyQueryParam,
+      clearAudioApiKey: form.clearAudioApiKey, ...(form.audioApiKey && { audioApiKey: form.audioApiKey })
+    });
+    else if (sec === 'games') Object.assign(payload, {
+      gamesPreset: form.gamesPreset, gamesProvider: form.gamesProvider, gamesApiUrl: form.gamesApiUrl,
+      gamesApiKeyHeader: form.gamesApiKeyHeader, gamesApiKeyQueryParam: form.gamesApiKeyQueryParam,
+      gamesClientId: form.gamesClientId, clearGamesApiKey: form.clearGamesApiKey, clearGamesClientSecret: form.clearGamesClientSecret,
+      ...(form.gamesApiKey && { gamesApiKey: form.gamesApiKey }),
+      ...(form.gamesClientSecret && { gamesClientSecret: form.gamesClientSecret })
     });
     try {
       const updated = await apiCall('put', '/admin/settings/integrations', payload);
@@ -120,10 +175,24 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
         visionApiKeySet: Boolean(updated.visionApiKeySet), visionApiKeyMasked: updated.visionApiKeyMasked || '',
         tmdbApiKeySet: Boolean(updated.tmdbApiKeySet), tmdbApiKeyMasked: updated.tmdbApiKeyMasked || '',
         plexApiKeySet: Boolean(updated.plexApiKeySet), plexApiKeyMasked: updated.plexApiKeyMasked || '',
+        booksApiKeySet: Boolean(updated.booksApiKeySet), booksApiKeyMasked: updated.booksApiKeyMasked || '',
+        audioApiKeySet: Boolean(updated.audioApiKeySet), audioApiKeyMasked: updated.audioApiKeyMasked || '',
+        gamesApiKeySet: Boolean(updated.gamesApiKeySet), gamesApiKeyMasked: updated.gamesApiKeyMasked || '',
+        gamesClientSecretSet: Boolean(updated.gamesClientSecretSet), gamesClientSecretMasked: updated.gamesClientSecretMasked || '',
         decryptHealth: updated.decryptHealth || { hasWarnings: false, warnings: [], remediation: '' }
       });
-      setStatus((s) => ({ ...s, [sec]: updated[`${sec}ApiKeySet`] ? 'configured' : 'missing' }));
-      setForm((f) => ({ ...f, barcodeApiKey: '', visionApiKey: '', tmdbApiKey: '', plexApiKey: '', clearBarcodeApiKey: false, clearVisionApiKey: false, clearTmdbApiKey: false, clearPlexApiKey: false }));
+      setStatus((s) => ({
+        ...s,
+        [sec]: sec === 'games'
+          ? ((updated.gamesApiKeySet || (updated.gamesClientId && updated.gamesClientSecretSet)) ? 'configured' : 'missing')
+          : (updated[`${sec}ApiKeySet`] ? 'configured' : 'missing')
+      }));
+      setForm((f) => ({
+        ...f,
+        barcodeApiKey: '', visionApiKey: '', tmdbApiKey: '', plexApiKey: '', booksApiKey: '', audioApiKey: '', gamesApiKey: '', gamesClientSecret: '',
+        clearBarcodeApiKey: false, clearVisionApiKey: false, clearTmdbApiKey: false, clearPlexApiKey: false,
+        clearBooksApiKey: false, clearAudioApiKey: false, clearGamesApiKey: false, clearGamesClientSecret: false
+      }));
       onToast(`${sec.toUpperCase()} settings saved`);
     } catch (err) {
       onToast(err.response?.data?.error || 'Save failed', 'error');
@@ -136,7 +205,16 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
     setTestLoading(sec);
     setTestMsg('');
     try {
-      const result = await apiCall('post', `/admin/settings/integrations/test-${sec}`, sec === 'tmdb' ? { title: 'The Matrix', year: '1999' } : {});
+      const payload = sec === 'tmdb'
+        ? { title: 'The Matrix', year: '1999' }
+        : sec === 'books'
+          ? { title: 'Dust', author: 'Hugh Howey' }
+          : sec === 'audio'
+            ? { title: 'Kind of Blue', artist: 'Miles Davis' }
+            : sec === 'games'
+              ? { title: 'Halo' }
+              : {};
+      const result = await apiCall('post', `/admin/settings/integrations/test-${sec}`, payload);
       setStatus((s) => ({ ...s, [sec]: result.authenticated ? 'ok' : 'auth_failed' }));
       setTestMsg(`${sec.toUpperCase()}: ${result.authenticated ? 'Connected' : 'Auth failed'} — ${result.detail}`);
       if (sec === 'plex') setPlexAvailableSections(Array.isArray(result.sections) ? result.sections : []);
@@ -168,7 +246,7 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
     }
   };
 
-  const sections = ['barcode', 'vision', 'tmdb', 'plex'];
+  const sections = ['barcode', 'vision', 'tmdb', 'plex', 'books', 'audio', 'games'];
 
   return (
     <div className="h-full overflow-y-auto p-6 max-w-2xl space-y-6">
@@ -284,6 +362,68 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
           <label className="flex items-center gap-2 text-sm text-dim cursor-pointer">
             <input type="checkbox" checked={form.clearPlexApiKey} onChange={(e) => setForm((f) => ({ ...f, clearPlexApiKey: e.target.checked }))} className="rounded" />
             Clear saved key
+          </label>
+        </>}
+
+        {section === 'books' && <>
+          <LabeledField label="Preset" cx={cx}><select className="select" value={form.booksPreset} onChange={(e) => applyBooksPreset(e.target.value)}>
+            <option value="googlebooks">Google Books</option><option value="custom">Custom</option>
+          </select></LabeledField>
+          <LabeledField label="Books API URL" cx={cx}><input className="input" value={form.booksApiUrl} onChange={(e) => setForm((f) => ({ ...f, booksApiUrl: e.target.value }))} /></LabeledField>
+          <div className="grid grid-cols-2 gap-3">
+            <LabeledField label="Key Header (opt)" cx={cx}><input className="input" value={form.booksApiKeyHeader} onChange={(e) => setForm((f) => ({ ...f, booksApiKeyHeader: e.target.value }))} /></LabeledField>
+            <LabeledField label="Key Query Param" cx={cx}><input className="input" value={form.booksApiKeyQueryParam} onChange={(e) => setForm((f) => ({ ...f, booksApiKeyQueryParam: e.target.value }))} /></LabeledField>
+          </div>
+          <LabeledField label={`Books API Key ${meta.booksApiKeySet ? `(set: ${meta.booksApiKeyMasked})` : '(not set)'}`} cx={cx}>
+            <input className="input font-mono" type="password" placeholder="Enter new key to update" value={form.booksApiKey} onChange={(e) => setForm((f) => ({ ...f, booksApiKey: e.target.value }))} />
+          </LabeledField>
+          <label className="flex items-center gap-2 text-sm text-dim cursor-pointer">
+            <input type="checkbox" checked={form.clearBooksApiKey} onChange={(e) => setForm((f) => ({ ...f, clearBooksApiKey: e.target.checked }))} className="rounded" />
+            Clear saved key
+          </label>
+        </>}
+
+        {section === 'audio' && <>
+          <LabeledField label="Preset" cx={cx}><select className="select" value={form.audioPreset} onChange={(e) => applyAudioPreset(e.target.value)}>
+            <option value="discogs">Discogs</option><option value="custom">Custom</option>
+          </select></LabeledField>
+          <LabeledField label="Audio API URL" cx={cx}><input className="input" value={form.audioApiUrl} onChange={(e) => setForm((f) => ({ ...f, audioApiUrl: e.target.value }))} /></LabeledField>
+          <div className="grid grid-cols-2 gap-3">
+            <LabeledField label="Key Header" cx={cx}><input className="input" value={form.audioApiKeyHeader} onChange={(e) => setForm((f) => ({ ...f, audioApiKeyHeader: e.target.value }))} /></LabeledField>
+            <LabeledField label="Key Query Param" cx={cx}><input className="input" value={form.audioApiKeyQueryParam} onChange={(e) => setForm((f) => ({ ...f, audioApiKeyQueryParam: e.target.value }))} /></LabeledField>
+          </div>
+          <LabeledField label={`Discogs Token ${meta.audioApiKeySet ? `(set: ${meta.audioApiKeyMasked})` : '(not set)'}`} cx={cx}>
+            <input className="input font-mono" type="password" placeholder="Enter new key to update" value={form.audioApiKey} onChange={(e) => setForm((f) => ({ ...f, audioApiKey: e.target.value }))} />
+          </LabeledField>
+          <label className="flex items-center gap-2 text-sm text-dim cursor-pointer">
+            <input type="checkbox" checked={form.clearAudioApiKey} onChange={(e) => setForm((f) => ({ ...f, clearAudioApiKey: e.target.checked }))} className="rounded" />
+            Clear saved key
+          </label>
+        </>}
+
+        {section === 'games' && <>
+          <LabeledField label="Preset" cx={cx}><select className="select" value={form.gamesPreset} onChange={(e) => applyGamesPreset(e.target.value)}>
+            <option value="igdb">IGDB</option><option value="custom">Custom</option>
+          </select></LabeledField>
+          <LabeledField label="Games API URL" cx={cx}><input className="input" value={form.gamesApiUrl} onChange={(e) => setForm((f) => ({ ...f, gamesApiUrl: e.target.value }))} /></LabeledField>
+          <LabeledField label="Games Client ID (IGDB)" cx={cx}><input className="input" value={form.gamesClientId} onChange={(e) => setForm((f) => ({ ...f, gamesClientId: e.target.value }))} /></LabeledField>
+          <LabeledField label={`Games Client Secret (IGDB) ${meta.gamesClientSecretSet ? `(set: ${meta.gamesClientSecretMasked})` : '(not set)'}`} cx={cx}>
+            <input className="input font-mono" type="password" placeholder="Enter client secret to update" value={form.gamesClientSecret} onChange={(e) => setForm((f) => ({ ...f, gamesClientSecret: e.target.value }))} />
+          </LabeledField>
+          <div className="grid grid-cols-2 gap-3">
+            <LabeledField label="Key Header" cx={cx}><input className="input" value={form.gamesApiKeyHeader} onChange={(e) => setForm((f) => ({ ...f, gamesApiKeyHeader: e.target.value }))} /></LabeledField>
+            <LabeledField label="Key Query Param" cx={cx}><input className="input" value={form.gamesApiKeyQueryParam} onChange={(e) => setForm((f) => ({ ...f, gamesApiKeyQueryParam: e.target.value }))} /></LabeledField>
+          </div>
+          <LabeledField label={`Games API Key ${meta.gamesApiKeySet ? `(set: ${meta.gamesApiKeyMasked})` : '(not set)'}`} cx={cx}>
+            <input className="input font-mono" type="password" placeholder="Enter new key to update" value={form.gamesApiKey} onChange={(e) => setForm((f) => ({ ...f, gamesApiKey: e.target.value }))} />
+          </LabeledField>
+          <label className="flex items-center gap-2 text-sm text-dim cursor-pointer">
+            <input type="checkbox" checked={form.clearGamesApiKey} onChange={(e) => setForm((f) => ({ ...f, clearGamesApiKey: e.target.checked }))} className="rounded" />
+            Clear saved key
+          </label>
+          <label className="flex items-center gap-2 text-sm text-dim cursor-pointer">
+            <input type="checkbox" checked={form.clearGamesClientSecret} onChange={(e) => setForm((f) => ({ ...f, clearGamesClientSecret: e.target.checked }))} className="rounded" />
+            Clear client secret
           </label>
         </>}
 
