@@ -1,7 +1,6 @@
 services:
   db:
     image: postgres:16-alpine
-    container_name: mediavault-db
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-mediavault}
@@ -19,13 +18,12 @@ services:
       retries: 5
 
   backend:
-    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-hkrewson}/collectz-backend:${IMAGE_TAG:-1.9.20}
-    container_name: mediavault-backend
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-hkrewson}/collectz-backend:${IMAGE_TAG:-2.0.0-beta.3}
     restart: unless-stopped
     environment:
       NODE_ENV: production
       TRUST_PROXY: ${TRUST_PROXY:-1}
-      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
       PORT: 3001
       DATABASE_SSL: ${DATABASE_SSL:-false}
       DATABASE_URL: postgresql://${DB_USER:-mediavault}:${DB_PASSWORD}@db:5432/${POSTGRES_DB:-mediavault}
@@ -69,8 +67,7 @@ services:
       retries: 3
 
   frontend:
-    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-hkrewson}/collectz-frontend:${IMAGE_TAG:-1.9.20}
-    container_name: mediavault-frontend
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-hkrewson}/collectz-frontend:${IMAGE_TAG:-2.0.0-beta.3}
     restart: unless-stopped
     depends_on:
       - backend

@@ -10,7 +10,8 @@ export default function ImportView({
   apiUrl,
   Icons,
   Spinner,
-  cx
+  cx,
+  activeLibrary = null
 }) {
   const [tab, setTab] = useState(canImportPlex ? 'plex' : 'csv');
   const [busy, setBusy] = useState('');
@@ -163,6 +164,7 @@ export default function ImportView({
     { id: 'csv', label: 'Generic CSV' },
     { id: 'delicious', label: 'Delicious CSV' }
   ];
+  const hasActiveLibrary = Boolean(activeLibrary?.id);
   const recentJobs = useMemo(
     () => importJobs.filter((job) => ['plex', 'csv_generic', 'csv_delicious'].includes(job.provider)).slice(0, 5),
     [importJobs]
@@ -197,7 +199,7 @@ export default function ImportView({
           <>
             <p className="text-sm text-dim">Import titles from your configured Plex server and selected sections.</p>
             <p className="text-xs text-ghost">Uses saved Admin Integrations Plex settings. Import runs async with progress, deduplication, and TMDB enrichment when possible.</p>
-            <button onClick={runPlexImport} className="btn-primary" disabled={busy === 'plex'}>
+            <button onClick={runPlexImport} className="btn-primary" disabled={busy === 'plex' || !hasActiveLibrary}>
               {busy === 'plex' ? <Spinner size={14} /> : <><Icons.Upload />Start Plex Import</>}
             </button>
             {recentJobs.length > 0 && (
@@ -224,7 +226,7 @@ export default function ImportView({
             <p className="text-sm text-dim">Import from a CSV file using collectZ columns.</p>
             <p className="text-xs text-ghost">Required: title. Optional: year, format, director, genre, rating, user_rating, runtime, upc, location, notes.</p>
             <div className="flex flex-wrap gap-3">
-              <button onClick={() => csvInputRef.current?.click()} className="btn-primary" disabled={busy === 'CSV'}>
+              <button onClick={() => csvInputRef.current?.click()} className="btn-primary" disabled={busy === 'CSV' || !hasActiveLibrary}>
                 {busy === 'CSV' ? <Spinner size={14} /> : <><Icons.Upload />Choose CSV File</>}
               </button>
               <a href={`${apiUrl}/media/import/template-csv`} className="btn-secondary"><Icons.Download />Download Template</a>
@@ -247,7 +249,7 @@ export default function ImportView({
           <>
             <p className="text-sm text-dim">Import a Delicious export CSV.</p>
             <p className="text-xs text-ghost">Movie rows only are imported. Non-movie rows are skipped. Data is enriched from TMDB when available.</p>
-            <button onClick={() => deliciousInputRef.current?.click()} className="btn-primary" disabled={busy === 'Delicious'}>
+            <button onClick={() => deliciousInputRef.current?.click()} className="btn-primary" disabled={busy === 'Delicious' || !hasActiveLibrary}>
               {busy === 'Delicious' ? <Spinner size={14} /> : <><Icons.Upload />Choose Delicious CSV</>}
             </button>
             <input
@@ -281,7 +283,7 @@ export default function ImportView({
                   }
                 }}
               />
-              <button onClick={lookupBarcode} className="btn-primary" disabled={barcodeLookupLoading || !barcodeUpc.trim()}>
+              <button onClick={lookupBarcode} className="btn-primary" disabled={barcodeLookupLoading || !barcodeUpc.trim() || !hasActiveLibrary}>
                 {barcodeLookupLoading ? <Spinner size={14} /> : <><Icons.Barcode />Lookup</>}
               </button>
             </div>
@@ -299,7 +301,7 @@ export default function ImportView({
                           {year || 'n/a'}{m?.upc ? ` · UPC ${m.upc}` : ''}{m?.source ? ` · ${m.source}` : ''}
                         </p>
                       </div>
-                      <button className="btn-secondary btn-sm" disabled={barcodeAddingId === addId} onClick={() => addBarcodeMatch(m, idx)}>
+                      <button className="btn-secondary btn-sm" disabled={barcodeAddingId === addId || !hasActiveLibrary} onClick={() => addBarcodeMatch(m, idx)}>
                         {barcodeAddingId === addId ? <Spinner size={14} /> : 'Add'}
                       </button>
                     </div>

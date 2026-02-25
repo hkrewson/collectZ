@@ -371,5 +371,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (12, 'Feature flag metadata and defaults'),
     (13, 'Hash invite tokens at rest and remove plaintext storage'),
     (14, 'Password reset tokens table for admin-initiated one-time resets'),
-    (15, 'Server-authoritative scope state and library memberships')
+    (15, 'Server-authoritative scope state and library memberships'),
+    (16, 'Library backfill and active library defaults for 2.0')
 ON CONFLICT (version) DO NOTHING;

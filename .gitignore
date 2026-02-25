@@ -17,6 +17,8 @@ yarn-debug.log*
 yarn-error.log*
 package-lock.json
 yarn.lock
+!backend/package-lock.json
+!frontend/package-lock.json
 
 # Build outputs
 backend/dist/
@@ -82,3 +84,6 @@ nginx/ssl/*.crt
 
 # Keep example files
 !.env.example
+
+# Local planning docs (intentionally not tracked)
+docs/wiki/roadmap-tenancy-deferred.md

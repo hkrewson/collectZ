@@ -1,0 +1,132 @@
+name: Dependency Watch
+
+on:
+  schedule:
+    - cron: "30 15 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-watch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Generate backend dependency report
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          cd backend
+          npm ci --no-fund --no-audit
+          npm outdated --json > ../artifacts/backend-outdated.json || true
+          npm audit --omit=dev --json > ../artifacts/backend-audit.json || true
+
+      - name: Generate frontend dependency report
+        run: |
+          set -euo pipefail
+          cd frontend
+          npm ci --no-fund --no-audit
+          npm outdated --json > ../artifacts/frontend-outdated.json || true
+          npm audit --omit=dev --json > ../artifacts/frontend-audit.json || true
+
+      - name: Build dependency watch summary
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+
+          function readJson(file, fallback = {}) {
+            try {
+              return JSON.parse(fs.readFileSync(file, 'utf8'));
+            } catch (_) {
+              return fallback;
+            }
+          }
+
+          function classifyDelta(current, latest) {
+            const parse = (v) => String(v || '').replace(/^[^\d]*/, '').split('.').map((n) => Number(n || 0));
+            const [cMaj, cMin, cPatch] = parse(current);
+            const [lMaj, lMin, lPatch] = parse(latest);
+            if (lMaj > cMaj) return 'major';
+            if (lMin > cMin) return 'minor';
+            if (lPatch > cPatch) return 'patch';
+            return 'none';
+          }
+
+          function collectRows(outdatedPath, ecosystem) {
+            const outdated = readJson(outdatedPath, {});
+            return Object.entries(outdated).map(([name, v]) => {
+              const current = v.current || '';
+              const wanted = v.wanted || '';
+              const latest = v.latest || '';
+              return {
+                ecosystem,
+                name,
+                current,
+                wanted,
+                latest,
+                materiality: classifyDelta(current, latest)
+              };
+            }).sort((a, b) => a.name.localeCompare(b.name));
+          }
+
+          const backendRows = collectRows('artifacts/backend-outdated.json', 'backend');
+          const frontendRows = collectRows('artifacts/frontend-outdated.json', 'frontend');
+          const backendAudit = readJson('artifacts/backend-audit.json', {});
+          const frontendAudit = readJson('artifacts/frontend-audit.json', {});
+
+          const summary = {
+            generatedAt: new Date().toISOString(),
+            backendAudit: backendAudit?.metadata?.vulnerabilities || {},
+            frontendAudit: frontendAudit?.metadata?.vulnerabilities || {},
+            updates: [...backendRows, ...frontendRows]
+          };
+
+          fs.writeFileSync('artifacts/dependency-watch-summary.json', JSON.stringify(summary, null, 2) + '\n');
+
+          const lines = [];
+          lines.push('# Dependency Watch Summary');
+          lines.push('');
+          lines.push(`Generated: ${summary.generatedAt}`);
+          lines.push('');
+          lines.push('## Security counts (production audit)');
+          lines.push('');
+          lines.push(`- Backend: ${JSON.stringify(summary.backendAudit)}`);
+          lines.push(`- Frontend: ${JSON.stringify(summary.frontendAudit)}`);
+          lines.push('');
+          lines.push('## Available updates');
+          lines.push('');
+          if (summary.updates.length === 0) {
+            lines.push('No outdated packages reported.');
+          } else {
+            lines.push('| Ecosystem | Package | Current | Wanted | Latest | Materiality |');
+            lines.push('|---|---|---:|---:|---:|---|');
+            for (const row of summary.updates) {
+              lines.push(`| ${row.ecosystem} | ${row.name} | ${row.current} | ${row.wanted} | ${row.latest} | ${row.materiality} |`);
+            }
+          }
+          lines.push('');
+          lines.push('## Review guidance');
+          lines.push('');
+          lines.push('- Prioritize security-related major/minor updates with relevant runtime exposure.');
+          lines.push('- Batch non-security patch/minor updates under maintenance cadence.');
+          lines.push('- Require full dependency-change test gates before merge.');
+
+          const markdown = lines.join('\n') + '\n';
+          fs.writeFileSync('artifacts/dependency-watch-summary.md', markdown);
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, markdown);
+          NODE
+
+      - name: Upload dependency-watch artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-watch
+          path: artifacts
