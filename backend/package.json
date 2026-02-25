@@ -1,6 +1,6 @@
 {
   "name": "mediavault-backend",
-  "version": "2.0.0-alpha.9",
+  "version": "2.0.0-beta.2",
   "description": "collectZ Backend API",
   "main": "server.js",
   "scripts": {
@@ -10,6 +10,7 @@
     "test:integration-smoke": "node scripts/api-integration-smoke.js",
     "test:csv-import": "node scripts/csv-parse-smoke.js",
     "test:rbac-regression": "node scripts/rbac-regression-check.js",
+    "test:cross-type-isolation": "node scripts/cross-type-isolation-check.js",
     "test:migration-rehearsal": "node scripts/migration-rehearsal.js",
     "test:init-parity": "node scripts/check-init-parity.js"
   },

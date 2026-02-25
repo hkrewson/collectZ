@@ -11,8 +11,7 @@ export default function ImportView({
   Icons,
   Spinner,
   cx,
-  activeLibrary = null,
-  currentUserRole = 'user'
+  activeLibrary = null
 }) {
   const [tab, setTab] = useState(canImportPlex ? 'plex' : 'csv');
   const [busy, setBusy] = useState('');
@@ -165,13 +164,6 @@ export default function ImportView({
     { id: 'csv', label: 'Generic CSV' },
     { id: 'delicious', label: 'Delicious CSV' }
   ];
-  const activeLibraryLabel = useMemo(() => {
-    if (!activeLibrary) return 'No active library selected';
-    const ownerName = activeLibrary?.created_by_name || activeLibrary?.created_by_email || '';
-    return currentUserRole === 'admin' && ownerName
-      ? `${activeLibrary.name} - ${ownerName}`
-      : activeLibrary.name;
-  }, [activeLibrary, currentUserRole]);
   const hasActiveLibrary = Boolean(activeLibrary?.id);
   const recentJobs = useMemo(
     () => importJobs.filter((job) => ['plex', 'csv_generic', 'csv_delicious'].includes(job.provider)).slice(0, 5),
@@ -192,12 +184,6 @@ export default function ImportView({
       <div>
         <h1 className="section-title">Import Media</h1>
         <p className="text-sm text-ghost mt-1">Add titles from external sources into your library.</p>
-        <div className={cx('mt-3 rounded-lg border px-3 py-2 text-xs', hasActiveLibrary ? 'border-edge bg-raised text-dim' : 'border-err/50 bg-err/10 text-err')}>
-          <p className="font-mono">
-            Target library: {activeLibraryLabel}{hasActiveLibrary ? ` (#${activeLibrary.id})` : ''}
-          </p>
-          <p className="mt-1 text-[11px] opacity-80">Imports write into the currently selected active library only.</p>
-        </div>
       </div>
 
       <div className="tab-strip w-full max-w-xl">

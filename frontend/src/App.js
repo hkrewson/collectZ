@@ -14,7 +14,7 @@ import LibraryView from './components/LibraryView';
 import { routeFromPath, readCookie, Spinner, Toast, ImportStatusDock, Icons, cx } from './components/app/AppPrimitives';
 
 const API_URL = process.env.REACT_APP_API_URL || '/api';
-const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.version || '2.0.0-alpha.9';
+const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.version || '2.0.0-beta.2';
 const BUILD_SHA = process.env.REACT_APP_GIT_SHA || appMeta?.build?.gitShaDefault || 'dev';
 const IMPORT_JOBS_KEY = 'collectz_import_jobs';
 const IMPORT_POLL_LEADER_KEY = 'collectz_import_poll_leader';
@@ -448,7 +448,15 @@ export default function App() {
   }
 
   const isAdminTab = String(activeTab || '').startsWith('admin-');
-  const forcedMediaType = activeTab === 'library-tv' ? 'tv' : activeTab === 'library-other' ? 'other' : 'movie';
+  const forcedMediaTypeByTab = {
+    'library-movies': 'movie',
+    'library-tv': 'tv',
+    'library-books': 'book',
+    'library-audio': 'audio',
+    'library-games': 'game',
+    'library-other': 'other'
+  };
+  const forcedMediaType = forcedMediaTypeByTab[activeTab] || 'movie';
   const activeLibrary = libraries.find((library) => Number(library.id) === Number(activeLibraryId)) || null;
 
   const renderTab = () => {
@@ -460,6 +468,9 @@ export default function App() {
       case 'library':
       case 'library-movies':
       case 'library-tv':
+      case 'library-books':
+      case 'library-audio':
+      case 'library-games':
       case 'library-other':
         return (
           <LibraryView
@@ -474,8 +485,6 @@ export default function App() {
             onRating={rateMedia}
             apiCall={apiCall}
             forcedMediaType={forcedMediaType}
-            activeLibrary={activeLibrary}
-            currentUserRole={user?.role || 'user'}
           />
         );
       case 'library-import':
@@ -492,7 +501,6 @@ export default function App() {
             Spinner={Spinner}
             cx={cx}
             activeLibrary={activeLibrary}
-            currentUserRole={user?.role || 'user'}
           />
         );
       case 'profile':

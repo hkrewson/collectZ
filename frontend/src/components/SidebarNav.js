@@ -15,7 +15,15 @@ export default function SidebarNav({
   const isAdmin = user?.role === 'admin';
   const [adminOpen, setAdminOpen] = useState(true);
   const [libraryOpen, setLibraryOpen] = useState(true);
-  const isLibraryActive = ['library', 'library-movies', 'library-tv', 'library-other'].includes(activeTab);
+  const isLibraryActive = [
+    'library',
+    'library-movies',
+    'library-tv',
+    'library-books',
+    'library-audio',
+    'library-games',
+    'library-other'
+  ].includes(activeTab);
 
   const NavLink = ({ id, icon, label, sub = false }) => {
     const active = activeTab === id;
@@ -87,6 +95,9 @@ export default function SidebarNav({
               <div className="mt-1 space-y-1">
                 <NavLink id="library-movies" icon={null} label="Movies" sub />
                 <NavLink id="library-tv" icon={null} label="TV" sub />
+                <NavLink id="library-books" icon={null} label="Books" sub />
+                <NavLink id="library-audio" icon={null} label="Audio" sub />
+                <NavLink id="library-games" icon={null} label="Games" sub />
                 <NavLink id="library-other" icon={null} label="Other" sub />
               </div>
             )}

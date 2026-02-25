@@ -705,6 +705,118 @@ const MIGRATIONS = [
       FROM fallback_library fl
       WHERE m.library_id IS NULL;
     `
+  },
+  {
+    version: 17,
+    description: 'Expand media type constraint for mixed media baseline',
+    up: `
+      ALTER TABLE media
+        DROP CONSTRAINT IF EXISTS media_media_type_check;
+
+      ALTER TABLE media
+        ADD CONSTRAINT media_media_type_check
+        CHECK (media_type IN ('movie', 'tv_series', 'tv_episode', 'book', 'audio', 'game', 'other'));
+    `
+  },
+  {
+    version: 18,
+    description: 'Mixed media field consistency constraints and browse indexes',
+    up: `
+      UPDATE media
+      SET season_number = NULL,
+          episode_number = NULL,
+          episode_title = NULL,
+          network = NULL
+      WHERE media_type NOT IN ('tv_series', 'tv_episode');
+
+      UPDATE media
+      SET episode_number = NULL,
+          episode_title = NULL
+      WHERE media_type = 'tv_series';
+
+      ALTER TABLE media
+        DROP CONSTRAINT IF EXISTS media_tv_fields_consistency_check;
+
+      ALTER TABLE media
+        ADD CONSTRAINT media_tv_fields_consistency_check
+        CHECK (
+          CASE
+            WHEN media_type IN ('tv_series', 'tv_episode') THEN TRUE
+            ELSE season_number IS NULL AND episode_number IS NULL AND episode_title IS NULL AND network IS NULL
+          END
+        );
+
+      ALTER TABLE media
+        DROP CONSTRAINT IF EXISTS media_tv_series_episode_fields_check;
+
+      ALTER TABLE media
+        ADD CONSTRAINT media_tv_series_episode_fields_check
+        CHECK (
+          CASE
+            WHEN media_type = 'tv_series' THEN episode_number IS NULL AND episode_title IS NULL
+            ELSE TRUE
+          END
+        );
+
+      CREATE INDEX IF NOT EXISTS idx_media_library_type_title ON media(library_id, media_type, title);
+      CREATE INDEX IF NOT EXISTS idx_media_library_type_year ON media(library_id, media_type, year);
+      CREATE INDEX IF NOT EXISTS idx_media_library_type_created_at ON media(library_id, media_type, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_media_title_normalized_sort
+        ON media ((regexp_replace(lower(coalesce(title, '')), '^(the|an|a)\\s+', '', 'i')));
+
+      CREATE INDEX IF NOT EXISTS idx_media_search_fts
+        ON media USING GIN (
+          to_tsvector(
+            'simple',
+            coalesce(title, '') || ' ' ||
+            coalesce(original_title, '') || ' ' ||
+            coalesce(director, '') || ' ' ||
+            coalesce(genre, '') || ' ' ||
+            coalesce(notes, '')
+          )
+        );
+    `
+  },
+  {
+    version: 19,
+    description: 'Add media type_details JSONB payload for type-specific metadata',
+    up: `
+      ALTER TABLE media
+        ADD COLUMN IF NOT EXISTS type_details JSONB;
+
+      CREATE INDEX IF NOT EXISTS idx_media_type_details_gin
+        ON media USING GIN (type_details);
+    `
+  },
+  {
+    version: 20,
+    description: 'Expand media format check for book formats',
+    up: `
+      DO $$
+      DECLARE
+        cname text;
+      BEGIN
+        SELECT conname INTO cname
+        FROM pg_constraint
+        WHERE conrelid = 'media'::regclass
+          AND contype = 'c'
+          AND pg_get_constraintdef(oid) ILIKE '%format%';
+
+        IF cname IS NOT NULL THEN
+          EXECUTE format('ALTER TABLE media DROP CONSTRAINT %I', cname);
+        END IF;
+      END;
+      $$;
+
+      ALTER TABLE media
+        ADD CONSTRAINT media_format_check
+        CHECK (
+          format IS NULL OR format IN (
+            'VHS', 'Blu-ray', 'Digital', 'DVD', '4K UHD',
+            'Paperback', 'Hardcover', 'Trade'
+          )
+        );
+    `
   }
 ];
 
