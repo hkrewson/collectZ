@@ -18,6 +18,8 @@ openssl rand -hex 32
 ```
 
 Use a unique value per secret. Never reuse one value for multiple variables.
+For production startup validation, keep `SESSION_SECRET` and `INTEGRATION_ENCRYPTION_KEY` at
+32+ characters and avoid placeholder values.
 
 ## Rotation Triggers
 
@@ -43,6 +45,12 @@ docker compose --env-file .env up -d
 ```bash
 docker compose --env-file .env ps
 curl -s http://localhost:3000/api/health
+```
+
+If startup fails, inspect backend logs:
+
+```bash
+docker compose --env-file .env logs --tail=80 backend
 ```
 
 ## Session Secret Rotation (Force Re-Auth)

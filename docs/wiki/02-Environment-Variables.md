@@ -9,6 +9,9 @@ These must be set for a working deployment:
 - `DB_PASSWORD`: Postgres app user password.
 - `SESSION_SECRET`: session security secret for cookie/session infrastructure.
 - `INTEGRATION_ENCRYPTION_KEY`: secret used to encrypt integration API keys at rest. Required in production.
+- Production hardening:
+  - `SESSION_SECRET` and `INTEGRATION_ENCRYPTION_KEY` must be non-placeholder values and at least 32 characters.
+  - `DB_PASSWORD` must be set in production.
 
 Recommended generation:
 
@@ -132,6 +135,15 @@ Set the variable in `.env` and restart backend.
 If `SESSION_COOKIE_SECURE` is set to `false` while `NODE_ENV=production`, backend startup fails with:
 
 `SESSION_COOKIE_SECURE must be true in production`
+
+If `SESSION_SECRET` or `INTEGRATION_ENCRYPTION_KEY` is weak (placeholder/short) in production, backend startup fails with:
+
+- `SESSION_SECRET is too weak in production (minimum 32 chars, non-placeholder value)`
+- `INTEGRATION_ENCRYPTION_KEY is too weak in production (minimum 32 chars, non-placeholder value)`
+
+If `DB_PASSWORD` is missing in production, backend startup fails with:
+
+`DB_PASSWORD must be set in production`
 
 ## Integration Key Rotation Notes
 
