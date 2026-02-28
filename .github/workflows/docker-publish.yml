@@ -248,7 +248,7 @@ jobs:
           NODE
 
       - name: Upload dependency audit artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: dependency-audit
           path: |
@@ -386,7 +386,7 @@ jobs:
           INIT_PARITY_OUTPUT="artifacts/init-parity-evidence.json" npm run test:init-parity
 
       - name: Upload init parity evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: init-parity-evidence
           path: backend/artifacts/init-parity-evidence.json
@@ -405,7 +405,7 @@ jobs:
           npm run test:migration-rehearsal
 
       - name: Upload migration rehearsal evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: migration-rehearsal-evidence
           path: backend/artifacts/migration-rehearsal-evidence.json
@@ -657,7 +657,7 @@ jobs:
           output: frontend-sbom.cdx.json
 
       - name: Upload SBOM artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: sbom-cyclonedx
           path: |
@@ -670,25 +670,25 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
       - name: Download dependency audit artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: dependency-audit
           path: artifacts/dependency-audit
 
       - name: Download init parity evidence artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: init-parity-evidence
           path: artifacts/init-parity-evidence
 
       - name: Download migration rehearsal evidence artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: migration-rehearsal-evidence
           path: artifacts/migration-rehearsal-evidence
 
       - name: Download SBOM artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: sbom-cyclonedx
           path: artifacts/sbom-cyclonedx
@@ -746,7 +746,7 @@ jobs:
           } > "${REPORT}"
 
       - name: Upload preflight report artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: preflight-go-no-go
           path: preflight-go-no-go.md
