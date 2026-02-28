@@ -653,25 +653,25 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
       - name: Download dependency audit artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: dependency-audit
           path: artifacts/dependency-audit
 
       - name: Download init parity evidence artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: init-parity-evidence
           path: artifacts/init-parity-evidence
 
       - name: Download migration rehearsal evidence artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: migration-rehearsal-evidence
           path: artifacts/migration-rehearsal-evidence
 
       - name: Download SBOM artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: sbom-cyclonedx
           path: artifacts/sbom-cyclonedx
