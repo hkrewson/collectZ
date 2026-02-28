@@ -1,0 +1,7 @@
+{
+  "reason": "App shell still includes transitional orchestration/state wiring while ongoing module extraction lands in beta milestones.",
+  "approved_by": "hamlin@krewson.org",
+  "expires_on": "2026-04-15",
+  "max_lines": 700,
+  "target_milestone": "2.0.0-beta.6"
+}
