@@ -64,11 +64,11 @@ export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion
             CATALOGUED.
           </h1>
           <p className="text-dim text-lg max-w-md leading-relaxed">
-            Track every disc, stream, and tape in your library. Powered by TMDB. Built for collectors.
+            Track every item in your library. Powered by open source tools. Built for collectors.
           </p>
         </div>
         <div className="relative z-10 flex items-center gap-6">
-          {['VHS', 'Blu-ray', '4K UHD', 'Digital'].map((f) => (
+          {['Audio', 'Books', 'Games', 'Movies'].map((f) => (
             <span key={f} className="text-xs text-ghost tracking-widest uppercase border border-ghost/20 px-2 py-1 rounded">{f}</span>
           ))}
         </div>

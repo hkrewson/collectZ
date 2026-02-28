@@ -905,6 +905,31 @@ This track converts the 1.9.1 external assessment findings into executable miles
   - Add provider test endpoints and integration status badges for Books, Audio, and Games.
   - Add Library lookup-and-apply flows for Books, Audio, and Games in add/edit media forms.
   - Validate that applied enrichment populates type-specific fields and persists through create/edit flows.
+- `2.0.0-beta.4`:
+  - Add identifier-first enrichment pipeline for imports and manual lookups:
+    - `ISBN` first for books,
+    - `EAN/UPC` first for physical media and games,
+    - title/year fallback only when identifiers are missing or no-hit.
+  - Extend Delicious import mapping to persist source identifiers (`isbn`, `ean/upc`, `asin` parsed from Amazon link when present).
+  - Add de-duplication precedence by identifier (`ISBN`, `EAN/UPC`) before title/year matching.
+  - Add explicit import audit detail for identifier lookup outcome (`matched_by_identifier`, `identifier_no_match`, `fallback_title_match`).
+- `2.0.0-beta.5`:
+  - Add signed-copy metadata fields across media types:
+    - `signed_by` (free text),
+    - `signed_role` (`author`, `producer`, `cast`),
+    - `signed_on` (date),
+    - `signed_at` (free text).
+  - Ensure create/edit/view/import payloads preserve these fields without breaking older clients.
+  - Add migration + index review (where needed) and include field-level validation rules.
+- `2.0.0-beta.6`:
+  - Add comic-book tracking foundation:
+    - media-type-level support for comic entries in unified library UX,
+    - calibre library/list import path for comics (hosted library or export file ingestion),
+    - enrichment provider evaluation and implementation for comic metadata (`author`, `publisher`, `artist`, `inker`, `colorist`, etc.).
+  - Reader feasibility spike:
+    - evaluate built-in reader options for common comic formats,
+    - evaluate extension path to digital books where technically safe and maintainable.
+  - Add clear scope boundaries for v2.0 release candidate (tracking + import first, reader optional behind feature flag if incomplete).
 - `2.0.0-rc.1`:
   - Public test-server rehearsal with real tester traffic.
   - Resolve blocker bugs from tester template + activity logs.
@@ -924,6 +949,9 @@ This track converts the 1.9.1 external assessment findings into executable miles
   - Plex import,
   - Generic CSV import,
   - Delicious CSV import.
+- Use identifier-first matching where available:
+  - `ISBN` and `EAN/UPC` as primary enrichment/dedupe keys,
+  - title/year as fallback.
 - Preserve clear audit visibility for failures and privileged actions.
 - Prioritize usability and reliability over adding tenancy complexity.
 
@@ -932,6 +960,10 @@ This track converts the 1.9.1 external assessment findings into executable miles
 - Admin can configure integrations and users; normal users can manage catalog entries safely.
 - End users can add/import/edit/delete/search media without scope confusion.
 - Media-type coverage is confirmed at RC: movies, TV, books, audio, and games are all manageable in the unified library surface.
+- Imports with identifier-bearing rows produce materially higher match quality:
+  - books with `ISBN` preferentially match by `ISBN`,
+  - physical media rows with `EAN/UPC` preferentially match by barcode,
+  - audit output states whether identifier or fallback matching was used.
 - Library performance remains acceptable for large personal collections.
 - Security defaults are enforced in production (strong secrets, secure cookies, CI gates).
 - Release docs support straightforward homelab deployment and recovery.
@@ -940,10 +972,12 @@ This track converts the 1.9.1 external assessment findings into executable miles
 
 - DB:
   - Keep current `media` + supporting tables stable and migration-safe.
+  - Persist and index canonical external identifiers used for import/dedupe (`isbn`, `ean/upc`, optional `asin` metadata).
   - Ensure indexes support high-volume browse/search/import paths.
   - Avoid disruptive tenancy schema expansion in 2.0.0.
 - API:
   - Keep API contracts stable for auth, media CRUD, imports, invites, and admin tooling.
+  - Add identifier-aware enrichment/import behavior without breaking existing request payloads.
   - Maintain strict RBAC checks and explicit audit events for failures/denials.
   - Avoid introducing new multi-space endpoint families in 2.0.0.
 

@@ -14,7 +14,7 @@ import LibraryView from './components/LibraryView';
 import { routeFromPath, readCookie, Spinner, Toast, ImportStatusDock, Icons, cx } from './components/app/AppPrimitives';
 
 const API_URL = process.env.REACT_APP_API_URL || '/api';
-const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.version || '2.0.0-beta.3';
+const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.version || '2.0.0-beta.4';
 const BUILD_SHA = process.env.REACT_APP_GIT_SHA || appMeta?.build?.gitShaDefault || 'dev';
 const IMPORT_JOBS_KEY = 'collectz_import_jobs';
 const IMPORT_POLL_LEADER_KEY = 'collectz_import_poll_leader';
@@ -22,6 +22,69 @@ const IMPORT_POLL_LAST_TS_KEY = 'collectz_import_poll_last_ts';
 const IMPORT_POLL_HEARTBEAT_MS = 8000;
 const IMPORT_POLL_STALE_MS = 25000;
 const IMPORT_POLL_INTERVAL_MS = 10000;
+const VALID_DASHBOARD_TABS = new Set([
+  'library',
+  'library-movies',
+  'library-tv',
+  'library-books',
+  'library-audio',
+  'library-games',
+  'library-comics',
+  'library-other',
+  'library-import',
+  'profile',
+  'admin-users',
+  'admin-activity',
+  'admin-settings',
+  'admin-flags',
+  'admin-integrations'
+]);
+const VALID_INTEGRATION_SECTIONS = new Set(['audio', 'barcode', 'books', 'games', 'plex', 'tmdb', 'vision']);
+const DEFAULT_TAB = 'library-movies';
+const DEFAULT_INTEGRATION_SECTION = 'audio';
+
+function readDashboardStateFromUrl() {
+  const path = String(window.location.pathname || '');
+  const libMatch = path.match(/^\/library\/(movies|tv|books|audio|games|comics|other|import)\/?$/);
+  if (libMatch) {
+    const slug = libMatch[1];
+    return {
+      tab: slug === 'import'
+        ? 'library-import'
+        : slug === 'other'
+          ? 'library-comics'
+          : `library-${slug}`,
+      integrationSection: DEFAULT_INTEGRATION_SECTION
+    };
+  }
+  const adminIntegrationMatch = path.match(/^\/admin\/integrations\/?([^/]+)?\/?$/);
+  if (adminIntegrationMatch) {
+    const sec = String(adminIntegrationMatch[1] || '').toLowerCase();
+    return {
+      tab: 'admin-integrations',
+      integrationSection: VALID_INTEGRATION_SECTIONS.has(sec) ? sec : DEFAULT_INTEGRATION_SECTION
+    };
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  const tab = params.get('tab');
+  const integration = params.get('integration');
+  const normalizedTab = tab === 'library-other' ? 'library-comics' : tab;
+  return {
+    tab: VALID_DASHBOARD_TABS.has(normalizedTab) ? normalizedTab : DEFAULT_TAB,
+    integrationSection: VALID_INTEGRATION_SECTIONS.has(integration) ? integration : DEFAULT_INTEGRATION_SECTION
+  };
+}
+
+function dashboardUrl(tab, integrationSection) {
+  const params = new URLSearchParams();
+  if (tab && tab !== DEFAULT_TAB) params.set('tab', tab);
+  if (tab === 'admin-integrations' && integrationSection && integrationSection !== DEFAULT_INTEGRATION_SECTION) {
+    params.set('integration', integrationSection);
+  }
+  const query = params.toString();
+  return `/dashboard${query ? `?${query}` : ''}`;
+}
 
 function ForbiddenView({ title = 'Access Restricted', detail = 'You do not have permission to view this section.' }) {
   return (
@@ -35,10 +98,12 @@ function ForbiddenView({ title = 'Access Restricted', detail = 'You do not have 
 }
 
 export default function App() {
+  const initialDashboardState = readDashboardStateFromUrl();
   const [route, setRoute] = useState(routeFromPath(window.location.pathname));
   const [user, setUser] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
-  const [activeTab, setActiveTab] = useState('library-movies');
+  const [activeTab, setActiveTab] = useState(initialDashboardState.tab);
+  const [activeIntegrationSection, setActiveIntegrationSection] = useState(initialDashboardState.integrationSection);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [mediaItems, setMediaItems] = useState([]);
@@ -101,25 +166,39 @@ export default function App() {
       {},
       '',
       nextRoute === 'register' ? '/register'
-        : nextRoute === 'dashboard' ? '/dashboard'
+        : nextRoute === 'dashboard' ? dashboardUrl(activeTab, activeIntegrationSection)
           : nextRoute === 'reset' ? '/reset-password'
             : '/login'
     );
     setRoute(nextRoute);
-  }, []);
+  }, [activeIntegrationSection, activeTab]);
 
   useEffect(() => {
-    const sync = () => setRoute(routeFromPath(window.location.pathname));
+    const sync = () => {
+      setRoute(routeFromPath(window.location.pathname));
+      if (routeFromPath(window.location.pathname) === 'dashboard') {
+        const nextState = readDashboardStateFromUrl();
+        setActiveTab(nextState.tab);
+        setActiveIntegrationSection(nextState.integrationSection);
+      }
+    };
     window.addEventListener('popstate', sync);
     return () => window.removeEventListener('popstate', sync);
   }, []);
 
   useEffect(() => {
     if (route !== 'dashboard' && user) {
-      window.history.replaceState({}, '', '/dashboard');
+      window.history.replaceState({}, '', dashboardUrl(activeTab, activeIntegrationSection));
       setRoute('dashboard');
     }
-  }, [route, user]);
+  }, [route, user, activeTab, activeIntegrationSection]);
+
+  useEffect(() => {
+    if (route !== 'dashboard') return;
+    const nextUrl = dashboardUrl(activeTab, activeIntegrationSection);
+    const currentUrl = `${window.location.pathname}${window.location.search}`;
+    if (currentUrl !== nextUrl) window.history.replaceState({}, '', nextUrl);
+  }, [route, activeTab, activeIntegrationSection]);
 
   useEffect(() => {
     const onVisibilityChange = () => {
@@ -202,9 +281,9 @@ export default function App() {
   const handleAuth = useCallback((usr) => {
     setUser(usr || null);
     setAuthChecked(true);
-    window.history.replaceState({}, '', '/dashboard');
+    window.history.replaceState({}, '', dashboardUrl(activeTab, activeIntegrationSection));
     setRoute('dashboard');
-  }, []);
+  }, [activeIntegrationSection, activeTab]);
 
   const logout = useCallback(async () => {
     try { await apiCall('post', '/auth/logout'); } catch (_) {}
@@ -454,7 +533,7 @@ export default function App() {
     'library-books': 'book',
     'library-audio': 'audio',
     'library-games': 'game',
-    'library-other': 'other'
+    'library-comics': 'comic_book'
   };
   const forcedMediaType = forcedMediaTypeByTab[activeTab] || 'movie';
   const activeLibrary = libraries.find((library) => Number(library.id) === Number(activeLibraryId)) || null;
@@ -471,7 +550,7 @@ export default function App() {
       case 'library-books':
       case 'library-audio':
       case 'library-games':
-      case 'library-other':
+      case 'library-comics':
         return (
           <LibraryView
             mediaItems={mediaItems}
@@ -514,7 +593,17 @@ export default function App() {
       case 'admin-flags':
         return <AdminFeatureFlagsView apiCall={apiCall} onToast={showToast} Spinner={Spinner} cx={cx} />;
       case 'admin-integrations':
-        return <AdminIntegrationsView apiCall={apiCall} onToast={showToast} onQueueJob={upsertImportJob} Spinner={Spinner} cx={cx} />;
+        return (
+          <AdminIntegrationsView
+            apiCall={apiCall}
+            onToast={showToast}
+            onQueueJob={upsertImportJob}
+            Spinner={Spinner}
+            cx={cx}
+            section={activeIntegrationSection}
+            onSectionChange={setActiveIntegrationSection}
+          />
+        );
       default:
         return null;
     }
@@ -525,7 +614,10 @@ export default function App() {
       <SidebarNav
         user={user}
         activeTab={activeTab}
-        onSelect={setActiveTab}
+        onSelect={(nextTab) => {
+          setActiveTab(nextTab);
+          if (nextTab !== 'admin-integrations') setActiveIntegrationSection(DEFAULT_INTEGRATION_SECTION);
+        }}
         onLogout={logout}
         collapsed={sidebarCollapsed}
         onToggle={() => setSidebarCollapsed((c) => !c)}

@@ -45,8 +45,20 @@ function StatusBadge({ status, cx }) {
   return <span className={cx('badge', map[status] || 'badge-dim')}>{labels[status] || 'Unknown'}</span>;
 }
 
-export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Spinner, cx }) {
-  const [section, setSection] = useState('barcode');
+export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Spinner, cx, section: externalSection, onSectionChange }) {
+  const integrationSections = useMemo(
+    () => ([
+      { id: 'audio', label: 'Audio' },
+      { id: 'barcode', label: 'Barcode' },
+      { id: 'books', label: 'Books' },
+      { id: 'games', label: 'Games' },
+      { id: 'plex', label: 'Plex' },
+      { id: 'tmdb', label: 'TMDB' },
+      { id: 'vision', label: 'Vision' }
+    ]),
+    []
+  );
+  const [section, setSection] = useState(externalSection || integrationSections[0].id);
   const [form, setForm] = useState({
     barcodePreset: 'upcitemdb', barcodeProvider: 'upcitemdb', barcodeApiUrl: '', barcodeApiKey: '',
     barcodeApiKeyHeader: 'x-api-key', barcodeQueryParam: 'upc', clearBarcodeApiKey: false,
@@ -80,6 +92,17 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
   const [saving, setSaving] = useState(false);
   const [importingPlex, setImportingPlex] = useState(false);
   const [plexAvailableSections, setPlexAvailableSections] = useState([]);
+
+  useEffect(() => {
+    if (!externalSection || externalSection === section) return;
+    const known = integrationSections.some((item) => item.id === externalSection);
+    if (known) setSection(externalSection);
+  }, [externalSection, integrationSections, section]);
+
+  const setSectionWithSync = (nextSection) => {
+    setSection(nextSection);
+    if (typeof onSectionChange === 'function') onSectionChange(nextSection);
+  };
 
   useEffect(() => {
     apiCall('get', '/admin/settings/integrations').then((data) => {
@@ -246,18 +269,22 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
     }
   };
 
-  const sections = ['barcode', 'vision', 'tmdb', 'plex', 'books', 'audio', 'games'];
+  const isConfigured = (id) => status[id] === 'configured' || status[id] === 'ok';
+  const activeSectionLabel = integrationSections.find((s) => s.id === section)?.label || section;
 
   return (
-    <div className="h-full overflow-y-auto p-6 max-w-2xl space-y-6">
+    <div className="h-full overflow-y-auto p-6 max-w-5xl space-y-6">
       <h1 className="section-title">Integrations</h1>
 
-      <div className="flex gap-3">
-        {sections.map((s) => (
-          <button key={s} onClick={() => setSection(s)} className={cx('btn flex-1 uppercase tracking-wider text-xs font-display', section === s ? 'btn-primary' : 'btn-secondary')}>
-            {s} <StatusBadge status={status[s]} cx={cx} />
-          </button>
-        ))}
+      <div className="md:hidden">
+        <label className="label">Integration</label>
+        <select className="select mt-1" value={section} onChange={(e) => setSectionWithSync(e.target.value)}>
+          {integrationSections.map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.label} {isConfigured(item.id) ? '✓' : ''}
+            </option>
+          ))}
+        </select>
       </div>
 
       {meta.decryptHealth?.hasWarnings && (
@@ -274,7 +301,34 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
         </div>
       )}
 
-      <div className="card p-5 space-y-4">
+      <div className="grid gap-4 md:grid-cols-[220px_minmax(0,1fr)] items-start">
+        <div className="hidden md:block card p-2 space-y-1">
+          {integrationSections.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setSectionWithSync(item.id)}
+              className={cx(
+                'w-full flex items-center gap-2 px-3 h-9 rounded-md text-sm text-left transition-colors',
+                section === item.id
+                  ? 'bg-raised border border-edge text-ink'
+                  : 'text-dim hover:text-ink hover:bg-raised'
+              )}
+            >
+              <span className="flex-1">{item.label}</span>
+              {isConfigured(item.id) ? (
+                <svg viewBox="0 0 20 20" className={cx('w-4 h-4', section === item.id ? 'text-gold' : '')} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M4 10l4 4 8-8" />
+                </svg>
+              ) : null}
+            </button>
+          ))}
+        </div>
+
+        <div className="card p-5 space-y-4 min-w-0">
+        <div className="flex items-center justify-between gap-3 border-b border-edge pb-3">
+          <h2 className="text-sm font-semibold tracking-wide uppercase text-dim">{activeSectionLabel}</h2>
+          <StatusBadge status={status[section]} cx={cx} />
+        </div>
         {section === 'barcode' && <>
           <LabeledField label="Preset" cx={cx}><select className="select" value={form.barcodePreset} onChange={(e) => applyBarcodePreset(e.target.value)}>
             <option value="upcitemdb">UPCItemDB</option><option value="barcodelookup">BarcodeLookup</option><option value="custom">Custom</option>
@@ -441,6 +495,7 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
           )}
         </div>
         {testMsg && <p className="text-xs text-dim font-mono bg-raised rounded px-3 py-2">{testMsg}</p>}
+      </div>
       </div>
     </div>
   );

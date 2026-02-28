@@ -410,10 +410,11 @@ jobs:
           TRUST_PROXY: 1
         run: |
           set -euo pipefail
+          CI_PROJECT="collectz-ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           DB_PASSWORD="$(openssl rand -hex 16)"
           SESSION_SECRET="$(openssl rand -hex 32)"
           INTEGRATION_ENCRYPTION_KEY="$(openssl rand -hex 32)"
-          trap 'docker compose --env-file .env.ci down -v --remove-orphans' EXIT
+          trap 'docker compose -p "${CI_PROJECT}" --env-file .env.ci down -v --remove-orphans' EXIT
           cp env.example .env.ci
           {
             echo "DB_PASSWORD=${DB_PASSWORD}"
@@ -426,9 +427,9 @@ jobs:
             echo "SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE}"
             echo "TRUST_PROXY=${TRUST_PROXY}"
           } >> .env.ci
-          docker compose --env-file .env.ci up -d --build
-          BACKEND_CID="$(docker compose --env-file .env.ci ps -q backend)"
-          FRONTEND_CID="$(docker compose --env-file .env.ci ps -q frontend)"
+          docker compose -p "${CI_PROJECT}" --env-file .env.ci up -d --build
+          BACKEND_CID="$(docker compose -p "${CI_PROJECT}" --env-file .env.ci ps -q backend)"
+          FRONTEND_CID="$(docker compose -p "${CI_PROJECT}" --env-file .env.ci ps -q frontend)"
           test -n "${BACKEND_CID}" || { echo "backend container id not found"; exit 1; }
           test -n "${FRONTEND_CID}" || { echo "frontend container id not found"; exit 1; }
           timeout 120 sh -c 'until [ "$(docker inspect -f "{{.State.Health.Status}}" "'"${BACKEND_CID}"'")" = "healthy" ]; do sleep 3; done'
@@ -452,7 +453,7 @@ jobs:
           grep -Eqi 'set-cookie: csrf_token=.*;[[:space:]]*Secure;' "${CSRF_HEADERS}" || { echo "CSRF cookie missing Secure attribute"; exit 1; }
           grep -Eqi 'set-cookie: csrf_token=.*;[[:space:]]*SameSite=Strict' "${CSRF_HEADERS}" || { echo "CSRF cookie missing SameSite=Strict"; exit 1; }
 
-          docker compose --env-file .env.ci exec -T backend node -e \
+          docker compose -p "${CI_PROJECT}" --env-file .env.ci exec -T backend node -e \
             "const {SESSION_COOKIE_OPTIONS}=require('./middleware/auth'); if(!(SESSION_COOKIE_OPTIONS.httpOnly===true&&SESSION_COOKIE_OPTIONS.secure===true&&String(SESSION_COOKIE_OPTIONS.sameSite).toLowerCase()==='strict')){console.error('Invalid session cookie options', SESSION_COOKIE_OPTIONS);process.exit(1);}"
 
           STATUS_CODE="$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/auth/me)"
@@ -461,7 +462,7 @@ jobs:
             exit 1
           fi
 
-          docker compose --env-file .env.ci exec -T backend npm run test:integration-smoke
+          docker compose -p "${CI_PROJECT}" --env-file .env.ci exec -T backend npm run test:integration-smoke
 
   rbac-regression:
     runs-on: ubuntu-latest
@@ -480,10 +481,11 @@ jobs:
           TRUST_PROXY: 1
         run: |
           set -euo pipefail
+          CI_PROJECT="collectz-ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-rbac"
           DB_PASSWORD="$(openssl rand -hex 16)"
           SESSION_SECRET="$(openssl rand -hex 32)"
           INTEGRATION_ENCRYPTION_KEY="$(openssl rand -hex 32)"
-          trap 'docker compose --env-file .env.ci down -v --remove-orphans' EXIT
+          trap 'docker compose -p "${CI_PROJECT}" --env-file .env.ci down -v --remove-orphans' EXIT
           cp env.example .env.ci
           {
             echo "DB_PASSWORD=${DB_PASSWORD}"
@@ -496,14 +498,14 @@ jobs:
             echo "SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE}"
             echo "TRUST_PROXY=${TRUST_PROXY}"
           } >> .env.ci
-          docker compose --env-file .env.ci up -d --build
-          BACKEND_CID="$(docker compose --env-file .env.ci ps -q backend)"
-          FRONTEND_CID="$(docker compose --env-file .env.ci ps -q frontend)"
+          docker compose -p "${CI_PROJECT}" --env-file .env.ci up -d --build
+          BACKEND_CID="$(docker compose -p "${CI_PROJECT}" --env-file .env.ci ps -q backend)"
+          FRONTEND_CID="$(docker compose -p "${CI_PROJECT}" --env-file .env.ci ps -q frontend)"
           test -n "${BACKEND_CID}" || { echo "backend container id not found"; exit 1; }
           test -n "${FRONTEND_CID}" || { echo "frontend container id not found"; exit 1; }
           timeout 120 sh -c 'until [ "$(docker inspect -f "{{.State.Health.Status}}" "'"${BACKEND_CID}"'")" = "healthy" ]; do sleep 3; done'
           timeout 120 sh -c 'until [ "$(docker inspect -f "{{.State.Health.Status}}" "'"${FRONTEND_CID}"'")" = "healthy" ]; do sleep 3; done'
-          docker compose --env-file .env.ci exec -T -e BASE_URL=http://frontend:3000 backend node scripts/rbac-regression-check.js
+          docker compose -p "${CI_PROJECT}" --env-file .env.ci exec -T -e BASE_URL=http://frontend:3000 backend node scripts/rbac-regression-check.js
 
   backend:
     runs-on: ubuntu-latest

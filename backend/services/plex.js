@@ -59,7 +59,8 @@ const parsePlexVideos = (xml) => {
   }
   const source = Buffer.isBuffer(xml) ? xml.toString('utf8') : String(xml);
   const videos = [];
-  const re = /<Video\b([^>]*?)>/gi;
+  // Plex XML payloads can use either <Video ...> or <Metadata ...>.
+  const re = /<(?:Video|Metadata)\b([^>]*?)>/gi;
   let match = re.exec(source);
   while (match) {
     videos.push(parseAttributes(match[1]));
@@ -99,16 +100,24 @@ const parseTmdbIdFromGuid = (guidRaw) => {
 const normalizePlexItem = (item) => {
   const rawType = String(item.type || '').toLowerCase();
   const isTv = rawType === 'show' || rawType === 'episode';
+  const isAudio = rawType === 'artist' || rawType === 'album' || rawType === 'track';
   const seriesTitle = item.grandparentTitle || item.parentTitle || item.title || item.originalTitle || null;
   const seriesRatingKey = item.grandparentRatingKey || item.parentRatingKey || item.ratingKey || null;
+  const audioTitle = rawType === 'track'
+    ? (item.parentTitle || item.grandparentTitle || item.title || item.originalTitle || null)
+    : (item.title || item.originalTitle || null);
+  const audioArtist = item.grandparentTitle || item.parentTitle || item.artist || item.title || null;
+  const audioAlbum = rawType === 'track'
+    ? (item.parentTitle || item.title || null)
+    : (rawType === 'album' ? (item.title || null) : null);
   const year = item.year ? Number(item.year) : null;
   const runtime = item.duration ? Math.round(Number(item.duration) / 60000) : null;
   const tmdbId = parseTmdbIdFromGuid(item.guid);
   const thumb = item.thumb || item.art || null;
   const posterPath = thumb && String(thumb).startsWith('http') ? thumb : null;
   return {
-    title: isTv ? seriesTitle : (item.title || item.originalTitle || null),
-    media_type: isTv ? 'tv_series' : 'movie',
+    title: isAudio ? audioTitle : (isTv ? seriesTitle : (item.title || item.originalTitle || null)),
+    media_type: isAudio ? 'audio' : (isTv ? 'tv_series' : 'movie'),
     original_title: item.originalTitle || null,
     year: Number.isFinite(year) ? year : null,
     release_date: item.originallyAvailableAt || null,
@@ -121,9 +130,13 @@ const normalizePlexItem = (item) => {
     poster_path: posterPath,
     backdrop_path: posterPath,
     tmdb_id: tmdbId,
-    tmdb_url: tmdbId ? `https://www.themoviedb.org/${isTv ? 'tv' : 'movie'}/${tmdbId}` : null,
-    tmdb_media_type: isTv ? 'tv' : 'movie',
+    tmdb_url: !isAudio && tmdbId ? `https://www.themoviedb.org/${isTv ? 'tv' : 'movie'}/${tmdbId}` : null,
+    tmdb_media_type: isAudio ? null : (isTv ? 'tv' : 'movie'),
     format: 'Digital',
+    type_details: isAudio ? {
+      artist: audioArtist,
+      album: audioAlbum
+    } : undefined,
     plex_guid: item.guid ? String(item.guid) : null,
     plex_rating_key: seriesRatingKey ? String(seriesRatingKey) : null
   };
@@ -236,6 +249,9 @@ const fetchPlexLibraryItems = async (config, sectionIds = []) => {
         }
         if (sectionType === 'movie') {
           return !type || type === 'movie' || type === 'video' || type === 'clip';
+        }
+        if (sectionType === 'artist') {
+          return type === 'artist' || type === 'album' || type === 'track';
         }
         return !type || type === 'movie' || type === 'video' || type === 'show' || type === 'episode';
       });

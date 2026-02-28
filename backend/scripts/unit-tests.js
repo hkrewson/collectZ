@@ -3,6 +3,9 @@
 const assert = require('assert');
 const { parseCsvText } = require('../services/csv');
 const { normalizePlexItem, normalizePlexVariant } = require('../services/plex');
+const { mapDeliciousItemTypeToMediaType } = require('../services/importMapping');
+const { normalizeDeliciousRow } = require('../services/deliciousNormalize');
+const { normalizeIsbn, normalizeIdentifierSet } = require('../services/importIdentifiers');
 const { extractScopeHints, resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
 
 function run(name, fn) {
@@ -73,6 +76,22 @@ results.push(run('plex.normalizePlexItem maps episode to tv series context', () 
   assert.strictEqual(out.season_number, 1);
 }));
 
+results.push(run('plex.normalizePlexItem maps album to audio context', () => {
+  const input = {
+    type: 'album',
+    title: 'The Wall',
+    parentTitle: 'Pink Floyd',
+    year: '1979',
+    thumb: 'https://image.example/wall.jpg'
+  };
+  const out = normalizePlexItem(input);
+  assert.strictEqual(out.title, 'The Wall');
+  assert.strictEqual(out.media_type, 'audio');
+  assert.strictEqual(out.tmdb_media_type, null);
+  assert.strictEqual(out.type_details.artist, 'Pink Floyd');
+  assert.strictEqual(out.type_details.album, 'The Wall');
+}));
+
 results.push(run('plex.normalizePlexVariant derives season edition + key', () => {
   const input = {
     type: 'episode',
@@ -124,6 +143,46 @@ results.push(run('scope.appendScopeSql appends scoped clauses and params', () =>
   const clause = appendScopeSql(params, { spaceId: 4, libraryId: 10 });
   assert.strictEqual(clause, ' AND space_id = $2 AND library_id = $3');
   assert.deepStrictEqual(params, ['title', 4, 10]);
+}));
+
+results.push(run('importMapping maps Delicious VideoGame to game', () => {
+  assert.strictEqual(mapDeliciousItemTypeToMediaType('VideoGame'), 'game');
+  assert.strictEqual(mapDeliciousItemTypeToMediaType('video game'), 'game');
+  assert.strictEqual(mapDeliciousItemTypeToMediaType('Movie'), 'movie');
+}));
+
+results.push(run('deliciousNormalize extracts platform and ASIN', () => {
+  const row = {
+    title: 'Ace Combat 4: Shattered Skies - PlayStation 2',
+    platform: '',
+    'amazon link': 'https://www.amazon.com/dp/B00005NZ1G',
+    EAN: '0043396-030145',
+    ISBN: '',
+    creator: 'Namco',
+    edition: 'Greatest Hits',
+    format: 'DVD'
+  };
+  const out = normalizeDeliciousRow(row);
+  assert.strictEqual(out.normalizedTitle, 'Ace Combat 4: Shattered Skies');
+  assert.strictEqual(out.normalizedPlatform, 'PlayStation 2');
+  assert.strictEqual(out.amazonItemId, 'B00005NZ1G');
+  assert.strictEqual(out.ean, '0043396030145');
+}));
+
+results.push(run('importIdentifiers normalizes ISBN-10 to ISBN-13', () => {
+  const isbn13 = normalizeIsbn('0-345-39180-2');
+  assert.strictEqual(isbn13, '9780345391803');
+}));
+
+results.push(run('importIdentifiers normalizes identifier set fields', () => {
+  const out = normalizeIdentifierSet({
+    isbn: '978-0-316-76948-0',
+    ean_upc: '0 12345 67890 5',
+    asin: 'https://www.amazon.com/dp/B00005NZ1G'
+  });
+  assert.strictEqual(out.isbn, '9780316769480');
+  assert.strictEqual(out.eanUpc, '012345678905');
+  assert.strictEqual(out.asin, 'B00005NZ1G');
 }));
 
 if (results.some((ok) => !ok)) {

@@ -113,7 +113,49 @@ async function searchBooksByTitle(title, config = {}, limit = 10, author = '') {
   return items.map(mapGoogleBooksItem).filter((item) => item.title);
 }
 
+async function searchBooksByIsbn(isbn, config = {}, limit = 10) {
+  const query = String(isbn || '').trim();
+  if (!query) return [];
+
+  const apiUrl = config.booksApiUrl || BOOKS_PRESETS.googlebooks.apiUrl;
+  if (!apiUrl) throw new Error('Books API URL is not configured');
+
+  const headers = {};
+  if (config.booksApiKey && config.booksApiKeyHeader) {
+    headers[config.booksApiKeyHeader] = config.booksApiKey;
+  }
+
+  const params = {
+    q: `isbn:${query}`,
+    maxResults: Math.max(1, Math.min(Number(limit) || 10, 20))
+  };
+
+  if (config.booksApiKey && !config.booksApiKeyHeader) {
+    params[config.booksApiKeyQueryParam || 'key'] = config.booksApiKey;
+  }
+
+  const response = await axios.get(apiUrl, {
+    params,
+    headers,
+    timeout: 20000,
+    validateStatus: () => true
+  });
+
+  if (response.status >= 400) {
+    const detail = response.data?.error?.message
+      || response.data?.message
+      || `Provider returned status ${response.status}`;
+    const err = new Error(detail);
+    err.status = response.status;
+    throw err;
+  }
+
+  const items = Array.isArray(response.data?.items) ? response.data.items : [];
+  return items.map(mapGoogleBooksItem).filter((item) => item.title);
+}
+
 module.exports = {
   resolveBooksPreset,
-  searchBooksByTitle
+  searchBooksByTitle,
+  searchBooksByIsbn
 };

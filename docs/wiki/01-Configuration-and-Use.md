@@ -75,3 +75,30 @@ docker compose --env-file .env exec -T db \
   psql -U "${DB_USER:-mediavault}" -d "${POSTGRES_DB:-mediavault}" \
   -c "DELETE FROM user_sessions WHERE user_id = (SELECT id FROM users WHERE email = 'admin@example.com');"
 ```
+
+## Import Identifier Matching (2.0 beta.4)
+
+CSV imports now match in this order:
+
+1. `isbn` (books)
+2. `ean/upc`
+3. Provider-native IDs (TMDB/Plex when present)
+4. Title/year/media_type fallback
+
+Normalized identifiers are written to import audit rows (`isbn`, `ean_upc`, `asin`) along with `match_mode`.
+
+### Troubleshooting
+
+- Malformed ISBN:
+  - Only canonical ISBN-13 is used for matching.
+  - ISBN-10 values are converted to ISBN-13 during import.
+  - If conversion fails, matching falls back to later steps.
+- Malformed EAN/UPC:
+  - Non-digit characters are stripped before matching.
+  - Empty/invalid values are ignored and fallback matching is used.
+- Identifier collisions:
+  - If multiple existing rows match the same identifier, the row is marked `identifier_conflict`.
+  - Import still resolves deterministically (latest matching row), but the conflict should be reviewed.
+- Fallback behavior:
+  - `identifier_no_match_fallback_title`: an identifier was present but no identifier match existed, so fallback matching was used.
+  - `fallback_title_only`: no identifier was present; title/year/media_type matching was used directly.

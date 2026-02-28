@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS invites (
 CREATE TABLE IF NOT EXISTS media (
     id SERIAL PRIMARY KEY,
     title VARCHAR(500) NOT NULL,
-    media_type VARCHAR(20) DEFAULT 'movie' CHECK (media_type IN ('movie', 'tv_series', 'tv_episode', 'book', 'audio', 'game', 'other')),
+    media_type VARCHAR(20) DEFAULT 'movie' CHECK (media_type IN ('movie', 'tv_series', 'tv_episode', 'book', 'audio', 'game', 'comic_book')),
     original_title VARCHAR(500),
     release_date DATE,
     year INTEGER,
@@ -290,7 +290,13 @@ CREATE INDEX IF NOT EXISTS idx_media_library_id ON media(library_id);
 CREATE INDEX IF NOT EXISTS idx_media_space_id ON media(space_id);
 CREATE INDEX IF NOT EXISTS idx_media_format_year ON media(format, year);
 CREATE INDEX IF NOT EXISTS idx_media_genre_year ON media(genre, year);
+CREATE INDEX IF NOT EXISTS idx_media_upc ON media(upc);
+CREATE INDEX IF NOT EXISTS idx_media_type_details_isbn ON media ((type_details->>'isbn')) WHERE type_details ? 'isbn';
 CREATE UNIQUE INDEX IF NOT EXISTS idx_media_metadata_media_id_key ON media_metadata(media_id, "key");
+CREATE INDEX IF NOT EXISTS idx_media_metadata_key_value ON media_metadata("key", "value");
+CREATE INDEX IF NOT EXISTS idx_media_metadata_isbn_value ON media_metadata("value") WHERE "key" = 'isbn';
+CREATE INDEX IF NOT EXISTS idx_media_metadata_ean_value ON media_metadata("value") WHERE "key" IN ('ean', 'ean_upc', 'upc');
+CREATE INDEX IF NOT EXISTS idx_media_metadata_asin_value ON media_metadata("value") WHERE "key" = 'amazon_item_id';
 CREATE INDEX IF NOT EXISTS idx_media_variants_media_id ON media_variants(media_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_media_variants_plex_part ON media_variants (source, source_part_id) WHERE source = 'plex' AND source_part_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_media_variants_plex_item ON media_variants (source, source_item_key) WHERE source = 'plex' AND source_item_key IS NOT NULL;
@@ -416,5 +422,7 @@ INSERT INTO schema_migrations (version, description) VALUES
     (19, 'Add media type_details JSONB payload for type-specific metadata'),
     (20, 'Expand media format check for book formats'),
     (21, 'Add books/audio/games integration settings'),
-    (22, 'Add encrypted games client secret for IGDB auth')
+    (22, 'Add encrypted games client secret for IGDB auth'),
+    (23, 'Identifier-first import lookup indexes'),
+    (24, 'Rename media_type other to comic_book')
 ON CONFLICT (version) DO NOTHING;

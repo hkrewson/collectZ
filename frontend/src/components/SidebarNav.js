@@ -22,7 +22,7 @@ export default function SidebarNav({
     'library-books',
     'library-audio',
     'library-games',
-    'library-other'
+    'library-comics'
   ].includes(activeTab);
 
   const NavLink = ({ id, icon, label, sub = false }) => {
@@ -98,7 +98,7 @@ export default function SidebarNav({
                 <NavLink id="library-books" icon={null} label="Books" sub />
                 <NavLink id="library-audio" icon={null} label="Audio" sub />
                 <NavLink id="library-games" icon={null} label="Games" sub />
-                <NavLink id="library-other" icon={null} label="Other" sub />
+                <NavLink id="library-comics" icon={null} label="Comic Books" sub />
               </div>
             )}
           </div>
@@ -145,7 +145,7 @@ export default function SidebarNav({
             onClick={onToggle}
             className={cx('w-full flex items-center gap-3 px-3 py-2 text-xs text-ghost hover:text-dim rounded hover:bg-raised/50 transition-all', collapsed && 'justify-center px-0')}
           >
-            {collapsed ? <Icons.ChevronRight /> : <><Icons.ChevronLeft /><span>Collapse</span></>}
+            {collapsed ? <Icons.ChevronRight /> : <><Icons.ChevronLeft /><span></span></>}
           </button>
         </div>
       </aside>

@@ -30,8 +30,19 @@ export default function ImportView({
     if (!auditRows.length) return;
     const esc = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
     const lines = [
-      ['row', 'status', 'title', 'detail'].map(esc).join(','),
-      ...auditRows.map((r) => [r.row, r.status, r.title, r.detail].map(esc).join(','))
+      ['row', 'status', 'title', 'detail', 'match_mode', 'matched_by', 'enrichment_status', 'isbn', 'ean_upc', 'asin'].map(esc).join(','),
+      ...auditRows.map((r) => [
+        r.row,
+        r.status,
+        r.title,
+        r.detail,
+        r.match_mode || '',
+        r.matched_by || '',
+        r.enrichment_status || '',
+        r.isbn || '',
+        r.ean_upc || '',
+        r.asin || ''
+      ].map(esc).join(','))
     ];
     const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -175,6 +186,11 @@ export default function ImportView({
       const id = Number(job.id);
       if (completedJobIdsRef.current.has(id)) continue;
       completedJobIdsRef.current.add(id);
+      const rows = Array.isArray(job?.summary?.auditRows) ? job.summary.auditRows : [];
+      if (rows.length > 0) {
+        setAuditRows(rows);
+        setAuditName(job.provider || 'import');
+      }
       onImported?.();
     }
   }, [recentJobs, onImported]);
@@ -224,7 +240,7 @@ export default function ImportView({
         {tab === 'csv' && (
           <>
             <p className="text-sm text-dim">Import from a CSV file using collectZ columns.</p>
-            <p className="text-xs text-ghost">Required: title. Optional: year, format, director, genre, rating, user_rating, runtime, upc, location, notes.</p>
+            <p className="text-xs text-ghost">Required: title. Optional: year, format, director, genre, rating, user_rating, runtime, upc, isbn, ean_upc, asin, location, notes.</p>
             <div className="flex flex-wrap gap-3">
               <button onClick={() => csvInputRef.current?.click()} className="btn-primary" disabled={busy === 'CSV' || !hasActiveLibrary}>
                 {busy === 'CSV' ? <Spinner size={14} /> : <><Icons.Upload />Choose CSV File</>}
@@ -248,7 +264,7 @@ export default function ImportView({
         {tab === 'delicious' && (
           <>
             <p className="text-sm text-dim">Import a Delicious export CSV.</p>
-            <p className="text-xs text-ghost">Movie rows only are imported. Non-movie rows are skipped. Data is enriched from TMDB when available.</p>
+            <p className="text-xs text-ghost">Supports mixed media rows (movies, TV, books, audio, games). Uses provider enrichment + identifier-first matching when available.</p>
             <button onClick={() => deliciousInputRef.current?.click()} className="btn-primary" disabled={busy === 'Delicious' || !hasActiveLibrary}>
               {busy === 'Delicious' ? <Spinner size={14} /> : <><Icons.Upload />Choose Delicious CSV</>}
             </button>
@@ -315,9 +331,9 @@ export default function ImportView({
 
       <div className="card p-4 text-xs text-ghost space-y-1">
         <p>Import behavior:</p>
-        <p>- Existing titles are updated by title + year match.</p>
-        <p>- New titles are created when no match exists.</p>
-        <p>- TMDB enrichment runs during import when configured.</p>
+        <p>- Existing titles are matched identifier-first (ISBN/EAN/ASIN), then provider IDs, then title/year fallback.</p>
+        <p>- Audit downloads include normalized identifiers and per-row match mode.</p>
+        <p>- Provider enrichment runs during import when configured.</p>
       </div>
 
       {result && <pre className="card p-4 text-xs text-dim whitespace-pre-wrap">{result}</pre>}

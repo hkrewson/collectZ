@@ -22,7 +22,7 @@ const loginSchema = z.object({
 // ── Media ─────────────────────────────────────────────────────────────────────
 
 const MEDIA_FORMATS = ['VHS', 'Blu-ray', 'Digital', 'DVD', '4K UHD', 'Paperback', 'Hardcover', 'Trade'];
-const MEDIA_TYPES = ['movie', 'tv_series', 'tv_episode', 'book', 'audio', 'game', 'other'];
+const MEDIA_TYPES = ['movie', 'tv_series', 'tv_episode', 'book', 'audio', 'game', 'comic_book'];
 const nullableDateSchema = z.preprocess(
   emptyStringToNull,
   z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (YYYY-MM-DD)').optional().nullable()
@@ -91,7 +91,7 @@ const mediaCreateSchema = mediaBaseSchema.superRefine((data, ctx) => {
       book: ['author', 'isbn', 'publisher', 'edition'],
       audio: ['artist', 'album', 'track_count'],
       game: ['platform', 'developer', 'region'],
-      other: []
+      comic_book: ['author', 'isbn', 'publisher', 'edition']
     };
     const allowed = new Set(allowedByType[mediaType] || []);
     const invalidKeys = Object.keys(data.type_details).filter((k) => !allowed.has(k));

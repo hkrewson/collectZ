@@ -311,7 +311,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
   const set = (patch) => setForm((f) => ({ ...f, ...patch }));
   const notify = (text, type = 'ok') => { setMsg(text); setMsgType(type); };
   const isMovieOrTv = ['movie', 'tv_series', 'tv_episode'].includes(form.media_type);
-  const isBook = form.media_type === 'book';
+  const isBook = form.media_type === 'book' || form.media_type === 'comic_book';
   const isAudio = form.media_type === 'audio';
   const isGame = form.media_type === 'game';
   const isTypedEnrichment = isBook || isAudio || isGame;
@@ -874,6 +874,19 @@ export default function LibraryView({
   const [editing, setEditing] = useState(null);
   const [detail, setDetail] = useState(null);
   const supportsHover = useMemo(() => window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches, []);
+  const addFormMediaType = useMemo(() => {
+    if (forcedMediaType === 'tv') return 'tv_series';
+    if (['movie', 'book', 'audio', 'game', 'comic_book'].includes(forcedMediaType)) return forcedMediaType;
+    return 'movie';
+  }, [forcedMediaType]);
+  const addFormInitial = useMemo(
+    () => ({
+      ...DEFAULT_MEDIA_FORM,
+      media_type: addFormMediaType,
+      tmdb_media_type: addFormMediaType === 'tv_series' ? 'tv' : 'movie'
+    }),
+    [addFormMediaType]
+  );
 
   useEffect(() => {
     onRefresh({ page, limit: pageSize, ...filters });
@@ -915,7 +928,7 @@ export default function LibraryView({
       <div className="h-full flex flex-col">
         <MediaForm
           title={isEdit ? 'Edit Media' : 'Add to Library'}
-          initial={isEdit ? { ...DEFAULT_MEDIA_FORM, ...editing, release_date: editing.release_date ? String(editing.release_date).slice(0, 10) : '' } : DEFAULT_MEDIA_FORM}
+          initial={isEdit ? { ...DEFAULT_MEDIA_FORM, ...editing, release_date: editing.release_date ? String(editing.release_date).slice(0, 10) : '' } : addFormInitial}
           apiCall={apiCall}
           onCancel={() => { setAdding(false); setEditing(null); }}
           onDelete={isEdit ? () => { onDelete(editing.id); setEditing(null); } : undefined}

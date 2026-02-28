@@ -3,7 +3,12 @@ import React, { useEffect } from 'react';
 export function routeFromPath(p) {
   if (p === '/register') return 'register';
   if (p === '/reset-password') return 'reset';
-  if (p === '/dashboard') return 'dashboard';
+  if (
+    p === '/dashboard' ||
+    p.startsWith('/dashboard/') ||
+    p.startsWith('/admin/') ||
+    p.startsWith('/library/')
+  ) return 'dashboard';
   return 'login';
 }
 
@@ -32,11 +37,11 @@ export const MEDIA_TYPES = [
   { value: 'book', label: 'Book' },
   { value: 'audio', label: 'Audio' },
   { value: 'game', label: 'Game' },
-  { value: 'other', label: 'Other' }
+  { value: 'comic_book', label: 'Comic Book' }
 ];
 
 export function mediaTypeLabel(value) {
-  return MEDIA_TYPES.find((m) => m.value === value)?.label || 'Other';
+  return MEDIA_TYPES.find((m) => m.value === value)?.label || 'Comic Book';
 }
 
 export function readCookie(name) {

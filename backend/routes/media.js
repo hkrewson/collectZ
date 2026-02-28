@@ -12,10 +12,13 @@ const { searchTmdbMovie, fetchTmdbMovieDetails } = require('../services/tmdb');
 const { normalizeBarcodeMatches } = require('../services/barcode');
 const { extractVisionText, extractTitleCandidates } = require('../services/vision');
 const { fetchPlexLibraryItems } = require('../services/plex');
-const { searchBooksByTitle } = require('../services/books');
+const { searchBooksByTitle, searchBooksByIsbn } = require('../services/books');
 const { searchAudioByTitle } = require('../services/audio');
 const { searchGamesByTitle } = require('../services/games');
 const { parseCsvText } = require('../services/csv');
+const { mapDeliciousItemTypeToMediaType } = require('../services/importMapping');
+const { normalizeDeliciousRow } = require('../services/deliciousNormalize');
+const { normalizeIdentifierSet } = require('../services/importIdentifiers');
 const { logError, logActivity } = require('../services/audit');
 const { uploadBuffer } = require('../services/storage');
 const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
@@ -32,7 +35,7 @@ const tempUpload = multer({ storage: tempDiskStorage, limits: { fileSize: 10 * 1
 const memoryUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 const MEDIA_FORMATS = ['VHS', 'Blu-ray', 'Digital', 'DVD', '4K UHD', 'Paperback', 'Hardcover', 'Trade'];
-const MEDIA_TYPES = ['movie', 'tv_series', 'tv_episode', 'book', 'audio', 'game', 'other'];
+const MEDIA_TYPES = ['movie', 'tv_series', 'tv_episode', 'book', 'audio', 'game', 'comic_book'];
 const ALLOWED_COVER_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 const SYNC_JOB_ALLOWED_FIELDS = new Set([
   'status',
@@ -51,29 +54,63 @@ const SORT_COLUMNS = {
   user_rating: 'user_rating',
   rating: 'rating'
 };
+const IMPORT_MATCH_MODES = [
+  'matched_by_identifier',
+  'identifier_no_match_fallback_title',
+  'fallback_title_only',
+  'identifier_conflict'
+];
+const IMPORT_ENRICHMENT_STATUSES = [
+  'enriched',
+  'no_match',
+  'not_attempted',
+  'not_applicable'
+];
+
+function buildImportMatchCounters() {
+  return IMPORT_MATCH_MODES.reduce((acc, key) => {
+    acc[key] = 0;
+    return acc;
+  }, {});
+}
+
+function incrementImportMatchCounter(counters, mode) {
+  if (!counters || !mode || !Object.prototype.hasOwnProperty.call(counters, mode)) return;
+  counters[mode] += 1;
+}
+
+function buildImportEnrichmentCounters() {
+  return IMPORT_ENRICHMENT_STATUSES.reduce((acc, key) => {
+    acc[key] = 0;
+    return acc;
+  }, {});
+}
+
+function incrementImportEnrichmentCounter(counters, status) {
+  if (!counters || !status || !Object.prototype.hasOwnProperty.call(counters, status)) return;
+  counters[status] += 1;
+}
 
 function normalizeMediaType(input, fallback = 'movie') {
   const raw = String(input || '').trim().toLowerCase();
   if (!raw) return fallback;
-  if (raw === 'tv' || raw === 'show' || raw === 'series' || raw === 'tv_show' || raw === 'tvseries') return 'tv_series';
+  if (
+    raw === 'tv'
+    || raw === 'show'
+    || raw === 'series'
+    || raw === 'tv_show'
+    || raw === 'tvseries'
+    || raw === 'tv_series'
+    || raw === 'tv-series'
+  ) return 'tv_series';
   if (raw === 'tv_episode' || raw === 'episode') return 'tv_episode';
   if (raw === 'movie' || raw === 'film') return 'movie';
-  if (raw === 'book' || raw === 'books' || raw === 'comic' || raw === 'comics') return 'book';
+  if (raw === 'book' || raw === 'books') return 'book';
+  if (raw === 'comic' || raw === 'comics' || raw === 'comic_book' || raw === 'comic-book') return 'comic_book';
   if (raw === 'audio' || raw === 'music' || raw === 'album' || raw === 'cd' || raw === 'vinyl' || raw === 'lp') return 'audio';
   if (raw === 'game' || raw === 'games' || raw === 'video_game' || raw === 'videogame') return 'game';
-  if (raw === 'other') return 'other';
+  if (raw === 'other') return 'comic_book';
   return fallback;
-}
-
-function mapDeliciousItemTypeToMediaType(itemTypeRaw) {
-  const raw = String(itemTypeRaw || '').trim().toLowerCase();
-  if (!raw) return 'movie';
-  if (raw.includes('movie') || raw.includes('film') || raw.includes('video')) return 'movie';
-  if (raw.includes('tv') || raw.includes('show') || raw.includes('series') || raw.includes('episode')) return 'tv_series';
-  if (raw.includes('book') || raw.includes('comic') || raw.includes('novel')) return 'book';
-  if (raw.includes('music') || raw.includes('audio') || raw.includes('cd') || raw.includes('vinyl') || raw.includes('lp')) return 'audio';
-  if (raw.includes('game')) return 'game';
-  return null;
 }
 
 function validateTypeSpecificFields(mediaType, payload = {}) {
@@ -101,7 +138,8 @@ function sanitizeTypeDetails(mediaType, rawTypeDetails) {
   const allowedByType = {
     book: ['author', 'isbn', 'publisher', 'edition'],
     audio: ['artist', 'album', 'track_count'],
-    game: ['platform', 'developer', 'region']
+    game: ['platform', 'developer', 'region'],
+    comic_book: ['author', 'isbn', 'publisher', 'edition']
   };
   const allowedKeys = allowedByType[normalizedType] || [];
   if (!allowedKeys.length) return null;
@@ -207,8 +245,165 @@ function pickBestTmdbMatch(results = [], title, year) {
   return best || results[0];
 }
 
-async function enrichImportItemWithTmdb(item, config, cache) {
-  if (!config?.tmdbApiKey || !item?.title) return item;
+function pickBestProviderMatch(results = [], title, year) {
+  if (!Array.isArray(results) || results.length === 0) return null;
+  const targetTitle = normalizeTitleForMatch(title);
+  const targetYear = Number.isFinite(Number(year)) ? Number(year) : null;
+  let best = null;
+  let bestScore = -Infinity;
+
+  for (const row of results) {
+    const candidateTitle = normalizeTitleForMatch(row.title || row.name || '');
+    const candidateYear = parseYear(row.release_date || row.year || '');
+    let score = 0;
+    if (targetTitle && candidateTitle) {
+      if (candidateTitle === targetTitle) score += 100;
+      else if (candidateTitle.startsWith(targetTitle) || targetTitle.startsWith(candidateTitle)) score += 60;
+      else if (candidateTitle.includes(targetTitle) || targetTitle.includes(candidateTitle)) score += 35;
+    }
+    if (targetYear && candidateYear) {
+      const delta = Math.abs(candidateYear - targetYear);
+      if (delta === 0) score += 20;
+      else if (delta <= 1) score += 10;
+      else if (delta <= 2) score += 5;
+    }
+    if (!best || score > bestScore) {
+      best = row;
+      bestScore = score;
+    }
+  }
+  return best || results[0];
+}
+
+async function enrichImportItemByMediaType(item, config, cache) {
+  const normalizedMediaType = normalizeMediaType(item.media_type || 'movie', 'movie');
+  if (!item?.title) return item;
+  if (!['book', 'audio', 'game'].includes(normalizedMediaType)) return item;
+
+  const identifiers = resolveImportIdentifiers(item, item.identifiers || {});
+  const cacheKey = `${normalizedMediaType}:q:${String(item.title).toLowerCase()}|${item.year || ''}|${identifiers.isbn || ''}|${identifiers.eanUpc || ''}`;
+  const cached = cache.get(cacheKey);
+  if (cached) {
+    return {
+      ...item,
+      ...cached,
+      type_details: { ...(item.type_details || {}), ...(cached.type_details || {}) }
+    };
+  }
+
+  try {
+    let results = [];
+    if (normalizedMediaType === 'book') {
+      if (identifiers.isbn) {
+        results = await searchBooksByIsbn(identifiers.isbn, config, 8);
+      }
+      if (!results.length) {
+        results = await searchBooksByTitle(
+          item.title,
+          config,
+          8,
+          item.type_details?.author || item.director || ''
+        );
+      }
+    } else if (normalizedMediaType === 'audio') {
+      if (identifiers.eanUpc && config.barcodeApiUrl && config.barcodeApiKey) {
+        const lookup = await axios.get(config.barcodeApiUrl, {
+          params: { [config.barcodeQueryParam || 'upc']: identifiers.eanUpc },
+          headers: config.barcodeApiKeyHeader ? { [config.barcodeApiKeyHeader]: config.barcodeApiKey } : {},
+          timeout: 20000
+        });
+        const matches = normalizeBarcodeMatches(lookup.data);
+        if (matches.length) {
+          results = matches
+            .filter((m) => m?.title)
+            .map((m) => ({
+              title: m.title,
+              year: parseYear(m.release_date || ''),
+              release_date: m.release_date || null,
+              overview: m.description || null,
+              genre: null,
+              external_url: null,
+              poster_path: m.image || null,
+              type_details: {
+                artist: item.type_details?.artist || null,
+                album: m.title,
+                track_count: null
+              }
+            }));
+        }
+      }
+      if (!results.length) {
+      results = await searchAudioByTitle(
+        item.title,
+        config,
+        8,
+        item.type_details?.artist || item.director || ''
+      );
+      }
+    } else {
+      if (identifiers.eanUpc && config.barcodeApiUrl && config.barcodeApiKey) {
+        const lookup = await axios.get(config.barcodeApiUrl, {
+          params: { [config.barcodeQueryParam || 'upc']: identifiers.eanUpc },
+          headers: config.barcodeApiKeyHeader ? { [config.barcodeApiKeyHeader]: config.barcodeApiKey } : {},
+          timeout: 20000
+        });
+        const matches = normalizeBarcodeMatches(lookup.data);
+        if (matches.length) {
+          const titleCandidate = matches[0]?.title || '';
+          if (titleCandidate) {
+            results = await searchGamesByTitle(titleCandidate, config, 8);
+          }
+        }
+      }
+      if (!results.length) {
+      results = await searchGamesByTitle(item.title, config, 8);
+      }
+    }
+    const best = pickBestProviderMatch(results, item.title, item.year) || null;
+    if (!best) {
+      cache.set(cacheKey, {});
+      return item;
+    }
+
+    const bestTypeDetails = best.type_details || {};
+    const incomingTypeDetails = item.type_details || {};
+    const enriched = {
+      year: item.year || best.year || parseYear(best.release_date) || null,
+      release_date: item.release_date || best.release_date || null,
+      overview: item.overview || best.overview || null,
+      genre: item.genre || best.genre || null,
+      poster_path: item.poster_path || best.poster_path || null,
+      tmdb_url: item.tmdb_url || best.external_url || null,
+      type_details: {
+        ...incomingTypeDetails,
+        author: incomingTypeDetails.author || bestTypeDetails.author || null,
+        isbn: incomingTypeDetails.isbn || bestTypeDetails.isbn || null,
+        publisher: incomingTypeDetails.publisher || bestTypeDetails.publisher || null,
+        edition: incomingTypeDetails.edition || bestTypeDetails.edition || null,
+        artist: incomingTypeDetails.artist || bestTypeDetails.artist || null,
+        album: incomingTypeDetails.album || bestTypeDetails.album || null,
+        track_count: incomingTypeDetails.track_count || bestTypeDetails.track_count || null,
+        platform: incomingTypeDetails.platform || bestTypeDetails.platform || null,
+        developer: incomingTypeDetails.developer || bestTypeDetails.developer || null,
+        region: incomingTypeDetails.region || bestTypeDetails.region || null
+      }
+    };
+
+    cache.set(cacheKey, enriched);
+    return {
+      ...item,
+      ...enriched,
+      type_details: { ...(item.type_details || {}), ...(enriched.type_details || {}) }
+    };
+  } catch (_error) {
+    cache.set(cacheKey, {});
+    return item;
+  }
+}
+
+async function enrichImportItemWithTmdb(item, config, cache, options = {}) {
+  const lookupTitle = String(options.lookupTitle || item?.title || '').trim();
+  if (!config?.tmdbApiKey || !lookupTitle) return item;
   const normalizedMediaType = normalizeMediaType(item.media_type || 'movie', 'movie');
   if (!['movie', 'tv_series', 'tv_episode'].includes(normalizedMediaType)) {
     return item;
@@ -217,7 +412,7 @@ async function enrichImportItemWithTmdb(item, config, cache) {
 
   const cacheKey = item.tmdb_id
     ? `${tmdbType}:id:${item.tmdb_id}`
-    : `${tmdbType}:q:${String(item.title).toLowerCase()}|${item.year || ''}`;
+    : `${tmdbType}:q:${String(lookupTitle).toLowerCase()}|${item.year || ''}`;
   const cached = cache.get(cacheKey);
   if (cached) {
     return {
@@ -232,8 +427,8 @@ async function enrichImportItemWithTmdb(item, config, cache) {
     if (item.tmdb_id) {
       candidate = { id: item.tmdb_id };
     } else {
-      const results = await searchTmdbMovie(item.title, item.year || undefined, config, tmdbType);
-      candidate = pickBestTmdbMatch(results, item.title, item.year) || null;
+      const results = await searchTmdbMovie(lookupTitle, item.year || undefined, config, tmdbType);
+      candidate = pickBestTmdbMatch(results, lookupTitle, item.year) || null;
     }
     if (!candidate?.id) {
       cache.set(cacheKey, {});
@@ -264,7 +459,248 @@ async function enrichImportItemWithTmdb(item, config, cache) {
   }
 }
 
-async function upsertImportedMedia({ userId, item, importSource, scopeContext = null }) {
+function hasEnrichmentDelta(before, after) {
+  const fields = [
+    'tmdb_id', 'tmdb_url', 'poster_path', 'backdrop_path', 'overview',
+    'director', 'genre', 'rating', 'runtime', 'trailer_url', 'release_date', 'year'
+  ];
+  for (const key of fields) {
+    const prev = before?.[key];
+    const next = after?.[key];
+    if ((prev === null || prev === undefined || prev === '') && (next !== null && next !== undefined && next !== '')) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function pickBestBarcodeMatch(matches = [], sourceTitle = '') {
+  if (!Array.isArray(matches) || !matches.length) return null;
+  const target = normalizeTitleForMatch(sourceTitle);
+  if (!target) return matches[0];
+  let best = null;
+  let bestScore = -1;
+  for (const match of matches) {
+    const title = normalizeTitleForMatch(match?.title || '');
+    if (!title) continue;
+    let score = 0;
+    if (title === target) score = 100;
+    else if (title.includes(target) || target.includes(title)) score = 60;
+    if (score > bestScore) {
+      best = match;
+      bestScore = score;
+    }
+  }
+  return best || matches[0];
+}
+
+async function enrichMovieFromBarcode(item, config, cache, identifiers = {}) {
+  const normalizedType = normalizeMediaType(item.media_type || 'movie', 'movie');
+  if (normalizedType !== 'movie') return { item, attempted: false, barcodeTitleHint: '' };
+  const eanUpc = String(identifiers.eanUpc || identifiers.ean_upc || item.upc || '').trim();
+  if (!eanUpc) return { item, attempted: false, barcodeTitleHint: '' };
+  if (!config?.barcodeApiUrl || !config?.barcodeApiKey) return { item, attempted: false, barcodeTitleHint: '' };
+
+  const cacheKey = `movie:barcode:${eanUpc}`;
+  if (cache.has(cacheKey)) {
+    const cached = cache.get(cacheKey) || {};
+    return {
+      item: {
+        ...item,
+        overview: item.overview || cached.overview || null,
+        poster_path: item.poster_path || cached.poster_path || null,
+        upc: item.upc || eanUpc
+      },
+      attempted: true,
+      barcodeTitleHint: cached.titleHint || ''
+    };
+  }
+
+  try {
+    const barcodeResponse = await axios.get(config.barcodeApiUrl, {
+      params: { [config.barcodeQueryParam || 'upc']: eanUpc },
+      headers: config.barcodeApiKeyHeader ? { [config.barcodeApiKeyHeader]: config.barcodeApiKey } : {},
+      timeout: 20000,
+      validateStatus: () => true
+    });
+    if (barcodeResponse.status >= 400) {
+      cache.set(cacheKey, {});
+      return { item, attempted: true, barcodeTitleHint: '' };
+    }
+    const matches = normalizeBarcodeMatches(barcodeResponse.data);
+    const best = pickBestBarcodeMatch(matches, item.title);
+    if (!best) {
+      cache.set(cacheKey, {});
+      return { item, attempted: true, barcodeTitleHint: '' };
+    }
+    const cached = {
+      titleHint: best.title || '',
+      overview: best.description || null,
+      poster_path: best.image || null
+    };
+    cache.set(cacheKey, cached);
+    return {
+      item: {
+        ...item,
+        overview: item.overview || cached.overview || null,
+        poster_path: item.poster_path || cached.poster_path || null,
+        upc: item.upc || eanUpc
+      },
+      attempted: true,
+      barcodeTitleHint: cached.titleHint
+    };
+  } catch (_error) {
+    cache.set(cacheKey, {});
+    return { item, attempted: true, barcodeTitleHint: '' };
+  }
+}
+
+async function runImportEnrichmentPipeline(item, config, caches, identifiers = {}) {
+  const normalizedType = normalizeMediaType(item.media_type || 'movie', 'movie');
+  let working = { ...item };
+  let attempted = false;
+  let enriched = false;
+
+  if (['book', 'audio', 'game'].includes(normalizedType)) {
+    attempted = true;
+    const before = { ...working };
+    working = await enrichImportItemByMediaType({ ...working, identifiers }, config, caches.providerCache);
+    enriched = enriched || hasEnrichmentDelta(before, working);
+  }
+
+  if (normalizedType === 'movie') {
+    const beforeBarcode = { ...working };
+    const barcode = await enrichMovieFromBarcode(working, config, caches.providerCache, identifiers);
+    if (barcode.attempted) attempted = true;
+    working = barcode.item;
+    enriched = enriched || hasEnrichmentDelta(beforeBarcode, working);
+
+    const beforeTmdbHint = { ...working };
+    if (barcode.barcodeTitleHint && normalizeTitleForMatch(barcode.barcodeTitleHint) !== normalizeTitleForMatch(working.title)) {
+      working = await enrichImportItemWithTmdb(working, config, caches.tmdbCache, { lookupTitle: barcode.barcodeTitleHint });
+      attempted = true;
+      enriched = enriched || hasEnrichmentDelta(beforeTmdbHint, working);
+    }
+  }
+
+  if (['movie', 'tv_series', 'tv_episode'].includes(normalizedType)) {
+    const beforeTmdb = { ...working };
+    working = await enrichImportItemWithTmdb(working, config, caches.tmdbCache);
+    attempted = true;
+    enriched = enriched || hasEnrichmentDelta(beforeTmdb, working);
+  }
+
+  const enrichmentStatus = attempted ? (enriched ? 'enriched' : 'no_match') : 'not_applicable';
+  return { item: working, enrichmentStatus };
+}
+
+function resolveImportIdentifiers(item = {}, inputIdentifiers = {}) {
+  return normalizeIdentifierSet({
+    isbn: inputIdentifiers.isbn || item.type_details?.isbn || '',
+    ean_upc: inputIdentifiers.eanUpc || inputIdentifiers.ean_upc || item.upc || '',
+    asin: inputIdentifiers.asin || inputIdentifiers.amazon_item_id || item.amazon_item_id || ''
+  });
+}
+
+async function findExistingByIdentifier({ identifierType, identifierValue, normalizedMediaType, scopeContext = null }) {
+  if (!identifierValue) return { row: null, conflict: false };
+  const params = [normalizedMediaType, identifierValue];
+  const scopeClause = appendScopeSql(params, scopeContext, {
+    spaceColumn: 'm.space_id',
+    libraryColumn: 'm.library_id'
+  });
+  let condition = '';
+  if (identifierType === 'isbn') {
+    condition = `(COALESCE(m.type_details->>'isbn', '') = $2 OR (mm."key" = 'isbn' AND mm."value" = $2))`;
+  } else if (identifierType === 'ean_upc') {
+    condition = `(COALESCE(m.upc, '') = $2 OR (mm."key" IN ('ean', 'ean_upc', 'upc') AND mm."value" = $2))`;
+  } else if (identifierType === 'asin') {
+    condition = `(mm."key" = 'amazon_item_id' AND mm."value" = $2)`;
+  } else {
+    return { row: null, conflict: false };
+  }
+
+  const result = await pool.query(
+    `SELECT DISTINCT m.id
+     FROM media m
+     LEFT JOIN media_metadata mm ON mm.media_id = m.id
+     WHERE COALESCE(m.media_type, 'movie') = $1
+       AND ${condition}
+       ${scopeClause}
+     ORDER BY m.id DESC
+     LIMIT 2`,
+    params
+  );
+  return {
+    row: result.rows[0] || null,
+    conflict: result.rows.length > 1
+  };
+}
+
+async function findExistingByProviderIds({ item, normalizedMediaType, normalizedTmdbType, scopeContext = null }) {
+  if (item.tmdb_id) {
+    const params = [item.tmdb_id, normalizedTmdbType, normalizedMediaType];
+    const scopeClause = appendScopeSql(params, scopeContext);
+    const byTmdb = await pool.query(
+      `SELECT id
+       FROM media
+       WHERE tmdb_id = $1
+         AND COALESCE(tmdb_media_type, 'movie') = $2
+         AND COALESCE(media_type, 'movie') = $3
+         ${scopeClause}
+       ORDER BY id DESC
+       LIMIT 1`,
+      params
+    );
+    if (byTmdb.rows[0]) return { row: byTmdb.rows[0], matchedBy: 'provider_tmdb' };
+  }
+
+  const plexGuid = item.plex_guid || null;
+  if (plexGuid) {
+    const params = [plexGuid];
+    const scopeClause = appendScopeSql(params, scopeContext, {
+      spaceColumn: 'm.space_id',
+      libraryColumn: 'm.library_id'
+    });
+    const byPlexGuid = await pool.query(
+      `SELECT m.id
+       FROM media m
+       JOIN media_metadata mm ON mm.media_id = m.id
+       WHERE mm."key" = 'plex_guid'
+         AND mm."value" = $1
+         ${scopeClause}
+       ORDER BY m.id DESC
+       LIMIT 1`,
+      params
+    );
+    if (byPlexGuid.rows[0]) return { row: byPlexGuid.rows[0], matchedBy: 'provider_plex_guid' };
+  }
+
+  const plexRatingKey = item.plex_rating_key || null;
+  if (plexRatingKey) {
+    const params = [plexRatingKey];
+    const scopeClause = appendScopeSql(params, scopeContext, {
+      spaceColumn: 'm.space_id',
+      libraryColumn: 'm.library_id'
+    });
+    const byPlexRatingKey = await pool.query(
+      `SELECT m.id
+       FROM media m
+       JOIN media_metadata mm ON mm.media_id = m.id
+       WHERE mm."key" = 'plex_item_key'
+         AND mm."value" = $1
+         ${scopeClause}
+       ORDER BY m.id DESC
+       LIMIT 1`,
+      params
+    );
+    if (byPlexRatingKey.rows[0]) return { row: byPlexRatingKey.rows[0], matchedBy: 'provider_plex_item_key' };
+  }
+
+  return { row: null, matchedBy: null };
+}
+
+async function upsertImportedMedia({ userId, item, importSource, scopeContext = null, identifiers = null }) {
   const title = String(item.title || '').trim();
   if (!title) {
     return { type: 'invalid', detail: 'Missing title' };
@@ -272,23 +708,92 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
   const normalizedMediaType = normalizeMediaType(item.media_type || 'movie', 'movie');
   const normalizedTmdbType = normalizedMediaType === 'tv_series' || normalizedMediaType === 'tv_episode' ? 'tv' : 'movie';
   const normalizedTypeDetails = sanitizeTypeDetails(normalizedMediaType, item.type_details);
-  const dedupLockKey = buildMediaDedupLockKey({ ...item, title }, scopeContext);
+  const resolvedIdentifiers = resolveImportIdentifiers(item, identifiers || {});
+  const identifierAttempted = Boolean(resolvedIdentifiers.isbn || resolvedIdentifiers.eanUpc || resolvedIdentifiers.asin);
+  const dedupLockKey = buildMediaDedupLockKey({ ...item, title, ...resolvedIdentifiers }, scopeContext);
   return withDedupLock(dedupLockKey, async () => {
-    const year = item.year ?? null;
-    const existingParams = [title, year, normalizedMediaType];
-    const existingScopeClause = appendScopeSql(existingParams, scopeContext);
-    const existing = await pool.query(
-      `SELECT id
-       FROM media
-       WHERE LOWER(TRIM(title)) = LOWER(TRIM($1))
-         AND (($2::int IS NOT NULL AND year = $2::int) OR ($2::int IS NULL))
-         AND COALESCE(media_type, 'movie') = $3
-         ${existingScopeClause}
-       ORDER BY created_at DESC
-       LIMIT 1`,
-      existingParams
-    );
-    if (existing.rows[0]) {
+    let existingRow = null;
+    let matchMode = identifierAttempted ? 'identifier_no_match_fallback_title' : 'fallback_title_only';
+    let matchedBy = 'title_year_media_type';
+    let identifierConflict = false;
+
+    if (resolvedIdentifiers.isbn) {
+      const byIsbn = await findExistingByIdentifier({
+        identifierType: 'isbn',
+        identifierValue: resolvedIdentifiers.isbn,
+        normalizedMediaType,
+        scopeContext
+      });
+      if (byIsbn.row) {
+        existingRow = byIsbn.row;
+        matchedBy = 'identifier_isbn';
+        identifierConflict = byIsbn.conflict;
+        matchMode = byIsbn.conflict ? 'identifier_conflict' : 'matched_by_identifier';
+      }
+    }
+
+    if (!existingRow && resolvedIdentifiers.eanUpc) {
+      const byEan = await findExistingByIdentifier({
+        identifierType: 'ean_upc',
+        identifierValue: resolvedIdentifiers.eanUpc,
+        normalizedMediaType,
+        scopeContext
+      });
+      if (byEan.row) {
+        existingRow = byEan.row;
+        matchedBy = 'identifier_ean_upc';
+        identifierConflict = byEan.conflict;
+        matchMode = byEan.conflict ? 'identifier_conflict' : 'matched_by_identifier';
+      }
+    }
+
+    if (!existingRow && resolvedIdentifiers.asin) {
+      const byAsin = await findExistingByIdentifier({
+        identifierType: 'asin',
+        identifierValue: resolvedIdentifiers.asin,
+        normalizedMediaType,
+        scopeContext
+      });
+      if (byAsin.row) {
+        existingRow = byAsin.row;
+        matchedBy = 'identifier_asin';
+        identifierConflict = byAsin.conflict;
+        matchMode = byAsin.conflict ? 'identifier_conflict' : 'matched_by_identifier';
+      }
+    }
+
+    if (!existingRow) {
+      const providerMatch = await findExistingByProviderIds({
+        item,
+        normalizedMediaType,
+        normalizedTmdbType,
+        scopeContext
+      });
+      if (providerMatch.row) {
+        existingRow = providerMatch.row;
+        matchedBy = providerMatch.matchedBy || 'provider';
+      }
+    }
+
+    if (!existingRow) {
+      const year = item.year ?? null;
+      const existingParams = [title, year, normalizedMediaType];
+      const existingScopeClause = appendScopeSql(existingParams, scopeContext);
+      const existing = await pool.query(
+        `SELECT id
+         FROM media
+         WHERE LOWER(TRIM(title)) = LOWER(TRIM($1))
+           AND (($2::int IS NOT NULL AND year = $2::int) OR ($2::int IS NULL))
+           AND COALESCE(media_type, 'movie') = $3
+           ${existingScopeClause}
+         ORDER BY created_at DESC
+         LIMIT 1`,
+        existingParams
+      );
+      existingRow = existing.rows[0] || null;
+    }
+
+    if (existingRow) {
       const updateParams = [
         normalizedMediaType,
         item.original_title || null,
@@ -312,7 +817,7 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
         item.notes || null,
         normalizedTypeDetails ? JSON.stringify(normalizedTypeDetails) : null,
         importSource || null,
-        existing.rows[0].id
+        existingRow.id
       ];
       const updateScopeClause = appendScopeSql(updateParams, scopeContext);
       await pool.query(
@@ -342,17 +847,25 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
          WHERE id = $23${updateScopeClause}`,
         updateParams
       );
-      return { type: 'updated' };
+      return {
+        type: 'updated',
+        mediaId: existingRow.id,
+        matchMode,
+        matchedBy,
+        identifiers: resolvedIdentifiers,
+        identifierConflict
+      };
     }
 
-    await pool.query(
+    const inserted = await pool.query(
       `INSERT INTO media (
          title, media_type, original_title, release_date, year, format, genre, director,
          rating, user_rating, tmdb_id, tmdb_media_type, tmdb_url, poster_path, backdrop_path, overview, trailer_url,
          runtime, upc, location, notes, type_details, library_id, space_id, added_by, import_source
        ) VALUES (
-         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22::jsonb,$23,$24,$25,$26,$27
-       )`,
+         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22::jsonb,$23,$24,$25,$26
+       )
+       RETURNING id`,
       [
         title,
         normalizedMediaType,
@@ -382,8 +895,26 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
         importSource || null
       ]
     );
-    return { type: 'created' };
+    return {
+      type: 'created',
+      mediaId: inserted.rows[0]?.id || null,
+      matchMode,
+      matchedBy,
+      identifiers: resolvedIdentifiers,
+      identifierConflict
+    };
   });
+}
+
+async function upsertMediaMetadataEntry(mediaId, key, value) {
+  if (!mediaId || !key || value === undefined || value === null || value === '') return;
+  await pool.query(
+    `INSERT INTO media_metadata (media_id, "key", "value")
+     VALUES ($1::int, $2::varchar, $3::text)
+     ON CONFLICT (media_id, "key")
+     DO UPDATE SET "value" = EXCLUDED."value"`,
+    [mediaId, String(key), String(value)]
+  );
 }
 
 const TMDB_IMPORT_MIN_INTERVAL_MS = Math.max(0, Number(process.env.TMDB_IMPORT_MIN_INTERVAL_MS || 50));
@@ -437,6 +968,9 @@ function buildMediaDedupLockKey(item = {}, scopeContext = null) {
   const scope = buildDedupScopeKey(scopeContext);
   const normalizedMediaType = normalizeMediaType(item.media_type || 'movie', 'movie');
   const tmdbType = item.tmdb_media_type || (normalizedMediaType === 'tv_series' || normalizedMediaType === 'tv_episode' ? 'tv' : 'movie');
+  if (item.isbn) return `media|${scope}|isbn|${item.isbn}|${normalizedMediaType}`;
+  if (item.eanUpc || item.ean_upc) return `media|${scope}|ean_upc|${item.eanUpc || item.ean_upc}|${normalizedMediaType}`;
+  if (item.asin) return `media|${scope}|asin|${item.asin}|${normalizedMediaType}`;
   if (item.plex_guid) return `media|${scope}|plex_guid|${item.plex_guid}`;
   if (item.plex_rating_key) return `media|${scope}|plex_rating_key|${item.plex_rating_key}`;
   if (item.tmdb_id) return `media|${scope}|tmdb|${tmdbType}|${item.tmdb_id}`;
@@ -529,6 +1063,7 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
   let variantsUpdated = 0;
   let items = [];
   const tmdbEnrichmentCache = new Map();
+  const providerEnrichmentCache = new Map();
   const throttleTmdb = buildTmdbThrottle();
   const updateProgress = async (progress) => {
     if (typeof onProgress !== 'function') return;
@@ -627,13 +1162,17 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
 
   for (let idx = 0; idx < items.length; idx += 1) {
     const item = items[idx];
-    const media = { ...item.normalized };
+    let media = { ...item.normalized };
     if (!media.title) {
       summary.skipped += 1;
       continue;
     }
 
-    if (!media.poster_path && config.tmdbApiKey) {
+    media = await enrichImportItemByMediaType(media, config, providerEnrichmentCache);
+
+    const mediaType = normalizeMediaType(media.media_type || item.normalized.media_type || 'movie', 'movie');
+    const canUseTmdb = mediaType === 'movie' || mediaType === 'tv_series' || mediaType === 'tv_episode';
+    if (!media.poster_path && config.tmdbApiKey && canUseTmdb) {
       const tmdbType = media.tmdb_media_type === 'tv' ? 'tv' : 'movie';
       const cacheKey = media.tmdb_id
         ? `${tmdbType}:id:${media.tmdb_id}`
@@ -890,10 +1429,17 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
 }
 
 async function runGenericCsvImport({ rows, userId, scopeContext, onProgress = null }) {
-  const summary = { created: 0, updated: 0, skipped_invalid: 0, errors: [] };
+  const summary = {
+    created: 0,
+    updated: 0,
+    skipped_invalid: 0,
+    errors: [],
+    matchModes: buildImportMatchCounters(),
+    enrichment: buildImportEnrichmentCounters()
+  };
   const auditRows = [];
   const config = await loadAdminIntegrationConfig();
-  const tmdbCache = new Map();
+  const caches = { tmdbCache: new Map(), providerCache: new Map() };
   const updateProgress = async (progress) => {
     if (typeof onProgress !== 'function') return;
     await onProgress(progress);
@@ -943,27 +1489,86 @@ async function runGenericCsvImport({ rows, userId, scopeContext, onProgress = nu
         region: value('region')
       }
     };
+    const rowIdentifiers = normalizeIdentifierSet({
+      isbn: value('isbn') || value('isbn13'),
+      ean_upc: value('ean') || value('upc') || value('ean_upc'),
+      asin: value('asin') || value('amazon_item_id') || value('amazon_link') || value('amazon link')
+    });
     try {
-      const enriched = await enrichImportItemWithTmdb(mapped, config, tmdbCache);
+      const enrichmentResult = await runImportEnrichmentPipeline(
+        { ...mapped, identifiers: rowIdentifiers },
+        config,
+        caches,
+        rowIdentifiers
+      );
+      const enriched = enrichmentResult.item;
+      incrementImportEnrichmentCounter(summary.enrichment, enrichmentResult.enrichmentStatus);
       const result = await upsertImportedMedia({
         userId,
         item: enriched,
         importSource: 'csv_generic',
-        scopeContext
+        scopeContext,
+        identifiers: rowIdentifiers
       });
+      if (result.mediaId) {
+        await upsertMediaMetadataEntry(result.mediaId, 'isbn', rowIdentifiers.isbn);
+        await upsertMediaMetadataEntry(result.mediaId, 'ean', rowIdentifiers.eanUpc);
+        await upsertMediaMetadataEntry(result.mediaId, 'ean_upc', rowIdentifiers.eanUpc);
+        await upsertMediaMetadataEntry(result.mediaId, 'amazon_item_id', rowIdentifiers.asin);
+      }
+      incrementImportMatchCounter(summary.matchModes, result.matchMode);
       if (result.type === 'created') {
         summary.created += 1;
-        auditRows.push({ row: idx + 2, title: mapped.title || '', status: 'created', detail: '' });
+        auditRows.push({
+          row: idx + 2,
+          title: mapped.title || '',
+          status: 'created',
+          detail: '',
+          match_mode: result.matchMode || null,
+          matched_by: result.matchedBy || null,
+          enrichment_status: enrichmentResult.enrichmentStatus,
+          isbn: rowIdentifiers.isbn || '',
+          ean_upc: rowIdentifiers.eanUpc || '',
+          asin: rowIdentifiers.asin || ''
+        });
       } else if (result.type === 'updated') {
         summary.updated += 1;
-        auditRows.push({ row: idx + 2, title: mapped.title || '', status: 'updated', detail: '' });
+        auditRows.push({
+          row: idx + 2,
+          title: mapped.title || '',
+          status: 'updated',
+          detail: '',
+          match_mode: result.matchMode || null,
+          matched_by: result.matchedBy || null,
+          enrichment_status: enrichmentResult.enrichmentStatus,
+          isbn: rowIdentifiers.isbn || '',
+          ean_upc: rowIdentifiers.eanUpc || '',
+          asin: rowIdentifiers.asin || ''
+        });
       } else {
         summary.skipped_invalid += 1;
-        auditRows.push({ row: idx + 2, title: mapped.title || '', status: 'skipped_invalid', detail: result.detail || 'Invalid row' });
+        auditRows.push({
+          row: idx + 2,
+          title: mapped.title || '',
+          status: 'skipped_invalid',
+          detail: result.detail || 'Invalid row',
+          match_mode: result.matchMode || null,
+          matched_by: result.matchedBy || null,
+          enrichment_status: enrichmentResult.enrichmentStatus,
+          isbn: rowIdentifiers.isbn || '',
+          ean_upc: rowIdentifiers.eanUpc || '',
+          asin: rowIdentifiers.asin || ''
+        });
       }
     } catch (error) {
       summary.errors.push({ row: idx + 2, detail: error.message });
-      auditRows.push({ row: idx + 2, title: mapped.title || '', status: 'error', detail: error.message });
+      auditRows.push({
+        row: idx + 2,
+        title: mapped.title || '',
+        status: 'error',
+        detail: error.message,
+        enrichment_status: 'not_attempted'
+      });
     }
 
     const processed = idx + 1;
@@ -988,11 +1593,13 @@ async function runDeliciousCsvImport({ rows, userId, scopeContext, onProgress = 
     updated: 0,
     skipped_non_movie: 0,
     skipped_invalid: 0,
-    errors: []
+    errors: [],
+    matchModes: buildImportMatchCounters(),
+    enrichment: buildImportEnrichmentCounters()
   };
   const auditRows = [];
   const config = await loadAdminIntegrationConfig();
-  const tmdbCache = new Map();
+  const caches = { tmdbCache: new Map(), providerCache: new Map() };
   const updateProgress = async (progress) => {
     if (typeof onProgress !== 'function') return;
     await onProgress(progress);
@@ -1009,68 +1616,144 @@ async function runDeliciousCsvImport({ rows, userId, scopeContext, onProgress = 
 
   for (let idx = 0; idx < rows.length; idx += 1) {
     const row = rows[idx];
-    const value = (name) => getRowValue(row, name);
-    const itemType = String(value('item type') || '').trim().toLowerCase();
+    const normalizedRow = normalizeDeliciousRow(row);
+    const itemType = String(normalizedRow.itemType || '').trim().toLowerCase();
     const mappedMediaType = mapDeliciousItemTypeToMediaType(itemType);
     if (!mappedMediaType) {
       summary.skipped_non_movie += 1;
       auditRows.push({
         row: idx + 2,
-        title: String(value('title') || '').trim(),
+        title: normalizedRow.rawTitle,
         status: 'skipped_non_movie',
-        detail: `unmapped item type: ${itemType || 'unknown'}`
+        detail: `unmapped item type: ${itemType || 'unknown'}`,
+        enrichment_status: 'not_applicable'
       });
     } else {
-      const title = String(value('title') || '').trim();
+      const title = normalizedRow.normalizedTitle;
       if (!title) {
         summary.skipped_invalid += 1;
-        auditRows.push({ row: idx + 2, title: '', status: 'skipped_invalid', detail: 'Missing title' });
+        auditRows.push({
+          row: idx + 2,
+          title: '',
+          status: 'skipped_invalid',
+          detail: 'Missing title',
+          match_mode: null,
+          matched_by: null,
+          enrichment_status: 'not_attempted',
+          isbn: '',
+          ean_upc: '',
+          asin: ''
+        });
       } else {
+        const sourceNotes = [normalizedRow.notesRaw];
+        if (normalizedRow.edition) sourceNotes.push(`Edition: ${normalizedRow.edition}`);
+        if (normalizedRow.normalizedPlatform) sourceNotes.push(`Platform: ${normalizedRow.normalizedPlatform}`);
         const mapped = {
           title,
           media_type: mappedMediaType,
-          year: parseYear(value('release date')) || parseYear(value('creation date')),
-          release_date: parseDateOnly(value('release date')),
-          format: normalizeMediaFormat(value('format')),
-          genre: value('genres'),
-          director: value('creator'),
-          user_rating: value('rating') ? Number(value('rating')) : null,
-          upc: value('ean') || value('isbn'),
-          notes: [value('notes'), value('edition'), value('platform')].filter(Boolean).join(' | '),
+          original_title: normalizedRow.rawTitle && normalizedRow.rawTitle !== title ? normalizedRow.rawTitle : null,
+          year: parseYear(normalizedRow.releaseDateRaw) || parseYear(normalizedRow.creationDateRaw),
+          release_date: parseDateOnly(normalizedRow.releaseDateRaw),
+          format: normalizeMediaFormat(normalizedRow.formatRaw),
+          genre: null,
+          director: normalizedRow.creator || null,
+          user_rating: normalizedRow.ratingRaw ? Number(normalizedRow.ratingRaw) : null,
+          upc: normalizedRow.ean || null,
+          notes: sourceNotes.filter(Boolean).join(' | ') || null,
           type_details: {
-            author: value('creator'),
-            isbn: value('isbn') || value('ean'),
-            publisher: value('publisher'),
-            edition: value('edition'),
-            artist: value('creator'),
-            album: value('title'),
-            platform: value('platform'),
-            developer: value('publisher'),
-            region: value('region')
+            author: normalizedRow.creator || null,
+            isbn: normalizedRow.isbn || null,
+            edition: normalizedRow.edition || null,
+            artist: normalizedRow.creator || null,
+            album: title,
+            platform: normalizedRow.normalizedPlatform || null
           }
         };
+        const rowIdentifiers = normalizeIdentifierSet({
+          isbn: normalizedRow.isbn || '',
+          ean_upc: normalizedRow.ean || '',
+          asin: normalizedRow.amazonItemId || ''
+        });
 
         try {
-          const enriched = await enrichImportItemWithTmdb(mapped, config, tmdbCache);
+          const enrichmentResult = await runImportEnrichmentPipeline(
+            { ...mapped, identifiers: rowIdentifiers },
+            config,
+            caches,
+            rowIdentifiers
+          );
+          const enriched = enrichmentResult.item;
+          incrementImportEnrichmentCounter(summary.enrichment, enrichmentResult.enrichmentStatus);
           const result = await upsertImportedMedia({
             userId,
             item: enriched,
             importSource: 'csv_delicious',
-            scopeContext
+            scopeContext,
+            identifiers: rowIdentifiers
           });
+          incrementImportMatchCounter(summary.matchModes, result.matchMode);
+          if (result.mediaId) {
+            await upsertMediaMetadataEntry(result.mediaId, 'amazon_item_id', normalizedRow.amazonItemId);
+            await upsertMediaMetadataEntry(result.mediaId, 'ean', normalizedRow.ean);
+            await upsertMediaMetadataEntry(result.mediaId, 'ean_upc', normalizedRow.ean);
+            await upsertMediaMetadataEntry(result.mediaId, 'isbn', normalizedRow.isbn);
+            await upsertMediaMetadataEntry(result.mediaId, 'source_creator', normalizedRow.creator);
+            await upsertMediaMetadataEntry(result.mediaId, 'source_edition', normalizedRow.edition);
+            await upsertMediaMetadataEntry(result.mediaId, 'source_format', normalizedRow.formatRaw);
+            await upsertMediaMetadataEntry(result.mediaId, 'normalized_platform', normalizedRow.normalizedPlatform);
+          }
           if (result.type === 'created') {
             summary.created += 1;
-            auditRows.push({ row: idx + 2, title, status: 'created', detail: '' });
+            auditRows.push({
+              row: idx + 2,
+              title,
+              status: 'created',
+              detail: '',
+              match_mode: result.matchMode || null,
+              matched_by: result.matchedBy || null,
+              enrichment_status: enrichmentResult.enrichmentStatus,
+              isbn: rowIdentifiers.isbn || '',
+              ean_upc: rowIdentifiers.eanUpc || '',
+              asin: rowIdentifiers.asin || ''
+            });
           } else if (result.type === 'updated') {
             summary.updated += 1;
-            auditRows.push({ row: idx + 2, title, status: 'updated', detail: '' });
+            auditRows.push({
+              row: idx + 2,
+              title,
+              status: 'updated',
+              detail: '',
+              match_mode: result.matchMode || null,
+              matched_by: result.matchedBy || null,
+              enrichment_status: enrichmentResult.enrichmentStatus,
+              isbn: rowIdentifiers.isbn || '',
+              ean_upc: rowIdentifiers.eanUpc || '',
+              asin: rowIdentifiers.asin || ''
+            });
           } else {
             summary.skipped_invalid += 1;
-            auditRows.push({ row: idx + 2, title, status: 'skipped_invalid', detail: result.detail || 'Invalid row' });
+            auditRows.push({
+              row: idx + 2,
+              title,
+              status: 'skipped_invalid',
+              detail: result.detail || 'Invalid row',
+              match_mode: result.matchMode || null,
+              matched_by: result.matchedBy || null,
+              enrichment_status: enrichmentResult.enrichmentStatus,
+              isbn: rowIdentifiers.isbn || '',
+              ean_upc: rowIdentifiers.eanUpc || '',
+              asin: rowIdentifiers.asin || ''
+            });
           }
         } catch (error) {
           summary.errors.push({ row: idx + 2, detail: error.message });
-          auditRows.push({ row: idx + 2, title, status: 'error', detail: error.message });
+          auditRows.push({
+            row: idx + 2,
+            title,
+            status: 'error',
+            detail: error.message,
+            enrichment_status: 'not_attempted'
+          });
         }
       }
     }
@@ -1512,8 +2195,9 @@ router.post('/upload-cover', memoryUpload.single('cover'), asyncHandler(async (r
 
 router.get('/import/template-csv', asyncHandler(async (_req, res) => {
   const template = [
-    'title,media_type,year,format,director,genre,rating,user_rating,runtime,upc,location,notes',
-    '"The Matrix","movie",1999,"Blu-ray","Lana Wachowski, Lilly Wachowski","Science Fiction",8.7,4.5,136,085391163545,"Living Room","Example row"'
+    'title,media_type,year,format,director,genre,rating,user_rating,runtime,upc,isbn,ean_upc,asin,location,notes',
+    '"The Matrix","movie",1999,"Blu-ray","Lana Wachowski, Lilly Wachowski","Science Fiction",8.7,4.5,136,085391163545,,,,"Living Room","Example row"',
+    '"Wool","book",2012,"Paperback","Hugh Howey","Science Fiction",,4.5,,,9781476735402,,,"Office","Identifier-first matching example"'
   ].join('\n');
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', 'attachment; filename="collectz-template.csv"');
@@ -1595,7 +2279,10 @@ router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, r
             created: result.summary.created,
             updated: result.summary.updated,
             skipped_invalid: result.summary.skipped_invalid,
-            errorCount: result.summary.errors.length
+            errorCount: result.summary.errors.length,
+            matchModes: result.summary.matchModes,
+            enrichment: result.summary.enrichment,
+            auditRows: result.auditRows
           },
           finished_at: new Date()
         });
@@ -1605,6 +2292,8 @@ router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, r
           updated: result.summary.updated,
           skipped_invalid: result.summary.skipped_invalid,
           errorCount: result.summary.errors.length,
+          matchModes: result.summary.matchModes,
+          enrichment: result.summary.enrichment,
           jobId: job.id
         });
       } catch (error) {
@@ -1642,7 +2331,9 @@ router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, r
     created: result.summary.created,
     updated: result.summary.updated,
     skipped_invalid: result.summary.skipped_invalid,
-    errorCount: result.summary.errors.length
+    errorCount: result.summary.errors.length,
+    matchModes: result.summary.matchModes,
+    enrichment: result.summary.enrichment
   });
   res.json({ ok: true, rows: result.rows, summary: result.summary, auditRows: result.auditRows });
 }));
@@ -1716,7 +2407,10 @@ router.post('/import-csv/delicious', tempUpload.single('file'), asyncHandler(asy
             updated: result.summary.updated,
             skipped_non_movie: result.summary.skipped_non_movie,
             skipped_invalid: result.summary.skipped_invalid,
-            errorCount: result.summary.errors.length
+            errorCount: result.summary.errors.length,
+            matchModes: result.summary.matchModes,
+            enrichment: result.summary.enrichment,
+            auditRows: result.auditRows
           },
           finished_at: new Date()
         });
@@ -1727,6 +2421,8 @@ router.post('/import-csv/delicious', tempUpload.single('file'), asyncHandler(asy
           skipped_non_movie: result.summary.skipped_non_movie,
           skipped_invalid: result.summary.skipped_invalid,
           errorCount: result.summary.errors.length,
+          matchModes: result.summary.matchModes,
+          enrichment: result.summary.enrichment,
           jobId: job.id
         });
       } catch (error) {
@@ -1765,7 +2461,9 @@ router.post('/import-csv/delicious', tempUpload.single('file'), asyncHandler(asy
     updated: result.summary.updated,
     skipped_non_movie: result.summary.skipped_non_movie,
     skipped_invalid: result.summary.skipped_invalid,
-    errorCount: result.summary.errors.length
+    errorCount: result.summary.errors.length,
+    matchModes: result.summary.matchModes,
+    enrichment: result.summary.enrichment
   });
   res.json({ ok: true, rows: result.rows, summary: result.summary, auditRows: result.auditRows });
 }));

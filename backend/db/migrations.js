@@ -871,6 +871,43 @@ const MIGRATIONS = [
       ALTER TABLE app_integrations
         ADD COLUMN IF NOT EXISTS games_client_secret_encrypted TEXT;
     `
+  },
+  {
+    version: 23,
+    description: 'Identifier-first import lookup indexes',
+    up: `
+      CREATE INDEX IF NOT EXISTS idx_media_upc ON media(upc);
+      CREATE INDEX IF NOT EXISTS idx_media_type_details_isbn
+        ON media ((type_details->>'isbn'))
+        WHERE type_details ? 'isbn';
+      CREATE INDEX IF NOT EXISTS idx_media_metadata_key_value
+        ON media_metadata("key", "value");
+      CREATE INDEX IF NOT EXISTS idx_media_metadata_isbn_value
+        ON media_metadata("value")
+        WHERE "key" = 'isbn';
+      CREATE INDEX IF NOT EXISTS idx_media_metadata_ean_value
+        ON media_metadata("value")
+        WHERE "key" IN ('ean', 'ean_upc', 'upc');
+      CREATE INDEX IF NOT EXISTS idx_media_metadata_asin_value
+        ON media_metadata("value")
+        WHERE "key" = 'amazon_item_id';
+    `
+  },
+  {
+    version: 24,
+    description: 'Rename media_type other to comic_book',
+    up: `
+      UPDATE media
+      SET media_type = 'comic_book'
+      WHERE media_type = 'other';
+
+      ALTER TABLE media
+        DROP CONSTRAINT IF EXISTS media_media_type_check;
+
+      ALTER TABLE media
+        ADD CONSTRAINT media_media_type_check
+        CHECK (media_type IN ('movie', 'tv_series', 'tv_episode', 'book', 'audio', 'game', 'comic_book'));
+    `
   }
 ];
 
