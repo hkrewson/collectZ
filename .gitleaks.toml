@@ -1,0 +1,14 @@
+title = "collectZ gitleaks config"
+
+# Temporary historical allowlist for already-known leaked test secrets in old commits.
+# Keep this scope tight by fingerprint so new leaks still fail the gate.
+[[allowlists]]
+description = "Historical CI/dev secret findings prior to hardening"
+fingerprints = [
+  "0f5b07e9c7d227f50e24535b415f70b770707200:.github/workflows/docker-publish.yml:generic-api-key:407",
+  "db3299c9361702823a78c6061e166d87f722a526:.github/workflows/docker-publish.yml:generic-api-key:407",
+  "0f5b07e9c7d227f50e24535b415f70b770707200:.github/workflows/docker-publish.yml:generic-api-key:477",
+  "db3299c9361702823a78c6061e166d87f722a526:.github/workflows/docker-publish.yml:generic-api-key:477",
+  "26e431296725ad712052c973b4a278d0940f5c7b:.env.ci:generic-api-key:135",
+  "26e431296725ad712052c973b4a278d0940f5c7b:.env.ci:generic-api-key:136"
+]

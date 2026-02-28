@@ -269,6 +269,23 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Enforce gitleaks SARIF gate
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const path = 'results.sarif';
+          if (!fs.existsSync(path)) {
+            throw new Error('gitleaks SARIF report not found: results.sarif');
+          }
+          const sarif = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const runs = Array.isArray(sarif.runs) ? sarif.runs : [];
+          const findings = runs.reduce((acc, run) => acc + ((run.results && run.results.length) || 0), 0);
+          if (findings > 0) {
+            throw new Error(`gitleaks detected ${findings} finding(s).`);
+          }
+          console.log('gitleaks SARIF gate passed (0 findings).');
+          NODE
+
   migration-check:
     runs-on: ubuntu-latest
     needs: prepare
