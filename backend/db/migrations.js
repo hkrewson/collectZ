@@ -926,6 +926,28 @@ const MIGRATIONS = [
         ADD CONSTRAINT media_signed_role_check
         CHECK (signed_role IS NULL OR signed_role IN ('author', 'producer', 'cast'));
     `
+  },
+  {
+    version: 26,
+    description: 'Add comics integration settings',
+    up: `
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS comics_preset VARCHAR(100) DEFAULT 'metron',
+        ADD COLUMN IF NOT EXISTS comics_provider VARCHAR(100),
+        ADD COLUMN IF NOT EXISTS comics_api_url TEXT,
+        ADD COLUMN IF NOT EXISTS comics_api_key_encrypted TEXT,
+        ADD COLUMN IF NOT EXISTS comics_api_key_header VARCHAR(100),
+        ADD COLUMN IF NOT EXISTS comics_api_key_query_param VARCHAR(100),
+        ADD COLUMN IF NOT EXISTS comics_username VARCHAR(255);
+    `
+  },
+  {
+    version: 27,
+    description: 'Add signed proof image path for media entries',
+    up: `
+      ALTER TABLE media
+        ADD COLUMN IF NOT EXISTS signed_proof_path TEXT;
+    `
   }
 ];
 

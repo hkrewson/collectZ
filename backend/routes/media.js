@@ -15,6 +15,7 @@ const { fetchPlexLibraryItems } = require('../services/plex');
 const { searchBooksByTitle, searchBooksByIsbn } = require('../services/books');
 const { searchAudioByTitle } = require('../services/audio');
 const { searchGamesByTitle } = require('../services/games');
+const { searchComicsByTitle, fetchMetronCollectionIssues, fetchMetronIssueDetails, pushMetronCollectionIssue } = require('../services/comics');
 const { parseCsvText } = require('../services/csv');
 const { mapDeliciousItemTypeToMediaType } = require('../services/importMapping');
 const { normalizeDeliciousRow } = require('../services/deliciousNormalize');
@@ -139,7 +140,7 @@ function sanitizeTypeDetails(mediaType, rawTypeDetails) {
     book: ['author', 'isbn', 'publisher', 'edition'],
     audio: ['artist', 'album', 'track_count'],
     game: ['platform', 'developer', 'region'],
-    comic_book: ['author', 'isbn', 'publisher', 'edition']
+    comic_book: ['author', 'isbn', 'publisher', 'edition', 'series', 'issue_number', 'volume', 'writer', 'artist', 'inker', 'colorist', 'cover_date', 'provider_issue_id']
   };
   const allowedKeys = allowedByType[normalizedType] || [];
   if (!allowedKeys.length) return null;
@@ -204,6 +205,55 @@ function parseDateOnly(value) {
   return d.toISOString().slice(0, 10);
 }
 
+function parseCalibreDate(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) {
+    return raw.slice(0, 10);
+  }
+  return parseDateOnly(raw);
+}
+
+function normalizeCalibreRows(rows = []) {
+  return rows.map((row) => {
+    const value = (name) => getRowValue(row, name);
+    const tags = String(value('tags') || '').toLowerCase();
+    const formats = String(value('formats') || '').toLowerCase();
+    const isComic = tags.includes('comic') || tags.includes('manga') || formats.includes('cbz') || formats.includes('cbr');
+    const year = parseYear(value('pubdate') || value('date') || value('year'));
+    const format = isComic ? 'Digital' : (normalizeMediaFormat(value('format')) || 'Digital');
+    const series = value('series');
+    const seriesIndex = value('series_index') || value('series index') || value('index');
+
+    return {
+      title: value('title'),
+      media_type: isComic ? 'comic_book' : 'book',
+      original_title: value('original_title') || '',
+      release_date: parseCalibreDate(value('pubdate') || value('date')),
+      year: year ? String(year) : '',
+      format,
+      genre: value('tags') || value('genre') || '',
+      director: '',
+      rating: value('rating') || '',
+      user_rating: '',
+      runtime: '',
+      upc: value('ean') || value('upc') || '',
+      signed_by: '',
+      signed_role: '',
+      signed_on: '',
+      signed_at: '',
+      location: '',
+      notes: value('comments') || '',
+      author: value('authors') || value('author') || '',
+      isbn: value('isbn') || value('isbn13') || '',
+      publisher: value('publisher') || '',
+      edition: value('edition') || '',
+      series,
+      issue_number: seriesIndex
+    };
+  });
+}
+
 function normalizeSignedRole(value) {
   if (!value) return null;
   const normalized = String(value).trim().toLowerCase();
@@ -217,6 +267,38 @@ function normalizeTitleForMatch(value) {
     .replace(/[^a-z0-9]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function normalizeComicIssueToken(value) {
+  if (value === null || value === undefined) return '';
+  return String(value)
+    .trim()
+    .replace(/^#\s*/, '')
+    .replace(/^(issue|no\.?)\s*/i, '')
+    .trim()
+    .toLowerCase();
+}
+
+function extractComicIssueTokenFromTitle(title) {
+  const value = String(title || '').trim();
+  if (!value) return '';
+  const hashMatch = value.match(/#\s*([A-Za-z0-9.-]+)/);
+  if (hashMatch?.[1]) return normalizeComicIssueToken(hashMatch[1]);
+  const issueMatch = value.match(/\b(?:issue|no\.?)\s*([A-Za-z0-9.-]+)/i);
+  if (issueMatch?.[1]) return normalizeComicIssueToken(issueMatch[1]);
+  return '';
+}
+
+function getComicIssueTokenFromCandidate(row = {}) {
+  const issueFromDetails = normalizeComicIssueToken(row?.type_details?.issue_number || '');
+  if (issueFromDetails) return issueFromDetails;
+  return extractComicIssueTokenFromTitle(row?.title || row?.name || '');
+}
+
+function getComicIssueTokenFromItem(item = {}) {
+  const issueFromDetails = normalizeComicIssueToken(item?.type_details?.issue_number || '');
+  if (issueFromDetails) return issueFromDetails;
+  return extractComicIssueTokenFromTitle(item?.title || '');
 }
 
 function pickBestTmdbMatch(results = [], title, year) {
@@ -252,10 +334,14 @@ function pickBestTmdbMatch(results = [], title, year) {
   return best || results[0];
 }
 
-function pickBestProviderMatch(results = [], title, year) {
+function pickBestProviderMatch(results = [], title, year, options = {}) {
   if (!Array.isArray(results) || results.length === 0) return null;
   const targetTitle = normalizeTitleForMatch(title);
   const targetYear = Number.isFinite(Number(year)) ? Number(year) : null;
+  const mediaType = normalizeMediaType(options.mediaType || '', 'movie');
+  const targetComicIssue = mediaType === 'comic_book'
+    ? normalizeComicIssueToken(options.comicIssueNumber || '')
+    : '';
   let best = null;
   let bestScore = -Infinity;
 
@@ -274,6 +360,11 @@ function pickBestProviderMatch(results = [], title, year) {
       else if (delta <= 1) score += 10;
       else if (delta <= 2) score += 5;
     }
+    if (mediaType === 'comic_book' && targetComicIssue) {
+      const candidateIssue = getComicIssueTokenFromCandidate(row);
+      if (candidateIssue && candidateIssue === targetComicIssue) score += 120;
+      else if (candidateIssue && candidateIssue !== targetComicIssue) score -= 240;
+    }
     if (!best || score > bestScore) {
       best = row;
       bestScore = score;
@@ -285,7 +376,19 @@ function pickBestProviderMatch(results = [], title, year) {
 async function enrichImportItemByMediaType(item, config, cache) {
   const normalizedMediaType = normalizeMediaType(item.media_type || 'movie', 'movie');
   if (!item?.title) return item;
-  if (!['book', 'audio', 'game'].includes(normalizedMediaType)) return item;
+  if (!['book', 'audio', 'game', 'comic_book'].includes(normalizedMediaType)) return item;
+  if (normalizedMediaType === 'comic_book') {
+    const inferredIssue = getComicIssueTokenFromItem(item);
+    if (inferredIssue) {
+      item = {
+        ...item,
+        type_details: {
+          ...(item.type_details || {}),
+          issue_number: item?.type_details?.issue_number || inferredIssue
+        }
+      };
+    }
+  }
 
   const identifiers = resolveImportIdentifiers(item, item.identifiers || {});
   const cacheKey = `${normalizedMediaType}:q:${String(item.title).toLowerCase()}|${item.year || ''}|${identifiers.isbn || ''}|${identifiers.eanUpc || ''}`;
@@ -312,6 +415,8 @@ async function enrichImportItemByMediaType(item, config, cache) {
           item.type_details?.author || item.director || ''
         );
       }
+    } else if (normalizedMediaType === 'comic_book') {
+      results = await searchComicsByTitle(item.title, config, 8);
     } else if (normalizedMediaType === 'audio') {
       if (identifiers.eanUpc && config.barcodeApiUrl && config.barcodeApiKey) {
         const lookup = await axios.get(config.barcodeApiUrl, {
@@ -366,7 +471,10 @@ async function enrichImportItemByMediaType(item, config, cache) {
       results = await searchGamesByTitle(item.title, config, 8);
       }
     }
-    const best = pickBestProviderMatch(results, item.title, item.year) || null;
+    const best = pickBestProviderMatch(results, item.title, item.year, {
+      mediaType: normalizedMediaType,
+      comicIssueNumber: normalizedMediaType === 'comic_book' ? item?.type_details?.issue_number : ''
+    }) || null;
     if (!best) {
       cache.set(cacheKey, {});
       return item;
@@ -387,12 +495,20 @@ async function enrichImportItemByMediaType(item, config, cache) {
         isbn: incomingTypeDetails.isbn || bestTypeDetails.isbn || null,
         publisher: incomingTypeDetails.publisher || bestTypeDetails.publisher || null,
         edition: incomingTypeDetails.edition || bestTypeDetails.edition || null,
+        series: incomingTypeDetails.series || bestTypeDetails.series || null,
+        issue_number: incomingTypeDetails.issue_number || bestTypeDetails.issue_number || null,
+        provider_issue_id: incomingTypeDetails.provider_issue_id || bestTypeDetails.provider_issue_id || best.id || null,
+        volume: incomingTypeDetails.volume || bestTypeDetails.volume || null,
+        writer: incomingTypeDetails.writer || bestTypeDetails.writer || null,
         artist: incomingTypeDetails.artist || bestTypeDetails.artist || null,
         album: incomingTypeDetails.album || bestTypeDetails.album || null,
         track_count: incomingTypeDetails.track_count || bestTypeDetails.track_count || null,
         platform: incomingTypeDetails.platform || bestTypeDetails.platform || null,
         developer: incomingTypeDetails.developer || bestTypeDetails.developer || null,
-        region: incomingTypeDetails.region || bestTypeDetails.region || null
+        region: incomingTypeDetails.region || bestTypeDetails.region || null,
+        inker: incomingTypeDetails.inker || bestTypeDetails.inker || null,
+        colorist: incomingTypeDetails.colorist || bestTypeDetails.colorist || null,
+        cover_date: incomingTypeDetails.cover_date || bestTypeDetails.cover_date || null
       }
     };
 
@@ -568,7 +684,7 @@ async function runImportEnrichmentPipeline(item, config, caches, identifiers = {
   let attempted = false;
   let enriched = false;
 
-  if (['book', 'audio', 'game'].includes(normalizedType)) {
+  if (['book', 'audio', 'game', 'comic_book'].includes(normalizedType)) {
     attempted = true;
     const before = { ...working };
     working = await enrichImportItemByMediaType({ ...working, identifiers }, config, caches.providerCache);
@@ -645,6 +761,36 @@ async function findExistingByIdentifier({ identifierType, identifierValue, norma
 }
 
 async function findExistingByProviderIds({ item, normalizedMediaType, normalizedTmdbType, scopeContext = null }) {
+  if (normalizedMediaType === 'comic_book') {
+    const providerIssueId = String(
+      item?.type_details?.provider_issue_id || item?.provider_issue_id || ''
+    ).trim();
+    if (providerIssueId) {
+      const params = [providerIssueId, normalizedMediaType];
+      const scopeClause = appendScopeSql(params, scopeContext, {
+        spaceColumn: 'm.space_id',
+        libraryColumn: 'm.library_id'
+      });
+      const byProviderIssueId = await pool.query(
+        `SELECT DISTINCT m.id
+         FROM media m
+         LEFT JOIN media_metadata mm ON mm.media_id = m.id
+         WHERE COALESCE(m.media_type, 'movie') = $2
+           AND (
+             COALESCE(m.type_details->>'provider_issue_id', '') = $1
+             OR (mm."key" = 'metron_issue_id' AND mm."value" = $1)
+           )
+           ${scopeClause}
+         ORDER BY m.id DESC
+         LIMIT 1`,
+        params
+      );
+      if (byProviderIssueId.rows[0]) {
+        return { row: byProviderIssueId.rows[0], matchedBy: 'provider_issue_id' };
+      }
+    }
+  }
+
   if (item.tmdb_id) {
     const params = [item.tmdb_id, normalizedTmdbType, normalizedMediaType];
     const scopeClause = appendScopeSql(params, scopeContext);
@@ -715,7 +861,14 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
   const normalizedMediaType = normalizeMediaType(item.media_type || 'movie', 'movie');
   const normalizedTmdbType = normalizedMediaType === 'tv_series' || normalizedMediaType === 'tv_episode' ? 'tv' : 'movie';
   const normalizedTypeDetails = sanitizeTypeDetails(normalizedMediaType, item.type_details);
-  const resolvedIdentifiers = resolveImportIdentifiers(item, identifiers || {});
+  const baseIdentifiers = resolveImportIdentifiers(item, identifiers || {});
+  const resolvedIdentifiers = normalizedMediaType === 'comic_book'
+    ? {
+        isbn: '',
+        eanUpc: '',
+        asin: ''
+      }
+    : baseIdentifiers;
   const identifierAttempted = Boolean(resolvedIdentifiers.isbn || resolvedIdentifiers.eanUpc || resolvedIdentifiers.asin);
   const dedupLockKey = buildMediaDedupLockKey({ ...item, title, ...resolvedIdentifiers }, scopeContext);
   return withDedupLock(dedupLockKey, async () => {
@@ -783,21 +936,27 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
     }
 
     if (!existingRow) {
-      const year = item.year ?? null;
-      const existingParams = [title, year, normalizedMediaType];
-      const existingScopeClause = appendScopeSql(existingParams, scopeContext);
-      const existing = await pool.query(
-        `SELECT id
-         FROM media
-         WHERE LOWER(TRIM(title)) = LOWER(TRIM($1))
-           AND (($2::int IS NOT NULL AND year = $2::int) OR ($2::int IS NULL))
-           AND COALESCE(media_type, 'movie') = $3
-           ${existingScopeClause}
-         ORDER BY created_at DESC
-         LIMIT 1`,
-        existingParams
-      );
-      existingRow = existing.rows[0] || null;
+      const comicProviderIssueId = normalizedMediaType === 'comic_book'
+        ? String(normalizedTypeDetails?.provider_issue_id || '').trim()
+        : '';
+      const shouldSkipTitleFallback = normalizedMediaType === 'comic_book' && Boolean(comicProviderIssueId);
+      if (!shouldSkipTitleFallback) {
+        const year = item.year ?? null;
+        const existingParams = [title, year, normalizedMediaType];
+        const existingScopeClause = appendScopeSql(existingParams, scopeContext);
+        const existing = await pool.query(
+          `SELECT id
+           FROM media
+           WHERE LOWER(TRIM(title)) = LOWER(TRIM($1))
+             AND (($2::int IS NOT NULL AND year = $2::int) OR ($2::int IS NULL))
+             AND COALESCE(media_type, 'movie') = $3
+             ${existingScopeClause}
+           ORDER BY created_at DESC
+           LIMIT 1`,
+          existingParams
+        );
+        existingRow = existing.rows[0] || null;
+      }
     }
 
     if (existingRow) {
@@ -824,6 +983,7 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
         item.signed_role || null,
         item.signed_on || null,
         item.signed_at || null,
+        item.signed_proof_path || null,
         item.location || null,
         item.notes || null,
         normalizedTypeDetails ? JSON.stringify(normalizedTypeDetails) : null,
@@ -855,11 +1015,12 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
            signed_role = COALESCE($20, signed_role),
            signed_on = COALESCE($21, signed_on),
            signed_at = COALESCE($22, signed_at),
-           location = COALESCE($23, location),
-           notes = COALESCE($24, notes),
-           type_details = COALESCE($25::jsonb, type_details),
-           import_source = COALESCE($26, import_source)
-         WHERE id = $27${updateScopeClause}`,
+           signed_proof_path = COALESCE($23, signed_proof_path),
+           location = COALESCE($24, location),
+           notes = COALESCE($25, notes),
+           type_details = COALESCE($26::jsonb, type_details),
+           import_source = COALESCE($27, import_source)
+         WHERE id = $28${updateScopeClause}`,
         updateParams
       );
       return {
@@ -876,9 +1037,9 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
       `INSERT INTO media (
          title, media_type, original_title, release_date, year, format, genre, director,
          rating, user_rating, tmdb_id, tmdb_media_type, tmdb_url, poster_path, backdrop_path, overview, trailer_url,
-         runtime, upc, signed_by, signed_role, signed_on, signed_at, location, notes, type_details, library_id, space_id, added_by, import_source
+         runtime, upc, signed_by, signed_role, signed_on, signed_at, signed_proof_path, location, notes, type_details, library_id, space_id, added_by, import_source
        ) VALUES (
-         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25::jsonb,$26,$27,$28,$29
+         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27::jsonb,$28,$29,$30,$31
        )
        RETURNING id`,
       [
@@ -905,6 +1066,7 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
         item.signed_role || null,
         item.signed_on || null,
         item.signed_at || null,
+        item.signed_proof_path || null,
         item.location || null,
         item.notes || null,
         normalizedTypeDetails ? JSON.stringify(normalizedTypeDetails) : null,
@@ -1447,7 +1609,198 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
   };
 }
 
-async function runGenericCsvImport({ rows, userId, scopeContext, onProgress = null }) {
+async function runMetronImport({ req, config, scopeContext = null, onProgress = null }) {
+  const summary = { created: 0, updated: 0, skipped: 0, skipped_existing: 0, errors: [] };
+  const detailCache = new Map();
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const fetchDetailWithRetry = async (providerIssueId) => {
+    let lastError = null;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        return await fetchMetronIssueDetails(config, providerIssueId);
+      } catch (error) {
+        lastError = error;
+        if (attempt < 2) {
+          await sleep(300 * (attempt + 1));
+        }
+      }
+    }
+    throw lastError || new Error('Metron detail lookup failed');
+  };
+  const updateProgress = async (progress) => {
+    if (typeof onProgress !== 'function') return;
+    await onProgress(progress);
+  };
+
+  const { issues, endpoint } = await fetchMetronCollectionIssues(config, { limit: 2500 });
+  const incomingProviderIssueIds = [...new Set(
+    issues
+      .map((issue) => String(issue?.type_details?.provider_issue_id || issue?.id || '').trim())
+      .filter(Boolean)
+  )];
+  const existingProviderIssueIds = new Set();
+  if (incomingProviderIssueIds.length > 0) {
+    const existingParams = [incomingProviderIssueIds];
+    const existingScopeClause = appendScopeSql(existingParams, scopeContext, {
+      spaceColumn: 'm.space_id',
+      libraryColumn: 'm.library_id'
+    });
+    const existing = await pool.query(
+      `SELECT DISTINCT COALESCE(m.type_details->>'provider_issue_id', '') AS provider_issue_id
+       FROM media m
+       WHERE m.media_type = 'comic_book'
+         AND COALESCE(m.type_details->>'provider_issue_id', '') = ANY($1::text[])
+         ${existingScopeClause}`,
+      existingParams
+    );
+    for (const row of existing.rows || []) {
+      const value = String(row?.provider_issue_id || '').trim();
+      if (value) existingProviderIssueIds.add(value);
+    }
+  }
+  const pendingIssues = issues.filter((issue) => {
+    const providerIssueId = String(issue?.type_details?.provider_issue_id || issue?.id || '').trim();
+    if (!providerIssueId) return true;
+    return !existingProviderIssueIds.has(providerIssueId);
+  });
+  summary.skipped_existing = issues.length - pendingIssues.length;
+
+  await updateProgress({
+    total: pendingIssues.length,
+    processed: 0,
+    created: 0,
+    updated: 0,
+    skipped: summary.skipped_existing,
+    errorCount: 0
+  });
+
+  for (let idx = 0; idx < pendingIssues.length; idx += 1) {
+    const issue = pendingIssues[idx];
+    if (!issue?.title) {
+      summary.skipped += 1;
+      continue;
+    }
+    try {
+      let mergedIssue = issue;
+      const providerIssueId = String(issue?.type_details?.provider_issue_id || issue?.id || '').trim();
+      if (providerIssueId) {
+        if (!detailCache.has(providerIssueId)) {
+          try {
+            const detailed = await fetchDetailWithRetry(providerIssueId);
+            detailCache.set(providerIssueId, detailed);
+          } catch (_detailError) {
+            detailCache.set(providerIssueId, null);
+          }
+        }
+        const detailed = detailCache.get(providerIssueId);
+        if (detailed) {
+          mergedIssue = {
+            ...issue,
+            ...detailed,
+            type_details: {
+              ...(issue.type_details || {}),
+              ...(detailed.type_details || {}),
+              provider_issue_id: providerIssueId
+            },
+            tmdb_url: detailed.external_url || issue.external_url || null,
+            poster_path: detailed.poster_path || issue.poster_path || null,
+            overview: detailed.overview || issue.overview || null,
+            upc: detailed.upc || issue.upc || null
+          };
+        }
+      }
+
+      const prepared = {
+        title: mergedIssue.title,
+        media_type: 'comic_book',
+        year: mergedIssue.year || null,
+        release_date: mergedIssue.release_date || null,
+        format: 'Digital',
+        overview: mergedIssue.overview || null,
+        tmdb_url: mergedIssue.external_url || null,
+        poster_path: mergedIssue.poster_path || null,
+        upc: mergedIssue.upc || null,
+        type_details: {
+          ...(mergedIssue.type_details || {}),
+          provider_issue_id: providerIssueId || null
+        },
+        library_id: scopeContext?.libraryId || null,
+        space_id: scopeContext?.spaceId || null
+      };
+      const result = await upsertImportedMedia({
+        userId: req.user.id,
+        item: prepared,
+        importSource: 'metron',
+        scopeContext
+      });
+      if (result.type === 'created') summary.created += 1;
+      else if (result.type === 'updated') summary.updated += 1;
+      else summary.skipped += 1;
+      if (result.mediaId && issue.id) {
+        await upsertMediaMetadataEntry(result.mediaId, 'metron_issue_id', issue.id);
+      }
+    } catch (error) {
+      summary.errors.push({ title: issue.title, detail: error.message || 'Metron import failed' });
+    }
+
+    const processed = idx + 1;
+    if (processed === pendingIssues.length || processed % CSV_JOB_PROGRESS_BATCH_SIZE === 0) {
+      await updateProgress({
+        total: pendingIssues.length,
+        processed,
+        created: summary.created,
+        updated: summary.updated,
+        skipped: summary.skipped + summary.skipped_existing,
+        errorCount: summary.errors.length
+      });
+    }
+  }
+
+  return {
+    imported: pendingIssues.length,
+    totalAvailable: issues.length,
+    summary,
+    collectionEndpoint: endpoint
+  };
+}
+
+async function maybePushComicToMetron({ req, mediaRow }) {
+  if (!mediaRow || mediaRow.media_type !== 'comic_book') return;
+  const config = await loadAdminIntegrationConfig();
+  if (String(config.comicsProvider || '').toLowerCase() !== 'metron') return;
+  if (!config.comicsApiKey || !config.comicsApiUrl) return;
+
+  const details = mediaRow.type_details && typeof mediaRow.type_details === 'object'
+    ? mediaRow.type_details
+    : {};
+  let issueId = details.provider_issue_id || null;
+  if (!issueId) {
+    try {
+      const matches = await searchComicsByTitle(String(mediaRow.title || '').trim(), config, 6);
+      const best = pickBestProviderMatch(matches, mediaRow.title, mediaRow.year);
+      issueId = best?.id || null;
+    } catch (_error) {
+      issueId = null;
+    }
+  }
+  if (!issueId) return;
+
+  try {
+    await pushMetronCollectionIssue(config, issueId);
+    await logActivity(req, 'media.metron.push.success', 'media', mediaRow.id, {
+      issueId: String(issueId),
+      title: mediaRow.title
+    });
+  } catch (error) {
+    await logActivity(req, 'media.metron.push.failed', 'media', mediaRow.id, {
+      issueId: String(issueId),
+      title: mediaRow.title,
+      detail: error.message || 'Metron push failed'
+    });
+  }
+}
+
+async function runGenericCsvImport({ rows, userId, scopeContext, onProgress = null, importSource = 'csv_generic' }) {
   const summary = {
     created: 0,
     updated: 0,
@@ -1504,6 +1857,9 @@ async function runGenericCsvImport({ rows, userId, scopeContext, onProgress = nu
         isbn: value('isbn') || value('isbn13'),
         publisher: value('publisher'),
         edition: value('edition'),
+        series: value('series'),
+        issue_number: value('issue_number') || value('issue number'),
+        volume: value('volume'),
         artist: value('artist'),
         album: value('album'),
         track_count: value('track_count'),
@@ -1529,7 +1885,7 @@ async function runGenericCsvImport({ rows, userId, scopeContext, onProgress = nu
       const result = await upsertImportedMedia({
         userId,
         item: enriched,
-        importSource: 'csv_generic',
+        importSource,
         scopeContext,
         identifiers: rowIdentifiers
       });
@@ -1819,7 +2175,9 @@ router.get('/', asyncHandler(async (req, res) => {
     userRatingMin, userRatingMax
   } = req.query;
   const pageNum = Number.isFinite(Number(page)) ? Math.max(1, Number(page)) : 1;
-  const limitNum = Number.isFinite(Number(limit)) ? Math.max(1, Math.min(200, Number(limit))) : 50;
+  const mediaTypeFilter = String(media_type || '').toLowerCase();
+  const maxLimit = mediaTypeFilter === 'comic_book' ? 5000 : 200;
+  const limitNum = Number.isFinite(Number(limit)) ? Math.max(1, Math.min(maxLimit, Number(limit))) : 50;
   const offset = (pageNum - 1) * limitNum;
   let where = 'WHERE 1=1';
   const params = [];
@@ -1854,6 +2212,9 @@ router.get('/', asyncHandler(async (req, res) => {
       OR director ILIKE $${likeIdx}
       OR genre ILIKE $${likeIdx}
       OR notes ILIKE $${likeIdx}
+      OR COALESCE(type_details->>'series', '') ILIKE $${likeIdx}
+      OR COALESCE(type_details->>'writer', '') ILIKE $${likeIdx}
+      OR COALESCE(type_details->>'artist', '') ILIKE $${likeIdx}
     )`;
   }
 
@@ -2108,6 +2469,16 @@ router.post('/enrich/game/search', asyncHandler(async (req, res) => {
   res.json({ provider: config.gamesProvider || 'igdb', matches });
 }));
 
+router.post('/enrich/comic/search', asyncHandler(async (req, res) => {
+  const { title } = req.body || {};
+  if (!String(title || '').trim()) {
+    return res.status(400).json({ error: 'title is required' });
+  }
+  const config = await loadAdminIntegrationConfig();
+  const matches = await searchComicsByTitle(String(title).trim(), config, 10);
+  res.json({ provider: config.comicsProvider || 'metron', matches });
+}));
+
 // ── UPC lookup ────────────────────────────────────────────────────────────────
 
 router.post('/lookup-upc', asyncHandler(async (req, res) => {
@@ -2218,11 +2589,110 @@ router.post('/upload-cover', memoryUpload.single('cover'), asyncHandler(async (r
   res.json({ path: stored.url, provider: stored.provider });
 }));
 
+async function resolveEditableMediaForUser({ req, mediaId, scopeContext }) {
+  const unrestrictedParams = [mediaId];
+  const unrestrictedScopeClause = appendScopeSql(unrestrictedParams, scopeContext);
+  const unrestricted = await pool.query(
+    `SELECT id, signed_proof_path
+     FROM media
+     WHERE id = $1${unrestrictedScopeClause}
+     LIMIT 1`,
+    unrestrictedParams
+  );
+  if (unrestricted.rows.length === 0) {
+    return { status: 404, row: null };
+  }
+
+  const editableParams = [mediaId];
+  let ownerClause = '';
+  if (req.user.role !== 'admin') {
+    editableParams.push(req.user.id);
+    ownerClause = ` AND added_by = $${editableParams.length}`;
+  }
+  const editableScopeClause = appendScopeSql(editableParams, scopeContext);
+  const editable = await pool.query(
+    `SELECT id, signed_proof_path
+     FROM media
+     WHERE id = $1${ownerClause}${editableScopeClause}
+     LIMIT 1`,
+    editableParams
+  );
+  if (editable.rows.length === 0) {
+    return { status: 403, row: null };
+  }
+  return { status: 200, row: editable.rows[0] };
+}
+
+router.post('/:id/upload-signing-proof', memoryUpload.single('proof'), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const mediaId = Number(req.params.id);
+  if (!Number.isFinite(mediaId) || mediaId <= 0) {
+    return res.status(400).json({ error: 'Invalid media id' });
+  }
+  if (!req.file) {
+    return res.status(400).json({ error: 'No file uploaded' });
+  }
+  if (!ALLOWED_COVER_MIME_TYPES.has(String(req.file.mimetype || '').toLowerCase())) {
+    return res.status(400).json({ error: 'Unsupported file type. Allowed: JPEG, PNG, WEBP, GIF.' });
+  }
+
+  const access = await resolveEditableMediaForUser({ req, mediaId, scopeContext });
+  if (access.status === 404) return res.status(404).json({ error: 'Media item not found' });
+  if (access.status === 403) return res.status(403).json({ error: 'Not authorized to edit this media item' });
+
+  const previousPath = access.row?.signed_proof_path || null;
+  const stored = await uploadBuffer(req.file.buffer, req.file.originalname, req.file.mimetype);
+  const updated = await pool.query(
+    `UPDATE media
+     SET signed_proof_path = $1
+     WHERE id = $2
+     RETURNING id, signed_proof_path`,
+    [stored.url, mediaId]
+  );
+  await logActivity(
+    req,
+    previousPath ? 'media.signing_proof.replace' : 'media.signing_proof.upload',
+    'media',
+    mediaId,
+    { previousPath, nextPath: stored.url, provider: stored.provider }
+  );
+  res.json({
+    id: updated.rows[0].id,
+    signed_proof_path: updated.rows[0].signed_proof_path,
+    provider: stored.provider
+  });
+}));
+
+router.delete('/:id/signing-proof', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const mediaId = Number(req.params.id);
+  if (!Number.isFinite(mediaId) || mediaId <= 0) {
+    return res.status(400).json({ error: 'Invalid media id' });
+  }
+
+  const access = await resolveEditableMediaForUser({ req, mediaId, scopeContext });
+  if (access.status === 404) return res.status(404).json({ error: 'Media item not found' });
+  if (access.status === 403) return res.status(403).json({ error: 'Not authorized to edit this media item' });
+
+  const previousPath = access.row?.signed_proof_path || null;
+  if (!previousPath) {
+    return res.json({ ok: true, removed: false });
+  }
+  await pool.query(
+    `UPDATE media
+     SET signed_proof_path = NULL
+     WHERE id = $1`,
+    [mediaId]
+  );
+  await logActivity(req, 'media.signing_proof.remove', 'media', mediaId, { previousPath });
+  res.json({ ok: true, removed: true });
+}));
+
 // ── CSV import ────────────────────────────────────────────────────────────────
 
 router.get('/import/template-csv', asyncHandler(async (_req, res) => {
   const template = [
-    'title,media_type,year,format,director,genre,rating,user_rating,runtime,upc,isbn,ean_upc,asin,signed_by,signed_role,signed_on,signed_at,location,notes',
+    'title,media_type,year,format,director,genre,rating,user_rating,runtime,upc,isbn,ean_upc,asin,signed_by,signed_role,signed_on,signed_at,signed_proof_path,location,notes',
     '"The Matrix","movie",1999,"Blu-ray","Lana Wachowski, Lilly Wachowski","Science Fiction",8.7,4.5,136,085391163545,,,,,,,,"Living Room","Example row"',
     '"Wool","book",2012,"Paperback","Hugh Howey","Science Fiction",,4.5,,,9781476735402,,,Hugh Howey,author,2024-06-12,"Salt Lake City","Identifier-first matching example"'
   ].join('\n');
@@ -2354,6 +2824,136 @@ router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, r
     scopeContext
   });
   await logActivity(req, 'media.import.csv', 'media', null, {
+    rows: result.rows,
+    created: result.summary.created,
+    updated: result.summary.updated,
+    skipped_invalid: result.summary.skipped_invalid,
+    errorCount: result.summary.errors.length,
+    matchModes: result.summary.matchModes,
+    enrichment: result.summary.enrichment
+  });
+  res.json({ ok: true, rows: result.rows, summary: result.summary, auditRows: result.auditRows });
+}));
+
+router.post('/import-csv/calibre', tempUpload.single('file'), asyncHandler(async (req, res) => {
+  await assertFeatureEnabled('import_csv_enabled');
+  const scopeContext = resolveScopeContext(req);
+  if (!req.file) {
+    return res.status(400).json({ error: 'Calibre CSV file is required (multipart field: file)' });
+  }
+  let text = '';
+  try {
+    text = await fs.promises.readFile(req.file.path, 'utf8');
+  } finally {
+    await fs.promises.unlink(req.file.path).catch(() => {});
+  }
+
+  let parsed;
+  try {
+    parsed = parseCsvText(text);
+  } catch (error) {
+    return res.status(400).json({ error: `Invalid CSV format: ${error.message}` });
+  }
+  const { rows } = parsed;
+  const mappedRows = normalizeCalibreRows(rows);
+  const asyncMode = parseAsyncFlag(req.query?.async) || parseAsyncFlag(req.body?.async);
+  const auditReq = {
+    user: req.user,
+    headers: req.headers,
+    ip: req.ip,
+    socket: req.socket
+  };
+
+  if (asyncMode) {
+    const job = await createSyncJob({
+      userId: req.user.id,
+      jobType: 'media_import',
+      provider: 'csv_calibre',
+      scope: jobScopePayload(scopeContext),
+      progress: {
+        total: mappedRows.length,
+        processed: 0,
+        created: 0,
+        updated: 0,
+        skipped: 0,
+        errorCount: 0
+      }
+    });
+
+    setImmediate(async () => {
+      try {
+        await updateSyncJob(job.id, { status: 'running', started_at: new Date() });
+        const result = await runGenericCsvImport({
+          rows: mappedRows,
+          userId: req.user.id,
+          scopeContext,
+          onProgress: async (progress) => updateSyncJob(job.id, { progress }),
+          importSource: 'csv_calibre'
+        });
+        await updateSyncJob(job.id, {
+          status: 'succeeded',
+          progress: {
+            total: result.rows,
+            processed: result.rows,
+            created: result.summary.created,
+            updated: result.summary.updated,
+            skipped: result.summary.skipped_invalid,
+            errorCount: result.summary.errors.length
+          },
+          summary: {
+            rows: result.rows,
+            created: result.summary.created,
+            updated: result.summary.updated,
+            skipped_invalid: result.summary.skipped_invalid,
+            errorCount: result.summary.errors.length,
+            matchModes: result.summary.matchModes,
+            enrichment: result.summary.enrichment,
+            auditRows: result.auditRows
+          },
+          finished_at: new Date()
+        });
+        await logActivity(auditReq, 'media.import.calibre', 'media', null, {
+          rows: result.rows,
+          created: result.summary.created,
+          updated: result.summary.updated,
+          skipped_invalid: result.summary.skipped_invalid,
+          errorCount: result.summary.errors.length,
+          matchModes: result.summary.matchModes,
+          enrichment: result.summary.enrichment,
+          jobId: job.id
+        });
+      } catch (error) {
+        await updateSyncJob(job.id, {
+          status: 'failed',
+          error: error.message || 'Calibre import failed',
+          finished_at: new Date()
+        });
+        await logActivity(auditReq, 'media.import.calibre.failed', 'media', null, {
+          detail: error.message || 'Calibre import failed',
+          jobId: job.id
+        });
+      }
+    });
+
+    return res.status(202).json({
+      ok: true,
+      queued: true,
+      job: {
+        id: job.id,
+        status: job.status,
+        provider: job.provider,
+        progress: job.progress
+      }
+    });
+  }
+
+  const result = await runGenericCsvImport({
+    rows: mappedRows,
+    userId: req.user.id,
+    scopeContext,
+    importSource: 'csv_calibre'
+  });
+  await logActivity(req, 'media.import.calibre', 'media', null, {
     rows: result.rows,
     created: result.summary.created,
     updated: result.summary.updated,
@@ -2651,6 +3251,120 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
   }
 }));
 
+router.post('/import-comics', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const useAsync = parseAsyncFlag(req.query?.async) || parseAsyncFlag(req.body?.async);
+  const config = await loadAdminIntegrationConfig();
+  if (String(config.comicsProvider || '').toLowerCase() !== 'metron') {
+    return res.status(400).json({ error: 'Comics provider must be set to Metron for collection import' });
+  }
+  if (!config.comicsApiUrl) {
+    return res.status(400).json({ error: 'Metron API URL is not configured' });
+  }
+  if (!config.comicsApiKey) {
+    return res.status(400).json({ error: 'Metron password/token is not configured' });
+  }
+
+  if (useAsync) {
+    const job = await createSyncJob({
+      userId: req.user.id,
+      jobType: 'import',
+      provider: 'metron',
+      scope: jobScopePayload(scopeContext),
+      progress: { total: 0, processed: 0, created: 0, updated: 0, skipped: 0, errorCount: 0 }
+    });
+
+    process.nextTick(async () => {
+      const auditReq = { ...req, user: req.user };
+      try {
+        await updateSyncJob(job.id, { status: 'running', started_at: new Date() });
+        const result = await runMetronImport({
+          req: auditReq,
+          config,
+          scopeContext,
+          onProgress: async (progress) => updateSyncJob(job.id, { progress })
+        });
+        await updateSyncJob(job.id, {
+          status: 'succeeded',
+          finished_at: new Date(),
+          summary: {
+            imported: result.imported,
+            totalAvailable: result.totalAvailable || result.imported,
+            skipped_existing: result.summary.skipped_existing || 0,
+            created: result.summary.created,
+            updated: result.summary.updated,
+            skipped: result.summary.skipped,
+            errorCount: result.summary.errors.length,
+            collectionEndpoint: result.collectionEndpoint
+          },
+          progress: {
+            total: result.totalAvailable || result.imported,
+            processed: result.totalAvailable || result.imported,
+            created: result.summary.created,
+            updated: result.summary.updated,
+            skipped: (result.summary.skipped || 0) + (result.summary.skipped_existing || 0),
+            errorCount: result.summary.errors.length
+          }
+        });
+        await logActivity(auditReq, 'media.import.metron', 'media', null, {
+          imported: result.imported,
+          totalAvailable: result.totalAvailable || result.imported,
+          skipped_existing: result.summary.skipped_existing || 0,
+          created: result.summary.created,
+          updated: result.summary.updated,
+          skipped: result.summary.skipped,
+          errorCount: result.summary.errors.length,
+          collectionEndpoint: result.collectionEndpoint,
+          jobId: job.id
+        });
+      } catch (error) {
+        logError('Metron import failed', error);
+        await updateSyncJob(job.id, {
+          status: 'failed',
+          finished_at: new Date(),
+          error: error.message || 'Metron import failed'
+        });
+        await logActivity(auditReq, 'media.import.metron.failed', 'media', null, {
+          detail: error.message || 'Metron import failed',
+          jobId: job.id
+        });
+      }
+    });
+
+    return res.status(202).json({
+      ok: true,
+      queued: true,
+      job: {
+        id: job.id,
+        status: job.status,
+        provider: job.provider,
+        progress: job.progress
+      }
+    });
+  }
+
+  try {
+    const result = await runMetronImport({ req, config, scopeContext });
+    await logActivity(req, 'media.import.metron', 'media', null, {
+      imported: result.imported,
+      totalAvailable: result.totalAvailable || result.imported,
+      skipped_existing: result.summary.skipped_existing || 0,
+      created: result.summary.created,
+      updated: result.summary.updated,
+      skipped: result.summary.skipped,
+      errorCount: result.summary.errors.length,
+      collectionEndpoint: result.collectionEndpoint
+    });
+    return res.json({ ok: true, ...result });
+  } catch (error) {
+    logError('Metron import failed', error);
+    await logActivity(req, 'media.import.metron.failed', 'media', null, {
+      detail: error.message || 'Metron import failed'
+    });
+    return res.status(502).json({ error: error.message || 'Metron import failed' });
+  }
+}));
+
 router.get('/sync-jobs', asyncHandler(async (req, res) => {
   const limitRaw = Number(req.query?.limit);
   const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(200, limitRaw)) : 50;
@@ -2695,7 +3409,7 @@ router.post('/', validate(mediaCreateSchema), asyncHandler(async (req, res) => {
   const {
     title, media_type, original_title, release_date, year, format, genre, director, rating,
     user_rating, tmdb_id, tmdb_media_type, tmdb_url, poster_path, backdrop_path, overview,
-    trailer_url, runtime, upc, signed_by, signed_role, signed_on, signed_at, location, notes, import_source,
+    trailer_url, runtime, upc, signed_by, signed_role, signed_on, signed_at, signed_proof_path, location, notes, import_source,
     season_number, episode_number, episode_title, network, type_details, library_id
     , space_id
   } = req.body;
@@ -2710,17 +3424,17 @@ router.post('/', validate(mediaCreateSchema), asyncHandler(async (req, res) => {
     `INSERT INTO media (
        title, media_type, original_title, release_date, year, format, genre, director, rating,
        user_rating, tmdb_id, tmdb_media_type, tmdb_url, poster_path, backdrop_path, overview,
-       trailer_url, runtime, upc, signed_by, signed_role, signed_on, signed_at, location, notes, season_number, episode_number, episode_title, network,
+       trailer_url, runtime, upc, signed_by, signed_role, signed_on, signed_at, signed_proof_path, location, notes, season_number, episode_number, episode_title, network,
        type_details, library_id, space_id, added_by, import_source
      ) VALUES (
-       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30::jsonb,$31,$32,$33,$34
+       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31::jsonb,$32,$33,$34,$35
      ) RETURNING *`,
     [
       title, normalizedMediaType, original_title || null, release_date || null, year || null, format || null,
       genre || null, director || null, rating || null, user_rating || null,
       tmdb_id || null, tmdb_media_type || null, tmdb_url || null, poster_path || null, backdrop_path || null,
       overview || null, trailer_url || null, runtime || null, upc || null, signed_by || null,
-      signed_role || null, signed_on || null, signed_at || null, location || null, notes || null,
+      signed_role || null, signed_on || null, signed_at || null, signed_proof_path || null, location || null, notes || null,
       season_number || null, episode_number || null, episode_title || null, network || null,
       normalizedTypeDetails ? JSON.stringify(normalizedTypeDetails) : null,
       library_id || scopeContext.libraryId || null,
@@ -2728,7 +3442,9 @@ router.post('/', validate(mediaCreateSchema), asyncHandler(async (req, res) => {
       req.user.id, import_source || 'manual'
     ]
   );
-  res.status(201).json(result.rows[0]);
+  const created = result.rows[0];
+  await maybePushComicToMetron({ req, mediaRow: created });
+  res.status(201).json(created);
 }));
 
 // ── Update ─────────────────────────────────────────────────────────────────────
@@ -2741,7 +3457,7 @@ router.patch('/:id', validate(mediaUpdateSchema), asyncHandler(async (req, res) 
   const ALLOWED_FIELDS = [
     'title', 'media_type', 'original_title', 'release_date', 'year', 'format', 'genre', 'director',
     'rating', 'user_rating', 'tmdb_id', 'tmdb_media_type', 'tmdb_url', 'poster_path', 'backdrop_path',
-    'overview', 'trailer_url', 'runtime', 'upc', 'signed_by', 'signed_role', 'signed_on', 'signed_at', 'location', 'notes', 'season_number',
+    'overview', 'trailer_url', 'runtime', 'upc', 'signed_by', 'signed_role', 'signed_on', 'signed_at', 'signed_proof_path', 'location', 'notes', 'season_number',
     'episode_number', 'episode_title', 'network', 'type_details', 'library_id', 'space_id'
   ];
 

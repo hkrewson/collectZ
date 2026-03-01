@@ -16,10 +16,11 @@ const DEFAULT_MEDIA_FORM = {
   media_type: 'movie',
   title: '', original_title: '', release_date: '', year: '', format: 'Blu-ray', genre: '',
   director: '', rating: '', user_rating: 0, runtime: '', upc: '', location: '', notes: '',
-  signed_by: '', signed_role: '', signed_on: '', signed_at: '',
+  signed_by: '', signed_role: '', signed_on: '', signed_at: '', signed_proof_path: '',
   overview: '', tmdb_id: '', tmdb_media_type: 'movie', tmdb_url: '', trailer_url: '', poster_path: '', backdrop_path: '',
   season_number: '', episode_number: '', episode_title: '', network: '',
   book_author: '', book_isbn: '', book_publisher: '', book_edition: '',
+  comic_series: '', comic_issue_number: '', comic_volume: '', comic_writer: '', comic_artist: '', comic_inker: '', comic_colorist: '', comic_cover_date: '', comic_provider_issue_id: '',
   audio_artist: '', audio_album: '', audio_track_count: '',
   game_platform: '', game_developer: '', game_region: ''
 };
@@ -84,6 +85,78 @@ function LabeledField({ label, className = '', children }) {
       {children}
     </div>
   );
+}
+
+function getComicSeriesName(item = {}) {
+  const details = item?.type_details && typeof item.type_details === 'object' ? item.type_details : {};
+  const explicit = String(details.series || '').trim();
+  if (explicit) return explicit;
+  const title = String(item?.title || '').trim();
+  const match = title.match(/^(.+?)\s+#\s*[\w.-]+/);
+  if (match?.[1]) return match[1].trim();
+  return title || 'Unknown Series';
+}
+
+function extractComicIssueRaw(item = {}) {
+  const details = item?.type_details && typeof item.type_details === 'object' ? item.type_details : {};
+  const direct = String(details.issue_number || '').trim();
+  if (direct) return direct.replace(/^#\s*/, '');
+  const title = String(item?.title || '').trim();
+  const match = title.match(/#\s*([A-Za-z0-9.-]+)/);
+  if (match?.[1]) return String(match[1]).trim();
+  return '';
+}
+
+function parseComicIssueOrdinal(rawIssue = '') {
+  const raw = String(rawIssue || '')
+    .trim()
+    .replace(/^#\s*/, '')
+    .replace(/^(issue|no\.?)\s*/i, '')
+    .trim();
+  if (!raw) return { kind: 2, num: Number.POSITIVE_INFINITY, suffix: '', pad: 0, raw: '' };
+
+  const decimal = raw.match(/^(\d+)\.(\d+)(.*)$/);
+  if (decimal) {
+    return {
+      kind: 0,
+      num: Number(`${decimal[1]}.${decimal[2]}`),
+      suffix: String(decimal[3] || '').trim().toLowerCase(),
+      pad: decimal[1].length,
+      raw
+    };
+  }
+
+  const numeric = raw.match(/^(\d+)(.*)$/);
+  if (numeric) {
+    return {
+      kind: 0,
+      num: Number(numeric[1]),
+      suffix: String(numeric[2] || '').trim().toLowerCase(),
+      pad: numeric[1].length,
+      raw
+    };
+  }
+
+  return { kind: 1, num: Number.POSITIVE_INFINITY, suffix: raw.toLowerCase(), pad: 0, raw };
+}
+
+function compareComicIssueOrder(aItem, bItem) {
+  const a = parseComicIssueOrdinal(extractComicIssueRaw(aItem));
+  const b = parseComicIssueOrdinal(extractComicIssueRaw(bItem));
+  if (a.kind !== b.kind) return a.kind - b.kind;
+  if (a.kind === 0) {
+    if (a.num !== b.num) return a.num - b.num;
+    if (a.suffix !== b.suffix) {
+      if (!a.suffix && b.suffix) return -1;
+      if (a.suffix && !b.suffix) return 1;
+      return a.suffix.localeCompare(b.suffix, undefined, { sensitivity: 'base' });
+    }
+    if (a.num === 0 && a.pad !== b.pad) return b.pad - a.pad;
+  }
+  if (a.kind === 1 && a.suffix !== b.suffix) return a.suffix.localeCompare(b.suffix, undefined, { sensitivity: 'base' });
+  const aTitle = String(aItem?.title || '');
+  const bTitle = String(bItem?.title || '');
+  return aTitle.localeCompare(bTitle, undefined, { sensitivity: 'base' });
 }
 
 function MediaCard({ item, onOpen, onEdit, onDelete, onRating, supportsHover }) {
@@ -226,6 +299,13 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall }) {
             ))}
           </div>
 
+          {item.signed_proof_path && (
+            <div>
+              <p className="label mb-2">Signing proof</p>
+              <a href={posterUrl(item.signed_proof_path)} target="_blank" rel="noreferrer" className="btn-secondary btn-sm"><Icons.Link />Open proof image</a>
+            </div>
+          )}
+
           {item.type_details && typeof item.type_details === 'object' && (
             <div>
               <p className="label mb-2">Type Details</p>
@@ -297,10 +377,20 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
       ...rawInitial,
       release_date: normalizeDateInput(rawInitial?.release_date),
       signed_on: normalizeDateInput(rawInitial?.signed_on),
+      signed_proof_path: rawInitial?.signed_proof_path || '',
       book_author: details?.author || '',
       book_isbn: details?.isbn || '',
       book_publisher: details?.publisher || '',
       book_edition: details?.edition || '',
+      comic_series: details?.series || '',
+      comic_issue_number: details?.issue_number || '',
+      comic_volume: details?.volume || '',
+      comic_writer: details?.writer || '',
+      comic_artist: details?.artist || '',
+      comic_inker: details?.inker || '',
+      comic_colorist: details?.colorist || '',
+      comic_cover_date: details?.cover_date || '',
+      comic_provider_issue_id: details?.provider_issue_id || '',
       audio_artist: details?.artist || '',
       audio_album: details?.album || '',
       audio_track_count: details?.track_count ? String(details.track_count) : '',
@@ -321,6 +411,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
   const [typeEnrichResults, setTypeEnrichResults] = useState([]);
   const [typeEnrichLoading, setTypeEnrichLoading] = useState(false);
   const [coverFile, setCoverFile] = useState(null);
+  const [proofFile, setProofFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
   const [msgType, setMsgType] = useState('ok');
@@ -328,10 +419,11 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
   const set = (patch) => setForm((f) => ({ ...f, ...patch }));
   const notify = (text, type = 'ok') => { setMsg(text); setMsgType(type); };
   const isMovieOrTv = ['movie', 'tv_series', 'tv_episode'].includes(form.media_type);
-  const isBook = form.media_type === 'book' || form.media_type === 'comic_book';
+  const isBook = form.media_type === 'book';
+  const isComic = form.media_type === 'comic_book';
   const isAudio = form.media_type === 'audio';
   const isGame = form.media_type === 'game';
-  const isTypedEnrichment = isBook || isAudio || isGame;
+  const isTypedEnrichment = isBook || isComic || isAudio || isGame;
 
   const searchTmdb = async () => {
     if (!form.title.trim()) return;
@@ -355,7 +447,9 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
     if (!title) return;
     const path = isBook
       ? '/media/enrich/book/search'
-      : isAudio
+      : isComic
+        ? '/media/enrich/comic/search'
+        : isAudio
         ? '/media/enrich/audio/search'
         : '/media/enrich/game/search';
     setTypeEnrichLoading(true);
@@ -363,7 +457,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
     try {
       const payload = isAudio
         ? { title, artist: form.audio_artist || '' }
-        : isBook
+        : (isBook || isComic)
           ? { title, author: form.book_author || '' }
           : { title };
       const data = await apiCall('post', path, payload);
@@ -379,7 +473,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
 
   const applyTypeEnrichment = (match) => {
     if (!match) return;
-    if (isBook) {
+    if (isBook || isComic) {
       set({
         title: match.title || form.title,
         year: match.year ? String(match.year) : form.year,
@@ -391,7 +485,16 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
         book_author: match.type_details?.author || form.book_author,
         book_publisher: match.type_details?.publisher || form.book_publisher,
         book_isbn: match.type_details?.isbn || form.book_isbn,
-        book_edition: match.type_details?.edition || form.book_edition
+        book_edition: match.type_details?.edition || form.book_edition,
+        comic_series: match.type_details?.series || form.comic_series,
+        comic_issue_number: match.type_details?.issue_number || form.comic_issue_number,
+        comic_volume: match.type_details?.volume || form.comic_volume,
+        comic_writer: match.type_details?.writer || form.comic_writer,
+        comic_artist: match.type_details?.artist || form.comic_artist,
+        comic_inker: match.type_details?.inker || form.comic_inker,
+        comic_colorist: match.type_details?.colorist || form.comic_colorist,
+        comic_cover_date: match.type_details?.cover_date || form.comic_cover_date,
+        comic_provider_issue_id: match.type_details?.provider_issue_id || match.id || form.comic_provider_issue_id
       });
     } else if (isAudio) {
       set({
@@ -537,6 +640,34 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
     }
   };
 
+  const uploadSigningProof = async () => {
+    if (!proofFile) return;
+    if (!form.id) {
+      notify('Save item first, then upload signing proof', 'error');
+      return;
+    }
+    const body = new FormData();
+    body.append('proof', proofFile);
+    try {
+      const data = await apiCall('post', `/media/${form.id}/upload-signing-proof`, body, { headers: { 'Content-Type': 'multipart/form-data' } });
+      set({ signed_proof_path: data.signed_proof_path || '' });
+      notify('Signing proof uploaded');
+    } catch (e) {
+      notify(e.response?.data?.error || 'Signing proof upload failed', 'error');
+    }
+  };
+
+  const removeSigningProof = async () => {
+    if (!form.id || !form.signed_proof_path) return;
+    try {
+      await apiCall('delete', `/media/${form.id}/signing-proof`);
+      set({ signed_proof_path: '' });
+      notify('Signing proof removed');
+    } catch (e) {
+      notify(e.response?.data?.error || 'Failed to remove signing proof', 'error');
+    }
+  };
+
   const submit = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -552,6 +683,22 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
             publisher: form.book_publisher || null,
             edition: form.book_edition || null
           }
+        : form.media_type === 'comic_book'
+          ? {
+              author: form.book_author || null,
+              isbn: form.book_isbn || null,
+              publisher: form.book_publisher || null,
+              edition: form.book_edition || null,
+              series: form.comic_series || null,
+              issue_number: form.comic_issue_number || null,
+              volume: form.comic_volume || null,
+              writer: form.comic_writer || null,
+              artist: form.comic_artist || null,
+              inker: form.comic_inker || null,
+              colorist: form.comic_colorist || null,
+              cover_date: form.comic_cover_date || null,
+              provider_issue_id: form.comic_provider_issue_id || null
+            }
         : form.media_type === 'audio'
           ? {
               artist: form.audio_artist || null,
@@ -587,8 +734,9 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
         signed_role: form.signed_role || null,
         signed_on: normalizeDateInput(form.signed_on) || null,
         signed_at: form.signed_at ? String(form.signed_at).trim() || null : null,
+        signed_proof_path: form.signed_proof_path ? String(form.signed_proof_path).trim() || null : null,
         director: isMovieOrTv ? (form.director || null) : null,
-        format: isBook
+        format: (isBook || isComic)
           ? (BOOK_FORMATS.includes(form.format) ? form.format : 'Digital')
           : (isMovieOrTv ? (form.format || null) : null),
         type_details: typeDetails
@@ -636,7 +784,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
               </div>
             )}
 
-            <div className={cx('grid gap-3', isBook ? 'grid-cols-3' : 'grid-cols-2')}>
+            <div className={cx('grid gap-3', (isBook || isComic) ? 'grid-cols-3' : 'grid-cols-2')}>
               <LabeledField label="Type" className="col-span-1">
                 <select
                   className="select"
@@ -644,7 +792,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
                   onChange={(e) => {
                     const nextType = e.target.value;
                     const patch = { media_type: nextType };
-                    if (nextType === 'book' && !BOOK_FORMATS.includes(form.format)) patch.format = 'Digital';
+                    if ((nextType === 'book' || nextType === 'comic_book') && !BOOK_FORMATS.includes(form.format)) patch.format = 'Digital';
                     if (nextType === 'audio' || nextType === 'game') patch.format = '';
                     if (!['movie', 'tv_series', 'tv_episode'].includes(nextType)) {
                       patch.original_title = '';
@@ -663,10 +811,10 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
                   {MEDIA_TYPES.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
                 </select>
               </LabeledField>
-              {(isMovieOrTv || isBook) && (
+              {(isMovieOrTv || isBook || isComic) && (
                 <LabeledField label="Format" className="col-span-1">
                   <select className="select" value={form.format} onChange={(e) => set({ format: e.target.value })}>
-                    {(isBook ? BOOK_FORMATS : MEDIA_FORMATS).map((f) => <option key={f}>{f}</option>)}
+                    {((isBook || isComic) ? BOOK_FORMATS : MEDIA_FORMATS).map((f) => <option key={f}>{f}</option>)}
                   </select>
                 </LabeledField>
               )}
@@ -796,6 +944,22 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
               </>
             )}
 
+            {isComic && (
+              <>
+                <LabeledField label="Author"><input className="input" value={form.book_author} onChange={(e) => set({ book_author: e.target.value })} /></LabeledField>
+                <LabeledField label="Publisher"><input className="input" value={form.book_publisher} onChange={(e) => set({ book_publisher: e.target.value })} /></LabeledField>
+                <LabeledField label="Series"><input className="input" value={form.comic_series} onChange={(e) => set({ comic_series: e.target.value })} /></LabeledField>
+                <LabeledField label="Issue #"><input className="input" value={form.comic_issue_number} onChange={(e) => set({ comic_issue_number: e.target.value })} /></LabeledField>
+                <LabeledField label="Volume"><input className="input" value={form.comic_volume} onChange={(e) => set({ comic_volume: e.target.value })} /></LabeledField>
+                <LabeledField label="Writer"><input className="input" value={form.comic_writer} onChange={(e) => set({ comic_writer: e.target.value })} /></LabeledField>
+                <LabeledField label="Artist"><input className="input" value={form.comic_artist} onChange={(e) => set({ comic_artist: e.target.value })} /></LabeledField>
+                <LabeledField label="Inker"><input className="input" value={form.comic_inker} onChange={(e) => set({ comic_inker: e.target.value })} /></LabeledField>
+                <LabeledField label="Colorist"><input className="input" value={form.comic_colorist} onChange={(e) => set({ comic_colorist: e.target.value })} /></LabeledField>
+                <LabeledField label="Cover Date"><input className="input" type="date" value={form.comic_cover_date} onChange={(e) => set({ comic_cover_date: e.target.value })} /></LabeledField>
+                <LabeledField label="ISBN"><input className="input font-mono" value={form.book_isbn} onChange={(e) => set({ book_isbn: e.target.value })} /></LabeledField>
+              </>
+            )}
+
             {isGame && (
               <>
                 <LabeledField label="Platform"><input className="input" value={form.game_platform} onChange={(e) => set({ game_platform: e.target.value })} /></LabeledField>
@@ -843,6 +1007,25 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
             </LabeledField>
             <LabeledField label="Signed on"><input className="input" type="date" value={form.signed_on} onChange={(e) => set({ signed_on: e.target.value })} /></LabeledField>
             <LabeledField label="Signed at"><input className="input" value={form.signed_at} onChange={(e) => set({ signed_at: e.target.value })} /></LabeledField>
+            <LabeledField label="Signing proof image" className="col-span-2">
+              <div className="flex flex-col gap-2">
+                {form.signed_proof_path && (
+                  <a href={posterUrl(form.signed_proof_path)} target="_blank" rel="noreferrer" className="btn-secondary btn-sm w-fit"><Icons.Link />View current proof</a>
+                )}
+                <div className="flex items-center gap-2">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={(e) => setProofFile(e.target.files?.[0] || null)}
+                    className="block w-full text-sm text-ghost file:btn-secondary file:btn-sm file:border-0 file:mr-3"
+                  />
+                  <button type="button" onClick={uploadSigningProof} disabled={!proofFile || !form.id} className="btn-secondary btn-sm"><Icons.Upload />Upload</button>
+                  <button type="button" onClick={removeSigningProof} disabled={!form.id || !form.signed_proof_path} className="btn-secondary btn-sm text-err"><Icons.Trash />Remove</button>
+                </div>
+                {!form.id && <p className="text-xs text-ghost">Save first to attach a signing proof image.</p>}
+              </div>
+            </LabeledField>
           </div>
           <LabeledField label="Storage Location"><input className="input" placeholder="Shelf A3, Box 2…" value={form.location} onChange={(e) => set({ location: e.target.value })} /></LabeledField>
           <LabeledField label="Overview"><textarea className="textarea" rows={3} value={form.overview} onChange={(e) => set({ overview: e.target.value })} /></LabeledField>
@@ -907,6 +1090,8 @@ export default function LibraryView({
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState(null);
   const [detail, setDetail] = useState(null);
+  const [comicView, setComicView] = useState('issues');
+  const [comicSeries, setComicSeries] = useState('all');
   const supportsHover = useMemo(() => window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches, []);
   const addFormMediaType = useMemo(() => {
     if (forcedMediaType === 'tv') return 'tv_series';
@@ -922,14 +1107,23 @@ export default function LibraryView({
     [addFormMediaType]
   );
 
+  const isComicsLibrary = forcedMediaType === 'comic_book';
+  const useComicFullFetch = isComicsLibrary;
+  const requestPage = useComicFullFetch ? 1 : page;
+  const requestLimit = useComicFullFetch ? 5000 : pageSize;
+
   useEffect(() => {
-    onRefresh({ page, limit: pageSize, ...filters });
-  }, [filters, page, pageSize, onRefresh]);
+    onRefresh({ page: requestPage, limit: requestLimit, ...filters });
+  }, [filters, page, pageSize, onRefresh, requestPage, requestLimit]);
 
   useEffect(() => {
     if (!forcedMediaType) return;
     setFilters((f) => ({ ...f, media_type: forcedMediaType }));
     setPage(1);
+    if (forcedMediaType !== 'comic_book') {
+      setComicView('issues');
+      setComicSeries('all');
+    }
   }, [forcedMediaType]);
 
   useEffect(() => {
@@ -955,6 +1149,55 @@ export default function LibraryView({
     });
     setPage(1);
   };
+
+  const comicSeriesOptions = useMemo(() => {
+    const map = new Map();
+    for (const item of mediaItems) {
+      const key = getComicSeriesName(item);
+      map.set(key, (map.get(key) || 0) + 1);
+    }
+    return [...map.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([name, count]) => ({ name, count }));
+  }, [mediaItems]);
+
+  const comicSeriesSummaries = useMemo(() => {
+    const bySeries = new Map();
+    for (const item of mediaItems) {
+      const seriesName = getComicSeriesName(item);
+      const entry = bySeries.get(seriesName) || { name: seriesName, count: 0, yearMin: null, yearMax: null, poster_path: null };
+      entry.count += 1;
+      if (Number.isFinite(Number(item.year))) {
+        const year = Number(item.year);
+        entry.yearMin = entry.yearMin === null ? year : Math.min(entry.yearMin, year);
+        entry.yearMax = entry.yearMax === null ? year : Math.max(entry.yearMax, year);
+      }
+      if (!entry.poster_path && item.poster_path) entry.poster_path = item.poster_path;
+      bySeries.set(seriesName, entry);
+    }
+    return [...bySeries.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [mediaItems]);
+
+  const visibleItems = useMemo(() => {
+    if (!isComicsLibrary) return mediaItems;
+    let items = mediaItems;
+    if (comicView === 'series_issues' && comicSeries !== 'all') {
+      items = items.filter((item) => getComicSeriesName(item) === comicSeries);
+    }
+    if (comicView === 'issues') {
+      return [...items].sort((a, b) => {
+        const seriesCmp = getComicSeriesName(a).localeCompare(getComicSeriesName(b), undefined, { sensitivity: 'base' });
+        if (seriesCmp !== 0) return seriesCmp;
+        return compareComicIssueOrder(a, b);
+      });
+    }
+    if (comicView === 'series_issues') {
+      return [...items].sort(compareComicIssueOrder);
+    }
+    return items;
+  }, [mediaItems, isComicsLibrary, comicView, comicSeries]);
+
+  const showPagination = !useComicFullFetch;
 
   if (adding || editing) {
     const isEdit = Boolean(editing);
@@ -1018,6 +1261,23 @@ export default function LibraryView({
           </button>
           <button onClick={() => setAdding(true)} className="btn-primary"><Icons.Plus />Add</button>
         </div>
+        {isComicsLibrary && (
+          <div className="mt-3 flex items-center gap-3 flex-wrap">
+            <div className="tab-strip">
+              <button className={cx('tab', comicView === 'issues' && 'active')} onClick={() => setComicView('issues')}>All Issues</button>
+              <button className={cx('tab', comicView === 'series' && 'active')} onClick={() => setComicView('series')}>Series</button>
+              <button className={cx('tab', comicView === 'series_issues' && 'active')} onClick={() => setComicView('series_issues')}>Series Issues</button>
+            </div>
+            {comicView === 'series_issues' && (
+              <select className="select min-w-[220px]" value={comicSeries} onChange={(e) => setComicSeries(e.target.value)}>
+                <option value="all">All series</option>
+                {comicSeriesOptions.map((series) => (
+                  <option key={series.name} value={series.name}>{series.name} ({series.count})</option>
+                ))}
+              </select>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto scroll-area p-6">
@@ -1032,9 +1292,40 @@ export default function LibraryView({
           />
         )}
 
-        {!loading && viewMode === 'cards' && mediaItems.length > 0 && (
+        {!loading && isComicsLibrary && comicView === 'series' && comicSeriesSummaries.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+            {comicSeriesSummaries.map((series) => (
+              <button
+                key={series.name}
+                onClick={() => { setComicSeries(series.name); setComicView('series_issues'); }}
+                className="text-left card p-4 hover:border-muted transition-colors"
+              >
+                <div className="space-y-3">
+                  <div className="w-full" style={{ aspectRatio: '2/3' }}>
+                    <div className="poster rounded-md w-full h-full">
+                      {posterUrl(series.poster_path)
+                        ? <img src={posterUrl(series.poster_path)} alt={series.name} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+                        : <div className="absolute inset-0 flex items-center justify-center text-ghost"><Icons.Library /></div>}
+                    </div>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-medium text-ink line-clamp-2">{series.name}</p>
+                    <p className="text-xs text-ghost mt-1">{series.count} issue{series.count === 1 ? '' : 's'}</p>
+                    <p className="text-xs text-ghost">
+                      {(series.yearMin || series.yearMax)
+                        ? (series.yearMin === series.yearMax ? series.yearMin : `${series.yearMin || '—'} - ${series.yearMax || '—'}`)
+                        : 'Year unknown'}
+                    </p>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {!loading && viewMode === 'cards' && visibleItems.length > 0 && !(isComicsLibrary && comicView === 'series') && (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-            {mediaItems.map((item) => (
+            {visibleItems.map((item) => (
               <MediaCard
                 key={item.id}
                 item={item}
@@ -1048,9 +1339,9 @@ export default function LibraryView({
           </div>
         )}
 
-        {!loading && viewMode === 'list' && mediaItems.length > 0 && (
+        {!loading && viewMode === 'list' && visibleItems.length > 0 && !(isComicsLibrary && comicView === 'series') && (
           <div className="space-y-2">
-            {mediaItems.map((item) => (
+            {visibleItems.map((item) => (
               <MediaListRow
                 key={item.id}
                 item={item}
@@ -1066,18 +1357,24 @@ export default function LibraryView({
       </div>
 
       <div className="shrink-0 border-t border-edge px-6 py-3 flex items-center gap-3 flex-wrap">
-        <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={loading || page <= 1} className="btn-secondary btn-sm">Previous</button>
-        <span className="text-xs text-ghost font-mono">Page {page} / {pagination?.totalPages || 1}</span>
-        <button onClick={() => setPage((p) => p + 1)} disabled={loading || !(pagination?.hasMore)} className="btn-secondary btn-sm">Next</button>
-        <div className="ml-auto flex items-center gap-2">
-          <label className="text-xs text-ghost">Page size</label>
-          <select className="select w-24" value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}>
-            <option value={25}>25</option>
-            <option value={50}>50</option>
-            <option value={100}>100</option>
-            <option value={200}>200</option>
-          </select>
-        </div>
+        {showPagination ? (
+          <>
+            <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={loading || page <= 1} className="btn-secondary btn-sm">Previous</button>
+            <span className="text-xs text-ghost font-mono">Page {page} / {pagination?.totalPages || 1}</span>
+            <button onClick={() => setPage((p) => p + 1)} disabled={loading || !(pagination?.hasMore)} className="btn-secondary btn-sm">Next</button>
+            <div className="ml-auto flex items-center gap-2">
+              <label className="text-xs text-ghost">Page size</label>
+              <select className="select w-24" value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value={200}>200</option>
+              </select>
+            </div>
+          </>
+        ) : (
+          <span className="text-xs text-ghost font-mono">Full comic ordering mode (all issues loaded for accurate numeric sort)</span>
+        )}
       </div>
 
       {detail && (

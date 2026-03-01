@@ -13,6 +13,7 @@ const { resolvePlexPreset, fetchPlexSections } = require('../services/plex');
 const { resolveBooksPreset, searchBooksByTitle } = require('../services/books');
 const { resolveAudioPreset, searchAudioByTitle } = require('../services/audio');
 const { resolveGamesPreset, searchGamesByTitle } = require('../services/games');
+const { resolveComicsPreset, searchComicsByTitle, fetchMetronCollectionIssues } = require('../services/comics');
 const { logActivity, logError } = require('../services/audit');
 
 const router = express.Router();
@@ -72,6 +73,14 @@ const buildIntegrationResponse = (config) => ({
   gamesClientSecretMasked: maskSecret(config.gamesClientSecret),
   gamesApiKeySet: Boolean(config.gamesApiKey),
   gamesApiKeyMasked: maskSecret(config.gamesApiKey),
+  comicsPreset: config.comicsPreset,
+  comicsProvider: config.comicsProvider,
+  comicsApiUrl: config.comicsApiUrl,
+  comicsApiKeyHeader: config.comicsApiKeyHeader,
+  comicsApiKeyQueryParam: config.comicsApiKeyQueryParam,
+  comicsUsername: config.comicsUsername,
+  comicsApiKeySet: Boolean(config.comicsApiKey),
+  comicsApiKeyMasked: maskSecret(config.comicsApiKey),
   decryptHealth: {
     hasWarnings: Array.isArray(config.decryptWarnings) && config.decryptWarnings.length > 0,
     warnings: Array.isArray(config.decryptWarnings) ? config.decryptWarnings : [],
@@ -108,7 +117,9 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
     audioPreset, audioProvider, audioApiUrl, audioApiKeyHeader, audioApiKeyQueryParam,
     audioApiKey, clearAudioApiKey,
     gamesPreset, gamesProvider, gamesApiUrl, gamesApiKeyHeader, gamesApiKeyQueryParam, gamesClientId,
-    gamesApiKey, clearGamesApiKey, gamesClientSecret, clearGamesClientSecret
+    gamesApiKey, clearGamesApiKey, gamesClientSecret, clearGamesClientSecret,
+    comicsPreset, comicsProvider, comicsApiUrl, comicsApiKeyHeader, comicsApiKeyQueryParam, comicsUsername,
+    comicsApiKey, clearComicsApiKey
   } = req.body;
 
   const selectedBarcodePreset = resolveBarcodePreset(barcodePreset || 'upcitemdb');
@@ -118,6 +129,7 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
   const selectedBooksPreset = resolveBooksPreset(booksPreset || 'googlebooks');
   const selectedAudioPreset = resolveAudioPreset(audioPreset || 'discogs');
   const selectedGamesPreset = resolveGamesPreset(gamesPreset || 'igdb');
+  const selectedComicsPreset = resolveComicsPreset(comicsPreset || 'metron');
 
   const existingRow = await pool.query('SELECT * FROM app_integrations WHERE id = 1');
   const existing = existingRow.rows[0] || null;
@@ -145,6 +157,9 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
   const finalGamesApiKey = clearGamesApiKey
     ? null
     : (gamesApiKey ? encryptSecret(gamesApiKey) : existing?.games_api_key_encrypted || null);
+  const finalComicsApiKey = clearComicsApiKey
+    ? null
+    : (comicsApiKey ? encryptSecret(comicsApiKey) : existing?.comics_api_key_encrypted || null);
   const finalGamesClientSecret = clearGamesClientSecret
     ? null
     : (gamesClientSecret ? encryptSecret(gamesClientSecret) : existing?.games_client_secret_encrypted || null);
@@ -158,12 +173,14 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
        plex_preset, plex_provider, plex_api_url, plex_server_name, plex_api_key_encrypted, plex_api_key_query_param, plex_library_sections,
        books_preset, books_provider, books_api_url, books_api_key_encrypted, books_api_key_header, books_api_key_query_param,
        audio_preset, audio_provider, audio_api_url, audio_api_key_encrypted, audio_api_key_header, audio_api_key_query_param,
-       games_preset, games_provider, games_api_url, games_api_key_encrypted, games_api_key_header, games_api_key_query_param, games_client_id, games_client_secret_encrypted
+       games_preset, games_provider, games_api_url, games_api_key_encrypted, games_api_key_header, games_api_key_query_param, games_client_id, games_client_secret_encrypted,
+       comics_preset, comics_provider, comics_api_url, comics_api_key_encrypted, comics_api_key_header, comics_api_key_query_param, comics_username
      ) VALUES (
        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25::jsonb,
        $26,$27,$28,$29,$30,$31,
        $32,$33,$34,$35,$36,$37,
-       $38,$39,$40,$41,$42,$43,$44,$45
+       $38,$39,$40,$41,$42,$43,$44,$45,
+       $46,$47,$48,$49,$50,$51,$52
      )
      ON CONFLICT (id) DO UPDATE SET
        barcode_preset = EXCLUDED.barcode_preset, barcode_provider = EXCLUDED.barcode_provider,
@@ -190,7 +207,11 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
        games_api_url = EXCLUDED.games_api_url, games_api_key_encrypted = EXCLUDED.games_api_key_encrypted,
        games_api_key_header = EXCLUDED.games_api_key_header, games_api_key_query_param = EXCLUDED.games_api_key_query_param,
        games_client_id = EXCLUDED.games_client_id,
-       games_client_secret_encrypted = EXCLUDED.games_client_secret_encrypted
+       games_client_secret_encrypted = EXCLUDED.games_client_secret_encrypted,
+       comics_preset = EXCLUDED.comics_preset, comics_provider = EXCLUDED.comics_provider,
+       comics_api_url = EXCLUDED.comics_api_url, comics_api_key_encrypted = EXCLUDED.comics_api_key_encrypted,
+       comics_api_key_header = EXCLUDED.comics_api_key_header, comics_api_key_query_param = EXCLUDED.comics_api_key_query_param,
+       comics_username = EXCLUDED.comics_username
      RETURNING *`,
     [
       1,
@@ -237,7 +258,14 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
       pick(gamesApiKeyHeader, existing?.games_api_key_header, selectedGamesPreset.apiKeyHeader),
       pick(gamesApiKeyQueryParam, existing?.games_api_key_query_param, selectedGamesPreset.apiKeyQueryParam),
       pick(gamesClientId, existing?.games_client_id, ''),
-      finalGamesClientSecret
+      finalGamesClientSecret,
+      pick(comicsPreset, existing?.comics_preset, 'metron'),
+      pick(comicsProvider, existing?.comics_provider, selectedComicsPreset.provider),
+      pick(comicsApiUrl, existing?.comics_api_url, selectedComicsPreset.apiUrl),
+      finalComicsApiKey,
+      pick(comicsApiKeyHeader, existing?.comics_api_key_header, selectedComicsPreset.apiKeyHeader),
+      pick(comicsApiKeyQueryParam, existing?.comics_api_key_query_param, selectedComicsPreset.apiKeyQueryParam),
+      pick(comicsUsername, existing?.comics_username, '')
     ]
   );
 
@@ -250,6 +278,7 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
     booksPreset: config.booksPreset,
     audioPreset: config.audioPreset,
     gamesPreset: config.gamesPreset,
+    comicsPreset: config.comicsPreset,
     keyUpdates: {
       barcode: Boolean(barcodeApiKey),
       vision: Boolean(visionApiKey),
@@ -258,7 +287,8 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
       books: Boolean(booksApiKey),
       audio: Boolean(audioApiKey),
       games: Boolean(gamesApiKey),
-      gamesClientSecret: Boolean(gamesClientSecret)
+      gamesClientSecret: Boolean(gamesClientSecret),
+      comics: Boolean(comicsApiKey)
     },
     keyClears: {
       barcode: Boolean(clearBarcodeApiKey),
@@ -268,7 +298,8 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
       books: Boolean(clearBooksApiKey),
       audio: Boolean(clearAudioApiKey),
       games: Boolean(clearGamesApiKey),
-      gamesClientSecret: Boolean(clearGamesClientSecret)
+      gamesClientSecret: Boolean(clearGamesClientSecret),
+      comics: Boolean(clearComicsApiKey)
     }
   });
 
@@ -474,6 +505,47 @@ router.post('/admin/settings/integrations/test-games', authenticateToken, requir
       authenticated: status !== 401 && status !== 403,
       status,
       provider: config.gamesProvider || 'igdb',
+      detail: error.message
+    });
+  }
+}));
+
+router.post('/admin/settings/integrations/test-comics', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
+  const { title } = req.body || {};
+  const config = await loadAdminIntegrationConfig();
+  if (!config.comicsApiUrl) {
+    return res.status(400).json({ ok: false, authenticated: false, detail: 'Comics API URL is not configured' });
+  }
+  try {
+    const results = await searchComicsByTitle(String(title || 'Batman').trim(), config, 5);
+    let collectionCount = null;
+    if (String(config.comicsProvider || '').toLowerCase() === 'metron') {
+      try {
+        const collection = await fetchMetronCollectionIssues(config, { limit: 250 });
+        collectionCount = collection.issues.length;
+      } catch (_collectionError) {
+        collectionCount = null;
+      }
+    }
+    res.json({
+      ok: true,
+      authenticated: true,
+      status: 200,
+      provider: config.comicsProvider || 'metron',
+      detail: collectionCount === null
+        ? `Received ${results.length} result(s)`
+        : `Received ${results.length} result(s), collection access ok (${collectionCount} issue(s) sampled)`,
+      resultCount: results.length,
+      collectionCount
+    });
+  } catch (error) {
+    logError('Test comics integration', error);
+    const status = error.status || error.response?.status || 502;
+    res.json({
+      ok: false,
+      authenticated: status !== 401 && status !== 403,
+      status,
+      provider: config.comicsProvider || 'metron',
       detail: error.message
     });
   }

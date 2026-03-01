@@ -23,6 +23,7 @@ export default function ImportView({
   const [auditRows, setAuditRows] = useState([]);
   const [auditName, setAuditName] = useState('');
   const csvInputRef = useRef(null);
+  const calibreInputRef = useRef(null);
   const deliciousInputRef = useRef(null);
   const completedJobIdsRef = useRef(new Set());
 
@@ -95,7 +96,11 @@ export default function ImportView({
       });
       const jobId = res?.job?.id;
       if (!jobId) throw new Error('Missing import job id');
-      const provider = label === 'Delicious' ? 'csv_delicious' : 'csv_generic';
+      const provider = label === 'Delicious'
+        ? 'csv_delicious'
+        : label === 'Calibre'
+          ? 'csv_calibre'
+          : 'csv_generic';
       onQueueJob?.({
         id: jobId,
         provider,
@@ -172,12 +177,13 @@ export default function ImportView({
   const tabs = [
     ...(canImportPlex ? [{ id: 'plex', label: 'Plex' }] : []),
     { id: 'barcode', label: 'Barcode' },
+    { id: 'calibre', label: 'Calibre CSV' },
     { id: 'csv', label: 'Generic CSV' },
     { id: 'delicious', label: 'Delicious CSV' }
   ];
   const hasActiveLibrary = Boolean(activeLibrary?.id);
   const recentJobs = useMemo(
-    () => importJobs.filter((job) => ['plex', 'csv_generic', 'csv_delicious'].includes(job.provider)).slice(0, 5),
+    () => importJobs.filter((job) => ['plex', 'csv_generic', 'csv_calibre', 'csv_delicious'].includes(job.provider)).slice(0, 5),
     [importJobs]
   );
   useEffect(() => {
@@ -256,6 +262,27 @@ export default function ImportView({
                 const file = e.target.files?.[0];
                 e.target.value = '';
                 runCsvImport(file, '/media/import-csv', 'CSV');
+              }}
+            />
+          </>
+        )}
+
+        {tab === 'calibre' && (
+          <>
+            <p className="text-sm text-dim">Import a Calibre CSV export (books/comics baseline mapping).</p>
+            <p className="text-xs text-ghost">Maps common Calibre columns (`title`, `authors`, `isbn`, `publisher`, `pubdate`, `tags`, `series`, `series_index`) and runs normal enrichment/dedup pipeline.</p>
+            <button onClick={() => calibreInputRef.current?.click()} className="btn-primary" disabled={busy === 'Calibre' || !hasActiveLibrary}>
+              {busy === 'Calibre' ? <Spinner size={14} /> : <><Icons.Upload />Choose Calibre CSV</>}
+            </button>
+            <input
+              ref={calibreInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = '';
+                runCsvImport(file, '/media/import-csv/calibre', 'Calibre');
               }}
             />
           </>

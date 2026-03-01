@@ -62,6 +62,7 @@ CREATE TABLE IF NOT EXISTS media (
     signed_role VARCHAR(20) CHECK (signed_role IN ('author', 'producer', 'cast')),
     signed_on DATE,
     signed_at VARCHAR(255),
+    signed_proof_path TEXT,
     location VARCHAR(255),
     notes TEXT,
     season_number INTEGER,
@@ -218,6 +219,13 @@ CREATE TABLE IF NOT EXISTS app_integrations (
     games_api_key_query_param VARCHAR(100),
     games_client_id VARCHAR(255),
     games_client_secret_encrypted TEXT,
+    comics_preset VARCHAR(100) DEFAULT 'metron',
+    comics_provider VARCHAR(100),
+    comics_api_url TEXT,
+    comics_api_key_encrypted TEXT,
+    comics_api_key_header VARCHAR(100),
+    comics_api_key_query_param VARCHAR(100),
+    comics_username VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -429,5 +437,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (22, 'Add encrypted games client secret for IGDB auth'),
     (23, 'Identifier-first import lookup indexes'),
     (24, 'Rename media_type other to comic_book'),
-    (25, 'Add signed metadata fields for media entries')
+    (25, 'Add signed metadata fields for media entries'),
+    (26, 'Add comics integration settings')
 ON CONFLICT (version) DO NOTHING;

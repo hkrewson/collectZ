@@ -1,12 +1,12 @@
 const pool = require('../db/pool');
 
 const extractRequestIp = (req) => {
-  const forwarded = req.headers['x-forwarded-for'];
+  const forwarded = req?.headers?.['x-forwarded-for'];
   if (forwarded) {
     const first = String(forwarded).split(',')[0].trim();
     return first || null;
   }
-  return req.ip || req.socket?.remoteAddress || null;
+  return req?.ip || req?.socket?.remoteAddress || null;
 };
 
 const logActivity = async (req, action, entityType = null, entityId = null, details = null) => {

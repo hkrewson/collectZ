@@ -39,7 +39,7 @@ const VALID_DASHBOARD_TABS = new Set([
   'admin-flags',
   'admin-integrations'
 ]);
-const VALID_INTEGRATION_SECTIONS = new Set(['audio', 'barcode', 'books', 'games', 'plex', 'tmdb', 'vision']);
+const VALID_INTEGRATION_SECTIONS = new Set(['audio', 'barcode', 'books', 'comics', 'games', 'plex', 'tmdb', 'vision']);
 const DEFAULT_TAB = 'library-movies';
 const DEFAULT_INTEGRATION_SECTION = 'audio';
 

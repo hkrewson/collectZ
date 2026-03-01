@@ -29,6 +29,12 @@ const GAMES_PRESETS = {
   igdb: { gamesPreset: 'igdb', gamesProvider: 'igdb', gamesApiUrl: 'https://api.igdb.com/v4/games', gamesApiKeyHeader: 'Authorization', gamesApiKeyQueryParam: '' },
   custom: { gamesPreset: 'custom', gamesProvider: 'custom', gamesApiUrl: '', gamesApiKeyHeader: 'Authorization', gamesApiKeyQueryParam: 'api_key' }
 };
+const COMICS_PRESETS = {
+  metron: { comicsPreset: 'metron', comicsProvider: 'metron', comicsApiUrl: 'https://metron.cloud/api/issue/', comicsApiKeyHeader: '', comicsApiKeyQueryParam: '', comicsUsername: '' },
+  gcd: { comicsPreset: 'gcd', comicsProvider: 'gcd', comicsApiUrl: 'https://www.comics.org/api/series/name/', comicsApiKeyHeader: '', comicsApiKeyQueryParam: '', comicsUsername: '' },
+  comicvine: { comicsPreset: 'comicvine', comicsProvider: 'comicvine', comicsApiUrl: 'https://comicvine.gamespot.com/api/search/', comicsApiKeyHeader: '', comicsApiKeyQueryParam: 'api_key', comicsUsername: '' },
+  custom: { comicsPreset: 'custom', comicsProvider: 'custom', comicsApiUrl: '', comicsApiKeyHeader: '', comicsApiKeyQueryParam: 'api_key', comicsUsername: '' }
+};
 
 function LabeledField({ label, className = '', children, cx }) {
   return (
@@ -51,6 +57,7 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
       { id: 'audio', label: 'Audio' },
       { id: 'barcode', label: 'Barcode' },
       { id: 'books', label: 'Books' },
+      { id: 'comics', label: 'Comics' },
       { id: 'games', label: 'Games' },
       { id: 'plex', label: 'Plex' },
       { id: 'tmdb', label: 'TMDB' },
@@ -73,7 +80,9 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
     audioPreset: 'discogs', audioProvider: 'discogs', audioApiUrl: 'https://api.discogs.com/database/search',
     audioApiKey: '', audioApiKeyHeader: '', audioApiKeyQueryParam: '', clearAudioApiKey: false,
     gamesPreset: 'igdb', gamesProvider: 'igdb', gamesApiUrl: 'https://api.igdb.com/v4/games',
-    gamesApiKey: '', gamesApiKeyHeader: 'Authorization', gamesApiKeyQueryParam: '', gamesClientId: '', gamesClientSecret: '', clearGamesApiKey: false, clearGamesClientSecret: false
+    gamesApiKey: '', gamesApiKeyHeader: 'Authorization', gamesApiKeyQueryParam: '', gamesClientId: '', gamesClientSecret: '', clearGamesApiKey: false, clearGamesClientSecret: false,
+    comicsPreset: 'metron', comicsProvider: 'metron', comicsApiUrl: 'https://metron.cloud/api/issue/',
+    comicsApiKey: '', comicsApiKeyHeader: '', comicsApiKeyQueryParam: '', comicsUsername: '', clearComicsApiKey: false
   });
   const [meta, setMeta] = useState({
     barcodeApiKeySet: false, barcodeApiKeyMasked: '',
@@ -84,9 +93,10 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
     audioApiKeySet: false, audioApiKeyMasked: '',
     gamesApiKeySet: false, gamesApiKeyMasked: '',
     gamesClientSecretSet: false, gamesClientSecretMasked: '',
+    comicsApiKeySet: false, comicsApiKeyMasked: '',
     decryptHealth: { hasWarnings: false, warnings: [], remediation: '' }
   });
-  const [status, setStatus] = useState({ barcode: 'unknown', vision: 'unknown', tmdb: 'unknown', plex: 'unknown', books: 'unknown', audio: 'unknown', games: 'unknown' });
+  const [status, setStatus] = useState({ barcode: 'unknown', vision: 'unknown', tmdb: 'unknown', plex: 'unknown', books: 'unknown', audio: 'unknown', games: 'unknown', comics: 'unknown' });
   const [testLoading, setTestLoading] = useState('');
   const [testMsg, setTestMsg] = useState('');
   const [saving, setSaving] = useState(false);
@@ -118,7 +128,9 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
         audioPreset: data.audioPreset || 'discogs', audioProvider: data.audioProvider || 'discogs', audioApiUrl: data.audioApiUrl || 'https://api.discogs.com/database/search',
         audioApiKeyHeader: data.audioApiKeyHeader || '', audioApiKeyQueryParam: data.audioApiKeyQueryParam || '',
         gamesPreset: data.gamesPreset || 'igdb', gamesProvider: data.gamesProvider || 'igdb', gamesApiUrl: data.gamesApiUrl || 'https://api.igdb.com/v4/games',
-        gamesApiKeyHeader: data.gamesApiKeyHeader || 'Authorization', gamesApiKeyQueryParam: data.gamesApiKeyQueryParam || '', gamesClientId: data.gamesClientId || ''
+        gamesApiKeyHeader: data.gamesApiKeyHeader || 'Authorization', gamesApiKeyQueryParam: data.gamesApiKeyQueryParam || '', gamesClientId: data.gamesClientId || '',
+        comicsPreset: data.comicsPreset || 'metron', comicsProvider: data.comicsProvider || 'metron', comicsApiUrl: data.comicsApiUrl || 'https://metron.cloud/api/issue/',
+        comicsApiKeyHeader: data.comicsApiKeyHeader || '', comicsApiKeyQueryParam: data.comicsApiKeyQueryParam || '', comicsUsername: data.comicsUsername || ''
       }));
       setMeta({
         barcodeApiKeySet: Boolean(data.barcodeApiKeySet), barcodeApiKeyMasked: data.barcodeApiKeyMasked || '',
@@ -129,6 +141,7 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
         audioApiKeySet: Boolean(data.audioApiKeySet), audioApiKeyMasked: data.audioApiKeyMasked || '',
         gamesApiKeySet: Boolean(data.gamesApiKeySet), gamesApiKeyMasked: data.gamesApiKeyMasked || '',
         gamesClientSecretSet: Boolean(data.gamesClientSecretSet), gamesClientSecretMasked: data.gamesClientSecretMasked || '',
+        comicsApiKeySet: Boolean(data.comicsApiKeySet), comicsApiKeyMasked: data.comicsApiKeyMasked || '',
         decryptHealth: data.decryptHealth || { hasWarnings: false, warnings: [], remediation: '' }
       });
       setStatus({
@@ -138,7 +151,8 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
         plex: data.plexApiKeySet ? 'configured' : 'missing',
         books: data.booksApiKeySet ? 'configured' : 'missing',
         audio: data.audioApiKeySet ? 'configured' : 'missing',
-        games: (data.gamesApiKeySet || (data.gamesClientId && data.gamesClientSecretSet)) ? 'configured' : 'missing'
+        games: (data.gamesApiKeySet || (data.gamesClientId && data.gamesClientSecretSet)) ? 'configured' : 'missing',
+        comics: data.comicsApiKeySet ? 'configured' : 'missing'
       });
     }).catch(() => {});
   }, [apiCall]);
@@ -150,6 +164,7 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
   const applyBooksPreset = (p) => setForm((f) => ({ ...f, ...(BOOKS_PRESETS[p] || {}) }));
   const applyAudioPreset = (p) => setForm((f) => ({ ...f, ...(AUDIO_PRESETS[p] || {}) }));
   const applyGamesPreset = (p) => setForm((f) => ({ ...f, ...(GAMES_PRESETS[p] || {}) }));
+  const applyComicsPreset = (p) => setForm((f) => ({ ...f, ...(COMICS_PRESETS[p] || {}) }));
   const plexSectionIds = useMemo(
     () => form.plexLibrarySections.split(',').map((v) => v.trim()).filter(Boolean),
     [form.plexLibrarySections]
@@ -191,6 +206,12 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
       ...(form.gamesApiKey && { gamesApiKey: form.gamesApiKey }),
       ...(form.gamesClientSecret && { gamesClientSecret: form.gamesClientSecret })
     });
+    else if (sec === 'comics') Object.assign(payload, {
+      comicsPreset: form.comicsPreset, comicsProvider: form.comicsProvider, comicsApiUrl: form.comicsApiUrl,
+      comicsApiKeyHeader: form.comicsApiKeyHeader, comicsApiKeyQueryParam: form.comicsApiKeyQueryParam,
+      comicsUsername: form.comicsUsername, clearComicsApiKey: form.clearComicsApiKey,
+      ...(form.comicsApiKey && { comicsApiKey: form.comicsApiKey })
+    });
     try {
       const updated = await apiCall('put', '/admin/settings/integrations', payload);
       setMeta({
@@ -202,6 +223,7 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
         audioApiKeySet: Boolean(updated.audioApiKeySet), audioApiKeyMasked: updated.audioApiKeyMasked || '',
         gamesApiKeySet: Boolean(updated.gamesApiKeySet), gamesApiKeyMasked: updated.gamesApiKeyMasked || '',
         gamesClientSecretSet: Boolean(updated.gamesClientSecretSet), gamesClientSecretMasked: updated.gamesClientSecretMasked || '',
+        comicsApiKeySet: Boolean(updated.comicsApiKeySet), comicsApiKeyMasked: updated.comicsApiKeyMasked || '',
         decryptHealth: updated.decryptHealth || { hasWarnings: false, warnings: [], remediation: '' }
       });
       setStatus((s) => ({
@@ -212,11 +234,33 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
       }));
       setForm((f) => ({
         ...f,
-        barcodeApiKey: '', visionApiKey: '', tmdbApiKey: '', plexApiKey: '', booksApiKey: '', audioApiKey: '', gamesApiKey: '', gamesClientSecret: '',
+        barcodeApiKey: '', visionApiKey: '', tmdbApiKey: '', plexApiKey: '', booksApiKey: '', audioApiKey: '', gamesApiKey: '', gamesClientSecret: '', comicsApiKey: '',
         clearBarcodeApiKey: false, clearVisionApiKey: false, clearTmdbApiKey: false, clearPlexApiKey: false,
-        clearBooksApiKey: false, clearAudioApiKey: false, clearGamesApiKey: false, clearGamesClientSecret: false
+        clearBooksApiKey: false, clearAudioApiKey: false, clearGamesApiKey: false, clearGamesClientSecret: false, clearComicsApiKey: false
       }));
       onToast(`${sec.toUpperCase()} settings saved`);
+      if (
+        sec === 'comics'
+        && String(updated.comicsProvider || form.comicsProvider || '').toLowerCase() === 'metron'
+        && Boolean(updated.comicsApiKeySet)
+      ) {
+        try {
+          const enqueue = await apiCall('post', '/media/import-comics?async=true', {});
+          const jobId = enqueue?.job?.id;
+          if (jobId) {
+            onQueueJob?.({
+              id: jobId,
+              provider: 'metron',
+              status: enqueue?.job?.status || 'queued',
+              progress: enqueue?.job?.progress || null
+            });
+            setTestMsg(`METRON import queued (job #${jobId})`);
+            onToast('Metron collection import started');
+          }
+        } catch (importErr) {
+          onToast(importErr.response?.data?.error || 'Metron import could not be started', 'error');
+        }
+      }
     } catch (err) {
       onToast(err.response?.data?.error || 'Save failed', 'error');
     } finally {
@@ -236,6 +280,8 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
             ? { title: 'Kind of Blue', artist: 'Miles Davis' }
             : sec === 'games'
               ? { title: 'Halo' }
+              : sec === 'comics'
+                ? { title: 'Batman' }
               : {};
       const result = await apiCall('post', `/admin/settings/integrations/test-${sec}`, payload);
       setStatus((s) => ({ ...s, [sec]: result.authenticated ? 'ok' : 'auth_failed' }));
@@ -478,6 +524,36 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
           <label className="flex items-center gap-2 text-sm text-dim cursor-pointer">
             <input type="checkbox" checked={form.clearGamesClientSecret} onChange={(e) => setForm((f) => ({ ...f, clearGamesClientSecret: e.target.checked }))} className="rounded" />
             Clear client secret
+          </label>
+        </>}
+
+        {section === 'comics' && <>
+          <LabeledField label="Preset" cx={cx}><select className="select" value={form.comicsPreset} onChange={(e) => applyComicsPreset(e.target.value)}>
+            <option value="metron">Metron (Basic Auth)</option><option value="gcd">GCD</option><option value="comicvine">ComicVine</option><option value="custom">Custom</option>
+          </select></LabeledField>
+          <LabeledField label={form.comicsPreset === 'metron' ? 'Metron API URL' : 'Comics API URL'} cx={cx}>
+            <input className="input" value={form.comicsApiUrl} onChange={(e) => setForm((f) => ({ ...f, comicsApiUrl: e.target.value }))} />
+          </LabeledField>
+          {form.comicsPreset === 'metron' && (
+            <p className="text-xs text-dim bg-raised rounded px-3 py-2">
+              Metron uses HTTP Basic Auth. Set your Metron username and password/token below, then save before testing.
+            </p>
+          )}
+          {form.comicsPreset !== 'metron' && (
+            <div className="grid grid-cols-2 gap-3">
+              <LabeledField label="Key Header (opt)" cx={cx}><input className="input" value={form.comicsApiKeyHeader} onChange={(e) => setForm((f) => ({ ...f, comicsApiKeyHeader: e.target.value }))} /></LabeledField>
+              <LabeledField label="Key Query Param" cx={cx}><input className="input" value={form.comicsApiKeyQueryParam} onChange={(e) => setForm((f) => ({ ...f, comicsApiKeyQueryParam: e.target.value }))} /></LabeledField>
+            </div>
+          )}
+          <LabeledField label={form.comicsPreset === 'metron' ? 'Metron Username' : 'Username (optional)'} cx={cx}>
+            <input className="input" value={form.comicsUsername} onChange={(e) => setForm((f) => ({ ...f, comicsUsername: e.target.value }))} />
+          </LabeledField>
+          <LabeledField label={`${form.comicsPreset === 'metron' ? 'Metron Password / Token' : 'Comics API Key'} ${meta.comicsApiKeySet ? `(set: ${meta.comicsApiKeyMasked})` : '(not set)'}`} cx={cx}>
+            <input className="input font-mono" type="password" placeholder={form.comicsPreset === 'metron' ? 'Enter Metron password/token' : 'Enter new key/token to update'} value={form.comicsApiKey} onChange={(e) => setForm((f) => ({ ...f, comicsApiKey: e.target.value }))} />
+          </LabeledField>
+          <label className="flex items-center gap-2 text-sm text-dim cursor-pointer">
+            <input type="checkbox" checked={form.clearComicsApiKey} onChange={(e) => setForm((f) => ({ ...f, clearComicsApiKey: e.target.checked }))} className="rounded" />
+            Clear saved key
           </label>
         </>}
 

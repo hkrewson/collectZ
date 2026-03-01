@@ -7,6 +7,7 @@ const { resolvePlexPreset } = require('./plex');
 const { resolveBooksPreset } = require('./books');
 const { resolveAudioPreset } = require('./audio');
 const { resolveGamesPreset } = require('./games');
+const { resolveComicsPreset } = require('./comics');
 
 const normalizeIntegrationRecord = (row) => {
   const envBarcodePreset = process.env.BARCODE_PRESET || process.env.BARCODE_PROVIDER || 'upcitemdb';
@@ -16,6 +17,7 @@ const normalizeIntegrationRecord = (row) => {
   const envBooksPreset = process.env.BOOKS_PRESET || process.env.BOOKS_PROVIDER || 'googlebooks';
   const envAudioPreset = process.env.AUDIO_PRESET || process.env.AUDIO_PROVIDER || 'discogs';
   const envGamesPreset = process.env.GAMES_PRESET || process.env.GAMES_PROVIDER || 'igdb';
+  const envComicsPreset = process.env.COMICS_PRESET || process.env.COMICS_PROVIDER || 'metron';
 
   const barcodePreset = resolveBarcodePreset(row?.barcode_preset || envBarcodePreset);
   const visionPreset = resolveVisionPreset(row?.vision_preset || envVisionPreset);
@@ -24,6 +26,7 @@ const normalizeIntegrationRecord = (row) => {
   const booksPreset = resolveBooksPreset(row?.books_preset || envBooksPreset);
   const audioPreset = resolveAudioPreset(row?.audio_preset || envAudioPreset);
   const gamesPreset = resolveGamesPreset(row?.games_preset || envGamesPreset);
+  const comicsPreset = resolveComicsPreset(row?.comics_preset || envComicsPreset);
 
   const barcodeDecrypt = decryptSecretWithStatus(row?.barcode_api_key_encrypted, 'barcode_api_key_encrypted');
   const visionDecrypt = decryptSecretWithStatus(row?.vision_api_key_encrypted, 'vision_api_key_encrypted');
@@ -33,6 +36,7 @@ const normalizeIntegrationRecord = (row) => {
   const audioDecrypt = decryptSecretWithStatus(row?.audio_api_key_encrypted, 'audio_api_key_encrypted');
   const gamesDecrypt = decryptSecretWithStatus(row?.games_api_key_encrypted, 'games_api_key_encrypted');
   const gamesClientSecretDecrypt = decryptSecretWithStatus(row?.games_client_secret_encrypted, 'games_client_secret_encrypted');
+  const comicsDecrypt = decryptSecretWithStatus(row?.comics_api_key_encrypted, 'comics_api_key_encrypted');
 
   const barcodeApiKey = barcodeDecrypt.value || process.env.BARCODE_API_KEY || '';
   const visionApiKey = visionDecrypt.value || process.env.VISION_API_KEY || '';
@@ -42,6 +46,7 @@ const normalizeIntegrationRecord = (row) => {
   const audioApiKey = audioDecrypt.value || process.env.AUDIO_API_KEY || '';
   const gamesApiKey = gamesDecrypt.value || process.env.GAMES_API_KEY || '';
   const gamesClientSecret = gamesClientSecretDecrypt.value || process.env.GAMES_CLIENT_SECRET || '';
+  const comicsApiKey = comicsDecrypt.value || process.env.COMICS_API_KEY || '';
 
   const decryptWarnings = [];
   const maybeWarn = (provider, field, encryptedValue, decryptResult) => {
@@ -61,6 +66,7 @@ const normalizeIntegrationRecord = (row) => {
   maybeWarn('audio', 'audio_api_key_encrypted', row?.audio_api_key_encrypted, audioDecrypt);
   maybeWarn('games', 'games_api_key_encrypted', row?.games_api_key_encrypted, gamesDecrypt);
   maybeWarn('games', 'games_client_secret_encrypted', row?.games_client_secret_encrypted, gamesClientSecretDecrypt);
+  maybeWarn('comics', 'comics_api_key_encrypted', row?.comics_api_key_encrypted, comicsDecrypt);
 
   const legacyAudioUrl = row?.audio_api_url || '';
   const resolvedAudioProviderRaw = row?.audio_provider || audioPreset.provider;
@@ -121,6 +127,13 @@ const normalizeIntegrationRecord = (row) => {
     gamesClientId: row?.games_client_id || process.env.GAMES_CLIENT_ID || '',
     gamesClientSecret,
     gamesApiKey,
+    comicsPreset: row?.comics_preset || envComicsPreset,
+    comicsProvider: row?.comics_provider || comicsPreset.provider,
+    comicsApiUrl: row?.comics_api_url || comicsPreset.apiUrl || process.env.COMICS_API_URL || '',
+    comicsApiKeyHeader: row?.comics_api_key_header || comicsPreset.apiKeyHeader || '',
+    comicsApiKeyQueryParam: row?.comics_api_key_query_param || comicsPreset.apiKeyQueryParam || 'api_key',
+    comicsUsername: row?.comics_username || process.env.COMICS_USERNAME || '',
+    comicsApiKey,
     decryptWarnings
   };
 };

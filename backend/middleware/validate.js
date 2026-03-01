@@ -49,6 +49,7 @@ const mediaBaseSchema = z.object({
   signed_role: z.enum(['author', 'producer', 'cast']).optional().nullable(),
   signed_on: nullableDateSchema,
   signed_at: z.string().max(255).optional().nullable(),
+  signed_proof_path: z.string().max(1000).optional().nullable(),
   location: z.string().max(255).optional().nullable(),
   notes: z.string().max(5000).optional().nullable(),
   overview: z.string().max(10000).optional().nullable(),
@@ -95,7 +96,7 @@ const mediaCreateSchema = mediaBaseSchema.superRefine((data, ctx) => {
       book: ['author', 'isbn', 'publisher', 'edition'],
       audio: ['artist', 'album', 'track_count'],
       game: ['platform', 'developer', 'region'],
-      comic_book: ['author', 'isbn', 'publisher', 'edition']
+      comic_book: ['author', 'isbn', 'publisher', 'edition', 'series', 'issue_number', 'volume', 'writer', 'artist', 'inker', 'colorist', 'cover_date', 'provider_issue_id']
     };
     const allowed = new Set(allowedByType[mediaType] || []);
     const invalidKeys = Object.keys(data.type_details).filter((k) => !allowed.has(k));

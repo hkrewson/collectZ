@@ -1164,6 +1164,32 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 - Media detail view can show valuation fields when present and degrade gracefully when unavailable.
 - Pricing failures do not block media CRUD/import flows and are fully auditable.
 
+## 2.8.0 — Optional Build: Cost Model and Billing Readiness
+
+**Goal:** Prepare a data-backed cost model before any hosted subscription offering, while keeping self-hosted installs free of paid-provider dependencies.
+
+### Scope
+
+- Add per-portal usage metering primitives:
+  - provider API call counts by integration and route,
+  - import/sync job runtime and volume counters,
+  - storage usage counters for uploads/attachments.
+- Build a cost estimation model:
+  - baseline infrastructure assumptions (compute, DB, storage, egress),
+  - provider usage multipliers (for paid APIs where configured),
+  - monthly low/mid/high estimate bands per portal.
+- Add read-only admin “Cost Estimate” reporting view for hosted-mode planning.
+- Define deployment profiles:
+  - `self_hosted` profile (no paid APIs required),
+  - `hosted_subscription` profile (paid integrations allowed and metered).
+- Document break-even and guardrail thresholds for enabling paid integrations by default in hosted mode.
+
+### Acceptance Criteria
+
+- Cost estimate report can be generated from real usage telemetry for a portal.
+- Top cost drivers are visible and attributable (API, storage, compute).
+- Self-hosted profile remains fully functional with all paid-provider integrations disabled.
+
 ---
 
 ## CI/CD Notes (All Versions)
