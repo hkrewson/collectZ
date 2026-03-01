@@ -908,6 +908,24 @@ const MIGRATIONS = [
         ADD CONSTRAINT media_media_type_check
         CHECK (media_type IN ('movie', 'tv_series', 'tv_episode', 'book', 'audio', 'game', 'comic_book'));
     `
+  },
+  {
+    version: 25,
+    description: 'Add signed metadata fields for media entries',
+    up: `
+      ALTER TABLE media
+        ADD COLUMN IF NOT EXISTS signed_by VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS signed_role VARCHAR(20),
+        ADD COLUMN IF NOT EXISTS signed_on DATE,
+        ADD COLUMN IF NOT EXISTS signed_at VARCHAR(255);
+
+      ALTER TABLE media
+        DROP CONSTRAINT IF EXISTS media_signed_role_check;
+
+      ALTER TABLE media
+        ADD CONSTRAINT media_signed_role_check
+        CHECK (signed_role IS NULL OR signed_role IN ('author', 'producer', 'cast'));
+    `
   }
 ];
 

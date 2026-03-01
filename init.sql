@@ -58,6 +58,10 @@ CREATE TABLE IF NOT EXISTS media (
     trailer_url TEXT,
     runtime INTEGER,
     upc VARCHAR(50),
+    signed_by VARCHAR(255),
+    signed_role VARCHAR(20) CHECK (signed_role IN ('author', 'producer', 'cast')),
+    signed_on DATE,
+    signed_at VARCHAR(255),
     location VARCHAR(255),
     notes TEXT,
     season_number INTEGER,
@@ -424,5 +428,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (21, 'Add books/audio/games integration settings'),
     (22, 'Add encrypted games client secret for IGDB auth'),
     (23, 'Identifier-first import lookup indexes'),
-    (24, 'Rename media_type other to comic_book')
+    (24, 'Rename media_type other to comic_book'),
+    (25, 'Add signed metadata fields for media entries')
 ON CONFLICT (version) DO NOTHING;

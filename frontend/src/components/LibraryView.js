@@ -16,12 +16,23 @@ const DEFAULT_MEDIA_FORM = {
   media_type: 'movie',
   title: '', original_title: '', release_date: '', year: '', format: 'Blu-ray', genre: '',
   director: '', rating: '', user_rating: 0, runtime: '', upc: '', location: '', notes: '',
+  signed_by: '', signed_role: '', signed_on: '', signed_at: '',
   overview: '', tmdb_id: '', tmdb_media_type: 'movie', tmdb_url: '', trailer_url: '', poster_path: '', backdrop_path: '',
   season_number: '', episode_number: '', episode_title: '', network: '',
   book_author: '', book_isbn: '', book_publisher: '', book_edition: '',
   audio_artist: '', audio_album: '', audio_track_count: '',
   game_platform: '', game_developer: '', game_region: ''
 };
+
+function normalizeDateInput(value) {
+  if (!value) return '';
+  const raw = String(value).trim();
+  if (!raw) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return '';
+  return parsed.toISOString().slice(0, 10);
+}
 
 function StarRating({ value = 0, onChange, readOnly = false }) {
   const safe = Number(value) || 0;
@@ -205,6 +216,10 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall }) {
               ['Rating', item.rating ? `${item.rating} / 10` : null],
               ['Release', item.release_date ? String(item.release_date).slice(0, 10) : null],
               ['UPC', item.upc],
+              ['Signed by', item.signed_by],
+              ['Signed as', item.signed_role],
+              ['Signed on', item.signed_on ? String(item.signed_on).slice(0, 10) : null],
+              ['Signed at', item.signed_at],
               ['Location', item.location]
             ].filter(([, v]) => v).map(([k, v]) => (
               <div key={k}><p className="label">{k}</p><p className="text-ink">{v}</p></div>
@@ -280,6 +295,8 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
     const details = rawInitial?.type_details || {};
     return {
       ...rawInitial,
+      release_date: normalizeDateInput(rawInitial?.release_date),
+      signed_on: normalizeDateInput(rawInitial?.signed_on),
       book_author: details?.author || '',
       book_isbn: details?.isbn || '',
       book_publisher: details?.publisher || '',
@@ -566,6 +583,10 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
         episode_number: form.episode_number ? Number(form.episode_number) : null,
         episode_title: form.episode_title || null,
         network: form.network || null,
+        signed_by: form.signed_by ? String(form.signed_by).trim() || null : null,
+        signed_role: form.signed_role || null,
+        signed_on: normalizeDateInput(form.signed_on) || null,
+        signed_at: form.signed_at ? String(form.signed_at).trim() || null : null,
         director: isMovieOrTv ? (form.director || null) : null,
         format: isBook
           ? (BOOK_FORMATS.includes(form.format) ? form.format : 'Digital')
@@ -810,6 +831,19 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
           </div>
 
           <LabeledField label="Your Rating"><StarRating value={form.user_rating || 0} onChange={(v) => set({ user_rating: v })} /></LabeledField>
+          <div className="grid grid-cols-2 gap-3">
+            <LabeledField label="Signed by"><input className="input" value={form.signed_by} onChange={(e) => set({ signed_by: e.target.value })} /></LabeledField>
+            <LabeledField label="Signed as">
+              <select className="select" value={form.signed_role} onChange={(e) => set({ signed_role: e.target.value })}>
+                <option value="">Not signed</option>
+                <option value="author">Author</option>
+                <option value="producer">Producer</option>
+                <option value="cast">Cast</option>
+              </select>
+            </LabeledField>
+            <LabeledField label="Signed on"><input className="input" type="date" value={form.signed_on} onChange={(e) => set({ signed_on: e.target.value })} /></LabeledField>
+            <LabeledField label="Signed at"><input className="input" value={form.signed_at} onChange={(e) => set({ signed_at: e.target.value })} /></LabeledField>
+          </div>
           <LabeledField label="Storage Location"><input className="input" placeholder="Shelf A3, Box 2…" value={form.location} onChange={(e) => set({ location: e.target.value })} /></LabeledField>
           <LabeledField label="Overview"><textarea className="textarea" rows={3} value={form.overview} onChange={(e) => set({ overview: e.target.value })} /></LabeledField>
           <LabeledField label="Notes"><textarea className="textarea" rows={2} value={form.notes} onChange={(e) => set({ notes: e.target.value })} /></LabeledField>
@@ -928,7 +962,12 @@ export default function LibraryView({
       <div className="h-full flex flex-col">
         <MediaForm
           title={isEdit ? 'Edit Media' : 'Add to Library'}
-          initial={isEdit ? { ...DEFAULT_MEDIA_FORM, ...editing, release_date: editing.release_date ? String(editing.release_date).slice(0, 10) : '' } : addFormInitial}
+          initial={isEdit ? {
+            ...DEFAULT_MEDIA_FORM,
+            ...editing,
+            release_date: normalizeDateInput(editing.release_date),
+            signed_on: normalizeDateInput(editing.signed_on)
+          } : addFormInitial}
           apiCall={apiCall}
           onCancel={() => { setAdding(false); setEditing(null); }}
           onDelete={isEdit ? () => { onDelete(editing.id); setEditing(null); } : undefined}

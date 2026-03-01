@@ -925,7 +925,16 @@ This track converts the 1.9.1 external assessment findings into executable miles
   - Add comic-book tracking foundation:
     - media-type-level support for comic entries in unified library UX,
     - calibre library/list import path for comics (hosted library or export file ingestion),
-    - enrichment provider evaluation and implementation for comic metadata (`author`, `publisher`, `artist`, `inker`, `colorist`, etc.).
+    - comic enrichment provider implementation:
+      - primary: Metron,
+      - secondary fallback: GCD API,
+      - optional/legacy adapter: ComicVine (feature-flagged, terms-dependent).
+    - normalized comic metadata mapping (`series`, `issue_number`, `volume`, `publisher`, `author/writer`, `artist`, `inker`, `colorist`, `cover_date` where available).
+  - Add photo capture/upload foundation for signings and cover workflows:
+    - reusable image picker that supports file upload and mobile camera capture (`capture` input behavior),
+    - signed-proof image attachment support on media entries (separate from poster art),
+    - explicit success/failure UI feedback for Vision cover recognition (no silent no-op path),
+    - audit events for attachment upload/replace/remove actions.
   - Reader feasibility spike:
     - evaluate built-in reader options for common comic formats,
     - evaluate extension path to digital books where technically safe and maintainable.
@@ -1102,6 +1111,58 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 - Shared vs. private user annotations and ratings controls.
 - Mobile-optimized barcode scanning UI (camera input with real-time scan feedback).
 - Email delivery for invites via SMTP (already stubbed in `env.example`).
+
+## 2.6.0 — Events and Memorabilia Tracking
+
+**Goal:** Add optional event tracking for conventions/festivals while keeping core media catalog flows simple.
+
+### Scope
+
+- Add an `Events` area for user-managed event logs (for example: comic conventions, film festivals, VHS events).
+- Event model baseline:
+  - event name, venue/location, start date, end date, notes.
+- Event artifact tracking:
+  - sessions attended,
+  - people met,
+  - autographs/signings,
+  - purchases,
+  - freebies.
+- Attachment support for event artifacts:
+  - photo upload/capture on mobile and desktop,
+  - storage metadata + audit logging.
+- Keep Events isolated from core media CRUD paths so media performance and reliability are not impacted.
+
+### Acceptance Criteria
+
+- Users can create/edit/delete events and add artifact rows under an event.
+- Event attachments can be uploaded/captured and rendered reliably on mobile and desktop.
+- Event actions and attachment changes emit clear audit log entries.
+
+## 2.7.0 — Optional Market Valuation Integrations
+
+**Goal:** Add optional value-estimate integrations for collectors without making pricing a hard dependency of core catalog features.
+
+### Scope
+
+- Add admin-managed, optional pricing providers:
+  - PriceCharting (primary collectibles/games pricing source),
+  - eBay Browse API (market listing/signal fallback).
+- Add provider abstraction and normalized valuation model:
+  - `estimated_value_low`,
+  - `estimated_value_mid`,
+  - `estimated_value_high`,
+  - `valuation_currency`,
+  - `valuation_source`,
+  - `valuation_last_updated`.
+- Support identifier-first price lookups (`UPC/EAN/ISBN` where applicable) with title fallback.
+- Keep valuation read-only in v2.7.0 (no writeback to providers).
+- Keep pricing behind feature flags and optional env configuration.
+
+### Acceptance Criteria
+
+- Admin can configure/test PriceCharting and eBay integrations independently.
+- Media detail view can show valuation fields when present and degrade gracefully when unavailable.
+- Pricing failures do not block media CRUD/import flows and are fully auditable.
 
 ---
 

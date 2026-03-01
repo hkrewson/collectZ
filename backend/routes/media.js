@@ -204,6 +204,13 @@ function parseDateOnly(value) {
   return d.toISOString().slice(0, 10);
 }
 
+function normalizeSignedRole(value) {
+  if (!value) return null;
+  const normalized = String(value).trim().toLowerCase();
+  if (['author', 'producer', 'cast'].includes(normalized)) return normalized;
+  return null;
+}
+
 function normalizeTitleForMatch(value) {
   return String(value || '')
     .toLowerCase()
@@ -813,6 +820,10 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
         item.trailer_url || null,
         item.runtime || null,
         item.upc || null,
+        item.signed_by || null,
+        item.signed_role || null,
+        item.signed_on || null,
+        item.signed_at || null,
         item.location || null,
         item.notes || null,
         normalizedTypeDetails ? JSON.stringify(normalizedTypeDetails) : null,
@@ -840,11 +851,15 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
            trailer_url = COALESCE($16, trailer_url),
            runtime = COALESCE($17, runtime),
            upc = COALESCE($18, upc),
-           location = COALESCE($19, location),
-           notes = COALESCE($20, notes),
-           type_details = COALESCE($21::jsonb, type_details),
-           import_source = COALESCE($22, import_source)
-         WHERE id = $23${updateScopeClause}`,
+           signed_by = COALESCE($19, signed_by),
+           signed_role = COALESCE($20, signed_role),
+           signed_on = COALESCE($21, signed_on),
+           signed_at = COALESCE($22, signed_at),
+           location = COALESCE($23, location),
+           notes = COALESCE($24, notes),
+           type_details = COALESCE($25::jsonb, type_details),
+           import_source = COALESCE($26, import_source)
+         WHERE id = $27${updateScopeClause}`,
         updateParams
       );
       return {
@@ -861,9 +876,9 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
       `INSERT INTO media (
          title, media_type, original_title, release_date, year, format, genre, director,
          rating, user_rating, tmdb_id, tmdb_media_type, tmdb_url, poster_path, backdrop_path, overview, trailer_url,
-         runtime, upc, location, notes, type_details, library_id, space_id, added_by, import_source
+         runtime, upc, signed_by, signed_role, signed_on, signed_at, location, notes, type_details, library_id, space_id, added_by, import_source
        ) VALUES (
-         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22::jsonb,$23,$24,$25,$26
+         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25::jsonb,$26,$27,$28,$29
        )
        RETURNING id`,
       [
@@ -886,6 +901,10 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
         item.trailer_url || null,
         item.runtime || null,
         item.upc || null,
+        item.signed_by || null,
+        item.signed_role || null,
+        item.signed_on || null,
+        item.signed_at || null,
         item.location || null,
         item.notes || null,
         normalizedTypeDetails ? JSON.stringify(normalizedTypeDetails) : null,
@@ -1474,6 +1493,10 @@ async function runGenericCsvImport({ rows, userId, scopeContext, onProgress = nu
       user_rating: value('user_rating') ? Number(value('user_rating')) : null,
       runtime: value('runtime') ? Number(value('runtime')) : null,
       upc: value('upc'),
+      signed_by: value('signed_by') || value('signed by'),
+      signed_role: normalizeSignedRole(value('signed_role') || value('signed role')),
+      signed_on: parseDateOnly(value('signed_on') || value('signed on')),
+      signed_at: value('signed_at') || value('signed at'),
       location: value('location'),
       notes: value('notes'),
       type_details: {
@@ -1659,6 +1682,10 @@ async function runDeliciousCsvImport({ rows, userId, scopeContext, onProgress = 
           director: normalizedRow.creator || null,
           user_rating: normalizedRow.ratingRaw ? Number(normalizedRow.ratingRaw) : null,
           upc: normalizedRow.ean || null,
+          signed_by: normalizedRow.signedBy || null,
+          signed_role: normalizeSignedRole(normalizedRow.signedRole) || null,
+          signed_on: parseDateOnly(normalizedRow.signedOnRaw),
+          signed_at: normalizedRow.signedAt || null,
           notes: sourceNotes.filter(Boolean).join(' | ') || null,
           type_details: {
             author: normalizedRow.creator || null,
@@ -2195,9 +2222,9 @@ router.post('/upload-cover', memoryUpload.single('cover'), asyncHandler(async (r
 
 router.get('/import/template-csv', asyncHandler(async (_req, res) => {
   const template = [
-    'title,media_type,year,format,director,genre,rating,user_rating,runtime,upc,isbn,ean_upc,asin,location,notes',
-    '"The Matrix","movie",1999,"Blu-ray","Lana Wachowski, Lilly Wachowski","Science Fiction",8.7,4.5,136,085391163545,,,,"Living Room","Example row"',
-    '"Wool","book",2012,"Paperback","Hugh Howey","Science Fiction",,4.5,,,9781476735402,,,"Office","Identifier-first matching example"'
+    'title,media_type,year,format,director,genre,rating,user_rating,runtime,upc,isbn,ean_upc,asin,signed_by,signed_role,signed_on,signed_at,location,notes',
+    '"The Matrix","movie",1999,"Blu-ray","Lana Wachowski, Lilly Wachowski","Science Fiction",8.7,4.5,136,085391163545,,,,,,,,"Living Room","Example row"',
+    '"Wool","book",2012,"Paperback","Hugh Howey","Science Fiction",,4.5,,,9781476735402,,,Hugh Howey,author,2024-06-12,"Salt Lake City","Identifier-first matching example"'
   ].join('\n');
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', 'attachment; filename="collectz-template.csv"');
@@ -2668,7 +2695,7 @@ router.post('/', validate(mediaCreateSchema), asyncHandler(async (req, res) => {
   const {
     title, media_type, original_title, release_date, year, format, genre, director, rating,
     user_rating, tmdb_id, tmdb_media_type, tmdb_url, poster_path, backdrop_path, overview,
-    trailer_url, runtime, upc, location, notes, import_source,
+    trailer_url, runtime, upc, signed_by, signed_role, signed_on, signed_at, location, notes, import_source,
     season_number, episode_number, episode_title, network, type_details, library_id
     , space_id
   } = req.body;
@@ -2683,18 +2710,19 @@ router.post('/', validate(mediaCreateSchema), asyncHandler(async (req, res) => {
     `INSERT INTO media (
        title, media_type, original_title, release_date, year, format, genre, director, rating,
        user_rating, tmdb_id, tmdb_media_type, tmdb_url, poster_path, backdrop_path, overview,
-       trailer_url, runtime, upc, location, notes, season_number, episode_number, episode_title, network,
+       trailer_url, runtime, upc, signed_by, signed_role, signed_on, signed_at, location, notes, season_number, episode_number, episode_title, network,
        type_details, library_id, space_id, added_by, import_source
      ) VALUES (
-       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26::jsonb,$27,$28,$29,$30
+       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30::jsonb,$31,$32,$33,$34
      ) RETURNING *`,
     [
       title, normalizedMediaType, original_title || null, release_date || null, year || null, format || null,
       genre || null, director || null, rating || null, user_rating || null,
       tmdb_id || null, tmdb_media_type || null, tmdb_url || null, poster_path || null, backdrop_path || null,
-      overview || null, trailer_url || null, runtime || null, upc || null,
-      location || null, notes || null, season_number || null, episode_number || null,
-      episode_title || null, network || null, normalizedTypeDetails ? JSON.stringify(normalizedTypeDetails) : null,
+      overview || null, trailer_url || null, runtime || null, upc || null, signed_by || null,
+      signed_role || null, signed_on || null, signed_at || null, location || null, notes || null,
+      season_number || null, episode_number || null, episode_title || null, network || null,
+      normalizedTypeDetails ? JSON.stringify(normalizedTypeDetails) : null,
       library_id || scopeContext.libraryId || null,
       space_id || scopeContext.spaceId || null,
       req.user.id, import_source || 'manual'
@@ -2713,7 +2741,7 @@ router.patch('/:id', validate(mediaUpdateSchema), asyncHandler(async (req, res) 
   const ALLOWED_FIELDS = [
     'title', 'media_type', 'original_title', 'release_date', 'year', 'format', 'genre', 'director',
     'rating', 'user_rating', 'tmdb_id', 'tmdb_media_type', 'tmdb_url', 'poster_path', 'backdrop_path',
-    'overview', 'trailer_url', 'runtime', 'upc', 'location', 'notes', 'season_number',
+    'overview', 'trailer_url', 'runtime', 'upc', 'signed_by', 'signed_role', 'signed_on', 'signed_at', 'location', 'notes', 'season_number',
     'episode_number', 'episode_title', 'network', 'type_details', 'library_id', 'space_id'
   ];
 

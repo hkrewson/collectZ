@@ -93,12 +93,12 @@ export default function SidebarNav({
             </button>
             {libraryOpen && !collapsed && (
               <div className="mt-1 space-y-1">
+                <NavLink id="library-audio" icon={null} label="Audio" sub />
+                <NavLink id="library-books" icon={null} label="Books" sub />
+                <NavLink id="library-comics" icon={null} label="Comic Books" sub />
+                <NavLink id="library-games" icon={null} label="Games" sub />
                 <NavLink id="library-movies" icon={null} label="Movies" sub />
                 <NavLink id="library-tv" icon={null} label="TV" sub />
-                <NavLink id="library-books" icon={null} label="Books" sub />
-                <NavLink id="library-audio" icon={null} label="Audio" sub />
-                <NavLink id="library-games" icon={null} label="Games" sub />
-                <NavLink id="library-comics" icon={null} label="Comic Books" sub />
               </div>
             )}
           </div>
@@ -120,11 +120,11 @@ export default function SidebarNav({
               </button>
               {adminOpen && !collapsed && (
                 <div className="mt-1 space-y-0.5">
-                  <NavLink id="admin-integrations" icon={null} label="Integrations" sub />
-                  <NavLink id="admin-settings" icon={null} label="Settings" sub />
-                  <NavLink id="admin-flags" icon={null} label="Feature Flags" sub />
-                  <NavLink id="admin-users" icon={null} label="Members" sub />
                   <NavLink id="admin-activity" icon={null} label="Activity" sub />
+                  <NavLink id="admin-flags" icon={null} label="Feature Flags" sub />
+                  <NavLink id="admin-integrations" icon={null} label="Integrations" sub />
+                  <NavLink id="admin-users" icon={null} label="Members" sub />
+                  <NavLink id="admin-settings" icon={null} label="Settings" sub />
                 </div>
               )}
             </div>
