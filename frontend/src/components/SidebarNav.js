@@ -13,6 +13,7 @@ export default function SidebarNav({
   appVersion
 }) {
   const isAdmin = user?.role === 'admin';
+  const releaseNotesUrl = `https://github.com/hkrewson/collectZ/tree/main/docs/releases/v${appVersion}.md`;
   const [adminOpen, setAdminOpen] = useState(true);
   const [libraryOpen, setLibraryOpen] = useState(true);
   const isLibraryActive = [
@@ -65,7 +66,15 @@ export default function SidebarNav({
           {!collapsed && (
             <div className="min-w-0">
               <div className="font-display text-base tracking-wider text-ink leading-none">COLLECTZ</div>
-              <div className="text-ghost text-[10px] font-mono mt-0.5">v{appVersion}</div>
+              <a
+                href={releaseNotesUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-ghost text-[10px] font-mono mt-0.5 inline-block hover:text-ink"
+                title="Open release notes"
+              >
+                v{appVersion}
+              </a>
             </div>
           )}
         </div>
@@ -131,6 +140,29 @@ export default function SidebarNav({
           )}
 
           <NavLink id="profile" icon={<Icons.Profile />} label="Profile" />
+
+          {!collapsed && (
+            <div className="mt-3 pt-3 border-t border-edge space-y-1">
+              <a
+                href="https://discord.gg/ZV8f5nGT2R"
+                target="_blank"
+                rel="noreferrer"
+                className="w-full flex items-center gap-3 px-3 py-2 text-xs text-dim hover:text-ink hover:bg-raised/50 rounded transition-all"
+              >
+                <Icons.Link />
+                <span>Join the Discord</span>
+              </a>
+              <a
+                href="https://github.com/hkrewson/collectZ"
+                target="_blank"
+                rel="noreferrer"
+                className="w-full flex items-center gap-3 px-3 py-2 text-xs text-dim hover:text-ink hover:bg-raised/50 rounded transition-all"
+              >
+                <Icons.Link />
+                <span>GitHub Repo</span>
+              </a>
+            </div>
+          )}
         </nav>
 
         <div className="p-3 border-t border-edge shrink-0 space-y-1">

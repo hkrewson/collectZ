@@ -438,5 +438,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (23, 'Identifier-first import lookup indexes'),
     (24, 'Rename media_type other to comic_book'),
     (25, 'Add signed metadata fields for media entries'),
-    (26, 'Add comics integration settings')
+    (26, 'Add comics integration settings'),
+    (27, 'Add signed proof image path for media entries')
 ON CONFLICT (version) DO NOTHING;
