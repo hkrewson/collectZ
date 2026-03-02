@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 
-export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion, buildSha, Icons, Spinner, cx }) {
+export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion, Icons, Spinner, cx }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -147,7 +147,7 @@ export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion
           </form>
 
           <p className="text-center text-xs text-ghost">
-            collectZ v{appVersion} · {buildSha}
+            collectZ v{appVersion}
           </p>
         </div>
       </div>

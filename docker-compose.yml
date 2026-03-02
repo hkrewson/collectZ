@@ -22,9 +22,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
       args:
-        APP_VERSION: ${APP_VERSION:-2.0.0-beta.6}
-        GIT_SHA: ${GIT_SHA:-dev}
-        BUILD_DATE: ${BUILD_DATE:-unknown}
+        APP_VERSION: ${APP_VERSION:-}
     image: mediavault-backend:latest
     restart: unless-stopped
     environment:
@@ -60,9 +58,7 @@ services:
       PLEX_SERVER_NAME: ${PLEX_SERVER_NAME:-}
       PLEX_API_KEY: ${PLEX_API_KEY:-}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
-      APP_VERSION: ${APP_VERSION:-2.0.0-beta.6}
-      GIT_SHA: ${GIT_SHA:-dev}
-      BUILD_DATE: ${BUILD_DATE:-unknown}
+      APP_VERSION: ${APP_VERSION:-}
     volumes:
       - media_uploads:/app/uploads
     depends_on:
@@ -82,9 +78,7 @@ services:
       dockerfile: Dockerfile
       args:
         REACT_APP_API_URL: /api
-        REACT_APP_VERSION: ${APP_VERSION:-2.0.0-beta.6}
-        REACT_APP_GIT_SHA: ${GIT_SHA:-dev}
-        REACT_APP_BUILD_DATE: ${BUILD_DATE:-unknown}
+        REACT_APP_VERSION: ${APP_VERSION:-}
     image: mediavault-frontend:latest
     restart: unless-stopped
     depends_on:

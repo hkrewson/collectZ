@@ -95,18 +95,16 @@ When `STORAGE_PROVIDER=s3`, configure:
 
 - `REACT_APP_API_URL` (default: `/api`)
 
-## Build Metadata (Recommended)
+## Version Metadata
 
-- `APP_VERSION`: semantic version shown in UI and health response (example: `1.7.0`).
-- `GIT_SHA`: short git commit hash appended as build metadata (example: `2c9a862`).
-- `BUILD_DATE`: UTC build timestamp (example: `2026-02-17T06:00:00Z`).
+- `APP_VERSION`: optional override for semantic version shown in UI and health response (example: `1.7.0`).
 
 Metadata source of truth:
 
 - `app-meta.json` in repo root
 - Sync command: `node scripts/sync-app-meta.js`
 
-These are optional in `.env`; you can also pass them inline on deploy.
+If `APP_VERSION` is unset, runtime falls back to `app-meta.json`.
 
 ## Included But Currently Not Used By Backend Code
 

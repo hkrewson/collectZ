@@ -2,12 +2,8 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-ARG APP_VERSION=2.0.0-rc.1
-ARG GIT_SHA=dev
-ARG BUILD_DATE=unknown
+ARG APP_VERSION
 ENV APP_VERSION=$APP_VERSION
-ENV GIT_SHA=$GIT_SHA
-ENV BUILD_DATE=$BUILD_DATE
 
 COPY package*.json ./
 RUN npm install --production
