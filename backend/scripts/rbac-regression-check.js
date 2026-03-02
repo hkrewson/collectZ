@@ -40,9 +40,6 @@ class HttpClient {
     } = options;
 
     const headers = { Accept: 'application/json' };
-    const cookieHeader = this.cookieHeader();
-    if (cookieHeader) headers.Cookie = cookieHeader;
-
     if (body !== undefined) {
       headers['Content-Type'] = 'application/json';
     }
@@ -53,6 +50,8 @@ class HttpClient {
       }
       headers['x-csrf-token'] = this.csrfToken;
     }
+    const cookieHeader = this.cookieHeader();
+    if (cookieHeader) headers.Cookie = cookieHeader;
 
     const response = await fetch(`${BASE_URL}${path}`, {
       method,

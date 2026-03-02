@@ -1032,6 +1032,40 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 - Critical regressions are visible via alerts without manual log polling.
 - Dashboard coverage includes imports, auth failures, and admin actions.
 
+## 2.2.5 — Structured Log Export (GELF + Pluggable Backends)
+
+**Goal:** Add production-grade external log shipping with a canonical GELF contract, feature-flagged rollout, and operator-selectable backend targets.
+
+### Scope
+
+- Canonical GELF contract:
+  - adopt the schema in `docs/wiki/22-Logging-and-Observability-Contract.md`,
+  - map current `activity_log` + request audit events into GELF-compliant events with stable extension keys,
+  - enforce redaction policy for sensitive fields before emit.
+- Feature-flagged enablement:
+  - add a backend feature flag for external log export (default off),
+  - support safe rollout by environment and runtime toggle without app restart where feasible.
+- Graylog setup path (primary):
+  - add compose examples and runbook for local/self-hosted Graylog endpoint,
+  - support UDP/TCP GELF transports with retry/fail-safe behavior,
+  - define failure mode: logging exporter failures must not block primary API behavior.
+- Alternative backends (same milestone, operator choice):
+  - ELK/OpenSearch pipeline guidance (GELF or JSON ingest path),
+  - Grafana stack path (Loki/Promtail-compatible structured logs),
+  - syslog forwarding path for traditional homelab environments.
+- Compatibility and safety:
+  - no secret/token leakage in shipped payloads,
+  - bounded payload sizes and drop/truncation policy for oversized details,
+  - correlation fields for request/job tracing (`_request_id`, `_action`, `_entity_type`, etc).
+
+### Acceptance Criteria
+
+- External log export can be enabled/disabled by feature flag and config.
+- Graylog ingestion is documented and verified against sample collectZ events.
+- ELK/Grafana/syslog alternatives are documented with supported field mappings and caveats.
+- CI/runtime checks verify redaction rules and forbid plaintext secret/token fields in exported log payloads.
+- Exporter outages do not degrade core API/import behavior.
+
 ## 2.3.0 — Import Match Review + Collections Intelligence
 
 **Goal:** Improve import quality for ambiguous matches and boxed-set decomposition while keeping automation safe and operator-visible.
@@ -1086,6 +1120,36 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 - TV seasons are modeled independently from movie editions.
 - Series/season watch-state is visible and queryable with consistent UI indicators.
 
+## 2.4.9 — Invite/Reset Security and Secret Exfiltration Hardening
+
+**Goal:** Strengthen credential-recovery and invitation workflows while reducing practical token/secret exfiltration surface before UX-focused 2.5 work.
+
+### Scope
+
+- Email-first invite and password reset delivery:
+  - add SMTP-backed delivery for invite links and admin-issued password reset links,
+  - keep copy-link fallback only as an explicit admin action with clear warning.
+- One-time token exposure minimization:
+  - keep raw invite/reset tokens visible only at creation moment and avoid replay exposure in list/read endpoints,
+  - add explicit token lifecycle audit events (`created`, `delivered`, `claimed`, `invalidated`, `expired`).
+- Auth/session hardening aligned to exfiltration concerns:
+  - reduce or remove browser Bearer-token fallback in favor of HttpOnly cookie-only browser auth paths,
+  - retain CSRF defenses and verify mutating routes reject missing/invalid token pairs.
+- Audit and log leak prevention controls:
+  - add CI/runtime checks that activity/error logs do not contain plaintext API keys, session tokens, reset tokens, or authorization headers,
+  - add automated regression checks for redaction/masking behavior on integration settings responses.
+- Operator guidance and incident handling:
+  - document break-glass recovery for lost admin access and secret rotation order,
+  - add troubleshooting guidance for SMTP delivery failures and token invalidation.
+
+### Acceptance Criteria
+
+- Invites and password resets support SMTP delivery with auditable lifecycle states.
+- No reusable raw invite/reset token material is exposed beyond one-time creation response.
+- Browser auth paths do not depend on localStorage/sessionStorage bearer tokens.
+- Security checks assert no plaintext credential/token leakage in activity logs and integration responses.
+- Existing media/import/admin workflows remain functional after hardening.
+
 ## 2.5.0 — UI Refinement Sprint (Cross-Device Consistency)
 
 **Goal:** Run a focused page-by-page UI refinement pass after 2.0 stabilization, prioritizing interaction consistency and responsive usability.
@@ -1137,6 +1201,60 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 - Users can create/edit/delete events and add artifact rows under an event.
 - Event attachments can be uploaded/captured and rendered reliably on mobile and desktop.
 - Event actions and attachment changes emit clear audit log entries.
+
+## 2.6.5 — Calibre Web Automated Integration (Comics/Books Bridge)
+
+**Goal:** Replace CSV-centric Calibre workflows with direct Calibre Web Automated (CWA) integration for better reliability, better metadata continuity, and optional read-through behavior.
+
+### Scope
+
+- Direct CWA integration (same-host Docker-friendly):
+  - add admin integration settings for CWA endpoint + auth model:
+    - `cwa_opds_url`,
+    - `cwa_base_url`,
+    - `cwa_username`,
+    - `cwa_password/token` (encrypted at rest),
+    - timeout/retry controls.
+  - use OPDS feed ingestion as the canonical read path (no CSV dependency).
+  - support discovery/sync from CWA libraries without requiring CSV export.
+  - map CWA items into collectZ media models for books/comics.
+  - persist provider linkage metadata (`provider_item_id`, external URL, import source).
+- Link-out first (primary UX path):
+  - store canonical external CWA item identifiers/URLs on imported media,
+  - add `Open in Calibre` action on media details (deep-link to exact issue/book when available),
+  - document reverse-proxy/port-forward guidance for homelab deployments.
+- Read capability decision track (feature-flagged):
+  - add optional in-app reader path for supported non-DRM formats only,
+  - if reader is disabled, preserve seamless external link-out behavior to CWA,
+  - enforce strict file-type allowlist and sandboxed rendering strategy.
+- Sync and consistency:
+  - support incremental pull (new/updated/deleted) from CWA feeds,
+  - support OPDS pagination traversal to avoid truncation on large libraries,
+  - keep identifier-first dedupe and enrichment behavior for incoming rows,
+  - preserve source attribution (`import_source`, provider ids) for round-trip troubleshooting.
+- Operational safety:
+  - importer failures are auditable and non-blocking for core CRUD,
+  - CWA integration remains optional behind feature flags and env/config toggles.
+- Documentation deliverables:
+  - write `Calibre Web Automated Integration Setup` guide in wiki:
+    - required CWA settings/prerequisites,
+    - Docker networking/reverse-proxy examples,
+    - OPDS auth verification steps,
+    - troubleshooting (auth errors, pagination, deep-link mismatches).
+
+### Acceptance Criteria
+
+- Admin can configure/test CWA integration and run direct sync without CSV export.
+- Imported comic/book entries can open the matching item in CWA when link metadata is available.
+- Deep-link tests pass:
+  - selected imported items open the exact target issue/book in CWA,
+  - links remain valid through reverse-proxy/public host routing.
+- OPDS ingestion tests pass:
+  - auth success/failure paths are explicit and audited,
+  - paginated libraries import all pages without silent truncation,
+  - repeat sync does not duplicate existing items.
+- In-app reader (if enabled) works only for allowed formats and can be fully disabled by feature flag.
+- CWA outages/auth failures do not break core collectZ media workflows.
 
 ## 2.7.0 — Optional Market Valuation Integrations
 

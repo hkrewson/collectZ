@@ -131,6 +131,23 @@ function validateTypeSpecificFields(mediaType, payload = {}) {
   return null;
 }
 
+function stripIncompatibleTypeSpecificFields(mediaType, payload = {}) {
+  const effectiveType = normalizeMediaType(mediaType, 'movie');
+  const cleaned = { ...payload };
+  if (!['tv_series', 'tv_episode'].includes(effectiveType)) {
+    delete cleaned.season_number;
+    delete cleaned.episode_number;
+    delete cleaned.episode_title;
+    delete cleaned.network;
+    return cleaned;
+  }
+  if (effectiveType === 'tv_series') {
+    delete cleaned.episode_number;
+    delete cleaned.episode_title;
+  }
+  return cleaned;
+}
+
 function sanitizeTypeDetails(mediaType, rawTypeDetails) {
   if (!rawTypeDetails || typeof rawTypeDetails !== 'object' || Array.isArray(rawTypeDetails)) {
     return null;
@@ -3461,11 +3478,10 @@ router.patch('/:id', validate(mediaUpdateSchema), asyncHandler(async (req, res) 
     'episode_number', 'episode_title', 'network', 'type_details', 'library_id', 'space_id'
   ];
 
-  const fields = Object.fromEntries(
+  let fields = Object.fromEntries(
     Object.entries(req.body).filter(([key]) => ALLOWED_FIELDS.includes(key))
   );
-  const keys = Object.keys(fields);
-  if (keys.length === 0) {
+  if (Object.keys(fields).length === 0) {
     return res.status(400).json({ error: 'No valid fields provided for update' });
   }
 
@@ -3484,6 +3500,7 @@ router.patch('/:id', validate(mediaUpdateSchema), asyncHandler(async (req, res) 
     );
     effectiveMediaType = normalizeMediaType(currentTypeResult.rows[0]?.media_type || 'movie', 'movie');
   }
+  fields = stripIncompatibleTypeSpecificFields(effectiveMediaType || 'movie', fields);
   const fieldValidationError = validateTypeSpecificFields(effectiveMediaType || 'movie', fields);
   if (fieldValidationError) {
     return res.status(400).json({ error: fieldValidationError });
@@ -3493,6 +3510,10 @@ router.patch('/:id', validate(mediaUpdateSchema), asyncHandler(async (req, res) 
     fields.type_details = sanitizeTypeDetails(detailType, fields.type_details);
   }
 
+  const keys = Object.keys(fields);
+  if (keys.length === 0) {
+    return res.status(400).json({ error: 'No valid fields provided for update' });
+  }
   const normalizedValues = keys.map((key) => fields[key]);
 
   const setClause = keys.map((key, i) => `${key} = $${i + 1}`).join(', ');

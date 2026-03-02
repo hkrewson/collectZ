@@ -31,13 +31,15 @@ class HttpClient {
   async request(path, options = {}) {
     const { method = 'GET', body, expectStatus, withCsrf = false } = options;
     const headers = { Accept: 'application/json' };
-    const cookieHeader = this.cookieHeader();
-    if (cookieHeader) headers.Cookie = cookieHeader;
     if (body !== undefined) headers['Content-Type'] = 'application/json';
     if (withCsrf) {
-      if (!this.csrfToken) await this.fetchCsrfToken();
+      // Always refresh CSRF prior to mutating calls to avoid stale-token
+      // failures after auth/session cookie rotation.
+      await this.fetchCsrfToken();
       headers['x-csrf-token'] = this.csrfToken;
     }
+    const cookieHeader = this.cookieHeader();
+    if (cookieHeader) headers.Cookie = cookieHeader;
 
     const response = await fetch(`${BASE_URL}${path}`, {
       method,
@@ -79,6 +81,8 @@ async function main() {
     expectStatus: 200,
     body: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD }
   });
+  // Login issues fresh cookies; fetch a fresh CSRF token bound to the new session.
+  await admin.fetchCsrfToken();
 
   const suffix = Date.now();
   const sharedTitle = `CrossType-${suffix}`;

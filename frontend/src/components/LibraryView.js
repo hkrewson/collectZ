@@ -726,10 +726,14 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
         trailer_url: isMovieOrTv ? (form.trailer_url ? String(form.trailer_url).trim() || null : null) : null,
         poster_path: form.poster_path ? String(form.poster_path).trim() || null : null,
         backdrop_path: isMovieOrTv ? (form.backdrop_path ? String(form.backdrop_path).trim() || null : null) : null,
-        season_number: form.season_number ? Number(form.season_number) : null,
-        episode_number: form.episode_number ? Number(form.episode_number) : null,
-        episode_title: form.episode_title || null,
-        network: form.network || null,
+        ...(['tv_series', 'tv_episode'].includes(form.media_type)
+          ? {
+              season_number: form.season_number ? Number(form.season_number) : null,
+              episode_number: form.episode_number ? Number(form.episode_number) : null,
+              episode_title: form.episode_title || null,
+              network: form.network || null
+            }
+          : {}),
         signed_by: form.signed_by ? String(form.signed_by).trim() || null : null,
         signed_role: form.signed_role || null,
         signed_on: normalizeDateInput(form.signed_on) || null,

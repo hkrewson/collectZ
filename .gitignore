@@ -89,3 +89,7 @@ nginx/ssl/*.crt
 # Local planning docs (intentionally not tracked)
 docs/wiki/roadmap-tenancy-deferred.md
 .env.ci
+
+# Local-only scope verification artifacts
+scripts/test_library_scope.py
+scripts/.library_scope_test.env
