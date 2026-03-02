@@ -939,7 +939,7 @@ This track converts the 1.9.1 external assessment findings into executable miles
     - evaluate built-in reader options for common comic formats,
     - evaluate extension path to digital books where technically safe and maintainable.
   - Add clear scope boundaries for v2.0 release candidate (tracking + import first, reader optional behind feature flag if incomplete).
-- `2.0.0-rc.1`:
+- `2.0.0-rc.1` (completed 2026-03-02):
   - Public test-server rehearsal with real tester traffic.
   - Resolve blocker bugs from tester template + activity logs.
   - Complete release checklist, migration rehearsal evidence, and rollback steps.
