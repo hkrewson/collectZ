@@ -27,6 +27,15 @@ const nullableDateSchema = z.preprocess(
   emptyStringToNull,
   z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (YYYY-MM-DD)').optional().nullable()
 );
+const nullableNumberSchema = (schema) => z.preprocess((value) => {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed === '') return null;
+    const numeric = Number(trimmed);
+    if (!Number.isNaN(numeric)) return numeric;
+  }
+  return value;
+}, schema.optional().nullable());
 const nullableUrlSchema = z.preprocess(
   emptyStringToNull,
   z.string().url().optional().nullable()
@@ -37,13 +46,14 @@ const mediaBaseSchema = z.object({
   media_type: z.enum(MEDIA_TYPES).optional().nullable(),
   original_title: z.string().max(500).optional().nullable(),
   release_date: nullableDateSchema,
-  year: z.number().int().min(1888).max(2100).optional().nullable(),
+  year: nullableNumberSchema(z.number().int().min(1888).max(2100)),
   format: z.enum(MEDIA_FORMATS).optional().nullable(),
   genre: z.string().max(100).optional().nullable(),
   director: z.string().max(255).optional().nullable(),
-  rating: z.number().min(0).max(10).optional().nullable(),
-  user_rating: z.number().min(0).max(5).optional().nullable(),
-  runtime: z.number().int().min(1).max(9999).optional().nullable(),
+  cast: z.string().max(1000).optional().nullable(),
+  rating: nullableNumberSchema(z.number().min(0).max(10)),
+  user_rating: nullableNumberSchema(z.number().min(0).max(5)),
+  runtime: nullableNumberSchema(z.number().int().min(1).max(9999)),
   upc: z.string().max(50).optional().nullable(),
   signed_by: z.string().max(255).optional().nullable(),
   signed_role: z.enum(['author', 'producer', 'cast']).optional().nullable(),
@@ -53,19 +63,19 @@ const mediaBaseSchema = z.object({
   location: z.string().max(255).optional().nullable(),
   notes: z.string().max(5000).optional().nullable(),
   overview: z.string().max(10000).optional().nullable(),
-  tmdb_id: z.number().int().positive().optional().nullable(),
+  tmdb_id: nullableNumberSchema(z.number().int().positive()),
   tmdb_media_type: z.enum(['movie', 'tv']).optional().nullable(),
   tmdb_url: nullableUrlSchema,
   trailer_url: nullableUrlSchema,
   poster_path: z.string().max(1000).optional().nullable(),
   backdrop_path: z.string().max(1000).optional().nullable(),
-  season_number: z.number().int().min(0).max(200).optional().nullable(),
-  episode_number: z.number().int().min(0).max(5000).optional().nullable(),
+  season_number: nullableNumberSchema(z.number().int().min(0).max(200)),
+  episode_number: nullableNumberSchema(z.number().int().min(0).max(5000)),
   episode_title: z.string().max(500).optional().nullable(),
   network: z.string().max(255).optional().nullable(),
   type_details: z.record(z.union([z.string(), z.number(), z.boolean(), z.null()])).optional().nullable(),
-  library_id: z.number().int().positive().optional().nullable(),
-  space_id: z.number().int().positive().optional().nullable()
+  library_id: nullableNumberSchema(z.number().int().positive()),
+  space_id: nullableNumberSchema(z.number().int().positive())
 });
 
 const mediaCreateSchema = mediaBaseSchema.superRefine((data, ctx) => {

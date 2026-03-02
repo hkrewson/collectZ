@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS media (
     format VARCHAR(50) CHECK (format IN ('VHS', 'Blu-ray', 'Digital', 'DVD', '4K UHD', 'Paperback', 'Hardcover', 'Trade')),
     genre VARCHAR(100),
     director VARCHAR(255),
+    cast_members VARCHAR(1000),
     rating DECIMAL(3,1),
     user_rating DECIMAL(2,1),
     tmdb_id INTEGER,
@@ -86,6 +87,48 @@ CREATE TABLE IF NOT EXISTS media_metadata (
     key VARCHAR(100) NOT NULL,
     value TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS genres (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    normalized_name VARCHAR(120) NOT NULL UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS directors (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    normalized_name VARCHAR(280) NOT NULL UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS media_genres (
+    media_id INTEGER NOT NULL REFERENCES media(id) ON DELETE CASCADE,
+    genre_id INTEGER NOT NULL REFERENCES genres(id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (media_id, genre_id)
+);
+
+CREATE TABLE IF NOT EXISTS media_directors (
+    media_id INTEGER NOT NULL REFERENCES media(id) ON DELETE CASCADE,
+    director_id INTEGER NOT NULL REFERENCES directors(id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (media_id, director_id)
+);
+
+CREATE TABLE IF NOT EXISTS actors (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    normalized_name VARCHAR(280) NOT NULL UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS media_actors (
+    media_id INTEGER NOT NULL REFERENCES media(id) ON DELETE CASCADE,
+    actor_id INTEGER NOT NULL REFERENCES actors(id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (media_id, actor_id)
 );
 
 -- Media variants (edition / file-level details, primarily from Plex)
@@ -309,6 +352,12 @@ CREATE INDEX IF NOT EXISTS idx_media_metadata_key_value ON media_metadata("key",
 CREATE INDEX IF NOT EXISTS idx_media_metadata_isbn_value ON media_metadata("value") WHERE "key" = 'isbn';
 CREATE INDEX IF NOT EXISTS idx_media_metadata_ean_value ON media_metadata("value") WHERE "key" IN ('ean', 'ean_upc', 'upc');
 CREATE INDEX IF NOT EXISTS idx_media_metadata_asin_value ON media_metadata("value") WHERE "key" = 'amazon_item_id';
+CREATE INDEX IF NOT EXISTS idx_media_genres_genre_id ON media_genres(genre_id);
+CREATE INDEX IF NOT EXISTS idx_media_directors_director_id ON media_directors(director_id);
+CREATE INDEX IF NOT EXISTS idx_genres_name ON genres(name);
+CREATE INDEX IF NOT EXISTS idx_directors_name ON directors(name);
+CREATE INDEX IF NOT EXISTS idx_media_actors_actor_id ON media_actors(actor_id);
+CREATE INDEX IF NOT EXISTS idx_actors_name ON actors(name);
 CREATE INDEX IF NOT EXISTS idx_media_variants_media_id ON media_variants(media_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_media_variants_plex_part ON media_variants (source, source_part_id) WHERE source = 'plex' AND source_part_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_media_variants_plex_item ON media_variants (source, source_item_key) WHERE source = 'plex' AND source_item_key IS NOT NULL;
@@ -340,16 +389,18 @@ CREATE INDEX IF NOT EXISTS idx_media_search_fts
       coalesce(title, '') || ' ' ||
       coalesce(original_title, '') || ' ' ||
       coalesce(director, '') || ' ' ||
+      coalesce(cast_members, '') || ' ' ||
       coalesce(genre, '') || ' ' ||
       coalesce(notes, '')
     )
-  );
+);
 CREATE INDEX IF NOT EXISTS idx_media_type_details_gin ON media USING GIN (type_details);
 
 -- Text search performance indexes for director/genre filters
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 CREATE INDEX IF NOT EXISTS idx_media_director_trgm ON media USING GIN (lower(COALESCE(director, '')) gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS idx_media_genre_trgm ON media USING GIN (lower(COALESCE(genre, '')) gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_media_cast_trgm ON media USING GIN (lower(COALESCE(cast_members, '')) gin_trgm_ops);
 
 -- Updated-at trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -406,7 +457,8 @@ INSERT INTO feature_flags (key, enabled, description) VALUES
     ('import_csv_enabled', true, 'Allow CSV imports (generic and Delicious)'),
     ('tmdb_search_enabled', true, 'Allow TMDB search and details lookups'),
     ('lookup_upc_enabled', true, 'Allow barcode/UPC lookup API usage'),
-    ('recognize_cover_enabled', true, 'Allow vision/OCR cover recognition API usage')
+    ('recognize_cover_enabled', true, 'Allow vision/OCR cover recognition API usage'),
+    ('metadata_normalized_read_enabled', false, 'Use normalized metadata relations (genres/directors/actors) as primary read path for metadata search/filter')
 ON CONFLICT (key) DO UPDATE
 SET description = EXCLUDED.description;
 
@@ -439,5 +491,8 @@ INSERT INTO schema_migrations (version, description) VALUES
     (24, 'Rename media_type other to comic_book'),
     (25, 'Add signed metadata fields for media entries'),
     (26, 'Add comics integration settings'),
-    (27, 'Add signed proof image path for media entries')
+    (27, 'Add signed proof image path for media entries'),
+    (28, 'Normalize media genre/director metadata tables'),
+    (29, 'Normalize media actor metadata tables'),
+    (30, 'Add metadata normalized read feature flag')
 ON CONFLICT (version) DO NOTHING;

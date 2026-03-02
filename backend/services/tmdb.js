@@ -122,10 +122,16 @@ const fetchTmdbMovieDetails = async (movieId, integrationConfig = null, mediaTyp
   const response = await axios.get(`${apiBaseUrl}/${normalizedType}/${movieId}`, { params, headers });
   const details = response.data || {};
   const crew = Array.isArray(details.credits?.crew) ? details.credits.crew : [];
+  const castList = Array.isArray(details.credits?.cast) ? details.credits.cast : [];
   const director =
     crew.find((p) => p.job === 'Director')?.name ||
     crew.find((p) => p.department === 'Directing')?.name ||
     '';
+  const cast = castList
+    .slice(0, 8)
+    .map((p) => String(p?.name || '').trim())
+    .filter(Boolean)
+    .join(', ');
 
   const videos = Array.isArray(details.videos?.results) ? details.videos.results : [];
   const trailer =
@@ -143,6 +149,7 @@ const fetchTmdbMovieDetails = async (movieId, integrationConfig = null, mediaTyp
       ? (details.original_name || details.original_title || null)
       : (details.original_title || details.original_name || null),
     director,
+    cast: cast || null,
     runtime: details.runtime || details.episode_run_time?.[0] || null,
     trailer_url: trailerUrl,
     tmdb_url: `https://www.themoviedb.org/${normalizedType}/${movieId}`,

@@ -15,7 +15,7 @@ const BOOK_FORMATS = ['Digital', 'Paperback', 'Hardcover', 'Trade'];
 const DEFAULT_MEDIA_FORM = {
   media_type: 'movie',
   title: '', original_title: '', release_date: '', year: '', format: 'Blu-ray', genre: '',
-  director: '', rating: '', user_rating: 0, runtime: '', upc: '', location: '', notes: '',
+  director: '', cast: '', rating: '', user_rating: 0, runtime: '', upc: '', location: '', notes: '',
   signed_by: '', signed_role: '', signed_on: '', signed_at: '', signed_proof_path: '',
   overview: '', tmdb_id: '', tmdb_media_type: 'movie', tmdb_url: '', trailer_url: '', poster_path: '', backdrop_path: '',
   season_number: '', episode_number: '', episode_title: '', network: '',
@@ -263,7 +263,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall }) {
           </div>
           <div className="flex-1 min-w-0 mt-1">
             <h2 className="font-display text-2xl tracking-wider text-ink leading-tight">{item.title}</h2>
-            <p className="text-sm text-dim mt-1">{[item.year, item.director].filter(Boolean).join(' · ')}</p>
+            <p className="text-sm text-dim mt-1">{[item.year, item.director, item.cast].filter(Boolean).join(' · ')}</p>
             <div className="flex flex-wrap gap-2 mt-2">
               {item.format && <span className="badge badge-gold">{item.format}</span>}
               {item.media_type && <span className="badge badge-dim">{mediaTypeLabel(item.media_type)}</span>}
@@ -289,6 +289,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall }) {
               ['Rating', item.rating ? `${item.rating} / 10` : null],
               ['Release', item.release_date ? String(item.release_date).slice(0, 10) : null],
               ['UPC', item.upc],
+              ['Cast', item.cast],
               ['Signed by', item.signed_by],
               ['Signed as', item.signed_role],
               ['Signed on', item.signed_on ? String(item.signed_on).slice(0, 10) : null],
@@ -378,6 +379,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
       release_date: normalizeDateInput(rawInitial?.release_date),
       signed_on: normalizeDateInput(rawInitial?.signed_on),
       signed_proof_path: rawInitial?.signed_proof_path || '',
+      cast: rawInitial?.cast || rawInitial?.cast_members || '',
       book_author: details?.author || '',
       book_isbn: details?.isbn || '',
       book_publisher: details?.publisher || '',
@@ -549,6 +551,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
       genre: genres || form.genre,
       rating: result?.rating ? Number(result.rating).toFixed(1) : form.rating,
       director: details?.director || form.director,
+      cast: details?.cast || form.cast,
       overview: result?.overview || form.overview,
       tmdb_id: result.id || form.tmdb_id,
       tmdb_media_type: tmdbType,
@@ -598,6 +601,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
       year: tmdb?.release_year ? String(tmdb.release_year) : (releaseDate ? String(releaseDate).slice(0, 4) : form.year),
       genre: genres || form.genre,
       director: details?.director || form.director,
+      cast: details?.cast || form.cast,
       overview: tmdb?.overview || match.description || form.overview,
       tmdb_id: tmdb?.id || form.tmdb_id,
       tmdb_media_type: tmdbType,
@@ -712,39 +716,47 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
                 region: form.game_region || null
               }
             : null;
-      const saved = await onSave({
-        ...form,
-        original_title: isMovieOrTv ? (form.original_title || null) : null,
-        release_date: form.release_date || null,
+      const payload = {
+        media_type: form.media_type,
+        title: String(form.title || '').trim(),
+        original_title: isMovieOrTv ? (String(form.original_title || '').trim() || null) : null,
+        release_date: normalizeDateInput(form.release_date) || null,
         year: form.year ? Number(form.year) : null,
+        format: (isBook || isComic)
+          ? (BOOK_FORMATS.includes(form.format) ? form.format : 'Digital')
+          : (isMovieOrTv ? (form.format || null) : null),
+        genre: String(form.genre || '').trim() || null,
+        director: isMovieOrTv ? (String(form.director || '').trim() || null) : null,
+        cast: isMovieOrTv ? (String(form.cast || '').trim() || null) : null,
         rating: isMovieOrTv ? (form.rating ? Number(form.rating) : null) : null,
         user_rating: form.user_rating ? Number(form.user_rating) : null,
         runtime: isMovieOrTv ? (form.runtime ? Number(form.runtime) : null) : null,
+        upc: String(form.upc || '').trim() || null,
+        location: String(form.location || '').trim() || null,
+        notes: String(form.notes || '').trim() || null,
+        overview: String(form.overview || '').trim() || null,
         tmdb_id: isMovieOrTv ? (form.tmdb_id ? Number(form.tmdb_id) : null) : null,
         tmdb_media_type: isMovieOrTv ? (form.tmdb_media_type || null) : null,
         tmdb_url: form.tmdb_url ? String(form.tmdb_url).trim() || null : null,
         trailer_url: isMovieOrTv ? (form.trailer_url ? String(form.trailer_url).trim() || null : null) : null,
         poster_path: form.poster_path ? String(form.poster_path).trim() || null : null,
         backdrop_path: isMovieOrTv ? (form.backdrop_path ? String(form.backdrop_path).trim() || null : null) : null,
-        ...(['tv_series', 'tv_episode'].includes(form.media_type)
-          ? {
-              season_number: form.season_number ? Number(form.season_number) : null,
-              episode_number: form.episode_number ? Number(form.episode_number) : null,
-              episode_title: form.episode_title || null,
-              network: form.network || null
-            }
-          : {}),
         signed_by: form.signed_by ? String(form.signed_by).trim() || null : null,
         signed_role: form.signed_role || null,
         signed_on: normalizeDateInput(form.signed_on) || null,
         signed_at: form.signed_at ? String(form.signed_at).trim() || null : null,
         signed_proof_path: form.signed_proof_path ? String(form.signed_proof_path).trim() || null : null,
-        director: isMovieOrTv ? (form.director || null) : null,
-        format: (isBook || isComic)
-          ? (BOOK_FORMATS.includes(form.format) ? form.format : 'Digital')
-          : (isMovieOrTv ? (form.format || null) : null),
         type_details: typeDetails
-      });
+      };
+
+      if (['tv_series', 'tv_episode'].includes(form.media_type)) {
+        payload.season_number = form.season_number ? Number(form.season_number) : null;
+        payload.episode_number = form.episode_number ? Number(form.episode_number) : null;
+        payload.episode_title = String(form.episode_title || '').trim() || null;
+        payload.network = String(form.network || '').trim() || null;
+      }
+
+      const saved = await onSave(payload);
       if (form.media_type === 'tv_series' && saved?.id && parsedTvSeasons.length > 0) {
         await apiCall('put', `/media/${saved.id}/tv-seasons`, { seasons: parsedTvSeasons });
       }
@@ -931,6 +943,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
                 <LabeledField label="Original Title" className="col-span-2"><input className="input" value={form.original_title} onChange={(e) => set({ original_title: e.target.value })} /></LabeledField>
                 <LabeledField label="Director"><input className="input" value={form.director} onChange={(e) => set({ director: e.target.value })} /></LabeledField>
                 <LabeledField label="Genre"><input className="input" placeholder="Action, Drama…" value={form.genre} onChange={(e) => set({ genre: e.target.value })} /></LabeledField>
+                <LabeledField label="Cast" className="col-span-2"><input className="input" placeholder="Actor 1, Actor 2…" value={form.cast} onChange={(e) => set({ cast: e.target.value })} /></LabeledField>
                 <LabeledField label="Release Date"><input className="input" type="date" value={form.release_date} onChange={(e) => set({ release_date: e.target.value })} /></LabeledField>
                 <LabeledField label="Runtime (min)"><input className="input" inputMode="numeric" value={form.runtime} onChange={(e) => set({ runtime: e.target.value })} /></LabeledField>
                 <LabeledField label="TMDB Rating"><input className="input" inputMode="decimal" placeholder="0.0 – 10.0" value={form.rating} onChange={(e) => set({ rating: e.target.value })} /></LabeledField>
@@ -1212,6 +1225,7 @@ export default function LibraryView({
           initial={isEdit ? {
             ...DEFAULT_MEDIA_FORM,
             ...editing,
+            cast: editing.cast || editing.cast_members || '',
             release_date: normalizeDateInput(editing.release_date),
             signed_on: normalizeDateInput(editing.signed_on)
           } : addFormInitial}

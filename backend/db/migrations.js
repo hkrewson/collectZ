@@ -948,6 +948,150 @@ const MIGRATIONS = [
       ALTER TABLE media
         ADD COLUMN IF NOT EXISTS signed_proof_path TEXT;
     `
+  },
+  {
+    version: 28,
+    description: 'Normalize media genre/director metadata tables',
+    up: `
+      CREATE TABLE IF NOT EXISTS genres (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        normalized_name VARCHAR(120) NOT NULL UNIQUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS directors (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        normalized_name VARCHAR(280) NOT NULL UNIQUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS media_genres (
+        media_id INTEGER NOT NULL REFERENCES media(id) ON DELETE CASCADE,
+        genre_id INTEGER NOT NULL REFERENCES genres(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (media_id, genre_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS media_directors (
+        media_id INTEGER NOT NULL REFERENCES media(id) ON DELETE CASCADE,
+        director_id INTEGER NOT NULL REFERENCES directors(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (media_id, director_id)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_media_genres_genre_id ON media_genres(genre_id);
+      CREATE INDEX IF NOT EXISTS idx_media_directors_director_id ON media_directors(director_id);
+      CREATE INDEX IF NOT EXISTS idx_genres_name ON genres(name);
+      CREATE INDEX IF NOT EXISTS idx_directors_name ON directors(name);
+
+      INSERT INTO genres (name, normalized_name)
+      SELECT token, lower(regexp_replace(token, '\\s+', ' ', 'g'))
+      FROM (
+        SELECT DISTINCT trim(regexp_split_to_table(coalesce(genre, ''), '\\s*,\\s*')) AS token
+        FROM media
+      ) src
+      WHERE token <> ''
+      ON CONFLICT (normalized_name) DO NOTHING;
+
+      INSERT INTO directors (name, normalized_name)
+      SELECT token, lower(regexp_replace(token, '\\s+', ' ', 'g'))
+      FROM (
+        SELECT DISTINCT trim(regexp_split_to_table(coalesce(director, ''), '\\s*,\\s*')) AS token
+        FROM media
+      ) src
+      WHERE token <> ''
+      ON CONFLICT (normalized_name) DO NOTHING;
+
+      INSERT INTO media_genres (media_id, genre_id)
+      SELECT m.id, g.id
+      FROM media m
+      CROSS JOIN LATERAL regexp_split_to_table(coalesce(m.genre, ''), '\\s*,\\s*') AS raw(token)
+      JOIN genres g ON g.normalized_name = lower(regexp_replace(trim(raw.token), '\\s+', ' ', 'g'))
+      WHERE trim(raw.token) <> ''
+      ON CONFLICT (media_id, genre_id) DO NOTHING;
+
+      INSERT INTO media_directors (media_id, director_id)
+      SELECT m.id, d.id
+      FROM media m
+      CROSS JOIN LATERAL regexp_split_to_table(coalesce(m.director, ''), '\\s*,\\s*') AS raw(token)
+      JOIN directors d ON d.normalized_name = lower(regexp_replace(trim(raw.token), '\\s+', ' ', 'g'))
+      WHERE trim(raw.token) <> ''
+      ON CONFLICT (media_id, director_id) DO NOTHING;
+    `
+  },
+  {
+    version: 29,
+    description: 'Normalize media actor metadata tables',
+    up: `
+      ALTER TABLE media
+        ADD COLUMN IF NOT EXISTS cast_members VARCHAR(1000);
+
+      CREATE TABLE IF NOT EXISTS actors (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        normalized_name VARCHAR(280) NOT NULL UNIQUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS media_actors (
+        media_id INTEGER NOT NULL REFERENCES media(id) ON DELETE CASCADE,
+        actor_id INTEGER NOT NULL REFERENCES actors(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (media_id, actor_id)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_media_actors_actor_id ON media_actors(actor_id);
+      CREATE INDEX IF NOT EXISTS idx_actors_name ON actors(name);
+      CREATE INDEX IF NOT EXISTS idx_media_cast_trgm
+        ON media USING GIN (lower(COALESCE(cast_members, '')) gin_trgm_ops);
+
+      DROP INDEX IF EXISTS idx_media_search_fts;
+      CREATE INDEX IF NOT EXISTS idx_media_search_fts
+        ON media USING GIN (
+          to_tsvector(
+            'simple',
+            coalesce(title, '') || ' ' ||
+            coalesce(original_title, '') || ' ' ||
+            coalesce(director, '') || ' ' ||
+            coalesce(cast_members, '') || ' ' ||
+            coalesce(genre, '') || ' ' ||
+            coalesce(notes, '')
+          )
+        );
+
+      INSERT INTO actors (name, normalized_name)
+      SELECT token, lower(regexp_replace(token, '\\s+', ' ', 'g'))
+      FROM (
+        SELECT DISTINCT trim(regexp_split_to_table(coalesce(cast_members, ''), '\\s*,\\s*')) AS token
+        FROM media
+      ) src
+      WHERE token <> ''
+      ON CONFLICT (normalized_name) DO NOTHING;
+
+      INSERT INTO media_actors (media_id, actor_id)
+      SELECT m.id, a.id
+      FROM media m
+      CROSS JOIN LATERAL regexp_split_to_table(coalesce(m.cast_members, ''), '\\s*,\\s*') AS raw(token)
+      JOIN actors a ON a.normalized_name = lower(regexp_replace(trim(raw.token), '\\s+', ' ', 'g'))
+      WHERE trim(raw.token) <> ''
+      ON CONFLICT (media_id, actor_id) DO NOTHING;
+    `
+  },
+  {
+    version: 30,
+    description: 'Add metadata normalized read feature flag',
+    up: `
+      INSERT INTO feature_flags (key, enabled, description)
+      VALUES (
+        'metadata_normalized_read_enabled',
+        false,
+        'Use normalized metadata relations (genres/directors/actors) as primary read path for metadata search/filter'
+      )
+      ON CONFLICT (key) DO UPDATE
+      SET description = EXCLUDED.description;
+    `
   }
 ];
 

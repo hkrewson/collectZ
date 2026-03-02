@@ -300,7 +300,7 @@ export default function App() {
     const params = new URLSearchParams();
     const passthrough = [
       'page', 'limit', 'search', 'format', 'media_type', 'sortBy', 'sortDir',
-      'director', 'genre', 'resolution', 'yearMin', 'yearMax',
+      'director', 'genre', 'cast', 'resolution', 'yearMin', 'yearMax',
       'ratingMin', 'ratingMax', 'userRatingMin', 'userRatingMax'
     ];
 

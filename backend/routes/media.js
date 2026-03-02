@@ -20,6 +20,7 @@ const { parseCsvText } = require('../services/csv');
 const { mapDeliciousItemTypeToMediaType } = require('../services/importMapping');
 const { normalizeDeliciousRow } = require('../services/deliciousNormalize');
 const { normalizeIdentifierSet } = require('../services/importIdentifiers');
+const { syncNormalizedMetadataForMedia } = require('../services/mediaTaxonomy');
 const { logError, logActivity } = require('../services/audit');
 const { uploadBuffer } = require('../services/storage');
 const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
@@ -586,6 +587,7 @@ async function enrichImportItemWithTmdb(item, config, cache, options = {}) {
       rating: details?.rating ?? candidate?.rating ?? candidate?.vote_average ?? null,
       runtime: details?.runtime || item.runtime || null,
       director: details?.director || item.director || null,
+      cast: details?.cast || item.cast || null,
       trailer_url: details?.trailer_url || item.trailer_url || null,
       release_date: details?.release_date || item.release_date || null,
       year: item.year || parseYear(details?.release_date),
@@ -602,7 +604,7 @@ async function enrichImportItemWithTmdb(item, config, cache, options = {}) {
 function hasEnrichmentDelta(before, after) {
   const fields = [
     'tmdb_id', 'tmdb_url', 'poster_path', 'backdrop_path', 'overview',
-    'director', 'genre', 'rating', 'runtime', 'trailer_url', 'release_date', 'year'
+    'director', 'cast', 'genre', 'rating', 'runtime', 'trailer_url', 'release_date', 'year'
   ];
   for (const key of fields) {
     const prev = before?.[key];
@@ -985,6 +987,7 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
         item.format || null,
         item.genre || null,
         item.director || null,
+        item.cast || null,
         item.rating || null,
         item.user_rating || null,
         item.tmdb_id || null,
@@ -1017,29 +1020,39 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
            format = COALESCE($5, format),
            genre = COALESCE($6, genre),
            director = COALESCE($7, director),
-           rating = COALESCE($8, rating),
-           user_rating = COALESCE($9, user_rating),
-           tmdb_id = COALESCE($10, tmdb_id),
-           tmdb_media_type = COALESCE($11, tmdb_media_type),
-           tmdb_url = COALESCE($12, tmdb_url),
-           poster_path = COALESCE($13, poster_path),
-           backdrop_path = COALESCE($14, backdrop_path),
-           overview = COALESCE($15, overview),
-           trailer_url = COALESCE($16, trailer_url),
-           runtime = COALESCE($17, runtime),
-           upc = COALESCE($18, upc),
-           signed_by = COALESCE($19, signed_by),
-           signed_role = COALESCE($20, signed_role),
-           signed_on = COALESCE($21, signed_on),
-           signed_at = COALESCE($22, signed_at),
-           signed_proof_path = COALESCE($23, signed_proof_path),
-           location = COALESCE($24, location),
-           notes = COALESCE($25, notes),
-           type_details = COALESCE($26::jsonb, type_details),
-           import_source = COALESCE($27, import_source)
-         WHERE id = $28${updateScopeClause}`,
+           cast_members = COALESCE($8, cast_members),
+           rating = COALESCE($9, rating),
+           user_rating = COALESCE($10, user_rating),
+           tmdb_id = COALESCE($11, tmdb_id),
+           tmdb_media_type = COALESCE($12, tmdb_media_type),
+           tmdb_url = COALESCE($13, tmdb_url),
+           poster_path = COALESCE($14, poster_path),
+           backdrop_path = COALESCE($15, backdrop_path),
+           overview = COALESCE($16, overview),
+           trailer_url = COALESCE($17, trailer_url),
+           runtime = COALESCE($18, runtime),
+           upc = COALESCE($19, upc),
+           signed_by = COALESCE($20, signed_by),
+           signed_role = COALESCE($21, signed_role),
+           signed_on = COALESCE($22, signed_on),
+           signed_at = COALESCE($23, signed_at),
+           signed_proof_path = COALESCE($24, signed_proof_path),
+           location = COALESCE($25, location),
+           notes = COALESCE($26, notes),
+           type_details = COALESCE($27::jsonb, type_details),
+           import_source = COALESCE($28, import_source)
+         WHERE id = $29${updateScopeClause}
+         RETURNING id, genre, director, cast_members AS cast`,
         updateParams
       );
+      const refreshed = await pool.query('SELECT id, genre, director, cast_members AS cast FROM media WHERE id = $1', [existingRow.id]);
+      const updatedRow = refreshed.rows[0] || { id: existingRow.id, genre: item.genre || null, director: item.director || null, cast: item.cast || null };
+      await syncNormalizedMetadataForMedia({
+        mediaId: updatedRow.id,
+        genre: updatedRow.genre,
+        director: updatedRow.director,
+        cast: updatedRow.cast
+      });
       return {
         type: 'updated',
         mediaId: existingRow.id,
@@ -1052,13 +1065,13 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
 
     const inserted = await pool.query(
       `INSERT INTO media (
-         title, media_type, original_title, release_date, year, format, genre, director,
+         title, media_type, original_title, release_date, year, format, genre, director, cast_members,
          rating, user_rating, tmdb_id, tmdb_media_type, tmdb_url, poster_path, backdrop_path, overview, trailer_url,
          runtime, upc, signed_by, signed_role, signed_on, signed_at, signed_proof_path, location, notes, type_details, library_id, space_id, added_by, import_source
        ) VALUES (
-         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27::jsonb,$28,$29,$30,$31
+         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28::jsonb,$29,$30,$31,$32
        )
-       RETURNING id`,
+       RETURNING id, genre, director, cast_members AS cast`,
       [
         title,
         normalizedMediaType,
@@ -1068,6 +1081,7 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
         item.format || 'Digital',
         item.genre || null,
         item.director || null,
+        item.cast || null,
         item.rating || null,
         item.user_rating || null,
         item.tmdb_id || null,
@@ -1093,9 +1107,18 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
         importSource || null
       ]
     );
+    const insertedRow = inserted.rows[0] || null;
+    if (insertedRow?.id) {
+      await syncNormalizedMetadataForMedia({
+        mediaId: insertedRow.id,
+        genre: insertedRow.genre,
+        director: insertedRow.director,
+        cast: insertedRow.cast
+      });
+    }
     return {
       type: 'created',
-      mediaId: inserted.rows[0]?.id || null,
+      mediaId: insertedRow?.id || null,
       matchMode,
       matchedBy,
       identifiers: resolvedIdentifiers,
@@ -1370,7 +1393,7 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
 
     const mediaType = normalizeMediaType(media.media_type || item.normalized.media_type || 'movie', 'movie');
     const canUseTmdb = mediaType === 'movie' || mediaType === 'tv_series' || mediaType === 'tv_episode';
-    if (!media.poster_path && config.tmdbApiKey && canUseTmdb) {
+    if (config.tmdbApiKey && canUseTmdb && (!media.poster_path || !media.cast || !media.director)) {
       const tmdbType = media.tmdb_media_type === 'tv' ? 'tv' : 'movie';
       const cacheKey = media.tmdb_id
         ? `${tmdbType}:id:${media.tmdb_id}`
@@ -1386,17 +1409,29 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
               tmdb_id: media.tmdb_id,
               tmdb_url: details?.tmdb_url || `https://www.themoviedb.org/${tmdbType}/${media.tmdb_id}`,
               poster_path: details?.poster_path || null,
-              backdrop_path: details?.backdrop_path || null
+              backdrop_path: details?.backdrop_path || null,
+              director: details?.director || null,
+              cast: details?.cast || null
             };
           } else if (media.title) {
             const results = await searchTmdbMovie(media.title, media.year || undefined, config, tmdbType);
             const best = pickBestTmdbMatch(results, media.title, media.year);
             if (best) {
+              let details = null;
+              try {
+                if (best.id) {
+                  details = await fetchTmdbMovieDetails(best.id, config, tmdbType);
+                }
+              } catch (_) {
+                details = null;
+              }
               cached = {
                 tmdb_id: best.id || null,
-                tmdb_url: best.id ? `https://www.themoviedb.org/${tmdbType}/${best.id}` : null,
-                poster_path: best.poster_path || null,
-                backdrop_path: best.backdrop_path || null
+                tmdb_url: details?.tmdb_url || (best.id ? `https://www.themoviedb.org/${tmdbType}/${best.id}` : null),
+                poster_path: details?.poster_path || best.poster_path || null,
+                backdrop_path: details?.backdrop_path || best.backdrop_path || null,
+                director: details?.director || null,
+                cast: details?.cast || null
               };
             }
           }
@@ -1412,11 +1447,15 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
         tmdbEnrichmentCache.set(cacheKey, cached);
       }
 
-      if (cached?.poster_path) {
-        media.poster_path = cached.poster_path;
-        media.backdrop_path = cached.backdrop_path || media.backdrop_path || cached.poster_path;
+      if (cached) {
+        media.poster_path = media.poster_path || cached.poster_path || null;
+        media.backdrop_path = media.backdrop_path || cached.backdrop_path || media.poster_path || null;
         media.tmdb_id = media.tmdb_id || cached.tmdb_id || null;
         media.tmdb_url = media.tmdb_url || cached.tmdb_url || (media.tmdb_id ? `https://www.themoviedb.org/${tmdbType}/${media.tmdb_id}` : null);
+        media.director = media.director || cached.director || null;
+        media.cast = media.cast || cached.cast || null;
+      }
+      if (cached?.poster_path) {
         tmdbPosterEnriched += 1;
       } else {
         tmdbPosterLookupMisses += 1;
@@ -1514,6 +1553,7 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
           media.year,
           media.format,
           media.director,
+          media.cast,
           media.rating,
           media.runtime,
           media.poster_path,
@@ -1535,21 +1575,31 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
              year = COALESCE($3, year),
              format = COALESCE($4, format),
              director = COALESCE($5, director),
-             rating = COALESCE($6, rating),
-             runtime = COALESCE($7, runtime),
-             poster_path = COALESCE($8, poster_path),
-             backdrop_path = COALESCE($9, backdrop_path),
-             overview = COALESCE($10, overview),
-             tmdb_id = COALESCE($11, tmdb_id),
-             tmdb_media_type = COALESCE($12, tmdb_media_type),
-             tmdb_url = COALESCE($13, tmdb_url),
-             media_type = COALESCE($14, media_type),
-             network = COALESCE($15, network),
-             notes = COALESCE($16, notes),
+             cast_members = COALESCE($6, cast_members),
+             rating = COALESCE($7, rating),
+             runtime = COALESCE($8, runtime),
+             poster_path = COALESCE($9, poster_path),
+             backdrop_path = COALESCE($10, backdrop_path),
+             overview = COALESCE($11, overview),
+             tmdb_id = COALESCE($12, tmdb_id),
+             tmdb_media_type = COALESCE($13, tmdb_media_type),
+             tmdb_url = COALESCE($14, tmdb_url),
+             media_type = COALESCE($15, media_type),
+             network = COALESCE($16, network),
+             notes = COALESCE($17, notes),
              import_source = 'plex'
-           WHERE id = $17${updateScopeClause}`,
+           WHERE id = $18${updateScopeClause}
+           RETURNING id, genre, director, cast_members AS cast`,
           updateParams
         );
+        const refreshed = await pool.query('SELECT id, genre, director, cast_members AS cast FROM media WHERE id = $1', [existing.id]);
+        const updatedRow = refreshed.rows[0] || { id: existing.id, genre: null, director: media.director || null, cast: media.cast || null };
+        await syncNormalizedMetadataForMedia({
+          mediaId: updatedRow.id,
+          genre: updatedRow.genre,
+          director: updatedRow.director,
+          cast: updatedRow.cast
+        });
         await upsertMediaMetadata(existing.id, 'plex_guid', plexGuid);
         await upsertMediaMetadata(existing.id, 'plex_item_key', plexItemKey);
         await upsertMediaMetadata(existing.id, 'plex_section_id', item.sectionId);
@@ -1558,13 +1608,13 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
         } else {
         const inserted = await pool.query(
           `INSERT INTO media (
-             title, original_title, release_date, year, format, director, rating,
+             title, original_title, release_date, year, format, director, cast_members, rating,
              runtime, poster_path, backdrop_path, overview, tmdb_id, tmdb_media_type, tmdb_url, media_type, network, notes,
              library_id, space_id, added_by, import_source
            ) VALUES (
-             $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21
+             $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22
            )
-           RETURNING id`,
+           RETURNING id, genre, director, cast_members AS cast`,
           [
             media.title,
             media.original_title,
@@ -1572,6 +1622,7 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
             media.year,
             media.format || 'Digital',
             media.director,
+            media.cast,
             media.rating,
             media.runtime,
             media.poster_path,
@@ -1589,8 +1640,15 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
             'plex'
           ]
         );
-          const insertedId = inserted.rows[0]?.id;
+          const insertedRow = inserted.rows[0] || null;
+          const insertedId = insertedRow?.id;
           if (insertedId) {
+          await syncNormalizedMetadataForMedia({
+            mediaId: insertedId,
+            genre: insertedRow.genre,
+            director: insertedRow.director,
+            cast: insertedRow.cast
+          });
           await upsertMediaMetadata(insertedId, 'plex_guid', plexGuid);
           await upsertMediaMetadata(insertedId, 'plex_item_key', plexItemKey);
           await upsertMediaMetadata(insertedId, 'plex_section_id', item.sectionId);
@@ -1859,6 +1917,7 @@ async function runGenericCsvImport({ rows, userId, scopeContext, onProgress = nu
       format: normalizeMediaFormat(value('format')),
       genre: value('genre'),
       director: value('director'),
+      cast: value('cast') || value('actors') || value('actor'),
       rating: value('rating') ? Number(value('rating')) : null,
       user_rating: value('user_rating') ? Number(value('user_rating')) : null,
       runtime: value('runtime') ? Number(value('runtime')) : null,
@@ -2182,11 +2241,12 @@ router.use(enforceScopeAccess({ allowedHintRoles: ['admin'] }));
 
 router.get('/', asyncHandler(async (req, res) => {
   const scopeContext = resolveScopeContext(req);
+  const normalizedMetadataReadEnabled = await isFeatureEnabled('metadata_normalized_read_enabled', false);
   const {
     format, search, page, limit,
     sortBy, sortDir,
     media_type,
-    director, genre, resolution,
+    director, genre, cast, resolution,
     yearMin, yearMax,
     ratingMin, ratingMax,
     userRatingMin, userRatingMax
@@ -2222,27 +2282,144 @@ router.get('/', asyncHandler(async (req, res) => {
     const tsqIdx = params.length;
     params.push(`%${normalizedSearch}%`);
     const likeIdx = params.length;
-    where += ` AND (
-      to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(original_title,'') || ' ' || coalesce(director,'') || ' ' || coalesce(genre,'') || ' ' || coalesce(notes,'')) @@ plainto_tsquery('simple', $${tsqIdx})
-      OR title ILIKE $${likeIdx}
-      OR original_title ILIKE $${likeIdx}
-      OR director ILIKE $${likeIdx}
-      OR genre ILIKE $${likeIdx}
-      OR notes ILIKE $${likeIdx}
-      OR COALESCE(type_details->>'series', '') ILIKE $${likeIdx}
-      OR COALESCE(type_details->>'writer', '') ILIKE $${likeIdx}
-      OR COALESCE(type_details->>'artist', '') ILIKE $${likeIdx}
-    )`;
+    if (normalizedMetadataReadEnabled) {
+      where += ` AND (
+        to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(original_title,'') || ' ' || coalesce(notes,'')) @@ plainto_tsquery('simple', $${tsqIdx})
+        OR title ILIKE $${likeIdx}
+        OR original_title ILIKE $${likeIdx}
+        OR EXISTS (
+          SELECT 1
+          FROM media_directors md
+          JOIN directors d ON d.id = md.director_id
+          WHERE md.media_id = media.id
+            AND d.name ILIKE $${likeIdx}
+        )
+        OR EXISTS (
+          SELECT 1
+          FROM media_genres mg
+          JOIN genres g ON g.id = mg.genre_id
+          WHERE mg.media_id = media.id
+            AND g.name ILIKE $${likeIdx}
+        )
+        OR EXISTS (
+          SELECT 1
+          FROM media_actors ma
+          JOIN actors a ON a.id = ma.actor_id
+          WHERE ma.media_id = media.id
+            AND a.name ILIKE $${likeIdx}
+        )
+        OR notes ILIKE $${likeIdx}
+        OR COALESCE(type_details->>'series', '') ILIKE $${likeIdx}
+        OR COALESCE(type_details->>'writer', '') ILIKE $${likeIdx}
+        OR COALESCE(type_details->>'artist', '') ILIKE $${likeIdx}
+      )`;
+    } else {
+      where += ` AND (
+        to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(original_title,'') || ' ' || coalesce(director,'') || ' ' || coalesce(cast_members,'') || ' ' || coalesce(genre,'') || ' ' || coalesce(notes,'')) @@ plainto_tsquery('simple', $${tsqIdx})
+        OR title ILIKE $${likeIdx}
+        OR original_title ILIKE $${likeIdx}
+        OR director ILIKE $${likeIdx}
+        OR cast_members ILIKE $${likeIdx}
+        OR genre ILIKE $${likeIdx}
+        OR EXISTS (
+          SELECT 1
+          FROM media_directors md
+          JOIN directors d ON d.id = md.director_id
+          WHERE md.media_id = media.id
+            AND d.name ILIKE $${likeIdx}
+        )
+        OR EXISTS (
+          SELECT 1
+          FROM media_genres mg
+          JOIN genres g ON g.id = mg.genre_id
+          WHERE mg.media_id = media.id
+            AND g.name ILIKE $${likeIdx}
+        )
+        OR EXISTS (
+          SELECT 1
+          FROM media_actors ma
+          JOIN actors a ON a.id = ma.actor_id
+          WHERE ma.media_id = media.id
+            AND a.name ILIKE $${likeIdx}
+        )
+        OR notes ILIKE $${likeIdx}
+        OR COALESCE(type_details->>'series', '') ILIKE $${likeIdx}
+        OR COALESCE(type_details->>'writer', '') ILIKE $${likeIdx}
+        OR COALESCE(type_details->>'artist', '') ILIKE $${likeIdx}
+      )`;
+    }
   }
 
   if (director) {
     params.push(`%${director}%`);
-    where += ` AND director ILIKE $${params.length}`;
+    if (normalizedMetadataReadEnabled) {
+      where += ` AND EXISTS (
+        SELECT 1
+        FROM media_directors md
+        JOIN directors d ON d.id = md.director_id
+        WHERE md.media_id = media.id
+          AND d.name ILIKE $${params.length}
+      )`;
+    } else {
+      where += ` AND (
+        director ILIKE $${params.length}
+        OR EXISTS (
+          SELECT 1
+          FROM media_directors md
+          JOIN directors d ON d.id = md.director_id
+          WHERE md.media_id = media.id
+            AND d.name ILIKE $${params.length}
+        )
+      )`;
+    }
   }
 
   if (genre) {
     params.push(`%${genre}%`);
-    where += ` AND genre ILIKE $${params.length}`;
+    if (normalizedMetadataReadEnabled) {
+      where += ` AND EXISTS (
+        SELECT 1
+        FROM media_genres mg
+        JOIN genres g ON g.id = mg.genre_id
+        WHERE mg.media_id = media.id
+          AND g.name ILIKE $${params.length}
+      )`;
+    } else {
+      where += ` AND (
+        genre ILIKE $${params.length}
+        OR EXISTS (
+          SELECT 1
+          FROM media_genres mg
+          JOIN genres g ON g.id = mg.genre_id
+          WHERE mg.media_id = media.id
+            AND g.name ILIKE $${params.length}
+        )
+      )`;
+    }
+  }
+
+  if (cast) {
+    params.push(`%${cast}%`);
+    if (normalizedMetadataReadEnabled) {
+      where += ` AND EXISTS (
+        SELECT 1
+        FROM media_actors ma
+        JOIN actors a ON a.id = ma.actor_id
+        WHERE ma.media_id = media.id
+          AND a.name ILIKE $${params.length}
+      )`;
+    } else {
+      where += ` AND (
+        cast_members ILIKE $${params.length}
+        OR EXISTS (
+          SELECT 1
+          FROM media_actors ma
+          JOIN actors a ON a.id = ma.actor_id
+          WHERE ma.media_id = media.id
+            AND a.name ILIKE $${params.length}
+        )
+      )`;
+    }
   }
 
   if (Number.isFinite(Number(yearMin))) {
@@ -2311,9 +2488,13 @@ router.get('/', asyncHandler(async (req, res) => {
      OFFSET $${params.length}`,
     params
   );
+  const normalizedItems = result.rows.map((row) => ({
+    ...row,
+    cast: row.cast || row.cast_members || null
+  }));
   const totalPages = total > 0 ? Math.ceil(total / limitNum) : 1;
   res.json({
-    items: result.rows,
+    items: normalizedItems,
     pagination: {
       page: pageNum,
       limit: limitNum,
@@ -2709,8 +2890,8 @@ router.delete('/:id/signing-proof', asyncHandler(async (req, res) => {
 
 router.get('/import/template-csv', asyncHandler(async (_req, res) => {
   const template = [
-    'title,media_type,year,format,director,genre,rating,user_rating,runtime,upc,isbn,ean_upc,asin,signed_by,signed_role,signed_on,signed_at,signed_proof_path,location,notes',
-    '"The Matrix","movie",1999,"Blu-ray","Lana Wachowski, Lilly Wachowski","Science Fiction",8.7,4.5,136,085391163545,,,,,,,,"Living Room","Example row"',
+    'title,media_type,year,format,director,cast,genre,rating,user_rating,runtime,upc,isbn,ean_upc,asin,signed_by,signed_role,signed_on,signed_at,signed_proof_path,location,notes',
+    '"The Matrix","movie",1999,"Blu-ray","Lana Wachowski, Lilly Wachowski","Keanu Reeves, Laurence Fishburne","Science Fiction",8.7,4.5,136,085391163545,,,,,,,,"Living Room","Example row"',
     '"Wool","book",2012,"Paperback","Hugh Howey","Science Fiction",,4.5,,,9781476735402,,,Hugh Howey,author,2024-06-12,"Salt Lake City","Identifier-first matching example"'
   ].join('\n');
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
@@ -3425,6 +3606,7 @@ router.post('/', validate(mediaCreateSchema), asyncHandler(async (req, res) => {
   const scopeContext = resolveScopeContext(req);
   const {
     title, media_type, original_title, release_date, year, format, genre, director, rating,
+    cast,
     user_rating, tmdb_id, tmdb_media_type, tmdb_url, poster_path, backdrop_path, overview,
     trailer_url, runtime, upc, signed_by, signed_role, signed_on, signed_at, signed_proof_path, location, notes, import_source,
     season_number, episode_number, episode_title, network, type_details, library_id
@@ -3439,16 +3621,16 @@ router.post('/', validate(mediaCreateSchema), asyncHandler(async (req, res) => {
 
   const result = await pool.query(
     `INSERT INTO media (
-       title, media_type, original_title, release_date, year, format, genre, director, rating,
+       title, media_type, original_title, release_date, year, format, genre, director, cast_members, rating,
        user_rating, tmdb_id, tmdb_media_type, tmdb_url, poster_path, backdrop_path, overview,
        trailer_url, runtime, upc, signed_by, signed_role, signed_on, signed_at, signed_proof_path, location, notes, season_number, episode_number, episode_title, network,
        type_details, library_id, space_id, added_by, import_source
      ) VALUES (
-       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31::jsonb,$32,$33,$34,$35
-     ) RETURNING *`,
+       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32::jsonb,$33,$34,$35,$36
+     ) RETURNING *, cast_members AS cast`,
     [
       title, normalizedMediaType, original_title || null, release_date || null, year || null, format || null,
-      genre || null, director || null, rating || null, user_rating || null,
+      genre || null, director || null, cast || null, rating || null, user_rating || null,
       tmdb_id || null, tmdb_media_type || null, tmdb_url || null, poster_path || null, backdrop_path || null,
       overview || null, trailer_url || null, runtime || null, upc || null, signed_by || null,
       signed_role || null, signed_on || null, signed_at || null, signed_proof_path || null, location || null, notes || null,
@@ -3460,6 +3642,12 @@ router.post('/', validate(mediaCreateSchema), asyncHandler(async (req, res) => {
     ]
   );
   const created = result.rows[0];
+  await syncNormalizedMetadataForMedia({
+    mediaId: created.id,
+    genre: created.genre,
+    director: created.director,
+    cast: created.cast || created.cast_members
+  });
   await maybePushComicToMetron({ req, mediaRow: created });
   res.status(201).json(created);
 }));
@@ -3472,7 +3660,7 @@ router.patch('/:id', validate(mediaUpdateSchema), asyncHandler(async (req, res) 
   const { id } = req.params;
 
   const ALLOWED_FIELDS = [
-    'title', 'media_type', 'original_title', 'release_date', 'year', 'format', 'genre', 'director',
+    'title', 'media_type', 'original_title', 'release_date', 'year', 'format', 'genre', 'director', 'cast',
     'rating', 'user_rating', 'tmdb_id', 'tmdb_media_type', 'tmdb_url', 'poster_path', 'backdrop_path',
     'overview', 'trailer_url', 'runtime', 'upc', 'signed_by', 'signed_role', 'signed_on', 'signed_at', 'signed_proof_path', 'location', 'notes', 'season_number',
     'episode_number', 'episode_title', 'network', 'type_details', 'library_id', 'space_id'
@@ -3481,6 +3669,10 @@ router.patch('/:id', validate(mediaUpdateSchema), asyncHandler(async (req, res) 
   let fields = Object.fromEntries(
     Object.entries(req.body).filter(([key]) => ALLOWED_FIELDS.includes(key))
   );
+  if (Object.prototype.hasOwnProperty.call(fields, 'cast')) {
+    fields.cast_members = fields.cast;
+    delete fields.cast;
+  }
   if (Object.keys(fields).length === 0) {
     return res.status(400).json({ error: 'No valid fields provided for update' });
   }
@@ -3528,7 +3720,7 @@ router.patch('/:id', validate(mediaUpdateSchema), asyncHandler(async (req, res) 
     `UPDATE media
      SET ${setClause}
      WHERE id = $${keys.length + 1}${ownerClause}${updateScopeClause}
-     RETURNING *`,
+     RETURNING *, cast_members AS cast`,
     updateParams
   );
   if (result.rows.length === 0) {
@@ -3540,7 +3732,14 @@ router.patch('/:id', validate(mediaUpdateSchema), asyncHandler(async (req, res) 
     }
     return res.status(403).json({ error: 'You do not have permission to edit this item' });
   }
-  res.json(result.rows[0]);
+  const updated = result.rows[0];
+  await syncNormalizedMetadataForMedia({
+    mediaId: updated.id,
+    genre: updated.genre,
+    director: updated.director,
+    cast: updated.cast || updated.cast_members
+  });
+  res.json(updated);
 }));
 
 // ── Delete ────────────────────────────────────────────────────────────────────

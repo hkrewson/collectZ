@@ -1,0 +1,48 @@
+{
+  "generatedAt": "2026-03-02T16:09:37.238Z",
+  "searchTerm": "keanu",
+  "results": {
+    "director_filter_dual_read": {
+      "planningMs": 2.127,
+      "executionMs": 3.665,
+      "planRows": 0,
+      "sharedHitBlocks": 1588,
+      "sharedReadBlocks": 0
+    },
+    "director_filter_normalized_read": {
+      "planningMs": 0.307,
+      "executionMs": 0.357,
+      "planRows": 0,
+      "sharedHitBlocks": 17,
+      "sharedReadBlocks": 0
+    },
+    "genre_filter_dual_read": {
+      "planningMs": 0.476,
+      "executionMs": 0.812,
+      "planRows": 0,
+      "sharedHitBlocks": 1573,
+      "sharedReadBlocks": 0
+    },
+    "genre_filter_normalized_read": {
+      "planningMs": 0.233,
+      "executionMs": 0.038,
+      "planRows": 0,
+      "sharedHitBlocks": 1,
+      "sharedReadBlocks": 0
+    },
+    "cast_filter_dual_read": {
+      "planningMs": 0.638,
+      "executionMs": 3.967,
+      "planRows": 9,
+      "sharedHitBlocks": 1649,
+      "sharedReadBlocks": 0
+    },
+    "cast_filter_normalized_read": {
+      "planningMs": 0.181,
+      "executionMs": 1.713,
+      "planRows": 9,
+      "sharedHitBlocks": 101,
+      "sharedReadBlocks": 0
+    }
+  }
+}

@@ -20,6 +20,10 @@ const FEATURE_FLAG_DEFINITIONS = {
   recognize_cover_enabled: {
     description: 'Allow vision/OCR cover recognition API usage',
     defaultEnabled: true
+  },
+  metadata_normalized_read_enabled: {
+    description: 'Use normalized metadata relations (genres/directors/actors) as primary read path for metadata search/filter',
+    defaultEnabled: false
   }
 };
 

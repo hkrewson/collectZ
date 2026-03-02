@@ -13,6 +13,7 @@
     "test:cross-type-isolation": "node scripts/cross-type-isolation-check.js",
     "test:migration-rehearsal": "node scripts/migration-rehearsal.js",
     "test:init-parity": "node scripts/check-init-parity.js",
+    "test:metadata-benchmark": "node scripts/benchmark-metadata-queries.js",
     "repair:comic-issues": "node scripts/repair-comic-issue-mismatches.js",
     "repair:comic-posters": "node scripts/repair-comic-posters.js"
   },

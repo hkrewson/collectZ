@@ -1006,11 +1006,32 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 
 **Goal:** Replace comma-separated metadata fields with normalized relations for reliable search/filtering at scale.
 
+**Status:** In progress (`2.1.0-phase1` completed, `2.1.0-phase2` implementation in progress)
+
 ### Scope
 
 - Normalize `genre`, `director`, and actor/cast metadata into relational tables.
 - Backfill existing media records and preserve backward-compatible reads during migration window.
 - Update filter/search endpoints and indexes for normalized queries.
+
+### Phase Breakdown
+
+- `2.1.0-phase1` (completed):
+  - added normalized tables for `genres` / `directors` and join tables (`media_genres`, `media_directors`),
+  - backfilled normalized rows from existing `media.genre` / `media.director`,
+  - added dual-write sync on create/update/import paths,
+  - kept backward-compatible reads via existing fields while extending search/filter to normalized joins.
+- `2.1.0-phase2` (planned):
+  - expand normalization to actor/cast data model,
+  - move text search vector construction to normalized metadata source where practical,
+  - add query-performance benchmarks and final cleanup plan for legacy comma fields.
+  - progress update:
+    - added actor/cast normalization tables (`actors`, `media_actors`) and migration/init parity for actor metadata,
+    - added dual-write sync for cast metadata on create/update/import paths,
+    - extended search/filter to include actor join lookups plus cast-members text matching,
+    - added feature flag `metadata_normalized_read_enabled` to gate Stage B normalized-read rollout.
+    - benchmark evidence captured in `/Users/hamlin/Development/GitHub/hkrewson/collectZ/docs/reports/2.1.0-metadata-query-benchmark.md`.
+    - staged cleanup/cutover plan documented in `/Users/hamlin/Development/GitHub/hkrewson/collectZ/docs/wiki/23-Metadata-Normalization-Cutover-Plan.md`.
 
 ### Acceptance Criteria
 
