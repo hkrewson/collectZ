@@ -944,7 +944,7 @@ This track converts the 1.9.1 external assessment findings into executable miles
   - Resolve blocker bugs from tester template + activity logs.
   - Complete release checklist, migration rehearsal evidence, and rollback steps.
   - Run explicit RC media-type test matrix (add/edit/delete/search/import where applicable) for movies, TV, books, audio, and games.
-- `2.0.0`:
+- `2.0.0` (completed 2026-03-02):
   - Stable homelab release with documented setup, security defaults, and operator runbooks.
 
 ### Scope
