@@ -294,17 +294,57 @@ const fetchPlexShowSeasons = async (config, ratingKey) => {
     ...parsePlexVideos(response.data),
     ...parsePlexDirectoriesInSection(response.data)
   ];
-  const seasonNumbers = new Set();
+  const seasonMap = new Map();
   for (const entry of entries) {
     const type = String(entry?.type || '').toLowerCase();
     if (type !== 'season') continue;
     const raw = entry?.index ?? entry?.parentIndex ?? null;
     const season = Number(raw);
     if (Number.isInteger(season) && season > 0) {
-      seasonNumbers.add(season);
+      const leafCount = Number(entry?.leafCount);
+      const viewedLeafCount = Number(entry?.viewedLeafCount);
+      seasonMap.set(season, {
+        season_number: season,
+        available_episodes: Number.isInteger(leafCount) && leafCount >= 0 ? leafCount : null,
+        watched_episodes: Number.isInteger(viewedLeafCount) && viewedLeafCount >= 0 ? viewedLeafCount : 0
+      });
     }
   }
-  return [...seasonNumbers].sort((a, b) => a - b);
+  return [...seasonMap.values()].sort((a, b) => a.season_number - b.season_number);
+};
+
+const fetchPlexSeasonEpisodeStates = async (config, ratingKey, seasonNumber) => {
+  if (!ratingKey || !Number.isInteger(Number(seasonNumber)) || Number(seasonNumber) <= 0) {
+    return { watchedEpisodeNumbers: [], availableEpisodeNumbers: [] };
+  }
+  const response = await plexRequest(config, `/library/metadata/${String(ratingKey)}/allLeaves`);
+  if (response.status >= 400) {
+    const message = typeof response.data === 'string'
+      ? response.data.slice(0, 200)
+      : response.data?.error || response.statusText;
+    throw new Error(`Plex season episodes request failed (${response.status}): ${message}`);
+  }
+  const targetSeason = Number(seasonNumber);
+  const entries = parsePlexVideos(response.data);
+  const watched = new Set();
+  const available = new Set();
+  for (const entry of entries) {
+    const type = String(entry?.type || '').toLowerCase();
+    if (type !== 'episode') continue;
+    const parent = Number(entry?.parentIndex);
+    if (!Number.isInteger(parent) || parent !== targetSeason) continue;
+    const epNum = Number(entry?.index);
+    if (!Number.isInteger(epNum) || epNum <= 0) continue;
+    available.add(epNum);
+    const viewed = Number(entry?.viewCount);
+    if (Number.isInteger(viewed) && viewed > 0) {
+      watched.add(epNum);
+    }
+  }
+  return {
+    watchedEpisodeNumbers: [...watched].sort((a, b) => a - b),
+    availableEpisodeNumbers: [...available].sort((a, b) => a - b)
+  };
 };
 
 module.exports = {
@@ -312,6 +352,7 @@ module.exports = {
   fetchPlexSections,
   fetchPlexLibraryItems,
   fetchPlexShowSeasons,
+  fetchPlexSeasonEpisodeStates,
   normalizePlexItem,
   normalizePlexVariant
 };

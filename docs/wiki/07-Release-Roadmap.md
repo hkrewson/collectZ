@@ -1232,6 +1232,29 @@ Deferred tenancy planning has been moved to a separate roadmap document:
   - movie/file variants behavior unchanged,
   - Plex import does not duplicate season rows across reruns.
 
+## 2.3.1 — TV Season Drill-Down and TMDB Season Metadata
+
+**Goal:** Add clickable TV season details with TMDB episode metadata while keeping Plex as inventory source-of-truth.
+
+### Scope
+
+- Add season detail API:
+  - `GET /api/media/:id/tv-seasons/:seasonNumber` returns local season state plus TMDB season metadata/episodes when available.
+- Add TMDB season services:
+  - fetch TV show season summary (`episode_count`) for expected episode hydration,
+  - fetch per-season episode list (`name`, `episode_number`, `air_date`, `runtime`).
+- Add UI season drill-down in TV drawer:
+  - `View episodes` toggle per season row,
+  - show season metadata and read-only episode list.
+- Hydrate `expected_episodes` during Plex TV import from TMDB season summary when TMDB id is known.
+
+### Acceptance Criteria
+
+- Clicking a season in TV drawer reveals episode-level metadata when TMDB data exists.
+- Plex imports continue to populate `available_episodes`/season inventory without duplication.
+- TMDB season metadata augments but does not overwrite watch-state fields (`watch_state`, `is_complete`, `watchlist`).
+- No regression to movie edition rendering or non-TV detail drawers.
+
 ## 2.5.0 — Invite/Reset Security and Secret Exfiltration Hardening
 
 **Goal:** Strengthen credential-recovery and invitation workflows while reducing practical token/secret exfiltration surface before UX-focused 2.5 work.

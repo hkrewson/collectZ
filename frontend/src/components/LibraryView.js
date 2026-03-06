@@ -232,6 +232,9 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall }) {
   const [variantLoading, setVariantLoading] = useState(false);
   const [seasonDrafts, setSeasonDrafts] = useState({});
   const [seasonSaving, setSeasonSaving] = useState({});
+  const [openSeason, setOpenSeason] = useState(null);
+  const [seasonDetailLoading, setSeasonDetailLoading] = useState({});
+  const [seasonDetails, setSeasonDetails] = useState({});
 
   const setSeasonDraftValue = (seasonNumber, patch) => {
     setSeasonDrafts((prev) => ({
@@ -243,18 +246,14 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall }) {
     }));
   };
 
-  const saveSeasonDraft = async (seasonNumber) => {
+  const markSeasonWatched = async (seasonNumber) => {
     if (!item?.id || !Number.isInteger(Number(seasonNumber))) return;
     const key = Number(seasonNumber);
-    const draft = seasonDrafts[key] || {};
     setSeasonSaving((prev) => ({ ...prev, [key]: true }));
     try {
       const payload = {
-        watch_state: draft.watch_state,
-        is_complete: draft.is_complete,
-        available_episodes: draft.available_episodes === '' || draft.available_episodes === null ? null : Number(draft.available_episodes),
-        expected_episodes: draft.expected_episodes === '' || draft.expected_episodes === null ? null : Number(draft.expected_episodes),
-        watchlist: Boolean(draft.watchlist)
+        watch_state: 'completed',
+        last_watched_at: new Date().toISOString()
       };
       const result = await apiCall('patch', `/media/${item.id}/tv-seasons/${key}`, payload);
       const updated = result?.season;
@@ -264,11 +263,45 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall }) {
             ? { ...row, ...updated, edition: `Season ${updated.season_number}` }
             : row
         )));
+        setSeasonDrafts((prev) => ({
+          ...prev,
+          [key]: {
+            ...(prev[key] || {}),
+            watch_state: 'completed'
+          }
+        }));
       }
     } catch {
       // no-op toast surface here; Activity log captures errors
     } finally {
       setSeasonSaving((prev) => ({ ...prev, [key]: false }));
+    }
+  };
+
+  const loadSeasonDetail = async (seasonNumber) => {
+    if (!item?.id || !Number.isInteger(Number(seasonNumber))) return;
+    const key = Number(seasonNumber);
+    if (openSeason === key) {
+      setOpenSeason(null);
+      return;
+    }
+    setOpenSeason(key);
+    if (seasonDetails[key]) return;
+    setSeasonDetailLoading((prev) => ({ ...prev, [key]: true }));
+    try {
+      const payload = await apiCall('get', `/media/${item.id}/tv-seasons/${key}`);
+      if (payload?.season) {
+        setVariants((prev) => prev.map((row) => (
+          Number(row.season_number) === key
+            ? { ...row, ...payload.season, edition: `Season ${payload.season.season_number}` }
+            : row
+        )));
+      }
+      setSeasonDetails((prev) => ({ ...prev, [key]: payload || null }));
+    } catch {
+      setSeasonDetails((prev) => ({ ...prev, [key]: null }));
+    } finally {
+      setSeasonDetailLoading((prev) => ({ ...prev, [key]: false }));
     }
   };
 
@@ -278,6 +311,9 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall }) {
       setVariantLoading(false);
       setSeasonDrafts({});
       setSeasonSaving({});
+      setOpenSeason(null);
+      setSeasonDetailLoading({});
+      setSeasonDetails({});
       return;
     }
     let active = true;
@@ -295,9 +331,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall }) {
             nextDrafts[seasonNum] = {
               watch_state: row.watch_state || 'unwatched',
               is_complete: Boolean(row.is_complete),
-              watchlist: Boolean(row.watchlist),
-              available_episodes: row.available_episodes ?? '',
-              expected_episodes: row.expected_episodes ?? ''
+              watchlist: Boolean(row.watchlist)
             };
           });
           setSeasonDrafts(nextDrafts);
@@ -412,71 +446,97 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall }) {
                     <div key={v.id} className="card p-3">
                       <p className="text-sm text-ink font-medium flex items-center gap-2">
                         <span>{v.edition || 'Default edition'}</span>
-                        {item.media_type === 'tv_series' && (v.is_complete || v.watch_state === 'completed') && (
-                          <span className="text-ok inline-flex items-center gap-1 text-xs">
-                            <Icons.Check />Completed
+                        {item.media_type === 'tv_series' && (
+                          <span className={`inline-flex items-center gap-1 text-xs ${v.watch_state === 'completed' ? 'text-ok' : 'text-brand-300'}`}>
+                            {v.watch_state === 'completed' ? <Icons.Check /> : null}
+                            {v.watch_state === 'completed' ? 'Watched' : 'Unwatched'}
                           </span>
                         )}
                       </p>
                       {item.media_type === 'tv_series' && (
                         <div className="mt-2 space-y-2">
-                          <p className="text-xs text-ghost">
-                            {[
-                              v.watch_state ? `State: ${String(v.watch_state).replace('_', ' ')}` : null,
-                              Number.isFinite(Number(v.available_episodes)) ? `Have: ${v.available_episodes}` : null,
-                              Number.isFinite(Number(v.expected_episodes)) ? `Expected: ${v.expected_episodes}` : null,
-                              v.watchlist ? 'Watchlist' : null
-                            ].filter(Boolean).join(' · ') || 'No watch-state data yet'}
-                          </p>
-                          <div className="grid grid-cols-2 gap-2">
-                            <select
-                              className="select"
-                              value={(seasonDrafts[Number(v.season_number)]?.watch_state || v.watch_state || 'unwatched')}
-                              onChange={(e) => setSeasonDraftValue(Number(v.season_number), { watch_state: e.target.value })}
+                          {(() => {
+                            const key = Number(v.season_number);
+                            const details = seasonDetails[key];
+                            const tmdbEpisodeCount = Number(details?.tmdb?.episode_count);
+                            const tmdbDerivedCount = Array.isArray(details?.tmdb?.episodes)
+                              ? details.tmdb.episodes.length
+                              : null;
+                            const expectedEpisodes = Number.isFinite(Number(v.expected_episodes))
+                              && Number(v.expected_episodes) > 0
+                              ? Number(v.expected_episodes)
+                              : ((Number.isFinite(tmdbEpisodeCount) && tmdbEpisodeCount > 0)
+                                ? tmdbEpisodeCount
+                                : ((Number.isInteger(tmdbDerivedCount) && tmdbDerivedCount > 0) ? tmdbDerivedCount : null));
+                            const ownedEpisodes = Number.isFinite(Number(v.available_episodes)) ? Number(v.available_episodes) : null;
+                            const episodesLabel = ownedEpisodes !== null
+                              ? `Episodes ${ownedEpisodes}/${expectedEpisodes ?? '?'}`
+                              : `Episodes ?/${expectedEpisodes ?? '?'}`;
+                            return (
+                              <p className="text-xs text-ghost">
+                                {episodesLabel}
+                                {expectedEpisodes !== null && ownedEpisodes !== null && ownedEpisodes < expectedEpisodes
+                                  ? ' · Missing episodes'
+                                  : ''}
+                              </p>
+                            );
+                          })()}
+                          <div className="flex gap-2">
+                            <button
+                              className="btn-secondary btn-sm"
+                              onClick={() => markSeasonWatched(Number(v.season_number))}
+                              disabled={Boolean(seasonSaving[Number(v.season_number)]) || v.watch_state === 'completed'}
                             >
-                              <option value="unwatched">Unwatched</option>
-                              <option value="in_progress">In Progress</option>
-                              <option value="completed">Completed</option>
-                            </select>
-                            <label className="text-xs text-ghost inline-flex items-center gap-2">
-                              <input
-                                type="checkbox"
-                                checked={Boolean(seasonDrafts[Number(v.season_number)]?.is_complete ?? v.is_complete)}
-                                onChange={(e) => setSeasonDraftValue(Number(v.season_number), { is_complete: e.target.checked })}
-                              />
-                              Complete
-                            </label>
-                            <input
-                              className="input"
-                              inputMode="numeric"
-                              placeholder="Have"
-                              value={seasonDrafts[Number(v.season_number)]?.available_episodes ?? ''}
-                              onChange={(e) => setSeasonDraftValue(Number(v.season_number), { available_episodes: e.target.value })}
-                            />
-                            <input
-                              className="input"
-                              inputMode="numeric"
-                              placeholder="Expected"
-                              value={seasonDrafts[Number(v.season_number)]?.expected_episodes ?? ''}
-                              onChange={(e) => setSeasonDraftValue(Number(v.season_number), { expected_episodes: e.target.value })}
-                            />
-                            <label className="text-xs text-ghost inline-flex items-center gap-2 col-span-2">
-                              <input
-                                type="checkbox"
-                                checked={Boolean(seasonDrafts[Number(v.season_number)]?.watchlist ?? v.watchlist)}
-                                onChange={(e) => setSeasonDraftValue(Number(v.season_number), { watchlist: e.target.checked })}
-                              />
-                              In watchlist
-                            </label>
+                              {seasonSaving[Number(v.season_number)] ? <Spinner size={14} /> : <Icons.Check />}
+                              Mark all as watched
+                            </button>
+                            <button
+                              className="btn-ghost btn-sm"
+                              onClick={() => loadSeasonDetail(Number(v.season_number))}
+                              disabled={Boolean(seasonDetailLoading[Number(v.season_number)])}
+                            >
+                              {seasonDetailLoading[Number(v.season_number)] ? <Spinner size={14} /> : <Icons.ChevronRight />}
+                              {openSeason === Number(v.season_number) ? 'Hide episodes' : 'View episodes'}
+                            </button>
                           </div>
-                          <button
-                            className="btn-secondary btn-sm"
-                            onClick={() => saveSeasonDraft(Number(v.season_number))}
-                            disabled={Boolean(seasonSaving[Number(v.season_number)])}
-                          >
-                            {seasonSaving[Number(v.season_number)] ? <Spinner size={14} /> : <Icons.Check />}
-                            Save season
-                          </button>
+                          {openSeason === Number(v.season_number) && (
+                            <div className="card p-3 bg-void/20 border border-edge/70">
+                              {seasonDetailLoading[Number(v.season_number)] && (
+                                <p className="text-xs text-ghost">Loading season metadata…</p>
+                              )}
+                              {!seasonDetailLoading[Number(v.season_number)] && (
+                                <>
+                                  {seasonDetails[Number(v.season_number)]?.tmdb?.name && (
+                                    <p className="text-sm text-ink font-medium">{seasonDetails[Number(v.season_number)]?.tmdb?.name}</p>
+                                  )}
+                                  <p className="text-xs text-ghost mt-1">
+                                    {[
+                                      seasonDetails[Number(v.season_number)]?.tmdb?.air_date ? `Air date: ${seasonDetails[Number(v.season_number)]?.tmdb?.air_date}` : null,
+                                      Number.isFinite(Number(seasonDetails[Number(v.season_number)]?.tmdb?.episode_count))
+                                        && Number(seasonDetails[Number(v.season_number)]?.tmdb?.episode_count) > 0
+                                        ? `Episodes: ${seasonDetails[Number(v.season_number)]?.tmdb?.episode_count}`
+                                        : null
+                                    ].filter(Boolean).join(' · ') || 'No TMDB season metadata available'}
+                                  </p>
+                                  {Array.isArray(seasonDetails[Number(v.season_number)]?.tmdb?.episodes)
+                                    && seasonDetails[Number(v.season_number)]?.tmdb?.episodes.length > 0 && (
+                                      <div className="mt-2 max-h-44 overflow-auto pr-1 space-y-1">
+                                        {seasonDetails[Number(v.season_number)]?.tmdb?.episodes.map((episode) => (
+                                          <div key={episode.id || `ep-${episode.episode_number}`} className="text-xs text-dim">
+                                            <span className="text-ink">E{episode.episode_number}:</span> {episode.name || 'Untitled'}
+                                            {episode.watched
+                                              ? <span className="text-ok"> · watched</span>
+                                              : <span className="text-[#3b82f6] font-medium"> · unwatched</span>}
+                                            {episode.in_library ? <span className="text-ghost"> · in library</span> : null}
+                                            {episode.air_date ? <span className="text-ghost"> · {episode.air_date}</span> : null}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                </>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )}
                       {item.media_type !== 'tv_series' && (

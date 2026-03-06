@@ -8,10 +8,15 @@ const { asyncHandler } = require('../middleware/errors');
 const { authenticateToken } = require('../middleware/auth');
 const { validate, mediaCreateSchema, mediaUpdateSchema } = require('../middleware/validate');
 const { loadAdminIntegrationConfig } = require('../services/integrations');
-const { searchTmdbMovie, fetchTmdbMovieDetails } = require('../services/tmdb');
+const {
+  searchTmdbMovie,
+  fetchTmdbMovieDetails,
+  fetchTmdbTvShowSeasonSummary,
+  fetchTmdbTvSeasonDetails
+} = require('../services/tmdb');
 const { normalizeBarcodeMatches } = require('../services/barcode');
 const { extractVisionText, extractTitleCandidates } = require('../services/vision');
-const { fetchPlexLibraryItems, fetchPlexShowSeasons } = require('../services/plex');
+const { fetchPlexLibraryItems, fetchPlexShowSeasons, fetchPlexSeasonEpisodeStates } = require('../services/plex');
 const { searchBooksByTitle, searchBooksByIsbn } = require('../services/books');
 const { searchAudioByTitle } = require('../services/audio');
 const { searchGamesByTitle } = require('../services/games');
@@ -75,6 +80,15 @@ const IMPORT_REVIEW_ACTIONS = [
   'search_again',
   'skip_keep_manual'
 ];
+const parsePlexRatingKeyFromItemKey = (itemKey) => {
+  const raw = String(itemKey || '').trim();
+  if (!raw) return null;
+  const parts = raw.split(':').map((p) => p.trim()).filter(Boolean);
+  const last = parts[parts.length - 1] || '';
+  if (/^\d+$/.test(last)) return last;
+  const match = raw.match(/\/library\/metadata\/(\d+)/i);
+  return match?.[1] || null;
+};
 const DEBUG_LEVEL = Math.max(0, Math.min(2, Number(process.env.DEBUG || 0) || 0));
 const isDebugAt = (level) => DEBUG_LEVEL >= level;
 
@@ -1749,26 +1763,99 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
       });
       return;
     }
-    for (const seasonNumber of seasons) {
+    for (const season of seasons) {
+      const seasonNumber = Number(season?.season_number);
+      if (!Number.isInteger(seasonNumber) || seasonNumber <= 0) continue;
+      const availableEpisodes = Number.isInteger(Number(season?.available_episodes))
+        ? Number(season.available_episodes)
+        : null;
+      const watchedEpisodes = Number.isInteger(Number(season?.watched_episodes))
+        ? Number(season.watched_episodes)
+        : 0;
+      let watchState = 'unwatched';
+      if (availableEpisodes !== null && watchedEpisodes >= availableEpisodes && availableEpisodes > 0) {
+        watchState = 'completed';
+      } else if (watchedEpisodes > 0) {
+        watchState = 'in_progress';
+      }
       const updated = await pool.query(
         `UPDATE media_seasons
-         SET source = 'plex'
+         SET source = 'plex',
+             available_episodes = COALESCE($3, available_episodes),
+             watch_state = $4,
+             is_complete = CASE
+               WHEN expected_episodes IS NOT NULL
+                AND expected_episodes > 0
+                AND COALESCE($3, available_episodes) IS NOT NULL
+                AND COALESCE($3, available_episodes) >= expected_episodes
+                 THEN TRUE
+               ELSE is_complete
+             END
          WHERE media_id = $1
            AND season_number = $2
          RETURNING id`,
-        [mediaId, seasonNumber]
+        [mediaId, seasonNumber, availableEpisodes, watchState]
       );
       if (updated.rows.length > 0) {
         seasonsUpdated += 1;
         continue;
       }
       await pool.query(
-        `INSERT INTO media_seasons (media_id, season_number, source)
-         VALUES ($1, $2, 'plex')
+        `INSERT INTO media_seasons (media_id, season_number, source, available_episodes, watch_state, is_complete)
+         VALUES (
+           $1, $2, 'plex', $3, $4,
+           CASE
+             WHEN $5 IS NOT NULL AND $5 > 0 AND $3 IS NOT NULL AND $3 >= $5 THEN TRUE
+             ELSE FALSE
+           END
+         )
          ON CONFLICT (media_id, season_number) DO NOTHING`,
-        [mediaId, seasonNumber]
+        [
+          mediaId,
+          seasonNumber,
+          availableEpisodes,
+          watchState,
+          null
+        ]
       );
       seasonsCreated += 1;
+    }
+  };
+  const tmdbSeasonSummaryCache = new Map();
+  const hydrateTmdbSeasonExpectedCounts = async (mediaId, tmdbId) => {
+    if (!mediaId || !tmdbId || !config.tmdbApiKey) return;
+    const cacheKey = String(tmdbId);
+    let summaries = tmdbSeasonSummaryCache.get(cacheKey);
+    if (summaries === undefined) {
+      try {
+        await throttleTmdb();
+        summaries = await fetchTmdbTvShowSeasonSummary(tmdbId, config);
+      } catch (error) {
+        summaries = [];
+        summary.enrichmentErrors.push({
+          title: `tmdb:${tmdbId}`,
+          type: 'tmdb_season_summary_fetch',
+          detail: error.message || 'TMDB season summary fetch failed'
+        });
+      }
+      tmdbSeasonSummaryCache.set(cacheKey, summaries);
+    }
+    if (!Array.isArray(summaries) || summaries.length === 0) return;
+    for (const season of summaries) {
+      if (!Number.isInteger(season?.season_number) || season.season_number <= 0) continue;
+      if (!Number.isInteger(season?.episode_count) || season.episode_count <= 0) continue;
+      await pool.query(
+        `UPDATE media_seasons
+         SET expected_episodes = $3,
+             is_complete = CASE
+               WHEN available_episodes IS NOT NULL AND $3 IS NOT NULL AND $3 > 0 AND available_episodes >= $3 THEN TRUE
+               ELSE FALSE
+             END
+         WHERE media_id = $1
+           AND season_number = $2
+           AND (expected_episodes IS DISTINCT FROM $3)`,
+        [mediaId, season.season_number, season.episode_count]
+      );
     }
   };
 
@@ -2008,6 +2095,7 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
         await upsertMediaVariant(existing.id, item.variant);
         await upsertMediaSeason(existing.id, media, item.variant);
         await upsertPlexShowSeasons(existing.id, item.sectionId, plexRatingKey);
+        await hydrateTmdbSeasonExpectedCounts(existing.id, media.tmdb_id);
           summary.updated += 1;
         } else {
         const inserted = await pool.query(
@@ -2059,6 +2147,7 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
           await upsertMediaVariant(insertedId, item.variant);
           await upsertMediaSeason(insertedId, media, item.variant);
           await upsertPlexShowSeasons(insertedId, item.sectionId, plexRatingKey);
+          await hydrateTmdbSeasonExpectedCounts(insertedId, media.tmdb_id);
           }
           summary.created += 1;
         }
@@ -3197,6 +3286,128 @@ router.get('/:id/tv-seasons', asyncHandler(async (req, res) => {
     [mediaId]
   );
   res.json({ mediaId, seasons: seasonsResult.rows });
+}));
+
+router.get('/:id/tv-seasons/:seasonNumber', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const mediaId = Number(req.params.id);
+  const seasonNumber = Number(req.params.seasonNumber);
+  if (!Number.isFinite(mediaId) || mediaId <= 0 || !Number.isInteger(seasonNumber) || seasonNumber <= 0) {
+    return res.status(400).json({ error: 'Invalid media id or season number' });
+  }
+  const mediaParams = [mediaId];
+  const mediaScopeClause = appendScopeSql(mediaParams, scopeContext);
+  const mediaResult = await pool.query(
+    `SELECT id, media_type, tmdb_id
+     FROM media
+     WHERE id = $1${mediaScopeClause}`,
+    mediaParams
+  );
+  const media = mediaResult.rows[0];
+  if (!media) return res.status(404).json({ error: 'Media item not found' });
+  if (media.media_type !== 'tv_series') {
+    return res.status(400).json({ error: 'TV season details are only available for TV series' });
+  }
+  const seasonResult = await pool.query(
+    `SELECT id, media_id, season_number, expected_episodes, available_episodes, is_complete,
+            watch_state, watchlist, last_watched_at, source, created_at, updated_at
+     FROM media_seasons
+     WHERE media_id = $1
+       AND season_number = $2`,
+    [mediaId, seasonNumber]
+  );
+  const season = seasonResult.rows[0];
+  if (!season) {
+    return res.status(404).json({ error: 'Season not found for media item' });
+  }
+  if (Number(season.expected_episodes) === 0) {
+    const normalized = await pool.query(
+      `UPDATE media_seasons
+       SET expected_episodes = NULL
+       WHERE media_id = $1
+         AND season_number = $2
+       RETURNING id, media_id, season_number, expected_episodes, available_episodes, is_complete,
+                 watch_state, watchlist, last_watched_at, source, created_at, updated_at`,
+      [mediaId, seasonNumber]
+    );
+    if (normalized.rows[0]) {
+      Object.assign(season, normalized.rows[0]);
+    }
+  }
+
+  const plexMetaResult = await pool.query(
+    `SELECT "value"
+     FROM media_metadata
+     WHERE media_id = $1
+       AND "key" = 'plex_item_key'
+     LIMIT 1`,
+    [mediaId]
+  );
+  const plexItemKey = plexMetaResult.rows[0]?.value || null;
+  const plexRatingKey = parsePlexRatingKeyFromItemKey(plexItemKey);
+
+  let tmdb = null;
+  let plexEpisodeState = { watchedEpisodeNumbers: [], availableEpisodeNumbers: [] };
+  const needsIntegrationConfig = Boolean(media.tmdb_id) || Boolean(plexRatingKey);
+  const config = needsIntegrationConfig ? await loadAdminIntegrationConfig() : null;
+  if (media.tmdb_id && config) {
+    try {
+      tmdb = await fetchTmdbTvSeasonDetails(media.tmdb_id, seasonNumber, config);
+      const expected = Number(tmdb?.episode_count);
+      if (Number.isInteger(expected) && expected > 0 && season.expected_episodes !== expected) {
+        const updated = await pool.query(
+          `UPDATE media_seasons
+           SET expected_episodes = $3
+           WHERE media_id = $1
+             AND season_number = $2
+           RETURNING id, media_id, season_number, expected_episodes, available_episodes, is_complete,
+                     watch_state, watchlist, last_watched_at, source, created_at, updated_at`,
+          [mediaId, seasonNumber, expected]
+        );
+        if (updated.rows[0]) {
+          res.json({ mediaId, season: updated.rows[0], tmdb });
+          return;
+        }
+      }
+    } catch (_error) {
+      tmdb = null;
+    }
+  }
+  if (plexRatingKey && config?.plexApiUrl && config?.plexApiKey) {
+    try {
+      plexEpisodeState = await fetchPlexSeasonEpisodeStates(config, plexRatingKey, seasonNumber);
+    } catch (_error) {
+      plexEpisodeState = { watchedEpisodeNumbers: [], availableEpisodeNumbers: [] };
+    }
+  }
+  if (tmdb && Array.isArray(tmdb.episodes)) {
+    const watched = new Set(plexEpisodeState.watchedEpisodeNumbers || []);
+    const available = new Set(plexEpisodeState.availableEpisodeNumbers || []);
+    tmdb.episodes = tmdb.episodes.map((episode) => ({
+      ...episode,
+      watched: watched.has(Number(episode.episode_number)),
+      in_library: available.has(Number(episode.episode_number))
+    }));
+  }
+
+  const hasAllEpisodes = Number.isFinite(Number(season?.available_episodes))
+    && Number.isFinite(Number(season?.expected_episodes))
+    ? Number(season.available_episodes) >= Number(season.expected_episodes)
+    : null;
+
+  res.json({
+    mediaId,
+    season,
+    tmdb,
+    plex: {
+      ratingKey: plexRatingKey,
+      watchedEpisodeNumbers: plexEpisodeState.watchedEpisodeNumbers,
+      availableEpisodeNumbers: plexEpisodeState.availableEpisodeNumbers
+    },
+    derived: {
+      hasAllEpisodes
+    }
+  });
 }));
 
 router.put('/:id/tv-seasons', asyncHandler(async (req, res) => {
