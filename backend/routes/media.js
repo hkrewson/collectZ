@@ -1815,20 +1815,13 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
       }
       await pool.query(
         `INSERT INTO media_seasons (media_id, season_number, source, available_episodes, watch_state, is_complete)
-         VALUES (
-           $1, $2, 'plex', $3, $4,
-           CASE
-             WHEN $5 IS NOT NULL AND $5 > 0 AND $3 IS NOT NULL AND $3 >= $5 THEN TRUE
-             ELSE FALSE
-           END
-         )
+         VALUES ($1, $2, 'plex', $3, $4, FALSE)
          ON CONFLICT (media_id, season_number) DO NOTHING`,
         [
           mediaId,
           seasonNumber,
           availableEpisodes,
-          watchState,
-          null
+          watchState
         ]
       );
       seasonsCreated += 1;
