@@ -5,6 +5,8 @@ WORKDIR /app
 ARG APP_VERSION
 ENV APP_VERSION=$APP_VERSION
 
+RUN apk upgrade --no-cache zlib
+
 COPY package*.json ./
 RUN npm install --production
 
