@@ -71,6 +71,18 @@ Storage selection:
 
 See `env.example` and docs in `docs/wiki/` for full configuration details.
 
+Debug levels:
+
+- `DEBUG=0`: normal production behavior (no debug/dev-only workflows)
+- `DEBUG=1`: basic diagnostics (expanded import/audit detail)
+- `DEBUG=2`: full dev/debug workflows (includes Import Review queue + endpoints/UI)
+
+For frontend debug-gated UI, set build arg/env:
+
+- `REACT_APP_DEBUG=0|1|2`
+
+Tracked compose files default to `0`. Use an untracked local compose override for localhost debug mode.
+
 ## Import Workflows
 
 Use the `Import` section in the left navigation:

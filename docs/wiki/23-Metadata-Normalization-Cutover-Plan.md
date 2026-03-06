@@ -12,20 +12,20 @@ Move metadata search/filter read paths from legacy comma-separated columns (`gen
 
 ## Staged Rollout
 
-### Stage A (current)
+### Stage A
 
 - Write path: dual-write (legacy columns + normalized tables).
 - Read path: dual-read (legacy OR normalized).
 - Flag state: `metadata_normalized_read_enabled = false`.
 
-### Stage B
+### Stage B (current default)
 
 - Write path: dual-write.
 - Read path: normalized-first (legacy metadata columns excluded from metadata filter predicates).
-- Flag state: `metadata_normalized_read_enabled = true`.
+- Flag state: `metadata_normalized_read_enabled = true` (default).
 - Rollback: flip flag off.
 
-### Stage C
+### Stage C (next optional hardening cycle)
 
 - Keep Stage B enabled for at least one full tester cycle.
 - Required checks:
@@ -33,12 +33,12 @@ Move metadata search/filter read paths from legacy comma-separated columns (`gen
   - no import correctness regressions for CSV/Plex/manual add;
   - acceptable query timings and buffer usage compared with Stage A evidence.
 
-### Stage D
+### Stage D (2.1.x optional follow-up)
 
 - Stop writing legacy metadata columns (`genre`, `director`, `cast_members`) for new/updated records.
 - Keep columns present and backfilled for rollback safety and one full cycle.
 
-### Stage E
+### Stage E (later migration cleanup)
 
 - Remove legacy columns in a later migration after Stage D stability window.
 - Remove dual-write code paths and legacy fallback read clauses.

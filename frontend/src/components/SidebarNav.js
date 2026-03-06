@@ -22,7 +22,9 @@ export default function SidebarNav({
   onToggle,
   mobileOpen,
   onMobileClose,
-  appVersion
+  appVersion,
+  importReviewPendingCount = 0,
+  showImportReview = false
 }) {
   const isAdmin = user?.role === 'admin';
   const releaseNotesUrl = `https://github.com/hkrewson/collectZ/tree/main/docs/releases/v${appVersion}.md`;
@@ -35,10 +37,12 @@ export default function SidebarNav({
     'library-books',
     'library-audio',
     'library-games',
-    'library-comics'
+    'library-comics',
+    'library-import',
+    'library-import-review'
   ].includes(activeTab);
 
-  const NavLink = ({ id, icon, label, sub = false }) => {
+  const NavLink = ({ id, icon, label, sub = false, badge = null }) => {
     const active = activeTab === id;
     return (
       <button
@@ -56,7 +60,10 @@ export default function SidebarNav({
         {!sub && <span className={cx('shrink-0', active && 'text-gold')}>{icon}</span>}
         {sub && <span className="w-1 h-1 rounded-full bg-current mr-1 opacity-50" />}
         {(!collapsed || sub) && <span className="truncate">{label}</span>}
-        {!collapsed && !sub && active && <span className="ml-auto w-1 h-4 rounded-full bg-gold" />}
+        {!collapsed && badge !== null && badge !== undefined && (
+          <span className="ml-auto badge badge-dim text-[10px] min-w-5 text-center">{badge}</span>
+        )}
+        {!collapsed && !sub && active && <span className="w-1 h-4 rounded-full bg-gold" />}
       </button>
     );
   };
@@ -142,6 +149,14 @@ export default function SidebarNav({
             )}
           </div>
           <NavLink id="library-import" icon={<Icons.Upload />} label="Import" />
+          {showImportReview && (
+            <NavLink
+              id="library-import-review"
+              icon={<Icons.Activity />}
+              label="Import Review"
+              badge={importReviewPendingCount > 0 ? importReviewPendingCount : null}
+            />
+          )}
 
           {isAdmin && (
             <div>

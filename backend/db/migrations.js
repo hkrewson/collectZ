@@ -1092,6 +1092,187 @@ const MIGRATIONS = [
       ON CONFLICT (key) DO UPDATE
       SET description = EXCLUDED.description;
     `
+  },
+  {
+    version: 31,
+    description: 'Add import match review queue and collection scaffolding',
+    up: `
+      CREATE TABLE IF NOT EXISTS collections (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        media_type VARCHAR(30),
+        source_title TEXT,
+        import_source VARCHAR(100),
+        expected_item_count INTEGER,
+        metadata JSONB,
+        library_id INTEGER REFERENCES libraries(id) ON DELETE SET NULL,
+        space_id INTEGER,
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS collection_items (
+        id SERIAL PRIMARY KEY,
+        collection_id INTEGER NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+        media_id INTEGER REFERENCES media(id) ON DELETE SET NULL,
+        contained_title TEXT,
+        position INTEGER,
+        confidence_score INTEGER,
+        resolution_status VARCHAR(20) DEFAULT 'pending' CHECK (resolution_status IN ('pending', 'resolved', 'skipped')),
+        source_payload JSONB,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_collections_library_created_at
+        ON collections(library_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_collection_items_collection_position
+        ON collection_items(collection_id, position);
+      CREATE INDEX IF NOT EXISTS idx_collection_items_media_id
+        ON collection_items(media_id);
+
+      CREATE TABLE IF NOT EXISTS import_match_reviews (
+        id SERIAL PRIMARY KEY,
+        job_id INTEGER REFERENCES sync_jobs(id) ON DELETE SET NULL,
+        import_source VARCHAR(100),
+        provider VARCHAR(100),
+        row_number INTEGER,
+        source_title TEXT,
+        media_type VARCHAR(30),
+        status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'resolved', 'skipped')),
+        confidence_score INTEGER,
+        match_mode VARCHAR(80),
+        matched_by VARCHAR(120),
+        enrichment_status VARCHAR(40),
+        proposed_media_id INTEGER REFERENCES media(id) ON DELETE SET NULL,
+        resolved_media_id INTEGER REFERENCES media(id) ON DELETE SET NULL,
+        resolution_action VARCHAR(40),
+        resolution_note TEXT,
+        source_payload JSONB,
+        library_id INTEGER REFERENCES libraries(id) ON DELETE SET NULL,
+        space_id INTEGER,
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        resolved_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        resolved_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_import_match_reviews_pending_scope
+        ON import_match_reviews(status, library_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_import_match_reviews_job
+        ON import_match_reviews(job_id);
+      CREATE INDEX IF NOT EXISTS idx_import_match_reviews_created_by
+        ON import_match_reviews(created_by, created_at DESC);
+
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_collections_updated_at') THEN
+          CREATE TRIGGER update_collections_updated_at BEFORE UPDATE ON collections
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_collection_items_updated_at') THEN
+          CREATE TRIGGER update_collection_items_updated_at BEFORE UPDATE ON collection_items
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_import_match_reviews_updated_at') THEN
+          CREATE TRIGGER update_import_match_reviews_updated_at BEFORE UPDATE ON import_match_reviews
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+        END IF;
+      END;
+      $$;
+    `
+  },
+  {
+    version: 32,
+    description: 'Link import reviews to collections context',
+    up: `
+      ALTER TABLE import_match_reviews
+        ADD COLUMN IF NOT EXISTS collection_id INTEGER REFERENCES collections(id) ON DELETE SET NULL;
+
+      CREATE INDEX IF NOT EXISTS idx_import_match_reviews_collection_id
+        ON import_match_reviews(collection_id);
+    `
+  },
+  {
+    version: 33,
+    description: 'Enable normalized metadata read flag by default',
+    up: `
+      INSERT INTO feature_flags (key, enabled, description)
+      VALUES (
+        'metadata_normalized_read_enabled',
+        true,
+        'Use normalized metadata relations (genres/directors/actors) as primary read path for metadata search/filter'
+      )
+      ON CONFLICT (key) DO UPDATE
+      SET enabled = EXCLUDED.enabled,
+          description = EXCLUDED.description;
+    `
+  },
+  {
+    version: 34,
+    description: 'Add media seasons table for TV watch-state foundation',
+    up: `
+      CREATE TABLE IF NOT EXISTS media_seasons (
+        id SERIAL PRIMARY KEY,
+        media_id INTEGER NOT NULL REFERENCES media(id) ON DELETE CASCADE,
+        season_number INTEGER NOT NULL CHECK (season_number > 0 AND season_number <= 999),
+        expected_episodes INTEGER CHECK (expected_episodes IS NULL OR expected_episodes >= 0),
+        available_episodes INTEGER CHECK (available_episodes IS NULL OR available_episodes >= 0),
+        is_complete BOOLEAN NOT NULL DEFAULT false,
+        watch_state VARCHAR(20) NOT NULL DEFAULT 'unwatched'
+          CHECK (watch_state IN ('unwatched', 'in_progress', 'completed')),
+        watchlist BOOLEAN NOT NULL DEFAULT false,
+        last_watched_at TIMESTAMP,
+        source VARCHAR(50) NOT NULL DEFAULT 'manual',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (media_id, season_number)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_media_seasons_media_id_season ON media_seasons(media_id, season_number);
+      CREATE INDEX IF NOT EXISTS idx_media_seasons_media_id_watch_state ON media_seasons(media_id, watch_state);
+      CREATE INDEX IF NOT EXISTS idx_media_seasons_watchlist ON media_seasons(watchlist);
+
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_media_seasons_updated_at') THEN
+          CREATE TRIGGER update_media_seasons_updated_at BEFORE UPDATE ON media_seasons
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+        END IF;
+      END;
+      $$;
+
+      WITH parsed AS (
+        SELECT
+          mv.media_id,
+          CASE
+            WHEN coalesce(mv.raw_json->>'season_number', '') ~ '^[0-9]+$'
+              THEN (mv.raw_json->>'season_number')::INTEGER
+            WHEN coalesce(mv.edition, '') ~* 'season\\s*[0-9]+'
+              THEN nullif(regexp_replace(lower(mv.edition), '[^0-9]', '', 'g'), '')::INTEGER
+            ELSE NULL
+          END AS season_number,
+          coalesce(mv.source, 'legacy_variant') AS source
+        FROM media_variants mv
+        JOIN media m ON m.id = mv.media_id
+        WHERE m.media_type = 'tv_series'
+      )
+      INSERT INTO media_seasons (
+        media_id, season_number, source, expected_episodes, available_episodes, is_complete
+      )
+      SELECT DISTINCT
+        p.media_id,
+        p.season_number,
+        p.source,
+        NULL::INTEGER,
+        NULL::INTEGER,
+        false
+      FROM parsed p
+      WHERE p.season_number IS NOT NULL AND p.season_number > 0
+      ON CONFLICT (media_id, season_number) DO NOTHING;
+    `
   }
 ];
 

@@ -155,6 +155,23 @@ CREATE TABLE IF NOT EXISTS media_variants (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS media_seasons (
+    id SERIAL PRIMARY KEY,
+    media_id INTEGER NOT NULL REFERENCES media(id) ON DELETE CASCADE,
+    season_number INTEGER NOT NULL CHECK (season_number > 0 AND season_number <= 999),
+    expected_episodes INTEGER CHECK (expected_episodes IS NULL OR expected_episodes >= 0),
+    available_episodes INTEGER CHECK (available_episodes IS NULL OR available_episodes >= 0),
+    is_complete BOOLEAN NOT NULL DEFAULT false,
+    watch_state VARCHAR(20) NOT NULL DEFAULT 'unwatched'
+      CHECK (watch_state IN ('unwatched', 'in_progress', 'completed')),
+    watchlist BOOLEAN NOT NULL DEFAULT false,
+    last_watched_at TIMESTAMP,
+    source VARCHAR(50) NOT NULL DEFAULT 'manual',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (media_id, season_number)
+);
+
 -- Activity log
 CREATE TABLE IF NOT EXISTS activity_log (
     id SERIAL PRIMARY KEY,
@@ -328,6 +345,63 @@ CREATE TABLE IF NOT EXISTS sync_jobs (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Import review queue and collection scaffolding
+CREATE TABLE IF NOT EXISTS collections (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    media_type VARCHAR(30),
+    source_title TEXT,
+    import_source VARCHAR(100),
+    expected_item_count INTEGER,
+    metadata JSONB,
+    library_id INTEGER REFERENCES libraries(id) ON DELETE SET NULL,
+    space_id INTEGER,
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS collection_items (
+    id SERIAL PRIMARY KEY,
+    collection_id INTEGER NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+    media_id INTEGER REFERENCES media(id) ON DELETE SET NULL,
+    contained_title TEXT,
+    position INTEGER,
+    confidence_score INTEGER,
+    resolution_status VARCHAR(20) DEFAULT 'pending' CHECK (resolution_status IN ('pending', 'resolved', 'skipped')),
+    source_payload JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS import_match_reviews (
+    id SERIAL PRIMARY KEY,
+    job_id INTEGER REFERENCES sync_jobs(id) ON DELETE SET NULL,
+    import_source VARCHAR(100),
+    provider VARCHAR(100),
+    row_number INTEGER,
+    source_title TEXT,
+    media_type VARCHAR(30),
+    status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'resolved', 'skipped')),
+    confidence_score INTEGER,
+    match_mode VARCHAR(80),
+    matched_by VARCHAR(120),
+    enrichment_status VARCHAR(40),
+    proposed_media_id INTEGER REFERENCES media(id) ON DELETE SET NULL,
+    resolved_media_id INTEGER REFERENCES media(id) ON DELETE SET NULL,
+    resolution_action VARCHAR(40),
+    resolution_note TEXT,
+    source_payload JSONB,
+    collection_id INTEGER REFERENCES collections(id) ON DELETE SET NULL,
+    library_id INTEGER REFERENCES libraries(id) ON DELETE SET NULL,
+    space_id INTEGER,
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    resolved_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    resolved_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Migration tracking (used by db/migrations.js)
 CREATE TABLE IF NOT EXISTS schema_migrations (
     version INTEGER PRIMARY KEY,
@@ -359,6 +433,9 @@ CREATE INDEX IF NOT EXISTS idx_directors_name ON directors(name);
 CREATE INDEX IF NOT EXISTS idx_media_actors_actor_id ON media_actors(actor_id);
 CREATE INDEX IF NOT EXISTS idx_actors_name ON actors(name);
 CREATE INDEX IF NOT EXISTS idx_media_variants_media_id ON media_variants(media_id);
+CREATE INDEX IF NOT EXISTS idx_media_seasons_media_id_season ON media_seasons(media_id, season_number);
+CREATE INDEX IF NOT EXISTS idx_media_seasons_media_id_watch_state ON media_seasons(media_id, watch_state);
+CREATE INDEX IF NOT EXISTS idx_media_seasons_watchlist ON media_seasons(watchlist);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_media_variants_plex_part ON media_variants (source, source_part_id) WHERE source = 'plex' AND source_part_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_media_variants_plex_item ON media_variants (source, source_item_key) WHERE source = 'plex' AND source_item_key IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_invites_token ON invites(token);
@@ -377,6 +454,13 @@ CREATE INDEX IF NOT EXISTS idx_library_memberships_user_id ON library_membership
 CREATE INDEX IF NOT EXISTS idx_library_memberships_library_id ON library_memberships(library_id);
 CREATE INDEX IF NOT EXISTS idx_sync_jobs_status_created_at ON sync_jobs(status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sync_jobs_created_by_created_at ON sync_jobs(created_by, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_collections_library_created_at ON collections(library_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_collection_items_collection_position ON collection_items(collection_id, position);
+CREATE INDEX IF NOT EXISTS idx_collection_items_media_id ON collection_items(media_id);
+CREATE INDEX IF NOT EXISTS idx_import_match_reviews_pending_scope ON import_match_reviews(status, library_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_import_match_reviews_job ON import_match_reviews(job_id);
+CREATE INDEX IF NOT EXISTS idx_import_match_reviews_created_by ON import_match_reviews(created_by, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_import_match_reviews_collection_id ON import_match_reviews(collection_id);
 CREATE INDEX IF NOT EXISTS idx_media_library_type_title ON media(library_id, media_type, title);
 CREATE INDEX IF NOT EXISTS idx_media_library_type_year ON media(library_id, media_type, year);
 CREATE INDEX IF NOT EXISTS idx_media_library_type_created_at ON media(library_id, media_type, created_at DESC);
@@ -426,6 +510,10 @@ BEGIN
         CREATE TRIGGER update_media_variants_updated_at BEFORE UPDATE ON media_variants
             FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_media_seasons_updated_at') THEN
+        CREATE TRIGGER update_media_seasons_updated_at BEFORE UPDATE ON media_seasons
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_app_integrations_updated_at') THEN
         CREATE TRIGGER update_app_integrations_updated_at BEFORE UPDATE ON app_integrations
             FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -446,6 +534,18 @@ BEGIN
         CREATE TRIGGER update_feature_flags_updated_at BEFORE UPDATE ON feature_flags
             FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_collections_updated_at') THEN
+        CREATE TRIGGER update_collections_updated_at BEFORE UPDATE ON collections
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_collection_items_updated_at') THEN
+        CREATE TRIGGER update_collection_items_updated_at BEFORE UPDATE ON collection_items
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_import_match_reviews_updated_at') THEN
+        CREATE TRIGGER update_import_match_reviews_updated_at BEFORE UPDATE ON import_match_reviews
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
 END;
 $$;
 
@@ -458,9 +558,10 @@ INSERT INTO feature_flags (key, enabled, description) VALUES
     ('tmdb_search_enabled', true, 'Allow TMDB search and details lookups'),
     ('lookup_upc_enabled', true, 'Allow barcode/UPC lookup API usage'),
     ('recognize_cover_enabled', true, 'Allow vision/OCR cover recognition API usage'),
-    ('metadata_normalized_read_enabled', false, 'Use normalized metadata relations (genres/directors/actors) as primary read path for metadata search/filter')
+    ('metadata_normalized_read_enabled', true, 'Use normalized metadata relations (genres/directors/actors) as primary read path for metadata search/filter')
 ON CONFLICT (key) DO UPDATE
-SET description = EXCLUDED.description;
+SET enabled = EXCLUDED.enabled,
+    description = EXCLUDED.description;
 
 -- Mark bootstrap migrations as applied since init.sql creates everything directly.
 -- This prevents the migration runner from re-applying them on first startup.
@@ -494,5 +595,9 @@ INSERT INTO schema_migrations (version, description) VALUES
     (27, 'Add signed proof image path for media entries'),
     (28, 'Normalize media genre/director metadata tables'),
     (29, 'Normalize media actor metadata tables'),
-    (30, 'Add metadata normalized read feature flag')
+    (30, 'Add metadata normalized read feature flag'),
+    (31, 'Add import match review queue and collection scaffolding'),
+    (32, 'Link import reviews to collections context'),
+    (33, 'Enable normalized metadata read flag by default'),
+    (34, 'Add media seasons table for TV watch-state foundation')
 ON CONFLICT (version) DO NOTHING;

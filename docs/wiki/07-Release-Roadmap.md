@@ -1002,11 +1002,34 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 
 ## Post-2.0 (Later Milestones)
 
+### Post-2.0 Versioning Rule
+
+- Feature milestones advance by **minor** version (`2.x.0`).
+- Fix-only follow-ups use **patch** version bumps (`2.x.y`), for example:
+  - `2.2.1` = fixes to `2.2.0`
+  - `2.3.2` = second patch release in the `2.3.x` line
+- Avoid introducing new feature scope in patch releases.
+
+### Post-2.0 Execution Order
+
+1. `2.1.0` Metadata normalization and query performance
+2. `2.2.0` Import match review + collections intelligence
+3. `2.3.0` TV watch-state + provider sync foundation
+4. `2.4.0` Events and memorabilia tracking
+5. `2.4.2` Collectables category expansion (cards/art/merch taxonomy)
+6. `2.4.5` Calibre Web Automated integration
+7. `2.5.0` Invite/reset security hardening
+8. `2.6.0` Observability platform (metrics + alerting)
+9. `2.6.5` Structured log export (GELF + pluggable backends)
+10. `2.7.0` UI refinement sprint
+11. `2.8.0` Optional market valuation integrations
+12. `2.9.0` Optional build: cost model and billing readiness
+
 ## 2.1.0 — Metadata Normalization and Query Performance
 
 **Goal:** Replace comma-separated metadata fields with normalized relations for reliable search/filtering at scale.
 
-**Status:** In progress (`2.1.0-phase1` completed, `2.1.0-phase2` implementation in progress)
+**Status:** Completed (normalized-read default enabled; compatibility dual-write retained for safe 2.2 transition)
 
 ### Scope
 
@@ -1021,7 +1044,7 @@ Deferred tenancy planning has been moved to a separate roadmap document:
   - backfilled normalized rows from existing `media.genre` / `media.director`,
   - added dual-write sync on create/update/import paths,
   - kept backward-compatible reads via existing fields while extending search/filter to normalized joins.
-- `2.1.0-phase2` (planned):
+- `2.1.0-phase2` (completed):
   - expand normalization to actor/cast data model,
   - move text search vector construction to normalized metadata source where practical,
   - add query-performance benchmarks and final cleanup plan for legacy comma fields.
@@ -1029,7 +1052,7 @@ Deferred tenancy planning has been moved to a separate roadmap document:
     - added actor/cast normalization tables (`actors`, `media_actors`) and migration/init parity for actor metadata,
     - added dual-write sync for cast metadata on create/update/import paths,
     - extended search/filter to include actor join lookups plus cast-members text matching,
-    - added feature flag `metadata_normalized_read_enabled` to gate Stage B normalized-read rollout.
+    - enabled feature flag `metadata_normalized_read_enabled` by default for normalized-first metadata read paths.
     - benchmark evidence captured in `/Users/hamlin/Development/GitHub/hkrewson/collectZ/docs/reports/2.1.0-metadata-query-benchmark.md`.
     - staged cleanup/cutover plan documented in `/Users/hamlin/Development/GitHub/hkrewson/collectZ/docs/wiki/23-Metadata-Normalization-Cutover-Plan.md`.
 
@@ -1038,7 +1061,7 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 - Search/filter behavior matches existing functionality with improved accuracy/performance.
 - Migration/backfill is complete with no data-loss regressions.
 
-## 2.2.0 — Observability Platform (Metrics + Alerting)
+## 2.6.0 — Observability Platform (Metrics + Alerting)
 
 **Goal:** Move from log-only triage to measurable system health with alerts.
 
@@ -1047,13 +1070,19 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 - Add structured metrics export for API/import/auth error rates and queue behavior.
 - Add baseline dashboards and alert thresholds.
 - Add operator playbook for alert triage and escalation.
+- Add API contract and docs surface:
+  - maintain `backend/openapi/openapi.yaml` as the source-of-truth contract for key admin/auth/media endpoints,
+  - expose `/api/docs` (Swagger UI) as admin-only and gated by both `DEBUG>=1` and feature flag (for example `api_docs_enabled`),
+  - add CI validation for OpenAPI schema correctness to prevent contract drift.
 
 ### Acceptance Criteria
 
 - Critical regressions are visible via alerts without manual log polling.
 - Dashboard coverage includes imports, auth failures, and admin actions.
+- API docs are unavailable by default in production mode and only accessible when admin + debug/flag gates are satisfied.
+- OpenAPI spec validation runs in CI and fails on invalid or drifted contract definitions.
 
-## 2.2.5 — Structured Log Export (GELF + Pluggable Backends)
+## 2.6.5 — Structured Log Export (GELF + Pluggable Backends)
 
 **Goal:** Add production-grade external log shipping with a canonical GELF contract, feature-flagged rollout, and operator-selectable backend targets.
 
@@ -1087,7 +1116,7 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 - CI/runtime checks verify redaction rules and forbid plaintext secret/token fields in exported log payloads.
 - Exporter outages do not degrade core API/import behavior.
 
-## 2.3.0 — Import Match Review + Collections Intelligence
+## 2.2.0 — Import Match Review + Collections Intelligence
 
 **Goal:** Improve import quality for ambiguous matches and boxed-set decomposition while keeping automation safe and operator-visible.
 
@@ -1113,7 +1142,7 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 - Ambiguous imports no longer auto-apply silently; they enter review queue.
 - Boxed-set imports can be represented as collection + contained items where data is available.
 
-## 2.4.0 — TV Watch-State and Provider Sync Foundation
+## 2.3.0 — TV Watch-State and Provider Sync Foundation
 
 **Goal:** Build durable TV season/watch-state modeling that can sync with external providers later.
 
@@ -1141,7 +1170,69 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 - TV seasons are modeled independently from movie editions.
 - Series/season watch-state is visible and queryable with consistent UI indicators.
 
-## 2.4.9 — Invite/Reset Security and Secret Exfiltration Hardening
+### Implementation Plan
+
+1. DB foundation:
+   - introduce `media_seasons` as source-of-truth for TV season inventory and watch state,
+   - backfill existing season rows from legacy `media_variants` season entries.
+2. API migration:
+   - keep existing `PUT /api/media/:id/tv-seasons` contract for UI compatibility,
+   - move implementation to `media_seasons` storage,
+   - add explicit season read/update endpoints for watch-state/completeness updates.
+3. UI baseline:
+   - update TV detail drawer season rendering to consume season state from API output,
+   - show completed-state indicator on seasons and series cards when all seasons complete.
+4. Provider sync baseline:
+   - map Plex season inventory into `media_seasons` (upsert, non-destructive),
+   - keep episode-level sync optional/deferred.
+5. Validation and hardening:
+   - enforce type-safe updates (`watch_state`, episode counters, timestamps),
+   - add audit events for season/watch-state mutations.
+
+### DB/API Checklist
+
+- DB:
+  - Add `media_seasons` table:
+    - `id`, `media_id`, `season_number`,
+    - `expected_episodes`, `available_episodes`, `is_complete`,
+    - `watch_state` (`unwatched|in_progress|completed`),
+    - `watchlist`, `last_watched_at`,
+    - `source`, `created_at`, `updated_at`.
+  - Constraints:
+    - unique `(media_id, season_number)`,
+    - `media_id` FK to `media(id)` with cascade delete,
+    - non-negative episode counters.
+  - Indexes:
+    - `(media_id, season_number)`,
+    - `(media_id, watch_state)`,
+    - optional `(watchlist)` for queue views.
+  - Backfill migration:
+    - parse season numbers from legacy TV rows in `media_variants` where possible.
+- API:
+  - Keep: `PUT /api/media/:id/tv-seasons` (compatibility path, now backed by `media_seasons`).
+  - Add: `GET /api/media/:id/tv-seasons`.
+  - Add: `PATCH /api/media/:id/tv-seasons/:seasonNumber` for watch/completeness updates.
+  - Keep `GET /api/media/:id/variants` contract stable for non-TV media.
+  - For TV series, variants endpoint may return season rows sourced from `media_seasons` for UI continuity.
+- Audit:
+  - `media.tv_seasons.update` for list-level season updates.
+  - `media.tv_season.update` for per-season watch/completeness changes.
+
+### Test Checklist
+
+- Backend:
+  - migration applies cleanly and backfill creates valid season rows,
+  - TV season endpoints enforce scope and media type,
+  - invalid watch-state and invalid counters are rejected.
+- UI:
+  - TV detail drawer lists seasons from new source without regressions,
+  - completed season shows check icon,
+  - series-level completion state appears when all seasons complete.
+- Regression:
+  - movie/file variants behavior unchanged,
+  - Plex import does not duplicate season rows across reruns.
+
+## 2.5.0 — Invite/Reset Security and Secret Exfiltration Hardening
 
 **Goal:** Strengthen credential-recovery and invitation workflows while reducing practical token/secret exfiltration surface before UX-focused 2.5 work.
 
@@ -1171,7 +1262,7 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 - Security checks assert no plaintext credential/token leakage in activity logs and integration responses.
 - Existing media/import/admin workflows remain functional after hardening.
 
-## 2.5.0 — UI Refinement Sprint (Cross-Device Consistency)
+## 2.7.0 — UI Refinement Sprint (Cross-Device Consistency)
 
 **Goal:** Run a focused page-by-page UI refinement pass after 2.0 stabilization, prioritizing interaction consistency and responsive usability.
 
@@ -1197,21 +1288,23 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 - Mobile-optimized barcode scanning UI (camera input with real-time scan feedback).
 - Email delivery for invites via SMTP (already stubbed in `env.example`).
 
-## 2.6.0 — Events and Memorabilia Tracking
+## 2.4.0 — Events and Memorabilia Tracking
 
 **Goal:** Add optional event tracking for conventions/festivals while keeping core media catalog flows simple.
 
 ### Scope
 
-- Add an `Events` area for user-managed event logs (for example: comic conventions, film festivals, VHS events).
+- Add an `Events` area for user-managed event logs (for example: ComiCon, film festivals, concerts, theme parks, and collection-related location visits).
 - Event model baseline:
-  - event name, venue/location, start date, end date, notes.
-- Event artifact tracking:
+  - required fields: `title`, `url`, `location`, `date_start`,
+  - optional fields: `date_end`, `host`, `time`, `room`, `notes`.
+- Event-linked tracking rows:
   - sessions attended,
   - people met,
   - autographs/signings,
-  - purchases,
-  - freebies.
+  - vendor/art purchases,
+  - freebies and other collectibles.
+- Add relation support from collectibles to events (`collectible.event_id`) so event exclusives can be queried and audited.
 - Attachment support for event artifacts:
   - photo upload/capture on mobile and desktop,
   - storage metadata + audit logging.
@@ -1219,11 +1312,103 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 
 ### Acceptance Criteria
 
-- Users can create/edit/delete events and add artifact rows under an event.
+- Users can create/edit/delete events with required fields validated server-side.
+- Users can add event artifacts and link collectibles to an event.
 - Event attachments can be uploaded/captured and rendered reliably on mobile and desktop.
 - Event actions and attachment changes emit clear audit log entries.
 
-## 2.6.5 — Calibre Web Automated Integration (Comics/Books Bridge)
+### DB/API Checklist
+
+- DB:
+  - Add `events` table:
+    - `id`, `library_id`, `space_id`, `created_by`, `title`, `url`, `location`, `date_start`,
+    - optional `date_end`, `host`, `time_label`, `room`, `notes`,
+    - `created_at`, `updated_at`, `archived_at`.
+  - Add `event_artifacts` table:
+    - `id`, `event_id`, `artifact_type` (`session|person|autograph|purchase|freebie|note`),
+    - `title`, `description`, optional `image_path`, optional `price`, optional `vendor`,
+    - `created_by`, `created_at`, `updated_at`.
+  - Add indexes:
+    - `events(library_id, date_start DESC)`,
+    - `events(created_by, created_at DESC)`,
+    - `event_artifacts(event_id, created_at DESC)`.
+  - Add FK relation for collectibles linkage:
+    - `collectibles.event_id REFERENCES events(id) ON DELETE SET NULL`.
+- API:
+  - `GET /api/events` with paging + optional filters (`from`, `to`, `location`, `q`).
+  - `POST /api/events`, `PATCH /api/events/:id`, `DELETE /api/events/:id`.
+  - `GET /api/events/:id/artifacts`, `POST /api/events/:id/artifacts`.
+  - `PATCH /api/events/:id/artifacts/:artifactId`, `DELETE /api/events/:id/artifacts/:artifactId`.
+  - All endpoints scope-enforced by `library_id` membership; admin override follows existing policy.
+- Audit/ops:
+  - Add activity actions:
+    - `events.create|update|delete`,
+    - `events.artifact.create|update|delete`,
+    - `events.attachment.upload|delete`.
+  - Require image upload validation (mime/size caps) using existing object storage pathway.
+
+## 2.4.2 — Collectables, Art, and Cards Taxonomy Expansion
+
+**Goal:** Add non-media collection tracking for physical memorabilia that does not fit Movies/TV/Books/Audio/Games.
+
+### Scope
+
+- Add a new `Collectables` library surface for items without a strict media-provider model.
+- Baseline collectible model:
+  - required: `title`,
+  - optional: `image`, `event_id` (relation), `booth_or_vendor`, `price`, `exclusive` (boolean), `notes`.
+- Add first-class subtypes:
+  - `Art` (prints, originals, specialty pieces),
+  - `Cards` (sports/comic/game cards),
+  - generalized collectibles.
+- Add single-select category taxonomy for collectibles:
+  - `Lego` (sets),
+  - `Figures / Statues`,
+  - `Props / Replicas / Originals`,
+  - `Funko`,
+  - `Comic Panels`,
+  - `Anime`,
+  - `Toys`,
+  - `Clothing`.
+- Keep category values controlled (enum/table-backed) to avoid drift and improve filter quality.
+- Add filter/search support on `category`, `event`, `vendor`, and `exclusive` status.
+
+### Acceptance Criteria
+
+- Users can create/edit/delete collectible rows and assign a category.
+- Collectible rows can be linked to events and queried by event.
+- Cards and art entries are tracked as dedicated subtype views without breaking shared collectible fields.
+- Category and event filters behave consistently in list and detail views.
+
+### DB/API Checklist
+
+- DB:
+  - Add `collectibles` table:
+    - `id`, `library_id`, `space_id`, `created_by`,
+    - `title` (required), `image_path`, `event_id`, `booth_or_vendor`, `price`, `exclusive`, `notes`,
+    - `subtype` (`collectible|art|card`), `category_key`,
+    - `created_at`, `updated_at`, `archived_at`.
+  - Add `collectible_categories` lookup table (or enum-backed seed) with controlled keys:
+    - `lego`, `figures_statues`, `props_replicas_originals`, `funko`, `comic_panels`, `anime`, `toys`, `clothing`.
+  - Add indexes:
+    - `collectibles(library_id, subtype, category_key)`,
+    - `collectibles(event_id)`,
+    - `collectibles(exclusive, created_at DESC)`,
+    - optional trigram/text index for `title` + `booth_or_vendor`.
+- API:
+  - `GET /api/collectibles` with filters (`subtype`, `category`, `event_id`, `exclusive`, `q`, paging).
+  - `POST /api/collectibles`, `PATCH /api/collectibles/:id`, `DELETE /api/collectibles/:id`.
+  - `GET /api/collectibles/categories` (controlled taxonomy list for UI single-select).
+  - Optional conversion endpoint:
+    - `POST /api/collectibles/:id/reclassify` to switch subtype (`collectible`/`art`/`card`) without data loss.
+- Audit/ops:
+  - Add activity actions:
+    - `collectibles.create|update|delete`,
+    - `collectibles.reclassify`,
+    - `collectibles.link_event`.
+  - Ensure category values are validated server-side against controlled taxonomy.
+
+## 2.4.5 — Calibre Web Automated Integration (Comics/Books Bridge)
 
 **Goal:** Replace CSV-centric Calibre workflows with direct Calibre Web Automated (CWA) integration for better reliability, better metadata continuity, and optional read-through behavior.
 
@@ -1277,7 +1462,7 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 - In-app reader (if enabled) works only for allowed formats and can be fully disabled by feature flag.
 - CWA outages/auth failures do not break core collectZ media workflows.
 
-## 2.7.0 — Optional Market Valuation Integrations
+## 2.8.0 — Optional Market Valuation Integrations
 
 **Goal:** Add optional value-estimate integrations for collectors without making pricing a hard dependency of core catalog features.
 
@@ -1303,7 +1488,7 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 - Media detail view can show valuation fields when present and degrade gracefully when unavailable.
 - Pricing failures do not block media CRUD/import flows and are fully auditable.
 
-## 2.8.0 — Optional Build: Cost Model and Billing Readiness
+## 2.9.0 — Optional Build: Cost Model and Billing Readiness
 
 **Goal:** Prepare a data-backed cost model before any hosted subscription offering, while keeping self-hosted installs free of paid-provider dependencies.
 

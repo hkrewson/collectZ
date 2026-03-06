@@ -9,12 +9,15 @@ import ProfileViewComponent from './components/ProfileView';
 import AdminUsersView from './components/AdminUsersView';
 import AdminSettingsView from './components/AdminSettingsView';
 import AdminIntegrationsView from './components/AdminIntegrationsView';
+import ImportReviewView from './components/ImportReviewView';
 import SidebarNav from './components/SidebarNav';
 import LibraryView from './components/LibraryView';
 import { routeFromPath, readCookie, Spinner, Toast, ImportStatusDock, Icons, cx } from './components/app/AppPrimitives';
 
 const API_URL = process.env.REACT_APP_API_URL || '/api';
 const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.version || 'unknown';
+const DEBUG_LEVEL = Math.max(0, Math.min(2, Number(process.env.REACT_APP_DEBUG || 0) || 0));
+const isDebugAt = (level) => DEBUG_LEVEL >= level;
 const IMPORT_JOBS_KEY = 'collectz_import_jobs';
 const IMPORT_POLL_LEADER_KEY = 'collectz_import_poll_leader';
 const IMPORT_POLL_LAST_TS_KEY = 'collectz_import_poll_last_ts';
@@ -31,6 +34,7 @@ const VALID_DASHBOARD_TABS = new Set([
   'library-comics',
   'library-other',
   'library-import',
+  'library-import-review',
   'profile',
   'admin-users',
   'admin-activity',
@@ -44,12 +48,14 @@ const DEFAULT_INTEGRATION_SECTION = 'audio';
 
 function readDashboardStateFromUrl() {
   const path = String(window.location.pathname || '');
-  const libMatch = path.match(/^\/library\/(movies|tv|books|audio|games|comics|other|import)\/?$/);
+  const libMatch = path.match(/^\/library\/(movies|tv|books|audio|games|comics|other|import|import-review)\/?$/);
   if (libMatch) {
     const slug = libMatch[1];
     return {
       tab: slug === 'import'
         ? 'library-import'
+        : slug === 'import-review'
+          ? 'library-import-review'
         : slug === 'other'
           ? 'library-comics'
           : `library-${slug}`,
@@ -113,6 +119,8 @@ export default function App() {
   const [activeLibraryId, setActiveLibraryId] = useState(null);
   const [uiSettings, setUiSettings] = useState({ theme: 'system', density: 'comfortable' });
   const [toast, setToast] = useState(null);
+  const [importReviewPendingCount, setImportReviewPendingCount] = useState(0);
+  const importReviewEnabled = isDebugAt(2);
   const [importJobs, setImportJobs] = useState(() => {
     try {
       const parsed = JSON.parse(localStorage.getItem(IMPORT_JOBS_KEY) || '[]');
@@ -335,6 +343,14 @@ export default function App() {
 
   const showToast = useCallback((message, type = 'ok') => setToast({ message, type }), []);
 
+  const loadImportReviewPendingCount = useCallback(async () => {
+    if (!user) return;
+    try {
+      const payload = await apiCall('get', '/media/import-reviews/unresolved-count');
+      setImportReviewPendingCount(Number(payload?.count || 0));
+    } catch (_) {}
+  }, [apiCall, user]);
+
   const syncLibraryContext = useCallback(async ({ silent = false } = {}) => {
     if (!user) return null;
     try {
@@ -447,6 +463,23 @@ export default function App() {
     if (!(route === 'dashboard' && authChecked && user)) return;
     syncLibraryContext({ silent: true });
   }, [route, authChecked, user, syncLibraryContext]);
+
+  useEffect(() => {
+    if (!(route === 'dashboard' && authChecked && user)) return;
+    if (!importReviewEnabled) {
+      setImportReviewPendingCount(0);
+      return;
+    }
+    loadImportReviewPendingCount();
+    const timer = setInterval(loadImportReviewPendingCount, 30000);
+    return () => clearInterval(timer);
+  }, [route, authChecked, user, loadImportReviewPendingCount, importReviewEnabled]);
+
+  useEffect(() => {
+    if (!importReviewEnabled && activeTab === 'library-import-review') {
+      setActiveTab('library-import');
+    }
+  }, [activeTab, importReviewEnabled]);
 
   useEffect(() => {
     localStorage.setItem(IMPORT_JOBS_KEY, JSON.stringify(importJobs));
@@ -579,6 +612,29 @@ export default function App() {
             activeLibrary={activeLibrary}
           />
         );
+      case 'library-import-review':
+        if (!importReviewEnabled) return <ImportViewComponent
+          apiCall={apiCall}
+          onToast={showToast}
+          onImported={() => loadMedia()}
+          canImportPlex={user?.role === 'admin'}
+          onQueueJob={upsertImportJob}
+          importJobs={importJobs}
+          apiUrl={API_URL}
+          Icons={Icons}
+          Spinner={Spinner}
+          cx={cx}
+          activeLibrary={activeLibrary}
+        />;
+        return (
+          <ImportReviewView
+            apiCall={apiCall}
+            onToast={(message, type = 'ok') => {
+              showToast(message, type);
+              loadImportReviewPendingCount();
+            }}
+          />
+        );
       case 'profile':
         return <ProfileViewComponent user={user} apiCall={apiCall} onToast={showToast} Spinner={Spinner} />;
       case 'admin-users':
@@ -621,6 +677,8 @@ export default function App() {
         mobileOpen={mobileNavOpen}
         onMobileClose={() => setMobileNavOpen(false)}
         appVersion={APP_VERSION}
+        importReviewPendingCount={importReviewPendingCount}
+        showImportReview={importReviewEnabled}
       />
 
       <div className={cx('flex-1 flex flex-col min-w-0 transition-all duration-300', sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-56')}>

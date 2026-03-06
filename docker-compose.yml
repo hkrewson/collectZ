@@ -27,6 +27,7 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
+      DEBUG: ${DEBUG:-0}
       TRUST_PROXY: ${TRUST_PROXY:-1}
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
       PORT: 3001
@@ -79,6 +80,7 @@ services:
       args:
         REACT_APP_API_URL: /api
         REACT_APP_VERSION: ${APP_VERSION:-}
+        REACT_APP_DEBUG: ${DEBUG:-0}
     image: mediavault-frontend:latest
     restart: unless-stopped
     depends_on:

@@ -38,6 +38,7 @@ const memoryUpload = multer({ storage: multer.memoryStorage(), limits: { fileSiz
 
 const MEDIA_FORMATS = ['VHS', 'Blu-ray', 'Digital', 'DVD', '4K UHD', 'Paperback', 'Hardcover', 'Trade'];
 const MEDIA_TYPES = ['movie', 'tv_series', 'tv_episode', 'book', 'audio', 'game', 'comic_book'];
+const TV_WATCH_STATES = new Set(['unwatched', 'in_progress', 'completed']);
 const ALLOWED_COVER_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 const SYNC_JOB_ALLOWED_FIELDS = new Set([
   'status',
@@ -68,6 +69,14 @@ const IMPORT_ENRICHMENT_STATUSES = [
   'not_attempted',
   'not_applicable'
 ];
+const IMPORT_REVIEW_ACTIONS = [
+  'accept_suggested',
+  'choose_alternate',
+  'search_again',
+  'skip_keep_manual'
+];
+const DEBUG_LEVEL = Math.max(0, Math.min(2, Number(process.env.DEBUG || 0) || 0));
+const isDebugAt = (level) => DEBUG_LEVEL >= level;
 
 function buildImportMatchCounters() {
   return IMPORT_MATCH_MODES.reduce((acc, key) => {
@@ -91,6 +100,31 @@ function buildImportEnrichmentCounters() {
 function incrementImportEnrichmentCounter(counters, status) {
   if (!counters || !status || !Object.prototype.hasOwnProperty.call(counters, status)) return;
   counters[status] += 1;
+}
+
+function deriveImportConfidenceScore({ matchMode, matchedBy, enrichmentStatus }) {
+  let score = 70;
+  if (matchMode === 'matched_by_identifier') score += 25;
+  if (matchMode === 'identifier_conflict') score -= 35;
+  if (matchMode === 'identifier_no_match_fallback_title') score -= 15;
+  if (matchMode === 'fallback_title_only') score -= 20;
+
+  if (matchedBy === 'title_year_media_type') score -= 10;
+  if (String(matchedBy || '').startsWith('provider_')) score += 8;
+
+  if (enrichmentStatus === 'enriched') score += 8;
+  if (enrichmentStatus === 'no_match') score -= 12;
+  if (enrichmentStatus === 'not_attempted') score -= 6;
+
+  return Math.max(0, Math.min(100, score));
+}
+
+function shouldQueueImportReview({ matchMode, enrichmentStatus, confidenceScore }) {
+  if (matchMode === 'identifier_conflict') return true;
+  if (matchMode === 'fallback_title_only') return true;
+  if (matchMode === 'identifier_no_match_fallback_title') return true;
+  if (enrichmentStatus === 'no_match' && confidenceScore < 70) return true;
+  return confidenceScore < 55;
 }
 
 function normalizeMediaType(input, fallback = 'movie') {
@@ -295,6 +329,44 @@ function normalizeComicIssueToken(value) {
     .replace(/^(issue|no\.?)\s*/i, '')
     .trim()
     .toLowerCase();
+}
+
+function detectBoxedSetCandidate(title = '', notes = '') {
+  const sourceTitle = String(title || '').trim();
+  if (!sourceTitle) {
+    return { isCandidate: false, expectedItemCount: null, containedTitles: [] };
+  }
+  const haystack = `${sourceTitle} ${String(notes || '')}`.toLowerCase();
+  const countMatch = haystack.match(/\b(\d{1,3})\s*[- ]?(movie|movies|film|films|disc|discs|dvd|blu[-\s]?ray)\b/i);
+  const expectedItemCount = countMatch ? Number(countMatch[1]) : null;
+  const unit = String(countMatch?.[2] || '').toLowerCase();
+  const hasCollectionKeyword = /\b(collection|set|pack|bundle|marathon|favorites?|anthology|trilogy)\b/i.test(haystack);
+  const isMovieUnit = ['movie', 'movies', 'film', 'films'].includes(unit);
+  const isDiscUnit = ['disc', 'discs', 'dvd', 'blu-ray', 'blu ray'].includes(unit);
+
+  const containedTitles = [];
+  const includesMatch = String(notes || '').match(/includes?\s*:\s*(.+)$/i);
+  if (includesMatch?.[1]) {
+    includesMatch[1]
+      .split(/[|/;,]+/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .forEach((value) => containedTitles.push(value));
+  }
+
+  const isLikelyCollection = Number.isFinite(expectedItemCount)
+    && expectedItemCount > 1
+    && (
+      isMovieUnit
+      || (isDiscUnit && hasCollectionKeyword)
+      || hasCollectionKeyword
+    );
+
+  return {
+    isCandidate: isLikelyCollection,
+    expectedItemCount: Number.isFinite(expectedItemCount) ? expectedItemCount : null,
+    containedTitles
+  };
 }
 
 function extractComicIssueTokenFromTitle(title) {
@@ -1276,6 +1348,258 @@ async function getSyncJob(jobId, reqUser) {
   return result.rows[0] || null;
 }
 
+async function enqueueImportMatchReview({
+  userId,
+  scopeContext,
+  jobId = null,
+  importSource = null,
+  provider = null,
+  rowNumber = null,
+  sourceTitle = null,
+  mediaType = null,
+  matchMode = null,
+  matchedBy = null,
+  enrichmentStatus = null,
+  proposedMediaId = null,
+  confidenceScore = null,
+  sourcePayload = null,
+  collectionId = null
+}) {
+  const params = [
+    jobId || null,
+    importSource || null,
+    provider || null,
+    Number.isFinite(Number(rowNumber)) ? Number(rowNumber) : null,
+    sourceTitle || null,
+    normalizeMediaType(mediaType || 'movie', 'movie'),
+    Number.isFinite(Number(confidenceScore)) ? Number(confidenceScore) : null,
+    matchMode || null,
+    matchedBy || null,
+    enrichmentStatus || null,
+    proposedMediaId || null,
+    sourcePayload ? JSON.stringify(sourcePayload) : null,
+    collectionId || null,
+    scopeContext?.libraryId || null,
+    scopeContext?.spaceId || null,
+    userId || null
+  ];
+  const result = await pool.query(
+    `INSERT INTO import_match_reviews (
+       job_id, import_source, provider, row_number, source_title, media_type,
+       confidence_score, match_mode, matched_by, enrichment_status, proposed_media_id,
+       source_payload, collection_id, library_id, space_id, created_by
+     )
+     VALUES (
+       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb,$13,$14,$15,$16
+     )
+     RETURNING id`,
+    params
+  );
+  return result.rows[0] || null;
+}
+
+async function ensureImportCollection({
+  userId,
+  scopeContext,
+  importSource = null,
+  mediaType = null,
+  sourceTitle = '',
+  expectedItemCount = null,
+  metadata = null
+}) {
+  const normalizedSourceTitle = String(sourceTitle || '').trim();
+  if (!normalizedSourceTitle) return { id: null, created: false };
+  const params = [
+    normalizedSourceTitle,
+    importSource || null,
+    normalizeMediaType(mediaType || 'movie', 'movie'),
+    scopeContext?.libraryId || null,
+    scopeContext?.spaceId || null
+  ];
+  const existing = await pool.query(
+    `SELECT id
+     FROM collections
+     WHERE lower(trim(source_title)) = lower(trim($1))
+       AND COALESCE(import_source, '') = COALESCE($2, '')
+       AND COALESCE(media_type, '') = COALESCE($3, '')
+       AND COALESCE(library_id, 0) = COALESCE($4, 0)
+       AND COALESCE(space_id, 0) = COALESCE($5, 0)
+     ORDER BY id DESC
+     LIMIT 1`,
+    params
+  );
+  if (existing.rows[0]?.id) return { id: existing.rows[0].id, created: false };
+
+  const created = await pool.query(
+    `INSERT INTO collections (
+       name, media_type, source_title, import_source, expected_item_count, metadata,
+       library_id, space_id, created_by
+     )
+     VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9)
+     RETURNING id`,
+    [
+      normalizedSourceTitle,
+      normalizeMediaType(mediaType || 'movie', 'movie'),
+      normalizedSourceTitle,
+      importSource || null,
+      Number.isFinite(Number(expectedItemCount)) ? Number(expectedItemCount) : null,
+      metadata ? JSON.stringify(metadata) : null,
+      scopeContext?.libraryId || null,
+      scopeContext?.spaceId || null,
+      userId || null
+    ]
+  );
+  return { id: created.rows[0]?.id || null, created: true };
+}
+
+async function addCollectionItem({
+  collectionId,
+  mediaId = null,
+  containedTitle = null,
+  position = null,
+  confidenceScore = null,
+  sourcePayload = null
+}) {
+  if (!collectionId) return null;
+  const existing = await pool.query(
+    `SELECT id
+     FROM collection_items
+     WHERE collection_id = $1
+       AND COALESCE(media_id, 0) = COALESCE($2, 0)
+       AND COALESCE(contained_title, '') = COALESCE($3, '')
+     ORDER BY id DESC
+     LIMIT 1`,
+    [collectionId, mediaId || null, containedTitle || null]
+  );
+  if (existing.rows[0]?.id) return existing.rows[0].id;
+  const inserted = await pool.query(
+    `INSERT INTO collection_items (
+       collection_id, media_id, contained_title, position, confidence_score, source_payload
+     )
+     VALUES ($1,$2,$3,$4,$5,$6::jsonb)
+     RETURNING id`,
+    [
+      collectionId,
+      mediaId || null,
+      containedTitle || null,
+      Number.isFinite(Number(position)) ? Number(position) : null,
+      Number.isFinite(Number(confidenceScore)) ? Number(confidenceScore) : null,
+      sourcePayload ? JSON.stringify(sourcePayload) : null
+    ]
+  );
+  return inserted.rows[0]?.id || null;
+}
+
+async function loadMediaForImportReview(mediaId, scopeContext = null) {
+  const params = [mediaId];
+  const scopeClause = appendScopeSql(params, scopeContext);
+  const mediaResult = await pool.query(
+    `SELECT
+       id, title, media_type, original_title, release_date, year, format, genre, director,
+       cast_members AS cast, rating, user_rating, tmdb_id, tmdb_media_type, tmdb_url,
+       poster_path, backdrop_path, overview, trailer_url, runtime, upc, type_details,
+       import_source
+     FROM media
+     WHERE id = $1
+     ${scopeClause}
+     LIMIT 1`,
+    params
+  );
+  if (!mediaResult.rows[0]) return null;
+
+  const metaResult = await pool.query(
+    `SELECT "key", "value"
+     FROM media_metadata
+     WHERE media_id = $1
+       AND "key" IN ('isbn', 'ean', 'ean_upc', 'upc', 'amazon_item_id')`,
+    [mediaId]
+  );
+  const metadata = {};
+  for (const row of metaResult.rows) {
+    metadata[row.key] = row.value;
+  }
+  return { media: mediaResult.rows[0], metadata };
+}
+
+async function applyImportReviewEnrichment({ mediaId, scopeContext = null }) {
+  const loaded = await loadMediaForImportReview(mediaId, scopeContext);
+  if (!loaded?.media) return { applied: false, reason: 'media_not_found' };
+  const { media, metadata } = loaded;
+
+  const identifiers = resolveImportIdentifiers(media, {
+    isbn: metadata.isbn || media?.type_details?.isbn || '',
+    ean_upc: metadata.ean_upc || metadata.ean || metadata.upc || media.upc || '',
+    asin: metadata.amazon_item_id || ''
+  });
+  const config = await loadAdminIntegrationConfig();
+  const caches = { tmdbCache: new Map(), providerCache: new Map() };
+  const enrichmentResult = await runImportEnrichmentPipeline(
+    { ...media, identifiers },
+    config,
+    caches,
+    identifiers
+  );
+  const enriched = enrichmentResult.item || media;
+  const normalizedType = normalizeMediaType(media.media_type || 'movie', 'movie');
+  const normalizedTypeDetails = sanitizeTypeDetails(normalizedType, enriched.type_details);
+
+  await pool.query(
+    `UPDATE media SET
+       original_title = COALESCE($1, original_title),
+       release_date = COALESCE($2, release_date),
+       year = COALESCE($3, year),
+       genre = COALESCE($4, genre),
+       director = COALESCE($5, director),
+       cast_members = COALESCE($6, cast_members),
+       rating = COALESCE($7, rating),
+       user_rating = COALESCE($8, user_rating),
+       tmdb_id = COALESCE($9, tmdb_id),
+       tmdb_media_type = COALESCE($10, tmdb_media_type),
+       tmdb_url = COALESCE($11, tmdb_url),
+       poster_path = COALESCE($12, poster_path),
+       backdrop_path = COALESCE($13, backdrop_path),
+       overview = COALESCE($14, overview),
+       trailer_url = COALESCE($15, trailer_url),
+       runtime = COALESCE($16, runtime),
+       upc = COALESCE($17, upc),
+       type_details = COALESCE($18::jsonb, type_details)
+     WHERE id = $19`,
+    [
+      enriched.original_title || null,
+      enriched.release_date || null,
+      enriched.year || null,
+      enriched.genre || null,
+      enriched.director || null,
+      enriched.cast || null,
+      enriched.rating || null,
+      enriched.user_rating || null,
+      enriched.tmdb_id || null,
+      enriched.tmdb_media_type || null,
+      enriched.tmdb_url || null,
+      enriched.poster_path || null,
+      enriched.backdrop_path || null,
+      enriched.overview || null,
+      enriched.trailer_url || null,
+      enriched.runtime || null,
+      enriched.upc || null,
+      normalizedTypeDetails ? JSON.stringify(normalizedTypeDetails) : null,
+      mediaId
+    ]
+  );
+
+  await syncNormalizedMetadataForMedia({
+    mediaId,
+    genre: enriched.genre || null,
+    director: enriched.director || null,
+    cast: enriched.cast || null
+  });
+
+  return {
+    applied: true,
+    enrichmentStatus: enrichmentResult.enrichmentStatus
+  };
+}
+
 async function runPlexImport({ req, config, sectionIds = [], scopeContext = null, onProgress = null }) {
   const summary = { created: 0, updated: 0, skipped: 0, errors: [], enrichmentErrors: [] };
   let tmdbPosterEnriched = 0;
@@ -1875,11 +2199,22 @@ async function maybePushComicToMetron({ req, mediaRow }) {
   }
 }
 
-async function runGenericCsvImport({ rows, userId, scopeContext, onProgress = null, importSource = 'csv_generic' }) {
+async function runGenericCsvImport({
+  rows,
+  userId,
+  scopeContext,
+  onProgress = null,
+  importSource = 'csv_generic',
+  reviewContext = null
+}) {
   const summary = {
     created: 0,
     updated: 0,
     skipped_invalid: 0,
+    reviewQueued: 0,
+    collectionsDetected: 0,
+    collectionsCreated: 0,
+    collectionItemsSeeded: 0,
     errors: [],
     matchModes: buildImportMatchCounters(),
     enrichment: buildImportEnrichmentCounters()
@@ -1944,6 +2279,40 @@ async function runGenericCsvImport({ rows, userId, scopeContext, onProgress = nu
         region: value('region')
       }
     };
+    let collectionId = null;
+    const boxedSet = detectBoxedSetCandidate(mapped.title, mapped.notes);
+    if (boxedSet.isCandidate) {
+      summary.collectionsDetected += 1;
+      const collection = await ensureImportCollection({
+        userId,
+        scopeContext,
+        importSource,
+        mediaType: mapped.media_type || 'movie',
+        sourceTitle: mapped.title,
+        expectedItemCount: boxedSet.expectedItemCount,
+        metadata: {
+          detectedBy: 'title_pattern',
+          rowNumber: idx + 2
+        }
+      });
+      collectionId = collection.id;
+      if (collectionId) {
+        if (collection.created) summary.collectionsCreated += 1;
+        if (boxedSet.containedTitles.length > 0) {
+          for (let ci = 0; ci < boxedSet.containedTitles.length; ci += 1) {
+            const containedTitle = boxedSet.containedTitles[ci];
+            const itemId = await addCollectionItem({
+              collectionId,
+              containedTitle,
+              position: ci + 1,
+              confidenceScore: 40,
+              sourcePayload: { source: 'import_parse' }
+            });
+            if (itemId) summary.collectionItemsSeeded += 1;
+          }
+        }
+      }
+    }
     const rowIdentifiers = normalizeIdentifierSet({
       isbn: value('isbn') || value('isbn13'),
       ean_upc: value('ean') || value('upc') || value('ean_upc'),
@@ -1970,8 +2339,50 @@ async function runGenericCsvImport({ rows, userId, scopeContext, onProgress = nu
         await upsertMediaMetadataEntry(result.mediaId, 'ean', rowIdentifiers.eanUpc);
         await upsertMediaMetadataEntry(result.mediaId, 'ean_upc', rowIdentifiers.eanUpc);
         await upsertMediaMetadataEntry(result.mediaId, 'amazon_item_id', rowIdentifiers.asin);
+        if (collectionId) {
+          const itemId = await addCollectionItem({
+            collectionId,
+            mediaId: result.mediaId,
+            containedTitle: mapped.title || null,
+            sourcePayload: { source: 'import_upsert' }
+          });
+          if (itemId) summary.collectionItemsSeeded += 1;
+        }
       }
       incrementImportMatchCounter(summary.matchModes, result.matchMode);
+      const confidenceScore = deriveImportConfidenceScore({
+        matchMode: result.matchMode,
+        matchedBy: result.matchedBy,
+        enrichmentStatus: enrichmentResult.enrichmentStatus
+      });
+      const reviewNeeded = shouldQueueImportReview({
+        matchMode: result.matchMode,
+        enrichmentStatus: enrichmentResult.enrichmentStatus,
+        confidenceScore
+      });
+      if (reviewNeeded && isDebugAt(2)) {
+        await enqueueImportMatchReview({
+          userId,
+          scopeContext,
+          jobId: reviewContext?.jobId || null,
+          importSource,
+          provider: reviewContext?.provider || 'csv_generic',
+          rowNumber: idx + 2,
+          sourceTitle: mapped.title || '',
+          mediaType: mapped.media_type || 'movie',
+          matchMode: result.matchMode || null,
+          matchedBy: result.matchedBy || null,
+          enrichmentStatus: enrichmentResult.enrichmentStatus,
+          proposedMediaId: result.mediaId || null,
+          confidenceScore,
+          sourcePayload: {
+            identifiers: rowIdentifiers,
+            status: result.type
+          },
+          collectionId
+        });
+        summary.reviewQueued += 1;
+      }
       if (result.type === 'created') {
         summary.created += 1;
         auditRows.push({
@@ -1982,6 +2393,8 @@ async function runGenericCsvImport({ rows, userId, scopeContext, onProgress = nu
           match_mode: result.matchMode || null,
           matched_by: result.matchedBy || null,
           enrichment_status: enrichmentResult.enrichmentStatus,
+          confidence_score: confidenceScore,
+          review_queued: reviewNeeded,
           isbn: rowIdentifiers.isbn || '',
           ean_upc: rowIdentifiers.eanUpc || '',
           asin: rowIdentifiers.asin || ''
@@ -1996,6 +2409,8 @@ async function runGenericCsvImport({ rows, userId, scopeContext, onProgress = nu
           match_mode: result.matchMode || null,
           matched_by: result.matchedBy || null,
           enrichment_status: enrichmentResult.enrichmentStatus,
+          confidence_score: confidenceScore,
+          review_queued: reviewNeeded,
           isbn: rowIdentifiers.isbn || '',
           ean_upc: rowIdentifiers.eanUpc || '',
           asin: rowIdentifiers.asin || ''
@@ -2010,6 +2425,8 @@ async function runGenericCsvImport({ rows, userId, scopeContext, onProgress = nu
           match_mode: result.matchMode || null,
           matched_by: result.matchedBy || null,
           enrichment_status: enrichmentResult.enrichmentStatus,
+          confidence_score: confidenceScore,
+          review_queued: reviewNeeded,
           isbn: rowIdentifiers.isbn || '',
           ean_upc: rowIdentifiers.eanUpc || '',
           asin: rowIdentifiers.asin || ''
@@ -2042,12 +2459,22 @@ async function runGenericCsvImport({ rows, userId, scopeContext, onProgress = nu
   return { rows: rows.length, summary, auditRows };
 }
 
-async function runDeliciousCsvImport({ rows, userId, scopeContext, onProgress = null }) {
+async function runDeliciousCsvImport({
+  rows,
+  userId,
+  scopeContext,
+  onProgress = null,
+  reviewContext = null
+}) {
   const summary = {
     created: 0,
     updated: 0,
     skipped_non_movie: 0,
     skipped_invalid: 0,
+    reviewQueued: 0,
+    collectionsDetected: 0,
+    collectionsCreated: 0,
+    collectionItemsSeeded: 0,
     errors: [],
     matchModes: buildImportMatchCounters(),
     enrichment: buildImportEnrichmentCounters()
@@ -2128,6 +2555,40 @@ async function runDeliciousCsvImport({ rows, userId, scopeContext, onProgress = 
             platform: normalizedRow.normalizedPlatform || null
           }
         };
+        let collectionId = null;
+        const boxedSet = detectBoxedSetCandidate(title, mapped.notes);
+        if (boxedSet.isCandidate) {
+          summary.collectionsDetected += 1;
+          const collection = await ensureImportCollection({
+            userId,
+            scopeContext,
+            importSource: 'csv_delicious',
+            mediaType: mapped.media_type || 'movie',
+            sourceTitle: title,
+            expectedItemCount: boxedSet.expectedItemCount,
+            metadata: {
+              detectedBy: 'title_pattern',
+              rowNumber: idx + 2,
+              itemType: itemType || null
+            }
+          });
+          collectionId = collection.id;
+          if (collectionId) {
+            if (collection.created) summary.collectionsCreated += 1;
+            if (boxedSet.containedTitles.length > 0) {
+              for (let ci = 0; ci < boxedSet.containedTitles.length; ci += 1) {
+                const itemId = await addCollectionItem({
+                  collectionId,
+                  containedTitle: boxedSet.containedTitles[ci],
+                  position: ci + 1,
+                  confidenceScore: 40,
+                  sourcePayload: { source: 'import_parse' }
+                });
+                if (itemId) summary.collectionItemsSeeded += 1;
+              }
+            }
+          }
+        }
         const rowIdentifiers = normalizeIdentifierSet({
           isbn: normalizedRow.isbn || '',
           ean_upc: normalizedRow.ean || '',
@@ -2151,6 +2612,40 @@ async function runDeliciousCsvImport({ rows, userId, scopeContext, onProgress = 
             identifiers: rowIdentifiers
           });
           incrementImportMatchCounter(summary.matchModes, result.matchMode);
+          const confidenceScore = deriveImportConfidenceScore({
+            matchMode: result.matchMode,
+            matchedBy: result.matchedBy,
+            enrichmentStatus: enrichmentResult.enrichmentStatus
+          });
+          const reviewNeeded = shouldQueueImportReview({
+            matchMode: result.matchMode,
+            enrichmentStatus: enrichmentResult.enrichmentStatus,
+            confidenceScore
+          });
+          if (reviewNeeded && isDebugAt(2)) {
+            await enqueueImportMatchReview({
+              userId,
+              scopeContext,
+              jobId: reviewContext?.jobId || null,
+              importSource: 'csv_delicious',
+              provider: reviewContext?.provider || 'csv_delicious',
+              rowNumber: idx + 2,
+              sourceTitle: title,
+              mediaType: mapped.media_type || 'movie',
+              matchMode: result.matchMode || null,
+              matchedBy: result.matchedBy || null,
+              enrichmentStatus: enrichmentResult.enrichmentStatus,
+              proposedMediaId: result.mediaId || null,
+              confidenceScore,
+              sourcePayload: {
+                identifiers: rowIdentifiers,
+                itemType: itemType || null,
+                status: result.type
+              },
+              collectionId
+            });
+            summary.reviewQueued += 1;
+          }
           if (result.mediaId) {
             await upsertMediaMetadataEntry(result.mediaId, 'amazon_item_id', normalizedRow.amazonItemId);
             await upsertMediaMetadataEntry(result.mediaId, 'ean', normalizedRow.ean);
@@ -2160,6 +2655,15 @@ async function runDeliciousCsvImport({ rows, userId, scopeContext, onProgress = 
             await upsertMediaMetadataEntry(result.mediaId, 'source_edition', normalizedRow.edition);
             await upsertMediaMetadataEntry(result.mediaId, 'source_format', normalizedRow.formatRaw);
             await upsertMediaMetadataEntry(result.mediaId, 'normalized_platform', normalizedRow.normalizedPlatform);
+            if (collectionId) {
+              const itemId = await addCollectionItem({
+                collectionId,
+                mediaId: result.mediaId,
+                containedTitle: title,
+                sourcePayload: { source: 'import_upsert' }
+              });
+              if (itemId) summary.collectionItemsSeeded += 1;
+            }
           }
           if (result.type === 'created') {
             summary.created += 1;
@@ -2171,6 +2675,8 @@ async function runDeliciousCsvImport({ rows, userId, scopeContext, onProgress = 
               match_mode: result.matchMode || null,
               matched_by: result.matchedBy || null,
               enrichment_status: enrichmentResult.enrichmentStatus,
+              confidence_score: confidenceScore,
+              review_queued: reviewNeeded,
               isbn: rowIdentifiers.isbn || '',
               ean_upc: rowIdentifiers.eanUpc || '',
               asin: rowIdentifiers.asin || ''
@@ -2185,6 +2691,8 @@ async function runDeliciousCsvImport({ rows, userId, scopeContext, onProgress = 
               match_mode: result.matchMode || null,
               matched_by: result.matchedBy || null,
               enrichment_status: enrichmentResult.enrichmentStatus,
+              confidence_score: confidenceScore,
+              review_queued: reviewNeeded,
               isbn: rowIdentifiers.isbn || '',
               ean_upc: rowIdentifiers.eanUpc || '',
               asin: rowIdentifiers.asin || ''
@@ -2199,6 +2707,8 @@ async function runDeliciousCsvImport({ rows, userId, scopeContext, onProgress = 
               match_mode: result.matchMode || null,
               matched_by: result.matchedBy || null,
               enrichment_status: enrichmentResult.enrichmentStatus,
+              confidence_score: confidenceScore,
+              review_queued: reviewNeeded,
               isbn: rowIdentifiers.isbn || '',
               ean_upc: rowIdentifiers.eanUpc || '',
               asin: rowIdentifiers.asin || ''
@@ -2241,7 +2751,7 @@ router.use(enforceScopeAccess({ allowedHintRoles: ['admin'] }));
 
 router.get('/', asyncHandler(async (req, res) => {
   const scopeContext = resolveScopeContext(req);
-  const normalizedMetadataReadEnabled = await isFeatureEnabled('metadata_normalized_read_enabled', false);
+  const normalizedMetadataReadEnabled = await isFeatureEnabled('metadata_normalized_read_enabled', true);
   const {
     format, search, page, limit,
     sortBy, sortDir,
@@ -2514,11 +3024,39 @@ router.get('/:id/variants', asyncHandler(async (req, res) => {
   const mediaScopeParams = [mediaId];
   const mediaScopeClause = appendScopeSql(mediaScopeParams, scopeContext);
   const mediaResult = await pool.query(
-    `SELECT id FROM media WHERE id = $1${mediaScopeClause}`,
+    `SELECT id, media_type FROM media WHERE id = $1${mediaScopeClause}`,
     mediaScopeParams
   );
-  if (mediaResult.rows.length === 0) {
+  const media = mediaResult.rows[0];
+  if (!media) {
     return res.status(404).json({ error: 'Media item not found' });
+  }
+  if (media.media_type === 'tv_series') {
+    const seasonsResult = await pool.query(
+      `SELECT id, media_id, source, season_number, expected_episodes, available_episodes,
+              is_complete, watch_state, watchlist, last_watched_at, created_at, updated_at
+       FROM media_seasons
+       WHERE media_id = $1
+       ORDER BY season_number ASC`,
+      [mediaId]
+    );
+    const rows = seasonsResult.rows.map((row) => ({
+      id: row.id,
+      media_id: row.media_id,
+      source: row.source,
+      source_item_key: `season:${row.season_number}`,
+      edition: `Season ${row.season_number}`,
+      season_number: row.season_number,
+      expected_episodes: row.expected_episodes,
+      available_episodes: row.available_episodes,
+      is_complete: row.is_complete,
+      watch_state: row.watch_state,
+      watchlist: row.watchlist,
+      last_watched_at: row.last_watched_at,
+      created_at: row.created_at,
+      updated_at: row.updated_at
+    }));
+    return res.json(rows);
   }
   const result = await pool.query(
     `SELECT id, media_id, source, source_item_key, source_media_id, source_part_id,
@@ -2531,6 +3069,34 @@ router.get('/:id/variants', asyncHandler(async (req, res) => {
     [mediaId]
   );
   res.json(result.rows);
+}));
+
+router.get('/:id/tv-seasons', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const mediaId = Number(req.params.id);
+  if (!Number.isFinite(mediaId) || mediaId <= 0) {
+    return res.status(400).json({ error: 'Invalid media id' });
+  }
+  const mediaParams = [mediaId];
+  const mediaScopeClause = appendScopeSql(mediaParams, scopeContext);
+  const mediaResult = await pool.query(
+    `SELECT id, media_type FROM media WHERE id = $1${mediaScopeClause}`,
+    mediaParams
+  );
+  const media = mediaResult.rows[0];
+  if (!media) return res.status(404).json({ error: 'Media item not found' });
+  if (media.media_type !== 'tv_series') {
+    return res.status(400).json({ error: 'TV seasons are only available for TV series' });
+  }
+  const seasonsResult = await pool.query(
+    `SELECT id, media_id, season_number, expected_episodes, available_episodes, is_complete,
+            watch_state, watchlist, last_watched_at, source, created_at, updated_at
+     FROM media_seasons
+     WHERE media_id = $1
+     ORDER BY season_number ASC`,
+    [mediaId]
+  );
+  res.json({ mediaId, seasons: seasonsResult.rows });
 }));
 
 router.put('/:id/tv-seasons', asyncHandler(async (req, res) => {
@@ -2562,20 +3128,17 @@ router.put('/:id/tv-seasons', asyncHandler(async (req, res) => {
   }
 
   const source = 'manual_tv_season';
-  const expectedKeys = seasons.map((season) => `${source}:${mediaId}:${season}`);
-
-  if (expectedKeys.length > 0) {
+  if (seasons.length > 0) {
     await pool.query(
-      `DELETE FROM media_variants
+      `DELETE FROM media_seasons
        WHERE media_id = $1
          AND source = $2
-         AND source_item_key IS NOT NULL
-         AND source_item_key <> ALL($3::text[])`,
-      [mediaId, source, expectedKeys]
+         AND season_number <> ALL($3::int[])`,
+      [mediaId, source, seasons]
     );
   } else {
     await pool.query(
-      `DELETE FROM media_variants
+      `DELETE FROM media_seasons
        WHERE media_id = $1
          AND source = $2`,
       [mediaId, source]
@@ -2583,25 +3146,13 @@ router.put('/:id/tv-seasons', asyncHandler(async (req, res) => {
   }
 
   for (const season of seasons) {
-    const sourceItemKey = `${source}:${mediaId}:${season}`;
-    const existing = await pool.query(
-      `UPDATE media_variants
-       SET edition = $1, raw_json = $2::jsonb, media_id = $3
-       WHERE source = $4
-         AND source_item_key = $5
-       RETURNING id`,
-      [`Season ${season}`, JSON.stringify({ season_number: season }), mediaId, source, sourceItemKey]
+    await pool.query(
+      `INSERT INTO media_seasons (media_id, season_number, source)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (media_id, season_number)
+       DO UPDATE SET source = EXCLUDED.source`,
+      [mediaId, season, source]
     );
-    if (existing.rows.length === 0) {
-      await pool.query(
-        `INSERT INTO media_variants (
-           media_id, source, source_item_key, edition, raw_json
-         ) VALUES (
-           $1, $2, $3, $4, $5::jsonb
-         )`,
-        [mediaId, source, sourceItemKey, `Season ${season}`, JSON.stringify({ season_number: season })]
-      );
-    }
   }
 
   await logActivity(req, 'media.tv_seasons.update', 'media', mediaId, {
@@ -2609,6 +3160,108 @@ router.put('/:id/tv-seasons', asyncHandler(async (req, res) => {
   });
 
   res.json({ ok: true, mediaId, seasons });
+}));
+
+router.patch('/:id/tv-seasons/:seasonNumber', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const mediaId = Number(req.params.id);
+  const seasonNumber = Number(req.params.seasonNumber);
+  if (!Number.isFinite(mediaId) || mediaId <= 0 || !Number.isInteger(seasonNumber) || seasonNumber <= 0) {
+    return res.status(400).json({ error: 'Invalid media id or season number' });
+  }
+
+  const mediaParams = [mediaId];
+  const mediaScopeClause = appendScopeSql(mediaParams, scopeContext);
+  const mediaResult = await pool.query(
+    `SELECT id, media_type FROM media WHERE id = $1${mediaScopeClause}`,
+    mediaParams
+  );
+  const media = mediaResult.rows[0];
+  if (!media) return res.status(404).json({ error: 'Media item not found' });
+  if (media.media_type !== 'tv_series') {
+    return res.status(400).json({ error: 'TV seasons can only be updated for TV series' });
+  }
+
+  const raw = req.body || {};
+  const updates = {};
+  if (raw.expected_episodes !== undefined) {
+    const val = raw.expected_episodes === null || raw.expected_episodes === '' ? null : Number(raw.expected_episodes);
+    if (val !== null && (!Number.isInteger(val) || val < 0)) {
+      return res.status(400).json({ error: 'expected_episodes must be a non-negative integer or null' });
+    }
+    updates.expected_episodes = val;
+  }
+  if (raw.available_episodes !== undefined) {
+    const val = raw.available_episodes === null || raw.available_episodes === '' ? null : Number(raw.available_episodes);
+    if (val !== null && (!Number.isInteger(val) || val < 0)) {
+      return res.status(400).json({ error: 'available_episodes must be a non-negative integer or null' });
+    }
+    updates.available_episodes = val;
+  }
+  if (raw.is_complete !== undefined) {
+    updates.is_complete = Boolean(raw.is_complete);
+  }
+  if (raw.watchlist !== undefined) {
+    updates.watchlist = Boolean(raw.watchlist);
+  }
+  if (raw.watch_state !== undefined) {
+    const state = String(raw.watch_state || '').trim().toLowerCase();
+    if (!TV_WATCH_STATES.has(state)) {
+      return res.status(400).json({ error: 'watch_state must be one of unwatched, in_progress, completed' });
+    }
+    updates.watch_state = state;
+  }
+  if (raw.last_watched_at !== undefined) {
+    if (raw.last_watched_at === null || raw.last_watched_at === '') {
+      updates.last_watched_at = null;
+    } else {
+      const parsed = new Date(raw.last_watched_at);
+      if (Number.isNaN(parsed.getTime())) {
+        return res.status(400).json({ error: 'last_watched_at must be a valid date or null' });
+      }
+      updates.last_watched_at = parsed.toISOString();
+    }
+  }
+
+  if (Object.keys(updates).length === 0) {
+    return res.status(400).json({ error: 'No season fields provided for update' });
+  }
+
+  const existing = await pool.query(
+    `SELECT id FROM media_seasons WHERE media_id = $1 AND season_number = $2`,
+    [mediaId, seasonNumber]
+  );
+  if (existing.rows.length === 0) {
+    await pool.query(
+      `INSERT INTO media_seasons (media_id, season_number, source)
+       VALUES ($1, $2, $3)`,
+      [mediaId, seasonNumber, 'manual_tv_season']
+    );
+  }
+
+  const setParts = [];
+  const values = [];
+  Object.entries(updates).forEach(([key, value], idx) => {
+    setParts.push(`${key} = $${idx + 1}`);
+    values.push(value);
+  });
+  values.push(mediaId, seasonNumber);
+  const updated = await pool.query(
+    `UPDATE media_seasons
+     SET ${setParts.join(', ')}
+     WHERE media_id = $${values.length - 1}
+       AND season_number = $${values.length}
+     RETURNING id, media_id, season_number, expected_episodes, available_episodes,
+               is_complete, watch_state, watchlist, last_watched_at, source, created_at, updated_at`,
+    values
+  );
+
+  await logActivity(req, 'media.tv_season.update', 'media', mediaId, {
+    season_number: seasonNumber,
+    updates
+  });
+
+  res.json({ ok: true, mediaId, season: updated.rows[0] });
 }));
 
 // ── TMDB search ───────────────────────────────────────────────────────────────
@@ -2957,7 +3610,8 @@ router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, r
           rows,
           userId: req.user.id,
           scopeContext,
-          onProgress: async (progress) => updateSyncJob(job.id, { progress })
+          onProgress: async (progress) => updateSyncJob(job.id, { progress }),
+          reviewContext: { jobId: job.id, provider: 'csv_generic' }
         });
         await updateSyncJob(job.id, {
           status: 'succeeded',
@@ -2977,6 +3631,10 @@ router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, r
             errorCount: result.summary.errors.length,
             matchModes: result.summary.matchModes,
             enrichment: result.summary.enrichment,
+            reviewQueued: result.summary.reviewQueued,
+            collectionsDetected: result.summary.collectionsDetected || 0,
+            collectionsCreated: result.summary.collectionsCreated || 0,
+            collectionItemsSeeded: result.summary.collectionItemsSeeded || 0,
             auditRows: result.auditRows
           },
           finished_at: new Date()
@@ -2989,6 +3647,10 @@ router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, r
           errorCount: result.summary.errors.length,
           matchModes: result.summary.matchModes,
           enrichment: result.summary.enrichment,
+          reviewQueued: result.summary.reviewQueued,
+          collectionsDetected: result.summary.collectionsDetected || 0,
+          collectionsCreated: result.summary.collectionsCreated || 0,
+          collectionItemsSeeded: result.summary.collectionItemsSeeded || 0,
           jobId: job.id
         });
       } catch (error) {
@@ -3019,7 +3681,8 @@ router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, r
   const result = await runGenericCsvImport({
     rows,
     userId: req.user.id,
-    scopeContext
+    scopeContext,
+    reviewContext: { provider: 'csv_generic' }
   });
   await logActivity(req, 'media.import.csv', 'media', null, {
     rows: result.rows,
@@ -3028,7 +3691,11 @@ router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, r
     skipped_invalid: result.summary.skipped_invalid,
     errorCount: result.summary.errors.length,
     matchModes: result.summary.matchModes,
-    enrichment: result.summary.enrichment
+    enrichment: result.summary.enrichment,
+    reviewQueued: result.summary.reviewQueued,
+    collectionsDetected: result.summary.collectionsDetected || 0,
+    collectionsCreated: result.summary.collectionsCreated || 0,
+    collectionItemsSeeded: result.summary.collectionItemsSeeded || 0
   });
   res.json({ ok: true, rows: result.rows, summary: result.summary, auditRows: result.auditRows });
 }));
@@ -3086,7 +3753,8 @@ router.post('/import-csv/calibre', tempUpload.single('file'), asyncHandler(async
           userId: req.user.id,
           scopeContext,
           onProgress: async (progress) => updateSyncJob(job.id, { progress }),
-          importSource: 'csv_calibre'
+          importSource: 'csv_calibre',
+          reviewContext: { jobId: job.id, provider: 'csv_calibre' }
         });
         await updateSyncJob(job.id, {
           status: 'succeeded',
@@ -3106,6 +3774,10 @@ router.post('/import-csv/calibre', tempUpload.single('file'), asyncHandler(async
             errorCount: result.summary.errors.length,
             matchModes: result.summary.matchModes,
             enrichment: result.summary.enrichment,
+            reviewQueued: result.summary.reviewQueued,
+            collectionsDetected: result.summary.collectionsDetected || 0,
+            collectionsCreated: result.summary.collectionsCreated || 0,
+            collectionItemsSeeded: result.summary.collectionItemsSeeded || 0,
             auditRows: result.auditRows
           },
           finished_at: new Date()
@@ -3118,6 +3790,10 @@ router.post('/import-csv/calibre', tempUpload.single('file'), asyncHandler(async
           errorCount: result.summary.errors.length,
           matchModes: result.summary.matchModes,
           enrichment: result.summary.enrichment,
+          reviewQueued: result.summary.reviewQueued,
+          collectionsDetected: result.summary.collectionsDetected || 0,
+          collectionsCreated: result.summary.collectionsCreated || 0,
+          collectionItemsSeeded: result.summary.collectionItemsSeeded || 0,
           jobId: job.id
         });
       } catch (error) {
@@ -3149,7 +3825,8 @@ router.post('/import-csv/calibre', tempUpload.single('file'), asyncHandler(async
     rows: mappedRows,
     userId: req.user.id,
     scopeContext,
-    importSource: 'csv_calibre'
+    importSource: 'csv_calibre',
+    reviewContext: { provider: 'csv_calibre' }
   });
   await logActivity(req, 'media.import.calibre', 'media', null, {
     rows: result.rows,
@@ -3158,7 +3835,11 @@ router.post('/import-csv/calibre', tempUpload.single('file'), asyncHandler(async
     skipped_invalid: result.summary.skipped_invalid,
     errorCount: result.summary.errors.length,
     matchModes: result.summary.matchModes,
-    enrichment: result.summary.enrichment
+    enrichment: result.summary.enrichment,
+    reviewQueued: result.summary.reviewQueued,
+    collectionsDetected: result.summary.collectionsDetected || 0,
+    collectionsCreated: result.summary.collectionsCreated || 0,
+    collectionItemsSeeded: result.summary.collectionItemsSeeded || 0
   });
   res.json({ ok: true, rows: result.rows, summary: result.summary, auditRows: result.auditRows });
 }));
@@ -3214,7 +3895,8 @@ router.post('/import-csv/delicious', tempUpload.single('file'), asyncHandler(asy
           rows,
           userId: req.user.id,
           scopeContext,
-          onProgress: async (progress) => updateSyncJob(job.id, { progress })
+          onProgress: async (progress) => updateSyncJob(job.id, { progress }),
+          reviewContext: { jobId: job.id, provider: 'csv_delicious' }
         });
         await updateSyncJob(job.id, {
           status: 'succeeded',
@@ -3235,6 +3917,10 @@ router.post('/import-csv/delicious', tempUpload.single('file'), asyncHandler(asy
             errorCount: result.summary.errors.length,
             matchModes: result.summary.matchModes,
             enrichment: result.summary.enrichment,
+            reviewQueued: result.summary.reviewQueued,
+            collectionsDetected: result.summary.collectionsDetected || 0,
+            collectionsCreated: result.summary.collectionsCreated || 0,
+            collectionItemsSeeded: result.summary.collectionItemsSeeded || 0,
             auditRows: result.auditRows
           },
           finished_at: new Date()
@@ -3248,6 +3934,10 @@ router.post('/import-csv/delicious', tempUpload.single('file'), asyncHandler(asy
           errorCount: result.summary.errors.length,
           matchModes: result.summary.matchModes,
           enrichment: result.summary.enrichment,
+          reviewQueued: result.summary.reviewQueued,
+          collectionsDetected: result.summary.collectionsDetected || 0,
+          collectionsCreated: result.summary.collectionsCreated || 0,
+          collectionItemsSeeded: result.summary.collectionItemsSeeded || 0,
           jobId: job.id
         });
       } catch (error) {
@@ -3278,7 +3968,8 @@ router.post('/import-csv/delicious', tempUpload.single('file'), asyncHandler(asy
   const result = await runDeliciousCsvImport({
     rows,
     userId: req.user.id,
-    scopeContext
+    scopeContext,
+    reviewContext: { provider: 'csv_delicious' }
   });
   await logActivity(req, 'media.import.csv.delicious', 'media', null, {
     rows: result.rows,
@@ -3288,7 +3979,11 @@ router.post('/import-csv/delicious', tempUpload.single('file'), asyncHandler(asy
     skipped_invalid: result.summary.skipped_invalid,
     errorCount: result.summary.errors.length,
     matchModes: result.summary.matchModes,
-    enrichment: result.summary.enrichment
+    enrichment: result.summary.enrichment,
+    reviewQueued: result.summary.reviewQueued,
+    collectionsDetected: result.summary.collectionsDetected || 0,
+    collectionsCreated: result.summary.collectionsCreated || 0,
+    collectionItemsSeeded: result.summary.collectionItemsSeeded || 0
   });
   res.json({ ok: true, rows: result.rows, summary: result.summary, auditRows: result.auditRows });
 }));
@@ -3598,6 +4293,537 @@ router.get('/sync-jobs/:id', asyncHandler(async (req, res) => {
     return res.status(404).json({ error: 'Job not found' });
   }
   res.json(job);
+}));
+
+router.get('/import-reviews/unresolved-count', asyncHandler(async (req, res) => {
+  if (!isDebugAt(2)) {
+    return res.status(404).json({ error: 'Import review is disabled' });
+  }
+  const scopeContext = resolveScopeContext(req);
+  const params = ['pending'];
+  let where = 'WHERE status = $1';
+  if (req.user.role !== 'admin') {
+    params.push(req.user.id);
+    where += ` AND created_by = $${params.length}`;
+  }
+  const scopeClause = appendScopeSql(params, scopeContext, {
+    spaceColumn: 'space_id',
+    libraryColumn: 'library_id'
+  });
+  const result = await pool.query(
+    `SELECT COUNT(*)::int AS count
+     FROM import_match_reviews
+     ${where}
+     ${scopeClause}`,
+    params
+  );
+  res.json({ count: result.rows[0]?.count || 0 });
+}));
+
+router.get('/collections', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const pageRaw = Number(req.query?.page);
+  const page = Number.isFinite(pageRaw) ? Math.max(1, pageRaw) : 1;
+  const limitRaw = Number(req.query?.limit);
+  const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(200, limitRaw)) : 50;
+  const search = String(req.query?.search || '').trim();
+  const mediaType = req.query?.media_type ? normalizeMediaType(req.query.media_type, '') : '';
+
+  const params = [];
+  let where = 'WHERE 1=1';
+  if (search) {
+    params.push(`%${search}%`);
+    where += ` AND (c.name ILIKE $${params.length} OR COALESCE(c.source_title, '') ILIKE $${params.length})`;
+  }
+  if (mediaType) {
+    params.push(mediaType);
+    where += ` AND COALESCE(c.media_type, '') = $${params.length}`;
+  }
+  const scopeClause = appendScopeSql(params, scopeContext, {
+    spaceColumn: 'c.space_id',
+    libraryColumn: 'c.library_id'
+  });
+  const whereWithScope = `${where} ${scopeClause}`;
+  const offset = (page - 1) * limit;
+
+  const count = await pool.query(
+    `SELECT COUNT(*)::int AS total
+     FROM collections c
+     ${whereWithScope}`,
+    params
+  );
+  params.push(limit);
+  params.push(offset);
+  const rows = await pool.query(
+    `SELECT
+       c.id, c.name, c.media_type, c.source_title, c.import_source, c.expected_item_count,
+       c.library_id, c.space_id, c.created_by, c.created_at, c.updated_at,
+       COUNT(ci.id)::int AS item_count,
+       COUNT(ci.id) FILTER (WHERE ci.media_id IS NOT NULL)::int AS linked_item_count
+     FROM collections c
+     LEFT JOIN collection_items ci ON ci.collection_id = c.id
+     ${whereWithScope}
+     GROUP BY c.id
+     ORDER BY c.created_at DESC
+     LIMIT $${params.length - 1}
+     OFFSET $${params.length}`,
+    params
+  );
+  const total = count.rows[0]?.total || 0;
+  res.json({
+    items: rows.rows,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / limit))
+    }
+  });
+}));
+
+router.get('/collections/:id', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const collectionId = Number(req.params.id);
+  if (!Number.isFinite(collectionId) || collectionId <= 0) {
+    return res.status(400).json({ error: 'Invalid collection id' });
+  }
+  const params = [collectionId];
+  const scopeClause = appendScopeSql(params, scopeContext, {
+    spaceColumn: 'c.space_id',
+    libraryColumn: 'c.library_id'
+  });
+  const collection = await pool.query(
+    `SELECT
+       c.id, c.name, c.media_type, c.source_title, c.import_source, c.expected_item_count, c.metadata,
+       c.library_id, c.space_id, c.created_by, c.created_at, c.updated_at
+     FROM collections c
+     WHERE c.id = $1
+     ${scopeClause}
+     LIMIT 1`,
+    params
+  );
+  if (!collection.rows[0]) {
+    return res.status(404).json({ error: 'Collection not found' });
+  }
+
+  const items = await pool.query(
+    `SELECT
+       ci.id, ci.collection_id, ci.media_id, ci.contained_title, ci.position, ci.confidence_score,
+       ci.resolution_status, ci.source_payload, ci.created_at, ci.updated_at,
+       m.title AS media_title, m.media_type AS media_type, m.poster_path AS media_poster_path, m.year AS media_year
+     FROM collection_items ci
+     LEFT JOIN media m ON m.id = ci.media_id
+     WHERE ci.collection_id = $1
+     ORDER BY COALESCE(ci.position, 999999), ci.id ASC`,
+    [collectionId]
+  );
+
+  res.json({
+    collection: collection.rows[0],
+    items: items.rows
+  });
+}));
+
+router.patch('/collections/:id', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const collectionId = Number(req.params.id);
+  if (!Number.isFinite(collectionId) || collectionId <= 0) {
+    return res.status(400).json({ error: 'Invalid collection id' });
+  }
+  const allowed = ['name', 'expected_item_count', 'source_title', 'metadata'];
+  const fields = Object.fromEntries(Object.entries(req.body || {}).filter(([k]) => allowed.includes(k)));
+  if (!Object.keys(fields).length) {
+    return res.status(400).json({ error: 'No valid collection fields provided' });
+  }
+  const updates = [];
+  const values = [];
+  for (const [key, value] of Object.entries(fields)) {
+    if (key === 'metadata') {
+      values.push(value && typeof value === 'object' ? JSON.stringify(value) : null);
+      updates.push(`${key} = $${values.length}::jsonb`);
+      continue;
+    }
+    if (key === 'expected_item_count') {
+      const parsed = Number(value);
+      values.push(Number.isFinite(parsed) && parsed > 0 ? parsed : null);
+      updates.push(`${key} = $${values.length}`);
+      continue;
+    }
+    values.push(value ? String(value).trim() : null);
+    updates.push(`${key} = $${values.length}`);
+  }
+  values.push(collectionId);
+  const scopeClause = appendScopeSql(values, scopeContext, {
+    spaceColumn: 'space_id',
+    libraryColumn: 'library_id'
+  });
+  const result = await pool.query(
+    `UPDATE collections
+     SET ${updates.join(', ')}
+     WHERE id = $${values.length}
+     ${scopeClause}
+     RETURNING *`,
+    values
+  );
+  if (!result.rows[0]) {
+    return res.status(404).json({ error: 'Collection not found' });
+  }
+  await logActivity(req, 'media.collection.update', 'collection', collectionId, {
+    fields: Object.keys(fields)
+  });
+  res.json(result.rows[0]);
+}));
+
+router.post('/collections/:id/items', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const collectionId = Number(req.params.id);
+  if (!Number.isFinite(collectionId) || collectionId <= 0) {
+    return res.status(400).json({ error: 'Invalid collection id' });
+  }
+  const collectionParams = [collectionId];
+  const scopeClause = appendScopeSql(collectionParams, scopeContext, {
+    spaceColumn: 'space_id',
+    libraryColumn: 'library_id'
+  });
+  const collection = await pool.query(
+    `SELECT id FROM collections WHERE id = $1 ${scopeClause} LIMIT 1`,
+    collectionParams
+  );
+  if (!collection.rows[0]) {
+    return res.status(404).json({ error: 'Collection not found' });
+  }
+
+  const containedTitle = req.body?.contained_title ? String(req.body.contained_title).trim() : null;
+  const mediaId = Number(req.body?.media_id);
+  const position = Number(req.body?.position);
+  if (!containedTitle && !Number.isFinite(mediaId)) {
+    return res.status(400).json({ error: 'contained_title or media_id is required' });
+  }
+
+  const item = await pool.query(
+    `INSERT INTO collection_items (collection_id, media_id, contained_title, position, source_payload)
+     VALUES ($1,$2,$3,$4,$5::jsonb)
+     RETURNING *`,
+    [
+      collectionId,
+      Number.isFinite(mediaId) ? mediaId : null,
+      containedTitle,
+      Number.isFinite(position) ? position : null,
+      JSON.stringify({ source: 'manual_edit' })
+    ]
+  );
+  await logActivity(req, 'media.collection.item.add', 'collection', collectionId, {
+    itemId: item.rows[0]?.id || null,
+    media_id: Number.isFinite(mediaId) ? mediaId : null,
+    contained_title: containedTitle || null
+  });
+  res.status(201).json(item.rows[0]);
+}));
+
+router.patch('/collections/:id/items/:itemId', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const collectionId = Number(req.params.id);
+  const itemId = Number(req.params.itemId);
+  if (!Number.isFinite(collectionId) || collectionId <= 0 || !Number.isFinite(itemId) || itemId <= 0) {
+    return res.status(400).json({ error: 'Invalid collection item id' });
+  }
+  const allowed = ['contained_title', 'position', 'media_id', 'resolution_status'];
+  const fields = Object.fromEntries(Object.entries(req.body || {}).filter(([k]) => allowed.includes(k)));
+  if (!Object.keys(fields).length) {
+    return res.status(400).json({ error: 'No valid collection item fields provided' });
+  }
+  const collectionParams = [collectionId];
+  const scopeClause = appendScopeSql(collectionParams, scopeContext, {
+    spaceColumn: 'space_id',
+    libraryColumn: 'library_id'
+  });
+  const collection = await pool.query(
+    `SELECT id FROM collections WHERE id = $1 ${scopeClause} LIMIT 1`,
+    collectionParams
+  );
+  if (!collection.rows[0]) {
+    return res.status(404).json({ error: 'Collection not found' });
+  }
+
+  const updates = [];
+  const values = [];
+  for (const [key, value] of Object.entries(fields)) {
+    if (key === 'position' || key === 'media_id') {
+      const parsed = Number(value);
+      values.push(Number.isFinite(parsed) && parsed > 0 ? parsed : null);
+      updates.push(`${key} = $${values.length}`);
+      continue;
+    }
+    if (key === 'resolution_status') {
+      const normalized = ['pending', 'resolved', 'skipped'].includes(String(value || '').toLowerCase())
+        ? String(value).toLowerCase()
+        : 'pending';
+      values.push(normalized);
+      updates.push(`${key} = $${values.length}`);
+      continue;
+    }
+    values.push(value ? String(value).trim() : null);
+    updates.push(`${key} = $${values.length}`);
+  }
+  values.push(collectionId);
+  values.push(itemId);
+  const result = await pool.query(
+    `UPDATE collection_items
+     SET ${updates.join(', ')}
+     WHERE collection_id = $${values.length - 1}
+       AND id = $${values.length}
+     RETURNING *`,
+    values
+  );
+  if (!result.rows[0]) {
+    return res.status(404).json({ error: 'Collection item not found' });
+  }
+  await logActivity(req, 'media.collection.item.update', 'collection', collectionId, {
+    itemId,
+    fields: Object.keys(fields)
+  });
+  res.json(result.rows[0]);
+}));
+
+router.delete('/collections/:id/items/:itemId', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const collectionId = Number(req.params.id);
+  const itemId = Number(req.params.itemId);
+  if (!Number.isFinite(collectionId) || collectionId <= 0 || !Number.isFinite(itemId) || itemId <= 0) {
+    return res.status(400).json({ error: 'Invalid collection item id' });
+  }
+  const collectionParams = [collectionId];
+  const scopeClause = appendScopeSql(collectionParams, scopeContext, {
+    spaceColumn: 'space_id',
+    libraryColumn: 'library_id'
+  });
+  const collection = await pool.query(
+    `SELECT id FROM collections WHERE id = $1 ${scopeClause} LIMIT 1`,
+    collectionParams
+  );
+  if (!collection.rows[0]) {
+    return res.status(404).json({ error: 'Collection not found' });
+  }
+
+  const deleted = await pool.query(
+    `DELETE FROM collection_items
+     WHERE collection_id = $1
+       AND id = $2
+     RETURNING id`,
+    [collectionId, itemId]
+  );
+  if (!deleted.rows[0]) {
+    return res.status(404).json({ error: 'Collection item not found' });
+  }
+  await logActivity(req, 'media.collection.item.delete', 'collection', collectionId, {
+    itemId
+  });
+  res.json({ ok: true });
+}));
+
+router.post('/collections/:id/convert-to-individual', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const collectionId = Number(req.params.id);
+  if (!Number.isFinite(collectionId) || collectionId <= 0) {
+    return res.status(400).json({ error: 'Invalid collection id' });
+  }
+  const params = [collectionId];
+  const scopeClause = appendScopeSql(params, scopeContext, {
+    spaceColumn: 'space_id',
+    libraryColumn: 'library_id'
+  });
+  const collection = await pool.query(
+    `SELECT id, name
+     FROM collections
+     WHERE id = $1
+     ${scopeClause}
+     LIMIT 1`,
+    params
+  );
+  if (!collection.rows[0]) {
+    return res.status(404).json({ error: 'Collection not found' });
+  }
+  const items = await pool.query(
+    `SELECT id FROM collection_items WHERE collection_id = $1`,
+    [collectionId]
+  );
+  await pool.query(`DELETE FROM collection_items WHERE collection_id = $1`, [collectionId]);
+  await pool.query(`DELETE FROM collections WHERE id = $1`, [collectionId]);
+  await logActivity(req, 'media.collection.convert_to_individual', 'collection', collectionId, {
+    itemCount: items.rows.length,
+    name: collection.rows[0].name || null
+  });
+  res.json({ ok: true, removed_items: items.rows.length });
+}));
+
+router.get('/import-reviews', asyncHandler(async (req, res) => {
+  if (!isDebugAt(2)) {
+    return res.status(404).json({ error: 'Import review is disabled' });
+  }
+  const scopeContext = resolveScopeContext(req);
+  const pageRaw = Number(req.query?.page);
+  const page = Number.isFinite(pageRaw) ? Math.max(1, pageRaw) : 1;
+  const limitRaw = Number(req.query?.limit);
+  const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(200, limitRaw)) : 50;
+  const status = String(req.query?.status || 'pending').trim().toLowerCase();
+  const search = String(req.query?.search || '').trim();
+
+  const params = [status];
+  let where = 'WHERE imr.status = $1';
+  if (req.user.role !== 'admin') {
+    params.push(req.user.id);
+    where += ` AND imr.created_by = $${params.length}`;
+  }
+  if (search) {
+    params.push(`%${search}%`);
+    where += ` AND COALESCE(imr.source_title, '') ILIKE $${params.length}`;
+  }
+  const scopeClause = appendScopeSql(params, scopeContext, {
+    spaceColumn: 'imr.space_id',
+    libraryColumn: 'imr.library_id'
+  });
+  const whereWithScope = `${where} ${scopeClause}`;
+  const offset = (page - 1) * limit;
+
+  const countQuery = await pool.query(
+    `SELECT COUNT(*)::int AS total
+     FROM import_match_reviews imr
+     ${whereWithScope}`,
+    params
+  );
+  params.push(limit);
+  params.push(offset);
+  const rowsQuery = await pool.query(
+    `SELECT
+       imr.id, imr.job_id, imr.import_source, imr.provider, imr.row_number, imr.source_title, imr.media_type,
+       imr.status, imr.confidence_score, imr.match_mode, imr.matched_by, imr.enrichment_status,
+       imr.collection_id, c.name AS collection_name,
+       imr.proposed_media_id, proposed.title AS proposed_media_title,
+       imr.resolved_media_id, resolved.title AS resolved_media_title,
+       imr.resolution_action, imr.resolution_note, imr.source_payload,
+       imr.library_id, imr.space_id, imr.created_by, imr.resolved_by, imr.resolved_at,
+       imr.created_at, imr.updated_at
+     FROM import_match_reviews imr
+     LEFT JOIN collections c ON c.id = imr.collection_id
+     LEFT JOIN media proposed ON proposed.id = imr.proposed_media_id
+     LEFT JOIN media resolved ON resolved.id = imr.resolved_media_id
+     ${whereWithScope}
+     ORDER BY imr.created_at DESC
+     LIMIT $${params.length - 1}
+     OFFSET $${params.length}`,
+    params
+  );
+  const total = countQuery.rows[0]?.total || 0;
+  res.json({
+    items: rowsQuery.rows,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / limit))
+    }
+  });
+}));
+
+router.patch('/import-reviews/:id', asyncHandler(async (req, res) => {
+  if (!isDebugAt(2)) {
+    return res.status(404).json({ error: 'Import review is disabled' });
+  }
+  const scopeContext = resolveScopeContext(req);
+  const reviewId = Number(req.params.id);
+  if (!Number.isFinite(reviewId) || reviewId <= 0) {
+    return res.status(400).json({ error: 'Invalid review id' });
+  }
+  const action = String(req.body?.action || '').trim().toLowerCase();
+  if (!IMPORT_REVIEW_ACTIONS.includes(action)) {
+    return res.status(400).json({ error: 'Invalid review action' });
+  }
+  const resolvedMediaIdRaw = Number(req.body?.resolved_media_id);
+  const resolvedMediaId = Number.isFinite(resolvedMediaIdRaw) ? resolvedMediaIdRaw : null;
+  const note = req.body?.note ? String(req.body.note).slice(0, 1000) : null;
+
+  const params = [reviewId];
+  let where = 'WHERE id = $1';
+  if (req.user.role !== 'admin') {
+    params.push(req.user.id);
+    where += ` AND created_by = $${params.length}`;
+  }
+  const scopeClause = appendScopeSql(params, scopeContext, {
+    spaceColumn: 'space_id',
+    libraryColumn: 'library_id'
+  });
+  const existing = await pool.query(
+    `SELECT id, status, source_title, proposed_media_id, collection_id
+     FROM import_match_reviews
+     ${where}
+     ${scopeClause}
+     LIMIT 1`,
+    params
+  );
+  if (!existing.rows[0]) {
+    return res.status(404).json({ error: 'Import review not found' });
+  }
+  const status = action === 'skip_keep_manual' ? 'skipped' : 'resolved';
+  const resolutionMediaId = action === 'choose_alternate'
+    ? resolvedMediaId
+    : (existing.rows[0].proposed_media_id || resolvedMediaId || null);
+  if (action !== 'skip_keep_manual' && !resolutionMediaId) {
+    return res.status(400).json({ error: 'Resolved media id is required for this action' });
+  }
+  if (resolutionMediaId) {
+    const mediaParams = [resolutionMediaId];
+    const mediaScopeClause = appendScopeSql(mediaParams, scopeContext);
+    const mediaCheck = await pool.query(
+      `SELECT id
+       FROM media
+       WHERE id = $1
+       ${mediaScopeClause}
+       LIMIT 1`,
+      mediaParams
+    );
+    if (!mediaCheck.rows[0]) {
+      return res.status(404).json({ error: 'Resolved media item not found in scope' });
+    }
+  }
+
+  const updated = await pool.query(
+    `UPDATE import_match_reviews
+     SET status = $1,
+         resolution_action = $2,
+         resolution_note = $3,
+         resolved_media_id = $4,
+         resolved_by = $5,
+         resolved_at = CURRENT_TIMESTAMP
+     WHERE id = $6
+     RETURNING *`,
+    [status, action, note, resolutionMediaId, req.user.id, reviewId]
+  );
+
+  let enrichmentApplied = false;
+  let enrichmentStatus = null;
+  if (action !== 'skip_keep_manual' && resolutionMediaId) {
+    const enrichment = await applyImportReviewEnrichment({
+      mediaId: resolutionMediaId,
+      scopeContext
+    });
+    enrichmentApplied = Boolean(enrichment?.applied);
+    enrichmentStatus = enrichment?.enrichmentStatus || null;
+  }
+
+  await logActivity(req, 'media.import.review.resolve', 'import_match_review', reviewId, {
+    action,
+    status,
+    resolved_media_id: resolutionMediaId,
+    source_title: existing.rows[0].source_title || null,
+    collection_id: existing.rows[0].collection_id || null,
+    enrichment_applied: enrichmentApplied,
+    enrichment_status: enrichmentStatus
+  });
+  res.json({
+    ...updated.rows[0],
+    enrichment_applied: enrichmentApplied,
+    enrichment_status: enrichmentStatus
+  });
 }));
 
 // ── Create ────────────────────────────────────────────────────────────────────

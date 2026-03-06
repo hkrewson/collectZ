@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Icons,
   Spinner,
@@ -342,7 +342,24 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall }) {
                   .filter((v) => item.media_type !== 'tv_series' || Boolean(v.edition))
                   .map((v) => (
                     <div key={v.id} className="card p-3">
-                      <p className="text-sm text-ink font-medium">{v.edition || 'Default edition'}</p>
+                      <p className="text-sm text-ink font-medium flex items-center gap-2">
+                        <span>{v.edition || 'Default edition'}</span>
+                        {item.media_type === 'tv_series' && (v.is_complete || v.watch_state === 'completed') && (
+                          <span className="text-ok inline-flex items-center gap-1 text-xs">
+                            <Icons.Check />Completed
+                          </span>
+                        )}
+                      </p>
+                      {item.media_type === 'tv_series' && (
+                        <p className="text-xs text-ghost mt-1">
+                          {[
+                            v.watch_state ? `State: ${String(v.watch_state).replace('_', ' ')}` : null,
+                            Number.isFinite(Number(v.available_episodes)) ? `Have: ${v.available_episodes}` : null,
+                            Number.isFinite(Number(v.expected_episodes)) ? `Expected: ${v.expected_episodes}` : null,
+                            v.watchlist ? 'Watchlist' : null
+                          ].filter(Boolean).join(' · ') || 'No watch-state data yet'}
+                        </p>
+                      )}
                       {item.media_type !== 'tv_series' && (
                         <p className="text-xs text-ghost mt-1">{[v.resolution, v.container, v.video_codec, v.audio_codec, v.audio_channels ? `${v.audio_channels}ch` : null].filter(Boolean).join(' · ')}</p>
                       )}
@@ -365,6 +382,160 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall }) {
           <button onClick={onClose} className="btn-ghost">Close</button>
           <button onClick={() => onEdit(item)} className="btn-secondary flex-1"><Icons.Edit />Edit</button>
           <button onClick={() => { if (window.confirm('Delete this item?')) { onDelete(item.id); onClose(); } }} className="btn-danger"><Icons.Trash /></button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CollectionEditor({ collectionId, apiCall, onClose, onSaved }) {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [data, setData] = useState(null);
+  const [name, setName] = useState('');
+  const [expectedCount, setExpectedCount] = useState('');
+  const [newItemTitle, setNewItemTitle] = useState('');
+  const [error, setError] = useState('');
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const payload = await apiCall('get', `/media/collections/${collectionId}`);
+      setData(payload);
+      setName(payload?.collection?.name || '');
+      setExpectedCount(payload?.collection?.expected_item_count ? String(payload.collection.expected_item_count) : '');
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Failed to load collection');
+    } finally {
+      setLoading(false);
+    }
+  }, [apiCall, collectionId]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const saveCollection = async () => {
+    setSaving(true);
+    setError('');
+    try {
+      await apiCall('patch', `/media/collections/${collectionId}`, {
+        name: name.trim() || null,
+        expected_item_count: expectedCount ? Number(expectedCount) : null
+      });
+      await load();
+      onSaved?.('Collection updated');
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Failed to save collection');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const addManualItem = async () => {
+    if (!newItemTitle.trim()) return;
+    setSaving(true);
+    setError('');
+    try {
+      await apiCall('post', `/media/collections/${collectionId}/items`, { contained_title: newItemTitle.trim() });
+      setNewItemTitle('');
+      await load();
+      onSaved?.('Collection item added');
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Failed to add item');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const removeItem = async (itemId) => {
+    if (!window.confirm('Remove this item from collection?')) return;
+    setSaving(true);
+    setError('');
+    try {
+      await apiCall('delete', `/media/collections/${collectionId}/items/${itemId}`);
+      await load();
+      onSaved?.('Collection item removed');
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Failed to remove item');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const convertToIndividuals = async () => {
+    if (!window.confirm('Convert this collection to individual titles and remove the collection?')) return;
+    setDeleting(true);
+    setError('');
+    try {
+      await apiCall('post', `/media/collections/${collectionId}/convert-to-individual`, {});
+      onSaved?.('Collection converted to individual titles');
+      onClose();
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Failed to convert collection');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-void/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+      <div className="card w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="px-5 py-4 border-b border-edge flex items-center gap-3">
+          <h2 className="section-title !text-xl">Edit Collection</h2>
+          <div className="flex-1" />
+          <button className="btn-icon" onClick={onClose}><Icons.X /></button>
+        </div>
+        <div className="p-5 overflow-y-auto space-y-4">
+          {error && <p className="text-sm text-err">{error}</p>}
+          {loading && <div className="flex items-center gap-2 text-dim"><Spinner size={16} />Loading...</div>}
+          {!loading && data?.collection && (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <LabeledField label="Collection name">
+                  <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
+                </LabeledField>
+                <LabeledField label="Expected item count">
+                  <input className="input" type="number" min="1" value={expectedCount} onChange={(e) => setExpectedCount(e.target.value)} />
+                </LabeledField>
+                <LabeledField label="Import source">
+                  <input className="input" value={data.collection.import_source || ''} disabled />
+                </LabeledField>
+              </div>
+              <div className="flex gap-2">
+                <button className="btn-primary" disabled={saving} onClick={saveCollection}><Icons.Check />Save</button>
+                <button className="btn-secondary" disabled={deleting} onClick={convertToIndividuals}>Convert to Individual Titles</button>
+              </div>
+
+              <div className="pt-2 border-t border-edge space-y-2">
+                <p className="text-sm font-medium text-ink">Collection Items</p>
+                <div className="flex gap-2">
+                  <input
+                    className="input flex-1"
+                    placeholder="Add manual title"
+                    value={newItemTitle}
+                    onChange={(e) => setNewItemTitle(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') addManualItem(); }}
+                  />
+                  <button className="btn-secondary" disabled={saving || !newItemTitle.trim()} onClick={addManualItem}>Add</button>
+                </div>
+                <div className="space-y-2">
+                  {(data.items || []).map((item) => (
+                    <div key={item.id} className="p-2 rounded bg-surface border border-edge flex items-center gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-ink truncate">{item.media_title || item.contained_title || `Item #${item.id}`}</p>
+                        <p className="text-xs text-ghost">#{item.id} · {item.media_id ? `Media ${item.media_id}` : 'Unlinked'}</p>
+                      </div>
+                      <button className="btn-ghost btn-sm text-err" disabled={saving} onClick={() => removeItem(item.id)}><Icons.Trash /></button>
+                    </div>
+                  ))}
+                  {!data.items?.length && <p className="text-xs text-ghost">No collection items yet.</p>}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -1107,6 +1278,12 @@ export default function LibraryView({
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState(null);
   const [detail, setDetail] = useState(null);
+  const [collectionMode, setCollectionMode] = useState('all');
+  const [collectionRows, setCollectionRows] = useState([]);
+  const [collectionLoading, setCollectionLoading] = useState(false);
+  const [collectionError, setCollectionError] = useState('');
+  const [collectionPagination, setCollectionPagination] = useState({ page: 1, limit: 50, total: 0, totalPages: 1, hasMore: false });
+  const [editingCollectionId, setEditingCollectionId] = useState(null);
   const [comicView, setComicView] = useState('issues');
   const [comicSeries, setComicSeries] = useState('all');
   const supportsHover = useMemo(() => window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches, []);
@@ -1125,23 +1302,61 @@ export default function LibraryView({
   );
 
   const isComicsLibrary = forcedMediaType === 'comic_book';
+  const supportsCollections = forcedMediaType === 'movie' || forcedMediaType === 'game';
+  const isCollectionMode = supportsCollections && collectionMode === 'collections';
   const useComicFullFetch = isComicsLibrary;
   const requestPage = useComicFullFetch ? 1 : page;
   const requestLimit = useComicFullFetch ? 5000 : pageSize;
 
   useEffect(() => {
+    if (isCollectionMode) return;
     onRefresh({ page: requestPage, limit: requestLimit, ...filters });
-  }, [filters, page, pageSize, onRefresh, requestPage, requestLimit]);
+  }, [filters, page, pageSize, onRefresh, requestPage, requestLimit, isCollectionMode]);
 
   useEffect(() => {
     if (!forcedMediaType) return;
     setFilters((f) => ({ ...f, media_type: forcedMediaType }));
     setPage(1);
+    setCollectionMode('all');
+    setCollectionRows([]);
+    setCollectionError('');
     if (forcedMediaType !== 'comic_book') {
       setComicView('issues');
       setComicSeries('all');
     }
   }, [forcedMediaType]);
+
+  useEffect(() => {
+    if (!isCollectionMode) return;
+    let active = true;
+    (async () => {
+      setCollectionLoading(true);
+      setCollectionError('');
+      try {
+        const params = new URLSearchParams();
+        params.set('media_type', forcedMediaType || 'movie');
+        params.set('page', String(page));
+        params.set('limit', String(pageSize));
+        if (searchInput.trim()) params.set('search', searchInput.trim());
+        const payload = await apiCall('get', `/media/collections?${params.toString()}`);
+        if (!active) return;
+        setCollectionRows(Array.isArray(payload?.items) ? payload.items : []);
+        const nextPagination = payload?.pagination || { page: 1, limit: pageSize, total: 0, totalPages: 1 };
+        setCollectionPagination({
+          ...nextPagination,
+          hasMore: Number(nextPagination.page || 1) < Number(nextPagination.totalPages || 1)
+        });
+      } catch (err) {
+        if (!active) return;
+        setCollectionError(err?.response?.data?.error || 'Failed to load collections');
+      } finally {
+        if (active) setCollectionLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [apiCall, forcedMediaType, isCollectionMode, page, pageSize, searchInput]);
 
   useEffect(() => {
     window.localStorage.setItem(PAGE_SIZE_STORAGE_KEY, String(pageSize));
@@ -1166,6 +1381,10 @@ export default function LibraryView({
     });
     setPage(1);
   };
+
+  const displayedTotal = isCollectionMode
+    ? (collectionPagination?.total ?? collectionRows.length)
+    : (pagination?.total ?? mediaItems.length);
 
   const comicSeriesOptions = useMemo(() => {
     const map = new Map();
@@ -1252,7 +1471,7 @@ export default function LibraryView({
       <div className="px-6 py-4 border-b border-edge shrink-0">
         <div className="flex items-center gap-3 flex-wrap">
           <h1 className="section-title">Library</h1>
-          <span className="badge badge-dim ml-1">{pagination?.total ?? mediaItems.length}</span>
+          <span className="badge badge-dim ml-1">{displayedTotal}</span>
           <div className="flex-1" />
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ghost pointer-events-none"><Icons.Search /></span>
@@ -1279,6 +1498,18 @@ export default function LibraryView({
           </button>
           <button onClick={() => setAdding(true)} className="btn-primary"><Icons.Plus />Add</button>
         </div>
+        {supportsCollections && (
+          <div className="mt-3 flex items-center gap-3 flex-wrap">
+            <div className="tab-strip">
+              <button className={cx('tab', collectionMode === 'all' && 'active')} onClick={() => { setCollectionMode('all'); setPage(1); }}>
+                {forcedMediaType === 'game' ? 'All Games' : 'All Movies'}
+              </button>
+              <button className={cx('tab', collectionMode === 'collections' && 'active')} onClick={() => { setCollectionMode('collections'); setPage(1); }}>
+                {forcedMediaType === 'game' ? 'Game Collections' : 'Movie Collections'}
+              </button>
+            </div>
+          </div>
+        )}
         {isComicsLibrary && (
           <div className="mt-3 flex items-center gap-3 flex-wrap">
             <div className="tab-strip">
@@ -1299,9 +1530,47 @@ export default function LibraryView({
       </div>
 
       <div className="flex-1 overflow-y-auto scroll-area p-6">
-        {error && <p className="text-sm text-err mb-4">{error}</p>}
-        {loading && <div className="flex items-center justify-center py-20"><Spinner size={32} /></div>}
-        {!loading && mediaItems.length === 0 && (
+        {isCollectionMode ? (
+          <>
+            {collectionError && <p className="text-sm text-err mb-4">{collectionError}</p>}
+            {collectionLoading && <div className="flex items-center justify-center py-20"><Spinner size={32} /></div>}
+            {!collectionLoading && collectionRows.length === 0 && (
+              <EmptyState
+                icon={<Icons.List />}
+                title="No collections found"
+                subtitle={searchInput.trim() ? 'Try adjusting your search' : 'No collection entries are available for this library type'}
+              />
+            )}
+            {!collectionLoading && collectionRows.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {collectionRows.map((item) => (
+                  <article key={item.id} className="card p-4 border border-edge/80">
+                    <div className="space-y-2">
+                      <p className="font-medium text-ink line-clamp-2">{item.name || item.source_title || `Collection #${item.id}`}</p>
+                      <p className="text-xs text-ghost">
+                        {(item.media_type === 'game' ? 'Game' : 'Movie')} collection
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        <span className="badge badge-dim text-[10px]">Expected: {item.expected_item_count ?? '—'}</span>
+                        <span className="badge badge-dim text-[10px]">Items: {item.item_count ?? 0}</span>
+                        <span className="badge badge-dim text-[10px]">Linked: {item.linked_item_count ?? 0}</span>
+                      </div>
+                      <div className="pt-2">
+                        <button className="btn-secondary btn-sm" onClick={() => setEditingCollectionId(item.id)}>
+                          <Icons.Edit />Edit
+                        </button>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            {error && <p className="text-sm text-err mb-4">{error}</p>}
+            {loading && <div className="flex items-center justify-center py-20"><Spinner size={32} /></div>}
+            {!loading && mediaItems.length === 0 && (
           <EmptyState
             icon={<Icons.Film />}
             title="No items found"
@@ -1372,14 +1641,28 @@ export default function LibraryView({
             ))}
           </div>
         )}
+          </>
+        )}
       </div>
 
       <div className="shrink-0 border-t border-edge px-6 py-3 flex items-center gap-3 flex-wrap">
         {showPagination ? (
           <>
-            <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={loading || page <= 1} className="btn-secondary btn-sm">Previous</button>
-            <span className="text-xs text-ghost font-mono">Page {page} / {pagination?.totalPages || 1}</span>
-            <button onClick={() => setPage((p) => p + 1)} disabled={loading || !(pagination?.hasMore)} className="btn-secondary btn-sm">Next</button>
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={loading || collectionLoading || page <= 1}
+              className="btn-secondary btn-sm"
+            >
+              Previous
+            </button>
+            <span className="text-xs text-ghost font-mono">Page {page} / {(isCollectionMode ? (collectionPagination?.totalPages || 1) : (pagination?.totalPages || 1))}</span>
+            <button
+              onClick={() => setPage((p) => p + 1)}
+              disabled={loading || collectionLoading || !(isCollectionMode ? collectionPagination?.hasMore : pagination?.hasMore)}
+              className="btn-secondary btn-sm"
+            >
+              Next
+            </button>
             <div className="ml-auto flex items-center gap-2">
               <label className="text-xs text-ghost">Page size</label>
               <select className="select w-24" value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}>
@@ -1403,6 +1686,33 @@ export default function LibraryView({
           onDelete={(id) => { onDelete(id); setDetail(null); }}
           onRating={rate}
           apiCall={apiCall}
+        />
+      )}
+      {editingCollectionId && (
+        <CollectionEditor
+          collectionId={editingCollectionId}
+          apiCall={apiCall}
+          onClose={() => setEditingCollectionId(null)}
+          onSaved={async () => {
+            setPage(1);
+            if (isCollectionMode) {
+              const params = new URLSearchParams();
+              params.set('media_type', forcedMediaType || 'movie');
+              params.set('page', String(1));
+              params.set('limit', String(pageSize));
+              if (searchInput.trim()) params.set('search', searchInput.trim());
+              const payload = await apiCall('get', `/media/collections?${params.toString()}`);
+              setCollectionRows(Array.isArray(payload?.items) ? payload.items : []);
+              const nextPagination = payload?.pagination || { page: 1, limit: pageSize, total: 0, totalPages: 1 };
+              setCollectionPagination({
+                ...nextPagination,
+                hasMore: Number(nextPagination.page || 1) < Number(nextPagination.totalPages || 1)
+              });
+            }
+            if (!isCollectionMode) {
+              onRefresh({ page: requestPage, limit: requestLimit, ...filters });
+            }
+          }}
         />
       )}
     </div>

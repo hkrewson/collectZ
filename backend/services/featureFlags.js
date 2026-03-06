@@ -23,7 +23,7 @@ const FEATURE_FLAG_DEFINITIONS = {
   },
   metadata_normalized_read_enabled: {
     description: 'Use normalized metadata relations (genres/directors/actors) as primary read path for metadata search/filter',
-    defaultEnabled: false
+    defaultEnabled: true
   }
 };
 

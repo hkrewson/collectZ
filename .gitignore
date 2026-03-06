@@ -30,6 +30,9 @@ frontend/dist/
 # Docker
 *.tar
 *.tar.gz
+docker-compose.local.yml
+docker-compose.localhost.yml
+docker-compose.override.local.yml
 
 # Uploads and data
 backend/uploads/*
