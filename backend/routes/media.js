@@ -31,6 +31,7 @@ const { uploadBuffer } = require('../services/storage');
 const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
 const { isFeatureEnabled } = require('../services/featureFlags');
 const { enforceScopeAccess } = require('../middleware/scopeAccess');
+const { ensureUserDefaultLibrary } = require('../services/libraries');
 
 const router = express.Router();
 
@@ -80,6 +81,15 @@ const IMPORT_REVIEW_ACTIONS = [
   'search_again',
   'skip_keep_manual'
 ];
+const TYPE_DETAILS_ALLOWED_BY_MEDIA_TYPE = {
+  movie: [],
+  tv_series: [],
+  tv_episode: [],
+  book: ['author', 'isbn', 'publisher', 'edition'],
+  audio: ['artist', 'album', 'track_count'],
+  game: ['platform', 'developer', 'region'],
+  comic_book: ['author', 'isbn', 'publisher', 'edition', 'series', 'issue_number', 'volume', 'writer', 'artist', 'inker', 'colorist', 'cover_date', 'provider_issue_id']
+};
 const parsePlexRatingKeyFromItemKey = (itemKey) => {
   const raw = String(itemKey || '').trim();
   if (!raw) return null;
@@ -202,13 +212,7 @@ function sanitizeTypeDetails(mediaType, rawTypeDetails) {
     return null;
   }
   const normalizedType = normalizeMediaType(mediaType || 'movie', 'movie');
-  const allowedByType = {
-    book: ['author', 'isbn', 'publisher', 'edition'],
-    audio: ['artist', 'album', 'track_count'],
-    game: ['platform', 'developer', 'region'],
-    comic_book: ['author', 'isbn', 'publisher', 'edition', 'series', 'issue_number', 'volume', 'writer', 'artist', 'inker', 'colorist', 'cover_date', 'provider_issue_id']
-  };
-  const allowedKeys = allowedByType[normalizedType] || [];
+  const allowedKeys = TYPE_DETAILS_ALLOWED_BY_MEDIA_TYPE[normalizedType] || [];
   if (!allowedKeys.length) return null;
   const sanitized = {};
   for (const key of allowedKeys) {
@@ -222,6 +226,15 @@ function sanitizeTypeDetails(mediaType, rawTypeDetails) {
     }
   }
   return Object.keys(sanitized).length > 0 ? sanitized : null;
+}
+
+function getInvalidTypeDetailsKeys(mediaType, rawTypeDetails) {
+  if (!rawTypeDetails || typeof rawTypeDetails !== 'object' || Array.isArray(rawTypeDetails)) {
+    return [];
+  }
+  const normalizedType = normalizeMediaType(mediaType || 'movie', 'movie');
+  const allowed = new Set(TYPE_DETAILS_ALLOWED_BY_MEDIA_TYPE[normalizedType] || []);
+  return Object.keys(rawTypeDetails).filter((key) => !allowed.has(key));
 }
 
 function normalizeResolution(value) {
@@ -1952,8 +1965,10 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
 
     try {
       const plexGuid = media.plex_guid || null;
-      const plexRatingKey = media.plex_rating_key || item.raw?.ratingKey || item.raw?.key || null;
-      const plexItemKey = plexRatingKey ? `${item.sectionId}:${plexRatingKey}` : null;
+      const rawPlexRatingKey = media.plex_rating_key || item.raw?.ratingKey || item.raw?.key || null;
+      const plexRatingKey = parsePlexRatingKeyFromItemKey(rawPlexRatingKey);
+      const rawPlexItemKey = rawPlexRatingKey ? `${item.sectionId}:${rawPlexRatingKey}` : null;
+      const plexItemKey = plexRatingKey ? `${item.sectionId}:${plexRatingKey}` : rawPlexItemKey;
       const dedupKey = buildMediaDedupLockKey({
         ...media,
         plex_rating_key: plexItemKey
@@ -1981,8 +1996,9 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
           existing = byPlexGuid.rows[0] || null;
         }
 
-        if (!existing && plexItemKey) {
-        const byPlexItemKeyParams = [plexItemKey];
+        if (!existing && (plexItemKey || rawPlexItemKey)) {
+        const byPlexItemKeyCandidates = [...new Set([plexItemKey, rawPlexItemKey].filter(Boolean))];
+        const byPlexItemKeyParams = [byPlexItemKeyCandidates];
         const byPlexItemKeyScopeClause = appendScopeSql(byPlexItemKeyParams, scopeContext, {
           spaceColumn: 'm.space_id',
           libraryColumn: 'm.library_id'
@@ -1992,7 +2008,7 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
            FROM media m
            JOIN media_metadata mm ON mm.media_id = m.id
            WHERE mm."key" = 'plex_item_key'
-             AND mm."value" = $1
+             AND mm."value" = ANY($1::text[])
              ${byPlexItemKeyScopeClause}
            ORDER BY m.created_at DESC
            LIMIT 1`,
@@ -4307,6 +4323,14 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
   if (req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Only admins can import from Plex' });
   }
+  const ensuredLibraryId = scopeContext?.libraryId || await ensureUserDefaultLibrary(req.user.id);
+  const effectiveScopeContext = {
+    ...scopeContext,
+    libraryId: ensuredLibraryId || null
+  };
+  if (!effectiveScopeContext.libraryId) {
+    return res.status(400).json({ error: 'Active library is required before Plex import' });
+  }
 
   const sectionIds = Array.isArray(req.body?.sectionIds) ? req.body.sectionIds : [];
   const config = await loadAdminIntegrationConfig();
@@ -4329,7 +4353,7 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
       userId: req.user.id,
       jobType: 'media_import',
       provider: 'plex',
-      scope: jobScopePayload(scopeContext, sectionIds),
+      scope: jobScopePayload(effectiveScopeContext, sectionIds),
       progress: {
         total: 0,
         processed: 0,
@@ -4350,7 +4374,7 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
           req: auditReq,
           config,
           sectionIds,
-          scopeContext,
+          scopeContext: effectiveScopeContext,
           onProgress: async (progress) => {
             await updateSyncJob(job.id, { progress });
           }
@@ -4370,7 +4394,8 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
             variantsUpdated: result.variantsUpdated,
             seasonsCreated: result.seasonsCreated,
             seasonsUpdated: result.seasonsUpdated,
-            enrichmentErrors: result.summary.enrichmentErrors || []
+            enrichmentErrors: result.summary.enrichmentErrors || [],
+            errorsSample: (result.summary.errors || []).slice(0, 50)
           },
           progress: {
             total: result.imported,
@@ -4431,7 +4456,7 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
       req,
       config,
       sectionIds,
-      scopeContext
+      scopeContext: effectiveScopeContext
     });
 
     await logActivity(req, 'media.import.plex', 'media', null, {
@@ -5156,6 +5181,12 @@ router.post('/', validate(mediaCreateSchema), asyncHandler(async (req, res) => {
     , space_id
   } = req.body;
   const normalizedMediaType = normalizeMediaType(media_type || 'movie', 'movie');
+  const invalidTypeDetailKeys = getInvalidTypeDetailsKeys(normalizedMediaType, type_details);
+  if (invalidTypeDetailKeys.length > 0) {
+    return res.status(400).json({
+      error: `Invalid type_details key(s) for ${normalizedMediaType}: ${invalidTypeDetailKeys.join(', ')}`
+    });
+  }
   const normalizedTypeDetails = sanitizeTypeDetails(normalizedMediaType, type_details);
   const fieldValidationError = validateTypeSpecificFields(normalizedMediaType, req.body);
   if (fieldValidationError) {
@@ -5226,7 +5257,7 @@ router.patch('/:id', validate(mediaUpdateSchema), asyncHandler(async (req, res) 
   if (fields.media_type) {
     effectiveMediaType = normalizeMediaType(fields.media_type, 'movie');
     fields.media_type = effectiveMediaType;
-  } else if (touchesTypeSpecific) {
+  } else if (touchesTypeSpecific || Object.prototype.hasOwnProperty.call(fields, 'type_details')) {
     const mediaTypeParams = [id];
     const mediaTypeScopeClause = appendScopeSql(mediaTypeParams, scopeContext);
     const currentTypeResult = await pool.query(
@@ -5242,6 +5273,12 @@ router.patch('/:id', validate(mediaUpdateSchema), asyncHandler(async (req, res) 
   }
   if (Object.prototype.hasOwnProperty.call(fields, 'type_details')) {
     const detailType = effectiveMediaType || 'movie';
+    const invalidTypeDetailKeys = getInvalidTypeDetailsKeys(detailType, fields.type_details);
+    if (invalidTypeDetailKeys.length > 0) {
+      return res.status(400).json({
+        error: `Invalid type_details key(s) for ${detailType}: ${invalidTypeDetailKeys.join(', ')}`
+      });
+    }
     fields.type_details = sanitizeTypeDetails(detailType, fields.type_details);
   }
 

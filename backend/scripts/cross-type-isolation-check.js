@@ -2,8 +2,6 @@
 'use strict';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
-const ADMIN_EMAIL = process.env.RBAC_ADMIN_EMAIL || process.env.ADMIN_EMAIL || '';
-const ADMIN_PASSWORD = process.env.RBAC_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || '';
 
 class HttpClient {
   constructor(name) {
@@ -69,22 +67,50 @@ function assert(condition, message) {
 }
 
 async function main() {
-  if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
-    throw new Error('Set RBAC_ADMIN_EMAIL and RBAC_ADMIN_PASSWORD (or ADMIN_EMAIL/ADMIN_PASSWORD) to run cross-type checks.');
+  const suffix = Date.now();
+  const bootstrapAdminEmail = `xtype-admin-${suffix}@example.com`;
+  const bootstrapAdminPassword = 'Passw0rd!123';
+  let activeAdminEmail = bootstrapAdminEmail;
+  let activeAdminPassword = bootstrapAdminPassword;
+  const admin = new HttpClient('admin');
+
+  await admin.fetchCsrfToken();
+  const registerAdmin = await admin.request('/api/auth/register', {
+    method: 'POST',
+    withCsrf: true,
+    body: { email: bootstrapAdminEmail, password: bootstrapAdminPassword, name: 'CrossType Admin' }
+  });
+  if (registerAdmin.status !== 200) {
+    const fallbackEmail = process.env.RBAC_ADMIN_EMAIL || process.env.ADMIN_EMAIL || '';
+    const fallbackPassword = process.env.RBAC_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || '';
+    const inviteRequired = registerAdmin?.data?.error === 'An invite token is required to register';
+    if (!inviteRequired || !fallbackEmail || !fallbackPassword) {
+      throw new Error(
+        `[admin] Unable to bootstrap admin via register (${registerAdmin.status}). ` +
+        'For non-empty databases set RBAC_ADMIN_EMAIL and RBAC_ADMIN_PASSWORD.'
+      );
+    }
+    await admin.fetchCsrfToken();
+    await admin.request('/api/auth/login', {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 200,
+      body: { email: fallbackEmail, password: fallbackPassword }
+    });
+    activeAdminEmail = fallbackEmail;
+    activeAdminPassword = fallbackPassword;
   }
 
-  const admin = new HttpClient('admin');
   await admin.fetchCsrfToken();
   await admin.request('/api/auth/login', {
     method: 'POST',
     withCsrf: true,
     expectStatus: 200,
-    body: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD }
+    body: { email: activeAdminEmail, password: activeAdminPassword }
   });
   // Login issues fresh cookies; fetch a fresh CSRF token bound to the new session.
   await admin.fetchCsrfToken();
 
-  const suffix = Date.now();
   const sharedTitle = `CrossType-${suffix}`;
   const year = 2001;
 
@@ -98,7 +124,27 @@ async function main() {
     method: 'POST',
     withCsrf: true,
     expectStatus: 201,
-    body: { title: sharedTitle, year, media_type: 'book', format: 'Digital' }
+    body: {
+      title: sharedTitle,
+      year,
+      media_type: 'book',
+      format: 'Digital',
+      type_details: { author: 'Cross Type Author' }
+    }
+  });
+
+  // Invalid type_details on create must be rejected.
+  await admin.request('/api/media', {
+    method: 'POST',
+    withCsrf: true,
+    expectStatus: 400,
+    body: {
+      title: `InvalidTypeDetailsCreate-${suffix}`,
+      year,
+      media_type: 'book',
+      format: 'Digital',
+      type_details: { platform: 'PlayStation 5' }
+    }
   });
 
   const movieId = Number(movieCreate?.data?.id);
@@ -116,6 +162,28 @@ async function main() {
   const bookItems = Array.isArray(bookList?.data?.items) ? bookList.data.items : [];
   assert(bookItems.some((item) => Number(item.id) === bookId), 'Book filter should include book entry');
   assert(!bookItems.some((item) => Number(item.id) === movieId), 'Book filter should not include movie entry');
+
+  // Invalid type_details on patch (without media_type in payload) must be rejected.
+  await admin.request(`/api/media/${bookId}`, {
+    method: 'PATCH',
+    withCsrf: true,
+    expectStatus: 400,
+    body: {
+      type_details: { platform: 'Switch' }
+    }
+  });
+
+  // Valid type_details patch should succeed and persist.
+  const validPatch = await admin.request(`/api/media/${bookId}`, {
+    method: 'PATCH',
+    withCsrf: true,
+    expectStatus: 200,
+    body: {
+      type_details: { author: 'Updated Author', isbn: '9780316450867' }
+    }
+  });
+  assert(String(validPatch?.data?.type_details?.author || '') === 'Updated Author', 'Book author type_details should update');
+  assert(String(validPatch?.data?.type_details?.isbn || '') === '9780316450867', 'Book isbn type_details should update');
 
   await admin.request(`/api/media/${movieId}`, { method: 'DELETE', withCsrf: true, expectStatus: 200 });
   await admin.request(`/api/media/${bookId}`, { method: 'DELETE', withCsrf: true, expectStatus: 200 });

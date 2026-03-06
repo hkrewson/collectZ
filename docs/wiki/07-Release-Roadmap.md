@@ -1015,15 +1015,17 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 1. `2.1.0` Metadata normalization and query performance
 2. `2.2.0` Import match review + collections intelligence
 3. `2.3.0` TV watch-state + provider sync foundation
-4. `2.4.0` Events and memorabilia tracking
-5. `2.4.2` Collectables category expansion (cards/art/merch taxonomy)
-6. `2.4.5` Calibre Web Automated integration
-7. `2.5.0` Invite/reset security hardening
-8. `2.6.0` Observability platform (metrics + alerting)
-9. `2.6.5` Structured log export (GELF + pluggable backends)
-10. `2.7.0` UI refinement sprint
-11. `2.8.0` Optional market valuation integrations
-12. `2.9.0` Optional build: cost model and billing readiness
+4. `2.4.0a` Mixed-media schema and validation hardening
+5. `2.4.0b` Search/filter/sort and dedupe quality tuning
+6. `2.4.2` Events and memorabilia tracking
+7. `2.4.4` Collectables category expansion (cards/art/merch taxonomy)
+8. `2.4.5` Calibre Web Automated integration
+9. `2.5.0` Invite/reset security hardening
+10. `2.6.0` Observability platform (metrics + alerting)
+11. `2.6.5` Structured log export (GELF + pluggable backends)
+12. `2.7.0` UI refinement sprint
+13. `2.8.0` Optional market valuation integrations
+14. `2.9.0` Optional build: cost model and billing readiness
 
 ## 2.1.0 — Metadata Normalization and Query Performance
 
@@ -1255,6 +1257,46 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 - TMDB season metadata augments but does not overwrite watch-state fields (`watch_state`, `is_complete`, `watchlist`).
 - No regression to movie edition rendering or non-TV detail drawers.
 
+## 2.4.0a — Mixed-Media Schema and Validation Hardening
+
+**Goal:** lock down mixed-media correctness so invalid type-specific payloads cannot persist.
+
+### Task Checklist
+
+- [x] Define canonical `type_details` allow-list per media type (`movie`, `tv_series`, `tv_episode`, `book`, `audio`, `game`, `comic_book`).
+- [x] Enforce type-details allow-list on create and update payloads.
+- [x] Ensure PATCH resolves effective media type from DB when `type_details` is updated without `media_type`.
+- [ ] Normalize type-details coercion by key (for example `track_count`) and reject incompatible shapes.
+- [ ] Ensure import paths sanitize/validate type-details using the same canonical rules.
+- [x] Add/extend tests for cross-type isolation and invalid type-details key rejection.
+
+### Acceptance Criteria
+
+- Invalid `type_details` keys are rejected with clear validation errors.
+- Cross-type field bleed is blocked in create/update/import paths.
+- Type-details updates without explicit `media_type` still validate against stored media type.
+- Existing valid mixed-media create/edit/import workflows remain functional.
+
+## 2.4.0b — Search/Filter/Sort and Dedupe Quality Tuning
+
+**Goal:** improve large-library query ergonomics and reduce false dedupe outcomes across providers.
+
+### Task Checklist
+
+- [ ] Normalize cross-type search semantics for list/card/detail consistency.
+- [ ] Tighten filter/sort behavior for large mixed-media libraries.
+- [ ] Tune dedupe fallback precedence and confidence thresholds per provider/media type.
+- [ ] Improve duplicate-vs-near-match classification and audit export clarity.
+- [ ] Add benchmark evidence for key mixed-media query paths.
+- [ ] Add regression checks for no manual refresh dependence in filter/sort flows.
+
+### Acceptance Criteria
+
+- Search/filter/sort works consistently across media types in large libraries.
+- Dedupe quality improves with measurable reduction in false-positive merges.
+- Audit outputs clearly identify dedupe/match decisions.
+- Benchmarks and regression checks are green.
+
 ## 2.5.0 — Invite/Reset Security and Secret Exfiltration Hardening
 
 **Goal:** Strengthen credential-recovery and invitation workflows while reducing practical token/secret exfiltration surface before UX-focused 2.5 work.
@@ -1276,6 +1318,11 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 - Operator guidance and incident handling:
   - document break-glass recovery for lost admin access and secret rotation order,
   - add troubleshooting guidance for SMTP delivery failures and token invalidation.
+- External API authentication for automation (non-browser clients):
+  - add Personal Access Tokens (PAT) with scoped permissions (`media:read`, `media:write`, `import:run`, `admin:*` as needed),
+  - store token hashes only (one-time reveal), with revoke + optional expiry,
+  - apply CSRF only to cookie-session browser flows; PAT-authenticated API calls bypass CSRF with scope checks and full audit logging,
+  - add optional service-account keys for machine-to-machine use with tighter endpoint/scope constraints.
 
 ### Acceptance Criteria
 
@@ -1284,6 +1331,7 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 - Browser auth paths do not depend on localStorage/sessionStorage bearer tokens.
 - Security checks assert no plaintext credential/token leakage in activity logs and integration responses.
 - Existing media/import/admin workflows remain functional after hardening.
+- External automation clients can call GET/PUT/PATCH securely via PAT without copying session/CSRF tokens.
 
 ## 2.7.0 — UI Refinement Sprint (Cross-Device Consistency)
 
@@ -1311,7 +1359,7 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 - Mobile-optimized barcode scanning UI (camera input with real-time scan feedback).
 - Email delivery for invites via SMTP (already stubbed in `env.example`).
 
-## 2.4.0 — Events and Memorabilia Tracking
+## 2.4.2 — Events and Memorabilia Tracking
 
 **Goal:** Add optional event tracking for conventions/festivals while keeping core media catalog flows simple.
 
@@ -1370,7 +1418,7 @@ Deferred tenancy planning has been moved to a separate roadmap document:
     - `events.attachment.upload|delete`.
   - Require image upload validation (mime/size caps) using existing object storage pathway.
 
-## 2.4.2 — Collectables, Art, and Cards Taxonomy Expansion
+## 2.4.4 — Collectables, Art, and Cards Taxonomy Expansion
 
 **Goal:** Add non-media collection tracking for physical memorabilia that does not fit Movies/TV/Books/Audio/Games.
 
