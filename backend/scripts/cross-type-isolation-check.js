@@ -68,8 +68,8 @@ function assert(condition, message) {
 
 async function main() {
   const suffix = Date.now();
-  const bootstrapAdminEmail = `xtype-admin-${suffix}@example.com`;
-  const bootstrapAdminPassword = 'Passw0rd!123';
+  const bootstrapAdminEmail = process.env.RBAC_ADMIN_EMAIL || process.env.ADMIN_EMAIL || 'ci-rbac-admin@example.com';
+  const bootstrapAdminPassword = process.env.RBAC_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || 'Passw0rd!123';
   let activeAdminEmail = bootstrapAdminEmail;
   let activeAdminPassword = bootstrapAdminPassword;
   const admin = new HttpClient('admin');
@@ -81,22 +81,20 @@ async function main() {
     body: { email: bootstrapAdminEmail, password: bootstrapAdminPassword, name: 'CrossType Admin' }
   });
   if (registerAdmin.status !== 200) {
-    const fallbackEmail = process.env.RBAC_ADMIN_EMAIL || process.env.ADMIN_EMAIL || '';
-    const fallbackPassword = process.env.RBAC_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || '';
-    const inviteRequired = registerAdmin?.data?.error === 'An invite token is required to register';
-    if (!inviteRequired || !fallbackEmail || !fallbackPassword) {
-      throw new Error(
-        `[admin] Unable to bootstrap admin via register (${registerAdmin.status}). ` +
-        'For non-empty databases set RBAC_ADMIN_EMAIL and RBAC_ADMIN_PASSWORD.'
-      );
-    }
+    const fallbackEmail = process.env.RBAC_ADMIN_EMAIL || process.env.ADMIN_EMAIL || bootstrapAdminEmail;
+    const fallbackPassword = process.env.RBAC_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || bootstrapAdminPassword;
     await admin.fetchCsrfToken();
-    await admin.request('/api/auth/login', {
+    const loginFallback = await admin.request('/api/auth/login', {
       method: 'POST',
       withCsrf: true,
-      expectStatus: 200,
       body: { email: fallbackEmail, password: fallbackPassword }
     });
+    if (loginFallback.status !== 200) {
+      throw new Error(
+        `[admin] Unable to bootstrap admin via register (${registerAdmin.status}) ` +
+        `or login (${loginFallback.status}). Set RBAC_ADMIN_EMAIL and RBAC_ADMIN_PASSWORD if needed.`
+      );
+    }
     activeAdminEmail = fallbackEmail;
     activeAdminPassword = fallbackPassword;
   }

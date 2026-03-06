@@ -106,9 +106,9 @@ const assertStatusOneOf = (response, expected, label) => {
 
 async function main() {
   const suffix = Date.now();
-  const adminEmail = `rbac-admin-${suffix}@example.com`;
+  const adminEmail = process.env.RBAC_ADMIN_EMAIL || process.env.ADMIN_EMAIL || 'ci-rbac-admin@example.com';
   const userEmail = `rbac-user-${suffix}@example.com`;
-  const adminPassword = 'Passw0rd!123';
+  const adminPassword = process.env.RBAC_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || 'Passw0rd!123';
   const userPassword = 'Passw0rd!123';
 
   const admin = new HttpClient('admin');
@@ -121,22 +121,18 @@ async function main() {
     body: { email: adminEmail, password: adminPassword, name: 'RBAC Admin' }
   });
   if (registerAdmin.status !== 200) {
-    const fallbackEmail = process.env.RBAC_ADMIN_EMAIL || '';
-    const fallbackPassword = process.env.RBAC_ADMIN_PASSWORD || '';
-    const inviteRequired = registerAdmin?.data?.error === 'An invite token is required to register';
-    if (!inviteRequired || !fallbackEmail || !fallbackPassword) {
-      throw new Error(
-        `[admin] Unable to bootstrap admin via register (${registerAdmin.status}). ` +
-        'For non-empty databases set RBAC_ADMIN_EMAIL and RBAC_ADMIN_PASSWORD.'
-      );
-    }
     await admin.fetchCsrfToken();
-    await admin.request('/api/auth/login', {
+    const loginFallback = await admin.request('/api/auth/login', {
       method: 'POST',
       withCsrf: true,
-      expectStatus: 200,
       body: { email: fallbackEmail, password: fallbackPassword }
     });
+    if (loginFallback.status !== 200) {
+      throw new Error(
+        `[admin] Unable to bootstrap admin via register (${registerAdmin.status}) ` +
+        `or login (${loginFallback.status}). Set RBAC_ADMIN_EMAIL and RBAC_ADMIN_PASSWORD if needed.`
+      );
+    }
   }
 
   await admin.fetchCsrfToken();
