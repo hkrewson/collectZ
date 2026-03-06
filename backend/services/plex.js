@@ -102,7 +102,13 @@ const normalizePlexItem = (item) => {
   const isTv = rawType === 'show' || rawType === 'episode';
   const isAudio = rawType === 'artist' || rawType === 'album' || rawType === 'track';
   const seriesTitle = item.grandparentTitle || item.parentTitle || item.title || item.originalTitle || null;
-  const seriesRatingKey = item.grandparentRatingKey || item.parentRatingKey || item.ratingKey || null;
+  const seriesRatingKey = item.grandparentRatingKey
+    || item.grandparentKey
+    || item.parentRatingKey
+    || item.parentKey
+    || item.ratingKey
+    || item.key
+    || null;
   const audioTitle = rawType === 'track'
     ? (item.parentTitle || item.grandparentTitle || item.title || item.originalTitle || null)
     : (item.title || item.originalTitle || null);
@@ -155,10 +161,16 @@ const normalizePlexVariant = (item, sectionId) => {
   const media = Array.isArray(item.Media) ? item.Media[0] : item.Media;
   const part = media?.Part && Array.isArray(media.Part) ? media.Part[0] : media?.Part;
   const seasonNumber = item.parentIndex ? Number(item.parentIndex) : null;
-  const tvSeriesKey = item.grandparentRatingKey || item.parentRatingKey || item.ratingKey || null;
+  const tvSeriesKey = item.grandparentRatingKey
+    || item.grandparentKey
+    || item.parentRatingKey
+    || item.parentKey
+    || item.ratingKey
+    || item.key
+    || null;
   const sourceItemKey = rawType === 'episode' && tvSeriesKey && Number.isInteger(seasonNumber)
     ? `${sectionId}:show:${tvSeriesKey}:season:${seasonNumber}`
-    : (item.ratingKey ? `${sectionId}:${item.ratingKey}` : null);
+    : ((item.ratingKey || item.key) ? `${sectionId}:${item.ratingKey || item.key}` : null);
   const sourcePartId = part?.id ? String(part.id) : null;
   const sourceMediaId = media?.id ? String(media.id) : null;
   const filePath = part?.file || null;
@@ -170,6 +182,7 @@ const normalizePlexVariant = (item, sectionId) => {
     source_item_key: sourceItemKey,
     source_media_id: sourceMediaId,
     source_part_id: rawType === 'episode' ? null : sourcePartId,
+    season_number: Number.isInteger(seasonNumber) && seasonNumber > 0 ? seasonNumber : null,
     edition: derivedEdition || extractEditionFromPath(filePath),
     file_path: filePath,
     container: media?.container || part?.container || null,
@@ -268,10 +281,37 @@ const fetchPlexLibraryItems = async (config, sectionIds = []) => {
   return items;
 };
 
+const fetchPlexShowSeasons = async (config, ratingKey) => {
+  if (!ratingKey) return [];
+  const response = await plexRequest(config, `/library/metadata/${String(ratingKey)}/children`);
+  if (response.status >= 400) {
+    const message = typeof response.data === 'string'
+      ? response.data.slice(0, 200)
+      : response.data?.error || response.statusText;
+    throw new Error(`Plex show seasons request failed (${response.status}): ${message}`);
+  }
+  const entries = [
+    ...parsePlexVideos(response.data),
+    ...parsePlexDirectoriesInSection(response.data)
+  ];
+  const seasonNumbers = new Set();
+  for (const entry of entries) {
+    const type = String(entry?.type || '').toLowerCase();
+    if (type !== 'season') continue;
+    const raw = entry?.index ?? entry?.parentIndex ?? null;
+    const season = Number(raw);
+    if (Number.isInteger(season) && season > 0) {
+      seasonNumbers.add(season);
+    }
+  }
+  return [...seasonNumbers].sort((a, b) => a - b);
+};
+
 module.exports = {
   resolvePlexPreset,
   fetchPlexSections,
   fetchPlexLibraryItems,
+  fetchPlexShowSeasons,
   normalizePlexItem,
   normalizePlexVariant
 };

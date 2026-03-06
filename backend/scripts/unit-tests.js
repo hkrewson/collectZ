@@ -113,6 +113,7 @@ results.push(run('plex.normalizePlexVariant derives season edition + key', () =>
   const out = normalizePlexVariant(input, '7');
   assert.strictEqual(out.source_item_key, '7:show:show-999:season:2');
   assert.strictEqual(out.edition, 'Season 2');
+  assert.strictEqual(out.season_number, 2);
   assert.strictEqual(out.source_part_id, null);
   assert.strictEqual(out.video_codec, 'h264');
 }));

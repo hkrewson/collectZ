@@ -11,7 +11,7 @@ const { loadAdminIntegrationConfig } = require('../services/integrations');
 const { searchTmdbMovie, fetchTmdbMovieDetails } = require('../services/tmdb');
 const { normalizeBarcodeMatches } = require('../services/barcode');
 const { extractVisionText, extractTitleCandidates } = require('../services/vision');
-const { fetchPlexLibraryItems } = require('../services/plex');
+const { fetchPlexLibraryItems, fetchPlexShowSeasons } = require('../services/plex');
 const { searchBooksByTitle, searchBooksByIsbn } = require('../services/books');
 const { searchAudioByTitle } = require('../services/audio');
 const { searchGamesByTitle } = require('../services/games');
@@ -1606,6 +1606,9 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
   let tmdbPosterLookupMisses = 0;
   let variantsCreated = 0;
   let variantsUpdated = 0;
+  let seasonsCreated = 0;
+  let seasonsUpdated = 0;
+  const processedShowSeasonKeys = new Set();
   let items = [];
   const tmdbEnrichmentCache = new Map();
   const providerEnrichmentCache = new Map();
@@ -1693,6 +1696,80 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
       payload
     );
     variantsCreated += 1;
+  };
+  const upsertMediaSeason = async (mediaId, mediaRow, variant) => {
+    if (!mediaId || !mediaRow || mediaRow.media_type !== 'tv_series') return;
+    const fromVariant = Number(variant?.season_number);
+    const fromMedia = Number(mediaRow?.season_number);
+    let seasonNumber = Number.isInteger(fromVariant) && fromVariant > 0 ? fromVariant : null;
+    if (!seasonNumber && Number.isInteger(fromMedia) && fromMedia > 0) seasonNumber = fromMedia;
+    if (!seasonNumber && variant?.source_item_key) {
+      const keyMatch = String(variant.source_item_key).match(/:season:(\d+)/i);
+      if (keyMatch?.[1]) seasonNumber = Number(keyMatch[1]);
+    }
+    if (!seasonNumber && variant?.edition) {
+      const editionMatch = String(variant.edition).match(/season\s*(\d+)/i);
+      if (editionMatch?.[1]) seasonNumber = Number(editionMatch[1]);
+    }
+    if (!Number.isInteger(seasonNumber) || seasonNumber <= 0) return;
+
+    const updated = await pool.query(
+      `UPDATE media_seasons
+       SET source = $3
+       WHERE media_id = $1
+         AND season_number = $2
+       RETURNING id`,
+      [mediaId, seasonNumber, variant?.source || 'plex']
+    );
+    if (updated.rows.length > 0) {
+      seasonsUpdated += 1;
+      return;
+    }
+    await pool.query(
+      `INSERT INTO media_seasons (media_id, season_number, source)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (media_id, season_number) DO NOTHING`,
+      [mediaId, seasonNumber, variant?.source || 'plex']
+    );
+    seasonsCreated += 1;
+  };
+  const upsertPlexShowSeasons = async (mediaId, sectionId, plexRatingKey) => {
+    if (!mediaId || !sectionId || !plexRatingKey) return;
+    const dedupeKey = `${sectionId}:${plexRatingKey}`;
+    if (processedShowSeasonKeys.has(dedupeKey)) return;
+    processedShowSeasonKeys.add(dedupeKey);
+    let seasons = [];
+    try {
+      seasons = await fetchPlexShowSeasons(config, plexRatingKey);
+    } catch (error) {
+      summary.enrichmentErrors.push({
+        title: `show:${plexRatingKey}`,
+        type: 'plex_season_fetch',
+        detail: error.message || 'Plex season fetch failed'
+      });
+      return;
+    }
+    for (const seasonNumber of seasons) {
+      const updated = await pool.query(
+        `UPDATE media_seasons
+         SET source = 'plex'
+         WHERE media_id = $1
+           AND season_number = $2
+         RETURNING id`,
+        [mediaId, seasonNumber]
+      );
+      if (updated.rows.length > 0) {
+        seasonsUpdated += 1;
+        continue;
+      }
+      await pool.query(
+        `INSERT INTO media_seasons (media_id, season_number, source)
+         VALUES ($1, $2, 'plex')
+         ON CONFLICT (media_id, season_number) DO NOTHING`,
+        [mediaId, seasonNumber]
+      );
+      seasonsCreated += 1;
+    }
   };
 
   items = await fetchPlexLibraryItems(config, sectionIds);
@@ -1788,7 +1865,8 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
 
     try {
       const plexGuid = media.plex_guid || null;
-      const plexItemKey = media.plex_rating_key ? `${item.sectionId}:${media.plex_rating_key}` : null;
+      const plexRatingKey = media.plex_rating_key || item.raw?.ratingKey || item.raw?.key || null;
+      const plexItemKey = plexRatingKey ? `${item.sectionId}:${plexRatingKey}` : null;
       const dedupKey = buildMediaDedupLockKey({
         ...media,
         plex_rating_key: plexItemKey
@@ -1928,6 +2006,8 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
         await upsertMediaMetadata(existing.id, 'plex_item_key', plexItemKey);
         await upsertMediaMetadata(existing.id, 'plex_section_id', item.sectionId);
         await upsertMediaVariant(existing.id, item.variant);
+        await upsertMediaSeason(existing.id, media, item.variant);
+        await upsertPlexShowSeasons(existing.id, item.sectionId, plexRatingKey);
           summary.updated += 1;
         } else {
         const inserted = await pool.query(
@@ -1977,6 +2057,8 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
           await upsertMediaMetadata(insertedId, 'plex_item_key', plexItemKey);
           await upsertMediaMetadata(insertedId, 'plex_section_id', item.sectionId);
           await upsertMediaVariant(insertedId, item.variant);
+          await upsertMediaSeason(insertedId, media, item.variant);
+          await upsertPlexShowSeasons(insertedId, item.sectionId, plexRatingKey);
           }
           summary.created += 1;
         }
@@ -2004,7 +2086,9 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
     tmdbPosterEnriched,
     tmdbPosterLookupMisses,
     variantsCreated,
-    variantsUpdated
+    variantsUpdated,
+    seasonsCreated,
+    seasonsUpdated
   };
 }
 
@@ -2991,7 +3075,23 @@ router.get('/', asyncHandler(async (req, res) => {
   params.push(limitNum);
   params.push(offset);
   const result = await pool.query(
-    `SELECT * FROM media
+    `SELECT media.*,
+            COALESCE(season_stats.season_count, 0) AS tv_season_count,
+            COALESCE(season_stats.completed_count, 0) AS tv_completed_season_count,
+            CASE
+              WHEN media.media_type = 'tv_series'
+               AND COALESCE(season_stats.season_count, 0) > 0
+               AND COALESCE(season_stats.season_count, 0) = COALESCE(season_stats.completed_count, 0)
+                THEN TRUE
+              ELSE FALSE
+            END AS tv_all_seasons_completed
+     FROM media
+     LEFT JOIN LATERAL (
+       SELECT COUNT(*)::int AS season_count,
+              COUNT(*) FILTER (WHERE ms.is_complete = TRUE OR ms.watch_state = 'completed')::int AS completed_count
+       FROM media_seasons ms
+       WHERE ms.media_id = media.id
+     ) season_stats ON TRUE
      ${where}
      ORDER BY ${sortExpression}
      LIMIT $${params.length - 1}
@@ -4057,6 +4157,8 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
             tmdbPosterLookupMisses: result.tmdbPosterLookupMisses,
             variantsCreated: result.variantsCreated,
             variantsUpdated: result.variantsUpdated,
+            seasonsCreated: result.seasonsCreated,
+            seasonsUpdated: result.seasonsUpdated,
             enrichmentErrors: result.summary.enrichmentErrors || []
           },
           progress: {
@@ -4081,6 +4183,8 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
           tmdbPosterLookupMisses: result.tmdbPosterLookupMisses,
           variantsCreated: result.variantsCreated,
           variantsUpdated: result.variantsUpdated,
+          seasonsCreated: result.seasonsCreated,
+          seasonsUpdated: result.seasonsUpdated,
           enrichmentErrorCount: (result.summary.enrichmentErrors || []).length,
           jobId: job.id
         });
@@ -4130,6 +4234,8 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
       tmdbPosterLookupMisses: result.tmdbPosterLookupMisses,
       variantsCreated: result.variantsCreated,
       variantsUpdated: result.variantsUpdated,
+      seasonsCreated: result.seasonsCreated,
+      seasonsUpdated: result.seasonsUpdated,
       enrichmentErrorCount: (result.summary.enrichmentErrors || []).length
     });
 
