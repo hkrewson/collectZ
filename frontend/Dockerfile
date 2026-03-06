@@ -2,6 +2,8 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+RUN apk upgrade --no-cache zlib
+
 COPY package*.json ./
 RUN npm install
 
@@ -15,6 +17,8 @@ ENV REACT_APP_DEBUG=$REACT_APP_DEBUG
 RUN npm run build
 
 FROM nginx:alpine
+
+RUN apk upgrade --no-cache zlib
 
 COPY --from=builder /app/build /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
