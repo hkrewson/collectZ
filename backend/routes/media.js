@@ -26,6 +26,7 @@ const { mapDeliciousItemTypeToMediaType } = require('../services/importMapping')
 const { normalizeDeliciousRow } = require('../services/deliciousNormalize');
 const { normalizeIdentifierSet } = require('../services/importIdentifiers');
 const { syncNormalizedMetadataForMedia } = require('../services/mediaTaxonomy');
+const { normalizeTypeDetails } = require('../services/typeDetails');
 const { logError, logActivity } = require('../services/audit');
 const { uploadBuffer } = require('../services/storage');
 const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
@@ -81,15 +82,6 @@ const IMPORT_REVIEW_ACTIONS = [
   'search_again',
   'skip_keep_manual'
 ];
-const TYPE_DETAILS_ALLOWED_BY_MEDIA_TYPE = {
-  movie: [],
-  tv_series: [],
-  tv_episode: [],
-  book: ['author', 'isbn', 'publisher', 'edition'],
-  audio: ['artist', 'album', 'track_count'],
-  game: ['platform', 'developer', 'region'],
-  comic_book: ['author', 'isbn', 'publisher', 'edition', 'series', 'issue_number', 'volume', 'writer', 'artist', 'inker', 'colorist', 'cover_date', 'provider_issue_id']
-};
 const parsePlexRatingKeyFromItemKey = (itemKey) => {
   const raw = String(itemKey || '').trim();
   if (!raw) return null;
@@ -205,36 +197,6 @@ function stripIncompatibleTypeSpecificFields(mediaType, payload = {}) {
     delete cleaned.episode_title;
   }
   return cleaned;
-}
-
-function sanitizeTypeDetails(mediaType, rawTypeDetails) {
-  if (!rawTypeDetails || typeof rawTypeDetails !== 'object' || Array.isArray(rawTypeDetails)) {
-    return null;
-  }
-  const normalizedType = normalizeMediaType(mediaType || 'movie', 'movie');
-  const allowedKeys = TYPE_DETAILS_ALLOWED_BY_MEDIA_TYPE[normalizedType] || [];
-  if (!allowedKeys.length) return null;
-  const sanitized = {};
-  for (const key of allowedKeys) {
-    const value = rawTypeDetails[key];
-    if (value === undefined || value === null || value === '') continue;
-    if (key === 'track_count') {
-      const numeric = Number(value);
-      if (Number.isFinite(numeric) && numeric > 0) sanitized[key] = Math.round(numeric);
-    } else {
-      sanitized[key] = String(value).trim();
-    }
-  }
-  return Object.keys(sanitized).length > 0 ? sanitized : null;
-}
-
-function getInvalidTypeDetailsKeys(mediaType, rawTypeDetails) {
-  if (!rawTypeDetails || typeof rawTypeDetails !== 'object' || Array.isArray(rawTypeDetails)) {
-    return [];
-  }
-  const normalizedType = normalizeMediaType(mediaType || 'movie', 'movie');
-  const allowed = new Set(TYPE_DETAILS_ALLOWED_BY_MEDIA_TYPE[normalizedType] || []);
-  return Object.keys(rawTypeDetails).filter((key) => !allowed.has(key));
 }
 
 function normalizeResolution(value) {
@@ -978,7 +940,14 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
   }
   const normalizedMediaType = normalizeMediaType(item.media_type || 'movie', 'movie');
   const normalizedTmdbType = normalizedMediaType === 'tv_series' || normalizedMediaType === 'tv_episode' ? 'tv' : 'movie';
-  const normalizedTypeDetails = sanitizeTypeDetails(normalizedMediaType, item.type_details);
+  const normalizedTypeDetailsResult = normalizeTypeDetails(normalizedMediaType, item.type_details, { strict: true });
+  if ((normalizedTypeDetailsResult.invalidKeys || []).length > 0) {
+    throw new Error(`Invalid type_details key(s) for ${normalizedMediaType}: ${normalizedTypeDetailsResult.invalidKeys.join(', ')}`);
+  }
+  if ((normalizedTypeDetailsResult.errors || []).length > 0) {
+    throw new Error(`Invalid type_details values for ${normalizedMediaType}: ${normalizedTypeDetailsResult.errors.map((entry) => `${entry.key}: ${entry.message}`).join('; ')}`);
+  }
+  const normalizedTypeDetails = normalizedTypeDetailsResult.value;
   const baseIdentifiers = resolveImportIdentifiers(item, identifiers || {});
   const resolvedIdentifiers = normalizedMediaType === 'comic_book'
     ? {
@@ -1568,7 +1537,14 @@ async function applyImportReviewEnrichment({ mediaId, scopeContext = null }) {
   );
   const enriched = enrichmentResult.item || media;
   const normalizedType = normalizeMediaType(media.media_type || 'movie', 'movie');
-  const normalizedTypeDetails = sanitizeTypeDetails(normalizedType, enriched.type_details);
+  const normalizedTypeDetailsResult = normalizeTypeDetails(normalizedType, enriched.type_details, { strict: true });
+  if ((normalizedTypeDetailsResult.invalidKeys || []).length > 0) {
+    throw new Error(`Invalid type_details key(s) for ${normalizedType}: ${normalizedTypeDetailsResult.invalidKeys.join(', ')}`);
+  }
+  if ((normalizedTypeDetailsResult.errors || []).length > 0) {
+    throw new Error(`Invalid type_details values for ${normalizedType}: ${normalizedTypeDetailsResult.errors.map((entry) => `${entry.key}: ${entry.message}`).join('; ')}`);
+  }
+  const normalizedTypeDetails = normalizedTypeDetailsResult.value;
 
   await pool.query(
     `UPDATE media SET
@@ -5174,13 +5150,19 @@ router.post('/', validate(mediaCreateSchema), asyncHandler(async (req, res) => {
     , space_id
   } = req.body;
   const normalizedMediaType = normalizeMediaType(media_type || 'movie', 'movie');
-  const invalidTypeDetailKeys = getInvalidTypeDetailsKeys(normalizedMediaType, type_details);
-  if (invalidTypeDetailKeys.length > 0) {
+  const normalizedTypeDetailsResult = normalizeTypeDetails(normalizedMediaType, type_details, { strict: true });
+  if ((normalizedTypeDetailsResult.invalidKeys || []).length > 0) {
     return res.status(400).json({
-      error: `Invalid type_details key(s) for ${normalizedMediaType}: ${invalidTypeDetailKeys.join(', ')}`
+      error: `Invalid type_details key(s) for ${normalizedMediaType}: ${normalizedTypeDetailsResult.invalidKeys.join(', ')}`
     });
   }
-  const normalizedTypeDetails = sanitizeTypeDetails(normalizedMediaType, type_details);
+  if ((normalizedTypeDetailsResult.errors || []).length > 0) {
+    return res.status(400).json({
+      error: `Invalid type_details values for ${normalizedMediaType}`,
+      details: normalizedTypeDetailsResult.errors
+    });
+  }
+  const normalizedTypeDetails = normalizedTypeDetailsResult.value;
   const fieldValidationError = validateTypeSpecificFields(normalizedMediaType, req.body);
   if (fieldValidationError) {
     return res.status(400).json({ error: fieldValidationError });
@@ -5266,13 +5248,19 @@ router.patch('/:id', validate(mediaUpdateSchema), asyncHandler(async (req, res) 
   }
   if (Object.prototype.hasOwnProperty.call(fields, 'type_details')) {
     const detailType = effectiveMediaType || 'movie';
-    const invalidTypeDetailKeys = getInvalidTypeDetailsKeys(detailType, fields.type_details);
-    if (invalidTypeDetailKeys.length > 0) {
+    const normalizedTypeDetailsResult = normalizeTypeDetails(detailType, fields.type_details, { strict: true });
+    if ((normalizedTypeDetailsResult.invalidKeys || []).length > 0) {
       return res.status(400).json({
-        error: `Invalid type_details key(s) for ${detailType}: ${invalidTypeDetailKeys.join(', ')}`
+        error: `Invalid type_details key(s) for ${detailType}: ${normalizedTypeDetailsResult.invalidKeys.join(', ')}`
       });
     }
-    fields.type_details = sanitizeTypeDetails(detailType, fields.type_details);
+    if ((normalizedTypeDetailsResult.errors || []).length > 0) {
+      return res.status(400).json({
+        error: `Invalid type_details values for ${detailType}`,
+        details: normalizedTypeDetailsResult.errors
+      });
+    }
+    fields.type_details = normalizedTypeDetailsResult.value;
   }
 
   const keys = Object.keys(fields);

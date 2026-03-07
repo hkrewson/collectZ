@@ -1266,8 +1266,8 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 - [x] Define canonical `type_details` allow-list per media type (`movie`, `tv_series`, `tv_episode`, `book`, `audio`, `game`, `comic_book`).
 - [x] Enforce type-details allow-list on create and update payloads.
 - [x] Ensure PATCH resolves effective media type from DB when `type_details` is updated without `media_type`.
-- [ ] Normalize type-details coercion by key (for example `track_count`) and reject incompatible shapes.
-- [ ] Ensure import paths sanitize/validate type-details using the same canonical rules.
+- [x] Normalize type-details coercion by key (for example `track_count`) and reject incompatible shapes.
+- [x] Ensure import paths sanitize/validate type-details using the same canonical rules.
 - [x] Add/extend tests for cross-type isolation and invalid type-details key rejection.
 
 ### Acceptance Criteria
@@ -1287,6 +1287,10 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 - [ ] Tighten filter/sort behavior for large mixed-media libraries.
 - [ ] Tune dedupe fallback precedence and confidence thresholds per provider/media type.
 - [ ] Improve duplicate-vs-near-match classification and audit export clarity.
+- [ ] Add collection item add-flow with provider-aware match/update:
+  - first search existing library titles of same media type and link existing on confident match,
+  - otherwise run provider enrichment (TMDB/IGDB) before create,
+  - avoid duplicate creation when near-match already exists by requiring explicit user confirmation.
 - [ ] Add benchmark evidence for key mixed-media query paths.
 - [ ] Add regression checks for no manual refresh dependence in filter/sort flows.
 

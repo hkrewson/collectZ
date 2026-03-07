@@ -6,6 +6,7 @@ const { normalizePlexItem, normalizePlexVariant } = require('../services/plex');
 const { mapDeliciousItemTypeToMediaType } = require('../services/importMapping');
 const { normalizeDeliciousRow } = require('../services/deliciousNormalize');
 const { normalizeIsbn, normalizeIdentifierSet } = require('../services/importIdentifiers');
+const { normalizeTypeDetails } = require('../services/typeDetails');
 const { extractScopeHints, resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
 
 function run(name, fn) {
@@ -184,6 +185,32 @@ results.push(run('importIdentifiers normalizes identifier set fields', () => {
   assert.strictEqual(out.isbn, '9780316769480');
   assert.strictEqual(out.eanUpc, '012345678905');
   assert.strictEqual(out.asin, 'B00005NZ1G');
+}));
+
+results.push(run('typeDetails normalizes allowed keys with coercion', () => {
+  const out = normalizeTypeDetails('audio', {
+    artist: '  Pink Floyd ',
+    album: ' The Wall ',
+    track_count: '26'
+  }, { strict: true });
+  assert.deepStrictEqual(out.invalidKeys, []);
+  assert.deepStrictEqual(out.errors, []);
+  assert.deepStrictEqual(out.value, {
+    artist: 'Pink Floyd',
+    album: 'The Wall',
+    track_count: 26
+  });
+}));
+
+results.push(run('typeDetails rejects invalid keys and incompatible values in strict mode', () => {
+  const out = normalizeTypeDetails('book', {
+    author: 'Hugh Howey',
+    platform: 'PS5',
+    isbn: { nested: true }
+  }, { strict: true });
+  assert.deepStrictEqual(out.invalidKeys, ['platform']);
+  assert.strictEqual(out.errors.length, 1);
+  assert.strictEqual(out.errors[0].key, 'isbn');
 }));
 
 if (results.some((ok) => !ok)) {

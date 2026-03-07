@@ -1,5 +1,6 @@
 const { z } = require('zod');
 const { logActivity } = require('../services/audit');
+const { normalizeTypeDetails } = require('../services/typeDetails');
 
 const emptyStringToNull = (value) => (
   typeof value === 'string' && value.trim() === '' ? null : value
@@ -23,15 +24,6 @@ const loginSchema = z.object({
 
 const MEDIA_FORMATS = ['VHS', 'Blu-ray', 'Digital', 'DVD', '4K UHD', 'Paperback', 'Hardcover', 'Trade'];
 const MEDIA_TYPES = ['movie', 'tv_series', 'tv_episode', 'book', 'audio', 'game', 'comic_book'];
-const TYPE_DETAILS_ALLOWED_BY_MEDIA_TYPE = {
-  movie: [],
-  tv_series: [],
-  tv_episode: [],
-  book: ['author', 'isbn', 'publisher', 'edition'],
-  audio: ['artist', 'album', 'track_count'],
-  game: ['platform', 'developer', 'region'],
-  comic_book: ['author', 'isbn', 'publisher', 'edition', 'series', 'issue_number', 'volume', 'writer', 'artist', 'inker', 'colorist', 'cover_date', 'provider_issue_id']
-};
 const nullableDateSchema = z.preprocess(
   emptyStringToNull,
   z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (YYYY-MM-DD)').optional().nullable()
@@ -108,12 +100,19 @@ const mediaCreateSchema = mediaBaseSchema.superRefine((data, ctx) => {
     });
   }
   if (data.type_details && typeof data.type_details === 'object') {
-    const allowed = new Set(TYPE_DETAILS_ALLOWED_BY_MEDIA_TYPE[mediaType] || []);
-    const invalidKeys = Object.keys(data.type_details).filter((k) => !allowed.has(k));
+    const normalized = normalizeTypeDetails(mediaType, data.type_details, { strict: true });
+    const invalidKeys = normalized.invalidKeys || [];
     if (invalidKeys.length > 0) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: `Invalid type_details key(s) for ${mediaType}: ${invalidKeys.join(', ')}`
+      });
+    }
+    for (const detailError of (normalized.errors || [])) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['type_details', detailError.key],
+        message: detailError.message
       });
     }
   }
@@ -130,12 +129,19 @@ const mediaUpdateSchema = mediaBaseSchema.partial().superRefine((data, ctx) => {
   }
   if (data.type_details && typeof data.type_details === 'object' && data.media_type) {
     const mediaType = data.media_type;
-    const allowed = new Set(TYPE_DETAILS_ALLOWED_BY_MEDIA_TYPE[mediaType] || []);
-    const invalidKeys = Object.keys(data.type_details).filter((k) => !allowed.has(k));
+    const normalized = normalizeTypeDetails(mediaType, data.type_details, { strict: true });
+    const invalidKeys = normalized.invalidKeys || [];
     if (invalidKeys.length > 0) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: `Invalid type_details key(s) for ${mediaType}: ${invalidKeys.join(', ')}`
+      });
+    }
+    for (const detailError of (normalized.errors || [])) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['type_details', detailError.key],
+        message: detailError.message
       });
     }
   }
