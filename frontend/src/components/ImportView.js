@@ -13,7 +13,18 @@ export default function ImportView({
   cx,
   activeLibrary = null
 }) {
-  const [tab, setTab] = useState(canImportPlex ? 'plex' : 'csv');
+  const importSections = useMemo(
+    () => ([
+      { id: 'barcode', label: 'Barcode', enabled: true },
+      { id: 'calibre', label: 'Calibre', enabled: true },
+      { id: 'csv', label: 'CSV', enabled: true },
+      { id: 'delicious', label: 'Delicious', enabled: true },
+      { id: 'plex', label: 'Plex', enabled: canImportPlex }
+    ]),
+    [canImportPlex]
+  );
+  const firstEnabledSection = importSections.find((section) => section.enabled)?.id || 'barcode';
+  const [tab, setTab] = useState(firstEnabledSection);
   const [busy, setBusy] = useState('');
   const [result, setResult] = useState('');
   const [barcodeUpc, setBarcodeUpc] = useState('');
@@ -181,14 +192,13 @@ export default function ImportView({
     }
   };
 
-  const tabs = [
-    ...(canImportPlex ? [{ id: 'plex', label: 'Plex' }] : []),
-    { id: 'barcode', label: 'Barcode' },
-    { id: 'calibre', label: 'Calibre CSV' },
-    { id: 'csv', label: 'Generic CSV' },
-    { id: 'delicious', label: 'Delicious CSV' }
-  ];
+  useEffect(() => {
+    if (importSections.some((section) => section.id === tab && section.enabled)) return;
+    setTab(firstEnabledSection);
+  }, [firstEnabledSection, importSections, tab]);
+
   const hasActiveLibrary = Boolean(activeLibrary?.id);
+  const activeSectionLabel = importSections.find((section) => section.id === tab)?.label || tab;
   const recentJobs = useMemo(
     () => importJobs
       .filter((job) => ['plex', 'csv_generic', 'csv_calibre', 'csv_delicious'].includes(job.provider))
@@ -218,15 +228,41 @@ export default function ImportView({
         <p className="text-sm text-ghost mt-1">Add titles from external sources into your library.</p>
       </div>
 
-      <div className="tab-strip w-full max-w-xl">
-        {tabs.map((t) => (
-          <button key={t.id} className={cx('tab flex-1', tab === t.id && 'active')} onClick={() => setTab(t.id)}>
-            {t.label}
-          </button>
-        ))}
+      <div className="md:hidden">
+        <label className="label">Import Source</label>
+        <select className="select mt-1" value={tab} onChange={(e) => setTab(e.target.value)}>
+          {importSections.map((section) => (
+            <option key={section.id} value={section.id} disabled={!section.enabled}>
+              {section.label}{section.enabled ? '' : ' (Unavailable)'}
+            </option>
+          ))}
+        </select>
       </div>
 
-      <div className="card p-5 space-y-4">
+      <div className="grid gap-4 md:grid-cols-[220px_minmax(0,1fr)] items-start">
+        <div className="hidden md:block card p-2 space-y-1">
+          {importSections.map((section) => (
+            <button
+              key={section.id}
+              onClick={() => { if (section.enabled) setTab(section.id); }}
+              disabled={!section.enabled}
+              className={cx(
+                'w-full flex items-center gap-2 px-3 h-9 rounded-md text-sm text-left transition-colors',
+                tab === section.id
+                  ? 'bg-raised border border-edge text-ink'
+                  : 'text-dim hover:text-ink hover:bg-raised',
+                !section.enabled && 'opacity-50 cursor-not-allowed hover:bg-transparent hover:text-dim'
+              )}
+            >
+              <span className="flex-1">{section.label}</span>
+            </button>
+          ))}
+        </div>
+
+      <div className="card p-5 space-y-4 min-w-0">
+        <div className="flex items-center justify-between gap-3 border-b border-edge pb-3">
+          <h2 className="text-sm font-semibold tracking-wide uppercase text-dim">{activeSectionLabel}</h2>
+        </div>
         {tab === 'plex' && (
           <>
             <p className="text-sm text-dim">Import titles from your configured Plex server and selected sections.</p>
@@ -364,6 +400,7 @@ export default function ImportView({
             )}
           </>
         )}
+      </div>
       </div>
 
       <div className="card p-4 text-xs text-ghost space-y-1">

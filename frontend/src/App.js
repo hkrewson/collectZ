@@ -309,7 +309,7 @@ export default function App() {
     const passthrough = [
       'page', 'limit', 'search', 'format', 'media_type', 'sortBy', 'sortDir',
       'director', 'genre', 'cast', 'resolution', 'yearMin', 'yearMax',
-      'ratingMin', 'ratingMax', 'userRatingMin', 'userRatingMax'
+      'platform', 'publisher', 'ratingMin', 'ratingMax', 'userRatingMin', 'userRatingMax'
     ];
 
     passthrough.forEach((key) => {

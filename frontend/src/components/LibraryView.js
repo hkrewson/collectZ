@@ -1512,7 +1512,17 @@ export default function LibraryView({
   const VIEW_MODE_STORAGE_KEY = 'collectz_library_view_mode';
   const [searchInput, setSearchInput] = useState('');
   const [resolutionInput, setResolutionInput] = useState('all');
-  const [filters, setFilters] = useState({ media_type: forcedMediaType || 'movie', search: '', resolution: 'all', sortBy: 'title', sortDir: 'asc' });
+  const [platformInput, setPlatformInput] = useState('all');
+  const [publisherInput, setPublisherInput] = useState('all');
+  const [filters, setFilters] = useState({
+    media_type: forcedMediaType || 'movie',
+    search: '',
+    resolution: 'all',
+    platform: 'all',
+    publisher: 'all',
+    sortBy: 'title',
+    sortDir: 'asc'
+  });
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(() => {
     const saved = Number(window.localStorage.getItem(PAGE_SIZE_STORAGE_KEY));
@@ -1555,6 +1565,49 @@ export default function LibraryView({
   const useComicFullFetch = isComicsLibrary;
   const requestPage = useComicFullFetch ? 1 : page;
   const requestLimit = useComicFullFetch ? 5000 : pageSize;
+  const quickFilterConfig = useMemo(() => {
+    if (forcedMediaType === 'movie' || forcedMediaType === 'tv') {
+      return {
+        key: 'resolution',
+        label: 'Resolution',
+        value: resolutionInput,
+        options: [
+          { value: 'all', label: 'All resolutions' },
+          { value: 'SD', label: 'SD' },
+          { value: '720p', label: '720p' },
+          { value: '1080p', label: '1080p' },
+          { value: '4K', label: '4K' }
+        ]
+      };
+    }
+    if (forcedMediaType === 'game') {
+      const platforms = [...new Set(
+        mediaItems
+          .map((item) => String(item?.type_details?.platform || '').trim())
+          .filter(Boolean)
+      )].sort((a, b) => a.localeCompare(b));
+      return {
+        key: 'platform',
+        label: 'Platform',
+        value: platformInput,
+        options: [{ value: 'all', label: 'All platforms' }, ...platforms.map((value) => ({ value, label: value }))]
+      };
+    }
+    if (forcedMediaType === 'comic_book') {
+      const publishers = [...new Set(
+        mediaItems
+          .map((item) => String(item?.type_details?.publisher || '').trim())
+          .filter(Boolean)
+      )].sort((a, b) => a.localeCompare(b));
+      return {
+        key: 'publisher',
+        label: 'Publisher',
+        value: publisherInput,
+        options: [{ value: 'all', label: 'All publishers' }, ...publishers.map((value) => ({ value, label: value }))]
+      };
+    }
+    return null;
+  }, [forcedMediaType, mediaItems, platformInput, publisherInput, resolutionInput]);
 
   useEffect(() => {
     const handle = window.setTimeout(() => {
@@ -1578,8 +1631,17 @@ export default function LibraryView({
 
   useEffect(() => {
     if (!forcedMediaType) return;
-    setFilters((f) => ({ ...f, media_type: forcedMediaType }));
+    setFilters((f) => ({
+      ...f,
+      media_type: forcedMediaType,
+      resolution: 'all',
+      platform: 'all',
+      publisher: 'all'
+    }));
     setPage(1);
+    setResolutionInput('all');
+    setPlatformInput('all');
+    setPublisherInput('all');
     setCollectionMode('all');
     setCollectionRows([]);
     setCollectionError('');
@@ -1734,18 +1796,31 @@ export default function LibraryView({
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ghost pointer-events-none"><Icons.Search /></span>
             <input className="input pl-9 w-56" placeholder="Search title, director…" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} />
           </div>
-          <select className="select w-36" value={resolutionInput} onChange={(e) => {
-            const value = e.target.value;
-            setResolutionInput(value);
-            setFilters((f) => ({ ...f, resolution: value }));
-            setPage(1);
-          }}>
-            <option value="all">All resolutions</option>
-            <option value="SD">SD</option>
-            <option value="720p">720p</option>
-            <option value="1080p">1080p</option>
-            <option value="4K">4K</option>
-          </select>
+          {quickFilterConfig && (
+            <select
+              className="select w-40"
+              value={quickFilterConfig.value}
+              aria-label={quickFilterConfig.label}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (quickFilterConfig.key === 'resolution') {
+                  setResolutionInput(value);
+                  setFilters((f) => ({ ...f, resolution: value }));
+                } else if (quickFilterConfig.key === 'platform') {
+                  setPlatformInput(value);
+                  setFilters((f) => ({ ...f, platform: value }));
+                } else if (quickFilterConfig.key === 'publisher') {
+                  setPublisherInput(value);
+                  setFilters((f) => ({ ...f, publisher: value }));
+                }
+                setPage(1);
+              }}
+            >
+              {quickFilterConfig.options.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          )}
           <div className="tab-strip">
             <button className={cx('tab', viewMode === 'cards' && 'active')} onClick={() => setViewMode('cards')}><Icons.Film /></button>
             <button className={cx('tab', viewMode === 'list' && 'active')} onClick={() => setViewMode('list')}><Icons.List /></button>
@@ -1831,8 +1906,8 @@ export default function LibraryView({
           <EmptyState
             icon={<Icons.Film />}
             title="No items found"
-            subtitle={filters.search || filters.resolution !== 'all' ? 'Try adjusting your filters' : 'Add your first title to get started'}
-            action={!filters.search && filters.resolution === 'all' && <button onClick={() => setAdding(true)} className="btn-primary"><Icons.Plus />Add Media</button>}
+            subtitle={filters.search || filters.resolution !== 'all' || filters.platform !== 'all' || filters.publisher !== 'all' ? 'Try adjusting your filters' : 'Add your first title to get started'}
+            action={!filters.search && filters.resolution === 'all' && filters.platform === 'all' && filters.publisher === 'all' && <button onClick={() => setAdding(true)} className="btn-primary"><Icons.Plus />Add Media</button>}
           />
         )}
 

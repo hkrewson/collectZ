@@ -3452,7 +3452,7 @@ router.get('/', asyncHandler(async (req, res) => {
     format, search, page, limit,
     sortBy, sortDir,
     media_type,
-    director, genre, cast, resolution,
+    director, genre, cast, resolution, platform, publisher,
     yearMin, yearMax,
     ratingMin, ratingMax,
     userRatingMin, userRatingMax
@@ -3674,6 +3674,18 @@ router.get('/', asyncHandler(async (req, res) => {
           OR (mv.resolution ILIKE '%' || $${idx} || '%')
         )
     )`;
+  }
+
+  const normalizedPlatform = String(platform || '').trim();
+  if (normalizedPlatform && normalizedPlatform.toLowerCase() !== 'all') {
+    params.push(`%${normalizedPlatform}%`);
+    where += ` AND COALESCE(type_details->>'platform', '') ILIKE $${params.length}`;
+  }
+
+  const normalizedPublisher = String(publisher || '').trim();
+  if (normalizedPublisher && normalizedPublisher.toLowerCase() !== 'all') {
+    params.push(`%${normalizedPublisher}%`);
+    where += ` AND COALESCE(type_details->>'publisher', '') ILIKE $${params.length}`;
   }
 
   where += appendScopeSql(params, scopeContext);
