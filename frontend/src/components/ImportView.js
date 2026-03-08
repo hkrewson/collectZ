@@ -31,15 +31,22 @@ export default function ImportView({
     if (!auditRows.length) return;
     const esc = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
     const lines = [
-      ['row', 'status', 'title', 'detail', 'match_mode', 'matched_by', 'enrichment_status', 'isbn', 'ean_upc', 'asin'].map(esc).join(','),
+      ['row', 'media_type', 'status', 'audit_outcome', 'classification_detail', 'title', 'detail', 'match_mode', 'matched_by', 'enrichment_status', 'lookup_path', 'lookup_status', 'confidence_score', 'review_queued', 'isbn', 'ean_upc', 'asin'].map(esc).join(','),
       ...auditRows.map((r) => [
         r.row,
+        r.media_type || '',
         r.status,
+        r.audit_outcome || '',
+        r.classification_detail || '',
         r.title,
         r.detail,
         r.match_mode || '',
         r.matched_by || '',
         r.enrichment_status || '',
+        r.lookup_path || '',
+        r.lookup_status || '',
+        r.confidence_score ?? '',
+        r.review_queued ?? '',
         r.isbn || '',
         r.ean_upc || '',
         r.asin || ''
@@ -183,7 +190,10 @@ export default function ImportView({
   ];
   const hasActiveLibrary = Boolean(activeLibrary?.id);
   const recentJobs = useMemo(
-    () => importJobs.filter((job) => ['plex', 'csv_generic', 'csv_calibre', 'csv_delicious'].includes(job.provider)).slice(0, 5),
+    () => importJobs
+      .filter((job) => ['plex', 'csv_generic', 'csv_calibre', 'csv_delicious'].includes(job.provider))
+      .sort((a, b) => Number(b?.id || 0) - Number(a?.id || 0))
+      .slice(0, 5),
     [importJobs]
   );
   useEffect(() => {
@@ -359,7 +369,7 @@ export default function ImportView({
       <div className="card p-4 text-xs text-ghost space-y-1">
         <p>Import behavior:</p>
         <p>- Existing titles are matched identifier-first (ISBN/EAN/ASIN), then provider IDs, then title/year fallback.</p>
-        <p>- Audit downloads include normalized identifiers and per-row match mode.</p>
+        <p>- Audit downloads include normalized identifiers, match mode, and duplicate-vs-near-match outcome.</p>
         <p>- Provider enrichment runs during import when configured.</p>
       </div>
 

@@ -572,9 +572,10 @@ function CollectionEditor({ collectionId, apiCall, onClose, onSaved }) {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [data, setData] = useState(null);
-  const [name, setName] = useState('');
-  const [expectedCount, setExpectedCount] = useState('');
   const [newItemTitle, setNewItemTitle] = useState('');
+  const [searchMatches, setSearchMatches] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [selectedMatchId, setSelectedMatchId] = useState(null);
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
@@ -583,8 +584,6 @@ function CollectionEditor({ collectionId, apiCall, onClose, onSaved }) {
     try {
       const payload = await apiCall('get', `/media/collections/${collectionId}`);
       setData(payload);
-      setName(payload?.collection?.name || '');
-      setExpectedCount(payload?.collection?.expected_item_count ? String(payload.collection.expected_item_count) : '');
     } catch (err) {
       setError(err?.response?.data?.error || 'Failed to load collection');
     } finally {
@@ -596,30 +595,62 @@ function CollectionEditor({ collectionId, apiCall, onClose, onSaved }) {
     load();
   }, [load]);
 
-  const saveCollection = async () => {
-    setSaving(true);
-    setError('');
-    try {
-      await apiCall('patch', `/media/collections/${collectionId}`, {
-        name: name.trim() || null,
-        expected_item_count: expectedCount ? Number(expectedCount) : null
-      });
-      await load();
-      onSaved?.('Collection updated');
-    } catch (err) {
-      setError(err?.response?.data?.error || 'Failed to save collection');
-    } finally {
-      setSaving(false);
+  useEffect(() => {
+    let active = true;
+    const title = newItemTitle.trim();
+    const mediaType = data?.collection?.media_type;
+    if (!title || !mediaType) {
+      setSearchMatches([]);
+      setSelectedMatchId(null);
+      return () => { active = false; };
     }
-  };
+    const timer = setTimeout(async () => {
+      try {
+        setSearchLoading(true);
+        const params = new URLSearchParams();
+        params.set('media_type', String(mediaType));
+        params.set('search', title);
+        params.set('page', '1');
+        params.set('limit', '8');
+        const payload = await apiCall('get', `/media?${params.toString()}`);
+        if (!active) return;
+        const items = Array.isArray(payload?.items) ? payload.items : [];
+        setSearchMatches(items);
+        const normalized = title.toLowerCase();
+        const exact = items.find((row) => String(row?.title || '').trim().toLowerCase() === normalized);
+        setSelectedMatchId(exact?.id || null);
+      } catch (_err) {
+        if (active) {
+          setSearchMatches([]);
+          setSelectedMatchId(null);
+        }
+      } finally {
+        if (active) setSearchLoading(false);
+      }
+    }, 250);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [apiCall, data?.collection?.media_type, newItemTitle]);
 
   const addManualItem = async () => {
     if (!newItemTitle.trim()) return;
     setSaving(true);
     setError('');
     try {
-      await apiCall('post', `/media/collections/${collectionId}/items`, { contained_title: newItemTitle.trim() });
+      const payload = { contained_title: newItemTitle.trim() };
+      if (Number.isFinite(Number(selectedMatchId)) && Number(selectedMatchId) > 0) {
+        payload.media_id = Number(selectedMatchId);
+      } else if (searchMatches.length > 0) {
+        setError('Select an existing match before adding. New item creation is only used when no matches exist.');
+        setSaving(false);
+        return;
+      }
+      await apiCall('post', `/media/collections/${collectionId}/items`, payload);
       setNewItemTitle('');
+      setSearchMatches([]);
+      setSelectedMatchId(null);
       await load();
       onSaved?.('Collection item added');
     } catch (err) {
@@ -672,19 +703,12 @@ function CollectionEditor({ collectionId, apiCall, onClose, onSaved }) {
           {loading && <div className="flex items-center gap-2 text-dim"><Spinner size={16} />Loading...</div>}
           {!loading && data?.collection && (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <LabeledField label="Collection name">
-                  <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
-                </LabeledField>
-                <LabeledField label="Expected item count">
-                  <input className="input" type="number" min="1" value={expectedCount} onChange={(e) => setExpectedCount(e.target.value)} />
-                </LabeledField>
-                <LabeledField label="Import source">
-                  <input className="input" value={data.collection.import_source || ''} disabled />
-                </LabeledField>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm text-dim">
+                <div><span className="text-ghost">Collection:</span> <span className="text-ink">{data.collection.name || data.collection.source_title || `Collection #${collectionId}`}</span></div>
+                <div><span className="text-ghost">Media type:</span> <span className="text-ink">{data.collection.media_type || 'movie'}</span></div>
+                <div><span className="text-ghost">Import source:</span> <span className="text-ink">{data.collection.import_source || 'manual'}</span></div>
               </div>
               <div className="flex gap-2">
-                <button className="btn-primary" disabled={saving} onClick={saveCollection}><Icons.Check />Save</button>
                 <button className="btn-secondary" disabled={deleting} onClick={convertToIndividuals}>Convert to Individual Titles</button>
               </div>
 
@@ -693,13 +717,38 @@ function CollectionEditor({ collectionId, apiCall, onClose, onSaved }) {
                 <div className="flex gap-2">
                   <input
                     className="input flex-1"
-                    placeholder="Add manual title"
+                    placeholder="Type a title (existing matches are preferred)"
                     value={newItemTitle}
                     onChange={(e) => setNewItemTitle(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') addManualItem(); }}
                   />
                   <button className="btn-secondary" disabled={saving || !newItemTitle.trim()} onClick={addManualItem}>Add</button>
                 </div>
+                {newItemTitle.trim() && (
+                  <div className="rounded-lg border border-edge bg-surface p-2 text-xs">
+                    {searchLoading && <p className="text-ghost">Searching existing titles…</p>}
+                    {!searchLoading && searchMatches.length > 0 && (
+                      <>
+                        <p className="text-ghost mb-1">Select existing title (same media type):</p>
+                        <div className="space-y-1 max-h-36 overflow-y-auto">
+                          {searchMatches.map((row) => (
+                            <button
+                              key={row.id}
+                              type="button"
+                              className={cx('w-full text-left px-2 py-1 rounded border border-edge', Number(selectedMatchId) === Number(row.id) ? 'bg-veil text-ink' : 'text-dim')}
+                              onClick={() => setSelectedMatchId(row.id)}
+                            >
+                              {row.title} {row.year ? `(${row.year})` : ''} · #{row.id}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                    {!searchLoading && searchMatches.length === 0 && (
+                      <p className="text-ghost">No existing matches found. Add will create/link from provider enrichment.</p>
+                    )}
+                  </div>
+                )}
                 <div className="space-y-2">
                   {(data.items || []).map((item) => (
                     <div key={item.id} className="p-2 rounded bg-surface border border-edge flex items-center gap-2">
@@ -1465,6 +1514,7 @@ export default function LibraryView({
   const [editingCollectionId, setEditingCollectionId] = useState(null);
   const [comicView, setComicView] = useState('issues');
   const [comicSeries, setComicSeries] = useState('all');
+  const [debouncedSearchInput, setDebouncedSearchInput] = useState('');
   const supportsHover = useMemo(() => window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches, []);
   const addFormMediaType = useMemo(() => {
     if (forcedMediaType === 'tv') return 'tv_series';
@@ -1486,6 +1536,21 @@ export default function LibraryView({
   const useComicFullFetch = isComicsLibrary;
   const requestPage = useComicFullFetch ? 1 : page;
   const requestLimit = useComicFullFetch ? 5000 : pageSize;
+
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      setDebouncedSearchInput(searchInput.trim());
+    }, 250);
+    return () => window.clearTimeout(handle);
+  }, [searchInput]);
+
+  useEffect(() => {
+    setFilters((f) => {
+      if ((f.search || '') === debouncedSearchInput) return f;
+      return { ...f, search: debouncedSearchInput };
+    });
+    setPage(1);
+  }, [debouncedSearchInput]);
 
   useEffect(() => {
     if (isCollectionMode) return;
@@ -1516,7 +1581,7 @@ export default function LibraryView({
         params.set('media_type', forcedMediaType || 'movie');
         params.set('page', String(page));
         params.set('limit', String(pageSize));
-        if (searchInput.trim()) params.set('search', searchInput.trim());
+        if (debouncedSearchInput) params.set('search', debouncedSearchInput);
         const payload = await apiCall('get', `/media/collections?${params.toString()}`);
         if (!active) return;
         setCollectionRows(Array.isArray(payload?.items) ? payload.items : []);
@@ -1535,7 +1600,7 @@ export default function LibraryView({
     return () => {
       active = false;
     };
-  }, [apiCall, forcedMediaType, isCollectionMode, page, pageSize, searchInput]);
+  }, [apiCall, forcedMediaType, isCollectionMode, page, pageSize, debouncedSearchInput]);
 
   useEffect(() => {
     window.localStorage.setItem(PAGE_SIZE_STORAGE_KEY, String(pageSize));
@@ -1548,17 +1613,6 @@ export default function LibraryView({
   const rate = async (id, rating) => {
     await onRating(id, rating);
     setDetail((d) => (d && d.id === id ? { ...d, user_rating: rating } : d));
-  };
-
-  const applySearch = () => {
-    setFilters({
-      media_type: forcedMediaType || 'movie',
-      search: searchInput.trim(),
-      resolution: resolutionInput,
-      sortBy: 'title',
-      sortDir: filters.sortDir
-    });
-    setPage(1);
   };
 
   const displayedTotal = isCollectionMode
@@ -1654,7 +1708,7 @@ export default function LibraryView({
           <div className="flex-1" />
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ghost pointer-events-none"><Icons.Search /></span>
-            <input className="input pl-9 w-56" placeholder="Search title, director…" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') applySearch(); }} />
+            <input className="input pl-9 w-56" placeholder="Search title, director…" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} />
           </div>
           <select className="select w-36" value={resolutionInput} onChange={(e) => {
             const value = e.target.value;
@@ -1879,7 +1933,7 @@ export default function LibraryView({
               params.set('media_type', forcedMediaType || 'movie');
               params.set('page', String(1));
               params.set('limit', String(pageSize));
-              if (searchInput.trim()) params.set('search', searchInput.trim());
+              if (debouncedSearchInput) params.set('search', debouncedSearchInput);
               const payload = await apiCall('get', `/media/collections?${params.toString()}`);
               setCollectionRows(Array.isArray(payload?.items) ? payload.items : []);
               const nextPagination = payload?.pagination || { page: 1, limit: pageSize, total: 0, totalPages: 1 };

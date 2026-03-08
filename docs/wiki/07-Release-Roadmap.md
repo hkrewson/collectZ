@@ -1283,16 +1283,16 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 
 ### Task Checklist
 
-- [ ] Normalize cross-type search semantics for list/card/detail consistency.
-- [ ] Tighten filter/sort behavior for large mixed-media libraries.
-- [ ] Tune dedupe fallback precedence and confidence thresholds per provider/media type.
-- [ ] Improve duplicate-vs-near-match classification and audit export clarity.
-- [ ] Add collection item add-flow with provider-aware match/update:
+- [x] Normalize cross-type search semantics for list/card/detail consistency.
+- [x] Tighten filter/sort behavior for large mixed-media libraries.
+- [x] Tune dedupe fallback precedence and confidence thresholds per provider/media type.
+- [x] Improve duplicate-vs-near-match classification and audit export clarity.
+- [x] Add collection item add-flow with provider-aware match/update:
   - first search existing library titles of same media type and link existing on confident match,
   - otherwise run provider enrichment (TMDB/IGDB) before create,
   - avoid duplicate creation when near-match already exists by requiring explicit user confirmation.
-- [ ] Add benchmark evidence for key mixed-media query paths.
-- [ ] Add regression checks for no manual refresh dependence in filter/sort flows.
+- [x] Add benchmark evidence for key mixed-media query paths.
+- [x] Add regression checks for no manual refresh dependence in filter/sort flows.
 
 ### Acceptance Criteria
 
@@ -1300,6 +1300,49 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 - Dedupe quality improves with measurable reduction in false-positive merges.
 - Audit outputs clearly identify dedupe/match decisions.
 - Benchmarks and regression checks are green.
+
+## 2.4.1 — Collection Conversion UX Parity (Movies/Games)
+
+**Goal:** complete two-way conversion between individual titles and collections for movie/game workflows.
+
+### Scope
+
+- Add title-side conversion action for `movie` and `game`:
+  - in edit modal, add `Convert to Collection` action (preferred over persistent checkbox).
+- Keep collection-side conversion action and rename label for clarity:
+  - `Convert to Individuals` -> `Convert to Title`.
+- Ensure both paths preserve links and avoid orphaned collection rows.
+- Apply same behavior to both Movies and Games.
+
+### Acceptance Criteria
+
+- A movie/game title can be converted into a collection from edit UI.
+- A movie/game collection can be converted back to title from collection editor.
+- Conversion actions are clearly labeled and symmetrical.
+- No duplicate records are created during conversion.
+
+## 2.6.1 — Multi-Format Ownership Model (Movies/Games)
+
+**Goal:** support owning multiple formats of the same title without fragmenting the library record.
+
+### Scope
+
+- Replace single-format-only editing UX with format toggles:
+  - `DVD`, `VHS`, `Blu-ray`, `4K UHD`, `Digital`.
+- Persist owned formats as a multi-value field (`owned_formats`) while preserving backward compatibility.
+- Keep `media.format` as a derived primary display value for compatibility.
+- Primary format derivation rule:
+  - choose highest quality/resolution selected (for example `4K UHD` > `Blu-ray` > `DVD` > `VHS`; `Digital` maps to source quality where known).
+- Use badge-style toggles in add/edit modal:
+  - selected: theme blue,
+  - unselected: muted gray.
+
+### Acceptance Criteria
+
+- Users can save multiple owned formats on one title.
+- Legacy views and existing filters continue to work with derived primary format.
+- Format toggles are available for movie/game add/edit paths.
+- Imports can map multi-format titles without creating duplicate records solely for format differences.
 
 ## 2.5.0 — Invite/Reset Security and Secret Exfiltration Hardening
 

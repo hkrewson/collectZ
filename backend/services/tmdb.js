@@ -44,6 +44,12 @@ const resolveTmdbSearchUrl = (mediaType, integrationConfig = null) => {
   return `${base}/search/${target}`;
 };
 
+const resolveTmdbMultiSearchUrl = (integrationConfig = null) => {
+  const configured = integrationConfig?.tmdbApiUrl || 'https://api.themoviedb.org/3/search/movie';
+  const base = configured.replace(/\/search\/(movie|tv|multi).*$/i, '');
+  return `${base}/search/multi`;
+};
+
 const normalizeTmdbSearchResult = (item, mediaType) => {
   if (!item) return item;
   const normalizedType = mediaType === 'tv' ? 'tv' : 'movie';
@@ -99,6 +105,27 @@ const searchTmdbMovie = async (title, year, integrationConfig = null, mediaType 
 
   const response = await axios.get(apiUrl, { params, headers });
   return (response.data?.results || []).map((r) => normalizeTmdbSearchResult(r, normalizedType));
+};
+
+const searchTmdbMulti = async (title, year, integrationConfig = null) => {
+  if (!title) return [];
+  const apiUrl = resolveTmdbMultiSearchUrl(integrationConfig);
+  const apiKey = integrationConfig?.tmdbApiKey || process.env.TMDB_API_KEY || '';
+  const apiKeyQueryParam = integrationConfig?.tmdbApiKeyQueryParam || 'api_key';
+  const apiKeyHeader = integrationConfig?.tmdbApiKeyHeader || '';
+  if (!apiKey) {
+    throw Object.assign(new Error('TMDB API key is not configured'), { status: 400 });
+  }
+  const params = { query: title };
+  if (year) params.year = year;
+  const headers = {};
+  if (apiKeyHeader) headers[apiKeyHeader] = apiKey;
+  else params[apiKeyQueryParam] = apiKey;
+  const response = await axios.get(apiUrl, { params, headers });
+  const rows = Array.isArray(response.data?.results) ? response.data.results : [];
+  return rows
+    .filter((r) => r?.media_type === 'movie' || r?.media_type === 'tv')
+    .map((r) => normalizeTmdbSearchResult(r, r?.media_type === 'tv' ? 'tv' : 'movie'));
 };
 
 const fetchTmdbMovieDetails = async (movieId, integrationConfig = null, mediaType = 'movie') => {
@@ -247,6 +274,7 @@ module.exports = {
   resolveTmdbPreset,
   normalizeTmdbSearchResult,
   searchTmdbMovie,
+  searchTmdbMulti,
   fetchTmdbMovieDetails,
   fetchTmdbTvShowSeasonSummary,
   fetchTmdbTvSeasonDetails

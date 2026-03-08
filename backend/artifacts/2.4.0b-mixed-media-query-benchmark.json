@@ -1,0 +1,91 @@
+{
+  "generated_at": "2026-03-08T05:24:58.620Z",
+  "started_at": "2026-03-08T05:24:58.523Z",
+  "iterations": 5,
+  "dataset": {
+    "media_counts": [
+      {
+        "media_type": "audio",
+        "count": 26
+      },
+      {
+        "media_type": "book",
+        "count": 6
+      },
+      {
+        "media_type": "game",
+        "count": 724
+      },
+      {
+        "media_type": "movie",
+        "count": 679
+      }
+    ]
+  },
+  "queries": {
+    "movie_title_sort": {
+      "iterations": 5,
+      "rows": 200,
+      "avg_ms": 2.23,
+      "min_ms": 1.6,
+      "max_ms": 3.63,
+      "p95_ms": 3.63
+    },
+    "game_search_title": {
+      "iterations": 5,
+      "rows": 9,
+      "avg_ms": 1.36,
+      "min_ms": 0.87,
+      "max_ms": 2.69,
+      "p95_ms": 2.69
+    },
+    "audio_search_title": {
+      "iterations": 5,
+      "rows": 12,
+      "avg_ms": 0.58,
+      "min_ms": 0.51,
+      "max_ms": 0.63,
+      "p95_ms": 0.63
+    },
+    "mixed_fulltext_search": {
+      "iterations": 5,
+      "rows": 5,
+      "avg_ms": 5.09,
+      "min_ms": 4.99,
+      "max_ms": 5.33,
+      "p95_ms": 5.33
+    },
+    "director_filter_normalized": {
+      "iterations": 5,
+      "rows": 2,
+      "avg_ms": 1.85,
+      "min_ms": 0.89,
+      "max_ms": 4.67,
+      "p95_ms": 4.67
+    },
+    "genre_filter_normalized": {
+      "iterations": 5,
+      "rows": 0,
+      "avg_ms": 0.69,
+      "min_ms": 0.49,
+      "max_ms": 1.13,
+      "p95_ms": 1.13
+    },
+    "cast_filter_normalized": {
+      "iterations": 5,
+      "rows": 42,
+      "avg_ms": 3.45,
+      "min_ms": 3,
+      "max_ms": 4.71,
+      "p95_ms": 4.71
+    },
+    "collections_list_movies": {
+      "iterations": 5,
+      "rows": 9,
+      "avg_ms": 0.27,
+      "min_ms": 0.15,
+      "max_ms": 0.69,
+      "p95_ms": 0.69
+    }
+  }
+}

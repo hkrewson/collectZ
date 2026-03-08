@@ -1,5 +1,6 @@
 const axios = require('axios');
 const qs = require('querystring');
+const { setTimeout: sleep } = require('timers/promises');
 
 const GAMES_PRESETS = {
   igdb: {
@@ -58,6 +59,72 @@ function mapIgdbGame(item = {}) {
   };
 }
 
+const tokenCache = {
+  token: null,
+  expiresAt: 0
+};
+const IGDB_MIN_INTERVAL_MS = Number(process.env.IGDB_MIN_INTERVAL_MS || 1100);
+const IGDB_MAX_RETRIES = Number(process.env.IGDB_MAX_RETRIES || 6);
+let lastIgdbRequestAt = 0;
+
+function isRetryableStatus(status) {
+  return [429, 500, 502, 503, 504].includes(Number(status));
+}
+
+async function waitForIgdbWindow() {
+  const now = Date.now();
+  const elapsed = now - lastIgdbRequestAt;
+  if (elapsed < IGDB_MIN_INTERVAL_MS) {
+    await sleep(IGDB_MIN_INTERVAL_MS - elapsed);
+  }
+  lastIgdbRequestAt = Date.now();
+}
+
+async function resolveIgdbBearerToken(config = {}) {
+  if (config.gamesApiKey) {
+    return String(config.gamesApiKey).replace(/^Bearer\s+/i, '');
+  }
+  if (!config.gamesClientId || !config.gamesClientSecret) {
+    throw new Error('Games Client ID and Client Secret are required for IGDB');
+  }
+  const now = Date.now();
+  if (tokenCache.token && tokenCache.expiresAt > now + 30000) {
+    return tokenCache.token;
+  }
+
+  const tokenUrl = process.env.TWITCH_TOKEN_URL || 'https://id.twitch.tv/oauth2/token';
+  let response = null;
+  for (let attempt = 0; attempt <= IGDB_MAX_RETRIES; attempt += 1) {
+    // eslint-disable-next-line no-await-in-loop
+    response = await axios.post(
+      tokenUrl,
+      qs.stringify({
+        client_id: config.gamesClientId,
+        client_secret: config.gamesClientSecret,
+        grant_type: 'client_credentials'
+      }),
+      {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        timeout: 20000,
+        validateStatus: () => true
+      }
+    );
+    if (response.status < 400 && response.data?.access_token) break;
+    if (!isRetryableStatus(response.status) || attempt === IGDB_MAX_RETRIES) {
+      const detail = response.data?.message || response.data?.error || `Token request failed (${response.status})`;
+      const err = new Error(detail);
+      err.status = response.status;
+      throw err;
+    }
+    // eslint-disable-next-line no-await-in-loop
+    await sleep(1200 * (attempt + 1));
+  }
+
+  tokenCache.token = String(response.data.access_token);
+  tokenCache.expiresAt = now + Math.max(60, Number(response.data.expires_in || 3600)) * 1000;
+  return tokenCache.token;
+}
+
 async function searchGamesByTitle(title, config = {}, limit = 10) {
   const query = String(title || '').trim();
   if (!query) return [];
@@ -79,17 +146,25 @@ async function searchGamesByTitle(title, config = {}, limit = 10) {
 
     const body = `search "${query.replace(/"/g, '')}"; fields name,first_release_date,summary,genres.name,cover.url,involved_companies.company.name,platforms.name,url; limit ${Math.max(1, Math.min(Number(limit) || 10, 20))};`;
 
-    const response = await axios.post(apiUrl, body, {
-      headers,
-      timeout: 20000,
-      validateStatus: () => true
-    });
-
-    if (response.status >= 400) {
-      const detail = response.data?.message || `Provider returned status ${response.status}`;
-      const err = new Error(detail);
-      err.status = response.status;
-      throw err;
+    let response = null;
+    for (let attempt = 0; attempt <= IGDB_MAX_RETRIES; attempt += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      await waitForIgdbWindow();
+      // eslint-disable-next-line no-await-in-loop
+      response = await axios.post(apiUrl, body, {
+        headers,
+        timeout: 20000,
+        validateStatus: () => true
+      });
+      if (response.status < 400) break;
+      if (!isRetryableStatus(response.status) || attempt === IGDB_MAX_RETRIES) {
+        const detail = response.data?.message || `Provider returned status ${response.status}`;
+        const err = new Error(detail);
+        err.status = response.status;
+        throw err;
+      }
+      // eslint-disable-next-line no-await-in-loop
+      await sleep(1200 * (attempt + 1));
     }
 
     const rows = Array.isArray(response.data) ? response.data : [];
@@ -136,47 +211,6 @@ async function searchGamesByTitle(title, config = {}, limit = 10) {
       region: row.region || null
     }
   })).filter((item) => item.title);
-}
-
-const tokenCache = {
-  token: null,
-  expiresAt: 0
-};
-
-async function resolveIgdbBearerToken(config = {}) {
-  if (config.gamesApiKey) {
-    return String(config.gamesApiKey).replace(/^Bearer\s+/i, '');
-  }
-  if (!config.gamesClientId || !config.gamesClientSecret) {
-    throw new Error('Games Client ID and Client Secret are required for IGDB');
-  }
-  const now = Date.now();
-  if (tokenCache.token && tokenCache.expiresAt > now + 30000) {
-    return tokenCache.token;
-  }
-  const tokenUrl = process.env.TWITCH_TOKEN_URL || 'https://id.twitch.tv/oauth2/token';
-  const response = await axios.post(
-    tokenUrl,
-    qs.stringify({
-      client_id: config.gamesClientId,
-      client_secret: config.gamesClientSecret,
-      grant_type: 'client_credentials'
-    }),
-    {
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      timeout: 20000,
-      validateStatus: () => true
-    }
-  );
-  if (response.status >= 400 || !response.data?.access_token) {
-    const detail = response.data?.message || response.data?.error || `Token request failed (${response.status})`;
-    const err = new Error(detail);
-    err.status = response.status;
-    throw err;
-  }
-  tokenCache.token = String(response.data.access_token);
-  tokenCache.expiresAt = now + Math.max(60, Number(response.data.expires_in || 3600)) * 1000;
-  return tokenCache.token;
 }
 
 module.exports = {
