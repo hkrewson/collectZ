@@ -681,7 +681,7 @@ function CollectionEditor({ collectionId, apiCall, onClose, onSaved }) {
     setError('');
     try {
       await apiCall('post', `/media/collections/${collectionId}/convert-to-individual`, {});
-      onSaved?.('Collection converted to individual titles');
+      onSaved?.('Collection converted to title');
       onClose();
     } catch (err) {
       setError(err?.response?.data?.error || 'Failed to convert collection');
@@ -698,7 +698,7 @@ function CollectionEditor({ collectionId, apiCall, onClose, onSaved }) {
           <div className="flex-1" />
           <button className="btn-icon" onClick={onClose}><Icons.X /></button>
         </div>
-        <div className="p-5 overflow-y-auto space-y-4">
+      <div className="p-5 overflow-y-auto space-y-4">
           {error && <p className="text-sm text-err">{error}</p>}
           {loading && <div className="flex items-center gap-2 text-dim"><Spinner size={16} />Loading...</div>}
           {!loading && data?.collection && (
@@ -709,7 +709,7 @@ function CollectionEditor({ collectionId, apiCall, onClose, onSaved }) {
                 <div><span className="text-ghost">Import source:</span> <span className="text-ink">{data.collection.import_source || 'manual'}</span></div>
               </div>
               <div className="flex gap-2">
-                <button className="btn-secondary" disabled={deleting} onClick={convertToIndividuals}>Convert to Individual Titles</button>
+                <button className="btn-secondary" disabled={deleting} onClick={convertToIndividuals}>Convert to Title</button>
               </div>
 
               <div className="pt-2 border-t border-edge space-y-2">
@@ -770,7 +770,7 @@ function CollectionEditor({ collectionId, apiCall, onClose, onSaved }) {
   );
 }
 
-function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, title = 'Add Media', apiCall }) {
+function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, onConvertToCollection, title = 'Add Media', apiCall }) {
   const mergeTypeDetails = (rawInitial) => {
     const details = rawInitial?.type_details || {};
     return {
@@ -824,6 +824,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
   const isComic = form.media_type === 'comic_book';
   const isAudio = form.media_type === 'audio';
   const isGame = form.media_type === 'game';
+  const canConvertToCollection = Boolean(onConvertToCollection) && ['movie', 'game'].includes(form.media_type);
   const isTypedEnrichment = isBook || isComic || isAudio || isGame;
 
   const searchTmdb = async () => {
@@ -1173,6 +1174,24 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, t
       <div className="flex items-center gap-3 px-6 py-4 border-b border-edge shrink-0">
         <button onClick={onCancel} className="btn-icon btn-sm"><Icons.ChevronLeft /></button>
         <h2 className="font-display text-xl tracking-wider text-ink flex-1">{title.toUpperCase()}</h2>
+        {canConvertToCollection && (
+          <button
+            type="button"
+            onClick={async () => {
+              if (window.confirm('Convert this title to a collection? This removes the title entry and creates a collection.')) {
+                try {
+                  await onConvertToCollection();
+                  notify('Converted to collection');
+                } catch (err) {
+                  notify(err?.response?.data?.error || 'Convert to collection failed', 'error');
+                }
+              }
+            }}
+            className="btn-secondary btn-sm"
+          >
+            Convert to Collection
+          </button>
+        )}
         {onDelete && (
           <button onClick={() => { if (window.confirm('Delete this item?')) onDelete(); }} className="btn-danger btn-sm"><Icons.Trash />Delete</button>
         )}
@@ -1684,6 +1703,11 @@ export default function LibraryView({
           apiCall={apiCall}
           onCancel={() => { setAdding(false); setEditing(null); }}
           onDelete={isEdit ? () => { onDelete(editing.id); setEditing(null); } : undefined}
+          onConvertToCollection={isEdit ? async () => {
+            await apiCall('post', `/media/${editing.id}/convert-to-collection`, {});
+            setEditing(null);
+            onRefresh({ page: requestPage, limit: requestLimit, ...filters });
+          } : undefined}
           onSave={async (payload) => {
             if (isEdit) {
               const updated = await onEdit(editing.id, payload);

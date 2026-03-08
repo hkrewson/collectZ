@@ -5588,6 +5588,138 @@ router.delete('/collections/:id/items/:itemId', asyncHandler(async (req, res) =>
   res.json({ ok: true });
 }));
 
+router.post('/:id/convert-to-collection', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const mediaId = Number(req.params.id);
+  if (!Number.isFinite(mediaId) || mediaId <= 0) {
+    return res.status(400).json({ error: 'Invalid media id' });
+  }
+
+  const mediaParams = [mediaId];
+  const mediaScopeClause = appendScopeSql(mediaParams, scopeContext);
+  const mediaResult = await pool.query(
+    `SELECT *
+     FROM media
+     WHERE id = $1
+     ${mediaScopeClause}
+     LIMIT 1`,
+    mediaParams
+  );
+  const media = mediaResult.rows[0];
+  if (!media) {
+    return res.status(404).json({ error: 'Media not found' });
+  }
+  const normalizedMediaType = normalizeMediaType(media.media_type || 'movie', 'movie');
+  if (!['movie', 'game'].includes(normalizedMediaType)) {
+    return res.status(400).json({ error: 'Only movie and game titles can be converted to collections' });
+  }
+
+  const existingCollectionItem = await pool.query(
+    `SELECT ci.id, ci.collection_id
+     FROM collection_items ci
+     JOIN collections c ON c.id = ci.collection_id
+     WHERE ci.media_id = $1
+       AND COALESCE(c.media_type, 'movie') = $2
+       AND COALESCE(c.library_id, 0) = COALESCE($3, 0)
+       AND COALESCE(c.space_id, 0) = COALESCE($4, 0)
+     ORDER BY ci.id DESC
+     LIMIT 1`,
+    [mediaId, normalizedMediaType, media.library_id || null, media.space_id || null]
+  );
+  if (existingCollectionItem.rows[0]) {
+    return res.status(409).json({ error: 'Title is already linked to a collection' });
+  }
+
+  const collectionName = String(media.title || '').trim() || `Collection ${mediaId}`;
+  const metadata = {
+    converted_from_media_id: mediaId,
+    converted_from_title: media.title || null,
+    converted_at: new Date().toISOString(),
+    converted_by: req.user.id
+  };
+  const createdCollection = await pool.query(
+    `INSERT INTO collections (
+       name, media_type, source_title, import_source, expected_item_count, metadata, library_id, space_id, created_by
+     ) VALUES (
+       $1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9
+     )
+     RETURNING id, name, media_type, source_title, library_id, space_id`,
+    [
+      collectionName,
+      normalizedMediaType,
+      media.title || null,
+      'manual_convert',
+      1,
+      JSON.stringify(metadata),
+      media.library_id || scopeContext.libraryId || null,
+      media.space_id || scopeContext.spaceId || null,
+      req.user.id
+    ]
+  );
+  const collection = createdCollection.rows[0];
+
+  const mediaSnapshot = {
+    title: media.title || null,
+    media_type: normalizedMediaType,
+    original_title: media.original_title || null,
+    release_date: media.release_date || null,
+    year: media.year || null,
+    format: media.format || 'Digital',
+    genre: media.genre || null,
+    director: media.director || null,
+    cast_members: media.cast_members || null,
+    rating: media.rating || null,
+    user_rating: media.user_rating || null,
+    tmdb_id: media.tmdb_id || null,
+    tmdb_media_type: media.tmdb_media_type || null,
+    tmdb_url: media.tmdb_url || null,
+    poster_path: media.poster_path || null,
+    backdrop_path: media.backdrop_path || null,
+    overview: media.overview || null,
+    trailer_url: media.trailer_url || null,
+    runtime: media.runtime || null,
+    upc: media.upc || null,
+    signed_by: media.signed_by || null,
+    signed_role: media.signed_role || null,
+    signed_on: media.signed_on || null,
+    signed_at: media.signed_at || null,
+    signed_proof_path: media.signed_proof_path || null,
+    location: media.location || null,
+    notes: media.notes || null,
+    type_details: media.type_details || null
+  };
+
+  await addCollectionItem({
+    collectionId: collection.id,
+    mediaId: null,
+    containedTitle: media.title || null,
+    position: 1,
+    confidenceScore: 100,
+    sourcePayload: {
+      source: 'manual_convert',
+      converted_from_media_id: mediaId,
+      media_snapshot: mediaSnapshot
+    }
+  });
+
+  const deleteParams = [mediaId];
+  const deleteScopeClause = appendScopeSql(deleteParams, scopeContext);
+  await pool.query(`DELETE FROM media WHERE id = $1${deleteScopeClause}`, deleteParams);
+
+  await logActivity(req, 'media.convert_to_collection', 'media', mediaId, {
+    collection_id: collection.id,
+    media_type: normalizedMediaType,
+    title: media.title || null
+  });
+
+  res.json({
+    ok: true,
+    collection_id: collection.id,
+    collection_name: collection.name,
+    media_type: collection.media_type
+  });
+}));
+
 router.post('/collections/:id/convert-to-individual', asyncHandler(async (req, res) => {
   const scopeContext = resolveScopeContext(req);
   const collectionId = Number(req.params.id);
@@ -5600,7 +5732,7 @@ router.post('/collections/:id/convert-to-individual', asyncHandler(async (req, r
     libraryColumn: 'library_id'
   });
   const collection = await pool.query(
-    `SELECT id, name
+    `SELECT id, name, media_type, library_id, space_id
      FROM collections
      WHERE id = $1
      ${scopeClause}
@@ -5611,16 +5743,86 @@ router.post('/collections/:id/convert-to-individual', asyncHandler(async (req, r
     return res.status(404).json({ error: 'Collection not found' });
   }
   const items = await pool.query(
-    `SELECT id FROM collection_items WHERE collection_id = $1`,
+    `SELECT id, media_id, contained_title, source_payload, position
+     FROM collection_items
+     WHERE collection_id = $1
+     ORDER BY COALESCE(position, 999999), id`,
     [collectionId]
   );
+
+  let createdTitles = 0;
+  for (const item of items.rows) {
+    if (item.media_id) continue;
+    const payload = item.source_payload && typeof item.source_payload === 'object'
+      ? item.source_payload
+      : {};
+    const snapshot = payload.media_snapshot && typeof payload.media_snapshot === 'object'
+      ? payload.media_snapshot
+      : null;
+    const insert = await pool.query(
+      `INSERT INTO media (
+         title, media_type, original_title, release_date, year, format, genre, director, cast_members,
+         rating, user_rating, tmdb_id, tmdb_media_type, tmdb_url, poster_path, backdrop_path, overview,
+         trailer_url, runtime, upc, signed_by, signed_role, signed_on, signed_at, signed_proof_path, location, notes,
+         type_details, library_id, space_id, added_by, import_source
+       ) VALUES (
+         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28::jsonb,$29,$30,$31,$32
+       )
+       RETURNING id, genre, director, cast_members AS cast`,
+      [
+        (snapshot?.title || item.contained_title || collection.rows[0].name || '').trim() || `Title ${collectionId}`,
+        normalizeMediaType(snapshot?.media_type || collection.rows[0].media_type || 'movie', 'movie'),
+        snapshot?.original_title || null,
+        snapshot?.release_date || null,
+        snapshot?.year || null,
+        snapshot?.format || 'Digital',
+        snapshot?.genre || null,
+        snapshot?.director || null,
+        snapshot?.cast_members || null,
+        snapshot?.rating || null,
+        snapshot?.user_rating || null,
+        snapshot?.tmdb_id || null,
+        snapshot?.tmdb_media_type || null,
+        snapshot?.tmdb_url || null,
+        snapshot?.poster_path || null,
+        snapshot?.backdrop_path || null,
+        snapshot?.overview || null,
+        snapshot?.trailer_url || null,
+        snapshot?.runtime || null,
+        snapshot?.upc || null,
+        snapshot?.signed_by || null,
+        snapshot?.signed_role || null,
+        snapshot?.signed_on || null,
+        snapshot?.signed_at || null,
+        snapshot?.signed_proof_path || null,
+        snapshot?.location || null,
+        snapshot?.notes || null,
+        snapshot?.type_details ? JSON.stringify(snapshot.type_details) : null,
+        collection.rows[0].library_id ?? scopeContext.libraryId ?? null,
+        collection.rows[0].space_id ?? scopeContext.spaceId ?? null,
+        req.user.id,
+        'manual_convert'
+      ]
+    );
+    const created = insert.rows[0];
+    if (created?.id) {
+      createdTitles += 1;
+      await syncNormalizedMetadataForMedia({
+        mediaId: created.id,
+        genre: created.genre,
+        director: created.director,
+        cast: created.cast
+      });
+    }
+  }
   await pool.query(`DELETE FROM collection_items WHERE collection_id = $1`, [collectionId]);
   await pool.query(`DELETE FROM collections WHERE id = $1`, [collectionId]);
   await logActivity(req, 'media.collection.convert_to_individual', 'collection', collectionId, {
     itemCount: items.rows.length,
+    createdTitles,
     name: collection.rows[0].name || null
   });
-  res.json({ ok: true, removed_items: items.rows.length });
+  res.json({ ok: true, removed_items: items.rows.length, created_titles: createdTitles });
 }));
 
 router.get('/import-reviews', asyncHandler(async (req, res) => {

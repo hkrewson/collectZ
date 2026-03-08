@@ -1406,6 +1406,45 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 - Mobile-optimized barcode scanning UI (camera input with real-time scan feedback).
 - Email delivery for invites via SMTP (already stubbed in `env.example`).
 
+## 2.7.1 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
+
+**Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.
+
+### Scope
+
+- Unify title and collection editing into drawer surfaces (same shell as detail drawer) with size variants:
+  - detail drawer: narrow,
+  - edit drawer: wide.
+- Compact edit layout:
+  - condense narrow-value fields (`rating`, `runtime`, year-like numerics, and similar) to right-sized widths,
+  - reduce unnecessary full-width controls while preserving readability.
+- Movie editions baseline:
+  - if only one edition exists, default label to `Theatrical`,
+  - add editable edition text field in primary movie metadata section (near type/format/year).
+- Library quick-filter select behavior by media type:
+  - Movies/TV: keep resolution filter,
+  - Games: platform filter,
+  - Comic Books: publisher filter,
+  - Audio/Books: hide select when no meaningful quick-filter is available.
+- Import view sub-navigation parity with Integrations:
+  - add import submenu in alphabetical order: `Barcode`, `Calibre`, `CSV`, `Delicious`, `Plex`.
+
+### Delivery Guardrails (Rollback)
+
+- Implement behind one feature flag (`ui_drawer_edit_experiment`).
+- Keep current full edit modal path intact as fallback.
+- No schema migrations in this milestone.
+- Rollback path: disable flag and redeploy.
+
+### Acceptance Criteria
+
+- Drawer edit mode is usable on desktop/mobile without regression to save/delete/convert flows.
+- Compact field sizing improves scan/edit speed without truncation or validation confusion.
+- Movie edition default/edit behavior works for single-edition titles.
+- Media-type-specific quick filter select behavior is correct for each library type.
+- Import submenu behaves consistently with integrations nav pattern.
+- Flag-off behavior exactly restores current UI flow.
+
 ## 2.4.2 — Events and Memorabilia Tracking
 
 **Goal:** Add optional event tracking for conventions/festivals while keeping core media catalog flows simple.
