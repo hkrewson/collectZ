@@ -1477,6 +1477,7 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 ## 2.4.3.2 — Collections UX Unification and Library Integration
 
 **Goal:** Make collections feel first-class and visually consistent with the main library while keeping conversion/edit flows explicit.
+**Status:** Completed.
 
 ### Scope
 

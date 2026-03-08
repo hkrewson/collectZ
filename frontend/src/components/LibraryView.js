@@ -198,6 +198,44 @@ function MediaCard({ item, onOpen, onEdit, onDelete, onRating, supportsHover }) 
   );
 }
 
+function CollectionCard({ item, supportsHover, onOpen, onEdit, onConvert }) {
+  const title = item.name || item.source_title || `Collection #${item.id}`;
+  const onPointerUp = (e) => {
+    if (e.pointerType !== 'touch') return;
+    if (isInteractiveTarget(e.target)) return;
+    onOpen(item);
+  };
+  return (
+    <article className="group relative cursor-pointer animate-fade-in" onClick={() => onOpen(item)} onPointerUp={onPointerUp}>
+      <div className="poster rounded-lg overflow-hidden shadow-card">
+        {posterUrl(item.poster_path)
+          ? <img src={posterUrl(item.poster_path)} alt={title} className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
+          : <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-ghost"><Icons.Library /><span className="text-xs text-center px-3 leading-tight">{title}</span></div>}
+        <div className={cx('absolute inset-0 bg-card-fade transition-opacity duration-300', supportsHover ? 'opacity-0 group-hover:opacity-100' : 'opacity-10')} />
+        <div className="absolute top-2 left-2">
+          <span className={cx('badge text-[10px] backdrop-blur-sm bg-void/60 border-ghost/20', item.has_digital ? 'badge-brand' : 'badge-dim')}>
+            {item.has_digital ? 'Digital' : 'Collection'}
+          </span>
+        </div>
+        <div className="absolute top-2 right-2"><span className="badge badge-dim text-[10px] backdrop-blur-sm bg-void/60 border-ghost/20">{mediaTypeLabel(item.media_type)}</span></div>
+        <div className={cx('absolute bottom-0 left-0 right-0 p-3 transition-all duration-300', supportsHover ? 'translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100' : 'translate-y-0 opacity-100')}>
+          <div className="flex gap-2">
+            <button onClick={(e) => { e.stopPropagation(); onEdit(item.id); }} className="btn-secondary btn-sm flex-1 backdrop-blur-sm bg-void/60 border-ghost/30"><Icons.Edit />Edit</button>
+            <button onClick={(e) => { e.stopPropagation(); onConvert(item); }} className="btn-secondary btn-sm backdrop-blur-sm bg-void/60 border-ghost/30"><Icons.Film />Convert</button>
+          </div>
+        </div>
+      </div>
+      <div className="mt-2 px-0.5">
+        <p className="text-sm font-medium text-ink truncate">{title}</p>
+        <p className="text-xs text-ghost">
+          {item.item_count || 0} item{Number(item.item_count || 0) === 1 ? '' : 's'}
+          {Number.isFinite(Number(item.expected_item_count)) && Number(item.expected_item_count) > 0 ? ` · expected ${item.expected_item_count}` : ''}
+        </p>
+      </div>
+    </article>
+  );
+}
+
 function MediaListRow({ item, onOpen, onEdit, onDelete, onRating, supportsHover }) {
   const onPointerUp = (e) => {
     if (e.pointerType !== 'touch') return;
@@ -234,21 +272,11 @@ function MediaListRow({ item, onOpen, onEdit, onDelete, onRating, supportsHover 
 function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall }) {
   const [variants, setVariants] = useState([]);
   const [variantLoading, setVariantLoading] = useState(false);
-  const [seasonDrafts, setSeasonDrafts] = useState({});
+  const [, setSeasonDrafts] = useState({});
   const [seasonSaving, setSeasonSaving] = useState({});
   const [openSeason, setOpenSeason] = useState(null);
   const [seasonDetailLoading, setSeasonDetailLoading] = useState({});
   const [seasonDetails, setSeasonDetails] = useState({});
-
-  const setSeasonDraftValue = (seasonNumber, patch) => {
-    setSeasonDrafts((prev) => ({
-      ...prev,
-      [seasonNumber]: {
-        ...prev[seasonNumber],
-        ...patch
-      }
-    }));
-  };
 
   const markSeasonWatched = async (seasonNumber) => {
     if (!item?.id || !Number.isInteger(Number(seasonNumber))) return;
@@ -368,7 +396,10 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall }) {
             </div>
           </div>
           <div className="flex-1 min-w-0 mt-1">
-            <h2 className="font-display text-2xl tracking-wider text-ink leading-tight">{item.title}</h2>
+            <div className="flex items-baseline gap-2">
+              <h2 className="font-display text-2xl tracking-wider text-ink leading-tight">{item.title}</h2>
+              <p className="text-sm text-ghost">#{item.id}</p>
+            </div>
             <p className="text-sm text-dim mt-1">{[item.year, item.director, item.cast].filter(Boolean).join(' · ')}</p>
             <div className="flex flex-wrap gap-2 mt-2">
               {item.format && <span className="badge badge-gold">{item.format}</span>}
@@ -695,14 +726,15 @@ function CollectionEditor({ collectionId, apiCall, onClose, onSaved }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-void/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
-      <div className="card w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
-        <div className="px-5 py-4 border-b border-edge flex items-center gap-3">
+    <div className="fixed inset-0 z-50 flex">
+      <div className="absolute inset-0 bg-void/80 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative ml-auto h-full w-full max-w-4xl bg-abyss border-l border-edge shadow-2xl flex flex-col animate-slide-in" onClick={(e) => e.stopPropagation()}>
+        <div className="px-5 py-4 border-b border-edge flex items-center gap-3 shrink-0">
           <h2 className="section-title !text-xl">Edit Collection</h2>
           <div className="flex-1" />
           <button className="btn-icon" onClick={onClose}><Icons.X /></button>
         </div>
-      <div className="p-5 overflow-y-auto space-y-4">
+      <div className="p-5 overflow-y-auto space-y-4 flex-1">
           {error && <p className="text-sm text-err">{error}</p>}
           {loading && <div className="flex items-center gap-2 text-dim"><Spinner size={16} />Loading...</div>}
           {!loading && data?.collection && (
@@ -768,6 +800,105 @@ function CollectionEditor({ collectionId, apiCall, onClose, onSaved }) {
               </div>
             </>
           )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CollectionDetail({ collectionId, apiCall, onClose, onEdit, onConvert }) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [payload, setPayload] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const result = await apiCall('get', `/media/collections/${collectionId}`);
+        if (!active) return;
+        setPayload(result);
+      } catch (err) {
+        if (!active) return;
+        setError(err?.response?.data?.error || 'Failed to load collection details');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, [apiCall, collectionId]);
+
+  const collection = payload?.collection || {};
+  const items = Array.isArray(payload?.items) ? payload.items : [];
+  const posterPath = collection.poster_path || items.find((row) => row.media_poster_path)?.media_poster_path || '';
+  const title = collection.name || collection.source_title || `Collection #${collectionId}`;
+
+  return (
+    <div className="fixed inset-0 z-50 flex">
+      <div className="absolute inset-0 bg-void/80 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative ml-auto w-full max-w-xl h-full bg-abyss border-l border-edge flex flex-col animate-slide-in">
+        <div className="flex items-start gap-4 px-6 pt-6 pb-4 shrink-0">
+          <div className="w-20 shrink-0 relative z-10 shadow-deep">
+            <div className="poster rounded-md">
+              {posterUrl(posterPath)
+                ? <img src={posterUrl(posterPath)} alt={title} className="absolute inset-0 w-full h-full object-cover" />
+                : <div className="absolute inset-0 flex items-center justify-center text-ghost"><Icons.Library /></div>}
+            </div>
+          </div>
+          <div className="flex-1 min-w-0 mt-1">
+            <div className="flex items-baseline gap-2">
+              <h2 className="font-display text-2xl tracking-wider text-ink leading-tight">{title}</h2>
+              <p className="text-sm text-ghost">#{collectionId}</p>
+            </div>
+            <p className="text-sm text-dim mt-1">{mediaTypeLabel(collection.media_type)} · {items.length} item{items.length === 1 ? '' : 's'}</p>
+            {Number.isFinite(Number(collection.expected_item_count)) && Number(collection.expected_item_count) > 0 && (
+              <p className="text-xs text-ghost mt-1">Expected items: {collection.expected_item_count}</p>
+            )}
+          </div>
+          <button onClick={onClose} className="btn-icon btn-sm shrink-0"><Icons.X /></button>
+        </div>
+
+        <div className="divider" />
+
+        <div className="flex-1 overflow-y-auto scroll-area p-6 space-y-4">
+          {loading && <div className="flex items-center gap-2 text-dim"><Spinner size={16} />Loading…</div>}
+          {error && <p className="text-sm text-err">{error}</p>}
+          {!loading && !error && (
+            <>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div><p className="label">Collection type</p><p className="text-ink">{mediaTypeLabel(collection.media_type)}</p></div>
+                <div><p className="label">Import source</p><p className="text-ink">{collection.import_source || 'manual'}</p></div>
+              </div>
+              <div>
+                <p className="label mb-2">Items</p>
+                <div className="space-y-2">
+                  {items.map((row) => (
+                    <div key={row.id} className="card p-2 flex items-center gap-3">
+                      <div className="w-10 shrink-0" style={{ aspectRatio: '2/3' }}>
+                        <div className="poster rounded w-full h-full">
+                          {posterUrl(row.media_poster_path)
+                            ? <img src={posterUrl(row.media_poster_path)} alt={row.media_title || row.contained_title || ''} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+                            : <div className="absolute inset-0 flex items-center justify-center text-ghost"><Icons.Film /></div>}
+                        </div>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm text-ink truncate">{row.media_title || row.contained_title || `Item #${row.id}`}</p>
+                        <p className="text-xs text-ghost">{row.media_year ? `${row.media_year} · ` : ''}{row.media_id ? `Media #${row.media_id}` : 'Unlinked'}</p>
+                      </div>
+                    </div>
+                  ))}
+                  {items.length === 0 && <p className="text-xs text-ghost">No items in this collection.</p>}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+        <div className="p-4 border-t border-edge flex gap-3 shrink-0">
+          <button onClick={onClose} className="btn-ghost">Close</button>
+          <button onClick={onEdit} className="btn-secondary flex-1"><Icons.Edit />Edit</button>
+          <button onClick={onConvert} className="btn-secondary"><Icons.Film />Convert</button>
         </div>
       </div>
     </div>
@@ -1562,6 +1693,7 @@ export default function LibraryView({
   const [collectionError, setCollectionError] = useState('');
   const [collectionPagination, setCollectionPagination] = useState({ page: 1, limit: 50, total: 0, totalPages: 1, hasMore: false });
   const [editingCollectionId, setEditingCollectionId] = useState(null);
+  const [viewingCollectionId, setViewingCollectionId] = useState(null);
   const [comicView, setComicView] = useState('issues');
   const [comicSeries, setComicSeries] = useState('all');
   const [debouncedSearchInput, setDebouncedSearchInput] = useState('');
@@ -1672,37 +1804,41 @@ export default function LibraryView({
     }
   }, [forcedMediaType]);
 
+  const refreshCollections = useCallback(async (targetPage = page) => {
+    if (!supportsCollections) return;
+    setCollectionLoading(true);
+    setCollectionError('');
+    try {
+      const params = new URLSearchParams();
+      params.set('media_type', forcedMediaType || 'movie');
+      params.set('page', String(targetPage));
+      params.set('limit', String(pageSize));
+      if (debouncedSearchInput) params.set('search', debouncedSearchInput);
+      const payload = await apiCall('get', `/media/collections?${params.toString()}`);
+      setCollectionRows(Array.isArray(payload?.items) ? payload.items : []);
+      const nextPagination = payload?.pagination || { page: 1, limit: pageSize, total: 0, totalPages: 1 };
+      setCollectionPagination({
+        ...nextPagination,
+        hasMore: Number(nextPagination.page || 1) < Number(nextPagination.totalPages || 1)
+      });
+    } catch (err) {
+      setCollectionError(err?.response?.data?.error || 'Failed to load collections');
+    } finally {
+      setCollectionLoading(false);
+    }
+  }, [apiCall, debouncedSearchInput, forcedMediaType, page, pageSize, supportsCollections]);
+
   useEffect(() => {
-    if (!isCollectionMode) return;
+    if (!supportsCollections) return undefined;
     let active = true;
     (async () => {
-      setCollectionLoading(true);
-      setCollectionError('');
-      try {
-        const params = new URLSearchParams();
-        params.set('media_type', forcedMediaType || 'movie');
-        params.set('page', String(page));
-        params.set('limit', String(pageSize));
-        if (debouncedSearchInput) params.set('search', debouncedSearchInput);
-        const payload = await apiCall('get', `/media/collections?${params.toString()}`);
-        if (!active) return;
-        setCollectionRows(Array.isArray(payload?.items) ? payload.items : []);
-        const nextPagination = payload?.pagination || { page: 1, limit: pageSize, total: 0, totalPages: 1 };
-        setCollectionPagination({
-          ...nextPagination,
-          hasMore: Number(nextPagination.page || 1) < Number(nextPagination.totalPages || 1)
-        });
-      } catch (err) {
-        if (!active) return;
-        setCollectionError(err?.response?.data?.error || 'Failed to load collections');
-      } finally {
-        if (active) setCollectionLoading(false);
-      }
+      if (!active) return;
+      await refreshCollections(page);
     })();
     return () => {
       active = false;
     };
-  }, [apiCall, forcedMediaType, isCollectionMode, page, pageSize, debouncedSearchInput]);
+  }, [supportsCollections, page, refreshCollections]);
 
   useEffect(() => {
     window.localStorage.setItem(PAGE_SIZE_STORAGE_KEY, String(pageSize));
@@ -1735,7 +1871,7 @@ export default function LibraryView({
 
   const displayedTotal = isCollectionMode
     ? (collectionPagination?.total ?? collectionRows.length)
-    : (pagination?.total ?? mediaItems.length);
+    : ((pagination?.total ?? mediaItems.length) + (supportsCollections ? collectionRows.length : 0));
 
   const comicSeriesOptions = useMemo(() => {
     const map = new Map();
@@ -1784,9 +1920,43 @@ export default function LibraryView({
     return items;
   }, [mediaItems, isComicsLibrary, comicView, comicSeries]);
 
+  const inlineCards = useMemo(() => {
+    if (!supportsCollections || isCollectionMode || isComicsLibrary || viewMode !== 'cards') return null;
+    const toSortTitle = (value) => String(value || '').trim().toLowerCase();
+    const mixed = [
+      ...collectionRows.map((collection) => ({
+        kind: 'collection',
+        id: `collection-${collection.id}`,
+        sortTitle: toSortTitle(collection.name || collection.source_title || ''),
+        item: collection
+      })),
+      ...visibleItems.map((media) => ({
+        kind: 'media',
+        id: `media-${media.id}`,
+        sortTitle: toSortTitle(media.title || ''),
+        item: media
+      }))
+    ];
+    mixed.sort((a, b) => {
+      const titleCmp = a.sortTitle.localeCompare(b.sortTitle, undefined, { sensitivity: 'base' });
+      if (titleCmp !== 0) return filters.sortDir === 'asc' ? titleCmp : -titleCmp;
+      if (a.kind !== b.kind) return a.kind === 'collection' ? -1 : 1;
+      return String(a.id).localeCompare(String(b.id));
+    });
+    return mixed;
+  }, [collectionRows, filters.sortDir, isCollectionMode, isComicsLibrary, supportsCollections, viewMode, visibleItems]);
+
   const showPagination = !useComicFullFetch;
   const activeEdit = editing || null;
   const isEditingMode = Boolean(activeEdit);
+  const convertCollectionToTitles = useCallback(async (collection) => {
+    if (!collection?.id) return;
+    if (!window.confirm('Convert this collection to individual titles and remove the collection?')) return;
+    await apiCall('post', `/media/collections/${collection.id}/convert-to-individual`, {});
+    await refreshCollections(1);
+    setPage(1);
+    onRefresh({ page: requestPage, limit: requestLimit, ...filters });
+  }, [apiCall, filters, onRefresh, refreshCollections, requestLimit, requestPage]);
   const renderMediaForm = () => (
     <MediaForm
       title={isEditingMode ? 'Edit Media' : 'Add to Library'}
@@ -1915,26 +2085,16 @@ export default function LibraryView({
               />
             )}
             {!collectionLoading && collectionRows.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                 {collectionRows.map((item) => (
-                  <article key={item.id} className="card p-4 border border-edge/80">
-                    <div className="space-y-2">
-                      <p className="font-medium text-ink line-clamp-2">{item.name || item.source_title || `Collection #${item.id}`}</p>
-                      <p className="text-xs text-ghost">
-                        {(item.media_type === 'game' ? 'Game' : 'Movie')} collection
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        <span className="badge badge-dim text-[10px]">Expected: {item.expected_item_count ?? '—'}</span>
-                        <span className="badge badge-dim text-[10px]">Items: {item.item_count ?? 0}</span>
-                        <span className="badge badge-dim text-[10px]">Linked: {item.linked_item_count ?? 0}</span>
-                      </div>
-                      <div className="pt-2">
-                        <button className="btn-secondary btn-sm" onClick={() => setEditingCollectionId(item.id)}>
-                          <Icons.Edit />Edit
-                        </button>
-                      </div>
-                    </div>
-                  </article>
+                  <CollectionCard
+                    key={item.id}
+                    item={item}
+                    supportsHover={supportsHover}
+                    onOpen={(row) => setViewingCollectionId(row.id)}
+                    onEdit={(id) => setEditingCollectionId(id)}
+                    onConvert={convertCollectionToTitles}
+                  />
                 ))}
               </div>
             )}
@@ -1983,18 +2143,31 @@ export default function LibraryView({
           </div>
         )}
 
-        {!loading && viewMode === 'cards' && visibleItems.length > 0 && !(isComicsLibrary && comicView === 'series') && (
+        {!loading && viewMode === 'cards' && !isCollectionMode && !(isComicsLibrary && comicView === 'series') && ((inlineCards && inlineCards.length > 0) || (!inlineCards && visibleItems.length > 0)) && (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-            {visibleItems.map((item) => (
-              <MediaCard
-                key={item.id}
-                item={item}
-                onOpen={() => setDetail(item)}
-                onEdit={() => setEditing(item)}
-                onDelete={(id) => { if (window.confirm('Delete this item?')) onDelete(id); }}
-                onRating={rate}
-                supportsHover={supportsHover}
-              />
+            {(inlineCards || visibleItems.map((item) => ({ kind: 'media', id: `media-${item.id}`, item }))).map((entry) => (
+              entry.kind === 'collection'
+                ? (
+                  <CollectionCard
+                    key={entry.id}
+                    item={entry.item}
+                    supportsHover={supportsHover}
+                    onOpen={(row) => setViewingCollectionId(row.id)}
+                    onEdit={(id) => setEditingCollectionId(id)}
+                    onConvert={convertCollectionToTitles}
+                  />
+                )
+                : (
+                  <MediaCard
+                    key={entry.id}
+                    item={entry.item}
+                    onOpen={() => setDetail(entry.item)}
+                    onEdit={() => setEditing(entry.item)}
+                    onDelete={(id) => { if (window.confirm('Delete this item?')) onDelete(id); }}
+                    onRating={rate}
+                    supportsHover={supportsHover}
+                  />
+                )
             ))}
           </div>
         )}
@@ -2061,6 +2234,22 @@ export default function LibraryView({
           apiCall={apiCall}
         />
       )}
+      {viewingCollectionId && (
+        <CollectionDetail
+          collectionId={viewingCollectionId}
+          apiCall={apiCall}
+          onClose={() => setViewingCollectionId(null)}
+          onEdit={() => {
+            const id = viewingCollectionId;
+            setViewingCollectionId(null);
+            setEditingCollectionId(id);
+          }}
+          onConvert={async () => {
+            await convertCollectionToTitles({ id: viewingCollectionId });
+            setViewingCollectionId(null);
+          }}
+        />
+      )}
       {editingCollectionId && (
         <CollectionEditor
           collectionId={editingCollectionId}
@@ -2068,23 +2257,8 @@ export default function LibraryView({
           onClose={() => setEditingCollectionId(null)}
           onSaved={async () => {
             setPage(1);
-            if (isCollectionMode) {
-              const params = new URLSearchParams();
-              params.set('media_type', forcedMediaType || 'movie');
-              params.set('page', String(1));
-              params.set('limit', String(pageSize));
-              if (debouncedSearchInput) params.set('search', debouncedSearchInput);
-              const payload = await apiCall('get', `/media/collections?${params.toString()}`);
-              setCollectionRows(Array.isArray(payload?.items) ? payload.items : []);
-              const nextPagination = payload?.pagination || { page: 1, limit: pageSize, total: 0, totalPages: 1 };
-              setCollectionPagination({
-                ...nextPagination,
-                hasMore: Number(nextPagination.page || 1) < Number(nextPagination.totalPages || 1)
-              });
-            }
-            if (!isCollectionMode) {
-              onRefresh({ page: requestPage, limit: requestLimit, ...filters });
-            }
+            await refreshCollections(1);
+            onRefresh({ page: requestPage, limit: requestLimit, ...filters });
           }}
         />
       )}

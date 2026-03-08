@@ -5296,12 +5296,29 @@ router.get('/collections', asyncHandler(async (req, res) => {
     `SELECT
        c.id, c.name, c.media_type, c.source_title, c.import_source, c.expected_item_count,
        c.library_id, c.space_id, c.created_by, c.created_at, c.updated_at,
+       rep.poster_path,
+       COALESCE(fmt.has_digital, false) AS has_digital,
        COUNT(ci.id)::int AS item_count,
        COUNT(ci.id) FILTER (WHERE ci.media_id IS NOT NULL)::int AS linked_item_count
      FROM collections c
      LEFT JOIN collection_items ci ON ci.collection_id = c.id
+     LEFT JOIN LATERAL (
+       SELECT m.poster_path
+       FROM collection_items ci_rep
+       JOIN media m ON m.id = ci_rep.media_id
+       WHERE ci_rep.collection_id = c.id
+         AND COALESCE(m.poster_path, '') <> ''
+       ORDER BY COALESCE(ci_rep.position, 999999), ci_rep.id
+       LIMIT 1
+     ) rep ON TRUE
+     LEFT JOIN LATERAL (
+       SELECT BOOL_OR(COALESCE(m.format, '') ILIKE '%digital%') AS has_digital
+       FROM collection_items ci_fmt
+       LEFT JOIN media m ON m.id = ci_fmt.media_id
+       WHERE ci_fmt.collection_id = c.id
+     ) fmt ON TRUE
      ${whereWithScope}
-     GROUP BY c.id
+     GROUP BY c.id, rep.poster_path, fmt.has_digital
      ORDER BY c.created_at DESC
      LIMIT $${params.length - 1}
      OFFSET $${params.length}`,
