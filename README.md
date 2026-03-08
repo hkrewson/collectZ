@@ -20,6 +20,15 @@ It is designed for homelab-friendly deployment with Docker, secure user auth, an
 
 - `2.0.0-alpha.9`
 
+## App Metadata
+
+- Canonical metadata lives in `app-meta.json`.
+- Mirror files used at runtime:
+  - `backend/app-meta.json`
+  - `frontend/src/app-meta.json`
+- After editing root metadata, sync mirrors with:
+  - `node scripts/sync-app-meta.js`
+
 ## Quick Start (Local Docker)
 
 1. Clone repo and enter directory.

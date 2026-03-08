@@ -1,4 +1,5 @@
 const axios = require('axios');
+const appMeta = require('../app-meta.json');
 
 const COMICS_PRESETS = {
   metron: {
@@ -30,6 +31,52 @@ const COMICS_PRESETS = {
     apiKeyQueryParam: 'api_key'
   }
 };
+
+const APP_USER_AGENT = process.env.APP_USER_AGENT
+  || appMeta.userAgent
+  || `${appMeta.app || 'collectZ'}/${appMeta.backend || appMeta.version || 'unknown'} (+https://github.com/hkrewson/collectZ)`;
+const METRON_REQUESTS_PER_MINUTE = Math.max(1, Number(process.env.METRON_REQUESTS_PER_MINUTE || 20));
+const METRON_DAILY_MAX_REQUESTS = Math.max(1, Number(process.env.METRON_DAILY_MAX_REQUESTS || 5000));
+const METRON_MIN_INTERVAL_MS = Math.ceil(60000 / METRON_REQUESTS_PER_MINUTE);
+let metronLastRequestAt = 0;
+let metronDayKey = '';
+let metronDayCount = 0;
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function currentUtcDayKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+async function metronRateGate() {
+  const dayKey = currentUtcDayKey();
+  if (metronDayKey !== dayKey) {
+    metronDayKey = dayKey;
+    metronDayCount = 0;
+  }
+  if (metronDayCount >= METRON_DAILY_MAX_REQUESTS) {
+    const err = new Error(`Metron daily request cap reached (${METRON_DAILY_MAX_REQUESTS}/day)`);
+    err.code = 'metron_daily_cap_reached';
+    err.status = 429;
+    throw err;
+  }
+  const now = Date.now();
+  const waitMs = (metronLastRequestAt + METRON_MIN_INTERVAL_MS) - now;
+  if (waitMs > 0) await sleep(waitMs);
+  metronLastRequestAt = Date.now();
+  metronDayCount += 1;
+}
+
+async function metronRequest(method, url, options = {}) {
+  await metronRateGate();
+  const headers = { ...(options.headers || {}), 'User-Agent': APP_USER_AGENT };
+  return axios({
+    method,
+    url,
+    ...options,
+    headers
+  });
+}
 
 function resolveComicsPreset(preset) {
   const key = String(preset || 'metron').trim().toLowerCase();
@@ -276,7 +323,7 @@ async function searchComicsByTitle(title, config = {}, limit = 10) {
           password: String(config.comicsApiKey).trim()
         }
       : undefined;
-    const response = await axios.get(apiUrl, {
+    const response = await metronRequest('get', apiUrl, {
       params: { series_name: query, limit: Math.max(1, Math.min(Number(limit) || 10, 20)) },
       auth: auth?.password ? auth : undefined,
       timeout: 20000,
@@ -317,7 +364,7 @@ async function searchComicsByTitle(title, config = {}, limit = 10) {
         [config.comicsApiKeyQueryParam || 'api_key']: config.comicsApiKey
       },
       headers: {
-        'User-Agent': process.env.COMICVINE_USER_AGENT || 'CollectZ/2.0 (+https://collect.krewson.org)'
+        'User-Agent': process.env.COMICVINE_USER_AGENT || APP_USER_AGENT
       },
       timeout: 20000,
       validateStatus: () => true
@@ -405,7 +452,7 @@ async function fetchMetronCollectionIssues(config = {}, options = {}) {
 
       while (pageUrl && page < maxPages && collected.length < limit) {
         page += 1;
-        const response = await axios.get(pageUrl, {
+        const response = await metronRequest('get', pageUrl, {
           auth,
           params: pageUrl === url ? { limit: Math.min(limit, 500) } : undefined,
           timeout: 25000,
@@ -461,7 +508,7 @@ async function fetchMetronIssueDetails(config = {}, issueId) {
   const auth = buildMetronAuth(config);
   if (!auth?.password) throw new Error('Metron password/token is not configured');
   const detailUrl = `${stripTrailingSlash(apiRoot)}/issue/${encodeURIComponent(normalizedIssueId)}/`;
-  const response = await axios.get(detailUrl, {
+  const response = await metronRequest('get', detailUrl, {
     auth,
     timeout: 25000,
     validateStatus: () => true
@@ -497,7 +544,8 @@ async function pushMetronCollectionIssue(config = {}, issueId) {
   for (const url of candidateUrls) {
     for (const body of payloads) {
       try {
-        const response = await axios.post(url, body, {
+        const response = await metronRequest('post', url, {
+          data: body,
           auth,
           headers: { 'Content-Type': 'application/json' },
           timeout: 20000,

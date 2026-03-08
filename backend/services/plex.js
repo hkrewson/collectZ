@@ -347,11 +347,81 @@ const fetchPlexSeasonEpisodeStates = async (config, ratingKey, seasonNumber) => 
   };
 };
 
+const fetchPlexShowSeasonVariants = async (config, ratingKey, sectionId) => {
+  if (!ratingKey || !sectionId) return [];
+  const response = await plexRequest(config, `/library/metadata/${String(ratingKey)}/allLeaves`);
+  if (response.status >= 400) {
+    const message = typeof response.data === 'string'
+      ? response.data.slice(0, 200)
+      : response.data?.error || response.statusText;
+    throw new Error(`Plex show episode variants request failed (${response.status}): ${message}`);
+  }
+
+  const entries = parsePlexVideos(response.data);
+  const bySeason = new Map();
+  for (const entry of entries) {
+    const type = String(entry?.type || '').toLowerCase();
+    if (type !== 'episode') continue;
+    const season = Number(entry?.parentIndex);
+    if (!Number.isInteger(season) || season <= 0) continue;
+
+    const media = Array.isArray(entry.Media) ? entry.Media[0] : entry.Media;
+    const height = Number(media?.height);
+    const width = Number(media?.width);
+    const resolution = String(media?.videoResolution || '').trim() || null;
+
+    const prev = bySeason.get(season) || {
+      season,
+      maxHeight: null,
+      maxWidth: null,
+      resolution: null
+    };
+
+    if (Number.isFinite(height) && (!Number.isFinite(prev.maxHeight) || height > prev.maxHeight)) {
+      prev.maxHeight = height;
+    }
+    if (Number.isFinite(width) && (!Number.isFinite(prev.maxWidth) || width > prev.maxWidth)) {
+      prev.maxWidth = width;
+    }
+    if (!prev.resolution && resolution) {
+      prev.resolution = resolution;
+    }
+    bySeason.set(season, prev);
+  }
+
+  return [...bySeason.values()]
+    .sort((a, b) => a.season - b.season)
+    .map((row) => ({
+      source: 'plex',
+      source_item_key: `${sectionId}:show:${ratingKey}:season:${row.season}`,
+      source_media_id: null,
+      source_part_id: null,
+      season_number: row.season,
+      edition: `Season ${row.season}`,
+      file_path: null,
+      container: null,
+      video_codec: null,
+      audio_codec: null,
+      resolution: row.resolution || null,
+      video_width: Number.isFinite(row.maxWidth) ? row.maxWidth : null,
+      video_height: Number.isFinite(row.maxHeight) ? row.maxHeight : null,
+      audio_channels: null,
+      duration_ms: null,
+      runtime_minutes: null,
+      raw_json: {
+        ratingKey: String(ratingKey),
+        source: 'allLeaves',
+        season: row.season
+      }
+    }));
+};
+
 module.exports = {
   resolvePlexPreset,
   fetchPlexSections,
   fetchPlexLibraryItems,
   fetchPlexShowSeasons,
+  fetchPlexShowSeasonVariants,
   fetchPlexSeasonEpisodeStates,
   normalizePlexItem,
   normalizePlexVariant

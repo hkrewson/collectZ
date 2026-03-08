@@ -15,7 +15,7 @@ import LibraryView from './components/LibraryView';
 import { routeFromPath, readCookie, Spinner, Toast, ImportStatusDock, Icons, cx } from './components/app/AppPrimitives';
 
 const API_URL = process.env.REACT_APP_API_URL || '/api';
-const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.version || 'unknown';
+const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.frontend || appMeta.version || 'unknown';
 const DEBUG_LEVEL = Math.max(0, Math.min(2, Number(process.env.REACT_APP_DEBUG || 0) || 0));
 const isDebugAt = (level) => DEBUG_LEVEL >= level;
 const IMPORT_JOBS_KEY = 'collectz_import_jobs';

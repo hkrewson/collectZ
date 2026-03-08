@@ -1,5 +1,5 @@
 const TYPE_DETAILS_ALLOWED_BY_MEDIA_TYPE = {
-  movie: [],
+  movie: ['edition'],
   tv_series: [],
   tv_episode: [],
   book: ['author', 'isbn', 'publisher', 'edition'],

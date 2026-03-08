@@ -10,6 +10,9 @@ import {
   MEDIA_TYPES
 } from './app/AppPrimitives';
 
+const UI_DRAWER_EDIT_EXPERIMENT = ['1', 'true', 'yes', 'on'].includes(
+  String(process.env.REACT_APP_UI_DRAWER_EDIT_EXPERIMENT || '').trim().toLowerCase()
+);
 const MEDIA_FORMATS = ['VHS', 'Blu-ray', 'Digital', 'DVD', '4K UHD'];
 const BOOK_FORMATS = ['Digital', 'Paperback', 'Hardcover', 'Trade'];
 const DEFAULT_MEDIA_FORM = {
@@ -20,6 +23,7 @@ const DEFAULT_MEDIA_FORM = {
   overview: '', tmdb_id: '', tmdb_media_type: 'movie', tmdb_url: '', trailer_url: '', poster_path: '', backdrop_path: '',
   season_number: '', episode_number: '', episode_title: '', network: '',
   book_author: '', book_isbn: '', book_publisher: '', book_edition: '',
+  movie_edition: '',
   comic_series: '', comic_issue_number: '', comic_volume: '', comic_writer: '', comic_artist: '', comic_inker: '', comic_colorist: '', comic_cover_date: '', comic_provider_issue_id: '',
   audio_artist: '', audio_album: '', audio_track_count: '',
   game_platform: '', game_developer: '', game_region: ''
@@ -445,7 +449,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall }) {
                   .map((v) => (
                     <div key={v.id} className="card p-3">
                       <p className="text-sm text-ink font-medium flex items-center gap-2">
-                        <span>{v.edition || 'Default edition'}</span>
+                        <span>{v.edition || (item.media_type === 'movie' ? 'Theatrical' : 'Default edition')}</span>
                         {item.media_type === 'tv_series' && (
                           <span className={`inline-flex items-center gap-1 text-xs ${v.watch_state === 'completed' ? 'text-ok' : 'text-brand-300'}`}>
                             {v.watch_state === 'completed' ? <Icons.Check /> : null}
@@ -783,6 +787,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
       book_isbn: details?.isbn || '',
       book_publisher: details?.publisher || '',
       book_edition: details?.edition || '',
+      movie_edition: details?.edition || '',
       comic_series: details?.series || '',
       comic_issue_number: details?.issue_number || '',
       comic_volume: details?.volume || '',
@@ -1087,6 +1092,10 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
             publisher: form.book_publisher || null,
             edition: form.book_edition || null
           }
+        : form.media_type === 'movie'
+          ? {
+              edition: String(form.movie_edition || '').trim() || 'Theatrical'
+            }
         : form.media_type === 'comic_book'
           ? {
               author: form.book_author || null,
@@ -1238,6 +1247,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
                       patch.trailer_url = '';
                       patch.backdrop_path = '';
                     }
+                    if (nextType !== 'movie') patch.movie_edition = '';
                     set(patch);
                     setTypeEnrichResults([]);
                   }}
@@ -1253,8 +1263,18 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
                 </LabeledField>
               )}
               {!isGame && (
-                <LabeledField label="Year" className="col-span-1">
+                <LabeledField label="Year" className="col-span-1 md:max-w-[140px]">
                   <input className="input" placeholder="2024" value={form.year} onChange={(e) => set({ year: e.target.value })} inputMode="numeric" />
+                </LabeledField>
+              )}
+              {form.media_type === 'movie' && (
+                <LabeledField label="Edition" className="col-span-1 md:max-w-[240px]">
+                  <input
+                    className="input"
+                    placeholder="Theatrical"
+                    value={form.movie_edition}
+                    onChange={(e) => set({ movie_edition: e.target.value })}
+                  />
                 </LabeledField>
               )}
             </div>
@@ -1363,8 +1383,8 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
                 <LabeledField label="Genre"><input className="input" placeholder="Action, Drama…" value={form.genre} onChange={(e) => set({ genre: e.target.value })} /></LabeledField>
                 <LabeledField label="Cast" className="col-span-2"><input className="input" placeholder="Actor 1, Actor 2…" value={form.cast} onChange={(e) => set({ cast: e.target.value })} /></LabeledField>
                 <LabeledField label="Release Date"><input className="input" type="date" value={form.release_date} onChange={(e) => set({ release_date: e.target.value })} /></LabeledField>
-                <LabeledField label="Runtime (min)"><input className="input" inputMode="numeric" value={form.runtime} onChange={(e) => set({ runtime: e.target.value })} /></LabeledField>
-                <LabeledField label="TMDB Rating"><input className="input" inputMode="decimal" placeholder="0.0 – 10.0" value={form.rating} onChange={(e) => set({ rating: e.target.value })} /></LabeledField>
+                <LabeledField label="Runtime (min)" className="md:max-w-[180px]"><input className="input" inputMode="numeric" value={form.runtime} onChange={(e) => set({ runtime: e.target.value })} /></LabeledField>
+                <LabeledField label="TMDB Rating" className="md:max-w-[180px]"><input className="input" inputMode="decimal" placeholder="0.0 – 10.0" value={form.rating} onChange={(e) => set({ rating: e.target.value })} /></LabeledField>
                 {addMode !== 'upc' && <LabeledField label="UPC"><input className="input font-mono" value={form.upc} onChange={(e) => set({ upc: e.target.value })} /></LabeledField>}
               </>
             )}
@@ -1473,8 +1493,8 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
                 Advanced (TMDB links, poster path)
               </summary>
               <div className="mt-3 grid grid-cols-1 gap-3">
-                <LabeledField label="TMDB ID"><input className="input font-mono" value={form.tmdb_id} onChange={(e) => set({ tmdb_id: e.target.value })} /></LabeledField>
-                <LabeledField label="TMDB Media Type"><input className="input font-mono" value={form.tmdb_media_type} onChange={(e) => set({ tmdb_media_type: e.target.value })} /></LabeledField>
+                <LabeledField label="TMDB ID" className="md:max-w-[220px]"><input className="input font-mono" value={form.tmdb_id} onChange={(e) => set({ tmdb_id: e.target.value })} /></LabeledField>
+                <LabeledField label="TMDB Media Type" className="md:max-w-[220px]"><input className="input font-mono" value={form.tmdb_media_type} onChange={(e) => set({ tmdb_media_type: e.target.value })} /></LabeledField>
                 <LabeledField label="TMDB URL"><input className="input" value={form.tmdb_url} onChange={(e) => set({ tmdb_url: e.target.value })} /></LabeledField>
                 <LabeledField label="Trailer URL"><input className="input" value={form.trailer_url} onChange={(e) => set({ trailer_url: e.target.value })} /></LabeledField>
                 <LabeledField label="Poster Path"><input className="input" value={form.poster_path} onChange={(e) => set({ poster_path: e.target.value })} /></LabeledField>
@@ -1508,6 +1528,7 @@ export default function LibraryView({
   apiCall,
   forcedMediaType
 }) {
+  const [uiDrawerEditExperiment, setUiDrawerEditExperiment] = useState(UI_DRAWER_EDIT_EXPERIMENT);
   const PAGE_SIZE_STORAGE_KEY = 'collectz_library_page_size';
   const VIEW_MODE_STORAGE_KEY = 'collectz_library_view_mode';
   const [searchInput, setSearchInput] = useState('');
@@ -1691,6 +1712,22 @@ export default function LibraryView({
     window.localStorage.setItem(VIEW_MODE_STORAGE_KEY, viewMode);
   }, [viewMode]);
 
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const payload = await apiCall('get', '/media/feature-flags');
+        const enabled = Boolean(payload?.flags?.ui_drawer_edit_experiment);
+        if (active) setUiDrawerEditExperiment(enabled);
+      } catch {
+        if (active) setUiDrawerEditExperiment(UI_DRAWER_EDIT_EXPERIMENT);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [apiCall]);
+
   const rate = async (id, rating) => {
     await onRating(id, rating);
     setDetail((d) => (d && d.id === id ? { ...d, user_rating: rating } : d));
@@ -1748,39 +1785,43 @@ export default function LibraryView({
   }, [mediaItems, isComicsLibrary, comicView, comicSeries]);
 
   const showPagination = !useComicFullFetch;
+  const activeEdit = editing || null;
+  const isEditingMode = Boolean(activeEdit);
+  const renderMediaForm = () => (
+    <MediaForm
+      title={isEditingMode ? 'Edit Media' : 'Add to Library'}
+      initial={isEditingMode ? {
+        ...DEFAULT_MEDIA_FORM,
+        ...activeEdit,
+        cast: activeEdit.cast || activeEdit.cast_members || '',
+        release_date: normalizeDateInput(activeEdit.release_date),
+        signed_on: normalizeDateInput(activeEdit.signed_on)
+      } : addFormInitial}
+      apiCall={apiCall}
+      onCancel={() => { setAdding(false); setEditing(null); }}
+      onDelete={isEditingMode ? () => { onDelete(activeEdit.id); setEditing(null); } : undefined}
+      onConvertToCollection={isEditingMode ? async () => {
+        await apiCall('post', `/media/${activeEdit.id}/convert-to-collection`, {});
+        setEditing(null);
+        onRefresh({ page: requestPage, limit: requestLimit, ...filters });
+      } : undefined}
+      onSave={async (payload) => {
+        if (isEditingMode) {
+          const updated = await onEdit(activeEdit.id, payload);
+          setEditing(null);
+          return updated;
+        }
+        const created = await onOpen(payload);
+        setAdding(false);
+        return created;
+      }}
+    />
+  );
 
-  if (adding || editing) {
-    const isEdit = Boolean(editing);
+  if ((adding || editing) && !uiDrawerEditExperiment) {
     return (
       <div className="h-full flex flex-col">
-        <MediaForm
-          title={isEdit ? 'Edit Media' : 'Add to Library'}
-          initial={isEdit ? {
-            ...DEFAULT_MEDIA_FORM,
-            ...editing,
-            cast: editing.cast || editing.cast_members || '',
-            release_date: normalizeDateInput(editing.release_date),
-            signed_on: normalizeDateInput(editing.signed_on)
-          } : addFormInitial}
-          apiCall={apiCall}
-          onCancel={() => { setAdding(false); setEditing(null); }}
-          onDelete={isEdit ? () => { onDelete(editing.id); setEditing(null); } : undefined}
-          onConvertToCollection={isEdit ? async () => {
-            await apiCall('post', `/media/${editing.id}/convert-to-collection`, {});
-            setEditing(null);
-            onRefresh({ page: requestPage, limit: requestLimit, ...filters });
-          } : undefined}
-          onSave={async (payload) => {
-            if (isEdit) {
-              const updated = await onEdit(editing.id, payload);
-              setEditing(null);
-              return updated;
-            }
-            const created = await onOpen(payload);
-            setAdding(false);
-            return created;
-          }}
-        />
+        {renderMediaForm()}
       </div>
     );
   }
@@ -2046,6 +2087,14 @@ export default function LibraryView({
             }
           }}
         />
+      )}
+      {(adding || editing) && uiDrawerEditExperiment && (
+        <div className="fixed inset-0 z-50 flex">
+          <div className="absolute inset-0 bg-black/45 backdrop-blur-[1px]" onClick={() => { setAdding(false); setEditing(null); }} />
+          <div className="ml-auto h-full w-full max-w-5xl bg-abyss border-l border-edge shadow-2xl relative">
+            {renderMediaForm()}
+          </div>
+        </div>
       )}
     </div>
   );

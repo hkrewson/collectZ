@@ -38,7 +38,10 @@ const { cleanupExpiredSessions, SESSION_MAX_PER_USER, SESSION_TTL_DAYS } = requi
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const APP_VERSION = process.env.APP_VERSION || appMeta.version;
+const APP_NAME = appMeta.app || 'collectZ';
+const APP_VERSION = process.env.APP_VERSION || appMeta.backend || appMeta.version;
+const FRONTEND_VERSION = appMeta.frontend || appMeta.version || APP_VERSION;
+const BACKEND_VERSION = appMeta.backend || appMeta.version || APP_VERSION;
 const BUILD_LABEL = `v${APP_VERSION || 'unknown'}`;
 const SESSION_CLEANUP_INTERVAL_MINUTES = Math.max(1, Number(process.env.SESSION_CLEANUP_INTERVAL_MINUTES || 60));
 const RATE_LIMIT_WINDOW_MINUTES = Math.max(1, Number(process.env.RATE_LIMIT_WINDOW_MINUTES || 15));
@@ -217,7 +220,10 @@ app.use('/uploads', express.static('uploads'));
 // ── Health check ──────────────────────────────────────────────────────────────
 const healthPayload = () => ({
   status: 'ok',
+  app: APP_NAME,
   version: APP_VERSION || 'unknown',
+  frontend: FRONTEND_VERSION || 'unknown',
+  backend: BACKEND_VERSION || 'unknown',
   build: BUILD_LABEL
 });
 

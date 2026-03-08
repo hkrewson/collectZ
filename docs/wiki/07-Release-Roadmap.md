@@ -1017,15 +1017,17 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 3. `2.3.0` TV watch-state + provider sync foundation
 4. `2.4.0a` Mixed-media schema and validation hardening
 5. `2.4.0b` Search/filter/sort and dedupe quality tuning
-6. `2.4.2` Events and memorabilia tracking
-7. `2.4.4` Collectables category expansion (cards/art/merch taxonomy)
-8. `2.4.5` Calibre Web Automated integration
-9. `2.5.0` Invite/reset security hardening
-10. `2.6.0` Observability platform (metrics + alerting)
-11. `2.6.5` Structured log export (GELF + pluggable backends)
-12. `2.7.0` UI refinement sprint
-13. `2.8.0` Optional market valuation integrations
-14. `2.9.0` Optional build: cost model and billing readiness
+6. `2.4.1` Collection conversion UX parity (movies/games)
+7. `2.4.2` Events and memorabilia tracking
+8. `2.4.3` Drawer-first editing compactness experiment
+9. `2.4.4` Collectables category expansion (cards/art/merch taxonomy)
+10. `2.4.5` Calibre Web Automated integration
+11. `2.5.0` Invite/reset security hardening
+12. `2.6.0` Observability platform (metrics + alerting)
+13. `2.6.5` Structured log export (GELF + pluggable backends)
+14. `2.7.0` UI refinement sprint
+15. `2.8.0` Optional market valuation integrations
+16. `2.9.0` Optional build: cost model and billing readiness
 
 ## 2.1.0 — Metadata Normalization and Query Performance
 
@@ -1406,7 +1408,7 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 - Mobile-optimized barcode scanning UI (camera input with real-time scan feedback).
 - Email delivery for invites via SMTP (already stubbed in `env.example`).
 
-## 2.7.1 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
+## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.
 
@@ -1444,6 +1446,57 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 - Media-type-specific quick filter select behavior is correct for each library type.
 - Import submenu behaves consistently with integrations nav pattern.
 - Flag-off behavior exactly restores current UI flow.
+
+## 2.4.3.1 — Drawer/Filter Follow-Up + Metron API Compliance
+
+**Goal:** Close post-validation gaps from `2.4.3` and align comics provider behavior with documented API limits.
+**Status:** Completed.
+
+### Scope
+
+- Resolution quick-filter precision:
+  - change movie resolution buckets to non-overlapping rules (exact target class),
+  - remove current overlap behavior between `SD`, `720`, `1080`, and `4K`.
+- TV resolution visibility:
+  - ensure Plex import persists per-title/per-variant resolution for TV items,
+  - make TV resolution quick-filter return expected rows based on imported Plex metadata.
+- Metron API compliance hardening:
+  - send a dedicated non-browser `User-Agent` header for all Metron requests,
+  - enforce provider throttle envelope at `20 requests/minute`,
+  - add daily-cap safety behavior for `5000/day` guidance (graceful pause/fail + clear job summary/audit detail),
+  - avoid burst/concurrency patterns that violate Metron guidance.
+
+### Acceptance Criteria
+
+- Movie quick-filter buckets are deterministic and non-overlapping.
+- TV quick-filter returns results when Plex resolution metadata exists.
+- Metron imports/enrichment run without provider throttle violations under normal import volume.
+- Metron request identity (`User-Agent`) is explicitly set and auditable in request config.
+- When rate/daily caps are hit, sync job summary reports a clear provider-limit reason instead of opaque errors.
+
+## 2.4.3.2 — Collections UX Unification and Library Integration
+
+**Goal:** Make collections feel first-class and visually consistent with the main library while keeping conversion/edit flows explicit.
+
+### Scope
+
+- Collection cards use poster-style media cards (not list-only admin cards) with consistent badges and hover actions.
+- In collection card hover actions:
+  - keep `Edit`,
+  - replace destructive hover action with `Convert` action.
+- Collection editor moves to the same drawer interaction model used for title add/edit.
+- Collection drawer items render in a consistent structured style similar to editions/episodes blocks.
+- Collection entries are included in the main library result set; `Collections` tab becomes a filter lens, not a separate-only surface.
+- Preserve existing tabs:
+  - `All Movies|Movie Collections`,
+  - `All Games|Game Collections`.
+
+### Acceptance Criteria
+
+- Collections and titles share consistent card visuals and interaction affordances.
+- Collection edit uses drawer UI and supports current add/remove/convert workflows without regression.
+- Collections are visible in main library views and still filter correctly in collections tab.
+- Conversion actions are clear and recoverable (audit events retained).
 
 ## 2.4.2 — Events and Memorabilia Tracking
 

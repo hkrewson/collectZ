@@ -17,7 +17,7 @@ const {
 } = require('../services/tmdb');
 const { normalizeBarcodeMatches } = require('../services/barcode');
 const { extractVisionText, extractTitleCandidates } = require('../services/vision');
-const { fetchPlexLibraryItems, fetchPlexShowSeasons, fetchPlexSeasonEpisodeStates } = require('../services/plex');
+const { fetchPlexLibraryItems, fetchPlexShowSeasons, fetchPlexShowSeasonVariants, fetchPlexSeasonEpisodeStates } = require('../services/plex');
 const { searchBooksByTitle, searchBooksByIsbn } = require('../services/books');
 const { searchAudioByTitle } = require('../services/audio');
 const { searchGamesByTitle } = require('../services/games');
@@ -1904,6 +1904,18 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
     if (typeof onProgress !== 'function') return;
     await onProgress(progress);
   };
+  const shouldPersistVariant = (mediaType, variant) => {
+    if (!variant) return false;
+    if (mediaType !== 'tv_series') return true;
+    const hasStreamData = Boolean(
+      variant.resolution
+      || Number.isFinite(Number(variant.video_height))
+      || Number.isFinite(Number(variant.video_width))
+      || variant.file_path
+    );
+    const isDerivedSeasonVariant = Number.isInteger(Number(variant.season_number)) && Number(variant.season_number) > 0;
+    return hasStreamData || isDerivedSeasonVariant;
+  };
   const upsertMediaMetadata = async (mediaId, key, value) => {
     if (!value) return;
     await pool.query(
@@ -1939,10 +1951,22 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
     const byPart = variant.source_part_id
       ? await pool.query(
         `UPDATE media_variants
-         SET media_id = $1, source_item_key = $3, source_media_id = $4, source_part_id = $5,
-             edition = $6, file_path = $7, container = $8, video_codec = $9, audio_codec = $10,
-             resolution = $11, video_width = $12, video_height = $13, audio_channels = $14,
-             duration_ms = $15, runtime_minutes = $16, raw_json = $17::jsonb
+         SET media_id = $1,
+             source_item_key = COALESCE($3, source_item_key),
+             source_media_id = COALESCE($4, source_media_id),
+             source_part_id = COALESCE($5, source_part_id),
+             edition = COALESCE($6, edition),
+             file_path = COALESCE($7, file_path),
+             container = COALESCE($8, container),
+             video_codec = COALESCE($9, video_codec),
+             audio_codec = COALESCE($10, audio_codec),
+             resolution = COALESCE($11, resolution),
+             video_width = COALESCE($12, video_width),
+             video_height = COALESCE($13, video_height),
+             audio_channels = COALESCE($14, audio_channels),
+             duration_ms = COALESCE($15, duration_ms),
+             runtime_minutes = COALESCE($16, runtime_minutes),
+             raw_json = COALESCE($17::jsonb, raw_json)
          WHERE source = $2
            AND source_part_id = $5
          RETURNING id`,
@@ -1957,10 +1981,22 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
     const byItem = variant.source_item_key
       ? await pool.query(
         `UPDATE media_variants
-         SET media_id = $1, source_item_key = $3, source_media_id = $4, source_part_id = $5,
-             edition = $6, file_path = $7, container = $8, video_codec = $9, audio_codec = $10,
-             resolution = $11, video_width = $12, video_height = $13, audio_channels = $14,
-             duration_ms = $15, runtime_minutes = $16, raw_json = $17::jsonb
+         SET media_id = $1,
+             source_item_key = COALESCE($3, source_item_key),
+             source_media_id = COALESCE($4, source_media_id),
+             source_part_id = COALESCE($5, source_part_id),
+             edition = COALESCE($6, edition),
+             file_path = COALESCE($7, file_path),
+             container = COALESCE($8, container),
+             video_codec = COALESCE($9, video_codec),
+             audio_codec = COALESCE($10, audio_codec),
+             resolution = COALESCE($11, resolution),
+             video_width = COALESCE($12, video_width),
+             video_height = COALESCE($13, video_height),
+             audio_channels = COALESCE($14, audio_channels),
+             duration_ms = COALESCE($15, duration_ms),
+             runtime_minutes = COALESCE($16, runtime_minutes),
+             raw_json = COALESCE($17::jsonb, raw_json)
          WHERE source = $2
            AND source_item_key = $3
          RETURNING id`,
@@ -2026,8 +2062,10 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
     if (processedShowSeasonKeys.has(dedupeKey)) return;
     processedShowSeasonKeys.add(dedupeKey);
     let seasons = [];
+    let seasonVariants = [];
     try {
       seasons = await fetchPlexShowSeasons(config, plexRatingKey);
+      seasonVariants = await fetchPlexShowSeasonVariants(config, plexRatingKey, sectionId);
     } catch (error) {
       summary.enrichmentErrors.push({
         title: `show:${plexRatingKey}`,
@@ -2085,6 +2123,17 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
         ]
       );
       seasonsCreated += 1;
+    }
+    for (const variant of seasonVariants) {
+      try {
+        await upsertMediaVariant(mediaId, variant);
+      } catch (error) {
+        summary.enrichmentErrors.push({
+          title: `show:${plexRatingKey}:season:${variant?.season_number || 'unknown'}`,
+          type: 'plex_season_variant_upsert',
+          detail: error.message || 'Plex season variant upsert failed'
+        });
+      }
     }
   };
   const tmdbSeasonSummaryCache = new Map();
@@ -2361,7 +2410,9 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
         await upsertMediaMetadata(existing.id, 'plex_guid', plexGuid);
         await upsertMediaMetadata(existing.id, 'plex_item_key', plexItemKey);
         await upsertMediaMetadata(existing.id, 'plex_section_id', item.sectionId);
-        await upsertMediaVariant(existing.id, item.variant);
+        if (shouldPersistVariant(media.media_type, item.variant)) {
+          await upsertMediaVariant(existing.id, item.variant);
+        }
         await upsertMediaSeason(existing.id, media, item.variant);
         await upsertPlexShowSeasons(existing.id, item.sectionId, plexRatingKey);
         await hydrateTmdbSeasonExpectedCounts(existing.id, media.tmdb_id);
@@ -2413,7 +2464,9 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
           await upsertMediaMetadata(insertedId, 'plex_guid', plexGuid);
           await upsertMediaMetadata(insertedId, 'plex_item_key', plexItemKey);
           await upsertMediaMetadata(insertedId, 'plex_section_id', item.sectionId);
-          await upsertMediaVariant(insertedId, item.variant);
+          if (shouldPersistVariant(media.media_type, item.variant)) {
+            await upsertMediaVariant(insertedId, item.variant);
+          }
           await upsertMediaSeason(insertedId, media, item.variant);
           await upsertPlexShowSeasons(insertedId, item.sectionId, plexRatingKey);
           await hydrateTmdbSeasonExpectedCounts(insertedId, media.tmdb_id);
@@ -3443,6 +3496,15 @@ async function runDeliciousCsvImport({
 router.use(authenticateToken);
 router.use(enforceScopeAccess({ allowedHintRoles: ['admin'] }));
 
+router.get('/feature-flags', asyncHandler(async (_req, res) => {
+  const uiDrawerEditExperiment = await isFeatureEnabled('ui_drawer_edit_experiment', false);
+  res.json({
+    flags: {
+      ui_drawer_edit_experiment: Boolean(uiDrawerEditExperiment)
+    }
+  });
+}));
+
 // ── List / search ─────────────────────────────────────────────────────────────
 
 router.get('/', asyncHandler(async (req, res) => {
@@ -3667,11 +3729,26 @@ router.get('/', asyncHandler(async (req, res) => {
       FROM media_variants mv
       WHERE mv.media_id = media.id
         AND (
-          ($${idx} = '4k' AND (mv.resolution ILIKE '%4k%' OR mv.video_height >= 2000))
-          OR ($${idx} = '1080' AND (mv.resolution ILIKE '%1080%' OR (mv.video_height >= 1000 AND mv.video_height < 2000)))
-          OR ($${idx} = '720' AND (mv.resolution ILIKE '%720%' OR (mv.video_height >= 700 AND mv.video_height < 1000)))
-          OR ($${idx} = 'sd' AND (mv.resolution ILIKE '%sd%' OR (mv.video_height > 0 AND mv.video_height < 700)))
-          OR (mv.resolution ILIKE '%' || $${idx} || '%')
+          ($${idx} = '4k' AND (
+            mv.video_height >= 2000
+            OR mv.resolution ILIKE '%4k%'
+            OR mv.resolution ILIKE '%2160%'
+            OR mv.resolution ILIKE '%uhd%'
+          ))
+          OR ($${idx} = '1080' AND (
+            (mv.video_height >= 1000 AND mv.video_height < 2000)
+            OR mv.resolution ILIKE '%1080%'
+          ))
+          OR ($${idx} = '720' AND (
+            (mv.video_height >= 700 AND mv.video_height < 1000)
+            OR mv.resolution ILIKE '%720%'
+          ))
+          OR ($${idx} = 'sd' AND (
+            (mv.video_height > 0 AND mv.video_height < 700)
+            OR mv.resolution ILIKE '%sd%'
+            OR mv.resolution ILIKE '%480%'
+            OR mv.resolution ILIKE '%576%'
+          ))
         )
     )`;
   }

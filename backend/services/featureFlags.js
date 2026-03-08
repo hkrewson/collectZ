@@ -24,6 +24,10 @@ const FEATURE_FLAG_DEFINITIONS = {
   metadata_normalized_read_enabled: {
     description: 'Use normalized metadata relations (genres/directors/actors) as primary read path for metadata search/filter',
     defaultEnabled: true
+  },
+  ui_drawer_edit_experiment: {
+    description: 'Enable drawer-first add/edit flow in library UI (2.4.3 experiment)',
+    defaultEnabled: false
   }
 };
 

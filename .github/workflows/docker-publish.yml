@@ -34,12 +34,21 @@ jobs:
         id: vars
         run: |
           META_VERSION=$(node -p "require('./app-meta.json').version")
+          META_FRONTEND=$(node -p "require('./app-meta.json').frontend")
+          META_BACKEND=$(node -p "require('./app-meta.json').backend")
           BACKEND_VERSION=$(node -p "require('./backend/package.json').version")
           FRONTEND_VERSION=$(node -p "require('./frontend/package.json').version")
-          if [ "$META_VERSION" != "$BACKEND_VERSION" ] || [ "$META_VERSION" != "$FRONTEND_VERSION" ]; then
-            echo "Version mismatch: app-meta=$META_VERSION backend=$BACKEND_VERSION frontend=$FRONTEND_VERSION"
+          BACKEND_META_VERSION=$(node -p "require('./backend/app-meta.json').version")
+          FRONTEND_META_VERSION=$(node -p "require('./frontend/src/app-meta.json').version")
+          if [ "$META_VERSION" != "$BACKEND_VERSION" ] || [ "$META_VERSION" != "$FRONTEND_VERSION" ] || [ "$META_FRONTEND" != "$FRONTEND_VERSION" ] || [ "$META_BACKEND" != "$BACKEND_VERSION" ]; then
+            echo "Version mismatch: root=$META_VERSION root-frontend=$META_FRONTEND root-backend=$META_BACKEND backend=$BACKEND_VERSION frontend=$FRONTEND_VERSION"
             exit 1
           fi
+          if [ "$META_VERSION" != "$BACKEND_META_VERSION" ] || [ "$META_VERSION" != "$FRONTEND_META_VERSION" ]; then
+            echo "app-meta mirror mismatch: root=$META_VERSION backend-file=$BACKEND_META_VERSION frontend-file=$FRONTEND_META_VERSION"
+            exit 1
+          fi
+          node -e "const fs=require('fs'); const root=JSON.parse(fs.readFileSync('app-meta.json','utf8')); const back=JSON.parse(fs.readFileSync('backend/app-meta.json','utf8')); const front=JSON.parse(fs.readFileSync('frontend/src/app-meta.json','utf8')); if (JSON.stringify(root)!==JSON.stringify(back) || JSON.stringify(root)!==JSON.stringify(front)) { console.error('app-meta mirror files are not in sync with root app-meta.json'); process.exit(1); }"
           MAJOR_MINOR=$(echo "$META_VERSION" | awk -F. '{print $1 "." $2}')
           BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           GIT_SHA_SHORT=$(echo "${GITHUB_SHA}" | cut -c1-7)
