@@ -209,6 +209,67 @@ const libraryArchiveSchema = z.object({
   confirm_name: z.string().min(1, 'confirm_name is required')
 });
 
+// ── Events ───────────────────────────────────────────────────────────────────
+
+const eventArtifactTypes = ['session', 'person', 'autograph', 'purchase', 'freebie', 'note'];
+const eventDateSchema = z.preprocess(
+  emptyStringToNull,
+  z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (YYYY-MM-DD)')
+);
+const optionalEventDateSchema = z.preprocess(
+  emptyStringToNull,
+  z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (YYYY-MM-DD)').optional().nullable()
+);
+const eventBaseObjectSchema = z.object({
+  title: z.string().min(1, 'Title is required').max(255),
+  url: z.string().url('Valid URL is required').max(2000),
+  location: z.string().min(1, 'Location is required').max(255),
+  date_start: eventDateSchema,
+  date_end: optionalEventDateSchema,
+  host: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
+  time_label: z.preprocess(emptyStringToNull, z.string().max(100).optional().nullable()),
+  room: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
+  notes: z.preprocess(emptyStringToNull, z.string().max(5000).optional().nullable())
+});
+
+const eventCreateSchema = eventBaseObjectSchema.superRefine((data, ctx) => {
+  if (data.date_end && data.date_start && data.date_end < data.date_start) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['date_end'],
+      message: 'date_end cannot be before date_start'
+    });
+  }
+});
+
+const eventUpdateSchema = eventBaseObjectSchema.partial().refine(
+  (data) => Object.keys(data).length > 0,
+  { message: 'At least one event field is required' }
+).superRefine((data, ctx) => {
+  if (data.date_start && data.date_end && data.date_end < data.date_start) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['date_end'],
+      message: 'date_end cannot be before date_start'
+    });
+  }
+});
+
+const eventArtifactBaseSchema = z.object({
+  artifact_type: z.enum(eventArtifactTypes),
+  title: z.string().min(1, 'Title is required').max(255),
+  description: z.preprocess(emptyStringToNull, z.string().max(5000).optional().nullable()),
+  image_path: z.preprocess(emptyStringToNull, z.string().max(2000).optional().nullable()),
+  price: nullableNumberSchema(z.number().min(0).max(1000000)),
+  vendor: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable())
+});
+
+const eventArtifactCreateSchema = eventArtifactBaseSchema;
+const eventArtifactUpdateSchema = eventArtifactBaseSchema.partial().refine(
+  (data) => Object.keys(data).length > 0,
+  { message: 'At least one artifact field is required' }
+);
+
 // ── Middleware factory ────────────────────────────────────────────────────────
 
 /**
@@ -251,5 +312,9 @@ module.exports = {
   librarySelectSchema,
   libraryDeleteSchema,
   libraryTransferSchema,
-  libraryArchiveSchema
+  libraryArchiveSchema,
+  eventCreateSchema,
+  eventUpdateSchema,
+  eventArtifactCreateSchema,
+  eventArtifactUpdateSchema
 };

@@ -1502,6 +1502,7 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 ## 2.4.2 — Events and Memorabilia Tracking
 
 **Goal:** Add optional event tracking for conventions/festivals while keeping core media catalog flows simple.
+**Status:** Completed.
 
 ### Scope
 
@@ -1527,6 +1528,13 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 - Users can add event artifacts and link collectibles to an event.
 - Event attachments can be uploaded/captured and rendered reliably on mobile and desktop.
 - Event actions and attachment changes emit clear audit log entries.
+
+### Implementation notes
+
+- Events API/UI, artifact CRUD, and attachment upload/capture are complete and validated.
+- Events list supports paging plus `q`, `location`, `from`, and `to` filters.
+- Collectibles table linkage (`collectibles.event_id`) is migration-ready when the `collectibles` table exists.
+- Full collectible record management UX is tracked in `2.4.4` (taxonomy expansion) and is intentionally out of scope for `2.4.2`.
 
 ### DB/API Checklist
 

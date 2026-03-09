@@ -38,6 +38,7 @@ export default function SidebarNav({
     'library-audio',
     'library-games',
     'library-comics',
+    'library-events',
     'library-import',
     'library-import-review'
   ].includes(activeTab);
@@ -142,6 +143,7 @@ export default function SidebarNav({
                 <NavLink id="library-audio" icon={null} label="Audio" sub />
                 <NavLink id="library-books" icon={null} label="Books" sub />
                 <NavLink id="library-comics" icon={null} label="Comic Books" sub />
+                <NavLink id="library-events" icon={null} label="Events" sub />
                 <NavLink id="library-games" icon={null} label="Games" sub />
                 <NavLink id="library-movies" icon={null} label="Movies" sub />
                 <NavLink id="library-tv" icon={null} label="TV" sub />

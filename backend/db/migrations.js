@@ -1273,6 +1273,78 @@ const MIGRATIONS = [
       WHERE p.season_number IS NOT NULL AND p.season_number > 0
       ON CONFLICT (media_id, season_number) DO NOTHING;
     `
+  },
+  {
+    version: 35,
+    description: 'Add events and event artifacts tables',
+    up: `
+      CREATE TABLE IF NOT EXISTS events (
+        id SERIAL PRIMARY KEY,
+        library_id INTEGER REFERENCES libraries(id) ON DELETE SET NULL,
+        space_id INTEGER,
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        title VARCHAR(255) NOT NULL,
+        url TEXT NOT NULL,
+        location VARCHAR(255) NOT NULL,
+        date_start DATE NOT NULL,
+        date_end DATE,
+        host VARCHAR(255),
+        time_label VARCHAR(100),
+        room VARCHAR(255),
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        archived_at TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS event_artifacts (
+        id SERIAL PRIMARY KEY,
+        event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+        artifact_type VARCHAR(20) NOT NULL CHECK (artifact_type IN ('session', 'person', 'autograph', 'purchase', 'freebie', 'note')),
+        title VARCHAR(255) NOT NULL,
+        description TEXT,
+        image_path TEXT,
+        price NUMERIC(10,2),
+        vendor VARCHAR(255),
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_events_library_date_start
+        ON events(library_id, date_start DESC);
+      CREATE INDEX IF NOT EXISTS idx_events_created_by_created_at
+        ON events(created_by, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_event_artifacts_event_created_at
+        ON event_artifacts(event_id, created_at DESC);
+
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_events_updated_at') THEN
+          CREATE TRIGGER update_events_updated_at BEFORE UPDATE ON events
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_event_artifacts_updated_at') THEN
+          CREATE TRIGGER update_event_artifacts_updated_at BEFORE UPDATE ON event_artifacts
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+        END IF;
+      END;
+      $$;
+
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1
+          FROM information_schema.tables
+          WHERE table_schema = 'public'
+            AND table_name = 'collectibles'
+        ) THEN
+          EXECUTE 'ALTER TABLE collectibles ADD COLUMN IF NOT EXISTS event_id INTEGER REFERENCES events(id) ON DELETE SET NULL';
+          EXECUTE 'CREATE INDEX IF NOT EXISTS idx_collectibles_event_id ON collectibles(event_id)';
+        END IF;
+      END;
+      $$;
+    `
   }
 ];
 

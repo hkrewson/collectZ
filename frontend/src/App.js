@@ -12,6 +12,7 @@ import AdminIntegrationsView from './components/AdminIntegrationsView';
 import ImportReviewView from './components/ImportReviewView';
 import SidebarNav from './components/SidebarNav';
 import LibraryView from './components/LibraryView';
+import EventsView from './components/EventsView';
 import { routeFromPath, readCookie, Spinner, Toast, ImportStatusDock, Icons, cx } from './components/app/AppPrimitives';
 
 const API_URL = process.env.REACT_APP_API_URL || '/api';
@@ -32,6 +33,7 @@ const VALID_DASHBOARD_TABS = new Set([
   'library-audio',
   'library-games',
   'library-comics',
+  'library-events',
   'library-other',
   'library-import',
   'library-import-review',
@@ -48,7 +50,7 @@ const DEFAULT_INTEGRATION_SECTION = 'audio';
 
 function readDashboardStateFromUrl() {
   const path = String(window.location.pathname || '');
-  const libMatch = path.match(/^\/library\/(movies|tv|books|audio|games|comics|other|import|import-review)\/?$/);
+  const libMatch = path.match(/^\/library\/(movies|tv|books|audio|games|comics|events|other|import|import-review)\/?$/);
   if (libMatch) {
     const slug = libMatch[1];
     return {
@@ -581,6 +583,10 @@ export default function App() {
       case 'library-audio':
       case 'library-games':
       case 'library-comics':
+      case 'library-events':
+        if (activeTab === 'library-events') {
+          return <EventsView apiCall={apiCall} onToast={showToast} />;
+        }
         return (
           <LibraryView
             mediaItems={mediaItems}
