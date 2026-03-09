@@ -555,7 +555,7 @@ jobs:
 
       - name: Docker metadata (backend)
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ghcr.io/${{ needs.prepare.outputs.owner_lc }}/collectz-backend
           tags: |
@@ -609,7 +609,7 @@ jobs:
 
       - name: Docker metadata (frontend)
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ghcr.io/${{ needs.prepare.outputs.owner_lc }}/collectz-frontend
           tags: |
