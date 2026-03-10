@@ -1015,19 +1015,26 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 1. `2.1.0` Metadata normalization and query performance
 2. `2.2.0` Import match review + collections intelligence
 3. `2.3.0` TV watch-state + provider sync foundation
-4. `2.4.0a` Mixed-media schema and validation hardening
-5. `2.4.0b` Search/filter/sort and dedupe quality tuning
-6. `2.4.1` Collection conversion UX parity (movies/games)
-7. `2.4.2` Events and memorabilia tracking
-8. `2.4.3` Drawer-first editing compactness experiment
-9. `2.4.4` Collectables category expansion (cards/art/merch taxonomy)
-10. `2.4.5` Calibre Web Automated integration
-11. `2.5.0` Invite/reset security hardening
-12. `2.6.0` Observability platform (metrics + alerting)
-13. `2.6.5` Structured log export (GELF + pluggable backends)
-14. `2.7.0` UI refinement sprint
-15. `2.8.0` Optional market valuation integrations
-16. `2.9.0` Optional build: cost model and billing readiness
+4. `2.3.1` TV season drill-down and TMDB season metadata
+5. `2.4.0a` Mixed-media schema and validation hardening
+6. `2.4.0b` Search/filter/sort and dedupe quality tuning
+7. `2.4.1` Collection conversion UX parity (movies/games)
+8. `2.4.2` Events and memorabilia tracking
+9. `2.4.3` Drawer-first editing compactness experiment
+10. `2.4.3.1` Drawer/filter follow-up + Metron API compliance
+11. `2.4.3.2` Collections UX unification and library integration
+12. `2.4.4` Collectibles category expansion (cards/art/merch taxonomy)
+13. `2.4.4.1` App shell decomposition (hooks extraction)
+14. `2.4.4.2` App shell decomposition (dashboard content split)
+15. `2.4.4.3` App shell guardrails enforcement
+16. `2.4.5` Calibre Web Automated integration
+17. `2.5.0` Invite/reset security hardening
+18. `2.6.0` Observability platform (metrics + alerting)
+19. `2.6.1` Multi-format ownership model (movies/games)
+20. `2.6.5` Structured log export (GELF + pluggable backends)
+21. `2.7.0` UI refinement sprint
+22. `2.8.0` Optional market valuation integrations
+23. `2.9.0` Optional build: cost model and billing readiness
 
 ## 2.1.0 — Metadata Normalization and Query Performance
 
@@ -1566,14 +1573,14 @@ Deferred tenancy planning has been moved to a separate roadmap document:
     - `events.attachment.upload|delete`.
   - Require image upload validation (mime/size caps) using existing object storage pathway.
 
-## 2.4.4 — Collectables, Art, and Cards Taxonomy Expansion
+## 2.4.4 — Collectibles, Art, and Cards Taxonomy Expansion
 
 **Goal:** Add non-media collection tracking for physical memorabilia that does not fit Movies/TV/Books/Audio/Games.
-**Status:** In Progress (DB + API + baseline UI landed).
+**Status:** Completed.
 
 ### Scope
 
-- Add a new `Collectables` library surface for items without a strict media-provider model.
+- Add a new `Collectibles` library surface for items without a strict media-provider model.
 - Baseline collectible model:
   - required: `title`,
   - optional: `image`, `event_id` (relation), `booth_or_vendor`, `price`, `exclusive` (boolean), `notes`.
@@ -1627,6 +1634,58 @@ Deferred tenancy planning has been moved to a separate roadmap document:
     - `collectibles.reclassify`,
     - `collectibles.link_event`.
   - Ensure category values are validated server-side against controlled taxonomy.
+
+## 2.4.4.1 — App Shell Decomposition (Hooks Extraction)
+
+**Goal:** Reduce orchestration risk in `frontend/src/App.js` by extracting side-effect-heavy concerns into focused hooks without changing behavior.
+**Status:** Planned.
+
+### Scope
+
+- Extract import polling/leader election into `useImportJobPolling`.
+- Extract session bootstrap/auth-check lifecycle into `useSessionBootstrap`.
+- Extract media API operations into `useMediaApi` (load/add/edit/delete/rate wrappers).
+- Keep existing URL behavior, tab behavior, and API contracts unchanged.
+
+### Acceptance Criteria
+
+- `frontend/src/App.js` reduced to `<= 600` lines.
+- No regression in auth/session bootstrap, import polling, or media CRUD flows.
+- Existing CI checks pass without increasing App.js exception budgets.
+
+## 2.4.4.2 — App Shell Decomposition (Dashboard Content Split)
+
+**Goal:** Split render-routing responsibilities from root app orchestration for safer feature delivery.
+**Status:** Planned.
+
+### Scope
+
+- Move tab switch/render logic into a dedicated dashboard content component.
+- Keep root `App` focused on app-level state wiring and shell composition.
+- Preserve feature-flag gating behavior for Events/Collectibles/import review.
+
+### Acceptance Criteria
+
+- `frontend/src/App.js` reduced to `<= 500` lines.
+- Tab routing/render behavior matches pre-refactor behavior.
+- No regressions in admin gating, library forcing, or drawer/navigation wiring.
+
+## 2.4.4.3 — App Shell Guardrails Enforcement
+
+**Goal:** Re-establish long-term frontend modularity guardrails after decomposition.
+**Status:** Planned.
+
+### Scope
+
+- Reconfirm and document `App.js` line-budget guardrail targets.
+- Ensure extracted modules have clear ownership boundaries (`routing`, `session`, `import polling`, `media ops`).
+- Remove temporary exception pressure by aligning with default guardrails.
+
+### Acceptance Criteria
+
+- App shell files remain within documented budget limits without exceptions increase.
+- CI guardrails pass on fresh clone/build.
+- Roadmap and delivery policy references reflect the updated app-shell structure.
 
 ## 2.4.5 — Calibre Web Automated Integration (Comics/Books Bridge)
 

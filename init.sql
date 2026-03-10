@@ -402,6 +402,97 @@ CREATE TABLE IF NOT EXISTS import_match_reviews (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Events and event artifacts
+CREATE TABLE IF NOT EXISTS events (
+    id SERIAL PRIMARY KEY,
+    library_id INTEGER REFERENCES libraries(id) ON DELETE SET NULL,
+    space_id INTEGER,
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    title VARCHAR(255) NOT NULL,
+    url TEXT NOT NULL,
+    location VARCHAR(255) NOT NULL,
+    date_start DATE NOT NULL,
+    date_end DATE,
+    host VARCHAR(255),
+    time_label VARCHAR(100),
+    room VARCHAR(255),
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    archived_at TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS event_artifacts (
+    id SERIAL PRIMARY KEY,
+    event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    artifact_type VARCHAR(20) NOT NULL CHECK (artifact_type IN ('session', 'person', 'autograph', 'purchase', 'freebie', 'note')),
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    image_path TEXT,
+    price NUMERIC(10,2),
+    vendor VARCHAR(255),
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Collectibles taxonomy
+CREATE TABLE IF NOT EXISTS collectible_categories (
+    key VARCHAR(64) PRIMARY KEY,
+    label VARCHAR(100) NOT NULL UNIQUE,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT INTO collectible_categories (key, label, sort_order) VALUES
+    ('lego', 'Lego', 10),
+    ('figures_statues', 'Figures / Statues', 20),
+    ('props_replicas_originals', 'Props / Replicas / Originals', 30),
+    ('funko', 'Funko', 40),
+    ('comic_panels', 'Comic Panels', 50),
+    ('anime', 'Anime', 60),
+    ('toys', 'Toys', 70),
+    ('clothing', 'Clothing', 80)
+ON CONFLICT (key) DO UPDATE
+SET label = EXCLUDED.label,
+    sort_order = EXCLUDED.sort_order;
+
+-- Collectibles
+CREATE TABLE IF NOT EXISTS collectibles (
+    id SERIAL PRIMARY KEY,
+    library_id INTEGER REFERENCES libraries(id) ON DELETE SET NULL,
+    space_id INTEGER,
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    title VARCHAR(255) NOT NULL,
+    item_type VARCHAR(20) NOT NULL DEFAULT 'collectible'
+      CHECK (item_type IN ('collectible', 'art', 'card')),
+    subtype VARCHAR(20)
+      CHECK (subtype IN ('collectible', 'art', 'card')),
+    category VARCHAR(100)
+      CHECK (
+        category IS NULL OR category IN (
+          'Lego',
+          'Figures / Statues',
+          'Props / Replicas / Originals',
+          'Funko',
+          'Comic Panels',
+          'Anime',
+          'Toys',
+          'Clothing'
+        )
+      ),
+    category_key VARCHAR(64) REFERENCES collectible_categories(key) ON UPDATE CASCADE ON DELETE SET NULL,
+    event_id INTEGER REFERENCES events(id) ON DELETE SET NULL,
+    booth_or_vendor VARCHAR(255),
+    price NUMERIC(10,2),
+    exclusive BOOLEAN NOT NULL DEFAULT false,
+    image_path TEXT,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    archived_at TIMESTAMP
+);
+
 -- Migration tracking (used by db/migrations.js)
 CREATE TABLE IF NOT EXISTS schema_migrations (
     version INTEGER PRIMARY KEY,
@@ -461,6 +552,17 @@ CREATE INDEX IF NOT EXISTS idx_import_match_reviews_pending_scope ON import_matc
 CREATE INDEX IF NOT EXISTS idx_import_match_reviews_job ON import_match_reviews(job_id);
 CREATE INDEX IF NOT EXISTS idx_import_match_reviews_created_by ON import_match_reviews(created_by, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_import_match_reviews_collection_id ON import_match_reviews(collection_id);
+CREATE INDEX IF NOT EXISTS idx_events_library_date_start ON events(library_id, date_start DESC);
+CREATE INDEX IF NOT EXISTS idx_events_created_by_created_at ON events(created_by, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_event_artifacts_event_created_at ON event_artifacts(event_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_collectibles_library_created_at ON collectibles(library_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_collectibles_event_id ON collectibles(event_id);
+CREATE INDEX IF NOT EXISTS idx_collectibles_category ON collectibles(category);
+CREATE INDEX IF NOT EXISTS idx_collectibles_vendor ON collectibles(booth_or_vendor);
+CREATE INDEX IF NOT EXISTS idx_collectibles_exclusive ON collectibles(exclusive);
+CREATE INDEX IF NOT EXISTS idx_collectibles_library_subtype_category ON collectibles(library_id, subtype, category_key);
+CREATE INDEX IF NOT EXISTS idx_collectibles_event_id_v2 ON collectibles(event_id);
+CREATE INDEX IF NOT EXISTS idx_collectibles_exclusive_created ON collectibles(exclusive, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_media_library_type_title ON media(library_id, media_type, title);
 CREATE INDEX IF NOT EXISTS idx_media_library_type_year ON media(library_id, media_type, year);
 CREATE INDEX IF NOT EXISTS idx_media_library_type_created_at ON media(library_id, media_type, created_at DESC);
@@ -546,6 +648,18 @@ BEGIN
         CREATE TRIGGER update_import_match_reviews_updated_at BEFORE UPDATE ON import_match_reviews
             FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_events_updated_at') THEN
+        CREATE TRIGGER update_events_updated_at BEFORE UPDATE ON events
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_event_artifacts_updated_at') THEN
+        CREATE TRIGGER update_event_artifacts_updated_at BEFORE UPDATE ON event_artifacts
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_collectibles_updated_at') THEN
+        CREATE TRIGGER update_collectibles_updated_at BEFORE UPDATE ON collectibles
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
 END;
 $$;
 
@@ -601,5 +715,9 @@ INSERT INTO schema_migrations (version, description) VALUES
     (31, 'Add import match review queue and collection scaffolding'),
     (32, 'Link import reviews to collections context'),
     (33, 'Enable normalized metadata read flag by default'),
-    (34, 'Add media seasons table for TV watch-state foundation')
+    (34, 'Add media seasons table for TV watch-state foundation'),
+    (35, 'Add events and event artifacts tables'),
+    (36, 'Add collectibles table and taxonomy fields'),
+    (37, 'Add canonical collectibles taxonomy table and subtype/category_key columns'),
+    (38, 'Add feature flags for Events and Collectibles library surfaces')
 ON CONFLICT (version) DO NOTHING;
