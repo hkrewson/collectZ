@@ -1,6 +1,7 @@
 const { z } = require('zod');
 const { logActivity } = require('../services/audit');
 const { normalizeTypeDetails } = require('../services/typeDetails');
+const { COLLECTIBLE_SUBTYPES } = require('../services/collectibles');
 
 const emptyStringToNull = (value) => (
   typeof value === 'string' && value.trim() === '' ? null : value
@@ -270,6 +271,45 @@ const eventArtifactUpdateSchema = eventArtifactBaseSchema.partial().refine(
   { message: 'At least one artifact field is required' }
 );
 
+// ── Collectibles ─────────────────────────────────────────────────────────────
+
+const collectibleCategoryKeys = [
+  'lego',
+  'figures_statues',
+  'props_replicas_originals',
+  'funko',
+  'comic_panels',
+  'anime',
+  'toys',
+  'clothing'
+];
+
+const collectibleBaseSchema = z.object({
+  title: z.string().min(1, 'Title is required').max(255),
+  subtype: z.enum(COLLECTIBLE_SUBTYPES).optional().nullable(),
+  item_type: z.enum(COLLECTIBLE_SUBTYPES).optional().nullable(), // legacy alias
+  category_key: z.preprocess(
+    emptyStringToNull,
+    z.enum(collectibleCategoryKeys).optional().nullable()
+  ),
+  category: z.preprocess(
+    emptyStringToNull,
+    z.string().max(100).optional().nullable()
+  ),
+  event_id: nullableNumberSchema(z.number().int().positive()),
+  booth_or_vendor: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
+  price: nullableNumberSchema(z.number().min(0).max(1000000)),
+  exclusive: z.boolean().optional().nullable(),
+  image_path: z.preprocess(emptyStringToNull, z.string().max(2000).optional().nullable()),
+  notes: z.preprocess(emptyStringToNull, z.string().max(5000).optional().nullable())
+});
+
+const collectibleCreateSchema = collectibleBaseSchema;
+const collectibleUpdateSchema = collectibleBaseSchema.partial().refine(
+  (data) => Object.keys(data).length > 0,
+  { message: 'At least one collectible field is required' }
+);
+
 // ── Middleware factory ────────────────────────────────────────────────────────
 
 /**
@@ -316,5 +356,7 @@ module.exports = {
   eventCreateSchema,
   eventUpdateSchema,
   eventArtifactCreateSchema,
-  eventArtifactUpdateSchema
+  eventArtifactUpdateSchema,
+  collectibleCreateSchema,
+  collectibleUpdateSchema
 };

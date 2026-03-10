@@ -33,7 +33,13 @@ const errorHandler = (err, req, res, _next) => {
  */
 const requestLogger = (req, _res, next) => {
   const ts = new Date().toISOString();
+  const startedAt = Date.now();
+  const res = _res;
   console.log(`${ts} ${req.method} ${req.originalUrl} origin:${req.headers.origin || '-'}`);
+  res.on('finish', () => {
+    const durationMs = Date.now() - startedAt;
+    console.log(`${new Date().toISOString()} ${req.method} ${req.originalUrl} -> ${res.statusCode} (${durationMs}ms)`);
+  });
   next();
 };
 

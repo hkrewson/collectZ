@@ -3498,9 +3498,13 @@ router.use(enforceScopeAccess({ allowedHintRoles: ['admin'] }));
 
 router.get('/feature-flags', asyncHandler(async (_req, res) => {
   const uiDrawerEditExperiment = await isFeatureEnabled('ui_drawer_edit_experiment', false);
+  const eventsEnabled = await isFeatureEnabled('events_enabled', false);
+  const collectiblesEnabled = await isFeatureEnabled('collectibles_enabled', false);
   res.json({
     flags: {
-      ui_drawer_edit_experiment: Boolean(uiDrawerEditExperiment)
+      ui_drawer_edit_experiment: Boolean(uiDrawerEditExperiment),
+      events_enabled: Boolean(eventsEnabled),
+      collectibles_enabled: Boolean(collectiblesEnabled)
     }
   });
 }));

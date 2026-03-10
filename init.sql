@@ -558,7 +558,9 @@ INSERT INTO feature_flags (key, enabled, description) VALUES
     ('tmdb_search_enabled', true, 'Allow TMDB search and details lookups'),
     ('lookup_upc_enabled', true, 'Allow barcode/UPC lookup API usage'),
     ('recognize_cover_enabled', true, 'Allow vision/OCR cover recognition API usage'),
-    ('metadata_normalized_read_enabled', true, 'Use normalized metadata relations (genres/directors/actors) as primary read path for metadata search/filter')
+    ('metadata_normalized_read_enabled', true, 'Use normalized metadata relations (genres/directors/actors) as primary read path for metadata search/filter'),
+    ('events_enabled', false, 'Enable Events library UI and API'),
+    ('collectibles_enabled', false, 'Enable Collectibles library UI and API')
 ON CONFLICT (key) DO UPDATE
 SET enabled = EXCLUDED.enabled,
     description = EXCLUDED.description;

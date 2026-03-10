@@ -13,6 +13,7 @@ import ImportReviewView from './components/ImportReviewView';
 import SidebarNav from './components/SidebarNav';
 import LibraryView from './components/LibraryView';
 import EventsView from './components/EventsView';
+import CollectiblesView from './components/CollectiblesView';
 import { routeFromPath, readCookie, Spinner, Toast, ImportStatusDock, Icons, cx } from './components/app/AppPrimitives';
 
 const API_URL = process.env.REACT_APP_API_URL || '/api';
@@ -33,6 +34,7 @@ const VALID_DASHBOARD_TABS = new Set([
   'library-audio',
   'library-games',
   'library-comics',
+  'library-collectibles',
   'library-events',
   'library-other',
   'library-import',
@@ -50,7 +52,7 @@ const DEFAULT_INTEGRATION_SECTION = 'audio';
 
 function readDashboardStateFromUrl() {
   const path = String(window.location.pathname || '');
-  const libMatch = path.match(/^\/library\/(movies|tv|books|audio|games|comics|events|other|import|import-review)\/?$/);
+  const libMatch = path.match(/^\/library\/(movies|tv|books|audio|games|comics|collectibles|events|other|import|import-review)\/?$/);
   if (libMatch) {
     const slug = libMatch[1];
     return {
@@ -120,6 +122,10 @@ export default function App() {
   const [libraries, setLibraries] = useState([]);
   const [activeLibraryId, setActiveLibraryId] = useState(null);
   const [uiSettings, setUiSettings] = useState({ theme: 'system', density: 'comfortable' });
+  const [featureFlags, setFeatureFlags] = useState({
+    events_enabled: false,
+    collectibles_enabled: false
+  });
   const [toast, setToast] = useState(null);
   const [importReviewPendingCount, setImportReviewPendingCount] = useState(0);
   const importReviewEnabled = isDebugAt(2);
@@ -353,6 +359,24 @@ export default function App() {
     } catch (_) {}
   }, [apiCall, user]);
 
+  const loadClientFeatureFlags = useCallback(async () => {
+    if (!user) return;
+    try {
+      const payload = await apiCall('get', '/media/feature-flags');
+      setFeatureFlags((prev) => ({
+        ...prev,
+        events_enabled: Boolean(payload?.flags?.events_enabled),
+        collectibles_enabled: Boolean(payload?.flags?.collectibles_enabled)
+      }));
+    } catch (_) {
+      setFeatureFlags((prev) => ({
+        ...prev,
+        events_enabled: false,
+        collectibles_enabled: false
+      }));
+    }
+  }, [apiCall, user]);
+
   const syncLibraryContext = useCallback(async ({ silent = false } = {}) => {
     if (!user) return null;
     try {
@@ -458,13 +482,14 @@ export default function App() {
   }, [route, apiCall]);
 
   useEffect(() => {
-    if (route === 'dashboard' && authChecked && user) loadMedia();
-  }, [route, authChecked, user, loadMedia]);
-
-  useEffect(() => {
     if (!(route === 'dashboard' && authChecked && user)) return;
     syncLibraryContext({ silent: true });
   }, [route, authChecked, user, syncLibraryContext]);
+
+  useEffect(() => {
+    if (!(route === 'dashboard' && authChecked && user)) return;
+    loadClientFeatureFlags();
+  }, [route, authChecked, user, loadClientFeatureFlags]);
 
   useEffect(() => {
     if (!(route === 'dashboard' && authChecked && user)) return;
@@ -482,6 +507,15 @@ export default function App() {
       setActiveTab('library-import');
     }
   }, [activeTab, importReviewEnabled]);
+
+  useEffect(() => {
+    if (!featureFlags.collectibles_enabled && activeTab === 'library-collectibles') {
+      setActiveTab('library-movies');
+    }
+    if (!featureFlags.events_enabled && activeTab === 'library-events') {
+      setActiveTab('library-movies');
+    }
+  }, [activeTab, featureFlags.collectibles_enabled, featureFlags.events_enabled]);
 
   useEffect(() => {
     localStorage.setItem(IMPORT_JOBS_KEY, JSON.stringify(importJobs));
@@ -583,7 +617,17 @@ export default function App() {
       case 'library-audio':
       case 'library-games':
       case 'library-comics':
+      case 'library-collectibles':
       case 'library-events':
+        if (activeTab === 'library-collectibles' && !featureFlags.collectibles_enabled) {
+          return <ForbiddenView detail="Collectibles is currently disabled by feature flag." />;
+        }
+        if (activeTab === 'library-events' && !featureFlags.events_enabled) {
+          return <ForbiddenView detail="Events is currently disabled by feature flag." />;
+        }
+        if (activeTab === 'library-collectibles') {
+          return <CollectiblesView apiCall={apiCall} onToast={showToast} />;
+        }
         if (activeTab === 'library-events') {
           return <EventsView apiCall={apiCall} onToast={showToast} />;
         }
@@ -685,6 +729,8 @@ export default function App() {
         appVersion={APP_VERSION}
         importReviewPendingCount={importReviewPendingCount}
         showImportReview={importReviewEnabled}
+        showCollectibles={featureFlags.collectibles_enabled}
+        showEvents={featureFlags.events_enabled}
       />
 
       <div className={cx('flex-1 flex flex-col min-w-0 transition-all duration-300', sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-56')}>

@@ -1345,6 +1345,174 @@ const MIGRATIONS = [
       END;
       $$;
     `
+  },
+  {
+    version: 36,
+    description: 'Add collectibles table and taxonomy fields',
+    up: `
+      CREATE TABLE IF NOT EXISTS collectibles (
+        id SERIAL PRIMARY KEY,
+        library_id INTEGER REFERENCES libraries(id) ON DELETE SET NULL,
+        space_id INTEGER,
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        title VARCHAR(255) NOT NULL,
+        item_type VARCHAR(20) NOT NULL DEFAULT 'collectible'
+          CHECK (item_type IN ('collectible', 'art', 'card')),
+        category VARCHAR(100)
+          CHECK (
+            category IS NULL OR category IN (
+              'Lego',
+              'Figures / Statues',
+              'Props / Replicas / Originals',
+              'Funko',
+              'Comic Panels',
+              'Anime',
+              'Toys',
+              'Clothing'
+            )
+          ),
+        event_id INTEGER REFERENCES events(id) ON DELETE SET NULL,
+        booth_or_vendor VARCHAR(255),
+        price NUMERIC(10,2),
+        exclusive BOOLEAN NOT NULL DEFAULT false,
+        image_path TEXT,
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        archived_at TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_collectibles_library_created_at
+        ON collectibles(library_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_collectibles_event_id
+        ON collectibles(event_id);
+      CREATE INDEX IF NOT EXISTS idx_collectibles_category
+        ON collectibles(category);
+      CREATE INDEX IF NOT EXISTS idx_collectibles_vendor
+        ON collectibles(booth_or_vendor);
+      CREATE INDEX IF NOT EXISTS idx_collectibles_exclusive
+        ON collectibles(exclusive);
+
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_collectibles_updated_at') THEN
+          CREATE TRIGGER update_collectibles_updated_at BEFORE UPDATE ON collectibles
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+        END IF;
+      END;
+      $$;
+    `
+  },
+  {
+    version: 37,
+    description: 'Add canonical collectibles taxonomy table and subtype/category_key columns',
+    up: `
+      CREATE TABLE IF NOT EXISTS collectible_categories (
+        key VARCHAR(64) PRIMARY KEY,
+        label VARCHAR(100) NOT NULL UNIQUE,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      INSERT INTO collectible_categories (key, label, sort_order) VALUES
+        ('lego', 'Lego', 10),
+        ('figures_statues', 'Figures / Statues', 20),
+        ('props_replicas_originals', 'Props / Replicas / Originals', 30),
+        ('funko', 'Funko', 40),
+        ('comic_panels', 'Comic Panels', 50),
+        ('anime', 'Anime', 60),
+        ('toys', 'Toys', 70),
+        ('clothing', 'Clothing', 80)
+      ON CONFLICT (key) DO UPDATE
+      SET label = EXCLUDED.label,
+          sort_order = EXCLUDED.sort_order;
+
+      ALTER TABLE collectibles
+        ADD COLUMN IF NOT EXISTS subtype VARCHAR(20),
+        ADD COLUMN IF NOT EXISTS category_key VARCHAR(64);
+
+      UPDATE collectibles
+      SET subtype = COALESCE(subtype, item_type, 'collectible')
+      WHERE subtype IS NULL;
+
+      UPDATE collectibles
+      SET category_key = CASE category
+        WHEN 'Lego' THEN 'lego'
+        WHEN 'Figures / Statues' THEN 'figures_statues'
+        WHEN 'Props / Replicas / Originals' THEN 'props_replicas_originals'
+        WHEN 'Funko' THEN 'funko'
+        WHEN 'Comic Panels' THEN 'comic_panels'
+        WHEN 'Anime' THEN 'anime'
+        WHEN 'Toys' THEN 'toys'
+        WHEN 'Clothing' THEN 'clothing'
+        ELSE category_key
+      END
+      WHERE category_key IS NULL;
+
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint
+          WHERE conname = 'collectibles_subtype_check'
+        ) THEN
+          ALTER TABLE collectibles
+            ADD CONSTRAINT collectibles_subtype_check
+            CHECK (subtype IN ('collectible', 'art', 'card'));
+        END IF;
+      END;
+      $$;
+
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1
+          FROM pg_constraint
+          WHERE conname = 'collectibles_category_key_fkey'
+        ) THEN
+          ALTER TABLE collectibles
+            ADD CONSTRAINT collectibles_category_key_fkey
+            FOREIGN KEY (category_key)
+            REFERENCES collectible_categories(key)
+            ON UPDATE CASCADE
+            ON DELETE SET NULL;
+        END IF;
+      END;
+      $$;
+
+      CREATE INDEX IF NOT EXISTS idx_collectibles_library_subtype_category
+        ON collectibles(library_id, subtype, category_key);
+      CREATE INDEX IF NOT EXISTS idx_collectibles_event_id_v2
+        ON collectibles(event_id);
+      CREATE INDEX IF NOT EXISTS idx_collectibles_exclusive_created
+        ON collectibles(exclusive, created_at DESC);
+    `
+  },
+  {
+    version: 38,
+    description: 'Add feature flags for Events and Collectibles library surfaces',
+    up: `
+      DO $$
+      DECLARE
+        has_existing_data BOOLEAN;
+      BEGIN
+        SELECT EXISTS (SELECT 1 FROM users LIMIT 1) INTO has_existing_data;
+
+        INSERT INTO feature_flags (key, enabled, description) VALUES
+          (
+            'events_enabled',
+            CASE WHEN has_existing_data THEN true ELSE false END,
+            'Enable Events library UI and API'
+          ),
+          (
+            'collectibles_enabled',
+            CASE WHEN has_existing_data THEN true ELSE false END,
+            'Enable Collectibles library UI and API'
+          )
+        ON CONFLICT (key) DO UPDATE
+        SET description = EXCLUDED.description;
+      END;
+      $$;
+    `
   }
 ];
 

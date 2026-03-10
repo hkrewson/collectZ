@@ -1569,6 +1569,7 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 ## 2.4.4 — Collectables, Art, and Cards Taxonomy Expansion
 
 **Goal:** Add non-media collection tracking for physical memorabilia that does not fit Movies/TV/Books/Audio/Games.
+**Status:** In Progress (DB + API + baseline UI landed).
 
 ### Scope
 

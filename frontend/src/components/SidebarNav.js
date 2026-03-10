@@ -24,7 +24,9 @@ export default function SidebarNav({
   onMobileClose,
   appVersion,
   importReviewPendingCount = 0,
-  showImportReview = false
+  showImportReview = false,
+  showCollectibles = true,
+  showEvents = true
 }) {
   const isAdmin = user?.role === 'admin';
   const releaseNotesUrl = `https://github.com/hkrewson/collectZ/tree/main/docs/releases/v${appVersion}.md`;
@@ -38,6 +40,7 @@ export default function SidebarNav({
     'library-audio',
     'library-games',
     'library-comics',
+    'library-collectibles',
     'library-events',
     'library-import',
     'library-import-review'
@@ -143,7 +146,8 @@ export default function SidebarNav({
                 <NavLink id="library-audio" icon={null} label="Audio" sub />
                 <NavLink id="library-books" icon={null} label="Books" sub />
                 <NavLink id="library-comics" icon={null} label="Comic Books" sub />
-                <NavLink id="library-events" icon={null} label="Events" sub />
+                {showCollectibles && <NavLink id="library-collectibles" icon={null} label="Collectibles" sub />}
+                {showEvents && <NavLink id="library-events" icon={null} label="Events" sub />}
                 <NavLink id="library-games" icon={null} label="Games" sub />
                 <NavLink id="library-movies" icon={null} label="Movies" sub />
                 <NavLink id="library-tv" icon={null} label="TV" sub />

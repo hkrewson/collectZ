@@ -35,6 +35,7 @@ const adminRouter = require('./routes/admin');
 const integrationsRouter = require('./routes/integrations');
 const librariesRouter = require('./routes/libraries');
 const eventsRouter = require('./routes/events');
+const collectiblesRouter = require('./routes/collectibles');
 const { cleanupExpiredSessions, SESSION_MAX_PER_USER, SESSION_TTL_DAYS } = require('./services/sessions');
 
 const app = express();
@@ -238,6 +239,7 @@ app.use('/api/auth', authRouter);
 app.use('/api', authRouter);
 app.use('/api/media', mediaRouter);
 app.use('/api', eventsRouter);
+app.use('/api', collectiblesRouter);
 app.use('/api', integrationsRouter);
 app.use('/api', librariesRouter);
 app.use('/api/admin', adminRouter);

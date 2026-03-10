@@ -22,6 +22,24 @@ const DEFAULT_ARTIFACT_FORM = {
   image_path: ''
 };
 
+const toInputDate = (value) => {
+  if (!value) return '';
+  const text = String(value).trim();
+  if (!text) return '';
+  const isoDateMatch = text.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (isoDateMatch) return isoDateMatch[1];
+  const parsed = new Date(text);
+  if (Number.isNaN(parsed.getTime())) return '';
+  return parsed.toISOString().slice(0, 10);
+};
+
+const toDisplayDate = (value) => {
+  const normalized = toInputDate(value);
+  if (!normalized) return '';
+  const [year, month, day] = normalized.split('-');
+  return `${month}/${day}/${year}`;
+};
+
 const formatUploadError = (message) => {
   const raw = String(message || '');
   if (raw.includes('status code 413')) {
@@ -36,7 +54,7 @@ function EventCard({ item, supportsHover, onOpen, onEdit, onDelete }) {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-medium text-ink truncate">{item.title}</p>
-          <p className="text-xs text-ghost mt-1">{item.date_start}{item.location ? ` · ${item.location}` : ''}</p>
+          <p className="text-xs text-ghost mt-1">{toDisplayDate(item.date_start)}{item.location ? ` · ${item.location}` : ''}</p>
           <p className="text-xs text-ghost mt-1">{item.artifact_count || 0} artifact{Number(item.artifact_count || 0) === 1 ? '' : 's'}</p>
         </div>
         <span className="badge badge-dim text-[10px]">#{item.id}</span>
@@ -55,7 +73,7 @@ function EventListRow({ item, supportsHover, onOpen, onEdit, onDelete }) {
       <div className="w-9 h-9 rounded bg-raised border border-edge flex items-center justify-center text-ghost"><Icons.Activity /></div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-ink truncate">{item.title}</p>
-        <p className="text-xs text-ghost">{item.date_start}{item.location ? ` · ${item.location}` : ''} · {item.artifact_count || 0} artifacts</p>
+        <p className="text-xs text-ghost">{toDisplayDate(item.date_start)}{item.location ? ` · ${item.location}` : ''} · {item.artifact_count || 0} artifacts</p>
       </div>
       <span className="text-xs text-ghost font-mono">#{item.id}</span>
       <div className={cx('flex gap-2 transition-opacity duration-150', supportsHover ? 'opacity-0 group-hover:opacity-100' : 'opacity-100')}>
@@ -67,11 +85,25 @@ function EventListRow({ item, supportsHover, onOpen, onEdit, onDelete }) {
 }
 
 function EventFormDrawer({ initial, onClose, onSave, onDelete }) {
-  const [form, setForm] = useState(() => ({ ...DEFAULT_EVENT_FORM, ...(initial || {}) }));
+  const [form, setForm] = useState(() => ({
+    ...DEFAULT_EVENT_FORM,
+    ...(initial || {}),
+    date_start: toInputDate(initial?.date_start),
+    date_end: toInputDate(initial?.date_end)
+  }));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   const set = (patch) => setForm((prev) => ({ ...prev, ...patch }));
+
+  useEffect(() => {
+    setForm({
+      ...DEFAULT_EVENT_FORM,
+      ...(initial || {}),
+      date_start: toInputDate(initial?.date_start),
+      date_end: toInputDate(initial?.date_end)
+    });
+  }, [initial]);
 
   const submit = async () => {
     setSaving(true);
@@ -270,7 +302,7 @@ function EventDetailDrawer({ eventId, apiCall, onClose, onEdit, onDeleted, onSav
                 <h2 className="font-display text-2xl tracking-wider text-ink leading-tight">{event?.title || `Event #${eventId}`}</h2>
                 <p className="text-sm text-ghost">#{eventId}</p>
               </div>
-              <p className="text-sm text-dim mt-1">{event?.date_start || ''}{event?.location ? ` · ${event.location}` : ''}</p>
+              <p className="text-sm text-dim mt-1">{toDisplayDate(event?.date_start)}{event?.location ? ` · ${event.location}` : ''}</p>
             </div>
             <button onClick={onClose} className="btn-icon btn-sm shrink-0"><Icons.X /></button>
           </div>
@@ -284,7 +316,7 @@ function EventDetailDrawer({ eventId, apiCall, onClose, onEdit, onDeleted, onSav
                 {event?.host && <div><p className="label">Host</p><p className="text-ink">{event.host}</p></div>}
                 {event?.time_label && <div><p className="label">Time</p><p className="text-ink">{event.time_label}</p></div>}
                 {event?.room && <div><p className="label">Room</p><p className="text-ink">{event.room}</p></div>}
-                {event?.date_end && <div><p className="label">End Date</p><p className="text-ink">{event.date_end}</p></div>}
+                {event?.date_end && <div><p className="label">End Date</p><p className="text-ink">{toDisplayDate(event.date_end)}</p></div>}
               </div>
               {event?.notes && <div><p className="label mb-1">Notes</p><p className="text-sm text-dim">{event.notes}</p></div>}
               <div>
@@ -362,7 +394,7 @@ export default function EventsView({ apiCall, onToast }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
-  const [locationFilter, setLocationFilter] = useState('');
+  const [sortDir, setSortDir] = useState('asc');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [viewMode, setViewMode] = useState('cards');
@@ -383,7 +415,7 @@ export default function EventsView({ apiCall, onToast }) {
       params.set('page', String(page));
       params.set('limit', String(pageSize));
       if (search.trim()) params.set('q', search.trim());
-      if (locationFilter.trim()) params.set('location', locationFilter.trim());
+      params.set('sort_dir', sortDir);
       if (fromDate) params.set('from', fromDate);
       if (toDate) params.set('to', toDate);
       const payload = await apiCall('get', `/events?${params.toString()}`);
@@ -394,7 +426,7 @@ export default function EventsView({ apiCall, onToast }) {
     } finally {
       setLoading(false);
     }
-  }, [apiCall, fromDate, locationFilter, page, pageSize, search, toDate]);
+  }, [apiCall, fromDate, page, pageSize, search, sortDir, toDate]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -427,14 +459,8 @@ export default function EventsView({ apiCall, onToast }) {
           <div className="flex-1" />
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ghost pointer-events-none"><Icons.Search /></span>
-            <input className="input pl-9 w-56" placeholder="Search events…" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
+            <input className="input pl-9 w-56" placeholder="Search title or location…" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
           </div>
-          <input
-            className="input w-44"
-            placeholder="Location filter"
-            value={locationFilter}
-            onChange={(e) => { setLocationFilter(e.target.value); setPage(1); }}
-          />
           <input
             type="date"
             className="input w-40"
@@ -453,6 +479,13 @@ export default function EventsView({ apiCall, onToast }) {
             <button className={cx('tab', viewMode === 'cards' && 'active')} onClick={() => setViewMode('cards')}><Icons.Film /></button>
             <button className={cx('tab', viewMode === 'list' && 'active')} onClick={() => setViewMode('list')}><Icons.List /></button>
           </div>
+          <button
+            onClick={() => { setSortDir((d) => (d === 'asc' ? 'desc' : 'asc')); setPage(1); }}
+            className="btn-icon"
+            title={sortDir === 'asc' ? 'Sort ascending' : 'Sort descending'}
+          >
+            {sortDir === 'asc' ? <Icons.ArrowUp /> : <Icons.ArrowDown />}
+          </button>
           <button onClick={() => setAdding(true)} className="btn-primary"><Icons.Plus />Add</button>
         </div>
       </div>

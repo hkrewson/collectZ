@@ -28,6 +28,14 @@ const FEATURE_FLAG_DEFINITIONS = {
   ui_drawer_edit_experiment: {
     description: 'Enable drawer-first add/edit flow in library UI (2.4.3 experiment)',
     defaultEnabled: false
+  },
+  events_enabled: {
+    description: 'Enable Events library UI and API',
+    defaultEnabled: false
+  },
+  collectibles_enabled: {
+    description: 'Enable Collectibles library UI and API',
+    defaultEnabled: false
   }
 };
 

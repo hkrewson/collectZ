@@ -14,6 +14,7 @@ const {
 const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
 const { logActivity } = require('../services/audit');
 const { uploadBuffer } = require('../services/storage');
+const { isFeatureEnabled } = require('../services/featureFlags');
 
 const router = express.Router();
 const memoryUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
@@ -25,8 +26,13 @@ const ALLOWED_IMAGE_MIME_TYPES = new Set([
   'image/gif'
 ]);
 
-router.use(authenticateToken);
-router.use(enforceScopeAccess({ allowedHintRoles: ['admin'] }));
+router.use('/events', authenticateToken);
+router.use('/events', enforceScopeAccess({ allowedHintRoles: ['admin'] }));
+router.use('/events', asyncHandler(async (_req, res, next) => {
+  const enabled = await isFeatureEnabled('events_enabled', false);
+  if (!enabled) return res.status(404).json({ error: 'Events feature is disabled' });
+  return next();
+}));
 
 const parsePaging = (req) => {
   const pageRaw = Number(req.query?.page);
@@ -43,12 +49,18 @@ router.get('/events', asyncHandler(async (req, res) => {
   const from = String(req.query?.from || '').trim();
   const to = String(req.query?.to || '').trim();
   const location = String(req.query?.location || '').trim();
+  const sortDir = String(req.query?.sort_dir || '').trim().toLowerCase() === 'desc' ? 'DESC' : 'ASC';
 
   const params = [];
   let where = 'WHERE e.archived_at IS NULL';
   if (q) {
     params.push(`%${q}%`);
-    where += ` AND (e.title ILIKE $${params.length} OR COALESCE(e.host, '') ILIKE $${params.length} OR COALESCE(e.notes, '') ILIKE $${params.length})`;
+    where += ` AND (
+      e.title ILIKE $${params.length}
+      OR COALESCE(e.location, '') ILIKE $${params.length}
+      OR COALESCE(e.host, '') ILIKE $${params.length}
+      OR COALESCE(e.notes, '') ILIKE $${params.length}
+    )`;
   }
   if (location) {
     params.push(`%${location}%`);
@@ -87,7 +99,7 @@ router.get('/events', asyncHandler(async (req, res) => {
        WHERE ea.event_id = e.id
      ) a ON TRUE
      ${whereWithScope}
-     ORDER BY e.date_start DESC, e.created_at DESC
+     ORDER BY e.date_start ${sortDir} NULLS LAST, e.date_end ${sortDir} NULLS LAST, e.title ${sortDir}, e.id ${sortDir}
      LIMIT $${params.length - 1}
      OFFSET $${params.length}`,
     params
