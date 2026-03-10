@@ -14,7 +14,13 @@ import SidebarNav from './components/SidebarNav';
 import LibraryView from './components/LibraryView';
 import EventsView from './components/EventsView';
 import CollectiblesView from './components/CollectiblesView';
+import ForbiddenView from './components/ForbiddenView';
 import { routeFromPath, readCookie, Spinner, Toast, ImportStatusDock, Icons, cx } from './components/app/AppPrimitives';
+import {
+  DEFAULT_INTEGRATION_SECTION,
+  dashboardUrl,
+  readDashboardStateFromUrl
+} from './components/app/dashboardRouting';
 
 const API_URL = process.env.REACT_APP_API_URL || '/api';
 const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.frontend || appMeta.version || 'unknown';
@@ -26,85 +32,6 @@ const IMPORT_POLL_LAST_TS_KEY = 'collectz_import_poll_last_ts';
 const IMPORT_POLL_HEARTBEAT_MS = 8000;
 const IMPORT_POLL_STALE_MS = 25000;
 const IMPORT_POLL_INTERVAL_MS = 10000;
-const VALID_DASHBOARD_TABS = new Set([
-  'library',
-  'library-movies',
-  'library-tv',
-  'library-books',
-  'library-audio',
-  'library-games',
-  'library-comics',
-  'library-collectibles',
-  'library-events',
-  'library-other',
-  'library-import',
-  'library-import-review',
-  'profile',
-  'admin-users',
-  'admin-activity',
-  'admin-settings',
-  'admin-flags',
-  'admin-integrations'
-]);
-const VALID_INTEGRATION_SECTIONS = new Set(['audio', 'barcode', 'books', 'comics', 'games', 'plex', 'tmdb', 'vision']);
-const DEFAULT_TAB = 'library-movies';
-const DEFAULT_INTEGRATION_SECTION = 'audio';
-
-function readDashboardStateFromUrl() {
-  const path = String(window.location.pathname || '');
-  const libMatch = path.match(/^\/library\/(movies|tv|books|audio|games|comics|collectibles|events|other|import|import-review)\/?$/);
-  if (libMatch) {
-    const slug = libMatch[1];
-    return {
-      tab: slug === 'import'
-        ? 'library-import'
-        : slug === 'import-review'
-          ? 'library-import-review'
-        : slug === 'other'
-          ? 'library-comics'
-          : `library-${slug}`,
-      integrationSection: DEFAULT_INTEGRATION_SECTION
-    };
-  }
-  const adminIntegrationMatch = path.match(/^\/admin\/integrations\/?([^/]+)?\/?$/);
-  if (adminIntegrationMatch) {
-    const sec = String(adminIntegrationMatch[1] || '').toLowerCase();
-    return {
-      tab: 'admin-integrations',
-      integrationSection: VALID_INTEGRATION_SECTIONS.has(sec) ? sec : DEFAULT_INTEGRATION_SECTION
-    };
-  }
-
-  const params = new URLSearchParams(window.location.search);
-  const tab = params.get('tab');
-  const integration = params.get('integration');
-  const normalizedTab = tab === 'library-other' ? 'library-comics' : tab;
-  return {
-    tab: VALID_DASHBOARD_TABS.has(normalizedTab) ? normalizedTab : DEFAULT_TAB,
-    integrationSection: VALID_INTEGRATION_SECTIONS.has(integration) ? integration : DEFAULT_INTEGRATION_SECTION
-  };
-}
-
-function dashboardUrl(tab, integrationSection) {
-  const params = new URLSearchParams();
-  if (tab && tab !== DEFAULT_TAB) params.set('tab', tab);
-  if (tab === 'admin-integrations' && integrationSection && integrationSection !== DEFAULT_INTEGRATION_SECTION) {
-    params.set('integration', integrationSection);
-  }
-  const query = params.toString();
-  return `/dashboard${query ? `?${query}` : ''}`;
-}
-
-function ForbiddenView({ title = 'Access Restricted', detail = 'You do not have permission to view this section.' }) {
-  return (
-    <div className="h-full overflow-y-auto p-6 max-w-xl">
-      <div className="card p-6 space-y-3">
-        <h1 className="section-title">{title}</h1>
-        <p className="text-sm text-dim">{detail}</p>
-      </div>
-    </div>
-  );
-}
 
 export default function App() {
   const initialDashboardState = readDashboardStateFromUrl();
