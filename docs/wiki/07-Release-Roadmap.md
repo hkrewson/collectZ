@@ -1638,7 +1638,7 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 ## 2.4.4.1 — App Shell Decomposition (Hooks Extraction)
 
 **Goal:** Reduce orchestration risk in `frontend/src/App.js` by extracting side-effect-heavy concerns into focused hooks without changing behavior.
-**Status:** Planned.
+**Status:** Completed.
 
 ### Scope
 
@@ -1653,10 +1653,18 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 - No regression in auth/session bootstrap, import polling, or media CRUD flows.
 - Existing CI checks pass without increasing App.js exception budgets.
 
+### Delivery Notes
+
+- Extracted hooks:
+  - `frontend/src/components/app/hooks/useSessionBootstrap.js`
+  - `frontend/src/components/app/hooks/useImportJobPolling.js`
+  - `frontend/src/components/app/hooks/useMediaApi.js`
+- App shell line count reduced from `676` to `462`.
+
 ## 2.4.4.2 — App Shell Decomposition (Dashboard Content Split)
 
 **Goal:** Split render-routing responsibilities from root app orchestration for safer feature delivery.
-**Status:** Planned.
+**Status:** Completed.
 
 ### Scope
 
@@ -1670,10 +1678,15 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 - Tab routing/render behavior matches pre-refactor behavior.
 - No regressions in admin gating, library forcing, or drawer/navigation wiring.
 
+### Delivery Notes
+
+- Extracted dashboard tab renderer to `frontend/src/components/app/DashboardContent.js`.
+- App shell line count reduced from `462` to `360`.
+
 ## 2.4.4.3 — App Shell Guardrails Enforcement
 
 **Goal:** Re-establish long-term frontend modularity guardrails after decomposition.
-**Status:** Planned.
+**Status:** Completed.
 
 ### Scope
 
@@ -1686,6 +1699,12 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 - App shell files remain within documented budget limits without exceptions increase.
 - CI guardrails pass on fresh clone/build.
 - Roadmap and delivery policy references reflect the updated app-shell structure.
+
+### Delivery Notes
+
+- Removed stale app shell budget exception file (`.ci/exceptions/app-shell-budget.json`).
+- CI now fails if an exception file exists while `frontend/src/App.js` is already within hard budget.
+- Updated engineering delivery policy with explicit app-shell ownership boundaries.
 
 ## 2.4.5 — Calibre Web Automated Integration (Comics/Books Bridge)
 

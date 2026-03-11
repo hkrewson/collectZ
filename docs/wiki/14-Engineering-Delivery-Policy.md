@@ -144,6 +144,12 @@ Each PR should include:
 - Shared API interaction/state helpers: service or hook modules.
 - Reusable UI primitives: dedicated component modules.
 - Styles: feature-local classes/components where possible, avoid global bloat.
+- App shell ownership boundaries:
+  - routing/url state: `frontend/src/components/app/dashboardRouting.js`
+  - dashboard tab rendering/composition: `frontend/src/components/app/DashboardContent.js`
+  - session bootstrap/auth state: `frontend/src/components/app/hooks/useSessionBootstrap.js`
+  - import polling/leader election: `frontend/src/components/app/hooks/useImportJobPolling.js`
+  - media CRUD/query orchestration: `frontend/src/components/app/hooks/useMediaApi.js`
 
 ### Complexity Budget
 
@@ -152,6 +158,7 @@ Each PR should include:
 - Any file exceeding 700 LOC should be split during the next relevant milestone.
 - CI exception file for temporary App shell overage: `.ci/exceptions/app-shell-budget.json`.
   Required fields: `reason`, `approved_by`, `expires_on` (`YYYY-MM-DD`), `max_lines`, `target_milestone`.
+- Exception file must not exist when `App.js` is at or below hard budget.
 
 ---
 

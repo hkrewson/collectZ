@@ -115,14 +115,18 @@ jobs:
       - name: Enforce App.js modularity budget
         run: |
           APP_FILE="frontend/src/App.js"
+          EX_FILE=".ci/exceptions/app-shell-budget.json"
           HARD_BUDGET=550
           LINE_COUNT=$(wc -l < "$APP_FILE" | tr -d ' ')
           echo "App.js line count: $LINE_COUNT (hard budget: $HARD_BUDGET)"
           if [ "$LINE_COUNT" -le "$HARD_BUDGET" ]; then
+            if [ -f "$EX_FILE" ]; then
+              echo "App.js is within hard budget; remove stale exception file: $EX_FILE"
+              exit 1
+            fi
             echo "App.js budget check passed."
             exit 0
           fi
-          EX_FILE=".ci/exceptions/app-shell-budget.json"
           if [ ! -f "$EX_FILE" ]; then
             echo "App.js exceeds hard budget and no exception file exists: $EX_FILE"
             exit 1
