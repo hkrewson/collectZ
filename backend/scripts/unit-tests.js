@@ -213,6 +213,27 @@ results.push(run('typeDetails rejects invalid keys and incompatible values in st
   assert.strictEqual(out.errors[0].key, 'isbn');
 }));
 
+results.push(run('typeDetails keeps canonical provider linkage fields for CWA imports', () => {
+  const out = normalizeTypeDetails('book', {
+    author: 'Alan Moore',
+    provider_name: 'cwa_opds',
+    provider_item_id: 'urn:uuid:abc-123',
+    provider_external_url: 'https://cwa.example/books/abc-123',
+    calibre_entry_id: 'urn:uuid:abc-123',
+    calibre_external_url: 'https://cwa.example/books/abc-123'
+  }, { strict: true });
+  assert.deepStrictEqual(out.invalidKeys, []);
+  assert.deepStrictEqual(out.errors, []);
+  assert.deepStrictEqual(out.value, {
+    author: 'Alan Moore',
+    provider_name: 'cwa_opds',
+    provider_item_id: 'urn:uuid:abc-123',
+    provider_external_url: 'https://cwa.example/books/abc-123',
+    calibre_entry_id: 'urn:uuid:abc-123',
+    calibre_external_url: 'https://cwa.example/books/abc-123'
+  });
+}));
+
 if (results.some((ok) => !ok)) {
   process.exit(1);
 }

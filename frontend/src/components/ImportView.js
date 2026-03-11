@@ -17,6 +17,7 @@ export default function ImportView({
     () => ([
       { id: 'barcode', label: 'Barcode', enabled: true },
       { id: 'calibre', label: 'Calibre', enabled: true },
+      { id: 'cwa', label: 'CWA OPDS', enabled: true },
       { id: 'csv', label: 'CSV', enabled: true },
       { id: 'delicious', label: 'Delicious', enabled: true },
       { id: 'plex', label: 'Plex', enabled: canImportPlex }
@@ -98,6 +99,32 @@ export default function ImportView({
       setResult(msg);
       onToast(msg, 'error');
     } finally { setBusy(''); }
+  };
+
+  const runCwaImport = async () => {
+    setBusy('cwa');
+    setResult('');
+    setAuditRows([]);
+    setAuditName('');
+    try {
+      const res = await apiCall('post', '/media/import-cwa?async=true', {});
+      const jobId = res?.job?.id;
+      if (!jobId) throw new Error('Missing import job id');
+      onQueueJob?.({
+        id: jobId,
+        provider: 'cwa_opds',
+        status: res?.job?.status || 'queued',
+        progress: res?.job?.progress || null
+      });
+      setResult(`CWA OPDS import queued (job #${jobId})`);
+      onToast('CWA OPDS import started');
+    } catch (err) {
+      const msg = err.response?.data?.error || 'CWA OPDS import failed';
+      setResult(msg);
+      onToast(msg, 'error');
+    } finally {
+      setBusy('');
+    }
   };
 
   const runCsvImport = async (file, endpoint, label) => {
@@ -201,7 +228,7 @@ export default function ImportView({
   const activeSectionLabel = importSections.find((section) => section.id === tab)?.label || tab;
   const recentJobs = useMemo(
     () => importJobs
-      .filter((job) => ['plex', 'csv_generic', 'csv_calibre', 'csv_delicious'].includes(job.provider))
+      .filter((job) => ['plex', 'csv_generic', 'csv_calibre', 'csv_delicious', 'cwa_opds'].includes(job.provider))
       .sort((a, b) => Number(b?.id || 0) - Number(a?.id || 0))
       .slice(0, 5),
     [importJobs]
@@ -332,6 +359,15 @@ export default function ImportView({
               }}
             />
           </>
+        )}
+
+        {tab === 'cwa' && (
+          <div className="space-y-3">
+            <p className="text-dim text-sm">Import books/comics directly from Calibre Web Automated OPDS feed using admin integration credentials.</p>
+            <button onClick={runCwaImport} className="btn-primary" disabled={busy === 'cwa' || !hasActiveLibrary}>
+              {busy === 'cwa' ? <Spinner size={14} /> : 'Import from CWA OPDS'}
+            </button>
+          </div>
         )}
 
         {tab === 'delicious' && (

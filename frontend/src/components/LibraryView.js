@@ -277,6 +277,13 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall }) {
   const [openSeason, setOpenSeason] = useState(null);
   const [seasonDetailLoading, setSeasonDetailLoading] = useState({});
   const [seasonDetails, setSeasonDetails] = useState({});
+  const typeDetails = item?.type_details && typeof item.type_details === 'object' ? item.type_details : {};
+  const calibreExternalUrl = String(typeDetails.calibre_external_url || '').trim();
+  const providerExternalUrl = String(typeDetails.provider_external_url || '').trim();
+  const externalMediaUrl = calibreExternalUrl || providerExternalUrl || item.tmdb_url || '';
+  const externalMediaLabel = calibreExternalUrl
+    ? 'Open in Calibre'
+    : (item.media_type === 'book' || item.media_type === 'comic_book' ? 'Open source' : 'TMDB');
 
   const markSeasonWatched = async (seasonNumber) => {
     if (!item?.id || !Number.isInteger(Number(seasonNumber))) return;
@@ -460,9 +467,9 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall }) {
             </div>
           )}
 
-          {(item.tmdb_url || item.trailer_url) && (
+          {(externalMediaUrl || item.trailer_url) && (
             <div className="flex gap-3">
-              {item.tmdb_url && <a href={item.tmdb_url} target="_blank" rel="noreferrer" className="btn-secondary btn-sm"><Icons.Link />TMDB</a>}
+              {externalMediaUrl && <a href={externalMediaUrl} target="_blank" rel="noreferrer" className="btn-secondary btn-sm"><Icons.Link />{externalMediaLabel}</a>}
               {item.trailer_url && <a href={item.trailer_url} target="_blank" rel="noreferrer" className="btn-primary btn-sm"><Icons.Play />Trailer</a>}
             </div>
           )}

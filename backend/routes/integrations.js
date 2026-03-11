@@ -14,6 +14,7 @@ const { resolveBooksPreset, searchBooksByTitle } = require('../services/books');
 const { resolveAudioPreset, searchAudioByTitle } = require('../services/audio');
 const { resolveGamesPreset, searchGamesByTitle } = require('../services/games');
 const { resolveComicsPreset, searchComicsByTitle, fetchMetronCollectionIssues } = require('../services/comics');
+const { fetchCwaOpdsItems } = require('../services/cwa');
 const { logActivity, logError } = require('../services/audit');
 
 const router = express.Router();
@@ -81,6 +82,12 @@ const buildIntegrationResponse = (config) => ({
   comicsUsername: config.comicsUsername,
   comicsApiKeySet: Boolean(config.comicsApiKey),
   comicsApiKeyMasked: maskSecret(config.comicsApiKey),
+  cwaOpdsUrl: config.cwaOpdsUrl,
+  cwaBaseUrl: config.cwaBaseUrl,
+  cwaUsername: config.cwaUsername,
+  cwaTimeoutMs: config.cwaTimeoutMs,
+  cwaPasswordSet: Boolean(config.cwaPassword),
+  cwaPasswordMasked: maskSecret(config.cwaPassword),
   decryptHealth: {
     hasWarnings: Array.isArray(config.decryptWarnings) && config.decryptWarnings.length > 0,
     warnings: Array.isArray(config.decryptWarnings) ? config.decryptWarnings : [],
@@ -119,7 +126,8 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
     gamesPreset, gamesProvider, gamesApiUrl, gamesApiKeyHeader, gamesApiKeyQueryParam, gamesClientId,
     gamesApiKey, clearGamesApiKey, gamesClientSecret, clearGamesClientSecret,
     comicsPreset, comicsProvider, comicsApiUrl, comicsApiKeyHeader, comicsApiKeyQueryParam, comicsUsername,
-    comicsApiKey, clearComicsApiKey
+    comicsApiKey, clearComicsApiKey,
+    cwaOpdsUrl, cwaBaseUrl, cwaUsername, cwaPassword, cwaTimeoutMs, clearCwaPassword
   } = req.body;
 
   const selectedBarcodePreset = resolveBarcodePreset(barcodePreset || 'upcitemdb');
@@ -160,6 +168,9 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
   const finalComicsApiKey = clearComicsApiKey
     ? null
     : (comicsApiKey ? encryptSecret(comicsApiKey) : existing?.comics_api_key_encrypted || null);
+  const finalCwaPassword = clearCwaPassword
+    ? null
+    : (cwaPassword ? encryptSecret(cwaPassword) : existing?.cwa_password_encrypted || null);
   const finalGamesClientSecret = clearGamesClientSecret
     ? null
     : (gamesClientSecret ? encryptSecret(gamesClientSecret) : existing?.games_client_secret_encrypted || null);
@@ -174,13 +185,15 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
        books_preset, books_provider, books_api_url, books_api_key_encrypted, books_api_key_header, books_api_key_query_param,
        audio_preset, audio_provider, audio_api_url, audio_api_key_encrypted, audio_api_key_header, audio_api_key_query_param,
        games_preset, games_provider, games_api_url, games_api_key_encrypted, games_api_key_header, games_api_key_query_param, games_client_id, games_client_secret_encrypted,
-       comics_preset, comics_provider, comics_api_url, comics_api_key_encrypted, comics_api_key_header, comics_api_key_query_param, comics_username
+       comics_preset, comics_provider, comics_api_url, comics_api_key_encrypted, comics_api_key_header, comics_api_key_query_param, comics_username,
+       cwa_opds_url, cwa_base_url, cwa_username, cwa_password_encrypted, cwa_timeout_ms
      ) VALUES (
        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25::jsonb,
        $26,$27,$28,$29,$30,$31,
        $32,$33,$34,$35,$36,$37,
        $38,$39,$40,$41,$42,$43,$44,$45,
-       $46,$47,$48,$49,$50,$51,$52
+       $46,$47,$48,$49,$50,$51,$52,
+       $53,$54,$55,$56,$57
      )
      ON CONFLICT (id) DO UPDATE SET
        barcode_preset = EXCLUDED.barcode_preset, barcode_provider = EXCLUDED.barcode_provider,
@@ -211,7 +224,12 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
        comics_preset = EXCLUDED.comics_preset, comics_provider = EXCLUDED.comics_provider,
        comics_api_url = EXCLUDED.comics_api_url, comics_api_key_encrypted = EXCLUDED.comics_api_key_encrypted,
        comics_api_key_header = EXCLUDED.comics_api_key_header, comics_api_key_query_param = EXCLUDED.comics_api_key_query_param,
-       comics_username = EXCLUDED.comics_username
+       comics_username = EXCLUDED.comics_username,
+       cwa_opds_url = EXCLUDED.cwa_opds_url,
+       cwa_base_url = EXCLUDED.cwa_base_url,
+       cwa_username = EXCLUDED.cwa_username,
+       cwa_password_encrypted = EXCLUDED.cwa_password_encrypted,
+       cwa_timeout_ms = EXCLUDED.cwa_timeout_ms
      RETURNING *`,
     [
       1,
@@ -265,7 +283,12 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
       finalComicsApiKey,
       pick(comicsApiKeyHeader, existing?.comics_api_key_header, selectedComicsPreset.apiKeyHeader),
       pick(comicsApiKeyQueryParam, existing?.comics_api_key_query_param, selectedComicsPreset.apiKeyQueryParam),
-      pick(comicsUsername, existing?.comics_username, '')
+      pick(comicsUsername, existing?.comics_username, ''),
+      pick(cwaOpdsUrl, existing?.cwa_opds_url, ''),
+      pick(cwaBaseUrl, existing?.cwa_base_url, ''),
+      pick(cwaUsername, existing?.cwa_username, ''),
+      finalCwaPassword,
+      Math.max(1000, Number(pick(cwaTimeoutMs, existing?.cwa_timeout_ms, 20000)) || 20000)
     ]
   );
 
@@ -279,6 +302,7 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
     audioPreset: config.audioPreset,
     gamesPreset: config.gamesPreset,
     comicsPreset: config.comicsPreset,
+    cwaEnabled: Boolean(config.cwaOpdsUrl),
     keyUpdates: {
       barcode: Boolean(barcodeApiKey),
       vision: Boolean(visionApiKey),
@@ -288,7 +312,8 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
       audio: Boolean(audioApiKey),
       games: Boolean(gamesApiKey),
       gamesClientSecret: Boolean(gamesClientSecret),
-      comics: Boolean(comicsApiKey)
+      comics: Boolean(comicsApiKey),
+      cwaPassword: Boolean(cwaPassword)
     },
     keyClears: {
       barcode: Boolean(clearBarcodeApiKey),
@@ -299,7 +324,8 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
       audio: Boolean(clearAudioApiKey),
       games: Boolean(clearGamesApiKey),
       gamesClientSecret: Boolean(clearGamesClientSecret),
-      comics: Boolean(clearComicsApiKey)
+      comics: Boolean(clearComicsApiKey),
+      cwaPassword: Boolean(clearCwaPassword)
     }
   });
 
@@ -546,6 +572,34 @@ router.post('/admin/settings/integrations/test-comics', authenticateToken, requi
       authenticated: status !== 401 && status !== 403,
       status,
       provider: config.comicsProvider || 'metron',
+      detail: error.message
+    });
+  }
+}));
+
+router.post('/admin/settings/integrations/test-cwa', authenticateToken, requireRole('admin'), asyncHandler(async (_req, res) => {
+  const config = await loadAdminIntegrationConfig();
+  if (!config.cwaOpdsUrl) {
+    return res.status(400).json({ ok: false, authenticated: false, detail: 'CWA OPDS URL is not configured' });
+  }
+  try {
+    const result = await fetchCwaOpdsItems(config, { maxPages: 1 });
+    res.json({
+      ok: true,
+      authenticated: true,
+      status: 200,
+      provider: 'cwa_opds',
+      detail: `Fetched ${result.rows.length} item(s) from OPDS`,
+      resultCount: result.rows.length
+    });
+  } catch (error) {
+    logError('Test CWA integration', error);
+    const status = error.status || error.response?.status || 502;
+    res.json({
+      ok: false,
+      authenticated: status !== 401 && status !== 403,
+      status,
+      provider: 'cwa_opds',
       detail: error.message
     });
   }

@@ -37,6 +37,7 @@ const normalizeIntegrationRecord = (row) => {
   const gamesDecrypt = decryptSecretWithStatus(row?.games_api_key_encrypted, 'games_api_key_encrypted');
   const gamesClientSecretDecrypt = decryptSecretWithStatus(row?.games_client_secret_encrypted, 'games_client_secret_encrypted');
   const comicsDecrypt = decryptSecretWithStatus(row?.comics_api_key_encrypted, 'comics_api_key_encrypted');
+  const cwaPasswordDecrypt = decryptSecretWithStatus(row?.cwa_password_encrypted, 'cwa_password_encrypted');
 
   const barcodeApiKey = barcodeDecrypt.value || process.env.BARCODE_API_KEY || '';
   const visionApiKey = visionDecrypt.value || process.env.VISION_API_KEY || '';
@@ -47,6 +48,7 @@ const normalizeIntegrationRecord = (row) => {
   const gamesApiKey = gamesDecrypt.value || process.env.GAMES_API_KEY || '';
   const gamesClientSecret = gamesClientSecretDecrypt.value || process.env.GAMES_CLIENT_SECRET || '';
   const comicsApiKey = comicsDecrypt.value || process.env.COMICS_API_KEY || '';
+  const cwaPassword = cwaPasswordDecrypt.value || process.env.CWA_PASSWORD || process.env.CWA_TOKEN || '';
 
   const decryptWarnings = [];
   const maybeWarn = (provider, field, encryptedValue, decryptResult) => {
@@ -67,6 +69,7 @@ const normalizeIntegrationRecord = (row) => {
   maybeWarn('games', 'games_api_key_encrypted', row?.games_api_key_encrypted, gamesDecrypt);
   maybeWarn('games', 'games_client_secret_encrypted', row?.games_client_secret_encrypted, gamesClientSecretDecrypt);
   maybeWarn('comics', 'comics_api_key_encrypted', row?.comics_api_key_encrypted, comicsDecrypt);
+  maybeWarn('cwa', 'cwa_password_encrypted', row?.cwa_password_encrypted, cwaPasswordDecrypt);
 
   const legacyAudioUrl = row?.audio_api_url || '';
   const resolvedAudioProviderRaw = row?.audio_provider || audioPreset.provider;
@@ -134,6 +137,11 @@ const normalizeIntegrationRecord = (row) => {
     comicsApiKeyQueryParam: row?.comics_api_key_query_param || comicsPreset.apiKeyQueryParam || 'api_key',
     comicsUsername: row?.comics_username || process.env.COMICS_USERNAME || '',
     comicsApiKey,
+    cwaOpdsUrl: row?.cwa_opds_url || process.env.CWA_OPDS_URL || '',
+    cwaBaseUrl: row?.cwa_base_url || process.env.CWA_BASE_URL || '',
+    cwaUsername: row?.cwa_username || process.env.CWA_USERNAME || '',
+    cwaPassword,
+    cwaTimeoutMs: Number(row?.cwa_timeout_ms || process.env.CWA_TIMEOUT_MS || 20000) || 20000,
     decryptWarnings
   };
 };

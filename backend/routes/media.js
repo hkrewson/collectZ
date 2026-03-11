@@ -22,6 +22,7 @@ const { searchBooksByTitle, searchBooksByIsbn } = require('../services/books');
 const { searchAudioByTitle } = require('../services/audio');
 const { searchGamesByTitle } = require('../services/games');
 const { searchComicsByTitle, fetchMetronCollectionIssues, fetchMetronIssueDetails, pushMetronCollectionIssue } = require('../services/comics');
+const { fetchCwaOpdsItems } = require('../services/cwa');
 const { parseCsvText } = require('../services/csv');
 const { mapDeliciousItemTypeToMediaType } = require('../services/importMapping');
 const { normalizeDeliciousRow } = require('../services/deliciousNormalize');
@@ -1128,6 +1129,36 @@ async function findExistingByIdentifier({ identifierType, identifierValue, norma
 }
 
 async function findExistingByProviderIds({ item, normalizedMediaType, normalizedTmdbType, scopeContext = null }) {
+  const providerItemId = String(
+    item?.type_details?.provider_item_id || item?.type_details?.calibre_entry_id || item?.provider_item_id || ''
+  ).trim();
+  if (providerItemId) {
+    const params = [providerItemId, normalizedMediaType];
+    const scopeClause = appendScopeSql(params, scopeContext, {
+      spaceColumn: 'm.space_id',
+      libraryColumn: 'm.library_id'
+    });
+    const byProviderItemId = await pool.query(
+      `SELECT DISTINCT m.id
+       FROM media m
+       LEFT JOIN media_metadata mm ON mm.media_id = m.id
+       WHERE COALESCE(m.media_type, 'movie') = $2
+         AND (
+           COALESCE(m.type_details->>'provider_item_id', '') = $1
+           OR COALESCE(m.type_details->>'calibre_entry_id', '') = $1
+           OR (mm."key" = 'provider_item_id' AND mm."value" = $1)
+           OR (mm."key" = 'calibre_entry_id' AND mm."value" = $1)
+         )
+         ${scopeClause}
+       ORDER BY m.id DESC
+       LIMIT 1`,
+      params
+    );
+    if (byProviderItemId.rows[0]) {
+      return { row: byProviderItemId.rows[0], matchedBy: 'provider_item_id' };
+    }
+  }
+
   if (normalizedMediaType === 'comic_book') {
     const providerIssueId = String(
       item?.type_details?.provider_issue_id || item?.provider_issue_id || ''
@@ -2752,6 +2783,9 @@ async function runGenericCsvImport({
       cast: value('cast') || value('actors') || value('actor'),
       rating: value('rating') ? Number(value('rating')) : null,
       user_rating: value('user_rating') ? Number(value('user_rating')) : null,
+      tmdb_url: value('tmdb_url') || value('external_url') || null,
+      poster_path: value('poster_path') || value('image_url') || null,
+      overview: value('overview') || value('summary') || value('description') || null,
       runtime: value('runtime') ? Number(value('runtime')) : null,
       upc: value('upc'),
       signed_by: value('signed_by') || value('signed by'),
@@ -2773,7 +2807,12 @@ async function runGenericCsvImport({
         track_count: value('track_count'),
         platform: value('platform'),
         developer: value('developer'),
-        region: value('region')
+        region: value('region'),
+        provider_name: value('provider_name') || row?.type_details?.provider_name || null,
+        provider_item_id: value('provider_item_id') || row?.type_details?.provider_item_id || row?.type_details?.calibre_entry_id || null,
+        provider_external_url: value('provider_external_url') || row?.type_details?.provider_external_url || row?.type_details?.calibre_external_url || value('external_url') || null,
+        calibre_entry_id: value('calibre_entry_id') || row?.type_details?.calibre_entry_id || null,
+        calibre_external_url: value('calibre_external_url') || row?.type_details?.calibre_external_url || null
       }
     };
     let collectionId = null;
@@ -2871,6 +2910,8 @@ async function runGenericCsvImport({
         await upsertMediaMetadataEntry(result.mediaId, 'ean', rowIdentifiers.eanUpc);
         await upsertMediaMetadataEntry(result.mediaId, 'ean_upc', rowIdentifiers.eanUpc);
         await upsertMediaMetadataEntry(result.mediaId, 'amazon_item_id', rowIdentifiers.asin);
+        await upsertMediaMetadataEntry(result.mediaId, 'provider_item_id', mapped.type_details?.provider_item_id || '');
+        await upsertMediaMetadataEntry(result.mediaId, 'calibre_entry_id', mapped.type_details?.calibre_entry_id || '');
         if (collectionId) {
           const itemId = await addCollectionItem({
             collectionId,
@@ -3067,6 +3108,58 @@ async function runGenericCsvImport({
   }
 
   return { rows: rows.length, summary, auditRows };
+}
+
+function extractProviderItemIdFromImportRow(row = {}) {
+  const fromDetails = String(row?.type_details?.provider_item_id || row?.type_details?.calibre_entry_id || '').trim();
+  if (fromDetails) return fromDetails;
+  const fromFlat = String(row?.provider_item_id || row?.calibre_entry_id || '').trim();
+  return fromFlat || '';
+}
+
+async function reconcileCwaImportedMedia({
+  scopeContext = null,
+  providerItemIds = new Set(),
+  allowDelete = true
+}) {
+  if (!allowDelete) {
+    return { deleted: 0, skipped: true, reason: 'disabled', sample: [] };
+  }
+
+  const params = ['cwa_opds'];
+  const scopeClause = appendScopeSql(params, scopeContext, {
+    spaceColumn: 'm.space_id',
+    libraryColumn: 'm.library_id'
+  });
+  const existing = await pool.query(
+    `SELECT m.id, m.title, m.media_type,
+            COALESCE(m.type_details->>'provider_item_id', m.type_details->>'calibre_entry_id', '') AS provider_item_id
+     FROM media m
+     WHERE m.import_source = $1
+       AND COALESCE(m.media_type, 'movie') IN ('book', 'comic_book')
+       AND COALESCE(m.type_details->>'provider_item_id', m.type_details->>'calibre_entry_id', '') <> ''
+       ${scopeClause}`,
+    params
+  );
+
+  const stale = existing.rows.filter((row) => !providerItemIds.has(String(row.provider_item_id || '').trim()));
+  if (!stale.length) return { deleted: 0, skipped: false, reason: null, sample: [] };
+
+  const staleIds = stale.map((row) => Number(row.id)).filter((id) => Number.isInteger(id) && id > 0);
+  if (!staleIds.length) return { deleted: 0, skipped: false, reason: null, sample: [] };
+
+  await pool.query('DELETE FROM media WHERE id = ANY($1::int[])', [staleIds]);
+  return {
+    deleted: staleIds.length,
+    skipped: false,
+    reason: null,
+    sample: stale.slice(0, 25).map((row) => ({
+      id: row.id,
+      title: row.title,
+      media_type: row.media_type,
+      provider_item_id: row.provider_item_id
+    }))
+  };
 }
 
 async function runDeliciousCsvImport({
@@ -4769,6 +4862,188 @@ router.post('/import-csv/calibre', tempUpload.single('file'), asyncHandler(async
     collectionItemsSeeded: result.summary.collectionItemsSeeded || 0
   });
   res.json({ ok: true, rows: result.rows, summary: result.summary, auditRows: result.auditRows });
+}));
+
+router.post('/import-cwa', asyncHandler(async (req, res) => {
+  await assertFeatureEnabled('import_csv_enabled');
+  const scopeContext = resolveScopeContext(req);
+  const config = await loadAdminIntegrationConfig();
+  if (!config.cwaOpdsUrl) {
+    return res.status(400).json({ error: 'CWA OPDS URL is not configured' });
+  }
+
+  const asyncMode = parseAsyncFlag(req.query?.async) || parseAsyncFlag(req.body?.async);
+  const maxPages = Math.max(1, Math.min(Number(req.body?.maxPages || req.query?.maxPages || 20), 100));
+  const syncMode = String(req.body?.syncMode || req.query?.syncMode || 'incremental').trim().toLowerCase() === 'full'
+    ? 'full'
+    : 'incremental';
+  const deleteMissing = parseAsyncFlag(req.body?.deleteMissing ?? req.query?.deleteMissing ?? 'true');
+  const auditReq = {
+    user: req.user,
+    headers: req.headers,
+    ip: req.ip,
+    socket: req.socket
+  };
+
+  const runImport = async (onProgress) => {
+    const fetched = await fetchCwaOpdsItems(config, { maxPages });
+    const result = await runGenericCsvImport({
+      rows: fetched.rows,
+      userId: req.user.id,
+      scopeContext,
+      onProgress,
+      importSource: 'cwa_opds',
+      reviewContext: { provider: 'cwa_opds' }
+    });
+    const providerItemIds = new Set(
+      fetched.rows
+        .map((row) => extractProviderItemIdFromImportRow(row))
+        .filter(Boolean)
+    );
+    let reconciliation = { deleted: 0, skipped: true, reason: 'sync_mode_full', sample: [] };
+    if (syncMode === 'incremental') {
+      const allowDelete = deleteMissing && !fetched.hasMore;
+      reconciliation = await reconcileCwaImportedMedia({
+        scopeContext,
+        providerItemIds,
+        allowDelete
+      });
+      if (deleteMissing && fetched.hasMore) {
+        reconciliation.skipped = true;
+        reconciliation.reason = 'truncated_feed';
+      }
+    }
+    return {
+      ...result,
+      pagesFetched: fetched.pagesFetched,
+      endpoint: fetched.endpoint,
+      hasMore: fetched.hasMore,
+      syncMode,
+      deleted: reconciliation.deleted || 0,
+      deleteSkipped: Boolean(reconciliation.skipped),
+      deleteSkippedReason: reconciliation.reason || null,
+      deletedSample: reconciliation.sample || []
+    };
+  };
+
+  if (asyncMode) {
+    const job = await createSyncJob({
+      userId: req.user.id,
+      jobType: 'media_import',
+      provider: 'cwa_opds',
+      scope: jobScopePayload(scopeContext),
+      progress: { total: 0, processed: 0, created: 0, updated: 0, skipped: 0, errorCount: 0 }
+    });
+
+    setImmediate(async () => {
+      try {
+        await updateSyncJob(job.id, { status: 'running', started_at: new Date() });
+        const result = await runImport(async (progress) => updateSyncJob(job.id, { progress }));
+        await updateSyncJob(job.id, {
+          status: 'succeeded',
+          progress: {
+            total: result.rows,
+            processed: result.rows,
+            created: result.summary.created,
+            updated: result.summary.updated,
+            skipped: result.summary.skipped_invalid,
+            errorCount: result.summary.errors.length
+          },
+          summary: {
+            rows: result.rows,
+            created: result.summary.created,
+            updated: result.summary.updated,
+            skipped_invalid: result.summary.skipped_invalid,
+            errorCount: result.summary.errors.length,
+            matchModes: result.summary.matchModes,
+            enrichment: result.summary.enrichment,
+            reviewQueued: result.summary.reviewQueued,
+            collectionsDetected: result.summary.collectionsDetected || 0,
+            collectionsCreated: result.summary.collectionsCreated || 0,
+            collectionItemsSeeded: result.summary.collectionItemsSeeded || 0,
+            pagesFetched: result.pagesFetched,
+            endpoint: result.endpoint,
+            hasMore: result.hasMore,
+            syncMode: result.syncMode,
+            deleted: result.deleted,
+            deleteSkipped: result.deleteSkipped,
+            deleteSkippedReason: result.deleteSkippedReason,
+            deletedSample: result.deletedSample,
+            auditRows: result.auditRows
+          },
+          finished_at: new Date()
+        });
+        await logActivity(auditReq, 'media.import.cwa', 'media', null, {
+          rows: result.rows,
+          created: result.summary.created,
+          updated: result.summary.updated,
+          skipped_invalid: result.summary.skipped_invalid,
+          errorCount: result.summary.errors.length,
+          matchModes: result.summary.matchModes,
+          enrichment: result.summary.enrichment,
+          reviewQueued: result.summary.reviewQueued,
+          pagesFetched: result.pagesFetched,
+          endpoint: result.endpoint,
+          hasMore: result.hasMore,
+          syncMode: result.syncMode,
+          deleted: result.deleted,
+          deleteSkipped: result.deleteSkipped,
+          deleteSkippedReason: result.deleteSkippedReason,
+          jobId: job.id
+        });
+      } catch (error) {
+        await updateSyncJob(job.id, {
+          status: 'failed',
+          error: error.message || 'CWA import failed',
+          finished_at: new Date()
+        });
+        await logActivity(auditReq, 'media.import.cwa.failed', 'media', null, {
+          detail: error.message || 'CWA import failed',
+          jobId: job.id
+        });
+      }
+    });
+
+    return res.status(202).json({
+      ok: true,
+      queued: true,
+      job: { id: job.id, status: job.status, provider: job.provider, progress: job.progress }
+    });
+  }
+
+  const result = await runImport();
+  await logActivity(req, 'media.import.cwa', 'media', null, {
+    rows: result.rows,
+    created: result.summary.created,
+    updated: result.summary.updated,
+    skipped_invalid: result.summary.skipped_invalid,
+    errorCount: result.summary.errors.length,
+    matchModes: result.summary.matchModes,
+    enrichment: result.summary.enrichment,
+    reviewQueued: result.summary.reviewQueued,
+    pagesFetched: result.pagesFetched,
+    endpoint: result.endpoint,
+    hasMore: result.hasMore,
+    syncMode: result.syncMode,
+    deleted: result.deleted,
+    deleteSkipped: result.deleteSkipped,
+    deleteSkippedReason: result.deleteSkippedReason
+  });
+  res.json({
+    ok: true,
+    rows: result.rows,
+    summary: {
+      ...result.summary,
+      deleted: result.deleted,
+      deleteSkipped: result.deleteSkipped,
+      deleteSkippedReason: result.deleteSkippedReason
+    },
+    auditRows: result.auditRows,
+    pagesFetched: result.pagesFetched,
+    endpoint: result.endpoint,
+    hasMore: result.hasMore,
+    syncMode: result.syncMode
+  });
 }));
 
 router.post('/import-csv/delicious', tempUpload.single('file'), asyncHandler(async (req, res) => {

@@ -58,6 +58,7 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
       { id: 'barcode', label: 'Barcode' },
       { id: 'books', label: 'Books' },
       { id: 'comics', label: 'Comics' },
+      { id: 'cwa', label: 'CWA OPDS' },
       { id: 'games', label: 'Games' },
       { id: 'plex', label: 'Plex' },
       { id: 'tmdb', label: 'TMDB' },
@@ -82,7 +83,8 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
     gamesPreset: 'igdb', gamesProvider: 'igdb', gamesApiUrl: 'https://api.igdb.com/v4/games',
     gamesApiKey: '', gamesApiKeyHeader: 'Authorization', gamesApiKeyQueryParam: '', gamesClientId: '', gamesClientSecret: '', clearGamesApiKey: false, clearGamesClientSecret: false,
     comicsPreset: 'metron', comicsProvider: 'metron', comicsApiUrl: 'https://metron.cloud/api/issue/',
-    comicsApiKey: '', comicsApiKeyHeader: '', comicsApiKeyQueryParam: '', comicsUsername: '', clearComicsApiKey: false
+    comicsApiKey: '', comicsApiKeyHeader: '', comicsApiKeyQueryParam: '', comicsUsername: '', clearComicsApiKey: false,
+    cwaOpdsUrl: '', cwaBaseUrl: '', cwaUsername: '', cwaPassword: '', cwaTimeoutMs: 20000, clearCwaPassword: false
   });
   const [meta, setMeta] = useState({
     barcodeApiKeySet: false, barcodeApiKeyMasked: '',
@@ -94,9 +96,10 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
     gamesApiKeySet: false, gamesApiKeyMasked: '',
     gamesClientSecretSet: false, gamesClientSecretMasked: '',
     comicsApiKeySet: false, comicsApiKeyMasked: '',
+    cwaPasswordSet: false, cwaPasswordMasked: '',
     decryptHealth: { hasWarnings: false, warnings: [], remediation: '' }
   });
-  const [status, setStatus] = useState({ barcode: 'unknown', vision: 'unknown', tmdb: 'unknown', plex: 'unknown', books: 'unknown', audio: 'unknown', games: 'unknown', comics: 'unknown' });
+  const [status, setStatus] = useState({ barcode: 'unknown', vision: 'unknown', tmdb: 'unknown', plex: 'unknown', books: 'unknown', audio: 'unknown', games: 'unknown', comics: 'unknown', cwa: 'unknown' });
   const [testLoading, setTestLoading] = useState('');
   const [testMsg, setTestMsg] = useState('');
   const [saving, setSaving] = useState(false);
@@ -130,7 +133,9 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
         gamesPreset: data.gamesPreset || 'igdb', gamesProvider: data.gamesProvider || 'igdb', gamesApiUrl: data.gamesApiUrl || 'https://api.igdb.com/v4/games',
         gamesApiKeyHeader: data.gamesApiKeyHeader || 'Authorization', gamesApiKeyQueryParam: data.gamesApiKeyQueryParam || '', gamesClientId: data.gamesClientId || '',
         comicsPreset: data.comicsPreset || 'metron', comicsProvider: data.comicsProvider || 'metron', comicsApiUrl: data.comicsApiUrl || 'https://metron.cloud/api/issue/',
-        comicsApiKeyHeader: data.comicsApiKeyHeader || '', comicsApiKeyQueryParam: data.comicsApiKeyQueryParam || '', comicsUsername: data.comicsUsername || ''
+        comicsApiKeyHeader: data.comicsApiKeyHeader || '', comicsApiKeyQueryParam: data.comicsApiKeyQueryParam || '', comicsUsername: data.comicsUsername || '',
+        cwaOpdsUrl: data.cwaOpdsUrl || '', cwaBaseUrl: data.cwaBaseUrl || '', cwaUsername: data.cwaUsername || '',
+        cwaTimeoutMs: Number(data.cwaTimeoutMs || 20000) || 20000
       }));
       setMeta({
         barcodeApiKeySet: Boolean(data.barcodeApiKeySet), barcodeApiKeyMasked: data.barcodeApiKeyMasked || '',
@@ -142,6 +147,7 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
         gamesApiKeySet: Boolean(data.gamesApiKeySet), gamesApiKeyMasked: data.gamesApiKeyMasked || '',
         gamesClientSecretSet: Boolean(data.gamesClientSecretSet), gamesClientSecretMasked: data.gamesClientSecretMasked || '',
         comicsApiKeySet: Boolean(data.comicsApiKeySet), comicsApiKeyMasked: data.comicsApiKeyMasked || '',
+        cwaPasswordSet: Boolean(data.cwaPasswordSet), cwaPasswordMasked: data.cwaPasswordMasked || '',
         decryptHealth: data.decryptHealth || { hasWarnings: false, warnings: [], remediation: '' }
       });
       setStatus({
@@ -152,7 +158,8 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
         books: data.booksApiKeySet ? 'configured' : 'missing',
         audio: data.audioApiKeySet ? 'configured' : 'missing',
         games: (data.gamesApiKeySet || (data.gamesClientId && data.gamesClientSecretSet)) ? 'configured' : 'missing',
-        comics: data.comicsApiKeySet ? 'configured' : 'missing'
+        comics: data.comicsApiKeySet ? 'configured' : 'missing',
+        cwa: data.cwaOpdsUrl ? 'configured' : 'missing'
       });
     }).catch(() => {});
   }, [apiCall]);
@@ -212,6 +219,14 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
       comicsUsername: form.comicsUsername, clearComicsApiKey: form.clearComicsApiKey,
       ...(form.comicsApiKey && { comicsApiKey: form.comicsApiKey })
     });
+    else if (sec === 'cwa') Object.assign(payload, {
+      cwaOpdsUrl: form.cwaOpdsUrl,
+      cwaBaseUrl: form.cwaBaseUrl,
+      cwaUsername: form.cwaUsername,
+      cwaTimeoutMs: Number(form.cwaTimeoutMs) || 20000,
+      clearCwaPassword: form.clearCwaPassword,
+      ...(form.cwaPassword && { cwaPassword: form.cwaPassword })
+    });
     try {
       const updated = await apiCall('put', '/admin/settings/integrations', payload);
       setMeta({
@@ -224,19 +239,22 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
         gamesApiKeySet: Boolean(updated.gamesApiKeySet), gamesApiKeyMasked: updated.gamesApiKeyMasked || '',
         gamesClientSecretSet: Boolean(updated.gamesClientSecretSet), gamesClientSecretMasked: updated.gamesClientSecretMasked || '',
         comicsApiKeySet: Boolean(updated.comicsApiKeySet), comicsApiKeyMasked: updated.comicsApiKeyMasked || '',
+        cwaPasswordSet: Boolean(updated.cwaPasswordSet), cwaPasswordMasked: updated.cwaPasswordMasked || '',
         decryptHealth: updated.decryptHealth || { hasWarnings: false, warnings: [], remediation: '' }
       });
       setStatus((s) => ({
         ...s,
         [sec]: sec === 'games'
           ? ((updated.gamesApiKeySet || (updated.gamesClientId && updated.gamesClientSecretSet)) ? 'configured' : 'missing')
+          : sec === 'cwa'
+            ? (updated.cwaOpdsUrl ? 'configured' : 'missing')
           : (updated[`${sec}ApiKeySet`] ? 'configured' : 'missing')
       }));
       setForm((f) => ({
         ...f,
-        barcodeApiKey: '', visionApiKey: '', tmdbApiKey: '', plexApiKey: '', booksApiKey: '', audioApiKey: '', gamesApiKey: '', gamesClientSecret: '', comicsApiKey: '',
+        barcodeApiKey: '', visionApiKey: '', tmdbApiKey: '', plexApiKey: '', booksApiKey: '', audioApiKey: '', gamesApiKey: '', gamesClientSecret: '', comicsApiKey: '', cwaPassword: '',
         clearBarcodeApiKey: false, clearVisionApiKey: false, clearTmdbApiKey: false, clearPlexApiKey: false,
-        clearBooksApiKey: false, clearAudioApiKey: false, clearGamesApiKey: false, clearGamesClientSecret: false, clearComicsApiKey: false
+        clearBooksApiKey: false, clearAudioApiKey: false, clearGamesApiKey: false, clearGamesClientSecret: false, clearComicsApiKey: false, clearCwaPassword: false
       }));
       onToast(`${sec.toUpperCase()} settings saved`);
       if (
@@ -282,6 +300,8 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
               ? { title: 'Halo' }
               : sec === 'comics'
                 ? { title: 'Batman' }
+                : sec === 'cwa'
+                  ? {}
               : {};
       const result = await apiCall('post', `/admin/settings/integrations/test-${sec}`, payload);
       setStatus((s) => ({ ...s, [sec]: result.authenticated ? 'ok' : 'auth_failed' }));
@@ -554,6 +574,30 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
           <label className="flex items-center gap-2 text-sm text-dim cursor-pointer">
             <input type="checkbox" checked={form.clearComicsApiKey} onChange={(e) => setForm((f) => ({ ...f, clearComicsApiKey: e.target.checked }))} className="rounded" />
             Clear saved key
+          </label>
+        </>}
+
+        {section === 'cwa' && <>
+          <LabeledField label="OPDS Feed URL" cx={cx}>
+            <input className="input" placeholder="https://cwa-host/opds" value={form.cwaOpdsUrl} onChange={(e) => setForm((f) => ({ ...f, cwaOpdsUrl: e.target.value }))} />
+          </LabeledField>
+          <LabeledField label="Base URL (for deep links, optional)" cx={cx}>
+            <input className="input" placeholder="https://cwa-host" value={form.cwaBaseUrl} onChange={(e) => setForm((f) => ({ ...f, cwaBaseUrl: e.target.value }))} />
+          </LabeledField>
+          <div className="grid grid-cols-2 gap-3">
+            <LabeledField label="Username (optional)" cx={cx}>
+              <input className="input" value={form.cwaUsername} onChange={(e) => setForm((f) => ({ ...f, cwaUsername: e.target.value }))} />
+            </LabeledField>
+            <LabeledField label="Timeout (ms)" cx={cx}>
+              <input className="input" type="number" min="1000" step="1000" value={form.cwaTimeoutMs} onChange={(e) => setForm((f) => ({ ...f, cwaTimeoutMs: e.target.value }))} />
+            </LabeledField>
+          </div>
+          <LabeledField label={`Password / Token ${meta.cwaPasswordSet ? `(set: ${meta.cwaPasswordMasked})` : '(not set)'}`} cx={cx}>
+            <input className="input font-mono" type="password" placeholder="Enter password/token to update" value={form.cwaPassword} onChange={(e) => setForm((f) => ({ ...f, cwaPassword: e.target.value }))} />
+          </LabeledField>
+          <label className="flex items-center gap-2 text-sm text-dim cursor-pointer">
+            <input type="checkbox" checked={form.clearCwaPassword} onChange={(e) => setForm((f) => ({ ...f, clearCwaPassword: e.target.checked }))} className="rounded" />
+            Clear saved password/token
           </label>
         </>}
 

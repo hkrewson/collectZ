@@ -1513,6 +1513,18 @@ const MIGRATIONS = [
       END;
       $$;
     `
+  },
+  {
+    version: 39,
+    description: 'Add Calibre Web Automated OPDS integration settings',
+    up: `
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS cwa_opds_url TEXT,
+        ADD COLUMN IF NOT EXISTS cwa_base_url TEXT,
+        ADD COLUMN IF NOT EXISTS cwa_username VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS cwa_password_encrypted TEXT,
+        ADD COLUMN IF NOT EXISTS cwa_timeout_ms INTEGER DEFAULT 20000;
+    `
   }
 ];
 

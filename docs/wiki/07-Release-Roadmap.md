@@ -1709,6 +1709,7 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 ## 2.4.5 — Calibre Web Automated Integration (Comics/Books Bridge)
 
 **Goal:** Replace CSV-centric Calibre workflows with direct Calibre Web Automated (CWA) integration for better reliability, better metadata continuity, and optional read-through behavior.
+**Status:** In progress.
 
 ### Scope
 
@@ -1745,6 +1746,18 @@ Deferred tenancy planning has been moved to a separate roadmap document:
     - Docker networking/reverse-proxy examples,
     - OPDS auth verification steps,
     - troubleshooting (auth errors, pagination, deep-link mismatches).
+
+### Progress Snapshot
+
+- [x] Admin integration settings for CWA endpoint/auth/timeouts + encrypted credential storage.
+- [x] CWA test endpoint and OPDS connectivity check.
+- [x] OPDS ingestion import path (`cwa_opds`) with pagination traversal.
+- [x] Canonical provider linkage persistence (`provider_item_id`, external URL, source attribution).
+- [x] `Open in Calibre` deep-link action from media details.
+- [x] Incremental sync behavior with dedupe-safe upsert and optional delete reconciliation.
+- [x] Truncated-feed delete guardrail (`hasMore=true` skips deletion, reason surfaced in summary).
+- [x] CWA setup/testing runbook added to wiki.
+- [ ] Optional in-app reader path (feature-flagged, allowlist-only).
 
 ### Acceptance Criteria
 

@@ -286,6 +286,11 @@ CREATE TABLE IF NOT EXISTS app_integrations (
     comics_api_key_header VARCHAR(100),
     comics_api_key_query_param VARCHAR(100),
     comics_username VARCHAR(255),
+    cwa_opds_url TEXT,
+    cwa_base_url TEXT,
+    cwa_username VARCHAR(255),
+    cwa_password_encrypted TEXT,
+    cwa_timeout_ms INTEGER DEFAULT 20000,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -719,5 +724,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (35, 'Add events and event artifacts tables'),
     (36, 'Add collectibles table and taxonomy fields'),
     (37, 'Add canonical collectibles taxonomy table and subtype/category_key columns'),
-    (38, 'Add feature flags for Events and Collectibles library surfaces')
+    (38, 'Add feature flags for Events and Collectibles library surfaces'),
+    (39, 'Add Calibre Web Automated OPDS integration settings')
 ON CONFLICT (version) DO NOTHING;

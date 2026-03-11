@@ -21,7 +21,10 @@ Start here for deployment and operations guidance.
 15. [Secrets and Rotation Runbook](./15-Secrets-and-Rotation-Runbook.md)
 16. [Activity Triage Runbook](./16-Activity-Triage-Runbook.md)
 17. [Release Go/No-Go Checklist](./17-Release-Go-No-Go-Checklist.md)
-18. [Logging and Observability Contract](./22-Logging-and-Observability-Contract.md)
+18. [Reader Feasibility Spike](./21-Reader-Feasibility-Spike.md)
+19. [Logging and Observability Contract](./22-Logging-and-Observability-Contract.md)
+20. [Metadata Normalization Cutover Plan](./23-Metadata-Normalization-Cutover-Plan.md)
+21. [Calibre Web Automated Integration Setup](./24-Calibre-Web-Automated-Integration-Setup.md)
 
 ## Default Admin Behavior (Important)
 

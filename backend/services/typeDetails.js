@@ -1,11 +1,42 @@
 const TYPE_DETAILS_ALLOWED_BY_MEDIA_TYPE = {
-  movie: ['edition'],
+  movie: ['edition', 'provider_name', 'provider_item_id', 'provider_external_url'],
   tv_series: [],
   tv_episode: [],
-  book: ['author', 'isbn', 'publisher', 'edition'],
+  book: [
+    'author',
+    'isbn',
+    'publisher',
+    'edition',
+    'provider_name',
+    'provider_item_id',
+    'provider_external_url',
+    'calibre_entry_id',
+    'calibre_external_url',
+    'source_updated_at'
+  ],
   audio: ['artist', 'album', 'track_count'],
-  game: ['platform', 'developer', 'region'],
-  comic_book: ['author', 'isbn', 'publisher', 'edition', 'series', 'issue_number', 'volume', 'writer', 'artist', 'inker', 'colorist', 'cover_date', 'provider_issue_id']
+  game: ['platform', 'developer', 'region', 'provider_name', 'provider_item_id', 'provider_external_url'],
+  comic_book: [
+    'author',
+    'isbn',
+    'publisher',
+    'edition',
+    'series',
+    'issue_number',
+    'volume',
+    'writer',
+    'artist',
+    'inker',
+    'colorist',
+    'cover_date',
+    'provider_issue_id',
+    'provider_name',
+    'provider_item_id',
+    'provider_external_url',
+    'calibre_entry_id',
+    'calibre_external_url',
+    'source_updated_at'
+  ]
 };
 
 const TRACK_COUNT_KEY = 'track_count';
