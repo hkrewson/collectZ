@@ -14,7 +14,6 @@ const { resolveBooksPreset, searchBooksByTitle } = require('../services/books');
 const { resolveAudioPreset, searchAudioByTitle } = require('../services/audio');
 const { resolveGamesPreset, searchGamesByTitle } = require('../services/games');
 const { resolveComicsPreset, searchComicsByTitle, fetchMetronCollectionIssues } = require('../services/comics');
-const { fetchCwaOpdsItems } = require('../services/cwa');
 const { logActivity, logError } = require('../services/audit');
 
 const router = express.Router();
@@ -578,31 +577,13 @@ router.post('/admin/settings/integrations/test-comics', authenticateToken, requi
 }));
 
 router.post('/admin/settings/integrations/test-cwa', authenticateToken, requireRole('admin'), asyncHandler(async (_req, res) => {
-  const config = await loadAdminIntegrationConfig();
-  if (!config.cwaOpdsUrl) {
-    return res.status(400).json({ ok: false, authenticated: false, detail: 'CWA OPDS URL is not configured' });
-  }
-  try {
-    const result = await fetchCwaOpdsItems(config, { maxPages: 1 });
-    res.json({
-      ok: true,
-      authenticated: true,
-      status: 200,
-      provider: 'cwa_opds',
-      detail: `Fetched ${result.rows.length} item(s) from OPDS`,
-      resultCount: result.rows.length
-    });
-  } catch (error) {
-    logError('Test CWA integration', error);
-    const status = error.status || error.response?.status || 502;
-    res.json({
-      ok: false,
-      authenticated: status !== 401 && status !== 403,
-      status,
-      provider: 'cwa_opds',
-      detail: error.message
-    });
-  }
+  return res.status(410).json({
+    ok: false,
+    authenticated: false,
+    status: 410,
+    provider: 'cwa_opds',
+    detail: 'CWA OPDS integration testing is deferred and currently disabled.'
+  });
 }));
 
 module.exports = router;

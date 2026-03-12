@@ -1,5 +1,7 @@
 # Calibre Web Automated Integration Setup
 
+Status: Deferred. This integration is currently disabled in active product surfaces.
+
 This guide covers setup, verification, and troubleshooting for the CWA OPDS integration used by collectZ (`2.4.5` milestone).
 
 ## Purpose
@@ -20,7 +22,7 @@ This guide covers setup, verification, and troubleshooting for the CWA OPDS inte
 1. Enable OPDS feed in CWA settings.
 2. Create a dedicated integration user (recommended) with read access.
 3. Confirm feed URL works in browser or curl:
-   - example: `https://cwa.example/opds`
+   - example: `https://cwa.example/opds/books`
 4. Confirm authentication mode:
    - Basic auth username/password is supported by collectZ.
 
@@ -31,6 +33,7 @@ Use Admin -> Integrations -> `CWA OPDS`.
 Required fields:
 
 - `OPDS URL` (`cwa_opds_url`)
+  - recommended: `.../opds/books` (index/subsection traversal supported)
 
 Optional but recommended:
 
@@ -62,6 +65,11 @@ Parameters:
 Safety behavior:
 
 - If feed is truncated (`hasMore=true`, typically because `maxPages` cap is reached), delete reconciliation is skipped with reason `truncated_feed`.
+
+Crawler behavior:
+
+- collectZ traverses OPDS subsection/index feeds and only ingests acquisition/title entries.
+- Navigation-only entries (catalog groups such as authors/series/letters) are skipped.
 
 ## Deep-Link Verification Checklist
 

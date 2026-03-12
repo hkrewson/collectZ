@@ -58,7 +58,6 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
       { id: 'barcode', label: 'Barcode' },
       { id: 'books', label: 'Books' },
       { id: 'comics', label: 'Comics' },
-      { id: 'cwa', label: 'CWA OPDS' },
       { id: 'games', label: 'Games' },
       { id: 'plex', label: 'Plex' },
       { id: 'tmdb', label: 'TMDB' },
@@ -579,7 +578,7 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
 
         {section === 'cwa' && <>
           <LabeledField label="OPDS Feed URL" cx={cx}>
-            <input className="input" placeholder="https://cwa-host/opds" value={form.cwaOpdsUrl} onChange={(e) => setForm((f) => ({ ...f, cwaOpdsUrl: e.target.value }))} />
+            <input className="input" placeholder="https://cwa-host/opds/books" value={form.cwaOpdsUrl} onChange={(e) => setForm((f) => ({ ...f, cwaOpdsUrl: e.target.value }))} />
           </LabeledField>
           <LabeledField label="Base URL (for deep links, optional)" cx={cx}>
             <input className="input" placeholder="https://cwa-host" value={form.cwaBaseUrl} onChange={(e) => setForm((f) => ({ ...f, cwaBaseUrl: e.target.value }))} />

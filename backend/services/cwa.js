@@ -9,6 +9,16 @@ function toArray(value) {
   return Array.isArray(value) ? value : [value];
 }
 
+function resolveUrl(href, baseUrl = '') {
+  const raw = String(href || '').trim();
+  if (!raw) return '';
+  try {
+    return new URL(raw, baseUrl).toString();
+  } catch (_) {
+    return raw;
+  }
+}
+
 function normalizeDate(raw) {
   const value = String(raw || '').trim();
   if (!value) return { year: null, release_date: null };
@@ -50,6 +60,34 @@ function extractBestLink(entry) {
   return sorted[0]?.['@_href'] || '';
 }
 
+function hasAcquisitionLink(entry = {}) {
+  const links = toArray(entry.link);
+  return links.some((link) => {
+    const rel = String(link?.['@_rel'] || '').toLowerCase();
+    const type = String(link?.['@_type'] || '').toLowerCase();
+    if (rel.includes('acquisition')) return true;
+    return /application\/(epub\+zip|pdf|x-cbz|x-cbr|zip|octet-stream)/.test(type);
+  });
+}
+
+function extractSubsectionLinks(entry = {}, currentUrl = '') {
+  const links = toArray(entry.link);
+  const urls = [];
+  for (const link of links) {
+    const rel = String(link?.['@_rel'] || '').toLowerCase();
+    const type = String(link?.['@_type'] || '').toLowerCase();
+    const href = String(link?.['@_href'] || '').trim();
+    if (!href) continue;
+    const isCatalog = type.includes('application/atom+xml') || type.includes('application/opds+json');
+    const isSubsection = rel.includes('subsection') || rel.includes('collection') || rel.includes('start');
+    if (isSubsection || isCatalog) {
+      const resolved = resolveUrl(href, currentUrl);
+      if (resolved) urls.push(resolved);
+    }
+  }
+  return urls;
+}
+
 function extractImageLink(entry) {
   const links = toArray(entry.link);
   const image = links.find((link) => String(link?.['@_rel'] || '').toLowerCase().includes('/image'));
@@ -66,6 +104,33 @@ function detectComicEntry(entry) {
   const categoryHint = categories.some((c) => c.includes('comic') || c.includes('manga') || c.includes('graphic'));
   const linkHint = /(\.cbz|\.cbr|application\/x-cbr|application\/x-cbz|comic)/.test(links);
   return categoryHint || linkHint;
+}
+
+function parseComicTitleMetadata(rawTitle = '') {
+  const title = String(rawTitle || '').trim();
+  if (!title) return { series: null, issue_number: null, volume: null };
+
+  // Pattern: "Series #123[: subtitle]"
+  const hashMatch = title.match(/^(.+?)\s+#\s*([A-Za-z0-9.-]+)(?:\s*(?::|-|–)\s*.*)?$/);
+  if (hashMatch) {
+    return {
+      series: String(hashMatch[1] || '').trim() || null,
+      issue_number: String(hashMatch[2] || '').trim() || null,
+      volume: null
+    };
+  }
+
+  // Pattern: "Series v1 123" or "Series V2 05"
+  const volIssueMatch = title.match(/^(.+?)\s+v(?:ol(?:ume)?)?\s*([0-9]+)\s+([A-Za-z0-9.-]+)(?:\s*:.*)?$/i);
+  if (volIssueMatch) {
+    return {
+      series: String(volIssueMatch[1] || '').trim() || null,
+      volume: String(volIssueMatch[2] || '').trim() || null,
+      issue_number: String(volIssueMatch[3] || '').trim() || null
+    };
+  }
+
+  return { series: null, issue_number: null, volume: null };
 }
 
 function normalizeOpdsEntry(entry = {}, baseUrl = '') {
@@ -85,27 +150,13 @@ function normalizeOpdsEntry(entry = {}, baseUrl = '') {
   const linkRaw = extractBestLink(entry);
   const imageRaw = extractImageLink(entry);
 
-  const externalUrl = (() => {
-    if (!linkRaw) return '';
-    try {
-      return new URL(linkRaw, baseUrl).toString();
-    } catch (_) {
-      return linkRaw;
-    }
-  })();
-
-  const imageUrl = (() => {
-    if (!imageRaw) return '';
-    try {
-      return new URL(imageRaw, baseUrl).toString();
-    } catch (_) {
-      return imageRaw;
-    }
-  })();
+  const externalUrl = resolveUrl(linkRaw, baseUrl);
+  const imageUrl = resolveUrl(imageRaw, baseUrl);
 
   const summary = firstString(entry.summary?.['#text'], entry.summary, entry.content?.['#text'], entry.content, entry.description);
   const publisher = firstString(entry.publisher, entry['dc:publisher']);
   const mediaType = detectComicEntry(entry) ? 'comic_book' : 'book';
+  const parsedComic = mediaType === 'comic_book' ? parseComicTitleMetadata(title) : { series: null, issue_number: null, volume: null };
 
   return {
     title,
@@ -122,6 +173,9 @@ function normalizeOpdsEntry(entry = {}, baseUrl = '') {
       publisher: publisher || null,
       isbn: isbn || null,
       edition: null,
+      series: parsedComic.series || null,
+      issue_number: parsedComic.issue_number || null,
+      volume: parsedComic.volume || null,
       provider_name: 'cwa_opds',
       provider_item_id: identifier || null,
       provider_external_url: externalUrl || null,
@@ -137,11 +191,7 @@ function extractNextLink(feed = {}, currentUrl = '') {
   const next = links.find((link) => String(link?.['@_rel'] || '').toLowerCase() === 'next');
   const href = String(next?.['@_href'] || '').trim();
   if (!href) return '';
-  try {
-    return new URL(href, currentUrl).toString();
-  } catch (_) {
-    return href;
-  }
+  return resolveUrl(href, currentUrl);
 }
 
 async function fetchCwaOpdsItems(config = {}, options = {}) {
@@ -173,11 +223,19 @@ async function fetchCwaOpdsItems(config = {}, options = {}) {
   });
 
   const rows = [];
-  let pageUrl = startUrl;
+  const seenRowIds = new Set();
+  const queue = [startUrl];
+  const visitedFeedUrls = new Set();
   let page = 0;
+  let subsectionDiscovered = 0;
+  let navigationEntriesSkipped = 0;
 
-  while (pageUrl && page < maxPages) {
+  while (queue.length > 0 && page < maxPages) {
+    const pageUrl = queue.shift();
+    if (!pageUrl || visitedFeedUrls.has(pageUrl)) continue;
+    visitedFeedUrls.add(pageUrl);
     page += 1;
+
     const response = await axios.get(pageUrl, {
       timeout: timeoutMs,
       headers,
@@ -190,18 +248,36 @@ async function fetchCwaOpdsItems(config = {}, options = {}) {
     const entries = toArray(feed.entry);
 
     for (const entry of entries) {
-      const normalized = normalizeOpdsEntry(entry, pageUrl);
-      if (normalized) rows.push(normalized);
+      if (hasAcquisitionLink(entry)) {
+        const normalized = normalizeOpdsEntry(entry, pageUrl);
+        const rowId = String(normalized?.type_details?.provider_item_id || '').trim();
+        if (normalized && (!rowId || !seenRowIds.has(rowId))) {
+          rows.push(normalized);
+          if (rowId) seenRowIds.add(rowId);
+        }
+      } else {
+        navigationEntriesSkipped += 1;
+        const subsectionUrls = extractSubsectionLinks(entry, pageUrl);
+        if (subsectionUrls.length) {
+          subsectionDiscovered += subsectionUrls.length;
+          for (const subsectionUrl of subsectionUrls) {
+            if (!visitedFeedUrls.has(subsectionUrl)) queue.push(subsectionUrl);
+          }
+        }
+      }
     }
 
-    pageUrl = extractNextLink(feed, pageUrl);
+    const nextUrl = extractNextLink(feed, pageUrl);
+    if (nextUrl && !visitedFeedUrls.has(nextUrl)) queue.push(nextUrl);
   }
 
   return {
     rows,
     pagesFetched: page,
     endpoint: startUrl,
-    hasMore: Boolean(pageUrl)
+    hasMore: queue.length > 0,
+    subsectionDiscovered,
+    navigationEntriesSkipped
   };
 }
 

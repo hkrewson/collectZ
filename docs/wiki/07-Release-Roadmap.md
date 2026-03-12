@@ -1709,7 +1709,7 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 ## 2.4.5 — Calibre Web Automated Integration (Comics/Books Bridge)
 
 **Goal:** Replace CSV-centric Calibre workflows with direct Calibre Web Automated (CWA) integration for better reliability, better metadata continuity, and optional read-through behavior.
-**Status:** In progress.
+**Status:** Deferred (partially implemented, currently disabled).
 
 ### Scope
 
@@ -1747,7 +1747,7 @@ Deferred tenancy planning has been moved to a separate roadmap document:
     - OPDS auth verification steps,
     - troubleshooting (auth errors, pagination, deep-link mismatches).
 
-### Progress Snapshot
+### Progress Snapshot (Parked)
 
 - [x] Admin integration settings for CWA endpoint/auth/timeouts + encrypted credential storage.
 - [x] CWA test endpoint and OPDS connectivity check.
@@ -1758,6 +1758,9 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 - [x] Truncated-feed delete guardrail (`hasMore=true` skips deletion, reason surfaced in summary).
 - [x] CWA setup/testing runbook added to wiki.
 - [ ] Optional in-app reader path (feature-flagged, allowlist-only).
+- [x] Containment patch applied:
+  - CWA import/test endpoints return disabled/deferred responses,
+  - CWA UI entry points removed from active Admin/Import surfaces.
 
 ### Acceptance Criteria
 
@@ -1772,6 +1775,35 @@ Deferred tenancy planning has been moved to a separate roadmap document:
   - repeat sync does not duplicate existing items.
 - In-app reader (if enabled) works only for allowed formats and can be fully disabled by feature flag.
 - CWA outages/auth failures do not break core collectZ media workflows.
+
+## 3.1.0 — Deferred Revisit: Digital Library Sync (CWA or Alternative Self-Hosted Provider)
+
+**Goal:** Reassess digital-owned book/comic sync after core roadmap stabilization, with a stronger provider-evaluation phase before productizing ingestion.
+
+### Scope
+
+- Compare CWA/OPDS against at least one alternative self-hosted solution for:
+  - metadata quality and consistency,
+  - identifier richness for dedupe/enrichment,
+  - operational complexity for homelab users.
+- Define ingest contract for digital-owned items:
+  - canonical provider item identity,
+  - series/issue extraction reliability for comics,
+  - deep-link permanence.
+- Reintroduce only after:
+  - repeat-import idempotency is demonstrated at scale,
+  - dedupe quality meets target thresholds for comic-heavy datasets,
+  - UI workflow is simple enough for non-technical admins.
+
+### Acceptance Criteria
+
+- Chosen provider path has documented rationale and tradeoff matrix.
+- Pilot import quality report includes:
+  - duplicate rate,
+  - unmatched rate,
+  - series-grouping accuracy,
+  - enrichment uplift from second-pass providers.
+- If re-enabled, feature ships behind explicit rollout guardrails and migration notes.
 
 ## 2.8.0 — Optional Market Valuation Integrations
 
