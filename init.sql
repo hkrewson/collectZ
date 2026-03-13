@@ -600,6 +600,8 @@ CREATE INDEX IF NOT EXISTS idx_collectibles_event_id_v2 ON collectibles(event_id
 CREATE INDEX IF NOT EXISTS idx_collectibles_exclusive_created ON collectibles(exclusive, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_personal_access_tokens_user_id ON personal_access_tokens(user_id);
 CREATE INDEX IF NOT EXISTS idx_personal_access_tokens_active ON personal_access_tokens(user_id, revoked_at, expires_at);
+CREATE INDEX IF NOT EXISTS idx_service_account_keys_owner_user_id ON service_account_keys(owner_user_id);
+CREATE INDEX IF NOT EXISTS idx_service_account_keys_active ON service_account_keys(owner_user_id, revoked_at, expires_at);
 CREATE INDEX IF NOT EXISTS idx_media_library_type_title ON media(library_id, media_type, title);
 CREATE INDEX IF NOT EXISTS idx_media_library_type_year ON media(library_id, media_type, year);
 CREATE INDEX IF NOT EXISTS idx_media_library_type_created_at ON media(library_id, media_type, created_at DESC);

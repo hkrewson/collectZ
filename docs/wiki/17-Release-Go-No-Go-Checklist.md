@@ -13,6 +13,21 @@ All of the following must pass:
 5. RBAC regression check.
 6. Image security scan + SBOM generation.
 
+## Release Closeout Must-Do
+
+Before we call a release ready, run a CI-shaped release check against the same gates enforced by `.github/workflows/docker-publish.yml`.
+
+Minimum closeout expectation:
+
+1. Confirm version metadata is synchronized across root, backend, and frontend manifests.
+2. Confirm the matching release note exists and includes the required security triage markers.
+3. Run backend unit tests.
+4. Run init parity / migration rehearsal checks in an environment with database access.
+5. Run production dependency audit checks for backend and frontend.
+6. Confirm the remaining CI-only gates are green, especially gitleaks, compose smoke, RBAC, Trivy, and SBOM generation.
+
+If any of these are skipped locally because the shell environment is restricted, the release stays pending until CI or an unrestricted maintainer shell confirms them.
+
 ## Required Evidence Artifacts
 
 Tagged runs must produce:
