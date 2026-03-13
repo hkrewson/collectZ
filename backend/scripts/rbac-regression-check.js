@@ -140,7 +140,7 @@ async function main() {
     method: 'POST',
     withCsrf: true,
     expectStatus: 201,
-    body: { email: userEmail }
+    body: { email: userEmail, expose_token: true }
   });
   const inviteToken = inviteResponse?.data?.token;
   assert(Boolean(inviteToken), 'Invite token not returned');

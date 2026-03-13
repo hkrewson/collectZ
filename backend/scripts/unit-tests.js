@@ -527,6 +527,12 @@ results.push(run('auth route source exposes admin-only service account key manag
   assert.ok(authRoutesSource.includes("requireRole('admin')"));
 }));
 
+results.push(run('rbac regression source explicitly requests invite token exposure', () => {
+  const rbacRegressionSource = require('fs').readFileSync(require.resolve('./rbac-regression-check'), 'utf8');
+  assert.ok(rbacRegressionSource.includes('expose_token: true'));
+  assert.ok(rbacRegressionSource.includes("assert(Boolean(inviteToken), 'Invite token not returned')"));
+}));
+
 results.push(run('auth middleware source returns invalid api token for revoked bearer credentials', () => {
   const authSource = require('fs').readFileSync(require.resolve('../middleware/auth'), 'utf8');
   assert.ok(authSource.includes('invalid_or_expired_api_token'));
