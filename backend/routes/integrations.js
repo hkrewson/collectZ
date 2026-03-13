@@ -5,7 +5,8 @@ const pool = require('../db/pool');
 const { asyncHandler } = require('../middleware/errors');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const { loadAdminIntegrationConfig, normalizeIntegrationRecord, loadGeneralSettings } = require('../services/integrations');
-const { encryptSecret, maskSecret } = require('../services/crypto');
+const { encryptSecret } = require('../services/crypto');
+const { buildIntegrationResponse } = require('../services/integrationResponse');
 const { resolveBarcodePreset } = require('../services/barcode');
 const { resolveVisionPreset } = require('../services/vision');
 const { resolveTmdbPreset, searchTmdbMovie } = require('../services/tmdb');
@@ -17,82 +18,6 @@ const { resolveComicsPreset, searchComicsByTitle, fetchMetronCollectionIssues } 
 const { logActivity, logError } = require('../services/audit');
 
 const router = express.Router();
-
-const DECRYPT_REMEDIATION = 'Stored encrypted key cannot be decrypted with current INTEGRATION_ENCRYPTION_KEY. Re-enter and save the key, or clear the saved key.';
-
-const buildIntegrationResponse = (config) => ({
-  barcodePreset: config.barcodePreset,
-  barcodeProvider: config.barcodeProvider,
-  barcodeApiUrl: config.barcodeApiUrl,
-  barcodeApiKeyHeader: config.barcodeApiKeyHeader,
-  barcodeQueryParam: config.barcodeQueryParam,
-  barcodeApiKeySet: Boolean(config.barcodeApiKey),
-  barcodeApiKeyMasked: maskSecret(config.barcodeApiKey),
-  visionPreset: config.visionPreset,
-  visionProvider: config.visionProvider,
-  visionApiUrl: config.visionApiUrl,
-  visionApiKeyHeader: config.visionApiKeyHeader,
-  visionApiKeySet: Boolean(config.visionApiKey),
-  visionApiKeyMasked: maskSecret(config.visionApiKey),
-  tmdbPreset: config.tmdbPreset,
-  tmdbProvider: config.tmdbProvider,
-  tmdbApiUrl: config.tmdbApiUrl,
-  tmdbApiKeyHeader: config.tmdbApiKeyHeader,
-  tmdbApiKeyQueryParam: config.tmdbApiKeyQueryParam,
-  tmdbApiKeySet: Boolean(config.tmdbApiKey),
-  tmdbApiKeyMasked: maskSecret(config.tmdbApiKey),
-  plexPreset: config.plexPreset,
-  plexProvider: config.plexProvider,
-  plexApiUrl: config.plexApiUrl,
-  plexServerName: config.plexServerName,
-  plexApiKeyQueryParam: config.plexApiKeyQueryParam,
-  plexLibrarySections: config.plexLibrarySections || [],
-  plexApiKeySet: Boolean(config.plexApiKey),
-  plexApiKeyMasked: maskSecret(config.plexApiKey),
-  booksPreset: config.booksPreset,
-  booksProvider: config.booksProvider,
-  booksApiUrl: config.booksApiUrl,
-  booksApiKeyHeader: config.booksApiKeyHeader,
-  booksApiKeyQueryParam: config.booksApiKeyQueryParam,
-  booksApiKeySet: Boolean(config.booksApiKey),
-  booksApiKeyMasked: maskSecret(config.booksApiKey),
-  audioPreset: config.audioPreset,
-  audioProvider: config.audioProvider,
-  audioApiUrl: config.audioApiUrl,
-  audioApiKeyHeader: config.audioApiKeyHeader,
-  audioApiKeyQueryParam: config.audioApiKeyQueryParam,
-  audioApiKeySet: Boolean(config.audioApiKey),
-  audioApiKeyMasked: maskSecret(config.audioApiKey),
-  gamesPreset: config.gamesPreset,
-  gamesProvider: config.gamesProvider,
-  gamesApiUrl: config.gamesApiUrl,
-  gamesApiKeyHeader: config.gamesApiKeyHeader,
-  gamesApiKeyQueryParam: config.gamesApiKeyQueryParam,
-  gamesClientId: config.gamesClientId,
-  gamesClientSecretSet: Boolean(config.gamesClientSecret),
-  gamesClientSecretMasked: maskSecret(config.gamesClientSecret),
-  gamesApiKeySet: Boolean(config.gamesApiKey),
-  gamesApiKeyMasked: maskSecret(config.gamesApiKey),
-  comicsPreset: config.comicsPreset,
-  comicsProvider: config.comicsProvider,
-  comicsApiUrl: config.comicsApiUrl,
-  comicsApiKeyHeader: config.comicsApiKeyHeader,
-  comicsApiKeyQueryParam: config.comicsApiKeyQueryParam,
-  comicsUsername: config.comicsUsername,
-  comicsApiKeySet: Boolean(config.comicsApiKey),
-  comicsApiKeyMasked: maskSecret(config.comicsApiKey),
-  cwaOpdsUrl: config.cwaOpdsUrl,
-  cwaBaseUrl: config.cwaBaseUrl,
-  cwaUsername: config.cwaUsername,
-  cwaTimeoutMs: config.cwaTimeoutMs,
-  cwaPasswordSet: Boolean(config.cwaPassword),
-  cwaPasswordMasked: maskSecret(config.cwaPassword),
-  decryptHealth: {
-    hasWarnings: Array.isArray(config.decryptWarnings) && config.decryptWarnings.length > 0,
-    warnings: Array.isArray(config.decryptWarnings) ? config.decryptWarnings : [],
-    remediation: DECRYPT_REMEDIATION
-  }
-});
 
 // ── General settings (read — available to all authenticated users) ────────────
 

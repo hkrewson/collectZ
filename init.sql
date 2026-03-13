@@ -207,6 +207,36 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS personal_access_tokens (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    token_hash VARCHAR(64) UNIQUE NOT NULL,
+    token_last_four VARCHAR(4) NOT NULL,
+    scopes JSONB NOT NULL DEFAULT '[]'::jsonb,
+    expires_at TIMESTAMP,
+    last_used_at TIMESTAMP,
+    revoked_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS service_account_keys (
+    id SERIAL PRIMARY KEY,
+    owner_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    name VARCHAR(255) NOT NULL,
+    key_hash VARCHAR(64) UNIQUE NOT NULL,
+    key_last_four VARCHAR(4) NOT NULL,
+    scopes JSONB NOT NULL DEFAULT '[]'::jsonb,
+    allowed_prefixes JSONB NOT NULL DEFAULT '[]'::jsonb,
+    expires_at TIMESTAMP,
+    last_used_at TIMESTAMP,
+    revoked_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Per-user integration settings (reserved for future per-user overrides)
 CREATE TABLE IF NOT EXISTS user_integrations (
     user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
@@ -568,6 +598,8 @@ CREATE INDEX IF NOT EXISTS idx_collectibles_exclusive ON collectibles(exclusive)
 CREATE INDEX IF NOT EXISTS idx_collectibles_library_subtype_category ON collectibles(library_id, subtype, category_key);
 CREATE INDEX IF NOT EXISTS idx_collectibles_event_id_v2 ON collectibles(event_id);
 CREATE INDEX IF NOT EXISTS idx_collectibles_exclusive_created ON collectibles(exclusive, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_personal_access_tokens_user_id ON personal_access_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_personal_access_tokens_active ON personal_access_tokens(user_id, revoked_at, expires_at);
 CREATE INDEX IF NOT EXISTS idx_media_library_type_title ON media(library_id, media_type, title);
 CREATE INDEX IF NOT EXISTS idx_media_library_type_year ON media(library_id, media_type, year);
 CREATE INDEX IF NOT EXISTS idx_media_library_type_created_at ON media(library_id, media_type, created_at DESC);
@@ -665,6 +697,14 @@ BEGIN
         CREATE TRIGGER update_collectibles_updated_at BEFORE UPDATE ON collectibles
             FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_personal_access_tokens_updated_at') THEN
+        CREATE TRIGGER update_personal_access_tokens_updated_at BEFORE UPDATE ON personal_access_tokens
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_service_account_keys_updated_at') THEN
+        CREATE TRIGGER update_service_account_keys_updated_at BEFORE UPDATE ON service_account_keys
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
 END;
 $$;
 
@@ -725,5 +765,7 @@ INSERT INTO schema_migrations (version, description) VALUES
     (36, 'Add collectibles table and taxonomy fields'),
     (37, 'Add canonical collectibles taxonomy table and subtype/category_key columns'),
     (38, 'Add feature flags for Events and Collectibles library surfaces'),
-    (39, 'Add Calibre Web Automated OPDS integration settings')
+    (39, 'Add Calibre Web Automated OPDS integration settings'),
+    (40, 'Add personal access tokens for non-browser API authentication'),
+    (41, 'Add service account keys for machine-to-machine API authentication')
 ON CONFLICT (version) DO NOTHING;

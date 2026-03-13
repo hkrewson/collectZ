@@ -2,6 +2,8 @@ const { z } = require('zod');
 const { logActivity } = require('../services/audit');
 const { normalizeTypeDetails } = require('../services/typeDetails');
 const { COLLECTIBLE_SUBTYPES } = require('../services/collectibles');
+const { PERSONAL_ACCESS_TOKEN_SCOPES } = require('../services/personalAccessTokens');
+const { SERVICE_ACCOUNT_KEY_SCOPES, SERVICE_ACCOUNT_ALLOWED_PREFIXES } = require('../services/serviceAccountKeys');
 
 const emptyStringToNull = (value) => (
   typeof value === 'string' && value.trim() === '' ? null : value
@@ -176,7 +178,27 @@ const roleUpdateSchema = z.object({
 });
 
 const inviteCreateSchema = z.object({
-  email: z.string().email('Valid email is required')
+  email: z.string().email('Valid email is required'),
+  expose_token: z.boolean().optional()
+});
+
+const personalAccessTokenCreateSchema = z.object({
+  name: z.string().min(1, 'Token name is required').max(255),
+  scopes: z.array(z.enum(PERSONAL_ACCESS_TOKEN_SCOPES)).min(1, 'At least one scope is required'),
+  expires_at: z.preprocess(
+    emptyStringToNull,
+    z.string().datetime({ offset: true }).optional().nullable()
+  )
+});
+
+const serviceAccountKeyCreateSchema = z.object({
+  name: z.string().min(1, 'Key name is required').max(255),
+  scopes: z.array(z.enum(SERVICE_ACCOUNT_KEY_SCOPES)).min(1, 'At least one scope is required'),
+  allowed_prefixes: z.array(z.enum(SERVICE_ACCOUNT_ALLOWED_PREFIXES)).min(1, 'At least one allowed prefix is required'),
+  expires_at: z.preprocess(
+    emptyStringToNull,
+    z.string().datetime({ offset: true }).optional().nullable()
+  )
 });
 
 const generalSettingsSchema = z.object({
@@ -346,6 +368,8 @@ module.exports = {
   passwordResetConsumeSchema,
   roleUpdateSchema,
   inviteCreateSchema,
+  personalAccessTokenCreateSchema,
+  serviceAccountKeyCreateSchema,
   generalSettingsSchema,
   libraryCreateSchema,
   libraryUpdateSchema,

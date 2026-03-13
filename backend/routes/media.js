@@ -28,6 +28,7 @@ const { normalizeDeliciousRow } = require('../services/deliciousNormalize');
 const { normalizeIdentifierSet } = require('../services/importIdentifiers');
 const { syncNormalizedMetadataForMedia } = require('../services/mediaTaxonomy');
 const { normalizeTypeDetails } = require('../services/typeDetails');
+const { formatSyncJob } = require('../services/syncJobs');
 const { logError, logActivity } = require('../services/audit');
 const { uploadBuffer } = require('../services/storage');
 const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
@@ -463,6 +464,16 @@ function normalizeLookupTitle(value = '', mediaType = 'movie') {
   if (mediaType === 'game') {
     text = text.replace(/\bfor\s+(xbox|playstation|nintendo|switch|wii|pc)\b.*$/ig, '');
   }
+  text = text
+    .replace(/\[([^\]]{1,80})\]/g, ' $1 ')
+    .replace(/\(([^)]{1,80})\)/g, ' $1 ')
+    .replace(/\buncut\b/ig, '')
+    .replace(/\btheatrical\s+version\b/ig, '')
+    .replace(/\bseason\s+\d+\b/ig, '')
+    .replace(/\bpart\s+(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\b/ig, '')
+    .replace(/\bchapter\s+(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\b/ig, '')
+    .replace(/\bvol(?:ume)?\.?\s*[ivxlcdm\d]+\b/ig, '')
+    .replace(/\bdisc\s*[ivxlcdm\d]+\b/ig, '');
   // Remove trailing parenthetical/bracket descriptors.
   text = text
     .replace(/\(([^)]*(edition|steelbook|dvd|blu[\s-]?ray|digital|uhd|4k)[^)]*)\)/ig, '')
@@ -478,6 +489,10 @@ function buildLookupTitleCandidates(value = '', mediaType = 'movie') {
   const raw = String(value || '').trim();
   const normalized = normalizeLookupTitle(raw, mediaType);
   const candidates = [raw, normalized].filter(Boolean);
+  const trailingArticleSwap = normalized.replace(/\b(.+),\s*(the|a|an)\b/i, '$2 $1').trim();
+  if (trailingArticleSwap && trailingArticleSwap !== normalized) candidates.push(trailingArticleSwap);
+  const bracketStripped = raw.replace(/\[[^\]]+\]/g, ' ').replace(/\s{2,}/g, ' ').trim();
+  if (bracketStripped && bracketStripped !== raw) candidates.push(normalizeLookupTitle(bracketStripped, mediaType));
   const dashBase = normalized.replace(/\s*-\s*[^-]{3,}$/g, '').trim();
   if (dashBase && dashBase !== normalized) candidates.push(dashBase);
   const colonBase = normalized.replace(/\s*:\s*[^:]{3,}$/g, '').trim();
@@ -593,6 +608,86 @@ function pickBestTmdbMatch(results = [], title, year) {
     }
   }
   return best || results[0];
+}
+
+function scoreTmdbMatchCandidate(row, title, year) {
+  const targetTitle = normalizeTitleForMatch(title);
+  const targetYear = Number.isFinite(Number(year)) ? Number(year) : null;
+  const candidateTitle = normalizeTitleForMatch(
+    row?.title || row?.name || row?.original_title || row?.original_name || ''
+  );
+  const candidateYear = parseYear(row?.release_date || row?.first_air_date || '');
+  let score = 0;
+  let exactTitle = false;
+  if (targetTitle && candidateTitle) {
+    if (candidateTitle === targetTitle) {
+      score += 100;
+      exactTitle = true;
+    }
+    else if (candidateTitle.startsWith(targetTitle) || targetTitle.startsWith(candidateTitle)) score += 60;
+    else if (candidateTitle.includes(targetTitle) || targetTitle.includes(candidateTitle)) score += 35;
+  }
+  const yearDelta = targetYear && candidateYear ? Math.abs(candidateYear - targetYear) : null;
+  if (targetYear && candidateYear) {
+    if (yearDelta === 0) score += 30;
+    else if (yearDelta <= 1) score += 20;
+    else if (yearDelta <= 2) score += 10;
+  }
+  if (row?.vote_count) score += Math.min(10, Number(row.vote_count) / 500);
+  return {
+    score,
+    exactTitle,
+    yearDelta,
+    candidateTitle,
+    candidateYear: Number.isFinite(candidateYear) ? candidateYear : null
+  };
+}
+
+async function findBestTmdbCandidate({
+  title,
+  year,
+  config,
+  tmdbType = 'movie',
+  mediaType = 'movie',
+  allowMultiFallback = false
+}) {
+  const titleCandidates = buildLookupTitleCandidates(title, mediaType).slice(0, 6);
+  let bestCandidate = null;
+  let bestLookupTitle = '';
+  let bestScore = -Infinity;
+
+  for (const lookupTitle of titleCandidates) {
+    const results = await searchTmdbMovie(lookupTitle, year || undefined, config, tmdbType);
+    const candidate = pickBestTmdbMatch(results, lookupTitle, year);
+    if (!candidate) continue;
+    const scored = scoreTmdbMatchCandidate(candidate, lookupTitle, year);
+    if (!bestCandidate || scored.score > bestScore) {
+      bestCandidate = candidate;
+      bestLookupTitle = lookupTitle;
+      bestScore = scored.score;
+    }
+    if (scored.exactTitle && scored.yearDelta === 0) break;
+  }
+
+  if (!bestCandidate && allowMultiFallback && tmdbType === 'movie') {
+    for (const lookupTitle of titleCandidates) {
+      const results = await searchTmdbMulti(lookupTitle, year || undefined, config);
+      const candidate = pickBestTmdbMatch(results, lookupTitle, year);
+      if (!candidate) continue;
+      const scored = scoreTmdbMatchCandidate(candidate, lookupTitle, year);
+      if (!bestCandidate || scored.score > bestScore) {
+        bestCandidate = candidate;
+        bestLookupTitle = lookupTitle;
+        bestScore = scored.score;
+      }
+      if (scored.exactTitle && scored.yearDelta === 0) break;
+    }
+  }
+
+  return {
+    candidate: bestCandidate,
+    lookupTitle: bestLookupTitle || String(title || '').trim()
+  };
 }
 
 function pickBestProviderMatch(results = [], title, year, options = {}) {
@@ -876,12 +971,17 @@ async function enrichImportItemWithTmdb(item, config, cache, options = {}, track
       candidate = { id: item.tmdb_id };
       if (tracker) tracker.lookupStatus.add('tmdb:id_hint');
     } else {
-      const results = await searchTmdbMovie(lookupTitle, item.year || undefined, config, tmdbType);
-      candidate = pickBestTmdbMatch(results, lookupTitle, item.year) || null;
-      if (!candidate && normalizedMediaType === 'movie') {
-        const multiResults = await searchTmdbMulti(lookupTitle, item.year || undefined, config);
-        candidate = pickBestTmdbMatch(multiResults, lookupTitle, item.year) || null;
-        if (candidate && tracker) tracker.lookupStatus.add('tmdb:multi_fallback_hit');
+      const resolved = await findBestTmdbCandidate({
+        title: lookupTitle,
+        year: item.year,
+        config,
+        tmdbType,
+        mediaType: normalizedMediaType,
+        allowMultiFallback: normalizedMediaType === 'movie'
+      });
+      candidate = resolved.candidate || null;
+      if (candidate && normalizedMediaType === 'movie' && normalizeTitleForMatch(resolved.lookupTitle) !== normalizeTitleForMatch(lookupTitle) && tracker) {
+        tracker.lookupStatus.add('tmdb:title_variant_hit');
       }
     }
     if (!candidate?.id) {
@@ -1522,6 +1622,34 @@ function parseAsyncFlag(value) {
   return normalized === '1' || normalized === 'true' || normalized === 'yes';
 }
 
+function shouldQueueImportByDefault(req) {
+  const syncRequested = parseAsyncFlag(req.query?.sync) || parseAsyncFlag(req.body?.sync);
+  if (syncRequested) return false;
+
+  if (req.query?.async !== undefined || req.body?.async !== undefined) {
+    return parseAsyncFlag(req.query?.async) || parseAsyncFlag(req.body?.async);
+  }
+
+  return true;
+}
+
+function buildQueuedJobResponse(job, provider) {
+  return {
+    ok: true,
+    queued: true,
+    provider: provider || job.provider,
+    job_id: job.id,
+    status: job.status,
+    status_url: `/api/media/sync-jobs/${job.id}`,
+    job: {
+      id: job.id,
+      status: job.status,
+      provider: provider || job.provider,
+      progress: job.progress
+    }
+  };
+}
+
 async function assertFeatureEnabled(key) {
   const enabled = await isFeatureEnabled(key, true);
   if (enabled) return;
@@ -1918,9 +2046,19 @@ async function applyImportReviewEnrichment({ mediaId, scopeContext = null }) {
 }
 
 async function runPlexImport({ req, config, sectionIds = [], scopeContext = null, onProgress = null }) {
-  const summary = { created: 0, updated: 0, skipped: 0, errors: [], enrichmentErrors: [] };
+  const summary = {
+    created: 0,
+    updated: 0,
+    skipped: 0,
+    errors: [],
+    enrichmentErrors: [],
+    enrichmentMisses: []
+  };
+  const tmdbPosterLookupMissSamples = [];
   let tmdbPosterEnriched = 0;
   let tmdbPosterLookupMisses = 0;
+  let tmdbPosterLookupNoMatch = 0;
+  let tmdbPosterLookupNoImage = 0;
   let variantsCreated = 0;
   let variantsUpdated = 0;
   let seasonsCreated = 0;
@@ -2167,8 +2305,11 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
     }
   };
   const tmdbSeasonSummaryCache = new Map();
-  const hydrateTmdbSeasonExpectedCounts = async (mediaId, tmdbId) => {
+  const hydrateTmdbSeasonExpectedCounts = async (mediaId, tmdbId, mediaContext = {}) => {
     if (!mediaId || !tmdbId || !config.tmdbApiKey) return;
+    const normalizedMediaType = normalizeMediaType(mediaContext?.mediaType || '', '');
+    const normalizedTmdbMediaType = String(mediaContext?.tmdbMediaType || '').trim().toLowerCase();
+    if (normalizedMediaType !== 'tv_series' || normalizedTmdbMediaType !== 'tv') return;
     const cacheKey = String(tmdbId);
     let summaries = tmdbSeasonSummaryCache.get(cacheKey);
     if (summaries === undefined) {
@@ -2177,7 +2318,12 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
         summaries = await fetchTmdbTvShowSeasonSummary(tmdbId, config);
       } catch (error) {
         summaries = [];
-        summary.enrichmentErrors.push({
+        const isTmdbNotFound = Number(error?.tmdb?.status || error?.status || 0) === 404;
+        const bucket = isTmdbNotFound ? summary.enrichmentMisses : summary.enrichmentErrors;
+        bucket.push({
+          mediaId,
+          mediaTitle: mediaContext?.title || null,
+          mediaYear: Number.isFinite(Number(mediaContext?.year)) ? Number(mediaContext.year) : null,
           title: `tmdb:${tmdbId}`,
           type: 'tmdb_season_summary_fetch',
           detail: error.message || 'TMDB season summary fetch failed'
@@ -2247,8 +2393,15 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
               cast: details?.cast || null
             };
           } else if (media.title) {
-            const results = await searchTmdbMovie(media.title, media.year || undefined, config, tmdbType);
-            const best = pickBestTmdbMatch(results, media.title, media.year);
+            const resolved = await findBestTmdbCandidate({
+              title: media.title,
+              year: media.year,
+              config,
+              tmdbType,
+              mediaType,
+              allowMultiFallback: tmdbType === 'movie'
+            });
+            const best = resolved.candidate;
             if (best) {
               let details = null;
               try {
@@ -2292,6 +2445,20 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
         tmdbPosterEnriched += 1;
       } else {
         tmdbPosterLookupMisses += 1;
+        if (cached?.tmdb_id || media.tmdb_id) tmdbPosterLookupNoImage += 1;
+        else tmdbPosterLookupNoMatch += 1;
+        if (tmdbPosterLookupMissSamples.length < 50) {
+          tmdbPosterLookupMissSamples.push({
+            mediaId: null,
+            mediaTitle: media.title || null,
+            mediaYear: Number.isFinite(Number(media.year)) ? Number(media.year) : null,
+            mediaType: mediaType,
+            tmdbId: media.tmdb_id || null,
+            tmdbMediaType: tmdbType,
+            lookupTitleCandidates: buildLookupTitleCandidates(media.title, mediaType).slice(0, 6),
+            posterPresentAfterEnrichment: Boolean(media.poster_path)
+          });
+        }
       }
     }
 
@@ -2444,8 +2611,15 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
           await upsertMediaVariant(existing.id, item.variant);
         }
         await upsertMediaSeason(existing.id, media, item.variant);
-        await upsertPlexShowSeasons(existing.id, item.sectionId, plexRatingKey);
-        await hydrateTmdbSeasonExpectedCounts(existing.id, media.tmdb_id);
+        if (String(item.raw?.type || '').toLowerCase() === 'show') {
+          await upsertPlexShowSeasons(existing.id, item.sectionId, plexRatingKey);
+        }
+        await hydrateTmdbSeasonExpectedCounts(existing.id, media.tmdb_id, {
+          title: media.title,
+          year: media.year,
+          mediaType: media.media_type,
+          tmdbMediaType: media.tmdb_media_type
+        });
           summary.updated += 1;
         } else {
         const inserted = await pool.query(
@@ -2498,8 +2672,15 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
             await upsertMediaVariant(insertedId, item.variant);
           }
           await upsertMediaSeason(insertedId, media, item.variant);
-          await upsertPlexShowSeasons(insertedId, item.sectionId, plexRatingKey);
-          await hydrateTmdbSeasonExpectedCounts(insertedId, media.tmdb_id);
+          if (String(item.raw?.type || '').toLowerCase() === 'show') {
+            await upsertPlexShowSeasons(insertedId, item.sectionId, plexRatingKey);
+          }
+          await hydrateTmdbSeasonExpectedCounts(insertedId, media.tmdb_id, {
+            title: media.title,
+            year: media.year,
+            mediaType: media.media_type,
+            tmdbMediaType: media.tmdb_media_type
+          });
           }
           summary.created += 1;
         }
@@ -2523,9 +2704,14 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
 
   return {
     imported: items.length,
-    summary,
+    summary: {
+      ...summary,
+      tmdbPosterLookupMissSamples
+    },
     tmdbPosterEnriched,
     tmdbPosterLookupMisses,
+    tmdbPosterLookupNoMatch,
+    tmdbPosterLookupNoImage,
     variantsCreated,
     variantsUpdated,
     seasonsCreated,
@@ -4245,6 +4431,51 @@ router.post('/search-tmdb', asyncHandler(async (req, res) => {
   res.json(results);
 }));
 
+router.post('/tmdb/trace-match', asyncHandler(async (req, res) => {
+  await assertFeatureEnabled('tmdb_search_enabled');
+  const { title, year, mediaType } = req.body || {};
+  const lookupTitle = String(title || '').trim();
+  if (!lookupTitle) {
+    return res.status(400).json({ error: 'title is required' });
+  }
+  const config = await loadAdminIntegrationConfig();
+  const normalizedType = mediaType === 'tv' ? 'tv' : 'movie';
+  const searchResults = await searchTmdbMovie(lookupTitle, year, config, normalizedType);
+  const scored = searchResults.map((row) => {
+    const score = scoreTmdbMatchCandidate(row, lookupTitle, year);
+    return {
+      id: row.id || null,
+      title: row.title || row.name || null,
+      original_title: row.original_title || row.original_name || null,
+      release_date: row.release_date || row.first_air_date || null,
+      release_year: row.release_year || score.candidateYear,
+      vote_average: row.vote_average ?? row.rating ?? null,
+      vote_count: row.vote_count ?? null,
+      overview: row.overview || null,
+      poster_path: row.poster_path || null,
+      tmdb_media_type: row.tmdb_media_type || normalizedType,
+      score: score.score
+    };
+  });
+  const chosen = pickBestTmdbMatch(searchResults, lookupTitle, year);
+  res.json({
+    title: lookupTitle,
+    year: Number.isFinite(Number(year)) ? Number(year) : null,
+    mediaType: normalizedType,
+    chosen: chosen ? {
+      id: chosen.id || null,
+      title: chosen.title || chosen.name || null,
+      original_title: chosen.original_title || chosen.original_name || null,
+      release_date: chosen.release_date || chosen.first_air_date || null,
+      release_year: chosen.release_year || parseYear(chosen.release_date || chosen.first_air_date || ''),
+      vote_average: chosen.vote_average ?? chosen.rating ?? null,
+      vote_count: chosen.vote_count ?? null,
+      tmdb_media_type: chosen.tmdb_media_type || normalizedType
+    } : null,
+    candidates: scored
+  });
+}));
+
 router.get('/tmdb/:id/details', asyncHandler(async (req, res) => {
   await assertFeatureEnabled('tmdb_search_enabled');
   const movieId = Number(req.params.id);
@@ -4255,6 +4486,59 @@ router.get('/tmdb/:id/details', asyncHandler(async (req, res) => {
   const normalizedType = req.query.mediaType === 'tv' ? 'tv' : 'movie';
   const details = await fetchTmdbMovieDetails(movieId, config, normalizedType);
   res.json(details);
+}));
+
+router.get('/tmdb/:id/trace', asyncHandler(async (req, res) => {
+  await assertFeatureEnabled('tmdb_search_enabled');
+  const tmdbId = Number(req.params.id);
+  if (!Number.isFinite(tmdbId) || tmdbId <= 0) {
+    return res.status(400).json({ error: 'Valid numeric TMDB id is required' });
+  }
+  const scopeContext = resolveScopeContext(req);
+  const normalizedType = req.query.mediaType === 'tv' ? 'tv' : 'movie';
+  const limitRaw = Number(req.query?.limit);
+  const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(50, limitRaw)) : 20;
+  const params = [tmdbId, normalizedType, limit];
+  const scopeClause = appendScopeSql(params, scopeContext, {
+    spaceColumn: 'm.space_id',
+    libraryColumn: 'm.library_id'
+  });
+  const result = await pool.query(
+    `SELECT
+       m.id,
+       m.title,
+       m.original_title,
+       m.year,
+       m.media_type,
+       m.tmdb_id,
+       m.tmdb_media_type,
+       m.tmdb_url,
+       m.import_source,
+       m.library_id,
+       m.space_id,
+       MAX(CASE WHEN mm."key" = 'plex_guid' THEN mm."value" END) AS plex_guid,
+       MAX(CASE WHEN mm."key" = 'plex_item_key' THEN mm."value" END) AS plex_item_key,
+       MAX(CASE WHEN mm."key" = 'plex_section_id' THEN mm."value" END) AS plex_section_id
+     FROM media m
+     LEFT JOIN media_metadata mm
+       ON mm.media_id = m.id
+      AND mm."key" IN ('plex_guid', 'plex_item_key', 'plex_section_id')
+     WHERE m.tmdb_id = $1
+       AND COALESCE(m.tmdb_media_type, 'movie') = $2
+       ${scopeClause}
+     GROUP BY
+       m.id, m.title, m.original_title, m.year, m.media_type, m.tmdb_id,
+       m.tmdb_media_type, m.tmdb_url, m.import_source, m.library_id, m.space_id
+     ORDER BY lower(m.title) ASC, m.id ASC
+     LIMIT $3`,
+    params
+  );
+  res.json({
+    tmdb_id: tmdbId,
+    tmdb_media_type: normalizedType,
+    count: result.rows.length,
+    items: result.rows
+  });
 }));
 
 router.post('/enrich/book/search', asyncHandler(async (req, res) => {
@@ -4546,7 +4830,7 @@ router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, r
   if (!canonical.includes('title')) {
     return res.status(400).json({ error: 'CSV must include a title column' });
   }
-  const asyncMode = parseAsyncFlag(req.query?.async) || parseAsyncFlag(req.body?.async);
+  const asyncMode = shouldQueueImportByDefault(req);
   const auditReq = {
     user: req.user,
     headers: req.headers,
@@ -4633,16 +4917,7 @@ router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, r
       }
     });
 
-    return res.status(202).json({
-      ok: true,
-      queued: true,
-      job: {
-        id: job.id,
-        status: job.status,
-        provider: job.provider,
-        progress: job.progress
-      }
-    });
+    return res.status(202).json(buildQueuedJobResponse(job, 'csv_generic'));
   }
 
   const result = await runGenericCsvImport({
@@ -4688,7 +4963,7 @@ router.post('/import-csv/calibre', tempUpload.single('file'), asyncHandler(async
   }
   const { rows } = parsed;
   const mappedRows = normalizeCalibreRows(rows);
-  const asyncMode = parseAsyncFlag(req.query?.async) || parseAsyncFlag(req.body?.async);
+  const asyncMode = shouldQueueImportByDefault(req);
   const auditReq = {
     user: req.user,
     headers: req.headers,
@@ -4776,16 +5051,7 @@ router.post('/import-csv/calibre', tempUpload.single('file'), asyncHandler(async
       }
     });
 
-    return res.status(202).json({
-      ok: true,
-      queued: true,
-      job: {
-        id: job.id,
-        status: job.status,
-        provider: job.provider,
-        progress: job.progress
-      }
-    });
+    return res.status(202).json(buildQueuedJobResponse(job, 'csv_calibre'));
   }
 
   const result = await runGenericCsvImport({
@@ -4838,7 +5104,7 @@ router.post('/import-csv/delicious', tempUpload.single('file'), asyncHandler(asy
     return res.status(400).json({ error: `Invalid CSV format: ${error.message}` });
   }
   const { rows } = parsed;
-  const asyncMode = parseAsyncFlag(req.query?.async) || parseAsyncFlag(req.body?.async);
+  const asyncMode = shouldQueueImportByDefault(req);
   const auditReq = {
     user: req.user,
     headers: req.headers,
@@ -4927,16 +5193,7 @@ router.post('/import-csv/delicious', tempUpload.single('file'), asyncHandler(asy
       }
     });
 
-    return res.status(202).json({
-      ok: true,
-      queued: true,
-      job: {
-        id: job.id,
-        status: job.status,
-        provider: job.provider,
-        progress: job.progress
-      }
-    });
+    return res.status(202).json(buildQueuedJobResponse(job, 'csv_delicious'));
   }
 
   const result = await runDeliciousCsvImport({
@@ -4987,7 +5244,7 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
   if (!config.plexApiKey) {
     return res.status(400).json({ error: 'Plex API key is not configured' });
   }
-  const asyncMode = parseAsyncFlag(req.query?.async) || parseAsyncFlag(req.body?.async);
+  const asyncMode = shouldQueueImportByDefault(req);
   const auditReq = {
     user: req.user,
     headers: req.headers,
@@ -5037,11 +5294,15 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
             errorCount: result.summary.errors.length,
             tmdbPosterEnriched: result.tmdbPosterEnriched,
             tmdbPosterLookupMisses: result.tmdbPosterLookupMisses,
+            tmdbPosterLookupNoMatch: result.tmdbPosterLookupNoMatch,
+            tmdbPosterLookupNoImage: result.tmdbPosterLookupNoImage,
             variantsCreated: result.variantsCreated,
             variantsUpdated: result.variantsUpdated,
             seasonsCreated: result.seasonsCreated,
             seasonsUpdated: result.seasonsUpdated,
             enrichmentErrors: result.summary.enrichmentErrors || [],
+            enrichmentMisses: result.summary.enrichmentMisses || [],
+            tmdbPosterLookupMissSamples: result.summary.tmdbPosterLookupMissSamples || [],
             errorsSample: (result.summary.errors || []).slice(0, 50)
           },
           progress: {
@@ -5064,11 +5325,14 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
           errorCount: result.summary.errors.length,
           tmdbPosterEnriched: result.tmdbPosterEnriched,
           tmdbPosterLookupMisses: result.tmdbPosterLookupMisses,
+          tmdbPosterLookupNoMatch: result.tmdbPosterLookupNoMatch,
+          tmdbPosterLookupNoImage: result.tmdbPosterLookupNoImage,
           variantsCreated: result.variantsCreated,
           variantsUpdated: result.variantsUpdated,
           seasonsCreated: result.seasonsCreated,
           seasonsUpdated: result.seasonsUpdated,
           enrichmentErrorCount: (result.summary.enrichmentErrors || []).length,
+          enrichmentMissCount: (result.summary.enrichmentMisses || []).length,
           jobId: job.id
         });
       } catch (error) {
@@ -5086,16 +5350,7 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
       }
     });
 
-    return res.status(202).json({
-      ok: true,
-      queued: true,
-      job: {
-        id: job.id,
-        status: job.status,
-        provider: job.provider,
-        progress: job.progress
-      }
-    });
+    return res.status(202).json(buildQueuedJobResponse(job, 'plex'));
   }
 
   try {
@@ -5135,7 +5390,7 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
 
 router.post('/import-comics', asyncHandler(async (req, res) => {
   const scopeContext = resolveScopeContext(req);
-  const useAsync = parseAsyncFlag(req.query?.async) || parseAsyncFlag(req.body?.async);
+  const useAsync = shouldQueueImportByDefault(req);
   const config = await loadAdminIntegrationConfig();
   if (String(config.comicsProvider || '').toLowerCase() !== 'metron') {
     return res.status(400).json({ error: 'Comics provider must be set to Metron for collection import' });
@@ -5213,16 +5468,7 @@ router.post('/import-comics', asyncHandler(async (req, res) => {
       }
     });
 
-    return res.status(202).json({
-      ok: true,
-      queued: true,
-      job: {
-        id: job.id,
-        status: job.status,
-        provider: job.provider,
-        progress: job.progress
-      }
-    });
+    return res.status(202).json(buildQueuedJobResponse(job, 'metron'));
   }
 
   try {
@@ -5269,7 +5515,7 @@ router.get('/sync-jobs', asyncHandler(async (req, res) => {
      LIMIT $1`,
     params
   );
-  res.json(result.rows);
+  res.json(result.rows.map((job) => formatSyncJob(job)));
 }));
 
 router.get('/sync-jobs/:id', asyncHandler(async (req, res) => {
@@ -5281,7 +5527,19 @@ router.get('/sync-jobs/:id', asyncHandler(async (req, res) => {
   if (!job) {
     return res.status(404).json({ error: 'Job not found' });
   }
-  res.json(job);
+  res.json(formatSyncJob(job));
+}));
+
+router.get('/sync-jobs/:id/result', asyncHandler(async (req, res) => {
+  const jobId = Number(req.params.id);
+  if (!Number.isFinite(jobId) || jobId <= 0) {
+    return res.status(400).json({ error: 'Invalid job id' });
+  }
+  const job = await getSyncJob(jobId, req.user);
+  if (!job) {
+    return res.status(404).json({ error: 'Job not found' });
+  }
+  res.json(formatSyncJob(job, { includeFullSummary: true }));
 }));
 
 router.get('/import-reviews/unresolved-count', asyncHandler(async (req, res) => {

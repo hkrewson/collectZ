@@ -8,6 +8,7 @@ const { loadGeneralSettings } = require('../services/integrations');
 const { listFeatureFlags, getFeatureFlag, updateFeatureFlag, FEATURE_FLAGS_READ_ONLY } = require('../services/featureFlags');
 const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
 const { enforceScopeAccess } = require('../middleware/scopeAccess');
+const { sendInviteEmail, sendPasswordResetEmail } = require('../services/email');
 const crypto = require('crypto');
 const { hashInviteToken } = require('../services/invites');
 
@@ -74,6 +75,12 @@ router.patch('/feature-flags/:key', asyncHandler(async (req, res) => {
 }));
 
 // ── Users ─────────────────────────────────────────────────────────────────────
+
+function parseBool(value, fallback = false) {
+  const normalized = String(value ?? '').trim().toLowerCase();
+  if (!normalized) return fallback;
+  return ['1', 'true', 'yes', 'on'].includes(normalized);
+}
 
 router.get('/users', asyncHandler(async (req, res) => {
   const result = await pool.query(
@@ -213,18 +220,48 @@ router.post('/users/:id/password-reset', asyncHandler(async (req, res) => {
 
   const email = userResult.rows[0].email;
   const resetUrl = `${req.protocol}://${req.get('host')}/reset-password?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
+  const exposeToken = parseBool(req.body?.expose_token, false);
   await logActivity(req, 'admin.user.password_reset.create', 'user', userId, {
     email,
     resetTokenId: insert.rows[0].id,
     expiresAt
   });
+  if (exposeToken) {
+    await logActivity(req, 'admin.user.password_reset.token_exposed', 'user', userId, {
+      email,
+      resetTokenId: insert.rows[0].id,
+      exposureMode: 'admin_copy_link'
+    });
+  }
+  let delivery = { attempted: false, sent: false, reason: 'smtp_not_configured' };
+  try {
+    delivery = await sendPasswordResetEmail({
+      to: email,
+      resetUrl,
+      expiresAt: insert.rows[0].expires_at
+    });
+    if (delivery.sent) {
+      await logActivity(req, 'admin.user.password_reset.delivered', 'user', userId, {
+        email,
+        resetTokenId: insert.rows[0].id,
+        delivery: 'smtp'
+      });
+    }
+  } catch (error) {
+    delivery = { attempted: true, sent: false, reason: error.message || 'smtp_send_failed' };
+    await logActivity(req, 'admin.user.password_reset.delivery_failed', 'user', userId, {
+      email,
+      resetTokenId: insert.rows[0].id,
+      reason: delivery.reason
+    });
+  }
   res.status(201).json({
     id: insert.rows[0].id,
     user_id: userId,
     email,
     expires_at: insert.rows[0].expires_at,
-    reset_url: resetUrl,
-    token
+    delivery,
+    ...(exposeToken ? { reset_url: resetUrl, token } : {})
   });
 }));
 
@@ -278,9 +315,38 @@ router.post('/invites', validate(inviteCreateSchema), asyncHandler(async (req, r
     email: result.rows[0].email,
     expiresAt: result.rows[0].expires_at
   });
+  const inviteUrl = `${req.protocol}://${req.get('host')}/register?invite=${encodeURIComponent(token)}&email=${encodeURIComponent(result.rows[0].email)}`;
+  const exposeToken = parseBool(req.body?.expose_token, false);
+  if (exposeToken) {
+    await logActivity(req, 'admin.invite.token_exposed', 'invite', result.rows[0].id, {
+      email: result.rows[0].email,
+      exposureMode: 'admin_copy_link'
+    });
+  }
+  let delivery = { attempted: false, sent: false, reason: 'smtp_not_configured' };
+  try {
+    delivery = await sendInviteEmail({
+      to: result.rows[0].email,
+      inviteUrl,
+      expiresAt: result.rows[0].expires_at
+    });
+    if (delivery.sent) {
+      await logActivity(req, 'admin.invite.delivered', 'invite', result.rows[0].id, {
+        email: result.rows[0].email,
+        delivery: 'smtp'
+      });
+    }
+  } catch (error) {
+    delivery = { attempted: true, sent: false, reason: error.message || 'smtp_send_failed' };
+    await logActivity(req, 'admin.invite.delivery_failed', 'invite', result.rows[0].id, {
+      email: result.rows[0].email,
+      reason: delivery.reason
+    });
+  }
   res.status(201).json({
     ...result.rows[0],
-    token
+    delivery,
+    ...(exposeToken ? { token, invite_url: inviteUrl } : {})
   });
 }));
 

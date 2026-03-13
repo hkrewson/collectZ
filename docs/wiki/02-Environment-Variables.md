@@ -29,6 +29,9 @@ openssl rand -hex 32
 - `SESSION_COOKIE_SECURE` (default `true`): must remain `true` in production.
   - If you run plain HTTP localhost for development, use `NODE_ENV=development` and optionally set `SESSION_COOKIE_SECURE=false`.
 - `ALLOWED_ORIGINS` (comma-separated origins)
+- `ALLOW_SESSION_BEARER_FALLBACK` (default `false`): legacy escape hatch that permits session tokens in `Authorization: Bearer` headers.
+  - Keep `false` for normal browser hardening.
+  - Only enable temporarily for older non-browser clients that still depend on bearer session tokens.
 - `AUDIT_LOG_MODE` (`failures` by default): request-level activity logging verbosity.
   - `off`: disable request outcome audit entries
   - `failures`: log failed API requests only
@@ -67,7 +70,7 @@ These can be set in `.env`, but admin settings in UI now control active global i
 - Barcode: `BARCODE_PRESET`, `BARCODE_PROVIDER`, `BARCODE_API_URL`, `BARCODE_API_KEY`, `BARCODE_API_KEY_HEADER`, `BARCODE_QUERY_PARAM`
 - Vision: `VISION_PRESET`, `VISION_PROVIDER`, `VISION_API_URL`, `VISION_API_KEY`, `VISION_API_KEY_HEADER`
 - Plex: `PLEX_PRESET`, `PLEX_PROVIDER`, `PLEX_API_URL`, `PLEX_SERVER_NAME`, `PLEX_API_KEY`
-- CWA OPDS: `CWA_OPDS_URL`, `CWA_BASE_URL`, `CWA_USERNAME`, `CWA_PASSWORD`, `CWA_TIMEOUT_MS`
+- CWA OPDS (deferred/disabled runtime surface): `CWA_OPDS_URL`, `CWA_BASE_URL`, `CWA_USERNAME`, `CWA_PASSWORD`, `CWA_TIMEOUT_MS`
 - Async import tuning:
   - `TMDB_IMPORT_MIN_INTERVAL_MS` (default `50`): minimum delay between TMDB enrichment calls during Plex import.
   - `PLEX_JOB_PROGRESS_BATCH_SIZE` (default `25`): items processed between persisted async progress updates.
@@ -107,11 +110,18 @@ Metadata source of truth:
 
 If `APP_VERSION` is unset, runtime falls back to `app-meta.json`.
 
-## Included But Currently Not Used By Backend Code
+## SMTP Mail Delivery (Invites + Password Resets)
 
-Present in `env.example` for future extension:
+When SMTP is configured, admin-created invites and password resets are emailed directly.
 
-- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`
+- `SMTP_HOST`
+- `SMTP_PORT` (default recommended: `587`)
+- `SMTP_USER` (optional if relay allows anonymous send)
+- `SMTP_PASSWORD` (required when `SMTP_USER` is set)
+- `SMTP_FROM` (required sender display/address)
+- `SMTP_SECURE` (optional; defaults to `true` when port is `465`, else `false`)
+
+If SMTP is not configured, backend falls back to copy-link token workflows for admin UX.
 
 ## Validation Tip
 
@@ -157,3 +167,4 @@ If `DB_PASSWORD` is missing in production, backend startup fails with:
 For full incident response and rotation commands, use:
 
 - `docs/wiki/15-Secrets-and-Rotation-Runbook.md`
+- `docs/wiki/26-Admin-Recovery-and-SMTP-Triage.md`

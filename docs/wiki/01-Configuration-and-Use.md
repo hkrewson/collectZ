@@ -45,6 +45,11 @@ There is no default seeded admin account in current releases.
 
 Use this when no admin can sign in and UI-based reset is unavailable.
 
+For the full recovery + SMTP troubleshooting flow, also use:
+
+- `docs/wiki/26-Admin-Recovery-and-SMTP-Triage.md`
+- `docs/wiki/15-Secrets-and-Rotation-Runbook.md`
+
 1. Generate a bcrypt hash:
 
 ```bash

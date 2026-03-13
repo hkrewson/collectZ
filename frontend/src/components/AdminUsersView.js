@@ -8,6 +8,7 @@ export default function AdminUsersView({ apiCall, onToast, currentUserId, Icons,
   const [invites, setInvites] = useState([]);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteUrl, setInviteUrl] = useState('');
+  const [inviteExposeToken, setInviteExposeToken] = useState(false);
   const [showInviteHistory, setShowInviteHistory] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -63,13 +64,17 @@ export default function AdminUsersView({ apiCall, onToast, currentUserId, Icons,
   const createInvite = async (e) => {
     e.preventDefault();
     try {
-      const data = await apiCall('post', '/admin/invites', { email: inviteEmail });
-      const url = `${window.location.origin}/register?invite=${encodeURIComponent(data.token)}&email=${encodeURIComponent(data.email)}`;
+      const data = await apiCall('post', '/admin/invites', { email: inviteEmail, expose_token: inviteExposeToken });
+      const url = data?.invite_url
+        || (data?.token ? `${window.location.origin}/register?invite=${encodeURIComponent(data.token)}&email=${encodeURIComponent(data.email)}` : '');
       setInviteUrl(url);
       setInviteEmail('');
+      setInviteExposeToken(false);
       const { token: _token, ...safeInvite } = data;
       setInvites((i) => [safeInvite, ...i]);
-      onToast(`Invite created for ${data.email}`);
+      if (data?.delivery?.sent) onToast(`Invite emailed to ${data.email}`);
+      else if (url) onToast(`Invite created for ${data.email} (copy-link fallback)`, 'info');
+      else onToast(`Invite created for ${data.email} (SMTP not configured or send failed)`, 'info');
     } catch (err) {
       onToast(err.response?.data?.error || err.response?.data?.detail || 'Failed to create invite', 'error');
     }
@@ -114,15 +119,16 @@ export default function AdminUsersView({ apiCall, onToast, currentUserId, Icons,
     }
   };
 
-  const createPasswordReset = async () => {
+  const createPasswordReset = async (exposeToken = false) => {
     if (!selectedMemberId) return;
     setResetLoading(true);
     try {
-      const data = await apiCall('post', `/admin/users/${selectedMemberId}/password-reset`);
+      const data = await apiCall('post', `/admin/users/${selectedMemberId}/password-reset`, { expose_token: exposeToken });
       const link = data?.reset_url || '';
       setResetLink(link);
-      if (link) onToast('Password reset link created');
-      else onToast('Reset token created, but URL unavailable', 'info');
+      if (data?.delivery?.sent) onToast('Password reset email sent');
+      else if (link) onToast('Password reset link created (copy-link fallback)', 'info');
+      else onToast('Password reset created but no copy-link available', 'info');
     } catch (err) {
       onToast(err.response?.data?.error || 'Failed to create reset link', 'error');
     } finally {
@@ -217,8 +223,12 @@ export default function AdminUsersView({ apiCall, onToast, currentUserId, Icons,
           <div className="space-y-4">
             <form onSubmit={createInvite} className="flex gap-3 flex-wrap">
               <input className="input flex-1 min-w-[14rem]" type="email" placeholder="teammate@example.com" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} required />
-              <button type="submit" className="btn-primary shrink-0">Create Invite</button>
+              <button type="submit" className="btn-primary shrink-0">{inviteExposeToken ? 'Create Copy Link' : 'Send Invite'}</button>
             </form>
+            <label className="inline-flex items-center gap-2 text-xs text-ghost cursor-pointer">
+              <input type="checkbox" checked={inviteExposeToken} onChange={(e) => setInviteExposeToken(e.target.checked)} />
+              Show copy-link after create
+            </label>
             <label className="inline-flex items-center gap-2 text-xs text-ghost cursor-pointer">
               <input type="checkbox" checked={showInviteHistory} onChange={(e) => setShowInviteHistory(e.target.checked)} />
               Show used/revoked/expired invitations
@@ -300,8 +310,11 @@ export default function AdminUsersView({ apiCall, onToast, currentUserId, Icons,
                   <div className="card p-4 space-y-3">
                     <p className="text-xs text-ghost">Password reset</p>
                     <div className="flex flex-wrap gap-2">
-                      <button type="button" onClick={createPasswordReset} disabled={resetLoading} className="btn-secondary btn-sm">
-                        {resetLoading ? <Spinner size={14} /> : 'Generate reset link'}
+                      <button type="button" onClick={() => createPasswordReset(false)} disabled={resetLoading} className="btn-secondary btn-sm">
+                        {resetLoading ? <Spinner size={14} /> : 'Email reset link'}
+                      </button>
+                      <button type="button" onClick={() => createPasswordReset(true)} disabled={resetLoading} className="btn-secondary btn-sm">
+                        {resetLoading ? <Spinner size={14} /> : 'Create copy link'}
                       </button>
                       <button type="button" onClick={invalidatePasswordResets} disabled={resetLoading} className="btn-danger btn-sm">
                         Invalidate active links

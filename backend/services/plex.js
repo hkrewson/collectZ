@@ -97,6 +97,27 @@ const parseTmdbIdFromGuid = (guidRaw) => {
   return Number.isFinite(id) ? id : null;
 };
 
+const shouldIncludePlexEntry = (sectionType, entryType) => {
+  const normalizedSectionType = String(sectionType || '').trim().toLowerCase();
+  const normalizedEntryType = String(entryType || '').trim().toLowerCase();
+
+  // TV imports are series-level; seasons/episodes are hydrated separately.
+  if (normalizedSectionType === 'show') {
+    return normalizedEntryType === 'show';
+  }
+  if (normalizedSectionType === 'movie') {
+    return !normalizedEntryType || normalizedEntryType === 'movie' || normalizedEntryType === 'video' || normalizedEntryType === 'clip';
+  }
+  if (normalizedSectionType === 'artist') {
+    return normalizedEntryType === 'artist' || normalizedEntryType === 'album';
+  }
+
+  if (normalizedEntryType === 'season' || normalizedEntryType === 'episode' || normalizedEntryType === 'track') {
+    return false;
+  }
+  return !normalizedEntryType || normalizedEntryType === 'movie' || normalizedEntryType === 'video' || normalizedEntryType === 'show' || normalizedEntryType === 'artist' || normalizedEntryType === 'album';
+};
+
 const normalizePlexItem = (item) => {
   const rawType = String(item.type || '').toLowerCase();
   const isTv = rawType === 'show' || rawType === 'episode';
@@ -255,19 +276,7 @@ const fetchPlexLibraryItems = async (config, sectionIds = []) => {
     const directories = parsePlexDirectoriesInSection(response.data);
     const candidates = [...videos, ...directories]
       .filter((entry) => entry.title || entry.originalTitle)
-      .filter((entry) => {
-        const type = String(entry.type || '').toLowerCase();
-        if (sectionType === 'show') {
-          return type === 'show' || type === 'episode' || type === 'season';
-        }
-        if (sectionType === 'movie') {
-          return !type || type === 'movie' || type === 'video' || type === 'clip';
-        }
-        if (sectionType === 'artist') {
-          return type === 'artist' || type === 'album' || type === 'track';
-        }
-        return !type || type === 'movie' || type === 'video' || type === 'show' || type === 'episode';
-      });
+      .filter((entry) => shouldIncludePlexEntry(sectionType, entry.type));
 
     for (const video of candidates) {
       items.push({
@@ -423,6 +432,7 @@ module.exports = {
   fetchPlexShowSeasons,
   fetchPlexShowSeasonVariants,
   fetchPlexSeasonEpisodeStates,
+  shouldIncludePlexEntry,
   normalizePlexItem,
   normalizePlexVariant
 };

@@ -1,5 +1,39 @@
 const pool = require('../db/pool');
 
+const REDACTED = '[REDACTED]';
+const SENSITIVE_KEY_PATTERN = /(authorization|cookie|session(_|-)?token|csrf(_|-)?token|api(_|-)?key|secret|password|token)$/i;
+const SENSITIVE_VALUE_PATTERN = /(bearer\s+[a-z0-9._~-]+|session_token=|csrf_token=)/i;
+
+const sanitizeAuditDetails = (value, key = '') => {
+  if (value === null || value === undefined) return value;
+
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeAuditDetails(item));
+  }
+
+  if (typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([entryKey, entryValue]) => {
+        if (SENSITIVE_KEY_PATTERN.test(entryKey) && !/_id$/i.test(entryKey) && !/used$/i.test(entryKey)) {
+          return [entryKey, REDACTED];
+        }
+        return [entryKey, sanitizeAuditDetails(entryValue, entryKey)];
+      })
+    );
+  }
+
+  if (typeof value === 'string') {
+    if (SENSITIVE_KEY_PATTERN.test(key) && !/_id$/i.test(key) && !/used$/i.test(key)) {
+      return REDACTED;
+    }
+    if (SENSITIVE_VALUE_PATTERN.test(value)) {
+      return REDACTED;
+    }
+  }
+
+  return value;
+};
+
 const extractRequestIp = (req) => {
   const forwarded = req?.headers?.['x-forwarded-for'];
   if (forwarded) {
@@ -13,10 +47,11 @@ const logActivity = async (req, action, entityType = null, entityId = null, deta
   try {
     const userId = req.user?.id || null;
     const ipAddress = extractRequestIp(req);
+    const sanitizedDetails = details ? sanitizeAuditDetails(details) : null;
     await pool.query(
       `INSERT INTO activity_log (user_id, action, entity_type, entity_id, details, ip_address)
        VALUES ($1, $2, $3, $4, $5::jsonb, $6)`,
-      [userId, action, entityType, entityId, details ? JSON.stringify(details) : null, ipAddress]
+      [userId, action, entityType, entityId, sanitizedDetails ? JSON.stringify(sanitizedDetails) : null, ipAddress]
     );
   } catch (error) {
     console.error('Activity log write failed:', error.message);
@@ -33,4 +68,4 @@ const logError = (context, error) => {
   }
 };
 
-module.exports = { logActivity, logError, extractRequestIp };
+module.exports = { logActivity, logError, extractRequestIp, sanitizeAuditDetails };

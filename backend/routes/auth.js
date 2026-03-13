@@ -2,13 +2,26 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const pool = require('../db/pool');
 const { asyncHandler } = require('../middleware/errors');
-const { authenticateToken, SESSION_COOKIE_OPTIONS } = require('../middleware/auth');
-const { validate, registerSchema, loginSchema, profileUpdateSchema, passwordResetConsumeSchema } = require('../middleware/validate');
+const { authenticateToken, requireRole, requireSessionAuth, SESSION_COOKIE_OPTIONS } = require('../middleware/auth');
+const { validate, registerSchema, loginSchema, profileUpdateSchema, passwordResetConsumeSchema, personalAccessTokenCreateSchema, serviceAccountKeyCreateSchema } = require('../middleware/validate');
 const { createSession, revokeSessionByToken, revokeSessionsForUser } = require('../services/sessions');
 const { logActivity } = require('../services/audit');
 const { issueCsrfToken, clearCsrfToken } = require('../middleware/csrf');
 const { hashInviteToken } = require('../services/invites');
 const { ensureUserDefaultLibrary } = require('../services/libraries');
+const {
+  PERSONAL_ACCESS_TOKEN_SCOPES,
+  createPersonalAccessToken,
+  listPersonalAccessTokensForUser,
+  revokePersonalAccessToken
+} = require('../services/personalAccessTokens');
+const {
+  SERVICE_ACCOUNT_KEY_SCOPES,
+  SERVICE_ACCOUNT_ALLOWED_PREFIXES,
+  createServiceAccountKey,
+  listServiceAccountKeys,
+  revokeServiceAccountKey
+} = require('../services/serviceAccountKeys');
 
 const router = express.Router();
 
@@ -316,6 +329,100 @@ router.patch('/profile', authenticateToken, validate(profileUpdateSchema), async
   });
 
   res.json(result.rows[0]);
+}));
+
+// ── Personal Access Tokens ───────────────────────────────────────────────────
+
+router.get('/personal-access-tokens', authenticateToken, requireSessionAuth, asyncHandler(async (req, res) => {
+  const tokens = await listPersonalAccessTokensForUser(req.user.id);
+  res.json({
+    scopes: PERSONAL_ACCESS_TOKEN_SCOPES,
+    tokens
+  });
+}));
+
+router.post('/personal-access-tokens', authenticateToken, requireSessionAuth, validate(personalAccessTokenCreateSchema), asyncHandler(async (req, res) => {
+  const expiresAt = req.body.expires_at ? new Date(req.body.expires_at) : null;
+  const created = await createPersonalAccessToken({
+    userId: req.user.id,
+    name: req.body.name.trim(),
+    scopes: req.body.scopes,
+    expiresAt
+  });
+  await logActivity(req, 'auth.pat.create', 'personal_access_token', created.record.id, {
+    name: created.record.name,
+    scopes: created.record.scopes,
+    expiresAt: created.record.expires_at
+  });
+  res.status(201).json({
+    token: created.token,
+    record: created.record
+  });
+}));
+
+router.delete('/personal-access-tokens/:id', authenticateToken, requireSessionAuth, asyncHandler(async (req, res) => {
+  const tokenId = Number(req.params.id);
+  if (!Number.isFinite(tokenId) || tokenId <= 0) {
+    return res.status(400).json({ error: 'Invalid token id' });
+  }
+  const revoked = await revokePersonalAccessToken({ userId: req.user.id, tokenId });
+  if (!revoked) {
+    return res.status(404).json({ error: 'Personal access token not found' });
+  }
+  await logActivity(req, 'auth.pat.revoke', 'personal_access_token', revoked.id, {
+    name: revoked.name,
+    revokedAt: revoked.revoked_at
+  });
+  res.json(revoked);
+}));
+
+// ── Service Account Keys (admin-only) ────────────────────────────────────────
+
+router.get('/service-account-keys', authenticateToken, requireSessionAuth, requireRole('admin'), asyncHandler(async (_req, res) => {
+  const keys = await listServiceAccountKeys();
+  res.json({
+    scopes: SERVICE_ACCOUNT_KEY_SCOPES,
+    allowed_prefixes: SERVICE_ACCOUNT_ALLOWED_PREFIXES,
+    keys
+  });
+}));
+
+router.post('/service-account-keys', authenticateToken, requireSessionAuth, requireRole('admin'), validate(serviceAccountKeyCreateSchema), asyncHandler(async (req, res) => {
+  const expiresAt = req.body.expires_at ? new Date(req.body.expires_at) : null;
+  const created = await createServiceAccountKey({
+    ownerUserId: req.user.id,
+    createdByUserId: req.user.id,
+    name: req.body.name.trim(),
+    scopes: req.body.scopes,
+    allowedPrefixes: req.body.allowed_prefixes,
+    expiresAt
+  });
+  await logActivity(req, 'auth.service_account.create', 'service_account_key', created.record.id, {
+    name: created.record.name,
+    scopes: created.record.scopes,
+    allowedPrefixes: created.record.allowed_prefixes,
+    expiresAt: created.record.expires_at
+  });
+  res.status(201).json({
+    key: created.key,
+    record: created.record
+  });
+}));
+
+router.delete('/service-account-keys/:id', authenticateToken, requireSessionAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const keyId = Number(req.params.id);
+  if (!Number.isFinite(keyId) || keyId <= 0) {
+    return res.status(400).json({ error: 'Invalid service account key id' });
+  }
+  const revoked = await revokeServiceAccountKey({ keyId });
+  if (!revoked) {
+    return res.status(404).json({ error: 'Service account key not found' });
+  }
+  await logActivity(req, 'auth.service_account.revoke', 'service_account_key', revoked.id, {
+    name: revoked.name,
+    revokedAt: revoked.revoked_at
+  });
+  res.json(revoked);
 }));
 
 module.exports = router;

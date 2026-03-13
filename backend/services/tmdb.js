@@ -22,6 +22,39 @@ const TMDB_GENRE_MAP = {
   10770: 'TV Movie', 53: 'Thriller', 10752: 'War', 37: 'Western'
 };
 
+const sanitizeTmdbErrorBody = (data) => {
+  if (data === undefined || data === null) return '';
+  if (typeof data === 'string') {
+    return data.replace(/\s+/g, ' ').trim().slice(0, 240);
+  }
+  try {
+    return JSON.stringify(data).slice(0, 240);
+  } catch (_) {
+    return String(data).replace(/\s+/g, ' ').trim().slice(0, 240);
+  }
+};
+
+const wrapTmdbRequestError = (error, requestPath) => {
+  const status = error?.response?.status || error?.status || null;
+  const responseSnippet = sanitizeTmdbErrorBody(error?.response?.data);
+  const pathLabel = String(requestPath || '').trim() || 'unknown_path';
+  const detailParts = [
+    status ? `status=${status}` : null,
+    `path=${pathLabel}`,
+    responseSnippet ? `response=${responseSnippet}` : null
+  ].filter(Boolean);
+  const message = `TMDB request failed (${detailParts.join(', ')})`;
+  const wrapped = new Error(message);
+  wrapped.status = status || 502;
+  wrapped.tmdb = {
+    status: status || null,
+    path: pathLabel,
+    response: responseSnippet || null
+  };
+  wrapped.cause = error;
+  return wrapped;
+};
+
 const resolveTmdbPreset = (presetName) =>
   TMDB_PRESETS[presetName] || TMDB_PRESETS.tmdb;
 
@@ -146,7 +179,13 @@ const fetchTmdbMovieDetails = async (movieId, integrationConfig = null, mediaTyp
   if (apiKeyHeader) headers[apiKeyHeader] = apiKey;
   else params[apiKeyQueryParam] = apiKey;
 
-  const response = await axios.get(`${apiBaseUrl}/${normalizedType}/${movieId}`, { params, headers });
+  const requestPath = `/${normalizedType}/${movieId}`;
+  let response;
+  try {
+    response = await axios.get(`${apiBaseUrl}${requestPath}`, { params, headers });
+  } catch (error) {
+    throw wrapTmdbRequestError(error, requestPath);
+  }
   const details = response.data || {};
   const crew = Array.isArray(details.credits?.crew) ? details.credits.crew : [];
   const castList = Array.isArray(details.credits?.cast) ? details.credits.cast : [];
@@ -204,7 +243,13 @@ const fetchTmdbTvShowSeasonSummary = async (tvId, integrationConfig = null) => {
   const headers = {};
   if (apiKeyHeader) headers[apiKeyHeader] = apiKey;
   else params[apiKeyQueryParam] = apiKey;
-  const response = await axios.get(`${apiBaseUrl}/tv/${tvId}`, { params, headers });
+  const requestPath = `/tv/${tvId}`;
+  let response;
+  try {
+    response = await axios.get(`${apiBaseUrl}${requestPath}`, { params, headers });
+  } catch (error) {
+    throw wrapTmdbRequestError(error, requestPath);
+  }
   const seasons = Array.isArray(response.data?.seasons) ? response.data.seasons : [];
   return seasons
     .map((season) => {
@@ -237,7 +282,13 @@ const fetchTmdbTvSeasonDetails = async (tvId, seasonNumber, integrationConfig = 
   const headers = {};
   if (apiKeyHeader) headers[apiKeyHeader] = apiKey;
   else params[apiKeyQueryParam] = apiKey;
-  const response = await axios.get(`${apiBaseUrl}/tv/${tvId}/season/${seasonNumber}`, { params, headers });
+  const requestPath = `/tv/${tvId}/season/${seasonNumber}`;
+  let response;
+  try {
+    response = await axios.get(`${apiBaseUrl}${requestPath}`, { params, headers });
+  } catch (error) {
+    throw wrapTmdbRequestError(error, requestPath);
+  }
   const details = response.data || {};
   const episodes = Array.isArray(details.episodes) ? details.episodes : [];
   const rawEpisodeCount = details?.episode_count;
@@ -273,6 +324,7 @@ module.exports = {
   TMDB_GENRE_MAP,
   resolveTmdbPreset,
   normalizeTmdbSearchResult,
+  wrapTmdbRequestError,
   searchTmdbMovie,
   searchTmdbMulti,
   fetchTmdbMovieDetails,

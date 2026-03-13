@@ -91,6 +91,7 @@ nginx/ssl/*.crt
 
 # Local planning docs (intentionally not tracked)
 docs/wiki/roadmap-tenancy-deferred.md
+docs/wiki/share-links-deferred.md
 .env.ci
 
 # Local-only scope verification artifacts

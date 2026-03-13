@@ -1525,6 +1525,74 @@ const MIGRATIONS = [
         ADD COLUMN IF NOT EXISTS cwa_password_encrypted TEXT,
         ADD COLUMN IF NOT EXISTS cwa_timeout_ms INTEGER DEFAULT 20000;
     `
+  },
+  {
+    version: 40,
+    description: 'Add personal access tokens for non-browser API authentication',
+    up: `
+      CREATE TABLE IF NOT EXISTS personal_access_tokens (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        name VARCHAR(255) NOT NULL,
+        token_hash VARCHAR(64) UNIQUE NOT NULL,
+        token_last_four VARCHAR(4) NOT NULL,
+        scopes JSONB NOT NULL DEFAULT '[]'::jsonb,
+        expires_at TIMESTAMP,
+        last_used_at TIMESTAMP,
+        revoked_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_personal_access_tokens_user_id
+        ON personal_access_tokens(user_id);
+      CREATE INDEX IF NOT EXISTS idx_personal_access_tokens_active
+        ON personal_access_tokens(user_id, revoked_at, expires_at);
+
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_personal_access_tokens_updated_at') THEN
+          CREATE TRIGGER update_personal_access_tokens_updated_at BEFORE UPDATE ON personal_access_tokens
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+        END IF;
+      END;
+      $$;
+    `
+  },
+  {
+    version: 41,
+    description: 'Add service account keys for machine-to-machine API authentication',
+    up: `
+      CREATE TABLE IF NOT EXISTS service_account_keys (
+        id SERIAL PRIMARY KEY,
+        owner_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        name VARCHAR(255) NOT NULL,
+        key_hash VARCHAR(64) UNIQUE NOT NULL,
+        key_last_four VARCHAR(4) NOT NULL,
+        scopes JSONB NOT NULL DEFAULT '[]'::jsonb,
+        allowed_prefixes JSONB NOT NULL DEFAULT '[]'::jsonb,
+        expires_at TIMESTAMP,
+        last_used_at TIMESTAMP,
+        revoked_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_service_account_keys_owner_user_id
+        ON service_account_keys(owner_user_id);
+      CREATE INDEX IF NOT EXISTS idx_service_account_keys_active
+        ON service_account_keys(owner_user_id, revoked_at, expires_at);
+
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_service_account_keys_updated_at') THEN
+          CREATE TRIGGER update_service_account_keys_updated_at BEFORE UPDATE ON service_account_keys
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+        END IF;
+      END;
+      $$;
+    `
   }
 ];
 

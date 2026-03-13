@@ -53,6 +53,27 @@ If startup fails, inspect backend logs:
 docker compose --env-file .env logs --tail=80 backend
 ```
 
+## Recommended Rotation Order
+
+Rotate in this order to reduce avoidable downtime and false-negative troubleshooting:
+
+1. provider/API secrets with the lowest blast radius first:
+   - `TMDB_API_KEY`
+   - `BARCODE_API_KEY`
+   - `VISION_API_KEY`
+   - Plex token
+   - SMTP credentials
+2. `SESSION_SECRET`
+3. `INTEGRATION_ENCRYPTION_KEY`
+4. `DB_PASSWORD`
+
+Why this order:
+
+- provider/API key rotation is usually isolated and easy to verify quickly,
+- `SESSION_SECRET` forces re-auth but does not break encrypted integration config,
+- `INTEGRATION_ENCRYPTION_KEY` is highest-risk for operator error because stored provider secrets must be re-saved,
+- `DB_PASSWORD` is last because it can cause full backend startup failure if compose and Postgres drift out of sync.
+
 ## Session Secret Rotation (Force Re-Auth)
 
 Changing `SESSION_SECRET` invalidates cookie signing trust for new requests.
@@ -82,6 +103,47 @@ Procedure:
 6. Re-run each provider test button.
 
 If decryption warnings appear, clear and re-save affected keys.
+
+## SMTP Credential Rotation
+
+Rotate SMTP credentials before resetting invite/password workflows after a leak.
+
+Procedure:
+
+1. Update SMTP values in `.env`:
+   - `SMTP_HOST`
+   - `SMTP_PORT`
+   - `SMTP_SECURE`
+   - `SMTP_USER`
+   - `SMTP_PASS`
+   - `SMTP_FROM`
+2. Restart backend:
+
+```bash
+docker compose --env-file .env up -d backend
+```
+
+3. Validate backend health:
+
+```bash
+curl -s http://localhost:3000/api/health
+```
+
+4. Send a test invite or admin-issued password reset from the UI.
+5. If delivery still fails, use:
+   - `docs/wiki/26-Admin-Recovery-and-SMTP-Triage.md`
+
+## Break-Glass Admin Recovery Order
+
+If no admin can sign in, recover in this order:
+
+1. confirm the target user exists,
+2. promote that user to `admin` if necessary,
+3. set a fresh password hash,
+4. revoke that user's sessions,
+5. sign in,
+6. rotate any secrets that may have been exposed during recovery,
+7. invalidate outstanding reset links if account compromise is suspected.
 
 ## Secret Leak Incident Response Checklist
 

@@ -24,6 +24,8 @@ Start here for deployment and operations guidance.
 18. [Reader Feasibility Spike](./21-Reader-Feasibility-Spike.md)
 19. [Logging and Observability Contract](./22-Logging-and-Observability-Contract.md)
 20. [Metadata Normalization Cutover Plan](./23-Metadata-Normalization-Cutover-Plan.md)
+21. [Personal Access Tokens](./25-Personal-Access-Tokens.md)
+22. [Service Account Keys](./27-Service-Account-Keys.md)
 
 ## Default Admin Behavior (Important)
 

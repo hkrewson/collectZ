@@ -8,6 +8,15 @@ const EXEMPT_PATHS = new Set([
   '/api/auth/register'
 ]);
 
+function getRequestPath(req) {
+  return String(req.originalUrl || req.path || '').split('?')[0];
+}
+
+function hasBearerAuthorization(req) {
+  const authHeader = String(req.get('authorization') || req.headers?.authorization || '');
+  return authHeader.startsWith('Bearer ');
+}
+
 function issueCsrfToken(res) {
   const token = crypto.randomBytes(24).toString('hex');
   res.cookie('csrf_token', token, CSRF_COOKIE_OPTIONS);
@@ -25,7 +34,8 @@ function clearCsrfToken(res) {
 
 function shouldEnforceCsrf(req) {
   if (!MUTATING_METHODS.has(req.method)) return false;
-  if (EXEMPT_PATHS.has(req.originalUrl)) return false;
+  if (EXEMPT_PATHS.has(getRequestPath(req))) return false;
+  if (hasBearerAuthorization(req)) return false;
   return Boolean(req.cookies?.session_token);
 }
 
@@ -47,4 +57,4 @@ function csrfProtection(req, res, next) {
   return res.status(403).json({ error: 'CSRF validation failed' });
 }
 
-module.exports = { issueCsrfToken, clearCsrfToken, csrfProtection };
+module.exports = { issueCsrfToken, clearCsrfToken, csrfProtection, shouldEnforceCsrf };
