@@ -59,12 +59,28 @@ openssl rand -hex 32
     - Intended for Prometheus or another trusted internal scraper.
     - Only active when `DEBUG>=1` and feature flag `metrics_enabled=true`.
     - Keep it on private infrastructure only.
+  - `LOG_EXPORT_BACKEND` (default `off`) — external structured-log backend.
+    - supported values:
+      - `off`
+      - `gelf_udp`
+      - `gelf_tcp`
+      - `stdout_json`
+      - `syslog_udp`
+      - `syslog_tcp`
+  - `LOG_EXPORT_HOST` (default `127.0.0.1`) — log collector host for structured-log export.
+  - `LOG_EXPORT_PORT` (default `12201` for GELF/stdout-oriented paths, `514` for syslog backends) — log collector port for structured-log export.
+  - `LOG_EXPORT_HOST_LABEL` (default `collectz-backend`) — GELF `host` field value.
+  - `LOG_EXPORT_SERVICE` (default `backend`) — structured log `_service` value.
+  - `LOG_EXPORT_DEBUG` (default `false`) — emit debug traces for export gating, event build, and transport attempts.
+  - `LOG_EXPORT_MAX_DETAIL_BYTES` (default `16384`) — max serialized `_details` payload before truncation.
+  - `GIT_SHA` (optional) — build SHA added to structured logs when set.
   - Optional per-flag env overrides (highest precedence):
     - `FEATURE_FLAG_IMPORT_PLEX_ENABLED`
     - `FEATURE_FLAG_IMPORT_CSV_ENABLED`
     - `FEATURE_FLAG_TMDB_SEARCH_ENABLED`
     - `FEATURE_FLAG_LOOKUP_UPC_ENABLED`
     - `FEATURE_FLAG_RECOGNIZE_COVER_ENABLED`
+    - `FEATURE_FLAG_EXTERNAL_LOG_EXPORT_ENABLED`
 
 ## Integration Defaults (Can Be Managed in Admin UI)
 

@@ -992,9 +992,11 @@ This track converts the 1.9.1 external assessment findings into executable miles
 
 ---
 
-## 2.5.0 / 3.0.0 — Optional Tenancy Expansion (Deferred)
+## Deferred Planning Note — Tenancy Expansion
 
-Deferred tenancy planning has been moved to a separate roadmap document:
+The earlier deferred-tenancy placeholder is superseded by the scheduled `2.7.0` tenancy milestone below.
+
+Historical planning notes may still exist in:
 
 - `docs/wiki/roadmap-tenancy-deferred.md` (local planning document, git-ignored)
 
@@ -1030,11 +1032,14 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 16. `2.4.5` Calibre Web Automated integration
 17. `2.5.0` Invite/reset security hardening
 18. `2.6.0` Observability platform (metrics + alerting)
-19. `2.6.1` Multi-format ownership model (movies/games)
-20. `2.6.5` Structured log export (GELF + pluggable backends)
-21. `2.7.0` UI refinement sprint
-22. `2.8.0` Optional market valuation integrations
-23. `2.9.0` Optional build: cost model and billing readiness
+19. `2.6.1` Structured log export (GELF + pluggable backends)
+20. `2.7.0` True tenancy and space-scoped APIs
+21. `2.8.0` UI refinement sprint
+22. `2.9.0` Observability baseline review and alert tuning
+23. `2.9.1` Runtime and operations hardening
+24. `2.10.0` Multi-format ownership model (movies/games)
+25. `2.11.0` Optional market valuation integrations
+26. `2.12.0` Optional build: cost model and billing readiness
 
 ## 2.1.0 — Metadata Normalization and Query Performance
 
@@ -1093,24 +1098,7 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 - API docs are unavailable by default in production mode and only accessible when admin + debug/flag gates are satisfied.
 - OpenAPI spec validation runs in CI and fails on invalid or drifted contract definitions.
 
-## 2.6.1 — Observability Baseline Review and Alert Tuning
-
-**Goal:** Revisit the initial `2.6.0` observability thresholds once more real import and operator usage data exists.
-
-### Scope
-
-- Review accumulated baseline observations in `docs/wiki/34-Observability-Baseline-Tuning-Log.md`.
-- Tighten or relax alert thresholds based on repeated real runs instead of first-pass estimates.
-- Add provider-specific quality ratios only where baseline evidence shows they are useful.
-- Decide whether Prometheus retention and backup expectations need explicit policy/config changes.
-
-### Acceptance Criteria
-
-- Alert thresholds are justified by recorded baseline evidence instead of single-run assumptions.
-- Dashboard ratio/error panels reflect the provider-specific signals operators actually use.
-- Any retention/backup changes for observability data are documented and validated.
-
-## 2.6.5 — Structured Log Export (GELF + Pluggable Backends)
+## 2.6.1 — Structured Log Export (GELF + Pluggable Backends)
 
 **Goal:** Add production-grade external log shipping with a canonical GELF contract, feature-flagged rollout, and operator-selectable backend targets.
 
@@ -1143,6 +1131,101 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 - ELK/Grafana/syslog alternatives are documented with supported field mappings and caveats.
 - CI/runtime checks verify redaction rules and forbid plaintext secret/token fields in exported log payloads.
 - Exporter outages do not degrade core API/import behavior.
+
+## 2.7.0 — True Tenancy and Space-Scoped APIs
+
+**Goal:** Restore true user-space separation so memberships, libraries, and data access are enforced through explicit tenancy boundaries and space-scoped APIs.
+
+**Starting point:** Partial scope plumbing already exists (`active_space_id`, `active_library_id`, `library_memberships`, scoped query helpers), but the product still behaves like a mostly single-space system because spaces are not yet first-class resources and the API/UI contract is incomplete.
+
+### Scope
+
+- Space and membership activation:
+  - support users belonging to multiple spaces with an explicit active-space context,
+  - add personal/default space migration for existing installs,
+  - make shared-space membership and role assignment first-class instead of implicit.
+- Space-scoped API surface:
+  - add dedicated APIs for spaces, memberships, and library management,
+  - make media-, collection-, collectible-, event-, and import-facing APIs tenancy-aware by active space or explicit space-scoped route,
+  - document the canonical tenancy contract so future clients do not rely on single-space assumptions.
+- Data and RBAC enforcement:
+  - ensure `space_id` boundaries are enforced consistently across queries, mutations, imports, jobs, and admin actions,
+  - keep library management delegated to space admins within their own space,
+  - block cross-space leakage in search, imports, dashboards, and background jobs.
+- UX and migration:
+  - add active-space switching to the UI,
+  - make space membership and library context understandable in navigation and settings,
+  - preserve a straightforward single-user path for homelab installs that only ever use one personal space.
+
+### Acceptance Criteria
+
+- Users can belong to more than one space and switch active context safely.
+- Space-scoped APIs and UI flows prevent cross-space data leakage.
+- Space admins can manage members and libraries only within their own space.
+- Existing single-user installs migrate to a personal/default space without manual repair.
+
+### Phase Breakdown
+
+- `2.7.0-phase1` Data model activation:
+  - add first-class `spaces` and `space_memberships`,
+  - backfill existing installs into a personal/default space model,
+  - make `libraries.space_id` reference a real space record everywhere instead of acting as a loose grouping field.
+- `2.7.0-phase2` Auth and active-scope contract:
+  - add explicit active-space selection and bootstrap responses,
+  - ensure session, PAT, and service-account auth consistently expose or derive valid scope,
+  - limit scope overrides for non-admin users to explicit supported flows.
+- `2.7.0-phase3` API activation:
+  - add spaces and memberships endpoints,
+  - make library lifecycle clearly subordinate to spaces,
+  - harden media/import/events/collectibles/admin queries and jobs against cross-space leakage.
+- `2.7.0-phase4` UI and migration hardening:
+  - add active-space switching and membership management UI,
+  - verify migrated installs remain simple for single-user homelab setups,
+  - add regression coverage and migration rehearsal evidence for cross-space isolation.
+
+### DB/API Checklist
+
+- DB:
+  - add `spaces` table:
+    - `id`, `name`, `slug` (optional), `description`, `created_by`, `is_personal`, `created_at`, `updated_at`, `archived_at`.
+  - add `space_memberships` table:
+    - `id`, `space_id`, `user_id`, `role`, `created_by`, `created_at`, `updated_at`.
+  - keep `libraries.space_id` required and backed by a real `spaces.id` FK.
+  - ensure user state has valid active pointers:
+    - `users.active_space_id`
+    - `users.active_library_id`
+  - backfill/migration rules:
+    - create one personal/default space per existing install or per user, according to final migration decision,
+    - attach existing libraries and media rows to migrated spaces without data loss,
+    - populate memberships so current owners/admins retain access after cutover.
+- API:
+  - add `GET /api/spaces` for accessible spaces.
+  - add `POST /api/spaces` and `PATCH /api/spaces/:id` for authorized creation/update.
+  - add `POST /api/spaces/select` for active-space switching.
+  - add membership endpoints:
+    - `GET /api/spaces/:id/members`
+    - `POST /api/spaces/:id/members`
+    - `PATCH /api/spaces/:id/members/:memberId`
+    - `DELETE /api/spaces/:id/members/:memberId`
+  - clarify library endpoints as space-scoped lifecycle operations:
+    - either nested under spaces or explicitly validated against the active space.
+  - keep media/import/events/collectibles endpoints tenancy-aware by active scope, with explicit admin-only override paths where required.
+
+### Test Checklist
+
+- Backend:
+  - users cannot read or mutate data from spaces they do not belong to,
+  - active-space switching updates the effective scope without requiring manual library repair,
+  - background jobs and imports stay pinned to the originating space/library scope.
+- Migration:
+  - migration rehearsal proves single-user installs land in a valid personal/default space,
+  - rollback path preserves library/media integrity.
+- UI:
+  - active-space switcher updates visible libraries and data views consistently,
+  - membership and library-management flows are clearly scoped to the selected space.
+- Regression:
+  - existing single-space installs remain easy to use,
+  - PAT/service-account/browser-session auth all honor the same space boundary rules.
 
 ## 2.2.0 — Import Match Review + Collections Intelligence
 
@@ -1347,29 +1430,6 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 - Conversion actions are clearly labeled and symmetrical.
 - No duplicate records are created during conversion.
 
-## 2.6.1 — Multi-Format Ownership Model (Movies/Games)
-
-**Goal:** support owning multiple formats of the same title without fragmenting the library record.
-
-### Scope
-
-- Replace single-format-only editing UX with format toggles:
-  - `DVD`, `VHS`, `Blu-ray`, `4K UHD`, `Digital`.
-- Persist owned formats as a multi-value field (`owned_formats`) while preserving backward compatibility.
-- Keep `media.format` as a derived primary display value for compatibility.
-- Primary format derivation rule:
-  - choose highest quality/resolution selected (for example `4K UHD` > `Blu-ray` > `DVD` > `VHS`; `Digital` maps to source quality where known).
-- Use badge-style toggles in add/edit modal:
-  - selected: theme blue,
-  - unselected: muted gray.
-
-### Acceptance Criteria
-
-- Users can save multiple owned formats on one title.
-- Legacy views and existing filters continue to work with derived primary format.
-- Format toggles are available for movie/game add/edit paths.
-- Imports can map multi-format titles without creating duplicate records solely for format differences.
-
 ## 2.5.0 — Invite/Reset Security and Secret Exfiltration Hardening
 
 **Goal:** Strengthen credential-recovery and invitation workflows while reducing practical token/secret exfiltration surface before UX-focused 2.5 work.
@@ -1406,7 +1466,7 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 - Existing media/import/admin workflows remain functional after hardening.
 - External automation clients can call GET/PUT/PATCH securely via PAT without copying session/CSRF tokens.
 
-## 2.7.0 — UI Refinement Sprint (Cross-Device Consistency)
+## 2.8.0 — UI Refinement Sprint (Cross-Device Consistency)
 
 **Goal:** Run a focused page-by-page UI refinement pass after 2.0 stabilization, prioritizing interaction consistency and responsive usability.
 
@@ -1420,6 +1480,8 @@ Deferred tenancy planning has been moved to a separate roadmap document:
   - Import,
   - Profile,
   - Admin sections.
+- Treat work already completed opportunistically in earlier milestones as done:
+  - this sprint is for remaining cross-device consistency gaps, not for redoing settled UI work.
 - Apply targeted visual/interaction adjustments per page and element until review checklist passes.
 - Keep this sprint UX-only unless a blocker requires small functional fixes.
 
@@ -1431,6 +1493,75 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 - Shared vs. private user annotations and ratings controls.
 - Mobile-optimized barcode scanning UI (camera input with real-time scan feedback).
 - Email delivery for invites via SMTP (already stubbed in `env.example`).
+
+## 2.9.0 — Observability Baseline Review and Alert Tuning
+
+**Goal:** Revisit the initial `2.6.0` observability thresholds once more real import and operator usage data exists.
+
+### Scope
+
+- Review accumulated baseline observations in `docs/wiki/34-Observability-Baseline-Tuning-Log.md`.
+- Tighten or relax alert thresholds based on repeated real runs instead of first-pass estimates.
+- Add provider-specific quality ratios only where baseline evidence shows they are useful.
+- Decide whether Prometheus retention and backup expectations need explicit policy/config changes.
+
+### Acceptance Criteria
+
+- Alert thresholds are justified by recorded baseline evidence instead of single-run assumptions.
+- Dashboard ratio/error panels reflect the provider-specific signals operators actually use.
+- Any retention/backup changes for observability data are documented and validated.
+
+## 2.9.1 — Runtime and Operations Hardening
+
+**Goal:** Harden the real-world operator paths added in `2.6.0` and `2.6.1` so logging, metrics, and supporting runtime surfaces are safer to run and easier to recover in longer-lived deployments.
+
+### Scope
+
+- Structured-log stack hardening:
+  - revisit Graylog, Loki/Promtail, and syslog example stacks with production-leaning guidance for auth, network boundaries, persistence, and safer defaults,
+  - document which parts remain local/dev examples versus recommended long-lived operator configurations,
+  - add drift checks or troubleshooting guidance for exporter/runtime mismatches such as `backend_off`, wrong collector host, or stale backend env.
+- Metrics and observability runtime hardening:
+  - formalize retention and backup guidance for Prometheus data and any logging persistence volumes,
+  - tighten admin/debug-gated observability surfaces with explicit operator guidance for exposure boundaries and reverse-proxy expectations,
+  - ensure observability examples document restore and rotation implications for tokens, passwords, and collector state.
+- Runtime separation and noise reduction:
+  - reduce mixing between general request logs and structured export output where practical,
+  - add guidance or implementation support for cleaner stream separation in collectors that benefit from it,
+  - document expected failure behavior clearly so exporters never become a hidden availability dependency.
+- Operational verification:
+  - add repeatable smoke checks for supported collector paths,
+  - make sure hardening guidance is reflected in docs, example compose files, and verification notes together.
+
+### Acceptance Criteria
+
+- Graylog, Loki/Promtail, and syslog operator docs clearly distinguish local examples from hardened deployment guidance.
+- Retention, persistence, and backup expectations for observability/logging data are documented and validated.
+- Exporter misconfiguration and env drift have documented fast-diagnosis paths and, where reasonable, lightweight runtime validation.
+- Logging/metrics hardening changes do not break core API/import behavior or make collector availability a runtime dependency.
+
+## 2.10.0 — Multi-Format Ownership Model (Movies/Games)
+
+**Goal:** support owning multiple formats of the same title without fragmenting the library record.
+
+### Scope
+
+- Replace single-format-only editing UX with format toggles:
+  - `DVD`, `VHS`, `Blu-ray`, `4K UHD`, `Digital`.
+- Persist owned formats as a multi-value field (`owned_formats`) while preserving backward compatibility.
+- Keep `media.format` as a derived primary display value for compatibility.
+- Primary format derivation rule:
+  - choose highest quality/resolution selected (for example `4K UHD` > `Blu-ray` > `DVD` > `VHS`; `Digital` maps to source quality where known).
+- Use badge-style toggles in add/edit modal:
+  - selected: theme blue,
+  - unselected: muted gray.
+
+### Acceptance Criteria
+
+- Users can save multiple owned formats on one title.
+- Legacy views and existing filters continue to work with derived primary format.
+- Format toggles are available for movie/game add/edit paths.
+- Imports can map multi-format titles without creating duplicate records solely for format differences.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
@@ -1822,7 +1953,7 @@ Deferred tenancy planning has been moved to a separate roadmap document:
   - enrichment uplift from second-pass providers.
 - If re-enabled, feature ships behind explicit rollout guardrails and migration notes.
 
-## 2.8.0 — Optional Market Valuation Integrations
+## 2.11.0 — Optional Market Valuation Integrations
 
 **Goal:** Add optional value-estimate integrations for collectors without making pricing a hard dependency of core catalog features.
 
@@ -1839,7 +1970,7 @@ Deferred tenancy planning has been moved to a separate roadmap document:
   - `valuation_source`,
   - `valuation_last_updated`.
 - Support identifier-first price lookups (`UPC/EAN/ISBN` where applicable) with title fallback.
-- Keep valuation read-only in v2.7.0 (no writeback to providers).
+- Keep valuation read-only in `2.11.0` (no writeback to providers).
 - Keep pricing behind feature flags and optional env configuration.
 
 ### Acceptance Criteria
@@ -1848,7 +1979,7 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 - Media detail view can show valuation fields when present and degrade gracefully when unavailable.
 - Pricing failures do not block media CRUD/import flows and are fully auditable.
 
-## 2.9.0 — Optional Build: Cost Model and Billing Readiness
+## 2.12.0 — Optional Build: Cost Model and Billing Readiness
 
 **Goal:** Prepare a data-backed cost model before any hosted subscription offering, while keeping self-hosted installs free of paid-provider dependencies.
 

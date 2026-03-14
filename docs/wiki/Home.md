@@ -33,6 +33,9 @@ Start here for deployment and operations guidance.
 27. [Alert Rules Spec](./32-Alert-Rules-Spec.md)
 28. [Prometheus and Grafana Integration Guide](./33-Prometheus-and-Grafana-Integration-Guide.md)
 29. [Observability Baseline Tuning Log](./34-Observability-Baseline-Tuning-Log.md)
+30. [Structured Log Export](./35-Structured-Log-Export.md)
+31. [Loki and Promtail Structured Logs](./36-Loki-and-Promtail-Structured-Logs.md)
+32. [Syslog Structured Logs](./37-Syslog-Structured-Logs.md)
 
 ## Default Admin Behavior (Important)
 

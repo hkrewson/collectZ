@@ -44,6 +44,10 @@ const FEATURE_FLAG_DEFINITIONS = {
   metrics_enabled: {
     description: 'Enable admin-only Prometheus-style metrics export when DEBUG is enabled',
     defaultEnabled: false
+  },
+  external_log_export_enabled: {
+    description: 'Enable external structured log export for activity/audit events',
+    defaultEnabled: false
   }
 };
 

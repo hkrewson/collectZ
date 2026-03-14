@@ -1,0 +1,46 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/promtail/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: collectz-backend-docker
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+    relabel_configs:
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/collectz-backend-1'
+        action: keep
+      - source_labels: ['__meta_docker_container_name']
+        target_label: container
+        replacement: collectz-backend
+      - target_label: job
+        replacement: collectz-backend
+    pipeline_stages:
+      - docker: {}
+      - match:
+          selector: '{job="collectz-backend"}'
+          stages:
+            - json:
+                expressions:
+                  version: version
+                  host: host
+                  short_message: short_message
+                  service: _service
+                  action: _action
+                  entity_type: _entity_type
+                  outcome: _outcome
+                  request_id: _request_id
+                  detail_key: _detail_key
+            - labels:
+                service:
+                action:
+                entity_type:
+                outcome:
+                detail_key:

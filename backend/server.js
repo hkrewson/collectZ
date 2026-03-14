@@ -29,6 +29,7 @@ const { requestLogger, errorHandler } = require('./middleware/errors');
 const { auditRequestOutcome, getMode } = require('./middleware/audit');
 const { metricsMiddleware } = require('./middleware/metrics');
 const { csrfProtection } = require('./middleware/csrf');
+const { requestIdMiddleware } = require('./middleware/requestId');
 
 const authRouter = require('./routes/auth');
 const mediaRouter = require('./routes/media');
@@ -141,7 +142,10 @@ const validateStartupSecurityConfig = () => {
 app.set('trust proxy', parseTrustProxy(process.env.TRUST_PROXY));
 
 // ── Core middleware ───────────────────────────────────────────────────────────
-// IMPORTANT: requestLogger must be first so all requests are captured.
+// IMPORTANT: request-id assignment must run before request logging so the
+// log line, response header, audit trail, and exported GELF event share the
+// same correlation id.
+app.use(requestIdMiddleware);
 app.use(requestLogger);
 
 app.use(helmet());

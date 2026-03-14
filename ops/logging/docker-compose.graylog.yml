@@ -1,0 +1,56 @@
+services:
+  mongodb:
+    image: mongo:7.0
+    restart: unless-stopped
+    networks:
+      - default
+      - app_internal
+    volumes:
+      - graylog_mongo_data:/data/db
+
+  opensearch:
+    image: opensearchproject/opensearch:2.15.0
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
+      DISABLE_SECURITY_PLUGIN: "true"
+      DISABLE_INSTALL_DEMO_CONFIG: "true"
+    networks:
+      - default
+      - app_internal
+    volumes:
+      - graylog_opensearch_data:/usr/share/opensearch/data
+
+  graylog:
+    image: graylog/graylog:5.2
+    restart: unless-stopped
+    environment:
+      GRAYLOG_PASSWORD_SECRET: ${GRAYLOG_PASSWORD_SECRET:-change-this-graylog-password-secret}
+      GRAYLOG_ROOT_PASSWORD_SHA2: ${GRAYLOG_ROOT_PASSWORD_SHA2:-}
+      GRAYLOG_HTTP_BIND_ADDRESS: 0.0.0.0:9000
+      GRAYLOG_HTTP_EXTERNAL_URI: ${GRAYLOG_HTTP_EXTERNAL_URI:-http://127.0.0.1:9000/}
+      GRAYLOG_MONGODB_URI: mongodb://mongodb:27017/graylog
+      GRAYLOG_ELASTICSEARCH_HOSTS: http://opensearch:9200
+    depends_on:
+      - mongodb
+      - opensearch
+    ports:
+      - "9000:9000"
+      - "12201:12201/udp"
+      - "12201:12201/tcp"
+    networks:
+      - default
+      - app_internal
+    volumes:
+      - graylog_data:/usr/share/graylog/data
+
+volumes:
+  graylog_mongo_data:
+  graylog_opensearch_data:
+  graylog_data:
+
+networks:
+  app_internal:
+    external: true
+    name: ${APP_DOCKER_NETWORK:-collectz_internal}

@@ -10,6 +10,8 @@ const { normalizeIsbn, normalizeIdentifierSet } = require('../services/importIde
 const { normalizeTypeDetails } = require('../services/typeDetails');
 const { extractScopeHints, resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
 const { sanitizeAuditDetails } = require('../services/audit');
+const { buildGelfEvent, inferLevel, inferOutcome, truncateJsonValue, readExportConfig, promoteDetailFields, omitNilFields, formatSyslogMessage } = require('../services/logExport');
+const { requestIdMiddleware } = require('../middleware/requestId');
 process.env.INTEGRATION_ENCRYPTION_KEY = process.env.INTEGRATION_ENCRYPTION_KEY || 'unit-test-integration-key';
 const { buildIntegrationResponse } = require('../services/integrationResponse');
 const { buildCompactJobSummary, formatSyncJob } = require('../services/syncJobs');
@@ -26,6 +28,8 @@ const mediaRoutesSource = require('fs').readFileSync(require.resolve('../routes/
 const openApiSource = require('fs').readFileSync(require.resolve('../openapi/openapi.yaml'), 'utf8');
 const docsRoutesSource = require('fs').readFileSync(require.resolve('../routes/docs'), 'utf8');
 const metricsRoutesSource = require('fs').readFileSync(require.resolve('../routes/metrics'), 'utf8');
+const serverSource = require('fs').readFileSync(require.resolve('../server'), 'utf8');
+const structuredLogSmokeSource = require('fs').readFileSync(require.resolve('../scripts/structured-log-smoke'), 'utf8');
 const dashboardSpec = JSON.parse(require('fs').readFileSync(require.resolve('../../ops/monitoring/grafana/dashboards/collectz-overview.json'), 'utf8'));
 const alertRulesSource = require('fs').readFileSync(require.resolve('../../docs/alerts/collectz-alert-rules.yaml'), 'utf8');
 
@@ -348,6 +352,176 @@ results.push(run('audit.sanitizeAuditDetails redacts sensitive string patterns e
     reason: 'missing_token',
     resetTokenId: 22
   });
+}));
+
+results.push(run('logExport.inferOutcome classifies failed and denied actions', () => {
+  assert.strictEqual(inferOutcome('request.failed', {}), 'failed');
+  assert.strictEqual(inferOutcome('auth.access.denied', {}), 'denied');
+  assert.strictEqual(inferOutcome('library.create', {}), 'success');
+}));
+
+results.push(run('logExport.inferLevel maps request failures to warning/error severities', () => {
+  assert.strictEqual(inferLevel('request.failed', { status: 403 }), 4);
+  assert.strictEqual(inferLevel('request.failed', { status: 500 }), 3);
+  assert.strictEqual(inferLevel('library.create', {}), 6);
+}));
+
+results.push(run('logExport.truncateJsonValue bounds oversized detail payloads', () => {
+  const oversized = { payload: 'x'.repeat(30000) };
+  const out = truncateJsonValue(oversized, 1024);
+  assert.strictEqual(out.truncated, true);
+  assert.ok(out.originalBytes > 1024);
+  assert.ok(typeof out.preview === 'string');
+}));
+
+results.push(run('logExport.buildGelfEvent maps audit context into GELF fields', () => {
+  const event = buildGelfEvent({
+    req: {
+      requestId: 'req-123',
+      method: 'POST',
+      originalUrl: '/api/libraries',
+      route: { path: '/libraries' },
+      headers: { 'x-request-id': 'req-123' }
+    },
+    action: 'library.create',
+    entityType: 'library',
+    entityId: 14,
+    details: { status: 201, durationMs: 18, name: 'Movies' },
+    ipAddress: '127.0.0.1',
+    userId: 7
+  });
+  assert.strictEqual(event.version, '1.1');
+  assert.strictEqual(event.short_message, 'library.create');
+  assert.strictEqual(event._entity_type, 'library');
+  assert.strictEqual(event._entity_id, 14);
+  assert.strictEqual(event._user_id, 7);
+  assert.strictEqual(event._route, '/libraries');
+  assert.strictEqual(event._method, 'POST');
+  assert.strictEqual(event._status, 201);
+  assert.strictEqual(event._duration_ms, 18);
+  assert.strictEqual(event._request_id, 'req-123');
+  assert.strictEqual(event._outcome, 'success');
+}));
+
+results.push(run('requestId middleware preserves incoming request id and sets response header', () => {
+  const req = { headers: { 'x-request-id': 'req-incoming' } };
+  const headers = {};
+  const res = { setHeader: (key, value) => { headers[key] = value; } };
+  let nextCalled = false;
+  requestIdMiddleware(req, res, () => { nextCalled = true; });
+  assert.strictEqual(req.requestId, 'req-incoming');
+  assert.strictEqual(req.headers['x-request-id'], 'req-incoming');
+  assert.strictEqual(headers['X-Request-Id'], 'req-incoming');
+  assert.strictEqual(nextCalled, true);
+}));
+
+results.push(run('requestId middleware generates request id when absent', () => {
+  const req = { headers: {} };
+  const headers = {};
+  const res = { setHeader: (key, value) => { headers[key] = value; } };
+  requestIdMiddleware(req, res, () => {});
+  assert.ok(typeof req.requestId === 'string' && req.requestId.length >= 16);
+  assert.strictEqual(req.headers['x-request-id'], req.requestId);
+  assert.strictEqual(headers['X-Request-Id'], req.requestId);
+}));
+
+results.push(run('logExport.promoteDetailFields promotes high-value scalar detail keys', () => {
+  const promoted = promoteDetailFields({
+    key: 'ui_drawer_edit_experiment',
+    previousEnabled: true,
+    nextEnabled: false,
+    envOverride: null,
+    nested: { ignored: true },
+    list: [1, 2, 3]
+  });
+  assert.deepStrictEqual(promoted, {
+    _detail_key: 'ui_drawer_edit_experiment',
+    _detail_previous_enabled: 'true',
+    _detail_next_enabled: 'false'
+  });
+}));
+
+results.push(run('logExport.omitNilFields removes null and undefined GELF fields', () => {
+  assert.deepStrictEqual(omitNilFields({
+    version: '1.1',
+    _entity_id: null,
+    _request_id: undefined,
+    _action: 'debug.test',
+    _detail_key: 'manual-test'
+  }), {
+    version: '1.1',
+    _action: 'debug.test',
+    _detail_key: 'manual-test'
+  });
+}));
+
+results.push(run('logExport.buildGelfEvent promotes whitelisted detail keys into GELF fields', () => {
+  const event = buildGelfEvent({
+    action: 'admin.feature_flag.update',
+    entityType: 'feature_flag',
+    details: {
+      key: 'external_log_export_enabled',
+      previousEnabled: false,
+      nextEnabled: true,
+      envOverride: null
+    },
+    userId: 1
+  });
+  assert.strictEqual(event._detail_key, 'external_log_export_enabled');
+  assert.strictEqual(event._detail_previous_enabled, 'false');
+  assert.strictEqual(event._detail_next_enabled, 'true');
+  assert.ok(!Object.prototype.hasOwnProperty.call(event, '_detail_env_override'));
+  assert.ok(!Object.prototype.hasOwnProperty.call(event, '_entity_id'));
+  assert.ok(!Object.prototype.hasOwnProperty.call(event, '_request_id'));
+  assert.deepStrictEqual(event._details, {
+    key: 'external_log_export_enabled',
+    previousEnabled: false,
+    nextEnabled: true,
+    envOverride: null
+  });
+}));
+
+results.push(run('logExport.readExportConfig normalizes invalid backend to off', () => {
+  const previous = process.env.LOG_EXPORT_BACKEND;
+  process.env.LOG_EXPORT_BACKEND = 'unknown-backend';
+  const config = readExportConfig();
+  assert.strictEqual(config.backend, 'off');
+  process.env.LOG_EXPORT_BACKEND = previous;
+}));
+
+results.push(run('logExport.readExportConfig defaults syslog backends to port 514', () => {
+  const previousBackend = process.env.LOG_EXPORT_BACKEND;
+  const previousPort = process.env.LOG_EXPORT_PORT;
+  process.env.LOG_EXPORT_BACKEND = 'syslog_tcp';
+  delete process.env.LOG_EXPORT_PORT;
+  const config = readExportConfig();
+  assert.strictEqual(config.backend, 'syslog_tcp');
+  assert.strictEqual(config.port, 514);
+  process.env.LOG_EXPORT_BACKEND = previousBackend;
+  process.env.LOG_EXPORT_PORT = previousPort;
+}));
+
+results.push(run('logExport.formatSyslogMessage builds RFC5424 line with structured data and JSON body', () => {
+  const line = formatSyslogMessage({
+    timestamp: 1773496025.589,
+    host: 'collectz-backend',
+    short_message: 'admin.feature_flag.update',
+    _service: 'backend',
+    _action: 'admin.feature_flag.update',
+    _entity_type: 'feature_flag',
+    _user_id: 1,
+    _request_id: 'req-123',
+    _route: '/feature-flags/:key',
+    _method: 'PATCH',
+    _outcome: 'success',
+    _detail_key: 'ui_drawer_edit_experiment',
+    _details: { key: 'ui_drawer_edit_experiment', previousEnabled: false, nextEnabled: true }
+  });
+  assert.ok(line.startsWith('<14>1 2026-03-14T13:47:05.589Z collectz-backend backend - admin.feature_flag.update '));
+  assert.ok(line.includes('[collectz@41058 '));
+  assert.ok(line.includes('request_id="req-123"'));
+  assert.ok(line.includes('detail_key="ui_drawer_edit_experiment"'));
+  assert.ok(line.endsWith('"_details":{"key":"ui_drawer_edit_experiment","previousEnabled":false,"nextEnabled":true}}'));
 }));
 
 results.push(run('integrations.buildIntegrationResponse masks secrets and exposes only set flags', () => {
@@ -825,6 +999,33 @@ results.push(run('serviceAccount.isServiceAccountPrefixAllowed matches explicit 
     isServiceAccountPrefixAllowed(['/api/media'], { originalUrl: '/api/admin/users', path: '/api/admin/users' }),
     false
   );
+}));
+
+results.push(run('audit source wires structured log export behind activity logging', () => {
+  const auditSource = require('fs').readFileSync(require.resolve('../services/audit'), 'utf8');
+  assert.ok(auditSource.includes('buildGelfEvent'));
+  assert.ok(auditSource.includes('maybeExportActivityLog'));
+}));
+
+results.push(run('server source assigns request ids before request logging', () => {
+  assert.ok(serverSource.includes("const { requestIdMiddleware } = require('./middleware/requestId');"));
+  assert.ok(serverSource.includes('app.use(requestIdMiddleware);'));
+  assert.ok(serverSource.indexOf('app.use(requestIdMiddleware);') < serverSource.indexOf('app.use(requestLogger);'));
+}));
+
+results.push(run('structured log smoke source falls back to OpenSearch-backed verification', () => {
+  assert.ok(structuredLogSmokeSource.includes('const OPENSEARCH_URL'));
+  assert.ok(structuredLogSmokeSource.includes('const SMOKE_REQUEST_ID'));
+  assert.ok(structuredLogSmokeSource.includes('const FEATURE_FLAG_SETTLE_MS'));
+  assert.ok(structuredLogSmokeSource.includes('async function searchOpenSearch'));
+  assert.ok(structuredLogSmokeSource.includes("source: 'opensearch-index'"));
+  assert.ok(structuredLogSmokeSource.includes("message.request_id === requestId"));
+  assert.ok(structuredLogSmokeSource.includes('Waiting ${FEATURE_FLAG_SETTLE_MS}ms for feature-flag cache to settle...'));
+}));
+
+results.push(run('feature flags source includes external log export flag', () => {
+  const featureFlagsSource = require('fs').readFileSync(require.resolve('../services/featureFlags'), 'utf8');
+  assert.ok(featureFlagsSource.includes('external_log_export_enabled'));
 }));
 
 if (results.some((ok) => !ok)) {

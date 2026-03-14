@@ -1,4 +1,5 @@
 const pool = require('../db/pool');
+const { buildGelfEvent, maybeExportActivityLog, debugLog } = require('./logExport');
 
 const REDACTED = '[REDACTED]';
 const SENSITIVE_KEY_PATTERN = /(authorization|cookie|session(_|-)?token|csrf(_|-)?token|api(_|-)?key|secret|password|token)$/i;
@@ -53,6 +54,27 @@ const logActivity = async (req, action, entityType = null, entityId = null, deta
        VALUES ($1, $2, $3, $4, $5::jsonb, $6)`,
       [userId, action, entityType, entityId, sanitizedDetails ? JSON.stringify(sanitizedDetails) : null, ipAddress]
     );
+    try {
+      const event = buildGelfEvent({
+        req,
+        action,
+        entityType,
+        entityId,
+        details: sanitizedDetails,
+        ipAddress,
+        userId
+      });
+      debugLog('activity.built', {
+        action,
+        requestId: event._request_id || null,
+        userId,
+        entityType,
+        entityId: entityId ?? null
+      });
+      await maybeExportActivityLog(event);
+    } catch (exportError) {
+      console.warn('Structured log export failed:', exportError.message);
+    }
   } catch (error) {
     console.error('Activity log write failed:', error.message);
   }

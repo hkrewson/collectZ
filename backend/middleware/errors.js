@@ -35,10 +35,11 @@ const requestLogger = (req, _res, next) => {
   const ts = new Date().toISOString();
   const startedAt = Date.now();
   const res = _res;
-  console.log(`${ts} ${req.method} ${req.originalUrl} origin:${req.headers.origin || '-'}`);
+  const requestId = req.requestId || req.headers['x-request-id'] || '-';
+  console.log(`${ts} ${req.method} ${req.originalUrl} origin:${req.headers.origin || '-'} req:${requestId}`);
   res.on('finish', () => {
     const durationMs = Date.now() - startedAt;
-    console.log(`${new Date().toISOString()} ${req.method} ${req.originalUrl} -> ${res.statusCode} (${durationMs}ms)`);
+    console.log(`${new Date().toISOString()} ${req.method} ${req.originalUrl} -> ${res.statusCode} (${durationMs}ms) req:${requestId}`);
   });
   next();
 };
