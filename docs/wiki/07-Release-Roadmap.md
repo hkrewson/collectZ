@@ -1138,6 +1138,10 @@ Historical planning notes may still exist in:
 - Feature-flagged enablement:
   - add a backend feature flag for external log export (default off),
   - support safe rollout by environment and runtime toggle without app restart where feasible.
+- Explicit runtime configuration surface (current operator path):
+  - support env-driven backend selection and endpoint targeting for the current release path,
+  - document the required runtime variables for backend type, host, port, service/host labels, and debug tracing,
+  - verify that audit/admin/request events written via the shared audit pipeline are also eligible for configured external export.
 - Graylog setup path (primary):
   - add compose examples and runbook for local/self-hosted Graylog endpoint,
   - support UDP/TCP GELF transports with retry/fail-safe behavior,
@@ -1154,6 +1158,7 @@ Historical planning notes may still exist in:
 ### Acceptance Criteria
 
 - External log export can be enabled/disabled by feature flag and config.
+- Supported collector targets can be configured explicitly by env vars and verified against a running stack.
 - Graylog ingestion is documented and verified against sample collectZ events.
 - ELK/Grafana/syslog alternatives are documented with supported field mappings and caveats.
 - CI/runtime checks verify redaction rules and forbid plaintext secret/token fields in exported log payloads.
@@ -1600,6 +1605,34 @@ Historical planning notes may still exist in:
 - Open dependency PRs are reviewed on the same weekly cadence as dependency-watch output.
 - Security-sensitive dependency bumps are prioritized ahead of routine maintenance batches.
 - Major dependency upgrades are no longer mixed into routine maintenance PR batches without explicit review planning.
+
+## 2.9.3 — Observability Endpoint Control Plane
+
+**Goal:** Move external log endpoint selection from env-only operator setup to an admin-managed control plane without weakening the existing fail-safe runtime behavior.
+
+### Scope
+
+- Admin-managed external log endpoint configuration:
+  - add admin UI and backend settings storage for external log endpoint host/url, port, transport/backend type, and service/host labeling fields,
+  - keep secrets/tokens masked and encrypted at rest where applicable,
+  - preserve an env-backed override/read-only mode for locked-down deployments.
+- Output style and backend selection:
+  - expose supported exporter targets and output styles in the UI (for example GELF UDP/TCP, stdout JSON, syslog UDP/TCP),
+  - document which combinations are first-class/supported versus advanced/operator-beware.
+- Validation and diagnostics:
+  - add a test/validate action that emits a deterministic audit/export event and reports whether the configured collector received it,
+  - surface last validation outcome and troubleshooting guidance for common misconfigurations,
+  - ensure admin/audit events written through the shared audit path remain eligible for configured external export.
+- Safety and docs:
+  - document precedence between env overrides and UI-managed settings,
+  - update operator docs, runbooks, and smoke paths to cover both env-only and UI-managed configurations.
+
+### Acceptance Criteria
+
+- Admin can configure a supported external log endpoint without editing compose env for the common case.
+- Validation/test flow confirms exporter configuration against a live collector path.
+- Env override behavior is explicit and documented for operators who want immutable config.
+- External logging configuration changes are auditable, masked, and do not make collector availability a hard runtime dependency.
 
 ## 2.10.0 — Multi-Format Ownership Model (Movies/Games)
 

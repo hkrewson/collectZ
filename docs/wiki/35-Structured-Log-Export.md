@@ -40,6 +40,11 @@ Those remain part of the broader `2.6.1` milestone.
   - `LOG_EXPORT_MAX_DETAIL_BYTES`
   - `GIT_SHA`
 
+Current control surface note:
+
+- The current shipped operator path is env-driven runtime configuration.
+- Admin-managed endpoint configuration is intentionally deferred to roadmap milestone `2.9.3 — Observability Endpoint Control Plane`.
+
 ## Local Graylog Example
 
 - Compose stack:
