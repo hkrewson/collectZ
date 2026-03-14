@@ -1208,7 +1208,12 @@ Historical planning notes may still exist in:
   - limit scope overrides for non-admin users to explicit supported flows.
 - `2.7.0-phase3` API activation:
   - add spaces and memberships endpoints,
+  - treat app-level `admin` as the global server/super-admin role, distinct from per-space `owner` / `admin` / `member` / `viewer` memberships,
+  - restrict new-space creation to the global server/super-admin role,
+  - make the first user assigned during space creation the `owner` of that new space,
+  - restrict space invite/member management to owners/admins of the target space,
   - make library lifecycle clearly subordinate to spaces,
+  - keep owned-library reassignment tied to explicit cross-space transfer flows rather than ordinary membership edits,
   - harden media/import/events/collectibles/admin queries and jobs against cross-space leakage.
 - `2.7.0-phase4` UI and migration hardening:
   - add active-space switching and membership management UI,
@@ -1241,6 +1246,13 @@ Historical planning notes may still exist in:
     - `DELETE /api/spaces/:id/members/:memberId`
   - clarify library endpoints as space-scoped lifecycle operations:
     - either nested under spaces or explicitly validated against the active space.
+  - ensure membership APIs preserve distinct role semantics:
+    - global server admin
+    - space owner
+    - space admin
+    - member
+    - viewer
+  - ensure cross-space transfer flows only rehome libraries owned by the transferred user, and only when an explicit transfer flow requests it.
   - keep media/import/events/collectibles endpoints tenancy-aware by active scope, with explicit admin-only override paths where required.
 
 ### Test Checklist

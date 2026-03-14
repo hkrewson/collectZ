@@ -98,10 +98,26 @@ In 2.0:
 
 ## RBAC Direction
 
+- App-level `admin` is the global server administrator (`super admin`) role.
+- Space membership roles remain distinct from the global server admin role:
+  - `owner`
+  - `admin`
+  - `member`
+  - `viewer`
+- Space owners can manage long-lived space governance for their own space.
 - Space admins can manage library lifecycle in their space.
 - Standard users can switch/use libraries they have access to.
 - Delete/archive library actions must require explicit confirmation.
 - Space membership changes must be auditable and isolated to the target space.
+
+### Tenancy Policy Notes
+
+- Only the global server admin role can create new spaces.
+- The first user assigned during new-space creation becomes that space's `owner`.
+- Space owners/admins can invite and manage users only inside their own space.
+- `member` and `viewer` access must remain limited to spaces they belong to.
+- Cross-space user transfer should move only libraries the user owns, not every library they can access.
+- Ownership-based library reassignment should happen only through an explicit cross-space transfer flow, not ordinary membership edits.
 
 ## API Direction
 
@@ -138,4 +154,4 @@ In 2.0:
   - one install-wide default space,
   - or one personal space per user plus optional shared spaces.
 - Whether library management endpoints should become nested under spaces or remain top-level with strict active-space validation.
-- Whether admin users keep cross-space override behavior on all routes or only on explicit admin surfaces.
+- Whether global admins keep cross-space override behavior on all routes or only on explicit admin surfaces.

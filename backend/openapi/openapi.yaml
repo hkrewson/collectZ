@@ -126,6 +126,102 @@
         },
         "minProperties": 1
       },
+      "SpaceRecord": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "name": { "type": "string" },
+          "slug": { "type": ["string", "null"] },
+          "description": { "type": ["string", "null"] },
+          "created_by": { "type": ["integer", "null"] },
+          "is_personal": { "type": "boolean" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" },
+          "membership_role": { "type": ["string", "null"] },
+          "library_count": { "type": ["integer", "null"] }
+        },
+        "required": ["id", "name", "is_personal", "created_at", "updated_at"]
+      },
+      "SpaceListResponse": {
+        "type": "object",
+        "properties": {
+          "spaces": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/SpaceRecord" }
+          }
+        },
+        "required": ["spaces"]
+      },
+      "SpaceMembershipRecord": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "space_id": { "type": "integer" },
+          "user_id": { "type": "integer" },
+          "role": { "type": "string" },
+          "created_by": { "type": ["integer", "null"] },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" },
+          "email": { "type": ["string", "null"] },
+          "name": { "type": ["string", "null"] },
+          "user_role": { "type": ["string", "null"] }
+        },
+        "required": ["id", "space_id", "user_id", "role", "created_at", "updated_at"]
+      },
+      "SpaceMembershipListResponse": {
+        "type": "object",
+        "properties": {
+          "space": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "integer" },
+              "name": { "type": "string" },
+              "slug": { "type": ["string", "null"] },
+              "membership_role": { "type": ["string", "null"] }
+            },
+            "required": ["id", "name"]
+          },
+          "members": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/SpaceMembershipRecord" }
+          }
+        },
+        "required": ["space", "members"]
+      },
+      "SpaceCreateRequest": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "slug": { "type": ["string", "null"] },
+          "description": { "type": ["string", "null"] },
+          "owner_user_id": { "type": "integer", "minimum": 1 }
+        },
+        "required": ["name"]
+      },
+      "SpaceUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "slug": { "type": ["string", "null"] },
+          "description": { "type": ["string", "null"] }
+        },
+        "minProperties": 1
+      },
+      "SpaceMembershipCreateRequest": {
+        "type": "object",
+        "properties": {
+          "user_id": { "type": "integer", "minimum": 1 },
+          "role": { "type": "string", "enum": ["owner", "admin", "member", "viewer"] }
+        },
+        "required": ["user_id", "role"]
+      },
+      "SpaceMembershipUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "role": { "type": "string", "enum": ["owner", "admin", "member", "viewer"] }
+        },
+        "required": ["role"]
+      },
       "LoginRequest": {
         "type": "object",
         "properties": {
@@ -524,6 +620,248 @@
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/spaces": {
+      "get": {
+        "tags": ["Auth"],
+        "summary": "List spaces accessible to the current user",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "responses": {
+          "200": {
+            "description": "Accessible spaces",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SpaceListResponse" }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Create a new space as a global admin",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SpaceCreateRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Space created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SpaceRecord" }
+              }
+            }
+          },
+          "403": {
+            "description": "Creation denied",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/spaces/select": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Select the active space for the current user",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "space_id": { "type": "integer", "minimum": 1 }
+                },
+                "required": ["space_id"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Selected active space",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AuthScopeResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/spaces/{id}": {
+      "patch": {
+        "tags": ["Auth"],
+        "summary": "Update space metadata",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SpaceUpdateRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated space",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SpaceRecord" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/spaces/{id}/members": {
+      "get": {
+        "tags": ["Auth"],
+        "summary": "List members for a managed space",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Space membership list",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SpaceMembershipListResponse" }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Add an existing user to a space",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SpaceMembershipCreateRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Space member added",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SpaceMembershipRecord" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/spaces/{id}/members/{memberId}": {
+      "patch": {
+        "tags": ["Auth"],
+        "summary": "Update a member role within a space",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } },
+          { "in": "path", "name": "memberId", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SpaceMembershipUpdateRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated space member",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SpaceMembershipRecord" }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Auth"],
+        "summary": "Remove a member from a space",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } },
+          { "in": "path", "name": "memberId", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Member removed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "integer" },
+                    "removed": { "type": "boolean" }
+                  },
+                  "required": ["id", "removed"]
+                }
               }
             }
           }

@@ -260,6 +260,30 @@ const authScopeSelectSchema = z.object({
   { message: 'space_id or library_id is required' }
 );
 
+const spaceBaseSchema = z.object({
+  name: z.string().trim().min(1, 'Space name is required').max(255),
+  slug: z.preprocess(emptyStringToNull, z.string().trim().min(1).max(255).regex(/^[a-z0-9-]+$/, 'slug must use lowercase letters, numbers, or hyphens').optional().nullable()),
+  description: z.preprocess(emptyStringToNull, z.string().max(2000).optional().nullable())
+});
+
+const spaceCreateSchema = spaceBaseSchema.extend({
+  owner_user_id: z.number().int().positive('owner_user_id must be a positive integer').optional()
+});
+
+const spaceUpdateSchema = spaceBaseSchema.partial().refine(
+  (data) => Object.keys(data).length > 0,
+  { message: 'At least one space field is required' }
+);
+
+const spaceMembershipCreateSchema = z.object({
+  user_id: z.number().int().positive('user_id must be a positive integer'),
+  role: z.enum(['owner', 'admin', 'member', 'viewer'])
+});
+
+const spaceMembershipUpdateSchema = z.object({
+  role: z.enum(['owner', 'admin', 'member', 'viewer'])
+});
+
 const libraryDeleteSchema = z.object({
   confirm_name: z.string().min(1, 'confirm_name is required')
 });
@@ -415,6 +439,10 @@ module.exports = {
   personalAccessTokenCreateSchema,
   serviceAccountKeyCreateSchema,
   generalSettingsSchema,
+  spaceCreateSchema,
+  spaceUpdateSchema,
+  spaceMembershipCreateSchema,
+  spaceMembershipUpdateSchema,
   libraryCreateSchema,
   libraryUpdateSchema,
   librarySelectSchema,

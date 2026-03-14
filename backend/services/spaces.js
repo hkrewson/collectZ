@@ -1,6 +1,8 @@
 const DEFAULT_SPACE_NAME = 'Default Space';
 const DEFAULT_SPACE_SLUG = 'default';
 const DEFAULT_SPACE_DESCRIPTION = 'Default space for single-space installs';
+const SPACE_MEMBERSHIP_ROLES = ['owner', 'admin', 'member', 'viewer'];
+const SPACE_MANAGE_ROLES = ['owner', 'admin'];
 
 const DEFAULT_SPACE_SELECT_SQL = `
   SELECT id, name, slug, description, created_by, is_personal, created_at, updated_at, archived_at
@@ -126,11 +128,101 @@ async function getAccessibleSpaceForUser(client, { userId, role, spaceId }) {
   return result.rows[0] || null;
 }
 
+async function getSpaceMembershipForUser(client, { userId, spaceId }) {
+  const numericUserId = Number(userId);
+  const numericSpaceId = Number(spaceId);
+  if (!Number.isFinite(numericUserId) || numericUserId <= 0) return null;
+  if (!Number.isFinite(numericSpaceId) || numericSpaceId <= 0) return null;
+
+  const result = await client.query(
+    `SELECT sm.id, sm.space_id, sm.user_id, sm.role, sm.created_by, sm.created_at, sm.updated_at
+     FROM space_memberships sm
+     JOIN spaces s ON s.id = sm.space_id
+     WHERE sm.user_id = $1
+       AND sm.space_id = $2
+       AND s.archived_at IS NULL
+     LIMIT 1`,
+    [numericUserId, numericSpaceId]
+  );
+  return result.rows[0] || null;
+}
+
+function isGlobalAdmin(userRole) {
+  return userRole === 'admin';
+}
+
+function canManageSpaceMemberships({ userRole, membershipRole }) {
+  return isGlobalAdmin(userRole) || SPACE_MANAGE_ROLES.includes(membershipRole);
+}
+
+function canAssignSpaceRole({ actorUserRole, actorMembershipRole, nextRole }) {
+  if (!SPACE_MEMBERSHIP_ROLES.includes(nextRole)) return false;
+  if (isGlobalAdmin(actorUserRole)) return true;
+  if (actorMembershipRole === 'owner') return ['admin', 'member', 'viewer'].includes(nextRole);
+  if (actorMembershipRole === 'admin') return ['member', 'viewer'].includes(nextRole);
+  return false;
+}
+
+async function countSpaceOwners(client, { spaceId }) {
+  const numericSpaceId = Number(spaceId);
+  if (!Number.isFinite(numericSpaceId) || numericSpaceId <= 0) return 0;
+  const result = await client.query(
+    `SELECT COUNT(*)::int AS count
+     FROM space_memberships
+     WHERE space_id = $1
+       AND role = 'owner'`,
+    [numericSpaceId]
+  );
+  return Number(result.rows[0]?.count || 0);
+}
+
+async function listSpaceMembers(client, { spaceId }) {
+  const numericSpaceId = Number(spaceId);
+  if (!Number.isFinite(numericSpaceId) || numericSpaceId <= 0) return [];
+  const result = await client.query(
+    `SELECT
+       sm.id,
+       sm.space_id,
+       sm.user_id,
+       sm.role,
+       sm.created_by,
+       sm.created_at,
+       sm.updated_at,
+       u.email,
+       u.name,
+       u.role AS user_role,
+       creator.email AS created_by_email
+     FROM space_memberships sm
+     JOIN users u ON u.id = sm.user_id
+     LEFT JOIN users creator ON creator.id = sm.created_by
+     WHERE sm.space_id = $1
+     ORDER BY
+       CASE sm.role
+         WHEN 'owner' THEN 0
+         WHEN 'admin' THEN 1
+         WHEN 'member' THEN 2
+         ELSE 3
+       END,
+       lower(u.email) ASC,
+       sm.id ASC`,
+    [numericSpaceId]
+  );
+  return result.rows;
+}
+
 module.exports = {
   DEFAULT_SPACE_NAME,
   DEFAULT_SPACE_SLUG,
   DEFAULT_SPACE_DESCRIPTION,
+  SPACE_MEMBERSHIP_ROLES,
+  SPACE_MANAGE_ROLES,
   ensureDefaultSpaceForClient,
   listAccessibleSpacesForUser,
-  getAccessibleSpaceForUser
+  getAccessibleSpaceForUser,
+  getSpaceMembershipForUser,
+  isGlobalAdmin,
+  canManageSpaceMemberships,
+  canAssignSpaceRole,
+  countSpaceOwners,
+  listSpaceMembers
 };

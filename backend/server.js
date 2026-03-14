@@ -36,6 +36,7 @@ const mediaRouter = require('./routes/media');
 const adminRouter = require('./routes/admin');
 const integrationsRouter = require('./routes/integrations');
 const librariesRouter = require('./routes/libraries');
+const spacesRouter = require('./routes/spaces');
 const eventsRouter = require('./routes/events');
 const collectiblesRouter = require('./routes/collectibles');
 const docsRouter = require('./routes/docs');
@@ -252,6 +253,7 @@ app.use('/api', eventsRouter);
 app.use('/api', collectiblesRouter);
 app.use('/api', integrationsRouter);
 app.use('/api', librariesRouter);
+app.use('/api', spacesRouter);
 app.use('/api/admin', adminRouter);
 
 // 404 JSON for unmatched API routes so failures are explicit and loggable.

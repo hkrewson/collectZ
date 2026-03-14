@@ -40,6 +40,8 @@ const libraryServiceSource = require('fs').readFileSync(require.resolve('../serv
 const personalAccessTokenSource = require('fs').readFileSync(require.resolve('../services/personalAccessTokens'), 'utf8');
 const serviceAccountKeySource = require('fs').readFileSync(require.resolve('../services/serviceAccountKeys'), 'utf8');
 const librariesRoutesSource = require('fs').readFileSync(require.resolve('../routes/libraries'), 'utf8');
+const spacesRoutesSource = require('fs').readFileSync(require.resolve('../routes/spaces'), 'utf8');
+const spacesServiceSource = require('fs').readFileSync(require.resolve('../services/spaces'), 'utf8');
 const frontendAppSource = require('fs').readFileSync(require.resolve('../../frontend/src/App'), 'utf8');
 const structuredLogSmokeSource = require('fs').readFileSync(require.resolve('../scripts/structured-log-smoke'), 'utf8');
 const dashboardSpec = JSON.parse(require('fs').readFileSync(require.resolve('../../ops/monitoring/grafana/dashboards/collectz-overview.json'), 'utf8'));
@@ -1080,10 +1082,27 @@ results.push(run('auth routes expose explicit scope bootstrap and selection endp
   assert.ok(authRoutesSource.includes("await logActivity(req, 'auth.scope.select'"));
 }));
 
+results.push(run('spaces routes expose core spaces and memberships endpoints', () => {
+  assert.ok(spacesRoutesSource.includes("router.get('/spaces'"));
+  assert.ok(spacesRoutesSource.includes("router.post('/spaces'"));
+  assert.ok(spacesRoutesSource.includes("router.patch('/spaces/:id'"));
+  assert.ok(spacesRoutesSource.includes("router.post('/spaces/select'"));
+  assert.ok(spacesRoutesSource.includes("router.get('/spaces/:id/members'"));
+  assert.ok(spacesRoutesSource.includes("router.post('/spaces/:id/members'"));
+  assert.ok(spacesRoutesSource.includes("router.patch('/spaces/:id/members/:memberId'"));
+  assert.ok(spacesRoutesSource.includes("router.delete('/spaces/:id/members/:memberId'"));
+}));
+
 results.push(run('library service source ensures default scope before returning default library', () => {
   assert.ok(libraryServiceSource.includes('async function ensureUserDefaultScope'));
   assert.ok(libraryServiceSource.includes('ensureDefaultSpaceForClient'));
   assert.ok(libraryServiceSource.includes('SET active_space_id = $2,'));
+}));
+
+results.push(run('spaces service source distinguishes global admin from space membership roles', () => {
+  assert.ok(spacesServiceSource.includes("const SPACE_MEMBERSHIP_ROLES = ['owner', 'admin', 'member', 'viewer'];"));
+  assert.ok(spacesServiceSource.includes("function isGlobalAdmin(userRole)"));
+  assert.ok(spacesServiceSource.includes("function canAssignSpaceRole"));
 }));
 
 results.push(run('library routes preserve active space when replacing archived or deleted libraries', () => {
@@ -1092,6 +1111,8 @@ results.push(run('library routes preserve active space when replacing archived o
 }));
 
 results.push(run('library routes only allow admin scope hints after phase2 hardening', () => {
+  assert.ok(librariesRoutesSource.includes("router.use('/libraries', authenticateToken);"));
+  assert.ok(librariesRoutesSource.includes("router.use('/libraries', enforceScopeAccess({ allowedHintRoles: ['admin'] }));"));
   assert.ok(librariesRoutesSource.includes("enforceScopeAccess({ allowedHintRoles: ['admin'] })"));
 }));
 
