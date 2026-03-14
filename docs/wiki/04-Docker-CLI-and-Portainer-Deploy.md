@@ -52,6 +52,8 @@ Set these in stack environment:
 - `SESSION_SECRET`
 - `INTEGRATION_ENCRYPTION_KEY`
 - `AUDIT_LOG_MODE` (recommended: `failures`, can use `mutations` during testing)
+  - `failures` keeps operator noise low while still surfacing failed API actions in Activity
+  - `mutations` or `all` are better for active troubleshooting sessions
 
 ## Post-Deploy Checks
 

@@ -65,6 +65,8 @@ Expected recent actions include:
 - `admin.invite.create`
 - `admin.user.role.update`
 - `admin.settings.integrations.update`
+- `request.failed` after an intentional bad API request
+- `auth.user.logout` after signing out
 
 ## 8. Version UI Check
 

@@ -38,6 +38,7 @@ const auditRequestOutcome = (req, res, next) => {
     const status = res.statusCode;
     const isFailure = status >= 400;
     const isMutation = MUTATING_METHODS.has(req.method);
+    const errorSummary = summarizeErrorBody(responseBody);
 
     const shouldLog =
       mode === 'all'
@@ -49,10 +50,12 @@ const auditRequestOutcome = (req, res, next) => {
     const action = isFailure ? 'request.failed' : 'request.succeeded';
     const details = {
       method: req.method,
+      path: req.originalUrl?.split('?')[0] || req.path || req.originalUrl || null,
       url: req.originalUrl,
       status,
       durationMs: Date.now() - startedAt,
-      response: summarizeErrorBody(responseBody)
+      errorSummary,
+      response: errorSummary
     };
 
     void logActivity(req, action, 'http_request', null, details);

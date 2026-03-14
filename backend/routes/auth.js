@@ -4,7 +4,7 @@ const pool = require('../db/pool');
 const { asyncHandler } = require('../middleware/errors');
 const { authenticateToken, requireRole, requireSessionAuth, SESSION_COOKIE_OPTIONS } = require('../middleware/auth');
 const { validate, registerSchema, loginSchema, profileUpdateSchema, passwordResetConsumeSchema, personalAccessTokenCreateSchema, serviceAccountKeyCreateSchema } = require('../middleware/validate');
-const { createSession, revokeSessionByToken, revokeSessionsForUser } = require('../services/sessions');
+const { createSession, revokeSessionByToken, revokeSessionsForUser, getSessionUserByToken } = require('../services/sessions');
 const { logActivity } = require('../services/audit');
 const { issueCsrfToken, clearCsrfToken } = require('../middleware/csrf');
 const { hashInviteToken } = require('../services/invites');
@@ -98,7 +98,7 @@ router.post('/register', validate(registerSchema), asyncHandler(async (req, res)
 
   res.cookie('session_token', token, SESSION_COOKIE_OPTIONS);
   issueCsrfToken(res);
-  await logActivity(req, 'auth.user.register', 'user', result.rows[0].id, {
+  await logActivity({ ...req, user: { id: result.rows[0].id, role: result.rows[0].role, email: result.rows[0].email } }, 'auth.user.register', 'user', result.rows[0].id, {
     email: result.rows[0].email,
     role: result.rows[0].role,
     inviteTokenUsed: Boolean(inviteToken),
@@ -140,7 +140,7 @@ router.post('/login', validate(loginSchema), asyncHandler(async (req, res) => {
   const { password: _, ...userWithoutPassword } = user;
   res.cookie('session_token', token, SESSION_COOKIE_OPTIONS);
   issueCsrfToken(res);
-  await logActivity(req, 'auth.user.login', 'user', user.id, { email: user.email });
+  await logActivity({ ...req, user: { id: user.id, role: user.role, email: user.email } }, 'auth.user.login', 'user', user.id, { email: user.email });
   recordAuthEvent('login', 'succeeded');
   res.json({
     user: {
@@ -154,6 +154,7 @@ router.post('/login', validate(loginSchema), asyncHandler(async (req, res) => {
 
 router.post('/logout', asyncHandler(async (req, res) => {
   const cookieToken = req.cookies?.session_token;
+  const sessionUser = cookieToken ? await getSessionUserByToken(cookieToken) : null;
   if (cookieToken) {
     await revokeSessionByToken(cookieToken);
   }
@@ -164,7 +165,20 @@ router.post('/logout', asyncHandler(async (req, res) => {
     path: SESSION_COOKIE_OPTIONS.path
   });
   clearCsrfToken(res);
-  await logActivity(req, 'auth.user.logout', 'user', req.user?.id || null, null);
+  const auditReq = sessionUser
+    ? {
+        ...req,
+        user: {
+          id: sessionUser.id,
+          email: sessionUser.email,
+          role: sessionUser.role,
+          activeSpaceId: sessionUser.active_space_id ?? null,
+          activeLibraryId: sessionUser.active_library_id ?? null
+        },
+        sessionId: sessionUser.session_id
+      }
+    : req;
+  await logActivity(auditReq, 'auth.user.logout', 'user', sessionUser?.id || req.user?.id || null, null);
   res.json({ message: 'Logged out' });
 }));
 

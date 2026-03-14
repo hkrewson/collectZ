@@ -123,11 +123,18 @@ This roadmap converts product direction into implementation milestones with acce
 
 **Code structure (required before 1.7):**
 
-- Split `server.js` (currently ~1,500 lines) into a proper module structure:
+- Split the former monolithic backend into a proper module structure while keeping `backend/server.js` as a thin bootstrap/composition root only:
   - `backend/routes/` — `auth.js`, `media.js`, `admin.js`, `integrations.js`
   - `backend/middleware/` — `authenticate.js`, `requireRole.js`, `asyncHandler.js`
   - `backend/services/` — `tmdb.js`, `barcode.js`, `vision.js`
   - `backend/db/` — `pool.js`, `migrations.js`
+- Limit `backend/server.js` to:
+  - Express app bootstrap and middleware composition,
+  - route mounting,
+  - startup validation/migration wiring,
+  - health/bootstrap endpoints,
+  - process startup and shutdown concerns.
+- Do not keep feature-specific route handlers, business logic, provider integrations, or direct domain-query orchestration in `backend/server.js`.
 - Add a centralized async error handler. All route handlers must be wrapped with an `asyncHandler` utility that catches unhandled promise rejections and passes them to Express's error middleware, preventing silent 500s:
   ```js
   const asyncHandler = fn => (req, res, next) =>
@@ -152,7 +159,7 @@ This roadmap converts product direction into implementation milestones with acce
 - Request logs appear in `docker compose logs backend` for every API request.
 - Tokens are issued as `httpOnly` cookies; `localStorage` is no longer used for auth state.
 - All write endpoint bodies are validated via zod; malformed requests return structured 400 errors.
-- `server.js` is replaced by a module tree; the single file no longer exists.
+- Backend route, middleware, service, and DB responsibilities live in dedicated modules; `backend/server.js` remains only as a thin bootstrap/composition entrypoint.
 
 ### DB Checklist
 

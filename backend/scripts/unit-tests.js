@@ -1038,6 +1038,25 @@ results.push(run('audit source wires structured log export behind activity loggi
   assert.ok(auditSource.includes('maybeExportActivityLog'));
 }));
 
+results.push(run('audit middleware source records path and error summary for request outcome entries', () => {
+  const auditMiddlewareSource = require('fs').readFileSync(require.resolve('../middleware/audit'), 'utf8');
+  assert.ok(auditMiddlewareSource.includes("path: req.originalUrl?.split('?')[0]"));
+  assert.ok(auditMiddlewareSource.includes('errorSummary'));
+  assert.ok(auditMiddlewareSource.includes('response: errorSummary'));
+}));
+
+results.push(run('logout route resolves session user before revoking token for audit attribution', () => {
+  const authRoutesSource = require('fs').readFileSync(require.resolve('../routes/auth'), 'utf8');
+  assert.ok(authRoutesSource.includes('getSessionUserByToken'));
+  assert.ok(authRoutesSource.includes("await logActivity(auditReq, 'auth.user.logout'"));
+}));
+
+results.push(run('auth routes attribute register and login audit events to the acting user id', () => {
+  const authRoutesSource = require('fs').readFileSync(require.resolve('../routes/auth'), 'utf8');
+  assert.ok(authRoutesSource.includes("await logActivity({ ...req, user: { id: result.rows[0].id"));
+  assert.ok(authRoutesSource.includes("await logActivity({ ...req, user: { id: user.id"));
+}));
+
 results.push(run('server source assigns request ids before request logging', () => {
   assert.ok(serverSource.includes("const { requestIdMiddleware } = require('./middleware/requestId');"));
   assert.ok(serverSource.includes('app.use(requestIdMiddleware);'));
