@@ -1,0 +1,874 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "collectZ API",
+    "version": "2.5.0",
+    "description": "Baseline OpenAPI contract for key auth, admin, and media endpoints."
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "Same-origin API server"
+    }
+  ],
+  "tags": [
+    { "name": "Health" },
+    { "name": "Auth" },
+    { "name": "Admin" },
+    { "name": "Media" },
+    { "name": "Observability" }
+  ],
+  "components": {
+    "securitySchemes": {
+      "cookieSession": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "session_token",
+        "description": "Browser session cookie."
+      },
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "PAT or service-account key"
+      },
+      "csrfHeader": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-CSRF-Token",
+        "description": "Required for mutating cookie-session requests."
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": { "type": "string" }
+        },
+        "required": ["error"],
+        "additionalProperties": true
+      },
+      "Health": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string", "example": "ok" },
+          "app": { "type": "string" },
+          "version": { "type": "string" },
+          "frontend": { "type": "string" },
+          "backend": { "type": "string" },
+          "build": { "type": "string" }
+        },
+        "required": ["status", "app", "version", "frontend", "backend", "build"]
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "email": { "type": "string", "format": "email" },
+          "name": { "type": "string" },
+          "role": { "type": "string" },
+          "active_space_id": { "type": ["integer", "null"] },
+          "active_library_id": { "type": ["integer", "null"] },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        },
+        "required": ["id", "email", "name", "role"]
+      },
+      "LoginRequest": {
+        "type": "object",
+        "properties": {
+          "email": { "type": "string", "format": "email" },
+          "password": { "type": "string" }
+        },
+        "required": ["email", "password"]
+      },
+      "LoginResponse": {
+        "type": "object",
+        "properties": {
+          "user": { "$ref": "#/components/schemas/User" }
+        },
+        "required": ["user"]
+      },
+      "NamedTokenRecord": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "name": { "type": "string" },
+          "expires_at": { "type": ["string", "null"], "format": "date-time" },
+          "last_used_at": { "type": ["string", "null"], "format": "date-time" },
+          "revoked_at": { "type": ["string", "null"], "format": "date-time" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        },
+        "required": ["id", "name", "created_at", "updated_at"]
+      },
+      "PersonalAccessTokenRecord": {
+        "allOf": [
+          { "$ref": "#/components/schemas/NamedTokenRecord" },
+          {
+            "type": "object",
+            "properties": {
+              "user_id": { "type": "integer" },
+              "token_last_four": { "type": "string" },
+              "scopes": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            },
+            "required": ["user_id", "token_last_four", "scopes"]
+          }
+        ]
+      },
+      "ServiceAccountKeyRecord": {
+        "allOf": [
+          { "$ref": "#/components/schemas/NamedTokenRecord" },
+          {
+            "type": "object",
+            "properties": {
+              "owner_user_id": { "type": "integer" },
+              "created_by_user_id": { "type": ["integer", "null"] },
+              "key_last_four": { "type": "string" },
+              "scopes": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "allowed_prefixes": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            },
+            "required": ["owner_user_id", "key_last_four", "scopes", "allowed_prefixes"]
+          }
+        ]
+      },
+      "PersonalAccessTokenCreateRequest": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "scopes": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "expires_at": { "type": ["string", "null"], "format": "date-time" }
+        },
+        "required": ["name"]
+      },
+      "ServiceAccountKeyCreateRequest": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "scopes": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "allowed_prefixes": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "expires_at": { "type": ["string", "null"], "format": "date-time" }
+        },
+        "required": ["name"]
+      },
+      "PersonalAccessTokenListResponse": {
+        "type": "object",
+        "properties": {
+          "scopes": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "tokens": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/PersonalAccessTokenRecord" }
+          }
+        },
+        "required": ["scopes", "tokens"]
+      },
+      "PersonalAccessTokenCreateResponse": {
+        "type": "object",
+        "properties": {
+          "token": { "type": "string" },
+          "record": { "$ref": "#/components/schemas/PersonalAccessTokenRecord" }
+        },
+        "required": ["token", "record"]
+      },
+      "ServiceAccountKeyListResponse": {
+        "type": "object",
+        "properties": {
+          "scopes": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "allowed_prefixes": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "keys": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ServiceAccountKeyRecord" }
+          }
+        },
+        "required": ["scopes", "allowed_prefixes", "keys"]
+      },
+      "ServiceAccountKeyCreateResponse": {
+        "type": "object",
+        "properties": {
+          "key": { "type": "string" },
+          "record": { "$ref": "#/components/schemas/ServiceAccountKeyRecord" }
+        },
+        "required": ["key", "record"]
+      },
+      "InviteCreateRequest": {
+        "type": "object",
+        "properties": {
+          "email": { "type": "string", "format": "email" },
+          "expose_token": { "type": "boolean", "description": "Explicitly reveal token and invite_url in the response for admin copy-link fallback." }
+        },
+        "required": ["email"]
+      },
+      "InviteCreateResponse": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "email": { "type": "string", "format": "email" },
+          "used": { "type": "boolean" },
+          "revoked": { "type": "boolean" },
+          "used_by": { "type": ["integer", "null"] },
+          "used_at": { "type": ["string", "null"], "format": "date-time" },
+          "expires_at": { "type": "string", "format": "date-time" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "delivery": {
+            "type": "object",
+            "properties": {
+              "attempted": { "type": "boolean" },
+              "sent": { "type": "boolean" },
+              "reason": { "type": ["string", "null"] }
+            },
+            "required": ["attempted", "sent"]
+          },
+          "token": { "type": "string" },
+          "invite_url": { "type": "string" }
+        },
+        "required": ["id", "email", "used", "revoked", "expires_at", "created_at", "delivery"]
+      },
+      "MediaListResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "integer" },
+                "title": { "type": "string" },
+                "media_type": { "type": "string" },
+                "year": { "type": ["integer", "null"] },
+                "library_id": { "type": ["integer", "null"] },
+                "tmdb_id": { "type": ["integer", "null"] },
+                "tmdb_media_type": { "type": ["string", "null"] },
+                "poster_path": { "type": ["string", "null"] }
+              },
+              "required": ["id", "title", "media_type"]
+            }
+          },
+          "pagination": {
+            "type": "object",
+            "properties": {
+              "page": { "type": "integer" },
+              "limit": { "type": "integer" },
+              "total": { "type": "integer" },
+              "totalPages": { "type": "integer" },
+              "hasMore": { "type": "boolean" }
+            },
+            "required": ["page", "limit", "total", "totalPages", "hasMore"]
+          }
+        },
+        "required": ["items", "pagination"]
+      },
+      "SyncJobResponse": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "provider": { "type": ["string", "null"] },
+          "status": { "type": "string" },
+          "summary": { "type": "object" },
+          "progress": { "type": "object" },
+          "error": { "type": ["string", "null"] },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        },
+        "required": ["id", "status", "summary", "progress", "created_at", "updated_at"]
+      },
+      "QueuedJobResponse": {
+        "type": "object",
+        "properties": {
+          "ok": { "type": "boolean" },
+          "queued": { "type": "boolean" },
+          "provider": { "type": ["string", "null"] },
+          "job_id": { "type": "integer" },
+          "status": { "type": "string" },
+          "status_url": { "type": "string" },
+          "job": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "integer" },
+              "status": { "type": "string" },
+              "provider": { "type": ["string", "null"] },
+              "progress": { "type": "object" }
+            },
+            "required": ["id", "status", "progress"]
+          }
+        },
+        "required": ["ok", "queued", "job_id", "status", "status_url", "job"]
+      },
+      "MetricsText": {
+        "type": "string",
+        "description": "Prometheus text exposition format."
+      }
+    }
+  },
+  "paths": {
+    "/api/health": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Read backend health metadata",
+        "responses": {
+          "200": {
+            "description": "Healthy response",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Health" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Create a browser session",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LoginRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authenticated user payload",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/LoginResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "tags": ["Auth"],
+        "summary": "Read the current authenticated user",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": { "$ref": "#/components/schemas/User" }
+                  },
+                  "required": ["user"]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/personal-access-tokens": {
+      "get": {
+        "tags": ["Auth"],
+        "summary": "List personal access tokens for the current session user",
+        "security": [
+          { "cookieSession": [] }
+        ],
+        "responses": {
+          "200": {
+            "description": "Token list",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PersonalAccessTokenListResponse" }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Create a personal access token",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PersonalAccessTokenCreateRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Token created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PersonalAccessTokenCreateResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/personal-access-tokens/{id}": {
+      "delete": {
+        "tags": ["Auth"],
+        "summary": "Revoke a personal access token",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Token revoked",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PersonalAccessTokenRecord" }
+              }
+            }
+          },
+          "404": {
+            "description": "Token not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/service-account-keys": {
+      "get": {
+        "tags": ["Auth"],
+        "summary": "List service account keys",
+        "security": [
+          { "cookieSession": [] }
+        ],
+        "responses": {
+          "200": {
+            "description": "Service account key list",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ServiceAccountKeyListResponse" }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Create a service account key",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ServiceAccountKeyCreateRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Service account key created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ServiceAccountKeyCreateResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/service-account-keys/{id}": {
+      "delete": {
+        "tags": ["Auth"],
+        "summary": "Revoke a service account key",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Key revoked",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ServiceAccountKeyRecord" }
+              }
+            }
+          },
+          "404": {
+            "description": "Key not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/invites": {
+      "post": {
+        "tags": ["Admin"],
+        "summary": "Create an invite for a user",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/InviteCreateRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Invite created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/InviteCreateResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/docs": {
+      "get": {
+        "tags": ["Observability"],
+        "summary": "Serve the admin-only API documentation UI",
+        "security": [
+          { "cookieSession": [] }
+        ],
+        "responses": {
+          "200": {
+            "description": "Swagger UI HTML shell",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Docs are unavailable because the debug/feature-flag gate is closed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/docs/openapi.json": {
+      "get": {
+        "tags": ["Observability"],
+        "summary": "Read the current OpenAPI contract",
+        "security": [
+          { "cookieSession": [] }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current OpenAPI document",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Docs are unavailable because the debug/feature-flag gate is closed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/metrics": {
+      "get": {
+        "tags": ["Observability"],
+        "summary": "Read the admin-only Prometheus-style metrics export",
+        "security": [
+          { "cookieSession": [] }
+        ],
+        "responses": {
+          "200": {
+            "description": "Prometheus metrics payload",
+            "content": {
+              "text/plain": {
+                "schema": { "$ref": "#/components/schemas/MetricsText" }
+              }
+            }
+          },
+          "404": {
+            "description": "Metrics are unavailable because the debug/feature-flag gate is closed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/media": {
+      "get": {
+        "tags": ["Media"],
+        "summary": "List media records",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": { "type": "integer", "minimum": 1 }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": { "type": "integer", "minimum": 1 }
+          },
+          {
+            "in": "query",
+            "name": "library_id",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paged media list",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/MediaListResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/media/import-plex": {
+      "post": {
+        "tags": ["Media"],
+        "summary": "Launch a Plex import job",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "responses": {
+          "202": {
+            "description": "Import queued",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/QueuedJobResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Integration configuration error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/media/sync-jobs": {
+      "get": {
+        "tags": ["Media"],
+        "summary": "List sync jobs visible to the current user",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sync job list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/SyncJobResponse" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/media/sync-jobs/{id}": {
+      "get": {
+        "tags": ["Media"],
+        "summary": "Read compact sync job status",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sync job status",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SyncJobResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "Sync job not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/media/sync-jobs/{id}/result": {
+      "get": {
+        "tags": ["Media"],
+        "summary": "Read the full sync job result",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Full sync job result",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SyncJobResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "Sync job not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

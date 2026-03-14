@@ -1,0 +1,167 @@
+groups:
+  - name: collectz-api
+    rules:
+      - alert: CollectZApiRouteFailureRateHigh
+        expr: |
+          (
+            sum by (route) (rate(collectz_http_request_failures_total{status=~"5.."}[5m]))
+            /
+            clamp_min(sum by (route) (rate(collectz_http_requests_total[5m])), 0.001)
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          category: api
+        annotations:
+          summary: "collectZ API failure ratio is high on {{ $labels.route }}"
+          description: "5xx failure ratio has exceeded 5% for 5 minutes on {{ $labels.route }}."
+          runbook: "docs/wiki/30-Observability-Triage-Runbook.md"
+
+      - alert: CollectZApiLatencyP95High
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le, route) (
+              rate(collectz_http_request_duration_ms_bucket[10m])
+            )
+          ) > 1000
+        for: 10m
+        labels:
+          severity: warning
+          category: latency
+        annotations:
+          summary: "collectZ API p95 latency is high on {{ $labels.route }}"
+          description: "Request p95 has exceeded 1000ms for 10 minutes on {{ $labels.route }}."
+          runbook: "docs/wiki/30-Observability-Triage-Runbook.md"
+
+  - name: collectz-auth
+    rules:
+      - alert: CollectZLoginFailuresSpiking
+        expr: |
+          sum(rate(collectz_auth_events_total{action="login",outcome="failed"}[5m])) > 0.2
+        for: 10m
+        labels:
+          severity: warning
+          category: auth
+        annotations:
+          summary: "collectZ login failures are spiking"
+          description: "Login failures have remained above the starter threshold for 10 minutes."
+          runbook: "docs/wiki/30-Observability-Triage-Runbook.md"
+
+      - alert: CollectZPasswordResetConsumeFailures
+        expr: |
+          sum(rate(collectz_auth_events_total{action="password_reset_consume",outcome="failed"}[5m])) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+          category: auth
+        annotations:
+          summary: "collectZ password reset consume failures are elevated"
+          description: "Password reset consume failures have remained above the starter threshold for 10 minutes."
+          runbook: "docs/wiki/30-Observability-Triage-Runbook.md"
+
+  - name: collectz-imports
+    rules:
+      - alert: CollectZImportFailuresByProvider
+        expr: |
+          sum by (provider) (
+            increase(collectz_import_jobs_total{status="failed"}[15m])
+          ) > 3
+        for: 5m
+        labels:
+          severity: warning
+          category: import
+        annotations:
+          summary: "collectZ {{ $labels.provider }} imports are failing repeatedly"
+          description: "More than 3 {{ $labels.provider }} import failures were observed in 15 minutes."
+          runbook: "docs/wiki/30-Observability-Triage-Runbook.md"
+
+      - alert: CollectZPlexPosterNoMatchElevated
+        expr: |
+          increase(collectz_import_enrichment_total{provider="plex",kind="tmdb_poster",outcome="no_match"}[15m]) > 25
+        for: 10m
+        labels:
+          severity: warning
+          category: import
+          provider: plex
+        annotations:
+          summary: "collectZ Plex poster no-match outcomes are elevated"
+          description: "TMDB poster no-match outcomes for Plex imports exceeded the starter threshold in 15 minutes."
+          runbook: "docs/wiki/30-Observability-Triage-Runbook.md"
+
+      - alert: CollectZDeliciousNoMatchRatioHigh
+        expr: |
+          (
+            sum(increase(collectz_import_enrichment_total{provider="csv_delicious",kind="pipeline",outcome="no_match"}[15m]))
+            /
+            clamp_min(
+              sum(increase(collectz_import_enrichment_total{provider="csv_delicious",kind="pipeline",outcome=~"enriched|no_match"}[15m])),
+              1
+            )
+          ) > 0.35
+          and
+          sum(increase(collectz_import_enrichment_total{provider="csv_delicious",kind="pipeline",outcome=~"enriched|no_match"}[15m])) >= 100
+        for: 10m
+        labels:
+          severity: warning
+          category: import
+          provider: csv_delicious
+        annotations:
+          summary: "collectZ Delicious import no-match ratio is elevated"
+          description: "Delicious import enrichment no-match ratio exceeded 35% across at least 100 processed items in 15 minutes."
+          runbook: "docs/wiki/30-Observability-Triage-Runbook.md"
+
+      - alert: CollectZTmdbProviderErrorsElevated
+        expr: |
+          increase(collectz_provider_requests_total{provider="tmdb",outcome=~"http_5..|error"}[15m]) > 10
+        for: 10m
+        labels:
+          severity: warning
+          category: import
+          provider: tmdb
+        annotations:
+          summary: "collectZ TMDB provider errors are elevated"
+          description: "TMDB request errors exceeded the starter threshold in 15 minutes."
+          runbook: "docs/wiki/30-Observability-Triage-Runbook.md"
+
+      - alert: CollectZSyncJobsQueuedGrowing
+        expr: |
+          max_over_time(collectz_sync_jobs{status="queued"}[10m]) >= 5
+            and
+          (collectz_sync_jobs{status="queued"} > 0)
+        for: 10m
+        labels:
+          severity: warning
+          category: import
+        annotations:
+          summary: "collectZ queued sync jobs are not draining"
+          description: "Queued sync jobs have remained elevated for 10 minutes."
+          runbook: "docs/wiki/30-Observability-Triage-Runbook.md"
+
+      - alert: CollectZSyncJobsRunningStuck
+        expr: |
+          max_over_time(collectz_sync_jobs{status="running"}[15m]) >= 3
+            and
+          increase(collectz_import_jobs_total{status="succeeded"}[15m]) == 0
+        for: 15m
+        labels:
+          severity: warning
+          category: import
+        annotations:
+          summary: "collectZ running sync jobs may be stuck"
+          description: "Running sync jobs stayed elevated for 15 minutes without corresponding success completions."
+          runbook: "docs/wiki/30-Observability-Triage-Runbook.md"
+
+  - name: collectz-admin
+    rules:
+      - alert: CollectZAdminMutationFailures
+        expr: |
+          increase(collectz_admin_actions_total{outcome="failed"}[10m]) > 5
+        for: 10m
+        labels:
+          severity: warning
+          category: admin
+        annotations:
+          summary: "collectZ admin mutation failures are elevated"
+          description: "Admin mutation failures exceeded 5 in 10 minutes."
+          runbook: "docs/wiki/30-Observability-Triage-Runbook.md"

@@ -30,6 +30,7 @@ const { syncNormalizedMetadataForMedia } = require('../services/mediaTaxonomy');
 const { normalizeTypeDetails } = require('../services/typeDetails');
 const { formatSyncJob } = require('../services/syncJobs');
 const { logError, logActivity } = require('../services/audit');
+const { recordImportJobEvent, recordImportEnrichmentEvent } = require('../services/metrics');
 const { uploadBuffer } = require('../services/storage');
 const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
 const { isFeatureEnabled } = require('../services/featureFlags');
@@ -128,6 +129,29 @@ function buildImportEnrichmentCounters() {
 function incrementImportEnrichmentCounter(counters, status) {
   if (!counters || !status || !Object.prototype.hasOwnProperty.call(counters, status)) return;
   counters[status] += 1;
+}
+
+function recordImportEnrichmentSummaryMetrics(provider, summary = null) {
+  if (!summary || typeof summary !== 'object') return;
+  for (const [outcome, count] of Object.entries(summary)) {
+    const amount = Number(count || 0);
+    if (amount > 0) recordImportEnrichmentEvent(provider, 'pipeline', outcome, amount);
+  }
+}
+
+function recordPlexEnrichmentMetrics(result = null) {
+  if (!result || typeof result !== 'object') return;
+  const summary = result.summary || {};
+  const posterEnriched = Number(result.tmdbPosterEnriched || 0);
+  const posterNoMatch = Number(result.tmdbPosterLookupNoMatch || 0);
+  const posterNoImage = Number(result.tmdbPosterLookupNoImage || 0);
+  const seasonMisses = Number((summary.enrichmentMisses || []).length || 0);
+  const seasonErrors = Number((summary.enrichmentErrors || []).length || 0);
+  if (posterEnriched > 0) recordImportEnrichmentEvent('plex', 'tmdb_poster', 'enriched', posterEnriched);
+  if (posterNoMatch > 0) recordImportEnrichmentEvent('plex', 'tmdb_poster', 'no_match', posterNoMatch);
+  if (posterNoImage > 0) recordImportEnrichmentEvent('plex', 'tmdb_poster', 'no_image', posterNoImage);
+  if (seasonMisses > 0) recordImportEnrichmentEvent('plex', 'tmdb_season_summary', 'miss', seasonMisses);
+  if (seasonErrors > 0) recordImportEnrichmentEvent('plex', 'tmdb_season_summary', 'error', seasonErrors);
 }
 
 function buildImportAuditOutcomeCounters() {
@@ -4853,6 +4877,7 @@ router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, r
         errorCount: 0
       }
     });
+    recordImportJobEvent('csv_generic', 'queued');
 
     setImmediate(async () => {
       try {
@@ -4890,6 +4915,8 @@ router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, r
           },
           finished_at: new Date()
         });
+        recordImportJobEvent('csv_generic', 'succeeded');
+        recordImportEnrichmentSummaryMetrics('csv_generic', result.summary.enrichment);
         await logActivity(auditReq, 'media.import.csv', 'media', null, {
           rows: result.rows,
           created: result.summary.created,
@@ -4905,6 +4932,7 @@ router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, r
           jobId: job.id
         });
       } catch (error) {
+        recordImportJobEvent('csv_generic', 'failed');
         await updateSyncJob(job.id, {
           status: 'failed',
           error: error.message || 'CSV import failed',
@@ -4926,6 +4954,8 @@ router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, r
     scopeContext,
     reviewContext: { provider: 'csv_generic' }
   });
+  recordImportJobEvent('csv_generic', 'succeeded');
+  recordImportEnrichmentSummaryMetrics('csv_generic', result.summary.enrichment);
   await logActivity(req, 'media.import.csv', 'media', null, {
     rows: result.rows,
     created: result.summary.created,
@@ -5024,6 +5054,8 @@ router.post('/import-csv/calibre', tempUpload.single('file'), asyncHandler(async
           },
           finished_at: new Date()
         });
+        recordImportJobEvent('csv_calibre', 'succeeded');
+        recordImportEnrichmentSummaryMetrics('csv_calibre', result.summary.enrichment);
         await logActivity(auditReq, 'media.import.calibre', 'media', null, {
           rows: result.rows,
           created: result.summary.created,
@@ -5039,6 +5071,7 @@ router.post('/import-csv/calibre', tempUpload.single('file'), asyncHandler(async
           jobId: job.id
         });
       } catch (error) {
+        recordImportJobEvent('csv_calibre', 'failed');
         await updateSyncJob(job.id, {
           status: 'failed',
           error: error.message || 'Calibre import failed',
@@ -5051,6 +5084,7 @@ router.post('/import-csv/calibre', tempUpload.single('file'), asyncHandler(async
       }
     });
 
+    recordImportJobEvent('csv_calibre', 'queued');
     return res.status(202).json(buildQueuedJobResponse(job, 'csv_calibre'));
   }
 
@@ -5061,6 +5095,8 @@ router.post('/import-csv/calibre', tempUpload.single('file'), asyncHandler(async
     importSource: 'csv_calibre',
     reviewContext: { provider: 'csv_calibre' }
   });
+  recordImportJobEvent('csv_calibre', 'succeeded');
+  recordImportEnrichmentSummaryMetrics('csv_calibre', result.summary.enrichment);
   await logActivity(req, 'media.import.calibre', 'media', null, {
     rows: result.rows,
     created: result.summary.created,
@@ -5165,6 +5201,8 @@ router.post('/import-csv/delicious', tempUpload.single('file'), asyncHandler(asy
           },
           finished_at: new Date()
         });
+        recordImportJobEvent('csv_delicious', 'succeeded');
+        recordImportEnrichmentSummaryMetrics('csv_delicious', result.summary.enrichment);
         await logActivity(auditReq, 'media.import.csv.delicious', 'media', null, {
           rows: result.rows,
           created: result.summary.created,
@@ -5181,6 +5219,7 @@ router.post('/import-csv/delicious', tempUpload.single('file'), asyncHandler(asy
           jobId: job.id
         });
       } catch (error) {
+        recordImportJobEvent('csv_delicious', 'failed');
         await updateSyncJob(job.id, {
           status: 'failed',
           error: error.message || 'Delicious CSV import failed',
@@ -5193,6 +5232,7 @@ router.post('/import-csv/delicious', tempUpload.single('file'), asyncHandler(asy
       }
     });
 
+    recordImportJobEvent('csv_delicious', 'queued');
     return res.status(202).json(buildQueuedJobResponse(job, 'csv_delicious'));
   }
 
@@ -5202,6 +5242,8 @@ router.post('/import-csv/delicious', tempUpload.single('file'), asyncHandler(asy
     scopeContext,
     reviewContext: { provider: 'csv_delicious' }
   });
+  recordImportJobEvent('csv_delicious', 'succeeded');
+  recordImportEnrichmentSummaryMetrics('csv_delicious', result.summary.enrichment);
   await logActivity(req, 'media.import.csv.delicious', 'media', null, {
     rows: result.rows,
     created: result.summary.created,
@@ -5315,6 +5357,8 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
           },
           finished_at: new Date()
         });
+        recordImportJobEvent('plex', 'succeeded');
+        recordPlexEnrichmentMetrics(result);
 
         await logActivity(auditReq, 'media.import.plex', 'media', null, {
           sectionIds,
@@ -5337,6 +5381,7 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
         });
       } catch (error) {
         logError('Plex async import failed', error);
+        recordImportJobEvent('plex', 'failed');
         await updateSyncJob(job.id, {
           status: 'failed',
           error: error.message || 'Plex import failed',
@@ -5376,10 +5421,13 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
       seasonsUpdated: result.seasonsUpdated,
       enrichmentErrorCount: (result.summary.enrichmentErrors || []).length
     });
+    recordImportJobEvent('plex', 'succeeded');
+    recordPlexEnrichmentMetrics(result);
 
     return res.json({ ok: true, ...result });
   } catch (error) {
     logError('Plex import fetch failed', error);
+    recordImportJobEvent('plex', 'failed');
     await logActivity(req, 'media.import.plex.failed', 'media', null, {
       sectionIds,
       detail: error.message || 'Plex import failed'
@@ -5410,6 +5458,7 @@ router.post('/import-comics', asyncHandler(async (req, res) => {
       scope: jobScopePayload(scopeContext),
       progress: { total: 0, processed: 0, created: 0, updated: 0, skipped: 0, errorCount: 0 }
     });
+    recordImportJobEvent('metron', 'queued');
 
     process.nextTick(async () => {
       const auditReq = { ...req, user: req.user };
@@ -5443,6 +5492,7 @@ router.post('/import-comics', asyncHandler(async (req, res) => {
             errorCount: result.summary.errors.length
           }
         });
+        recordImportJobEvent('metron', 'succeeded');
         await logActivity(auditReq, 'media.import.metron', 'media', null, {
           imported: result.imported,
           totalAvailable: result.totalAvailable || result.imported,
@@ -5456,6 +5506,7 @@ router.post('/import-comics', asyncHandler(async (req, res) => {
         });
       } catch (error) {
         logError('Metron import failed', error);
+        recordImportJobEvent('metron', 'failed');
         await updateSyncJob(job.id, {
           status: 'failed',
           finished_at: new Date(),
@@ -5483,9 +5534,11 @@ router.post('/import-comics', asyncHandler(async (req, res) => {
       errorCount: result.summary.errors.length,
       collectionEndpoint: result.collectionEndpoint
     });
+    recordImportJobEvent('metron', 'succeeded');
     return res.json({ ok: true, ...result });
   } catch (error) {
     logError('Metron import failed', error);
+    recordImportJobEvent('metron', 'failed');
     await logActivity(req, 'media.import.metron.failed', 'media', null, {
       detail: error.message || 'Metron import failed'
     });

@@ -26,6 +26,13 @@ Start here for deployment and operations guidance.
 20. [Metadata Normalization Cutover Plan](./23-Metadata-Normalization-Cutover-Plan.md)
 21. [Personal Access Tokens](./25-Personal-Access-Tokens.md)
 22. [Service Account Keys](./27-Service-Account-Keys.md)
+23. [API Contract and OpenAPI](./28-API-Contract-and-OpenAPI.md)
+24. [Metrics and Alerts](./29-Metrics-and-Alerts.md)
+25. [Observability Triage Runbook](./30-Observability-Triage-Runbook.md)
+26. [Observability Dashboard Spec](./31-Observability-Dashboard-Spec.md)
+27. [Alert Rules Spec](./32-Alert-Rules-Spec.md)
+28. [Prometheus and Grafana Integration Guide](./33-Prometheus-and-Grafana-Integration-Guide.md)
+29. [Observability Baseline Tuning Log](./34-Observability-Baseline-Tuning-Log.md)
 
 ## Default Admin Behavior (Important)
 

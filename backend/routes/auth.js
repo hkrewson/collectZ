@@ -22,6 +22,7 @@ const {
   listServiceAccountKeys,
   revokeServiceAccountKey
 } = require('../services/serviceAccountKeys');
+const { recordAuthEvent } = require('../services/metrics');
 
 const router = express.Router();
 
@@ -51,18 +52,22 @@ router.post('/register', validate(registerSchema), asyncHandler(async (req, res)
       [tokenHash, inviteToken]
     );
     if (invite.rows.length === 0) {
+      recordAuthEvent('register', 'failed');
       return res.status(400).json({ error: 'Invalid or expired invite token' });
     }
     if (String(invite.rows[0].email).toLowerCase() !== String(email).toLowerCase()) {
+      recordAuthEvent('register', 'failed');
       return res.status(400).json({ error: 'Invite token is not valid for this email address' });
     }
     claimedInvite = invite.rows[0];
   } else if (existingUserCount > 0) {
+    recordAuthEvent('register', 'failed');
     return res.status(400).json({ error: 'An invite token is required to register' });
   }
 
   const existingUser = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
   if (existingUser.rows.length > 0) {
+    recordAuthEvent('register', 'failed');
     return res.status(409).json({ error: 'An account with that email already exists' });
   }
 
@@ -99,6 +104,7 @@ router.post('/register', validate(registerSchema), asyncHandler(async (req, res)
     inviteTokenUsed: Boolean(inviteToken),
     activeLibraryId
   });
+  recordAuthEvent('register', 'succeeded');
   res.json({
     user: {
       ...result.rows[0],
@@ -114,12 +120,14 @@ router.post('/login', validate(loginSchema), asyncHandler(async (req, res) => {
 
   const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
   if (result.rows.length === 0) {
+    recordAuthEvent('login', 'failed');
     return res.status(401).json({ error: 'Invalid email or password' });
   }
 
   const user = result.rows[0];
   const validPassword = await bcrypt.compare(password, user.password);
   if (!validPassword) {
+    recordAuthEvent('login', 'failed');
     return res.status(401).json({ error: 'Invalid email or password' });
   }
   const activeLibraryId = await ensureUserDefaultLibrary(user.id);
@@ -133,6 +141,7 @@ router.post('/login', validate(loginSchema), asyncHandler(async (req, res) => {
   res.cookie('session_token', token, SESSION_COOKIE_OPTIONS);
   issueCsrfToken(res);
   await logActivity(req, 'auth.user.login', 'user', user.id, { email: user.email });
+  recordAuthEvent('login', 'succeeded');
   res.json({
     user: {
       ...userWithoutPassword,
@@ -175,6 +184,7 @@ router.post('/password-reset/consume', validate(passwordResetConsumeSchema), asy
     [tokenHash]
   );
   if (resetLookup.rows.length === 0) {
+    recordAuthEvent('password_reset_consume', 'failed');
     await logActivity(req, 'auth.password_reset.consume.failed', 'password_reset', null, {
       email,
       reason: 'invalid_or_expired_token'
@@ -183,6 +193,7 @@ router.post('/password-reset/consume', validate(passwordResetConsumeSchema), asy
   }
   const resetRow = resetLookup.rows[0];
   if (String(resetRow.email).toLowerCase() !== String(email).toLowerCase()) {
+    recordAuthEvent('password_reset_consume', 'failed');
     await logActivity(req, 'auth.password_reset.consume.failed', 'user', resetRow.user_id, {
       email,
       reason: 'email_mismatch'
@@ -214,6 +225,7 @@ router.post('/password-reset/consume', validate(passwordResetConsumeSchema), asy
     email: resetRow.email,
     revokedSessionCount: revokedCount
   });
+  recordAuthEvent('password_reset_consume', 'succeeded');
   res.json({ user: me });
 }));
 

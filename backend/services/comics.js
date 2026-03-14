@@ -1,5 +1,6 @@
 const axios = require('axios');
 const appMeta = require('../app-meta.json');
+const { recordProviderRequestEvent } = require('./metrics');
 
 const COMICS_PRESETS = {
   metron: {
@@ -70,12 +71,20 @@ async function metronRateGate() {
 async function metronRequest(method, url, options = {}) {
   await metronRateGate();
   const headers = { ...(options.headers || {}), 'User-Agent': APP_USER_AGENT };
-  return axios({
-    method,
-    url,
-    ...options,
-    headers
-  });
+  try {
+    const response = await axios({
+      method,
+      url,
+      ...options,
+      headers
+    });
+    recordProviderRequestEvent('metron', `${String(method || 'get').toLowerCase()}`, 'success');
+    return response;
+  } catch (error) {
+    const outcome = error?.response?.status ? `http_${error.response.status}` : (error?.code || 'error');
+    recordProviderRequestEvent('metron', `${String(method || 'get').toLowerCase()}`, outcome);
+    throw error;
+  }
 }
 
 function resolveComicsPreset(preset) {

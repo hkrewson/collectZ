@@ -1,4 +1,5 @@
 const axios = require('axios');
+const { recordProviderRequestEvent } = require('./metrics');
 
 const TMDB_PRESETS = {
   tmdb: {
@@ -136,7 +137,15 @@ const searchTmdbMovie = async (title, year, integrationConfig = null, mediaType 
   if (apiKeyHeader) headers[apiKeyHeader] = apiKey;
   else params[apiKeyQueryParam] = apiKey;
 
-  const response = await axios.get(apiUrl, { params, headers });
+  let response;
+  try {
+    response = await axios.get(apiUrl, { params, headers });
+    recordProviderRequestEvent('tmdb', `search_${normalizedType}`, 'success');
+  } catch (error) {
+    const outcome = error?.response?.status ? `http_${error.response.status}` : 'error';
+    recordProviderRequestEvent('tmdb', `search_${normalizedType}`, outcome);
+    throw error;
+  }
   return (response.data?.results || []).map((r) => normalizeTmdbSearchResult(r, normalizedType));
 };
 
@@ -154,7 +163,15 @@ const searchTmdbMulti = async (title, year, integrationConfig = null) => {
   const headers = {};
   if (apiKeyHeader) headers[apiKeyHeader] = apiKey;
   else params[apiKeyQueryParam] = apiKey;
-  const response = await axios.get(apiUrl, { params, headers });
+  let response;
+  try {
+    response = await axios.get(apiUrl, { params, headers });
+    recordProviderRequestEvent('tmdb', 'search_multi', 'success');
+  } catch (error) {
+    const outcome = error?.response?.status ? `http_${error.response.status}` : 'error';
+    recordProviderRequestEvent('tmdb', 'search_multi', outcome);
+    throw error;
+  }
   const rows = Array.isArray(response.data?.results) ? response.data.results : [];
   return rows
     .filter((r) => r?.media_type === 'movie' || r?.media_type === 'tv')
@@ -183,7 +200,10 @@ const fetchTmdbMovieDetails = async (movieId, integrationConfig = null, mediaTyp
   let response;
   try {
     response = await axios.get(`${apiBaseUrl}${requestPath}`, { params, headers });
+    recordProviderRequestEvent('tmdb', `details_${normalizedType}`, 'success');
   } catch (error) {
+    const outcome = error?.response?.status ? `http_${error.response.status}` : 'error';
+    recordProviderRequestEvent('tmdb', `details_${normalizedType}`, outcome);
     throw wrapTmdbRequestError(error, requestPath);
   }
   const details = response.data || {};
@@ -247,7 +267,10 @@ const fetchTmdbTvShowSeasonSummary = async (tvId, integrationConfig = null) => {
   let response;
   try {
     response = await axios.get(`${apiBaseUrl}${requestPath}`, { params, headers });
+    recordProviderRequestEvent('tmdb', 'tv_season_summary', 'success');
   } catch (error) {
+    const outcome = error?.response?.status ? `http_${error.response.status}` : 'error';
+    recordProviderRequestEvent('tmdb', 'tv_season_summary', outcome);
     throw wrapTmdbRequestError(error, requestPath);
   }
   const seasons = Array.isArray(response.data?.seasons) ? response.data.seasons : [];
@@ -286,7 +309,10 @@ const fetchTmdbTvSeasonDetails = async (tvId, seasonNumber, integrationConfig = 
   let response;
   try {
     response = await axios.get(`${apiBaseUrl}${requestPath}`, { params, headers });
+    recordProviderRequestEvent('tmdb', 'tv_season_details', 'success');
   } catch (error) {
+    const outcome = error?.response?.status ? `http_${error.response.status}` : 'error';
+    recordProviderRequestEvent('tmdb', 'tv_season_details', outcome);
     throw wrapTmdbRequestError(error, requestPath);
   }
   const details = response.data || {};

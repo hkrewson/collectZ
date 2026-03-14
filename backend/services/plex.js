@@ -1,4 +1,5 @@
 const axios = require('axios');
+const { recordProviderRequestEvent } = require('./metrics');
 
 const PLEX_PRESETS = {
   plex: {
@@ -223,14 +224,24 @@ const plexRequest = async (config, path, params = {}) => {
   const urlBase = String(config.plexApiUrl || '').replace(/\/+$/, '');
   const queryParam = config.plexApiKeyQueryParam || 'X-Plex-Token';
   const reqParams = { ...params, [queryParam]: config.plexApiKey };
-  return axios.get(`${urlBase}${path}`, {
-    params: reqParams,
-    headers: {
-      Accept: 'application/json'
-    },
-    timeout: 25000,
-    validateStatus: () => true
-  });
+  try {
+    const response = await axios.get(`${urlBase}${path}`, {
+      params: reqParams,
+      headers: {
+        Accept: 'application/json'
+      },
+      timeout: 25000,
+      validateStatus: () => true
+    });
+    const status = Number(response?.status || 0);
+    const outcome = status >= 400 ? `http_${status}` : 'success';
+    recordProviderRequestEvent('plex', path, outcome);
+    return response;
+  } catch (error) {
+    const outcome = error?.response?.status ? `http_${error.response.status}` : 'error';
+    recordProviderRequestEvent('plex', path, outcome);
+    throw error;
+  }
 };
 
 const fetchPlexSections = async (config) => {

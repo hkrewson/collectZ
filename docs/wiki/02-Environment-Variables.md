@@ -55,6 +55,10 @@ openssl rand -hex 32
   - `FEATURE_FLAGS_READ_ONLY` (default `false`) — when true, admin flag updates are blocked (read-only control plane).
   - `FEATURE_FLAGS_CACHE_TTL_SECONDS` (default `10`) — backend feature-flag cache TTL.
     - Multi-instance note: cache is process-local; flag updates become visible on other backend instances after their TTL window expires.
+  - `METRICS_SCRAPE_TOKEN` (optional) — dedicated bearer token accepted by `/api/metrics`.
+    - Intended for Prometheus or another trusted internal scraper.
+    - Only active when `DEBUG>=1` and feature flag `metrics_enabled=true`.
+    - Keep it on private infrastructure only.
   - Optional per-flag env overrides (highest precedence):
     - `FEATURE_FLAG_IMPORT_PLEX_ENABLED`
     - `FEATURE_FLAG_IMPORT_CSV_ENABLED`

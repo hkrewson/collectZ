@@ -333,6 +333,10 @@ jobs:
         working-directory: backend
         run: npm run test:unit
 
+      - name: Validate OpenAPI contract
+        working-directory: backend
+        run: npm run test:openapi
+
       - name: Wait for Postgres
         working-directory: backend
         env:

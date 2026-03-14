@@ -44,6 +44,7 @@ Result: nav/version + `/api/health` build fields come from image build, not oper
 Migration safety in CI:
 
 - `migration-check` runs schema migrations against ephemeral Postgres.
+- Validates the OpenAPI baseline contract with `npm run test:openapi`.
 - Runs `init.sql` parity check against migration-built schema to detect bootstrap drift.
 - Verifies critical columns expected by current release.
 - Runs restore-based rollback rehearsal (`npm run test:migration-rehearsal`).
@@ -55,6 +56,7 @@ Security and release gates in CI:
 - Secret leak scan (gitleaks) against repository history and current tree.
 - Dependency vulnerability scan (`npm audit`) on backend/frontend dependencies.
 - RBAC regression gate (API-level ownership/role/scope allow-deny checks).
+- OpenAPI contract validation gate for key auth/admin/media endpoints.
 - Container image vulnerability scan (Trivy) for backend/frontend images.
 - SBOM generation (CycloneDX JSON) for backend/frontend images, uploaded as CI artifacts.
 - Tagged release preflight (`v*`) generates a go/no-go checklist artifact and fails if required evidence artifacts are missing.

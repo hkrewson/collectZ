@@ -27,6 +27,7 @@ const { runMigrations } = require('./db/migrations');
 const pool = require('./db/pool');
 const { requestLogger, errorHandler } = require('./middleware/errors');
 const { auditRequestOutcome, getMode } = require('./middleware/audit');
+const { metricsMiddleware } = require('./middleware/metrics');
 const { csrfProtection } = require('./middleware/csrf');
 
 const authRouter = require('./routes/auth');
@@ -36,6 +37,8 @@ const integrationsRouter = require('./routes/integrations');
 const librariesRouter = require('./routes/libraries');
 const eventsRouter = require('./routes/events');
 const collectiblesRouter = require('./routes/collectibles');
+const docsRouter = require('./routes/docs');
+const metricsRouter = require('./routes/metrics');
 const { cleanupExpiredSessions, SESSION_MAX_PER_USER, SESSION_TTL_DAYS } = require('./services/sessions');
 
 const app = express();
@@ -151,6 +154,7 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+app.use(metricsMiddleware);
 app.use(auditRequestOutcome);
 app.use('/api', csrfProtection);
 
@@ -238,6 +242,8 @@ app.use('/api/auth', authRouter);
 // for backward compatibility with existing frontend calls
 app.use('/api', authRouter);
 app.use('/api/media', mediaRouter);
+app.use('/api/docs', docsRouter);
+app.use('/api/metrics', metricsRouter);
 app.use('/api', eventsRouter);
 app.use('/api', collectiblesRouter);
 app.use('/api', integrationsRouter);

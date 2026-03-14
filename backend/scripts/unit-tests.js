@@ -13,6 +13,7 @@ const { sanitizeAuditDetails } = require('../services/audit');
 process.env.INTEGRATION_ENCRYPTION_KEY = process.env.INTEGRATION_ENCRYPTION_KEY || 'unit-test-integration-key';
 const { buildIntegrationResponse } = require('../services/integrationResponse');
 const { buildCompactJobSummary, formatSyncJob } = require('../services/syncJobs');
+const metricsModule = require('../services/metrics');
 const { shouldEnforceCsrf } = require('../middleware/csrf');
 const authModulePath = require.resolve('../middleware/auth');
 const {
@@ -22,6 +23,11 @@ const {
 const { isServiceAccountPrefixAllowed } = require('../services/serviceAccountKeys');
 const authRoutesSource = require('fs').readFileSync(require.resolve('../routes/auth'), 'utf8');
 const mediaRoutesSource = require('fs').readFileSync(require.resolve('../routes/media'), 'utf8');
+const openApiSource = require('fs').readFileSync(require.resolve('../openapi/openapi.yaml'), 'utf8');
+const docsRoutesSource = require('fs').readFileSync(require.resolve('../routes/docs'), 'utf8');
+const metricsRoutesSource = require('fs').readFileSync(require.resolve('../routes/metrics'), 'utf8');
+const dashboardSpec = JSON.parse(require('fs').readFileSync(require.resolve('../../ops/monitoring/grafana/dashboards/collectz-overview.json'), 'utf8'));
+const alertRulesSource = require('fs').readFileSync(require.resolve('../../docs/alerts/collectz-alert-rules.yaml'), 'utf8');
 
 function run(name, fn) {
   try {
@@ -515,9 +521,172 @@ results.push(run('syncJobs.formatSyncJob returns compact summary by default and 
   assert.deepStrictEqual(detailed.summary, job.summary);
 }));
 
+results.push(run('metrics service records normalized http and auth/import counters', () => {
+  metricsModule.recordHttpRequestMetric({
+    method: 'GET',
+    baseUrl: '/api/media',
+    route: { path: '/sync-jobs/:id' },
+    originalUrl: '/api/media/sync-jobs/14'
+  }, 404, 87);
+  metricsModule.recordHttpRequestMetric({
+    method: 'PATCH',
+    baseUrl: '/api/admin',
+    route: { path: '/users/:id/role' },
+    originalUrl: '/api/admin/users/4/role'
+  }, 200, 122);
+  metricsModule.recordAuthEvent('login', 'failed');
+  metricsModule.recordImportJobEvent('plex', 'queued');
+  assert.strictEqual(
+    metricsModule.getMetricCounterValue('httpRequests', { method: 'GET', route: '/api/media/sync-jobs/:id', status_class: '4xx' }),
+    1
+  );
+  assert.strictEqual(
+    metricsModule.getMetricCounterValue('httpFailures', { method: 'GET', route: '/api/media/sync-jobs/:id', status: '404' }),
+    1
+  );
+  assert.strictEqual(
+    metricsModule.getMetricCounterValue('authEvents', { action: 'login', outcome: 'failed' }),
+    1
+  );
+  assert.strictEqual(
+    metricsModule.getMetricCounterValue('importJobs', { provider: 'plex', status: 'queued' }),
+    1
+  );
+  metricsModule.recordImportEnrichmentEvent('plex', 'tmdb_poster', 'no_match', 2);
+  assert.strictEqual(
+    metricsModule.getMetricCounterValue('importEnrichment', { provider: 'plex', kind: 'tmdb_poster', outcome: 'no_match' }),
+    2
+  );
+  metricsModule.recordProviderRequestEvent('tmdb', 'search_movie', 'success', 3);
+  assert.strictEqual(
+    metricsModule.getMetricCounterValue('providerRequests', { provider: 'tmdb', operation: 'search_movie', outcome: 'success' }),
+    3
+  );
+  assert.strictEqual(
+    metricsModule.getMetricCounterValue('adminActions', { method: 'PATCH', route: '/api/admin/users/:id/role', outcome: 'succeeded' }),
+    1
+  );
+}));
+
 results.push(run('media route source stores tmdb poster miss samples in async job summaries', () => {
   assert.ok(mediaRoutesSource.includes('tmdbPosterLookupMissSamples'));
   assert.ok(mediaRoutesSource.includes('posterPresentAfterEnrichment'));
+}));
+
+results.push(run('media route source records import enrichment metrics for csv and plex paths', () => {
+  assert.ok(mediaRoutesSource.includes("recordImportJobEvent('csv_generic', 'queued')"));
+  assert.ok(mediaRoutesSource.includes("recordImportJobEvent('csv_calibre', 'queued')"));
+  assert.ok(mediaRoutesSource.includes("recordImportJobEvent('csv_delicious', 'queued')"));
+  assert.ok(mediaRoutesSource.includes('recordImportEnrichmentSummaryMetrics'));
+  assert.ok(mediaRoutesSource.includes('recordPlexEnrichmentMetrics'));
+  assert.ok(mediaRoutesSource.includes("recordImportEnrichmentEvent('plex', 'tmdb_poster', 'no_match'"));
+}));
+
+results.push(run('provider service sources record tmdb plex and metron request metrics', () => {
+  const tmdbSource = require('fs').readFileSync(require.resolve('../services/tmdb'), 'utf8');
+  const plexSource = require('fs').readFileSync(require.resolve('../services/plex'), 'utf8');
+  const comicsSource = require('fs').readFileSync(require.resolve('../services/comics'), 'utf8');
+  assert.ok(tmdbSource.includes("recordProviderRequestEvent('tmdb'"));
+  assert.ok(plexSource.includes("recordProviderRequestEvent('plex'"));
+  assert.ok(comicsSource.includes("recordProviderRequestEvent('metron'"));
+}));
+
+results.push(run('observability dashboard uses ratio and provider outcome panels for low-frequency import signals', () => {
+  const importOutcomesPanel = dashboardSpec.panels.find((panel) => panel.id === 10);
+  const enrichmentPanel = dashboardSpec.panels.find((panel) => panel.id === 12);
+  const deliciousRatioPanel = dashboardSpec.panels.find((panel) => panel.id === 13);
+  const trackedRatioPanel = dashboardSpec.panels.find((panel) => panel.id === 14);
+  const topProviderErrorsPanel = dashboardSpec.panels.find((panel) => panel.id === 15);
+  const providerRequestPanel = dashboardSpec.panels.find((panel) => panel.id === 16);
+
+  assert.ok(importOutcomesPanel);
+  assert.ok(enrichmentPanel);
+  assert.ok(deliciousRatioPanel);
+  assert.ok(trackedRatioPanel);
+  assert.ok(topProviderErrorsPanel);
+  assert.ok(providerRequestPanel);
+  assert.strictEqual(importOutcomesPanel.targets[0].expr, 'sum by (provider, status) (increase(collectz_import_jobs_total[$__range]))');
+  assert.strictEqual(enrichmentPanel.targets[0].expr, 'sum by (provider, kind, outcome) (increase(collectz_import_enrichment_total[$__range]))');
+  assert.strictEqual(deliciousRatioPanel.targets[0].expr, '100 * ( sum(increase(collectz_import_enrichment_total{provider=\"csv_delicious\",kind=\"pipeline\",outcome=\"no_match\"}[$__range])) / clamp_min(sum(increase(collectz_import_enrichment_total{provider=\"csv_delicious\",kind=\"pipeline\",outcome=~\"enriched|no_match\"}[$__range])), 1) )');
+  assert.strictEqual(trackedRatioPanel.targets[0].expr, '100 * ( sum(increase(collectz_import_enrichment_total{provider=\"csv_delicious\",kind=\"pipeline\",outcome=\"no_match\"}[$__range])) / clamp_min(sum(increase(collectz_import_enrichment_total{provider=\"csv_delicious\",kind=\"pipeline\",outcome=~\"enriched|no_match\"}[$__range])), 1) )');
+  assert.strictEqual(topProviderErrorsPanel.targets[0].expr, 'topk(10, sum by (provider, operation, outcome) (increase(collectz_provider_requests_total{outcome!=\"success\"}[$__range])))');
+  assert.strictEqual(providerRequestPanel.targets[0].expr, 'sum by (provider, operation, outcome) (increase(collectz_provider_requests_total[$__range]))');
+}));
+
+results.push(run('alert rules use provider-agnostic import failure alerting', () => {
+  assert.ok(alertRulesSource.includes('alert: CollectZImportFailuresByProvider'));
+  assert.ok(alertRulesSource.includes('sum by (provider) ('));
+  assert.ok(alertRulesSource.includes('increase(collectz_import_jobs_total{status="failed"}[15m])'));
+}));
+
+results.push(run('alert rules include Delicious no-match ratio warning', () => {
+  assert.ok(alertRulesSource.includes('alert: CollectZDeliciousNoMatchRatioHigh'));
+  assert.ok(alertRulesSource.includes('provider="csv_delicious",kind="pipeline",outcome="no_match"'));
+  assert.ok(alertRulesSource.includes(') > 0.35'));
+  assert.ok(alertRulesSource.includes('>= 100'));
+}));
+
+results.push(run('openapi baseline documents key auth admin and media endpoints', () => {
+  const spec = JSON.parse(openApiSource);
+  assert.strictEqual(spec.info.title, 'collectZ API');
+  assert.ok(spec.paths['/api/auth/login']);
+  assert.ok(spec.paths['/api/auth/me']);
+  assert.ok(spec.paths['/api/auth/personal-access-tokens']);
+  assert.ok(spec.paths['/api/auth/service-account-keys']);
+  assert.ok(spec.paths['/api/admin/invites']);
+  assert.ok(spec.paths['/api/docs']);
+  assert.ok(spec.paths['/api/docs/openapi.json']);
+  assert.ok(spec.paths['/api/metrics']);
+  assert.ok(spec.paths['/api/media']);
+  assert.ok(spec.paths['/api/media/import-plex']);
+  assert.ok(spec.paths['/api/media/sync-jobs']);
+  assert.ok(spec.paths['/api/media/sync-jobs/{id}']);
+  assert.ok(spec.paths['/api/media/sync-jobs/{id}/result']);
+  assert.ok(spec.components.securitySchemes.cookieSession);
+  assert.ok(spec.components.securitySchemes.bearerAuth);
+  assert.ok(spec.components.schemas.PersonalAccessTokenRecord);
+  assert.ok(spec.components.schemas.ServiceAccountKeyRecord);
+  assert.ok(spec.components.schemas.MetricsText);
+  assert.ok(spec.components.schemas.QueuedJobResponse);
+}));
+
+results.push(run('docs route source enforces admin plus debug and feature-flag gating', () => {
+  assert.ok(docsRoutesSource.includes("authenticateToken, requireRole('admin')"));
+  assert.ok(docsRoutesSource.includes("isFeatureEnabled('api_docs_enabled', false)"));
+  assert.ok(docsRoutesSource.includes('DEBUG_LEVEL >= 1'));
+  assert.ok(docsRoutesSource.includes("error.status = 404"));
+  assert.ok(docsRoutesSource.includes("router.get('/openapi.json'"));
+}));
+
+results.push(run('metrics route source enforces admin plus debug and feature-flag gating', () => {
+  assert.ok(metricsRoutesSource.includes('hasValidMetricsScrapeToken'));
+  assert.ok(metricsRoutesSource.includes('METRICS_SCRAPE_TOKEN'));
+  assert.ok(metricsRoutesSource.includes("requireRole('admin')"));
+  assert.ok(metricsRoutesSource.includes("isFeatureEnabled('metrics_enabled', false)"));
+  assert.ok(metricsRoutesSource.includes('DEBUG_LEVEL >= 1'));
+  assert.ok(metricsRoutesSource.includes("error.status = 404"));
+  assert.ok(metricsRoutesSource.includes("text/plain; version=0.0.4"));
+}));
+
+results.push(run('metrics route helper accepts dedicated scrape bearer token', () => {
+  const metricsRoutePath = require.resolve('../routes/metrics');
+  const previousToken = process.env.METRICS_SCRAPE_TOKEN;
+  process.env.METRICS_SCRAPE_TOKEN = 'test-metrics-token';
+  delete require.cache[metricsRoutePath];
+  const metricsRoute = require('../routes/metrics');
+  assert.strictEqual(metricsRoute.hasValidMetricsScrapeToken({
+    headers: { authorization: 'Bearer test-metrics-token' }
+  }), true);
+  assert.strictEqual(metricsRoute.hasValidMetricsScrapeToken({
+    headers: { authorization: 'Bearer wrong-token' }
+  }), false);
+  assert.strictEqual(metricsRoute.hasValidMetricsScrapeToken({
+    headers: {}
+  }), false);
+  if (previousToken === undefined) delete process.env.METRICS_SCRAPE_TOKEN;
+  else process.env.METRICS_SCRAPE_TOKEN = previousToken;
+  delete require.cache[metricsRoutePath];
+  require('../routes/metrics');
 }));
 
 results.push(run('auth route source exposes admin-only service account key management', () => {
@@ -531,6 +700,8 @@ results.push(run('rbac regression source explicitly requests invite token exposu
   const rbacRegressionSource = require('fs').readFileSync(require.resolve('./rbac-regression-check'), 'utf8');
   assert.ok(rbacRegressionSource.includes('expose_token: true'));
   assert.ok(rbacRegressionSource.includes("assert(Boolean(inviteToken), 'Invite token not returned')"));
+  assert.ok(rbacRegressionSource.includes('const fallbackEmail = process.env.RBAC_ADMIN_EMAIL || process.env.ADMIN_EMAIL || adminEmail;'));
+  assert.ok(rbacRegressionSource.includes('const fallbackPassword = process.env.RBAC_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || adminPassword;'));
 }));
 
 results.push(run('auth middleware source returns invalid api token for revoked bearer credentials', () => {

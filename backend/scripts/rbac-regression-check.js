@@ -109,6 +109,8 @@ async function main() {
   const adminEmail = process.env.RBAC_ADMIN_EMAIL || process.env.ADMIN_EMAIL || 'ci-rbac-admin@example.com';
   const userEmail = `rbac-user-${suffix}@example.com`;
   const adminPassword = process.env.RBAC_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || 'Passw0rd!123';
+  const fallbackEmail = process.env.RBAC_ADMIN_EMAIL || process.env.ADMIN_EMAIL || adminEmail;
+  const fallbackPassword = process.env.RBAC_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || adminPassword;
   const userPassword = 'Passw0rd!123';
 
   const admin = new HttpClient('admin');

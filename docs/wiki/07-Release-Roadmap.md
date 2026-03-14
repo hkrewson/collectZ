@@ -1093,6 +1093,23 @@ Deferred tenancy planning has been moved to a separate roadmap document:
 - API docs are unavailable by default in production mode and only accessible when admin + debug/flag gates are satisfied.
 - OpenAPI spec validation runs in CI and fails on invalid or drifted contract definitions.
 
+## 2.6.1 — Observability Baseline Review and Alert Tuning
+
+**Goal:** Revisit the initial `2.6.0` observability thresholds once more real import and operator usage data exists.
+
+### Scope
+
+- Review accumulated baseline observations in `docs/wiki/34-Observability-Baseline-Tuning-Log.md`.
+- Tighten or relax alert thresholds based on repeated real runs instead of first-pass estimates.
+- Add provider-specific quality ratios only where baseline evidence shows they are useful.
+- Decide whether Prometheus retention and backup expectations need explicit policy/config changes.
+
+### Acceptance Criteria
+
+- Alert thresholds are justified by recorded baseline evidence instead of single-run assumptions.
+- Dashboard ratio/error panels reflect the provider-specific signals operators actually use.
+- Any retention/backup changes for observability data are documented and validated.
+
 ## 2.6.5 — Structured Log Export (GELF + Pluggable Backends)
 
 **Goal:** Add production-grade external log shipping with a canonical GELF contract, feature-flagged rollout, and operator-selectable backend targets.

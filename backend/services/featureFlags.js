@@ -36,6 +36,14 @@ const FEATURE_FLAG_DEFINITIONS = {
   collectibles_enabled: {
     description: 'Enable Collectibles library UI and API',
     defaultEnabled: false
+  },
+  api_docs_enabled: {
+    description: 'Enable admin-only OpenAPI docs surface when DEBUG is enabled',
+    defaultEnabled: false
+  },
+  metrics_enabled: {
+    description: 'Enable admin-only Prometheus-style metrics export when DEBUG is enabled',
+    defaultEnabled: false
   }
 };
 
