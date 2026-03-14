@@ -128,7 +128,6 @@ export default function App() {
 
   const logout = useCallback(async () => {
     try { await apiCall('post', '/auth/logout'); } catch (_) {}
-    localStorage.removeItem('mediavault_token');
     setUser(null);
     setAuthChecked(true);
     setMediaItems([]);

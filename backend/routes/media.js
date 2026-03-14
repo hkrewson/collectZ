@@ -1,12 +1,21 @@
 const express = require('express');
 const multer = require('multer');
 const fs = require('fs');
+const path = require('path');
 const FormData = require('form-data');
 const axios = require('axios');
 const pool = require('../db/pool');
 const { asyncHandler } = require('../middleware/errors');
 const { authenticateToken } = require('../middleware/auth');
-const { validate, mediaCreateSchema, mediaUpdateSchema } = require('../middleware/validate');
+const {
+  validate,
+  mediaCreateSchema,
+  mediaUpdateSchema,
+  simpleSearchSchema,
+  titleAuthorSearchSchema,
+  titleArtistSearchSchema,
+  upcLookupSchema
+} = require('../middleware/validate');
 const { loadAdminIntegrationConfig } = require('../services/integrations');
 const {
   searchTmdbMovie,
@@ -39,17 +48,36 @@ const { ensureUserDefaultLibrary } = require('../services/libraries');
 
 const router = express.Router();
 
+const ALLOWED_COVER_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+
+function sanitizeUploadFilename(originalName = '') {
+  const base = path.basename(String(originalName || '').trim());
+  if (!base) return 'upload.bin';
+  const sanitized = base.replace(/[^A-Za-z0-9._-]/g, '_');
+  return sanitized.slice(-120) || 'upload.bin';
+}
+
+const imageFileFilter = (_req, file, cb) => {
+  const mimeType = String(file?.mimetype || '').toLowerCase();
+  if (!ALLOWED_COVER_MIME_TYPES.has(mimeType)) {
+    const error = new multer.MulterError('LIMIT_UNEXPECTED_FILE', file?.fieldname || 'file');
+    error.message = 'Unsupported file type. Allowed: JPEG, PNG, WEBP, GIF.';
+    return cb(error);
+  }
+  return cb(null, true);
+};
+
 const tempDiskStorage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, 'uploads/'),
-  filename: (_req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`)
+  filename: (_req, file, cb) => cb(null, `${Date.now()}-${sanitizeUploadFilename(file.originalname)}`)
 });
 const tempUpload = multer({ storage: tempDiskStorage, limits: { fileSize: 10 * 1024 * 1024 } });
-const memoryUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+const tempImageUpload = multer({ storage: tempDiskStorage, limits: { fileSize: 10 * 1024 * 1024 }, fileFilter: imageFileFilter });
+const memoryImageUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 }, fileFilter: imageFileFilter });
 
 const MEDIA_FORMATS = ['VHS', 'Blu-ray', 'Digital', 'DVD', '4K UHD', 'Paperback', 'Hardcover', 'Trade'];
 const MEDIA_TYPES = ['movie', 'tv_series', 'tv_episode', 'book', 'audio', 'game', 'comic_book'];
 const TV_WATCH_STATES = new Set(['unwatched', 'in_progress', 'completed']);
-const ALLOWED_COVER_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 const SYNC_JOB_ALLOWED_FIELDS = new Set([
   'status',
   'scope',
@@ -4443,25 +4471,19 @@ router.patch('/:id/tv-seasons/:seasonNumber', asyncHandler(async (req, res) => {
 
 // ── TMDB search ───────────────────────────────────────────────────────────────
 
-router.post('/search-tmdb', asyncHandler(async (req, res) => {
+router.post('/search-tmdb', validate(simpleSearchSchema), asyncHandler(async (req, res) => {
   await assertFeatureEnabled('tmdb_search_enabled');
   const { title, year, mediaType } = req.body;
-  if (!title?.trim()) {
-    return res.status(400).json({ error: 'title is required' });
-  }
   const config = await loadAdminIntegrationConfig();
   const normalizedType = mediaType === 'tv' ? 'tv' : 'movie';
   const results = await searchTmdbMovie(title, year, config, normalizedType);
   res.json(results);
 }));
 
-router.post('/tmdb/trace-match', asyncHandler(async (req, res) => {
+router.post('/tmdb/trace-match', validate(simpleSearchSchema), asyncHandler(async (req, res) => {
   await assertFeatureEnabled('tmdb_search_enabled');
-  const { title, year, mediaType } = req.body || {};
-  const lookupTitle = String(title || '').trim();
-  if (!lookupTitle) {
-    return res.status(400).json({ error: 'title is required' });
-  }
+  const { title, year, mediaType } = req.body;
+  const lookupTitle = title;
   const config = await loadAdminIntegrationConfig();
   const normalizedType = mediaType === 'tv' ? 'tv' : 'movie';
   const searchResults = await searchTmdbMovie(lookupTitle, year, config, normalizedType);
@@ -4565,54 +4587,39 @@ router.get('/tmdb/:id/trace', asyncHandler(async (req, res) => {
   });
 }));
 
-router.post('/enrich/book/search', asyncHandler(async (req, res) => {
-  const { title, author } = req.body || {};
-  if (!String(title || '').trim()) {
-    return res.status(400).json({ error: 'title is required' });
-  }
+router.post('/enrich/book/search', validate(titleAuthorSearchSchema), asyncHandler(async (req, res) => {
+  const { title, author } = req.body;
   const config = await loadAdminIntegrationConfig();
-  const matches = await searchBooksByTitle(String(title).trim(), config, 10, String(author || '').trim());
+  const matches = await searchBooksByTitle(title, config, 10, String(author || '').trim());
   res.json({ provider: config.booksProvider || 'googlebooks', matches });
 }));
 
-router.post('/enrich/audio/search', asyncHandler(async (req, res) => {
-  const { title, artist } = req.body || {};
-  if (!String(title || '').trim()) {
-    return res.status(400).json({ error: 'title is required' });
-  }
+router.post('/enrich/audio/search', validate(titleArtistSearchSchema), asyncHandler(async (req, res) => {
+  const { title, artist } = req.body;
   const config = await loadAdminIntegrationConfig();
-  const matches = await searchAudioByTitle(String(title).trim(), config, 10, String(artist || '').trim());
+  const matches = await searchAudioByTitle(title, config, 10, String(artist || '').trim());
   res.json({ provider: config.audioProvider || 'discogs', matches });
 }));
 
-router.post('/enrich/game/search', asyncHandler(async (req, res) => {
-  const { title } = req.body || {};
-  if (!String(title || '').trim()) {
-    return res.status(400).json({ error: 'title is required' });
-  }
+router.post('/enrich/game/search', validate(simpleSearchSchema.pick({ title: true })), asyncHandler(async (req, res) => {
+  const { title } = req.body;
   const config = await loadAdminIntegrationConfig();
-  const matches = await searchGamesByTitle(String(title).trim(), config, 10);
+  const matches = await searchGamesByTitle(title, config, 10);
   res.json({ provider: config.gamesProvider || 'igdb', matches });
 }));
 
-router.post('/enrich/comic/search', asyncHandler(async (req, res) => {
-  const { title } = req.body || {};
-  if (!String(title || '').trim()) {
-    return res.status(400).json({ error: 'title is required' });
-  }
+router.post('/enrich/comic/search', validate(simpleSearchSchema.pick({ title: true })), asyncHandler(async (req, res) => {
+  const { title } = req.body;
   const config = await loadAdminIntegrationConfig();
-  const matches = await searchComicsByTitle(String(title).trim(), config, 10);
+  const matches = await searchComicsByTitle(title, config, 10);
   res.json({ provider: config.comicsProvider || 'metron', matches });
 }));
 
 // ── UPC lookup ────────────────────────────────────────────────────────────────
 
-router.post('/lookup-upc', asyncHandler(async (req, res) => {
+router.post('/lookup-upc', validate(upcLookupSchema), asyncHandler(async (req, res) => {
   await assertFeatureEnabled('lookup_upc_enabled');
   const { upc } = req.body;
-  if (!upc || !String(upc).trim()) {
-    return res.status(400).json({ error: 'UPC is required' });
-  }
 
   const config = await loadAdminIntegrationConfig();
   const { barcodeProvider, barcodeApiUrl, barcodeQueryParam, barcodeApiKey, barcodeApiKeyHeader } = config;
@@ -4625,7 +4632,7 @@ router.post('/lookup-upc', asyncHandler(async (req, res) => {
   if (barcodeApiKey) headers[barcodeApiKeyHeader] = barcodeApiKey;
 
   const barcodeResponse = await axios.get(barcodeApiUrl, {
-    params: { [barcodeQueryParam]: String(upc).trim() },
+    params: { [barcodeQueryParam]: upc },
     headers,
     timeout: 15000
   });
@@ -4646,12 +4653,12 @@ router.post('/lookup-upc', asyncHandler(async (req, res) => {
     enrichedMatches.push({ ...match, tmdb });
   }
 
-  res.json({ provider: barcodeProvider, upc: String(upc).trim(), matches: enrichedMatches });
+  res.json({ provider: barcodeProvider, upc, matches: enrichedMatches });
 }));
 
 // ── Cover recognition ─────────────────────────────────────────────────────────
 
-router.post('/recognize-cover', tempUpload.single('cover'), asyncHandler(async (req, res) => {
+router.post('/recognize-cover', tempImageUpload.single('cover'), asyncHandler(async (req, res) => {
   await assertFeatureEnabled('recognize_cover_enabled');
   if (!req.file) {
     return res.status(400).json({ error: 'Cover image file is required' });
@@ -4704,12 +4711,9 @@ router.post('/recognize-cover', tempUpload.single('cover'), asyncHandler(async (
 
 // ── Cover upload ──────────────────────────────────────────────────────────────
 
-router.post('/upload-cover', memoryUpload.single('cover'), asyncHandler(async (req, res) => {
+router.post('/upload-cover', memoryImageUpload.single('cover'), asyncHandler(async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
-  }
-  if (!ALLOWED_COVER_MIME_TYPES.has(String(req.file.mimetype || '').toLowerCase())) {
-    return res.status(400).json({ error: 'Unsupported file type. Allowed: JPEG, PNG, WEBP, GIF.' });
   }
   const stored = await uploadBuffer(req.file.buffer, req.file.originalname, req.file.mimetype);
   res.json({ path: stored.url, provider: stored.provider });
@@ -4749,7 +4753,7 @@ async function resolveEditableMediaForUser({ req, mediaId, scopeContext }) {
   return { status: 200, row: editable.rows[0] };
 }
 
-router.post('/:id/upload-signing-proof', memoryUpload.single('proof'), asyncHandler(async (req, res) => {
+router.post('/:id/upload-signing-proof', memoryImageUpload.single('proof'), asyncHandler(async (req, res) => {
   const scopeContext = resolveScopeContext(req);
   const mediaId = Number(req.params.id);
   if (!Number.isFinite(mediaId) || mediaId <= 0) {
@@ -4758,10 +4762,6 @@ router.post('/:id/upload-signing-proof', memoryUpload.single('proof'), asyncHand
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
   }
-  if (!ALLOWED_COVER_MIME_TYPES.has(String(req.file.mimetype || '').toLowerCase())) {
-    return res.status(400).json({ error: 'Unsupported file type. Allowed: JPEG, PNG, WEBP, GIF.' });
-  }
-
   const access = await resolveEditableMediaForUser({ req, mediaId, scopeContext });
   if (access.status === 404) return res.status(404).json({ error: 'Media item not found' });
   if (access.status === 403) return res.status(403).json({ error: 'Not authorized to edit this media item' });

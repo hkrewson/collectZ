@@ -23,6 +23,38 @@ const loginSchema = z.object({
   password: z.string().min(1, 'Password is required')
 });
 
+const simpleSearchSchema = z.object({
+  title: z.string().trim().min(1, 'title is required').max(255, 'title is too long'),
+  year: z.preprocess((value) => {
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed === '') return null;
+      const numeric = Number(trimmed);
+      if (!Number.isNaN(numeric)) return numeric;
+    }
+    return value;
+  }, z.number().int().min(1888).max(2100).optional().nullable()),
+  mediaType: z.enum(['movie', 'tv']).optional()
+});
+
+const titleAuthorSearchSchema = z.object({
+  title: z.string().trim().min(1, 'title is required').max(255, 'title is too long'),
+  author: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable())
+});
+
+const titleArtistSearchSchema = z.object({
+  title: z.string().trim().min(1, 'title is required').max(255, 'title is too long'),
+  artist: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable())
+});
+
+const upcLookupSchema = z.object({
+  upc: z.string()
+    .trim()
+    .min(8, 'UPC is required')
+    .max(32, 'UPC is too long')
+    .regex(/^[0-9A-Za-z-]+$/, 'UPC must use only letters, numbers, or hyphens')
+});
+
 // ── Media ─────────────────────────────────────────────────────────────────────
 
 const MEDIA_FORMATS = ['VHS', 'Blu-ray', 'Digital', 'DVD', '4K UHD', 'Paperback', 'Hardcover', 'Trade'];
@@ -362,6 +394,10 @@ module.exports = {
   validate,
   registerSchema,
   loginSchema,
+  simpleSearchSchema,
+  titleAuthorSearchSchema,
+  titleArtistSearchSchema,
+  upcLookupSchema,
   mediaCreateSchema,
   mediaUpdateSchema,
   profileUpdateSchema,

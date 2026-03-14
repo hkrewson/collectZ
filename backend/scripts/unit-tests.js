@@ -12,6 +12,12 @@ const { extractScopeHints, resolveScopeContext, appendScopeSql } = require('../d
 const { sanitizeAuditDetails } = require('../services/audit');
 const { buildGelfEvent, inferLevel, inferOutcome, truncateJsonValue, readExportConfig, promoteDetailFields, omitNilFields, formatSyslogMessage } = require('../services/logExport');
 const { requestIdMiddleware } = require('../middleware/requestId');
+const {
+  simpleSearchSchema,
+  titleAuthorSearchSchema,
+  titleArtistSearchSchema,
+  upcLookupSchema
+} = require('../middleware/validate');
 process.env.INTEGRATION_ENCRYPTION_KEY = process.env.INTEGRATION_ENCRYPTION_KEY || 'unit-test-integration-key';
 const { buildIntegrationResponse } = require('../services/integrationResponse');
 const { buildCompactJobSummary, formatSyncJob } = require('../services/syncJobs');
@@ -62,6 +68,22 @@ results.push(run('csv.parseCsvText handles BOM + empty lines', () => {
   assert.deepStrictEqual(parsed.headers, ['title', 'year']);
   assert.strictEqual(parsed.rows.length, 1);
   assert.strictEqual(parsed.rows[0].title, 'Dune');
+}));
+
+results.push(run('validate.simpleSearchSchema trims title and coerces year', () => {
+  const parsed = simpleSearchSchema.parse({ title: '  Dune  ', year: '1984', mediaType: 'movie' });
+  assert.deepStrictEqual(parsed, { title: 'Dune', year: 1984, mediaType: 'movie' });
+}));
+
+results.push(run('validate.title search schemas reject blank titles', () => {
+  assert.throws(() => titleAuthorSearchSchema.parse({ title: '   ' }));
+  assert.throws(() => titleArtistSearchSchema.parse({ title: '   ' }));
+}));
+
+results.push(run('validate.upcLookupSchema rejects unsafe UPC characters', () => {
+  assert.throws(() => upcLookupSchema.parse({ upc: '../../etc/passwd' }));
+  const parsed = upcLookupSchema.parse({ upc: '012569828708' });
+  assert.strictEqual(parsed.upc, '012569828708');
 }));
 
 results.push(run('plex.normalizePlexItem maps movie values', () => {
@@ -153,6 +175,15 @@ results.push(run('plex.shouldIncludePlexEntry keeps TV imports at show level onl
 results.push(run('media route source includes tmdb trace-match endpoint', () => {
   assert.ok(mediaRoutesSource.includes("router.post('/tmdb/trace-match'"));
   assert.ok(mediaRoutesSource.includes('scoreTmdbMatchCandidate'));
+}));
+
+results.push(run('media route source hardens image upload handlers', () => {
+  assert.ok(mediaRoutesSource.includes('const tempImageUpload = multer('));
+  assert.ok(mediaRoutesSource.includes('const memoryImageUpload = multer('));
+  assert.ok(mediaRoutesSource.includes("router.post('/recognize-cover', tempImageUpload.single('cover')"));
+  assert.ok(mediaRoutesSource.includes("router.post('/upload-cover', memoryImageUpload.single('cover')"));
+  assert.ok(mediaRoutesSource.includes("router.post('/:id/upload-signing-proof', memoryImageUpload.single('proof')"));
+  assert.ok(mediaRoutesSource.includes('sanitizeUploadFilename'));
 }));
 
 results.push(run('media route source guards tmdb season hydration to tv series only', () => {
