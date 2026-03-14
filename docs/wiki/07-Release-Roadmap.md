@@ -59,6 +59,19 @@ This roadmap converts product direction into implementation milestones with acce
 - Split current mixed admin view into two tabs:
   - `Members`
   - `Invitations`
+- Add direct member setup flow for local/admin-driven onboarding without requiring the admin to choose or distribute a reusable password:
+  - `Create member` action accepts email, display name, and target role (`user` or `admin`)
+  - account is created in an invited/setup-pending state
+  - admin chooses delivery mode:
+    - copy one-time setup link
+    - send setup link by email when SMTP is configured
+  - invited user sets their own password through the one-time setup flow
+- Show clear SMTP delivery availability in the Members/Invitations UI:
+  - indicate whether email delivery is currently configured/available
+  - keep copy-link/setup-link flow available even when SMTP is unavailable
+- Keep this milestone scoped to member/invite UX and onboarding flow only:
+  - do not add full SMTP credential management UI in this slice
+  - do not introduce a long-lived admin-generated default-password workflow
 - Invitation lifecycle controls:
   - add explicit invalidate/revoke for unused invites
   - hide used invites from default view (with optional filter to show historical)
@@ -75,6 +88,10 @@ This roadmap converts product direction into implementation milestones with acce
 ### Acceptance Criteria
 
 - Admin can switch clearly between Members and Invitations without mixed content.
+- Admin can create a member and choose copy-link or email delivery for one-time account setup.
+- Admin can preselect the new member role during setup without manually editing the user after claim.
+- Member onboarding does not require the admin to set or retain a reusable password for the new user.
+- Members/Invitations UI makes SMTP availability obvious before admin chooses delivery mode.
 - Admin can revoke an active invite; revoked invite cannot be used.
 - Used invites no longer clutter default invitation list.
 - Activity log includes invite claim/revoke lifecycle events.
@@ -84,6 +101,9 @@ This roadmap converts product direction into implementation milestones with acce
 
 - Add invite revoke endpoint (admin-only).
 - Add `invite.claimed` and `invite.revoked` activity event coverage.
+- Add direct member-setup API support for creating an invited/setup-pending account with preselected role and one-time activation delivery metadata.
+- Reuse existing one-time link/reset-style primitives where practical instead of storing admin-generated default passwords.
+- If needed, expose non-secret SMTP availability status to the admin UI without exposing SMTP credentials.
 - If needed, add non-breaking user activity summary endpoint for drawer stats.
 
 ---
