@@ -68,6 +68,12 @@ What this plan intentionally does not include yet:
 - Ensure session bootstrap and auth surfaces always expose valid active scope.
 - Reduce ambiguous scope-hint behavior for ordinary users.
 
+Phase 2 implementation notes:
+
+- Add an auth-owned scope contract for bootstrap and selection before full spaces CRUD exists.
+- Ordinary users should switch context through explicit selection flows, not arbitrary `space_id` / `library_id` request hints.
+- Session, PAT, and service-account auth should all derive a valid active scope even when stored pointers are stale.
+
 #### Phase 3: Space-Governed Libraries
 
 - Treat libraries as resources owned by a space, not just loosely grouped by `space_id`.

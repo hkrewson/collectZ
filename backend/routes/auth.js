@@ -3,12 +3,13 @@ const bcrypt = require('bcrypt');
 const pool = require('../db/pool');
 const { asyncHandler } = require('../middleware/errors');
 const { authenticateToken, requireRole, requireSessionAuth, SESSION_COOKIE_OPTIONS } = require('../middleware/auth');
-const { validate, registerSchema, loginSchema, profileUpdateSchema, passwordResetConsumeSchema, personalAccessTokenCreateSchema, serviceAccountKeyCreateSchema } = require('../middleware/validate');
+const { validate, registerSchema, loginSchema, profileUpdateSchema, passwordResetConsumeSchema, personalAccessTokenCreateSchema, serviceAccountKeyCreateSchema, authScopeSelectSchema } = require('../middleware/validate');
 const { createSession, revokeSessionByToken, revokeSessionsForUser, getSessionUserByToken } = require('../services/sessions');
 const { logActivity } = require('../services/audit');
 const { issueCsrfToken, clearCsrfToken } = require('../middleware/csrf');
 const { hashInviteToken } = require('../services/invites');
-const { ensureUserDefaultScope } = require('../services/libraries');
+const { ensureUserDefaultScope, getAccessibleLibrary, listLibrariesForSpace } = require('../services/libraries');
+const { listAccessibleSpacesForUser, getAccessibleSpaceForUser } = require('../services/spaces');
 const {
   PERSONAL_ACCESS_TOKEN_SCOPES,
   createPersonalAccessToken,
@@ -25,6 +26,44 @@ const {
 const { recordAuthEvent } = require('../services/metrics');
 
 const router = express.Router();
+
+async function buildAuthScopePayload(req) {
+  const ensuredScope = await ensureUserDefaultScope(req.user.id);
+  req.user.activeSpaceId = ensuredScope.spaceId;
+  req.user.activeLibraryId = ensuredScope.libraryId;
+
+  const client = await pool.connect();
+  try {
+    const spaces = await listAccessibleSpacesForUser(client, {
+      userId: req.user.id,
+      role: req.user.role
+    });
+    const libraries = ensuredScope.spaceId
+      ? await listLibrariesForSpace({
+          userId: req.user.id,
+          role: req.user.role,
+          spaceId: ensuredScope.spaceId
+        })
+      : [];
+
+    return {
+      active_space_id: ensuredScope.spaceId,
+      active_library_id: ensuredScope.libraryId,
+      spaces: spaces.map((space) => ({
+        id: space.id,
+        name: space.name,
+        slug: space.slug || null,
+        description: space.description || null,
+        is_personal: Boolean(space.is_personal),
+        membership_role: space.membership_role || null,
+        library_count: Number(space.library_count || 0)
+      })),
+      libraries
+    };
+  } finally {
+    client.release();
+  }
+}
 
 // ── CSRF token bootstrap ──────────────────────────────────────────────────────
 router.get('/csrf-token', asyncHandler(async (req, res) => {
@@ -254,6 +293,9 @@ router.post('/password-reset/consume', validate(passwordResetConsumeSchema), asy
 // ── Current user ──────────────────────────────────────────────────────────────
 
 router.get('/me', authenticateToken, asyncHandler(async (req, res) => {
+  const ensuredScope = await ensureUserDefaultScope(req.user.id);
+  req.user.activeSpaceId = ensuredScope.spaceId;
+  req.user.activeLibraryId = ensuredScope.libraryId;
   const result = await pool.query(
     'SELECT id, email, name, role, created_at, updated_at, active_space_id, active_library_id FROM users WHERE id = $1',
     [req.user.id]
@@ -267,6 +309,86 @@ router.get('/me', authenticateToken, asyncHandler(async (req, res) => {
     active_space_id: req.user.activeSpaceId ?? row.active_space_id ?? null,
     active_library_id: req.user.activeLibraryId ?? row.active_library_id ?? null
   });
+}));
+
+router.get('/scope', authenticateToken, asyncHandler(async (req, res) => {
+  const payload = await buildAuthScopePayload(req);
+  res.json(payload);
+}));
+
+router.post('/scope', authenticateToken, requireSessionAuth, validate(authScopeSelectSchema), asyncHandler(async (req, res) => {
+  const requestedSpaceId = Number(req.body.space_id || 0) || null;
+  const requestedLibraryId = Number(req.body.library_id || 0) || null;
+
+  let nextSpaceId = requestedSpaceId;
+  let nextLibraryId = requestedLibraryId;
+
+  if (requestedLibraryId) {
+    const selectedLibrary = await getAccessibleLibrary({
+      userId: req.user.id,
+      role: req.user.role,
+      libraryId: requestedLibraryId
+    });
+    if (!selectedLibrary) {
+      return res.status(403).json({ error: 'Library access denied' });
+    }
+    nextLibraryId = selectedLibrary.id;
+    nextSpaceId = selectedLibrary.space_id || nextSpaceId || null;
+  }
+
+  if (nextSpaceId) {
+    const selectedSpace = await pool.connect();
+    try {
+      const accessibleSpace = await getAccessibleSpaceForUser(selectedSpace, {
+        userId: req.user.id,
+        role: req.user.role,
+        spaceId: nextSpaceId
+      });
+      if (!accessibleSpace) {
+        return res.status(403).json({ error: 'Space access denied' });
+      }
+    } finally {
+      selectedSpace.release();
+    }
+  }
+
+  if (!nextSpaceId && nextLibraryId) {
+    const selectedLibrary = await getAccessibleLibrary({
+      userId: req.user.id,
+      role: req.user.role,
+      libraryId: nextLibraryId
+    });
+    nextSpaceId = selectedLibrary?.space_id || null;
+  }
+
+  if (nextSpaceId && !nextLibraryId) {
+    const libraries = await listLibrariesForSpace({
+      userId: req.user.id,
+      role: req.user.role,
+      spaceId: nextSpaceId
+    });
+    const currentLibraryInSpace = libraries.find((library) => Number(library.id) === Number(req.user.activeLibraryId || 0));
+    nextLibraryId = currentLibraryInSpace?.id || libraries[0]?.id || null;
+  }
+
+  await pool.query(
+    `UPDATE users
+     SET active_space_id = $2,
+         active_library_id = $3
+     WHERE id = $1`,
+    [req.user.id, nextSpaceId, nextLibraryId]
+  );
+
+  req.user.activeSpaceId = nextSpaceId;
+  req.user.activeLibraryId = nextLibraryId;
+
+  await logActivity(req, 'auth.scope.select', 'user', req.user.id, {
+    activeSpaceId: nextSpaceId,
+    activeLibraryId: nextLibraryId
+  });
+
+  const payload = await buildAuthScopePayload(req);
+  res.json(payload);
 }));
 
 // ── Profile ───────────────────────────────────────────────────────────────────

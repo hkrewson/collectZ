@@ -73,6 +73,59 @@
         },
         "required": ["id", "email", "name", "role"]
       },
+      "SpaceSummary": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "name": { "type": "string" },
+          "slug": { "type": ["string", "null"] },
+          "description": { "type": ["string", "null"] },
+          "is_personal": { "type": "boolean" },
+          "membership_role": { "type": ["string", "null"] },
+          "library_count": { "type": "integer" }
+        },
+        "required": ["id", "name", "is_personal", "library_count"]
+      },
+      "LibrarySummary": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "name": { "type": "string" },
+          "description": { "type": ["string", "null"] },
+          "space_id": { "type": ["integer", "null"] },
+          "created_by": { "type": ["integer", "null"] },
+          "created_by_email": { "type": ["string", "null"] },
+          "created_by_name": { "type": ["string", "null"] },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" },
+          "item_count": { "type": "integer" }
+        },
+        "required": ["id", "name", "created_at", "updated_at", "item_count"]
+      },
+      "AuthScopeResponse": {
+        "type": "object",
+        "properties": {
+          "active_space_id": { "type": ["integer", "null"] },
+          "active_library_id": { "type": ["integer", "null"] },
+          "spaces": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/SpaceSummary" }
+          },
+          "libraries": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/LibrarySummary" }
+          }
+        },
+        "required": ["spaces", "libraries"]
+      },
+      "AuthScopeSelectRequest": {
+        "type": "object",
+        "properties": {
+          "space_id": { "type": "integer", "minimum": 1 },
+          "library_id": { "type": "integer", "minimum": 1 }
+        },
+        "minProperties": 1
+      },
       "LoginRequest": {
         "type": "object",
         "properties": {
@@ -399,6 +452,75 @@
           },
           "401": {
             "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/scope": {
+      "get": {
+        "tags": ["Auth"],
+        "summary": "Read the current active scope bootstrap contract",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "responses": {
+          "200": {
+            "description": "Active auth scope",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AuthScopeResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Select the current active space and library for the session user",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AuthScopeSelectRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated active auth scope",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AuthScopeResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "403": {
+            "description": "Scope selection denied",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/Error" }

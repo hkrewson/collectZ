@@ -132,10 +132,19 @@ const getServiceAccountKeyPrincipal = async (key) => {
        sak.expires_at,
        owner.email,
        owner.role,
-       owner.active_space_id,
-       owner.active_library_id
+       COALESCE(owner.active_space_id, fallback_library.space_id) AS active_space_id,
+       COALESCE(owner.active_library_id, fallback_library.id) AS active_library_id
      FROM service_account_keys sak
      JOIN users owner ON owner.id = sak.owner_user_id
+     LEFT JOIN LATERAL (
+       SELECT l.id, l.space_id
+       FROM library_memberships lm
+       JOIN libraries l ON l.id = lm.library_id
+       WHERE lm.user_id = owner.id
+         AND l.archived_at IS NULL
+       ORDER BY lm.created_at ASC, lm.library_id ASC
+       LIMIT 1
+     ) fallback_library ON true
      WHERE sak.key_hash = $1
        AND sak.revoked_at IS NULL
        AND (sak.expires_at IS NULL OR sak.expires_at > NOW())

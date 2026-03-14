@@ -37,6 +37,10 @@ const metricsRoutesSource = require('fs').readFileSync(require.resolve('../route
 const serverSource = require('fs').readFileSync(require.resolve('../server'), 'utf8');
 const migrationsSource = require('fs').readFileSync(require.resolve('../db/migrations'), 'utf8');
 const libraryServiceSource = require('fs').readFileSync(require.resolve('../services/libraries'), 'utf8');
+const personalAccessTokenSource = require('fs').readFileSync(require.resolve('../services/personalAccessTokens'), 'utf8');
+const serviceAccountKeySource = require('fs').readFileSync(require.resolve('../services/serviceAccountKeys'), 'utf8');
+const librariesRoutesSource = require('fs').readFileSync(require.resolve('../routes/libraries'), 'utf8');
+const frontendAppSource = require('fs').readFileSync(require.resolve('../../frontend/src/App'), 'utf8');
 const structuredLogSmokeSource = require('fs').readFileSync(require.resolve('../scripts/structured-log-smoke'), 'utf8');
 const dashboardSpec = JSON.parse(require('fs').readFileSync(require.resolve('../../ops/monitoring/grafana/dashboards/collectz-overview.json'), 'utf8'));
 const alertRulesSource = require('fs').readFileSync(require.resolve('../../docs/alerts/collectz-alert-rules.yaml'), 'utf8');
@@ -1013,6 +1017,10 @@ results.push(run('pat.getRequiredPatScopesForRequest maps media and import route
     ['profile:read']
   );
   assert.deepStrictEqual(
+    getRequiredPatScopesForRequest({ originalUrl: '/api/auth/scope', method: 'GET' }),
+    ['profile:read']
+  );
+  assert.deepStrictEqual(
     getRequiredPatScopesForRequest({ originalUrl: '/api/media?page=1', method: 'GET' }),
     ['media:read']
   );
@@ -1066,6 +1074,12 @@ results.push(run('auth routes attribute register and login audit events to the a
   assert.ok(authRoutesSource.includes("await logActivity({ ...req, user: { id: user.id"));
 }));
 
+results.push(run('auth routes expose explicit scope bootstrap and selection endpoints', () => {
+  assert.ok(authRoutesSource.includes("router.get('/scope', authenticateToken"));
+  assert.ok(authRoutesSource.includes("router.post('/scope', authenticateToken, requireSessionAuth"));
+  assert.ok(authRoutesSource.includes("await logActivity(req, 'auth.scope.select'"));
+}));
+
 results.push(run('library service source ensures default scope before returning default library', () => {
   assert.ok(libraryServiceSource.includes('async function ensureUserDefaultScope'));
   assert.ok(libraryServiceSource.includes('ensureDefaultSpaceForClient'));
@@ -1073,9 +1087,22 @@ results.push(run('library service source ensures default scope before returning 
 }));
 
 results.push(run('library routes preserve active space when replacing archived or deleted libraries', () => {
-  const librariesRoutesSource = require('fs').readFileSync(require.resolve('../routes/libraries'), 'utf8');
   assert.ok(librariesRoutesSource.includes('SELECT lm.library_id, l.space_id'));
   assert.ok(librariesRoutesSource.includes('SET active_space_id = $2,'));
+}));
+
+results.push(run('library routes only allow admin scope hints after phase2 hardening', () => {
+  assert.ok(librariesRoutesSource.includes("enforceScopeAccess({ allowedHintRoles: ['admin'] })"));
+}));
+
+results.push(run('token auth sources derive fallback scope from accessible libraries', () => {
+  assert.ok(personalAccessTokenSource.includes('COALESCE(u.active_space_id, fallback_library.space_id)'));
+  assert.ok(serviceAccountKeySource.includes('COALESCE(owner.active_space_id, fallback_library.space_id)'));
+}));
+
+results.push(run('frontend syncs active space alongside active library context', () => {
+  assert.ok(frontendAppSource.includes('const nextActiveSpaceId = Number(payload?.active_space_id || 0) || null;'));
+  assert.ok(frontendAppSource.includes("active_space_id: nextActiveSpaceId, active_library_id: nextActiveLibraryId"));
 }));
 
 results.push(run('server source assigns request ids before request logging', () => {

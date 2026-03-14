@@ -18,7 +18,7 @@ const { listLibrariesForUser, getAccessibleLibrary, ensureUserDefaultLibrary, en
 const router = express.Router();
 
 router.use(authenticateToken);
-router.use(enforceScopeAccess({ allowedHintRoles: ['admin', 'user', 'viewer'] }));
+router.use(enforceScopeAccess({ allowedHintRoles: ['admin'] }));
 
 router.get('/libraries', asyncHandler(async (req, res) => {
   const ensuredScope = await ensureUserDefaultScope(req.user.id);

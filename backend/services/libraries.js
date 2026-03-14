@@ -189,6 +189,42 @@ async function ensureUserDefaultLibrary(userId) {
   return scope.libraryId;
 }
 
+async function listLibrariesForSpace({ userId, role, spaceId }) {
+  const numericUserId = Number(userId);
+  const numericSpaceId = Number(spaceId);
+  if (!Number.isFinite(numericUserId) || numericUserId <= 0) return [];
+  if (!Number.isFinite(numericSpaceId) || numericSpaceId <= 0) return [];
+
+  const result = await pool.query(
+    role === 'admin'
+      ? `SELECT l.id, l.name, l.description, l.space_id, l.created_by, l.created_at, l.updated_at,
+                u.email AS created_by_email, u.name AS created_by_name,
+                COUNT(m.id)::int AS item_count
+         FROM libraries l
+         LEFT JOIN users u ON u.id = l.created_by
+         LEFT JOIN media m ON m.library_id = l.id
+         WHERE l.archived_at IS NULL
+           AND l.space_id = $1
+         GROUP BY l.id, u.email, u.name
+         ORDER BY lower(l.name) ASC, l.id ASC`
+      : `SELECT l.id, l.name, l.description, l.space_id, l.created_by, l.created_at, l.updated_at,
+                u.email AS created_by_email, u.name AS created_by_name,
+                COUNT(m.id)::int AS item_count
+         FROM library_memberships lm
+         JOIN libraries l ON l.id = lm.library_id
+         LEFT JOIN users u ON u.id = l.created_by
+         LEFT JOIN media m ON m.library_id = l.id
+         WHERE lm.user_id = $1
+           AND l.archived_at IS NULL
+           AND l.space_id = $2
+         GROUP BY l.id, u.email, u.name
+         ORDER BY lower(l.name) ASC, l.id ASC`,
+    role === 'admin' ? [numericSpaceId] : [numericUserId, numericSpaceId]
+  );
+
+  return result.rows.map(toLibraryResponse);
+}
+
 function toLibraryResponse(row) {
   return {
     id: row.id,
@@ -267,6 +303,7 @@ async function getAccessibleLibrary({ userId, role, libraryId }) {
 module.exports = {
   ensureUserDefaultScope,
   ensureUserDefaultLibrary,
+  listLibrariesForSpace,
   listLibrariesForUser,
   getAccessibleLibrary
 };

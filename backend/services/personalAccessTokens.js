@@ -85,10 +85,19 @@ const getPersonalAccessTokenPrincipal = async (token) => {
        pat.expires_at,
        u.email,
        u.role,
-       u.active_space_id,
-       u.active_library_id
+       COALESCE(u.active_space_id, fallback_library.space_id) AS active_space_id,
+       COALESCE(u.active_library_id, fallback_library.id) AS active_library_id
      FROM personal_access_tokens pat
      JOIN users u ON u.id = pat.user_id
+     LEFT JOIN LATERAL (
+       SELECT l.id, l.space_id
+       FROM library_memberships lm
+       JOIN libraries l ON l.id = lm.library_id
+       WHERE lm.user_id = u.id
+         AND l.archived_at IS NULL
+       ORDER BY lm.created_at ASC, lm.library_id ASC
+       LIMIT 1
+     ) fallback_library ON true
      WHERE pat.token_hash = $1
        AND pat.revoked_at IS NULL
        AND (pat.expires_at IS NULL OR pat.expires_at > NOW())
@@ -126,7 +135,7 @@ const getRequiredPatScopesForRequest = (req) => {
   const isRead = method === 'GET' || method === 'HEAD';
 
   if (path.startsWith('/api/admin')) return ['admin:*'];
-  if (path === '/api/auth/me' || path.startsWith('/api/profile') || path.startsWith('/api/settings/general')) {
+  if (path === '/api/auth/me' || path === '/api/auth/scope' || path.startsWith('/api/profile') || path.startsWith('/api/settings/general')) {
     return [isRead ? 'profile:read' : 'profile:write'];
   }
   if (path.startsWith('/api/libraries')) return [isRead ? 'libraries:read' : 'libraries:write'];

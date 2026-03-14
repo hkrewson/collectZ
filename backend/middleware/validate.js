@@ -252,6 +252,14 @@ const librarySelectSchema = z.object({
   library_id: z.number().int().positive('library_id must be a positive integer')
 });
 
+const authScopeSelectSchema = z.object({
+  space_id: z.number().int().positive('space_id must be a positive integer').optional(),
+  library_id: z.number().int().positive('library_id must be a positive integer').optional()
+}).refine(
+  (data) => data.space_id || data.library_id,
+  { message: 'space_id or library_id is required' }
+);
+
 const libraryDeleteSchema = z.object({
   confirm_name: z.string().min(1, 'confirm_name is required')
 });
@@ -410,6 +418,7 @@ module.exports = {
   libraryCreateSchema,
   libraryUpdateSchema,
   librarySelectSchema,
+  authScopeSelectSchema,
   libraryDeleteSchema,
   libraryTransferSchema,
   libraryArchiveSchema,

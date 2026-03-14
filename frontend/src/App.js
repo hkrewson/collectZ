@@ -166,6 +166,7 @@ export default function App() {
     try {
       const payload = await apiCall('get', '/libraries');
       const nextLibraries = Array.isArray(payload?.libraries) ? payload.libraries : [];
+      const nextActiveSpaceId = Number(payload?.active_space_id || 0) || null;
       let nextActiveLibraryId = Number(payload?.active_library_id || 0) || null;
       if (!nextActiveLibraryId && nextLibraries.length > 0) {
         nextActiveLibraryId = Number(nextLibraries[0].id);
@@ -176,9 +177,10 @@ export default function App() {
       setUser((prev) => {
         if (!prev) return prev;
         const prevActive = Number(prev.active_library_id || 0) || null;
-        return prevActive === nextActiveLibraryId
+        const prevActiveSpace = Number(prev.active_space_id || 0) || null;
+        return prevActive === nextActiveLibraryId && prevActiveSpace === nextActiveSpaceId
           ? prev
-          : { ...prev, active_library_id: nextActiveLibraryId };
+          : { ...prev, active_space_id: nextActiveSpaceId, active_library_id: nextActiveLibraryId };
       });
       return nextActiveLibraryId;
     } catch (error) {
