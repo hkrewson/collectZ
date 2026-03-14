@@ -120,6 +120,12 @@ In 2.0:
 - Existing media is attached to the default library.
 - Migration/rollback must be validated against snapshot rehearsal before 2.0 release.
 
+### Phase 1 Migration Decision
+
+- `2.7.0-phase1` uses an install-wide `Default Space` backfill for existing installs.
+- This preserves current single-space behavior while activating first-class `spaces` and `space_memberships`.
+- Per-user personal spaces and richer shared-space UX remain deferred to later `2.7.0` phases.
+
 ## Open Decisions for 2.7.0 Planning
 
 - Whether migrated installs get:

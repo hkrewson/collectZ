@@ -1,55 +1,161 @@
 const pool = require('../db/pool');
+const { ensureDefaultSpaceForClient } = require('./spaces');
 
-async function ensureUserDefaultLibrary(userId) {
+function deriveSpaceMembershipRole({ userRole, isDefaultSpaceCreator = false }) {
+  if (isDefaultSpaceCreator) return 'owner';
+  if (userRole === 'admin') return 'admin';
+  if (userRole === 'viewer') return 'viewer';
+  return 'member';
+}
+
+async function ensureUserDefaultScope(userId, options = {}) {
   const numericUserId = Number(userId);
   if (!Number.isFinite(numericUserId) || numericUserId <= 0) {
     throw new Error('Invalid user id');
   }
 
+  const preferredSpaceIdRaw = Number(options.preferredSpaceId);
+  const preferredSpaceId = Number.isFinite(preferredSpaceIdRaw) && preferredSpaceIdRaw > 0
+    ? preferredSpaceIdRaw
+    : null;
+
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     const userScope = await client.query(
-      `SELECT active_library_id
+      `SELECT id, role, active_space_id, active_library_id
        FROM users
        WHERE id = $1
        FOR UPDATE`,
       [numericUserId]
     );
-    const currentActiveLibraryId = userScope.rows[0]?.active_library_id || null;
-    if (currentActiveLibraryId) {
+    const userRow = userScope.rows[0];
+    if (!userRow) throw new Error('User not found');
+
+    const defaultSpace = await ensureDefaultSpaceForClient(client, {
+      createdByUserId: numericUserId
+    });
+
+    let spaceId = preferredSpaceId;
+    if (spaceId) {
+      const preferred = await client.query(
+        `SELECT id
+         FROM spaces
+         WHERE id = $1
+           AND archived_at IS NULL
+         LIMIT 1`,
+        [spaceId]
+      );
+      if (preferred.rows.length === 0) {
+        spaceId = null;
+      }
+    }
+
+    if (!spaceId && userRow.active_library_id) {
+      const activeLibrary = await client.query(
+        `SELECT id, space_id
+         FROM libraries
+         WHERE id = $1
+           AND archived_at IS NULL
+         LIMIT 1`,
+        [userRow.active_library_id]
+      );
+      if (activeLibrary.rows.length > 0) {
+        spaceId = activeLibrary.rows[0].space_id || null;
+      }
+    }
+
+    if (!spaceId && userRow.active_space_id) {
+      const activeSpace = await client.query(
+        `SELECT id
+         FROM spaces
+         WHERE id = $1
+           AND archived_at IS NULL
+         LIMIT 1`,
+        [userRow.active_space_id]
+      );
+      if (activeSpace.rows.length > 0) {
+        spaceId = activeSpace.rows[0].id;
+      }
+    }
+
+    if (!spaceId) {
+      const firstMembership = await client.query(
+        `SELECT space_id
+         FROM space_memberships
+         WHERE user_id = $1
+         ORDER BY
+           CASE role
+             WHEN 'owner' THEN 0
+             WHEN 'admin' THEN 1
+             WHEN 'member' THEN 2
+             ELSE 3
+           END,
+           space_id ASC
+         LIMIT 1`,
+        [numericUserId]
+      );
+      if (firstMembership.rows.length > 0) {
+        spaceId = firstMembership.rows[0].space_id;
+      }
+    }
+
+    if (!spaceId) {
+      spaceId = defaultSpace.id;
+    }
+
+    await client.query(
+      `INSERT INTO space_memberships (space_id, user_id, role, created_by)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (space_id, user_id) DO NOTHING`,
+      [
+        spaceId,
+        numericUserId,
+        deriveSpaceMembershipRole({
+          userRole: userRow.role,
+          isDefaultSpaceCreator: Number(defaultSpace.created_by || 0) === numericUserId && spaceId === defaultSpace.id
+        }),
+        defaultSpace.created_by || numericUserId
+      ]
+    );
+
+    let libraryId = userRow.active_library_id || null;
+    if (libraryId) {
       const activeLibraryExists = await client.query(
         `SELECT id
          FROM libraries
          WHERE id = $1
            AND archived_at IS NULL
+           AND space_id = $2
          LIMIT 1`,
-        [currentActiveLibraryId]
+        [libraryId, spaceId]
       );
-      if (activeLibraryExists.rows.length > 0) {
-        await client.query('COMMIT');
-        return currentActiveLibraryId;
+      if (activeLibraryExists.rows.length === 0) {
+        libraryId = null;
       }
     }
 
-    const memberships = await client.query(
-      `SELECT lm.library_id
-       FROM library_memberships lm
-       JOIN libraries l ON l.id = lm.library_id
-       WHERE lm.user_id = $1
-         AND l.archived_at IS NULL
-       ORDER BY lm.created_at ASC, lm.library_id ASC
-       LIMIT 1`,
-      [numericUserId]
-    );
+    if (!libraryId) {
+      const memberships = await client.query(
+        `SELECT lm.library_id
+         FROM library_memberships lm
+         JOIN libraries l ON l.id = lm.library_id
+         WHERE lm.user_id = $1
+           AND l.archived_at IS NULL
+           AND l.space_id = $2
+         ORDER BY lm.created_at ASC, lm.library_id ASC
+         LIMIT 1`,
+        [numericUserId, spaceId]
+      );
+      libraryId = memberships.rows[0]?.library_id || null;
+    }
 
-    let libraryId = memberships.rows[0]?.library_id || null;
     if (!libraryId) {
       const created = await client.query(
-        `INSERT INTO libraries (name, created_by)
-         VALUES ('My Library', $1)
+        `INSERT INTO libraries (name, created_by, space_id)
+         VALUES ('My Library', $1, $2)
          RETURNING id`,
-        [numericUserId]
+        [numericUserId, spaceId]
       );
       libraryId = created.rows[0].id;
       await client.query(
@@ -62,19 +168,25 @@ async function ensureUserDefaultLibrary(userId) {
 
     await client.query(
       `UPDATE users
-       SET active_library_id = $2
+       SET active_space_id = $2,
+           active_library_id = $3
        WHERE id = $1`,
-      [numericUserId, libraryId]
+      [numericUserId, spaceId, libraryId]
     );
 
     await client.query('COMMIT');
-    return libraryId;
+    return { spaceId, libraryId };
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;
   } finally {
     client.release();
   }
+}
+
+async function ensureUserDefaultLibrary(userId) {
+  const scope = await ensureUserDefaultScope(userId);
+  return scope.libraryId;
 }
 
 function toLibraryResponse(row) {
@@ -153,6 +265,7 @@ async function getAccessibleLibrary({ userId, role, libraryId }) {
 }
 
 module.exports = {
+  ensureUserDefaultScope,
   ensureUserDefaultLibrary,
   listLibrariesForUser,
   getAccessibleLibrary

@@ -1,0 +1,39 @@
+{
+  "generatedAt": "2026-03-14T22:38:41.481Z",
+  "initSqlPath": "/repo/init.sql",
+  "initDb": "collectz_init_parity_init_mmqwqdzd",
+  "migDb": "collectz_init_parity_mig_mmqwqdzd",
+  "checks": [
+    {
+      "label": "columns",
+      "onlyInitSql": [],
+      "onlyMigrations": [],
+      "matches": true
+    },
+    {
+      "label": "indexes",
+      "onlyInitSql": [],
+      "onlyMigrations": [],
+      "matches": true
+    },
+    {
+      "label": "triggers",
+      "onlyInitSql": [],
+      "onlyMigrations": [],
+      "matches": true
+    },
+    {
+      "label": "migrations",
+      "onlyInitSql": [],
+      "onlyMigrations": [],
+      "matches": true
+    },
+    {
+      "label": "feature_flags",
+      "onlyInitSql": [],
+      "onlyMigrations": [],
+      "matches": true
+    }
+  ],
+  "mismatchCount": 0
+}

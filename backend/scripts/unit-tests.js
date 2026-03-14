@@ -35,6 +35,8 @@ const openApiSource = require('fs').readFileSync(require.resolve('../openapi/ope
 const docsRoutesSource = require('fs').readFileSync(require.resolve('../routes/docs'), 'utf8');
 const metricsRoutesSource = require('fs').readFileSync(require.resolve('../routes/metrics'), 'utf8');
 const serverSource = require('fs').readFileSync(require.resolve('../server'), 'utf8');
+const migrationsSource = require('fs').readFileSync(require.resolve('../db/migrations'), 'utf8');
+const libraryServiceSource = require('fs').readFileSync(require.resolve('../services/libraries'), 'utf8');
 const structuredLogSmokeSource = require('fs').readFileSync(require.resolve('../scripts/structured-log-smoke'), 'utf8');
 const dashboardSpec = JSON.parse(require('fs').readFileSync(require.resolve('../../ops/monitoring/grafana/dashboards/collectz-overview.json'), 'utf8'));
 const alertRulesSource = require('fs').readFileSync(require.resolve('../../docs/alerts/collectz-alert-rules.yaml'), 'utf8');
@@ -248,6 +250,13 @@ results.push(run('scope.appendScopeSql appends scoped clauses and params', () =>
   const clause = appendScopeSql(params, { spaceId: 4, libraryId: 10 });
   assert.strictEqual(clause, ' AND space_id = $2 AND library_id = $3');
   assert.deepStrictEqual(params, ['title', 4, 10]);
+}));
+
+results.push(run('migration source includes first-class spaces activation', () => {
+  assert.ok(migrationsSource.includes("description: 'Activate first-class spaces and backfill default space memberships'"));
+  assert.ok(migrationsSource.includes('CREATE TABLE IF NOT EXISTS spaces'));
+  assert.ok(migrationsSource.includes('CREATE TABLE IF NOT EXISTS space_memberships'));
+  assert.ok(migrationsSource.includes('ALTER COLUMN space_id SET NOT NULL'));
 }));
 
 results.push(run('importMapping maps Delicious VideoGame to game', () => {
@@ -1055,6 +1064,18 @@ results.push(run('auth routes attribute register and login audit events to the a
   const authRoutesSource = require('fs').readFileSync(require.resolve('../routes/auth'), 'utf8');
   assert.ok(authRoutesSource.includes("await logActivity({ ...req, user: { id: result.rows[0].id"));
   assert.ok(authRoutesSource.includes("await logActivity({ ...req, user: { id: user.id"));
+}));
+
+results.push(run('library service source ensures default scope before returning default library', () => {
+  assert.ok(libraryServiceSource.includes('async function ensureUserDefaultScope'));
+  assert.ok(libraryServiceSource.includes('ensureDefaultSpaceForClient'));
+  assert.ok(libraryServiceSource.includes('SET active_space_id = $2,'));
+}));
+
+results.push(run('library routes preserve active space when replacing archived or deleted libraries', () => {
+  const librariesRoutesSource = require('fs').readFileSync(require.resolve('../routes/libraries'), 'utf8');
+  assert.ok(librariesRoutesSource.includes('SELECT lm.library_id, l.space_id'));
+  assert.ok(librariesRoutesSource.includes('SET active_space_id = $2,'));
 }));
 
 results.push(run('server source assigns request ids before request logging', () => {

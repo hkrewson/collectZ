@@ -334,16 +334,40 @@ CREATE TABLE IF NOT EXISTS app_settings (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS spaces (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    slug VARCHAR(255),
+    description TEXT,
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    is_personal BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    archived_at TIMESTAMP
+);
+
 -- Future library scaffolding (1.9 prep, activated in 2.0)
 CREATE TABLE IF NOT EXISTS libraries (
     id SERIAL PRIMARY KEY,
-    space_id INTEGER,
+    space_id INTEGER NOT NULL REFERENCES spaces(id) ON DELETE RESTRICT,
     name VARCHAR(255) NOT NULL,
     description TEXT,
     created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     archived_at TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS space_memberships (
+    id SERIAL PRIMARY KEY,
+    space_id INTEGER NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role VARCHAR(20) NOT NULL DEFAULT 'member'
+      CHECK (role IN ('owner', 'admin', 'member', 'viewer')),
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (space_id, user_id)
 );
 
 CREATE TABLE IF NOT EXISTS library_memberships (
@@ -576,6 +600,10 @@ CREATE INDEX IF NOT EXISTS idx_user_sessions_expires_at ON user_sessions(expires
 CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user_id ON password_reset_tokens(user_id);
 CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_active ON password_reset_tokens(used, revoked, expires_at);
 CREATE INDEX IF NOT EXISTS idx_libraries_name ON libraries(name);
+CREATE INDEX IF NOT EXISTS idx_spaces_slug_active ON spaces (lower(slug)) WHERE slug IS NOT NULL AND archived_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_spaces_created_by ON spaces(created_by);
+CREATE INDEX IF NOT EXISTS idx_space_memberships_space_id ON space_memberships(space_id);
+CREATE INDEX IF NOT EXISTS idx_space_memberships_user_id ON space_memberships(user_id);
 CREATE INDEX IF NOT EXISTS idx_library_memberships_user_id ON library_memberships(user_id);
 CREATE INDEX IF NOT EXISTS idx_library_memberships_library_id ON library_memberships(library_id);
 CREATE INDEX IF NOT EXISTS idx_sync_jobs_status_created_at ON sync_jobs(status, created_at DESC);
@@ -699,6 +727,14 @@ BEGIN
         CREATE TRIGGER update_collectibles_updated_at BEFORE UPDATE ON collectibles
             FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_spaces_updated_at') THEN
+        CREATE TRIGGER update_spaces_updated_at BEFORE UPDATE ON spaces
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_space_memberships_updated_at') THEN
+        CREATE TRIGGER update_space_memberships_updated_at BEFORE UPDATE ON space_memberships
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_personal_access_tokens_updated_at') THEN
         CREATE TRIGGER update_personal_access_tokens_updated_at BEFORE UPDATE ON personal_access_tokens
             FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -769,5 +805,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (38, 'Add feature flags for Events and Collectibles library surfaces'),
     (39, 'Add Calibre Web Automated OPDS integration settings'),
     (40, 'Add personal access tokens for non-browser API authentication'),
-    (41, 'Add service account keys for machine-to-machine API authentication')
+    (41, 'Add service account keys for machine-to-machine API authentication'),
+    (42, 'Activate first-class spaces and backfill default space memberships')
 ON CONFLICT (version) DO NOTHING;

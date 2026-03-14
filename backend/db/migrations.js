@@ -1593,6 +1593,382 @@ const MIGRATIONS = [
       END;
       $$;
     `
+  },
+  {
+    version: 42,
+    description: 'Activate first-class spaces and backfill default space memberships',
+    up: `
+      CREATE TABLE IF NOT EXISTS spaces (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        slug VARCHAR(255),
+        description TEXT,
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        is_personal BOOLEAN NOT NULL DEFAULT false,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        archived_at TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS space_memberships (
+        id SERIAL PRIMARY KEY,
+        space_id INTEGER NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        role VARCHAR(20) NOT NULL DEFAULT 'member'
+          CHECK (role IN ('owner', 'admin', 'member', 'viewer')),
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (space_id, user_id)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_spaces_slug_active
+        ON spaces (lower(slug))
+        WHERE slug IS NOT NULL AND archived_at IS NULL;
+      CREATE INDEX IF NOT EXISTS idx_spaces_created_by
+        ON spaces(created_by);
+      CREATE INDEX IF NOT EXISTS idx_space_memberships_space_id
+        ON space_memberships(space_id);
+      CREATE INDEX IF NOT EXISTS idx_space_memberships_user_id
+        ON space_memberships(user_id);
+
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_spaces_updated_at') THEN
+          CREATE TRIGGER update_spaces_updated_at BEFORE UPDATE ON spaces
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_space_memberships_updated_at') THEN
+          CREATE TRIGGER update_space_memberships_updated_at BEFORE UPDATE ON space_memberships
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+        END IF;
+      END;
+      $$;
+
+      INSERT INTO spaces (name, slug, description, created_by, is_personal)
+      SELECT
+        'Default Space',
+        'default',
+        'Default space for migrated and single-space installs',
+        MIN(id),
+        false
+      FROM users
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM spaces
+        WHERE lower(COALESCE(slug, '')) = 'default'
+          AND archived_at IS NULL
+      );
+
+      WITH default_space AS (
+        SELECT id
+        FROM spaces
+        WHERE lower(COALESCE(slug, '')) = 'default'
+          AND archived_at IS NULL
+        ORDER BY id ASC
+        LIMIT 1
+      )
+      UPDATE libraries l
+      SET space_id = ds.id
+      FROM default_space ds
+      WHERE l.space_id IS NULL;
+
+      WITH default_space AS (
+        SELECT id
+        FROM spaces
+        WHERE lower(COALESCE(slug, '')) = 'default'
+          AND archived_at IS NULL
+        ORDER BY id ASC
+        LIMIT 1
+      )
+      UPDATE media m
+      SET space_id = COALESCE((
+        SELECT l.space_id
+        FROM libraries l
+        WHERE l.id = m.library_id
+      ), ds.id)
+      FROM default_space ds
+      WHERE m.space_id IS NULL;
+
+      WITH default_space AS (
+        SELECT id
+        FROM spaces
+        WHERE lower(COALESCE(slug, '')) = 'default'
+          AND archived_at IS NULL
+        ORDER BY id ASC
+        LIMIT 1
+      )
+      UPDATE invites i
+      SET space_id = ds.id
+      FROM default_space ds
+      WHERE i.space_id IS NULL;
+
+      WITH default_space AS (
+        SELECT id
+        FROM spaces
+        WHERE lower(COALESCE(slug, '')) = 'default'
+          AND archived_at IS NULL
+        ORDER BY id ASC
+        LIMIT 1
+      )
+      UPDATE app_integrations ai
+      SET space_id = ds.id
+      FROM default_space ds
+      WHERE ai.space_id IS NULL;
+
+      WITH default_space AS (
+        SELECT id
+        FROM spaces
+        WHERE lower(COALESCE(slug, '')) = 'default'
+          AND archived_at IS NULL
+        ORDER BY id ASC
+        LIMIT 1
+      )
+      UPDATE collections c
+      SET space_id = COALESCE((
+        SELECT l.space_id
+        FROM libraries l
+        WHERE l.id = c.library_id
+      ), ds.id)
+      FROM default_space ds
+      WHERE c.space_id IS NULL;
+
+      WITH default_space AS (
+        SELECT id
+        FROM spaces
+        WHERE lower(COALESCE(slug, '')) = 'default'
+          AND archived_at IS NULL
+        ORDER BY id ASC
+        LIMIT 1
+      )
+      UPDATE import_match_reviews imr
+      SET space_id = COALESCE((
+        SELECT l.space_id
+        FROM libraries l
+        WHERE l.id = imr.library_id
+      ), ds.id)
+      FROM default_space ds
+      WHERE imr.space_id IS NULL;
+
+      WITH default_space AS (
+        SELECT id
+        FROM spaces
+        WHERE lower(COALESCE(slug, '')) = 'default'
+          AND archived_at IS NULL
+        ORDER BY id ASC
+        LIMIT 1
+      )
+      UPDATE events e
+      SET space_id = COALESCE((
+        SELECT l.space_id
+        FROM libraries l
+        WHERE l.id = e.library_id
+      ), ds.id)
+      FROM default_space ds
+      WHERE e.space_id IS NULL;
+
+      WITH default_space AS (
+        SELECT id
+        FROM spaces
+        WHERE lower(COALESCE(slug, '')) = 'default'
+          AND archived_at IS NULL
+        ORDER BY id ASC
+        LIMIT 1
+      )
+      UPDATE collectibles c
+      SET space_id = COALESCE((
+        SELECT l.space_id
+        FROM libraries l
+        WHERE l.id = c.library_id
+      ), ds.id)
+      FROM default_space ds
+      WHERE c.space_id IS NULL;
+
+      INSERT INTO space_memberships (space_id, user_id, role, created_by)
+      SELECT DISTINCT
+        l.space_id,
+        lm.user_id,
+        CASE
+          WHEN lm.role = 'owner' THEN 'owner'
+          ELSE 'member'
+        END,
+        l.created_by
+      FROM library_memberships lm
+      JOIN libraries l ON l.id = lm.library_id
+      WHERE l.space_id IS NOT NULL
+      ON CONFLICT (space_id, user_id) DO NOTHING;
+
+      INSERT INTO space_memberships (space_id, user_id, role, created_by)
+      SELECT DISTINCT
+        l.space_id,
+        u.id,
+        'admin',
+        u.id
+      FROM users u
+      JOIN libraries l ON l.space_id IS NOT NULL
+      WHERE u.role = 'admin'
+      ON CONFLICT (space_id, user_id) DO UPDATE
+      SET role = CASE
+        WHEN space_memberships.role = 'owner' THEN 'owner'
+        ELSE 'admin'
+      END;
+
+      WITH default_space AS (
+        SELECT id
+        FROM spaces
+        WHERE lower(COALESCE(slug, '')) = 'default'
+          AND archived_at IS NULL
+        ORDER BY id ASC
+        LIMIT 1
+      )
+      INSERT INTO space_memberships (space_id, user_id, role, created_by)
+      SELECT
+        ds.id,
+        u.id,
+        CASE
+          WHEN u.role = 'admin' THEN 'admin'
+          WHEN u.role = 'viewer' THEN 'viewer'
+          ELSE 'member'
+        END,
+        NULL
+      FROM default_space ds
+      CROSS JOIN users u
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM space_memberships sm
+        WHERE sm.space_id = ds.id
+          AND sm.user_id = u.id
+      );
+
+      WITH user_default_space AS (
+        SELECT
+          u.id AS user_id,
+          COALESCE(l.space_id, sm.space_id) AS space_id
+        FROM users u
+        LEFT JOIN libraries l ON l.id = u.active_library_id
+        LEFT JOIN LATERAL (
+          SELECT sm.space_id
+          FROM space_memberships sm
+          WHERE sm.user_id = u.id
+          ORDER BY
+            CASE sm.role
+              WHEN 'owner' THEN 0
+              WHEN 'admin' THEN 1
+              WHEN 'member' THEN 2
+              ELSE 3
+            END,
+            sm.space_id ASC
+          LIMIT 1
+        ) sm ON true
+      )
+      UPDATE users u
+      SET active_space_id = uds.space_id
+      FROM user_default_space uds
+      WHERE u.id = uds.user_id
+        AND uds.space_id IS NOT NULL;
+
+      ALTER TABLE libraries
+        ALTER COLUMN space_id SET NOT NULL;
+
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1
+          FROM pg_constraint
+          WHERE conname = 'libraries_space_id_fkey'
+        ) THEN
+          ALTER TABLE libraries
+            ADD CONSTRAINT libraries_space_id_fkey
+            FOREIGN KEY (space_id) REFERENCES spaces(id) ON DELETE RESTRICT;
+        END IF;
+
+        IF NOT EXISTS (
+          SELECT 1
+          FROM pg_constraint
+          WHERE conname = 'users_active_space_id_fkey'
+        ) THEN
+          ALTER TABLE users
+            ADD CONSTRAINT users_active_space_id_fkey
+            FOREIGN KEY (active_space_id) REFERENCES spaces(id) ON DELETE SET NULL;
+        END IF;
+
+        IF NOT EXISTS (
+          SELECT 1
+          FROM pg_constraint
+          WHERE conname = 'media_space_id_fkey'
+        ) THEN
+          ALTER TABLE media
+            ADD CONSTRAINT media_space_id_fkey
+            FOREIGN KEY (space_id) REFERENCES spaces(id) ON DELETE SET NULL;
+        END IF;
+
+        IF NOT EXISTS (
+          SELECT 1
+          FROM pg_constraint
+          WHERE conname = 'invites_space_id_fkey'
+        ) THEN
+          ALTER TABLE invites
+            ADD CONSTRAINT invites_space_id_fkey
+            FOREIGN KEY (space_id) REFERENCES spaces(id) ON DELETE SET NULL;
+        END IF;
+
+        IF NOT EXISTS (
+          SELECT 1
+          FROM pg_constraint
+          WHERE conname = 'app_integrations_space_id_fkey'
+        ) THEN
+          ALTER TABLE app_integrations
+            ADD CONSTRAINT app_integrations_space_id_fkey
+            FOREIGN KEY (space_id) REFERENCES spaces(id) ON DELETE SET NULL;
+        END IF;
+
+        IF NOT EXISTS (
+          SELECT 1
+          FROM pg_constraint
+          WHERE conname = 'collections_space_id_fkey'
+        ) THEN
+          ALTER TABLE collections
+            ADD CONSTRAINT collections_space_id_fkey
+            FOREIGN KEY (space_id) REFERENCES spaces(id) ON DELETE SET NULL;
+        END IF;
+
+        IF NOT EXISTS (
+          SELECT 1
+          FROM pg_constraint
+          WHERE conname = 'import_match_reviews_space_id_fkey'
+        ) THEN
+          ALTER TABLE import_match_reviews
+            ADD CONSTRAINT import_match_reviews_space_id_fkey
+            FOREIGN KEY (space_id) REFERENCES spaces(id) ON DELETE SET NULL;
+        END IF;
+
+        IF NOT EXISTS (
+          SELECT 1
+          FROM pg_constraint
+          WHERE conname = 'events_space_id_fkey'
+        ) THEN
+          ALTER TABLE events
+            ADD CONSTRAINT events_space_id_fkey
+            FOREIGN KEY (space_id) REFERENCES spaces(id) ON DELETE SET NULL;
+        END IF;
+
+        IF EXISTS (
+          SELECT 1
+          FROM information_schema.tables
+          WHERE table_schema = 'public'
+            AND table_name = 'collectibles'
+        ) AND NOT EXISTS (
+          SELECT 1
+          FROM pg_constraint
+          WHERE conname = 'collectibles_space_id_fkey'
+        ) THEN
+          ALTER TABLE collectibles
+            ADD CONSTRAINT collectibles_space_id_fkey
+            FOREIGN KEY (space_id) REFERENCES spaces(id) ON DELETE SET NULL;
+        END IF;
+      END;
+      $$;
+    `
   }
 ];
 

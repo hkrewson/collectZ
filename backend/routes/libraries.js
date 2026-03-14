@@ -13,7 +13,7 @@ const {
 } = require('../middleware/validate');
 const { enforceScopeAccess } = require('../middleware/scopeAccess');
 const { logActivity } = require('../services/audit');
-const { listLibrariesForUser, getAccessibleLibrary, ensureUserDefaultLibrary } = require('../services/libraries');
+const { listLibrariesForUser, getAccessibleLibrary, ensureUserDefaultLibrary, ensureUserDefaultScope } = require('../services/libraries');
 
 const router = express.Router();
 
@@ -21,43 +21,52 @@ router.use(authenticateToken);
 router.use(enforceScopeAccess({ allowedHintRoles: ['admin', 'user', 'viewer'] }));
 
 router.get('/libraries', asyncHandler(async (req, res) => {
-  await ensureUserDefaultLibrary(req.user.id);
+  const ensuredScope = await ensureUserDefaultScope(req.user.id);
+  req.user.activeLibraryId = ensuredScope.libraryId;
+  req.user.activeSpaceId = ensuredScope.spaceId;
   const libraries = await listLibrariesForUser({ userId: req.user.id, role: req.user.role });
   const userScopeResult = await pool.query(
-    `SELECT active_library_id
+    `SELECT active_space_id, active_library_id
      FROM users
      WHERE id = $1
      LIMIT 1`,
     [req.user.id]
   );
+  const activeSpaceId = Number(userScopeResult.rows[0]?.active_space_id || 0) || null;
   const activeLibraryId = Number(userScopeResult.rows[0]?.active_library_id || 0) || null;
   const hasActive = activeLibraryId && libraries.some((lib) => Number(lib.id) === activeLibraryId);
   if (!hasActive && libraries.length > 0) {
-    const fallbackLibraryId = libraries[0].id;
+    const fallbackLibrary = libraries[0];
     await pool.query(
       `UPDATE users
-       SET active_library_id = $2
+       SET active_space_id = $2,
+           active_library_id = $3
        WHERE id = $1`,
-      [req.user.id, fallbackLibraryId]
+      [req.user.id, fallbackLibrary.space_id || null, fallbackLibrary.id]
     );
-    req.user.activeLibraryId = fallbackLibraryId;
+    req.user.activeSpaceId = fallbackLibrary.space_id || null;
+    req.user.activeLibraryId = fallbackLibrary.id;
   }
   const resolvedActiveLibraryId = hasActive
     ? activeLibraryId
     : (libraries[0]?.id || null);
   res.json({
     libraries,
+    active_space_id: hasActive ? activeSpaceId : (libraries[0]?.space_id || null),
     active_library_id: resolvedActiveLibraryId
   });
 }));
 
 router.post('/libraries', validate(libraryCreateSchema), asyncHandler(async (req, res) => {
   const { name, description } = req.body;
+  const ensuredScope = req.user.activeSpaceId
+    ? { spaceId: req.user.activeSpaceId, libraryId: req.user.activeLibraryId || null }
+    : await ensureUserDefaultScope(req.user.id);
   const created = await pool.query(
     `INSERT INTO libraries (name, description, created_by, space_id)
      VALUES ($1, $2, $3, $4)
      RETURNING id, name, description, space_id, created_by, created_at, updated_at`,
-    [name.trim(), description || null, req.user.id, req.user.activeSpaceId || null]
+    [name.trim(), description || null, req.user.id, ensuredScope.spaceId]
   );
   const library = created.rows[0];
 
@@ -70,10 +79,12 @@ router.post('/libraries', validate(libraryCreateSchema), asyncHandler(async (req
 
   await pool.query(
     `UPDATE users
-     SET active_library_id = $2
+     SET active_space_id = $2,
+         active_library_id = $3
      WHERE id = $1`,
-    [req.user.id, library.id]
+    [req.user.id, library.space_id || ensuredScope.spaceId || null, library.id]
   );
+  req.user.activeSpaceId = library.space_id || ensuredScope.spaceId || null;
   req.user.activeLibraryId = library.id;
 
   await logActivity(req, 'library.create', 'library', library.id, {
@@ -81,6 +92,7 @@ router.post('/libraries', validate(libraryCreateSchema), asyncHandler(async (req
   });
   res.status(201).json({
     ...library,
+    active_space_id: library.space_id || ensuredScope.spaceId || null,
     active_library_id: library.id
   });
 }));
@@ -279,7 +291,7 @@ router.post('/libraries/:id/archive', validate(libraryArchiveSchema), asyncHandl
   );
   for (const row of usersWithActive.rows) {
     const replacement = await pool.query(
-      `SELECT lm.library_id
+      `SELECT lm.library_id, l.space_id
        FROM library_memberships lm
        JOIN libraries l ON l.id = lm.library_id
        WHERE lm.user_id = $1
@@ -290,9 +302,10 @@ router.post('/libraries/:id/archive', validate(libraryArchiveSchema), asyncHandl
     );
     await pool.query(
       `UPDATE users
-       SET active_library_id = $2
+       SET active_space_id = $2,
+           active_library_id = $3
        WHERE id = $1`,
-      [row.id, replacement.rows[0]?.library_id || null]
+      [row.id, replacement.rows[0]?.space_id || null, replacement.rows[0]?.library_id || null]
     );
   }
 
@@ -387,7 +400,7 @@ router.delete('/libraries/:id', validate(libraryDeleteSchema), asyncHandler(asyn
 
   for (const row of usersWithActive.rows) {
     const replacement = await pool.query(
-      `SELECT lm.library_id
+      `SELECT lm.library_id, l.space_id
        FROM library_memberships lm
        JOIN libraries l ON l.id = lm.library_id
        WHERE lm.user_id = $1
@@ -397,14 +410,18 @@ router.delete('/libraries/:id', validate(libraryDeleteSchema), asyncHandler(asyn
       [row.id]
     );
     let replacementLibraryId = replacement.rows[0]?.library_id || null;
+    let replacementSpaceId = replacement.rows[0]?.space_id || null;
     if (!replacementLibraryId) {
-      replacementLibraryId = await ensureUserDefaultLibrary(row.id);
+      const ensuredScope = await ensureUserDefaultScope(row.id);
+      replacementLibraryId = ensuredScope.libraryId;
+      replacementSpaceId = ensuredScope.spaceId;
     }
     await pool.query(
       `UPDATE users
-       SET active_library_id = $2
+       SET active_space_id = $2,
+           active_library_id = $3
        WHERE id = $1`,
-      [row.id, replacementLibraryId]
+      [row.id, replacementSpaceId, replacementLibraryId]
     );
   }
 

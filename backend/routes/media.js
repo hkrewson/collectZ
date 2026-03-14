@@ -44,7 +44,7 @@ const { uploadBuffer } = require('../services/storage');
 const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
 const { isFeatureEnabled } = require('../services/featureFlags');
 const { enforceScopeAccess } = require('../middleware/scopeAccess');
-const { ensureUserDefaultLibrary } = require('../services/libraries');
+const { ensureUserDefaultLibrary, ensureUserDefaultScope } = require('../services/libraries');
 
 const router = express.Router();
 
@@ -5269,9 +5269,13 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
   if (req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Only admins can import from Plex' });
   }
-  const ensuredLibraryId = scopeContext?.libraryId || await ensureUserDefaultLibrary(req.user.id);
+  const ensuredScope = scopeContext?.libraryId
+    ? { spaceId: scopeContext?.spaceId || null, libraryId: scopeContext.libraryId }
+    : await ensureUserDefaultScope(req.user.id);
+  const ensuredLibraryId = ensuredScope.libraryId;
   const effectiveScopeContext = {
     ...scopeContext,
+    spaceId: scopeContext?.spaceId ?? ensuredScope.spaceId ?? null,
     libraryId: ensuredLibraryId || null
   };
   if (!effectiveScopeContext.libraryId) {

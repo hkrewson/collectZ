@@ -8,7 +8,7 @@ const { createSession, revokeSessionByToken, revokeSessionsForUser, getSessionUs
 const { logActivity } = require('../services/audit');
 const { issueCsrfToken, clearCsrfToken } = require('../middleware/csrf');
 const { hashInviteToken } = require('../services/invites');
-const { ensureUserDefaultLibrary } = require('../services/libraries');
+const { ensureUserDefaultScope } = require('../services/libraries');
 const {
   PERSONAL_ACCESS_TOKEN_SCOPES,
   createPersonalAccessToken,
@@ -78,7 +78,11 @@ router.post('/register', validate(registerSchema), asyncHandler(async (req, res)
     'INSERT INTO users (email, password, name, role) VALUES ($1, $2, $3, $4) RETURNING id, email, name, role',
     [email, hashedPassword, name, role]
   );
-  const activeLibraryId = await ensureUserDefaultLibrary(result.rows[0].id);
+  const ensuredScope = await ensureUserDefaultScope(result.rows[0].id, {
+    preferredSpaceId: claimedInvite?.space_id || null
+  });
+  const activeLibraryId = ensuredScope.libraryId;
+  const activeSpaceId = ensuredScope.spaceId;
 
   if (inviteToken) {
     await pool.query(
@@ -108,6 +112,7 @@ router.post('/register', validate(registerSchema), asyncHandler(async (req, res)
   res.json({
     user: {
       ...result.rows[0],
+      active_space_id: activeSpaceId,
       active_library_id: activeLibraryId
     }
   });
@@ -130,7 +135,9 @@ router.post('/login', validate(loginSchema), asyncHandler(async (req, res) => {
     recordAuthEvent('login', 'failed');
     return res.status(401).json({ error: 'Invalid email or password' });
   }
-  const activeLibraryId = await ensureUserDefaultLibrary(user.id);
+  const ensuredScope = await ensureUserDefaultScope(user.id);
+  const activeLibraryId = ensuredScope.libraryId;
+  const activeSpaceId = ensuredScope.spaceId;
 
   const token = await createSession(user.id, {
     ipAddress: req.ip,
@@ -145,6 +152,7 @@ router.post('/login', validate(loginSchema), asyncHandler(async (req, res) => {
   res.json({
     user: {
       ...userWithoutPassword,
+      active_space_id: activeSpaceId,
       active_library_id: activeLibraryId
     }
   });
