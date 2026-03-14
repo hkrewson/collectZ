@@ -1540,6 +1540,40 @@ Historical planning notes may still exist in:
 - Exporter misconfiguration and env drift have documented fast-diagnosis paths and, where reasonable, lightweight runtime validation.
 - Logging/metrics hardening changes do not break core API/import behavior or make collector availability a runtime dependency.
 
+## 2.9.2 — Secure Change Review and Dependency PR Triage
+
+**Goal:** Move security review earlier in the delivery cycle by adding a lightweight secure-code review checkpoint for sensitive changes and a predictable weekly triage loop for dependency PRs created by automation.
+
+### Scope
+
+- Add a required secure-review checklist for PRs that touch:
+  - auth/session/cookie behavior,
+  - RBAC and scope enforcement,
+  - request validation and parsing,
+  - file upload/import surfaces,
+  - external fetch/integration code,
+  - CI workflow permissions and release automation.
+- Define reviewer expectations for obvious-opening checks:
+  - missing authorization guards,
+  - unsafe input handling,
+  - secret exposure in logs or config,
+  - SSRF/path traversal/file-type validation issues,
+  - dependency/workflow permission changes with elevated blast radius.
+- Formalize weekly dependency PR triage using the scheduled dependency-watch artifact plus the current open Dependabot queue.
+- Review dependency PRs in three lanes:
+  - fast-track security-sensitive updates,
+  - batch routine patch/minor maintenance updates,
+  - isolate major-version upgrades for dedicated compatibility review and rollout notes.
+- Keep dependency triage attached to roadmap/release traceability when an update is deferred for break-risk reasons.
+
+### Acceptance Criteria
+
+- Sensitive PRs include an explicit secure-review note before merge.
+- Reviewers have one documented place to check for common obvious security openings.
+- Open dependency PRs are reviewed on the same weekly cadence as dependency-watch output.
+- Security-sensitive dependency bumps are prioritized ahead of routine maintenance batches.
+- Major dependency upgrades are no longer mixed into routine maintenance PR batches without explicit review planning.
+
 ## 2.10.0 — Multi-Format Ownership Model (Movies/Games)
 
 **Goal:** support owning multiple formats of the same title without fragmenting the library record.

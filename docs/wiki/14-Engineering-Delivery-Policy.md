@@ -117,7 +117,29 @@ Each PR should include:
 - milestone id (`1.9.x`/`2.0.x`),
 - scope summary (what changed),
 - non-scope items explicitly deferred,
-- test evidence references.
+- test evidence references,
+- security review note for auth, RBAC, validation, secrets, file upload, external-call, and dependency-surface changes when applicable.
+
+### Required Secure Review for Sensitive Changes
+
+PRs touching the following areas require an explicit secure-code review note before merge:
+
+- `backend/routes/**`
+- `backend/middleware/**`
+- `backend/services/**`
+- auth/session/cookie logic,
+- upload/import parsers and file handling,
+- outbound integrations or webhook/external fetch behavior,
+- `.github/workflows/**`
+
+The review note should confirm the reviewer checked, where applicable:
+
+- authorization and scope enforcement,
+- input validation and unsafe deserialization risks,
+- secret handling and log exposure,
+- SSRF/path traversal/file-type risks,
+- dependency or workflow permission expansion,
+- failure behavior for obvious security regressions.
 
 ---
 
@@ -210,6 +232,11 @@ This section governs dependency awareness, update decisions, and validation.
    - materiality classification (major/minor/patch),
    - security context from production audit counts.
 3. Dependency-watch output must be visible in workflow summary and saved as an artifact.
+4. Maintainers should review open dependency PRs against the latest dependency-watch summary on the same weekly cadence.
+5. Weekly dependency PR triage should group updates as:
+   - highest priority: security-relevant packages affecting request handling, auth, uploads, parsing, or workflow permissions,
+   - maintenance batch: routine patch/minor updates with low break risk,
+   - isolated review: major-version upgrades requiring rollout notes or compatibility checks.
 
 ### 6.3 Materiality Classification
 
@@ -228,6 +255,10 @@ This section governs dependency awareness, update decisions, and validation.
 3. Defer only when:
    - break risk is high and no security/operational pressure exists,
    - deferral includes owner, reason, and target milestone in release notes/roadmap.
+4. Review in isolation when:
+   - the update is a major version,
+   - the package affects auth, request parsing, rate limiting, upload handling, schema validation, or CI workflow permissions,
+   - the change alters framework/runtime behavior with broad application impact.
 
 ### 6.5 Required Validation for Dependency Bumps
 
