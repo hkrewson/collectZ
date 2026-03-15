@@ -1,7 +1,7 @@
 const express = require('express');
 const pool = require('../db/pool');
 const { asyncHandler } = require('../middleware/errors');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, requireSessionAuth } = require('../middleware/auth');
 const {
   validate,
   libraryCreateSchema,
@@ -13,7 +13,13 @@ const {
 } = require('../middleware/validate');
 const { enforceScopeAccess } = require('../middleware/scopeAccess');
 const { logActivity } = require('../services/audit');
-const { listLibrariesForUser, getAccessibleLibrary, ensureUserDefaultLibrary, ensureUserDefaultScope } = require('../services/libraries');
+const {
+  listLibrariesForUser,
+  getAccessibleLibrary,
+  ensureUserDefaultLibrary,
+  ensureUserDefaultScope,
+  syncLibraryMembershipsForSpaceUser
+} = require('../services/libraries');
 
 const router = express.Router();
 
@@ -76,6 +82,19 @@ router.post('/libraries', validate(libraryCreateSchema), asyncHandler(async (req
      ON CONFLICT (user_id, library_id) DO NOTHING`,
     [req.user.id, library.id]
   );
+  const spaceMembers = await pool.query(
+    `SELECT user_id
+     FROM space_memberships
+     WHERE space_id = $1
+       AND user_id <> $2`,
+    [library.space_id || ensuredScope.spaceId || null, req.user.id]
+  );
+  for (const row of spaceMembers.rows) {
+    await syncLibraryMembershipsForSpaceUser(pool, {
+      spaceId: library.space_id || ensuredScope.spaceId || null,
+      userId: row.user_id
+    });
+  }
 
   await pool.query(
     `UPDATE users
@@ -146,7 +165,7 @@ router.patch('/libraries/:id', validate(libraryUpdateSchema), asyncHandler(async
   res.json(result.rows[0]);
 }));
 
-router.post('/libraries/select', validate(librarySelectSchema), asyncHandler(async (req, res) => {
+router.post('/libraries/select', requireSessionAuth, validate(librarySelectSchema), asyncHandler(async (req, res) => {
   const libraryId = Number(req.body.library_id);
   const selected = await getAccessibleLibrary({
     userId: req.user.id,

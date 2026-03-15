@@ -1091,12 +1091,18 @@ results.push(run('spaces routes expose core spaces and memberships endpoints', (
   assert.ok(spacesRoutesSource.includes("router.post('/spaces/:id/members'"));
   assert.ok(spacesRoutesSource.includes("router.patch('/spaces/:id/members/:memberId'"));
   assert.ok(spacesRoutesSource.includes("router.delete('/spaces/:id/members/:memberId'"));
+  assert.ok(spacesRoutesSource.includes("router.get('/spaces/:id/invites'"));
+  assert.ok(spacesRoutesSource.includes("router.post('/spaces/:id/invites'"));
+  assert.ok(spacesRoutesSource.includes("router.patch('/spaces/:id/invites/:inviteId/revoke'"));
+  assert.ok(spacesRoutesSource.includes("router.post('/spaces/:id/members/:memberId/transfer-new-space'"));
 }));
 
 results.push(run('library service source ensures default scope before returning default library', () => {
   assert.ok(libraryServiceSource.includes('async function ensureUserDefaultScope'));
   assert.ok(libraryServiceSource.includes('ensureDefaultSpaceForClient'));
   assert.ok(libraryServiceSource.includes('SET active_space_id = $2,'));
+  assert.ok(libraryServiceSource.includes('async function syncLibraryMembershipsForSpaceUser'));
+  assert.ok(libraryServiceSource.includes('async function moveOwnedLibrariesToSpace'));
 }));
 
 results.push(run('spaces service source distinguishes global admin from space membership roles', () => {
@@ -1113,7 +1119,25 @@ results.push(run('library routes preserve active space when replacing archived o
 results.push(run('library routes only allow admin scope hints after phase2 hardening', () => {
   assert.ok(librariesRoutesSource.includes("router.use('/libraries', authenticateToken);"));
   assert.ok(librariesRoutesSource.includes("router.use('/libraries', enforceScopeAccess({ allowedHintRoles: ['admin'] }));"));
+  assert.ok(librariesRoutesSource.includes("router.post('/libraries/select', requireSessionAuth"));
   assert.ok(librariesRoutesSource.includes("enforceScopeAccess({ allowedHintRoles: ['admin'] })"));
+  assert.ok(librariesRoutesSource.includes('SELECT user_id'));
+  assert.ok(librariesRoutesSource.includes('syncLibraryMembershipsForSpaceUser'));
+}));
+
+results.push(run('spaces select route is session-auth only for active scope mutation', () => {
+  assert.ok(spacesRoutesSource.includes("router.post('/spaces/select', requireSessionAuth"));
+}));
+
+results.push(run('auth register flow applies scoped invite role before ensuring default scope', () => {
+  assert.ok(authRoutesSource.includes("claimedInvite.space_role || 'member'"));
+  assert.ok(authRoutesSource.includes('syncLibraryMembershipsForSpaceUser'));
+}));
+
+results.push(run('scope access source enforces explicit space membership for non-admin space-only access', () => {
+  const scopeAccessSource = require('fs').readFileSync(require.resolve('../middleware/scopeAccess'), 'utf8');
+  assert.ok(scopeAccessSource.includes('FROM space_memberships'));
+  assert.ok(scopeAccessSource.includes('space_membership_required'));
 }));
 
 results.push(run('token auth sources derive fallback scope from accessible libraries', () => {

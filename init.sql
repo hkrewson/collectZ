@@ -31,6 +31,8 @@ CREATE TABLE IF NOT EXISTS invites (
     used_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
     used_at TIMESTAMP,
     space_id INTEGER,
+    space_role VARCHAR(20) DEFAULT 'member'
+      CHECK (space_role IN ('owner', 'admin', 'member', 'viewer')),
     expires_at TIMESTAMP NOT NULL,
     created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -806,5 +808,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (39, 'Add Calibre Web Automated OPDS integration settings'),
     (40, 'Add personal access tokens for non-browser API authentication'),
     (41, 'Add service account keys for machine-to-machine API authentication'),
-    (42, 'Activate first-class spaces and backfill default space memberships')
+    (42, 'Activate first-class spaces and backfill default space memberships'),
+    (43, 'Add space-scoped invite roles for tenancy activation')
 ON CONFLICT (version) DO NOTHING;

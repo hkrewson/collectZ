@@ -113,11 +113,9 @@ function enforceScopeAccess(options = {}) {
       } else if (resolvedSpaceId && role !== 'admin') {
         const membership = await pool.query(
           `SELECT 1
-           FROM library_memberships lm
-           JOIN libraries l ON l.id = lm.library_id
-           WHERE lm.user_id = $1
-             AND l.space_id = $2
-             AND l.archived_at IS NULL
+           FROM space_memberships
+           WHERE user_id = $1
+             AND space_id = $2
            LIMIT 1`,
           [userId, resolvedSpaceId]
         );

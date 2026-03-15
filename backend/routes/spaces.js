@@ -1,16 +1,27 @@
 const express = require('express');
+const crypto = require('crypto');
 const pool = require('../db/pool');
 const { asyncHandler } = require('../middleware/errors');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, requireSessionAuth } = require('../middleware/auth');
 const {
   validate,
   spaceCreateSchema,
   spaceUpdateSchema,
   spaceMembershipCreateSchema,
-  spaceMembershipUpdateSchema
+  spaceMembershipUpdateSchema,
+  spaceInviteCreateSchema,
+  spaceTransferCreateSchema
 } = require('../middleware/validate');
 const { logActivity } = require('../services/audit');
-const { listLibrariesForSpace } = require('../services/libraries');
+const { sendInviteEmail } = require('../services/email');
+const { hashInviteToken } = require('../services/invites');
+const {
+  listLibrariesForSpace,
+  syncLibraryMembershipsForSpaceUser,
+  removeLibraryMembershipsForSpaceUser,
+  countOwnedLibrariesInSpace,
+  moveOwnedLibrariesToSpace
+} = require('../services/libraries');
 const {
   listAccessibleSpacesForUser,
   getAccessibleSpaceForUser,
@@ -47,6 +58,12 @@ function canRemoveMembership({ actorUserRole, actorMembershipRole, targetRole })
   if (actorMembershipRole === 'owner') return ['admin', 'member', 'viewer'].includes(targetRole);
   if (actorMembershipRole === 'admin') return ['member', 'viewer'].includes(targetRole);
   return false;
+}
+
+function parseBool(value, fallback = false) {
+  const normalized = String(value ?? '').trim().toLowerCase();
+  if (!normalized) return fallback;
+  return ['1', 'true', 'yes', 'on'].includes(normalized);
 }
 
 router.get('/spaces', asyncHandler(async (req, res) => {
@@ -238,7 +255,7 @@ router.patch('/spaces/:id', validate(spaceUpdateSchema), asyncHandler(async (req
   }
 }));
 
-router.post('/spaces/select', asyncHandler(async (req, res) => {
+router.post('/spaces/select', requireSessionAuth, asyncHandler(async (req, res) => {
   const spaceId = Number(req.body?.space_id || 0);
   if (!Number.isFinite(spaceId) || spaceId <= 0) {
     return res.status(400).json({ error: 'space_id must be a positive integer' });
@@ -382,6 +399,7 @@ router.post('/spaces/:id/members', validate(spaceMembershipCreateSchema), asyncH
        RETURNING id, space_id, user_id, role, created_by, created_at, updated_at`,
       [spaceId, targetUserId, nextRole, req.user.id]
     );
+    await syncLibraryMembershipsForSpaceUser(client, { spaceId, userId: targetUserId });
     await client.query('COMMIT');
 
     await logActivity(req, 'space.member.add', 'space_membership', inserted.rows[0].id, {
@@ -553,6 +571,18 @@ router.delete('/spaces/:id/members/:memberId', asyncHandler(async (req, res) => 
         return res.status(400).json({ error: 'Each space must retain at least one owner' });
       }
     }
+    const ownedLibraryCount = await countOwnedLibrariesInSpace(client, {
+      spaceId,
+      userId: current.rows[0].user_id
+    });
+    if (ownedLibraryCount > 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        error: 'User owns libraries in this space',
+        detail: 'Use the explicit transfer flow before removing this user from the space',
+        owned_library_count: ownedLibraryCount
+      });
+    }
 
     await client.query(
       `DELETE FROM space_memberships
@@ -560,6 +590,11 @@ router.delete('/spaces/:id/members/:memberId', asyncHandler(async (req, res) => 
          AND space_id = $2`,
       [membershipId, spaceId]
     );
+    await removeLibraryMembershipsForSpaceUser(client, {
+      spaceId,
+      userId: current.rows[0].user_id,
+      preserveOwned: false
+    });
     await client.query(
       `UPDATE users
        SET active_space_id = CASE WHEN active_space_id = $2 THEN NULL ELSE active_space_id END,
@@ -577,6 +612,333 @@ router.delete('/spaces/:id/members/:memberId', asyncHandler(async (req, res) => 
     });
 
     res.json({ id: membershipId, removed: true });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}));
+
+router.get('/spaces/:id/invites', asyncHandler(async (req, res) => {
+  const spaceId = Number(req.params.id);
+  if (!Number.isFinite(spaceId) || spaceId <= 0) {
+    return res.status(400).json({ error: 'Invalid space id' });
+  }
+
+  const client = await pool.connect();
+  try {
+    const accessibleSpace = await requireAccessibleSpace(client, req, spaceId);
+    if (!accessibleSpace) {
+      return res.status(404).json({ error: 'Space not found' });
+    }
+    if (!canManageSpaceMemberships({
+      userRole: req.user.role,
+      membershipRole: accessibleSpace.actor_membership_role
+    })) {
+      return res.status(403).json({ error: 'Space invite access denied' });
+    }
+
+    const invites = await client.query(
+      `SELECT i.id, i.email, i.used, i.revoked, i.used_by, i.used_at,
+              i.expires_at, i.created_at, i.space_id, i.space_role,
+              creator.email AS created_by_email,
+              claimer.email AS used_by_email
+       FROM invites i
+       LEFT JOIN users creator ON creator.id = i.created_by
+       LEFT JOIN users claimer ON claimer.id = i.used_by
+       WHERE i.space_id = $1
+       ORDER BY i.created_at DESC`,
+      [spaceId]
+    );
+    res.json({
+      space: {
+        id: accessibleSpace.id,
+        name: accessibleSpace.name,
+        slug: accessibleSpace.slug || null,
+        membership_role: accessibleSpace.actor_membership_role || accessibleSpace.membership_role || null
+      },
+      invites: invites.rows
+    });
+  } finally {
+    client.release();
+  }
+}));
+
+router.post('/spaces/:id/invites', validate(spaceInviteCreateSchema), asyncHandler(async (req, res) => {
+  const spaceId = Number(req.params.id);
+  if (!Number.isFinite(spaceId) || spaceId <= 0) {
+    return res.status(400).json({ error: 'Invalid space id' });
+  }
+
+  const { email, role: nextRole } = req.body;
+  const token = crypto.randomBytes(32).toString('hex');
+  const tokenHash = hashInviteToken(token);
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const exposeToken = parseBool(req.body?.expose_token, false);
+
+  const client = await pool.connect();
+  try {
+    const accessibleSpace = await requireAccessibleSpace(client, req, spaceId);
+    if (!accessibleSpace) {
+      return res.status(404).json({ error: 'Space not found' });
+    }
+    if (!canManageSpaceMemberships({
+      userRole: req.user.role,
+      membershipRole: accessibleSpace.actor_membership_role
+    })) {
+      return res.status(403).json({ error: 'Space invite management denied' });
+    }
+    if (!canAssignSpaceRole({
+      actorUserRole: req.user.role,
+      actorMembershipRole: accessibleSpace.actor_membership_role,
+      nextRole
+    })) {
+      return res.status(403).json({ error: 'Invite role assignment denied' });
+    }
+
+    const result = await client.query(
+      `INSERT INTO invites (email, token_hash, expires_at, created_by, space_id, space_role)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, email, used, revoked, used_by, used_at, expires_at, created_at, space_id, space_role`,
+      [email, tokenHash, expiresAt, req.user.id, spaceId, nextRole]
+    );
+    const invite = result.rows[0];
+    const inviteUrl = `${req.protocol}://${req.get('host')}/register?invite=${encodeURIComponent(token)}&email=${encodeURIComponent(invite.email)}`;
+
+    await logActivity(req, 'space.invite.create', 'invite', invite.id, {
+      email: invite.email,
+      role: nextRole,
+      spaceId,
+      expiresAt: invite.expires_at
+    });
+    if (exposeToken) {
+      await logActivity(req, 'space.invite.token_exposed', 'invite', invite.id, {
+        email: invite.email,
+        role: nextRole,
+        spaceId,
+        exposureMode: 'space_admin_copy_link'
+      });
+    }
+
+    let delivery = { attempted: false, sent: false, reason: 'smtp_not_configured' };
+    try {
+      delivery = await sendInviteEmail({
+        to: invite.email,
+        inviteUrl,
+        expiresAt: invite.expires_at
+      });
+      if (delivery.sent) {
+        await logActivity(req, 'space.invite.delivered', 'invite', invite.id, {
+          email: invite.email,
+          role: nextRole,
+          spaceId,
+          delivery: 'smtp'
+        });
+      }
+    } catch (error) {
+      delivery = { attempted: true, sent: false, reason: error.message || 'smtp_send_failed' };
+      await logActivity(req, 'space.invite.delivery_failed', 'invite', invite.id, {
+        email: invite.email,
+        role: nextRole,
+        spaceId,
+        reason: delivery.reason
+      });
+    }
+
+    res.status(201).json({
+      ...invite,
+      delivery,
+      ...(exposeToken ? { token, invite_url: inviteUrl } : {})
+    });
+  } finally {
+    client.release();
+  }
+}));
+
+router.patch('/spaces/:id/invites/:inviteId/revoke', asyncHandler(async (req, res) => {
+  const spaceId = Number(req.params.id);
+  const inviteId = Number(req.params.inviteId);
+  if (!Number.isFinite(spaceId) || spaceId <= 0) {
+    return res.status(400).json({ error: 'Invalid space id' });
+  }
+  if (!Number.isFinite(inviteId) || inviteId <= 0) {
+    return res.status(400).json({ error: 'Invalid invite id' });
+  }
+
+  const client = await pool.connect();
+  try {
+    const accessibleSpace = await requireAccessibleSpace(client, req, spaceId);
+    if (!accessibleSpace) {
+      return res.status(404).json({ error: 'Space not found' });
+    }
+    if (!canManageSpaceMemberships({
+      userRole: req.user.role,
+      membershipRole: accessibleSpace.actor_membership_role
+    })) {
+      return res.status(403).json({ error: 'Space invite management denied' });
+    }
+
+    const result = await client.query(
+      `UPDATE invites
+       SET revoked = true
+       WHERE id = $1
+         AND space_id = $2
+         AND used = false
+         AND revoked = false
+       RETURNING id, email, space_id, space_role, used, revoked, expires_at, created_at`,
+      [inviteId, spaceId]
+    );
+    if (result.rows.length === 0) {
+      return res.status(400).json({ error: 'Invite cannot be revoked' });
+    }
+
+    await logActivity(req, 'space.invite.revoke', 'invite', inviteId, {
+      email: result.rows[0].email,
+      role: result.rows[0].space_role || null,
+      spaceId
+    });
+    res.json(result.rows[0]);
+  } finally {
+    client.release();
+  }
+}));
+
+router.post('/spaces/:id/members/:memberId/transfer-new-space', validate(spaceTransferCreateSchema), asyncHandler(async (req, res) => {
+  const sourceSpaceId = Number(req.params.id);
+  const membershipId = Number(req.params.memberId);
+  if (!Number.isFinite(sourceSpaceId) || sourceSpaceId <= 0) {
+    return res.status(400).json({ error: 'Invalid space id' });
+  }
+  if (!Number.isFinite(membershipId) || membershipId <= 0) {
+    return res.status(400).json({ error: 'Invalid member id' });
+  }
+  if (!isGlobalAdmin(req.user.role)) {
+    return res.status(403).json({ error: 'Only global admins can transfer members into a new space' });
+  }
+
+  const { name, slug, description } = req.body;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const sourceMembership = await client.query(
+      `SELECT sm.id, sm.space_id, sm.user_id, sm.role, u.email, u.name
+       FROM space_memberships sm
+       JOIN users u ON u.id = sm.user_id
+       WHERE sm.id = $1
+         AND sm.space_id = $2
+       LIMIT 1`,
+      [membershipId, sourceSpaceId]
+    );
+    if (sourceMembership.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Space member not found' });
+    }
+    if (sourceMembership.rows[0].role === 'owner') {
+      const sourceOwnerCount = await countSpaceOwners(client, { spaceId: sourceSpaceId });
+      if (sourceOwnerCount <= 1) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({
+          error: 'Each space must retain at least one owner',
+          detail: 'Add another owner before transferring this user into a new space'
+        });
+      }
+    }
+
+    const existingSlug = slug
+      ? await client.query(
+          `SELECT id
+           FROM spaces
+           WHERE archived_at IS NULL
+             AND lower(slug) = lower($1)
+           LIMIT 1`,
+          [slug]
+        )
+      : { rows: [] };
+    if (existingSlug.rows.length > 0) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'Space slug is already in use' });
+    }
+
+    const created = await client.query(
+      `INSERT INTO spaces (name, slug, description, created_by, is_personal)
+       VALUES ($1, $2, $3, $4, false)
+       RETURNING id, name, slug, description, created_by, is_personal, created_at, updated_at, archived_at`,
+      [name.trim(), slug || null, description || null, req.user.id]
+    );
+    const newSpace = created.rows[0];
+
+    await client.query(
+      `INSERT INTO space_memberships (space_id, user_id, role, created_by)
+       VALUES ($1, $2, 'owner', $3)
+       ON CONFLICT (space_id, user_id) DO UPDATE
+       SET role = 'owner',
+           updated_at = CURRENT_TIMESTAMP,
+           created_by = EXCLUDED.created_by`,
+      [newSpace.id, sourceMembership.rows[0].user_id, req.user.id]
+    );
+
+    const movedLibraryIds = await moveOwnedLibrariesToSpace(client, {
+      sourceSpaceId,
+      targetSpaceId: newSpace.id,
+      userId: sourceMembership.rows[0].user_id
+    });
+
+    const remainingOwnedLibraryCount = await countOwnedLibrariesInSpace(client, {
+      spaceId: sourceSpaceId,
+      userId: sourceMembership.rows[0].user_id
+    });
+    if (remainingOwnedLibraryCount === 0) {
+      await client.query(
+        `DELETE FROM space_memberships
+         WHERE id = $1
+           AND space_id = $2`,
+        [membershipId, sourceSpaceId]
+      );
+      await removeLibraryMembershipsForSpaceUser(client, {
+        spaceId: sourceSpaceId,
+        userId: sourceMembership.rows[0].user_id,
+        preserveOwned: false
+      });
+    }
+
+    const librariesInNewSpace = await client.query(
+      `SELECT id
+       FROM libraries
+       WHERE space_id = $1
+         AND archived_at IS NULL
+       ORDER BY created_at ASC, id ASC
+       LIMIT 1`,
+      [newSpace.id]
+    );
+    await client.query(
+      `UPDATE users
+       SET active_space_id = $2,
+           active_library_id = $3
+       WHERE id = $1`,
+      [sourceMembership.rows[0].user_id, newSpace.id, librariesInNewSpace.rows[0]?.id || null]
+    );
+
+    await client.query('COMMIT');
+
+    await logActivity(req, 'space.member.transfer_new_space', 'space_membership', membershipId, {
+      sourceSpaceId,
+      targetSpaceId: newSpace.id,
+      targetUserId: sourceMembership.rows[0].user_id,
+      targetUserEmail: sourceMembership.rows[0].email,
+      movedLibraryIds
+    });
+
+    res.status(201).json({
+      source_space_id: sourceSpaceId,
+      target_space: {
+        ...newSpace,
+        owner_user_id: sourceMembership.rows[0].user_id
+      },
+      moved_library_ids: movedLibraryIds,
+      removed_from_source_space: remainingOwnedLibraryCount === 0
+    });
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;

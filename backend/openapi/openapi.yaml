@@ -222,6 +222,75 @@
         },
         "required": ["role"]
       },
+      "SpaceInviteRecord": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "email": { "type": "string", "format": "email" },
+          "used": { "type": "boolean" },
+          "revoked": { "type": "boolean" },
+          "used_by": { "type": ["integer", "null"] },
+          "used_at": { "type": ["string", "null"], "format": "date-time" },
+          "expires_at": { "type": "string", "format": "date-time" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "space_id": { "type": ["integer", "null"] },
+          "space_role": { "type": ["string", "null"], "enum": ["owner", "admin", "member", "viewer", null] },
+          "created_by_email": { "type": ["string", "null"] },
+          "used_by_email": { "type": ["string", "null"] }
+        },
+        "required": ["id", "email", "used", "revoked", "expires_at", "created_at"]
+      },
+      "SpaceInviteListResponse": {
+        "type": "object",
+        "properties": {
+          "space": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "integer" },
+              "name": { "type": "string" },
+              "slug": { "type": ["string", "null"] },
+              "membership_role": { "type": ["string", "null"] }
+            },
+            "required": ["id", "name"]
+          },
+          "invites": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/SpaceInviteRecord" }
+          }
+        },
+        "required": ["space", "invites"]
+      },
+      "SpaceInviteCreateRequest": {
+        "type": "object",
+        "properties": {
+          "email": { "type": "string", "format": "email" },
+          "role": { "type": "string", "enum": ["owner", "admin", "member", "viewer"] },
+          "expose_token": { "type": "boolean" }
+        },
+        "required": ["email", "role"]
+      },
+      "SpaceTransferCreateRequest": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "slug": { "type": ["string", "null"] },
+          "description": { "type": ["string", "null"] }
+        },
+        "required": ["name"]
+      },
+      "SpaceTransferResponse": {
+        "type": "object",
+        "properties": {
+          "source_space_id": { "type": "integer" },
+          "target_space": { "$ref": "#/components/schemas/SpaceRecord" },
+          "moved_library_ids": {
+            "type": "array",
+            "items": { "type": "integer" }
+          },
+          "removed_from_source_space": { "type": "boolean" }
+        },
+        "required": ["source_space_id", "target_space", "moved_library_ids", "removed_from_source_space"]
+      },
       "LoginRequest": {
         "type": "object",
         "properties": {
@@ -384,6 +453,8 @@
           "used_at": { "type": ["string", "null"], "format": "date-time" },
           "expires_at": { "type": "string", "format": "date-time" },
           "created_at": { "type": "string", "format": "date-time" },
+          "space_id": { "type": ["integer", "null"] },
+          "space_role": { "type": ["string", "null"] },
           "delivery": {
             "type": "object",
             "properties": {
@@ -684,8 +755,7 @@
         "tags": ["Auth"],
         "summary": "Select the active space for the current user",
         "security": [
-          { "cookieSession": [], "csrfHeader": [] },
-          { "bearerAuth": [] }
+          { "cookieSession": [], "csrfHeader": [] }
         ],
         "requestBody": {
           "required": true,
@@ -809,6 +879,80 @@
         }
       }
     },
+    "/api/spaces/{id}/invites": {
+      "get": {
+        "tags": ["Auth"],
+        "summary": "List invites for a managed space",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Space invites",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SpaceInviteListResponse" }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Create a scoped invite for a managed space",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SpaceInviteCreateRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Space invite created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/InviteCreateResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/spaces/{id}/invites/{inviteId}/revoke": {
+      "patch": {
+        "tags": ["Auth"],
+        "summary": "Revoke a scoped invite for a managed space",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } },
+          { "in": "path", "name": "inviteId", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Space invite revoked",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SpaceInviteRecord" }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/spaces/{id}/members/{memberId}": {
       "patch": {
         "tags": ["Auth"],
@@ -862,6 +1006,37 @@
                   },
                   "required": ["id", "removed"]
                 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/spaces/{id}/members/{memberId}/transfer-new-space": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Transfer a member and their owned libraries into a newly created space",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } },
+          { "in": "path", "name": "memberId", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SpaceTransferCreateRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "New space created and owned libraries transferred",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SpaceTransferResponse" }
               }
             }
           }

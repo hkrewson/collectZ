@@ -11,6 +11,7 @@ export const VALID_DASHBOARD_TABS = new Set([
   'library-other',
   'library-import',
   'library-import-review',
+  'space-manage',
   'profile',
   'admin-users',
   'admin-activity',

@@ -300,10 +300,147 @@ async function getAccessibleLibrary({ userId, role, libraryId }) {
   return result.rows[0] || null;
 }
 
+async function syncLibraryMembershipsForSpaceUser(client, { spaceId, userId, ownerLibraryIds = [] }) {
+  const numericSpaceId = Number(spaceId);
+  const numericUserId = Number(userId);
+  if (!Number.isFinite(numericSpaceId) || numericSpaceId <= 0) return 0;
+  if (!Number.isFinite(numericUserId) || numericUserId <= 0) return 0;
+
+  const ownerIds = Array.isArray(ownerLibraryIds)
+    ? ownerLibraryIds.map((value) => Number(value)).filter((value) => Number.isFinite(value) && value > 0)
+    : [];
+  const ownerIdList = ownerIds.length > 0 ? ownerIds : [0];
+
+  const result = await client.query(
+    `INSERT INTO library_memberships (user_id, library_id, role)
+     SELECT
+       $1,
+       l.id,
+       CASE
+         WHEN l.id = ANY($3::int[]) THEN 'owner'
+         ELSE 'member'
+       END
+     FROM libraries l
+     WHERE l.space_id = $2
+       AND l.archived_at IS NULL
+     ON CONFLICT (user_id, library_id) DO UPDATE
+     SET role = CASE
+       WHEN EXCLUDED.role = 'owner' THEN 'owner'
+       ELSE library_memberships.role
+     END`,
+    [numericUserId, numericSpaceId, ownerIdList]
+  );
+  return result.rowCount || 0;
+}
+
+async function removeLibraryMembershipsForSpaceUser(client, { spaceId, userId, preserveOwned = true }) {
+  const numericSpaceId = Number(spaceId);
+  const numericUserId = Number(userId);
+  if (!Number.isFinite(numericSpaceId) || numericSpaceId <= 0) return 0;
+  if (!Number.isFinite(numericUserId) || numericUserId <= 0) return 0;
+
+  const result = await client.query(
+    `DELETE FROM library_memberships lm
+     USING libraries l
+     WHERE lm.library_id = l.id
+       AND lm.user_id = $1
+       AND l.space_id = $2
+       AND l.archived_at IS NULL
+       ${preserveOwned ? "AND lm.role <> 'owner'" : ''}`,
+    [numericUserId, numericSpaceId]
+  );
+  return result.rowCount || 0;
+}
+
+async function countOwnedLibrariesInSpace(client, { spaceId, userId }) {
+  const numericSpaceId = Number(spaceId);
+  const numericUserId = Number(userId);
+  if (!Number.isFinite(numericSpaceId) || numericSpaceId <= 0) return 0;
+  if (!Number.isFinite(numericUserId) || numericUserId <= 0) return 0;
+
+  const result = await client.query(
+    `SELECT COUNT(*)::int AS count
+     FROM libraries
+     WHERE created_by = $1
+       AND space_id = $2
+       AND archived_at IS NULL`,
+    [numericUserId, numericSpaceId]
+  );
+  return Number(result.rows[0]?.count || 0);
+}
+
+async function moveOwnedLibrariesToSpace(client, { sourceSpaceId, targetSpaceId, userId }) {
+  const numericSourceSpaceId = Number(sourceSpaceId);
+  const numericTargetSpaceId = Number(targetSpaceId);
+  const numericUserId = Number(userId);
+  if (!Number.isFinite(numericSourceSpaceId) || numericSourceSpaceId <= 0) return [];
+  if (!Number.isFinite(numericTargetSpaceId) || numericTargetSpaceId <= 0) return [];
+  if (!Number.isFinite(numericUserId) || numericUserId <= 0) return [];
+
+  const movedLibraries = await client.query(
+    `UPDATE libraries
+     SET space_id = $3
+     WHERE created_by = $1
+       AND space_id = $2
+       AND archived_at IS NULL
+     RETURNING id`,
+    [numericUserId, numericSourceSpaceId, numericTargetSpaceId]
+  );
+  const libraryIds = movedLibraries.rows.map((row) => Number(row.id)).filter((value) => Number.isFinite(value) && value > 0);
+  if (libraryIds.length === 0) return [];
+
+  await client.query(
+    `UPDATE media
+     SET space_id = $2
+     WHERE library_id = ANY($1::int[])`,
+    [libraryIds, numericTargetSpaceId]
+  );
+  await client.query(
+    `UPDATE events
+     SET space_id = $2
+     WHERE library_id = ANY($1::int[])`,
+    [libraryIds, numericTargetSpaceId]
+  );
+  await client.query(
+    `UPDATE collectibles
+     SET space_id = $2
+     WHERE library_id = ANY($1::int[])`,
+    [libraryIds, numericTargetSpaceId]
+  );
+  await client.query(
+    `UPDATE collections
+     SET space_id = $2
+     WHERE library_id = ANY($1::int[])`,
+    [libraryIds, numericTargetSpaceId]
+  );
+  await client.query(
+    `UPDATE import_match_reviews
+     SET space_id = $2
+     WHERE library_id = ANY($1::int[])`,
+    [libraryIds, numericTargetSpaceId]
+  );
+  await client.query(
+    `DELETE FROM library_memberships
+     WHERE library_id = ANY($1::int[])
+       AND user_id <> $2`,
+    [libraryIds, numericUserId]
+  );
+  await syncLibraryMembershipsForSpaceUser(client, {
+    spaceId: numericTargetSpaceId,
+    userId: numericUserId,
+    ownerLibraryIds: libraryIds
+  });
+  return libraryIds;
+}
+
 module.exports = {
   ensureUserDefaultScope,
   ensureUserDefaultLibrary,
   listLibrariesForSpace,
   listLibrariesForUser,
-  getAccessibleLibrary
+  getAccessibleLibrary,
+  syncLibraryMembershipsForSpaceUser,
+  removeLibraryMembershipsForSpaceUser,
+  countOwnedLibrariesInSpace,
+  moveOwnedLibrariesToSpace
 };

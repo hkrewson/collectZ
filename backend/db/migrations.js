@@ -1969,6 +1969,20 @@ const MIGRATIONS = [
       END;
       $$;
     `
+  },
+  {
+    version: 43,
+    description: 'Add space-scoped invite roles for tenancy activation',
+    up: `
+      ALTER TABLE invites
+        ADD COLUMN IF NOT EXISTS space_role VARCHAR(20)
+        DEFAULT 'member'
+        CHECK (space_role IN ('owner', 'admin', 'member', 'viewer'));
+
+      UPDATE invites
+      SET space_role = 'member'
+      WHERE space_role IS NULL;
+    `
   }
 ];
 

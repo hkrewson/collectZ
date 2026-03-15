@@ -8,7 +8,12 @@ const { createSession, revokeSessionByToken, revokeSessionsForUser, getSessionUs
 const { logActivity } = require('../services/audit');
 const { issueCsrfToken, clearCsrfToken } = require('../middleware/csrf');
 const { hashInviteToken } = require('../services/invites');
-const { ensureUserDefaultScope, getAccessibleLibrary, listLibrariesForSpace } = require('../services/libraries');
+const {
+  ensureUserDefaultScope,
+  getAccessibleLibrary,
+  listLibrariesForSpace,
+  syncLibraryMembershipsForSpaceUser
+} = require('../services/libraries');
 const { listAccessibleSpacesForUser, getAccessibleSpaceForUser } = require('../services/spaces');
 const {
   PERSONAL_ACCESS_TOKEN_SCOPES,
@@ -117,6 +122,31 @@ router.post('/register', validate(registerSchema), asyncHandler(async (req, res)
     'INSERT INTO users (email, password, name, role) VALUES ($1, $2, $3, $4) RETURNING id, email, name, role',
     [email, hashedPassword, name, role]
   );
+  if (claimedInvite?.space_id) {
+    await pool.query(
+      `INSERT INTO space_memberships (space_id, user_id, role, created_by)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (space_id, user_id) DO UPDATE
+       SET role = EXCLUDED.role,
+           updated_at = CURRENT_TIMESTAMP,
+           created_by = COALESCE(space_memberships.created_by, EXCLUDED.created_by)`,
+      [
+        claimedInvite.space_id,
+        result.rows[0].id,
+        claimedInvite.space_role || 'member',
+        claimedInvite.created_by || null
+      ]
+    );
+    const syncClient = await pool.connect();
+    try {
+      await syncLibraryMembershipsForSpaceUser(syncClient, {
+        spaceId: claimedInvite.space_id,
+        userId: result.rows[0].id
+      });
+    } finally {
+      syncClient.release();
+    }
+  }
   const ensuredScope = await ensureUserDefaultScope(result.rows[0].id, {
     preferredSpaceId: claimedInvite?.space_id || null
   });
@@ -130,7 +160,9 @@ router.post('/register', validate(registerSchema), asyncHandler(async (req, res)
     );
     await logActivity({ ...req, user: { id: result.rows[0].id } }, 'invite.claimed', 'invite', claimedInvite?.id || null, {
       inviteEmail: claimedInvite?.email || null,
-      claimedByEmail: result.rows[0].email
+      claimedByEmail: result.rows[0].email,
+      spaceId: claimedInvite?.space_id || null,
+      role: claimedInvite?.space_role || null
     });
   }
 
@@ -145,6 +177,7 @@ router.post('/register', validate(registerSchema), asyncHandler(async (req, res)
     email: result.rows[0].email,
     role: result.rows[0].role,
     inviteTokenUsed: Boolean(inviteToken),
+    invitedSpaceRole: claimedInvite?.space_role || null,
     activeLibraryId
   });
   recordAuthEvent('register', 'succeeded');

@@ -1194,6 +1194,7 @@ Historical planning notes may still exist in:
 - Users can belong to more than one space and switch active context safely.
 - Space-scoped APIs and UI flows prevent cross-space data leakage.
 - Space admins can manage members and libraries only within their own space.
+- Global server admins can operate the platform without automatically becoming members of every space.
 - Existing single-user installs migrate to a personal/default space without manual repair.
 
 ### Phase Breakdown
@@ -1212,13 +1213,33 @@ Historical planning notes may still exist in:
   - restrict new-space creation to the global server/super-admin role,
   - make the first user assigned during space creation the `owner` of that new space,
   - restrict space invite/member management to owners/admins of the target space,
+  - add space-scoped invite APIs that carry the intended membership role at claim time,
   - make library lifecycle clearly subordinate to spaces,
   - keep owned-library reassignment tied to explicit cross-space transfer flows rather than ordinary membership edits,
-  - harden media/import/events/collectibles/admin queries and jobs against cross-space leakage.
+  - prefer transfer-into-new-space as the safest first implementation for moving a user and their owned libraries,
+  - harden media/import/events/collectibles/admin queries and jobs against cross-space leakage,
+  - prevent ordinary space APIs from treating global/server-admin status as implicit tenant membership.
 - `2.7.0-phase4` UI and migration hardening:
-  - add active-space switching and membership management UI,
+  - add active-space switching and membership management UI for actual space participants,
+  - keep routine space settings, invite history, membership management, and content visibility limited to users who are members of the active space with appropriate role,
+  - resolve live-tested phase-4 boundary issues:
+    - member/viewer users must not see or use space-management mutation affordances,
+    - active-library selectors must show only libraries the current user can actually access,
+    - space members/invites/library context must refresh correctly after space switches without full page reload,
+    - scoped invite URLs must preserve host and port correctly in local and reverse-proxy deployments,
+    - update flows must never create new spaces as a side effect of editing an existing one,
   - verify migrated installs remain simple for single-user homelab setups,
-  - add regression coverage and migration rehearsal evidence for cross-space isolation.
+  - complete browser-level UX verification for switching, invites, membership edits, transfers, and single-space usability.
+- `2.7.0-phase5` Server-admin control plane and tenancy regression closeout:
+  - add an admin-only platform UI/control plane for global/server-admin tasks:
+    - create spaces,
+    - assign or recover owners,
+    - archive/delete spaces,
+    - run support/recovery transfer actions,
+  - keep global/server-admin authority distinct from tenant membership in both backend policy and UI,
+  - expose high-level space metadata to global admins without automatically exposing tenant content, invite history, or routine space settings,
+  - define any break-glass support flows as explicit, narrowly scoped, and fully audited,
+  - close the tenancy milestone with broader automated tenancy regression coverage and migration rehearsal evidence for cross-space isolation.
 
 ### DB/API Checklist
 
@@ -1244,6 +1265,10 @@ Historical planning notes may still exist in:
     - `POST /api/spaces/:id/members`
     - `PATCH /api/spaces/:id/members/:memberId`
     - `DELETE /api/spaces/:id/members/:memberId`
+  - add space-scoped invite endpoints:
+    - `GET /api/spaces/:id/invites`
+    - `POST /api/spaces/:id/invites`
+    - `PATCH /api/spaces/:id/invites/:inviteId/revoke`
   - clarify library endpoints as space-scoped lifecycle operations:
     - either nested under spaces or explicitly validated against the active space.
   - ensure membership APIs preserve distinct role semantics:
@@ -1252,8 +1277,11 @@ Historical planning notes may still exist in:
     - space admin
     - member
     - viewer
+  - ensure global server-admin/platform APIs remain distinct from tenant-space management APIs wherever possible.
   - ensure cross-space transfer flows only rehome libraries owned by the transferred user, and only when an explicit transfer flow requests it.
+  - add an explicit transfer API for moving a member into a newly created space with their owned libraries.
   - keep media/import/events/collectibles endpoints tenancy-aware by active scope, with explicit admin-only override paths where required.
+  - add or refine admin-only platform endpoints for space creation, owner recovery, archival/deletion, and support workflows without implying blanket content access.
 
 ### Test Checklist
 
@@ -1266,9 +1294,12 @@ Historical planning notes may still exist in:
   - rollback path preserves library/media integrity.
 - UI:
   - active-space switcher updates visible libraries and data views consistently,
-  - membership and library-management flows are clearly scoped to the selected space.
+  - membership and library-management flows are clearly scoped to the selected space,
+  - member/viewer users cannot see or use unauthorized space-management mutations,
+  - global server-admin UI remains distinct from tenant space UI.
 - Regression:
   - existing single-space installs remain easy to use,
+  - broader automated tenancy regression coverage should be complete before phase 5 is called done,
   - PAT/service-account/browser-session auth all honor the same space boundary rules.
 
 ## 2.2.0 — Import Match Review + Collections Intelligence

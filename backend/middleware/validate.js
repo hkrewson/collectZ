@@ -284,6 +284,18 @@ const spaceMembershipUpdateSchema = z.object({
   role: z.enum(['owner', 'admin', 'member', 'viewer'])
 });
 
+const spaceInviteCreateSchema = z.object({
+  email: z.string().email('Valid email is required'),
+  role: z.enum(['owner', 'admin', 'member', 'viewer']),
+  expose_token: z.boolean().optional()
+});
+
+const spaceTransferCreateSchema = z.object({
+  name: z.string().trim().min(1, 'Space name is required').max(255),
+  slug: z.preprocess(emptyStringToNull, z.string().trim().min(1).max(255).regex(/^[a-z0-9-]+$/, 'slug must use lowercase letters, numbers, or hyphens').optional().nullable()),
+  description: z.preprocess(emptyStringToNull, z.string().max(2000).optional().nullable())
+});
+
 const libraryDeleteSchema = z.object({
   confirm_name: z.string().min(1, 'confirm_name is required')
 });
@@ -443,6 +455,8 @@ module.exports = {
   spaceUpdateSchema,
   spaceMembershipCreateSchema,
   spaceMembershipUpdateSchema,
+  spaceInviteCreateSchema,
+  spaceTransferCreateSchema,
   libraryCreateSchema,
   libraryUpdateSchema,
   librarySelectSchema,

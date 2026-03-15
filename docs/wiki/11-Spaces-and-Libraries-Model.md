@@ -79,12 +79,33 @@ Phase 2 implementation notes:
 - Treat libraries as resources owned by a space, not just loosely grouped by `space_id`.
 - Make library lifecycle and membership rules subordinate to the selected space.
 - Ensure background jobs/imports are pinned to originating space/library scope.
+- Add scoped invites that carry the intended space role at claim time.
+- Use transfer-into-new-space as the safest first flow for moving a user and their owned libraries.
 
 #### Phase 4: UI and Migration Hardening
 
 - Add space switching and membership management flows.
 - Preserve a low-friction single-user path for homelab installs.
 - Validate migration and rollback with rehearsal evidence before release.
+- Fix the live-tested phase-4 boundary issues before phase completion:
+  - `member` / `viewer` users must not see or use space-management mutations,
+  - active-library selectors must only show actually accessible libraries,
+  - members/invites/library context must refresh on space switch without full page reload,
+  - scoped invite URLs must preserve host and port correctly,
+  - edit/update flows must not create new spaces as a side effect.
+- Complete browser-level tenancy UX verification for:
+  - multi-space switching,
+  - scoped invite create/claim/revoke,
+  - membership role updates/removals,
+  - transfer-to-new-space,
+  - single-space usability smoke.
+
+#### Phase 5: Server Admin Control Plane and Regression Closeout
+
+- Separate global server-admin/platform actions from tenant space membership UI.
+- Keep global server admins able to create spaces, assign/recover owners, archive/delete spaces, and run support/recovery flows without automatically joining every space.
+- Keep routine space settings, memberships, invites, and content visibility tenant-scoped unless the global admin is explicitly added to that space.
+- Finish the broader automated tenancy regression coverage before the overall `2.7.0` milestone is considered complete.
 
 ## Navigation Direction
 
@@ -109,6 +130,7 @@ In 2.0:
 - Standard users can switch/use libraries they have access to.
 - Delete/archive library actions must require explicit confirmation.
 - Space membership changes must be auditable and isolated to the target space.
+- Global server-admin authority should be modeled as platform authority, not implicit membership in every space.
 
 ### Tenancy Policy Notes
 
@@ -116,8 +138,19 @@ In 2.0:
 - The first user assigned during new-space creation becomes that space's `owner`.
 - Space owners/admins can invite and manage users only inside their own space.
 - `member` and `viewer` access must remain limited to spaces they belong to.
+- Global server admins may see high-level space metadata for platform operation, but should not automatically receive routine tenant visibility into:
+  - library/content data,
+  - space invite history,
+  - space membership management,
+  - ordinary space settings screens.
+- If a global server admin needs to help inside a space, that should happen through:
+  - explicit membership/invitation into that space, or
+  - a separate explicit and fully audited server-admin support workflow.
 - Cross-space user transfer should move only libraries the user owns, not every library they can access.
 - Ownership-based library reassignment should happen only through an explicit cross-space transfer flow, not ordinary membership edits.
+- The first transfer flow should create the destination space as part of the move, to avoid ambiguous reassignment into an existing shared space.
+- The global/default install space should not double as the server-admin control plane.
+- A global server admin does not need a dedicated admin-only library; platform authority should stay separate from library/content scope.
 
 ## API Direction
 
@@ -131,6 +164,12 @@ In 2.0:
   - `POST /api/spaces/:id/members`
   - `PATCH /api/spaces/:id/members/:memberId`
   - `DELETE /api/spaces/:id/members/:memberId`
+- Add dedicated scoped-invite endpoints:
+  - `GET /api/spaces/:id/invites`
+  - `POST /api/spaces/:id/invites`
+  - `PATCH /api/spaces/:id/invites/:inviteId/revoke`
+- Add an explicit transfer endpoint for moving a member and their owned libraries into a newly created space.
+- Add separate admin/platform endpoints or surfaces for space creation, archival/deletion, owner recovery, and support flows.
 - Keep library endpoints, but make their effective scope explicit and space-governed.
 - Ensure media/import/events/collectibles/admin surfaces inherit the same active-space contract.
 
@@ -154,4 +193,8 @@ In 2.0:
   - one install-wide default space,
   - or one personal space per user plus optional shared spaces.
 - Whether library management endpoints should become nested under spaces or remain top-level with strict active-space validation.
+- Whether break-glass support should exist at all, and if so:
+  - which operations it permits,
+  - how it is surfaced,
+  - what extra audit evidence it must emit.
 - Whether global admins keep cross-space override behavior on all routes or only on explicit admin surfaces.

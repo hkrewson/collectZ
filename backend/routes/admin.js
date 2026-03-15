@@ -306,9 +306,9 @@ router.post('/invites', validate(inviteCreateSchema), asyncHandler(async (req, r
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
   const result = await pool.query(
-    `INSERT INTO invites (email, token_hash, expires_at, created_by, space_id)
-     VALUES ($1, $2, $3, $4, $5)
-     RETURNING id, email, used, revoked, used_by, used_at, expires_at, created_at`,
+    `INSERT INTO invites (email, token_hash, expires_at, created_by, space_id, space_role)
+     VALUES ($1, $2, $3, $4, $5, 'member')
+     RETURNING id, email, used, revoked, used_by, used_at, expires_at, created_at, space_id, space_role`,
     [email, tokenHash, expiresAt, req.user.id, scopeContext.spaceId]
   );
   await logActivity(req, 'admin.invite.create', 'invite', result.rows[0].id, {
@@ -356,7 +356,7 @@ router.get('/invites', asyncHandler(async (req, res) => {
   const scopeClause = appendScopeSql(params, scopeContext, { libraryColumn: null });
   const result = await pool.query(
     `SELECT i.id, i.email, i.used, i.revoked, i.used_by, i.used_at,
-            i.expires_at, i.created_at, creator.email AS created_by_email,
+            i.expires_at, i.created_at, i.space_id, i.space_role, creator.email AS created_by_email,
             claimer.email AS used_by_email
      FROM invites i
      LEFT JOIN users creator ON creator.id = i.created_by
@@ -383,7 +383,7 @@ router.patch('/invites/:id/revoke', asyncHandler(async (req, res) => {
      WHERE id = $1
        AND used = false
        AND revoked = false${scopeClause}
-     RETURNING id, email, used, revoked, expires_at, created_at`,
+     RETURNING id, email, used, revoked, expires_at, created_at, space_id, space_role`,
     params
   );
   if (result.rows.length === 0) {

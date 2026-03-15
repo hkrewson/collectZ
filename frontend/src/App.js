@@ -26,7 +26,9 @@ export default function App() {
   const [activeIntegrationSection, setActiveIntegrationSection] = useState(initialDashboardState.integrationSection);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [spaces, setSpaces] = useState([]);
   const [libraries, setLibraries] = useState([]);
+  const [activeSpaceId, setActiveSpaceId] = useState(null);
   const [activeLibraryId, setActiveLibraryId] = useState(null);
   const [uiSettings, setUiSettings] = useState({ theme: 'system', density: 'comfortable' });
   const [featureFlags, setFeatureFlags] = useState({
@@ -130,6 +132,10 @@ export default function App() {
     try { await apiCall('post', '/auth/logout'); } catch (_) {}
     setUser(null);
     setAuthChecked(true);
+    setSpaces([]);
+    setLibraries([]);
+    setActiveSpaceId(null);
+    setActiveLibraryId(null);
     setMediaItems([]);
     clearImportJobs();
     navigate('login');
@@ -161,10 +167,11 @@ export default function App() {
     }
   }, [apiCall, user]);
 
-  const syncLibraryContext = useCallback(async ({ silent = false } = {}) => {
+  const loadAuthScope = useCallback(async ({ silent = false } = {}) => {
     if (!user) return null;
     try {
-      const payload = await apiCall('get', '/libraries');
+      const payload = await apiCall('get', '/auth/scope');
+      const nextSpaces = Array.isArray(payload?.spaces) ? payload.spaces : [];
       const nextLibraries = Array.isArray(payload?.libraries) ? payload.libraries : [];
       const nextActiveSpaceId = Number(payload?.active_space_id || 0) || null;
       let nextActiveLibraryId = Number(payload?.active_library_id || 0) || null;
@@ -172,7 +179,9 @@ export default function App() {
         nextActiveLibraryId = Number(nextLibraries[0].id);
       }
 
+      setSpaces(nextSpaces);
       setLibraries(nextLibraries);
+      setActiveSpaceId(nextActiveSpaceId);
       setActiveLibraryId(nextActiveLibraryId);
       setUser((prev) => {
         if (!prev) return prev;
@@ -184,10 +193,59 @@ export default function App() {
       });
       return nextActiveLibraryId;
     } catch (error) {
-      if (!silent) showToast(error.response?.data?.error || 'Failed to load libraries', 'error');
+      if (!silent) showToast(error.response?.data?.error || 'Failed to load active scope', 'error');
       return null;
     }
   }, [apiCall, showToast, user, setUser]);
+
+  const handleSpaceSelect = useCallback(async (spaceIdRaw) => {
+    const spaceId = Number(spaceIdRaw || 0);
+    if (!Number.isFinite(spaceId) || spaceId <= 0 || spaceId === Number(activeSpaceId || 0)) return;
+    try {
+      const payload = await apiCall('post', '/spaces/select', { space_id: spaceId });
+      const nextLibraries = Array.isArray(payload?.libraries) ? payload.libraries : [];
+      const nextActiveSpaceId = Number(payload?.active_space_id || 0) || null;
+      const nextActiveLibraryId = Number(payload?.active_library_id || 0) || null;
+      setActiveSpaceId(nextActiveSpaceId);
+      setActiveLibraryId(nextActiveLibraryId);
+      setLibraries(nextLibraries);
+      setMediaItems([]);
+      clearImportJobs();
+      setUser((prev) => (
+        prev
+          ? { ...prev, active_space_id: nextActiveSpaceId, active_library_id: nextActiveLibraryId }
+          : prev
+      ));
+      showToast('Active space updated');
+    } catch (error) {
+      showToast(error.response?.data?.error || 'Failed to switch spaces', 'error');
+    }
+  }, [activeSpaceId, apiCall, clearImportJobs, setMediaItems, setUser, showToast]);
+
+  const handleLibrarySelect = useCallback(async (libraryIdRaw) => {
+    const libraryId = Number(libraryIdRaw || 0);
+    if (!Number.isFinite(libraryId) || libraryId <= 0 || libraryId === Number(activeLibraryId || 0)) return;
+    try {
+      const payload = await apiCall('post', '/libraries/select', { library_id: libraryId });
+      const nextActiveSpaceId = Number(payload?.active_space_id || 0) || null;
+      const nextActiveLibraryId = Number(payload?.active_library_id || 0) || null;
+      setActiveSpaceId(nextActiveSpaceId);
+      setActiveLibraryId(nextActiveLibraryId);
+      setMediaItems([]);
+      clearImportJobs();
+      setUser((prev) => (
+        prev
+          ? { ...prev, active_space_id: nextActiveSpaceId, active_library_id: nextActiveLibraryId }
+          : prev
+      ));
+      if (nextActiveSpaceId !== Number(activeSpaceId || 0)) {
+        await loadAuthScope({ silent: true });
+      }
+      showToast('Active library updated');
+    } catch (error) {
+      showToast(error.response?.data?.error || 'Failed to switch libraries', 'error');
+    }
+  }, [activeLibraryId, activeSpaceId, apiCall, clearImportJobs, loadAuthScope, setMediaItems, setUser, showToast]);
 
   useEffect(() => {
     if (!(route === 'dashboard' && authChecked && user)) return;
@@ -221,8 +279,8 @@ export default function App() {
 
   useEffect(() => {
     if (!(route === 'dashboard' && authChecked && user)) return;
-    syncLibraryContext({ silent: true });
-  }, [route, authChecked, user, syncLibraryContext]);
+    loadAuthScope({ silent: true });
+  }, [route, authChecked, user, loadAuthScope]);
 
   useEffect(() => {
     if (!(route === 'dashboard' && authChecked && user)) return;
@@ -254,6 +312,17 @@ export default function App() {
       setActiveTab('library-movies');
     }
   }, [activeTab, featureFlags.collectibles_enabled, featureFlags.events_enabled]);
+
+  const activeSpace = spaces.find((space) => Number(space.id) === Number(activeSpaceId)) || null;
+  const activeMembershipRole = activeSpace?.membership_role || null;
+  const canManageActiveSpace = user?.role === 'admin' || ['owner', 'admin'].includes(activeMembershipRole);
+  const scopeKey = `${activeSpaceId || 'none'}:${activeLibraryId || 'none'}`;
+
+  useEffect(() => {
+    if (activeTab === 'space-manage' && !canManageActiveSpace) {
+      setActiveTab('library-movies');
+    }
+  }, [activeTab, canManageActiveSpace]);
 
   if (route !== 'dashboard') {
     return (
@@ -310,6 +379,14 @@ export default function App() {
         mobileOpen={mobileNavOpen}
         onMobileClose={() => setMobileNavOpen(false)}
         appVersion={APP_VERSION}
+        spaces={spaces}
+        activeSpaceId={activeSpaceId}
+        onSpaceSelect={handleSpaceSelect}
+        libraries={libraries}
+        activeLibraryId={activeLibraryId}
+        onLibrarySelect={handleLibrarySelect}
+        canManageActiveSpace={canManageActiveSpace}
+        activeMembershipRole={activeMembershipRole}
         importReviewPendingCount={importReviewPendingCount}
         showImportReview={importReviewEnabled}
         showCollectibles={featureFlags.collectibles_enabled}
@@ -350,6 +427,16 @@ export default function App() {
             setUiSettings={setUiSettings}
             activeIntegrationSection={activeIntegrationSection}
             setActiveIntegrationSection={setActiveIntegrationSection}
+            spaces={spaces}
+            activeSpace={activeSpace}
+            activeSpaceId={activeSpaceId}
+            activeMembershipRole={activeMembershipRole}
+            canManageActiveSpace={canManageActiveSpace}
+            libraries={libraries}
+            activeLibraryId={activeLibraryId}
+            onScopeRefresh={loadAuthScope}
+            onSpaceSelect={handleSpaceSelect}
+            scopeKey={scopeKey}
           />
         </div>
       </div>

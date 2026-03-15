@@ -11,6 +11,7 @@ import LibraryView from '../LibraryView';
 import EventsView from '../EventsView';
 import CollectiblesView from '../CollectiblesView';
 import ForbiddenView from '../ForbiddenView';
+import SpaceManagerView from '../SpaceManagerView';
 
 const forcedMediaTypeByTab = {
   'library-movies': 'movie',
@@ -47,7 +48,17 @@ export default function DashboardContent({
   loadImportReviewPendingCount,
   setUiSettings,
   activeIntegrationSection,
-  setActiveIntegrationSection
+  setActiveIntegrationSection,
+  spaces,
+  activeSpace,
+  activeSpaceId,
+  activeMembershipRole,
+  canManageActiveSpace,
+  libraries,
+  activeLibraryId,
+  onScopeRefresh,
+  onSpaceSelect,
+  scopeKey
 }) {
   const isAdminTab = String(activeTab || '').startsWith('admin-');
 
@@ -72,13 +83,14 @@ export default function DashboardContent({
         return <ForbiddenView detail="Events is currently disabled by feature flag." />;
       }
       if (activeTab === 'library-collectibles') {
-        return <CollectiblesView apiCall={apiCall} onToast={showToast} />;
+        return <CollectiblesView key={`collectibles:${scopeKey}`} apiCall={apiCall} onToast={showToast} />;
       }
       if (activeTab === 'library-events') {
-        return <EventsView apiCall={apiCall} onToast={showToast} />;
+        return <EventsView key={`events:${scopeKey}`} apiCall={apiCall} onToast={showToast} />;
       }
       return (
         <LibraryView
+          key={`library:${activeTab}:${scopeKey}`}
           mediaItems={mediaItems}
           loading={mediaLoading}
           error={mediaError}
@@ -96,6 +108,7 @@ export default function DashboardContent({
     case 'library-import':
       return (
         <ImportViewComponent
+          key={`import:${scopeKey}`}
           apiCall={apiCall}
           onToast={showToast}
           onImported={() => loadMedia()}
@@ -129,6 +142,7 @@ export default function DashboardContent({
       }
       return (
         <ImportReviewView
+          key={`import-review:${scopeKey}`}
           apiCall={apiCall}
           onToast={(message, type = 'ok') => {
             showToast(message, type);
@@ -138,6 +152,28 @@ export default function DashboardContent({
       );
     case 'profile':
       return <ProfileViewComponent user={user} apiCall={apiCall} onToast={showToast} Spinner={Spinner} />;
+    case 'space-manage':
+      if (!canManageActiveSpace) {
+        return <ForbiddenView detail="Space owner, space admin, or global admin permissions are required to manage the active space." />;
+      }
+      return (
+        <SpaceManagerView
+          user={user}
+          apiCall={apiCall}
+          onToast={showToast}
+          spaces={spaces}
+          activeSpace={activeSpace}
+          activeSpaceId={activeSpaceId}
+          activeMembershipRole={activeMembershipRole}
+          libraries={libraries}
+          activeLibraryId={activeLibraryId}
+          onScopeRefresh={onScopeRefresh}
+          onSpaceSelect={onSpaceSelect}
+          Icons={Icons}
+          Spinner={Spinner}
+          cx={cx}
+        />
+      );
     case 'admin-users':
       return <AdminUsersView apiCall={apiCall} onToast={showToast} currentUserId={user?.id} Icons={Icons} Spinner={Spinner} cx={cx} />;
     case 'admin-activity':
