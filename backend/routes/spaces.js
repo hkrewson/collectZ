@@ -15,6 +15,7 @@ const {
 const { logActivity } = require('../services/audit');
 const { sendInviteEmail } = require('../services/email');
 const { hashInviteToken } = require('../services/invites');
+const { getRequestOrigin } = require('../services/requestOrigin');
 const {
   listLibrariesForSpace,
   syncLibraryMembershipsForSpaceUser,
@@ -704,7 +705,7 @@ router.post('/spaces/:id/invites', validate(spaceInviteCreateSchema), asyncHandl
       [email, tokenHash, expiresAt, req.user.id, spaceId, nextRole]
     );
     const invite = result.rows[0];
-    const inviteUrl = `${req.protocol}://${req.get('host')}/register?invite=${encodeURIComponent(token)}&email=${encodeURIComponent(invite.email)}`;
+    const inviteUrl = `${getRequestOrigin(req)}/register?invite=${encodeURIComponent(token)}&email=${encodeURIComponent(invite.email)}`;
 
     await logActivity(req, 'space.invite.create', 'invite', invite.id, {
       email: invite.email,

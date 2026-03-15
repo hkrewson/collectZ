@@ -158,6 +158,7 @@ export default function DashboardContent({
       }
       return (
         <SpaceManagerView
+          key={`space-manage:${scopeKey}`}
           user={user}
           apiCall={apiCall}
           onToast={showToast}

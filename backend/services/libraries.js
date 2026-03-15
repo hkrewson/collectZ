@@ -8,6 +8,42 @@ function deriveSpaceMembershipRole({ userRole, isDefaultSpaceCreator = false }) 
   return 'member';
 }
 
+async function canUserAccessSpace(client, { userId, spaceId }) {
+  const numericUserId = Number(userId);
+  const numericSpaceId = Number(spaceId);
+  if (!Number.isFinite(numericUserId) || numericUserId <= 0) return false;
+  if (!Number.isFinite(numericSpaceId) || numericSpaceId <= 0) return false;
+
+  const result = await client.query(
+    `SELECT 1
+     FROM space_memberships
+     WHERE user_id = $1
+       AND space_id = $2
+     LIMIT 1`,
+    [numericUserId, numericSpaceId]
+  );
+  return result.rows.length > 0;
+}
+
+async function getAccessibleLibraryRow(client, { userId, libraryId }) {
+  const numericUserId = Number(userId);
+  const numericLibraryId = Number(libraryId);
+  if (!Number.isFinite(numericUserId) || numericUserId <= 0) return null;
+  if (!Number.isFinite(numericLibraryId) || numericLibraryId <= 0) return null;
+
+  const result = await client.query(
+    `SELECT l.id, l.space_id
+     FROM library_memberships lm
+     JOIN libraries l ON l.id = lm.library_id
+     WHERE lm.user_id = $1
+       AND l.id = $2
+       AND l.archived_at IS NULL
+     LIMIT 1`,
+    [numericUserId, numericLibraryId]
+  );
+  return result.rows[0] || null;
+}
+
 async function ensureUserDefaultScope(userId, options = {}) {
   const numericUserId = Number(userId);
   if (!Number.isFinite(numericUserId) || numericUserId <= 0) {
@@ -38,44 +74,29 @@ async function ensureUserDefaultScope(userId, options = {}) {
 
     let spaceId = preferredSpaceId;
     if (spaceId) {
-      const preferred = await client.query(
-        `SELECT id
-         FROM spaces
-         WHERE id = $1
-           AND archived_at IS NULL
-         LIMIT 1`,
-        [spaceId]
-      );
-      if (preferred.rows.length === 0) {
+      const preferredAllowed = await canUserAccessSpace(client, { userId: numericUserId, spaceId });
+      if (!preferredAllowed) {
         spaceId = null;
       }
     }
 
     if (!spaceId && userRow.active_library_id) {
-      const activeLibrary = await client.query(
-        `SELECT id, space_id
-         FROM libraries
-         WHERE id = $1
-           AND archived_at IS NULL
-         LIMIT 1`,
-        [userRow.active_library_id]
-      );
-      if (activeLibrary.rows.length > 0) {
-        spaceId = activeLibrary.rows[0].space_id || null;
+      const activeLibrary = await getAccessibleLibraryRow(client, {
+        userId: numericUserId,
+        libraryId: userRow.active_library_id
+      });
+      if (activeLibrary) {
+        spaceId = activeLibrary.space_id || null;
       }
     }
 
     if (!spaceId && userRow.active_space_id) {
-      const activeSpace = await client.query(
-        `SELECT id
-         FROM spaces
-         WHERE id = $1
-           AND archived_at IS NULL
-         LIMIT 1`,
-        [userRow.active_space_id]
-      );
-      if (activeSpace.rows.length > 0) {
-        spaceId = activeSpace.rows[0].id;
+      const activeSpaceAllowed = await canUserAccessSpace(client, {
+        userId: numericUserId,
+        spaceId: userRow.active_space_id
+      });
+      if (activeSpaceAllowed) {
+        spaceId = userRow.active_space_id;
       }
     }
 
@@ -121,16 +142,11 @@ async function ensureUserDefaultScope(userId, options = {}) {
 
     let libraryId = userRow.active_library_id || null;
     if (libraryId) {
-      const activeLibraryExists = await client.query(
-        `SELECT id
-         FROM libraries
-         WHERE id = $1
-           AND archived_at IS NULL
-           AND space_id = $2
-         LIMIT 1`,
-        [libraryId, spaceId]
-      );
-      if (activeLibraryExists.rows.length === 0) {
+      const activeLibrary = await getAccessibleLibraryRow(client, {
+        userId: numericUserId,
+        libraryId
+      });
+      if (!activeLibrary || Number(activeLibrary.space_id || 0) !== Number(spaceId || 0)) {
         libraryId = null;
       }
     }
@@ -196,30 +212,19 @@ async function listLibrariesForSpace({ userId, role, spaceId }) {
   if (!Number.isFinite(numericSpaceId) || numericSpaceId <= 0) return [];
 
   const result = await pool.query(
-    role === 'admin'
-      ? `SELECT l.id, l.name, l.description, l.space_id, l.created_by, l.created_at, l.updated_at,
-                u.email AS created_by_email, u.name AS created_by_name,
-                COUNT(m.id)::int AS item_count
-         FROM libraries l
-         LEFT JOIN users u ON u.id = l.created_by
-         LEFT JOIN media m ON m.library_id = l.id
-         WHERE l.archived_at IS NULL
-           AND l.space_id = $1
-         GROUP BY l.id, u.email, u.name
-         ORDER BY lower(l.name) ASC, l.id ASC`
-      : `SELECT l.id, l.name, l.description, l.space_id, l.created_by, l.created_at, l.updated_at,
-                u.email AS created_by_email, u.name AS created_by_name,
-                COUNT(m.id)::int AS item_count
-         FROM library_memberships lm
-         JOIN libraries l ON l.id = lm.library_id
-         LEFT JOIN users u ON u.id = l.created_by
-         LEFT JOIN media m ON m.library_id = l.id
-         WHERE lm.user_id = $1
-           AND l.archived_at IS NULL
-           AND l.space_id = $2
-         GROUP BY l.id, u.email, u.name
-         ORDER BY lower(l.name) ASC, l.id ASC`,
-    role === 'admin' ? [numericSpaceId] : [numericUserId, numericSpaceId]
+    `SELECT l.id, l.name, l.description, l.space_id, l.created_by, l.created_at, l.updated_at,
+              u.email AS created_by_email, u.name AS created_by_name,
+              COUNT(m.id)::int AS item_count
+     FROM library_memberships lm
+     JOIN libraries l ON l.id = lm.library_id
+     LEFT JOIN users u ON u.id = l.created_by
+     LEFT JOIN media m ON m.library_id = l.id
+     WHERE lm.user_id = $1
+       AND l.archived_at IS NULL
+       AND l.space_id = $2
+     GROUP BY l.id, u.email, u.name
+     ORDER BY lower(l.name) ASC, l.id ASC`,
+    [numericUserId, numericSpaceId]
   );
 
   return result.rows.map(toLibraryResponse);
@@ -244,30 +249,19 @@ async function listLibrariesForUser({ userId, role }) {
   const numericUserId = Number(userId);
   if (!Number.isFinite(numericUserId) || numericUserId <= 0) return [];
 
-  const isAdmin = role === 'admin';
   const result = await pool.query(
-    isAdmin
-      ? `SELECT l.id, l.name, l.description, l.space_id, l.created_by, l.created_at, l.updated_at,
-                u.email AS created_by_email, u.name AS created_by_name,
-                COUNT(m.id)::int AS item_count
-         FROM libraries l
-         LEFT JOIN users u ON u.id = l.created_by
-         LEFT JOIN media m ON m.library_id = l.id
-         WHERE l.archived_at IS NULL
-         GROUP BY l.id, u.email, u.name
-         ORDER BY lower(l.name), l.id`
-      : `SELECT l.id, l.name, l.description, l.space_id, l.created_by, l.created_at, l.updated_at,
-                u.email AS created_by_email, u.name AS created_by_name,
-                COUNT(m.id)::int AS item_count
-         FROM library_memberships lm
-         JOIN libraries l ON l.id = lm.library_id
-         LEFT JOIN users u ON u.id = l.created_by
-         LEFT JOIN media m ON m.library_id = l.id
-         WHERE lm.user_id = $1
-           AND l.archived_at IS NULL
-         GROUP BY l.id, u.email, u.name
-         ORDER BY lower(l.name), l.id`,
-    isAdmin ? [] : [numericUserId]
+    `SELECT l.id, l.name, l.description, l.space_id, l.created_by, l.created_at, l.updated_at,
+              u.email AS created_by_email, u.name AS created_by_name,
+              COUNT(m.id)::int AS item_count
+     FROM library_memberships lm
+     JOIN libraries l ON l.id = lm.library_id
+     LEFT JOIN users u ON u.id = l.created_by
+     LEFT JOIN media m ON m.library_id = l.id
+     WHERE lm.user_id = $1
+       AND l.archived_at IS NULL
+     GROUP BY l.id, u.email, u.name
+     ORDER BY lower(l.name), l.id`,
+    [numericUserId]
   );
 
   return result.rows.map(toLibraryResponse);
@@ -276,17 +270,6 @@ async function listLibrariesForUser({ userId, role }) {
 async function getAccessibleLibrary({ userId, role, libraryId }) {
   const numericLibraryId = Number(libraryId);
   if (!Number.isFinite(numericLibraryId) || numericLibraryId <= 0) return null;
-  if (role === 'admin') {
-    const result = await pool.query(
-      `SELECT id, name, description, space_id, created_by, created_at, updated_at
-       FROM libraries
-       WHERE id = $1
-         AND archived_at IS NULL
-       LIMIT 1`,
-      [numericLibraryId]
-    );
-    return result.rows[0] || null;
-  }
   const result = await pool.query(
     `SELECT l.id, l.name, l.description, l.space_id, l.created_by, l.created_at, l.updated_at
      FROM library_memberships lm

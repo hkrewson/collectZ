@@ -216,11 +216,12 @@ export default function App() {
           ? { ...prev, active_space_id: nextActiveSpaceId, active_library_id: nextActiveLibraryId }
           : prev
       ));
+      await loadAuthScope({ silent: true });
       showToast('Active space updated');
     } catch (error) {
       showToast(error.response?.data?.error || 'Failed to switch spaces', 'error');
     }
-  }, [activeSpaceId, apiCall, clearImportJobs, setMediaItems, setUser, showToast]);
+  }, [activeSpaceId, apiCall, clearImportJobs, loadAuthScope, setMediaItems, setUser, showToast]);
 
   const handleLibrarySelect = useCallback(async (libraryIdRaw) => {
     const libraryId = Number(libraryIdRaw || 0);
@@ -315,7 +316,7 @@ export default function App() {
 
   const activeSpace = spaces.find((space) => Number(space.id) === Number(activeSpaceId)) || null;
   const activeMembershipRole = activeSpace?.membership_role || null;
-  const canManageActiveSpace = user?.role === 'admin' || ['owner', 'admin'].includes(activeMembershipRole);
+  const canManageActiveSpace = ['owner', 'admin'].includes(activeMembershipRole);
   const scopeKey = `${activeSpaceId || 'none'}:${activeLibraryId || 'none'}`;
 
   useEffect(() => {

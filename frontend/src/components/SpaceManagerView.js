@@ -14,7 +14,6 @@ function createEmptySpaceForm() {
 }
 
 export default function SpaceManagerView({
-  user,
   apiCall,
   onToast,
   spaces,
@@ -24,30 +23,23 @@ export default function SpaceManagerView({
   libraries,
   activeLibraryId,
   onScopeRefresh,
-  onSpaceSelect,
   Icons,
   Spinner,
   cx
 }) {
   const [members, setMembers] = useState([]);
   const [invites, setInvites] = useState([]);
-  const [allUsers, setAllUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [inviteForm, setInviteForm] = useState({ email: '', role: 'member', expose_token: true });
   const [inviteUrl, setInviteUrl] = useState('');
   const [editingSpace, setEditingSpace] = useState(() => createEmptySpaceForm());
-  const [createSpaceForm, setCreateSpaceForm] = useState({ ...createEmptySpaceForm(), owner_user_id: '' });
-  const [transferForm, setTransferForm] = useState({ member_id: '', name: '', slug: '', description: '' });
   const [savingSpace, setSavingSpace] = useState(false);
   const [creatingInvite, setCreatingInvite] = useState(false);
-  const [creatingSpace, setCreatingSpace] = useState(false);
-  const [transferring, setTransferring] = useState(false);
   const [memberBusyId, setMemberBusyId] = useState(null);
   const [showInviteHistory, setShowInviteHistory] = useState(false);
 
-  const isGlobalAdmin = user?.role === 'admin';
-  const canManage = isGlobalAdmin || ['owner', 'admin'].includes(activeMembershipRole);
+  const canManage = ['owner', 'admin'].includes(activeMembershipRole);
 
   useEffect(() => {
     setEditingSpace({
@@ -58,11 +50,10 @@ export default function SpaceManagerView({
   }, [activeSpace]);
 
   const assignableRoles = useMemo(() => {
-    if (isGlobalAdmin) return SPACE_ROLE_OPTIONS;
     if (activeMembershipRole === 'owner') return ['admin', 'member', 'viewer'];
     if (activeMembershipRole === 'admin') return ['member', 'viewer'];
     return ['member'];
-  }, [activeMembershipRole, isGlobalAdmin]);
+  }, [activeMembershipRole]);
 
   const loadSpaceData = useCallback(async () => {
     if (!activeSpaceId || !canManage) {
@@ -74,13 +65,10 @@ export default function SpaceManagerView({
 
     setLoading(true);
     setLoadError('');
-    const requests = [
+    const [membersRes, invitesRes] = await Promise.allSettled([
       apiCall('get', `/spaces/${activeSpaceId}/members`),
       apiCall('get', `/spaces/${activeSpaceId}/invites`)
-    ];
-    if (isGlobalAdmin) requests.push(apiCall('get', '/admin/users'));
-
-    const [membersRes, invitesRes, usersRes] = await Promise.allSettled(requests);
+    ]);
 
     if (membersRes.status === 'fulfilled') {
       setMembers(Array.isArray(membersRes.value?.members) ? membersRes.value.members : []);
@@ -93,14 +81,8 @@ export default function SpaceManagerView({
     } else {
       setLoadError((prev) => (prev ? `${prev} Failed to load invites.` : 'Failed to load invites.'));
     }
-
-    if (usersRes) {
-      if (usersRes.status === 'fulfilled') setAllUsers(Array.isArray(usersRes.value) ? usersRes.value : []);
-      else setLoadError((prev) => (prev ? `${prev} Failed to load users.` : 'Failed to load users.'));
-    }
-
     setLoading(false);
-  }, [activeSpaceId, apiCall, canManage, isGlobalAdmin]);
+  }, [activeSpaceId, apiCall, canManage]);
 
   useEffect(() => {
     loadSpaceData();
@@ -192,57 +174,6 @@ export default function SpaceManagerView({
     }
   };
 
-  const createSpace = async (event) => {
-    event.preventDefault();
-    setCreatingSpace(true);
-    try {
-      const payload = {
-        ...createSpaceForm,
-        owner_user_id: createSpaceForm.owner_user_id ? Number(createSpaceForm.owner_user_id) : undefined
-      };
-      const created = await apiCall('post', '/spaces', payload);
-      setCreateSpaceForm({ ...createEmptySpaceForm(), owner_user_id: '' });
-      await onScopeRefresh?.({ silent: true });
-      if (Number(created?.owner_user_id || 0) === Number(user?.id || 0)) {
-        await onSpaceSelect?.(created.id);
-      }
-      onToast('Space created');
-    } catch (error) {
-      onToast(error.response?.data?.error || 'Failed to create space', 'error');
-    } finally {
-      setCreatingSpace(false);
-    }
-  };
-
-  const transferMember = async (event) => {
-    event.preventDefault();
-    if (!transferForm.member_id) return;
-    setTransferring(true);
-    try {
-      const payload = await apiCall(
-        'post',
-        `/spaces/${activeSpaceId}/members/${transferForm.member_id}/transfer-new-space`,
-        {
-          name: transferForm.name,
-          slug: transferForm.slug || null,
-          description: transferForm.description || null
-        }
-      );
-      setTransferForm({ member_id: '', name: '', slug: '', description: '' });
-      await onScopeRefresh?.({ silent: true });
-      await loadSpaceData();
-      if (payload?.target_space?.id) {
-        await onSpaceSelect?.(payload.target_space.id);
-      }
-      onToast('Member transferred into a new space');
-    } catch (error) {
-      const detail = error.response?.data?.detail;
-      onToast(detail || error.response?.data?.error || 'Failed to transfer member', 'error');
-    } finally {
-      setTransferring(false);
-    }
-  };
-
   const visibleInvites = useMemo(() => {
     if (showInviteHistory) return invites;
     return invites.filter((invite) => !invite.used && !invite.revoked && new Date(invite.expires_at).getTime() > Date.now());
@@ -254,7 +185,7 @@ export default function SpaceManagerView({
         <div>
           <h1 className="section-title">Space Control</h1>
           <p className="text-sm text-ghost mt-2 max-w-3xl">
-            Switch active scope, manage members and invites for the current space, and use the global admin tools for creating or splitting spaces.
+            Switch active scope and manage the current space only when you are an owner or admin of that space.
           </p>
         </div>
         <div className="card p-4 min-w-[260px]">
@@ -273,7 +204,7 @@ export default function SpaceManagerView({
       {!canManage && (
         <div className="card p-5">
           <p className="text-sm text-ghost">
-            The active space can be viewed, but only its owner, its admins, or a global admin can manage members, invites, and transfer workflows here.
+            The active space can be viewed, but only its owner or admins can manage members, invites, and settings here.
           </p>
         </div>
       )}
@@ -429,83 +360,6 @@ export default function SpaceManagerView({
             </div>
           </div>
 
-          {isGlobalAdmin && (
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-              <form className="card p-5 space-y-4" onSubmit={createSpace}>
-                <div>
-                  <h2 className="text-xl font-medium text-ink">Create Space</h2>
-                  <p className="text-sm text-ghost mt-1">Global admins create new spaces and assign the first owner at creation time.</p>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <label className="field md:col-span-2">
-                    <span className="label">Name</span>
-                    <input className="input" value={createSpaceForm.name} onChange={(e) => setCreateSpaceForm((prev) => ({ ...prev, name: e.target.value }))} required />
-                  </label>
-                  <label className="field">
-                    <span className="label">Slug</span>
-                    <input className="input" value={createSpaceForm.slug} onChange={(e) => setCreateSpaceForm((prev) => ({ ...prev, slug: e.target.value }))} />
-                  </label>
-                  <label className="field">
-                    <span className="label">Owner</span>
-                    <select className="select" value={createSpaceForm.owner_user_id} onChange={(e) => setCreateSpaceForm((prev) => ({ ...prev, owner_user_id: e.target.value }))}>
-                      <option value="">Current user</option>
-                      {allUsers.map((candidate) => (
-                        <option key={candidate.id} value={candidate.id}>
-                          {candidate.name || candidate.email} ({candidate.email})
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="field md:col-span-2">
-                    <span className="label">Description</span>
-                    <textarea className="textarea min-h-[104px]" value={createSpaceForm.description} onChange={(e) => setCreateSpaceForm((prev) => ({ ...prev, description: e.target.value }))} />
-                  </label>
-                </div>
-                <div className="flex justify-end">
-                  <button type="submit" className="btn-primary min-w-[120px]" disabled={creatingSpace}>
-                    {creatingSpace ? <Spinner size={14} /> : 'Create Space'}
-                  </button>
-                </div>
-              </form>
-
-              <form className="card p-5 space-y-4" onSubmit={transferMember}>
-                <div>
-                  <h2 className="text-xl font-medium text-ink">Split Member Into New Space</h2>
-                  <p className="text-sm text-ghost mt-1">This moves only libraries the selected user owns and makes them the owner of the new space.</p>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <label className="field md:col-span-2">
-                    <span className="label">Member</span>
-                    <select className="select" value={transferForm.member_id} onChange={(e) => setTransferForm((prev) => ({ ...prev, member_id: e.target.value }))} required>
-                      <option value="">Choose member</option>
-                      {members.map((member) => (
-                        <option key={member.id} value={member.id}>
-                          {member.name || member.email} · {member.role}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="field md:col-span-2">
-                    <span className="label">New Space Name</span>
-                    <input className="input" value={transferForm.name} onChange={(e) => setTransferForm((prev) => ({ ...prev, name: e.target.value }))} required />
-                  </label>
-                  <label className="field">
-                    <span className="label">Slug</span>
-                    <input className="input" value={transferForm.slug} onChange={(e) => setTransferForm((prev) => ({ ...prev, slug: e.target.value }))} />
-                  </label>
-                  <label className="field">
-                    <span className="label">Description</span>
-                    <input className="input" value={transferForm.description} onChange={(e) => setTransferForm((prev) => ({ ...prev, description: e.target.value }))} />
-                  </label>
-                </div>
-                <div className="flex justify-end">
-                  <button type="submit" className="btn-primary min-w-[160px]" disabled={transferring}>
-                    {transferring ? <Spinner size={14} /> : 'Transfer To New Space'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          )}
         </>
       )}
     </div>

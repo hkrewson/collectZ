@@ -11,6 +11,7 @@ const { enforceScopeAccess } = require('../middleware/scopeAccess');
 const { sendInviteEmail, sendPasswordResetEmail } = require('../services/email');
 const crypto = require('crypto');
 const { hashInviteToken } = require('../services/invites');
+const { getRequestOrigin } = require('../services/requestOrigin');
 
 const router = express.Router();
 
@@ -219,7 +220,7 @@ router.post('/users/:id/password-reset', asyncHandler(async (req, res) => {
   );
 
   const email = userResult.rows[0].email;
-  const resetUrl = `${req.protocol}://${req.get('host')}/reset-password?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
+  const resetUrl = `${getRequestOrigin(req)}/reset-password?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
   const exposeToken = parseBool(req.body?.expose_token, false);
   await logActivity(req, 'admin.user.password_reset.create', 'user', userId, {
     email,
@@ -315,7 +316,7 @@ router.post('/invites', validate(inviteCreateSchema), asyncHandler(async (req, r
     email: result.rows[0].email,
     expiresAt: result.rows[0].expires_at
   });
-  const inviteUrl = `${req.protocol}://${req.get('host')}/register?invite=${encodeURIComponent(token)}&email=${encodeURIComponent(result.rows[0].email)}`;
+  const inviteUrl = `${getRequestOrigin(req)}/register?invite=${encodeURIComponent(token)}&email=${encodeURIComponent(result.rows[0].email)}`;
   const exposeToken = parseBool(req.body?.expose_token, false);
   if (exposeToken) {
     await logActivity(req, 'admin.invite.token_exposed', 'invite', result.rows[0].id, {

@@ -1103,12 +1103,23 @@ results.push(run('library service source ensures default scope before returning 
   assert.ok(libraryServiceSource.includes('SET active_space_id = $2,'));
   assert.ok(libraryServiceSource.includes('async function syncLibraryMembershipsForSpaceUser'));
   assert.ok(libraryServiceSource.includes('async function moveOwnedLibrariesToSpace'));
+  assert.ok(libraryServiceSource.includes('async function canUserAccessSpace'));
+  assert.ok(libraryServiceSource.includes('async function getAccessibleLibraryRow'));
 }));
 
 results.push(run('spaces service source distinguishes global admin from space membership roles', () => {
   assert.ok(spacesServiceSource.includes("const SPACE_MEMBERSHIP_ROLES = ['owner', 'admin', 'member', 'viewer'];"));
   assert.ok(spacesServiceSource.includes("function isGlobalAdmin(userRole)"));
   assert.ok(spacesServiceSource.includes("function canAssignSpaceRole"));
+  assert.ok(spacesServiceSource.includes('FROM space_memberships sm'));
+  assert.ok(!spacesServiceSource.includes("COALESCE(sm.role, CASE WHEN s.created_by = $1 THEN 'owner' END, 'admin') AS membership_role"));
+}));
+
+results.push(run('request origin helper supports configured or forwarded host values for invite URLs', () => {
+  const requestOriginSource = require('fs').readFileSync(require.resolve('../services/requestOrigin'), 'utf8');
+  assert.ok(requestOriginSource.includes('process.env.APP_PUBLIC_URL'));
+  assert.ok(requestOriginSource.includes("req.get('origin')"));
+  assert.ok(requestOriginSource.includes("req.get('x-forwarded-host')"));
 }));
 
 results.push(run('library routes preserve active space when replacing archived or deleted libraries', () => {
