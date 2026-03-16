@@ -234,6 +234,14 @@ router.post('/libraries/:id/transfer', validate(libraryTransferSchema), asyncHan
      WHERE id = $1`,
     [libraryId, newOwnerUserId]
   );
+  if (Number(target.created_by || 0) && Number(target.created_by || 0) !== newOwnerUserId) {
+    await pool.query(
+      `DELETE FROM library_memberships
+       WHERE user_id = $1
+         AND library_id = $2`,
+      [Number(target.created_by), libraryId]
+    );
+  }
   await pool.query(
     `INSERT INTO library_memberships (user_id, library_id, role)
      VALUES ($1, $2, 'owner')

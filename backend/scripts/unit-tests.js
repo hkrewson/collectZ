@@ -1152,6 +1152,11 @@ results.push(run('library routes only allow admin scope hints after phase2 harde
   assert.ok(librariesRoutesSource.includes('syncLibraryMembershipsForSpaceUser'));
 }));
 
+results.push(run('library transfer source revokes previous owner membership on ownership change', () => {
+  assert.ok(librariesRoutesSource.includes('DELETE FROM library_memberships'));
+  assert.ok(librariesRoutesSource.includes('Number(target.created_by || 0) !== newOwnerUserId'));
+}));
+
 results.push(run('spaces select route is session-auth only for active scope mutation', () => {
   assert.ok(spacesRoutesSource.includes("router.post('/spaces/select', requireSessionAuth"));
 }));
