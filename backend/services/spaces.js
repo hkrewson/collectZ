@@ -112,12 +112,11 @@ function isGlobalAdmin(userRole) {
 }
 
 function canManageSpaceMemberships({ userRole, membershipRole }) {
-  return isGlobalAdmin(userRole) || SPACE_MANAGE_ROLES.includes(membershipRole);
+  return SPACE_MANAGE_ROLES.includes(membershipRole);
 }
 
 function canAssignSpaceRole({ actorUserRole, actorMembershipRole, nextRole }) {
   if (!SPACE_MEMBERSHIP_ROLES.includes(nextRole)) return false;
-  if (isGlobalAdmin(actorUserRole)) return true;
   if (actorMembershipRole === 'owner') return ['admin', 'member', 'viewer'].includes(nextRole);
   if (actorMembershipRole === 'admin') return ['member', 'viewer'].includes(nextRole);
   return false;

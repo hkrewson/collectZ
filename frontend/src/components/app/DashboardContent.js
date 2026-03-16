@@ -176,7 +176,7 @@ export default function DashboardContent({
         />
       );
     case 'admin-users':
-      return <AdminUsersView apiCall={apiCall} onToast={showToast} currentUserId={user?.id} Icons={Icons} Spinner={Spinner} cx={cx} />;
+      return <AdminUsersView key={`admin-users:${scopeKey}`} apiCall={apiCall} onToast={showToast} currentUserId={user?.id} scopeKey={scopeKey} Icons={Icons} Spinner={Spinner} cx={cx} />;
     case 'admin-activity':
       return <AdminActivityView apiCall={apiCall} Spinner={Spinner} />;
     case 'admin-settings':

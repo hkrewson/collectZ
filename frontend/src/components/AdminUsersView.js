@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 const USER_ROLES = ['admin', 'user', 'viewer'];
 
-export default function AdminUsersView({ apiCall, onToast, currentUserId, Icons, Spinner, cx }) {
+export default function AdminUsersView({ apiCall, onToast, currentUserId, scopeKey, Icons, Spinner, cx }) {
   const [activeTab, setActiveTab] = useState('members');
   const [users, setUsers] = useState([]);
   const [invites, setInvites] = useState([]);
@@ -36,7 +36,15 @@ export default function AdminUsersView({ apiCall, onToast, currentUserId, Icons,
     setLoading(false);
   }, [apiCall]);
 
-  useEffect(() => { loadMembersData(); }, [loadMembersData]);
+  useEffect(() => { loadMembersData(); }, [loadMembersData, scopeKey]);
+
+  useEffect(() => {
+    setInviteUrl('');
+    setShowInviteHistory(false);
+    setSelectedMemberId(null);
+    setMemberSummary(null);
+    setResetLink('');
+  }, [scopeKey]);
 
   useEffect(() => {
     if (!selectedMemberId) {

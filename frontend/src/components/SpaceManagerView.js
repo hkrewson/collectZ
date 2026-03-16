@@ -1,6 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-
-const SPACE_ROLE_OPTIONS = ['owner', 'admin', 'member', 'viewer'];
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 function formatDateTime(value) {
   if (!value) return '';
@@ -38,6 +36,8 @@ export default function SpaceManagerView({
   const [creatingInvite, setCreatingInvite] = useState(false);
   const [memberBusyId, setMemberBusyId] = useState(null);
   const [showInviteHistory, setShowInviteHistory] = useState(false);
+  const memberLoadSeqRef = useRef(0);
+  const inviteLoadSeqRef = useRef(0);
 
   const canManage = ['owner', 'admin'].includes(activeMembershipRole);
 
@@ -55,20 +55,37 @@ export default function SpaceManagerView({
     return ['member'];
   }, [activeMembershipRole]);
 
-  const loadSpaceData = useCallback(async () => {
+  useEffect(() => {
+    setMembers([]);
+    setInvites([]);
+    setInviteUrl('');
+    setShowInviteHistory(false);
+    setLoadError('');
+    setLoading(Boolean(activeSpaceId && canManage));
+  }, [activeSpaceId, canManage]);
+
+  const loadMembers = useCallback(async () => {
+    const requestSeq = ++memberLoadSeqRef.current;
     if (!activeSpaceId || !canManage) {
       setMembers([]);
-      setInvites([]);
       setLoading(false);
       return;
     }
 
     setLoading(true);
     setLoadError('');
-    const [membersRes, invitesRes] = await Promise.allSettled([
-      apiCall('get', `/spaces/${activeSpaceId}/members`),
-      apiCall('get', `/spaces/${activeSpaceId}/invites`)
-    ]);
+    setMembers([]);
+    const requestConfig = {
+      params: { _space: activeSpaceId, _ts: Date.now() },
+      headers: { 'cache-control': 'no-cache', pragma: 'no-cache' }
+    };
+    const membersRes = await Promise.resolve(apiCall('get', `/spaces/${activeSpaceId}/members`, null, requestConfig))
+      .then((value) => ({ status: 'fulfilled', value }))
+      .catch((reason) => ({ status: 'rejected', reason }));
+
+    if (requestSeq !== memberLoadSeqRef.current) {
+      return;
+    }
 
     if (membersRes.status === 'fulfilled') {
       setMembers(Array.isArray(membersRes.value?.members) ? membersRes.value.members : []);
@@ -76,17 +93,47 @@ export default function SpaceManagerView({
       setLoadError('Failed to load space members.');
     }
 
+    setLoading(false);
+  }, [activeSpaceId, apiCall, canManage]);
+
+  const loadInvites = useCallback(async () => {
+    const requestSeq = ++inviteLoadSeqRef.current;
+    if (!activeSpaceId || !canManage) {
+      setInvites([]);
+      return;
+    }
+
+    setInvites([]);
+    const requestConfig = {
+      params: { _space: activeSpaceId, _ts: Date.now() },
+      headers: { 'cache-control': 'no-cache', pragma: 'no-cache' }
+    };
+    const invitesRes = await Promise.resolve(apiCall('get', `/spaces/${activeSpaceId}/invites`, null, requestConfig))
+      .then((value) => ({ status: 'fulfilled', value }))
+      .catch((reason) => ({ status: 'rejected', reason }));
+
+    if (requestSeq !== inviteLoadSeqRef.current) {
+      return;
+    }
+
     if (invitesRes.status === 'fulfilled') {
+      const responseSpaceId = Number(invitesRes.value?.space?.id || 0) || null;
+      if (responseSpaceId !== Number(activeSpaceId)) {
+        return;
+      }
       setInvites(Array.isArray(invitesRes.value?.invites) ? invitesRes.value.invites : []);
     } else {
       setLoadError((prev) => (prev ? `${prev} Failed to load invites.` : 'Failed to load invites.'));
     }
-    setLoading(false);
   }, [activeSpaceId, apiCall, canManage]);
 
   useEffect(() => {
-    loadSpaceData();
-  }, [loadSpaceData]);
+    loadMembers();
+  }, [loadMembers]);
+
+  useEffect(() => {
+    loadInvites();
+  }, [loadInvites]);
 
   const copy = useCallback(async (text) => {
     if (!text) return;
@@ -105,7 +152,7 @@ export default function SpaceManagerView({
     try {
       await apiCall('patch', `/spaces/${activeSpaceId}`, editingSpace);
       await onScopeRefresh?.({ silent: true });
-      await loadSpaceData();
+      await Promise.all([loadMembers(), loadInvites()]);
       onToast('Space updated');
     } catch (error) {
       onToast(error.response?.data?.error || 'Failed to update space', 'error');
@@ -305,10 +352,12 @@ export default function SpaceManagerView({
                       <select
                         className="select min-w-[120px]"
                         value={member.role}
-                        disabled={memberBusyId === member.id}
+                        disabled={memberBusyId === member.id || member.role === 'owner'}
                         onChange={(e) => updateMemberRole(member.id, e.target.value)}
                       >
-                        {SPACE_ROLE_OPTIONS.map((role) => <option key={role} value={role}>{role}</option>)}
+                        {(member.role === 'owner' ? ['owner'] : assignableRoles).map((role) => (
+                          <option key={role} value={role}>{role}</option>
+                        ))}
                       </select>
                       <button
                         type="button"

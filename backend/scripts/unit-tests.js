@@ -1113,6 +1113,8 @@ results.push(run('spaces service source distinguishes global admin from space me
   assert.ok(spacesServiceSource.includes("function canAssignSpaceRole"));
   assert.ok(spacesServiceSource.includes('FROM space_memberships sm'));
   assert.ok(!spacesServiceSource.includes("COALESCE(sm.role, CASE WHEN s.created_by = $1 THEN 'owner' END, 'admin') AS membership_role"));
+  assert.ok(!spacesServiceSource.includes('return isGlobalAdmin(userRole) || SPACE_MANAGE_ROLES.includes(membershipRole);'));
+  assert.ok(!spacesServiceSource.includes('if (isGlobalAdmin(actorUserRole)) return true;'));
 }));
 
 results.push(run('request origin helper supports configured or forwarded host values for invite URLs', () => {

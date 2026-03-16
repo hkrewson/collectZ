@@ -55,7 +55,6 @@ async function requireAccessibleSpace(client, req, spaceId) {
 }
 
 function canRemoveMembership({ actorUserRole, actorMembershipRole, targetRole }) {
-  if (isGlobalAdmin(actorUserRole)) return true;
   if (actorMembershipRole === 'owner') return ['admin', 'member', 'viewer'].includes(targetRole);
   if (actorMembershipRole === 'admin') return ['member', 'viewer'].includes(targetRole);
   return false;
@@ -472,18 +471,10 @@ router.patch('/spaces/:id/members/:memberId', validate(spaceMembershipUpdateSche
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Space member not found' });
     }
-    if (current.rows[0].role === 'owner' && nextRole !== 'owner' && !isGlobalAdmin(req.user.role)) {
-      await client.query('ROLLBACK');
-      return res.status(403).json({ error: 'Only global admins can demote space owners' });
-    }
     if (current.rows[0].role === 'owner' && nextRole !== 'owner') {
-      const ownerCount = await countSpaceOwners(client, { spaceId });
-      if (ownerCount <= 1) {
-        await client.query('ROLLBACK');
-        return res.status(400).json({ error: 'Each space must retain at least one owner' });
-      }
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'Space owners cannot be demoted through tenant space management' });
     }
-
     const updated = await client.query(
       `UPDATE space_memberships
        SET role = $3
