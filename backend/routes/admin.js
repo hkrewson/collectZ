@@ -5,7 +5,6 @@ const { authenticateToken, requireRole } = require('../middleware/auth');
 const {
   validate,
   roleUpdateSchema,
-  inviteCreateSchema,
   generalSettingsSchema,
   spaceCreateSchema,
   adminSpaceOwnerAssignSchema,
@@ -14,11 +13,9 @@ const {
 const { logActivity } = require('../services/audit');
 const { loadGeneralSettings } = require('../services/integrations');
 const { listFeatureFlags, getFeatureFlag, updateFeatureFlag, FEATURE_FLAGS_READ_ONLY } = require('../services/featureFlags');
-const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
 const { enforceScopeAccess } = require('../middleware/scopeAccess');
-const { sendInviteEmail, sendPasswordResetEmail } = require('../services/email');
+const { sendPasswordResetEmail } = require('../services/email');
 const crypto = require('crypto');
-const { hashInviteToken } = require('../services/invites');
 const { getRequestOrigin } = require('../services/requestOrigin');
 const { syncLibraryMembershipsForSpaceUser } = require('../services/libraries');
 
@@ -770,116 +767,6 @@ router.post('/users/:id/password-reset/invalidate', asyncHandler(async (req, res
     email: userResult.rows[0].email,
     invalidated_count: revokeResult.rowCount || 0
   });
-}));
-
-// ── Invites ───────────────────────────────────────────────────────────────────
-
-router.post('/invites', validate(inviteCreateSchema), asyncHandler(async (req, res) => {
-  const scopeContext = resolveScopeContext(req);
-  const { email } = req.body;
-  const token = crypto.randomBytes(32).toString('hex');
-  const tokenHash = hashInviteToken(token);
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-
-  const result = await pool.query(
-    `INSERT INTO invites (email, token_hash, expires_at, created_by, space_id, space_role)
-     VALUES ($1, $2, $3, $4, $5, 'member')
-     RETURNING id, email, used, revoked, used_by, used_at, expires_at, created_at, space_id, space_role`,
-    [email, tokenHash, expiresAt, req.user.id, scopeContext.spaceId]
-  );
-  await logActivity(req, 'admin.invite.create', 'invite', result.rows[0].id, {
-    email: result.rows[0].email,
-    expiresAt: result.rows[0].expires_at
-  });
-  const inviteUrl = `${getRequestOrigin(req)}/register?invite=${encodeURIComponent(token)}&email=${encodeURIComponent(result.rows[0].email)}`;
-  const exposeToken = parseBool(req.body?.expose_token, false);
-  if (exposeToken) {
-    await logActivity(req, 'admin.invite.token_exposed', 'invite', result.rows[0].id, {
-      email: result.rows[0].email,
-      exposureMode: 'admin_copy_link'
-    });
-  }
-  let delivery = { attempted: false, sent: false, reason: 'smtp_not_configured' };
-  try {
-    delivery = await sendInviteEmail({
-      to: result.rows[0].email,
-      inviteUrl,
-      expiresAt: result.rows[0].expires_at
-    });
-    if (delivery.sent) {
-      await logActivity(req, 'admin.invite.delivered', 'invite', result.rows[0].id, {
-        email: result.rows[0].email,
-        delivery: 'smtp'
-      });
-    }
-  } catch (error) {
-    delivery = { attempted: true, sent: false, reason: error.message || 'smtp_send_failed' };
-    await logActivity(req, 'admin.invite.delivery_failed', 'invite', result.rows[0].id, {
-      email: result.rows[0].email,
-      reason: delivery.reason
-    });
-  }
-  res.status(201).json({
-    ...result.rows[0],
-    delivery,
-    ...(exposeToken ? { token, invite_url: inviteUrl } : {})
-  });
-}));
-
-router.get('/invites', asyncHandler(async (req, res) => {
-  const scopeContext = resolveScopeContext(req);
-  const params = [];
-  const scopeClause = appendScopeSql(params, scopeContext, { libraryColumn: null });
-  const result = await pool.query(
-    `SELECT i.id, i.email, i.used, i.revoked, i.used_by, i.used_at,
-            i.expires_at, i.created_at, i.space_id, i.space_role, creator.email AS created_by_email,
-            claimer.email AS used_by_email
-     FROM invites i
-     LEFT JOIN users creator ON creator.id = i.created_by
-     LEFT JOIN users claimer ON claimer.id = i.used_by
-     WHERE 1=1${scopeClause}
-     ORDER BY i.created_at DESC`
-    , params
-  );
-  res.json(result.rows);
-}));
-
-router.patch('/invites/:id/revoke', asyncHandler(async (req, res) => {
-  const scopeContext = resolveScopeContext(req);
-  const inviteId = Number(req.params.id);
-  if (!Number.isFinite(inviteId) || inviteId <= 0) {
-    return res.status(400).json({ error: 'Invalid invite id' });
-  }
-
-  const params = [inviteId];
-  const scopeClause = appendScopeSql(params, scopeContext, { libraryColumn: null, spaceColumn: 'space_id' });
-  const result = await pool.query(
-    `UPDATE invites
-     SET revoked = true
-     WHERE id = $1
-       AND used = false
-       AND revoked = false${scopeClause}
-     RETURNING id, email, used, revoked, expires_at, created_at, space_id, space_role`,
-    params
-  );
-  if (result.rows.length === 0) {
-    const inviteCheckParams = [inviteId];
-    const inviteCheckClause = appendScopeSql(inviteCheckParams, scopeContext, { libraryColumn: null, spaceColumn: 'space_id' });
-    const invite = await pool.query(`SELECT id, used, revoked FROM invites WHERE id = $1${inviteCheckClause}`, inviteCheckParams);
-    if (invite.rows.length === 0) {
-      return res.status(404).json({ error: 'Invite not found' });
-    }
-    if (invite.rows[0].used) {
-      return res.status(400).json({ error: 'Invite has already been used' });
-    }
-    if (invite.rows[0].revoked) {
-      return res.status(400).json({ error: 'Invite is already revoked' });
-    }
-    return res.status(400).json({ error: 'Invite cannot be revoked' });
-  }
-
-  await logActivity(req, 'admin.invite.revoke', 'invite', inviteId, { email: result.rows[0].email });
-  res.json(result.rows[0]);
 }));
 
 module.exports = router;

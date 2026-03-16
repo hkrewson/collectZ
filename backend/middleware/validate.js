@@ -209,11 +209,6 @@ const roleUpdateSchema = z.object({
   role: z.enum(['admin', 'user', 'viewer'])
 });
 
-const inviteCreateSchema = z.object({
-  email: z.string().email('Valid email is required'),
-  expose_token: z.boolean().optional()
-});
-
 const adminSpaceOwnerAssignSchema = z.object({
   owner_user_id: z.number().int().positive('owner_user_id must be a positive integer')
 });
@@ -455,7 +450,6 @@ module.exports = {
   profileUpdateSchema,
   passwordResetConsumeSchema,
   roleUpdateSchema,
-  inviteCreateSchema,
   adminSpaceOwnerAssignSchema,
   adminSpaceArchiveSchema,
   personalAccessTokenCreateSchema,

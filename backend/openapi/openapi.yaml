@@ -488,41 +488,6 @@
         },
         "required": ["key", "record"]
       },
-      "InviteCreateRequest": {
-        "type": "object",
-        "properties": {
-          "email": { "type": "string", "format": "email" },
-          "expose_token": { "type": "boolean", "description": "Explicitly reveal token and invite_url in the response for admin copy-link fallback." }
-        },
-        "required": ["email"]
-      },
-      "InviteCreateResponse": {
-        "type": "object",
-        "properties": {
-          "id": { "type": "integer" },
-          "email": { "type": "string", "format": "email" },
-          "used": { "type": "boolean" },
-          "revoked": { "type": "boolean" },
-          "used_by": { "type": ["integer", "null"] },
-          "used_at": { "type": ["string", "null"], "format": "date-time" },
-          "expires_at": { "type": "string", "format": "date-time" },
-          "created_at": { "type": "string", "format": "date-time" },
-          "space_id": { "type": ["integer", "null"] },
-          "space_role": { "type": ["string", "null"] },
-          "delivery": {
-            "type": "object",
-            "properties": {
-              "attempted": { "type": "boolean" },
-              "sent": { "type": "boolean" },
-              "reason": { "type": ["string", "null"] }
-            },
-            "required": ["attempted", "sent"]
-          },
-          "token": { "type": "string" },
-          "invite_url": { "type": "string" }
-        },
-        "required": ["id", "email", "used", "revoked", "expires_at", "created_at", "delivery"]
-      },
       "MediaListResponse": {
         "type": "object",
         "properties": {
@@ -977,7 +942,7 @@
             "description": "Space invite created",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/InviteCreateResponse" }
+                "schema": { "$ref": "#/components/schemas/SpaceInviteRecord" }
               }
             }
           }
@@ -1246,57 +1211,6 @@
           },
           "404": {
             "description": "Key not found",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/Error" }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/admin/invites": {
-      "post": {
-        "tags": ["Admin"],
-        "summary": "Create an invite for a user",
-        "security": [
-          { "cookieSession": [], "csrfHeader": [] }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": { "$ref": "#/components/schemas/InviteCreateRequest" }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Invite created",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/InviteCreateResponse" }
-              }
-            }
-          },
-          "400": {
-            "description": "Validation error",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/Error" }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthenticated",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/Error" }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/Error" }

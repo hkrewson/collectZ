@@ -28,7 +28,6 @@ This validates:
   - `/api/health`
   - `/api/auth/login`
   - `/api/auth/me`
-  - `/api/admin/invites`
   - `/api/media`
   - `/api/media/sync-jobs/{id}`
 - required baseline schemas for auth, invites, media lists, and sync jobs

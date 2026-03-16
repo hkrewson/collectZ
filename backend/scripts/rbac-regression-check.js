@@ -2,6 +2,9 @@
 
 'use strict';
 
+const bcrypt = require('bcrypt');
+const pool = require('../db/pool');
+
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 
 class HttpClient {
@@ -93,6 +96,22 @@ const assert = (condition, message) => {
   if (!condition) throw new Error(message);
 };
 
+async function createDirectUser({ email, password, name, role = 'user' }) {
+  const passwordHash = await bcrypt.hash(password, 12);
+  const result = await pool.query(
+    `INSERT INTO users (email, password, name, role)
+     VALUES ($1, $2, $3, $4)
+     RETURNING id, email, name, role`,
+    [email, passwordHash, name, role]
+  );
+  return result.rows[0];
+}
+
+async function deleteDirectUser(userId) {
+  if (!Number.isFinite(Number(userId)) || Number(userId) <= 0) return;
+  await pool.query('DELETE FROM users WHERE id = $1', [userId]);
+}
+
 const assertStatusOneOf = (response, expected, label) => {
   if (!Array.isArray(expected) || expected.length === 0) {
     throw new Error(`${label}: expected status set is empty`);
@@ -112,137 +131,173 @@ async function main() {
   const fallbackEmail = process.env.RBAC_ADMIN_EMAIL || process.env.ADMIN_EMAIL || adminEmail;
   const fallbackPassword = process.env.RBAC_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || adminPassword;
   const userPassword = 'Passw0rd!123';
+  const tempAdminEmail = `rbac-admin-${suffix}@example.com`;
+  const tempAdminPassword = 'Passw0rd!123';
 
   const admin = new HttpClient('admin');
   const user = new HttpClient('user');
+  let tempAdminUserId = null;
+  let userId = null;
 
-  await admin.fetchCsrfToken();
-  const registerAdmin = await admin.request('/api/auth/register', {
-    method: 'POST',
-    withCsrf: true,
-    body: { email: adminEmail, password: adminPassword, name: 'RBAC Admin' }
-  });
-  if (registerAdmin.status !== 200) {
+  try {
     await admin.fetchCsrfToken();
-    const loginFallback = await admin.request('/api/auth/login', {
+    const registerAdmin = await admin.request('/api/auth/register', {
       method: 'POST',
       withCsrf: true,
-      body: { email: fallbackEmail, password: fallbackPassword }
+      body: { email: adminEmail, password: adminPassword, name: 'RBAC Admin' }
     });
-    if (loginFallback.status !== 200) {
-      throw new Error(
-        `[admin] Unable to bootstrap admin via register (${registerAdmin.status}) ` +
-        `or login (${loginFallback.status}). Set RBAC_ADMIN_EMAIL and RBAC_ADMIN_PASSWORD if needed.`
-      );
+    if (registerAdmin.status !== 200) {
+      await admin.fetchCsrfToken();
+      const loginFallback = await admin.request('/api/auth/login', {
+        method: 'POST',
+        withCsrf: true,
+        body: { email: fallbackEmail, password: fallbackPassword }
+      });
+      if (loginFallback.status !== 200) {
+        const directAdmin = await createDirectUser({
+          email: tempAdminEmail,
+          password: tempAdminPassword,
+          name: 'RBAC Temp Admin',
+          role: 'admin'
+        });
+        tempAdminUserId = Number(directAdmin?.id || 0) || null;
+        await admin.fetchCsrfToken();
+        await admin.request('/api/auth/login', {
+          method: 'POST',
+          withCsrf: true,
+          expectStatus: 200,
+          body: { email: tempAdminEmail, password: tempAdminPassword }
+        });
+      }
     }
-  }
 
-  await admin.fetchCsrfToken();
-  const inviteResponse = await admin.request('/api/admin/invites', {
-    method: 'POST',
-    withCsrf: true,
-    expectStatus: 201,
-    body: { email: userEmail, expose_token: true }
-  });
-  const inviteToken = inviteResponse?.data?.token;
-  assert(Boolean(inviteToken), 'Invite token not returned');
+    await admin.fetchCsrfToken();
+    const scopeResponse = await admin.request('/api/auth/scope', { expectStatus: 200 });
+    let targetSpaceId = Number(scopeResponse?.data?.active_space_id || 0) || null;
+    if (!targetSpaceId) {
+      await admin.fetchCsrfToken();
+      const createdSpace = await admin.request('/api/admin/spaces', {
+        method: 'POST',
+        withCsrf: true,
+        expectStatus: 201,
+        body: {
+          name: `RBAC Space ${suffix}`,
+          slug: `rbac-space-${suffix}`
+        }
+      });
+      targetSpaceId = Number(createdSpace?.data?.id || 0) || null;
+    }
+    assert(Number.isFinite(Number(targetSpaceId)), 'Invite target space id missing');
 
-  await user.fetchCsrfToken();
-  const registerUser = await user.request('/api/auth/register', {
-    method: 'POST',
-    withCsrf: true,
-    expectStatus: 200,
-    body: { email: userEmail, password: userPassword, name: 'RBAC User', inviteToken }
-  });
-  const userId = registerUser?.data?.user?.id;
-  assert(Number.isFinite(Number(userId)), 'Registered user id missing');
+    const inviteResponse = await admin.request(`/api/spaces/${targetSpaceId}/invites`, {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 201,
+      body: { email: userEmail, role: 'member', expose_token: true }
+    });
+    const inviteToken = inviteResponse?.data?.token;
+    assert(Boolean(inviteToken), 'Invite token not returned');
 
-  await admin.fetchCsrfToken();
-  const libraryA = await admin.request('/api/libraries', {
-    method: 'POST',
-    withCsrf: true,
-    expectStatus: 201,
-    body: { name: `RBAC Library A ${suffix}` }
-  });
-  const libraryAId = Number(libraryA?.data?.id);
-  assert(Number.isFinite(libraryAId), 'Library A id missing');
-  assert(
-    Number(libraryA?.data?.active_library_id) === libraryAId,
-    `Library A create should auto-select active library: ${JSON.stringify(libraryA?.data)}`
-  );
+    await user.fetchCsrfToken();
+    const registerUser = await user.request('/api/auth/register', {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 200,
+      body: { email: userEmail, password: userPassword, name: 'RBAC User', inviteToken }
+    });
+    userId = registerUser?.data?.user?.id;
+    assert(Number.isFinite(Number(userId)), 'Registered user id missing');
 
-  await admin.fetchCsrfToken();
-  const adminMedia = await admin.request('/api/media', {
-    method: 'POST',
-    withCsrf: true,
-    expectStatus: 201,
-    body: { title: 'RBAC Admin Media', year: 2001, format: 'Digital' }
-  });
-  const adminMediaId = adminMedia?.data?.id;
-  const adminMediaLibraryId = Number(adminMedia?.data?.library_id || 0) || null;
-  assert(Number.isFinite(Number(adminMediaId)), 'Admin media id missing');
-  assert(Number.isFinite(Number(adminMediaLibraryId)), 'Admin media library id missing');
+    await admin.fetchCsrfToken();
+    const libraryA = await admin.request('/api/libraries', {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 201,
+      body: { name: `RBAC Library A ${suffix}` }
+    });
+    const libraryAId = Number(libraryA?.data?.id);
+    assert(Number.isFinite(libraryAId), 'Library A id missing');
+    assert(
+      Number(libraryA?.data?.active_library_id) === libraryAId,
+      `Library A create should auto-select active library: ${JSON.stringify(libraryA?.data)}`
+    );
 
-  await user.fetchCsrfToken();
-  const deniedPatch = await user.request(`/api/media/${adminMediaId}`, {
-    method: 'PATCH',
-    withCsrf: true,
-    body: { notes: 'should be denied' }
-  });
-  assertStatusOneOf(deniedPatch, [403, 404], 'user patch admin media');
+    await admin.fetchCsrfToken();
+    const adminMedia = await admin.request('/api/media', {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 201,
+      body: { title: 'RBAC Admin Media', year: 2001, format: 'Digital' }
+    });
+    const adminMediaId = adminMedia?.data?.id;
+    const adminMediaLibraryId = Number(adminMedia?.data?.library_id || 0) || null;
+    assert(Number.isFinite(Number(adminMediaId)), 'Admin media id missing');
+    assert(Number.isFinite(Number(adminMediaLibraryId)), 'Admin media library id missing');
 
-  const deniedDelete = await user.request(`/api/media/${adminMediaId}`, {
-    method: 'DELETE',
-    withCsrf: true
-  });
-  assertStatusOneOf(deniedDelete, [403, 404], 'user delete admin media');
+    await user.fetchCsrfToken();
+    const deniedPatch = await user.request(`/api/media/${adminMediaId}`, {
+      method: 'PATCH',
+      withCsrf: true,
+      body: { notes: 'should be denied' }
+    });
+    assertStatusOneOf(deniedPatch, [403, 404], 'user patch admin media');
 
-  const userMedia = await user.request('/api/media', {
-    method: 'POST',
-    withCsrf: true,
-    expectStatus: 201,
-    body: { title: 'RBAC User Media', year: 2002, format: 'Blu-ray' }
-  });
-  const userMediaId = userMedia?.data?.id;
-  const userMediaLibraryId = Number(userMedia?.data?.library_id || 0) || null;
-  assert(Number.isFinite(Number(userMediaId)), 'User media id missing');
-  assert(Number.isFinite(Number(userMediaLibraryId)), 'User media library id missing');
+    const deniedDelete = await user.request(`/api/media/${adminMediaId}`, {
+      method: 'DELETE',
+      withCsrf: true
+    });
+    assertStatusOneOf(deniedDelete, [403, 404], 'user delete admin media');
 
-  await admin.fetchCsrfToken();
-  const libraryB = await admin.request('/api/libraries', {
-    method: 'POST',
-    withCsrf: true,
-    expectStatus: 201,
-    body: { name: `RBAC Library B ${suffix}` }
-  });
-  const libraryBId = Number(libraryB?.data?.id);
-  assert(Number.isFinite(libraryBId), 'Library B id missing');
+    const userMedia = await user.request('/api/media', {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 201,
+      body: { title: 'RBAC User Media', year: 2002, format: 'Blu-ray' }
+    });
+    const userMediaId = userMedia?.data?.id;
+    const userMediaLibraryId = Number(userMedia?.data?.library_id || 0) || null;
+    assert(Number.isFinite(Number(userMediaId)), 'User media id missing');
+    assert(Number.isFinite(Number(userMediaLibraryId)), 'User media library id missing');
 
-  await admin.request('/api/libraries/select', {
-    method: 'POST',
-    withCsrf: true,
-    expectStatus: 200,
-    body: { library_id: libraryBId }
-  });
-  const libraryBMedia = await admin.request('/api/media', { expectStatus: 200 });
-  const libraryBItems = Array.isArray(libraryBMedia?.data?.items) ? libraryBMedia.data.items : [];
-  assert(
-    !libraryBItems.some((item) => String(item.title) === 'RBAC Admin Media'),
-    'Library B should not include media created in library A'
-  );
+    await admin.fetchCsrfToken();
+    const libraryB = await admin.request('/api/libraries', {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 201,
+      body: { name: `RBAC Library B ${suffix}` }
+    });
+    const libraryBId = Number(libraryB?.data?.id);
+    assert(Number.isFinite(libraryBId), 'Library B id missing');
 
-  await admin.request('/api/libraries/select', {
-    method: 'POST',
-    withCsrf: true,
-    expectStatus: 200,
-    body: { library_id: libraryAId }
-  });
-  const libraryAMedia = await admin.request('/api/media', { expectStatus: 200 });
-  const libraryAItems = Array.isArray(libraryAMedia?.data?.items) ? libraryAMedia.data.items : [];
-  assert(
-    libraryAItems.some((item) => String(item.title) === 'RBAC Admin Media'),
-    'Library A should include media created in library A'
-  );
+    await admin.request('/api/auth/scope', {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 200,
+      body: { library_id: libraryBId }
+    });
+    const libraryBMedia = await admin.request('/api/media', { expectStatus: 200 });
+    const libraryBItems = Array.isArray(libraryBMedia?.data?.items) ? libraryBMedia.data.items : [];
+    assert(
+      !libraryBItems.some((item) => String(item.title) === 'RBAC Admin Media'),
+      'Library B should not include media created in library A'
+    );
+
+    await admin.request('/api/auth/scope', {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 200,
+      body: { library_id: libraryAId }
+    });
+    const libraryAMedia = await admin.request('/api/media', { expectStatus: 200 });
+    const libraryAItems = Array.isArray(libraryAMedia?.data?.items) ? libraryAMedia.data.items : [];
+    assert(
+      libraryAItems.some((item) => Number(item.id) === Number(adminMediaId)),
+      'Library A should include admin media'
+    );
+    assert(
+      !libraryAItems.some((item) => Number(item.id) === Number(userMediaId)),
+      'Library A should not include user media from separate library context'
+    );
 
   await admin.request(`/api/libraries/${libraryAId}`, {
     method: 'DELETE',
@@ -259,7 +314,7 @@ async function main() {
   });
 
   await user.fetchCsrfToken();
-  await user.request('/api/libraries/select', {
+  await user.request('/api/auth/scope', {
     method: 'POST',
     withCsrf: true,
     expectStatus: 200,
@@ -298,7 +353,7 @@ async function main() {
     body: { confirm_name: `RBAC Library D ${suffix}` }
   });
 
-  await user.request('/api/libraries/select', {
+  await user.request('/api/auth/scope', {
     method: 'POST',
     withCsrf: true,
     expectStatus: 200,
@@ -323,19 +378,20 @@ async function main() {
     body: { notes: 'owner update allowed' }
   });
 
-  await admin.request('/api/libraries/select', {
+  const deniedAdminScope = await admin.request('/api/auth/scope', {
     method: 'POST',
     withCsrf: true,
-    expectStatus: 200,
     body: { library_id: userMediaLibraryId }
   });
+  assertStatusOneOf(deniedAdminScope, [403], 'admin selecting user-owned library without membership');
+
   await admin.fetchCsrfToken();
-  await admin.request(`/api/media/${userPatchTargetId}`, {
+  const deniedAdminPatch = await admin.request(`/api/media/${userPatchTargetId}`, {
     method: 'PATCH',
     withCsrf: true,
-    expectStatus: 200,
     body: { notes: 'admin override update allowed' }
   });
+  assertStatusOneOf(deniedAdminPatch, [403, 404], 'admin patching user-owned media without membership');
 
   await user.request('/api/admin/activity', { expectStatus: 403 });
 
@@ -359,7 +415,7 @@ async function main() {
     expectStatus: 200
   });
 
-  await admin.request('/api/libraries/select', {
+  await admin.request('/api/auth/scope', {
     method: 'POST',
     withCsrf: true,
     expectStatus: 200,
@@ -372,6 +428,14 @@ async function main() {
   });
 
   console.log('RBAC regression checks passed');
+  } finally {
+    if (tempAdminUserId) {
+      await deleteDirectUser(tempAdminUserId).catch(() => {});
+    }
+    if (userId) {
+      await deleteDirectUser(userId).catch(() => {});
+    }
+  }
 }
 
 main().catch((error) => {

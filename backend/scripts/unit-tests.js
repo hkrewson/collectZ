@@ -856,7 +856,7 @@ results.push(run('openapi baseline documents key auth admin and media endpoints'
   assert.ok(spec.paths['/api/auth/me']);
   assert.ok(spec.paths['/api/auth/personal-access-tokens']);
   assert.ok(spec.paths['/api/auth/service-account-keys']);
-  assert.ok(spec.paths['/api/admin/invites']);
+  assert.ok(!spec.paths['/api/admin/invites']);
   assert.ok(spec.paths['/api/docs']);
   assert.ok(spec.paths['/api/docs/openapi.json']);
   assert.ok(spec.paths['/api/metrics']);
@@ -1193,6 +1193,7 @@ results.push(run('admin users view stays platform-only without invitation manage
 results.push(run('phase5 smoke scripts avoid tenant admin invite bootstrapping and cover platform boundary checks', () => {
   const adminSpaceSmokeSource = require('fs').readFileSync(require.resolve('./admin-space-control-smoke'), 'utf8');
   const platformBoundarySmokeSource = require('fs').readFileSync(require.resolve('./tenancy-platform-boundary-smoke'), 'utf8');
+  const rbacRegressionSource = require('fs').readFileSync(require.resolve('./rbac-regression-check'), 'utf8');
   const backendPackageSource = require('fs').readFileSync(require.resolve('../package.json'), 'utf8');
   assert.ok(!adminSpaceSmokeSource.includes('/api/admin/invites'));
   assert.ok(adminSpaceSmokeSource.includes('createDirectUser'));
@@ -1200,6 +1201,9 @@ results.push(run('phase5 smoke scripts avoid tenant admin invite bootstrapping a
   assert.ok(platformBoundarySmokeSource.includes('/api/spaces/${spaceId}/members'));
   assert.ok(platformBoundarySmokeSource.includes('/api/spaces/${spaceId}/invites'));
   assert.ok(platformBoundarySmokeSource.includes("expectStatus: 404"));
+  assert.ok(!rbacRegressionSource.includes('/api/admin/invites'));
+  assert.ok(rbacRegressionSource.includes('/api/auth/scope'));
+  assert.ok(rbacRegressionSource.includes('/api/spaces/${targetSpaceId}/invites'));
   assert.ok(backendPackageSource.includes('"test:tenancy-platform-boundary": "node scripts/tenancy-platform-boundary-smoke.js"'));
 }));
 
