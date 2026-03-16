@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-03-15T00:02:20.990Z",
+  "generatedAt": "2026-03-16T03:33:56.914Z",
   "baselineVersion": 42,
   "latestVersion": 43,
   "databases": {
-    "legacyDb": "collectz_rehearsal_legacy_mmqzpzfw",
-    "snapshotDb": "collectz_rehearsal_snapshot_mmqzpzfw",
-    "rollbackDb": "collectz_rehearsal_rollback_mmqzpzfw"
+    "legacyDb": "collectz_rehearsal_legacy_mmsmpycn",
+    "snapshotDb": "collectz_rehearsal_snapshot_mmsmpycn",
+    "rollbackDb": "collectz_rehearsal_rollback_mmsmpycn"
   },
   "preUpgradeCounts": {
     "users": 1,

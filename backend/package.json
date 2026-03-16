@@ -1,6 +1,6 @@
 {
   "name": "mediavault-backend",
-  "version": "2.6.1",
+  "version": "2.7.0",
   "description": "collectZ Backend API",
   "main": "server.js",
   "scripts": {
