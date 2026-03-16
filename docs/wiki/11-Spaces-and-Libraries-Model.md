@@ -107,6 +107,7 @@ Phase 2 implementation notes:
 - In the first server-admin control-plane slice, archive/delete may be limited to empty spaces so we do not silently invent content-archival behavior for library-bearing spaces.
 - Keep platform member management separate from tenant invite history; `Admin > Members` should manage accounts and recovery actions, while scoped invites remain in tenant space controls.
 - Keep routine space settings, memberships, invites, and content visibility tenant-scoped unless the global admin is explicitly added to that space.
+- Add automated regression coverage that proves platform-global space actions do not imply tenant membership powers such as roster or invite access.
 - Finish the broader automated tenancy regression coverage before the overall `2.7.0` milestone is considered complete.
 
 ## Navigation Direction

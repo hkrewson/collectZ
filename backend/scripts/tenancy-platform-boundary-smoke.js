@@ -70,6 +70,30 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
+async function bootstrapAdmin(client) {
+  const bootstrapAdminEmail = process.env.RBAC_ADMIN_EMAIL || process.env.ADMIN_EMAIL || 'ci-rbac-admin@example.com';
+  const bootstrapAdminPassword = process.env.RBAC_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || 'Passw0rd!123';
+
+  await client.fetchCsrfToken();
+  const registerAdmin = await client.request('/api/auth/register', {
+    method: 'POST',
+    withCsrf: true,
+    body: { email: bootstrapAdminEmail, password: bootstrapAdminPassword, name: 'Phase5 Boundary Admin' }
+  });
+  if (registerAdmin.status === 200) {
+    return { email: bootstrapAdminEmail, password: bootstrapAdminPassword };
+  }
+
+  await client.fetchCsrfToken();
+  await client.request('/api/auth/login', {
+    method: 'POST',
+    withCsrf: true,
+    expectStatus: 200,
+    body: { email: bootstrapAdminEmail, password: bootstrapAdminPassword }
+  });
+  return { email: bootstrapAdminEmail, password: bootstrapAdminPassword };
+}
+
 async function createDirectUser({ email, password, name, role = 'user' }) {
   const passwordHash = await bcrypt.hash(password, 12);
   const result = await pool.query(
@@ -86,38 +110,17 @@ async function deleteDirectUser(userId) {
   await pool.query('DELETE FROM users WHERE id = $1', [userId]);
 }
 
-async function bootstrapAdmin(client) {
-  const bootstrapAdminEmail = process.env.RBAC_ADMIN_EMAIL || process.env.ADMIN_EMAIL || 'ci-rbac-admin@example.com';
-  const bootstrapAdminPassword = process.env.RBAC_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || 'Passw0rd!123';
-
-  await client.fetchCsrfToken();
-  const registerAdmin = await client.request('/api/auth/register', {
-    method: 'POST',
-    withCsrf: true,
-    body: { email: bootstrapAdminEmail, password: bootstrapAdminPassword, name: 'Phase5 Admin' }
-  });
-  if (registerAdmin.status === 200) {
-    return { email: bootstrapAdminEmail, password: bootstrapAdminPassword };
-  }
-
-  await client.fetchCsrfToken();
-  await client.request('/api/auth/login', {
-    method: 'POST',
-    withCsrf: true,
-    expectStatus: 200,
-    body: { email: bootstrapAdminEmail, password: bootstrapAdminPassword }
-  });
-  return { email: bootstrapAdminEmail, password: bootstrapAdminPassword };
-}
-
 async function main() {
   const suffix = Date.now();
   const admin = new HttpClient('admin');
-  const ownerEmail = `phase5-owner-${suffix}@example.com`;
+  const owner = new HttpClient('owner');
+  const ownerEmail = `phase5-boundary-owner-${suffix}@example.com`;
   const ownerPassword = 'Passw0rd!123';
-  const spaceSlug = `phase5-space-${suffix}`;
+  const inviteeEmail = `phase5-boundary-invite-${suffix}@example.com`;
+  const spaceSlug = `phase5-boundary-${suffix}`;
   let ownerUserId = null;
   let spaceId = null;
+  let inviteId = null;
 
   try {
     await bootstrapAdmin(admin);
@@ -126,59 +129,76 @@ async function main() {
     const ownerUser = await createDirectUser({
       email: ownerEmail,
       password: ownerPassword,
-      name: 'Phase5 Owner'
+      name: 'Phase5 Boundary Owner'
     });
     ownerUserId = Number(ownerUser?.id || 0);
-    assert(Number.isFinite(ownerUserId) && ownerUserId > 0, 'Owner user id missing');
+    assert(Number.isFinite(ownerUserId) && ownerUserId > 0, 'Boundary owner user id missing');
 
-    const createSpace = await admin.request('/api/admin/spaces', {
+    const createdSpace = await admin.request('/api/admin/spaces', {
       method: 'POST',
       withCsrf: true,
       expectStatus: 201,
       body: {
-        name: `Phase 5 Space ${suffix}`,
+        name: `Phase 5 Boundary Space ${suffix}`,
         slug: spaceSlug,
-        description: 'Server-admin control plane smoke',
+        description: 'Platform-vs-tenant boundary regression',
         owner_user_id: ownerUserId
       }
     });
-    spaceId = Number(createSpace?.data?.id || 0);
-    assert(Number.isFinite(spaceId) && spaceId > 0, 'Space id missing after create');
+    spaceId = Number(createdSpace?.data?.id || 0);
+    assert(Number.isFinite(spaceId) && spaceId > 0, 'Boundary space id missing');
 
-    const listAfterCreate = await admin.request('/api/admin/spaces', { expectStatus: 200 });
-    const createdSpace = (listAfterCreate?.data?.spaces || []).find((space) => Number(space.id) === spaceId);
-    assert(createdSpace, 'Created space not found in admin space list');
-    assert((createdSpace.owners || []).some((entry) => Number(entry.user_id) === ownerUserId), 'Assigned owner missing from admin space list');
+    const listSpaces = await admin.request('/api/admin/spaces', { expectStatus: 200 });
+    assert((listSpaces?.data?.spaces || []).some((space) => Number(space.id) === spaceId), 'Admin spaces list should include created space');
 
-    await admin.fetchCsrfToken();
-    await admin.request(`/api/admin/spaces/${spaceId}/owner`, {
-      method: 'PATCH',
+    await admin.request(`/api/spaces/${spaceId}/members`, { expectStatus: 403 });
+    await admin.request(`/api/spaces/${spaceId}/invites`, { expectStatus: 403 });
+
+    await owner.fetchCsrfToken();
+    await owner.request('/api/auth/login', {
+      method: 'POST',
       withCsrf: true,
       expectStatus: 200,
-      body: { owner_user_id: ownerUserId }
+      body: { email: ownerEmail, password: ownerPassword }
     });
 
-    await admin.fetchCsrfToken();
-    const archived = await admin.request(`/api/admin/spaces/${spaceId}/archive`, {
+    const ownerMembers = await owner.request(`/api/spaces/${spaceId}/members`, { expectStatus: 200 });
+    assert(Number(ownerMembers?.data?.space?.id || 0) === spaceId, 'Owner member list should resolve the created space');
+
+    const inviteResponse = await owner.request(`/api/spaces/${spaceId}/invites`, {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 201,
+      body: { email: inviteeEmail, role: 'member', expose_token: true }
+    });
+    inviteId = Number(inviteResponse?.data?.id || 0);
+    assert(Number.isFinite(inviteId) && inviteId > 0, 'Owner invite id missing');
+
+    await admin.request(`/api/spaces/${spaceId}/invites`, { expectStatus: 403 });
+
+    const activity = await admin.request('/api/admin/activity?limit=25&search=admin.space.create', { expectStatus: 200 });
+    assert(Array.isArray(activity?.data), 'Admin activity response must be an array');
+
+    await owner.request(`/api/spaces/${spaceId}/invites/${inviteId}/revoke`, {
+      method: 'PATCH',
+      withCsrf: true,
+      expectStatus: 200
+    });
+
+    await admin.request(`/api/admin/spaces/${spaceId}/archive`, {
       method: 'PATCH',
       withCsrf: true,
       expectStatus: 200,
       body: { archived: true }
     });
-    assert(Boolean(archived?.data?.archived_at), 'Archive response missing archived_at');
-
-    await admin.fetchCsrfToken();
-    const deleted = await admin.request(`/api/admin/spaces/${spaceId}`, {
+    await admin.request(`/api/admin/spaces/${spaceId}`, {
       method: 'DELETE',
       withCsrf: true,
       expectStatus: 200
     });
-    assert(deleted?.data?.deleted === true, 'Delete response missing deleted=true');
+    spaceId = null;
 
-    const listAfterDelete = await admin.request('/api/admin/spaces', { expectStatus: 200 });
-    assert(!(listAfterDelete?.data?.spaces || []).some((space) => Number(space.id) === spaceId), 'Deleted space still present in admin space list');
-
-    console.log('Admin space control smoke passed');
+    console.log('Tenancy platform boundary smoke passed');
   } finally {
     if (spaceId) {
       await pool.query('DELETE FROM spaces WHERE id = $1', [spaceId]).catch(() => {});

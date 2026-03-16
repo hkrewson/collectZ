@@ -1190,6 +1190,24 @@ results.push(run('admin users view stays platform-only without invitation manage
   assert.ok(adminUsersViewSource.includes('Owned spaces'));
 }));
 
+results.push(run('phase5 smoke scripts avoid tenant admin invite bootstrapping and cover platform boundary checks', () => {
+  const adminSpaceSmokeSource = require('fs').readFileSync(require.resolve('./admin-space-control-smoke'), 'utf8');
+  const platformBoundarySmokeSource = require('fs').readFileSync(require.resolve('./tenancy-platform-boundary-smoke'), 'utf8');
+  const backendPackageSource = require('fs').readFileSync(require.resolve('../package.json'), 'utf8');
+  assert.ok(!adminSpaceSmokeSource.includes('/api/admin/invites'));
+  assert.ok(adminSpaceSmokeSource.includes('createDirectUser'));
+  assert.ok(platformBoundarySmokeSource.includes('/api/admin/spaces'));
+  assert.ok(platformBoundarySmokeSource.includes('/api/spaces/${spaceId}/members'));
+  assert.ok(platformBoundarySmokeSource.includes('/api/spaces/${spaceId}/invites'));
+  assert.ok(platformBoundarySmokeSource.includes("expectStatus: 403"));
+  assert.ok(backendPackageSource.includes('"test:tenancy-platform-boundary": "node scripts/tenancy-platform-boundary-smoke.js"'));
+}));
+
+results.push(run('admin activity route stays in the platform control plane before tenant scope enforcement', () => {
+  assert.ok(adminRoutesSource.includes("router.get('/activity'"));
+  assert.ok(adminRoutesSource.indexOf("router.get('/activity'") < adminRoutesSource.indexOf("router.use(enforceScopeAccess({ allowedHintRoles: ['admin'] }));"));
+}));
+
 results.push(run('server source assigns request ids before request logging', () => {
   assert.ok(serverSource.includes("const { requestIdMiddleware } = require('./middleware/requestId');"));
   assert.ok(serverSource.includes('app.use(requestIdMiddleware);'));

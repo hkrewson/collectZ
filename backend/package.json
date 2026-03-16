@@ -11,6 +11,7 @@
     "test:integration-smoke": "node scripts/api-integration-smoke.js",
     "test:structured-log-smoke": "node scripts/structured-log-smoke.js",
     "test:admin-space-control": "node scripts/admin-space-control-smoke.js",
+    "test:tenancy-platform-boundary": "node scripts/tenancy-platform-boundary-smoke.js",
     "test:csv-import": "node scripts/csv-parse-smoke.js",
     "test:rbac-regression": "node scripts/rbac-regression-check.js",
     "test:cross-type-isolation": "node scripts/cross-type-isolation-check.js",

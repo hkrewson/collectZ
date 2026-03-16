@@ -1241,6 +1241,7 @@ Historical planning notes may still exist in:
   - keep `Admin > Members` focused on platform user administration rather than tenant invite history or tenant content metrics,
   - expose high-level space metadata to global admins without automatically exposing tenant content, invite history, or routine space settings,
   - define any break-glass support flows as explicit, narrowly scoped, and fully audited,
+  - add automated boundary coverage proving global admins can use platform endpoints without automatically gaining tenant roster/invite access,
   - close the tenancy milestone with broader automated tenancy regression coverage and migration rehearsal evidence for cross-space isolation.
 
 ### DB/API Checklist

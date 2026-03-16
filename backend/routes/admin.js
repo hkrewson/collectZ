@@ -444,6 +444,136 @@ router.delete('/spaces/:id', asyncHandler(async (req, res) => {
   }
 }));
 
+// ── Activity log ──────────────────────────────────────────────────────────────
+// Supports optional query filters:
+// action, entity, userId, user, status, reason, from, to, q, search, limit, offset
+
+router.get('/activity', asyncHandler(async (req, res) => {
+  const limitRaw = Number(req.query.limit || 100);
+  const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(500, limitRaw)) : 100;
+  const offsetRaw = Number(req.query.offset || 0);
+  const offset = Number.isFinite(offsetRaw) ? Math.max(0, offsetRaw) : 0;
+
+  const conditions = [];
+  const params = [];
+
+  if (req.query.action) {
+    params.push(req.query.action);
+    conditions.push(`al.action = $${params.length}`);
+  }
+
+  if (req.query.userId) {
+    const uid = Number(req.query.userId);
+    if (Number.isFinite(uid)) {
+      params.push(uid);
+      conditions.push(`al.user_id = $${params.length}`);
+    }
+  }
+
+  if (req.query.user) {
+    const raw = String(req.query.user).trim();
+    if (raw) {
+      const asId = Number(raw);
+      if (Number.isFinite(asId)) {
+        params.push(asId);
+        conditions.push(`al.user_id = $${params.length}`);
+      } else {
+        params.push(`%${raw}%`);
+        conditions.push(`EXISTS (SELECT 1 FROM users u2 WHERE u2.id = al.user_id AND u2.email ILIKE $${params.length})`);
+      }
+    }
+  }
+
+  if (req.query.entity) {
+    params.push(String(req.query.entity));
+    conditions.push(`al.entity_type = $${params.length}`);
+  }
+
+  if (req.query.status) {
+    const raw = String(req.query.status).trim().toLowerCase();
+    if (/^\d{3}$/.test(raw)) {
+      params.push(Number(raw));
+      conditions.push(`(
+        CASE
+          WHEN (al.details->>'status') ~ '^[0-9]+$' THEN (al.details->>'status')::int
+          ELSE NULL
+        END
+      ) = $${params.length}`);
+    } else if (/^[1-5]xx$/.test(raw)) {
+      const prefix = Number(raw[0]) * 100;
+      params.push(prefix);
+      params.push(prefix + 99);
+      conditions.push(`(
+        CASE
+          WHEN (al.details->>'status') ~ '^[0-9]+$' THEN (al.details->>'status')::int
+          ELSE NULL
+        END
+      ) BETWEEN $${params.length - 1} AND $${params.length}`);
+    } else if (raw === 'has_status') {
+      conditions.push(`(al.details->>'status') IS NOT NULL`);
+    }
+  }
+
+  if (req.query.reason) {
+    const reason = String(req.query.reason).trim();
+    if (reason) {
+      params.push(`%${reason}%`);
+      conditions.push(`COALESCE(al.details->>'reason', '') ILIKE $${params.length}`);
+    }
+  }
+
+  if (req.query.from) {
+    params.push(req.query.from);
+    conditions.push(`al.created_at >= $${params.length}`);
+  }
+
+  if (req.query.to) {
+    params.push(req.query.to);
+    conditions.push(`al.created_at <= $${params.length}`);
+  }
+
+  if (req.query.q) {
+    params.push(`%${req.query.q}%`);
+    conditions.push(`al.details::text ILIKE $${params.length}`);
+  }
+
+  if (req.query.search) {
+    const searchValue = String(req.query.search).trim();
+    if (searchValue) {
+      params.push(`%${searchValue}%`);
+      const token = `$${params.length}`;
+      conditions.push(`(
+        al.action ILIKE ${token}
+        OR COALESCE(al.entity_type, '') ILIKE ${token}
+        OR COALESCE(al.details->>'reason', '') ILIKE ${token}
+        OR COALESCE(al.details->>'status', '') ILIKE ${token}
+        OR al.details::text ILIKE ${token}
+        OR EXISTS (SELECT 1 FROM users u3 WHERE u3.id = al.user_id AND u3.email ILIKE ${token})
+      )`);
+    }
+  }
+
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  params.push(limit);
+  params.push(offset);
+
+  const result = await pool.query(
+    `SELECT al.id, al.user_id, al.action, al.entity_type, al.entity_id, al.details,
+            al.details->>'reason' AS details_reason,
+            al.details->>'status' AS details_status,
+            al.ip_address, al.created_at,
+            u.email AS user_email
+     FROM activity_log al
+     LEFT JOIN users u ON u.id = al.user_id
+     ${where}
+     ORDER BY al.id DESC
+     LIMIT $${params.length - 1}
+     OFFSET $${params.length}`,
+    params
+  );
+  res.json(result.rows);
+}));
+
 router.use(enforceScopeAccess({ allowedHintRoles: ['admin'] }));
 
 router.get('/users', asyncHandler(async (req, res) => {
@@ -750,136 +880,6 @@ router.patch('/invites/:id/revoke', asyncHandler(async (req, res) => {
 
   await logActivity(req, 'admin.invite.revoke', 'invite', inviteId, { email: result.rows[0].email });
   res.json(result.rows[0]);
-}));
-
-// ── Activity log ──────────────────────────────────────────────────────────────
-// Supports optional query filters:
-// action, entity, userId, user, status, reason, from, to, q, search, limit, offset
-
-router.get('/activity', asyncHandler(async (req, res) => {
-  const limitRaw = Number(req.query.limit || 100);
-  const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(500, limitRaw)) : 100;
-  const offsetRaw = Number(req.query.offset || 0);
-  const offset = Number.isFinite(offsetRaw) ? Math.max(0, offsetRaw) : 0;
-
-  const conditions = [];
-  const params = [];
-
-  if (req.query.action) {
-    params.push(req.query.action);
-    conditions.push(`al.action = $${params.length}`);
-  }
-
-  if (req.query.userId) {
-    const uid = Number(req.query.userId);
-    if (Number.isFinite(uid)) {
-      params.push(uid);
-      conditions.push(`al.user_id = $${params.length}`);
-    }
-  }
-
-  if (req.query.user) {
-    const raw = String(req.query.user).trim();
-    if (raw) {
-      const asId = Number(raw);
-      if (Number.isFinite(asId)) {
-        params.push(asId);
-        conditions.push(`al.user_id = $${params.length}`);
-      } else {
-        params.push(`%${raw}%`);
-        conditions.push(`EXISTS (SELECT 1 FROM users u2 WHERE u2.id = al.user_id AND u2.email ILIKE $${params.length})`);
-      }
-    }
-  }
-
-  if (req.query.entity) {
-    params.push(String(req.query.entity));
-    conditions.push(`al.entity_type = $${params.length}`);
-  }
-
-  if (req.query.status) {
-    const raw = String(req.query.status).trim().toLowerCase();
-    if (/^\d{3}$/.test(raw)) {
-      params.push(Number(raw));
-      conditions.push(`(
-        CASE
-          WHEN (al.details->>'status') ~ '^[0-9]+$' THEN (al.details->>'status')::int
-          ELSE NULL
-        END
-      ) = $${params.length}`);
-    } else if (/^[1-5]xx$/.test(raw)) {
-      const prefix = Number(raw[0]) * 100;
-      params.push(prefix);
-      params.push(prefix + 99);
-      conditions.push(`(
-        CASE
-          WHEN (al.details->>'status') ~ '^[0-9]+$' THEN (al.details->>'status')::int
-          ELSE NULL
-        END
-      ) BETWEEN $${params.length - 1} AND $${params.length}`);
-    } else if (raw === 'has_status') {
-      conditions.push(`(al.details->>'status') IS NOT NULL`);
-    }
-  }
-
-  if (req.query.reason) {
-    const reason = String(req.query.reason).trim();
-    if (reason) {
-      params.push(`%${reason}%`);
-      conditions.push(`COALESCE(al.details->>'reason', '') ILIKE $${params.length}`);
-    }
-  }
-
-  if (req.query.from) {
-    params.push(req.query.from);
-    conditions.push(`al.created_at >= $${params.length}`);
-  }
-
-  if (req.query.to) {
-    params.push(req.query.to);
-    conditions.push(`al.created_at <= $${params.length}`);
-  }
-
-  if (req.query.q) {
-    params.push(`%${req.query.q}%`);
-    conditions.push(`al.details::text ILIKE $${params.length}`);
-  }
-
-  if (req.query.search) {
-    const searchValue = String(req.query.search).trim();
-    if (searchValue) {
-      params.push(`%${searchValue}%`);
-      const token = `$${params.length}`;
-      conditions.push(`(
-        al.action ILIKE ${token}
-        OR COALESCE(al.entity_type, '') ILIKE ${token}
-        OR COALESCE(al.details->>'reason', '') ILIKE ${token}
-        OR COALESCE(al.details->>'status', '') ILIKE ${token}
-        OR al.details::text ILIKE ${token}
-        OR EXISTS (SELECT 1 FROM users u3 WHERE u3.id = al.user_id AND u3.email ILIKE ${token})
-      )`);
-    }
-  }
-
-  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-  params.push(limit);
-  params.push(offset);
-
-  const result = await pool.query(
-    `SELECT al.id, al.user_id, al.action, al.entity_type, al.entity_id, al.details,
-            al.details->>'reason' AS details_reason,
-            al.details->>'status' AS details_status,
-            al.ip_address, al.created_at,
-            u.email AS user_email
-     FROM activity_log al
-     LEFT JOIN users u ON u.id = al.user_id
-     ${where}
-     ORDER BY al.id DESC
-     LIMIT $${params.length - 1}
-     OFFSET $${params.length}`,
-    params
-  );
-  res.json(result.rows);
 }));
 
 module.exports = router;
