@@ -41,8 +41,11 @@ const personalAccessTokenSource = require('fs').readFileSync(require.resolve('..
 const serviceAccountKeySource = require('fs').readFileSync(require.resolve('../services/serviceAccountKeys'), 'utf8');
 const librariesRoutesSource = require('fs').readFileSync(require.resolve('../routes/libraries'), 'utf8');
 const spacesRoutesSource = require('fs').readFileSync(require.resolve('../routes/spaces'), 'utf8');
+const adminRoutesSource = require('fs').readFileSync(require.resolve('../routes/admin'), 'utf8');
 const spacesServiceSource = require('fs').readFileSync(require.resolve('../services/spaces'), 'utf8');
 const frontendAppSource = require('fs').readFileSync(require.resolve('../../frontend/src/App'), 'utf8');
+const dashboardContentSource = require('fs').readFileSync(require.resolve('../../frontend/src/components/app/DashboardContent'), 'utf8');
+const adminUsersViewSource = require('fs').readFileSync(require.resolve('../../frontend/src/components/AdminUsersView'), 'utf8');
 const structuredLogSmokeSource = require('fs').readFileSync(require.resolve('../scripts/structured-log-smoke'), 'utf8');
 const dashboardSpec = JSON.parse(require('fs').readFileSync(require.resolve('../../ops/monitoring/grafana/dashboards/collectz-overview.json'), 'utf8'));
 const alertRulesSource = require('fs').readFileSync(require.resolve('../../docs/alerts/collectz-alert-rules.yaml'), 'utf8');
@@ -1097,6 +1100,17 @@ results.push(run('spaces routes expose core spaces and memberships endpoints', (
   assert.ok(spacesRoutesSource.includes("router.post('/spaces/:id/members/:memberId/transfer-new-space'"));
 }));
 
+results.push(run('admin routes expose platform space control-plane endpoints', () => {
+  assert.ok(adminRoutesSource.includes("router.get('/spaces'"));
+  assert.ok(adminRoutesSource.includes("router.post('/spaces'"));
+  assert.ok(adminRoutesSource.includes("router.patch('/spaces/:id/owner'"));
+  assert.ok(adminRoutesSource.includes("router.patch('/spaces/:id/archive'"));
+  assert.ok(adminRoutesSource.includes("router.delete('/spaces/:id'"));
+  assert.ok(adminRoutesSource.includes("router.use(enforceScopeAccess({ allowedHintRoles: ['admin'] }));"));
+  assert.ok(adminRoutesSource.includes("COUNT(*)::int AS membership_count"));
+  assert.ok(!adminRoutesSource.includes('contributionScore'));
+}));
+
 results.push(run('library service source ensures default scope before returning default library', () => {
   assert.ok(libraryServiceSource.includes('async function ensureUserDefaultScope'));
   assert.ok(libraryServiceSource.includes('ensureDefaultSpaceForClient'));
@@ -1161,6 +1175,19 @@ results.push(run('token auth sources derive fallback scope from accessible libra
 results.push(run('frontend syncs active space alongside active library context', () => {
   assert.ok(frontendAppSource.includes('const nextActiveSpaceId = Number(payload?.active_space_id || 0) || null;'));
   assert.ok(frontendAppSource.includes("active_space_id: nextActiveSpaceId, active_library_id: nextActiveLibraryId"));
+}));
+
+results.push(run('dashboard content exposes dedicated admin spaces control plane tab', () => {
+  assert.ok(dashboardContentSource.includes("case 'admin-spaces'"));
+  assert.ok(dashboardContentSource.includes('AdminSpacesView'));
+}));
+
+results.push(run('admin users view stays platform-only without invitation management tab', () => {
+  assert.ok(adminUsersViewSource.includes('Platform-level member administration.'));
+  assert.ok(!adminUsersViewSource.includes("activeTab === 'invitations'"));
+  assert.ok(!adminUsersViewSource.includes("/admin/invites"));
+  assert.ok(adminUsersViewSource.includes('Space memberships'));
+  assert.ok(adminUsersViewSource.includes('Owned spaces'));
 }));
 
 results.push(run('server source assigns request ids before request logging', () => {

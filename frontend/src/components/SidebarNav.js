@@ -234,6 +234,7 @@ export default function SidebarNav({
                   <NavLink id="admin-activity" icon={null} label="Activity" sub />
                   <NavLink id="admin-flags" icon={null} label="Feature Flags" sub />
                   <NavLink id="admin-integrations" icon={null} label="Integrations" sub />
+                  <NavLink id="admin-spaces" icon={null} label="Spaces" sub />
                   <NavLink id="admin-users" icon={null} label="Members" sub />
                   <NavLink id="admin-settings" icon={null} label="Settings" sub />
                 </div>

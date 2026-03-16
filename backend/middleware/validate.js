@@ -214,6 +214,14 @@ const inviteCreateSchema = z.object({
   expose_token: z.boolean().optional()
 });
 
+const adminSpaceOwnerAssignSchema = z.object({
+  owner_user_id: z.number().int().positive('owner_user_id must be a positive integer')
+});
+
+const adminSpaceArchiveSchema = z.object({
+  archived: z.boolean()
+});
+
 const personalAccessTokenCreateSchema = z.object({
   name: z.string().min(1, 'Token name is required').max(255),
   scopes: z.array(z.enum(PERSONAL_ACCESS_TOKEN_SCOPES)).min(1, 'At least one scope is required'),
@@ -448,6 +456,8 @@ module.exports = {
   passwordResetConsumeSchema,
   roleUpdateSchema,
   inviteCreateSchema,
+  adminSpaceOwnerAssignSchema,
+  adminSpaceArchiveSchema,
   personalAccessTokenCreateSchema,
   serviceAccountKeyCreateSchema,
   generalSettingsSchema,

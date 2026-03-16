@@ -2,7 +2,15 @@ const express = require('express');
 const pool = require('../db/pool');
 const { asyncHandler } = require('../middleware/errors');
 const { authenticateToken, requireRole } = require('../middleware/auth');
-const { validate, roleUpdateSchema, inviteCreateSchema, generalSettingsSchema } = require('../middleware/validate');
+const {
+  validate,
+  roleUpdateSchema,
+  inviteCreateSchema,
+  generalSettingsSchema,
+  spaceCreateSchema,
+  adminSpaceOwnerAssignSchema,
+  adminSpaceArchiveSchema
+} = require('../middleware/validate');
 const { logActivity } = require('../services/audit');
 const { loadGeneralSettings } = require('../services/integrations');
 const { listFeatureFlags, getFeatureFlag, updateFeatureFlag, FEATURE_FLAGS_READ_ONLY } = require('../services/featureFlags');
@@ -12,12 +20,12 @@ const { sendInviteEmail, sendPasswordResetEmail } = require('../services/email')
 const crypto = require('crypto');
 const { hashInviteToken } = require('../services/invites');
 const { getRequestOrigin } = require('../services/requestOrigin');
+const { syncLibraryMembershipsForSpaceUser } = require('../services/libraries');
 
 const router = express.Router();
 
 // All admin routes require authentication + admin role
 router.use(authenticateToken, requireRole('admin'));
-router.use(enforceScopeAccess({ allowedHintRoles: ['admin'] }));
 
 // ── General settings ──────────────────────────────────────────────────────────
 
@@ -83,6 +91,361 @@ function parseBool(value, fallback = false) {
   return ['1', 'true', 'yes', 'on'].includes(normalized);
 }
 
+router.get('/spaces', asyncHandler(async (_req, res) => {
+  const result = await pool.query(
+    `SELECT
+       s.id,
+       s.name,
+       s.slug,
+       s.description,
+       s.created_by,
+       s.is_personal,
+       s.created_at,
+       s.updated_at,
+       s.archived_at,
+       creator.email AS created_by_email,
+       COUNT(DISTINCT sm.user_id)::int AS member_count,
+       COUNT(DISTINCT l.id)::int AS library_count,
+       COUNT(DISTINCT CASE WHEN sm.role = 'owner' THEN sm.user_id END)::int AS owner_count,
+       COALESCE(
+         json_agg(
+           DISTINCT jsonb_build_object(
+             'user_id', owner_user.id,
+             'email', owner_user.email,
+             'name', owner_user.name
+           )
+         ) FILTER (WHERE sm.role = 'owner' AND owner_user.id IS NOT NULL),
+         '[]'::json
+       ) AS owners
+     FROM spaces s
+     LEFT JOIN users creator ON creator.id = s.created_by
+     LEFT JOIN space_memberships sm ON sm.space_id = s.id
+     LEFT JOIN users owner_user ON owner_user.id = sm.user_id
+     LEFT JOIN libraries l ON l.space_id = s.id AND l.archived_at IS NULL
+     GROUP BY s.id, creator.email
+     ORDER BY
+       CASE WHEN s.archived_at IS NULL THEN 0 ELSE 1 END,
+       lower(s.name) ASC,
+       s.id ASC`
+  );
+  res.json({
+    spaces: result.rows.map((row) => ({
+      ...row,
+      member_count: Number(row.member_count || 0),
+      library_count: Number(row.library_count || 0),
+      owner_count: Number(row.owner_count || 0),
+      owners: Array.isArray(row.owners) ? row.owners : []
+    }))
+  });
+}));
+
+router.post('/spaces', validate(spaceCreateSchema), asyncHandler(async (req, res) => {
+  const { name, slug, description, owner_user_id: ownerUserIdRaw } = req.body;
+  const ownerUserId = Number(ownerUserIdRaw || req.user.id);
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    if (slug) {
+      const existingSlug = await client.query(
+        `SELECT id
+         FROM spaces
+         WHERE archived_at IS NULL
+           AND lower(slug) = lower($1)
+         LIMIT 1`,
+        [slug]
+      );
+      if (existingSlug.rows.length > 0) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ error: 'Space slug is already in use' });
+      }
+    }
+
+    const ownerLookup = await client.query(
+      `SELECT id, email, name
+       FROM users
+       WHERE id = $1
+       LIMIT 1`,
+      [ownerUserId]
+    );
+    if (ownerLookup.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Owner user not found' });
+    }
+
+    const created = await client.query(
+      `INSERT INTO spaces (name, slug, description, created_by, is_personal)
+       VALUES ($1, $2, $3, $4, false)
+       RETURNING id, name, slug, description, created_by, is_personal, created_at, updated_at, archived_at`,
+      [name.trim(), slug || null, description || null, req.user.id]
+    );
+    const space = created.rows[0];
+
+    await client.query(
+      `INSERT INTO space_memberships (space_id, user_id, role, created_by)
+       VALUES ($1, $2, 'owner', $3)
+       ON CONFLICT (space_id, user_id) DO UPDATE
+       SET role = 'owner',
+           updated_at = CURRENT_TIMESTAMP,
+           created_by = EXCLUDED.created_by`,
+      [space.id, ownerUserId, req.user.id]
+    );
+    await syncLibraryMembershipsForSpaceUser(client, {
+      spaceId: space.id,
+      userId: ownerUserId,
+      role: 'owner'
+    });
+
+    await client.query('COMMIT');
+
+    await logActivity(req, 'admin.space.create', 'space', space.id, {
+      name: space.name,
+      slug: space.slug || null,
+      ownerUserId,
+      ownerEmail: ownerLookup.rows[0].email
+    });
+
+    res.status(201).json({
+      ...space,
+      owner_user_id: ownerUserId,
+      owner_email: ownerLookup.rows[0].email
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}));
+
+router.patch('/spaces/:id/owner', validate(adminSpaceOwnerAssignSchema), asyncHandler(async (req, res) => {
+  const spaceId = Number(req.params.id);
+  const ownerUserId = Number(req.body.owner_user_id);
+  if (!Number.isFinite(spaceId) || spaceId <= 0) {
+    return res.status(400).json({ error: 'Invalid space id' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const spaceResult = await client.query(
+      `SELECT id, name, slug, archived_at
+       FROM spaces
+       WHERE id = $1
+       LIMIT 1`,
+      [spaceId]
+    );
+    if (spaceResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Space not found' });
+    }
+
+    const ownerLookup = await client.query(
+      `SELECT id, email, name
+       FROM users
+       WHERE id = $1
+       LIMIT 1`,
+      [ownerUserId]
+    );
+    if (ownerLookup.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Owner user not found' });
+    }
+
+    await client.query(
+      `INSERT INTO space_memberships (space_id, user_id, role, created_by)
+       VALUES ($1, $2, 'owner', $3)
+       ON CONFLICT (space_id, user_id) DO UPDATE
+       SET role = 'owner',
+           updated_at = CURRENT_TIMESTAMP,
+           created_by = EXCLUDED.created_by`,
+      [spaceId, ownerUserId, req.user.id]
+    );
+    await syncLibraryMembershipsForSpaceUser(client, {
+      spaceId,
+      userId: ownerUserId,
+      role: 'owner'
+    });
+
+    await client.query('COMMIT');
+
+    await logActivity(req, 'admin.space.owner.assign', 'space', spaceId, {
+      ownerUserId,
+      ownerEmail: ownerLookup.rows[0].email
+    });
+
+    res.json({
+      id: spaceResult.rows[0].id,
+      name: spaceResult.rows[0].name,
+      slug: spaceResult.rows[0].slug || null,
+      archived_at: spaceResult.rows[0].archived_at || null,
+      owner_user_id: ownerUserId,
+      owner_email: ownerLookup.rows[0].email
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}));
+
+router.patch('/spaces/:id/archive', validate(adminSpaceArchiveSchema), asyncHandler(async (req, res) => {
+  const spaceId = Number(req.params.id);
+  const archived = Boolean(req.body.archived);
+  if (!Number.isFinite(spaceId) || spaceId <= 0) {
+    return res.status(400).json({ error: 'Invalid space id' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const spaceResult = await client.query(
+      `SELECT id, name, slug, archived_at
+       FROM spaces
+       WHERE id = $1
+       LIMIT 1`,
+      [spaceId]
+    );
+    if (spaceResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Space not found' });
+    }
+    const space = spaceResult.rows[0];
+    if (space.slug === 'default') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'The default space cannot be archived or unarchived here' });
+    }
+
+    const libraryCountResult = await client.query(
+      `SELECT COUNT(*)::int AS count
+       FROM libraries
+       WHERE space_id = $1
+         AND archived_at IS NULL`,
+      [spaceId]
+    );
+    const libraryCount = Number(libraryCountResult.rows[0]?.count || 0);
+    if (libraryCount > 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        error: 'Space still has active libraries',
+        detail: 'Archive or move libraries before archiving this space',
+        library_count: libraryCount
+      });
+    }
+
+    const result = await client.query(
+      `UPDATE spaces
+       SET archived_at = CASE WHEN $2 THEN COALESCE(archived_at, NOW()) ELSE NULL END,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1
+       RETURNING id, name, slug, description, created_by, is_personal, created_at, updated_at, archived_at`,
+      [spaceId, archived]
+    );
+    if (archived) {
+      await client.query(
+        `UPDATE users
+         SET active_space_id = CASE WHEN active_space_id = $2 THEN NULL ELSE active_space_id END,
+             active_library_id = CASE WHEN active_space_id = $2 THEN NULL ELSE active_library_id END
+         WHERE active_space_id = $1 OR active_space_id = $2`,
+        [spaceId, spaceId]
+      );
+    }
+
+    await client.query('COMMIT');
+
+    await logActivity(req, archived ? 'admin.space.archive' : 'admin.space.unarchive', 'space', spaceId, {
+      name: result.rows[0].name,
+      slug: result.rows[0].slug || null
+    });
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}));
+
+router.delete('/spaces/:id', asyncHandler(async (req, res) => {
+  const spaceId = Number(req.params.id);
+  if (!Number.isFinite(spaceId) || spaceId <= 0) {
+    return res.status(400).json({ error: 'Invalid space id' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const spaceResult = await client.query(
+      `SELECT id, name, slug, archived_at
+       FROM spaces
+       WHERE id = $1
+       LIMIT 1`,
+      [spaceId]
+    );
+    if (spaceResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Space not found' });
+    }
+    const space = spaceResult.rows[0];
+    if (space.slug === 'default') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'The default space cannot be deleted' });
+    }
+    if (!space.archived_at) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Space must be archived before deletion' });
+    }
+
+    const libraryCountResult = await client.query(
+      `SELECT COUNT(*)::int AS count
+       FROM libraries
+       WHERE space_id = $1`,
+      [spaceId]
+    );
+    const libraryCount = Number(libraryCountResult.rows[0]?.count || 0);
+    if (libraryCount > 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        error: 'Space still has libraries',
+        detail: 'Remove or transfer libraries before deleting this space',
+        library_count: libraryCount
+      });
+    }
+
+    await client.query('DELETE FROM invites WHERE space_id = $1', [spaceId]);
+    await client.query('DELETE FROM space_memberships WHERE space_id = $1', [spaceId]);
+    await client.query(
+      `UPDATE users
+       SET active_space_id = CASE WHEN active_space_id = $2 THEN NULL ELSE active_space_id END,
+           active_library_id = CASE WHEN active_space_id = $2 THEN NULL ELSE active_library_id END
+       WHERE active_space_id = $1 OR active_space_id = $2`,
+      [spaceId, spaceId]
+    );
+    await client.query('DELETE FROM spaces WHERE id = $1', [spaceId]);
+    await client.query('COMMIT');
+
+    await logActivity(req, 'admin.space.delete', 'space', spaceId, {
+      name: space.name,
+      slug: space.slug || null
+    });
+
+    res.json({ id: spaceId, deleted: true });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}));
+
+router.use(enforceScopeAccess({ allowedHintRoles: ['admin'] }));
+
 router.get('/users', asyncHandler(async (req, res) => {
   const result = await pool.query(
     'SELECT id, email, name, role, created_at FROM users ORDER BY created_at DESC'
@@ -91,23 +454,20 @@ router.get('/users', asyncHandler(async (req, res) => {
 }));
 
 router.get('/users/:id/summary', asyncHandler(async (req, res) => {
-  const scopeContext = resolveScopeContext(req);
   const userId = Number(req.params.id);
   if (!Number.isFinite(userId) || userId <= 0) {
     return res.status(400).json({ error: 'Invalid user id' });
   }
 
   const userResult = await pool.query(
-    'SELECT id, email, name, role, created_at FROM users WHERE id = $1',
+    'SELECT id, email, name, role, created_at, active_space_id, active_library_id FROM users WHERE id = $1',
     [userId]
   );
   if (userResult.rows.length === 0) {
     return res.status(404).json({ error: 'User not found' });
   }
 
-  const mediaScopeParams = [userId];
-  const mediaScopeClause = appendScopeSql(mediaScopeParams, scopeContext);
-  const [loginResult, additionsResult, editsResult, ratingsResult] = await Promise.all([
+  const [loginResult, membershipResult] = await Promise.all([
     pool.query(
       `SELECT MAX(created_at) AS last_login_at
        FROM activity_log
@@ -116,38 +476,23 @@ router.get('/users/:id/summary', asyncHandler(async (req, res) => {
       [userId]
     ),
     pool.query(
-      `SELECT COUNT(*)::int AS additions_count
-       FROM media
-       WHERE added_by = $1${mediaScopeClause}`,
-      mediaScopeParams
-    ),
-    pool.query(
-      `SELECT MAX(updated_at) AS last_media_edit_at
-       FROM media
-       WHERE added_by = $1${mediaScopeClause}`,
-      mediaScopeParams
-    ),
-    pool.query(
-      `SELECT COUNT(*)::int AS rated_count
-       FROM media
-       WHERE added_by = $1
-         AND user_rating IS NOT NULL${mediaScopeClause}`,
-      mediaScopeParams
+      `SELECT
+         COUNT(*)::int AS membership_count,
+         COUNT(*) FILTER (WHERE role = 'owner')::int AS owner_count,
+         COUNT(*) FILTER (WHERE role = 'admin')::int AS admin_count
+       FROM space_memberships
+       WHERE user_id = $1`,
+      [userId]
     )
   ]);
-
-  const additionsCount = additionsResult.rows[0]?.additions_count || 0;
-  const ratedCount = ratingsResult.rows[0]?.rated_count || 0;
-  const contributionScore = Math.min(100, additionsCount * 10 + ratedCount * 5);
 
   res.json({
     user: userResult.rows[0],
     metrics: {
       lastLoginAt: loginResult.rows[0]?.last_login_at || null,
-      additionsCount,
-      lastMediaEditAt: editsResult.rows[0]?.last_media_edit_at || null,
-      ratedCount,
-      contributionScore
+      membershipCount: Number(membershipResult.rows[0]?.membership_count || 0),
+      ownerCount: Number(membershipResult.rows[0]?.owner_count || 0),
+      adminCount: Number(membershipResult.rows[0]?.admin_count || 0)
     }
   });
 }));

@@ -104,6 +104,8 @@ Phase 2 implementation notes:
 
 - Separate global server-admin/platform actions from tenant space membership UI.
 - Keep global server admins able to create spaces, assign/recover owners, archive/delete spaces, and run support/recovery flows without automatically joining every space.
+- In the first server-admin control-plane slice, archive/delete may be limited to empty spaces so we do not silently invent content-archival behavior for library-bearing spaces.
+- Keep platform member management separate from tenant invite history; `Admin > Members` should manage accounts and recovery actions, while scoped invites remain in tenant space controls.
 - Keep routine space settings, memberships, invites, and content visibility tenant-scoped unless the global admin is explicitly added to that space.
 - Finish the broader automated tenancy regression coverage before the overall `2.7.0` milestone is considered complete.
 

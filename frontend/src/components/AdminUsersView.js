@@ -1,15 +1,9 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 
 const USER_ROLES = ['admin', 'user', 'viewer'];
 
-export default function AdminUsersView({ apiCall, onToast, currentUserId, scopeKey, Icons, Spinner, cx }) {
-  const [activeTab, setActiveTab] = useState('members');
+export default function AdminUsersView({ apiCall, onToast, currentUserId, Icons, Spinner }) {
   const [users, setUsers] = useState([]);
-  const [invites, setInvites] = useState([]);
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteUrl, setInviteUrl] = useState('');
-  const [inviteExposeToken, setInviteExposeToken] = useState(false);
-  const [showInviteHistory, setShowInviteHistory] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [pendingRoles, setPendingRoles] = useState({});
@@ -22,29 +16,18 @@ export default function AdminUsersView({ apiCall, onToast, currentUserId, scopeK
   const loadMembersData = useCallback(async () => {
     setLoading(true);
     setLoadError('');
-    const [usersRes, invitesRes] = await Promise.allSettled([
-      apiCall('get', '/admin/users'),
-      apiCall('get', '/admin/invites')
-    ]);
-
-    if (usersRes.status === 'fulfilled') setUsers(usersRes.value || []);
-    else setLoadError('Failed to load members.');
-
-    if (invitesRes.status === 'fulfilled') setInvites(invitesRes.value || []);
-    else setLoadError((prev) => (prev ? `${prev} Failed to load invitations.` : 'Failed to load invitations.'));
-
+    try {
+      const usersRes = await apiCall('get', '/admin/users');
+      setUsers(Array.isArray(usersRes) ? usersRes : []);
+    } catch (_) {
+      setLoadError('Failed to load members.');
+    }
     setLoading(false);
   }, [apiCall]);
 
-  useEffect(() => { loadMembersData(); }, [loadMembersData, scopeKey]);
-
   useEffect(() => {
-    setInviteUrl('');
-    setShowInviteHistory(false);
-    setSelectedMemberId(null);
-    setMemberSummary(null);
-    setResetLink('');
-  }, [scopeKey]);
+    loadMembersData();
+  }, [loadMembersData]);
 
   useEffect(() => {
     if (!selectedMemberId) {
@@ -66,41 +49,28 @@ export default function AdminUsersView({ apiCall, onToast, currentUserId, scopeK
       .finally(() => {
         if (active) setSummaryLoading(false);
       });
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [apiCall, selectedMemberId]);
-
-  const createInvite = async (e) => {
-    e.preventDefault();
-    try {
-      const data = await apiCall('post', '/admin/invites', { email: inviteEmail, expose_token: inviteExposeToken });
-      const url = data?.invite_url
-        || (data?.token ? `${window.location.origin}/register?invite=${encodeURIComponent(data.token)}&email=${encodeURIComponent(data.email)}` : '');
-      setInviteUrl(url);
-      setInviteEmail('');
-      setInviteExposeToken(false);
-      const { token: _token, ...safeInvite } = data;
-      setInvites((i) => [safeInvite, ...i]);
-      if (data?.delivery?.sent) onToast(`Invite emailed to ${data.email}`);
-      else if (url) onToast(`Invite created for ${data.email} (copy-link fallback)`, 'info');
-      else onToast(`Invite created for ${data.email} (SMTP not configured or send failed)`, 'info');
-    } catch (err) {
-      onToast(err.response?.data?.error || err.response?.data?.detail || 'Failed to create invite', 'error');
-    }
-  };
 
   const saveRole = async (id) => {
     const role = pendingRoles[id];
     if (!role) return;
     try {
       await apiCall('patch', `/admin/users/${id}/role`, { role });
-      setUsers((u) => u.map((x) => (x.id === id ? { ...x, role } : x)));
-      setPendingRoles((r) => { const next = { ...r }; delete next[id]; return next; });
+      setUsers((items) => items.map((item) => (item.id === id ? { ...item, role } : item)));
+      setPendingRoles((pending) => {
+        const next = { ...pending };
+        delete next[id];
+        return next;
+      });
       onToast('Role updated');
       if (selectedMemberId === id) {
         setMemberSummary((prev) => (prev ? { ...prev, user: { ...prev.user, role } } : prev));
       }
-    } catch (err) {
-      onToast(err.response?.data?.error || 'Failed', 'error');
+    } catch (error) {
+      onToast(error.response?.data?.error || 'Failed', 'error');
     }
   };
 
@@ -108,22 +78,11 @@ export default function AdminUsersView({ apiCall, onToast, currentUserId, scopeK
     if (!window.confirm('Delete this member? This cannot be undone.')) return;
     try {
       await apiCall('delete', `/admin/users/${id}`);
-      setUsers((u) => u.filter((x) => x.id !== id));
+      setUsers((items) => items.filter((item) => item.id !== id));
       if (selectedMemberId === id) setSelectedMemberId(null);
       onToast('Member deleted');
-    } catch (err) {
-      onToast(err.response?.data?.error || 'Failed', 'error');
-    }
-  };
-
-  const revokeInvite = async (inviteId) => {
-    if (!window.confirm('Invalidate this invitation link?')) return;
-    try {
-      const data = await apiCall('patch', `/admin/invites/${inviteId}/revoke`);
-      setInvites((list) => list.map((inv) => (inv.id === inviteId ? { ...inv, ...data } : inv)));
-      onToast('Invitation invalidated');
-    } catch (err) {
-      onToast(err.response?.data?.error || 'Failed to invalidate invitation', 'error');
+    } catch (error) {
+      onToast(error.response?.data?.error || 'Failed', 'error');
     }
   };
 
@@ -137,8 +96,8 @@ export default function AdminUsersView({ apiCall, onToast, currentUserId, scopeK
       if (data?.delivery?.sent) onToast('Password reset email sent');
       else if (link) onToast('Password reset link created (copy-link fallback)', 'info');
       else onToast('Password reset created but no copy-link available', 'info');
-    } catch (err) {
-      onToast(err.response?.data?.error || 'Failed to create reset link', 'error');
+    } catch (error) {
+      onToast(error.response?.data?.error || 'Failed to create reset link', 'error');
     } finally {
       setResetLoading(false);
     }
@@ -152,8 +111,8 @@ export default function AdminUsersView({ apiCall, onToast, currentUserId, scopeK
       const data = await apiCall('post', `/admin/users/${selectedMemberId}/password-reset/invalidate`);
       setResetLink('');
       onToast(`Invalidated ${data?.invalidated_count ?? 0} reset link(s)`);
-    } catch (err) {
-      onToast(err.response?.data?.error || 'Failed to invalidate reset links', 'error');
+    } catch (error) {
+      onToast(error.response?.data?.error || 'Failed to invalidate reset links', 'error');
     } finally {
       setResetLoading(false);
     }
@@ -168,13 +127,6 @@ export default function AdminUsersView({ apiCall, onToast, currentUserId, scopeK
     }
   };
 
-  const activeInvites = useMemo(
-    () => invites.filter((inv) => !inv.used && !inv.revoked && new Date(inv.expires_at).getTime() > Date.now()),
-    [invites]
-  );
-
-  const displayInvites = showInviteHistory ? invites : activeInvites;
-
   if (loading) return <div className="p-6 flex items-center gap-3 text-dim"><Spinner />Loading…</div>;
 
   return (
@@ -182,111 +134,45 @@ export default function AdminUsersView({ apiCall, onToast, currentUserId, scopeK
       <div className="h-full overflow-y-auto p-6 space-y-6 max-w-5xl">
         <div className="space-y-3">
           <h1 className="section-title">Members</h1>
-          <div className="tab-strip w-fit">
-            <button type="button" className={cx('tab', activeTab === 'members' && 'active')} onClick={() => setActiveTab('members')}>
-              Members ({users.length})
-            </button>
-            <button type="button" className={cx('tab', activeTab === 'invitations' && 'active')} onClick={() => setActiveTab('invitations')}>
-              Invitations ({displayInvites.length})
-            </button>
-          </div>
+          <p className="text-sm text-ghost max-w-3xl">
+            Platform-level member administration. Tenant invites and space governance live in the space-specific controls, not in this server-admin screen.
+          </p>
         </div>
         {loadError && <p className="text-sm text-err">{loadError}</p>}
 
-        {activeTab === 'members' && (
-          <div className="card divide-y divide-edge">
-            {users.length === 0 && <p className="px-4 py-6 text-sm text-ghost text-center">No members found</p>}
-            {users.map((u) => (
-              <div key={u.id} onClick={() => setSelectedMemberId(u.id)} className="flex items-center gap-4 px-4 py-3 cursor-pointer hover:bg-raised/60 transition-colors">
-                <div className="w-9 h-9 rounded-lg bg-raised border border-edge flex items-center justify-center text-dim font-display">
-                  {u.name?.[0]?.toUpperCase() || '?'}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-ink truncate">{u.name || 'Unnamed'}</p>
-                  <p className="text-xs text-ghost truncate">{u.email}</p>
-                </div>
-                <select
-                  className="select w-28"
-                  value={pendingRoles[u.id] ?? u.role}
-                  onClick={(e) => e.stopPropagation()}
-                  onChange={(e) => setPendingRoles((r) => ({ ...r, [u.id]: e.target.value }))}>
-                  {USER_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
-                </select>
-                {pendingRoles[u.id] && pendingRoles[u.id] !== u.role && (
-                  <button onClick={(e) => { e.stopPropagation(); saveRole(u.id); }} className="btn-primary btn-sm">Save</button>
-                )}
-                <button
-                  onClick={(e) => { e.stopPropagation(); deleteUser(u.id); }}
-                  disabled={u.id === currentUserId}
-                  className="btn-ghost btn-sm text-err hover:bg-err/10 disabled:opacity-30"
-                  title={u.id === currentUserId ? 'You cannot delete your own account' : 'Delete member'}>
-                  <Icons.Trash />
-                </button>
+        <div className="card divide-y divide-edge">
+          {users.length === 0 && <p className="px-4 py-6 text-sm text-ghost text-center">No members found</p>}
+          {users.map((user) => (
+            <div key={user.id} onClick={() => setSelectedMemberId(user.id)} className="flex items-center gap-4 px-4 py-3 cursor-pointer hover:bg-raised/60 transition-colors">
+              <div className="w-9 h-9 rounded-lg bg-raised border border-edge flex items-center justify-center text-dim font-display">
+                {user.name?.[0]?.toUpperCase() || '?'}
               </div>
-            ))}
-          </div>
-        )}
-
-        {activeTab === 'invitations' && (
-          <div className="space-y-4">
-            <form onSubmit={createInvite} className="flex gap-3 flex-wrap">
-              <input className="input flex-1 min-w-[14rem]" type="email" placeholder="teammate@example.com" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} required />
-              <button type="submit" className="btn-primary shrink-0">{inviteExposeToken ? 'Create Copy Link' : 'Send Invite'}</button>
-            </form>
-            <label className="inline-flex items-center gap-2 text-xs text-ghost cursor-pointer">
-              <input type="checkbox" checked={inviteExposeToken} onChange={(e) => setInviteExposeToken(e.target.checked)} />
-              Show copy-link after create
-            </label>
-            <label className="inline-flex items-center gap-2 text-xs text-ghost cursor-pointer">
-              <input type="checkbox" checked={showInviteHistory} onChange={(e) => setShowInviteHistory(e.target.checked)} />
-              Show used/revoked/expired invitations
-            </label>
-            {inviteUrl && (
-              <div className="card p-3 flex items-center gap-3">
-                <code className="text-xs text-gold flex-1 truncate font-mono">{inviteUrl}</code>
-                <button onClick={() => copy(inviteUrl)} className="btn-icon btn-sm shrink-0"><Icons.Copy /></button>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-ink truncate">{user.name || 'Unnamed'}</p>
+                <p className="text-xs text-ghost truncate">{user.email}</p>
               </div>
-            )}
-            <div className="card divide-y divide-edge">
-              {displayInvites.length === 0 && (
-                <p className="px-4 py-6 text-sm text-ghost text-center">
-                  {showInviteHistory ? 'No invitations yet' : 'No active invitations'}
-                </p>
+              <select
+                className="select w-28"
+                value={pendingRoles[user.id] ?? user.role}
+                onClick={(event) => event.stopPropagation()}
+                onChange={(event) => setPendingRoles((pending) => ({ ...pending, [user.id]: event.target.value }))}
+              >
+                {USER_ROLES.map((role) => <option key={role} value={role}>{role}</option>)}
+              </select>
+              {pendingRoles[user.id] && pendingRoles[user.id] !== user.role && (
+                <button onClick={(event) => { event.stopPropagation(); saveRole(user.id); }} className="btn-primary btn-sm">Save</button>
               )}
-              {displayInvites.map((inv) => {
-                const expired = new Date(inv.expires_at).getTime() <= Date.now();
-                let status = 'Active';
-                let statusClass = 'badge-ok';
-                if (inv.used) {
-                  status = 'Used';
-                  statusClass = 'badge-dim';
-                } else if (inv.revoked) {
-                  status = 'Revoked';
-                  statusClass = 'badge-err';
-                } else if (expired) {
-                  status = 'Expired';
-                  statusClass = 'badge-warn';
-                }
-                return (
-                  <div key={inv.id} className="flex items-center gap-3 px-4 py-3">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-ink truncate">{inv.email}</p>
-                      <p className="text-xs text-ghost truncate">
-                        Expires {new Date(inv.expires_at).toLocaleString()}
-                        {inv.used_by_email ? ` · Claimed by ${inv.used_by_email}` : ''}
-                      </p>
-                    </div>
-                    <span className={cx('badge', statusClass)}>{status}</span>
-                    {!inv.used && !inv.revoked && !expired && (
-                      <button onClick={() => revokeInvite(inv.id)} className="btn-danger btn-sm">Invalidate</button>
-                    )}
-                  </div>
-                );
-              })}
+              <button
+                onClick={(event) => { event.stopPropagation(); deleteUser(user.id); }}
+                disabled={user.id === currentUserId}
+                className="btn-ghost btn-sm text-err hover:bg-err/10 disabled:opacity-30"
+                title={user.id === currentUserId ? 'You cannot delete your own account' : 'Delete member'}
+              >
+                <Icons.Trash />
+              </button>
             </div>
-          </div>
-        )}
-
+          ))}
+        </div>
       </div>
 
       {selectedMemberId && (
@@ -342,16 +228,22 @@ export default function AdminUsersView({ apiCall, onToast, currentUserId, scopeK
                       <p className="text-sm text-ink">{memberSummary.metrics?.lastLoginAt ? new Date(memberSummary.metrics.lastLoginAt).toLocaleString() : 'Never'}</p>
                     </div>
                     <div className="flex items-center justify-between">
-                      <p className="text-xs text-ghost">Library additions</p>
-                      <p className="text-sm text-ink">{memberSummary.metrics?.additionsCount ?? 0}</p>
+                      <p className="text-xs text-ghost">Space memberships</p>
+                      <p className="text-sm text-ink">{memberSummary.metrics?.membershipCount ?? 0}</p>
                     </div>
                     <div className="flex items-center justify-between">
-                      <p className="text-xs text-ghost">Last media edit</p>
-                      <p className="text-sm text-ink">{memberSummary.metrics?.lastMediaEditAt ? new Date(memberSummary.metrics.lastMediaEditAt).toLocaleString() : '—'}</p>
+                      <p className="text-xs text-ghost">Owned spaces</p>
+                      <p className="text-sm text-ink">{memberSummary.metrics?.ownerCount ?? 0}</p>
                     </div>
                     <div className="flex items-center justify-between">
-                      <p className="text-xs text-ghost">Contribution score</p>
-                      <p className="text-sm text-ink font-medium">{memberSummary.metrics?.contributionScore ?? 0}</p>
+                      <p className="text-xs text-ghost">Space-admin roles</p>
+                      <p className="text-sm text-ink">{memberSummary.metrics?.adminCount ?? 0}</p>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-ghost">Active scope</p>
+                      <p className="text-sm text-ink font-mono">
+                        s:{memberSummary.user?.active_space_id ?? '—'} / l:{memberSummary.user?.active_library_id ?? '—'}
+                      </p>
                     </div>
                   </div>
                 </>

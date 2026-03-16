@@ -1236,7 +1236,9 @@ Historical planning notes may still exist in:
     - assign or recover owners,
     - archive/delete spaces,
     - run support/recovery transfer actions,
+  - first implementation slice may safely limit archive/delete to empty spaces until content-archival semantics are defined explicitly,
   - keep global/server-admin authority distinct from tenant membership in both backend policy and UI,
+  - keep `Admin > Members` focused on platform user administration rather than tenant invite history or tenant content metrics,
   - expose high-level space metadata to global admins without automatically exposing tenant content, invite history, or routine space settings,
   - define any break-glass support flows as explicit, narrowly scoped, and fully audited,
   - close the tenancy milestone with broader automated tenancy regression coverage and migration rehearsal evidence for cross-space isolation.
