@@ -86,7 +86,7 @@ async function deleteDirectUser(userId) {
   await pool.query('DELETE FROM users WHERE id = $1', [userId]);
 }
 
-async function bootstrapAdmin(client) {
+async function bootstrapAdmin(client, { fallbackEmail, fallbackPassword }) {
   const bootstrapAdminEmail = process.env.RBAC_ADMIN_EMAIL || process.env.ADMIN_EMAIL || 'ci-rbac-admin@example.com';
   const bootstrapAdminPassword = process.env.RBAC_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || 'Passw0rd!123';
 
@@ -97,17 +97,34 @@ async function bootstrapAdmin(client) {
     body: { email: bootstrapAdminEmail, password: bootstrapAdminPassword, name: 'Phase5 Admin' }
   });
   if (registerAdmin.status === 200) {
-    return { email: bootstrapAdminEmail, password: bootstrapAdminPassword };
+    return { email: bootstrapAdminEmail, password: bootstrapAdminPassword, userId: null };
   }
+
+  await client.fetchCsrfToken();
+  const loginAttempt = await client.request('/api/auth/login', {
+    method: 'POST',
+    withCsrf: true,
+    body: { email: bootstrapAdminEmail, password: bootstrapAdminPassword }
+  });
+  if (loginAttempt.status === 200) {
+    return { email: bootstrapAdminEmail, password: bootstrapAdminPassword, userId: null };
+  }
+
+  const directAdmin = await createDirectUser({
+    email: fallbackEmail,
+    password: fallbackPassword,
+    name: 'Phase5 Smoke Admin',
+    role: 'admin'
+  });
 
   await client.fetchCsrfToken();
   await client.request('/api/auth/login', {
     method: 'POST',
     withCsrf: true,
     expectStatus: 200,
-    body: { email: bootstrapAdminEmail, password: bootstrapAdminPassword }
+    body: { email: fallbackEmail, password: fallbackPassword }
   });
-  return { email: bootstrapAdminEmail, password: bootstrapAdminPassword };
+  return { email: fallbackEmail, password: fallbackPassword, userId: Number(directAdmin.id) };
 }
 
 async function main() {
@@ -116,11 +133,18 @@ async function main() {
   const ownerEmail = `phase5-owner-${suffix}@example.com`;
   const ownerPassword = 'Passw0rd!123';
   const spaceSlug = `phase5-space-${suffix}`;
+  const tempAdminEmail = `phase5-admin-${suffix}@example.com`;
+  const tempAdminPassword = 'Passw0rd!123';
+  let tempAdminUserId = null;
   let ownerUserId = null;
   let spaceId = null;
 
   try {
-    await bootstrapAdmin(admin);
+    const bootstrappedAdmin = await bootstrapAdmin(admin, {
+      fallbackEmail: tempAdminEmail,
+      fallbackPassword: tempAdminPassword
+    });
+    tempAdminUserId = Number(bootstrappedAdmin?.userId || 0) || null;
     await admin.fetchCsrfToken();
 
     const ownerUser = await createDirectUser({
@@ -185,6 +209,9 @@ async function main() {
     }
     if (ownerUserId) {
       await deleteDirectUser(ownerUserId).catch(() => {});
+    }
+    if (tempAdminUserId) {
+      await deleteDirectUser(tempAdminUserId).catch(() => {});
     }
   }
 }

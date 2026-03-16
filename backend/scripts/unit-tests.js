@@ -1199,7 +1199,7 @@ results.push(run('phase5 smoke scripts avoid tenant admin invite bootstrapping a
   assert.ok(platformBoundarySmokeSource.includes('/api/admin/spaces'));
   assert.ok(platformBoundarySmokeSource.includes('/api/spaces/${spaceId}/members'));
   assert.ok(platformBoundarySmokeSource.includes('/api/spaces/${spaceId}/invites'));
-  assert.ok(platformBoundarySmokeSource.includes("expectStatus: 403"));
+  assert.ok(platformBoundarySmokeSource.includes("expectStatus: 404"));
   assert.ok(backendPackageSource.includes('"test:tenancy-platform-boundary": "node scripts/tenancy-platform-boundary-smoke.js"'));
 }));
 
