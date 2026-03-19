@@ -208,6 +208,33 @@ async function main() {
     userId = registerUser?.data?.user?.id;
     assert(Number.isFinite(Number(userId)), 'Registered user id missing');
 
+    const membersResponse = await admin.request(`/api/spaces/${targetSpaceId}/members`, {
+      expectStatus: 200
+    });
+    const members = Array.isArray(membersResponse?.data?.members) ? membersResponse.data.members : [];
+    const userMembership = members.find((member) => Number(member.user_id) === Number(userId));
+    const userMembershipId = Number(userMembership?.id || 0) || null;
+    assert(Number.isFinite(Number(userMembershipId)), 'User space membership id missing');
+
+    const isolatedSpace = await admin.request(`/api/spaces/${targetSpaceId}/members/${userMembershipId}/transfer-new-space`, {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 201,
+      body: {
+        name: `RBAC User Space ${suffix}`,
+        slug: `rbac-user-space-${suffix}`
+      }
+    });
+    const isolatedSpaceId = Number(isolatedSpace?.data?.target_space?.id || 0) || null;
+    assert(Number.isFinite(Number(isolatedSpaceId)), 'Isolated user space id missing');
+
+    await user.fetchCsrfToken();
+    const userScopeAfterTransfer = await user.request('/api/auth/scope', { expectStatus: 200 });
+    assert(
+      Number(userScopeAfterTransfer?.data?.active_space_id || 0) === isolatedSpaceId,
+      `Transferred user should land in isolated space: ${JSON.stringify(userScopeAfterTransfer?.data)}`
+    );
+
     await admin.fetchCsrfToken();
     const libraryA = await admin.request('/api/libraries', {
       method: 'POST',
