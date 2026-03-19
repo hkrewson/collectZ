@@ -333,20 +333,12 @@ async function main() {
     body: { confirm_name: `RBAC Library A ${suffix}` }
   });
 
-  await admin.request(`/api/libraries/${libraryBId}/transfer`, {
+  const deniedCrossTenantTransfer = await admin.request(`/api/libraries/${libraryBId}/transfer`, {
     method: 'POST',
     withCsrf: true,
-    expectStatus: 200,
     body: { new_owner_user_id: Number(userId) }
   });
-
-  await user.fetchCsrfToken();
-  await user.request('/api/auth/scope', {
-    method: 'POST',
-    withCsrf: true,
-    expectStatus: 200,
-    body: { library_id: libraryBId }
-  });
+  assertStatusOneOf(deniedCrossTenantTransfer, [409], 'cross-tenant library transfer should be denied');
 
   const libraryC = await admin.request('/api/libraries', {
     method: 'POST',

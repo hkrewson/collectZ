@@ -218,14 +218,23 @@ router.post('/libraries/:id/transfer', validate(libraryTransferSchema), asyncHan
 
   const newOwnerUserId = Number(req.body.new_owner_user_id);
   const newOwnerResult = await pool.query(
-    `SELECT id, email, name
+    `SELECT users.id, users.email, users.name,
+            EXISTS (
+              SELECT 1
+              FROM space_memberships sm
+              WHERE sm.user_id = users.id
+                AND sm.space_id = $2
+            ) AS has_space_membership
      FROM users
-     WHERE id = $1
+     WHERE users.id = $1
      LIMIT 1`,
-    [newOwnerUserId]
+    [newOwnerUserId, target.space_id || null]
   );
   if (newOwnerResult.rows.length === 0) {
     return res.status(404).json({ error: 'Target owner user not found' });
+  }
+  if (!newOwnerResult.rows[0].has_space_membership) {
+    return res.status(409).json({ error: 'Target owner must already belong to the library space' });
   }
 
   await pool.query(
