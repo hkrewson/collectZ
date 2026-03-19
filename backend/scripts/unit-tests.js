@@ -266,6 +266,9 @@ results.push(run('migration source includes first-class spaces activation', () =
   assert.ok(migrationsSource.includes('CREATE TABLE IF NOT EXISTS spaces'));
   assert.ok(migrationsSource.includes('CREATE TABLE IF NOT EXISTS space_memberships'));
   assert.ok(migrationsSource.includes('ALTER COLUMN space_id SET NOT NULL'));
+  assert.ok(migrationsSource.includes("description: 'Reconcile legacy default-space installs into isolated personal spaces'"));
+  assert.ok(migrationsSource.includes("'legacy-user-' || user_row.id"));
+  assert.ok(migrationsSource.includes('DELETE FROM space_memberships'));
 }));
 
 results.push(run('importMapping maps Delicious VideoGame to game', () => {

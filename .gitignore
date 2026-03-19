@@ -42,6 +42,7 @@ backend/uploads/*
 *.sql.backup
 backup.sql
 *.dump
+backups/
 
 # Logs
 logs/

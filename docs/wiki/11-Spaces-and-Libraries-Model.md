@@ -61,6 +61,11 @@ What this plan intentionally does not include yet:
 - Add a first-class `spaces` table.
 - Add `space_memberships`.
 - Backfill existing installs into a personal/default space model.
+- Legacy multi-user upgrades should not default to shared co-ownership:
+  - the earliest legacy admin remains the sole `owner` of `Default Space`,
+  - every additional legacy user is isolated into their own personal space as `owner`,
+  - owned libraries move with that user into their personal space,
+  - no automatic cross-tenancy is created during upgrade.
 
 #### Phase 2: Active Scope Contract
 

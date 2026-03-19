@@ -1202,6 +1202,7 @@ Historical planning notes may still exist in:
 - `2.7.0-phase1` Data model activation:
   - add first-class `spaces` and `space_memberships`,
   - backfill existing installs into a personal/default space model,
+  - reconcile legacy multi-user installs so the earliest admin remains the sole `owner` of `Default Space` while each additional legacy user receives an isolated personal space as `owner`,
   - make `libraries.space_id` reference a real space record everywhere instead of acting as a loose grouping field.
 - `2.7.0-phase2` Auth and active-scope contract:
   - add explicit active-space selection and bootstrap responses,
@@ -1257,6 +1258,7 @@ Historical planning notes may still exist in:
     - `users.active_library_id`
   - backfill/migration rules:
     - create one personal/default space per existing install or per user, according to final migration decision,
+    - for legacy single-space multi-user installs, keep the earliest admin as the only default-space owner and isolate each additional legacy user into their own owner-managed space,
     - attach existing libraries and media rows to migrated spaces without data loss,
     - populate memberships so current owners/admins retain access after cutover.
 - API:

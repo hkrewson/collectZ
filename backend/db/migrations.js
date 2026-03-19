@@ -1983,6 +1983,280 @@ const MIGRATIONS = [
       SET space_role = 'member'
       WHERE space_role IS NULL;
     `
+  },
+  {
+    version: 44,
+    description: 'Reconcile legacy default-space installs into isolated personal spaces',
+    up: `
+      DO $$
+      DECLARE
+        default_space_id INTEGER;
+        primary_admin_id INTEGER;
+        active_space_count INTEGER;
+        user_count INTEGER;
+        default_membership_count INTEGER;
+        default_owner_count INTEGER;
+        user_row RECORD;
+        personal_space_id INTEGER;
+        fallback_library_id INTEGER;
+      BEGIN
+        SELECT COUNT(*)::int
+        INTO active_space_count
+        FROM spaces
+        WHERE archived_at IS NULL;
+
+        IF active_space_count <> 1 THEN
+          RETURN;
+        END IF;
+
+        SELECT id
+        INTO default_space_id
+        FROM spaces
+        WHERE lower(COALESCE(slug, '')) = 'default'
+          AND archived_at IS NULL
+        ORDER BY id ASC
+        LIMIT 1;
+
+        IF default_space_id IS NULL THEN
+          RETURN;
+        END IF;
+
+        SELECT COUNT(*)::int
+        INTO user_count
+        FROM users;
+
+        SELECT COUNT(*)::int
+        INTO default_membership_count
+        FROM space_memberships
+        WHERE space_id = default_space_id;
+
+        SELECT COUNT(*)::int
+        INTO default_owner_count
+        FROM space_memberships
+        WHERE space_id = default_space_id
+          AND role = 'owner';
+
+        IF default_membership_count <> user_count OR default_owner_count <> user_count THEN
+          RETURN;
+        END IF;
+
+        IF EXISTS (
+          SELECT 1
+          FROM libraries
+          WHERE archived_at IS NULL
+            AND space_id <> default_space_id
+        ) THEN
+          RETURN;
+        END IF;
+
+        SELECT id
+        INTO primary_admin_id
+        FROM users
+        WHERE role = 'admin'
+        ORDER BY created_at ASC NULLS LAST, id ASC
+        LIMIT 1;
+
+        IF primary_admin_id IS NULL THEN
+          SELECT id
+          INTO primary_admin_id
+          FROM users
+          ORDER BY created_at ASC NULLS LAST, id ASC
+          LIMIT 1;
+        END IF;
+
+        IF primary_admin_id IS NULL THEN
+          RETURN;
+        END IF;
+
+        UPDATE spaces
+        SET created_by = primary_admin_id
+        WHERE id = default_space_id;
+
+        DELETE FROM space_memberships;
+
+        INSERT INTO space_memberships (space_id, user_id, role, created_by)
+        VALUES (default_space_id, primary_admin_id, 'owner', primary_admin_id)
+        ON CONFLICT (space_id, user_id) DO UPDATE
+        SET role = EXCLUDED.role,
+            created_by = EXCLUDED.created_by,
+            updated_at = CURRENT_TIMESTAMP;
+
+        FOR user_row IN
+          SELECT id, email, name, active_library_id
+          FROM users
+          WHERE id <> primary_admin_id
+          ORDER BY created_at ASC NULLS LAST, id ASC
+        LOOP
+          INSERT INTO spaces (name, slug, description, created_by, is_personal)
+          VALUES (
+            COALESCE(NULLIF(BTRIM(user_row.name), ''), split_part(lower(user_row.email), '@', 1), 'User ' || user_row.id) || '''s Space',
+            'legacy-user-' || user_row.id,
+            'Personal space created during legacy tenancy reconciliation',
+            primary_admin_id,
+            true
+          )
+          RETURNING id INTO personal_space_id;
+
+          INSERT INTO space_memberships (space_id, user_id, role, created_by)
+          VALUES (personal_space_id, user_row.id, 'owner', primary_admin_id)
+          ON CONFLICT (space_id, user_id) DO UPDATE
+          SET role = EXCLUDED.role,
+              created_by = EXCLUDED.created_by,
+              updated_at = CURRENT_TIMESTAMP;
+
+          UPDATE libraries
+          SET space_id = personal_space_id
+          WHERE created_by = user_row.id
+            AND archived_at IS NULL;
+
+          UPDATE media
+          SET space_id = personal_space_id
+          WHERE library_id IN (
+            SELECT id
+            FROM libraries
+            WHERE created_by = user_row.id
+              AND archived_at IS NULL
+              AND space_id = personal_space_id
+          );
+
+          UPDATE events
+          SET space_id = personal_space_id
+          WHERE library_id IN (
+            SELECT id
+            FROM libraries
+            WHERE created_by = user_row.id
+              AND archived_at IS NULL
+              AND space_id = personal_space_id
+          );
+
+          UPDATE collectibles
+          SET space_id = personal_space_id
+          WHERE library_id IN (
+            SELECT id
+            FROM libraries
+            WHERE created_by = user_row.id
+              AND archived_at IS NULL
+              AND space_id = personal_space_id
+          );
+
+          UPDATE collections
+          SET space_id = personal_space_id
+          WHERE library_id IN (
+            SELECT id
+            FROM libraries
+            WHERE created_by = user_row.id
+              AND archived_at IS NULL
+              AND space_id = personal_space_id
+          );
+
+          UPDATE import_match_reviews
+          SET space_id = personal_space_id
+          WHERE library_id IN (
+            SELECT id
+            FROM libraries
+            WHERE created_by = user_row.id
+              AND archived_at IS NULL
+              AND space_id = personal_space_id
+          );
+
+          DELETE FROM library_memberships
+          WHERE user_id = user_row.id
+            AND library_id NOT IN (
+              SELECT id
+              FROM libraries
+              WHERE archived_at IS NULL
+                AND space_id = personal_space_id
+            );
+
+          INSERT INTO library_memberships (user_id, library_id, role)
+          SELECT user_row.id, l.id, 'owner'
+          FROM libraries l
+          WHERE l.created_by = user_row.id
+            AND l.archived_at IS NULL
+            AND l.space_id = personal_space_id
+          ON CONFLICT (user_id, library_id) DO UPDATE
+          SET role = 'owner';
+
+          SELECT l.id
+          INTO fallback_library_id
+          FROM libraries l
+          JOIN library_memberships lm
+            ON lm.library_id = l.id
+           AND lm.user_id = user_row.id
+          WHERE l.archived_at IS NULL
+            AND l.space_id = personal_space_id
+            AND l.id = user_row.active_library_id
+          LIMIT 1;
+
+          IF fallback_library_id IS NULL THEN
+            SELECT l.id
+            INTO fallback_library_id
+            FROM libraries l
+            JOIN library_memberships lm
+              ON lm.library_id = l.id
+             AND lm.user_id = user_row.id
+            WHERE l.archived_at IS NULL
+              AND l.space_id = personal_space_id
+            ORDER BY
+              CASE lm.role
+                WHEN 'owner' THEN 0
+                ELSE 1
+              END,
+              l.id ASC
+            LIMIT 1;
+          END IF;
+
+          IF fallback_library_id IS NULL THEN
+            INSERT INTO libraries (name, created_by, space_id)
+            VALUES ('My Library', user_row.id, personal_space_id)
+            RETURNING id INTO fallback_library_id;
+
+            INSERT INTO library_memberships (user_id, library_id, role)
+            VALUES (user_row.id, fallback_library_id, 'owner')
+            ON CONFLICT (user_id, library_id) DO UPDATE
+            SET role = 'owner';
+          END IF;
+
+          UPDATE users
+          SET active_space_id = personal_space_id,
+              active_library_id = fallback_library_id
+          WHERE id = user_row.id;
+        END LOOP;
+
+        SELECT l.id
+        INTO fallback_library_id
+        FROM libraries l
+        JOIN library_memberships lm
+          ON lm.library_id = l.id
+         AND lm.user_id = primary_admin_id
+        WHERE l.archived_at IS NULL
+          AND l.space_id = default_space_id
+        ORDER BY
+          CASE lm.role
+            WHEN 'owner' THEN 0
+            ELSE 1
+          END,
+          l.id ASC
+        LIMIT 1;
+
+        IF fallback_library_id IS NULL THEN
+          INSERT INTO libraries (name, created_by, space_id)
+          VALUES ('My Library', primary_admin_id, default_space_id)
+          RETURNING id INTO fallback_library_id;
+
+          INSERT INTO library_memberships (user_id, library_id, role)
+          VALUES (primary_admin_id, fallback_library_id, 'owner')
+          ON CONFLICT (user_id, library_id) DO UPDATE
+          SET role = 'owner';
+        END IF;
+
+        UPDATE users
+        SET active_space_id = default_space_id,
+            active_library_id = fallback_library_id
+        WHERE id = primary_admin_id;
+      END;
+      $$;
+    `
   }
 ];
 

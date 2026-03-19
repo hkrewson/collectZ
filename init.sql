@@ -809,5 +809,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (40, 'Add personal access tokens for non-browser API authentication'),
     (41, 'Add service account keys for machine-to-machine API authentication'),
     (42, 'Activate first-class spaces and backfill default space memberships'),
-    (43, 'Add space-scoped invite roles for tenancy activation')
+    (43, 'Add space-scoped invite roles for tenancy activation'),
+    (44, 'Reconcile legacy default-space installs into isolated personal spaces')
 ON CONFLICT (version) DO NOTHING;
