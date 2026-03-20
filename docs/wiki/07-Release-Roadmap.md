@@ -1546,6 +1546,53 @@ Historical planning notes may still exist in:
 - Existing media/import/admin workflows remain functional after hardening.
 - External automation clients can call GET/PUT/PATCH securely via PAT without copying session/CSRF tokens.
 
+## 2.7.1 — Security Maintenance and Dependency PR Triage
+
+**Goal:** Keep the `2.7.x` line safe and shippable by using patch releases for CI-found vulnerabilities, image-security fixes, dependency PR triage, and small secure-review workflow improvements without waiting for later feature milestones.
+
+### Scope
+
+- Treat `2.7.x` as the active maintenance lane for:
+  - CI-found dependency and image-security vulnerabilities,
+  - patch/minor dependency PR triage,
+  - small workflow-permission and release-gate fixes,
+  - secure-review/checklist improvements tied to currently shipping code.
+- Add a required secure-review checklist for PRs that touch:
+  - auth/session/cookie behavior,
+  - RBAC and scope enforcement,
+  - request validation and parsing,
+  - file upload/import surfaces,
+  - external fetch/integration code,
+  - CI workflow permissions and release automation.
+- Define reviewer expectations for obvious-opening checks:
+  - missing authorization guards,
+  - unsafe input handling,
+  - secret exposure in logs or config,
+  - SSRF/path traversal/file-type validation issues,
+  - dependency/workflow permission changes with elevated blast radius.
+- Formalize weekly dependency PR triage using the scheduled dependency-watch artifact plus the current open Dependabot queue.
+- Review dependency PRs in three lanes:
+  - fast-track security-sensitive updates,
+  - batch routine patch/minor maintenance updates,
+  - isolate major-version upgrades for dedicated compatibility review and rollout notes.
+- Keep dependency triage attached to roadmap/release traceability when an update is deferred for break-risk reasons.
+- Explicitly keep this lane patch-focused:
+  - no major feature work,
+  - no broad architecture rewrites,
+  - no semver-major dependency jumps without separate milestone planning.
+
+### Acceptance Criteria
+
+- Sensitive `2.7.x` PRs include an explicit secure-review note before merge.
+- Reviewers have one documented place to check for common obvious security openings.
+- Open dependency PRs are reviewed on the same weekly cadence as dependency-watch output.
+- Security-sensitive dependency and image fixes can ship as `2.7.x` revisions without waiting for `2.8.0+`.
+- Major dependency upgrades are no longer mixed into routine maintenance batches without explicit review planning.
+- `2.7.x` release notes clearly distinguish:
+  - security/vulnerability response,
+  - dependency maintenance,
+  - CI/release-gate fixes.
+
 ## 2.8.0 — UI Refinement Sprint (Cross-Device Consistency)
 
 **Goal:** Run a focused page-by-page UI refinement pass after 2.0 stabilization, prioritizing interaction consistency and responsive usability.
@@ -1620,39 +1667,9 @@ Historical planning notes may still exist in:
 - Exporter misconfiguration and env drift have documented fast-diagnosis paths and, where reasonable, lightweight runtime validation.
 - Logging/metrics hardening changes do not break core API/import behavior or make collector availability a runtime dependency.
 
-## 2.9.2 — Secure Change Review and Dependency PR Triage
+## 2.9.2 — Reserved / Folded Into 2.7.x Maintenance
 
-**Goal:** Move security review earlier in the delivery cycle by adding a lightweight secure-code review checkpoint for sensitive changes and a predictable weekly triage loop for dependency PRs created by automation.
-
-### Scope
-
-- Add a required secure-review checklist for PRs that touch:
-  - auth/session/cookie behavior,
-  - RBAC and scope enforcement,
-  - request validation and parsing,
-  - file upload/import surfaces,
-  - external fetch/integration code,
-  - CI workflow permissions and release automation.
-- Define reviewer expectations for obvious-opening checks:
-  - missing authorization guards,
-  - unsafe input handling,
-  - secret exposure in logs or config,
-  - SSRF/path traversal/file-type validation issues,
-  - dependency/workflow permission changes with elevated blast radius.
-- Formalize weekly dependency PR triage using the scheduled dependency-watch artifact plus the current open Dependabot queue.
-- Review dependency PRs in three lanes:
-  - fast-track security-sensitive updates,
-  - batch routine patch/minor maintenance updates,
-  - isolate major-version upgrades for dedicated compatibility review and rollout notes.
-- Keep dependency triage attached to roadmap/release traceability when an update is deferred for break-risk reasons.
-
-### Acceptance Criteria
-
-- Sensitive PRs include an explicit secure-review note before merge.
-- Reviewers have one documented place to check for common obvious security openings.
-- Open dependency PRs are reviewed on the same weekly cadence as dependency-watch output.
-- Security-sensitive dependency bumps are prioritized ahead of routine maintenance batches.
-- Major dependency upgrades are no longer mixed into routine maintenance PR batches without explicit review planning.
+This work was re-scoped into `2.7.1` and the broader `2.7.x` maintenance lane so CI-found vulnerabilities, image-security fixes, and dependency/security PR triage can ship as patch revisions on the currently active release line instead of waiting for a later feature milestone.
 
 ## 2.9.3 — Observability Endpoint Control Plane
 

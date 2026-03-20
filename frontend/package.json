@@ -13,6 +13,50 @@
     "autoprefixer": "^10.4.27",
     "postcss": "^8.4.0"
   },
+  "overrides": {
+    "@eslint/eslintrc": {
+      "minimatch": "3.1.4"
+    },
+    "@humanwhocodes/config-array": {
+      "minimatch": "3.1.4"
+    },
+    "babel-plugin-istanbul": {
+      "minimatch": "3.1.4"
+    },
+    "eslint": {
+      "minimatch": "3.1.4"
+    },
+    "eslint-plugin-import": {
+      "minimatch": "3.1.4"
+    },
+    "eslint-plugin-jsx-a11y": {
+      "minimatch": "3.1.4"
+    },
+    "eslint-plugin-react": {
+      "minimatch": "3.1.4"
+    },
+    "filelist": {
+      "minimatch": "10.2.3"
+    },
+    "flat-cache": {
+      "flatted": "3.4.0"
+    },
+    "fork-ts-checker-webpack-plugin": {
+      "minimatch": "3.1.4"
+    },
+    "glob": {
+      "minimatch": "3.1.4"
+    },
+    "jsonpath": {
+      "underscore": "1.13.8"
+    },
+    "recursive-readdir": {
+      "minimatch": "3.1.4"
+    },
+    "test-exclude": {
+      "minimatch": "3.1.4"
+    }
+  },
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
