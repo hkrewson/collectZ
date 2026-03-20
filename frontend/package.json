@@ -1,11 +1,11 @@
 {
   "name": "mediavault-frontend",
-  "version": "2.7.3",
+  "version": "2.7.4",
   "private": true,
   "dependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "axios": "^1.6.2"
+    "axios": "^1.13.6"
   },
   "devDependencies": {
     "react-scripts": "5.0.1",

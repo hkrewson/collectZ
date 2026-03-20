@@ -1067,6 +1067,7 @@ Historical planning notes may still exist in:
 24. `2.10.0` Multi-format ownership model (movies/games)
 25. `2.11.0` Optional market valuation integrations
 26. `2.12.0` Optional build: cost model and billing readiness
+27. `3.0.0` Frontend build modernization (CRA to Vite)
 
 ## 2.1.0 — Metadata Normalization and Query Performance
 
@@ -1757,6 +1758,108 @@ This work was re-scoped into `2.7.1` and the broader `2.7.x` maintenance lane so
 - Legacy views and existing filters continue to work with derived primary format.
 - Format toggles are available for movie/game add/edit paths.
 - Imports can map multi-format titles without creating duplicate records solely for format differences.
+
+## 3.0.0 — Frontend Build Modernization (CRA to Vite)
+
+**Goal:** Replace the legacy Create React App (`react-scripts`) frontend toolchain with a modern Vite-based build and dev workflow so the project can retire the remaining CRA-coupled advisory cluster, simplify frontend maintenance, and keep static nginx-based production deployment intact.
+
+### Why this is a major version
+
+- This is not just a dependency bump; it changes the frontend build system, local dev server, env handling conventions, and parts of the frontend test/build contract.
+- The production runtime stays a static asset build served by nginx, but the developer workflow and build assumptions change enough to justify a semver-major milestone.
+- Remaining CRA-coupled advisories from the `2.7.x` maintenance lane are intentionally folded into this milestone rather than stretched across patch releases.
+
+### Scope
+
+- Replace `react-scripts` with Vite for the frontend build and development shell.
+- Preserve the current application architecture:
+  - React stays in place,
+  - nginx still serves built static assets in production,
+  - backend API topology stays unchanged,
+  - no UI redesign is required as part of this migration.
+- Port CRA-specific frontend behaviors to explicit Vite equivalents:
+  - env variable exposure and naming conventions,
+  - HTML entry bootstrapping,
+  - asset import semantics,
+  - SVG import behavior,
+  - dev-server proxy expectations,
+  - static public asset handling,
+  - source map and build output expectations used by release workflows.
+- Rework test/build tooling assumptions that currently ride on CRA defaults:
+  - evaluate whether the existing Jest path remains, or whether frontend tests move to a Vite-compatible runner in the same milestone,
+  - keep CI coverage expectations explicit rather than relying on hidden CRA defaults.
+- Retire the remaining CRA-coupled advisory family by removing or replacing the vulnerable toolchain paths:
+  - `svgo`,
+  - `@svgr/plugin-svgo`,
+  - `@svgr/webpack`,
+  - `webpack-dev-server`,
+  - `resolve-url-loader -> postcss`,
+  - any other CRA-bound transitive packages that disappear once `react-scripts` is removed.
+- Keep the migration behavior-focused, not design-focused:
+  - do not bundle page redesigns or feature work into this milestone,
+  - keep routing, auth/session behavior, library CRUD, import flows, and tenancy UI behavior functionally equivalent unless a specific migration fix requires a targeted adjustment.
+
+### Behavior changes to plan explicitly
+
+- Development server:
+  - local frontend development uses Vite's built-in dev server instead of `react-scripts start`,
+  - HMR/refresh behavior changes to Vite semantics,
+  - proxy behavior for API calls must be configured explicitly rather than inherited from CRA conventions.
+- Environment variables:
+  - CRA-style frontend env assumptions need migration to Vite's env model,
+  - any frontend code relying on CRA env injection must be audited and ported carefully.
+- Asset handling:
+  - SVG/component import behavior must be revalidated,
+  - static path assumptions tied to CRA's public asset model must be migrated.
+- Build output:
+  - Docker frontend build commands and any release checks that assume CRA output conventions must be updated,
+  - nginx static serving and SPA fallback behavior must remain correct after the build-tool swap.
+- Testing:
+  - frontend test wiring must be made explicit rather than indirectly inherited from CRA.
+
+### Recommended delivery shape
+
+- Stage 1: migration planning and compatibility inventory
+  - inventory every CRA-specific behavior in the current frontend,
+  - identify env, asset, test, and proxy assumptions,
+  - document the exact migration contract before implementation.
+- Stage 2: Vite scaffold and parallel build path
+  - add Vite config and scripts,
+  - keep the current UI behavior unchanged,
+  - get a Vite dev server and production build working alongside the existing frontend code.
+- Stage 3: parity and CI migration
+  - switch Docker/CI/frontend build flows to Vite,
+  - update release checks, artifact expectations, and any workflow assumptions tied to CRA build output.
+- Stage 4: remove CRA
+  - remove `react-scripts` and the old CRA-only dependency surface,
+  - confirm the remaining frontend advisory cluster is actually gone from the lockfile and CI scans.
+
+### Acceptance Criteria
+
+- Frontend local development works through Vite instead of `react-scripts`.
+- Production frontend build still outputs static assets served by nginx with correct SPA fallback behavior.
+- Auth/session bootstrap, library browsing/editing, imports, admin flows, and tenancy UI behave equivalently before and after the migration.
+- CI/release workflows are updated for the new frontend build path and remain green.
+- The remaining CRA-coupled advisory family is removed from the active frontend toolchain.
+- Frontend docs explain the new dev/build workflow clearly enough that maintainers no longer need CRA-specific tribal knowledge.
+
+### API/Ops Checklist
+
+- Update frontend Docker build steps to use the Vite production build.
+- Update operator/developer docs for the new local frontend start/build commands.
+- Verify nginx routing and asset paths still work in local, reverse-proxy, and registry-image deployments.
+- Reconfirm release-gate artifacts after the build-tool migration:
+  - dependency audits,
+  - image scans,
+  - SBOM generation,
+  - compose smoke,
+  - UI/API regression evidence.
+
+### Milestone boundaries
+
+- `2.7.x` remains the patch-maintenance lane for narrow security and dependency work.
+- `2.8.0` and `2.8.1` remain product/UI workflow milestones and should not absorb build-tool migration work.
+- Any remaining frontend toolchain remediation after `2.7.3` should be considered part of this `3.0.0` milestone rather than stretched across additional speculative patch releases unless a clearly isolated low-risk fix appears.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
