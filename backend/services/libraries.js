@@ -297,14 +297,15 @@ async function syncLibraryMembershipsForSpaceUser(client, { spaceId, userId, own
   const result = await client.query(
     `INSERT INTO library_memberships (user_id, library_id, role)
      SELECT
-       $1,
+       u.id,
        l.id,
        CASE
          WHEN l.id = ANY($3::int[]) THEN 'owner'
          ELSE 'member'
        END
-     FROM libraries l
-     WHERE l.space_id = $2
+     FROM users u
+     JOIN libraries l ON l.space_id = $2
+     WHERE u.id = $1
        AND l.archived_at IS NULL
      ON CONFLICT (user_id, library_id) DO UPDATE
      SET role = CASE

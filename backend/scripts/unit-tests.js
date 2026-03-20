@@ -1119,6 +1119,7 @@ results.push(run('library service source ensures default scope before returning 
   assert.ok(libraryServiceSource.includes('ensureDefaultSpaceForClient'));
   assert.ok(libraryServiceSource.includes('SET active_space_id = $2,'));
   assert.ok(libraryServiceSource.includes('async function syncLibraryMembershipsForSpaceUser'));
+  assert.ok(libraryServiceSource.includes('FROM users u'));
   assert.ok(libraryServiceSource.includes('async function moveOwnedLibrariesToSpace'));
   assert.ok(libraryServiceSource.includes('async function canUserAccessSpace'));
   assert.ok(libraryServiceSource.includes('async function getAccessibleLibraryRow'));

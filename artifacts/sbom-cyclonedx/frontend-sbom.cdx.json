@@ -2,10 +2,10 @@
   "$schema": "http://cyclonedx.org/schema/bom-1.6.schema.json",
   "bomFormat": "CycloneDX",
   "specVersion": "1.6",
-  "serialNumber": "urn:uuid:d8e2ce86-2031-490b-a47e-c99fccbb5720",
+  "serialNumber": "urn:uuid:4c6c7691-c29c-4632-87d0-451068ccfaa6",
   "version": 1,
   "metadata": {
-    "timestamp": "2026-03-16T03:36:21+00:00",
+    "timestamp": "2026-03-20T02:37:21+00:00",
     "tools": {
       "components": [
         {
@@ -15,14 +15,14 @@
           },
           "group": "aquasecurity",
           "name": "trivy",
-          "version": "0.65.0"
+          "version": "0.69.3"
         }
       ]
     },
     "component": {
-      "bom-ref": "e21a2bca-5c21-4576-a786-9303d341a5d8",
+      "bom-ref": "3b948edc-f7c2-45ba-ad36-09710d175cd8",
       "type": "container",
-      "name": "/scan/frontend.tar",
+      "name": "/tmp/collectz-frontend-2.7.1.tar",
       "properties": [
         {
           "name": "aquasecurity:trivy:DiffID",
@@ -30,11 +30,15 @@
         },
         {
           "name": "aquasecurity:trivy:DiffID",
-          "value": "sha256:1dbf0e5ab1c51a4cafe1a7b06c8e397f7f0fe4855cdc38a433c193f0df3a251b"
+          "value": "sha256:45f3ea5848e8a25ca27718b640a21ffd8c8745d342a24e1d4ddfc8c449b0a724"
         },
         {
           "name": "aquasecurity:trivy:DiffID",
-          "value": "sha256:45f3ea5848e8a25ca27718b640a21ffd8c8745d342a24e1d4ddfc8c449b0a724"
+          "value": "sha256:483e1d656afcfb3d1d6f0afcdbeff7f8e6e788b81f8d0e4bc900479347b40554"
+        },
+        {
+          "name": "aquasecurity:trivy:DiffID",
+          "value": "sha256:49130842732d886480c248853ee624fb905e2cbe13abd5a66b2f7a236fd7de67"
         },
         {
           "name": "aquasecurity:trivy:DiffID",
@@ -54,23 +58,19 @@
         },
         {
           "name": "aquasecurity:trivy:DiffID",
-          "value": "sha256:b7a361813e4b74cde5f78799c9d8054bbe6e7a895f206bbd0726e5085e332c30"
+          "value": "sha256:9dbfced39cb2991755a80e77794150c5e3770f10b4515925a67e8abd630fb77e"
         },
         {
           "name": "aquasecurity:trivy:DiffID",
-          "value": "sha256:caee3efc62c2c827bca69a8f1dea9233b50d7ba1f8d1c8e327b4f23270f9c729"
+          "value": "sha256:b7a361813e4b74cde5f78799c9d8054bbe6e7a895f206bbd0726e5085e332c30"
         },
         {
           "name": "aquasecurity:trivy:DiffID",
           "value": "sha256:d34aa5681408131509144019ea1eecf2ccc9973a273655aa03e4d483937b00cd"
         },
         {
-          "name": "aquasecurity:trivy:DiffID",
-          "value": "sha256:ff069947c41838c19f94835b3b5175954559bc65ecf02cf414ab1db190aa6740"
-        },
-        {
           "name": "aquasecurity:trivy:ImageID",
-          "value": "sha256:6ea84b6bbb84d045c20e62642c69a7471dee2b1e1344aa86ac4d0f087b16695d"
+          "value": "sha256:a7bbd98f95ba2879ead6f632990eed82cd8b19309a803852528f847d5f5fdb5f"
         },
         {
           "name": "aquasecurity:trivy:Labels:com.docker.compose.project",
@@ -89,19 +89,27 @@
           "value": "NGINX Docker Maintainers <docker-maint@nginx.com>"
         },
         {
+          "name": "aquasecurity:trivy:Reference",
+          "value": "mediavault-frontend:latest"
+        },
+        {
+          "name": "aquasecurity:trivy:RepoTag",
+          "value": "mediavault-frontend:latest"
+        },
+        {
           "name": "aquasecurity:trivy:SchemaVersion",
           "value": "2"
         },
         {
           "name": "aquasecurity:trivy:Size",
-          "value": "64974848"
+          "value": "65175552"
         }
       ]
     }
   },
   "components": [
     {
-      "bom-ref": "bd7f5b7f-1d97-4f05-b4f9-9e3a8415b4af",
+      "bom-ref": "ee59fd62-62fc-45d1-bd44-ce3d3ebd220a",
       "type": "operating-system",
       "name": "alpine",
       "version": "3.23.3",
@@ -688,7 +696,7 @@
       "licenses": [
         {
           "license": {
-            "name": "curl"
+            "id": "curl"
           }
         }
       ],
@@ -1153,7 +1161,7 @@
       "licenses": [
         {
           "license": {
-            "name": "curl"
+            "id": "curl"
           }
         }
       ],
@@ -1272,17 +1280,17 @@
       ]
     },
     {
-      "bom-ref": "pkg:apk/alpine/libexpat@2.7.4-r0?arch=aarch64&distro=3.23.3",
+      "bom-ref": "pkg:apk/alpine/libexpat@2.7.5-r0?arch=aarch64&distro=3.23.3",
       "type": "library",
       "supplier": {
         "name": "Carlo Landmeter <clandmeter@alpinelinux.org>"
       },
       "name": "libexpat",
-      "version": "2.7.4-r0",
+      "version": "2.7.5-r0",
       "hashes": [
         {
           "alg": "SHA-1",
-          "content": "0be7771144836f2c1c88d407d14d20dcf9b1d68f"
+          "content": "6839531948b001f7a0d5fa739ea897cbef87ec70"
         }
       ],
       "licenses": [
@@ -1292,15 +1300,15 @@
           }
         }
       ],
-      "purl": "pkg:apk/alpine/libexpat@2.7.4-r0?arch=aarch64&distro=3.23.3",
+      "purl": "pkg:apk/alpine/libexpat@2.7.5-r0?arch=aarch64&distro=3.23.3",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
-          "value": "sha256:b7a361813e4b74cde5f78799c9d8054bbe6e7a895f206bbd0726e5085e332c30"
+          "value": "sha256:49130842732d886480c248853ee624fb905e2cbe13abd5a66b2f7a236fd7de67"
         },
         {
           "name": "aquasecurity:trivy:PkgID",
-          "value": "libexpat@2.7.4-r0"
+          "value": "libexpat@2.7.5-r0"
         },
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -1312,7 +1320,7 @@
         },
         {
           "name": "aquasecurity:trivy:SrcVersion",
-          "value": "2.7.4-r0"
+          "value": "2.7.5-r0"
         }
       ]
     },
@@ -1383,7 +1391,7 @@
       "licenses": [
         {
           "license": {
-            "name": "GD"
+            "id": "GD"
           }
         }
       ],
@@ -1573,7 +1581,7 @@
         },
         {
           "license": {
-            "name": "IJG"
+            "id": "IJG"
           }
         },
         {
@@ -1638,7 +1646,7 @@
         },
         {
           "license": {
-            "name": "Beerware"
+            "id": "Beerware"
           }
         },
         {
@@ -3303,7 +3311,7 @@
       "licenses": [
         {
           "license": {
-            "name": "libtiff"
+            "id": "libtiff"
           }
         }
       ],
@@ -3461,7 +3469,7 @@
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
-          "value": "sha256:ff069947c41838c19f94835b3b5175954559bc65ecf02cf414ab1db190aa6740"
+          "value": "sha256:49130842732d886480c248853ee624fb905e2cbe13abd5a66b2f7a236fd7de67"
         },
         {
           "name": "aquasecurity:trivy:PkgID",
@@ -3534,7 +3542,13 @@
   ],
   "dependencies": [
     {
-      "ref": "bd7f5b7f-1d97-4f05-b4f9-9e3a8415b4af",
+      "ref": "3b948edc-f7c2-45ba-ad36-09710d175cd8",
+      "dependsOn": [
+        "ee59fd62-62fc-45d1-bd44-ce3d3ebd220a"
+      ]
+    },
+    {
+      "ref": "ee59fd62-62fc-45d1-bd44-ce3d3ebd220a",
       "dependsOn": [
         "pkg:apk/alpine/alpine-baselayout@3.7.1-r8?arch=aarch64&distro=3.23.3",
         "pkg:apk/alpine/alpine-release@3.23.3-r0?arch=aarch64&distro=3.23.3",
@@ -3550,12 +3564,6 @@
         "pkg:apk/alpine/nginx-module-xslt@1.29.6-r1?arch=aarch64&distro=3.23.3",
         "pkg:apk/alpine/ssl_client@1.37.0-r30?arch=aarch64&distro=3.23.3",
         "pkg:apk/alpine/tzdata@2026a-r0?arch=aarch64&distro=3.23.3"
-      ]
-    },
-    {
-      "ref": "e21a2bca-5c21-4576-a786-9303d341a5d8",
-      "dependsOn": [
-        "bd7f5b7f-1d97-4f05-b4f9-9e3a8415b4af"
       ]
     },
     {
@@ -3644,7 +3652,7 @@
       "dependsOn": [
         "pkg:apk/alpine/busybox-binsh@1.37.0-r30?arch=aarch64&distro=3.23.3",
         "pkg:apk/alpine/freetype@2.14.1-r0?arch=aarch64&distro=3.23.3",
-        "pkg:apk/alpine/libexpat@2.7.4-r0?arch=aarch64&distro=3.23.3",
+        "pkg:apk/alpine/libexpat@2.7.5-r0?arch=aarch64&distro=3.23.3",
         "pkg:apk/alpine/musl@1.2.5-r21?arch=aarch64&distro=3.23.3"
       ]
     },
@@ -3739,7 +3747,7 @@
       ]
     },
     {
-      "ref": "pkg:apk/alpine/libexpat@2.7.4-r0?arch=aarch64&distro=3.23.3",
+      "ref": "pkg:apk/alpine/libexpat@2.7.5-r0?arch=aarch64&distro=3.23.3",
       "dependsOn": [
         "pkg:apk/alpine/musl@1.2.5-r21?arch=aarch64&distro=3.23.3"
       ]

@@ -17,8 +17,8 @@
     },
     "fast-xml-parser": {
       "name": "fast-xml-parser",
-      "severity": "low",
-      "isDirect": true,
+      "severity": "high",
+      "isDirect": false,
       "via": [
         {
           "source": 1114153,
@@ -35,14 +35,46 @@
             "vectorString": null
           },
           "range": ">=5.0.0 <5.3.8"
+        },
+        {
+          "source": 1114772,
+          "name": "fast-xml-parser",
+          "dependency": "fast-xml-parser",
+          "title": "fast-xml-parser affected by numeric entity expansion bypassing all entity expansion limits (incomplete fix for CVE-2026-26278)",
+          "url": "https://github.com/advisories/GHSA-8gc5-j5rx-235r",
+          "severity": "high",
+          "cwe": [
+            "CWE-776"
+          ],
+          "cvss": {
+            "score": 7.5,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+          },
+          "range": ">=4.0.0-beta.3 <=5.5.5"
+        },
+        {
+          "source": 1114952,
+          "name": "fast-xml-parser",
+          "dependency": "fast-xml-parser",
+          "title": "Entity Expansion Limits Bypassed When Set to Zero Due to JavaScript Falsy Evaluation in fast-xml-parser",
+          "url": "https://github.com/advisories/GHSA-jp2q-39xq-3w4g",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-1284"
+          ],
+          "cvss": {
+            "score": 5.9,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+          },
+          "range": ">=4.0.0-beta.3 <=5.5.6"
         }
       ],
       "effects": [
         "@aws-sdk/xml-builder"
       ],
-      "range": "5.0.0 - 5.3.7",
+      "range": "4.0.0-beta.3 - 5.5.6",
       "nodes": [
-        "node_modules/fast-xml-parser"
+        "node_modules/@aws-sdk/xml-builder/node_modules/fast-xml-parser"
       ],
       "fixAvailable": true
     }
@@ -50,19 +82,19 @@
   "metadata": {
     "vulnerabilities": {
       "info": 0,
-      "low": 2,
+      "low": 1,
       "moderate": 0,
-      "high": 0,
+      "high": 1,
       "critical": 0,
       "total": 2
     },
     "dependencies": {
-      "prod": 222,
+      "prod": 225,
       "dev": 29,
       "optional": 2,
       "peer": 0,
       "peerOptional": 0,
-      "total": 251
+      "total": 254
     }
   }
 }
