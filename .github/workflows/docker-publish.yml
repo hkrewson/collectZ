@@ -674,7 +674,7 @@ jobs:
           exit 1
 
       - name: Scan backend image (critical vulnerabilities)
-        uses: aquasecurity/trivy-action@0.34.1
+        uses: aquasecurity/trivy-action@v0.35.0
         with:
           image-ref: ghcr.io/${{ needs.prepare.outputs.owner_lc }}/collectz-backend:${{ needs.prepare.outputs.version }}
           format: table
@@ -684,7 +684,7 @@ jobs:
           vuln-type: os,library
 
       - name: Scan frontend image (critical vulnerabilities)
-        uses: aquasecurity/trivy-action@0.34.1
+        uses: aquasecurity/trivy-action@v0.35.0
         with:
           image-ref: ghcr.io/${{ needs.prepare.outputs.owner_lc }}/collectz-frontend:${{ needs.prepare.outputs.version }}
           format: table
@@ -694,14 +694,14 @@ jobs:
           vuln-type: os,library
 
       - name: Generate backend SBOM (CycloneDX JSON)
-        uses: aquasecurity/trivy-action@0.34.1
+        uses: aquasecurity/trivy-action@v0.35.0
         with:
           image-ref: ghcr.io/${{ needs.prepare.outputs.owner_lc }}/collectz-backend:${{ needs.prepare.outputs.version }}
           format: cyclonedx
           output: backend-sbom.cdx.json
 
       - name: Generate frontend SBOM (CycloneDX JSON)
-        uses: aquasecurity/trivy-action@0.34.1
+        uses: aquasecurity/trivy-action@v0.35.0
         with:
           image-ref: ghcr.io/${{ needs.prepare.outputs.owner_lc }}/collectz-frontend:${{ needs.prepare.outputs.version }}
           format: cyclonedx

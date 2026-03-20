@@ -1611,15 +1611,51 @@ Historical planning notes may still exist in:
   - this sprint is for remaining cross-device consistency gaps, not for redoing settled UI work.
 - Apply targeted visual/interaction adjustments per page and element until review checklist passes.
 - Keep this sprint UX-only unless a blocker requires small functional fixes.
+- Improve high-friction library management ergonomics:
+  - add multi-select support within library views,
+  - add a bulk delete action for selected items with clear confirmation and count feedback,
+  - keep selection behavior usable on desktop and mobile without creating accidental destructive taps.
 
 ### Acceptance Criteria
 
 - Desktop and mobile navigation use one consistent toggle paradigm.
 - UI review checklist is completed for each major page section.
 - Refinement changes do not introduce regression in auth, media CRUD, imports, or admin flows.
+- Users can select multiple library items and perform a confirmed bulk delete from the library UI.
 - Shared vs. private user annotations and ratings controls.
 - Mobile-optimized barcode scanning UI (camera input with real-time scan feedback).
 - Email delivery for invites via SMTP (already stubbed in `env.example`).
+
+## 2.8.1 — Space Creation and Member Onboarding Flow
+
+**Goal:** Restore a straightforward way to add people during tenant creation now that invite issuance is space-scoped, without reintroducing implicit cross-space membership.
+
+### Scope
+
+- Extend the create-space workflow so global admins can add an initial invite schema as part of space creation:
+  - collect one or more member invites during the create-space flow,
+  - allow role selection per invite within the new space,
+  - preserve the first assigned owner semantics from the existing space-creation policy.
+- Keep onboarding strictly tenant-scoped:
+  - invites created during space creation belong only to the newly created space,
+  - no automatic cross-space membership is introduced,
+  - global/server-admin authority remains distinct from tenant membership after creation.
+- Make the post-create experience clearer for operators:
+  - show the newly created invite links or delivery outcomes immediately,
+  - keep copy-link and SMTP-backed delivery aligned with the existing invite model,
+  - surface validation/errors clearly when invite creation partially fails after the space itself succeeds.
+- Ensure the create-space modal and resulting admin UX stay coherent with the current tenancy model:
+  - no hidden side effects that add users to unrelated spaces,
+  - no downgrade of existing owner/admin role protections,
+  - audit space creation plus invite issuance as distinct events.
+
+### Acceptance Criteria
+
+- Global admins can create a new space and prepare its initial invites in the same guided flow.
+- Users invited during space creation are scoped only to that new space.
+- The first assigned owner and any additional invited roles match the intended tenant membership policy after claim.
+- Space creation remains usable even when SMTP is unavailable by preserving copy-link fallback.
+- Failures in invite issuance are surfaced without leaving the operator unclear about whether the space itself was created.
 
 ## 2.9.0 — Observability Baseline Review and Alert Tuning
 
