@@ -1,8 +1,8 @@
-# 2.7.4 Local Preflight Go/No-Go
+# 2.7.5 Local Preflight Go/No-Go
 
 ## Status
 - Local preflight status: GO pending hosted CI confirmation
-- Version under test: 2.7.4
+- Version under test: 2.7.5
 - Date: 2026-03-20
 
 ## Gates run locally
@@ -13,7 +13,7 @@
 - OpenAPI validation: PASS
 - init.sql parity: PASS
 - Migration rehearsal: PASS
-- Compose smoke on rebuilt live 2.7.4 stack: PASS
+- Compose smoke on rebuilt live 2.7.5 stack: PASS
 - RBAC regression: PASS
 - Admin space control smoke: PASS
 - Tenancy platform-boundary smoke: PASS
@@ -30,9 +30,9 @@
 - `artifacts/sbom-cyclonedx/backend-sbom.cdx.json`
 - `artifacts/sbom-cyclonedx/frontend-sbom.cdx.json`
 - `preflight-go-no-go.md`
-- `docs/releases/v2.7.4.md`
+- `docs/releases/v2.7.5.md`
 
 ## Notes
-- Docker-first compose smoke evidence was taken from the rebuilt live `2.7.4` stack and in-network curl checks against `http://frontend:3000`.
-- This patch release targets the low-risk maintenance PR lane: safe `axios` and `pg` updates plus CI workflow action maintenance.
-- Remaining development-only advisories are concentrated in the legacy CRA toolchain and are reflected in [docs/releases/v2.7.4.md](/Users/hamlin/Development/GitHub/hkrewson/collectZ/docs/releases/v2.7.4.md) rather than treated as production/runtime blockers.
+- Docker-first compose smoke evidence was taken from the rebuilt live `2.7.5` stack and in-network curl checks against `http://frontend:3000`.
+- This patch release targets the remaining clearly isolated low-risk dependency PR item: the direct frontend `postcss` update.
+- Remaining development-only advisories are concentrated in the legacy CRA toolchain and are reflected in [docs/releases/v2.7.5.md](/Users/hamlin/Development/GitHub/hkrewson/collectZ/docs/releases/v2.7.5.md) rather than treated as production/runtime blockers.
