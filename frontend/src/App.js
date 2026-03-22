@@ -24,7 +24,8 @@ export default function App() {
   const [route, setRoute] = useState(routeFromPath(window.location.pathname));
   const [activeTab, setActiveTab] = useState(initialDashboardState.tab);
   const [activeIntegrationSection, setActiveIntegrationSection] = useState(initialDashboardState.integrationSection);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [desktopNavPinned, setDesktopNavPinned] = useState(true);
+  const [desktopNavHovering, setDesktopNavHovering] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [spaces, setSpaces] = useState([]);
   const [libraries, setLibraries] = useState([]);
@@ -318,6 +319,7 @@ export default function App() {
   const activeMembershipRole = activeSpace?.membership_role || null;
   const canManageActiveSpace = ['owner', 'admin'].includes(activeMembershipRole);
   const scopeKey = `${activeSpaceId || 'none'}:${activeLibraryId || 'none'}`;
+  const desktopNavExpanded = desktopNavPinned || desktopNavHovering;
 
   useEffect(() => {
     if (activeTab === 'space-manage' && !canManageActiveSpace) {
@@ -375,8 +377,17 @@ export default function App() {
           if (nextTab !== 'admin-integrations') setActiveIntegrationSection(DEFAULT_INTEGRATION_SECTION);
         }}
         onLogout={logout}
-        collapsed={sidebarCollapsed}
-        onToggle={() => setSidebarCollapsed((c) => !c)}
+        collapsed={!desktopNavExpanded}
+        pinnedExpanded={desktopNavPinned}
+        onToggle={() => {
+          if (desktopNavPinned) {
+            setDesktopNavPinned(false);
+            setDesktopNavHovering(false);
+            return;
+          }
+          setDesktopNavPinned(true);
+        }}
+        onDesktopHoverChange={setDesktopNavHovering}
         mobileOpen={mobileNavOpen}
         onMobileClose={() => setMobileNavOpen(false)}
         appVersion={APP_VERSION}
@@ -394,10 +405,23 @@ export default function App() {
         showEvents={featureFlags.events_enabled}
       />
 
-      <div className={cx('flex-1 flex flex-col min-w-0 transition-all duration-300', sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-56')}>
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-edge lg:hidden shrink-0">
-          <button onClick={() => setMobileNavOpen(true)} className="btn-icon"><Icons.Menu /></button>
-          <span className="font-display text-lg tracking-wider text-gold">COLLECTZ</span>
+      <div className={cx('flex-1 flex flex-col min-w-0 transition-all duration-300', desktopNavExpanded ? 'lg:ml-56' : 'lg:ml-16')}>
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-edge shrink-0 bg-void/95 backdrop-blur lg:hidden">
+          <button
+            onClick={() => setMobileNavOpen(true)}
+            className="btn-icon"
+            aria-label="Open navigation"
+            aria-expanded={mobileNavOpen}
+          >
+            <Icons.Menu />
+          </button>
+          <div className="min-w-0">
+            <div className="font-display text-lg tracking-wider text-gold leading-none">COLLECTZ</div>
+            <div className="text-[11px] text-ghost mt-1 truncate">
+              {activeSpace?.name || 'No active space'}
+              {activeLibrary ? ` / ${activeLibrary.name}` : ''}
+            </div>
+          </div>
         </div>
 
         <div className="flex-1 overflow-hidden">

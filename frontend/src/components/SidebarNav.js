@@ -19,7 +19,9 @@ export default function SidebarNav({
   onSelect,
   onLogout,
   collapsed,
+  pinnedExpanded,
   onToggle,
+  onDesktopHoverChange,
   mobileOpen,
   onMobileClose,
   appVersion,
@@ -55,6 +57,19 @@ export default function SidebarNav({
   ].includes(activeTab);
   const activeSpace = spaces.find((space) => Number(space.id) === Number(activeSpaceId)) || null;
   const activeLibrary = libraries.find((library) => Number(library.id) === Number(activeLibraryId)) || null;
+  const showDesktopHamburger = !collapsed;
+
+  const handleMouseEnter = () => {
+    if (window.matchMedia('(min-width: 1024px)').matches && !pinnedExpanded) {
+      onDesktopHoverChange?.(true);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (window.matchMedia('(min-width: 1024px)').matches && !pinnedExpanded) {
+      onDesktopHoverChange?.(false);
+    }
+  };
 
   const NavLink = ({ id, icon, label, sub = false, badge = null }) => {
     const active = activeTab === id;
@@ -105,6 +120,8 @@ export default function SidebarNav({
       {mobileOpen && <div className="fixed inset-0 bg-void/80 z-30 lg:hidden" onClick={onMobileClose} />}
 
       <aside
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
         className={cx(
           'fixed top-0 left-0 h-full bg-abyss border-r border-edge flex flex-col z-40',
           'transition-all duration-300',
@@ -115,7 +132,7 @@ export default function SidebarNav({
         <div className={cx('flex items-center gap-3 px-4 py-5 border-b border-edge shrink-0', collapsed && 'justify-center px-0')}>
           <div className="w-8 h-8 rounded bg-gold flex items-center justify-center text-void font-display text-sm shrink-0">C</div>
           {!collapsed && (
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <div className="font-display text-base tracking-wider text-ink leading-none">COLLECTZ</div>
               <a
                 href={releaseNotesUrl}
@@ -127,6 +144,16 @@ export default function SidebarNav({
                 v{appVersion}
               </a>
             </div>
+          )}
+          {showDesktopHamburger && (
+            <button
+              onClick={onToggle}
+              className="btn-icon hidden lg:inline-flex"
+              aria-label={pinnedExpanded ? 'Collapse navigation' : 'Keep navigation expanded'}
+              title={pinnedExpanded ? 'Collapse navigation' : 'Keep navigation expanded'}
+            >
+              <Icons.Menu />
+            </button>
           )}
         </div>
 
@@ -259,12 +286,6 @@ export default function SidebarNav({
           >
             <Icons.LogOut />
             {!collapsed && <span>Sign out</span>}
-          </button>
-          <button
-            onClick={onToggle}
-            className={cx('w-full flex items-center gap-3 px-3 py-2 text-xs text-ghost hover:text-dim rounded hover:bg-raised/50 transition-all', collapsed && 'justify-center px-0')}
-          >
-            {collapsed ? <Icons.ChevronRight /> : <><Icons.ChevronLeft /><span></span></>}
           </button>
         </div>
       </aside>
