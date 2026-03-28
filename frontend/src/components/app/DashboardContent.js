@@ -1,7 +1,6 @@
 import React from 'react';
 import AdminActivityView from '../AdminActivityView';
 import ImportViewComponent from '../ImportView';
-import AdminFeatureFlagsView from '../AdminFeatureFlagsView';
 import ProfileViewComponent from '../ProfileView';
 import AdminUsersView from '../AdminUsersView';
 import AdminSettingsView from '../AdminSettingsView';
@@ -47,7 +46,6 @@ export default function DashboardContent({
   cx,
   activeLibrary,
   importReviewEnabled,
-  loadImportReviewPendingCount,
   setUiSettings,
   activeIntegrationSection,
   setActiveIntegrationSection,
@@ -147,10 +145,7 @@ export default function DashboardContent({
         <ImportReviewView
           key={`import-review:${scopeKey}`}
           apiCall={apiCall}
-          onToast={(message, type = 'ok') => {
-            showToast(message, type);
-            loadImportReviewPendingCount();
-          }}
+          onToast={showToast}
         />
       );
     case 'profile':
@@ -187,7 +182,7 @@ export default function DashboardContent({
     case 'admin-settings':
       return <AdminSettingsView apiCall={apiCall} onToast={showToast} onSettingsChange={setUiSettings} Spinner={Spinner} />;
     case 'admin-flags':
-      return <AdminFeatureFlagsView apiCall={apiCall} onToast={showToast} Spinner={Spinner} cx={cx} />;
+      return <AdminSettingsView apiCall={apiCall} onToast={showToast} onSettingsChange={setUiSettings} Spinner={Spinner} />;
     case 'admin-integrations':
       return (
         <AdminIntegrationsView

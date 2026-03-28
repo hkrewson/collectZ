@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Icons, cx } from './app/AppPrimitives';
+import { Icons, cx, isInteractiveTarget } from './app/AppPrimitives';
 
 const DiscordIcon = () => (
   <svg viewBox="0 0 16 16" fill="currentColor" className="w-5 h-5" aria-hidden="true">
@@ -21,7 +21,6 @@ export default function SidebarNav({
   collapsed,
   pinnedExpanded,
   onToggle,
-  onDesktopHoverChange,
   mobileOpen,
   onMobileClose,
   appVersion,
@@ -33,14 +32,13 @@ export default function SidebarNav({
   onLibrarySelect,
   canManageActiveSpace = false,
   activeMembershipRole = null,
-  importReviewPendingCount = 0,
-  showImportReview = false,
   showCollectibles = true,
   showEvents = true
 }) {
   const isAdmin = user?.role === 'admin';
   const releaseNotesUrl = `https://github.com/hkrewson/collectZ/tree/main/docs/releases/v${appVersion}.md`;
   const [adminOpen, setAdminOpen] = useState(true);
+  const [globalOpen, setGlobalOpen] = useState(true);
   const [libraryOpen, setLibraryOpen] = useState(true);
   const isLibraryActive = [
     'library',
@@ -55,20 +53,27 @@ export default function SidebarNav({
     'library-import',
     'library-import-review'
   ].includes(activeTab);
+  const isAdminGroupActive = [
+    'admin-activity',
+    'admin-integrations',
+    'admin-settings',
+    'admin-flags',
+    'space-manage'
+  ].includes(activeTab);
+  const isGlobalGroupActive = [
+    'admin-spaces',
+    'admin-users'
+  ].includes(activeTab);
   const activeSpace = spaces.find((space) => Number(space.id) === Number(activeSpaceId)) || null;
   const activeLibrary = libraries.find((library) => Number(library.id) === Number(activeLibraryId)) || null;
   const showDesktopHamburger = !collapsed;
+  const showAdminGroup = isAdmin || canManageActiveSpace;
 
-  const handleMouseEnter = () => {
-    if (window.matchMedia('(min-width: 1024px)').matches && !pinnedExpanded) {
-      onDesktopHoverChange?.(true);
-    }
-  };
-
-  const handleMouseLeave = () => {
-    if (window.matchMedia('(min-width: 1024px)').matches && !pinnedExpanded) {
-      onDesktopHoverChange?.(false);
-    }
+  const handleCollapsedRailClick = (event) => {
+    if (!collapsed) return;
+    if (!window.matchMedia('(min-width: 1024px)').matches) return;
+    if (isInteractiveTarget(event.target)) return;
+    onToggle?.();
   };
 
   const NavLink = ({ id, icon, label, sub = false, badge = null }) => {
@@ -120,16 +125,20 @@ export default function SidebarNav({
       {mobileOpen && <div className="fixed inset-0 bg-void/80 z-30 lg:hidden" onClick={onMobileClose} />}
 
       <aside
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
+        onClick={handleCollapsedRailClick}
         className={cx(
           'fixed top-0 left-0 h-full bg-abyss border-r border-edge flex flex-col z-40',
           'transition-all duration-300',
-          collapsed ? 'w-16' : 'w-56',
+          collapsed ? 'w-20' : 'w-56',
           mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         )}
       >
-        <div className={cx('flex items-center gap-3 px-4 py-5 border-b border-edge shrink-0', collapsed && 'justify-center px-0')}>
+        <div
+          className={cx(
+            'flex items-center gap-3 px-4 py-5 border-b border-edge shrink-0',
+            collapsed ? 'justify-between px-2' : ''
+          )}
+        >
           <div className="w-8 h-8 rounded bg-gold flex items-center justify-center text-void font-display text-sm shrink-0">C</div>
           {!collapsed && (
             <div className="min-w-0 flex-1">
@@ -149,14 +158,13 @@ export default function SidebarNav({
             <button
               onClick={onToggle}
               className="btn-icon hidden lg:inline-flex"
-              aria-label={pinnedExpanded ? 'Collapse navigation' : 'Keep navigation expanded'}
-              title={pinnedExpanded ? 'Collapse navigation' : 'Keep navigation expanded'}
+              aria-label={pinnedExpanded ? 'Collapse navigation' : 'Expand navigation'}
+              title={pinnedExpanded ? 'Collapse navigation' : 'Expand navigation'}
             >
               <Icons.Menu />
             </button>
           )}
         </div>
-
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto no-scrollbar">
           {!collapsed && user && (
             <div className="card p-3 mb-3 space-y-3">
@@ -232,23 +240,17 @@ export default function SidebarNav({
             )}
           </div>
           <NavLink id="library-import" icon={<Icons.Upload />} label="Import" />
-          {showImportReview && (
-            <NavLink
-              id="library-import-review"
-              icon={<Icons.Activity />}
-              label="Import Review"
-              badge={importReviewPendingCount > 0 ? importReviewPendingCount : null}
-            />
-          )}
-          {canManageActiveSpace && <NavLink id="space-manage" icon={<Icons.Users />} label="Space" />}
-
-          {isAdmin && (
+          {showAdminGroup && (
             <div>
               <button
                 onClick={() => setAdminOpen((o) => !o)}
-                className={cx('w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded text-dim hover:text-ink hover:bg-raised/50 transition-all', collapsed && 'justify-center px-0')}
+                className={cx(
+                  'w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded transition-all',
+                  isAdminGroupActive ? 'bg-raised border border-edge text-ink' : 'text-dim hover:text-ink hover:bg-raised/50',
+                  collapsed && 'justify-center px-0'
+                )}
               >
-                <span className="shrink-0"><Icons.Settings /></span>
+                <span className={cx('shrink-0', isAdminGroupActive && 'text-gold')}><Icons.Settings /></span>
                 {!collapsed && (
                   <>
                     <span className="flex-1 text-left">Admin</span>
@@ -258,12 +260,37 @@ export default function SidebarNav({
               </button>
               {adminOpen && !collapsed && (
                 <div className="mt-1 space-y-0.5">
-                  <NavLink id="admin-activity" icon={null} label="Activity" sub />
-                  <NavLink id="admin-flags" icon={null} label="Feature Flags" sub />
-                  <NavLink id="admin-integrations" icon={null} label="Integrations" sub />
-                  <NavLink id="admin-spaces" icon={null} label="Spaces" sub />
-                  <NavLink id="admin-users" icon={null} label="Members" sub />
-                  <NavLink id="admin-settings" icon={null} label="Settings" sub />
+                  {isAdmin && <NavLink id="admin-activity" icon={null} label="Activity" sub />}
+                  {isAdmin && <NavLink id="admin-integrations" icon={null} label="Integrations" sub />}
+                  {canManageActiveSpace && <NavLink id="space-manage" icon={null} label="My Space" sub />}
+                  {isAdmin && <NavLink id="admin-settings" icon={null} label="Settings" sub />}
+                </div>
+              )}
+            </div>
+          )}
+
+          {isAdmin && (
+            <div>
+              <button
+                onClick={() => setGlobalOpen((o) => !o)}
+                className={cx(
+                  'w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded transition-all',
+                  isGlobalGroupActive ? 'bg-raised border border-edge text-ink' : 'text-dim hover:text-ink hover:bg-raised/50',
+                  collapsed && 'justify-center px-0'
+                )}
+              >
+                <span className={cx('shrink-0', isGlobalGroupActive && 'text-gold')}><Icons.Users /></span>
+                {!collapsed && (
+                  <>
+                    <span className="flex-1 text-left">Global</span>
+                    <span className={cx('transition-transform duration-200', globalOpen && 'rotate-180')}><Icons.ChevronDown /></span>
+                  </>
+                )}
+              </button>
+              {globalOpen && !collapsed && (
+                <div className="mt-1 space-y-0.5">
+                  <NavLink id="admin-spaces" icon={null} label="All Spaces" sub />
+                  <NavLink id="admin-users" icon={null} label="All Members" sub />
                 </div>
               )}
             </div>

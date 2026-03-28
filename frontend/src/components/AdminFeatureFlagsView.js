@@ -1,5 +1,14 @@
 import React, { useCallback, useEffect, useState } from 'react';
 
+const HIDDEN_BAKED_IN_FLAGS = new Set([
+  'api_docs_enabled',
+  'import_csv_enabled',
+  'import_plex_enabled',
+  'metadata_normalized_read_enabled',
+  'tmdb_search_enabled',
+  'ui_drawer_edit_experiment'
+]);
+
 export default function AdminFeatureFlagsView({ apiCall, onToast, Spinner, cx }) {
   const [flags, setFlags] = useState([]);
   const [readOnly, setReadOnly] = useState(false);
@@ -12,7 +21,10 @@ export default function AdminFeatureFlagsView({ apiCall, onToast, Spinner, cx })
     setError('');
     try {
       const payload = await apiCall('get', '/admin/feature-flags');
-      setFlags(Array.isArray(payload?.flags) ? payload.flags : []);
+      const visibleFlags = Array.isArray(payload?.flags)
+        ? payload.flags.filter((flag) => !HIDDEN_BAKED_IN_FLAGS.has(flag?.key))
+        : [];
+      setFlags(visibleFlags);
       setReadOnly(Boolean(payload?.readOnly));
     } catch (err) {
       setError(err?.response?.data?.error || 'Failed to load feature flags');
@@ -40,7 +52,7 @@ export default function AdminFeatureFlagsView({ apiCall, onToast, Spinner, cx })
   };
 
   return (
-    <div className="h-full overflow-y-auto p-6 max-w-5xl space-y-4">
+    <div className="h-full overflow-y-auto p-4 sm:p-6 max-w-5xl space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="section-title">Feature Flags</h1>

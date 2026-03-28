@@ -575,9 +575,33 @@ router.use(enforceScopeAccess({ allowedHintRoles: ['admin'] }));
 
 router.get('/users', asyncHandler(async (req, res) => {
   const result = await pool.query(
-    'SELECT id, email, name, role, created_at FROM users ORDER BY created_at DESC'
+    `SELECT
+       u.id,
+       u.email,
+       u.name,
+       u.role,
+       u.created_at,
+       COALESCE(
+         json_agg(
+           DISTINCT jsonb_build_object(
+             'space_id', s.id,
+             'name', s.name,
+             'slug', s.slug,
+             'role', sm.role
+           )
+         ) FILTER (WHERE s.id IS NOT NULL),
+         '[]'::json
+       ) AS spaces
+     FROM users u
+     LEFT JOIN space_memberships sm ON sm.user_id = u.id
+     LEFT JOIN spaces s ON s.id = sm.space_id AND s.archived_at IS NULL
+     GROUP BY u.id
+     ORDER BY u.created_at DESC`
   );
-  res.json(result.rows);
+  res.json(result.rows.map((row) => ({
+    ...row,
+    spaces: Array.isArray(row.spaces) ? row.spaces : []
+  })));
 }));
 
 router.get('/users/:id/summary', asyncHandler(async (req, res) => {
@@ -594,7 +618,7 @@ router.get('/users/:id/summary', asyncHandler(async (req, res) => {
     return res.status(404).json({ error: 'User not found' });
   }
 
-  const [loginResult, membershipResult] = await Promise.all([
+  const [loginResult, membershipResult, spacesResult] = await Promise.all([
     pool.query(
       `SELECT MAX(created_at) AS last_login_at
        FROM activity_log
@@ -610,6 +634,19 @@ router.get('/users/:id/summary', asyncHandler(async (req, res) => {
        FROM space_memberships
        WHERE user_id = $1`,
       [userId]
+    ),
+    pool.query(
+      `SELECT
+         s.id AS space_id,
+         s.name,
+         s.slug,
+         sm.role
+       FROM space_memberships sm
+       JOIN spaces s ON s.id = sm.space_id
+       WHERE sm.user_id = $1
+         AND s.archived_at IS NULL
+       ORDER BY lower(s.name) ASC, s.id ASC`,
+      [userId]
     )
   ]);
 
@@ -620,7 +657,8 @@ router.get('/users/:id/summary', asyncHandler(async (req, res) => {
       membershipCount: Number(membershipResult.rows[0]?.membership_count || 0),
       ownerCount: Number(membershipResult.rows[0]?.owner_count || 0),
       adminCount: Number(membershipResult.rows[0]?.admin_count || 0)
-    }
+    },
+    spaces: Array.isArray(spacesResult.rows) ? spacesResult.rows : []
   });
 }));
 

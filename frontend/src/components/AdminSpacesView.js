@@ -1,10 +1,31 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 function emptyCreateForm() {
-  return { name: '', slug: '', description: '', owner_user_id: '' };
+  return { name: '', owner_user_id: '' };
 }
 
-export default function AdminSpacesView({ apiCall, onToast, Spinner, cx }) {
+function emptyInviteForm() {
+  return { email: '', role: 'member' };
+}
+
+function emptyExistingUserForm() {
+  return { user_id: '', role: 'member' };
+}
+
+function defaultSpaceRole(hasOwner) {
+  return hasOwner ? 'member' : 'owner';
+}
+
+function buildSpaceSlug(name) {
+  return String(name || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-');
+}
+
+export default function AdminSpacesView({ apiCall, onToast, Spinner, cx, Icons }) {
   const [spaces, setSpaces] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -13,6 +34,15 @@ export default function AdminSpacesView({ apiCall, onToast, Spinner, cx }) {
   const [creating, setCreating] = useState(false);
   const [ownerAssignments, setOwnerAssignments] = useState({});
   const [busySpaceId, setBusySpaceId] = useState(null);
+  const [selectedSpaceId, setSelectedSpaceId] = useState(null);
+  const [ownerResetUserId, setOwnerResetUserId] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetLink, setResetLink] = useState('');
+  const [inviteForm, setInviteForm] = useState(() => emptyInviteForm());
+  const [creatingInvite, setCreatingInvite] = useState(false);
+  const [inviteLink, setInviteLink] = useState('');
+  const [existingUserForm, setExistingUserForm] = useState(() => emptyExistingUserForm());
+  const [addingExistingUser, setAddingExistingUser] = useState(false);
 
   const loadPlatformData = useCallback(async () => {
     setLoading(true);
@@ -44,15 +74,47 @@ export default function AdminSpacesView({ apiCall, onToast, Spinner, cx }) {
     () => users.map((user) => ({ id: Number(user.id), label: `${user.name || 'Unnamed'} (${user.email})` })),
     [users]
   );
+  const selectedSpace = useMemo(
+    () => spaces.find((space) => Number(space.id) === Number(selectedSpaceId)) || null,
+    [spaces, selectedSpaceId]
+  );
+  const selectedSpaceOwners = useMemo(
+    () => (Array.isArray(selectedSpace?.owners) ? selectedSpace.owners : []),
+    [selectedSpace]
+  );
+
+  useEffect(() => {
+    if (!selectedSpace) {
+      setOwnerResetUserId('');
+      return;
+    }
+    setOwnerResetUserId((prev) => {
+      if (prev && selectedSpaceOwners.some((owner) => Number(owner.user_id) === Number(prev))) return prev;
+      return selectedSpaceOwners[0]?.user_id ? String(selectedSpaceOwners[0].user_id) : '';
+    });
+  }, [selectedSpace, selectedSpaceOwners]);
+
+  useEffect(() => {
+    setResetLink('');
+    setInviteLink('');
+    if (!selectedSpace) {
+      setInviteForm(emptyInviteForm());
+      setExistingUserForm(emptyExistingUserForm());
+      return;
+    }
+    const nextRole = defaultSpaceRole(selectedSpaceOwners.length > 0);
+    setInviteForm({ email: '', role: nextRole });
+    setExistingUserForm({ user_id: '', role: nextRole });
+  }, [selectedSpace, selectedSpaceId, selectedSpaceOwners]);
 
   const createSpace = async (event) => {
     event.preventDefault();
     setCreating(true);
     try {
+      const slug = buildSpaceSlug(createForm.name);
       const payload = {
         name: createForm.name,
-        slug: createForm.slug || null,
-        description: createForm.description || null
+        slug: slug || null
       };
       if (createForm.owner_user_id) payload.owner_user_id = Number(createForm.owner_user_id);
       await apiCall('post', '/admin/spaces', payload);
@@ -78,6 +140,64 @@ export default function AdminSpacesView({ apiCall, onToast, Spinner, cx }) {
       onToast(error.response?.data?.detail || error.response?.data?.error || 'Failed to assign owner', 'error');
     } finally {
       setBusySpaceId(null);
+    }
+  };
+
+  const createOwnerReset = async () => {
+    const ownerUserId = Number(ownerResetUserId || 0);
+    if (!ownerUserId) return;
+    setResetLoading(true);
+    try {
+      const data = await apiCall('post', `/admin/users/${ownerUserId}/password-reset`, { expose_token: true });
+      const link = data?.reset_url || '';
+      setResetLink(link);
+      if (data?.delivery?.sent) onToast('Owner reset email sent');
+      else if (link) onToast('Owner reset link created', 'info');
+      else onToast('Password reset created but no copy-link available', 'info');
+    } catch (error) {
+      onToast(error.response?.data?.error || 'Failed to create owner reset link', 'error');
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
+  const createDirectInvite = async () => {
+    if (!selectedSpaceId) return;
+    setCreatingInvite(true);
+    try {
+      const data = await apiCall('post', `/spaces/${selectedSpaceId}/invites`, {
+        email: inviteForm.email,
+        role: inviteForm.role,
+        expose_token: true
+      });
+      setInviteLink(data?.invite_url || '');
+      setInviteForm({ email: '', role: defaultSpaceRole(selectedSpaceOwners.length > 0) });
+      if (data?.delivery?.sent) onToast('Invite sent');
+      else onToast('Invite created', 'info');
+    } catch (error) {
+      onToast(error.response?.data?.error || 'Failed to create invite', 'error');
+    } finally {
+      setCreatingInvite(false);
+    }
+  };
+
+  const addExistingUserToSpace = async () => {
+    if (!selectedSpaceId) return;
+    const userId = Number(existingUserForm.user_id || 0);
+    if (!userId) return;
+    setAddingExistingUser(true);
+    try {
+      await apiCall('post', `/spaces/${selectedSpaceId}/members`, {
+        user_id: userId,
+        role: existingUserForm.role
+      });
+      setExistingUserForm({ user_id: '', role: defaultSpaceRole(selectedSpaceOwners.length > 0) });
+      await loadPlatformData();
+      onToast('User added to space');
+    } catch (error) {
+      onToast(error.response?.data?.detail || error.response?.data?.error || 'Failed to add user to space', 'error');
+    } finally {
+      setAddingExistingUser(false);
     }
   };
 
@@ -111,13 +231,13 @@ export default function AdminSpacesView({ apiCall, onToast, Spinner, cx }) {
   };
 
   if (loading) {
-    return <div className="p-6 flex items-center gap-3 text-dim"><Spinner />Loading spaces…</div>;
+    return <div className="p-4 sm:p-6 flex items-center gap-3 text-dim"><Spinner />Loading spaces…</div>;
   }
 
   return (
-    <div className="h-full overflow-y-auto p-6 space-y-6 max-w-6xl">
+    <div className="h-full overflow-y-auto p-4 sm:p-6 space-y-6">
       <div className="space-y-2">
-        <h1 className="section-title">Server Spaces</h1>
+        <h1 className="section-title">All Spaces</h1>
         <p className="text-sm text-ghost max-w-3xl">
           Platform control plane for global admins. Create spaces, recover owners, and archive or delete empty spaces without joining those tenant spaces.
         </p>
@@ -125,25 +245,17 @@ export default function AdminSpacesView({ apiCall, onToast, Spinner, cx }) {
 
       {loadError ? <p className="text-sm text-err">{loadError}</p> : null}
 
-      <form className="card p-5 space-y-4" onSubmit={createSpace}>
+      <form className="space-y-4 max-w-3xl" onSubmit={createSpace}>
         <div>
           <h2 className="text-xl font-medium text-ink">Create Space</h2>
           <p className="text-sm text-ghost mt-1">New spaces stay out of tenant management until their owner joins and works inside them.</p>
         </div>
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-          <label className="field">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:flex-nowrap">
+          <label className="field xl:max-w-[360px] xl:flex-1">
             <span className="label">Name</span>
             <input className="input" value={createForm.name} onChange={(e) => setCreateForm((prev) => ({ ...prev, name: e.target.value }))} required />
           </label>
-          <label className="field">
-            <span className="label">Slug</span>
-            <input className="input" value={createForm.slug} onChange={(e) => setCreateForm((prev) => ({ ...prev, slug: e.target.value }))} />
-          </label>
-          <label className="field xl:col-span-2">
-            <span className="label">Description</span>
-            <textarea className="textarea min-h-[96px]" value={createForm.description} onChange={(e) => setCreateForm((prev) => ({ ...prev, description: e.target.value }))} />
-          </label>
-          <label className="field xl:col-span-2">
+          <label className="field xl:w-[240px] xl:shrink-0">
             <span className="label">Initial Owner</span>
             <select className="select" value={createForm.owner_user_id} onChange={(e) => setCreateForm((prev) => ({ ...prev, owner_user_id: e.target.value }))}>
               <option value="">Current admin</option>
@@ -152,24 +264,27 @@ export default function AdminSpacesView({ apiCall, onToast, Spinner, cx }) {
               ))}
             </select>
           </label>
-        </div>
-        <div className="flex justify-end">
-          <button type="submit" className="btn-primary min-w-[132px]" disabled={creating}>
-            {creating ? <Spinner size={14} /> : 'Create Space'}
-          </button>
+          <div className="xl:shrink-0 xl:pb-[1px]">
+            <button type="submit" className="btn-primary min-w-[132px] w-full xl:w-auto" disabled={creating}>
+              {creating ? <Spinner size={14} /> : 'Create Space'}
+            </button>
+          </div>
         </div>
       </form>
 
-      <div className="card divide-y divide-edge">
+      <div className="space-y-1">
         {spaces.length === 0 && <p className="px-5 py-8 text-sm text-ghost text-center">No spaces found.</p>}
         {spaces.map((space) => {
           const ownerSummary = Array.isArray(space.owners) ? space.owners : [];
-          const selectedOwner = ownerAssignments[space.id] || '';
           const archived = Boolean(space.archived_at);
           const canArchive = !archived && Number(space.library_count || 0) === 0 && space.slug !== 'default';
           const canDelete = archived && Number(space.library_count || 0) === 0 && space.slug !== 'default';
           return (
-            <div key={space.id} className="px-5 py-5 space-y-4">
+            <div
+              key={space.id}
+              className="py-4 space-y-4 cursor-pointer"
+              onClick={() => setSelectedSpaceId(space.id)}
+            >
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="min-w-[240px] flex-1">
                   <div className="flex flex-wrap items-center gap-2">
@@ -192,35 +307,15 @@ export default function AdminSpacesView({ apiCall, onToast, Spinner, cx }) {
                 </div>
 
                 <div className="min-w-[280px] space-y-3">
-                  <label className="field">
-                    <span className="label">Recover or Add Owner</span>
-                    <div className="flex gap-2">
-                      <select
-                        className="select flex-1"
-                        value={selectedOwner}
-                        onChange={(e) => setOwnerAssignments((prev) => ({ ...prev, [space.id]: e.target.value }))}
-                      >
-                        <option value="">Select user</option>
-                        {userOptions.map((user) => (
-                          <option key={user.id} value={user.id}>{user.label}</option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        className="btn-secondary btn-sm shrink-0"
-                        disabled={!selectedOwner || busySpaceId === space.id}
-                        onClick={() => assignOwner(space.id)}
-                      >
-                        {busySpaceId === space.id ? <Spinner size={12} /> : 'Assign'}
-                      </button>
-                    </div>
-                  </label>
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
                       className="btn-secondary btn-sm"
                       disabled={!canArchive || busySpaceId === space.id}
-                      onClick={() => setArchived(space.id, true)}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setArchived(space.id, true);
+                      }}
                       title={space.slug === 'default' ? 'Default space is protected' : Number(space.library_count || 0) > 0 ? 'Empty the space first' : 'Archive space'}
                     >
                       {busySpaceId === space.id ? <Spinner size={12} /> : 'Archive'}
@@ -229,7 +324,10 @@ export default function AdminSpacesView({ apiCall, onToast, Spinner, cx }) {
                       type="button"
                       className="btn-secondary btn-sm"
                       disabled={!archived || space.slug === 'default' || busySpaceId === space.id}
-                      onClick={() => setArchived(space.id, false)}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setArchived(space.id, false);
+                      }}
                     >
                       {busySpaceId === space.id ? <Spinner size={12} /> : 'Unarchive'}
                     </button>
@@ -237,13 +335,16 @@ export default function AdminSpacesView({ apiCall, onToast, Spinner, cx }) {
                       type="button"
                       className="btn-danger btn-sm"
                       disabled={!canDelete || busySpaceId === space.id}
-                      onClick={() => deleteSpace(space.id)}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        deleteSpace(space.id);
+                      }}
                     >
                       {busySpaceId === space.id ? <Spinner size={12} /> : 'Delete'}
                     </button>
                   </div>
                   {!canArchive && !archived && Number(space.library_count || 0) > 0 ? (
-                    <p className="text-xs text-ghost">Archive is limited to empty spaces in this slice.</p>
+                    <p className="text-xs text-ghost">Archive an empty space.</p>
                   ) : null}
                 </div>
               </div>
@@ -251,6 +352,174 @@ export default function AdminSpacesView({ apiCall, onToast, Spinner, cx }) {
           );
         })}
       </div>
+
+      {selectedSpace && (
+        <>
+          <div className="fixed inset-0 bg-void/70 z-40" onClick={() => setSelectedSpaceId(null)} />
+          <aside className="fixed top-0 right-0 h-full w-full max-w-lg bg-abyss border-l border-edge z-50 overflow-y-auto">
+            <div className="p-5 border-b border-edge flex items-start gap-3">
+              <div className="flex-1 min-w-0">
+                <h2 className="font-display text-2xl tracking-wider text-ink">Space Controls</h2>
+                <p className="text-sm text-ghost mt-1">{selectedSpace.name}</p>
+              </div>
+              <button onClick={() => setSelectedSpaceId(null)} className="btn-icon btn-sm">
+                <Icons.X />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-6">
+              <section className="space-y-3">
+                <div>
+                  <h3 className="text-lg font-medium text-ink">
+                    {selectedSpaceOwners.length > 0 ? "Reset an owner's password" : 'Add an owner'}
+                  </h3>
+                  <p className="text-sm text-ghost mt-1">
+                    {selectedSpaceOwners.length > 0
+                      ? 'Create a password reset link for a current owner.'
+                      : 'This space is currently empty.'}
+                  </p>
+                </div>
+
+                {selectedSpaceOwners.length > 0 ? (
+                  <>
+                    <label className="field">
+                      <span className="label">Owner</span>
+                      <select
+                        className="select"
+                        value={ownerResetUserId}
+                        onChange={(e) => setOwnerResetUserId(e.target.value)}
+                      >
+                        {selectedSpaceOwners.map((owner) => (
+                          <option key={owner.user_id} value={owner.user_id}>
+                            {owner.email || owner.name || `user #${owner.user_id}`}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <div className="flex justify-end">
+                      <button type="button" className="btn-secondary" disabled={!ownerResetUserId || resetLoading} onClick={createOwnerReset}>
+                        {resetLoading ? <Spinner size={14} /> : 'Create reset link'}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <label className="field">
+                      <span className="label">Owner</span>
+                      <div className="flex gap-2">
+                        <select
+                          className="select flex-1"
+                          value={ownerAssignments[selectedSpace.id] || ''}
+                          onChange={(e) => setOwnerAssignments((prev) => ({ ...prev, [selectedSpace.id]: e.target.value }))}
+                        >
+                          <option value="">Select user</option>
+                          {userOptions.map((user) => (
+                            <option key={user.id} value={user.id}>{user.label}</option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          className="btn-secondary btn-sm shrink-0"
+                          disabled={!ownerAssignments[selectedSpace.id] || busySpaceId === selectedSpace.id}
+                          onClick={() => assignOwner(selectedSpace.id)}
+                        >
+                          {busySpaceId === selectedSpace.id ? <Spinner size={12} /> : 'Assign'}
+                        </button>
+                      </div>
+                    </label>
+                  </>
+                )}
+
+                {resetLink && (
+                  <div className="p-3 flex items-center gap-3 bg-raised rounded-lg border border-edge">
+                    <code className="flex-1 text-xs text-gold font-mono truncate">{resetLink}</code>
+                    <button type="button" className="btn-icon btn-sm shrink-0" onClick={() => navigator.clipboard.writeText(resetLink).then(() => onToast('Copied')).catch(() => onToast('Copy failed', 'error'))}>
+                      <Icons.Copy />
+                    </button>
+                  </div>
+                )}
+              </section>
+
+              <section className="space-y-4">
+                <div>
+                  <h3 className="text-lg font-medium text-ink">Add people</h3>
+                  <p className="text-sm text-ghost mt-1">Invite someone directly to this space or add an existing user to it.</p>
+                </div>
+
+                <div className="space-y-3">
+                  <p className="text-xs uppercase tracking-[0.18em] text-ghost">Direct space-scoped invite</p>
+                  <div className="flex flex-wrap items-end gap-3">
+                    <label className="field min-w-[220px] flex-1">
+                      <span className="label">Email</span>
+                      <input
+                        className="input"
+                        type="email"
+                        value={inviteForm.email}
+                        onChange={(e) => setInviteForm((prev) => ({ ...prev, email: e.target.value }))}
+                      />
+                    </label>
+                    <label className="field w-[150px] shrink-0">
+                      <span className="label">Role</span>
+                      <select className="select" value={inviteForm.role} onChange={(e) => setInviteForm((prev) => ({ ...prev, role: e.target.value }))}>
+                        <option value="owner">owner</option>
+                        <option value="admin">admin</option>
+                        <option value="member">member</option>
+                        <option value="viewer">viewer</option>
+                      </select>
+                    </label>
+                    <button type="button" className="btn-primary min-w-[120px]" disabled={!inviteForm.email || creatingInvite} onClick={createDirectInvite}>
+                      {creatingInvite ? <Spinner size={14} /> : 'Create Invite'}
+                    </button>
+                  </div>
+                  {inviteLink && (
+                    <div className="p-3 flex items-center gap-3 bg-raised rounded-lg border border-edge">
+                      <code className="flex-1 text-xs text-gold font-mono truncate">{inviteLink}</code>
+                      <button type="button" className="btn-icon btn-sm shrink-0" onClick={() => navigator.clipboard.writeText(inviteLink).then(() => onToast('Copied')).catch(() => onToast('Copy failed', 'error'))}>
+                        <Icons.Copy />
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <p className="text-xs uppercase tracking-[0.18em] text-ghost">Add existing user to this space</p>
+                  <div className="flex flex-wrap items-end gap-3">
+                    <label className="field min-w-[240px] flex-1">
+                      <span className="label">User</span>
+                      <select
+                        className="select"
+                        value={existingUserForm.user_id}
+                        onChange={(e) => setExistingUserForm((prev) => ({ ...prev, user_id: e.target.value }))}
+                      >
+                        <option value="">Select user</option>
+                        {userOptions.map((user) => (
+                          <option key={user.id} value={user.id}>{user.label}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="field w-[150px] shrink-0">
+                      <span className="label">Role</span>
+                      <select
+                        className="select"
+                        value={existingUserForm.role}
+                        onChange={(e) => setExistingUserForm((prev) => ({ ...prev, role: e.target.value }))}
+                      >
+                        <option value="owner">owner</option>
+                        <option value="admin">admin</option>
+                        <option value="member">member</option>
+                        <option value="viewer">viewer</option>
+                      </select>
+                    </label>
+                    <button type="button" className="btn-secondary min-w-[120px]" disabled={!existingUserForm.user_id || addingExistingUser} onClick={addExistingUserToSpace}>
+                      {addingExistingUser ? <Spinner size={14} /> : 'Add User'}
+                    </button>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </aside>
+        </>
+      )}
     </div>
   );
 }

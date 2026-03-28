@@ -37,6 +37,7 @@ Start here for deployment and operations guidance.
 31. [Loki and Promtail Structured Logs](./36-Loki-and-Promtail-Structured-Logs.md)
 32. [Syslog Structured Logs](./37-Syslog-Structured-Logs.md)
 33. [Convention Scheduler and Provider Framework Spec](./38-Convention-Scheduler-and-Provider-Spec.md)
+34. [2.8.0 UI Review Checklist](./40-2.8.0-UI-Review-Checklist.md)
 
 ## Default Admin Behavior (Important)
 

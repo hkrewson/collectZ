@@ -222,7 +222,7 @@ export default function ImportView({
   }, [recentJobs, onImported]);
 
   return (
-    <div className="h-full overflow-y-auto p-6 max-w-3xl space-y-6">
+    <div className="h-full overflow-y-auto p-4 sm:p-6 max-w-3xl space-y-6">
       <div>
         <h1 className="section-title">Import Media</h1>
         <p className="text-sm text-ghost mt-1">Add titles from external sources into your library.</p>

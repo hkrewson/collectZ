@@ -36,6 +36,7 @@ export default function SpaceManagerView({
   const [creatingInvite, setCreatingInvite] = useState(false);
   const [memberBusyId, setMemberBusyId] = useState(null);
   const [showInviteHistory, setShowInviteHistory] = useState(false);
+  const [peopleTab, setPeopleTab] = useState('members');
   const memberLoadSeqRef = useRef(0);
   const inviteLoadSeqRef = useRef(0);
 
@@ -60,6 +61,7 @@ export default function SpaceManagerView({
     setInvites([]);
     setInviteUrl('');
     setShowInviteHistory(false);
+    setPeopleTab('members');
     setLoadError('');
     setLoading(Boolean(activeSpaceId && canManage));
   }, [activeSpaceId, canManage]);
@@ -227,18 +229,10 @@ export default function SpaceManagerView({
   }, [invites, showInviteHistory]);
 
   return (
-    <div className="h-full overflow-y-auto p-6 space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+    <div className="h-full overflow-y-auto p-4 sm:p-6 space-y-8">
+      <div>
         <div>
-          <h1 className="section-title">Space Control</h1>
-          <p className="text-sm text-ghost mt-2 max-w-3xl">
-            Switch active scope and manage the current space only when you are an owner or admin of that space.
-          </p>
-        </div>
-        <div className="card p-4 min-w-[260px]">
-          <p className="text-xs uppercase tracking-[0.18em] text-ghost">Current Scope</p>
-          <p className="mt-2 text-lg font-medium text-ink">{activeSpace?.name || 'No active space'}</p>
-          <p className="text-sm text-ghost">{activeSpace?.description || 'Select a space from the sidebar to continue.'}</p>
+          <h1 className="section-title">Space</h1>
           <div className="mt-3 flex flex-wrap gap-2">
             <span className="badge badge-dim">{activeMembershipRole || 'no membership role'}</span>
             {activeLibraryId ? <span className="badge badge-dim">library #{activeLibraryId}</span> : null}
@@ -249,106 +243,83 @@ export default function SpaceManagerView({
       </div>
 
       {!canManage && (
-        <div className="card p-5">
+        <div>
           <p className="text-sm text-ghost">
             The active space can be viewed, but only its owner or admins can manage members, invites, and settings here.
           </p>
         </div>
       )}
 
-      {loadError ? <div className="card p-4 text-sm text-err">{loadError}</div> : null}
+      {loadError ? <div className="text-sm text-err">{loadError}</div> : null}
 
       {canManage && (
         <>
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-            <form className="card p-5 space-y-4" onSubmit={saveSpace}>
+          <div className="max-w-2xl">
+            <form className="space-y-4" onSubmit={saveSpace}>
               <div>
-                <h2 className="text-xl font-medium text-ink">Space Details</h2>
-                <p className="text-sm text-ghost mt-1">Update the active space name, slug, and description without leaving the tenancy workspace.</p>
+                <h2 className="text-xl font-medium text-ink">General</h2>
+                <p className="text-sm text-ghost mt-1">Update your Space&apos;s name.</p>
               </div>
-              <label className="field">
-                <span className="label">Name</span>
-                <input className="input" value={editingSpace.name} onChange={(e) => setEditingSpace((prev) => ({ ...prev, name: e.target.value }))} required />
-              </label>
-              <label className="field">
-                <span className="label">Slug</span>
-                <input className="input" value={editingSpace.slug || ''} onChange={(e) => setEditingSpace((prev) => ({ ...prev, slug: e.target.value }))} />
-              </label>
-              <label className="field">
-                <span className="label">Description</span>
-                <textarea className="textarea min-h-[104px]" value={editingSpace.description || ''} onChange={(e) => setEditingSpace((prev) => ({ ...prev, description: e.target.value }))} />
-              </label>
-              <div className="flex justify-end">
-                <button type="submit" className="btn-primary min-w-[120px]" disabled={savingSpace}>
+              <div className="flex flex-wrap items-end gap-3">
+                <label className="field min-w-[240px] flex-1">
+                  <span className="label">Name</span>
+                  <input className="input" value={editingSpace.name} onChange={(e) => setEditingSpace((prev) => ({ ...prev, name: e.target.value }))} required />
+                </label>
+                <button type="submit" className="btn-primary min-w-[120px] shrink-0" disabled={savingSpace}>
                   {savingSpace ? <Spinner size={14} /> : 'Save Space'}
-                </button>
-              </div>
-            </form>
-
-            <form className="card p-5 space-y-4" onSubmit={createInvite}>
-              <div>
-                <h2 className="text-xl font-medium text-ink">Scoped Invites</h2>
-                <p className="text-sm text-ghost mt-1">Invite users directly into this space with the role they should receive on first login.</p>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <label className="field md:col-span-2">
-                  <span className="label">Email</span>
-                  <input className="input" type="email" value={inviteForm.email} onChange={(e) => setInviteForm((prev) => ({ ...prev, email: e.target.value }))} required />
-                </label>
-                <label className="field">
-                  <span className="label">Role</span>
-                  <select className="select" value={inviteForm.role} onChange={(e) => setInviteForm((prev) => ({ ...prev, role: e.target.value }))}>
-                    {assignableRoles.map((role) => <option key={role} value={role}>{role}</option>)}
-                  </select>
-                </label>
-                <label className="field justify-end">
-                  <span className="label">Copy Link</span>
-                  <label className="inline-flex items-center gap-2 text-sm text-dim">
-                    <input type="checkbox" checked={Boolean(inviteForm.expose_token)} onChange={(e) => setInviteForm((prev) => ({ ...prev, expose_token: e.target.checked }))} />
-                    Expose invite URL
-                  </label>
-                </label>
-              </div>
-              {inviteUrl ? (
-                <div className="card-raised p-3 flex items-center gap-3">
-                  <code className="flex-1 text-xs text-gold font-mono truncate">{inviteUrl}</code>
-                  <button type="button" className="btn-icon btn-sm shrink-0" onClick={() => copy(inviteUrl)}><Icons.Copy /></button>
-                </div>
-              ) : null}
-              <div className="flex justify-between items-center gap-3">
-                <label className="inline-flex items-center gap-2 text-xs text-ghost">
-                  <input type="checkbox" checked={showInviteHistory} onChange={(e) => setShowInviteHistory(e.target.checked)} />
-                  Show invite history
-                </label>
-                <button type="submit" className="btn-primary min-w-[120px]" disabled={creatingInvite}>
-                  {creatingInvite ? <Spinner size={14} /> : 'Create Invite'}
                 </button>
               </div>
             </form>
           </div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-[1.35fr,1fr] gap-6">
-            <div className="card overflow-hidden">
-              <div className="px-5 py-4 border-b border-edge flex items-center justify-between gap-3">
+          <div className="space-y-4">
+            <div className="tab-strip w-fit">
+              <button
+                type="button"
+                className={cx('tab', peopleTab === 'members' && 'active')}
+                onClick={() => setPeopleTab('members')}
+              >
+                Members
+              </button>
+              <button
+                type="button"
+                className={cx('tab', peopleTab === 'invitations' && 'active')}
+                onClick={() => setPeopleTab('invitations')}
+              >
+                Invitations
+              </button>
+            </div>
+
+            {peopleTab === 'members' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-xl font-medium text-ink">Memberships</h2>
-                  <p className="text-sm text-ghost mt-1">Owners and admins for this space can manage only this roster.</p>
+                  <h2 className="text-xl font-medium text-ink">Members</h2>
+                  <p className="text-sm text-ghost mt-1">Change roles or remove members.</p>
                 </div>
                 {loading ? <Spinner size={16} /> : <span className="badge badge-dim">{members.length} member{members.length === 1 ? '' : 's'}</span>}
               </div>
-              <div className="divide-y divide-edge">
-                {!loading && members.length === 0 ? <p className="px-5 py-8 text-sm text-ghost text-center">No members found for this space.</p> : null}
+              <div className="space-y-1">
+                {!loading && members.length === 0 ? <p className="py-8 text-sm text-ghost text-center">No members found for this space.</p> : null}
                 {members.map((member) => (
-                  <div key={member.id} className="px-5 py-4 flex flex-wrap items-center gap-3">
+                  <div
+                    key={member.id}
+                    className="py-4 flex flex-wrap items-center gap-4"
+                  >
                     <div className="w-10 h-10 rounded-lg bg-raised border border-edge flex items-center justify-center text-dim font-display">
                       {member.name?.[0]?.toUpperCase() || member.email?.[0]?.toUpperCase() || '?'}
                     </div>
-                    <div className="min-w-[180px] flex-1">
+                    <div className="min-w-[220px] flex-1">
                       <p className="text-sm font-medium text-ink">{member.name || 'Unnamed user'}</p>
                       <p className="text-xs text-ghost">{member.email}</p>
                     </div>
+                    <div className="min-w-[120px]">
+                      <p className="text-[11px] uppercase tracking-wide text-ghost">App Role</p>
+                      <p className="text-sm text-ink">{member.user_role || 'user'}</p>
+                    </div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="badge badge-dim text-[10px]">app {member.user_role}</span>
+                      <div>
+                        <p className="text-[11px] uppercase tracking-wide text-ghost mb-1">Space Role</p>
                       <select
                         className="select min-w-[120px]"
                         value={member.role}
@@ -359,6 +330,7 @@ export default function SpaceManagerView({
                           <option key={role} value={role}>{role}</option>
                         ))}
                       </select>
+                      </div>
                       <button
                         type="button"
                         className="btn-ghost btn-sm text-err hover:bg-err/10"
@@ -372,41 +344,98 @@ export default function SpaceManagerView({
                 ))}
               </div>
             </div>
+            )}
 
-            <div className="card overflow-hidden">
-              <div className="px-5 py-4 border-b border-edge">
-                <h2 className="text-xl font-medium text-ink">Invite Queue</h2>
+            {peopleTab === 'invitations' && (
+            <div className="space-y-4">
+              <div>
+                <h2 className="text-xl font-medium text-ink">Invitations</h2>
                 <p className="text-sm text-ghost mt-1">Review live and historical invites scoped to this space.</p>
               </div>
-              <div className="divide-y divide-edge">
-                {!loading && visibleInvites.length === 0 ? <p className="px-5 py-8 text-sm text-ghost text-center">No invites to show.</p> : null}
+              <form className="space-y-4" onSubmit={createInvite}>
+                <div className="flex flex-wrap items-end gap-3">
+                  <label className="field min-w-[220px] flex-1">
+                    <span className="label">Email</span>
+                    <input className="input" type="email" value={inviteForm.email} onChange={(e) => setInviteForm((prev) => ({ ...prev, email: e.target.value }))} required />
+                  </label>
+                  <label className="field w-[150px] shrink-0">
+                    <span className="label">Role</span>
+                    <select className="select" value={inviteForm.role} onChange={(e) => setInviteForm((prev) => ({ ...prev, role: e.target.value }))}>
+                      {assignableRoles.map((role) => <option key={role} value={role}>{role}</option>)}
+                    </select>
+                  </label>
+                  <div className="flex items-end gap-2 shrink-0">
+                    <button
+                      type="button"
+                      className={cx(
+                        'btn-icon btn-sm',
+                        inviteForm.expose_token && 'bg-raised border-muted text-ink'
+                      )}
+                      aria-pressed={Boolean(inviteForm.expose_token)}
+                      title={inviteForm.expose_token ? 'Copy-link enabled' : 'Copy-link disabled'}
+                      onClick={() => setInviteForm((prev) => ({ ...prev, expose_token: !prev.expose_token }))}
+                    >
+                      <Icons.Link />
+                    </button>
+                    <button type="submit" className="btn-primary min-w-[120px]" disabled={creatingInvite}>
+                      {creatingInvite ? <Spinner size={14} /> : 'Create Invite'}
+                    </button>
+                  </div>
+                </div>
+                {inviteUrl ? (
+                  <div className="p-3 flex items-center gap-3 bg-raised rounded-lg border border-edge">
+                    <code className="flex-1 text-xs text-gold font-mono truncate">{inviteUrl}</code>
+                    <button type="button" className="btn-icon btn-sm shrink-0" onClick={() => copy(inviteUrl)}><Icons.Copy /></button>
+                  </div>
+                ) : null}
+                <div className="flex justify-between items-center gap-3">
+                  <label className="inline-flex items-center gap-2 text-xs text-ghost">
+                    <input type="checkbox" checked={showInviteHistory} onChange={(e) => setShowInviteHistory(e.target.checked)} />
+                    Show invite history
+                  </label>
+                  <span className="text-xs text-ghost">{inviteForm.expose_token ? 'Copy-link enabled' : 'Email-only invite'}</span>
+                </div>
+              </form>
+              <div className="space-y-1">
+                {!loading && visibleInvites.length === 0 ? <p className="py-8 text-sm text-ghost text-center">No invites to show.</p> : null}
                 {visibleInvites.map((invite) => {
                   const expired = new Date(invite.expires_at).getTime() <= Date.now();
                   return (
-                    <div key={invite.id} className="px-5 py-4 space-y-2">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div key={invite.id} className="py-4 flex flex-wrap items-center gap-4">
+                      <div className="w-10 h-10 rounded-lg bg-raised border border-edge flex items-center justify-center text-dim font-display">
+                        {invite.email?.[0]?.toUpperCase() || '?'}
+                      </div>
+                      <div className="min-w-[220px] flex-1">
+                        <p className="text-sm font-medium text-ink">{invite.email}</p>
+                        <p className="text-xs text-ghost">expires {formatDateTime(invite.expires_at)}</p>
+                      </div>
+                      <div className="min-w-[120px]">
+                        <p className="text-[11px] uppercase tracking-wide text-ghost">Role</p>
+                        <p className="text-sm text-ink">{invite.space_role || 'member'}</p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
                         <div>
-                          <p className="text-sm font-medium text-ink">{invite.email}</p>
-                          <p className="text-xs text-ghost">
-                            {invite.space_role || 'member'} · expires {formatDateTime(invite.expires_at)}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
+                          <p className="text-[11px] uppercase tracking-wide text-ghost mb-1">Status</p>
                           <span className={cx('badge text-[10px]', invite.used ? 'badge-dim' : invite.revoked ? 'badge-err' : expired ? 'badge-warn' : 'badge-ok')}>
                             {invite.used ? 'Used' : invite.revoked ? 'Revoked' : expired ? 'Expired' : 'Active'}
                           </span>
-                          {!invite.used && !invite.revoked && !expired ? (
-                            <button type="button" className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={() => revokeInvite(invite.id)}>
-                              Revoke
-                            </button>
-                          ) : null}
                         </div>
+                        {!invite.used && !invite.revoked && !expired ? (
+                          <button
+                            type="button"
+                            className="btn-ghost btn-sm text-err hover:bg-err/10"
+                            onClick={() => revokeInvite(invite.id)}
+                          >
+                            Revoke
+                          </button>
+                        ) : null}
                       </div>
                     </div>
                   );
                 })}
               </div>
             </div>
+            )}
           </div>
 
         </>

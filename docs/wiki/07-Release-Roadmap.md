@@ -1658,6 +1658,57 @@ Historical planning notes may still exist in:
 - Space creation remains usable even when SMTP is unavailable by preserving copy-link fallback.
 - Failures in invite issuance are surfaced without leaving the operator unclear about whether the space itself was created.
 
+## 2.8.2 — Admin Settings Cleanup and Baked-In Feature Flag Retirement
+
+**Goal:** Reduce admin control-plane clutter after the `2.8.0` UI pass by removing permanently enabled rollout flags from operator-facing controls and converting them into normal application behavior or narrower runtime config gates.
+
+### Scope
+
+- Retire no-longer-optional rollout flags from the admin feature-flag interface and feature-flag service where they have become standard product behavior:
+  - `import_csv_enabled`,
+  - `import_plex_enabled`,
+  - `metadata_normalized_read_enabled`,
+  - `tmdb_search_enabled`.
+- Reclassify operational/runtime-only gates so they are not presented as product feature toggles:
+  - move `api_docs_enabled` toward env/debug/runtime configuration rather than admin-visible feature-flag management.
+- Remove experiment-era fallback paths once the accepted UI behavior is settled:
+  - retire `ui_drawer_edit_experiment`,
+  - remove stale frontend env fallback and backend flag plumbing once drawer behavior is considered final.
+- Keep admin settings UX aligned with actual operator decisions:
+  - visible flags should represent real rollout or operational decisions still worth toggling,
+  - permanently-on behavior should not remain in the interface as fake optionality.
+- Update roadmap-adjacent docs and env references so they match the post-cleanup control model.
+
+### Acceptance Criteria
+
+- The admin feature-flag screen only shows flags that remain true operator-controlled rollout or operational decisions.
+- Permanently enabled import, metadata, and TMDB behavior no longer depends on admin-visible feature-flag toggles.
+- API docs availability is controlled by the intended runtime/debug policy rather than a user-facing product toggle.
+- Drawer-edit experiment plumbing is removed once the accepted UI path is finalized.
+- Env examples and docs no longer describe retired flags as active operator decisions.
+
+## 2.8.3 — Import Review Retirement and Debug Import Diagnostics
+
+**Goal:** Retire the standalone Import Review product surface now that import audit/export paths carry most operator value, while preserving only the debug-oriented diagnostics that still help investigate import quality.
+
+### Scope
+
+- Remove the standalone `Library -> Import Review` surface from product navigation and follow through on UI retirement once the hidden/debug-only path is no longer needed.
+- Retire backend queue and resolution plumbing for `import_match_reviews` after the UI has been removed and any remaining operator workflows are confirmed to rely on audit/export instead.
+- Preserve useful import diagnostics in a narrower debug/operator form:
+  - keep the ability to emit import-quality messages to a debug log/export channel,
+  - expose that behavior through the appropriate operator surface if it remains useful (likely Settings or Integrations rather than Library navigation),
+  - avoid restoring a full operator-facing review queue unless new evidence shows it is needed.
+- Update docs and roadmap references so Import Review is no longer presented as an active product workflow once retirement is complete.
+
+### Acceptance Criteria
+
+- The product navigation no longer presents Import Review as a normal library workflow.
+- Any remaining import diagnostics are explicitly debug/operator oriented and not framed as a mainstream end-user page.
+- Backend `import_match_reviews` queueing, endpoints, transfer logic, and schema are removed once the replacement diagnostics path is confirmed.
+- Import audit/export output still provides the operator signals needed to understand ambiguous or low-confidence import behavior.
+- Docs and milestone notes align with the retired-product-surface decision.
+
 ## 2.9.0 — Observability Baseline Review and Alert Tuning
 
 **Goal:** Revisit the initial `2.6.0` observability thresholds once more real import and operator usage data exists.

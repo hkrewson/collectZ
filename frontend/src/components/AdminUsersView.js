@@ -2,6 +2,11 @@ import React, { useCallback, useEffect, useState } from 'react';
 
 const USER_ROLES = ['admin', 'user', 'viewer'];
 
+function formatSpaceMemberships(spaces) {
+  if (!Array.isArray(spaces) || spaces.length === 0) return 'No space memberships';
+  return spaces.map((space) => `${space.name} (${space.role})`).join(', ');
+}
+
 export default function AdminUsersView({ apiCall, onToast, currentUserId, Icons, Spinner }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -131,7 +136,7 @@ export default function AdminUsersView({ apiCall, onToast, currentUserId, Icons,
 
   return (
     <>
-      <div className="h-full overflow-y-auto p-6 space-y-6 max-w-5xl">
+      <div className="h-full overflow-y-auto p-4 sm:p-6 space-y-6">
         <div className="space-y-3">
           <h1 className="section-title">Members</h1>
           <p className="text-sm text-ghost max-w-3xl">
@@ -140,16 +145,21 @@ export default function AdminUsersView({ apiCall, onToast, currentUserId, Icons,
         </div>
         {loadError && <p className="text-sm text-err">{loadError}</p>}
 
-        <div className="card divide-y divide-edge">
+        <div className="space-y-1">
           {users.length === 0 && <p className="px-4 py-6 text-sm text-ghost text-center">No members found</p>}
           {users.map((user) => (
-            <div key={user.id} onClick={() => setSelectedMemberId(user.id)} className="flex items-center gap-4 px-4 py-3 cursor-pointer hover:bg-raised/60 transition-colors">
+            <div
+              key={user.id}
+              onClick={() => setSelectedMemberId(user.id)}
+              className="flex items-center gap-4 py-3 cursor-pointer"
+            >
               <div className="w-9 h-9 rounded-lg bg-raised border border-edge flex items-center justify-center text-dim font-display">
                 {user.name?.[0]?.toUpperCase() || '?'}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-ink truncate">{user.name || 'Unnamed'}</p>
                 <p className="text-xs text-ghost truncate">{user.email}</p>
+                <p className="text-xs text-ghost truncate mt-1">{formatSpaceMemberships(user.spaces)}</p>
               </div>
               <select
                 className="select w-28"
@@ -192,16 +202,22 @@ export default function AdminUsersView({ apiCall, onToast, currentUserId, Icons,
               )}
               {!summaryLoading && memberSummary && (
                 <>
-                  <div className="card p-4 space-y-2">
-                    <p className="text-xs text-ghost">Name</p>
-                    <p className="text-sm text-ink font-medium">{memberSummary.user?.name || 'Unnamed'}</p>
-                    <p className="text-xs text-ghost mt-3">Role</p>
-                    <span className="badge badge-dim">{memberSummary.user?.role || 'user'}</span>
-                    <p className="text-xs text-ghost mt-3">Created</p>
-                    <p className="text-sm text-ink">{memberSummary.user?.created_at ? new Date(memberSummary.user.created_at).toLocaleString() : '—'}</p>
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-xs text-ghost">Name</p>
+                      <p className="text-sm text-ink font-medium">{memberSummary.user?.name || 'Unnamed'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-ghost">Role</p>
+                      <span className="badge badge-dim">{memberSummary.user?.role || 'user'}</span>
+                    </div>
+                    <div>
+                      <p className="text-xs text-ghost">Created</p>
+                      <p className="text-sm text-ink">{memberSummary.user?.created_at ? new Date(memberSummary.user.created_at).toLocaleString() : '—'}</p>
+                    </div>
                   </div>
 
-                  <div className="card p-4 space-y-3">
+                  <div className="space-y-3 pt-2">
                     <p className="text-xs text-ghost">Password reset</p>
                     <div className="flex flex-wrap gap-2">
                       <button type="button" onClick={() => createPasswordReset(false)} disabled={resetLoading} className="btn-secondary btn-sm">
@@ -222,7 +238,7 @@ export default function AdminUsersView({ apiCall, onToast, currentUserId, Icons,
                     )}
                   </div>
 
-                  <div className="card p-4 space-y-3">
+                  <div className="space-y-3 pt-2">
                     <div className="flex items-center justify-between">
                       <p className="text-xs text-ghost">Last login</p>
                       <p className="text-sm text-ink">{memberSummary.metrics?.lastLoginAt ? new Date(memberSummary.metrics.lastLoginAt).toLocaleString() : 'Never'}</p>
@@ -245,6 +261,22 @@ export default function AdminUsersView({ apiCall, onToast, currentUserId, Icons,
                         s:{memberSummary.user?.active_space_id ?? '—'} / l:{memberSummary.user?.active_library_id ?? '—'}
                       </p>
                     </div>
+                  </div>
+
+                  <div className="space-y-3 pt-2">
+                    <p className="text-xs text-ghost">Spaces</p>
+                    {Array.isArray(memberSummary.spaces) && memberSummary.spaces.length > 0 ? (
+                      <div className="space-y-2">
+                        {memberSummary.spaces.map((space) => (
+                          <div key={space.space_id} className="flex items-center justify-between gap-3">
+                            <p className="text-sm text-ink truncate">{space.name}</p>
+                            <span className="badge badge-dim shrink-0">{space.role}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-ghost">No active space memberships.</p>
+                    )}
                   </div>
                 </>
               )}

@@ -35,6 +35,14 @@ const COMICS_PRESETS = {
   comicvine: { comicsPreset: 'comicvine', comicsProvider: 'comicvine', comicsApiUrl: 'https://comicvine.gamespot.com/api/search/', comicsApiKeyHeader: '', comicsApiKeyQueryParam: 'api_key', comicsUsername: '' },
   custom: { comicsPreset: 'custom', comicsProvider: 'custom', comicsApiUrl: '', comicsApiKeyHeader: '', comicsApiKeyQueryParam: 'api_key', comicsUsername: '' }
 };
+const INTEGRATION_FEATURE_LABELS = {
+  lookup_upc_enabled: 'Barcode Lookup',
+  recognize_cover_enabled: 'Cover Recognition',
+  metrics_enabled: 'Metrics Export',
+  external_log_export_enabled: 'External Log Export'
+};
+const INTEGRATION_VISIBLE_FLAGS = new Set(Object.keys(INTEGRATION_FEATURE_LABELS));
+const TOP_LEVEL_INTEGRATION_FLAGS = new Set(['metrics_enabled', 'external_log_export_enabled']);
 
 function LabeledField({ label, className = '', children, cx }) {
   return (
@@ -49,6 +57,44 @@ function StatusBadge({ status, cx }) {
   const map = { ok: 'badge-ok', configured: 'badge-ok', auth_failed: 'badge-err', error: 'badge-err', missing: 'badge-warn', unknown: 'badge-dim' };
   const labels = { ok: 'Connected', configured: 'Configured', auth_failed: 'Auth Failed', error: 'Error', missing: 'Missing Key', unknown: 'Unknown' };
   return <span className={cx('badge', map[status] || 'badge-dim')}>{labels[status] || 'Unknown'}</span>;
+}
+
+function IntegrationFeatureToggle({ feature, disabled, saving, onToggle }) {
+  const enabled = Boolean(feature?.enabled);
+  return (
+    <div className="flex items-start justify-between gap-4 py-4">
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium text-ink">
+          {INTEGRATION_FEATURE_LABELS[feature.key] || feature.key}
+        </p>
+        <p className="mt-1 text-sm text-ghost">
+          {feature.description || 'No description'}
+        </p>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={enabled}
+        aria-label={`${enabled ? 'Disable' : 'Enable'} ${INTEGRATION_FEATURE_LABELS[feature.key] || feature.key}`}
+        disabled={disabled || saving}
+        onClick={() => onToggle(feature, !enabled)}
+        className={[
+          'relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-all duration-150',
+          'focus:outline-none focus:ring-2 focus:ring-gold/30 focus:ring-offset-2 focus:ring-offset-surface',
+          enabled ? 'border-gold/30 bg-gold/15' : 'border-edge bg-raised/80',
+          (disabled || saving) ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:border-muted'
+        ].join(' ')}
+      >
+        <span
+          className={[
+            'inline-block h-5 w-5 rounded-full transition-transform duration-150 shadow-sm',
+            enabled ? 'bg-gold' : 'bg-dim',
+            enabled ? 'translate-x-6' : 'translate-x-1'
+          ].join(' ')}
+        />
+      </button>
+    </div>
+  );
 }
 
 export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Spinner, cx, section: externalSection, onSectionChange }) {
@@ -104,6 +150,11 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
   const [saving, setSaving] = useState(false);
   const [importingPlex, setImportingPlex] = useState(false);
   const [plexAvailableSections, setPlexAvailableSections] = useState([]);
+  const [featureFlags, setFeatureFlags] = useState([]);
+  const [featureFlagsLoading, setFeatureFlagsLoading] = useState(true);
+  const [featureFlagsReadOnly, setFeatureFlagsReadOnly] = useState(false);
+  const [featureFlagsError, setFeatureFlagsError] = useState('');
+  const [savingFeatureKey, setSavingFeatureKey] = useState('');
 
   useEffect(() => {
     if (!externalSection || externalSection === section) return;
@@ -163,6 +214,29 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
     }).catch(() => {});
   }, [apiCall]);
 
+  useEffect(() => {
+    let active = true;
+    setFeatureFlagsLoading(true);
+    setFeatureFlagsError('');
+    apiCall('get', '/admin/feature-flags').then((payload) => {
+      if (!active) return;
+      setFeatureFlags(
+        Array.isArray(payload?.flags)
+          ? payload.flags.filter((flag) => INTEGRATION_VISIBLE_FLAGS.has(flag?.key))
+          : []
+      );
+      setFeatureFlagsReadOnly(Boolean(payload?.readOnly));
+    }).catch((error) => {
+      if (!active) return;
+      setFeatureFlagsError(error?.response?.data?.error || 'Failed to load integration feature settings');
+    }).finally(() => {
+      if (active) setFeatureFlagsLoading(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, [apiCall]);
+
   const applyBarcodePreset = (p) => setForm((f) => ({ ...f, ...(BARCODE_PRESETS[p] || {}) }));
   const applyVisionPreset = (p) => setForm((f) => ({ ...f, ...(VISION_PRESETS[p] || {}) }));
   const applyTmdbPreset = (p) => setForm((f) => ({ ...f, ...(TMDB_PRESETS[p] || {}) }));
@@ -175,12 +249,30 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
     () => form.plexLibrarySections.split(',').map((v) => v.trim()).filter(Boolean),
     [form.plexLibrarySections]
   );
+  const featureFlagMap = useMemo(
+    () => new Map(featureFlags.map((feature) => [feature.key, feature])),
+    [featureFlags]
+  );
 
   const togglePlexSection = (id) => {
     const next = new Set(plexSectionIds);
     if (next.has(id)) next.delete(id);
     else next.add(id);
     setForm((f) => ({ ...f, plexLibrarySections: [...next].join(',') }));
+  };
+
+  const toggleIntegrationFeature = async (feature, enabled) => {
+    if (!feature?.key) return;
+    setSavingFeatureKey(feature.key);
+    try {
+      const updated = await apiCall('patch', `/admin/feature-flags/${encodeURIComponent(feature.key)}`, { enabled });
+      setFeatureFlags((prev) => prev.map((row) => (row.key === updated.key ? updated : row)));
+      onToast(`${INTEGRATION_FEATURE_LABELS[feature.key] || feature.key} ${enabled ? 'enabled' : 'disabled'}`);
+    } catch (error) {
+      onToast(error?.response?.data?.error || 'Failed to update integration feature', 'error');
+    } finally {
+      setSavingFeatureKey('');
+    }
   };
 
   const saveSection = async (sec) => {
@@ -338,7 +430,7 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
   const activeSectionLabel = integrationSections.find((s) => s.id === section)?.label || section;
 
   return (
-    <div className="h-full overflow-y-auto p-6 max-w-5xl space-y-6">
+    <div className="h-full overflow-y-auto p-4 sm:p-6 space-y-6">
       <h1 className="section-title">Integrations</h1>
 
       <div className="md:hidden">
@@ -365,6 +457,33 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
           </ul>
         </div>
       )}
+
+      <section className="space-y-1">
+        {featureFlagsReadOnly && (
+          <div className="p-3 text-sm text-warn">
+            Integration feature settings are read-only in this environment (`FEATURE_FLAGS_READ_ONLY=true`).
+          </div>
+        )}
+        {featureFlagsError && (
+          <div className="p-3 text-sm text-err">
+            {featureFlagsError}
+          </div>
+        )}
+        {featureFlagsLoading && (
+          <div className="flex items-center gap-3 py-4 text-dim">
+            <Spinner size={16} /> Loading integration feature settings…
+          </div>
+        )}
+        {!featureFlagsLoading && featureFlags.filter((feature) => TOP_LEVEL_INTEGRATION_FLAGS.has(feature.key)).map((feature) => (
+          <IntegrationFeatureToggle
+            key={feature.key}
+            feature={feature}
+            disabled={featureFlagsReadOnly || feature.envOverride !== null}
+            saving={savingFeatureKey === feature.key}
+            onToggle={toggleIntegrationFeature}
+          />
+        ))}
+      </section>
 
       <div className="grid gap-4 md:grid-cols-[220px_minmax(0,1fr)] items-start">
         <div className="hidden md:block card p-2 space-y-1">
@@ -395,6 +514,14 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
           <StatusBadge status={status[section]} cx={cx} />
         </div>
         {section === 'barcode' && <>
+          {featureFlagMap.get('lookup_upc_enabled') && (
+            <IntegrationFeatureToggle
+              feature={featureFlagMap.get('lookup_upc_enabled')}
+              disabled={featureFlagsReadOnly || featureFlagMap.get('lookup_upc_enabled')?.envOverride !== null}
+              saving={savingFeatureKey === 'lookup_upc_enabled'}
+              onToggle={toggleIntegrationFeature}
+            />
+          )}
           <LabeledField label="Preset" cx={cx}><select className="select" value={form.barcodePreset} onChange={(e) => applyBarcodePreset(e.target.value)}>
             <option value="upcitemdb">UPCItemDB</option><option value="barcodelookup">BarcodeLookup</option><option value="custom">Custom</option>
           </select></LabeledField>
@@ -413,6 +540,14 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
         </>}
 
         {section === 'vision' && <>
+          {featureFlagMap.get('recognize_cover_enabled') && (
+            <IntegrationFeatureToggle
+              feature={featureFlagMap.get('recognize_cover_enabled')}
+              disabled={featureFlagsReadOnly || featureFlagMap.get('recognize_cover_enabled')?.envOverride !== null}
+              saving={savingFeatureKey === 'recognize_cover_enabled'}
+              onToggle={toggleIntegrationFeature}
+            />
+          )}
           <LabeledField label="Preset" cx={cx}><select className="select" value={form.visionPreset} onChange={(e) => applyVisionPreset(e.target.value)}>
             <option value="ocrspace">OCR.Space</option><option value="custom">Custom</option>
           </select></LabeledField>

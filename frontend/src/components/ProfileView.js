@@ -113,11 +113,11 @@ export default function ProfileView({ user, apiCall, onToast, Spinner }) {
   };
 
   return (
-    <div className="h-full overflow-y-auto p-6 max-w-4xl">
+    <div className="h-full overflow-y-auto p-4 sm:p-6 max-w-4xl">
       <h1 className="section-title mb-6">Profile</h1>
       <div className="space-y-6">
-        <div className="card p-6 space-y-4">
-          <div className="flex items-center gap-4 pb-4 border-b border-edge">
+        <div className="card p-5 sm:p-6 space-y-4">
+          <div className="flex items-center gap-4 pb-4 border-b border-edge flex-wrap">
             <div className="w-14 h-14 rounded-xl bg-gold/10 border border-gold/20 flex items-center justify-center text-gold font-display text-2xl">
               {user?.name?.[0]?.toUpperCase() || '?'}
             </div>
@@ -148,7 +148,7 @@ export default function ProfileView({ user, apiCall, onToast, Spinner }) {
           </form>
         </div>
 
-        <div className="card p-6 space-y-4">
+        <div className="card p-5 sm:p-6 space-y-4">
           <div className="space-y-1">
             <h2 className="section-title !mb-0">Personal Access Tokens</h2>
             <p className="text-sm text-ghost">Use these for API scripts and automation. Tokens are shown only once when created.</p>

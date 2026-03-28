@@ -24,8 +24,7 @@ export default function App() {
   const [route, setRoute] = useState(routeFromPath(window.location.pathname));
   const [activeTab, setActiveTab] = useState(initialDashboardState.tab);
   const [activeIntegrationSection, setActiveIntegrationSection] = useState(initialDashboardState.integrationSection);
-  const [desktopNavPinned, setDesktopNavPinned] = useState(true);
-  const [desktopNavHovering, setDesktopNavHovering] = useState(false);
+  const [pinnedExpanded, setPinnedExpanded] = useState(true);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [spaces, setSpaces] = useState([]);
   const [libraries, setLibraries] = useState([]);
@@ -37,7 +36,6 @@ export default function App() {
     collectibles_enabled: false
   });
   const [toast, setToast] = useState(null);
-  const [importReviewPendingCount, setImportReviewPendingCount] = useState(0);
   const importReviewEnabled = isDebugAt(2);
   const showToast = useCallback((message, type = 'ok') => setToast({ message, type }), []);
   const apiCall = useCallback(async (method, path, data, config = {}) => {
@@ -141,14 +139,6 @@ export default function App() {
     clearImportJobs();
     navigate('login');
   }, [apiCall, clearImportJobs, navigate, setMediaItems, setUser, setAuthChecked]);
-
-  const loadImportReviewPendingCount = useCallback(async () => {
-    if (!user) return;
-    try {
-      const payload = await apiCall('get', '/media/import-reviews/unresolved-count');
-      setImportReviewPendingCount(Number(payload?.count || 0));
-    } catch (_) {}
-  }, [apiCall, user]);
 
   const loadClientFeatureFlags = useCallback(async () => {
     if (!user) return;
@@ -290,17 +280,6 @@ export default function App() {
   }, [route, authChecked, user, loadClientFeatureFlags]);
 
   useEffect(() => {
-    if (!(route === 'dashboard' && authChecked && user)) return;
-    if (!importReviewEnabled) {
-      setImportReviewPendingCount(0);
-      return;
-    }
-    loadImportReviewPendingCount();
-    const timer = setInterval(loadImportReviewPendingCount, 30000);
-    return () => clearInterval(timer);
-  }, [route, authChecked, user, loadImportReviewPendingCount, importReviewEnabled]);
-
-  useEffect(() => {
     if (!importReviewEnabled && activeTab === 'library-import-review') {
       setActiveTab('library-import');
     }
@@ -319,7 +298,8 @@ export default function App() {
   const activeMembershipRole = activeSpace?.membership_role || null;
   const canManageActiveSpace = ['owner', 'admin'].includes(activeMembershipRole);
   const scopeKey = `${activeSpaceId || 'none'}:${activeLibraryId || 'none'}`;
-  const desktopNavExpanded = desktopNavPinned || desktopNavHovering;
+  const collapsed = !pinnedExpanded;
+  const desktopNavExpanded = !collapsed;
 
   useEffect(() => {
     if (activeTab === 'space-manage' && !canManageActiveSpace) {
@@ -377,17 +357,9 @@ export default function App() {
           if (nextTab !== 'admin-integrations') setActiveIntegrationSection(DEFAULT_INTEGRATION_SECTION);
         }}
         onLogout={logout}
-        collapsed={!desktopNavExpanded}
-        pinnedExpanded={desktopNavPinned}
-        onToggle={() => {
-          if (desktopNavPinned) {
-            setDesktopNavPinned(false);
-            setDesktopNavHovering(false);
-            return;
-          }
-          setDesktopNavPinned(true);
-        }}
-        onDesktopHoverChange={setDesktopNavHovering}
+        collapsed={collapsed}
+        pinnedExpanded={pinnedExpanded}
+        onToggle={() => setPinnedExpanded((prev) => !prev)}
         mobileOpen={mobileNavOpen}
         onMobileClose={() => setMobileNavOpen(false)}
         appVersion={APP_VERSION}
@@ -399,8 +371,6 @@ export default function App() {
         onLibrarySelect={handleLibrarySelect}
         canManageActiveSpace={canManageActiveSpace}
         activeMembershipRole={activeMembershipRole}
-        importReviewPendingCount={importReviewPendingCount}
-        showImportReview={importReviewEnabled}
         showCollectibles={featureFlags.collectibles_enabled}
         showEvents={featureFlags.events_enabled}
       />
@@ -449,7 +419,6 @@ export default function App() {
             cx={cx}
             activeLibrary={activeLibrary}
             importReviewEnabled={importReviewEnabled}
-            loadImportReviewPendingCount={loadImportReviewPendingCount}
             setUiSettings={setUiSettings}
             activeIntegrationSection={activeIntegrationSection}
             setActiveIntegrationSection={setActiveIntegrationSection}
