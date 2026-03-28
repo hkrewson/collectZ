@@ -4,6 +4,10 @@ function emptyCreateForm() {
   return { name: '', owner_user_id: '' };
 }
 
+function emptyInitialInvite() {
+  return { email: '', role: 'member' };
+}
+
 function emptyInviteForm() {
   return { email: '', role: 'member' };
 }
@@ -31,7 +35,9 @@ export default function AdminSpacesView({ apiCall, onToast, Spinner, cx, Icons }
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [createForm, setCreateForm] = useState(() => emptyCreateForm());
+  const [initialInvites, setInitialInvites] = useState([]);
   const [creating, setCreating] = useState(false);
+  const [createResult, setCreateResult] = useState(null);
   const [ownerAssignments, setOwnerAssignments] = useState({});
   const [busySpaceId, setBusySpaceId] = useState(null);
   const [selectedSpaceId, setSelectedSpaceId] = useState(null);
@@ -114,17 +120,59 @@ export default function AdminSpacesView({ apiCall, onToast, Spinner, cx, Icons }
       const slug = buildSpaceSlug(createForm.name);
       const payload = {
         name: createForm.name,
-        slug: slug || null
+        slug: slug || null,
+        expose_invite_tokens: true
       };
       if (createForm.owner_user_id) payload.owner_user_id = Number(createForm.owner_user_id);
-      await apiCall('post', '/admin/spaces', payload);
+      if (initialInvites.length > 0) {
+        payload.initial_invites = initialInvites
+          .map((invite) => ({
+            email: String(invite.email || '').trim(),
+            role: String(invite.role || 'member').trim() || 'member'
+          }))
+          .filter((invite) => invite.email);
+      }
+      const result = await apiCall('post', '/admin/spaces/create-with-onboarding', payload);
+      setCreateResult(result || null);
       setCreateForm(emptyCreateForm());
+      setInitialInvites([]);
       await loadPlatformData();
-      onToast('Space created');
+      const failed = Number(result?.summary?.failed || 0);
+      const created = Number(result?.summary?.created || 0);
+      if (failed > 0) {
+        onToast(`Space created with ${created} invite${created === 1 ? '' : 's'} and ${failed} failure${failed === 1 ? '' : 's'}`, 'info');
+      } else if (created > 0) {
+        onToast(`Space created with ${created} invite${created === 1 ? '' : 's'}`);
+      } else {
+        onToast('Space created');
+      }
     } catch (error) {
       onToast(error.response?.data?.detail || error.response?.data?.error || 'Failed to create space', 'error');
     } finally {
       setCreating(false);
+    }
+  };
+
+  const addInitialInviteRow = () => {
+    setInitialInvites((prev) => [...prev, emptyInitialInvite()]);
+  };
+
+  const updateInitialInvite = (index, nextPatch) => {
+    setInitialInvites((prev) => prev.map((invite, inviteIndex) => (
+      inviteIndex === index ? { ...invite, ...nextPatch } : invite
+    )));
+  };
+
+  const removeInitialInvite = (index) => {
+    setInitialInvites((prev) => prev.filter((_, inviteIndex) => inviteIndex !== index));
+  };
+
+  const copyText = async (value) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      onToast('Copied');
+    } catch {
+      onToast('Copy failed', 'error');
     }
   };
 
@@ -248,16 +296,31 @@ export default function AdminSpacesView({ apiCall, onToast, Spinner, cx, Icons }
       <form className="space-y-4 max-w-3xl" onSubmit={createSpace}>
         <div>
           <h2 className="text-xl font-medium text-ink">Create Space</h2>
-          <p className="text-sm text-ghost mt-1">New spaces stay out of tenant management until their owner joins and works inside them.</p>
+          <p className="text-sm text-ghost mt-1">Create a space, set its first owner, and optionally prepare its first space-scoped invites.</p>
         </div>
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:flex-nowrap">
           <label className="field xl:max-w-[360px] xl:flex-1">
             <span className="label">Name</span>
-            <input className="input" value={createForm.name} onChange={(e) => setCreateForm((prev) => ({ ...prev, name: e.target.value }))} required />
+            <input
+              className="input"
+              value={createForm.name}
+              onChange={(e) => {
+                setCreateResult(null);
+                setCreateForm((prev) => ({ ...prev, name: e.target.value }));
+              }}
+              required
+            />
           </label>
           <label className="field xl:w-[240px] xl:shrink-0">
             <span className="label">Initial Owner</span>
-            <select className="select" value={createForm.owner_user_id} onChange={(e) => setCreateForm((prev) => ({ ...prev, owner_user_id: e.target.value }))}>
+            <select
+              className="select"
+              value={createForm.owner_user_id}
+              onChange={(e) => {
+                setCreateResult(null);
+                setCreateForm((prev) => ({ ...prev, owner_user_id: e.target.value }));
+              }}
+            >
               <option value="">Current admin</option>
               {userOptions.map((user) => (
                 <option key={user.id} value={user.id}>{user.label}</option>
@@ -270,7 +333,126 @@ export default function AdminSpacesView({ apiCall, onToast, Spinner, cx, Icons }
             </button>
           </div>
         </div>
+
+        <div className="space-y-3 pt-1">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="text-base font-medium text-ink">Initial Invites</h3>
+              <p className="text-sm text-ghost mt-1">Optional. Add the first people who should join this space after the owner.</p>
+            </div>
+            <button type="button" className="btn-secondary btn-sm" onClick={addInitialInviteRow}>
+              Add invite
+            </button>
+          </div>
+
+          {initialInvites.length === 0 ? (
+            <p className="text-sm text-ghost">No initial invites yet.</p>
+          ) : (
+            <div className="space-y-3">
+              {initialInvites.map((invite, index) => (
+                <div key={`initial-invite-${index}`} className="flex flex-col gap-3 xl:flex-row xl:items-end">
+                  <label className="field xl:flex-1">
+                    <span className="label">Email</span>
+                    <input
+                      className="input"
+                      type="email"
+                      value={invite.email}
+                      onChange={(e) => {
+                        setCreateResult(null);
+                        updateInitialInvite(index, { email: e.target.value });
+                      }}
+                      placeholder="name@example.com"
+                    />
+                  </label>
+                  <label className="field xl:w-[150px] xl:shrink-0">
+                    <span className="label">Role</span>
+                    <select
+                      className="select"
+                      value={invite.role}
+                      onChange={(e) => {
+                        setCreateResult(null);
+                        updateInitialInvite(index, { role: e.target.value });
+                      }}
+                    >
+                      <option value="admin">admin</option>
+                      <option value="member">member</option>
+                      <option value="viewer">viewer</option>
+                    </select>
+                  </label>
+                  <div className="xl:pb-[1px]">
+                    <button type="button" className="btn-secondary btn-sm w-full xl:w-auto" onClick={() => removeInitialInvite(index)}>
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </form>
+
+      {createResult ? (
+        <div className="max-w-4xl rounded-2xl border border-edge bg-raised/50 p-4 sm:p-5 space-y-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-medium text-ink">Latest onboarding result</h2>
+              <p className="text-sm text-ghost mt-1">
+                {createResult?.space?.name || 'Space'} was created with {Number(createResult?.summary?.created || 0)} successful invite{Number(createResult?.summary?.created || 0) === 1 ? '' : 's'}
+                {Number(createResult?.summary?.failed || 0) > 0 ? ` and ${Number(createResult?.summary?.failed || 0)} failure${Number(createResult?.summary?.failed || 0) === 1 ? '' : 's'}` : ''}.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <span className="badge badge-dim">requested {Number(createResult?.summary?.requested || 0)}</span>
+              <span className="badge badge-dim">created {Number(createResult?.summary?.created || 0)}</span>
+              <span className={cx('badge', Number(createResult?.summary?.failed || 0) > 0 ? 'badge-warn' : 'badge-ok')}>
+                failed {Number(createResult?.summary?.failed || 0)}
+              </span>
+            </div>
+          </div>
+
+          <div className="text-sm text-ghost">
+            Owner: <span className="text-ink">{createResult?.owner?.email || 'unknown'}</span>
+          </div>
+
+          {Array.isArray(createResult?.invite_results) && createResult.invite_results.length > 0 ? (
+            <div className="space-y-2">
+              {createResult.invite_results.map((invite, index) => (
+                <div key={`result-invite-${invite.id || invite.email || index}`} className="rounded-xl border border-edge bg-abyss/50 p-3 space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="min-w-[220px] flex-1">
+                      <p className="text-sm font-medium text-ink">{invite.email}</p>
+                      <p className="text-xs text-ghost">{invite.role}</p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={cx('badge text-[10px]', invite.created ? 'badge-ok' : 'badge-warn')}>
+                        {invite.created ? 'Created' : 'Needs attention'}
+                      </span>
+                      {invite.invite_url ? (
+                        <button type="button" className="btn-icon btn-sm shrink-0" onClick={() => copyText(invite.invite_url)} title="Copy invite link">
+                          <Icons.Copy />
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                  {invite.created ? (
+                    <p className="text-xs text-ghost">
+                      {invite.delivery?.sent
+                        ? 'Invite email sent.'
+                        : invite.invite_url
+                          ? 'Invite created with copy-link available.'
+                          : 'Invite created.'}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-err">{invite.error || 'Invite could not be created.'}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-ghost">No initial invites were requested.</p>
+          )}
+        </div>
+      ) : null}
 
       <div className="space-y-1">
         {spaces.length === 0 && <p className="px-5 py-8 text-sm text-ghost text-center">No spaces found.</p>}
