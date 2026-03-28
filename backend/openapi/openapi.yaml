@@ -206,6 +206,87 @@
         },
         "required": ["archived"]
       },
+      "AdminSpaceInitialInviteRequest": {
+        "type": "object",
+        "properties": {
+          "email": { "type": "string", "format": "email" },
+          "role": { "type": "string", "enum": ["admin", "member", "viewer"] },
+          "expose_token": { "type": "boolean" }
+        },
+        "required": ["email", "role"]
+      },
+      "AdminSpaceCreateWithOnboardingRequest": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "slug": { "type": ["string", "null"] },
+          "description": { "type": ["string", "null"] },
+          "owner_user_id": { "type": "integer", "minimum": 1 },
+          "expose_invite_tokens": { "type": "boolean" },
+          "initial_invites": {
+            "type": "array",
+            "maxItems": 25,
+            "items": { "$ref": "#/components/schemas/AdminSpaceInitialInviteRequest" }
+          }
+        },
+        "required": ["name"]
+      },
+      "AdminSpaceOnboardingInviteResult": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "email": { "type": "string", "format": "email" },
+          "role": { "type": "string", "enum": ["admin", "member", "viewer"] },
+          "created": { "type": "boolean" },
+          "expires_at": { "type": "string", "format": "date-time" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "delivery": {
+            "type": "object",
+            "properties": {
+              "attempted": { "type": "boolean" },
+              "sent": { "type": "boolean" },
+              "reason": { "type": ["string", "null"] },
+              "messageId": { "type": ["string", "null"] }
+            },
+            "required": ["attempted", "sent"]
+          },
+          "invite_url": { "type": "string" },
+          "token": { "type": "string" },
+          "error": { "type": "string" },
+          "code": { "type": "string" }
+        },
+        "required": ["email", "role", "created"]
+      },
+      "AdminSpaceCreateWithOnboardingResponse": {
+        "type": "object",
+        "properties": {
+          "space": { "$ref": "#/components/schemas/SpaceRecord" },
+          "owner": {
+            "type": "object",
+            "properties": {
+              "user_id": { "type": "integer" },
+              "email": { "type": "string", "format": "email" },
+              "name": { "type": ["string", "null"] },
+              "role": { "type": "string", "enum": ["owner"] }
+            },
+            "required": ["user_id", "email", "role"]
+          },
+          "invite_results": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/AdminSpaceOnboardingInviteResult" }
+          },
+          "summary": {
+            "type": "object",
+            "properties": {
+              "requested": { "type": "integer" },
+              "created": { "type": "integer" },
+              "failed": { "type": "integer" }
+            },
+            "required": ["requested", "created", "failed"]
+          }
+        },
+        "required": ["space", "owner", "invite_results", "summary"]
+      },
       "SpaceMembershipRecord": {
         "type": "object",
         "properties": {
@@ -1280,6 +1361,57 @@
           },
           "400": {
             "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "409": {
+            "description": "Slug conflict",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/spaces/create-with-onboarding": {
+      "post": {
+        "tags": ["Admin"],
+        "summary": "Create a new space and prepare its initial scoped invites",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AdminSpaceCreateWithOnboardingRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Space created and onboarding invite results returned",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AdminSpaceCreateWithOnboardingResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "404": {
+            "description": "Owner user not found",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/Error" }

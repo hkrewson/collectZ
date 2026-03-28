@@ -132,6 +132,7 @@ async function main() {
   const admin = new HttpClient('admin');
   const ownerEmail = `phase5-owner-${suffix}@example.com`;
   const ownerPassword = 'Passw0rd!123';
+  const inviteEmail = `phase5-invite-${suffix}@example.com`;
   const spaceSlug = `phase5-space-${suffix}`;
   const tempAdminEmail = `phase5-admin-${suffix}@example.com`;
   const tempAdminPassword = 'Passw0rd!123';
@@ -155,7 +156,7 @@ async function main() {
     ownerUserId = Number(ownerUser?.id || 0);
     assert(Number.isFinite(ownerUserId) && ownerUserId > 0, 'Owner user id missing');
 
-    const createSpace = await admin.request('/api/admin/spaces', {
+    const createSpace = await admin.request('/api/admin/spaces/create-with-onboarding', {
       method: 'POST',
       withCsrf: true,
       expectStatus: 201,
@@ -163,11 +164,21 @@ async function main() {
         name: `Phase 5 Space ${suffix}`,
         slug: spaceSlug,
         description: 'Server-admin control plane smoke',
-        owner_user_id: ownerUserId
+        owner_user_id: ownerUserId,
+        initial_invites: [
+          { email: inviteEmail, role: 'member', expose_token: true }
+        ]
       }
     });
-    spaceId = Number(createSpace?.data?.id || 0);
+    spaceId = Number(createSpace?.data?.space?.id || 0);
     assert(Number.isFinite(spaceId) && spaceId > 0, 'Space id missing after create');
+    assert(Number(createSpace?.data?.owner?.user_id || 0) === ownerUserId, 'Owner missing from onboarding response');
+    assert(Number(createSpace?.data?.summary?.requested || 0) === 1, 'Onboarding summary requested count mismatch');
+    assert(Number(createSpace?.data?.summary?.created || 0) === 1, 'Onboarding summary created count mismatch');
+    assert(Number(createSpace?.data?.summary?.failed || 0) === 0, 'Onboarding summary failed count mismatch');
+    assert(Array.isArray(createSpace?.data?.invite_results), 'Invite results missing from onboarding response');
+    assert(createSpace?.data?.invite_results?.[0]?.email === inviteEmail, 'Onboarding invite email missing from response');
+    assert(createSpace?.data?.invite_results?.[0]?.created === true, 'Onboarding invite was not created');
 
     const listAfterCreate = await admin.request('/api/admin/spaces', { expectStatus: 200 });
     const createdSpace = (listAfterCreate?.data?.spaces || []).find((space) => Number(space.id) === spaceId);

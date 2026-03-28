@@ -273,6 +273,34 @@ const spaceCreateSchema = spaceBaseSchema.extend({
   owner_user_id: z.number().int().positive('owner_user_id must be a positive integer').optional()
 });
 
+const adminSpaceInitialInviteSchema = z.object({
+  email: z.string().email('Valid email is required'),
+  role: z.enum(['admin', 'member', 'viewer']),
+  expose_token: z.boolean().optional()
+});
+
+const adminSpaceCreateWithOnboardingSchema = spaceBaseSchema.extend({
+  owner_user_id: z.number().int().positive('owner_user_id must be a positive integer').optional(),
+  expose_invite_tokens: z.boolean().optional(),
+  initial_invites: z.array(adminSpaceInitialInviteSchema).max(25, 'A maximum of 25 initial invites is supported').optional()
+}).superRefine((data, ctx) => {
+  const seenEmails = new Set();
+  const invites = Array.isArray(data.initial_invites) ? data.initial_invites : [];
+  invites.forEach((invite, index) => {
+    const normalizedEmail = String(invite.email || '').trim().toLowerCase();
+    if (!normalizedEmail) return;
+    if (seenEmails.has(normalizedEmail)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['initial_invites', index, 'email'],
+        message: 'Duplicate invite email in initial invites'
+      });
+      return;
+    }
+    seenEmails.add(normalizedEmail);
+  });
+});
+
 const spaceUpdateSchema = spaceBaseSchema.partial().refine(
   (data) => Object.keys(data).length > 0,
   { message: 'At least one space field is required' }
@@ -456,6 +484,7 @@ module.exports = {
   serviceAccountKeyCreateSchema,
   generalSettingsSchema,
   spaceCreateSchema,
+  adminSpaceCreateWithOnboardingSchema,
   spaceUpdateSchema,
   spaceMembershipCreateSchema,
   spaceMembershipUpdateSchema,

@@ -188,6 +188,12 @@ results.push(run('media route source includes tmdb trace-match endpoint', () => 
   assert.ok(mediaRoutesSource.includes('scoreTmdbMatchCandidate'));
 }));
 
+results.push(run('admin route source includes guided space onboarding endpoint', () => {
+  assert.ok(adminRoutesSource.includes("router.post('/spaces/create-with-onboarding'"));
+  assert.ok(adminRoutesSource.includes('createInitialSpaceInvite'));
+  assert.ok(adminRoutesSource.includes('invite_results'));
+}));
+
 results.push(run('media route source hardens image upload handlers', () => {
   assert.ok(mediaRoutesSource.includes('const tempImageUpload = multer('));
   assert.ok(mediaRoutesSource.includes('const memoryImageUpload = multer('));

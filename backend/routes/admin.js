@@ -7,6 +7,7 @@ const {
   roleUpdateSchema,
   generalSettingsSchema,
   spaceCreateSchema,
+  adminSpaceCreateWithOnboardingSchema,
   adminSpaceOwnerAssignSchema,
   adminSpaceArchiveSchema
 } = require('../middleware/validate');
@@ -14,10 +15,11 @@ const { logActivity } = require('../services/audit');
 const { loadGeneralSettings } = require('../services/integrations');
 const { listFeatureFlags, getFeatureFlag, updateFeatureFlag, FEATURE_FLAGS_READ_ONLY } = require('../services/featureFlags');
 const { enforceScopeAccess } = require('../middleware/scopeAccess');
-const { sendPasswordResetEmail } = require('../services/email');
+const { sendInviteEmail, sendPasswordResetEmail } = require('../services/email');
 const crypto = require('crypto');
 const { getRequestOrigin } = require('../services/requestOrigin');
 const { syncLibraryMembershipsForSpaceUser } = require('../services/libraries');
+const { hashInviteToken } = require('../services/invites');
 
 const router = express.Router();
 
@@ -86,6 +88,120 @@ function parseBool(value, fallback = false) {
   const normalized = String(value ?? '').trim().toLowerCase();
   if (!normalized) return fallback;
   return ['1', 'true', 'yes', 'on'].includes(normalized);
+}
+
+async function createInitialSpaceInvite({ client, req, spaceId, email, role, exposeToken }) {
+  const token = crypto.randomBytes(32).toString('hex');
+  const tokenHash = hashInviteToken(token);
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+
+  const membershipLookup = await client.query(
+    `SELECT sm.id, sm.role, u.id AS user_id, u.email
+     FROM space_memberships sm
+     JOIN users u ON u.id = sm.user_id
+     WHERE sm.space_id = $1
+       AND lower(u.email) = lower($2)
+     LIMIT 1`,
+    [spaceId, normalizedEmail]
+  );
+  if (membershipLookup.rows.length > 0) {
+    const existingMembership = membershipLookup.rows[0];
+    return {
+      email: normalizedEmail,
+      role,
+      created: false,
+      error: `User is already a ${existingMembership.role} of this space`,
+      code: 'already_member'
+    };
+  }
+
+  const existingInviteLookup = await client.query(
+    `SELECT id, space_role, expires_at
+     FROM invites
+     WHERE space_id = $1
+       AND lower(email) = lower($2)
+       AND used = false
+       AND revoked = false
+       AND expires_at > NOW()
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [spaceId, normalizedEmail]
+  );
+  if (existingInviteLookup.rows.length > 0) {
+    return {
+      email: normalizedEmail,
+      role,
+      created: false,
+      error: 'An active invite already exists for this email in the target space',
+      code: 'active_invite_exists'
+    };
+  }
+
+  const insert = await client.query(
+    `INSERT INTO invites (email, token_hash, expires_at, created_by, space_id, space_role)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING id, email, used, revoked, used_by, used_at, expires_at, created_at, space_id, space_role`,
+    [normalizedEmail, tokenHash, expiresAt, req.user.id, spaceId, role]
+  );
+
+  const invite = insert.rows[0];
+  const inviteUrl = `${getRequestOrigin(req)}/register?invite=${encodeURIComponent(token)}&email=${encodeURIComponent(invite.email)}`;
+
+  await logActivity(req, 'space.invite.create', 'invite', invite.id, {
+    email: invite.email,
+    role,
+    spaceId,
+    expiresAt: invite.expires_at,
+    initiatedBy: 'admin_space_onboarding'
+  });
+
+  if (exposeToken) {
+    await logActivity(req, 'space.invite.token_exposed', 'invite', invite.id, {
+      email: invite.email,
+      role,
+      spaceId,
+      exposureMode: 'admin_space_onboarding'
+    });
+  }
+
+  let delivery = { attempted: false, sent: false, reason: 'smtp_not_configured' };
+  try {
+    delivery = await sendInviteEmail({
+      to: invite.email,
+      inviteUrl,
+      expiresAt: invite.expires_at
+    });
+    if (delivery.sent) {
+      await logActivity(req, 'space.invite.delivered', 'invite', invite.id, {
+        email: invite.email,
+        role,
+        spaceId,
+        delivery: 'smtp',
+        initiatedBy: 'admin_space_onboarding'
+      });
+    }
+  } catch (error) {
+    delivery = { attempted: true, sent: false, reason: error.message || 'smtp_send_failed' };
+    await logActivity(req, 'space.invite.delivery_failed', 'invite', invite.id, {
+      email: invite.email,
+      role,
+      spaceId,
+      reason: delivery.reason,
+      initiatedBy: 'admin_space_onboarding'
+    });
+  }
+
+  return {
+    id: invite.id,
+    email: invite.email,
+    role,
+    created: true,
+    expires_at: invite.expires_at,
+    created_at: invite.created_at,
+    delivery,
+    ...(exposeToken ? { token, invite_url: inviteUrl } : {})
+  };
 }
 
 router.get('/spaces', asyncHandler(async (_req, res) => {
@@ -207,6 +323,141 @@ router.post('/spaces', validate(spaceCreateSchema), asyncHandler(async (req, res
       ...space,
       owner_user_id: ownerUserId,
       owner_email: ownerLookup.rows[0].email
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}));
+
+router.post('/spaces/create-with-onboarding', validate(adminSpaceCreateWithOnboardingSchema), asyncHandler(async (req, res) => {
+  const {
+    name,
+    slug,
+    description,
+    owner_user_id: ownerUserIdRaw,
+    initial_invites: initialInvitesRaw,
+    expose_invite_tokens: exposeInviteTokensRaw
+  } = req.body;
+  const ownerUserId = Number(ownerUserIdRaw || req.user.id);
+  const initialInvites = Array.isArray(initialInvitesRaw) ? initialInvitesRaw : [];
+  const exposeInviteTokens = parseBool(exposeInviteTokensRaw, true);
+
+  const client = await pool.connect();
+  let space;
+  let ownerRecord;
+  try {
+    await client.query('BEGIN');
+
+    if (slug) {
+      const existingSlug = await client.query(
+        `SELECT id
+         FROM spaces
+         WHERE archived_at IS NULL
+           AND lower(slug) = lower($1)
+         LIMIT 1`,
+        [slug]
+      );
+      if (existingSlug.rows.length > 0) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ error: 'Space slug is already in use' });
+      }
+    }
+
+    const ownerLookup = await client.query(
+      `SELECT id, email, name
+       FROM users
+       WHERE id = $1
+       LIMIT 1`,
+      [ownerUserId]
+    );
+    if (ownerLookup.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Owner user not found' });
+    }
+    ownerRecord = ownerLookup.rows[0];
+
+    const created = await client.query(
+      `INSERT INTO spaces (name, slug, description, created_by, is_personal)
+       VALUES ($1, $2, $3, $4, false)
+       RETURNING id, name, slug, description, created_by, is_personal, created_at, updated_at, archived_at`,
+      [name.trim(), slug || null, description || null, req.user.id]
+    );
+    space = created.rows[0];
+
+    await client.query(
+      `INSERT INTO space_memberships (space_id, user_id, role, created_by)
+       VALUES ($1, $2, 'owner', $3)
+       ON CONFLICT (space_id, user_id) DO UPDATE
+       SET role = 'owner',
+           updated_at = CURRENT_TIMESTAMP,
+           created_by = EXCLUDED.created_by`,
+      [space.id, ownerUserId, req.user.id]
+    );
+    await syncLibraryMembershipsForSpaceUser(client, {
+      spaceId: space.id,
+      userId: ownerUserId,
+      role: 'owner'
+    });
+
+    await client.query('COMMIT');
+
+    await logActivity(req, 'admin.space.create', 'space', space.id, {
+      name: space.name,
+      slug: space.slug || null,
+      ownerUserId,
+      ownerEmail: ownerRecord.email,
+      initialInviteCount: initialInvites.length
+    });
+
+    const invite_results = [];
+    for (const inviteInput of initialInvites) {
+      try {
+        const nextRole = String(inviteInput?.role || 'member').trim();
+        const exposeToken = parseBool(inviteInput?.expose_token, exposeInviteTokens);
+        const inviteResult = await createInitialSpaceInvite({
+          client,
+          req,
+          spaceId: space.id,
+          email: inviteInput?.email,
+          role: nextRole,
+          exposeToken
+        });
+        invite_results.push(inviteResult);
+      } catch (error) {
+        invite_results.push({
+          email: String(inviteInput?.email || '').trim().toLowerCase(),
+          role: String(inviteInput?.role || 'member').trim() || 'member',
+          created: false,
+          error: error.message || 'Failed to create invite',
+          code: 'invite_create_failed'
+        });
+      }
+    }
+
+    const createdCount = invite_results.filter((invite) => invite.created).length;
+    const failedCount = invite_results.length - createdCount;
+
+    res.status(201).json({
+      space: {
+        ...space,
+        owner_user_id: ownerUserId,
+        owner_email: ownerRecord.email
+      },
+      owner: {
+        user_id: ownerRecord.id,
+        email: ownerRecord.email,
+        name: ownerRecord.name || null,
+        role: 'owner'
+      },
+      invite_results,
+      summary: {
+        requested: initialInvites.length,
+        created: createdCount,
+        failed: failedCount
+      }
     });
   } catch (error) {
     await client.query('ROLLBACK');

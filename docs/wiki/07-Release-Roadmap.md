@@ -1709,6 +1709,39 @@ Historical planning notes may still exist in:
 - Import audit/export output still provides the operator signals needed to understand ambiguous or low-confidence import behavior.
 - Docs and milestone notes align with the retired-product-surface decision.
 
+## 2.8.4 — Scope Privacy Tightening and Explicit Support Access
+
+**Goal:** Remove casual cross-space context switching from everyday navigation so tenancy privacy stays clear, while reserving any cross-space access for explicit, auditable support workflows only.
+
+### Scope
+
+- Remove normal active-space switching from the sidebar and other routine end-user/operator navigation surfaces.
+- Keep active-library switching only where it remains valid within the current active space:
+  - show the library switcher only when multiple libraries exist in the current space,
+  - avoid presenting library scope controls when there is nothing meaningful to switch.
+- Tighten the tenancy UX contract for global admins:
+  - global admin authority should remain platform-scoped,
+  - global admins should not casually enter tenant context through the normal navigation model,
+  - routine platform administration (`All Spaces`, `All Members`, owner recovery, password reset) must remain possible without ordinary cross-space browsing.
+- Define any cross-space troubleshooting as an explicit support action rather than a passive selector:
+  - `Assume Space`, `Support Session`, `Act As User`, or equivalent named workflow,
+  - require intentional entry rather than background scope switching,
+  - treat the support path as a separate audited capability rather than a normal product control.
+- Add strong audit/log coverage for any explicit support-access workflow:
+  - who initiated it,
+  - target user/space,
+  - when it started and ended,
+  - why it was invoked where possible.
+- Update docs and UX copy so the product no longer suggests that ordinary space switching is part of the daily admin model once this privacy-tightening pass is complete.
+
+### Acceptance Criteria
+
+- Normal sidebar navigation no longer exposes active-space switching.
+- Active-library switching is shown only when it is valid and useful within the current active space.
+- Global admins can still perform platform recovery/owner-management tasks without joining or casually browsing tenant spaces.
+- Any cross-space support capability is explicit, separately named, and fully audited.
+- Tenancy/privacy documentation and UI language align with the explicit-support-access model rather than everyday cross-space switching.
+
 ## 2.9.0 — Observability Baseline Review and Alert Tuning
 
 **Goal:** Revisit the initial `2.6.0` observability thresholds once more real import and operator usage data exists.
@@ -1786,6 +1819,47 @@ This work was re-scoped into `2.7.1` and the broader `2.7.x` maintenance lane so
 - Validation/test flow confirms exporter configuration against a live collector path.
 - Env override behavior is explicit and documented for operators who want immutable config.
 - External logging configuration changes are auditable, masked, and do not make collector availability a hard runtime dependency.
+
+## 2.9.4 — Product Edition Boundary and Homelab Surface Definition
+
+**Goal:** Introduce an explicit `platform` vs `homelab` product-edition boundary inside the private repo so tenancy/platform capabilities stop leaking into the future homelab product shape before any repo split happens.
+
+### Scope
+
+- Add one authoritative edition contract shared by backend and frontend:
+  - supported values: `platform`, `homelab`,
+  - backend remains the source of truth for the active edition,
+  - frontend shell/bootstrap reads the server-owned edition instead of relying on client-only env.
+- Frontend shell composition boundary:
+  - introduce shell-level control over nav groups, allowed routes, and mounted page surfaces,
+  - keep the current tenancy/global admin surface as the `platform` shell,
+  - define a `homelab` shell that excludes tenancy/global-management UI rather than merely hiding buttons late in the render tree.
+- Backend route-mounting boundary:
+  - separate shared/common routes from platform-only route groups,
+  - do not mount platform-only APIs in `homelab`,
+  - keep auth/session bootstrap common where possible while removing platform assumptions from the homelab-mounted surface.
+- Homelab product-shape rules:
+  - target one local admin with optional viewer/read-only users,
+  - no normal active-space switching,
+  - no space creation/assignment UI,
+  - no tenant roster/invite model in the homelab UX,
+  - keep library switching only when it remains meaningful inside the single homelab context.
+- Data/model transition policy:
+  - do not fork the schema yet,
+  - allow homelab to continue operating on a single personal/default space internally during the transition,
+  - treat that internal scope compatibility as implementation detail rather than surfaced product language.
+- Testing and verification:
+  - add regression coverage proving `homelab` cannot mount or navigate to tenancy/global routes,
+  - verify `platform` retains current tenancy/global behaviors,
+  - keep shared workflows green in both editions (`auth`, `library`, `import`, `profile`, valid settings/integrations surfaces).
+
+### Acceptance Criteria
+
+- `homelab` edition does not mount tenancy/global platform pages or APIs.
+- `platform` edition preserves the full current tenancy/global control plane.
+- Edition branching is concentrated in shell/bootstrap/route-mount boundaries rather than scattered across unrelated components.
+- Shared workflows continue to function in both editions without scope confusion.
+- The codebase is ready for a later repo split without first having to rediscover product boundaries.
 
 ## 2.10.0 — Multi-Format Ownership Model (Movies/Games)
 
@@ -1911,6 +1985,40 @@ This work was re-scoped into `2.7.1` and the broader `2.7.x` maintenance lane so
 - `2.7.x` remains the patch-maintenance lane for narrow security and dependency work.
 - `2.8.0` and `2.8.1` remain product/UI workflow milestones and should not absorb build-tool migration work.
 - Any remaining frontend toolchain remediation after `2.7.3` should be considered part of this `3.0.0` milestone rather than stretched across additional speculative patch releases unless a clearly isolated low-risk fix appears.
+
+## 3.1.0 — Shared Core Extraction and Public Homelab Product Split
+
+**Goal:** Turn the proven edition boundary into a real product split by extracting a stable shared core, keeping the platform/SaaS shell private, and preparing a public homelab shell/repo that contains no tenancy/platform code.
+
+### Scope
+
+- Shared core extraction:
+  - identify and extract domain logic that should be implemented once and consumed by both products,
+  - expected core areas include media/import logic, shared auth/session primitives, shared API client patterns, shared UI primitives, and edition-safe integrations/metadata services.
+- Private platform shell:
+  - keep tenancy lifecycle, global spaces/members administration, owner recovery, support-session/assume-user capabilities, and tenant membership/invite orchestration in the private platform product.
+- Public homelab shell:
+  - build the homelab product from the shared core plus the homelab-safe shell only,
+  - do not ship tenancy/global frontend or backend route groups in the public repo,
+  - preserve the chosen homelab user model: one admin with optional viewer/read-only users.
+- Repo/product split delivery model:
+  - private repo remains the source of truth during extraction,
+  - public homelab repo is created only after the edition boundary is stable,
+  - public updates are promoted/exported intentionally from the private source rather than maintained as an equal long-lived peer branch.
+- Release/CI separation:
+  - define separate build/test/release verification paths for platform and homelab products,
+  - ensure public builds do not depend on private-only modules or route groups.
+- Commercial boundary policy:
+  - if licensing/subscriptions are introduced later, they apply to the private platform product after the code split,
+  - the public repo stays safe because platform code is absent, not merely hidden behind a mutable flag.
+
+### Acceptance Criteria
+
+- Shared capabilities can be developed once and consumed by both product shells.
+- The public homelab repo contains no tenancy/platform code.
+- The private platform product retains the full SaaS control plane.
+- Public homelab builds and release gates run independently from the private platform product.
+- The private-to-public promotion path is documented and disciplined enough to avoid accidental platform leakage.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
@@ -2349,7 +2457,7 @@ This work was re-scoped into `2.7.1` and the broader `2.7.x` maintenance lane so
 - This is intentionally a separate planning domain inside collectZ, not a separate companion app.
 - This is intentionally not a first-pass arbitrary code plugin runtime; initial implementation should load vetted internal provider adapters only.
 
-## 3.1.0 — Deferred Revisit: Digital Library Sync (CWA or Alternative Self-Hosted Provider)
+## 3.1.1 — Deferred Revisit: Digital Library Sync (CWA or Alternative Self-Hosted Provider)
 
 **Goal:** Reassess digital-owned book/comic sync after core roadmap stabilization, with a stronger provider-evaluation phase before productizing ingestion.
 
