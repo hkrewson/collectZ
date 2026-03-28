@@ -98,3 +98,7 @@ docs/wiki/share-links-deferred.md
 # Local-only scope verification artifacts
 scripts/test_library_scope.py
 scripts/.library_scope_test.env
+
+# Local-only UI lab artifacts
+frontend/src/components/DesignLabView.js
+docs/wiki/39-Frontend-Design-Lab.md

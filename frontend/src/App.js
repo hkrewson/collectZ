@@ -62,7 +62,6 @@ export default function App() {
     return response.data;
   }, []);
   const { user, setUser, authChecked, setAuthChecked } = useSessionBootstrap({ route, apiCall, setRoute });
-
   const navigate = useCallback((nextRoute) => {
     window.history.pushState(
       {},
@@ -119,6 +118,7 @@ export default function App() {
     addMedia,
     editMedia,
     deleteMedia,
+    bulkDeleteMedia,
     rateMedia
   } = useMediaApi({ apiCall, showToast });
 
@@ -439,6 +439,7 @@ export default function App() {
             addMedia={addMedia}
             editMedia={editMedia}
             deleteMedia={deleteMedia}
+            bulkDeleteMedia={bulkDeleteMedia}
             rateMedia={rateMedia}
             upsertImportJob={upsertImportJob}
             importJobs={importJobs}

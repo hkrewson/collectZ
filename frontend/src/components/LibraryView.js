@@ -163,7 +163,7 @@ function compareComicIssueOrder(aItem, bItem) {
   return aTitle.localeCompare(bTitle, undefined, { sensitivity: 'base' });
 }
 
-function MediaCard({ item, onOpen, onEdit, onDelete, onRating, supportsHover }) {
+function MediaCard({ item, onOpen, onEdit, onDelete, onRating, supportsHover, selected = false, onToggleSelect = null, selectionEnabled = false }) {
   const onPointerUp = (e) => {
     if (e.pointerType !== 'touch') return;
     if (isInteractiveTarget(e.target)) return;
@@ -171,14 +171,31 @@ function MediaCard({ item, onOpen, onEdit, onDelete, onRating, supportsHover }) 
   };
 
   return (
-    <article className="group relative cursor-pointer animate-fade-in" onClick={() => onOpen(item)} onPointerUp={onPointerUp}>
-      <div className="poster rounded-lg overflow-hidden shadow-card">
+    <article className={cx('group relative cursor-pointer animate-fade-in rounded-xl transition-all duration-150', selected && 'ring-2 ring-brand/70 ring-offset-2 ring-offset-void')} onClick={() => onOpen(item)} onPointerUp={onPointerUp}>
+      <div className={cx('poster rounded-lg overflow-hidden shadow-card border transition-colors', selected ? 'border-brand/60' : 'border-transparent')}>
         {posterUrl(item.poster_path)
           ? <img src={posterUrl(item.poster_path)} alt={item.title} className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
           : <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-ghost"><Icons.Film /><span className="text-xs text-center px-3 leading-tight">{item.title}</span></div>}
-        <div className={cx('absolute inset-0 bg-card-fade transition-opacity duration-300', supportsHover ? 'opacity-0 group-hover:opacity-100' : 'opacity-10')} />
+        <div className={cx('absolute inset-0 transition-opacity duration-300', selected ? 'bg-brand/20 opacity-100' : 'bg-card-fade', supportsHover ? (selected ? '' : 'opacity-0 group-hover:opacity-100') : (selected ? '' : 'opacity-10'))} />
         <div className="absolute top-2 left-2"><span className="badge badge-dim text-[10px] backdrop-blur-sm bg-void/60 border-ghost/20">{item.format || '—'}</span></div>
         <div className="absolute top-2 right-2"><span className="badge badge-dim text-[10px] backdrop-blur-sm bg-void/60 border-ghost/20">{mediaTypeLabel(item.media_type)}</span></div>
+        {selectionEnabled && (
+          <button
+            type="button"
+            className={cx(
+              'absolute left-2 top-9 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full border backdrop-blur-sm transition-colors',
+              selected ? 'border-brand bg-brand text-white shadow-[0_0_0_3px_rgba(68,130,255,0.18)]' : 'border-brand/45 bg-void/80 text-brand'
+            )}
+            aria-label={`Select ${item.title}`}
+            aria-pressed={selected}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleSelect?.(item.id);
+            }}
+          >
+            {selected ? <Icons.Check /> : <span className="block h-2.5 w-2.5 rounded-full bg-brand/80" />}
+          </button>
+        )}
         <div className={cx('absolute bottom-0 left-0 right-0 p-3 transition-all duration-300', supportsHover ? 'translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100' : 'translate-y-0 opacity-100')}>
           <div className="flex gap-2">
             <button onClick={(e) => { e.stopPropagation(); onEdit(item); }} className="btn-secondary btn-sm flex-1 backdrop-blur-sm bg-void/60 border-ghost/30"><Icons.Edit />Edit</button>
@@ -187,7 +204,7 @@ function MediaCard({ item, onOpen, onEdit, onDelete, onRating, supportsHover }) 
         </div>
       </div>
       <div className="mt-2 px-0.5">
-        <p className="text-sm font-medium text-ink truncate">{item.title}</p>
+        <p className={cx('text-sm font-medium truncate', selected ? 'text-brand' : 'text-ink')}>{item.title}</p>
         <p className="text-xs text-ghost">
           {item.year || '—'}{item.director ? ` · ${item.director}` : ''}
           {item.media_type === 'tv_series' && item.tv_all_seasons_completed ? ' · Completed' : ''}
@@ -236,7 +253,7 @@ function CollectionCard({ item, supportsHover, onOpen, onEdit, onConvert }) {
   );
 }
 
-function MediaListRow({ item, onOpen, onEdit, onDelete, onRating, supportsHover }) {
+function MediaListRow({ item, onOpen, onEdit, onDelete, onRating, supportsHover, selected = false, onToggleSelect = null, selectionEnabled = false }) {
   const onPointerUp = (e) => {
     if (e.pointerType !== 'touch') return;
     if (isInteractiveTarget(e.target)) return;
@@ -244,7 +261,23 @@ function MediaListRow({ item, onOpen, onEdit, onDelete, onRating, supportsHover 
   };
 
   return (
-    <article onClick={() => onOpen(item)} onPointerUp={onPointerUp} className="group flex items-center gap-4 p-3 rounded-lg bg-surface border border-edge hover:border-muted hover:bg-raised cursor-pointer transition-all duration-150 animate-fade-in">
+    <article onClick={() => onOpen(item)} onPointerUp={onPointerUp} className={cx('group flex items-start gap-3 p-3 rounded-lg bg-surface border hover:border-muted hover:bg-raised cursor-pointer transition-all duration-150 animate-fade-in sm:items-center', selected ? 'border-brand/60 ring-1 ring-brand/60 bg-brand/5' : 'border-edge')}>
+      {selectionEnabled && (
+        <div onClick={(e) => e.stopPropagation()} className="shrink-0 pt-1 sm:pt-0">
+          <button
+            type="button"
+            className={cx(
+              'inline-flex h-7 w-7 items-center justify-center rounded-full border transition-colors',
+              selected ? 'border-brand bg-brand text-white shadow-[0_0_0_3px_rgba(68,130,255,0.14)]' : 'border-brand/45 bg-void/70 text-brand'
+            )}
+            aria-label={`Select ${item.title}`}
+            aria-pressed={selected}
+            onClick={() => onToggleSelect?.(item.id)}
+          >
+            {selected ? <Icons.Check /> : <span className="block h-2.5 w-2.5 rounded-full bg-brand/80" />}
+          </button>
+        </div>
+      )}
       <div className="w-10 shrink-0" style={{ aspectRatio: '2/3' }}>
         <div className="poster rounded w-full h-full">
           {posterUrl(item.poster_path)
@@ -253,15 +286,15 @@ function MediaListRow({ item, onOpen, onEdit, onDelete, onRating, supportsHover 
         </div>
       </div>
       <div className="flex-1 min-w-0">
-        <p className="font-medium text-ink truncate">{item.title}</p>
-        <p className="text-sm text-ghost">{[item.year, item.format, mediaTypeLabel(item.media_type), item.director].filter(Boolean).join(' · ')}</p>
+        <p className={cx('font-medium truncate', selected ? 'text-brand' : 'text-ink')}>{item.title}</p>
+        <p className="text-sm text-ghost break-words">{[item.year, item.format, mediaTypeLabel(item.media_type), item.director].filter(Boolean).join(' · ')}</p>
         {item.media_type === 'tv_series' && item.tv_all_seasons_completed && (
           <p className="text-xs text-ok mt-0.5 inline-flex items-center gap-1"><Icons.Check />All seasons completed</p>
         )}
         {item.genre && <p className="text-xs text-ghost/70 mt-0.5 truncate">{item.genre}</p>}
       </div>
-      <div onClick={(e) => e.stopPropagation()}><StarRating value={item.user_rating || 0} onChange={(r) => onRating(item.id, r)} /></div>
-      <div className={cx('flex gap-2 transition-opacity duration-150', supportsHover ? 'opacity-0 group-hover:opacity-100' : 'opacity-100')}>
+      <div onClick={(e) => e.stopPropagation()} className="sm:shrink-0"><StarRating value={item.user_rating || 0} onChange={(r) => onRating(item.id, r)} /></div>
+      <div className={cx('flex flex-wrap gap-2 transition-opacity duration-150 sm:shrink-0', supportsHover ? 'opacity-100 sm:opacity-0 sm:group-hover:opacity-100' : 'opacity-100')}>
         <button onClick={(e) => { e.stopPropagation(); onEdit(item); }} className="btn-ghost btn-sm"><Icons.Edit /></button>
         <button onClick={(e) => { e.stopPropagation(); onDelete(item.id); }} className="btn-ghost btn-sm text-err hover:bg-err/10"><Icons.Trash /></button>
       </div>
@@ -1662,6 +1695,7 @@ export default function LibraryView({
   onOpen,
   onEdit,
   onDelete,
+  onBulkDelete,
   onRating,
   apiCall,
   forcedMediaType
@@ -1704,6 +1738,7 @@ export default function LibraryView({
   const [comicView, setComicView] = useState('issues');
   const [comicSeries, setComicSeries] = useState('all');
   const [debouncedSearchInput, setDebouncedSearchInput] = useState('');
+  const [selectedIds, setSelectedIds] = useState([]);
   const supportsHover = useMemo(() => window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches, []);
   const addFormMediaType = useMemo(() => {
     if (forcedMediaType === 'tv') return 'tv_series';
@@ -1927,6 +1962,55 @@ export default function LibraryView({
     return items;
   }, [mediaItems, isComicsLibrary, comicView, comicSeries]);
 
+  useEffect(() => {
+    const availableIds = new Set(mediaItems.map((item) => Number(item.id)).filter((id) => Number.isFinite(id) && id > 0));
+    setSelectedIds((prev) => prev.filter((id) => availableIds.has(Number(id))));
+  }, [mediaItems]);
+
+  useEffect(() => {
+    if (isCollectionMode || (isComicsLibrary && comicView === 'series')) {
+      setSelectedIds([]);
+    }
+  }, [comicView, isCollectionMode, isComicsLibrary]);
+
+  const visibleSelectableIds = useMemo(
+    () => (isCollectionMode || (isComicsLibrary && comicView === 'series') ? [] : visibleItems.map((item) => Number(item.id)).filter((id) => Number.isFinite(id) && id > 0)),
+    [comicView, isCollectionMode, isComicsLibrary, visibleItems]
+  );
+  const selectedIdSet = useMemo(() => new Set(selectedIds.map((id) => Number(id))), [selectedIds]);
+  const selectedVisibleCount = useMemo(
+    () => visibleSelectableIds.filter((id) => selectedIdSet.has(id)).length,
+    [selectedIdSet, visibleSelectableIds]
+  );
+  const allVisibleSelected = visibleSelectableIds.length > 0 && selectedVisibleCount === visibleSelectableIds.length;
+
+  const toggleSelectedId = useCallback((idRaw) => {
+    const id = Number(idRaw);
+    if (!Number.isFinite(id) || id <= 0) return;
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((entry) => entry !== id) : [...prev, id]));
+  }, []);
+
+  const handleSelectAllVisible = useCallback(() => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      visibleSelectableIds.forEach((id) => next.add(id));
+      return [...next];
+    });
+  }, [visibleSelectableIds]);
+
+  const handleClearSelection = useCallback(() => setSelectedIds([]), []);
+
+  const handleBulkDelete = useCallback(async () => {
+    const targetIds = [...selectedIds];
+    if (!targetIds.length || !onBulkDelete) return;
+    const confirmed = window.confirm(`Delete ${targetIds.length} selected item${targetIds.length === 1 ? '' : 's'}? This cannot be undone.`);
+    if (!confirmed) return;
+    const { deletedIds = [], failedIds = [] } = await onBulkDelete(targetIds);
+    if (deletedIds.some((id) => Number(detail?.id) === Number(id))) setDetail(null);
+    if (deletedIds.some((id) => Number(editing?.id) === Number(id))) setEditing(null);
+    setSelectedIds(failedIds);
+  }, [detail?.id, editing?.id, onBulkDelete, selectedIds]);
+
   const inlineCards = useMemo(() => {
     if (!supportsCollections || isCollectionMode || isComicsLibrary || viewMode !== 'cards') return null;
     const toSortTitle = (value) => String(value || '').trim().toLowerCase();
@@ -2005,51 +2089,83 @@ export default function LibraryView({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-6 py-4 border-b border-edge shrink-0">
-        <div className="flex items-center gap-3 flex-wrap">
-          <h1 className="section-title">Library</h1>
-          <span className="badge badge-dim ml-1">{displayedTotal}</span>
-          <div className="flex-1" />
-          <div className="relative">
+      <div className="px-4 py-3 border-b border-edge shrink-0 sm:px-6 sm:py-4">
+        <div className="flex flex-col gap-2.5 xl:flex-row xl:items-center">
+          <div className="flex items-center gap-3 min-w-0">
+            <h1 className="section-title">Library</h1>
+            <span className="badge badge-dim shrink-0">{displayedTotal}</span>
+          </div>
+          <div className="flex flex-1 flex-col gap-2.5 lg:flex-row lg:flex-wrap lg:items-center lg:justify-end">
+          <div className="relative w-full sm:w-72">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ghost pointer-events-none"><Icons.Search /></span>
-            <input className="input pl-9 w-56" placeholder="Search title, director…" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} />
+            <input className="input pl-9 w-full" placeholder="Search title, director…" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} />
           </div>
-          {quickFilterConfig && (
-            <select
-              className="select w-40"
-              value={quickFilterConfig.value}
-              aria-label={quickFilterConfig.label}
-              onChange={(e) => {
-                const value = e.target.value;
-                if (quickFilterConfig.key === 'resolution') {
-                  setResolutionInput(value);
-                  setFilters((f) => ({ ...f, resolution: value }));
-                } else if (quickFilterConfig.key === 'platform') {
-                  setPlatformInput(value);
-                  setFilters((f) => ({ ...f, platform: value }));
-                } else if (quickFilterConfig.key === 'publisher') {
-                  setPublisherInput(value);
-                  setFilters((f) => ({ ...f, publisher: value }));
-                }
-                setPage(1);
-              }}
-            >
-              {quickFilterConfig.options.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-          )}
-          <div className="tab-strip">
-            <button className={cx('tab', viewMode === 'cards' && 'active')} onClick={() => setViewMode('cards')}><Icons.Film /></button>
-            <button className={cx('tab', viewMode === 'list' && 'active')} onClick={() => setViewMode('list')}><Icons.List /></button>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 lg:justify-end">
+            {quickFilterConfig && (
+              <select
+                className="select min-w-0 flex-1 sm:flex-none sm:w-48"
+                value={quickFilterConfig.value}
+                aria-label={quickFilterConfig.label}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (quickFilterConfig.key === 'resolution') {
+                    setResolutionInput(value);
+                    setFilters((f) => ({ ...f, resolution: value }));
+                  } else if (quickFilterConfig.key === 'platform') {
+                    setPlatformInput(value);
+                    setFilters((f) => ({ ...f, platform: value }));
+                  } else if (quickFilterConfig.key === 'publisher') {
+                    setPublisherInput(value);
+                    setFilters((f) => ({ ...f, publisher: value }));
+                  }
+                  setPage(1);
+                }}
+              >
+                {quickFilterConfig.options.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            )}
+            <div className="flex items-center gap-2 ml-auto sm:ml-0">
+              <div className="tab-strip shrink-0">
+                <button className={cx('tab', viewMode === 'cards' && 'active')} onClick={() => setViewMode('cards')}><Icons.Film /></button>
+                <button className={cx('tab', viewMode === 'list' && 'active')} onClick={() => setViewMode('list')}><Icons.List /></button>
+              </div>
+              <button onClick={() => { setFilters((f) => ({ ...f, sortDir: f.sortDir === 'asc' ? 'desc' : 'asc' })); setPage(1); }} className="btn-icon" title={filters.sortDir === 'asc' ? 'Sort ascending' : 'Sort descending'}>
+                {filters.sortDir === 'asc' ? <Icons.ArrowUp /> : <Icons.ArrowDown />}
+              </button>
+              <button onClick={() => setAdding(true)} className="btn-primary whitespace-nowrap"><Icons.Plus />Add</button>
+            </div>
           </div>
-          <button onClick={() => { setFilters((f) => ({ ...f, sortDir: f.sortDir === 'asc' ? 'desc' : 'asc' })); setPage(1); }} className="btn-icon" title={filters.sortDir === 'asc' ? 'Sort ascending' : 'Sort descending'}>
-            {filters.sortDir === 'asc' ? <Icons.ArrowUp /> : <Icons.ArrowDown />}
-          </button>
-          <button onClick={() => setAdding(true)} className="btn-primary"><Icons.Plus />Add</button>
+          </div>
         </div>
+        {!isCollectionMode && !(isComicsLibrary && comicView === 'series') && (
+          <div className={cx('mt-2.5 rounded-xl border px-3 py-2.5', selectedIds.length > 0 ? 'border-brand/40 bg-brand/5' : 'border-edge bg-surface/30')}>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <span className={cx('text-xs font-mono', selectedIds.length > 0 ? 'text-brand' : 'text-brand/75')}>
+              {selectedIds.length > 0 ? `${selectedIds.length} selected` : 'Select items for bulk actions'}
+            </span>
+            <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={allVisibleSelected ? handleClearSelection : handleSelectAllVisible}
+              disabled={loading || visibleSelectableIds.length === 0}
+              className="btn-secondary btn-sm"
+            >
+              {allVisibleSelected ? 'Clear selection' : `Select visible (${visibleSelectableIds.length})`}
+            </button>
+            {selectedIds.length > 0 && (
+              <>
+                <button type="button" onClick={handleClearSelection} className="btn-secondary btn-sm">Clear</button>
+                <button type="button" onClick={handleBulkDelete} className="btn-danger btn-sm"><Icons.Trash />Delete selected</button>
+              </>
+            )}
+            </div>
+            </div>
+          </div>
+        )}
         {supportsCollections && (
-          <div className="mt-3 flex items-center gap-3 flex-wrap">
+          <div className="mt-2.5 flex items-center gap-3 flex-wrap">
             <div className="tab-strip">
               <button className={cx('tab', collectionMode === 'all' && 'active')} onClick={() => { setCollectionMode('all'); setPage(1); }}>
                 {forcedMediaType === 'game' ? 'All Games' : 'All Movies'}
@@ -2061,7 +2177,7 @@ export default function LibraryView({
           </div>
         )}
         {isComicsLibrary && (
-          <div className="mt-3 flex items-center gap-3 flex-wrap">
+          <div className="mt-2.5 flex items-center gap-3 flex-wrap">
             <div className="tab-strip">
               <button className={cx('tab', comicView === 'issues' && 'active')} onClick={() => setComicView('issues')}>All Issues</button>
               <button className={cx('tab', comicView === 'series' && 'active')} onClick={() => setComicView('series')}>Series</button>
@@ -2079,7 +2195,7 @@ export default function LibraryView({
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto scroll-area p-6">
+      <div className="flex-1 overflow-y-auto scroll-area p-4 sm:p-6">
         {isCollectionMode ? (
           <>
             {collectionError && <p className="text-sm text-err mb-4">{collectionError}</p>}
@@ -2092,7 +2208,7 @@ export default function LibraryView({
               />
             )}
             {!collectionLoading && collectionRows.length > 0 && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
                 {collectionRows.map((item) => (
                   <CollectionCard
                     key={item.id}
@@ -2120,7 +2236,7 @@ export default function LibraryView({
         )}
 
         {!loading && isComicsLibrary && comicView === 'series' && comicSeriesSummaries.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-5">
             {comicSeriesSummaries.map((series) => (
               <button
                 key={series.name}
@@ -2151,7 +2267,7 @@ export default function LibraryView({
         )}
 
         {!loading && viewMode === 'cards' && !isCollectionMode && !(isComicsLibrary && comicView === 'series') && ((inlineCards && inlineCards.length > 0) || (!inlineCards && visibleItems.length > 0)) && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
             {(inlineCards || visibleItems.map((item) => ({ kind: 'media', id: `media-${item.id}`, item }))).map((entry) => (
               entry.kind === 'collection'
                 ? (
@@ -2173,6 +2289,9 @@ export default function LibraryView({
                     onDelete={(id) => { if (window.confirm('Delete this item?')) onDelete(id); }}
                     onRating={rate}
                     supportsHover={supportsHover}
+                    selectionEnabled={true}
+                    selected={selectedIdSet.has(Number(entry.item.id))}
+                    onToggleSelect={toggleSelectedId}
                   />
                 )
             ))}
@@ -2180,7 +2299,7 @@ export default function LibraryView({
         )}
 
         {!loading && viewMode === 'list' && visibleItems.length > 0 && !(isComicsLibrary && comicView === 'series') && (
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             {visibleItems.map((item) => (
               <MediaListRow
                 key={item.id}
@@ -2190,6 +2309,9 @@ export default function LibraryView({
                 onDelete={(id) => { if (window.confirm('Delete this item?')) onDelete(id); }}
                 onRating={rate}
                 supportsHover={supportsHover}
+                selectionEnabled={true}
+                selected={selectedIdSet.has(Number(item.id))}
+                onToggleSelect={toggleSelectedId}
               />
             ))}
           </div>
@@ -2198,25 +2320,27 @@ export default function LibraryView({
         )}
       </div>
 
-      <div className="shrink-0 border-t border-edge px-6 py-3 flex items-center gap-3 flex-wrap">
+      <div className="shrink-0 border-t border-edge px-4 py-3 sm:px-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:flex-wrap">
         {showPagination ? (
           <>
-            <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={loading || collectionLoading || page <= 1}
-              className="btn-secondary btn-sm"
-            >
-              Previous
-            </button>
-            <span className="text-xs text-ghost font-mono">Page {page} / {(isCollectionMode ? (collectionPagination?.totalPages || 1) : (pagination?.totalPages || 1))}</span>
-            <button
-              onClick={() => setPage((p) => p + 1)}
-              disabled={loading || collectionLoading || !(isCollectionMode ? collectionPagination?.hasMore : pagination?.hasMore)}
-              className="btn-secondary btn-sm"
-            >
-              Next
-            </button>
-            <div className="ml-auto flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={loading || collectionLoading || page <= 1}
+                className="btn-secondary btn-sm"
+              >
+                Previous
+              </button>
+              <span className="text-xs text-ghost font-mono">Page {page} / {(isCollectionMode ? (collectionPagination?.totalPages || 1) : (pagination?.totalPages || 1))}</span>
+              <button
+                onClick={() => setPage((p) => p + 1)}
+                disabled={loading || collectionLoading || !(isCollectionMode ? collectionPagination?.hasMore : pagination?.hasMore)}
+                className="btn-secondary btn-sm"
+              >
+                Next
+              </button>
+            </div>
+            <div className="sm:ml-auto flex items-center gap-2">
               <label className="text-xs text-ghost">Page size</label>
               <select className="select w-24" value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}>
                 <option value={25}>25</option>

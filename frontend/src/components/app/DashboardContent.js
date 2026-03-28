@@ -37,6 +37,7 @@ export default function DashboardContent({
   addMedia,
   editMedia,
   deleteMedia,
+  bulkDeleteMedia,
   rateMedia,
   upsertImportJob,
   importJobs,
@@ -100,6 +101,7 @@ export default function DashboardContent({
           onOpen={addMedia}
           onEdit={editMedia}
           onDelete={deleteMedia}
+          onBulkDelete={bulkDeleteMedia}
           onRating={rateMedia}
           apiCall={apiCall}
           forcedMediaType={forcedMediaTypeByTab[activeTab] || 'movie'}

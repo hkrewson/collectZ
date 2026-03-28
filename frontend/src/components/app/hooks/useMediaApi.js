@@ -67,6 +67,53 @@ export default function useMediaApi({ apiCall, showToast }) {
     showToast('Deleted');
   }, [apiCall, showToast]);
 
+  const bulkDeleteMedia = useCallback(async (ids = []) => {
+    const targetIds = [...new Set((Array.isArray(ids) ? ids : []).map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0))];
+    if (targetIds.length === 0) return { deletedIds: [], failedIds: [] };
+
+    const results = await Promise.allSettled(
+      targetIds.map(async (id) => {
+        await apiCall('delete', `/media/${id}`);
+        return id;
+      })
+    );
+
+    const deletedIds = results
+      .filter((result) => result.status === 'fulfilled')
+      .map((result) => result.value);
+    const failedIds = results
+      .filter((result, index) => result.status === 'rejected' && targetIds[index])
+      .map((_, index) => targetIds[index])
+      .filter(Boolean);
+
+    if (deletedIds.length > 0) {
+      setMediaItems((prev) => prev.filter((item) => !deletedIds.includes(Number(item.id))));
+      setMediaPagination((prev) => {
+        const nextTotal = Math.max(0, Number(prev.total || 0) - deletedIds.length);
+        const nextLimit = Math.max(1, Number(prev.limit || DEFAULT_PAGINATION.limit));
+        const nextTotalPages = Math.max(1, Math.ceil(nextTotal / nextLimit));
+        const nextPage = Math.min(Math.max(1, Number(prev.page || 1)), nextTotalPages);
+        return {
+          ...prev,
+          total: nextTotal,
+          totalPages: nextTotalPages,
+          page: nextPage,
+          hasMore: nextPage < nextTotalPages
+        };
+      });
+    }
+
+    if (failedIds.length === 0) {
+      showToast(`Deleted ${deletedIds.length} item${deletedIds.length === 1 ? '' : 's'}`);
+    } else if (deletedIds.length > 0) {
+      showToast(`Deleted ${deletedIds.length} item${deletedIds.length === 1 ? '' : 's'}, ${failedIds.length} failed`, 'error');
+    } else {
+      showToast('Failed to delete selected items', 'error');
+    }
+
+    return { deletedIds, failedIds };
+  }, [apiCall, showToast]);
+
   const rateMedia = useCallback(async (id, rating) => {
     const updated = await apiCall('patch', `/media/${id}`, { user_rating: rating });
     setMediaItems((prev) => prev.map((item) => (item.id === id ? updated : item)));
@@ -82,6 +129,7 @@ export default function useMediaApi({ apiCall, showToast }) {
     addMedia,
     editMedia,
     deleteMedia,
+    bulkDeleteMedia,
     rateMedia
   };
 }

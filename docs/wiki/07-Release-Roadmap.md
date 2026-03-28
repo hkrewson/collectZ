@@ -2222,6 +2222,82 @@ This work was re-scoped into `2.7.1` and the broader `2.7.x` maintenance lane so
 - In-app reader (if enabled) works only for allowed formats and can be fully disabled by feature flag.
 - CWA outages/auth failures do not break core collectZ media workflows.
 
+## 2.4.6 — Optional Convention Scheduler and Session Provider Framework
+
+**Goal:** Add a true calendar-style convention planner that syncs external session catalogs, supports personal scheduling and sharing, and promotes attended sessions into collectZ Events without importing raw schedule rows into the `events` table.
+**Status:** Proposed optional addition.
+
+### Scope
+
+- Add a separate convention scheduling domain rather than reusing the existing `events` table for imported source sessions.
+- Convention planning core:
+  - create a convention series such as `San Diego Comic-Con 2025`,
+  - sync available sessions from external sources into a canonical session catalog,
+  - support a personal `My Calendar` view with overlapping sessions allowed,
+  - support one or more preferred choices among conflicting sessions,
+  - support attended/missed tracking on planned sessions.
+- Attendance promotion:
+  - allow attended sessions to create or attach to a real collectZ event,
+  - keep memorabilia, purchases, autographs, freebies, and collectibles anchored to the promoted event,
+  - preserve structured linkage from attended sessions back to the canonical convention schedule.
+- Sharing:
+  - generate public read-only ICS links for a user's planned convention schedule,
+  - optionally add a public web calendar view later behind a separate sharing surface.
+- Provider framework:
+  - load vetted server-side convention providers from an internal provider directory,
+  - define a provider contract for discovery, fetch, parse, normalize, dedupe, and change detection,
+  - start with machine-readable providers first (`sched_ics`) and use HTML scraping providers only as fallback.
+- Operational safety:
+  - resync must be idempotent,
+  - upstream changes should mark sessions moved/cancelled/removed without deleting user planning state,
+  - provider failures must not impact core media/events/collectibles workflows.
+- Documentation deliverables:
+  - keep the dedicated design spec in sync:
+    - `docs/wiki/38-Convention-Scheduler-and-Provider-Spec.md`.
+
+### Acceptance Criteria
+
+- Imported convention sessions do not create rows in `events` until attendance promotion is explicitly requested.
+- Users can add overlapping sessions to `My Calendar` without validation errors.
+- Users can mark one or more sessions as preferred and filter calendar views accordingly.
+- Attended sessions can be promoted into a real collectZ event with structured links back to source sessions.
+- Public read-only ICS share links work without exposing authenticated app state or private metadata.
+- Resync is dedupe-safe and surfaces meaningful partial-failure details when provider data is incomplete or changed upstream.
+
+### DB/API Checklist
+
+- DB:
+  - add `convention_series` table for top-level convention runs,
+  - add `convention_sources` table for configured upstream provider sources and sync metadata,
+  - add `convention_sessions` table for canonical imported session rows,
+  - add `user_session_plans` table for per-user planning state,
+  - add `calendar_share_links` table for public sharing,
+  - add `event_session_attendance` table for linking promoted attended sessions to real collectZ events.
+- API:
+  - `GET/POST/PATCH /api/conventions...`,
+  - `GET/POST/PATCH /api/convention-sources...`,
+  - `POST /api/convention-sources/:id/sync`,
+  - `GET /api/conventions/:id/sessions`,
+  - `PUT/DELETE /api/convention-sessions/:id/my-plan`,
+  - `POST /api/conventions/:id/attendance/promote`,
+  - share routes for public ICS output.
+- UI:
+  - convention directory,
+  - day or multi-day calendar planner,
+  - session detail drawer,
+  - `My Calendar` filtered planning view,
+  - attendance promotion flow,
+  - share-link management.
+- Provider framework:
+  - internal loader/registry for convention providers,
+  - initial provider target: `sched_ics`,
+  - optional fallback provider target: `sched_html`.
+
+### Notes
+
+- This is intentionally a separate planning domain inside collectZ, not a separate companion app.
+- This is intentionally not a first-pass arbitrary code plugin runtime; initial implementation should load vetted internal provider adapters only.
+
 ## 3.1.0 — Deferred Revisit: Digital Library Sync (CWA or Alternative Self-Hosted Provider)
 
 **Goal:** Reassess digital-owned book/comic sync after core roadmap stabilization, with a stronger provider-evaluation phase before productizing ingestion.

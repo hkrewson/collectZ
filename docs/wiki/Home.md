@@ -36,6 +36,7 @@ Start here for deployment and operations guidance.
 30. [Structured Log Export](./35-Structured-Log-Export.md)
 31. [Loki and Promtail Structured Logs](./36-Loki-and-Promtail-Structured-Logs.md)
 32. [Syslog Structured Logs](./37-Syslog-Structured-Logs.md)
+33. [Convention Scheduler and Provider Framework Spec](./38-Convention-Scheduler-and-Provider-Spec.md)
 
 ## Default Admin Behavior (Important)
 
