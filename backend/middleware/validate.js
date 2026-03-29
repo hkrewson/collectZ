@@ -263,6 +263,12 @@ const authScopeSelectSchema = z.object({
   { message: 'space_id or library_id is required' }
 );
 
+const supportSessionStartSchema = z.object({
+  space_id: z.number().int().positive('space_id must be a positive integer'),
+  library_id: z.number().int().positive('library_id must be a positive integer').optional(),
+  reason: z.preprocess(emptyStringToNull, z.string().max(500, 'reason must be 500 characters or fewer').optional().nullable())
+});
+
 const spaceBaseSchema = z.object({
   name: z.string().trim().min(1, 'Space name is required').max(255),
   slug: z.preprocess(emptyStringToNull, z.string().trim().min(1).max(255).regex(/^[a-z0-9-]+$/, 'slug must use lowercase letters, numbers, or hyphens').optional().nullable()),
@@ -494,6 +500,7 @@ module.exports = {
   libraryUpdateSchema,
   librarySelectSchema,
   authScopeSelectSchema,
+  supportSessionStartSchema,
   libraryDeleteSchema,
   libraryTransferSchema,
   libraryArchiveSchema,

@@ -28,6 +28,7 @@ export default function App() {
   const [libraries, setLibraries] = useState([]);
   const [activeSpaceId, setActiveSpaceId] = useState(null);
   const [activeLibraryId, setActiveLibraryId] = useState(null);
+  const [supportSession, setSupportSession] = useState(null);
   const [uiSettings, setUiSettings] = useState({ theme: 'system', density: 'comfortable' });
   const [featureFlags, setFeatureFlags] = useState({
     events_enabled: false,
@@ -132,6 +133,7 @@ export default function App() {
     setLibraries([]);
     setActiveSpaceId(null);
     setActiveLibraryId(null);
+    setSupportSession(null);
     setMediaItems([]);
     clearImportJobs();
     navigate('login');
@@ -171,6 +173,7 @@ export default function App() {
       setLibraries(nextLibraries);
       setActiveSpaceId(nextActiveSpaceId);
       setActiveLibraryId(nextActiveLibraryId);
+      setSupportSession(payload?.support_session?.active ? payload.support_session : null);
       setUser((prev) => {
         if (!prev) return prev;
         const prevActive = Number(prev.active_library_id || 0) || null;
@@ -210,6 +213,41 @@ export default function App() {
       showToast(error.response?.data?.error || 'Failed to switch libraries', 'error');
     }
   }, [activeLibraryId, activeSpaceId, apiCall, clearImportJobs, loadAuthScope, setMediaItems, setUser, showToast]);
+
+  const endSupportSession = useCallback(async () => {
+    try {
+      await apiCall('delete', '/auth/support-session');
+      await loadAuthScope({ silent: true });
+      clearImportJobs();
+      setMediaItems([]);
+      if (!String(activeTab || '').startsWith('admin-') || activeTab === 'space-manage') {
+        setActiveTab('admin-spaces');
+      }
+      showToast('Support session ended');
+    } catch (error) {
+      showToast(error.response?.data?.error || 'Failed to end support session', 'error');
+    }
+  }, [activeTab, apiCall, clearImportJobs, loadAuthScope, setMediaItems, showToast]);
+
+  const startSupportSession = useCallback(async (space, reason = '') => {
+    const spaceId = Number(space?.id || 0);
+    if (!Number.isFinite(spaceId) || spaceId <= 0) return false;
+    try {
+      await apiCall('post', '/auth/support-session/start', {
+        space_id: spaceId,
+        reason: String(reason || '').trim() || undefined
+      });
+      await loadAuthScope({ silent: true });
+      clearImportJobs();
+      setMediaItems([]);
+      setActiveTab('space-manage');
+      showToast(`Support session started for ${space?.name || 'space'}`);
+      return true;
+    } catch (error) {
+      showToast(error.response?.data?.error || 'Failed to start support session', 'error');
+      return false;
+    }
+  }, [apiCall, clearImportJobs, loadAuthScope, setMediaItems, showToast]);
 
   useEffect(() => {
     if (!(route === 'dashboard' && authChecked && user)) return;
@@ -268,7 +306,9 @@ export default function App() {
 
   const activeSpace = spaces.find((space) => Number(space.id) === Number(activeSpaceId)) || null;
   const activeMembershipRole = activeSpace?.membership_role || null;
-  const canManageActiveSpace = ['owner', 'admin'].includes(activeMembershipRole);
+  const canManageActiveSpace = user?.role === 'admin'
+    ? Boolean(supportSession?.active) || ['owner', 'admin'].includes(activeMembershipRole)
+    : ['owner', 'admin'].includes(activeMembershipRole);
   const scopeKey = `${activeSpaceId || 'none'}:${activeLibraryId || 'none'}`;
   const collapsed = !pinnedExpanded;
   const desktopNavExpanded = !collapsed;
@@ -365,6 +405,19 @@ export default function App() {
           </div>
         </div>
 
+        {user?.role === 'admin' && supportSession?.active ? (
+          <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-edge bg-brand/10">
+            <div className="min-w-0">
+              <p className="text-[10px] uppercase tracking-[0.18em] text-brand">Support Session</p>
+              <p className="text-sm text-ink truncate">{supportSession.space_name || 'Scoped tenant access'}</p>
+              {supportSession.reason ? <p className="text-xs text-ghost truncate">Reason: {supportSession.reason}</p> : null}
+            </div>
+            <button type="button" className="btn-secondary btn-sm shrink-0" onClick={endSupportSession}>
+              End Session
+            </button>
+          </div>
+        ) : null}
+
         <div className="flex-1 overflow-hidden">
           <DashboardContent
             activeTab={activeTab}
@@ -400,6 +453,9 @@ export default function App() {
             libraries={libraries}
             activeLibraryId={activeLibraryId}
             onScopeRefresh={loadAuthScope}
+            supportSession={supportSession}
+            onStartSupportSession={startSupportSession}
+            onEndSupportSession={endSupportSession}
             scopeKey={scopeKey}
           />
         </div>

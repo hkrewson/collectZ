@@ -2265,6 +2265,33 @@ const MIGRATIONS = [
       DROP TRIGGER IF EXISTS update_import_match_reviews_updated_at ON import_match_reviews;
       DROP TABLE IF EXISTS import_match_reviews;
     `
+  },
+  {
+    version: 46,
+    description: 'Session-scoped support access metadata for explicit admin troubleshooting',
+    up: `
+      ALTER TABLE user_sessions
+        ADD COLUMN IF NOT EXISTS support_space_id INTEGER REFERENCES spaces(id) ON DELETE SET NULL;
+
+      ALTER TABLE user_sessions
+        ADD COLUMN IF NOT EXISTS support_library_id INTEGER REFERENCES libraries(id) ON DELETE SET NULL;
+
+      ALTER TABLE user_sessions
+        ADD COLUMN IF NOT EXISTS support_started_at TIMESTAMP;
+
+      ALTER TABLE user_sessions
+        ADD COLUMN IF NOT EXISTS support_reason TEXT;
+
+      ALTER TABLE user_sessions
+        ADD COLUMN IF NOT EXISTS support_previous_space_id INTEGER REFERENCES spaces(id) ON DELETE SET NULL;
+
+      ALTER TABLE user_sessions
+        ADD COLUMN IF NOT EXISTS support_previous_library_id INTEGER REFERENCES libraries(id) ON DELETE SET NULL;
+
+      CREATE INDEX IF NOT EXISTS idx_user_sessions_support_space_id
+        ON user_sessions(support_space_id)
+        WHERE support_space_id IS NOT NULL;
+    `
   }
 ];
 

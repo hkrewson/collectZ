@@ -193,6 +193,12 @@ CREATE TABLE IF NOT EXISTS user_sessions (
     token_hash VARCHAR(64) UNIQUE NOT NULL,
     ip_address INET,
     user_agent TEXT,
+    support_space_id INTEGER REFERENCES spaces(id) ON DELETE SET NULL,
+    support_library_id INTEGER REFERENCES libraries(id) ON DELETE SET NULL,
+    support_started_at TIMESTAMP,
+    support_reason TEXT,
+    support_previous_space_id INTEGER REFERENCES spaces(id) ON DELETE SET NULL,
+    support_previous_library_id INTEGER REFERENCES libraries(id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     expires_at TIMESTAMP NOT NULL
 );
@@ -571,6 +577,7 @@ CREATE INDEX IF NOT EXISTS idx_app_integrations_space_id ON app_integrations(spa
 CREATE INDEX IF NOT EXISTS idx_activity_log_action ON activity_log(action);
 CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_sessions_expires_at ON user_sessions(expires_at);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_support_space_id ON user_sessions(support_space_id) WHERE support_space_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user_id ON password_reset_tokens(user_id);
 CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_active ON password_reset_tokens(used, revoked, expires_at);
 CREATE INDEX IF NOT EXISTS idx_libraries_name ON libraries(name);
@@ -775,5 +782,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (42, 'Activate first-class spaces and backfill default space memberships'),
     (43, 'Add space-scoped invite roles for tenancy activation'),
     (44, 'Reconcile legacy default-space installs into isolated personal spaces'),
-    (45, 'Retire import review queue after moving diagnostics to audit and debug logging')
+    (45, 'Retire import review queue after moving diagnostics to audit and debug logging'),
+    (46, 'Session-scoped support access metadata for explicit admin troubleshooting')
 ON CONFLICT (version) DO NOTHING;

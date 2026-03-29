@@ -201,6 +201,25 @@ results.push(run('admin route source includes platform-safe space detail and ros
   assert.ok(adminRoutesSource.includes("router.patch('/spaces/:id/invites/:inviteId/revoke'"));
 }));
 
+results.push(run('auth route source includes explicit support session endpoints', () => {
+  assert.ok(authRoutesSource.includes("router.post('/support-session/start'"));
+  assert.ok(authRoutesSource.includes("router.delete('/support-session'"));
+  assert.ok(authRoutesSource.includes('auth.support_session.started'));
+  assert.ok(authRoutesSource.includes('auth.support_session.ended'));
+}));
+
+results.push(run('migrations source includes session-scoped support access metadata', () => {
+  assert.ok(migrationsSource.includes('version: 46'));
+  assert.ok(migrationsSource.includes('support_space_id'));
+  assert.ok(migrationsSource.includes('support_previous_library_id'));
+}));
+
+results.push(run('frontend app source includes support session banner and admin trigger plumbing', () => {
+  assert.ok(frontendAppSource.includes('Support Session'));
+  assert.ok(frontendAppSource.includes('/auth/support-session/start'));
+  assert.ok(dashboardContentSource.includes('onStartSupportSession'));
+}));
+
 results.push(run('media route source hardens image upload handlers', () => {
   assert.ok(mediaRoutesSource.includes('const tempImageUpload = multer('));
   assert.ok(mediaRoutesSource.includes('const memoryImageUpload = multer('));

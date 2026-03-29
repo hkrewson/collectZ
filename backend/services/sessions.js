@@ -50,6 +50,12 @@ const getSessionUserByToken = async (token) => {
   const result = await pool.query(
     `SELECT
        s.id AS session_id,
+       s.support_space_id,
+       s.support_library_id,
+       s.support_started_at,
+       s.support_reason,
+       s.support_previous_space_id,
+       s.support_previous_library_id,
        u.id,
        u.email,
        u.role,

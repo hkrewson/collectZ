@@ -65,7 +65,16 @@ function KebabIcon() {
   );
 }
 
-export default function AdminSpacesView({ apiCall, onToast, Spinner, cx, Icons }) {
+export default function AdminSpacesView({
+  apiCall,
+  onToast,
+  Spinner,
+  cx,
+  Icons,
+  supportSession = null,
+  onStartSupportSession,
+  onEndSupportSession
+}) {
   const [spaces, setSpaces] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -91,6 +100,7 @@ export default function AdminSpacesView({ apiCall, onToast, Spinner, cx, Icons }
   const [addingExistingUser, setAddingExistingUser] = useState(false);
   const [reissuingInviteId, setReissuingInviteId] = useState(null);
   const [openRowMenuId, setOpenRowMenuId] = useState(null);
+  const [startingSupportSession, setStartingSupportSession] = useState(false);
 
   const loadPlatformData = useCallback(async () => {
     setLoading(true);
@@ -153,6 +163,7 @@ export default function AdminSpacesView({ apiCall, onToast, Spinner, cx, Icons }
     () => selectedSpaceMembers.filter((member) => member.role !== 'owner'),
     [selectedSpaceMembers]
   );
+  const supportSessionActiveForSelectedSpace = Number(supportSession?.space_id || 0) === Number(selectedSpaceId || 0);
   const addableUserOptions = useMemo(() => {
     const memberIds = new Set(selectedSpaceMembers.map((member) => Number(member.user_id)));
     return userOptions.filter((user) => !memberIds.has(Number(user.id)));
@@ -427,6 +438,28 @@ export default function AdminSpacesView({ apiCall, onToast, Spinner, cx, Icons }
     }
   };
 
+  const handleSupportSession = async () => {
+    if (!selectedSpace) return;
+    if (supportSessionActiveForSelectedSpace) {
+      await onEndSupportSession?.();
+      return;
+    }
+
+    const reason = window.prompt(
+      `Optional: why are you opening support access for ${selectedSpace.name}?`,
+      supportSession?.active ? `Switch support access from ${supportSession.space_name || 'current space'}` : ''
+    );
+    if (reason === null) return;
+
+    setStartingSupportSession(true);
+    try {
+      await onStartSupportSession?.(selectedSpace, reason);
+      setSelectedSpaceId(null);
+    } finally {
+      setStartingSupportSession(false);
+    }
+  };
+
   if (loading) {
     return <div className="p-4 sm:p-6 flex items-center gap-3 text-dim"><Spinner />Loading spaces…</div>;
   }
@@ -436,7 +469,7 @@ export default function AdminSpacesView({ apiCall, onToast, Spinner, cx, Icons }
       <div className="space-y-2">
         <h1 className="section-title">All Spaces</h1>
         <p className="text-sm text-ghost max-w-3xl">
-          Platform control plane for global admins. Create spaces, recover owners, and archive or delete empty spaces without joining those tenant spaces.
+          Platform control plane for global admins. Create spaces, recover owners, and run explicit support sessions without falling back to casual tenant-space browsing.
         </p>
       </div>
 
@@ -630,6 +663,18 @@ export default function AdminSpacesView({ apiCall, onToast, Spinner, cx, Icons }
                 <h2 className="font-display text-2xl tracking-wider text-ink">Space Controls</h2>
                 <p className="text-sm text-ghost mt-1">{selectedSpaceDetails?.space?.name || selectedSpace.name}</p>
               </div>
+              <button
+                type="button"
+                className="btn-secondary btn-sm shrink-0"
+                disabled={startingSupportSession}
+                onClick={handleSupportSession}
+              >
+                {startingSupportSession
+                  ? <Spinner size={12} />
+                  : supportSessionActiveForSelectedSpace
+                    ? 'End Support Session'
+                    : 'Start Support Session'}
+              </button>
               <button onClick={() => setSelectedSpaceId(null)} className="btn-icon btn-sm">
                 <Icons.X />
               </button>

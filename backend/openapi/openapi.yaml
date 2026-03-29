@@ -107,6 +107,12 @@
         "properties": {
           "active_space_id": { "type": ["integer", "null"] },
           "active_library_id": { "type": ["integer", "null"] },
+          "support_session": {
+            "oneOf": [
+              { "$ref": "#/components/schemas/SupportSessionRecord" },
+              { "type": "null" }
+            ]
+          },
           "spaces": {
             "type": "array",
             "items": { "$ref": "#/components/schemas/SpaceSummary" }
@@ -125,6 +131,29 @@
           "library_id": { "type": "integer", "minimum": 1 }
         },
         "minProperties": 1
+      },
+      "SupportSessionRecord": {
+        "type": "object",
+        "properties": {
+          "active": { "type": "boolean" },
+          "space_id": { "type": ["integer", "null"] },
+          "library_id": { "type": ["integer", "null"] },
+          "started_at": { "type": ["string", "null"], "format": "date-time" },
+          "reason": { "type": ["string", "null"] },
+          "previous_space_id": { "type": ["integer", "null"] },
+          "previous_library_id": { "type": ["integer", "null"] },
+          "space_name": { "type": ["string", "null"] }
+        },
+        "required": ["active"]
+      },
+      "SupportSessionStartRequest": {
+        "type": "object",
+        "properties": {
+          "space_id": { "type": "integer", "minimum": 1 },
+          "library_id": { "type": "integer", "minimum": 1 },
+          "reason": { "type": ["string", "null"], "maxLength": 500 }
+        },
+        "required": ["space_id"]
       },
       "SpaceRecord": {
         "type": "object",
@@ -803,6 +832,92 @@
           },
           "403": {
             "description": "Scope selection denied",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/support-session/start": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Start an explicit admin support session for a target space",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SupportSessionStartRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Support session started",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AuthScopeResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "403": {
+            "description": "Support session denied",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "404": {
+            "description": "Target space or session not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/support-session": {
+      "delete": {
+        "tags": ["Auth"],
+        "summary": "End the current explicit admin support session",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "responses": {
+          "200": {
+            "description": "Support session ended",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AuthScopeResponse" }
+              }
+            }
+          },
+          "403": {
+            "description": "Support session denied",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "404": {
+            "description": "Session not found",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/Error" }

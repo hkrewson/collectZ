@@ -3,7 +3,17 @@ const bcrypt = require('bcrypt');
 const pool = require('../db/pool');
 const { asyncHandler } = require('../middleware/errors');
 const { authenticateToken, requireRole, requireSessionAuth, SESSION_COOKIE_OPTIONS } = require('../middleware/auth');
-const { validate, registerSchema, loginSchema, profileUpdateSchema, passwordResetConsumeSchema, personalAccessTokenCreateSchema, serviceAccountKeyCreateSchema, authScopeSelectSchema } = require('../middleware/validate');
+const {
+  validate,
+  registerSchema,
+  loginSchema,
+  profileUpdateSchema,
+  passwordResetConsumeSchema,
+  personalAccessTokenCreateSchema,
+  serviceAccountKeyCreateSchema,
+  authScopeSelectSchema,
+  supportSessionStartSchema
+} = require('../middleware/validate');
 const { createSession, revokeSessionByToken, revokeSessionsForUser, getSessionUserByToken } = require('../services/sessions');
 const { logActivity } = require('../services/audit');
 const { issueCsrfToken, clearCsrfToken } = require('../middleware/csrf');
@@ -32,7 +42,106 @@ const { recordAuthEvent } = require('../services/metrics');
 
 const router = express.Router();
 
+async function getSupportSpaceSummary(client, spaceId) {
+  const result = await client.query(
+    `SELECT
+       s.id,
+       s.name,
+       s.slug,
+       s.description,
+       s.is_personal,
+       COUNT(DISTINCT l.id)::int AS library_count
+     FROM spaces s
+     LEFT JOIN libraries l
+       ON l.space_id = s.id
+      AND l.archived_at IS NULL
+     WHERE s.id = $1
+       AND s.archived_at IS NULL
+     GROUP BY s.id
+     LIMIT 1`,
+    [spaceId]
+  );
+  return result.rows[0] || null;
+}
+
+async function listSupportLibrariesForSpace(client, spaceId) {
+  const result = await client.query(
+    `SELECT l.id, l.name, l.description, l.space_id, l.created_by, l.created_at, l.updated_at,
+            u.email AS created_by_email, u.name AS created_by_name,
+            COUNT(m.id)::int AS item_count
+     FROM libraries l
+     LEFT JOIN users u ON u.id = l.created_by
+     LEFT JOIN media m ON m.library_id = l.id
+     WHERE l.space_id = $1
+       AND l.archived_at IS NULL
+     GROUP BY l.id, u.email, u.name
+     ORDER BY lower(l.name) ASC, l.id ASC`,
+    [spaceId]
+  );
+  return result.rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    description: row.description || null,
+    space_id: row.space_id || null,
+    created_by: row.created_by || null,
+    created_by_email: row.created_by_email || null,
+    created_by_name: row.created_by_name || null,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    item_count: Number(row.item_count || 0)
+  }));
+}
+
 async function buildAuthScopePayload(req) {
+  if (req.user?.role === 'admin' && Number(req.user?.supportSpaceId || 0) > 0) {
+    const client = await pool.connect();
+    try {
+      const supportSpace = await getSupportSpaceSummary(client, Number(req.user.supportSpaceId));
+      if (!supportSpace) {
+        return {
+          active_space_id: null,
+          active_library_id: null,
+          spaces: [],
+          libraries: [],
+          support_session: null
+        };
+      }
+
+      const libraries = await listSupportLibrariesForSpace(client, supportSpace.id);
+      const requestedLibraryId = Number(req.user.supportLibraryId || 0) || null;
+      const activeLibraryId = requestedLibraryId && libraries.some((library) => Number(library.id) === requestedLibraryId)
+        ? requestedLibraryId
+        : (libraries[0]?.id || null);
+
+      return {
+        active_space_id: supportSpace.id,
+        active_library_id: activeLibraryId,
+        spaces: [{
+          id: supportSpace.id,
+          name: supportSpace.name,
+          slug: supportSpace.slug || null,
+          description: supportSpace.description || null,
+          is_personal: Boolean(supportSpace.is_personal),
+          membership_role: 'admin',
+          library_count: Number(supportSpace.library_count || 0)
+        }],
+        libraries,
+        support_session: {
+          active: true,
+          space_id: supportSpace.id,
+          library_id: activeLibraryId,
+          started_at: req.user.supportStartedAt || null,
+          reason: req.user.supportReason || null,
+          previous_space_id: req.user.supportPreviousSpaceId ?? null,
+          previous_library_id: req.user.supportPreviousLibraryId ?? null,
+          space_name: supportSpace.name
+        }
+      };
+    } finally {
+      client.release();
+    }
+  }
+
   const ensuredScope = await ensureUserDefaultScope(req.user.id);
   req.user.activeSpaceId = ensuredScope.spaceId;
   req.user.activeLibraryId = ensuredScope.libraryId;
@@ -61,9 +170,10 @@ async function buildAuthScopePayload(req) {
         description: space.description || null,
         is_personal: Boolean(space.is_personal),
         membership_role: space.membership_role || null,
-        library_count: Number(space.library_count || 0)
+          library_count: Number(space.library_count || 0)
       })),
-      libraries
+      libraries,
+      support_session: null
     };
   } finally {
     client.release();
@@ -422,6 +532,159 @@ router.post('/scope', authenticateToken, requireSessionAuth, validate(authScopeS
 
   const payload = await buildAuthScopePayload(req);
   res.json(payload);
+}));
+
+router.post('/support-session/start', authenticateToken, requireSessionAuth, requireRole('admin'), validate(supportSessionStartSchema), asyncHandler(async (req, res) => {
+  const targetSpaceId = Number(req.body.space_id || 0);
+  const requestedLibraryId = Number(req.body.library_id || 0) || null;
+  const reason = String(req.body.reason || '').trim() || null;
+
+  const client = await pool.connect();
+  let committed = false;
+  try {
+    await client.query('BEGIN');
+
+    const sessionResult = await client.query(
+      `SELECT id, support_space_id, support_library_id, support_started_at, support_reason,
+              support_previous_space_id, support_previous_library_id
+       FROM user_sessions
+       WHERE id = $1
+       FOR UPDATE`,
+      [req.sessionId]
+    );
+    if (sessionResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Session not found' });
+    }
+
+    const targetSpace = await getSupportSpaceSummary(client, targetSpaceId);
+    if (!targetSpace) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Space not found' });
+    }
+
+    const libraries = await listSupportLibrariesForSpace(client, targetSpaceId);
+    let targetLibraryId = requestedLibraryId;
+    if (targetLibraryId) {
+      const matchesTarget = libraries.some((library) => Number(library.id) === targetLibraryId);
+      if (!matchesTarget) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Selected library is not part of the target space' });
+      }
+    } else {
+      targetLibraryId = libraries[0]?.id || null;
+    }
+
+    const currentSession = sessionResult.rows[0];
+    const previousSpaceId = Number(currentSession.support_previous_space_id || 0) || Number(req.user.activeSpaceId || 0) || null;
+    const previousLibraryId = Number(currentSession.support_previous_library_id || 0) || Number(req.user.activeLibraryId || 0) || null;
+
+    await client.query(
+      `UPDATE user_sessions
+       SET support_space_id = $2,
+           support_library_id = $3,
+           support_started_at = NOW(),
+           support_reason = $4,
+           support_previous_space_id = $5,
+           support_previous_library_id = $6
+       WHERE id = $1`,
+      [req.sessionId, targetSpaceId, targetLibraryId, reason, previousSpaceId, previousLibraryId]
+    );
+
+    await client.query('COMMIT');
+    committed = true;
+
+    req.user.supportSpaceId = targetSpaceId;
+    req.user.supportLibraryId = targetLibraryId;
+    req.user.supportStartedAt = new Date().toISOString();
+    req.user.supportReason = reason;
+    req.user.supportPreviousSpaceId = previousSpaceId;
+    req.user.supportPreviousLibraryId = previousLibraryId;
+    req.user.activeSpaceId = targetSpaceId;
+    req.user.activeLibraryId = targetLibraryId;
+
+    await logActivity(req, 'auth.support_session.started', 'space', targetSpaceId, {
+      reason,
+      supportSpaceId: targetSpaceId,
+      supportLibraryId: targetLibraryId,
+      previousSpaceId,
+      previousLibraryId
+    });
+
+    const payload = await buildAuthScopePayload(req);
+    res.json(payload);
+  } catch (error) {
+    if (!committed) {
+      await client.query('ROLLBACK');
+    }
+    throw error;
+  } finally {
+    client.release();
+  }
+}));
+
+router.delete('/support-session', authenticateToken, requireSessionAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const client = await pool.connect();
+  let committed = false;
+  try {
+    await client.query('BEGIN');
+
+    const sessionResult = await client.query(
+      `SELECT support_space_id, support_library_id, support_started_at, support_reason,
+              support_previous_space_id, support_previous_library_id
+       FROM user_sessions
+       WHERE id = $1
+       FOR UPDATE`,
+      [req.sessionId]
+    );
+    if (sessionResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Session not found' });
+    }
+
+    const currentSession = sessionResult.rows[0];
+
+    await client.query(
+      `UPDATE user_sessions
+       SET support_space_id = NULL,
+           support_library_id = NULL,
+           support_started_at = NULL,
+           support_reason = NULL,
+           support_previous_space_id = NULL,
+           support_previous_library_id = NULL
+       WHERE id = $1`,
+      [req.sessionId]
+    );
+
+    await client.query('COMMIT');
+    committed = true;
+
+    await logActivity(req, 'auth.support_session.ended', 'space', currentSession.support_space_id || null, {
+      reason: currentSession.support_reason || null,
+      supportSpaceId: currentSession.support_space_id || null,
+      supportLibraryId: currentSession.support_library_id || null,
+      startedAt: currentSession.support_started_at || null,
+      previousSpaceId: currentSession.support_previous_space_id || null,
+      previousLibraryId: currentSession.support_previous_library_id || null
+    });
+
+    req.user.supportSpaceId = null;
+    req.user.supportLibraryId = null;
+    req.user.supportStartedAt = null;
+    req.user.supportReason = null;
+    req.user.supportPreviousSpaceId = null;
+    req.user.supportPreviousLibraryId = null;
+
+    const payload = await buildAuthScopePayload(req);
+    res.json(payload);
+  } catch (error) {
+    if (!committed) {
+      await client.query('ROLLBACK');
+    }
+    throw error;
+  } finally {
+    client.release();
+  }
 }));
 
 // ── Profile ───────────────────────────────────────────────────────────────────

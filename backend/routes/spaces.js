@@ -39,6 +39,32 @@ const router = express.Router();
 router.use(authenticateToken);
 
 async function requireAccessibleSpace(client, req, spaceId) {
+  if (req.user?.role === 'admin' && Number(req.user?.supportSpaceId || 0) === Number(spaceId || 0)) {
+    const result = await client.query(
+      `SELECT
+         s.id,
+         s.name,
+         s.slug,
+         s.description,
+         s.created_by,
+         s.is_personal,
+         s.created_at,
+         s.updated_at,
+         'admin'::varchar AS membership_role
+       FROM spaces s
+       WHERE s.id = $1
+         AND s.archived_at IS NULL
+       LIMIT 1`,
+      [spaceId]
+    );
+    const supportSpace = result.rows[0] || null;
+    if (!supportSpace) return null;
+    return {
+      ...supportSpace,
+      actor_membership_role: 'admin'
+    };
+  }
+
   const space = await getAccessibleSpaceForUser(client, {
     userId: req.user.id,
     role: req.user.role,

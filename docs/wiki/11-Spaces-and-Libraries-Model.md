@@ -154,6 +154,11 @@ In 2.0:
 - If a global server admin needs to help inside a space, that should happen through:
   - explicit membership/invitation into that space, or
   - a separate explicit and fully audited server-admin support workflow.
+- When that support workflow exists, it should be session-scoped rather than user-global:
+  - explicit start and end,
+  - target space recorded,
+  - optional reason captured,
+  - no passive sidebar selector or background tenant browsing.
 - Cross-space user transfer should move only libraries the user owns, not every library they can access.
 - Ownership-based library reassignment should happen only through an explicit cross-space transfer flow, not ordinary membership edits.
 - The first transfer flow should create the destination space as part of the move, to avoid ambiguous reassignment into an existing shared space.

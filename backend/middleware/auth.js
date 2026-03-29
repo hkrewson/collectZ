@@ -213,8 +213,14 @@ const authenticateToken = async (req, res, next) => {
       id: sessionUser.id,
       email: sessionUser.email,
       role: sessionUser.role,
-      activeSpaceId: sessionUser.active_space_id ?? null,
-      activeLibraryId: sessionUser.active_library_id ?? null
+      activeSpaceId: sessionUser.support_space_id ?? sessionUser.active_space_id ?? null,
+      activeLibraryId: sessionUser.support_library_id ?? sessionUser.active_library_id ?? null,
+      supportSpaceId: sessionUser.support_space_id ?? null,
+      supportLibraryId: sessionUser.support_library_id ?? null,
+      supportStartedAt: sessionUser.support_started_at ?? null,
+      supportReason: sessionUser.support_reason ?? null,
+      supportPreviousSpaceId: sessionUser.support_previous_space_id ?? null,
+      supportPreviousLibraryId: sessionUser.support_previous_library_id ?? null
     };
     req.authContext = { type: 'session', scopes: [] };
     req.sessionId = sessionUser.session_id;
