@@ -801,7 +801,7 @@
       },
       "post": {
         "tags": ["Auth"],
-        "summary": "Select the current active space and library for the session user",
+        "summary": "Select the current active space and library for a non-admin session user",
         "security": [
           { "cookieSession": [], "csrfHeader": [] }
         ],
@@ -983,7 +983,7 @@
     "/api/spaces/select": {
       "post": {
         "tags": ["Auth"],
-        "summary": "Select the active space for the current user",
+        "summary": "Select the active space for a non-admin session user",
         "security": [
           { "cookieSession": [], "csrfHeader": [] }
         ],

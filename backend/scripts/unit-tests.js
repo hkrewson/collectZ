@@ -1213,6 +1213,7 @@ results.push(run('scope access source enforces explicit space membership for non
   const scopeAccessSource = require('fs').readFileSync(require.resolve('../middleware/scopeAccess'), 'utf8');
   assert.ok(scopeAccessSource.includes('FROM space_memberships'));
   assert.ok(scopeAccessSource.includes('space_membership_required'));
+  assert.ok(scopeAccessSource.includes('admin_support_session_required'));
 }));
 
 results.push(run('token auth sources derive fallback scope from accessible libraries', () => {

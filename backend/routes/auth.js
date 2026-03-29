@@ -460,6 +460,10 @@ router.get('/scope', authenticateToken, asyncHandler(async (req, res) => {
 }));
 
 router.post('/scope', authenticateToken, requireSessionAuth, validate(authScopeSelectSchema), asyncHandler(async (req, res) => {
+  if (req.user.role === 'admin') {
+    return res.status(403).json({ error: 'Global admins must use explicit support-session controls instead of generic scope selection' });
+  }
+
   const requestedSpaceId = Number(req.body.space_id || 0) || null;
   const requestedLibraryId = Number(req.body.library_id || 0) || null;
 

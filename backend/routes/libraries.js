@@ -167,6 +167,80 @@ router.patch('/libraries/:id', validate(libraryUpdateSchema), asyncHandler(async
 
 router.post('/libraries/select', requireSessionAuth, validate(librarySelectSchema), asyncHandler(async (req, res) => {
   const libraryId = Number(req.body.library_id);
+  if (req.user.role === 'admin') {
+    const supportSpaceId = Number(req.user.supportSpaceId || 0) || null;
+    if (!supportSpaceId) {
+      return res.status(403).json({ error: 'Global admins may switch libraries only during an explicit support session' });
+    }
+
+    const client = await pool.connect();
+    let committed = false;
+    try {
+      await client.query('BEGIN');
+
+      const sessionResult = await client.query(
+        `SELECT id
+         FROM user_sessions
+         WHERE id = $1
+           AND support_space_id = $2
+         FOR UPDATE`,
+        [req.sessionId, supportSpaceId]
+      );
+      if (sessionResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({ error: 'Support session not active for library switching' });
+      }
+
+      const selected = await client.query(
+        `SELECT id, name, description, space_id, created_by, created_at, updated_at
+         FROM libraries
+         WHERE id = $1
+           AND space_id = $2
+           AND archived_at IS NULL
+         LIMIT 1`,
+        [libraryId, supportSpaceId]
+      );
+      if (selected.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({ error: 'Library access denied' });
+      }
+
+      const library = selected.rows[0];
+
+      await client.query(
+        `UPDATE user_sessions
+         SET support_library_id = $2
+         WHERE id = $1`,
+        [req.sessionId, library.id]
+      );
+
+      await client.query('COMMIT');
+      committed = true;
+
+      req.user.activeLibraryId = library.id;
+      req.user.activeSpaceId = supportSpaceId;
+      req.user.supportLibraryId = library.id;
+
+      await logActivity(req, 'auth.support_session.library.select', 'library', library.id, {
+        supportSpaceId,
+        libraryName: library.name
+      });
+
+      return res.json({
+        active_library_id: library.id,
+        active_space_id: supportSpaceId,
+        library
+      });
+    } catch (error) {
+      if (!committed) {
+        await client.query('ROLLBACK');
+      }
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   const selected = await getAccessibleLibrary({
     userId: req.user.id,
     role: req.user.role,

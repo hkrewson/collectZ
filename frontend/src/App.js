@@ -208,11 +208,11 @@ export default function App() {
       if (nextActiveSpaceId !== Number(activeSpaceId || 0)) {
         await loadAuthScope({ silent: true });
       }
-      showToast('Active library updated');
+      showToast(user?.role === 'admin' && supportSession?.active ? 'Support library updated' : 'Active library updated');
     } catch (error) {
       showToast(error.response?.data?.error || 'Failed to switch libraries', 'error');
     }
-  }, [activeLibraryId, activeSpaceId, apiCall, clearImportJobs, loadAuthScope, setMediaItems, setUser, showToast]);
+  }, [activeLibraryId, activeSpaceId, apiCall, clearImportJobs, loadAuthScope, setMediaItems, setUser, showToast, supportSession?.active, user?.role]);
 
   const endSupportSession = useCallback(async () => {
     try {
@@ -412,9 +412,27 @@ export default function App() {
               <p className="text-sm text-ink truncate">{supportSession.space_name || 'Scoped tenant access'}</p>
               {supportSession.reason ? <p className="text-xs text-ghost truncate">Reason: {supportSession.reason}</p> : null}
             </div>
-            <button type="button" className="btn-secondary btn-sm shrink-0" onClick={endSupportSession}>
-              End Session
-            </button>
+            <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
+              {libraries.length > 1 ? (
+                <label className="field min-w-[180px]">
+                  <span className="label">Support Library</span>
+                  <select
+                    className="select"
+                    value={activeLibraryId || ''}
+                    onChange={(e) => handleLibrarySelect(e.target.value)}
+                  >
+                    {libraries.map((library) => (
+                      <option key={library.id} value={library.id}>
+                        {library.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+              <button type="button" className="btn-secondary btn-sm shrink-0" onClick={endSupportSession}>
+                End Session
+              </button>
+            </div>
           </div>
         ) : null}
 

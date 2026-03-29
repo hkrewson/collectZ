@@ -282,6 +282,10 @@ router.patch('/spaces/:id', validate(spaceUpdateSchema), asyncHandler(async (req
 }));
 
 router.post('/spaces/select', requireSessionAuth, asyncHandler(async (req, res) => {
+  if (req.user.role === 'admin') {
+    return res.status(403).json({ error: 'Global admins must use explicit support-session controls instead of generic space selection' });
+  }
+
   const spaceId = Number(req.body?.space_id || 0);
   if (!Number.isFinite(spaceId) || spaceId <= 0) {
     return res.status(400).json({ error: 'space_id must be a positive integer' });

@@ -9,13 +9,16 @@ const isAllowedHintRole = (role, allowedHintRoles) => (
 );
 
 const denyScopeRequest = async (req, res, reason, hints, details = {}) => {
+  const errorMessage = reason === 'admin_support_session_required'
+    ? 'Global admins must use an explicit support session for this scope change'
+    : ACCESS_DENIED_MESSAGE;
   await logActivity(req, 'scope.access.denied', 'scope', null, {
     reason,
     requestedSpaceId: hints?.spaceId ?? null,
     requestedLibraryId: hints?.libraryId ?? null,
     ...details
   });
-  return res.status(403).json({ error: ACCESS_DENIED_MESSAGE, reason });
+  return res.status(403).json({ error: errorMessage, reason });
 };
 
 function enforceScopeAccess(options = {}) {
@@ -27,6 +30,19 @@ function enforceScopeAccess(options = {}) {
       const userId = req.user?.id || null;
       const activeSpaceId = req.user?.activeSpaceId ?? null;
       const activeLibraryId = req.user?.activeLibraryId ?? null;
+
+      const isLibrarySelectPath = (
+        req.path === '/select'
+        && String(req.baseUrl || '').endsWith('/libraries')
+      );
+
+      if (
+        role === 'admin'
+        && isLibrarySelectPath
+        && !req.user?.supportSpaceId
+      ) {
+        return denyScopeRequest(req, res, 'admin_support_session_required', hints, { role });
+      }
 
       // Active scope comes from the authenticated server-side user state.
       let resolvedSpaceId = activeSpaceId;

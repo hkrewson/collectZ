@@ -158,6 +158,7 @@ In 2.0:
   - explicit start and end,
   - target space recorded,
   - optional reason captured,
+  - library changes, if needed, should happen only inside the explicit support session path,
   - no passive sidebar selector or background tenant browsing.
 - Cross-space user transfer should move only libraries the user owns, not every library they can access.
 - Ownership-based library reassignment should happen only through an explicit cross-space transfer flow, not ordinary membership edits.

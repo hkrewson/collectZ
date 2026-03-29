@@ -86,6 +86,16 @@ async function deleteDirectUser(userId) {
   await pool.query('DELETE FROM users WHERE id = $1', [userId]);
 }
 
+async function createLibraryInSpace({ name, spaceId, createdBy = null }) {
+  const result = await pool.query(
+    `INSERT INTO libraries (name, created_by, space_id)
+     VALUES ($1, $2, $3)
+     RETURNING id, name, space_id`,
+    [name, createdBy, spaceId]
+  );
+  return result.rows[0];
+}
+
 async function bootstrapAdmin(client, { fallbackEmail, fallbackPassword }) {
   const bootstrapAdminEmail = process.env.RBAC_ADMIN_EMAIL || process.env.ADMIN_EMAIL || 'ci-rbac-admin@example.com';
   const bootstrapAdminPassword = process.env.RBAC_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || 'Passw0rd!123';
@@ -140,6 +150,8 @@ async function main() {
   let tempAdminUserId = null;
   let ownerUserId = null;
   let createdSpaceId = null;
+  let libraryOneId = null;
+  let libraryTwoId = null;
 
   try {
     const bootstrappedAdmin = await bootstrapAdmin(admin, {
@@ -170,6 +182,41 @@ async function main() {
     createdSpaceId = Number(createdSpace?.data?.id || 0) || null;
     assert(Number.isFinite(createdSpaceId), 'Created support-session test space id missing');
 
+    const libraryOne = await createLibraryInSpace({
+      name: `Support Library A ${suffix}`,
+      spaceId: createdSpaceId,
+      createdBy: ownerUserId
+    });
+    const libraryTwo = await createLibraryInSpace({
+      name: `Support Library B ${suffix}`,
+      spaceId: createdSpaceId,
+      createdBy: ownerUserId
+    });
+    libraryOneId = Number(libraryOne.id);
+    libraryTwoId = Number(libraryTwo.id);
+
+    const adminLibrarySelectDenied = await admin.request('/api/libraries/select', {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 403,
+      body: { library_id: libraryOneId }
+    });
+    assert(
+      String(adminLibrarySelectDenied?.data?.error || '').toLowerCase().includes('support session'),
+      `Expected generic admin library selection to require support session, got ${JSON.stringify(adminLibrarySelectDenied?.data)}`
+    );
+
+    const adminSpaceSelectDenied = await admin.request('/api/spaces/select', {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 403,
+      body: { space_id: createdSpaceId }
+    });
+    assert(
+      String(adminSpaceSelectDenied?.data?.error || '').toLowerCase().includes('support-session'),
+      `Expected generic admin space selection to be denied, got ${JSON.stringify(adminSpaceSelectDenied?.data)}`
+    );
+
     const beforeSupport = await admin.request(`/api/spaces/${createdSpaceId}/members`, { expectStatus: 404 });
     assert(
       String(beforeSupport?.data?.error || '').toLowerCase().includes('space not found'),
@@ -186,9 +233,19 @@ async function main() {
     assert(started?.data?.support_session?.active === true, 'Support session should be active after start');
     assert(Number(started?.data?.support_session?.space_id || 0) === createdSpaceId, 'Support session should target the created space');
     assert(started?.data?.support_session?.reason === reason, 'Support session should retain the provided reason');
+    assert(Array.isArray(started?.data?.libraries) && started.data.libraries.length === 2, 'Support session should expose target-space libraries');
 
     const duringSupport = await admin.request(`/api/spaces/${createdSpaceId}/members`, { expectStatus: 200 });
     assert(Array.isArray(duringSupport?.data?.members), 'Expected support session to unlock space member access');
+
+    await admin.fetchCsrfToken();
+    const switchedLibrary = await admin.request('/api/libraries/select', {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 200,
+      body: { library_id: libraryTwoId }
+    });
+    assert(Number(switchedLibrary?.data?.active_library_id || 0) === libraryTwoId, 'Support library switch should update the active library');
 
     await admin.fetchCsrfToken();
     const ended = await admin.request('/api/auth/support-session', {
@@ -206,6 +263,9 @@ async function main() {
 
     console.log('Support session smoke passed');
   } finally {
+    if (createdSpaceId) {
+      await pool.query('DELETE FROM libraries WHERE space_id = $1', [createdSpaceId]).catch(() => {});
+    }
     if (createdSpaceId) {
       await pool.query('DELETE FROM spaces WHERE id = $1', [createdSpaceId]).catch(() => {});
     }
