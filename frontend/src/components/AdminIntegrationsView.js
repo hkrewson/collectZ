@@ -103,6 +103,7 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
       { id: 'audio', label: 'Audio' },
       { id: 'barcode', label: 'Barcode' },
       { id: 'books', label: 'Books' },
+      { id: 'cwa', label: 'CWA OPDS' },
       { id: 'comics', label: 'Comics' },
       { id: 'games', label: 'Games' },
       { id: 'plex', label: 'Plex' },
@@ -445,7 +446,7 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
       </div>
 
       {meta.decryptHealth?.hasWarnings && (
-        <div className="card p-4 border border-edge bg-raised">
+        <div className="rounded-xl border border-edge bg-raised/70 px-4 py-4">
           <p className="text-sm font-semibold text-ink">Integration key decryption warning</p>
           <p className="text-xs text-dim mt-1">{meta.decryptHealth.remediation || 'Re-enter and save the affected key, or clear it.'}</p>
           <ul className="mt-2 space-y-1">
@@ -458,7 +459,13 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
         </div>
       )}
 
-      <section className="space-y-1">
+      <section className="rounded-xl border border-edge bg-surface/70 px-4 py-3 space-y-1">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium text-ink">Operator Exports</p>
+            <p className="text-xs text-ghost">Runtime-facing export controls stay with their integration backends here.</p>
+          </div>
+        </div>
         {featureFlagsReadOnly && (
           <div className="p-3 text-sm text-warn">
             Integration feature settings are read-only in this environment (`FEATURE_FLAGS_READ_ONLY=true`).
@@ -485,17 +492,17 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
         ))}
       </section>
 
-      <div className="grid gap-4 md:grid-cols-[220px_minmax(0,1fr)] items-start">
-        <div className="hidden md:block card p-2 space-y-1">
+      <div className="space-y-4">
+        <div className="hidden md:flex flex-wrap gap-2">
           {integrationSections.map((item) => (
             <button
               key={item.id}
               onClick={() => setSectionWithSync(item.id)}
               className={cx(
-                'w-full flex items-center gap-2 px-3 h-9 rounded-md text-sm text-left transition-colors',
+                'inline-flex items-center gap-2 px-3 h-9 rounded-full text-sm text-left transition-colors border',
                 section === item.id
-                  ? 'bg-raised border border-edge text-ink'
-                  : 'text-dim hover:text-ink hover:bg-raised'
+                  ? 'bg-raised border-edge text-ink shadow-sm'
+                  : 'border-edge/70 text-dim hover:text-ink hover:bg-raised/70'
               )}
             >
               <span className="flex-1">{item.label}</span>
@@ -508,9 +515,12 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
           ))}
         </div>
 
-        <div className="card p-5 space-y-4 min-w-0">
+        <div className="rounded-2xl border border-edge bg-surface/80 px-5 py-5 space-y-4 min-w-0">
         <div className="flex items-center justify-between gap-3 border-b border-edge pb-3">
-          <h2 className="text-sm font-semibold tracking-wide uppercase text-dim">{activeSectionLabel}</h2>
+          <div>
+            <h2 className="text-sm font-semibold tracking-wide uppercase text-dim">{activeSectionLabel}</h2>
+            <p className="mt-1 text-xs text-ghost">Connection details, credentials, and runtime checks for this integration.</p>
+          </div>
           <StatusBadge status={status[section]} cx={cx} />
         </div>
         {section === 'barcode' && <>
@@ -596,7 +606,7 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
             Import will use section IDs: <span className="font-mono text-dim">{plexSectionIds.length ? plexSectionIds.join(',') : '(none selected)'}</span>
           </div>
           {plexAvailableSections.length > 0 && (
-            <div className="card p-3 space-y-2">
+            <div className="rounded-xl border border-edge bg-raised/60 px-3 py-3 space-y-2">
               <p className="text-xs text-ghost">Detected Plex Libraries</p>
               <div className="space-y-1.5">
                 {plexAvailableSections.map((sec) => (
@@ -748,7 +758,7 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
             </button>
           )}
         </div>
-        {testMsg && <p className="text-xs text-dim font-mono bg-raised rounded px-3 py-2">{testMsg}</p>}
+        {testMsg && <p className="text-xs text-dim font-mono bg-raised/70 rounded-lg px-3 py-2">{testMsg}</p>}
       </div>
       </div>
     </div>

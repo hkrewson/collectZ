@@ -62,8 +62,6 @@ export default function SidebarNav({
     'admin-spaces',
     'admin-users'
   ].includes(activeTab);
-  const activeSpace = spaces.find((space) => Number(space.id) === Number(activeSpaceId)) || null;
-  const showScopeSummary = !isAdmin && Boolean(activeSpace);
   const showLibrarySwitcher = !isAdmin && libraries.length > 1;
   const showDesktopHamburger = !collapsed;
   const showAdminGroup = isAdmin || canManageActiveSpace;
@@ -165,33 +163,23 @@ export default function SidebarNav({
           )}
         </div>
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto no-scrollbar">
-          {!collapsed && user && (showScopeSummary || showLibrarySwitcher) && (
-            <div className="card p-3 mb-3 space-y-3">
-              {showScopeSummary && (
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[10px] uppercase tracking-[0.18em] text-ghost">Current Space</span>
-                    {activeMembershipRole ? <span className="badge badge-dim text-[10px]">{activeMembershipRole}</span> : null}
-                  </div>
-                  <p className="text-sm font-medium text-ink">{activeSpace?.name || 'No active space'}</p>
-                </div>
-              )}
-              {showLibrarySwitcher ? (
-                <div className="space-y-1">
-                  <span className="text-[10px] uppercase tracking-[0.18em] text-ghost">Current Library</span>
-                  <select
-                    className="select w-full"
-                    value={activeLibraryId || ''}
-                    onChange={(e) => onLibrarySelect?.(e.target.value)}
-                  >
-                    {libraries.map((library) => (
-                      <option key={library.id} value={library.id}>
-                        {library.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ) : null}
+          {!collapsed && user && showLibrarySwitcher && (
+            <div className="mb-3 space-y-1">
+              <div className="flex items-center justify-between gap-2 px-1">
+                <span className="text-[10px] uppercase tracking-[0.18em] text-ghost">Library</span>
+                {activeMembershipRole ? <span className="badge badge-dim text-[10px]">{activeMembershipRole}</span> : null}
+              </div>
+              <select
+                className="select w-full"
+                value={activeLibraryId || ''}
+                onChange={(e) => onLibrarySelect?.(e.target.value)}
+              >
+                {libraries.map((library) => (
+                  <option key={library.id} value={library.id}>
+                    {library.name}
+                  </option>
+                ))}
+              </select>
             </div>
           )}
 
