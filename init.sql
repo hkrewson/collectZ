@@ -174,6 +174,50 @@ CREATE TABLE IF NOT EXISTS media_seasons (
     UNIQUE (media_id, season_number)
 );
 
+-- Spaces and libraries
+CREATE TABLE IF NOT EXISTS spaces (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    slug VARCHAR(255),
+    description TEXT,
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    is_personal BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    archived_at TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS libraries (
+    id SERIAL PRIMARY KEY,
+    space_id INTEGER NOT NULL REFERENCES spaces(id) ON DELETE RESTRICT,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    archived_at TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS space_memberships (
+    id SERIAL PRIMARY KEY,
+    space_id INTEGER NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role VARCHAR(20) NOT NULL DEFAULT 'member'
+      CHECK (role IN ('owner', 'admin', 'member', 'viewer')),
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (space_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS library_memberships (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    library_id INTEGER NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
+    role VARCHAR(20) DEFAULT 'member',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, library_id)
+);
+
 -- Activity log
 CREATE TABLE IF NOT EXISTS activity_log (
     id SERIAL PRIMARY KEY,
@@ -340,50 +384,6 @@ CREATE TABLE IF NOT EXISTS app_settings (
     density VARCHAR(20) DEFAULT 'comfortable',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS spaces (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    slug VARCHAR(255),
-    description TEXT,
-    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
-    is_personal BOOLEAN NOT NULL DEFAULT false,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    archived_at TIMESTAMP
-);
-
--- Future library scaffolding (1.9 prep, activated in 2.0)
-CREATE TABLE IF NOT EXISTS libraries (
-    id SERIAL PRIMARY KEY,
-    space_id INTEGER NOT NULL REFERENCES spaces(id) ON DELETE RESTRICT,
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
-    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    archived_at TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS space_memberships (
-    id SERIAL PRIMARY KEY,
-    space_id INTEGER NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
-    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    role VARCHAR(20) NOT NULL DEFAULT 'member'
-      CHECK (role IN ('owner', 'admin', 'member', 'viewer')),
-    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE (space_id, user_id)
-);
-
-CREATE TABLE IF NOT EXISTS library_memberships (
-    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    library_id INTEGER NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
-    role VARCHAR(20) DEFAULT 'member',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (user_id, library_id)
 );
 
 CREATE TABLE IF NOT EXISTS feature_flags (

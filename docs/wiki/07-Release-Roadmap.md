@@ -1069,14 +1069,17 @@ Historical planning notes may still exist in:
 26. `2.8.5` Navigation shell cleanup and Integrations surface simplification
 27. `2.8.6` Events and Collectibles UX alignment
 28. `2.9.0` Assisted capture and barcode/vision completion
-29. `2.9.1` Product edition boundary and homelab surface definition
-30. `2.9.2` Observability baseline review and alert tuning
-31. `2.9.3` Runtime and operations hardening
-32. `2.9.4` Observability endpoint control plane
-33. `2.10.0` Multi-format ownership model (movies/games)
-34. `2.11.0` Optional market valuation integrations
-35. `2.12.0` Optional build: cost model and billing readiness
-36. `3.0.0` Frontend build modernization (CRA to Vite)
+29. `2.9.1` Support role and in-app help foundations
+30. `2.9.2` Explicit support request, consent, and session approval
+31. `2.9.3` Support operations audit trail and queue hardening
+32. `2.9.4` Product edition boundary and homelab surface definition
+33. `2.9.5` Observability baseline review and alert tuning
+34. `2.9.6` Runtime and operations hardening
+35. `2.9.7` Observability endpoint control plane
+36. `2.10.0` Multi-format ownership model (movies/games)
+37. `2.11.0` Optional market valuation integrations
+38. `2.12.0` Optional build: cost model and billing readiness
+39. `3.0.0` Frontend build modernization (CRA to Vite)
 
 ## 2.1.0 — Metadata Normalization and Query Performance
 
@@ -1829,7 +1832,98 @@ Historical note:
 - Camera permissions and provider failures degrade gracefully with understandable fallback messaging.
 - The feature feels like a completed capture workflow rather than an unfinished experimental promise.
 
-## 2.9.1 — Product Edition Boundary and Homelab Surface Definition
+## 2.9.1 — Support Role and In-App Help Foundations
+
+**Goal:** Establish the first-class support actor model and a lightweight in-app help surface before support access becomes request-driven and consent-gated.
+
+### Why this is a minor version
+
+- This milestone adds a net-new product surface for help/chat and a distinct platform support role rather than only refining existing admin flows.
+- It introduces a new user-visible support model that changes who can participate in support operations and how help is initiated.
+
+### Scope
+
+- Add an in-app help entrypoint that can evolve beyond static docs:
+  - contextual help suggestions,
+  - curated help articles,
+  - clear escalation path when self-serve guidance is insufficient.
+- Introduce a first-class `support_admin` role:
+  - signs into the platform control plane rather than tenant space UX,
+  - can work in support/help surfaces,
+  - cannot browse tenant data by default,
+  - cannot perform broader platform-governance actions reserved for full `admin`.
+- Keep support and platform authority clearly separated:
+  - `admin` remains the full platform operator / break-glass role,
+  - `support_admin` is for responding to support questions and later approved support sessions.
+- Define the support/help surface foundations needed for the next consent milestone:
+  - support inbox or queue placeholder,
+  - basic request states,
+  - user-facing entrypoint to ask for help without immediately granting tenant access.
+
+### Acceptance Criteria
+
+- The app exposes an in-app help surface with useful guidance and a clear escalation path.
+- `support_admin` exists as a distinct role with narrower powers than `admin`.
+- Support staff can answer/support through the help surface without ambient tenant browsing.
+- No support-session consent or tenant-access automation is assumed yet; this milestone only lays the actor and surface foundations.
+
+## 2.9.2 — Explicit Support Request, Consent, and Session Approval
+
+**Goal:** Move support access from admin-initiated break-glass behavior toward a request-driven, explicitly approved workflow tied to user consent and clear audit context.
+
+### Scope
+
+- Add explicit support request creation and tracking:
+  - user or tenant admin can ask for help,
+  - request captures target space/context, issue summary, and timestamps,
+  - support staff can respond without immediately entering tenant context.
+- Add approval/consent workflow for support access:
+  - support session starts should be linked to a request,
+  - support-session approval should be explicit and auditable,
+  - consent state should be clear before support staff enter tenant context.
+- Limit `support_admin` tenant access to approved requests:
+  - no freehand support session starts,
+  - approved support sessions should name the requester, target space, reason, and approval chain.
+- Preserve a distinct break-glass path for full `admin` only if still needed:
+  - keep it rarer, clearly labeled, and more heavily audited than ordinary support flows.
+
+### Acceptance Criteria
+
+- Support requests can be created and tracked without immediately granting tenant access.
+- `support_admin` can only start tenant support sessions when an approved request exists.
+- Support-session audit records include requester, approver/consent state, target space, reason, and start/end timing.
+- The product no longer treats support access as an arbitrary operator action for non-admin support staff.
+
+## 2.9.3 — Support Operations Audit Trail and Queue Hardening
+
+**Goal:** Harden the operational side of the support workflow so support queues, transcripts/history, approvals, and session evidence remain understandable and safe in longer-lived deployments.
+
+### Scope
+
+- Strengthen support queue/history behavior:
+  - request state transitions,
+  - queue filtering/search,
+  - stale/expired request handling,
+  - clearer operator views for active vs completed support work.
+- Improve auditability and evidence:
+  - richer support request and support session event trails,
+  - transcript/history retention decisions where chat exists,
+  - revocation/expiry of stale approvals or dormant support access.
+- Tighten support operations UX:
+  - cleaner linking between help conversations, support requests, approvals, and active sessions,
+  - reduce ambiguity about which request authorized which support session.
+- Keep privacy boundaries intact:
+  - support history should not become a loophole for passive tenant browsing,
+  - approvals and session evidence should remain explicit and bounded.
+
+### Acceptance Criteria
+
+- Support request and session history is easier to audit and operate over time.
+- Approval state, session linkage, and operational status are visible without ambiguity.
+- Expired or stale support approvals do not silently remain valid.
+- The support workflow remains privacy-preserving while becoming more operationally durable.
+
+## 2.9.4 — Product Edition Boundary and Homelab Surface Definition
 
 **Goal:** Introduce an explicit `platform` vs `homelab` product-edition boundary inside the private repo so tenancy/platform capabilities stop leaking into the future homelab product shape before any repo split happens.
 
@@ -1870,7 +1964,7 @@ Historical note:
 - Shared workflows continue to function in both editions without scope confusion.
 - The codebase is ready for a later repo split without first having to rediscover product boundaries.
 
-## 2.9.2 — Observability Baseline Review and Alert Tuning
+## 2.9.5 — Observability Baseline Review and Alert Tuning
 
 **Goal:** Revisit the initial `2.6.0` observability thresholds once more real import and operator usage data exists.
 
@@ -1887,7 +1981,7 @@ Historical note:
 - Dashboard ratio/error panels reflect the provider-specific signals operators actually use.
 - Any retention/backup changes for observability data are documented and validated.
 
-## 2.9.3 — Runtime and Operations Hardening
+## 2.9.6 — Runtime and Operations Hardening
 
 **Goal:** Harden the real-world operator paths added in `2.6.0` and `2.6.1` so logging, metrics, and supporting runtime surfaces are safer to run and easier to recover in longer-lived deployments.
 
@@ -1916,7 +2010,7 @@ Historical note:
 - Exporter misconfiguration and env drift have documented fast-diagnosis paths and, where reasonable, lightweight runtime validation.
 - Logging/metrics hardening changes do not break core API/import behavior or make collector availability a runtime dependency.
 
-## 2.9.4 — Observability Endpoint Control Plane
+## 2.9.7 — Observability Endpoint Control Plane
 
 **Goal:** Move external log endpoint selection from env-only operator setup to an admin-managed control plane without weakening the existing fail-safe runtime behavior.
 

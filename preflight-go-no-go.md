@@ -1,9 +1,9 @@
-# Pre-2.8.3 Go/No-Go Preflight
+# Pre-2.8.4 Go/No-Go Preflight
 
-- Version: `2.8.3`
+- Version: `2.8.4`
 - Date: `2026-03-29`
 - Commit: local working tree
-- Scope: `2.8.3 — Import Review Retirement and Debug Import Diagnostics`
+- Scope: `2.8.4 — Scope Privacy Tightening and Explicit Support Access`
 
 ## Gate Results
 
@@ -17,7 +17,7 @@
 - OpenAPI validation: PASS
 - Frontend production build: PASS
 - Integration smoke: PASS
-- Import Review retirement smoke: PASS
+- Support-session smoke: PASS
 - RBAC regression: PASS
 - Cross-type isolation: PASS
 - Compose smoke: PASS
@@ -26,16 +26,20 @@
 
 ## Local Verification Notes
 
-- Version metadata was synchronized across root, backend, frontend, mirrored `app-meta` files, and package manifests to `2.8.3`.
-- Release note [`docs/releases/v2.8.3.md`](docs/releases/v2.8.3.md) exists and includes the required release and security-triage sections.
+- Version metadata was synchronized across root, backend, frontend, mirrored `app-meta` files, and package manifests to `2.8.4`.
+- Release note [`docs/releases/v2.8.4.md`](/Users/hamlin/Development/GitHub/hkrewson/collectZ/docs/releases/v2.8.4.md) exists and includes the required release and security-triage sections.
 - Backend unit tests passed via:
   - `node backend/scripts/unit-tests.js`
 - Frontend production build passed in Docker via:
   - `docker run --rm -v "$PWD/frontend":/app -w /app node:20-alpine sh -lc "npm run build"`
 - OpenAPI validation passed in the running backend container.
 - Integration smoke passed against the running stack on the internal Docker network.
-- The dedicated authenticated Import Review retirement smoke passed against the running stack and confirmed the retired authenticated routes now return `404`.
-- RBAC regression passed against the running local stack from inside the backend container.
+- The dedicated support-session smoke passed against the running stack and verified:
+  - admin bootstrap remains platform-mode outside support mode
+  - generic admin space/library selection is denied
+  - support session start/end works
+  - support-only library switching works
+- RBAC regression passed against the running local stack after updating the regression to use explicit support-session flows instead of the retired ambient admin scope-switch path.
 - Cross-type isolation passed against the running local stack from inside the backend container using the existing local release-test admin account:
   - `release-cross-type-admin-1774734793@example.com`
 - Production dependency audits passed with clean counts for backend and frontend:
@@ -43,15 +47,15 @@
   - `moderate=0`
   - `high=0`
   - `critical=0`
-- Init parity initially failed and exposed a real `2.8.3` bootstrap drift:
-  - `init.sql` still defined the retired `import_match_reviews` table, indexes, trigger, and lacked migration marker `45`
-  - the drift was fixed in [`init.sql`](/Users/hamlin/Development/GitHub/hkrewson/collectZ/init.sql)
+- Init parity initially failed and exposed a real `2.8.4` bootstrap drift:
+  - `init.sql` referenced `spaces` and `libraries` from `user_sessions` support-session foreign keys before those tables were created
+  - the bootstrap ordering was fixed in [`init.sql`](/Users/hamlin/Development/GitHub/hkrewson/collectZ/init.sql)
   - init parity then passed and wrote fresh evidence to:
     - `artifacts/init-parity-evidence/init-parity-evidence.json`
-- Migration rehearsal passed with baseline `44` and latest `45`, and wrote fresh evidence to:
+- Migration rehearsal passed with baseline `45` and latest `46`, and wrote fresh evidence to:
   - `artifacts/migration-rehearsal-evidence/migration-rehearsal-evidence.json`
 - Compose smoke passed against the live `collectz_internal` network:
-  - `/api/health` returned `2.8.3`
+  - `/api/health` returned `2.8.4`
   - required security headers were present
   - CSRF cookie was issued with `Secure` and `SameSite=Strict`
   - session cookie options were `HttpOnly`, `Secure`, `SameSite=Strict`
@@ -71,8 +75,10 @@
 
 ## Local Tooling Notes
 
-- Host-local `localhost:3000` probes were intermittently flaky during the release check window, so the definitive compose-smoke HTTP evidence was gathered on the internal Docker network via `http://frontend:3000`.
-- The initial in-container init-parity attempt used the wrong path for `init.sql`; after that was corrected, the gate exposed a genuine schema drift, which was fixed and then reverified successfully.
+- The parity and rehearsal gates were run through Docker containers on the live compose network using the backend container's `DATABASE_URL` as the source of truth.
+- The RBAC release gate surfaced legitimate `2.8.4` test drift and one real middleware edge:
+  - the regression script still assumed ambient admin scope switching and was updated to validate explicit support-session behavior instead
+  - `scopeAccess` was still trying to fall back to a global first library for admins with no active support library, which conflicted with the privacy model; that fallback was removed for admins
 
 ## Evidence Artifacts
 
@@ -95,4 +101,4 @@ Release is NO-GO if any required gate fails or any required artifact is missing.
 
 ## Recommendation
 
-GO for commit/tag preparation for `v2.8.3`, subject to final maintainer review of the working tree and any last visual QA you want before tagging.
+GO for commit/tag preparation for `v2.8.4`, subject to final maintainer review of the working tree and any last visual QA you want before tagging.

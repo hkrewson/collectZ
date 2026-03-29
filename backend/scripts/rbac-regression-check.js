@@ -137,6 +137,7 @@ async function main() {
   const admin = new HttpClient('admin');
   const user = new HttpClient('user');
   let tempAdminUserId = null;
+  let adminUserId = null;
   let userId = null;
 
   try {
@@ -173,6 +174,15 @@ async function main() {
 
     await admin.fetchCsrfToken();
     const scopeResponse = await admin.request('/api/auth/scope', { expectStatus: 200 });
+    const adminUserLookup = await pool.query(
+      `SELECT id
+       FROM users
+       WHERE lower(email) = lower($1)
+       LIMIT 1`,
+      [tempAdminUserId ? tempAdminEmail : adminEmail]
+    );
+    adminUserId = Number(adminUserLookup.rows[0]?.id || 0) || null;
+    assert(Number.isFinite(Number(adminUserId)), 'Admin user id missing');
     let targetSpaceId = Number(scopeResponse?.data?.active_space_id || 0) || null;
     if (!targetSpaceId) {
       await admin.fetchCsrfToken();
@@ -235,18 +245,44 @@ async function main() {
       `Transferred user should land in isolated space: ${JSON.stringify(userScopeAfterTransfer?.data)}`
     );
 
+    const seededLibraryA = await pool.query(
+      `INSERT INTO libraries (name, created_by, space_id)
+       VALUES ($1, $2, $3)
+       RETURNING id, name, description, space_id, created_by, created_at, updated_at`,
+      [`RBAC Library A ${suffix}`, adminUserId, targetSpaceId]
+    );
+    const libraryA = seededLibraryA.rows[0] || null;
+    const libraryAId = Number(libraryA?.id || 0) || null;
+    assert(Number.isFinite(Number(libraryAId)), 'Library A id missing');
+    await pool.query(
+      `INSERT INTO library_memberships (user_id, library_id, role)
+       VALUES ($1, $2, 'owner')
+       ON CONFLICT (user_id, library_id) DO NOTHING`,
+      [adminUserId, libraryAId]
+    );
+
     await admin.fetchCsrfToken();
-    const libraryA = await admin.request('/api/libraries', {
+    const supportStarted = await admin.request('/api/auth/support-session/start', {
       method: 'POST',
       withCsrf: true,
-      expectStatus: 201,
-      body: { name: `RBAC Library A ${suffix}` }
+      expectStatus: 200,
+      body: {
+        space_id: targetSpaceId,
+        library_id: libraryAId,
+        reason: 'RBAC regression tenant-context verification'
+      }
     });
-    const libraryAId = Number(libraryA?.data?.id);
-    assert(Number.isFinite(libraryAId), 'Library A id missing');
     assert(
-      Number(libraryA?.data?.active_library_id) === libraryAId,
-      `Library A create should auto-select active library: ${JSON.stringify(libraryA?.data)}`
+      supportStarted?.data?.support_session?.active === true,
+      `Admin support session should start before tenant-context checks: ${JSON.stringify(supportStarted?.data)}`
+    );
+    assert(
+      Number(supportStarted?.data?.support_session?.space_id || 0) === targetSpaceId,
+      `Admin support session should target the invited space: ${JSON.stringify(supportStarted?.data)}`
+    );
+    assert(
+      Number(supportStarted?.data?.support_session?.library_id || 0) === libraryAId,
+      `Admin support session should target library A initially: ${JSON.stringify(supportStarted?.data)}`
     );
 
     await admin.fetchCsrfToken();
@@ -295,8 +331,8 @@ async function main() {
     });
     const libraryBId = Number(libraryB?.data?.id);
     assert(Number.isFinite(libraryBId), 'Library B id missing');
-
-    await admin.request('/api/auth/scope', {
+    await admin.fetchCsrfToken();
+    await admin.request('/api/libraries/select', {
       method: 'POST',
       withCsrf: true,
       expectStatus: 200,
@@ -309,7 +345,7 @@ async function main() {
       'Library B should not include media created in library A'
     );
 
-    await admin.request('/api/auth/scope', {
+    await admin.request('/api/libraries/select', {
       method: 'POST',
       withCsrf: true,
       expectStatus: 200,
@@ -434,7 +470,7 @@ async function main() {
     expectStatus: 200
   });
 
-  await admin.request('/api/auth/scope', {
+  await admin.request('/api/libraries/select', {
     method: 'POST',
     withCsrf: true,
     expectStatus: 200,
