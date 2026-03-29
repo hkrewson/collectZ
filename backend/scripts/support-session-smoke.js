@@ -217,6 +217,12 @@ async function main() {
       `Expected generic admin space selection to be denied, got ${JSON.stringify(adminSpaceSelectDenied?.data)}`
     );
 
+    const adminScopeBeforeSupport = await admin.request('/api/auth/scope', { expectStatus: 200 });
+    assert(Array.isArray(adminScopeBeforeSupport?.data?.spaces) && adminScopeBeforeSupport.data.spaces.length === 0, 'Admin scope bootstrap should not expose tenant spaces outside support mode');
+    assert(Array.isArray(adminScopeBeforeSupport?.data?.libraries) && adminScopeBeforeSupport.data.libraries.length === 0, 'Admin scope bootstrap should not expose tenant libraries outside support mode');
+    assert((Number(adminScopeBeforeSupport?.data?.active_space_id || 0) || null) === null, 'Admin scope bootstrap should not set an active space outside support mode');
+    assert((Number(adminScopeBeforeSupport?.data?.active_library_id || 0) || null) === null, 'Admin scope bootstrap should not set an active library outside support mode');
+
     const beforeSupport = await admin.request(`/api/spaces/${createdSpaceId}/members`, { expectStatus: 404 });
     assert(
       String(beforeSupport?.data?.error || '').toLowerCase().includes('space not found'),

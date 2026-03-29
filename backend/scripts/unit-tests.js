@@ -206,6 +206,8 @@ results.push(run('auth route source includes explicit support session endpoints'
   assert.ok(authRoutesSource.includes("router.delete('/support-session'"));
   assert.ok(authRoutesSource.includes('auth.support_session.started'));
   assert.ok(authRoutesSource.includes('auth.support_session.ended'));
+  assert.ok(authRoutesSource.includes('active_space_id: null'));
+  assert.ok(authRoutesSource.includes('support_session: null'));
 }));
 
 results.push(run('migrations source includes session-scoped support access metadata', () => {

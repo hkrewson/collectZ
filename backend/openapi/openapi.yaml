@@ -779,14 +779,14 @@
     "/api/auth/scope": {
       "get": {
         "tags": ["Auth"],
-        "summary": "Read the current active scope bootstrap contract",
+        "summary": "Read the current session context bootstrap contract",
         "security": [
           { "cookieSession": [] },
           { "bearerAuth": [] }
         ],
         "responses": {
           "200": {
-            "description": "Active auth scope",
+            "description": "Current session context",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/AuthScopeResponse" }
@@ -819,7 +819,7 @@
         },
         "responses": {
           "200": {
-            "description": "Updated active auth scope",
+            "description": "Updated session context",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/AuthScopeResponse" }

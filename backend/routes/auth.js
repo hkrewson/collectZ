@@ -142,6 +142,16 @@ async function buildAuthScopePayload(req) {
     }
   }
 
+  if (req.user?.role === 'admin') {
+    return {
+      active_space_id: null,
+      active_library_id: null,
+      spaces: [],
+      libraries: [],
+      support_session: null
+    };
+  }
+
   const ensuredScope = await ensureUserDefaultScope(req.user.id);
   req.user.activeSpaceId = ensuredScope.spaceId;
   req.user.activeLibraryId = ensuredScope.libraryId;

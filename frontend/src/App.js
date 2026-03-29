@@ -184,7 +184,7 @@ export default function App() {
       });
       return nextActiveLibraryId;
     } catch (error) {
-      if (!silent) showToast(error.response?.data?.error || 'Failed to load active scope', 'error');
+      if (!silent) showToast(error.response?.data?.error || 'Failed to load session context', 'error');
       return null;
     }
   }, [apiCall, showToast, user, setUser]);
@@ -402,8 +402,9 @@ export default function App() {
           <div className="min-w-0">
             <div className="font-display text-lg tracking-wider text-gold leading-none">COLLECTZ</div>
             <div className="text-[11px] text-ghost mt-1 truncate">
-              {activeSpace?.name || 'No active space'}
-              {activeLibrary ? ` / ${activeLibrary.name}` : ''}
+              {user?.role === 'admin' && !supportSession?.active
+                ? 'Platform control plane'
+                : `${activeSpace?.name || 'No current space'}${activeLibrary ? ` / ${activeLibrary.name}` : ''}`}
             </div>
           </div>
         </div>

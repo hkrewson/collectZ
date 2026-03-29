@@ -151,6 +151,7 @@ In 2.0:
   - space invite history,
   - space membership management,
   - ordinary space settings screens.
+- Outside an explicit support session, auth/bootstrap responses for global admins should remain platform-mode rather than advertising a routine tenant active-space/active-library context.
 - If a global server admin needs to help inside a space, that should happen through:
   - explicit membership/invitation into that space, or
   - a separate explicit and fully audited server-admin support workflow.
