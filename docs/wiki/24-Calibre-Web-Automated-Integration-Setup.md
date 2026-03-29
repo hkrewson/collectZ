@@ -35,12 +35,10 @@ Required fields:
 - `OPDS URL` (`cwa_opds_url`)
   - recommended: `.../opds/books` (index/subsection traversal supported)
 
-Optional but recommended:
+Optional:
 
-- `Base URL` (`cwa_base_url`) for clean deep links
-- `Username` (`cwa_username`)
-- `Password/Token` (`cwa_password`) (encrypted at rest)
-- `Timeout (ms)` (`cwa_timeout_ms`)
+- `Username` (`cwa_username`) when the OPDS feed requires authentication
+- `Password` (`cwa_password`) (encrypted at rest)
 
 Then click `Save`, then `Test CWA`.
 
@@ -111,8 +109,8 @@ Sync jobs:
 
 ### Timeout errors
 
-- Increase `cwa_timeout_ms`.
 - Validate network path between backend and CWA host.
+- The integration uses the default backend timeout for OPDS fetches.
 
 ### Imports create duplicates
 
@@ -126,15 +124,13 @@ Sync jobs:
 
 ### Deep links open wrong host/path
 
-- Set `cwa_base_url` to externally routable URL (if reverse proxy/public host differs).
-- Re-import affected items so stored links reflect final base URL.
+- Confirm `cwa_opds_url` uses the externally routable host you want collectZ to link back to.
+- Re-import affected items so stored links reflect the final OPDS host.
 
 ## Environment Variables
 
 Optional `.env` defaults (can be overridden via Admin Integrations UI):
 
 - `CWA_OPDS_URL`
-- `CWA_BASE_URL`
 - `CWA_USERNAME`
 - `CWA_PASSWORD`
-- `CWA_TIMEOUT_MS`

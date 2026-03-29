@@ -1,14 +1,6 @@
 const pool = require('../db/pool');
 
 const FEATURE_FLAG_DEFINITIONS = {
-  lookup_upc_enabled: {
-    description: 'Allow barcode/UPC lookup API usage',
-    defaultEnabled: true
-  },
-  recognize_cover_enabled: {
-    description: 'Allow vision/OCR cover recognition API usage',
-    defaultEnabled: true
-  },
   events_enabled: {
     description: 'Enable Events library UI and API',
     defaultEnabled: false

@@ -3,12 +3,8 @@ const { recordProviderRequestEvent } = require('./metrics');
 
 const PLEX_PRESETS = {
   plex: {
+    preset: 'plex',
     provider: 'plex',
-    apiUrl: '',
-    apiKeyQueryParam: 'X-Plex-Token'
-  },
-  custom: {
-    provider: 'custom',
     apiUrl: '',
     apiKeyQueryParam: 'X-Plex-Token'
   }

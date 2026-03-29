@@ -7,13 +7,6 @@ const BOOKS_PRESETS = {
     apiUrl: 'https://www.googleapis.com/books/v1/volumes',
     apiKeyHeader: '',
     apiKeyQueryParam: 'key'
-  },
-  custom: {
-    preset: 'custom',
-    provider: 'custom',
-    apiUrl: '',
-    apiKeyHeader: '',
-    apiKeyQueryParam: 'key'
   }
 };
 

@@ -1,43 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
 
 const BARCODE_PRESETS = {
-  upcitemdb: { barcodePreset: 'upcitemdb', barcodeProvider: 'upcitemdb', barcodeApiUrl: 'https://api.upcitemdb.com/prod/trial/lookup', barcodeApiKeyHeader: 'x-api-key', barcodeQueryParam: 'upc' },
-  barcodelookup: { barcodePreset: 'barcodelookup', barcodeProvider: 'barcodelookup', barcodeApiUrl: 'https://api.barcodelookup.com/v3/products', barcodeApiKeyHeader: 'Authorization', barcodeQueryParam: 'barcode' },
-  custom: { barcodePreset: 'custom', barcodeProvider: 'custom', barcodeApiUrl: '', barcodeApiKeyHeader: 'x-api-key', barcodeQueryParam: 'upc' }
-};
-const VISION_PRESETS = {
-  ocrspace: { visionPreset: 'ocrspace', visionProvider: 'ocrspace', visionApiUrl: 'https://api.ocr.space/parse/image', visionApiKeyHeader: 'apikey' },
-  custom: { visionPreset: 'custom', visionProvider: 'custom', visionApiUrl: '', visionApiKeyHeader: 'x-api-key' }
-};
-const TMDB_PRESETS = {
-  tmdb: { tmdbPreset: 'tmdb', tmdbProvider: 'tmdb', tmdbApiUrl: 'https://api.themoviedb.org/3/search/movie', tmdbApiKeyHeader: '', tmdbApiKeyQueryParam: 'api_key' },
-  custom: { tmdbPreset: 'custom', tmdbProvider: 'custom', tmdbApiUrl: '', tmdbApiKeyHeader: '', tmdbApiKeyQueryParam: 'api_key' }
-};
-const PLEX_PRESETS = {
-  plex: { plexPreset: 'plex', plexProvider: 'plex', plexApiUrl: '', plexApiKeyQueryParam: 'X-Plex-Token' },
-  custom: { plexPreset: 'custom', plexProvider: 'custom', plexApiUrl: '', plexApiKeyQueryParam: 'X-Plex-Token' }
-};
-const BOOKS_PRESETS = {
-  googlebooks: { booksPreset: 'googlebooks', booksProvider: 'googlebooks', booksApiUrl: 'https://www.googleapis.com/books/v1/volumes', booksApiKeyHeader: '', booksApiKeyQueryParam: 'key' },
-  custom: { booksPreset: 'custom', booksProvider: 'custom', booksApiUrl: '', booksApiKeyHeader: '', booksApiKeyQueryParam: 'key' }
-};
-const AUDIO_PRESETS = {
-  discogs: { audioPreset: 'discogs', audioProvider: 'discogs', audioApiUrl: 'https://api.discogs.com/database/search', audioApiKeyHeader: 'Authorization', audioApiKeyQueryParam: 'token' },
-  custom: { audioPreset: 'custom', audioProvider: 'custom', audioApiUrl: '', audioApiKeyHeader: 'x-api-key', audioApiKeyQueryParam: 'api_key' }
-};
-const GAMES_PRESETS = {
-  igdb: { gamesPreset: 'igdb', gamesProvider: 'igdb', gamesApiUrl: 'https://api.igdb.com/v4/games', gamesApiKeyHeader: 'Authorization', gamesApiKeyQueryParam: '' },
-  custom: { gamesPreset: 'custom', gamesProvider: 'custom', gamesApiUrl: '', gamesApiKeyHeader: 'Authorization', gamesApiKeyQueryParam: 'api_key' }
+  upcitemdb: { barcodePreset: 'upcitemdb', barcodeProvider: 'upcitemdb', barcodeApiUrl: 'https://api.upcitemdb.com/prod/trial/lookup' },
+  barcodelookup: { barcodePreset: 'barcodelookup', barcodeProvider: 'barcodelookup', barcodeApiUrl: 'https://api.barcodelookup.com/v3/products' }
 };
 const COMICS_PRESETS = {
-  metron: { comicsPreset: 'metron', comicsProvider: 'metron', comicsApiUrl: 'https://metron.cloud/api/issue/', comicsApiKeyHeader: '', comicsApiKeyQueryParam: '', comicsUsername: '' },
-  gcd: { comicsPreset: 'gcd', comicsProvider: 'gcd', comicsApiUrl: 'https://www.comics.org/api/series/name/', comicsApiKeyHeader: '', comicsApiKeyQueryParam: '', comicsUsername: '' },
-  comicvine: { comicsPreset: 'comicvine', comicsProvider: 'comicvine', comicsApiUrl: 'https://comicvine.gamespot.com/api/search/', comicsApiKeyHeader: '', comicsApiKeyQueryParam: 'api_key', comicsUsername: '' },
-  custom: { comicsPreset: 'custom', comicsProvider: 'custom', comicsApiUrl: '', comicsApiKeyHeader: '', comicsApiKeyQueryParam: 'api_key', comicsUsername: '' }
+  metron: { comicsPreset: 'metron', comicsProvider: 'metron', comicsApiUrl: 'https://metron.cloud/api/issue/', comicsUsername: '' },
+  gcd: { comicsPreset: 'gcd', comicsProvider: 'gcd', comicsApiUrl: 'https://www.comics.org/api/series/name/', comicsUsername: '' },
+  comicvine: { comicsPreset: 'comicvine', comicsProvider: 'comicvine', comicsApiUrl: 'https://comicvine.gamespot.com/api/search/', comicsUsername: '' }
 };
 const INTEGRATION_FEATURE_LABELS = {
-  lookup_upc_enabled: 'Barcode Lookup',
-  recognize_cover_enabled: 'Cover Recognition',
   metrics_enabled: 'Metrics Export',
   external_log_export_enabled: 'External Log Export'
 };
@@ -148,23 +120,21 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
   );
   const [section, setSection] = useState(externalSection || integrationSections[0].id);
   const [form, setForm] = useState({
-    barcodePreset: 'upcitemdb', barcodeProvider: 'upcitemdb', barcodeApiUrl: '', barcodeApiKey: '',
-    barcodeApiKeyHeader: 'x-api-key', barcodeQueryParam: 'upc', clearBarcodeApiKey: false,
-    visionPreset: 'ocrspace', visionProvider: 'ocrspace', visionApiUrl: '', visionApiKey: '',
-    visionApiKeyHeader: 'apikey', clearVisionApiKey: false,
+    barcodePreset: 'upcitemdb', barcodeProvider: 'upcitemdb', barcodeApiUrl: '', barcodeApiKey: '', clearBarcodeApiKey: false,
+    visionPreset: 'ocrspace', visionProvider: 'ocrspace', visionApiUrl: '', visionApiKey: '', clearVisionApiKey: false,
     tmdbPreset: 'tmdb', tmdbProvider: 'tmdb', tmdbApiUrl: 'https://api.themoviedb.org/3/search/movie',
-    tmdbApiKey: '', tmdbApiKeyHeader: '', tmdbApiKeyQueryParam: 'api_key', clearTmdbApiKey: false,
-    plexPreset: 'plex', plexProvider: 'plex', plexApiUrl: '', plexServerName: '',
-    plexApiKey: '', plexApiKeyQueryParam: 'X-Plex-Token', plexLibrarySections: '', clearPlexApiKey: false,
+    tmdbApiKey: '', clearTmdbApiKey: false,
+    plexPreset: 'plex', plexProvider: 'plex', plexApiUrl: '',
+    plexApiKey: '', plexLibrarySections: '', clearPlexApiKey: false,
     booksPreset: 'googlebooks', booksProvider: 'googlebooks', booksApiUrl: 'https://www.googleapis.com/books/v1/volumes',
-    booksApiKey: '', booksApiKeyHeader: '', booksApiKeyQueryParam: 'key', clearBooksApiKey: false,
+    booksApiKey: '', clearBooksApiKey: false,
     audioPreset: 'discogs', audioProvider: 'discogs', audioApiUrl: 'https://api.discogs.com/database/search',
-    audioApiKey: '', audioApiKeyHeader: '', audioApiKeyQueryParam: '', clearAudioApiKey: false,
+    audioApiKey: '', clearAudioApiKey: false,
     gamesPreset: 'igdb', gamesProvider: 'igdb', gamesApiUrl: 'https://api.igdb.com/v4/games',
-    gamesApiKey: '', gamesApiKeyHeader: 'Authorization', gamesApiKeyQueryParam: '', gamesClientId: '', gamesClientSecret: '', clearGamesApiKey: false, clearGamesClientSecret: false,
+    gamesApiKey: '', gamesClientId: '', gamesClientSecret: '', clearGamesApiKey: false, clearGamesClientSecret: false,
     comicsPreset: 'metron', comicsProvider: 'metron', comicsApiUrl: 'https://metron.cloud/api/issue/',
-    comicsApiKey: '', comicsApiKeyHeader: '', comicsApiKeyQueryParam: '', comicsUsername: '', clearComicsApiKey: false,
-    cwaOpdsUrl: '', cwaBaseUrl: '', cwaUsername: '', cwaPassword: '', cwaTimeoutMs: 20000, clearCwaPassword: false
+    comicsApiKey: '', comicsUsername: '', clearComicsApiKey: false,
+    cwaOpdsUrl: '', cwaUsername: '', cwaPassword: '', clearCwaPassword: false
   });
   const [meta, setMeta] = useState({
     barcodeApiKeySet: false, barcodeApiKeyMasked: '',
@@ -206,21 +176,16 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
     apiCall('get', '/admin/settings/integrations').then((data) => {
       setForm((f) => ({
         ...f,
-        barcodePreset: data.barcodePreset || 'upcitemdb', barcodeProvider: data.barcodeProvider || '', barcodeApiUrl: data.barcodeApiUrl || '', barcodeApiKeyHeader: data.barcodeApiKeyHeader || 'x-api-key', barcodeQueryParam: data.barcodeQueryParam || 'upc',
-        visionPreset: data.visionPreset || 'ocrspace', visionProvider: data.visionProvider || '', visionApiUrl: data.visionApiUrl || '', visionApiKeyHeader: data.visionApiKeyHeader || 'apikey',
-        tmdbPreset: data.tmdbPreset || 'tmdb', tmdbProvider: data.tmdbProvider || '', tmdbApiUrl: data.tmdbApiUrl || '', tmdbApiKeyHeader: data.tmdbApiKeyHeader || '', tmdbApiKeyQueryParam: data.tmdbApiKeyQueryParam || 'api_key',
-        plexPreset: data.plexPreset || 'plex', plexProvider: data.plexProvider || 'plex', plexApiUrl: data.plexApiUrl || '', plexServerName: data.plexServerName || '', plexApiKeyQueryParam: data.plexApiKeyQueryParam || 'X-Plex-Token',
+        barcodePreset: data.barcodePreset || 'upcitemdb', barcodeProvider: data.barcodeProvider || '', barcodeApiUrl: data.barcodeApiUrl || '',
+        visionPreset: data.visionPreset || 'ocrspace', visionProvider: data.visionProvider || '', visionApiUrl: data.visionApiUrl || '',
+        tmdbPreset: data.tmdbPreset || 'tmdb', tmdbProvider: data.tmdbProvider || '', tmdbApiUrl: data.tmdbApiUrl || '',
+        plexPreset: data.plexPreset || 'plex', plexProvider: data.plexProvider || 'plex', plexApiUrl: data.plexApiUrl || '',
         plexLibrarySections: Array.isArray(data.plexLibrarySections) ? data.plexLibrarySections.join(',') : '',
         booksPreset: data.booksPreset || 'googlebooks', booksProvider: data.booksProvider || 'googlebooks', booksApiUrl: data.booksApiUrl || 'https://www.googleapis.com/books/v1/volumes',
-        booksApiKeyHeader: data.booksApiKeyHeader || '', booksApiKeyQueryParam: data.booksApiKeyQueryParam || 'key',
         audioPreset: data.audioPreset || 'discogs', audioProvider: data.audioProvider || 'discogs', audioApiUrl: data.audioApiUrl || 'https://api.discogs.com/database/search',
-        audioApiKeyHeader: data.audioApiKeyHeader || '', audioApiKeyQueryParam: data.audioApiKeyQueryParam || '',
-        gamesPreset: data.gamesPreset || 'igdb', gamesProvider: data.gamesProvider || 'igdb', gamesApiUrl: data.gamesApiUrl || 'https://api.igdb.com/v4/games',
-        gamesApiKeyHeader: data.gamesApiKeyHeader || 'Authorization', gamesApiKeyQueryParam: data.gamesApiKeyQueryParam || '', gamesClientId: data.gamesClientId || '',
-        comicsPreset: data.comicsPreset || 'metron', comicsProvider: data.comicsProvider || 'metron', comicsApiUrl: data.comicsApiUrl || 'https://metron.cloud/api/issue/',
-        comicsApiKeyHeader: data.comicsApiKeyHeader || '', comicsApiKeyQueryParam: data.comicsApiKeyQueryParam || '', comicsUsername: data.comicsUsername || '',
-        cwaOpdsUrl: data.cwaOpdsUrl || '', cwaBaseUrl: data.cwaBaseUrl || '', cwaUsername: data.cwaUsername || '',
-        cwaTimeoutMs: Number(data.cwaTimeoutMs || 20000) || 20000
+        gamesPreset: data.gamesPreset || 'igdb', gamesProvider: data.gamesProvider || 'igdb', gamesApiUrl: data.gamesApiUrl || 'https://api.igdb.com/v4/games', gamesClientId: data.gamesClientId || '',
+        comicsPreset: data.comicsPreset || 'metron', comicsProvider: data.comicsProvider || 'metron', comicsApiUrl: data.comicsApiUrl || 'https://metron.cloud/api/issue/', comicsUsername: data.comicsUsername || '',
+        cwaOpdsUrl: data.cwaOpdsUrl || '', cwaUsername: data.cwaUsername || ''
       }));
       setMeta({
         barcodeApiKeySet: Boolean(data.barcodeApiKeySet), barcodeApiKeyMasked: data.barcodeApiKeyMasked || '',
@@ -273,12 +238,6 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
   }, [apiCall]);
 
   const applyBarcodePreset = (p) => setForm((f) => ({ ...f, ...(BARCODE_PRESETS[p] || {}) }));
-  const applyVisionPreset = (p) => setForm((f) => ({ ...f, ...(VISION_PRESETS[p] || {}) }));
-  const applyTmdbPreset = (p) => setForm((f) => ({ ...f, ...(TMDB_PRESETS[p] || {}) }));
-  const applyPlexPreset = (p) => setForm((f) => ({ ...f, ...(PLEX_PRESETS[p] || {}) }));
-  const applyBooksPreset = (p) => setForm((f) => ({ ...f, ...(BOOKS_PRESETS[p] || {}) }));
-  const applyAudioPreset = (p) => setForm((f) => ({ ...f, ...(AUDIO_PRESETS[p] || {}) }));
-  const applyGamesPreset = (p) => setForm((f) => ({ ...f, ...(GAMES_PRESETS[p] || {}) }));
   const applyComicsPreset = (p) => setForm((f) => ({ ...f, ...(COMICS_PRESETS[p] || {}) }));
   const plexSectionIds = useMemo(
     () => form.plexLibrarySections.split(',').map((v) => v.trim()).filter(Boolean),
@@ -320,43 +279,37 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
   const saveSection = async (sec) => {
     setSaving(true);
     const payload = {};
-    if (sec === 'barcode') Object.assign(payload, { barcodePreset: form.barcodePreset, barcodeProvider: form.barcodeProvider, barcodeApiUrl: form.barcodeApiUrl, barcodeApiKeyHeader: form.barcodeApiKeyHeader, barcodeQueryParam: form.barcodeQueryParam, clearBarcodeApiKey: form.clearBarcodeApiKey, ...(form.barcodeApiKey && { barcodeApiKey: form.barcodeApiKey }) });
-    else if (sec === 'vision') Object.assign(payload, { visionPreset: form.visionPreset, visionProvider: form.visionProvider, visionApiUrl: form.visionApiUrl, visionApiKeyHeader: form.visionApiKeyHeader, clearVisionApiKey: form.clearVisionApiKey, ...(form.visionApiKey && { visionApiKey: form.visionApiKey }) });
-    else if (sec === 'tmdb') Object.assign(payload, { tmdbPreset: form.tmdbPreset, tmdbProvider: form.tmdbProvider, tmdbApiUrl: form.tmdbApiUrl, tmdbApiKeyHeader: form.tmdbApiKeyHeader, tmdbApiKeyQueryParam: form.tmdbApiKeyQueryParam, clearTmdbApiKey: form.clearTmdbApiKey, ...(form.tmdbApiKey && { tmdbApiKey: form.tmdbApiKey }) });
+    if (sec === 'barcode') Object.assign(payload, { barcodePreset: form.barcodePreset, barcodeProvider: form.barcodeProvider, barcodeApiUrl: form.barcodeApiUrl, clearBarcodeApiKey: form.clearBarcodeApiKey, ...(form.barcodeApiKey && { barcodeApiKey: form.barcodeApiKey }) });
+    else if (sec === 'vision') Object.assign(payload, { visionPreset: form.visionPreset, visionProvider: form.visionProvider, visionApiUrl: form.visionApiUrl, clearVisionApiKey: form.clearVisionApiKey, ...(form.visionApiKey && { visionApiKey: form.visionApiKey }) });
+    else if (sec === 'tmdb') Object.assign(payload, { tmdbPreset: form.tmdbPreset, tmdbProvider: form.tmdbProvider, tmdbApiUrl: form.tmdbApiUrl, clearTmdbApiKey: form.clearTmdbApiKey, ...(form.tmdbApiKey && { tmdbApiKey: form.tmdbApiKey }) });
     else if (sec === 'plex') Object.assign(payload, {
-      plexPreset: form.plexPreset, plexProvider: form.plexProvider, plexApiUrl: form.plexApiUrl, plexServerName: form.plexServerName,
-      plexApiKeyQueryParam: form.plexApiKeyQueryParam, clearPlexApiKey: form.clearPlexApiKey,
+      plexPreset: form.plexPreset, plexProvider: form.plexProvider, plexApiUrl: form.plexApiUrl,
+      clearPlexApiKey: form.clearPlexApiKey,
       plexLibrarySections: form.plexLibrarySections.split(',').map((v) => v.trim()).filter(Boolean),
       ...(form.plexApiKey && { plexApiKey: form.plexApiKey })
     });
     else if (sec === 'books') Object.assign(payload, {
       booksPreset: form.booksPreset, booksProvider: form.booksProvider, booksApiUrl: form.booksApiUrl,
-      booksApiKeyHeader: form.booksApiKeyHeader, booksApiKeyQueryParam: form.booksApiKeyQueryParam,
       clearBooksApiKey: form.clearBooksApiKey, ...(form.booksApiKey && { booksApiKey: form.booksApiKey })
     });
     else if (sec === 'audio') Object.assign(payload, {
       audioPreset: form.audioPreset, audioProvider: form.audioProvider, audioApiUrl: form.audioApiUrl,
-      audioApiKeyHeader: form.audioApiKeyHeader, audioApiKeyQueryParam: form.audioApiKeyQueryParam,
       clearAudioApiKey: form.clearAudioApiKey, ...(form.audioApiKey && { audioApiKey: form.audioApiKey })
     });
     else if (sec === 'games') Object.assign(payload, {
       gamesPreset: form.gamesPreset, gamesProvider: form.gamesProvider, gamesApiUrl: form.gamesApiUrl,
-      gamesApiKeyHeader: form.gamesApiKeyHeader, gamesApiKeyQueryParam: form.gamesApiKeyQueryParam,
       gamesClientId: form.gamesClientId, clearGamesApiKey: form.clearGamesApiKey, clearGamesClientSecret: form.clearGamesClientSecret,
       ...(form.gamesApiKey && { gamesApiKey: form.gamesApiKey }),
       ...(form.gamesClientSecret && { gamesClientSecret: form.gamesClientSecret })
     });
     else if (sec === 'comics') Object.assign(payload, {
       comicsPreset: form.comicsPreset, comicsProvider: form.comicsProvider, comicsApiUrl: form.comicsApiUrl,
-      comicsApiKeyHeader: form.comicsApiKeyHeader, comicsApiKeyQueryParam: form.comicsApiKeyQueryParam,
       comicsUsername: form.comicsUsername, clearComicsApiKey: form.clearComicsApiKey,
       ...(form.comicsApiKey && { comicsApiKey: form.comicsApiKey })
     });
     else if (sec === 'cwa') Object.assign(payload, {
       cwaOpdsUrl: form.cwaOpdsUrl,
-      cwaBaseUrl: form.cwaBaseUrl,
       cwaUsername: form.cwaUsername,
-      cwaTimeoutMs: Number(form.cwaTimeoutMs) || 20000,
       clearCwaPassword: form.clearCwaPassword,
       ...(form.cwaPassword && { cwaPassword: form.cwaPassword })
     });
@@ -525,8 +478,8 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
           ))}
         </div>
 
-        <div className="rounded-2xl border border-edge bg-surface/80 px-5 py-5 space-y-4 min-w-0">
-        <div className="flex items-center justify-between gap-3 border-b border-edge pb-3">
+        <div className="space-y-4 min-w-0">
+        <div className="flex items-center justify-between gap-3 pb-1">
           <div>
             <h2 className="text-sm font-semibold tracking-wide uppercase text-dim">{activeSectionLabel}</h2>
             <p className="mt-1 text-xs text-ghost">{activeSectionDescription}</p>
@@ -534,22 +487,10 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
           <StatusBadge status={activeSectionStatus} cx={cx} />
         </div>
         {section === 'barcode' && <>
-          {featureFlagMap.get('lookup_upc_enabled') && (
-            <IntegrationFeatureToggle
-              feature={featureFlagMap.get('lookup_upc_enabled')}
-              disabled={featureFlagsReadOnly || featureFlagMap.get('lookup_upc_enabled')?.envOverride !== null}
-              saving={savingFeatureKey === 'lookup_upc_enabled'}
-              onToggle={toggleIntegrationFeature}
-            />
-          )}
           <LabeledField label="Preset" cx={cx}><select className="select" value={form.barcodePreset} onChange={(e) => applyBarcodePreset(e.target.value)}>
-            <option value="upcitemdb">UPCItemDB</option><option value="barcodelookup">BarcodeLookup</option><option value="custom">Custom</option>
+            <option value="upcitemdb">UPCItemDB</option><option value="barcodelookup">BarcodeLookup</option>
           </select></LabeledField>
           <LabeledField label="API URL" cx={cx}><input className="input" value={form.barcodeApiUrl} onChange={(e) => setForm((f) => ({ ...f, barcodeApiUrl: e.target.value }))} /></LabeledField>
-          <div className="grid grid-cols-2 gap-3">
-            <LabeledField label="Key Header" cx={cx}><input className="input" value={form.barcodeApiKeyHeader} onChange={(e) => setForm((f) => ({ ...f, barcodeApiKeyHeader: e.target.value }))} /></LabeledField>
-            <LabeledField label="Query Param" cx={cx}><input className="input" value={form.barcodeQueryParam} onChange={(e) => setForm((f) => ({ ...f, barcodeQueryParam: e.target.value }))} /></LabeledField>
-          </div>
           <LabeledField label={`API Key ${meta.barcodeApiKeySet ? `(set: ${meta.barcodeApiKeyMasked})` : '(not set)'}`} cx={cx}>
             <input className="input font-mono" type="password" placeholder="Enter new key to update" value={form.barcodeApiKey} onChange={(e) => setForm((f) => ({ ...f, barcodeApiKey: e.target.value }))} />
           </LabeledField>
@@ -560,19 +501,7 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
         </>}
 
         {section === 'vision' && <>
-          {featureFlagMap.get('recognize_cover_enabled') && (
-            <IntegrationFeatureToggle
-              feature={featureFlagMap.get('recognize_cover_enabled')}
-              disabled={featureFlagsReadOnly || featureFlagMap.get('recognize_cover_enabled')?.envOverride !== null}
-              saving={savingFeatureKey === 'recognize_cover_enabled'}
-              onToggle={toggleIntegrationFeature}
-            />
-          )}
-          <LabeledField label="Preset" cx={cx}><select className="select" value={form.visionPreset} onChange={(e) => applyVisionPreset(e.target.value)}>
-            <option value="ocrspace">OCR.Space</option><option value="custom">Custom</option>
-          </select></LabeledField>
           <LabeledField label="API URL" cx={cx}><input className="input" value={form.visionApiUrl} onChange={(e) => setForm((f) => ({ ...f, visionApiUrl: e.target.value }))} /></LabeledField>
-          <LabeledField label="Key Header" cx={cx}><input className="input" value={form.visionApiKeyHeader} onChange={(e) => setForm((f) => ({ ...f, visionApiKeyHeader: e.target.value }))} /></LabeledField>
           <LabeledField label={`API Key ${meta.visionApiKeySet ? `(set: ${meta.visionApiKeyMasked})` : '(not set)'}`} cx={cx}>
             <input className="input font-mono" type="password" placeholder="Enter new key to update" value={form.visionApiKey} onChange={(e) => setForm((f) => ({ ...f, visionApiKey: e.target.value }))} />
           </LabeledField>
@@ -597,7 +526,7 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
               onToggle={toggleIntegrationFeature}
             />
           )}
-          <div className="rounded-xl border border-edge bg-raised/50 px-4 py-4 space-y-2">
+          <div className="border-t border-edge pt-4 space-y-2">
             <p className="text-sm font-medium text-ink">Available settings</p>
             <ul className="space-y-2 text-sm text-dim">
               <li>Enable or disable external structured log export for activity and audit events here.</li>
@@ -622,7 +551,7 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
               onToggle={toggleIntegrationFeature}
             />
           )}
-          <div className="rounded-xl border border-edge bg-raised/50 px-4 py-4 space-y-2">
+          <div className="border-t border-edge pt-4 space-y-2">
             <p className="text-sm font-medium text-ink">Available settings</p>
             <ul className="space-y-2 text-sm text-dim">
               <li>Enable or disable admin-facing Prometheus-style metrics export here.</li>
@@ -633,14 +562,7 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
         </>}
 
         {section === 'tmdb' && <>
-          <LabeledField label="Preset" cx={cx}><select className="select" value={form.tmdbPreset} onChange={(e) => applyTmdbPreset(e.target.value)}>
-            <option value="tmdb">TMDB</option><option value="custom">Custom</option>
-          </select></LabeledField>
           <LabeledField label="API URL" cx={cx}><input className="input" value={form.tmdbApiUrl} onChange={(e) => setForm((f) => ({ ...f, tmdbApiUrl: e.target.value }))} /></LabeledField>
-          <div className="grid grid-cols-2 gap-3">
-            <LabeledField label="Key Header (opt)" cx={cx}><input className="input" value={form.tmdbApiKeyHeader} onChange={(e) => setForm((f) => ({ ...f, tmdbApiKeyHeader: e.target.value }))} /></LabeledField>
-            <LabeledField label="Key Query Param" cx={cx}><input className="input" value={form.tmdbApiKeyQueryParam} onChange={(e) => setForm((f) => ({ ...f, tmdbApiKeyQueryParam: e.target.value }))} /></LabeledField>
-          </div>
           <LabeledField label={`API Key ${meta.tmdbApiKeySet ? `(set: ${meta.tmdbApiKeyMasked})` : '(not set)'}`} cx={cx}>
             <input className="input font-mono" type="password" placeholder="Enter new key to update" value={form.tmdbApiKey} onChange={(e) => setForm((f) => ({ ...f, tmdbApiKey: e.target.value }))} />
           </LabeledField>
@@ -651,13 +573,10 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
         </>}
 
         {section === 'plex' && <>
-          <LabeledField label="Preset" cx={cx}><select className="select" value={form.plexPreset} onChange={(e) => applyPlexPreset(e.target.value)}>
-            <option value="plex">Plex</option><option value="custom">Custom</option>
-          </select></LabeledField>
-          <LabeledField label="Plex API URL" cx={cx}><input className="input" placeholder="https://plex-host:32400" value={form.plexApiUrl} onChange={(e) => setForm((f) => ({ ...f, plexApiUrl: e.target.value }))} /></LabeledField>
-          <LabeledField label="Server Name (optional)" cx={cx}><input className="input" value={form.plexServerName} onChange={(e) => setForm((f) => ({ ...f, plexServerName: e.target.value }))} /></LabeledField>
-          <div className="grid grid-cols-2 gap-3">
-            <LabeledField label="Token Query Param" cx={cx}><input className="input" value={form.plexApiKeyQueryParam} onChange={(e) => setForm((f) => ({ ...f, plexApiKeyQueryParam: e.target.value }))} /></LabeledField>
+          <div className="grid gap-3 md:grid-cols-2">
+            <LabeledField label="Plex API URL" cx={cx}>
+              <input className="input" placeholder="https://plex-host:32400" value={form.plexApiUrl} onChange={(e) => setForm((f) => ({ ...f, plexApiUrl: e.target.value }))} />
+            </LabeledField>
             <LabeledField label="Library Section IDs" cx={cx}>
               <input className="input font-mono" placeholder="1,2,5" value={form.plexLibrarySections} onChange={(e) => setForm((f) => ({ ...f, plexLibrarySections: e.target.value }))} />
             </LabeledField>
@@ -690,14 +609,7 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
         </>}
 
         {section === 'books' && <>
-          <LabeledField label="Preset" cx={cx}><select className="select" value={form.booksPreset} onChange={(e) => applyBooksPreset(e.target.value)}>
-            <option value="googlebooks">Google Books</option><option value="custom">Custom</option>
-          </select></LabeledField>
           <LabeledField label="Books API URL" cx={cx}><input className="input" value={form.booksApiUrl} onChange={(e) => setForm((f) => ({ ...f, booksApiUrl: e.target.value }))} /></LabeledField>
-          <div className="grid grid-cols-2 gap-3">
-            <LabeledField label="Key Header (opt)" cx={cx}><input className="input" value={form.booksApiKeyHeader} onChange={(e) => setForm((f) => ({ ...f, booksApiKeyHeader: e.target.value }))} /></LabeledField>
-            <LabeledField label="Key Query Param" cx={cx}><input className="input" value={form.booksApiKeyQueryParam} onChange={(e) => setForm((f) => ({ ...f, booksApiKeyQueryParam: e.target.value }))} /></LabeledField>
-          </div>
           <LabeledField label={`Books API Key ${meta.booksApiKeySet ? `(set: ${meta.booksApiKeyMasked})` : '(not set)'}`} cx={cx}>
             <input className="input font-mono" type="password" placeholder="Enter new key to update" value={form.booksApiKey} onChange={(e) => setForm((f) => ({ ...f, booksApiKey: e.target.value }))} />
           </LabeledField>
@@ -708,14 +620,7 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
         </>}
 
         {section === 'audio' && <>
-          <LabeledField label="Preset" cx={cx}><select className="select" value={form.audioPreset} onChange={(e) => applyAudioPreset(e.target.value)}>
-            <option value="discogs">Discogs</option><option value="custom">Custom</option>
-          </select></LabeledField>
           <LabeledField label="Audio API URL" cx={cx}><input className="input" value={form.audioApiUrl} onChange={(e) => setForm((f) => ({ ...f, audioApiUrl: e.target.value }))} /></LabeledField>
-          <div className="grid grid-cols-2 gap-3">
-            <LabeledField label="Key Header" cx={cx}><input className="input" value={form.audioApiKeyHeader} onChange={(e) => setForm((f) => ({ ...f, audioApiKeyHeader: e.target.value }))} /></LabeledField>
-            <LabeledField label="Key Query Param" cx={cx}><input className="input" value={form.audioApiKeyQueryParam} onChange={(e) => setForm((f) => ({ ...f, audioApiKeyQueryParam: e.target.value }))} /></LabeledField>
-          </div>
           <LabeledField label={`Discogs Token ${meta.audioApiKeySet ? `(set: ${meta.audioApiKeyMasked})` : '(not set)'}`} cx={cx}>
             <input className="input font-mono" type="password" placeholder="Enter new key to update" value={form.audioApiKey} onChange={(e) => setForm((f) => ({ ...f, audioApiKey: e.target.value }))} />
           </LabeledField>
@@ -726,58 +631,47 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
         </>}
 
         {section === 'games' && <>
-          <LabeledField label="Preset" cx={cx}><select className="select" value={form.gamesPreset} onChange={(e) => applyGamesPreset(e.target.value)}>
-            <option value="igdb">IGDB</option><option value="custom">Custom</option>
-          </select></LabeledField>
           <LabeledField label="Games API URL" cx={cx}><input className="input" value={form.gamesApiUrl} onChange={(e) => setForm((f) => ({ ...f, gamesApiUrl: e.target.value }))} /></LabeledField>
           <LabeledField label="Games Client ID (IGDB)" cx={cx}><input className="input" value={form.gamesClientId} onChange={(e) => setForm((f) => ({ ...f, gamesClientId: e.target.value }))} /></LabeledField>
-          <LabeledField label={`Games Client Secret (IGDB) ${meta.gamesClientSecretSet ? `(set: ${meta.gamesClientSecretMasked})` : '(not set)'}`} cx={cx}>
-            <input className="input font-mono" type="password" placeholder="Enter client secret to update" value={form.gamesClientSecret} onChange={(e) => setForm((f) => ({ ...f, gamesClientSecret: e.target.value }))} />
-          </LabeledField>
-          <div className="grid grid-cols-2 gap-3">
-            <LabeledField label="Key Header" cx={cx}><input className="input" value={form.gamesApiKeyHeader} onChange={(e) => setForm((f) => ({ ...f, gamesApiKeyHeader: e.target.value }))} /></LabeledField>
-            <LabeledField label="Key Query Param" cx={cx}><input className="input" value={form.gamesApiKeyQueryParam} onChange={(e) => setForm((f) => ({ ...f, gamesApiKeyQueryParam: e.target.value }))} /></LabeledField>
+          <div className="grid gap-3 md:grid-cols-2">
+            <LabeledField label={`Games Client Secret (IGDB) ${meta.gamesClientSecretSet ? `(set: ${meta.gamesClientSecretMasked})` : '(not set)'}`} cx={cx}>
+              <input className="input font-mono" type="password" placeholder="Enter client secret to update" value={form.gamesClientSecret} onChange={(e) => setForm((f) => ({ ...f, gamesClientSecret: e.target.value }))} />
+            </LabeledField>
+            <LabeledField label={`Games API Key ${meta.gamesApiKeySet ? `(set: ${meta.gamesApiKeyMasked})` : '(not set)'}`} cx={cx}>
+              <input className="input font-mono" type="password" placeholder="Enter new key to update" value={form.gamesApiKey} onChange={(e) => setForm((f) => ({ ...f, gamesApiKey: e.target.value }))} />
+            </LabeledField>
           </div>
-          <LabeledField label={`Games API Key ${meta.gamesApiKeySet ? `(set: ${meta.gamesApiKeyMasked})` : '(not set)'}`} cx={cx}>
-            <input className="input font-mono" type="password" placeholder="Enter new key to update" value={form.gamesApiKey} onChange={(e) => setForm((f) => ({ ...f, gamesApiKey: e.target.value }))} />
-          </LabeledField>
-          <label className="flex items-center gap-2 text-sm text-dim cursor-pointer">
-            <input type="checkbox" checked={form.clearGamesApiKey} onChange={(e) => setForm((f) => ({ ...f, clearGamesApiKey: e.target.checked }))} className="rounded" />
-            Clear saved key
-          </label>
-          <label className="flex items-center gap-2 text-sm text-dim cursor-pointer">
-            <input type="checkbox" checked={form.clearGamesClientSecret} onChange={(e) => setForm((f) => ({ ...f, clearGamesClientSecret: e.target.checked }))} className="rounded" />
-            Clear client secret
-          </label>
         </>}
 
         {section === 'comics' && <>
           <LabeledField label="Preset" cx={cx}><select className="select" value={form.comicsPreset} onChange={(e) => applyComicsPreset(e.target.value)}>
-            <option value="metron">Metron (Basic Auth)</option><option value="gcd">GCD</option><option value="comicvine">ComicVine</option><option value="custom">Custom</option>
+            <option value="metron">Metron (Basic Auth)</option><option value="gcd">GCD</option><option value="comicvine">ComicVine</option>
           </select></LabeledField>
           <LabeledField label={form.comicsPreset === 'metron' ? 'Metron API URL' : 'Comics API URL'} cx={cx}>
             <input className="input" value={form.comicsApiUrl} onChange={(e) => setForm((f) => ({ ...f, comicsApiUrl: e.target.value }))} />
           </LabeledField>
-          {form.comicsPreset === 'metron' && (
-            <p className="text-xs text-dim bg-raised rounded px-3 py-2">
-              Metron uses HTTP Basic Auth. Set your Metron username and password/token below, then save before testing.
-            </p>
-          )}
-          {form.comicsPreset !== 'metron' && (
+          {form.comicsPreset === 'metron' ? (
             <div className="grid grid-cols-2 gap-3">
-              <LabeledField label="Key Header (opt)" cx={cx}><input className="input" value={form.comicsApiKeyHeader} onChange={(e) => setForm((f) => ({ ...f, comicsApiKeyHeader: e.target.value }))} /></LabeledField>
-              <LabeledField label="Key Query Param" cx={cx}><input className="input" value={form.comicsApiKeyQueryParam} onChange={(e) => setForm((f) => ({ ...f, comicsApiKeyQueryParam: e.target.value }))} /></LabeledField>
+              <LabeledField label="Metron Username" cx={cx}>
+                <input className="input" value={form.comicsUsername} onChange={(e) => setForm((f) => ({ ...f, comicsUsername: e.target.value }))} />
+              </LabeledField>
+              <LabeledField label={`Metron Password ${meta.comicsApiKeySet ? `(set: ${meta.comicsApiKeyMasked})` : '(not set)'}`} cx={cx}>
+                <input className="input font-mono" type="password" placeholder="Enter Metron password" value={form.comicsApiKey} onChange={(e) => setForm((f) => ({ ...f, comicsApiKey: e.target.value }))} />
+              </LabeledField>
             </div>
+          ) : (
+            <>
+              <LabeledField label="Username (optional)" cx={cx}>
+                <input className="input" value={form.comicsUsername} onChange={(e) => setForm((f) => ({ ...f, comicsUsername: e.target.value }))} />
+              </LabeledField>
+              <LabeledField label={`Comics API Key ${meta.comicsApiKeySet ? `(set: ${meta.comicsApiKeyMasked})` : '(not set)'}`} cx={cx}>
+                <input className="input font-mono" type="password" placeholder="Enter new key to update" value={form.comicsApiKey} onChange={(e) => setForm((f) => ({ ...f, comicsApiKey: e.target.value }))} />
+              </LabeledField>
+            </>
           )}
-          <LabeledField label={form.comicsPreset === 'metron' ? 'Metron Username' : 'Username (optional)'} cx={cx}>
-            <input className="input" value={form.comicsUsername} onChange={(e) => setForm((f) => ({ ...f, comicsUsername: e.target.value }))} />
-          </LabeledField>
-          <LabeledField label={`${form.comicsPreset === 'metron' ? 'Metron Password / Token' : 'Comics API Key'} ${meta.comicsApiKeySet ? `(set: ${meta.comicsApiKeyMasked})` : '(not set)'}`} cx={cx}>
-            <input className="input font-mono" type="password" placeholder={form.comicsPreset === 'metron' ? 'Enter Metron password/token' : 'Enter new key/token to update'} value={form.comicsApiKey} onChange={(e) => setForm((f) => ({ ...f, comicsApiKey: e.target.value }))} />
-          </LabeledField>
           <label className="flex items-center gap-2 text-sm text-dim cursor-pointer">
             <input type="checkbox" checked={form.clearComicsApiKey} onChange={(e) => setForm((f) => ({ ...f, clearComicsApiKey: e.target.checked }))} className="rounded" />
-            Clear saved key
+            {form.comicsPreset === 'metron' ? 'Clear saved password' : 'Clear saved key'}
           </label>
         </>}
 
@@ -785,23 +679,20 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
           <LabeledField label="OPDS Feed URL" cx={cx}>
             <input className="input" placeholder="https://cwa-host/opds/books" value={form.cwaOpdsUrl} onChange={(e) => setForm((f) => ({ ...f, cwaOpdsUrl: e.target.value }))} />
           </LabeledField>
-          <LabeledField label="Base URL (for deep links, optional)" cx={cx}>
-            <input className="input" placeholder="https://cwa-host" value={form.cwaBaseUrl} onChange={(e) => setForm((f) => ({ ...f, cwaBaseUrl: e.target.value }))} />
-          </LabeledField>
-          <div className="grid grid-cols-2 gap-3">
-            <LabeledField label="Username (optional)" cx={cx}>
+          <p className="text-xs text-ghost">
+            Deep links use the OPDS feed host automatically, so there is no separate base URL to maintain here.
+          </p>
+          <div className="grid gap-3 md:grid-cols-2">
+            <LabeledField label="Username" cx={cx}>
               <input className="input" value={form.cwaUsername} onChange={(e) => setForm((f) => ({ ...f, cwaUsername: e.target.value }))} />
             </LabeledField>
-            <LabeledField label="Timeout (ms)" cx={cx}>
-              <input className="input" type="number" min="1000" step="1000" value={form.cwaTimeoutMs} onChange={(e) => setForm((f) => ({ ...f, cwaTimeoutMs: e.target.value }))} />
+            <LabeledField label={`Password ${meta.cwaPasswordSet ? `(set: ${meta.cwaPasswordMasked})` : '(not set)'}`} cx={cx}>
+              <input className="input font-mono" type="password" placeholder="Enter password to update" value={form.cwaPassword} onChange={(e) => setForm((f) => ({ ...f, cwaPassword: e.target.value }))} />
             </LabeledField>
           </div>
-          <LabeledField label={`Password / Token ${meta.cwaPasswordSet ? `(set: ${meta.cwaPasswordMasked})` : '(not set)'}`} cx={cx}>
-            <input className="input font-mono" type="password" placeholder="Enter password/token to update" value={form.cwaPassword} onChange={(e) => setForm((f) => ({ ...f, cwaPassword: e.target.value }))} />
-          </LabeledField>
           <label className="flex items-center gap-2 text-sm text-dim cursor-pointer">
             <input type="checkbox" checked={form.clearCwaPassword} onChange={(e) => setForm((f) => ({ ...f, clearCwaPassword: e.target.checked }))} className="rounded" />
-            Clear saved password/token
+            Clear saved password
           </label>
         </>}
 

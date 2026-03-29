@@ -23,13 +23,6 @@ const COMICS_PRESETS = {
     apiUrl: 'https://comicvine.gamespot.com/api/search/',
     apiKeyHeader: '',
     apiKeyQueryParam: 'api_key'
-  },
-  custom: {
-    preset: 'custom',
-    provider: 'custom',
-    apiUrl: '',
-    apiKeyHeader: '',
-    apiKeyQueryParam: 'api_key'
   }
 };
 

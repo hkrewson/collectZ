@@ -9,6 +9,16 @@ const { resolveAudioPreset } = require('./audio');
 const { resolveGamesPreset } = require('./games');
 const { resolveComicsPreset } = require('./comics');
 
+function deriveCwaBaseUrl(rawUrl = '') {
+  const value = String(rawUrl || '').trim();
+  if (!value) return '';
+  try {
+    return new URL(value).origin;
+  } catch (_) {
+    return '';
+  }
+}
+
 const normalizeIntegrationRecord = (row) => {
   const envBarcodePreset = process.env.BARCODE_PRESET || process.env.BARCODE_PROVIDER || 'upcitemdb';
   const envVisionPreset = process.env.VISION_PRESET || process.env.VISION_PROVIDER || 'ocrspace';
@@ -49,6 +59,8 @@ const normalizeIntegrationRecord = (row) => {
   const gamesClientSecret = gamesClientSecretDecrypt.value || process.env.GAMES_CLIENT_SECRET || '';
   const comicsApiKey = comicsDecrypt.value || process.env.COMICS_API_KEY || '';
   const cwaPassword = cwaPasswordDecrypt.value || process.env.CWA_PASSWORD || process.env.CWA_TOKEN || '';
+  const cwaOpdsUrl = row?.cwa_opds_url || process.env.CWA_OPDS_URL || '';
+  const resolvedCwaBaseUrl = deriveCwaBaseUrl(cwaOpdsUrl);
 
   const decryptWarnings = [];
   const maybeWarn = (provider, field, encryptedValue, decryptResult) => {
@@ -84,64 +96,63 @@ const normalizeIntegrationRecord = (row) => {
     : (row?.audio_api_url || audioPreset.apiUrl || process.env.AUDIO_API_URL || '');
 
   return {
-    barcodePreset: row?.barcode_preset || envBarcodePreset,
-    barcodeProvider: row?.barcode_provider || barcodePreset.provider,
+    barcodePreset: barcodePreset.preset || 'upcitemdb',
+    barcodeProvider: barcodePreset.provider,
     barcodeApiUrl: row?.barcode_api_url || barcodePreset.apiUrl || process.env.BARCODE_API_URL || '',
-    barcodeApiKeyHeader: row?.barcode_api_key_header || barcodePreset.apiKeyHeader || 'x-api-key',
-    barcodeQueryParam: row?.barcode_query_param || barcodePreset.queryParam || 'upc',
+    barcodeApiKeyHeader: barcodePreset.apiKeyHeader || 'x-api-key',
+    barcodeQueryParam: barcodePreset.queryParam || 'upc',
     barcodeApiKey,
-    visionPreset: row?.vision_preset || envVisionPreset,
-    visionProvider: row?.vision_provider || visionPreset.provider,
+    visionPreset: visionPreset.preset || 'ocrspace',
+    visionProvider: visionPreset.provider,
     visionApiUrl: row?.vision_api_url || visionPreset.apiUrl || process.env.VISION_API_URL || '',
-    visionApiKeyHeader: row?.vision_api_key_header || visionPreset.apiKeyHeader || 'apikey',
+    visionApiKeyHeader: visionPreset.apiKeyHeader || 'apikey',
     visionApiKey,
-    tmdbPreset: row?.tmdb_preset || envTmdbPreset,
-    tmdbProvider: row?.tmdb_provider || tmdbPreset.provider,
+    tmdbPreset: tmdbPreset.preset || 'tmdb',
+    tmdbProvider: tmdbPreset.provider,
     tmdbApiUrl: row?.tmdb_api_url || tmdbPreset.apiUrl || process.env.TMDB_API_URL || 'https://api.themoviedb.org/3/search/movie',
-    tmdbApiKeyHeader: row?.tmdb_api_key_header || tmdbPreset.apiKeyHeader || '',
-    tmdbApiKeyQueryParam: row?.tmdb_api_key_query_param || tmdbPreset.apiKeyQueryParam || 'api_key',
+    tmdbApiKeyHeader: tmdbPreset.apiKeyHeader || '',
+    tmdbApiKeyQueryParam: tmdbPreset.apiKeyQueryParam || 'api_key',
     tmdbApiKey,
-    plexPreset: row?.plex_preset || envPlexPreset,
-    plexProvider: row?.plex_provider || plexPreset.provider,
+    plexPreset: plexPreset.preset || 'plex',
+    plexProvider: plexPreset.provider,
     plexApiUrl: row?.plex_api_url || plexPreset.apiUrl || process.env.PLEX_API_URL || '',
-    plexServerName: row?.plex_server_name || process.env.PLEX_SERVER_NAME || '',
-    plexApiKeyQueryParam: row?.plex_api_key_query_param || plexPreset.apiKeyQueryParam || 'X-Plex-Token',
+    plexApiKeyQueryParam: plexPreset.apiKeyQueryParam || 'X-Plex-Token',
     plexApiKey,
     plexLibrarySections: Array.isArray(row?.plex_library_sections)
       ? row.plex_library_sections
       : [],
-    booksPreset: row?.books_preset || envBooksPreset,
-    booksProvider: row?.books_provider || booksPreset.provider,
+    booksPreset: booksPreset.preset || 'googlebooks',
+    booksProvider: booksPreset.provider,
     booksApiUrl: row?.books_api_url || booksPreset.apiUrl || process.env.BOOKS_API_URL || '',
-    booksApiKeyHeader: row?.books_api_key_header || booksPreset.apiKeyHeader || '',
-    booksApiKeyQueryParam: row?.books_api_key_query_param || booksPreset.apiKeyQueryParam || 'key',
+    booksApiKeyHeader: booksPreset.apiKeyHeader || '',
+    booksApiKeyQueryParam: booksPreset.apiKeyQueryParam || 'key',
     booksApiKey,
-    audioPreset: resolvedAudioPreset,
+    audioPreset: audioPreset.preset || resolvedAudioPreset,
     audioProvider: resolvedAudioProvider,
     audioApiUrl: resolvedAudioApiUrl,
-    audioApiKeyHeader: row?.audio_api_key_header || audioPreset.apiKeyHeader || '',
-    audioApiKeyQueryParam: row?.audio_api_key_query_param || audioPreset.apiKeyQueryParam || 'api_key',
+    audioApiKeyHeader: audioPreset.apiKeyHeader || '',
+    audioApiKeyQueryParam: audioPreset.apiKeyQueryParam || 'api_key',
     audioApiKey,
-    gamesPreset: row?.games_preset || envGamesPreset,
-    gamesProvider: row?.games_provider || gamesPreset.provider,
+    gamesPreset: gamesPreset.preset || 'igdb',
+    gamesProvider: gamesPreset.provider,
     gamesApiUrl: row?.games_api_url || gamesPreset.apiUrl || process.env.GAMES_API_URL || '',
-    gamesApiKeyHeader: row?.games_api_key_header || gamesPreset.apiKeyHeader || 'Authorization',
-    gamesApiKeyQueryParam: row?.games_api_key_query_param || gamesPreset.apiKeyQueryParam || 'api_key',
+    gamesApiKeyHeader: gamesPreset.apiKeyHeader || 'Authorization',
+    gamesApiKeyQueryParam: gamesPreset.apiKeyQueryParam || 'api_key',
     gamesClientId: row?.games_client_id || process.env.GAMES_CLIENT_ID || '',
     gamesClientSecret,
     gamesApiKey,
-    comicsPreset: row?.comics_preset || envComicsPreset,
-    comicsProvider: row?.comics_provider || comicsPreset.provider,
+    comicsPreset: comicsPreset.preset || 'metron',
+    comicsProvider: comicsPreset.provider,
     comicsApiUrl: row?.comics_api_url || comicsPreset.apiUrl || process.env.COMICS_API_URL || '',
-    comicsApiKeyHeader: row?.comics_api_key_header || comicsPreset.apiKeyHeader || '',
-    comicsApiKeyQueryParam: row?.comics_api_key_query_param || comicsPreset.apiKeyQueryParam || 'api_key',
+    comicsApiKeyHeader: comicsPreset.apiKeyHeader || '',
+    comicsApiKeyQueryParam: comicsPreset.apiKeyQueryParam || 'api_key',
     comicsUsername: row?.comics_username || process.env.COMICS_USERNAME || '',
     comicsApiKey,
-    cwaOpdsUrl: row?.cwa_opds_url || process.env.CWA_OPDS_URL || '',
-    cwaBaseUrl: row?.cwa_base_url || process.env.CWA_BASE_URL || '',
+    cwaOpdsUrl,
+    cwaBaseUrl: resolvedCwaBaseUrl,
     cwaUsername: row?.cwa_username || process.env.CWA_USERNAME || '',
     cwaPassword,
-    cwaTimeoutMs: Number(row?.cwa_timeout_ms || process.env.CWA_TIMEOUT_MS || 20000) || 20000,
+    cwaTimeoutMs: 20000,
     decryptWarnings
   };
 };
@@ -160,4 +171,4 @@ const loadGeneralSettings = async () => {
   };
 };
 
-module.exports = { normalizeIntegrationRecord, loadAdminIntegrationConfig, loadGeneralSettings };
+module.exports = { deriveCwaBaseUrl, normalizeIntegrationRecord, loadAdminIntegrationConfig, loadGeneralSettings };

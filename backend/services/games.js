@@ -9,13 +9,6 @@ const GAMES_PRESETS = {
     apiUrl: 'https://api.igdb.com/v4/games',
     apiKeyHeader: 'Authorization',
     apiKeyQueryParam: ''
-  },
-  custom: {
-    preset: 'custom',
-    provider: 'custom',
-    apiUrl: '',
-    apiKeyHeader: 'Authorization',
-    apiKeyQueryParam: 'api_key'
   }
 };
 

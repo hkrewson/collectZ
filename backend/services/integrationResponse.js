@@ -26,7 +26,6 @@ const buildIntegrationResponse = (config) => ({
   plexPreset: config.plexPreset,
   plexProvider: config.plexProvider,
   plexApiUrl: config.plexApiUrl,
-  plexServerName: config.plexServerName,
   plexApiKeyQueryParam: config.plexApiKeyQueryParam,
   plexLibrarySections: config.plexLibrarySections || [],
   plexApiKeySet: Boolean(config.plexApiKey),
@@ -66,7 +65,6 @@ const buildIntegrationResponse = (config) => ({
   cwaOpdsUrl: config.cwaOpdsUrl,
   cwaBaseUrl: config.cwaBaseUrl,
   cwaUsername: config.cwaUsername,
-  cwaTimeoutMs: config.cwaTimeoutMs,
   cwaPasswordSet: Boolean(config.cwaPassword),
   cwaPasswordMasked: maskSecret(config.cwaPassword),
   decryptHealth: {

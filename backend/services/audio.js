@@ -14,13 +14,6 @@ const AUDIO_PRESETS = {
     apiUrl: 'https://api.discogs.com/database/search',
     apiKeyHeader: 'Authorization',
     apiKeyQueryParam: 'token'
-  },
-  custom: {
-    preset: 'custom',
-    provider: 'custom',
-    apiUrl: '',
-    apiKeyHeader: '',
-    apiKeyQueryParam: 'api_key'
   }
 };
 

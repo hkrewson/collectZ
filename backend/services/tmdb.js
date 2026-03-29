@@ -3,14 +3,9 @@ const { recordProviderRequestEvent } = require('./metrics');
 
 const TMDB_PRESETS = {
   tmdb: {
+    preset: 'tmdb',
     provider: 'tmdb',
     apiUrl: 'https://api.themoviedb.org/3/search/movie',
-    apiKeyHeader: '',
-    apiKeyQueryParam: 'api_key'
-  },
-  custom: {
-    provider: 'custom',
-    apiUrl: '',
     apiKeyHeader: '',
     apiKeyQueryParam: 'api_key'
   }

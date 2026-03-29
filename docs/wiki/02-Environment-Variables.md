@@ -57,8 +57,6 @@ openssl rand -hex 32
   - `FEATURE_FLAGS_CACHE_TTL_SECONDS` (default `10`) — backend feature-flag cache TTL.
     - Multi-instance note: cache is process-local; flag updates become visible on other backend instances after their TTL window expires.
   - Active operator/runtime flag env overrides (highest precedence):
-    - `FEATURE_FLAG_LOOKUP_UPC_ENABLED`
-    - `FEATURE_FLAG_RECOGNIZE_COVER_ENABLED`
     - `FEATURE_FLAG_EVENTS_ENABLED`
     - `FEATURE_FLAG_COLLECTIBLES_ENABLED`
   - Integrations-owned runtime toggles:
@@ -92,11 +90,13 @@ openssl rand -hex 32
 
 These can be set in `.env`, but admin settings in UI now control active global integrations:
 
-- TMDB: `TMDB_PRESET`, `TMDB_PROVIDER`, `TMDB_API_URL`, `TMDB_API_KEY`, `TMDB_API_KEY_HEADER`, `TMDB_API_KEY_QUERY_PARAM`
-- Barcode: `BARCODE_PRESET`, `BARCODE_PROVIDER`, `BARCODE_API_URL`, `BARCODE_API_KEY`, `BARCODE_API_KEY_HEADER`, `BARCODE_QUERY_PARAM`
-- Vision: `VISION_PRESET`, `VISION_PROVIDER`, `VISION_API_URL`, `VISION_API_KEY`, `VISION_API_KEY_HEADER`
-- Plex: `PLEX_PRESET`, `PLEX_PROVIDER`, `PLEX_API_URL`, `PLEX_SERVER_NAME`, `PLEX_API_KEY`
-- CWA OPDS (deferred/disabled runtime surface): `CWA_OPDS_URL`, `CWA_BASE_URL`, `CWA_USERNAME`, `CWA_PASSWORD`, `CWA_TIMEOUT_MS`
+- TMDB: `TMDB_PRESET`, `TMDB_PROVIDER`, `TMDB_API_URL`, `TMDB_API_KEY`
+- Barcode: `BARCODE_PRESET`, `BARCODE_PROVIDER`, `BARCODE_API_URL`, `BARCODE_API_KEY`
+- Vision: `VISION_PRESET`, `VISION_PROVIDER`, `VISION_API_URL`, `VISION_API_KEY`
+- Plex: `PLEX_PRESET`, `PLEX_PROVIDER`, `PLEX_API_URL`, `PLEX_API_KEY`
+- Supported provider presets now own their key-header and query-param details in backend service config.
+- Custom integration authoring is intentionally not part of the current Admin Integrations surface. If we need user-defined providers later, that belongs in a dedicated plugin/extensibility milestone.
+- CWA OPDS (deferred/disabled runtime surface): `CWA_OPDS_URL`, `CWA_USERNAME`, `CWA_PASSWORD`
 - Async import tuning:
   - `TMDB_IMPORT_MIN_INTERVAL_MS` (default `50`): minimum delay between TMDB enrichment calls during Plex import.
   - `PLEX_JOB_PROGRESS_BATCH_SIZE` (default `25`): items processed between persisted async progress updates.

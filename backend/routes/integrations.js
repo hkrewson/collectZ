@@ -4,7 +4,7 @@ const FormData = require('form-data');
 const pool = require('../db/pool');
 const { asyncHandler } = require('../middleware/errors');
 const { authenticateToken, requireRole } = require('../middleware/auth');
-const { loadAdminIntegrationConfig, normalizeIntegrationRecord, loadGeneralSettings } = require('../services/integrations');
+const { deriveCwaBaseUrl, loadAdminIntegrationConfig, normalizeIntegrationRecord, loadGeneralSettings } = require('../services/integrations');
 const { encryptSecret } = require('../services/crypto');
 const { buildIntegrationResponse } = require('../services/integrationResponse');
 const { resolveBarcodePreset } = require('../services/barcode');
@@ -35,23 +35,23 @@ router.get('/admin/settings/integrations', authenticateToken, requireRole('admin
 
 router.put('/admin/settings/integrations', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
   const {
-    barcodePreset, barcodeProvider, barcodeApiUrl, barcodeApiKeyHeader, barcodeQueryParam,
+    barcodePreset, barcodeProvider, barcodeApiUrl,
     barcodeApiKey, clearBarcodeApiKey,
-    visionPreset, visionProvider, visionApiUrl, visionApiKeyHeader,
+    visionPreset, visionProvider, visionApiUrl,
     visionApiKey, clearVisionApiKey,
-    tmdbPreset, tmdbProvider, tmdbApiUrl, tmdbApiKeyHeader, tmdbApiKeyQueryParam,
+    tmdbPreset, tmdbProvider, tmdbApiUrl,
     tmdbApiKey, clearTmdbApiKey,
-    plexPreset, plexProvider, plexApiUrl, plexServerName, plexApiKeyQueryParam, plexLibrarySections,
+    plexPreset, plexProvider, plexApiUrl, plexLibrarySections,
     plexApiKey, clearPlexApiKey,
-    booksPreset, booksProvider, booksApiUrl, booksApiKeyHeader, booksApiKeyQueryParam,
+    booksPreset, booksProvider, booksApiUrl,
     booksApiKey, clearBooksApiKey,
-    audioPreset, audioProvider, audioApiUrl, audioApiKeyHeader, audioApiKeyQueryParam,
+    audioPreset, audioProvider, audioApiUrl,
     audioApiKey, clearAudioApiKey,
-    gamesPreset, gamesProvider, gamesApiUrl, gamesApiKeyHeader, gamesApiKeyQueryParam, gamesClientId,
+    gamesPreset, gamesProvider, gamesApiUrl, gamesClientId,
     gamesApiKey, clearGamesApiKey, gamesClientSecret, clearGamesClientSecret,
-    comicsPreset, comicsProvider, comicsApiUrl, comicsApiKeyHeader, comicsApiKeyQueryParam, comicsUsername,
+    comicsPreset, comicsProvider, comicsApiUrl, comicsUsername,
     comicsApiKey, clearComicsApiKey,
-    cwaOpdsUrl, cwaBaseUrl, cwaUsername, cwaPassword, cwaTimeoutMs, clearCwaPassword
+    cwaOpdsUrl, cwaUsername, cwaPassword, clearCwaPassword
   } = req.body;
 
   const selectedBarcodePreset = resolveBarcodePreset(barcodePreset || 'upcitemdb');
@@ -98,6 +98,8 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
   const finalGamesClientSecret = clearGamesClientSecret
     ? null
     : (gamesClientSecret ? encryptSecret(gamesClientSecret) : existing?.games_client_secret_encrypted || null);
+
+  const resolvedCwaBaseUrl = deriveCwaBaseUrl(pick(cwaOpdsUrl, existing?.cwa_opds_url, ''));
 
   const result = await pool.query(
     `INSERT INTO app_integrations (
@@ -161,58 +163,58 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
       pick(barcodeProvider, existing?.barcode_provider, selectedBarcodePreset.provider),
       pick(barcodeApiUrl, existing?.barcode_api_url, selectedBarcodePreset.apiUrl),
       finalBarcodeApiKey,
-      pick(barcodeApiKeyHeader, existing?.barcode_api_key_header, selectedBarcodePreset.apiKeyHeader),
-      pick(barcodeQueryParam, existing?.barcode_query_param, selectedBarcodePreset.queryParam),
+      selectedBarcodePreset.apiKeyHeader,
+      selectedBarcodePreset.queryParam,
       pick(visionPreset, existing?.vision_preset, 'ocrspace'),
       pick(visionProvider, existing?.vision_provider, selectedVisionPreset.provider),
       pick(visionApiUrl, existing?.vision_api_url, selectedVisionPreset.apiUrl),
       finalVisionApiKey,
-      pick(visionApiKeyHeader, existing?.vision_api_key_header, selectedVisionPreset.apiKeyHeader),
+      selectedVisionPreset.apiKeyHeader,
       pick(tmdbPreset, existing?.tmdb_preset, 'tmdb'),
       pick(tmdbProvider, existing?.tmdb_provider, selectedTmdbPreset.provider),
       pick(tmdbApiUrl, existing?.tmdb_api_url, selectedTmdbPreset.apiUrl),
       finalTmdbApiKey,
-      pick(tmdbApiKeyHeader, existing?.tmdb_api_key_header, selectedTmdbPreset.apiKeyHeader),
-      pick(tmdbApiKeyQueryParam, existing?.tmdb_api_key_query_param, selectedTmdbPreset.apiKeyQueryParam),
+      selectedTmdbPreset.apiKeyHeader,
+      selectedTmdbPreset.apiKeyQueryParam,
       pick(plexPreset, existing?.plex_preset, 'plex'),
       pick(plexProvider, existing?.plex_provider, selectedPlexPreset.provider),
       pick(plexApiUrl, existing?.plex_api_url, selectedPlexPreset.apiUrl),
-      pick(plexServerName, existing?.plex_server_name, ''),
+      '',
       finalPlexApiKey,
-      pick(plexApiKeyQueryParam, existing?.plex_api_key_query_param, selectedPlexPreset.apiKeyQueryParam),
+      selectedPlexPreset.apiKeyQueryParam,
       JSON.stringify(Array.isArray(plexLibrarySections) ? plexLibrarySections : (existing?.plex_library_sections || [])),
       pick(booksPreset, existing?.books_preset, 'googlebooks'),
       pick(booksProvider, existing?.books_provider, selectedBooksPreset.provider),
       pick(booksApiUrl, existing?.books_api_url, selectedBooksPreset.apiUrl),
       finalBooksApiKey,
-      pick(booksApiKeyHeader, existing?.books_api_key_header, selectedBooksPreset.apiKeyHeader),
-      pick(booksApiKeyQueryParam, existing?.books_api_key_query_param, selectedBooksPreset.apiKeyQueryParam),
+      selectedBooksPreset.apiKeyHeader,
+      selectedBooksPreset.apiKeyQueryParam,
       pick(audioPreset, existing?.audio_preset, 'discogs'),
       pick(audioProvider, existing?.audio_provider, selectedAudioPreset.provider),
       pick(audioApiUrl, existing?.audio_api_url, selectedAudioPreset.apiUrl),
       finalAudioApiKey,
-      pick(audioApiKeyHeader, existing?.audio_api_key_header, selectedAudioPreset.apiKeyHeader),
-      pick(audioApiKeyQueryParam, existing?.audio_api_key_query_param, selectedAudioPreset.apiKeyQueryParam),
+      selectedAudioPreset.apiKeyHeader,
+      selectedAudioPreset.apiKeyQueryParam,
       pick(gamesPreset, existing?.games_preset, 'igdb'),
       pick(gamesProvider, existing?.games_provider, selectedGamesPreset.provider),
       pick(gamesApiUrl, existing?.games_api_url, selectedGamesPreset.apiUrl),
       finalGamesApiKey,
-      pick(gamesApiKeyHeader, existing?.games_api_key_header, selectedGamesPreset.apiKeyHeader),
-      pick(gamesApiKeyQueryParam, existing?.games_api_key_query_param, selectedGamesPreset.apiKeyQueryParam),
+      selectedGamesPreset.apiKeyHeader,
+      selectedGamesPreset.apiKeyQueryParam,
       pick(gamesClientId, existing?.games_client_id, ''),
       finalGamesClientSecret,
       pick(comicsPreset, existing?.comics_preset, 'metron'),
       pick(comicsProvider, existing?.comics_provider, selectedComicsPreset.provider),
       pick(comicsApiUrl, existing?.comics_api_url, selectedComicsPreset.apiUrl),
       finalComicsApiKey,
-      pick(comicsApiKeyHeader, existing?.comics_api_key_header, selectedComicsPreset.apiKeyHeader),
-      pick(comicsApiKeyQueryParam, existing?.comics_api_key_query_param, selectedComicsPreset.apiKeyQueryParam),
+      selectedComicsPreset.apiKeyHeader,
+      selectedComicsPreset.apiKeyQueryParam,
       pick(comicsUsername, existing?.comics_username, ''),
       pick(cwaOpdsUrl, existing?.cwa_opds_url, ''),
-      pick(cwaBaseUrl, existing?.cwa_base_url, ''),
+      resolvedCwaBaseUrl,
       pick(cwaUsername, existing?.cwa_username, ''),
       finalCwaPassword,
-      Math.max(1000, Number(pick(cwaTimeoutMs, existing?.cwa_timeout_ms, 20000)) || 20000)
+      20000
     ]
   );
 

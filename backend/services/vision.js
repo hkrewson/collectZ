@@ -1,13 +1,9 @@
 const VISION_PRESETS = {
   ocrspace: {
+    preset: 'ocrspace',
     provider: 'ocrspace',
     apiUrl: 'https://api.ocr.space/parse/image',
     apiKeyHeader: 'apikey'
-  },
-  custom: {
-    provider: 'custom',
-    apiUrl: '',
-    apiKeyHeader: 'x-api-key'
   }
 };
 

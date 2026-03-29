@@ -1,11 +1,13 @@
 const BARCODE_PRESETS = {
   upcitemdb: {
+    preset: 'upcitemdb',
     provider: 'upcitemdb',
     apiUrl: 'https://api.upcitemdb.com/prod/trial/lookup',
     apiKeyHeader: 'x-api-key',
     queryParam: 'upc'
   },
   barcodelookup: {
+    preset: 'barcodelookup',
     provider: 'barcodelookup',
     apiUrl: 'https://api.barcodelookup.com/v3/products',
     apiKeyHeader: 'Authorization',

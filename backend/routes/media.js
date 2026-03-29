@@ -1696,15 +1696,6 @@ function buildQueuedJobResponse(job, provider) {
   };
 }
 
-async function assertFeatureEnabled(key) {
-  const enabled = await isFeatureEnabled(key, true);
-  if (enabled) return;
-  const error = new Error('This feature is disabled by an administrator');
-  error.status = 503;
-  error.code = 'feature_disabled';
-  throw error;
-}
-
 function jobScopePayload(scopeContext, sectionIds = []) {
   return {
     spaceId: scopeContext?.spaceId ?? null,
@@ -4364,7 +4355,6 @@ router.post('/enrich/comic/search', validate(simpleSearchSchema.pick({ title: tr
 // ── UPC lookup ────────────────────────────────────────────────────────────────
 
 router.post('/lookup-upc', validate(upcLookupSchema), asyncHandler(async (req, res) => {
-  await assertFeatureEnabled('lookup_upc_enabled');
   const { upc } = req.body;
 
   const config = await loadAdminIntegrationConfig();
@@ -4405,7 +4395,6 @@ router.post('/lookup-upc', validate(upcLookupSchema), asyncHandler(async (req, r
 // ── Cover recognition ─────────────────────────────────────────────────────────
 
 router.post('/recognize-cover', tempImageUpload.single('cover'), asyncHandler(async (req, res) => {
-  await assertFeatureEnabled('recognize_cover_enabled');
   if (!req.file) {
     return res.status(400).json({ error: 'Cover image file is required' });
   }

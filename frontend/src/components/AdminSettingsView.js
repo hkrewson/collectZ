@@ -1,8 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 
 const FEATURE_FLAG_LABELS = {
-  lookup_upc_enabled: 'Barcode Lookup',
-  recognize_cover_enabled: 'Cover Recognition',
   events_enabled: 'Events Library',
   collectibles_enabled: 'Collectibles Library'
 };
