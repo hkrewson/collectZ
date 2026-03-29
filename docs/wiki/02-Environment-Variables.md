@@ -61,13 +61,15 @@ openssl rand -hex 32
     - `FEATURE_FLAG_RECOGNIZE_COVER_ENABLED`
     - `FEATURE_FLAG_EVENTS_ENABLED`
     - `FEATURE_FLAG_COLLECTIBLES_ENABLED`
-    - `FEATURE_FLAG_METRICS_ENABLED`
-    - `FEATURE_FLAG_EXTERNAL_LOG_EXPORT_ENABLED`
+  - Integrations-owned runtime toggles:
+    - `metrics_enabled`
+    - `external_log_export_enabled`
+    - These are now controlled from `Admin -> Integrations` rather than per-flag env overrides.
   - Retired baked-in flag overrides are no longer part of the active control model:
     - CSV import, Plex import, TMDB search/details, normalized metadata reads, drawer-edit UI, and API docs availability no longer use admin-visible feature flags.
   - `METRICS_SCRAPE_TOKEN` (optional) — dedicated bearer token accepted by `/api/metrics`.
     - Intended for Prometheus or another trusted internal scraper.
-    - Only active when `DEBUG>=1` and feature flag `metrics_enabled=true`.
+    - Only active when `DEBUG>=1` and the Metrics integration setting is enabled.
   - `/api/docs` is admin-only and only available when `DEBUG>=1`; it is no longer controlled by a separate feature flag.
     - Keep it on private infrastructure only.
   - `LOG_EXPORT_BACKEND` (default `off`) — external structured-log backend.
@@ -85,6 +87,7 @@ openssl rand -hex 32
   - `LOG_EXPORT_DEBUG` (default `false`) — emit debug traces for export gating, event build, and transport attempts.
   - `LOG_EXPORT_MAX_DETAIL_BYTES` (default `16384`) — max serialized `_details` payload before truncation.
   - `GIT_SHA` (optional) — build SHA added to structured logs when set.
+    - External structured-log transport remains runtime configured here, while the enable/disable switch now lives in `Admin -> Integrations`.
 ## Integration Defaults (Can Be Managed in Admin UI)
 
 These can be set in `.env`, but admin settings in UI now control active global integrations:

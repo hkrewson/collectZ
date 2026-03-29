@@ -42,7 +42,23 @@ const INTEGRATION_FEATURE_LABELS = {
   external_log_export_enabled: 'External Log Export'
 };
 const INTEGRATION_VISIBLE_FLAGS = new Set(Object.keys(INTEGRATION_FEATURE_LABELS));
-const TOP_LEVEL_INTEGRATION_FLAGS = new Set(['metrics_enabled', 'external_log_export_enabled']);
+const SETTINGS_SECTION_FEATURES = {
+  metrics: 'metrics_enabled',
+  logs: 'external_log_export_enabled'
+};
+const SECTION_DESCRIPTIONS = {
+  audio: 'Connection details, credentials, and runtime checks for this integration.',
+  barcode: 'Connection details, credentials, and runtime checks for this integration.',
+  books: 'Connection details, credentials, and runtime checks for this integration.',
+  comics: 'Connection details, credentials, and runtime checks for this integration.',
+  cwa: 'Connection details, credentials, and runtime checks for this integration.',
+  games: 'Connection details, credentials, and runtime checks for this integration.',
+  logs: 'Enable external activity and audit export here, while backend transport details remain runtime infrastructure settings.',
+  metrics: 'Enable admin-facing metrics export here, while scrape tokens and DEBUG-level access remain runtime infrastructure settings.',
+  plex: 'Connection details, credentials, and runtime checks for this integration.',
+  tmdb: 'Connection details, credentials, and runtime checks for this integration.',
+  vision: 'Connection details, credentials, and runtime checks for this integration.'
+};
 
 function LabeledField({ label, className = '', children, cx }) {
   return (
@@ -97,6 +113,22 @@ function IntegrationFeatureToggle({ feature, disabled, saving, onToggle }) {
   );
 }
 
+function InlineFeatureFlagState({ loading, error, readOnly, feature }) {
+  if (loading) {
+    return <p className="text-sm text-dim">Loading integration setting…</p>;
+  }
+  if (error) {
+    return <p className="text-sm text-err">{error}</p>;
+  }
+  if (!feature) {
+    return <p className="text-sm text-warn">This integration setting is currently unavailable.</p>;
+  }
+  if (readOnly) {
+    return <p className="text-sm text-warn">This setting is read-only in this environment (`FEATURE_FLAGS_READ_ONLY=true`).</p>;
+  }
+  return null;
+}
+
 export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Spinner, cx, section: externalSection, onSectionChange }) {
   const integrationSections = useMemo(
     () => ([
@@ -106,6 +138,8 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
       { id: 'cwa', label: 'CWA OPDS' },
       { id: 'comics', label: 'Comics' },
       { id: 'games', label: 'Games' },
+      { id: 'logs', label: 'External Logs' },
+      { id: 'metrics', label: 'Metrics' },
       { id: 'plex', label: 'Plex' },
       { id: 'tmdb', label: 'TMDB' },
       { id: 'vision', label: 'Vision' }
@@ -254,6 +288,13 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
     () => new Map(featureFlags.map((feature) => [feature.key, feature])),
     [featureFlags]
   );
+  const getSectionStatus = (sectionId) => {
+    const featureKey = SETTINGS_SECTION_FEATURES[sectionId];
+    if (featureKey) {
+      return featureFlagMap.get(featureKey)?.enabled ? 'configured' : 'missing';
+    }
+    return status[sectionId];
+  };
 
   const togglePlexSection = (id) => {
     const next = new Set(plexSectionIds);
@@ -427,8 +468,14 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
     }
   };
 
-  const isConfigured = (id) => status[id] === 'configured' || status[id] === 'ok';
+  const isConfigured = (id) => {
+    const currentStatus = getSectionStatus(id);
+    return currentStatus === 'configured' || currentStatus === 'ok';
+  };
   const activeSectionLabel = integrationSections.find((s) => s.id === section)?.label || section;
+  const activeSectionDescription = SECTION_DESCRIPTIONS[section] || SECTION_DESCRIPTIONS.audio;
+  const activeSectionStatus = getSectionStatus(section);
+  const sectionFeature = SETTINGS_SECTION_FEATURES[section] ? featureFlagMap.get(SETTINGS_SECTION_FEATURES[section]) : null;
 
   return (
     <div className="h-full overflow-y-auto p-4 sm:p-6 space-y-6">
@@ -459,58 +506,21 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
         </div>
       )}
 
-      <section className="rounded-xl border border-edge bg-surface/70 px-4 py-3 space-y-1">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-medium text-ink">Operator Exports</p>
-            <p className="text-xs text-ghost">Runtime-facing export controls stay with their integration backends here.</p>
-          </div>
-        </div>
-        {featureFlagsReadOnly && (
-          <div className="p-3 text-sm text-warn">
-            Integration feature settings are read-only in this environment (`FEATURE_FLAGS_READ_ONLY=true`).
-          </div>
-        )}
-        {featureFlagsError && (
-          <div className="p-3 text-sm text-err">
-            {featureFlagsError}
-          </div>
-        )}
-        {featureFlagsLoading && (
-          <div className="flex items-center gap-3 py-4 text-dim">
-            <Spinner size={16} /> Loading integration feature settings…
-          </div>
-        )}
-        {!featureFlagsLoading && featureFlags.filter((feature) => TOP_LEVEL_INTEGRATION_FLAGS.has(feature.key)).map((feature) => (
-          <IntegrationFeatureToggle
-            key={feature.key}
-            feature={feature}
-            disabled={featureFlagsReadOnly || feature.envOverride !== null}
-            saving={savingFeatureKey === feature.key}
-            onToggle={toggleIntegrationFeature}
-          />
-        ))}
-      </section>
-
       <div className="space-y-4">
         <div className="hidden md:flex flex-wrap gap-2">
           {integrationSections.map((item) => (
             <button
               key={item.id}
+              type="button"
               onClick={() => setSectionWithSync(item.id)}
               className={cx(
-                'inline-flex items-center gap-2 px-3 h-9 rounded-full text-sm text-left transition-colors border',
+                'btn-secondary btn-sm min-w-[148px] justify-between text-left transition-colors',
                 section === item.id
-                  ? 'bg-raised border-edge text-ink shadow-sm'
-                  : 'border-edge/70 text-dim hover:text-ink hover:bg-raised/70'
+                  ? 'bg-raised border-muted text-ink'
+                  : 'text-dim'
               )}
             >
-              <span className="flex-1">{item.label}</span>
-              {isConfigured(item.id) ? (
-                <svg viewBox="0 0 20 20" className={cx('w-4 h-4', section === item.id ? 'text-gold' : '')} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M4 10l4 4 8-8" />
-                </svg>
-              ) : null}
+              <span>{item.label}</span>
             </button>
           ))}
         </div>
@@ -519,9 +529,9 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
         <div className="flex items-center justify-between gap-3 border-b border-edge pb-3">
           <div>
             <h2 className="text-sm font-semibold tracking-wide uppercase text-dim">{activeSectionLabel}</h2>
-            <p className="mt-1 text-xs text-ghost">Connection details, credentials, and runtime checks for this integration.</p>
+            <p className="mt-1 text-xs text-ghost">{activeSectionDescription}</p>
           </div>
-          <StatusBadge status={status[section]} cx={cx} />
+          <StatusBadge status={activeSectionStatus} cx={cx} />
         </div>
         {section === 'barcode' && <>
           {featureFlagMap.get('lookup_upc_enabled') && (
@@ -570,6 +580,56 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
             <input type="checkbox" checked={form.clearVisionApiKey} onChange={(e) => setForm((f) => ({ ...f, clearVisionApiKey: e.target.checked }))} className="rounded" />
             Clear saved key
           </label>
+        </>}
+
+        {section === 'logs' && <>
+          <InlineFeatureFlagState
+            loading={featureFlagsLoading}
+            error={featureFlagsError}
+            readOnly={featureFlagsReadOnly}
+            feature={sectionFeature}
+          />
+          {sectionFeature && (
+            <IntegrationFeatureToggle
+              feature={sectionFeature}
+              disabled={featureFlagsReadOnly}
+              saving={savingFeatureKey === sectionFeature.key}
+              onToggle={toggleIntegrationFeature}
+            />
+          )}
+          <div className="rounded-xl border border-edge bg-raised/50 px-4 py-4 space-y-2">
+            <p className="text-sm font-medium text-ink">Available settings</p>
+            <ul className="space-y-2 text-sm text-dim">
+              <li>Enable or disable external structured log export for activity and audit events here.</li>
+              <li>Transport details still come from runtime infrastructure configuration: `LOG_EXPORT_BACKEND`, `LOG_EXPORT_HOST`, `LOG_EXPORT_PORT`, and related `LOG_EXPORT_*` variables.</li>
+              <li>This page now owns whether export is active. Environment feature-flag overrides no longer supersede this setting.</li>
+            </ul>
+          </div>
+        </>}
+
+        {section === 'metrics' && <>
+          <InlineFeatureFlagState
+            loading={featureFlagsLoading}
+            error={featureFlagsError}
+            readOnly={featureFlagsReadOnly}
+            feature={sectionFeature}
+          />
+          {sectionFeature && (
+            <IntegrationFeatureToggle
+              feature={sectionFeature}
+              disabled={featureFlagsReadOnly}
+              saving={savingFeatureKey === sectionFeature.key}
+              onToggle={toggleIntegrationFeature}
+            />
+          )}
+          <div className="rounded-xl border border-edge bg-raised/50 px-4 py-4 space-y-2">
+            <p className="text-sm font-medium text-ink">Available settings</p>
+            <ul className="space-y-2 text-sm text-dim">
+              <li>Enable or disable admin-facing Prometheus-style metrics export here.</li>
+              <li>Metrics still require `DEBUG&gt;=1` at runtime, and `METRICS_SCRAPE_TOKEN` remains the optional infrastructure credential for trusted scrapers.</li>
+              <li>This page now owns whether metrics export is active. Environment feature-flag overrides no longer supersede this setting.</li>
+            </ul>
+          </div>
         </>}
 
         {section === 'tmdb' && <>
@@ -745,19 +805,21 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
           </label>
         </>}
 
-        <div className="flex gap-3 pt-2 border-t border-edge">
-          <button onClick={() => test(section)} disabled={testLoading === section} className="btn-secondary btn-sm">
-            {testLoading === section ? <Spinner size={14} /> : 'Test'}
-          </button>
-          <button onClick={() => saveSection(section)} disabled={saving} className="btn-primary btn-sm">
-            {saving ? <Spinner size={14} /> : `Save ${section.toUpperCase()}`}
-          </button>
-          {section === 'plex' && (
-            <button onClick={runPlexImport} disabled={importingPlex} className="btn-secondary btn-sm">
-              {importingPlex ? <Spinner size={14} /> : 'Import from Plex'}
+        {!['logs', 'metrics'].includes(section) && (
+          <div className="flex gap-3 pt-2 border-t border-edge">
+            <button onClick={() => test(section)} disabled={testLoading === section} className="btn-secondary btn-sm">
+              {testLoading === section ? <Spinner size={14} /> : 'Test'}
             </button>
-          )}
-        </div>
+            <button onClick={() => saveSection(section)} disabled={saving} className="btn-primary btn-sm">
+              {saving ? <Spinner size={14} /> : `Save ${section.toUpperCase()}`}
+            </button>
+            {section === 'plex' && (
+              <button onClick={runPlexImport} disabled={importingPlex} className="btn-secondary btn-sm">
+                {importingPlex ? <Spinner size={14} /> : 'Import from Plex'}
+              </button>
+            )}
+          </div>
+        )}
         {testMsg && <p className="text-xs text-dim font-mono bg-raised/70 rounded-lg px-3 py-2">{testMsg}</p>}
       </div>
       </div>

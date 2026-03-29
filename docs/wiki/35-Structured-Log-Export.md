@@ -28,8 +28,8 @@ Those remain part of the broader `2.6.1` milestone.
 
 ## Runtime Controls
 
-- Feature flag:
-  - `external_log_export_enabled`
+- Integrations setting:
+  - `External Logs -> External Log Export` in `Admin -> Integrations`
 - Environment variables:
   - `LOG_EXPORT_BACKEND`
   - `LOG_EXPORT_HOST`
@@ -42,8 +42,10 @@ Those remain part of the broader `2.6.1` milestone.
 
 Current control surface note:
 
-- The current shipped operator path is env-driven runtime configuration.
-- Admin-managed endpoint configuration is intentionally deferred to roadmap milestone `2.9.3 — Observability Endpoint Control Plane`.
+- The current shipped operator path is split intentionally:
+  - Integrations owns whether export is enabled.
+  - Runtime env config owns which transport/backend receives the logs.
+- Admin-managed endpoint configuration is intentionally deferred to roadmap milestone `2.9.7 — Observability Endpoint Control Plane`.
 
 ## Local Graylog Example
 

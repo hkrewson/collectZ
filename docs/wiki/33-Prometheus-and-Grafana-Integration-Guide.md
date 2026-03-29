@@ -36,7 +36,7 @@ Before wiring a monitoring stack, make sure the backend metrics surface is inten
 Required conditions:
 
 - `DEBUG>=1`
-- feature flag `metrics_enabled=true`
+- Metrics integration setting enabled in `Admin -> Integrations`
 - one of:
   - an authenticated admin path to `/api/metrics`
   - `METRICS_SCRAPE_TOKEN` for trusted internal scraping

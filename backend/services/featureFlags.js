@@ -32,11 +32,13 @@ const FEATURE_FLAGS_READ_ONLY = ['1', 'true', 'yes', 'on'].includes(
   String(process.env.FEATURE_FLAGS_READ_ONLY || '').trim().toLowerCase()
 );
 const FEATURE_FLAGS_CACHE_TTL_MS = Math.max(1000, Number(process.env.FEATURE_FLAGS_CACHE_TTL_SECONDS || 10) * 1000);
+const SETTINGS_OWNED_FLAGS = new Set(['metrics_enabled', 'external_log_export_enabled']);
 
 let cache = null;
 let cacheAt = 0;
 
 function envOverrideForKey(key) {
+  if (SETTINGS_OWNED_FLAGS.has(key)) return null;
   const envKey = `FEATURE_FLAG_${String(key).toUpperCase()}`;
   const raw = process.env[envKey];
   if (raw === undefined || raw === null || raw === '') return null;

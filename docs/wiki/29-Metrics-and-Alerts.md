@@ -11,7 +11,7 @@ Current access rules:
 - authenticated admin user
 - or `Authorization: Bearer <METRICS_SCRAPE_TOKEN>` for trusted internal scrapers
 - `DEBUG>=1`
-- feature flag `metrics_enabled=true`
+- Metrics integration setting enabled in `Admin -> Integrations`
 
 If the gate is not satisfied, the endpoint returns `404`.
 

@@ -68,7 +68,7 @@ This keeps syslog transport compatibility while preserving the richer event payl
 docker compose -f /Users/hamlin/Development/GitHub/hkrewson/collectZ/ops/logging/docker-compose.syslog.yml up -d
 ```
 
-2. Enable `external_log_export_enabled`, then trigger a known audit event such as an admin feature-flag update.
+2. Enable `External Log Export` in `Admin -> Integrations -> External Logs`, then trigger a known audit event such as an admin feature-flag update.
 
 ## Verification
 

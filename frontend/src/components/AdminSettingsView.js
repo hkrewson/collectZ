@@ -4,9 +4,7 @@ const FEATURE_FLAG_LABELS = {
   lookup_upc_enabled: 'Barcode Lookup',
   recognize_cover_enabled: 'Cover Recognition',
   events_enabled: 'Events Library',
-  collectibles_enabled: 'Collectibles Library',
-  metrics_enabled: 'Metrics Export',
-  external_log_export_enabled: 'External Log Export'
+  collectibles_enabled: 'Collectibles Library'
 };
 const SETTINGS_VISIBLE_FLAGS = new Set([
   'events_enabled',
