@@ -514,7 +514,7 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
               type="button"
               onClick={() => setSectionWithSync(item.id)}
               className={cx(
-                'btn-secondary btn-sm min-w-[148px] justify-between text-left transition-colors',
+                'btn-secondary btn-sm text-left transition-colors',
                 section === item.id
                   ? 'bg-raised border-muted text-ink'
                   : 'text-dim'
