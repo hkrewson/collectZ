@@ -194,6 +194,13 @@ results.push(run('admin route source includes guided space onboarding endpoint',
   assert.ok(adminRoutesSource.includes('invite_results'));
 }));
 
+results.push(run('admin route source includes platform-safe space detail and roster endpoints', () => {
+  assert.ok(adminRoutesSource.includes("router.get('/spaces/:id'"));
+  assert.ok(adminRoutesSource.includes("router.post('/spaces/:id/members'"));
+  assert.ok(adminRoutesSource.includes("router.post('/spaces/:id/invites'"));
+  assert.ok(adminRoutesSource.includes("router.patch('/spaces/:id/invites/:inviteId/revoke'"));
+}));
+
 results.push(run('media route source hardens image upload handlers', () => {
   assert.ok(mediaRoutesSource.includes('const tempImageUpload = multer('));
   assert.ok(mediaRoutesSource.includes('const memoryImageUpload = multer('));

@@ -7,11 +7,21 @@ function formatSpaceMemberships(spaces) {
   return spaces.map((space) => `${space.name} (${space.role})`).join(', ');
 }
 
+function KebabIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 20 20" className="h-4 w-4 fill-current">
+      <circle cx="4" cy="10" r="1.6" />
+      <circle cx="10" cy="10" r="1.6" />
+      <circle cx="16" cy="10" r="1.6" />
+    </svg>
+  );
+}
+
 export default function AdminUsersView({ apiCall, onToast, currentUserId, Icons, Spinner }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
-  const [pendingRoles, setPendingRoles] = useState({});
+  const [openUserMenuId, setOpenUserMenuId] = useState(null);
   const [selectedMemberId, setSelectedMemberId] = useState(null);
   const [memberSummary, setMemberSummary] = useState(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
@@ -59,17 +69,12 @@ export default function AdminUsersView({ apiCall, onToast, currentUserId, Icons,
     };
   }, [apiCall, selectedMemberId]);
 
-  const saveRole = async (id) => {
-    const role = pendingRoles[id];
+  const saveRole = async (id, role) => {
     if (!role) return;
     try {
       await apiCall('patch', `/admin/users/${id}/role`, { role });
       setUsers((items) => items.map((item) => (item.id === id ? { ...item, role } : item)));
-      setPendingRoles((pending) => {
-        const next = { ...pending };
-        delete next[id];
-        return next;
-      });
+      setOpenUserMenuId((prev) => (Number(prev) === Number(id) ? null : prev));
       onToast('Role updated');
       if (selectedMemberId === id) {
         setMemberSummary((prev) => (prev ? { ...prev, user: { ...prev.user, role } } : prev));
@@ -84,6 +89,7 @@ export default function AdminUsersView({ apiCall, onToast, currentUserId, Icons,
     try {
       await apiCall('delete', `/admin/users/${id}`);
       setUsers((items) => items.filter((item) => item.id !== id));
+      setOpenUserMenuId((prev) => (Number(prev) === Number(id) ? null : prev));
       if (selectedMemberId === id) setSelectedMemberId(null);
       onToast('Member deleted');
     } catch (error) {
@@ -147,41 +153,103 @@ export default function AdminUsersView({ apiCall, onToast, currentUserId, Icons,
 
         <div className="space-y-1">
           {users.length === 0 && <p className="px-4 py-6 text-sm text-ghost text-center">No members found</p>}
-          {users.map((user) => (
-            <div
-              key={user.id}
-              onClick={() => setSelectedMemberId(user.id)}
-              className="flex items-center gap-4 py-3 cursor-pointer"
-            >
-              <div className="w-9 h-9 rounded-lg bg-raised border border-edge flex items-center justify-center text-dim font-display">
-                {user.name?.[0]?.toUpperCase() || '?'}
+          {users.length > 0 ? (
+            <div className="overflow-x-auto pb-2">
+              <div className="min-w-full w-max">
+                <div className="grid min-w-full grid-cols-[minmax(140px,1.7fr)_minmax(160px,1.8fr)_minmax(72px,0.8fr)_minmax(72px,0.7fr)_minmax(64px,0.7fr)] gap-4 px-1 pb-2 text-[11px] font-medium uppercase tracking-[0.18em] text-ghost">
+                  <div>Member</div>
+                  <div>Email</div>
+                  <div>Role</div>
+                  <div>Spaces</div>
+                  <div>Actions</div>
+                </div>
+                {users.map((user) => (
+                  <div
+                    key={user.id}
+                    onClick={() => setSelectedMemberId(user.id)}
+                    className="py-4 border-t border-edge/60 first:border-t-0 cursor-pointer"
+                  >
+                    <div className="grid min-w-full grid-cols-[minmax(140px,1.7fr)_minmax(160px,1.8fr)_minmax(72px,0.8fr)_minmax(72px,0.7fr)_minmax(64px,0.7fr)] gap-4 items-start">
+                      <div className="min-w-0 flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-lg bg-raised border border-edge flex items-center justify-center text-dim font-display shrink-0">
+                          {user.name?.[0]?.toUpperCase() || '?'}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-ink truncate">{user.name || 'Unnamed'}</p>
+                        </div>
+                      </div>
+
+                      <div className="min-w-0">
+                        <p className="text-sm text-ghost truncate">{user.email}</p>
+                      </div>
+
+                      <div>
+                        <p className="text-sm text-ink">{user.role}</p>
+                      </div>
+
+                      <div className="min-w-0">
+                        <p className="text-sm text-ink leading-6" title={formatSpaceMemberships(user.spaces)}>
+                          {Array.isArray(user.spaces) ? user.spaces.length : 0}
+                        </p>
+                      </div>
+
+                      <div className="relative inline-flex items-center">
+                        <button
+                          type="button"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-md text-ghost transition hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-edge"
+                          aria-label="Member actions"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setOpenUserMenuId((prev) => (Number(prev) === Number(user.id) ? null : user.id));
+                          }}
+                        >
+                          <KebabIcon />
+                        </button>
+                        {Number(openUserMenuId) === Number(user.id) ? (
+                          <div
+                            className="absolute right-[calc(100%+4px)] top-1/2 z-10 min-w-[170px] -translate-y-1/2 rounded-xl border border-edge bg-abyss p-2 shadow-lg"
+                            onClick={(event) => event.stopPropagation()}
+                          >
+                            <p className="px-3 py-2 text-[11px] font-medium uppercase tracking-[0.18em] text-ghost">Change Role</p>
+                            <div className="space-y-1">
+                              {USER_ROLES.map((role) => (
+                                <button
+                                  key={role}
+                                  type="button"
+                                  className="w-full rounded-lg px-3 py-2 text-left text-sm text-ink hover:bg-raised"
+                                  disabled={role === user.role}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    saveRole(user.id, role);
+                                  }}
+                                >
+                                  {role}
+                                </button>
+                              ))}
+                            </div>
+                            <div className="mt-2 border-t border-edge pt-2">
+                              <button
+                                type="button"
+                                className="w-full rounded-lg px-3 py-2 text-left text-sm text-err hover:bg-err/10 disabled:opacity-30"
+                                disabled={user.id === currentUserId}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  deleteUser(user.id);
+                                }}
+                                title={user.id === currentUserId ? 'You cannot delete your own account' : 'Delete member'}
+                              >
+                                Delete user
+                              </button>
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-ink truncate">{user.name || 'Unnamed'}</p>
-                <p className="text-xs text-ghost truncate">{user.email}</p>
-                <p className="text-xs text-ghost truncate mt-1">{formatSpaceMemberships(user.spaces)}</p>
-              </div>
-              <select
-                className="select w-28"
-                value={pendingRoles[user.id] ?? user.role}
-                onClick={(event) => event.stopPropagation()}
-                onChange={(event) => setPendingRoles((pending) => ({ ...pending, [user.id]: event.target.value }))}
-              >
-                {USER_ROLES.map((role) => <option key={role} value={role}>{role}</option>)}
-              </select>
-              {pendingRoles[user.id] && pendingRoles[user.id] !== user.role && (
-                <button onClick={(event) => { event.stopPropagation(); saveRole(user.id); }} className="btn-primary btn-sm">Save</button>
-              )}
-              <button
-                onClick={(event) => { event.stopPropagation(); deleteUser(user.id); }}
-                disabled={user.id === currentUserId}
-                className="btn-ghost btn-sm text-err hover:bg-err/10 disabled:opacity-30"
-                title={user.id === currentUserId ? 'You cannot delete your own account' : 'Delete member'}
-              >
-                <Icons.Trash />
-              </button>
             </div>
-          ))}
+          ) : null}
         </div>
       </div>
 

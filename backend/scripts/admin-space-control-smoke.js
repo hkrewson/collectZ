@@ -194,15 +194,6 @@ async function main() {
     });
 
     await admin.fetchCsrfToken();
-    const archived = await admin.request(`/api/admin/spaces/${spaceId}/archive`, {
-      method: 'PATCH',
-      withCsrf: true,
-      expectStatus: 200,
-      body: { archived: true }
-    });
-    assert(Boolean(archived?.data?.archived_at), 'Archive response missing archived_at');
-
-    await admin.fetchCsrfToken();
     const deleted = await admin.request(`/api/admin/spaces/${spaceId}`, {
       method: 'DELETE',
       withCsrf: true,

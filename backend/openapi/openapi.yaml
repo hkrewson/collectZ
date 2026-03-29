@@ -192,6 +192,21 @@
         },
         "required": ["spaces"]
       },
+      "AdminSpaceDetailResponse": {
+        "type": "object",
+        "properties": {
+          "space": { "$ref": "#/components/schemas/AdminSpaceRecord" },
+          "members": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/SpaceMembershipRecord" }
+          },
+          "invites": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/SpaceInviteRecord" }
+          }
+        },
+        "required": ["space", "members", "invites"]
+      },
       "AdminSpaceOwnerAssignRequest": {
         "type": "object",
         "properties": {
@@ -1472,6 +1487,149 @@
         }
       }
     },
+    "/api/admin/spaces/{id}/members": {
+      "post": {
+        "tags": ["Admin"],
+        "summary": "Add a user to a space from the platform control plane",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SpaceMembershipCreateRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Member added",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SpaceMembershipRecord" }
+              }
+            }
+          },
+          "404": {
+            "description": "Space or user not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "409": {
+            "description": "User is already a member",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/spaces/{id}/invites": {
+      "post": {
+        "tags": ["Admin"],
+        "summary": "Create a space-scoped invite from the platform control plane",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SpaceInviteCreateRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Invite created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SpaceInviteRecord" }
+              }
+            }
+          },
+          "404": {
+            "description": "Space not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "409": {
+            "description": "Invite creation rejected because membership or invite already exists",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/spaces/{id}/invites/{inviteId}/revoke": {
+      "patch": {
+        "tags": ["Admin"],
+        "summary": "Revoke a space-scoped invite from the platform control plane",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          },
+          {
+            "name": "inviteId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Invite revoked",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SpaceInviteRecord" }
+              }
+            }
+          },
+          "404": {
+            "description": "Space or invite not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/spaces/{id}/archive": {
       "patch": {
         "tags": ["Admin"],
@@ -1524,9 +1682,43 @@
       }
     },
     "/api/admin/spaces/{id}": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Get platform-level detail for a specific space",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Space detail",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AdminSpaceDetailResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "Space not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      },
       "delete": {
         "tags": ["Admin"],
-        "summary": "Delete an archived empty space",
+        "summary": "Delete an empty space",
         "security": [
           { "cookieSession": [], "csrfHeader": [] }
         ],

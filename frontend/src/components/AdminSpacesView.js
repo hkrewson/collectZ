@@ -16,8 +16,34 @@ function emptyExistingUserForm() {
   return { user_id: '', role: 'member' };
 }
 
-function defaultSpaceRole(hasOwner) {
-  return hasOwner ? 'member' : 'owner';
+function OneTimeLinkPanel({ label, link, onCopy, onDismiss, Icons }) {
+  if (!link) return null;
+  return (
+    <div className="p-3 space-y-2 bg-raised rounded-lg border border-edge">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs uppercase tracking-[0.18em] text-ghost">{label}</p>
+        {onDismiss ? (
+          <button type="button" className="btn-secondary btn-sm" onClick={onDismiss}>
+            Dismiss
+          </button>
+        ) : null}
+      </div>
+      <div className="flex items-center gap-3">
+        <code className="flex-1 text-xs text-gold font-mono truncate">{link}</code>
+        <button type="button" className="btn-icon btn-sm shrink-0" onClick={onCopy}>
+          <Icons.Copy />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function roleBadgeClass(role) {
+  const normalized = String(role || '').trim().toLowerCase();
+  if (normalized === 'owner') return 'badge-warn';
+  if (normalized === 'admin') return 'badge-ok';
+  if (normalized === 'viewer') return 'badge-dim';
+  return 'badge-dim';
 }
 
 function buildSpaceSlug(name) {
@@ -29,6 +55,16 @@ function buildSpaceSlug(name) {
     .replace(/-{2,}/g, '-');
 }
 
+function KebabIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 20 20" className="h-4 w-4 fill-current">
+      <circle cx="4" cy="10" r="1.6" />
+      <circle cx="10" cy="10" r="1.6" />
+      <circle cx="16" cy="10" r="1.6" />
+    </svg>
+  );
+}
+
 export default function AdminSpacesView({ apiCall, onToast, Spinner, cx, Icons }) {
   const [spaces, setSpaces] = useState([]);
   const [users, setUsers] = useState([]);
@@ -37,18 +73,24 @@ export default function AdminSpacesView({ apiCall, onToast, Spinner, cx, Icons }
   const [createForm, setCreateForm] = useState(() => emptyCreateForm());
   const [initialInvites, setInitialInvites] = useState([]);
   const [creating, setCreating] = useState(false);
-  const [createResult, setCreateResult] = useState(null);
   const [ownerAssignments, setOwnerAssignments] = useState({});
   const [busySpaceId, setBusySpaceId] = useState(null);
   const [selectedSpaceId, setSelectedSpaceId] = useState(null);
+  const [selectedSpaceDetails, setSelectedSpaceDetails] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState('');
+  const [drawerTab, setDrawerTab] = useState('add');
   const [ownerResetUserId, setOwnerResetUserId] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
   const [resetLink, setResetLink] = useState('');
   const [inviteForm, setInviteForm] = useState(() => emptyInviteForm());
   const [creatingInvite, setCreatingInvite] = useState(false);
   const [inviteLink, setInviteLink] = useState('');
+  const [inviteLinkLabel, setInviteLinkLabel] = useState('Invite link');
   const [existingUserForm, setExistingUserForm] = useState(() => emptyExistingUserForm());
   const [addingExistingUser, setAddingExistingUser] = useState(false);
+  const [reissuingInviteId, setReissuingInviteId] = useState(null);
+  const [openRowMenuId, setOpenRowMenuId] = useState(null);
 
   const loadPlatformData = useCallback(async () => {
     setLoading(true);
@@ -84,10 +126,66 @@ export default function AdminSpacesView({ apiCall, onToast, Spinner, cx, Icons }
     () => spaces.find((space) => Number(space.id) === Number(selectedSpaceId)) || null,
     [spaces, selectedSpaceId]
   );
-  const selectedSpaceOwners = useMemo(
-    () => (Array.isArray(selectedSpace?.owners) ? selectedSpace.owners : []),
-    [selectedSpace]
+  const selectedSpaceMembers = useMemo(
+    () => (Array.isArray(selectedSpaceDetails?.members) ? selectedSpaceDetails.members : []),
+    [selectedSpaceDetails]
   );
+  const selectedSpaceInvites = useMemo(
+    () => (Array.isArray(selectedSpaceDetails?.invites) ? selectedSpaceDetails.invites : []),
+    [selectedSpaceDetails]
+  );
+  const selectedSpaceOwners = useMemo(
+    () => {
+      if (selectedSpaceMembers.length > 0) {
+        return selectedSpaceMembers
+          .filter((member) => member.role === 'owner')
+          .map((member) => ({
+            user_id: member.user_id,
+            email: member.email,
+            name: member.name
+          }));
+      }
+      return Array.isArray(selectedSpace?.owners) ? selectedSpace.owners : [];
+    },
+    [selectedSpace, selectedSpaceMembers]
+  );
+  const selectedNonOwnerMembers = useMemo(
+    () => selectedSpaceMembers.filter((member) => member.role !== 'owner'),
+    [selectedSpaceMembers]
+  );
+  const addableUserOptions = useMemo(() => {
+    const memberIds = new Set(selectedSpaceMembers.map((member) => Number(member.user_id)));
+    return userOptions.filter((user) => !memberIds.has(Number(user.id)));
+  }, [selectedSpaceMembers, userOptions]);
+
+  const loadSelectedSpaceDetails = useCallback(async (spaceId) => {
+    if (!spaceId) {
+      setSelectedSpaceDetails(null);
+      setDetailError('');
+      return;
+    }
+    setDetailLoading(true);
+    setDetailError('');
+    try {
+      const data = await apiCall('get', `/admin/spaces/${spaceId}`);
+      setSelectedSpaceDetails(data || null);
+    } catch (error) {
+      setSelectedSpaceDetails(null);
+      setDetailError(error.response?.data?.error || 'Failed to load space detail.');
+    } finally {
+      setDetailLoading(false);
+    }
+  }, [apiCall]);
+
+  useEffect(() => {
+    if (!selectedSpaceId) {
+      setSelectedSpaceDetails(null);
+      setDetailError('');
+      setDrawerTab('add');
+      return;
+    }
+    loadSelectedSpaceDetails(selectedSpaceId);
+  }, [loadSelectedSpaceDetails, selectedSpaceId]);
 
   useEffect(() => {
     if (!selectedSpace) {
@@ -102,13 +200,14 @@ export default function AdminSpacesView({ apiCall, onToast, Spinner, cx, Icons }
 
   useEffect(() => {
     setResetLink('');
-    setInviteLink('');
     if (!selectedSpace) {
+      setInviteLink('');
+      setInviteLinkLabel('Invite link');
       setInviteForm(emptyInviteForm());
       setExistingUserForm(emptyExistingUserForm());
       return;
     }
-    const nextRole = defaultSpaceRole(selectedSpaceOwners.length > 0);
+    const nextRole = selectedSpaceOwners.length > 0 ? 'member' : 'viewer';
     setInviteForm({ email: '', role: nextRole });
     setExistingUserForm({ user_id: '', role: nextRole });
   }, [selectedSpace, selectedSpaceId, selectedSpaceOwners]);
@@ -133,10 +232,13 @@ export default function AdminSpacesView({ apiCall, onToast, Spinner, cx, Icons }
           .filter((invite) => invite.email);
       }
       const result = await apiCall('post', '/admin/spaces/create-with-onboarding', payload);
-      setCreateResult(result || null);
       setCreateForm(emptyCreateForm());
       setInitialInvites([]);
       await loadPlatformData();
+      if (result?.space?.id) {
+        setSelectedSpaceId(result.space.id);
+        setDrawerTab('add');
+      }
       const failed = Number(result?.summary?.failed || 0);
       const created = Number(result?.summary?.created || 0);
       if (failed > 0) {
@@ -165,15 +267,6 @@ export default function AdminSpacesView({ apiCall, onToast, Spinner, cx, Icons }
 
   const removeInitialInvite = (index) => {
     setInitialInvites((prev) => prev.filter((_, inviteIndex) => inviteIndex !== index));
-  };
-
-  const copyText = async (value) => {
-    try {
-      await navigator.clipboard.writeText(value);
-      onToast('Copied');
-    } catch {
-      onToast('Copy failed', 'error');
-    }
   };
 
   const assignOwner = async (spaceId) => {
@@ -209,17 +302,37 @@ export default function AdminSpacesView({ apiCall, onToast, Spinner, cx, Icons }
     }
   };
 
+  const createMemberReset = async (userId) => {
+    const numericUserId = Number(userId || 0);
+    if (!numericUserId) return;
+    setResetLoading(true);
+    try {
+      const data = await apiCall('post', `/admin/users/${numericUserId}/password-reset`, { expose_token: true });
+      const link = data?.reset_url || '';
+      setResetLink(link);
+      if (data?.delivery?.sent) onToast('Password reset email sent');
+      else if (link) onToast('Password reset link created', 'info');
+      else onToast('Password reset created but no copy-link available', 'info');
+    } catch (error) {
+      onToast(error.response?.data?.error || 'Failed to create password reset link', 'error');
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
   const createDirectInvite = async () => {
     if (!selectedSpaceId) return;
     setCreatingInvite(true);
     try {
-      const data = await apiCall('post', `/spaces/${selectedSpaceId}/invites`, {
+      const data = await apiCall('post', `/admin/spaces/${selectedSpaceId}/invites`, {
         email: inviteForm.email,
         role: inviteForm.role,
         expose_token: true
       });
       setInviteLink(data?.invite_url || '');
-      setInviteForm({ email: '', role: defaultSpaceRole(selectedSpaceOwners.length > 0) });
+      setInviteLinkLabel('Invite link');
+      setInviteForm({ email: '', role: selectedSpaceOwners.length > 0 ? 'member' : 'viewer' });
+      await loadSelectedSpaceDetails(selectedSpaceId);
       if (data?.delivery?.sent) onToast('Invite sent');
       else onToast('Invite created', 'info');
     } catch (error) {
@@ -229,18 +342,56 @@ export default function AdminSpacesView({ apiCall, onToast, Spinner, cx, Icons }
     }
   };
 
+  const dismissInviteLink = () => {
+    setInviteLink('');
+    setInviteLinkLabel('Invite link');
+  };
+
+  const createFreshInviteLink = async (invite) => {
+    if (!selectedSpaceId || !invite?.email) return;
+    const isActive = !invite.used && !invite.revoked && (!invite.expires_at || new Date(invite.expires_at).getTime() > Date.now());
+    const actionLabel = isActive ? 'replace the current invite with a new link' : 'create a new invite link';
+    if (!window.confirm(`Do you want to ${actionLabel} for ${invite.email}?`)) return;
+
+    setReissuingInviteId(invite.id);
+    try {
+      if (isActive) {
+        await apiCall('patch', `/admin/spaces/${selectedSpaceId}/invites/${invite.id}/revoke`);
+      }
+
+      const data = await apiCall('post', `/admin/spaces/${selectedSpaceId}/invites`, {
+        email: invite.email,
+        role: invite.space_role || 'member',
+        expose_token: true
+      });
+
+      setInviteLink(data?.invite_url || '');
+      setInviteLinkLabel(`Fresh invite link for ${invite.email}`);
+      setDrawerTab('invites');
+      await loadSelectedSpaceDetails(selectedSpaceId);
+
+      if (data?.delivery?.sent) onToast('Fresh invite email sent');
+      else onToast('Fresh invite link created', 'info');
+    } catch (error) {
+      onToast(error.response?.data?.error || 'Failed to create a fresh invite link', 'error');
+    } finally {
+      setReissuingInviteId(null);
+    }
+  };
+
   const addExistingUserToSpace = async () => {
     if (!selectedSpaceId) return;
     const userId = Number(existingUserForm.user_id || 0);
     if (!userId) return;
     setAddingExistingUser(true);
     try {
-      await apiCall('post', `/spaces/${selectedSpaceId}/members`, {
+      await apiCall('post', `/admin/spaces/${selectedSpaceId}/members`, {
         user_id: userId,
         role: existingUserForm.role
       });
-      setExistingUserForm({ user_id: '', role: defaultSpaceRole(selectedSpaceOwners.length > 0) });
+      setExistingUserForm({ user_id: '', role: selectedSpaceOwners.length > 0 ? 'member' : 'viewer' });
       await loadPlatformData();
+      await loadSelectedSpaceDetails(selectedSpaceId);
       onToast('User added to space');
     } catch (error) {
       onToast(error.response?.data?.detail || error.response?.data?.error || 'Failed to add user to space', 'error');
@@ -249,27 +400,25 @@ export default function AdminSpacesView({ apiCall, onToast, Spinner, cx, Icons }
     }
   };
 
-  const setArchived = async (spaceId, archived) => {
-    const actionLabel = archived ? 'archive' : 'unarchive';
-    if (!window.confirm(`${archived ? 'Archive' : 'Unarchive'} this space?`)) return;
-    setBusySpaceId(spaceId);
+  const revokeInvite = async (inviteId) => {
+    if (!selectedSpaceId || !inviteId) return;
+    if (!window.confirm('Revoke this invitation?')) return;
     try {
-      await apiCall('patch', `/admin/spaces/${spaceId}/archive`, { archived });
-      await loadPlatformData();
-      onToast(`Space ${actionLabel}d`);
+      await apiCall('patch', `/admin/spaces/${selectedSpaceId}/invites/${inviteId}/revoke`);
+      await loadSelectedSpaceDetails(selectedSpaceId);
+      onToast('Invite revoked');
     } catch (error) {
-      onToast(error.response?.data?.detail || error.response?.data?.error || `Failed to ${actionLabel} space`, 'error');
-    } finally {
-      setBusySpaceId(null);
+      onToast(error.response?.data?.error || 'Failed to revoke invite', 'error');
     }
   };
 
   const deleteSpace = async (spaceId) => {
-    if (!window.confirm('Delete this archived space permanently? This cannot be undone.')) return;
+    if (!window.confirm('Delete this empty space permanently? This cannot be undone.')) return;
     setBusySpaceId(spaceId);
     try {
       await apiCall('delete', `/admin/spaces/${spaceId}`);
       await loadPlatformData();
+      setOpenRowMenuId((prev) => (Number(prev) === Number(spaceId) ? null : prev));
       onToast('Space deleted');
     } catch (error) {
       onToast(error.response?.data?.detail || error.response?.data?.error || 'Failed to delete space', 'error');
@@ -304,10 +453,7 @@ export default function AdminSpacesView({ apiCall, onToast, Spinner, cx, Icons }
             <input
               className="input"
               value={createForm.name}
-              onChange={(e) => {
-                setCreateResult(null);
-                setCreateForm((prev) => ({ ...prev, name: e.target.value }));
-              }}
+              onChange={(e) => setCreateForm((prev) => ({ ...prev, name: e.target.value }))}
               required
             />
           </label>
@@ -316,10 +462,7 @@ export default function AdminSpacesView({ apiCall, onToast, Spinner, cx, Icons }
             <select
               className="select"
               value={createForm.owner_user_id}
-              onChange={(e) => {
-                setCreateResult(null);
-                setCreateForm((prev) => ({ ...prev, owner_user_id: e.target.value }));
-              }}
+              onChange={(e) => setCreateForm((prev) => ({ ...prev, owner_user_id: e.target.value }))}
             >
               <option value="">Current admin</option>
               {userOptions.map((user) => (
@@ -358,7 +501,6 @@ export default function AdminSpacesView({ apiCall, onToast, Spinner, cx, Icons }
                       type="email"
                       value={invite.email}
                       onChange={(e) => {
-                        setCreateResult(null);
                         updateInitialInvite(index, { email: e.target.value });
                       }}
                       placeholder="name@example.com"
@@ -370,7 +512,6 @@ export default function AdminSpacesView({ apiCall, onToast, Spinner, cx, Icons }
                       className="select"
                       value={invite.role}
                       onChange={(e) => {
-                        setCreateResult(null);
                         updateInitialInvite(index, { role: e.target.value });
                       }}
                     >
@@ -391,148 +532,93 @@ export default function AdminSpacesView({ apiCall, onToast, Spinner, cx, Icons }
         </div>
       </form>
 
-      {createResult ? (
-        <div className="max-w-4xl rounded-2xl border border-edge bg-raised/50 p-4 sm:p-5 space-y-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h2 className="text-xl font-medium text-ink">Latest onboarding result</h2>
-              <p className="text-sm text-ghost mt-1">
-                {createResult?.space?.name || 'Space'} was created with {Number(createResult?.summary?.created || 0)} successful invite{Number(createResult?.summary?.created || 0) === 1 ? '' : 's'}
-                {Number(createResult?.summary?.failed || 0) > 0 ? ` and ${Number(createResult?.summary?.failed || 0)} failure${Number(createResult?.summary?.failed || 0) === 1 ? '' : 's'}` : ''}.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <span className="badge badge-dim">requested {Number(createResult?.summary?.requested || 0)}</span>
-              <span className="badge badge-dim">created {Number(createResult?.summary?.created || 0)}</span>
-              <span className={cx('badge', Number(createResult?.summary?.failed || 0) > 0 ? 'badge-warn' : 'badge-ok')}>
-                failed {Number(createResult?.summary?.failed || 0)}
-              </span>
-            </div>
-          </div>
-
-          <div className="text-sm text-ghost">
-            Owner: <span className="text-ink">{createResult?.owner?.email || 'unknown'}</span>
-          </div>
-
-          {Array.isArray(createResult?.invite_results) && createResult.invite_results.length > 0 ? (
-            <div className="space-y-2">
-              {createResult.invite_results.map((invite, index) => (
-                <div key={`result-invite-${invite.id || invite.email || index}`} className="rounded-xl border border-edge bg-abyss/50 p-3 space-y-2">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="min-w-[220px] flex-1">
-                      <p className="text-sm font-medium text-ink">{invite.email}</p>
-                      <p className="text-xs text-ghost">{invite.role}</p>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className={cx('badge text-[10px]', invite.created ? 'badge-ok' : 'badge-warn')}>
-                        {invite.created ? 'Created' : 'Needs attention'}
-                      </span>
-                      {invite.invite_url ? (
-                        <button type="button" className="btn-icon btn-sm shrink-0" onClick={() => copyText(invite.invite_url)} title="Copy invite link">
-                          <Icons.Copy />
-                        </button>
-                      ) : null}
-                    </div>
-                  </div>
-                  {invite.created ? (
-                    <p className="text-xs text-ghost">
-                      {invite.delivery?.sent
-                        ? 'Invite email sent.'
-                        : invite.invite_url
-                          ? 'Invite created with copy-link available.'
-                          : 'Invite created.'}
-                    </p>
-                  ) : (
-                    <p className="text-xs text-err">{invite.error || 'Invite could not be created.'}</p>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-ghost">No initial invites were requested.</p>
-          )}
-        </div>
-      ) : null}
-
       <div className="space-y-1">
-        {spaces.length === 0 && <p className="px-5 py-8 text-sm text-ghost text-center">No spaces found.</p>}
-        {spaces.map((space) => {
-          const ownerSummary = Array.isArray(space.owners) ? space.owners : [];
-          const archived = Boolean(space.archived_at);
-          const canArchive = !archived && Number(space.library_count || 0) === 0 && space.slug !== 'default';
-          const canDelete = archived && Number(space.library_count || 0) === 0 && space.slug !== 'default';
-          return (
-            <div
-              key={space.id}
-              className="py-4 space-y-4 cursor-pointer"
-              onClick={() => setSelectedSpaceId(space.id)}
-            >
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div className="min-w-[240px] flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-lg font-medium text-ink">{space.name}</h2>
-                    <span className={cx('badge text-[10px]', archived ? 'badge-warn' : 'badge-ok')}>
-                      {archived ? 'Archived' : 'Active'}
-                    </span>
-                    {space.slug ? <span className="badge badge-dim text-[10px]">{space.slug}</span> : null}
-                    {space.slug === 'default' ? <span className="badge badge-dim text-[10px]">default</span> : null}
-                  </div>
-                  <p className="text-sm text-ghost mt-1">{space.description || 'No description provided.'}</p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <span className="badge badge-dim">{space.owner_count} owner{Number(space.owner_count) === 1 ? '' : 's'}</span>
-                    <span className="badge badge-dim">{space.member_count} member{Number(space.member_count) === 1 ? '' : 's'}</span>
-                    <span className="badge badge-dim">{space.library_count} librar{Number(space.library_count) === 1 ? 'y' : 'ies'}</span>
-                  </div>
-                  <p className="text-xs text-ghost mt-3">
-                    Owners: {ownerSummary.length > 0 ? ownerSummary.map((owner) => owner.email || owner.name || `user #${owner.user_id}`).join(', ') : 'none'}
-                  </p>
-                </div>
-
-                <div className="min-w-[280px] space-y-3">
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      className="btn-secondary btn-sm"
-                      disabled={!canArchive || busySpaceId === space.id}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setArchived(space.id, true);
-                      }}
-                      title={space.slug === 'default' ? 'Default space is protected' : Number(space.library_count || 0) > 0 ? 'Empty the space first' : 'Archive space'}
-                    >
-                      {busySpaceId === space.id ? <Spinner size={12} /> : 'Archive'}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-secondary btn-sm"
-                      disabled={!archived || space.slug === 'default' || busySpaceId === space.id}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setArchived(space.id, false);
-                      }}
-                    >
-                      {busySpaceId === space.id ? <Spinner size={12} /> : 'Unarchive'}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-danger btn-sm"
-                      disabled={!canDelete || busySpaceId === space.id}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        deleteSpace(space.id);
-                      }}
-                    >
-                      {busySpaceId === space.id ? <Spinner size={12} /> : 'Delete'}
-                    </button>
-                  </div>
-                  {!canArchive && !archived && Number(space.library_count || 0) > 0 ? (
-                    <p className="text-xs text-ghost">Archive an empty space.</p>
-                  ) : null}
-                </div>
+        {spaces.length === 0 ? <p className="px-5 py-8 text-sm text-ghost text-center">No spaces found.</p> : null}
+        {spaces.length > 0 ? (
+          <div className="overflow-x-auto pb-2">
+            <div className="min-w-full w-max">
+              <div className="grid min-w-full grid-cols-[minmax(320px,2.2fr)_minmax(260px,1.5fr)_minmax(110px,0.7fr)_minmax(110px,0.7fr)_minmax(110px,0.8fr)_minmax(190px,1fr)] gap-4 px-1 pb-2 text-[11px] font-medium uppercase tracking-[0.18em] text-ghost">
+                <div>Space</div>
+                <div>Owners</div>
+                <div>Members</div>
+                <div>Libraries</div>
+                <div>Status</div>
+                <div>Actions</div>
               </div>
+              {spaces.map((space) => {
+                const ownerSummary = Array.isArray(space.owners) ? space.owners : [];
+                const archived = Boolean(space.archived_at);
+                const canDelete = Number(space.library_count || 0) === 0 && space.slug !== 'default';
+                return (
+                  <div
+                    key={space.id}
+                    className="py-4 border-t border-edge/60 first:border-t-0 cursor-pointer"
+                    onClick={() => setSelectedSpaceId(space.id)}
+                  >
+                    <div className="grid min-w-full grid-cols-[minmax(320px,2.2fr)_minmax(260px,1.5fr)_minmax(110px,0.7fr)_minmax(110px,0.7fr)_minmax(110px,0.8fr)_minmax(190px,1fr)] gap-4 items-start">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h2 className="text-sm font-medium text-ink leading-6">{space.name}</h2>
+                        </div>
+                      </div>
+
+                      <div className="min-w-0">
+                        <p className="text-sm text-ink leading-6 break-words">
+                          {ownerSummary.length > 0 ? ownerSummary.map((owner) => owner.email || owner.name || `user #${owner.user_id}`).join(', ') : 'none'}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-lg font-medium text-ink">{space.member_count}</p>
+                      </div>
+
+                      <div>
+                        <p className="text-lg font-medium text-ink">{space.library_count}</p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <span className={cx('badge text-[10px]', archived ? 'badge-warn' : 'badge-ok')}>
+                          {archived ? 'Archived' : 'Active'}
+                        </span>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="relative inline-flex items-center">
+                          <button
+                            type="button"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-ghost transition hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-edge"
+                            aria-label="More actions"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setOpenRowMenuId((prev) => (Number(prev) === Number(space.id) ? null : space.id));
+                            }}
+                        >
+                          <KebabIcon />
+                        </button>
+                          {Number(openRowMenuId) === Number(space.id) ? (
+                            <div
+                              className="absolute left-[calc(100%+4px)] top-1/2 z-10 min-w-[140px] -translate-y-1/2 rounded-xl border border-edge bg-abyss p-2 shadow-lg"
+                              onClick={(event) => event.stopPropagation()}
+                            >
+                              <button
+                                type="button"
+                                className="w-full rounded-lg px-3 py-2 text-left text-sm text-err hover:bg-err/10 disabled:opacity-60"
+                                disabled={!canDelete || busySpaceId === space.id}
+                                onClick={() => deleteSpace(space.id)}
+                              >
+                                {busySpaceId === space.id ? 'Deleting…' : 'Delete'}
+                              </button>
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          );
-        })}
+          </div>
+        ) : null}
       </div>
 
       {selectedSpace && (
@@ -542,7 +628,7 @@ export default function AdminSpacesView({ apiCall, onToast, Spinner, cx, Icons }
             <div className="p-5 border-b border-edge flex items-start gap-3">
               <div className="flex-1 min-w-0">
                 <h2 className="font-display text-2xl tracking-wider text-ink">Space Controls</h2>
-                <p className="text-sm text-ghost mt-1">{selectedSpace.name}</p>
+                <p className="text-sm text-ghost mt-1">{selectedSpaceDetails?.space?.name || selectedSpace.name}</p>
               </div>
               <button onClick={() => setSelectedSpaceId(null)} className="btn-icon btn-sm">
                 <Icons.X />
@@ -550,6 +636,9 @@ export default function AdminSpacesView({ apiCall, onToast, Spinner, cx, Icons }
             </div>
 
             <div className="p-5 space-y-6">
+              {detailLoading ? <p className="text-sm text-ghost flex items-center gap-2"><Spinner size={14} />Loading space detail…</p> : null}
+              {detailError ? <p className="text-sm text-err">{detailError}</p> : null}
+
               <section className="space-y-3">
                 <div>
                   <h3 className="text-lg font-medium text-ink">
@@ -623,6 +712,28 @@ export default function AdminSpacesView({ apiCall, onToast, Spinner, cx, Icons }
               </section>
 
               <section className="space-y-4">
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { key: 'add', label: 'Add People' },
+                    { key: 'members', label: `Members (${selectedNonOwnerMembers.length})` },
+                    { key: 'invites', label: `Invitations (${selectedSpaceInvites.length})` }
+                  ].map((tab) => (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      className={cx(
+                        'btn-secondary btn-sm',
+                        drawerTab === tab.key && 'bg-raised border-muted text-ink'
+                      )}
+                      onClick={() => setDrawerTab(tab.key)}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                {drawerTab === 'add' ? (
+                  <>
                 <div>
                   <h3 className="text-lg font-medium text-ink">Add people</h3>
                   <p className="text-sm text-ghost mt-1">Invite someone directly to this space or add an existing user to it.</p>
@@ -643,7 +754,6 @@ export default function AdminSpacesView({ apiCall, onToast, Spinner, cx, Icons }
                     <label className="field w-[150px] shrink-0">
                       <span className="label">Role</span>
                       <select className="select" value={inviteForm.role} onChange={(e) => setInviteForm((prev) => ({ ...prev, role: e.target.value }))}>
-                        <option value="owner">owner</option>
                         <option value="admin">admin</option>
                         <option value="member">member</option>
                         <option value="viewer">viewer</option>
@@ -653,14 +763,13 @@ export default function AdminSpacesView({ apiCall, onToast, Spinner, cx, Icons }
                       {creatingInvite ? <Spinner size={14} /> : 'Create Invite'}
                     </button>
                   </div>
-                  {inviteLink && (
-                    <div className="p-3 flex items-center gap-3 bg-raised rounded-lg border border-edge">
-                      <code className="flex-1 text-xs text-gold font-mono truncate">{inviteLink}</code>
-                      <button type="button" className="btn-icon btn-sm shrink-0" onClick={() => navigator.clipboard.writeText(inviteLink).then(() => onToast('Copied')).catch(() => onToast('Copy failed', 'error'))}>
-                        <Icons.Copy />
-                      </button>
-                    </div>
-                  )}
+                  <OneTimeLinkPanel
+                    label={inviteLinkLabel}
+                    link={inviteLink}
+                    Icons={Icons}
+                    onDismiss={dismissInviteLink}
+                    onCopy={() => navigator.clipboard.writeText(inviteLink).then(() => onToast('Copied')).catch(() => onToast('Copy failed', 'error'))}
+                  />
                 </div>
 
                 <div className="space-y-3">
@@ -674,7 +783,7 @@ export default function AdminSpacesView({ apiCall, onToast, Spinner, cx, Icons }
                         onChange={(e) => setExistingUserForm((prev) => ({ ...prev, user_id: e.target.value }))}
                       >
                         <option value="">Select user</option>
-                        {userOptions.map((user) => (
+                        {addableUserOptions.map((user) => (
                           <option key={user.id} value={user.id}>{user.label}</option>
                         ))}
                       </select>
@@ -686,7 +795,6 @@ export default function AdminSpacesView({ apiCall, onToast, Spinner, cx, Icons }
                         value={existingUserForm.role}
                         onChange={(e) => setExistingUserForm((prev) => ({ ...prev, role: e.target.value }))}
                       >
-                        <option value="owner">owner</option>
                         <option value="admin">admin</option>
                         <option value="member">member</option>
                         <option value="viewer">viewer</option>
@@ -697,6 +805,101 @@ export default function AdminSpacesView({ apiCall, onToast, Spinner, cx, Icons }
                     </button>
                   </div>
                 </div>
+                  </>
+                ) : null}
+
+                {drawerTab === 'members' ? (
+                  <section className="space-y-3">
+                <div>
+                  <h3 className="text-lg font-medium text-ink">Members</h3>
+                  <p className="text-sm text-ghost mt-1">Reset passwords for existing users and review current access within this space.</p>
+                </div>
+                {selectedNonOwnerMembers.length === 0 ? (
+                  <p className="text-sm text-ghost">No non-owner members are currently assigned to this space.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {selectedNonOwnerMembers.map((member) => (
+                      <div key={member.id} className="rounded-xl border border-edge bg-abyss/50 p-3 flex flex-wrap items-center gap-3 justify-between">
+                        <div className="min-w-[220px] flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-sm font-medium text-ink">{member.email || member.name || `user #${member.user_id}`}</p>
+                            <span className={cx('badge text-[10px]', roleBadgeClass(member.role))}>{member.role}</span>
+                          </div>
+                          <p className="text-xs text-ghost mt-1">{member.name ? member.name : `user #${member.user_id}`}</p>
+                        </div>
+                        <button
+                          type="button"
+                          className="btn-secondary btn-sm"
+                          disabled={resetLoading}
+                          onClick={() => createMemberReset(member.user_id)}
+                        >
+                          {resetLoading ? <Spinner size={12} /> : 'Reset password'}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                  </section>
+                ) : null}
+
+                {drawerTab === 'invites' ? (
+                  <section className="space-y-3">
+                <div>
+                  <h3 className="text-lg font-medium text-ink">Invitations</h3>
+                  <p className="text-sm text-ghost mt-1">Review pending and historical invitations for this space.</p>
+                </div>
+                <OneTimeLinkPanel
+                  label={inviteLinkLabel}
+                  link={inviteLink}
+                  Icons={Icons}
+                  onDismiss={dismissInviteLink}
+                  onCopy={() => navigator.clipboard.writeText(inviteLink).then(() => onToast('Copied')).catch(() => onToast('Copy failed', 'error'))}
+                />
+                {selectedSpaceInvites.length === 0 ? (
+                  <p className="text-sm text-ghost">No invitations yet.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {selectedSpaceInvites.map((invite) => {
+                      const expired = new Date(invite.expires_at).getTime() <= Date.now();
+                      const active = !invite.used && !invite.revoked && !expired;
+                      return (
+                        <div key={invite.id} className="rounded-xl border border-edge bg-abyss/50 p-3 space-y-2">
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div className="min-w-[220px] flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="text-sm font-medium text-ink">{invite.email}</p>
+                                <span className={cx('badge text-[10px]', roleBadgeClass(invite.space_role || 'member'))}>{invite.space_role || 'member'}</span>
+                              </div>
+                              <p className="text-xs text-ghost mt-1">Expires {invite.expires_at ? new Date(invite.expires_at).toLocaleString() : 'unknown'}</p>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className={cx('badge text-[10px]', invite.used ? 'badge-dim' : invite.revoked ? 'badge-err' : expired ? 'badge-warn' : 'badge-ok')}>
+                                {invite.used ? 'Used' : invite.revoked ? 'Revoked' : expired ? 'Expired' : 'Active'}
+                              </span>
+                              {!invite.used ? (
+                                <button
+                                  type="button"
+                                  className="btn-secondary btn-sm"
+                                  disabled={reissuingInviteId === invite.id}
+                                  onClick={() => createFreshInviteLink(invite)}
+                                >
+                                  {reissuingInviteId === invite.id ? <Spinner size={12} /> : (active ? 'New link' : 'Create new link')}
+                                </button>
+                              ) : null}
+                              {active ? (
+                                <button type="button" className="btn-secondary btn-sm" onClick={() => revokeInvite(invite.id)}>
+                                  Revoke
+                                </button>
+                              ) : null}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                  </section>
+                ) : null}
               </section>
             </div>
           </aside>

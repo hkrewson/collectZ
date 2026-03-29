@@ -8,6 +8,8 @@ const {
   generalSettingsSchema,
   spaceCreateSchema,
   adminSpaceCreateWithOnboardingSchema,
+  spaceMembershipCreateSchema,
+  spaceInviteCreateSchema,
   adminSpaceOwnerAssignSchema,
   adminSpaceArchiveSchema
 } = require('../middleware/validate');
@@ -204,6 +206,53 @@ async function createInitialSpaceInvite({ client, req, spaceId, email, role, exp
   };
 }
 
+async function getAdminSpaceById(client, spaceId) {
+  const result = await client.query(
+    `SELECT
+       s.id,
+       s.name,
+       s.slug,
+       s.description,
+       s.created_by,
+       s.is_personal,
+       s.created_at,
+       s.updated_at,
+       s.archived_at,
+       creator.email AS created_by_email,
+       COUNT(DISTINCT sm.user_id)::int AS member_count,
+       COUNT(DISTINCT l.id)::int AS library_count,
+       COUNT(DISTINCT CASE WHEN sm.role = 'owner' THEN sm.user_id END)::int AS owner_count,
+       COALESCE(
+         json_agg(
+           DISTINCT jsonb_build_object(
+             'user_id', owner_user.id,
+             'email', owner_user.email,
+             'name', owner_user.name
+           )
+         ) FILTER (WHERE sm.role = 'owner' AND owner_user.id IS NOT NULL),
+         '[]'::json
+       ) AS owners
+     FROM spaces s
+     LEFT JOIN users creator ON creator.id = s.created_by
+     LEFT JOIN space_memberships sm ON sm.space_id = s.id
+     LEFT JOIN users owner_user ON owner_user.id = sm.user_id
+     LEFT JOIN libraries l ON l.space_id = s.id AND l.archived_at IS NULL
+     WHERE s.id = $1
+     GROUP BY s.id, creator.email
+     LIMIT 1`,
+    [spaceId]
+  );
+  if (result.rows.length === 0) return null;
+  const row = result.rows[0];
+  return {
+    ...row,
+    member_count: Number(row.member_count || 0),
+    library_count: Number(row.library_count || 0),
+    owner_count: Number(row.owner_count || 0),
+    owners: Array.isArray(row.owners) ? row.owners : []
+  };
+}
+
 router.get('/spaces', asyncHandler(async (_req, res) => {
   const result = await pool.query(
     `SELECT
@@ -250,6 +299,81 @@ router.get('/spaces', asyncHandler(async (_req, res) => {
       owners: Array.isArray(row.owners) ? row.owners : []
     }))
   });
+}));
+
+router.get('/spaces/:id', asyncHandler(async (req, res) => {
+  const spaceId = Number(req.params.id);
+  if (!Number.isFinite(spaceId) || spaceId <= 0) {
+    return res.status(400).json({ error: 'Invalid space id' });
+  }
+
+  const client = await pool.connect();
+  try {
+    const space = await getAdminSpaceById(client, spaceId);
+    if (!space) {
+      return res.status(404).json({ error: 'Space not found' });
+    }
+
+    const [membersResult, invitesResult] = await Promise.all([
+      client.query(
+        `SELECT
+           sm.id,
+           sm.space_id,
+           sm.user_id,
+           sm.role,
+           sm.created_by,
+           sm.created_at,
+           sm.updated_at,
+           u.email,
+           u.name,
+           u.role AS user_role,
+           creator.email AS created_by_email
+         FROM space_memberships sm
+         JOIN users u ON u.id = sm.user_id
+         LEFT JOIN users creator ON creator.id = sm.created_by
+         WHERE sm.space_id = $1
+         ORDER BY
+           CASE sm.role
+             WHEN 'owner' THEN 0
+             WHEN 'admin' THEN 1
+             WHEN 'member' THEN 2
+             ELSE 3
+           END,
+           lower(u.email) ASC,
+           sm.id ASC`,
+        [spaceId]
+      ),
+      client.query(
+        `SELECT
+           i.id,
+           i.email,
+           i.used,
+           i.revoked,
+           i.used_by,
+           i.used_at,
+           i.expires_at,
+           i.created_at,
+           i.space_id,
+           i.space_role,
+           creator.email AS created_by_email,
+           claimer.email AS used_by_email
+         FROM invites i
+         LEFT JOIN users creator ON creator.id = i.created_by
+         LEFT JOIN users claimer ON claimer.id = i.used_by
+         WHERE i.space_id = $1
+         ORDER BY i.created_at DESC`,
+        [spaceId]
+      )
+    ]);
+
+    res.json({
+      space,
+      members: membersResult.rows,
+      invites: invitesResult.rows
+    });
+  } finally {
+    client.release();
+  }
 }));
 
 router.post('/spaces', validate(spaceCreateSchema), asyncHandler(async (req, res) => {
@@ -467,6 +591,168 @@ router.post('/spaces/create-with-onboarding', validate(adminSpaceCreateWithOnboa
   }
 }));
 
+router.post('/spaces/:id/members', validate(spaceMembershipCreateSchema), asyncHandler(async (req, res) => {
+  const spaceId = Number(req.params.id);
+  const targetUserId = Number(req.body.user_id);
+  const nextRole = req.body.role;
+  if (!Number.isFinite(spaceId) || spaceId <= 0) {
+    return res.status(400).json({ error: 'Invalid space id' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const space = await getAdminSpaceById(client, spaceId);
+    if (!space) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Space not found' });
+    }
+
+    const userResult = await client.query(
+      `SELECT id, email, name, role
+       FROM users
+       WHERE id = $1
+       LIMIT 1`,
+      [targetUserId]
+    );
+    if (userResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Target user not found' });
+    }
+
+    const existing = await client.query(
+      `SELECT id
+       FROM space_memberships
+       WHERE space_id = $1
+         AND user_id = $2
+       LIMIT 1`,
+      [spaceId, targetUserId]
+    );
+    if (existing.rows.length > 0) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'User is already a member of this space' });
+    }
+
+    const inserted = await client.query(
+      `INSERT INTO space_memberships (space_id, user_id, role, created_by)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, space_id, user_id, role, created_by, created_at, updated_at`,
+      [spaceId, targetUserId, nextRole, req.user.id]
+    );
+    await syncLibraryMembershipsForSpaceUser(client, { spaceId, userId: targetUserId, role: nextRole });
+
+    await client.query('COMMIT');
+
+    await logActivity(req, 'admin.space.member.add', 'space_membership', inserted.rows[0].id, {
+      spaceId,
+      spaceName: space.name,
+      targetUserId,
+      targetUserEmail: userResult.rows[0].email,
+      role: nextRole
+    });
+
+    res.status(201).json({
+      ...inserted.rows[0],
+      email: userResult.rows[0].email,
+      name: userResult.rows[0].name,
+      user_role: userResult.rows[0].role
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}));
+
+router.post('/spaces/:id/invites', validate(spaceInviteCreateSchema), asyncHandler(async (req, res) => {
+  const spaceId = Number(req.params.id);
+  if (!Number.isFinite(spaceId) || spaceId <= 0) {
+    return res.status(400).json({ error: 'Invalid space id' });
+  }
+
+  const client = await pool.connect();
+  try {
+    const space = await getAdminSpaceById(client, spaceId);
+    if (!space) {
+      return res.status(404).json({ error: 'Space not found' });
+    }
+
+    const exposeToken = parseBool(req.body?.expose_token, false);
+    const inviteResult = await createInitialSpaceInvite({
+      client,
+      req,
+      spaceId,
+      email: req.body?.email,
+      role: req.body?.role,
+      exposeToken
+    });
+
+    if (!inviteResult.created) {
+      const status = inviteResult.code === 'already_member' || inviteResult.code === 'active_invite_exists' ? 409 : 400;
+      return res.status(status).json({
+        error: inviteResult.error || 'Failed to create invite',
+        code: inviteResult.code || 'invite_create_failed'
+      });
+    }
+
+    await logActivity(req, 'admin.space.invite.create', 'invite', inviteResult.id, {
+      spaceId,
+      spaceName: space.name,
+      email: inviteResult.email,
+      role: inviteResult.role
+    });
+
+    res.status(201).json(inviteResult);
+  } finally {
+    client.release();
+  }
+}));
+
+router.patch('/spaces/:id/invites/:inviteId/revoke', asyncHandler(async (req, res) => {
+  const spaceId = Number(req.params.id);
+  const inviteId = Number(req.params.inviteId);
+  if (!Number.isFinite(spaceId) || spaceId <= 0) {
+    return res.status(400).json({ error: 'Invalid space id' });
+  }
+  if (!Number.isFinite(inviteId) || inviteId <= 0) {
+    return res.status(400).json({ error: 'Invalid invite id' });
+  }
+
+  const client = await pool.connect();
+  try {
+    const space = await getAdminSpaceById(client, spaceId);
+    if (!space) {
+      return res.status(404).json({ error: 'Space not found' });
+    }
+
+    const revokeResult = await client.query(
+      `UPDATE invites
+       SET revoked = true
+       WHERE id = $1
+         AND space_id = $2
+         AND used = false
+         AND revoked = false
+       RETURNING id, email, used, revoked, used_by, used_at, expires_at, created_at, space_id, space_role`,
+      [inviteId, spaceId]
+    );
+    if (revokeResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Invite not found or already inactive' });
+    }
+
+    await logActivity(req, 'admin.space.invite.revoke', 'invite', inviteId, {
+      spaceId,
+      spaceName: space.name,
+      email: revokeResult.rows[0].email
+    });
+
+    res.json(revokeResult.rows[0]);
+  } finally {
+    client.release();
+  }
+}));
+
 router.patch('/spaces/:id/owner', validate(adminSpaceOwnerAssignSchema), asyncHandler(async (req, res) => {
   const spaceId = Number(req.params.id);
   const ownerUserId = Number(req.body.owner_user_id);
@@ -644,10 +930,6 @@ router.delete('/spaces/:id', asyncHandler(async (req, res) => {
     if (space.slug === 'default') {
       await client.query('ROLLBACK');
       return res.status(400).json({ error: 'The default space cannot be deleted' });
-    }
-    if (!space.archived_at) {
-      await client.query('ROLLBACK');
-      return res.status(400).json({ error: 'Space must be archived before deletion' });
     }
 
     const libraryCountResult = await client.query(

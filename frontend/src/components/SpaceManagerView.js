@@ -11,6 +11,16 @@ function createEmptySpaceForm() {
   return { name: '', slug: '', description: '' };
 }
 
+function KebabIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 20 20" className="h-4 w-4 fill-current">
+      <circle cx="4" cy="10" r="1.6" />
+      <circle cx="10" cy="10" r="1.6" />
+      <circle cx="16" cy="10" r="1.6" />
+    </svg>
+  );
+}
+
 export default function SpaceManagerView({
   apiCall,
   onToast,
@@ -37,6 +47,7 @@ export default function SpaceManagerView({
   const [memberBusyId, setMemberBusyId] = useState(null);
   const [showInviteHistory, setShowInviteHistory] = useState(false);
   const [peopleTab, setPeopleTab] = useState('members');
+  const [openMemberMenuId, setOpenMemberMenuId] = useState(null);
   const memberLoadSeqRef = useRef(0);
   const inviteLoadSeqRef = useRef(0);
 
@@ -62,6 +73,7 @@ export default function SpaceManagerView({
     setInviteUrl('');
     setShowInviteHistory(false);
     setPeopleTab('members');
+    setOpenMemberMenuId(null);
     setLoadError('');
     setLoading(Boolean(activeSpaceId && canManage));
   }, [activeSpaceId, canManage]);
@@ -199,6 +211,7 @@ export default function SpaceManagerView({
     try {
       const payload = await apiCall('patch', `/spaces/${activeSpaceId}/members/${memberId}`, { role });
       setMembers((prev) => prev.map((member) => (member.id === memberId ? { ...member, ...payload } : member)));
+      setOpenMemberMenuId((prev) => (Number(prev) === Number(memberId) ? null : prev));
       await onScopeRefresh?.({ silent: true });
       onToast('Membership updated');
     } catch (error) {
@@ -214,6 +227,7 @@ export default function SpaceManagerView({
     try {
       await apiCall('delete', `/spaces/${activeSpaceId}/members/${memberId}`);
       setMembers((prev) => prev.filter((member) => member.id !== memberId));
+      setOpenMemberMenuId((prev) => (Number(prev) === Number(memberId) ? null : prev));
       onToast('Member removed');
     } catch (error) {
       const detail = error.response?.data?.detail;
@@ -301,47 +315,96 @@ export default function SpaceManagerView({
               </div>
               <div className="space-y-1">
                 {!loading && members.length === 0 ? <p className="py-8 text-sm text-ghost text-center">No members found for this space.</p> : null}
-                {members.map((member) => (
-                  <div
-                    key={member.id}
-                    className="py-4 flex flex-wrap items-center gap-4"
-                  >
-                    <div className="w-10 h-10 rounded-lg bg-raised border border-edge flex items-center justify-center text-dim font-display">
-                      {member.name?.[0]?.toUpperCase() || member.email?.[0]?.toUpperCase() || '?'}
-                    </div>
-                    <div className="min-w-[220px] flex-1">
-                      <p className="text-sm font-medium text-ink">{member.name || 'Unnamed user'}</p>
-                      <p className="text-xs text-ghost">{member.email}</p>
-                    </div>
-                    <div className="min-w-[120px]">
-                      <p className="text-[11px] uppercase tracking-wide text-ghost">App Role</p>
-                      <p className="text-sm text-ink">{member.user_role || 'user'}</p>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <div>
-                        <p className="text-[11px] uppercase tracking-wide text-ghost mb-1">Space Role</p>
-                      <select
-                        className="select min-w-[120px]"
-                        value={member.role}
-                        disabled={memberBusyId === member.id || member.role === 'owner'}
-                        onChange={(e) => updateMemberRole(member.id, e.target.value)}
-                      >
-                        {(member.role === 'owner' ? ['owner'] : assignableRoles).map((role) => (
-                          <option key={role} value={role}>{role}</option>
-                        ))}
-                      </select>
+                {members.length > 0 ? (
+                  <div className="overflow-x-auto pb-2">
+                    <div className="min-w-full w-max">
+                      <div className="grid min-w-full grid-cols-[minmax(140px,1.7fr)_minmax(160px,1.8fr)_minmax(140px,1fr)_minmax(88px,0.8fr)] gap-4 px-1 pb-2 text-[11px] font-medium uppercase tracking-[0.18em] text-ghost">
+                        <div>Member</div>
+                        <div>Email</div>
+                        <div>Role</div>
+                        <div>Actions</div>
                       </div>
-                      <button
-                        type="button"
-                        className="btn-ghost btn-sm text-err hover:bg-err/10"
-                        disabled={memberBusyId === member.id}
-                        onClick={() => removeMember(member.id)}
-                      >
-                        {memberBusyId === member.id ? <Spinner size={12} /> : <Icons.Trash />}
-                      </button>
+                      {members.map((member) => (
+                        <div
+                          key={member.id}
+                          className="py-4 border-t border-edge/60 first:border-t-0"
+                        >
+                          <div className="grid min-w-full grid-cols-[minmax(140px,1.7fr)_minmax(160px,1.8fr)_minmax(140px,1fr)_minmax(88px,0.8fr)] gap-4 items-start">
+                            <div className="min-w-0 flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-lg bg-raised border border-edge flex items-center justify-center text-dim font-display shrink-0">
+                                {member.name?.[0]?.toUpperCase() || member.email?.[0]?.toUpperCase() || '?'}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium text-ink">{member.name || 'Unnamed user'}</p>
+                              </div>
+                            </div>
+
+                            <div className="min-w-0">
+                              <p className="text-sm text-ghost truncate">{member.email}</p>
+                            </div>
+
+                            <div>
+                              <p className="text-sm text-ink">
+                                {member.role}{member.user_role ? ` (${member.user_role})` : ''}
+                              </p>
+                            </div>
+
+                            <div className="relative inline-flex items-center">
+                              <button
+                                type="button"
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-ghost transition hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-edge"
+                                aria-label="Member actions"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setOpenMemberMenuId((prev) => (Number(prev) === Number(member.id) ? null : member.id));
+                                }}
+                              >
+                                <KebabIcon />
+                              </button>
+                              {Number(openMemberMenuId) === Number(member.id) ? (
+                                <div
+                                  className="absolute right-[calc(100%+4px)] top-1/2 z-10 min-w-[170px] -translate-y-1/2 rounded-xl border border-edge bg-abyss p-2 shadow-lg"
+                                  onClick={(event) => event.stopPropagation()}
+                                >
+                                  <p className="px-3 py-2 text-[11px] font-medium uppercase tracking-[0.18em] text-ghost">Change Role</p>
+                                  <div className="space-y-1">
+                                    {(member.role === 'owner' ? ['owner'] : assignableRoles).map((role) => (
+                                      <button
+                                        key={role}
+                                        type="button"
+                                        className="w-full rounded-lg px-3 py-2 text-left text-sm text-ink hover:bg-raised disabled:opacity-60"
+                                        disabled={memberBusyId === member.id || role === member.role}
+                                        onClick={(event) => {
+                                          event.stopPropagation();
+                                          updateMemberRole(member.id, role);
+                                        }}
+                                      >
+                                        {role}
+                                      </button>
+                                    ))}
+                                  </div>
+                                  <div className="mt-2 border-t border-edge pt-2">
+                                    <button
+                                    type="button"
+                                    className="w-full rounded-lg px-3 py-2 text-left text-sm text-err hover:bg-err/10 disabled:opacity-60"
+                                    disabled={memberBusyId === member.id}
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      removeMember(member.id);
+                                    }}
+                                  >
+                                    Delete user
+                                  </button>
+                                  </div>
+                                </div>
+                              ) : null}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                ))}
+                ) : null}
               </div>
             </div>
             )}
@@ -398,41 +461,62 @@ export default function SpaceManagerView({
               </form>
               <div className="space-y-1">
                 {!loading && visibleInvites.length === 0 ? <p className="py-8 text-sm text-ghost text-center">No invites to show.</p> : null}
-                {visibleInvites.map((invite) => {
-                  const expired = new Date(invite.expires_at).getTime() <= Date.now();
-                  return (
-                    <div key={invite.id} className="py-4 flex flex-wrap items-center gap-4">
-                      <div className="w-10 h-10 rounded-lg bg-raised border border-edge flex items-center justify-center text-dim font-display">
-                        {invite.email?.[0]?.toUpperCase() || '?'}
+                {visibleInvites.length > 0 ? (
+                  <div className="overflow-x-auto pb-2">
+                    <div className="min-w-full w-max">
+                      <div className="grid min-w-full grid-cols-[minmax(180px,2fr)_minmax(88px,0.8fr)_minmax(140px,1fr)_minmax(104px,0.8fr)_minmax(88px,0.7fr)] gap-4 px-1 pb-2 text-[11px] font-medium uppercase tracking-[0.18em] text-ghost">
+                        <div>Invite</div>
+                        <div>Role</div>
+                        <div>Expires</div>
+                        <div>Status</div>
+                        <div>Actions</div>
                       </div>
-                      <div className="min-w-[220px] flex-1">
-                        <p className="text-sm font-medium text-ink">{invite.email}</p>
-                        <p className="text-xs text-ghost">expires {formatDateTime(invite.expires_at)}</p>
-                      </div>
-                      <div className="min-w-[120px]">
-                        <p className="text-[11px] uppercase tracking-wide text-ghost">Role</p>
-                        <p className="text-sm text-ink">{invite.space_role || 'member'}</p>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <div>
-                          <p className="text-[11px] uppercase tracking-wide text-ghost mb-1">Status</p>
-                          <span className={cx('badge text-[10px]', invite.used ? 'badge-dim' : invite.revoked ? 'badge-err' : expired ? 'badge-warn' : 'badge-ok')}>
-                            {invite.used ? 'Used' : invite.revoked ? 'Revoked' : expired ? 'Expired' : 'Active'}
-                          </span>
-                        </div>
-                        {!invite.used && !invite.revoked && !expired ? (
-                          <button
-                            type="button"
-                            className="btn-ghost btn-sm text-err hover:bg-err/10"
-                            onClick={() => revokeInvite(invite.id)}
-                          >
-                            Revoke
-                          </button>
-                        ) : null}
-                      </div>
+                      {visibleInvites.map((invite) => {
+                        const expired = new Date(invite.expires_at).getTime() <= Date.now();
+                        return (
+                          <div key={invite.id} className="py-4 border-t border-edge/60 first:border-t-0">
+                            <div className="grid min-w-full grid-cols-[minmax(180px,2fr)_minmax(88px,0.8fr)_minmax(140px,1fr)_minmax(104px,0.8fr)_minmax(88px,0.7fr)] gap-4 items-start">
+                              <div className="min-w-0 flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-lg bg-raised border border-edge flex items-center justify-center text-dim font-display shrink-0">
+                                  {invite.email?.[0]?.toUpperCase() || '?'}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-sm font-medium text-ink">{invite.email}</p>
+                                </div>
+                              </div>
+
+                              <div>
+                                <p className="text-sm text-ink">{invite.space_role || 'member'}</p>
+                              </div>
+
+                              <div>
+                                <p className="text-sm text-ink">{formatDateTime(invite.expires_at)}</p>
+                              </div>
+
+                              <div>
+                                <span className={cx('badge text-[10px]', invite.used ? 'badge-dim' : invite.revoked ? 'badge-err' : expired ? 'badge-warn' : 'badge-ok')}>
+                                  {invite.used ? 'Used' : invite.revoked ? 'Revoked' : expired ? 'Expired' : 'Active'}
+                                </span>
+                              </div>
+
+                              <div className="flex flex-wrap items-center gap-2">
+                                {!invite.used && !invite.revoked && !expired ? (
+                                  <button
+                                    type="button"
+                                    className="btn-ghost btn-sm text-err hover:bg-err/10"
+                                    onClick={() => revokeInvite(invite.id)}
+                                  >
+                                    Revoke
+                                  </button>
+                                ) : null}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                  );
-                })}
+                  </div>
+                ) : null}
               </div>
             </div>
             )}
