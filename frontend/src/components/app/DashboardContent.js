@@ -55,7 +55,6 @@ export default function DashboardContent({
   libraries,
   activeLibraryId,
   onScopeRefresh,
-  onSpaceSelect,
   scopeKey
 }) {
   const isAdminTab = String(activeTab || '').startsWith('admin-');
@@ -157,7 +156,6 @@ export default function DashboardContent({
           libraries={libraries}
           activeLibraryId={activeLibraryId}
           onScopeRefresh={onScopeRefresh}
-          onSpaceSelect={onSpaceSelect}
           Icons={Icons}
           Spinner={Spinner}
           cx={cx}

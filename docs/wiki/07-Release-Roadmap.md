@@ -1062,12 +1062,21 @@ Historical planning notes may still exist in:
 19. `2.6.1` Structured log export (GELF + pluggable backends)
 20. `2.7.0` True tenancy and space-scoped APIs
 21. `2.8.0` UI refinement sprint
-22. `2.9.0` Observability baseline review and alert tuning
-23. `2.9.1` Runtime and operations hardening
-24. `2.10.0` Multi-format ownership model (movies/games)
-25. `2.11.0` Optional market valuation integrations
-26. `2.12.0` Optional build: cost model and billing readiness
-27. `3.0.0` Frontend build modernization (CRA to Vite)
+22. `2.8.1` Space creation and member onboarding flow
+23. `2.8.2` Admin settings cleanup and baked-in feature flag retirement
+24. `2.8.3` Import Review retirement and debug import diagnostics
+25. `2.8.4` Scope privacy tightening and explicit support access
+26. `2.8.5` Navigation shell cleanup and Integrations surface simplification
+27. `2.8.6` Events and Collectibles UX alignment
+28. `2.9.0` Assisted capture and barcode/vision completion
+29. `2.9.1` Product edition boundary and homelab surface definition
+30. `2.9.2` Observability baseline review and alert tuning
+31. `2.9.3` Runtime and operations hardening
+32. `2.9.4` Observability endpoint control plane
+33. `2.10.0` Multi-format ownership model (movies/games)
+34. `2.11.0` Optional market valuation integrations
+35. `2.12.0` Optional build: cost model and billing readiness
+36. `3.0.0` Frontend build modernization (CRA to Vite)
 
 ## 2.1.0 — Metadata Normalization and Query Performance
 
@@ -1747,85 +1756,80 @@ Historical note:
 - Any cross-space support capability is explicit, separately named, and fully audited.
 - Tenancy/privacy documentation and UI language align with the explicit-support-access model rather than everyday cross-space switching.
 
-## 2.9.0 — Observability Baseline Review and Alert Tuning
+## 2.8.5 — Navigation Shell Cleanup and Integrations Surface Simplification
 
-**Goal:** Revisit the initial `2.6.0` observability thresholds once more real import and operator usage data exists.
-
-### Scope
-
-- Review accumulated baseline observations in `docs/wiki/34-Observability-Baseline-Tuning-Log.md`.
-- Tighten or relax alert thresholds based on repeated real runs instead of first-pass estimates.
-- Add provider-specific quality ratios only where baseline evidence shows they are useful.
-- Decide whether Prometheus retention and backup expectations need explicit policy/config changes.
-
-### Acceptance Criteria
-
-- Alert thresholds are justified by recorded baseline evidence instead of single-run assumptions.
-- Dashboard ratio/error panels reflect the provider-specific signals operators actually use.
-- Any retention/backup changes for observability data are documented and validated.
-
-## 2.9.1 — Runtime and Operations Hardening
-
-**Goal:** Harden the real-world operator paths added in `2.6.0` and `2.6.1` so logging, metrics, and supporting runtime surfaces are safer to run and easier to recover in longer-lived deployments.
+**Goal:** Finish the shell/navigation cleanup that `2.8.4` sets up by removing stale scope cards from the sidebar, moving remaining integration-related controls into Integrations, and aligning Integrations UX with the newer scan-first settings patterns.
 
 ### Scope
 
-- Structured-log stack hardening:
-  - revisit Graylog, Loki/Promtail, and syslog example stacks with production-leaning guidance for auth, network boundaries, persistence, and safer defaults,
-  - document which parts remain local/dev examples versus recommended long-lived operator configurations,
-  - add drift checks or troubleshooting guidance for exporter/runtime mismatches such as `backend_off`, wrong collector host, or stale backend env.
-- Metrics and observability runtime hardening:
-  - formalize retention and backup guidance for Prometheus data and any logging persistence volumes,
-  - tighten admin/debug-gated observability surfaces with explicit operator guidance for exposure boundaries and reverse-proxy expectations,
-  - ensure observability examples document restore and rotation implications for tokens, passwords, and collector state.
-- Runtime separation and noise reduction:
-  - reduce mixing between general request logs and structured export output where practical,
-  - add guidance or implementation support for cleaner stream separation in collectors that benefit from it,
-  - document expected failure behavior clearly so exporters never become a hidden availability dependency.
-- Operational verification:
-  - add repeatable smoke checks for supported collector paths,
-  - make sure hardening guidance is reflected in docs, example compose files, and verification notes together.
+- Remove the active space / active library card from the main sidebar shell once everyday space switching is no longer part of the product model.
+- Move integration-adjacent operational toggles into Integrations:
+  - `external log export`
+  - `metrics export`
+- Simplify Integrations UI treatment:
+  - replace the older vertical-tab treatment with the same horizontal tab style used in the current settings work,
+  - mute the heavier card framing,
+  - reduce visual duplication between “settings” and “integration detail” surfaces.
+- Keep operator semantics clear:
+  - integration config stays in Integrations,
+  - general settings stay in Settings,
+  - runtime/observability toggles tied to integration backends no longer feel arbitrarily split across pages.
 
 ### Acceptance Criteria
 
-- Graylog, Loki/Promtail, and syslog operator docs clearly distinguish local examples from hardened deployment guidance.
-- Retention, persistence, and backup expectations for observability/logging data are documented and validated.
-- Exporter misconfiguration and env drift have documented fast-diagnosis paths and, where reasonable, lightweight runtime validation.
-- Logging/metrics hardening changes do not break core API/import behavior or make collector availability a runtime dependency.
+- The sidebar no longer uses the old active scope card pattern.
+- Integrations contains the remaining integration-owned operational toggles.
+- Integrations uses the simpler horizontal-tab language established in the newer admin/settings surfaces.
+- The resulting UI is visually lighter and no longer depends on stacked card shells to communicate hierarchy.
 
-## 2.9.2 — Reserved / Folded Into 2.7.x Maintenance
+## 2.8.6 — Events and Collectibles UX Alignment
 
-This work was re-scoped into `2.7.1` and the broader `2.7.x` maintenance lane so CI-found vulnerabilities, image-security fixes, and dependency/security PR triage can ship as patch revisions on the currently active release line instead of waiting for a later feature milestone.
-
-## 2.9.3 — Observability Endpoint Control Plane
-
-**Goal:** Move external log endpoint selection from env-only operator setup to an admin-managed control plane without weakening the existing fail-safe runtime behavior.
+**Goal:** Round out Events and Collectibles so they feel like first-class parts of the product shell rather than earlier feature islands with slightly different UX language.
 
 ### Scope
 
-- Admin-managed external log endpoint configuration:
-  - add admin UI and backend settings storage for external log endpoint host/url, port, transport/backend type, and service/host labeling fields,
-  - keep secrets/tokens masked and encrypted at rest where applicable,
-  - preserve an env-backed override/read-only mode for locked-down deployments.
-- Output style and backend selection:
-  - expose supported exporter targets and output styles in the UI (for example GELF UDP/TCP, stdout JSON, syslog UDP/TCP),
-  - document which combinations are first-class/supported versus advanced/operator-beware.
-- Validation and diagnostics:
-  - add a test/validate action that emits a deterministic audit/export event and reports whether the configured collector received it,
-  - surface last validation outcome and troubleshooting guidance for common misconfigurations,
-  - ensure admin/audit events written through the shared audit path remain eligible for configured external export.
-- Safety and docs:
-  - document precedence between env overrides and UI-managed settings,
-  - update operator docs, runbooks, and smoke paths to cover both env-only and UI-managed configurations.
+- Audit Events and Collectibles flows for inconsistencies against the refined library/settings patterns shipped through `2.8.x`.
+- Improve list, detail, filter, and action treatments where they still feel visually or behaviorally out of step with the rest of the app.
+- Tighten copy, empty states, and action placement so these surfaces feel more intentional and easier to learn.
+- Preserve current data models and capabilities; this is a UX/product-fit pass rather than a taxonomy or schema expansion milestone.
 
 ### Acceptance Criteria
 
-- Admin can configure a supported external log endpoint without editing compose env for the common case.
-- Validation/test flow confirms exporter configuration against a live collector path.
-- Env override behavior is explicit and documented for operators who want immutable config.
-- External logging configuration changes are auditable, masked, and do not make collector availability a hard runtime dependency.
+- Events and Collectibles feel visually consistent with the rest of the application shell.
+- Common actions and filters are easier to scan and understand.
+- No schema expansion is required for this milestone; the work is primarily UX/interaction refinement.
 
-## 2.9.4 — Product Edition Boundary and Homelab Surface Definition
+## 2.9.0 — Assisted Capture and Barcode/Vision Completion
+
+**Goal:** Complete the product promise behind barcode and vision-assisted entry by validating the current provider flows and adding a camera-assisted capture path for manual entry.
+
+### Why this is a minor version
+
+- This milestone adds a net-new capture workflow rather than only polishing an existing screen.
+- Camera-assisted barcode / cover capture expands the product’s input model in a user-visible way, which fits the repo’s `MINOR` guidance better than another `PATCH` refinement.
+
+### Scope
+
+- Verify and harden the existing barcode and vision flows end to end:
+  - confirm provider behavior still works as intended,
+  - identify any rough edges in diagnostics, result handling, or fallback UX,
+  - finish the remaining UX promises around those capabilities instead of leaving them as “early add-ons.”
+- Add manual-entry camera options where they are product-appropriate:
+  - use a device camera to capture barcodes during manual entry,
+  - use a device camera to capture cover/front-art images during manual entry where vision-assisted lookup is helpful,
+  - make the capture flow degrade gracefully on devices/browsers without camera support.
+- Keep the debug/operator path intact:
+  - barcode/vision failures should remain diagnosable,
+  - capture should not become an opaque black box when providers or browser permissions fail.
+
+### Acceptance Criteria
+
+- Barcode and vision-assisted entry paths are explicitly revalidated and any high-friction gaps are resolved.
+- Manual entry can invoke a device camera for barcode capture and cover-art capture where supported.
+- Camera permissions and provider failures degrade gracefully with understandable fallback messaging.
+- The feature feels like a completed capture workflow rather than an unfinished experimental promise.
+
+## 2.9.1 — Product Edition Boundary and Homelab Surface Definition
 
 **Goal:** Introduce an explicit `platform` vs `homelab` product-edition boundary inside the private repo so tenancy/platform capabilities stop leaking into the future homelab product shape before any repo split happens.
 
@@ -1865,6 +1869,80 @@ This work was re-scoped into `2.7.1` and the broader `2.7.x` maintenance lane so
 - Edition branching is concentrated in shell/bootstrap/route-mount boundaries rather than scattered across unrelated components.
 - Shared workflows continue to function in both editions without scope confusion.
 - The codebase is ready for a later repo split without first having to rediscover product boundaries.
+
+## 2.9.2 — Observability Baseline Review and Alert Tuning
+
+**Goal:** Revisit the initial `2.6.0` observability thresholds once more real import and operator usage data exists.
+
+### Scope
+
+- Review accumulated baseline observations in `docs/wiki/34-Observability-Baseline-Tuning-Log.md`.
+- Tighten or relax alert thresholds based on repeated real runs instead of first-pass estimates.
+- Add provider-specific quality ratios only where baseline evidence shows they are useful.
+- Decide whether Prometheus retention and backup expectations need explicit policy/config changes.
+
+### Acceptance Criteria
+
+- Alert thresholds are justified by recorded baseline evidence instead of single-run assumptions.
+- Dashboard ratio/error panels reflect the provider-specific signals operators actually use.
+- Any retention/backup changes for observability data are documented and validated.
+
+## 2.9.3 — Runtime and Operations Hardening
+
+**Goal:** Harden the real-world operator paths added in `2.6.0` and `2.6.1` so logging, metrics, and supporting runtime surfaces are safer to run and easier to recover in longer-lived deployments.
+
+### Scope
+
+- Structured-log stack hardening:
+  - revisit Graylog, Loki/Promtail, and syslog example stacks with production-leaning guidance for auth, network boundaries, persistence, and safer defaults,
+  - document which parts remain local/dev examples versus recommended long-lived operator configurations,
+  - add drift checks or troubleshooting guidance for exporter/runtime mismatches such as `backend_off`, wrong collector host, or stale backend env.
+- Metrics and observability runtime hardening:
+  - formalize retention and backup guidance for Prometheus data and any logging persistence volumes,
+  - tighten admin/debug-gated observability surfaces with explicit operator guidance for exposure boundaries and reverse-proxy expectations,
+  - ensure observability examples document restore and rotation implications for tokens, passwords, and collector state.
+- Runtime separation and noise reduction:
+  - reduce mixing between general request logs and structured export output where practical,
+  - add guidance or implementation support for cleaner stream separation in collectors that benefit from it,
+  - document expected failure behavior clearly so exporters never become a hidden availability dependency.
+- Operational verification:
+  - add repeatable smoke checks for supported collector paths,
+  - make sure hardening guidance is reflected in docs, example compose files, and verification notes together.
+
+### Acceptance Criteria
+
+- Graylog, Loki/Promtail, and syslog operator docs clearly distinguish local examples from hardened deployment guidance.
+- Retention, persistence, and backup expectations for observability/logging data are documented and validated.
+- Exporter misconfiguration and env drift have documented fast-diagnosis paths and, where reasonable, lightweight runtime validation.
+- Logging/metrics hardening changes do not break core API/import behavior or make collector availability a runtime dependency.
+
+## 2.9.4 — Observability Endpoint Control Plane
+
+**Goal:** Move external log endpoint selection from env-only operator setup to an admin-managed control plane without weakening the existing fail-safe runtime behavior.
+
+### Scope
+
+- Admin-managed external log endpoint configuration:
+  - add admin UI and backend settings storage for external log endpoint host/url, port, transport/backend type, and service/host labeling fields,
+  - keep secrets/tokens masked and encrypted at rest where applicable,
+  - preserve an env-backed override/read-only mode for locked-down deployments.
+- Output style and backend selection:
+  - expose supported exporter targets and output styles in the UI (for example GELF UDP/TCP, stdout JSON, syslog UDP/TCP),
+  - document which combinations are first-class/supported versus advanced/operator-beware.
+- Validation and diagnostics:
+  - add a test/validate action that emits a deterministic audit/export event and reports whether the configured collector received it,
+  - surface last validation outcome and troubleshooting guidance for common misconfigurations,
+  - ensure admin/audit events written through the shared audit path remain eligible for configured external export.
+- Safety and docs:
+  - document precedence between env overrides and UI-managed settings,
+  - update operator docs, runbooks, and smoke paths to cover both env-only and UI-managed configurations.
+
+### Acceptance Criteria
+
+- Admin can configure a supported external log endpoint without editing compose env for the common case.
+- Validation/test flow confirms exporter configuration against a live collector path.
+- Env override behavior is explicit and documented for operators who want immutable config.
+- External logging configuration changes are auditable, masked, and do not make collector availability a hard runtime dependency.
 
 ## 2.10.0 — Multi-Format Ownership Model (Movies/Games)
 

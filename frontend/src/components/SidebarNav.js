@@ -26,7 +26,6 @@ export default function SidebarNav({
   appVersion,
   spaces = [],
   activeSpaceId = null,
-  onSpaceSelect,
   libraries = [],
   activeLibraryId = null,
   onLibrarySelect,
@@ -64,7 +63,8 @@ export default function SidebarNav({
     'admin-users'
   ].includes(activeTab);
   const activeSpace = spaces.find((space) => Number(space.id) === Number(activeSpaceId)) || null;
-  const activeLibrary = libraries.find((library) => Number(library.id) === Number(activeLibraryId)) || null;
+  const showScopeSummary = !isAdmin && Boolean(activeSpace);
+  const showLibrarySwitcher = !isAdmin && libraries.length > 1;
   const showDesktopHamburger = !collapsed;
   const showAdminGroup = isAdmin || canManageActiveSpace;
 
@@ -165,43 +165,33 @@ export default function SidebarNav({
           )}
         </div>
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto no-scrollbar">
-          {!collapsed && user && (
+          {!collapsed && user && (showScopeSummary || showLibrarySwitcher) && (
             <div className="card p-3 mb-3 space-y-3">
-              <div className="space-y-1">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[10px] uppercase tracking-[0.18em] text-ghost">Active Space</span>
-                  {activeMembershipRole ? <span className="badge badge-dim text-[10px]">{activeMembershipRole}</span> : null}
+              {showScopeSummary && (
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] uppercase tracking-[0.18em] text-ghost">Current Space</span>
+                    {activeMembershipRole ? <span className="badge badge-dim text-[10px]">{activeMembershipRole}</span> : null}
+                  </div>
+                  <p className="text-sm font-medium text-ink">{activeSpace?.name || 'No active space'}</p>
                 </div>
-                <select
-                  className="select w-full"
-                  value={activeSpaceId || ''}
-                  onChange={(e) => onSpaceSelect?.(e.target.value)}
-                  disabled={spaces.length <= 1}
-                >
-                  {spaces.map((space) => (
-                    <option key={space.id} value={space.id}>
-                      {space.name}
-                    </option>
-                  ))}
-                </select>
-                {activeSpace?.description ? <p className="text-xs text-ghost leading-relaxed">{activeSpace.description}</p> : null}
-              </div>
-              <div className="space-y-1">
-                <span className="text-[10px] uppercase tracking-[0.18em] text-ghost">Active Library</span>
-                <select
-                  className="select w-full"
-                  value={activeLibraryId || ''}
-                  onChange={(e) => onLibrarySelect?.(e.target.value)}
-                  disabled={libraries.length <= 1}
-                >
-                  {libraries.map((library) => (
-                    <option key={library.id} value={library.id}>
-                      {library.name}
-                    </option>
-                  ))}
-                </select>
-                {activeLibrary ? <p className="text-xs text-ghost leading-relaxed">{activeLibrary.description || 'Currently selected library'}</p> : null}
-              </div>
+              )}
+              {showLibrarySwitcher ? (
+                <div className="space-y-1">
+                  <span className="text-[10px] uppercase tracking-[0.18em] text-ghost">Current Library</span>
+                  <select
+                    className="select w-full"
+                    value={activeLibraryId || ''}
+                    onChange={(e) => onLibrarySelect?.(e.target.value)}
+                  >
+                    {libraries.map((library) => (
+                      <option key={library.id} value={library.id}>
+                        {library.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
             </div>
           )}
 

@@ -186,31 +186,6 @@ export default function App() {
     }
   }, [apiCall, showToast, user, setUser]);
 
-  const handleSpaceSelect = useCallback(async (spaceIdRaw) => {
-    const spaceId = Number(spaceIdRaw || 0);
-    if (!Number.isFinite(spaceId) || spaceId <= 0 || spaceId === Number(activeSpaceId || 0)) return;
-    try {
-      const payload = await apiCall('post', '/spaces/select', { space_id: spaceId });
-      const nextLibraries = Array.isArray(payload?.libraries) ? payload.libraries : [];
-      const nextActiveSpaceId = Number(payload?.active_space_id || 0) || null;
-      const nextActiveLibraryId = Number(payload?.active_library_id || 0) || null;
-      setActiveSpaceId(nextActiveSpaceId);
-      setActiveLibraryId(nextActiveLibraryId);
-      setLibraries(nextLibraries);
-      setMediaItems([]);
-      clearImportJobs();
-      setUser((prev) => (
-        prev
-          ? { ...prev, active_space_id: nextActiveSpaceId, active_library_id: nextActiveLibraryId }
-          : prev
-      ));
-      await loadAuthScope({ silent: true });
-      showToast('Active space updated');
-    } catch (error) {
-      showToast(error.response?.data?.error || 'Failed to switch spaces', 'error');
-    }
-  }, [activeSpaceId, apiCall, clearImportJobs, loadAuthScope, setMediaItems, setUser, showToast]);
-
   const handleLibrarySelect = useCallback(async (libraryIdRaw) => {
     const libraryId = Number(libraryIdRaw || 0);
     if (!Number.isFinite(libraryId) || libraryId <= 0 || libraryId === Number(activeLibraryId || 0)) return;
@@ -362,7 +337,6 @@ export default function App() {
         appVersion={APP_VERSION}
         spaces={spaces}
         activeSpaceId={activeSpaceId}
-        onSpaceSelect={handleSpaceSelect}
         libraries={libraries}
         activeLibraryId={activeLibraryId}
         onLibrarySelect={handleLibrarySelect}
@@ -426,7 +400,6 @@ export default function App() {
             libraries={libraries}
             activeLibraryId={activeLibraryId}
             onScopeRefresh={loadAuthScope}
-            onSpaceSelect={handleSpaceSelect}
             scopeKey={scopeKey}
           />
         </div>

@@ -435,34 +435,6 @@ CREATE TABLE IF NOT EXISTS collection_items (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS import_match_reviews (
-    id SERIAL PRIMARY KEY,
-    job_id INTEGER REFERENCES sync_jobs(id) ON DELETE SET NULL,
-    import_source VARCHAR(100),
-    provider VARCHAR(100),
-    row_number INTEGER,
-    source_title TEXT,
-    media_type VARCHAR(30),
-    status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'resolved', 'skipped')),
-    confidence_score INTEGER,
-    match_mode VARCHAR(80),
-    matched_by VARCHAR(120),
-    enrichment_status VARCHAR(40),
-    proposed_media_id INTEGER REFERENCES media(id) ON DELETE SET NULL,
-    resolved_media_id INTEGER REFERENCES media(id) ON DELETE SET NULL,
-    resolution_action VARCHAR(40),
-    resolution_note TEXT,
-    source_payload JSONB,
-    collection_id INTEGER REFERENCES collections(id) ON DELETE SET NULL,
-    library_id INTEGER REFERENCES libraries(id) ON DELETE SET NULL,
-    space_id INTEGER,
-    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
-    resolved_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
-    resolved_at TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
 -- Events and event artifacts
 CREATE TABLE IF NOT EXISTS events (
     id SERIAL PRIMARY KEY,
@@ -613,10 +585,6 @@ CREATE INDEX IF NOT EXISTS idx_sync_jobs_created_by_created_at ON sync_jobs(crea
 CREATE INDEX IF NOT EXISTS idx_collections_library_created_at ON collections(library_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_collection_items_collection_position ON collection_items(collection_id, position);
 CREATE INDEX IF NOT EXISTS idx_collection_items_media_id ON collection_items(media_id);
-CREATE INDEX IF NOT EXISTS idx_import_match_reviews_pending_scope ON import_match_reviews(status, library_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_import_match_reviews_job ON import_match_reviews(job_id);
-CREATE INDEX IF NOT EXISTS idx_import_match_reviews_created_by ON import_match_reviews(created_by, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_import_match_reviews_collection_id ON import_match_reviews(collection_id);
 CREATE INDEX IF NOT EXISTS idx_events_library_date_start ON events(library_id, date_start DESC);
 CREATE INDEX IF NOT EXISTS idx_events_created_by_created_at ON events(created_by, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_event_artifacts_event_created_at ON event_artifacts(event_id, created_at DESC);
@@ -713,10 +681,6 @@ BEGIN
         CREATE TRIGGER update_collection_items_updated_at BEFORE UPDATE ON collection_items
             FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_import_match_reviews_updated_at') THEN
-        CREATE TRIGGER update_import_match_reviews_updated_at BEFORE UPDATE ON import_match_reviews
-            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-    END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_events_updated_at') THEN
         CREATE TRIGGER update_events_updated_at BEFORE UPDATE ON events
             FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -810,5 +774,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (41, 'Add service account keys for machine-to-machine API authentication'),
     (42, 'Activate first-class spaces and backfill default space memberships'),
     (43, 'Add space-scoped invite roles for tenancy activation'),
-    (44, 'Reconcile legacy default-space installs into isolated personal spaces')
+    (44, 'Reconcile legacy default-space installs into isolated personal spaces'),
+    (45, 'Retire import review queue after moving diagnostics to audit and debug logging')
 ON CONFLICT (version) DO NOTHING;
