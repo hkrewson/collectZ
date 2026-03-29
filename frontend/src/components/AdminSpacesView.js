@@ -65,6 +65,65 @@ function KebabIcon() {
   );
 }
 
+function SupportSessionStartPanel({
+  spaceName,
+  libraries,
+  value,
+  onChange,
+  onCancel,
+  onSubmit,
+  submitting,
+  Spinner
+}) {
+  return (
+    <section className="rounded-2xl border border-amber-300/25 bg-[linear-gradient(180deg,rgba(245,158,11,0.12),rgba(217,119,6,0.08),rgba(10,14,20,0.96))] p-4 space-y-4">
+      <div className="space-y-1">
+        <p className="text-[10px] uppercase tracking-[0.22em] text-amber-100/80">Start Support Session</p>
+        <h3 className="text-lg font-medium text-amber-50">Open explicit support access for {spaceName}</h3>
+        <p className="text-sm text-amber-100/70">
+          Support access is audited and stays scoped to this tenant until you explicitly end the session.
+        </p>
+      </div>
+
+      {libraries.length > 1 ? (
+        <label className="field">
+          <span className="label text-amber-100/75">Initial Library</span>
+          <select
+            className="select border-amber-300/30 bg-amber-950/20 text-amber-50"
+            value={value.libraryId}
+            onChange={(event) => onChange({ libraryId: event.target.value })}
+          >
+            {libraries.map((library) => (
+              <option key={library.id} value={library.id}>
+                {library.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
+
+      <label className="field">
+        <span className="label text-amber-100/75">Reason</span>
+        <textarea
+          className="input min-h-[88px] border-amber-300/30 bg-amber-950/20 text-amber-50 placeholder:text-amber-100/35"
+          value={value.reason}
+          onChange={(event) => onChange({ reason: event.target.value })}
+          placeholder="Optional, but useful for audit context"
+        />
+      </label>
+
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <button type="button" className="btn-secondary btn-sm" onClick={onCancel} disabled={submitting}>
+          Cancel
+        </button>
+        <button type="button" className="btn-primary btn-sm" onClick={onSubmit} disabled={submitting}>
+          {submitting ? <Spinner size={12} /> : 'Start Support Session'}
+        </button>
+      </div>
+    </section>
+  );
+}
+
 export default function AdminSpacesView({
   apiCall,
   onToast,
@@ -101,6 +160,7 @@ export default function AdminSpacesView({
   const [reissuingInviteId, setReissuingInviteId] = useState(null);
   const [openRowMenuId, setOpenRowMenuId] = useState(null);
   const [startingSupportSession, setStartingSupportSession] = useState(false);
+  const [supportStartDraft, setSupportStartDraft] = useState({ open: false, libraryId: '', reason: '' });
 
   const loadPlatformData = useCallback(async () => {
     setLoading(true);
@@ -142,6 +202,10 @@ export default function AdminSpacesView({
   );
   const selectedSpaceInvites = useMemo(
     () => (Array.isArray(selectedSpaceDetails?.invites) ? selectedSpaceDetails.invites : []),
+    [selectedSpaceDetails]
+  );
+  const selectedSpaceLibraries = useMemo(
+    () => (Array.isArray(selectedSpaceDetails?.libraries) ? selectedSpaceDetails.libraries : []),
     [selectedSpaceDetails]
   );
   const selectedSpaceOwners = useMemo(
@@ -216,6 +280,7 @@ export default function AdminSpacesView({
       setInviteLinkLabel('Invite link');
       setInviteForm(emptyInviteForm());
       setExistingUserForm(emptyExistingUserForm());
+      setSupportStartDraft({ open: false, libraryId: '', reason: '' });
       return;
     }
     const nextRole = selectedSpaceOwners.length > 0 ? 'member' : 'viewer';
@@ -445,16 +510,25 @@ export default function AdminSpacesView({
       return;
     }
 
-    const reason = window.prompt(
-      `Optional: why are you opening support access for ${selectedSpace.name}?`,
-      supportSession?.active ? `Switch support access from ${supportSession.space_name || 'current space'}` : ''
-    );
-    if (reason === null) return;
+    setSupportStartDraft({
+      open: true,
+      libraryId: String(selectedSpaceLibraries[0]?.id || ''),
+      reason: supportSession?.active ? `Switch support access from ${supportSession.space_name || 'current space'}` : ''
+    });
+  };
 
+  const submitSupportSession = async () => {
+    if (!selectedSpace) return;
     setStartingSupportSession(true);
     try {
-      await onStartSupportSession?.(selectedSpace, reason);
-      setSelectedSpaceId(null);
+      const started = await onStartSupportSession?.(selectedSpace, {
+        reason: supportStartDraft.reason,
+        libraryId: supportStartDraft.libraryId
+      });
+      if (started !== false) {
+        setSupportStartDraft({ open: false, libraryId: '', reason: '' });
+        setSelectedSpaceId(null);
+      }
     } finally {
       setStartingSupportSession(false);
     }
@@ -673,7 +747,9 @@ export default function AdminSpacesView({
                   ? <Spinner size={12} />
                   : supportSessionActiveForSelectedSpace
                     ? 'End Support Session'
-                    : 'Start Support Session'}
+                    : supportSession?.active
+                      ? 'Switch Support Session'
+                      : 'Start Support Session'}
               </button>
               <button onClick={() => setSelectedSpaceId(null)} className="btn-icon btn-sm">
                 <Icons.X />
@@ -681,6 +757,19 @@ export default function AdminSpacesView({
             </div>
 
             <div className="p-5 space-y-6">
+              {supportStartDraft.open ? (
+                <SupportSessionStartPanel
+                  spaceName={selectedSpaceDetails?.space?.name || selectedSpace.name}
+                  libraries={selectedSpaceLibraries}
+                  value={supportStartDraft}
+                  onChange={(patch) => setSupportStartDraft((prev) => ({ ...prev, ...patch }))}
+                  onCancel={() => setSupportStartDraft({ open: false, libraryId: '', reason: '' })}
+                  onSubmit={submitSupportSession}
+                  submitting={startingSupportSession}
+                  Spinner={Spinner}
+                />
+              ) : null}
+
               {detailLoading ? <p className="text-sm text-ghost flex items-center gap-2"><Spinner size={14} />Loading space detail…</p> : null}
               {detailError ? <p className="text-sm text-err">{detailError}</p> : null}
 

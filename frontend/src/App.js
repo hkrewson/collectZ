@@ -229,13 +229,16 @@ export default function App() {
     }
   }, [activeTab, apiCall, clearImportJobs, loadAuthScope, setMediaItems, showToast]);
 
-  const startSupportSession = useCallback(async (space, reason = '') => {
+  const startSupportSession = useCallback(async (space, options = {}) => {
     const spaceId = Number(space?.id || 0);
     if (!Number.isFinite(spaceId) || spaceId <= 0) return false;
+    const reason = String(options?.reason || '').trim();
+    const libraryId = Number(options?.libraryId || 0) || null;
     try {
       await apiCall('post', '/auth/support-session/start', {
         space_id: spaceId,
-        reason: String(reason || '').trim() || undefined
+        reason: reason || undefined,
+        library_id: libraryId || undefined
       });
       await loadAuthScope({ silent: true });
       clearImportJobs();
@@ -406,32 +409,49 @@ export default function App() {
         </div>
 
         {user?.role === 'admin' && supportSession?.active ? (
-          <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-edge bg-brand/10">
-            <div className="min-w-0">
-              <p className="text-[10px] uppercase tracking-[0.18em] text-brand">Support Session</p>
-              <p className="text-sm text-ink truncate">{supportSession.space_name || 'Scoped tenant access'}</p>
-              {supportSession.reason ? <p className="text-xs text-ghost truncate">Reason: {supportSession.reason}</p> : null}
-            </div>
-            <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
-              {libraries.length > 1 ? (
-                <label className="field min-w-[180px]">
-                  <span className="label">Support Library</span>
-                  <select
-                    className="select"
-                    value={activeLibraryId || ''}
-                    onChange={(e) => handleLibrarySelect(e.target.value)}
-                  >
-                    {libraries.map((library) => (
-                      <option key={library.id} value={library.id}>
-                        {library.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              ) : null}
-              <button type="button" className="btn-secondary btn-sm shrink-0" onClick={endSupportSession}>
-                End Session
-              </button>
+          <div className="border-b border-amber-300/25 bg-[linear-gradient(90deg,rgba(245,158,11,0.18),rgba(217,119,6,0.12),rgba(10,14,20,0.96))] shadow-[inset_0_1px_0_rgba(252,211,77,0.12)]">
+            <div className="flex flex-col gap-3 px-4 py-3 xl:flex-row xl:items-center xl:justify-between">
+              <div className="flex min-w-0 items-start gap-3">
+                <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-300/30 bg-amber-400/15 text-amber-100">
+                  <Icons.Activity />
+                </div>
+                <div className="min-w-0 space-y-1">
+                  <p className="text-[10px] uppercase tracking-[0.22em] text-amber-100/80">Support Session Active</p>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <p className="text-sm font-medium text-amber-50 truncate">{supportSession.space_name || 'Scoped tenant access'}</p>
+                    {activeLibrary ? (
+                      <span className="text-xs text-amber-100/70">Library: {activeLibrary.name}</span>
+                    ) : null}
+                  </div>
+                  <p className="text-xs text-amber-100/70 max-w-3xl">
+                    You are operating inside tenant context through explicit support access. End the session when the support task is complete.
+                  </p>
+                  {supportSession.reason ? (
+                    <p className="text-xs text-amber-100/80 truncate">Reason: {supportSession.reason}</p>
+                  ) : null}
+                </div>
+              </div>
+              <div className="flex flex-wrap items-end justify-end gap-2 shrink-0">
+                {libraries.length > 1 ? (
+                  <label className="field min-w-[220px]">
+                    <span className="label text-amber-100/75">Support Library</span>
+                    <select
+                      className="select border-amber-300/30 bg-amber-950/20 text-amber-50"
+                      value={activeLibraryId || ''}
+                      onChange={(e) => handleLibrarySelect(e.target.value)}
+                    >
+                      {libraries.map((library) => (
+                        <option key={library.id} value={library.id}>
+                          {library.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
+                <button type="button" className="btn-secondary btn-sm shrink-0 border-amber-300/30 bg-amber-950/20 text-amber-50 hover:bg-amber-900/30" onClick={endSupportSession}>
+                  End Session
+                </button>
+              </div>
             </div>
           </div>
         ) : null}

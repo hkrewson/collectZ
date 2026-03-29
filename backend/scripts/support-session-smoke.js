@@ -228,10 +228,12 @@ async function main() {
       method: 'POST',
       withCsrf: true,
       expectStatus: 200,
-      body: { space_id: createdSpaceId, reason }
+      body: { space_id: createdSpaceId, library_id: libraryTwoId, reason }
     });
     assert(started?.data?.support_session?.active === true, 'Support session should be active after start');
     assert(Number(started?.data?.support_session?.space_id || 0) === createdSpaceId, 'Support session should target the created space');
+    assert(Number(started?.data?.support_session?.library_id || 0) === libraryTwoId, 'Support session should honor the requested initial library');
+    assert(Number(started?.data?.active_library_id || 0) === libraryTwoId, 'Support session start should update the active library');
     assert(started?.data?.support_session?.reason === reason, 'Support session should retain the provided reason');
     assert(Array.isArray(started?.data?.libraries) && started.data.libraries.length === 2, 'Support session should expose target-space libraries');
 
@@ -243,9 +245,9 @@ async function main() {
       method: 'POST',
       withCsrf: true,
       expectStatus: 200,
-      body: { library_id: libraryTwoId }
+      body: { library_id: libraryOneId }
     });
-    assert(Number(switchedLibrary?.data?.active_library_id || 0) === libraryTwoId, 'Support library switch should update the active library');
+    assert(Number(switchedLibrary?.data?.active_library_id || 0) === libraryOneId, 'Support library switch should update the active library');
 
     await admin.fetchCsrfToken();
     const ended = await admin.request('/api/auth/support-session', {

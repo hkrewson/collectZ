@@ -314,7 +314,7 @@ router.get('/spaces/:id', asyncHandler(async (req, res) => {
       return res.status(404).json({ error: 'Space not found' });
     }
 
-    const [membersResult, invitesResult] = await Promise.all([
+    const [membersResult, invitesResult, librariesResult] = await Promise.all([
       client.query(
         `SELECT
            sm.id,
@@ -363,11 +363,30 @@ router.get('/spaces/:id', asyncHandler(async (req, res) => {
          WHERE i.space_id = $1
          ORDER BY i.created_at DESC`,
         [spaceId]
+      ),
+      client.query(
+        `SELECT
+           l.id,
+           l.name,
+           l.description,
+           l.space_id,
+           COUNT(m.id)::int AS item_count
+         FROM libraries l
+         LEFT JOIN media m ON m.library_id = l.id
+         WHERE l.space_id = $1
+           AND l.archived_at IS NULL
+         GROUP BY l.id
+         ORDER BY lower(l.name) ASC, l.id ASC`,
+        [spaceId]
       )
     ]);
 
     res.json({
       space,
+      libraries: librariesResult.rows.map((library) => ({
+        ...library,
+        item_count: Number(library.item_count || 0)
+      })),
       members: membersResult.rows,
       invites: invitesResult.rows
     });

@@ -157,6 +157,7 @@ In 2.0:
 - When that support workflow exists, it should be session-scoped rather than user-global:
   - explicit start and end,
   - target space recorded,
+  - target library selectable at session start when the space has more than one active library,
   - optional reason captured,
   - library changes, if needed, should happen only inside the explicit support session path,
   - no passive sidebar selector or background tenant browsing.

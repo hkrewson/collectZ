@@ -225,6 +225,10 @@
         "type": "object",
         "properties": {
           "space": { "$ref": "#/components/schemas/AdminSpaceRecord" },
+          "libraries": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/LibraryRecord" }
+          },
           "members": {
             "type": "array",
             "items": { "$ref": "#/components/schemas/SpaceMembershipRecord" }
@@ -234,7 +238,7 @@
             "items": { "$ref": "#/components/schemas/SpaceInviteRecord" }
           }
         },
-        "required": ["space", "members", "invites"]
+        "required": ["space", "libraries", "members", "invites"]
       },
       "AdminSpaceOwnerAssignRequest": {
         "type": "object",
