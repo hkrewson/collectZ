@@ -73,6 +73,11 @@ Promotion rules:
 - `6` (`info`): successful admin mutations, import starts/completions, auth login/logout.
 - `7` (`debug`): optional deep diagnostics (disabled by default in production).
 
+Import diagnostic note:
+
+- `media.import.diagnostic.flagged` is the canonical debug/operator event for ambiguous import rows after Import Review retirement.
+- These events are additive to import audit CSV output and must never block the import path if export fails.
+
 ### Redaction policy (mandatory)
 
 The following MUST NOT appear in `_details` (or any GELF field):

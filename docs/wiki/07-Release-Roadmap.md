@@ -1329,9 +1329,14 @@ Historical planning notes may still exist in:
   - Keep web-fallback results in manual review queue by default (no silent auto-apply).
   - Add side-project spike: evaluate provider reliability and legal risk for Blu-ray-focused scraping before enabling in production.
 
+Historical note:
+
+- The original Import Review queue/UI from `2.2.0` was later retired in `2.8.3`.
+- Current operator guidance relies on import audit/export output plus debug-oriented diagnostics and external log export rather than a standalone review queue.
+
 ### Acceptance Criteria
 
-- Ambiguous imports no longer auto-apply silently; they enter review queue.
+- Ambiguous imports no longer auto-apply silently; this was originally handled through the review queue before retirement in `2.8.3`.
 - Boxed-set imports can be represented as collection + contained items where data is available.
 
 ## 2.3.0 — TV Watch-State and Provider Sync Foundation

@@ -2257,6 +2257,14 @@ const MIGRATIONS = [
       END;
       $$;
     `
+  },
+  {
+    version: 45,
+    description: 'Retire import review queue after moving diagnostics to audit and debug logging',
+    up: `
+      DROP TRIGGER IF EXISTS update_import_match_reviews_updated_at ON import_match_reviews;
+      DROP TABLE IF EXISTS import_match_reviews;
+    `
   }
 ];
 

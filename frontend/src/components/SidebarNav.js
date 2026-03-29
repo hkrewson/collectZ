@@ -50,8 +50,7 @@ export default function SidebarNav({
     'library-comics',
     'library-collectibles',
     'library-events',
-    'library-import',
-    'library-import-review'
+    'library-import'
   ].includes(activeTab);
   const isAdminGroupActive = [
     'admin-activity',

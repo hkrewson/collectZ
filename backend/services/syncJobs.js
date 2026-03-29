@@ -16,7 +16,7 @@ function buildCompactJobSummary(summary = null) {
     'skipped_non_movie',
     'skipped_existing',
     'errorCount',
-    'reviewQueued',
+    'diagnosticsFlagged',
     'collectionsDetected',
     'collectionsCreated',
     'collectionItemsSeeded',

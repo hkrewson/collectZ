@@ -111,18 +111,12 @@ const IMPORT_AUDIT_OUTCOMES = [
   'new_created',
   'duplicate_exact',
   'near_match_update',
-  'created_needs_review',
+  'created_debug_flagged',
   'skipped_invalid',
   'error',
   'collection_only'
 ];
 const GAME_UPC_FIRST_ENABLED = String(process.env.GAME_UPC_FIRST || 'false').trim().toLowerCase() === 'true';
-const IMPORT_REVIEW_ACTIONS = [
-  'accept_suggested',
-  'choose_alternate',
-  'search_again',
-  'skip_keep_manual'
-];
 const parsePlexRatingKeyFromItemKey = (itemKey) => {
   const raw = String(itemKey || '').trim();
   if (!raw) return null;
@@ -243,7 +237,7 @@ function deriveImportConfidenceScore({
   return Math.max(0, Math.min(100, score));
 }
 
-function shouldQueueImportReview({
+function shouldFlagImportDiagnostic({
   matchMode,
   enrichmentStatus,
   confidenceScore,
@@ -276,10 +270,10 @@ function deriveImportAuditOutcome({
   upsertStatus,
   matchedBy,
   matchMode,
-  reviewQueued
+  diagnosticFlagged
 }) {
   if (upsertStatus === 'created') {
-    return reviewQueued ? 'created_needs_review' : 'new_created';
+    return diagnosticFlagged ? 'created_debug_flagged' : 'new_created';
   }
   if (upsertStatus === 'updated') {
     const matched = String(matchedBy || '');
@@ -1816,54 +1810,48 @@ async function getSyncJob(jobId, reqUser) {
   return result.rows[0] || null;
 }
 
-async function enqueueImportMatchReview({
-  userId,
-  scopeContext,
+async function emitImportDiagnosticFlag({
+  auditReq,
   jobId = null,
   importSource = null,
   provider = null,
   rowNumber = null,
   sourceTitle = null,
   mediaType = null,
+  upsertStatus = null,
   matchMode = null,
   matchedBy = null,
   enrichmentStatus = null,
   proposedMediaId = null,
   confidenceScore = null,
-  sourcePayload = null,
-  collectionId = null
+  lookupPath = null,
+  lookupStatus = null,
+  identifiers = null,
+  collectionId = null,
+  classificationDetail = null,
+  auditOutcome = null
 }) {
-  const params = [
-    jobId || null,
-    importSource || null,
-    provider || null,
-    Number.isFinite(Number(rowNumber)) ? Number(rowNumber) : null,
-    sourceTitle || null,
-    normalizeMediaType(mediaType || 'movie', 'movie'),
-    Number.isFinite(Number(confidenceScore)) ? Number(confidenceScore) : null,
-    matchMode || null,
-    matchedBy || null,
-    enrichmentStatus || null,
-    proposedMediaId || null,
-    sourcePayload ? JSON.stringify(sourcePayload) : null,
-    collectionId || null,
-    scopeContext?.libraryId || null,
-    scopeContext?.spaceId || null,
-    userId || null
-  ];
-  const result = await pool.query(
-    `INSERT INTO import_match_reviews (
-       job_id, import_source, provider, row_number, source_title, media_type,
-       confidence_score, match_mode, matched_by, enrichment_status, proposed_media_id,
-       source_payload, collection_id, library_id, space_id, created_by
-     )
-     VALUES (
-       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb,$13,$14,$15,$16
-     )
-     RETURNING id`,
-    params
-  );
-  return result.rows[0] || null;
+  if (!auditReq || !isDebugAt(2)) return false;
+  await logActivity(auditReq, 'media.import.diagnostic.flagged', jobId ? 'sync_job' : 'media_import', jobId || null, {
+    provider: provider || null,
+    importSource: importSource || null,
+    rowNumber: Number.isFinite(Number(rowNumber)) ? Number(rowNumber) : null,
+    sourceTitle: sourceTitle || null,
+    mediaType: normalizeMediaType(mediaType || 'movie', 'movie'),
+    upsertStatus: upsertStatus || null,
+    matchMode: matchMode || null,
+    matchedBy: matchedBy || null,
+    enrichmentStatus: enrichmentStatus || null,
+    proposedMediaId: proposedMediaId || null,
+    confidenceScore: Number.isFinite(Number(confidenceScore)) ? Number(confidenceScore) : null,
+    lookupPath: lookupPath || 'none',
+    lookupStatus: lookupStatus || 'none',
+    identifiers: identifiers || null,
+    collectionId: collectionId || null,
+    classificationDetail: classificationDetail || null,
+    auditOutcome: auditOutcome || null
+  });
+  return true;
 }
 
 async function ensureImportCollection({
@@ -1984,117 +1972,6 @@ async function addCollectionItem({
     ]
   );
   return inserted.rows[0]?.id || null;
-}
-
-async function loadMediaForImportReview(mediaId, scopeContext = null) {
-  const params = [mediaId];
-  const scopeClause = appendScopeSql(params, scopeContext);
-  const mediaResult = await pool.query(
-    `SELECT
-       id, title, media_type, original_title, release_date, year, format, genre, director,
-       cast_members AS cast, rating, user_rating, tmdb_id, tmdb_media_type, tmdb_url,
-       poster_path, backdrop_path, overview, trailer_url, runtime, upc, type_details,
-       import_source
-     FROM media
-     WHERE id = $1
-     ${scopeClause}
-     LIMIT 1`,
-    params
-  );
-  if (!mediaResult.rows[0]) return null;
-
-  const metaResult = await pool.query(
-    `SELECT "key", "value"
-     FROM media_metadata
-     WHERE media_id = $1
-       AND "key" IN ('isbn', 'ean', 'ean_upc', 'upc', 'amazon_item_id')`,
-    [mediaId]
-  );
-  const metadata = {};
-  for (const row of metaResult.rows) {
-    metadata[row.key] = row.value;
-  }
-  return { media: mediaResult.rows[0], metadata };
-}
-
-async function applyImportReviewEnrichment({ mediaId, scopeContext = null }) {
-  const loaded = await loadMediaForImportReview(mediaId, scopeContext);
-  if (!loaded?.media) return { applied: false, reason: 'media_not_found' };
-  const { media, metadata } = loaded;
-
-  const identifiers = resolveImportIdentifiers(media, {
-    isbn: metadata.isbn || media?.type_details?.isbn || '',
-    ean_upc: metadata.ean_upc || metadata.ean || metadata.upc || media.upc || '',
-    asin: metadata.amazon_item_id || ''
-  });
-  const config = await loadAdminIntegrationConfig();
-  const caches = { tmdbCache: new Map(), providerCache: new Map() };
-  const enrichmentResult = await runImportEnrichmentPipeline(
-    { ...media, identifiers },
-    config,
-    caches,
-    identifiers
-  );
-  const enriched = enrichmentResult.item || media;
-  const normalizedType = normalizeMediaType(media.media_type || 'movie', 'movie');
-  const normalizedTypeDetailsResult = normalizeTypeDetails(normalizedType, enriched.type_details, { strict: false });
-  const normalizedTypeDetails = normalizedTypeDetailsResult.value;
-
-  await pool.query(
-    `UPDATE media SET
-       original_title = COALESCE($1, original_title),
-       release_date = COALESCE($2, release_date),
-       year = COALESCE($3, year),
-       genre = COALESCE($4, genre),
-       director = COALESCE($5, director),
-       cast_members = COALESCE($6, cast_members),
-       rating = COALESCE($7, rating),
-       user_rating = COALESCE($8, user_rating),
-       tmdb_id = COALESCE($9, tmdb_id),
-       tmdb_media_type = COALESCE($10, tmdb_media_type),
-       tmdb_url = COALESCE($11, tmdb_url),
-       poster_path = COALESCE($12, poster_path),
-       backdrop_path = COALESCE($13, backdrop_path),
-       overview = COALESCE($14, overview),
-       trailer_url = COALESCE($15, trailer_url),
-       runtime = COALESCE($16, runtime),
-       upc = COALESCE($17, upc),
-       type_details = COALESCE($18::jsonb, type_details)
-     WHERE id = $19`,
-    [
-      enriched.original_title || null,
-      enriched.release_date || null,
-      enriched.year || null,
-      enriched.genre || null,
-      enriched.director || null,
-      enriched.cast || null,
-      enriched.rating || null,
-      enriched.user_rating || null,
-      enriched.tmdb_id || null,
-      enriched.tmdb_media_type || null,
-      enriched.tmdb_url || null,
-      enriched.poster_path || null,
-      enriched.backdrop_path || null,
-      enriched.overview || null,
-      enriched.trailer_url || null,
-      enriched.runtime || null,
-      enriched.upc || null,
-      normalizedTypeDetails ? JSON.stringify(normalizedTypeDetails) : null,
-      mediaId
-    ]
-  );
-
-  await syncNormalizedMetadataForMedia({
-    mediaId,
-    genre: enriched.genre || null,
-    director: enriched.director || null,
-    cast: enriched.cast || null
-  });
-
-  return {
-    applied: true,
-    enrichmentStatus: enrichmentResult.enrichmentStatus
-  };
 }
 
 async function runPlexImport({ req, config, sectionIds = [], scopeContext = null, onProgress = null }) {
@@ -2975,7 +2852,7 @@ async function runGenericCsvImport({
     updated: 0,
     skipped_invalid: 0,
     skipped_collection: 0,
-    reviewQueued: 0,
+    diagnosticsFlagged: 0,
     collectionsDetected: 0,
     collectionsCreated: 0,
     collectionItemsSeeded: 0,
@@ -3168,7 +3045,7 @@ async function runGenericCsvImport({
         importSource,
         lookupStatus: enrichmentResult.lookupStatus
       });
-      const reviewNeeded = shouldQueueImportReview({
+      const diagnosticFlagged = shouldFlagImportDiagnostic({
         matchMode: result.matchMode,
         enrichmentStatus: enrichmentResult.enrichmentStatus,
         confidenceScore,
@@ -3176,48 +3053,47 @@ async function runGenericCsvImport({
         mediaType: mapped.media_type || 'movie',
         importSource
       });
-      if (reviewNeeded && isDebugAt(2)) {
-        await enqueueImportMatchReview({
-          userId,
-          scopeContext,
+      const classificationDetail = deriveImportAuditClassificationDetail({
+        upsertStatus: result.type,
+        matchMode: result.matchMode,
+        matchedBy: result.matchedBy,
+        enrichmentStatus: enrichmentResult.enrichmentStatus,
+        lookupPath: enrichmentResult.lookupPath,
+        mediaType: mapped.media_type || 'movie',
+        importSource
+      });
+      const auditOutcome = deriveImportAuditOutcome({
+        upsertStatus: result.type,
+        matchedBy: result.matchedBy,
+        matchMode: result.matchMode,
+        diagnosticFlagged
+      });
+      if (diagnosticFlagged) {
+        await emitImportDiagnosticFlag({
+          auditReq: reviewContext?.auditReq || null,
           jobId: reviewContext?.jobId || null,
           importSource,
           provider: reviewContext?.provider || 'csv_generic',
           rowNumber: idx + 2,
           sourceTitle: mapped.title || '',
           mediaType: mapped.media_type || 'movie',
+          upsertStatus: result.type,
           matchMode: result.matchMode || null,
           matchedBy: result.matchedBy || null,
           enrichmentStatus: enrichmentResult.enrichmentStatus,
           proposedMediaId: result.mediaId || null,
           confidenceScore,
-          sourcePayload: {
-            identifiers: rowIdentifiers,
-            status: result.type,
-            lookup_path: enrichmentResult.lookupPath || 'none',
-            lookup_status: enrichmentResult.lookupStatus || 'none'
-          },
-          collectionId
+          lookupPath: enrichmentResult.lookupPath || 'none',
+          lookupStatus: enrichmentResult.lookupStatus || 'none',
+          identifiers: rowIdentifiers,
+          collectionId,
+          classificationDetail,
+          auditOutcome
         });
-        summary.reviewQueued += 1;
+        summary.diagnosticsFlagged += 1;
       }
       if (result.type === 'created') {
         summary.created += 1;
-        const auditOutcome = deriveImportAuditOutcome({
-          upsertStatus: result.type,
-          matchedBy: result.matchedBy,
-          matchMode: result.matchMode,
-          reviewQueued: reviewNeeded
-        });
-        const classificationDetail = deriveImportAuditClassificationDetail({
-          upsertStatus: result.type,
-          matchMode: result.matchMode,
-          matchedBy: result.matchedBy,
-          enrichmentStatus: enrichmentResult.enrichmentStatus,
-          lookupPath: enrichmentResult.lookupPath,
-          mediaType: mapped.media_type || 'movie',
-          importSource
-        });
         incrementImportAuditOutcomeCounter(summary.auditOutcomes, auditOutcome);
         auditRows.push({
           row: idx + 2,
@@ -3233,28 +3109,13 @@ async function runGenericCsvImport({
           audit_outcome: auditOutcome,
           classification_detail: classificationDetail,
           confidence_score: confidenceScore,
-          review_queued: reviewNeeded,
+          diagnostic_flagged: diagnosticFlagged,
           isbn: rowIdentifiers.isbn || '',
           ean_upc: rowIdentifiers.eanUpc || '',
           asin: rowIdentifiers.asin || ''
         });
       } else if (result.type === 'updated') {
         summary.updated += 1;
-        const auditOutcome = deriveImportAuditOutcome({
-          upsertStatus: result.type,
-          matchedBy: result.matchedBy,
-          matchMode: result.matchMode,
-          reviewQueued: reviewNeeded
-        });
-        const classificationDetail = deriveImportAuditClassificationDetail({
-          upsertStatus: result.type,
-          matchMode: result.matchMode,
-          matchedBy: result.matchedBy,
-          enrichmentStatus: enrichmentResult.enrichmentStatus,
-          lookupPath: enrichmentResult.lookupPath,
-          mediaType: mapped.media_type || 'movie',
-          importSource
-        });
         incrementImportAuditOutcomeCounter(summary.auditOutcomes, auditOutcome);
         auditRows.push({
           row: idx + 2,
@@ -3270,7 +3131,7 @@ async function runGenericCsvImport({
           audit_outcome: auditOutcome,
           classification_detail: classificationDetail,
           confidence_score: confidenceScore,
-          review_queued: reviewNeeded,
+          diagnostic_flagged: diagnosticFlagged,
           isbn: rowIdentifiers.isbn || '',
           ean_upc: rowIdentifiers.eanUpc || '',
           asin: rowIdentifiers.asin || ''
@@ -3290,17 +3151,9 @@ async function runGenericCsvImport({
           lookup_path: enrichmentResult.lookupPath || 'none',
           lookup_status: enrichmentResult.lookupStatus || 'none',
           audit_outcome: 'skipped_invalid',
-          classification_detail: deriveImportAuditClassificationDetail({
-            upsertStatus: result.type,
-            matchMode: result.matchMode,
-            matchedBy: result.matchedBy,
-            enrichmentStatus: enrichmentResult.enrichmentStatus,
-            lookupPath: enrichmentResult.lookupPath,
-            mediaType: mapped.media_type || 'movie',
-            importSource
-          }),
+          classification_detail: classificationDetail,
           confidence_score: confidenceScore,
-          review_queued: reviewNeeded,
+          diagnostic_flagged: diagnosticFlagged,
           isbn: rowIdentifiers.isbn || '',
           ean_upc: rowIdentifiers.eanUpc || '',
           asin: rowIdentifiers.asin || ''
@@ -3360,7 +3213,7 @@ async function runDeliciousCsvImport({
     skipped_non_movie: 0,
     skipped_invalid: 0,
     skipped_collection: 0,
-    reviewQueued: 0,
+    diagnosticsFlagged: 0,
     collectionsDetected: 0,
     collectionsCreated: 0,
     collectionItemsSeeded: 0,
@@ -3569,7 +3422,7 @@ async function runDeliciousCsvImport({
             importSource: 'csv_delicious',
             lookupStatus: enrichmentResult.lookupStatus
           });
-          const reviewNeeded = shouldQueueImportReview({
+          const diagnosticFlagged = shouldFlagImportDiagnostic({
             matchMode: result.matchMode,
             enrichmentStatus: enrichmentResult.enrichmentStatus,
             confidenceScore,
@@ -3577,31 +3430,44 @@ async function runDeliciousCsvImport({
             mediaType: mapped.media_type || 'movie',
             importSource: 'csv_delicious'
           });
-          if (reviewNeeded && isDebugAt(2)) {
-            await enqueueImportMatchReview({
-              userId,
-              scopeContext,
+          const classificationDetail = deriveImportAuditClassificationDetail({
+            upsertStatus: result.type,
+            matchMode: result.matchMode,
+            matchedBy: result.matchedBy,
+            enrichmentStatus: enrichmentResult.enrichmentStatus,
+            lookupPath: enrichmentResult.lookupPath,
+            mediaType: mapped.media_type || 'movie',
+            importSource: 'csv_delicious'
+          });
+          const auditOutcome = deriveImportAuditOutcome({
+            upsertStatus: result.type,
+            matchedBy: result.matchedBy,
+            matchMode: result.matchMode,
+            diagnosticFlagged
+          });
+          if (diagnosticFlagged) {
+            await emitImportDiagnosticFlag({
+              auditReq: reviewContext?.auditReq || null,
               jobId: reviewContext?.jobId || null,
               importSource: 'csv_delicious',
               provider: reviewContext?.provider || 'csv_delicious',
               rowNumber: idx + 2,
               sourceTitle: title,
               mediaType: mapped.media_type || 'movie',
+              upsertStatus: result.type,
               matchMode: result.matchMode || null,
               matchedBy: result.matchedBy || null,
               enrichmentStatus: enrichmentResult.enrichmentStatus,
               proposedMediaId: result.mediaId || null,
               confidenceScore,
-              sourcePayload: {
-                identifiers: rowIdentifiers,
-                itemType: itemType || null,
-                status: result.type,
-                lookup_path: enrichmentResult.lookupPath || 'none',
-                lookup_status: enrichmentResult.lookupStatus || 'none'
-              },
-              collectionId
+              lookupPath: enrichmentResult.lookupPath || 'none',
+              lookupStatus: enrichmentResult.lookupStatus || 'none',
+              identifiers: rowIdentifiers,
+              collectionId,
+              classificationDetail,
+              auditOutcome
             });
-            summary.reviewQueued += 1;
+            summary.diagnosticsFlagged += 1;
           }
           if (result.mediaId) {
             await upsertMediaMetadataEntry(result.mediaId, 'amazon_item_id', normalizedRow.amazonItemId);
@@ -3624,21 +3490,6 @@ async function runDeliciousCsvImport({
           }
           if (result.type === 'created') {
             summary.created += 1;
-            const auditOutcome = deriveImportAuditOutcome({
-              upsertStatus: result.type,
-              matchedBy: result.matchedBy,
-              matchMode: result.matchMode,
-              reviewQueued: reviewNeeded
-            });
-            const classificationDetail = deriveImportAuditClassificationDetail({
-              upsertStatus: result.type,
-              matchMode: result.matchMode,
-              matchedBy: result.matchedBy,
-              enrichmentStatus: enrichmentResult.enrichmentStatus,
-              lookupPath: enrichmentResult.lookupPath,
-              mediaType: mapped.media_type || 'movie',
-              importSource: 'csv_delicious'
-            });
             incrementImportAuditOutcomeCounter(summary.auditOutcomes, auditOutcome);
             auditRows.push({
               row: idx + 2,
@@ -3654,28 +3505,13 @@ async function runDeliciousCsvImport({
               audit_outcome: auditOutcome,
               classification_detail: classificationDetail,
               confidence_score: confidenceScore,
-              review_queued: reviewNeeded,
+              diagnostic_flagged: diagnosticFlagged,
               isbn: rowIdentifiers.isbn || '',
               ean_upc: rowIdentifiers.eanUpc || '',
               asin: rowIdentifiers.asin || ''
             });
           } else if (result.type === 'updated') {
             summary.updated += 1;
-            const auditOutcome = deriveImportAuditOutcome({
-              upsertStatus: result.type,
-              matchedBy: result.matchedBy,
-              matchMode: result.matchMode,
-              reviewQueued: reviewNeeded
-            });
-            const classificationDetail = deriveImportAuditClassificationDetail({
-              upsertStatus: result.type,
-              matchMode: result.matchMode,
-              matchedBy: result.matchedBy,
-              enrichmentStatus: enrichmentResult.enrichmentStatus,
-              lookupPath: enrichmentResult.lookupPath,
-              mediaType: mapped.media_type || 'movie',
-              importSource: 'csv_delicious'
-            });
             incrementImportAuditOutcomeCounter(summary.auditOutcomes, auditOutcome);
             auditRows.push({
               row: idx + 2,
@@ -3691,7 +3527,7 @@ async function runDeliciousCsvImport({
               audit_outcome: auditOutcome,
               classification_detail: classificationDetail,
               confidence_score: confidenceScore,
-              review_queued: reviewNeeded,
+              diagnostic_flagged: diagnosticFlagged,
               isbn: rowIdentifiers.isbn || '',
               ean_upc: rowIdentifiers.eanUpc || '',
               asin: rowIdentifiers.asin || ''
@@ -3711,17 +3547,9 @@ async function runDeliciousCsvImport({
               lookup_path: enrichmentResult.lookupPath || 'none',
               lookup_status: enrichmentResult.lookupStatus || 'none',
               audit_outcome: 'skipped_invalid',
-              classification_detail: deriveImportAuditClassificationDetail({
-                upsertStatus: result.type,
-                matchMode: result.matchMode,
-                matchedBy: result.matchedBy,
-                enrichmentStatus: enrichmentResult.enrichmentStatus,
-                lookupPath: enrichmentResult.lookupPath,
-                mediaType: mapped.media_type || 'movie',
-                importSource: 'csv_delicious'
-              }),
+              classification_detail: classificationDetail,
               confidence_score: confidenceScore,
-              review_queued: reviewNeeded,
+              diagnostic_flagged: diagnosticFlagged,
               isbn: rowIdentifiers.isbn || '',
               ean_upc: rowIdentifiers.eanUpc || '',
               asin: rowIdentifiers.asin || ''
@@ -4804,7 +4632,7 @@ router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, r
           userId: req.user.id,
           scopeContext,
           onProgress: async (progress) => updateSyncJob(job.id, { progress }),
-          reviewContext: { jobId: job.id, provider: 'csv_generic' }
+          reviewContext: { jobId: job.id, provider: 'csv_generic', auditReq }
         });
         await updateSyncJob(job.id, {
           status: 'succeeded',
@@ -4824,7 +4652,7 @@ router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, r
             errorCount: result.summary.errors.length,
             matchModes: result.summary.matchModes,
             enrichment: result.summary.enrichment,
-            reviewQueued: result.summary.reviewQueued,
+            diagnosticsFlagged: result.summary.diagnosticsFlagged,
             collectionsDetected: result.summary.collectionsDetected || 0,
             collectionsCreated: result.summary.collectionsCreated || 0,
             collectionItemsSeeded: result.summary.collectionItemsSeeded || 0,
@@ -4842,7 +4670,7 @@ router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, r
           errorCount: result.summary.errors.length,
           matchModes: result.summary.matchModes,
           enrichment: result.summary.enrichment,
-          reviewQueued: result.summary.reviewQueued,
+          diagnosticsFlagged: result.summary.diagnosticsFlagged,
           collectionsDetected: result.summary.collectionsDetected || 0,
           collectionsCreated: result.summary.collectionsCreated || 0,
           collectionItemsSeeded: result.summary.collectionItemsSeeded || 0,
@@ -4869,7 +4697,7 @@ router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, r
     rows,
     userId: req.user.id,
     scopeContext,
-    reviewContext: { provider: 'csv_generic' }
+    reviewContext: { provider: 'csv_generic', auditReq: req }
   });
   recordImportJobEvent('csv_generic', 'succeeded');
   recordImportEnrichmentSummaryMetrics('csv_generic', result.summary.enrichment);
@@ -4881,7 +4709,7 @@ router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, r
     errorCount: result.summary.errors.length,
     matchModes: result.summary.matchModes,
     enrichment: result.summary.enrichment,
-    reviewQueued: result.summary.reviewQueued,
+    diagnosticsFlagged: result.summary.diagnosticsFlagged,
     collectionsDetected: result.summary.collectionsDetected || 0,
     collectionsCreated: result.summary.collectionsCreated || 0,
     collectionItemsSeeded: result.summary.collectionItemsSeeded || 0
@@ -4942,7 +4770,7 @@ router.post('/import-csv/calibre', tempUpload.single('file'), asyncHandler(async
           scopeContext,
           onProgress: async (progress) => updateSyncJob(job.id, { progress }),
           importSource: 'csv_calibre',
-          reviewContext: { jobId: job.id, provider: 'csv_calibre' }
+          reviewContext: { jobId: job.id, provider: 'csv_calibre', auditReq }
         });
         await updateSyncJob(job.id, {
           status: 'succeeded',
@@ -4962,7 +4790,7 @@ router.post('/import-csv/calibre', tempUpload.single('file'), asyncHandler(async
             errorCount: result.summary.errors.length,
             matchModes: result.summary.matchModes,
             enrichment: result.summary.enrichment,
-            reviewQueued: result.summary.reviewQueued,
+            diagnosticsFlagged: result.summary.diagnosticsFlagged,
             collectionsDetected: result.summary.collectionsDetected || 0,
             collectionsCreated: result.summary.collectionsCreated || 0,
             collectionItemsSeeded: result.summary.collectionItemsSeeded || 0,
@@ -4980,7 +4808,7 @@ router.post('/import-csv/calibre', tempUpload.single('file'), asyncHandler(async
           errorCount: result.summary.errors.length,
           matchModes: result.summary.matchModes,
           enrichment: result.summary.enrichment,
-          reviewQueued: result.summary.reviewQueued,
+          diagnosticsFlagged: result.summary.diagnosticsFlagged,
           collectionsDetected: result.summary.collectionsDetected || 0,
           collectionsCreated: result.summary.collectionsCreated || 0,
           collectionItemsSeeded: result.summary.collectionItemsSeeded || 0,
@@ -5009,7 +4837,7 @@ router.post('/import-csv/calibre', tempUpload.single('file'), asyncHandler(async
     userId: req.user.id,
     scopeContext,
     importSource: 'csv_calibre',
-    reviewContext: { provider: 'csv_calibre' }
+    reviewContext: { provider: 'csv_calibre', auditReq: req }
   });
   recordImportJobEvent('csv_calibre', 'succeeded');
   recordImportEnrichmentSummaryMetrics('csv_calibre', result.summary.enrichment);
@@ -5021,7 +4849,7 @@ router.post('/import-csv/calibre', tempUpload.single('file'), asyncHandler(async
     errorCount: result.summary.errors.length,
     matchModes: result.summary.matchModes,
     enrichment: result.summary.enrichment,
-    reviewQueued: result.summary.reviewQueued,
+    diagnosticsFlagged: result.summary.diagnosticsFlagged,
     collectionsDetected: result.summary.collectionsDetected || 0,
     collectionsCreated: result.summary.collectionsCreated || 0,
     collectionItemsSeeded: result.summary.collectionItemsSeeded || 0
@@ -5087,7 +4915,7 @@ router.post('/import-csv/delicious', tempUpload.single('file'), asyncHandler(asy
           userId: req.user.id,
           scopeContext,
           onProgress: async (progress) => updateSyncJob(job.id, { progress }),
-          reviewContext: { jobId: job.id, provider: 'csv_delicious' }
+          reviewContext: { jobId: job.id, provider: 'csv_delicious', auditReq }
         });
         await updateSyncJob(job.id, {
           status: 'succeeded',
@@ -5108,7 +4936,7 @@ router.post('/import-csv/delicious', tempUpload.single('file'), asyncHandler(asy
             errorCount: result.summary.errors.length,
             matchModes: result.summary.matchModes,
             enrichment: result.summary.enrichment,
-            reviewQueued: result.summary.reviewQueued,
+            diagnosticsFlagged: result.summary.diagnosticsFlagged,
             collectionsDetected: result.summary.collectionsDetected || 0,
             collectionsCreated: result.summary.collectionsCreated || 0,
             collectionItemsSeeded: result.summary.collectionItemsSeeded || 0,
@@ -5127,7 +4955,7 @@ router.post('/import-csv/delicious', tempUpload.single('file'), asyncHandler(asy
           errorCount: result.summary.errors.length,
           matchModes: result.summary.matchModes,
           enrichment: result.summary.enrichment,
-          reviewQueued: result.summary.reviewQueued,
+          diagnosticsFlagged: result.summary.diagnosticsFlagged,
           collectionsDetected: result.summary.collectionsDetected || 0,
           collectionsCreated: result.summary.collectionsCreated || 0,
           collectionItemsSeeded: result.summary.collectionItemsSeeded || 0,
@@ -5155,7 +4983,7 @@ router.post('/import-csv/delicious', tempUpload.single('file'), asyncHandler(asy
     rows,
     userId: req.user.id,
     scopeContext,
-    reviewContext: { provider: 'csv_delicious' }
+    reviewContext: { provider: 'csv_delicious', auditReq: req }
   });
   recordImportJobEvent('csv_delicious', 'succeeded');
   recordImportEnrichmentSummaryMetrics('csv_delicious', result.summary.enrichment);
@@ -5168,7 +4996,7 @@ router.post('/import-csv/delicious', tempUpload.single('file'), asyncHandler(asy
     errorCount: result.summary.errors.length,
     matchModes: result.summary.matchModes,
     enrichment: result.summary.enrichment,
-    reviewQueued: result.summary.reviewQueued,
+    diagnosticsFlagged: result.summary.diagnosticsFlagged,
     collectionsDetected: result.summary.collectionsDetected || 0,
     collectionsCreated: result.summary.collectionsCreated || 0,
     collectionItemsSeeded: result.summary.collectionItemsSeeded || 0
@@ -5511,31 +5339,6 @@ router.get('/sync-jobs/:id/result', asyncHandler(async (req, res) => {
     return res.status(404).json({ error: 'Job not found' });
   }
   res.json(formatSyncJob(job, { includeFullSummary: true }));
-}));
-
-router.get('/import-reviews/unresolved-count', asyncHandler(async (req, res) => {
-  if (!isDebugAt(2)) {
-    return res.status(404).json({ error: 'Import review is disabled' });
-  }
-  const scopeContext = resolveScopeContext(req);
-  const params = ['pending'];
-  let where = 'WHERE status = $1';
-  if (req.user.role !== 'admin') {
-    params.push(req.user.id);
-    where += ` AND created_by = $${params.length}`;
-  }
-  const scopeClause = appendScopeSql(params, scopeContext, {
-    spaceColumn: 'space_id',
-    libraryColumn: 'library_id'
-  });
-  const result = await pool.query(
-    `SELECT COUNT(*)::int AS count
-     FROM import_match_reviews
-     ${where}
-     ${scopeClause}`,
-    params
-  );
-  res.json({ count: result.rows[0]?.count || 0 });
 }));
 
 router.get('/collections', asyncHandler(async (req, res) => {
@@ -6209,176 +6012,6 @@ router.post('/collections/:id/convert-to-individual', asyncHandler(async (req, r
     name: collection.rows[0].name || null
   });
   res.json({ ok: true, removed_items: items.rows.length, created_titles: createdTitles });
-}));
-
-router.get('/import-reviews', asyncHandler(async (req, res) => {
-  if (!isDebugAt(2)) {
-    return res.status(404).json({ error: 'Import review is disabled' });
-  }
-  const scopeContext = resolveScopeContext(req);
-  const pageRaw = Number(req.query?.page);
-  const page = Number.isFinite(pageRaw) ? Math.max(1, pageRaw) : 1;
-  const limitRaw = Number(req.query?.limit);
-  const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(200, limitRaw)) : 50;
-  const status = String(req.query?.status || 'pending').trim().toLowerCase();
-  const search = String(req.query?.search || '').trim();
-
-  const params = [status];
-  let where = 'WHERE imr.status = $1';
-  if (req.user.role !== 'admin') {
-    params.push(req.user.id);
-    where += ` AND imr.created_by = $${params.length}`;
-  }
-  if (search) {
-    params.push(`%${search}%`);
-    where += ` AND COALESCE(imr.source_title, '') ILIKE $${params.length}`;
-  }
-  const scopeClause = appendScopeSql(params, scopeContext, {
-    spaceColumn: 'imr.space_id',
-    libraryColumn: 'imr.library_id'
-  });
-  const whereWithScope = `${where} ${scopeClause}`;
-  const offset = (page - 1) * limit;
-
-  const countQuery = await pool.query(
-    `SELECT COUNT(*)::int AS total
-     FROM import_match_reviews imr
-     ${whereWithScope}`,
-    params
-  );
-  params.push(limit);
-  params.push(offset);
-  const rowsQuery = await pool.query(
-    `SELECT
-       imr.id, imr.job_id, imr.import_source, imr.provider, imr.row_number, imr.source_title, imr.media_type,
-       imr.status, imr.confidence_score, imr.match_mode, imr.matched_by, imr.enrichment_status,
-       imr.collection_id, c.name AS collection_name,
-       imr.proposed_media_id, proposed.title AS proposed_media_title,
-       imr.resolved_media_id, resolved.title AS resolved_media_title,
-       imr.resolution_action, imr.resolution_note, imr.source_payload,
-       imr.library_id, imr.space_id, imr.created_by, imr.resolved_by, imr.resolved_at,
-       imr.created_at, imr.updated_at
-     FROM import_match_reviews imr
-     LEFT JOIN collections c ON c.id = imr.collection_id
-     LEFT JOIN media proposed ON proposed.id = imr.proposed_media_id
-     LEFT JOIN media resolved ON resolved.id = imr.resolved_media_id
-     ${whereWithScope}
-     ORDER BY imr.created_at DESC
-     LIMIT $${params.length - 1}
-     OFFSET $${params.length}`,
-    params
-  );
-  const total = countQuery.rows[0]?.total || 0;
-  res.json({
-    items: rowsQuery.rows,
-    pagination: {
-      page,
-      limit,
-      total,
-      totalPages: Math.max(1, Math.ceil(total / limit))
-    }
-  });
-}));
-
-router.patch('/import-reviews/:id', asyncHandler(async (req, res) => {
-  if (!isDebugAt(2)) {
-    return res.status(404).json({ error: 'Import review is disabled' });
-  }
-  const scopeContext = resolveScopeContext(req);
-  const reviewId = Number(req.params.id);
-  if (!Number.isFinite(reviewId) || reviewId <= 0) {
-    return res.status(400).json({ error: 'Invalid review id' });
-  }
-  const action = String(req.body?.action || '').trim().toLowerCase();
-  if (!IMPORT_REVIEW_ACTIONS.includes(action)) {
-    return res.status(400).json({ error: 'Invalid review action' });
-  }
-  const resolvedMediaIdRaw = Number(req.body?.resolved_media_id);
-  const resolvedMediaId = Number.isFinite(resolvedMediaIdRaw) ? resolvedMediaIdRaw : null;
-  const note = req.body?.note ? String(req.body.note).slice(0, 1000) : null;
-
-  const params = [reviewId];
-  let where = 'WHERE id = $1';
-  if (req.user.role !== 'admin') {
-    params.push(req.user.id);
-    where += ` AND created_by = $${params.length}`;
-  }
-  const scopeClause = appendScopeSql(params, scopeContext, {
-    spaceColumn: 'space_id',
-    libraryColumn: 'library_id'
-  });
-  const existing = await pool.query(
-    `SELECT id, status, source_title, proposed_media_id, collection_id
-     FROM import_match_reviews
-     ${where}
-     ${scopeClause}
-     LIMIT 1`,
-    params
-  );
-  if (!existing.rows[0]) {
-    return res.status(404).json({ error: 'Import review not found' });
-  }
-  const status = action === 'skip_keep_manual' ? 'skipped' : 'resolved';
-  const resolutionMediaId = action === 'choose_alternate'
-    ? resolvedMediaId
-    : (existing.rows[0].proposed_media_id || resolvedMediaId || null);
-  if (action !== 'skip_keep_manual' && !resolutionMediaId) {
-    return res.status(400).json({ error: 'Resolved media id is required for this action' });
-  }
-  if (resolutionMediaId) {
-    const mediaParams = [resolutionMediaId];
-    const mediaScopeClause = appendScopeSql(mediaParams, scopeContext);
-    const mediaCheck = await pool.query(
-      `SELECT id
-       FROM media
-       WHERE id = $1
-       ${mediaScopeClause}
-       LIMIT 1`,
-      mediaParams
-    );
-    if (!mediaCheck.rows[0]) {
-      return res.status(404).json({ error: 'Resolved media item not found in scope' });
-    }
-  }
-
-  const updated = await pool.query(
-    `UPDATE import_match_reviews
-     SET status = $1,
-         resolution_action = $2,
-         resolution_note = $3,
-         resolved_media_id = $4,
-         resolved_by = $5,
-         resolved_at = CURRENT_TIMESTAMP
-     WHERE id = $6
-     RETURNING *`,
-    [status, action, note, resolutionMediaId, req.user.id, reviewId]
-  );
-
-  let enrichmentApplied = false;
-  let enrichmentStatus = null;
-  if (action !== 'skip_keep_manual' && resolutionMediaId) {
-    const enrichment = await applyImportReviewEnrichment({
-      mediaId: resolutionMediaId,
-      scopeContext
-    });
-    enrichmentApplied = Boolean(enrichment?.applied);
-    enrichmentStatus = enrichment?.enrichmentStatus || null;
-  }
-
-  await logActivity(req, 'media.import.review.resolve', 'import_match_review', reviewId, {
-    action,
-    status,
-    resolved_media_id: resolutionMediaId,
-    source_title: existing.rows[0].source_title || null,
-    collection_id: existing.rows[0].collection_id || null,
-    enrichment_applied: enrichmentApplied,
-    enrichment_status: enrichmentStatus
-  });
-  res.json({
-    ...updated.rows[0],
-    enrichment_applied: enrichmentApplied,
-    enrichment_status: enrichmentStatus
-  });
 }));
 
 // ── Create ────────────────────────────────────────────────────────────────────

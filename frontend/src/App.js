@@ -16,8 +16,6 @@ import useMediaApi from './components/app/hooks/useMediaApi';
 
 const API_URL = process.env.REACT_APP_API_URL || '/api';
 const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.frontend || appMeta.version || 'unknown';
-const DEBUG_LEVEL = Math.max(0, Math.min(2, Number(process.env.REACT_APP_DEBUG || 0) || 0));
-const isDebugAt = (level) => DEBUG_LEVEL >= level;
 
 export default function App() {
   const initialDashboardState = readDashboardStateFromUrl();
@@ -36,7 +34,6 @@ export default function App() {
     collectibles_enabled: false
   });
   const [toast, setToast] = useState(null);
-  const importReviewEnabled = isDebugAt(2);
   const showToast = useCallback((message, type = 'ok') => setToast({ message, type }), []);
   const apiCall = useCallback(async (method, path, data, config = {}) => {
     const methodUpper = String(method || 'GET').toUpperCase();
@@ -280,10 +277,10 @@ export default function App() {
   }, [route, authChecked, user, loadClientFeatureFlags]);
 
   useEffect(() => {
-    if (!importReviewEnabled && activeTab === 'library-import-review') {
+    if (activeTab === 'library-import-review') {
       setActiveTab('library-import');
     }
-  }, [activeTab, importReviewEnabled]);
+  }, [activeTab]);
 
   useEffect(() => {
     if (!featureFlags.collectibles_enabled && activeTab === 'library-collectibles') {
@@ -418,7 +415,6 @@ export default function App() {
             Spinner={Spinner}
             cx={cx}
             activeLibrary={activeLibrary}
-            importReviewEnabled={importReviewEnabled}
             setUiSettings={setUiSettings}
             activeIntegrationSection={activeIntegrationSection}
             setActiveIntegrationSection={setActiveIntegrationSection}

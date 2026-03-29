@@ -10,7 +10,6 @@ export const VALID_DASHBOARD_TABS = new Set([
   'library-events',
   'library-other',
   'library-import',
-  'library-import-review',
   'space-manage',
   'admin-spaces',
   'profile',
@@ -34,7 +33,7 @@ export function readDashboardStateFromUrl() {
       tab: slug === 'import'
         ? 'library-import'
         : slug === 'import-review'
-          ? 'library-import-review'
+          ? 'library-import'
           : slug === 'other'
             ? 'library-comics'
             : `library-${slug}`,
@@ -54,7 +53,11 @@ export function readDashboardStateFromUrl() {
   const params = new URLSearchParams(window.location.search);
   const tab = params.get('tab');
   const integration = params.get('integration');
-  const normalizedTab = tab === 'library-other' ? 'library-comics' : tab;
+  const normalizedTab = tab === 'library-other'
+    ? 'library-comics'
+    : tab === 'library-import-review'
+      ? 'library-import'
+      : tab;
   return {
     tab: VALID_DASHBOARD_TABS.has(normalizedTab) ? normalizedTab : DEFAULT_TAB,
     integrationSection: VALID_INTEGRATION_SECTIONS.has(integration) ? integration : DEFAULT_INTEGRATION_SECTION

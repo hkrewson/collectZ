@@ -42,7 +42,7 @@ export default function ImportView({
     if (!auditRows.length) return;
     const esc = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
     const lines = [
-      ['row', 'media_type', 'status', 'audit_outcome', 'classification_detail', 'title', 'detail', 'match_mode', 'matched_by', 'enrichment_status', 'lookup_path', 'lookup_status', 'confidence_score', 'review_queued', 'isbn', 'ean_upc', 'asin'].map(esc).join(','),
+      ['row', 'media_type', 'status', 'audit_outcome', 'classification_detail', 'title', 'detail', 'match_mode', 'matched_by', 'enrichment_status', 'lookup_path', 'lookup_status', 'confidence_score', 'diagnostic_flagged', 'isbn', 'ean_upc', 'asin'].map(esc).join(','),
       ...auditRows.map((r) => [
         r.row,
         r.media_type || '',
@@ -57,7 +57,7 @@ export default function ImportView({
         r.lookup_path || '',
         r.lookup_status || '',
         r.confidence_score ?? '',
-        r.review_queued ?? '',
+        r.diagnostic_flagged ?? '',
         r.isbn || '',
         r.ean_upc || '',
         r.asin || ''
@@ -406,8 +406,9 @@ export default function ImportView({
       <div className="card p-4 text-xs text-ghost space-y-1">
         <p>Import behavior:</p>
         <p>- Existing titles are matched identifier-first (ISBN/EAN/ASIN), then provider IDs, then title/year fallback.</p>
-        <p>- Audit downloads include normalized identifiers, match mode, and duplicate-vs-near-match outcome.</p>
+        <p>- Audit downloads include normalized identifiers, match mode, duplicate-vs-near-match outcome, and debug diagnostic flags.</p>
         <p>- Provider enrichment runs during import when configured.</p>
+        <p>- When debug logging and external log export are enabled, ambiguous rows can ship to the operator log pipeline without reopening a review queue.</p>
       </div>
 
       {result && <pre className="card p-4 text-xs text-dim whitespace-pre-wrap">{result}</pre>}

@@ -6,7 +6,6 @@ import AdminUsersView from '../AdminUsersView';
 import AdminSettingsView from '../AdminSettingsView';
 import AdminIntegrationsView from '../AdminIntegrationsView';
 import AdminSpacesView from '../AdminSpacesView';
-import ImportReviewView from '../ImportReviewView';
 import LibraryView from '../LibraryView';
 import EventsView from '../EventsView';
 import CollectiblesView from '../CollectiblesView';
@@ -45,7 +44,6 @@ export default function DashboardContent({
   Spinner,
   cx,
   activeLibrary,
-  importReviewEnabled,
   setUiSettings,
   activeIntegrationSection,
   setActiveIntegrationSection,
@@ -124,28 +122,20 @@ export default function DashboardContent({
         />
       );
     case 'library-import-review':
-      if (!importReviewEnabled) {
-        return (
-          <ImportViewComponent
-            apiCall={apiCall}
-            onToast={showToast}
-            onImported={() => loadMedia()}
-            canImportPlex={user?.role === 'admin'}
-            onQueueJob={upsertImportJob}
-            importJobs={importJobs}
-            apiUrl={apiUrl}
-            Icons={Icons}
-            Spinner={Spinner}
-            cx={cx}
-            activeLibrary={activeLibrary}
-          />
-        );
-      }
       return (
-        <ImportReviewView
-          key={`import-review:${scopeKey}`}
+        <ImportViewComponent
+          key={`import:${scopeKey}:legacy-review`}
           apiCall={apiCall}
           onToast={showToast}
+          onImported={() => loadMedia()}
+          canImportPlex={user?.role === 'admin'}
+          onQueueJob={upsertImportJob}
+          importJobs={importJobs}
+          apiUrl={apiUrl}
+          Icons={Icons}
+          Spinner={Spinner}
+          cx={cx}
+          activeLibrary={activeLibrary}
         />
       );
     case 'profile':

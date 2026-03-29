@@ -690,6 +690,7 @@ results.push(run('syncJobs.buildCompactJobSummary keeps status-relevant counters
     updated: 1874,
     skipped: 0,
     errorCount: 0,
+    diagnosticsFlagged: 7,
     tmdbPosterEnriched: 1618,
     tmdbPosterLookupMisses: 44,
     tmdbPosterLookupNoMatch: 31,
@@ -708,6 +709,7 @@ results.push(run('syncJobs.buildCompactJobSummary keeps status-relevant counters
     updated: 1874,
     skipped: 0,
     errorCount: 0,
+    diagnosticsFlagged: 7,
     tmdbPosterEnriched: 1618,
     tmdbPosterLookupMisses: 44,
     tmdbPosterLookupNoMatch: 31,
@@ -819,6 +821,12 @@ results.push(run('media route source records import enrichment metrics for csv a
   assert.ok(mediaRoutesSource.includes('recordImportEnrichmentSummaryMetrics'));
   assert.ok(mediaRoutesSource.includes('recordPlexEnrichmentMetrics'));
   assert.ok(mediaRoutesSource.includes("recordImportEnrichmentEvent('plex', 'tmdb_poster', 'no_match'"));
+}));
+
+results.push(run('media route source replaces import review queue with debug diagnostic logging', () => {
+  assert.ok(!mediaRoutesSource.includes('/import-reviews'));
+  assert.ok(mediaRoutesSource.includes('media.import.diagnostic.flagged'));
+  assert.ok(mediaRoutesSource.includes('diagnostic_flagged'));
 }));
 
 results.push(run('provider service sources record tmdb plex and metron request metrics', () => {
@@ -1201,6 +1209,11 @@ results.push(run('frontend syncs active space alongside active library context',
 results.push(run('dashboard content exposes dedicated admin spaces control plane tab', () => {
   assert.ok(dashboardContentSource.includes("case 'admin-spaces'"));
   assert.ok(dashboardContentSource.includes('AdminSpacesView'));
+}));
+
+results.push(run('frontend import flow no longer mounts standalone Import Review view', () => {
+  assert.ok(!dashboardContentSource.includes('ImportReviewView'));
+  assert.ok(!frontendAppSource.includes('const importReviewEnabled'));
 }));
 
 results.push(run('admin users view stays platform-only without invitation management tab', () => {

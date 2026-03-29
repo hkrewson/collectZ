@@ -103,7 +103,10 @@ Normalized identifiers are written to import audit rows (`isbn`, `ean_upc`, `asi
   - Empty/invalid values are ignored and fallback matching is used.
 - Identifier collisions:
   - If multiple existing rows match the same identifier, the row is marked `identifier_conflict`.
-  - Import still resolves deterministically (latest matching row), but the conflict should be reviewed.
+  - Import still resolves deterministically (latest matching row), but the conflict should be checked through the import audit export rather than a standalone review queue.
 - Fallback behavior:
   - `identifier_no_match_fallback_title`: an identifier was present but no identifier match existed, so fallback matching was used.
   - `fallback_title_only`: no identifier was present; title/year/media_type matching was used directly.
+- Debug diagnostics:
+  - Ambiguous rows can be marked `diagnostic_flagged` in the import audit export.
+  - When debug logging and external log export are enabled, collectZ can emit `media.import.diagnostic.flagged` events to the operator log pipeline for those rows.

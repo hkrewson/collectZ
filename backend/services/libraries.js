@@ -398,12 +398,6 @@ async function moveOwnedLibrariesToSpace(client, { sourceSpaceId, targetSpaceId,
     [libraryIds, numericTargetSpaceId]
   );
   await client.query(
-    `UPDATE import_match_reviews
-     SET space_id = $2
-     WHERE library_id = ANY($1::int[])`,
-    [libraryIds, numericTargetSpaceId]
-  );
-  await client.query(
     `DELETE FROM library_memberships
      WHERE library_id = ANY($1::int[])
        AND user_id <> $2`,
