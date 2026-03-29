@@ -3,7 +3,6 @@ const fs = require('fs');
 const path = require('path');
 const { asyncHandler } = require('../middleware/errors');
 const { authenticateToken, requireRole } = require('../middleware/auth');
-const { isFeatureEnabled } = require('../services/featureFlags');
 
 const router = express.Router();
 const DEBUG_LEVEL = Math.max(0, Math.min(2, Number(process.env.DEBUG || 0) || 0));
@@ -13,9 +12,8 @@ function loadOpenApiSpec() {
   return JSON.parse(fs.readFileSync(OPENAPI_SPEC_PATH, 'utf8'));
 }
 
-async function assertApiDocsEnabled() {
-  const docsFlagEnabled = await isFeatureEnabled('api_docs_enabled', false);
-  if (DEBUG_LEVEL >= 1 && docsFlagEnabled) return;
+function assertApiDocsEnabled() {
+  if (DEBUG_LEVEL >= 1) return;
   const error = new Error('API docs are not available');
   error.status = 404;
   error.code = 'api_docs_unavailable';
@@ -25,7 +23,7 @@ async function assertApiDocsEnabled() {
 router.use(authenticateToken, requireRole('admin'));
 
 router.get('/', asyncHandler(async (_req, res) => {
-  await assertApiDocsEnabled();
+  assertApiDocsEnabled();
   res.set('Content-Security-Policy', [
     "default-src 'self'",
     "img-src 'self' data: https:",
@@ -67,7 +65,7 @@ router.get('/', asyncHandler(async (_req, res) => {
 }));
 
 router.get('/openapi.json', asyncHandler(async (_req, res) => {
-  await assertApiDocsEnabled();
+  assertApiDocsEnabled();
   res.json(loadOpenApiSpec());
 }));
 

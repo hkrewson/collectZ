@@ -8,7 +8,8 @@ Move metadata search/filter read paths from legacy comma-separated columns (`gen
 
 - Target source of truth: normalized relation tables.
 - Transitional model: dual-write.
-- Rollout control: feature flag `metadata_normalized_read_enabled`.
+- Historical rollout control: feature flag `metadata_normalized_read_enabled` during the 2.1.x cutover window.
+- Current state after `2.8.2`: normalized-first metadata reads are standard behavior, not an admin-visible toggle.
 
 ## Staged Rollout
 
@@ -16,14 +17,14 @@ Move metadata search/filter read paths from legacy comma-separated columns (`gen
 
 - Write path: dual-write (legacy columns + normalized tables).
 - Read path: dual-read (legacy OR normalized).
-- Flag state: `metadata_normalized_read_enabled = false`.
+- Historical flag state: `metadata_normalized_read_enabled = false`.
 
 ### Stage B (current default)
 
 - Write path: dual-write.
 - Read path: normalized-first (legacy metadata columns excluded from metadata filter predicates).
-- Flag state: `metadata_normalized_read_enabled = true` (default).
-- Rollback: flip flag off.
+- Historical flag state: `metadata_normalized_read_enabled = true` (default during cutover).
+- Current rollback note: there is no longer a runtime flag rollback path; rollback requires code/image reversal if a regression is discovered.
 
 ### Stage C (next optional hardening cycle)
 
@@ -59,8 +60,7 @@ The project can move from Stage B -> D only when:
 
 ## Rollback Plan
 
-- Immediate: set `metadata_normalized_read_enabled=false`.
-- If required: redeploy previous backend image.
+- Immediate: redeploy a previous backend image if normalized-read behavior must be rolled back.
 - Data safety: normalized tables remain populated; no destructive migration in Stages A-C.
 
 ## Operational Notes

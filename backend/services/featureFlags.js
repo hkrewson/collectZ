@@ -1,18 +1,6 @@
 const pool = require('../db/pool');
 
 const FEATURE_FLAG_DEFINITIONS = {
-  import_plex_enabled: {
-    description: 'Allow Plex imports from the Import page and API',
-    defaultEnabled: true
-  },
-  import_csv_enabled: {
-    description: 'Allow CSV imports (generic and Delicious)',
-    defaultEnabled: true
-  },
-  tmdb_search_enabled: {
-    description: 'Allow TMDB search and details lookups',
-    defaultEnabled: true
-  },
   lookup_upc_enabled: {
     description: 'Allow barcode/UPC lookup API usage',
     defaultEnabled: true
@@ -21,24 +9,12 @@ const FEATURE_FLAG_DEFINITIONS = {
     description: 'Allow vision/OCR cover recognition API usage',
     defaultEnabled: true
   },
-  metadata_normalized_read_enabled: {
-    description: 'Use normalized metadata relations (genres/directors/actors) as primary read path for metadata search/filter',
-    defaultEnabled: true
-  },
-  ui_drawer_edit_experiment: {
-    description: 'Enable drawer-first add/edit flow in library UI (2.4.3 experiment)',
-    defaultEnabled: false
-  },
   events_enabled: {
     description: 'Enable Events library UI and API',
     defaultEnabled: false
   },
   collectibles_enabled: {
     description: 'Enable Collectibles library UI and API',
-    defaultEnabled: false
-  },
-  api_docs_enabled: {
-    description: 'Enable admin-only OpenAPI docs surface when DEBUG is enabled',
     defaultEnabled: false
   },
   metrics_enabled: {
@@ -52,14 +28,6 @@ const FEATURE_FLAG_DEFINITIONS = {
 };
 
 const FLAG_KEYS = Object.keys(FEATURE_FLAG_DEFINITIONS);
-const BAKED_IN_ALWAYS_ENABLED_FLAGS = new Set([
-  'api_docs_enabled',
-  'import_csv_enabled',
-  'import_plex_enabled',
-  'metadata_normalized_read_enabled',
-  'tmdb_search_enabled',
-  'ui_drawer_edit_experiment'
-]);
 const FEATURE_FLAGS_READ_ONLY = ['1', 'true', 'yes', 'on'].includes(
   String(process.env.FEATURE_FLAGS_READ_ONLY || '').trim().toLowerCase()
 );
@@ -69,7 +37,6 @@ let cache = null;
 let cacheAt = 0;
 
 function envOverrideForKey(key) {
-  if (BAKED_IN_ALWAYS_ENABLED_FLAGS.has(key)) return true;
   const envKey = `FEATURE_FLAG_${String(key).toUpperCase()}`;
   const raw = process.env[envKey];
   if (raw === undefined || raw === null || raw === '') return null;
@@ -115,17 +82,18 @@ async function loadFeatureFlags({ forceRefresh = false } = {}) {
             u.email AS updated_by_email
      FROM feature_flags ff
      LEFT JOIN users u ON u.id = ff.updated_by
-     ORDER BY ff.key ASC`
+     WHERE ff.key = ANY($1::text[])
+     ORDER BY ff.key ASC`,
+    [FLAG_KEYS]
   );
 
   const byKey = new Map();
   for (const row of result.rows) {
       const override = envOverrideForKey(row.key);
-      const bakedInEnabled = BAKED_IN_ALWAYS_ENABLED_FLAGS.has(row.key);
       byKey.set(row.key, {
         key: row.key,
-      enabled: bakedInEnabled ? true : (override !== null ? override : Boolean(row.enabled)),
-      storedEnabled: bakedInEnabled ? true : Boolean(row.enabled),
+      enabled: override !== null ? override : Boolean(row.enabled),
+      storedEnabled: Boolean(row.enabled),
       envOverride: override,
       description: row.description || FEATURE_FLAG_DEFINITIONS[row.key]?.description || '',
       createdAt: row.created_at || null,
@@ -139,11 +107,10 @@ async function loadFeatureFlags({ forceRefresh = false } = {}) {
     if (byKey.has(key)) continue;
     const def = FEATURE_FLAG_DEFINITIONS[key];
     const override = envOverrideForKey(key);
-    const bakedInEnabled = BAKED_IN_ALWAYS_ENABLED_FLAGS.has(key);
     byKey.set(key, {
       key,
-      enabled: bakedInEnabled ? true : (override !== null ? override : Boolean(def.defaultEnabled)),
-      storedEnabled: bakedInEnabled ? true : Boolean(def.defaultEnabled),
+      enabled: override !== null ? override : Boolean(def.defaultEnabled),
+      storedEnabled: Boolean(def.defaultEnabled),
       envOverride: override,
       description: def.description,
       createdAt: null,
@@ -187,13 +154,6 @@ async function updateFeatureFlag({ key, enabled, updatedBy = null }) {
     throw error;
   }
 
-  if (BAKED_IN_ALWAYS_ENABLED_FLAGS.has(key)) {
-    const error = new Error(`Feature flag is baked in and cannot be changed: ${key}`);
-    error.status = 409;
-    error.code = 'feature_flag_baked_in';
-    throw error;
-  }
-
   if (FEATURE_FLAGS_READ_ONLY) {
     const error = new Error('Feature flags are read-only in this environment');
     error.status = 409;
@@ -224,7 +184,6 @@ async function updateFeatureFlag({ key, enabled, updatedBy = null }) {
 
 module.exports = {
   FEATURE_FLAG_DEFINITIONS,
-  BAKED_IN_ALWAYS_ENABLED_FLAGS,
   FEATURE_FLAGS_READ_ONLY,
   FLAG_KEYS,
   listFeatureFlags,

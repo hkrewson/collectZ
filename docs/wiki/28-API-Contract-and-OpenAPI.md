@@ -65,10 +65,9 @@ Access requirements:
 
 - authenticated admin user
 - `DEBUG>=1`
-- feature flag `api_docs_enabled=true`
 
 The raw generated spec is exposed at:
 
 - `/api/docs/openapi.json`
 
-When the debug or feature-flag gate is not satisfied, the docs routes return `404`.
+When the debug gate is not satisfied, the docs routes return `404`.

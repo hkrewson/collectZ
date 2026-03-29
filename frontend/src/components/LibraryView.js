@@ -9,10 +9,6 @@ import {
   isInteractiveTarget,
   MEDIA_TYPES
 } from './app/AppPrimitives';
-
-const UI_DRAWER_EDIT_EXPERIMENT = ['1', 'true', 'yes', 'on'].includes(
-  String(process.env.REACT_APP_UI_DRAWER_EDIT_EXPERIMENT || '').trim().toLowerCase()
-);
 const MEDIA_FORMATS = ['VHS', 'Blu-ray', 'Digital', 'DVD', '4K UHD'];
 const BOOK_FORMATS = ['Digital', 'Paperback', 'Hardcover', 'Trade'];
 const DEFAULT_MEDIA_FORM = {
@@ -1700,7 +1696,6 @@ export default function LibraryView({
   apiCall,
   forcedMediaType
 }) {
-  const [uiDrawerEditExperiment, setUiDrawerEditExperiment] = useState(UI_DRAWER_EDIT_EXPERIMENT);
   const PAGE_SIZE_STORAGE_KEY = 'collectz_library_page_size';
   const VIEW_MODE_STORAGE_KEY = 'collectz_library_view_mode';
   const [searchInput, setSearchInput] = useState('');
@@ -1890,22 +1885,6 @@ export default function LibraryView({
     window.localStorage.setItem(VIEW_MODE_STORAGE_KEY, viewMode);
   }, [viewMode]);
 
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        const payload = await apiCall('get', '/media/feature-flags');
-        const enabled = Boolean(payload?.flags?.ui_drawer_edit_experiment);
-        if (active) setUiDrawerEditExperiment(enabled);
-      } catch {
-        if (active) setUiDrawerEditExperiment(UI_DRAWER_EDIT_EXPERIMENT);
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, [apiCall]);
-
   const rate = async (id, rating) => {
     await onRating(id, rating);
     setDetail((d) => (d && d.id === id ? { ...d, user_rating: rating } : d));
@@ -2078,14 +2057,6 @@ export default function LibraryView({
       }}
     />
   );
-
-  if ((adding || editing) && !uiDrawerEditExperiment) {
-    return (
-      <div className="h-full flex flex-col">
-        {renderMediaForm()}
-      </div>
-    );
-  }
 
   return (
     <div className="flex flex-col h-full">
@@ -2393,7 +2364,7 @@ export default function LibraryView({
           }}
         />
       )}
-      {(adding || editing) && uiDrawerEditExperiment && (
+      {(adding || editing) && (
         <div className="fixed inset-0 z-50 flex">
           <div className="absolute inset-0 bg-black/45 backdrop-blur-[1px]" onClick={() => { setAdding(false); setEditing(null); }} />
           <div className="ml-auto h-full w-full max-w-5xl bg-abyss border-l border-edge shadow-2xl relative">

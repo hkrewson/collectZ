@@ -149,7 +149,7 @@ In the current Graylog ingest/search path, that field is displayed as a JSON str
 
 ```json
 {
-  "details": "{\"key\":\"ui_drawer_edit_experiment\",\"previousEnabled\":true,\"nextEnabled\":false,\"envOverride\":null}"
+  "details": "{\"key\":\"events_enabled\",\"previousEnabled\":true,\"nextEnabled\":false,\"envOverride\":null}"
 }
 ```
 
@@ -178,10 +178,10 @@ Observed in the local Graylog smoke test for `admin.feature_flag.update`:
   "user_id": 1,
   "service": "backend",
   "action": "admin.feature_flag.update",
-  "detail_key": "ui_drawer_edit_experiment",
+  "detail_key": "events_enabled",
   "detail_previous_enabled": "true",
   "detail_next_enabled": "false",
-  "details": "{\"key\":\"ui_drawer_edit_experiment\",\"previousEnabled\":true,\"nextEnabled\":false,\"envOverride\":null}",
+  "details": "{\"key\":\"events_enabled\",\"previousEnabled\":true,\"nextEnabled\":false,\"envOverride\":null}",
   "outcome": "success",
   "timestamp": "2026-03-14T03:51:29.683Z"
 }

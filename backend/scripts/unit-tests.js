@@ -492,7 +492,7 @@ results.push(run('requestId middleware generates request id when absent', () => 
 
 results.push(run('logExport.promoteDetailFields promotes high-value scalar detail keys', () => {
   const promoted = promoteDetailFields({
-    key: 'ui_drawer_edit_experiment',
+    key: 'events_enabled',
     previousEnabled: true,
     nextEnabled: false,
     envOverride: null,
@@ -500,7 +500,7 @@ results.push(run('logExport.promoteDetailFields promotes high-value scalar detai
     list: [1, 2, 3]
   });
   assert.deepStrictEqual(promoted, {
-    _detail_key: 'ui_drawer_edit_experiment',
+    _detail_key: 'events_enabled',
     _detail_previous_enabled: 'true',
     _detail_next_enabled: 'false'
   });
@@ -579,14 +579,14 @@ results.push(run('logExport.formatSyslogMessage builds RFC5424 line with structu
     _route: '/feature-flags/:key',
     _method: 'PATCH',
     _outcome: 'success',
-    _detail_key: 'ui_drawer_edit_experiment',
-    _details: { key: 'ui_drawer_edit_experiment', previousEnabled: false, nextEnabled: true }
+    _detail_key: 'events_enabled',
+    _details: { key: 'events_enabled', previousEnabled: false, nextEnabled: true }
   });
   assert.ok(line.startsWith('<14>1 2026-03-14T13:47:05.589Z collectz-backend backend - admin.feature_flag.update '));
   assert.ok(line.includes('[collectz@41058 '));
   assert.ok(line.includes('request_id="req-123"'));
-  assert.ok(line.includes('detail_key="ui_drawer_edit_experiment"'));
-  assert.ok(line.endsWith('"_details":{"key":"ui_drawer_edit_experiment","previousEnabled":false,"nextEnabled":true}}'));
+  assert.ok(line.includes('detail_key="events_enabled"'));
+  assert.ok(line.endsWith('"_details":{"key":"events_enabled","previousEnabled":false,"nextEnabled":true}}'));
 }));
 
 results.push(run('integrations.buildIntegrationResponse masks secrets and exposes only set flags', () => {
@@ -889,9 +889,8 @@ results.push(run('openapi baseline documents key auth admin and media endpoints'
   assert.ok(spec.components.schemas.QueuedJobResponse);
 }));
 
-results.push(run('docs route source enforces admin plus debug and feature-flag gating', () => {
+results.push(run('docs route source enforces admin plus debug gating', () => {
   assert.ok(docsRoutesSource.includes("authenticateToken, requireRole('admin')"));
-  assert.ok(docsRoutesSource.includes("isFeatureEnabled('api_docs_enabled', false)"));
   assert.ok(docsRoutesSource.includes('DEBUG_LEVEL >= 1'));
   assert.ok(docsRoutesSource.includes("error.status = 404"));
   assert.ok(docsRoutesSource.includes("router.get('/openapi.json'"));

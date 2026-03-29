@@ -1,33 +1,29 @@
 {
-  "$schema": "http://cyclonedx.org/schema/bom-1.5.schema.json",
+  "$schema": "http://cyclonedx.org/schema/bom-1.6.schema.json",
   "bomFormat": "CycloneDX",
-  "specVersion": "1.5",
-  "serialNumber": "urn:uuid:8866b259-e5d1-455c-a065-ea1138186252",
+  "specVersion": "1.6",
+  "serialNumber": "urn:uuid:add0a9d5-0479-427f-9e78-ee2a47058d1e",
   "version": 1,
   "metadata": {
-    "timestamp": "2026-03-28T21:54:00+00:00",
+    "timestamp": "2026-03-29T04:19:41+00:00",
     "tools": {
       "components": [
         {
           "type": "application",
           "group": "aquasecurity",
           "name": "trivy",
-          "version": "0.50.4"
+          "version": "0.57.1"
         }
       ]
     },
     "component": {
-      "bom-ref": "238bf8e5-6457-4dba-9eb4-a2c714cb73e0",
+      "bom-ref": "b0a7fe1b-9884-4d30-92a6-7b1652587dd9",
       "type": "container",
       "name": "mediavault-frontend:latest",
       "properties": [
         {
           "name": "aquasecurity:trivy:DiffID",
           "value": "sha256:02f406f31f409b13818384751902cd8fee01349dde55e3ba0bcbf12ad64a32b0"
-        },
-        {
-          "name": "aquasecurity:trivy:DiffID",
-          "value": "sha256:1c5080e889f2b70dc622e347507485458f7b57ab8dc1a7177c57fc5defabcb7c"
         },
         {
           "name": "aquasecurity:trivy:DiffID",
@@ -55,19 +51,39 @@
         },
         {
           "name": "aquasecurity:trivy:DiffID",
+          "value": "sha256:b209807b868bd1a2af3448644a92b94fae34845fe3cb6b54c5023a5e5dc33ce6"
+        },
+        {
+          "name": "aquasecurity:trivy:DiffID",
           "value": "sha256:b7a361813e4b74cde5f78799c9d8054bbe6e7a895f206bbd0726e5085e332c30"
+        },
+        {
+          "name": "aquasecurity:trivy:DiffID",
+          "value": "sha256:c2623cd1f33136d45eef3a75002f8984fdfdbe3f1134e95a1456735d801aba44"
         },
         {
           "name": "aquasecurity:trivy:DiffID",
           "value": "sha256:d34aa5681408131509144019ea1eecf2ccc9973a273655aa03e4d483937b00cd"
         },
         {
-          "name": "aquasecurity:trivy:DiffID",
-          "value": "sha256:dea131a5db6b16680414bb96378d1583319db109fdc7e1def6b8865b5aa05a28"
+          "name": "aquasecurity:trivy:ImageID",
+          "value": "sha256:2d4ca904d53f2226d22ed906320c31beefe0550de4a6da6836de2b0cb0aee741"
         },
         {
-          "name": "aquasecurity:trivy:ImageID",
-          "value": "sha256:27342b842901b71b04c266b10e2c514c99c90799cacdc657b1c8bcf00a711161"
+          "name": "aquasecurity:trivy:Labels:com.docker.compose.project",
+          "value": "collectz"
+        },
+        {
+          "name": "aquasecurity:trivy:Labels:com.docker.compose.service",
+          "value": "frontend"
+        },
+        {
+          "name": "aquasecurity:trivy:Labels:com.docker.compose.version",
+          "value": "5.1.0"
+        },
+        {
+          "name": "aquasecurity:trivy:Labels:maintainer",
+          "value": "NGINX Docker Maintainers <docker-maint@nginx.com>"
         },
         {
           "name": "aquasecurity:trivy:RepoTag",
@@ -82,7 +98,7 @@
   },
   "components": [
     {
-      "bom-ref": "e074d343-a024-4ec3-8070-f40be5aeb9bf",
+      "bom-ref": "a18122cf-2206-4960-aea5-4625afb20452",
       "type": "operating-system",
       "name": "alpine",
       "version": "3.23.3",
@@ -111,7 +127,7 @@
       "licenses": [
         {
           "license": {
-            "name": "GPL-2.0"
+            "name": "GPL-2.0-only"
           }
         }
       ],
@@ -153,7 +169,7 @@
       "licenses": [
         {
           "license": {
-            "name": "GPL-2.0"
+            "name": "GPL-2.0-only"
           }
         }
       ],
@@ -326,7 +342,7 @@
       "licenses": [
         {
           "license": {
-            "name": "GPL-2.0"
+            "name": "GPL-2.0-only"
           }
         }
       ],
@@ -410,7 +426,7 @@
       "licenses": [
         {
           "license": {
-            "name": "GPL-2.0"
+            "name": "GPL-2.0-only"
           }
         }
       ],
@@ -452,7 +468,7 @@
       "licenses": [
         {
           "license": {
-            "name": "GPL-2.0"
+            "name": "GPL-2.0-only"
           }
         }
       ],
@@ -719,7 +735,7 @@
         },
         {
           "license": {
-            "name": "GPL-2.0"
+            "name": "GPL-2.0-or-later"
           }
         }
       ],
@@ -803,7 +819,7 @@
       "licenses": [
         {
           "license": {
-            "name": "GPL-3.0"
+            "name": "GPL-3.0-or-later"
           }
         },
         {
@@ -855,7 +871,7 @@
       "licenses": [
         {
           "license": {
-            "name": "GPL-2.0"
+            "name": "GPL-2.0-only"
           }
         }
       ],
@@ -981,7 +997,7 @@
       "licenses": [
         {
           "license": {
-            "name": "bzip2-1.0.6"
+            "name": "bzip-2-1.0.6"
           }
         }
       ],
@@ -1233,7 +1249,7 @@
       "licenses": [
         {
           "license": {
-            "name": "GPL-2.0"
+            "name": "GPL-2.0-or-later"
           }
         },
         {
@@ -1322,7 +1338,7 @@
       "licenses": [
         {
           "license": {
-            "name": "X11"
+            "name": "X-11"
           }
         }
       ],
@@ -1364,7 +1380,7 @@
       "licenses": [
         {
           "license": {
-            "name": "GPL-2.0"
+            "name": "GPL-2.0-or-later"
           }
         },
         {
@@ -1572,7 +1588,7 @@
       "licenses": [
         {
           "license": {
-            "name": "X11"
+            "name": "X-11"
           }
         }
       ],
@@ -1824,7 +1840,7 @@
       "licenses": [
         {
           "license": {
-            "name": "GPL-2.0"
+            "name": "GPL-2.0-or-later"
           }
         },
         {
@@ -1871,7 +1887,7 @@
       "licenses": [
         {
           "license": {
-            "name": "GPL-2.0"
+            "name": "GPL-2.0-or-later"
           }
         },
         {
@@ -2002,7 +2018,7 @@
       "licenses": [
         {
           "license": {
-            "name": "X11"
+            "name": "X-11"
           }
         }
       ],
@@ -2254,7 +2270,7 @@
       "licenses": [
         {
           "license": {
-            "name": "X11"
+            "name": "X-11"
           }
         }
       ],
@@ -2296,7 +2312,7 @@
       "licenses": [
         {
           "license": {
-            "name": "X11"
+            "name": "X-11"
           }
         }
       ],
@@ -2432,7 +2448,7 @@
         },
         {
           "license": {
-            "name": "GPL-2.0"
+            "name": "GPL-2.0-or-later"
           }
         }
       ],
@@ -2516,7 +2532,7 @@
       "licenses": [
         {
           "license": {
-            "name": "X11"
+            "name": "X-11"
           }
         }
       ],
@@ -2647,7 +2663,7 @@
         },
         {
           "license": {
-            "name": "BSD-like"
+            "name": "BSD-3-Clause"
           }
         },
         {
@@ -2699,7 +2715,7 @@
         },
         {
           "license": {
-            "name": "BSD-like"
+            "name": "BSD-3-Clause"
           }
         },
         {
@@ -2751,7 +2767,7 @@
         },
         {
           "license": {
-            "name": "BSD-like"
+            "name": "BSD-3-Clause"
           }
         },
         {
@@ -2803,7 +2819,7 @@
         },
         {
           "license": {
-            "name": "BSD-like"
+            "name": "BSD-3-Clause"
           }
         },
         {
@@ -2855,7 +2871,7 @@
         },
         {
           "license": {
-            "name": "BSD-like"
+            "name": "BSD-3-Clause"
           }
         },
         {
@@ -2907,7 +2923,7 @@
         },
         {
           "license": {
-            "name": "BSD-like"
+            "name": "BSD-3-Clause"
           }
         },
         {
@@ -2996,7 +3012,7 @@
       "licenses": [
         {
           "license": {
-            "name": "GPL-2.0"
+            "name": "GPL-2.0-only"
           }
         }
       ],
@@ -3038,7 +3054,7 @@
       "licenses": [
         {
           "license": {
-            "name": "GPL-2.0"
+            "name": "GPL-2.0-only"
           }
         }
       ],
@@ -3164,7 +3180,7 @@
       "licenses": [
         {
           "license": {
-            "name": "GPL-2.0"
+            "name": "GPL-2.0-or-later"
           }
         },
         {
@@ -3268,7 +3284,7 @@
         },
         {
           "license": {
-            "name": "GPL-2.0"
+            "name": "GPL-2.0-or-later"
           }
         }
       ],
@@ -3299,13 +3315,7 @@
   ],
   "dependencies": [
     {
-      "ref": "238bf8e5-6457-4dba-9eb4-a2c714cb73e0",
-      "dependsOn": [
-        "e074d343-a024-4ec3-8070-f40be5aeb9bf"
-      ]
-    },
-    {
-      "ref": "e074d343-a024-4ec3-8070-f40be5aeb9bf",
+      "ref": "a18122cf-2206-4960-aea5-4625afb20452",
       "dependsOn": [
         "pkg:apk/alpine/alpine-baselayout-data@3.7.1-r8?arch=aarch64&distro=3.23.3",
         "pkg:apk/alpine/alpine-baselayout@3.7.1-r8?arch=aarch64&distro=3.23.3",
@@ -3379,6 +3389,12 @@
         "pkg:apk/alpine/xz-libs@5.8.2-r0?arch=aarch64&distro=3.23.3",
         "pkg:apk/alpine/zlib@1.3.2-r0?arch=aarch64&distro=3.23.3",
         "pkg:apk/alpine/zstd-libs@1.5.7-r2?arch=aarch64&distro=3.23.3"
+      ]
+    },
+    {
+      "ref": "b0a7fe1b-9884-4d30-92a6-7b1652587dd9",
+      "dependsOn": [
+        "a18122cf-2206-4960-aea5-4625afb20452"
       ]
     },
     {

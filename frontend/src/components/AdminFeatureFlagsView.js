@@ -1,14 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
 
-const HIDDEN_BAKED_IN_FLAGS = new Set([
-  'api_docs_enabled',
-  'import_csv_enabled',
-  'import_plex_enabled',
-  'metadata_normalized_read_enabled',
-  'tmdb_search_enabled',
-  'ui_drawer_edit_experiment'
-]);
-
 export default function AdminFeatureFlagsView({ apiCall, onToast, Spinner, cx }) {
   const [flags, setFlags] = useState([]);
   const [readOnly, setReadOnly] = useState(false);
@@ -21,9 +12,7 @@ export default function AdminFeatureFlagsView({ apiCall, onToast, Spinner, cx })
     setError('');
     try {
       const payload = await apiCall('get', '/admin/feature-flags');
-      const visibleFlags = Array.isArray(payload?.flags)
-        ? payload.flags.filter((flag) => !HIDDEN_BAKED_IN_FLAGS.has(flag?.key))
-        : [];
+      const visibleFlags = Array.isArray(payload?.flags) ? payload.flags : [];
       setFlags(visibleFlags);
       setReadOnly(Boolean(payload?.readOnly));
     } catch (err) {

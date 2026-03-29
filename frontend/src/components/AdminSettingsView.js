@@ -8,14 +8,6 @@ const FEATURE_FLAG_LABELS = {
   metrics_enabled: 'Metrics Export',
   external_log_export_enabled: 'External Log Export'
 };
-const HIDDEN_BAKED_IN_FLAGS = new Set([
-  'api_docs_enabled',
-  'import_csv_enabled',
-  'import_plex_enabled',
-  'metadata_normalized_read_enabled',
-  'tmdb_search_enabled',
-  'ui_drawer_edit_experiment'
-]);
 const SETTINGS_VISIBLE_FLAGS = new Set([
   'events_enabled',
   'collectibles_enabled'
@@ -108,9 +100,7 @@ export default function AdminSettingsView({ apiCall, onToast, onSettingsChange, 
       const payload = await apiCall('get', '/admin/feature-flags');
       setFlags(
         Array.isArray(payload?.flags)
-          ? payload.flags.filter(
-            (flag) => !HIDDEN_BAKED_IN_FLAGS.has(flag?.key) && SETTINGS_VISIBLE_FLAGS.has(flag?.key)
-          )
+          ? payload.flags.filter((flag) => SETTINGS_VISIBLE_FLAGS.has(flag?.key))
           : []
       );
       setFlagsReadOnly(Boolean(payload?.readOnly));

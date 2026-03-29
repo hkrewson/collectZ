@@ -3775,12 +3775,10 @@ router.use(authenticateToken);
 router.use(enforceScopeAccess({ allowedHintRoles: ['admin'] }));
 
 router.get('/feature-flags', asyncHandler(async (_req, res) => {
-  const uiDrawerEditExperiment = await isFeatureEnabled('ui_drawer_edit_experiment', false);
   const eventsEnabled = await isFeatureEnabled('events_enabled', false);
   const collectiblesEnabled = await isFeatureEnabled('collectibles_enabled', false);
   res.json({
     flags: {
-      ui_drawer_edit_experiment: Boolean(uiDrawerEditExperiment),
       events_enabled: Boolean(eventsEnabled),
       collectibles_enabled: Boolean(collectiblesEnabled)
     }
@@ -3791,7 +3789,6 @@ router.get('/feature-flags', asyncHandler(async (_req, res) => {
 
 router.get('/', asyncHandler(async (req, res) => {
   const scopeContext = resolveScopeContext(req);
-  const normalizedMetadataReadEnabled = await isFeatureEnabled('metadata_normalized_read_enabled', true);
   const {
     format, search, page, limit,
     sortBy, sortDir,
@@ -3832,144 +3829,69 @@ router.get('/', asyncHandler(async (req, res) => {
     const tsqIdx = params.length;
     params.push(`%${normalizedSearch}%`);
     const likeIdx = params.length;
-    if (normalizedMetadataReadEnabled) {
-      where += ` AND (
-        to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(original_title,'') || ' ' || coalesce(notes,'')) @@ plainto_tsquery('simple', $${tsqIdx})
-        OR title ILIKE $${likeIdx}
-        OR original_title ILIKE $${likeIdx}
-        OR EXISTS (
-          SELECT 1
-          FROM media_directors md
-          JOIN directors d ON d.id = md.director_id
-          WHERE md.media_id = media.id
-            AND d.name ILIKE $${likeIdx}
-        )
-        OR EXISTS (
-          SELECT 1
-          FROM media_genres mg
-          JOIN genres g ON g.id = mg.genre_id
-          WHERE mg.media_id = media.id
-            AND g.name ILIKE $${likeIdx}
-        )
-        OR EXISTS (
-          SELECT 1
-          FROM media_actors ma
-          JOIN actors a ON a.id = ma.actor_id
-          WHERE ma.media_id = media.id
-            AND a.name ILIKE $${likeIdx}
-        )
-        OR notes ILIKE $${likeIdx}
-        OR COALESCE(type_details->>'series', '') ILIKE $${likeIdx}
-        OR COALESCE(type_details->>'writer', '') ILIKE $${likeIdx}
-        OR COALESCE(type_details->>'artist', '') ILIKE $${likeIdx}
-      )`;
-    } else {
-      where += ` AND (
-        to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(original_title,'') || ' ' || coalesce(director,'') || ' ' || coalesce(cast_members,'') || ' ' || coalesce(genre,'') || ' ' || coalesce(notes,'')) @@ plainto_tsquery('simple', $${tsqIdx})
-        OR title ILIKE $${likeIdx}
-        OR original_title ILIKE $${likeIdx}
-        OR director ILIKE $${likeIdx}
-        OR cast_members ILIKE $${likeIdx}
-        OR genre ILIKE $${likeIdx}
-        OR EXISTS (
-          SELECT 1
-          FROM media_directors md
-          JOIN directors d ON d.id = md.director_id
-          WHERE md.media_id = media.id
-            AND d.name ILIKE $${likeIdx}
-        )
-        OR EXISTS (
-          SELECT 1
-          FROM media_genres mg
-          JOIN genres g ON g.id = mg.genre_id
-          WHERE mg.media_id = media.id
-            AND g.name ILIKE $${likeIdx}
-        )
-        OR EXISTS (
-          SELECT 1
-          FROM media_actors ma
-          JOIN actors a ON a.id = ma.actor_id
-          WHERE ma.media_id = media.id
-            AND a.name ILIKE $${likeIdx}
-        )
-        OR notes ILIKE $${likeIdx}
-        OR COALESCE(type_details->>'series', '') ILIKE $${likeIdx}
-        OR COALESCE(type_details->>'writer', '') ILIKE $${likeIdx}
-        OR COALESCE(type_details->>'artist', '') ILIKE $${likeIdx}
-      )`;
-    }
-  }
-
-  if (director) {
-    params.push(`%${director}%`);
-    if (normalizedMetadataReadEnabled) {
-      where += ` AND EXISTS (
+    where += ` AND (
+      to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(original_title,'') || ' ' || coalesce(notes,'')) @@ plainto_tsquery('simple', $${tsqIdx})
+      OR title ILIKE $${likeIdx}
+      OR original_title ILIKE $${likeIdx}
+      OR EXISTS (
         SELECT 1
         FROM media_directors md
         JOIN directors d ON d.id = md.director_id
         WHERE md.media_id = media.id
-          AND d.name ILIKE $${params.length}
-      )`;
-    } else {
-      where += ` AND (
-        director ILIKE $${params.length}
-        OR EXISTS (
-          SELECT 1
-          FROM media_directors md
-          JOIN directors d ON d.id = md.director_id
-          WHERE md.media_id = media.id
-            AND d.name ILIKE $${params.length}
-        )
-      )`;
-    }
-  }
-
-  if (genre) {
-    params.push(`%${genre}%`);
-    if (normalizedMetadataReadEnabled) {
-      where += ` AND EXISTS (
+          AND d.name ILIKE $${likeIdx}
+      )
+      OR EXISTS (
         SELECT 1
         FROM media_genres mg
         JOIN genres g ON g.id = mg.genre_id
         WHERE mg.media_id = media.id
-          AND g.name ILIKE $${params.length}
-      )`;
-    } else {
-      where += ` AND (
-        genre ILIKE $${params.length}
-        OR EXISTS (
-          SELECT 1
-          FROM media_genres mg
-          JOIN genres g ON g.id = mg.genre_id
-          WHERE mg.media_id = media.id
-            AND g.name ILIKE $${params.length}
-        )
-      )`;
-    }
-  }
-
-  if (cast) {
-    params.push(`%${cast}%`);
-    if (normalizedMetadataReadEnabled) {
-      where += ` AND EXISTS (
+          AND g.name ILIKE $${likeIdx}
+      )
+      OR EXISTS (
         SELECT 1
         FROM media_actors ma
         JOIN actors a ON a.id = ma.actor_id
         WHERE ma.media_id = media.id
-          AND a.name ILIKE $${params.length}
-      )`;
-    } else {
-      where += ` AND (
-        cast_members ILIKE $${params.length}
-        OR EXISTS (
-          SELECT 1
-          FROM media_actors ma
-          JOIN actors a ON a.id = ma.actor_id
-          WHERE ma.media_id = media.id
-            AND a.name ILIKE $${params.length}
-        )
-      )`;
-    }
+          AND a.name ILIKE $${likeIdx}
+      )
+      OR notes ILIKE $${likeIdx}
+      OR COALESCE(type_details->>'series', '') ILIKE $${likeIdx}
+      OR COALESCE(type_details->>'writer', '') ILIKE $${likeIdx}
+      OR COALESCE(type_details->>'artist', '') ILIKE $${likeIdx}
+    )`;
+  }
+
+  if (director) {
+    params.push(`%${director}%`);
+    where += ` AND EXISTS (
+      SELECT 1
+      FROM media_directors md
+      JOIN directors d ON d.id = md.director_id
+      WHERE md.media_id = media.id
+        AND d.name ILIKE $${params.length}
+    )`;
+  }
+
+  if (genre) {
+    params.push(`%${genre}%`);
+    where += ` AND EXISTS (
+      SELECT 1
+      FROM media_genres mg
+      JOIN genres g ON g.id = mg.genre_id
+      WHERE mg.media_id = media.id
+        AND g.name ILIKE $${params.length}
+    )`;
+  }
+
+  if (cast) {
+    params.push(`%${cast}%`);
+    where += ` AND EXISTS (
+      SELECT 1
+      FROM media_actors ma
+      JOIN actors a ON a.id = ma.actor_id
+      WHERE ma.media_id = media.id
+        AND a.name ILIKE $${params.length}
+    )`;
   }
 
   if (Number.isFinite(Number(yearMin))) {
@@ -4472,7 +4394,6 @@ router.patch('/:id/tv-seasons/:seasonNumber', asyncHandler(async (req, res) => {
 // ── TMDB search ───────────────────────────────────────────────────────────────
 
 router.post('/search-tmdb', validate(simpleSearchSchema), asyncHandler(async (req, res) => {
-  await assertFeatureEnabled('tmdb_search_enabled');
   const { title, year, mediaType } = req.body;
   const config = await loadAdminIntegrationConfig();
   const normalizedType = mediaType === 'tv' ? 'tv' : 'movie';
@@ -4481,7 +4402,6 @@ router.post('/search-tmdb', validate(simpleSearchSchema), asyncHandler(async (re
 }));
 
 router.post('/tmdb/trace-match', validate(simpleSearchSchema), asyncHandler(async (req, res) => {
-  await assertFeatureEnabled('tmdb_search_enabled');
   const { title, year, mediaType } = req.body;
   const lookupTitle = title;
   const config = await loadAdminIntegrationConfig();
@@ -4523,7 +4443,6 @@ router.post('/tmdb/trace-match', validate(simpleSearchSchema), asyncHandler(asyn
 }));
 
 router.get('/tmdb/:id/details', asyncHandler(async (req, res) => {
-  await assertFeatureEnabled('tmdb_search_enabled');
   const movieId = Number(req.params.id);
   if (!Number.isFinite(movieId) || movieId <= 0) {
     return res.status(400).json({ error: 'Valid numeric TMDB id is required' });
@@ -4535,7 +4454,6 @@ router.get('/tmdb/:id/details', asyncHandler(async (req, res) => {
 }));
 
 router.get('/tmdb/:id/trace', asyncHandler(async (req, res) => {
-  await assertFeatureEnabled('tmdb_search_enabled');
   const tmdbId = Number(req.params.id);
   if (!Number.isFinite(tmdbId) || tmdbId <= 0) {
     return res.status(400).json({ error: 'Valid numeric TMDB id is required' });
@@ -4828,7 +4746,6 @@ router.get('/import/template-csv', asyncHandler(async (_req, res) => {
 }));
 
 router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, res) => {
-  await assertFeatureEnabled('import_csv_enabled');
   const scopeContext = resolveScopeContext(req);
   if (!req.file) {
     return res.status(400).json({ error: 'CSV file is required (multipart field: file)' });
@@ -4973,7 +4890,6 @@ router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, r
 }));
 
 router.post('/import-csv/calibre', tempUpload.single('file'), asyncHandler(async (req, res) => {
-  await assertFeatureEnabled('import_csv_enabled');
   const scopeContext = resolveScopeContext(req);
   if (!req.file) {
     return res.status(400).json({ error: 'Calibre CSV file is required (multipart field: file)' });
@@ -5121,7 +5037,6 @@ router.post('/import-cwa', asyncHandler(async (_req, res) => {
 }));
 
 router.post('/import-csv/delicious', tempUpload.single('file'), asyncHandler(async (req, res) => {
-  await assertFeatureEnabled('import_csv_enabled');
   const scopeContext = resolveScopeContext(req);
   if (!req.file) {
     return res.status(400).json({ error: 'Delicious CSV file is required (multipart field: file)' });
@@ -5264,7 +5179,6 @@ router.post('/import-csv/delicious', tempUpload.single('file'), asyncHandler(asy
 // ── Plex import (admin only) ─────────────────────────────────────────────────
 
 router.post('/import-plex', asyncHandler(async (req, res) => {
-  await assertFeatureEnabled('import_plex_enabled');
   const scopeContext = resolveScopeContext(req);
   if (req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Only admins can import from Plex' });
