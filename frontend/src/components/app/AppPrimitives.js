@@ -110,6 +110,60 @@ export function Spinner({ size = 16 }) {
   );
 }
 
+export function ObjectPosterCard({
+  title,
+  imagePath,
+  fallbackIcon = <Icons.Library />,
+  supportsHover = true,
+  leftBadges = [],
+  rightBadge = null,
+  subtitle = null,
+  meta = null,
+  onEdit,
+  onDelete
+}) {
+  return (
+    <article className="group relative animate-fade-in">
+      <div className="poster rounded-lg overflow-hidden shadow-card border border-transparent transition-colors group-hover:border-muted">
+        {posterUrl(imagePath)
+          ? <img src={posterUrl(imagePath)} alt={title} className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
+          : (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-ghost">
+              {fallbackIcon}
+              <span className="px-3 text-center text-xs leading-tight">{title}</span>
+            </div>
+          )}
+        <div className={cx('absolute inset-0 bg-card-fade transition-opacity duration-300', supportsHover ? 'opacity-0 group-hover:opacity-100' : 'opacity-10')} />
+        {leftBadges.length > 0 ? (
+          <div className="absolute left-2 top-2 flex max-w-[70%] flex-wrap gap-2">
+            {leftBadges.map((badge, index) => (
+              <span key={`${title}-badge-${index}`} className="badge badge-dim text-[10px] backdrop-blur-sm bg-void/60 border-ghost/20">
+                {badge}
+              </span>
+            ))}
+          </div>
+        ) : null}
+        {rightBadge ? (
+          <div className="absolute right-2 top-2">
+            {rightBadge}
+          </div>
+        ) : null}
+        <div className={cx('absolute bottom-0 left-0 right-0 p-3 transition-all duration-300', supportsHover ? 'translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100' : 'translate-y-0 opacity-100')}>
+          <div className="flex gap-2">
+            <button className="btn-secondary btn-sm flex-1 backdrop-blur-sm bg-void/60 border-ghost/30" onClick={(e) => { e.stopPropagation(); onEdit?.(e); }}><Icons.Edit />Edit</button>
+            <button className="btn-icon btn-sm backdrop-blur-sm bg-void/60 border-ghost/30 text-err hover:bg-err/20" onClick={(e) => { e.stopPropagation(); onDelete?.(e); }}><Icons.Trash /></button>
+          </div>
+        </div>
+      </div>
+      <div className="mt-2 px-0.5">
+        <p className="truncate text-sm font-medium text-ink">{title}</p>
+        {subtitle ? <p className="text-xs text-ghost">{subtitle}</p> : null}
+        {meta ? <div className="mt-1 flex flex-wrap gap-2">{meta}</div> : null}
+      </div>
+    </article>
+  );
+}
+
 export function Toast({ message, type = 'ok', onDismiss }) {
   useEffect(() => {
     const t = setTimeout(onDismiss, 3500);

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Icons, Spinner, cx } from './app/AppPrimitives';
+import { Icons, Spinner, cx, ObjectPosterCard } from './app/AppPrimitives';
 
 const DEFAULT_EVENT_FORM = {
   title: '',
@@ -67,26 +67,24 @@ function MetaPill({ children, tone = 'default' }) {
 
 function EventCard({ item, supportsHover, onOpen, onEdit, onDelete }) {
   return (
-    <article className="group relative cursor-pointer animate-fade-in rounded-2xl border border-edge/80 bg-surface p-4 shadow-[0_18px_60px_rgba(0,0,0,0.16)] transition-all duration-150 hover:border-muted hover:bg-raised" onClick={() => onOpen(item)}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-ink truncate">{item.title}</p>
-          <p className="mt-1 text-xs text-ghost line-clamp-2">
-            {item.location || 'Location not set'}
-          </p>
-        </div>
-        <span className="badge badge-dim text-[10px]">#{item.id}</span>
-      </div>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <MetaPill>{toDisplayDate(item.date_start) || 'Date pending'}</MetaPill>
-        <MetaPill>{pluralizeArtifacts(item.artifact_count)}</MetaPill>
-        {item.host ? <MetaPill tone="brand">{item.host}</MetaPill> : null}
-      </div>
-      <div className={cx('mt-3 flex gap-2 transition-opacity duration-150', supportsHover ? 'opacity-0 group-hover:opacity-100' : 'opacity-100')}>
-        <button className="btn-secondary btn-sm flex-1" onClick={(e) => { e.stopPropagation(); onEdit(item); }}><Icons.Edit />Edit</button>
-        <button className="btn-icon btn-sm text-err hover:bg-err/20" onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}><Icons.Trash /></button>
-      </div>
-    </article>
+    <div onClick={() => onOpen(item)}>
+      <ObjectPosterCard
+        title={item.title}
+        fallbackIcon={<Icons.Activity />}
+        supportsHover={supportsHover}
+        leftBadges={[`#${item.id}`, toDisplayDate(item.date_start) || 'Date pending']}
+        rightBadge={item.host ? <span className="badge badge-brand text-[10px] backdrop-blur-sm bg-brand/20 border-brand/30">{item.host}</span> : null}
+        subtitle={item.location || 'Location not set'}
+        meta={
+          <>
+            <MetaPill>{pluralizeArtifacts(item.artifact_count)}</MetaPill>
+            {item.room ? <MetaPill>{`Room ${item.room}`}</MetaPill> : null}
+          </>
+        }
+        onEdit={(e) => { e?.stopPropagation?.(); onEdit(item); }}
+        onDelete={(e) => { e?.stopPropagation?.(); onDelete(item.id); }}
+      />
+    </div>
   );
 }
 
@@ -555,7 +553,7 @@ export default function EventsView({ apiCall, onToast }) {
           </div>
         )}
         {!loading && viewMode === 'cards' && items.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
             {items.map((item) => (
               <EventCard
                 key={item.id}

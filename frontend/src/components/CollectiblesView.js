@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Icons, Spinner, cx } from './app/AppPrimitives';
+import { Icons, Spinner, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
 
 const CATEGORY_OPTIONS = [
   { key: 'lego', label: 'Lego' },
@@ -53,28 +53,23 @@ function FilterPill({ children, tone = 'default' }) {
 
 function CollectibleCard({ item, supportsHover, onEdit, onDelete }) {
   return (
-    <article className="group relative rounded-2xl border border-edge/80 bg-surface p-4 animate-fade-in shadow-[0_18px_60px_rgba(0,0,0,0.16)] transition-all duration-150 hover:border-muted hover:bg-raised">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-ink truncate">{item.title}</p>
-          <p className="text-xs text-ghost mt-1 line-clamp-2">
-            {item.event_title ? item.event_title : 'No linked event'}
-          </p>
-        </div>
-        <span className="badge badge-dim text-[10px]">#{item.id}</span>
-      </div>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <FilterPill>{item.subtype || item.item_type || 'collectible'}</FilterPill>
-        {item.category ? <FilterPill>{item.category}</FilterPill> : null}
-        {item.booth_or_vendor ? <FilterPill>{item.booth_or_vendor}</FilterPill> : null}
-        {item.exclusive ? <FilterPill tone="brand">Exclusive</FilterPill> : null}
-        {item.image_path ? <FilterPill tone="brand">Image attached</FilterPill> : null}
-      </div>
-      <div className={cx('mt-3 flex gap-2 transition-opacity duration-150', supportsHover ? 'opacity-0 group-hover:opacity-100' : 'opacity-100')}>
-        <button className="btn-secondary btn-sm flex-1" onClick={() => onEdit(item)}><Icons.Edit />Edit</button>
-        <button className="btn-icon btn-sm text-err hover:bg-err/20" onClick={() => onDelete(item.id)}><Icons.Trash /></button>
-      </div>
-    </article>
+    <ObjectPosterCard
+      title={item.title}
+      imagePath={item.image_path}
+      fallbackIcon={<Icons.Library />}
+      supportsHover={supportsHover}
+      leftBadges={[`#${item.id}`, item.subtype || item.item_type || 'collectible']}
+      rightBadge={item.exclusive ? <span className="badge badge-brand text-[10px] backdrop-blur-sm bg-brand/20 border-brand/30">Exclusive</span> : null}
+      subtitle={`${item.category ? item.category : 'Uncategorized'}${item.event_title ? ` · ${item.event_title}` : ''}`}
+      meta={
+        <>
+          {item.booth_or_vendor ? <FilterPill>{item.booth_or_vendor}</FilterPill> : null}
+          {item.image_path ? <FilterPill tone="brand">Image attached</FilterPill> : null}
+        </>
+      }
+      onEdit={() => onEdit(item)}
+      onDelete={() => onDelete(item.id)}
+    />
   );
 }
 
@@ -138,15 +133,36 @@ function CollectibleDrawer({
     <div className="fixed inset-0 z-50 flex">
       <div className="absolute inset-0 bg-void/80 backdrop-blur-sm" onClick={onClose} />
       <div className="relative ml-auto w-full max-w-xl h-full bg-abyss border-l border-edge flex flex-col animate-slide-in">
-        <div className="px-6 pt-6 pb-4 border-b border-edge flex items-start gap-2">
-          <div className="flex-1 min-w-0">
+        {initial?.image_path ? (
+          <div className="relative h-48 shrink-0 overflow-hidden">
+            <img src={posterUrl(initial.image_path)} alt="" className="h-full w-full object-cover" />
+            <div className="absolute inset-0 bg-hero-fade" />
+          </div>
+        ) : null}
+        <div className="flex items-start gap-4 px-6 pt-6 pb-4 shrink-0">
+          {initial?.image_path ? (
+            <div className="relative z-10 -mt-16 w-20 shrink-0 shadow-deep">
+              <div className="poster rounded-md">
+                <img src={posterUrl(initial.image_path)} alt={initial?.title || 'Collectible'} className="absolute inset-0 h-full w-full object-cover" />
+              </div>
+            </div>
+          ) : null}
+          <div className={cx('min-w-0 flex-1', initial?.image_path ? 'mt-1' : '')}>
             <div className="flex items-baseline gap-2">
               <h2 className="font-display text-2xl tracking-wider text-ink leading-tight">{initial?.id ? 'Edit Collectible' : 'Add Collectible'}</h2>
               {initial?.id ? <p className="text-sm text-ghost">#{initial.id}</p> : null}
             </div>
+            {initial ? (
+              <p className="mt-1 text-sm text-dim">
+                {[initial?.category, initial?.event_title || events.find((evt) => String(evt.id) === String(form.event_id))?.title, initial?.booth_or_vendor].filter(Boolean).join(' · ')}
+              </p>
+            ) : (
+              <p className="mt-1 text-sm text-ghost">Capture convention pickups, exclusives, props, and shelf pieces with the same structure as the rest of your library.</p>
+            )}
           </div>
           <button onClick={onClose} className="btn-icon btn-sm shrink-0"><Icons.X /></button>
         </div>
+        <div className="divider" />
         <div className="flex-1 overflow-y-auto scroll-area p-6 space-y-4">
           {error ? <p className="text-xs text-err">{error}</p> : null}
           {notice ? <p className="text-xs text-ok">{notice}</p> : null}
@@ -501,7 +517,7 @@ export default function CollectiblesView({ apiCall, onToast }) {
           </div>
         ) : null}
         {!loading && viewMode === 'cards' && items.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
             {items.map((item) => (
               <CollectibleCard key={item.id} item={item} supportsHover={supportsHover} onEdit={setEditing} onDelete={deleteCollectible} />
             ))}
