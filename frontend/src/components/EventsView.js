@@ -67,24 +67,23 @@ function MetaPill({ children, tone = 'default' }) {
 
 function EventCard({ item, supportsHover, onOpen, onEdit, onDelete }) {
   return (
-    <div onClick={() => onOpen(item)}>
-      <ObjectPosterCard
-        title={item.title}
-        fallbackIcon={<Icons.Activity />}
-        supportsHover={supportsHover}
-        leftBadges={[`#${item.id}`, toDisplayDate(item.date_start) || 'Date pending']}
-        rightBadge={item.host ? <span className="badge badge-brand text-[10px] backdrop-blur-sm bg-brand/20 border-brand/30">{item.host}</span> : null}
-        subtitle={item.location || 'Location not set'}
-        meta={
-          <>
-            <MetaPill>{pluralizeArtifacts(item.artifact_count)}</MetaPill>
-            {item.room ? <MetaPill>{`Room ${item.room}`}</MetaPill> : null}
-          </>
-        }
-        onEdit={(e) => { e?.stopPropagation?.(); onEdit(item); }}
-        onDelete={(e) => { e?.stopPropagation?.(); onDelete(item.id); }}
-      />
-    </div>
+    <ObjectPosterCard
+      title={item.title}
+      fallbackIcon={<Icons.Activity />}
+      supportsHover={supportsHover}
+      onOpen={() => onOpen(item)}
+      leftBadges={[`#${item.id}`, toDisplayDate(item.date_start) || 'Date pending']}
+      rightBadge={item.host ? <span className="badge badge-brand text-[10px] backdrop-blur-sm bg-brand/20 border-brand/30">{item.host}</span> : null}
+      subtitle={item.location || 'Location not set'}
+      meta={
+        <>
+          <MetaPill>{pluralizeArtifacts(item.artifact_count)}</MetaPill>
+          {item.room ? <MetaPill>{`Room ${item.room}`}</MetaPill> : null}
+        </>
+      }
+      onEdit={() => onEdit(item)}
+      onDelete={() => onDelete(item.id)}
+    />
   );
 }
 
@@ -187,6 +186,7 @@ function EventDetailDrawer({ eventId, apiCall, onClose, onEdit, onDeleted, onSav
   const [event, setEvent] = useState(null);
   const [artifacts, setArtifacts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [artifactEditorOpen, setArtifactEditorOpen] = useState(false);
   const [artifactForm, setArtifactForm] = useState(DEFAULT_ARTIFACT_FORM);
   const [editingArtifactId, setEditingArtifactId] = useState(null);
   const [artifactFile, setArtifactFile] = useState(null);
@@ -354,6 +354,20 @@ function EventDetailDrawer({ eventId, apiCall, onClose, onEdit, onDeleted, onSav
                 <div className="mb-3 flex items-center gap-3">
                   <p className="label">Artifacts</p>
                   <MetaPill>{pluralizeArtifacts(artifacts.length)}</MetaPill>
+                  {artifacts.length > 0 ? <MetaPill>{artifactEditorOpen ? 'Edit mode' : 'View mode'}</MetaPill> : null}
+                  <div className="flex-1" />
+                  <button
+                    className="btn-ghost btn-sm"
+                    onClick={() => {
+                      setArtifactEditorOpen((open) => {
+                        const next = !open;
+                        if (!next) clearArtifactForm();
+                        return next;
+                      });
+                    }}
+                  >
+                    {artifactEditorOpen ? 'Done' : 'Edit artifacts'}
+                  </button>
                 </div>
                 <div className="space-y-2">
                   {artifacts.map((a) => (
@@ -372,48 +386,50 @@ function EventDetailDrawer({ eventId, apiCall, onClose, onEdit, onDeleted, onSav
                           <Icons.Link />
                         </a>
                       ) : null}
-                      {a.image_path ? (
+                      {artifactEditorOpen && a.image_path ? (
                         <button className="btn-ghost btn-sm" onClick={() => removeArtifactImage(a)}>
                           <Icons.X />
                         </button>
                       ) : null}
-                      <button className="btn-ghost btn-sm" onClick={() => editArtifact(a)}><Icons.Edit /></button>
-                      <button className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={() => removeArtifact(a.id)}><Icons.Trash /></button>
+                      {artifactEditorOpen ? <button className="btn-ghost btn-sm" onClick={() => editArtifact(a)}><Icons.Edit /></button> : null}
+                      {artifactEditorOpen ? <button className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={() => removeArtifact(a.id)}><Icons.Trash /></button> : null}
                     </div>
                   ))}
                   {artifacts.length === 0 && <p className="text-sm text-ghost">No artifacts yet. Add notes, purchases, or photos from this event to build the history here.</p>}
                 </div>
               </div>
-              <div className="border-t border-edge pt-4">
-                <p className="label mb-2">{editingArtifactId ? `Edit Artifact #${editingArtifactId}` : 'Add Artifact'}</p>
-                {artifactError ? <p className="text-xs text-err mb-2">{artifactError}</p> : null}
-                {artifactNotice ? <p className="text-xs text-ok mb-2">{artifactNotice}</p> : null}
-                <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                  <select className="select" value={artifactForm.artifact_type} onChange={(e) => setArtifactForm((p) => ({ ...p, artifact_type: e.target.value }))}>
-                    <option value="note">Note</option>
-                    <option value="session">Session</option>
-                    <option value="person">Person</option>
-                    <option value="autograph">Autograph</option>
-                    <option value="purchase">Purchase</option>
-                    <option value="freebie">Freebie</option>
-                  </select>
-                  <input className="input" placeholder="Title" value={artifactForm.title} onChange={(e) => setArtifactForm((p) => ({ ...p, title: e.target.value }))} />
-                  <input className="input" placeholder="Vendor" value={artifactForm.vendor} onChange={(e) => setArtifactForm((p) => ({ ...p, vendor: e.target.value }))} />
-                  <input className="input" placeholder="Price" value={artifactForm.price} onChange={(e) => setArtifactForm((p) => ({ ...p, price: e.target.value }))} />
-                  <input className="input md:col-span-2" placeholder="Image URL (optional)" value={artifactForm.image_path} onChange={(e) => setArtifactForm((p) => ({ ...p, image_path: e.target.value }))} />
-                  <input className="input md:col-span-2" type="file" accept="image/*" capture="environment" onChange={(e) => setArtifactFile(e.target.files?.[0] || null)} />
-                  {artifactFile ? <p className="text-xs text-ghost md:col-span-2">Selected file: {artifactFile.name}</p> : null}
-                  <textarea className="textarea md:col-span-2 min-h-[70px]" placeholder="Description" value={artifactForm.description} onChange={(e) => setArtifactForm((p) => ({ ...p, description: e.target.value }))} />
-                  <div className="md:col-span-2 flex gap-2">
-                    <button className="btn-secondary flex-1" onClick={saveArtifact} disabled={artifactSaving}>
-                      {artifactSaving
-                        ? <><Spinner size={14} />Saving…</>
-                        : (editingArtifactId ? <><Icons.Check />Save Artifact</> : <><Icons.Plus />Add Artifact</>)}
-                    </button>
-                    {editingArtifactId ? <button className="btn-ghost" onClick={clearArtifactForm}>Cancel</button> : null}
+              {artifactEditorOpen ? (
+                <div className="border-t border-edge pt-4">
+                  <p className="label mb-2">{editingArtifactId ? `Edit Artifact #${editingArtifactId}` : 'Add Artifact'}</p>
+                  {artifactError ? <p className="text-xs text-err mb-2">{artifactError}</p> : null}
+                  {artifactNotice ? <p className="text-xs text-ok mb-2">{artifactNotice}</p> : null}
+                  <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                    <select className="select" value={artifactForm.artifact_type} onChange={(e) => setArtifactForm((p) => ({ ...p, artifact_type: e.target.value }))}>
+                      <option value="note">Note</option>
+                      <option value="session">Session</option>
+                      <option value="person">Person</option>
+                      <option value="autograph">Autograph</option>
+                      <option value="purchase">Purchase</option>
+                      <option value="freebie">Freebie</option>
+                    </select>
+                    <input className="input" placeholder="Title" value={artifactForm.title} onChange={(e) => setArtifactForm((p) => ({ ...p, title: e.target.value }))} />
+                    <input className="input" placeholder="Vendor" value={artifactForm.vendor} onChange={(e) => setArtifactForm((p) => ({ ...p, vendor: e.target.value }))} />
+                    <input className="input" placeholder="Price" value={artifactForm.price} onChange={(e) => setArtifactForm((p) => ({ ...p, price: e.target.value }))} />
+                    <input className="input md:col-span-2" placeholder="Image URL (optional)" value={artifactForm.image_path} onChange={(e) => setArtifactForm((p) => ({ ...p, image_path: e.target.value }))} />
+                    <input className="input md:col-span-2" type="file" accept="image/*" capture="environment" onChange={(e) => setArtifactFile(e.target.files?.[0] || null)} />
+                    {artifactFile ? <p className="text-xs text-ghost md:col-span-2">Selected file: {artifactFile.name}</p> : null}
+                    <textarea className="textarea md:col-span-2 min-h-[70px]" placeholder="Description" value={artifactForm.description} onChange={(e) => setArtifactForm((p) => ({ ...p, description: e.target.value }))} />
+                    <div className="md:col-span-2 flex gap-2">
+                      <button className="btn-secondary flex-1" onClick={saveArtifact} disabled={artifactSaving}>
+                        {artifactSaving
+                          ? <><Spinner size={14} />Saving…</>
+                          : (editingArtifactId ? <><Icons.Check />Save Artifact</> : <><Icons.Plus />Add Artifact</>)}
+                      </button>
+                      {editingArtifactId ? <button className="btn-ghost" onClick={clearArtifactForm}>Cancel</button> : null}
+                    </div>
                   </div>
                 </div>
-              </div>
+              ) : null}
             </>
           )}
         </div>

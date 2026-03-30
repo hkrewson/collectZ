@@ -4,6 +4,7 @@ import {
   Spinner,
   cx,
   posterUrl,
+  ObjectPosterCard,
   mediaTypeLabel,
   inferTmdbSearchType,
   isInteractiveTarget,
@@ -167,47 +168,43 @@ function MediaCard({ item, onOpen, onEdit, onDelete, onRating, supportsHover, se
   };
 
   return (
-    <article className={cx('group relative cursor-pointer animate-fade-in rounded-xl transition-all duration-150', selected && 'ring-2 ring-brand/70 ring-offset-2 ring-offset-void')} onClick={() => onOpen(item)} onPointerUp={onPointerUp}>
-      <div className={cx('poster rounded-lg overflow-hidden shadow-card border transition-colors', selected ? 'border-brand/60' : 'border-transparent')}>
-        {posterUrl(item.poster_path)
-          ? <img src={posterUrl(item.poster_path)} alt={item.title} className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
-          : <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-ghost"><Icons.Film /><span className="text-xs text-center px-3 leading-tight">{item.title}</span></div>}
-        <div className={cx('absolute inset-0 transition-opacity duration-300', selected ? 'bg-brand/20 opacity-100' : 'bg-card-fade', supportsHover ? (selected ? '' : 'opacity-0 group-hover:opacity-100') : (selected ? '' : 'opacity-10'))} />
-        <div className="absolute top-2 left-2"><span className="badge badge-dim text-[10px] backdrop-blur-sm bg-void/60 border-ghost/20">{item.format || '—'}</span></div>
-        <div className="absolute top-2 right-2"><span className="badge badge-dim text-[10px] backdrop-blur-sm bg-void/60 border-ghost/20">{mediaTypeLabel(item.media_type)}</span></div>
-        {selectionEnabled && (
-          <button
-            type="button"
-            className={cx(
-              'absolute left-2 top-9 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full border backdrop-blur-sm transition-colors',
-              selected ? 'border-brand bg-brand text-white shadow-[0_0_0_3px_rgba(68,130,255,0.18)]' : 'border-brand/45 bg-void/80 text-brand'
-            )}
-            aria-label={`Select ${item.title}`}
-            aria-pressed={selected}
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleSelect?.(item.id);
-            }}
-          >
-            {selected ? <Icons.Check /> : <span className="block h-2.5 w-2.5 rounded-full bg-brand/80" />}
-          </button>
-        )}
-        <div className={cx('absolute bottom-0 left-0 right-0 p-3 transition-all duration-300', supportsHover ? 'translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100' : 'translate-y-0 opacity-100')}>
-          <div className="flex gap-2">
-            <button onClick={(e) => { e.stopPropagation(); onEdit(item); }} className="btn-secondary btn-sm flex-1 backdrop-blur-sm bg-void/60 border-ghost/30"><Icons.Edit />Edit</button>
-            <button onClick={(e) => { e.stopPropagation(); onDelete(item.id); }} className="btn-icon btn-sm backdrop-blur-sm bg-void/60 border-ghost/30 text-err hover:bg-err/20"><Icons.Trash /></button>
-          </div>
+    <ObjectPosterCard
+      title={item.title}
+      imagePath={item.poster_path}
+      fallbackIcon={<Icons.Film />}
+      supportsHover={supportsHover}
+      onOpen={() => onOpen(item)}
+      onPointerUp={onPointerUp}
+      selected={selected}
+      leftBadges={[item.format || '—']}
+      rightBadge={<span className="badge badge-dim text-[10px] backdrop-blur-sm bg-void/60 border-ghost/20">{mediaTypeLabel(item.media_type)}</span>}
+      overlayChildren={selectionEnabled ? (
+        <button
+          type="button"
+          className={cx(
+            'absolute left-2 top-9 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full border backdrop-blur-sm transition-colors',
+            selected ? 'border-brand bg-brand text-white shadow-[0_0_0_3px_rgba(68,130,255,0.18)]' : 'border-brand/45 bg-void/80 text-brand'
+          )}
+          aria-label={`Select ${item.title}`}
+          aria-pressed={selected}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleSelect?.(item.id);
+          }}
+        >
+          {selected ? <Icons.Check /> : <span className="block h-2.5 w-2.5 rounded-full bg-brand/80" />}
+        </button>
+      ) : null}
+      subtitle={`${item.year || '—'}${item.director ? ` · ${item.director}` : ''}${item.media_type === 'tv_series' && item.tv_all_seasons_completed ? ' · Completed' : ''}`}
+      titleClassName={selected ? 'text-brand' : ''}
+      meta={
+        <div onClick={(e) => e.stopPropagation()}>
+          <StarRating value={item.user_rating || 0} onChange={(r) => onRating(item.id, r)} />
         </div>
-      </div>
-      <div className="mt-2 px-0.5">
-        <p className={cx('text-sm font-medium truncate', selected ? 'text-brand' : 'text-ink')}>{item.title}</p>
-        <p className="text-xs text-ghost">
-          {item.year || '—'}{item.director ? ` · ${item.director}` : ''}
-          {item.media_type === 'tv_series' && item.tv_all_seasons_completed ? ' · Completed' : ''}
-        </p>
-        <div className="mt-1" onClick={(e) => e.stopPropagation()}><StarRating value={item.user_rating || 0} onChange={(r) => onRating(item.id, r)} /></div>
-      </div>
-    </article>
+      }
+      onEdit={() => onEdit(item)}
+      onDelete={() => onDelete(item.id)}
+    />
   );
 }
 
@@ -219,33 +216,23 @@ function CollectionCard({ item, supportsHover, onOpen, onEdit, onConvert }) {
     onOpen(item);
   };
   return (
-    <article className="group relative cursor-pointer animate-fade-in" onClick={() => onOpen(item)} onPointerUp={onPointerUp}>
-      <div className="poster rounded-lg overflow-hidden shadow-card">
-        {posterUrl(item.poster_path)
-          ? <img src={posterUrl(item.poster_path)} alt={title} className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
-          : <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-ghost"><Icons.Library /><span className="text-xs text-center px-3 leading-tight">{title}</span></div>}
-        <div className={cx('absolute inset-0 bg-card-fade transition-opacity duration-300', supportsHover ? 'opacity-0 group-hover:opacity-100' : 'opacity-10')} />
-        <div className="absolute top-2 left-2">
-          <span className={cx('badge text-[10px] backdrop-blur-sm bg-void/60 border-ghost/20', item.has_digital ? 'badge-brand' : 'badge-dim')}>
-            {item.has_digital ? 'Digital' : 'Collection'}
-          </span>
+    <ObjectPosterCard
+      title={title}
+      imagePath={item.poster_path}
+      fallbackIcon={<Icons.Library />}
+      supportsHover={supportsHover}
+      onOpen={() => onOpen(item)}
+      onPointerUp={onPointerUp}
+      leftBadges={[item.has_digital ? 'Digital' : 'Collection']}
+      rightBadge={<span className="badge badge-dim text-[10px] backdrop-blur-sm bg-void/60 border-ghost/20">{mediaTypeLabel(item.media_type)}</span>}
+      subtitle={`${item.item_count || 0} item${Number(item.item_count || 0) === 1 ? '' : 's'}${Number.isFinite(Number(item.expected_item_count)) && Number(item.expected_item_count) > 0 ? ` · expected ${item.expected_item_count}` : ''}`}
+      actionBar={
+        <div className="flex gap-2">
+          <button onClick={(e) => { e.stopPropagation(); onEdit(item.id); }} className="btn-secondary btn-sm flex-1 backdrop-blur-sm bg-void/60 border-ghost/30"><Icons.Edit />Edit</button>
+          <button onClick={(e) => { e.stopPropagation(); onConvert(item); }} className="btn-secondary btn-sm backdrop-blur-sm bg-void/60 border-ghost/30"><Icons.Film />Convert</button>
         </div>
-        <div className="absolute top-2 right-2"><span className="badge badge-dim text-[10px] backdrop-blur-sm bg-void/60 border-ghost/20">{mediaTypeLabel(item.media_type)}</span></div>
-        <div className={cx('absolute bottom-0 left-0 right-0 p-3 transition-all duration-300', supportsHover ? 'translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100' : 'translate-y-0 opacity-100')}>
-          <div className="flex gap-2">
-            <button onClick={(e) => { e.stopPropagation(); onEdit(item.id); }} className="btn-secondary btn-sm flex-1 backdrop-blur-sm bg-void/60 border-ghost/30"><Icons.Edit />Edit</button>
-            <button onClick={(e) => { e.stopPropagation(); onConvert(item); }} className="btn-secondary btn-sm backdrop-blur-sm bg-void/60 border-ghost/30"><Icons.Film />Convert</button>
-          </div>
-        </div>
-      </div>
-      <div className="mt-2 px-0.5">
-        <p className="text-sm font-medium text-ink truncate">{title}</p>
-        <p className="text-xs text-ghost">
-          {item.item_count || 0} item{Number(item.item_count || 0) === 1 ? '' : 's'}
-          {Number.isFinite(Number(item.expected_item_count)) && Number(item.expected_item_count) > 0 ? ` · expected ${item.expected_item_count}` : ''}
-        </p>
-      </div>
-    </article>
+      }
+    />
   );
 }
 

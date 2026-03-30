@@ -51,13 +51,14 @@ function FilterPill({ children, tone = 'default' }) {
   );
 }
 
-function CollectibleCard({ item, supportsHover, onEdit, onDelete }) {
+function CollectibleCard({ item, supportsHover, onOpen, onEdit, onDelete }) {
   return (
     <ObjectPosterCard
       title={item.title}
       imagePath={item.image_path}
       fallbackIcon={<Icons.Library />}
       supportsHover={supportsHover}
+      onOpen={() => onOpen(item)}
       leftBadges={[`#${item.id}`, item.subtype || item.item_type || 'collectible']}
       rightBadge={item.exclusive ? <span className="badge badge-brand text-[10px] backdrop-blur-sm bg-brand/20 border-brand/30">Exclusive</span> : null}
       subtitle={`${item.category ? item.category : 'Uncategorized'}${item.event_title ? ` · ${item.event_title}` : ''}`}
@@ -73,9 +74,9 @@ function CollectibleCard({ item, supportsHover, onEdit, onDelete }) {
   );
 }
 
-function CollectibleRow({ item, supportsHover, onEdit, onDelete }) {
+function CollectibleRow({ item, supportsHover, onOpen, onEdit, onDelete }) {
   return (
-    <article className="group flex items-center gap-4 rounded-xl border border-edge bg-surface p-3 hover:border-muted hover:bg-raised transition-all duration-150 animate-fade-in">
+    <article className="group flex items-center gap-4 rounded-xl border border-edge bg-surface p-3 hover:border-muted hover:bg-raised transition-all duration-150 animate-fade-in cursor-pointer" onClick={() => onOpen(item)}>
       <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-edge bg-raised text-ghost"><Icons.Activity /></div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-ink truncate">{item.title}</p>
@@ -88,10 +89,112 @@ function CollectibleRow({ item, supportsHover, onEdit, onDelete }) {
       </div>
       <span className="text-xs text-ghost font-mono">#{item.id}</span>
       <div className={cx('flex gap-2 transition-opacity duration-150', supportsHover ? 'opacity-0 group-hover:opacity-100' : 'opacity-100')}>
-        <button className="btn-ghost btn-sm" onClick={() => onEdit(item)}><Icons.Edit />Edit</button>
-        <button className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={() => onDelete(item.id)}><Icons.Trash /></button>
+        <button className="btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); onEdit(item); }}><Icons.Edit />Edit</button>
+        <button className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}><Icons.Trash /></button>
       </div>
     </article>
+  );
+}
+
+function CollectibleDetailDrawer({ collectibleId, apiCall, categories, events, onClose, onEdit, onDeleted }) {
+  const [item, setItem] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const row = await apiCall('get', `/collectibles/${collectibleId}`);
+      setItem(row || null);
+    } finally {
+      setLoading(false);
+    }
+  }, [apiCall, collectibleId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const deleteCollectible = async () => {
+    if (!item?.id) return;
+    if (!window.confirm('Delete this collectible?')) return;
+    await apiCall('delete', `/collectibles/${item.id}`);
+    onDeleted?.();
+    onClose();
+  };
+
+  const resolvedCategory = item?.category
+    || categories.find((cat) => cat.key === item?.category_key)?.label
+    || null;
+  const resolvedEvent = item?.event_title
+    || events.find((evt) => String(evt.id) === String(item?.event_id))?.title
+    || null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex">
+      <div className="absolute inset-0 bg-void/80 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative ml-auto w-full max-w-xl h-full bg-abyss border-l border-edge flex flex-col animate-slide-in">
+        {item?.image_path ? (
+          <div className="relative h-48 shrink-0 overflow-hidden">
+            <img src={posterUrl(item.image_path)} alt="" className="h-full w-full object-cover" />
+            <div className="absolute inset-0 bg-hero-fade" />
+          </div>
+        ) : null}
+        <div className="flex items-start gap-4 px-6 pt-6 pb-4 shrink-0">
+          {item?.image_path ? (
+            <div className="relative z-10 -mt-16 w-20 shrink-0 shadow-deep">
+              <div className="poster rounded-md">
+                <img src={posterUrl(item.image_path)} alt={item?.title || 'Collectible'} className="absolute inset-0 h-full w-full object-cover" />
+              </div>
+            </div>
+          ) : null}
+          <div className={cx('min-w-0 flex-1', item?.image_path ? 'mt-1' : '')}>
+            <div className="flex items-baseline gap-2">
+              <h2 className="font-display text-2xl tracking-wider text-ink leading-tight">{item?.title || `Collectible #${collectibleId}`}</h2>
+              <p className="text-sm text-ghost">#{collectibleId}</p>
+            </div>
+            <p className="mt-1 text-sm text-dim">
+              {[resolvedCategory, resolvedEvent, item?.booth_or_vendor].filter(Boolean).join(' · ')}
+            </p>
+          </div>
+          <button onClick={onClose} className="btn-icon btn-sm shrink-0"><Icons.X /></button>
+        </div>
+        <div className="divider" />
+        <div className="flex-1 overflow-y-auto scroll-area p-6 space-y-4">
+          {loading ? <div className="flex items-center gap-2 text-dim"><Spinner size={16} />Loading…</div> : null}
+          {!loading && item ? (
+            <>
+              <div className="rounded-2xl border border-edge bg-surface px-4 py-3">
+                <div className="flex flex-wrap gap-2">
+                  <FilterPill>{item.subtype || item.item_type || 'collectible'}</FilterPill>
+                  {resolvedCategory ? <FilterPill>{resolvedCategory}</FilterPill> : null}
+                  {item.exclusive ? <FilterPill tone="brand">Exclusive</FilterPill> : null}
+                  {resolvedEvent ? <FilterPill>{resolvedEvent}</FilterPill> : null}
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
+                {item.booth_or_vendor ? <div><p className="label">Vendor / Booth</p><p className="text-ink">{item.booth_or_vendor}</p></div> : null}
+                {item.price !== null && item.price !== undefined ? <div><p className="label">Price</p><p className="text-ink">${item.price}</p></div> : null}
+                {item.image_path ? (
+                  <div className="md:col-span-2">
+                    <p className="label">Image</p>
+                    <a className="btn-secondary btn-sm w-fit" href={item.image_path} target="_blank" rel="noreferrer"><Icons.Link />Open image</a>
+                  </div>
+                ) : null}
+              </div>
+              {item.notes ? (
+                <div>
+                  <p className="label mb-1">Notes</p>
+                  <p className="text-sm text-dim">{item.notes}</p>
+                </div>
+              ) : null}
+            </>
+          ) : null}
+        </div>
+        <div className="p-4 border-t border-edge flex gap-3 shrink-0">
+          <button onClick={onClose} className="btn-ghost">Close</button>
+          <button onClick={() => onEdit(item)} className="btn-secondary flex-1" disabled={!item}><Icons.Edit />Edit</button>
+          <button onClick={deleteCollectible} className="btn-danger" disabled={!item}><Icons.Trash />Delete</button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -250,6 +353,7 @@ export default function CollectiblesView({ apiCall, onToast }) {
   const [pageSize, setPageSize] = useState(50);
   const [pagination, setPagination] = useState({ page: 1, limit: 50, total: 0, totalPages: 1, hasMore: false });
   const [editing, setEditing] = useState(null);
+  const [detailId, setDetailId] = useState(null);
   const [adding, setAdding] = useState(false);
   const filterMenuRef = useRef(null);
 
@@ -317,6 +421,7 @@ export default function CollectiblesView({ apiCall, onToast }) {
   const closeDrawer = () => {
     setAdding(false);
     setEditing(null);
+    setDetailId(null);
     setError('');
     setNotice('');
   };
@@ -356,7 +461,8 @@ export default function CollectiblesView({ apiCall, onToast }) {
       }
       onToast?.(editing?.id ? 'Collectible saved' : 'Collectible created');
       setNotice(editing?.id ? 'Collectible saved' : 'Collectible created');
-      closeDrawer();
+      setAdding(false);
+      setEditing(null);
       await load();
     } catch (err) {
       setError(err?.response?.data?.error || err?.message || 'Failed to save collectible');
@@ -371,6 +477,7 @@ export default function CollectiblesView({ apiCall, onToast }) {
     onToast?.('Collectible deleted');
     await load();
     if (editing?.id === id) closeDrawer();
+    if (detailId === id) setDetailId(null);
   };
 
   const clearImage = async () => {
@@ -519,14 +626,14 @@ export default function CollectiblesView({ apiCall, onToast }) {
         {!loading && viewMode === 'cards' && items.length > 0 ? (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
             {items.map((item) => (
-              <CollectibleCard key={item.id} item={item} supportsHover={supportsHover} onEdit={setEditing} onDelete={deleteCollectible} />
+              <CollectibleCard key={item.id} item={item} supportsHover={supportsHover} onOpen={(row) => setDetailId(row.id)} onEdit={setEditing} onDelete={deleteCollectible} />
             ))}
           </div>
         ) : null}
         {!loading && viewMode === 'list' && items.length > 0 ? (
           <div className="space-y-2">
             {items.map((item) => (
-              <CollectibleRow key={item.id} item={item} supportsHover={supportsHover} onEdit={setEditing} onDelete={deleteCollectible} />
+              <CollectibleRow key={item.id} item={item} supportsHover={supportsHover} onOpen={(row) => setDetailId(row.id)} onEdit={setEditing} onDelete={deleteCollectible} />
             ))}
           </div>
         ) : null}
@@ -556,6 +663,17 @@ export default function CollectiblesView({ apiCall, onToast }) {
           onSave={saveCollectible}
           onDelete={editing?.id ? () => deleteCollectible(editing.id) : null}
           onClearImage={clearImage}
+        />
+      ) : null}
+      {detailId ? (
+        <CollectibleDetailDrawer
+          collectibleId={detailId}
+          apiCall={api}
+          categories={categories.length > 0 ? categories : CATEGORY_OPTIONS}
+          events={events}
+          onClose={() => setDetailId(null)}
+          onEdit={(item) => { setDetailId(null); setEditing(item); }}
+          onDeleted={load}
         />
       ) : null}
     </div>

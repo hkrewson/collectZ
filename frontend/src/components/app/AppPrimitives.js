@@ -115,16 +115,32 @@ export function ObjectPosterCard({
   imagePath,
   fallbackIcon = <Icons.Library />,
   supportsHover = true,
+  onOpen,
+  onPointerUp,
+  selected = false,
   leftBadges = [],
   rightBadge = null,
+  overlayChildren = null,
   subtitle = null,
   meta = null,
+  titleClassName = '',
+  articleClassName = '',
+  actionBar = null,
   onEdit,
   onDelete
 }) {
   return (
-    <article className="group relative animate-fade-in">
-      <div className="poster rounded-lg overflow-hidden shadow-card border border-transparent transition-colors group-hover:border-muted">
+    <article
+      className={cx(
+        'group relative animate-fade-in',
+        onOpen && 'cursor-pointer',
+        selected && 'rounded-xl ring-2 ring-brand/70 ring-offset-2 ring-offset-void',
+        articleClassName
+      )}
+      onClick={onOpen}
+      onPointerUp={onPointerUp}
+    >
+      <div className={cx('poster rounded-lg overflow-hidden shadow-card border transition-colors', selected ? 'border-brand/60' : 'border-transparent', !selected && 'group-hover:border-muted')}>
         {posterUrl(imagePath)
           ? <img src={posterUrl(imagePath)} alt={title} className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
           : (
@@ -133,7 +149,7 @@ export function ObjectPosterCard({
               <span className="px-3 text-center text-xs leading-tight">{title}</span>
             </div>
           )}
-        <div className={cx('absolute inset-0 bg-card-fade transition-opacity duration-300', supportsHover ? 'opacity-0 group-hover:opacity-100' : 'opacity-10')} />
+        <div className={cx('absolute inset-0 transition-opacity duration-300', selected ? 'bg-brand/20 opacity-100' : 'bg-card-fade', supportsHover ? (selected ? '' : 'opacity-0 group-hover:opacity-100') : (selected ? '' : 'opacity-10'))} />
         {leftBadges.length > 0 ? (
           <div className="absolute left-2 top-2 flex max-w-[70%] flex-wrap gap-2">
             {leftBadges.map((badge, index) => (
@@ -148,15 +164,20 @@ export function ObjectPosterCard({
             {rightBadge}
           </div>
         ) : null}
-        <div className={cx('absolute bottom-0 left-0 right-0 p-3 transition-all duration-300', supportsHover ? 'translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100' : 'translate-y-0 opacity-100')}>
-          <div className="flex gap-2">
-            <button className="btn-secondary btn-sm flex-1 backdrop-blur-sm bg-void/60 border-ghost/30" onClick={(e) => { e.stopPropagation(); onEdit?.(e); }}><Icons.Edit />Edit</button>
-            <button className="btn-icon btn-sm backdrop-blur-sm bg-void/60 border-ghost/30 text-err hover:bg-err/20" onClick={(e) => { e.stopPropagation(); onDelete?.(e); }}><Icons.Trash /></button>
+        {overlayChildren}
+        {(actionBar || onEdit || onDelete) ? (
+          <div className={cx('absolute bottom-0 left-0 right-0 p-3 transition-all duration-300', supportsHover ? 'translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100' : 'translate-y-0 opacity-100')}>
+            {actionBar || (
+              <div className="flex gap-2">
+                <button className="btn-secondary btn-sm flex-1 backdrop-blur-sm bg-void/60 border-ghost/30" onClick={(e) => { e.stopPropagation(); onEdit?.(e); }}><Icons.Edit />Edit</button>
+                <button className="btn-icon btn-sm backdrop-blur-sm bg-void/60 border-ghost/30 text-err hover:bg-err/20" onClick={(e) => { e.stopPropagation(); onDelete?.(e); }}><Icons.Trash /></button>
+              </div>
+            )}
           </div>
-        </div>
+        ) : null}
       </div>
       <div className="mt-2 px-0.5">
-        <p className="truncate text-sm font-medium text-ink">{title}</p>
+        <p className={cx('truncate text-sm font-medium text-ink', titleClassName)}>{title}</p>
         {subtitle ? <p className="text-xs text-ghost">{subtitle}</p> : null}
         {meta ? <div className="mt-1 flex flex-wrap gap-2">{meta}</div> : null}
       </div>
