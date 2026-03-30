@@ -1,9 +1,9 @@
-# Pre-2.8.4 Go/No-Go Preflight
+# Pre-2.8.5 Go/No-Go Preflight
 
-- Version: `2.8.4`
+- Version: `2.8.5`
 - Date: `2026-03-29`
 - Commit: local working tree
-- Scope: `2.8.4 — Scope Privacy Tightening and Explicit Support Access`
+- Scope: `2.8.5 — Navigation Shell Cleanup and Integrations Surface Simplification`
 
 ## Gate Results
 
@@ -17,7 +17,6 @@
 - OpenAPI validation: PASS
 - Frontend production build: PASS
 - Integration smoke: PASS
-- Support-session smoke: PASS
 - RBAC regression: PASS
 - Cross-type isolation: PASS
 - Compose smoke: PASS
@@ -26,20 +25,15 @@
 
 ## Local Verification Notes
 
-- Version metadata was synchronized across root, backend, frontend, mirrored `app-meta` files, and package manifests to `2.8.4`.
-- Release note [`docs/releases/v2.8.4.md`](/Users/hamlin/Development/GitHub/hkrewson/collectZ/docs/releases/v2.8.4.md) exists and includes the required release and security-triage sections.
+- Version metadata was synchronized across root, backend, frontend, mirrored `app-meta` files, package manifests, and both lockfiles to `2.8.5`.
+- Release note [`docs/releases/v2.8.5.md`](/Users/hamlin/Development/GitHub/hkrewson/collectZ/docs/releases/v2.8.5.md) exists and includes the required release and security-triage sections.
 - Backend unit tests passed via:
   - `node backend/scripts/unit-tests.js`
 - Frontend production build passed in Docker via:
   - `docker run --rm -v "$PWD/frontend":/app -w /app node:20-alpine sh -lc "npm run build"`
 - OpenAPI validation passed in the running backend container.
 - Integration smoke passed against the running stack on the internal Docker network.
-- The dedicated support-session smoke passed against the running stack and verified:
-  - admin bootstrap remains platform-mode outside support mode
-  - generic admin space/library selection is denied
-  - support session start/end works
-  - support-only library switching works
-- RBAC regression passed against the running local stack after updating the regression to use explicit support-session flows instead of the retired ambient admin scope-switch path.
+- RBAC regression passed against the running local stack.
 - Cross-type isolation passed against the running local stack from inside the backend container using the existing local release-test admin account:
   - `release-cross-type-admin-1774734793@example.com`
 - Production dependency audits passed with clean counts for backend and frontend:
@@ -47,15 +41,12 @@
   - `moderate=0`
   - `high=0`
   - `critical=0`
-- Init parity initially failed and exposed a real `2.8.4` bootstrap drift:
-  - `init.sql` referenced `spaces` and `libraries` from `user_sessions` support-session foreign keys before those tables were created
-  - the bootstrap ordering was fixed in [`init.sql`](/Users/hamlin/Development/GitHub/hkrewson/collectZ/init.sql)
-  - init parity then passed and wrote fresh evidence to:
-    - `artifacts/init-parity-evidence/init-parity-evidence.json`
+- Init parity passed against the live compose-network Postgres and wrote fresh evidence to:
+  - `artifacts/init-parity-evidence/init-parity-evidence.json`
 - Migration rehearsal passed with baseline `45` and latest `46`, and wrote fresh evidence to:
   - `artifacts/migration-rehearsal-evidence/migration-rehearsal-evidence.json`
-- Compose smoke passed against the live `collectz_internal` network:
-  - `/api/health` returned `2.8.4`
+- Compose smoke passed against the live stack:
+  - `/api/health` returned `2.8.5`
   - required security headers were present
   - CSRF cookie was issued with `Secure` and `SameSite=Strict`
   - session cookie options were `HttpOnly`, `Secure`, `SameSite=Strict`
@@ -75,10 +66,10 @@
 
 ## Local Tooling Notes
 
-- The parity and rehearsal gates were run through Docker containers on the live compose network using the backend container's `DATABASE_URL` as the source of truth.
-- The RBAC release gate surfaced legitimate `2.8.4` test drift and one real middleware edge:
-  - the regression script still assumed ambient admin scope switching and was updated to validate explicit support-session behavior instead
-  - `scopeAccess` was still trying to fall back to a global first library for admins with no active support library, which conflicted with the privacy model; that fallback was removed for admins
+- The first init-parity and migration-rehearsal attempts failed because the commands incorrectly passed `INIT_PARITY_ADMIN_URL` / `MIGRATION_REHEARSAL_ADMIN_URL` as `http://frontend:3000`. Those script variables are Postgres admin connection overrides, not app URLs. Rerunning both gates with the live `DATABASE_URL` as the source of truth resolved the issue cleanly.
+- The release closeout also caught a real metadata-sync miss before gate execution:
+  - both lockfiles still reported `2.8.4`
+  - the lockfile versions were corrected before the release gates proceeded
 
 ## Evidence Artifacts
 
@@ -101,4 +92,4 @@ Release is NO-GO if any required gate fails or any required artifact is missing.
 
 ## Recommendation
 
-GO for commit/tag preparation for `v2.8.4`, subject to final maintainer review of the working tree and any last visual QA you want before tagging.
+GO for commit/tag preparation for `v2.8.5`, subject to final maintainer review of the working tree and any last visual QA you want before tagging.
