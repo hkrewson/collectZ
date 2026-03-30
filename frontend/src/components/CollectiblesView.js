@@ -36,22 +36,39 @@ const parseUploadError = (message) => {
   return raw || 'Image upload failed';
 };
 
+function FilterPill({ children, tone = 'default' }) {
+  return (
+    <span
+      className={cx(
+        'inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium tracking-wide',
+        tone === 'brand'
+          ? 'border-brand/30 bg-brand/10 text-brand'
+          : 'border-edge bg-surface text-dim'
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
 function CollectibleCard({ item, supportsHover, onEdit, onDelete }) {
   return (
-    <article className="group relative card p-4 border border-edge/80 animate-fade-in">
+    <article className="group relative rounded-2xl border border-edge/80 bg-surface p-4 animate-fade-in shadow-[0_18px_60px_rgba(0,0,0,0.16)] transition-all duration-150 hover:border-muted hover:bg-raised">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-medium text-ink truncate">{item.title}</p>
-          <p className="text-xs text-ghost mt-1">
-            {item.subtype || item.item_type || 'collectible'}
-            {item.category ? ` · ${item.category}` : ''}
+          <p className="text-xs text-ghost mt-1 line-clamp-2">
+            {item.event_title ? item.event_title : 'No linked event'}
           </p>
-          <p className="text-xs text-ghost mt-1">
-            {item.event_title ? `Event: ${item.event_title}` : 'No linked event'}
-          </p>
-          {item.image_path ? <span className="badge badge-brand text-[10px] mt-2">Image attached</span> : null}
         </div>
         <span className="badge badge-dim text-[10px]">#{item.id}</span>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <FilterPill>{item.subtype || item.item_type || 'collectible'}</FilterPill>
+        {item.category ? <FilterPill>{item.category}</FilterPill> : null}
+        {item.booth_or_vendor ? <FilterPill>{item.booth_or_vendor}</FilterPill> : null}
+        {item.exclusive ? <FilterPill tone="brand">Exclusive</FilterPill> : null}
+        {item.image_path ? <FilterPill tone="brand">Image attached</FilterPill> : null}
       </div>
       <div className={cx('mt-3 flex gap-2 transition-opacity duration-150', supportsHover ? 'opacity-0 group-hover:opacity-100' : 'opacity-100')}>
         <button className="btn-secondary btn-sm flex-1" onClick={() => onEdit(item)}><Icons.Edit />Edit</button>
@@ -63,19 +80,20 @@ function CollectibleCard({ item, supportsHover, onEdit, onDelete }) {
 
 function CollectibleRow({ item, supportsHover, onEdit, onDelete }) {
   return (
-    <article className="group flex items-center gap-4 p-3 rounded-lg bg-surface border border-edge hover:border-muted hover:bg-raised transition-all duration-150 animate-fade-in">
-      <div className="w-9 h-9 rounded bg-raised border border-edge flex items-center justify-center text-ghost"><Icons.Activity /></div>
+    <article className="group flex items-center gap-4 rounded-xl border border-edge bg-surface p-3 hover:border-muted hover:bg-raised transition-all duration-150 animate-fade-in">
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-edge bg-raised text-ghost"><Icons.Activity /></div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-ink truncate">{item.title}</p>
-        <p className="text-xs text-ghost">
-          {item.subtype || item.item_type || 'collectible'}
-          {item.category ? ` · ${item.category}` : ''}
-          {item.event_title ? ` · ${item.event_title}` : ''}
-        </p>
+        <div className="mt-1 flex flex-wrap gap-2">
+          <FilterPill>{item.subtype || item.item_type || 'collectible'}</FilterPill>
+          {item.category ? <FilterPill>{item.category}</FilterPill> : null}
+          {item.event_title ? <FilterPill>{item.event_title}</FilterPill> : null}
+          {item.exclusive ? <FilterPill tone="brand">Exclusive</FilterPill> : null}
+        </div>
       </div>
       <span className="text-xs text-ghost font-mono">#{item.id}</span>
       <div className={cx('flex gap-2 transition-opacity duration-150', supportsHover ? 'opacity-0 group-hover:opacity-100' : 'opacity-100')}>
-        <button className="btn-ghost btn-sm" onClick={() => onEdit(item)}><Icons.Edit /></button>
+        <button className="btn-ghost btn-sm" onClick={() => onEdit(item)}><Icons.Edit />Edit</button>
         <button className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={() => onDelete(item.id)}><Icons.Trash /></button>
       </div>
     </article>
@@ -85,6 +103,7 @@ function CollectibleRow({ item, supportsHover, onEdit, onDelete }) {
 function CollectibleDrawer({
   initial,
   events,
+  categories,
   saving,
   error,
   notice,
@@ -128,10 +147,20 @@ function CollectibleDrawer({
           </div>
           <button onClick={onClose} className="btn-icon btn-sm shrink-0"><Icons.X /></button>
         </div>
-        <div className="flex-1 overflow-y-auto scroll-area p-6 space-y-3">
+        <div className="flex-1 overflow-y-auto scroll-area p-6 space-y-4">
           {error ? <p className="text-xs text-err">{error}</p> : null}
           {notice ? <p className="text-xs text-ok">{notice}</p> : null}
-          <div className="grid grid-cols-2 gap-3">
+          {initial ? (
+            <div className="rounded-2xl border border-edge bg-surface px-4 py-3">
+              <div className="flex flex-wrap gap-2">
+                <FilterPill>{form.subtype || 'collectible'}</FilterPill>
+                {form.category_key ? <FilterPill>{categories.find((cat) => cat.key === form.category_key)?.label || form.category_key}</FilterPill> : null}
+                {form.exclusive ? <FilterPill tone="brand">Exclusive</FilterPill> : null}
+                {form.event_id ? <FilterPill>{events.find((evt) => String(evt.id) === String(form.event_id))?.title || 'Linked event'}</FilterPill> : null}
+              </div>
+            </div>
+          ) : null}
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <label className="field col-span-2"><span className="label">Title *</span><input className="input" value={form.title || ''} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} /></label>
             <label className="field"><span className="label">Type</span>
               <select className="select" value={form.subtype || 'collectible'} onChange={(e) => setForm((p) => ({ ...p, subtype: e.target.value }))}>
@@ -144,7 +173,7 @@ function CollectibleDrawer({
                 {CATEGORY_OPTIONS.map((cat) => <option key={cat.key} value={cat.key}>{cat.label}</option>)}
               </select>
             </label>
-            <label className="field col-span-2"><span className="label">Linked Event</span>
+            <label className="field md:col-span-2"><span className="label">Linked Event</span>
               <select className="select" value={form.event_id || ''} onChange={(e) => setForm((p) => ({ ...p, event_id: e.target.value }))}>
                 <option value="">None</option>
                 {events.map((evt) => <option key={evt.id} value={String(evt.id)}>{evt.title}</option>)}
@@ -152,20 +181,20 @@ function CollectibleDrawer({
             </label>
             <label className="field"><span className="label">Vendor/Booth</span><input className="input" value={form.booth_or_vendor || ''} onChange={(e) => setForm((p) => ({ ...p, booth_or_vendor: e.target.value }))} /></label>
             <label className="field"><span className="label">Price</span><input className="input" value={form.price ?? ''} onChange={(e) => setForm((p) => ({ ...p, price: e.target.value }))} /></label>
-            <label className="field col-span-2 inline-flex items-center gap-2 text-sm text-dim">
+            <label className="field md:col-span-2 inline-flex items-center gap-2 text-sm text-dim">
               <input type="checkbox" checked={Boolean(form.exclusive)} onChange={(e) => setForm((p) => ({ ...p, exclusive: e.target.checked }))} />
               Exclusive item
             </label>
-            <label className="field col-span-2"><span className="label">Image URL (optional)</span><input className="input" value={form.image_path || ''} onChange={(e) => setForm((p) => ({ ...p, image_path: e.target.value }))} /></label>
-            <label className="field col-span-2"><span className="label">Upload/Capture image</span><input className="input" type="file" accept="image/*" capture="environment" onChange={(e) => setImageFile(e.target.files?.[0] || null)} /></label>
-            {imageFile ? <p className="text-xs text-ghost col-span-2">Selected file: {imageFile.name}</p> : null}
+            <label className="field md:col-span-2"><span className="label">Image URL (optional)</span><input className="input" value={form.image_path || ''} onChange={(e) => setForm((p) => ({ ...p, image_path: e.target.value }))} /></label>
+            <label className="field md:col-span-2"><span className="label">Upload/Capture image</span><input className="input" type="file" accept="image/*" capture="environment" onChange={(e) => setImageFile(e.target.files?.[0] || null)} /></label>
+            {imageFile ? <p className="text-xs text-ghost md:col-span-2">Selected file: {imageFile.name}</p> : null}
             {form.image_path ? (
-              <div className="col-span-2 flex items-center gap-2">
+              <div className="md:col-span-2 flex items-center gap-2">
                 <a className="btn-ghost btn-sm" href={form.image_path} target="_blank" rel="noreferrer"><Icons.Link />Open image</a>
                 <button className="btn-ghost btn-sm" onClick={onClearImage}><Icons.X />Remove image</button>
               </div>
             ) : null}
-            <label className="field col-span-2"><span className="label">Notes</span><textarea className="textarea min-h-[90px]" value={form.notes || ''} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} /></label>
+            <label className="field md:col-span-2"><span className="label">Notes</span><textarea className="textarea min-h-[90px]" value={form.notes || ''} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} /></label>
           </div>
         </div>
         <div className="p-4 border-t border-edge flex gap-3 shrink-0">
@@ -209,6 +238,10 @@ export default function CollectiblesView({ apiCall, onToast }) {
   const filterMenuRef = useRef(null);
 
   const supportsHover = useMemo(() => window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches, []);
+  const activeFilterCount = useMemo(
+    () => [search.trim(), subtypeFilter, categoryFilter, eventFilter, exclusiveFilter].filter(Boolean).length,
+    [categoryFilter, eventFilter, exclusiveFilter, search, subtypeFilter]
+  );
 
   const loadEvents = useCallback(async () => {
     try {
@@ -336,10 +369,17 @@ export default function CollectiblesView({ apiCall, onToast }) {
   return (
     <div className="flex flex-col h-full">
       <div className="px-6 py-4 border-b border-edge shrink-0">
-        <div className="flex items-center gap-3 flex-wrap">
-          <h1 className="section-title">Collectibles</h1>
-          <span className="badge badge-dim ml-1">{pagination.total || items.length}</span>
+        <div className="flex items-start gap-4 flex-wrap">
+          <div className="min-w-0">
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="section-title">Collectibles</h1>
+              <span className="badge badge-dim">{pagination.total || items.length}</span>
+              {activeFilterCount > 0 ? <FilterPill tone="brand">{`${activeFilterCount} filter${activeFilterCount === 1 ? '' : 's'} active`}</FilterPill> : null}
+            </div>
+            <p className="mt-1 text-sm text-ghost">Keep convention pickups, exclusives, props, and shelf pieces feeling connected to the events they came from.</p>
+          </div>
           <div className="flex-1" />
+          <div className="flex items-center gap-3 flex-wrap">
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ghost pointer-events-none"><Icons.Search /></span>
             <input className="input pl-9 w-56" placeholder="Search…" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
@@ -427,12 +467,39 @@ export default function CollectiblesView({ apiCall, onToast }) {
             {sortDir === 'asc' ? <Icons.ArrowUp /> : <Icons.ArrowDown />}
           </button>
           <button className="btn-primary" onClick={() => setAdding(true)}><Icons.Plus />Add</button>
+          </div>
         </div>
+        {activeFilterCount > 0 ? (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {search.trim() ? <FilterPill>{`Search: ${search.trim()}`}</FilterPill> : null}
+            {subtypeFilter ? <FilterPill>{`Type: ${ITEM_TYPES.find((opt) => opt.value === subtypeFilter)?.label || subtypeFilter}`}</FilterPill> : null}
+            {categoryFilter ? <FilterPill>{`Category: ${(categories.length > 0 ? categories : CATEGORY_OPTIONS).find((cat) => cat.key === categoryFilter)?.label || categoryFilter}`}</FilterPill> : null}
+            {eventFilter ? <FilterPill>{`Event: ${events.find((evt) => String(evt.id) === String(eventFilter))?.title || eventFilter}`}</FilterPill> : null}
+            {exclusiveFilter ? <FilterPill>{exclusiveFilter === 'true' ? 'Exclusive only' : 'Non-exclusive only'}</FilterPill> : null}
+            <button
+              className="btn-ghost btn-sm"
+              onClick={() => {
+                setSubtypeFilter('');
+                setCategoryFilter('');
+                setEventFilter('');
+                setExclusiveFilter('');
+                setSearch('');
+                setPage(1);
+              }}
+            >
+              Clear filters
+            </button>
+          </div>
+        ) : null}
       </div>
       <div className="flex-1 overflow-y-auto scroll-area p-6">
         {error ? <p className="text-sm text-err mb-3">{error}</p> : null}
         {loading ? <div className="flex items-center justify-center py-20"><Spinner size={32} /></div> : null}
-        {!loading && items.length === 0 ? <div className="text-sm text-ghost">No collectibles found.</div> : null}
+        {!loading && items.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-edge bg-surface px-5 py-8 text-sm text-ghost">
+            No collectibles found. Add exclusives, props, cards, and shelf pieces here so they feel anchored to your events and vendors.
+          </div>
+        ) : null}
         {!loading && viewMode === 'cards' && items.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
             {items.map((item) => (
@@ -465,6 +532,7 @@ export default function CollectiblesView({ apiCall, onToast }) {
         <CollectibleDrawer
           initial={editing}
           events={events}
+          categories={categories.length > 0 ? categories : CATEGORY_OPTIONS}
           saving={saving}
           error={error}
           notice={notice}

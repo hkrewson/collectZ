@@ -48,16 +48,39 @@ const formatUploadError = (message) => {
   return raw || 'Image upload failed';
 };
 
+const pluralizeArtifacts = (count) => `${count || 0} artifact${Number(count || 0) === 1 ? '' : 's'}`;
+
+function MetaPill({ children, tone = 'default' }) {
+  return (
+    <span
+      className={cx(
+        'inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium tracking-wide',
+        tone === 'brand'
+          ? 'border-brand/30 bg-brand/10 text-brand'
+          : 'border-edge bg-surface text-dim'
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
 function EventCard({ item, supportsHover, onOpen, onEdit, onDelete }) {
   return (
-    <article className="group relative card p-4 border border-edge/80 cursor-pointer animate-fade-in" onClick={() => onOpen(item)}>
+    <article className="group relative cursor-pointer animate-fade-in rounded-2xl border border-edge/80 bg-surface p-4 shadow-[0_18px_60px_rgba(0,0,0,0.16)] transition-all duration-150 hover:border-muted hover:bg-raised" onClick={() => onOpen(item)}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-medium text-ink truncate">{item.title}</p>
-          <p className="text-xs text-ghost mt-1">{toDisplayDate(item.date_start)}{item.location ? ` · ${item.location}` : ''}</p>
-          <p className="text-xs text-ghost mt-1">{item.artifact_count || 0} artifact{Number(item.artifact_count || 0) === 1 ? '' : 's'}</p>
+          <p className="mt-1 text-xs text-ghost line-clamp-2">
+            {item.location || 'Location not set'}
+          </p>
         </div>
         <span className="badge badge-dim text-[10px]">#{item.id}</span>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <MetaPill>{toDisplayDate(item.date_start) || 'Date pending'}</MetaPill>
+        <MetaPill>{pluralizeArtifacts(item.artifact_count)}</MetaPill>
+        {item.host ? <MetaPill tone="brand">{item.host}</MetaPill> : null}
       </div>
       <div className={cx('mt-3 flex gap-2 transition-opacity duration-150', supportsHover ? 'opacity-0 group-hover:opacity-100' : 'opacity-100')}>
         <button className="btn-secondary btn-sm flex-1" onClick={(e) => { e.stopPropagation(); onEdit(item); }}><Icons.Edit />Edit</button>
@@ -69,15 +92,19 @@ function EventCard({ item, supportsHover, onOpen, onEdit, onDelete }) {
 
 function EventListRow({ item, supportsHover, onOpen, onEdit, onDelete }) {
   return (
-    <article className="group flex items-center gap-4 p-3 rounded-lg bg-surface border border-edge hover:border-muted hover:bg-raised cursor-pointer transition-all duration-150 animate-fade-in" onClick={() => onOpen(item)}>
-      <div className="w-9 h-9 rounded bg-raised border border-edge flex items-center justify-center text-ghost"><Icons.Activity /></div>
+    <article className="group flex items-center gap-4 rounded-xl border border-edge bg-surface p-3 hover:border-muted hover:bg-raised cursor-pointer transition-all duration-150 animate-fade-in" onClick={() => onOpen(item)}>
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-edge bg-raised text-ghost"><Icons.Activity /></div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-ink truncate">{item.title}</p>
-        <p className="text-xs text-ghost">{toDisplayDate(item.date_start)}{item.location ? ` · ${item.location}` : ''} · {item.artifact_count || 0} artifacts</p>
+        <div className="mt-1 flex flex-wrap gap-2">
+          <MetaPill>{toDisplayDate(item.date_start) || 'Date pending'}</MetaPill>
+          {item.location ? <MetaPill>{item.location}</MetaPill> : null}
+          <MetaPill>{pluralizeArtifacts(item.artifact_count)}</MetaPill>
+        </div>
       </div>
       <span className="text-xs text-ghost font-mono">#{item.id}</span>
       <div className={cx('flex gap-2 transition-opacity duration-150', supportsHover ? 'opacity-0 group-hover:opacity-100' : 'opacity-100')}>
-        <button className="btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); onEdit(item); }}><Icons.Edit /></button>
+        <button className="btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); onEdit(item); }}><Icons.Edit />Edit</button>
         <button className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}><Icons.Trash /></button>
       </div>
     </article>
@@ -311,23 +338,36 @@ function EventDetailDrawer({ eventId, apiCall, onClose, onEdit, onDeleted, onSav
           {loading && <div className="flex items-center gap-2 text-dim"><Spinner size={16} />Loading…</div>}
           {!loading && (
             <>
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="rounded-2xl border border-edge bg-surface px-4 py-3">
+                <div className="flex flex-wrap gap-2">
+                  <MetaPill>{toDisplayDate(event?.date_start) || 'Date pending'}</MetaPill>
+                  {event?.date_end ? <MetaPill>{`Ends ${toDisplayDate(event.date_end)}`}</MetaPill> : null}
+                  {event?.location ? <MetaPill>{event.location}</MetaPill> : null}
+                  {event?.room ? <MetaPill>{`Room ${event.room}`}</MetaPill> : null}
+                  {event?.time_label ? <MetaPill tone="brand">{event.time_label}</MetaPill> : null}
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
                 {event?.url && <div><p className="label">URL</p><p className="text-ink break-all">{event.url}</p></div>}
                 {event?.host && <div><p className="label">Host</p><p className="text-ink">{event.host}</p></div>}
-                {event?.time_label && <div><p className="label">Time</p><p className="text-ink">{event.time_label}</p></div>}
-                {event?.room && <div><p className="label">Room</p><p className="text-ink">{event.room}</p></div>}
-                {event?.date_end && <div><p className="label">End Date</p><p className="text-ink">{toDisplayDate(event.date_end)}</p></div>}
               </div>
               {event?.notes && <div><p className="label mb-1">Notes</p><p className="text-sm text-dim">{event.notes}</p></div>}
               <div>
-                <p className="label mb-2">Artifacts</p>
+                <div className="mb-3 flex items-center gap-3">
+                  <p className="label">Artifacts</p>
+                  <MetaPill>{pluralizeArtifacts(artifacts.length)}</MetaPill>
+                </div>
                 <div className="space-y-2">
                   {artifacts.map((a) => (
-                    <div key={a.id} className="card p-2 border border-edge/70 flex items-center gap-2">
+                    <div key={a.id} className="flex items-center gap-3 rounded-xl border border-edge/70 bg-surface px-3 py-2">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-ink truncate">{a.title}</p>
-                        <p className="text-xs text-ghost">{a.artifact_type}{a.vendor ? ` · ${a.vendor}` : ''}{a.price !== null && a.price !== undefined ? ` · $${a.price}` : ''}</p>
-                        {a.image_path ? <span className="badge badge-brand text-[10px] mt-1">Image attached</span> : null}
+                        <div className="mt-1 flex flex-wrap gap-2">
+                          <MetaPill>{a.artifact_type}</MetaPill>
+                          {a.vendor ? <MetaPill>{a.vendor}</MetaPill> : null}
+                          {a.price !== null && a.price !== undefined ? <MetaPill>{`$${a.price}`}</MetaPill> : null}
+                          {a.image_path ? <MetaPill tone="brand">Image attached</MetaPill> : null}
+                        </div>
                       </div>
                       {a.image_path ? (
                         <a className="btn-ghost btn-sm" href={a.image_path} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
@@ -343,14 +383,14 @@ function EventDetailDrawer({ eventId, apiCall, onClose, onEdit, onDeleted, onSav
                       <button className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={() => removeArtifact(a.id)}><Icons.Trash /></button>
                     </div>
                   ))}
-                  {artifacts.length === 0 && <p className="text-xs text-ghost">No artifacts yet.</p>}
+                  {artifacts.length === 0 && <p className="text-sm text-ghost">No artifacts yet. Add notes, purchases, or photos from this event to build the history here.</p>}
                 </div>
               </div>
-              <div className="card p-3 border border-edge/70">
+              <div className="border-t border-edge pt-4">
                 <p className="label mb-2">{editingArtifactId ? `Edit Artifact #${editingArtifactId}` : 'Add Artifact'}</p>
                 {artifactError ? <p className="text-xs text-err mb-2">{artifactError}</p> : null}
                 {artifactNotice ? <p className="text-xs text-ok mb-2">{artifactNotice}</p> : null}
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                   <select className="select" value={artifactForm.artifact_type} onChange={(e) => setArtifactForm((p) => ({ ...p, artifact_type: e.target.value }))}>
                     <option value="note">Note</option>
                     <option value="session">Session</option>
@@ -362,11 +402,11 @@ function EventDetailDrawer({ eventId, apiCall, onClose, onEdit, onDeleted, onSav
                   <input className="input" placeholder="Title" value={artifactForm.title} onChange={(e) => setArtifactForm((p) => ({ ...p, title: e.target.value }))} />
                   <input className="input" placeholder="Vendor" value={artifactForm.vendor} onChange={(e) => setArtifactForm((p) => ({ ...p, vendor: e.target.value }))} />
                   <input className="input" placeholder="Price" value={artifactForm.price} onChange={(e) => setArtifactForm((p) => ({ ...p, price: e.target.value }))} />
-                  <input className="input col-span-2" placeholder="Image URL (optional)" value={artifactForm.image_path} onChange={(e) => setArtifactForm((p) => ({ ...p, image_path: e.target.value }))} />
-                  <input className="input col-span-2" type="file" accept="image/*" capture="environment" onChange={(e) => setArtifactFile(e.target.files?.[0] || null)} />
-                  {artifactFile ? <p className="text-xs text-ghost col-span-2">Selected file: {artifactFile.name}</p> : null}
-                  <textarea className="textarea col-span-2 min-h-[70px]" placeholder="Description" value={artifactForm.description} onChange={(e) => setArtifactForm((p) => ({ ...p, description: e.target.value }))} />
-                  <div className="col-span-2 flex gap-2">
+                  <input className="input md:col-span-2" placeholder="Image URL (optional)" value={artifactForm.image_path} onChange={(e) => setArtifactForm((p) => ({ ...p, image_path: e.target.value }))} />
+                  <input className="input md:col-span-2" type="file" accept="image/*" capture="environment" onChange={(e) => setArtifactFile(e.target.files?.[0] || null)} />
+                  {artifactFile ? <p className="text-xs text-ghost md:col-span-2">Selected file: {artifactFile.name}</p> : null}
+                  <textarea className="textarea md:col-span-2 min-h-[70px]" placeholder="Description" value={artifactForm.description} onChange={(e) => setArtifactForm((p) => ({ ...p, description: e.target.value }))} />
+                  <div className="md:col-span-2 flex gap-2">
                     <button className="btn-secondary flex-1" onClick={saveArtifact} disabled={artifactSaving}>
                       {artifactSaving
                         ? <><Spinner size={14} />Saving…</>
@@ -406,6 +446,7 @@ export default function EventsView({ apiCall, onToast }) {
   const [detailId, setDetailId] = useState(null);
 
   const supportsHover = useMemo(() => window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches, []);
+  const activeFilterCount = useMemo(() => [search.trim(), fromDate, toDate].filter(Boolean).length, [fromDate, search, toDate]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -453,10 +494,17 @@ export default function EventsView({ apiCall, onToast }) {
   return (
     <div className="flex flex-col h-full">
       <div className="px-6 py-4 border-b border-edge shrink-0">
-        <div className="flex items-center gap-3 flex-wrap">
-          <h1 className="section-title">Events</h1>
-          <span className="badge badge-dim ml-1">{pagination.total || items.length}</span>
+        <div className="flex items-start gap-4 flex-wrap">
+          <div className="min-w-0">
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="section-title">Events</h1>
+              <span className="badge badge-dim">{pagination.total || items.length}</span>
+              {activeFilterCount > 0 ? <MetaPill tone="brand">{`${activeFilterCount} filter${activeFilterCount === 1 ? '' : 's'} active`}</MetaPill> : null}
+            </div>
+            <p className="mt-1 text-sm text-ghost">Track conventions, screenings, meetups, and the artifacts you picked up along the way.</p>
+          </div>
           <div className="flex-1" />
+          <div className="flex items-center gap-3 flex-wrap">
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ghost pointer-events-none"><Icons.Search /></span>
             <input className="input pl-9 w-56" placeholder="Search title or location…" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
@@ -487,12 +535,25 @@ export default function EventsView({ apiCall, onToast }) {
             {sortDir === 'asc' ? <Icons.ArrowUp /> : <Icons.ArrowDown />}
           </button>
           <button onClick={() => setAdding(true)} className="btn-primary"><Icons.Plus />Add</button>
+          </div>
         </div>
+        {activeFilterCount > 0 ? (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {search.trim() ? <MetaPill>{`Search: ${search.trim()}`}</MetaPill> : null}
+            {fromDate ? <MetaPill>{`From ${toDisplayDate(fromDate)}`}</MetaPill> : null}
+            {toDate ? <MetaPill>{`To ${toDisplayDate(toDate)}`}</MetaPill> : null}
+            <button className="btn-ghost btn-sm" onClick={() => { setSearch(''); setFromDate(''); setToDate(''); setPage(1); }}>Clear filters</button>
+          </div>
+        ) : null}
       </div>
       <div className="flex-1 overflow-y-auto scroll-area p-6">
         {error && <p className="text-sm text-err mb-4">{error}</p>}
         {loading && <div className="flex items-center justify-center py-20"><Spinner size={32} /></div>}
-        {!loading && items.length === 0 && <div className="text-sm text-ghost">No events found.</div>}
+        {!loading && items.length === 0 && (
+          <div className="rounded-2xl border border-dashed border-edge bg-surface px-5 py-8 text-sm text-ghost">
+            No events found. Start with a convention, screening, meetup, or release event so related artifacts have a home.
+          </div>
+        )}
         {!loading && viewMode === 'cards' && items.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
             {items.map((item) => (

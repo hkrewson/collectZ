@@ -1072,11 +1072,13 @@ Historical planning notes may still exist in:
 29. `2.9.1` Support role and in-app help foundations
 30. `2.9.2` Explicit support request, consent, and session approval
 31. `2.9.3` Support operations audit trail and queue hardening
-32. `2.9.4` Product edition boundary and homelab surface definition
-33. `2.9.5` Observability baseline review and alert tuning
-34. `2.9.6` Runtime and operations hardening
-35. `2.9.7` Observability endpoint control plane
-36. `2.10.0` Multi-format ownership model (movies/games)
+32. `2.9.4` Playwright browser regression foundations
+33. `2.9.5` Playwright critical flow expansion
+34. `2.9.6` Product edition boundary and homelab surface definition
+35. `2.9.7` Observability baseline review and alert tuning
+36. `2.9.8` Runtime and operations hardening
+37. `2.9.9` Observability endpoint control plane
+38. `2.10.0` Multi-format ownership model (movies/games)
 37. `2.11.0` Optional market valuation integrations
 38. `2.12.0` Optional build: cost model and billing readiness
 39. `3.0.0` Frontend build modernization (CRA to Vite)
@@ -1923,7 +1925,66 @@ Historical note:
 - Expired or stale support approvals do not silently remain valid.
 - The support workflow remains privacy-preserving while becoming more operationally durable.
 
-## 2.9.4 — Product Edition Boundary and Homelab Surface Definition
+## 2.9.4 — Playwright Browser Regression Foundations
+
+**Goal:** Add a first-class browser regression layer so the repo stops relying almost entirely on backend/API assertions for user-visible workflow confidence.
+
+### Why this is a patch version
+
+- This milestone adds a new verification layer and test harness rather than changing the shipped product model directly.
+- It improves engineering confidence and release safety without introducing a net-new end-user capability on its own.
+
+### Scope
+
+- Add Playwright to the repo as a supported browser-regression toolchain.
+- Establish stable local/CI execution patterns:
+  - deterministic app boot,
+  - authenticated admin session setup,
+  - seeded test users where needed,
+  - artifact capture for screenshots/videos/traces on failure.
+- Cover the highest-value browser flows that are currently only inferred through API tests:
+  - login/logout,
+  - admin bootstrap and shell load,
+  - support-session start/end banner behavior,
+  - `All Spaces` drawer tab switching,
+  - Integrations tab switching and save feedback,
+  - docs surface availability behavior when authenticated admin + debug gating are satisfied.
+- Keep the current backend/API/release gates in place; Playwright complements them rather than replacing them.
+
+### Acceptance Criteria
+
+- The repo includes a runnable Playwright harness with documented local and CI invocation.
+- Browser regressions cover the most important auth/admin shell flows already shipped in `2.8.x`.
+- Failure output is useful enough for triage (trace/screenshot/video or equivalent artifacts).
+- The release process can point to a browser-regression layer instead of only backend/API evidence for those flows.
+
+## 2.9.5 — Playwright Critical Flow Expansion
+
+**Goal:** Expand the new browser-regression layer so the most fragile, multi-step product workflows have realistic UI coverage before the frontend build-system migration.
+
+### Scope
+
+- Add Playwright coverage for higher-value multi-step flows across the current product surface:
+  - Integrations save/update flows for supported providers,
+  - import/manual-entry flows that do not require future camera support yet,
+  - Events and Collectibles navigation and common actions after their UX-alignment pass,
+  - negative-path assertions for admin/privacy boundaries where UI state matters.
+- Add a small visual-regression subset where browser layout drift has been a real source of polish churn:
+  - support-session banner,
+  - Integrations tabs/layout,
+  - selected key admin drawers or tabbed panes.
+- Keep the suite intentionally small and stable:
+  - avoid trying to test every backend rule through the browser,
+  - reserve low-level logic for unit tests and policy/regression scripts.
+
+### Acceptance Criteria
+
+- Critical admin and library UI flows have browser-level regression coverage.
+- The Playwright layer catches real UI breakage that current backend/API tests would miss.
+- Visual/layout checks are focused and maintainable rather than sprawling snapshot noise.
+- The repo is in a much better position to migrate from CRA to Vite without losing browser confidence.
+
+## 2.9.6 — Product Edition Boundary and Homelab Surface Definition
 
 **Goal:** Introduce an explicit `platform` vs `homelab` product-edition boundary inside the private repo so tenancy/platform capabilities stop leaking into the future homelab product shape before any repo split happens.
 
@@ -1964,7 +2025,7 @@ Historical note:
 - Shared workflows continue to function in both editions without scope confusion.
 - The codebase is ready for a later repo split without first having to rediscover product boundaries.
 
-## 2.9.5 — Observability Baseline Review and Alert Tuning
+## 2.9.7 — Observability Baseline Review and Alert Tuning
 
 **Goal:** Revisit the initial `2.6.0` observability thresholds once more real import and operator usage data exists.
 
@@ -1981,7 +2042,7 @@ Historical note:
 - Dashboard ratio/error panels reflect the provider-specific signals operators actually use.
 - Any retention/backup changes for observability data are documented and validated.
 
-## 2.9.6 — Runtime and Operations Hardening
+## 2.9.8 — Runtime and Operations Hardening
 
 **Goal:** Harden the real-world operator paths added in `2.6.0` and `2.6.1` so logging, metrics, and supporting runtime surfaces are safer to run and easier to recover in longer-lived deployments.
 
@@ -2010,7 +2071,7 @@ Historical note:
 - Exporter misconfiguration and env drift have documented fast-diagnosis paths and, where reasonable, lightweight runtime validation.
 - Logging/metrics hardening changes do not break core API/import behavior or make collector availability a runtime dependency.
 
-## 2.9.7 — Observability Endpoint Control Plane
+## 2.9.9 — Observability Endpoint Control Plane
 
 **Goal:** Move external log endpoint selection from env-only operator setup to an admin-managed control plane without weakening the existing fail-safe runtime behavior.
 
