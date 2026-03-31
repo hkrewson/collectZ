@@ -365,6 +365,7 @@ const eventBaseObjectSchema = z.object({
   host: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
   time_label: z.preprocess(emptyStringToNull, z.string().max(100).optional().nullable()),
   room: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
+  image_path: z.preprocess(emptyStringToNull, z.string().max(2000).optional().nullable()),
   notes: z.preprocess(emptyStringToNull, z.string().max(5000).optional().nullable())
 });
 
@@ -433,6 +434,7 @@ const collectibleBaseSchema = z.object({
   ),
   event_id: nullableNumberSchema(z.number().int().positive()),
   booth_or_vendor: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
+  artist: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
   price: nullableNumberSchema(z.number().min(0).max(1000000)),
   exclusive: z.boolean().optional().nullable(),
   image_path: z.preprocess(emptyStringToNull, z.string().max(2000).optional().nullable()),

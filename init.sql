@@ -455,6 +455,7 @@ CREATE TABLE IF NOT EXISTS events (
     host VARCHAR(255),
     time_label VARCHAR(100),
     room VARCHAR(255),
+    image_path TEXT,
     notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -523,6 +524,7 @@ CREATE TABLE IF NOT EXISTS collectibles (
     category_key VARCHAR(64) REFERENCES collectible_categories(key) ON UPDATE CASCADE ON DELETE SET NULL,
     event_id INTEGER REFERENCES events(id) ON DELETE SET NULL,
     booth_or_vendor VARCHAR(255),
+    artist VARCHAR(255),
     price NUMERIC(10,2),
     exclusive BOOLEAN NOT NULL DEFAULT false,
     image_path TEXT,
@@ -783,5 +785,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (43, 'Add space-scoped invite roles for tenancy activation'),
     (44, 'Reconcile legacy default-space installs into isolated personal spaces'),
     (45, 'Retire import review queue after moving diagnostics to audit and debug logging'),
-    (46, 'Session-scoped support access metadata for explicit admin troubleshooting')
+    (46, 'Session-scoped support access metadata for explicit admin troubleshooting'),
+    (47, 'Add event image and collectible artist fields for first-class object presentation')
 ON CONFLICT (version) DO NOTHING;

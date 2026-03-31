@@ -211,9 +211,11 @@ results.push(run('auth route source includes explicit support session endpoints'
 }));
 
 results.push(run('migrations source includes session-scoped support access metadata', () => {
-  assert.ok(migrationsSource.includes('version: 46'));
+  assert.ok(migrationsSource.includes('version: 47'));
   assert.ok(migrationsSource.includes('support_space_id'));
   assert.ok(migrationsSource.includes('support_previous_library_id'));
+  assert.ok(migrationsSource.includes('artist VARCHAR(255)'));
+  assert.ok(migrationsSource.includes('ADD COLUMN IF NOT EXISTS image_path TEXT'));
 }));
 
 results.push(run('frontend app source includes support session banner and admin trigger plumbing', () => {

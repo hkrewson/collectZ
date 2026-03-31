@@ -154,14 +154,14 @@ router.post('/events', validate(eventCreateSchema), asyncHandler(async (req, res
     return res.status(400).json({ error: 'No active library selected for event creation' });
   }
   const spaceId = Number(scopeContext?.spaceId || 0) || null;
-  const { title, url, location, date_start, date_end, host, time_label, room, notes } = req.body;
+  const { title, url, location, date_start, date_end, host, time_label, room, image_path, notes } = req.body;
   const result = await pool.query(
     `INSERT INTO events (
-       library_id, space_id, created_by, title, url, location, date_start, date_end, host, time_label, room, notes
+       library_id, space_id, created_by, title, url, location, date_start, date_end, host, time_label, room, image_path, notes
      )
-     VALUES ($1, $2, $3, $4, $5, $6, $7::date, $8::date, $9, $10, $11, $12)
+     VALUES ($1, $2, $3, $4, $5, $6, $7::date, $8::date, $9, $10, $11, $12, $13)
      RETURNING *`,
-    [libraryId, spaceId, req.user.id, title, url, location, date_start, date_end || null, host || null, time_label || null, room || null, notes || null]
+    [libraryId, spaceId, req.user.id, title, url, location, date_start, date_end || null, host || null, time_label || null, room || null, image_path || null, notes || null]
   );
   const row = result.rows[0];
   await logActivity(req, 'events.create', 'event', row.id, {
@@ -178,7 +178,7 @@ router.patch('/events/:id', validate(eventUpdateSchema), asyncHandler(async (req
   if (!Number.isFinite(eventId) || eventId <= 0) {
     return res.status(400).json({ error: 'Invalid event id' });
   }
-  const allowed = ['title', 'url', 'location', 'date_start', 'date_end', 'host', 'time_label', 'room', 'notes'];
+  const allowed = ['title', 'url', 'location', 'date_start', 'date_end', 'host', 'time_label', 'room', 'image_path', 'notes'];
   const fields = Object.entries(req.body || {}).filter(([key]) => allowed.includes(key));
   if (!fields.length) {
     return res.status(400).json({ error: 'No valid event fields provided' });
@@ -232,6 +232,77 @@ router.delete('/events/:id', asyncHandler(async (req, res) => {
   }
   await logActivity(req, 'events.delete', 'event', eventId, {
     title: result.rows[0].title
+  });
+  res.json({ ok: true, id: eventId });
+}));
+
+router.post('/events/:id/upload-image', memoryUpload.single('image'), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const eventId = Number(req.params.id);
+  if (!Number.isFinite(eventId) || eventId <= 0) {
+    return res.status(400).json({ error: 'Invalid event id' });
+  }
+  if (!req.file) return res.status(400).json({ error: 'Image file is required' });
+  if (!ALLOWED_IMAGE_MIME_TYPES.has(String(req.file.mimetype || '').toLowerCase())) {
+    return res.status(400).json({ error: 'Unsupported image type' });
+  }
+
+  const params = [eventId];
+  const scopeClause = appendScopeSql(params, scopeContext);
+  const existing = await pool.query(
+    `SELECT id, image_path
+     FROM events
+     WHERE id = $1
+       AND archived_at IS NULL
+       ${scopeClause}
+     LIMIT 1`,
+    params
+  );
+  if (!existing.rows[0]) return res.status(404).json({ error: 'Event not found' });
+
+  const previousPath = existing.rows[0].image_path || null;
+  const stored = await uploadBuffer(req.file.buffer, req.file.originalname, req.file.mimetype);
+  const updated = await pool.query(
+    `UPDATE events
+     SET image_path = $1
+     WHERE id = $2
+     RETURNING id, image_path`,
+    [stored.url, eventId]
+  );
+
+  await logActivity(req, previousPath ? 'events.image.replace' : 'events.image.upload', 'event', eventId, {
+    previousPath,
+    imagePath: updated.rows[0].image_path,
+    provider: stored.provider
+  });
+
+  res.json(updated.rows[0]);
+}));
+
+router.delete('/events/:id/image', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const eventId = Number(req.params.id);
+  if (!Number.isFinite(eventId) || eventId <= 0) {
+    return res.status(400).json({ error: 'Invalid event id' });
+  }
+
+  const params = [eventId];
+  const scopeClause = appendScopeSql(params, scopeContext);
+  const existing = await pool.query(
+    `SELECT id, image_path
+     FROM events
+     WHERE id = $1
+       AND archived_at IS NULL
+       ${scopeClause}
+     LIMIT 1`,
+    params
+  );
+  if (!existing.rows[0]) return res.status(404).json({ error: 'Event not found' });
+  if (!existing.rows[0].image_path) return res.status(400).json({ error: 'No image attached' });
+
+  await pool.query(`UPDATE events SET image_path = NULL WHERE id = $1`, [eventId]);
+  await logActivity(req, 'events.image.delete', 'event', eventId, {
+    previousPath: existing.rows[0].image_path
   });
   res.json({ ok: true, id: eventId });
 }));

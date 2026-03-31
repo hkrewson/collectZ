@@ -1802,7 +1802,7 @@ Historical note:
 
 - Events and Collectibles feel visually consistent with the rest of the application shell.
 - Common actions and filters are easier to scan and understand.
-- No schema expansion is required for this milestone; the work is primarily UX/interaction refinement.
+- Any data-model changes remain small and directly tied to making Events and Collectibles behave like first-class library objects rather than separate feature islands.
 
 ## 2.9.0 — Assisted Capture and Barcode/Vision Completion
 

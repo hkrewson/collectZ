@@ -166,7 +166,7 @@ export function ObjectPosterCard({
         ) : null}
         {overlayChildren}
         {(actionBar || onEdit || onDelete) ? (
-          <div className={cx('absolute bottom-0 left-0 right-0 p-3 transition-all duration-300', supportsHover ? 'translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100' : 'translate-y-0 opacity-100')}>
+          <div className={cx('absolute bottom-0 left-0 right-0 p-3 transition-all duration-300', supportsHover ? 'pointer-events-none translate-y-2 opacity-0 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100' : 'pointer-events-auto translate-y-0 opacity-100')}>
             {actionBar || (
               <div className="flex gap-2">
                 <button className="btn-secondary btn-sm flex-1 backdrop-blur-sm bg-void/60 border-ghost/30" onClick={(e) => { e.stopPropagation(); onEdit?.(e); }}><Icons.Edit />Edit</button>

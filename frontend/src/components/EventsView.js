@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Icons, Spinner, cx, ObjectPosterCard } from './app/AppPrimitives';
+import { Icons, Spinner, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
 
 const DEFAULT_EVENT_FORM = {
   title: '',
@@ -65,10 +65,21 @@ function MetaPill({ children, tone = 'default' }) {
   );
 }
 
+function DetailField({ label, children, className = '' }) {
+  if (!children) return null;
+  return (
+    <div className={className}>
+      <p className="label">{label}</p>
+      <div className="mt-1 text-sm text-ink">{children}</div>
+    </div>
+  );
+}
+
 function EventCard({ item, supportsHover, onOpen, onEdit, onDelete }) {
   return (
     <ObjectPosterCard
       title={item.title}
+      imagePath={item.image_path}
       fallbackIcon={<Icons.Activity />}
       supportsHover={supportsHover}
       onOpen={() => onOpen(item)}
@@ -108,13 +119,14 @@ function EventListRow({ item, supportsHover, onOpen, onEdit, onDelete }) {
   );
 }
 
-function EventFormDrawer({ initial, onClose, onSave, onDelete }) {
+function EventFormDrawer({ initial, onClose, onSave, onDelete, onClearImage }) {
   const [form, setForm] = useState(() => ({
     ...DEFAULT_EVENT_FORM,
     ...(initial || {}),
     date_start: toInputDate(initial?.date_start),
     date_end: toInputDate(initial?.date_end)
   }));
+  const [imageFile, setImageFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -127,6 +139,7 @@ function EventFormDrawer({ initial, onClose, onSave, onDelete }) {
       date_start: toInputDate(initial?.date_start),
       date_end: toInputDate(initial?.date_end)
     });
+    setImageFile(null);
   }, [initial]);
 
   const submit = async () => {
@@ -139,8 +152,9 @@ function EventFormDrawer({ initial, onClose, onSave, onDelete }) {
         host: form.host || null,
         time_label: form.time_label || null,
         room: form.room || null,
+        image_path: form.image_path || null,
         notes: form.notes || null
-      });
+      }, imageFile);
     } catch (err) {
       setError(err?.response?.data?.error || 'Failed to save event');
     } finally {
@@ -152,6 +166,12 @@ function EventFormDrawer({ initial, onClose, onSave, onDelete }) {
     <div className="fixed inset-0 z-50 flex">
       <div className="absolute inset-0 bg-black/45 backdrop-blur-[1px]" onClick={onClose} />
       <div className="ml-auto h-full w-full max-w-3xl bg-abyss border-l border-edge shadow-2xl relative flex flex-col">
+        {initial?.image_path ? (
+          <div className="relative h-48 shrink-0 overflow-hidden">
+            <img src={posterUrl(initial.image_path)} alt="" className="h-full w-full object-cover" />
+            <div className="absolute inset-0 bg-hero-fade" />
+          </div>
+        ) : null}
         <div className="px-6 py-4 border-b border-edge flex items-center gap-3">
           <h2 className="section-title !text-xl">{initial?.id ? 'Edit Event' : 'Add Event'}</h2>
           <div className="flex-1" />
@@ -168,6 +188,15 @@ function EventFormDrawer({ initial, onClose, onSave, onDelete }) {
             <label className="field"><span className="label">End Date</span><input type="date" className="input" value={form.date_end || ''} onChange={(e) => set({ date_end: e.target.value })} /></label>
             <label className="field"><span className="label">Time</span><input className="input" value={form.time_label || ''} onChange={(e) => set({ time_label: e.target.value })} /></label>
             <label className="field"><span className="label">Room</span><input className="input" value={form.room || ''} onChange={(e) => set({ room: e.target.value })} /></label>
+            <label className="field md:col-span-2"><span className="label">Image URL (optional)</span><input className="input" value={form.image_path || ''} onChange={(e) => set({ image_path: e.target.value })} /></label>
+            <label className="field md:col-span-2"><span className="label">Upload/Capture image</span><input className="input" type="file" accept="image/*" capture="environment" onChange={(e) => setImageFile(e.target.files?.[0] || null)} /></label>
+            {imageFile ? <p className="text-xs text-ghost md:col-span-2">Selected file: {imageFile.name}</p> : null}
+            {form.image_path ? (
+              <div className="md:col-span-2 flex items-center gap-2">
+                <a className="btn-ghost btn-sm" href={form.image_path} target="_blank" rel="noreferrer"><Icons.Link />Open image</a>
+                {initial?.id ? <button className="btn-ghost btn-sm" onClick={onClearImage}><Icons.X />Remove image</button> : null}
+              </div>
+            ) : null}
             <label className="field md:col-span-2"><span className="label">Notes</span><textarea className="textarea min-h-[96px]" value={form.notes || ''} onChange={(e) => set({ notes: e.target.value })} /></label>
           </div>
         </div>
@@ -320,6 +349,12 @@ function EventDetailDrawer({ eventId, apiCall, onClose, onEdit, onDeleted, onSav
     <div className="fixed inset-0 z-50 flex">
       <div className="absolute inset-0 bg-void/80 backdrop-blur-sm" onClick={onClose} />
       <div className="relative ml-auto w-full max-w-xl h-full bg-abyss border-l border-edge flex flex-col animate-slide-in">
+        {event?.image_path ? (
+          <div className="relative h-48 shrink-0 overflow-hidden">
+            <img src={posterUrl(event.image_path)} alt="" className="h-full w-full object-cover" />
+            <div className="absolute inset-0 bg-hero-fade" />
+          </div>
+        ) : null}
         <div className="px-6 pt-6 pb-4 border-b border-edge">
           <div className="flex items-start gap-2">
             <div className="flex-1 min-w-0">
@@ -336,25 +371,29 @@ function EventDetailDrawer({ eventId, apiCall, onClose, onEdit, onDeleted, onSav
           {loading && <div className="flex items-center gap-2 text-dim"><Spinner size={16} />Loading…</div>}
           {!loading && (
             <>
-              <div className="rounded-2xl border border-edge bg-surface px-4 py-3">
-                <div className="flex flex-wrap gap-2">
-                  <MetaPill>{toDisplayDate(event?.date_start) || 'Date pending'}</MetaPill>
-                  {event?.date_end ? <MetaPill>{`Ends ${toDisplayDate(event.date_end)}`}</MetaPill> : null}
-                  {event?.location ? <MetaPill>{event.location}</MetaPill> : null}
-                  {event?.room ? <MetaPill>{`Room ${event.room}`}</MetaPill> : null}
-                  {event?.time_label ? <MetaPill tone="brand">{event.time_label}</MetaPill> : null}
-                </div>
-              </div>
               <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
-                {event?.url && <div><p className="label">URL</p><p className="text-ink break-all">{event.url}</p></div>}
-                {event?.host && <div><p className="label">Host</p><p className="text-ink">{event.host}</p></div>}
+                <DetailField label="Start Date">{toDisplayDate(event?.date_start) || 'Date pending'}</DetailField>
+                <DetailField label="End Date">{event?.date_end ? toDisplayDate(event.date_end) : 'Single day event'}</DetailField>
+                <DetailField label="Location">{event?.location}</DetailField>
+                <DetailField label="Room">{event?.room}</DetailField>
+                <DetailField label="Time">{event?.time_label}</DetailField>
+                <DetailField label="Host">{event?.host}</DetailField>
+                {event?.image_path ? (
+                  <DetailField label="Image" className="md:col-span-2">
+                    <a className="btn-secondary btn-sm w-fit" href={event.image_path} target="_blank" rel="noreferrer"><Icons.Link />Open image</a>
+                  </DetailField>
+                ) : null}
+                {event?.url ? (
+                  <DetailField label="URL" className="md:col-span-2">
+                    <a className="btn-secondary btn-sm w-fit" href={event.url} target="_blank" rel="noreferrer"><Icons.Link />Open event site</a>
+                  </DetailField>
+                ) : null}
               </div>
-              {event?.notes && <div><p className="label mb-1">Notes</p><p className="text-sm text-dim">{event.notes}</p></div>}
+              {event?.notes ? <DetailField label="Notes"><p className="text-dim">{event.notes}</p></DetailField> : null}
               <div>
                 <div className="mb-3 flex items-center gap-3">
                   <p className="label">Artifacts</p>
                   <MetaPill>{pluralizeArtifacts(artifacts.length)}</MetaPill>
-                  {artifacts.length > 0 ? <MetaPill>{artifactEditorOpen ? 'Edit mode' : 'View mode'}</MetaPill> : null}
                   <div className="flex-1" />
                   <button
                     className="btn-ghost btn-sm"
@@ -378,7 +417,6 @@ function EventDetailDrawer({ eventId, apiCall, onClose, onEdit, onDeleted, onSav
                           <MetaPill>{a.artifact_type}</MetaPill>
                           {a.vendor ? <MetaPill>{a.vendor}</MetaPill> : null}
                           {a.price !== null && a.price !== undefined ? <MetaPill>{`$${a.price}`}</MetaPill> : null}
-                          {a.image_path ? <MetaPill tone="brand">Image attached</MetaPill> : null}
                         </div>
                       </div>
                       {a.image_path ? (
@@ -485,16 +523,39 @@ export default function EventsView({ apiCall, onToast }) {
 
   useEffect(() => { load(); }, [load]);
 
-  const saveEvent = async (payload) => {
+  const saveEvent = async (payload, imageFile) => {
     if (editing?.id) {
       await apiCall('patch', `/events/${editing.id}`, payload);
+      if (imageFile) {
+        const formData = new FormData();
+        formData.append('image', imageFile);
+        await apiCall('post', `/events/${editing.id}/upload-image`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+      }
       onToast?.('Event saved');
     } else {
-      await apiCall('post', '/events', payload);
+      const created = await apiCall('post', '/events', payload);
+      if (imageFile && created?.id) {
+        const formData = new FormData();
+        formData.append('image', imageFile);
+        await apiCall('post', `/events/${created.id}/upload-image`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+      }
       onToast?.('Event created');
     }
     setAdding(false);
     setEditing(null);
+    await load();
+  };
+
+  const clearEventImage = async () => {
+    if (!editing?.id) return;
+    await apiCall('delete', `/events/${editing.id}/image`);
+    onToast?.('Event image removed');
+    const refreshed = await apiCall('get', `/events/${editing.id}`);
+    setEditing(refreshed);
     await load();
   };
 
@@ -616,6 +677,7 @@ export default function EventsView({ apiCall, onToast }) {
           onClose={() => { setAdding(false); setEditing(null); }}
           onSave={saveEvent}
           onDelete={editing?.id ? async () => { await deleteEvent(editing.id); setEditing(null); } : null}
+          onClearImage={clearEventImage}
         />
       )}
       {detailId && (

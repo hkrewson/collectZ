@@ -64,13 +64,23 @@ function CollectibleCard({ item, supportsHover, onOpen, onEdit, onDelete }) {
       subtitle={`${item.category ? item.category : 'Uncategorized'}${item.event_title ? ` · ${item.event_title}` : ''}`}
       meta={
         <>
+          {item.artist ? <FilterPill>{item.artist}</FilterPill> : null}
           {item.booth_or_vendor ? <FilterPill>{item.booth_or_vendor}</FilterPill> : null}
-          {item.image_path ? <FilterPill tone="brand">Image attached</FilterPill> : null}
         </>
       }
       onEdit={() => onEdit(item)}
       onDelete={() => onDelete(item.id)}
     />
+  );
+}
+
+function DetailField({ label, children, className = '' }) {
+  if (!children) return null;
+  return (
+    <div className={className}>
+      <p className="label">{label}</p>
+      <div className="mt-1 text-sm text-ink">{children}</div>
+    </div>
   );
 }
 
@@ -161,29 +171,22 @@ function CollectibleDetailDrawer({ collectibleId, apiCall, categories, events, o
           {loading ? <div className="flex items-center gap-2 text-dim"><Spinner size={16} />Loading…</div> : null}
           {!loading && item ? (
             <>
-              <div className="rounded-2xl border border-edge bg-surface px-4 py-3">
-                <div className="flex flex-wrap gap-2">
-                  <FilterPill>{item.subtype || item.item_type || 'collectible'}</FilterPill>
-                  {resolvedCategory ? <FilterPill>{resolvedCategory}</FilterPill> : null}
-                  {item.exclusive ? <FilterPill tone="brand">Exclusive</FilterPill> : null}
-                  {resolvedEvent ? <FilterPill>{resolvedEvent}</FilterPill> : null}
-                </div>
-              </div>
               <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
-                {item.booth_or_vendor ? <div><p className="label">Vendor / Booth</p><p className="text-ink">{item.booth_or_vendor}</p></div> : null}
-                {item.price !== null && item.price !== undefined ? <div><p className="label">Price</p><p className="text-ink">${item.price}</p></div> : null}
+                <DetailField label="Type">{item.subtype || item.item_type || 'collectible'}</DetailField>
+                <DetailField label="Category">{resolvedCategory || 'Uncategorized'}</DetailField>
+                <DetailField label="Event">{resolvedEvent || 'None linked'}</DetailField>
+                <DetailField label="Exclusive">{item.exclusive ? 'Yes' : 'No'}</DetailField>
+                <DetailField label="Artist">{item.artist}</DetailField>
+                <DetailField label="Vendor / Booth">{item.booth_or_vendor}</DetailField>
+                <DetailField label="Price">{item.price !== null && item.price !== undefined ? `$${item.price}` : null}</DetailField>
                 {item.image_path ? (
-                  <div className="md:col-span-2">
-                    <p className="label">Image</p>
+                  <DetailField label="Image" className="md:col-span-2">
                     <a className="btn-secondary btn-sm w-fit" href={item.image_path} target="_blank" rel="noreferrer"><Icons.Link />Open image</a>
-                  </div>
+                  </DetailField>
                 ) : null}
               </div>
               {item.notes ? (
-                <div>
-                  <p className="label mb-1">Notes</p>
-                  <p className="text-sm text-dim">{item.notes}</p>
-                </div>
+                <DetailField label="Notes"><p className="text-dim">{item.notes}</p></DetailField>
               ) : null}
             </>
           ) : null}
@@ -298,6 +301,7 @@ function CollectibleDrawer({
                 {events.map((evt) => <option key={evt.id} value={String(evt.id)}>{evt.title}</option>)}
               </select>
             </label>
+            <label className="field"><span className="label">Artist</span><input className="input" value={form.artist || ''} onChange={(e) => setForm((p) => ({ ...p, artist: e.target.value }))} /></label>
             <label className="field"><span className="label">Vendor/Booth</span><input className="input" value={form.booth_or_vendor || ''} onChange={(e) => setForm((p) => ({ ...p, booth_or_vendor: e.target.value }))} /></label>
             <label className="field"><span className="label">Price</span><input className="input" value={form.price ?? ''} onChange={(e) => setForm((p) => ({ ...p, price: e.target.value }))} /></label>
             <label className="field md:col-span-2 inline-flex items-center gap-2 text-sm text-dim">
@@ -437,6 +441,7 @@ export default function CollectiblesView({ apiCall, onToast }) {
         subtype: form.subtype || 'collectible',
         category_key: form.category_key || null,
         event_id: form.event_id ? Number(form.event_id) : null,
+        artist: form.artist || null,
         booth_or_vendor: form.booth_or_vendor || null,
         price: form.price === '' ? null : Number(form.price),
         exclusive: Boolean(form.exclusive),

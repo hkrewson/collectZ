@@ -2292,6 +2292,17 @@ const MIGRATIONS = [
         ON user_sessions(support_space_id)
         WHERE support_space_id IS NOT NULL;
     `
+  },
+  {
+    version: 47,
+    description: 'Add event image and collectible artist fields for first-class object presentation',
+    up: `
+      ALTER TABLE events
+        ADD COLUMN IF NOT EXISTS image_path TEXT;
+
+      ALTER TABLE collectibles
+        ADD COLUMN IF NOT EXISTS artist VARCHAR(255);
+    `
   }
 ];
 

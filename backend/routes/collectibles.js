@@ -188,6 +188,7 @@ router.post('/collectibles', validate(collectibleCreateSchema), asyncHandler(asy
     category, // legacy alias
     event_id,
     booth_or_vendor,
+    artist,
     price,
     exclusive,
     image_path,
@@ -221,9 +222,9 @@ router.post('/collectibles', validate(collectibleCreateSchema), asyncHandler(asy
 
   const created = await pool.query(
     `INSERT INTO collectibles (
-       library_id, space_id, created_by, title, subtype, item_type, category_key, category, event_id, booth_or_vendor, price, exclusive, image_path, notes
+       library_id, space_id, created_by, title, subtype, item_type, category_key, category, event_id, booth_or_vendor, artist, price, exclusive, image_path, notes
      ) VALUES (
-       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14
+       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15
      )
      RETURNING *`,
     [
@@ -237,6 +238,7 @@ router.post('/collectibles', validate(collectibleCreateSchema), asyncHandler(asy
       normalizedPayload.category,
       event_id || null,
       booth_or_vendor || null,
+      artist || null,
       price ?? null,
       exclusive === true,
       image_path || null,
@@ -265,7 +267,7 @@ router.patch('/collectibles/:id', validate(collectibleUpdateSchema), asyncHandle
     return res.status(400).json({ error: 'Invalid collectible id' });
   }
 
-  const allowed = ['title', 'subtype', 'item_type', 'category_key', 'category', 'event_id', 'booth_or_vendor', 'price', 'exclusive', 'image_path', 'notes'];
+  const allowed = ['title', 'subtype', 'item_type', 'category_key', 'category', 'event_id', 'booth_or_vendor', 'artist', 'price', 'exclusive', 'image_path', 'notes'];
   const fields = Object.entries(req.body || {}).filter(([key]) => allowed.includes(key));
   if (fields.length === 0) return res.status(400).json({ error: 'No valid collectible fields provided' });
 
