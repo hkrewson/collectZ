@@ -2,6 +2,7 @@
 
 const assert = require('assert');
 const { parseCsvText } = require('../services/csv');
+const { normalizeBarcodeMatches } = require('../services/barcode');
 const { normalizePlexItem, normalizePlexVariant, shouldIncludePlexEntry } = require('../services/plex');
 const { wrapTmdbRequestError } = require('../services/tmdb');
 const { mapDeliciousItemTypeToMediaType } = require('../services/importMapping');
@@ -79,6 +80,27 @@ results.push(run('csv.parseCsvText handles BOM + empty lines', () => {
   assert.deepStrictEqual(parsed.headers, ['title', 'year']);
   assert.strictEqual(parsed.rows.length, 1);
   assert.strictEqual(parsed.rows[0].title, 'Dune');
+}));
+
+results.push(run('barcode.normalizeBarcodeMatches parses book-shaped titles into structured metadata', () => {
+  const matches = normalizeBarcodeMatches({
+    items: [
+      {
+        title: 'Wool - (Silo) by Hugh Howey (Paperback)',
+        image: 'https://example.test/wool.jpg',
+        upc: '9780358447849',
+        brand: 'Mariner Books'
+      }
+    ]
+  });
+
+  assert.strictEqual(matches.length, 1);
+  assert.strictEqual(matches[0].normalizedTitle, 'Wool');
+  assert.strictEqual(matches[0].mediaTypeGuess, 'book');
+  assert.strictEqual(matches[0].typeDetails.author, 'Hugh Howey');
+  assert.strictEqual(matches[0].typeDetails.series, 'Silo');
+  assert.strictEqual(matches[0].typeDetails.format, 'Paperback');
+  assert.strictEqual(matches[0].typeDetails.isbn, '9780358447849');
 }));
 
 results.push(run('validate.simpleSearchSchema trims title and coerces year', () => {

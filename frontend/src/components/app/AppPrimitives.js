@@ -88,6 +88,104 @@ async function loadImageForBarcodeDetection(file) {
   }
 }
 
+function normalizeDetectedBarcode(rawValue = '') {
+  return String(rawValue || '').replace(/\s+/g, '').trim();
+}
+
+async function detectFirstBarcode(detector, source) {
+  const detections = await detector.detect(source);
+  const rawValue = normalizeDetectedBarcode(detections?.find((item) => item?.rawValue)?.rawValue || '');
+  return rawValue || '';
+}
+
+function createBarcodeCanvas(width, height) {
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(width));
+  canvas.height = Math.max(1, Math.round(height));
+  return canvas;
+}
+
+function drawBarcodeVariant(source, {
+  rotate = 0,
+  crop = null,
+  grayscale = false,
+  contrast = 1,
+  maxDimension = 1600
+} = {}) {
+  const sourceWidth = source.naturalWidth || source.videoWidth || source.width;
+  const sourceHeight = source.naturalHeight || source.videoHeight || source.height;
+  if (!sourceWidth || !sourceHeight) return null;
+
+  const cropRect = crop
+    ? {
+        x: Math.max(0, Math.round(sourceWidth * crop.x)),
+        y: Math.max(0, Math.round(sourceHeight * crop.y)),
+        width: Math.max(1, Math.round(sourceWidth * crop.width)),
+        height: Math.max(1, Math.round(sourceHeight * crop.height))
+      }
+    : { x: 0, y: 0, width: sourceWidth, height: sourceHeight };
+
+  const aspectScale = Math.min(1, maxDimension / Math.max(cropRect.width, cropRect.height));
+  const drawWidth = Math.max(1, Math.round(cropRect.width * aspectScale));
+  const drawHeight = Math.max(1, Math.round(cropRect.height * aspectScale));
+  const isQuarterTurn = Math.abs(rotate) % 180 === 90;
+  const canvas = createBarcodeCanvas(isQuarterTurn ? drawHeight : drawWidth, isQuarterTurn ? drawWidth : drawHeight);
+  const context = canvas.getContext('2d', { willReadFrequently: false });
+  if (!context) return null;
+
+  context.save();
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  if (grayscale || contrast !== 1) {
+    const filters = [];
+    if (grayscale) filters.push('grayscale(1)');
+    if (contrast !== 1) filters.push(`contrast(${contrast})`);
+    context.filter = filters.join(' ');
+  }
+
+  if (rotate === 90) {
+    context.translate(canvas.width, 0);
+    context.rotate(Math.PI / 2);
+  } else if (rotate === -90) {
+    context.translate(0, canvas.height);
+    context.rotate(-Math.PI / 2);
+  } else if (rotate === 180) {
+    context.translate(canvas.width, canvas.height);
+    context.rotate(Math.PI);
+  }
+
+  context.drawImage(
+    source,
+    cropRect.x,
+    cropRect.y,
+    cropRect.width,
+    cropRect.height,
+    0,
+    0,
+    drawWidth,
+    drawHeight
+  );
+  context.restore();
+  return canvas;
+}
+
+function createBarcodeDetectionVariants(source) {
+  const variants = [];
+  const pushVariant = (label, options) => {
+    const canvas = drawBarcodeVariant(source, options);
+    if (canvas) variants.push({ label, source: canvas });
+  };
+
+  pushVariant('full-resized', { maxDimension: 1800 });
+  pushVariant('full-contrast', { maxDimension: 1800, grayscale: true, contrast: 1.6 });
+  pushVariant('bottom-half', { crop: { x: 0, y: 0.45, width: 1, height: 0.55 }, maxDimension: 1800 });
+  pushVariant('bottom-half-contrast', { crop: { x: 0, y: 0.45, width: 1, height: 0.55 }, maxDimension: 1800, grayscale: true, contrast: 1.8 });
+  pushVariant('bottom-third', { crop: { x: 0.05, y: 0.58, width: 0.9, height: 0.32 }, maxDimension: 1800, grayscale: true, contrast: 1.9 });
+  pushVariant('rotated-right', { rotate: 90, maxDimension: 1800 });
+  pushVariant('rotated-left', { rotate: -90, maxDimension: 1800 });
+
+  return variants;
+}
+
 export async function detectBarcodeFromFile(file) {
   const BarcodeDetectorClass = getBarcodeDetectorClass();
   if (!BarcodeDetectorClass) {
@@ -117,15 +215,32 @@ export async function detectBarcodeFromFile(file) {
 
   const detector = new BarcodeDetectorClass({ formats });
   const source = await loadImageForBarcodeDetection(file);
+  const generatedVariants = [];
 
   try {
-    const detections = await detector.detect(source);
-    const rawValue = String(detections?.find((item) => item?.rawValue)?.rawValue || '').trim();
-    if (!rawValue) {
-      throw new Error('not-found');
+    const rawDetected = await detectFirstBarcode(detector, source);
+    if (rawDetected) {
+      return rawDetected;
     }
-    return rawValue.replace(/\s+/g, '');
+
+    for (const variant of createBarcodeDetectionVariants(source)) {
+      generatedVariants.push(variant);
+      try {
+        const detected = await detectFirstBarcode(detector, variant.source);
+        if (detected) return detected;
+      } catch (_) {
+        // Keep trying transformed variants before giving up.
+      }
+    }
+
+    throw new Error('not-found');
   } finally {
+    generatedVariants.forEach((variant) => {
+      if (variant?.source?.width) {
+        variant.source.width = 1;
+        variant.source.height = 1;
+      }
+    });
     if (source && typeof source.close === 'function') {
       source.close();
     }

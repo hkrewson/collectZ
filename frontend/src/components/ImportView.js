@@ -191,23 +191,37 @@ export default function ImportView({
     try {
       const tmdb = match?.tmdb || {};
       const releaseDate = tmdb?.release_date || '';
+      const guessedBook = match?.mediaTypeGuess === 'book';
+      const normalizedTitle = match?.normalizedTitle || match?.title || `UPC ${barcodeUpc.trim()}`;
+      const parsedFormat = match?.typeDetails?.format || '';
+      const parsedAuthor = match?.typeDetails?.author || null;
+      const parsedIsbn = match?.typeDetails?.isbn || null;
+      const parsedPublisher = match?.typeDetails?.publisher || null;
       const payload = {
-        title: tmdb?.title || match?.title || `UPC ${barcodeUpc.trim()}`,
-        original_title: tmdb?.original_title || null,
-        release_date: releaseDate || null,
-        year: tmdb?.release_year || (releaseDate ? Number(String(releaseDate).slice(0, 4)) : null),
-        media_type: 'movie',
-        format: 'Blu-ray',
-        genre: Array.isArray(tmdb?.genre_names) ? tmdb.genre_names.join(', ') : null,
-        rating: tmdb?.rating || null,
+        title: guessedBook ? normalizedTitle : (tmdb?.title || normalizedTitle),
+        original_title: guessedBook ? null : (tmdb?.original_title || null),
+        release_date: guessedBook ? null : (releaseDate || null),
+        year: guessedBook ? (match?.year ? Number(match.year) : null) : (tmdb?.release_year || (releaseDate ? Number(String(releaseDate).slice(0, 4)) : null)),
+        media_type: guessedBook ? 'book' : 'movie',
+        format: guessedBook ? (parsedFormat || 'Paperback') : 'Blu-ray',
+        genre: guessedBook ? null : (Array.isArray(tmdb?.genre_names) ? tmdb.genre_names.join(', ') : null),
+        rating: guessedBook ? null : (tmdb?.rating || null),
         upc: match?.upc || barcodeUpc.trim() || null,
         notes: match?.source ? `Imported via barcode (${match.source})` : 'Imported via barcode',
-        overview: tmdb?.overview || match?.description || null,
-        tmdb_id: tmdb?.id || null,
-        tmdb_media_type: tmdb?.tmdb_media_type || 'movie',
-        tmdb_url: tmdb?.id ? `https://www.themoviedb.org/${tmdb?.tmdb_media_type || 'movie'}/${tmdb.id}` : null,
-        poster_path: tmdb?.poster_path || match?.image || null,
-        backdrop_path: tmdb?.backdrop_path || null
+        overview: guessedBook ? (match?.description || null) : (tmdb?.overview || match?.description || null),
+        tmdb_id: guessedBook ? null : (tmdb?.id || null),
+        tmdb_media_type: guessedBook ? null : (tmdb?.tmdb_media_type || 'movie'),
+        tmdb_url: guessedBook ? null : (tmdb?.id ? `https://www.themoviedb.org/${tmdb?.tmdb_media_type || 'movie'}/${tmdb.id}` : null),
+        poster_path: guessedBook ? (match?.image || null) : (tmdb?.poster_path || match?.image || null),
+        backdrop_path: guessedBook ? null : (tmdb?.backdrop_path || null),
+        type_details: guessedBook
+          ? {
+              author: parsedAuthor,
+              isbn: parsedIsbn,
+              publisher: parsedPublisher,
+              edition: parsedFormat || null
+            }
+          : null
       };
       await apiCall('post', '/media', payload);
       onImported?.();
