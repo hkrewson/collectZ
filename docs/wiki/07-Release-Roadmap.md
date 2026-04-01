@@ -1068,7 +1068,7 @@ Historical planning notes may still exist in:
 25. `2.8.4` Scope privacy tightening and explicit support access
 26. `2.8.5` Navigation shell cleanup and Integrations surface simplification
 27. `2.8.6` Events and Collectibles UX alignment
-28. `2.9.0` Assisted capture and barcode/vision completion
+28. `2.9.0` Assisted capture and barcode completion
 29. `2.9.1` Support role and in-app help foundations
 30. `2.9.2` Explicit support request, consent, and session approval
 31. `2.9.3` Support operations audit trail and queue hardening
@@ -1804,9 +1804,9 @@ Historical note:
 - Common actions and filters are easier to scan and understand.
 - Any data-model changes remain small and directly tied to making Events and Collectibles behave like first-class library objects rather than separate feature islands.
 
-## 2.9.0 — Assisted Capture and Barcode/Vision Completion
+## 2.9.0 — Assisted Capture and Barcode Completion
 
-**Goal:** Complete the product promise behind barcode and vision-assisted entry by validating the current provider flows and adding a camera-assisted capture path for manual entry.
+**Goal:** Complete the product promise behind barcode-assisted entry by validating the current provider flow and adding camera-assisted capture plus direct image attachment for manual entry.
 
 ### Why this is a minor version
 
@@ -1815,22 +1815,22 @@ Historical note:
 
 ### Scope
 
-- Verify and harden the existing barcode and vision flows end to end:
+- Verify and harden the existing barcode flow end to end:
   - confirm provider behavior still works as intended,
   - identify any rough edges in diagnostics, result handling, or fallback UX,
-  - finish the remaining UX promises around those capabilities instead of leaving them as “early add-ons.”
+  - finish the remaining UX promises around that capability instead of leaving it as an “early add-on.”
 - Add manual-entry camera options where they are product-appropriate:
   - use a device camera to capture barcodes during manual entry,
-  - use a device camera to capture cover/front-art images during manual entry where vision-assisted lookup is helpful,
+  - use a device camera to capture cover/front-art images during manual entry so images can be attached directly,
   - make the capture flow degrade gracefully on devices/browsers without camera support.
 - Keep the debug/operator path intact:
-  - barcode/vision failures should remain diagnosable,
+  - barcode failures should remain diagnosable,
   - capture should not become an opaque black box when providers or browser permissions fail.
 
 ### Acceptance Criteria
 
-- Barcode and vision-assisted entry paths are explicitly revalidated and any high-friction gaps are resolved.
-- Manual entry can invoke a device camera for barcode capture and cover-art capture where supported.
+- Barcode-assisted entry paths are explicitly revalidated and any high-friction gaps are resolved.
+- Manual entry can invoke a device camera for barcode capture and direct cover-art capture where supported.
 - Camera permissions and provider failures degrade gracefully with understandable fallback messaging.
 - The feature feels like a completed capture workflow rather than an unfinished experimental promise.
 

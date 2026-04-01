@@ -10,7 +10,7 @@
  * Business logic, database queries, and service integrations live in:
  *   routes/     — HTTP handlers
  *   middleware/ — auth, validation, error handling
- *   services/   — TMDB, barcode, vision, crypto, audit
+ *   services/   — TMDB, barcode, crypto, audit
  *   db/         — connection pool and migration runner
  */
 
@@ -223,7 +223,6 @@ app.use('/api/media/import-csv', importStartLimiter);
 app.use('/api/media/sync-jobs', syncPollLimiter);
 app.use('/api/media/search-tmdb', externalApiLimiter);
 app.use('/api/media/lookup-upc', externalApiLimiter);
-app.use('/api/media/recognize-cover', externalApiLimiter);
 
 // ── Static file serving (cover uploads) ──────────────────────────────────────
 app.use('/uploads', express.static('uploads'));

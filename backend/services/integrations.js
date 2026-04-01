@@ -1,7 +1,6 @@
 const pool = require('../db/pool');
 const { decryptSecretWithStatus } = require('./crypto');
 const { resolveBarcodePreset } = require('./barcode');
-const { resolveVisionPreset } = require('./vision');
 const { resolveTmdbPreset } = require('./tmdb');
 const { resolvePlexPreset } = require('./plex');
 const { resolveBooksPreset } = require('./books');
@@ -21,7 +20,6 @@ function deriveCwaBaseUrl(rawUrl = '') {
 
 const normalizeIntegrationRecord = (row) => {
   const envBarcodePreset = process.env.BARCODE_PRESET || process.env.BARCODE_PROVIDER || 'upcitemdb';
-  const envVisionPreset = process.env.VISION_PRESET || process.env.VISION_PROVIDER || 'ocrspace';
   const envTmdbPreset = process.env.TMDB_PRESET || 'tmdb';
   const envPlexPreset = process.env.PLEX_PRESET || process.env.PLEX_PROVIDER || 'plex';
   const envBooksPreset = process.env.BOOKS_PRESET || process.env.BOOKS_PROVIDER || 'googlebooks';
@@ -30,7 +28,6 @@ const normalizeIntegrationRecord = (row) => {
   const envComicsPreset = process.env.COMICS_PRESET || process.env.COMICS_PROVIDER || 'metron';
 
   const barcodePreset = resolveBarcodePreset(row?.barcode_preset || envBarcodePreset);
-  const visionPreset = resolveVisionPreset(row?.vision_preset || envVisionPreset);
   const tmdbPreset = resolveTmdbPreset(row?.tmdb_preset || envTmdbPreset);
   const plexPreset = resolvePlexPreset(row?.plex_preset || envPlexPreset);
   const booksPreset = resolveBooksPreset(row?.books_preset || envBooksPreset);
@@ -39,7 +36,6 @@ const normalizeIntegrationRecord = (row) => {
   const comicsPreset = resolveComicsPreset(row?.comics_preset || envComicsPreset);
 
   const barcodeDecrypt = decryptSecretWithStatus(row?.barcode_api_key_encrypted, 'barcode_api_key_encrypted');
-  const visionDecrypt = decryptSecretWithStatus(row?.vision_api_key_encrypted, 'vision_api_key_encrypted');
   const tmdbDecrypt = decryptSecretWithStatus(row?.tmdb_api_key_encrypted, 'tmdb_api_key_encrypted');
   const plexDecrypt = decryptSecretWithStatus(row?.plex_api_key_encrypted, 'plex_api_key_encrypted');
   const booksDecrypt = decryptSecretWithStatus(row?.books_api_key_encrypted, 'books_api_key_encrypted');
@@ -50,7 +46,6 @@ const normalizeIntegrationRecord = (row) => {
   const cwaPasswordDecrypt = decryptSecretWithStatus(row?.cwa_password_encrypted, 'cwa_password_encrypted');
 
   const barcodeApiKey = barcodeDecrypt.value || process.env.BARCODE_API_KEY || '';
-  const visionApiKey = visionDecrypt.value || process.env.VISION_API_KEY || '';
   const tmdbApiKey = tmdbDecrypt.value || process.env.TMDB_API_KEY || '';
   const plexApiKey = plexDecrypt.value || process.env.PLEX_API_KEY || '';
   const booksApiKey = booksDecrypt.value || process.env.BOOKS_API_KEY || '';
@@ -73,7 +68,6 @@ const normalizeIntegrationRecord = (row) => {
     });
   };
   maybeWarn('barcode', 'barcode_api_key_encrypted', row?.barcode_api_key_encrypted, barcodeDecrypt);
-  maybeWarn('vision', 'vision_api_key_encrypted', row?.vision_api_key_encrypted, visionDecrypt);
   maybeWarn('tmdb', 'tmdb_api_key_encrypted', row?.tmdb_api_key_encrypted, tmdbDecrypt);
   maybeWarn('plex', 'plex_api_key_encrypted', row?.plex_api_key_encrypted, plexDecrypt);
   maybeWarn('books', 'books_api_key_encrypted', row?.books_api_key_encrypted, booksDecrypt);
@@ -102,11 +96,6 @@ const normalizeIntegrationRecord = (row) => {
     barcodeApiKeyHeader: barcodePreset.apiKeyHeader || 'x-api-key',
     barcodeQueryParam: barcodePreset.queryParam || 'upc',
     barcodeApiKey,
-    visionPreset: visionPreset.preset || 'ocrspace',
-    visionProvider: visionPreset.provider,
-    visionApiUrl: row?.vision_api_url || visionPreset.apiUrl || process.env.VISION_API_URL || '',
-    visionApiKeyHeader: visionPreset.apiKeyHeader || 'apikey',
-    visionApiKey,
     tmdbPreset: tmdbPreset.preset || 'tmdb',
     tmdbProvider: tmdbPreset.provider,
     tmdbApiUrl: row?.tmdb_api_url || tmdbPreset.apiUrl || process.env.TMDB_API_URL || 'https://api.themoviedb.org/3/search/movie',

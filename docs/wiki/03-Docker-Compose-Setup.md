@@ -34,7 +34,7 @@ In addition to basic setup:
 
 1. Set `ALLOWED_ORIGINS` to include production domain(s).
 2. Keep `SESSION_COOKIE_SECURE=true` for TLS-backed production access.
-3. Set integration keys (`TMDB_API_KEY`, `BARCODE_API_KEY`, `VISION_API_KEY`) or configure these in Admin Settings UI.
+3. Set integration keys (`TMDB_API_KEY`, `BARCODE_API_KEY`) or configure these in Admin Settings UI.
 4. Deploy behind reverse proxy/SSL (Nginx, Traefik, Caddy, Cloudflare tunnel).
 
 Start/update:
@@ -42,6 +42,21 @@ Start/update:
 ```bash
 docker compose --env-file .env up -d --build
 ```
+
+## Local LAN HTTP Setup
+
+If you want to open the app from another device on your wired or Wi-Fi LAN over plain HTTP:
+
+1. Set `NODE_ENV=development`.
+2. Set `SESSION_COOKIE_SECURE=false`.
+3. Add the exact LAN origin you will browse from to `ALLOWED_ORIGINS`, for example `http://10.22.20.91:3000`.
+4. Rebuild the stack:
+
+```bash
+docker compose --env-file .env up -d --build backend frontend
+```
+
+This keeps the registry/production default secure while allowing local non-TLS browser sessions to work correctly on the LAN.
 
 ## Updating an Existing Host
 

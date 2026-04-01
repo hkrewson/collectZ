@@ -1,6 +1,5 @@
 const express = require('express');
 const axios = require('axios');
-const FormData = require('form-data');
 const pool = require('../db/pool');
 const { asyncHandler } = require('../middleware/errors');
 const { authenticateToken, requireRole } = require('../middleware/auth');
@@ -8,7 +7,6 @@ const { deriveCwaBaseUrl, loadAdminIntegrationConfig, normalizeIntegrationRecord
 const { encryptSecret } = require('../services/crypto');
 const { buildIntegrationResponse } = require('../services/integrationResponse');
 const { resolveBarcodePreset } = require('../services/barcode');
-const { resolveVisionPreset } = require('../services/vision');
 const { resolveTmdbPreset, searchTmdbMovie } = require('../services/tmdb');
 const { resolvePlexPreset, fetchPlexSections } = require('../services/plex');
 const { resolveBooksPreset, searchBooksByTitle } = require('../services/books');
@@ -37,8 +35,6 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
   const {
     barcodePreset, barcodeProvider, barcodeApiUrl,
     barcodeApiKey, clearBarcodeApiKey,
-    visionPreset, visionProvider, visionApiUrl,
-    visionApiKey, clearVisionApiKey,
     tmdbPreset, tmdbProvider, tmdbApiUrl,
     tmdbApiKey, clearTmdbApiKey,
     plexPreset, plexProvider, plexApiUrl, plexLibrarySections,
@@ -55,7 +51,6 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
   } = req.body;
 
   const selectedBarcodePreset = resolveBarcodePreset(barcodePreset || 'upcitemdb');
-  const selectedVisionPreset = resolveVisionPreset(visionPreset || 'ocrspace');
   const selectedTmdbPreset = resolveTmdbPreset(tmdbPreset || 'tmdb');
   const selectedPlexPreset = resolvePlexPreset(plexPreset || 'plex');
   const selectedBooksPreset = resolveBooksPreset(booksPreset || 'googlebooks');
@@ -71,9 +66,6 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
   const finalBarcodeApiKey = clearBarcodeApiKey
     ? null
     : (barcodeApiKey ? encryptSecret(barcodeApiKey) : existing?.barcode_api_key_encrypted || null);
-  const finalVisionApiKey = clearVisionApiKey
-    ? null
-    : (visionApiKey ? encryptSecret(visionApiKey) : existing?.vision_api_key_encrypted || null);
   const finalTmdbApiKey = clearTmdbApiKey
     ? null
     : (tmdbApiKey ? encryptSecret(tmdbApiKey) : existing?.tmdb_api_key_encrypted || null);
@@ -105,7 +97,6 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
     `INSERT INTO app_integrations (
        id, barcode_preset, barcode_provider, barcode_api_url, barcode_api_key_encrypted,
        barcode_api_key_header, barcode_query_param,
-       vision_preset, vision_provider, vision_api_url, vision_api_key_encrypted, vision_api_key_header,
        tmdb_preset, tmdb_provider, tmdb_api_url, tmdb_api_key_encrypted, tmdb_api_key_header, tmdb_api_key_query_param,
        plex_preset, plex_provider, plex_api_url, plex_server_name, plex_api_key_encrypted, plex_api_key_query_param, plex_library_sections,
        books_preset, books_provider, books_api_url, books_api_key_encrypted, books_api_key_header, books_api_key_query_param,
@@ -114,20 +105,17 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
        comics_preset, comics_provider, comics_api_url, comics_api_key_encrypted, comics_api_key_header, comics_api_key_query_param, comics_username,
        cwa_opds_url, cwa_base_url, cwa_username, cwa_password_encrypted, cwa_timeout_ms
      ) VALUES (
-       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25::jsonb,
-       $26,$27,$28,$29,$30,$31,
-       $32,$33,$34,$35,$36,$37,
-       $38,$39,$40,$41,$42,$43,$44,$45,
-       $46,$47,$48,$49,$50,$51,$52,
-       $53,$54,$55,$56,$57
+       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::jsonb,
+       $16,$17,$18,$19,$20,$21,
+       $22,$23,$24,$25,$26,$27,
+       $28,$29,$30,$31,$32,$33,$34,$35,
+       $36,$37,$38,$39,$40,$41,$42,
+       $43,$44,$45,$46,$47
      )
      ON CONFLICT (id) DO UPDATE SET
        barcode_preset = EXCLUDED.barcode_preset, barcode_provider = EXCLUDED.barcode_provider,
        barcode_api_url = EXCLUDED.barcode_api_url, barcode_api_key_encrypted = EXCLUDED.barcode_api_key_encrypted,
        barcode_api_key_header = EXCLUDED.barcode_api_key_header, barcode_query_param = EXCLUDED.barcode_query_param,
-       vision_preset = EXCLUDED.vision_preset, vision_provider = EXCLUDED.vision_provider,
-       vision_api_url = EXCLUDED.vision_api_url, vision_api_key_encrypted = EXCLUDED.vision_api_key_encrypted,
-       vision_api_key_header = EXCLUDED.vision_api_key_header,
        tmdb_preset = EXCLUDED.tmdb_preset, tmdb_provider = EXCLUDED.tmdb_provider,
        tmdb_api_url = EXCLUDED.tmdb_api_url, tmdb_api_key_encrypted = EXCLUDED.tmdb_api_key_encrypted,
        tmdb_api_key_header = EXCLUDED.tmdb_api_key_header, tmdb_api_key_query_param = EXCLUDED.tmdb_api_key_query_param,
@@ -165,11 +153,6 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
       finalBarcodeApiKey,
       selectedBarcodePreset.apiKeyHeader,
       selectedBarcodePreset.queryParam,
-      pick(visionPreset, existing?.vision_preset, 'ocrspace'),
-      pick(visionProvider, existing?.vision_provider, selectedVisionPreset.provider),
-      pick(visionApiUrl, existing?.vision_api_url, selectedVisionPreset.apiUrl),
-      finalVisionApiKey,
-      selectedVisionPreset.apiKeyHeader,
       pick(tmdbPreset, existing?.tmdb_preset, 'tmdb'),
       pick(tmdbProvider, existing?.tmdb_provider, selectedTmdbPreset.provider),
       pick(tmdbApiUrl, existing?.tmdb_api_url, selectedTmdbPreset.apiUrl),
@@ -221,7 +204,6 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
   const config = normalizeIntegrationRecord(result.rows[0]);
   await logActivity(req, 'admin.settings.integrations.update', 'app_integrations', 1, {
     barcodePreset: config.barcodePreset,
-    visionPreset: config.visionPreset,
     tmdbPreset: config.tmdbPreset,
     plexPreset: config.plexPreset,
     booksPreset: config.booksPreset,
@@ -231,7 +213,6 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
     cwaEnabled: Boolean(config.cwaOpdsUrl),
     keyUpdates: {
       barcode: Boolean(barcodeApiKey),
-      vision: Boolean(visionApiKey),
       tmdb: Boolean(tmdbApiKey),
       plex: Boolean(plexApiKey),
       books: Boolean(booksApiKey),
@@ -243,7 +224,6 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
     },
     keyClears: {
       barcode: Boolean(clearBarcodeApiKey),
-      vision: Boolean(clearVisionApiKey),
       tmdb: Boolean(clearTmdbApiKey),
       plex: Boolean(clearPlexApiKey),
       books: Boolean(clearBooksApiKey),
@@ -284,34 +264,6 @@ router.post('/admin/settings/integrations/test-barcode', authenticateToken, requ
   res.json({
     ok: authenticated, authenticated, status, provider: config.barcodeProvider,
     detail: response.data?.message || response.data?.error || `Provider returned status ${status}`
-  });
-}));
-
-router.post('/admin/settings/integrations/test-vision', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
-  const { imageUrl } = req.body || {};
-  const config = await loadAdminIntegrationConfig();
-
-  if (!config.visionApiUrl) {
-    return res.status(400).json({ ok: false, authenticated: false, detail: 'Vision API URL is not configured' });
-  }
-
-  const body = new FormData();
-  body.append('url', imageUrl || 'https://upload.wikimedia.org/wikipedia/en/c/c1/The_Matrix_Poster.jpg');
-  body.append('language', 'eng');
-  body.append('isOverlayRequired', 'false');
-
-  const headers = { ...body.getHeaders() };
-  if (config.visionApiKey) headers[config.visionApiKeyHeader || 'apikey'] = config.visionApiKey;
-
-  const response = await axios.post(config.visionApiUrl, body, {
-    headers, timeout: 20000, validateStatus: () => true
-  });
-
-  const status = response.status;
-  const authenticated = status !== 401 && status !== 403;
-  res.json({
-    ok: authenticated, authenticated, status, provider: config.visionProvider,
-    detail: response.data?.ErrorMessage || response.data?.message || response.data?.error || `Provider returned status ${status}`
   });
 }));
 

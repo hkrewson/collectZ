@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Icons, Spinner, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
+import { CameraCaptureModal, Icons, Spinner, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
 
 const CATEGORY_OPTIONS = [
   { key: 'lego', label: 'Lego' },
@@ -221,6 +221,7 @@ function CollectibleDrawer({
     event_id: initial?.event_id ? String(initial.event_id) : ''
   }));
   const [imageFile, setImageFile] = useState(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
 
   useEffect(() => {
     setForm({
@@ -310,6 +311,10 @@ function CollectibleDrawer({
             </label>
             <label className="field md:col-span-2"><span className="label">Image URL (optional)</span><input className="input" value={form.image_path || ''} onChange={(e) => setForm((p) => ({ ...p, image_path: e.target.value }))} /></label>
             <label className="field md:col-span-2"><span className="label">Upload/Capture image</span><input className="input" type="file" accept="image/*" capture="environment" onChange={(e) => setImageFile(e.target.files?.[0] || null)} /></label>
+            <div className="md:col-span-2 flex items-center gap-2">
+              <button type="button" onClick={() => setCameraOpen(true)} className="btn-secondary btn-sm"><Icons.Camera />Open camera</button>
+              <p className="text-xs text-ghost">Capture a collectible image directly from the camera and attach it here.</p>
+            </div>
             {imageFile ? <p className="text-xs text-ghost md:col-span-2">Selected file: {imageFile.name}</p> : null}
             {form.image_path ? (
               <div className="md:col-span-2 flex items-center gap-2">
@@ -328,6 +333,16 @@ function CollectibleDrawer({
             {saving ? <><Spinner size={14} />Saving…</> : <><Icons.Check />Save</>}
           </button>
         </div>
+        <CameraCaptureModal
+          open={cameraOpen}
+          title="Capture collectible image"
+          description="Capture a collectible image and attach it directly to this item."
+          confirmLabel="Use collectible image"
+          onClose={() => setCameraOpen(false)}
+          onCapture={async (file) => {
+            setImageFile(file);
+          }}
+        />
       </div>
     </div>
   );

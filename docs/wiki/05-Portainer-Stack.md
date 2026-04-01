@@ -34,7 +34,7 @@ Minimum required:
 Recommended production values:
 
 - `ALLOWED_ORIGINS` with your public URL(s)
-- `TMDB_API_KEY`, `BARCODE_API_KEY`, `VISION_API_KEY` (or configure in Admin UI)
+- `TMDB_API_KEY`, `BARCODE_API_KEY` (or configure in Admin UI)
 
 ## 4. Deploy and Validate
 

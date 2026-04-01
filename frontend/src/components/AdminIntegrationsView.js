@@ -28,8 +28,7 @@ const SECTION_DESCRIPTIONS = {
   logs: 'Enable external activity and audit export here, while backend transport details remain runtime infrastructure settings.',
   metrics: 'Enable admin-facing metrics export here, while scrape tokens and DEBUG-level access remain runtime infrastructure settings.',
   plex: 'Connection details, credentials, and runtime checks for this integration.',
-  tmdb: 'Connection details, credentials, and runtime checks for this integration.',
-  vision: 'Connection details, credentials, and runtime checks for this integration.'
+  tmdb: 'Connection details, credentials, and runtime checks for this integration.'
 };
 
 function LabeledField({ label, className = '', children, cx }) {
@@ -113,15 +112,13 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
       { id: 'logs', label: 'External Logs' },
       { id: 'metrics', label: 'Metrics' },
       { id: 'plex', label: 'Plex' },
-      { id: 'tmdb', label: 'TMDB' },
-      { id: 'vision', label: 'Vision' }
+      { id: 'tmdb', label: 'TMDB' }
     ]),
     []
   );
   const [section, setSection] = useState(externalSection || integrationSections[0].id);
   const [form, setForm] = useState({
     barcodePreset: 'upcitemdb', barcodeProvider: 'upcitemdb', barcodeApiUrl: '', barcodeApiKey: '', clearBarcodeApiKey: false,
-    visionPreset: 'ocrspace', visionProvider: 'ocrspace', visionApiUrl: '', visionApiKey: '', clearVisionApiKey: false,
     tmdbPreset: 'tmdb', tmdbProvider: 'tmdb', tmdbApiUrl: 'https://api.themoviedb.org/3/search/movie',
     tmdbApiKey: '', clearTmdbApiKey: false,
     plexPreset: 'plex', plexProvider: 'plex', plexApiUrl: '',
@@ -138,7 +135,6 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
   });
   const [meta, setMeta] = useState({
     barcodeApiKeySet: false, barcodeApiKeyMasked: '',
-    visionApiKeySet: false, visionApiKeyMasked: '',
     tmdbApiKeySet: false, tmdbApiKeyMasked: '',
     plexApiKeySet: false, plexApiKeyMasked: '',
     booksApiKeySet: false, booksApiKeyMasked: '',
@@ -149,7 +145,7 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
     cwaPasswordSet: false, cwaPasswordMasked: '',
     decryptHealth: { hasWarnings: false, warnings: [], remediation: '' }
   });
-  const [status, setStatus] = useState({ barcode: 'unknown', vision: 'unknown', tmdb: 'unknown', plex: 'unknown', books: 'unknown', audio: 'unknown', games: 'unknown', comics: 'unknown', cwa: 'unknown' });
+  const [status, setStatus] = useState({ barcode: 'unknown', tmdb: 'unknown', plex: 'unknown', books: 'unknown', audio: 'unknown', games: 'unknown', comics: 'unknown', cwa: 'unknown' });
   const [testLoading, setTestLoading] = useState('');
   const [testMsg, setTestMsg] = useState('');
   const [saving, setSaving] = useState(false);
@@ -177,7 +173,6 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
       setForm((f) => ({
         ...f,
         barcodePreset: data.barcodePreset || 'upcitemdb', barcodeProvider: data.barcodeProvider || '', barcodeApiUrl: data.barcodeApiUrl || '',
-        visionPreset: data.visionPreset || 'ocrspace', visionProvider: data.visionProvider || '', visionApiUrl: data.visionApiUrl || '',
         tmdbPreset: data.tmdbPreset || 'tmdb', tmdbProvider: data.tmdbProvider || '', tmdbApiUrl: data.tmdbApiUrl || '',
         plexPreset: data.plexPreset || 'plex', plexProvider: data.plexProvider || 'plex', plexApiUrl: data.plexApiUrl || '',
         plexLibrarySections: Array.isArray(data.plexLibrarySections) ? data.plexLibrarySections.join(',') : '',
@@ -189,7 +184,6 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
       }));
       setMeta({
         barcodeApiKeySet: Boolean(data.barcodeApiKeySet), barcodeApiKeyMasked: data.barcodeApiKeyMasked || '',
-        visionApiKeySet: Boolean(data.visionApiKeySet), visionApiKeyMasked: data.visionApiKeyMasked || '',
         tmdbApiKeySet: Boolean(data.tmdbApiKeySet), tmdbApiKeyMasked: data.tmdbApiKeyMasked || '',
         plexApiKeySet: Boolean(data.plexApiKeySet), plexApiKeyMasked: data.plexApiKeyMasked || '',
         booksApiKeySet: Boolean(data.booksApiKeySet), booksApiKeyMasked: data.booksApiKeyMasked || '',
@@ -202,7 +196,6 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
       });
       setStatus({
         barcode: data.barcodeApiKeySet ? 'configured' : 'missing',
-        vision: data.visionApiKeySet ? 'configured' : 'missing',
         tmdb: data.tmdbApiKeySet ? 'configured' : 'missing',
         plex: data.plexApiKeySet ? 'configured' : 'missing',
         books: data.booksApiKeySet ? 'configured' : 'missing',
@@ -280,7 +273,6 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
     setSaving(true);
     const payload = {};
     if (sec === 'barcode') Object.assign(payload, { barcodePreset: form.barcodePreset, barcodeProvider: form.barcodeProvider, barcodeApiUrl: form.barcodeApiUrl, clearBarcodeApiKey: form.clearBarcodeApiKey, ...(form.barcodeApiKey && { barcodeApiKey: form.barcodeApiKey }) });
-    else if (sec === 'vision') Object.assign(payload, { visionPreset: form.visionPreset, visionProvider: form.visionProvider, visionApiUrl: form.visionApiUrl, clearVisionApiKey: form.clearVisionApiKey, ...(form.visionApiKey && { visionApiKey: form.visionApiKey }) });
     else if (sec === 'tmdb') Object.assign(payload, { tmdbPreset: form.tmdbPreset, tmdbProvider: form.tmdbProvider, tmdbApiUrl: form.tmdbApiUrl, clearTmdbApiKey: form.clearTmdbApiKey, ...(form.tmdbApiKey && { tmdbApiKey: form.tmdbApiKey }) });
     else if (sec === 'plex') Object.assign(payload, {
       plexPreset: form.plexPreset, plexProvider: form.plexProvider, plexApiUrl: form.plexApiUrl,
@@ -317,7 +309,6 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
       const updated = await apiCall('put', '/admin/settings/integrations', payload);
       setMeta({
         barcodeApiKeySet: Boolean(updated.barcodeApiKeySet), barcodeApiKeyMasked: updated.barcodeApiKeyMasked || '',
-        visionApiKeySet: Boolean(updated.visionApiKeySet), visionApiKeyMasked: updated.visionApiKeyMasked || '',
         tmdbApiKeySet: Boolean(updated.tmdbApiKeySet), tmdbApiKeyMasked: updated.tmdbApiKeyMasked || '',
         plexApiKeySet: Boolean(updated.plexApiKeySet), plexApiKeyMasked: updated.plexApiKeyMasked || '',
         booksApiKeySet: Boolean(updated.booksApiKeySet), booksApiKeyMasked: updated.booksApiKeyMasked || '',
@@ -338,8 +329,8 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
       }));
       setForm((f) => ({
         ...f,
-        barcodeApiKey: '', visionApiKey: '', tmdbApiKey: '', plexApiKey: '', booksApiKey: '', audioApiKey: '', gamesApiKey: '', gamesClientSecret: '', comicsApiKey: '', cwaPassword: '',
-        clearBarcodeApiKey: false, clearVisionApiKey: false, clearTmdbApiKey: false, clearPlexApiKey: false,
+        barcodeApiKey: '', tmdbApiKey: '', plexApiKey: '', booksApiKey: '', audioApiKey: '', gamesApiKey: '', gamesClientSecret: '', comicsApiKey: '', cwaPassword: '',
+        clearBarcodeApiKey: false, clearTmdbApiKey: false, clearPlexApiKey: false,
         clearBooksApiKey: false, clearAudioApiKey: false, clearGamesApiKey: false, clearGamesClientSecret: false, clearComicsApiKey: false, clearCwaPassword: false
       }));
       onToast(`${sec.toUpperCase()} settings saved`);
@@ -496,17 +487,6 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
           </LabeledField>
           <label className="flex items-center gap-2 text-sm text-dim cursor-pointer">
             <input type="checkbox" checked={form.clearBarcodeApiKey} onChange={(e) => setForm((f) => ({ ...f, clearBarcodeApiKey: e.target.checked }))} className="rounded" />
-            Clear saved key
-          </label>
-        </>}
-
-        {section === 'vision' && <>
-          <LabeledField label="API URL" cx={cx}><input className="input" value={form.visionApiUrl} onChange={(e) => setForm((f) => ({ ...f, visionApiUrl: e.target.value }))} /></LabeledField>
-          <LabeledField label={`API Key ${meta.visionApiKeySet ? `(set: ${meta.visionApiKeyMasked})` : '(not set)'}`} cx={cx}>
-            <input className="input font-mono" type="password" placeholder="Enter new key to update" value={form.visionApiKey} onChange={(e) => setForm((f) => ({ ...f, visionApiKey: e.target.value }))} />
-          </LabeledField>
-          <label className="flex items-center gap-2 text-sm text-dim cursor-pointer">
-            <input type="checkbox" checked={form.clearVisionApiKey} onChange={(e) => setForm((f) => ({ ...f, clearVisionApiKey: e.target.checked }))} className="rounded" />
             Clear saved key
           </label>
         </>}

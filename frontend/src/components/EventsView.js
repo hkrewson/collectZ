@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Icons, Spinner, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
+import { CameraCaptureModal, Icons, Spinner, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
 
 const DEFAULT_EVENT_FORM = {
   title: '',
@@ -127,6 +127,7 @@ function EventFormDrawer({ initial, onClose, onSave, onDelete, onClearImage }) {
     date_end: toInputDate(initial?.date_end)
   }));
   const [imageFile, setImageFile] = useState(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -190,6 +191,10 @@ function EventFormDrawer({ initial, onClose, onSave, onDelete, onClearImage }) {
             <label className="field"><span className="label">Room</span><input className="input" value={form.room || ''} onChange={(e) => set({ room: e.target.value })} /></label>
             <label className="field md:col-span-2"><span className="label">Image URL (optional)</span><input className="input" value={form.image_path || ''} onChange={(e) => set({ image_path: e.target.value })} /></label>
             <label className="field md:col-span-2"><span className="label">Upload/Capture image</span><input className="input" type="file" accept="image/*" capture="environment" onChange={(e) => setImageFile(e.target.files?.[0] || null)} /></label>
+            <div className="md:col-span-2 flex items-center gap-2">
+              <button type="button" onClick={() => setCameraOpen(true)} className="btn-secondary btn-sm"><Icons.Camera />Open camera</button>
+              <p className="text-xs text-ghost">Capture a live event image without leaving the drawer.</p>
+            </div>
             {imageFile ? <p className="text-xs text-ghost md:col-span-2">Selected file: {imageFile.name}</p> : null}
             {form.image_path ? (
               <div className="md:col-span-2 flex items-center gap-2">
@@ -206,6 +211,16 @@ function EventFormDrawer({ initial, onClose, onSave, onDelete, onClearImage }) {
           <div className="flex-1" />
           <button type="button" onClick={submit} disabled={saving} className="btn-primary min-w-[100px]">{saving ? <Spinner size={16} /> : 'Save'}</button>
         </div>
+        <CameraCaptureModal
+          open={cameraOpen}
+          title="Capture event image"
+          description="Capture an event image and attach it directly to this event."
+          confirmLabel="Use event image"
+          onClose={() => setCameraOpen(false)}
+          onCapture={async (file) => {
+            setImageFile(file);
+          }}
+        />
       </div>
     </div>
   );

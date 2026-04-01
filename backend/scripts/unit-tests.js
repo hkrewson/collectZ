@@ -225,9 +225,7 @@ results.push(run('frontend app source includes support session banner and admin 
 }));
 
 results.push(run('media route source hardens image upload handlers', () => {
-  assert.ok(mediaRoutesSource.includes('const tempImageUpload = multer('));
   assert.ok(mediaRoutesSource.includes('const memoryImageUpload = multer('));
-  assert.ok(mediaRoutesSource.includes("router.post('/recognize-cover', tempImageUpload.single('cover')"));
   assert.ok(mediaRoutesSource.includes("router.post('/upload-cover', memoryImageUpload.single('cover')"));
   assert.ok(mediaRoutesSource.includes("router.post('/:id/upload-signing-proof', memoryImageUpload.single('proof')"));
   assert.ok(mediaRoutesSource.includes('sanitizeUploadFilename'));
@@ -620,11 +618,6 @@ results.push(run('integrations.buildIntegrationResponse masks secrets and expose
     barcodeApiKeyHeader: 'x-api-key',
     barcodeQueryParam: 'upc',
     barcodeApiKey: 'barcode-secret',
-    visionPreset: 'ocrspace',
-    visionProvider: 'ocrspace',
-    visionApiUrl: 'https://vision.example',
-    visionApiKeyHeader: 'apikey',
-    visionApiKey: 'vision-secret',
     tmdbPreset: 'tmdb',
     tmdbProvider: 'tmdb',
     tmdbApiUrl: 'https://tmdb.example',

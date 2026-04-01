@@ -9,7 +9,7 @@ This applies to:
 - `DB_PASSWORD`
 - `SESSION_SECRET`
 - `INTEGRATION_ENCRYPTION_KEY`
-- provider keys (TMDB, Barcode, Vision, Plex, SMTP)
+- provider keys (TMDB, Barcode, Plex, SMTP)
 
 ## Generate Strong Secrets
 
@@ -60,7 +60,6 @@ Rotate in this order to reduce avoidable downtime and false-negative troubleshoo
 1. provider/API secrets with the lowest blast radius first:
    - `TMDB_API_KEY`
    - `BARCODE_API_KEY`
-   - `VISION_API_KEY`
    - Plex token
    - SMTP credentials
 2. `SESSION_SECRET`
@@ -99,7 +98,7 @@ Procedure:
 2. Rotate `INTEGRATION_ENCRYPTION_KEY` in `.env`.
 3. Restart backend.
 4. Open `Admin Settings -> Integrations`.
-5. Re-enter and save each provider API key (Barcode, Vision, TMDB, Plex).
+5. Re-enter and save each provider API key (Barcode, TMDB, Plex).
 6. Re-run each provider test button.
 
 If decryption warnings appear, clear and re-save affected keys.

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 export function routeFromPath(p) {
   if (p === '/register') return 'register';
@@ -60,6 +60,78 @@ export function isInteractiveTarget(target) {
   return Boolean(target?.closest?.('button,a,input,select,textarea,label,[role="button"]'));
 }
 
+function getBarcodeDetectorClass() {
+  if (typeof window === 'undefined') return null;
+  return window.BarcodeDetector || null;
+}
+
+export function supportsBarcodeCapture() {
+  return Boolean(getBarcodeDetectorClass());
+}
+
+async function loadImageForBarcodeDetection(file) {
+  if (typeof createImageBitmap === 'function') {
+    return createImageBitmap(file);
+  }
+
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const image = await new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('Failed to load captured image'));
+      img.src = objectUrl;
+    });
+    return image;
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+export async function detectBarcodeFromFile(file) {
+  const BarcodeDetectorClass = getBarcodeDetectorClass();
+  if (!BarcodeDetectorClass) {
+    throw new Error('unsupported');
+  }
+
+  const preferredFormats = [
+    'upc_a',
+    'upc_e',
+    'ean_13',
+    'ean_8',
+    'code_128',
+    'code_39',
+    'codabar'
+  ];
+
+  let formats = preferredFormats;
+  if (typeof BarcodeDetectorClass.getSupportedFormats === 'function') {
+    try {
+      const supported = await BarcodeDetectorClass.getSupportedFormats();
+      const filtered = preferredFormats.filter((format) => supported.includes(format));
+      if (filtered.length) formats = filtered;
+    } catch (_) {
+      // Keep preferred defaults when the browser refuses supported-format probing.
+    }
+  }
+
+  const detector = new BarcodeDetectorClass({ formats });
+  const source = await loadImageForBarcodeDetection(file);
+
+  try {
+    const detections = await detector.detect(source);
+    const rawValue = String(detections?.find((item) => item?.rawValue)?.rawValue || '').trim();
+    if (!rawValue) {
+      throw new Error('not-found');
+    }
+    return rawValue.replace(/\s+/g, '');
+  } finally {
+    if (source && typeof source.close === 'function') {
+      source.close();
+    }
+  }
+}
+
 const Icon = ({ d, size = 20, className = '', strokeWidth = 1.75 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
     stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round"
@@ -87,6 +159,7 @@ export const Icons = {
   Edit:        () => <Icon d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />,
   Film:        () => <Icon d="M2 8h20M2 16h20M7 2v20M17 2v20M2 4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4z" />,
   Barcode:     () => <Icon d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14M21 5v14" />,
+  Camera:      () => <Icon d="M4 7h3l2-2h6l2 2h3a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />,
   Eye:         () => <Icon d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z" />,
   EyeOff:      () => <Icon d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24M1 1l22 22" />,
   Upload:      () => <Icon d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />,
@@ -107,6 +180,193 @@ export function Spinner({ size = 16 }) {
     <svg width={size} height={size} viewBox="0 0 24 24" className="animate-spin text-gold" fill="none">
       <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="31.4" strokeDashoffset="10" strokeLinecap="round" />
     </svg>
+  );
+}
+
+export function CameraCaptureModal({
+  open = false,
+  title = 'Capture image',
+  description = 'Use your device camera to capture an image.',
+  onClose,
+  onCapture,
+  confirmLabel = 'Use capture'
+}) {
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const [starting, setStarting] = useState(false);
+  const [error, setError] = useState('');
+  const [capturedBlob, setCapturedBlob] = useState(null);
+  const [capturedUrl, setCapturedUrl] = useState('');
+  const capturedUrlRef = useRef('');
+
+  useEffect(() => {
+    capturedUrlRef.current = capturedUrl;
+  }, [capturedUrl]);
+
+  const releaseCapturedUrl = useCallback(() => {
+    if (capturedUrlRef.current) {
+      URL.revokeObjectURL(capturedUrlRef.current);
+      capturedUrlRef.current = '';
+    }
+  }, []);
+
+  useEffect(() => {
+    const stopStream = () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+      }
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
+    };
+
+    if (!open) {
+      stopStream();
+      setStarting(false);
+      setError('');
+      releaseCapturedUrl();
+      setCapturedBlob(null);
+      setCapturedUrl('');
+      return stopStream;
+    }
+
+    let cancelled = false;
+    setStarting(true);
+    setError('');
+    releaseCapturedUrl();
+    setCapturedBlob(null);
+    setCapturedUrl('');
+
+    const startCamera = async () => {
+      if (!navigator?.mediaDevices?.getUserMedia) {
+        if (!cancelled) {
+          setError('Camera access is not supported in this browser.');
+          setStarting(false);
+        }
+        return;
+      }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          },
+          audio: false
+        });
+        if (cancelled) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play().catch(() => {});
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err?.message || 'Unable to access the device camera.');
+        }
+      } finally {
+        if (!cancelled) setStarting(false);
+      }
+    };
+
+    startCamera();
+
+    return () => {
+      cancelled = true;
+      stopStream();
+    };
+  }, [open, releaseCapturedUrl]);
+
+  if (!open) return null;
+
+  const captureFrame = () => {
+    const video = videoRef.current;
+    if (!video || !video.videoWidth || !video.videoHeight) {
+      setError('Camera preview is not ready yet.');
+      return;
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const context = canvas.getContext('2d');
+    if (!context) {
+      setError('Capture is not available in this browser.');
+      return;
+    }
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        setError('Failed to capture image.');
+        return;
+      }
+      releaseCapturedUrl();
+      setCapturedBlob(blob);
+      setCapturedUrl(URL.createObjectURL(blob));
+      setError('');
+    }, 'image/jpeg', 0.92);
+  };
+
+  const useCapture = async () => {
+    if (!capturedBlob) return;
+    const file = new File([capturedBlob], `capture-${Date.now()}.jpg`, { type: 'image/jpeg' });
+    await onCapture?.(file);
+    onClose?.();
+  };
+
+  const resetCapture = () => {
+    releaseCapturedUrl();
+    setCapturedBlob(null);
+    setCapturedUrl('');
+    setError('');
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center px-4">
+      <div className="absolute inset-0 bg-void/85 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-3xl rounded-2xl border border-edge bg-abyss shadow-deep overflow-hidden">
+        <div className="flex items-start gap-3 border-b border-edge px-5 py-4">
+          <div className="flex-1">
+            <h3 className="section-title !text-lg">{title}</h3>
+            <p className="mt-1 text-sm text-ghost">{description}</p>
+          </div>
+          <button type="button" onClick={onClose} className="btn-icon btn-sm shrink-0"><Icons.X /></button>
+        </div>
+        <div className="p-5 space-y-4">
+          <div className="aspect-video w-full overflow-hidden rounded-2xl border border-edge bg-black">
+            {capturedUrl ? (
+              <img src={capturedUrl} alt="Captured frame" className="h-full w-full object-cover" />
+            ) : (
+              <video ref={videoRef} className="h-full w-full object-cover" muted playsInline autoPlay />
+            )}
+          </div>
+          {starting ? (
+            <div className="flex items-center gap-2 text-sm text-dim"><Spinner size={14} />Starting camera…</div>
+          ) : null}
+          {error ? <p className="text-sm text-err">{error}</p> : null}
+          <div className="flex flex-wrap items-center gap-3">
+            {!capturedBlob ? (
+              <button type="button" onClick={captureFrame} className="btn-primary" disabled={starting}>
+                <Icons.Camera />Capture
+              </button>
+            ) : (
+              <>
+                <button type="button" onClick={resetCapture} className="btn-secondary">
+                  <Icons.Refresh />Retake
+                </button>
+                <button type="button" onClick={useCapture} className="btn-primary">
+                  <Icons.Check />{confirmLabel}
+                </button>
+              </>
+            )}
+            <button type="button" onClick={onClose} className="btn-ghost ml-auto">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 

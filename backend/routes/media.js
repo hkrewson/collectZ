@@ -2,7 +2,6 @@ const express = require('express');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
-const FormData = require('form-data');
 const axios = require('axios');
 const pool = require('../db/pool');
 const { asyncHandler } = require('../middleware/errors');
@@ -25,7 +24,6 @@ const {
   fetchTmdbTvSeasonDetails
 } = require('../services/tmdb');
 const { normalizeBarcodeMatches } = require('../services/barcode');
-const { extractVisionText, extractTitleCandidates } = require('../services/vision');
 const { fetchPlexLibraryItems, fetchPlexShowSeasons, fetchPlexShowSeasonVariants, fetchPlexSeasonEpisodeStates } = require('../services/plex');
 const { searchBooksByTitle, searchBooksByIsbn } = require('../services/books');
 const { searchAudioByTitle } = require('../services/audio');
@@ -72,7 +70,6 @@ const tempDiskStorage = multer.diskStorage({
   filename: (_req, file, cb) => cb(null, `${Date.now()}-${sanitizeUploadFilename(file.originalname)}`)
 });
 const tempUpload = multer({ storage: tempDiskStorage, limits: { fileSize: 10 * 1024 * 1024 } });
-const tempImageUpload = multer({ storage: tempDiskStorage, limits: { fileSize: 10 * 1024 * 1024 }, fileFilter: imageFileFilter });
 const memoryImageUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 }, fileFilter: imageFileFilter });
 
 const MEDIA_FORMATS = ['VHS', 'Blu-ray', 'Digital', 'DVD', '4K UHD', 'Paperback', 'Hardcover', 'Trade'];
@@ -117,6 +114,7 @@ const IMPORT_AUDIT_OUTCOMES = [
   'collection_only'
 ];
 const GAME_UPC_FIRST_ENABLED = String(process.env.GAME_UPC_FIRST || 'false').trim().toLowerCase() === 'true';
+
 const parsePlexRatingKeyFromItemKey = (itemKey) => {
   const raw = String(itemKey || '').trim();
   if (!raw) return null;
@@ -4390,58 +4388,6 @@ router.post('/lookup-upc', validate(upcLookupSchema), asyncHandler(async (req, r
   }
 
   res.json({ provider: barcodeProvider, upc, matches: enrichedMatches });
-}));
-
-// ── Cover recognition ─────────────────────────────────────────────────────────
-
-router.post('/recognize-cover', tempImageUpload.single('cover'), asyncHandler(async (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ error: 'Cover image file is required' });
-  }
-
-  try {
-    const config = await loadAdminIntegrationConfig();
-    const { visionProvider, visionApiUrl, visionApiKey, visionApiKeyHeader } = config;
-
-    if (!visionApiUrl) {
-      return res.status(400).json({ error: 'Vision API URL is not configured', provider: visionProvider });
-    }
-    if (visionProvider === 'ocrspace' && !visionApiKey) {
-      return res.status(400).json({ error: 'Vision API key is required for ocrspace', provider: visionProvider });
-    }
-
-    const body = new FormData();
-    body.append('file', fs.createReadStream(req.file.path));
-    body.append('language', 'eng');
-    body.append('isOverlayRequired', 'false');
-
-    const headers = { ...body.getHeaders() };
-    if (visionApiKey) headers[visionApiKeyHeader] = visionApiKey;
-
-    const visionResponse = await axios.post(visionApiUrl, body, { headers, timeout: 25000 });
-    const extractedText = extractVisionText(visionResponse.data);
-    const titleCandidates = extractTitleCandidates(extractedText);
-    const tmdbMatches = [];
-    const seenTmdbIds = new Set();
-
-    for (const candidate of titleCandidates.slice(0, 6)) {
-      try {
-        const results = await searchTmdbMovie(candidate, undefined, config);
-        if (results[0] && !seenTmdbIds.has(results[0].id)) {
-          seenTmdbIds.add(results[0].id);
-          tmdbMatches.push(results[0]);
-        }
-      } catch (_) {
-        // Non-fatal
-      }
-    }
-
-    res.json({ provider: visionProvider, extractedText: extractedText.slice(0, 2000), titleCandidates, tmdbMatches });
-  } finally {
-    if (req.file?.path) {
-      fs.promises.unlink(req.file.path).catch(() => {});
-    }
-  }
 }));
 
 // ── Cover upload ──────────────────────────────────────────────────────────────

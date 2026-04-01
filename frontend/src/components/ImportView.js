@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { CameraCaptureModal, detectBarcodeFromFile, supportsBarcodeCapture } from './app/AppPrimitives';
 
 export default function ImportView({
   apiCall,
@@ -30,13 +31,17 @@ export default function ImportView({
   const [barcodeUpc, setBarcodeUpc] = useState('');
   const [barcodeResults, setBarcodeResults] = useState([]);
   const [barcodeLookupLoading, setBarcodeLookupLoading] = useState(false);
+  const [barcodeCaptureLoading, setBarcodeCaptureLoading] = useState(false);
+  const [barcodeCameraOpen, setBarcodeCameraOpen] = useState(false);
   const [barcodeAddingId, setBarcodeAddingId] = useState('');
   const [auditRows, setAuditRows] = useState([]);
   const [auditName, setAuditName] = useState('');
   const csvInputRef = useRef(null);
   const calibreInputRef = useRef(null);
   const deliciousInputRef = useRef(null);
+  const barcodeCaptureInputRef = useRef(null);
   const completedJobIdsRef = useRef(new Set());
+  const canCaptureBarcode = supportsBarcodeCapture();
 
   const downloadAudit = () => {
     if (!auditRows.length) return;
@@ -136,8 +141,8 @@ export default function ImportView({
     }
   };
 
-  const lookupBarcode = async () => {
-    const upc = barcodeUpc.trim();
+  const lookupBarcode = async (upcOverride = null) => {
+    const upc = String(upcOverride ?? barcodeUpc).trim();
     if (!upc) return;
     setBarcodeLookupLoading(true);
     setResult('');
@@ -153,6 +158,30 @@ export default function ImportView({
       onToast(msg, 'error');
     } finally {
       setBarcodeLookupLoading(false);
+    }
+  };
+
+  const handleBarcodeCapture = async (event) => {
+    const file = event.target.files?.[0] || null;
+    event.target.value = '';
+    if (!file) return;
+    setBarcodeCaptureLoading(true);
+    try {
+      const detected = await detectBarcodeFromFile(file);
+      setBarcodeUpc(detected);
+      onToast(`Captured barcode ${detected}`);
+      await lookupBarcode(detected);
+    } catch (error) {
+      const reason = error?.message;
+      if (reason === 'unsupported') {
+        onToast('Camera barcode capture is not supported in this browser yet. Enter the UPC manually instead.', 'error');
+      } else if (reason === 'not-found') {
+        onToast('No barcode was detected in that image. Try a clearer photo or enter the UPC manually.', 'error');
+      } else {
+        onToast('Barcode capture failed. Enter the UPC manually instead.', 'error');
+      }
+    } finally {
+      setBarcodeCaptureLoading(false);
     }
   };
 
@@ -372,10 +401,25 @@ export default function ImportView({
                   }
                 }}
               />
+              <button onClick={() => setBarcodeCameraOpen(true)} className="btn-secondary" disabled={barcodeCaptureLoading || !hasActiveLibrary}>
+                {barcodeCaptureLoading ? <Spinner size={14} /> : <><Icons.Camera />Camera</>}
+              </button>
+              <button onClick={() => barcodeCaptureInputRef.current?.click()} className="btn-secondary" disabled={barcodeCaptureLoading || !hasActiveLibrary}>
+                <Icons.Upload />Photo
+              </button>
               <button onClick={lookupBarcode} className="btn-primary" disabled={barcodeLookupLoading || !barcodeUpc.trim() || !hasActiveLibrary}>
                 {barcodeLookupLoading ? <Spinner size={14} /> : <><Icons.Barcode />Lookup</>}
               </button>
             </div>
+            <input
+              ref={barcodeCaptureInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={handleBarcodeCapture}
+            />
+            <p className="text-xs text-ghost">Use a live camera frame or a barcode photo. {canCaptureBarcode ? 'Supported browsers will decode it automatically.' : 'Some browsers may still require you to type the UPC manually.'}</p>
             {barcodeResults.length > 0 && (
               <div className="space-y-2">
                 {barcodeResults.slice(0, 8).map((m, idx) => {
@@ -417,6 +461,33 @@ export default function ImportView({
           <button onClick={downloadAudit} className="btn-secondary"><Icons.Download />Download Audit CSV</button>
         </div>
       )}
+      <CameraCaptureModal
+        open={barcodeCameraOpen}
+        title="Capture barcode"
+        description="Frame the barcode in the camera preview, capture it, and we'll try to decode it into a UPC automatically."
+        confirmLabel="Use barcode capture"
+        onClose={() => setBarcodeCameraOpen(false)}
+        onCapture={async (file) => {
+          setBarcodeCaptureLoading(true);
+          try {
+            const detected = await detectBarcodeFromFile(file);
+            setBarcodeUpc(detected);
+            onToast(`Captured barcode ${detected}`);
+            await lookupBarcode(detected);
+          } catch (error) {
+            const reason = error?.message;
+            if (reason === 'unsupported') {
+              onToast('Live barcode capture is not supported in this browser yet. Enter the UPC manually instead.', 'error');
+            } else if (reason === 'not-found') {
+              onToast('No barcode was detected in that capture. Try again with a clearer frame or enter the UPC manually.', 'error');
+            } else {
+              onToast('Barcode capture failed. Enter the UPC manually instead.', 'error');
+            }
+          } finally {
+            setBarcodeCaptureLoading(false);
+          }
+        }}
+      />
     </div>
   );
 }

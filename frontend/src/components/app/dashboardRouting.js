@@ -20,7 +20,7 @@ export const VALID_DASHBOARD_TABS = new Set([
   'admin-integrations'
 ]);
 
-export const VALID_INTEGRATION_SECTIONS = new Set(['audio', 'barcode', 'books', 'comics', 'games', 'plex', 'tmdb', 'vision']);
+export const VALID_INTEGRATION_SECTIONS = new Set(['audio', 'barcode', 'books', 'comics', 'games', 'plex', 'tmdb']);
 export const DEFAULT_TAB = 'library-movies';
 export const DEFAULT_INTEGRATION_SECTION = 'audio';
 

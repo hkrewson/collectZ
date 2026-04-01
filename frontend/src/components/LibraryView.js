@@ -1,14 +1,17 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Icons,
   Spinner,
   cx,
   posterUrl,
   ObjectPosterCard,
+  CameraCaptureModal,
   mediaTypeLabel,
   inferTmdbSearchType,
   isInteractiveTarget,
-  MEDIA_TYPES
+  MEDIA_TYPES,
+  detectBarcodeFromFile,
+  supportsBarcodeCapture
 } from './app/AppPrimitives';
 const MEDIA_FORMATS = ['VHS', 'Blu-ray', 'Digital', 'DVD', '4K UHD'];
 const BOOK_FORMATS = ['Digital', 'Paperback', 'Hardcover', 'Trade'];
@@ -966,15 +969,19 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
   const [tmdbLoading, setTmdbLoading] = useState(false);
   const [barcodeResults, setBarcodeResults] = useState([]);
   const [barcodeLoading, setBarcodeLoading] = useState(false);
-  const [visionResults, setVisionResults] = useState([]);
-  const [visionLoading, setVisionLoading] = useState(false);
+  const [barcodeCaptureLoading, setBarcodeCaptureLoading] = useState(false);
   const [typeEnrichResults, setTypeEnrichResults] = useState([]);
   const [typeEnrichLoading, setTypeEnrichLoading] = useState(false);
-  const [coverFile, setCoverFile] = useState(null);
+  const [coverUploadLoading, setCoverUploadLoading] = useState(false);
   const [proofFile, setProofFile] = useState(null);
+  const [barcodeCameraOpen, setBarcodeCameraOpen] = useState(false);
+  const [coverCameraOpen, setCoverCameraOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
   const [msgType, setMsgType] = useState('ok');
+  const barcodeCaptureInputRef = useRef(null);
+  const coverImageInputRef = useRef(null);
+  const canCaptureBarcode = supportsBarcodeCapture();
 
   const set = (patch) => setForm((f) => ({ ...f, ...patch }));
   const notify = (text, type = 'ok') => { setMsg(text); setMsgType(type); };
@@ -985,7 +992,6 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
   const isGame = form.media_type === 'game';
   const canConvertToCollection = Boolean(onConvertToCollection) && ['movie', 'game'].includes(form.media_type);
   const isTypedEnrichment = isBook || isComic || isAudio || isGame;
-
   const searchTmdb = async () => {
     if (!form.title.trim()) return;
     setTmdbLoading(true);
@@ -1124,18 +1130,68 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
     notify('TMDB data applied');
   };
 
-  const lookupBarcode = async () => {
-    if (!form.upc.trim()) { notify('Enter a UPC first', 'error'); return; }
+  const lookupBarcode = async (upcOverride = null) => {
+    const upc = String(upcOverride ?? form.upc).trim();
+    if (!upc) { notify('Enter a UPC first', 'error'); return; }
     setBarcodeLoading(true);
     setBarcodeResults([]);
     try {
-      const data = await apiCall('post', '/media/lookup-upc', { upc: form.upc.trim() });
+      const data = await apiCall('post', '/media/lookup-upc', { upc });
       setBarcodeResults(data.matches || []);
       if (!data.matches?.length) notify('No UPC matches found', 'error');
     } catch (e) {
       notify(e.response?.data?.detail || 'UPC lookup failed', 'error');
     } finally {
       setBarcodeLoading(false);
+    }
+  };
+
+  const handleBarcodeCapture = async (event) => {
+    const file = event.target.files?.[0] || null;
+    event.target.value = '';
+    if (!file) return;
+    setBarcodeCaptureLoading(true);
+    try {
+      const detected = await detectBarcodeFromFile(file);
+      set({ upc: detected });
+      notify(`Captured barcode ${detected}`);
+      if (isMovieOrTv && addMode === 'upc') {
+        await lookupBarcode(detected);
+      }
+    } catch (error) {
+      const reason = error?.message;
+      if (reason === 'unsupported') {
+        notify('Camera barcode capture is not supported in this browser yet. Enter the UPC manually instead.', 'error');
+      } else if (reason === 'not-found') {
+        notify('No barcode was detected in that image. Try a clearer photo or enter the UPC manually.', 'error');
+      } else {
+        notify('Barcode capture failed. Enter the UPC manually instead.', 'error');
+      }
+    } finally {
+      setBarcodeCaptureLoading(false);
+    }
+  };
+
+  const handleBarcodeCameraCapture = async (file) => {
+    setBarcodeCaptureLoading(true);
+    try {
+      const detected = await detectBarcodeFromFile(file);
+      set({ upc: detected });
+      notify(`Captured barcode ${detected}`);
+      if (isMovieOrTv && addMode === 'upc') {
+        await lookupBarcode(detected);
+      }
+    } catch (error) {
+      const reason = error?.message;
+      if (reason === 'unsupported') {
+        notify('Live barcode capture is not supported in this browser yet. You can still type the UPC manually.', 'error');
+      } else if (reason === 'not-found') {
+        notify('No barcode was detected in that capture. Try again with a clearer frame or enter the UPC manually.', 'error');
+      } else {
+        notify('Barcode capture failed. Enter the UPC manually instead.', 'error');
+      }
+    } finally {
+      setBarcodeCaptureLoading(false);
     }
   };
 
@@ -1174,33 +1230,28 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
     notify('Barcode data applied');
   };
 
-  const recognizeCover = async () => {
-    if (!coverFile) { notify('Choose an image first', 'error'); return; }
-    setVisionLoading(true);
+  const uploadCoverImage = async (file) => {
+    if (!file) return;
+    setCoverUploadLoading(true);
     try {
       const body = new FormData();
-      body.append('cover', coverFile);
-      const data = await apiCall('post', '/media/recognize-cover', body, { headers: { 'Content-Type': 'multipart/form-data' } });
-      setVisionResults(data.tmdbMatches || []);
-      if (!data.tmdbMatches?.length) notify('No matches found', 'error');
+      body.append('cover', file);
+      const uploaded = await apiCall('post', '/media/upload-cover', body, { headers: { 'Content-Type': 'multipart/form-data' } });
+      if (!uploaded?.path) throw new Error('Cover upload did not return a path');
+      set({ poster_path: uploaded.path });
+      notify('Cover image applied');
     } catch (e) {
-      notify(e.response?.data?.detail || 'Recognition failed', 'error');
+      notify(e.response?.data?.error || e.message || 'Cover upload failed', 'error');
     } finally {
-      setVisionLoading(false);
+      setCoverUploadLoading(false);
     }
   };
 
-  const uploadCover = async () => {
-    if (!coverFile) return;
-    const body = new FormData();
-    body.append('cover', coverFile);
-    try {
-      const data = await apiCall('post', '/media/upload-cover', body, { headers: { 'Content-Type': 'multipart/form-data' } });
-      set({ poster_path: data.path });
-      notify('Cover uploaded');
-    } catch (_) {
-      notify('Upload failed', 'error');
-    }
+  const handleCoverImageSelection = async (event) => {
+    const file = event.target.files?.[0] || null;
+    event.target.value = '';
+    if (!file) return;
+    await uploadCoverImage(file);
   };
 
   const uploadSigningProof = async () => {
@@ -1330,7 +1381,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
     }
   };
 
-  const allTmdbMatches = [...tmdbResults, ...visionResults].filter((v, i, a) => a.findIndex((x) => x.id === v.id) === i);
+  const allTmdbMatches = tmdbResults;
 
   return (
     <div className="flex flex-col h-full">
@@ -1375,7 +1426,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
               <div className="tab-strip">
                 {['title', 'upc', 'cover'].map((m) => (
                   <button key={m} className={cx('tab flex-1 capitalize', addMode === m && 'active')} onClick={() => setAddMode(m)}>
-                    {m === 'title' ? 'Title Search' : m === 'upc' ? 'Barcode' : 'Cover OCR'}
+                    {m === 'title' ? 'Title Search' : m === 'upc' ? 'Barcode' : 'Cover Image'}
                   </button>
                 ))}
               </div>
@@ -1456,22 +1507,66 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
             <LabeledField label="UPC / Barcode">
               <div className="flex gap-2">
                 <input className="input flex-1 font-mono" placeholder="012345678901" value={form.upc} onChange={(e) => set({ upc: e.target.value })} />
+                <button
+                  type="button"
+                  onClick={() => setBarcodeCameraOpen(true)}
+                  disabled={barcodeCaptureLoading}
+                  className="btn-secondary btn-sm shrink-0 min-w-[100px]"
+                >
+                  {barcodeCaptureLoading ? <Spinner size={14} /> : <><Icons.Camera />Camera</>}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => barcodeCaptureInputRef.current?.click()}
+                  disabled={barcodeCaptureLoading}
+                  className="btn-secondary btn-sm shrink-0 min-w-[100px]"
+                >
+                  <Icons.Upload />Photo
+                </button>
                 <button type="button" onClick={lookupBarcode} disabled={barcodeLoading} className="btn-secondary btn-sm shrink-0 min-w-[100px]">
                   {barcodeLoading ? <Spinner size={14} /> : <><Icons.Barcode />Lookup</>}
                 </button>
               </div>
+              <input
+                ref={barcodeCaptureInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={handleBarcodeCapture}
+              />
+              <p className="text-xs text-ghost">
+                Capture a live barcode frame or choose a barcode photo. {canCaptureBarcode ? 'Supported browsers will fill the UPC automatically.' : 'This browser may ask you to type the UPC manually after capture.'}
+              </p>
             </LabeledField>
           )}
 
-          {isMovieOrTv && addMode === 'cover' && (
+          {(!isMovieOrTv || addMode === 'cover') && (
             <div className="space-y-2">
               <label className="label">Cover Image</label>
-              <input type="file" accept="image/*" onChange={(e) => setCoverFile(e.target.files?.[0] || null)} className="block w-full text-sm text-ghost file:btn-secondary file:btn-sm file:border-0 file:mr-3" />
+              <input
+                ref={coverImageInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handleCoverImageSelection}
+                className="hidden"
+              />
+              <p className="text-xs text-ghost">
+                Capture or choose a cover or packaging photo to attach it directly to this item.
+              </p>
               <div className="flex gap-2">
-                <button type="button" onClick={uploadCover} disabled={!coverFile} className="btn-secondary btn-sm"><Icons.Upload />Upload cover</button>
-                <button type="button" onClick={recognizeCover} disabled={!coverFile || visionLoading} className="btn-secondary btn-sm">
-                  {visionLoading ? <Spinner size={14} /> : <><Icons.Eye />Recognize cover</>}
+                <button type="button" onClick={() => setCoverCameraOpen(true)} disabled={coverUploadLoading} className="btn-secondary btn-sm">
+                  {coverUploadLoading ? <Spinner size={14} /> : <><Icons.Camera />Camera</>}
                 </button>
+                <button type="button" onClick={() => coverImageInputRef.current?.click()} disabled={coverUploadLoading} className="btn-secondary btn-sm">
+                  <Icons.Upload />Photo
+                </button>
+                {form.poster_path && (
+                  <button type="button" onClick={() => set({ poster_path: '' })} disabled={coverUploadLoading} className="btn-secondary btn-sm text-err">
+                    <Icons.Trash />Remove
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -1665,6 +1760,22 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
           <button type="button" onClick={submit} disabled={saving} className="btn-primary min-w-[100px]">{saving ? <Spinner size={16} /> : 'Save'}</button>
         </div>
       </div>
+      <CameraCaptureModal
+        open={barcodeCameraOpen}
+        title="Capture barcode"
+        description="Use your device camera to frame the barcode, then capture it to fill the UPC field."
+        confirmLabel="Use barcode capture"
+        onClose={() => setBarcodeCameraOpen(false)}
+        onCapture={handleBarcodeCameraCapture}
+      />
+      <CameraCaptureModal
+        open={coverCameraOpen}
+        title="Capture cover image"
+        description="Capture cover art or packaging and attach it directly to this item."
+        confirmLabel="Use cover image"
+        onClose={() => setCoverCameraOpen(false)}
+        onCapture={uploadCoverImage}
+      />
     </div>
   );
 }

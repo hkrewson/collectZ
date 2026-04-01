@@ -27,8 +27,9 @@ openssl rand -hex 32
 - `NODE_ENV` (`production` by default)
 - `TRUST_PROXY` (`1` recommended behind one reverse proxy hop; `false` when backend is exposed directly)
 - `SESSION_COOKIE_SECURE` (default `true`): must remain `true` in production.
-  - If you run plain HTTP localhost for development, use `NODE_ENV=development` and optionally set `SESSION_COOKIE_SECURE=false`.
+  - If you run plain HTTP development over `localhost` or a trusted LAN IP, use `NODE_ENV=development` and optionally set `SESSION_COOKIE_SECURE=false`.
 - `ALLOWED_ORIGINS` (comma-separated origins)
+  - For local LAN testing, include the exact origin you open in the browser, for example `http://10.22.20.91:3000`.
 - `ALLOW_SESSION_BEARER_FALLBACK` (default `false`): legacy escape hatch that permits session tokens in `Authorization: Bearer` headers.
   - Keep `false` for normal browser hardening.
   - Only enable temporarily for older non-browser clients that still depend on bearer session tokens.
@@ -51,7 +52,7 @@ openssl rand -hex 32
   - `RATE_LIMIT_MEDIA_WRITE_MAX` (default `240`) — write methods on `/api/media/*`.
   - `RATE_LIMIT_IMPORT_START_MAX` (default `60`) — import start routes.
   - `RATE_LIMIT_SYNC_POLL_MAX` (default `600`) — `/api/media/sync-jobs`.
-  - `RATE_LIMIT_EXTERNAL_API_MAX` (default `30`) — external provider routes (`/api/media/search-tmdb`, `/api/media/lookup-upc`, `/api/media/recognize-cover`).
+  - `RATE_LIMIT_EXTERNAL_API_MAX` (default `30`) — external provider routes (`/api/media/search-tmdb`, `/api/media/lookup-upc`).
 - Feature flags:
   - `FEATURE_FLAGS_READ_ONLY` (default `false`) — when true, admin flag updates are blocked (read-only control plane).
   - `FEATURE_FLAGS_CACHE_TTL_SECONDS` (default `10`) — backend feature-flag cache TTL.
@@ -92,7 +93,6 @@ These can be set in `.env`, but admin settings in UI now control active global i
 
 - TMDB: `TMDB_PRESET`, `TMDB_PROVIDER`, `TMDB_API_URL`, `TMDB_API_KEY`
 - Barcode: `BARCODE_PRESET`, `BARCODE_PROVIDER`, `BARCODE_API_URL`, `BARCODE_API_KEY`
-- Vision: `VISION_PRESET`, `VISION_PROVIDER`, `VISION_API_URL`, `VISION_API_KEY`
 - Plex: `PLEX_PRESET`, `PLEX_PROVIDER`, `PLEX_API_URL`, `PLEX_API_KEY`
 - Supported provider presets now own their key-header and query-param details in backend service config.
 - Custom integration authoring is intentionally not part of the current Admin Integrations surface. If we need user-defined providers later, that belongs in a dedicated plugin/extensibility milestone.
