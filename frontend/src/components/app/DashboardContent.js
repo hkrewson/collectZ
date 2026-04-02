@@ -11,6 +11,7 @@ import EventsView from '../EventsView';
 import CollectiblesView from '../CollectiblesView';
 import ForbiddenView from '../ForbiddenView';
 import SpaceManagerView from '../SpaceManagerView';
+import HelpView from '../HelpView';
 
 const forcedMediaTypeByTab = {
   'library-movies': 'movie',
@@ -58,15 +59,38 @@ export default function DashboardContent({
   supportSession,
   onStartSupportSession,
   onEndSupportSession,
-  scopeKey
+  scopeKey,
+  supportSummary,
+  onSupportSummaryRefresh
 }) {
   const isAdminTab = String(activeTab || '').startsWith('admin-');
+  const supportAdminAllowedTabs = new Set(['help', 'support-inbox', 'profile']);
 
   if (isAdminTab && user?.role !== 'admin') {
     return <ForbiddenView detail="Admin permissions are required to access this view." />;
   }
 
+  if (user?.role === 'support_admin' && !supportAdminAllowedTabs.has(String(activeTab || ''))) {
+    return <ForbiddenView detail="Support admins stay in the support surface by default and cannot browse tenant library data without a later approved support workflow." />;
+  }
+
   switch (activeTab) {
+    case 'help':
+    case 'support-inbox':
+      return (
+        <HelpView
+          apiCall={apiCall}
+          onToast={showToast}
+          user={user}
+          activeSpace={activeSpace}
+          activeLibrary={activeLibrary}
+          Spinner={Spinner}
+          Icons={Icons}
+          supportSummary={supportSummary}
+          onSupportSummaryRefresh={onSupportSummaryRefresh}
+          initialTab={activeTab === 'support-inbox' ? 'support' : 'guidance'}
+        />
+      );
     case 'library':
     case 'library-movies':
     case 'library-tv':

@@ -17,6 +17,7 @@ import useMediaApi from './components/app/hooks/useMediaApi';
 
 const API_URL = process.env.REACT_APP_API_URL || '/api';
 const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.frontend || appMeta.version || 'unknown';
+const SUPPORT_ADMIN_ALLOWED_TABS = new Set(['help', 'support-inbox', 'profile']);
 
 export default function App() {
   const initialDashboardState = readDashboardStateFromUrl();
@@ -35,6 +36,7 @@ export default function App() {
     events_enabled: false,
     collectibles_enabled: false
   });
+  const [supportSummary, setSupportSummary] = useState({ open: 0, answered: 0, closed: 0, bugs: 0, features: 0 });
   const [toast, setToast] = useState(null);
   const showToast = useCallback((message, type = 'ok') => setToast({ message, type }), []);
   const apiCall = useCallback(async (method, path, data, config = {}) => {
@@ -157,6 +159,31 @@ export default function App() {
       }));
     }
   }, [apiCall, user]);
+
+  const loadSupportSummary = useCallback(async ({ silent = false } = {}) => {
+    if (!['admin', 'support_admin'].includes(String(user?.role || ''))) {
+      setSupportSummary({ open: 0, answered: 0, closed: 0, bugs: 0, features: 0 });
+      return null;
+    }
+    try {
+      const payload = await apiCall('get', '/support/staff/summary');
+      const nextQueue = payload?.queue || {};
+      const normalized = {
+        open: Number(nextQueue.open || 0),
+        answered: Number(nextQueue.answered || 0),
+        closed: Number(nextQueue.closed || 0),
+        bugs: Number(nextQueue.bugs || 0),
+        features: Number(nextQueue.features || 0)
+      };
+      setSupportSummary(normalized);
+      return normalized;
+    } catch (error) {
+      if (!silent) {
+        showToast(error.response?.data?.error || 'Failed to load support summary', 'error');
+      }
+      return null;
+    }
+  }, [apiCall, showToast, user?.role]);
 
   const loadAuthScope = useCallback(async ({ silent = false } = {}) => {
     if (!user) return null;
@@ -294,6 +321,16 @@ export default function App() {
   }, [route, authChecked, user, loadClientFeatureFlags]);
 
   useEffect(() => {
+    if (!(route === 'dashboard' && authChecked && user)) return undefined;
+    loadSupportSummary({ silent: true });
+    if (!['admin', 'support_admin'].includes(String(user?.role || ''))) return undefined;
+    const intervalId = window.setInterval(() => {
+      loadSupportSummary({ silent: true });
+    }, 15000);
+    return () => window.clearInterval(intervalId);
+  }, [route, authChecked, user, loadSupportSummary]);
+
+  useEffect(() => {
     if (activeTab === 'library-import-review') {
       setActiveTab('library-import');
     }
@@ -316,6 +353,12 @@ export default function App() {
   const scopeKey = `${activeSpaceId || 'none'}:${activeLibraryId || 'none'}`;
   const collapsed = !pinnedExpanded;
   const desktopNavExpanded = !collapsed;
+
+  useEffect(() => {
+    if (user?.role === 'support_admin' && !SUPPORT_ADMIN_ALLOWED_TABS.has(String(activeTab || ''))) {
+      setActiveTab('help');
+    }
+  }, [activeTab, user?.role]);
 
   useEffect(() => {
     if (activeTab === 'space-manage' && !canManageActiveSpace) {
@@ -388,6 +431,7 @@ export default function App() {
         activeMembershipRole={activeMembershipRole}
         showCollectibles={featureFlags.collectibles_enabled}
         showEvents={featureFlags.events_enabled}
+        supportBadgeCount={['admin', 'support_admin'].includes(String(user?.role || '')) ? supportSummary.open : null}
       />
 
       <div className={cx('flex-1 flex flex-col min-w-0 transition-all duration-300', desktopNavExpanded ? 'lg:ml-56' : 'lg:ml-16')}>
@@ -406,6 +450,8 @@ export default function App() {
             <div className="text-[11px] text-ghost mt-1 truncate">
               {user?.role === 'admin' && !supportSession?.active
                 ? 'Platform control plane'
+                : user?.role === 'support_admin'
+                  ? 'Support control plane'
                 : `${activeSpace?.name || 'No current space'}${activeLibrary ? ` / ${activeLibrary.name}` : ''}`}
             </div>
           </div>
@@ -498,6 +544,8 @@ export default function App() {
             onStartSupportSession={startSupportSession}
             onEndSupportSession={endSupportSession}
             scopeKey={scopeKey}
+            supportSummary={supportSummary}
+            onSupportSummaryRefresh={loadSupportSummary}
           />
         </div>
       </div>

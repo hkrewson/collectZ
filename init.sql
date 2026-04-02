@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS users (
     email VARCHAR(255) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
     name VARCHAR(255) NOT NULL,
-    role VARCHAR(50) DEFAULT 'user' CHECK (role IN ('admin', 'user', 'viewer')),
+    role VARCHAR(50) DEFAULT 'user' CHECK (role IN ('admin', 'support_admin', 'user', 'viewer')),
     active_space_id INTEGER,
     active_library_id INTEGER,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -288,6 +288,49 @@ CREATE TABLE IF NOT EXISTS service_account_keys (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS support_requests (
+    id SERIAL PRIMARY KEY,
+    requester_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    subject VARCHAR(255) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'open'
+      CHECK (status IN ('open', 'answered', 'closed')),
+    classification VARCHAR(30) NOT NULL DEFAULT 'support'
+      CHECK (classification IN ('support', 'bug', 'feature_request')),
+    tracking_status VARCHAR(30) NOT NULL DEFAULT 'untracked'
+      CHECK (tracking_status IN ('untracked', 'investigating', 'planned', 'in_progress', 'shipped', 'declined')),
+    target_space_id INTEGER REFERENCES spaces(id) ON DELETE SET NULL,
+    target_library_id INTEGER REFERENCES libraries(id) ON DELETE SET NULL,
+    internal_notes TEXT,
+    repo_issue_number INTEGER,
+    repo_issue_url TEXT,
+    resolved_in_version VARCHAR(32),
+    last_message_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_message_by_role VARCHAR(50),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS support_request_messages (
+    id SERIAL PRIMARY KEY,
+    request_id INTEGER NOT NULL REFERENCES support_requests(id) ON DELETE CASCADE,
+    author_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    author_role VARCHAR(50) NOT NULL,
+    body TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_support_requests_requester_user_id
+    ON support_requests(requester_user_id);
+
+CREATE INDEX IF NOT EXISTS idx_support_requests_status_last_message_at
+    ON support_requests(status, last_message_at DESC, id DESC);
+
+CREATE INDEX IF NOT EXISTS idx_support_requests_classification_tracking
+    ON support_requests(classification, tracking_status, last_message_at DESC, id DESC);
+
+CREATE INDEX IF NOT EXISTS idx_support_request_messages_request_id_created_at
+    ON support_request_messages(request_id, created_at ASC, id ASC);
 
 -- Per-user integration settings (reserved for future per-user overrides)
 CREATE TABLE IF NOT EXISTS user_integrations (
@@ -718,6 +761,10 @@ BEGIN
         CREATE TRIGGER update_service_account_keys_updated_at BEFORE UPDATE ON service_account_keys
             FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_support_requests_updated_at') THEN
+        CREATE TRIGGER update_support_requests_updated_at BEFORE UPDATE ON support_requests
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
 END;
 $$;
 
@@ -786,5 +833,7 @@ INSERT INTO schema_migrations (version, description) VALUES
     (44, 'Reconcile legacy default-space installs into isolated personal spaces'),
     (45, 'Retire import review queue after moving diagnostics to audit and debug logging'),
     (46, 'Session-scoped support access metadata for explicit admin troubleshooting'),
-    (47, 'Add event image and collectible artist fields for first-class object presentation')
+    (47, 'Add event image and collectible artist fields for first-class object presentation'),
+    (48, 'Add support admin role and support request foundation tables'),
+    (49, 'Add support request triage and tracking fields')
 ON CONFLICT (version) DO NOTHING;

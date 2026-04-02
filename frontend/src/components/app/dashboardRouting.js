@@ -1,4 +1,6 @@
 export const VALID_DASHBOARD_TABS = new Set([
+  'help',
+  'support-inbox',
   'library',
   'library-movies',
   'library-tv',

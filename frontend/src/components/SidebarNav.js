@@ -33,9 +33,13 @@ export default function SidebarNav({
   canManageActiveSpace = false,
   activeMembershipRole = null,
   showCollectibles = true,
-  showEvents = true
+  showEvents = true,
+  supportBadgeCount = null
 }) {
   const isAdmin = user?.role === 'admin';
+  const isSupportAdmin = user?.role === 'support_admin';
+  const isSupportStaff = isAdmin || isSupportAdmin;
+  const canUseLibraryShell = !isSupportAdmin;
   const releaseNotesUrl = `https://github.com/hkrewson/collectZ/tree/main/docs/releases/v${appVersion}.md`;
   const [adminOpen, setAdminOpen] = useState(true);
   const [globalOpen, setGlobalOpen] = useState(true);
@@ -63,7 +67,7 @@ export default function SidebarNav({
     'admin-spaces',
     'admin-users'
   ].includes(activeTab);
-  const showLibrarySwitcher = !isAdmin && libraries.length > 1;
+  const showLibrarySwitcher = canUseLibraryShell && !isAdmin && libraries.length > 1;
   const showDesktopHamburger = !collapsed;
   const showAdminGroup = isAdmin || canManageActiveSpace;
 
@@ -187,6 +191,7 @@ export default function SidebarNav({
             </div>
           )}
 
+          {canUseLibraryShell && (
           <div>
             <button
               onClick={() => {
@@ -220,7 +225,14 @@ export default function SidebarNav({
               </div>
             )}
           </div>
-          <NavLink id="library-import" icon={<Icons.Upload />} label="Import" />
+          )}
+          {canUseLibraryShell && <NavLink id="library-import" icon={<Icons.Upload />} label="Import" />}
+          <NavLink
+            id="help"
+            icon={<Icons.Activity />}
+            label={isSupportStaff ? 'Help Admin' : 'Help'}
+            badge={isSupportStaff ? supportBadgeCount : null}
+          />
           {showAdminGroup && (
             <div>
               <button

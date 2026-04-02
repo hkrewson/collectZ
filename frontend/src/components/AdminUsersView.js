@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 
-const USER_ROLES = ['admin', 'user', 'viewer'];
+const USER_ROLES = ['admin', 'support_admin', 'user', 'viewer'];
 
 function formatSpaceMemberships(spaces) {
   if (!Array.isArray(spaces) || spaces.length === 0) return 'No space memberships';

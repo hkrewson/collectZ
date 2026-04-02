@@ -2303,6 +2303,82 @@ const MIGRATIONS = [
       ALTER TABLE collectibles
         ADD COLUMN IF NOT EXISTS artist VARCHAR(255);
     `
+  },
+  {
+    version: 48,
+    description: 'Add support admin role and support request foundation tables',
+    up: `
+      ALTER TABLE users
+        DROP CONSTRAINT IF EXISTS users_role_check;
+
+      ALTER TABLE users
+        ADD CONSTRAINT users_role_check
+        CHECK (role IN ('admin', 'support_admin', 'user', 'viewer'));
+
+      CREATE TABLE IF NOT EXISTS support_requests (
+        id SERIAL PRIMARY KEY,
+        requester_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        subject VARCHAR(255) NOT NULL,
+        status VARCHAR(20) NOT NULL DEFAULT 'open'
+          CHECK (status IN ('open', 'answered', 'closed')),
+        target_space_id INTEGER REFERENCES spaces(id) ON DELETE SET NULL,
+        target_library_id INTEGER REFERENCES libraries(id) ON DELETE SET NULL,
+        last_message_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        last_message_by_role VARCHAR(50),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS support_request_messages (
+        id SERIAL PRIMARY KEY,
+        request_id INTEGER NOT NULL REFERENCES support_requests(id) ON DELETE CASCADE,
+        author_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        author_role VARCHAR(50) NOT NULL,
+        body TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_support_requests_requester_user_id
+        ON support_requests(requester_user_id);
+
+      CREATE INDEX IF NOT EXISTS idx_support_requests_status_last_message_at
+        ON support_requests(status, last_message_at DESC, id DESC);
+
+      CREATE INDEX IF NOT EXISTS idx_support_request_messages_request_id_created_at
+        ON support_request_messages(request_id, created_at ASC, id ASC);
+    `
+  },
+  {
+    version: 49,
+    description: 'Add support request triage and tracking fields',
+    up: `
+      ALTER TABLE support_requests
+        ADD COLUMN IF NOT EXISTS classification VARCHAR(30) NOT NULL DEFAULT 'support';
+
+      ALTER TABLE support_requests
+        DROP CONSTRAINT IF EXISTS support_requests_classification_check;
+
+      ALTER TABLE support_requests
+        ADD CONSTRAINT support_requests_classification_check
+        CHECK (classification IN ('support', 'bug', 'feature_request'));
+
+      ALTER TABLE support_requests
+        ADD COLUMN IF NOT EXISTS tracking_status VARCHAR(30) NOT NULL DEFAULT 'untracked',
+        ADD COLUMN IF NOT EXISTS internal_notes TEXT,
+        ADD COLUMN IF NOT EXISTS repo_issue_number INTEGER,
+        ADD COLUMN IF NOT EXISTS repo_issue_url TEXT,
+        ADD COLUMN IF NOT EXISTS resolved_in_version VARCHAR(32);
+
+      ALTER TABLE support_requests
+        DROP CONSTRAINT IF EXISTS support_requests_tracking_status_check;
+
+      ALTER TABLE support_requests
+        ADD CONSTRAINT support_requests_tracking_status_check
+        CHECK (tracking_status IN ('untracked', 'investigating', 'planned', 'in_progress', 'shipped', 'declined'));
+
+      CREATE INDEX IF NOT EXISTS idx_support_requests_classification_tracking
+        ON support_requests(classification, tracking_status, last_message_at DESC, id DESC);
+    `
   }
 ];
 

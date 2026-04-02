@@ -1,0 +1,220 @@
+{
+  "releases": [
+    {
+      "title": "v2.9.0",
+      "version": "2.9.0",
+      "date": "2026-04-01",
+      "status": "Completed",
+      "summary": "This release completes the barcode-assisted entry milestone by turning barcode lookup and capture into a first-class workflow across the library and import surfaces. Shared barcode capture now supports direct camera or photo-assisted entry where browsers allow it, barcode lookup is media-type aware across books, audio, games, comics, movies, and TV, and direct cover-image attachment remains available without the abandoned OCR path. The release also hardens normalization, diagnostics, and result application against real-world UPC and ISBN cases encountered during milestone validation.",
+      "details": [
+        {
+          "heading": "Barcode-assisted entry completion",
+          "bullets": [
+            "Added and hardened a shared barcode-assisted capture path for manual entry and import flows.",
+            "Barcode lookup is now available directly in the relevant library media types rather than being limited to a movie/TV-only path.",
+            "The add/edit flow supports camera or photo-assisted barcode capture where the browser can provide it, while preserving direct manual barcode entry as a fallback."
+          ]
+        },
+        {
+          "heading": "Media-type-aware lookup and application",
+          "bullets": [
+            "The shared barcode route now normalizes provider responses and enriches results by media type:",
+            "ISBN-scanned books now populate structured book fields like title, author, ISBN, publisher, and edition instead of collapsing metadata into a single title string.",
+            "TV season box set lookups now normalize to series-level TMDB searches instead of being pushed through the movie path."
+          ]
+        },
+        {
+          "heading": "Normalization and diagnostics hardening",
+          "bullets": [
+            "Barcode input is normalized more defensively across typed, pasted, and captured values.",
+            "Weak or noisy provider titles are cleaned before enrichment so packaging noise does not dominate search queries.",
+            "Representative real-world barcode cases were used to improve parsing for books, TV season box sets, and combo-pack movie releases.",
+            "Barcode lookup failures now preserve stage-aware diagnostics and request context so debugging stays practical when an upstream provider misbehaves.",
+            "Fixed the library/import button-handler bug that could send the click event object instead of the intended UPC."
+          ]
+        },
+        {
+          "heading": "Capture and direct image attachment",
+          "bullets": [
+            "Manual entry continues to support direct cover-image capture and upload where appropriate.",
+            "The OCR/vision identification path was removed from the product surface so the milestone now focuses on dependable barcode completion rather than unreliable image identification."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "v2.8.6",
+      "version": "2.8.6",
+      "date": "2026-03-30",
+      "status": "Completed",
+      "summary": "This release rounds out Events and Collectibles so they behave much more like the rest of the library. Shared object cards now align these surfaces with the main poster-style object language, drawers are read-first instead of implicitly editable, collectibles gained an optional artist field, and events now support their own images so they feel like first-class objects rather than lightweight utility records.",
+      "details": [
+        {
+          "heading": "Shared object treatment and interaction alignment",
+          "bullets": [
+            "Introduced and reused a shared poster-style object card primitive so Events, Collectibles, and the main library object surfaces follow the same size, shape, badge placement, and hover-action language.",
+            "Fixed the shared hover action strip so invisible actions no longer capture clicks in hidden areas of the card.",
+            "Aligned card-click and row-click behavior so Events and Collectibles open detail drawers first, with edit as an explicit secondary action."
+          ]
+        },
+        {
+          "heading": "Read-first detail drawers",
+          "bullets": [
+            "Updated Events and Collectibles detail drawers so they present object information in a read-first label/value rhythm like other object detail views.",
+            "Removed the odd summary badge band from these view drawers.",
+            "Kept editing explicit:"
+          ]
+        },
+        {
+          "heading": "Events object improvements",
+          "bullets": [
+            "Events now support first-class event images instead of only artifact-level images.",
+            "Event cards can render their own image treatment.",
+            "Event detail can show an image and provide a direct open-image action.",
+            "Event edit supports image URL, upload, device capture, and image removal."
+          ]
+        },
+        {
+          "heading": "Collectibles object improvements",
+          "bullets": [
+            "Added an optional `Artist` field to collectibles.",
+            "Collectible cards and detail drawers now surface artist information when present.",
+            "Collectibles continue to support first-class image handling and now fit more naturally beside Movies, Games, Books, Audio, and Comics."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "v2.8.5",
+      "version": "2.8.5",
+      "date": "2026-03-29",
+      "status": "Completed",
+      "summary": "This release simplifies the shell and Integrations surface so admin configuration reads more like supported product setup and less like a low-level control panel. The stale sidebar scope card is gone, Integrations now uses lighter horizontal tabs, and redundant or overly technical integration settings were removed or derived from known provider behavior.",
+      "details": [
+        {
+          "heading": "Navigation shell cleanup",
+          "bullets": [
+            "Removed the old active-space/active-library card treatment from the sidebar shell.",
+            "Kept only the lighter library selector behavior where it remains meaningful for non-admin tenant use."
+          ]
+        },
+        {
+          "heading": "Integrations surface simplification",
+          "bullets": [
+            "Converted Integrations to the same calmer horizontal-tab language used elsewhere in admin surfaces.",
+            "Flattened the remaining heavy card framing so the active integration pane reads like the rest of Settings.",
+            "Moved `Metrics` and `External Logs` into first-class Integrations tabs instead of keeping them as a detached operator-export card."
+          ]
+        },
+        {
+          "heading": "Integration config cleanup",
+          "bullets": [
+            "Removed redundant integration toggles that no longer represented meaningful product choices:",
+            "Removed single-provider preset selectors where there was only one real supported source:",
+            "Removed editable low-level protocol fields such as custom key-header/query-param controls and dropped the unsupported `custom` preset path from the admin UI.",
+            "Shifted known provider protocol details back into backend-owned preset behavior for supported integrations."
+          ]
+        },
+        {
+          "heading": "CWA, Plex, Comics, and Games cleanup",
+          "bullets": [
+            "Derived `CWA Base URL` from the OPDS feed URL instead of requiring a second host field.",
+            "Removed CWA timeout as an admin-facing setting and normalized it to the backend default.",
+            "Removed Plex server-name editing from the admin UI.",
+            "Simplified Metron credentials so username and password sit together and the password field reads as a password instead of a token hybrid.",
+            "Tightened paired field layouts for CWA credentials, Games credentials, and Plex connection settings so related values sit together on desktop."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "v2.8.4",
+      "version": "2.8.4",
+      "date": "2026-03-29",
+      "status": "Completed",
+      "summary": "This release tightens the tenancy privacy model so global admins no longer drift into tenant context through everyday scope controls. Cross-space troubleshooting now happens through explicit, audited support sessions with clearer shell treatment, support-only library selection, and platform-mode bootstrap outside support mode.",
+      "details": [
+        {
+          "heading": "Privacy tightening",
+          "bullets": [
+            "Removed everyday sidebar space switching from the normal shell flow.",
+            "Limited ordinary library switching to the current non-admin tenant context where it is actually meaningful.",
+            "Converted admin bootstrap outside support mode to platform-mode session context instead of returning tenant-scoped active space/library data."
+          ]
+        },
+        {
+          "heading": "Explicit support access",
+          "bullets": [
+            "Added explicit admin support-session start and end flows:",
+            "Added session-scoped support metadata and audit context to session storage.",
+            "Support access is now explicitly named, time-bounded, and auditable instead of acting like background scope switching."
+          ]
+        },
+        {
+          "heading": "Support-session UX",
+          "bullets": [
+            "Added stronger support-session shell treatment so the app more clearly signals when an admin is operating inside tenant support mode.",
+            "Replaced the earlier support-entry prompt flow with an in-drawer support-start flow in `All Spaces`.",
+            "Support sessions now allow an explicit initial library selection at session start when the target space has more than one active library.",
+            "Admin library changes are routed through support-session controls only."
+          ]
+        },
+        {
+          "heading": "Admin path hardening",
+          "bullets": [
+            "Generic admin scope mutation paths are blocked in favor of support-session controls:",
+            "Added/strengthened runtime smoke coverage proving:"
+          ]
+        }
+      ]
+    },
+    {
+      "title": "v2.8.3",
+      "version": "2.8.3",
+      "date": "2026-03-29",
+      "status": "Completed",
+      "summary": "This release retires the old standalone Import Review workflow and finishes the product transition toward debug-oriented import diagnostics instead of a user-facing review queue. Ambiguous import rows are now surfaced through audit exports and external diagnostic logging, while the queue UI, queue endpoints, and queue table are removed from the live runtime.",
+      "details": []
+    },
+    {
+      "title": "v2.8.2",
+      "version": "2.8.2",
+      "date": "2026-03-28",
+      "status": "Completed",
+      "summary": "This release finishes the admin control-plane cleanup that followed the broader `2.8.0` UI refinement pass and the `2.8.1` onboarding work. Permanently accepted behavior is no longer presented as fake optionality through feature flags, the drawer-first library flow is now just the normal path, and admin/debug surfaces now reflect real operator decisions instead of historical rollout scaffolding.",
+      "details": []
+    },
+    {
+      "title": "v2.8.1",
+      "version": "2.8.1",
+      "date": "2026-03-28",
+      "status": "Completed",
+      "summary": "This release completes the next step after the broader `2.8.0` UI refinement pass by turning global space creation into a more guided onboarding workflow and bringing the main management surfaces into a cleaner, scan-first control model. Space setup, membership follow-up, and invite handling now feel more intentional, while `All Spaces`, `All Members`, and `My Space` share a calmer row-based interaction pattern.",
+      "details": []
+    },
+    {
+      "title": "v2.8.0",
+      "version": "2.8.0",
+      "date": "2026-03-28",
+      "status": "Completed",
+      "summary": "This release completes the focused UI refinement sprint across the admin, global, and space-management surfaces. It clarifies navigation scope, simplifies the settings/control-plane experience into flatter page layouts, and streamlines member, space, and integration workflows so they read more like a coherent product control surface and less like a collection of older admin tools.",
+      "details": []
+    },
+    {
+      "title": "v2.7.5",
+      "version": "2.7.5",
+      "date": "2026-03-20",
+      "status": "Completed",
+      "summary": "This patch release takes the last clearly isolated low-risk Dependabot PR from the open `2.7.x` queue: the direct frontend `postcss` bump. It refreshes the direct frontend CSS tooling dependency without attempting to force the remaining CRA-owned `resolve-url-loader -> postcss` advisory path through another patch-level workaround.",
+      "details": []
+    },
+    {
+      "title": "v2.7.4",
+      "version": "2.7.4",
+      "date": "2026-03-20",
+      "status": "Completed",
+      "summary": "This patch release batches the low-risk open maintenance PRs that fit the active `2.7.x` line. It updates safe runtime dependencies on the backend and frontend, refreshes the PostgreSQL client library on the backend, and advances the GitHub Actions workflow references used for Docker publishing, artifact handling, and build metadata without pulling any major framework or toolchain upgrades into the release.",
+      "details": []
+    }
+  ]
+}

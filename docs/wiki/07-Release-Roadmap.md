@@ -1848,6 +1848,8 @@ Historical note:
 - Add an in-app help entrypoint that can evolve beyond static docs:
   - contextual help suggestions,
   - curated help articles,
+  - lightweight recent release notes so users can see what changed without leaving the app,
+  - a tabbed help-center shell such as `Guidance`, `Releases`, and `Support`,
   - clear escalation path when self-serve guidance is insufficient.
 - Introduce a first-class `support_admin` role:
   - signs into the platform control plane rather than tenant space UX,
@@ -1860,13 +1862,22 @@ Historical note:
 - Define the support/help surface foundations needed for the next consent milestone:
   - support inbox or queue placeholder,
   - basic request states,
-  - user-facing entrypoint to ask for help without immediately granting tenant access.
+  - user-facing entrypoint to ask for help without immediately granting tenant access,
+  - support threads that can feel conversational/live through lightweight refresh and chat-style layout before true realtime infrastructure exists.
+- Add lightweight support-ops triage inside the help surface:
+  - merge the support inbox into a single `Help Admin` experience for support staff,
+  - classify requests as support, bug, or feature request,
+  - allow internal notes that remain staff-only,
+  - show lightweight queue badges/counts in navigation and support summaries,
+  - make it possible to record linked repo issue references manually before any automatic repo sync exists.
 
 ### Acceptance Criteria
 
 - The app exposes an in-app help surface with useful guidance and a clear escalation path.
+- The help surface can show lightweight recent release context without requiring users to leave the app.
 - `support_admin` exists as a distinct role with narrower powers than `admin`.
 - Support staff can answer/support through the help surface without ambient tenant browsing.
+- Support staff can classify and annotate requests without exposing internal notes to the requester.
 - No support-session consent or tenant-access automation is assumed yet; this milestone only lays the actor and surface foundations.
 
 ## 2.9.2 — Explicit Support Request, Consent, and Session Approval
@@ -1914,6 +1925,10 @@ Historical note:
 - Tighten support operations UX:
   - cleaner linking between help conversations, support requests, approvals, and active sessions,
   - reduce ambiguity about which request authorized which support session.
+- Add repo-linked operational tracking where it proves useful:
+  - support requests can create or link tracked engineering work,
+  - tracked bug/feature status can sync from the repo instead of relying on manual updates alone,
+  - shipped fixes/features can notify the original requester with clear release/version context.
 - Keep privacy boundaries intact:
   - support history should not become a loophole for passive tenant browsing,
   - approvals and session evidence should remain explicit and bounded.

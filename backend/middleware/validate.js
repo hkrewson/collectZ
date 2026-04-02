@@ -216,7 +216,7 @@ const passwordResetConsumeSchema = z.object({
 // ── Admin ─────────────────────────────────────────────────────────────────────
 
 const roleUpdateSchema = z.object({
-  role: z.enum(['admin', 'user', 'viewer'])
+  role: z.enum(['admin', 'support_admin', 'user', 'viewer'])
 });
 
 const adminSpaceOwnerAssignSchema = z.object({
@@ -278,6 +278,42 @@ const supportSessionStartSchema = z.object({
   library_id: z.number().int().positive('library_id must be a positive integer').optional(),
   reason: z.preprocess(emptyStringToNull, z.string().max(500, 'reason must be 500 characters or fewer').optional().nullable())
 });
+
+const supportRequestCreateSchema = z.object({
+  subject: z.string().trim().min(3, 'subject must be at least 3 characters').max(255, 'subject must be 255 characters or fewer'),
+  message: z.string().trim().min(10, 'message must be at least 10 characters').max(4000, 'message must be 4000 characters or fewer'),
+  target_space_id: z.number().int().positive('target_space_id must be a positive integer').optional().nullable(),
+  target_library_id: z.number().int().positive('target_library_id must be a positive integer').optional().nullable()
+});
+
+const supportRequestMessageCreateSchema = z.object({
+  body: z.string().trim().min(1, 'body is required').max(4000, 'body must be 4000 characters or fewer')
+});
+
+const supportRequestStatusUpdateSchema = z.object({
+  status: z.enum(['open', 'answered', 'closed'])
+});
+
+const supportRequestTriageUpdateSchema = z.object({
+  classification: z.enum(['support', 'bug', 'feature_request']).optional(),
+  tracking_status: z.enum(['untracked', 'investigating', 'planned', 'in_progress', 'shipped', 'declined']).optional().nullable(),
+  internal_notes: z.preprocess(emptyStringToNull, z.string().max(8000, 'internal_notes must be 8000 characters or fewer').optional().nullable()),
+  repo_issue_number: z.preprocess((value) => {
+    if (value === '' || value === null || value === undefined) return null;
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) return null;
+      const numeric = Number(trimmed);
+      if (!Number.isNaN(numeric)) return numeric;
+    }
+    return value;
+  }, z.number().int().positive().optional().nullable()),
+  repo_issue_url: z.preprocess(emptyStringToNull, z.string().url('repo_issue_url must be a valid URL').max(1000).optional().nullable()),
+  resolved_in_version: z.preprocess(emptyStringToNull, z.string().max(32, 'resolved_in_version must be 32 characters or fewer').optional().nullable())
+}).refine(
+  (data) => Object.keys(data).length > 0,
+  { message: 'At least one triage field is required' }
+);
 
 const spaceBaseSchema = z.object({
   name: z.string().trim().min(1, 'Space name is required').max(255),
@@ -513,6 +549,10 @@ module.exports = {
   librarySelectSchema,
   authScopeSelectSchema,
   supportSessionStartSchema,
+  supportRequestCreateSchema,
+  supportRequestMessageCreateSchema,
+  supportRequestStatusUpdateSchema,
+  supportRequestTriageUpdateSchema,
   libraryDeleteSchema,
   libraryTransferSchema,
   libraryArchiveSchema,

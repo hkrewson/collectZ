@@ -9,6 +9,7 @@ const { mapDeliciousItemTypeToMediaType } = require('../services/importMapping')
 const { normalizeDeliciousRow } = require('../services/deliciousNormalize');
 const { normalizeIsbn, normalizeIdentifierSet } = require('../services/importIdentifiers');
 const { normalizeTypeDetails } = require('../services/typeDetails');
+const { compareReleaseVersions, parseReleaseMarkdown } = require('../services/releaseNotes');
 const { extractScopeHints, resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
 const { sanitizeAuditDetails } = require('../services/audit');
 const { buildGelfEvent, inferLevel, inferOutcome, truncateJsonValue, readExportConfig, promoteDetailFields, omitNilFields, formatSyslogMessage } = require('../services/logExport');
@@ -43,9 +44,11 @@ const serviceAccountKeySource = require('fs').readFileSync(require.resolve('../s
 const librariesRoutesSource = require('fs').readFileSync(require.resolve('../routes/libraries'), 'utf8');
 const spacesRoutesSource = require('fs').readFileSync(require.resolve('../routes/spaces'), 'utf8');
 const adminRoutesSource = require('fs').readFileSync(require.resolve('../routes/admin'), 'utf8');
+const supportRoutesSource = require('fs').readFileSync(require.resolve('../routes/support'), 'utf8');
 const spacesServiceSource = require('fs').readFileSync(require.resolve('../services/spaces'), 'utf8');
 const frontendAppSource = require('fs').readFileSync(require.resolve('../../frontend/src/App'), 'utf8');
 const dashboardContentSource = require('fs').readFileSync(require.resolve('../../frontend/src/components/app/DashboardContent'), 'utf8');
+const helpViewSource = require('fs').readFileSync(require.resolve('../../frontend/src/components/HelpView'), 'utf8');
 const adminUsersViewSource = require('fs').readFileSync(require.resolve('../../frontend/src/components/AdminUsersView'), 'utf8');
 const structuredLogSmokeSource = require('fs').readFileSync(require.resolve('../scripts/structured-log-smoke'), 'utf8');
 const dashboardSpec = JSON.parse(require('fs').readFileSync(require.resolve('../../ops/monitoring/grafana/dashboards/collectz-overview.json'), 'utf8'));
@@ -181,6 +184,38 @@ results.push(run('validate.upcLookupSchema normalizes formatted UPC input and re
   assert.strictEqual(parsed.upc, '5061010501661');
 }));
 
+results.push(run('releaseNotes.parseReleaseMarkdown extracts summary and change sections for help center feed', () => {
+  const parsed = parseReleaseMarkdown(`# v9.9.9
+
+## Version and date
+- Version: \`9.9.9\`
+- Date: \`2026-04-01\`
+
+## Summary
+Short release summary.
+
+## What Changed
+### Guidance
+- Added a tabbed help center.
+- Added release notes in-app.
+
+### Support
+- Refreshed support threads automatically.
+`);
+
+  assert.strictEqual(parsed.version, '9.9.9');
+  assert.strictEqual(parsed.date, '2026-04-01');
+  assert.strictEqual(parsed.summary, 'Short release summary.');
+  assert.strictEqual(parsed.details.length, 2);
+  assert.strictEqual(parsed.details[0].heading, 'Guidance');
+  assert.strictEqual(parsed.details[0].bullets[0], 'Added a tabbed help center.');
+}));
+
+results.push(run('releaseNotes.compareReleaseVersions sorts newest versions first', () => {
+  const sorted = ['v2.8.6.md', 'v2.9.1.md', 'v2.9.0.md'].sort(compareReleaseVersions);
+  assert.deepStrictEqual(sorted, ['v2.9.1.md', 'v2.9.0.md', 'v2.8.6.md']);
+}));
+
 results.push(run('plex.normalizePlexItem maps movie values', () => {
   const input = {
     type: 'movie',
@@ -294,18 +329,49 @@ results.push(run('auth route source includes explicit support session endpoints'
   assert.ok(authRoutesSource.includes('support_session: null'));
 }));
 
-results.push(run('migrations source includes session-scoped support access metadata', () => {
-  assert.ok(migrationsSource.includes('version: 47'));
+results.push(run('migrations source includes support role and help foundation schema updates', () => {
+  assert.ok(migrationsSource.includes('version: 48'));
+  assert.ok(migrationsSource.includes('version: 49'));
   assert.ok(migrationsSource.includes('support_space_id'));
   assert.ok(migrationsSource.includes('support_previous_library_id'));
   assert.ok(migrationsSource.includes('artist VARCHAR(255)'));
   assert.ok(migrationsSource.includes('ADD COLUMN IF NOT EXISTS image_path TEXT'));
+  assert.ok(migrationsSource.includes('support_requests'));
+  assert.ok(migrationsSource.includes("'support_admin'"));
+  assert.ok(migrationsSource.includes('classification VARCHAR(30)'));
+  assert.ok(migrationsSource.includes('internal_notes TEXT'));
 }));
 
 results.push(run('frontend app source includes support session banner and admin trigger plumbing', () => {
   assert.ok(frontendAppSource.includes('Support Session'));
   assert.ok(frontendAppSource.includes('/auth/support-session/start'));
   assert.ok(dashboardContentSource.includes('onStartSupportSession'));
+}));
+
+results.push(run('support route source includes request creation, releases feed, replies, and staff summary endpoints', () => {
+  assert.ok(supportRoutesSource.includes("router.get('/releases'"));
+  assert.ok(supportRoutesSource.includes("router.get('/requests'"));
+  assert.ok(supportRoutesSource.includes("router.post('/requests'"));
+  assert.ok(supportRoutesSource.includes("router.post('/requests/:id/messages'"));
+  assert.ok(supportRoutesSource.includes("router.patch('/requests/:id/status'"));
+  assert.ok(supportRoutesSource.includes("router.patch('/requests/:id/triage'"));
+  assert.ok(supportRoutesSource.includes("router.get('/staff/summary'"));
+  assert.ok(supportRoutesSource.includes('loadReleaseNotesFeed'));
+}));
+
+results.push(run('frontend source includes tabbed help center and support inbox surfaces for 2.9.1 foundation work', () => {
+  assert.ok(dashboardContentSource.includes("case 'help'"));
+  assert.ok(dashboardContentSource.includes("case 'support-inbox'"));
+  assert.ok(frontendAppSource.includes("SUPPORT_ADMIN_ALLOWED_TABS"));
+  assert.ok(adminUsersViewSource.includes('support_admin'));
+  assert.ok(dashboardContentSource.includes('<HelpView'));
+  assert.ok(helpViewSource.includes('/support/releases'));
+  assert.ok(helpViewSource.includes('Guidance'));
+  assert.ok(helpViewSource.includes('Recent Releases'));
+  assert.ok(helpViewSource.includes('Help Admin'));
+  assert.ok(helpViewSource.includes('Internal Notes'));
+  assert.ok(frontendAppSource.includes('supportBadgeCount'));
+  assert.ok(helpViewSource.includes('Reply to Support'));
 }));
 
 results.push(run('media route source hardens image upload handlers', () => {
@@ -978,6 +1044,13 @@ results.push(run('openapi baseline documents key auth admin and media endpoints'
   assert.strictEqual(spec.info.title, 'collectZ API');
   assert.ok(spec.paths['/api/auth/login']);
   assert.ok(spec.paths['/api/auth/me']);
+  assert.ok(spec.paths['/api/support/requests']);
+  assert.ok(spec.paths['/api/support/releases']);
+  assert.ok(spec.paths['/api/support/requests/{id}']);
+  assert.ok(spec.paths['/api/support/requests/{id}/messages']);
+  assert.ok(spec.paths['/api/support/requests/{id}/status']);
+  assert.ok(spec.paths['/api/support/requests/{id}/triage']);
+  assert.ok(spec.paths['/api/support/staff/summary']);
   assert.ok(spec.paths['/api/auth/personal-access-tokens']);
   assert.ok(spec.paths['/api/auth/service-account-keys']);
   assert.ok(!spec.paths['/api/admin/invites']);
@@ -995,6 +1068,9 @@ results.push(run('openapi baseline documents key auth admin and media endpoints'
   assert.ok(spec.components.schemas.ServiceAccountKeyRecord);
   assert.ok(spec.components.schemas.MetricsText);
   assert.ok(spec.components.schemas.QueuedJobResponse);
+  assert.ok(spec.components.schemas.SupportRequestTriageUpdateRequest);
+  assert.ok(spec.components.schemas.SupportRequestMutationResponse);
+  assert.ok(spec.components.schemas.SupportReleaseFeedResponse);
 }));
 
 results.push(run('docs route source enforces admin plus debug gating', () => {

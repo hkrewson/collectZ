@@ -152,6 +152,16 @@ async function buildAuthScopePayload(req) {
     };
   }
 
+  if (req.user?.role === 'support_admin') {
+    return {
+      active_space_id: null,
+      active_library_id: null,
+      spaces: [],
+      libraries: [],
+      support_session: null
+    };
+  }
+
   const ensuredScope = await ensureUserDefaultScope(req.user.id);
   req.user.activeSpaceId = ensuredScope.spaceId;
   req.user.activeLibraryId = ensuredScope.libraryId;
@@ -446,9 +456,17 @@ router.post('/password-reset/consume', validate(passwordResetConsumeSchema), asy
 // ── Current user ──────────────────────────────────────────────────────────────
 
 router.get('/me', authenticateToken, asyncHandler(async (req, res) => {
-  const ensuredScope = await ensureUserDefaultScope(req.user.id);
-  req.user.activeSpaceId = ensuredScope.spaceId;
-  req.user.activeLibraryId = ensuredScope.libraryId;
+  if (!['admin', 'support_admin'].includes(String(req.user?.role || ''))) {
+    const ensuredScope = await ensureUserDefaultScope(req.user.id);
+    req.user.activeSpaceId = ensuredScope.spaceId;
+    req.user.activeLibraryId = ensuredScope.libraryId;
+  } else if (Number(req.user?.supportSpaceId || 0) > 0) {
+    req.user.activeSpaceId = req.user.supportSpaceId;
+    req.user.activeLibraryId = req.user.supportLibraryId || null;
+  } else {
+    req.user.activeSpaceId = null;
+    req.user.activeLibraryId = null;
+  }
   const result = await pool.query(
     'SELECT id, email, name, role, created_at, updated_at, active_space_id, active_library_id FROM users WHERE id = $1',
     [req.user.id]
@@ -470,7 +488,7 @@ router.get('/scope', authenticateToken, asyncHandler(async (req, res) => {
 }));
 
 router.post('/scope', authenticateToken, requireSessionAuth, validate(authScopeSelectSchema), asyncHandler(async (req, res) => {
-  if (req.user.role === 'admin') {
+  if (['admin', 'support_admin'].includes(String(req.user.role || ''))) {
     return res.status(403).json({ error: 'Global admins must use explicit support-session controls instead of generic scope selection' });
   }
 
