@@ -294,6 +294,10 @@ const supportRequestStatusUpdateSchema = z.object({
   status: z.enum(['open', 'answered', 'closed'])
 });
 
+const supportRequestAccessUpdateSchema = z.object({
+  support_access_status: z.enum(['approved', 'revoked'])
+});
+
 const supportRequestTriageUpdateSchema = z.object({
   classification: z.enum(['support', 'bug', 'feature_request']).optional(),
   tracking_status: z.enum(['untracked', 'investigating', 'planned', 'in_progress', 'shipped', 'declined']).optional().nullable(),
@@ -552,6 +556,7 @@ module.exports = {
   supportRequestCreateSchema,
   supportRequestMessageCreateSchema,
   supportRequestStatusUpdateSchema,
+  supportRequestAccessUpdateSchema,
   supportRequestTriageUpdateSchema,
   libraryDeleteSchema,
   libraryTransferSchema,

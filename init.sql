@@ -299,6 +299,10 @@ CREATE TABLE IF NOT EXISTS support_requests (
       CHECK (classification IN ('support', 'bug', 'feature_request')),
     tracking_status VARCHAR(30) NOT NULL DEFAULT 'untracked'
       CHECK (tracking_status IN ('untracked', 'investigating', 'planned', 'in_progress', 'shipped', 'declined')),
+    support_access_status VARCHAR(20) NOT NULL DEFAULT 'not_requested'
+      CHECK (support_access_status IN ('not_requested', 'approved', 'revoked')),
+    support_access_approved_at TIMESTAMP,
+    support_access_approved_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
     target_space_id INTEGER REFERENCES spaces(id) ON DELETE SET NULL,
     target_library_id INTEGER REFERENCES libraries(id) ON DELETE SET NULL,
     internal_notes TEXT,
@@ -329,6 +333,9 @@ CREATE INDEX IF NOT EXISTS idx_support_requests_status_last_message_at
 
 CREATE INDEX IF NOT EXISTS idx_support_requests_classification_tracking
     ON support_requests(classification, tracking_status, last_message_at DESC, id DESC);
+
+CREATE INDEX IF NOT EXISTS idx_support_requests_access_status
+    ON support_requests(support_access_status, last_message_at DESC, id DESC);
 
 CREATE INDEX IF NOT EXISTS idx_support_request_messages_request_id_created_at
     ON support_request_messages(request_id, created_at ASC, id ASC);

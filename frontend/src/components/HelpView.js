@@ -29,7 +29,7 @@ const HELP_ARTICLES = [
     bullets: [
       'Use the help form when self-serve guidance is not enough.',
       'Support staff can reply through the support surface without opening a tenant session.',
-      'Consent-gated support access is planned for the next milestone, not this one.'
+      'Support access approval is explicit and stays tied to the support request rather than becoming ambient tenant access.'
     ]
   }
 ];
@@ -81,6 +81,18 @@ function classificationLabel(value) {
 
 function trackingStatusLabel(value) {
   return TRACKING_STATUS_OPTIONS.find((option) => option.value === value)?.label || 'Untracked';
+}
+
+function supportAccessLabel(value) {
+  if (value === 'approved') return 'Support access approved';
+  if (value === 'revoked') return 'Support access revoked';
+  return 'Support access not approved';
+}
+
+function supportAccessTone(value) {
+  if (value === 'approved') return 'badge-ok';
+  if (value === 'revoked') return 'badge-warn';
+  return 'badge-dim';
 }
 
 function actorLabel(message) {
@@ -160,6 +172,7 @@ export default function HelpView({
   });
   const [internalNoteDraft, setInternalNoteDraft] = useState('');
   const [triageSaving, setTriageSaving] = useState(false);
+  const [accessSaving, setAccessSaving] = useState(false);
   const threadEndRef = useRef(null);
   const triageRequestIdRef = useRef(null);
   const isSupportStaff = ['admin', 'support_admin'].includes(String(user?.role || ''));
@@ -425,8 +438,41 @@ export default function HelpView({
     }
   };
 
+  const updateSupportAccess = async (nextStatus) => {
+    if (!selectedRequestId) return;
+    setAccessSaving(true);
+    try {
+      const payload = await apiCall('patch', `/support/requests/${selectedRequestId}/access`, {
+        support_access_status: nextStatus
+      });
+      const updatedRequest = payload?.request;
+      const systemMessage = payload?.message;
+      if (updatedRequest) {
+        setRequests((prev) => prev.map((item) => (Number(item.id) === Number(updatedRequest.id) ? updatedRequest : item)));
+        setSelectedRequest(updatedRequest);
+      }
+      if (systemMessage) {
+        setMessages((prev) => [...prev, systemMessage]);
+      }
+      await loadRequests({ silent: true });
+      onSupportSummaryRefresh?.({ silent: true });
+      onToast(nextStatus === 'approved' ? 'Support access approved' : 'Support access revoked');
+    } catch (error) {
+      onToast(error.response?.data?.error || 'Failed to update support access', 'error');
+    } finally {
+      setAccessSaving(false);
+    }
+  };
+
   const selectedThreadIsOpen = Boolean(selectedRequest && selectedRequest.status !== 'closed');
   const shouldShowReplyComposer = Boolean(selectedThreadIsOpen && !isSupportStaff);
+  const canRequesterManageSupportAccess = Boolean(
+    !isSupportStaff
+    && selectedRequest
+    && selectedRequest.status !== 'closed'
+    && selectedRequest.target_space_id
+    && Number(selectedRequest.requester_user_id || 0) === Number(user?.id || 0)
+  );
 
   return (
     <div className="h-full overflow-y-auto p-4 sm:p-6 space-y-6">
@@ -777,6 +823,7 @@ export default function HelpView({
                               <div className="flex flex-wrap items-center gap-2 pt-1">
                                 <span className="badge badge-dim text-[10px]">{classificationLabel(request.classification)}</span>
                                 {request.tracking_status && request.tracking_status !== 'untracked' ? <span className="badge badge-ok text-[10px]">{trackingStatusLabel(request.tracking_status)}</span> : null}
+                                {request.target_space_id ? <span className={`badge ${supportAccessTone(request.support_access_status)} text-[10px]`}>{supportAccessLabel(request.support_access_status)}</span> : null}
                               </div>
                             ) : null}
                           </div>
@@ -813,10 +860,21 @@ export default function HelpView({
                       <span className={`badge ${requestStatusTone[selectedRequest.status] || 'badge-dim'}`}>{selectedRequest.status}</span>
                       <span className="badge badge-dim">{classificationLabel(selectedRequest.classification)}</span>
                       {selectedRequest.tracking_status && selectedRequest.tracking_status !== 'untracked' ? <span className="badge badge-ok">{trackingStatusLabel(selectedRequest.tracking_status)}</span> : null}
+                      {selectedRequest.target_space_id ? <span className={`badge ${supportAccessTone(selectedRequest.support_access_status)}`}>{supportAccessLabel(selectedRequest.support_access_status)}</span> : null}
                       {selectedRequest.resolved_in_version ? <span className="badge badge-warn">{selectedRequest.resolved_in_version}</span> : null}
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
+                    {canRequesterManageSupportAccess && selectedRequest.support_access_status !== 'approved' ? (
+                      <button type="button" className="btn-secondary btn-sm" disabled={accessSaving} onClick={() => updateSupportAccess('approved')}>
+                        {accessSaving ? <><Spinner size={14} />Saving…</> : <><Icons.Check />Approve Support Access</>}
+                      </button>
+                    ) : null}
+                    {canRequesterManageSupportAccess && selectedRequest.support_access_status === 'approved' ? (
+                      <button type="button" className="btn-secondary btn-sm" disabled={accessSaving} onClick={() => updateSupportAccess('revoked')}>
+                        {accessSaving ? <><Spinner size={14} />Saving…</> : <><Icons.X />Revoke Support Access</>}
+                      </button>
+                    ) : null}
                     <button type="button" className="btn-secondary btn-sm" onClick={() => loadRequestDetail(selectedRequestId)}>
                       <Icons.Refresh />Refresh
                     </button>

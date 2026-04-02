@@ -333,6 +333,7 @@ results.push(run('migrations source includes support role and help foundation sc
   assert.ok(migrationsSource.includes('version: 48'));
   assert.ok(migrationsSource.includes('version: 49'));
   assert.ok(migrationsSource.includes('version: 50'));
+  assert.ok(migrationsSource.includes('version: 51'));
   assert.ok(migrationsSource.includes('support_space_id'));
   assert.ok(migrationsSource.includes('support_previous_library_id'));
   assert.ok(migrationsSource.includes('artist VARCHAR(255)'));
@@ -342,6 +343,7 @@ results.push(run('migrations source includes support role and help foundation sc
   assert.ok(migrationsSource.includes('classification VARCHAR(30)'));
   assert.ok(migrationsSource.includes('internal_notes TEXT'));
   assert.ok(migrationsSource.includes('is_internal BOOLEAN'));
+  assert.ok(migrationsSource.includes('support_access_status VARCHAR(20)'));
 }));
 
 results.push(run('frontend app source includes support session banner and admin trigger plumbing', () => {
@@ -356,9 +358,11 @@ results.push(run('support route source includes request creation, releases feed,
   assert.ok(supportRoutesSource.includes("router.post('/requests'"));
   assert.ok(supportRoutesSource.includes("router.post('/requests/:id/messages'"));
   assert.ok(supportRoutesSource.includes("router.patch('/requests/:id/status'"));
+  assert.ok(supportRoutesSource.includes("router.patch('/requests/:id/access'"));
   assert.ok(supportRoutesSource.includes("router.patch('/requests/:id/triage'"));
   assert.ok(supportRoutesSource.includes("router.get('/staff/summary'"));
   assert.ok(supportRoutesSource.includes('loadReleaseNotesFeed'));
+  assert.ok(supportRoutesSource.includes('support.request.access.updated'));
 }));
 
 results.push(run('frontend source includes tabbed help center and support inbox surfaces for 2.9.1 foundation work', () => {
@@ -373,6 +377,8 @@ results.push(run('frontend source includes tabbed help center and support inbox 
   assert.ok(helpViewSource.includes('Help Admin'));
   assert.ok(helpViewSource.includes('Latest saved internal note'));
   assert.ok(helpViewSource.includes('New Internal Note'));
+  assert.ok(helpViewSource.includes('Approve Support Access'));
+  assert.ok(helpViewSource.includes('Revoke Support Access'));
   assert.ok(frontendAppSource.includes('supportBadgeCount'));
   assert.ok(helpViewSource.includes('Reply to Support'));
 }));

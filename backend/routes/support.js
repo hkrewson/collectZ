@@ -7,6 +7,7 @@ const {
   supportRequestCreateSchema,
   supportRequestMessageCreateSchema,
   supportRequestStatusUpdateSchema,
+  supportRequestAccessUpdateSchema,
   supportRequestTriageUpdateSchema
 } = require('../middleware/validate');
 const { logActivity } = require('../services/audit');
@@ -35,6 +36,9 @@ function formatSupportRequest(row, options = {}) {
     status: row.status,
     classification: row.classification || 'support',
     tracking_status: row.tracking_status || 'untracked',
+    support_access_status: row.support_access_status || 'not_requested',
+    support_access_approved_at: row.support_access_approved_at || null,
+    support_access_approved_by_user_id: row.support_access_approved_by_user_id || null,
     resolved_in_version: row.resolved_in_version || null,
     repo_issue_number: row.repo_issue_number || null,
     repo_issue_url: row.repo_issue_url || null,
@@ -88,6 +92,16 @@ function buildSupportTrackingUpdateMessage(previousRequest, nextRequest) {
   return `Support update: ${parts.join(' ')}`;
 }
 
+function buildSupportAccessUpdateMessage(nextStatus) {
+  if (nextStatus === 'approved') {
+    return 'Support access has been approved for this request. Support staff can use this request as the approval context for a later tenant support session.';
+  }
+  if (nextStatus === 'revoked') {
+    return 'Support access approval has been revoked for this request.';
+  }
+  return '';
+}
+
 router.get('/releases', authenticateToken, asyncHandler(async (req, res) => {
   const requestedLimit = Number(req.query.limit || 5);
   const limit = Math.max(1, Math.min(10, Number.isFinite(requestedLimit) ? requestedLimit : 5));
@@ -104,6 +118,9 @@ async function getSupportRequestForActor({ client, requestId, userId, role }) {
             sr.status,
             sr.classification,
             sr.tracking_status,
+            sr.support_access_status,
+            sr.support_access_approved_at,
+            sr.support_access_approved_by_user_id,
             sr.target_space_id,
             sr.target_library_id,
             sr.internal_notes,
@@ -155,6 +172,9 @@ router.get('/requests', authenticateToken, asyncHandler(async (req, res) => {
            sr.status,
            sr.classification,
            sr.tracking_status,
+           sr.support_access_status,
+           sr.support_access_approved_at,
+           sr.support_access_approved_by_user_id,
            sr.target_space_id,
            sr.target_library_id,
            sr.internal_notes,
@@ -424,6 +444,106 @@ router.patch('/requests/:id/status', authenticateToken, requireSessionAuth, vali
         message_count: supportRequest.message_count
       }, { includeInternalNotes: isSupportStaff(req) })
     });
+  } finally {
+    client.release();
+  }
+}));
+
+router.patch('/requests/:id/access', authenticateToken, requireSessionAuth, validate(supportRequestAccessUpdateSchema), asyncHandler(async (req, res) => {
+  const requestId = Number(req.params.id);
+  if (!Number.isFinite(requestId) || requestId <= 0) {
+    return res.status(400).json({ error: 'Invalid support request id' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const supportRequest = await getSupportRequestForActor({
+      client,
+      requestId,
+      userId: req.user.id,
+      role: req.user.role
+    });
+    if (!supportRequest) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Support request not found' });
+    }
+
+    if (Number(supportRequest.requester_user_id || 0) !== Number(req.user.id || 0)) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'Only the original requester can approve or revoke support access for this request' });
+    }
+
+    if (!supportRequest.target_space_id) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Support access approval requires a target space on the request' });
+    }
+
+    const nextAccessStatus = req.body.support_access_status;
+    const approvedAt = nextAccessStatus === 'approved' ? new Date().toISOString() : null;
+    const approvedByUserId = nextAccessStatus === 'approved' ? req.user.id : null;
+
+    const result = await client.query(
+      `UPDATE support_requests
+          SET support_access_status = $2,
+              support_access_approved_at = $3,
+              support_access_approved_by_user_id = $4,
+              updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1
+      RETURNING *`,
+      [requestId, nextAccessStatus, approvedAt, approvedByUserId]
+    );
+
+    const updatedRequest = {
+      ...result.rows[0],
+      target_space_name: supportRequest.target_space_name,
+      target_library_name: supportRequest.target_library_name,
+      requester_name: supportRequest.requester_name,
+      requester_email: supportRequest.requester_email,
+      message_count: supportRequest.message_count
+    };
+
+    const systemBody = buildSupportAccessUpdateMessage(nextAccessStatus);
+    let systemMessage = null;
+    if (systemBody) {
+      const messageResult = await client.query(
+        `INSERT INTO support_request_messages (request_id, author_user_id, author_role, is_internal, body)
+         VALUES ($1, NULL, 'system', false, $2)
+         RETURNING *`,
+        [requestId, systemBody]
+      );
+      await client.query(
+        `UPDATE support_requests
+            SET last_message_at = CURRENT_TIMESTAMP,
+                last_message_by_role = 'system',
+                updated_at = CURRENT_TIMESTAMP
+          WHERE id = $1`,
+        [requestId]
+      );
+      systemMessage = formatSupportMessage({
+        ...messageResult.rows[0],
+        request_key: formatSupportRequestKey(requestId)
+      });
+      updatedRequest.last_message_at = new Date().toISOString();
+      updatedRequest.last_message_by_role = 'system';
+      updatedRequest.message_count = Number(updatedRequest.message_count || 0) + 1;
+    }
+
+    await client.query('COMMIT');
+
+    await logActivity(req, 'support.request.access.updated', 'support_request', requestId, {
+      supportAccessStatus: nextAccessStatus,
+      targetSpaceId: supportRequest.target_space_id,
+      targetLibraryId: supportRequest.target_library_id
+    });
+
+    res.json({
+      request: formatSupportRequest(updatedRequest, { includeInternalNotes: isSupportStaff(req) }),
+      message: systemMessage
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
   } finally {
     client.release();
   }

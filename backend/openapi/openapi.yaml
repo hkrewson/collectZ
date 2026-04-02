@@ -165,6 +165,9 @@
           "status": { "type": "string", "enum": ["open", "answered", "closed"] },
           "classification": { "type": "string", "enum": ["support", "bug", "feature_request"] },
           "tracking_status": { "type": "string", "enum": ["untracked", "investigating", "planned", "in_progress", "shipped", "declined"] },
+          "support_access_status": { "type": "string", "enum": ["not_requested", "approved", "revoked"] },
+          "support_access_approved_at": { "type": ["string", "null"], "format": "date-time" },
+          "support_access_approved_by_user_id": { "type": ["integer", "null"] },
           "resolved_in_version": { "type": ["string", "null"] },
           "repo_issue_number": { "type": ["integer", "null"] },
           "repo_issue_url": { "type": ["string", "null"], "format": "uri" },
@@ -245,6 +248,13 @@
           "status": { "type": "string", "enum": ["open", "answered", "closed"] }
         },
         "required": ["status"]
+      },
+      "SupportRequestAccessUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "support_access_status": { "type": "string", "enum": ["approved", "revoked"] }
+        },
+        "required": ["support_access_status"]
       },
       "SupportRequestTriageUpdateRequest": {
         "type": "object",
@@ -1329,6 +1339,65 @@
           },
           "403": {
             "description": "Status change denied",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "404": {
+            "description": "Support request not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/support/requests/{id}/access": {
+      "patch": {
+        "tags": ["Support"],
+        "summary": "Approve or revoke explicit support access for a support request",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SupportRequestAccessUpdateRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Support access updated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SupportRequestMutationResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed or target context missing",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "403": {
+            "description": "Only the requester may update support access approval",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/Error" }

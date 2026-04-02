@@ -2390,6 +2390,26 @@ const MIGRATIONS = [
       CREATE INDEX IF NOT EXISTS idx_support_request_messages_visibility_created_at
         ON support_request_messages(request_id, is_internal, created_at ASC, id ASC);
     `
+  },
+  {
+    version: 51,
+    description: 'Add explicit support request access approval state',
+    up: `
+      ALTER TABLE support_requests
+        ADD COLUMN IF NOT EXISTS support_access_status VARCHAR(20) NOT NULL DEFAULT 'not_requested',
+        ADD COLUMN IF NOT EXISTS support_access_approved_at TIMESTAMP,
+        ADD COLUMN IF NOT EXISTS support_access_approved_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
+
+      ALTER TABLE support_requests
+        DROP CONSTRAINT IF EXISTS support_requests_support_access_status_check;
+
+      ALTER TABLE support_requests
+        ADD CONSTRAINT support_requests_support_access_status_check
+        CHECK (support_access_status IN ('not_requested', 'approved', 'revoked'));
+
+      CREATE INDEX IF NOT EXISTS idx_support_requests_access_status
+        ON support_requests(support_access_status, last_message_at DESC, id DESC);
+    `
   }
 ];
 
