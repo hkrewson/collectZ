@@ -11,6 +11,7 @@ import {
   isInteractiveTarget,
   MEDIA_TYPES,
   detectBarcodeFromFile,
+  normalizeBarcodeInput,
   supportsBarcodeCapture
 } from './app/AppPrimitives';
 const MEDIA_FORMATS = ['VHS', 'Blu-ray', 'Digital', 'DVD', '4K UHD'];
@@ -990,6 +991,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
   const isComic = form.media_type === 'comic_book';
   const isAudio = form.media_type === 'audio';
   const isGame = form.media_type === 'game';
+  const isBarcodeCapable = isMovieOrTv || isBook || isComic || isAudio || isGame;
   const canConvertToCollection = Boolean(onConvertToCollection) && ['movie', 'game'].includes(form.media_type);
   const isTypedEnrichment = isBook || isComic || isAudio || isGame;
   const searchTmdb = async () => {
@@ -1131,12 +1133,12 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
   };
 
   const lookupBarcode = async (upcOverride = null) => {
-    const upc = String(upcOverride ?? form.upc).trim();
+    const upc = normalizeBarcodeInput(upcOverride ?? form.upc);
     if (!upc) { notify('Enter a UPC first', 'error'); return; }
     setBarcodeLoading(true);
     setBarcodeResults([]);
     try {
-      const data = await apiCall('post', '/media/lookup-upc', { upc });
+      const data = await apiCall('post', '/media/lookup-upc', { upc, mediaType: form.media_type });
       setBarcodeResults(data.matches || []);
       if (!data.matches?.length) notify('No UPC matches found', 'error');
     } catch (e) {
@@ -1152,10 +1154,10 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
     if (!file) return;
     setBarcodeCaptureLoading(true);
     try {
-      const detected = await detectBarcodeFromFile(file);
+      const detected = normalizeBarcodeInput(await detectBarcodeFromFile(file));
       set({ upc: detected });
       notify(`Captured barcode ${detected}`);
-      if (isMovieOrTv && addMode === 'upc') {
+      if (isBarcodeCapable && addMode === 'upc') {
         await lookupBarcode(detected);
       }
     } catch (error) {
@@ -1175,10 +1177,10 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
   const handleBarcodeCameraCapture = async (file) => {
     setBarcodeCaptureLoading(true);
     try {
-      const detected = await detectBarcodeFromFile(file);
+      const detected = normalizeBarcodeInput(await detectBarcodeFromFile(file));
       set({ upc: detected });
       notify(`Captured barcode ${detected}`);
-      if (isMovieOrTv && addMode === 'upc') {
+      if (isBarcodeCapable && addMode === 'upc') {
         await lookupBarcode(detected);
       }
     } catch (error) {
@@ -1196,6 +1198,95 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
   };
 
   const applyBarcode = async (match) => {
+    const guessedBook = match?.mediaTypeGuess === 'book' || Boolean(match?.book);
+    if (guessedBook) {
+      const book = match?.book || null;
+      const bookTypeDetails = book?.type_details || {};
+      set({
+        media_type: 'book',
+        title: book?.title || match?.normalizedTitle || match?.title || form.title,
+        release_date: book?.release_date || form.release_date,
+        year: book?.year ? String(book.year) : form.year,
+        overview: book?.overview || match?.description || form.overview,
+        genre: book?.genre || form.genre,
+        format: match?.typeDetails?.format || form.format || 'Paperback',
+        poster_path: book?.poster_path || match?.image || form.poster_path,
+        upc: match?.upc || form.upc,
+        book_isbn: bookTypeDetails?.isbn || match?.typeDetails?.isbn || form.book_isbn,
+        book_author: bookTypeDetails?.author || match?.typeDetails?.author || form.book_author,
+        book_publisher: bookTypeDetails?.publisher || match?.typeDetails?.publisher || form.book_publisher,
+        book_edition: bookTypeDetails?.edition || match?.typeDetails?.format || form.book_edition
+      });
+      setBarcodeResults([]);
+      notify('Barcode data applied');
+      return;
+    }
+
+    const typeEnrichment = match?.typeEnrichment || null;
+    if (isComic && typeEnrichment) {
+      set({
+        title: typeEnrichment.title || match?.normalizedTitle || match?.title || form.title,
+        year: typeEnrichment.year ? String(typeEnrichment.year) : form.year,
+        release_date: typeEnrichment.release_date || form.release_date,
+        genre: typeEnrichment.genre || form.genre,
+        overview: typeEnrichment.overview || match?.description || form.overview,
+        poster_path: typeEnrichment.poster_path || match?.image || form.poster_path,
+        upc: match?.upc || form.upc,
+        book_author: typeEnrichment.type_details?.author || form.book_author,
+        book_publisher: typeEnrichment.type_details?.publisher || match?.typeDetails?.publisher || form.book_publisher,
+        book_isbn: typeEnrichment.type_details?.isbn || match?.typeDetails?.isbn || form.book_isbn,
+        book_edition: typeEnrichment.type_details?.edition || form.book_edition,
+        comic_series: typeEnrichment.type_details?.series || match?.typeDetails?.series || form.comic_series,
+        comic_issue_number: typeEnrichment.type_details?.issue_number || form.comic_issue_number,
+        comic_volume: typeEnrichment.type_details?.volume || form.comic_volume,
+        comic_writer: typeEnrichment.type_details?.writer || form.comic_writer,
+        comic_artist: typeEnrichment.type_details?.artist || form.comic_artist,
+        comic_inker: typeEnrichment.type_details?.inker || form.comic_inker,
+        comic_colorist: typeEnrichment.type_details?.colorist || form.comic_colorist,
+        comic_cover_date: typeEnrichment.type_details?.cover_date || form.comic_cover_date,
+        comic_provider_issue_id: typeEnrichment.type_details?.provider_issue_id || typeEnrichment.id || form.comic_provider_issue_id
+      });
+      setBarcodeResults([]);
+      notify('Barcode data applied');
+      return;
+    }
+
+    if (isAudio && typeEnrichment) {
+      set({
+        title: typeEnrichment.title || match?.normalizedTitle || match?.title || form.title,
+        year: typeEnrichment.year ? String(typeEnrichment.year) : form.year,
+        release_date: typeEnrichment.release_date || form.release_date,
+        genre: typeEnrichment.genre || form.genre,
+        overview: typeEnrichment.overview || match?.description || form.overview,
+        poster_path: typeEnrichment.poster_path || match?.image || form.poster_path,
+        upc: match?.upc || form.upc,
+        audio_artist: typeEnrichment.type_details?.artist || form.audio_artist,
+        audio_album: typeEnrichment.type_details?.album || typeEnrichment.title || form.audio_album || form.title,
+        audio_track_count: typeEnrichment.type_details?.track_count ? String(typeEnrichment.type_details.track_count) : form.audio_track_count
+      });
+      setBarcodeResults([]);
+      notify('Barcode data applied');
+      return;
+    }
+
+    if (isGame && typeEnrichment) {
+      set({
+        title: typeEnrichment.title || match?.normalizedTitle || match?.title || form.title,
+        year: typeEnrichment.year ? String(typeEnrichment.year) : form.year,
+        release_date: typeEnrichment.release_date || form.release_date,
+        genre: typeEnrichment.genre || form.genre,
+        overview: typeEnrichment.overview || match?.description || form.overview,
+        poster_path: typeEnrichment.poster_path || match?.image || form.poster_path,
+        upc: match?.upc || form.upc,
+        game_platform: typeEnrichment.type_details?.platform || form.game_platform,
+        game_developer: typeEnrichment.type_details?.developer || form.game_developer,
+        game_region: typeEnrichment.type_details?.region || form.game_region
+      });
+      setBarcodeResults([]);
+      notify('Barcode data applied');
+      return;
+    }
+
     const tmdb = match.tmdb;
     let details = null;
     if (tmdb?.id) {
@@ -1422,9 +1513,9 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
           </div>
 
           <div className="flex-1 space-y-4">
-            {isMovieOrTv && (
+            {isBarcodeCapable && (
               <div className="tab-strip">
-                {['title', 'upc', 'cover'].map((m) => (
+                {[(isMovieOrTv ? 'title' : null), 'upc', 'cover'].filter(Boolean).map((m) => (
                   <button key={m} className={cx('tab flex-1 capitalize', addMode === m && 'active')} onClick={() => setAddMode(m)}>
                     {m === 'title' ? 'Title Search' : m === 'upc' ? 'Barcode' : 'Cover Image'}
                   </button>
@@ -1454,6 +1545,12 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
                     }
                     if (nextType !== 'movie') patch.movie_edition = '';
                     set(patch);
+                    if (!['movie', 'tv_series', 'tv_episode'].includes(nextType) && addMode === 'title') {
+                      setAddMode('upc');
+                    }
+                    if (!['movie', 'tv_series', 'tv_episode', 'book', 'audio', 'game', 'comic_book'].includes(nextType) && addMode === 'upc') {
+                      setAddMode('cover');
+                    }
                     setTypeEnrichResults([]);
                   }}
                 >
@@ -1503,10 +1600,10 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
             </div>
           </LabeledField>
 
-          {isMovieOrTv && addMode === 'upc' && (
-            <LabeledField label="UPC / Barcode">
+          {isBarcodeCapable && addMode === 'upc' && (
+            <LabeledField label={isBook ? 'ISBN / Barcode' : 'UPC / Barcode'}>
               <div className="flex gap-2">
-                <input className="input flex-1 font-mono" placeholder="012345678901" value={form.upc} onChange={(e) => set({ upc: e.target.value })} />
+                <input className="input flex-1 font-mono" placeholder={isBook ? '9780358447849' : '012345678901'} value={form.upc} onChange={(e) => set({ upc: normalizeBarcodeInput(e.target.value) })} />
                 <button
                   type="button"
                   onClick={() => setBarcodeCameraOpen(true)}
@@ -1589,15 +1686,23 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
             </div>
           )}
 
-          {isMovieOrTv && barcodeResults.length > 0 && (
+          {isBarcodeCapable && barcodeResults.length > 0 && (
             <div className="space-y-2">
               <p className="label">Barcode Matches — click to apply</p>
               <div className="space-y-1.5 max-h-40 overflow-y-auto scroll-area pr-1">
                 {barcodeResults.map((m, i) => (
                   <button key={i} type="button" onClick={() => applyBarcode(m)} className="w-full flex items-center gap-3 p-2.5 rounded-lg bg-raised border border-edge hover:border-gold/40 hover:bg-gold/5 transition-all text-left group">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-ink truncate">{m.tmdb?.title || m.title || 'Unknown'}</p>
-                      <p className="text-xs text-ghost">{m.description || ''}</p>
+                      <p className="text-sm font-medium text-ink truncate">{m?.typeEnrichment?.title || m?.book?.title || m?.normalizedTitle || m.tmdb?.title || m.title || 'Unknown'}</p>
+                      <p className="text-xs text-ghost">
+                        {m?.typeEnrichment?.type_details?.artist
+                          || m?.typeEnrichment?.type_details?.platform
+                          || m?.typeEnrichment?.type_details?.series
+                          || m?.book?.type_details?.author
+                          || m?.typeDetails?.author
+                          || m.description
+                          || ''}
+                      </p>
                     </div>
                     <span className="text-xs text-gold opacity-0 group-hover:opacity-100 shrink-0">Apply →</span>
                   </button>
@@ -1634,7 +1739,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
                 <LabeledField label="Release Date"><input className="input" type="date" value={form.release_date} onChange={(e) => set({ release_date: e.target.value })} /></LabeledField>
                 <LabeledField label="Runtime (min)" className="md:max-w-[180px]"><input className="input" inputMode="numeric" value={form.runtime} onChange={(e) => set({ runtime: e.target.value })} /></LabeledField>
                 <LabeledField label="TMDB Rating" className="md:max-w-[180px]"><input className="input" inputMode="decimal" placeholder="0.0 – 10.0" value={form.rating} onChange={(e) => set({ rating: e.target.value })} /></LabeledField>
-                {addMode !== 'upc' && <LabeledField label="UPC"><input className="input font-mono" value={form.upc} onChange={(e) => set({ upc: e.target.value })} /></LabeledField>}
+                {addMode !== 'upc' && <LabeledField label="UPC"><input className="input font-mono" value={form.upc} onChange={(e) => set({ upc: normalizeBarcodeInput(e.target.value) })} /></LabeledField>}
               </>
             )}
 
@@ -1668,7 +1773,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
               <>
                 <LabeledField label="Platform"><input className="input" value={form.game_platform} onChange={(e) => set({ game_platform: e.target.value })} /></LabeledField>
                 <LabeledField label="Developer"><input className="input" value={form.game_developer} onChange={(e) => set({ game_developer: e.target.value })} /></LabeledField>
-                <LabeledField label="UPC"><input className="input font-mono" value={form.upc} onChange={(e) => set({ upc: e.target.value })} /></LabeledField>
+                <LabeledField label="UPC"><input className="input font-mono" value={form.upc} onChange={(e) => set({ upc: normalizeBarcodeInput(e.target.value) })} /></LabeledField>
                 <LabeledField label="Genre"><input className="input" value={form.genre} onChange={(e) => set({ genre: e.target.value })} /></LabeledField>
                 <LabeledField label="Release Date"><input className="input" type="date" value={form.release_date} onChange={(e) => set({ release_date: e.target.value })} /></LabeledField>
               </>
@@ -1678,7 +1783,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
               <>
                 <LabeledField label="Artist"><input className="input" value={form.audio_artist} onChange={(e) => set({ audio_artist: e.target.value })} /></LabeledField>
                 <LabeledField label="Track Count"><input className="input" inputMode="numeric" value={form.audio_track_count} onChange={(e) => set({ audio_track_count: e.target.value })} /></LabeledField>
-                <LabeledField label="UPC"><input className="input font-mono" value={form.upc} onChange={(e) => set({ upc: e.target.value })} /></LabeledField>
+                <LabeledField label="UPC"><input className="input font-mono" value={form.upc} onChange={(e) => set({ upc: normalizeBarcodeInput(e.target.value) })} /></LabeledField>
                 <LabeledField label="Release Date"><input className="input" type="date" value={form.release_date} onChange={(e) => set({ release_date: e.target.value })} /></LabeledField>
               </>
             )}

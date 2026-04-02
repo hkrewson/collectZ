@@ -70,6 +70,22 @@ function parseBarcodeTitleMetadata(rawTitle = '') {
   };
 }
 
+function normalizeBarcodeSearchTitle(rawTitle = '') {
+  let value = String(rawTitle || '').trim();
+  if (!value) return '';
+
+  value = value
+    .replace(/\[(LP|EP|CD|DVD|BLU-RAY|VINYL)\]/gi, ' ')
+    .replace(/\((LP|EP|CD|DVD|BLU-RAY|VINYL)\)/gi, ' ')
+    .replace(/\b(DELUXE EDITION|COLLECTOR'S EDITION|SPECIAL EDITION)\b/gi, ' ')
+    .replace(/\s+-\s+(VINYL|LP|EP|CD|DVD|BLU-RAY)\b/gi, ' ')
+    .replace(/\b(VINYL|LP|EP|CD|DVD|BLU-RAY)\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return value;
+}
+
 /**
  * Normalize barcode API responses from different providers into a
  * consistent shape: [{ title, description, image, raw }]
@@ -87,6 +103,7 @@ const normalizeBarcodeMatches = (payload) => {
   return list.map((entry) => {
     const rawTitle = entry?.title || entry?.name || entry?.product_name || null;
     const { normalizedTitle, author, format, series } = parseBarcodeTitleMetadata(rawTitle);
+    const searchTitle = normalizeBarcodeSearchTitle(normalizedTitle || rawTitle);
     const upc = normalizeDigits(entry?.upc || entry?.barcode || entry?.ean || entry?.gtin || '');
     const inferredIsbn = inferBookBarcodeType(upc);
     const mediaTypeGuess = inferredIsbn || format ? 'book' : 'movie';
@@ -94,7 +111,8 @@ const normalizeBarcodeMatches = (payload) => {
     return {
       title: rawTitle,
       normalizedTitle: normalizedTitle || rawTitle,
-      description: entry?.description || entry?.brand || entry?.manufacturer || null,
+      searchTitle: searchTitle || normalizedTitle || rawTitle,
+      description: entry?.description || entry?.brand || entry?.manufacturer || entry?.publisher || null,
       image: entry?.image || entry?.image_url || entry?.images?.[0] || null,
       upc: upc || null,
       mediaTypeGuess,
@@ -104,7 +122,7 @@ const normalizeBarcodeMatches = (payload) => {
         isbn: inferredIsbn || null,
         format: format || null,
         series: series || null,
-        publisher: entry?.brand || entry?.manufacturer || null
+        publisher: entry?.publisher || entry?.brand || entry?.manufacturer || null
       },
       raw: entry
     };

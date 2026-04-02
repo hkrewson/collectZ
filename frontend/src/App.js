@@ -3,6 +3,7 @@ import axios from 'axios';
 import appMeta from './app-meta.json';
 import AuthPageView from './components/AuthPage';
 import SidebarNav from './components/SidebarNav';
+import CollectzMark from './components/CollectzMark';
 import DashboardContent from './components/app/DashboardContent';
 import { routeFromPath, readCookie, Spinner, Toast, ImportStatusDock, Icons, cx } from './components/app/AppPrimitives';
 import {
@@ -399,6 +400,7 @@ export default function App() {
           >
             <Icons.Menu />
           </button>
+          <CollectzMark className="h-6 w-6 shrink-0 text-gold" title="" />
           <div className="min-w-0">
             <div className="font-display text-lg tracking-wider text-gold leading-none">COLLECTZ</div>
             <div className="text-[11px] text-ghost mt-1 truncate">

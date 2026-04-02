@@ -103,6 +103,20 @@ results.push(run('barcode.normalizeBarcodeMatches parses book-shaped titles into
   assert.strictEqual(matches[0].typeDetails.isbn, '9780358447849');
 }));
 
+results.push(run('barcode.normalizeBarcodeMatches strips packaging noise for search titles', () => {
+  const matches = normalizeBarcodeMatches({
+    items: [
+      {
+        title: '90 [LP] - VINYL',
+        ean: '5061010501661'
+      }
+    ]
+  });
+
+  assert.strictEqual(matches.length, 1);
+  assert.strictEqual(matches[0].searchTitle, '90');
+}));
+
 results.push(run('validate.simpleSearchSchema trims title and coerces year', () => {
   const parsed = simpleSearchSchema.parse({ title: '  Dune  ', year: '1984', mediaType: 'movie' });
   assert.deepStrictEqual(parsed, { title: 'Dune', year: 1984, mediaType: 'movie' });
@@ -113,10 +127,10 @@ results.push(run('validate.title search schemas reject blank titles', () => {
   assert.throws(() => titleArtistSearchSchema.parse({ title: '   ' }));
 }));
 
-results.push(run('validate.upcLookupSchema rejects unsafe UPC characters', () => {
-  assert.throws(() => upcLookupSchema.parse({ upc: '../../etc/passwd' }));
-  const parsed = upcLookupSchema.parse({ upc: '012569828708' });
-  assert.strictEqual(parsed.upc, '012569828708');
+results.push(run('validate.upcLookupSchema normalizes formatted UPC input and rejects empty unsafe input', () => {
+  assert.throws(() => upcLookupSchema.parse({ upc: '......' }));
+  const parsed = upcLookupSchema.parse({ upc: '50610 1050\u200B1661' });
+  assert.strictEqual(parsed.upc, '5061010501661');
 }));
 
 results.push(run('plex.normalizePlexItem maps movie values', () => {

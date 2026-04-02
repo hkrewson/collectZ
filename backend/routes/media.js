@@ -4353,7 +4353,7 @@ router.post('/enrich/comic/search', validate(simpleSearchSchema.pick({ title: tr
 // ── UPC lookup ────────────────────────────────────────────────────────────────
 
 router.post('/lookup-upc', validate(upcLookupSchema), asyncHandler(async (req, res) => {
-  const { upc } = req.body;
+  const { upc, mediaType } = req.body;
 
   const config = await loadAdminIntegrationConfig();
   const { barcodeProvider, barcodeApiUrl, barcodeQueryParam, barcodeApiKey, barcodeApiKeyHeader } = config;
@@ -4364,27 +4364,153 @@ router.post('/lookup-upc', validate(upcLookupSchema), asyncHandler(async (req, r
 
   const headers = {};
   if (barcodeApiKey) headers[barcodeApiKeyHeader] = barcodeApiKey;
-
-  const barcodeResponse = await axios.get(barcodeApiUrl, {
+  const barcodeRequest = {
+    provider: barcodeProvider,
+    url: barcodeApiUrl,
     params: { [barcodeQueryParam]: upc },
-    headers,
-    timeout: 15000
-  });
+    headerNames: Object.keys(headers)
+  };
+
+  let barcodeResponse;
+  try {
+    barcodeResponse = await axios.get(barcodeApiUrl, {
+      params: { [barcodeQueryParam]: upc },
+      headers,
+      timeout: 15000
+    });
+  } catch (error) {
+    const detail = error?.response?.data?.message
+      || error?.response?.data?.error
+      || error?.response?.data?.detail
+      || error?.message
+      || 'Barcode lookup failed';
+    return res.status(error?.response?.status || 400).json({
+      error: detail,
+      detail: 'Barcode provider request failed',
+      stage: 'barcode_provider',
+      request: barcodeRequest
+    });
+  }
 
   const barcodeMatches = normalizeBarcodeMatches(barcodeResponse.data);
   const enrichedMatches = [];
 
   for (const match of barcodeMatches.slice(0, 6)) {
+    let book = null;
+    let typeEnrichment = null;
     let tmdb = null;
-    if (match.title) {
+    const effectiveMediaType = mediaType || match.mediaTypeGuess || null;
+
+    if (effectiveMediaType === 'book') {
+      try {
+        const isbn = String(match?.typeDetails?.isbn || '').trim();
+        const author = String(match?.typeDetails?.author || '').trim();
+        const queryTitle = String(match?.searchTitle || match?.normalizedTitle || match?.title || '').trim();
+        let bookResults = [];
+        if (isbn) {
+          bookResults = await searchBooksByIsbn(isbn, config, 5);
+        }
+        if (!bookResults.length && queryTitle) {
+          bookResults = await searchBooksByTitle(queryTitle, config, 5, author);
+        }
+        book = bookResults[0] || null;
+      } catch (error) {
+        if ((error?.status || 500) >= 400 && (error?.status || 500) < 500) {
+          return res.status(error.status || 400).json({
+            error: error?.message || 'Book enrichment failed',
+            detail: 'Book enrichment request failed',
+            stage: 'book_enrichment',
+            request: {
+              mediaType: effectiveMediaType,
+              queryTitle,
+              isbn,
+              author
+            }
+          });
+        }
+      }
+    } else if (effectiveMediaType === 'audio') {
+      try {
+        const queryTitle = String(match?.searchTitle || match?.normalizedTitle || match?.title || '').trim();
+        if (queryTitle) {
+          const audioResults = await searchAudioByTitle(queryTitle, config, 5, String(match?.typeDetails?.author || '').trim());
+          typeEnrichment = audioResults[0] || null;
+        }
+      } catch (error) {
+        if ((error?.status || 500) >= 400 && (error?.status || 500) < 500) {
+          const queryTitle = String(match?.searchTitle || match?.normalizedTitle || match?.title || '').trim();
+          return res.status(error.status || 400).json({
+            error: error?.message || 'Audio enrichment failed',
+            detail: 'Audio enrichment request failed',
+            stage: 'audio_enrichment',
+            request: {
+              mediaType: effectiveMediaType,
+              queryTitle
+            }
+          });
+        }
+      }
+    } else if (effectiveMediaType === 'game') {
+      try {
+        const queryTitle = String(match?.searchTitle || match?.normalizedTitle || match?.title || '').trim();
+        if (queryTitle) {
+          const gameResults = await searchGamesByTitle(queryTitle, config, 5);
+          typeEnrichment = gameResults[0] || null;
+        }
+      } catch (error) {
+        if ((error?.status || 500) >= 400 && (error?.status || 500) < 500) {
+          const queryTitle = String(match?.searchTitle || match?.normalizedTitle || match?.title || '').trim();
+          return res.status(error.status || 400).json({
+            error: error?.message || 'Game enrichment failed',
+            detail: 'Game enrichment request failed',
+            stage: 'game_enrichment',
+            request: {
+              mediaType: effectiveMediaType,
+              queryTitle
+            }
+          });
+        }
+      }
+    } else if (effectiveMediaType === 'comic_book') {
+      try {
+        const queryTitle = String(match?.searchTitle || match?.normalizedTitle || match?.title || '').trim();
+        if (queryTitle) {
+          const comicResults = await searchComicsByTitle(queryTitle, config, 5);
+          typeEnrichment = comicResults[0] || null;
+        }
+      } catch (error) {
+        if ((error?.status || 500) >= 400 && (error?.status || 500) < 500) {
+          const queryTitle = String(match?.searchTitle || match?.normalizedTitle || match?.title || '').trim();
+          return res.status(error.status || 400).json({
+            error: error?.message || 'Comic enrichment failed',
+            detail: 'Comic enrichment request failed',
+            stage: 'comic_enrichment',
+            request: {
+              mediaType: effectiveMediaType,
+              queryTitle
+            }
+          });
+        }
+      }
+    } else if (match.title) {
       try {
         const tmdbResults = await searchTmdbMovie(match.title, undefined, config);
         tmdb = tmdbResults[0] || null;
-      } catch (_) {
-        // TMDB enrichment failure is non-fatal
+      } catch (error) {
+        if ((error?.status || 500) >= 400 && (error?.status || 500) < 500) {
+          return res.status(error.status || 400).json({
+            error: error?.message || 'TMDB enrichment failed',
+            detail: 'TMDB enrichment request failed',
+            stage: 'tmdb_enrichment',
+            request: {
+              mediaType: effectiveMediaType,
+              queryTitle: String(match?.title || '').trim()
+            }
+          });
+        }
       }
     }
-    enrichedMatches.push({ ...match, tmdb });
+    enrichedMatches.push({ ...match, book, typeEnrichment, tmdb });
   }
 
   res.json({ provider: barcodeProvider, upc, matches: enrichedMatches });

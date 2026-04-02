@@ -88,8 +88,17 @@ async function loadImageForBarcodeDetection(file) {
   }
 }
 
+export function normalizeBarcodeInput(rawValue = '') {
+  return String(rawValue || '')
+    .normalize('NFKC')
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .replace(/\s+/g, '')
+    .replace(/[^0-9A-Za-z-]/g, '')
+    .trim();
+}
+
 function normalizeDetectedBarcode(rawValue = '') {
-  return String(rawValue || '').replace(/\s+/g, '').trim();
+  return normalizeBarcodeInput(rawValue);
 }
 
 async function detectFirstBarcode(detector, source) {

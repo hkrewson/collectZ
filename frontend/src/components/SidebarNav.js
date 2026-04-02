@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Icons, cx, isInteractiveTarget } from './app/AppPrimitives';
+import CollectzMark from './CollectzMark';
 
 const DiscordIcon = () => (
   <svg viewBox="0 0 16 16" fill="currentColor" className="w-5 h-5" aria-hidden="true">
@@ -136,7 +137,10 @@ export default function SidebarNav({
             collapsed ? 'justify-between px-2' : ''
           )}
         >
-          <div className="w-8 h-8 rounded bg-gold flex items-center justify-center text-void font-display text-sm shrink-0">C</div>
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center text-gold">
+            <CollectzMark className="h-8 w-8" title={collapsed ? 'Collectz' : ''} />
+          </div>
+
           {!collapsed && (
             <div className="min-w-0 flex-1">
               <div className="font-display text-base tracking-wider text-ink leading-none">COLLECTZ</div>

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { CameraCaptureModal, detectBarcodeFromFile, supportsBarcodeCapture } from './app/AppPrimitives';
+import { CameraCaptureModal, detectBarcodeFromFile, normalizeBarcodeInput, supportsBarcodeCapture } from './app/AppPrimitives';
 
 export default function ImportView({
   apiCall,
@@ -142,7 +142,7 @@ export default function ImportView({
   };
 
   const lookupBarcode = async (upcOverride = null) => {
-    const upc = String(upcOverride ?? barcodeUpc).trim();
+    const upc = normalizeBarcodeInput(upcOverride ?? barcodeUpc);
     if (!upc) return;
     setBarcodeLookupLoading(true);
     setResult('');
@@ -168,7 +168,7 @@ export default function ImportView({
     setBarcodeCaptureLoading(true);
     try {
       const detected = await detectBarcodeFromFile(file);
-      setBarcodeUpc(detected);
+      setBarcodeUpc(normalizeBarcodeInput(detected));
       onToast(`Captured barcode ${detected}`);
       await lookupBarcode(detected);
     } catch (error) {
@@ -190,36 +190,43 @@ export default function ImportView({
     setBarcodeAddingId(addId);
     try {
       const tmdb = match?.tmdb || {};
+      const book = match?.book || null;
       const releaseDate = tmdb?.release_date || '';
-      const guessedBook = match?.mediaTypeGuess === 'book';
+      const guessedBook = match?.mediaTypeGuess === 'book' || Boolean(book);
       const normalizedTitle = match?.normalizedTitle || match?.title || `UPC ${barcodeUpc.trim()}`;
       const parsedFormat = match?.typeDetails?.format || '';
       const parsedAuthor = match?.typeDetails?.author || null;
       const parsedIsbn = match?.typeDetails?.isbn || null;
       const parsedPublisher = match?.typeDetails?.publisher || null;
+      const bookTypeDetails = book?.type_details || {};
+      const finalBookTitle = book?.title || normalizedTitle;
+      const finalBookAuthor = bookTypeDetails?.author || parsedAuthor;
+      const finalBookIsbn = bookTypeDetails?.isbn || parsedIsbn || match?.upc || barcodeUpc.trim() || null;
+      const finalBookPublisher = bookTypeDetails?.publisher || parsedPublisher;
+      const finalBookEdition = bookTypeDetails?.edition || parsedFormat || null;
       const payload = {
-        title: guessedBook ? normalizedTitle : (tmdb?.title || normalizedTitle),
+        title: guessedBook ? finalBookTitle : (tmdb?.title || normalizedTitle),
         original_title: guessedBook ? null : (tmdb?.original_title || null),
-        release_date: guessedBook ? null : (releaseDate || null),
-        year: guessedBook ? (match?.year ? Number(match.year) : null) : (tmdb?.release_year || (releaseDate ? Number(String(releaseDate).slice(0, 4)) : null)),
+        release_date: guessedBook ? (book?.release_date || null) : (releaseDate || null),
+        year: guessedBook ? (book?.year || (match?.year ? Number(match.year) : null)) : (tmdb?.release_year || (releaseDate ? Number(String(releaseDate).slice(0, 4)) : null)),
         media_type: guessedBook ? 'book' : 'movie',
-        format: guessedBook ? (parsedFormat || 'Paperback') : 'Blu-ray',
-        genre: guessedBook ? null : (Array.isArray(tmdb?.genre_names) ? tmdb.genre_names.join(', ') : null),
+        format: guessedBook ? (finalBookEdition || 'Paperback') : 'Blu-ray',
+        genre: guessedBook ? (book?.genre || null) : (Array.isArray(tmdb?.genre_names) ? tmdb.genre_names.join(', ') : null),
         rating: guessedBook ? null : (tmdb?.rating || null),
         upc: match?.upc || barcodeUpc.trim() || null,
         notes: match?.source ? `Imported via barcode (${match.source})` : 'Imported via barcode',
-        overview: guessedBook ? (match?.description || null) : (tmdb?.overview || match?.description || null),
+        overview: guessedBook ? (book?.overview || match?.description || null) : (tmdb?.overview || match?.description || null),
         tmdb_id: guessedBook ? null : (tmdb?.id || null),
         tmdb_media_type: guessedBook ? null : (tmdb?.tmdb_media_type || 'movie'),
         tmdb_url: guessedBook ? null : (tmdb?.id ? `https://www.themoviedb.org/${tmdb?.tmdb_media_type || 'movie'}/${tmdb.id}` : null),
-        poster_path: guessedBook ? (match?.image || null) : (tmdb?.poster_path || match?.image || null),
+        poster_path: guessedBook ? (book?.poster_path || match?.image || null) : (tmdb?.poster_path || match?.image || null),
         backdrop_path: guessedBook ? null : (tmdb?.backdrop_path || null),
         type_details: guessedBook
           ? {
-              author: parsedAuthor,
-              isbn: parsedIsbn,
-              publisher: parsedPublisher,
-              edition: parsedFormat || null
+              author: finalBookAuthor,
+              isbn: finalBookIsbn,
+              publisher: finalBookPublisher,
+              edition: finalBookEdition
             }
           : null
       };
@@ -407,7 +414,7 @@ export default function ImportView({
                 className="input flex-1 font-mono"
                 placeholder="012345678901"
                 value={barcodeUpc}
-                onChange={(e) => setBarcodeUpc(e.target.value)}
+                onChange={(e) => setBarcodeUpc(normalizeBarcodeInput(e.target.value))}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
@@ -438,12 +445,23 @@ export default function ImportView({
               <div className="space-y-2">
                 {barcodeResults.slice(0, 8).map((m, idx) => {
                   const addId = `${m?.upc || barcodeUpc}-${idx}`;
-                  const title = m?.tmdb?.title || m?.title || 'Unknown';
-                  const year = m?.tmdb?.release_year || (m?.tmdb?.release_date ? String(m.tmdb.release_date).slice(0, 4) : '');
+                  const isBook = m?.mediaTypeGuess === 'book' || Boolean(m?.book);
+                  const title = isBook
+                    ? (m?.book?.title || m?.normalizedTitle || m?.title || 'Unknown')
+                    : (m?.tmdb?.title || m?.title || 'Unknown');
+                  const year = isBook
+                    ? (m?.book?.year || m?.year || '')
+                    : (m?.tmdb?.release_year || (m?.tmdb?.release_date ? String(m.tmdb.release_date).slice(0, 4) : ''));
+                  const subtitle = isBook
+                    ? (m?.book?.type_details?.author || m?.typeDetails?.author || '')
+                    : '';
                   return (
                     <div key={addId} className="card p-3 flex items-center gap-3">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-ink truncate">{title}</p>
+                        {subtitle ? (
+                          <p className="text-xs text-ghost truncate">{subtitle}</p>
+                        ) : null}
                         <p className="text-xs text-ghost">
                           {year || 'n/a'}{m?.upc ? ` · UPC ${m.upc}` : ''}{m?.source ? ` · ${m.source}` : ''}
                         </p>
@@ -484,7 +502,7 @@ export default function ImportView({
         onCapture={async (file) => {
           setBarcodeCaptureLoading(true);
           try {
-            const detected = await detectBarcodeFromFile(file);
+            const detected = normalizeBarcodeInput(await detectBarcodeFromFile(file));
             setBarcodeUpc(detected);
             onToast(`Captured barcode ${detected}`);
             await lookupBarcode(detected);

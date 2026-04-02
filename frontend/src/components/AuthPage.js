@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import CollectzMark from './CollectzMark';
 
 export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion, Icons, Spinner, cx }) {
   const [email, setEmail] = useState('');
@@ -54,7 +55,8 @@ export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion
       <div className="hidden lg:flex lg:w-1/2 xl:w-3/5 relative overflow-hidden flex-col justify-between p-12">
         <div className="absolute inset-0 bg-gradient-to-br from-abyss via-deep to-void" />
         <div className="absolute inset-0 bg-gradient-to-r from-void/20 via-void/50 to-void" />
-        <div className="relative z-10">
+        <div className="relative z-10 flex items-center gap-3">
+          <CollectzMark className="h-9 w-9 text-gold" title="" />
           <span className="font-display text-3xl tracking-widest text-gold">COLLECTZ</span>
         </div>
         <div className="relative z-10 space-y-4">
@@ -77,7 +79,10 @@ export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion
       <div className="w-full lg:w-1/2 xl:w-2/5 flex items-center justify-center p-8">
         <div className="w-full max-w-sm space-y-8">
           <div className="lg:hidden text-center">
-            <span className="font-display text-4xl tracking-widest text-gold">COLLECTZ</span>
+            <div className="inline-flex items-center gap-3">
+              <CollectzMark className="h-8 w-8 text-gold" title="" />
+              <span className="font-display text-4xl tracking-widest text-gold">COLLECTZ</span>
+            </div>
           </div>
 
           {!isReset && (

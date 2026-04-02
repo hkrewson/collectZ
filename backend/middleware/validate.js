@@ -47,12 +47,22 @@ const titleArtistSearchSchema = z.object({
   artist: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable())
 });
 
+const normalizeLookupCode = (value) => {
+  const raw = String(value || '');
+  return raw
+    .normalize('NFKC')
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .replace(/\s+/g, '')
+    .replace(/[^0-9A-Za-z-]/g, '')
+    .trim();
+};
+
 const upcLookupSchema = z.object({
-  upc: z.string()
-    .trim()
+  upc: z.preprocess(normalizeLookupCode, z.string()
     .min(8, 'UPC is required')
     .max(32, 'UPC is too long')
-    .regex(/^[0-9A-Za-z-]+$/, 'UPC must use only letters, numbers, or hyphens')
+    .regex(/^[0-9A-Za-z-]+$/, 'UPC must use only letters, numbers, or hyphens')),
+  mediaType: z.enum(['movie', 'tv_series', 'tv_episode', 'book', 'audio', 'game', 'comic_book']).optional()
 });
 
 // ── Media ─────────────────────────────────────────────────────────────────────
