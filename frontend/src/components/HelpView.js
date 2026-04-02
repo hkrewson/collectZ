@@ -719,7 +719,10 @@ export default function HelpView({
                   </label>
                   {selectedRequest?.internal_notes ? (
                     <div className="rounded-3xl border border-edge bg-raised/30 p-4">
-                      <p className="text-xs uppercase tracking-[0.16em] text-ghost">Latest saved internal note</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs uppercase tracking-[0.16em] text-ghost">Latest saved internal note</p>
+                        {selectedRequest.request_key ? <span className="badge badge-dim text-[10px] normal-case tracking-normal">{selectedRequest.request_key}</span> : null}
+                      </div>
                       <p className="mt-2 text-sm text-ink whitespace-pre-wrap leading-6">{selectedRequest.internal_notes}</p>
                     </div>
                   ) : null}
