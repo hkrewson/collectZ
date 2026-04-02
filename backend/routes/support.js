@@ -20,10 +20,17 @@ function isSupportStaff(req) {
   return SUPPORT_STAFF_ROLES.has(String(req.user?.role || ''));
 }
 
+function formatSupportRequestKey(id) {
+  const numericId = Number(id || 0);
+  if (!Number.isFinite(numericId) || numericId <= 0) return null;
+  return `SUP-${String(numericId).padStart(6, '0')}`;
+}
+
 function formatSupportRequest(row, options = {}) {
   const includeInternalNotes = Boolean(options.includeInternalNotes);
   return {
     id: row.id,
+    request_key: row.request_key || formatSupportRequestKey(row.id),
     subject: row.subject,
     status: row.status,
     classification: row.classification || 'support',
@@ -33,7 +40,9 @@ function formatSupportRequest(row, options = {}) {
     repo_issue_url: row.repo_issue_url || null,
     internal_notes: includeInternalNotes ? (row.internal_notes || null) : null,
     target_space_id: row.target_space_id || null,
+    target_space_name: row.target_space_name || null,
     target_library_id: row.target_library_id || null,
+    target_library_name: row.target_library_name || null,
     requester_user_id: row.requester_user_id || null,
     requester_name: row.requester_name || null,
     requester_email: row.requester_email || null,
@@ -49,8 +58,10 @@ function formatSupportMessage(row) {
   return {
     id: row.id,
     request_id: row.request_id,
+    request_key: row.request_key || formatSupportRequestKey(row.request_id),
     author_user_id: row.author_user_id || null,
     author_role: row.author_role,
+    is_internal: Boolean(row.is_internal),
     author_name: row.author_name || null,
     author_email: row.author_email || null,
     body: row.body,
@@ -86,6 +97,7 @@ router.get('/releases', authenticateToken, asyncHandler(async (req, res) => {
 }));
 
 async function getSupportRequestForActor({ client, requestId, userId, role }) {
+  const includeInternalMessages = SUPPORT_STAFF_ROLES.has(String(role || ''));
   const result = await client.query(
     `SELECT sr.id,
             sr.subject,
@@ -105,14 +117,18 @@ async function getSupportRequestForActor({ client, requestId, userId, role }) {
             sr.updated_at,
             requester.name AS requester_name,
             requester.email AS requester_email,
-            COUNT(srm.id)::int AS message_count
+            target_space.name AS target_space_name,
+            target_library.name AS target_library_name,
+            COUNT(srm.id) FILTER (WHERE $4::boolean = true OR COALESCE(srm.is_internal, false) = false)::int AS message_count
        FROM support_requests sr
        JOIN users requester ON requester.id = sr.requester_user_id
+       LEFT JOIN spaces target_space ON target_space.id = sr.target_space_id
+       LEFT JOIN libraries target_library ON target_library.id = sr.target_library_id
        LEFT JOIN support_request_messages srm ON srm.request_id = sr.id
       WHERE sr.id = $1
         AND ($2::boolean = true OR sr.requester_user_id = $3)
-      GROUP BY sr.id, requester.name, requester.email`,
-    [requestId, SUPPORT_STAFF_ROLES.has(String(role || '')), userId]
+      GROUP BY sr.id, requester.name, requester.email, target_space.name, target_library.name`,
+    [requestId, includeInternalMessages, userId, includeInternalMessages]
   );
   return result.rows[0] || null;
 }
@@ -152,12 +168,16 @@ router.get('/requests', authenticateToken, asyncHandler(async (req, res) => {
            sr.updated_at,
            requester.name AS requester_name,
            requester.email AS requester_email,
-           COUNT(srm.id)::int AS message_count
+           target_space.name AS target_space_name,
+           target_library.name AS target_library_name,
+           COUNT(srm.id) FILTER (WHERE $${params.length + 1}::boolean = true OR COALESCE(srm.is_internal, false) = false)::int AS message_count
       FROM support_requests sr
       JOIN users requester ON requester.id = sr.requester_user_id
+      LEFT JOIN spaces target_space ON target_space.id = sr.target_space_id
+      LEFT JOIN libraries target_library ON target_library.id = sr.target_library_id
       LEFT JOIN support_request_messages srm ON srm.request_id = sr.id
       ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
-     GROUP BY sr.id, requester.name, requester.email
+     GROUP BY sr.id, requester.name, requester.email, target_space.name, target_library.name
      ORDER BY
        CASE sr.status
          WHEN 'open' THEN 0
@@ -168,7 +188,7 @@ router.get('/requests', authenticateToken, asyncHandler(async (req, res) => {
        sr.id DESC
      LIMIT 100`;
 
-  const result = await pool.query(query, params);
+  const result = await pool.query(query, [...params, supportStaff]);
   res.json({
     requests: result.rows.map((row) => formatSupportRequest(row, { includeInternalNotes: supportStaff })),
     support_staff: supportStaff
@@ -227,10 +247,13 @@ router.post('/requests', authenticateToken, requireSessionAuth, validate(support
         ...requestRow,
         requester_name: req.user.name || null,
         requester_email: req.user.email || null,
+        target_space_name: null,
+        target_library_name: null,
         message_count: 1
       }, { includeInternalNotes: supportStaff }),
       message: formatSupportMessage({
         ...messageResult.rows[0],
+        request_key: formatSupportRequestKey(requestRow.id),
         author_name: req.user.name || null,
         author_email: req.user.email || null
       })
@@ -268,13 +291,17 @@ router.get('/requests/:id', authenticateToken, asyncHandler(async (req, res) => 
          FROM support_request_messages srm
          LEFT JOIN users u ON u.id = srm.author_user_id
         WHERE srm.request_id = $1
+          AND ($2::boolean = true OR COALESCE(srm.is_internal, false) = false)
         ORDER BY srm.created_at ASC, srm.id ASC`,
-      [requestId]
+      [requestId, isSupportStaff(req)]
     );
 
     res.json({
       request: formatSupportRequest(supportRequest, { includeInternalNotes: isSupportStaff(req) }),
-      messages: messagesResult.rows.map(formatSupportMessage)
+      messages: messagesResult.rows.map((row) => formatSupportMessage({
+        ...row,
+        request_key: formatSupportRequestKey(supportRequest.id)
+      }))
     });
   } finally {
     client.release();
@@ -333,10 +360,13 @@ router.post('/requests/:id/messages', authenticateToken, requireSessionAuth, val
         ...requestResult.rows[0],
         requester_name: supportRequest.requester_name,
         requester_email: supportRequest.requester_email,
+        target_space_name: supportRequest.target_space_name,
+        target_library_name: supportRequest.target_library_name,
         message_count: Number(supportRequest.message_count || 0) + 1
       }, { includeInternalNotes: isSupportStaff(req) }),
       message: formatSupportMessage({
         ...messageResult.rows[0],
+        request_key: formatSupportRequestKey(requestId),
         author_name: req.user.name || null,
         author_email: req.user.email || null
       })
@@ -452,6 +482,8 @@ router.patch('/requests/:id/triage', authenticateToken, requireSessionAuth, requ
 
     const updatedRequest = {
       ...result.rows[0],
+      target_space_name: supportRequest.target_space_name,
+      target_library_name: supportRequest.target_library_name,
       requester_name: supportRequest.requester_name,
       requester_email: supportRequest.requester_email,
       message_count: supportRequest.message_count
@@ -459,10 +491,11 @@ router.patch('/requests/:id/triage', authenticateToken, requireSessionAuth, requ
 
     const systemBody = buildSupportTrackingUpdateMessage(supportRequest, updatedRequest);
     let systemMessage = null;
+    let internalNoteMessage = null;
     if (systemBody) {
       const messageResult = await client.query(
-        `INSERT INTO support_request_messages (request_id, author_user_id, author_role, body)
-         VALUES ($1, NULL, 'system', $2)
+        `INSERT INTO support_request_messages (request_id, author_user_id, author_role, is_internal, body)
+         VALUES ($1, NULL, 'system', false, $2)
          RETURNING *`,
         [requestId, systemBody]
       );
@@ -474,9 +507,28 @@ router.patch('/requests/:id/triage', authenticateToken, requireSessionAuth, requ
           WHERE id = $1`,
         [requestId]
       );
-      systemMessage = formatSupportMessage(messageResult.rows[0]);
+      systemMessage = formatSupportMessage({
+        ...messageResult.rows[0],
+        request_key: formatSupportRequestKey(requestId)
+      });
       updatedRequest.last_message_at = new Date().toISOString();
       updatedRequest.last_message_by_role = 'system';
+      updatedRequest.message_count = Number(updatedRequest.message_count || 0) + 1;
+    }
+
+    if (req.body.internal_notes !== undefined && req.body.internal_notes !== null && String(req.body.internal_notes).trim()) {
+      const noteResult = await client.query(
+        `INSERT INTO support_request_messages (request_id, author_user_id, author_role, is_internal, body)
+         VALUES ($1, $2, $3, true, $4)
+         RETURNING *`,
+        [requestId, req.user.id, req.user.role, String(req.body.internal_notes).trim()]
+      );
+      internalNoteMessage = formatSupportMessage({
+        ...noteResult.rows[0],
+        request_key: formatSupportRequestKey(requestId),
+        author_name: req.user.name || null,
+        author_email: req.user.email || null
+      });
       updatedRequest.message_count = Number(updatedRequest.message_count || 0) + 1;
     }
 
@@ -491,7 +543,8 @@ router.patch('/requests/:id/triage', authenticateToken, requireSessionAuth, requ
 
     res.json({
       request: formatSupportRequest(updatedRequest, { includeInternalNotes: true }),
-      message: systemMessage
+      message: systemMessage,
+      internal_note_message: internalNoteMessage
     });
   } catch (error) {
     await client.query('ROLLBACK');

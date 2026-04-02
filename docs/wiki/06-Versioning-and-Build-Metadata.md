@@ -52,6 +52,7 @@ docker compose --env-file .env up -d --build
 
 1. Update `app-meta.json` version.
 2. Run `node scripts/sync-app-meta.js`.
-3. Commit the version bump.
-4. Build/deploy with `APP_VERSION` (or rely on `app-meta.json` fallback).
-5. Confirm version in sidebar and `/api/health`.
+3. Run `node backend/scripts/export-release-feed.js` so `Help > Releases` includes the new release note.
+4. Commit the version bump.
+5. Build/deploy with `APP_VERSION` (or rely on `app-meta.json` fallback).
+6. Confirm version in sidebar, `/api/health`, and the in-app `Help > Releases` feed.

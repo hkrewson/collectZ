@@ -160,6 +160,7 @@
         "type": "object",
         "properties": {
           "id": { "type": "integer" },
+          "request_key": { "type": ["string", "null"] },
           "subject": { "type": "string" },
           "status": { "type": "string", "enum": ["open", "answered", "closed"] },
           "classification": { "type": "string", "enum": ["support", "bug", "feature_request"] },
@@ -169,7 +170,9 @@
           "repo_issue_url": { "type": ["string", "null"], "format": "uri" },
           "internal_notes": { "type": ["string", "null"] },
           "target_space_id": { "type": ["integer", "null"] },
+          "target_space_name": { "type": ["string", "null"] },
           "target_library_id": { "type": ["integer", "null"] },
+          "target_library_name": { "type": ["string", "null"] },
           "requester_user_id": { "type": ["integer", "null"] },
           "requester_name": { "type": ["string", "null"] },
           "requester_email": { "type": ["string", "null"], "format": "email" },
@@ -186,8 +189,10 @@
         "properties": {
           "id": { "type": "integer" },
           "request_id": { "type": "integer" },
+          "request_key": { "type": ["string", "null"] },
           "author_user_id": { "type": ["integer", "null"] },
           "author_role": { "type": "string" },
+          "is_internal": { "type": "boolean" },
           "author_name": { "type": ["string", "null"] },
           "author_email": { "type": ["string", "null"], "format": "email" },
           "body": { "type": "string" },
@@ -258,6 +263,12 @@
         "properties": {
           "request": { "$ref": "#/components/schemas/SupportRequestRecord" },
           "message": {
+            "oneOf": [
+              { "$ref": "#/components/schemas/SupportRequestMessageRecord" },
+              { "type": "null" }
+            ]
+          },
+          "internal_note_message": {
             "oneOf": [
               { "$ref": "#/components/schemas/SupportRequestMessageRecord" },
               { "type": "null" }

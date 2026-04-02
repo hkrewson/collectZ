@@ -332,6 +332,7 @@ results.push(run('auth route source includes explicit support session endpoints'
 results.push(run('migrations source includes support role and help foundation schema updates', () => {
   assert.ok(migrationsSource.includes('version: 48'));
   assert.ok(migrationsSource.includes('version: 49'));
+  assert.ok(migrationsSource.includes('version: 50'));
   assert.ok(migrationsSource.includes('support_space_id'));
   assert.ok(migrationsSource.includes('support_previous_library_id'));
   assert.ok(migrationsSource.includes('artist VARCHAR(255)'));
@@ -340,6 +341,7 @@ results.push(run('migrations source includes support role and help foundation sc
   assert.ok(migrationsSource.includes("'support_admin'"));
   assert.ok(migrationsSource.includes('classification VARCHAR(30)'));
   assert.ok(migrationsSource.includes('internal_notes TEXT'));
+  assert.ok(migrationsSource.includes('is_internal BOOLEAN'));
 }));
 
 results.push(run('frontend app source includes support session banner and admin trigger plumbing', () => {
@@ -369,7 +371,8 @@ results.push(run('frontend source includes tabbed help center and support inbox 
   assert.ok(helpViewSource.includes('Guidance'));
   assert.ok(helpViewSource.includes('Recent Releases'));
   assert.ok(helpViewSource.includes('Help Admin'));
-  assert.ok(helpViewSource.includes('Internal Notes'));
+  assert.ok(helpViewSource.includes('Latest saved internal note'));
+  assert.ok(helpViewSource.includes('New Internal Note'));
   assert.ok(frontendAppSource.includes('supportBadgeCount'));
   assert.ok(helpViewSource.includes('Reply to Support'));
 }));

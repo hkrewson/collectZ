@@ -21,10 +21,11 @@ Minimum closeout expectation:
 
 1. Confirm version metadata is synchronized across root, backend, and frontend manifests.
 2. Confirm the matching release note exists and includes the required security triage markers.
-3. Run backend unit tests.
-4. Run init parity / migration rehearsal checks in an environment with database access.
-5. Run production dependency audit checks for backend and frontend.
-6. Confirm the remaining CI-only gates are green, especially gitleaks, compose smoke, RBAC, Trivy, and SBOM generation.
+3. Regenerate the in-app release snapshot consumed by `Help > Releases` and confirm the latest semver appears in that feed.
+4. Run backend unit tests.
+5. Run init parity / migration rehearsal checks in an environment with database access.
+6. Run production dependency audit checks for backend and frontend.
+7. Confirm the remaining CI-only gates are green, especially gitleaks, compose smoke, RBAC, Trivy, and SBOM generation.
 
 If any of these are skipped locally because the shell environment is restricted, the release stays pending until CI or an unrestricted maintainer shell confirms them.
 

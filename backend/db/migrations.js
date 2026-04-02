@@ -2379,6 +2379,17 @@ const MIGRATIONS = [
       CREATE INDEX IF NOT EXISTS idx_support_requests_classification_tracking
         ON support_requests(classification, tracking_status, last_message_at DESC, id DESC);
     `
+  },
+  {
+    version: 50,
+    description: 'Add staff-only support thread note visibility',
+    up: `
+      ALTER TABLE support_request_messages
+        ADD COLUMN IF NOT EXISTS is_internal BOOLEAN NOT NULL DEFAULT false;
+
+      CREATE INDEX IF NOT EXISTS idx_support_request_messages_visibility_created_at
+        ON support_request_messages(request_id, is_internal, created_at ASC, id ASC);
+    `
   }
 ];
 

@@ -42,6 +42,9 @@ For milestone, release, runtime, monitoring, auth, migration, or deployment work
     - `docs/wiki/17-Release-Go-No-Go-Checklist.md`
     - `docs/wiki/10-CI-CD-and-Registry-Deploy.md`
 15. For release/version/docs/auth/infra changes, do not call work complete until version sync, release-note requirements, init parity, and relevant regression gates have been checked or explicitly marked blocked.
-16. If a change introduces work from a later roadmap milestone, pause and call out the milestone boundary before continuing.
-17. For OpenAPI, metrics, dashboard, alerting, or monitoring changes, keep implementation, docs/specs, and validation artifacts in sync before calling the slice complete.
-
+16. For every semver release or release-shaped closeout, update the in-app Help > Releases source as part of the release note workflow:
+   - ensure the matching `docs/releases/vX.Y.Z.md` exists,
+   - regenerate any release-feed snapshot used by the app,
+   - verify the running stack can still serve recent Help > Releases entries.
+17. If a change introduces work from a later roadmap milestone, pause and call out the milestone boundary before continuing.
+18. For OpenAPI, metrics, dashboard, alerting, or monitoring changes, keep implementation, docs/specs, and validation artifacts in sync before calling the slice complete.

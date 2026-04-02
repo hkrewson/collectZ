@@ -316,6 +316,7 @@ CREATE TABLE IF NOT EXISTS support_request_messages (
     request_id INTEGER NOT NULL REFERENCES support_requests(id) ON DELETE CASCADE,
     author_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
     author_role VARCHAR(50) NOT NULL,
+    is_internal BOOLEAN NOT NULL DEFAULT false,
     body TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -331,6 +332,9 @@ CREATE INDEX IF NOT EXISTS idx_support_requests_classification_tracking
 
 CREATE INDEX IF NOT EXISTS idx_support_request_messages_request_id_created_at
     ON support_request_messages(request_id, created_at ASC, id ASC);
+
+CREATE INDEX IF NOT EXISTS idx_support_request_messages_visibility_created_at
+    ON support_request_messages(request_id, is_internal, created_at ASC, id ASC);
 
 -- Per-user integration settings (reserved for future per-user overrides)
 CREATE TABLE IF NOT EXISTS user_integrations (
@@ -835,5 +839,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (46, 'Session-scoped support access metadata for explicit admin troubleshooting'),
     (47, 'Add event image and collectible artist fields for first-class object presentation'),
     (48, 'Add support admin role and support request foundation tables'),
-    (49, 'Add support request triage and tracking fields')
+    (49, 'Add support request triage and tracking fields'),
+    (50, 'Add staff-only support thread note visibility')
 ON CONFLICT (version) DO NOTHING;

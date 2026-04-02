@@ -84,6 +84,7 @@ function trackingStatusLabel(value) {
 }
 
 function actorLabel(message) {
+  if (message?.is_internal) return 'Internal note';
   if (message?.author_role === 'system') return 'System';
   if (message?.author_name) return message.author_name;
   if (message?.author_email) return message.author_email;
@@ -95,12 +96,15 @@ function actorLabel(message) {
 function ThreadBubble({ message, currentUserId }) {
   const isOwnMessage = Number(message?.author_user_id) === Number(currentUserId);
   const isSystemMessage = message?.author_role === 'system';
+  const isInternalMessage = Boolean(message?.is_internal);
   return (
-    <div className={`flex ${isSystemMessage ? 'justify-center' : isOwnMessage ? 'justify-end' : 'justify-start'}`}>
+    <div className={`flex ${isSystemMessage || isInternalMessage ? 'justify-center' : isOwnMessage ? 'justify-end' : 'justify-start'}`}>
       <div
         className={[
           'max-w-[88%] rounded-3xl border px-4 py-3 shadow-soft space-y-2',
-          isSystemMessage
+          isInternalMessage
+            ? 'border-sky-500/30 bg-sky-500/10 text-ink rounded-2xl'
+            : isSystemMessage
             ? 'border-edge bg-void/40 text-ghost rounded-2xl'
             : isOwnMessage
               ? 'border-gold/40 bg-gold/10 text-ink rounded-br-xl'
@@ -108,7 +112,10 @@ function ThreadBubble({ message, currentUserId }) {
         ].join(' ')}
       >
         <div className="flex items-center justify-between gap-3 text-[11px] uppercase tracking-[0.16em] text-ghost">
-          <span>{actorLabel(message)}</span>
+          <span className="flex items-center gap-2">
+            <span>{actorLabel(message)}</span>
+            {message?.request_key ? <span className="badge badge-dim text-[10px] normal-case tracking-normal">{message.request_key}</span> : null}
+          </span>
           <span className="normal-case tracking-normal text-[12px]">{formatTimestamp(message.created_at)}</span>
         </div>
         <p className="text-sm leading-6 whitespace-pre-wrap">{message.body}</p>
@@ -147,13 +154,14 @@ export default function HelpView({
   const [triageForm, setTriageForm] = useState({
     classification: 'support',
     tracking_status: 'untracked',
-    internal_notes: '',
     repo_issue_number: '',
     repo_issue_url: '',
     resolved_in_version: ''
   });
+  const [internalNoteDraft, setInternalNoteDraft] = useState('');
   const [triageSaving, setTriageSaving] = useState(false);
   const threadEndRef = useRef(null);
+  const triageRequestIdRef = useRef(null);
   const isSupportStaff = ['admin', 'support_admin'].includes(String(user?.role || ''));
   const requestStatusTone = useMemo(() => ({
     open: 'badge-warn',
@@ -168,6 +176,18 @@ export default function HelpView({
     () => (isSupportStaff ? [...HELP_ARTICLES, SUPPORT_ADMIN_ARTICLE] : HELP_ARTICLES),
     [isSupportStaff]
   );
+
+  const formatRequestContext = useCallback((request) => {
+    if (!request) return null;
+    const parts = [];
+    if (request.target_space_name || request.target_space_id) {
+      parts.push(request.target_space_name || `Space #${request.target_space_id}`);
+    }
+    if (request.target_library_name || request.target_library_id) {
+      parts.push(request.target_library_name || `Library #${request.target_library_id}`);
+    }
+    return parts.length ? parts.join(' / ') : null;
+  }, []);
 
   const loadRequests = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
@@ -261,15 +281,18 @@ export default function HelpView({
   }, [messages.length, selectedRequestId]);
 
   useEffect(() => {
+    const nextRequestId = Number(selectedRequest?.id || 0) || null;
+    if (triageRequestIdRef.current === nextRequestId) return;
+    triageRequestIdRef.current = nextRequestId;
     setTriageForm({
       classification: selectedRequest?.classification || 'support',
       tracking_status: selectedRequest?.tracking_status || 'untracked',
-      internal_notes: selectedRequest?.internal_notes || '',
       repo_issue_number: selectedRequest?.repo_issue_number ? String(selectedRequest.repo_issue_number) : '',
       repo_issue_url: selectedRequest?.repo_issue_url || '',
       resolved_in_version: selectedRequest?.resolved_in_version || ''
     });
-  }, [selectedRequest]);
+    setInternalNoteDraft('');
+  }, [selectedRequest?.id, selectedRequest?.classification, selectedRequest?.tracking_status, selectedRequest?.repo_issue_number, selectedRequest?.repo_issue_url, selectedRequest?.resolved_in_version]);
 
   const submitRequest = async (event) => {
     event.preventDefault();
@@ -281,7 +304,13 @@ export default function HelpView({
         target_space_id: activeSpace?.id || null,
         target_library_id: activeLibrary?.id || null
       });
-      const createdRequest = payload?.request;
+      const createdRequest = payload?.request
+        ? {
+            ...payload.request,
+            target_space_name: payload.request.target_space_name || activeSpace?.name || null,
+            target_library_name: payload.request.target_library_name || activeLibrary?.name || null
+          }
+        : null;
       const createdMessage = payload?.message;
       setForm({ subject: '', message: '' });
       setActiveTab('support');
@@ -359,20 +388,33 @@ export default function HelpView({
       const payload = await apiCall('patch', `/support/requests/${selectedRequestId}/triage`, {
         classification: triageForm.classification,
         tracking_status: triageForm.tracking_status,
-        internal_notes: triageForm.internal_notes,
+        internal_notes: internalNoteDraft || null,
         repo_issue_number: triageForm.repo_issue_number || null,
         repo_issue_url: triageForm.repo_issue_url || null,
         resolved_in_version: triageForm.resolved_in_version || null
       });
       const updatedRequest = payload?.request;
       const systemMessage = payload?.message;
+      const internalNoteMessage = payload?.internal_note_message;
       if (updatedRequest) {
         setRequests((prev) => prev.map((item) => (Number(item.id) === Number(updatedRequest.id) ? updatedRequest : item)));
         setSelectedRequest(updatedRequest);
+        setTriageForm({
+          classification: updatedRequest.classification || 'support',
+          tracking_status: updatedRequest.tracking_status || 'untracked',
+          repo_issue_number: updatedRequest.repo_issue_number ? String(updatedRequest.repo_issue_number) : '',
+          repo_issue_url: updatedRequest.repo_issue_url || '',
+          resolved_in_version: updatedRequest.resolved_in_version || ''
+        });
       }
-      if (systemMessage) {
-        setMessages((prev) => [...prev, systemMessage]);
+      if (systemMessage || internalNoteMessage) {
+        setMessages((prev) => [
+          ...prev,
+          ...(systemMessage ? [systemMessage] : []),
+          ...(internalNoteMessage ? [internalNoteMessage] : [])
+        ]);
       }
+      setInternalNoteDraft('');
       await loadRequests({ silent: true });
       onSupportSummaryRefresh?.({ silent: true });
       onToast('Triage updated');
@@ -640,6 +682,7 @@ export default function HelpView({
                 <div>
                   <h2 className="text-lg font-semibold text-ink">Triage</h2>
                   <p className="text-sm text-ghost">Classify requests, keep internal notes, and prepare tracked bugs or feature requests for later repo linkage.</p>
+                  {selectedRequest?.request_key ? <p className="mt-2 text-xs uppercase tracking-[0.16em] text-ghost">Editing {selectedRequest.request_key}</p> : null}
                 </div>
                 <form className="space-y-4" onSubmit={saveTriage}>
                   <div className="grid gap-3 md:grid-cols-2">
@@ -671,9 +714,15 @@ export default function HelpView({
                     <input className="input" value={triageForm.repo_issue_url} onChange={(event) => setTriageForm((prev) => ({ ...prev, repo_issue_url: event.target.value }))} placeholder="https://github.com/.../issues/123" />
                   </label>
                   <label className="field">
-                    <span className="label">Internal Notes</span>
-                    <textarea className="input min-h-[130px]" value={triageForm.internal_notes} onChange={(event) => setTriageForm((prev) => ({ ...prev, internal_notes: event.target.value }))} placeholder="Staff-only notes, reproduction details, or repo follow-up context." />
+                    <span className="label">New Internal Note</span>
+                    <textarea className="input min-h-[130px]" value={internalNoteDraft} onChange={(event) => setInternalNoteDraft(event.target.value)} placeholder="Save a staff-only note into the support thread without sending it to the requester." />
                   </label>
+                  {selectedRequest?.internal_notes ? (
+                    <div className="rounded-3xl border border-edge bg-raised/30 p-4">
+                      <p className="text-xs uppercase tracking-[0.16em] text-ghost">Latest saved internal note</p>
+                      <p className="mt-2 text-sm text-ink whitespace-pre-wrap leading-6">{selectedRequest.internal_notes}</p>
+                    </div>
+                  ) : null}
                   <button type="submit" className="btn-primary" disabled={triageSaving}>
                     {triageSaving ? <><Spinner size={14} />Saving…</> : <><Icons.Check />Save triage</>}
                   </button>
@@ -701,6 +750,7 @@ export default function HelpView({
                 <div className="space-y-2">
                   {requests.map((request) => {
                     const active = Number(selectedRequestId) === Number(request.id);
+                    const requestContext = formatRequestContext(request);
                     return (
                       <button
                         key={request.id}
@@ -713,8 +763,12 @@ export default function HelpView({
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0 space-y-1">
-                            <p className="text-sm font-medium text-ink truncate">{request.subject}</p>
+                            <div className="flex flex-wrap items-center gap-2">
+                              {request.request_key ? <span className="badge badge-dim text-[10px]">{request.request_key}</span> : null}
+                              <p className="text-sm font-medium text-ink truncate">{request.subject}</p>
+                            </div>
                             <p className="text-xs text-ghost truncate">{request.requester_name || request.requester_email || 'Unknown requester'}</p>
+                            {requestContext ? <p className="text-xs text-ghost truncate">{requestContext}</p> : null}
                             <p className="text-xs text-ghost">Updated {formatTimestamp(request.last_message_at || request.updated_at)}</p>
                             {isSupportStaff ? (
                               <div className="flex flex-wrap items-center gap-2 pt-1">
@@ -744,11 +798,13 @@ export default function HelpView({
               <>
                 <div className="border-b border-edge px-5 py-4 bg-raised/25 flex flex-wrap items-start justify-between gap-3">
                   <div className="space-y-1 min-w-0">
-                    <h2 className="text-lg font-semibold text-ink truncate">{selectedRequest.subject}</h2>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {selectedRequest.request_key ? <span className="badge badge-dim">{selectedRequest.request_key}</span> : null}
+                      <h2 className="text-lg font-semibold text-ink truncate">{selectedRequest.subject}</h2>
+                    </div>
                     <p className="text-sm text-ghost">
                       {selectedRequest.requester_name || selectedRequest.requester_email || 'Unknown requester'}
-                      {selectedRequest.target_space_id ? ` · Space #${selectedRequest.target_space_id}` : ''}
-                      {selectedRequest.target_library_id ? ` · Library #${selectedRequest.target_library_id}` : ''}
+                      {formatRequestContext(selectedRequest) ? ` · ${formatRequestContext(selectedRequest)}` : ''}
                     </p>
                     <div className="flex flex-wrap items-center gap-2 pt-1">
                       <span className={`badge ${requestStatusTone[selectedRequest.status] || 'badge-dim'}`}>{selectedRequest.status}</span>

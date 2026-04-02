@@ -118,6 +118,7 @@ docker compose --env-file .env -f docker-compose.registry.yml up -d
 
 1. Update `app-meta.json` version.
 2. Run `node scripts/sync-app-meta.js` to sync backend/frontend package versions.
-3. Commit and push.
-4. CI builds and publishes images with embedded build metadata.
-5. Optionally create git tag `vX.Y.Z` (or pre-release like `v1.6.5-r1`).
+3. Run `node backend/scripts/export-release-feed.js` so the in-app `Help > Releases` snapshot includes the new semver.
+4. Commit and push.
+5. CI builds and publishes images with embedded build metadata.
+6. Optionally create git tag `vX.Y.Z` (or pre-release like `v1.6.5-r1`).
