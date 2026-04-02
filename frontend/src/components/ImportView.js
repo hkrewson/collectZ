@@ -142,7 +142,10 @@ export default function ImportView({
   };
 
   const lookupBarcode = async (upcOverride = null) => {
-    const upc = normalizeBarcodeInput(upcOverride ?? barcodeUpc);
+    const normalizedOverride = typeof upcOverride === 'string' || typeof upcOverride === 'number'
+      ? upcOverride
+      : null;
+    const upc = normalizeBarcodeInput(normalizedOverride ?? barcodeUpc);
     if (!upc) return;
     setBarcodeLookupLoading(true);
     setResult('');
@@ -428,7 +431,7 @@ export default function ImportView({
               <button onClick={() => barcodeCaptureInputRef.current?.click()} className="btn-secondary" disabled={barcodeCaptureLoading || !hasActiveLibrary}>
                 <Icons.Upload />Photo
               </button>
-              <button onClick={lookupBarcode} className="btn-primary" disabled={barcodeLookupLoading || !barcodeUpc.trim() || !hasActiveLibrary}>
+              <button onClick={() => lookupBarcode()} className="btn-primary" disabled={barcodeLookupLoading || !barcodeUpc.trim() || !hasActiveLibrary}>
                 {barcodeLookupLoading ? <Spinner size={14} /> : <><Icons.Barcode />Lookup</>}
               </button>
             </div>

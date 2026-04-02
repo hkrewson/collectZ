@@ -117,6 +117,54 @@ results.push(run('barcode.normalizeBarcodeMatches strips packaging noise for sea
   assert.strictEqual(matches[0].searchTitle, '90');
 }));
 
+results.push(run('barcode.normalizeBarcodeMatches strips combo-pack packaging noise for movie search titles', () => {
+  const matches = normalizeBarcodeMatches({
+    items: [
+      {
+        title: 'New Ghost in the Shell: The New Movie (Blu-ray + DVD)',
+        upc: '704400070808'
+      }
+    ]
+  });
+
+  assert.strictEqual(matches.length, 1);
+  assert.strictEqual(matches[0].searchTitle, 'New Ghost in the Shell: The New Movie');
+}));
+
+results.push(run('barcode.normalizeBarcodeMatches prefers explicit trailing author suffixes for omnibus-style book titles', () => {
+  const matches = normalizeBarcodeMatches({
+    items: [
+      {
+        title: 'Alpha Flight by John Byrne Omnibus [New Printing] - by John Byrne & Marvel Various (Hardcover)',
+        upc: '9781302952716',
+        publisher: 'Marvel Universe'
+      }
+    ]
+  });
+
+  assert.strictEqual(matches.length, 1);
+  assert.strictEqual(matches[0].normalizedTitle, 'Alpha Flight by John Byrne Omnibus [New Printing]');
+  assert.strictEqual(matches[0].typeDetails.author, 'John Byrne & Marvel Various');
+  assert.strictEqual(matches[0].typeDetails.format, 'Hardcover');
+  assert.strictEqual(matches[0].typeDetails.publisher, 'Marvel Universe');
+}));
+
+results.push(run('barcode.normalizeBarcodeMatches infers TV season box sets and strips season suffix for search', () => {
+  const matches = normalizeBarcodeMatches({
+    items: [
+      {
+        title: 'Dark Angel Season 2',
+        upc: '024543079491'
+      }
+    ]
+  });
+
+  assert.strictEqual(matches.length, 1);
+  assert.strictEqual(matches[0].mediaTypeGuess, 'tv_series');
+  assert.strictEqual(matches[0].searchTitle, 'Dark Angel');
+  assert.strictEqual(matches[0].typeDetails.season_number, 2);
+}));
+
 results.push(run('validate.simpleSearchSchema trims title and coerces year', () => {
   const parsed = simpleSearchSchema.parse({ title: '  Dune  ', year: '1984', mediaType: 'movie' });
   assert.deepStrictEqual(parsed, { title: 'Dune', year: 1984, mediaType: 'movie' });

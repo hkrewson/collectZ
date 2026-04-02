@@ -969,6 +969,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
   const [tmdbResults, setTmdbResults] = useState([]);
   const [tmdbLoading, setTmdbLoading] = useState(false);
   const [barcodeResults, setBarcodeResults] = useState([]);
+  const [barcodeError, setBarcodeError] = useState(null);
   const [barcodeLoading, setBarcodeLoading] = useState(false);
   const [barcodeCaptureLoading, setBarcodeCaptureLoading] = useState(false);
   const [typeEnrichResults, setTypeEnrichResults] = useState([]);
@@ -1133,16 +1134,22 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
   };
 
   const lookupBarcode = async (upcOverride = null) => {
-    const upc = normalizeBarcodeInput(upcOverride ?? form.upc);
+    const normalizedOverride = typeof upcOverride === 'string' || typeof upcOverride === 'number'
+      ? upcOverride
+      : null;
+    const upc = normalizeBarcodeInput(normalizedOverride ?? form.upc);
     if (!upc) { notify('Enter a UPC first', 'error'); return; }
     setBarcodeLoading(true);
     setBarcodeResults([]);
+    setBarcodeError(null);
     try {
       const data = await apiCall('post', '/media/lookup-upc', { upc, mediaType: form.media_type });
       setBarcodeResults(data.matches || []);
       if (!data.matches?.length) notify('No UPC matches found', 'error');
     } catch (e) {
-      notify(e.response?.data?.detail || 'UPC lookup failed', 'error');
+      const payload = e?.response?.data || null;
+      setBarcodeError(payload);
+      notify(payload?.error || payload?.detail || 'UPC lookup failed', 'error');
     } finally {
       setBarcodeLoading(false);
     }
@@ -1217,6 +1224,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
         book_publisher: bookTypeDetails?.publisher || match?.typeDetails?.publisher || form.book_publisher,
         book_edition: bookTypeDetails?.edition || match?.typeDetails?.format || form.book_edition
       });
+      setBarcodeError(null);
       setBarcodeResults([]);
       notify('Barcode data applied');
       return;
@@ -1246,6 +1254,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
         comic_cover_date: typeEnrichment.type_details?.cover_date || form.comic_cover_date,
         comic_provider_issue_id: typeEnrichment.type_details?.provider_issue_id || typeEnrichment.id || form.comic_provider_issue_id
       });
+      setBarcodeError(null);
       setBarcodeResults([]);
       notify('Barcode data applied');
       return;
@@ -1264,6 +1273,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
         audio_album: typeEnrichment.type_details?.album || typeEnrichment.title || form.audio_album || form.title,
         audio_track_count: typeEnrichment.type_details?.track_count ? String(typeEnrichment.type_details.track_count) : form.audio_track_count
       });
+      setBarcodeError(null);
       setBarcodeResults([]);
       notify('Barcode data applied');
       return;
@@ -1282,6 +1292,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
         game_developer: typeEnrichment.type_details?.developer || form.game_developer,
         game_region: typeEnrichment.type_details?.region || form.game_region
       });
+      setBarcodeError(null);
       setBarcodeResults([]);
       notify('Barcode data applied');
       return;
@@ -1317,6 +1328,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
       backdrop_path: tmdb?.backdrop_path || form.backdrop_path,
       runtime: details?.runtime || form.runtime
     });
+    setBarcodeError(null);
     setBarcodeResults([]);
     notify('Barcode data applied');
   };
@@ -1620,7 +1632,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
                 >
                   <Icons.Upload />Photo
                 </button>
-                <button type="button" onClick={lookupBarcode} disabled={barcodeLoading} className="btn-secondary btn-sm shrink-0 min-w-[100px]">
+                <button type="button" onClick={() => lookupBarcode()} disabled={barcodeLoading} className="btn-secondary btn-sm shrink-0 min-w-[100px]">
                   {barcodeLoading ? <Spinner size={14} /> : <><Icons.Barcode />Lookup</>}
                 </button>
               </div>
@@ -1708,6 +1720,27 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
                   </button>
                 ))}
               </div>
+            </div>
+          )}
+
+          {isBarcodeCapable && barcodeError && (
+            <div className="rounded-xl border border-err/30 bg-err/5 p-3 space-y-2">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="label text-err">Barcode lookup failed</p>
+                  <p className="text-sm text-ink">{barcodeError?.error || 'Unknown barcode lookup error'}</p>
+                  {barcodeError?.detail && <p className="text-xs text-ghost mt-1">{barcodeError.detail}</p>}
+                </div>
+                {barcodeError?.stage && <span className="badge badge-dim">{barcodeError.stage}</span>}
+              </div>
+              {barcodeError?.request && (
+                <div className="space-y-1">
+                  <p className="label">Request context</p>
+                  <pre className="rounded-lg bg-void/60 border border-edge p-2 text-xs text-ghost overflow-x-auto whitespace-pre-wrap break-all">
+{JSON.stringify(barcodeError.request, null, 2)}
+                  </pre>
+                </div>
+              )}
             </div>
           )}
 

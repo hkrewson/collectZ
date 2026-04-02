@@ -4494,7 +4494,11 @@ router.post('/lookup-upc', validate(upcLookupSchema), asyncHandler(async (req, r
       }
     } else if (match.title) {
       try {
-        const tmdbResults = await searchTmdbMovie(match.title, undefined, config);
+        const tmdbSearchType = effectiveMediaType === 'tv_series' || effectiveMediaType === 'tv_episode' || match.mediaTypeGuess === 'tv_series'
+          ? 'tv'
+          : 'movie';
+        const queryTitle = String(match?.searchTitle || match?.normalizedTitle || match?.title || '').trim();
+        const tmdbResults = await searchTmdbMovie(queryTitle, undefined, config, tmdbSearchType);
         tmdb = tmdbResults[0] || null;
       } catch (error) {
         if ((error?.status || 500) >= 400 && (error?.status || 500) < 500) {
@@ -4504,7 +4508,8 @@ router.post('/lookup-upc', validate(upcLookupSchema), asyncHandler(async (req, r
             stage: 'tmdb_enrichment',
             request: {
               mediaType: effectiveMediaType,
-              queryTitle: String(match?.title || '').trim()
+              tmdbType: effectiveMediaType === 'tv_series' || effectiveMediaType === 'tv_episode' || match.mediaTypeGuess === 'tv_series' ? 'tv' : 'movie',
+              queryTitle: String(match?.searchTitle || match?.normalizedTitle || match?.title || '').trim()
             }
           });
         }
