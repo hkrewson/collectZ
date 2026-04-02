@@ -1,9 +1,9 @@
-# Pre-2.8.6 Go/No-Go Preflight
+# Pre-2.9.0 Go/No-Go Preflight
 
-- Version: `2.8.6`
-- Date: `2026-03-30`
+- Version: `2.9.0`
+- Date: `2026-04-01`
 - Commit: local working tree
-- Scope: `2.8.6 — Events and Collectibles UX Alignment`
+- Scope: `2.9.0 — Assisted Capture and Barcode Completion`
 
 ## Gate Results
 
@@ -25,50 +25,17 @@
 
 ## Local Verification Notes
 
-- Version metadata was synchronized across root, backend, frontend, mirrored `app-meta` files, package manifests, and both lockfiles to `2.8.6`.
-- Release note [`docs/releases/v2.8.6.md`](/Users/hamlin/Development/GitHub/hkrewson/collectZ/docs/releases/v2.8.6.md) exists and includes the required release and security-triage sections.
-- Backend unit tests passed via:
-  - `node backend/scripts/unit-tests.js`
-- Frontend production build passed in Docker via:
-  - `docker run --rm -v "$PWD/frontend":/app -w /app node:20-alpine sh -lc "npm run build"`
-- OpenAPI validation passed in the running backend container.
-- Integration smoke passed against the running stack on the internal Docker network.
-- RBAC regression passed against the running local stack.
-- Cross-type isolation passed against the running local stack from inside the backend container using the existing local release-test admin account:
-  - `release-cross-type-admin-1774734793@example.com`
-- Production dependency audits passed with clean counts for backend and frontend:
-  - `low=0`
-  - `moderate=0`
-  - `high=0`
-  - `critical=0`
-- Init parity passed against the live compose-network Postgres and wrote fresh evidence to:
-  - `artifacts/init-parity-evidence/init-parity-evidence.json`
-- Migration rehearsal passed with baseline `46` and latest `47`, and wrote fresh evidence to:
-  - `artifacts/migration-rehearsal-evidence/migration-rehearsal-evidence.json`
-- Compose smoke passed against the live stack:
-  - `/api/health` returned `2.8.6`
-  - required security headers were present
-  - CSRF cookie was issued with `Secure` and `SameSite=Strict`
+- Version metadata has been bumped to `2.9.0` in root, backend, frontend, and package manifests.
+- Release note [`docs/releases/v2.9.0.md`](/Users/hamlin/Development/GitHub/hkrewson/collectZ/docs/releases/v2.9.0.md) exists and includes the required release and security-triage sections.
+- Running stack rebuilt with `APP_VERSION=2.9.0`; live `/api/health` reports `version=2.9.0`, `frontend=2.9.0`, `backend=2.9.0`.
+- Compose smoke checks passed against the running stack:
+  - frontend container healthy
+  - CSRF endpoint returned `200`
+  - CSRF cookie issued with `SameSite=Strict`
+  - security headers present, including `Strict-Transport-Security`, `X-Content-Type-Options`, and `X-Frame-Options`
   - unauthenticated `/api/auth/me` returned `401`
-- Gitleaks returned no findings and refreshed SARIF evidence:
-  - `artifacts/gitleaks-results.sarif`
-- Trivy critical image scans passed for:
-  - `mediavault-backend:latest`
-  - `mediavault-frontend:latest`
-- CycloneDX SBOM artifacts were regenerated locally for backend and frontend images:
-  - `artifacts/sbom-cyclonedx/backend-sbom.cdx.json`
-  - `artifacts/sbom-cyclonedx/frontend-sbom.cdx.json`
-- Runtime dependency policy passed:
-  - no `container_name`
-  - no Redis services or Redis env vars in compose/env docs
-  - no forbidden backend Redis dependencies
-
-## Local Tooling Notes
-
-- This release adds migration `47` for:
-  - `events.image_path`
-  - `collectibles.artist`
-- The milestone acceptance wording in the roadmap was updated during implementation so the documented milestone shape matches the shipped work instead of incorrectly claiming zero schema expansion.
+- Production dependency audit artifacts are clean for backend and frontend at `low=0`, `moderate=0`, `high=0`, `critical=0`.
+- Init parity, migration rehearsal, RBAC regression, cross-type isolation, secret scan, critical image scans, and CycloneDX SBOM generation all completed successfully.
 
 ## Evidence Artifacts
 
@@ -91,4 +58,4 @@ Release is NO-GO if any required gate fails or any required artifact is missing.
 
 ## Recommendation
 
-GO for commit/tag preparation for `v2.8.6`, subject to final maintainer review of the working tree and any last real-world usage feedback you want before tagging.
+GO for `v2.9.0`.
