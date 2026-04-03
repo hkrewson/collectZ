@@ -37,10 +37,11 @@ async function fetchCsrfToken(requestContext) {
   return token;
 }
 
-async function postWithCsrf(requestContext, pathName, body, expectedStatus = 200) {
+async function requestWithCsrf(requestContext, method, pathName, body, expectedStatus = 200) {
   const csrfToken = await fetchCsrfToken(requestContext);
-  const response = await requestContext.post(pathName, {
-    data: body,
+  const response = await requestContext.fetch(pathName, {
+    method,
+    ...(body !== undefined ? { data: body } : {}),
     headers: {
       'x-csrf-token': csrfToken
     }
@@ -50,6 +51,14 @@ async function postWithCsrf(requestContext, pathName, body, expectedStatus = 200
     throw new Error(`Expected ${expectedStatus} from ${pathName}, got ${response.status()}: ${text}`);
   }
   return response;
+}
+
+async function postWithCsrf(requestContext, pathName, body, expectedStatus = 200) {
+  return requestWithCsrf(requestContext, 'POST', pathName, body, expectedStatus);
+}
+
+async function patchWithCsrf(requestContext, pathName, body, expectedStatus = 200) {
+  return requestWithCsrf(requestContext, 'PATCH', pathName, body, expectedStatus);
 }
 
 async function createDirectAdminUser({ email, password, name }) {
@@ -190,7 +199,9 @@ module.exports = {
   PLAYWRIGHT_E2E_BYPASS_TOKEN,
   getPlaywrightBypassHeaders,
   fetchCsrfToken,
+  requestWithCsrf,
   postWithCsrf,
+  patchWithCsrf,
   ensureAuthenticatedAdminStorageState,
   ensureSavedAdminCredentials,
   createFreshAdminCredentials,

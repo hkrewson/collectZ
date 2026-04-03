@@ -1957,6 +1957,10 @@ Historical note:
   - authenticated admin session setup,
   - seeded test users where needed,
   - artifact capture for screenshots/videos/traces on failure.
+- Add screenshot-friendly browser ergonomics for support/help usage:
+  - named capture-mode runs distinct from failure artifacts,
+  - stable visual fixture seeding for selected support/admin surfaces,
+  - intentional screenshot outputs that can be reused for support-reference or docs drafting.
 - Cover the highest-value browser flows that are currently only inferred through API tests:
   - login/logout,
   - admin bootstrap and shell load,
@@ -1971,6 +1975,7 @@ Historical note:
 - The repo includes a runnable Playwright harness with documented local and CI invocation.
 - Browser regressions cover the most important auth/admin shell flows already shipped in `2.8.x`.
 - Failure output is useful enough for triage (trace/screenshot/video or equivalent artifacts).
+- The repo can intentionally generate stable named screenshots for selected support/admin surfaces without mixing auth bootstrap state into uploaded failure artifacts.
 - The release process can point to a browser-regression layer instead of only backend/API evidence for those flows.
 
 ## 2.9.5 — Playwright Critical Flow Expansion
@@ -1988,6 +1993,10 @@ Historical note:
   - support-session banner,
   - Integrations tabs/layout,
   - selected key admin drawers or tabbed panes.
+- Add maintainability ergonomics around the browser suite:
+  - light page/workspace helpers for repeated flows,
+  - a stable capture catalog for documentation/support visuals,
+  - keep seeded fixtures deterministic enough that UI evidence remains reusable over time.
 - Keep the suite intentionally small and stable:
   - avoid trying to test every backend rule through the browser,
   - reserve low-level logic for unit tests and policy/regression scripts.

@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "test:browser": "playwright test",
+    "test:browser:capture": "playwright test tests/playwright/specs/support-docs.capture.spec.js",
     "test:browser:headed": "playwright test --headed",
     "test:browser:ui": "playwright test --ui"
   },

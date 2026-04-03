@@ -476,6 +476,7 @@ results.push(run('frontend source includes tabbed help center and support inbox 
 
 results.push(run('repo includes 2.9.4 Playwright browser regression foundation harness', () => {
   assert.ok(rootPackageJson.scripts['test:browser']);
+  assert.ok(rootPackageJson.scripts['test:browser:capture']);
   assert.ok(rootPackageJson.devDependencies['@playwright/test']);
   assert.ok(playwrightConfigSource.includes("trace: 'retain-on-failure'"));
   assert.ok(playwrightConfigSource.includes("screenshot: 'only-on-failure'"));
