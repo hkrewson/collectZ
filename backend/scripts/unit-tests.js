@@ -431,6 +431,8 @@ results.push(run('support route source includes request creation, releases feed,
   assert.ok(supportRoutesSource.includes('formatSupportTimelineEvent'));
   assert.ok(supportRoutesSource.includes('buildDerivedExpiredSupportAccessEvent'));
   assert.ok(supportRoutesSource.includes('timelineResult'));
+  assert.ok(supportRoutesSource.includes('normalizeTrackedWorkLink'));
+  assert.ok(supportRoutesSource.includes('Linked engineering issue is now #'));
 }));
 
 results.push(run('frontend source includes tabbed help center and support inbox surfaces for 2.9.1 foundation work', () => {
@@ -458,6 +460,9 @@ results.push(run('frontend source includes tabbed help center and support inbox 
   assert.ok(helpViewSource.includes('History timeline'));
   assert.ok(helpViewSource.includes('Lifecycle, approval, and support-session events'));
   assert.ok(helpViewSource.includes('TimelineItem'));
+  assert.ok(helpViewSource.includes('Linked engineering work'));
+  assert.ok(helpViewSource.includes('Tracked work'));
+  assert.ok(helpViewSource.includes('effectiveRepoIssueUrl'));
   assert.ok(frontendAppSource.includes('supportBadgeCount'));
   assert.ok(frontendAppSource.includes('Requester:'));
   assert.ok(frontendAppSource.includes('Case:'));

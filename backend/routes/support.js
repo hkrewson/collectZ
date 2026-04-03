@@ -21,6 +21,7 @@ const {
 const router = express.Router();
 
 const SUPPORT_STAFF_ROLES = new Set(['admin', 'support_admin']);
+const DEFAULT_REPO_ISSUE_BASE_URL = 'https://github.com/hkrewson/collectZ/issues';
 const PUBLIC_SUPPORT_TIMELINE_ACTIONS = new Set([
   'support.request.created',
   'support.request.status.updated',
@@ -88,6 +89,36 @@ function formatSupportMessage(row) {
     author_email: row.author_email || null,
     body: row.body,
     created_at: row.created_at
+  };
+}
+
+function normalizeRepoIssueNumber(value) {
+  const numericValue = Number(value || 0);
+  if (!Number.isFinite(numericValue) || numericValue <= 0) return null;
+  return Math.trunc(numericValue);
+}
+
+function extractRepoIssueNumberFromUrl(value) {
+  const normalized = String(value || '').trim();
+  if (!normalized) return null;
+  const match = normalized.match(/\/issues\/(\d+)(?:\/)?(?:[#?].*)?$/i);
+  return match ? normalizeRepoIssueNumber(match[1]) : null;
+}
+
+function buildRepoIssueUrl(issueNumber) {
+  const normalizedNumber = normalizeRepoIssueNumber(issueNumber);
+  return normalizedNumber ? `${DEFAULT_REPO_ISSUE_BASE_URL}/${normalizedNumber}` : null;
+}
+
+function normalizeTrackedWorkLink({ repoIssueNumber, repoIssueUrl }) {
+  const normalizedUrl = String(repoIssueUrl || '').trim() || null;
+  let normalizedNumber = normalizeRepoIssueNumber(repoIssueNumber);
+  if (!normalizedNumber && normalizedUrl) {
+    normalizedNumber = extractRepoIssueNumberFromUrl(normalizedUrl);
+  }
+  return {
+    repoIssueNumber: normalizedNumber,
+    repoIssueUrl: normalizedUrl || buildRepoIssueUrl(normalizedNumber)
   };
 }
 
@@ -188,6 +219,15 @@ function buildSupportTrackingUpdateMessage(previousRequest, nextRequest) {
   if ((previousRequest.tracking_status || 'untracked') !== (nextRequest.tracking_status || 'untracked')) {
     const statusLabel = String(nextRequest.tracking_status || 'untracked').replace(/_/g, ' ');
     parts.push(`Tracking status is now ${statusLabel}.`);
+  }
+  if ((previousRequest.repo_issue_number || null) !== (nextRequest.repo_issue_number || null)) {
+    if (nextRequest.repo_issue_number) {
+      parts.push(`Linked engineering issue is now #${nextRequest.repo_issue_number}.`);
+    } else if (previousRequest.repo_issue_number) {
+      parts.push('Linked engineering issue was removed.');
+    }
+  } else if ((previousRequest.repo_issue_url || null) !== (nextRequest.repo_issue_url || null) && nextRequest.repo_issue_url) {
+    parts.push('Linked engineering issue URL was updated.');
   }
   if ((previousRequest.resolved_in_version || null) !== (nextRequest.resolved_in_version || null) && nextRequest.resolved_in_version) {
     parts.push(`This work shipped in ${nextRequest.resolved_in_version}.`);
@@ -823,15 +863,21 @@ router.patch('/requests/:id/triage', authenticateToken, requireSessionAuth, requ
     const nextInternalNotes = req.body.internal_notes === undefined
       ? (supportRequest.internal_notes || null)
       : req.body.internal_notes;
-    const nextRepoIssueNumber = req.body.repo_issue_number === undefined
+    const requestedRepoIssueNumber = req.body.repo_issue_number === undefined
       ? (supportRequest.repo_issue_number || null)
       : req.body.repo_issue_number;
-    const nextRepoIssueUrl = req.body.repo_issue_url === undefined
+    const requestedRepoIssueUrl = req.body.repo_issue_url === undefined
       ? (supportRequest.repo_issue_url || null)
       : req.body.repo_issue_url;
     const nextResolvedInVersion = req.body.resolved_in_version === undefined
       ? (supportRequest.resolved_in_version || null)
       : req.body.resolved_in_version;
+    const normalizedTrackedWork = normalizeTrackedWorkLink({
+      repoIssueNumber: requestedRepoIssueNumber,
+      repoIssueUrl: requestedRepoIssueUrl
+    });
+    const nextRepoIssueNumber = normalizedTrackedWork.repoIssueNumber;
+    const nextRepoIssueUrl = normalizedTrackedWork.repoIssueUrl;
 
     const result = await client.query(
       `UPDATE support_requests

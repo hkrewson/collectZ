@@ -60,6 +60,8 @@ const TRACKING_STATUS_OPTIONS = [
   { value: 'declined', label: 'Declined' }
 ];
 
+const DEFAULT_REPO_ISSUE_BASE_URL = 'https://github.com/hkrewson/collectZ/issues';
+
 function formatTimestamp(value) {
   if (!value) return 'Unknown';
   try {
@@ -89,6 +91,32 @@ function classificationLabel(value) {
 
 function trackingStatusLabel(value) {
   return TRACKING_STATUS_OPTIONS.find((option) => option.value === value)?.label || 'Untracked';
+}
+
+function effectiveRepoIssueUrl(request) {
+  if (request?.repo_issue_url) return request.repo_issue_url;
+  if (request?.repo_issue_number) return `${DEFAULT_REPO_ISSUE_BASE_URL}/${request.repo_issue_number}`;
+  return null;
+}
+
+function trackedWorkSummaryItems(request) {
+  if (!request) return [];
+  const items = [];
+  if (request.classification && request.classification !== 'support') {
+    items.push({ label: 'Type', value: classificationLabel(request.classification) });
+  }
+  if (request.tracking_status && request.tracking_status !== 'untracked') {
+    items.push({ label: 'Status', value: trackingStatusLabel(request.tracking_status) });
+  }
+  if (request.repo_issue_number) {
+    items.push({ label: 'Issue', value: `#${request.repo_issue_number}`, href: effectiveRepoIssueUrl(request) });
+  } else if (effectiveRepoIssueUrl(request)) {
+    items.push({ label: 'Issue', value: 'Linked issue', href: effectiveRepoIssueUrl(request) });
+  }
+  if (request.resolved_in_version) {
+    items.push({ label: 'Shipped', value: request.resolved_in_version });
+  }
+  return items;
 }
 
 function supportAccessDetailText(request) {
@@ -574,6 +602,7 @@ export default function HelpView({
     && selectedRequest.target_space_id
   );
   const activeSessionEvidence = sessionEvidenceRows(supportSession, selectedRequest);
+  const trackedWorkItems = trackedWorkSummaryItems(selectedRequest);
 
   const startApprovedSupportSession = async () => {
     if (!selectedRequest?.target_space_id) return;
@@ -973,6 +1002,30 @@ export default function HelpView({
                       {selectedRequest.request_key ? <span className="badge badge-dim">{selectedRequest.request_key}</span> : null}
                       <h2 className="text-base font-semibold text-ink truncate">{selectedRequest.subject}</h2>
                     </div>
+                    {trackedWorkItems.length ? (
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ghost">
+                        <span className="uppercase tracking-[0.14em] text-ghost">Tracked work</span>
+                        {trackedWorkItems.map((item) => (
+                          item.href ? (
+                            <a
+                              key={`${item.label}:${item.value}`}
+                              href={item.href}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1 text-ghost underline-offset-4 hover:text-ink hover:underline"
+                            >
+                              <span className="text-[11px] uppercase tracking-[0.14em] text-ghost">{item.label}</span>
+                              <span className="text-ink">{item.value}</span>
+                            </a>
+                          ) : (
+                            <span key={`${item.label}:${item.value}`} className="inline-flex items-center gap-1">
+                              <span className="text-[11px] uppercase tracking-[0.14em] text-ghost">{item.label}</span>
+                              <span className="text-ink">{item.value}</span>
+                            </span>
+                          )
+                        ))}
+                      </div>
+                    ) : null}
                     {selectedRequest.target_space_id && supportAccessDetailText(selectedRequest) ? (
                       <p className="text-xs text-ghost">{supportAccessDetailText(selectedRequest)}</p>
                     ) : null}
@@ -1119,6 +1172,40 @@ export default function HelpView({
                   <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-4 bg-abyss/40">
                     {selectedRequest ? (
                       <form className="space-y-4 max-w-3xl" onSubmit={saveTriage}>
+                        <div className="rounded-2xl border border-edge/70 bg-raised/18 px-4 py-3 space-y-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-xs uppercase tracking-[0.16em] text-ghost">Linked engineering work</p>
+                            {selectedRequest.request_key ? <span className="badge badge-dim text-[10px] normal-case tracking-normal">{selectedRequest.request_key}</span> : null}
+                          </div>
+                          <p className="text-sm text-ghost">
+                            Link a GitHub issue or mark a shipped version here so the support thread keeps a durable product trail for this request.
+                          </p>
+                          {trackedWorkItems.length ? (
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ghost">
+                              {trackedWorkItems.map((item) => (
+                                item.href ? (
+                                  <a
+                                    key={`triage:${item.label}:${item.value}`}
+                                    href={item.href}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center gap-1 underline-offset-4 hover:text-ink hover:underline"
+                                  >
+                                    <span className="uppercase tracking-[0.14em]">{item.label}</span>
+                                    <span className="text-ink">{item.value}</span>
+                                  </a>
+                                ) : (
+                                  <span key={`triage:${item.label}:${item.value}`} className="inline-flex items-center gap-1">
+                                    <span className="uppercase tracking-[0.14em]">{item.label}</span>
+                                    <span className="text-ink">{item.value}</span>
+                                  </span>
+                                )
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-ghost">No engineering issue is linked yet.</p>
+                          )}
+                        </div>
                         <div className="grid gap-3 md:grid-cols-2">
                           <label className="field">
                             <span className="label">Classification</span>
