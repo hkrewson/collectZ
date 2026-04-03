@@ -97,7 +97,7 @@ function supportAccessDetailText(request) {
     return `Expires ${formatTimestamp(request.support_access_expires_at)}`;
   }
   if (request.support_access_status === 'expired' && request.support_access_expires_at) {
-    return `Expired ${formatTimestamp(request.support_access_expires_at)}`;
+    return `Support access expired · Expired ${formatTimestamp(request.support_access_expires_at)}`;
   }
   if (request.support_access_status === 'revoked') {
     return 'Requester must approve again before tenant support can start.';
@@ -222,7 +222,6 @@ export default function HelpView({
   const [internalNoteDraft, setInternalNoteDraft] = useState('');
   const [triageSaving, setTriageSaving] = useState(false);
   const [accessSaving, setAccessSaving] = useState(false);
-  const [supportPanelTab, setSupportPanelTab] = useState('reply');
   const [staffQueueFilter, setStaffQueueFilter] = useState('active');
   const [staffClassificationFilter, setStaffClassificationFilter] = useState('all');
   const [staffSearchInput, setStaffSearchInput] = useState('');
@@ -382,7 +381,7 @@ export default function HelpView({
     const nextRequestId = Number(selectedRequest?.id || 0) || null;
     if (triageRequestIdRef.current === nextRequestId) return;
     triageRequestIdRef.current = nextRequestId;
-    setThreadViewTab('conversation');
+    setThreadViewTab(isSupportStaff ? 'reply' : 'conversation');
     setTriageForm({
       classification: selectedRequest?.classification || 'support',
       tracking_status: selectedRequest?.tracking_status || 'untracked',
@@ -391,7 +390,7 @@ export default function HelpView({
       resolved_in_version: selectedRequest?.resolved_in_version || ''
     });
     setInternalNoteDraft('');
-  }, [selectedRequest?.id, selectedRequest?.status, selectedRequest?.classification, selectedRequest?.tracking_status, selectedRequest?.repo_issue_number, selectedRequest?.repo_issue_url, selectedRequest?.resolved_in_version]);
+  }, [isSupportStaff, selectedRequest?.id, selectedRequest?.status, selectedRequest?.classification, selectedRequest?.tracking_status, selectedRequest?.repo_issue_number, selectedRequest?.repo_issue_url, selectedRequest?.resolved_in_version]);
 
   const submitRequest = async (event) => {
     event.preventDefault();
@@ -836,132 +835,27 @@ export default function HelpView({
               </section>
             ) : null}
 
-            {isSupportStaff ? (
-              <section className="panel p-3 space-y-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <h2 className="text-base font-semibold text-ink">Request controls</h2>
-                    <p className="text-xs text-ghost">{selectedRequest?.request_key ? `Working in ${selectedRequest.request_key}` : 'Select a request to reply or triage it.'}</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-1.5 rounded-2xl bg-raised/55 border border-edge/60 p-1">
-                  {[
-                    { id: 'reply', label: 'Reply' },
-                    { id: 'triage', label: 'Triage' }
-                  ].map((tab) => {
-                    const active = supportPanelTab === tab.id;
-                    return (
-                      <button
-                        key={tab.id}
-                        type="button"
-                        onClick={() => setSupportPanelTab(tab.id)}
-                        className={[
-                          'rounded-2xl px-3 py-2 text-sm font-medium transition',
-                          active
-                            ? 'bg-gold/14 border border-gold/35 text-ink'
-                            : 'border border-transparent text-ghost hover:text-ink hover:bg-raised/55'
-                        ].join(' ')}
-                      >
-                        {tab.label}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {supportPanelTab === 'reply' ? (
-                  selectedRequest && selectedRequest.status !== 'closed' ? (
-                    <form className="space-y-4" onSubmit={submitReply}>
-                      <div className="space-y-1">
-                        <h3 className="text-sm font-semibold text-ink">Reply to requester</h3>
-                        <p className="text-xs text-ghost">Send guidance, next steps, or a clarifying question without leaving the queue.</p>
-                      </div>
-                      <label className="field">
-                        <span className="label">Reply</span>
-                        <textarea
-                          className="input min-h-[140px]"
-                          value={replyBody}
-                          onChange={(event) => setReplyBody(event.target.value)}
-                          placeholder="Reply with guidance, next steps, or a clarifying question."
-                        />
-                      </label>
-                      <button type="submit" className="btn-primary" disabled={replying || !replyBody.trim()}>
-                        {replying ? <><Spinner size={14} />Sending…</> : <><Icons.Edit />Reply</>}
-                      </button>
-                    </form>
-                  ) : (
-                    <div className="rounded-3xl border border-dashed border-edge p-4 text-sm text-ghost">
-                      {selectedRequest
-                        ? 'This case is closed. Reopen it first if you need to send another support reply.'
-                        : 'Select a request from the queue to reply.'}
-                    </div>
-                  )
-                ) : selectedRequest ? (
-                  <form className="space-y-4" onSubmit={saveTriage}>
-                    <div className="grid gap-3 md:grid-cols-2">
-                      <label className="field">
-                        <span className="label">Classification</span>
-                        <select className="select" value={triageForm.classification} onChange={(event) => setTriageForm((prev) => ({ ...prev, classification: event.target.value }))}>
-                          {CLASSIFICATION_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                        </select>
-                      </label>
-                      <label className="field">
-                        <span className="label">Tracking Status</span>
-                        <select className="select" value={triageForm.tracking_status} onChange={(event) => setTriageForm((prev) => ({ ...prev, tracking_status: event.target.value }))}>
-                          {TRACKING_STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                        </select>
-                      </label>
-                    </div>
-                    <div className="grid gap-3 md:grid-cols-2">
-                      <label className="field">
-                        <span className="label">Repo Issue #</span>
-                        <input className="input font-mono" value={triageForm.repo_issue_number} onChange={(event) => setTriageForm((prev) => ({ ...prev, repo_issue_number: event.target.value }))} placeholder="123" />
-                      </label>
-                      <label className="field">
-                        <span className="label">Resolved In Version</span>
-                        <input className="input font-mono" value={triageForm.resolved_in_version} onChange={(event) => setTriageForm((prev) => ({ ...prev, resolved_in_version: event.target.value }))} placeholder="v2.9.2" />
-                      </label>
-                    </div>
-                    <label className="field">
-                      <span className="label">Repo Issue URL</span>
-                      <input className="input" value={triageForm.repo_issue_url} onChange={(event) => setTriageForm((prev) => ({ ...prev, repo_issue_url: event.target.value }))} placeholder="https://github.com/.../issues/123" />
-                    </label>
-                    <label className="field">
-                      <span className="label">New Internal Note</span>
-                      <textarea className="input min-h-[110px]" value={internalNoteDraft} onChange={(event) => setInternalNoteDraft(event.target.value)} placeholder="Save a staff-only note into the support thread without sending it to the requester." />
-                    </label>
-                    {selectedRequest?.internal_notes ? (
-                      <div className="rounded-3xl border border-edge bg-raised/30 p-4">
-                        <div className="flex items-center gap-2">
-                          <p className="text-xs uppercase tracking-[0.16em] text-ghost">Latest saved internal note</p>
-                          {selectedRequest.request_key ? <span className="badge badge-dim text-[10px] normal-case tracking-normal">{selectedRequest.request_key}</span> : null}
-                        </div>
-                        <p className="mt-2 text-sm text-ink whitespace-pre-wrap leading-6">{selectedRequest.internal_notes}</p>
-                      </div>
-                    ) : null}
-                    <button type="submit" className="btn-primary" disabled={triageSaving}>
-                      {triageSaving ? <><Spinner size={14} />Saving…</> : <><Icons.Check />Save triage</>}
-                    </button>
-                  </form>
-                ) : (
-                  <div className="rounded-3xl border border-dashed border-edge p-4 text-sm text-ghost">
-                    Select a request from the queue to classify it, add repo linkage, or save an internal note.
-                  </div>
-                )}
-              </section>
-            ) : null}
-
             <section className="panel p-3 space-y-3 min-h-[320px] xl:min-h-0 xl:flex-1 xl:flex xl:flex-col">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <h2 className="text-base font-semibold text-ink">Requests</h2>
-                  <p className="text-xs text-ghost">Support and product tracking stay together here.</p>
-                </div>
-                <button type="button" className="btn-secondary btn-sm" onClick={() => loadRequests()}>
-                  <Icons.Refresh />Refresh
-                </button>
-              </div>
               {isSupportStaff ? (
                 <div className="space-y-3">
+                  <div className="grid gap-2 grid-cols-2 xl:grid-cols-4">
+                    <div className="rounded-2xl border border-edge/60 bg-raised/18 px-3 py-2">
+                      <p className="text-[11px] uppercase tracking-[0.14em] text-ghost">Open</p>
+                      <p className="mt-1 text-base font-semibold text-ink">{supportSummary?.open || 0}</p>
+                    </div>
+                    <div className="rounded-2xl border border-edge/60 bg-raised/18 px-3 py-2">
+                      <p className="text-[11px] uppercase tracking-[0.14em] text-ghost">Answered</p>
+                      <p className="mt-1 text-base font-semibold text-ink">{supportSummary?.answered || 0}</p>
+                    </div>
+                    <div className="rounded-2xl border border-edge/60 bg-raised/18 px-3 py-2">
+                      <p className="text-[11px] uppercase tracking-[0.14em] text-ghost">Bugs</p>
+                      <p className="mt-1 text-base font-semibold text-ink">{supportSummary?.bugs || 0}</p>
+                    </div>
+                    <div className="rounded-2xl border border-edge/60 bg-raised/18 px-3 py-2">
+                      <p className="text-[11px] uppercase tracking-[0.14em] text-ghost">Features</p>
+                      <p className="mt-1 text-base font-semibold text-ink">{supportSummary?.features || 0}</p>
+                    </div>
+                  </div>
                   <div className="grid grid-cols-3 gap-1.5 rounded-2xl bg-raised/55 border border-edge/60 p-1">
                     {[
                       { id: 'active', label: 'Active' },
@@ -1044,7 +938,9 @@ export default function HelpView({
                             </p>
                             {isSupportStaff ? (
                               <div className="flex flex-wrap items-center gap-2 pt-1">
-                                <span className="text-[11px] uppercase tracking-[0.14em] text-ghost">{classificationLabel(request.classification)}</span>
+                                {request.classification && request.classification !== 'support' ? (
+                                  <span className="text-[11px] uppercase tracking-[0.14em] text-ghost">{classificationLabel(request.classification)}</span>
+                                ) : null}
                                 {request.tracking_status && request.tracking_status !== 'untracked' ? <span className="text-[11px] uppercase tracking-[0.14em] text-ghost">{trackingStatusLabel(request.tracking_status)}</span> : null}
                               </div>
                             ) : null}
@@ -1071,22 +967,6 @@ export default function HelpView({
               <div className="flex-1 flex items-center justify-center gap-3 text-dim"><Spinner />Loading support conversation…</div>
             ) : selectedRequest ? (
               <>
-                {isSupportStaff ? (
-                  <div className="border-b border-edge bg-raised/15 px-4 py-2.5">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex flex-wrap items-center gap-3 text-xs text-ghost">
-                        <span className="font-semibold uppercase tracking-[0.16em] text-ghost/80">Queue</span>
-                        <span className="text-[11px] uppercase tracking-[0.14em] text-ghost">Open {supportSummary?.open || 0}</span>
-                        <span className="text-[11px] uppercase tracking-[0.14em] text-ghost">Answered {supportSummary?.answered || 0}</span>
-                        <span className="text-[11px] uppercase tracking-[0.14em] text-ghost">Bugs {supportSummary?.bugs || 0}</span>
-                        <span className="text-[11px] uppercase tracking-[0.14em] text-ghost">Features {supportSummary?.features || 0}</span>
-                      </div>
-                      <button type="button" className="btn-secondary btn-sm" onClick={() => onSupportSummaryRefresh?.()}>
-                        <Icons.Refresh />Refresh
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
                 <div className="border-b border-edge px-4 py-2.5 bg-raised/25 flex flex-wrap items-center justify-between gap-3">
                   <div className="min-w-0 space-y-0.5">
                     <div className="flex flex-wrap items-center gap-2 min-w-0">
@@ -1119,9 +999,6 @@ export default function HelpView({
                         <Icons.X />End Session
                       </button>
                     ) : null}
-                    <button type="button" className="btn-secondary btn-sm" onClick={() => loadRequestDetail(selectedRequestId)}>
-                      <Icons.Refresh />Refresh
-                    </button>
                     {selectedRequest.status !== 'closed' ? (
                       <button type="button" className="btn-secondary btn-sm" disabled={closing} onClick={() => updateRequestStatus('closed')}>
                         {closing ? <><Spinner size={14} />Closing…</> : <><Icons.Check />{isSupportStaff ? 'Close Case' : 'Close'}</>}
@@ -1152,10 +1029,19 @@ export default function HelpView({
                 ) : null}
                 <div className="border-b border-edge bg-raised/10 px-4 py-2.5">
                   <div className="flex items-center justify-between gap-3">
-                    <div className="grid grid-cols-2 gap-1.5 rounded-2xl bg-raised/55 border border-edge/60 p-1">
+                    <div className={`grid ${isSupportStaff ? 'grid-cols-4' : 'grid-cols-2'} gap-1.5 rounded-2xl bg-raised/55 border border-edge/60 p-1`}>
                       {[
-                        { id: 'conversation', label: 'Conversation' },
-                        { id: 'history', label: `History${timeline.length ? ` (${timeline.length})` : ''}` }
+                        ...(isSupportStaff
+                          ? [
+                              { id: 'conversation', label: 'Conversation' },
+                              { id: 'reply', label: 'Reply' },
+                              { id: 'triage', label: 'Triage' },
+                              { id: 'history', label: `History${timeline.length ? ` (${timeline.length})` : ''}` }
+                            ]
+                          : [
+                              { id: 'conversation', label: 'Conversation' },
+                              { id: 'history', label: `History${timeline.length ? ` (${timeline.length})` : ''}` }
+                            ])
                       ].map((tab) => {
                         const active = threadViewTab === tab.id;
                         return (
@@ -1180,6 +1066,10 @@ export default function HelpView({
                         <p className="text-[11px] font-medium text-ghost">History timeline</p>
                         <p className="text-[11px] text-ghost">Lifecycle, approval, and support-session events for this request.</p>
                       </div>
+                    ) : threadViewTab === 'reply' ? (
+                      <p className="text-[11px] text-ghost">Reply to the selected requester without leaving the active case.</p>
+                    ) : threadViewTab === 'triage' ? (
+                      <p className="text-[11px] text-ghost">Classify, track, and add internal notes on the selected case.</p>
                     ) : null}
                   </div>
                 </div>
@@ -1193,6 +1083,90 @@ export default function HelpView({
                     ) : (
                       <div className="rounded-2xl border border-dashed border-edge px-4 py-4 text-sm text-ghost">
                         No timeline events have been recorded for this request yet.
+                      </div>
+                    )}
+                  </div>
+                ) : threadViewTab === 'reply' && isSupportStaff ? (
+                  <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-4 bg-abyss/40">
+                    {selectedRequest && selectedRequest.status !== 'closed' ? (
+                      <form className="space-y-4 max-w-3xl" onSubmit={submitReply}>
+                        <div className="space-y-1">
+                          <h3 className="text-sm font-semibold text-ink">Reply to requester</h3>
+                          <p className="text-xs text-ghost">Send guidance, next steps, or a clarifying question without leaving the selected case.</p>
+                        </div>
+                        <label className="field">
+                          <span className="label">Reply</span>
+                          <textarea
+                            className="input min-h-[180px]"
+                            value={replyBody}
+                            onChange={(event) => setReplyBody(event.target.value)}
+                            placeholder="Reply with guidance, next steps, or a clarifying question."
+                          />
+                        </label>
+                        <button type="submit" className="btn-primary" disabled={replying || !replyBody.trim()}>
+                          {replying ? <><Spinner size={14} />Sending…</> : <><Icons.Edit />Reply</>}
+                        </button>
+                      </form>
+                    ) : (
+                      <div className="rounded-3xl border border-dashed border-edge p-4 text-sm text-ghost">
+                        {selectedRequest
+                          ? 'This case is closed. Reopen it first if you need to send another support reply.'
+                          : 'Select a request from the queue to reply.'}
+                      </div>
+                    )}
+                  </div>
+                ) : threadViewTab === 'triage' && isSupportStaff ? (
+                  <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-4 bg-abyss/40">
+                    {selectedRequest ? (
+                      <form className="space-y-4 max-w-3xl" onSubmit={saveTriage}>
+                        <div className="grid gap-3 md:grid-cols-2">
+                          <label className="field">
+                            <span className="label">Classification</span>
+                            <select className="select" value={triageForm.classification} onChange={(event) => setTriageForm((prev) => ({ ...prev, classification: event.target.value }))}>
+                              {CLASSIFICATION_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                            </select>
+                          </label>
+                          <label className="field">
+                            <span className="label">Tracking Status</span>
+                            <select className="select" value={triageForm.tracking_status} onChange={(event) => setTriageForm((prev) => ({ ...prev, tracking_status: event.target.value }))}>
+                              {TRACKING_STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                            </select>
+                          </label>
+                        </div>
+                        <div className="grid gap-3 md:grid-cols-2">
+                          <label className="field">
+                            <span className="label">Repo Issue #</span>
+                            <input className="input font-mono" value={triageForm.repo_issue_number} onChange={(event) => setTriageForm((prev) => ({ ...prev, repo_issue_number: event.target.value }))} placeholder="123" />
+                          </label>
+                          <label className="field">
+                            <span className="label">Resolved In Version</span>
+                            <input className="input font-mono" value={triageForm.resolved_in_version} onChange={(event) => setTriageForm((prev) => ({ ...prev, resolved_in_version: event.target.value }))} placeholder="v2.9.2" />
+                          </label>
+                        </div>
+                        <label className="field">
+                          <span className="label">Repo Issue URL</span>
+                          <input className="input" value={triageForm.repo_issue_url} onChange={(event) => setTriageForm((prev) => ({ ...prev, repo_issue_url: event.target.value }))} placeholder="https://github.com/.../issues/123" />
+                        </label>
+                        <label className="field">
+                          <span className="label">New Internal Note</span>
+                          <textarea className="input min-h-[110px]" value={internalNoteDraft} onChange={(event) => setInternalNoteDraft(event.target.value)} placeholder="Save a staff-only note into the support thread without sending it to the requester." />
+                        </label>
+                        {selectedRequest?.internal_notes ? (
+                          <div className="rounded-3xl border border-edge bg-raised/30 p-4">
+                            <div className="flex items-center gap-2">
+                              <p className="text-xs uppercase tracking-[0.16em] text-ghost">Latest saved internal note</p>
+                              {selectedRequest.request_key ? <span className="badge badge-dim text-[10px] normal-case tracking-normal">{selectedRequest.request_key}</span> : null}
+                            </div>
+                            <p className="mt-2 text-sm text-ink whitespace-pre-wrap leading-6">{selectedRequest.internal_notes}</p>
+                          </div>
+                        ) : null}
+                        <button type="submit" className="btn-primary" disabled={triageSaving}>
+                          {triageSaving ? <><Spinner size={14} />Saving…</> : <><Icons.Check />Save triage</>}
+                        </button>
+                      </form>
+                    ) : (
+                      <div className="rounded-3xl border border-dashed border-edge p-4 text-sm text-ghost">
+                        Select a request from the queue to classify it, add repo linkage, or save an internal note.
                       </div>
                     )}
                   </div>
