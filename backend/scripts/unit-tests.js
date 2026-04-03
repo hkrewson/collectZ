@@ -369,6 +369,9 @@ results.push(run('support route source includes request creation, releases feed,
   assert.ok(supportRoutesSource.includes("router.get('/staff/summary'"));
   assert.ok(supportRoutesSource.includes('loadReleaseNotesFeed'));
   assert.ok(supportRoutesSource.includes('support.request.access.updated'));
+  assert.ok(supportRoutesSource.includes('normalizeSupportQueueFilter'));
+  assert.ok(supportRoutesSource.includes('normalizeSupportClassificationFilter'));
+  assert.ok(supportRoutesSource.includes('req.query.q'));
 }));
 
 results.push(run('frontend source includes tabbed help center and support inbox surfaces for 2.9.1 foundation work', () => {
@@ -386,6 +389,9 @@ results.push(run('frontend source includes tabbed help center and support inbox 
   assert.ok(helpViewSource.includes('Approve Support Access'));
   assert.ok(helpViewSource.includes('Revoke Support Access'));
   assert.ok(helpViewSource.includes('Start Approved Support Session'));
+  assert.ok(helpViewSource.includes('Search queue'));
+  assert.ok(helpViewSource.includes('All classes'));
+  assert.ok(helpViewSource.includes('Completed'));
   assert.ok(frontendAppSource.includes('supportBadgeCount'));
   assert.ok(helpViewSource.includes('Reply to Support'));
 }));

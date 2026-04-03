@@ -1,6 +1,51 @@
 {
   "releases": [
     {
+      "title": "v2.9.2",
+      "version": "2.9.2",
+      "date": "2026-04-02",
+      "status": "Completed",
+      "summary": "This release finishes the support workflow move from a loosely administrative action into a request-driven, explicitly approved support model. It ships the support foundations introduced during `2.9.1`, including the in-app Help center, Help Admin, release-note visibility, and support triage, then completes the `2.9.2` consent and session work by linking support sessions to approved requests, limiting `support_admin` tenant access to approved request context, and making the support UI easier to operate with clearer request identity, chat-style history, and compact operational controls.",
+      "details": [
+        {
+          "heading": "Help center and Help Admin foundations",
+          "bullets": [
+            "Added the tabbed in-app Help experience with:",
+            "Added a dedicated Help Admin staff surface that unifies support reply and triage work instead of splitting it across separate admin views.",
+            "Added lightweight in-app release notes so users can see recent shipped changes without leaving the product.",
+            "Added queue badges and clearer support request identity with visible `SUP-######` request keys."
+          ]
+        },
+        {
+          "heading": "Support requests, triage, and user-visible status",
+          "bullets": [
+            "Added first-class support request creation and threaded replies.",
+            "Added staff triage controls for:",
+            "Added staff-only internal notes that save inline with the thread while remaining hidden from the requester.",
+            "Added support-side close and requester-side reopen actions so case lifecycle does not depend on one side remembering to resolve it."
+          ]
+        },
+        {
+          "heading": "Consent and request-linked support access",
+          "bullets": [
+            "Added explicit requester approval and revocation controls for support access on support requests.",
+            "Support access approval now creates clear in-thread system history instead of relying on out-of-band assumptions.",
+            "`support_admin` support-session starts are now request-linked and approval-gated:",
+            "Active support sessions now carry request identity so the authorized request stays visible during the session lifecycle.",
+            "`admin` retains the broader break-glass path as a separate operator capability."
+          ]
+        },
+        {
+          "heading": "Help Admin operations UX",
+          "bullets": [
+            "Help Admin now supports a denser operator workflow:",
+            "Guidance no longer mixes in redundant workload chrome for support staff.",
+            "Queue context now appears above the conversation thread so the thread column holds both operational context and the active case discussion."
+          ]
+        }
+      ]
+    },
+    {
       "title": "v2.9.0",
       "version": "2.9.0",
       "date": "2026-04-01",
@@ -206,14 +251,6 @@
       "date": "2026-03-20",
       "status": "Completed",
       "summary": "This patch release takes the last clearly isolated low-risk Dependabot PR from the open `2.7.x` queue: the direct frontend `postcss` bump. It refreshes the direct frontend CSS tooling dependency without attempting to force the remaining CRA-owned `resolve-url-loader -> postcss` advisory path through another patch-level workaround.",
-      "details": []
-    },
-    {
-      "title": "v2.7.4",
-      "version": "2.7.4",
-      "date": "2026-03-20",
-      "status": "Completed",
-      "summary": "This patch release batches the low-risk open maintenance PRs that fit the active `2.7.x` line. It updates safe runtime dependencies on the backend and frontend, refreshes the PostgreSQL client library on the backend, and advances the GitHub Actions workflow references used for Docker publishing, artifact handling, and build metadata without pulling any major framework or toolchain upgrades into the release.",
       "details": []
     }
   ]

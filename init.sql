@@ -856,5 +856,8 @@ INSERT INTO schema_migrations (version, description) VALUES
     (47, 'Add event image and collectible artist fields for first-class object presentation'),
     (48, 'Add support admin role and support request foundation tables'),
     (49, 'Add support request triage and tracking fields'),
-    (50, 'Add staff-only support thread note visibility')
+    (50, 'Add staff-only support thread note visibility'),
+    (51, 'Add explicit support request access approval state'),
+    (52, 'Link support sessions to approved support requests'),
+    (53, 'Add support request updated_at trigger parity')
 ON CONFLICT (version) DO NOTHING;

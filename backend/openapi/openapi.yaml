@@ -1135,6 +1135,32 @@
           { "cookieSession": [] },
           { "bearerAuth": [] }
         ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "schema": { "type": "string", "enum": ["open", "answered", "closed"] },
+            "description": "Optional exact status filter. Primarily useful for requester views."
+          },
+          {
+            "in": "query",
+            "name": "queue",
+            "schema": { "type": "string", "enum": ["active", "completed", "all"] },
+            "description": "Support staff only. Filter requests into active, completed, or all queue views."
+          },
+          {
+            "in": "query",
+            "name": "classification",
+            "schema": { "type": "string", "enum": ["support", "bug", "feature_request", "all"] },
+            "description": "Support staff only. Filter the queue by classification."
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "schema": { "type": "string", "maxLength": 200 },
+            "description": "Support staff only. Case-insensitive search across request subject, requester, target space or library, and SUP request key."
+          }
+        ],
         "responses": {
           "200": {
             "description": "Support request list",

@@ -2422,6 +2422,20 @@ const MIGRATIONS = [
         ON user_sessions(support_request_id)
         WHERE support_request_id IS NOT NULL;
     `
+  },
+  {
+    version: 53,
+    description: 'Add support request updated_at trigger parity',
+    up: `
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_support_requests_updated_at') THEN
+          CREATE TRIGGER update_support_requests_updated_at BEFORE UPDATE ON support_requests
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+        END IF;
+      END;
+      $$;
+    `
   }
 ];
 

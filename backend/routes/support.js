@@ -102,6 +102,22 @@ function buildSupportAccessUpdateMessage(nextStatus) {
   return '';
 }
 
+function normalizeSupportQueueFilter(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (['active', 'completed', 'all'].includes(normalized)) return normalized;
+  return '';
+}
+
+function normalizeSupportClassificationFilter(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (['support', 'bug', 'feature_request', 'all'].includes(normalized)) return normalized;
+  return '';
+}
+
+function escapeLikePattern(value) {
+  return String(value || '').replace(/[\\%_]/g, '\\$&');
+}
+
 router.get('/releases', authenticateToken, asyncHandler(async (req, res) => {
   const requestedLimit = Number(req.query.limit || 5);
   const limit = Math.max(1, Math.min(10, Number.isFinite(requestedLimit) ? requestedLimit : 5));
@@ -164,6 +180,34 @@ router.get('/requests', authenticateToken, asyncHandler(async (req, res) => {
   if (status && ['open', 'answered', 'closed'].includes(status)) {
     params.push(status);
     where.push(`sr.status = $${params.length}`);
+  }
+
+  if (supportStaff) {
+    const queue = normalizeSupportQueueFilter(req.query.queue);
+    if (queue === 'active') {
+      where.push(`sr.status IN ('open', 'answered')`);
+    } else if (queue === 'completed') {
+      where.push(`sr.status = 'closed'`);
+    }
+
+    const classification = normalizeSupportClassificationFilter(req.query.classification);
+    if (classification && classification !== 'all') {
+      params.push(classification);
+      where.push(`sr.classification = $${params.length}`);
+    }
+
+    const search = String(req.query.q || '').trim();
+    if (search) {
+      params.push(`%${escapeLikePattern(search)}%`);
+      where.push(`(
+        sr.subject ILIKE $${params.length} ESCAPE '\\'
+        OR requester.name ILIKE $${params.length} ESCAPE '\\'
+        OR requester.email ILIKE $${params.length} ESCAPE '\\'
+        OR target_space.name ILIKE $${params.length} ESCAPE '\\'
+        OR target_library.name ILIKE $${params.length} ESCAPE '\\'
+        OR ('SUP-' || LPAD(sr.id::text, 6, '0')) ILIKE $${params.length} ESCAPE '\\'
+      )`);
+    }
   }
 
   const query = `

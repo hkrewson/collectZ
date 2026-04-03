@@ -185,6 +185,10 @@ export default function HelpView({
   const [triageSaving, setTriageSaving] = useState(false);
   const [accessSaving, setAccessSaving] = useState(false);
   const [supportPanelTab, setSupportPanelTab] = useState('reply');
+  const [staffQueueFilter, setStaffQueueFilter] = useState('active');
+  const [staffClassificationFilter, setStaffClassificationFilter] = useState('all');
+  const [staffSearchInput, setStaffSearchInput] = useState('');
+  const [staffSearchQuery, setStaffSearchQuery] = useState('');
   const threadEndRef = useRef(null);
   const triageRequestIdRef = useRef(null);
   const isSupportStaff = ['admin', 'support_admin'].includes(String(user?.role || ''));
@@ -223,10 +227,24 @@ export default function HelpView({
     return parts.length ? parts.join(' / ') : null;
   }, []);
 
+  useEffect(() => {
+    if (!isSupportStaff) return undefined;
+    const timeoutId = window.setTimeout(() => {
+      setStaffSearchQuery(staffSearchInput.trim());
+    }, 250);
+    return () => window.clearTimeout(timeoutId);
+  }, [isSupportStaff, staffSearchInput]);
+
   const loadRequests = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
     try {
-      const payload = await apiCall('get', '/support/requests');
+      const params = new URLSearchParams();
+      if (isSupportStaff) {
+        if (staffQueueFilter && staffQueueFilter !== 'all') params.set('queue', staffQueueFilter);
+        if (staffClassificationFilter && staffClassificationFilter !== 'all') params.set('classification', staffClassificationFilter);
+        if (staffSearchQuery) params.set('q', staffSearchQuery);
+      }
+      const payload = await apiCall('get', `/support/requests${params.toString() ? `?${params.toString()}` : ''}`);
       const nextRequests = Array.isArray(payload?.requests) ? payload.requests : [];
       setRequests(nextRequests);
       setSelectedRequestId((prev) => {
@@ -242,7 +260,7 @@ export default function HelpView({
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [apiCall, onToast]);
+  }, [apiCall, isSupportStaff, onToast, staffClassificationFilter, staffQueueFilter, staffSearchQuery]);
 
   const loadRequestDetail = useCallback(async (requestId, { silent = false } = {}) => {
     if (!requestId) {
@@ -711,37 +729,7 @@ export default function HelpView({
       {activeTab === 'support' ? (
         <div className="grid gap-4 xl:grid-cols-[minmax(320px,0.8fr)_minmax(0,1.2fr)] xl:h-[calc(100vh-15.5rem)]">
           <div className="space-y-4 xl:min-h-0 xl:flex xl:flex-col">
-            {isSupportStaff ? (
-              <section className="panel p-4 space-y-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <h2 className="text-base font-semibold text-ink">Queue summary</h2>
-                    <p className="text-xs text-ghost">Support and product triage live together here now.</p>
-                  </div>
-                  <button type="button" className="btn-secondary btn-sm" onClick={() => onSupportSummaryRefresh?.()}>
-                    <Icons.Refresh />Refresh
-                  </button>
-                </div>
-                <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                  <div className="rounded-2xl border border-edge bg-raised/35 px-3 py-2.5">
-                    <p className="text-[11px] uppercase tracking-[0.16em] text-ghost">Open</p>
-                    <p className="mt-1 text-lg font-semibold text-ink">{supportSummary?.open || 0}</p>
-                  </div>
-                  <div className="rounded-2xl border border-edge bg-raised/35 px-3 py-2.5">
-                    <p className="text-[11px] uppercase tracking-[0.16em] text-ghost">Answered</p>
-                    <p className="mt-1 text-lg font-semibold text-ink">{supportSummary?.answered || 0}</p>
-                  </div>
-                  <div className="rounded-2xl border border-edge bg-raised/35 px-3 py-2.5">
-                    <p className="text-[11px] uppercase tracking-[0.16em] text-ghost">Bugs</p>
-                    <p className="mt-1 text-lg font-semibold text-ink">{supportSummary?.bugs || 0}</p>
-                  </div>
-                  <div className="rounded-2xl border border-edge bg-raised/35 px-3 py-2.5">
-                    <p className="text-[11px] uppercase tracking-[0.16em] text-ghost">Features</p>
-                    <p className="mt-1 text-lg font-semibold text-ink">{supportSummary?.features || 0}</p>
-                  </div>
-                </div>
-              </section>
-            ) : shouldShowReplyComposer ? (
+            {!isSupportStaff && shouldShowReplyComposer ? (
               <section className="panel p-5 space-y-4">
                 <div className="space-y-1">
                   <h2 className="text-lg font-semibold text-ink">Reply to Support</h2>
@@ -762,7 +750,7 @@ export default function HelpView({
                   </button>
                 </form>
               </section>
-            ) : (
+            ) : !isSupportStaff ? (
               <section className="panel p-5 space-y-4">
                 <div className="space-y-1">
                   <h2 className="text-lg font-semibold text-ink">Ask for help</h2>
@@ -794,7 +782,7 @@ export default function HelpView({
                   </button>
                 </form>
               </section>
-            )}
+            ) : null}
 
             {isSupportStaff ? (
               <section className="panel p-4 space-y-4">
@@ -920,11 +908,63 @@ export default function HelpView({
                   <Icons.Refresh />Refresh
                 </button>
               </div>
+              {isSupportStaff ? (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-3 gap-2 rounded-2xl bg-raised/55 border border-edge/60 p-1.5">
+                    {[
+                      { id: 'active', label: 'Active' },
+                      { id: 'completed', label: 'Completed' },
+                      { id: 'all', label: 'All' }
+                    ].map((option) => {
+                      const active = staffQueueFilter === option.id;
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          onClick={() => setStaffQueueFilter(option.id)}
+                          className={[
+                            'rounded-2xl px-3 py-2 text-xs font-medium transition',
+                            active
+                              ? 'bg-gold/20 border border-gold/35 text-ink shadow-soft'
+                              : 'border border-transparent text-ghost hover:text-ink hover:bg-raised/80'
+                          ].join(' ')}
+                        >
+                          {option.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_180px]">
+                    <label className="field">
+                      <span className="label">Search queue</span>
+                      <input
+                        className="input"
+                        value={staffSearchInput}
+                        onChange={(event) => setStaffSearchInput(event.target.value)}
+                        placeholder="Subject, requester, space, library, or SUP-#"
+                      />
+                    </label>
+                    <label className="field">
+                      <span className="label">Classification</span>
+                      <select
+                        className="select"
+                        value={staffClassificationFilter}
+                        onChange={(event) => setStaffClassificationFilter(event.target.value)}
+                      >
+                        <option value="all">All classes</option>
+                        {CLASSIFICATION_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                </div>
+              ) : null}
               {loading ? (
                 <div className="flex items-center gap-3 text-dim"><Spinner />Loading support requests…</div>
               ) : requests.length === 0 ? (
                 <div className="rounded-3xl border border-dashed border-edge p-6 text-sm text-ghost text-center">
-                  No support requests yet.
+                  {isSupportStaff ? 'No requests match the current queue filters.' : 'No support requests yet.'}
                 </div>
               ) : (
                 <div className="space-y-2 xl:min-h-0 xl:flex-1 xl:overflow-y-auto pr-1">
@@ -977,6 +1017,37 @@ export default function HelpView({
               <div className="flex-1 flex items-center justify-center gap-3 text-dim"><Spinner />Loading support conversation…</div>
             ) : selectedRequest ? (
               <>
+                {isSupportStaff ? (
+                  <div className="border-b border-edge bg-raised/15 px-5 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <h2 className="text-base font-semibold text-ink">Queue summary</h2>
+                        <p className="text-xs text-ghost">Support and product triage live together here now.</p>
+                      </div>
+                      <button type="button" className="btn-secondary btn-sm" onClick={() => onSupportSummaryRefresh?.()}>
+                        <Icons.Refresh />Refresh
+                      </button>
+                    </div>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                      <div className="rounded-2xl border border-edge bg-raised/35 px-3 py-2.5">
+                        <p className="text-[11px] uppercase tracking-[0.16em] text-ghost">Open</p>
+                        <p className="mt-1 text-lg font-semibold text-ink">{supportSummary?.open || 0}</p>
+                      </div>
+                      <div className="rounded-2xl border border-edge bg-raised/35 px-3 py-2.5">
+                        <p className="text-[11px] uppercase tracking-[0.16em] text-ghost">Answered</p>
+                        <p className="mt-1 text-lg font-semibold text-ink">{supportSummary?.answered || 0}</p>
+                      </div>
+                      <div className="rounded-2xl border border-edge bg-raised/35 px-3 py-2.5">
+                        <p className="text-[11px] uppercase tracking-[0.16em] text-ghost">Bugs</p>
+                        <p className="mt-1 text-lg font-semibold text-ink">{supportSummary?.bugs || 0}</p>
+                      </div>
+                      <div className="rounded-2xl border border-edge bg-raised/35 px-3 py-2.5">
+                        <p className="text-[11px] uppercase tracking-[0.16em] text-ghost">Features</p>
+                        <p className="mt-1 text-lg font-semibold text-ink">{supportSummary?.features || 0}</p>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
                 <div className="border-b border-edge px-5 py-4 bg-raised/25 flex flex-wrap items-start justify-between gap-3">
                   <div className="space-y-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
