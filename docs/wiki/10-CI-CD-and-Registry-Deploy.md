@@ -56,6 +56,7 @@ Security and release gates in CI:
 - Secret leak scan (gitleaks) against repository history and current tree.
 - Dependency vulnerability scan (`npm audit`) on backend/frontend dependencies.
 - RBAC regression gate (API-level ownership/role/scope allow-deny checks).
+- Playwright browser-regression gate against the live compose stack for key auth/admin shell flows.
 - OpenAPI contract validation gate for key auth/admin/media endpoints.
 - Container image vulnerability scan (Trivy) for backend/frontend images.
 - SBOM generation (CycloneDX JSON) for backend/frontend images, uploaded as CI artifacts.
@@ -68,6 +69,17 @@ Security and release gates in CI:
   - security headers (`x-content-type-options`, `x-frame-options`, `strict-transport-security`) are present,
   - CSRF/session cookies are issued with secure attributes (`Secure`, `SameSite=Strict`, and `HttpOnly` for session),
   - unauthenticated `/api/auth/me` returns `401`.
+
+Playwright packaging boundary:
+
+- The root-level Playwright package is tracked in git as test infrastructure and installed in CI for browser-regression jobs.
+- It is not part of the production runtime images.
+- Saved Playwright auth/session bootstrap state must stay outside uploaded CI artifact paths.
+- CI should use a per-run random `PLAYWRIGHT_E2E_BYPASS_TOKEN`, not a fixed shared token string.
+- Runtime containers are still built only from:
+  - `backend/package*.json` via `backend/Dockerfile`
+  - `frontend/package*.json` via `frontend/Dockerfile`
+- Browser tests run alongside the compose stack, not inside the shipped app images.
 
 Default blocking threshold:
 
@@ -122,3 +134,9 @@ docker compose --env-file .env -f docker-compose.registry.yml up -d
 4. Commit and push.
 5. CI builds and publishes images with embedded build metadata.
 6. Optionally create git tag `vX.Y.Z` (or pre-release like `v1.6.5-r1`).
+
+Browser-regression expectation:
+
+- Maintain the root Playwright manifest and lockfile in git.
+- Keep `.github/workflows/docker-publish.yml` running the browser-regression gate before publish/release jobs.
+- Do not add Playwright browsers or the root test harness as dependencies of the shipped backend/frontend runtime images.

@@ -62,6 +62,7 @@ const RATE_LIMIT_MEDIA_WRITE_MAX = Math.max(20, Number(process.env.RATE_LIMIT_ME
 const RATE_LIMIT_IMPORT_START_MAX = Math.max(5, Number(process.env.RATE_LIMIT_IMPORT_START_MAX || 60));
 const RATE_LIMIT_SYNC_POLL_MAX = Math.max(30, Number(process.env.RATE_LIMIT_SYNC_POLL_MAX || 600));
 const RATE_LIMIT_EXTERNAL_API_MAX = Math.max(5, Number(process.env.RATE_LIMIT_EXTERNAL_API_MAX || 30));
+const PLAYWRIGHT_E2E_BYPASS_TOKEN = String(process.env.PLAYWRIGHT_E2E_BYPASS_TOKEN || '').trim();
 const parseBoolean = (value, fallback = false) => {
   if (value === undefined || value === null || value === '') return fallback;
   return ['1', 'true', 'yes', 'on'].includes(String(value).toLowerCase().trim());
@@ -90,6 +91,11 @@ const resolveDbPassword = () => {
   } catch (_) {
     return '';
   }
+};
+
+const requestHasPlaywrightBypass = (req) => {
+  if (!PLAYWRIGHT_E2E_BYPASS_TOKEN) return false;
+  return String(req.headers['x-playwright-e2e-bypass'] || '').trim() === PLAYWRIGHT_E2E_BYPASS_TOKEN;
 };
 
 const WEAK_SECRET_VALUES = new Set([
@@ -170,7 +176,7 @@ const makeLimiter = ({ max, message, skip }) => rateLimit({
   max,
   standardHeaders: true,
   legacyHeaders: false,
-  skip,
+  skip: (req, res) => requestHasPlaywrightBypass(req) || (typeof skip === 'function' ? skip(req, res) : false),
   message
 });
 

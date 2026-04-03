@@ -56,6 +56,11 @@ const frontendAppSource = require('fs').readFileSync(require.resolve('../../fron
 const dashboardContentSource = require('fs').readFileSync(require.resolve('../../frontend/src/components/app/DashboardContent'), 'utf8');
 const helpViewSource = require('fs').readFileSync(require.resolve('../../frontend/src/components/HelpView'), 'utf8');
 const adminUsersViewSource = require('fs').readFileSync(require.resolve('../../frontend/src/components/AdminUsersView'), 'utf8');
+const rootPackageJson = JSON.parse(require('fs').readFileSync(require.resolve('../../package.json'), 'utf8'));
+const playwrightConfigSource = require('fs').readFileSync(require.resolve('../../playwright.config'), 'utf8');
+const dockerPublishWorkflowSource = require('fs').readFileSync(require.resolve('../../.github/workflows/docker-publish.yml'), 'utf8');
+const backendDockerfileSource = require('fs').readFileSync(require.resolve('../../backend/Dockerfile'), 'utf8');
+const frontendDockerfileSource = require('fs').readFileSync(require.resolve('../../frontend/Dockerfile'), 'utf8');
 const structuredLogSmokeSource = require('fs').readFileSync(require.resolve('../scripts/structured-log-smoke'), 'utf8');
 const dashboardSpec = JSON.parse(require('fs').readFileSync(require.resolve('../../ops/monitoring/grafana/dashboards/collectz-overview.json'), 'utf8'));
 const alertRulesSource = require('fs').readFileSync(require.resolve('../../docs/alerts/collectz-alert-rules.yaml'), 'utf8');
@@ -467,6 +472,28 @@ results.push(run('frontend source includes tabbed help center and support inbox 
   assert.ok(frontendAppSource.includes('Requester:'));
   assert.ok(frontendAppSource.includes('Case:'));
   assert.ok(helpViewSource.includes('Reply to Support'));
+}));
+
+results.push(run('repo includes 2.9.4 Playwright browser regression foundation harness', () => {
+  assert.ok(rootPackageJson.scripts['test:browser']);
+  assert.ok(rootPackageJson.devDependencies['@playwright/test']);
+  assert.ok(playwrightConfigSource.includes("trace: 'retain-on-failure'"));
+  assert.ok(playwrightConfigSource.includes("screenshot: 'only-on-failure'"));
+  assert.ok(playwrightConfigSource.includes("video: 'retain-on-failure'"));
+  assert.ok(playwrightConfigSource.includes('x-playwright-e2e-bypass'));
+  assert.ok(playwrightConfigSource.includes('tmp'));
+  assert.ok(serverSource.includes('PLAYWRIGHT_E2E_BYPASS_TOKEN'));
+  assert.ok(serverSource.includes('x-playwright-e2e-bypass'));
+  assert.ok(dockerPublishWorkflowSource.includes('browser-regression:'));
+  assert.ok(dockerPublishWorkflowSource.includes('npx playwright install --with-deps chromium'));
+  assert.ok(dockerPublishWorkflowSource.includes('npm run test:browser'));
+  assert.ok(dockerPublishWorkflowSource.includes('playwright-browser-regression'));
+  assert.ok(dockerPublishWorkflowSource.includes('PLAYWRIGHT_E2E_BYPASS_TOKEN="$(openssl rand -hex 16)"'));
+  assert.ok(!dockerPublishWorkflowSource.includes('collectz-playwright-ci'));
+  assert.ok(backendDockerfileSource.includes('COPY package*.json ./'));
+  assert.ok(frontendDockerfileSource.includes('COPY package*.json ./'));
+  assert.ok(!backendDockerfileSource.includes('@playwright/test'));
+  assert.ok(!frontendDockerfileSource.includes('@playwright/test'));
 }));
 
 results.push(run('media route source hardens image upload handlers', () => {

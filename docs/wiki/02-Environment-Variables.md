@@ -53,6 +53,10 @@ openssl rand -hex 32
   - `RATE_LIMIT_IMPORT_START_MAX` (default `60`) — import start routes.
   - `RATE_LIMIT_SYNC_POLL_MAX` (default `600`) — `/api/media/sync-jobs`.
   - `RATE_LIMIT_EXTERNAL_API_MAX` (default `30`) — external provider routes (`/api/media/search-tmdb`, `/api/media/lookup-upc`).
+  - `PLAYWRIGHT_E2E_BYPASS_TOKEN` (optional) — Playwright-only rate-limit bypass token for browser regression runs.
+    - Requests must include header `x-playwright-e2e-bypass: <token>`.
+    - Intended only for local/CI browser testing.
+    - Leave unset for normal runtime.
 - Feature flags:
   - `FEATURE_FLAGS_READ_ONLY` (default `false`) — when true, admin flag updates are blocked (read-only control plane).
   - `FEATURE_FLAGS_CACHE_TTL_SECONDS` (default `10`) — backend feature-flag cache TTL.

@@ -11,7 +11,8 @@ All of the following must pass:
 3. Migration check (including init parity + rehearsal evidence).
 4. Compose smoke check.
 5. RBAC regression check.
-6. Image security scan + SBOM generation.
+6. Browser regression check.
+7. Image security scan + SBOM generation.
 
 ## Release Closeout Must-Do
 
@@ -26,6 +27,7 @@ Minimum closeout expectation:
 5. Run init parity / migration rehearsal checks in an environment with database access.
 6. Run production dependency audit checks for backend and frontend.
 7. Confirm the remaining CI-only gates are green, especially gitleaks, compose smoke, RBAC, Trivy, and SBOM generation.
+8. Confirm the Playwright browser-regression gate is green and its artifacts are available when failures occur.
 
 If any of these are skipped locally because the shell environment is restricted, the release stays pending until CI or an unrestricted maintainer shell confirms them.
 

@@ -18,6 +18,7 @@ yarn-debug.log*
 yarn-error.log*
 package-lock.json
 yarn.lock
+!package-lock.json
 !backend/package-lock.json
 !frontend/package-lock.json
 
@@ -76,6 +77,7 @@ Thumbs.db
 # Testing
 coverage/
 .nyc_output/
+artifacts/playwright/
 
 # Temporary files
 tmp/
