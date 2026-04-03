@@ -604,7 +604,7 @@ export default function HelpView({
 
       <div className="panel p-2 sm:p-3">
         <div
-          className="grid gap-2 rounded-2xl bg-raised/55 border border-edge/60 p-1.5 shadow-soft"
+          className="grid gap-1.5 rounded-2xl bg-raised/55 border border-edge/60 p-1"
           style={{ gridTemplateColumns: `repeat(${helpTabs.length}, minmax(0, 1fr))` }}
         >
           {helpTabs.map((tab) => {
@@ -615,10 +615,10 @@ export default function HelpView({
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
                 className={[
-                  'rounded-2xl px-3 py-3 text-sm font-medium transition',
+                  'rounded-2xl px-3 py-1.5 text-xs font-medium transition',
                   active
-                    ? 'bg-gold/20 border border-gold/35 text-ink shadow-soft'
-                    : 'border border-transparent text-ghost hover:text-ink hover:bg-raised/80'
+                    ? 'bg-gold/14 border border-gold/35 text-ink'
+                    : 'border border-transparent text-ghost hover:text-ink hover:bg-raised/55'
                 ].join(' ')}
               >
                 {tab.label}
