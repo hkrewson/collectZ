@@ -10,6 +10,12 @@ const { normalizeDeliciousRow } = require('../services/deliciousNormalize');
 const { normalizeIsbn, normalizeIdentifierSet } = require('../services/importIdentifiers');
 const { normalizeTypeDetails } = require('../services/typeDetails');
 const { compareReleaseVersions, parseReleaseMarkdown } = require('../services/releaseNotes');
+const {
+  SUPPORT_ACCESS_APPROVAL_TTL_DAYS,
+  getSupportAccessExpiryTimestamp,
+  getEffectiveSupportAccessStatus,
+  isSupportAccessApprovalActive
+} = require('../services/supportAccess');
 const { extractScopeHints, resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
 const { sanitizeAuditDetails } = require('../services/audit');
 const { buildGelfEvent, inferLevel, inferOutcome, truncateJsonValue, readExportConfig, promoteDetailFields, omitNilFields, formatSyslogMessage } = require('../services/logExport');
@@ -216,6 +222,48 @@ results.push(run('releaseNotes.compareReleaseVersions sorts newest versions firs
   assert.deepStrictEqual(sorted, ['v2.9.1.md', 'v2.9.0.md', 'v2.8.6.md']);
 }));
 
+results.push(run('supportAccess derives active expiry windows and expired state', () => {
+  const approvedAt = '2026-04-01T00:00:00.000Z';
+  const expiresAt = getSupportAccessExpiryTimestamp(approvedAt);
+  assert.ok(expiresAt);
+  assert.strictEqual(
+    getEffectiveSupportAccessStatus({
+      status: 'approved',
+      approvedAt,
+      requestStatus: 'open',
+      now: new Date('2026-04-05T00:00:00.000Z')
+    }),
+    'approved'
+  );
+  assert.strictEqual(
+    getEffectiveSupportAccessStatus({
+      status: 'approved',
+      approvedAt,
+      requestStatus: 'open',
+      now: new Date(`2026-04-${String(1 + SUPPORT_ACCESS_APPROVAL_TTL_DAYS + 1).padStart(2, '0')}T00:00:00.000Z`)
+    }),
+    'expired'
+  );
+  assert.strictEqual(
+    getEffectiveSupportAccessStatus({
+      status: 'approved',
+      approvedAt,
+      requestStatus: 'closed',
+      now: new Date('2026-04-02T00:00:00.000Z')
+    }),
+    'expired'
+  );
+  assert.strictEqual(
+    isSupportAccessApprovalActive({
+      status: 'approved',
+      approvedAt,
+      requestStatus: 'open',
+      now: new Date('2026-04-05T00:00:00.000Z')
+    }),
+    true
+  );
+}));
+
 results.push(run('plex.normalizePlexItem maps movie values', () => {
   const input = {
     type: 'movie',
@@ -326,8 +374,10 @@ results.push(run('auth route source includes explicit support session endpoints'
   assert.ok(authRoutesSource.includes("requireRole('admin', 'support_admin')"));
   assert.ok(authRoutesSource.includes('auth.support_session.started'));
   assert.ok(authRoutesSource.includes('auth.support_session.ended'));
+  assert.ok(authRoutesSource.includes('isSupportAccessApprovalActive'));
   assert.ok(authRoutesSource.includes('supportRequestKey'));
   assert.ok(authRoutesSource.includes('support_request_id'));
+  assert.ok(authRoutesSource.includes('expired, or no longer valid'));
   assert.ok(authRoutesSource.includes('active_space_id: null'));
   assert.ok(authRoutesSource.includes('support_session: null'));
 }));
@@ -372,6 +422,8 @@ results.push(run('support route source includes request creation, releases feed,
   assert.ok(supportRoutesSource.includes('normalizeSupportQueueFilter'));
   assert.ok(supportRoutesSource.includes('normalizeSupportClassificationFilter'));
   assert.ok(supportRoutesSource.includes('req.query.q'));
+  assert.ok(supportRoutesSource.includes('support_access_expires_at'));
+  assert.ok(supportRoutesSource.includes('buildSupportAccessClearedOnCloseMessage'));
 }));
 
 results.push(run('frontend source includes tabbed help center and support inbox surfaces for 2.9.1 foundation work', () => {
@@ -392,6 +444,8 @@ results.push(run('frontend source includes tabbed help center and support inbox 
   assert.ok(helpViewSource.includes('Search queue'));
   assert.ok(helpViewSource.includes('All classes'));
   assert.ok(helpViewSource.includes('Completed'));
+  assert.ok(helpViewSource.includes('Support access expired'));
+  assert.ok(helpViewSource.includes('Expires '));
   assert.ok(frontendAppSource.includes('supportBadgeCount'));
   assert.ok(helpViewSource.includes('Reply to Support'));
 }));

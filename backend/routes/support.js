@@ -12,6 +12,11 @@ const {
 } = require('../middleware/validate');
 const { logActivity } = require('../services/audit');
 const { loadReleaseNotesFeed } = require('../services/releaseNotes');
+const {
+  SUPPORT_ACCESS_APPROVAL_TTL_DAYS,
+  getEffectiveSupportAccessStatus,
+  getSupportAccessExpiryTimestamp
+} = require('../services/supportAccess');
 
 const router = express.Router();
 
@@ -29,6 +34,11 @@ function formatSupportRequestKey(id) {
 
 function formatSupportRequest(row, options = {}) {
   const includeInternalNotes = Boolean(options.includeInternalNotes);
+  const effectiveSupportAccessStatus = getEffectiveSupportAccessStatus({
+    status: row.support_access_status,
+    approvedAt: row.support_access_approved_at,
+    requestStatus: row.status
+  });
   return {
     id: row.id,
     request_key: row.request_key || formatSupportRequestKey(row.id),
@@ -36,8 +46,9 @@ function formatSupportRequest(row, options = {}) {
     status: row.status,
     classification: row.classification || 'support',
     tracking_status: row.tracking_status || 'untracked',
-    support_access_status: row.support_access_status || 'not_requested',
+    support_access_status: effectiveSupportAccessStatus,
     support_access_approved_at: row.support_access_approved_at || null,
+    support_access_expires_at: getSupportAccessExpiryTimestamp(row.support_access_approved_at),
     support_access_approved_by_user_id: row.support_access_approved_by_user_id || null,
     resolved_in_version: row.resolved_in_version || null,
     repo_issue_number: row.repo_issue_number || null,
@@ -94,12 +105,16 @@ function buildSupportTrackingUpdateMessage(previousRequest, nextRequest) {
 
 function buildSupportAccessUpdateMessage(nextStatus) {
   if (nextStatus === 'approved') {
-    return 'Support access has been approved for this request. Support staff can use this request as the approval context for a later tenant support session.';
+    return `Support access has been approved for this request. This approval stays valid for ${SUPPORT_ACCESS_APPROVAL_TTL_DAYS} days unless the case is closed or the requester revokes it sooner.`;
   }
   if (nextStatus === 'revoked') {
     return 'Support access approval has been revoked for this request.';
   }
   return '';
+}
+
+function buildSupportAccessClearedOnCloseMessage() {
+  return 'Support access approval was cleared because this request was closed. Reopen the case and approve access again if tenant support is needed later.';
 }
 
 function normalizeSupportQueueFilter(value) {
@@ -452,6 +467,7 @@ router.patch('/requests/:id/status', authenticateToken, requireSessionAuth, vali
   const nextStatus = req.body.status;
   const client = await pool.connect();
   try {
+    await client.query('BEGIN');
     const supportRequest = await getSupportRequestForActor({
       client,
       requestId,
@@ -459,35 +475,83 @@ router.patch('/requests/:id/status', authenticateToken, requireSessionAuth, vali
       role: req.user.role
     });
     if (!supportRequest) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Support request not found' });
     }
 
     if (!isSupportStaff(req) && !['open', 'closed'].includes(String(nextStatus || ''))) {
+      await client.query('ROLLBACK');
       return res.status(403).json({ error: 'End users may only close or reopen their own requests' });
     }
 
     const result = await client.query(
       `UPDATE support_requests
           SET status = $2,
+              support_access_status = CASE
+                WHEN $2 = 'closed' AND support_access_status = 'approved' THEN 'revoked'
+                ELSE support_access_status
+              END,
+              support_access_approved_at = CASE
+                WHEN $2 = 'closed' AND support_access_status = 'approved' THEN NULL
+                ELSE support_access_approved_at
+              END,
+              support_access_approved_by_user_id = CASE
+                WHEN $2 = 'closed' AND support_access_status = 'approved' THEN NULL
+                ELSE support_access_approved_by_user_id
+              END,
               updated_at = CURRENT_TIMESTAMP
         WHERE id = $1
       RETURNING *`,
       [requestId, nextStatus]
     );
 
+    let systemMessage = null;
+    if (nextStatus === 'closed' && supportRequest.support_access_status === 'approved') {
+      const messageResult = await client.query(
+        `INSERT INTO support_request_messages (request_id, author_user_id, author_role, is_internal, body)
+         VALUES ($1, NULL, 'system', false, $2)
+         RETURNING *`,
+        [requestId, buildSupportAccessClearedOnCloseMessage()]
+      );
+      await client.query(
+        `UPDATE support_requests
+            SET last_message_at = CURRENT_TIMESTAMP,
+                last_message_by_role = 'system',
+                updated_at = CURRENT_TIMESTAMP
+          WHERE id = $1`,
+        [requestId]
+      );
+      systemMessage = formatSupportMessage({
+        ...messageResult.rows[0],
+        request_key: formatSupportRequestKey(requestId)
+      });
+    }
+
+    await client.query('COMMIT');
+
     await logActivity(req, 'support.request.status.updated', 'support_request', requestId, {
       previousStatus: supportRequest.status,
       nextStatus
     });
 
+    const updatedRequest = {
+      ...result.rows[0],
+      requester_name: supportRequest.requester_name,
+      requester_email: supportRequest.requester_email,
+      target_space_name: supportRequest.target_space_name,
+      target_library_name: supportRequest.target_library_name,
+      message_count: Number(supportRequest.message_count || 0) + (systemMessage ? 1 : 0),
+      last_message_at: systemMessage ? new Date().toISOString() : supportRequest.last_message_at,
+      last_message_by_role: systemMessage ? 'system' : supportRequest.last_message_by_role
+    };
+
     res.json({
-      request: formatSupportRequest({
-        ...result.rows[0],
-        requester_name: supportRequest.requester_name,
-        requester_email: supportRequest.requester_email,
-        message_count: supportRequest.message_count
-      }, { includeInternalNotes: isSupportStaff(req) })
+      request: formatSupportRequest(updatedRequest, { includeInternalNotes: isSupportStaff(req) }),
+      message: systemMessage
     });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
   } finally {
     client.release();
   }
@@ -521,6 +585,10 @@ router.patch('/requests/:id/access', authenticateToken, requireSessionAuth, vali
     if (!supportRequest.target_space_id) {
       await client.query('ROLLBACK');
       return res.status(400).json({ error: 'Support access approval requires a target space on the request' });
+    }
+    if (supportRequest.status === 'closed') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Closed support requests must be reopened before support access can be approved again' });
     }
 
     const nextAccessStatus = req.body.support_access_status;

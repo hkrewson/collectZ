@@ -39,6 +39,7 @@ const {
   revokeServiceAccountKey
 } = require('../services/serviceAccountKeys');
 const { recordAuthEvent } = require('../services/metrics');
+const { isSupportAccessApprovalActive } = require('../services/supportAccess');
 
 const router = express.Router();
 
@@ -607,7 +608,7 @@ router.post('/support-session/start', authenticateToken, requireSessionAuth, req
       }
 
       const requestResult = await client.query(
-        `SELECT sr.id, sr.requester_user_id, sr.subject, sr.support_access_status, sr.target_space_id, sr.target_library_id,
+        `SELECT sr.id, sr.requester_user_id, sr.subject, sr.status, sr.support_access_status, sr.support_access_approved_at, sr.target_space_id, sr.target_library_id,
                 requester.name AS requester_name,
                 requester.email AS requester_email
            FROM support_requests sr
@@ -621,9 +622,13 @@ router.post('/support-session/start', authenticateToken, requireSessionAuth, req
         await client.query('ROLLBACK');
         return res.status(404).json({ error: 'Approved support request not found' });
       }
-      if (approvedSupportRequest.support_access_status !== 'approved') {
+      if (!isSupportAccessApprovalActive({
+        status: approvedSupportRequest.support_access_status,
+        approvedAt: approvedSupportRequest.support_access_approved_at,
+        requestStatus: approvedSupportRequest.status
+      })) {
         await client.query('ROLLBACK');
-        return res.status(403).json({ error: 'Support request is not approved for tenant support access' });
+        return res.status(403).json({ error: 'Support request approval is missing, expired, or no longer valid for tenant support access' });
       }
       if (Number(approvedSupportRequest.target_space_id || 0) !== targetSpaceId) {
         await client.query('ROLLBACK');

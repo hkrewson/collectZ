@@ -93,14 +93,30 @@ function trackingStatusLabel(value) {
 
 function supportAccessLabel(value) {
   if (value === 'approved') return 'Support access approved';
+  if (value === 'expired') return 'Support access expired';
   if (value === 'revoked') return 'Support access revoked';
   return 'Support access not approved';
 }
 
 function supportAccessTone(value) {
   if (value === 'approved') return 'badge-ok';
+  if (value === 'expired') return 'badge-warn';
   if (value === 'revoked') return 'badge-warn';
   return 'badge-dim';
+}
+
+function supportAccessDetailText(request) {
+  if (!request?.target_space_id) return null;
+  if (request.support_access_status === 'approved' && request.support_access_expires_at) {
+    return `Expires ${formatTimestamp(request.support_access_expires_at)}`;
+  }
+  if (request.support_access_status === 'expired' && request.support_access_expires_at) {
+    return `Expired ${formatTimestamp(request.support_access_expires_at)}`;
+  }
+  if (request.support_access_status === 'revoked') {
+    return 'Requester must approve again before tenant support can start.';
+  }
+  return null;
 }
 
 function actorLabel(message) {
@@ -424,10 +440,15 @@ export default function HelpView({
     try {
       const payload = await apiCall('patch', `/support/requests/${selectedRequestId}/status`, { status: nextStatus });
       const updatedRequest = payload?.request;
+      const systemMessage = payload?.message;
       if (updatedRequest) {
         setRequests((prev) => prev.map((item) => (Number(item.id) === Number(updatedRequest.id) ? updatedRequest : item)));
         setSelectedRequest(updatedRequest);
       }
+      if (systemMessage) {
+        setMessages((prev) => [...prev, systemMessage]);
+      }
+      await loadRequests({ silent: true });
       onSupportSummaryRefresh?.({ silent: true });
       onToast(nextStatus === 'closed' ? 'Help request closed' : 'Help request reopened');
     } catch (error) {
@@ -990,6 +1011,7 @@ export default function HelpView({
                             <p className="text-xs text-ghost truncate">{request.requester_name || request.requester_email || 'Unknown requester'}</p>
                             {requestContext ? <p className="text-xs text-ghost truncate">{requestContext}</p> : null}
                             <p className="text-xs text-ghost">Updated {formatTimestamp(request.last_message_at || request.updated_at)}</p>
+                            {isSupportStaff && supportAccessDetailText(request) ? <p className="text-xs text-ghost truncate">{supportAccessDetailText(request)}</p> : null}
                             {isSupportStaff ? (
                               <div className="flex flex-wrap items-center gap-2 pt-1">
                                 <span className="badge badge-dim text-[10px]">{classificationLabel(request.classification)}</span>
@@ -1058,6 +1080,9 @@ export default function HelpView({
                       {selectedRequest.requester_name || selectedRequest.requester_email || 'Unknown requester'}
                       {formatRequestContext(selectedRequest) ? ` · ${formatRequestContext(selectedRequest)}` : ''}
                     </p>
+                    {supportAccessDetailText(selectedRequest) ? (
+                      <p className="text-xs text-ghost">{supportAccessDetailText(selectedRequest)}</p>
+                    ) : null}
                     <div className="flex flex-wrap items-center gap-2 pt-1">
                       <span className={`badge ${requestStatusTone[selectedRequest.status] || 'badge-dim'}`}>{selectedRequest.status}</span>
                       <span className="badge badge-dim">{classificationLabel(selectedRequest.classification)}</span>
