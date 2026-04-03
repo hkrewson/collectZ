@@ -91,20 +91,6 @@ function trackingStatusLabel(value) {
   return TRACKING_STATUS_OPTIONS.find((option) => option.value === value)?.label || 'Untracked';
 }
 
-function supportAccessLabel(value) {
-  if (value === 'approved') return 'Support access approved';
-  if (value === 'expired') return 'Support access expired';
-  if (value === 'revoked') return 'Support access revoked';
-  return 'Support access not approved';
-}
-
-function supportAccessTone(value) {
-  if (value === 'approved') return 'badge-ok';
-  if (value === 'expired') return 'badge-warn';
-  if (value === 'revoked') return 'badge-warn';
-  return 'badge-dim';
-}
-
 function supportAccessDetailText(request) {
   if (!request?.target_space_id) return null;
   if (request.support_access_status === 'approved' && request.support_access_expires_at) {
@@ -152,24 +138,24 @@ function ThreadBubble({ message, currentUserId }) {
     <div className={`flex ${isSystemMessage || isInternalMessage ? 'justify-center' : isOwnMessage ? 'justify-end' : 'justify-start'}`}>
       <div
         className={[
-          'max-w-[88%] rounded-3xl border px-4 py-3 shadow-soft space-y-2',
+          'max-w-[84%] rounded-2xl border px-3.5 py-2.5 space-y-1.5',
           isInternalMessage
-            ? 'border-sky-500/30 bg-sky-500/10 text-ink rounded-2xl'
+            ? 'border-sky-500/20 bg-sky-500/6 text-ink'
             : isSystemMessage
-            ? 'border-edge bg-void/40 text-ghost rounded-2xl'
+            ? 'border-edge/70 bg-void/20 text-ghost'
             : isOwnMessage
-              ? 'border-gold/40 bg-gold/10 text-ink rounded-br-xl'
-              : 'border-edge bg-raised/45 text-ink rounded-bl-xl'
+              ? 'border-gold/25 bg-raised/28 text-ink rounded-br-lg'
+              : 'border-edge/70 bg-raised/24 text-ink rounded-bl-lg'
         ].join(' ')}
       >
-        <div className="flex items-center justify-between gap-3 text-[11px] uppercase tracking-[0.16em] text-ghost">
+        <div className="flex items-center justify-between gap-3 text-[11px] text-ghost">
           <span className="flex items-center gap-2">
-            <span>{actorLabel(message)}</span>
+            <span className="uppercase tracking-[0.14em]">{actorLabel(message)}</span>
             {message?.request_key ? <span className="badge badge-dim text-[10px] normal-case tracking-normal">{message.request_key}</span> : null}
           </span>
           <span className="normal-case tracking-normal text-[12px]">{formatTimestamp(message.created_at)}</span>
         </div>
-        <p className="text-sm leading-6 whitespace-pre-wrap">{message.body}</p>
+        <p className="text-sm leading-5 whitespace-pre-wrap">{message.body}</p>
       </div>
     </div>
   );
@@ -177,10 +163,10 @@ function ThreadBubble({ message, currentUserId }) {
 
 function TimelineItem({ event }) {
   return (
-    <div className="rounded-2xl border border-edge bg-raised/30 px-4 py-3">
+    <div className="rounded-2xl border border-edge/60 bg-void/12 px-3.5 py-2.5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <span className={`badge ${event?.is_internal ? 'badge-warn' : event?.category === 'session' ? 'badge-ok' : 'badge-dim'}`}>
+          <span className="text-[11px] uppercase tracking-[0.14em] text-ghost">
             {event?.category === 'session' ? 'Session' : event?.is_internal ? 'Internal' : 'Request'}
           </span>
           {event?.request_key ? <span className="badge badge-dim text-[10px] normal-case tracking-normal">{event.request_key}</span> : null}
@@ -188,8 +174,8 @@ function TimelineItem({ event }) {
         </div>
         <p className="text-xs text-ghost">{formatTimestamp(event?.created_at)}</p>
       </div>
-      <p className="mt-2 text-xs uppercase tracking-[0.16em] text-ghost">{event?.actor_name || 'System'}</p>
-      {event?.body ? <p className="mt-2 text-sm text-ghost leading-6 whitespace-pre-wrap">{event.body}</p> : null}
+      <p className="mt-1.5 text-[11px] uppercase tracking-[0.16em] text-ghost">{event?.actor_name || 'System'}</p>
+      {event?.body ? <p className="mt-1.5 text-sm text-ghost leading-5 whitespace-pre-wrap">{event.body}</p> : null}
     </div>
   );
 }
@@ -216,6 +202,7 @@ export default function HelpView({
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [messages, setMessages] = useState([]);
   const [timeline, setTimeline] = useState([]);
+  const [threadViewTab, setThreadViewTab] = useState('conversation');
   const [detailLoading, setDetailLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [replying, setReplying] = useState(false);
@@ -395,6 +382,7 @@ export default function HelpView({
     const nextRequestId = Number(selectedRequest?.id || 0) || null;
     if (triageRequestIdRef.current === nextRequestId) return;
     triageRequestIdRef.current = nextRequestId;
+    setThreadViewTab('conversation');
     setTriageForm({
       classification: selectedRequest?.classification || 'support',
       tracking_status: selectedRequest?.tracking_status || 'untracked',
@@ -403,7 +391,7 @@ export default function HelpView({
       resolved_in_version: selectedRequest?.resolved_in_version || ''
     });
     setInternalNoteDraft('');
-  }, [selectedRequest?.id, selectedRequest?.classification, selectedRequest?.tracking_status, selectedRequest?.repo_issue_number, selectedRequest?.repo_issue_url, selectedRequest?.resolved_in_version]);
+  }, [selectedRequest?.id, selectedRequest?.status, selectedRequest?.classification, selectedRequest?.tracking_status, selectedRequest?.repo_issue_number, selectedRequest?.repo_issue_url, selectedRequest?.resolved_in_version]);
 
   const submitRequest = async (event) => {
     event.preventDefault();
@@ -849,14 +837,14 @@ export default function HelpView({
             ) : null}
 
             {isSupportStaff ? (
-              <section className="panel p-4 space-y-4">
+              <section className="panel p-3 space-y-3">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <h2 className="text-base font-semibold text-ink">Request controls</h2>
                     <p className="text-xs text-ghost">{selectedRequest?.request_key ? `Working in ${selectedRequest.request_key}` : 'Select a request to reply or triage it.'}</p>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2 rounded-2xl bg-raised/55 border border-edge/60 p-1.5">
+                <div className="grid grid-cols-2 gap-1.5 rounded-2xl bg-raised/55 border border-edge/60 p-1">
                   {[
                     { id: 'reply', label: 'Reply' },
                     { id: 'triage', label: 'Triage' }
@@ -868,10 +856,10 @@ export default function HelpView({
                         type="button"
                         onClick={() => setSupportPanelTab(tab.id)}
                         className={[
-                          'rounded-2xl px-3 py-2.5 text-sm font-medium transition',
+                          'rounded-2xl px-3 py-2 text-sm font-medium transition',
                           active
-                            ? 'bg-gold/20 border border-gold/35 text-ink shadow-soft'
-                            : 'border border-transparent text-ghost hover:text-ink hover:bg-raised/80'
+                            ? 'bg-gold/14 border border-gold/35 text-ink'
+                            : 'border border-transparent text-ghost hover:text-ink hover:bg-raised/55'
                         ].join(' ')}
                       >
                         {tab.label}
@@ -962,11 +950,11 @@ export default function HelpView({
               </section>
             ) : null}
 
-            <section className="panel p-5 space-y-4 min-h-[320px] xl:min-h-0 xl:flex-1 xl:flex xl:flex-col">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-lg font-semibold text-ink">Requests</h2>
-                  <p className="text-sm text-ghost">Support and product-tracked conversations stay together here.</p>
+            <section className="panel p-3 space-y-3 min-h-[320px] xl:min-h-0 xl:flex-1 xl:flex xl:flex-col">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-base font-semibold text-ink">Requests</h2>
+                  <p className="text-xs text-ghost">Support and product tracking stay together here.</p>
                 </div>
                 <button type="button" className="btn-secondary btn-sm" onClick={() => loadRequests()}>
                   <Icons.Refresh />Refresh
@@ -974,7 +962,7 @@ export default function HelpView({
               </div>
               {isSupportStaff ? (
                 <div className="space-y-3">
-                  <div className="grid grid-cols-3 gap-2 rounded-2xl bg-raised/55 border border-edge/60 p-1.5">
+                  <div className="grid grid-cols-3 gap-1.5 rounded-2xl bg-raised/55 border border-edge/60 p-1">
                     {[
                       { id: 'active', label: 'Active' },
                       { id: 'completed', label: 'Completed' },
@@ -986,14 +974,14 @@ export default function HelpView({
                           key={option.id}
                           type="button"
                           onClick={() => setStaffQueueFilter(option.id)}
-                          className={[
-                            'rounded-2xl px-3 py-2 text-xs font-medium transition',
-                            active
-                              ? 'bg-gold/20 border border-gold/35 text-ink shadow-soft'
-                              : 'border border-transparent text-ghost hover:text-ink hover:bg-raised/80'
-                          ].join(' ')}
-                        >
-                          {option.label}
+                        className={[
+                          'rounded-2xl px-3 py-1.5 text-xs font-medium transition',
+                          active
+                              ? 'bg-gold/14 border border-gold/35 text-ink'
+                              : 'border border-transparent text-ghost hover:text-ink hover:bg-raised/55'
+                        ].join(' ')}
+                      >
+                        {option.label}
                         </button>
                       );
                     })}
@@ -1031,7 +1019,7 @@ export default function HelpView({
                   {isSupportStaff ? 'No requests match the current queue filters.' : 'No support requests yet.'}
                 </div>
               ) : (
-                <div className="space-y-2 xl:min-h-0 xl:flex-1 xl:overflow-y-auto pr-1">
+                <div className="space-y-1.5 xl:min-h-0 xl:flex-1 xl:overflow-y-auto pr-1">
                   {requests.map((request) => {
                     const active = Number(selectedRequestId) === Number(request.id);
                     const requestContext = formatRequestContext(request);
@@ -1041,8 +1029,8 @@ export default function HelpView({
                         type="button"
                         onClick={() => setSelectedRequestId(request.id)}
                         className={[
-                          'w-full rounded-3xl border p-4 text-left transition shadow-soft',
-                          active ? 'border-gold/35 bg-gold/10' : 'border-edge bg-raised/30 hover:bg-raised/50'
+                          'w-full rounded-[1.35rem] border px-3 py-2.5 text-left transition',
+                          active ? 'border-gold/35 bg-gold/10 shadow-soft' : 'border-edge/65 bg-transparent hover:bg-raised/18'
                         ].join(' ')}
                       >
                         <div className="flex items-start justify-between gap-3">
@@ -1051,19 +1039,20 @@ export default function HelpView({
                               {request.request_key ? <span className="badge badge-dim text-[10px]">{request.request_key}</span> : null}
                               <p className="text-sm font-medium text-ink truncate">{request.subject}</p>
                             </div>
-                            <p className="text-xs text-ghost truncate">{request.requester_name || request.requester_email || 'Unknown requester'}</p>
-                            {requestContext ? <p className="text-xs text-ghost truncate">{requestContext}</p> : null}
-                            <p className="text-xs text-ghost">Updated {formatTimestamp(request.last_message_at || request.updated_at)}</p>
-                            {isSupportStaff && supportAccessDetailText(request) ? <p className="text-xs text-ghost truncate">{supportAccessDetailText(request)}</p> : null}
+                            <p className="text-xs text-ghost truncate">
+                              {[request.requester_name || request.requester_email || 'Unknown requester', requestContext].filter(Boolean).join(' · ')}
+                            </p>
                             {isSupportStaff ? (
                               <div className="flex flex-wrap items-center gap-2 pt-1">
-                                <span className="badge badge-dim text-[10px]">{classificationLabel(request.classification)}</span>
-                                {request.tracking_status && request.tracking_status !== 'untracked' ? <span className="badge badge-ok text-[10px]">{trackingStatusLabel(request.tracking_status)}</span> : null}
-                                {request.target_space_id ? <span className={`badge ${supportAccessTone(request.support_access_status)} text-[10px]`}>{supportAccessLabel(request.support_access_status)}</span> : null}
+                                <span className="text-[11px] uppercase tracking-[0.14em] text-ghost">{classificationLabel(request.classification)}</span>
+                                {request.tracking_status && request.tracking_status !== 'untracked' ? <span className="text-[11px] uppercase tracking-[0.14em] text-ghost">{trackingStatusLabel(request.tracking_status)}</span> : null}
                               </div>
                             ) : null}
                           </div>
-                          <span className={`badge ${requestStatusTone[request.status] || 'badge-dim'}`}>{request.status}</span>
+                          <div className="shrink-0 flex flex-col items-end gap-1">
+                            <span className={`badge ${requestStatusTone[request.status] || 'badge-dim'}`}>{request.status}</span>
+                            <span className="text-[11px] text-ghost whitespace-nowrap">{formatTimestamp(request.last_message_at || request.updated_at)}</span>
+                          </div>
                         </div>
                       </button>
                     );
@@ -1083,58 +1072,33 @@ export default function HelpView({
             ) : selectedRequest ? (
               <>
                 {isSupportStaff ? (
-                  <div className="border-b border-edge bg-raised/15 px-5 py-3">
+                  <div className="border-b border-edge bg-raised/15 px-4 py-2.5">
                     <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <h2 className="text-base font-semibold text-ink">Queue summary</h2>
-                        <p className="text-xs text-ghost">Support and product triage live together here now.</p>
+                      <div className="flex flex-wrap items-center gap-3 text-xs text-ghost">
+                        <span className="font-semibold uppercase tracking-[0.16em] text-ghost/80">Queue</span>
+                        <span className="text-[11px] uppercase tracking-[0.14em] text-ghost">Open {supportSummary?.open || 0}</span>
+                        <span className="text-[11px] uppercase tracking-[0.14em] text-ghost">Answered {supportSummary?.answered || 0}</span>
+                        <span className="text-[11px] uppercase tracking-[0.14em] text-ghost">Bugs {supportSummary?.bugs || 0}</span>
+                        <span className="text-[11px] uppercase tracking-[0.14em] text-ghost">Features {supportSummary?.features || 0}</span>
                       </div>
                       <button type="button" className="btn-secondary btn-sm" onClick={() => onSupportSummaryRefresh?.()}>
                         <Icons.Refresh />Refresh
                       </button>
                     </div>
-                    <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                      <div className="rounded-2xl border border-edge bg-raised/35 px-3 py-2.5">
-                        <p className="text-[11px] uppercase tracking-[0.16em] text-ghost">Open</p>
-                        <p className="mt-1 text-lg font-semibold text-ink">{supportSummary?.open || 0}</p>
-                      </div>
-                      <div className="rounded-2xl border border-edge bg-raised/35 px-3 py-2.5">
-                        <p className="text-[11px] uppercase tracking-[0.16em] text-ghost">Answered</p>
-                        <p className="mt-1 text-lg font-semibold text-ink">{supportSummary?.answered || 0}</p>
-                      </div>
-                      <div className="rounded-2xl border border-edge bg-raised/35 px-3 py-2.5">
-                        <p className="text-[11px] uppercase tracking-[0.16em] text-ghost">Bugs</p>
-                        <p className="mt-1 text-lg font-semibold text-ink">{supportSummary?.bugs || 0}</p>
-                      </div>
-                      <div className="rounded-2xl border border-edge bg-raised/35 px-3 py-2.5">
-                        <p className="text-[11px] uppercase tracking-[0.16em] text-ghost">Features</p>
-                        <p className="mt-1 text-lg font-semibold text-ink">{supportSummary?.features || 0}</p>
-                      </div>
-                    </div>
                   </div>
                 ) : null}
-                <div className="border-b border-edge px-5 py-4 bg-raised/25 flex flex-wrap items-start justify-between gap-3">
-                  <div className="space-y-1 min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
+                <div className="border-b border-edge px-4 py-2.5 bg-raised/25 flex flex-wrap items-center justify-between gap-3">
+                  <div className="min-w-0 space-y-0.5">
+                    <div className="flex flex-wrap items-center gap-2 min-w-0">
                       {selectedRequest.request_key ? <span className="badge badge-dim">{selectedRequest.request_key}</span> : null}
-                      <h2 className="text-lg font-semibold text-ink truncate">{selectedRequest.subject}</h2>
+                      <h2 className="text-base font-semibold text-ink truncate">{selectedRequest.subject}</h2>
                     </div>
-                    <p className="text-sm text-ghost">
-                      {selectedRequest.requester_name || selectedRequest.requester_email || 'Unknown requester'}
-                      {formatRequestContext(selectedRequest) ? ` · ${formatRequestContext(selectedRequest)}` : ''}
-                    </p>
-                    {supportAccessDetailText(selectedRequest) ? (
+                    {selectedRequest.target_space_id && supportAccessDetailText(selectedRequest) ? (
                       <p className="text-xs text-ghost">{supportAccessDetailText(selectedRequest)}</p>
                     ) : null}
-                    <div className="flex flex-wrap items-center gap-2 pt-1">
-                      <span className={`badge ${requestStatusTone[selectedRequest.status] || 'badge-dim'}`}>{selectedRequest.status}</span>
-                      <span className="badge badge-dim">{classificationLabel(selectedRequest.classification)}</span>
-                      {selectedRequest.tracking_status && selectedRequest.tracking_status !== 'untracked' ? <span className="badge badge-ok">{trackingStatusLabel(selectedRequest.tracking_status)}</span> : null}
-                      {selectedRequest.target_space_id ? <span className={`badge ${supportAccessTone(selectedRequest.support_access_status)}`}>{supportAccessLabel(selectedRequest.support_access_status)}</span> : null}
-                      {selectedRequest.resolved_in_version ? <span className="badge badge-warn">{selectedRequest.resolved_in_version}</span> : null}
-                    </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
+                    <span className={`badge ${requestStatusTone[selectedRequest.status] || 'badge-dim'}`}>{selectedRequest.status}</span>
                     {canRequesterManageSupportAccess && selectedRequest.support_access_status !== 'approved' ? (
                       <button type="button" className="btn-secondary btn-sm" disabled={accessSaving} onClick={() => updateSupportAccess('approved')}>
                         {accessSaving ? <><Spinner size={14} />Saving…</> : <><Icons.Check />Approve Support Access</>}
@@ -1171,14 +1135,14 @@ export default function HelpView({
                   </div>
                 </div>
                 {activeSessionEvidence.length > 0 ? (
-                  <div className="border-b border-edge bg-gold/5 px-5 py-4">
+                  <div className="border-b border-edge bg-raised/10 px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <span className="badge badge-warn">Active session evidence</span>
+                      <span className="text-[11px] uppercase tracking-[0.14em] text-ghost">Active session evidence</span>
                       <p className="text-xs text-ghost">This thread is the approval context for the current support session.</p>
                     </div>
-                    <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                    <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                       {activeSessionEvidence.map((row) => (
-                        <div key={row.label} className="rounded-2xl border border-edge bg-raised/35 px-3 py-2.5">
+                        <div key={row.label} className="rounded-2xl border border-edge/65 bg-void/14 px-3 py-2.5">
                           <p className="text-[11px] uppercase tracking-[0.16em] text-ghost">{row.label}</p>
                           <p className="mt-1 text-sm text-ink break-words">{row.value}</p>
                         </div>
@@ -1186,30 +1150,60 @@ export default function HelpView({
                     </div>
                   </div>
                 ) : null}
-                <div className="border-b border-edge bg-raised/10 px-5 py-4 space-y-3">
-                  <div>
-                    <h3 className="text-sm font-semibold text-ink">History timeline</h3>
-                    <p className="text-xs text-ghost">Lifecycle, approval, and support-session events for this request.</p>
+                <div className="border-b border-edge bg-raised/10 px-4 py-2.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="grid grid-cols-2 gap-1.5 rounded-2xl bg-raised/55 border border-edge/60 p-1">
+                      {[
+                        { id: 'conversation', label: 'Conversation' },
+                        { id: 'history', label: `History${timeline.length ? ` (${timeline.length})` : ''}` }
+                      ].map((tab) => {
+                        const active = threadViewTab === tab.id;
+                        return (
+                          <button
+                            key={tab.id}
+                            type="button"
+                            onClick={() => setThreadViewTab(tab.id)}
+                            className={[
+                              'rounded-2xl px-3 py-1.5 text-xs font-medium transition',
+                              active
+                                ? 'bg-gold/14 border border-gold/35 text-ink'
+                                : 'border border-transparent text-ghost hover:text-ink hover:bg-raised/55'
+                            ].join(' ')}
+                          >
+                            {tab.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {threadViewTab === 'history' ? (
+                      <div className="text-right">
+                        <p className="text-[11px] font-medium text-ghost">History timeline</p>
+                        <p className="text-[11px] text-ghost">Lifecycle, approval, and support-session events for this request.</p>
+                      </div>
+                    ) : null}
                   </div>
-                  {timeline.length > 0 ? (
-                    <div className="space-y-2">
-                      {timeline.map((event) => (
-                        <TimelineItem key={event.id} event={event} />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="rounded-2xl border border-dashed border-edge px-4 py-4 text-sm text-ghost">
-                      No timeline events have been recorded for this request yet.
-                    </div>
-                  )}
                 </div>
 
-                <div className="flex-1 overflow-y-auto px-4 py-5 sm:px-5 space-y-3 bg-abyss/40">
-                  {messages.map((message) => (
-                    <ThreadBubble key={message.id} message={message} currentUserId={user?.id} />
-                  ))}
-                  <div ref={threadEndRef} />
-                </div>
+                {threadViewTab === 'history' ? (
+                  <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-4 space-y-1.5 bg-abyss/40">
+                    {timeline.length > 0 ? (
+                      timeline.map((event) => (
+                        <TimelineItem key={event.id} event={event} />
+                      ))
+                    ) : (
+                      <div className="rounded-2xl border border-dashed border-edge px-4 py-4 text-sm text-ghost">
+                        No timeline events have been recorded for this request yet.
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-4 space-y-2.5 bg-abyss/40">
+                    {messages.map((message) => (
+                      <ThreadBubble key={message.id} message={message} currentUserId={user?.id} />
+                    ))}
+                    <div ref={threadEndRef} />
+                  </div>
+                )}
               </>
             ) : (
               <div className="flex-1 flex items-center justify-center p-8 text-sm text-ghost text-center">
