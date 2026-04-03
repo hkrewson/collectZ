@@ -93,6 +93,25 @@ async function listSupportLibrariesForSpace(client, spaceId) {
   }));
 }
 
+async function getSupportRequestSessionSummary(client, requestId) {
+  if (!Number.isFinite(Number(requestId)) || Number(requestId) <= 0) return null;
+  const result = await client.query(
+    `SELECT sr.id,
+            sr.subject,
+            sr.requester_user_id,
+            requester.name AS requester_name,
+            requester.email AS requester_email,
+            target_library.name AS target_library_name
+       FROM support_requests sr
+       JOIN users requester ON requester.id = sr.requester_user_id
+       LEFT JOIN libraries target_library ON target_library.id = sr.target_library_id
+      WHERE sr.id = $1
+      LIMIT 1`,
+    [requestId]
+  );
+  return result.rows[0] || null;
+}
+
 function formatSupportRequestKey(id) {
   const numericId = Number(id || 0);
   if (!Number.isFinite(numericId) || numericId <= 0) return null;
@@ -119,6 +138,8 @@ async function buildAuthScopePayload(req) {
       const activeLibraryId = requestedLibraryId && libraries.some((library) => Number(library.id) === requestedLibraryId)
         ? requestedLibraryId
         : (libraries[0]?.id || null);
+      const supportRequestSummary = await getSupportRequestSessionSummary(client, Number(req.user.supportRequestId || 0) || null);
+      const activeLibrary = libraries.find((library) => Number(library.id) === Number(activeLibraryId)) || null;
 
       return {
         active_space_id: supportSpace.id,
@@ -141,9 +162,14 @@ async function buildAuthScopePayload(req) {
           reason: req.user.supportReason || null,
           request_id: req.user.supportRequestId || null,
           request_key: formatSupportRequestKey(req.user.supportRequestId || null),
+          request_subject: supportRequestSummary?.subject || null,
+          requester_user_id: supportRequestSummary?.requester_user_id || null,
+          requester_name: supportRequestSummary?.requester_name || null,
+          requester_email: supportRequestSummary?.requester_email || null,
           previous_space_id: req.user.supportPreviousSpaceId ?? null,
           previous_library_id: req.user.supportPreviousLibraryId ?? null,
-          space_name: supportSpace.name
+          space_name: supportSpace.name,
+          library_name: activeLibrary?.name || supportRequestSummary?.target_library_name || null
         }
       };
     } finally {

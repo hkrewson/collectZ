@@ -143,9 +143,14 @@
           "reason": { "type": ["string", "null"] },
           "request_id": { "type": ["integer", "null"] },
           "request_key": { "type": ["string", "null"] },
+          "request_subject": { "type": ["string", "null"] },
+          "requester_user_id": { "type": ["integer", "null"] },
+          "requester_name": { "type": ["string", "null"] },
+          "requester_email": { "type": ["string", "null"], "format": "email" },
           "previous_space_id": { "type": ["integer", "null"] },
           "previous_library_id": { "type": ["integer", "null"] },
-          "space_name": { "type": ["string", "null"] }
+          "space_name": { "type": ["string", "null"] },
+          "library_name": { "type": ["string", "null"] }
         },
         "required": ["active"]
       },
@@ -225,9 +230,30 @@
           "messages": {
             "type": "array",
             "items": { "$ref": "#/components/schemas/SupportRequestMessageRecord" }
+          },
+          "timeline": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/SupportTimelineEventRecord" }
           }
         },
-        "required": ["request", "messages"]
+        "required": ["request", "messages", "timeline"]
+      },
+      "SupportTimelineEventRecord": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "action": { "type": "string" },
+          "category": { "type": "string", "enum": ["request", "access", "session", "triage"] },
+          "title": { "type": "string" },
+          "body": { "type": ["string", "null"] },
+          "created_at": { "type": "string", "format": "date-time" },
+          "actor_name": { "type": ["string", "null"] },
+          "actor_email": { "type": ["string", "null"], "format": "email" },
+          "request_id": { "type": ["integer", "null"] },
+          "request_key": { "type": ["string", "null"] },
+          "is_internal": { "type": "boolean" }
+        },
+        "required": ["id", "action", "category", "title", "created_at", "is_internal"]
       },
       "SupportRequestCreateRequest": {
         "type": "object",

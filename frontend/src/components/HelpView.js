@@ -119,6 +119,21 @@ function supportAccessDetailText(request) {
   return null;
 }
 
+function sessionEvidenceRows(session, selectedRequest) {
+  if (!session?.active || !selectedRequest || Number(session.request_id) !== Number(selectedRequest.id)) return [];
+  const rows = [];
+  if (session.request_key) rows.push({ label: 'Request', value: session.request_key });
+  if (session.request_subject) rows.push({ label: 'Case', value: session.request_subject });
+  if (session.requester_name || session.requester_email) {
+    rows.push({ label: 'Requester', value: session.requester_name || session.requester_email });
+  }
+  if (session.space_name) rows.push({ label: 'Space', value: session.space_name });
+  if (session.library_name) rows.push({ label: 'Library', value: session.library_name });
+  if (session.started_at) rows.push({ label: 'Started', value: formatTimestamp(session.started_at) });
+  if (session.reason) rows.push({ label: 'Reason', value: session.reason });
+  return rows;
+}
+
 function actorLabel(message) {
   if (message?.is_internal) return 'Internal note';
   if (message?.author_role === 'system') return 'System';
@@ -160,6 +175,25 @@ function ThreadBubble({ message, currentUserId }) {
   );
 }
 
+function TimelineItem({ event }) {
+  return (
+    <div className="rounded-2xl border border-edge bg-raised/30 px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <span className={`badge ${event?.is_internal ? 'badge-warn' : event?.category === 'session' ? 'badge-ok' : 'badge-dim'}`}>
+            {event?.category === 'session' ? 'Session' : event?.is_internal ? 'Internal' : 'Request'}
+          </span>
+          {event?.request_key ? <span className="badge badge-dim text-[10px] normal-case tracking-normal">{event.request_key}</span> : null}
+          <p className="text-sm font-medium text-ink">{event?.title || 'Support event'}</p>
+        </div>
+        <p className="text-xs text-ghost">{formatTimestamp(event?.created_at)}</p>
+      </div>
+      <p className="mt-2 text-xs uppercase tracking-[0.16em] text-ghost">{event?.actor_name || 'System'}</p>
+      {event?.body ? <p className="mt-2 text-sm text-ghost leading-6 whitespace-pre-wrap">{event.body}</p> : null}
+    </div>
+  );
+}
+
 export default function HelpView({
   apiCall,
   onToast,
@@ -181,6 +215,7 @@ export default function HelpView({
   const [selectedRequestId, setSelectedRequestId] = useState(null);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [messages, setMessages] = useState([]);
+  const [timeline, setTimeline] = useState([]);
   const [detailLoading, setDetailLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [replying, setReplying] = useState(false);
@@ -282,6 +317,7 @@ export default function HelpView({
     if (!requestId) {
       setSelectedRequest(null);
       setMessages([]);
+      setTimeline([]);
       return;
     }
     if (!silent) setDetailLoading(true);
@@ -289,6 +325,7 @@ export default function HelpView({
       const payload = await apiCall('get', `/support/requests/${requestId}`);
       setSelectedRequest(payload?.request || null);
       setMessages(Array.isArray(payload?.messages) ? payload.messages : []);
+      setTimeline(Array.isArray(payload?.timeline) ? payload.timeline : []);
     } catch (error) {
       if (!silent) {
         onToast(error.response?.data?.error || 'Failed to load help thread', 'error');
@@ -332,6 +369,7 @@ export default function HelpView({
     if (!selectedRequestId) {
       setSelectedRequest(null);
       setMessages([]);
+      setTimeline([]);
       return;
     }
     loadRequestDetail(selectedRequestId);
@@ -397,6 +435,7 @@ export default function HelpView({
       if (createdMessage) {
         setMessages([createdMessage]);
       }
+      setTimeline([]);
       onSupportSummaryRefresh?.({ silent: true });
       onToast('Help request submitted');
     } catch (error) {
@@ -449,6 +488,7 @@ export default function HelpView({
         setMessages((prev) => [...prev, systemMessage]);
       }
       await loadRequests({ silent: true });
+      await loadRequestDetail(selectedRequestId, { silent: true });
       onSupportSummaryRefresh?.({ silent: true });
       onToast(nextStatus === 'closed' ? 'Help request closed' : 'Help request reopened');
     } catch (error) {
@@ -494,6 +534,7 @@ export default function HelpView({
       }
       setInternalNoteDraft('');
       await loadRequests({ silent: true });
+      await loadRequestDetail(selectedRequestId, { silent: true });
       onSupportSummaryRefresh?.({ silent: true });
       onToast('Triage updated');
     } catch (error) {
@@ -520,6 +561,7 @@ export default function HelpView({
         setMessages((prev) => [...prev, systemMessage]);
       }
       await loadRequests({ silent: true });
+      await loadRequestDetail(selectedRequestId, { silent: true });
       onSupportSummaryRefresh?.({ silent: true });
       onToast(nextStatus === 'approved' ? 'Support access approved' : 'Support access revoked');
     } catch (error) {
@@ -544,6 +586,7 @@ export default function HelpView({
     && selectedRequest.support_access_status === 'approved'
     && selectedRequest.target_space_id
   );
+  const activeSessionEvidence = sessionEvidenceRows(supportSession, selectedRequest);
 
   const startApprovedSupportSession = async () => {
     if (!selectedRequest?.target_space_id) return;
@@ -1126,6 +1169,39 @@ export default function HelpView({
                       </button>
                     ) : null}
                   </div>
+                </div>
+                {activeSessionEvidence.length > 0 ? (
+                  <div className="border-b border-edge bg-gold/5 px-5 py-4">
+                    <div className="flex items-center gap-2">
+                      <span className="badge badge-warn">Active session evidence</span>
+                      <p className="text-xs text-ghost">This thread is the approval context for the current support session.</p>
+                    </div>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                      {activeSessionEvidence.map((row) => (
+                        <div key={row.label} className="rounded-2xl border border-edge bg-raised/35 px-3 py-2.5">
+                          <p className="text-[11px] uppercase tracking-[0.16em] text-ghost">{row.label}</p>
+                          <p className="mt-1 text-sm text-ink break-words">{row.value}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+                <div className="border-b border-edge bg-raised/10 px-5 py-4 space-y-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-ink">History timeline</h3>
+                    <p className="text-xs text-ghost">Lifecycle, approval, and support-session events for this request.</p>
+                  </div>
+                  {timeline.length > 0 ? (
+                    <div className="space-y-2">
+                      {timeline.map((event) => (
+                        <TimelineItem key={event.id} event={event} />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-edge px-4 py-4 text-sm text-ghost">
+                      No timeline events have been recorded for this request yet.
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex-1 overflow-y-auto px-4 py-5 sm:px-5 space-y-3 bg-abyss/40">

@@ -507,18 +507,29 @@ export default function App() {
                   <p className="text-[10px] uppercase tracking-[0.22em] text-amber-100/80">Support Session Active</p>
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     <p className="text-sm font-medium text-amber-50 truncate">{supportSession.space_name || 'Scoped tenant access'}</p>
-                    {activeLibrary ? (
-                      <span className="text-xs text-amber-100/70">Library: {activeLibrary.name}</span>
+                    {(supportSession.library_name || activeLibrary) ? (
+                      <span className="text-xs text-amber-100/70">Library: {supportSession.library_name || activeLibrary?.name}</span>
                     ) : null}
                   </div>
                   <p className="text-xs text-amber-100/70 max-w-3xl">
                     You are operating inside tenant context through explicit support access. End the session when the support task is complete.
                   </p>
+                  {supportSession.started_at ? (
+                    <p className="text-xs text-amber-100/80 truncate">Started: {new Date(supportSession.started_at).toLocaleString()}</p>
+                  ) : null}
                   {supportSession.reason ? (
                     <p className="text-xs text-amber-100/80 truncate">Reason: {supportSession.reason}</p>
                   ) : null}
                   {supportSession.request_key ? (
                     <p className="text-xs text-amber-100/80 truncate">Request: {supportSession.request_key}</p>
+                  ) : null}
+                  {supportSession.request_subject ? (
+                    <p className="text-xs text-amber-100/80 truncate">Case: {supportSession.request_subject}</p>
+                  ) : null}
+                  {(supportSession.requester_name || supportSession.requester_email) ? (
+                    <p className="text-xs text-amber-100/80 truncate">
+                      Requester: {supportSession.requester_name || supportSession.requester_email}
+                    </p>
                   ) : null}
                 </div>
               </div>

@@ -375,9 +375,13 @@ results.push(run('auth route source includes explicit support session endpoints'
   assert.ok(authRoutesSource.includes('auth.support_session.started'));
   assert.ok(authRoutesSource.includes('auth.support_session.ended'));
   assert.ok(authRoutesSource.includes('isSupportAccessApprovalActive'));
+  assert.ok(authRoutesSource.includes('getSupportRequestSessionSummary'));
   assert.ok(authRoutesSource.includes('supportRequestKey'));
   assert.ok(authRoutesSource.includes('support_request_id'));
   assert.ok(authRoutesSource.includes('expired, or no longer valid'));
+  assert.ok(authRoutesSource.includes('request_subject'));
+  assert.ok(authRoutesSource.includes('requester_name'));
+  assert.ok(authRoutesSource.includes('library_name'));
   assert.ok(authRoutesSource.includes('active_space_id: null'));
   assert.ok(authRoutesSource.includes('support_session: null'));
 }));
@@ -424,6 +428,9 @@ results.push(run('support route source includes request creation, releases feed,
   assert.ok(supportRoutesSource.includes('req.query.q'));
   assert.ok(supportRoutesSource.includes('support_access_expires_at'));
   assert.ok(supportRoutesSource.includes('buildSupportAccessClearedOnCloseMessage'));
+  assert.ok(supportRoutesSource.includes('formatSupportTimelineEvent'));
+  assert.ok(supportRoutesSource.includes('buildDerivedExpiredSupportAccessEvent'));
+  assert.ok(supportRoutesSource.includes('timelineResult'));
 }));
 
 results.push(run('frontend source includes tabbed help center and support inbox surfaces for 2.9.1 foundation work', () => {
@@ -446,7 +453,14 @@ results.push(run('frontend source includes tabbed help center and support inbox 
   assert.ok(helpViewSource.includes('Completed'));
   assert.ok(helpViewSource.includes('Support access expired'));
   assert.ok(helpViewSource.includes('Expires '));
+  assert.ok(helpViewSource.includes('Active session evidence'));
+  assert.ok(helpViewSource.includes('This thread is the approval context'));
+  assert.ok(helpViewSource.includes('History timeline'));
+  assert.ok(helpViewSource.includes('Lifecycle, approval, and support-session events'));
+  assert.ok(helpViewSource.includes('TimelineItem'));
   assert.ok(frontendAppSource.includes('supportBadgeCount'));
+  assert.ok(frontendAppSource.includes('Requester:'));
+  assert.ok(frontendAppSource.includes('Case:'));
   assert.ok(helpViewSource.includes('Reply to Support'));
 }));
 

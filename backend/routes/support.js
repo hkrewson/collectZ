@@ -21,6 +21,13 @@ const {
 const router = express.Router();
 
 const SUPPORT_STAFF_ROLES = new Set(['admin', 'support_admin']);
+const PUBLIC_SUPPORT_TIMELINE_ACTIONS = new Set([
+  'support.request.created',
+  'support.request.status.updated',
+  'support.request.access.updated',
+  'auth.support_session.started',
+  'auth.support_session.ended'
+]);
 
 function isSupportStaff(req) {
   return SUPPORT_STAFF_ROLES.has(String(req.user?.role || ''));
@@ -81,6 +88,92 @@ function formatSupportMessage(row) {
     author_email: row.author_email || null,
     body: row.body,
     created_at: row.created_at
+  };
+}
+
+function normalizeAuditDetails(details) {
+  if (!details || typeof details !== 'object' || Array.isArray(details)) return {};
+  return details;
+}
+
+function formatSupportTimelineEvent(row, options = {}) {
+  const details = normalizeAuditDetails(row.details);
+  const requestKey = options.requestKey || formatSupportRequestKey(options.requestId || row.entity_id || details.supportRequestId || null);
+  const actorName = row.actor_name || row.actor_email || (row.user_id ? `User #${row.user_id}` : 'System');
+  let title = 'Support event';
+  let body = null;
+  let category = 'request';
+  let isInternal = false;
+
+  switch (row.action) {
+    case 'support.request.created':
+      title = 'Request created';
+      body = details.subject ? `Created with subject "${details.subject}".` : 'Support request was created.';
+      break;
+    case 'support.request.status.updated':
+      title = 'Request status changed';
+      body = details.nextStatus ? `Status changed from ${details.previousStatus || 'unknown'} to ${details.nextStatus}.` : 'Request status changed.';
+      break;
+    case 'support.request.access.updated':
+      title = 'Support access updated';
+      body = details.supportAccessStatus === 'approved'
+        ? `Support access was approved for tenant support on ${requestKey || 'this request'}.`
+        : details.supportAccessStatus === 'revoked'
+          ? `Support access was revoked for ${requestKey || 'this request'}.`
+          : 'Support access was updated.';
+      category = 'access';
+      break;
+    case 'support.request.triage.updated':
+      title = 'Triage updated';
+      body = 'Classification or tracking details were updated by support staff.';
+      category = 'triage';
+      isInternal = true;
+      break;
+    case 'auth.support_session.started':
+      title = 'Support session started';
+      body = `Tenant support session started${details.reason ? `: ${details.reason}` : '.'}`;
+      category = 'session';
+      break;
+    case 'auth.support_session.ended':
+      title = 'Support session ended';
+      body = details.startedAt
+        ? `Tenant support session ended. Started at ${new Date(details.startedAt).toISOString()}.`
+        : 'Tenant support session ended.';
+      category = 'session';
+      break;
+    default:
+      body = null;
+  }
+
+  return {
+    id: `activity:${row.id}`,
+    action: row.action,
+    category,
+    title,
+    body,
+    created_at: row.created_at,
+    actor_name: actorName,
+    actor_email: row.actor_email || null,
+    request_id: options.requestId || row.entity_id || details.supportRequestId || null,
+    request_key: requestKey,
+    is_internal: isInternal
+  };
+}
+
+function buildDerivedExpiredSupportAccessEvent(request) {
+  if (!request || request.support_access_status !== 'expired' || !request.support_access_expires_at) return null;
+  return {
+    id: `derived:expired:${request.id}`,
+    action: 'support.request.access.expired',
+    category: 'access',
+    title: 'Support access expired',
+    body: `Support access approval expired for ${request.request_key || 'this request'} and must be approved again before tenant support can resume.`,
+    created_at: request.support_access_expires_at,
+    actor_name: 'System',
+    actor_email: null,
+    request_id: request.id,
+    request_key: request.request_key || formatSupportRequestKey(request.id),
+    is_internal: false
   };
 }
 
@@ -375,12 +468,54 @@ router.get('/requests/:id', authenticateToken, asyncHandler(async (req, res) => 
       [requestId, isSupportStaff(req)]
     );
 
+    const supportStaff = isSupportStaff(req);
+    const timelineActionParams = supportStaff
+      ? ['support.request.created', 'support.request.status.updated', 'support.request.access.updated', 'support.request.triage.updated', 'auth.support_session.started', 'auth.support_session.ended']
+      : ['support.request.created', 'support.request.status.updated', 'support.request.access.updated', 'auth.support_session.started', 'auth.support_session.ended'];
+    const timelineResult = await client.query(
+      `SELECT al.id,
+              al.action,
+              al.entity_type,
+              al.entity_id,
+              al.details,
+              al.created_at,
+              al.user_id,
+              actor.name AS actor_name,
+              actor.email AS actor_email
+         FROM activity_log al
+         LEFT JOIN users actor ON actor.id = al.user_id
+        WHERE (
+              al.entity_type = 'support_request'
+          AND al.entity_id = $1
+          AND al.action = ANY($2::text[])
+        ) OR (
+              al.action IN ('auth.support_session.started', 'auth.support_session.ended')
+          AND NULLIF(al.details->>'supportRequestId', '')::int = $1
+          AND al.action = ANY($2::text[])
+        )
+        ORDER BY al.created_at ASC, al.id ASC`,
+      [requestId, timelineActionParams]
+    );
+
+    const formattedRequest = formatSupportRequest(supportRequest, { includeInternalNotes: supportStaff });
+    const derivedExpiredEvent = buildDerivedExpiredSupportAccessEvent(formattedRequest);
+    const timeline = [
+      ...timelineResult.rows.map((row) => formatSupportTimelineEvent(row, { requestId, requestKey: formattedRequest.request_key })),
+      ...(derivedExpiredEvent ? [derivedExpiredEvent] : [])
+    ].sort((left, right) => {
+      const leftTime = new Date(left.created_at).getTime();
+      const rightTime = new Date(right.created_at).getTime();
+      if (leftTime !== rightTime) return leftTime - rightTime;
+      return String(left.id).localeCompare(String(right.id));
+    });
+
     res.json({
-      request: formatSupportRequest(supportRequest, { includeInternalNotes: isSupportStaff(req) }),
+      request: formattedRequest,
       messages: messagesResult.rows.map((row) => formatSupportMessage({
         ...row,
         request_key: formatSupportRequestKey(supportRequest.id)
-      }))
+      })),
+      timeline
     });
   } finally {
     client.release();
