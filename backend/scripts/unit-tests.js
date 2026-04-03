@@ -323,8 +323,11 @@ results.push(run('admin route source includes platform-safe space detail and ros
 results.push(run('auth route source includes explicit support session endpoints', () => {
   assert.ok(authRoutesSource.includes("router.post('/support-session/start'"));
   assert.ok(authRoutesSource.includes("router.delete('/support-session'"));
+  assert.ok(authRoutesSource.includes("requireRole('admin', 'support_admin')"));
   assert.ok(authRoutesSource.includes('auth.support_session.started'));
   assert.ok(authRoutesSource.includes('auth.support_session.ended'));
+  assert.ok(authRoutesSource.includes('supportRequestKey'));
+  assert.ok(authRoutesSource.includes('support_request_id'));
   assert.ok(authRoutesSource.includes('active_space_id: null'));
   assert.ok(authRoutesSource.includes('support_session: null'));
 }));
@@ -334,7 +337,9 @@ results.push(run('migrations source includes support role and help foundation sc
   assert.ok(migrationsSource.includes('version: 49'));
   assert.ok(migrationsSource.includes('version: 50'));
   assert.ok(migrationsSource.includes('version: 51'));
+  assert.ok(migrationsSource.includes('version: 52'));
   assert.ok(migrationsSource.includes('support_space_id'));
+  assert.ok(migrationsSource.includes('support_request_id'));
   assert.ok(migrationsSource.includes('support_previous_library_id'));
   assert.ok(migrationsSource.includes('artist VARCHAR(255)'));
   assert.ok(migrationsSource.includes('ADD COLUMN IF NOT EXISTS image_path TEXT'));
@@ -349,6 +354,7 @@ results.push(run('migrations source includes support role and help foundation sc
 results.push(run('frontend app source includes support session banner and admin trigger plumbing', () => {
   assert.ok(frontendAppSource.includes('Support Session'));
   assert.ok(frontendAppSource.includes('/auth/support-session/start'));
+  assert.ok(frontendAppSource.includes('request_id: requestId || undefined'));
   assert.ok(dashboardContentSource.includes('onStartSupportSession'));
 }));
 
@@ -368,7 +374,7 @@ results.push(run('support route source includes request creation, releases feed,
 results.push(run('frontend source includes tabbed help center and support inbox surfaces for 2.9.1 foundation work', () => {
   assert.ok(dashboardContentSource.includes("case 'help'"));
   assert.ok(dashboardContentSource.includes("case 'support-inbox'"));
-  assert.ok(frontendAppSource.includes("SUPPORT_ADMIN_ALLOWED_TABS"));
+  assert.ok(frontendAppSource.includes('getSupportAdminAllowedTabs'));
   assert.ok(adminUsersViewSource.includes('support_admin'));
   assert.ok(dashboardContentSource.includes('<HelpView'));
   assert.ok(helpViewSource.includes('/support/releases'));
@@ -379,6 +385,7 @@ results.push(run('frontend source includes tabbed help center and support inbox 
   assert.ok(helpViewSource.includes('New Internal Note'));
   assert.ok(helpViewSource.includes('Approve Support Access'));
   assert.ok(helpViewSource.includes('Revoke Support Access'));
+  assert.ok(helpViewSource.includes('Start Approved Support Session'));
   assert.ok(frontendAppSource.includes('supportBadgeCount'));
   assert.ok(helpViewSource.includes('Reply to Support'));
 }));

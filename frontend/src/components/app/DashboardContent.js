@@ -64,7 +64,12 @@ export default function DashboardContent({
   onSupportSummaryRefresh
 }) {
   const isAdminTab = String(activeTab || '').startsWith('admin-');
-  const supportAdminAllowedTabs = new Set(['help', 'support-inbox', 'profile']);
+  const supportAdminAllowedTabs = new Set([
+    'help',
+    'support-inbox',
+    'profile',
+    ...(supportSession?.active ? ['space-manage'] : [])
+  ]);
 
   if (isAdminTab && user?.role !== 'admin') {
     return <ForbiddenView detail="Admin permissions are required to access this view." />;
@@ -84,6 +89,9 @@ export default function DashboardContent({
           user={user}
           activeSpace={activeSpace}
           activeLibrary={activeLibrary}
+          supportSession={supportSession}
+          onStartSupportSession={onStartSupportSession}
+          onEndSupportSession={onEndSupportSession}
           Spinner={Spinner}
           Icons={Icons}
           supportSummary={supportSummary}

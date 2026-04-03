@@ -2410,6 +2410,18 @@ const MIGRATIONS = [
       CREATE INDEX IF NOT EXISTS idx_support_requests_access_status
         ON support_requests(support_access_status, last_message_at DESC, id DESC);
     `
+  },
+  {
+    version: 52,
+    description: 'Link support sessions to approved support requests',
+    up: `
+      ALTER TABLE user_sessions
+        ADD COLUMN IF NOT EXISTS support_request_id INTEGER REFERENCES support_requests(id) ON DELETE SET NULL;
+
+      CREATE INDEX IF NOT EXISTS idx_user_sessions_support_request_id
+        ON user_sessions(support_request_id)
+        WHERE support_request_id IS NOT NULL;
+    `
   }
 ];
 

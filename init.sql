@@ -239,6 +239,7 @@ CREATE TABLE IF NOT EXISTS user_sessions (
     user_agent TEXT,
     support_space_id INTEGER REFERENCES spaces(id) ON DELETE SET NULL,
     support_library_id INTEGER REFERENCES libraries(id) ON DELETE SET NULL,
+    support_request_id INTEGER,
     support_started_at TIMESTAMP,
     support_reason TEXT,
     support_previous_space_id INTEGER REFERENCES spaces(id) ON DELETE SET NULL,
@@ -342,6 +343,13 @@ CREATE INDEX IF NOT EXISTS idx_support_request_messages_request_id_created_at
 
 CREATE INDEX IF NOT EXISTS idx_support_request_messages_visibility_created_at
     ON support_request_messages(request_id, is_internal, created_at ASC, id ASC);
+
+ALTER TABLE user_sessions
+    DROP CONSTRAINT IF EXISTS user_sessions_support_request_id_fkey;
+
+ALTER TABLE user_sessions
+    ADD CONSTRAINT user_sessions_support_request_id_fkey
+    FOREIGN KEY (support_request_id) REFERENCES support_requests(id) ON DELETE SET NULL;
 
 -- Per-user integration settings (reserved for future per-user overrides)
 CREATE TABLE IF NOT EXISTS user_integrations (
@@ -634,6 +642,7 @@ CREATE INDEX IF NOT EXISTS idx_activity_log_action ON activity_log(action);
 CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_sessions_expires_at ON user_sessions(expires_at);
 CREATE INDEX IF NOT EXISTS idx_user_sessions_support_space_id ON user_sessions(support_space_id) WHERE support_space_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_user_sessions_support_request_id ON user_sessions(support_request_id) WHERE support_request_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user_id ON password_reset_tokens(user_id);
 CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_active ON password_reset_tokens(used, revoked, expires_at);
 CREATE INDEX IF NOT EXISTS idx_libraries_name ON libraries(name);

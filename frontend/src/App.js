@@ -17,7 +17,14 @@ import useMediaApi from './components/app/hooks/useMediaApi';
 
 const API_URL = process.env.REACT_APP_API_URL || '/api';
 const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.frontend || appMeta.version || 'unknown';
-const SUPPORT_ADMIN_ALLOWED_TABS = new Set(['help', 'support-inbox', 'profile']);
+function getSupportAdminAllowedTabs(supportSessionActive) {
+  return new Set([
+    'help',
+    'support-inbox',
+    'profile',
+    ...(supportSessionActive ? ['space-manage'] : [])
+  ]);
+}
 
 export default function App() {
   const initialDashboardState = readDashboardStateFromUrl();
@@ -36,7 +43,18 @@ export default function App() {
     events_enabled: false,
     collectibles_enabled: false
   });
-  const [supportSummary, setSupportSummary] = useState({ open: 0, answered: 0, closed: 0, bugs: 0, features: 0 });
+  const [supportSummary, setSupportSummary] = useState({
+    open: 0,
+    answered: 0,
+    closed: 0,
+    bugs: 0,
+    features: 0,
+    metrics: {
+      time_to_open_seconds: 0,
+      time_to_close_seconds: 0,
+      closed_this_month: 0
+    }
+  });
   const [toast, setToast] = useState(null);
   const showToast = useCallback((message, type = 'ok') => setToast({ message, type }), []);
   const apiCall = useCallback(async (method, path, data, config = {}) => {
@@ -162,18 +180,35 @@ export default function App() {
 
   const loadSupportSummary = useCallback(async ({ silent = false } = {}) => {
     if (!['admin', 'support_admin'].includes(String(user?.role || ''))) {
-      setSupportSummary({ open: 0, answered: 0, closed: 0, bugs: 0, features: 0 });
+      setSupportSummary({
+        open: 0,
+        answered: 0,
+        closed: 0,
+        bugs: 0,
+        features: 0,
+        metrics: {
+          time_to_open_seconds: 0,
+          time_to_close_seconds: 0,
+          closed_this_month: 0
+        }
+      });
       return null;
     }
     try {
       const payload = await apiCall('get', '/support/staff/summary');
       const nextQueue = payload?.queue || {};
+      const nextMetrics = payload?.metrics || {};
       const normalized = {
         open: Number(nextQueue.open || 0),
         answered: Number(nextQueue.answered || 0),
         closed: Number(nextQueue.closed || 0),
         bugs: Number(nextQueue.bugs || 0),
-        features: Number(nextQueue.features || 0)
+        features: Number(nextQueue.features || 0),
+        metrics: {
+          time_to_open_seconds: Number(nextMetrics.time_to_open_seconds || 0),
+          time_to_close_seconds: Number(nextMetrics.time_to_close_seconds || 0),
+          closed_this_month: Number(nextMetrics.closed_this_month || 0)
+        }
       };
       setSupportSummary(normalized);
       return normalized;
@@ -262,11 +297,13 @@ export default function App() {
     if (!Number.isFinite(spaceId) || spaceId <= 0) return false;
     const reason = String(options?.reason || '').trim();
     const libraryId = Number(options?.libraryId || 0) || null;
+    const requestId = Number(options?.requestId || 0) || null;
     try {
       await apiCall('post', '/auth/support-session/start', {
         space_id: spaceId,
         reason: reason || undefined,
-        library_id: libraryId || undefined
+        library_id: libraryId || undefined,
+        request_id: requestId || undefined
       });
       await loadAuthScope({ silent: true });
       clearImportJobs();
@@ -349,16 +386,18 @@ export default function App() {
   const activeMembershipRole = activeSpace?.membership_role || null;
   const canManageActiveSpace = user?.role === 'admin'
     ? Boolean(supportSession?.active) || ['owner', 'admin'].includes(activeMembershipRole)
-    : ['owner', 'admin'].includes(activeMembershipRole);
+    : user?.role === 'support_admin'
+      ? Boolean(supportSession?.active)
+      : ['owner', 'admin'].includes(activeMembershipRole);
   const scopeKey = `${activeSpaceId || 'none'}:${activeLibraryId || 'none'}`;
   const collapsed = !pinnedExpanded;
   const desktopNavExpanded = !collapsed;
 
   useEffect(() => {
-    if (user?.role === 'support_admin' && !SUPPORT_ADMIN_ALLOWED_TABS.has(String(activeTab || ''))) {
+    if (user?.role === 'support_admin' && !getSupportAdminAllowedTabs(Boolean(supportSession?.active)).has(String(activeTab || ''))) {
       setActiveTab('help');
     }
-  }, [activeTab, user?.role]);
+  }, [activeTab, supportSession?.active, user?.role]);
 
   useEffect(() => {
     if (activeTab === 'space-manage' && !canManageActiveSpace) {
@@ -457,7 +496,7 @@ export default function App() {
           </div>
         </div>
 
-        {user?.role === 'admin' && supportSession?.active ? (
+        {['admin', 'support_admin'].includes(String(user?.role || '')) && supportSession?.active ? (
           <div className="border-b border-amber-300/25 bg-[linear-gradient(90deg,rgba(245,158,11,0.18),rgba(217,119,6,0.12),rgba(10,14,20,0.96))] shadow-[inset_0_1px_0_rgba(252,211,77,0.12)]">
             <div className="flex flex-col gap-3 px-4 py-3 xl:flex-row xl:items-center xl:justify-between">
               <div className="flex min-w-0 items-start gap-3">
@@ -477,6 +516,9 @@ export default function App() {
                   </p>
                   {supportSession.reason ? (
                     <p className="text-xs text-amber-100/80 truncate">Reason: {supportSession.reason}</p>
+                  ) : null}
+                  {supportSession.request_key ? (
+                    <p className="text-xs text-amber-100/80 truncate">Request: {supportSession.request_key}</p>
                   ) : null}
                 </div>
               </div>

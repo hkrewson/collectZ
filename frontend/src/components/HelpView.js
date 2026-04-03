@@ -45,12 +45,6 @@ const SUPPORT_ADMIN_ARTICLE = {
   ]
 };
 
-const HELP_TABS = [
-  { id: 'guidance', label: 'Guidance' },
-  { id: 'releases', label: 'Releases' },
-  { id: 'support', label: 'Support' }
-];
-
 const CLASSIFICATION_OPTIONS = [
   { value: 'support', label: 'Support' },
   { value: 'bug', label: 'Bug' },
@@ -73,6 +67,20 @@ function formatTimestamp(value) {
   } catch (_) {
     return String(value);
   }
+}
+
+function formatDurationCompact(totalSeconds) {
+  const seconds = Number(totalSeconds || 0);
+  if (!Number.isFinite(seconds) || seconds <= 0) return 'Not enough data';
+  const rounded = Math.round(seconds);
+  const days = Math.floor(rounded / 86400);
+  const hours = Math.floor((rounded % 86400) / 3600);
+  const minutes = Math.floor((rounded % 3600) / 60);
+
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (minutes > 0) return `${minutes}m`;
+  return `${rounded}s`;
 }
 
 function classificationLabel(value) {
@@ -142,6 +150,9 @@ export default function HelpView({
   user,
   activeSpace,
   activeLibrary,
+  supportSession,
+  onStartSupportSession,
+  onEndSupportSession,
   Spinner,
   Icons,
   supportSummary,
@@ -173,6 +184,7 @@ export default function HelpView({
   const [internalNoteDraft, setInternalNoteDraft] = useState('');
   const [triageSaving, setTriageSaving] = useState(false);
   const [accessSaving, setAccessSaving] = useState(false);
+  const [supportPanelTab, setSupportPanelTab] = useState('reply');
   const threadEndRef = useRef(null);
   const triageRequestIdRef = useRef(null);
   const isSupportStaff = ['admin', 'support_admin'].includes(String(user?.role || ''));
@@ -187,6 +199,15 @@ export default function HelpView({
   }), []);
   const guidanceArticles = useMemo(
     () => (isSupportStaff ? [...HELP_ARTICLES, SUPPORT_ADMIN_ARTICLE] : HELP_ARTICLES),
+    [isSupportStaff]
+  );
+  const helpTabs = useMemo(
+    () => [
+      { id: 'guidance', label: 'Guidance' },
+      { id: 'releases', label: 'Releases' },
+      ...(isSupportStaff ? [{ id: 'metrics', label: 'Metrics' }] : []),
+      { id: 'support', label: 'Support' }
+    ],
     [isSupportStaff]
   );
 
@@ -262,6 +283,11 @@ export default function HelpView({
   useEffect(() => {
     setActiveTab(initialTab);
   }, [initialTab]);
+
+  useEffect(() => {
+    if (helpTabs.some((tab) => tab.id === activeTab)) return;
+    setActiveTab('guidance');
+  }, [activeTab, helpTabs]);
 
   useEffect(() => {
     loadRequests();
@@ -374,20 +400,20 @@ export default function HelpView({
     }
   };
 
-  const closeRequest = async () => {
+  const updateRequestStatus = async (nextStatus) => {
     if (!selectedRequestId) return;
     setClosing(true);
     try {
-      const payload = await apiCall('patch', `/support/requests/${selectedRequestId}/status`, { status: 'closed' });
+      const payload = await apiCall('patch', `/support/requests/${selectedRequestId}/status`, { status: nextStatus });
       const updatedRequest = payload?.request;
       if (updatedRequest) {
         setRequests((prev) => prev.map((item) => (Number(item.id) === Number(updatedRequest.id) ? updatedRequest : item)));
         setSelectedRequest(updatedRequest);
       }
       onSupportSummaryRefresh?.({ silent: true });
-      onToast('Help request closed');
+      onToast(nextStatus === 'closed' ? 'Help request closed' : 'Help request reopened');
     } catch (error) {
-      onToast(error.response?.data?.error || 'Failed to close help request', 'error');
+      onToast(error.response?.data?.error || `Failed to ${nextStatus === 'closed' ? 'close' : 'reopen'} help request`, 'error');
     } finally {
       setClosing(false);
     }
@@ -473,6 +499,30 @@ export default function HelpView({
     && selectedRequest.target_space_id
     && Number(selectedRequest.requester_user_id || 0) === Number(user?.id || 0)
   );
+  const canStartApprovedSupportSession = Boolean(
+    isSupportStaff
+    && selectedRequest
+    && selectedRequest.support_access_status === 'approved'
+    && selectedRequest.target_space_id
+  );
+
+  const startApprovedSupportSession = async () => {
+    if (!selectedRequest?.target_space_id) return;
+    const started = await onStartSupportSession?.(
+      {
+        id: selectedRequest.target_space_id,
+        name: selectedRequest.target_space_name || selectedRequest.requester_name || 'Approved support target'
+      },
+      {
+        libraryId: selectedRequest.target_library_id || undefined,
+        reason: `Approved support request ${selectedRequest.request_key || ''}: ${selectedRequest.subject}`.trim(),
+        requestId: selectedRequest.id
+      }
+    );
+    if (started !== false) {
+      onToast('Support session started from approved request');
+    }
+  };
 
   return (
     <div className="h-full overflow-y-auto p-4 sm:p-6 space-y-6">
@@ -484,8 +534,11 @@ export default function HelpView({
       </div>
 
       <div className="panel p-2 sm:p-3">
-        <div className="grid grid-cols-3 gap-2 rounded-2xl bg-raised/55 border border-edge/60 p-1.5 shadow-soft">
-          {HELP_TABS.map((tab) => {
+        <div
+          className="grid gap-2 rounded-2xl bg-raised/55 border border-edge/60 p-1.5 shadow-soft"
+          style={{ gridTemplateColumns: `repeat(${helpTabs.length}, minmax(0, 1fr))` }}
+        >
+          {helpTabs.map((tab) => {
             const active = activeTab === tab.id;
             return (
               <button
@@ -507,7 +560,7 @@ export default function HelpView({
       </div>
 
       {activeTab === 'guidance' ? (
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
+        <div className={`grid gap-4 ${isSupportStaff ? '' : 'xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]'}`}>
           <section className="panel p-5 space-y-4">
             <div className="flex items-center gap-3">
               <div className="h-11 w-11 rounded-2xl border border-edge bg-raised flex items-center justify-center text-gold">
@@ -538,23 +591,8 @@ export default function HelpView({
             </div>
           </section>
 
-          <section className="panel p-5 space-y-4">
-            {isSupportStaff ? (
-              <>
-                <h2 className="text-lg font-semibold text-ink">Support workload</h2>
-                <p className="text-sm text-ghost">A quick snapshot of what is waiting in the queue right now.</p>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-3xl border border-edge bg-raised/35 p-4">
-                    <p className="text-xs uppercase tracking-[0.18em] text-ghost">Open</p>
-                    <p className="mt-2 text-3xl font-display text-ink">{supportSummary?.open || 0}</p>
-                  </div>
-                  <div className="rounded-3xl border border-edge bg-raised/35 p-4">
-                    <p className="text-xs uppercase tracking-[0.18em] text-ghost">Bugs / Features</p>
-                    <p className="mt-2 text-3xl font-display text-ink">{supportSummary?.bugs || 0} / {supportSummary?.features || 0}</p>
-                  </div>
-                </div>
-              </>
-            ) : (
+          {!isSupportStaff ? (
+            <section className="panel p-5 space-y-4">
               <>
                 <h2 className="text-lg font-semibold text-ink">Getting help</h2>
                 <p className="text-sm text-ghost">Use the Support tab when guidance is not enough or you need a human reply tied to your current context.</p>
@@ -566,8 +604,8 @@ export default function HelpView({
                   </button>
                 </div>
               </>
-            )}
-          </section>
+            </section>
+          ) : null}
         </div>
       ) : null}
 
@@ -639,32 +677,67 @@ export default function HelpView({
         </section>
       ) : null}
 
+      {activeTab === 'metrics' && isSupportStaff ? (
+        <section className="panel p-5 space-y-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-ink">Support Metrics</h2>
+              <p className="text-sm text-ghost">A quick pulse on queue responsiveness and closure pace from the live support request data.</p>
+            </div>
+            <button type="button" className="btn-secondary btn-sm" onClick={() => onSupportSummaryRefresh?.()}>
+              <Icons.Refresh />Refresh
+            </button>
+          </div>
+          <div className="grid gap-3 lg:grid-cols-3">
+            <article className="rounded-3xl border border-edge bg-raised/35 p-5 shadow-soft">
+              <p className="text-xs uppercase tracking-[0.16em] text-ghost">Time to open</p>
+              <p className="mt-3 text-3xl font-display text-ink">{formatDurationCompact(supportSummary?.metrics?.time_to_open_seconds)}</p>
+              <p className="mt-2 text-sm text-ghost leading-6">Average time from request creation to the first public staff reply.</p>
+            </article>
+            <article className="rounded-3xl border border-edge bg-raised/35 p-5 shadow-soft">
+              <p className="text-xs uppercase tracking-[0.16em] text-ghost">Time to close</p>
+              <p className="mt-3 text-3xl font-display text-ink">{formatDurationCompact(supportSummary?.metrics?.time_to_close_seconds)}</p>
+              <p className="mt-2 text-sm text-ghost leading-6">Average time from request creation until the case is marked closed.</p>
+            </article>
+            <article className="rounded-3xl border border-edge bg-raised/35 p-5 shadow-soft">
+              <p className="text-xs uppercase tracking-[0.16em] text-ghost">Closed this month</p>
+              <p className="mt-3 text-3xl font-display text-ink">{supportSummary?.metrics?.closed_this_month || 0}</p>
+              <p className="mt-2 text-sm text-ghost leading-6">Requests closed since the start of the current calendar month.</p>
+            </article>
+          </div>
+        </section>
+      ) : null}
+
       {activeTab === 'support' ? (
-        <div className="grid gap-4 xl:grid-cols-[minmax(320px,0.85fr)_minmax(0,1.15fr)]">
-          <div className="space-y-4">
+        <div className="grid gap-4 xl:grid-cols-[minmax(320px,0.8fr)_minmax(0,1.2fr)] xl:h-[calc(100vh-15.5rem)]">
+          <div className="space-y-4 xl:min-h-0 xl:flex xl:flex-col">
             {isSupportStaff ? (
-              <section className="panel p-5 space-y-4">
+              <section className="panel p-4 space-y-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <h2 className="text-lg font-semibold text-ink">Queue summary</h2>
-                    <p className="text-sm text-ghost">Support and product triage now live together here instead of in a separate inbox.</p>
+                    <h2 className="text-base font-semibold text-ink">Queue summary</h2>
+                    <p className="text-xs text-ghost">Support and product triage live together here now.</p>
                   </div>
                   <button type="button" className="btn-secondary btn-sm" onClick={() => onSupportSummaryRefresh?.()}>
                     <Icons.Refresh />Refresh
                   </button>
                 </div>
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <div className="rounded-3xl border border-edge bg-raised/35 p-4">
-                    <p className="text-xs uppercase tracking-[0.18em] text-ghost">Open</p>
-                    <p className="mt-2 text-3xl font-display text-ink">{supportSummary?.open || 0}</p>
+                <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="rounded-2xl border border-edge bg-raised/35 px-3 py-2.5">
+                    <p className="text-[11px] uppercase tracking-[0.16em] text-ghost">Open</p>
+                    <p className="mt-1 text-lg font-semibold text-ink">{supportSummary?.open || 0}</p>
                   </div>
-                  <div className="rounded-3xl border border-edge bg-raised/35 p-4">
-                    <p className="text-xs uppercase tracking-[0.18em] text-ghost">Answered</p>
-                    <p className="mt-2 text-3xl font-display text-ink">{supportSummary?.answered || 0}</p>
+                  <div className="rounded-2xl border border-edge bg-raised/35 px-3 py-2.5">
+                    <p className="text-[11px] uppercase tracking-[0.16em] text-ghost">Answered</p>
+                    <p className="mt-1 text-lg font-semibold text-ink">{supportSummary?.answered || 0}</p>
                   </div>
-                  <div className="rounded-3xl border border-edge bg-raised/35 p-4">
-                    <p className="text-xs uppercase tracking-[0.18em] text-ghost">Bugs / Features</p>
-                    <p className="mt-2 text-3xl font-display text-ink">{supportSummary?.bugs || 0} / {supportSummary?.features || 0}</p>
+                  <div className="rounded-2xl border border-edge bg-raised/35 px-3 py-2.5">
+                    <p className="text-[11px] uppercase tracking-[0.16em] text-ghost">Bugs</p>
+                    <p className="mt-1 text-lg font-semibold text-ink">{supportSummary?.bugs || 0}</p>
+                  </div>
+                  <div className="rounded-2xl border border-edge bg-raised/35 px-3 py-2.5">
+                    <p className="text-[11px] uppercase tracking-[0.16em] text-ghost">Features</p>
+                    <p className="mt-1 text-lg font-semibold text-ink">{supportSummary?.features || 0}</p>
                   </div>
                 </div>
               </section>
@@ -723,63 +796,121 @@ export default function HelpView({
               </section>
             )}
 
-            {isSupportStaff && selectedRequest ? (
-              <section className="panel p-5 space-y-4">
-                <div>
-                  <h2 className="text-lg font-semibold text-ink">Triage</h2>
-                  <p className="text-sm text-ghost">Classify requests, keep internal notes, and prepare tracked bugs or feature requests for later repo linkage.</p>
-                  {selectedRequest?.request_key ? <p className="mt-2 text-xs uppercase tracking-[0.16em] text-ghost">Editing {selectedRequest.request_key}</p> : null}
+            {isSupportStaff ? (
+              <section className="panel p-4 space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-base font-semibold text-ink">Request controls</h2>
+                    <p className="text-xs text-ghost">{selectedRequest?.request_key ? `Working in ${selectedRequest.request_key}` : 'Select a request to reply or triage it.'}</p>
+                  </div>
                 </div>
-                <form className="space-y-4" onSubmit={saveTriage}>
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <label className="field">
-                      <span className="label">Classification</span>
-                      <select className="select" value={triageForm.classification} onChange={(event) => setTriageForm((prev) => ({ ...prev, classification: event.target.value }))}>
-                        {CLASSIFICATION_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                      </select>
-                    </label>
-                    <label className="field">
-                      <span className="label">Tracking Status</span>
-                      <select className="select" value={triageForm.tracking_status} onChange={(event) => setTriageForm((prev) => ({ ...prev, tracking_status: event.target.value }))}>
-                        {TRACKING_STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                      </select>
-                    </label>
-                  </div>
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <label className="field">
-                      <span className="label">Repo Issue #</span>
-                      <input className="input font-mono" value={triageForm.repo_issue_number} onChange={(event) => setTriageForm((prev) => ({ ...prev, repo_issue_number: event.target.value }))} placeholder="123" />
-                    </label>
-                    <label className="field">
-                      <span className="label">Resolved In Version</span>
-                      <input className="input font-mono" value={triageForm.resolved_in_version} onChange={(event) => setTriageForm((prev) => ({ ...prev, resolved_in_version: event.target.value }))} placeholder="v2.9.2" />
-                    </label>
-                  </div>
-                  <label className="field">
-                    <span className="label">Repo Issue URL</span>
-                    <input className="input" value={triageForm.repo_issue_url} onChange={(event) => setTriageForm((prev) => ({ ...prev, repo_issue_url: event.target.value }))} placeholder="https://github.com/.../issues/123" />
-                  </label>
-                  <label className="field">
-                    <span className="label">New Internal Note</span>
-                    <textarea className="input min-h-[130px]" value={internalNoteDraft} onChange={(event) => setInternalNoteDraft(event.target.value)} placeholder="Save a staff-only note into the support thread without sending it to the requester." />
-                  </label>
-                  {selectedRequest?.internal_notes ? (
-                    <div className="rounded-3xl border border-edge bg-raised/30 p-4">
-                      <div className="flex items-center gap-2">
-                        <p className="text-xs uppercase tracking-[0.16em] text-ghost">Latest saved internal note</p>
-                        {selectedRequest.request_key ? <span className="badge badge-dim text-[10px] normal-case tracking-normal">{selectedRequest.request_key}</span> : null}
+                <div className="grid grid-cols-2 gap-2 rounded-2xl bg-raised/55 border border-edge/60 p-1.5">
+                  {[
+                    { id: 'reply', label: 'Reply' },
+                    { id: 'triage', label: 'Triage' }
+                  ].map((tab) => {
+                    const active = supportPanelTab === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => setSupportPanelTab(tab.id)}
+                        className={[
+                          'rounded-2xl px-3 py-2.5 text-sm font-medium transition',
+                          active
+                            ? 'bg-gold/20 border border-gold/35 text-ink shadow-soft'
+                            : 'border border-transparent text-ghost hover:text-ink hover:bg-raised/80'
+                        ].join(' ')}
+                      >
+                        {tab.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {supportPanelTab === 'reply' ? (
+                  selectedRequest && selectedRequest.status !== 'closed' ? (
+                    <form className="space-y-4" onSubmit={submitReply}>
+                      <div className="space-y-1">
+                        <h3 className="text-sm font-semibold text-ink">Reply to requester</h3>
+                        <p className="text-xs text-ghost">Send guidance, next steps, or a clarifying question without leaving the queue.</p>
                       </div>
-                      <p className="mt-2 text-sm text-ink whitespace-pre-wrap leading-6">{selectedRequest.internal_notes}</p>
+                      <label className="field">
+                        <span className="label">Reply</span>
+                        <textarea
+                          className="input min-h-[140px]"
+                          value={replyBody}
+                          onChange={(event) => setReplyBody(event.target.value)}
+                          placeholder="Reply with guidance, next steps, or a clarifying question."
+                        />
+                      </label>
+                      <button type="submit" className="btn-primary" disabled={replying || !replyBody.trim()}>
+                        {replying ? <><Spinner size={14} />Sending…</> : <><Icons.Edit />Reply</>}
+                      </button>
+                    </form>
+                  ) : (
+                    <div className="rounded-3xl border border-dashed border-edge p-4 text-sm text-ghost">
+                      {selectedRequest
+                        ? 'This case is closed. Reopen it first if you need to send another support reply.'
+                        : 'Select a request from the queue to reply.'}
                     </div>
-                  ) : null}
-                  <button type="submit" className="btn-primary" disabled={triageSaving}>
-                    {triageSaving ? <><Spinner size={14} />Saving…</> : <><Icons.Check />Save triage</>}
-                  </button>
-                </form>
+                  )
+                ) : selectedRequest ? (
+                  <form className="space-y-4" onSubmit={saveTriage}>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <label className="field">
+                        <span className="label">Classification</span>
+                        <select className="select" value={triageForm.classification} onChange={(event) => setTriageForm((prev) => ({ ...prev, classification: event.target.value }))}>
+                          {CLASSIFICATION_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                        </select>
+                      </label>
+                      <label className="field">
+                        <span className="label">Tracking Status</span>
+                        <select className="select" value={triageForm.tracking_status} onChange={(event) => setTriageForm((prev) => ({ ...prev, tracking_status: event.target.value }))}>
+                          {TRACKING_STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                        </select>
+                      </label>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <label className="field">
+                        <span className="label">Repo Issue #</span>
+                        <input className="input font-mono" value={triageForm.repo_issue_number} onChange={(event) => setTriageForm((prev) => ({ ...prev, repo_issue_number: event.target.value }))} placeholder="123" />
+                      </label>
+                      <label className="field">
+                        <span className="label">Resolved In Version</span>
+                        <input className="input font-mono" value={triageForm.resolved_in_version} onChange={(event) => setTriageForm((prev) => ({ ...prev, resolved_in_version: event.target.value }))} placeholder="v2.9.2" />
+                      </label>
+                    </div>
+                    <label className="field">
+                      <span className="label">Repo Issue URL</span>
+                      <input className="input" value={triageForm.repo_issue_url} onChange={(event) => setTriageForm((prev) => ({ ...prev, repo_issue_url: event.target.value }))} placeholder="https://github.com/.../issues/123" />
+                    </label>
+                    <label className="field">
+                      <span className="label">New Internal Note</span>
+                      <textarea className="input min-h-[110px]" value={internalNoteDraft} onChange={(event) => setInternalNoteDraft(event.target.value)} placeholder="Save a staff-only note into the support thread without sending it to the requester." />
+                    </label>
+                    {selectedRequest?.internal_notes ? (
+                      <div className="rounded-3xl border border-edge bg-raised/30 p-4">
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs uppercase tracking-[0.16em] text-ghost">Latest saved internal note</p>
+                          {selectedRequest.request_key ? <span className="badge badge-dim text-[10px] normal-case tracking-normal">{selectedRequest.request_key}</span> : null}
+                        </div>
+                        <p className="mt-2 text-sm text-ink whitespace-pre-wrap leading-6">{selectedRequest.internal_notes}</p>
+                      </div>
+                    ) : null}
+                    <button type="submit" className="btn-primary" disabled={triageSaving}>
+                      {triageSaving ? <><Spinner size={14} />Saving…</> : <><Icons.Check />Save triage</>}
+                    </button>
+                  </form>
+                ) : (
+                  <div className="rounded-3xl border border-dashed border-edge p-4 text-sm text-ghost">
+                    Select a request from the queue to classify it, add repo linkage, or save an internal note.
+                  </div>
+                )}
               </section>
             ) : null}
 
-            <section className="panel p-5 space-y-4 min-h-[320px]">
+            <section className="panel p-5 space-y-4 min-h-[320px] xl:min-h-0 xl:flex-1 xl:flex xl:flex-col">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <h2 className="text-lg font-semibold text-ink">Requests</h2>
@@ -796,7 +927,7 @@ export default function HelpView({
                   No support requests yet.
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-2 xl:min-h-0 xl:flex-1 xl:overflow-y-auto pr-1">
                   {requests.map((request) => {
                     const active = Number(selectedRequestId) === Number(request.id);
                     const requestContext = formatRequestContext(request);
@@ -837,7 +968,7 @@ export default function HelpView({
             </section>
           </div>
 
-          <section className="panel p-0 min-h-[640px] overflow-hidden flex flex-col">
+          <section className="panel p-0 min-h-[640px] overflow-hidden flex flex-col xl:min-h-0 xl:h-full">
             {!selectedRequestId ? (
               <div className="flex-1 flex items-center justify-center p-8 text-sm text-ghost text-center">
                 Select a support request to open the conversation.
@@ -875,12 +1006,27 @@ export default function HelpView({
                         {accessSaving ? <><Spinner size={14} />Saving…</> : <><Icons.X />Revoke Support Access</>}
                       </button>
                     ) : null}
+                    {canStartApprovedSupportSession ? (
+                      <button type="button" className="btn-secondary btn-sm" onClick={startApprovedSupportSession}>
+                        <Icons.Activity />{supportSession?.request_id === selectedRequest.id ? 'Support Session Active' : 'Start Approved Support Session'}
+                      </button>
+                    ) : null}
+                    {isSupportStaff && supportSession?.request_id === selectedRequest?.id ? (
+                      <button type="button" className="btn-secondary btn-sm" onClick={() => onEndSupportSession?.()}>
+                        <Icons.X />End Session
+                      </button>
+                    ) : null}
                     <button type="button" className="btn-secondary btn-sm" onClick={() => loadRequestDetail(selectedRequestId)}>
                       <Icons.Refresh />Refresh
                     </button>
-                    {!isSupportStaff && selectedRequest.status !== 'closed' ? (
-                      <button type="button" className="btn-secondary btn-sm" disabled={closing} onClick={closeRequest}>
-                        {closing ? <><Spinner size={14} />Closing…</> : <><Icons.Check />Close</>}
+                    {selectedRequest.status !== 'closed' ? (
+                      <button type="button" className="btn-secondary btn-sm" disabled={closing} onClick={() => updateRequestStatus('closed')}>
+                        {closing ? <><Spinner size={14} />Closing…</> : <><Icons.Check />{isSupportStaff ? 'Close Case' : 'Close'}</>}
+                      </button>
+                    ) : null}
+                    {!isSupportStaff && selectedRequest.status === 'closed' ? (
+                      <button type="button" className="btn-secondary btn-sm" disabled={closing} onClick={() => updateRequestStatus('open')}>
+                        {closing ? <><Spinner size={14} />Reopening…</> : <><Icons.Refresh />Reopen</>}
                       </button>
                     ) : null}
                   </div>
@@ -892,26 +1038,6 @@ export default function HelpView({
                   ))}
                   <div ref={threadEndRef} />
                 </div>
-
-                {isSupportStaff && selectedRequest.status !== 'closed' ? (
-                  <form className="border-t border-edge bg-raised/25 p-4 sm:p-5 space-y-3" onSubmit={submitReply}>
-                    <label className="field">
-                      <span className="label">Reply</span>
-                      <textarea
-                        className="input min-h-[120px]"
-                        value={replyBody}
-                        onChange={(event) => setReplyBody(event.target.value)}
-                        placeholder="Reply with guidance, next steps, or a clarifying question."
-                      />
-                    </label>
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-xs text-ghost">This thread refreshes automatically while you stay on the Support tab.</p>
-                      <button type="submit" className="btn-primary" disabled={replying || !replyBody.trim()}>
-                        {replying ? <><Spinner size={14} />Sending…</> : <><Icons.Edit />Reply</>}
-                      </button>
-                    </div>
-                  </form>
-                ) : null}
               </>
             ) : (
               <div className="flex-1 flex items-center justify-center p-8 text-sm text-ghost text-center">

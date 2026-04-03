@@ -92,8 +92,14 @@ async function listSupportLibrariesForSpace(client, spaceId) {
   }));
 }
 
+function formatSupportRequestKey(id) {
+  const numericId = Number(id || 0);
+  if (!Number.isFinite(numericId) || numericId <= 0) return null;
+  return `SUP-${String(numericId).padStart(6, '0')}`;
+}
+
 async function buildAuthScopePayload(req) {
-  if (req.user?.role === 'admin' && Number(req.user?.supportSpaceId || 0) > 0) {
+  if (['admin', 'support_admin'].includes(String(req.user?.role || '')) && Number(req.user?.supportSpaceId || 0) > 0) {
     const client = await pool.connect();
     try {
       const supportSpace = await getSupportSpaceSummary(client, Number(req.user.supportSpaceId));
@@ -132,6 +138,8 @@ async function buildAuthScopePayload(req) {
           library_id: activeLibraryId,
           started_at: req.user.supportStartedAt || null,
           reason: req.user.supportReason || null,
+          request_id: req.user.supportRequestId || null,
+          request_key: formatSupportRequestKey(req.user.supportRequestId || null),
           previous_space_id: req.user.supportPreviousSpaceId ?? null,
           previous_library_id: req.user.supportPreviousLibraryId ?? null,
           space_name: supportSpace.name
@@ -566,10 +574,12 @@ router.post('/scope', authenticateToken, requireSessionAuth, validate(authScopeS
   res.json(payload);
 }));
 
-router.post('/support-session/start', authenticateToken, requireSessionAuth, requireRole('admin'), validate(supportSessionStartSchema), asyncHandler(async (req, res) => {
+router.post('/support-session/start', authenticateToken, requireSessionAuth, requireRole('admin', 'support_admin'), validate(supportSessionStartSchema), asyncHandler(async (req, res) => {
   const targetSpaceId = Number(req.body.space_id || 0);
   const requestedLibraryId = Number(req.body.library_id || 0) || null;
+  const requestId = Number(req.body.request_id || 0) || null;
   const reason = String(req.body.reason || '').trim() || null;
+  const isSupportAdmin = req.user.role === 'support_admin';
 
   const client = await pool.connect();
   let committed = false;
@@ -577,7 +587,7 @@ router.post('/support-session/start', authenticateToken, requireSessionAuth, req
     await client.query('BEGIN');
 
     const sessionResult = await client.query(
-      `SELECT id, support_space_id, support_library_id, support_started_at, support_reason,
+      `SELECT id, support_space_id, support_library_id, support_request_id, support_started_at, support_reason,
               support_previous_space_id, support_previous_library_id
        FROM user_sessions
        WHERE id = $1
@@ -587,6 +597,38 @@ router.post('/support-session/start', authenticateToken, requireSessionAuth, req
     if (sessionResult.rows.length === 0) {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Session not found' });
+    }
+
+    let approvedSupportRequest = null;
+    if (isSupportAdmin) {
+      if (!requestId) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'support_admin sessions must be linked to an approved support request' });
+      }
+
+      const requestResult = await client.query(
+        `SELECT sr.id, sr.requester_user_id, sr.subject, sr.support_access_status, sr.target_space_id, sr.target_library_id,
+                requester.name AS requester_name,
+                requester.email AS requester_email
+           FROM support_requests sr
+           JOIN users requester ON requester.id = sr.requester_user_id
+          WHERE sr.id = $1
+          LIMIT 1`,
+        [requestId]
+      );
+      approvedSupportRequest = requestResult.rows[0] || null;
+      if (!approvedSupportRequest) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Approved support request not found' });
+      }
+      if (approvedSupportRequest.support_access_status !== 'approved') {
+        await client.query('ROLLBACK');
+        return res.status(403).json({ error: 'Support request is not approved for tenant support access' });
+      }
+      if (Number(approvedSupportRequest.target_space_id || 0) !== targetSpaceId) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({ error: 'Approved support request does not match the selected target space' });
+      }
     }
 
     const targetSpace = await getSupportSpaceSummary(client, targetSpaceId);
@@ -606,6 +648,10 @@ router.post('/support-session/start', authenticateToken, requireSessionAuth, req
     } else {
       targetLibraryId = libraries[0]?.id || null;
     }
+    if (approvedSupportRequest?.target_library_id && targetLibraryId && Number(approvedSupportRequest.target_library_id) !== Number(targetLibraryId)) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'Approved support request does not match the selected target library' });
+    }
 
     const currentSession = sessionResult.rows[0];
     const previousSpaceId = Number(currentSession.support_previous_space_id || 0) || Number(req.user.activeSpaceId || 0) || null;
@@ -615,12 +661,13 @@ router.post('/support-session/start', authenticateToken, requireSessionAuth, req
       `UPDATE user_sessions
        SET support_space_id = $2,
            support_library_id = $3,
+           support_request_id = $4,
            support_started_at = NOW(),
-           support_reason = $4,
-           support_previous_space_id = $5,
-           support_previous_library_id = $6
+           support_reason = $5,
+           support_previous_space_id = $6,
+           support_previous_library_id = $7
        WHERE id = $1`,
-      [req.sessionId, targetSpaceId, targetLibraryId, reason, previousSpaceId, previousLibraryId]
+      [req.sessionId, targetSpaceId, targetLibraryId, approvedSupportRequest?.id || null, reason, previousSpaceId, previousLibraryId]
     );
 
     await client.query('COMMIT');
@@ -628,6 +675,7 @@ router.post('/support-session/start', authenticateToken, requireSessionAuth, req
 
     req.user.supportSpaceId = targetSpaceId;
     req.user.supportLibraryId = targetLibraryId;
+    req.user.supportRequestId = approvedSupportRequest?.id || null;
     req.user.supportStartedAt = new Date().toISOString();
     req.user.supportReason = reason;
     req.user.supportPreviousSpaceId = previousSpaceId;
@@ -637,6 +685,10 @@ router.post('/support-session/start', authenticateToken, requireSessionAuth, req
 
     await logActivity(req, 'auth.support_session.started', 'space', targetSpaceId, {
       reason,
+      supportRequestId: approvedSupportRequest?.id || null,
+      supportRequestKey: formatSupportRequestKey(approvedSupportRequest?.id || null),
+      requesterUserId: approvedSupportRequest?.requester_user_id || null,
+      requesterEmail: approvedSupportRequest?.requester_email || null,
       supportSpaceId: targetSpaceId,
       supportLibraryId: targetLibraryId,
       previousSpaceId,
@@ -655,14 +707,14 @@ router.post('/support-session/start', authenticateToken, requireSessionAuth, req
   }
 }));
 
-router.delete('/support-session', authenticateToken, requireSessionAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+router.delete('/support-session', authenticateToken, requireSessionAuth, requireRole('admin', 'support_admin'), asyncHandler(async (req, res) => {
   const client = await pool.connect();
   let committed = false;
   try {
     await client.query('BEGIN');
 
     const sessionResult = await client.query(
-      `SELECT support_space_id, support_library_id, support_started_at, support_reason,
+      `SELECT support_space_id, support_library_id, support_request_id, support_started_at, support_reason,
               support_previous_space_id, support_previous_library_id
        FROM user_sessions
        WHERE id = $1
@@ -680,6 +732,7 @@ router.delete('/support-session', authenticateToken, requireSessionAuth, require
       `UPDATE user_sessions
        SET support_space_id = NULL,
            support_library_id = NULL,
+           support_request_id = NULL,
            support_started_at = NULL,
            support_reason = NULL,
            support_previous_space_id = NULL,
@@ -693,6 +746,8 @@ router.delete('/support-session', authenticateToken, requireSessionAuth, require
 
     await logActivity(req, 'auth.support_session.ended', 'space', currentSession.support_space_id || null, {
       reason: currentSession.support_reason || null,
+      supportRequestId: currentSession.support_request_id || null,
+      supportRequestKey: formatSupportRequestKey(currentSession.support_request_id || null),
       supportSpaceId: currentSession.support_space_id || null,
       supportLibraryId: currentSession.support_library_id || null,
       startedAt: currentSession.support_started_at || null,
@@ -702,6 +757,7 @@ router.delete('/support-session', authenticateToken, requireSessionAuth, require
 
     req.user.supportSpaceId = null;
     req.user.supportLibraryId = null;
+    req.user.supportRequestId = null;
     req.user.supportStartedAt = null;
     req.user.supportReason = null;
     req.user.supportPreviousSpaceId = null;

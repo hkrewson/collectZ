@@ -418,8 +418,8 @@ router.patch('/requests/:id/status', authenticateToken, requireSessionAuth, vali
       return res.status(404).json({ error: 'Support request not found' });
     }
 
-    if (!isSupportStaff(req) && nextStatus !== 'closed') {
-      return res.status(403).json({ error: 'Only support staff may reopen or answer requests' });
+    if (!isSupportStaff(req) && !['open', 'closed'].includes(String(nextStatus || ''))) {
+      return res.status(403).json({ error: 'End users may only close or reopen their own requests' });
     }
 
     const result = await client.query(
@@ -676,13 +676,32 @@ router.patch('/requests/:id/triage', authenticateToken, requireSessionAuth, requ
 
 router.get('/staff/summary', authenticateToken, requireRole('admin', 'support_admin'), asyncHandler(async (_req, res) => {
   const result = await pool.query(
-    `SELECT
-       COUNT(*) FILTER (WHERE status = 'open')::int AS open_count,
-       COUNT(*) FILTER (WHERE status = 'answered')::int AS answered_count,
-       COUNT(*) FILTER (WHERE status = 'closed')::int AS closed_count,
-       COUNT(*) FILTER (WHERE classification = 'bug')::int AS bug_count,
-       COUNT(*) FILTER (WHERE classification = 'feature_request')::int AS feature_count
-     FROM support_requests`
+    `WITH first_staff_reply AS (
+       SELECT sr.id AS request_id,
+              MIN(srm.created_at) AS first_staff_reply_at
+         FROM support_requests sr
+         LEFT JOIN support_request_messages srm
+           ON srm.request_id = sr.id
+          AND COALESCE(srm.is_internal, false) = false
+          AND srm.author_role IN ('admin', 'support_admin')
+        GROUP BY sr.id
+     )
+     SELECT
+       COUNT(*) FILTER (WHERE sr.status = 'open')::int AS open_count,
+       COUNT(*) FILTER (WHERE sr.status = 'answered')::int AS answered_count,
+       COUNT(*) FILTER (WHERE sr.status = 'closed')::int AS closed_count,
+       COUNT(*) FILTER (WHERE sr.classification = 'bug')::int AS bug_count,
+       COUNT(*) FILTER (WHERE sr.classification = 'feature_request')::int AS feature_count,
+       COUNT(*) FILTER (
+         WHERE sr.status = 'closed'
+           AND sr.updated_at >= date_trunc('month', CURRENT_TIMESTAMP)
+       )::int AS closed_this_month_count,
+       AVG(EXTRACT(EPOCH FROM (fsr.first_staff_reply_at - sr.created_at)))
+         FILTER (WHERE fsr.first_staff_reply_at IS NOT NULL) AS avg_time_to_open_seconds,
+       AVG(EXTRACT(EPOCH FROM (sr.updated_at - sr.created_at)))
+         FILTER (WHERE sr.status = 'closed') AS avg_time_to_close_seconds
+      FROM support_requests sr
+      LEFT JOIN first_staff_reply fsr ON fsr.request_id = sr.id`
   );
 
   res.json({
@@ -692,6 +711,11 @@ router.get('/staff/summary', authenticateToken, requireRole('admin', 'support_ad
       closed: Number(result.rows[0]?.closed_count || 0),
       bugs: Number(result.rows[0]?.bug_count || 0),
       features: Number(result.rows[0]?.feature_count || 0)
+    },
+    metrics: {
+      time_to_open_seconds: Number(result.rows[0]?.avg_time_to_open_seconds || 0),
+      time_to_close_seconds: Number(result.rows[0]?.avg_time_to_close_seconds || 0),
+      closed_this_month: Number(result.rows[0]?.closed_this_month_count || 0)
     }
   });
 }));

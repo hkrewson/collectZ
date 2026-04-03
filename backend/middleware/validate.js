@@ -276,6 +276,7 @@ const authScopeSelectSchema = z.object({
 const supportSessionStartSchema = z.object({
   space_id: z.number().int().positive('space_id must be a positive integer'),
   library_id: z.number().int().positive('library_id must be a positive integer').optional(),
+  request_id: z.number().int().positive('request_id must be a positive integer').optional(),
   reason: z.preprocess(emptyStringToNull, z.string().max(500, 'reason must be 500 characters or fewer').optional().nullable())
 });
 

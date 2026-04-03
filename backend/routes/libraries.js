@@ -167,7 +167,7 @@ router.patch('/libraries/:id', validate(libraryUpdateSchema), asyncHandler(async
 
 router.post('/libraries/select', requireSessionAuth, validate(librarySelectSchema), asyncHandler(async (req, res) => {
   const libraryId = Number(req.body.library_id);
-  if (req.user.role === 'admin') {
+  if (['admin', 'support_admin'].includes(String(req.user.role || ''))) {
     const supportSpaceId = Number(req.user.supportSpaceId || 0) || null;
     if (!supportSpaceId) {
       return res.status(403).json({ error: 'Global admins may switch libraries only during an explicit support session' });

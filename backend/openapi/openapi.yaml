@@ -141,6 +141,8 @@
           "library_id": { "type": ["integer", "null"] },
           "started_at": { "type": ["string", "null"], "format": "date-time" },
           "reason": { "type": ["string", "null"] },
+          "request_id": { "type": ["integer", "null"] },
+          "request_key": { "type": ["string", "null"] },
           "previous_space_id": { "type": ["integer", "null"] },
           "previous_library_id": { "type": ["integer", "null"] },
           "space_name": { "type": ["string", "null"] }
@@ -152,6 +154,7 @@
         "properties": {
           "space_id": { "type": "integer", "minimum": 1 },
           "library_id": { "type": "integer", "minimum": 1 },
+          "request_id": { "type": "integer", "minimum": 1 },
           "reason": { "type": ["string", "null"], "maxLength": 500 }
         },
         "required": ["space_id"]
@@ -300,9 +303,18 @@
               "features": { "type": "integer" }
             },
             "required": ["open", "answered", "closed", "bugs", "features"]
+          },
+          "metrics": {
+            "type": "object",
+            "properties": {
+              "time_to_open_seconds": { "type": "number" },
+              "time_to_close_seconds": { "type": "number" },
+              "closed_this_month": { "type": "integer" }
+            },
+            "required": ["time_to_open_seconds", "time_to_close_seconds", "closed_this_month"]
           }
         },
-        "required": ["queue"]
+        "required": ["queue", "metrics"]
       },
       "SupportReleaseEntry": {
         "type": "object",
@@ -1469,7 +1481,7 @@
     "/api/support/staff/summary": {
       "get": {
         "tags": ["Support"],
-        "summary": "Get support queue summary counts for support staff",
+        "summary": "Get support queue summary counts and response metrics for support staff",
         "security": [
           { "cookieSession": [] },
           { "bearerAuth": [] }
