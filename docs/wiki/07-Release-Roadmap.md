@@ -2079,6 +2079,7 @@ Historical note:
 - `platform` edition preserves the full current tenancy/global control plane.
 - Edition branching is concentrated in shell/bootstrap/route-mount boundaries rather than scattered across unrelated components.
 - Shared workflows continue to function in both editions without scope confusion.
+- `homelab` has a repeatable runtime smoke gate that proves the shared mounted surfaces (`auth`, `profile`, `library`, `settings`, `integrations`, `feature flags`, `Help > Releases`) and the unmounted platform-only APIs (`support requests`, `docs`, `metrics`, `spaces`, `admin spaces`) against a live homelab stack even when browser execution is temporarily unavailable.
 - The codebase is ready for a later repo split without first having to rediscover product boundaries.
 
 ## 2.9.7 — Observability Baseline Review and Alert Tuning

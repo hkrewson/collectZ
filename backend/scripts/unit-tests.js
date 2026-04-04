@@ -76,6 +76,7 @@ const boundaryBrowserSpecSource = require('fs').readFileSync(require.resolve('..
 const eventsCollectiblesBrowserSpecSource = require('fs').readFileSync(require.resolve('../../tests/playwright/specs/events-collectibles.browser.spec'), 'utf8');
 const homelabHelpBrowserSpecSource = require('fs').readFileSync(require.resolve('../../tests/playwright/specs/homelab-help.browser.spec'), 'utf8');
 const homelabSharedBrowserSpecSource = require('fs').readFileSync(require.resolve('../../tests/playwright/specs/homelab-shared.browser.spec'), 'utf8');
+const homelabEditionBoundarySmokeSource = require('fs').readFileSync(require.resolve('../scripts/homelab-edition-boundary-smoke'), 'utf8');
 const dockerPublishWorkflowSource = require('fs').readFileSync(require.resolve('../../.github/workflows/docker-publish.yml'), 'utf8');
 const browserCapturesWorkflowSource = require('fs').readFileSync(require.resolve('../../.github/workflows/browser-captures.yml'), 'utf8');
 const dockerComposeSource = require('fs').readFileSync(require.resolve('../../docker-compose.yml'), 'utf8');
@@ -544,6 +545,15 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(homelabSharedBrowserSpecSource.includes('/dashboard?tab=admin-integrations&integration=barcode'));
   assert.ok(homelabSharedBrowserSpecSource.includes('/api/admin/settings/general'));
   assert.ok(homelabSharedBrowserSpecSource.includes('/api/admin/settings/integrations'));
+  assert.ok(homelabEditionBoundarySmokeSource.includes('/api/auth/me'));
+  assert.ok(homelabEditionBoundarySmokeSource.includes('/api/auth/scope'));
+  assert.ok(homelabEditionBoundarySmokeSource.includes('/api/libraries'));
+  assert.ok(homelabEditionBoundarySmokeSource.includes('/api/support/releases'));
+  assert.ok(homelabEditionBoundarySmokeSource.includes('/api/admin/settings/integrations'));
+  assert.ok(homelabEditionBoundarySmokeSource.includes('/api/admin/feature-flags'));
+  assert.ok(homelabEditionBoundarySmokeSource.includes('/api/support/requests'));
+  assert.ok(homelabEditionBoundarySmokeSource.includes('/api/admin/spaces'));
+  assert.ok(homelabEditionBoundarySmokeSource.includes('Homelab edition boundary smoke passed'));
 }));
 
 results.push(run('repo includes 2.9.4 Playwright browser regression foundation harness', () => {
@@ -1667,6 +1677,7 @@ results.push(run('phase5 smoke scripts avoid tenant admin invite bootstrapping a
   assert.ok(rbacRegressionSource.includes('/api/auth/scope'));
   assert.ok(rbacRegressionSource.includes('/api/spaces/${targetSpaceId}/invites'));
   assert.ok(backendPackageSource.includes('"test:tenancy-platform-boundary": "node scripts/tenancy-platform-boundary-smoke.js"'));
+  assert.ok(backendPackageSource.includes('"test:homelab-edition-boundary": "node scripts/homelab-edition-boundary-smoke.js"'));
 }));
 
 results.push(run('admin activity route stays in the platform control plane before tenant scope enforcement', () => {
