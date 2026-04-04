@@ -2064,6 +2064,7 @@ Historical note:
 - Testing and verification:
   - add regression coverage proving `homelab` cannot mount or navigate to tenancy/global routes,
   - add browser-level regression coverage proving `homelab` Help only mounts `Guidance` and `Releases`, and never mounts `Metrics`, `Support`, or `Help Admin`,
+  - add browser-level regression coverage proving shared homelab workflows remain valid for `auth`, `library`, `import`, `profile`, and homelab-safe admin `settings` and `integrations`,
   - verify `platform` retains current tenancy/global behaviors,
   - keep shared workflows green in both editions (`auth`, `library`, `import`, `profile`, valid settings/integrations surfaces, edition-safe Help surfaces),
   - use the Playwright coverage added in `2.9.4` and `2.9.5` as the primary browser-level proof layer for edition shell and route boundaries rather than relying only on backend/API checks.

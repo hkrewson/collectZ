@@ -75,6 +75,7 @@ const importCsvBrowserSpecSource = require('fs').readFileSync(require.resolve('.
 const boundaryBrowserSpecSource = require('fs').readFileSync(require.resolve('../../tests/playwright/specs/boundary.browser.spec'), 'utf8');
 const eventsCollectiblesBrowserSpecSource = require('fs').readFileSync(require.resolve('../../tests/playwright/specs/events-collectibles.browser.spec'), 'utf8');
 const homelabHelpBrowserSpecSource = require('fs').readFileSync(require.resolve('../../tests/playwright/specs/homelab-help.browser.spec'), 'utf8');
+const homelabSharedBrowserSpecSource = require('fs').readFileSync(require.resolve('../../tests/playwright/specs/homelab-shared.browser.spec'), 'utf8');
 const dockerPublishWorkflowSource = require('fs').readFileSync(require.resolve('../../.github/workflows/docker-publish.yml'), 'utf8');
 const browserCapturesWorkflowSource = require('fs').readFileSync(require.resolve('../../.github/workflows/browser-captures.yml'), 'utf8');
 const dockerComposeSource = require('fs').readFileSync(require.resolve('../../docker-compose.yml'), 'utf8');
@@ -532,6 +533,15 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(homelabHelpBrowserSpecSource.includes('/dashboard?tab=space-manage'));
   assert.ok(homelabHelpBrowserSpecSource.includes("toHaveURL(/tab=help/)"));
   assert.ok(homelabHelpBrowserSpecSource.includes("toHaveURL(/tab=admin-settings/)"));
+  assert.ok(homelabSharedBrowserSpecSource.includes('/dashboard?tab=library-movies'));
+  assert.ok(homelabSharedBrowserSpecSource.includes('/dashboard?tab=library-import'));
+  assert.ok(homelabSharedBrowserSpecSource.includes('/api/media/lookup-upc'));
+  assert.ok(homelabSharedBrowserSpecSource.includes('/dashboard?tab=profile'));
+  assert.ok(homelabSharedBrowserSpecSource.includes('/api/profile'));
+  assert.ok(homelabSharedBrowserSpecSource.includes('/dashboard?tab=admin-settings'));
+  assert.ok(homelabSharedBrowserSpecSource.includes('/dashboard?tab=admin-integrations&integration=barcode'));
+  assert.ok(homelabSharedBrowserSpecSource.includes('/api/admin/settings/general'));
+  assert.ok(homelabSharedBrowserSpecSource.includes('/api/admin/settings/integrations'));
 }));
 
 results.push(run('repo includes 2.9.4 Playwright browser regression foundation harness', () => {

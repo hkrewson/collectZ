@@ -258,6 +258,11 @@ async function ensureAuthenticatedAdminStorageState(requestContext) {
             credentialsPath: AUTH_CREDENTIALS_PATH
           };
         }
+      } catch (error) {
+        // Local Playwright request contexts can intermittently fail loopback
+        // verification in this desktop environment after container restarts.
+        // Fall back to re-bootstrapping through the provided setup request
+        // context instead of treating that transport quirk as stale auth state.
       } finally {
         await verifyContext.dispose();
       }
