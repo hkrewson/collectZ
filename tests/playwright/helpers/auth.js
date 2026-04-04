@@ -70,7 +70,9 @@ async function ensureDirectory(filePath) {
 }
 
 async function fetchCsrfToken(requestContext) {
-  const response = await requestContext.get('/api/auth/csrf-token');
+  const response = await requestContext.get('/api/auth/csrf-token', {
+    headers: getPlaywrightBypassHeaders()
+  });
   if (!response.ok()) {
     throw new Error(`Failed to fetch CSRF token (${response.status()})`);
   }
@@ -86,6 +88,7 @@ async function requestWithCsrf(requestContext, method, pathName, body, expectedS
     method,
     ...(body !== undefined ? { data: body } : {}),
     headers: {
+      ...(getPlaywrightBypassHeaders() || {}),
       'x-csrf-token': csrfToken
     }
   });
@@ -247,7 +250,9 @@ async function ensureAuthenticatedAdminStorageState(requestContext) {
 }
 
 async function getCurrentUser(requestContext) {
-  const response = await requestContext.get('/api/auth/me');
+  const response = await requestContext.get('/api/auth/me', {
+    headers: getPlaywrightBypassHeaders()
+  });
   if (!response.ok()) {
     throw new Error(`Failed to load authenticated user (${response.status()})`);
   }

@@ -2,6 +2,15 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import CollectzMark from './CollectzMark';
 
+function readCookieValue(name) {
+  const prefix = `${name}=`;
+  return document.cookie
+    .split(';')
+    .map((entry) => entry.trim())
+    .find((entry) => entry.startsWith(prefix))
+    ?.slice(prefix.length) || '';
+}
+
 export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion, Icons, Spinner, cx }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -41,7 +50,12 @@ export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion
         endpoint = '/auth/register';
         payload = { name, email, password, inviteToken: invite || undefined };
       }
-      const data = await axios.post(`${apiUrl}${endpoint}`, payload, { withCredentials: true });
+      const headers = {};
+      const playwrightBypassToken = readCookieValue('playwright_e2e_bypass');
+      if (playwrightBypassToken) {
+        headers['x-playwright-e2e-bypass'] = playwrightBypassToken;
+      }
+      const data = await axios.post(`${apiUrl}${endpoint}`, payload, { withCredentials: true, headers });
       onAuth(data.data.user);
     } catch (err) {
       setError(err.response?.data?.error || 'Authentication failed');

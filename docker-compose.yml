@@ -64,6 +64,7 @@ services:
       PLEX_API_KEY: ${PLEX_API_KEY:-}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
       APP_VERSION: ${APP_VERSION:-}
+      PLAYWRIGHT_E2E_BYPASS_TOKEN: ${PLAYWRIGHT_E2E_BYPASS_TOKEN:-}
     volumes:
       - media_uploads:/app/uploads
     depends_on:

@@ -58,8 +58,11 @@ const helpViewSource = require('fs').readFileSync(require.resolve('../../fronten
 const adminUsersViewSource = require('fs').readFileSync(require.resolve('../../frontend/src/components/AdminUsersView'), 'utf8');
 const rootPackageJson = JSON.parse(require('fs').readFileSync(require.resolve('../../package.json'), 'utf8'));
 const playwrightConfigSource = require('fs').readFileSync(require.resolve('../../playwright.config'), 'utf8');
+const helpCenterBrowserSpecSource = require('fs').readFileSync(require.resolve('../../tests/playwright/specs/help-center.browser.spec'), 'utf8');
+const helpAdminSupportBrowserSpecSource = require('fs').readFileSync(require.resolve('../../tests/playwright/specs/help-admin-support.browser.spec'), 'utf8');
 const dockerPublishWorkflowSource = require('fs').readFileSync(require.resolve('../../.github/workflows/docker-publish.yml'), 'utf8');
 const browserCapturesWorkflowSource = require('fs').readFileSync(require.resolve('../../.github/workflows/browser-captures.yml'), 'utf8');
+const dockerComposeSource = require('fs').readFileSync(require.resolve('../../docker-compose.yml'), 'utf8');
 const backendDockerfileSource = require('fs').readFileSync(require.resolve('../../backend/Dockerfile'), 'utf8');
 const frontendDockerfileSource = require('fs').readFileSync(require.resolve('../../frontend/Dockerfile'), 'utf8');
 const structuredLogSmokeSource = require('fs').readFileSync(require.resolve('../scripts/structured-log-smoke'), 'utf8');
@@ -487,6 +490,7 @@ results.push(run('repo includes 2.9.4 Playwright browser regression foundation h
   assert.ok(serverSource.includes('PLAYWRIGHT_E2E_BYPASS_TOKEN'));
   assert.ok(serverSource.includes('x-playwright-e2e-bypass'));
   assert.ok(serverSource.includes('playwright_e2e_bypass'));
+  assert.ok(dockerComposeSource.includes('PLAYWRIGHT_E2E_BYPASS_TOKEN: ${PLAYWRIGHT_E2E_BYPASS_TOKEN:-}'));
   assert.ok(dockerPublishWorkflowSource.includes('browser-regression:'));
   assert.ok(dockerPublishWorkflowSource.includes('npx playwright install --with-deps chromium'));
   assert.ok(dockerPublishWorkflowSource.includes('npm run test:browser'));
@@ -497,6 +501,10 @@ results.push(run('repo includes 2.9.4 Playwright browser regression foundation h
   assert.ok(browserCapturesWorkflowSource.includes('npm run test:browser:capture'));
   assert.ok(browserCapturesWorkflowSource.includes('playwright-browser-captures'));
   assert.ok(browserCapturesWorkflowSource.includes('PLAYWRIGHT_E2E_BYPASS_TOKEN="$(openssl rand -hex 16)"'));
+  assert.ok(helpCenterBrowserSpecSource.includes('Help Center'));
+  assert.ok(helpCenterBrowserSpecSource.includes('Create help request'));
+  assert.ok(helpAdminSupportBrowserSpecSource.includes('Help Admin'));
+  assert.ok(helpAdminSupportBrowserSpecSource.includes('Close Case'));
   assert.ok(backendDockerfileSource.includes('COPY package*.json ./'));
   assert.ok(frontendDockerfileSource.includes('COPY package*.json ./'));
   assert.ok(!backendDockerfileSource.includes('@playwright/test'));

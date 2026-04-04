@@ -61,6 +61,11 @@ export default function App() {
     const methodUpper = String(method || 'GET').toUpperCase();
     const needsCsrf = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(methodUpper);
     const headers = { ...(config.headers || {}) };
+    const playwrightBypassToken = readCookie('playwright_e2e_bypass');
+
+    if (playwrightBypassToken && !headers['x-playwright-e2e-bypass']) {
+      headers['x-playwright-e2e-bypass'] = playwrightBypassToken;
+    }
 
     if (needsCsrf && !headers['x-csrf-token']) {
       let csrfToken = readCookie('csrf_token');

@@ -1966,6 +1966,7 @@ Historical note:
   - login/logout,
   - admin bootstrap and shell load,
   - end-user Help Center support interactions,
+  - Help Admin support workspace interactions,
   - support-session start/end banner behavior,
   - `All Spaces` drawer tab switching,
   - Integrations tab switching and save feedback,
