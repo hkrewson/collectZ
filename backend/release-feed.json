@@ -1,6 +1,41 @@
 {
   "releases": [
     {
+      "title": "v2.9.5",
+      "version": "2.9.5",
+      "date": "2026-04-04",
+      "status": "Completed",
+      "summary": "This release expands the Playwright browser-regression layer from foundational coverage into broader product-critical workflows. It adds realistic browser protection for integrations persistence, barcode and CSV import paths, Help/Admin boundary behavior, and the Events/Collectibles surfaces, while keeping the suite deterministic through targeted helpers, cleanup paths, and job polling. The result is stronger browser confidence ahead of later frontend build-system work without bloating the suite into fragile snapshot noise.",
+      "details": [
+        {
+          "heading": "Critical browser flow expansion",
+          "bullets": [
+            "Added Playwright coverage for Integrations save/update flows, including:",
+            "Added Playwright coverage for Import Media workflows:",
+            "Added Playwright coverage for Events and Collectibles:",
+            "Added browser-visible negative-path coverage for shell and admin/privacy boundaries:"
+          ]
+        },
+        {
+          "heading": "Browser harness ergonomics",
+          "bullets": [
+            "Added reusable helpers for:",
+            "Kept test-created browser data cleaned up after runs so the suite remains reusable and deterministic.",
+            "Expanded roadmap/testing docs so the browser layer’s protected surfaces stay visible to maintainers."
+          ]
+        },
+        {
+          "heading": "Browser-driven fixes and refinements",
+          "bullets": [
+            "Fixed the admin integrations save query so the insert/update column list matches the values passed during real browser saves.",
+            "Fixed dashboard integration-section deep-link routing so supported sections like `metrics` and `logs` resolve correctly.",
+            "Hardened support/admin shell expectations with explicit browser coverage around redirect and surface-limit behavior.",
+            "Adjusted Events/Collectibles browser coverage to follow the real shell navigation and user-visible detail contracts instead of brittle direct-route or decorative overlay assumptions."
+          ]
+        }
+      ]
+    },
+    {
       "title": "v2.9.4",
       "version": "2.9.4",
       "date": "2026-04-03",
@@ -278,14 +313,6 @@
       "date": "2026-03-28",
       "status": "Completed",
       "summary": "This release completes the next step after the broader `2.8.0` UI refinement pass by turning global space creation into a more guided onboarding workflow and bringing the main management surfaces into a cleaner, scan-first control model. Space setup, membership follow-up, and invite handling now feel more intentional, while `All Spaces`, `All Members`, and `My Space` share a calmer row-based interaction pattern.",
-      "details": []
-    },
-    {
-      "title": "v2.8.0",
-      "version": "2.8.0",
-      "date": "2026-03-28",
-      "status": "Completed",
-      "summary": "This release completes the focused UI refinement sprint across the admin, global, and space-management surfaces. It clarifies navigation scope, simplifies the settings/control-plane experience into flatter page layouts, and streamlines member, space, and integration workflows so they read more like a coherent product control surface and less like a collection of older admin tools.",
       "details": []
     }
   ]

@@ -50,9 +50,12 @@ test.describe('import browser regressions', () => {
       await signInThroughUi(page, credentials);
       await page.goto('/dashboard?tab=library-import');
       await expect(page.getByRole('heading', { name: 'Import Media' })).toBeVisible();
+      await page.getByRole('button', { name: 'Barcode' }).click();
 
       const barcodeInput = page.getByPlaceholder('012345678901');
+      await expect(barcodeInput).toBeVisible();
       await barcodeInput.fill(upc);
+      await expect(page.getByRole('button', { name: /Lookup/i })).toBeEnabled();
 
       const lookupResponsePromise = page.waitForResponse((response) => (
         response.url().includes('/api/media/lookup-upc')
