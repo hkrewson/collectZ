@@ -2001,6 +2001,9 @@ Historical note:
     - second slice: import browser cleanup must restore test-created media so the suite stays reusable,
   - Events and Collectibles navigation and common actions after their UX-alignment pass,
   - negative-path assertions for admin/privacy boundaries where UI state matters.
+    - third slice: support-admin browser boundary coverage for redirect-back-to-help behavior on disallowed tenant-library and admin routes, plus sidebar surface limits,
+    - third slice: standard-user direct-route denial for admin surfaces,
+    - third slice: keep these as browser-visible shell checks rather than only backend permission assertions.
 - Add a small visual-regression subset where browser layout drift has been a real source of polish churn:
   - support-session banner,
   - Integrations tabs/layout,
