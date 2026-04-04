@@ -68,6 +68,7 @@ const helpAdminSupportBrowserSpecSource = require('fs').readFileSync(require.res
 const approvedSupportSessionBrowserSpecSource = require('fs').readFileSync(require.resolve('../../tests/playwright/specs/approved-support-session.browser.spec'), 'utf8');
 const integrationsBrowserSpecSource = require('fs').readFileSync(require.resolve('../../tests/playwright/specs/integrations.browser.spec'), 'utf8');
 const importBrowserSpecSource = require('fs').readFileSync(require.resolve('../../tests/playwright/specs/import.browser.spec'), 'utf8');
+const importCsvBrowserSpecSource = require('fs').readFileSync(require.resolve('../../tests/playwright/specs/import-csv.browser.spec'), 'utf8');
 const boundaryBrowserSpecSource = require('fs').readFileSync(require.resolve('../../tests/playwright/specs/boundary.browser.spec'), 'utf8');
 const eventsCollectiblesBrowserSpecSource = require('fs').readFileSync(require.resolve('../../tests/playwright/specs/events-collectibles.browser.spec'), 'utf8');
 const dockerPublishWorkflowSource = require('fs').readFileSync(require.resolve('../../.github/workflows/docker-publish.yml'), 'utf8');
@@ -530,6 +531,10 @@ results.push(run('repo includes 2.9.4 Playwright browser regression foundation h
   assert.ok(importBrowserSpecSource.includes('/api/media/lookup-upc'));
   assert.ok(importBrowserSpecSource.includes('Added "'));
   assert.ok(importBrowserSpecSource.includes('/dashboard?tab=library-movies'));
+  assert.ok(importCsvBrowserSpecSource.includes('/api/media/import-csv'));
+  assert.ok(importCsvBrowserSpecSource.includes('CSV import queued'));
+  assert.ok(importCsvBrowserSpecSource.includes('waitForSyncJob('));
+  assert.ok(importCsvBrowserSpecSource.includes('/dashboard?tab=library-movies'));
   assert.ok(boundaryBrowserSpecSource.includes('support_admin'));
   assert.ok(boundaryBrowserSpecSource.includes('/dashboard?tab=admin-integrations&integration=barcode'));
   assert.ok(boundaryBrowserSpecSource.includes("toHaveURL(/tab=help/)"));
