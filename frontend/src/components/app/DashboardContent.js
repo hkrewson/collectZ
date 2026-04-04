@@ -12,6 +12,7 @@ import CollectiblesView from '../CollectiblesView';
 import ForbiddenView from '../ForbiddenView';
 import SpaceManagerView from '../SpaceManagerView';
 import HelpView from '../HelpView';
+import { getSafeHelpTab } from './productEdition';
 
 const forcedMediaTypeByTab = {
   'library-movies': 'movie',
@@ -61,7 +62,8 @@ export default function DashboardContent({
   onEndSupportSession,
   scopeKey,
   supportSummary,
-  onSupportSummaryRefresh
+  onSupportSummaryRefresh,
+  productEdition = 'platform'
 }) {
   const isAdminTab = String(activeTab || '').startsWith('admin-');
   const supportAdminAllowedTabs = new Set([
@@ -70,7 +72,6 @@ export default function DashboardContent({
     'profile',
     ...(supportSession?.active ? ['space-manage'] : [])
   ]);
-
   if (isAdminTab && user?.role !== 'admin') {
     return <ForbiddenView detail="Admin permissions are required to access this view." />;
   }
@@ -96,7 +97,8 @@ export default function DashboardContent({
           Icons={Icons}
           supportSummary={supportSummary}
           onSupportSummaryRefresh={onSupportSummaryRefresh}
-          initialTab={activeTab === 'support-inbox' ? 'support' : 'guidance'}
+          initialTab={getSafeHelpTab(productEdition, ['admin', 'support_admin'].includes(String(user?.role || '')), activeTab === 'support-inbox' ? 'support' : 'guidance')}
+          productEdition={productEdition}
         />
       );
     case 'library':

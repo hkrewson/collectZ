@@ -35,6 +35,7 @@ const authModulePath = require.resolve('../middleware/auth');
 const authMiddlewareSource = require('fs').readFileSync(authModulePath, 'utf8');
 const scopeAccessSource = require('fs').readFileSync(require.resolve('../middleware/scopeAccess'), 'utf8');
 const sessionsServiceSource = require('fs').readFileSync(require.resolve('../services/sessions'), 'utf8');
+const productEditionConfigSource = require('fs').readFileSync(require.resolve('../config/productEdition'), 'utf8');
 const {
   hasPersonalAccessTokenScope,
   getRequiredPatScopesForRequest
@@ -59,6 +60,7 @@ const spacesServiceSource = require('fs').readFileSync(require.resolve('../servi
 const frontendAppSource = require('fs').readFileSync(require.resolve('../../frontend/src/App'), 'utf8');
 const dashboardContentSource = require('fs').readFileSync(require.resolve('../../frontend/src/components/app/DashboardContent'), 'utf8');
 const dashboardRoutingSource = require('fs').readFileSync(require.resolve('../../frontend/src/components/app/dashboardRouting'), 'utf8');
+const productEditionFrontendSource = require('fs').readFileSync(require.resolve('../../frontend/src/components/app/productEdition'), 'utf8');
 const helpViewSource = require('fs').readFileSync(require.resolve('../../frontend/src/components/HelpView'), 'utf8');
 const adminUsersViewSource = require('fs').readFileSync(require.resolve('../../frontend/src/components/AdminUsersView'), 'utf8');
 const rootPackageJson = JSON.parse(require('fs').readFileSync(require.resolve('../../package.json'), 'utf8'));
@@ -71,6 +73,7 @@ const importBrowserSpecSource = require('fs').readFileSync(require.resolve('../.
 const importCsvBrowserSpecSource = require('fs').readFileSync(require.resolve('../../tests/playwright/specs/import-csv.browser.spec'), 'utf8');
 const boundaryBrowserSpecSource = require('fs').readFileSync(require.resolve('../../tests/playwright/specs/boundary.browser.spec'), 'utf8');
 const eventsCollectiblesBrowserSpecSource = require('fs').readFileSync(require.resolve('../../tests/playwright/specs/events-collectibles.browser.spec'), 'utf8');
+const homelabHelpBrowserSpecSource = require('fs').readFileSync(require.resolve('../../tests/playwright/specs/homelab-help.browser.spec'), 'utf8');
 const dockerPublishWorkflowSource = require('fs').readFileSync(require.resolve('../../.github/workflows/docker-publish.yml'), 'utf8');
 const browserCapturesWorkflowSource = require('fs').readFileSync(require.resolve('../../.github/workflows/browser-captures.yml'), 'utf8');
 const dockerComposeSource = require('fs').readFileSync(require.resolve('../../docker-compose.yml'), 'utf8');
@@ -464,7 +467,7 @@ results.push(run('frontend source includes tabbed help center and support inbox 
   assert.ok(helpViewSource.includes('/support/releases'));
   assert.ok(helpViewSource.includes('Guidance'));
   assert.ok(helpViewSource.includes('Recent Releases'));
-  assert.ok(helpViewSource.includes('Help Admin'));
+  assert.ok(productEditionFrontendSource.includes('Help Admin'));
   assert.ok(helpViewSource.includes('Latest saved internal note'));
   assert.ok(helpViewSource.includes('New Internal Note'));
   assert.ok(helpViewSource.includes('Approve Support Access'));
@@ -489,11 +492,28 @@ results.push(run('frontend source includes tabbed help center and support inbox 
   assert.ok(helpViewSource.includes('Reply to Support'));
 }));
 
+results.push(run('edition boundary source includes backend-owned homelab help surface rules', () => {
+  assert.ok(productEditionConfigSource.includes('process.env.APP_EDITION'));
+  assert.ok(productEditionConfigSource.includes("'platform'"));
+  assert.ok(productEditionConfigSource.includes("'homelab'"));
+  assert.ok(authRoutesSource.includes('product_edition: getProductEdition()'));
+  assert.ok(openApiSource.includes('"product_edition"'));
+  assert.ok(productEditionFrontendSource.includes('getHelpTabDefinitions'));
+  assert.ok(productEditionFrontendSource.includes('getHelpSurfaceTitle'));
+  assert.ok(helpViewSource.includes('A lightweight home for self-serve guidance and recent release notes for homelab users.'));
+  assert.ok(frontendAppSource.includes("activeTab === 'support-inbox'"));
+  assert.ok(frontendAppSource.includes('homelabEdition'));
+  assert.ok(dockerComposeSource.includes('APP_EDITION: ${APP_EDITION:-platform}'));
+  assert.ok(homelabHelpBrowserSpecSource.includes('product_edition'));
+  assert.ok(homelabHelpBrowserSpecSource.includes("name: 'Help Admin'"));
+  assert.ok(homelabHelpBrowserSpecSource.includes("toHaveURL(/tab=help/)"));
+}));
+
 results.push(run('repo includes 2.9.4 Playwright browser regression foundation harness', () => {
   assert.ok(rootPackageJson.scripts['test:browser']);
   assert.ok(rootPackageJson.scripts['test:browser:capture']);
   assert.ok(rootPackageJson.devDependencies['@playwright/test']);
-  assert.ok(playwrightConfigSource.includes("http://localhost:3000"));
+  assert.ok(playwrightConfigSource.includes("http://127.0.0.1:3000"));
   assert.ok(playwrightConfigSource.includes("trace: 'retain-on-failure'"));
   assert.ok(playwrightConfigSource.includes("screenshot: 'only-on-failure'"));
   assert.ok(playwrightConfigSource.includes("video: 'retain-on-failure'"));

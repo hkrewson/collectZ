@@ -40,6 +40,7 @@ const {
 } = require('../services/serviceAccountKeys');
 const { recordAuthEvent } = require('../services/metrics');
 const { isSupportAccessApprovalActive } = require('../services/supportAccess');
+const { getProductEdition } = require('../config/productEdition');
 
 const router = express.Router();
 
@@ -512,6 +513,7 @@ router.get('/me', authenticateToken, asyncHandler(async (req, res) => {
   const row = result.rows[0];
   res.json({
     ...row,
+    product_edition: getProductEdition(),
     active_space_id: req.user.activeSpaceId ?? row.active_space_id ?? null,
     active_library_id: req.user.activeLibraryId ?? row.active_library_id ?? null
   });

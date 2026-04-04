@@ -14,6 +14,7 @@ import {
 import useImportJobPolling from './components/app/hooks/useImportJobPolling';
 import useSessionBootstrap from './components/app/hooks/useSessionBootstrap';
 import useMediaApi from './components/app/hooks/useMediaApi';
+import { isHomelabEdition, normalizeProductEdition } from './components/app/productEdition';
 
 const API_URL = process.env.REACT_APP_API_URL || '/api';
 const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.frontend || appMeta.version || 'unknown';
@@ -84,6 +85,8 @@ export default function App() {
     return response.data;
   }, []);
   const { user, setUser, authChecked, setAuthChecked } = useSessionBootstrap({ route, apiCall, setRoute });
+  const productEdition = normalizeProductEdition(user?.product_edition);
+  const homelabEdition = isHomelabEdition(productEdition);
   const navigate = useCallback((nextRoute) => {
     window.history.pushState(
       {},
@@ -184,7 +187,7 @@ export default function App() {
   }, [apiCall, user]);
 
   const loadSupportSummary = useCallback(async ({ silent = false } = {}) => {
-    if (!['admin', 'support_admin'].includes(String(user?.role || ''))) {
+    if (homelabEdition || !['admin', 'support_admin'].includes(String(user?.role || ''))) {
       setSupportSummary({
         open: 0,
         answered: 0,
@@ -223,7 +226,7 @@ export default function App() {
       }
       return null;
     }
-  }, [apiCall, showToast, user?.role]);
+  }, [apiCall, homelabEdition, showToast, user?.role]);
 
   const loadAuthScope = useCallback(async ({ silent = false } = {}) => {
     if (!user) return null;
@@ -364,13 +367,14 @@ export default function App() {
 
   useEffect(() => {
     if (!(route === 'dashboard' && authChecked && user)) return undefined;
+    if (homelabEdition) return undefined;
     loadSupportSummary({ silent: true });
     if (!['admin', 'support_admin'].includes(String(user?.role || ''))) return undefined;
     const intervalId = window.setInterval(() => {
       loadSupportSummary({ silent: true });
     }, 15000);
     return () => window.clearInterval(intervalId);
-  }, [route, authChecked, user, loadSupportSummary]);
+  }, [route, authChecked, homelabEdition, user, loadSupportSummary]);
 
   useEffect(() => {
     if (activeTab === 'library-import-review') {
@@ -399,10 +403,14 @@ export default function App() {
   const desktopNavExpanded = !collapsed;
 
   useEffect(() => {
+    if (homelabEdition && activeTab === 'support-inbox') {
+      setActiveTab('help');
+      return;
+    }
     if (user?.role === 'support_admin' && !getSupportAdminAllowedTabs(Boolean(supportSession?.active)).has(String(activeTab || ''))) {
       setActiveTab('help');
     }
-  }, [activeTab, supportSession?.active, user?.role]);
+  }, [activeTab, homelabEdition, supportSession?.active, user?.role]);
 
   useEffect(() => {
     if (activeTab === 'space-manage' && !canManageActiveSpace) {
@@ -475,7 +483,8 @@ export default function App() {
         activeMembershipRole={activeMembershipRole}
         showCollectibles={featureFlags.collectibles_enabled}
         showEvents={featureFlags.events_enabled}
-        supportBadgeCount={['admin', 'support_admin'].includes(String(user?.role || '')) ? supportSummary.open : null}
+        supportBadgeCount={!homelabEdition && ['admin', 'support_admin'].includes(String(user?.role || '')) ? supportSummary.open : null}
+        productEdition={productEdition}
       />
 
       <div className={cx('flex-1 flex flex-col min-w-0 transition-all duration-300', desktopNavExpanded ? 'lg:ml-56' : 'lg:ml-16')}>
@@ -493,10 +502,10 @@ export default function App() {
             <div className="font-display text-lg tracking-wider text-gold leading-none">COLLECTZ</div>
             <div className="text-[11px] text-ghost mt-1 truncate">
               {user?.role === 'admin' && !supportSession?.active
-                ? 'Platform control plane'
+                ? (homelabEdition ? 'Homelab control plane' : 'Platform control plane')
                 : user?.role === 'support_admin'
                   ? 'Support control plane'
-                : `${activeSpace?.name || 'No current space'}${activeLibrary ? ` / ${activeLibrary.name}` : ''}`}
+                  : `${activeSpace?.name || 'No current space'}${activeLibrary ? ` / ${activeLibrary.name}` : ''}`}
             </div>
           </div>
         </div>
@@ -604,6 +613,7 @@ export default function App() {
             scopeKey={scopeKey}
             supportSummary={supportSummary}
             onSupportSummaryRefresh={loadSupportSummary}
+            productEdition={productEdition}
           />
         </div>
       </div>

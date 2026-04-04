@@ -4,7 +4,7 @@ const path = require('path');
 const ARTIFACTS_DIR = path.resolve(__dirname, 'artifacts', 'playwright');
 const PLAYWRIGHT_STATE_DIR = path.resolve(__dirname, 'tmp', 'playwright-auth');
 const AUTH_STATE_PATH = path.join(PLAYWRIGHT_STATE_DIR, 'admin.json');
-const BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000';
+const BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3000';
 const PLAYWRIGHT_BYPASS_TOKEN = process.env.PLAYWRIGHT_E2E_BYPASS_TOKEN || '';
 
 module.exports = defineConfig({

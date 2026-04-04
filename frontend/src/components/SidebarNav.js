@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Icons, cx, isInteractiveTarget } from './app/AppPrimitives';
 import CollectzMark from './CollectzMark';
+import { getHelpNavLabel, isHomelabEdition } from './app/productEdition';
 
 const DiscordIcon = () => (
   <svg viewBox="0 0 16 16" fill="currentColor" className="w-5 h-5" aria-hidden="true">
@@ -34,12 +35,14 @@ export default function SidebarNav({
   activeMembershipRole = null,
   showCollectibles = true,
   showEvents = true,
-  supportBadgeCount = null
+  supportBadgeCount = null,
+  productEdition = 'platform'
 }) {
   const isAdmin = user?.role === 'admin';
   const isSupportAdmin = user?.role === 'support_admin';
   const isSupportStaff = isAdmin || isSupportAdmin;
   const canUseLibraryShell = !isSupportAdmin;
+  const homelabEdition = isHomelabEdition(productEdition);
   const releaseNotesUrl = `https://github.com/hkrewson/collectZ/tree/main/docs/releases/v${appVersion}.md`;
   const [adminOpen, setAdminOpen] = useState(true);
   const [globalOpen, setGlobalOpen] = useState(true);
@@ -230,8 +233,8 @@ export default function SidebarNav({
           <NavLink
             id="help"
             icon={<Icons.Activity />}
-            label={isSupportStaff ? 'Help Admin' : 'Help'}
-            badge={isSupportStaff ? supportBadgeCount : null}
+            label={getHelpNavLabel(productEdition, isSupportStaff)}
+            badge={!homelabEdition && isSupportStaff ? supportBadgeCount : null}
           />
           {showAdminGroup && (
             <div>

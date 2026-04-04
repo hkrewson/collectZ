@@ -2042,7 +2042,9 @@ Historical note:
 - Frontend shell composition boundary:
   - introduce shell-level control over nav groups, allowed routes, and mounted page surfaces,
   - keep the current tenancy/global admin surface as the `platform` shell,
-  - define a `homelab` shell that excludes tenancy/global-management UI rather than merely hiding buttons late in the render tree.
+  - define a `homelab` shell that excludes tenancy/global-management UI rather than merely hiding buttons late in the render tree,
+  - define the homelab Help surface as a shared `Help` experience that exposes `Guidance` and `Releases` for all users,
+  - do not mount `Metrics` or `Support` Help sections in `homelab` for either normal users or admins.
 - Backend route-mounting boundary:
   - separate shared/common routes from platform-only route groups,
   - do not mount platform-only APIs in `homelab`,
@@ -2059,12 +2061,15 @@ Historical note:
   - treat that internal scope compatibility as implementation detail rather than surfaced product language.
 - Testing and verification:
   - add regression coverage proving `homelab` cannot mount or navigate to tenancy/global routes,
+  - add browser-level regression coverage proving `homelab` Help only mounts `Guidance` and `Releases`, and never mounts `Metrics`, `Support`, or `Help Admin`,
   - verify `platform` retains current tenancy/global behaviors,
-  - keep shared workflows green in both editions (`auth`, `library`, `import`, `profile`, valid settings/integrations surfaces).
+  - keep shared workflows green in both editions (`auth`, `library`, `import`, `profile`, valid settings/integrations surfaces, edition-safe Help surfaces),
+  - use the Playwright coverage added in `2.9.4` and `2.9.5` as the primary browser-level proof layer for edition shell and route boundaries rather than relying only on backend/API checks.
 
 ### Acceptance Criteria
 
 - `homelab` edition does not mount tenancy/global platform pages or APIs.
+- `homelab` Help exposes `Guidance` and `Releases` only, and does not mount `Metrics`, `Support`, or `Help Admin` for any role.
 - `platform` edition preserves the full current tenancy/global control plane.
 - Edition branching is concentrated in shell/bootstrap/route-mount boundaries rather than scattered across unrelated components.
 - Shared workflows continue to function in both editions without scope confusion.

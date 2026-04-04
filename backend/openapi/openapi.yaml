@@ -67,6 +67,7 @@
           "email": { "type": "string", "format": "email" },
           "name": { "type": "string" },
           "role": { "type": "string" },
+          "product_edition": { "type": "string", "enum": ["platform", "homelab"] },
           "active_space_id": { "type": ["integer", "null"] },
           "active_library_id": { "type": ["integer", "null"] },
           "created_at": { "type": "string", "format": "date-time" },
@@ -978,13 +979,7 @@
             "description": "Current user",
             "content": {
               "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "user": { "$ref": "#/components/schemas/User" }
-                  },
-                  "required": ["user"]
-                }
+                "schema": { "$ref": "#/components/schemas/User" }
               }
             }
           },

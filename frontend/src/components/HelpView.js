@@ -1,5 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import appMeta from '../app-meta.json';
+import {
+  getHelpSurfaceTitle,
+  getHelpTabDefinitions,
+  getSafeHelpTab,
+  isSupportHelpEnabled
+} from './app/productEdition';
 
 const HELP_ARTICLES = [
   {
@@ -221,7 +227,8 @@ export default function HelpView({
   Icons,
   supportSummary,
   onSupportSummaryRefresh,
-  initialTab = 'guidance'
+  initialTab = 'guidance',
+  productEdition = 'platform'
 }) {
   const [activeTab, setActiveTab] = useState(initialTab);
   const [requests, setRequests] = useState([]);
@@ -257,6 +264,8 @@ export default function HelpView({
   const threadEndRef = useRef(null);
   const triageRequestIdRef = useRef(null);
   const isSupportStaff = ['admin', 'support_admin'].includes(String(user?.role || ''));
+  const helpTitle = useMemo(() => getHelpSurfaceTitle(productEdition, isSupportStaff), [productEdition, isSupportStaff]);
+  const supportHelpEnabled = useMemo(() => isSupportHelpEnabled(productEdition), [productEdition]);
   const requestStatusTone = useMemo(() => ({
     open: 'badge-warn',
     answered: 'badge-ok',
@@ -271,14 +280,16 @@ export default function HelpView({
     [isSupportStaff]
   );
   const helpTabs = useMemo(
-    () => [
-      { id: 'guidance', label: 'Guidance' },
-      { id: 'releases', label: 'Releases' },
-      ...(isSupportStaff ? [{ id: 'metrics', label: 'Metrics' }] : []),
-      { id: 'support', label: 'Support' }
-    ],
-    [isSupportStaff]
+    () => getHelpTabDefinitions(productEdition, isSupportStaff),
+    [productEdition, isSupportStaff]
   );
+
+  useEffect(() => {
+    const safeTab = getSafeHelpTab(productEdition, isSupportStaff, activeTab);
+    if (safeTab !== activeTab) {
+      setActiveTab(safeTab);
+    }
+  }, [activeTab, isSupportStaff, productEdition]);
 
   const formatRequestContext = useCallback((request) => {
     if (!request) return null;
@@ -625,9 +636,11 @@ export default function HelpView({
   return (
     <div className="h-full overflow-y-auto p-4 sm:p-6 space-y-6">
       <div className="space-y-3">
-        <h1 className="section-title">{isSupportStaff ? 'Help Admin' : 'Help Center'}</h1>
+        <h1 className="section-title">{helpTitle}</h1>
         <p className="text-sm text-ghost max-w-3xl">
-          A lightweight home for self-serve guidance, recent release notes, and support conversations. Support requests create a documented thread first, not ambient tenant access.
+          {supportHelpEnabled
+            ? 'A lightweight home for self-serve guidance, recent release notes, and support conversations. Support requests create a documented thread first, not ambient tenant access.'
+            : 'A lightweight home for self-serve guidance and recent release notes for homelab users.'}
         </p>
       </div>
 
@@ -689,7 +702,7 @@ export default function HelpView({
             </div>
           </section>
 
-          {!isSupportStaff ? (
+          {!isSupportStaff && supportHelpEnabled ? (
             <section className="panel p-5 space-y-4">
               <>
                 <h2 className="text-lg font-semibold text-ink">Getting help</h2>
