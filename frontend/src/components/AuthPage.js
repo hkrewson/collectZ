@@ -145,10 +145,9 @@ export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion
                   required />
               </div>
             )}
-            {isRegister && !isReset && (
-              <div className="field">
-                <label className="label">Invite Token <span className="text-ghost normal-case">(required after first user)</span></label>
-                <input className="input input-lg font-mono" placeholder="Paste token here" value={invite} onChange={(e) => setInvite(e.target.value)} />
+            {isRegister && !isReset && invite && (
+              <div className="rounded-lg border border-gold/20 bg-gold/5 px-3 py-2 text-sm text-gold">
+                Invite link detected for {email || 'this account'}.
               </div>
             )}
             {isReset && (

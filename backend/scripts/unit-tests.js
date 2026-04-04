@@ -412,6 +412,8 @@ results.push(run('auth route source includes explicit support session endpoints'
   assert.ok(authRoutesSource.includes('support_session: null'));
   assert.ok(authRoutesSource.includes('stripHomelabSpaceContext('));
   assert.ok(authRoutesSource.includes('stripHomelabSpaceContextFromUser('));
+  assert.ok(authRoutesSource.includes('const homelabEdition = isHomelabEdition(productEdition);'));
+  assert.ok(authRoutesSource.includes('} else if (!homelabEdition && existingUserCount > 0) {'));
 }));
 
 results.push(run('migrations source includes support role and help foundation schema updates', () => {
@@ -549,6 +551,7 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/auth/scope'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/libraries'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/support/releases'));
+  assert.ok(homelabEditionBoundarySmokeSource.includes('/api/auth/register'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/admin/settings/integrations'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/admin/feature-flags'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/support/requests'));

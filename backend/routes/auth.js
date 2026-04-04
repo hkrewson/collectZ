@@ -42,6 +42,7 @@ const { recordAuthEvent } = require('../services/metrics');
 const { isSupportAccessApprovalActive } = require('../services/supportAccess');
 const {
   getProductEdition,
+  isHomelabEdition,
   stripHomelabSpaceContext,
   stripHomelabSpaceContextFromUser
 } = require('../config/productEdition');
@@ -251,12 +252,14 @@ router.get('/csrf-token', asyncHandler(async (req, res) => {
 
 router.post('/register', validate(registerSchema), asyncHandler(async (req, res) => {
   const { email, password, name, inviteToken } = req.body;
+  const productEdition = getProductEdition();
+  const homelabEdition = isHomelabEdition(productEdition);
 
   const userCountResult = await pool.query('SELECT COUNT(*)::int AS count FROM users');
   const existingUserCount = userCountResult.rows[0]?.count || 0;
 
   let claimedInvite = null;
-  if (inviteToken) {
+  if (!homelabEdition && inviteToken) {
     const tokenHash = hashInviteToken(inviteToken);
     const invite = await pool.query(
       `SELECT * FROM invites
@@ -275,7 +278,7 @@ router.post('/register', validate(registerSchema), asyncHandler(async (req, res)
       return res.status(400).json({ error: 'Invite token is not valid for this email address' });
     }
     claimedInvite = invite.rows[0];
-  } else if (existingUserCount > 0) {
+  } else if (!homelabEdition && existingUserCount > 0) {
     recordAuthEvent('register', 'failed');
     return res.status(400).json({ error: 'An invite token is required to register' });
   }
@@ -348,6 +351,7 @@ router.post('/register', validate(registerSchema), asyncHandler(async (req, res)
     email: result.rows[0].email,
     role: result.rows[0].role,
     inviteTokenUsed: Boolean(inviteToken),
+    productEdition,
     invitedSpaceRole: claimedInvite?.space_role || null,
     activeLibraryId
   });

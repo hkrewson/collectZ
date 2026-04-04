@@ -2076,6 +2076,7 @@ Historical note:
 - `homelab` Help exposes `Guidance` and `Releases` only, and does not mount `Metrics`, `Support`, or `Help Admin` for any role.
 - `homelab` shell and direct-route handling do not expose or retain platform control-plane tabs such as `admin-spaces`, `admin-users`, `admin-activity`, or `space-manage`.
 - `homelab` shared auth, scope, and library APIs preserve library context but do not surface the internal default-space model to the client: `active_space_id` is null and `spaces` is empty while valid `active_library_id` and library lists remain available.
+- `homelab` registration no longer depends on the platform invite-token model after the first admin; additional local accounts can register without a tenant invite flow.
 - `platform` edition preserves the full current tenancy/global control plane.
 - Edition branching is concentrated in shell/bootstrap/route-mount boundaries rather than scattered across unrelated components.
 - Shared workflows continue to function in both editions without scope confusion.

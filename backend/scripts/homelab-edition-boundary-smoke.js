@@ -123,6 +123,16 @@ async function loginWithEmail(client, email, password) {
   });
 }
 
+async function registerWithEmail(client, { email, password, name }) {
+  await client.fetchCsrfToken();
+  return client.request('/api/auth/register', {
+    method: 'POST',
+    withCsrf: true,
+    expectStatus: 200,
+    body: { email, password, name }
+  });
+}
+
 async function main() {
   const suffix = Date.now();
   const adminEmail = `homelab-admin-${suffix}@example.com`;
@@ -143,16 +153,15 @@ async function main() {
     });
     adminUserId = Number(adminUser.id);
 
-    const normalUser = await createDirectUser({
+    const registerUser = await registerWithEmail(user, {
       email: userEmail,
       password,
-      name: 'Homelab Boundary User',
-      role: 'user'
+      name: 'Homelab Boundary User'
     });
-    userUserId = Number(normalUser.id);
+    userUserId = Number(registerUser?.data?.user?.id || 0) || null;
+    assert(Number.isFinite(userUserId) && userUserId > 0, `Expected homelab registration to succeed without invite: ${JSON.stringify(registerUser?.data)}`);
 
     await loginWithEmail(admin, adminEmail, password);
-    await loginWithEmail(user, userEmail, password);
 
     const adminMe = await admin.request('/api/auth/me', { expectStatus: 200 });
     const userMe = await user.request('/api/auth/me', { expectStatus: 200 });

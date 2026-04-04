@@ -30,7 +30,8 @@ docker compose --env-file .env logs -f backend frontend db
 Registration logic:
 
 - If user count is `0`: first registered user becomes `admin` and no invite is required.
-- If user count is `> 0`: invite token is required.
+- If user count is `> 0` in `platform`: invite token is required.
+- If user count is `> 0` in `homelab`: additional local accounts can still self-register without an invite token.
 
 There is no default seeded admin account in current releases.
 
