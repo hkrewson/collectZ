@@ -23,14 +23,16 @@ const { getRequestOrigin } = require('../services/requestOrigin');
 const { syncLibraryMembershipsForSpaceUser } = require('../services/libraries');
 const { hashInviteToken } = require('../services/invites');
 
-const router = express.Router();
+const commonRouter = express.Router();
+const platformRouter = express.Router();
 
-// All admin routes require authentication + admin role
-router.use(authenticateToken, requireRole('admin'));
+// All mounted admin routes require authentication + admin role
+commonRouter.use(authenticateToken, requireRole('admin'));
+platformRouter.use(authenticateToken, requireRole('admin'));
 
 // ── General settings ──────────────────────────────────────────────────────────
 
-router.put('/settings/general', validate(generalSettingsSchema), asyncHandler(async (req, res) => {
+commonRouter.put('/settings/general', validate(generalSettingsSchema), asyncHandler(async (req, res) => {
   const current = await loadGeneralSettings();
   const theme = req.body.theme || current.theme;
   const density = req.body.density || current.density;
@@ -48,12 +50,12 @@ router.put('/settings/general', validate(generalSettingsSchema), asyncHandler(as
 
 // ── Feature flags ─────────────────────────────────────────────────────────────
 
-router.get('/feature-flags', asyncHandler(async (_req, res) => {
+commonRouter.get('/feature-flags', asyncHandler(async (_req, res) => {
   const flags = await listFeatureFlags();
   res.json({ readOnly: FEATURE_FLAGS_READ_ONLY, flags });
 }));
 
-router.patch('/feature-flags/:key', asyncHandler(async (req, res) => {
+commonRouter.patch('/feature-flags/:key', asyncHandler(async (req, res) => {
   const key = String(req.params.key || '').trim();
   const { enabled } = req.body || {};
 
@@ -253,7 +255,7 @@ async function getAdminSpaceById(client, spaceId) {
   };
 }
 
-router.get('/spaces', asyncHandler(async (_req, res) => {
+platformRouter.get('/spaces', asyncHandler(async (_req, res) => {
   const result = await pool.query(
     `SELECT
        s.id,
@@ -301,7 +303,7 @@ router.get('/spaces', asyncHandler(async (_req, res) => {
   });
 }));
 
-router.get('/spaces/:id', asyncHandler(async (req, res) => {
+platformRouter.get('/spaces/:id', asyncHandler(async (req, res) => {
   const spaceId = Number(req.params.id);
   if (!Number.isFinite(spaceId) || spaceId <= 0) {
     return res.status(400).json({ error: 'Invalid space id' });
@@ -395,7 +397,7 @@ router.get('/spaces/:id', asyncHandler(async (req, res) => {
   }
 }));
 
-router.post('/spaces', validate(spaceCreateSchema), asyncHandler(async (req, res) => {
+platformRouter.post('/spaces', validate(spaceCreateSchema), asyncHandler(async (req, res) => {
   const { name, slug, description, owner_user_id: ownerUserIdRaw } = req.body;
   const ownerUserId = Number(ownerUserIdRaw || req.user.id);
 
@@ -475,7 +477,7 @@ router.post('/spaces', validate(spaceCreateSchema), asyncHandler(async (req, res
   }
 }));
 
-router.post('/spaces/create-with-onboarding', validate(adminSpaceCreateWithOnboardingSchema), asyncHandler(async (req, res) => {
+platformRouter.post('/spaces/create-with-onboarding', validate(adminSpaceCreateWithOnboardingSchema), asyncHandler(async (req, res) => {
   const {
     name,
     slug,
@@ -610,7 +612,7 @@ router.post('/spaces/create-with-onboarding', validate(adminSpaceCreateWithOnboa
   }
 }));
 
-router.post('/spaces/:id/members', validate(spaceMembershipCreateSchema), asyncHandler(async (req, res) => {
+platformRouter.post('/spaces/:id/members', validate(spaceMembershipCreateSchema), asyncHandler(async (req, res) => {
   const spaceId = Number(req.params.id);
   const targetUserId = Number(req.body.user_id);
   const nextRole = req.body.role;
@@ -685,7 +687,7 @@ router.post('/spaces/:id/members', validate(spaceMembershipCreateSchema), asyncH
   }
 }));
 
-router.post('/spaces/:id/invites', validate(spaceInviteCreateSchema), asyncHandler(async (req, res) => {
+platformRouter.post('/spaces/:id/invites', validate(spaceInviteCreateSchema), asyncHandler(async (req, res) => {
   const spaceId = Number(req.params.id);
   if (!Number.isFinite(spaceId) || spaceId <= 0) {
     return res.status(400).json({ error: 'Invalid space id' });
@@ -729,7 +731,7 @@ router.post('/spaces/:id/invites', validate(spaceInviteCreateSchema), asyncHandl
   }
 }));
 
-router.patch('/spaces/:id/invites/:inviteId/revoke', asyncHandler(async (req, res) => {
+platformRouter.patch('/spaces/:id/invites/:inviteId/revoke', asyncHandler(async (req, res) => {
   const spaceId = Number(req.params.id);
   const inviteId = Number(req.params.inviteId);
   if (!Number.isFinite(spaceId) || spaceId <= 0) {
@@ -772,7 +774,7 @@ router.patch('/spaces/:id/invites/:inviteId/revoke', asyncHandler(async (req, re
   }
 }));
 
-router.patch('/spaces/:id/owner', validate(adminSpaceOwnerAssignSchema), asyncHandler(async (req, res) => {
+platformRouter.patch('/spaces/:id/owner', validate(adminSpaceOwnerAssignSchema), asyncHandler(async (req, res) => {
   const spaceId = Number(req.params.id);
   const ownerUserId = Number(req.body.owner_user_id);
   if (!Number.isFinite(spaceId) || spaceId <= 0) {
@@ -845,7 +847,7 @@ router.patch('/spaces/:id/owner', validate(adminSpaceOwnerAssignSchema), asyncHa
   }
 }));
 
-router.patch('/spaces/:id/archive', validate(adminSpaceArchiveSchema), asyncHandler(async (req, res) => {
+platformRouter.patch('/spaces/:id/archive', validate(adminSpaceArchiveSchema), asyncHandler(async (req, res) => {
   const spaceId = Number(req.params.id);
   const archived = Boolean(req.body.archived);
   if (!Number.isFinite(spaceId) || spaceId <= 0) {
@@ -924,7 +926,7 @@ router.patch('/spaces/:id/archive', validate(adminSpaceArchiveSchema), asyncHand
   }
 }));
 
-router.delete('/spaces/:id', asyncHandler(async (req, res) => {
+platformRouter.delete('/spaces/:id', asyncHandler(async (req, res) => {
   const spaceId = Number(req.params.id);
   if (!Number.isFinite(spaceId) || spaceId <= 0) {
     return res.status(400).json({ error: 'Invalid space id' });
@@ -997,7 +999,7 @@ router.delete('/spaces/:id', asyncHandler(async (req, res) => {
 // Supports optional query filters:
 // action, entity, userId, user, status, reason, from, to, q, search, limit, offset
 
-router.get('/activity', asyncHandler(async (req, res) => {
+platformRouter.get('/activity', asyncHandler(async (req, res) => {
   const limitRaw = Number(req.query.limit || 100);
   const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(500, limitRaw)) : 100;
   const offsetRaw = Number(req.query.offset || 0);
@@ -1123,9 +1125,9 @@ router.get('/activity', asyncHandler(async (req, res) => {
   res.json(result.rows);
 }));
 
-router.use(enforceScopeAccess({ allowedHintRoles: ['admin'] }));
+platformRouter.use(enforceScopeAccess({ allowedHintRoles: ['admin'] }));
 
-router.get('/users', asyncHandler(async (req, res) => {
+platformRouter.get('/users', asyncHandler(async (req, res) => {
   const result = await pool.query(
     `SELECT
        u.id,
@@ -1156,7 +1158,7 @@ router.get('/users', asyncHandler(async (req, res) => {
   })));
 }));
 
-router.get('/users/:id/summary', asyncHandler(async (req, res) => {
+platformRouter.get('/users/:id/summary', asyncHandler(async (req, res) => {
   const userId = Number(req.params.id);
   if (!Number.isFinite(userId) || userId <= 0) {
     return res.status(400).json({ error: 'Invalid user id' });
@@ -1214,7 +1216,7 @@ router.get('/users/:id/summary', asyncHandler(async (req, res) => {
   });
 }));
 
-router.patch('/users/:id/role', validate(roleUpdateSchema), asyncHandler(async (req, res) => {
+platformRouter.patch('/users/:id/role', validate(roleUpdateSchema), asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { role } = req.body;
 
@@ -1235,7 +1237,7 @@ router.patch('/users/:id/role', validate(roleUpdateSchema), asyncHandler(async (
   res.json(result.rows[0]);
 }));
 
-router.delete('/users/:id', asyncHandler(async (req, res) => {
+platformRouter.delete('/users/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
   if (Number(id) === req.user.id) {
     return res.status(400).json({ error: 'You cannot delete your own account' });
@@ -1252,7 +1254,7 @@ router.delete('/users/:id', asyncHandler(async (req, res) => {
   res.json({ message: 'User deleted' });
 }));
 
-router.post('/users/:id/password-reset', asyncHandler(async (req, res) => {
+platformRouter.post('/users/:id/password-reset', asyncHandler(async (req, res) => {
   const userId = Number(req.params.id);
   if (!Number.isFinite(userId) || userId <= 0) {
     return res.status(400).json({ error: 'Invalid user id' });
@@ -1328,7 +1330,7 @@ router.post('/users/:id/password-reset', asyncHandler(async (req, res) => {
   });
 }));
 
-router.post('/users/:id/password-reset/invalidate', asyncHandler(async (req, res) => {
+platformRouter.post('/users/:id/password-reset/invalidate', asyncHandler(async (req, res) => {
   const userId = Number(req.params.id);
   if (!Number.isFinite(userId) || userId <= 0) {
     return res.status(400).json({ error: 'Invalid user id' });
@@ -1359,4 +1361,7 @@ router.post('/users/:id/password-reset/invalidate', asyncHandler(async (req, res
   });
 }));
 
-module.exports = router;
+module.exports = {
+  adminCommonRouter: commonRouter,
+  adminPlatformRouter: platformRouter
+};

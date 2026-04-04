@@ -380,21 +380,21 @@ results.push(run('media route source includes tmdb trace-match endpoint', () => 
 }));
 
 results.push(run('admin route source includes guided space onboarding endpoint', () => {
-  assert.ok(adminRoutesSource.includes("router.post('/spaces/create-with-onboarding'"));
+  assert.ok(adminRoutesSource.includes("platformRouter.post('/spaces/create-with-onboarding'"));
   assert.ok(adminRoutesSource.includes('createInitialSpaceInvite'));
   assert.ok(adminRoutesSource.includes('invite_results'));
 }));
 
 results.push(run('admin route source includes platform-safe space detail and roster endpoints', () => {
-  assert.ok(adminRoutesSource.includes("router.get('/spaces/:id'"));
-  assert.ok(adminRoutesSource.includes("router.post('/spaces/:id/members'"));
-  assert.ok(adminRoutesSource.includes("router.post('/spaces/:id/invites'"));
-  assert.ok(adminRoutesSource.includes("router.patch('/spaces/:id/invites/:inviteId/revoke'"));
+  assert.ok(adminRoutesSource.includes("platformRouter.get('/spaces/:id'"));
+  assert.ok(adminRoutesSource.includes("platformRouter.post('/spaces/:id/members'"));
+  assert.ok(adminRoutesSource.includes("platformRouter.post('/spaces/:id/invites'"));
+  assert.ok(adminRoutesSource.includes("platformRouter.patch('/spaces/:id/invites/:inviteId/revoke'"));
 }));
 
 results.push(run('auth route source includes explicit support session endpoints', () => {
-  assert.ok(authRoutesSource.includes("router.post('/support-session/start'"));
-  assert.ok(authRoutesSource.includes("router.delete('/support-session'"));
+  assert.ok(authRoutesSource.includes("platformRouter.post('/support-session/start'"));
+  assert.ok(authRoutesSource.includes("platformRouter.delete('/support-session'"));
   assert.ok(authRoutesSource.includes("requireRole('admin', 'support_admin')"));
   assert.ok(authRoutesSource.includes('auth.support_session.started'));
   assert.ok(authRoutesSource.includes('auth.support_session.ended'));
@@ -437,14 +437,14 @@ results.push(run('frontend app source includes support session banner and admin 
 }));
 
 results.push(run('support route source includes request creation, releases feed, replies, and staff summary endpoints', () => {
-  assert.ok(supportRoutesSource.includes("router.get('/releases'"));
-  assert.ok(supportRoutesSource.includes("router.get('/requests'"));
-  assert.ok(supportRoutesSource.includes("router.post('/requests'"));
-  assert.ok(supportRoutesSource.includes("router.post('/requests/:id/messages'"));
-  assert.ok(supportRoutesSource.includes("router.patch('/requests/:id/status'"));
-  assert.ok(supportRoutesSource.includes("router.patch('/requests/:id/access'"));
-  assert.ok(supportRoutesSource.includes("router.patch('/requests/:id/triage'"));
-  assert.ok(supportRoutesSource.includes("router.get('/staff/summary'"));
+  assert.ok(supportRoutesSource.includes("sharedRouter.get('/releases'"));
+  assert.ok(supportRoutesSource.includes("platformRouter.get('/requests'"));
+  assert.ok(supportRoutesSource.includes("platformRouter.post('/requests'"));
+  assert.ok(supportRoutesSource.includes("platformRouter.post('/requests/:id/messages'"));
+  assert.ok(supportRoutesSource.includes("platformRouter.patch('/requests/:id/status'"));
+  assert.ok(supportRoutesSource.includes("platformRouter.patch('/requests/:id/access'"));
+  assert.ok(supportRoutesSource.includes("platformRouter.patch('/requests/:id/triage'"));
+  assert.ok(supportRoutesSource.includes("platformRouter.get('/staff/summary'"));
   assert.ok(supportRoutesSource.includes('loadReleaseNotesFeed'));
   assert.ok(supportRoutesSource.includes('support.request.access.updated'));
   assert.ok(supportRoutesSource.includes('normalizeSupportQueueFilter'));
@@ -508,6 +508,22 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(sidebarNavSource.includes('getAllowedDashboardTabs'));
   assert.ok(sidebarNavSource.includes('showGlobalGroup'));
   assert.ok(dockerComposeSource.includes('APP_EDITION: ${APP_EDITION:-platform}'));
+  assert.ok(serverSource.includes('const HOMELAB_EDITION = isHomelabEdition();'));
+  assert.ok(serverSource.includes("app.use('/api/auth', authPlatformRouter);"));
+  assert.ok(serverSource.includes("app.use('/api/support', supportSharedRouter);"));
+  assert.ok(serverSource.includes("app.use('/api/admin', adminCommonRouter);"));
+  assert.ok(serverSource.includes("app.use('/api/docs', docsRouter);"));
+  assert.ok(serverSource.includes("app.use('/api/metrics', metricsRouter);"));
+  assert.ok(serverSource.includes("app.use('/api/support', supportPlatformRouter);"));
+  assert.ok(serverSource.includes("app.use('/api', spacesRouter);"));
+  assert.ok(serverSource.includes("app.use('/api/admin', adminPlatformRouter);"));
+  assert.ok(authRoutesSource.includes('authPlatformRouter'));
+  assert.ok(authRoutesSource.includes("platformRouter.post('/support-session/start'"));
+  assert.ok(authRoutesSource.includes("platformRouter.delete('/support-session'"));
+  assert.ok(adminRoutesSource.includes('adminCommonRouter'));
+  assert.ok(adminRoutesSource.includes('adminPlatformRouter'));
+  assert.ok(supportRoutesSource.includes('supportSharedRouter'));
+  assert.ok(supportRoutesSource.includes('supportPlatformRouter'));
   assert.ok(homelabHelpBrowserSpecSource.includes('product_edition'));
   assert.ok(homelabHelpBrowserSpecSource.includes("name: 'Help Admin'"));
   assert.ok(homelabHelpBrowserSpecSource.includes('/dashboard?tab=admin-spaces'));
@@ -1514,12 +1530,12 @@ results.push(run('spaces routes expose core spaces and memberships endpoints', (
 }));
 
 results.push(run('admin routes expose platform space control-plane endpoints', () => {
-  assert.ok(adminRoutesSource.includes("router.get('/spaces'"));
-  assert.ok(adminRoutesSource.includes("router.post('/spaces'"));
-  assert.ok(adminRoutesSource.includes("router.patch('/spaces/:id/owner'"));
-  assert.ok(adminRoutesSource.includes("router.patch('/spaces/:id/archive'"));
-  assert.ok(adminRoutesSource.includes("router.delete('/spaces/:id'"));
-  assert.ok(adminRoutesSource.includes("router.use(enforceScopeAccess({ allowedHintRoles: ['admin'] }));"));
+  assert.ok(adminRoutesSource.includes("platformRouter.get('/spaces'"));
+  assert.ok(adminRoutesSource.includes("platformRouter.post('/spaces'"));
+  assert.ok(adminRoutesSource.includes("platformRouter.patch('/spaces/:id/owner'"));
+  assert.ok(adminRoutesSource.includes("platformRouter.patch('/spaces/:id/archive'"));
+  assert.ok(adminRoutesSource.includes("platformRouter.delete('/spaces/:id'"));
+  assert.ok(adminRoutesSource.includes("platformRouter.use(enforceScopeAccess({ allowedHintRoles: ['admin'] }));"));
   assert.ok(adminRoutesSource.includes("COUNT(*)::int AS membership_count"));
   assert.ok(!adminRoutesSource.includes('contributionScore'));
 }));
@@ -1633,8 +1649,8 @@ results.push(run('phase5 smoke scripts avoid tenant admin invite bootstrapping a
 }));
 
 results.push(run('admin activity route stays in the platform control plane before tenant scope enforcement', () => {
-  assert.ok(adminRoutesSource.includes("router.get('/activity'"));
-  assert.ok(adminRoutesSource.indexOf("router.get('/activity'") < adminRoutesSource.indexOf("router.use(enforceScopeAccess({ allowedHintRoles: ['admin'] }));"));
+  assert.ok(adminRoutesSource.includes("platformRouter.get('/activity'"));
+  assert.ok(adminRoutesSource.indexOf("platformRouter.get('/activity'") < adminRoutesSource.indexOf("platformRouter.use(enforceScopeAccess({ allowedHintRoles: ['admin'] }));"));
 }));
 
 results.push(run('server source assigns request ids before request logging', () => {

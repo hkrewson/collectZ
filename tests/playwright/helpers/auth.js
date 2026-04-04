@@ -23,6 +23,10 @@ function getPlaywrightBypassHeaders() {
     : undefined;
 }
 
+function getPlaywrightBypassToken() {
+  return PLAYWRIGHT_E2E_BYPASS_TOKEN;
+}
+
 function buildPlaywrightBypassCookie() {
   if (!PLAYWRIGHT_E2E_BYPASS_TOKEN) return null;
   return {
@@ -287,6 +291,7 @@ module.exports = {
   AUTH_CREDENTIALS_PATH,
   PLAYWRIGHT_E2E_BYPASS_TOKEN,
   PLAYWRIGHT_E2E_BYPASS_COOKIE,
+  getPlaywrightBypassToken,
   getPlaywrightBypassHeaders,
   addPlaywrightBypassCookie,
   fetchCsrfToken,

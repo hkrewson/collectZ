@@ -43,6 +43,7 @@ const { isSupportAccessApprovalActive } = require('../services/supportAccess');
 const { getProductEdition } = require('../config/productEdition');
 
 const router = express.Router();
+const platformRouter = express.Router();
 
 async function getSupportSpaceSummary(client, spaceId) {
   const result = await client.query(
@@ -603,7 +604,7 @@ router.post('/scope', authenticateToken, requireSessionAuth, validate(authScopeS
   res.json(payload);
 }));
 
-router.post('/support-session/start', authenticateToken, requireSessionAuth, requireRole('admin', 'support_admin'), validate(supportSessionStartSchema), asyncHandler(async (req, res) => {
+platformRouter.post('/support-session/start', authenticateToken, requireSessionAuth, requireRole('admin', 'support_admin'), validate(supportSessionStartSchema), asyncHandler(async (req, res) => {
   const targetSpaceId = Number(req.body.space_id || 0);
   const requestedLibraryId = Number(req.body.library_id || 0) || null;
   const requestId = Number(req.body.request_id || 0) || null;
@@ -740,7 +741,7 @@ router.post('/support-session/start', authenticateToken, requireSessionAuth, req
   }
 }));
 
-router.delete('/support-session', authenticateToken, requireSessionAuth, requireRole('admin', 'support_admin'), asyncHandler(async (req, res) => {
+platformRouter.delete('/support-session', authenticateToken, requireSessionAuth, requireRole('admin', 'support_admin'), asyncHandler(async (req, res) => {
   const client = await pool.connect();
   let committed = false;
   try {
@@ -998,4 +999,7 @@ router.delete('/service-account-keys/:id', authenticateToken, requireSessionAuth
   res.json(revoked);
 }));
 
-module.exports = router;
+module.exports = {
+  authRouter: router,
+  authPlatformRouter: platformRouter
+};

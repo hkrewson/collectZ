@@ -18,7 +18,8 @@ const {
   getSupportAccessExpiryTimestamp
 } = require('../services/supportAccess');
 
-const router = express.Router();
+const sharedRouter = express.Router();
+const platformRouter = express.Router();
 
 const SUPPORT_STAFF_ROLES = new Set(['admin', 'support_admin']);
 const DEFAULT_REPO_ISSUE_BASE_URL = 'https://github.com/hkrewson/collectZ/issues';
@@ -266,7 +267,7 @@ function escapeLikePattern(value) {
   return String(value || '').replace(/[\\%_]/g, '\\$&');
 }
 
-router.get('/releases', authenticateToken, asyncHandler(async (req, res) => {
+sharedRouter.get('/releases', authenticateToken, asyncHandler(async (req, res) => {
   const requestedLimit = Number(req.query.limit || 5);
   const limit = Math.max(1, Math.min(10, Number.isFinite(requestedLimit) ? requestedLimit : 5));
   res.json({
@@ -314,7 +315,7 @@ async function getSupportRequestForActor({ client, requestId, userId, role }) {
   return result.rows[0] || null;
 }
 
-router.get('/requests', authenticateToken, asyncHandler(async (req, res) => {
+platformRouter.get('/requests', authenticateToken, asyncHandler(async (req, res) => {
   const supportStaff = isSupportStaff(req);
   const params = [];
   const where = [];
@@ -407,7 +408,7 @@ router.get('/requests', authenticateToken, asyncHandler(async (req, res) => {
   });
 }));
 
-router.post('/requests', authenticateToken, requireSessionAuth, validate(supportRequestCreateSchema), asyncHandler(async (req, res) => {
+platformRouter.post('/requests', authenticateToken, requireSessionAuth, validate(supportRequestCreateSchema), asyncHandler(async (req, res) => {
   const supportStaff = isSupportStaff(req);
   const subject = String(req.body.subject || '').trim();
   const message = String(req.body.message || '').trim();
@@ -478,7 +479,7 @@ router.post('/requests', authenticateToken, requireSessionAuth, validate(support
   }
 }));
 
-router.get('/requests/:id', authenticateToken, asyncHandler(async (req, res) => {
+platformRouter.get('/requests/:id', authenticateToken, asyncHandler(async (req, res) => {
   const requestId = Number(req.params.id);
   if (!Number.isFinite(requestId) || requestId <= 0) {
     return res.status(400).json({ error: 'Invalid support request id' });
@@ -562,7 +563,7 @@ router.get('/requests/:id', authenticateToken, asyncHandler(async (req, res) => 
   }
 }));
 
-router.post('/requests/:id/messages', authenticateToken, requireSessionAuth, validate(supportRequestMessageCreateSchema), asyncHandler(async (req, res) => {
+platformRouter.post('/requests/:id/messages', authenticateToken, requireSessionAuth, validate(supportRequestMessageCreateSchema), asyncHandler(async (req, res) => {
   const requestId = Number(req.params.id);
   if (!Number.isFinite(requestId) || requestId <= 0) {
     return res.status(400).json({ error: 'Invalid support request id' });
@@ -633,7 +634,7 @@ router.post('/requests/:id/messages', authenticateToken, requireSessionAuth, val
   }
 }));
 
-router.patch('/requests/:id/status', authenticateToken, requireSessionAuth, validate(supportRequestStatusUpdateSchema), asyncHandler(async (req, res) => {
+platformRouter.patch('/requests/:id/status', authenticateToken, requireSessionAuth, validate(supportRequestStatusUpdateSchema), asyncHandler(async (req, res) => {
   const requestId = Number(req.params.id);
   if (!Number.isFinite(requestId) || requestId <= 0) {
     return res.status(400).json({ error: 'Invalid support request id' });
@@ -732,7 +733,7 @@ router.patch('/requests/:id/status', authenticateToken, requireSessionAuth, vali
   }
 }));
 
-router.patch('/requests/:id/access', authenticateToken, requireSessionAuth, validate(supportRequestAccessUpdateSchema), asyncHandler(async (req, res) => {
+platformRouter.patch('/requests/:id/access', authenticateToken, requireSessionAuth, validate(supportRequestAccessUpdateSchema), asyncHandler(async (req, res) => {
   const requestId = Number(req.params.id);
   if (!Number.isFinite(requestId) || requestId <= 0) {
     return res.status(400).json({ error: 'Invalid support request id' });
@@ -836,7 +837,7 @@ router.patch('/requests/:id/access', authenticateToken, requireSessionAuth, vali
   }
 }));
 
-router.patch('/requests/:id/triage', authenticateToken, requireSessionAuth, requireRole('admin', 'support_admin'), validate(supportRequestTriageUpdateSchema), asyncHandler(async (req, res) => {
+platformRouter.patch('/requests/:id/triage', authenticateToken, requireSessionAuth, requireRole('admin', 'support_admin'), validate(supportRequestTriageUpdateSchema), asyncHandler(async (req, res) => {
   const requestId = Number(req.params.id);
   if (!Number.isFinite(requestId) || requestId <= 0) {
     return res.status(400).json({ error: 'Invalid support request id' });
@@ -967,7 +968,7 @@ router.patch('/requests/:id/triage', authenticateToken, requireSessionAuth, requ
   }
 }));
 
-router.get('/staff/summary', authenticateToken, requireRole('admin', 'support_admin'), asyncHandler(async (_req, res) => {
+platformRouter.get('/staff/summary', authenticateToken, requireRole('admin', 'support_admin'), asyncHandler(async (_req, res) => {
   const result = await pool.query(
     `WITH first_staff_reply AS (
        SELECT sr.id AS request_id,
@@ -1013,4 +1014,7 @@ router.get('/staff/summary', authenticateToken, requireRole('admin', 'support_ad
   });
 }));
 
-module.exports = router;
+module.exports = {
+  supportSharedRouter: sharedRouter,
+  supportPlatformRouter: platformRouter
+};

@@ -2049,7 +2049,8 @@ Historical note:
 - Backend route-mounting boundary:
   - separate shared/common routes from platform-only route groups,
   - do not mount platform-only APIs in `homelab`,
-  - keep auth/session bootstrap common where possible while removing platform assumptions from the homelab-mounted surface.
+  - keep auth/session bootstrap common where possible while removing platform assumptions from the homelab-mounted surface,
+  - keep shared release/help-safe endpoints such as `/api/support/releases` mounted in `homelab` while unmounting platform-only support case-management endpoints.
 - Homelab product-shape rules:
   - target one local admin with optional viewer/read-only users,
   - no normal active-space switching,
@@ -2070,6 +2071,7 @@ Historical note:
 ### Acceptance Criteria
 
 - `homelab` edition does not mount tenancy/global platform pages or APIs.
+- `homelab` still serves shared release/help-safe data, but platform-only support case APIs, docs, metrics, spaces, and platform admin control-plane APIs are unmounted.
 - `homelab` Help exposes `Guidance` and `Releases` only, and does not mount `Metrics`, `Support`, or `Help Admin` for any role.
 - `homelab` shell and direct-route handling do not expose or retain platform control-plane tabs such as `admin-spaces`, `admin-users`, `admin-activity`, or `space-manage`.
 - `platform` edition preserves the full current tenancy/global control plane.

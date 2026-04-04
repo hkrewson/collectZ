@@ -30,16 +30,17 @@ const { auditRequestOutcome, getMode } = require('./middleware/audit');
 const { metricsMiddleware } = require('./middleware/metrics');
 const { csrfProtection } = require('./middleware/csrf');
 const { requestIdMiddleware } = require('./middleware/requestId');
+const { isHomelabEdition } = require('./config/productEdition');
 
-const authRouter = require('./routes/auth');
+const { authRouter, authPlatformRouter } = require('./routes/auth');
 const mediaRouter = require('./routes/media');
-const adminRouter = require('./routes/admin');
+const { adminCommonRouter, adminPlatformRouter } = require('./routes/admin');
 const integrationsRouter = require('./routes/integrations');
 const librariesRouter = require('./routes/libraries');
 const spacesRouter = require('./routes/spaces');
 const eventsRouter = require('./routes/events');
 const collectiblesRouter = require('./routes/collectibles');
-const supportRouter = require('./routes/support');
+const { supportSharedRouter, supportPlatformRouter } = require('./routes/support');
 const docsRouter = require('./routes/docs');
 const metricsRouter = require('./routes/metrics');
 const { cleanupExpiredSessions, SESSION_MAX_PER_USER, SESSION_TTL_DAYS } = require('./services/sessions');
@@ -51,6 +52,7 @@ const APP_VERSION = process.env.APP_VERSION || appMeta.backend || appMeta.versio
 const FRONTEND_VERSION = appMeta.frontend || appMeta.version || APP_VERSION;
 const BACKEND_VERSION = appMeta.backend || appMeta.version || APP_VERSION;
 const BUILD_LABEL = `v${APP_VERSION || 'unknown'}`;
+const HOMELAB_EDITION = isHomelabEdition();
 const SESSION_CLEANUP_INTERVAL_MINUTES = Math.max(1, Number(process.env.SESSION_CLEANUP_INTERVAL_MINUTES || 60));
 const RATE_LIMIT_WINDOW_MINUTES = Math.max(1, Number(process.env.RATE_LIMIT_WINDOW_MINUTES || 15));
 const RATE_LIMIT_WINDOW_MS = RATE_LIMIT_WINDOW_MINUTES * 60 * 1000;
@@ -253,19 +255,26 @@ app.get('/api/health', (_req, res) => res.json(healthPayload()));
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 app.use('/api/auth', authRouter);
+if (!HOMELAB_EDITION) {
+  app.use('/api/auth', authPlatformRouter);
+}
 // Profile endpoints live under auth routes but are exposed at /api/profile
 // for backward compatibility with existing frontend calls
 app.use('/api', authRouter);
 app.use('/api/media', mediaRouter);
-app.use('/api/docs', docsRouter);
-app.use('/api/metrics', metricsRouter);
 app.use('/api', eventsRouter);
 app.use('/api', collectiblesRouter);
-app.use('/api/support', supportRouter);
+app.use('/api/support', supportSharedRouter);
 app.use('/api', integrationsRouter);
 app.use('/api', librariesRouter);
-app.use('/api', spacesRouter);
-app.use('/api/admin', adminRouter);
+app.use('/api/admin', adminCommonRouter);
+if (!HOMELAB_EDITION) {
+  app.use('/api/docs', docsRouter);
+  app.use('/api/metrics', metricsRouter);
+  app.use('/api/support', supportPlatformRouter);
+  app.use('/api', spacesRouter);
+  app.use('/api/admin', adminPlatformRouter);
+}
 
 // 404 JSON for unmatched API routes so failures are explicit and loggable.
 app.use('/api', (req, _res, next) => {
