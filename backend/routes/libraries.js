@@ -20,6 +20,7 @@ const {
   ensureUserDefaultScope,
   syncLibraryMembershipsForSpaceUser
 } = require('../services/libraries');
+const { getProductEdition, stripHomelabSpaceContext } = require('../config/productEdition');
 
 const router = express.Router();
 
@@ -56,11 +57,11 @@ router.get('/libraries', asyncHandler(async (req, res) => {
   const resolvedActiveLibraryId = hasActive
     ? activeLibraryId
     : (libraries[0]?.id || null);
-  res.json({
+  res.json(stripHomelabSpaceContext({
     libraries,
     active_space_id: hasActive ? activeSpaceId : (libraries[0]?.space_id || null),
     active_library_id: resolvedActiveLibraryId
-  });
+  }, getProductEdition()));
 }));
 
 router.post('/libraries', validate(libraryCreateSchema), asyncHandler(async (req, res) => {
@@ -109,11 +110,11 @@ router.post('/libraries', validate(libraryCreateSchema), asyncHandler(async (req
   await logActivity(req, 'library.create', 'library', library.id, {
     name: library.name
   });
-  res.status(201).json({
+  res.status(201).json(stripHomelabSpaceContext({
     ...library,
     active_space_id: library.space_id || ensuredScope.spaceId || null,
     active_library_id: library.id
-  });
+  }, getProductEdition()));
 }));
 
 router.patch('/libraries/:id', validate(libraryUpdateSchema), asyncHandler(async (req, res) => {
@@ -226,11 +227,11 @@ router.post('/libraries/select', requireSessionAuth, validate(librarySelectSchem
         libraryName: library.name
       });
 
-      return res.json({
+      return res.json(stripHomelabSpaceContext({
         active_library_id: library.id,
         active_space_id: supportSpaceId,
         library
-      });
+      }, getProductEdition()));
     } catch (error) {
       if (!committed) {
         await client.query('ROLLBACK');
@@ -264,11 +265,11 @@ router.post('/libraries/select', requireSessionAuth, validate(librarySelectSchem
     libraryName: selected.name
   });
 
-  res.json({
+  res.json(stripHomelabSpaceContext({
     active_library_id: selected.id,
     active_space_id: selected.space_id || null,
     library: selected
-  });
+  }, getProductEdition()));
 }));
 
 router.post('/libraries/:id/transfer', validate(libraryTransferSchema), asyncHandler(async (req, res) => {

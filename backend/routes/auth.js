@@ -40,7 +40,11 @@ const {
 } = require('../services/serviceAccountKeys');
 const { recordAuthEvent } = require('../services/metrics');
 const { isSupportAccessApprovalActive } = require('../services/supportAccess');
-const { getProductEdition } = require('../config/productEdition');
+const {
+  getProductEdition,
+  stripHomelabSpaceContext,
+  stripHomelabSpaceContextFromUser
+} = require('../config/productEdition');
 
 const router = express.Router();
 const platformRouter = express.Router();
@@ -143,7 +147,7 @@ async function buildAuthScopePayload(req) {
       const supportRequestSummary = await getSupportRequestSessionSummary(client, Number(req.user.supportRequestId || 0) || null);
       const activeLibrary = libraries.find((library) => Number(library.id) === Number(activeLibraryId)) || null;
 
-      return {
+      return stripHomelabSpaceContext({
         active_space_id: supportSpace.id,
         active_library_id: activeLibraryId,
         spaces: [{
@@ -173,30 +177,30 @@ async function buildAuthScopePayload(req) {
           space_name: supportSpace.name,
           library_name: activeLibrary?.name || supportRequestSummary?.target_library_name || null
         }
-      };
+      }, getProductEdition());
     } finally {
       client.release();
     }
   }
 
   if (req.user?.role === 'admin') {
-    return {
+    return stripHomelabSpaceContext({
       active_space_id: null,
       active_library_id: null,
       spaces: [],
       libraries: [],
       support_session: null
-    };
+    }, getProductEdition());
   }
 
   if (req.user?.role === 'support_admin') {
-    return {
+    return stripHomelabSpaceContext({
       active_space_id: null,
       active_library_id: null,
       spaces: [],
       libraries: [],
       support_session: null
-    };
+    }, getProductEdition());
   }
 
   const ensuredScope = await ensureUserDefaultScope(req.user.id);
@@ -217,7 +221,7 @@ async function buildAuthScopePayload(req) {
         })
       : [];
 
-    return {
+    return stripHomelabSpaceContext({
       active_space_id: ensuredScope.spaceId,
       active_library_id: ensuredScope.libraryId,
       spaces: spaces.map((space) => ({
@@ -231,7 +235,7 @@ async function buildAuthScopePayload(req) {
       })),
       libraries,
       support_session: null
-    };
+    }, getProductEdition());
   } finally {
     client.release();
   }
@@ -350,8 +354,8 @@ router.post('/register', validate(registerSchema), asyncHandler(async (req, res)
   recordAuthEvent('register', 'succeeded');
   res.json({
     user: {
-      ...result.rows[0],
-      active_space_id: activeSpaceId,
+      ...stripHomelabSpaceContextFromUser(result.rows[0], getProductEdition()),
+      active_space_id: stripHomelabSpaceContext({ active_space_id: activeSpaceId }, getProductEdition()).active_space_id,
       active_library_id: activeLibraryId
     }
   });
@@ -390,8 +394,8 @@ router.post('/login', validate(loginSchema), asyncHandler(async (req, res) => {
   recordAuthEvent('login', 'succeeded');
   res.json({
     user: {
-      ...userWithoutPassword,
-      active_space_id: activeSpaceId,
+      ...stripHomelabSpaceContextFromUser(userWithoutPassword, getProductEdition()),
+      active_space_id: stripHomelabSpaceContext({ active_space_id: activeSpaceId }, getProductEdition()).active_space_id,
       active_library_id: activeLibraryId
     }
   });
@@ -512,12 +516,12 @@ router.get('/me', authenticateToken, asyncHandler(async (req, res) => {
     return res.status(404).json({ error: 'User not found' });
   }
   const row = result.rows[0];
-  res.json({
+  res.json(stripHomelabSpaceContextFromUser({
     ...row,
     product_edition: getProductEdition(),
     active_space_id: req.user.activeSpaceId ?? row.active_space_id ?? null,
     active_library_id: req.user.activeLibraryId ?? row.active_library_id ?? null
-  });
+  }, getProductEdition()));
 }));
 
 router.get('/scope', authenticateToken, asyncHandler(async (req, res) => {
@@ -820,11 +824,11 @@ router.get('/profile', authenticateToken, asyncHandler(async (req, res) => {
     return res.status(404).json({ error: 'User not found' });
   }
   const row = result.rows[0];
-  res.json({
+  res.json(stripHomelabSpaceContextFromUser({
     ...row,
     active_space_id: req.user.activeSpaceId ?? row.active_space_id ?? null,
     active_library_id: req.user.activeLibraryId ?? row.active_library_id ?? null
-  });
+  }, getProductEdition()));
 }));
 
 router.patch('/profile', authenticateToken, validate(profileUpdateSchema), asyncHandler(async (req, res) => {

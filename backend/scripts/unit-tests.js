@@ -409,6 +409,8 @@ results.push(run('auth route source includes explicit support session endpoints'
   assert.ok(authRoutesSource.includes('library_name'));
   assert.ok(authRoutesSource.includes('active_space_id: null'));
   assert.ok(authRoutesSource.includes('support_session: null'));
+  assert.ok(authRoutesSource.includes('stripHomelabSpaceContext('));
+  assert.ok(authRoutesSource.includes('stripHomelabSpaceContextFromUser('));
 }));
 
 results.push(run('migrations source includes support role and help foundation schema updates', () => {
@@ -1581,6 +1583,15 @@ results.push(run('request origin helper supports configured or forwarded host va
 results.push(run('library routes preserve active space when replacing archived or deleted libraries', () => {
   assert.ok(librariesRoutesSource.includes('SELECT lm.library_id, l.space_id'));
   assert.ok(librariesRoutesSource.includes('SET active_space_id = $2,'));
+}));
+
+results.push(run('homelab edition helpers strip surfaced space context while preserving shared library flows', () => {
+  const productEditionSource = require('fs').readFileSync(require.resolve('../config/productEdition'), 'utf8');
+  assert.ok(productEditionSource.includes('function stripHomelabSpaceContext('));
+  assert.ok(productEditionSource.includes('active_space_id: null'));
+  assert.ok(productEditionSource.includes('spaces: []'));
+  assert.ok(productEditionSource.includes('function stripHomelabSpaceContextFromUser('));
+  assert.ok(librariesRoutesSource.includes('stripHomelabSpaceContext({'));
 }));
 
 results.push(run('library routes only allow admin scope hints after phase2 hardening', () => {
