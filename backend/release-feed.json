@@ -1,6 +1,49 @@
 {
   "releases": [
     {
+      "title": "v2.9.4",
+      "version": "2.9.4",
+      "date": "2026-04-03",
+      "status": "Completed",
+      "summary": "This release adds a first-class Playwright browser-regression layer to collectZ so release confidence no longer depends almost entirely on backend and API assertions. It ships a documented local and CI browser harness, a separate screenshot-capture path for support and docs use, and focused coverage for the most fragile auth, Help Center, Help Admin, and approved support-session workflows. While building that harness, the browser suite also exposed and drove fixes for request-linked support-session evidence, support-request status updates, and support-admin library switching during an active approved tenant session.",
+      "details": [
+        {
+          "heading": "Playwright browser-regression foundations",
+          "bullets": [
+            "Added a root-level Playwright harness with documented local and CI invocation.",
+            "Added deterministic authenticated setup for browser tests, including seeded users and support fixtures where needed.",
+            "Added failure artifact capture for browser-regression runs so traces, screenshots, and videos are available when a flow breaks.",
+            "Added browser-regression coverage for:"
+          ]
+        },
+        {
+          "heading": "Screenshot-friendly support and docs captures",
+          "bullets": [
+            "Added named screenshot capture mode separate from failure artifacts.",
+            "Added a separate manual-friendly browser-captures workflow so support and documentation images can be regenerated without coupling that work to the blocking browser-regression gate.",
+            "Added seeded support/admin capture paths that produce stable screenshots for:"
+          ]
+        },
+        {
+          "heading": "Browser-driven bug fixes",
+          "bullets": [
+            "Fixed support-request status updates to avoid Postgres parameter-type ambiguity during browser-driven close/reopen flows.",
+            "Fixed request-linked support-session auth so active-session banner evidence keeps request and requester context.",
+            "Fixed support-admin library switching during active approved support sessions so scoped tenant-library changes work only inside the allowed support-session boundary."
+          ]
+        },
+        {
+          "heading": "CI and packaging boundary",
+          "bullets": [
+            "Added Playwright as tracked repo test infrastructure and as a CI release gate.",
+            "Kept Playwright out of the shipped backend/frontend runtime images.",
+            "Hardened CI artifact handling so saved Playwright auth bootstrap state stays outside uploaded artifact paths.",
+            "Changed the Playwright CI bypass token flow to use a per-run random token instead of a fixed shared value."
+          ]
+        }
+      ]
+    },
+    {
       "title": "v2.9.2",
       "version": "2.9.2",
       "date": "2026-04-02",
@@ -243,14 +286,6 @@
       "date": "2026-03-28",
       "status": "Completed",
       "summary": "This release completes the focused UI refinement sprint across the admin, global, and space-management surfaces. It clarifies navigation scope, simplifies the settings/control-plane experience into flatter page layouts, and streamlines member, space, and integration workflows so they read more like a coherent product control surface and less like a collection of older admin tools.",
-      "details": []
-    },
-    {
-      "title": "v2.7.5",
-      "version": "2.7.5",
-      "date": "2026-03-20",
-      "status": "Completed",
-      "summary": "This patch release takes the last clearly isolated low-risk Dependabot PR from the open `2.7.x` queue: the direct frontend `postcss` bump. It refreshes the direct frontend CSS tooling dependency without attempting to force the remaining CRA-owned `resolve-url-loader -> postcss` advisory path through another patch-level workaround.",
       "details": []
     }
   ]
