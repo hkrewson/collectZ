@@ -1991,6 +1991,10 @@ Historical note:
 
 - Add Playwright coverage for higher-value multi-step flows across the current product surface:
   - Integrations save/update flows for supported providers,
+    - first slice: Barcode and Games settings save/persist across reload,
+    - first slice: Metrics feature-flag toggle persists across reload,
+    - first slice: focused visual-regression snapshot for the Integrations section-tab strip,
+    - first slice: route-driven admin integration deep links must honor `?integration=` for supported sections including `metrics` and `logs`,
   - import/manual-entry flows that do not require future camera support yet,
   - Events and Collectibles navigation and common actions after their UX-alignment pass,
   - negative-path assertions for admin/privacy boundaries where UI state matters.

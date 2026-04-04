@@ -13,7 +13,7 @@ const PLAYWRIGHT_STATE_DIR = path.resolve(__dirname, '..', '..', '..', 'tmp', 'p
 const AUTH_STATE_PATH = path.join(PLAYWRIGHT_STATE_DIR, 'admin.json');
 const AUTH_CREDENTIALS_PATH = path.join(PLAYWRIGHT_STATE_DIR, 'admin-credentials.json');
 const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
-const PLAYWRIGHT_BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3000';
+const PLAYWRIGHT_BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000';
 const PLAYWRIGHT_E2E_BYPASS_TOKEN = String(process.env.PLAYWRIGHT_E2E_BYPASS_TOKEN || '').trim();
 const PLAYWRIGHT_E2E_BYPASS_COOKIE = 'playwright_e2e_bypass';
 

@@ -105,12 +105,13 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
        comics_preset, comics_provider, comics_api_url, comics_api_key_encrypted, comics_api_key_header, comics_api_key_query_param, comics_username,
        cwa_opds_url, cwa_base_url, cwa_username, cwa_password_encrypted, cwa_timeout_ms
      ) VALUES (
-       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::jsonb,
-       $16,$17,$18,$19,$20,$21,
-       $22,$23,$24,$25,$26,$27,
-       $28,$29,$30,$31,$32,$33,$34,$35,
-       $36,$37,$38,$39,$40,$41,$42,
-       $43,$44,$45,$46,$47
+       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,
+       $14,$15,$16,$17,$18,$19,$20::jsonb,
+       $21,$22,$23,$24,$25,$26,
+       $27,$28,$29,$30,$31,$32,
+       $33,$34,$35,$36,$37,$38,$39,$40,
+       $41,$42,$43,$44,$45,$46,$47,
+       $48,$49,$50,$51,$52
      )
      ON CONFLICT (id) DO UPDATE SET
        barcode_preset = EXCLUDED.barcode_preset, barcode_provider = EXCLUDED.barcode_provider,

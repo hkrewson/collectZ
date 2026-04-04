@@ -53,10 +53,12 @@ const serviceAccountKeySource = require('fs').readFileSync(require.resolve('../s
 const librariesRoutesSource = require('fs').readFileSync(require.resolve('../routes/libraries'), 'utf8');
 const spacesRoutesSource = require('fs').readFileSync(require.resolve('../routes/spaces'), 'utf8');
 const adminRoutesSource = require('fs').readFileSync(require.resolve('../routes/admin'), 'utf8');
+const integrationsRoutesSource = require('fs').readFileSync(require.resolve('../routes/integrations'), 'utf8');
 const supportRoutesSource = require('fs').readFileSync(require.resolve('../routes/support'), 'utf8');
 const spacesServiceSource = require('fs').readFileSync(require.resolve('../services/spaces'), 'utf8');
 const frontendAppSource = require('fs').readFileSync(require.resolve('../../frontend/src/App'), 'utf8');
 const dashboardContentSource = require('fs').readFileSync(require.resolve('../../frontend/src/components/app/DashboardContent'), 'utf8');
+const dashboardRoutingSource = require('fs').readFileSync(require.resolve('../../frontend/src/components/app/dashboardRouting'), 'utf8');
 const helpViewSource = require('fs').readFileSync(require.resolve('../../frontend/src/components/HelpView'), 'utf8');
 const adminUsersViewSource = require('fs').readFileSync(require.resolve('../../frontend/src/components/AdminUsersView'), 'utf8');
 const rootPackageJson = JSON.parse(require('fs').readFileSync(require.resolve('../../package.json'), 'utf8'));
@@ -64,6 +66,7 @@ const playwrightConfigSource = require('fs').readFileSync(require.resolve('../..
 const helpCenterBrowserSpecSource = require('fs').readFileSync(require.resolve('../../tests/playwright/specs/help-center.browser.spec'), 'utf8');
 const helpAdminSupportBrowserSpecSource = require('fs').readFileSync(require.resolve('../../tests/playwright/specs/help-admin-support.browser.spec'), 'utf8');
 const approvedSupportSessionBrowserSpecSource = require('fs').readFileSync(require.resolve('../../tests/playwright/specs/approved-support-session.browser.spec'), 'utf8');
+const integrationsBrowserSpecSource = require('fs').readFileSync(require.resolve('../../tests/playwright/specs/integrations.browser.spec'), 'utf8');
 const dockerPublishWorkflowSource = require('fs').readFileSync(require.resolve('../../.github/workflows/docker-publish.yml'), 'utf8');
 const browserCapturesWorkflowSource = require('fs').readFileSync(require.resolve('../../.github/workflows/browser-captures.yml'), 'utf8');
 const dockerComposeSource = require('fs').readFileSync(require.resolve('../../docker-compose.yml'), 'utf8');
@@ -486,6 +489,7 @@ results.push(run('repo includes 2.9.4 Playwright browser regression foundation h
   assert.ok(rootPackageJson.scripts['test:browser']);
   assert.ok(rootPackageJson.scripts['test:browser:capture']);
   assert.ok(rootPackageJson.devDependencies['@playwright/test']);
+  assert.ok(playwrightConfigSource.includes("http://localhost:3000"));
   assert.ok(playwrightConfigSource.includes("trace: 'retain-on-failure'"));
   assert.ok(playwrightConfigSource.includes("screenshot: 'only-on-failure'"));
   assert.ok(playwrightConfigSource.includes("video: 'retain-on-failure'"));
@@ -515,10 +519,22 @@ results.push(run('repo includes 2.9.4 Playwright browser regression foundation h
   assert.ok(helpAdminSupportBrowserSpecSource.includes('Close Case'));
   assert.ok(approvedSupportSessionBrowserSpecSource.includes('Start Approved Support Session'));
   assert.ok(approvedSupportSessionBrowserSpecSource.includes('My Space'));
+  assert.ok(integrationsBrowserSpecSource.includes("saveSection(page, 'BARCODE')"));
+  assert.ok(integrationsBrowserSpecSource.includes("saveSection(page, 'GAMES')"));
+  assert.ok(integrationsBrowserSpecSource.includes('integrations-tabs-layout.png'));
+  assert.ok(integrationsBrowserSpecSource.includes('Metrics Export'));
+  assert.ok(dashboardRoutingSource.includes("'logs'"));
+  assert.ok(dashboardRoutingSource.includes("'metrics'"));
   assert.ok(backendDockerfileSource.includes('COPY package*.json ./'));
   assert.ok(frontendDockerfileSource.includes('COPY package*.json ./'));
   assert.ok(!backendDockerfileSource.includes('@playwright/test'));
   assert.ok(!frontendDockerfileSource.includes('@playwright/test'));
+}));
+
+results.push(run('integrations route source keeps admin integration save query aligned with full column set', () => {
+  assert.ok(integrationsRoutesSource.includes('cwa_timeout_ms'));
+  assert.ok(integrationsRoutesSource.includes('$48,$49,$50,$51,$52'));
+  assert.ok(integrationsRoutesSource.includes('$14,$15,$16,$17,$18,$19,$20::jsonb'));
 }));
 
 results.push(run('media route source hardens image upload handlers', () => {
