@@ -1996,6 +1996,9 @@ Historical note:
     - first slice: focused visual-regression snapshot for the Integrations section-tab strip,
     - first slice: route-driven admin integration deep links must honor `?integration=` for supported sections including `metrics` and `logs`,
   - import/manual-entry flows that do not require future camera support yet,
+    - second slice: barcode-driven Import Media flow with deterministic UPC lookup stubbing,
+    - second slice: real browser add-to-library path verified through the live app and library UI search,
+    - second slice: import browser cleanup must restore test-created media so the suite stays reusable,
   - Events and Collectibles navigation and common actions after their UX-alignment pass,
   - negative-path assertions for admin/privacy boundaries where UI state matters.
 - Add a small visual-regression subset where browser layout drift has been a real source of polish churn:

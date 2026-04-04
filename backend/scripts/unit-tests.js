@@ -67,6 +67,7 @@ const helpCenterBrowserSpecSource = require('fs').readFileSync(require.resolve('
 const helpAdminSupportBrowserSpecSource = require('fs').readFileSync(require.resolve('../../tests/playwright/specs/help-admin-support.browser.spec'), 'utf8');
 const approvedSupportSessionBrowserSpecSource = require('fs').readFileSync(require.resolve('../../tests/playwright/specs/approved-support-session.browser.spec'), 'utf8');
 const integrationsBrowserSpecSource = require('fs').readFileSync(require.resolve('../../tests/playwright/specs/integrations.browser.spec'), 'utf8');
+const importBrowserSpecSource = require('fs').readFileSync(require.resolve('../../tests/playwright/specs/import.browser.spec'), 'utf8');
 const dockerPublishWorkflowSource = require('fs').readFileSync(require.resolve('../../.github/workflows/docker-publish.yml'), 'utf8');
 const browserCapturesWorkflowSource = require('fs').readFileSync(require.resolve('../../.github/workflows/browser-captures.yml'), 'utf8');
 const dockerComposeSource = require('fs').readFileSync(require.resolve('../../docker-compose.yml'), 'utf8');
@@ -523,6 +524,10 @@ results.push(run('repo includes 2.9.4 Playwright browser regression foundation h
   assert.ok(integrationsBrowserSpecSource.includes("saveSection(page, 'GAMES')"));
   assert.ok(integrationsBrowserSpecSource.includes('integrations-tabs-layout.png'));
   assert.ok(integrationsBrowserSpecSource.includes('Metrics Export'));
+  assert.ok(importBrowserSpecSource.includes('/dashboard?tab=library-import'));
+  assert.ok(importBrowserSpecSource.includes('/api/media/lookup-upc'));
+  assert.ok(importBrowserSpecSource.includes('Added "'));
+  assert.ok(importBrowserSpecSource.includes('/dashboard?tab=library-movies'));
   assert.ok(dashboardRoutingSource.includes("'logs'"));
   assert.ok(dashboardRoutingSource.includes("'metrics'"));
   assert.ok(backendDockerfileSource.includes('COPY package*.json ./'));
