@@ -14,18 +14,14 @@ import {
 import useImportJobPolling from './components/app/hooks/useImportJobPolling';
 import useSessionBootstrap from './components/app/hooks/useSessionBootstrap';
 import useMediaApi from './components/app/hooks/useMediaApi';
-import { isHomelabEdition, normalizeProductEdition } from './components/app/productEdition';
+import {
+  getSafeDashboardTab,
+  isHomelabEdition,
+  normalizeProductEdition
+} from './components/app/productEdition';
 
 const API_URL = process.env.REACT_APP_API_URL || '/api';
 const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.frontend || appMeta.version || 'unknown';
-function getSupportAdminAllowedTabs(supportSessionActive) {
-  return new Set([
-    'help',
-    'support-inbox',
-    'profile',
-    ...(supportSessionActive ? ['space-manage'] : [])
-  ]);
-}
 
 export default function App() {
   const initialDashboardState = readDashboardStateFromUrl();
@@ -403,20 +399,23 @@ export default function App() {
   const desktopNavExpanded = !collapsed;
 
   useEffect(() => {
-    if (homelabEdition && activeTab === 'support-inbox') {
-      setActiveTab('help');
-      return;
-    }
-    if (user?.role === 'support_admin' && !getSupportAdminAllowedTabs(Boolean(supportSession?.active)).has(String(activeTab || ''))) {
-      setActiveTab('help');
-    }
-  }, [activeTab, homelabEdition, supportSession?.active, user?.role]);
-
-  useEffect(() => {
-    if (activeTab === 'space-manage' && !canManageActiveSpace) {
-      setActiveTab('library-movies');
-    }
-  }, [activeTab, canManageActiveSpace]);
+    const nextTab = getSafeDashboardTab(productEdition, activeTab, {
+      userRole: user?.role,
+      supportSessionActive: Boolean(supportSession?.active),
+      canManageActiveSpace,
+      showCollectibles: featureFlags.collectibles_enabled,
+      showEvents: featureFlags.events_enabled
+    });
+    if (nextTab !== activeTab) setActiveTab(nextTab);
+  }, [
+    activeTab,
+    canManageActiveSpace,
+    featureFlags.collectibles_enabled,
+    featureFlags.events_enabled,
+    productEdition,
+    supportSession?.active,
+    user?.role
+  ]);
 
   if (route !== 'dashboard') {
     return (
@@ -464,7 +463,13 @@ export default function App() {
         user={user}
         activeTab={activeTab}
         onSelect={(nextTab) => {
-          setActiveTab(nextTab);
+          setActiveTab(getSafeDashboardTab(productEdition, nextTab, {
+            userRole: user?.role,
+            supportSessionActive: Boolean(supportSession?.active),
+            canManageActiveSpace,
+            showCollectibles: featureFlags.collectibles_enabled,
+            showEvents: featureFlags.events_enabled
+          }));
           if (nextTab !== 'admin-integrations') setActiveIntegrationSection(DEFAULT_INTEGRATION_SECTION);
         }}
         onLogout={logout}
@@ -481,6 +486,7 @@ export default function App() {
         onLibrarySelect={handleLibrarySelect}
         canManageActiveSpace={canManageActiveSpace}
         activeMembershipRole={activeMembershipRole}
+        supportSessionActive={Boolean(supportSession?.active)}
         showCollectibles={featureFlags.collectibles_enabled}
         showEvents={featureFlags.events_enabled}
         supportBadgeCount={!homelabEdition && ['admin', 'support_admin'].includes(String(user?.role || '')) ? supportSummary.open : null}

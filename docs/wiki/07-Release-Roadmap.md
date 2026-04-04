@@ -2044,7 +2044,8 @@ Historical note:
   - keep the current tenancy/global admin surface as the `platform` shell,
   - define a `homelab` shell that excludes tenancy/global-management UI rather than merely hiding buttons late in the render tree,
   - define the homelab Help surface as a shared `Help` experience that exposes `Guidance` and `Releases` for all users,
-  - do not mount `Metrics` or `Support` Help sections in `homelab` for either normal users or admins.
+  - do not mount `Metrics` or `Support` Help sections in `homelab` for either normal users or admins,
+  - do not expose homelab shell routes or nav affordances for `All Spaces`, `All Members`, `Activity`, or `My Space`.
 - Backend route-mounting boundary:
   - separate shared/common routes from platform-only route groups,
   - do not mount platform-only APIs in `homelab`,
@@ -2070,6 +2071,7 @@ Historical note:
 
 - `homelab` edition does not mount tenancy/global platform pages or APIs.
 - `homelab` Help exposes `Guidance` and `Releases` only, and does not mount `Metrics`, `Support`, or `Help Admin` for any role.
+- `homelab` shell and direct-route handling do not expose or retain platform control-plane tabs such as `admin-spaces`, `admin-users`, `admin-activity`, or `space-manage`.
 - `platform` edition preserves the full current tenancy/global control plane.
 - Edition branching is concentrated in shell/bootstrap/route-mount boundaries rather than scattered across unrelated components.
 - Shared workflows continue to function in both editions without scope confusion.

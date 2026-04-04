@@ -58,6 +58,7 @@ const integrationsRoutesSource = require('fs').readFileSync(require.resolve('../
 const supportRoutesSource = require('fs').readFileSync(require.resolve('../routes/support'), 'utf8');
 const spacesServiceSource = require('fs').readFileSync(require.resolve('../services/spaces'), 'utf8');
 const frontendAppSource = require('fs').readFileSync(require.resolve('../../frontend/src/App'), 'utf8');
+const sidebarNavSource = require('fs').readFileSync(require.resolve('../../frontend/src/components/SidebarNav'), 'utf8');
 const dashboardContentSource = require('fs').readFileSync(require.resolve('../../frontend/src/components/app/DashboardContent'), 'utf8');
 const dashboardRoutingSource = require('fs').readFileSync(require.resolve('../../frontend/src/components/app/dashboardRouting'), 'utf8');
 const productEditionFrontendSource = require('fs').readFileSync(require.resolve('../../frontend/src/components/app/productEdition'), 'utf8');
@@ -461,7 +462,7 @@ results.push(run('support route source includes request creation, releases feed,
 results.push(run('frontend source includes tabbed help center and support inbox surfaces for 2.9.1 foundation work', () => {
   assert.ok(dashboardContentSource.includes("case 'help'"));
   assert.ok(dashboardContentSource.includes("case 'support-inbox'"));
-  assert.ok(frontendAppSource.includes('getSupportAdminAllowedTabs'));
+  assert.ok(frontendAppSource.includes('getSafeDashboardTab'));
   assert.ok(adminUsersViewSource.includes('support_admin'));
   assert.ok(dashboardContentSource.includes('<HelpView'));
   assert.ok(helpViewSource.includes('/support/releases'));
@@ -492,7 +493,7 @@ results.push(run('frontend source includes tabbed help center and support inbox 
   assert.ok(helpViewSource.includes('Reply to Support'));
 }));
 
-results.push(run('edition boundary source includes backend-owned homelab help surface rules', () => {
+results.push(run('edition boundary source includes backend-owned homelab shell and help surface rules', () => {
   assert.ok(productEditionConfigSource.includes('process.env.APP_EDITION'));
   assert.ok(productEditionConfigSource.includes("'platform'"));
   assert.ok(productEditionConfigSource.includes("'homelab'"));
@@ -500,13 +501,21 @@ results.push(run('edition boundary source includes backend-owned homelab help su
   assert.ok(openApiSource.includes('"product_edition"'));
   assert.ok(productEditionFrontendSource.includes('getHelpTabDefinitions'));
   assert.ok(productEditionFrontendSource.includes('getHelpSurfaceTitle'));
+  assert.ok(productEditionFrontendSource.includes('getAllowedDashboardTabs'));
+  assert.ok(productEditionFrontendSource.includes("return 'admin-settings'"));
   assert.ok(helpViewSource.includes('A lightweight home for self-serve guidance and recent release notes for homelab users.'));
-  assert.ok(frontendAppSource.includes("activeTab === 'support-inbox'"));
-  assert.ok(frontendAppSource.includes('homelabEdition'));
+  assert.ok(frontendAppSource.includes('getSafeDashboardTab'));
+  assert.ok(sidebarNavSource.includes('getAllowedDashboardTabs'));
+  assert.ok(sidebarNavSource.includes('showGlobalGroup'));
   assert.ok(dockerComposeSource.includes('APP_EDITION: ${APP_EDITION:-platform}'));
   assert.ok(homelabHelpBrowserSpecSource.includes('product_edition'));
   assert.ok(homelabHelpBrowserSpecSource.includes("name: 'Help Admin'"));
+  assert.ok(homelabHelpBrowserSpecSource.includes('/dashboard?tab=admin-spaces'));
+  assert.ok(homelabHelpBrowserSpecSource.includes('/dashboard?tab=admin-users'));
+  assert.ok(homelabHelpBrowserSpecSource.includes('/dashboard?tab=admin-activity'));
+  assert.ok(homelabHelpBrowserSpecSource.includes('/dashboard?tab=space-manage'));
   assert.ok(homelabHelpBrowserSpecSource.includes("toHaveURL(/tab=help/)"));
+  assert.ok(homelabHelpBrowserSpecSource.includes("toHaveURL(/tab=admin-settings/)"));
 }));
 
 results.push(run('repo includes 2.9.4 Playwright browser regression foundation harness', () => {

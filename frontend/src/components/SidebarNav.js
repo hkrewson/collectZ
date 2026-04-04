@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Icons, cx, isInteractiveTarget } from './app/AppPrimitives';
 import CollectzMark from './CollectzMark';
-import { getHelpNavLabel, isHomelabEdition } from './app/productEdition';
+import { getAllowedDashboardTabs, getHelpNavLabel, isHomelabEdition } from './app/productEdition';
 
 const DiscordIcon = () => (
   <svg viewBox="0 0 16 16" fill="currentColor" className="w-5 h-5" aria-hidden="true">
@@ -33,6 +33,7 @@ export default function SidebarNav({
   onLibrarySelect,
   canManageActiveSpace = false,
   activeMembershipRole = null,
+  supportSessionActive = false,
   showCollectibles = true,
   showEvents = true,
   supportBadgeCount = null,
@@ -43,6 +44,13 @@ export default function SidebarNav({
   const isSupportStaff = isAdmin || isSupportAdmin;
   const canUseLibraryShell = !isSupportAdmin;
   const homelabEdition = isHomelabEdition(productEdition);
+  const allowedTabs = getAllowedDashboardTabs(productEdition, {
+    userRole: user?.role,
+    supportSessionActive,
+    canManageActiveSpace,
+    showCollectibles,
+    showEvents
+  });
   const releaseNotesUrl = `https://github.com/hkrewson/collectZ/tree/main/docs/releases/v${appVersion}.md`;
   const [adminOpen, setAdminOpen] = useState(true);
   const [globalOpen, setGlobalOpen] = useState(true);
@@ -70,9 +78,19 @@ export default function SidebarNav({
     'admin-spaces',
     'admin-users'
   ].includes(activeTab);
+  const isTabAllowed = (tabId) => !allowedTabs || allowedTabs.has(tabId);
   const showLibrarySwitcher = canUseLibraryShell && !isAdmin && libraries.length > 1;
   const showDesktopHamburger = !collapsed;
-  const showAdminGroup = isAdmin || canManageActiveSpace;
+  const showAdminGroup = (isAdmin || canManageActiveSpace) && [
+    isAdmin && isTabAllowed('admin-activity'),
+    isAdmin && isTabAllowed('admin-integrations'),
+    canManageActiveSpace && isTabAllowed('space-manage'),
+    isAdmin && isTabAllowed('admin-settings')
+  ].some(Boolean);
+  const showGlobalGroup = isAdmin && [
+    isTabAllowed('admin-spaces'),
+    isTabAllowed('admin-users')
+  ].some(Boolean);
 
   const handleCollapsedRailClick = (event) => {
     if (!collapsed) return;
@@ -229,7 +247,7 @@ export default function SidebarNav({
             )}
           </div>
           )}
-          {canUseLibraryShell && <NavLink id="library-import" icon={<Icons.Upload />} label="Import" />}
+          {canUseLibraryShell && isTabAllowed('library-import') && <NavLink id="library-import" icon={<Icons.Upload />} label="Import" />}
           <NavLink
             id="help"
             icon={<Icons.Activity />}
@@ -256,16 +274,16 @@ export default function SidebarNav({
               </button>
               {adminOpen && !collapsed && (
                 <div className="mt-1 space-y-0.5">
-                  {isAdmin && <NavLink id="admin-activity" icon={null} label="Activity" sub />}
-                  {isAdmin && <NavLink id="admin-integrations" icon={null} label="Integrations" sub />}
-                  {canManageActiveSpace && <NavLink id="space-manage" icon={null} label="My Space" sub />}
-                  {isAdmin && <NavLink id="admin-settings" icon={null} label="Settings" sub />}
+                  {isAdmin && isTabAllowed('admin-activity') && <NavLink id="admin-activity" icon={null} label="Activity" sub />}
+                  {isAdmin && isTabAllowed('admin-integrations') && <NavLink id="admin-integrations" icon={null} label="Integrations" sub />}
+                  {canManageActiveSpace && isTabAllowed('space-manage') && <NavLink id="space-manage" icon={null} label="My Space" sub />}
+                  {isAdmin && isTabAllowed('admin-settings') && <NavLink id="admin-settings" icon={null} label="Settings" sub />}
                 </div>
               )}
             </div>
           )}
 
-          {isAdmin && (
+          {showGlobalGroup && (
             <div>
               <button
                 onClick={() => setGlobalOpen((o) => !o)}
@@ -285,8 +303,8 @@ export default function SidebarNav({
               </button>
               {globalOpen && !collapsed && (
                 <div className="mt-1 space-y-0.5">
-                  <NavLink id="admin-spaces" icon={null} label="All Spaces" sub />
-                  <NavLink id="admin-users" icon={null} label="All Members" sub />
+                  {isTabAllowed('admin-spaces') && <NavLink id="admin-spaces" icon={null} label="All Spaces" sub />}
+                  {isTabAllowed('admin-users') && <NavLink id="admin-users" icon={null} label="All Members" sub />}
                 </div>
               )}
             </div>
