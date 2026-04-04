@@ -139,4 +139,5 @@ Browser-regression expectation:
 
 - Maintain the root Playwright manifest and lockfile in git.
 - Keep `.github/workflows/docker-publish.yml` running the browser-regression gate before publish/release jobs.
+- Keep `.github/workflows/browser-captures.yml` as a separate manual screenshot-generation path for support/docs visuals instead of folding capture mode into the blocking regression gate.
 - Do not add Playwright browsers or the root test harness as dependencies of the shipped backend/frontend runtime images.

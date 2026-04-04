@@ -661,17 +661,17 @@ router.patch('/requests/:id/status', authenticateToken, requireSessionAuth, vali
 
     const result = await client.query(
       `UPDATE support_requests
-          SET status = $2,
+          SET status = $2::text,
               support_access_status = CASE
-                WHEN $2 = 'closed' AND support_access_status = 'approved' THEN 'revoked'
+                WHEN $2::text = 'closed' AND support_access_status = 'approved' THEN 'revoked'
                 ELSE support_access_status
               END,
               support_access_approved_at = CASE
-                WHEN $2 = 'closed' AND support_access_status = 'approved' THEN NULL
+                WHEN $2::text = 'closed' AND support_access_status = 'approved' THEN NULL
                 ELSE support_access_approved_at
               END,
               support_access_approved_by_user_id = CASE
-                WHEN $2 = 'closed' AND support_access_status = 'approved' THEN NULL
+                WHEN $2::text = 'closed' AND support_access_status = 'approved' THEN NULL
                 ELSE support_access_approved_by_user_id
               END,
               updated_at = CURRENT_TIMESTAMP

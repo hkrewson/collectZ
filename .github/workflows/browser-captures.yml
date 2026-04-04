@@ -1,0 +1,83 @@
+name: Browser Captures
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-captures:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Install root browser-test deps
+        run: npm ci --no-audit --no-fund
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Read version
+        id: vars
+        run: |
+          echo "version=$(node -p \"require('./app-meta.json').version\")" >> "$GITHUB_OUTPUT"
+          echo "build_date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+          echo "git_sha_short=$(echo "${GITHUB_SHA}" | cut -c1-7)" >> "$GITHUB_OUTPUT"
+
+      - name: Build stack and generate captures
+        env:
+          APP_VERSION: ${{ steps.vars.outputs.version }}
+          GIT_SHA: ${{ steps.vars.outputs.git_sha_short }}
+          BUILD_DATE: ${{ steps.vars.outputs.build_date }}
+          NODE_ENV: production
+          SESSION_COOKIE_SECURE: true
+          TRUST_PROXY: 1
+          DEBUG: 1
+        run: |
+          set -euo pipefail
+          CI_PROJECT="collectz-ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-captures"
+          DB_PASSWORD="$(openssl rand -hex 16)"
+          SESSION_SECRET="$(openssl rand -hex 32)"
+          INTEGRATION_ENCRYPTION_KEY="$(openssl rand -hex 32)"
+          PLAYWRIGHT_E2E_BYPASS_TOKEN="$(openssl rand -hex 16)"
+          trap 'docker compose -p "${CI_PROJECT}" --env-file .env.ci down -v --remove-orphans' EXIT
+          cp env.example .env.ci
+          {
+            echo "DB_PASSWORD=${DB_PASSWORD}"
+            echo "SESSION_SECRET=${SESSION_SECRET}"
+            echo "INTEGRATION_ENCRYPTION_KEY=${INTEGRATION_ENCRYPTION_KEY}"
+            echo "APP_VERSION=${APP_VERSION}"
+            echo "GIT_SHA=${GIT_SHA}"
+            echo "BUILD_DATE=${BUILD_DATE}"
+            echo "NODE_ENV=${NODE_ENV}"
+            echo "SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE}"
+            echo "TRUST_PROXY=${TRUST_PROXY}"
+            echo "DEBUG=${DEBUG}"
+            echo "PLAYWRIGHT_E2E_BYPASS_TOKEN=${PLAYWRIGHT_E2E_BYPASS_TOKEN}"
+          } >> .env.ci
+          docker compose -p "${CI_PROJECT}" --env-file .env.ci up -d --build
+          BACKEND_CID="$(docker compose -p "${CI_PROJECT}" --env-file .env.ci ps -q backend)"
+          FRONTEND_CID="$(docker compose -p "${CI_PROJECT}" --env-file .env.ci ps -q frontend)"
+          test -n "${BACKEND_CID}" || { echo "backend container id not found"; exit 1; }
+          test -n "${FRONTEND_CID}" || { echo "frontend container id not found"; exit 1; }
+          timeout 120 sh -c 'until [ "$(docker inspect -f "{{.State.Health.Status}}" "'"${BACKEND_CID}"'")" = "healthy" ]; do sleep 3; done'
+          timeout 120 sh -c 'until [ "$(docker inspect -f "{{.State.Health.Status}}" "'"${FRONTEND_CID}"'")" = "healthy" ]; do sleep 3; done'
+          curl -s http://localhost:3000/api/health | grep -q "\"status\":\"ok\""
+          PLAYWRIGHT_E2E_BYPASS_TOKEN="${PLAYWRIGHT_E2E_BYPASS_TOKEN}" \
+          PLAYWRIGHT_BASE_URL="http://127.0.0.1:3000" \
+          npm run test:browser:capture
+
+      - name: Upload browser captures
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-browser-captures
+          path: artifacts/playwright/captures
+          if-no-files-found: error

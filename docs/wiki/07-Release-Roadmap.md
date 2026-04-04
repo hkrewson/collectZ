@@ -1960,10 +1960,12 @@ Historical note:
 - Add screenshot-friendly browser ergonomics for support/help usage:
   - named capture-mode runs distinct from failure artifacts,
   - stable visual fixture seeding for selected support/admin surfaces,
-  - intentional screenshot outputs that can be reused for support-reference or docs drafting.
+  - intentional screenshot outputs that can be reused for support-reference or docs drafting,
+  - a separate screenshot-capture workflow so support/docs visuals do not have to ride on the blocking regression gate.
 - Cover the highest-value browser flows that are currently only inferred through API tests:
   - login/logout,
   - admin bootstrap and shell load,
+  - end-user Help Center support interactions,
   - support-session start/end banner behavior,
   - `All Spaces` drawer tab switching,
   - Integrations tab switching and save feedback,
@@ -1976,6 +1978,7 @@ Historical note:
 - Browser regressions cover the most important auth/admin shell flows already shipped in `2.8.x`.
 - Failure output is useful enough for triage (trace/screenshot/video or equivalent artifacts).
 - The repo can intentionally generate stable named screenshots for selected support/admin surfaces without mixing auth bootstrap state into uploaded failure artifacts.
+- The repo can generate reusable named support/docs screenshots through a dedicated manual-friendly workflow instead of coupling them to the blocking regression job.
 - The release process can point to a browser-regression layer instead of only backend/API evidence for those flows.
 
 ## 2.9.5 — Playwright Critical Flow Expansion

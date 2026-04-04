@@ -15,11 +15,54 @@ const AUTH_CREDENTIALS_PATH = path.join(PLAYWRIGHT_STATE_DIR, 'admin-credentials
 const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
 const PLAYWRIGHT_BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3000';
 const PLAYWRIGHT_E2E_BYPASS_TOKEN = String(process.env.PLAYWRIGHT_E2E_BYPASS_TOKEN || '').trim();
+const PLAYWRIGHT_E2E_BYPASS_COOKIE = 'playwright_e2e_bypass';
 
 function getPlaywrightBypassHeaders() {
   return PLAYWRIGHT_E2E_BYPASS_TOKEN
     ? { 'x-playwright-e2e-bypass': PLAYWRIGHT_E2E_BYPASS_TOKEN }
     : undefined;
+}
+
+function buildPlaywrightBypassCookie() {
+  if (!PLAYWRIGHT_E2E_BYPASS_TOKEN) return null;
+  return {
+    name: PLAYWRIGHT_E2E_BYPASS_COOKIE,
+    value: PLAYWRIGHT_E2E_BYPASS_TOKEN,
+    url: PLAYWRIGHT_BASE_URL,
+    sameSite: 'Lax'
+  };
+}
+
+function buildPlaywrightBypassStorageCookie() {
+  if (!PLAYWRIGHT_E2E_BYPASS_TOKEN) return null;
+  const parsed = new URL(PLAYWRIGHT_BASE_URL);
+  return {
+    name: PLAYWRIGHT_E2E_BYPASS_COOKIE,
+    value: PLAYWRIGHT_E2E_BYPASS_TOKEN,
+    domain: parsed.hostname,
+    path: parsed.pathname || '/',
+    expires: -1,
+    httpOnly: false,
+    secure: parsed.protocol === 'https:',
+    sameSite: 'Lax'
+  };
+}
+
+async function addPlaywrightBypassCookie(target) {
+  const cookie = buildPlaywrightBypassCookie();
+  if (!cookie || typeof target?.addCookies !== 'function') return;
+  await target.addCookies([cookie]);
+}
+
+async function ensurePlaywrightBypassStorageState(storageStatePath) {
+  const cookie = buildPlaywrightBypassStorageCookie();
+  if (!cookie || !fs.existsSync(storageStatePath)) return;
+  const parsed = JSON.parse(fs.readFileSync(storageStatePath, 'utf8'));
+  const cookies = Array.isArray(parsed.cookies) ? parsed.cookies : [];
+  const filtered = cookies.filter((entry) => entry?.name !== PLAYWRIGHT_E2E_BYPASS_COOKIE);
+  filtered.push(cookie);
+  parsed.cookies = filtered;
+  await fs.promises.writeFile(storageStatePath, JSON.stringify(parsed, null, 2));
 }
 
 async function ensureDirectory(filePath) {
@@ -61,23 +104,26 @@ async function patchWithCsrf(requestContext, pathName, body, expectedStatus = 20
   return requestWithCsrf(requestContext, 'PATCH', pathName, body, expectedStatus);
 }
 
-async function createDirectAdminUser({ email, password, name }) {
+async function createDirectUser({ email, password, name, role = 'admin' }) {
   const script = [
     "const bcrypt=require('bcrypt');",
     "const pool=require('./db/pool');",
+    "const { ensureUserDefaultScope } = require('./services/libraries');",
     "(async()=>{",
     "const email=process.argv[1];",
     "const password=process.argv[2];",
     "const name=process.argv[3] || 'Playwright Admin';",
+    "const role=process.argv[4] || 'admin';",
     "const hash=await bcrypt.hash(password,12);",
-    "const result=await pool.query(`INSERT INTO users (email, password, name, role) VALUES ($1, $2, $3, 'admin') RETURNING id, email, name`, [email, hash, name]);",
+    "const result=await pool.query(`INSERT INTO users (email, password, name, role) VALUES ($1, $2, $3, $4) RETURNING id, email, name, role`, [email, hash, name, role]);",
+    "await ensureUserDefaultScope(result.rows[0].id);",
     "console.log(JSON.stringify(result.rows[0]));",
     "await pool.end();",
     "})().catch((error)=>{console.error(error.stack||error.message||error);process.exit(1);});"
   ].join('');
   const output = execFileSync(
     'docker',
-    ['compose', '--env-file', '.env', 'exec', '-T', 'backend', 'node', '-e', script, email, password, name],
+    ['compose', '--env-file', '.env', 'exec', '-T', 'backend', 'node', '-e', script, email, password, name, role],
     {
       cwd: REPO_ROOT,
       env: process.env,
@@ -116,10 +162,11 @@ async function bootstrapAdminCredentials(requestContext) {
 
   const fallbackEmail = `playwright-admin-${Date.now()}@example.com`;
   const fallbackPassword = 'Passw0rd!123';
-  await createDirectAdminUser({
+  await createDirectUser({
     email: fallbackEmail,
     password: fallbackPassword,
-    name: adminName
+    name: adminName,
+    role: 'admin'
   });
   await postWithCsrf(requestContext, '/api/auth/login', {
     email: fallbackEmail,
@@ -139,19 +186,34 @@ async function createFreshAdminCredentials() {
   const fallbackEmail = `playwright-admin-${Date.now()}@example.com`;
   const fallbackPassword = 'Passw0rd!123';
   const fallbackName = process.env.PLAYWRIGHT_ADMIN_NAME || 'Playwright Admin';
-  await createDirectAdminUser({
+  await createDirectUser({
     email: fallbackEmail,
     password: fallbackPassword,
-    name: fallbackName
+    name: fallbackName,
+    role: 'admin'
   });
   const credentials = { email: fallbackEmail, password: fallbackPassword };
   await fs.promises.writeFile(AUTH_CREDENTIALS_PATH, JSON.stringify(credentials, null, 2));
   return credentials;
 }
 
+async function createFreshUserCredentials() {
+  const fallbackEmail = `playwright-user-${Date.now()}@example.com`;
+  const fallbackPassword = 'Passw0rd!123';
+  const fallbackName = 'Playwright User';
+  await createDirectUser({
+    email: fallbackEmail,
+    password: fallbackPassword,
+    name: fallbackName,
+    role: 'user'
+  });
+  return { email: fallbackEmail, password: fallbackPassword, name: fallbackName };
+}
+
 async function ensureAuthenticatedAdminStorageState(requestContext) {
   await ensureDirectory(AUTH_STATE_PATH);
   if (fs.existsSync(AUTH_STATE_PATH)) {
+    await ensurePlaywrightBypassStorageState(AUTH_STATE_PATH);
     const verifyContext = await playwrightRequest.newContext({
       baseURL: PLAYWRIGHT_BASE_URL,
       storageState: AUTH_STATE_PATH,
@@ -175,6 +237,7 @@ async function ensureAuthenticatedAdminStorageState(requestContext) {
   }
   const credentials = await bootstrapAdminCredentials(requestContext);
   await requestContext.storageState({ path: AUTH_STATE_PATH });
+  await ensurePlaywrightBypassStorageState(AUTH_STATE_PATH);
   await fs.promises.writeFile(AUTH_CREDENTIALS_PATH, JSON.stringify(credentials, null, 2));
   return {
     credentials,
@@ -197,7 +260,9 @@ module.exports = {
   AUTH_STATE_PATH,
   AUTH_CREDENTIALS_PATH,
   PLAYWRIGHT_E2E_BYPASS_TOKEN,
+  PLAYWRIGHT_E2E_BYPASS_COOKIE,
   getPlaywrightBypassHeaders,
+  addPlaywrightBypassCookie,
   fetchCsrfToken,
   requestWithCsrf,
   postWithCsrf,
@@ -205,6 +270,7 @@ module.exports = {
   ensureAuthenticatedAdminStorageState,
   ensureSavedAdminCredentials,
   createFreshAdminCredentials,
+  createFreshUserCredentials,
   bootstrapAdminCredentials,
   getCurrentUser
 };
