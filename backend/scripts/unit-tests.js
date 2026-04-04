@@ -32,6 +32,9 @@ const { buildCompactJobSummary, formatSyncJob } = require('../services/syncJobs'
 const metricsModule = require('../services/metrics');
 const { shouldEnforceCsrf } = require('../middleware/csrf');
 const authModulePath = require.resolve('../middleware/auth');
+const authMiddlewareSource = require('fs').readFileSync(authModulePath, 'utf8');
+const scopeAccessSource = require('fs').readFileSync(require.resolve('../middleware/scopeAccess'), 'utf8');
+const sessionsServiceSource = require('fs').readFileSync(require.resolve('../services/sessions'), 'utf8');
 const {
   hasPersonalAccessTokenScope,
   getRequiredPatScopesForRequest
@@ -60,6 +63,7 @@ const rootPackageJson = JSON.parse(require('fs').readFileSync(require.resolve('.
 const playwrightConfigSource = require('fs').readFileSync(require.resolve('../../playwright.config'), 'utf8');
 const helpCenterBrowserSpecSource = require('fs').readFileSync(require.resolve('../../tests/playwright/specs/help-center.browser.spec'), 'utf8');
 const helpAdminSupportBrowserSpecSource = require('fs').readFileSync(require.resolve('../../tests/playwright/specs/help-admin-support.browser.spec'), 'utf8');
+const approvedSupportSessionBrowserSpecSource = require('fs').readFileSync(require.resolve('../../tests/playwright/specs/approved-support-session.browser.spec'), 'utf8');
 const dockerPublishWorkflowSource = require('fs').readFileSync(require.resolve('../../.github/workflows/docker-publish.yml'), 'utf8');
 const browserCapturesWorkflowSource = require('fs').readFileSync(require.resolve('../../.github/workflows/browser-captures.yml'), 'utf8');
 const dockerComposeSource = require('fs').readFileSync(require.resolve('../../docker-compose.yml'), 'utf8');
@@ -490,6 +494,10 @@ results.push(run('repo includes 2.9.4 Playwright browser regression foundation h
   assert.ok(serverSource.includes('PLAYWRIGHT_E2E_BYPASS_TOKEN'));
   assert.ok(serverSource.includes('x-playwright-e2e-bypass'));
   assert.ok(serverSource.includes('playwright_e2e_bypass'));
+  assert.ok(sessionsServiceSource.includes('s.support_request_id'));
+  assert.ok(authMiddlewareSource.includes('supportRequestId: sessionUser.support_request_id'));
+  assert.ok(scopeAccessSource.includes("role === 'support_admin'"));
+  assert.ok(scopeAccessSource.includes('allowSupportSessionLibraryHints'));
   assert.ok(dockerComposeSource.includes('PLAYWRIGHT_E2E_BYPASS_TOKEN: ${PLAYWRIGHT_E2E_BYPASS_TOKEN:-}'));
   assert.ok(dockerPublishWorkflowSource.includes('browser-regression:'));
   assert.ok(dockerPublishWorkflowSource.includes('npx playwright install --with-deps chromium'));
@@ -505,6 +513,8 @@ results.push(run('repo includes 2.9.4 Playwright browser regression foundation h
   assert.ok(helpCenterBrowserSpecSource.includes('Create help request'));
   assert.ok(helpAdminSupportBrowserSpecSource.includes('Help Admin'));
   assert.ok(helpAdminSupportBrowserSpecSource.includes('Close Case'));
+  assert.ok(approvedSupportSessionBrowserSpecSource.includes('Start Approved Support Session'));
+  assert.ok(approvedSupportSessionBrowserSpecSource.includes('My Space'));
   assert.ok(backendDockerfileSource.includes('COPY package*.json ./'));
   assert.ok(frontendDockerfileSource.includes('COPY package*.json ./'));
   assert.ok(!backendDockerfileSource.includes('@playwright/test'));

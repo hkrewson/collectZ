@@ -201,16 +201,37 @@ async function createFreshAdminCredentials() {
 }
 
 async function createFreshUserCredentials() {
-  const fallbackEmail = `playwright-user-${Date.now()}@example.com`;
+  let role = 'user';
+  let fallbackName = 'Playwright User';
+  if (arguments[0] && typeof arguments[0] === 'object') {
+    role = String(arguments[0].role || 'user');
+    fallbackName = String(arguments[0].name || (role === 'support_admin' ? 'Playwright Support Admin' : 'Playwright User'));
+  } else if (typeof arguments[0] === 'string' && arguments[0]) {
+    role = String(arguments[0]);
+    fallbackName = role === 'support_admin' ? 'Playwright Support Admin' : 'Playwright User';
+  }
+  const roleSlug = role.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+  const fallbackEmail = `playwright-${roleSlug}-${Date.now()}@example.com`;
   const fallbackPassword = 'Passw0rd!123';
-  const fallbackName = 'Playwright User';
   await createDirectUser({
     email: fallbackEmail,
     password: fallbackPassword,
     name: fallbackName,
-    role: 'user'
+    role
   });
-  return { email: fallbackEmail, password: fallbackPassword, name: fallbackName };
+  return { email: fallbackEmail, password: fallbackPassword, name: fallbackName, role };
+}
+
+async function createAuthenticatedRequestContext(credentials) {
+  const requestContext = await playwrightRequest.newContext({
+    baseURL: PLAYWRIGHT_BASE_URL,
+    extraHTTPHeaders: getPlaywrightBypassHeaders()
+  });
+  await postWithCsrf(requestContext, '/api/auth/login', {
+    email: credentials.email,
+    password: credentials.password
+  }, 200);
+  return requestContext;
 }
 
 async function ensureAuthenticatedAdminStorageState(requestContext) {
@@ -276,6 +297,7 @@ module.exports = {
   ensureSavedAdminCredentials,
   createFreshAdminCredentials,
   createFreshUserCredentials,
+  createAuthenticatedRequestContext,
   bootstrapAdminCredentials,
   getCurrentUser
 };

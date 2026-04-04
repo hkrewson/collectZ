@@ -1967,6 +1967,7 @@ Historical note:
   - admin bootstrap and shell load,
   - end-user Help Center support interactions,
   - Help Admin support workspace interactions,
+  - approved support-request session start/end, support-library switching, and temporary `My Space` access for support admins,
   - support-session start/end banner behavior,
   - `All Spaces` drawer tab switching,
   - Integrations tab switching and save feedback,

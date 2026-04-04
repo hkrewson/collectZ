@@ -52,6 +52,7 @@ const getSessionUserByToken = async (token) => {
        s.id AS session_id,
        s.support_space_id,
        s.support_library_id,
+       s.support_request_id,
        s.support_started_at,
        s.support_reason,
        s.support_previous_space_id,

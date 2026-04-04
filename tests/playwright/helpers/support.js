@@ -45,6 +45,36 @@ async function createSupportCaptureFixture(requestContext, suffix) {
   return requestId;
 }
 
+async function updateSupportAccess(requestContext, requestId, nextStatus) {
+  const response = await patchWithCsrf(requestContext, `/api/support/requests/${requestId}/access`, {
+    support_access_status: nextStatus
+  }, 200);
+  return response.json();
+}
+
+async function createLibraryInActiveScope(requestContext, name) {
+  const response = await postWithCsrf(requestContext, '/api/libraries', { name }, 201);
+  return response.json();
+}
+
+async function createApprovedSupportRequestFixture(requestContext, suffix) {
+  const created = await createSupportRequest(requestContext, {
+    subject: `Approved support flow ${suffix}`,
+    message: 'Need an approved support request so browser coverage can exercise Help Admin session controls.'
+  });
+  const requestId = Number(created?.request?.id || 0);
+  if (!requestId) {
+    throw new Error('Approved support fixture did not return a request id');
+  }
+  const approved = await updateSupportAccess(requestContext, requestId, 'approved');
+  return {
+    requestId,
+    request: approved?.request || created?.request || null
+  };
+}
+
 module.exports = {
-  createSupportCaptureFixture
+  createSupportCaptureFixture,
+  createApprovedSupportRequestFixture,
+  createLibraryInActiveScope
 };

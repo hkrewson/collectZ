@@ -44,12 +44,18 @@ function enforceScopeAccess(options = {}) {
         return denyScopeRequest(req, res, 'admin_support_session_required', hints, { role });
       }
 
+      const allowSupportSessionLibraryHints = (
+        role === 'support_admin'
+        && isLibrarySelectPath
+        && Number(req.user?.supportSpaceId || 0) > 0
+      );
+
       // Active scope comes from the authenticated server-side user state.
       let resolvedSpaceId = activeSpaceId;
       let resolvedLibraryId = activeLibraryId;
 
       if (hints.hasHints) {
-        if (!isAllowedHintRole(role, allowedHintRoles)) {
+        if (!allowSupportSessionLibraryHints && !isAllowedHintRole(role, allowedHintRoles)) {
           return denyScopeRequest(req, res, 'hints_not_allowed_for_role', hints, { role });
         }
         if (hints.spaceProvided) resolvedSpaceId = hints.spaceId;

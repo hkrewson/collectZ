@@ -217,6 +217,7 @@ const authenticateToken = async (req, res, next) => {
       activeLibraryId: sessionUser.support_library_id ?? sessionUser.active_library_id ?? null,
       supportSpaceId: sessionUser.support_space_id ?? null,
       supportLibraryId: sessionUser.support_library_id ?? null,
+      supportRequestId: sessionUser.support_request_id ?? null,
       supportStartedAt: sessionUser.support_started_at ?? null,
       supportReason: sessionUser.support_reason ?? null,
       supportPreviousSpaceId: sessionUser.support_previous_space_id ?? null,
