@@ -69,6 +69,7 @@ const approvedSupportSessionBrowserSpecSource = require('fs').readFileSync(requi
 const integrationsBrowserSpecSource = require('fs').readFileSync(require.resolve('../../tests/playwright/specs/integrations.browser.spec'), 'utf8');
 const importBrowserSpecSource = require('fs').readFileSync(require.resolve('../../tests/playwright/specs/import.browser.spec'), 'utf8');
 const boundaryBrowserSpecSource = require('fs').readFileSync(require.resolve('../../tests/playwright/specs/boundary.browser.spec'), 'utf8');
+const eventsCollectiblesBrowserSpecSource = require('fs').readFileSync(require.resolve('../../tests/playwright/specs/events-collectibles.browser.spec'), 'utf8');
 const dockerPublishWorkflowSource = require('fs').readFileSync(require.resolve('../../.github/workflows/docker-publish.yml'), 'utf8');
 const browserCapturesWorkflowSource = require('fs').readFileSync(require.resolve('../../.github/workflows/browser-captures.yml'), 'utf8');
 const dockerComposeSource = require('fs').readFileSync(require.resolve('../../docker-compose.yml'), 'utf8');
@@ -533,6 +534,12 @@ results.push(run('repo includes 2.9.4 Playwright browser regression foundation h
   assert.ok(boundaryBrowserSpecSource.includes('/dashboard?tab=admin-integrations&integration=barcode'));
   assert.ok(boundaryBrowserSpecSource.includes("toHaveURL(/tab=help/)"));
   assert.ok(boundaryBrowserSpecSource.includes('/dashboard?tab=admin-spaces'));
+  assert.ok(eventsCollectiblesBrowserSpecSource.includes('/dashboard?tab=library-movies'));
+  assert.ok(eventsCollectiblesBrowserSpecSource.includes("getByRole('button', { name: 'Events' })"));
+  assert.ok(eventsCollectiblesBrowserSpecSource.includes("getByRole('button', { name: 'Collectibles' })"));
+  assert.ok(eventsCollectiblesBrowserSpecSource.includes('Add Event'));
+  assert.ok(eventsCollectiblesBrowserSpecSource.includes('Add Collectible'));
+  assert.ok(eventsCollectiblesBrowserSpecSource.includes('Linked Event'));
   assert.ok(dashboardRoutingSource.includes("'logs'"));
   assert.ok(dashboardRoutingSource.includes("'metrics'"));
   assert.ok(backendDockerfileSource.includes('COPY package*.json ./'));

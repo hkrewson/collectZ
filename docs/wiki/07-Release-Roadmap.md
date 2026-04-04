@@ -2000,6 +2000,9 @@ Historical note:
     - second slice: real browser add-to-library path verified through the live app and library UI search,
     - second slice: import browser cleanup must restore test-created media so the suite stays reusable,
   - Events and Collectibles navigation and common actions after their UX-alignment pass,
+    - fourth slice: end-user browser flow for creating an event, linking a collectible to that event, and verifying the relationship through the collectibles detail surface,
+    - fourth slice: test setup explicitly enables and later restores the Events and Collectibles feature flags so browser evidence does not depend on ambient admin state,
+    - fourth slice: authenticated cleanup removes test-created events and collectibles so the suite stays reusable,
   - negative-path assertions for admin/privacy boundaries where UI state matters.
     - third slice: support-admin browser boundary coverage for redirect-back-to-help behavior on disallowed tenant-library and admin routes, plus sidebar surface limits,
     - third slice: standard-user direct-route denial for admin surfaces,
