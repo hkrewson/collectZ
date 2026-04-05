@@ -88,12 +88,14 @@ It quickly tells you whether:
 - the Metrics Export toggle is enabled,
 - the running backend has `DEBUG>=1`,
 - a dedicated `METRICS_SCRAPE_TOKEN` is present,
+- `TRUST_PROXY` matches the deployment shape you think you have,
 - the current runtime state is ready, disabled, or needs attention.
 
 That catches the most common drift cases:
 
 - Metrics enabled in the UI, but the backend is still running with `DEBUG=0`
 - Prometheus scrape configured, but no dedicated scrape token exists
+- metrics are being exposed through a reverse proxy, but `TRUST_PROXY` is still set like a direct-connect deployment
 - old assumptions about env-managed flag overrides lingering after the Integrations control model changed
 
 ## Suggested Rollout Order

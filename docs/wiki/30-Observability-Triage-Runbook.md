@@ -29,6 +29,7 @@ Those runtime checks reflect the running backend container and catch common drif
 - metrics enabled in the UI but `DEBUG<1`
 - log export enabled in the UI but `LOG_EXPORT_BACKEND=off`
 - collector host/port values that no longer match the live backend env
+- `TRUST_PROXY` and scrape-token posture that no longer match the intended reverse-proxy topology
 
 ## 2. Classify the Incident
 
@@ -144,6 +145,18 @@ Use the smallest response that reduces harm:
 1. identify the first failing route
 2. compare against the most recent deploy or config change
 3. consider temporarily disabling the affected feature flag if the failure is isolated
+
+### For collector/exporter incidents
+
+1. confirm the app path is still healthy before treating the collector outage as a service outage
+2. verify a fresh `activity_log` row still lands locally for the triggering action
+3. treat collector recovery as an observability repair, not as proof that the app itself was unavailable
+
+The expected failure mode is:
+
+- exporter warning noise may rise
+- external collector history may be delayed or missing
+- core API/import behavior and local audit persistence should continue
 
 ## 4. DB and API Checks
 

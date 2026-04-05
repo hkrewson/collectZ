@@ -45,7 +45,7 @@ Current control surface note:
 - The current shipped operator path is split intentionally:
   - Integrations owns whether export is enabled.
   - Runtime env config owns which transport/backend receives the logs.
-- Admin-managed endpoint configuration is intentionally deferred to roadmap milestone `2.9.7 — Observability Endpoint Control Plane`.
+- Admin-managed endpoint configuration is intentionally deferred to roadmap milestone `2.9.9 — Observability Endpoint Control Plane`.
 
 ## Local Graylog Example
 
@@ -91,7 +91,8 @@ This is the fastest way to catch drift such as:
 
 - `External Log Export` enabled in the UI while `LOG_EXPORT_BACKEND=off`,
 - a collector host that still points at loopback inside Docker,
-- or `stdout_json` output being enabled without realizing it shares the normal backend stdout stream.
+- `stdout_json` output being enabled without realizing it shares the normal backend stdout stream,
+- or a collector path that is expected to fail over cleanly but has not been verified against the current runtime.
 
 ## Loki/Promtail Example
 
@@ -158,6 +159,17 @@ That keeps the verification focused on actual stored documents instead of over-t
 - exporter errors are swallowed after a warning log
 - primary DB-backed audit logging still runs
 - request/import behavior must not fail because a log endpoint is unavailable
+
+Repeatable failure-contract smoke:
+
+- `/Users/hamlin/Development/GitHub/hkrewson/collectZ/backend/scripts/structured-log-nonblocking-smoke.js`
+
+Use it after pointing the backend at an intentionally unreachable TCP collector target. The smoke proves:
+
+- the admin mutation still succeeds,
+- a new `activity_log` row still lands in Postgres,
+- `/api/health` stays healthy,
+- and exporter failure remains additive instead of becoming a hidden availability dependency.
 
 ## Persistence and Backup Expectations
 

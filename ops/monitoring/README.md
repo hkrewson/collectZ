@@ -93,6 +93,7 @@ If Prometheus is healthy but expected series are missing:
 - first check `Admin -> Integrations -> Metrics` in the running app so you can confirm the live backend still has both:
   - the Metrics Export toggle enabled
   - `DEBUG>=1`
+  - the `TRUST_PROXY` posture you expect for your reverse-proxy topology
 - verify the running backend container was rebuilt/restarted after the metric was added
 - check the raw metrics text from the running stack before assuming Grafana is the problem
 
@@ -112,6 +113,7 @@ For production, add:
 - private networking or protected ingress
 - persistent secret management
 - hardened Grafana auth
+- explicit `TRUST_PROXY` handling that matches your reverse-proxy hop count
 - backups for Prometheus/Grafana data if needed
 
 For the bundled example stack, the durable data you may need to preserve is:

@@ -602,7 +602,8 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
                 { label: 'State', value: metricsRuntime.effectiveState === 'ready' ? 'Ready' : metricsRuntime.effectiveState === 'attention' ? 'Needs attention' : 'Disabled' },
                 { label: 'Endpoint', value: metricsRuntime.endpointPath, mono: true },
                 { label: 'DEBUG level', value: String(metricsRuntime.debugLevel), mono: true },
-                { label: 'Scrape token', value: metricsRuntime.scrapeTokenConfigured ? 'Configured' : 'Not configured' }
+                { label: 'Scrape token', value: metricsRuntime.scrapeTokenConfigured ? 'Configured' : 'Not configured' },
+                { label: 'Trust proxy', value: String(metricsRuntime.trustProxy ?? 'unknown'), mono: true }
               ]} />
               <ul className="divide-y divide-edge/60 rounded-md border border-edge/60 px-4">
                 {(metricsRuntime.checks || []).map((check) => (

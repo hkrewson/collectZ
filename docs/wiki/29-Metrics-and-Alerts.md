@@ -21,9 +21,18 @@ Fast diagnosis:
 - compare the UI toggle against the runtime check for:
   - `DEBUG` level
   - scrape-token presence
+  - `TRUST_PROXY`
   - effective metrics state
 
 That usually explains an unexpected `404` faster than debugging Prometheus first.
+
+Exposure boundary reminder:
+
+- if the runtime check shows metrics `Ready`, `/api/metrics` is now reachable to:
+  - an authenticated admin session, or
+  - a valid `METRICS_SCRAPE_TOKEN`
+- keep that route on an internal network or a protected reverse-proxy path
+- do not publish it as a general public endpoint just because the token path exists
 
 ## Current Exported Signals
 

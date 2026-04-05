@@ -103,6 +103,35 @@ The script will:
 - wait through the backend feature-flag cache settle window after enabling export, so the emitted audit event reflects the live runtime gate instead of a stale flag read
 - restore feature-flag state when possible
 
+3. Prove collector outages stay non-blocking:
+
+Rebuild the backend once with an intentionally unreachable TCP target:
+
+```bash
+APP_VERSION=2.9.6 \
+LOG_EXPORT_BACKEND=syslog_tcp \
+LOG_EXPORT_HOST=127.0.0.1 \
+LOG_EXPORT_PORT=1 \
+LOG_EXPORT_DEBUG=0 \
+docker compose --env-file .env up -d --build backend
+```
+
+Then run:
+
+```bash
+ADMIN_EMAIL='your-admin-email' \
+ADMIN_PASSWORD='your-admin-password' \
+node backend/scripts/structured-log-nonblocking-smoke.js
+```
+
+That smoke verifies:
+
+- the admin feature-flag mutation still succeeds,
+- `/api/health` stays green,
+- and a fresh `activity_log` row still lands locally even while export transport fails.
+
+Afterward, restore the intended collector config.
+
 ## Notes
 
 - This is a local/internal stack example, not a hardened production deployment.
@@ -158,6 +187,8 @@ Key interpretations:
   - transport send completed successfully
 - `[log-export-debug] export.complete`
   - route-path export finished successfully
+- `Structured log export failed:`
+  - expected when you are intentionally proving the collector-outage path; request success and local audit persistence should still continue
 
 4. After diagnosis, return the backend to normal runtime noise levels:
 
