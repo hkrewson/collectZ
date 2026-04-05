@@ -27,6 +27,49 @@ export function cx(...classes) {
   return classes.filter(Boolean).join(' ');
 }
 
+export function SectionTabs({
+  tabs = [],
+  activeId,
+  onChange,
+  className = '',
+  listClassName = '',
+  buttonClassName = '',
+  stretch = false,
+  showIndex = false,
+  ariaLabel = 'Sections'
+}) {
+  if (!Array.isArray(tabs) || tabs.length === 0) return null;
+
+  return (
+    <div className={cx('border-b border-edge/60', className)}>
+      <div
+        className={cx('flex gap-4 overflow-x-auto', stretch && 'w-full', listClassName)}
+        style={{ scrollbarWidth: 'thin' }}
+        aria-label={ariaLabel}
+      >
+        {tabs.map((tab, index) => {
+          const active = activeId === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => onChange?.(tab.id)}
+              className={cx(
+                'shrink-0 border-b-2 px-1 py-2 text-sm font-medium transition-colors',
+                stretch && 'flex-1 text-center',
+                active ? 'border-gold text-ink' : 'border-transparent text-ghost hover:text-ink',
+                buttonClassName
+              )}
+            >
+              {showIndex ? `${index + 1}. ${tab.label}` : tab.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export function inferTmdbSearchType(mediaType) {
   return mediaType === 'tv_series' || mediaType === 'tv_episode' ? 'tv' : 'movie';
 }

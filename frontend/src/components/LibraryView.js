@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Icons,
   Spinner,
+  SectionTabs,
   cx,
   posterUrl,
   ObjectPosterCard,
@@ -1567,46 +1568,26 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
 
       <div className="flex-1 overflow-y-auto scroll-area">
         <div className="p-6 space-y-6 pb-32">
-          <div className="flex rounded-md border border-edge bg-panel/40 p-1">
-            {editorTabs.map((tab, index) => (
-              <button
-                key={tab.id}
-                type="button"
-                className={cx(
-                  'flex-1 rounded-sm px-4 py-2 text-sm font-medium transition-colors',
-                  activeEditorTab === tab.id
-                    ? 'bg-surface text-ink'
-                    : 'text-dim hover:bg-panel/60 hover:text-ink'
-                )}
-                onClick={() => setActiveEditorTab(tab.id)}
-              >
-                {`${index + 1}. ${tab.label}`}
-              </button>
-            ))}
-          </div>
+          <SectionTabs
+            tabs={editorTabs}
+            activeId={activeEditorTab}
+            onChange={setActiveEditorTab}
+            showIndex
+            stretch
+            ariaLabel="Editor steps"
+          />
 
           <div className="space-y-4 border-t border-edge/60 pt-3">
             {activeEditorTab === 'core' && (
               <>
-                <div className="overflow-x-auto pb-1">
-                  <div className="inline-flex min-w-max rounded-md border border-edge bg-panel/40 p-1 lg:max-w-[34rem]">
-                    {ENTRY_MEDIA_TABS.map((tab) => (
-                      <button
-                        key={tab.value}
-                        type="button"
-                        onClick={() => handleMediaTypeChange(tab.value)}
-                        className={cx(
-                          'shrink-0 rounded-sm px-4 py-2 text-sm font-medium transition-colors',
-                          activeMediaTypeTab === tab.value
-                            ? 'bg-surface text-ink'
-                            : 'text-dim hover:bg-panel/60 hover:text-ink'
-                        )}
-                      >
-                        {tab.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                <SectionTabs
+                  tabs={ENTRY_MEDIA_TABS.map((tab) => ({ id: tab.value, label: tab.label }))}
+                  activeId={activeMediaTypeTab}
+                  onChange={handleMediaTypeChange}
+                  ariaLabel="Media types"
+                  className="pb-1"
+                  listClassName="lg:max-w-[34rem]"
+                />
 
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
                   <div className="w-full shrink-0 lg:w-32 xl:w-28">

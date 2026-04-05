@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { SectionTabs } from './app/AppPrimitives';
 
 function emptyCreateForm() {
   return { name: '', owner_user_id: '' };
@@ -846,25 +847,16 @@ export default function AdminSpacesView({
               </section>
 
               <section className="space-y-4">
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    { key: 'add', label: 'Add People' },
-                    { key: 'members', label: `Members (${selectedNonOwnerMembers.length})` },
-                    { key: 'invites', label: `Invitations (${selectedSpaceInvites.length})` }
-                  ].map((tab) => (
-                    <button
-                      key={tab.key}
-                      type="button"
-                      className={cx(
-                        'btn-secondary btn-sm',
-                        drawerTab === tab.key && 'bg-raised border-muted text-ink'
-                      )}
-                      onClick={() => setDrawerTab(tab.key)}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
+                <SectionTabs
+                  tabs={[
+                    { id: 'add', label: 'Add People' },
+                    { id: 'members', label: `Members (${selectedNonOwnerMembers.length})` },
+                    { id: 'invites', label: `Invitations (${selectedSpaceInvites.length})` }
+                  ]}
+                  activeId={drawerTab}
+                  onChange={setDrawerTab}
+                  ariaLabel="Space drawer sections"
+                />
 
                 {drawerTab === 'add' ? (
                   <>

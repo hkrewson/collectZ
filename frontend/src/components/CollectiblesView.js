@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CameraCaptureModal, Icons, Spinner, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
+import { CameraCaptureModal, Icons, Spinner, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
 
 const CATEGORY_OPTIONS = [
   { key: 'lego', label: 'Lego' },
@@ -255,23 +255,14 @@ function CollectibleDrawer({
         <div className="flex-1 overflow-y-auto scroll-area p-6 space-y-4">
           {error ? <p className="text-xs text-err">{error}</p> : null}
           {notice ? <p className="text-xs text-ok">{notice}</p> : null}
-          <div className="flex rounded-md border border-edge bg-panel/40 p-1">
-            {collectibleTabs.map((tab, index) => (
-              <button
-                key={tab.id}
-                type="button"
-                className={cx(
-                  'flex-1 rounded-sm px-4 py-2 text-sm font-medium transition-colors',
-                  activeTab === tab.id
-                    ? 'bg-surface text-ink'
-                    : 'text-dim hover:bg-panel/60 hover:text-ink'
-                )}
-                onClick={() => setActiveTab(tab.id)}
-              >
-                {`${index + 1}. ${tab.label}`}
-              </button>
-            ))}
-          </div>
+          <SectionTabs
+            tabs={collectibleTabs}
+            activeId={activeTab}
+            onChange={setActiveTab}
+            showIndex
+            stretch
+            ariaLabel="Collectible editor steps"
+          />
           <div className="space-y-4 border-t border-edge/60 pt-3">
 
             {activeTab === 'core' ? (

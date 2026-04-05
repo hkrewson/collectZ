@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CameraCaptureModal, Icons, Spinner, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
+import { CameraCaptureModal, Icons, Spinner, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
 
 const DEFAULT_EVENT_FORM = {
   title: '',
@@ -449,23 +449,14 @@ function EventFormDrawer({ initial, apiCall, onClose, onSave, onDelete, onClearI
         </div>
         <div className="p-6 overflow-y-auto space-y-4">
           {error && <p className="text-sm text-err">{error}</p>}
-          <div className="flex rounded-md border border-edge bg-panel/40 p-1">
-            {eventTabs.map((tab, index) => (
-              <button
-                key={tab.id}
-                type="button"
-                className={cx(
-                  'flex-1 rounded-sm px-4 py-2 text-sm font-medium transition-colors',
-                  activeTab === tab.id
-                    ? 'bg-surface text-ink'
-                    : 'text-dim hover:bg-panel/60 hover:text-ink'
-                )}
-                onClick={() => setActiveTab(tab.id)}
-              >
-                {`${index + 1}. ${tab.label}`}
-              </button>
-            ))}
-          </div>
+          <SectionTabs
+            tabs={eventTabs}
+            activeId={activeTab}
+            onChange={setActiveTab}
+            showIndex
+            stretch
+            ariaLabel="Event editor steps"
+          />
           <div className="space-y-4 border-t border-edge/60 pt-3">
 
             {activeTab === 'core' ? (

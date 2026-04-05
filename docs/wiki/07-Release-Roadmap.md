@@ -2101,7 +2101,8 @@ Historical note:
 - Replace the current long conditional add/edit forms with one stepped, tabbed editor pattern:
   - a shared shell/header/tabs/actions treatment for add and edit,
   - a consistent poster/cover rail and primary action row,
-  - tab definitions that adapt by object type rather than forking whole editors.
+  - tab definitions that adapt by object type rather than forking whole editors,
+  - one shared tab primitive so Help, admin surfaces, drawers, and future tabbed workflows do not drift into competing styles.
 - Standardize the tab model around a predictable structure:
   - `Core Details` for all object types,
   - a type-specific second tab only when the object actually has a meaningful second cluster,

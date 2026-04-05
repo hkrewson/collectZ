@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import appMeta from '../app-meta.json';
+import { SectionTabs } from './app/AppPrimitives';
 import {
   getHelpSurfaceTitle,
   getHelpTabDefinitions,
@@ -184,8 +185,8 @@ function ThreadBubble({ message, currentUserId }) {
       >
         <div className="flex items-center justify-between gap-3 text-[11px] text-ghost">
           <span className="flex items-center gap-2">
-            <span className="uppercase tracking-[0.14em]">{actorLabel(message)}</span>
-            {message?.request_key ? <span className="badge badge-dim text-[10px] normal-case tracking-normal">{message.request_key}</span> : null}
+            <span>{actorLabel(message)}</span>
+            {message?.request_key ? <span className="font-mono text-[11px] text-ghost">{message.request_key}</span> : null}
           </span>
           <span className="normal-case tracking-normal text-[12px]">{formatTimestamp(message.created_at)}</span>
         </div>
@@ -200,15 +201,15 @@ function TimelineItem({ event }) {
     <div className="rounded-2xl border border-edge/60 bg-void/12 px-3.5 py-2.5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <span className="text-[11px] uppercase tracking-[0.14em] text-ghost">
+          <span className="text-[11px] text-ghost">
             {event?.category === 'session' ? 'Session' : event?.is_internal ? 'Internal' : 'Request'}
           </span>
-          {event?.request_key ? <span className="badge badge-dim text-[10px] normal-case tracking-normal">{event.request_key}</span> : null}
+          {event?.request_key ? <span className="font-mono text-[11px] text-ghost">{event.request_key}</span> : null}
           <p className="text-sm font-medium text-ink">{event?.title || 'Support event'}</p>
         </div>
         <p className="text-xs text-ghost">{formatTimestamp(event?.created_at)}</p>
       </div>
-      <p className="mt-1.5 text-[11px] uppercase tracking-[0.16em] text-ghost">{event?.actor_name || 'System'}</p>
+      <p className="mt-1.5 text-[11px] text-ghost">{event?.actor_name || 'System'}</p>
       {event?.body ? <p className="mt-1.5 text-sm text-ghost leading-5 whitespace-pre-wrap">{event.body}</p> : null}
     </div>
   );
@@ -644,57 +645,30 @@ export default function HelpView({
         </p>
       </div>
 
-      <div className="panel p-2 sm:p-3">
-        <div
-          className="grid gap-1.5 rounded-2xl bg-raised/55 border border-edge/60 p-1"
-          style={{ gridTemplateColumns: `repeat(${helpTabs.length}, minmax(0, 1fr))` }}
-        >
-          {helpTabs.map((tab) => {
-            const active = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className={[
-                  'rounded-2xl px-3 py-1.5 text-xs font-medium transition',
-                  active
-                    ? 'bg-gold/14 border border-gold/35 text-ink'
-                    : 'border border-transparent text-ghost hover:text-ink hover:bg-raised/55'
-                ].join(' ')}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <SectionTabs
+        tabs={helpTabs}
+        activeId={activeTab}
+        onChange={setActiveTab}
+        ariaLabel="Help sections"
+      />
 
       {activeTab === 'guidance' ? (
         <div className={`grid gap-4 ${isSupportStaff ? '' : 'xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]'}`}>
           <section className="panel p-5 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="h-11 w-11 rounded-2xl border border-edge bg-raised flex items-center justify-center text-gold">
-                <Icons.Library />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-ink">Guidance</h2>
-                <p className="text-sm text-ghost">Quick starting points for the most common questions.</p>
-              </div>
+            <div>
+              <h2 className="text-lg font-semibold text-ink">Guidance</h2>
+              <p className="text-sm text-ghost">Quick starting points for the most common questions.</p>
             </div>
-            <div className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">
+            <div className="divide-y divide-edge/60 rounded-md border border-edge/60 bg-panel/20">
               {guidanceArticles.map((article) => (
-                <article key={article.id} className="rounded-3xl border border-edge bg-raised/40 p-4 space-y-3 shadow-soft">
+                <article key={article.id} className="space-y-3 px-4 py-4">
                   <div>
                     <h3 className="text-sm font-semibold text-ink">{article.title}</h3>
                     <p className="mt-1 text-sm text-ghost leading-6">{article.summary}</p>
                   </div>
-                  <ul className="space-y-2 text-sm text-ghost">
+                  <ul className="list-disc space-y-2 pl-5 text-sm text-ghost">
                     {article.bullets.map((bullet) => (
-                      <li key={bullet} className="flex gap-2">
-                        <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-gold/80" />
-                        <span>{bullet}</span>
-                      </li>
+                      <li key={bullet}>{bullet}</li>
                     ))}
                   </ul>
                 </article>
@@ -704,17 +678,15 @@ export default function HelpView({
 
           {!isSupportStaff && supportHelpEnabled ? (
             <section className="panel p-5 space-y-4">
-              <>
-                <h2 className="text-lg font-semibold text-ink">Getting help</h2>
-                <p className="text-sm text-ghost">Use the Support tab when guidance is not enough or you need a human reply tied to your current context.</p>
-                <div className="rounded-3xl border border-edge bg-raised/35 p-4 space-y-3 text-sm text-ghost leading-6">
-                  <p>Your current context{activeSpace?.name ? `: ${activeSpace.name}` : ''}{activeLibrary?.name ? ` / ${activeLibrary.name}` : ''}.</p>
-                  <p>Support requests preserve the thread, the timestamps, and the target context. Support staff can respond there without browsing your tenant by default.</p>
-                  <button type="button" className="btn-secondary btn-sm" onClick={() => setActiveTab('support')}>
-                    <Icons.Activity />Open Support
-                  </button>
-                </div>
-              </>
+              <h2 className="text-lg font-semibold text-ink">Getting help</h2>
+              <p className="text-sm text-ghost">Use the Support tab when guidance is not enough or you need a human reply tied to your current context.</p>
+              <div className="space-y-2 text-sm text-ghost leading-6">
+                <p>Your current context{activeSpace?.name ? `: ${activeSpace.name}` : ''}{activeLibrary?.name ? ` / ${activeLibrary.name}` : ''}.</p>
+                <p>Support requests keep the thread, timestamps, and target context together. Support staff respond there without browsing your tenant by default.</p>
+              </div>
+              <button type="button" className="btn-secondary btn-sm" onClick={() => setActiveTab('support')}>
+                <Icons.Activity />Open Support
+              </button>
             </section>
           ) : null}
         </div>
@@ -734,23 +706,23 @@ export default function HelpView({
           {releaseLoading ? (
             <div className="flex items-center gap-3 text-dim"><Spinner />Loading release notes…</div>
           ) : releases.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-edge p-6 text-sm text-ghost text-center">
+            <div className="border border-dashed border-edge p-6 text-sm text-ghost text-center">
               No release notes are available yet.
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="divide-y divide-edge/60 rounded-md border border-edge/60 bg-panel/20">
               {releases.map((release) => {
                 const expanded = expandedReleaseVersion === release.version;
                 const isCurrent = release.version === releaseMeta.version;
                 return (
-                  <article key={release.version} className="rounded-3xl border border-edge bg-raised/35 p-4 sm:p-5 shadow-soft space-y-4">
+                  <article key={release.version} className="space-y-4 px-4 py-4 sm:px-5">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="space-y-2 min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="badge badge-ok">{release.version}</span>
-                          {release.date ? <span className="badge badge-dim">{release.date}</span> : null}
+                        <div className="flex flex-wrap items-center gap-3 text-sm text-ghost">
+                          <span className="font-medium text-ink">{release.version}</span>
+                          {release.date ? <span>{release.date}</span> : null}
                           {isCurrent ? <span className="badge badge-warn">Current build</span> : null}
-                          {isCurrent && releaseMeta.build ? <span className="badge badge-dim font-mono">{releaseMeta.build}</span> : null}
+                          {isCurrent && releaseMeta.build ? <span className="font-mono text-xs text-ghost">{releaseMeta.build}</span> : null}
                         </div>
                         <h3 className="text-base font-semibold text-ink">{release.title}</h3>
                         <p className="text-sm text-ghost leading-6">{release.summary}</p>
@@ -767,13 +739,10 @@ export default function HelpView({
                       <div className="space-y-4 border-t border-edge pt-4">
                         {release.details.map((detail) => (
                           <div key={`${release.version}:${detail.heading}`} className="space-y-2">
-                            <h4 className="text-sm font-semibold uppercase tracking-[0.16em] text-ghost">{detail.heading}</h4>
-                            <ul className="space-y-2 text-sm text-ghost">
+                            <h4 className="text-sm font-semibold text-ink">{detail.heading}</h4>
+                            <ul className="list-disc space-y-2 pl-5 text-sm text-ghost">
                               {detail.bullets.map((bullet) => (
-                                <li key={bullet} className="flex gap-2">
-                                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-gold/80" />
-                                  <span>{bullet}</span>
-                                </li>
+                                <li key={bullet}>{bullet}</li>
                               ))}
                             </ul>
                           </div>
@@ -799,22 +768,22 @@ export default function HelpView({
               <Icons.Refresh />Refresh
             </button>
           </div>
-          <div className="grid gap-3 lg:grid-cols-3">
-            <article className="rounded-3xl border border-edge bg-raised/35 p-5 shadow-soft">
-              <p className="text-xs uppercase tracking-[0.16em] text-ghost">Time to open</p>
-              <p className="mt-3 text-3xl font-display text-ink">{formatDurationCompact(supportSummary?.metrics?.time_to_open_seconds)}</p>
-              <p className="mt-2 text-sm text-ghost leading-6">Average time from request creation to the first public staff reply.</p>
-            </article>
-            <article className="rounded-3xl border border-edge bg-raised/35 p-5 shadow-soft">
-              <p className="text-xs uppercase tracking-[0.16em] text-ghost">Time to close</p>
-              <p className="mt-3 text-3xl font-display text-ink">{formatDurationCompact(supportSummary?.metrics?.time_to_close_seconds)}</p>
-              <p className="mt-2 text-sm text-ghost leading-6">Average time from request creation until the case is marked closed.</p>
-            </article>
-            <article className="rounded-3xl border border-edge bg-raised/35 p-5 shadow-soft">
-              <p className="text-xs uppercase tracking-[0.16em] text-ghost">Closed this month</p>
-              <p className="mt-3 text-3xl font-display text-ink">{supportSummary?.metrics?.closed_this_month || 0}</p>
-              <p className="mt-2 text-sm text-ghost leading-6">Requests closed since the start of the current calendar month.</p>
-            </article>
+          <div className="divide-y divide-edge/60 rounded-md border border-edge/60 bg-panel/20">
+            <div className="grid gap-3 px-4 py-3 md:grid-cols-[180px_minmax(0,1fr)_minmax(140px,auto)]">
+              <p className="text-sm font-medium text-ink">Time to open</p>
+              <p className="text-sm text-ghost">Average time from request creation to the first public staff reply.</p>
+              <p className="text-sm font-medium text-ink md:text-right">{formatDurationCompact(supportSummary?.metrics?.time_to_open_seconds)}</p>
+            </div>
+            <div className="grid gap-3 px-4 py-3 md:grid-cols-[180px_minmax(0,1fr)_minmax(140px,auto)]">
+              <p className="text-sm font-medium text-ink">Time to close</p>
+              <p className="text-sm text-ghost">Average time from request creation until the case is marked closed.</p>
+              <p className="text-sm font-medium text-ink md:text-right">{formatDurationCompact(supportSummary?.metrics?.time_to_close_seconds)}</p>
+            </div>
+            <div className="grid gap-3 px-4 py-3 md:grid-cols-[180px_minmax(0,1fr)_minmax(140px,auto)]">
+              <p className="text-sm font-medium text-ink">Closed this month</p>
+              <p className="text-sm text-ghost">Requests closed since the start of the current calendar month.</p>
+              <p className="text-sm font-medium text-ink md:text-right">{supportSummary?.metrics?.closed_this_month || 0}</p>
+            </div>
           </div>
         </section>
       ) : null}
@@ -880,48 +849,23 @@ export default function HelpView({
             <section className="panel p-3 space-y-3 min-h-[320px] xl:min-h-0 xl:flex-1 xl:flex xl:flex-col">
               {isSupportStaff ? (
                 <div className="space-y-3">
-                  <div className="grid gap-2 grid-cols-2 xl:grid-cols-4">
-                    <div className="rounded-2xl border border-edge/60 bg-raised/18 px-3 py-2">
-                      <p className="text-[11px] uppercase tracking-[0.14em] text-ghost">Open</p>
-                      <p className="mt-1 text-base font-semibold text-ink">{supportSummary?.open || 0}</p>
-                    </div>
-                    <div className="rounded-2xl border border-edge/60 bg-raised/18 px-3 py-2">
-                      <p className="text-[11px] uppercase tracking-[0.14em] text-ghost">Answered</p>
-                      <p className="mt-1 text-base font-semibold text-ink">{supportSummary?.answered || 0}</p>
-                    </div>
-                    <div className="rounded-2xl border border-edge/60 bg-raised/18 px-3 py-2">
-                      <p className="text-[11px] uppercase tracking-[0.14em] text-ghost">Bugs</p>
-                      <p className="mt-1 text-base font-semibold text-ink">{supportSummary?.bugs || 0}</p>
-                    </div>
-                    <div className="rounded-2xl border border-edge/60 bg-raised/18 px-3 py-2">
-                      <p className="text-[11px] uppercase tracking-[0.14em] text-ghost">Features</p>
-                      <p className="mt-1 text-base font-semibold text-ink">{supportSummary?.features || 0}</p>
-                    </div>
+                  <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+                    <span className="text-ghost">Open <span className="ml-1 font-medium text-ink">{supportSummary?.open || 0}</span></span>
+                    <span className="text-ghost">Answered <span className="ml-1 font-medium text-ink">{supportSummary?.answered || 0}</span></span>
+                    <span className="text-ghost">Bugs <span className="ml-1 font-medium text-ink">{supportSummary?.bugs || 0}</span></span>
+                    <span className="text-ghost">Features <span className="ml-1 font-medium text-ink">{supportSummary?.features || 0}</span></span>
                   </div>
-                  <div className="grid grid-cols-3 gap-1.5 rounded-2xl bg-raised/55 border border-edge/60 p-1">
-                    {[
+                  <SectionTabs
+                    tabs={[
                       { id: 'active', label: 'Active' },
                       { id: 'completed', label: 'Completed' },
                       { id: 'all', label: 'All' }
-                    ].map((option) => {
-                      const active = staffQueueFilter === option.id;
-                      return (
-                        <button
-                          key={option.id}
-                          type="button"
-                          onClick={() => setStaffQueueFilter(option.id)}
-                        className={[
-                          'rounded-2xl px-3 py-1.5 text-xs font-medium transition',
-                          active
-                              ? 'bg-gold/14 border border-gold/35 text-ink'
-                              : 'border border-transparent text-ghost hover:text-ink hover:bg-raised/55'
-                        ].join(' ')}
-                      >
-                        {option.label}
-                        </button>
-                      );
-                    })}
-                  </div>
+                    ]}
+                    activeId={staffQueueFilter}
+                    onChange={setStaffQueueFilter}
+                    ariaLabel="Support queue filters"
+                    className=""
+                  />
                   <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_180px]">
                     <label className="field">
                       <span className="label">Search queue</span>
@@ -965,25 +909,25 @@ export default function HelpView({
                         type="button"
                         onClick={() => setSelectedRequestId(request.id)}
                         className={[
-                          'w-full rounded-[1.35rem] border px-3 py-2.5 text-left transition',
-                          active ? 'border-gold/35 bg-gold/10 shadow-soft' : 'border-edge/65 bg-transparent hover:bg-raised/18'
+                          'w-full border border-edge/65 px-3 py-2.5 text-left transition-colors',
+                          active ? 'border-gold/35 bg-gold/10' : 'bg-transparent hover:bg-raised/18'
                         ].join(' ')}
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0 space-y-1">
                             <div className="flex flex-wrap items-center gap-2">
-                              {request.request_key ? <span className="badge badge-dim text-[10px]">{request.request_key}</span> : null}
+                              {request.request_key ? <span className="font-mono text-[11px] text-ghost">{request.request_key}</span> : null}
                               <p className="text-sm font-medium text-ink truncate">{request.subject}</p>
                             </div>
                             <p className="text-xs text-ghost truncate">
                               {[request.requester_name || request.requester_email || 'Unknown requester', requestContext].filter(Boolean).join(' · ')}
                             </p>
                             {isSupportStaff ? (
-                              <div className="flex flex-wrap items-center gap-2 pt-1">
+                              <div className="flex flex-wrap items-center gap-3 pt-1 text-[11px] text-ghost">
                                 {request.classification && request.classification !== 'support' ? (
-                                  <span className="text-[11px] uppercase tracking-[0.14em] text-ghost">{classificationLabel(request.classification)}</span>
+                                  <span>{classificationLabel(request.classification)}</span>
                                 ) : null}
-                                {request.tracking_status && request.tracking_status !== 'untracked' ? <span className="text-[11px] uppercase tracking-[0.14em] text-ghost">{trackingStatusLabel(request.tracking_status)}</span> : null}
+                                {request.tracking_status && request.tracking_status !== 'untracked' ? <span>{trackingStatusLabel(request.tracking_status)}</span> : null}
                               </div>
                             ) : null}
                           </div>
@@ -1011,13 +955,13 @@ export default function HelpView({
               <>
                 <div className="border-b border-edge px-4 py-2.5 bg-raised/25 flex flex-wrap items-center justify-between gap-3">
                   <div className="min-w-0 space-y-0.5">
-                    <div className="flex flex-wrap items-center gap-2 min-w-0">
-                      {selectedRequest.request_key ? <span className="badge badge-dim">{selectedRequest.request_key}</span> : null}
+                      <div className="flex flex-wrap items-center gap-2 min-w-0">
+                      {selectedRequest.request_key ? <span className="font-mono text-[11px] text-ghost">{selectedRequest.request_key}</span> : null}
                       <h2 className="text-base font-semibold text-ink truncate">{selectedRequest.subject}</h2>
                     </div>
                     {trackedWorkItems.length ? (
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ghost">
-                        <span className="uppercase tracking-[0.14em] text-ghost">Tracked work</span>
+                        <span>Tracked work</span>
                         {trackedWorkItems.map((item) => (
                           item.href ? (
                             <a
@@ -1027,12 +971,12 @@ export default function HelpView({
                               rel="noreferrer"
                               className="inline-flex items-center gap-1 text-ghost underline-offset-4 hover:text-ink hover:underline"
                             >
-                              <span className="text-[11px] uppercase tracking-[0.14em] text-ghost">{item.label}</span>
+                              <span className="text-ghost">{item.label}</span>
                               <span className="text-ink">{item.value}</span>
                             </a>
                           ) : (
                             <span key={`${item.label}:${item.value}`} className="inline-flex items-center gap-1">
-                              <span className="text-[11px] uppercase tracking-[0.14em] text-ghost">{item.label}</span>
+                              <span className="text-ghost">{item.label}</span>
                               <span className="text-ink">{item.value}</span>
                             </span>
                           )
@@ -1079,14 +1023,14 @@ export default function HelpView({
                 </div>
                 {activeSessionEvidence.length > 0 ? (
                   <div className="border-b border-edge bg-raised/10 px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] uppercase tracking-[0.14em] text-ghost">Active session evidence</span>
+                      <div className="flex items-center gap-2">
+                      <span className="text-[11px] text-ghost">Active session evidence</span>
                       <p className="text-xs text-ghost">This thread is the approval context for the current support session.</p>
                     </div>
                     <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                       {activeSessionEvidence.map((row) => (
                         <div key={row.label} className="rounded-2xl border border-edge/65 bg-void/14 px-3 py-2.5">
-                          <p className="text-[11px] uppercase tracking-[0.16em] text-ghost">{row.label}</p>
+                          <p className="text-[11px] text-ghost">{row.label}</p>
                           <p className="mt-1 text-sm text-ink break-words">{row.value}</p>
                         </div>
                       ))}
@@ -1095,8 +1039,8 @@ export default function HelpView({
                 ) : null}
                 <div className="border-b border-edge bg-raised/10 px-4 py-2.5">
                   <div className="flex items-center justify-between gap-3">
-                    <div className={`grid ${isSupportStaff ? 'grid-cols-4' : 'grid-cols-2'} gap-1.5 rounded-2xl bg-raised/55 border border-edge/60 p-1`}>
-                      {[
+                    <SectionTabs
+                      tabs={[
                         ...(isSupportStaff
                           ? [
                               { id: 'conversation', label: 'Conversation' },
@@ -1108,25 +1052,11 @@ export default function HelpView({
                               { id: 'conversation', label: 'Conversation' },
                               { id: 'history', label: `History${timeline.length ? ` (${timeline.length})` : ''}` }
                             ])
-                      ].map((tab) => {
-                        const active = threadViewTab === tab.id;
-                        return (
-                          <button
-                            key={tab.id}
-                            type="button"
-                            onClick={() => setThreadViewTab(tab.id)}
-                            className={[
-                              'rounded-2xl px-3 py-1.5 text-xs font-medium transition',
-                              active
-                                ? 'bg-gold/14 border border-gold/35 text-ink'
-                                : 'border border-transparent text-ghost hover:text-ink hover:bg-raised/55'
-                            ].join(' ')}
-                          >
-                            {tab.label}
-                          </button>
-                        );
-                      })}
-                    </div>
+                      ]}
+                      activeId={threadViewTab}
+                      onChange={setThreadViewTab}
+                      ariaLabel="Support thread views"
+                    />
                     {threadViewTab === 'history' ? (
                       <div className="text-right">
                         <p className="text-[11px] font-medium text-ghost">History timeline</p>
@@ -1185,10 +1115,10 @@ export default function HelpView({
                   <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-4 bg-abyss/40">
                     {selectedRequest ? (
                       <form className="space-y-4 max-w-3xl" onSubmit={saveTriage}>
-                        <div className="rounded-2xl border border-edge/70 bg-raised/18 px-4 py-3 space-y-2">
+                        <div className="border border-edge/70 px-4 py-3 space-y-2">
                           <div className="flex flex-wrap items-center gap-2">
-                            <p className="text-xs uppercase tracking-[0.16em] text-ghost">Linked engineering work</p>
-                            {selectedRequest.request_key ? <span className="badge badge-dim text-[10px] normal-case tracking-normal">{selectedRequest.request_key}</span> : null}
+                            <p className="text-xs text-ghost">Linked engineering work</p>
+                            {selectedRequest.request_key ? <span className="font-mono text-[11px] text-ghost">{selectedRequest.request_key}</span> : null}
                           </div>
                           <p className="text-sm text-ghost">
                             Link a GitHub issue or mark a shipped version here so the support thread keeps a durable product trail for this request.
@@ -1201,15 +1131,15 @@ export default function HelpView({
                                     key={`triage:${item.label}:${item.value}`}
                                     href={item.href}
                                     target="_blank"
-                                    rel="noreferrer"
-                                    className="inline-flex items-center gap-1 underline-offset-4 hover:text-ink hover:underline"
-                                  >
-                                    <span className="uppercase tracking-[0.14em]">{item.label}</span>
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-1 underline-offset-4 hover:text-ink hover:underline"
+                                >
+                                    <span>{item.label}</span>
                                     <span className="text-ink">{item.value}</span>
                                   </a>
                                 ) : (
                                   <span key={`triage:${item.label}:${item.value}`} className="inline-flex items-center gap-1">
-                                    <span className="uppercase tracking-[0.14em]">{item.label}</span>
+                                    <span>{item.label}</span>
                                     <span className="text-ink">{item.value}</span>
                                   </span>
                                 )
@@ -1252,10 +1182,10 @@ export default function HelpView({
                           <textarea className="input min-h-[110px]" value={internalNoteDraft} onChange={(event) => setInternalNoteDraft(event.target.value)} placeholder="Save a staff-only note into the support thread without sending it to the requester." />
                         </label>
                         {selectedRequest?.internal_notes ? (
-                          <div className="rounded-3xl border border-edge bg-raised/30 p-4">
+                          <div className="border border-edge bg-raised/20 p-4">
                             <div className="flex items-center gap-2">
-                              <p className="text-xs uppercase tracking-[0.16em] text-ghost">Latest saved internal note</p>
-                              {selectedRequest.request_key ? <span className="badge badge-dim text-[10px] normal-case tracking-normal">{selectedRequest.request_key}</span> : null}
+                              <p className="text-xs text-ghost">Latest saved internal note</p>
+                              {selectedRequest.request_key ? <span className="font-mono text-[11px] text-ghost">{selectedRequest.request_key}</span> : null}
                             </div>
                             <p className="mt-2 text-sm text-ink whitespace-pre-wrap leading-6">{selectedRequest.internal_notes}</p>
                           </div>

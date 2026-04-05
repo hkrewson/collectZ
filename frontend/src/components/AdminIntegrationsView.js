@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { SectionTabs } from './app/AppPrimitives';
 
 const BARCODE_PRESETS = {
   upcitemdb: { barcodePreset: 'upcitemdb', barcodeProvider: 'upcitemdb', barcodeApiUrl: 'https://api.upcitemdb.com/prod/trial/lookup' },
@@ -451,22 +452,13 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
       )}
 
       <div className="space-y-4">
-        <div className="hidden md:flex flex-wrap gap-2">
-          {integrationSections.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => setSectionWithSync(item.id)}
-              className={cx(
-                'btn-secondary btn-sm text-left transition-colors',
-                section === item.id
-                  ? 'bg-raised border-muted text-ink'
-                  : 'text-dim'
-              )}
-            >
-              <span>{item.label}</span>
-            </button>
-          ))}
+        <div className="hidden md:block">
+          <SectionTabs
+            tabs={integrationSections}
+            activeId={section}
+            onChange={setSectionWithSync}
+            ariaLabel="Integration sections"
+          />
         </div>
 
         <div className="space-y-4 min-w-0">
