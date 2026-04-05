@@ -2072,15 +2072,19 @@ Historical note:
 ### Acceptance Criteria
 
 - `homelab` edition does not mount tenancy/global platform pages or APIs.
-- `homelab` still serves shared release/help-safe data, but platform-only support case APIs, docs, metrics, spaces, and platform admin control-plane APIs are unmounted.
+- `homelab` still serves shared release/help-safe data, but platform-only support case/staff APIs, docs, metrics, spaces, and platform admin control-plane APIs are unmounted.
+- `homelab` also unmounts platform-only auth support-session controls, while `platform` retains those explicit support-session auth endpoints.
 - `homelab` Help exposes `Guidance` and `Releases` only, and does not mount `Metrics`, `Support`, or `Help Admin` for any role.
 - `homelab` shell and direct-route handling do not expose or retain platform control-plane tabs such as `admin-spaces`, `admin-users`, `admin-activity`, or `space-manage`.
 - `homelab` shared auth, scope, and library APIs preserve library context but do not surface the internal default-space model to the client: `active_space_id` is null and `spaces` is empty while valid `active_library_id` and library lists remain available.
+- `homelab` still allows meaningful library creation and selection inside the single homelab context while keeping the internal default space hidden from the client contract.
 - `homelab` registration no longer depends on the platform invite-token model after the first admin; additional local accounts can register without a tenant invite flow.
+- `homelab` does not accept generic authenticated space switching through shared scope APIs; the hidden internal default space remains implementation detail rather than selectable client state.
 - `platform` edition preserves the full current tenancy/global control plane.
 - Edition branching is concentrated in shell/bootstrap/route-mount boundaries rather than scattered across unrelated components.
 - Shared workflows continue to function in both editions without scope confusion.
 - `homelab` has a repeatable runtime smoke gate that proves the shared mounted surfaces (`auth`, `profile`, `library`, `settings`, `integrations`, `feature flags`, `Help > Releases`) and the unmounted platform-only APIs (`support requests`, `docs`, `metrics`, `spaces`, `admin spaces`) against a live homelab stack even when browser execution is temporarily unavailable.
+- `platform` has a repeatable runtime smoke gate that proves the retained control plane still mounts invite-based registration, spaces/libraries context, support queues, and admin user/space management APIs.
 - The codebase is ready for a later repo split without first having to rediscover product boundaries.
 
 ## 2.9.7 — Observability Baseline Review and Alert Tuning

@@ -1,6 +1,6 @@
 {
   "name": "mediavault-backend",
-  "version": "2.9.5",
+  "version": "2.9.6",
   "description": "collectZ Backend API",
   "main": "server.js",
   "scripts": {
@@ -13,6 +13,7 @@
     "test:admin-space-control": "node scripts/admin-space-control-smoke.js",
     "test:tenancy-platform-boundary": "node scripts/tenancy-platform-boundary-smoke.js",
     "test:homelab-edition-boundary": "node scripts/homelab-edition-boundary-smoke.js",
+    "test:platform-edition-boundary": "node scripts/platform-edition-boundary-smoke.js",
     "test:csv-import": "node scripts/csv-parse-smoke.js",
     "test:rbac-regression": "node scripts/rbac-regression-check.js",
     "test:cross-type-isolation": "node scripts/cross-type-isolation-check.js",

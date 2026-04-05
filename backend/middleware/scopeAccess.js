@@ -1,6 +1,7 @@
 const pool = require('../db/pool');
 const { logActivity } = require('../services/audit');
 const { extractScopeHints } = require('../db/scopeContext');
+const { getProductEdition, isHomelabEdition } = require('../config/productEdition');
 
 const ACCESS_DENIED_MESSAGE = 'Scope access denied';
 
@@ -30,6 +31,8 @@ function enforceScopeAccess(options = {}) {
       const userId = req.user?.id || null;
       const activeSpaceId = req.user?.activeSpaceId ?? null;
       const activeLibraryId = req.user?.activeLibraryId ?? null;
+      const productEdition = getProductEdition();
+      const homelabEdition = isHomelabEdition(productEdition);
 
       const isLibrarySelectPath = (
         req.path === '/select'
@@ -39,10 +42,16 @@ function enforceScopeAccess(options = {}) {
       if (
         role === 'admin'
         && isLibrarySelectPath
+        && !homelabEdition
         && !req.user?.supportSpaceId
       ) {
         return denyScopeRequest(req, res, 'admin_support_session_required', hints, { role });
       }
+
+      const allowUserLibrarySelectHints = (
+        isLibrarySelectPath
+        && role !== 'support_admin'
+      );
 
       const allowSupportSessionLibraryHints = (
         role === 'support_admin'
@@ -55,7 +64,7 @@ function enforceScopeAccess(options = {}) {
       let resolvedLibraryId = activeLibraryId;
 
       if (hints.hasHints) {
-        if (!allowSupportSessionLibraryHints && !isAllowedHintRole(role, allowedHintRoles)) {
+        if (!allowSupportSessionLibraryHints && !allowUserLibrarySelectHints && !isAllowedHintRole(role, allowedHintRoles)) {
           return denyScopeRequest(req, res, 'hints_not_allowed_for_role', hints, { role });
         }
         if (hints.spaceProvided) resolvedSpaceId = hints.spaceId;

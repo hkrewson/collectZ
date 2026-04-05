@@ -538,8 +538,14 @@ router.post('/scope', authenticateToken, requireSessionAuth, validate(authScopeS
     return res.status(403).json({ error: 'Global admins must use explicit support-session controls instead of generic scope selection' });
   }
 
+  const productEdition = getProductEdition();
+  const homelabEdition = isHomelabEdition(productEdition);
   const requestedSpaceId = Number(req.body.space_id || 0) || null;
   const requestedLibraryId = Number(req.body.library_id || 0) || null;
+
+  if (homelabEdition && requestedSpaceId) {
+    return res.status(403).json({ error: 'Homelab does not expose generic space selection' });
+  }
 
   let nextSpaceId = requestedSpaceId;
   let nextLibraryId = requestedLibraryId;

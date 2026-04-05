@@ -13,7 +13,8 @@ All of the following must pass:
 5. RBAC regression check.
 6. Browser regression check.
 7. Homelab edition boundary smoke check.
-8. Image security scan + SBOM generation.
+8. Platform edition boundary smoke check.
+9. Image security scan + SBOM generation.
 
 ## Release Closeout Must-Do
 
@@ -30,6 +31,7 @@ Minimum closeout expectation:
 7. Confirm the remaining CI-only gates are green, especially gitleaks, compose smoke, RBAC, Trivy, and SBOM generation.
 8. Confirm the Playwright browser-regression gate is green and its artifacts are available when failures occur.
 9. Confirm the homelab edition boundary gate is green so the live `homelab` stack still exposes only the shared mounted surfaces and keeps platform-only APIs unmounted.
+10. Confirm the platform edition boundary gate is green so the live `platform` stack still preserves invite-based registration and the tenant/admin control-plane APIs that must remain mounted.
 
 If any of these are skipped locally because the shell environment is restricted, the release stays pending until CI or an unrestricted maintainer shell confirms them.
 

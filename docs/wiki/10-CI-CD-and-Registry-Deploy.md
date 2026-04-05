@@ -58,6 +58,7 @@ Security and release gates in CI:
 - RBAC regression gate (API-level ownership/role/scope allow-deny checks).
 - Playwright browser-regression gate against the live compose stack for key auth/admin shell flows.
 - Homelab edition boundary smoke gate against a live `APP_EDITION=homelab` compose stack to verify shared surfaces still work while platform-only APIs stay unmounted.
+- Platform edition boundary smoke gate against a live `APP_EDITION=platform` compose stack to verify invite-based registration plus tenant/admin control-plane surfaces remain mounted while the homelab split tightens elsewhere.
 - OpenAPI contract validation gate for key auth/admin/media endpoints.
 - Container image vulnerability scan (Trivy) for backend/frontend images.
 - SBOM generation (CycloneDX JSON) for backend/frontend images, uploaded as CI artifacts.
@@ -141,5 +142,6 @@ Browser-regression expectation:
 - Maintain the root Playwright manifest and lockfile in git.
 - Keep `.github/workflows/docker-publish.yml` running the browser-regression gate before publish/release jobs.
 - Keep `.github/workflows/docker-publish.yml` running the homelab-edition-boundary gate before publish/release jobs so the edition split is enforced as a first-class runtime contract.
+- Keep `.github/workflows/docker-publish.yml` running the platform-edition-boundary gate before publish/release jobs so the platform control plane is proven to remain intact while homelab boundaries evolve.
 - Keep `.github/workflows/browser-captures.yml` as a separate manual screenshot-generation path for support/docs visuals instead of folding capture mode into the blocking regression gate.
 - Do not add Playwright browsers or the root test harness as dependencies of the shipped backend/frontend runtime images.

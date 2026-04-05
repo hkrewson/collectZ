@@ -662,9 +662,59 @@ jobs:
           docker compose -p "${CI_PROJECT}" --env-file .env.ci exec -T backend sh -lc 'node -e "if((process.env.APP_EDITION||\"\").trim()!==\"homelab\"){console.error(\"Expected homelab edition inside backend container\");process.exit(1)}"'
           docker compose -p "${CI_PROJECT}" --env-file .env.ci exec -T -e BASE_URL=http://frontend:3000 -e PLAYWRIGHT_E2E_BYPASS_TOKEN="${PLAYWRIGHT_E2E_BYPASS_TOKEN}" backend npm run test:homelab-edition-boundary
 
+  platform-edition-boundary:
+    runs-on: ubuntu-latest
+    needs: [prepare, migration-check, compose-smoke]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Build and start platform compose stack
+        env:
+          APP_VERSION: ${{ needs.prepare.outputs.version }}
+          GIT_SHA: ${{ needs.prepare.outputs.git_sha_short }}
+          BUILD_DATE: ${{ needs.prepare.outputs.build_date }}
+          NODE_ENV: production
+          SESSION_COOKIE_SECURE: true
+          TRUST_PROXY: 1
+          APP_EDITION: platform
+          DEBUG: 1
+        run: |
+          set -euo pipefail
+          CI_PROJECT="collectz-ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-platform"
+          DB_PASSWORD="$(openssl rand -hex 16)"
+          SESSION_SECRET="$(openssl rand -hex 32)"
+          INTEGRATION_ENCRYPTION_KEY="$(openssl rand -hex 32)"
+          PLAYWRIGHT_E2E_BYPASS_TOKEN="$(openssl rand -hex 16)"
+          trap 'docker compose -p "${CI_PROJECT}" --env-file .env.ci down -v --remove-orphans' EXIT
+          cp env.example .env.ci
+          {
+            echo "DB_PASSWORD=${DB_PASSWORD}"
+            echo "SESSION_SECRET=${SESSION_SECRET}"
+            echo "INTEGRATION_ENCRYPTION_KEY=${INTEGRATION_ENCRYPTION_KEY}"
+            echo "APP_VERSION=${APP_VERSION}"
+            echo "GIT_SHA=${GIT_SHA}"
+            echo "BUILD_DATE=${BUILD_DATE}"
+            echo "NODE_ENV=${NODE_ENV}"
+            echo "SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE}"
+            echo "TRUST_PROXY=${TRUST_PROXY}"
+            echo "APP_EDITION=${APP_EDITION}"
+            echo "DEBUG=${DEBUG}"
+            echo "PLAYWRIGHT_E2E_BYPASS_TOKEN=${PLAYWRIGHT_E2E_BYPASS_TOKEN}"
+          } >> .env.ci
+          docker compose -p "${CI_PROJECT}" --env-file .env.ci up -d --build
+          BACKEND_CID="$(docker compose -p "${CI_PROJECT}" --env-file .env.ci ps -q backend)"
+          FRONTEND_CID="$(docker compose -p "${CI_PROJECT}" --env-file .env.ci ps -q frontend)"
+          test -n "${BACKEND_CID}" || { echo "backend container id not found"; exit 1; }
+          test -n "${FRONTEND_CID}" || { echo "frontend container id not found"; exit 1; }
+          timeout 120 sh -c 'until [ "$(docker inspect -f "{{.State.Health.Status}}" "'"${BACKEND_CID}"'")" = "healthy" ]; do sleep 3; done'
+          timeout 120 sh -c 'until [ "$(docker inspect -f "{{.State.Health.Status}}" "'"${FRONTEND_CID}"'")" = "healthy" ]; do sleep 3; done'
+          docker compose -p "${CI_PROJECT}" --env-file .env.ci exec -T backend sh -lc 'node -e "if((process.env.APP_EDITION||\"\").trim()!==\"platform\"){console.error(\"Expected platform edition inside backend container\");process.exit(1)}"'
+          docker compose -p "${CI_PROJECT}" --env-file .env.ci exec -T -e BASE_URL=http://frontend:3000 -e PLAYWRIGHT_E2E_BYPASS_TOKEN="${PLAYWRIGHT_E2E_BYPASS_TOKEN}" backend npm run test:platform-edition-boundary
+
   backend:
     runs-on: ubuntu-latest
-    needs: [prepare, migration-check, dependency-scan, secret-scan, compose-smoke, rbac-regression, browser-regression, homelab-edition-boundary]
+    needs: [prepare, migration-check, dependency-scan, secret-scan, compose-smoke, rbac-regression, browser-regression, homelab-edition-boundary, platform-edition-boundary]
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -718,7 +768,7 @@ jobs:
 
   frontend:
     runs-on: ubuntu-latest
-    needs: [prepare, migration-check, dependency-scan, secret-scan, compose-smoke, rbac-regression, browser-regression, homelab-edition-boundary]
+    needs: [prepare, migration-check, dependency-scan, secret-scan, compose-smoke, rbac-regression, browser-regression, homelab-edition-boundary, platform-edition-boundary]
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -837,7 +887,7 @@ jobs:
 
   release-preflight:
     runs-on: ubuntu-latest
-    needs: [prepare, secret-scan, dependency-scan, migration-check, compose-smoke, rbac-regression, browser-regression, homelab-edition-boundary, image-security-and-sbom]
+    needs: [prepare, secret-scan, dependency-scan, migration-check, compose-smoke, rbac-regression, browser-regression, homelab-edition-boundary, platform-edition-boundary, image-security-and-sbom]
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
       - name: Download dependency audit artifact
@@ -898,6 +948,7 @@ jobs:
             echo "- RBAC regression: PASS"
             echo "- Browser regression: PASS"
             echo "- Homelab edition boundary: PASS"
+            echo "- Platform edition boundary: PASS"
             echo "- Image security and SBOM: PASS"
             echo
             echo "## Evidence Artifacts"
@@ -926,7 +977,7 @@ jobs:
 
   auto-tag:
     runs-on: ubuntu-latest
-    needs: [prepare, migration-check, dependency-scan, secret-scan, compose-smoke, rbac-regression, browser-regression, homelab-edition-boundary, backend, frontend, image-security-and-sbom]
+    needs: [prepare, migration-check, dependency-scan, secret-scan, compose-smoke, rbac-regression, browser-regression, homelab-edition-boundary, platform-edition-boundary, backend, frontend, image-security-and-sbom]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - name: Checkout full history

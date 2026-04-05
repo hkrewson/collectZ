@@ -105,11 +105,12 @@ async function cleanupDirectUser(userId) {
   if (!Number.isFinite(numericUserId) || numericUserId <= 0) return;
 
   await pool.query('DELETE FROM media WHERE library_id IN (SELECT id FROM libraries WHERE created_by = $1)', [numericUserId]).catch(() => {});
+  await pool.query('DELETE FROM invites WHERE created_by = $1 OR used_by = $1', [numericUserId]).catch(() => {});
   await pool.query('DELETE FROM library_memberships WHERE user_id = $1', [numericUserId]).catch(() => {});
   await pool.query('DELETE FROM library_memberships WHERE library_id IN (SELECT id FROM libraries WHERE created_by = $1)', [numericUserId]).catch(() => {});
   await pool.query('DELETE FROM libraries WHERE created_by = $1', [numericUserId]).catch(() => {});
   await pool.query('DELETE FROM space_memberships WHERE user_id = $1', [numericUserId]).catch(() => {});
-  await pool.query('DELETE FROM spaces WHERE created_by = $1', [numericUserId]).catch(() => {});
+  await pool.query("DELETE FROM spaces WHERE created_by = $1 AND lower(COALESCE(slug, '')) <> 'default'", [numericUserId]).catch(() => {});
   await pool.query('DELETE FROM users WHERE id = $1', [numericUserId]).catch(() => {});
 }
 
@@ -131,6 +132,17 @@ async function registerWithEmail(client, { email, password, name }) {
     expectStatus: 200,
     body: { email, password, name }
   });
+}
+
+async function getPersistedUserScope(userId) {
+  const result = await pool.query(
+    `SELECT active_space_id, active_library_id
+     FROM users
+     WHERE id = $1
+     LIMIT 1`,
+    [userId]
+  );
+  return result.rows[0] || null;
 }
 
 async function main() {
@@ -174,10 +186,55 @@ async function main() {
     const featureFlags = await admin.request('/api/admin/feature-flags', { expectStatus: 200 });
 
     const supportRequests = await user.request('/api/support/requests', { expectStatus: 404 });
+    const supportStaffSummary = await admin.request('/api/support/staff/summary', { expectStatus: 404 });
     const docs = await admin.request('/api/docs', { expectStatus: 404 });
     const metrics = await admin.request('/api/metrics', { expectStatus: 404 });
     const spaces = await user.request('/api/spaces', { expectStatus: 404 });
     const adminSpaces = await admin.request('/api/admin/spaces', { expectStatus: 404 });
+    const adminUsers = await admin.request('/api/admin/users', { expectStatus: 404 });
+    const persistedScope = await getPersistedUserScope(userUserId);
+    const supportSessionStart = await admin.request('/api/auth/support-session/start', {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 404,
+      body: { space_id: persistedScope?.active_space_id || 1 }
+    });
+    const supportSessionEnd = await admin.request('/api/auth/support-session', {
+      method: 'DELETE',
+      withCsrf: true,
+      expectStatus: 404
+    });
+    const deniedSpaceSelect = await user.request('/api/auth/scope', {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 403,
+      body: { space_id: persistedScope?.active_space_id || 1 }
+    });
+    const createdLibrary = await user.request('/api/libraries', {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 201,
+      body: {
+        name: `Homelab Boundary Library ${suffix}`,
+        description: 'Homelab edition boundary smoke library'
+      }
+    });
+    const createdLibraryId = Number(createdLibrary.data?.id || 0);
+    assert(createdLibraryId > 0, `Expected homelab library creation to succeed: ${JSON.stringify(createdLibrary.data)}`);
+
+    const reloadedLibraries = await user.request('/api/libraries', { expectStatus: 200 });
+    const createdLibraryEntry = Array.isArray(reloadedLibraries.data?.libraries)
+      ? reloadedLibraries.data.libraries.find((library) => Number(library.id) === createdLibraryId)
+      : null;
+    assert(createdLibraryEntry, `Expected created homelab library to appear in /api/libraries: ${JSON.stringify(reloadedLibraries.data)}`);
+
+    const selectedLibrary = await user.request('/api/libraries/select', {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 200,
+      body: { library_id: createdLibraryId }
+    });
+    const reloadedScope = await user.request('/api/auth/scope', { expectStatus: 200 });
 
     assert(adminMe.data?.product_edition === 'homelab', `Expected homelab admin edition, got ${JSON.stringify(adminMe.data)}`);
     assert(userMe.data?.product_edition === 'homelab', `Expected homelab user edition, got ${JSON.stringify(userMe.data)}`);
@@ -196,10 +253,21 @@ async function main() {
     assert(typeof integrations.data === 'object' && integrations.data !== null, `Homelab /api/admin/settings/integrations must stay mounted: ${JSON.stringify(integrations.data)}`);
     assert(Array.isArray(featureFlags.data?.flags), `Homelab /api/admin/feature-flags must stay mounted: ${JSON.stringify(featureFlags.data)}`);
     assert(supportRequests.status === 404, `Homelab /api/support/requests must be unmounted: ${JSON.stringify(supportRequests.data)}`);
+    assert(supportStaffSummary.status === 404, `Homelab /api/support/staff/summary must be unmounted: ${JSON.stringify(supportStaffSummary.data)}`);
     assert(docs.status === 404, `Homelab /api/docs must be unmounted: ${JSON.stringify(docs.data)}`);
     assert(metrics.status === 404, `Homelab /api/metrics must be unmounted: ${JSON.stringify(metrics.data)}`);
     assert(spaces.status === 404, `Homelab /api/spaces must be unmounted: ${JSON.stringify(spaces.data)}`);
     assert(adminSpaces.status === 404, `Homelab /api/admin/spaces must be unmounted: ${JSON.stringify(adminSpaces.data)}`);
+    assert(adminUsers.status === 404, `Homelab /api/admin/users must be unmounted: ${JSON.stringify(adminUsers.data)}`);
+    assert(supportSessionStart.status === 404, `Homelab /api/auth/support-session/start must be unmounted: ${JSON.stringify(supportSessionStart.data)}`);
+    assert(supportSessionEnd.status === 404, `Homelab /api/auth/support-session must be unmounted: ${JSON.stringify(supportSessionEnd.data)}`);
+    assert(deniedSpaceSelect.data?.error === 'Homelab does not expose generic space selection', `Homelab /api/auth/scope POST must reject explicit space switching: ${JSON.stringify(deniedSpaceSelect.data)}`);
+    assert(createdLibrary.data?.active_space_id === null, `Homelab /api/libraries create must hide active_space_id: ${JSON.stringify(createdLibrary.data)}`);
+    assert(createdLibrary.data?.active_library_id === createdLibraryId, `Homelab /api/libraries create must surface the new active_library_id: ${JSON.stringify(createdLibrary.data)}`);
+    assert(selectedLibrary.data?.active_space_id === null, `Homelab /api/libraries/select must hide active_space_id: ${JSON.stringify(selectedLibrary.data)}`);
+    assert(selectedLibrary.data?.active_library_id === createdLibraryId, `Homelab /api/libraries/select must switch the active library: ${JSON.stringify(selectedLibrary.data)}`);
+    assert(reloadedScope.data?.active_space_id === null, `Homelab /api/auth/scope after library switch must hide active_space_id: ${JSON.stringify(reloadedScope.data)}`);
+    assert(reloadedScope.data?.active_library_id === createdLibraryId, `Homelab /api/auth/scope after library switch must keep the selected library: ${JSON.stringify(reloadedScope.data)}`);
 
     console.log('Homelab edition boundary smoke passed');
   } finally {

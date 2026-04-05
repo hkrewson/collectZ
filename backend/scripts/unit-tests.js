@@ -77,6 +77,7 @@ const eventsCollectiblesBrowserSpecSource = require('fs').readFileSync(require.r
 const homelabHelpBrowserSpecSource = require('fs').readFileSync(require.resolve('../../tests/playwright/specs/homelab-help.browser.spec'), 'utf8');
 const homelabSharedBrowserSpecSource = require('fs').readFileSync(require.resolve('../../tests/playwright/specs/homelab-shared.browser.spec'), 'utf8');
 const homelabEditionBoundarySmokeSource = require('fs').readFileSync(require.resolve('../scripts/homelab-edition-boundary-smoke'), 'utf8');
+const platformEditionBoundarySmokeSource = require('fs').readFileSync(require.resolve('../scripts/platform-edition-boundary-smoke'), 'utf8');
 const dockerPublishWorkflowSource = require('fs').readFileSync(require.resolve('../../.github/workflows/docker-publish.yml'), 'utf8');
 const browserCapturesWorkflowSource = require('fs').readFileSync(require.resolve('../../.github/workflows/browser-captures.yml'), 'utf8');
 const dockerComposeSource = require('fs').readFileSync(require.resolve('../../docker-compose.yml'), 'utf8');
@@ -414,6 +415,8 @@ results.push(run('auth route source includes explicit support session endpoints'
   assert.ok(authRoutesSource.includes('stripHomelabSpaceContextFromUser('));
   assert.ok(authRoutesSource.includes('const homelabEdition = isHomelabEdition(productEdition);'));
   assert.ok(authRoutesSource.includes('} else if (!homelabEdition && existingUserCount > 0) {'));
+  assert.ok(authRoutesSource.includes('if (homelabEdition && requestedSpaceId) {'));
+  assert.ok(authRoutesSource.includes("return res.status(403).json({ error: 'Homelab does not expose generic space selection' });"));
 }));
 
 results.push(run('migrations source includes support role and help foundation schema updates', () => {
@@ -555,8 +558,26 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/admin/settings/integrations'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/admin/feature-flags'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/support/requests'));
+  assert.ok(homelabEditionBoundarySmokeSource.includes('/api/support/staff/summary'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/admin/spaces'));
+  assert.ok(homelabEditionBoundarySmokeSource.includes('/api/admin/users'));
+  assert.ok(homelabEditionBoundarySmokeSource.includes('/api/auth/support-session/start'));
+  assert.ok(homelabEditionBoundarySmokeSource.includes('/api/auth/support-session'));
+  assert.ok(homelabEditionBoundarySmokeSource.includes("method: 'POST'"));
+  assert.ok(homelabEditionBoundarySmokeSource.includes('Homelab does not expose generic space selection'));
+  assert.ok(homelabEditionBoundarySmokeSource.includes('/api/libraries/select'));
+  assert.ok(homelabEditionBoundarySmokeSource.includes('Homelab /api/libraries/select must switch the active library'));
+  assert.ok(homelabEditionBoundarySmokeSource.includes('Homelab /api/auth/scope after library switch must keep the selected library'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('Homelab edition boundary smoke passed'));
+  assert.ok(platformEditionBoundarySmokeSource.includes('/api/admin/spaces'));
+  assert.ok(platformEditionBoundarySmokeSource.includes('/api/admin/spaces/${defaultSpaceId}/invites'));
+  assert.ok(platformEditionBoundarySmokeSource.includes('/api/auth/register'));
+  assert.ok(platformEditionBoundarySmokeSource.includes('/api/support/staff/summary'));
+  assert.ok(platformEditionBoundarySmokeSource.includes('/api/admin/users'));
+  assert.ok(platformEditionBoundarySmokeSource.includes('/api/auth/support-session/start'));
+  assert.ok(platformEditionBoundarySmokeSource.includes('/api/auth/support-session'));
+  assert.ok(platformEditionBoundarySmokeSource.includes('Platform /api/auth/support-session/start must stay mounted'));
+  assert.ok(platformEditionBoundarySmokeSource.includes('Platform edition boundary smoke passed'));
 }));
 
 results.push(run('repo includes 2.9.4 Playwright browser regression foundation harness', () => {
@@ -583,6 +604,12 @@ results.push(run('repo includes 2.9.4 Playwright browser regression foundation h
   assert.ok(dockerPublishWorkflowSource.includes('playwright-browser-regression'));
   assert.ok(dockerPublishWorkflowSource.includes('PLAYWRIGHT_E2E_BYPASS_TOKEN="$(openssl rand -hex 16)"'));
   assert.ok(!dockerPublishWorkflowSource.includes('collectz-playwright-ci'));
+  assert.ok(dockerPublishWorkflowSource.includes('homelab-edition-boundary:'));
+  assert.ok(dockerPublishWorkflowSource.includes('platform-edition-boundary:'));
+  assert.ok(dockerPublishWorkflowSource.includes('npm run test:homelab-edition-boundary'));
+  assert.ok(dockerPublishWorkflowSource.includes('npm run test:platform-edition-boundary'));
+  assert.ok(dockerPublishWorkflowSource.includes('- Homelab edition boundary: PASS'));
+  assert.ok(dockerPublishWorkflowSource.includes('- Platform edition boundary: PASS'));
   assert.ok(browserCapturesWorkflowSource.includes('workflow_dispatch:'));
   assert.ok(browserCapturesWorkflowSource.includes('npm run test:browser:capture'));
   assert.ok(browserCapturesWorkflowSource.includes('playwright-browser-captures'));
@@ -1607,11 +1634,16 @@ results.push(run('homelab edition helpers strip surfaced space context while pre
   assert.ok(librariesRoutesSource.includes('stripHomelabSpaceContext({'));
 }));
 
-results.push(run('library routes only allow admin scope hints after phase2 hardening', () => {
+results.push(run('library routes keep shared library selection while retaining platform admin support-session safeguards', () => {
   assert.ok(librariesRoutesSource.includes("router.use('/libraries', authenticateToken);"));
   assert.ok(librariesRoutesSource.includes("router.use('/libraries', enforceScopeAccess({ allowedHintRoles: ['admin'] }));"));
   assert.ok(librariesRoutesSource.includes("router.post('/libraries/select', requireSessionAuth"));
   assert.ok(librariesRoutesSource.includes("enforceScopeAccess({ allowedHintRoles: ['admin'] })"));
+  assert.ok(scopeAccessSource.includes('const allowUserLibrarySelectHints = ('));
+  assert.ok(scopeAccessSource.includes("isLibrarySelectPath"));
+  assert.ok(scopeAccessSource.includes("role !== 'support_admin'"));
+  assert.ok(scopeAccessSource.includes('&& !homelabEdition'));
+  assert.ok(scopeAccessSource.includes('admin_support_session_required'));
   assert.ok(librariesRoutesSource.includes('SELECT user_id'));
   assert.ok(librariesRoutesSource.includes('syncLibraryMembershipsForSpaceUser'));
 }));
@@ -1681,6 +1713,7 @@ results.push(run('phase5 smoke scripts avoid tenant admin invite bootstrapping a
   assert.ok(rbacRegressionSource.includes('/api/spaces/${targetSpaceId}/invites'));
   assert.ok(backendPackageSource.includes('"test:tenancy-platform-boundary": "node scripts/tenancy-platform-boundary-smoke.js"'));
   assert.ok(backendPackageSource.includes('"test:homelab-edition-boundary": "node scripts/homelab-edition-boundary-smoke.js"'));
+  assert.ok(backendPackageSource.includes('"test:platform-edition-boundary": "node scripts/platform-edition-boundary-smoke.js"'));
 }));
 
 results.push(run('admin activity route stays in the platform control plane before tenant scope enforcement', () => {
