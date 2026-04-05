@@ -101,6 +101,15 @@ docker compose -f /Users/hamlin/Development/GitHub/hkrewson/collectZ/ops/logging
 
 3. Trigger a known audit event, for example the structured-log smoke or an admin feature-flag update.
 
+4. Optional repeatable smoke:
+
+```bash
+ADMIN_EMAIL='your-admin-email' \
+ADMIN_PASSWORD='your-admin-password' \
+LOKI_URL='http://localhost:3100' \
+node /Users/hamlin/Development/GitHub/hkrewson/collectZ/backend/scripts/structured-log-loki-smoke.js
+```
+
 ## Verification
 
 Useful checks:
@@ -164,3 +173,13 @@ Common drift patterns:
 ## Retention and Restore Notes
 
 If you want Loki history to survive container replacement, persist Loki storage intentionally and document its backup path. Promtail positions and Grafana state may also need persistence depending on how much operator continuity you want after restore.
+
+For the bundled example stack, the operator-owned persistence points are:
+
+- `loki_data`
+- `promtail_positions`
+
+If you discard those volumes, expect:
+
+- old log history to disappear from Loki
+- Promtail to rescan from a fresh position file

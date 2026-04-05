@@ -85,6 +85,9 @@ const dockerComposeSource = require('fs').readFileSync(require.resolve('../../do
 const backendDockerfileSource = require('fs').readFileSync(require.resolve('../../backend/Dockerfile'), 'utf8');
 const frontendDockerfileSource = require('fs').readFileSync(require.resolve('../../frontend/Dockerfile'), 'utf8');
 const structuredLogSmokeSource = require('fs').readFileSync(require.resolve('../scripts/structured-log-smoke'), 'utf8');
+const structuredLogLokiSmokeSource = require('fs').readFileSync(require.resolve('../scripts/structured-log-loki-smoke'), 'utf8');
+const structuredLogSyslogSmokeSource = require('fs').readFileSync(require.resolve('../scripts/structured-log-syslog-smoke'), 'utf8');
+const structuredLogSmokeSharedSource = require('fs').readFileSync(require.resolve('../scripts/structured-log-smoke-shared'), 'utf8');
 const dashboardSpec = JSON.parse(require('fs').readFileSync(require.resolve('../../ops/monitoring/grafana/dashboards/collectz-overview.json'), 'utf8'));
 const alertRulesSource = require('fs').readFileSync(require.resolve('../../docs/alerts/collectz-alert-rules.yaml'), 'utf8');
 
@@ -1753,12 +1756,27 @@ results.push(run('server source assigns request ids before request logging', () 
 
 results.push(run('structured log smoke source falls back to OpenSearch-backed verification', () => {
   assert.ok(structuredLogSmokeSource.includes('const OPENSEARCH_URL'));
-  assert.ok(structuredLogSmokeSource.includes('const SMOKE_REQUEST_ID'));
-  assert.ok(structuredLogSmokeSource.includes('const FEATURE_FLAG_SETTLE_MS'));
   assert.ok(structuredLogSmokeSource.includes('async function searchOpenSearch'));
   assert.ok(structuredLogSmokeSource.includes("source: 'opensearch-index'"));
   assert.ok(structuredLogSmokeSource.includes("message.request_id === requestId"));
-  assert.ok(structuredLogSmokeSource.includes('Waiting ${FEATURE_FLAG_SETTLE_MS}ms for feature-flag cache to settle...'));
+  assert.ok(structuredLogSmokeSource.includes('withStructuredLogSmokeEvent'));
+}));
+
+results.push(run('structured log smoke shared helper centralizes login and deterministic event toggling', () => {
+  assert.ok(structuredLogSmokeSharedSource.includes('ADMIN_EMAIL and ADMIN_PASSWORD are required'));
+  assert.ok(structuredLogSmokeSharedSource.includes('withStructuredLogSmokeEvent'));
+  assert.ok(structuredLogSmokeSharedSource.includes('Waiting ${FEATURE_FLAG_SETTLE_MS}ms for feature-flag cache to settle...'));
+  assert.ok(structuredLogSmokeSharedSource.includes("external_log_export_enabled"));
+}));
+
+results.push(run('loki and syslog structured log smoke sources cover their collector verification paths', () => {
+  assert.ok(structuredLogLokiSmokeSource.includes('const LOKI_URL'));
+  assert.ok(structuredLogLokiSmokeSource.includes("source: 'loki-query'"));
+  assert.ok(structuredLogLokiSmokeSource.includes('withStructuredLogSmokeEvent'));
+  assert.ok(structuredLogSyslogSmokeSource.includes('const SYSLOG_COLLECTOR_URL'));
+  assert.ok(structuredLogSyslogSmokeSource.includes('fetchJson'));
+  assert.ok(structuredLogSyslogSmokeSource.includes("source: 'syslog-tail'"));
+  assert.ok(structuredLogSyslogSmokeSource.includes('withStructuredLogSmokeEvent'));
 }));
 
 results.push(run('feature flags source includes external log export flag', () => {

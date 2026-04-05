@@ -86,6 +86,14 @@ docker compose -f /Users/hamlin/Development/GitHub/hkrewson/collectZ/ops/logging
 
 2. Enable `External Log Export` in `Admin -> Integrations -> External Logs`, then trigger a known audit event such as an admin feature-flag update.
 
+3. Optional repeatable smoke:
+
+```bash
+ADMIN_EMAIL='your-admin-email' \
+ADMIN_PASSWORD='your-admin-password' \
+node /Users/hamlin/Development/GitHub/hkrewson/collectZ/backend/scripts/structured-log-syslog-smoke.js
+```
+
 ## Verification
 
 Useful checks:
@@ -140,3 +148,11 @@ Then verify the collector itself:
 3. `docker exec logging-syslog-collector-1 tail -n 20 /var/log/collectz/collectz-syslog.log`
 
 If the UI toggle is on but the runtime check still shows `backend=off`, the backend env was not rebuilt/restarted with the intended exporter settings.
+
+## Retention and Restore Notes
+
+For the bundled syslog example, persistence lives in:
+
+- `syslog_data`
+
+If you remove that volume, the collector log file is recreated empty. That is fine for smoke testing, but it means the example stack does not retain searchable history across rebuilds unless you explicitly preserve or back up that volume.

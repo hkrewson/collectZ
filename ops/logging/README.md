@@ -22,6 +22,7 @@ For the syslog example, see:
 - `/Users/hamlin/Development/GitHub/hkrewson/collectZ/ops/logging/docker-compose.syslog.yml`
 - `/Users/hamlin/Development/GitHub/hkrewson/collectZ/ops/logging/syslog/collector.js`
 - `/Users/hamlin/Development/GitHub/hkrewson/collectZ/docs/wiki/37-Syslog-Structured-Logs.md`
+- `/Users/hamlin/Development/GitHub/hkrewson/collectZ/backend/scripts/structured-log-syslog-smoke.js`
 
 For the syslog example, see:
 
@@ -107,6 +108,10 @@ The script will:
 - This is a local/internal stack example, not a hardened production deployment.
 - Export failures should not affect collectZ request behavior; if Graylog is down, requests still succeed and `activity_log` still persists locally.
 - For the fastest runtime/env diagnosis, also check `Admin -> Integrations -> External Logs` in the running app before assuming the collector is the problem.
+
+## Persistence Notes
+
+The bundled Graylog example persists collector/index state through Docker volumes owned by the example stack. If you want log history to survive stack replacement, back up those volumes intentionally instead of treating the example as stateless.
 
 ## Quick Diagnosis: `backend_off` / Env Drift
 

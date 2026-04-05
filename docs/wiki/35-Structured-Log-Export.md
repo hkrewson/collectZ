@@ -99,6 +99,8 @@ This is the fastest way to catch drift such as:
   - `/Users/hamlin/Development/GitHub/hkrewson/collectZ/docs/wiki/36-Loki-and-Promtail-Structured-Logs.md`
 - Stack file:
   - `/Users/hamlin/Development/GitHub/hkrewson/collectZ/ops/logging/docker-compose.loki.yml`
+- Smoke script:
+  - `/Users/hamlin/Development/GitHub/hkrewson/collectZ/backend/scripts/structured-log-loki-smoke.js`
 - Loki config:
   - `/Users/hamlin/Development/GitHub/hkrewson/collectZ/ops/logging/loki/loki.yml`
 - Promtail config:
@@ -110,6 +112,8 @@ This is the fastest way to catch drift such as:
   - `/Users/hamlin/Development/GitHub/hkrewson/collectZ/docs/wiki/37-Syslog-Structured-Logs.md`
 - Stack file:
   - `/Users/hamlin/Development/GitHub/hkrewson/collectZ/ops/logging/docker-compose.syslog.yml`
+- Smoke script:
+  - `/Users/hamlin/Development/GitHub/hkrewson/collectZ/backend/scripts/structured-log-syslog-smoke.js`
 - Collector script:
   - `/Users/hamlin/Development/GitHub/hkrewson/collectZ/ops/logging/syslog/collector.js`
 

@@ -22,6 +22,13 @@ async function buildLogsRuntimeDiagnostics() {
       'Export is disabled here',
       'The External Log Export setting is off in Admin -> Integrations, so the backend will keep writing activity data locally without shipping structured events.'
     ));
+    if (config.backend !== 'off') {
+      checks.push(makeCheck(
+        'warn',
+        'Runtime transport is configured but inactive',
+        `The running backend still has LOG_EXPORT_BACKEND=${config.backend}, but the Admin -> Integrations toggle is off, so that transport is configured but not currently used.`
+      ));
+    }
   } else if (config.backend === 'off') {
     checks.push(makeCheck(
       'warn',
@@ -88,6 +95,20 @@ async function buildMetricsRuntimeDiagnostics() {
       'Metrics are disabled here',
       'The Metrics Export setting is off in Admin -> Integrations, so /api/metrics will stay closed even if DEBUG is enabled.'
     ));
+    if (DEBUG_LEVEL >= 1) {
+      checks.push(makeCheck(
+        'info',
+        'DEBUG is open but metrics are still gated off',
+        'The running backend has DEBUG>=1, but the Metrics Export toggle is off, so /api/metrics remains intentionally closed.'
+      ));
+    }
+    if (METRICS_SCRAPE_TOKEN) {
+      checks.push(makeCheck(
+        'info',
+        'Scrape token is configured but inactive',
+        'A metrics scrape token is present in runtime config, but it will not open /api/metrics until the Metrics Export toggle is also enabled.'
+      ));
+    }
   } else if (DEBUG_LEVEL < 1) {
     checks.push(makeCheck(
       'warn',

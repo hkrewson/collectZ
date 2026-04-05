@@ -113,3 +113,10 @@ For production, add:
 - persistent secret management
 - hardened Grafana auth
 - backups for Prometheus/Grafana data if needed
+
+For the bundled example stack, the durable data you may need to preserve is:
+
+- Prometheus TSDB data
+- Grafana provisioning/auth state, depending on your deployment model
+
+If you recreate the monitoring stack without preserving those paths, expect dashboard history and alerting state to reset even when collectZ itself is still exporting metrics correctly.
