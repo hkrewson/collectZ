@@ -5,7 +5,7 @@ const { ensureSavedAdminCredentials, createAuthenticatedRequestContext } = requi
 const { snapshotIntegrationState, restoreIntegrationState } = require('../helpers/integrations');
 
 async function openIntegrationsSection(page, name) {
-  await page.locator('.hidden.md\\:flex.flex-wrap.gap-2').getByRole('button', { name, exact: true }).click();
+  await page.getByRole('tablist', { name: 'Integration sections' }).getByRole('tab', { name, exact: true }).click();
   await expect(activeSectionRoot(page).getByRole('heading', { name, exact: true })).toBeVisible();
 }
 
@@ -73,8 +73,20 @@ test.describe('integrations browser regressions', () => {
       await page.goto('/dashboard?tab=admin-integrations&integration=barcode');
       await expect(page.getByRole('heading', { name: 'Integrations' })).toBeVisible();
 
-      const sectionTabs = page.locator('.hidden.md\\:flex.flex-wrap.gap-2');
-      await expect(sectionTabs).toHaveScreenshot('integrations-tabs-layout.png');
+      const sectionTabs = page.getByRole('tablist', { name: 'Integration sections' });
+      await expect(sectionTabs).toBeVisible();
+      await expect(sectionTabs.getByRole('tab')).toHaveText([
+        'Audio',
+        'Barcode',
+        'Books',
+        'CWA OPDS',
+        'Comics',
+        'Games',
+        'External Logs',
+        'Metrics',
+        'Plex',
+        'TMDB'
+      ]);
 
       await page.goto('/dashboard?tab=admin-integrations&integration=metrics');
       const metricsSwitch = page.getByRole('switch', { name: /Metrics Export/i });

@@ -16,7 +16,7 @@ test.describe('help center browser regressions', () => {
     await signInThroughUi(page, credentials);
     await openHelpSurface(page, 'Help Center');
 
-    await page.getByRole('button', { name: 'Support', exact: true }).click();
+    await page.getByRole('tab', { name: 'Support', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Ask for help' })).toBeVisible();
 
     await page.getByPlaceholder('What do you need help with?').fill(subject);
@@ -40,10 +40,10 @@ test.describe('help center browser regressions', () => {
     expect(closeResponse.ok()).toBeTruthy();
     await expect(page.getByRole('button', { name: 'Reopen' })).toBeVisible();
 
-    await page.getByRole('button', { name: /History/ }).click();
+    await page.getByRole('tab', { name: /History/ }).click();
     await expect(page.getByText('Status changed from open to closed.')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Conversation' }).click();
+    await page.getByRole('tab', { name: 'Conversation' }).click();
     const reopenResponsePromise = page.waitForResponse((response) => (
       response.url().includes('/api/support/requests/')
       && response.url().includes('/status')
@@ -54,7 +54,7 @@ test.describe('help center browser regressions', () => {
     expect(reopenResponse.ok()).toBeTruthy();
     await expect(page.getByRole('button', { name: 'Close' })).toBeVisible();
 
-    await page.getByRole('button', { name: 'Releases', exact: true }).click();
+    await page.getByRole('tab', { name: 'Releases', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Recent Releases' })).toBeVisible();
     await page.getByRole('button', { name: 'Details' }).first().click();
     await expect(page.getByRole('button', { name: 'Hide details' }).first()).toBeVisible();

@@ -630,7 +630,7 @@ results.push(run('repo includes 2.9.4 Playwright browser regression foundation h
   assert.ok(approvedSupportSessionBrowserSpecSource.includes('My Space'));
   assert.ok(integrationsBrowserSpecSource.includes("saveSection(page, 'BARCODE')"));
   assert.ok(integrationsBrowserSpecSource.includes("saveSection(page, 'GAMES')"));
-  assert.ok(integrationsBrowserSpecSource.includes('integrations-tabs-layout.png'));
+  assert.ok(integrationsBrowserSpecSource.includes("getByRole('tablist', { name: 'Integration sections' })"));
   assert.ok(integrationsBrowserSpecSource.includes('Metrics Export'));
   assert.ok(importBrowserSpecSource.includes('/dashboard?tab=library-import'));
   assert.ok(importBrowserSpecSource.includes('/api/media/lookup-upc'));

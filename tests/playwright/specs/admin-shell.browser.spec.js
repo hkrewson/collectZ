@@ -28,10 +28,10 @@ test.describe('admin shell browser regressions', () => {
       await page.getByRole('heading', { name: space.name }).click();
       await expect(page.getByRole('heading', { name: 'Space Controls' })).toBeVisible();
 
-      await page.getByRole('button', { name: /Members \(/ }).click();
+      await page.getByRole('tab', { name: /Members \(/ }).click();
       await expect(page.getByRole('heading', { name: 'Members' })).toBeVisible();
 
-      await page.getByRole('button', { name: /Invitations \(/ }).click();
+      await page.getByRole('tab', { name: /Invitations \(/ }).click();
       await expect(page.getByRole('heading', { name: 'Invitations' })).toBeVisible();
 
       await page.getByRole('button', { name: 'Start Support Session' }).first().click();
@@ -56,11 +56,11 @@ test.describe('admin shell browser regressions', () => {
     await page.goto('/dashboard?tab=admin-integrations&integration=barcode');
     await expect(page.getByRole('heading', { name: 'Integrations' })).toBeVisible();
 
-    const sectionTabs = page.locator('.hidden.md\\:flex.flex-wrap.gap-2');
-    await sectionTabs.getByRole('button', { name: 'Games', exact: true }).click();
+    const sectionTabs = page.getByRole('tablist', { name: 'Integration sections' });
+    await sectionTabs.getByRole('tab', { name: 'Games', exact: true }).click();
     await expect(page.getByText('Games', { exact: true }).nth(1)).toBeVisible();
 
-    await sectionTabs.getByRole('button', { name: 'Metrics', exact: true }).click();
+    await sectionTabs.getByRole('tab', { name: 'Metrics', exact: true }).click();
     const metricsSwitch = page.getByRole('switch', { name: /Metrics Export/i });
     await expect(metricsSwitch).toBeVisible();
 

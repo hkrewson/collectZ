@@ -29,7 +29,7 @@ test.describe('approved support session browser regressions', () => {
 
     await signInThroughUi(page, supportAdminCredentials);
     await openHelpSurface(page, 'Help Admin');
-    await page.getByRole('button', { name: 'Support', exact: true }).click();
+    await page.getByRole('tab', { name: 'Support', exact: true }).click();
 
     const requestCard = page.locator('button').filter({ hasText: requestKey }).first();
     await expect(requestCard).toBeVisible();

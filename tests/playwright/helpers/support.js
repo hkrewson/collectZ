@@ -18,8 +18,9 @@ async function saveSupportTriage(requestContext, requestId, payload) {
 }
 
 async function createSupportCaptureFixture(requestContext, suffix) {
+  const subject = `Capture flow ${suffix}`;
   const created = await createSupportRequest(requestContext, {
-    subject: `Capture flow ${suffix}`,
+    subject,
     message: 'Need help capturing a stable support workspace screenshot.'
   });
   const requestId = Number(created?.request?.id || 0);
@@ -42,7 +43,11 @@ async function createSupportCaptureFixture(requestContext, suffix) {
     internal_notes: 'Capture fixture: seeded for Playwright docs screenshots.'
   });
 
-  return requestId;
+  return {
+    requestId,
+    requestKey: created?.request?.request_key || `SUP-${String(requestId).padStart(6, '0')}`,
+    subject
+  };
 }
 
 async function updateSupportAccess(requestContext, requestId, nextStatus) {

@@ -26,10 +26,11 @@ test.describe('support docs capture flows @capture', () => {
     await expect(requestCard).toBeVisible();
     await requestCard.click();
 
-    await expect(page.getByRole('button', { name: 'Conversation' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Conversation' })).toBeVisible();
+    await page.getByRole('tab', { name: 'Conversation' }).click();
     await captureNamedPage(page, 'help-admin-conversation');
 
-    await page.getByRole('button', { name: 'Triage' }).click();
+    await page.getByRole('tab', { name: 'Triage' }).click();
     await expect(page.getByText('Linked engineering work')).toBeVisible();
     await captureNamedPage(page, 'help-admin-triage');
 
@@ -50,14 +51,14 @@ test.describe('help center docs capture flows @capture', () => {
     await signInThroughUi(page, credentials);
     await openHelpSurface(page, 'Help Center');
 
-    await page.getByRole('button', { name: 'Support', exact: true }).click();
+    await page.getByRole('tab', { name: 'Support', exact: true }).click();
     await page.getByPlaceholder('What do you need help with?').fill(subject);
     await page.getByPlaceholder('Tell us what you tried, what you expected, and what felt off.').fill('Capture a stable Help Center support thread for support-reference documentation.');
     await page.getByRole('button', { name: 'Create help request' }).click();
     await expect(page.getByRole('heading', { name: 'Reply to Support' })).toBeVisible();
     await captureNamedPage(page, 'help-center-support');
 
-    await page.getByRole('button', { name: 'Releases', exact: true }).click();
+    await page.getByRole('tab', { name: 'Releases', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Recent Releases' })).toBeVisible();
     await page.getByRole('button', { name: 'Details' }).first().click();
     await captureNamedPage(page, 'help-center-releases');
