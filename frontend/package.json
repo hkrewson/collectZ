@@ -3,9 +3,11 @@
   "version": "2.9.6",
   "private": true,
   "dependencies": {
+    "@zxing/browser": "^0.1.5",
+    "@zxing/library": "^0.21.3",
+    "axios": "^1.13.6",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "axios": "^1.13.6"
+    "react-dom": "^18.2.0"
   },
   "devDependencies": {
     "react-scripts": "5.0.1",

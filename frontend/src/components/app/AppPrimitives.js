@@ -65,8 +65,13 @@ function getBarcodeDetectorClass() {
   return window.BarcodeDetector || null;
 }
 
+function canAttemptBrowserBarcodeDecode() {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return false;
+  return typeof Image !== 'undefined' && typeof URL?.createObjectURL === 'function';
+}
+
 export function supportsBarcodeCapture() {
-  return Boolean(getBarcodeDetectorClass());
+  return canAttemptBrowserBarcodeDecode();
 }
 
 async function loadImageForBarcodeDetection(file) {
@@ -105,6 +110,45 @@ async function detectFirstBarcode(detector, source) {
   const detections = await detector.detect(source);
   const rawValue = normalizeDetectedBarcode(detections?.find((item) => item?.rawValue)?.rawValue || '');
   return rawValue || '';
+}
+
+let zxingDecoderPromise = null;
+
+async function loadZxingDecoder() {
+  if (!zxingDecoderPromise) {
+    zxingDecoderPromise = Promise.all([
+      import('@zxing/browser'),
+      import('@zxing/library')
+    ]).then(([browserModule, libraryModule]) => {
+      const BrowserMultiFormatReader = browserModule?.BrowserMultiFormatReader || browserModule?.default?.BrowserMultiFormatReader;
+      const BarcodeFormat = browserModule?.BarcodeFormat || libraryModule?.BarcodeFormat;
+      const DecodeHintType = libraryModule?.DecodeHintType;
+      if (!BrowserMultiFormatReader || !BarcodeFormat || !DecodeHintType) {
+        throw new Error('unsupported');
+      }
+
+      const formats = [
+        BarcodeFormat.UPC_A,
+        BarcodeFormat.UPC_E,
+        BarcodeFormat.EAN_13,
+        BarcodeFormat.EAN_8,
+        BarcodeFormat.CODE_128,
+        BarcodeFormat.CODE_39,
+        BarcodeFormat.CODABAR
+      ].filter(Boolean);
+
+      const hints = new Map();
+      hints.set(DecodeHintType.POSSIBLE_FORMATS, formats);
+      hints.set(DecodeHintType.TRY_HARDER, true);
+
+      return new BrowserMultiFormatReader(hints);
+    }).catch((error) => {
+      zxingDecoderPromise = null;
+      throw error;
+    });
+  }
+
+  return zxingDecoderPromise;
 }
 
 function createBarcodeCanvas(width, height) {
@@ -195,61 +239,82 @@ function createBarcodeDetectionVariants(source) {
   return variants;
 }
 
-export async function detectBarcodeFromFile(file) {
-  const BarcodeDetectorClass = getBarcodeDetectorClass();
-  if (!BarcodeDetectorClass) {
-    throw new Error('unsupported');
-  }
-
-  const preferredFormats = [
-    'upc_a',
-    'upc_e',
-    'ean_13',
-    'ean_8',
-    'code_128',
-    'code_39',
-    'codabar'
-  ];
-
-  let formats = preferredFormats;
-  if (typeof BarcodeDetectorClass.getSupportedFormats === 'function') {
+async function detectBarcodeWithZxing(source) {
+  const reader = await loadZxingDecoder();
+  for (const variant of createBarcodeDetectionVariants(source)) {
     try {
-      const supported = await BarcodeDetectorClass.getSupportedFormats();
-      const filtered = preferredFormats.filter((format) => supported.includes(format));
-      if (filtered.length) formats = filtered;
-    } catch (_) {
-      // Keep preferred defaults when the browser refuses supported-format probing.
-    }
-  }
-
-  const detector = new BarcodeDetectorClass({ formats });
-  const source = await loadImageForBarcodeDetection(file);
-  const generatedVariants = [];
-
-  try {
-    const rawDetected = await detectFirstBarcode(detector, source);
-    if (rawDetected) {
-      return rawDetected;
-    }
-
-    for (const variant of createBarcodeDetectionVariants(source)) {
-      generatedVariants.push(variant);
-      try {
-        const detected = await detectFirstBarcode(detector, variant.source);
-        if (detected) return detected;
-      } catch (_) {
-        // Keep trying transformed variants before giving up.
+      const result = reader.decodeFromCanvas(variant.source);
+      const detected = normalizeDetectedBarcode(result?.getText?.() || result?.text || '');
+      if (detected) {
+        return detected;
       }
-    }
-
-    throw new Error('not-found');
-  } finally {
-    generatedVariants.forEach((variant) => {
+    } catch (_) {
+      // Keep trying transformed variants before giving up.
+    } finally {
       if (variant?.source?.width) {
         variant.source.width = 1;
         variant.source.height = 1;
       }
-    });
+    }
+  }
+
+  throw new Error('not-found');
+}
+
+export async function detectBarcodeFromFile(file) {
+  const source = await loadImageForBarcodeDetection(file);
+
+  try {
+    const BarcodeDetectorClass = getBarcodeDetectorClass();
+    if (BarcodeDetectorClass) {
+      const preferredFormats = [
+        'upc_a',
+        'upc_e',
+        'ean_13',
+        'ean_8',
+        'code_128',
+        'code_39',
+        'codabar'
+      ];
+
+      let formats = preferredFormats;
+      if (typeof BarcodeDetectorClass.getSupportedFormats === 'function') {
+        try {
+          const supported = await BarcodeDetectorClass.getSupportedFormats();
+          const filtered = preferredFormats.filter((format) => supported.includes(format));
+          if (filtered.length) formats = filtered;
+        } catch (_) {
+          // Keep preferred defaults when the browser refuses supported-format probing.
+        }
+      }
+
+      const detector = new BarcodeDetectorClass({ formats });
+      const rawDetected = await detectFirstBarcode(detector, source);
+      if (rawDetected) {
+        return rawDetected;
+      }
+
+      for (const variant of createBarcodeDetectionVariants(source)) {
+        try {
+          const detected = await detectFirstBarcode(detector, variant.source);
+          if (detected) return detected;
+        } catch (_) {
+          // Keep trying transformed variants before giving up.
+        } finally {
+          if (variant?.source?.width) {
+            variant.source.width = 1;
+            variant.source.height = 1;
+          }
+        }
+      }
+    }
+
+    if (!canAttemptBrowserBarcodeDecode()) {
+      throw new Error('unsupported');
+    }
+
+    return await detectBarcodeWithZxing(source);
+  } finally {
     if (source && typeof source.close === 'function') {
       source.close();
     }

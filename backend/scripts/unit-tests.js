@@ -584,7 +584,7 @@ results.push(run('repo includes 2.9.4 Playwright browser regression foundation h
   assert.ok(rootPackageJson.scripts['test:browser']);
   assert.ok(rootPackageJson.scripts['test:browser:capture']);
   assert.ok(rootPackageJson.devDependencies['@playwright/test']);
-  assert.ok(playwrightConfigSource.includes("http://127.0.0.1:3000"));
+  assert.ok(playwrightConfigSource.includes("http://localhost:3000"));
   assert.ok(playwrightConfigSource.includes("trace: 'retain-on-failure'"));
   assert.ok(playwrightConfigSource.includes("screenshot: 'only-on-failure'"));
   assert.ok(playwrightConfigSource.includes("video: 'retain-on-failure'"));

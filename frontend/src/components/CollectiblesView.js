@@ -222,6 +222,11 @@ function CollectibleDrawer({
   }));
   const [imageFile, setImageFile] = useState(null);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const collectibleTabs = useMemo(() => ([
+    { id: 'core', label: 'Core Details' },
+    { id: 'storage', label: 'Storage & Notes' }
+  ]), []);
+  const [activeTab, setActiveTab] = useState('core');
 
   useEffect(() => {
     setForm({
@@ -232,6 +237,7 @@ function CollectibleDrawer({
       event_id: initial?.event_id ? String(initial.event_id) : ''
     });
     setImageFile(null);
+    setActiveTab('core');
   }, [initial]);
 
   const submit = () => onSave(form, imageFile);
@@ -283,46 +289,83 @@ function CollectibleDrawer({
               </div>
             </div>
           ) : null}
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <label className="field col-span-2"><span className="label">Title *</span><input className="input" value={form.title || ''} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} /></label>
-            <label className="field"><span className="label">Type</span>
-              <select className="select" value={form.subtype || 'collectible'} onChange={(e) => setForm((p) => ({ ...p, subtype: e.target.value }))}>
-                {ITEM_TYPES.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-              </select>
-            </label>
-            <label className="field"><span className="label">Category</span>
-              <select className="select" value={form.category_key || ''} onChange={(e) => setForm((p) => ({ ...p, category_key: e.target.value }))}>
-                <option value="">None</option>
-                {CATEGORY_OPTIONS.map((cat) => <option key={cat.key} value={cat.key}>{cat.label}</option>)}
-              </select>
-            </label>
-            <label className="field md:col-span-2"><span className="label">Linked Event</span>
-              <select className="select" value={form.event_id || ''} onChange={(e) => setForm((p) => ({ ...p, event_id: e.target.value }))}>
-                <option value="">None</option>
-                {events.map((evt) => <option key={evt.id} value={String(evt.id)}>{evt.title}</option>)}
-              </select>
-            </label>
-            <label className="field"><span className="label">Artist</span><input className="input" value={form.artist || ''} onChange={(e) => setForm((p) => ({ ...p, artist: e.target.value }))} /></label>
-            <label className="field"><span className="label">Vendor/Booth</span><input className="input" value={form.booth_or_vendor || ''} onChange={(e) => setForm((p) => ({ ...p, booth_or_vendor: e.target.value }))} /></label>
-            <label className="field"><span className="label">Price</span><input className="input" value={form.price ?? ''} onChange={(e) => setForm((p) => ({ ...p, price: e.target.value }))} /></label>
-            <label className="field md:col-span-2 inline-flex items-center gap-2 text-sm text-dim">
-              <input type="checkbox" checked={Boolean(form.exclusive)} onChange={(e) => setForm((p) => ({ ...p, exclusive: e.target.checked }))} />
-              Exclusive item
-            </label>
-            <label className="field md:col-span-2"><span className="label">Image URL (optional)</span><input className="input" value={form.image_path || ''} onChange={(e) => setForm((p) => ({ ...p, image_path: e.target.value }))} /></label>
-            <label className="field md:col-span-2"><span className="label">Upload/Capture image</span><input className="input" type="file" accept="image/*" capture="environment" onChange={(e) => setImageFile(e.target.files?.[0] || null)} /></label>
-            <div className="md:col-span-2 flex items-center gap-2">
-              <button type="button" onClick={() => setCameraOpen(true)} className="btn-secondary btn-sm"><Icons.Camera />Open camera</button>
-              <p className="text-xs text-ghost">Capture a collectible image directly from the camera and attach it here.</p>
+          <div className="tab-strip w-full">
+            {collectibleTabs.map((tab, index) => (
+              <button
+                key={tab.id}
+                type="button"
+                className={cx('tab flex-1', activeTab === tab.id && 'active')}
+                onClick={() => setActiveTab(tab.id)}
+              >
+                {`${index + 1}. ${tab.label}`}
+              </button>
+            ))}
+          </div>
+          <div className="rounded-3xl border border-edge bg-surface/95 p-5 shadow-soft space-y-5">
+            <div className="flex items-start gap-4">
+              <div className="flex-1 min-w-0">
+                <p className="label">Step {collectibleTabs.findIndex((tab) => tab.id === activeTab) + 1}</p>
+                <h3 className="section-title !text-xl mt-1">{(collectibleTabs.find((tab) => tab.id === activeTab) || collectibleTabs[0]).label}</h3>
+                <p className="mt-1 text-sm text-ghost">
+                  {activeTab === 'core' && 'Capture the collectible itself here, along with the event and vendor context that anchors where it came from.'}
+                  {activeTab === 'storage' && 'Use the final step for image handling and any storage or collection notes you want to keep with the item.'}
+                </p>
+              </div>
+              {activeTab === 'storage' ? (
+                <button type="button" onClick={() => setCameraOpen(true)} className="btn-secondary btn-sm shrink-0">
+                  <Icons.Camera />Open camera
+                </button>
+              ) : null}
             </div>
-            {imageFile ? <p className="text-xs text-ghost md:col-span-2">Selected file: {imageFile.name}</p> : null}
-            {form.image_path ? (
-              <div className="md:col-span-2 flex items-center gap-2">
-                <a className="btn-ghost btn-sm" href={form.image_path} target="_blank" rel="noreferrer"><Icons.Link />Open image</a>
-                <button className="btn-ghost btn-sm" onClick={onClearImage}><Icons.X />Remove image</button>
+
+            {activeTab === 'core' ? (
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <label className="field md:col-span-2"><span className="label">Title *</span><input className="input" value={form.title || ''} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} /></label>
+                <label className="field"><span className="label">Type</span>
+                  <select className="select" value={form.subtype || 'collectible'} onChange={(e) => setForm((p) => ({ ...p, subtype: e.target.value }))}>
+                    {ITEM_TYPES.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                  </select>
+                </label>
+                <label className="field"><span className="label">Category</span>
+                  <select className="select" value={form.category_key || ''} onChange={(e) => setForm((p) => ({ ...p, category_key: e.target.value }))}>
+                    <option value="">None</option>
+                    {CATEGORY_OPTIONS.map((cat) => <option key={cat.key} value={cat.key}>{cat.label}</option>)}
+                  </select>
+                </label>
+                <label className="field md:col-span-2"><span className="label">Linked Event</span>
+                  <select className="select" value={form.event_id || ''} onChange={(e) => setForm((p) => ({ ...p, event_id: e.target.value }))}>
+                    <option value="">None</option>
+                    {events.map((evt) => <option key={evt.id} value={String(evt.id)}>{evt.title}</option>)}
+                  </select>
+                </label>
+                <label className="field"><span className="label">Artist</span><input className="input" value={form.artist || ''} onChange={(e) => setForm((p) => ({ ...p, artist: e.target.value }))} /></label>
+                <label className="field"><span className="label">Vendor/Booth</span><input className="input" value={form.booth_or_vendor || ''} onChange={(e) => setForm((p) => ({ ...p, booth_or_vendor: e.target.value }))} /></label>
+                <label className="field"><span className="label">Price</span><input className="input" value={form.price ?? ''} onChange={(e) => setForm((p) => ({ ...p, price: e.target.value }))} /></label>
+                <label className="field md:col-span-2 inline-flex items-center gap-2 text-sm text-dim">
+                  <input type="checkbox" checked={Boolean(form.exclusive)} onChange={(e) => setForm((p) => ({ ...p, exclusive: e.target.checked }))} />
+                  Exclusive item
+                </label>
               </div>
             ) : null}
-            <label className="field md:col-span-2"><span className="label">Notes</span><textarea className="textarea min-h-[90px]" value={form.notes || ''} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} /></label>
+
+            {activeTab === 'storage' ? (
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <label className="field md:col-span-2"><span className="label">Image URL (optional)</span><input className="input" value={form.image_path || ''} onChange={(e) => setForm((p) => ({ ...p, image_path: e.target.value }))} /></label>
+                <label className="field md:col-span-2"><span className="label">Upload/Capture image</span><input className="input" type="file" accept="image/*" capture="environment" onChange={(e) => setImageFile(e.target.files?.[0] || null)} /></label>
+                <div className="md:col-span-2 flex items-center gap-2">
+                  <button type="button" onClick={() => setCameraOpen(true)} className="btn-secondary btn-sm"><Icons.Camera />Open camera</button>
+                  <p className="text-xs text-ghost">Capture a collectible image directly from the camera and attach it here.</p>
+                </div>
+                {imageFile ? <p className="text-xs text-ghost md:col-span-2">Selected file: {imageFile.name}</p> : null}
+                {form.image_path ? (
+                  <div className="md:col-span-2 flex items-center gap-2">
+                    <a className="btn-ghost btn-sm" href={form.image_path} target="_blank" rel="noreferrer"><Icons.Link />Open image</a>
+                    <button className="btn-ghost btn-sm" onClick={onClearImage}><Icons.X />Remove image</button>
+                  </div>
+                ) : null}
+                <label className="field md:col-span-2"><span className="label">Notes</span><textarea className="textarea min-h-[90px]" value={form.notes || ''} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} /></label>
+              </div>
+            ) : null}
           </div>
         </div>
         <div className="p-4 border-t border-edge flex gap-3 shrink-0">

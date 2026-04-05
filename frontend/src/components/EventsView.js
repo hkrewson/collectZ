@@ -119,7 +119,236 @@ function EventListRow({ item, supportsHover, onOpen, onEdit, onDelete }) {
   );
 }
 
-function EventFormDrawer({ initial, onClose, onSave, onDelete, onClearImage }) {
+function EventArtifactsEditor({ eventId, apiCall, onSaved }) {
+  const [artifacts, setArtifacts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [artifactEditorOpen, setArtifactEditorOpen] = useState(false);
+  const [artifactForm, setArtifactForm] = useState(DEFAULT_ARTIFACT_FORM);
+  const [editingArtifactId, setEditingArtifactId] = useState(null);
+  const [artifactFile, setArtifactFile] = useState(null);
+  const [artifactSaving, setArtifactSaving] = useState(false);
+  const [artifactError, setArtifactError] = useState('');
+  const [artifactNotice, setArtifactNotice] = useState('');
+
+  const loadArtifacts = useCallback(async () => {
+    setLoading(true);
+    try {
+      const artifactRows = await apiCall('get', `/events/${eventId}/artifacts`);
+      setArtifacts(Array.isArray(artifactRows) ? artifactRows : []);
+    } finally {
+      setLoading(false);
+    }
+  }, [apiCall, eventId]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        await loadArtifacts();
+      } catch (_) {
+        if (active) {
+          setArtifactError('Failed to load event artifacts');
+          setLoading(false);
+        }
+      }
+    })();
+    return () => { active = false; };
+  }, [loadArtifacts]);
+
+  const clearArtifactForm = useCallback(() => {
+    setEditingArtifactId(null);
+    setArtifactFile(null);
+    setArtifactForm(DEFAULT_ARTIFACT_FORM);
+    setArtifactError('');
+    setArtifactNotice('');
+  }, []);
+
+  const saveArtifact = async () => {
+    if (!artifactForm.title.trim()) return;
+    if (artifactSaving) return;
+    setArtifactSaving(true);
+    setArtifactError('');
+    setArtifactNotice('');
+    try {
+      const payload = {
+        artifact_type: artifactForm.artifact_type,
+        title: artifactForm.title.trim(),
+        description: artifactForm.description || null,
+        vendor: artifactForm.vendor || null,
+        price: artifactForm.price === '' ? null : Number(artifactForm.price),
+        image_path: artifactForm.image_path || null
+      };
+      let artifactId = editingArtifactId;
+      if (editingArtifactId) {
+        await apiCall('patch', `/events/${eventId}/artifacts/${editingArtifactId}`, payload);
+      } else {
+        const created = await apiCall('post', `/events/${eventId}/artifacts`, payload);
+        artifactId = created?.id || null;
+      }
+
+      let uploadError = '';
+      if (artifactFile && artifactId) {
+        try {
+          const formData = new FormData();
+          formData.append('image', artifactFile);
+          await apiCall('post', `/events/${eventId}/artifacts/${artifactId}/upload-image`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          });
+        } catch (primaryErr) {
+          try {
+            const fallbackForm = new FormData();
+            fallbackForm.append('cover', artifactFile);
+            const uploaded = await apiCall('post', '/media/upload-cover', fallbackForm, {
+              headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            if (uploaded?.path) {
+              await apiCall('patch', `/events/${eventId}/artifacts/${artifactId}`, { image_path: uploaded.path });
+            } else {
+              throw new Error('Fallback upload returned no image path');
+            }
+          } catch (fallbackErr) {
+            const primaryMsg = primaryErr?.response?.data?.error || primaryErr?.message || 'primary upload failed';
+            const fallbackMsg = fallbackErr?.response?.data?.error || fallbackErr?.message || 'fallback upload failed';
+            uploadError = `${formatUploadError(primaryMsg)}; ${formatUploadError(fallbackMsg)}`;
+          }
+        }
+      }
+
+      clearArtifactForm();
+      await loadArtifacts();
+      onSaved?.();
+      if (uploadError) {
+        setArtifactError(`Artifact saved, but image upload failed: ${uploadError}`);
+      } else {
+        setArtifactNotice('Artifact saved');
+      }
+    } catch (err) {
+      setArtifactError(err?.response?.data?.error || 'Failed to save artifact');
+    } finally {
+      setArtifactSaving(false);
+    }
+  };
+
+  const removeArtifact = async (artifactId) => {
+    if (!window.confirm('Delete this artifact?')) return;
+    await apiCall('delete', `/events/${eventId}/artifacts/${artifactId}`);
+    await loadArtifacts();
+    onSaved?.();
+  };
+
+  const editArtifact = (artifact) => {
+    setEditingArtifactId(artifact.id);
+    setArtifactFile(null);
+    setArtifactForm({
+      artifact_type: artifact.artifact_type || 'note',
+      title: artifact.title || '',
+      description: artifact.description || '',
+      vendor: artifact.vendor || '',
+      price: artifact.price ?? '',
+      image_path: artifact.image_path || ''
+    });
+  };
+
+  const removeArtifactImage = async (artifact) => {
+    if (!artifact?.id) return;
+    await apiCall('delete', `/events/${eventId}/artifacts/${artifact.id}/image`);
+    await loadArtifacts();
+    onSaved?.();
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-2xl border border-edge bg-surface px-4 py-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <MetaPill>{pluralizeArtifacts(artifacts.length)}</MetaPill>
+          <MetaPill tone="brand">Sessions</MetaPill>
+          <MetaPill tone="brand">Parties</MetaPill>
+          <MetaPill tone="brand">Signings</MetaPill>
+          <div className="flex-1" />
+          <button
+            className="btn-ghost btn-sm"
+            onClick={() => {
+              setArtifactEditorOpen((open) => {
+                const next = !open;
+                if (!next) clearArtifactForm();
+                return next;
+              });
+            }}
+          >
+            {artifactEditorOpen ? 'Done' : 'Edit sub-events'}
+          </button>
+        </div>
+        <p className="mt-2 text-sm text-ghost">
+          Keep the parent event here, then attach its actual panels, parties, signings, purchases, and notes as sub-events or artifacts.
+        </p>
+      </div>
+      {loading ? <div className="flex items-center gap-2 text-dim"><Spinner size={16} />Loading sub-events…</div> : null}
+      {artifactError ? <p className="text-xs text-err">{artifactError}</p> : null}
+      {artifactNotice ? <p className="text-xs text-ok">{artifactNotice}</p> : null}
+      <div className="space-y-2">
+        {artifacts.map((artifact) => (
+          <div key={artifact.id} className="flex items-center gap-3 rounded-xl border border-edge/70 bg-surface px-3 py-2">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-ink truncate">{artifact.title}</p>
+              <div className="mt-1 flex flex-wrap gap-2">
+                <MetaPill>{artifact.artifact_type}</MetaPill>
+                {artifact.vendor ? <MetaPill>{artifact.vendor}</MetaPill> : null}
+                {artifact.price !== null && artifact.price !== undefined ? <MetaPill>{`$${artifact.price}`}</MetaPill> : null}
+              </div>
+            </div>
+            {artifact.image_path ? (
+              <a className="btn-ghost btn-sm" href={artifact.image_path} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
+                <Icons.Link />
+              </a>
+            ) : null}
+            {artifactEditorOpen && artifact.image_path ? (
+              <button className="btn-ghost btn-sm" onClick={() => removeArtifactImage(artifact)}>
+                <Icons.X />
+              </button>
+            ) : null}
+            {artifactEditorOpen ? <button className="btn-ghost btn-sm" onClick={() => editArtifact(artifact)}><Icons.Edit /></button> : null}
+            {artifactEditorOpen ? <button className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={() => removeArtifact(artifact.id)}><Icons.Trash /></button> : null}
+          </div>
+        ))}
+        {!loading && artifacts.length === 0 ? (
+          <p className="text-sm text-ghost">No sub-events or artifacts yet. Add sessions, signings, parties, purchases, or notes once this event exists.</p>
+        ) : null}
+      </div>
+      {artifactEditorOpen ? (
+        <div className="rounded-2xl border border-edge bg-surface p-4">
+          <p className="label mb-3">{editingArtifactId ? `Edit Entry #${editingArtifactId}` : 'Add Sub-Event / Artifact'}</p>
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+            <select className="select" value={artifactForm.artifact_type} onChange={(e) => setArtifactForm((prev) => ({ ...prev, artifact_type: e.target.value }))}>
+              <option value="note">Note</option>
+              <option value="session">Session</option>
+              <option value="person">Person</option>
+              <option value="autograph">Autograph</option>
+              <option value="purchase">Purchase</option>
+              <option value="freebie">Freebie</option>
+            </select>
+            <input className="input" placeholder="Title" value={artifactForm.title} onChange={(e) => setArtifactForm((prev) => ({ ...prev, title: e.target.value }))} />
+            <input className="input" placeholder="Vendor" value={artifactForm.vendor} onChange={(e) => setArtifactForm((prev) => ({ ...prev, vendor: e.target.value }))} />
+            <input className="input" placeholder="Price" value={artifactForm.price} onChange={(e) => setArtifactForm((prev) => ({ ...prev, price: e.target.value }))} />
+            <input className="input md:col-span-2" placeholder="Image URL (optional)" value={artifactForm.image_path} onChange={(e) => setArtifactForm((prev) => ({ ...prev, image_path: e.target.value }))} />
+            <input className="input md:col-span-2" type="file" accept="image/*" capture="environment" onChange={(e) => setArtifactFile(e.target.files?.[0] || null)} />
+            {artifactFile ? <p className="text-xs text-ghost md:col-span-2">Selected file: {artifactFile.name}</p> : null}
+            <textarea className="textarea md:col-span-2 min-h-[88px]" placeholder="Description" value={artifactForm.description} onChange={(e) => setArtifactForm((prev) => ({ ...prev, description: e.target.value }))} />
+            <div className="md:col-span-2 flex gap-2">
+              <button className="btn-secondary flex-1" onClick={saveArtifact} disabled={artifactSaving}>
+                {artifactSaving
+                  ? <><Spinner size={14} />Saving…</>
+                  : (editingArtifactId ? <><Icons.Check />Save Entry</> : <><Icons.Plus />Add Entry</>)}
+              </button>
+              {editingArtifactId ? <button className="btn-ghost" onClick={clearArtifactForm}>Cancel</button> : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function EventFormDrawer({ initial, apiCall, onClose, onSave, onDelete, onClearImage }) {
   const [form, setForm] = useState(() => ({
     ...DEFAULT_EVENT_FORM,
     ...(initial || {}),
@@ -130,6 +359,12 @@ function EventFormDrawer({ initial, onClose, onSave, onDelete, onClearImage }) {
   const [cameraOpen, setCameraOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const eventTabs = useMemo(() => ([
+    { id: 'core', label: 'Core Details' },
+    { id: 'subevents', label: 'Sub-Events & Artifacts' },
+    { id: 'storage', label: 'Storage & Notes' }
+  ]), []);
+  const [activeTab, setActiveTab] = useState('core');
 
   const set = (patch) => setForm((prev) => ({ ...prev, ...patch }));
 
@@ -141,6 +376,7 @@ function EventFormDrawer({ initial, onClose, onSave, onDelete, onClearImage }) {
       date_end: toInputDate(initial?.date_end)
     });
     setImageFile(null);
+    setActiveTab('core');
   }, [initial]);
 
   const submit = async () => {
@@ -180,29 +416,77 @@ function EventFormDrawer({ initial, onClose, onSave, onDelete, onClearImage }) {
         </div>
         <div className="p-6 overflow-y-auto space-y-4">
           {error && <p className="text-sm text-err">{error}</p>}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <label className="field md:col-span-2"><span className="label">Title *</span><input className="input" value={form.title || ''} onChange={(e) => set({ title: e.target.value })} /></label>
-            <label className="field md:col-span-2"><span className="label">URL *</span><input className="input" value={form.url || ''} onChange={(e) => set({ url: e.target.value })} /></label>
-            <label className="field"><span className="label">Location *</span><input className="input" value={form.location || ''} onChange={(e) => set({ location: e.target.value })} /></label>
-            <label className="field"><span className="label">Host</span><input className="input" value={form.host || ''} onChange={(e) => set({ host: e.target.value })} /></label>
-            <label className="field"><span className="label">Start Date *</span><input type="date" className="input" value={form.date_start || ''} onChange={(e) => set({ date_start: e.target.value })} /></label>
-            <label className="field"><span className="label">End Date</span><input type="date" className="input" value={form.date_end || ''} onChange={(e) => set({ date_end: e.target.value })} /></label>
-            <label className="field"><span className="label">Time</span><input className="input" value={form.time_label || ''} onChange={(e) => set({ time_label: e.target.value })} /></label>
-            <label className="field"><span className="label">Room</span><input className="input" value={form.room || ''} onChange={(e) => set({ room: e.target.value })} /></label>
-            <label className="field md:col-span-2"><span className="label">Image URL (optional)</span><input className="input" value={form.image_path || ''} onChange={(e) => set({ image_path: e.target.value })} /></label>
-            <label className="field md:col-span-2"><span className="label">Upload/Capture image</span><input className="input" type="file" accept="image/*" capture="environment" onChange={(e) => setImageFile(e.target.files?.[0] || null)} /></label>
-            <div className="md:col-span-2 flex items-center gap-2">
-              <button type="button" onClick={() => setCameraOpen(true)} className="btn-secondary btn-sm"><Icons.Camera />Open camera</button>
-              <p className="text-xs text-ghost">Capture a live event image without leaving the drawer.</p>
+          <div className="tab-strip w-full">
+            {eventTabs.map((tab, index) => (
+              <button
+                key={tab.id}
+                type="button"
+                className={cx('tab flex-1', activeTab === tab.id && 'active')}
+                onClick={() => setActiveTab(tab.id)}
+              >
+                {`${index + 1}. ${tab.label}`}
+              </button>
+            ))}
+          </div>
+          <div className="rounded-3xl border border-edge bg-surface/95 p-5 shadow-soft space-y-5">
+            <div className="flex items-start gap-4">
+              <div className="flex-1 min-w-0">
+                <p className="label">Step {eventTabs.findIndex((tab) => tab.id === activeTab) + 1}</p>
+                <h3 className="section-title !text-xl mt-1">{(eventTabs.find((tab) => tab.id === activeTab) || eventTabs[0]).label}</h3>
+                <p className="mt-1 text-sm text-ghost">
+                  {activeTab === 'core' && 'Define the parent event first so its sessions, parties, and signings have the right home.'}
+                  {activeTab === 'subevents' && 'Use this space for panels, parties, signings, purchases, and other event history entries.'}
+                  {activeTab === 'storage' && 'Keep notes and image handling out of the way of the main event scheduling details.'}
+                </p>
+              </div>
+              {activeTab !== 'subevents' ? (
+                <button type="button" onClick={() => setCameraOpen(true)} className="btn-secondary btn-sm shrink-0">
+                  <Icons.Camera />Open camera
+                </button>
+              ) : null}
             </div>
-            {imageFile ? <p className="text-xs text-ghost md:col-span-2">Selected file: {imageFile.name}</p> : null}
-            {form.image_path ? (
-              <div className="md:col-span-2 flex items-center gap-2">
-                <a className="btn-ghost btn-sm" href={form.image_path} target="_blank" rel="noreferrer"><Icons.Link />Open image</a>
-                {initial?.id ? <button className="btn-ghost btn-sm" onClick={onClearImage}><Icons.X />Remove image</button> : null}
+
+            {activeTab === 'core' ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <label className="field md:col-span-2"><span className="label">Title *</span><input className="input" value={form.title || ''} onChange={(e) => set({ title: e.target.value })} /></label>
+                <label className="field md:col-span-2"><span className="label">URL *</span><input className="input" value={form.url || ''} onChange={(e) => set({ url: e.target.value })} /></label>
+                <label className="field"><span className="label">Location *</span><input className="input" value={form.location || ''} onChange={(e) => set({ location: e.target.value })} /></label>
+                <label className="field"><span className="label">Host</span><input className="input" value={form.host || ''} onChange={(e) => set({ host: e.target.value })} /></label>
+                <label className="field"><span className="label">Start Date *</span><input type="date" className="input" value={form.date_start || ''} onChange={(e) => set({ date_start: e.target.value })} /></label>
+                <label className="field"><span className="label">End Date</span><input type="date" className="input" value={form.date_end || ''} onChange={(e) => set({ date_end: e.target.value })} /></label>
+                <label className="field"><span className="label">Time</span><input className="input" value={form.time_label || ''} onChange={(e) => set({ time_label: e.target.value })} /></label>
+                <label className="field"><span className="label">Room</span><input className="input" value={form.room || ''} onChange={(e) => set({ room: e.target.value })} /></label>
               </div>
             ) : null}
-            <label className="field md:col-span-2"><span className="label">Notes</span><textarea className="textarea min-h-[96px]" value={form.notes || ''} onChange={(e) => set({ notes: e.target.value })} /></label>
+
+            {activeTab === 'subevents' ? (
+              initial?.id ? (
+                <EventArtifactsEditor eventId={initial.id} apiCall={apiCall} onSaved={() => {}} />
+              ) : (
+                <div className="rounded-2xl border border-dashed border-edge px-4 py-6 text-sm text-ghost">
+                  Save the event first, then come back here to add panels, parties, signings, purchases, and other sub-event history.
+                </div>
+              )
+            ) : null}
+
+            {activeTab === 'storage' ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <label className="field md:col-span-2"><span className="label">Image URL (optional)</span><input className="input" value={form.image_path || ''} onChange={(e) => set({ image_path: e.target.value })} /></label>
+                <label className="field md:col-span-2"><span className="label">Upload/Capture image</span><input className="input" type="file" accept="image/*" capture="environment" onChange={(e) => setImageFile(e.target.files?.[0] || null)} /></label>
+                <div className="md:col-span-2 flex items-center gap-2">
+                  <button type="button" onClick={() => setCameraOpen(true)} className="btn-secondary btn-sm"><Icons.Camera />Open camera</button>
+                  <p className="text-xs text-ghost">Capture a live event image without leaving the drawer.</p>
+                </div>
+                {imageFile ? <p className="text-xs text-ghost md:col-span-2">Selected file: {imageFile.name}</p> : null}
+                {form.image_path ? (
+                  <div className="md:col-span-2 flex items-center gap-2">
+                    <a className="btn-ghost btn-sm" href={form.image_path} target="_blank" rel="noreferrer"><Icons.Link />Open image</a>
+                    {initial?.id ? <button className="btn-ghost btn-sm" onClick={onClearImage}><Icons.X />Remove image</button> : null}
+                  </div>
+                ) : null}
+                <label className="field md:col-span-2"><span className="label">Notes</span><textarea className="textarea min-h-[96px]" value={form.notes || ''} onChange={(e) => set({ notes: e.target.value })} /></label>
+              </div>
+            ) : null}
           </div>
         </div>
         <div className="shrink-0 border-t border-edge bg-abyss px-6 py-4 flex items-center gap-3">
@@ -228,130 +512,19 @@ function EventFormDrawer({ initial, onClose, onSave, onDelete, onClearImage }) {
 
 function EventDetailDrawer({ eventId, apiCall, onClose, onEdit, onDeleted, onSaved }) {
   const [event, setEvent] = useState(null);
-  const [artifacts, setArtifacts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [artifactEditorOpen, setArtifactEditorOpen] = useState(false);
-  const [artifactForm, setArtifactForm] = useState(DEFAULT_ARTIFACT_FORM);
-  const [editingArtifactId, setEditingArtifactId] = useState(null);
-  const [artifactFile, setArtifactFile] = useState(null);
-  const [artifactSaving, setArtifactSaving] = useState(false);
-  const [artifactError, setArtifactError] = useState('');
-  const [artifactNotice, setArtifactNotice] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const row = await apiCall('get', `/events/${eventId}`);
       if (row) setEvent(row);
-      const artifactRows = await apiCall('get', `/events/${eventId}/artifacts`);
-      setArtifacts(Array.isArray(artifactRows) ? artifactRows : []);
     } finally {
       setLoading(false);
     }
   }, [apiCall, eventId]);
 
   useEffect(() => { load(); }, [load]);
-
-  const saveArtifact = async () => {
-    if (!artifactForm.title.trim()) return;
-    if (artifactSaving) return;
-    setArtifactSaving(true);
-    setArtifactError('');
-    setArtifactNotice('');
-    try {
-      const payload = {
-        artifact_type: artifactForm.artifact_type,
-        title: artifactForm.title.trim(),
-        description: artifactForm.description || null,
-        vendor: artifactForm.vendor || null,
-        price: artifactForm.price === '' ? null : Number(artifactForm.price),
-        image_path: artifactForm.image_path || null
-      };
-      let artifactId = editingArtifactId;
-      if (editingArtifactId) {
-        await apiCall('patch', `/events/${eventId}/artifacts/${editingArtifactId}`, payload);
-      } else {
-        const created = await apiCall('post', `/events/${eventId}/artifacts`, payload);
-        artifactId = created?.id || null;
-      }
-      let uploadError = '';
-      if (artifactFile && artifactId) {
-        try {
-          const formData = new FormData();
-          formData.append('image', artifactFile);
-          await apiCall('post', `/events/${eventId}/artifacts/${artifactId}/upload-image`, formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-          });
-        } catch (primaryErr) {
-          try {
-            const fallbackForm = new FormData();
-            fallbackForm.append('cover', artifactFile);
-            const uploaded = await apiCall('post', '/media/upload-cover', fallbackForm, {
-              headers: { 'Content-Type': 'multipart/form-data' }
-            });
-            if (uploaded?.path) {
-              await apiCall('patch', `/events/${eventId}/artifacts/${artifactId}`, { image_path: uploaded.path });
-            } else {
-              throw new Error('Fallback upload returned no image path');
-            }
-          } catch (fallbackErr) {
-            const primaryMsg = primaryErr?.response?.data?.error || primaryErr?.message || 'primary upload failed';
-            const fallbackMsg = fallbackErr?.response?.data?.error || fallbackErr?.message || 'fallback upload failed';
-            uploadError = `${formatUploadError(primaryMsg)}; ${formatUploadError(fallbackMsg)}`;
-          }
-        }
-      }
-      setArtifactForm(DEFAULT_ARTIFACT_FORM);
-      setEditingArtifactId(null);
-      setArtifactFile(null);
-      await load();
-      onSaved?.();
-      if (uploadError) {
-        setArtifactError(`Artifact saved, but image upload failed: ${uploadError}`);
-      } else {
-        setArtifactNotice('Artifact saved');
-      }
-    } catch (err) {
-      setArtifactError(err?.response?.data?.error || 'Failed to save artifact');
-    } finally {
-      setArtifactSaving(false);
-    }
-  };
-
-  const removeArtifact = async (artifactId) => {
-    if (!window.confirm('Delete this artifact?')) return;
-    await apiCall('delete', `/events/${eventId}/artifacts/${artifactId}`);
-    await load();
-    onSaved?.();
-  };
-
-  const editArtifact = (artifact) => {
-    setEditingArtifactId(artifact.id);
-    setArtifactFile(null);
-    setArtifactForm({
-      artifact_type: artifact.artifact_type || 'note',
-      title: artifact.title || '',
-      description: artifact.description || '',
-      vendor: artifact.vendor || '',
-      price: artifact.price ?? '',
-      image_path: artifact.image_path || ''
-    });
-  };
-
-  const clearArtifactForm = () => {
-    setEditingArtifactId(null);
-    setArtifactFile(null);
-    setArtifactForm(DEFAULT_ARTIFACT_FORM);
-    setArtifactError('');
-    setArtifactNotice('');
-  };
-
-  const removeArtifactImage = async (artifact) => {
-    if (!artifact?.id) return;
-    await apiCall('delete', `/events/${eventId}/artifacts/${artifact.id}/image`);
-    await load();
-    onSaved?.();
-  };
 
   const deleteEvent = async () => {
     if (!window.confirm('Delete this event?')) return;
@@ -405,84 +578,7 @@ function EventDetailDrawer({ eventId, apiCall, onClose, onEdit, onDeleted, onSav
                 ) : null}
               </div>
               {event?.notes ? <DetailField label="Notes"><p className="text-dim">{event.notes}</p></DetailField> : null}
-              <div>
-                <div className="mb-3 flex items-center gap-3">
-                  <p className="label">Artifacts</p>
-                  <MetaPill>{pluralizeArtifacts(artifacts.length)}</MetaPill>
-                  <div className="flex-1" />
-                  <button
-                    className="btn-ghost btn-sm"
-                    onClick={() => {
-                      setArtifactEditorOpen((open) => {
-                        const next = !open;
-                        if (!next) clearArtifactForm();
-                        return next;
-                      });
-                    }}
-                  >
-                    {artifactEditorOpen ? 'Done' : 'Edit artifacts'}
-                  </button>
-                </div>
-                <div className="space-y-2">
-                  {artifacts.map((a) => (
-                    <div key={a.id} className="flex items-center gap-3 rounded-xl border border-edge/70 bg-surface px-3 py-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-ink truncate">{a.title}</p>
-                        <div className="mt-1 flex flex-wrap gap-2">
-                          <MetaPill>{a.artifact_type}</MetaPill>
-                          {a.vendor ? <MetaPill>{a.vendor}</MetaPill> : null}
-                          {a.price !== null && a.price !== undefined ? <MetaPill>{`$${a.price}`}</MetaPill> : null}
-                        </div>
-                      </div>
-                      {a.image_path ? (
-                        <a className="btn-ghost btn-sm" href={a.image_path} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
-                          <Icons.Link />
-                        </a>
-                      ) : null}
-                      {artifactEditorOpen && a.image_path ? (
-                        <button className="btn-ghost btn-sm" onClick={() => removeArtifactImage(a)}>
-                          <Icons.X />
-                        </button>
-                      ) : null}
-                      {artifactEditorOpen ? <button className="btn-ghost btn-sm" onClick={() => editArtifact(a)}><Icons.Edit /></button> : null}
-                      {artifactEditorOpen ? <button className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={() => removeArtifact(a.id)}><Icons.Trash /></button> : null}
-                    </div>
-                  ))}
-                  {artifacts.length === 0 && <p className="text-sm text-ghost">No artifacts yet. Add notes, purchases, or photos from this event to build the history here.</p>}
-                </div>
-              </div>
-              {artifactEditorOpen ? (
-                <div className="border-t border-edge pt-4">
-                  <p className="label mb-2">{editingArtifactId ? `Edit Artifact #${editingArtifactId}` : 'Add Artifact'}</p>
-                  {artifactError ? <p className="text-xs text-err mb-2">{artifactError}</p> : null}
-                  {artifactNotice ? <p className="text-xs text-ok mb-2">{artifactNotice}</p> : null}
-                  <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                    <select className="select" value={artifactForm.artifact_type} onChange={(e) => setArtifactForm((p) => ({ ...p, artifact_type: e.target.value }))}>
-                      <option value="note">Note</option>
-                      <option value="session">Session</option>
-                      <option value="person">Person</option>
-                      <option value="autograph">Autograph</option>
-                      <option value="purchase">Purchase</option>
-                      <option value="freebie">Freebie</option>
-                    </select>
-                    <input className="input" placeholder="Title" value={artifactForm.title} onChange={(e) => setArtifactForm((p) => ({ ...p, title: e.target.value }))} />
-                    <input className="input" placeholder="Vendor" value={artifactForm.vendor} onChange={(e) => setArtifactForm((p) => ({ ...p, vendor: e.target.value }))} />
-                    <input className="input" placeholder="Price" value={artifactForm.price} onChange={(e) => setArtifactForm((p) => ({ ...p, price: e.target.value }))} />
-                    <input className="input md:col-span-2" placeholder="Image URL (optional)" value={artifactForm.image_path} onChange={(e) => setArtifactForm((p) => ({ ...p, image_path: e.target.value }))} />
-                    <input className="input md:col-span-2" type="file" accept="image/*" capture="environment" onChange={(e) => setArtifactFile(e.target.files?.[0] || null)} />
-                    {artifactFile ? <p className="text-xs text-ghost md:col-span-2">Selected file: {artifactFile.name}</p> : null}
-                    <textarea className="textarea md:col-span-2 min-h-[70px]" placeholder="Description" value={artifactForm.description} onChange={(e) => setArtifactForm((p) => ({ ...p, description: e.target.value }))} />
-                    <div className="md:col-span-2 flex gap-2">
-                      <button className="btn-secondary flex-1" onClick={saveArtifact} disabled={artifactSaving}>
-                        {artifactSaving
-                          ? <><Spinner size={14} />Saving…</>
-                          : (editingArtifactId ? <><Icons.Check />Save Artifact</> : <><Icons.Plus />Add Artifact</>)}
-                      </button>
-                      {editingArtifactId ? <button className="btn-ghost" onClick={clearArtifactForm}>Cancel</button> : null}
-                    </div>
-                  </div>
-                </div>
-              ) : null}
+              <EventArtifactsEditor eventId={eventId} apiCall={apiCall} onSaved={onSaved} />
             </>
           )}
         </div>
@@ -689,6 +785,7 @@ export default function EventsView({ apiCall, onToast }) {
       {(adding || editing) && (
         <EventFormDrawer
           initial={editing}
+          apiCall={apiCall}
           onClose={() => { setAdding(false); setEditing(null); }}
           onSave={saveEvent}
           onDelete={editing?.id ? async () => { await deleteEvent(editing.id); setEditing(null); } : null}

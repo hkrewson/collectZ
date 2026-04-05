@@ -995,6 +995,20 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
   const isBarcodeCapable = isMovieOrTv || isBook || isComic || isAudio || isGame;
   const canConvertToCollection = Boolean(onConvertToCollection) && ['movie', 'game'].includes(form.media_type);
   const isTypedEnrichment = isBook || isComic || isAudio || isGame;
+  const editorTabs = useMemo(() => {
+    const tabs = [{ id: 'core', label: 'Core Details' }];
+    if (isMovieOrTv) tabs.push({ id: 'people', label: 'Cast & Crew' });
+    tabs.push({ id: 'signatures', label: 'Signatures' });
+    tabs.push({ id: 'storage', label: 'Storage & Notes' });
+    return tabs;
+  }, [isMovieOrTv]);
+  const [activeEditorTab, setActiveEditorTab] = useState('core');
+
+  useEffect(() => {
+    if (!editorTabs.some((tab) => tab.id === activeEditorTab)) {
+      setActiveEditorTab('core');
+    }
+  }, [activeEditorTab, editorTabs]);
   const searchTmdb = async () => {
     if (!form.title.trim()) return;
     setTmdbLoading(true);
@@ -1170,7 +1184,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
     } catch (error) {
       const reason = error?.message;
       if (reason === 'unsupported') {
-        notify('Camera barcode capture is not supported in this browser yet. Enter the UPC manually instead.', 'error');
+        notify('This browser could capture the image, but barcode decoding is not available yet. Enter the UPC manually instead.', 'error');
       } else if (reason === 'not-found') {
         notify('No barcode was detected in that image. Try a clearer photo or enter the UPC manually.', 'error');
       } else {
@@ -1193,7 +1207,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
     } catch (error) {
       const reason = error?.message;
       if (reason === 'unsupported') {
-        notify('Live barcode capture is not supported in this browser yet. You can still type the UPC manually.', 'error');
+        notify('This browser could capture the frame, but barcode decoding is not available yet. You can still type the UPC manually.', 'error');
       } else if (reason === 'not-found') {
         notify('No barcode was detected in that capture. Try again with a clearer frame or enter the UPC manually.', 'error');
       } else {
@@ -1515,382 +1529,403 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
       </div>
 
       <div className="flex-1 overflow-y-auto scroll-area">
-        <div className="p-6 flex gap-6">
-          <div className="w-28 shrink-0">
-            <div className="poster rounded-md shadow-card">
-              {posterUrl(form.poster_path)
-                ? <img src={posterUrl(form.poster_path)} alt="poster" className="absolute inset-0 w-full h-full object-cover" />
-                : <div className="absolute inset-0 flex items-center justify-center text-ghost"><Icons.Film /></div>}
-            </div>
+        <div className="p-6 space-y-6 pb-32">
+          <div className="tab-strip">
+            {editorTabs.map((tab, index) => (
+              <button
+                key={tab.id}
+                type="button"
+                className={cx('tab flex-1', activeEditorTab === tab.id && 'active')}
+                onClick={() => setActiveEditorTab(tab.id)}
+              >
+                {`${index + 1}. ${tab.label}`}
+              </button>
+            ))}
           </div>
 
-          <div className="flex-1 space-y-4">
-            {isBarcodeCapable && (
-              <div className="tab-strip">
-                {[(isMovieOrTv ? 'title' : null), 'upc', 'cover'].filter(Boolean).map((m) => (
-                  <button key={m} className={cx('tab flex-1 capitalize', addMode === m && 'active')} onClick={() => setAddMode(m)}>
-                    {m === 'title' ? 'Title Search' : m === 'upc' ? 'Barcode' : 'Cover Image'}
-                  </button>
-                ))}
+          <div className="rounded-2xl border border-edge bg-surface/70 p-5 sm:p-6">
+            <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="label">Step {editorTabs.findIndex((tab) => tab.id === activeEditorTab) + 1}</p>
+                <h3 className="section-title !text-xl mt-1">{(editorTabs.find((tab) => tab.id === activeEditorTab) || editorTabs[0]).label}</h3>
+              </div>
+              {activeEditorTab === 'core' && isBarcodeCapable ? (
+                <div className="tab-strip max-w-xl">
+                  {[(isMovieOrTv ? 'title' : null), 'upc', 'cover'].filter(Boolean).map((m) => (
+                    <button key={m} type="button" className={cx('tab flex-1 capitalize', addMode === m && 'active')} onClick={() => setAddMode(m)}>
+                      {m === 'title' ? 'Title Search' : m === 'upc' ? 'Barcode' : 'Cover Image'}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+
+            {activeEditorTab === 'core' && (
+              <>
+                <div className="flex flex-col gap-6 lg:flex-row">
+                  <div className="w-full shrink-0 lg:w-52">
+                    <div className="poster rounded-md shadow-card">
+                      {posterUrl(form.poster_path)
+                        ? <img src={posterUrl(form.poster_path)} alt="poster" className="absolute inset-0 w-full h-full object-cover" />
+                        : <div className="absolute inset-0 flex items-center justify-center text-ghost"><Icons.Film /></div>}
+                    </div>
+                  </div>
+
+                  <div className="min-w-0 flex-1 space-y-5">
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+                      <LabeledField label="Type" className="md:col-span-1">
+                        <select
+                          className="select"
+                          value={form.media_type}
+                          onChange={(e) => {
+                            const nextType = e.target.value;
+                            const patch = { media_type: nextType };
+                            if ((nextType === 'book' || nextType === 'comic_book') && !BOOK_FORMATS.includes(form.format)) patch.format = 'Digital';
+                            if (nextType === 'audio' || nextType === 'game') patch.format = '';
+                            if (!['movie', 'tv_series', 'tv_episode'].includes(nextType)) {
+                              patch.original_title = '';
+                              patch.director = '';
+                              patch.cast = '';
+                              patch.runtime = '';
+                              patch.rating = '';
+                              patch.tmdb_id = '';
+                              patch.tmdb_media_type = 'movie';
+                              patch.trailer_url = '';
+                              patch.backdrop_path = '';
+                            }
+                            if (nextType !== 'movie') patch.movie_edition = '';
+                            set(patch);
+                            if (!['movie', 'tv_series', 'tv_episode'].includes(nextType) && addMode === 'title') {
+                              setAddMode('upc');
+                            }
+                            if (!['movie', 'tv_series', 'tv_episode', 'book', 'audio', 'game', 'comic_book'].includes(nextType) && addMode === 'upc') {
+                              setAddMode('cover');
+                            }
+                            setTypeEnrichResults([]);
+                          }}
+                        >
+                          {MEDIA_TYPES.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+                        </select>
+                      </LabeledField>
+                      {(isMovieOrTv || isBook || isComic) && (
+                        <LabeledField label="Format" className="md:col-span-1">
+                          <select className="select" value={form.format} onChange={(e) => set({ format: e.target.value })}>
+                            {((isBook || isComic) ? BOOK_FORMATS : MEDIA_FORMATS).map((f) => <option key={f}>{f}</option>)}
+                          </select>
+                        </LabeledField>
+                      )}
+                      {!isGame && (
+                        <LabeledField label="Year" className="md:col-span-1">
+                          <input className="input" placeholder="2024" value={form.year} onChange={(e) => set({ year: e.target.value })} inputMode="numeric" />
+                        </LabeledField>
+                      )}
+                      {form.media_type === 'movie' && (
+                        <LabeledField label="Edition" className="md:col-span-1">
+                          <input className="input" placeholder="Theatrical" value={form.movie_edition} onChange={(e) => set({ movie_edition: e.target.value })} />
+                        </LabeledField>
+                      )}
+                    </div>
+
+                    <LabeledField label={isAudio ? 'Album *' : 'Title *'}>
+                      <div className="flex gap-2">
+                        <input className="input flex-1" placeholder={isAudio ? 'Album title' : (form.media_type === 'movie' ? 'Movie title' : 'Title')} value={form.title} onChange={(e) => set({ title: e.target.value })} required />
+                        {isMovieOrTv && addMode === 'title' && (
+                          <button type="button" onClick={searchTmdb} disabled={tmdbLoading} className="btn-secondary btn-sm shrink-0 min-w-[100px]">
+                            {tmdbLoading ? <Spinner size={14} /> : <><Icons.Search />Search</>}
+                          </button>
+                        )}
+                        {isTypedEnrichment && (
+                          <button type="button" onClick={searchTypeEnrichment} disabled={typeEnrichLoading} className="btn-secondary btn-sm shrink-0 min-w-[100px]">
+                            {typeEnrichLoading ? <Spinner size={14} /> : <><Icons.Search />Lookup</>}
+                          </button>
+                        )}
+                      </div>
+                    </LabeledField>
+
+                    {isBarcodeCapable && addMode === 'upc' && (
+                      <LabeledField label={isBook ? 'ISBN / Barcode' : 'UPC / Barcode'}>
+                        <div className="flex flex-wrap gap-2">
+                          <input className="input min-w-[220px] flex-1 font-mono" placeholder={isBook ? '9780358447849' : '012345678901'} value={form.upc} onChange={(e) => set({ upc: normalizeBarcodeInput(e.target.value) })} />
+                          <button type="button" onClick={() => setBarcodeCameraOpen(true)} disabled={barcodeCaptureLoading} className="btn-secondary btn-sm shrink-0 min-w-[100px]">
+                            {barcodeCaptureLoading ? <Spinner size={14} /> : <><Icons.Camera />Camera</>}
+                          </button>
+                          <button type="button" onClick={() => barcodeCaptureInputRef.current?.click()} disabled={barcodeCaptureLoading} className="btn-secondary btn-sm shrink-0 min-w-[100px]">
+                            <Icons.Upload />Photo
+                          </button>
+                          <button type="button" onClick={() => lookupBarcode()} disabled={barcodeLoading} className="btn-secondary btn-sm shrink-0 min-w-[100px]">
+                            {barcodeLoading ? <Spinner size={14} /> : <><Icons.Barcode />Lookup</>}
+                          </button>
+                        </div>
+                        <input
+                          ref={barcodeCaptureInputRef}
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          className="hidden"
+                          onChange={handleBarcodeCapture}
+                        />
+                        <p className="text-xs text-ghost">
+                          Capture a live barcode frame or choose a barcode photo. {canCaptureBarcode ? "We'll try to fill the UPC automatically." : 'This browser may ask you to type the UPC manually after capture.'}
+                        </p>
+                      </LabeledField>
+                    )}
+
+                    {(!isMovieOrTv || addMode === 'cover') && (
+                      <div className="space-y-2">
+                        <label className="label">Cover Image</label>
+                        <input
+                          ref={coverImageInputRef}
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          onChange={handleCoverImageSelection}
+                          className="hidden"
+                        />
+                        <p className="text-xs text-ghost">Capture or choose a cover or packaging photo to attach it directly to this item.</p>
+                        <div className="flex flex-wrap gap-2">
+                          <button type="button" onClick={() => setCoverCameraOpen(true)} disabled={coverUploadLoading} className="btn-secondary btn-sm">
+                            {coverUploadLoading ? <Spinner size={14} /> : <><Icons.Camera />Camera</>}
+                          </button>
+                          <button type="button" onClick={() => coverImageInputRef.current?.click()} disabled={coverUploadLoading} className="btn-secondary btn-sm">
+                            <Icons.Upload />Photo
+                          </button>
+                          {form.poster_path && (
+                            <button type="button" onClick={() => set({ poster_path: '' })} disabled={coverUploadLoading} className="btn-secondary btn-sm text-err">
+                              <Icons.Trash />Remove
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {isMovieOrTv && allTmdbMatches.length > 0 && (
+                  <div className="mt-5 space-y-2">
+                    <p className="label">TMDB Matches — click to apply</p>
+                    <div className="space-y-1.5 max-h-52 overflow-y-auto scroll-area pr-1">
+                      {allTmdbMatches.slice(0, 8).map((r) => (
+                        <button key={r.id} type="button" onClick={() => applyTmdb(r)} className="w-full flex items-center gap-3 p-2.5 rounded-lg bg-raised border border-edge hover:border-gold/40 hover:bg-gold/5 transition-all text-left group">
+                          {r.poster_path && <img src={`https://image.tmdb.org/t/p/w92${r.poster_path}`} alt="" className="w-8 h-12 object-cover rounded shrink-0" />}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-ink truncate">{r.title || 'Unknown'}</p>
+                            <p className="text-xs text-ghost">{r.release_year || 'n/a'}</p>
+                          </div>
+                          <span className="text-xs text-gold opacity-0 group-hover:opacity-100 shrink-0">Apply →</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {isBarcodeCapable && barcodeResults.length > 0 && (
+                  <div className="mt-5 space-y-2">
+                    <p className="label">Barcode Matches — click to apply</p>
+                    <div className="space-y-1.5 max-h-40 overflow-y-auto scroll-area pr-1">
+                      {barcodeResults.map((m, i) => (
+                        <button key={i} type="button" onClick={() => applyBarcode(m)} className="w-full flex items-center gap-3 p-2.5 rounded-lg bg-raised border border-edge hover:border-gold/40 hover:bg-gold/5 transition-all text-left group">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-ink truncate">{m?.typeEnrichment?.title || m?.book?.title || m?.normalizedTitle || m.tmdb?.title || m.title || 'Unknown'}</p>
+                            <p className="text-xs text-ghost">
+                              {m?.typeEnrichment?.type_details?.artist
+                                || m?.typeEnrichment?.type_details?.platform
+                                || m?.typeEnrichment?.type_details?.series
+                                || m?.book?.type_details?.author
+                                || m?.typeDetails?.author
+                                || m.description
+                                || ''}
+                            </p>
+                          </div>
+                          <span className="text-xs text-gold opacity-0 group-hover:opacity-100 shrink-0">Apply →</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {isBarcodeCapable && barcodeError && (
+                  <div className="mt-5 rounded-xl border border-err/30 bg-err/5 p-3 space-y-2">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="label text-err">Barcode lookup failed</p>
+                        <p className="text-sm text-ink">{barcodeError?.error || 'Unknown barcode lookup error'}</p>
+                        {barcodeError?.detail && <p className="text-xs text-ghost mt-1">{barcodeError.detail}</p>}
+                      </div>
+                      {barcodeError?.stage && <span className="badge badge-dim">{barcodeError.stage}</span>}
+                    </div>
+                    {barcodeError?.request && (
+                      <div className="space-y-1">
+                        <p className="label">Request context</p>
+                        <pre className="rounded-lg bg-void/60 border border-edge p-2 text-xs text-ghost overflow-x-auto whitespace-pre-wrap break-all">
+{JSON.stringify(barcodeError.request, null, 2)}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {isTypedEnrichment && typeEnrichResults.length > 0 && (
+                  <div className="mt-5 space-y-2">
+                    <p className="label">Lookup Matches — click to apply</p>
+                    <div className="space-y-1.5 max-h-52 overflow-y-auto scroll-area pr-1">
+                      {typeEnrichResults.slice(0, 10).map((m) => (
+                        <button key={`${m.id || m.title}-${m.year || ''}`} type="button" onClick={() => applyTypeEnrichment(m)} className="w-full flex items-center gap-3 p-2.5 rounded-lg bg-raised border border-edge hover:border-gold/40 hover:bg-gold/5 transition-all text-left group">
+                          {m.poster_path && <img src={posterUrl(m.poster_path)} alt="" className="w-8 h-12 object-cover rounded shrink-0" />}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-ink truncate">{m.title || 'Unknown'}</p>
+                            <p className="text-xs text-ghost">{[m.year, m.genre].filter(Boolean).join(' · ')}</p>
+                          </div>
+                          <span className="text-xs text-gold opacity-0 group-hover:opacity-100 shrink-0">Apply →</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2">
+                  {isMovieOrTv && (
+                    <>
+                      <LabeledField label="Original Title" className="md:col-span-2"><input className="input" value={form.original_title} onChange={(e) => set({ original_title: e.target.value })} /></LabeledField>
+                      <LabeledField label="Genre"><input className="input" placeholder="Action, Drama…" value={form.genre} onChange={(e) => set({ genre: e.target.value })} /></LabeledField>
+                      <LabeledField label="Release Date"><input className="input" type="date" value={form.release_date} onChange={(e) => set({ release_date: e.target.value })} /></LabeledField>
+                      <LabeledField label="Runtime (min)"><input className="input" inputMode="numeric" value={form.runtime} onChange={(e) => set({ runtime: e.target.value })} /></LabeledField>
+                      <LabeledField label="TMDB Rating"><input className="input" inputMode="decimal" placeholder="0.0 – 10.0" value={form.rating} onChange={(e) => set({ rating: e.target.value })} /></LabeledField>
+                      {addMode !== 'upc' && <LabeledField label="UPC"><input className="input font-mono" value={form.upc} onChange={(e) => set({ upc: normalizeBarcodeInput(e.target.value) })} /></LabeledField>}
+                    </>
+                  )}
+
+                  {isBook && (
+                    <>
+                      <LabeledField label="Author"><input className="input" value={form.book_author} onChange={(e) => set({ book_author: e.target.value })} /></LabeledField>
+                      <LabeledField label="Publisher"><input className="input" value={form.book_publisher} onChange={(e) => set({ book_publisher: e.target.value })} /></LabeledField>
+                      <LabeledField label="Edition"><input className="input" value={form.book_edition} onChange={(e) => set({ book_edition: e.target.value })} /></LabeledField>
+                      <LabeledField label="Genre"><input className="input" value={form.genre} onChange={(e) => set({ genre: e.target.value })} /></LabeledField>
+                      <LabeledField label="ISBN" className="md:col-span-2"><input className="input font-mono" value={form.book_isbn} onChange={(e) => set({ book_isbn: e.target.value })} /></LabeledField>
+                    </>
+                  )}
+
+                  {isComic && (
+                    <>
+                      <LabeledField label="Author"><input className="input" value={form.book_author} onChange={(e) => set({ book_author: e.target.value })} /></LabeledField>
+                      <LabeledField label="Publisher"><input className="input" value={form.book_publisher} onChange={(e) => set({ book_publisher: e.target.value })} /></LabeledField>
+                      <LabeledField label="Series"><input className="input" value={form.comic_series} onChange={(e) => set({ comic_series: e.target.value })} /></LabeledField>
+                      <LabeledField label="Issue #"><input className="input" value={form.comic_issue_number} onChange={(e) => set({ comic_issue_number: e.target.value })} /></LabeledField>
+                      <LabeledField label="Volume"><input className="input" value={form.comic_volume} onChange={(e) => set({ comic_volume: e.target.value })} /></LabeledField>
+                      <LabeledField label="Writer"><input className="input" value={form.comic_writer} onChange={(e) => set({ comic_writer: e.target.value })} /></LabeledField>
+                      <LabeledField label="Artist"><input className="input" value={form.comic_artist} onChange={(e) => set({ comic_artist: e.target.value })} /></LabeledField>
+                      <LabeledField label="Inker"><input className="input" value={form.comic_inker} onChange={(e) => set({ comic_inker: e.target.value })} /></LabeledField>
+                      <LabeledField label="Colorist"><input className="input" value={form.comic_colorist} onChange={(e) => set({ comic_colorist: e.target.value })} /></LabeledField>
+                      <LabeledField label="Cover Date"><input className="input" type="date" value={form.comic_cover_date} onChange={(e) => set({ comic_cover_date: e.target.value })} /></LabeledField>
+                      <LabeledField label="ISBN" className="md:col-span-2"><input className="input font-mono" value={form.book_isbn} onChange={(e) => set({ book_isbn: e.target.value })} /></LabeledField>
+                    </>
+                  )}
+
+                  {isGame && (
+                    <>
+                      <LabeledField label="Platform"><input className="input" value={form.game_platform} onChange={(e) => set({ game_platform: e.target.value })} /></LabeledField>
+                      <LabeledField label="Developer"><input className="input" value={form.game_developer} onChange={(e) => set({ game_developer: e.target.value })} /></LabeledField>
+                      <LabeledField label="UPC"><input className="input font-mono" value={form.upc} onChange={(e) => set({ upc: normalizeBarcodeInput(e.target.value) })} /></LabeledField>
+                      <LabeledField label="Genre"><input className="input" value={form.genre} onChange={(e) => set({ genre: e.target.value })} /></LabeledField>
+                      <LabeledField label="Release Date" className="md:col-span-2"><input className="input" type="date" value={form.release_date} onChange={(e) => set({ release_date: e.target.value })} /></LabeledField>
+                    </>
+                  )}
+
+                  {isAudio && (
+                    <>
+                      <LabeledField label="Artist"><input className="input" value={form.audio_artist} onChange={(e) => set({ audio_artist: e.target.value })} /></LabeledField>
+                      <LabeledField label="Track Count"><input className="input" inputMode="numeric" value={form.audio_track_count} onChange={(e) => set({ audio_track_count: e.target.value })} /></LabeledField>
+                      <LabeledField label="UPC"><input className="input font-mono" value={form.upc} onChange={(e) => set({ upc: normalizeBarcodeInput(e.target.value) })} /></LabeledField>
+                      <LabeledField label="Release Date"><input className="input" type="date" value={form.release_date} onChange={(e) => set({ release_date: e.target.value })} /></LabeledField>
+                    </>
+                  )}
+
+                  {form.media_type === 'tv_series' && (
+                    <>
+                      <LabeledField label="Network" className="md:col-span-2"><input className="input" value={form.network} onChange={(e) => set({ network: e.target.value })} /></LabeledField>
+                      <LabeledField label="Owned Seasons" className="md:col-span-2"><input className="input" placeholder="1, 2, 3" value={tvSeasonsText} onChange={(e) => setTvSeasonsText(e.target.value)} /></LabeledField>
+                    </>
+                  )}
+                  {form.media_type === 'tv_episode' && (
+                    <>
+                      <LabeledField label="Season"><input className="input" inputMode="numeric" value={form.season_number} onChange={(e) => set({ season_number: e.target.value })} /></LabeledField>
+                      <LabeledField label="Episode"><input className="input" inputMode="numeric" value={form.episode_number} onChange={(e) => set({ episode_number: e.target.value })} /></LabeledField>
+                      <LabeledField label="Episode Title" className="md:col-span-2"><input className="input" value={form.episode_title} onChange={(e) => set({ episode_title: e.target.value })} /></LabeledField>
+                    </>
+                  )}
+
+                  <LabeledField label="Your Rating" className="md:col-span-2"><StarRating value={form.user_rating || 0} onChange={(v) => set({ user_rating: v })} /></LabeledField>
+                </div>
+              </>
+            )}
+
+            {activeEditorTab === 'people' && isMovieOrTv && (
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <LabeledField label="Director"><input className="input" value={form.director} onChange={(e) => set({ director: e.target.value })} /></LabeledField>
+                <LabeledField label="Cast" className="md:col-span-2"><input className="input" placeholder="Actor 1, Actor 2…" value={form.cast} onChange={(e) => set({ cast: e.target.value })} /></LabeledField>
               </div>
             )}
 
-            <div className={cx('grid gap-3', (isBook || isComic) ? 'grid-cols-3' : 'grid-cols-2')}>
-              <LabeledField label="Type" className="col-span-1">
-                <select
-                  className="select"
-                  value={form.media_type}
-                  onChange={(e) => {
-                    const nextType = e.target.value;
-                    const patch = { media_type: nextType };
-                    if ((nextType === 'book' || nextType === 'comic_book') && !BOOK_FORMATS.includes(form.format)) patch.format = 'Digital';
-                    if (nextType === 'audio' || nextType === 'game') patch.format = '';
-                    if (!['movie', 'tv_series', 'tv_episode'].includes(nextType)) {
-                      patch.original_title = '';
-                      patch.director = '';
-                      patch.runtime = '';
-                      patch.rating = '';
-                      patch.tmdb_id = '';
-                      patch.tmdb_media_type = 'movie';
-                      patch.trailer_url = '';
-                      patch.backdrop_path = '';
-                    }
-                    if (nextType !== 'movie') patch.movie_edition = '';
-                    set(patch);
-                    if (!['movie', 'tv_series', 'tv_episode'].includes(nextType) && addMode === 'title') {
-                      setAddMode('upc');
-                    }
-                    if (!['movie', 'tv_series', 'tv_episode', 'book', 'audio', 'game', 'comic_book'].includes(nextType) && addMode === 'upc') {
-                      setAddMode('cover');
-                    }
-                    setTypeEnrichResults([]);
-                  }}
-                >
-                  {MEDIA_TYPES.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-                </select>
-              </LabeledField>
-              {(isMovieOrTv || isBook || isComic) && (
-                <LabeledField label="Format" className="col-span-1">
-                  <select className="select" value={form.format} onChange={(e) => set({ format: e.target.value })}>
-                    {((isBook || isComic) ? BOOK_FORMATS : MEDIA_FORMATS).map((f) => <option key={f}>{f}</option>)}
+            {activeEditorTab === 'signatures' && (
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <LabeledField label="Signed by"><input className="input" value={form.signed_by} onChange={(e) => set({ signed_by: e.target.value })} /></LabeledField>
+                <LabeledField label="Signed as">
+                  <select className="select" value={form.signed_role} onChange={(e) => set({ signed_role: e.target.value })}>
+                    <option value="">Not signed</option>
+                    <option value="author">Author</option>
+                    <option value="producer">Producer</option>
+                    <option value="cast">Cast</option>
                   </select>
                 </LabeledField>
-              )}
-              {!isGame && (
-                <LabeledField label="Year" className="col-span-1 md:max-w-[140px]">
-                  <input className="input" placeholder="2024" value={form.year} onChange={(e) => set({ year: e.target.value })} inputMode="numeric" />
+                <LabeledField label="Signed on"><input className="input" type="date" value={form.signed_on} onChange={(e) => set({ signed_on: e.target.value })} /></LabeledField>
+                <LabeledField label="Signed at"><input className="input" value={form.signed_at} onChange={(e) => set({ signed_at: e.target.value })} /></LabeledField>
+                <LabeledField label="Signing proof image" className="md:col-span-2">
+                  <div className="flex flex-col gap-2">
+                    {form.signed_proof_path && (
+                      <a href={posterUrl(form.signed_proof_path)} target="_blank" rel="noreferrer" className="btn-secondary btn-sm w-fit"><Icons.Link />View current proof</a>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={(e) => setProofFile(e.target.files?.[0] || null)}
+                        className="block w-full text-sm text-ghost file:btn-secondary file:btn-sm file:border-0 file:mr-3"
+                      />
+                      <button type="button" onClick={uploadSigningProof} disabled={!proofFile || !form.id} className="btn-secondary btn-sm"><Icons.Upload />Upload</button>
+                      <button type="button" onClick={removeSigningProof} disabled={!form.id || !form.signed_proof_path} className="btn-secondary btn-sm text-err"><Icons.Trash />Remove</button>
+                    </div>
+                    {!form.id && <p className="text-xs text-ghost">Save first to attach a signing proof image.</p>}
+                  </div>
                 </LabeledField>
-              )}
-              {form.media_type === 'movie' && (
-                <LabeledField label="Edition" className="col-span-1 md:max-w-[240px]">
-                  <input
-                    className="input"
-                    placeholder="Theatrical"
-                    value={form.movie_edition}
-                    onChange={(e) => set({ movie_edition: e.target.value })}
-                  />
-                </LabeledField>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="px-6 space-y-5 pb-32">
-          <LabeledField label={isAudio ? 'Album *' : 'Title *'}>
-            <div className="flex gap-2">
-              <input className="input flex-1" placeholder={isAudio ? 'Album title' : (form.media_type === 'movie' ? 'Movie title' : 'Title')} value={form.title} onChange={(e) => set({ title: e.target.value })} required />
-              {isMovieOrTv && addMode === 'title' && (
-                <button type="button" onClick={searchTmdb} disabled={tmdbLoading} className="btn-secondary btn-sm shrink-0 min-w-[100px]">
-                  {tmdbLoading ? <Spinner size={14} /> : <><Icons.Search />Search</>}
-                </button>
-              )}
-              {isTypedEnrichment && (
-                <button type="button" onClick={searchTypeEnrichment} disabled={typeEnrichLoading} className="btn-secondary btn-sm shrink-0 min-w-[100px]">
-                  {typeEnrichLoading ? <Spinner size={14} /> : <><Icons.Search />Lookup</>}
-                </button>
-              )}
-            </div>
-          </LabeledField>
-
-          {isBarcodeCapable && addMode === 'upc' && (
-            <LabeledField label={isBook ? 'ISBN / Barcode' : 'UPC / Barcode'}>
-              <div className="flex gap-2">
-                <input className="input flex-1 font-mono" placeholder={isBook ? '9780358447849' : '012345678901'} value={form.upc} onChange={(e) => set({ upc: normalizeBarcodeInput(e.target.value) })} />
-                <button
-                  type="button"
-                  onClick={() => setBarcodeCameraOpen(true)}
-                  disabled={barcodeCaptureLoading}
-                  className="btn-secondary btn-sm shrink-0 min-w-[100px]"
-                >
-                  {barcodeCaptureLoading ? <Spinner size={14} /> : <><Icons.Camera />Camera</>}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => barcodeCaptureInputRef.current?.click()}
-                  disabled={barcodeCaptureLoading}
-                  className="btn-secondary btn-sm shrink-0 min-w-[100px]"
-                >
-                  <Icons.Upload />Photo
-                </button>
-                <button type="button" onClick={() => lookupBarcode()} disabled={barcodeLoading} className="btn-secondary btn-sm shrink-0 min-w-[100px]">
-                  {barcodeLoading ? <Spinner size={14} /> : <><Icons.Barcode />Lookup</>}
-                </button>
               </div>
-              <input
-                ref={barcodeCaptureInputRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="hidden"
-                onChange={handleBarcodeCapture}
-              />
-              <p className="text-xs text-ghost">
-                Capture a live barcode frame or choose a barcode photo. {canCaptureBarcode ? 'Supported browsers will fill the UPC automatically.' : 'This browser may ask you to type the UPC manually after capture.'}
-              </p>
-            </LabeledField>
-          )}
+            )}
 
-          {(!isMovieOrTv || addMode === 'cover') && (
-            <div className="space-y-2">
-              <label className="label">Cover Image</label>
-              <input
-                ref={coverImageInputRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                onChange={handleCoverImageSelection}
-                className="hidden"
-              />
-              <p className="text-xs text-ghost">
-                Capture or choose a cover or packaging photo to attach it directly to this item.
-              </p>
-              <div className="flex gap-2">
-                <button type="button" onClick={() => setCoverCameraOpen(true)} disabled={coverUploadLoading} className="btn-secondary btn-sm">
-                  {coverUploadLoading ? <Spinner size={14} /> : <><Icons.Camera />Camera</>}
-                </button>
-                <button type="button" onClick={() => coverImageInputRef.current?.click()} disabled={coverUploadLoading} className="btn-secondary btn-sm">
-                  <Icons.Upload />Photo
-                </button>
-                {form.poster_path && (
-                  <button type="button" onClick={() => set({ poster_path: '' })} disabled={coverUploadLoading} className="btn-secondary btn-sm text-err">
-                    <Icons.Trash />Remove
-                  </button>
+            {activeEditorTab === 'storage' && (
+              <div className="space-y-4">
+                <LabeledField label="Storage Location"><input className="input" placeholder="Shelf A3, Box 2…" value={form.location} onChange={(e) => set({ location: e.target.value })} /></LabeledField>
+                <LabeledField label="Overview"><textarea className="textarea" rows={4} value={form.overview} onChange={(e) => set({ overview: e.target.value })} /></LabeledField>
+                <LabeledField label="Notes"><textarea className="textarea" rows={3} value={form.notes} onChange={(e) => set({ notes: e.target.value })} /></LabeledField>
+
+                {isMovieOrTv && (
+                  <details className="group">
+                    <summary className="cursor-pointer text-xs text-ghost hover:text-dim list-none flex items-center gap-2 select-none">
+                      <span className="transition-transform group-open:rotate-90"><Icons.ChevronRight /></span>
+                      Advanced (TMDB links, poster path)
+                    </summary>
+                    <div className="mt-3 grid grid-cols-1 gap-3">
+                      <LabeledField label="TMDB ID" className="md:max-w-[220px]"><input className="input font-mono" value={form.tmdb_id} onChange={(e) => set({ tmdb_id: e.target.value })} /></LabeledField>
+                      <LabeledField label="TMDB Media Type" className="md:max-w-[220px]"><input className="input font-mono" value={form.tmdb_media_type} onChange={(e) => set({ tmdb_media_type: e.target.value })} /></LabeledField>
+                      <LabeledField label="TMDB URL"><input className="input" value={form.tmdb_url} onChange={(e) => set({ tmdb_url: e.target.value })} /></LabeledField>
+                      <LabeledField label="Trailer URL"><input className="input" value={form.trailer_url} onChange={(e) => set({ trailer_url: e.target.value })} /></LabeledField>
+                      <LabeledField label="Poster Path"><input className="input" value={form.poster_path} onChange={(e) => set({ poster_path: e.target.value })} /></LabeledField>
+                    </div>
+                  </details>
                 )}
               </div>
-            </div>
-          )}
-
-          {isMovieOrTv && allTmdbMatches.length > 0 && (
-            <div className="space-y-2">
-              <p className="label">TMDB Matches — click to apply</p>
-              <div className="space-y-1.5 max-h-52 overflow-y-auto scroll-area pr-1">
-                {allTmdbMatches.slice(0, 8).map((r) => (
-                  <button key={r.id} type="button" onClick={() => applyTmdb(r)} className="w-full flex items-center gap-3 p-2.5 rounded-lg bg-raised border border-edge hover:border-gold/40 hover:bg-gold/5 transition-all text-left group">
-                    {r.poster_path && <img src={`https://image.tmdb.org/t/p/w92${r.poster_path}`} alt="" className="w-8 h-12 object-cover rounded shrink-0" />}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-ink truncate">{r.title || 'Unknown'}</p>
-                      <p className="text-xs text-ghost">{r.release_year || 'n/a'}</p>
-                    </div>
-                    <span className="text-xs text-gold opacity-0 group-hover:opacity-100 shrink-0">Apply →</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {isBarcodeCapable && barcodeResults.length > 0 && (
-            <div className="space-y-2">
-              <p className="label">Barcode Matches — click to apply</p>
-              <div className="space-y-1.5 max-h-40 overflow-y-auto scroll-area pr-1">
-                {barcodeResults.map((m, i) => (
-                  <button key={i} type="button" onClick={() => applyBarcode(m)} className="w-full flex items-center gap-3 p-2.5 rounded-lg bg-raised border border-edge hover:border-gold/40 hover:bg-gold/5 transition-all text-left group">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-ink truncate">{m?.typeEnrichment?.title || m?.book?.title || m?.normalizedTitle || m.tmdb?.title || m.title || 'Unknown'}</p>
-                      <p className="text-xs text-ghost">
-                        {m?.typeEnrichment?.type_details?.artist
-                          || m?.typeEnrichment?.type_details?.platform
-                          || m?.typeEnrichment?.type_details?.series
-                          || m?.book?.type_details?.author
-                          || m?.typeDetails?.author
-                          || m.description
-                          || ''}
-                      </p>
-                    </div>
-                    <span className="text-xs text-gold opacity-0 group-hover:opacity-100 shrink-0">Apply →</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {isBarcodeCapable && barcodeError && (
-            <div className="rounded-xl border border-err/30 bg-err/5 p-3 space-y-2">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="label text-err">Barcode lookup failed</p>
-                  <p className="text-sm text-ink">{barcodeError?.error || 'Unknown barcode lookup error'}</p>
-                  {barcodeError?.detail && <p className="text-xs text-ghost mt-1">{barcodeError.detail}</p>}
-                </div>
-                {barcodeError?.stage && <span className="badge badge-dim">{barcodeError.stage}</span>}
-              </div>
-              {barcodeError?.request && (
-                <div className="space-y-1">
-                  <p className="label">Request context</p>
-                  <pre className="rounded-lg bg-void/60 border border-edge p-2 text-xs text-ghost overflow-x-auto whitespace-pre-wrap break-all">
-{JSON.stringify(barcodeError.request, null, 2)}
-                  </pre>
-                </div>
-              )}
-            </div>
-          )}
-
-          {isTypedEnrichment && typeEnrichResults.length > 0 && (
-            <div className="space-y-2">
-              <p className="label">Lookup Matches — click to apply</p>
-              <div className="space-y-1.5 max-h-52 overflow-y-auto scroll-area pr-1">
-                {typeEnrichResults.slice(0, 10).map((m) => (
-                  <button key={`${m.id || m.title}-${m.year || ''}`} type="button" onClick={() => applyTypeEnrichment(m)} className="w-full flex items-center gap-3 p-2.5 rounded-lg bg-raised border border-edge hover:border-gold/40 hover:bg-gold/5 transition-all text-left group">
-                    {m.poster_path && <img src={posterUrl(m.poster_path)} alt="" className="w-8 h-12 object-cover rounded shrink-0" />}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-ink truncate">{m.title || 'Unknown'}</p>
-                      <p className="text-xs text-ghost">{[m.year, m.genre].filter(Boolean).join(' · ')}</p>
-                    </div>
-                    <span className="text-xs text-gold opacity-0 group-hover:opacity-100 shrink-0">Apply →</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="grid grid-cols-2 gap-3">
-            {isMovieOrTv && (
-              <>
-                <LabeledField label="Original Title" className="col-span-2"><input className="input" value={form.original_title} onChange={(e) => set({ original_title: e.target.value })} /></LabeledField>
-                <LabeledField label="Director"><input className="input" value={form.director} onChange={(e) => set({ director: e.target.value })} /></LabeledField>
-                <LabeledField label="Genre"><input className="input" placeholder="Action, Drama…" value={form.genre} onChange={(e) => set({ genre: e.target.value })} /></LabeledField>
-                <LabeledField label="Cast" className="col-span-2"><input className="input" placeholder="Actor 1, Actor 2…" value={form.cast} onChange={(e) => set({ cast: e.target.value })} /></LabeledField>
-                <LabeledField label="Release Date"><input className="input" type="date" value={form.release_date} onChange={(e) => set({ release_date: e.target.value })} /></LabeledField>
-                <LabeledField label="Runtime (min)" className="md:max-w-[180px]"><input className="input" inputMode="numeric" value={form.runtime} onChange={(e) => set({ runtime: e.target.value })} /></LabeledField>
-                <LabeledField label="TMDB Rating" className="md:max-w-[180px]"><input className="input" inputMode="decimal" placeholder="0.0 – 10.0" value={form.rating} onChange={(e) => set({ rating: e.target.value })} /></LabeledField>
-                {addMode !== 'upc' && <LabeledField label="UPC"><input className="input font-mono" value={form.upc} onChange={(e) => set({ upc: normalizeBarcodeInput(e.target.value) })} /></LabeledField>}
-              </>
-            )}
-
-            {isBook && (
-              <>
-                <LabeledField label="Author"><input className="input" value={form.book_author} onChange={(e) => set({ book_author: e.target.value })} /></LabeledField>
-                <LabeledField label="Publisher"><input className="input" value={form.book_publisher} onChange={(e) => set({ book_publisher: e.target.value })} /></LabeledField>
-                <LabeledField label="Edition"><input className="input" value={form.book_edition} onChange={(e) => set({ book_edition: e.target.value })} /></LabeledField>
-                <LabeledField label="Genre"><input className="input" value={form.genre} onChange={(e) => set({ genre: e.target.value })} /></LabeledField>
-                <LabeledField label="ISBN"><input className="input font-mono" value={form.book_isbn} onChange={(e) => set({ book_isbn: e.target.value })} /></LabeledField>
-              </>
-            )}
-
-            {isComic && (
-              <>
-                <LabeledField label="Author"><input className="input" value={form.book_author} onChange={(e) => set({ book_author: e.target.value })} /></LabeledField>
-                <LabeledField label="Publisher"><input className="input" value={form.book_publisher} onChange={(e) => set({ book_publisher: e.target.value })} /></LabeledField>
-                <LabeledField label="Series"><input className="input" value={form.comic_series} onChange={(e) => set({ comic_series: e.target.value })} /></LabeledField>
-                <LabeledField label="Issue #"><input className="input" value={form.comic_issue_number} onChange={(e) => set({ comic_issue_number: e.target.value })} /></LabeledField>
-                <LabeledField label="Volume"><input className="input" value={form.comic_volume} onChange={(e) => set({ comic_volume: e.target.value })} /></LabeledField>
-                <LabeledField label="Writer"><input className="input" value={form.comic_writer} onChange={(e) => set({ comic_writer: e.target.value })} /></LabeledField>
-                <LabeledField label="Artist"><input className="input" value={form.comic_artist} onChange={(e) => set({ comic_artist: e.target.value })} /></LabeledField>
-                <LabeledField label="Inker"><input className="input" value={form.comic_inker} onChange={(e) => set({ comic_inker: e.target.value })} /></LabeledField>
-                <LabeledField label="Colorist"><input className="input" value={form.comic_colorist} onChange={(e) => set({ comic_colorist: e.target.value })} /></LabeledField>
-                <LabeledField label="Cover Date"><input className="input" type="date" value={form.comic_cover_date} onChange={(e) => set({ comic_cover_date: e.target.value })} /></LabeledField>
-                <LabeledField label="ISBN"><input className="input font-mono" value={form.book_isbn} onChange={(e) => set({ book_isbn: e.target.value })} /></LabeledField>
-              </>
-            )}
-
-            {isGame && (
-              <>
-                <LabeledField label="Platform"><input className="input" value={form.game_platform} onChange={(e) => set({ game_platform: e.target.value })} /></LabeledField>
-                <LabeledField label="Developer"><input className="input" value={form.game_developer} onChange={(e) => set({ game_developer: e.target.value })} /></LabeledField>
-                <LabeledField label="UPC"><input className="input font-mono" value={form.upc} onChange={(e) => set({ upc: normalizeBarcodeInput(e.target.value) })} /></LabeledField>
-                <LabeledField label="Genre"><input className="input" value={form.genre} onChange={(e) => set({ genre: e.target.value })} /></LabeledField>
-                <LabeledField label="Release Date"><input className="input" type="date" value={form.release_date} onChange={(e) => set({ release_date: e.target.value })} /></LabeledField>
-              </>
-            )}
-
-            {isAudio && (
-              <>
-                <LabeledField label="Artist"><input className="input" value={form.audio_artist} onChange={(e) => set({ audio_artist: e.target.value })} /></LabeledField>
-                <LabeledField label="Track Count"><input className="input" inputMode="numeric" value={form.audio_track_count} onChange={(e) => set({ audio_track_count: e.target.value })} /></LabeledField>
-                <LabeledField label="UPC"><input className="input font-mono" value={form.upc} onChange={(e) => set({ upc: normalizeBarcodeInput(e.target.value) })} /></LabeledField>
-                <LabeledField label="Release Date"><input className="input" type="date" value={form.release_date} onChange={(e) => set({ release_date: e.target.value })} /></LabeledField>
-              </>
-            )}
-
-            {form.media_type === 'tv_series' && (
-              <>
-                <LabeledField label="Network" className="col-span-2"><input className="input" value={form.network} onChange={(e) => set({ network: e.target.value })} /></LabeledField>
-                <LabeledField label="Owned Seasons" className="col-span-2"><input className="input" placeholder="1, 2, 3" value={tvSeasonsText} onChange={(e) => setTvSeasonsText(e.target.value)} /></LabeledField>
-              </>
-            )}
-            {form.media_type === 'tv_episode' && (
-              <>
-                <LabeledField label="Season"><input className="input" inputMode="numeric" value={form.season_number} onChange={(e) => set({ season_number: e.target.value })} /></LabeledField>
-                <LabeledField label="Episode"><input className="input" inputMode="numeric" value={form.episode_number} onChange={(e) => set({ episode_number: e.target.value })} /></LabeledField>
-                <LabeledField label="Episode Title" className="col-span-2"><input className="input" value={form.episode_title} onChange={(e) => set({ episode_title: e.target.value })} /></LabeledField>
-              </>
             )}
           </div>
-
-          <LabeledField label="Your Rating"><StarRating value={form.user_rating || 0} onChange={(v) => set({ user_rating: v })} /></LabeledField>
-          <div className="grid grid-cols-2 gap-3">
-            <LabeledField label="Signed by"><input className="input" value={form.signed_by} onChange={(e) => set({ signed_by: e.target.value })} /></LabeledField>
-            <LabeledField label="Signed as">
-              <select className="select" value={form.signed_role} onChange={(e) => set({ signed_role: e.target.value })}>
-                <option value="">Not signed</option>
-                <option value="author">Author</option>
-                <option value="producer">Producer</option>
-                <option value="cast">Cast</option>
-              </select>
-            </LabeledField>
-            <LabeledField label="Signed on"><input className="input" type="date" value={form.signed_on} onChange={(e) => set({ signed_on: e.target.value })} /></LabeledField>
-            <LabeledField label="Signed at"><input className="input" value={form.signed_at} onChange={(e) => set({ signed_at: e.target.value })} /></LabeledField>
-            <LabeledField label="Signing proof image" className="col-span-2">
-              <div className="flex flex-col gap-2">
-                {form.signed_proof_path && (
-                  <a href={posterUrl(form.signed_proof_path)} target="_blank" rel="noreferrer" className="btn-secondary btn-sm w-fit"><Icons.Link />View current proof</a>
-                )}
-                <div className="flex items-center gap-2">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    onChange={(e) => setProofFile(e.target.files?.[0] || null)}
-                    className="block w-full text-sm text-ghost file:btn-secondary file:btn-sm file:border-0 file:mr-3"
-                  />
-                  <button type="button" onClick={uploadSigningProof} disabled={!proofFile || !form.id} className="btn-secondary btn-sm"><Icons.Upload />Upload</button>
-                  <button type="button" onClick={removeSigningProof} disabled={!form.id || !form.signed_proof_path} className="btn-secondary btn-sm text-err"><Icons.Trash />Remove</button>
-                </div>
-                {!form.id && <p className="text-xs text-ghost">Save first to attach a signing proof image.</p>}
-              </div>
-            </LabeledField>
-          </div>
-          <LabeledField label="Storage Location"><input className="input" placeholder="Shelf A3, Box 2…" value={form.location} onChange={(e) => set({ location: e.target.value })} /></LabeledField>
-          <LabeledField label="Overview"><textarea className="textarea" rows={3} value={form.overview} onChange={(e) => set({ overview: e.target.value })} /></LabeledField>
-          <LabeledField label="Notes"><textarea className="textarea" rows={2} value={form.notes} onChange={(e) => set({ notes: e.target.value })} /></LabeledField>
-
-          {isMovieOrTv && (
-            <details className="group">
-              <summary className="cursor-pointer text-xs text-ghost hover:text-dim list-none flex items-center gap-2 select-none">
-                <span className="transition-transform group-open:rotate-90"><Icons.ChevronRight /></span>
-                Advanced (TMDB links, poster path)
-              </summary>
-              <div className="mt-3 grid grid-cols-1 gap-3">
-                <LabeledField label="TMDB ID" className="md:max-w-[220px]"><input className="input font-mono" value={form.tmdb_id} onChange={(e) => set({ tmdb_id: e.target.value })} /></LabeledField>
-                <LabeledField label="TMDB Media Type" className="md:max-w-[220px]"><input className="input font-mono" value={form.tmdb_media_type} onChange={(e) => set({ tmdb_media_type: e.target.value })} /></LabeledField>
-                <LabeledField label="TMDB URL"><input className="input" value={form.tmdb_url} onChange={(e) => set({ tmdb_url: e.target.value })} /></LabeledField>
-                <LabeledField label="Trailer URL"><input className="input" value={form.trailer_url} onChange={(e) => set({ trailer_url: e.target.value })} /></LabeledField>
-                <LabeledField label="Poster Path"><input className="input" value={form.poster_path} onChange={(e) => set({ poster_path: e.target.value })} /></LabeledField>
-              </div>
-            </details>
-          )}
         </div>
       </div>
-
       <div className="shrink-0 border-t border-edge bg-abyss px-6 py-4 flex items-center gap-3">
         {msg && <span className={cx('text-sm flex-1', msgType === 'error' ? 'text-err' : 'text-ok')}>{msg}</span>}
         <div className="flex gap-3 ml-auto">

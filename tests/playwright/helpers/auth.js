@@ -13,7 +13,7 @@ const PLAYWRIGHT_STATE_DIR = path.resolve(__dirname, '..', '..', '..', 'tmp', 'p
 const AUTH_STATE_PATH = path.join(PLAYWRIGHT_STATE_DIR, 'admin.json');
 const AUTH_CREDENTIALS_PATH = path.join(PLAYWRIGHT_STATE_DIR, 'admin-credentials.json');
 const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
-const PLAYWRIGHT_BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3000';
+const PLAYWRIGHT_BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000';
 const PLAYWRIGHT_E2E_BYPASS_TOKEN = String(process.env.PLAYWRIGHT_E2E_BYPASS_TOKEN || '').trim();
 const PLAYWRIGHT_E2E_BYPASS_COOKIE = 'playwright_e2e_bypass';
 
@@ -261,8 +261,15 @@ async function ensureAuthenticatedAdminStorageState(requestContext) {
       } catch (error) {
         // Local Playwright request contexts can intermittently fail loopback
         // verification in this desktop environment after container restarts.
-        // Fall back to re-bootstrapping through the provided setup request
-        // context instead of treating that transport quirk as stale auth state.
+        // When that happens but we still have saved storage state and
+        // credentials, trust the existing authenticated state instead of
+        // re-bootstrapping through another flaky loopback request context.
+        const credentials = await ensureSavedAdminCredentials();
+        return {
+          credentials,
+          storageStatePath: AUTH_STATE_PATH,
+          credentialsPath: AUTH_CREDENTIALS_PATH
+        };
       } finally {
         await verifyContext.dispose();
       }

@@ -177,7 +177,7 @@ export default function ImportView({
     } catch (error) {
       const reason = error?.message;
       if (reason === 'unsupported') {
-        onToast('Camera barcode capture is not supported in this browser yet. Enter the UPC manually instead.', 'error');
+        onToast('This browser could capture the image, but barcode decoding is not available yet. Enter the UPC manually instead.', 'error');
       } else if (reason === 'not-found') {
         onToast('No barcode was detected in that image. Try a clearer photo or enter the UPC manually.', 'error');
       } else {
@@ -443,7 +443,7 @@ export default function ImportView({
               className="hidden"
               onChange={handleBarcodeCapture}
             />
-            <p className="text-xs text-ghost">Use a live camera frame or a barcode photo. {canCaptureBarcode ? 'Supported browsers will decode it automatically.' : 'Some browsers may still require you to type the UPC manually.'}</p>
+            <p className="text-xs text-ghost">Use a live camera frame or a barcode photo. {canCaptureBarcode ? "We'll try to decode it automatically." : 'Some browsers may still require you to type the UPC manually.'}</p>
             {barcodeResults.length > 0 && (
               <div className="space-y-2">
                 {barcodeResults.slice(0, 8).map((m, idx) => {
@@ -512,7 +512,7 @@ export default function ImportView({
           } catch (error) {
             const reason = error?.message;
             if (reason === 'unsupported') {
-              onToast('Live barcode capture is not supported in this browser yet. Enter the UPC manually instead.', 'error');
+              onToast('This browser could capture the frame, but barcode decoding is not available yet. Enter the UPC manually instead.', 'error');
             } else if (reason === 'not-found') {
               onToast('No barcode was detected in that capture. Try again with a clearer frame or enter the UPC manually.', 'error');
             } else {

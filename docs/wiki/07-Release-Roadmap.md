@@ -2087,22 +2087,43 @@ Historical note:
 - `platform` has a repeatable runtime smoke gate that proves the retained control plane still mounts invite-based registration, spaces/libraries context, support queues, and admin user/space management APIs.
 - The codebase is ready for a later repo split without first having to rediscover product boundaries.
 
-## 2.9.7 — Observability Baseline Review and Alert Tuning
+## 2.9.7 — Capture Workflow Catch-Up and Unified Tabbed Editors
 
-**Goal:** Revisit the initial `2.6.0` observability thresholds once more real import and operator usage data exists.
+**Goal:** Close the real deployment-domain capture gaps left behind by the earlier barcode milestone and reshape add/edit into a single tabbed editor model that can adapt cleanly across media, events, and collectibles.
 
 ### Scope
 
-- Review accumulated baseline observations in `docs/wiki/34-Observability-Baseline-Tuning-Log.md`.
-- Tighten or relax alert thresholds based on repeated real runs instead of first-pass estimates.
-- Add provider-specific quality ratios only where baseline evidence shows they are useful.
-- Decide whether Prometheus retention and backup expectations need explicit policy/config changes.
+- Finish the real product promise behind capture-assisted entry:
+  - verify camera-assisted barcode capture on the deployed HTTPS domain instead of relying only on local assumptions,
+  - distinguish clearly between camera access, frame capture, decode support, and decode failure,
+  - add a more capable fallback decode path when the browser can access the camera but does not expose a reliable native `BarcodeDetector`,
+  - keep manual UPC entry and still-photo fallback as first-class escape hatches instead of vague failure states.
+- Replace the current long conditional add/edit forms with one stepped, tabbed editor pattern:
+  - a shared shell/header/tabs/actions treatment for add and edit,
+  - a consistent poster/cover rail and primary action row,
+  - tab definitions that adapt by object type rather than forking whole editors.
+- Standardize the tab model around a predictable structure:
+  - `Core Details` for all object types,
+  - a type-specific second tab only when the object actually has a meaningful second cluster,
+  - `Signatures` only for object types that truly persist signed-object metadata,
+  - `Storage & Notes` as the shared closing tab.
+- Apply the model across the current object families with the right per-type fit:
+  - Movies and TV: `Core Details`, `Cast & Crew`, `Signatures`, `Storage & Notes`,
+  - Books: decide whether author/publisher belongs in `Core Details` or a type-specific second tab, but keep one unified editor shell,
+  - Audio/Games/Comic Books: keep the same shell while omitting unnecessary tabs when the data does not justify them,
+  - Events: use the second tab for sub-events/artifacts such as panels, parties, and signings rather than forcing a signatures tab onto the event container itself,
+  - Collectibles: stay on the shared shell but keep the tab count lean unless a second cluster is justified by the actual fields.
+- Keep Import and Library add/edit surfaces aligned where they share capture and lookup affordances.
+- Add verification that proves both the new editor shell and the capture behavior on the real supported browser paths.
 
 ### Acceptance Criteria
 
-- Alert thresholds are justified by recorded baseline evidence instead of single-run assumptions.
-- Dashboard ratio/error panels reflect the provider-specific signals operators actually use.
-- Any retention/backup changes for observability data are documented and validated.
+- The deployed HTTPS/domain environment can distinguish between camera permission success and barcode decode support/failure without misleading fallback messaging.
+- Live barcode capture works in the target supported browser paths, or falls back through a documented and intentional decode/manual path rather than an opaque unsupported message.
+- Add and edit use one coherent tabbed editor pattern instead of separate ad hoc conditional forms.
+- Object types only show tabs that correspond to real persisted data for that type.
+- Events treat signings as sub-events/artifacts rather than event-level signature metadata.
+- The new editor shell is documented and regression coverage is updated for the revised capture and add/edit flows.
 
 ## 2.9.8 — Runtime and Operations Hardening
 

@@ -9,17 +9,21 @@ const { signInThroughUi, openHelpSurface } = require('../helpers/session');
 test.describe('support docs capture flows @capture', () => {
   test('capture login surface and seeded Help Admin workspace states', async ({ page, request }) => {
     await page.setViewportSize({ width: 1600, height: 1000 });
+    const fixtureSuffix = Date.now();
+    const fixtureSubject = `Capture flow ${fixtureSuffix}`;
 
     await page.goto('/login');
     await expect(page.locator('button[type="submit"]')).toHaveText('SIGN IN');
     await captureNamedPage(page, 'auth-login');
 
-    const requestId = await createSupportCaptureFixture(request, Date.now());
+    await createSupportCaptureFixture(request, fixtureSuffix);
 
     await page.goto('/dashboard?tab=support-inbox');
     await expect(page.getByRole('heading', { name: 'Help Admin' })).toBeVisible();
+    await page.getByRole('textbox', { name: 'Search queue' }).fill(fixtureSubject);
 
-    const requestCard = page.locator('button').filter({ hasText: `SUP-${String(requestId).padStart(6, '0')}` }).first();
+    const requestCard = page.locator('button').filter({ hasText: fixtureSubject }).first();
+    await expect(requestCard).toBeVisible();
     await requestCard.click();
 
     await expect(page.getByRole('button', { name: 'Conversation' })).toBeVisible();

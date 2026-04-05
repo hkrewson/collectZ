@@ -167,12 +167,18 @@ function formatSupportTimelineEvent(row, options = {}) {
       category = 'session';
       break;
     case 'auth.support_session.ended':
+      {
+        const startedAt = details.startedAt ? new Date(details.startedAt) : null;
+        const startedAtIso = startedAt && !Number.isNaN(startedAt.getTime())
+          ? startedAt.toISOString()
+          : null;
       title = 'Support session ended';
-      body = details.startedAt
-        ? `Tenant support session ended. Started at ${new Date(details.startedAt).toISOString()}.`
+      body = startedAtIso
+        ? `Tenant support session ended. Started at ${startedAtIso}.`
         : 'Tenant support session ended.';
       category = 'session';
       break;
+      }
     default:
       body = null;
   }
