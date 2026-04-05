@@ -1,5 +1,43 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { CameraCaptureModal, detectBarcodeFromFile, normalizeBarcodeInput, supportsBarcodeCapture } from './app/AppPrimitives';
+import { CameraCaptureModal, detectBarcodeCapturePayloadFromFile, extractIdentifierCandidatesFromFile, inferBookBarcodeIdentifier, isLikelyRetailBookBarcode, normalizeBarcodeInput, supportsBarcodeCapture } from './app/AppPrimitives';
+
+const cx = (...classes) => classes.filter(Boolean).join(' ');
+
+function BookCaptureStatusCard({ state }) {
+  if (!state) return null;
+  const toneClasses = state.tone === 'warning'
+    ? 'border-gold/30 bg-gold/5'
+    : state.tone === 'success'
+      ? 'border-ok/30 bg-ok/5'
+      : 'border-edge bg-raised';
+  const headingClasses = state.tone === 'warning'
+    ? 'text-gold'
+    : state.tone === 'success'
+      ? 'text-ok'
+      : 'text-ink';
+  return (
+    <div className={cx('rounded-xl border p-3 space-y-2', toneClasses)}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className={cx('label', headingClasses)}>{state.heading}</p>
+          {state.detail ? <p className="text-sm text-dim">{state.detail}</p> : null}
+        </div>
+        <span className="text-[11px] uppercase tracking-[0.16em] text-ghost">{state.source}</span>
+      </div>
+      <div className="grid gap-2 md:grid-cols-2">
+        <div className="rounded-lg border border-edge bg-surface/60 px-3 py-2">
+          <p className="text-[11px] uppercase tracking-[0.16em] text-ghost">Retail Barcode</p>
+          <p className="mt-1 font-mono text-sm text-ink">{state.capturedBarcode || 'Not captured'}</p>
+        </div>
+        <div className="rounded-lg border border-edge bg-surface/60 px-3 py-2">
+          <p className="text-[11px] uppercase tracking-[0.16em] text-ghost">Recovered ISBN</p>
+          <p className="mt-1 font-mono text-sm text-ink">{state.recoveredIsbn || 'Not recovered yet'}</p>
+        </div>
+      </div>
+      {state.nextStep ? <p className="text-xs text-ghost">{state.nextStep}</p> : null}
+    </div>
+  );
+}
 
 export default function ImportView({
   apiCall,
@@ -34,6 +72,7 @@ export default function ImportView({
   const [barcodeCaptureLoading, setBarcodeCaptureLoading] = useState(false);
   const [barcodeCameraOpen, setBarcodeCameraOpen] = useState(false);
   const [barcodeAddingId, setBarcodeAddingId] = useState('');
+  const [bookCaptureState, setBookCaptureState] = useState(null);
   const [auditRows, setAuditRows] = useState([]);
   const [auditName, setAuditName] = useState('');
   const csvInputRef = useRef(null);
@@ -147,11 +186,15 @@ export default function ImportView({
       : null;
     const upc = normalizeBarcodeInput(normalizedOverride ?? barcodeUpc);
     if (!upc) return;
+    const inferredBookIsbn = inferBookBarcodeIdentifier(upc);
     setBarcodeLookupLoading(true);
     setResult('');
     setBarcodeResults([]);
     try {
-      const response = await apiCall('post', '/media/lookup-upc', { upc });
+      const response = await apiCall('post', '/media/lookup-upc', {
+        upc,
+        ...(inferredBookIsbn ? { mediaType: 'book' } : {})
+      });
       const matches = Array.isArray(response?.matches) ? response.matches : [];
       setBarcodeResults(matches);
       if (!matches.length) setResult('No barcode matches found');
@@ -164,20 +207,85 @@ export default function ImportView({
     }
   };
 
+  const resolveCapturedLookupValue = async (file, detectedCode = '', barcodeBoundingBox = null) => {
+    const normalizedDetected = normalizeBarcodeInput(detectedCode);
+    let ocrCandidates = { isbnCandidates: [], strictIsbnCandidates: [], labeledIsbnCandidates: [], upcCandidates: [], asinCandidates: [] };
+    const shouldTryOcr = !inferBookBarcodeIdentifier(normalizedDetected);
+
+    if (shouldTryOcr) {
+      try {
+        ocrCandidates = await extractIdentifierCandidatesFromFile(file, { boundingBox: barcodeBoundingBox });
+      } catch (_) {
+        // OCR is a best-effort capture fallback, not a required path.
+      }
+    }
+
+    const inferredBookIsbn = ocrCandidates.labeledIsbnCandidates?.[0] || ocrCandidates.strictIsbnCandidates?.[0] || inferBookBarcodeIdentifier(normalizedDetected);
+    const lookupValue = inferredBookIsbn || normalizedDetected || ocrCandidates.upcCandidates?.[0] || '';
+
+    return {
+      normalizedDetected,
+      inferredBookIsbn,
+      lookupValue,
+      shouldDeferAmbiguousBookLookup: Boolean(
+        normalizedDetected &&
+        isLikelyRetailBookBarcode(normalizedDetected) &&
+        !inferredBookIsbn
+      )
+    };
+  };
+
   const handleBarcodeCapture = async (event) => {
     const file = event.target.files?.[0] || null;
     event.target.value = '';
     if (!file) return;
     setBarcodeCaptureLoading(true);
     try {
-      const detected = await detectBarcodeFromFile(file);
-      setBarcodeUpc(normalizeBarcodeInput(detected));
-      onToast(`Captured barcode ${detected}`);
-      await lookupBarcode(detected);
+      let detected = '';
+      let barcodeBoundingBox = null;
+      try {
+        const payload = await detectBarcodeCapturePayloadFromFile(file);
+        detected = normalizeBarcodeInput(payload?.code || '');
+        barcodeBoundingBox = payload?.boundingBox || null;
+      } catch (error) {
+        if (error?.message !== 'not-found') throw error;
+      }
+
+      const { normalizedDetected, inferredBookIsbn, lookupValue, shouldDeferAmbiguousBookLookup } = await resolveCapturedLookupValue(file, detected, barcodeBoundingBox);
+      if (!lookupValue) {
+        throw new Error('not-found');
+      }
+      setBarcodeUpc(normalizedDetected || lookupValue);
+      if (inferredBookIsbn || isLikelyRetailBookBarcode(normalizedDetected)) {
+        setBookCaptureState({
+          tone: shouldDeferAmbiguousBookLookup ? 'warning' : (inferredBookIsbn ? 'success' : 'info'),
+          source: 'Photo',
+          heading: shouldDeferAmbiguousBookLookup ? 'Retail barcode captured' : (inferredBookIsbn ? 'ISBN recovered from photo' : 'Barcode captured'),
+          detail: shouldDeferAmbiguousBookLookup
+            ? 'We saw the store barcode, but not a trustworthy ISBN from the still image.'
+            : (inferredBookIsbn
+              ? 'We recovered a book identifier from the still image and will prefer that for lookup.'
+              : 'The captured identifier can be used for lookup.'),
+          capturedBarcode: normalizedDetected || '',
+          recoveredIsbn: inferredBookIsbn || '',
+          nextStep: shouldDeferAmbiguousBookLookup
+            ? 'Try another still image with the ISBN line fully visible, or type the ISBN manually before lookup.'
+            : 'ISBN is the best match key for books. Retail barcodes are secondary context.'
+        });
+      } else {
+        setBookCaptureState(null);
+      }
+      if (shouldDeferAmbiguousBookLookup) {
+        throw new Error('book-upc-only');
+      }
+      onToast(inferredBookIsbn ? `Recovered book identifier ${inferredBookIsbn}` : `Captured barcode ${lookupValue}`);
+      await lookupBarcode(lookupValue);
     } catch (error) {
       const reason = error?.message;
       if (reason === 'unsupported') {
         onToast('This browser could capture the image, but barcode decoding is not available yet. Enter the UPC manually instead.', 'error');
+      } else if (reason === 'book-upc-only') {
+        onToast('Captured a retail book barcode, but no ISBN was recovered from the image. Try Photo mode for a sharper still or type the ISBN manually.', 'error');
       } else if (reason === 'not-found') {
         onToast('No barcode was detected in that image. Try a clearer photo or enter the UPC manually.', 'error');
       } else {
@@ -410,14 +518,17 @@ export default function ImportView({
 
         {tab === 'barcode' && (
           <>
-            <p className="text-sm text-dim">Look up a UPC and add matched media to your library.</p>
+            <p className="text-sm text-dim">Look up a barcode or Bookland ISBN and add matched media to your library.</p>
             <p className="text-xs text-ghost">Uses Admin Integrations barcode + TMDB settings for quick physical media ingest.</p>
             <div className="flex gap-3">
               <input
                 className="input flex-1 font-mono"
-                placeholder="012345678901"
+                placeholder="012345678901 or 9780358447849"
                 value={barcodeUpc}
-                onChange={(e) => setBarcodeUpc(normalizeBarcodeInput(e.target.value))}
+                onChange={(e) => {
+                  setBarcodeUpc(normalizeBarcodeInput(e.target.value));
+                  setBookCaptureState(null);
+                }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
@@ -443,7 +554,8 @@ export default function ImportView({
               className="hidden"
               onChange={handleBarcodeCapture}
             />
-            <p className="text-xs text-ghost">Use a live camera frame or a barcode photo. {canCaptureBarcode ? "We'll try to decode it automatically." : 'Some browsers may still require you to type the UPC manually.'}</p>
+            <p className="text-xs text-ghost">Use a live camera frame or a barcode photo. {canCaptureBarcode ? "We'll try to decode it automatically, including Bookland ISBN barcodes." : 'Some browsers may still require you to type the UPC or ISBN manually.'}</p>
+            <BookCaptureStatusCard state={bookCaptureState} />
             {barcodeResults.length > 0 && (
               <div className="space-y-2">
                 {barcodeResults.slice(0, 8).map((m, idx) => {
@@ -499,20 +611,57 @@ export default function ImportView({
       <CameraCaptureModal
         open={barcodeCameraOpen}
         title="Capture barcode"
-        description="Frame the barcode in the camera preview, capture it, and we'll try to decode it into a UPC automatically."
+        description="Frame the barcode in the camera preview, capture it, and we'll try to decode it into a UPC or Bookland ISBN automatically."
         confirmLabel="Use barcode capture"
         onClose={() => setBarcodeCameraOpen(false)}
         onCapture={async (file) => {
           setBarcodeCaptureLoading(true);
           try {
-            const detected = normalizeBarcodeInput(await detectBarcodeFromFile(file));
-            setBarcodeUpc(detected);
-            onToast(`Captured barcode ${detected}`);
-            await lookupBarcode(detected);
+            let detected = '';
+            let barcodeBoundingBox = null;
+            try {
+              const payload = await detectBarcodeCapturePayloadFromFile(file);
+              detected = normalizeBarcodeInput(payload?.code || '');
+              barcodeBoundingBox = payload?.boundingBox || null;
+            } catch (error) {
+              if (error?.message !== 'not-found') throw error;
+            }
+
+            const { normalizedDetected, inferredBookIsbn, lookupValue, shouldDeferAmbiguousBookLookup } = await resolveCapturedLookupValue(file, detected, barcodeBoundingBox);
+            if (!lookupValue) {
+              throw new Error('not-found');
+            }
+            setBarcodeUpc(normalizedDetected || lookupValue);
+            if (inferredBookIsbn || isLikelyRetailBookBarcode(normalizedDetected)) {
+              setBookCaptureState({
+                tone: shouldDeferAmbiguousBookLookup ? 'warning' : (inferredBookIsbn ? 'success' : 'info'),
+                source: 'Live camera',
+                heading: shouldDeferAmbiguousBookLookup ? 'Retail barcode captured' : (inferredBookIsbn ? 'ISBN recovered from live capture' : 'Barcode captured'),
+                detail: shouldDeferAmbiguousBookLookup
+                  ? 'Live camera captured the retail barcode, but we did not get a trustworthy ISBN from the frame.'
+                  : (inferredBookIsbn
+                    ? 'We recovered a book identifier from the live frame and will prefer that for lookup.'
+                    : 'The captured identifier can be used for lookup.'),
+                capturedBarcode: normalizedDetected || '',
+                recoveredIsbn: inferredBookIsbn || '',
+                nextStep: shouldDeferAmbiguousBookLookup
+                  ? 'Use Photo for a sharper still image or type the ISBN manually before lookup.'
+                  : 'ISBN is the best match key for books. Retail barcodes are secondary context.'
+              });
+            } else {
+              setBookCaptureState(null);
+            }
+            if (shouldDeferAmbiguousBookLookup) {
+              throw new Error('book-upc-only');
+            }
+            onToast(inferredBookIsbn ? `Recovered book identifier ${inferredBookIsbn}` : `Captured barcode ${lookupValue}`);
+            await lookupBarcode(lookupValue);
           } catch (error) {
             const reason = error?.message;
             if (reason === 'unsupported') {
               onToast('This browser could capture the frame, but barcode decoding is not available yet. Enter the UPC manually instead.', 'error');
+            } else if (reason === 'book-upc-only') {
+              onToast('Captured a retail book barcode, but no ISBN was recovered from the live frame. Try Photo mode for a sharper still or type the ISBN manually.', 'error');
             } else if (reason === 'not-found') {
               onToast('No barcode was detected in that capture. Try again with a clearer frame or enter the UPC manually.', 'error');
             } else {

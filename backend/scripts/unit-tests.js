@@ -217,6 +217,14 @@ results.push(run('validate.upcLookupSchema normalizes formatted UPC input and re
   assert.strictEqual(parsed.upc, '5061010501661');
 }));
 
+results.push(run('importIdentifiers.normalizeIsbn converts ISBN-10 values with X check digits into canonical ISBN-13', () => {
+  assert.strictEqual(normalizeIsbn('055357275X'), '9780553572759');
+}));
+
+results.push(run('importIdentifiers.normalizeIsbn rejects invalid ISBN-10 values with bad X check digits', () => {
+  assert.strictEqual(normalizeIsbn('0553572751'), '');
+}));
+
 results.push(run('releaseNotes.parseReleaseMarkdown extracts summary and change sections for help center feed', () => {
   const parsed = parseReleaseMarkdown(`# v9.9.9
 
@@ -668,6 +676,12 @@ results.push(run('media route source guards tmdb season hydration to tv series o
   assert.ok(mediaRoutesSource.includes('tmdbMediaType: media.tmdb_media_type'));
 }));
 
+results.push(run('media route source prefers direct isbn lookup for explicit book identifiers', () => {
+  assert.ok(mediaRoutesSource.includes('const directBookIsbn = mediaType === \'book\' ? normalizeIsbn(upc) : \'\''));
+  assert.ok(mediaRoutesSource.includes("provider: 'books:isbn-direct'"));
+  assert.ok(mediaRoutesSource.includes("stage: 'book_isbn_direct'"));
+}));
+
 results.push(run('media route source uses title candidate fallback for tmdb lookups', () => {
   assert.ok(mediaRoutesSource.includes('findBestTmdbCandidate'));
   assert.ok(mediaRoutesSource.includes('buildLookupTitleCandidates'));
@@ -768,11 +782,11 @@ results.push(run('importIdentifiers normalizes ISBN-10 to ISBN-13', () => {
 
 results.push(run('importIdentifiers normalizes identifier set fields', () => {
   const out = normalizeIdentifierSet({
-    isbn: '978-0-316-76948-0',
+    isbn: '978-0-316-76948-8',
     ean_upc: '0 12345 67890 5',
     asin: 'https://www.amazon.com/dp/B00005NZ1G'
   });
-  assert.strictEqual(out.isbn, '9780316769480');
+  assert.strictEqual(out.isbn, '9780316769488');
   assert.strictEqual(out.eanUpc, '012345678905');
   assert.strictEqual(out.asin, 'B00005NZ1G');
 }));

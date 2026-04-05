@@ -256,83 +256,122 @@ function EventArtifactsEditor({ eventId, apiCall, onSaved }) {
     onSaved?.();
   };
 
+  const formatArtifactMeta = (artifact) => {
+    const parts = [];
+    if (artifact?.artifact_type) parts.push(artifact.artifact_type);
+    if (artifact?.vendor) parts.push(artifact.vendor);
+    if (artifact?.price !== null && artifact?.price !== undefined && artifact?.price !== '') {
+      parts.push(`$${artifact.price}`);
+    }
+    return parts.join(' · ');
+  };
+
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-edge bg-surface px-4 py-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <MetaPill>{pluralizeArtifacts(artifacts.length)}</MetaPill>
-          <MetaPill tone="brand">Sessions</MetaPill>
-          <MetaPill tone="brand">Parties</MetaPill>
-          <MetaPill tone="brand">Signings</MetaPill>
-          <div className="flex-1" />
-          <button
-            className="btn-ghost btn-sm"
-            onClick={() => {
-              setArtifactEditorOpen((open) => {
-                const next = !open;
-                if (!next) clearArtifactForm();
-                return next;
-              });
-            }}
-          >
-            {artifactEditorOpen ? 'Done' : 'Edit sub-events'}
-          </button>
-        </div>
-        <p className="mt-2 text-sm text-ghost">
-          Keep the parent event here, then attach its actual panels, parties, signings, purchases, and notes as sub-events or artifacts.
-        </p>
+      <div className="flex items-center gap-3">
+        <p className="text-sm text-dim">{pluralizeArtifacts(artifacts.length)}</p>
+        <div className="flex-1" />
+        <button
+          className="btn-ghost btn-sm"
+          onClick={() => {
+            setArtifactEditorOpen((open) => {
+              const next = !open;
+              if (!next) clearArtifactForm();
+              return next;
+            });
+          }}
+        >
+          {artifactEditorOpen ? 'Done' : 'Edit schedule'}
+        </button>
       </div>
-      {loading ? <div className="flex items-center gap-2 text-dim"><Spinner size={16} />Loading sub-events…</div> : null}
+      {loading ? <div className="flex items-center gap-2 text-dim"><Spinner size={16} />Loading schedule…</div> : null}
       {artifactError ? <p className="text-xs text-err">{artifactError}</p> : null}
       {artifactNotice ? <p className="text-xs text-ok">{artifactNotice}</p> : null}
-      <div className="space-y-2">
+      <div className="overflow-hidden rounded-md border border-edge bg-panel/20">
         {artifacts.map((artifact) => (
-          <div key={artifact.id} className="flex items-center gap-3 rounded-xl border border-edge/70 bg-surface px-3 py-2">
-            <div className="flex-1 min-w-0">
-              <p className="text-sm text-ink truncate">{artifact.title}</p>
-              <div className="mt-1 flex flex-wrap gap-2">
-                <MetaPill>{artifact.artifact_type}</MetaPill>
-                {artifact.vendor ? <MetaPill>{artifact.vendor}</MetaPill> : null}
-                {artifact.price !== null && artifact.price !== undefined ? <MetaPill>{`$${artifact.price}`}</MetaPill> : null}
-              </div>
+          <div key={artifact.id} className="flex items-start gap-3 border-b border-edge/60 px-3 py-3 last:border-b-0">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-ink">{artifact.title}</p>
+              {formatArtifactMeta(artifact) ? (
+                <p className="mt-1 text-xs text-dim">{formatArtifactMeta(artifact)}</p>
+              ) : null}
+              {artifact.description ? <p className="mt-2 text-sm text-ghost">{artifact.description}</p> : null}
             </div>
             {artifact.image_path ? (
-              <a className="btn-ghost btn-sm" href={artifact.image_path} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
+              <a
+                className="btn-ghost btn-sm"
+                href={artifact.image_path}
+                target="_blank"
+                rel="noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                aria-label={`Open image for ${artifact.title}`}
+              >
                 <Icons.Link />
               </a>
             ) : null}
             {artifactEditorOpen && artifact.image_path ? (
-              <button className="btn-ghost btn-sm" onClick={() => removeArtifactImage(artifact)}>
+              <button className="btn-ghost btn-sm" onClick={() => removeArtifactImage(artifact)} aria-label={`Remove image from ${artifact.title}`}>
                 <Icons.X />
               </button>
             ) : null}
-            {artifactEditorOpen ? <button className="btn-ghost btn-sm" onClick={() => editArtifact(artifact)}><Icons.Edit /></button> : null}
-            {artifactEditorOpen ? <button className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={() => removeArtifact(artifact.id)}><Icons.Trash /></button> : null}
+            {artifactEditorOpen ? (
+              <button className="btn-ghost btn-sm" onClick={() => editArtifact(artifact)} aria-label={`Edit ${artifact.title}`}>
+                <Icons.Edit />
+              </button>
+            ) : null}
+            {artifactEditorOpen ? (
+              <button className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={() => removeArtifact(artifact.id)} aria-label={`Delete ${artifact.title}`}>
+                <Icons.Trash />
+              </button>
+            ) : null}
           </div>
         ))}
         {!loading && artifacts.length === 0 ? (
-          <p className="text-sm text-ghost">No sub-events or artifacts yet. Add sessions, signings, parties, purchases, or notes once this event exists.</p>
+          <div className="px-4 py-5 text-sm text-ghost">
+            No schedule items yet.
+          </div>
         ) : null}
       </div>
       {artifactEditorOpen ? (
-        <div className="rounded-2xl border border-edge bg-surface p-4">
-          <p className="label mb-3">{editingArtifactId ? `Edit Entry #${editingArtifactId}` : 'Add Sub-Event / Artifact'}</p>
-          <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-            <select className="select" value={artifactForm.artifact_type} onChange={(e) => setArtifactForm((prev) => ({ ...prev, artifact_type: e.target.value }))}>
-              <option value="note">Note</option>
-              <option value="session">Session</option>
-              <option value="person">Person</option>
-              <option value="autograph">Autograph</option>
-              <option value="purchase">Purchase</option>
-              <option value="freebie">Freebie</option>
-            </select>
-            <input className="input" placeholder="Title" value={artifactForm.title} onChange={(e) => setArtifactForm((prev) => ({ ...prev, title: e.target.value }))} />
-            <input className="input" placeholder="Vendor" value={artifactForm.vendor} onChange={(e) => setArtifactForm((prev) => ({ ...prev, vendor: e.target.value }))} />
-            <input className="input" placeholder="Price" value={artifactForm.price} onChange={(e) => setArtifactForm((prev) => ({ ...prev, price: e.target.value }))} />
-            <input className="input md:col-span-2" placeholder="Image URL (optional)" value={artifactForm.image_path} onChange={(e) => setArtifactForm((prev) => ({ ...prev, image_path: e.target.value }))} />
-            <input className="input md:col-span-2" type="file" accept="image/*" capture="environment" onChange={(e) => setArtifactFile(e.target.files?.[0] || null)} />
+        <div className="space-y-3 border-t border-edge/60 pt-4">
+          <p className="text-sm font-medium text-ink">{editingArtifactId ? `Edit entry #${editingArtifactId}` : 'Add schedule item'}</p>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <label className="field">
+              <span className="label">Type</span>
+              <select className="select" value={artifactForm.artifact_type} onChange={(e) => setArtifactForm((prev) => ({ ...prev, artifact_type: e.target.value }))}>
+                <option value="note">Note</option>
+                <option value="session">Session</option>
+                <option value="person">Person</option>
+                <option value="autograph">Autograph</option>
+                <option value="purchase">Purchase</option>
+                <option value="freebie">Freebie</option>
+              </select>
+            </label>
+            <label className="field">
+              <span className="label">Title</span>
+              <input className="input" value={artifactForm.title} onChange={(e) => setArtifactForm((prev) => ({ ...prev, title: e.target.value }))} />
+            </label>
+            <label className="field">
+              <span className="label">Vendor</span>
+              <input className="input" value={artifactForm.vendor} onChange={(e) => setArtifactForm((prev) => ({ ...prev, vendor: e.target.value }))} />
+            </label>
+            <label className="field">
+              <span className="label">Price</span>
+              <input className="input" inputMode="decimal" value={artifactForm.price} onChange={(e) => setArtifactForm((prev) => ({ ...prev, price: e.target.value }))} />
+            </label>
+            <label className="field md:col-span-2">
+              <span className="label">Image URL</span>
+              <input className="input" placeholder="Optional" value={artifactForm.image_path} onChange={(e) => setArtifactForm((prev) => ({ ...prev, image_path: e.target.value }))} />
+            </label>
+            <label className="field md:col-span-2">
+              <span className="label">Image</span>
+              <input className="input" type="file" accept="image/*" capture="environment" onChange={(e) => setArtifactFile(e.target.files?.[0] || null)} />
+            </label>
             {artifactFile ? <p className="text-xs text-ghost md:col-span-2">Selected file: {artifactFile.name}</p> : null}
-            <textarea className="textarea md:col-span-2 min-h-[88px]" placeholder="Description" value={artifactForm.description} onChange={(e) => setArtifactForm((prev) => ({ ...prev, description: e.target.value }))} />
+            <label className="field md:col-span-2">
+              <span className="label">Notes</span>
+              <textarea className="textarea min-h-[88px]" value={artifactForm.description} onChange={(e) => setArtifactForm((prev) => ({ ...prev, description: e.target.value }))} />
+            </label>
             <div className="md:col-span-2 flex gap-2">
               <button className="btn-secondary flex-1" onClick={saveArtifact} disabled={artifactSaving}>
                 {artifactSaving
@@ -361,7 +400,7 @@ function EventFormDrawer({ initial, apiCall, onClose, onSave, onDelete, onClearI
   const [error, setError] = useState('');
   const eventTabs = useMemo(() => ([
     { id: 'core', label: 'Core Details' },
-    { id: 'subevents', label: 'Sub-Events & Artifacts' },
+    { id: 'subevents', label: 'Schedule' },
     { id: 'storage', label: 'Storage & Notes' }
   ]), []);
   const [activeTab, setActiveTab] = useState('core');
@@ -402,13 +441,7 @@ function EventFormDrawer({ initial, apiCall, onClose, onSave, onDelete, onClearI
   return (
     <div className="fixed inset-0 z-50 flex">
       <div className="absolute inset-0 bg-black/45 backdrop-blur-[1px]" onClick={onClose} />
-      <div className="ml-auto h-full w-full max-w-3xl bg-abyss border-l border-edge shadow-2xl relative flex flex-col">
-        {initial?.image_path ? (
-          <div className="relative h-48 shrink-0 overflow-hidden">
-            <img src={posterUrl(initial.image_path)} alt="" className="h-full w-full object-cover" />
-            <div className="absolute inset-0 bg-hero-fade" />
-          </div>
-        ) : null}
+      <div className="ml-auto h-full w-full max-w-[40rem] bg-abyss border-l border-edge shadow-2xl relative flex flex-col">
         <div className="px-6 py-4 border-b border-edge flex items-center gap-3">
           <h2 className="section-title !text-xl">{initial?.id ? 'Edit Event' : 'Add Event'}</h2>
           <div className="flex-1" />
@@ -416,35 +449,24 @@ function EventFormDrawer({ initial, apiCall, onClose, onSave, onDelete, onClearI
         </div>
         <div className="p-6 overflow-y-auto space-y-4">
           {error && <p className="text-sm text-err">{error}</p>}
-          <div className="tab-strip w-full">
+          <div className="flex rounded-md border border-edge bg-panel/40 p-1">
             {eventTabs.map((tab, index) => (
               <button
                 key={tab.id}
                 type="button"
-                className={cx('tab flex-1', activeTab === tab.id && 'active')}
+                className={cx(
+                  'flex-1 rounded-sm px-4 py-2 text-sm font-medium transition-colors',
+                  activeTab === tab.id
+                    ? 'bg-surface text-ink'
+                    : 'text-dim hover:bg-panel/60 hover:text-ink'
+                )}
                 onClick={() => setActiveTab(tab.id)}
               >
                 {`${index + 1}. ${tab.label}`}
               </button>
             ))}
           </div>
-          <div className="rounded-3xl border border-edge bg-surface/95 p-5 shadow-soft space-y-5">
-            <div className="flex items-start gap-4">
-              <div className="flex-1 min-w-0">
-                <p className="label">Step {eventTabs.findIndex((tab) => tab.id === activeTab) + 1}</p>
-                <h3 className="section-title !text-xl mt-1">{(eventTabs.find((tab) => tab.id === activeTab) || eventTabs[0]).label}</h3>
-                <p className="mt-1 text-sm text-ghost">
-                  {activeTab === 'core' && 'Define the parent event first so its sessions, parties, and signings have the right home.'}
-                  {activeTab === 'subevents' && 'Use this space for panels, parties, signings, purchases, and other event history entries.'}
-                  {activeTab === 'storage' && 'Keep notes and image handling out of the way of the main event scheduling details.'}
-                </p>
-              </div>
-              {activeTab !== 'subevents' ? (
-                <button type="button" onClick={() => setCameraOpen(true)} className="btn-secondary btn-sm shrink-0">
-                  <Icons.Camera />Open camera
-                </button>
-              ) : null}
-            </div>
+          <div className="space-y-4 border-t border-edge/60 pt-3">
 
             {activeTab === 'core' ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -463,7 +485,7 @@ function EventFormDrawer({ initial, apiCall, onClose, onSave, onDelete, onClearI
               initial?.id ? (
                 <EventArtifactsEditor eventId={initial.id} apiCall={apiCall} onSaved={() => {}} />
               ) : (
-                <div className="rounded-2xl border border-dashed border-edge px-4 py-6 text-sm text-ghost">
+                <div className="rounded-md border border-dashed border-edge px-4 py-6 text-sm text-ghost">
                   Save the event first, then come back here to add panels, parties, signings, purchases, and other sub-event history.
                 </div>
               )
@@ -474,8 +496,7 @@ function EventFormDrawer({ initial, apiCall, onClose, onSave, onDelete, onClearI
                 <label className="field md:col-span-2"><span className="label">Image URL (optional)</span><input className="input" value={form.image_path || ''} onChange={(e) => set({ image_path: e.target.value })} /></label>
                 <label className="field md:col-span-2"><span className="label">Upload/Capture image</span><input className="input" type="file" accept="image/*" capture="environment" onChange={(e) => setImageFile(e.target.files?.[0] || null)} /></label>
                 <div className="md:col-span-2 flex items-center gap-2">
-                  <button type="button" onClick={() => setCameraOpen(true)} className="btn-secondary btn-sm"><Icons.Camera />Open camera</button>
-                  <p className="text-xs text-ghost">Capture a live event image without leaving the drawer.</p>
+                  <button type="button" onClick={() => setCameraOpen(true)} className="btn-secondary btn-sm"><Icons.Camera />Camera</button>
                 </div>
                 {imageFile ? <p className="text-xs text-ghost md:col-span-2">Selected file: {imageFile.name}</p> : null}
                 {form.image_path ? (

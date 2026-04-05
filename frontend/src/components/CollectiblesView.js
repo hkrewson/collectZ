@@ -245,78 +245,34 @@ function CollectibleDrawer({
   return (
     <div className="fixed inset-0 z-50 flex">
       <div className="absolute inset-0 bg-void/80 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative ml-auto w-full max-w-xl h-full bg-abyss border-l border-edge flex flex-col animate-slide-in">
-        {initial?.image_path ? (
-          <div className="relative h-48 shrink-0 overflow-hidden">
-            <img src={posterUrl(initial.image_path)} alt="" className="h-full w-full object-cover" />
-            <div className="absolute inset-0 bg-hero-fade" />
-          </div>
-        ) : null}
-        <div className="flex items-start gap-4 px-6 pt-6 pb-4 shrink-0">
-          {initial?.image_path ? (
-            <div className="relative z-10 -mt-16 w-20 shrink-0 shadow-deep">
-              <div className="poster rounded-md">
-                <img src={posterUrl(initial.image_path)} alt={initial?.title || 'Collectible'} className="absolute inset-0 h-full w-full object-cover" />
-              </div>
-            </div>
-          ) : null}
-          <div className={cx('min-w-0 flex-1', initial?.image_path ? 'mt-1' : '')}>
-            <div className="flex items-baseline gap-2">
-              <h2 className="font-display text-2xl tracking-wider text-ink leading-tight">{initial?.id ? 'Edit Collectible' : 'Add Collectible'}</h2>
-              {initial?.id ? <p className="text-sm text-ghost">#{initial.id}</p> : null}
-            </div>
-            {initial ? (
-              <p className="mt-1 text-sm text-dim">
-                {[initial?.category, initial?.event_title || events.find((evt) => String(evt.id) === String(form.event_id))?.title, initial?.booth_or_vendor].filter(Boolean).join(' · ')}
-              </p>
-            ) : (
-              <p className="mt-1 text-sm text-ghost">Capture convention pickups, exclusives, props, and shelf pieces with the same structure as the rest of your library.</p>
-            )}
-          </div>
+      <div className="relative ml-auto w-full max-w-[40rem] h-full bg-abyss border-l border-edge flex flex-col animate-slide-in">
+        <div className="flex items-center gap-3 px-6 py-4 border-b border-edge shrink-0">
+          <h2 className="section-title !text-xl">{initial?.id ? 'Edit Collectible' : 'Add Collectible'}</h2>
+          <div className="flex-1" />
+          {initial?.id ? <p className="text-sm text-ghost">#{initial.id}</p> : null}
           <button onClick={onClose} className="btn-icon btn-sm shrink-0"><Icons.X /></button>
         </div>
-        <div className="divider" />
         <div className="flex-1 overflow-y-auto scroll-area p-6 space-y-4">
           {error ? <p className="text-xs text-err">{error}</p> : null}
           {notice ? <p className="text-xs text-ok">{notice}</p> : null}
-          {initial ? (
-            <div className="rounded-2xl border border-edge bg-surface px-4 py-3">
-              <div className="flex flex-wrap gap-2">
-                <FilterPill>{form.subtype || 'collectible'}</FilterPill>
-                {form.category_key ? <FilterPill>{categories.find((cat) => cat.key === form.category_key)?.label || form.category_key}</FilterPill> : null}
-                {form.exclusive ? <FilterPill tone="brand">Exclusive</FilterPill> : null}
-                {form.event_id ? <FilterPill>{events.find((evt) => String(evt.id) === String(form.event_id))?.title || 'Linked event'}</FilterPill> : null}
-              </div>
-            </div>
-          ) : null}
-          <div className="tab-strip w-full">
+          <div className="flex rounded-md border border-edge bg-panel/40 p-1">
             {collectibleTabs.map((tab, index) => (
               <button
                 key={tab.id}
                 type="button"
-                className={cx('tab flex-1', activeTab === tab.id && 'active')}
+                className={cx(
+                  'flex-1 rounded-sm px-4 py-2 text-sm font-medium transition-colors',
+                  activeTab === tab.id
+                    ? 'bg-surface text-ink'
+                    : 'text-dim hover:bg-panel/60 hover:text-ink'
+                )}
                 onClick={() => setActiveTab(tab.id)}
               >
                 {`${index + 1}. ${tab.label}`}
               </button>
             ))}
           </div>
-          <div className="rounded-3xl border border-edge bg-surface/95 p-5 shadow-soft space-y-5">
-            <div className="flex items-start gap-4">
-              <div className="flex-1 min-w-0">
-                <p className="label">Step {collectibleTabs.findIndex((tab) => tab.id === activeTab) + 1}</p>
-                <h3 className="section-title !text-xl mt-1">{(collectibleTabs.find((tab) => tab.id === activeTab) || collectibleTabs[0]).label}</h3>
-                <p className="mt-1 text-sm text-ghost">
-                  {activeTab === 'core' && 'Capture the collectible itself here, along with the event and vendor context that anchors where it came from.'}
-                  {activeTab === 'storage' && 'Use the final step for image handling and any storage or collection notes you want to keep with the item.'}
-                </p>
-              </div>
-              {activeTab === 'storage' ? (
-                <button type="button" onClick={() => setCameraOpen(true)} className="btn-secondary btn-sm shrink-0">
-                  <Icons.Camera />Open camera
-                </button>
-              ) : null}
-            </div>
+          <div className="space-y-4 border-t border-edge/60 pt-3">
 
             {activeTab === 'core' ? (
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -353,8 +309,7 @@ function CollectibleDrawer({
                 <label className="field md:col-span-2"><span className="label">Image URL (optional)</span><input className="input" value={form.image_path || ''} onChange={(e) => setForm((p) => ({ ...p, image_path: e.target.value }))} /></label>
                 <label className="field md:col-span-2"><span className="label">Upload/Capture image</span><input className="input" type="file" accept="image/*" capture="environment" onChange={(e) => setImageFile(e.target.files?.[0] || null)} /></label>
                 <div className="md:col-span-2 flex items-center gap-2">
-                  <button type="button" onClick={() => setCameraOpen(true)} className="btn-secondary btn-sm"><Icons.Camera />Open camera</button>
-                  <p className="text-xs text-ghost">Capture a collectible image directly from the camera and attach it here.</p>
+                  <button type="button" onClick={() => setCameraOpen(true)} className="btn-secondary btn-sm"><Icons.Camera />Camera</button>
                 </div>
                 {imageFile ? <p className="text-xs text-ghost md:col-span-2">Selected file: {imageFile.name}</p> : null}
                 {form.image_path ? (

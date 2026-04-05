@@ -102,17 +102,128 @@ export function normalizeBarcodeInput(rawValue = '') {
     .trim();
 }
 
+export function inferBookBarcodeIdentifier(rawValue = '') {
+  const digits = normalizeBarcodeInput(rawValue).replace(/\D+/g, '');
+  if (digits.length === 13 && (digits.startsWith('978') || digits.startsWith('979'))) {
+    return digits;
+  }
+  return '';
+}
+
+export function isLikelyRetailBookBarcode(rawValue = '') {
+  const digits = normalizeBarcodeInput(rawValue).replace(/\D+/g, '');
+  return digits.length === 12;
+}
+
+export function normalizeIsbnCandidate(rawValue = '') {
+  const token = String(rawValue || '')
+    .normalize('NFKC')
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .replace(/[^0-9Xx]/g, '')
+    .toUpperCase();
+  if (!token) return '';
+
+  const computeIsbn13CheckDigit = (core) => {
+    let sum = 0;
+    for (let index = 0; index < core.length; index += 1) {
+      sum += Number(core[index]) * (index % 2 === 0 ? 1 : 3);
+    }
+    return (10 - (sum % 10)) % 10;
+  };
+
+  if (/^\d{13}$/.test(token) && (token.startsWith('978') || token.startsWith('979'))) {
+    return computeIsbn13CheckDigit(token.slice(0, 12)) === Number(token[12]) ? token : '';
+  }
+
+  if (!/^\d{9}[\dX]$/.test(token)) return '';
+
+  let isbn10Checksum = 0;
+  for (let index = 0; index < 10; index += 1) {
+    const char = token[index];
+    const digit = char === 'X' ? 10 : Number(char);
+    isbn10Checksum += digit * (10 - index);
+  }
+  if (isbn10Checksum % 11 !== 0) return '';
+
+  const core = `978${token.slice(0, 9)}`;
+  return `${core}${computeIsbn13CheckDigit(core)}`;
+}
+
+function expandOcrIsbnCandidates(rawValue = '') {
+  const token = String(rawValue || '')
+    .normalize('NFKC')
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .replace(/[\s-]+/g, '')
+    .toUpperCase();
+  if (!(token.length === 10 || token.length === 13)) return [];
+
+  const substitutions = {
+    O: ['0'],
+    Q: ['0'],
+    D: ['0'],
+    I: ['1'],
+    L: ['1'],
+    T: ['1'],
+    Z: ['2'],
+    A: ['4'],
+    S: ['5'],
+    G: ['6'],
+    B: ['8'],
+    X: token.length === 10 ? ['X'] : []
+  };
+
+  const options = [];
+  for (let index = 0; index < token.length; index += 1) {
+    const char = token[index];
+    if (/\d/.test(char)) {
+      options.push([char]);
+      continue;
+    }
+    const replacements = substitutions[char] || [];
+    if (char === 'X' && token.length === 10 && index === 9) {
+      options.push(['X']);
+      continue;
+    }
+    if (!replacements.length) return [];
+    options.push(replacements);
+  }
+
+  const variants = new Set();
+  const walk = (index, built) => {
+    if (variants.size >= 24) return;
+    if (index >= options.length) {
+      const normalized = normalizeIsbnCandidate(built);
+      if (normalized) variants.add(normalized);
+      return;
+    }
+    for (const candidate of options[index]) {
+      walk(index + 1, `${built}${candidate}`);
+      if (variants.size >= 24) return;
+    }
+  };
+
+  walk(0, '');
+  return Array.from(variants);
+}
+
 function normalizeDetectedBarcode(rawValue = '') {
   return normalizeBarcodeInput(rawValue);
 }
 
 async function detectFirstBarcode(detector, source) {
   const detections = await detector.detect(source);
-  const rawValue = normalizeDetectedBarcode(detections?.find((item) => item?.rawValue)?.rawValue || '');
-  return rawValue || '';
+  const first = detections?.find((item) => item?.rawValue);
+  const rawValue = normalizeDetectedBarcode(first?.rawValue || '');
+  return rawValue
+    ? {
+        rawValue,
+        boundingBox: first?.boundingBox || null
+      }
+    : null;
 }
 
 let zxingDecoderPromise = null;
+let tesseractWorkerPromise = null;
 
 async function loadZxingDecoder() {
   if (!zxingDecoderPromise) {
@@ -149,6 +260,35 @@ async function loadZxingDecoder() {
   }
 
   return zxingDecoderPromise;
+}
+
+async function loadTesseractWorker() {
+  if (!tesseractWorkerPromise) {
+    tesseractWorkerPromise = import('tesseract.js')
+      .then(async (module) => {
+        const createWorker = module?.createWorker || module?.default?.createWorker;
+        const PSM = module?.PSM || module?.default?.PSM || {};
+        if (typeof createWorker !== 'function') {
+          throw new Error('unsupported');
+        }
+        const worker = await createWorker('eng', 1, {
+          logger: () => {},
+          errorHandler: () => {}
+        });
+        await worker.setParameters({
+          tessedit_pageseg_mode: PSM.SINGLE_BLOCK,
+          preserve_interword_spaces: '1',
+          tessedit_char_whitelist: '0123456789XxABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-: '
+        });
+        return { worker, PSM };
+      })
+      .catch((error) => {
+        tesseractWorkerPromise = null;
+        throw error;
+      });
+  }
+
+  return tesseractWorkerPromise;
 }
 
 function createBarcodeCanvas(width, height) {
@@ -239,6 +379,255 @@ function createBarcodeDetectionVariants(source) {
   return variants;
 }
 
+function clampCropRect(rect = {}) {
+  const x = Math.max(0, Math.min(1, Number(rect.x) || 0));
+  const y = Math.max(0, Math.min(1, Number(rect.y) || 0));
+  const width = Math.max(0.02, Math.min(1 - x, Number(rect.width) || 0));
+  const height = Math.max(0.02, Math.min(1 - y, Number(rect.height) || 0));
+  return { x, y, width, height };
+}
+
+function normalizeBoundingBoxToCrop(source, boundingBox) {
+  const sourceWidth = source?.naturalWidth || source?.videoWidth || source?.width || 0;
+  const sourceHeight = source?.naturalHeight || source?.videoHeight || source?.height || 0;
+  if (!sourceWidth || !sourceHeight || !boundingBox) return null;
+  const x = Number(boundingBox.x);
+  const y = Number(boundingBox.y);
+  const width = Number(boundingBox.width);
+  const height = Number(boundingBox.height);
+  if (![x, y, width, height].every(Number.isFinite) || width <= 0 || height <= 0) return null;
+  return clampCropRect({
+    x: x / sourceWidth,
+    y: y / sourceHeight,
+    width: width / sourceWidth,
+    height: height / sourceHeight
+  });
+}
+
+function createIdentifierOcrVariants(source, focusCrop = null) {
+  const variants = [];
+  const pushVariant = (label, options, ocrMode = 'block') => {
+    const canvas = drawBarcodeVariant(source, options);
+    if (canvas) variants.push({ label, source: canvas, ocrMode });
+  };
+
+  if (focusCrop) {
+    const paddedFocus = clampCropRect({
+      x: focusCrop.x - 0.08,
+      y: focusCrop.y - 0.08,
+      width: focusCrop.width + 0.16,
+      height: focusCrop.height + 0.16
+    });
+    const belowFocus = clampCropRect({
+      x: focusCrop.x - 0.06,
+      y: focusCrop.y + focusCrop.height - 0.02,
+      width: focusCrop.width + 0.12,
+      height: Math.max(focusCrop.height * 0.7, 0.12)
+    });
+    const aboveAndBelowFocus = clampCropRect({
+      x: focusCrop.x - 0.08,
+      y: focusCrop.y - Math.max(focusCrop.height * 0.3, 0.05),
+      width: focusCrop.width + 0.16,
+      height: focusCrop.height + Math.max(focusCrop.height * 0.9, 0.18)
+    });
+
+    pushVariant('barcode-focus', { crop: paddedFocus, maxDimension: 2200, grayscale: true, contrast: 2.4 });
+    pushVariant('barcode-focus-below', { crop: belowFocus, maxDimension: 2200, grayscale: true, contrast: 2.6 });
+    pushVariant('barcode-focus-context', { crop: aboveAndBelowFocus, maxDimension: 2200, grayscale: true, contrast: 2.3 });
+
+    const isbnStrip = clampCropRect({
+      x: focusCrop.x - 0.03,
+      y: focusCrop.y - Math.max(focusCrop.height * 0.34, 0.07),
+      width: focusCrop.width + 0.08,
+      height: Math.max(focusCrop.height * 0.18, 0.08)
+    });
+    const isbnStripLeft = clampCropRect({
+      x: focusCrop.x - 0.02,
+      y: focusCrop.y - Math.max(focusCrop.height * 0.34, 0.07),
+      width: Math.max(focusCrop.width * 0.72, 0.22),
+      height: Math.max(focusCrop.height * 0.18, 0.08)
+    });
+
+    pushVariant('barcode-focus-isbn-strip', { crop: isbnStrip, maxDimension: 2600, grayscale: true, contrast: 3.0 }, 'single-line');
+    pushVariant('barcode-focus-isbn-strip-left', { crop: isbnStripLeft, maxDimension: 2600, grayscale: true, contrast: 3.1 }, 'single-line');
+  }
+
+  pushVariant('bottom-third-contrast', { crop: { x: 0.02, y: 0.55, width: 0.96, height: 0.36 }, maxDimension: 2000, grayscale: true, contrast: 2.2 });
+  pushVariant('bottom-half-contrast', { crop: { x: 0, y: 0.42, width: 1, height: 0.58 }, maxDimension: 2000, grayscale: true, contrast: 2.0 });
+  pushVariant('bottom-quarter-tight', { crop: { x: 0.08, y: 0.68, width: 0.84, height: 0.2 }, maxDimension: 2200, grayscale: true, contrast: 2.5 });
+  pushVariant('bottom-right-quarter', { crop: { x: 0.45, y: 0.58, width: 0.5, height: 0.3 }, maxDimension: 2200, grayscale: true, contrast: 2.4 });
+  pushVariant('full-contrast', { maxDimension: 1800, grayscale: true, contrast: 1.8 });
+  pushVariant('bottom-third-rotated-right', { crop: { x: 0.02, y: 0.55, width: 0.96, height: 0.36 }, maxDimension: 2000, grayscale: true, contrast: 2.2, rotate: 90 });
+  pushVariant('bottom-third-rotated-left', { crop: { x: 0.02, y: 0.55, width: 0.96, height: 0.36 }, maxDimension: 2000, grayscale: true, contrast: 2.2, rotate: -90 });
+
+  return variants;
+}
+
+function uniqueNonEmpty(values = []) {
+  return Array.from(new Set(values.filter(Boolean)));
+}
+
+function extractSlidingWindowIsbnCandidates(rawText = '') {
+  const tokenStream = String(rawText || '')
+    .normalize('NFKC')
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .toUpperCase()
+    .replace(/[^0-9A-Z]/g, '');
+  if (tokenStream.length < 10) return [];
+
+  const candidates = new Set();
+
+  for (let start = 0; start <= tokenStream.length - 10; start += 1) {
+    const isbn10Slice = tokenStream.slice(start, start + 10);
+    const isbn10Normalized = normalizeIsbnCandidate(isbn10Slice);
+    if (isbn10Normalized) {
+      candidates.add(isbn10Normalized);
+    }
+  }
+
+  for (let start = 0; start <= tokenStream.length - 13; start += 1) {
+    const isbn13Slice = tokenStream.slice(start, start + 13);
+    const isbn13Normalized = normalizeIsbnCandidate(isbn13Slice);
+    if (isbn13Normalized) {
+      candidates.add(isbn13Normalized);
+    }
+  }
+
+  return Array.from(candidates);
+}
+
+function extractIdentifierCandidatesFromText(rawText = '') {
+  const text = String(rawText || '');
+  if (!text.trim()) {
+    return {
+      isbnCandidates: [],
+      strictIsbnCandidates: [],
+      labeledIsbnCandidates: [],
+      upcCandidates: [],
+      asinCandidates: [],
+      rawText: ''
+    };
+  }
+
+  const isbnCandidates = [];
+  const strictIsbnCandidates = [];
+  const labeledIsbnCandidates = [];
+  const upcCandidates = [];
+  const asinCandidates = [];
+
+  const normalizedText = text
+    .replace(/[Oo]/g, '0')
+    .replace(/[Il|]/g, '1');
+  const ocrNormalizedText = normalizedText
+    .replace(/(?<=\d)[Ss](?=[\dXx])/g, '5')
+    .replace(/(?<=\d)[Bb](?=[\dXx])/g, '8')
+    .replace(/(?<=\d)[Gg](?=[\dXx])/g, '6')
+    .replace(/(?<=\d)[Zz](?=[\dXx])/g, '2')
+    .replace(/(?<=\d)[Qq](?=[\dXx])/g, '0');
+
+  const isbnLabelPattern = /ISBN(?:-1[03])?[\s:]*([0-9A-Za-z\- ]{10,20})/gi;
+  let isbnMatch = isbnLabelPattern.exec(ocrNormalizedText);
+  while (isbnMatch) {
+    const rawCandidate = isbnMatch[1] || '';
+    const normalized = normalizeIsbnCandidate(rawCandidate);
+    if (normalized) {
+      isbnCandidates.push(normalized);
+      strictIsbnCandidates.push(normalized);
+      labeledIsbnCandidates.push(normalized);
+    } else {
+      const expanded = expandOcrIsbnCandidates(rawCandidate);
+      isbnCandidates.push(...expanded);
+      labeledIsbnCandidates.push(...expanded);
+    }
+    isbnMatch = isbnLabelPattern.exec(ocrNormalizedText);
+  }
+
+  const asinPattern = /\bASIN[\s:]*([A-Z0-9]{10})\b/gi;
+  let asinMatch = asinPattern.exec(ocrNormalizedText.toUpperCase());
+  while (asinMatch) {
+    const candidate = String(asinMatch[1] || '').trim().toUpperCase();
+    if (candidate) asinCandidates.push(candidate);
+    asinMatch = asinPattern.exec(ocrNormalizedText.toUpperCase());
+  }
+
+  const bareDigitRuns = ocrNormalizedText.match(/\b[0-9A-Za-z][0-9A-Za-z\- ]{8,22}\b/g) || [];
+  for (const candidate of bareDigitRuns) {
+    const normalizedIsbn = normalizeIsbnCandidate(candidate);
+    if (normalizedIsbn) {
+      isbnCandidates.push(normalizedIsbn);
+      strictIsbnCandidates.push(normalizedIsbn);
+    } else {
+      isbnCandidates.push(...expandOcrIsbnCandidates(candidate));
+    }
+
+    const digits = normalizeBarcodeInput(candidate).replace(/\D+/g, '');
+    if (digits.length === 12 || digits.length === 13) {
+      upcCandidates.push(digits);
+    }
+  }
+
+  for (const candidate of extractSlidingWindowIsbnCandidates(ocrNormalizedText)) {
+    isbnCandidates.push(candidate);
+    strictIsbnCandidates.push(candidate);
+  }
+
+  return {
+    isbnCandidates: uniqueNonEmpty(isbnCandidates),
+    strictIsbnCandidates: uniqueNonEmpty(strictIsbnCandidates),
+    labeledIsbnCandidates: uniqueNonEmpty(labeledIsbnCandidates),
+    upcCandidates: uniqueNonEmpty(upcCandidates),
+    asinCandidates: uniqueNonEmpty(asinCandidates),
+    rawText: ocrNormalizedText
+  };
+}
+
+async function runIdentifierOcr(source, options = {}) {
+  const { worker, PSM } = await loadTesseractWorker();
+  const aggregate = {
+    isbnCandidates: [],
+    strictIsbnCandidates: [],
+    labeledIsbnCandidates: [],
+    upcCandidates: [],
+    asinCandidates: [],
+    rawText: []
+  };
+  const focusCrop = normalizeBoundingBoxToCrop(source, options?.boundingBox);
+
+  for (const variant of createIdentifierOcrVariants(source, focusCrop)) {
+    try {
+      await worker.setParameters({
+        tessedit_pageseg_mode: variant.ocrMode === 'single-line' ? (PSM.SINGLE_LINE || PSM.SINGLE_BLOCK) : (PSM.SINGLE_BLOCK || 6),
+        preserve_interword_spaces: '1',
+        tessedit_char_whitelist: '0123456789XxABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-: '
+      });
+      const { data } = await worker.recognize(variant.source, { rotateAuto: true }, { text: true });
+      const parsed = extractIdentifierCandidatesFromText(data?.text || '');
+      aggregate.isbnCandidates.push(...parsed.isbnCandidates);
+      aggregate.strictIsbnCandidates.push(...parsed.strictIsbnCandidates);
+      aggregate.labeledIsbnCandidates.push(...parsed.labeledIsbnCandidates);
+      aggregate.upcCandidates.push(...parsed.upcCandidates);
+      aggregate.asinCandidates.push(...parsed.asinCandidates);
+      if (parsed.rawText) aggregate.rawText.push(parsed.rawText);
+    } catch (_) {
+      // Keep trying OCR variants before giving up.
+    } finally {
+      if (variant?.source?.width) {
+        variant.source.width = 1;
+        variant.source.height = 1;
+      }
+    }
+  }
+
+  return {
+    isbnCandidates: uniqueNonEmpty(aggregate.isbnCandidates),
+    strictIsbnCandidates: uniqueNonEmpty(aggregate.strictIsbnCandidates),
+    labeledIsbnCandidates: uniqueNonEmpty(aggregate.labeledIsbnCandidates),
+    upcCandidates: uniqueNonEmpty(aggregate.upcCandidates),
+    asinCandidates: uniqueNonEmpty(aggregate.asinCandidates),
+    rawText: aggregate.rawText.join('\n').trim()
+  };
+}
+
 async function detectBarcodeWithZxing(source) {
   const reader = await loadZxingDecoder();
   for (const variant of createBarcodeDetectionVariants(source)) {
@@ -261,7 +650,7 @@ async function detectBarcodeWithZxing(source) {
   throw new Error('not-found');
 }
 
-export async function detectBarcodeFromFile(file) {
+export async function detectBarcodeCapturePayloadFromFile(file) {
   const source = await loadImageForBarcodeDetection(file);
 
   try {
@@ -290,14 +679,24 @@ export async function detectBarcodeFromFile(file) {
 
       const detector = new BarcodeDetectorClass({ formats });
       const rawDetected = await detectFirstBarcode(detector, source);
-      if (rawDetected) {
-        return rawDetected;
+      if (rawDetected?.rawValue) {
+        return {
+          code: rawDetected.rawValue,
+          boundingBox: rawDetected.boundingBox || null,
+          detectedBy: 'barcode-detector'
+        };
       }
 
       for (const variant of createBarcodeDetectionVariants(source)) {
         try {
           const detected = await detectFirstBarcode(detector, variant.source);
-          if (detected) return detected;
+          if (detected?.rawValue) {
+            return {
+              code: detected.rawValue,
+              boundingBox: null,
+              detectedBy: 'barcode-detector-variant'
+            };
+          }
         } catch (_) {
           // Keep trying transformed variants before giving up.
         } finally {
@@ -313,7 +712,31 @@ export async function detectBarcodeFromFile(file) {
       throw new Error('unsupported');
     }
 
-    return await detectBarcodeWithZxing(source);
+    return {
+      code: await detectBarcodeWithZxing(source),
+      boundingBox: null,
+      detectedBy: 'zxing'
+    };
+  } finally {
+    if (source && typeof source.close === 'function') {
+      source.close();
+    }
+  }
+}
+
+export async function detectBarcodeFromFile(file) {
+  const payload = await detectBarcodeCapturePayloadFromFile(file);
+  return payload?.code || '';
+}
+
+export async function extractIdentifierCandidatesFromFile(file, options = {}) {
+  if (!canAttemptBrowserBarcodeDecode()) {
+    throw new Error('unsupported');
+  }
+
+  const source = await loadImageForBarcodeDetection(file);
+  try {
+    return await runIdentifierOcr(source, options);
   } finally {
     if (source && typeof source.close === 'function') {
       source.close();
@@ -439,8 +862,8 @@ export function CameraCaptureModal({
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: { ideal: 'environment' },
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
+            width: { ideal: 1920 },
+            height: { ideal: 1080 }
           },
           audio: false
         });
@@ -449,6 +872,19 @@ export function CameraCaptureModal({
           return;
         }
         streamRef.current = stream;
+        const [videoTrack] = stream.getVideoTracks();
+        if (videoTrack?.applyConstraints) {
+          try {
+            await videoTrack.applyConstraints({
+              advanced: [
+                { width: 1920, height: 1080 },
+                { focusMode: 'continuous' }
+              ]
+            });
+          } catch (_) {
+            // Keep the best-effort camera stream when the browser rejects advanced constraints.
+          }
+        }
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           await videoRef.current.play().catch(() => {});
@@ -496,7 +932,7 @@ export function CameraCaptureModal({
       setCapturedBlob(blob);
       setCapturedUrl(URL.createObjectURL(blob));
       setError('');
-    }, 'image/jpeg', 0.92);
+    }, 'image/png');
   };
 
   const useCapture = async () => {

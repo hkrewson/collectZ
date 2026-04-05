@@ -32,7 +32,7 @@ const { searchComicsByTitle, fetchMetronCollectionIssues, fetchMetronIssueDetail
 const { parseCsvText } = require('../services/csv');
 const { mapDeliciousItemTypeToMediaType } = require('../services/importMapping');
 const { normalizeDeliciousRow } = require('../services/deliciousNormalize');
-const { normalizeIdentifierSet } = require('../services/importIdentifiers');
+const { normalizeIdentifierSet, normalizeIsbn } = require('../services/importIdentifiers');
 const { syncNormalizedMetadataForMedia } = require('../services/mediaTaxonomy');
 const { normalizeTypeDetails } = require('../services/typeDetails');
 const { formatSyncJob } = require('../services/syncJobs');
@@ -4357,6 +4357,54 @@ router.post('/lookup-upc', validate(upcLookupSchema), asyncHandler(async (req, r
 
   const config = await loadAdminIntegrationConfig();
   const { barcodeProvider, barcodeApiUrl, barcodeQueryParam, barcodeApiKey, barcodeApiKeyHeader } = config;
+  const directBookIsbn = mediaType === 'book' ? normalizeIsbn(upc) : '';
+
+  if (directBookIsbn) {
+    try {
+      const directBookMatches = await searchBooksByIsbn(directBookIsbn, config, 5);
+      if (directBookMatches.length) {
+        return res.json({
+          provider: 'books:isbn-direct',
+          request: {
+            provider: 'books:isbn-direct',
+            isbn: directBookIsbn
+          },
+          matches: directBookMatches.map((book) => ({
+            title: book?.title || '',
+            normalizedTitle: book?.title || '',
+            searchTitle: book?.title || '',
+            description: book?.overview || null,
+            image: book?.poster_path || null,
+            upc: String(upc || '').trim() || null,
+            mediaTypeGuess: 'book',
+            year: book?.year || null,
+            source: 'books:isbn-direct',
+            typeDetails: {
+              author: book?.type_details?.author || null,
+              isbn: directBookIsbn,
+              format: book?.type_details?.edition || null,
+              series: null,
+              season_number: null,
+              publisher: book?.type_details?.publisher || null
+            },
+            book
+          }))
+        });
+      }
+    } catch (error) {
+      if ((error?.status || 500) >= 400 && (error?.status || 500) < 500) {
+        return res.status(error.status || 400).json({
+          error: error?.message || 'Book enrichment failed',
+          detail: 'Direct ISBN lookup failed',
+          stage: 'book_isbn_direct',
+          request: {
+            mediaType,
+            isbn: directBookIsbn
+          }
+        });
+      }
+    }
+  }
 
   if (!barcodeApiUrl) {
     return res.status(400).json({ error: 'Barcode API URL is not configured', provider: barcodeProvider });

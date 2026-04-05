@@ -2113,6 +2113,11 @@ Historical note:
   - Audio/Games/Comic Books: keep the same shell while omitting unnecessary tabs when the data does not justify them,
   - Events: use the second tab for sub-events/artifacts such as panels, parties, and signings rather than forcing a signatures tab onto the event container itself,
   - Collectibles: stay on the shared shell but keep the tab count lean unless a second cluster is justified by the actual fields.
+- Refine the large-screen entry drawer composition so the unified shell feels intentionally designed instead of merely expanded:
+  - remove repeated active-step storytelling beneath the top step rail,
+  - tighten field spans and max widths so short metadata fields do not stretch across wide canvases,
+  - reduce cover-rail dominance where it visually outweighs the primary title and identifier work,
+  - keep per-type layouts visually balanced while preserving the shared drawer structure.
 - Keep Import and Library add/edit surfaces aligned where they share capture and lookup affordances.
 - Add verification that proves both the new editor shell and the capture behavior on the real supported browser paths.
 
