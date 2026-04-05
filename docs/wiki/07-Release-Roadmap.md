@@ -2089,6 +2089,8 @@ Historical note:
 
 ## 2.9.7 — Capture Workflow Catch-Up and Unified Tabbed Editors
 
+**Status:** Completed on `2026-04-05`
+
 **Goal:** Close the real deployment-domain capture gaps left behind by the earlier barcode milestone and reshape add/edit into a single tabbed editor model that can adapt cleanly across media, events, and collectibles.
 
 ### Scope
@@ -2130,6 +2132,19 @@ Historical note:
 - Object types only show tabs that correspond to real persisted data for that type.
 - Events treat signings as sub-events/artifacts rather than event-level signature metadata.
 - The new editor shell is documented and regression coverage is updated for the revised capture and add/edit flows.
+
+### Closeout Notes
+
+- The milestone finished with one shared tab/disclosure language across media, events, collectibles, help, and key admin workflows rather than per-surface tab drift.
+- Help Guidance now uses inline one-open-at-a-time disclosure rows so end-user and support-admin guidance can grow without falling back to rounded card grids or long always-open text walls.
+- Shared tab controls now distinguish between:
+  - true tabs with keyboard and panel semantics, and
+  - visually aligned filter/mode rows that intentionally keep button semantics.
+
+### Follow-Up
+
+- Accessibility/deep-linking follow-up for a later milestone:
+  - add URL-synced state for expanded guidance rows and for active tabs where deep-linking provides real user value.
 
 ## 2.9.8 — Runtime and Operations Hardening
 
