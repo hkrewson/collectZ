@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 
 export function routeFromPath(p) {
   if (p === '/register') return 'register';
@@ -36,24 +36,75 @@ export function SectionTabs({
   buttonClassName = '',
   stretch = false,
   showIndex = false,
-  ariaLabel = 'Sections'
+  ariaLabel = 'Sections',
+  idBase,
+  semantics = 'tabs'
 }) {
+  const generatedIdBase = useId().replace(/:/g, '');
+  const tabsIdBase = idBase || `section-tabs-${generatedIdBase}`;
+  const tabRefs = useRef([]);
+  const useTabSemantics = semantics === 'tabs';
+
+  const moveFocus = useCallback((nextIndex) => {
+    const nextTab = tabs[nextIndex];
+    if (!nextTab) return;
+    onChange?.(nextTab.id);
+    window.requestAnimationFrame(() => {
+      tabRefs.current[nextIndex]?.focus?.();
+    });
+  }, [onChange, tabs]);
+
+  const onKeyDown = useCallback((event, index) => {
+    if (!useTabSemantics || !tabs.length) return;
+    if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      moveFocus((index + 1) % tabs.length);
+      return;
+    }
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      moveFocus((index - 1 + tabs.length) % tabs.length);
+      return;
+    }
+    if (event.key === 'Home') {
+      event.preventDefault();
+      moveFocus(0);
+      return;
+    }
+    if (event.key === 'End') {
+      event.preventDefault();
+      moveFocus(tabs.length - 1);
+    }
+  }, [moveFocus, tabs, useTabSemantics]);
+
   if (!Array.isArray(tabs) || tabs.length === 0) return null;
 
   return (
     <div className={cx('border-b border-edge/60', className)}>
       <div
+        role={useTabSemantics ? 'tablist' : undefined}
         className={cx('flex gap-4 overflow-x-auto', stretch && 'w-full', listClassName)}
         style={{ scrollbarWidth: 'thin' }}
         aria-label={ariaLabel}
       >
         {tabs.map((tab, index) => {
           const active = activeId === tab.id;
+          const tabId = `${tabsIdBase}-tab-${tab.id}`;
+          const panelId = `${tabsIdBase}-panel-${tab.id}`;
           return (
             <button
               key={tab.id}
               type="button"
+              id={useTabSemantics ? tabId : undefined}
+              role={useTabSemantics ? 'tab' : undefined}
+              aria-selected={useTabSemantics ? active : undefined}
+              aria-controls={useTabSemantics ? panelId : undefined}
+              tabIndex={useTabSemantics ? (active ? 0 : -1) : undefined}
+              ref={(node) => {
+                tabRefs.current[index] = node;
+              }}
               onClick={() => onChange?.(tab.id)}
+              onKeyDown={(event) => onKeyDown(event, index)}
               className={cx(
                 'shrink-0 border-b-2 px-1 py-2 text-sm font-medium transition-colors',
                 stretch && 'flex-1 text-center',
@@ -66,6 +117,103 @@ export function SectionTabs({
           );
         })}
       </div>
+    </div>
+  );
+}
+
+export function SectionTabPanel({
+  tabId,
+  activeId,
+  tabKey,
+  idBase,
+  className = '',
+  children,
+  keepMounted = false
+}) {
+  const generatedIdBase = useId().replace(/:/g, '');
+  const tabsIdBase = idBase || `section-tabs-${generatedIdBase}`;
+  const active = activeId === tabKey;
+  return (
+    <section
+      id={`${tabsIdBase}-panel-${tabKey}`}
+      role="tabpanel"
+      aria-labelledby={`${tabsIdBase}-tab-${tabKey}`}
+      hidden={!active}
+      className={cx(className, !active && 'hidden')}
+      tabIndex={0}
+      data-tab-panel={tabId || tabKey}
+    >
+      {active || keepMounted ? children : null}
+    </section>
+  );
+}
+
+function DisclosureChevron({ open }) {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      aria-hidden="true"
+      className={cx('h-4 w-4 shrink-0 text-ghost transition-transform duration-150', open && 'rotate-90')}
+    >
+      <path d="M7 5l5 5-5 5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function DisclosureList({
+  items = [],
+  openId,
+  onToggle,
+  className = '',
+  renderSummary,
+  renderContent
+}) {
+  const generatedIdBase = useId().replace(/:/g, '');
+  const listIdBase = `disclosure-list-${generatedIdBase}`;
+
+  if (!Array.isArray(items) || items.length === 0) return null;
+
+  return (
+    <div className={cx('divide-y divide-edge/60 rounded-md border border-edge/60', className)}>
+      {items.map((item, index) => {
+        const isOpen = openId === item.id;
+        const buttonId = `${listIdBase}-button-${item.id}`;
+        const panelId = `${listIdBase}-panel-${item.id}`;
+        return (
+          <div key={item.id}>
+            <h3>
+              <button
+                id={buttonId}
+                type="button"
+                aria-expanded={isOpen}
+                aria-controls={panelId}
+                onClick={() => onToggle?.(isOpen ? null : item.id)}
+                className="flex w-full items-start justify-between gap-4 px-4 py-4 text-left transition-colors hover:bg-raised/12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/35"
+              >
+                <div className="min-w-0 flex-1">
+                  {renderSummary ? renderSummary(item, { open: isOpen, index }) : (
+                    <>
+                      <p className="text-sm font-medium text-ink">{item.title}</p>
+                      {item.summary ? <p className="mt-1 text-sm text-ghost">{item.summary}</p> : null}
+                    </>
+                  )}
+                </div>
+                <DisclosureChevron open={isOpen} />
+              </button>
+            </h3>
+            <div
+              id={panelId}
+              role="region"
+              aria-labelledby={buttonId}
+              hidden={!isOpen}
+              className={cx('px-4 pb-4', !isOpen && 'hidden')}
+            >
+              {isOpen && (renderContent ? renderContent(item, { open: isOpen, index }) : null)}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

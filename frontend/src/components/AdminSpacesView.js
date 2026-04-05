@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { SectionTabs } from './app/AppPrimitives';
+import { SectionTabPanel, SectionTabs } from './app/AppPrimitives';
 
 function emptyCreateForm() {
   return { name: '', owner_user_id: '' };
@@ -856,9 +856,10 @@ export default function AdminSpacesView({
                   activeId={drawerTab}
                   onChange={setDrawerTab}
                   ariaLabel="Space drawer sections"
+                  idBase="space-drawer-sections"
                 />
 
-                {drawerTab === 'add' ? (
+                <SectionTabPanel activeId={drawerTab} tabKey="add" idBase="space-drawer-sections">
                   <>
                 <div>
                   <h3 className="text-lg font-medium text-ink">Add people</h3>
@@ -932,9 +933,9 @@ export default function AdminSpacesView({
                   </div>
                 </div>
                   </>
-                ) : null}
+                </SectionTabPanel>
 
-                {drawerTab === 'members' ? (
+                <SectionTabPanel activeId={drawerTab} tabKey="members" idBase="space-drawer-sections">
                   <section className="space-y-3">
                 <div>
                   <h3 className="text-lg font-medium text-ink">Members</h3>
@@ -966,9 +967,9 @@ export default function AdminSpacesView({
                   </div>
                 )}
                   </section>
-                ) : null}
+                </SectionTabPanel>
 
-                {drawerTab === 'invites' ? (
+                <SectionTabPanel activeId={drawerTab} tabKey="invites" idBase="space-drawer-sections">
                   <section className="space-y-3">
                 <div>
                   <h3 className="text-lg font-medium text-ink">Invitations</h3>
@@ -1025,7 +1026,7 @@ export default function AdminSpacesView({
                   </div>
                 )}
                   </section>
-                ) : null}
+                </SectionTabPanel>
               </section>
             </div>
           </aside>

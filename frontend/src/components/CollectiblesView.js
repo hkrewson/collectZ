@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CameraCaptureModal, Icons, Spinner, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
+import { CameraCaptureModal, Icons, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
 
 const CATEGORY_OPTIONS = [
   { key: 'lego', label: 'Lego' },
@@ -262,10 +262,11 @@ function CollectibleDrawer({
             showIndex
             stretch
             ariaLabel="Collectible editor steps"
+            idBase="collectible-editor-steps"
           />
           <div className="space-y-4 border-t border-edge/60 pt-3">
 
-            {activeTab === 'core' ? (
+            <SectionTabPanel activeId={activeTab} tabKey="core" idBase="collectible-editor-steps">
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <label className="field md:col-span-2"><span className="label">Title *</span><input className="input" value={form.title || ''} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} /></label>
                 <label className="field"><span className="label">Type</span>
@@ -293,9 +294,9 @@ function CollectibleDrawer({
                   Exclusive item
                 </label>
               </div>
-            ) : null}
+            </SectionTabPanel>
 
-            {activeTab === 'storage' ? (
+            <SectionTabPanel activeId={activeTab} tabKey="storage" idBase="collectible-editor-steps">
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <label className="field md:col-span-2"><span className="label">Image URL (optional)</span><input className="input" value={form.image_path || ''} onChange={(e) => setForm((p) => ({ ...p, image_path: e.target.value }))} /></label>
                 <label className="field md:col-span-2"><span className="label">Upload/Capture image</span><input className="input" type="file" accept="image/*" capture="environment" onChange={(e) => setImageFile(e.target.files?.[0] || null)} /></label>
@@ -311,7 +312,7 @@ function CollectibleDrawer({
                 ) : null}
                 <label className="field md:col-span-2"><span className="label">Notes</span><textarea className="textarea min-h-[90px]" value={form.notes || ''} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} /></label>
               </div>
-            ) : null}
+            </SectionTabPanel>
           </div>
         </div>
         <div className="p-4 border-t border-edge flex gap-3 shrink-0">

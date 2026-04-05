@@ -3,6 +3,7 @@ import {
   Icons,
   Spinner,
   SectionTabs,
+  SectionTabPanel,
   cx,
   posterUrl,
   ObjectPosterCard,
@@ -1575,10 +1576,11 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
             showIndex
             stretch
             ariaLabel="Editor steps"
+            idBase="media-editor-steps"
           />
 
           <div className="space-y-4 border-t border-edge/60 pt-3">
-            {activeEditorTab === 'core' && (
+            <SectionTabPanel activeId={activeEditorTab} tabKey="core" idBase="media-editor-steps">
               <>
                 <SectionTabs
                   tabs={ENTRY_MEDIA_TABS.map((tab) => ({ id: tab.value, label: tab.label }))}
@@ -1587,6 +1589,8 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
                   ariaLabel="Media types"
                   className="pb-1"
                   listClassName="lg:max-w-[34rem]"
+                  idBase="media-type-tabs"
+                  semantics="buttons"
                 />
 
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
@@ -1856,16 +1860,18 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
                   </div>
                 )}
               </>
-            )}
+            </SectionTabPanel>
 
-            {activeEditorTab === 'people' && isMovieOrTv && (
+            <SectionTabPanel activeId={activeEditorTab} tabKey="people" idBase="media-editor-steps">
+              {isMovieOrTv ? (
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <LabeledField label="Director"><input className="input" value={form.director} onChange={(e) => set({ director: e.target.value })} /></LabeledField>
                 <LabeledField label="Cast" className="md:col-span-2"><input className="input" placeholder="Actor 1, Actor 2…" value={form.cast} onChange={(e) => set({ cast: e.target.value })} /></LabeledField>
               </div>
-            )}
+              ) : null}
+            </SectionTabPanel>
 
-            {activeEditorTab === 'signatures' && (
+            <SectionTabPanel activeId={activeEditorTab} tabKey="signatures" idBase="media-editor-steps">
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <LabeledField label="Signed by"><input className="input" value={form.signed_by} onChange={(e) => set({ signed_by: e.target.value })} /></LabeledField>
                 <LabeledField label="Signed as">
@@ -1898,9 +1904,9 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
                   </div>
                 </LabeledField>
               </div>
-            )}
+            </SectionTabPanel>
 
-            {activeEditorTab === 'storage' && (
+            <SectionTabPanel activeId={activeEditorTab} tabKey="storage" idBase="media-editor-steps">
               <div className="space-y-4">
                 <LabeledField label="Storage Location"><input className="input" placeholder="Shelf A3, Box 2…" value={form.location} onChange={(e) => set({ location: e.target.value })} /></LabeledField>
                 <LabeledField label="Overview"><textarea className="textarea" rows={4} value={form.overview} onChange={(e) => set({ overview: e.target.value })} /></LabeledField>
@@ -1922,7 +1928,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
                   </details>
                 )}
               </div>
-            )}
+            </SectionTabPanel>
           </div>
         </div>
       </div>

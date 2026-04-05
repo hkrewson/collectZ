@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CameraCaptureModal, Icons, Spinner, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
+import { CameraCaptureModal, Icons, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
 
 const DEFAULT_EVENT_FORM = {
   title: '',
@@ -456,10 +456,11 @@ function EventFormDrawer({ initial, apiCall, onClose, onSave, onDelete, onClearI
             showIndex
             stretch
             ariaLabel="Event editor steps"
+            idBase="event-editor-steps"
           />
           <div className="space-y-4 border-t border-edge/60 pt-3">
 
-            {activeTab === 'core' ? (
+            <SectionTabPanel activeId={activeTab} tabKey="core" idBase="event-editor-steps">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <label className="field md:col-span-2"><span className="label">Title *</span><input className="input" value={form.title || ''} onChange={(e) => set({ title: e.target.value })} /></label>
                 <label className="field md:col-span-2"><span className="label">URL *</span><input className="input" value={form.url || ''} onChange={(e) => set({ url: e.target.value })} /></label>
@@ -470,9 +471,10 @@ function EventFormDrawer({ initial, apiCall, onClose, onSave, onDelete, onClearI
                 <label className="field"><span className="label">Time</span><input className="input" value={form.time_label || ''} onChange={(e) => set({ time_label: e.target.value })} /></label>
                 <label className="field"><span className="label">Room</span><input className="input" value={form.room || ''} onChange={(e) => set({ room: e.target.value })} /></label>
               </div>
-            ) : null}
+            </SectionTabPanel>
 
-            {activeTab === 'subevents' ? (
+            <SectionTabPanel activeId={activeTab} tabKey="subevents" idBase="event-editor-steps">
+              {activeTab === 'subevents' ? (
               initial?.id ? (
                 <EventArtifactsEditor eventId={initial.id} apiCall={apiCall} onSaved={() => {}} />
               ) : (
@@ -480,9 +482,10 @@ function EventFormDrawer({ initial, apiCall, onClose, onSave, onDelete, onClearI
                   Save the event first, then come back here to add panels, parties, signings, purchases, and other sub-event history.
                 </div>
               )
-            ) : null}
+              ) : null}
+            </SectionTabPanel>
 
-            {activeTab === 'storage' ? (
+            <SectionTabPanel activeId={activeTab} tabKey="storage" idBase="event-editor-steps">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <label className="field md:col-span-2"><span className="label">Image URL (optional)</span><input className="input" value={form.image_path || ''} onChange={(e) => set({ image_path: e.target.value })} /></label>
                 <label className="field md:col-span-2"><span className="label">Upload/Capture image</span><input className="input" type="file" accept="image/*" capture="environment" onChange={(e) => setImageFile(e.target.files?.[0] || null)} /></label>
@@ -498,7 +501,7 @@ function EventFormDrawer({ initial, apiCall, onClose, onSave, onDelete, onClearI
                 ) : null}
                 <label className="field md:col-span-2"><span className="label">Notes</span><textarea className="textarea min-h-[96px]" value={form.notes || ''} onChange={(e) => set({ notes: e.target.value })} /></label>
               </div>
-            ) : null}
+            </SectionTabPanel>
           </div>
         </div>
         <div className="shrink-0 border-t border-edge bg-abyss px-6 py-4 flex items-center gap-3">

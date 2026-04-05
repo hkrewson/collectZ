@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import appMeta from '../app-meta.json';
-import { SectionTabs } from './app/AppPrimitives';
+import { DisclosureList, SectionTabPanel, SectionTabs } from './app/AppPrimitives';
 import {
   getHelpSurfaceTitle,
   getHelpTabDefinitions,
@@ -246,6 +246,7 @@ export default function HelpView({
   const [releases, setReleases] = useState([]);
   const [releaseLoading, setReleaseLoading] = useState(true);
   const [expandedReleaseVersion, setExpandedReleaseVersion] = useState(null);
+  const [expandedGuidanceId, setExpandedGuidanceId] = useState(null);
   const [form, setForm] = useState({ subject: '', message: '' });
   const [replyBody, setReplyBody] = useState('');
   const [triageForm, setTriageForm] = useState({
@@ -385,6 +386,16 @@ export default function HelpView({
     if (helpTabs.some((tab) => tab.id === activeTab)) return;
     setActiveTab('guidance');
   }, [activeTab, helpTabs]);
+
+  useEffect(() => {
+    if (!guidanceArticles.length) {
+      setExpandedGuidanceId(null);
+      return;
+    }
+    setExpandedGuidanceId((current) => (
+      guidanceArticles.some((article) => article.id === current) ? current : guidanceArticles[0].id
+    ));
+  }, [guidanceArticles]);
 
   useEffect(() => {
     loadRequests();
@@ -650,30 +661,45 @@ export default function HelpView({
         activeId={activeTab}
         onChange={setActiveTab}
         ariaLabel="Help sections"
+        idBase="help-sections"
       />
 
-      {activeTab === 'guidance' ? (
+      <SectionTabPanel activeId={activeTab} tabKey="guidance" idBase="help-sections">
         <div className={`grid gap-4 ${isSupportStaff ? '' : 'xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]'}`}>
           <section className="panel p-5 space-y-4">
             <div>
               <h2 className="text-lg font-semibold text-ink">Guidance</h2>
               <p className="text-sm text-ghost">Quick starting points for the most common questions.</p>
             </div>
-            <div className="divide-y divide-edge/60 rounded-md border border-edge/60 bg-panel/20">
-              {guidanceArticles.map((article) => (
-                <article key={article.id} className="space-y-3 px-4 py-4">
-                  <div>
-                    <h3 className="text-sm font-semibold text-ink">{article.title}</h3>
-                    <p className="mt-1 text-sm text-ghost leading-6">{article.summary}</p>
-                  </div>
-                  <ul className="list-disc space-y-2 pl-5 text-sm text-ghost">
+            <DisclosureList
+              items={guidanceArticles}
+              openId={expandedGuidanceId}
+              onToggle={setExpandedGuidanceId}
+              className="bg-panel/20"
+              renderSummary={(article) => (
+                <>
+                  <p className="text-sm font-medium text-ink">{article.title}</p>
+                  <p className="mt-1 text-sm text-ghost">{article.summary}</p>
+                </>
+              )}
+              renderContent={(article) => (
+                <div className="space-y-3">
+                  <ul className="space-y-2 text-sm text-ghost leading-6">
                     {article.bullets.map((bullet) => (
-                      <li key={bullet}>{bullet}</li>
+                      <li key={bullet} className="flex gap-2">
+                        <span aria-hidden="true" className="mt-[0.45rem] h-1 w-1 shrink-0 rounded-full bg-muted" />
+                        <span>{bullet}</span>
+                      </li>
                     ))}
                   </ul>
-                </article>
-              ))}
-            </div>
+                  {!isSupportStaff && supportHelpEnabled && article.id === 'spaces' ? (
+                    <button type="button" className="btn-secondary btn-sm" onClick={() => setActiveTab('support')}>
+                      Open Support
+                    </button>
+                  ) : null}
+                </div>
+              )}
+            />
           </section>
 
           {!isSupportStaff && supportHelpEnabled ? (
@@ -690,9 +716,9 @@ export default function HelpView({
             </section>
           ) : null}
         </div>
-      ) : null}
+      </SectionTabPanel>
 
-      {activeTab === 'releases' ? (
+      <SectionTabPanel activeId={activeTab} tabKey="releases" idBase="help-sections">
         <section className="panel p-5 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -755,9 +781,10 @@ export default function HelpView({
             </div>
           )}
         </section>
-      ) : null}
+      </SectionTabPanel>
 
-      {activeTab === 'metrics' && isSupportStaff ? (
+      <SectionTabPanel activeId={activeTab} tabKey="metrics" idBase="help-sections">
+        {isSupportStaff ? (
         <section className="panel p-5 space-y-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -786,9 +813,10 @@ export default function HelpView({
             </div>
           </div>
         </section>
-      ) : null}
+        ) : null}
+      </SectionTabPanel>
 
-      {activeTab === 'support' ? (
+      <SectionTabPanel activeId={activeTab} tabKey="support" idBase="help-sections" className="min-w-0">
         <div className="grid gap-4 xl:grid-cols-[minmax(320px,0.8fr)_minmax(0,1.2fr)] xl:h-[calc(100vh-15.5rem)]">
           <div className="space-y-4 xl:min-h-0 xl:flex xl:flex-col">
             {!isSupportStaff && shouldShowReplyComposer ? (
@@ -865,6 +893,7 @@ export default function HelpView({
                     onChange={setStaffQueueFilter}
                     ariaLabel="Support queue filters"
                     className=""
+                    semantics="buttons"
                   />
                   <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_180px]">
                     <label className="field">
@@ -873,7 +902,7 @@ export default function HelpView({
                         className="input"
                         value={staffSearchInput}
                         onChange={(event) => setStaffSearchInput(event.target.value)}
-                        placeholder="Subject, requester, space, library, or SUP-#"
+                        placeholder="Subject, requester, space, library, or SUP-#…"
                       />
                     </label>
                     <label className="field">
@@ -1056,6 +1085,7 @@ export default function HelpView({
                       activeId={threadViewTab}
                       onChange={setThreadViewTab}
                       ariaLabel="Support thread views"
+                      idBase="support-thread-views"
                     />
                     {threadViewTab === 'history' ? (
                       <div className="text-right">
@@ -1070,7 +1100,7 @@ export default function HelpView({
                   </div>
                 </div>
 
-                {threadViewTab === 'history' ? (
+                <SectionTabPanel activeId={threadViewTab} tabKey="history" idBase="support-thread-views" className="flex-1 min-h-0">
                   <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-4 space-y-1.5 bg-abyss/40">
                     {timeline.length > 0 ? (
                       timeline.map((event) => (
@@ -1082,7 +1112,9 @@ export default function HelpView({
                       </div>
                     )}
                   </div>
-                ) : threadViewTab === 'reply' && isSupportStaff ? (
+                </SectionTabPanel>
+                <SectionTabPanel activeId={threadViewTab} tabKey="reply" idBase="support-thread-views" className="flex-1 min-h-0">
+                  {isSupportStaff ? (
                   <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-4 bg-abyss/40">
                     {selectedRequest && selectedRequest.status !== 'closed' ? (
                       <form className="space-y-4 max-w-3xl" onSubmit={submitReply}>
@@ -1111,7 +1143,10 @@ export default function HelpView({
                       </div>
                     )}
                   </div>
-                ) : threadViewTab === 'triage' && isSupportStaff ? (
+                  ) : null}
+                </SectionTabPanel>
+                <SectionTabPanel activeId={threadViewTab} tabKey="triage" idBase="support-thread-views" className="flex-1 min-h-0">
+                  {isSupportStaff ? (
                   <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-4 bg-abyss/40">
                     {selectedRequest ? (
                       <form className="space-y-4 max-w-3xl" onSubmit={saveTriage}>
@@ -1200,14 +1235,16 @@ export default function HelpView({
                       </div>
                     )}
                   </div>
-                ) : (
+                  ) : null}
+                </SectionTabPanel>
+                <SectionTabPanel activeId={threadViewTab} tabKey="conversation" idBase="support-thread-views" className="flex-1 min-h-0">
                   <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-4 space-y-2.5 bg-abyss/40">
                     {messages.map((message) => (
                       <ThreadBubble key={message.id} message={message} currentUserId={user?.id} />
                     ))}
                     <div ref={threadEndRef} />
                   </div>
-                )}
+                </SectionTabPanel>
               </>
             ) : (
               <div className="flex-1 flex items-center justify-center p-8 text-sm text-ghost text-center">
@@ -1216,7 +1253,7 @@ export default function HelpView({
             )}
           </section>
         </div>
-      ) : null}
+      </SectionTabPanel>
     </div>
   );
 }

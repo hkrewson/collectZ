@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { SectionTabs } from './app/AppPrimitives';
+import { SectionTabPanel, SectionTabs } from './app/AppPrimitives';
 
 const BARCODE_PRESETS = {
   upcitemdb: { barcodePreset: 'upcitemdb', barcodeProvider: 'upcitemdb', barcodeApiUrl: 'https://api.upcitemdb.com/prod/trial/lookup' },
@@ -458,9 +458,11 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
             activeId={section}
             onChange={setSectionWithSync}
             ariaLabel="Integration sections"
+            idBase="integration-sections"
           />
         </div>
 
+        <SectionTabPanel activeId={section} tabKey={section} idBase="integration-sections" className="min-w-0">
         <div className="space-y-4 min-w-0">
         <div className="flex items-center justify-between gap-3 pb-1">
           <div>
@@ -685,6 +687,7 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
         )}
         {testMsg && <p className="text-xs text-dim font-mono bg-raised/70 rounded-lg px-3 py-2">{testMsg}</p>}
       </div>
+      </SectionTabPanel>
       </div>
     </div>
   );
