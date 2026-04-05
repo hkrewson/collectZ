@@ -13,6 +13,22 @@ collectZ now supports:
 
 The starter example uses `syslog_tcp` because it is easier to inspect deterministically in local development.
 
+## Use This Example For
+
+Treat the bundled syslog collector as:
+
+- a local verification target,
+- a way to prove collectZ can emit RFC5424-compatible structured events without an intermediate shipper.
+
+Do not treat the included collector as hardened long-lived infrastructure. It intentionally favors inspectability over indexing, auth hardening, retention policy, or restore ergonomics.
+
+For longer-lived syslog paths:
+
+- run the collector on protected networking,
+- use real secret and TLS handling where your collector supports it,
+- define rotation and retention outside the app,
+- and validate that collector availability never becomes a dependency for core app traffic.
+
 ## Compose Example
 
 - Stack file:
@@ -106,3 +122,21 @@ You should see RFC5424 lines whose trailing message body contains the collectZ s
 - It stores raw syslog lines for easy inspection, not indexing.
 - `syslog_tcp` is the recommended local example because line framing is deterministic.
 - `syslog_udp` is supported by the exporter, but local verification is less deterministic under bursty conditions.
+
+## Fast Diagnosis
+
+Start in `Admin -> Integrations -> External Logs`.
+
+That runtime check will quickly tell you whether the running backend currently sees:
+
+- the External Log Export toggle enabled,
+- `LOG_EXPORT_BACKEND=syslog_tcp` or `syslog_udp`,
+- the collector host and port you expect.
+
+Then verify the collector itself:
+
+1. `docker compose -f /Users/hamlin/Development/GitHub/hkrewson/collectZ/ops/logging/docker-compose.syslog.yml config`
+2. `docker compose --env-file .env exec -T backend sh -lc 'printf "backend=%s host=%s port=%s\n" "$LOG_EXPORT_BACKEND" "$LOG_EXPORT_HOST" "$LOG_EXPORT_PORT"'`
+3. `docker exec logging-syslog-collector-1 tail -n 20 /var/log/collectz/collectz-syslog.log`
+
+If the UI toggle is on but the runtime check still shows `backend=off`, the backend env was not rebuilt/restarted with the intended exporter settings.

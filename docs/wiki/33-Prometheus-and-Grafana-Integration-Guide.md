@@ -14,6 +14,23 @@ Starter monitoring stack example:
 
 - `ops/monitoring/docker-compose.monitoring.yml`
 
+## Local Example vs Hardened Operator Guidance
+
+The bundled monitoring compose files are a starter internal stack, not a production-ready monitoring control plane.
+
+Use the repo example to:
+
+- prove that `/api/metrics` is reachable,
+- validate scrape auth,
+- and bootstrap the first Prometheus/Grafana dashboard and alert rules.
+
+For longer-lived deployments, operators should also decide:
+
+- where Prometheus TSDB data lives,
+- how Grafana provisioning and credentials are persisted,
+- which private network or protected ingress reaches `/api/metrics`,
+- and how scrape tokens are rotated and restored.
+
 ## What This Guide Connects
 
 This guide ties together:
@@ -59,6 +76,25 @@ Recommended approach:
 4. prefer `METRICS_SCRAPE_TOKEN` over browser-style admin sessions for Prometheus scraping
 
 This is the current dedicated machine credential model for metrics scraping.
+
+## Fast Diagnosis in Admin -> Integrations
+
+`Admin -> Integrations -> Metrics` now exposes runtime checks from the running backend container.
+
+Use that view first when `/api/metrics` is unexpectedly closed.
+
+It quickly tells you whether:
+
+- the Metrics Export toggle is enabled,
+- the running backend has `DEBUG>=1`,
+- a dedicated `METRICS_SCRAPE_TOKEN` is present,
+- the current runtime state is ready, disabled, or needs attention.
+
+That catches the most common drift cases:
+
+- Metrics enabled in the UI, but the backend is still running with `DEBUG=0`
+- Prometheus scrape configured, but no dedicated scrape token exists
+- old assumptions about env-managed flag overrides lingering after the Integrations control model changed
 
 ## Suggested Rollout Order
 
@@ -224,6 +260,23 @@ This first rollout does not yet include:
 - log aggregation setup
 - per-query database latency instrumentation
 - provider-specific enrichment miss metrics beyond the current import outcome layer
+
+## Retention and Backup Expectations
+
+If you care about historical dashboards, alert history, or investigation after a restore, treat monitoring state as durable operator data.
+
+- Prometheus:
+  - define retention intentionally and back up TSDB data only if you actually need historical time-series after rebuild/restore
+- Grafana:
+  - persist provisioning and auth state according to your deployment model
+- Scrape credentials:
+  - if you use `METRICS_SCRAPE_TOKEN`, document where it is stored and how it is rotated
+
+Restoration note:
+
+- after a restore or credential rotation, confirm both sides:
+  - the running collectZ backend still sees the expected `DEBUG` level and scrape token env
+  - Prometheus is using the matching token and still scraping the intended internal target
 
 ## Follow-Up Candidates
 

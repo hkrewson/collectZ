@@ -106,6 +106,7 @@ The script will:
 
 - This is a local/internal stack example, not a hardened production deployment.
 - Export failures should not affect collectZ request behavior; if Graylog is down, requests still succeed and `activity_log` still persists locally.
+- For the fastest runtime/env diagnosis, also check `Admin -> Integrations -> External Logs` in the running app before assuming the collector is the problem.
 
 ## Quick Diagnosis: `backend_off` / Env Drift
 

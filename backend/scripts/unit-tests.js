@@ -31,6 +31,7 @@ const { buildIntegrationResponse } = require('../services/integrationResponse');
 const { buildCompactJobSummary, formatSyncJob } = require('../services/syncJobs');
 const metricsModule = require('../services/metrics');
 const { shouldEnforceCsrf } = require('../middleware/csrf');
+const observabilityRuntimeSource = require('fs').readFileSync(require.resolve('../services/observabilityRuntime'), 'utf8');
 const authModulePath = require.resolve('../middleware/auth');
 const authMiddlewareSource = require('fs').readFileSync(authModulePath, 'utf8');
 const scopeAccessSource = require('fs').readFileSync(require.resolve('../middleware/scopeAccess'), 'utf8');
@@ -1143,6 +1144,15 @@ results.push(run('integrations.buildIntegrationResponse keeps empty secrets out 
   assert.strictEqual(response.decryptHealth.hasWarnings, true);
   assert.deepStrictEqual(response.decryptHealth.warnings, ['cannot_decrypt_tmdb_api_key']);
   assert.ok(response.decryptHealth.remediation);
+}));
+
+results.push(run('observability runtime source includes log and metrics drift diagnosis', () => {
+  assert.ok(observabilityRuntimeSource.includes("getFeatureFlag('external_log_export_enabled')"));
+  assert.ok(observabilityRuntimeSource.includes("getFeatureFlag('metrics_enabled')"));
+  assert.ok(observabilityRuntimeSource.includes("config.backend === 'off'"));
+  assert.ok(observabilityRuntimeSource.includes('DEFAULT_LOG_HOSTS'));
+  assert.ok(observabilityRuntimeSource.includes('METRICS_SCRAPE_TOKEN'));
+  assert.ok(observabilityRuntimeSource.includes('DEBUG_LEVEL < 1'));
 }));
 
 results.push(run('syncJobs.buildCompactJobSummary keeps status-relevant counters and omits verbose arrays', () => {

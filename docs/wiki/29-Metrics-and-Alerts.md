@@ -15,6 +15,16 @@ Current access rules:
 
 If the gate is not satisfied, the endpoint returns `404`.
 
+Fast diagnosis:
+
+- start in `Admin -> Integrations -> Metrics`
+- compare the UI toggle against the runtime check for:
+  - `DEBUG` level
+  - scrape-token presence
+  - effective metrics state
+
+That usually explains an unexpected `404` faster than debugging Prometheus first.
+
 ## Current Exported Signals
 
 - `collectz_build_info`

@@ -56,6 +56,43 @@ Current control surface note:
 - End-to-end smoke script:
   - `/Users/hamlin/Development/GitHub/hkrewson/collectZ/backend/scripts/structured-log-smoke.js`
 
+## Local Example vs Hardened Operator Guidance
+
+The Graylog, Loki/Promtail, and syslog materials in this repo are not all equal in intent.
+
+- Local/example guidance:
+  - starter compose files under `/Users/hamlin/Development/GitHub/hkrewson/collectZ/ops/logging`
+  - localhost-published ports
+  - inline secrets or example passwords
+  - smoke-driven proof that collectZ can emit structured events without blocking app traffic
+- Hardened operator guidance:
+  - keep collectors on private networks or protected ingress paths
+  - treat collector credentials, Graylog password secret material, and any Grafana/Prometheus scrape credentials as real secrets
+  - persist collector/index state intentionally and document how that state is backed up and restored
+  - assume collector outages or bad routing happen, and verify that collectZ keeps serving API/import work even when export fails
+
+For longer-lived deployments, start with the example stacks only as proof-of-wiring, then move the collector behind private networking, durable volumes, and operator-owned secret management.
+
+## Fast Diagnosis in Admin -> Integrations
+
+`Admin -> Integrations -> External Logs` now shows runtime checks sourced from the running backend container.
+
+Use that view before debugging the collector itself.
+
+It answers:
+
+- whether the Integration toggle is on,
+- which `LOG_EXPORT_BACKEND` the backend is actually using,
+- which collector host/port the running container sees,
+- whether export debug tracing is on,
+- and whether the current runtime combination needs attention.
+
+This is the fastest way to catch drift such as:
+
+- `External Log Export` enabled in the UI while `LOG_EXPORT_BACKEND=off`,
+- a collector host that still points at loopback inside Docker,
+- or `stdout_json` output being enabled without realizing it shares the normal backend stdout stream.
+
 ## Loki/Promtail Example
 
 - Operator guide:
@@ -117,3 +154,23 @@ That keeps the verification focused on actual stored documents instead of over-t
 - exporter errors are swallowed after a warning log
 - primary DB-backed audit logging still runs
 - request/import behavior must not fail because a log endpoint is unavailable
+
+## Persistence and Backup Expectations
+
+collectZ itself does not depend on the external collector to retain audit history. The primary durable audit sink remains:
+
+- `activity_log` in the collectZ database
+
+If you choose to keep external structured logs long term, treat collector state as separately durable operator data.
+
+- Graylog/OpenSearch:
+  - back up the OpenSearch indices and Graylog metadata store if you want retained search history after failure
+- Loki/Promtail:
+  - retain Loki storage intentionally if you want historical queries to survive container replacement
+- Syslog example collector:
+  - the bundled collector is intentionally local and minimal; do not treat it as a hardened retention target
+
+Rotation/restoration note:
+
+- changing collector endpoints, passwords, tokens, or persistent volumes can make older dashboards/search paths look empty even when collectZ is still exporting correctly
+- confirm both the running backend env and the collector’s retained state after any restore or secret rotation

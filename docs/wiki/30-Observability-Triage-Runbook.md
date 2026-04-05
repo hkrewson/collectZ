@@ -19,6 +19,17 @@ Prioritize these signals:
 - `collectz_sync_jobs`
 - `collectz_admin_actions_total`
 
+Before debugging the collector or dashboard, also confirm the runtime gate in:
+
+- `Admin -> Integrations -> Metrics`
+- `Admin -> Integrations -> External Logs`
+
+Those runtime checks reflect the running backend container and catch common drift quickly:
+
+- metrics enabled in the UI but `DEBUG<1`
+- log export enabled in the UI but `LOG_EXPORT_BACKEND=off`
+- collector host/port values that no longer match the live backend env
+
 ## 2. Classify the Incident
 
 Use the metric that moved first:

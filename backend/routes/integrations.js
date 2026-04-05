@@ -6,6 +6,7 @@ const { authenticateToken, requireRole } = require('../middleware/auth');
 const { deriveCwaBaseUrl, loadAdminIntegrationConfig, normalizeIntegrationRecord, loadGeneralSettings } = require('../services/integrations');
 const { encryptSecret } = require('../services/crypto');
 const { buildIntegrationResponse } = require('../services/integrationResponse');
+const { buildObservabilityRuntimeDiagnostics } = require('../services/observabilityRuntime');
 const { resolveBarcodePreset } = require('../services/barcode');
 const { resolveTmdbPreset, searchTmdbMovie } = require('../services/tmdb');
 const { resolvePlexPreset, fetchPlexSections } = require('../services/plex');
@@ -16,6 +17,13 @@ const { resolveComicsPreset, searchComicsByTitle, fetchMetronCollectionIssues } 
 const { logActivity, logError } = require('../services/audit');
 
 const router = express.Router();
+
+async function buildAdminIntegrationPayload(config) {
+  return {
+    ...buildIntegrationResponse(config),
+    observabilityRuntime: await buildObservabilityRuntimeDiagnostics()
+  };
+}
 
 // ── General settings (read — available to all authenticated users) ────────────
 
@@ -28,7 +36,7 @@ router.get('/settings/general', authenticateToken, asyncHandler(async (req, res)
 
 router.get('/admin/settings/integrations', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
   const config = await loadAdminIntegrationConfig();
-  res.json(buildIntegrationResponse(config));
+  res.json(await buildAdminIntegrationPayload(config));
 }));
 
 router.put('/admin/settings/integrations', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
@@ -236,7 +244,7 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
     }
   });
 
-  res.json(buildIntegrationResponse(config));
+  res.json(await buildAdminIntegrationPayload(config));
 }));
 
 // ── Integration test endpoints ────────────────────────────────────────────────

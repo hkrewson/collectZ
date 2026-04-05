@@ -101,6 +101,39 @@ function InlineFeatureFlagState({ loading, error, readOnly, feature }) {
   return null;
 }
 
+function RuntimeCheckRow({ check }) {
+  const toneClass = check?.level === 'ok'
+    ? 'text-ok'
+    : check?.level === 'warn'
+      ? 'text-warn'
+      : 'text-dim';
+
+  return (
+    <li className="grid gap-1 py-3 sm:grid-cols-[9rem_minmax(0,1fr)] sm:gap-4">
+      <div>
+        <p className={`text-sm font-medium ${toneClass}`}>{check?.title || 'Runtime note'}</p>
+      </div>
+      <p className="text-sm text-dim">{check?.detail || ''}</p>
+    </li>
+  );
+}
+
+function RuntimeKeyValueList({ rows = [] }) {
+  if (!rows.length) return null;
+  return (
+    <dl className="divide-y divide-edge/60 rounded-md border border-edge/60">
+      {rows.map((row) => (
+        <div key={row.label} className="grid gap-1 px-4 py-3 sm:grid-cols-[9rem_minmax(0,1fr)] sm:gap-4">
+          <dt className="text-sm text-ghost">{row.label}</dt>
+          <dd className="text-sm text-ink">
+            {row.mono ? <span className="font-mono text-[13px]">{row.value}</span> : row.value}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
 export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Spinner, cx, section: externalSection, onSectionChange }) {
   const integrationSections = useMemo(
     () => ([
@@ -157,6 +190,7 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
   const [featureFlagsReadOnly, setFeatureFlagsReadOnly] = useState(false);
   const [featureFlagsError, setFeatureFlagsError] = useState('');
   const [savingFeatureKey, setSavingFeatureKey] = useState('');
+  const [observabilityRuntime, setObservabilityRuntime] = useState({ logs: null, metrics: null });
 
   useEffect(() => {
     if (!externalSection || externalSection === section) return;
@@ -195,6 +229,7 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
         cwaPasswordSet: Boolean(data.cwaPasswordSet), cwaPasswordMasked: data.cwaPasswordMasked || '',
         decryptHealth: data.decryptHealth || { hasWarnings: false, warnings: [], remediation: '' }
       });
+      setObservabilityRuntime(data.observabilityRuntime || { logs: null, metrics: null });
       setStatus({
         barcode: data.barcodeApiKeySet ? 'configured' : 'missing',
         tmdb: data.tmdbApiKeySet ? 'configured' : 'missing',
@@ -320,6 +355,7 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
         cwaPasswordSet: Boolean(updated.cwaPasswordSet), cwaPasswordMasked: updated.cwaPasswordMasked || '',
         decryptHealth: updated.decryptHealth || { hasWarnings: false, warnings: [], remediation: '' }
       });
+      setObservabilityRuntime(updated.observabilityRuntime || { logs: null, metrics: null });
       setStatus((s) => ({
         ...s,
         [sec]: sec === 'games'
@@ -421,6 +457,8 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
   const activeSectionDescription = SECTION_DESCRIPTIONS[section] || SECTION_DESCRIPTIONS.audio;
   const activeSectionStatus = getSectionStatus(section);
   const sectionFeature = SETTINGS_SECTION_FEATURES[section] ? featureFlagMap.get(SETTINGS_SECTION_FEATURES[section]) : null;
+  const logsRuntime = observabilityRuntime.logs;
+  const metricsRuntime = observabilityRuntime.metrics;
 
   return (
     <div className="h-full overflow-y-auto p-4 sm:p-6 space-y-6">
@@ -508,6 +546,27 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
               <li>This page now owns whether export is active. Environment feature-flag overrides no longer supersede this setting.</li>
             </ul>
           </div>
+          {logsRuntime && (
+            <div className="border-t border-edge pt-4 space-y-3">
+              <div>
+                <h3 className="text-sm font-medium text-ink">Runtime checks</h3>
+                <p className="mt-1 text-sm text-ghost">This reads from the running backend container, not just saved settings.</p>
+              </div>
+              <RuntimeKeyValueList rows={[
+                { label: 'State', value: logsRuntime.effectiveState === 'ready' ? 'Ready' : logsRuntime.effectiveState === 'attention' ? 'Needs attention' : 'Disabled' },
+                { label: 'Backend', value: logsRuntime.backend, mono: true },
+                { label: 'Collector', value: `${logsRuntime.host}:${logsRuntime.port}`, mono: true },
+                { label: 'Service', value: logsRuntime.service, mono: true },
+                { label: 'Host label', value: logsRuntime.hostLabel, mono: true },
+                { label: 'Debug traces', value: logsRuntime.debugEnabled ? 'On' : 'Off' }
+              ]} />
+              <ul className="divide-y divide-edge/60 rounded-md border border-edge/60 px-4">
+                {(logsRuntime.checks || []).map((check) => (
+                  <RuntimeCheckRow key={`${check.level}-${check.title}`} check={check} />
+                ))}
+              </ul>
+            </div>
+          )}
         </>}
 
         {section === 'metrics' && <>
@@ -533,6 +592,25 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
               <li>This page now owns whether metrics export is active. Environment feature-flag overrides no longer supersede this setting.</li>
             </ul>
           </div>
+          {metricsRuntime && (
+            <div className="border-t border-edge pt-4 space-y-3">
+              <div>
+                <h3 className="text-sm font-medium text-ink">Runtime checks</h3>
+                <p className="mt-1 text-sm text-ghost">This reads from the running backend container, not just saved settings.</p>
+              </div>
+              <RuntimeKeyValueList rows={[
+                { label: 'State', value: metricsRuntime.effectiveState === 'ready' ? 'Ready' : metricsRuntime.effectiveState === 'attention' ? 'Needs attention' : 'Disabled' },
+                { label: 'Endpoint', value: metricsRuntime.endpointPath, mono: true },
+                { label: 'DEBUG level', value: String(metricsRuntime.debugLevel), mono: true },
+                { label: 'Scrape token', value: metricsRuntime.scrapeTokenConfigured ? 'Configured' : 'Not configured' }
+              ]} />
+              <ul className="divide-y divide-edge/60 rounded-md border border-edge/60 px-4">
+                {(metricsRuntime.checks || []).map((check) => (
+                  <RuntimeCheckRow key={`${check.level}-${check.title}`} check={check} />
+                ))}
+              </ul>
+            </div>
+          )}
         </>}
 
         {section === 'tmdb' && <>

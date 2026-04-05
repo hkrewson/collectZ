@@ -105,6 +105,13 @@ test.describe('integrations browser regressions', () => {
       await page.reload();
       await expect(page.getByRole('heading', { name: 'Integrations' })).toBeVisible();
       await expect(page.getByRole('switch', { name: /Metrics Export/i })).toHaveAttribute('aria-checked', nextChecked);
+      await expect(page.getByRole('heading', { name: 'Runtime checks' })).toBeVisible();
+      await expect(page.getByText('/api/metrics')).toBeVisible();
+
+      await page.goto('/dashboard?tab=admin-integrations&integration=logs');
+      await expect(page.getByRole('heading', { name: 'Runtime checks' })).toBeVisible();
+      await expect(page.getByText('gelf_udp')).toBeVisible();
+      await expect(page.getByText('graylog:12201')).toBeVisible();
     } finally {
       await restoreIntegrationState(requestContext, snapshot).catch(() => {});
       await requestContext.dispose();
