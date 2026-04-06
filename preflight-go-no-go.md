@@ -9,8 +9,11 @@
 
 - Version sync: PASS
 - Release notes: PASS
+- Lockfile policy: PASS
+- Runtime dependency policy: PASS
 - Release feed snapshot: PASS
 - Observability release evidence: PASS
+- App shell budget: PASS (time-bound exception)
 - Init parity: PASS
 - Migration rehearsal: PASS
 - Backend unit tests: PASS
@@ -33,6 +36,14 @@
   - [`backend/package.json`](/Users/hamlin/Development/GitHub/hkrewson/collectZ/backend/package.json)
   - [`frontend/package.json`](/Users/hamlin/Development/GitHub/hkrewson/collectZ/frontend/package.json)
   - both package-lock files
+- Lockfile policy is satisfied:
+  - root [`package-lock.json`](/Users/hamlin/Development/GitHub/hkrewson/collectZ/package-lock.json)
+  - [`backend/package-lock.json`](/Users/hamlin/Development/GitHub/hkrewson/collectZ/backend/package-lock.json)
+  - [`frontend/package-lock.json`](/Users/hamlin/Development/GitHub/hkrewson/collectZ/frontend/package-lock.json)
+- Runtime dependency policy passed locally:
+  - no `container_name` entries in compose files
+  - no Redis services or `REDIS_URL` / `REDIS_PASSWORD` runtime env drift in compose or `env.example`
+  - no forbidden backend `redis` or `connect-redis` dependency
 - Release note [`docs/releases/v2.9.8.md`](/Users/hamlin/Development/GitHub/hkrewson/collectZ/docs/releases/v2.9.8.md) exists and includes the required release and security-triage sections.
 - The in-app release snapshot was regenerated with `node backend/scripts/export-release-feed.js`, and the latest release in [`backend/release-feed.json`](/Users/hamlin/Development/GitHub/hkrewson/collectZ/backend/release-feed.json) is `2.9.8`.
 - The protected `Help > Releases` API path was verified against the running stack by authenticating a temporary admin through the live app and confirming `/api/support/releases` returned `v2.9.8`.
@@ -43,18 +54,25 @@
   - db healthy
   - `/api/health` returned `version=2.9.8`, `frontend=2.9.8`, `backend=2.9.8`, `build=v2.9.8`
   - `/api/auth/csrf-token` returned a CSRF token
+  - session cookie options inside the running backend now match CI release expectations with `httpOnly=true`, `secure=true`, `sameSite=strict`
+  - CSRF cookie issuance under the CI-style env override includes both `Secure` and `SameSite=Strict`
   - unauthenticated `/api/auth/me` returned `401`
 - Observability release evidence is current for `2.9.8` in [`artifacts/observability-evidence/observability-release-evidence.json`](/Users/hamlin/Development/GitHub/hkrewson/collectZ/artifacts/observability-evidence/observability-release-evidence.json) with summary:
   - `total=9`
   - `passed=9`
   - `failed=0`
   - `blocked=0`
+- `frontend/src/App.js` is currently `631` lines, above the `550` hard budget, and now carries an explicit temporary exception at [`.ci/exceptions/app-shell-budget.json`](/Users/hamlin/Development/GitHub/hkrewson/collectZ/.ci/exceptions/app-shell-budget.json):
+  - `max_lines=650`
+  - `expires_on=2026-06-04`
+  - `target_milestone=2.9.9 — Observability Endpoint Control Plane`
 - Init parity and migration rehearsal both passed and refreshed:
   - [`artifacts/init-parity-evidence/init-parity-evidence.json`](/Users/hamlin/Development/GitHub/hkrewson/collectZ/artifacts/init-parity-evidence/init-parity-evidence.json)
   - [`artifacts/migration-rehearsal-evidence/migration-rehearsal-evidence.json`](/Users/hamlin/Development/GitHub/hkrewson/collectZ/artifacts/migration-rehearsal-evidence/migration-rehearsal-evidence.json)
 - Backend unit tests passed locally with `node backend/scripts/unit-tests.js`.
 - OpenAPI validation passed with `npm --prefix backend run test:openapi`.
 - RBAC regression passed against the running stack when executed with `BASE_URL=http://frontend:3000`.
+- API integration smoke passed against the rebuilt release-style stack with `SESSION_COOKIE_SECURE=true` and `TRUST_PROXY=1`.
 - Platform edition-boundary smoke passed against a live `APP_EDITION=platform` backend container.
 - Homelab edition-boundary smoke passed after rebuilding the backend live with `APP_EDITION=homelab`, and the backend was then restored to `APP_EDITION=platform`.
 - Browser regression is not fully cleared locally yet:
@@ -78,6 +96,7 @@
 - [`artifacts/init-parity-evidence/init-parity-evidence.json`](/Users/hamlin/Development/GitHub/hkrewson/collectZ/artifacts/init-parity-evidence/init-parity-evidence.json)
 - [`artifacts/migration-rehearsal-evidence/migration-rehearsal-evidence.json`](/Users/hamlin/Development/GitHub/hkrewson/collectZ/artifacts/migration-rehearsal-evidence/migration-rehearsal-evidence.json)
 - [`artifacts/observability-evidence/observability-release-evidence.json`](/Users/hamlin/Development/GitHub/hkrewson/collectZ/artifacts/observability-evidence/observability-release-evidence.json)
+- [`.ci/exceptions/app-shell-budget.json`](/Users/hamlin/Development/GitHub/hkrewson/collectZ/.ci/exceptions/app-shell-budget.json)
 - [`preflight-go-no-go.md`](/Users/hamlin/Development/GitHub/hkrewson/collectZ/preflight-go-no-go.md)
 
 ## Blocking Criteria

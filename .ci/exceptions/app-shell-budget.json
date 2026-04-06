@@ -1,0 +1,7 @@
+{
+  "reason": "The shared app shell is temporarily above the 550-line hard budget after the 2.9.7 shared tabbed-editor and 2.9.8 runtime hardening work kept additional session, support-session, and scope orchestration in App.js. Release closeout for 2.9.8 uses a time-bound exception so CI stays honest while the next milestone pulls the remaining shell orchestration into focused modules.",
+  "approved_by": "hamlin",
+  "expires_on": "2026-06-04",
+  "max_lines": 650,
+  "target_milestone": "2.9.9 — Observability Endpoint Control Plane"
+}
