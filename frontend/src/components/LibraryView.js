@@ -285,8 +285,8 @@ function MediaCard({ item, onOpen, onEdit, onDelete, onRating, supportsHover, se
         <button
           type="button"
           className={cx(
-            'absolute left-2 top-9 z-10 inline-flex h-6 w-6 items-center justify-center rounded-md border bg-void/88 text-dim transition-colors',
-            selected ? 'border-brand/70 text-ink' : 'border-edge/80 hover:border-muted hover:text-ink'
+            'absolute left-2 top-9 z-10 inline-flex h-6 w-6 items-center justify-center rounded-md border bg-abyss/92 shadow-sm transition-colors',
+            selected ? 'border-muted bg-abyss text-ink' : 'border-edge/90 text-ghost hover:border-muted hover:text-ink'
           )}
           aria-label={`Select ${item.title}`}
           aria-pressed={selected}
@@ -352,8 +352,8 @@ function MediaListRow({ item, onOpen, onEdit, onDelete, onRating, supportsHover,
           <button
             type="button"
             className={cx(
-              'inline-flex h-6 w-6 items-center justify-center rounded-md border bg-void/88 text-dim transition-colors',
-              selected ? 'border-brand/70 text-ink' : 'border-edge/80 hover:border-muted hover:text-ink'
+              'inline-flex h-6 w-6 items-center justify-center rounded-md border bg-surface shadow-sm transition-colors',
+              selected ? 'border-muted bg-raised text-ink' : 'border-edge/90 text-ghost hover:border-muted hover:text-ink hover:bg-raised/70'
             )}
             aria-label={`Select ${item.title}`}
             aria-pressed={selected}
