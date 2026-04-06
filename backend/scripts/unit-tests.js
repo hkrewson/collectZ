@@ -1787,15 +1787,19 @@ results.push(run('observability endpoint control-plane source includes stored co
   assert.ok(migrationsSource.includes('Add observability endpoint control-plane fields'));
   assert.ok(migrationsSource.includes('Add observability endpoint validation fields'));
   assert.ok(migrationsSource.includes('Add observability endpoint label fields'));
+  assert.ok(migrationsSource.includes('Add observability endpoint debug field'));
   assert.ok(migrationsSource.includes('log_export_backend'));
   assert.ok(migrationsSource.includes('log_export_host_label'));
   assert.ok(migrationsSource.includes('log_export_service'));
+  assert.ok(migrationsSource.includes('log_export_debug'));
   assert.ok(migrationsSource.includes('log_export_last_validation_status'));
   assert.ok(logExportSource.includes('const LOG_EXPORT_SETTINGS_READ_ONLY'));
   assert.ok(logExportSource.includes('async function resolveExportConfig'));
   assert.ok(logExportSource.includes('async function validateStructuredLogDelivery'));
+  assert.ok(logExportSource.includes('function readCachedExportConfig()'));
   assert.ok(logExportSource.includes('hostLabel'));
   assert.ok(logExportSource.includes('service'));
+  assert.ok(logExportSource.includes('debugEnabled'));
   assert.ok(logExportSource.includes("source: 'env_override'"));
   assert.ok(logExportSource.includes("source: 'stored'"));
   assert.ok(logExportSource.includes("source: 'env_fallback'"));
@@ -1811,9 +1815,11 @@ results.push(run('observability endpoint control-plane source includes stored co
   assert.ok(observabilityRuntimeSource.includes('storedBackend'));
   assert.ok(observabilityRuntimeSource.includes('storedHostLabel'));
   assert.ok(observabilityRuntimeSource.includes('storedService'));
+  assert.ok(observabilityRuntimeSource.includes('storedDebugEnabled'));
   assert.ok(observabilityRuntimeSource.includes('envBackend'));
   assert.ok(observabilityRuntimeSource.includes('envHostLabel'));
   assert.ok(observabilityRuntimeSource.includes('envService'));
+  assert.ok(observabilityRuntimeSource.includes('envDebugEnabled'));
   assert.ok(dockerComposeSource.includes('LOG_EXPORT_SETTINGS_READ_ONLY'));
 }));
 

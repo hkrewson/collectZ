@@ -51,10 +51,10 @@ Current control surface note:
     - collector port
     - `LOG_EXPORT_HOST_LABEL`
     - `LOG_EXPORT_SERVICE`
+    - `LOG_EXPORT_DEBUG`
   - Runtime env now acts as the fallback or immutable override source for:
     - `LOG_EXPORT_HOST_LABEL`
     - `LOG_EXPORT_SERVICE`
-    - `LOG_EXPORT_DEBUG`
     - `LOG_EXPORT_MAX_DETAIL_BYTES`
 - Optional immutable-runtime mode:
   - `LOG_EXPORT_SETTINGS_READ_ONLY=true`
@@ -95,6 +95,7 @@ It also begins exposing the common control-plane endpoint fields for the common 
 - backend / transport
 - collector host
 - collector port
+- debug mode
 - service label
 - host label
 

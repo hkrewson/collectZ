@@ -2476,6 +2476,14 @@ const MIGRATIONS = [
       ALTER TABLE app_integrations
         ADD COLUMN IF NOT EXISTS log_export_service TEXT;
     `
+  },
+  {
+    version: 57,
+    description: 'Add observability endpoint debug field',
+    up: `
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS log_export_debug BOOLEAN;
+    `
   }
 ];
 

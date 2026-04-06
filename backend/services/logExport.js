@@ -48,6 +48,11 @@ function readExportConfig() {
   };
 }
 
+function parseStoredDebug(value) {
+  if (value === undefined || value === null || value === '') return null;
+  return Boolean(value);
+}
+
 function defaultPortForBackend(backend) {
   return backend === 'syslog_udp' || backend === 'syslog_tcp'
     ? DEFAULT_SYSLOG_PORT
@@ -59,14 +64,16 @@ function normalizeStoredExportConfig(row) {
   const backend = backendRaw && LOG_EXPORT_BACKENDS.has(backendRaw) ? backendRaw : null;
   const hostLabel = String(row?.log_export_host_label || '').trim() || null;
   const service = String(row?.log_export_service || '').trim() || null;
-  if (!backend && !hostLabel && !service) return null;
+  const debugEnabled = parseStoredDebug(row?.log_export_debug);
+  if (!backend && !hostLabel && !service && debugEnabled === null) return null;
   const defaultPort = defaultPortForBackend(backend || 'gelf_udp');
   return {
     backend,
     host: backend ? (String(row?.log_export_host || DEFAULT_GELF_HOST).trim() || DEFAULT_GELF_HOST) : null,
     port: backend ? Math.max(1, Number(row?.log_export_port || defaultPort) || defaultPort) : null,
     hostLabel,
-    service
+    service,
+    debugEnabled
   };
 }
 
@@ -79,7 +86,8 @@ function normalizeExplicitExportConfig(input = {}) {
     host: String(input?.host || DEFAULT_GELF_HOST).trim() || DEFAULT_GELF_HOST,
     port: Math.max(1, Number(input?.port || defaultPort) || defaultPort),
     hostLabel: String(input?.hostLabel || '').trim() || null,
-    service: String(input?.service || '').trim() || null
+    service: String(input?.service || '').trim() || null,
+    debugEnabled: input?.debugEnabled === undefined ? null : parseBoolean(input?.debugEnabled, false)
   };
 }
 
@@ -88,11 +96,27 @@ async function loadStoredExportConfig({ forceRefresh = false } = {}) {
     return storedConfigCache;
   }
   const result = await pool.query(
-    'SELECT log_export_backend, log_export_host, log_export_port, log_export_host_label, log_export_service FROM app_integrations WHERE id = 1'
+    'SELECT log_export_backend, log_export_host, log_export_port, log_export_host_label, log_export_service, log_export_debug FROM app_integrations WHERE id = 1'
   );
   storedConfigCache = normalizeStoredExportConfig(result.rows[0] || null);
   storedConfigCacheAt = Date.now();
   return storedConfigCache;
+}
+
+function readCachedExportConfig() {
+  const envConfig = readExportConfig();
+  if (LOG_EXPORT_SETTINGS_READ_ONLY || !storedConfigCache) return envConfig;
+  return {
+    ...envConfig,
+    backend: storedConfigCache.backend || envConfig.backend,
+    host: storedConfigCache.backend ? storedConfigCache.host : envConfig.host,
+    port: storedConfigCache.backend ? storedConfigCache.port : envConfig.port,
+    hostLabel: storedConfigCache.hostLabel || envConfig.hostLabel,
+    service: storedConfigCache.service || envConfig.service,
+    debugEnabled: storedConfigCache.debugEnabled === null || storedConfigCache.debugEnabled === undefined
+      ? envConfig.debugEnabled
+      : storedConfigCache.debugEnabled
+  };
 }
 
 function invalidateStoredExportConfigCache() {
@@ -129,7 +153,10 @@ async function resolveExportConfig(options = {}) {
       host: stored.backend ? stored.host : envConfig.host,
       port: stored.backend ? stored.port : envConfig.port,
       hostLabel: stored.hostLabel || envConfig.hostLabel,
-      service: stored.service || envConfig.service
+      service: stored.service || envConfig.service,
+      debugEnabled: stored.debugEnabled === null || stored.debugEnabled === undefined
+        ? envConfig.debugEnabled
+        : stored.debugEnabled
     };
     return {
       ...envConfig,
@@ -163,7 +190,7 @@ async function resolveExportConfig(options = {}) {
 }
 
 function debugLog(message, fields = {}) {
-  const config = readExportConfig();
+  const config = readCachedExportConfig();
   if (!config.debugEnabled) return;
   console.log(`[log-export-debug] ${message} ${JSON.stringify(fields)}`);
 }

@@ -125,11 +125,13 @@ async function buildLogsRuntimeDiagnostics() {
     envPort: envConfig.port,
     envHostLabel: envConfig.hostLabel,
     envService: envConfig.service,
+    envDebugEnabled: envConfig.debugEnabled,
     storedBackend: config.controlPlane?.stored?.backend || null,
     storedHost: config.controlPlane?.stored?.host || null,
     storedPort: config.controlPlane?.stored?.port || null,
     storedHostLabel: config.controlPlane?.stored?.hostLabel || null,
     storedService: config.controlPlane?.stored?.service || null,
+    storedDebugEnabled: config.controlPlane?.stored?.debugEnabled ?? null,
     effectiveState: !flag?.enabled
       ? 'disabled'
       : config.backend === 'off'

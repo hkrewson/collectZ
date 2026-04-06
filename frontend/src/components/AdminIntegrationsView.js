@@ -175,7 +175,7 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
     comicsPreset: 'metron', comicsProvider: 'metron', comicsApiUrl: 'https://metron.cloud/api/issue/',
     comicsApiKey: '', comicsUsername: '', clearComicsApiKey: false,
     cwaOpdsUrl: '', cwaUsername: '', cwaPassword: '', clearCwaPassword: false,
-    logExportBackend: '', logExportHost: '', logExportPort: '', logExportHostLabel: '', logExportService: ''
+    logExportBackend: '', logExportHost: '', logExportPort: '', logExportHostLabel: '', logExportService: '', logExportDebug: false
   });
   const [meta, setMeta] = useState({
     barcodeApiKeySet: false, barcodeApiKeyMasked: '',
@@ -231,7 +231,10 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
         logExportHost: data.logExportControl?.stored?.host || data.logExportControl?.effective?.host || '',
         logExportPort: String(data.logExportControl?.stored?.port || data.logExportControl?.effective?.port || ''),
         logExportHostLabel: data.logExportControl?.stored?.hostLabel || data.logExportControl?.effective?.hostLabel || '',
-        logExportService: data.logExportControl?.stored?.service || data.logExportControl?.effective?.service || ''
+        logExportService: data.logExportControl?.stored?.service || data.logExportControl?.effective?.service || '',
+        logExportDebug: Boolean(
+          data.logExportControl?.stored?.debugEnabled ?? data.logExportControl?.effective?.debugEnabled ?? false
+        )
       }));
       setMeta({
         barcodeApiKeySet: Boolean(data.barcodeApiKeySet), barcodeApiKeyMasked: data.barcodeApiKeyMasked || '',
@@ -363,7 +366,8 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
       logExportHost: form.logExportHost,
       logExportPort: form.logExportPort,
       logExportHostLabel: form.logExportHostLabel,
-      logExportService: form.logExportService
+      logExportService: form.logExportService,
+      logExportDebug: form.logExportDebug
     });
     try {
       const updated = await apiCall('put', '/admin/settings/integrations', payload);
@@ -402,7 +406,10 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
           logExportHost: updated.logExportControl.stored?.host || updated.logExportControl.effective?.host || '',
           logExportPort: String(updated.logExportControl.stored?.port || updated.logExportControl.effective?.port || ''),
           logExportHostLabel: updated.logExportControl.stored?.hostLabel || updated.logExportControl.effective?.hostLabel || '',
-          logExportService: updated.logExportControl.stored?.service || updated.logExportControl.effective?.service || ''
+          logExportService: updated.logExportControl.stored?.service || updated.logExportControl.effective?.service || '',
+          logExportDebug: Boolean(
+            updated.logExportControl.stored?.debugEnabled ?? updated.logExportControl.effective?.debugEnabled ?? false
+          )
         }));
       }
       onToast(`${sec.toUpperCase()} settings saved`);
@@ -455,7 +462,8 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
                     logExportHost: form.logExportHost,
                     logExportPort: form.logExportPort,
                     logExportHostLabel: form.logExportHostLabel,
-                    logExportService: form.logExportService
+                    logExportService: form.logExportService,
+                    logExportDebug: form.logExportDebug
                   }
                 : sec === 'cwa'
                   ? {}
@@ -639,6 +647,16 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
                 />
               </LabeledField>
             </div>
+            <label className="flex items-center gap-2 text-sm text-dim cursor-pointer">
+              <input
+                type="checkbox"
+                className="rounded"
+                checked={form.logExportDebug}
+                disabled={Boolean(logExportControl?.readOnly)}
+                onChange={(e) => setForm((f) => ({ ...f, logExportDebug: e.target.checked }))}
+              />
+              Emit debug traces for exporter decisions
+            </label>
             <details className="group rounded-md border border-edge/60">
               <summary className="cursor-pointer list-none select-none px-4 py-3 text-sm text-ghost hover:text-ink">
                 Search Context
