@@ -257,6 +257,17 @@ async function bootstrapAdminCredentials(requestContext) {
 }
 
 async function ensureSavedAdminCredentials() {
+  const configuredEmail = String(process.env.PLAYWRIGHT_ADMIN_EMAIL || process.env.RBAC_ADMIN_EMAIL || process.env.ADMIN_EMAIL || '').trim();
+  const configuredPassword = String(process.env.PLAYWRIGHT_ADMIN_PASSWORD || process.env.RBAC_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || '').trim();
+  if (configuredEmail && configuredPassword) {
+    const configuredCredentials = {
+      email: configuredEmail,
+      password: configuredPassword
+    };
+    await ensureDirectory(AUTH_CREDENTIALS_PATH);
+    await fs.promises.writeFile(AUTH_CREDENTIALS_PATH, JSON.stringify(configuredCredentials, null, 2));
+    return configuredCredentials;
+  }
   if (fs.existsSync(AUTH_CREDENTIALS_PATH)) {
     return JSON.parse(fs.readFileSync(AUTH_CREDENTIALS_PATH, 'utf8'));
   }
@@ -291,6 +302,73 @@ async function createFreshUserCredentials() {
   const roleSlug = role.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
   const fallbackEmail = `playwright-${roleSlug}-${Date.now()}@example.com`;
   const fallbackPassword = 'Passw0rd!123';
+  if (role === 'user') {
+    const bootstrapSeedContext = patchRequestContextCookieJar(await playwrightRequest.newContext({
+      baseURL: PLAYWRIGHT_BASE_URL,
+      extraHTTPHeaders: getPlaywrightBypassHeaders()
+    }));
+    try {
+      const adminState = await ensureAuthenticatedAdminStorageState(bootstrapSeedContext);
+      const bootstrapContext = await createAuthenticatedRequestContext(adminState.credentials);
+      try {
+      const scopeResponse = await bootstrapContext.get('/api/auth/scope', {
+        headers: getPlaywrightBypassHeaders()
+      });
+      if (!scopeResponse.ok()) {
+        throw new Error(`Failed to load admin scope (${scopeResponse.status()})`);
+      }
+      const scopePayload = await scopeResponse.json();
+      let activeSpaceId = Number(scopePayload?.active_space_id || 0) || null;
+      if (!activeSpaceId) {
+        const adminSpacesResponse = await bootstrapContext.get('/api/admin/spaces', {
+          headers: getPlaywrightBypassHeaders()
+        });
+        if (!adminSpacesResponse.ok()) {
+          throw new Error(`Failed to load admin spaces (${adminSpacesResponse.status()})`);
+        }
+        const adminSpacesPayload = await adminSpacesResponse.json();
+        activeSpaceId = Number(adminSpacesPayload?.spaces?.[0]?.id || 0) || null;
+      }
+      if (!activeSpaceId) {
+        throw new Error('Missing active admin space for invite-backed user bootstrap');
+      }
+      const inviteResponse = await postWithCsrf(bootstrapContext, `/api/admin/spaces/${activeSpaceId}/invites`, {
+        email: fallbackEmail,
+        role: 'member',
+        expose_token: true
+      }, 201);
+      const invitePayload = await inviteResponse.json();
+      const inviteToken = String(invitePayload?.token || '').trim();
+      if (!inviteToken) {
+        throw new Error('Invite-backed user bootstrap did not return a token');
+      }
+
+      const userRequestContext = patchRequestContextCookieJar(await playwrightRequest.newContext({
+        baseURL: PLAYWRIGHT_BASE_URL,
+        extraHTTPHeaders: getPlaywrightBypassHeaders()
+      }));
+      try {
+        await postWithCsrf(userRequestContext, '/api/auth/register', {
+          email: fallbackEmail,
+          password: fallbackPassword,
+          name: fallbackName,
+          inviteToken
+        }, 200);
+        return { email: fallbackEmail, password: fallbackPassword, name: fallbackName, role };
+      } finally {
+        await userRequestContext.dispose();
+      }
+      } finally {
+        await bootstrapContext.dispose();
+      }
+    } catch (error) {
+      // Keep the long-standing direct backend bootstrap as a fallback so
+      // existing local flows continue to work if invite-backed registration
+      // is unavailable in a given runtime setup.
+    } finally {
+      await bootstrapSeedContext.dispose();
+    }
+  }
   await createDirectUser({
     email: fallbackEmail,
     password: fallbackPassword,

@@ -3,7 +3,6 @@
 const { test, expect } = require('@playwright/test');
 const { createFreshUserCredentials, createAuthenticatedRequestContext } = require('../helpers/auth');
 const { deleteMediaByExactTitle, findExactMediaByTitle } = require('../helpers/media');
-const { signInThroughUi } = require('../helpers/session');
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
@@ -16,11 +15,12 @@ test.describe('library multi-format browser regressions', () => {
     await deleteMediaByExactTitle(requestContext, title).catch(() => {});
 
     try {
-      await signInThroughUi(page, credentials);
+      const storageState = await requestContext.storageState();
+      await page.context().addCookies(storageState.cookies || []);
       await page.goto('/dashboard?tab=library-movies');
-      await page.getByRole('button', { name: /Add Media/i }).click();
+      await page.getByRole('button', { name: 'Add', exact: true }).click();
 
-      await expect(page.getByText('Add to Library', { exact: true })).toBeVisible();
+      await expect(page.getByRole('heading', { name: /add to library/i })).toBeVisible();
       await page.getByPlaceholder('Movie title').fill(title);
       await page.getByRole('button', { name: 'DVD', exact: true }).click();
       await page.getByRole('button', { name: 'Digital', exact: true }).click();
@@ -39,10 +39,14 @@ test.describe('library multi-format browser regressions', () => {
       await page.goto('/dashboard?tab=library-movies');
       const searchInput = page.getByPlaceholder('Search title, director…');
       await searchInput.fill(title);
-      await page.getByText(title, { exact: true }).first().click();
-      await page.getByRole('button', { name: 'Edit', exact: true }).click();
+      const resultCard = page.locator('article').filter({
+        has: page.getByText(title, { exact: true })
+      }).first();
+      await expect(resultCard).toBeVisible();
+      await resultCard.hover();
+      await resultCard.getByRole('button', { name: 'Edit', exact: true }).click({ force: true });
 
-      await expect(page.getByText('Edit Media', { exact: true })).toBeVisible();
+      await expect(page.getByRole('heading', { name: /edit media/i })).toBeVisible();
       await page.getByRole('button', { name: 'Blu-ray', exact: true }).click();
       await page.getByRole('button', { name: '4K UHD', exact: true }).click();
 
