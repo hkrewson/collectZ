@@ -33,6 +33,7 @@ Minimum closeout expectation:
 9. Confirm the Playwright browser-regression gate is green and its artifacts are available when failures occur.
 10. Confirm the homelab edition boundary gate is green so the live `homelab` stack still exposes only the shared mounted surfaces and keeps platform-only APIs unmounted.
 11. Confirm the platform edition boundary gate is green so the live `platform` stack still preserves invite-based registration and the tenant/admin control-plane APIs that must remain mounted.
+12. When any of `rbac-regression`, `browser-regression`, `homelab-edition-boundary`, or `platform-edition-boundary` fail, inspect the exact failing artifact or step log and repair the concrete runtime/spec assumption locally before calling the release push-ready.
 
 If any of these are skipped locally because the shell environment is restricted, the release stays pending until CI or an unrestricted maintainer shell confirms them.
 
@@ -47,6 +48,12 @@ Tagged runs must produce:
 - `sbom-cyclonedx/backend-sbom.cdx.json`
 - `sbom-cyclonedx/frontend-sbom.cdx.json`
 - `preflight-go-no-go.md`
+
+When the browser gate fails, the release investigation should also preserve the uploaded Playwright artifact bundle (`artifacts/playwright/...`) long enough to inspect:
+
+- failing `error-context.md`
+- failing `trace.zip`
+- screenshots/videos when present
 
 Release-shaped closeout should also generate:
 

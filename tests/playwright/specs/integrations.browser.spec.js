@@ -2,7 +2,7 @@
 
 const { test, expect } = require('@playwright/test');
 const { ensureSavedAdminCredentials, createAuthenticatedRequestContext } = require('../helpers/auth');
-const { snapshotIntegrationState, restoreIntegrationState } = require('../helpers/integrations');
+const { getIntegrationSettings, snapshotIntegrationState, restoreIntegrationState } = require('../helpers/integrations');
 
 async function openIntegrationsSection(page, name) {
   await page.getByRole('tablist', { name: 'Integration sections' }).getByRole('tab', { name, exact: true }).click();
@@ -110,8 +110,12 @@ test.describe('integrations browser regressions', () => {
 
       await page.goto('/dashboard?tab=admin-integrations&integration=logs');
       await expect(page.getByRole('heading', { name: 'Runtime checks' })).toBeVisible();
-      await expect(page.getByText('gelf_udp')).toBeVisible();
-      await expect(page.getByText('graylog:12201')).toBeVisible();
+      const logsRuntime = (await getIntegrationSettings(requestContext)).observabilityRuntime?.logs;
+      expect(logsRuntime).toBeTruthy();
+      await expect(activeSectionRoot(page).getByText(String(logsRuntime.backend), { exact: true })).toBeVisible();
+      await expect(
+        activeSectionRoot(page).getByText(`${logsRuntime.host}:${logsRuntime.port}`, { exact: true })
+      ).toBeVisible();
     } finally {
       await restoreIntegrationState(requestContext, snapshot).catch(() => {});
       await requestContext.dispose();

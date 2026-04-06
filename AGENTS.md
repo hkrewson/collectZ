@@ -41,7 +41,18 @@ For milestone, release, runtime, monitoring, auth, migration, or deployment work
 14. For release-shaped work, explicitly work through the gates defined in:
     - `docs/wiki/17-Release-Go-No-Go-Checklist.md`
     - `docs/wiki/10-CI-CD-and-Registry-Deploy.md`
+    - At minimum, release readiness must explicitly account for these named gates from CI:
+      - `compose-smoke`
+      - `rbac-regression`
+      - `browser-regression`
+      - `homelab-edition-boundary`
+      - `platform-edition-boundary`
+      - `dependency-scan`
+      - `secret-scan`
+      - `image-security-and-sbom`
 15. For release/version/docs/auth/infra changes, do not call work complete until version sync, release-note requirements, init parity, and relevant regression gates have been checked or explicitly marked blocked.
+    - “Relevant regression gates” is not generic shorthand here; for semver or release-shaped closeout it includes `rbac-regression`, `browser-regression`, `homelab-edition-boundary`, and `platform-edition-boundary` unless the roadmap slice clearly proves one is out of scope.
+    - The assistant must verify that repo docs still explain what each gate is proving, what runtime/env assumptions it depends on, and what evidence/artifacts are expected when it fails.
 16. For every semver release or release-shaped closeout, update the in-app Help > Releases source as part of the release note workflow:
    - ensure the matching `docs/releases/vX.Y.Z.md` exists,
    - regenerate any release-feed snapshot used by the app,
