@@ -292,7 +292,7 @@ function MediaCard({ item, onOpen, onEdit, onDelete, onRating, supportsHover, se
           aria-pressed={selected}
           onClick={(e) => {
             e.stopPropagation();
-            onToggleSelect?.(item.id);
+            onToggleSelect?.(item.id, e);
           }}
         >
           {selected ? <Icons.Check /> : null}
@@ -357,7 +357,7 @@ function MediaListRow({ item, onOpen, onEdit, onDelete, onRating, supportsHover,
             )}
             aria-label={`Select ${item.title}`}
             aria-pressed={selected}
-            onClick={() => onToggleSelect?.(item.id)}
+            onClick={(e) => onToggleSelect?.(item.id, e)}
           >
             {selected ? <Icons.Check /> : null}
           </button>
@@ -2049,6 +2049,7 @@ export default function LibraryView({
   const [comicSeries, setComicSeries] = useState('all');
   const [debouncedSearchInput, setDebouncedSearchInput] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
+  const selectionAnchorIdRef = useRef(null);
   const supportsHover = useMemo(() => window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches, []);
   const addFormMediaType = useMemo(() => {
     if (forcedMediaType === 'tv') return 'tv_series';
@@ -2264,6 +2265,7 @@ export default function LibraryView({
   useEffect(() => {
     if (isCollectionMode || (isComicsLibrary && comicView === 'series')) {
       setSelectedIds([]);
+      selectionAnchorIdRef.current = null;
     }
   }, [comicView, isCollectionMode, isComicsLibrary]);
 
@@ -2278,11 +2280,31 @@ export default function LibraryView({
   );
   const allVisibleSelected = visibleSelectableIds.length > 0 && selectedVisibleCount === visibleSelectableIds.length;
 
-  const toggleSelectedId = useCallback((idRaw) => {
+  const toggleSelectedId = useCallback((idRaw, event = null) => {
     const id = Number(idRaw);
     if (!Number.isFinite(id) || id <= 0) return;
-    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((entry) => entry !== id) : [...prev, id]));
-  }, []);
+    const shiftKey = Boolean(event?.shiftKey);
+    setSelectedIds((prev) => {
+      const prevSet = new Set(prev.map((entry) => Number(entry)));
+      if (shiftKey && selectionAnchorIdRef.current !== null) {
+        const anchorId = Number(selectionAnchorIdRef.current);
+        const anchorIndex = visibleSelectableIds.indexOf(anchorId);
+        const targetIndex = visibleSelectableIds.indexOf(id);
+        if (anchorIndex !== -1 && targetIndex !== -1) {
+          const [start, end] = anchorIndex <= targetIndex
+            ? [anchorIndex, targetIndex]
+            : [targetIndex, anchorIndex];
+          const next = new Set(prevSet);
+          visibleSelectableIds.slice(start, end + 1).forEach((entryId) => next.add(entryId));
+          return [...next];
+        }
+      }
+      if (prevSet.has(id)) prevSet.delete(id);
+      else prevSet.add(id);
+      return [...prevSet];
+    });
+    selectionAnchorIdRef.current = id;
+  }, [visibleSelectableIds]);
 
   const handleSelectAllVisible = useCallback(() => {
     setSelectedIds((prev) => {
@@ -2290,9 +2312,15 @@ export default function LibraryView({
       visibleSelectableIds.forEach((id) => next.add(id));
       return [...next];
     });
+    if (visibleSelectableIds.length > 0) {
+      selectionAnchorIdRef.current = visibleSelectableIds[visibleSelectableIds.length - 1];
+    }
   }, [visibleSelectableIds]);
 
-  const handleClearSelection = useCallback(() => setSelectedIds([]), []);
+  const handleClearSelection = useCallback(() => {
+    setSelectedIds([]);
+    selectionAnchorIdRef.current = null;
+  }, []);
 
   const handleBulkDelete = useCallback(async () => {
     const targetIds = [...selectedIds];
@@ -2303,6 +2331,7 @@ export default function LibraryView({
     if (deletedIds.some((id) => Number(detail?.id) === Number(id))) setDetail(null);
     if (deletedIds.some((id) => Number(editing?.id) === Number(id))) setEditing(null);
     setSelectedIds(failedIds);
+    selectionAnchorIdRef.current = failedIds.length > 0 ? Number(failedIds[failedIds.length - 1]) : null;
   }, [detail?.id, editing?.id, onBulkDelete, selectedIds]);
 
   const inlineCards = useMemo(() => {
