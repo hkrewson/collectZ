@@ -1,0 +1,5 @@
+services:
+  promtail:
+    command: -config.file=/etc/promtail/promtail.structured-only.yml
+    volumes:
+      - ./promtail/promtail.structured-only.yml:/etc/promtail/promtail.structured-only.yml:ro

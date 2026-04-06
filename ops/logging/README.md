@@ -13,8 +13,10 @@ This directory contains a minimal Graylog stack for the `2.6.1` structured-log e
 For the Loki/Promtail example, see:
 
 - `/Users/hamlin/Development/GitHub/hkrewson/collectZ/ops/logging/docker-compose.loki.yml`
+- `/Users/hamlin/Development/GitHub/hkrewson/collectZ/ops/logging/docker-compose.loki.structured-only.yml`
 - `/Users/hamlin/Development/GitHub/hkrewson/collectZ/ops/logging/loki/loki.yml`
 - `/Users/hamlin/Development/GitHub/hkrewson/collectZ/ops/logging/promtail/promtail.yml`
+- `/Users/hamlin/Development/GitHub/hkrewson/collectZ/ops/logging/promtail/promtail.structured-only.yml`
 - `/Users/hamlin/Development/GitHub/hkrewson/collectZ/docs/wiki/36-Loki-and-Promtail-Structured-Logs.md`
 
 For the syslog example, see:

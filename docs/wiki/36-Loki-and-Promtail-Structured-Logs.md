@@ -40,6 +40,10 @@ For longer-lived use:
   - `/Users/hamlin/Development/GitHub/hkrewson/collectZ/ops/logging/loki/loki.yml`
 - Promtail config:
   - `/Users/hamlin/Development/GitHub/hkrewson/collectZ/ops/logging/promtail/promtail.yml`
+- Structured-only Promtail variant:
+  - `/Users/hamlin/Development/GitHub/hkrewson/collectZ/ops/logging/promtail/promtail.structured-only.yml`
+- Optional compose override for structured-only collection:
+  - `/Users/hamlin/Development/GitHub/hkrewson/collectZ/ops/logging/docker-compose.loki.structured-only.yml`
 
 Render check:
 
@@ -81,6 +85,32 @@ Note:
 
 - `request_id` is intentionally not promoted to a label in the starter example because it is high-cardinality.
 - You can still query it from the parsed log payload in Loki/Grafana.
+
+## Cleaner Stream Separation Option
+
+If you want Loki to ingest only structured export lines instead of the full mixed backend stdout stream, use the structured-only Promtail variant.
+
+Start with:
+
+```bash
+docker compose \
+  -f /Users/hamlin/Development/GitHub/hkrewson/collectZ/ops/logging/docker-compose.loki.yml \
+  -f /Users/hamlin/Development/GitHub/hkrewson/collectZ/ops/logging/docker-compose.loki.structured-only.yml \
+  up -d
+```
+
+That variant:
+
+- keeps the same `stdout_json` exporter path in collectZ,
+- drops non-JSON/plaintext request lines at the Promtail stage,
+- and forwards only structured export events into Loki.
+
+Use the default config if you still want both:
+
+- general backend request logs
+- structured export lines
+
+Use the structured-only override if you want a calmer, lower-noise observability stream in Loki.
 
 ## Start
 
@@ -146,7 +176,7 @@ You should see normal request logs plus JSON lines for exported structured event
 - Promtail’s JSON stage only extracts fields from lines that are valid JSON; plaintext request logs are still ingested but will not have structured fields.
 - If you want a cleaner separation later, the next refinement would be:
   - route structured export to a dedicated stream,
-  - or split general request logging from structured export output.
+  - or use the structured-only Promtail override in this repo to drop non-JSON lines before they reach Loki.
 
 ## Fast Diagnosis
 
@@ -178,6 +208,13 @@ For the bundled example stack, the operator-owned persistence points are:
 
 - `loki_data`
 - `promtail_positions`
+
+Example-stack rehearsal:
+
+- run:
+  - `bash /Users/hamlin/Development/GitHub/hkrewson/collectZ/ops/logging/verify-loki-persistence.sh`
+- that verifies the named `loki_data` and `promtail_positions` volumes survive a normal `docker compose down` / `up -d` cycle
+- treat `docker compose down -v` as the destructive reset path for the bundled Loki example
 
 If you discard those volumes, expect:
 
