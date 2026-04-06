@@ -1,13 +1,13 @@
 'use strict';
 
 const { test, expect } = require('@playwright/test');
-const { createFreshUserCredentials } = require('../helpers/auth');
+const { createFreshUserCredentials, ensureSavedAdminCredentials, createAuthenticatedRequestContext } = require('../helpers/auth');
 const { captureNamedPage } = require('../helpers/capture');
 const { createSupportCaptureFixture } = require('../helpers/support');
 const { signInThroughUi, openHelpSurface } = require('../helpers/session');
 
 test.describe('support docs capture flows @capture', () => {
-  test('capture login surface and seeded Help Admin workspace states', async ({ page, request }) => {
+  test('capture login surface and seeded Help Admin workspace states', async ({ page }) => {
     await page.setViewportSize({ width: 1600, height: 1000 });
     const fixtureSuffix = Date.now();
     const fixtureSubject = `Capture flow ${fixtureSuffix}`;
@@ -16,7 +16,13 @@ test.describe('support docs capture flows @capture', () => {
     await expect(page.locator('button[type="submit"]')).toHaveText('SIGN IN');
     await captureNamedPage(page, 'auth-login');
 
-    await createSupportCaptureFixture(request, fixtureSuffix);
+    const adminCredentials = await ensureSavedAdminCredentials();
+    const requestContext = await createAuthenticatedRequestContext(adminCredentials);
+    try {
+      await createSupportCaptureFixture(requestContext, fixtureSuffix);
+    } finally {
+      await requestContext.dispose();
+    }
 
     await page.goto('/dashboard?tab=support-inbox');
     await expect(page.getByRole('heading', { name: 'Help Admin' })).toBeVisible();

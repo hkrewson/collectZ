@@ -2,23 +2,23 @@
 
 const { test, expect } = require('@playwright/test');
 const { createSpaceFixture, deleteSpace } = require('../helpers/admin');
+const { ensureSavedAdminCredentials, createAuthenticatedRequestContext } = require('../helpers/auth');
 
 test.describe('admin shell browser regressions', () => {
-  test('authenticated admin shell loads and docs surface is available when debug gating is satisfied', async ({ page, request }) => {
+  test('authenticated admin shell loads and docs surface is available when debug gating is satisfied', async ({ page }) => {
     await page.goto('/dashboard?tab=help');
     await expect(page.getByRole('heading', { name: 'HELP ADMIN' })).toBeVisible();
-
-    const docsResponse = await request.get('/api/docs');
-    expect(docsResponse.ok()).toBeTruthy();
 
     await page.goto('/api/docs');
     await expect(page).toHaveTitle(/collectZ API Docs/i);
     await expect(page.locator('#swagger-ui')).toBeVisible();
   });
 
-  test('all spaces drawer tabs and support-session banner behave in the browser', async ({ page, request }) => {
+  test('all spaces drawer tabs and support-session banner behave in the browser', async ({ page }) => {
     const suffix = Date.now();
-    const { space } = await createSpaceFixture(request, suffix);
+    const adminCredentials = await ensureSavedAdminCredentials();
+    const requestContext = await createAuthenticatedRequestContext(adminCredentials);
+    const { space } = await createSpaceFixture(requestContext, suffix);
     let cleanupPending = true;
 
     try {
@@ -47,8 +47,9 @@ test.describe('admin shell browser regressions', () => {
       await expect(page.getByText('Support Session Active')).toHaveCount(0);
     } finally {
       if (cleanupPending) {
-        await deleteSpace(request, Number(space.id)).catch(() => {});
+        await deleteSpace(requestContext, Number(space.id)).catch(() => {});
       }
+      await requestContext.dispose();
     }
   });
 
@@ -58,7 +59,7 @@ test.describe('admin shell browser regressions', () => {
 
     const sectionTabs = page.getByRole('tablist', { name: 'Integration sections' });
     await sectionTabs.getByRole('tab', { name: 'Games', exact: true }).click();
-    await expect(page.getByText('Games', { exact: true }).nth(1)).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Games', exact: true })).toBeVisible();
 
     await sectionTabs.getByRole('tab', { name: 'Metrics', exact: true }).click();
     const metricsSwitch = page.getByRole('switch', { name: /Metrics Export/i });

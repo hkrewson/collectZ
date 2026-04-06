@@ -89,6 +89,63 @@ async function ensureDirectory(filePath) {
   await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
 }
 
+function parseSetCookieHeader(headerValue) {
+  const firstSegment = String(headerValue || '').split(';')[0] || '';
+  const equalsIndex = firstSegment.indexOf('=');
+  if (equalsIndex <= 0) return null;
+  const name = firstSegment.slice(0, equalsIndex).trim();
+  const value = firstSegment.slice(equalsIndex + 1).trim();
+  if (!name) return null;
+  return { name, value };
+}
+
+function buildCookieHeader(cookieJar) {
+  if (!(cookieJar instanceof Map) || cookieJar.size === 0) return '';
+  return Array.from(cookieJar.entries())
+    .map(([name, value]) => `${name}=${value}`)
+    .join('; ');
+}
+
+function updateCookieJarFromResponse(cookieJar, response) {
+  if (!(cookieJar instanceof Map) || !response || typeof response.headersArray !== 'function') return;
+  for (const header of response.headersArray()) {
+    if (String(header?.name || '').toLowerCase() !== 'set-cookie') continue;
+    const parsed = parseSetCookieHeader(header?.value || '');
+    if (!parsed) continue;
+    if (!parsed.value || parsed.value.toLowerCase() === 'deleted') {
+      cookieJar.delete(parsed.name);
+      continue;
+    }
+    cookieJar.set(parsed.name, parsed.value);
+  }
+}
+
+function patchRequestContextCookieJar(requestContext) {
+  if (!requestContext || requestContext.__collectzCookieJarPatched) return requestContext;
+  const cookieJar = new Map();
+  const methods = ['get', 'post', 'patch', 'put', 'delete', 'head', 'fetch'];
+  for (const methodName of methods) {
+    if (typeof requestContext[methodName] !== 'function') continue;
+    const original = requestContext[methodName].bind(requestContext);
+    requestContext[methodName] = async (url, options = {}) => {
+      const nextOptions = { ...options };
+      const existingHeaders = { ...(options?.headers || {}) };
+      const hasCookieHeader = Object.keys(existingHeaders).some((key) => key.toLowerCase() === 'cookie');
+      const cookieHeader = buildCookieHeader(cookieJar);
+      if (!hasCookieHeader && cookieHeader) {
+        existingHeaders.Cookie = cookieHeader;
+      }
+      nextOptions.headers = existingHeaders;
+      const response = await original(url, nextOptions);
+      updateCookieJarFromResponse(cookieJar, response);
+      return response;
+    };
+  }
+  requestContext.__collectzCookieJarPatched = true;
+  requestContext.__collectzCookieJar = cookieJar;
+  return requestContext;
+}
+
 async function fetchCsrfToken(requestContext) {
   const response = await requestContext.get('/api/auth/csrf-token', {
     headers: getPlaywrightBypassHeaders()
@@ -244,10 +301,10 @@ async function createFreshUserCredentials() {
 }
 
 async function createAuthenticatedRequestContext(credentials) {
-  const requestContext = await playwrightRequest.newContext({
+  const requestContext = patchRequestContextCookieJar(await playwrightRequest.newContext({
     baseURL: PLAYWRIGHT_BASE_URL,
     extraHTTPHeaders: getPlaywrightBypassHeaders()
-  });
+  }));
   await postWithCsrf(requestContext, '/api/auth/login', {
     email: credentials.email,
     password: credentials.password
@@ -256,6 +313,7 @@ async function createAuthenticatedRequestContext(credentials) {
 }
 
 async function ensureAuthenticatedAdminStorageState(requestContext) {
+  patchRequestContextCookieJar(requestContext);
   await ensureDirectory(AUTH_STATE_PATH);
   if (fs.existsSync(AUTH_STATE_PATH)) {
     await ensurePlaywrightBypassStorageState(AUTH_STATE_PATH);
@@ -263,7 +321,7 @@ async function ensureAuthenticatedAdminStorageState(requestContext) {
       baseURL: PLAYWRIGHT_BASE_URL,
       storageState: AUTH_STATE_PATH,
       extraHTTPHeaders: getPlaywrightBypassHeaders()
-    }).catch(() => null);
+    }).then(patchRequestContextCookieJar).catch(() => null);
     if (verifyContext) {
       try {
         const meResponse = await verifyContext.get('/api/auth/me');
