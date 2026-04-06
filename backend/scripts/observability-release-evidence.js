@@ -13,17 +13,25 @@ const outputPath = process.env.OBSERVABILITY_EVIDENCE_OUTPUT
   ? path.resolve(process.env.OBSERVABILITY_EVIDENCE_OUTPUT)
   : path.join(repoRoot, 'artifacts', 'observability-evidence', 'observability-release-evidence.json');
 
-function runCommand(name, command, args, { env = process.env, cwd = repoRoot } = {}) {
-  const startedAt = new Date().toISOString();
-  const startMs = Date.now();
-  const result = spawnSync(command, args, {
+const dockerBase = ['compose', '--env-file', '.env'];
+const restoreEnv = {
+  APP_VERSION: appMeta.version,
+  LOG_EXPORT_BACKEND: 'gelf_udp',
+  LOG_EXPORT_HOST: 'graylog',
+  LOG_EXPORT_PORT: '12201',
+  LOG_EXPORT_DEBUG: '0'
+};
+
+function runProcess(command, args, { env = process.env, cwd = repoRoot } = {}) {
+  return spawnSync(command, args, {
     cwd,
     env,
-    encoding: 'utf8'
+    encoding: 'utf8',
+    maxBuffer: 20 * 1024 * 1024
   });
-  const durationMs = Date.now() - startMs;
-  const stdout = String(result.stdout || '');
-  const stderr = String(result.stderr || '');
+}
+
+function automatedResult(name, command, args, result, startedAt, durationMs) {
   return {
     name,
     kind: 'automated',
@@ -32,8 +40,8 @@ function runCommand(name, command, args, { env = process.env, cwd = repoRoot } =
     startedAt,
     durationMs,
     exitCode: result.status,
-    stdout,
-    stderr
+    stdout: String(result.stdout || ''),
+    stderr: String(result.stderr || '')
   };
 }
 
@@ -55,51 +63,260 @@ function summarize(checks) {
   }, { total: 0, passed: 0, failed: 0, blocked: 0, skipped: 0 });
 }
 
+function runCommand(name, command, args, options = {}) {
+  const startedAt = new Date().toISOString();
+  const startMs = Date.now();
+  const result = runProcess(command, args, options);
+  const durationMs = Date.now() - startMs;
+  return automatedResult(name, command, args, result, startedAt, durationMs);
+}
+
+function dockerCommand(name, args, options = {}) {
+  return runCommand(name, 'docker', args, options);
+}
+
+function waitForMainStackHealth(name, attempts = 20, delaySeconds = 1) {
+  const startedAt = new Date().toISOString();
+  const startMs = Date.now();
+  let lastResult = null;
+  for (let index = 0; index < attempts; index += 1) {
+    lastResult = runProcess('curl', ['-fsS', 'http://localhost:3000/api/health']);
+    if (lastResult.status === 0) {
+      try {
+        const parsed = JSON.parse(String(lastResult.stdout || '{}'));
+        if (parsed && parsed.status === 'ok') {
+          return automatedResult(
+            name,
+            'curl',
+            ['-fsS', 'http://localhost:3000/api/health'],
+            lastResult,
+            startedAt,
+            Date.now() - startMs
+          );
+        }
+      } catch (_error) {
+        // Keep retrying until the endpoint returns valid health JSON.
+      }
+    }
+    if (index < attempts - 1) {
+      runProcess('sleep', [String(delaySeconds)]);
+    }
+  }
+  return automatedResult(
+    name,
+    'curl',
+    ['-fsS', 'http://localhost:3000/api/health'],
+    lastResult || { status: 1, stdout: '', stderr: 'health check did not execute' },
+    startedAt,
+    Date.now() - startMs
+  );
+}
+
+function backendRebuildCheck(name, envOverrides) {
+  const env = { ...process.env, ...envOverrides };
+  return runCommand(
+    name,
+    'docker',
+    [...dockerBase, 'up', '-d', '--build', 'backend'],
+    { env }
+  );
+}
+
+function createTempAdmin() {
+  const suffix = Date.now();
+  const email = `observability-evidence-${suffix}@example.com`;
+  const password = 'Passw0rd!123';
+  const script = [
+    'const bcrypt=require("bcrypt");',
+    'const pool=require("./db/pool");',
+    'const { ensureUserDefaultScope } = require("./services/libraries");',
+    '(async()=>{',
+    `const email=${JSON.stringify(email)};`,
+    `const password=${JSON.stringify(password)};`,
+    'const hash=await bcrypt.hash(password,12);',
+    'const result=await pool.query("INSERT INTO users (email, password, name, role) VALUES ($1,$2,$3,$4) RETURNING id,email",[email,hash,"Observability Evidence Admin","admin"]);',
+    'await ensureUserDefaultScope(result.rows[0].id);',
+    'console.log(JSON.stringify({id: result.rows[0].id, email, password}));',
+    'await pool.end();',
+    '})().catch(async (error)=>{ console.error(error); try { await pool.end(); } catch (_) {} process.exit(1); });'
+  ].join('');
+  const result = runProcess('docker', [...dockerBase, 'exec', '-T', 'backend', 'node', '-e', script]);
+  if (result.status !== 0) {
+    throw new Error(`Temp admin bootstrap failed: ${String(result.stderr || result.stdout || '').trim()}`);
+  }
+  const parsed = JSON.parse(String(result.stdout || '{}').trim());
+  return {
+    id: Number(parsed.id),
+    email: parsed.email,
+    password: parsed.password
+  };
+}
+
+function cleanupTempAdmin(userId) {
+  if (!Number.isFinite(Number(userId)) || Number(userId) <= 0) return;
+  const script = [
+    'const pool=require("./db/pool");',
+    '(async()=>{',
+    `const userId=${Number(userId)};`,
+    'await pool.query("DELETE FROM media WHERE library_id IN (SELECT id FROM libraries WHERE created_by = $1)",[userId]).catch(()=>{});',
+    'await pool.query("DELETE FROM invites WHERE created_by = $1 OR used_by = $1",[userId]).catch(()=>{});',
+    'await pool.query("DELETE FROM library_memberships WHERE user_id = $1",[userId]).catch(()=>{});',
+    'await pool.query("DELETE FROM library_memberships WHERE library_id IN (SELECT id FROM libraries WHERE created_by = $1)",[userId]).catch(()=>{});',
+    'await pool.query("DELETE FROM libraries WHERE created_by = $1",[userId]).catch(()=>{});',
+    'await pool.query("DELETE FROM space_memberships WHERE user_id = $1",[userId]).catch(()=>{});',
+    'await pool.query("DELETE FROM users WHERE id = $1",[userId]).catch(()=>{});',
+    'await pool.end();',
+    '})().catch(async (error)=>{ console.error(error); try { await pool.end(); } catch (_) {} process.exit(1); });'
+  ].join('');
+  runProcess('docker', [...dockerBase, 'exec', '-T', 'backend', 'node', '-e', script]);
+}
+
+function runBackendSmoke(name, scriptName, tempAdmin, extraEnv = {}) {
+  const assignments = Object.entries({
+    BASE_URL: 'http://frontend:3000',
+    ADMIN_EMAIL: tempAdmin.email,
+    ADMIN_PASSWORD: tempAdmin.password,
+    ...extraEnv
+  }).map(([key, value]) => `${key}=${JSON.stringify(String(value))}`);
+  const shellCommand = `${assignments.join(' ')} node scripts/${scriptName}`;
+  return dockerCommand(name, [...dockerBase, 'exec', '-T', 'backend', 'sh', '-lc', shellCommand]);
+}
+
+function withTempAdmin(name, callback) {
+  const startedAt = new Date().toISOString();
+  const startMs = Date.now();
+  let tempAdmin = null;
+  try {
+    tempAdmin = createTempAdmin();
+    const result = callback(tempAdmin);
+    const durationMs = Date.now() - startMs;
+    return {
+      ...result,
+      startedAt,
+      durationMs
+    };
+  } catch (error) {
+    const durationMs = Date.now() - startMs;
+    return {
+      name,
+      kind: 'automated',
+      status: 'failed',
+      startedAt,
+      durationMs,
+      exitCode: 1,
+      stdout: '',
+      stderr: String(error?.stack || error?.message || error)
+    };
+  } finally {
+    if (tempAdmin?.id) cleanupTempAdmin(tempAdmin.id);
+  }
+}
+
+function automatedComposite(name, steps) {
+  const failed = steps.find((step) => step.status !== 'passed');
+  return {
+    name,
+    kind: 'automated',
+    status: failed ? 'failed' : 'passed',
+    steps
+  };
+}
+
+function runLokiCollectorSmoke() {
+  return withTempAdmin('loki_collector_smoke', (tempAdmin) => {
+    const steps = [];
+    steps.push(backendRebuildCheck('backend_rebuild_stdout_json', {
+      APP_VERSION: appMeta.version,
+      LOG_EXPORT_BACKEND: 'stdout_json',
+      LOG_EXPORT_DEBUG: '0'
+    }));
+    steps.push(dockerCommand('loki_stack_up', ['compose', '-f', 'ops/logging/docker-compose.loki.yml', 'up', '-d']));
+    steps.push(runBackendSmoke('loki_smoke', 'structured-log-loki-smoke.js', tempAdmin, {
+      LOKI_URL: 'http://loki:3100'
+    }));
+    steps.push(dockerCommand('loki_stack_down', ['compose', '-f', 'ops/logging/docker-compose.loki.yml', 'down']));
+    return automatedComposite('loki_collector_smoke', steps);
+  });
+}
+
+function runSyslogCollectorSmoke() {
+  return withTempAdmin('syslog_collector_smoke', (tempAdmin) => {
+    const steps = [];
+    steps.push(backendRebuildCheck('backend_rebuild_syslog_tcp', {
+      APP_VERSION: appMeta.version,
+      LOG_EXPORT_BACKEND: 'syslog_tcp',
+      LOG_EXPORT_HOST: 'syslog-collector',
+      LOG_EXPORT_PORT: '1514',
+      LOG_EXPORT_DEBUG: '0'
+    }));
+    steps.push(dockerCommand('syslog_stack_up', ['compose', '-f', 'ops/logging/docker-compose.syslog.yml', 'up', '-d', '--force-recreate', 'syslog-collector']));
+    steps.push(runBackendSmoke('syslog_smoke', 'structured-log-syslog-smoke.js', tempAdmin));
+    steps.push(dockerCommand('syslog_stack_down', ['compose', '-f', 'ops/logging/docker-compose.syslog.yml', 'down']));
+    return automatedComposite('syslog_collector_smoke', steps);
+  });
+}
+
+function runNonblockingFailureSmoke() {
+  return withTempAdmin('nonblocking_export_failure_smoke', (tempAdmin) => {
+    const steps = [];
+    steps.push(backendRebuildCheck('backend_rebuild_unreachable_syslog', {
+      APP_VERSION: appMeta.version,
+      LOG_EXPORT_BACKEND: 'syslog_tcp',
+      LOG_EXPORT_HOST: '127.0.0.1',
+      LOG_EXPORT_PORT: '1',
+      LOG_EXPORT_DEBUG: '0'
+    }));
+    steps.push(runBackendSmoke('nonblocking_smoke', 'structured-log-nonblocking-smoke.js', tempAdmin));
+    return automatedComposite('nonblocking_export_failure_smoke', steps);
+  });
+}
+
+function restoreBackend() {
+  return backendRebuildCheck('backend_restore_graylog', restoreEnv);
+}
+
 function main() {
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
 
-  const checks = [
-    runCommand(
+  const checks = [];
+  try {
+    checks.push(runCommand(
       'monitoring_persistence_rehearsal',
       'bash',
       ['ops/monitoring/verify-monitoring-persistence.sh']
-    ),
-    runCommand(
+    ));
+    checks.push(runCommand(
       'graylog_persistence_rehearsal',
       'bash',
       ['ops/logging/verify-graylog-persistence.sh']
-    ),
-    runCommand(
+    ));
+    checks.push(runCommand(
       'loki_persistence_rehearsal',
       'bash',
       ['ops/logging/verify-loki-persistence.sh']
-    ),
-    runCommand(
-      'main_stack_health',
-      'curl',
-      ['-sS', 'http://localhost:3000/api/health']
-    ),
-    blockedCheck(
+    ));
+    checks.push(runLokiCollectorSmoke());
+    checks.push(runSyslogCollectorSmoke());
+    checks.push(runNonblockingFailureSmoke());
+  } finally {
+    checks.push(restoreBackend());
+    checks.push(waitForMainStackHealth('main_stack_health'));
+  }
+
+  const graylogPassword = String(process.env.GRAYLOG_PASSWORD || '').trim();
+  if (!graylogPassword) {
+    checks.push(blockedCheck(
       'graylog_collector_smoke',
-      'Not yet orchestrated by the release evidence runner.',
-      'Run the Graylog collector smoke with the required admin and Graylog credentials, then attach the evidence or promote that path into the runner later.'
-    ),
-    blockedCheck(
-      'loki_collector_smoke',
-      'Not yet orchestrated by the release evidence runner.',
-      'Run the Loki collector smoke with the required backend export mode and admin credentials, then attach the evidence or promote that path into the runner later.'
-    ),
-    blockedCheck(
-      'syslog_collector_smoke',
-      'Not yet orchestrated by the release evidence runner.',
-      'Run the syslog collector smoke with the required backend export mode and admin credentials, then attach the evidence or promote that path into the runner later.'
-    ),
-    blockedCheck(
-      'nonblocking_export_failure_smoke',
-      'Not yet orchestrated by the release evidence runner.',
-      'Run the intentional bad-collector rehearsal plus structured-log-nonblocking-smoke and capture that evidence when doing a release-shaped closeout.'
-    )
-  ];
+      'GRAYLOG_PASSWORD is not set for the evidence runner environment.',
+      'Provide Graylog admin credentials to automate this path, or run the Graylog smoke manually and attach that evidence during release closeout.'
+    ));
+  } else {
+    checks.push(blockedCheck(
+      'graylog_collector_smoke',
+      'Graylog smoke orchestration is not yet wired into the release evidence runner.',
+      'The runner now automates the Loki, syslog, and non-blocking failure paths. Promote Graylog next if you want fully automated collector coverage.'
+    ));
+  }
 
   const evidence = {
     generatedAt: new Date().toISOString(),
