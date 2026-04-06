@@ -1786,11 +1786,16 @@ results.push(run('loki and syslog structured log smoke sources cover their colle
 results.push(run('observability endpoint control-plane source includes stored config resolution and read-only override handling', () => {
   assert.ok(migrationsSource.includes('Add observability endpoint control-plane fields'));
   assert.ok(migrationsSource.includes('Add observability endpoint validation fields'));
+  assert.ok(migrationsSource.includes('Add observability endpoint label fields'));
   assert.ok(migrationsSource.includes('log_export_backend'));
+  assert.ok(migrationsSource.includes('log_export_host_label'));
+  assert.ok(migrationsSource.includes('log_export_service'));
   assert.ok(migrationsSource.includes('log_export_last_validation_status'));
   assert.ok(logExportSource.includes('const LOG_EXPORT_SETTINGS_READ_ONLY'));
   assert.ok(logExportSource.includes('async function resolveExportConfig'));
   assert.ok(logExportSource.includes('async function validateStructuredLogDelivery'));
+  assert.ok(logExportSource.includes('hostLabel'));
+  assert.ok(logExportSource.includes('service'));
   assert.ok(logExportSource.includes("source: 'env_override'"));
   assert.ok(logExportSource.includes("source: 'stored'"));
   assert.ok(logExportSource.includes("source: 'env_fallback'"));
@@ -1799,10 +1804,16 @@ results.push(run('observability endpoint control-plane source includes stored co
   assert.ok(integrationsRoutesSource.includes('External log port must be an integer between 1 and 65535'));
   assert.ok(integrationsRoutesSource.includes("/admin/settings/integrations/test-logs"));
   assert.ok(integrationsRoutesSource.includes('logExportControl'));
+  assert.ok(integrationsRoutesSource.includes('log_export_host_label'));
+  assert.ok(integrationsRoutesSource.includes('log_export_service'));
   assert.ok(integrationsRoutesSource.includes('log_export_last_validation_status'));
   assert.ok(observabilityRuntimeSource.includes('configSource'));
   assert.ok(observabilityRuntimeSource.includes('storedBackend'));
+  assert.ok(observabilityRuntimeSource.includes('storedHostLabel'));
+  assert.ok(observabilityRuntimeSource.includes('storedService'));
   assert.ok(observabilityRuntimeSource.includes('envBackend'));
+  assert.ok(observabilityRuntimeSource.includes('envHostLabel'));
+  assert.ok(observabilityRuntimeSource.includes('envService'));
   assert.ok(dockerComposeSource.includes('LOG_EXPORT_SETTINGS_READ_ONLY'));
 }));
 

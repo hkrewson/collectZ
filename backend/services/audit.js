@@ -1,5 +1,5 @@
 const pool = require('../db/pool');
-const { buildGelfEvent, maybeExportActivityLog, debugLog } = require('./logExport');
+const { buildGelfEvent, maybeExportActivityLog, debugLog, resolveExportConfig } = require('./logExport');
 
 const REDACTED = '[REDACTED]';
 const SENSITIVE_KEY_PATTERN = /(authorization|cookie|session(_|-)?token|csrf(_|-)?token|api(_|-)?key|secret|password|token)$/i;
@@ -55,6 +55,7 @@ const logActivity = async (req, action, entityType = null, entityId = null, deta
       [userId, action, entityType, entityId, sanitizedDetails ? JSON.stringify(sanitizedDetails) : null, ipAddress]
     );
     try {
+      const exportConfig = await resolveExportConfig();
       const event = buildGelfEvent({
         req,
         action,
@@ -62,7 +63,8 @@ const logActivity = async (req, action, entityType = null, entityId = null, deta
         entityId,
         details: sanitizedDetails,
         ipAddress,
-        userId
+        userId,
+        configOverride: exportConfig
       });
       debugLog('activity.built', {
         action,

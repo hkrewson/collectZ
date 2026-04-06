@@ -443,6 +443,8 @@ CREATE TABLE IF NOT EXISTS app_integrations (
     log_export_last_validation_host TEXT,
     log_export_last_validation_port INTEGER,
     log_export_last_validated_at TIMESTAMP,
+    log_export_host_label TEXT,
+    log_export_service TEXT,
     cwa_timeout_ms INTEGER DEFAULT 20000,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

@@ -2466,6 +2466,16 @@ const MIGRATIONS = [
       ALTER TABLE app_integrations
         ADD COLUMN IF NOT EXISTS log_export_last_validated_at TIMESTAMP;
     `
+  },
+  {
+    version: 56,
+    description: 'Add observability endpoint label fields',
+    up: `
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS log_export_host_label TEXT;
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS log_export_service TEXT;
+    `
   }
 ];
 

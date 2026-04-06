@@ -35,7 +35,7 @@ const SECTION_DESCRIPTIONS = {
   comics: 'Connection details, credentials, and runtime checks for this integration.',
   cwa: 'Connection details, credentials, and runtime checks for this integration.',
   games: 'Connection details, credentials, and runtime checks for this integration.',
-  logs: 'Enable external activity and audit export here, while backend transport details remain runtime infrastructure settings.',
+  logs: 'Manage external activity and audit export settings here, including runtime-backed validation and endpoint labeling for common operator setups.',
   metrics: 'Enable admin-facing metrics export here, while scrape tokens and DEBUG-level access remain runtime infrastructure settings.',
   plex: 'Connection details, credentials, and runtime checks for this integration.',
   tmdb: 'Connection details, credentials, and runtime checks for this integration.'
@@ -175,7 +175,7 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
     comicsPreset: 'metron', comicsProvider: 'metron', comicsApiUrl: 'https://metron.cloud/api/issue/',
     comicsApiKey: '', comicsUsername: '', clearComicsApiKey: false,
     cwaOpdsUrl: '', cwaUsername: '', cwaPassword: '', clearCwaPassword: false,
-    logExportBackend: '', logExportHost: '', logExportPort: ''
+    logExportBackend: '', logExportHost: '', logExportPort: '', logExportHostLabel: '', logExportService: ''
   });
   const [meta, setMeta] = useState({
     barcodeApiKeySet: false, barcodeApiKeyMasked: '',
@@ -229,7 +229,9 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
         cwaOpdsUrl: data.cwaOpdsUrl || '', cwaUsername: data.cwaUsername || '',
         logExportBackend: data.logExportControl?.stored?.backend || data.logExportControl?.effective?.backend || '',
         logExportHost: data.logExportControl?.stored?.host || data.logExportControl?.effective?.host || '',
-        logExportPort: String(data.logExportControl?.stored?.port || data.logExportControl?.effective?.port || '')
+        logExportPort: String(data.logExportControl?.stored?.port || data.logExportControl?.effective?.port || ''),
+        logExportHostLabel: data.logExportControl?.stored?.hostLabel || data.logExportControl?.effective?.hostLabel || '',
+        logExportService: data.logExportControl?.stored?.service || data.logExportControl?.effective?.service || ''
       }));
       setMeta({
         barcodeApiKeySet: Boolean(data.barcodeApiKeySet), barcodeApiKeyMasked: data.barcodeApiKeyMasked || '',
@@ -359,7 +361,9 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
     else if (sec === 'logs') Object.assign(payload, {
       logExportBackend: form.logExportBackend,
       logExportHost: form.logExportHost,
-      logExportPort: form.logExportPort
+      logExportPort: form.logExportPort,
+      logExportHostLabel: form.logExportHostLabel,
+      logExportService: form.logExportService
     });
     try {
       const updated = await apiCall('put', '/admin/settings/integrations', payload);
@@ -396,7 +400,9 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
           ...f,
           logExportBackend: updated.logExportControl.stored?.backend || updated.logExportControl.effective?.backend || '',
           logExportHost: updated.logExportControl.stored?.host || updated.logExportControl.effective?.host || '',
-          logExportPort: String(updated.logExportControl.stored?.port || updated.logExportControl.effective?.port || '')
+          logExportPort: String(updated.logExportControl.stored?.port || updated.logExportControl.effective?.port || ''),
+          logExportHostLabel: updated.logExportControl.stored?.hostLabel || updated.logExportControl.effective?.hostLabel || '',
+          logExportService: updated.logExportControl.stored?.service || updated.logExportControl.effective?.service || ''
         }));
       }
       onToast(`${sec.toUpperCase()} settings saved`);
@@ -447,7 +453,9 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
                   ? {
                     logExportBackend: form.logExportBackend,
                     logExportHost: form.logExportHost,
-                    logExportPort: form.logExportPort
+                    logExportPort: form.logExportPort,
+                    logExportHostLabel: form.logExportHostLabel,
+                    logExportService: form.logExportService
                   }
                 : sec === 'cwa'
                   ? {}
@@ -590,8 +598,8 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
             <p className="text-sm font-medium text-ink">Endpoint configuration</p>
             <ul className="space-y-2 text-sm text-dim">
               <li>{logControlSourceLabel}</li>
-              <li>The common control-plane fields in this slice are backend/transport, host, and port.</li>
-              <li>Service and host-label fields remain runtime-managed for now so this milestone can land in smaller verified slices.</li>
+              <li>This control plane now owns backend/transport, collector host, collector port, service label, and host label for common operator setups.</li>
+              <li>Leave a label blank to fall back to the runtime env value for that field.</li>
             </ul>
           </div>
           <div className="border-t border-edge pt-4 space-y-3">
@@ -626,6 +634,24 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
                   value={form.logExportPort}
                   disabled={Boolean(logExportControl?.readOnly) || !form.logExportBackend}
                   onChange={(e) => setForm((f) => ({ ...f, logExportPort: e.target.value.replace(/[^\d]/g, '') }))}
+                />
+              </LabeledField>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <LabeledField label="Service Label" cx={cx}>
+                <input
+                  className="input font-mono"
+                  value={form.logExportService}
+                  disabled={Boolean(logExportControl?.readOnly)}
+                  onChange={(e) => setForm((f) => ({ ...f, logExportService: e.target.value }))}
+                />
+              </LabeledField>
+              <LabeledField label="Host Label" cx={cx}>
+                <input
+                  className="input font-mono"
+                  value={form.logExportHostLabel}
+                  disabled={Boolean(logExportControl?.readOnly)}
+                  onChange={(e) => setForm((f) => ({ ...f, logExportHostLabel: e.target.value }))}
                 />
               </LabeledField>
             </div>

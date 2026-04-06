@@ -45,18 +45,20 @@ Current control surface note:
 - The current shipped operator path is now split in a narrower, milestone-scoped way:
   - Integrations owns whether export is enabled.
   - `2.9.9` now begins moving common endpoint settings into `Admin -> Integrations -> External Logs`.
-  - The first control-plane slice owns:
+  - The current control-plane slice owns:
     - backend / transport
     - collector host
     - collector port
-  - Runtime env still owns:
+    - `LOG_EXPORT_HOST_LABEL`
+    - `LOG_EXPORT_SERVICE`
+  - Runtime env now acts as the fallback or immutable override source for:
     - `LOG_EXPORT_HOST_LABEL`
     - `LOG_EXPORT_SERVICE`
     - `LOG_EXPORT_DEBUG`
     - `LOG_EXPORT_MAX_DETAIL_BYTES`
 - Optional immutable-runtime mode:
   - `LOG_EXPORT_SETTINGS_READ_ONLY=true`
-  - when set, UI endpoint fields are read-only and the running env remains authoritative for backend/host/port
+  - when set, UI endpoint and label fields are read-only and the running env remains authoritative
 
 ## Local Graylog Example
 
@@ -93,6 +95,8 @@ It also begins exposing the common control-plane endpoint fields for the common 
 - backend / transport
 - collector host
 - collector port
+- service label
+- host label
 
 `Admin -> Integrations -> External Logs` also now records the last validation attempt for that endpoint.
 

@@ -56,12 +56,17 @@ function defaultPortForBackend(backend) {
 
 function normalizeStoredExportConfig(row) {
   const backendRaw = String(row?.log_export_backend || '').trim().toLowerCase();
-  if (!backendRaw || !LOG_EXPORT_BACKENDS.has(backendRaw)) return null;
-  const defaultPort = defaultPortForBackend(backendRaw);
+  const backend = backendRaw && LOG_EXPORT_BACKENDS.has(backendRaw) ? backendRaw : null;
+  const hostLabel = String(row?.log_export_host_label || '').trim() || null;
+  const service = String(row?.log_export_service || '').trim() || null;
+  if (!backend && !hostLabel && !service) return null;
+  const defaultPort = defaultPortForBackend(backend || 'gelf_udp');
   return {
-    backend: backendRaw,
-    host: String(row?.log_export_host || DEFAULT_GELF_HOST).trim() || DEFAULT_GELF_HOST,
-    port: Math.max(1, Number(row?.log_export_port || defaultPort) || defaultPort)
+    backend,
+    host: backend ? (String(row?.log_export_host || DEFAULT_GELF_HOST).trim() || DEFAULT_GELF_HOST) : null,
+    port: backend ? Math.max(1, Number(row?.log_export_port || defaultPort) || defaultPort) : null,
+    hostLabel,
+    service
   };
 }
 
@@ -72,7 +77,9 @@ function normalizeExplicitExportConfig(input = {}) {
   return {
     backend: backendRaw,
     host: String(input?.host || DEFAULT_GELF_HOST).trim() || DEFAULT_GELF_HOST,
-    port: Math.max(1, Number(input?.port || defaultPort) || defaultPort)
+    port: Math.max(1, Number(input?.port || defaultPort) || defaultPort),
+    hostLabel: String(input?.hostLabel || '').trim() || null,
+    service: String(input?.service || '').trim() || null
   };
 }
 
@@ -81,7 +88,7 @@ async function loadStoredExportConfig({ forceRefresh = false } = {}) {
     return storedConfigCache;
   }
   const result = await pool.query(
-    'SELECT log_export_backend, log_export_host, log_export_port FROM app_integrations WHERE id = 1'
+    'SELECT log_export_backend, log_export_host, log_export_port, log_export_host_label, log_export_service FROM app_integrations WHERE id = 1'
   );
   storedConfigCache = normalizeStoredExportConfig(result.rows[0] || null);
   storedConfigCacheAt = Date.now();
@@ -107,7 +114,9 @@ async function resolveExportConfig(options = {}) {
         effective: {
           backend: envConfig.backend,
           host: envConfig.host,
-          port: envConfig.port
+          port: envConfig.port,
+          hostLabel: envConfig.hostLabel,
+          service: envConfig.service
         }
       }
     };
@@ -115,17 +124,22 @@ async function resolveExportConfig(options = {}) {
 
   const stored = await loadStoredExportConfig(options);
   if (stored) {
+    const effective = {
+      backend: stored.backend || envConfig.backend,
+      host: stored.backend ? stored.host : envConfig.host,
+      port: stored.backend ? stored.port : envConfig.port,
+      hostLabel: stored.hostLabel || envConfig.hostLabel,
+      service: stored.service || envConfig.service
+    };
     return {
       ...envConfig,
-      backend: stored.backend,
-      host: stored.host,
-      port: stored.port,
+      ...effective,
       controlPlane: {
         readOnly: false,
         source: 'stored',
         supportedBackends: [...LOG_EXPORT_BACKENDS],
         stored,
-        effective: stored
+        effective
       }
     };
   }
@@ -140,7 +154,9 @@ async function resolveExportConfig(options = {}) {
       effective: {
         backend: envConfig.backend,
         host: envConfig.host,
-        port: envConfig.port
+        port: envConfig.port,
+        hostLabel: envConfig.hostLabel,
+        service: envConfig.service
       }
     }
   };
@@ -250,8 +266,8 @@ function formatSyslogMessage(event) {
   return `<14>1 ${timestamp} ${host} ${appName} ${procId} ${msgId} ${structuredData} ${message}`;
 }
 
-function buildGelfEvent({ req, action, entityType = null, entityId = null, details = null, ipAddress = null, userId = null }) {
-  const config = readExportConfig();
+function buildGelfEvent({ req, action, entityType = null, entityId = null, details = null, ipAddress = null, userId = null, configOverride = null }) {
+  const config = configOverride || readExportConfig();
   const normalizedDetails = truncateJsonValue(details);
   const route = req?.route?.path || req?.path || req?.originalUrl || null;
   const method = req?.method || normalizedDetails?.method || null;

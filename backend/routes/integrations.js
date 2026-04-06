@@ -30,7 +30,9 @@ async function buildAdminIntegrationPayload(config) {
       effective: resolvedExportConfig.controlPlane?.effective || {
         backend: resolvedExportConfig.backend,
         host: resolvedExportConfig.host,
-        port: resolvedExportConfig.port
+        port: resolvedExportConfig.port,
+        hostLabel: resolvedExportConfig.hostLabel,
+        service: resolvedExportConfig.service
       },
       stored: resolvedExportConfig.controlPlane?.stored || null,
       lastValidation: config?.logExportLastValidation || null
@@ -83,7 +85,7 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
     comicsPreset, comicsProvider, comicsApiUrl, comicsUsername,
     comicsApiKey, clearComicsApiKey,
     cwaOpdsUrl, cwaUsername, cwaPassword, clearCwaPassword,
-    logExportBackend, logExportHost, logExportPort
+    logExportBackend, logExportHost, logExportPort, logExportHostLabel, logExportService
   } = req.body;
 
   const selectedBarcodePreset = resolveBarcodePreset(barcodePreset || 'upcitemdb');
@@ -98,7 +100,12 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
   const existing = existingRow.rows[0] || null;
   const pick = (incoming, existingValue, fallback) =>
     incoming !== undefined ? incoming : (existingValue ?? fallback);
-  const requestsLogExportUpdate = logExportBackend !== undefined || logExportHost !== undefined || logExportPort !== undefined;
+  const requestsLogExportUpdate =
+    logExportBackend !== undefined
+    || logExportHost !== undefined
+    || logExportPort !== undefined
+    || logExportHostLabel !== undefined
+    || logExportService !== undefined;
   if (requestsLogExportUpdate && LOG_EXPORT_SETTINGS_READ_ONLY) {
     return res.status(409).json({ error: 'External log endpoint settings are read-only in this environment' });
   }
@@ -129,6 +136,20 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
         ? Number(logExportPort)
         : undefined,
       existing?.log_export_port,
+      null
+    );
+  const nextLogExportHostLabel = clearLogExportControl
+    ? null
+    : pick(
+      logExportHostLabel !== undefined ? (String(logExportHostLabel || '').trim() || null) : undefined,
+      existing?.log_export_host_label,
+      null
+    );
+  const nextLogExportService = clearLogExportControl
+    ? null
+    : pick(
+      logExportService !== undefined ? (String(logExportService || '').trim() || null) : undefined,
+      existing?.log_export_service,
       null
     );
 
@@ -173,7 +194,7 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
        games_preset, games_provider, games_api_url, games_api_key_encrypted, games_api_key_header, games_api_key_query_param, games_client_id, games_client_secret_encrypted,
        comics_preset, comics_provider, comics_api_url, comics_api_key_encrypted, comics_api_key_header, comics_api_key_query_param, comics_username,
        cwa_opds_url, cwa_base_url, cwa_username, cwa_password_encrypted, cwa_timeout_ms,
-       log_export_backend, log_export_host, log_export_port
+       log_export_backend, log_export_host, log_export_port, log_export_host_label, log_export_service
      ) VALUES (
        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,
        $14,$15,$16,$17,$18,$19,$20::jsonb,
@@ -182,7 +203,7 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
        $33,$34,$35,$36,$37,$38,$39,$40,
        $41,$42,$43,$44,$45,$46,$47,
        $48,$49,$50,$51,$52,
-       $53,$54,$55
+       $53,$54,$55,$56,$57
      )
      ON CONFLICT (id) DO UPDATE SET
        barcode_preset = EXCLUDED.barcode_preset, barcode_provider = EXCLUDED.barcode_provider,
@@ -218,7 +239,9 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
        cwa_timeout_ms = EXCLUDED.cwa_timeout_ms,
        log_export_backend = EXCLUDED.log_export_backend,
        log_export_host = EXCLUDED.log_export_host,
-       log_export_port = EXCLUDED.log_export_port
+       log_export_port = EXCLUDED.log_export_port,
+       log_export_host_label = EXCLUDED.log_export_host_label,
+       log_export_service = EXCLUDED.log_export_service
      RETURNING *`,
     [
       1,
@@ -275,7 +298,9 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
       20000,
       nextLogExportBackend,
       nextLogExportHost,
-      nextLogExportPort
+      nextLogExportPort,
+      nextLogExportHostLabel,
+      nextLogExportService
     ]
   );
 
@@ -317,6 +342,8 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
         backend: nextLogExportBackend,
         host: nextLogExportHost,
         port: nextLogExportPort,
+        hostLabel: nextLogExportHostLabel,
+        service: nextLogExportService,
         source: clearLogExportControl ? 'env_fallback' : 'stored'
       }
       : null
@@ -556,7 +583,16 @@ router.post('/admin/settings/integrations/test-logs', authenticateToken, require
   const requestedBackend = req.body?.logExportBackend;
   const requestedHost = req.body?.logExportHost;
   const requestedPort = req.body?.logExportPort;
+  const requestedHostLabel = req.body?.logExportHostLabel;
+  const requestedService = req.body?.logExportService;
   const resolved = await resolveExportConfig({ forceRefresh: true });
+  const requestedAnyLogExportField = [
+    requestedBackend,
+    requestedHost,
+    requestedPort,
+    requestedHostLabel,
+    requestedService
+  ].some((value) => value !== undefined);
 
   if (
     requestedPort !== undefined
@@ -578,13 +614,18 @@ router.post('/admin/settings/integrations/test-logs', authenticateToken, require
   let candidateConfig = resolved.controlPlane?.effective || {
     backend: resolved.backend,
     host: resolved.host,
-    port: resolved.port
+    port: resolved.port,
+    hostLabel: resolved.hostLabel,
+    service: resolved.service
   };
-  if (!LOG_EXPORT_SETTINGS_READ_ONLY && requestedBackend !== undefined && String(requestedBackend || '').trim() !== '') {
+  if (!LOG_EXPORT_SETTINGS_READ_ONLY && requestedAnyLogExportField) {
+    const requestedBackendRaw = String(requestedBackend || '').trim().toLowerCase();
     const normalizedRequested = normalizeExplicitExportConfig({
-      backend: requestedBackend,
-      host: requestedHost,
-      port: requestedPort
+      backend: requestedBackendRaw || candidateConfig.backend,
+      host: requestedHost !== undefined ? requestedHost : candidateConfig.host,
+      port: requestedPort !== undefined ? requestedPort : candidateConfig.port,
+      hostLabel: requestedHostLabel,
+      service: requestedService
     });
     if (!normalizedRequested) {
       return res.status(400).json({
@@ -595,7 +636,16 @@ router.post('/admin/settings/integrations/test-logs', authenticateToken, require
         detail: 'Unsupported external log backend'
       });
     }
-    candidateConfig = normalizedRequested;
+    candidateConfig = {
+      ...candidateConfig,
+      ...normalizedRequested,
+      hostLabel: requestedHostLabel !== undefined
+        ? (String(requestedHostLabel || '').trim() || null)
+        : candidateConfig.hostLabel,
+      service: requestedService !== undefined
+        ? (String(requestedService || '').trim() || null)
+        : candidateConfig.service
+    };
   }
 
   const validation = await validateStructuredLogDelivery(candidateConfig);
@@ -625,6 +675,8 @@ router.post('/admin/settings/integrations/test-logs', authenticateToken, require
     backend: validation.config?.backend || candidateConfig.backend || null,
     host: validation.config?.host || candidateConfig.host || null,
     port: validation.config?.port || candidateConfig.port || null,
+    hostLabel: validation.config?.hostLabel || candidateConfig.hostLabel || null,
+    service: validation.config?.service || candidateConfig.service || null,
     readOnly: LOG_EXPORT_SETTINGS_READ_ONLY,
     mode: validation.mode
   });
@@ -645,7 +697,9 @@ router.post('/admin/settings/integrations/test-logs', authenticateToken, require
       effective: resolved.controlPlane?.effective || {
         backend: resolved.backend,
         host: resolved.host,
-        port: resolved.port
+        port: resolved.port,
+        hostLabel: resolved.hostLabel,
+        service: resolved.service
       },
       stored: resolved.controlPlane?.stored || null,
       lastValidation: normalizeLogExportValidationRecord({

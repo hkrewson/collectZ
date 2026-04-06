@@ -98,7 +98,7 @@ openssl rand -hex 32
   - `GIT_SHA` (optional) — build SHA added to structured logs when set.
     - `2.9.9` begins moving the common case into the admin control plane:
       - `Admin -> Integrations -> External Logs` can now manage backend / transport, collector host, and collector port when `LOG_EXPORT_SETTINGS_READ_ONLY=false`.
-      - `LOG_EXPORT_HOST_LABEL`, `LOG_EXPORT_SERVICE`, and the debug/detail env remain runtime-managed in this first slice.
+      - `LOG_EXPORT_HOST_LABEL` and `LOG_EXPORT_SERVICE` now act as env fallbacks or locked read-only overrides for the External Logs control plane rather than being the only way to set those labels.
       - if no saved control-plane endpoint exists yet, runtime env values still act as the fallback.
 ## Integration Defaults (Can Be Managed in Admin UI)
 
