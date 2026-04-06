@@ -2166,7 +2166,13 @@ Historical note:
   - document expected failure behavior clearly so exporters never become a hidden availability dependency.
 - Operational verification:
   - add repeatable smoke checks for supported collector paths,
-  - make sure hardening guidance is reflected in docs, example compose files, and verification notes together.
+  - make sure hardening guidance is reflected in docs, example compose files, and verification notes together,
+  - formalize observability rehearsals as release evidence first:
+    - collector-path evidence,
+    - non-blocking failure evidence,
+    - persistence/recreate evidence,
+  - prefer release-checklist artifacts and documented operator proof over making every observability rehearsal a blocking every-PR CI gate,
+  - leave promotion of selected rehearsals into nightly or release-only CI workflows as a later follow-up once the evidence shape stabilizes.
 
 ### Acceptance Criteria
 
@@ -2174,6 +2180,7 @@ Historical note:
 - Retention, persistence, and backup expectations for observability/logging data are documented and validated.
 - Exporter misconfiguration and env drift have documented fast-diagnosis paths and, where reasonable, lightweight runtime validation.
 - Logging/metrics hardening changes do not break core API/import behavior or make collector availability a runtime dependency.
+- Release-shaped closeout can capture observability rehearsal evidence in a repeatable artifact path without requiring every rehearsal to run as a blocking PR gate.
 
 ## 2.9.9 — Observability Endpoint Control Plane
 

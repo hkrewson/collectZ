@@ -91,6 +91,17 @@ Default blocking threshold:
 
 Tagged release runs additionally block on missing required preflight evidence artifacts.
 
+Observability release evidence:
+
+- Local/release-shaped closeout should run:
+  - `npm --prefix backend run test:observability-evidence`
+- That writes:
+  - `artifacts/observability-evidence/observability-release-evidence.json`
+- The current intent is release evidence first:
+  - persistence/recreate rehearsals run automatically there today,
+  - collector-path smokes and intentional bad-collector drills can still appear as blocked/manual entries until they are promoted into automation,
+  - and this should not be treated as an every-PR blocking gate by default.
+
 ## Homelab Deploy Using Registry Images
 
 1. Prepare `.env`:

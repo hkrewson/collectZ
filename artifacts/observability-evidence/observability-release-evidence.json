@@ -1,0 +1,87 @@
+{
+  "generatedAt": "2026-04-06T00:19:52.014Z",
+  "appVersion": "2.9.6",
+  "scope": "release_evidence_first",
+  "outputIntent": "Local or release-shaped observability evidence artifact",
+  "checks": [
+    {
+      "name": "monitoring_persistence_rehearsal",
+      "kind": "automated",
+      "status": "passed",
+      "command": "bash ops/monitoring/verify-monitoring-persistence.sh",
+      "startedAt": "2026-04-06T00:19:42.590Z",
+      "durationMs": 2578,
+      "exitCode": 0,
+      "stdout": "Starting monitoring example stack...\nWriting persistence markers...\nRecreating monitoring example stack without removing volumes...\nVerifying markers survived recreate...\nMonitoring persistence rehearsal passed.\nMarker value: collectz-monitoring-persistence-1775434782\n",
+      "stderr": " Network monitoring_default Creating \n Network monitoring_default Created \n Container monitoring-prometheus-1 Creating \n Container monitoring-prometheus-1 Created \n Container monitoring-grafana-1 Creating \n Container monitoring-grafana-1 Created \n Container monitoring-prometheus-1 Starting \n Container monitoring-prometheus-1 Started \n Container monitoring-grafana-1 Starting \n Container monitoring-grafana-1 Started \n Container monitoring-grafana-1 Stopping \n Container monitoring-grafana-1 Stopped \n Container monitoring-grafana-1 Removing \n Container monitoring-grafana-1 Removed \n Container monitoring-prometheus-1 Stopping \n Container monitoring-prometheus-1 Stopped \n Container monitoring-prometheus-1 Removing \n Container monitoring-prometheus-1 Removed \n Network monitoring_default Removing \n Network monitoring_default Removed \n Network monitoring_default Creating \n Network monitoring_default Created \n Container monitoring-prometheus-1 Creating \n Container monitoring-prometheus-1 Created \n Container monitoring-grafana-1 Creating \n Container monitoring-grafana-1 Created \n Container monitoring-prometheus-1 Starting \n Container monitoring-prometheus-1 Started \n Container monitoring-grafana-1 Starting \n Container monitoring-grafana-1 Started \n"
+    },
+    {
+      "name": "graylog_persistence_rehearsal",
+      "kind": "automated",
+      "status": "passed",
+      "command": "bash ops/logging/verify-graylog-persistence.sh",
+      "startedAt": "2026-04-06T00:19:45.169Z",
+      "durationMs": 3658,
+      "exitCode": 0,
+      "stdout": "Starting Graylog example stack...\nWriting persistence markers...\nRecreating Graylog example stack without removing volumes...\nVerifying markers survived recreate...\nGraylog persistence rehearsal passed.\nMarker value: collectz-graylog-persistence-1775434785\n",
+      "stderr": " Network logging_default Creating \n Network logging_default Created \n Container logging-mongodb-1 Creating \n Container logging-opensearch-1 Creating \n Container logging-opensearch-1 Created \n Container logging-mongodb-1 Created \n Container logging-graylog-1 Creating \n Container logging-graylog-1 Created \n Container logging-opensearch-1 Starting \n Container logging-mongodb-1 Starting \n Container logging-mongodb-1 Started \n Container logging-opensearch-1 Started \n Container logging-graylog-1 Starting \n Container logging-graylog-1 Started \n Container logging-graylog-1 Stopping \n Container logging-graylog-1 Stopped \n Container logging-graylog-1 Removing \n Container logging-graylog-1 Removed \n Container logging-opensearch-1 Stopping \n Container logging-mongodb-1 Stopping \n Container logging-opensearch-1 Stopped \n Container logging-opensearch-1 Removing \n Container logging-opensearch-1 Removed \n Container logging-mongodb-1 Stopped \n Container logging-mongodb-1 Removing \n Container logging-mongodb-1 Removed \n Network logging_default Removing \n Network logging_default Removed \n Network logging_default Creating \n Network logging_default Created \n Container logging-mongodb-1 Creating \n Container logging-opensearch-1 Creating \n Container logging-opensearch-1 Created \n Container logging-mongodb-1 Created \n Container logging-graylog-1 Creating \n Container logging-graylog-1 Created \n Container logging-opensearch-1 Starting \n Container logging-mongodb-1 Starting \n Container logging-opensearch-1 Started \n Container logging-mongodb-1 Started \n Container logging-graylog-1 Starting \n Container logging-graylog-1 Started \n"
+    },
+    {
+      "name": "loki_persistence_rehearsal",
+      "kind": "automated",
+      "status": "passed",
+      "command": "bash ops/logging/verify-loki-persistence.sh",
+      "startedAt": "2026-04-06T00:19:48.827Z",
+      "durationMs": 3161,
+      "exitCode": 0,
+      "stdout": "Starting Loki example stack...\nWriting persistence markers...\nRecreating Loki example stack without removing volumes...\nVerifying markers survived recreate...\nLoki persistence rehearsal passed.\nMarker value: collectz-loki-persistence-1775434788\n",
+      "stderr": "time=\"2026-04-05T19:19:48-05:00\" level=warning msg=\"Found orphan containers ([logging-graylog-1 logging-mongodb-1 logging-opensearch-1]) for this project. If you removed or renamed this service in your compose file, you can run this command with the --remove-orphans flag to clean it up.\"\n Container logging-loki-1 Creating \n Container logging-loki-1 Created \n Container logging-promtail-1 Creating \n Container logging-promtail-1 Created \n Container logging-loki-1 Starting \n Container logging-loki-1 Started \n Container logging-promtail-1 Starting \n Container logging-promtail-1 Started \n Container logging-promtail-1 Stopping \n Container logging-promtail-1 Stopped \n Container logging-promtail-1 Removing \n Container logging-promtail-1 Removed \n Container logging-loki-1 Stopping \n Container logging-loki-1 Stopped \n Container logging-loki-1 Removing \n Container logging-loki-1 Removed \ntime=\"2026-04-05T19:19:51-05:00\" level=warning msg=\"Found orphan containers ([logging-graylog-1 logging-mongodb-1 logging-opensearch-1]) for this project. If you removed or renamed this service in your compose file, you can run this command with the --remove-orphans flag to clean it up.\"\n Container logging-loki-1 Creating \n Container logging-loki-1 Created \n Container logging-promtail-1 Creating \n Container logging-promtail-1 Created \n Container logging-loki-1 Starting \n Container logging-loki-1 Started \n Container logging-promtail-1 Starting \n Container logging-promtail-1 Started \n"
+    },
+    {
+      "name": "main_stack_health",
+      "kind": "automated",
+      "status": "passed",
+      "command": "curl -sS http://localhost:3000/api/health",
+      "startedAt": "2026-04-06T00:19:51.988Z",
+      "durationMs": 26,
+      "exitCode": 0,
+      "stdout": "{\"status\":\"ok\",\"app\":\"collectZ\",\"version\":\"2.9.6\",\"frontend\":\"2.9.6\",\"backend\":\"2.9.6\",\"build\":\"v2.9.6\"}",
+      "stderr": ""
+    },
+    {
+      "name": "graylog_collector_smoke",
+      "kind": "manual_or_future_automation",
+      "status": "blocked",
+      "reason": "Not yet orchestrated by the release evidence runner.",
+      "guidance": "Run the Graylog collector smoke with the required admin and Graylog credentials, then attach the evidence or promote that path into the runner later."
+    },
+    {
+      "name": "loki_collector_smoke",
+      "kind": "manual_or_future_automation",
+      "status": "blocked",
+      "reason": "Not yet orchestrated by the release evidence runner.",
+      "guidance": "Run the Loki collector smoke with the required backend export mode and admin credentials, then attach the evidence or promote that path into the runner later."
+    },
+    {
+      "name": "syslog_collector_smoke",
+      "kind": "manual_or_future_automation",
+      "status": "blocked",
+      "reason": "Not yet orchestrated by the release evidence runner.",
+      "guidance": "Run the syslog collector smoke with the required backend export mode and admin credentials, then attach the evidence or promote that path into the runner later."
+    },
+    {
+      "name": "nonblocking_export_failure_smoke",
+      "kind": "manual_or_future_automation",
+      "status": "blocked",
+      "reason": "Not yet orchestrated by the release evidence runner.",
+      "guidance": "Run the intentional bad-collector rehearsal plus structured-log-nonblocking-smoke and capture that evidence when doing a release-shaped closeout."
+    }
+  ],
+  "summary": {
+    "total": 8,
+    "passed": 4,
+    "failed": 0,
+    "blocked": 4,
+    "skipped": 0
+  }
+}
