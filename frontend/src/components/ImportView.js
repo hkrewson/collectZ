@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CameraCaptureModal, detectBarcodeCapturePayloadFromFile, extractIdentifierCandidatesFromFile, inferBookBarcodeIdentifier, isLikelyRetailBookBarcode, normalizeBarcodeInput, supportsBarcodeCapture } from './app/AppPrimitives';
+import { normalizeOwnedFormats, sortOwnedFormats } from './app/mediaFormats';
 
 const cx = (...classes) => classes.filter(Boolean).join(' ');
 
@@ -315,12 +316,18 @@ export default function ImportView({
       const finalBookIsbn = bookTypeDetails?.isbn || parsedIsbn || match?.upc || barcodeUpc.trim() || null;
       const finalBookPublisher = bookTypeDetails?.publisher || parsedPublisher;
       const finalBookEdition = bookTypeDetails?.edition || parsedFormat || null;
+      const mediaType = guessedBook ? 'book' : 'movie';
+      const ownedFormats = sortOwnedFormats(
+        mediaType,
+        normalizeOwnedFormats(mediaType, null, guessedBook ? (finalBookEdition || 'Paperback') : 'Blu-ray')
+      );
       const payload = {
         title: guessedBook ? finalBookTitle : (tmdb?.title || normalizedTitle),
         original_title: guessedBook ? null : (tmdb?.original_title || null),
         release_date: guessedBook ? (book?.release_date || null) : (releaseDate || null),
         year: guessedBook ? (book?.year || (match?.year ? Number(match.year) : null)) : (tmdb?.release_year || (releaseDate ? Number(String(releaseDate).slice(0, 4)) : null)),
-        media_type: guessedBook ? 'book' : 'movie',
+        media_type: mediaType,
+        owned_formats: ownedFormats,
         format: guessedBook ? (finalBookEdition || 'Paperback') : 'Blu-ray',
         genre: guessedBook ? (book?.genre || null) : (Array.isArray(tmdb?.genre_names) ? tmdb.genre_names.join(', ') : null),
         rating: guessedBook ? null : (tmdb?.rating || null),
@@ -453,7 +460,7 @@ export default function ImportView({
         {tab === 'csv' && (
           <>
             <p className="text-sm text-dim">Import from a CSV file using collectZ columns.</p>
-            <p className="text-xs text-ghost">Required: title. Optional: year, format, director, genre, rating, user_rating, runtime, upc, isbn, ean_upc, asin, location, notes.</p>
+            <p className="text-xs text-ghost">Required: title. Optional: year, owned_formats, format, director, genre, rating, user_rating, runtime, upc, isbn, ean_upc, asin, location, notes. Use `|` to separate multiple owned formats.</p>
             <div className="flex flex-wrap gap-3">
               <button onClick={() => csvInputRef.current?.click()} className="btn-primary" disabled={busy === 'CSV' || !hasActiveLibrary}>
                 {busy === 'CSV' ? <Spinner size={14} /> : <><Icons.Upload />Choose CSV File</>}

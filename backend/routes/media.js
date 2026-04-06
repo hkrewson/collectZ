@@ -409,6 +409,21 @@ function normalizeMediaFormat(formatValue) {
   return formatLabel || 'Digital';
 }
 
+function parseOwnedFormatsInput(mediaType, rawValue, fallbackFormat = null) {
+  if (Array.isArray(rawValue)) {
+    return sortOwnedFormats(mediaType, normalizeOwnedFormats(mediaType, rawValue, fallbackFormat));
+  }
+  const source = String(rawValue || '').trim();
+  if (!source) {
+    return sortOwnedFormats(mediaType, normalizeOwnedFormats(mediaType, null, fallbackFormat));
+  }
+  const tokens = source
+    .split(/[|,;]+/)
+    .map((entry) => String(entry || '').trim())
+    .filter(Boolean);
+  return sortOwnedFormats(mediaType, normalizeOwnedFormats(mediaType, tokens, fallbackFormat));
+}
+
 function normalizeMediaRecord(row = {}) {
   const payload = buildOwnedFormatsPayload(row.media_type || 'movie', row.owned_formats, row.format);
   return {
@@ -1523,7 +1538,23 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
     }
 
     if (existingRow) {
-      const ownedFormatState = buildOwnedFormatsPayload(normalizedMediaType, item.owned_formats, item.format);
+      const currentFormatStateResult = await pool.query(
+        'SELECT media_type, format, owned_formats FROM media WHERE id = $1 LIMIT 1',
+        [existingRow.id]
+      );
+      const currentFormatState = currentFormatStateResult.rows[0] || {};
+      const mergedOwnedFormats = sortOwnedFormats(
+        normalizedMediaType,
+        [
+          ...(Array.isArray(currentFormatState.owned_formats) ? currentFormatState.owned_formats : []),
+          ...(Array.isArray(item.owned_formats) ? item.owned_formats : [])
+        ]
+      );
+      const ownedFormatState = buildOwnedFormatsPayload(
+        normalizedMediaType,
+        mergedOwnedFormats,
+        item.format || currentFormatState.format
+      );
       const updateParams = [
         normalizedMediaType,
         item.original_title || null,
@@ -2930,6 +2961,11 @@ async function runGenericCsvImport({
       original_title: value('original_title') || '',
       release_date: parseDateOnly(value('release_date')),
       year: parseYear(value('year') || value('release_date')),
+      owned_formats: parseOwnedFormatsInput(
+        mappedMediaType,
+        value('owned_formats') || value('owned formats'),
+        value('format')
+      ),
       format: normalizeMediaFormat(value('format')),
       genre: value('genre'),
       director: value('director'),
@@ -4725,9 +4761,9 @@ router.delete('/:id/signing-proof', asyncHandler(async (req, res) => {
 
 router.get('/import/template-csv', asyncHandler(async (_req, res) => {
   const template = [
-    'title,media_type,year,format,director,cast,genre,rating,user_rating,runtime,upc,isbn,ean_upc,asin,signed_by,signed_role,signed_on,signed_at,signed_proof_path,location,notes',
-    '"The Matrix","movie",1999,"Blu-ray","Lana Wachowski, Lilly Wachowski","Keanu Reeves, Laurence Fishburne","Science Fiction",8.7,4.5,136,085391163545,,,,,,,,"Living Room","Example row"',
-    '"Wool","book",2012,"Paperback","Hugh Howey","Science Fiction",,4.5,,,9781476735402,,,Hugh Howey,author,2024-06-12,"Salt Lake City","Identifier-first matching example"'
+    'title,media_type,year,owned_formats,format,director,cast,genre,rating,user_rating,runtime,upc,isbn,ean_upc,asin,signed_by,signed_role,signed_on,signed_at,signed_proof_path,location,notes',
+    '"The Matrix","movie",1999,"dvd|bluray|digital","Blu-ray","Lana Wachowski, Lilly Wachowski","Keanu Reeves, Laurence Fishburne","Science Fiction",8.7,4.5,136,085391163545,,,,,,,,"Living Room","Example row"',
+    '"Wool","book",2012,"paperback|digital","Paperback","Hugh Howey","Science Fiction",,4.5,,,9781476735402,,,Hugh Howey,author,2024-06-12,"Salt Lake City","Identifier-first matching example"'
   ].join('\n');
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', 'attachment; filename="collectz-template.csv"');
