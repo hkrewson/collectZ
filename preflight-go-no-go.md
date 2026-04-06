@@ -23,7 +23,7 @@
 - Platform edition boundary: PASS
 - Compose smoke: PASS
 - Browser regression: BLOCKED
-- Dependency scan: BLOCKED
+- Dependency scan: PASS
 - Secret scan: BLOCKED
 - Image security and SBOM: BLOCKED
 
@@ -78,10 +78,14 @@
 - Browser regression is not fully cleared locally yet:
   - one full local run reached `15 passed`, `4 skipped`, and surfaced two real selector-drift failures in [`tests/playwright/specs/integrations.browser.spec.js`](/Users/hamlin/Development/GitHub/hkrewson/collectZ/tests/playwright/specs/integrations.browser.spec.js) and [`tests/playwright/specs/support-docs.capture.spec.js`](/Users/hamlin/Development/GitHub/hkrewson/collectZ/tests/playwright/specs/support-docs.capture.spec.js)
   - those selectors were updated and both spec files now pass `node --check`
-  - the focused rerun was then blocked by a local Chromium launch failure: `bootstrap_check_in org.chromium.Chromium.MachPortRendezvousServer ... Permission denied (1100)`
-- Dependency audit is not fully cleared locally yet:
-  - frontend audit artifact exists at [`artifacts/dependency-audit/frontend-audit.json`](/Users/hamlin/Development/GitHub/hkrewson/collectZ/artifacts/dependency-audit/frontend-audit.json) and reports `low=3`, `moderate=17`, `high=5`, `critical=0`
-  - backend audit refresh was blocked by local network resolution to npm registry and currently produced an error artifact at [`artifacts/dependency-audit/backend-audit.json`](/Users/hamlin/Development/GitHub/hkrewson/collectZ/artifacts/dependency-audit/backend-audit.json)
+  - the Playwright auth helper previously targeted `docker compose --env-file .env` regardless of the CI stack project/env file; it now honors `PLAYWRIGHT_COMPOSE_PROJECT` and `PLAYWRIGHT_COMPOSE_ENV_FILE`, and both browser workflows export those values before invoking Playwright
+  - the compose-aware auth bootstrap was verified directly against the live Docker stack with both default and explicit `PLAYWRIGHT_COMPOSE_PROJECT=collectz` execution paths
+  - the remaining local rerun blocker is now the desktop Chromium launch failure itself: `bootstrap_check_in org.chromium.Chromium.MachPortRendezvousServer ... Permission denied (1100)`
+- Dependency scan is now locally refreshed and clean:
+  - backend `npm ci --no-fund` passed
+  - frontend `npm ci --no-fund` passed after refreshing [`frontend/package-lock.json`](/Users/hamlin/Development/GitHub/hkrewson/collectZ/frontend/package-lock.json)
+  - [`artifacts/dependency-audit/backend-audit.json`](/Users/hamlin/Development/GitHub/hkrewson/collectZ/artifacts/dependency-audit/backend-audit.json) reports `low=0`, `moderate=0`, `high=0`, `critical=0`
+  - [`artifacts/dependency-audit/frontend-audit.json`](/Users/hamlin/Development/GitHub/hkrewson/collectZ/artifacts/dependency-audit/frontend-audit.json) reports `low=0`, `moderate=0`, `high=0`, `critical=0`
 - Secret scan, image scan, and SBOM generation remain CI-only from this shell state:
   - `gitleaks` not installed locally
   - `trivy` not installed locally
@@ -106,7 +110,7 @@ Release publication is NO-GO if any required gate fails or any required artifact
 ## Exceptions
 
 - Browser regression remains pending CI confirmation because local Chromium launches are intermittently blocked by the desktop Mach port permission failure.
-- Dependency audit, secret scan, image security scan, and SBOM generation remain pending CI or an unrestricted maintainer shell.
+- Secret scan, image security scan, and SBOM generation remain pending CI or an unrestricted maintainer shell.
 
 ## Recommendation
 

@@ -16,11 +16,27 @@ const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
 const PLAYWRIGHT_BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000';
 const PLAYWRIGHT_E2E_BYPASS_TOKEN = String(process.env.PLAYWRIGHT_E2E_BYPASS_TOKEN || '').trim();
 const PLAYWRIGHT_E2E_BYPASS_COOKIE = 'playwright_e2e_bypass';
+const PLAYWRIGHT_COMPOSE_ENV_FILE = String(process.env.PLAYWRIGHT_COMPOSE_ENV_FILE || '.env').trim() || '.env';
+const PLAYWRIGHT_COMPOSE_PROJECT = String(process.env.PLAYWRIGHT_COMPOSE_PROJECT || '').trim();
+const PLAYWRIGHT_DOCKER_COMPOSE_BIN = String(process.env.PLAYWRIGHT_DOCKER_COMPOSE_BIN || 'docker').trim() || 'docker';
 
 function getPlaywrightBypassHeaders() {
   return PLAYWRIGHT_E2E_BYPASS_TOKEN
     ? { 'x-playwright-e2e-bypass': PLAYWRIGHT_E2E_BYPASS_TOKEN }
     : undefined;
+}
+
+function buildComposeCommand(service, commandArgs) {
+  const binary = PLAYWRIGHT_DOCKER_COMPOSE_BIN;
+  const args = [];
+  if (binary === 'docker') {
+    args.push('compose');
+  }
+  if (PLAYWRIGHT_COMPOSE_PROJECT) {
+    args.push('-p', PLAYWRIGHT_COMPOSE_PROJECT);
+  }
+  args.push('--env-file', PLAYWRIGHT_COMPOSE_ENV_FILE, 'exec', '-T', service, ...commandArgs);
+  return { binary, args };
 }
 
 function getPlaywrightBypassToken() {
@@ -128,9 +144,10 @@ async function createDirectUser({ email, password, name, role = 'admin' }) {
     "await pool.end();",
     "})().catch((error)=>{console.error(error.stack||error.message||error);process.exit(1);});"
   ].join('');
+  const composeCommand = buildComposeCommand('backend', ['node', '-e', script, email, password, name, role]);
   const output = execFileSync(
-    'docker',
-    ['compose', '--env-file', '.env', 'exec', '-T', 'backend', 'node', '-e', script, email, password, name, role],
+    composeCommand.binary,
+    composeCommand.args,
     {
       cwd: REPO_ROOT,
       env: process.env,
