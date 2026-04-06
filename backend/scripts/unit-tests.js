@@ -646,6 +646,8 @@ results.push(run('repo includes 2.9.4 Playwright browser regression foundation h
   assert.ok(authMiddlewareSource.includes('supportRequestId: sessionUser.support_request_id'));
   assert.ok(scopeAccessSource.includes("role === 'support_admin'"));
   assert.ok(scopeAccessSource.includes('allowSupportSessionLibraryHints'));
+  assert.ok(scopeAccessSource.includes('allowSupportSessionLibraryAccess'));
+  assert.ok(scopeAccessSource.includes("Number(libraryRow.space_id || 0) === Number(req.user?.supportSpaceId || 0)"));
   assert.ok(dockerComposeSource.includes('PLAYWRIGHT_E2E_BYPASS_TOKEN: ${PLAYWRIGHT_E2E_BYPASS_TOKEN:-}'));
   assert.ok(dockerPublishWorkflowSource.includes('browser-regression:'));
   assert.ok(dockerPublishWorkflowSource.includes('npx playwright install --with-deps chromium'));

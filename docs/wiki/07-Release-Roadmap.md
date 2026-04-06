@@ -2218,6 +2218,8 @@ Historical note:
 
 **Goal:** support owning multiple formats of the same title without fragmenting the library record.
 
+**Status:** Completed on `2026-04-06`
+
 ### Scope
 
 - Replace single-format-only editing UX with format toggles:
@@ -2236,6 +2238,29 @@ Historical note:
 - Legacy views and existing filters continue to work with derived primary format.
 - Format toggles are available for movie/game add/edit paths.
 - Imports can map multi-format titles without creating duplicate records solely for format differences.
+
+## 2.10.1 — Library Workflow UX Polish
+
+**Goal:** finish the near-term import and title-selection UI/UX cleanup before any `3.0.0` build modernization work begins.
+
+### Scope
+
+- Import workflow UI pass:
+  - review `Admin > Import` and related import tabs with [`$uncodixfy`](/Users/hamlin/.codex/skills/uncodixfy/SKILL.md) and [`$build-web-apps:web-design-guidelines`](/Users/hamlin/.codex/plugins/cache/openai-curated/build-web-apps/f78e3ad49297672a905eb7afb6aa0cef34edc79e/skills/web-design-guidelines/SKILL.md),
+  - simplify any remaining AI-shaped layouts, stacked card framing, or redundant explanatory copy,
+  - tighten tab hierarchy, selection states, and scan/import affordances so the flow reads like the rest of the product.
+- Title-selection and result-picking pass:
+  - review title selection surfaces introduced or affected by multi-format work,
+  - refine result-card interaction patterns, editing affordances, and item selection states so they are stable, obvious, and consistent across library and import flows,
+  - remove any lingering brittle hover-only or overlay-heavy interaction assumptions where a simpler action pattern would serve better.
+- Milestone boundary:
+  - complete these two UI/UX passes before starting `3.0.0 — Frontend Build Modernization (CRA to Vite)`.
+
+### Acceptance Criteria
+
+- Import tabs and related workflow surfaces feel aligned with the rest of the current admin/library UI instead of reading like a one-off flow.
+- Title selection and result-picking affordances are visually clear, stable in browser automation, and do not depend on fragile overlay/hover behavior for primary actions.
+- The repo has a documented pre-`3.0.0` checkpoint for these UX passes so build-tool modernization does not absorb or skip them.
 
 ## 3.0.0 — Frontend Build Modernization (CRA to Vite)
 

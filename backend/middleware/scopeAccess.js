@@ -120,7 +120,13 @@ function enforceScopeAccess(options = {}) {
           resolvedSpaceId = libraryRow.space_id;
         }
 
-        if (role !== 'admin') {
+        const allowSupportSessionLibraryAccess = (
+          role === 'support_admin'
+          && Number(req.user?.supportSpaceId || 0) > 0
+          && Number(libraryRow.space_id || 0) === Number(req.user?.supportSpaceId || 0)
+        );
+
+        if (role !== 'admin' && !allowSupportSessionLibraryAccess) {
           const membership = await pool.query(
             `SELECT 1
              FROM library_memberships
