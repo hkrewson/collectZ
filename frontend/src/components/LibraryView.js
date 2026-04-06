@@ -263,11 +263,24 @@ function compareComicIssueOrder(aItem, bItem) {
   return aTitle.localeCompare(bTitle, undefined, { sensitivity: 'base' });
 }
 
-function MediaCard({ item, onOpen, onEdit, onDelete, onRating, supportsHover, selected = false, onToggleSelect = null, selectionEnabled = false }) {
+function MediaCard({ item, onOpen, onEdit, onDelete, onRating, supportsHover, selected = false, onToggleSelect = null, onSelectionGesture = null, selectionEnabled = false }) {
   const onPointerUp = (e) => {
     if (e.pointerType !== 'touch') return;
     if (isInteractiveTarget(e.target)) return;
     onOpen(item);
+  };
+  const handleOpen = (e) => {
+    if (selectionEnabled && e?.shiftKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      onToggleSelect?.(item.id, e);
+      return;
+    }
+    onOpen(item);
+  };
+  const handleMouseDown = (e) => {
+    if (!selectionEnabled) return;
+    onSelectionGesture?.(e);
   };
 
   return (
@@ -276,7 +289,8 @@ function MediaCard({ item, onOpen, onEdit, onDelete, onRating, supportsHover, se
       imagePath={item.poster_path}
       fallbackIcon={<Icons.Film />}
       supportsHover={supportsHover}
-      onOpen={() => onOpen(item)}
+      onOpen={handleOpen}
+      onMouseDown={handleMouseDown}
       onPointerUp={onPointerUp}
       selected={selected}
       leftBadges={getOwnedFormatSummary(item)}
@@ -338,15 +352,28 @@ function CollectionCard({ item, supportsHover, onOpen, onEdit, onConvert }) {
   );
 }
 
-function MediaListRow({ item, onOpen, onEdit, onDelete, onRating, supportsHover, selected = false, onToggleSelect = null, selectionEnabled = false }) {
+function MediaListRow({ item, onOpen, onEdit, onDelete, onRating, supportsHover, selected = false, onToggleSelect = null, onSelectionGesture = null, selectionEnabled = false }) {
   const onPointerUp = (e) => {
     if (e.pointerType !== 'touch') return;
     if (isInteractiveTarget(e.target)) return;
     onOpen(item);
   };
+  const handleOpen = (e) => {
+    if (selectionEnabled && e?.shiftKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      onToggleSelect?.(item.id, e);
+      return;
+    }
+    onOpen(item);
+  };
+  const handleMouseDown = (e) => {
+    if (!selectionEnabled) return;
+    onSelectionGesture?.(e);
+  };
 
   return (
-    <article onClick={() => onOpen(item)} onPointerUp={onPointerUp} className={cx('group flex items-start gap-3 rounded-lg border bg-surface p-3 transition-all duration-150 animate-fade-in sm:items-center', selected ? 'border-brand/55' : 'border-edge hover:border-muted hover:bg-raised', onOpen && 'cursor-pointer')}>
+    <article onMouseDown={handleMouseDown} onClick={handleOpen} onPointerUp={onPointerUp} className={cx('group flex items-start gap-3 rounded-lg border bg-surface p-3 transition-all duration-150 animate-fade-in sm:items-center', selected ? 'border-brand/55' : 'border-edge hover:border-muted hover:bg-raised', onOpen && 'cursor-pointer')}>
       {selectionEnabled && (
         <div onClick={(e) => e.stopPropagation()} className="shrink-0 pt-1 sm:pt-0">
           <button
@@ -2050,6 +2077,8 @@ export default function LibraryView({
   const [debouncedSearchInput, setDebouncedSearchInput] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
   const selectionAnchorIdRef = useRef(null);
+  const shiftPressedRef = useRef(false);
+  const selectionGestureRef = useRef(false);
   const supportsHover = useMemo(() => window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches, []);
   const addFormMediaType = useMemo(() => {
     if (forcedMediaType === 'tv') return 'tv_series';
@@ -2266,13 +2295,71 @@ export default function LibraryView({
     if (isCollectionMode || (isComicsLibrary && comicView === 'series')) {
       setSelectedIds([]);
       selectionAnchorIdRef.current = null;
+      selectionGestureRef.current = false;
     }
   }, [comicView, isCollectionMode, isComicsLibrary]);
 
-  const visibleSelectableIds = useMemo(
-    () => (isCollectionMode || (isComicsLibrary && comicView === 'series') ? [] : visibleItems.map((item) => Number(item.id)).filter((id) => Number.isFinite(id) && id > 0)),
-    [comicView, isCollectionMode, isComicsLibrary, visibleItems]
-  );
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === 'Shift') shiftPressedRef.current = true;
+    };
+    const handleKeyUp = (event) => {
+      if (event.key === 'Shift') shiftPressedRef.current = false;
+    };
+    const handleBlur = () => {
+      shiftPressedRef.current = false;
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleBlur);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', handleBlur);
+    };
+  }, []);
+
+  const inlineCards = useMemo(() => {
+    if (!supportsCollections || isCollectionMode || isComicsLibrary || viewMode !== 'cards') return null;
+    const toSortTitle = (value) => String(value || '').trim().toLowerCase();
+    const mixed = [
+      ...collectionRows.map((collection) => ({
+        kind: 'collection',
+        id: `collection-${collection.id}`,
+        sortTitle: toSortTitle(collection.name || collection.source_title || ''),
+        item: collection
+      })),
+      ...visibleItems.map((media) => ({
+        kind: 'media',
+        id: `media-${media.id}`,
+        sortTitle: toSortTitle(media.title || ''),
+        item: media
+      }))
+    ];
+    mixed.sort((a, b) => {
+      const titleCmp = a.sortTitle.localeCompare(b.sortTitle, undefined, { sensitivity: 'base' });
+      if (titleCmp !== 0) return filters.sortDir === 'asc' ? titleCmp : -titleCmp;
+      if (a.kind !== b.kind) return a.kind === 'collection' ? -1 : 1;
+      return String(a.id).localeCompare(String(b.id));
+    });
+    return mixed;
+  }, [collectionRows, filters.sortDir, isCollectionMode, isComicsLibrary, supportsCollections, viewMode, visibleItems]);
+
+  const renderedCardEntries = useMemo(() => {
+    if (viewMode !== 'cards' || isCollectionMode || (isComicsLibrary && comicView === 'series')) return [];
+    return inlineCards || visibleItems.map((item) => ({ kind: 'media', id: `media-${item.id}`, item }));
+  }, [comicView, inlineCards, isCollectionMode, isComicsLibrary, viewMode, visibleItems]);
+
+  const visibleSelectableIds = useMemo(() => {
+    if (isCollectionMode || (isComicsLibrary && comicView === 'series')) return [];
+    if (viewMode === 'cards') {
+      return renderedCardEntries
+        .filter((entry) => entry.kind === 'media')
+        .map((entry) => Number(entry.item.id))
+        .filter((id) => Number.isFinite(id) && id > 0);
+    }
+    return visibleItems.map((item) => Number(item.id)).filter((id) => Number.isFinite(id) && id > 0);
+  }, [comicView, isCollectionMode, isComicsLibrary, renderedCardEntries, viewMode, visibleItems]);
   const selectedIdSet = useMemo(() => new Set(selectedIds.map((id) => Number(id))), [selectedIds]);
   const selectedVisibleCount = useMemo(
     () => visibleSelectableIds.filter((id) => selectedIdSet.has(id)).length,
@@ -2280,16 +2367,22 @@ export default function LibraryView({
   );
   const allVisibleSelected = visibleSelectableIds.length > 0 && selectedVisibleCount === visibleSelectableIds.length;
 
+  const noteSelectionGesture = useCallback((event) => {
+    selectionGestureRef.current = Boolean(event?.shiftKey || shiftPressedRef.current);
+  }, []);
+
   const toggleSelectedId = useCallback((idRaw, event = null) => {
     const id = Number(idRaw);
     if (!Number.isFinite(id) || id <= 0) return;
-    const shiftKey = Boolean(event?.shiftKey);
+    const shiftKey = Boolean(event?.shiftKey || shiftPressedRef.current || selectionGestureRef.current);
+    const anchorIdBeforeToggle = selectionAnchorIdRef.current;
+    selectionGestureRef.current = false;
     setSelectedIds((prev) => {
       const prevSet = new Set(prev.map((entry) => Number(entry)));
-      if (shiftKey && selectionAnchorIdRef.current !== null) {
-        const anchorId = Number(selectionAnchorIdRef.current);
-        const anchorIndex = visibleSelectableIds.indexOf(anchorId);
-        const targetIndex = visibleSelectableIds.indexOf(id);
+      const anchorId = Number(anchorIdBeforeToggle);
+      const anchorIndex = visibleSelectableIds.indexOf(anchorId);
+      const targetIndex = visibleSelectableIds.indexOf(id);
+      if (shiftKey && anchorIdBeforeToggle !== null) {
         if (anchorIndex !== -1 && targetIndex !== -1) {
           const [start, end] = anchorIndex <= targetIndex
             ? [anchorIndex, targetIndex]
@@ -2320,6 +2413,7 @@ export default function LibraryView({
   const handleClearSelection = useCallback(() => {
     setSelectedIds([]);
     selectionAnchorIdRef.current = null;
+    selectionGestureRef.current = false;
   }, []);
 
   const handleBulkDelete = useCallback(async () => {
@@ -2333,32 +2427,6 @@ export default function LibraryView({
     setSelectedIds(failedIds);
     selectionAnchorIdRef.current = failedIds.length > 0 ? Number(failedIds[failedIds.length - 1]) : null;
   }, [detail?.id, editing?.id, onBulkDelete, selectedIds]);
-
-  const inlineCards = useMemo(() => {
-    if (!supportsCollections || isCollectionMode || isComicsLibrary || viewMode !== 'cards') return null;
-    const toSortTitle = (value) => String(value || '').trim().toLowerCase();
-    const mixed = [
-      ...collectionRows.map((collection) => ({
-        kind: 'collection',
-        id: `collection-${collection.id}`,
-        sortTitle: toSortTitle(collection.name || collection.source_title || ''),
-        item: collection
-      })),
-      ...visibleItems.map((media) => ({
-        kind: 'media',
-        id: `media-${media.id}`,
-        sortTitle: toSortTitle(media.title || ''),
-        item: media
-      }))
-    ];
-    mixed.sort((a, b) => {
-      const titleCmp = a.sortTitle.localeCompare(b.sortTitle, undefined, { sensitivity: 'base' });
-      if (titleCmp !== 0) return filters.sortDir === 'asc' ? titleCmp : -titleCmp;
-      if (a.kind !== b.kind) return a.kind === 'collection' ? -1 : 1;
-      return String(a.id).localeCompare(String(b.id));
-    });
-    return mixed;
-  }, [collectionRows, filters.sortDir, isCollectionMode, isComicsLibrary, supportsCollections, viewMode, visibleItems]);
 
   const showPagination = !useComicFullFetch;
   const activeEdit = editing || null;
@@ -2579,9 +2647,9 @@ export default function LibraryView({
           </div>
         )}
 
-        {!loading && viewMode === 'cards' && !isCollectionMode && !(isComicsLibrary && comicView === 'series') && ((inlineCards && inlineCards.length > 0) || (!inlineCards && visibleItems.length > 0)) && (
+        {!loading && viewMode === 'cards' && !isCollectionMode && !(isComicsLibrary && comicView === 'series') && renderedCardEntries.length > 0 && (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-            {(inlineCards || visibleItems.map((item) => ({ kind: 'media', id: `media-${item.id}`, item }))).map((entry) => (
+            {renderedCardEntries.map((entry) => (
               entry.kind === 'collection'
                 ? (
                   <CollectionCard
@@ -2604,6 +2672,7 @@ export default function LibraryView({
                     supportsHover={supportsHover}
                     selectionEnabled={true}
                     selected={selectedIdSet.has(Number(entry.item.id))}
+                    onSelectionGesture={noteSelectionGesture}
                     onToggleSelect={toggleSelectedId}
                   />
                 )
@@ -2624,6 +2693,7 @@ export default function LibraryView({
                 supportsHover={supportsHover}
                 selectionEnabled={true}
                 selected={selectedIdSet.has(Number(item.id))}
+                onSelectionGesture={noteSelectionGesture}
                 onToggleSelect={toggleSelectedId}
               />
             ))}

@@ -1192,6 +1192,7 @@ export function ObjectPosterCard({
   fallbackIcon = <Icons.Library />,
   supportsHover = true,
   onOpen,
+  onMouseDown,
   onPointerUp,
   selected = false,
   leftBadges = [],
@@ -1212,6 +1213,7 @@ export function ObjectPosterCard({
         onOpen && 'cursor-pointer',
         articleClassName
       )}
+      onMouseDown={onMouseDown}
       onClick={onOpen}
       onPointerUp={onPointerUp}
     >
