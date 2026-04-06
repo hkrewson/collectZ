@@ -35,7 +35,7 @@ const SECTION_DESCRIPTIONS = {
   comics: 'Connection details, credentials, and runtime checks for this integration.',
   cwa: 'Connection details, credentials, and runtime checks for this integration.',
   games: 'Connection details, credentials, and runtime checks for this integration.',
-  logs: 'Manage external activity and audit export settings here, including runtime-backed validation and endpoint labeling for common operator setups.',
+  logs: 'Configure external log export and validate the running endpoint.',
   metrics: 'Enable admin-facing metrics export here, while scrape tokens and DEBUG-level access remain runtime infrastructure settings.',
   plex: 'Connection details, credentials, and runtime checks for this integration.',
   tmdb: 'Connection details, credentials, and runtime checks for this integration.'
@@ -511,10 +511,10 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
   const metricsRuntime = observabilityRuntime.metrics;
   const logLastValidation = logExportControl?.lastValidation || null;
   const logControlSourceLabel = logExportControl?.source === 'stored'
-    ? 'Using Admin-managed endpoint settings.'
+    ? 'Using Admin-managed settings.'
     : logExportControl?.source === 'env_override'
-      ? 'This deployment is locked to runtime env settings.'
-      : 'No saved endpoint is configured yet, so runtime env values are still in effect.';
+      ? 'Using runtime env override.'
+      : 'Using runtime env fallback.';
 
   return (
     <div className="h-full overflow-y-auto p-4 sm:p-6 space-y-6">
@@ -594,15 +594,8 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
               onToggle={toggleIntegrationFeature}
             />
           )}
-          <div className="border-t border-edge pt-4 space-y-2">
-            <p className="text-sm font-medium text-ink">Endpoint configuration</p>
-            <ul className="space-y-2 text-sm text-dim">
-              <li>{logControlSourceLabel}</li>
-              <li>This control plane now owns backend/transport, collector host, collector port, service label, and host label for common operator setups.</li>
-              <li>Leave a label blank to fall back to the runtime env value for that field.</li>
-            </ul>
-          </div>
           <div className="border-t border-edge pt-4 space-y-3">
+            <p className="text-sm text-dim">{logControlSourceLabel}</p>
             {logExportControl?.readOnly && (
               <p className="text-sm text-warn">External log endpoint settings are read-only in this environment (`LOG_EXPORT_SETTINGS_READ_ONLY=true`).</p>
             )}
@@ -610,6 +603,8 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
               <LabeledField label="Backend / Transport" cx={cx}>
                 <select
                   className="select"
+                  name="log_export_backend"
+                  autoComplete="off"
                   value={form.logExportBackend}
                   disabled={Boolean(logExportControl?.readOnly)}
                   onChange={(e) => setForm((f) => ({ ...f, logExportBackend: e.target.value }))}
@@ -622,6 +617,10 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
               <LabeledField label="Collector Host" cx={cx}>
                 <input
                   className="input font-mono"
+                  name="log_export_host"
+                  autoComplete="off"
+                  spellCheck={false}
+                  placeholder="graylog"
                   value={form.logExportHost}
                   disabled={Boolean(logExportControl?.readOnly) || !form.logExportBackend}
                   onChange={(e) => setForm((f) => ({ ...f, logExportHost: e.target.value }))}
@@ -630,37 +629,50 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
               <LabeledField label="Collector Port" cx={cx}>
                 <input
                   className="input font-mono"
+                  name="log_export_port"
+                  autoComplete="off"
                   inputMode="numeric"
+                  placeholder="12201"
                   value={form.logExportPort}
                   disabled={Boolean(logExportControl?.readOnly) || !form.logExportBackend}
                   onChange={(e) => setForm((f) => ({ ...f, logExportPort: e.target.value.replace(/[^\d]/g, '') }))}
                 />
               </LabeledField>
             </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              <LabeledField label="Service Label" cx={cx}>
-                <input
-                  className="input font-mono"
-                  value={form.logExportService}
-                  disabled={Boolean(logExportControl?.readOnly)}
-                  onChange={(e) => setForm((f) => ({ ...f, logExportService: e.target.value }))}
-                />
-              </LabeledField>
-              <LabeledField label="Host Label" cx={cx}>
-                <input
-                  className="input font-mono"
-                  value={form.logExportHostLabel}
-                  disabled={Boolean(logExportControl?.readOnly)}
-                  onChange={(e) => setForm((f) => ({ ...f, logExportHostLabel: e.target.value }))}
-                />
-              </LabeledField>
-            </div>
+            <details className="group rounded-md border border-edge/60">
+              <summary className="cursor-pointer list-none select-none px-4 py-3 text-sm text-ghost hover:text-ink">
+                Search Context
+              </summary>
+              <div className="grid gap-3 border-t border-edge/60 px-4 py-4 md:grid-cols-2">
+                <LabeledField label="Service Label" cx={cx}>
+                  <input
+                    className="input font-mono"
+                    name="log_export_service"
+                    autoComplete="off"
+                    spellCheck={false}
+                    placeholder="backend"
+                    value={form.logExportService}
+                    disabled={Boolean(logExportControl?.readOnly)}
+                    onChange={(e) => setForm((f) => ({ ...f, logExportService: e.target.value }))}
+                  />
+                </LabeledField>
+                <LabeledField label="Host Label" cx={cx}>
+                  <input
+                    className="input font-mono"
+                    name="log_export_host_label"
+                    autoComplete="off"
+                    spellCheck={false}
+                    placeholder="collectz-backend"
+                    value={form.logExportHostLabel}
+                    disabled={Boolean(logExportControl?.readOnly)}
+                    onChange={(e) => setForm((f) => ({ ...f, logExportHostLabel: e.target.value }))}
+                  />
+                </LabeledField>
+              </div>
+            </details>
           </div>
           <div className="border-t border-edge pt-4 space-y-3">
-            <div>
-              <h3 className="text-sm font-medium text-ink">Last validation</h3>
-              <p className="mt-1 text-sm text-ghost">Validation uses the current candidate endpoint in editable mode and the effective runtime endpoint in read-only mode.</p>
-            </div>
+            <h3 className="text-sm font-medium text-ink">Last Validation</h3>
             {logLastValidation ? (
               <div className="rounded-lg border border-edge/70 bg-raised/50 px-4 py-3 space-y-3">
                 <RuntimeKeyValueList rows={[
@@ -690,10 +702,7 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
           </div>
           {logsRuntime && (
             <div className="border-t border-edge pt-4 space-y-3">
-              <div>
-                <h3 className="text-sm font-medium text-ink">Runtime checks</h3>
-                <p className="mt-1 text-sm text-ghost">This reads from the running backend container, not just saved settings.</p>
-              </div>
+              <h3 className="text-sm font-medium text-ink">Runtime Checks</h3>
               <RuntimeKeyValueList rows={[
                 { label: 'State', value: logsRuntime.effectiveState === 'ready' ? 'Ready' : logsRuntime.effectiveState === 'attention' ? 'Needs attention' : 'Disabled' },
                 { label: 'Config source', value: logsRuntime.configSource === 'stored' ? 'Admin-managed settings' : logsRuntime.configSource === 'env_override' ? 'Runtime env override' : 'Runtime env fallback' },
@@ -918,7 +927,7 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
             )}
           </div>
         )}
-        {testMsg && <p className="text-xs text-dim font-mono bg-raised/70 rounded-lg px-3 py-2">{testMsg}</p>}
+        {testMsg && <p aria-live="polite" className="text-xs text-dim font-mono bg-raised/70 rounded-lg px-3 py-2">{testMsg}</p>}
       </div>
       </SectionTabPanel>
       </div>
