@@ -65,7 +65,6 @@ export default function ImportView({
 }) {
   const importSections = useMemo(
     () => ([
-      { id: 'barcode', label: 'Barcode', enabled: true },
       { id: 'calibre', label: 'Calibre', enabled: true },
       { id: 'csv', label: 'CSV', enabled: true },
       { id: 'delicious', label: 'Delicious', enabled: true },
@@ -73,7 +72,7 @@ export default function ImportView({
     ]),
     [canImportPlex]
   );
-  const firstEnabledSection = importSections.find((section) => section.enabled)?.id || 'barcode';
+  const firstEnabledSection = importSections.find((section) => section.enabled)?.id || 'csv';
   const [tab, setTab] = useState(firstEnabledSection);
   const [busy, setBusy] = useState('');
   const [result, setResult] = useState('');
@@ -407,12 +406,95 @@ export default function ImportView({
         </p>
       </div>
 
+      <section className="space-y-4 border-t border-edge/60 pt-4">
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-ink">Scan or Capture Barcode</p>
+          <p className="text-sm text-ghost">Look up a barcode or Bookland ISBN and add a matched title directly into the active library.</p>
+        </div>
+        <div className="flex flex-col gap-3 md:flex-row">
+          <input
+            className="input flex-1 font-mono"
+            name="barcode_identifier"
+            autoComplete="off"
+            spellCheck={false}
+            placeholder="012345678901 or 9780358447849"
+            value={barcodeUpc}
+            onChange={(e) => {
+              setBarcodeUpc(normalizeBarcodeInput(e.target.value));
+              setBookCaptureState(null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                lookupBarcode();
+              }
+            }}
+          />
+          <div className="flex flex-wrap gap-3">
+            <button onClick={() => setBarcodeCameraOpen(true)} className="btn-secondary" disabled={barcodeCaptureLoading || !hasActiveLibrary}>
+              {barcodeCaptureLoading ? <Spinner size={14} /> : <><Icons.Camera />Camera</>}
+            </button>
+            <button onClick={() => barcodeCaptureInputRef.current?.click()} className="btn-secondary" disabled={barcodeCaptureLoading || !hasActiveLibrary}>
+              <Icons.Upload />Photo
+            </button>
+            <button onClick={() => lookupBarcode()} className="btn-primary" disabled={barcodeLookupLoading || !barcodeUpc.trim() || !hasActiveLibrary}>
+              {barcodeLookupLoading ? <Spinner size={14} /> : <><Icons.Barcode />Lookup</>}
+            </button>
+          </div>
+        </div>
+        <input
+          ref={barcodeCaptureInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={handleBarcodeCapture}
+        />
+        <p className="text-xs text-ghost">
+          {canCaptureBarcode
+            ? 'Camera and photo capture can try to decode the barcode automatically, including Bookland ISBN barcodes.'
+            : 'Some browsers may still require you to type the UPC or ISBN manually.'}
+        </p>
+        <BookCaptureStatusCard state={bookCaptureState} />
+        {barcodeResults.length > 0 && (
+          <div className="space-y-2 border-t border-edge/60 pt-4">
+            {barcodeResults.slice(0, 8).map((m, idx) => {
+              const addId = `${m?.upc || barcodeUpc}-${idx}`;
+              const isBook = m?.mediaTypeGuess === 'book' || Boolean(m?.book);
+              const title = isBook
+                ? (m?.book?.title || m?.normalizedTitle || m?.title || 'Unknown')
+                : (m?.tmdb?.title || m?.title || 'Unknown');
+              const year = isBook
+                ? (m?.book?.year || m?.year || '')
+                : (m?.tmdb?.release_year || (m?.tmdb?.release_date ? String(m.tmdb.release_date).slice(0, 4) : ''));
+              const subtitle = isBook
+                ? (m?.book?.type_details?.author || m?.typeDetails?.author || '')
+                : '';
+              return (
+                <div key={addId} className="flex items-center gap-3 border-t border-edge/60 px-1 pt-2 first:border-t-0 first:px-0 first:pt-0">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-ink truncate">{title}</p>
+                    {subtitle ? <p className="text-xs text-ghost truncate">{subtitle}</p> : null}
+                    <p className="text-xs text-ghost">
+                      {year || 'n/a'}{m?.upc ? ` · UPC ${m.upc}` : ''}{m?.source ? ` · ${m.source}` : ''}
+                    </p>
+                  </div>
+                  <button className="btn-secondary btn-sm" disabled={barcodeAddingId === addId || !hasActiveLibrary} onClick={() => addBarcodeMatch(m, idx)}>
+                    {barcodeAddingId === addId ? <Spinner size={14} /> : 'Add'}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
       <SectionTabs
         tabs={importSections.filter((section) => section.enabled)}
         activeId={tab}
         onChange={setTab}
         ariaLabel="Import sources"
-        className="border-b-0"
+        className="border-t border-edge/60 pt-1"
         listClassName="gap-5"
       />
 
@@ -510,89 +592,6 @@ export default function ImportView({
               runCsvImport(file, '/media/import-csv/delicious', 'Delicious');
             }}
           />
-        </SectionTabPanel>
-
-        <SectionTabPanel activeId={tab} tabKey="barcode" idBase="import-source-tabs" className="space-y-4">
-          <div className="space-y-1">
-            <p className="text-sm font-medium text-ink">Barcode</p>
-            <p className="text-sm text-ghost">Look up a barcode or Bookland ISBN and add a matched title directly into the active library.</p>
-          </div>
-          <div className="flex flex-col gap-3 md:flex-row">
-            <input
-              className="input flex-1 font-mono"
-              name="barcode_identifier"
-              autoComplete="off"
-              spellCheck={false}
-              placeholder="012345678901 or 9780358447849"
-              value={barcodeUpc}
-              onChange={(e) => {
-                setBarcodeUpc(normalizeBarcodeInput(e.target.value));
-                setBookCaptureState(null);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  lookupBarcode();
-                }
-              }}
-            />
-            <div className="flex flex-wrap gap-3">
-              <button onClick={() => setBarcodeCameraOpen(true)} className="btn-secondary" disabled={barcodeCaptureLoading || !hasActiveLibrary}>
-                {barcodeCaptureLoading ? <Spinner size={14} /> : <><Icons.Camera />Camera</>}
-              </button>
-              <button onClick={() => barcodeCaptureInputRef.current?.click()} className="btn-secondary" disabled={barcodeCaptureLoading || !hasActiveLibrary}>
-                <Icons.Upload />Photo
-              </button>
-              <button onClick={() => lookupBarcode()} className="btn-primary" disabled={barcodeLookupLoading || !barcodeUpc.trim() || !hasActiveLibrary}>
-                {barcodeLookupLoading ? <Spinner size={14} /> : <><Icons.Barcode />Lookup</>}
-              </button>
-            </div>
-          </div>
-          <input
-            ref={barcodeCaptureInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="hidden"
-            onChange={handleBarcodeCapture}
-          />
-          <p className="text-xs text-ghost">
-            {canCaptureBarcode
-              ? 'Camera and photo capture can try to decode the barcode automatically, including Bookland ISBN barcodes.'
-              : 'Some browsers may still require you to type the UPC or ISBN manually.'}
-          </p>
-          <BookCaptureStatusCard state={bookCaptureState} />
-          {barcodeResults.length > 0 && (
-            <div className="space-y-2 border-t border-edge/60 pt-4">
-              {barcodeResults.slice(0, 8).map((m, idx) => {
-                const addId = `${m?.upc || barcodeUpc}-${idx}`;
-                const isBook = m?.mediaTypeGuess === 'book' || Boolean(m?.book);
-                const title = isBook
-                  ? (m?.book?.title || m?.normalizedTitle || m?.title || 'Unknown')
-                  : (m?.tmdb?.title || m?.title || 'Unknown');
-                const year = isBook
-                  ? (m?.book?.year || m?.year || '')
-                  : (m?.tmdb?.release_year || (m?.tmdb?.release_date ? String(m.tmdb.release_date).slice(0, 4) : ''));
-                const subtitle = isBook
-                  ? (m?.book?.type_details?.author || m?.typeDetails?.author || '')
-                  : '';
-                return (
-                  <div key={addId} className="flex items-center gap-3 border-t border-edge/60 px-1 pt-2 first:border-t-0 first:px-0 first:pt-0">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-ink truncate">{title}</p>
-                      {subtitle ? <p className="text-xs text-ghost truncate">{subtitle}</p> : null}
-                      <p className="text-xs text-ghost">
-                        {year || 'n/a'}{m?.upc ? ` · UPC ${m.upc}` : ''}{m?.source ? ` · ${m.source}` : ''}
-                      </p>
-                    </div>
-                    <button className="btn-secondary btn-sm" disabled={barcodeAddingId === addId || !hasActiveLibrary} onClick={() => addBarcodeMatch(m, idx)}>
-                      {barcodeAddingId === addId ? <Spinner size={14} /> : 'Add'}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
         </SectionTabPanel>
       </div>
 
