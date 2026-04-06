@@ -71,7 +71,7 @@ function OwnedFormatPicker({ mediaType, value = [], onChange }) {
               key={option.value}
               type="button"
               className={cx(
-                'inline-flex h-8 shrink-0 items-center rounded-md border px-2.5 text-sm font-medium transition-colors',
+                'inline-flex h-7 shrink-0 items-center rounded-md border px-2 text-[12px] font-medium leading-none transition-colors',
                 active
                   ? 'border-brand bg-brand/10 text-ink'
                   : 'border-edge bg-surface text-dim hover:border-muted hover:text-ink'
