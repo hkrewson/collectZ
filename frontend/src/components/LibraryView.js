@@ -58,8 +58,12 @@ function OwnedFormatPicker({ mediaType, value = [], onChange }) {
   const selected = new Set(sortOwnedFormats(mediaType, value));
 
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap gap-2">
+    <div className="overflow-x-auto pb-1 no-scrollbar">
+      <div
+        role="group"
+        aria-label="Owned formats"
+        className="inline-flex min-w-full flex-nowrap gap-2 whitespace-nowrap"
+      >
         {options.map((option) => {
           const active = selected.has(option.value);
           return (
@@ -67,9 +71,9 @@ function OwnedFormatPicker({ mediaType, value = [], onChange }) {
               key={option.value}
               type="button"
               className={cx(
-                'inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors',
+                'inline-flex h-8 shrink-0 items-center rounded-md border px-2.5 text-sm font-medium transition-colors',
                 active
-                  ? 'border-brand bg-brand/10 text-brand'
+                  ? 'border-brand bg-brand/10 text-ink'
                   : 'border-edge bg-surface text-dim hover:border-muted hover:text-ink'
               )}
               aria-pressed={active}
@@ -80,18 +84,11 @@ function OwnedFormatPicker({ mediaType, value = [], onChange }) {
                 onChange(sortOwnedFormats(mediaType, next));
               }}
             >
-              <span
-                className={cx(
-                  'inline-block h-2.5 w-2.5 rounded-full transition-colors',
-                  active ? 'bg-brand' : 'bg-ghost/50'
-                )}
-              />
               {option.label}
             </button>
           );
         })}
       </div>
-      <p className="text-xs text-ghost">Select every format you own for this title.</p>
     </div>
   );
 }
