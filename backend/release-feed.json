@@ -1,6 +1,64 @@
 {
   "releases": [
     {
+      "title": "v2.9.8",
+      "version": "2.9.8",
+      "date": "2026-04-05",
+      "status": "Completed",
+      "summary": "This release ships two connected slices of hardening work. First, the app’s add/edit drawers, Help surfaces, and tabbed workflows were normalized onto calmer shared UI primitives so the product reads more consistently and accessibly across media, events, collectibles, help, and admin flows. Second, the runtime observability story was hardened for longer-lived operator use with clearer diagnostics, supported collector-path smokes, persistence rehearsals, and a repeatable observability release-evidence artifact that proves logs and metrics stay recoverable without turning collectors into a hidden runtime dependency.",
+      "details": [
+        {
+          "heading": "Shared tabbed-editor and drawer consistency",
+          "bullets": [
+            "Normalized the media, event, collectible, help, help-admin, admin-integrations, and all-spaces surfaces onto shared tab/disclosure primitives.",
+            "Added complete tab semantics for true tabbed surfaces and kept button semantics for filter/mode rows that only borrow the same visual treatment.",
+            "Reduced AI-style card/pill overuse in Help, Help Admin, and event schedule flows in favor of flatter rows, calmer list sections, and simpler expandable guidance items.",
+            "Tightened add/edit drawer composition across media, events, and collectibles with a consistent 40rem shell, title-first field hierarchy, and synchronized add/edit field placement."
+          ]
+        },
+        {
+          "heading": "Help and guidance polish",
+          "bullets": [
+            "Converted Help guidance into one-open-at-a-time inline disclosure rows so the help surface scales without becoming a long wall of open content.",
+            "Flattened Help / Help Admin tab rails and guidance/release layouts into quieter list-based sections instead of decorative card grids and KPI tiles.",
+            "Left a documented future accessibility follow-up for URL-synced tabs and expanded guidance state where deep-linking provides real value."
+          ]
+        },
+        {
+          "heading": "Observability runtime hardening",
+          "bullets": [
+            "Added operator-facing runtime diagnostics for external logs and metrics.",
+            "Surfaced drift clues such as exporter/backend mismatch, wrong collector host or port, weak scrape-token posture, reverse-proxy exposure expectations, and mixed stdout versus structured-export caveats.",
+            "Added clearer non-blocking guidance so exporter failures remain additive rather than becoming a hidden availability dependency."
+          ]
+        },
+        {
+          "heading": "Supported collector-path verification",
+          "bullets": [
+            "Added repeatable collector-path smokes for Graylog / GELF, Loki / Promtail, and syslog.",
+            "Added a repeatable non-blocking failure rehearsal that proves audit activity and `/api/health` remain healthy even when the configured collector is intentionally unreachable.",
+            "Added a structured-only Loki/Promtail option for operators who want cleaner structured export ingestion without the full mixed stdout stream."
+          ]
+        },
+        {
+          "heading": "Persistence, backup, and recreate confidence",
+          "bullets": [
+            "Added repeatable persistence/recreate rehearsals for Prometheus + Grafana, Graylog + MongoDB + OpenSearch, and Loki + Promtail positions/state.",
+            "Tightened docs to distinguish local/dev example stacks from longer-lived operator guidance.",
+            "Clarified the difference between normal stack recreation and destructive `down -v` reset paths."
+          ]
+        },
+        {
+          "heading": "Release-shaped observability evidence",
+          "bullets": [
+            "Added a release-facing observability evidence runner: `npm --prefix backend run test:observability-evidence`.",
+            "The generated artifact now captures collector-path evidence, non-blocking failure evidence, persistence/recreate evidence, and backend restore plus final stack health.",
+            "The current artifact path is `artifacts/observability-evidence/observability-release-evidence.json`."
+          ]
+        }
+      ]
+    },
+    {
       "title": "v2.9.6",
       "version": "2.9.6",
       "date": "2026-04-04",
@@ -348,14 +406,6 @@
       "date": "2026-03-29",
       "status": "Completed",
       "summary": "This release retires the old standalone Import Review workflow and finishes the product transition toward debug-oriented import diagnostics instead of a user-facing review queue. Ambiguous import rows are now surfaced through audit exports and external diagnostic logging, while the queue UI, queue endpoints, and queue table are removed from the live runtime.",
-      "details": []
-    },
-    {
-      "title": "v2.8.2",
-      "version": "2.8.2",
-      "date": "2026-03-28",
-      "status": "Completed",
-      "summary": "This release finishes the admin control-plane cleanup that followed the broader `2.8.0` UI refinement pass and the `2.8.1` onboarding work. Permanently accepted behavior is no longer presented as fake optionality through feature flags, the drawer-first library flow is now just the normal path, and admin/debug surfaces now reflect real operator decisions instead of historical rollout scaffolding.",
       "details": []
     }
   ]

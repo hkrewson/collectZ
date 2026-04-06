@@ -2148,6 +2148,8 @@ Historical note:
 
 ## 2.9.8 — Runtime and Operations Hardening
 
+**Status:** Completed on `2026-04-05`
+
 **Goal:** Harden the real-world operator paths added in `2.6.0` and `2.6.1` so logging, metrics, and supporting runtime surfaces are safer to run and easier to recover in longer-lived deployments.
 
 ### Scope

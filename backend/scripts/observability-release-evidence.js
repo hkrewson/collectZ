@@ -2,6 +2,7 @@
 
 'use strict';
 
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
@@ -75,6 +76,15 @@ function dockerCommand(name, args, options = {}) {
   return runCommand(name, 'docker', args, options);
 }
 
+function graylogStackEnv(password) {
+  return {
+    ...process.env,
+    GRAYLOG_PASSWORD_SECRET: 'collectz-observability-evidence-secret',
+    GRAYLOG_ROOT_PASSWORD_SHA2: crypto.createHash('sha256').update(password).digest('hex'),
+    GRAYLOG_HTTP_EXTERNAL_URI: 'http://127.0.0.1:9000/'
+  };
+}
+
 function waitForMainStackHealth(name, attempts = 20, delaySeconds = 1) {
   const startedAt = new Date().toISOString();
   const startMs = Date.now();
@@ -107,6 +117,37 @@ function waitForMainStackHealth(name, attempts = 20, delaySeconds = 1) {
     'curl',
     ['-fsS', 'http://localhost:3000/api/health'],
     lastResult || { status: 1, stdout: '', stderr: 'health check did not execute' },
+    startedAt,
+    Date.now() - startMs
+  );
+}
+
+function waitForGraylogReady(name, password, attempts = 60, delaySeconds = 2) {
+  const startedAt = new Date().toISOString();
+  const startMs = Date.now();
+  let lastResult = null;
+  const args = [
+    '-fsS',
+    '-u',
+    `admin:${password}`,
+    '-H',
+    'X-Requested-By: collectz-evidence',
+    'http://localhost:9000/api/system/inputs'
+  ];
+  for (let index = 0; index < attempts; index += 1) {
+    lastResult = runProcess('curl', args);
+    if (lastResult.status === 0) {
+      return automatedResult(name, 'curl', args, lastResult, startedAt, Date.now() - startMs);
+    }
+    if (index < attempts - 1) {
+      runProcess('sleep', [String(delaySeconds)]);
+    }
+  }
+  return automatedResult(
+    name,
+    'curl',
+    args,
+    lastResult || { status: 1, stdout: '', stderr: 'graylog readiness check did not execute' },
     startedAt,
     Date.now() - startMs
   );
@@ -230,12 +271,43 @@ function runLokiCollectorSmoke() {
       LOG_EXPORT_BACKEND: 'stdout_json',
       LOG_EXPORT_DEBUG: '0'
     }));
+    steps.push(waitForMainStackHealth('backend_ready_stdout_json'));
     steps.push(dockerCommand('loki_stack_up', ['compose', '-f', 'ops/logging/docker-compose.loki.yml', 'up', '-d']));
     steps.push(runBackendSmoke('loki_smoke', 'structured-log-loki-smoke.js', tempAdmin, {
       LOKI_URL: 'http://loki:3100'
     }));
     steps.push(dockerCommand('loki_stack_down', ['compose', '-f', 'ops/logging/docker-compose.loki.yml', 'down']));
     return automatedComposite('loki_collector_smoke', steps);
+  });
+}
+
+function runGraylogCollectorSmoke() {
+  const graylogPassword = 'CollectzGraylog!123';
+  const stackEnv = graylogStackEnv(graylogPassword);
+  return withTempAdmin('graylog_collector_smoke', (tempAdmin) => {
+    const steps = [];
+    steps.push(dockerCommand('graylog_stack_up', ['compose', '-f', 'ops/logging/docker-compose.graylog.yml', 'up', '-d'], {
+      env: stackEnv
+    }));
+    steps.push(waitForGraylogReady('graylog_ready', graylogPassword));
+    steps.push(backendRebuildCheck('backend_rebuild_graylog_gelf', {
+      APP_VERSION: appMeta.version,
+      LOG_EXPORT_BACKEND: 'gelf_udp',
+      LOG_EXPORT_HOST: 'graylog',
+      LOG_EXPORT_PORT: '12201',
+      LOG_EXPORT_DEBUG: '0'
+    }));
+    steps.push(waitForMainStackHealth('backend_ready_graylog_gelf'));
+    steps.push(runBackendSmoke('graylog_smoke', 'structured-log-smoke.js', tempAdmin, {
+      GRAYLOG_URL: 'http://graylog:9000',
+      GRAYLOG_USERNAME: 'admin',
+      GRAYLOG_PASSWORD: graylogPassword,
+      OPENSEARCH_URL: 'http://opensearch:9200'
+    }));
+    steps.push(dockerCommand('graylog_stack_down', ['compose', '-f', 'ops/logging/docker-compose.graylog.yml', 'down'], {
+      env: stackEnv
+    }));
+    return automatedComposite('graylog_collector_smoke', steps);
   });
 }
 
@@ -249,6 +321,7 @@ function runSyslogCollectorSmoke() {
       LOG_EXPORT_PORT: '1514',
       LOG_EXPORT_DEBUG: '0'
     }));
+    steps.push(waitForMainStackHealth('backend_ready_syslog_tcp'));
     steps.push(dockerCommand('syslog_stack_up', ['compose', '-f', 'ops/logging/docker-compose.syslog.yml', 'up', '-d', '--force-recreate', 'syslog-collector']));
     steps.push(runBackendSmoke('syslog_smoke', 'structured-log-syslog-smoke.js', tempAdmin));
     steps.push(dockerCommand('syslog_stack_down', ['compose', '-f', 'ops/logging/docker-compose.syslog.yml', 'down']));
@@ -266,6 +339,7 @@ function runNonblockingFailureSmoke() {
       LOG_EXPORT_PORT: '1',
       LOG_EXPORT_DEBUG: '0'
     }));
+    steps.push(waitForMainStackHealth('backend_ready_unreachable_syslog'));
     steps.push(runBackendSmoke('nonblocking_smoke', 'structured-log-nonblocking-smoke.js', tempAdmin));
     return automatedComposite('nonblocking_export_failure_smoke', steps);
   });
@@ -295,27 +369,13 @@ function main() {
       'bash',
       ['ops/logging/verify-loki-persistence.sh']
     ));
+    checks.push(runGraylogCollectorSmoke());
     checks.push(runLokiCollectorSmoke());
     checks.push(runSyslogCollectorSmoke());
     checks.push(runNonblockingFailureSmoke());
   } finally {
     checks.push(restoreBackend());
     checks.push(waitForMainStackHealth('main_stack_health'));
-  }
-
-  const graylogPassword = String(process.env.GRAYLOG_PASSWORD || '').trim();
-  if (!graylogPassword) {
-    checks.push(blockedCheck(
-      'graylog_collector_smoke',
-      'GRAYLOG_PASSWORD is not set for the evidence runner environment.',
-      'Provide Graylog admin credentials to automate this path, or run the Graylog smoke manually and attach that evidence during release closeout.'
-    ));
-  } else {
-    checks.push(blockedCheck(
-      'graylog_collector_smoke',
-      'Graylog smoke orchestration is not yet wired into the release evidence runner.',
-      'The runner now automates the Loki, syslog, and non-blocking failure paths. Promote Graylog next if you want fully automated collector coverage.'
-    ));
   }
 
   const evidence = {

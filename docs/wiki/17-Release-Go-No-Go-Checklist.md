@@ -28,7 +28,7 @@ Minimum closeout expectation:
 4. Run backend unit tests.
 5. Run init parity / migration rehearsal checks in an environment with database access.
 6. Run production dependency audit checks for backend and frontend.
-7. Generate observability release evidence with `npm --prefix backend run test:observability-evidence` and review the resulting artifact for passed rehearsals plus any still-blocked manual collector-path checks.
+7. Generate observability release evidence with `npm --prefix backend run test:observability-evidence` and review the resulting artifact for passed persistence, collector-path, non-blocking failure, backend-restore, and final-health checks.
 8. Confirm the remaining CI-only gates are green, especially gitleaks, compose smoke, RBAC, Trivy, and SBOM generation.
 9. Confirm the Playwright browser-regression gate is green and its artifacts are available when failures occur.
 10. Confirm the homelab edition boundary gate is green so the live `homelab` stack still exposes only the shared mounted surfaces and keeps platform-only APIs unmounted.

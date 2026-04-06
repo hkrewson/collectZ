@@ -55,7 +55,8 @@ test.describe('help center docs capture flows @capture', () => {
     await page.getByPlaceholder('What do you need help with?').fill(subject);
     await page.getByPlaceholder('Tell us what you tried, what you expected, and what felt off.').fill('Capture a stable Help Center support thread for support-reference documentation.');
     await page.getByRole('button', { name: 'Create help request' }).click();
-    await expect(page.getByRole('heading', { name: 'Reply to Support' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: subject, exact: true })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Conversation', exact: true })).toBeVisible();
     await captureNamedPage(page, 'help-center-support');
 
     await page.getByRole('tab', { name: 'Releases', exact: true }).click();

@@ -98,8 +98,9 @@ Observability release evidence:
 - That writes:
   - `artifacts/observability-evidence/observability-release-evidence.json`
 - The current intent is release evidence first:
-  - persistence/recreate rehearsals run automatically there today,
-  - collector-path smokes and intentional bad-collector drills can still appear as blocked/manual entries until they are promoted into automation,
+  - persistence/recreate rehearsals run automatically there,
+  - supported collector-path smokes and intentional bad-collector drills now run automatically there,
+  - backend restore and final stack health are also captured there,
   - and this should not be treated as an every-PR blocking gate by default.
 
 ## Homelab Deploy Using Registry Images

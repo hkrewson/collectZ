@@ -106,7 +106,7 @@ test.describe('integrations browser regressions', () => {
       await expect(page.getByRole('heading', { name: 'Integrations' })).toBeVisible();
       await expect(page.getByRole('switch', { name: /Metrics Export/i })).toHaveAttribute('aria-checked', nextChecked);
       await expect(page.getByRole('heading', { name: 'Runtime checks' })).toBeVisible();
-      await expect(page.getByText('/api/metrics')).toBeVisible();
+      await expect(activeSectionRoot(page).getByText('/api/metrics', { exact: true })).toBeVisible();
 
       await page.goto('/dashboard?tab=admin-integrations&integration=logs');
       await expect(page.getByRole('heading', { name: 'Runtime checks' })).toBeVisible();
