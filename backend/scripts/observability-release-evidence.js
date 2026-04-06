@@ -20,8 +20,18 @@ const restoreEnv = {
   LOG_EXPORT_BACKEND: 'gelf_udp',
   LOG_EXPORT_HOST: 'graylog',
   LOG_EXPORT_PORT: '12201',
-  LOG_EXPORT_DEBUG: '0'
+  LOG_EXPORT_DEBUG: '0',
+  LOG_EXPORT_SETTINGS_READ_ONLY: 'false'
 };
+
+function smokeEnv(overrides = {}) {
+  return {
+    APP_VERSION: appMeta.version,
+    LOG_EXPORT_SETTINGS_READ_ONLY: 'true',
+    LOG_EXPORT_DEBUG: '0',
+    ...overrides
+  };
+}
 
 function runProcess(command, args, { env = process.env, cwd = repoRoot } = {}) {
   return spawnSync(command, args, {
@@ -278,11 +288,11 @@ function automatedComposite(name, steps) {
 function runLokiCollectorSmoke() {
   return withTempAdmin('loki_collector_smoke', (tempAdmin) => {
     const steps = [];
-    steps.push(backendRebuildCheck('backend_rebuild_stdout_json', {
-      APP_VERSION: appMeta.version,
+    steps.push(backendRebuildCheck('backend_rebuild_stdout_json', smokeEnv({
       LOG_EXPORT_BACKEND: 'stdout_json',
-      LOG_EXPORT_DEBUG: '0'
-    }));
+      LOG_EXPORT_HOST: '127.0.0.1',
+      LOG_EXPORT_PORT: '12201'
+    })));
     steps.push(waitForMainStackHealth('backend_ready_stdout_json'));
     steps.push(dockerCommand('loki_stack_up', ['compose', '-f', 'ops/logging/docker-compose.loki.yml', 'up', '-d']));
     steps.push(runBackendSmoke('loki_smoke', 'structured-log-loki-smoke.js', tempAdmin, {
@@ -302,13 +312,11 @@ function runGraylogCollectorSmoke() {
       env: stackEnv
     }));
     steps.push(waitForGraylogReady('graylog_ready', graylogPassword));
-    steps.push(backendRebuildCheck('backend_rebuild_graylog_gelf', {
-      APP_VERSION: appMeta.version,
+    steps.push(backendRebuildCheck('backend_rebuild_graylog_gelf', smokeEnv({
       LOG_EXPORT_BACKEND: 'gelf_udp',
       LOG_EXPORT_HOST: 'graylog',
-      LOG_EXPORT_PORT: '12201',
-      LOG_EXPORT_DEBUG: '0'
-    }));
+      LOG_EXPORT_PORT: '12201'
+    })));
     steps.push(waitForMainStackHealth('backend_ready_graylog_gelf'));
     steps.push(runBackendSmoke('graylog_smoke', 'structured-log-smoke.js', tempAdmin, {
       GRAYLOG_URL: 'http://graylog:9000',
@@ -326,13 +334,11 @@ function runGraylogCollectorSmoke() {
 function runSyslogCollectorSmoke() {
   return withTempAdmin('syslog_collector_smoke', (tempAdmin) => {
     const steps = [];
-    steps.push(backendRebuildCheck('backend_rebuild_syslog_tcp', {
-      APP_VERSION: appMeta.version,
+    steps.push(backendRebuildCheck('backend_rebuild_syslog_tcp', smokeEnv({
       LOG_EXPORT_BACKEND: 'syslog_tcp',
       LOG_EXPORT_HOST: 'syslog-collector',
-      LOG_EXPORT_PORT: '1514',
-      LOG_EXPORT_DEBUG: '0'
-    }));
+      LOG_EXPORT_PORT: '1514'
+    })));
     steps.push(waitForMainStackHealth('backend_ready_syslog_tcp'));
     steps.push(dockerCommand('syslog_stack_up', ['compose', '-f', 'ops/logging/docker-compose.syslog.yml', 'up', '-d', '--force-recreate', 'syslog-collector']));
     steps.push(runBackendSmoke('syslog_smoke', 'structured-log-syslog-smoke.js', tempAdmin));
@@ -344,13 +350,11 @@ function runSyslogCollectorSmoke() {
 function runNonblockingFailureSmoke() {
   return withTempAdmin('nonblocking_export_failure_smoke', (tempAdmin) => {
     const steps = [];
-    steps.push(backendRebuildCheck('backend_rebuild_unreachable_syslog', {
-      APP_VERSION: appMeta.version,
+    steps.push(backendRebuildCheck('backend_rebuild_unreachable_syslog', smokeEnv({
       LOG_EXPORT_BACKEND: 'syslog_tcp',
       LOG_EXPORT_HOST: '127.0.0.1',
-      LOG_EXPORT_PORT: '1',
-      LOG_EXPORT_DEBUG: '0'
-    }));
+      LOG_EXPORT_PORT: '1'
+    })));
     steps.push(waitForMainStackHealth('backend_ready_unreachable_syslog'));
     steps.push(runBackendSmoke('nonblocking_smoke', 'structured-log-nonblocking-smoke.js', tempAdmin));
     return automatedComposite('nonblocking_export_failure_smoke', steps);

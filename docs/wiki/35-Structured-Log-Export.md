@@ -44,7 +44,7 @@ Current control surface note:
 
 - The current shipped operator path is now split in a narrower, milestone-scoped way:
   - Integrations owns whether export is enabled.
-  - `2.9.9` now begins moving common endpoint settings into `Admin -> Integrations -> External Logs`.
+  - `2.9.9` moves the common endpoint path into `Admin -> Integrations -> External Logs`.
   - The current control-plane slice owns:
     - backend / transport
     - collector host

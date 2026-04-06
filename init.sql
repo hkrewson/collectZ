@@ -871,5 +871,9 @@ INSERT INTO schema_migrations (version, description) VALUES
     (50, 'Add staff-only support thread note visibility'),
     (51, 'Add explicit support request access approval state'),
     (52, 'Link support sessions to approved support requests'),
-    (53, 'Add support request updated_at trigger parity')
+    (53, 'Add support request updated_at trigger parity'),
+    (54, 'Add observability endpoint control-plane fields'),
+    (55, 'Add observability endpoint validation fields'),
+    (56, 'Add observability endpoint label fields'),
+    (57, 'Add observability endpoint debug field')
 ON CONFLICT (version) DO NOTHING;

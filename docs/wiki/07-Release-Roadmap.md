@@ -2188,6 +2188,8 @@ Historical note:
 
 **Goal:** Move external log endpoint selection from env-only operator setup to an admin-managed control plane without weakening the existing fail-safe runtime behavior.
 
+**Status:** Completed on `2026-04-06`
+
 ### Scope
 
 - Admin-managed external log endpoint configuration:

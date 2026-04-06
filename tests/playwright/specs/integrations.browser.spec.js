@@ -13,6 +13,16 @@ function activeSectionRoot(page) {
   return page.locator('.space-y-4.min-w-0');
 }
 
+async function openDisclosureSection(page, title) {
+  const details = activeSectionRoot(page).locator('details').filter({ hasText: title }).first();
+  await expect(details).toBeVisible();
+  const isOpen = await details.evaluate((node) => node.hasAttribute('open'));
+  if (!isOpen) {
+    await details.locator('summary').click();
+  }
+  return details;
+}
+
 async function saveSection(page, sectionLabel) {
   const responsePromise = page.waitForResponse((response) => (
     response.url().includes('/api/admin/settings/integrations')
@@ -109,12 +119,12 @@ test.describe('integrations browser regressions', () => {
       await expect(activeSectionRoot(page).getByText('/api/metrics', { exact: true })).toBeVisible();
 
       await page.goto('/dashboard?tab=admin-integrations&integration=logs');
-      await expect(page.getByRole('heading', { name: 'Runtime checks' })).toBeVisible();
+      const logsRuntimeChecks = await openDisclosureSection(page, 'Runtime Checks');
       const logsRuntime = (await getIntegrationSettings(requestContext)).observabilityRuntime?.logs;
       expect(logsRuntime).toBeTruthy();
-      await expect(activeSectionRoot(page).getByText(String(logsRuntime.backend), { exact: true })).toBeVisible();
+      await expect(logsRuntimeChecks.getByText(String(logsRuntime.backend), { exact: true })).toBeVisible();
       await expect(
-        activeSectionRoot(page).getByText(`${logsRuntime.host}:${logsRuntime.port}`, { exact: true })
+        logsRuntimeChecks.getByText(`${logsRuntime.host}:${logsRuntime.port}`, { exact: true })
       ).toBeVisible();
     } finally {
       await restoreIntegrationState(requestContext, snapshot).catch(() => {});
