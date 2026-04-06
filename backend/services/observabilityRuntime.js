@@ -1,7 +1,7 @@
 'use strict';
 
 const { getFeatureFlag } = require('./featureFlags');
-const { readExportConfig } = require('./logExport');
+const { readExportConfig, resolveExportConfig } = require('./logExport');
 
 const DEFAULT_LOG_HOSTS = new Set(['127.0.0.1', 'localhost']);
 const DEBUG_LEVEL = Math.max(0, Math.min(2, Number(process.env.DEBUG || 0) || 0));
@@ -46,7 +46,8 @@ function isWeakScrapeToken(token) {
 
 async function buildLogsRuntimeDiagnostics() {
   const flag = await getFeatureFlag('external_log_export_enabled');
-  const config = readExportConfig();
+  const envConfig = readExportConfig();
+  const config = await resolveExportConfig();
   const checks = [];
 
   if (!flag?.enabled) {
@@ -117,6 +118,14 @@ async function buildLogsRuntimeDiagnostics() {
     hostLabel: config.hostLabel,
     service: config.service,
     debugEnabled: config.debugEnabled,
+    configSource: config.controlPlane?.source || 'env_fallback',
+    configReadOnly: Boolean(config.controlPlane?.readOnly),
+    envBackend: envConfig.backend,
+    envHost: envConfig.host,
+    envPort: envConfig.port,
+    storedBackend: config.controlPlane?.stored?.backend || null,
+    storedHost: config.controlPlane?.stored?.host || null,
+    storedPort: config.controlPlane?.stored?.port || null,
     effectiveState: !flag?.enabled
       ? 'disabled'
       : config.backend === 'off'

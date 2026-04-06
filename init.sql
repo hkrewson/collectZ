@@ -434,6 +434,9 @@ CREATE TABLE IF NOT EXISTS app_integrations (
     cwa_base_url TEXT,
     cwa_username VARCHAR(255),
     cwa_password_encrypted TEXT,
+    log_export_backend VARCHAR(50),
+    log_export_host TEXT,
+    log_export_port INTEGER,
     cwa_timeout_ms INTEGER DEFAULT 20000,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

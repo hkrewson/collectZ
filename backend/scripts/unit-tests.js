@@ -47,6 +47,7 @@ const mediaRoutesSource = require('fs').readFileSync(require.resolve('../routes/
 const openApiSource = require('fs').readFileSync(require.resolve('../openapi/openapi.yaml'), 'utf8');
 const docsRoutesSource = require('fs').readFileSync(require.resolve('../routes/docs'), 'utf8');
 const metricsRoutesSource = require('fs').readFileSync(require.resolve('../routes/metrics'), 'utf8');
+const logExportSource = require('fs').readFileSync(require.resolve('../services/logExport'), 'utf8');
 const serverSource = require('fs').readFileSync(require.resolve('../server'), 'utf8');
 const migrationsSource = require('fs').readFileSync(require.resolve('../db/migrations'), 'utf8');
 const libraryServiceSource = require('fs').readFileSync(require.resolve('../services/libraries'), 'utf8');
@@ -1780,6 +1781,23 @@ results.push(run('loki and syslog structured log smoke sources cover their colle
   assert.ok(structuredLogSyslogSmokeSource.includes('fetchJson'));
   assert.ok(structuredLogSyslogSmokeSource.includes("source: 'syslog-tail'"));
   assert.ok(structuredLogSyslogSmokeSource.includes('withStructuredLogSmokeEvent'));
+}));
+
+results.push(run('observability endpoint control-plane source includes stored config resolution and read-only override handling', () => {
+  assert.ok(migrationsSource.includes('Add observability endpoint control-plane fields'));
+  assert.ok(migrationsSource.includes('log_export_backend'));
+  assert.ok(logExportSource.includes('const LOG_EXPORT_SETTINGS_READ_ONLY'));
+  assert.ok(logExportSource.includes('async function resolveExportConfig'));
+  assert.ok(logExportSource.includes("source: 'env_override'"));
+  assert.ok(logExportSource.includes("source: 'stored'"));
+  assert.ok(logExportSource.includes("source: 'env_fallback'"));
+  assert.ok(integrationsRoutesSource.includes('Unsupported external log backend'));
+  assert.ok(integrationsRoutesSource.includes('External log port must be an integer between 1 and 65535'));
+  assert.ok(integrationsRoutesSource.includes('logExportControl'));
+  assert.ok(observabilityRuntimeSource.includes('configSource'));
+  assert.ok(observabilityRuntimeSource.includes('storedBackend'));
+  assert.ok(observabilityRuntimeSource.includes('envBackend'));
+  assert.ok(dockerComposeSource.includes('LOG_EXPORT_SETTINGS_READ_ONLY'));
 }));
 
 results.push(run('feature flags source includes external log export flag', () => {

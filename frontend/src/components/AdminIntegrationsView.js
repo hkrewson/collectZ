@@ -14,6 +14,15 @@ const INTEGRATION_FEATURE_LABELS = {
   metrics_enabled: 'Metrics Export',
   external_log_export_enabled: 'External Log Export'
 };
+const LOG_EXPORT_BACKEND_OPTIONS = [
+  { value: '', label: 'Use runtime env defaults' },
+  { value: 'off', label: 'Off' },
+  { value: 'gelf_udp', label: 'GELF UDP' },
+  { value: 'gelf_tcp', label: 'GELF TCP' },
+  { value: 'stdout_json', label: 'stdout JSON' },
+  { value: 'syslog_udp', label: 'Syslog UDP' },
+  { value: 'syslog_tcp', label: 'Syslog TCP' }
+];
 const INTEGRATION_VISIBLE_FLAGS = new Set(Object.keys(INTEGRATION_FEATURE_LABELS));
 const SETTINGS_SECTION_FEATURES = {
   metrics: 'metrics_enabled',
@@ -165,7 +174,8 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
     gamesApiKey: '', gamesClientId: '', gamesClientSecret: '', clearGamesApiKey: false, clearGamesClientSecret: false,
     comicsPreset: 'metron', comicsProvider: 'metron', comicsApiUrl: 'https://metron.cloud/api/issue/',
     comicsApiKey: '', comicsUsername: '', clearComicsApiKey: false,
-    cwaOpdsUrl: '', cwaUsername: '', cwaPassword: '', clearCwaPassword: false
+    cwaOpdsUrl: '', cwaUsername: '', cwaPassword: '', clearCwaPassword: false,
+    logExportBackend: '', logExportHost: '', logExportPort: ''
   });
   const [meta, setMeta] = useState({
     barcodeApiKeySet: false, barcodeApiKeyMasked: '',
@@ -191,6 +201,7 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
   const [featureFlagsError, setFeatureFlagsError] = useState('');
   const [savingFeatureKey, setSavingFeatureKey] = useState('');
   const [observabilityRuntime, setObservabilityRuntime] = useState({ logs: null, metrics: null });
+  const [logExportControl, setLogExportControl] = useState(null);
 
   useEffect(() => {
     if (!externalSection || externalSection === section) return;
@@ -215,7 +226,10 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
         audioPreset: data.audioPreset || 'discogs', audioProvider: data.audioProvider || 'discogs', audioApiUrl: data.audioApiUrl || 'https://api.discogs.com/database/search',
         gamesPreset: data.gamesPreset || 'igdb', gamesProvider: data.gamesProvider || 'igdb', gamesApiUrl: data.gamesApiUrl || 'https://api.igdb.com/v4/games', gamesClientId: data.gamesClientId || '',
         comicsPreset: data.comicsPreset || 'metron', comicsProvider: data.comicsProvider || 'metron', comicsApiUrl: data.comicsApiUrl || 'https://metron.cloud/api/issue/', comicsUsername: data.comicsUsername || '',
-        cwaOpdsUrl: data.cwaOpdsUrl || '', cwaUsername: data.cwaUsername || ''
+        cwaOpdsUrl: data.cwaOpdsUrl || '', cwaUsername: data.cwaUsername || '',
+        logExportBackend: data.logExportControl?.stored?.backend || data.logExportControl?.effective?.backend || '',
+        logExportHost: data.logExportControl?.stored?.host || data.logExportControl?.effective?.host || '',
+        logExportPort: String(data.logExportControl?.stored?.port || data.logExportControl?.effective?.port || '')
       }));
       setMeta({
         barcodeApiKeySet: Boolean(data.barcodeApiKeySet), barcodeApiKeyMasked: data.barcodeApiKeyMasked || '',
@@ -230,6 +244,7 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
         decryptHealth: data.decryptHealth || { hasWarnings: false, warnings: [], remediation: '' }
       });
       setObservabilityRuntime(data.observabilityRuntime || { logs: null, metrics: null });
+      setLogExportControl(data.logExportControl || null);
       setStatus({
         barcode: data.barcodeApiKeySet ? 'configured' : 'missing',
         tmdb: data.tmdbApiKeySet ? 'configured' : 'missing',
@@ -341,6 +356,11 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
       clearCwaPassword: form.clearCwaPassword,
       ...(form.cwaPassword && { cwaPassword: form.cwaPassword })
     });
+    else if (sec === 'logs') Object.assign(payload, {
+      logExportBackend: form.logExportBackend,
+      logExportHost: form.logExportHost,
+      logExportPort: form.logExportPort
+    });
     try {
       const updated = await apiCall('put', '/admin/settings/integrations', payload);
       setMeta({
@@ -356,6 +376,7 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
         decryptHealth: updated.decryptHealth || { hasWarnings: false, warnings: [], remediation: '' }
       });
       setObservabilityRuntime(updated.observabilityRuntime || { logs: null, metrics: null });
+      setLogExportControl(updated.logExportControl || null);
       setStatus((s) => ({
         ...s,
         [sec]: sec === 'games'
@@ -370,6 +391,14 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
         clearBarcodeApiKey: false, clearTmdbApiKey: false, clearPlexApiKey: false,
         clearBooksApiKey: false, clearAudioApiKey: false, clearGamesApiKey: false, clearGamesClientSecret: false, clearComicsApiKey: false, clearCwaPassword: false
       }));
+      if (updated.logExportControl) {
+        setForm((f) => ({
+          ...f,
+          logExportBackend: updated.logExportControl.stored?.backend || updated.logExportControl.effective?.backend || '',
+          logExportHost: updated.logExportControl.stored?.host || updated.logExportControl.effective?.host || '',
+          logExportPort: String(updated.logExportControl.stored?.port || updated.logExportControl.effective?.port || '')
+        }));
+      }
       onToast(`${sec.toUpperCase()} settings saved`);
       if (
         sec === 'comics'
@@ -459,6 +488,11 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
   const sectionFeature = SETTINGS_SECTION_FEATURES[section] ? featureFlagMap.get(SETTINGS_SECTION_FEATURES[section]) : null;
   const logsRuntime = observabilityRuntime.logs;
   const metricsRuntime = observabilityRuntime.metrics;
+  const logControlSourceLabel = logExportControl?.source === 'stored'
+    ? 'Using Admin-managed endpoint settings.'
+    : logExportControl?.source === 'env_override'
+      ? 'This deployment is locked to runtime env settings.'
+      : 'No saved endpoint is configured yet, so runtime env values are still in effect.';
 
   return (
     <div className="h-full overflow-y-auto p-4 sm:p-6 space-y-6">
@@ -539,12 +573,48 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
             />
           )}
           <div className="border-t border-edge pt-4 space-y-2">
-            <p className="text-sm font-medium text-ink">Available settings</p>
+            <p className="text-sm font-medium text-ink">Endpoint configuration</p>
             <ul className="space-y-2 text-sm text-dim">
-              <li>Enable or disable external structured log export for activity and audit events here.</li>
-              <li>Transport details still come from runtime infrastructure configuration: `LOG_EXPORT_BACKEND`, `LOG_EXPORT_HOST`, `LOG_EXPORT_PORT`, and related `LOG_EXPORT_*` variables.</li>
-              <li>This page now owns whether export is active. Environment feature-flag overrides no longer supersede this setting.</li>
+              <li>{logControlSourceLabel}</li>
+              <li>The common control-plane fields in this slice are backend/transport, host, and port.</li>
+              <li>Service and host-label fields remain runtime-managed for now so this milestone can land in smaller verified slices.</li>
             </ul>
+          </div>
+          <div className="border-t border-edge pt-4 space-y-3">
+            {logExportControl?.readOnly && (
+              <p className="text-sm text-warn">External log endpoint settings are read-only in this environment (`LOG_EXPORT_SETTINGS_READ_ONLY=true`).</p>
+            )}
+            <div className="grid gap-3 md:grid-cols-3">
+              <LabeledField label="Backend / Transport" cx={cx}>
+                <select
+                  className="select"
+                  value={form.logExportBackend}
+                  disabled={Boolean(logExportControl?.readOnly)}
+                  onChange={(e) => setForm((f) => ({ ...f, logExportBackend: e.target.value }))}
+                >
+                  {LOG_EXPORT_BACKEND_OPTIONS.map((option) => (
+                    <option key={option.value || 'runtime-default'} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </LabeledField>
+              <LabeledField label="Collector Host" cx={cx}>
+                <input
+                  className="input font-mono"
+                  value={form.logExportHost}
+                  disabled={Boolean(logExportControl?.readOnly) || !form.logExportBackend}
+                  onChange={(e) => setForm((f) => ({ ...f, logExportHost: e.target.value }))}
+                />
+              </LabeledField>
+              <LabeledField label="Collector Port" cx={cx}>
+                <input
+                  className="input font-mono"
+                  inputMode="numeric"
+                  value={form.logExportPort}
+                  disabled={Boolean(logExportControl?.readOnly) || !form.logExportBackend}
+                  onChange={(e) => setForm((f) => ({ ...f, logExportPort: e.target.value.replace(/[^\d]/g, '') }))}
+                />
+              </LabeledField>
+            </div>
           </div>
           {logsRuntime && (
             <div className="border-t border-edge pt-4 space-y-3">
@@ -554,6 +624,7 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
               </div>
               <RuntimeKeyValueList rows={[
                 { label: 'State', value: logsRuntime.effectiveState === 'ready' ? 'Ready' : logsRuntime.effectiveState === 'attention' ? 'Needs attention' : 'Disabled' },
+                { label: 'Config source', value: logsRuntime.configSource === 'stored' ? 'Admin-managed settings' : logsRuntime.configSource === 'env_override' ? 'Runtime env override' : 'Runtime env fallback' },
                 { label: 'Backend', value: logsRuntime.backend, mono: true },
                 { label: 'Collector', value: `${logsRuntime.host}:${logsRuntime.port}`, mono: true },
                 { label: 'Service', value: logsRuntime.service, mono: true },
@@ -749,12 +820,18 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
           </label>
         </>}
 
-        {!['logs', 'metrics'].includes(section) && (
+        {!['metrics'].includes(section) && (
           <div className="flex gap-3 pt-2 border-t border-edge">
-            <button onClick={() => test(section)} disabled={testLoading === section} className="btn-secondary btn-sm">
-              {testLoading === section ? <Spinner size={14} /> : 'Test'}
-            </button>
-            <button onClick={() => saveSection(section)} disabled={saving} className="btn-primary btn-sm">
+            {section !== 'logs' && (
+              <button onClick={() => test(section)} disabled={testLoading === section} className="btn-secondary btn-sm">
+                {testLoading === section ? <Spinner size={14} /> : 'Test'}
+              </button>
+            )}
+            <button
+              onClick={() => saveSection(section)}
+              disabled={saving || (section === 'logs' && Boolean(logExportControl?.readOnly))}
+              className="btn-primary btn-sm"
+            >
               {saving ? <Spinner size={14} /> : `Save ${section.toUpperCase()}`}
             </button>
             {section === 'plex' && (

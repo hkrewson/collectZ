@@ -32,17 +32,29 @@ function runProcess(command, args, { env = process.env, cwd = repoRoot } = {}) {
   });
 }
 
+function randomPassword(prefix = 'collectz') {
+  return `${prefix}-${crypto.randomBytes(12).toString('hex')}!A9`;
+}
+
+function sanitizeText(value) {
+  return String(value || '')
+    .replace(/(ADMIN_PASSWORD=)"[^"]*"/g, '$1"[REDACTED]"')
+    .replace(/(GRAYLOG_PASSWORD=)"[^"]*"/g, '$1"[REDACTED]"')
+    .replace(/(-u\s+[^:\s]+:)([^\s]+)/g, '$1[REDACTED]')
+    .replace(/(Authorization:\s*basic\s+)([A-Za-z0-9+/=]+)/gi, '$1[REDACTED]');
+}
+
 function automatedResult(name, command, args, result, startedAt, durationMs) {
   return {
     name,
     kind: 'automated',
     status: result.status === 0 ? 'passed' : 'failed',
-    command: [command, ...args].join(' '),
+    command: sanitizeText([command, ...args].join(' ')),
     startedAt,
     durationMs,
     exitCode: result.status,
-    stdout: String(result.stdout || ''),
-    stderr: String(result.stderr || '')
+    stdout: sanitizeText(String(result.stdout || '')),
+    stderr: sanitizeText(String(result.stderr || ''))
   };
 }
 
@@ -166,7 +178,7 @@ function backendRebuildCheck(name, envOverrides) {
 function createTempAdmin() {
   const suffix = Date.now();
   const email = `observability-evidence-${suffix}@example.com`;
-  const password = 'Passw0rd!123';
+  const password = randomPassword('collectz-admin');
   const script = [
     'const bcrypt=require("bcrypt");',
     'const pool=require("./db/pool");',
@@ -282,7 +294,7 @@ function runLokiCollectorSmoke() {
 }
 
 function runGraylogCollectorSmoke() {
-  const graylogPassword = 'CollectzGraylog!123';
+  const graylogPassword = randomPassword('collectz-graylog');
   const stackEnv = graylogStackEnv(graylogPassword);
   return withTempAdmin('graylog_collector_smoke', (tempAdmin) => {
     const steps = [];

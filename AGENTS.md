@@ -59,3 +59,10 @@ For milestone, release, runtime, monitoring, auth, migration, or deployment work
    - verify the running stack can still serve recent Help > Releases entries.
 17. If a change introduces work from a later roadmap milestone, pause and call out the milestone boundary before continuing.
 18. For OpenAPI, metrics, dashboard, alerting, or monitoring changes, keep implementation, docs/specs, and validation artifacts in sync before calling the slice complete.
+19. Never treat localhost, transient, fixture, smoke-test, or release-evidence credentials as safe to expose in plaintext.
+    - Do not commit plaintext passwords, tokens, API keys, or basic-auth strings into docs, generated artifacts, logs, screenshots, traces, or recorded command strings.
+    - If a workflow or evidence artifact needs to show that a secret-bearing step ran, redact the secret value before writing the artifact.
+    - Prefer runtime-generated ephemeral credentials over hardcoded fallback secrets in release evidence, smoke scripts, and test harnesses whenever practical.
+    - If a scanner flags a transient/local credential, treat it as a real hygiene issue to resolve rather than dismissing it as “only local” or “only test”.
+20. During release, CI, smoke, or artifact work, proactively inspect generated artifacts/logs for secret leakage before calling the slice ready.
+    - This includes release evidence JSON, Playwright artifacts, captured command strings, curl/basic-auth commands, and any uploaded troubleshooting bundles.

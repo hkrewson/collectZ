@@ -42,10 +42,21 @@ Those remain part of the broader `2.6.1` milestone.
 
 Current control surface note:
 
-- The current shipped operator path is split intentionally:
+- The current shipped operator path is now split in a narrower, milestone-scoped way:
   - Integrations owns whether export is enabled.
-  - Runtime env config owns which transport/backend receives the logs.
-- Admin-managed endpoint configuration is intentionally deferred to roadmap milestone `2.9.9 — Observability Endpoint Control Plane`.
+  - `2.9.9` now begins moving common endpoint settings into `Admin -> Integrations -> External Logs`.
+  - The first control-plane slice owns:
+    - backend / transport
+    - collector host
+    - collector port
+  - Runtime env still owns:
+    - `LOG_EXPORT_HOST_LABEL`
+    - `LOG_EXPORT_SERVICE`
+    - `LOG_EXPORT_DEBUG`
+    - `LOG_EXPORT_MAX_DETAIL_BYTES`
+- Optional immutable-runtime mode:
+  - `LOG_EXPORT_SETTINGS_READ_ONLY=true`
+  - when set, UI endpoint fields are read-only and the running env remains authoritative for backend/host/port
 
 ## Local Graylog Example
 
@@ -76,6 +87,12 @@ For longer-lived deployments, start with the example stacks only as proof-of-wir
 ## Fast Diagnosis in Admin -> Integrations
 
 `Admin -> Integrations -> External Logs` now shows runtime checks sourced from the running backend container.
+
+It also begins exposing the common control-plane endpoint fields for the common case:
+
+- backend / transport
+- collector host
+- collector port
 
 Use that view before debugging the collector itself.
 

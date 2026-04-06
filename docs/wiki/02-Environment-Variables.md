@@ -90,12 +90,16 @@ openssl rand -hex 32
       - `syslog_tcp`
   - `LOG_EXPORT_HOST` (default `127.0.0.1`) — log collector host for structured-log export.
   - `LOG_EXPORT_PORT` (default `12201` for GELF/stdout-oriented paths, `514` for syslog backends) — log collector port for structured-log export.
+  - `LOG_EXPORT_SETTINGS_READ_ONLY` (default `false`) — when true, `Admin -> Integrations -> External Logs` becomes read-only for backend/host/port and the running env stays authoritative.
   - `LOG_EXPORT_HOST_LABEL` (default `collectz-backend`) — GELF `host` field value.
   - `LOG_EXPORT_SERVICE` (default `backend`) — structured log `_service` value.
   - `LOG_EXPORT_DEBUG` (default `false`) — emit debug traces for export gating, event build, and transport attempts.
   - `LOG_EXPORT_MAX_DETAIL_BYTES` (default `16384`) — max serialized `_details` payload before truncation.
   - `GIT_SHA` (optional) — build SHA added to structured logs when set.
-    - External structured-log transport remains runtime configured here, while the enable/disable switch now lives in `Admin -> Integrations`.
+    - `2.9.9` begins moving the common case into the admin control plane:
+      - `Admin -> Integrations -> External Logs` can now manage backend / transport, collector host, and collector port when `LOG_EXPORT_SETTINGS_READ_ONLY=false`.
+      - `LOG_EXPORT_HOST_LABEL`, `LOG_EXPORT_SERVICE`, and the debug/detail env remain runtime-managed in this first slice.
+      - if no saved control-plane endpoint exists yet, runtime env values still act as the fallback.
 ## Integration Defaults (Can Be Managed in Admin UI)
 
 These can be set in `.env`, but admin settings in UI now control active global integrations:

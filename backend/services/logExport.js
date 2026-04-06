@@ -2,6 +2,7 @@
 
 const dgram = require('dgram');
 const net = require('net');
+const pool = require('../db/pool');
 const appMeta = require('../app-meta.json');
 const { isFeatureEnabled } = require('./featureFlags');
 
@@ -10,6 +11,8 @@ const DEFAULT_GELF_PORT = 12201;
 const DEFAULT_SYSLOG_PORT = 514;
 const DEFAULT_GELF_HOST = '127.0.0.1';
 const MAX_DETAIL_BYTES = Math.max(1024, Number(process.env.LOG_EXPORT_MAX_DETAIL_BYTES || 16384));
+const LOG_EXPORT_SETTINGS_READ_ONLY = parseBoolean(process.env.LOG_EXPORT_SETTINGS_READ_ONLY, false);
+const LOG_EXPORT_CONFIG_CACHE_TTL_MS = Math.max(1000, Number(process.env.LOG_EXPORT_CONFIG_CACHE_TTL_SECONDS || 10) * 1000);
 const DETAIL_PROMOTION_MAP = {
   key: '_detail_key',
   reason: '_detail_reason',
@@ -18,6 +21,9 @@ const DETAIL_PROMOTION_MAP = {
   requestedEnabled: '_detail_requested_enabled',
   envOverride: '_detail_env_override'
 };
+
+let storedConfigCache = null;
+let storedConfigCacheAt = 0;
 
 function parseBoolean(value, fallback = false) {
   if (value === undefined || value === null || value === '') return fallback;
@@ -39,6 +45,93 @@ function readExportConfig() {
     hostLabel: String(process.env.LOG_EXPORT_HOST_LABEL || 'collectz-backend').trim() || 'collectz-backend',
     gitSha: String(process.env.GIT_SHA || '').trim() || null,
     debugEnabled: parseBoolean(process.env.LOG_EXPORT_DEBUG, false)
+  };
+}
+
+function defaultPortForBackend(backend) {
+  return backend === 'syslog_udp' || backend === 'syslog_tcp'
+    ? DEFAULT_SYSLOG_PORT
+    : DEFAULT_GELF_PORT;
+}
+
+function normalizeStoredExportConfig(row) {
+  const backendRaw = String(row?.log_export_backend || '').trim().toLowerCase();
+  if (!backendRaw || !LOG_EXPORT_BACKENDS.has(backendRaw)) return null;
+  const defaultPort = defaultPortForBackend(backendRaw);
+  return {
+    backend: backendRaw,
+    host: String(row?.log_export_host || DEFAULT_GELF_HOST).trim() || DEFAULT_GELF_HOST,
+    port: Math.max(1, Number(row?.log_export_port || defaultPort) || defaultPort)
+  };
+}
+
+async function loadStoredExportConfig({ forceRefresh = false } = {}) {
+  if (!forceRefresh && storedConfigCache && (Date.now() - storedConfigCacheAt) < LOG_EXPORT_CONFIG_CACHE_TTL_MS) {
+    return storedConfigCache;
+  }
+  const result = await pool.query(
+    'SELECT log_export_backend, log_export_host, log_export_port FROM app_integrations WHERE id = 1'
+  );
+  storedConfigCache = normalizeStoredExportConfig(result.rows[0] || null);
+  storedConfigCacheAt = Date.now();
+  return storedConfigCache;
+}
+
+function invalidateStoredExportConfigCache() {
+  storedConfigCache = null;
+  storedConfigCacheAt = 0;
+}
+
+async function resolveExportConfig(options = {}) {
+  const envConfig = readExportConfig();
+
+  if (LOG_EXPORT_SETTINGS_READ_ONLY) {
+    return {
+      ...envConfig,
+      controlPlane: {
+        readOnly: true,
+        source: 'env_override',
+        supportedBackends: [...LOG_EXPORT_BACKENDS],
+        stored: null,
+        effective: {
+          backend: envConfig.backend,
+          host: envConfig.host,
+          port: envConfig.port
+        }
+      }
+    };
+  }
+
+  const stored = await loadStoredExportConfig(options);
+  if (stored) {
+    return {
+      ...envConfig,
+      backend: stored.backend,
+      host: stored.host,
+      port: stored.port,
+      controlPlane: {
+        readOnly: false,
+        source: 'stored',
+        supportedBackends: [...LOG_EXPORT_BACKENDS],
+        stored,
+        effective: stored
+      }
+    };
+  }
+
+  return {
+    ...envConfig,
+    controlPlane: {
+      readOnly: false,
+      source: 'env_fallback',
+      supportedBackends: [...LOG_EXPORT_BACKENDS],
+      stored: null,
+      effective: {
+        backend: envConfig.backend,
+        host: envConfig.host,
+        port: envConfig.port
+      }
+    }
   };
 }
 
@@ -205,7 +298,7 @@ async function sendTcp(host, port, payload) {
 }
 
 async function emitStructuredLog(event) {
-  const config = readExportConfig();
+  const config = await resolveExportConfig();
   if (config.backend === 'off') return false;
 
   const payload = JSON.stringify(event);
@@ -267,7 +360,7 @@ async function emitStructuredLog(event) {
 }
 
 async function maybeExportActivityLog(event) {
-  const config = readExportConfig();
+  const config = await resolveExportConfig();
   if (config.backend === 'off') {
     debugLog('skip.backend_off', {
       action: event?._action || event?.short_message || null,
@@ -293,15 +386,18 @@ async function maybeExportActivityLog(event) {
 
 module.exports = {
   LOG_EXPORT_BACKENDS,
+  LOG_EXPORT_SETTINGS_READ_ONLY,
   buildGelfEvent,
   debugLog,
   emitStructuredLog,
   inferLevel,
   inferOutcome,
+  invalidateStoredExportConfigCache,
   maybeExportActivityLog,
   omitNilFields,
   formatSyslogMessage,
   promoteDetailFields,
   readExportConfig,
+  resolveExportConfig,
   truncateJsonValue
 };

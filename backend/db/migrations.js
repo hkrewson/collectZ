@@ -2436,6 +2436,18 @@ const MIGRATIONS = [
       END;
       $$;
     `
+  },
+  {
+    version: 54,
+    description: 'Add observability endpoint control-plane fields',
+    up: `
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS log_export_backend VARCHAR(50);
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS log_export_host TEXT;
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS log_export_port INTEGER;
+    `
   }
 ];
 
