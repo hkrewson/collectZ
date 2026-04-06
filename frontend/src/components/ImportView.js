@@ -17,17 +17,17 @@ const cx = (...classes) => classes.filter(Boolean).join(' ');
 function BookCaptureStatusCard({ state }) {
   if (!state) return null;
   const toneClasses = state.tone === 'warning'
-    ? 'border-gold/30 bg-gold/5'
+    ? 'border-gold/40'
     : state.tone === 'success'
-      ? 'border-ok/30 bg-ok/5'
-      : 'border-edge/80 bg-surface';
+      ? 'border-ok/40'
+      : 'border-edge/70';
   const headingClasses = state.tone === 'warning'
     ? 'text-gold'
     : state.tone === 'success'
       ? 'text-ok'
       : 'text-ink';
   return (
-    <div className={cx('rounded-md border p-3 space-y-2', toneClasses)}>
+    <div className={cx('space-y-3 border-t pt-3', toneClasses)}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className={cx('text-sm font-medium', headingClasses)}>{state.heading}</p>
@@ -35,12 +35,12 @@ function BookCaptureStatusCard({ state }) {
         </div>
         <span className="text-xs text-ghost">{state.source}</span>
       </div>
-      <div className="grid gap-2 md:grid-cols-2">
-        <div className="rounded-md border border-edge/80 bg-surface px-3 py-2">
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="border-t border-edge/60 pt-2">
           <p className="text-xs text-ghost">Retail Barcode</p>
           <p className="mt-1 font-mono text-sm text-ink">{state.capturedBarcode || 'Not captured'}</p>
         </div>
-        <div className="rounded-md border border-edge/80 bg-surface px-3 py-2">
+        <div className="border-t border-edge/60 pt-2">
           <p className="text-xs text-ghost">Recovered ISBN</p>
           <p className="mt-1 font-mono text-sm text-ink">{state.recoveredIsbn || 'Not recovered yet'}</p>
         </div>
@@ -416,7 +416,7 @@ export default function ImportView({
         listClassName="gap-5"
       />
 
-      <div className="space-y-5 rounded-md border border-edge/70 bg-surface p-4 sm:p-5">
+      <div className="space-y-6">
         <SectionTabPanel activeId={tab} tabKey="plex" idBase="import-source-tabs" className="space-y-4">
           <div className="space-y-1">
             <p className="text-sm font-medium text-ink">Plex</p>
@@ -432,7 +432,7 @@ export default function ImportView({
               <p className="text-xs text-ghost">Recent jobs</p>
               <div className="space-y-2">
                 {recentJobs.map((job) => (
-                  <div key={job.id} className="rounded-md border border-edge/70 bg-raised/40 px-3 py-2 text-xs text-dim">
+                  <div key={job.id} className="border-t border-edge/60 px-1 pt-2 text-xs text-dim first:border-t-0 first:px-0 first:pt-0">
                     <div className="font-mono text-[11px] text-ghost">Job #{job.id} · {job.provider} · {job.status}</div>
                     {job.progress ? (
                       <div className="mt-1 text-xs text-dim">
@@ -577,7 +577,7 @@ export default function ImportView({
                   ? (m?.book?.type_details?.author || m?.typeDetails?.author || '')
                   : '';
                 return (
-                  <div key={addId} className="flex items-center gap-3 rounded-md border border-edge/70 bg-raised/40 px-3 py-2">
+                  <div key={addId} className="flex items-center gap-3 border-t border-edge/60 px-1 pt-2 first:border-t-0 first:px-0 first:pt-0">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-ink truncate">{title}</p>
                       {subtitle ? <p className="text-xs text-ghost truncate">{subtitle}</p> : null}
@@ -596,12 +596,12 @@ export default function ImportView({
         </SectionTabPanel>
       </div>
 
-      <div className="space-y-1 rounded-md border border-edge/60 bg-surface px-4 py-3 text-xs text-ghost">
+      <div className="space-y-1 border-t border-edge/60 pt-4 text-xs text-ghost">
         <p>Imports match identifier-first, then provider IDs, then title and year fallback.</p>
         <p>Audit downloads include normalized identifiers, match mode, and duplicate-vs-near-match outcomes.</p>
       </div>
 
-      {result && <pre aria-live="polite" className="rounded-md border border-edge/60 bg-surface px-4 py-3 text-xs text-dim whitespace-pre-wrap">{result}</pre>}
+      {result && <pre aria-live="polite" className="border-t border-edge/60 pt-4 text-xs text-dim whitespace-pre-wrap">{result}</pre>}
       {auditRows.length > 0 && (
         <div className="flex">
           <button onClick={downloadAudit} className="btn-secondary"><Icons.Download />Download Audit CSV</button>
