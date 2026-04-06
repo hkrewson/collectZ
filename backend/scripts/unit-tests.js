@@ -254,6 +254,11 @@ results.push(run('media routes expose explicit owned_formats import parsing for 
   assert.ok(mediaRoutesSource.includes('owned_formats,format'));
 }));
 
+results.push(run('media format filter matches any owned format instead of only derived primary format', () => {
+  assert.ok(mediaRoutesSource.includes('function normalizeOwnedFormatFilterValue('));
+  assert.ok(mediaRoutesSource.includes('owned_formats @> ARRAY['));
+}));
+
 results.push(run('playwright multi-format regressions cover create, edit, and import paths', () => {
   assert.ok(libraryMultiFormatBrowserSpecSource.includes("owned_formats).toEqual(['dvd', 'bluray', 'digital'])"));
   assert.ok(libraryMultiFormatBrowserSpecSource.includes("owned_formats).toEqual(['dvd', 'uhd', 'digital'])"));

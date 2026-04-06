@@ -409,6 +409,16 @@ function normalizeMediaFormat(formatValue) {
   return formatLabel || 'Digital';
 }
 
+function normalizeOwnedFormatFilterValue(formatValue) {
+  return normalizeOwnedFormatValue('movie', formatValue)
+    || normalizeOwnedFormatValue('book', formatValue)
+    || normalizeOwnedFormatValue('comic_book', formatValue)
+    || normalizeOwnedFormatValue('game', formatValue)
+    || normalizeOwnedFormatValue('audio', formatValue)
+    || normalizeOwnedFormatValue('tv_series', formatValue)
+    || null;
+}
+
 function parseOwnedFormatsInput(mediaType, rawValue, fallbackFormat = null) {
   if (Array.isArray(rawValue)) {
     return sortOwnedFormats(mediaType, normalizeOwnedFormats(mediaType, rawValue, fallbackFormat));
@@ -3715,9 +3725,10 @@ router.get('/', asyncHandler(async (req, res) => {
     ? `regexp_replace(lower(coalesce(title, '')), '^(the|an|a)\\s+', '', 'i') ${safeSortDir}, lower(title) ${safeSortDir}`
     : `${safeSortBy} ${safeSortDir} NULLS LAST, lower(title) ASC`;
 
-  if (format && format !== 'all' && ALL_DISPLAY_FORMAT_LABELS.includes(format)) {
-    params.push(format);
-    where += ` AND format = $${params.length}`;
+  const normalizedFormatFilter = normalizeOwnedFormatFilterValue(format);
+  if (format && format !== 'all' && (normalizedFormatFilter || ALL_DISPLAY_FORMAT_LABELS.includes(format))) {
+    params.push(normalizedFormatFilter || normalizeOwnedFormatFilterValue(normalizeMediaFormat(format)));
+    where += ` AND owned_formats @> ARRAY[$${params.length}]::text[]`;
   }
 
   if (media_type === 'tv') {
