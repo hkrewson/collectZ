@@ -35,6 +35,15 @@ const { normalizeDeliciousRow } = require('../services/deliciousNormalize');
 const { normalizeIdentifierSet, normalizeIsbn } = require('../services/importIdentifiers');
 const { syncNormalizedMetadataForMedia } = require('../services/mediaTaxonomy');
 const { normalizeTypeDetails } = require('../services/typeDetails');
+const {
+  ALL_DISPLAY_FORMAT_LABELS,
+  getOwnedFormatOptions,
+  normalizeOwnedFormatValue,
+  normalizeOwnedFormats,
+  sortOwnedFormats,
+  derivePrimaryFormat,
+  buildOwnedFormatsPayload
+} = require('../services/mediaFormats');
 const { formatSyncJob } = require('../services/syncJobs');
 const { logError, logActivity } = require('../services/audit');
 const { recordImportJobEvent, recordImportEnrichmentEvent } = require('../services/metrics');
@@ -72,7 +81,6 @@ const tempDiskStorage = multer.diskStorage({
 const tempUpload = multer({ storage: tempDiskStorage, limits: { fileSize: 10 * 1024 * 1024 } });
 const memoryImageUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 }, fileFilter: imageFileFilter });
 
-const MEDIA_FORMATS = ['VHS', 'Blu-ray', 'Digital', 'DVD', '4K UHD', 'Paperback', 'Hardcover', 'Trade'];
 const MEDIA_TYPES = ['movie', 'tv_series', 'tv_episode', 'book', 'audio', 'game', 'comic_book'];
 const TV_WATCH_STATES = new Set(['unwatched', 'in_progress', 'completed']);
 const SYNC_JOB_ALLOWED_FIELDS = new Set([
@@ -383,18 +391,44 @@ function normalizeResolution(value) {
 }
 
 function normalizeMediaFormat(formatValue) {
-  if (!formatValue) return 'Digital';
-  const raw = String(formatValue).trim().toLowerCase();
-  if (!raw) return 'Digital';
-  if (raw.includes('blu')) return 'Blu-ray';
-  if (raw.includes('dvd')) return 'DVD';
-  if (raw.includes('vhs')) return 'VHS';
-  if (raw.includes('digital') || raw.includes('stream')) return 'Digital';
-  if (raw.includes('4k') || raw.includes('uhd')) return '4K UHD';
-  if (raw.includes('paperback')) return 'Paperback';
-  if (raw.includes('hardcover') || raw.includes('hard cover')) return 'Hardcover';
-  if (raw.includes('trade')) return 'Trade';
-  return MEDIA_FORMATS.includes(formatValue) ? formatValue : 'Digital';
+  const normalized = normalizeOwnedFormatValue('movie', formatValue)
+    || normalizeOwnedFormatValue('book', formatValue)
+    || normalizeOwnedFormatValue('comic_book', formatValue)
+    || normalizeOwnedFormatValue('game', formatValue)
+    || normalizeOwnedFormatValue('audio', formatValue)
+    || normalizeOwnedFormatValue('tv_series', formatValue);
+  if (!normalized) {
+    return ALL_DISPLAY_FORMAT_LABELS.includes(formatValue) ? formatValue : 'Digital';
+  }
+  const formatLabel = derivePrimaryFormat('movie', [normalized], null)
+    || derivePrimaryFormat('book', [normalized], null)
+    || derivePrimaryFormat('comic_book', [normalized], null)
+    || derivePrimaryFormat('game', [normalized], null)
+    || derivePrimaryFormat('audio', [normalized], null)
+    || derivePrimaryFormat('tv_series', [normalized], null);
+  return formatLabel || 'Digital';
+}
+
+function normalizeMediaRecord(row = {}) {
+  const payload = buildOwnedFormatsPayload(row.media_type || 'movie', row.owned_formats, row.format);
+  return {
+    ...row,
+    owned_formats: payload.ownedFormats,
+    format: payload.format,
+    cast: row.cast || row.cast_members || null
+  };
+}
+
+function validateOwnedFormatsForType(mediaType, ownedFormats = []) {
+  const allowed = new Set(getOwnedFormatOptions(mediaType).map((entry) => entry.value));
+  const values = Array.isArray(ownedFormats)
+    ? ownedFormats
+    : (ownedFormats === null || ownedFormats === undefined || ownedFormats === '' ? [] : [ownedFormats]);
+  const invalid = values
+    .map((value) => String(value || '').trim())
+    .filter(Boolean)
+    .filter((value) => !allowed.has(value));
+  return invalid.length > 0 ? `Invalid owned_formats for ${mediaType}: ${invalid.join(', ')}` : null;
 }
 
 function getRowValue(row, name) {
@@ -436,6 +470,7 @@ function normalizeCalibreRows(rows = []) {
     const isComic = tags.includes('comic') || tags.includes('manga') || formats.includes('cbz') || formats.includes('cbr');
     const year = parseYear(value('pubdate') || value('date') || value('year'));
     const format = isComic ? 'Digital' : (normalizeMediaFormat(value('format')) || 'Digital');
+    const ownedFormats = normalizeOwnedFormats(isComic ? 'comic_book' : 'book', null, format);
     const series = value('series');
     const seriesIndex = value('series_index') || value('series index') || value('index');
 
@@ -446,6 +481,7 @@ function normalizeCalibreRows(rows = []) {
       release_date: parseCalibreDate(value('pubdate') || value('date')),
       year: year ? String(year) : '',
       format,
+      owned_formats: ownedFormats,
       genre: value('tags') || value('genre') || '',
       director: '',
       rating: value('rating') || '',
@@ -1005,7 +1041,7 @@ async function enrichImportItemWithTmdb(item, config, cache, options = {}, track
     return {
       ...item,
       ...cached,
-      format: item.format || 'Digital'
+      ...buildOwnedFormatsPayload(item.media_type || 'movie', item.owned_formats, item.format)
     };
   }
 
@@ -1053,7 +1089,11 @@ async function enrichImportItemWithTmdb(item, config, cache, options = {}, track
       original_title: item.original_title || candidate?.original_title || candidate?.original_name || null
     };
     cache.set(cacheKey, enriched);
-    return { ...item, ...enriched, format: item.format || 'Digital' };
+    return {
+      ...item,
+      ...enriched,
+      ...buildOwnedFormatsPayload(item.media_type || 'movie', item.owned_formats, item.format)
+    };
   } catch (_error) {
     if (tracker) {
       const status = Number(_error?.status || _error?.response?.status || 0) || 'unknown';
@@ -1483,12 +1523,14 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
     }
 
     if (existingRow) {
+      const ownedFormatState = buildOwnedFormatsPayload(normalizedMediaType, item.owned_formats, item.format);
       const updateParams = [
         normalizedMediaType,
         item.original_title || null,
         item.release_date || null,
         item.year || null,
-        item.format || null,
+        ownedFormatState.format || null,
+        ownedFormatState.ownedFormats,
         item.genre || null,
         item.director || null,
         item.cast || null,
@@ -1522,30 +1564,31 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
            release_date = COALESCE($3, release_date),
            year = COALESCE($4, year),
            format = COALESCE($5, format),
-           genre = COALESCE($6, genre),
-           director = COALESCE($7, director),
-           cast_members = COALESCE($8, cast_members),
-           rating = COALESCE($9, rating),
-           user_rating = COALESCE($10, user_rating),
-           tmdb_id = COALESCE($11, tmdb_id),
-           tmdb_media_type = COALESCE($12, tmdb_media_type),
-           tmdb_url = COALESCE($13, tmdb_url),
-           poster_path = COALESCE($14, poster_path),
-           backdrop_path = COALESCE($15, backdrop_path),
-           overview = COALESCE($16, overview),
-           trailer_url = COALESCE($17, trailer_url),
-           runtime = COALESCE($18, runtime),
-           upc = COALESCE($19, upc),
-           signed_by = COALESCE($20, signed_by),
-           signed_role = COALESCE($21, signed_role),
-           signed_on = COALESCE($22, signed_on),
-           signed_at = COALESCE($23, signed_at),
-           signed_proof_path = COALESCE($24, signed_proof_path),
-           location = COALESCE($25, location),
-           notes = COALESCE($26, notes),
-           type_details = COALESCE($27::jsonb, type_details),
-           import_source = COALESCE($28, import_source)
-         WHERE id = $29${updateScopeClause}
+           owned_formats = COALESCE($6::text[], owned_formats),
+           genre = COALESCE($7, genre),
+           director = COALESCE($8, director),
+           cast_members = COALESCE($9, cast_members),
+           rating = COALESCE($10, rating),
+           user_rating = COALESCE($11, user_rating),
+           tmdb_id = COALESCE($12, tmdb_id),
+           tmdb_media_type = COALESCE($13, tmdb_media_type),
+           tmdb_url = COALESCE($14, tmdb_url),
+           poster_path = COALESCE($15, poster_path),
+           backdrop_path = COALESCE($16, backdrop_path),
+           overview = COALESCE($17, overview),
+           trailer_url = COALESCE($18, trailer_url),
+           runtime = COALESCE($19, runtime),
+           upc = COALESCE($20, upc),
+           signed_by = COALESCE($21, signed_by),
+           signed_role = COALESCE($22, signed_role),
+           signed_on = COALESCE($23, signed_on),
+           signed_at = COALESCE($24, signed_at),
+           signed_proof_path = COALESCE($25, signed_proof_path),
+           location = COALESCE($26, location),
+           notes = COALESCE($27, notes),
+           type_details = COALESCE($28::jsonb, type_details),
+           import_source = COALESCE($29, import_source)
+         WHERE id = $30${updateScopeClause}
          RETURNING id, genre, director, cast_members AS cast`,
         updateParams
       );
@@ -1567,13 +1610,14 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
       };
     }
 
+    const ownedFormatState = buildOwnedFormatsPayload(normalizedMediaType, item.owned_formats, item.format);
     const inserted = await pool.query(
       `INSERT INTO media (
-         title, media_type, original_title, release_date, year, format, genre, director, cast_members,
+         title, media_type, original_title, release_date, year, format, owned_formats, genre, director, cast_members,
          rating, user_rating, tmdb_id, tmdb_media_type, tmdb_url, poster_path, backdrop_path, overview, trailer_url,
          runtime, upc, signed_by, signed_role, signed_on, signed_at, signed_proof_path, location, notes, type_details, library_id, space_id, added_by, import_source
        ) VALUES (
-         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28::jsonb,$29,$30,$31,$32
+         $1,$2,$3,$4,$5,$6,$7::text[],$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29::jsonb,$30,$31,$32,$33
        )
        RETURNING id, genre, director, cast_members AS cast`,
       [
@@ -1582,7 +1626,8 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
         item.original_title || null,
         item.release_date || null,
         item.year || null,
-        item.format || 'Digital',
+        ownedFormatState.format || 'Digital',
+        ownedFormatState.ownedFormats,
         item.genre || null,
         item.director || null,
         item.cast || null,
@@ -2469,11 +2514,13 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
         }
 
         if (existing) {
+        const ownedFormatState = buildOwnedFormatsPayload(media.media_type || 'movie', media.owned_formats, media.format);
         const updateParams = [
           media.original_title,
           media.release_date,
           media.year,
-          media.format,
+          ownedFormatState.format,
+          ownedFormatState.ownedFormats,
           media.director,
           media.cast,
           media.rating,
@@ -2492,25 +2539,26 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
         const updateScopeClause = appendScopeSql(updateParams, scopeContext);
         await pool.query(
           `UPDATE media SET
-             original_title = COALESCE($1, original_title),
-             release_date = COALESCE($2, release_date),
-             year = COALESCE($3, year),
-             format = COALESCE($4, format),
-             director = COALESCE($5, director),
-             cast_members = COALESCE($6, cast_members),
-             rating = COALESCE($7, rating),
-             runtime = COALESCE($8, runtime),
-             poster_path = COALESCE($9, poster_path),
-             backdrop_path = COALESCE($10, backdrop_path),
-             overview = COALESCE($11, overview),
-             tmdb_id = COALESCE($12, tmdb_id),
-             tmdb_media_type = COALESCE($13, tmdb_media_type),
-             tmdb_url = COALESCE($14, tmdb_url),
-             media_type = COALESCE($15, media_type),
-             network = COALESCE($16, network),
-             notes = COALESCE($17, notes),
-             import_source = 'plex'
-           WHERE id = $18${updateScopeClause}
+           original_title = COALESCE($1, original_title),
+           release_date = COALESCE($2, release_date),
+           year = COALESCE($3, year),
+           format = COALESCE($4, format),
+           owned_formats = COALESCE($5::text[], owned_formats),
+           director = COALESCE($6, director),
+           cast_members = COALESCE($7, cast_members),
+           rating = COALESCE($8, rating),
+           runtime = COALESCE($9, runtime),
+           poster_path = COALESCE($10, poster_path),
+           backdrop_path = COALESCE($11, backdrop_path),
+           overview = COALESCE($12, overview),
+           tmdb_id = COALESCE($13, tmdb_id),
+           tmdb_media_type = COALESCE($14, tmdb_media_type),
+           tmdb_url = COALESCE($15, tmdb_url),
+           media_type = COALESCE($16, media_type),
+           network = COALESCE($17, network),
+           notes = COALESCE($18, notes),
+           import_source = 'plex'
+           WHERE id = $19${updateScopeClause}
            RETURNING id, genre, director, cast_members AS cast`,
           updateParams
         );
@@ -2540,13 +2588,14 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
         });
           summary.updated += 1;
         } else {
+        const ownedFormatState = buildOwnedFormatsPayload(media.media_type || 'movie', media.owned_formats, media.format);
         const inserted = await pool.query(
           `INSERT INTO media (
-             title, original_title, release_date, year, format, director, cast_members, rating,
+             title, original_title, release_date, year, format, owned_formats, director, cast_members, rating,
              runtime, poster_path, backdrop_path, overview, tmdb_id, tmdb_media_type, tmdb_url, media_type, network, notes,
              library_id, space_id, added_by, import_source
            ) VALUES (
-             $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22
+             $1,$2,$3,$4,$5,$6::text[],$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23
            )
            RETURNING id, genre, director, cast_members AS cast`,
           [
@@ -2554,7 +2603,8 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
             media.original_title,
             media.release_date,
             media.year,
-            media.format || 'Digital',
+            ownedFormatState.format || 'Digital',
+            ownedFormatState.ownedFormats,
             media.director,
             media.cast,
             media.rating,
@@ -3629,7 +3679,7 @@ router.get('/', asyncHandler(async (req, res) => {
     ? `regexp_replace(lower(coalesce(title, '')), '^(the|an|a)\\s+', '', 'i') ${safeSortDir}, lower(title) ${safeSortDir}`
     : `${safeSortBy} ${safeSortDir} NULLS LAST, lower(title) ASC`;
 
-  if (format && format !== 'all' && MEDIA_FORMATS.includes(format)) {
+  if (format && format !== 'all' && ALL_DISPLAY_FORMAT_LABELS.includes(format)) {
     params.push(format);
     where += ` AND format = $${params.length}`;
   }
@@ -3820,10 +3870,7 @@ router.get('/', asyncHandler(async (req, res) => {
      OFFSET $${params.length}`,
     params
   );
-  const normalizedItems = result.rows.map((row) => ({
-    ...row,
-    cast: row.cast || row.cast_members || null
-  }));
+  const normalizedItems = result.rows.map((row) => normalizeMediaRecord(row));
   const totalPages = total > 0 ? Math.ceil(total / limitNum) : 1;
   res.json({
     items: normalizedItems,
@@ -5967,7 +6014,8 @@ router.post('/:id/convert-to-collection', asyncHandler(async (req, res) => {
     original_title: media.original_title || null,
     release_date: media.release_date || null,
     year: media.year || null,
-    format: media.format || 'Digital',
+    format: derivePrimaryFormat(normalizedMediaType, media.owned_formats, media.format) || 'Digital',
+    owned_formats: sortOwnedFormats(normalizedMediaType, media.owned_formats || []),
     genre: media.genre || null,
     director: media.director || null,
     cast_members: media.cast_members || null,
@@ -6062,23 +6110,26 @@ router.post('/collections/:id/convert-to-individual', asyncHandler(async (req, r
     const snapshot = payload.media_snapshot && typeof payload.media_snapshot === 'object'
       ? payload.media_snapshot
       : null;
+    const restoredType = normalizeMediaType(snapshot?.media_type || collection.rows[0].media_type || 'movie', 'movie');
+    const restoredOwnedFormatState = buildOwnedFormatsPayload(restoredType, snapshot?.owned_formats, snapshot?.format);
     const insert = await pool.query(
       `INSERT INTO media (
-         title, media_type, original_title, release_date, year, format, genre, director, cast_members,
+         title, media_type, original_title, release_date, year, format, owned_formats, genre, director, cast_members,
          rating, user_rating, tmdb_id, tmdb_media_type, tmdb_url, poster_path, backdrop_path, overview,
          trailer_url, runtime, upc, signed_by, signed_role, signed_on, signed_at, signed_proof_path, location, notes,
          type_details, library_id, space_id, added_by, import_source
        ) VALUES (
-         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28::jsonb,$29,$30,$31,$32
+         $1,$2,$3,$4,$5,$6,$7::text[],$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29::jsonb,$30,$31,$32,$33
        )
        RETURNING id, genre, director, cast_members AS cast`,
       [
         (snapshot?.title || item.contained_title || collection.rows[0].name || '').trim() || `Title ${collectionId}`,
-        normalizeMediaType(snapshot?.media_type || collection.rows[0].media_type || 'movie', 'movie'),
+        restoredType,
         snapshot?.original_title || null,
         snapshot?.release_date || null,
         snapshot?.year || null,
-        snapshot?.format || 'Digital',
+        restoredOwnedFormatState.format || 'Digital',
+        restoredOwnedFormatState.ownedFormats,
         snapshot?.genre || null,
         snapshot?.director || null,
         snapshot?.cast_members || null,
@@ -6133,7 +6184,7 @@ router.post('/collections/:id/convert-to-individual', asyncHandler(async (req, r
 router.post('/', validate(mediaCreateSchema), asyncHandler(async (req, res) => {
   const scopeContext = resolveScopeContext(req);
   const {
-    title, media_type, original_title, release_date, year, format, genre, director, rating,
+    title, media_type, original_title, release_date, year, format, owned_formats, genre, director, rating,
     cast,
     user_rating, tmdb_id, tmdb_media_type, tmdb_url, poster_path, backdrop_path, overview,
     trailer_url, runtime, upc, signed_by, signed_role, signed_on, signed_at, signed_proof_path, location, notes, import_source,
@@ -6154,6 +6205,11 @@ router.post('/', validate(mediaCreateSchema), asyncHandler(async (req, res) => {
     });
   }
   const normalizedTypeDetails = normalizedTypeDetailsResult.value;
+  const ownedFormatState = buildOwnedFormatsPayload(normalizedMediaType, owned_formats, format);
+  const ownedFormatsValidationError = validateOwnedFormatsForType(normalizedMediaType, ownedFormatState.ownedFormats);
+  if (ownedFormatsValidationError) {
+    return res.status(400).json({ error: ownedFormatsValidationError });
+  }
   const fieldValidationError = validateTypeSpecificFields(normalizedMediaType, req.body);
   if (fieldValidationError) {
     return res.status(400).json({ error: fieldValidationError });
@@ -6161,16 +6217,16 @@ router.post('/', validate(mediaCreateSchema), asyncHandler(async (req, res) => {
 
   const result = await pool.query(
     `INSERT INTO media (
-       title, media_type, original_title, release_date, year, format, genre, director, cast_members, rating,
+       title, media_type, original_title, release_date, year, format, owned_formats, genre, director, cast_members, rating,
        user_rating, tmdb_id, tmdb_media_type, tmdb_url, poster_path, backdrop_path, overview,
        trailer_url, runtime, upc, signed_by, signed_role, signed_on, signed_at, signed_proof_path, location, notes, season_number, episode_number, episode_title, network,
        type_details, library_id, space_id, added_by, import_source
      ) VALUES (
-       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32::jsonb,$33,$34,$35,$36
+       $1,$2,$3,$4,$5,$6,$7::text[],$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33::jsonb,$34,$35,$36,$37
      ) RETURNING *, cast_members AS cast`,
     [
-      title, normalizedMediaType, original_title || null, release_date || null, year || null, format || null,
-      genre || null, director || null, cast || null, rating || null, user_rating || null,
+      title, normalizedMediaType, original_title || null, release_date || null, year || null, ownedFormatState.format || null,
+      ownedFormatState.ownedFormats, genre || null, director || null, cast || null, rating || null, user_rating || null,
       tmdb_id || null, tmdb_media_type || null, tmdb_url || null, poster_path || null, backdrop_path || null,
       overview || null, trailer_url || null, runtime || null, upc || null, signed_by || null,
       signed_role || null, signed_on || null, signed_at || null, signed_proof_path || null, location || null, notes || null,
@@ -6181,7 +6237,7 @@ router.post('/', validate(mediaCreateSchema), asyncHandler(async (req, res) => {
       req.user.id, import_source || 'manual'
     ]
   );
-  const created = result.rows[0];
+  const created = normalizeMediaRecord(result.rows[0]);
   await syncNormalizedMetadataForMedia({
     mediaId: created.id,
     genre: created.genre,
@@ -6200,7 +6256,7 @@ router.patch('/:id', validate(mediaUpdateSchema), asyncHandler(async (req, res) 
   const { id } = req.params;
 
   const ALLOWED_FIELDS = [
-    'title', 'media_type', 'original_title', 'release_date', 'year', 'format', 'genre', 'director', 'cast',
+    'title', 'media_type', 'original_title', 'release_date', 'year', 'format', 'owned_formats', 'genre', 'director', 'cast',
     'rating', 'user_rating', 'tmdb_id', 'tmdb_media_type', 'tmdb_url', 'poster_path', 'backdrop_path',
     'overview', 'trailer_url', 'runtime', 'upc', 'signed_by', 'signed_role', 'signed_on', 'signed_at', 'signed_proof_path', 'location', 'notes', 'season_number',
     'episode_number', 'episode_title', 'network', 'type_details', 'library_id', 'space_id'
@@ -6219,23 +6275,47 @@ router.patch('/:id', validate(mediaUpdateSchema), asyncHandler(async (req, res) 
 
   const touchesTypeSpecific = ['season_number', 'episode_number', 'episode_title', 'network']
     .some((key) => Object.prototype.hasOwnProperty.call(fields, key));
+  const touchesFormatState = ['media_type', 'format', 'owned_formats']
+    .some((key) => Object.prototype.hasOwnProperty.call(fields, key));
   let effectiveMediaType = null;
+  let currentFormatState = null;
   if (fields.media_type) {
     effectiveMediaType = normalizeMediaType(fields.media_type, 'movie');
     fields.media_type = effectiveMediaType;
-  } else if (touchesTypeSpecific || Object.prototype.hasOwnProperty.call(fields, 'type_details')) {
+  }
+  if (touchesTypeSpecific || Object.prototype.hasOwnProperty.call(fields, 'type_details') || touchesFormatState) {
     const mediaTypeParams = [id];
     const mediaTypeScopeClause = appendScopeSql(mediaTypeParams, scopeContext);
     const currentTypeResult = await pool.query(
-      `SELECT media_type FROM media WHERE id = $1${mediaTypeScopeClause} LIMIT 1`,
+      `SELECT media_type, format, owned_formats FROM media WHERE id = $1${mediaTypeScopeClause} LIMIT 1`,
       mediaTypeParams
     );
-    effectiveMediaType = normalizeMediaType(currentTypeResult.rows[0]?.media_type || 'movie', 'movie');
+    currentFormatState = currentTypeResult.rows[0] || null;
+    effectiveMediaType = effectiveMediaType || normalizeMediaType(currentFormatState?.media_type || 'movie', 'movie');
   }
   fields = stripIncompatibleTypeSpecificFields(effectiveMediaType || 'movie', fields);
   const fieldValidationError = validateTypeSpecificFields(effectiveMediaType || 'movie', fields);
   if (fieldValidationError) {
     return res.status(400).json({ error: fieldValidationError });
+  }
+  if (touchesFormatState) {
+    const nextOwnedFormatsInput = Object.prototype.hasOwnProperty.call(fields, 'owned_formats')
+      ? fields.owned_formats
+      : currentFormatState?.owned_formats;
+    const nextFormatFallback = Object.prototype.hasOwnProperty.call(fields, 'owned_formats')
+      ? fields.format
+      : (Object.prototype.hasOwnProperty.call(fields, 'format') ? fields.format : currentFormatState?.format);
+    const ownedFormatState = buildOwnedFormatsPayload(
+      effectiveMediaType || 'movie',
+      nextOwnedFormatsInput,
+      nextFormatFallback
+    );
+    const ownedFormatsValidationError = validateOwnedFormatsForType(effectiveMediaType || 'movie', ownedFormatState.ownedFormats);
+    if (ownedFormatsValidationError) {
+      return res.status(400).json({ error: ownedFormatsValidationError });
+    }
+    fields.owned_formats = ownedFormatState.ownedFormats;
+    fields.format = ownedFormatState.format;
   }
   if (Object.prototype.hasOwnProperty.call(fields, 'type_details')) {
     const detailType = effectiveMediaType || 'movie';
@@ -6284,7 +6364,7 @@ router.patch('/:id', validate(mediaUpdateSchema), asyncHandler(async (req, res) 
     }
     return res.status(403).json({ error: 'You do not have permission to edit this item' });
   }
-  const updated = result.rows[0];
+  const updated = normalizeMediaRecord(result.rows[0]);
   await syncNormalizedMetadataForMedia({
     mediaId: updated.id,
     genre: updated.genre,

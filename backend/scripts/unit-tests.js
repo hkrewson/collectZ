@@ -9,6 +9,7 @@ const { mapDeliciousItemTypeToMediaType } = require('../services/importMapping')
 const { normalizeDeliciousRow } = require('../services/deliciousNormalize');
 const { normalizeIsbn, normalizeIdentifierSet } = require('../services/importIdentifiers');
 const { normalizeTypeDetails } = require('../services/typeDetails');
+const { buildOwnedFormatsPayload, getOwnedFormatLabel } = require('../services/mediaFormats');
 const { compareReleaseVersions, parseReleaseMarkdown } = require('../services/releaseNotes');
 const {
   SUPPORT_ACCESS_APPROVAL_TTL_DAYS,
@@ -228,6 +229,22 @@ results.push(run('importIdentifiers.normalizeIsbn converts ISBN-10 values with X
 
 results.push(run('importIdentifiers.normalizeIsbn rejects invalid ISBN-10 values with bad X check digits', () => {
   assert.strictEqual(normalizeIsbn('0553572751'), '');
+}));
+
+results.push(run('mediaFormats.buildOwnedFormatsPayload preserves multi-format ownership and derives primary display format', () => {
+  const moviePayload = buildOwnedFormatsPayload('movie', ['dvd', 'uhd', 'bluray'], null);
+  assert.deepStrictEqual(moviePayload.ownedFormats, ['dvd', 'bluray', 'uhd']);
+  assert.strictEqual(moviePayload.format, '4K UHD');
+
+  const audioPayload = buildOwnedFormatsPayload('audio', ['cassette', 'vinyl', 'digital'], null);
+  assert.deepStrictEqual(audioPayload.ownedFormats, ['cassette', 'vinyl', 'digital']);
+  assert.strictEqual(audioPayload.format, 'Digital');
+}));
+
+results.push(run('mediaFormats.getOwnedFormatLabel maps canonical values to stable UI labels', () => {
+  assert.strictEqual(getOwnedFormatLabel('book', 'trade_paperback'), 'Trade Paperback');
+  assert.strictEqual(getOwnedFormatLabel('movie', 'bluray'), 'Blu-ray');
+  assert.strictEqual(getOwnedFormatLabel('audio', 'eight_track'), '8 Track');
 }));
 
 results.push(run('releaseNotes.parseReleaseMarkdown extracts summary and change sections for help center feed', () => {

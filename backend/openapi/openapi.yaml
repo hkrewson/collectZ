@@ -853,6 +853,11 @@
                 "title": { "type": "string" },
                 "media_type": { "type": "string" },
                 "year": { "type": ["integer", "null"] },
+                "format": { "type": ["string", "null"] },
+                "owned_formats": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                },
                 "library_id": { "type": ["integer", "null"] },
                 "tmdb_id": { "type": ["integer", "null"] },
                 "tmdb_media_type": { "type": ["string", "null"] },

@@ -1,6 +1,7 @@
 const { z } = require('zod');
 const { logActivity } = require('../services/audit');
 const { normalizeTypeDetails } = require('../services/typeDetails');
+const { ALL_OWNED_FORMAT_VALUES, getOwnedFormatFamily, getOwnedFormatOptions } = require('../services/mediaFormats');
 const { COLLECTIBLE_SUBTYPES } = require('../services/collectibles');
 const { PERSONAL_ACCESS_TOKEN_SCOPES } = require('../services/personalAccessTokens');
 const { SERVICE_ACCOUNT_KEY_SCOPES, SERVICE_ACCOUNT_ALLOWED_PREFIXES } = require('../services/serviceAccountKeys');
@@ -67,7 +68,6 @@ const upcLookupSchema = z.object({
 
 // ── Media ─────────────────────────────────────────────────────────────────────
 
-const MEDIA_FORMATS = ['VHS', 'Blu-ray', 'Digital', 'DVD', '4K UHD', 'Paperback', 'Hardcover', 'Trade'];
 const MEDIA_TYPES = ['movie', 'tv_series', 'tv_episode', 'book', 'audio', 'game', 'comic_book'];
 const nullableDateSchema = z.preprocess(
   emptyStringToNull,
@@ -93,7 +93,8 @@ const mediaBaseSchema = z.object({
   original_title: z.string().max(500).optional().nullable(),
   release_date: nullableDateSchema,
   year: nullableNumberSchema(z.number().int().min(1888).max(2100)),
-  format: z.enum(MEDIA_FORMATS).optional().nullable(),
+  format: z.string().max(50).optional().nullable(),
+  owned_formats: z.array(z.enum(ALL_OWNED_FORMAT_VALUES)).max(16).optional().nullable(),
   genre: z.string().max(100).optional().nullable(),
   director: z.string().max(255).optional().nullable(),
   cast: z.string().max(1000).optional().nullable(),
@@ -126,6 +127,8 @@ const mediaBaseSchema = z.object({
 
 const mediaCreateSchema = mediaBaseSchema.superRefine((data, ctx) => {
   const mediaType = data.media_type || 'movie';
+  const formatFamily = getOwnedFormatFamily(mediaType);
+  const allowedOwnedFormats = new Set(getOwnedFormatOptions(formatFamily).map((entry) => entry.value));
   const hasSeason = data.season_number !== undefined && data.season_number !== null;
   const hasEpisodeNumber = data.episode_number !== undefined && data.episode_number !== null;
   const hasEpisodeTitle = data.episode_title !== undefined && data.episode_title !== null && String(data.episode_title).trim() !== '';
@@ -143,6 +146,16 @@ const mediaCreateSchema = mediaBaseSchema.superRefine((data, ctx) => {
       code: z.ZodIssueCode.custom,
       message: 'TV series entries cannot include episode-specific fields'
     });
+  }
+  if (Array.isArray(data.owned_formats)) {
+    const invalidFormats = data.owned_formats.filter((value) => !allowedOwnedFormats.has(value));
+    if (invalidFormats.length > 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['owned_formats'],
+        message: `Invalid owned_formats for ${mediaType}: ${invalidFormats.join(', ')}`
+      });
+    }
   }
   if (data.type_details && typeof data.type_details === 'object') {
     const normalized = normalizeTypeDetails(mediaType, data.type_details, { strict: true });
@@ -171,6 +184,18 @@ const mediaUpdateSchema = mediaBaseSchema.partial().superRefine((data, ctx) => {
       message: 'At least one field is required for update'
     });
     return;
+  }
+  if (Array.isArray(data.owned_formats) && data.media_type) {
+    const formatFamily = getOwnedFormatFamily(data.media_type);
+    const allowedOwnedFormats = new Set(getOwnedFormatOptions(formatFamily).map((entry) => entry.value));
+    const invalidFormats = data.owned_formats.filter((value) => !allowedOwnedFormats.has(value));
+    if (invalidFormats.length > 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['owned_formats'],
+        message: `Invalid owned_formats for ${data.media_type}: ${invalidFormats.join(', ')}`
+      });
+    }
   }
   if (data.type_details && typeof data.type_details === 'object' && data.media_type) {
     const mediaType = data.media_type;

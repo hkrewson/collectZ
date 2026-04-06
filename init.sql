@@ -46,7 +46,15 @@ CREATE TABLE IF NOT EXISTS media (
     original_title VARCHAR(500),
     release_date DATE,
     year INTEGER,
-    format VARCHAR(50) CHECK (format IN ('VHS', 'Blu-ray', 'Digital', 'DVD', '4K UHD', 'Paperback', 'Hardcover', 'Trade')),
+    format VARCHAR(50) CHECK (format IN ('VHS', 'Beta', 'Laserdisc', 'DVD', 'Blu-ray', '4K UHD', 'Digital', 'Paperback', 'Trade Paperback', 'Hardcover', 'Paper', 'Disc', 'Card', 'Cartridge', '4 Track', '8 Track', 'Cassette', 'Vinyl', 'CD')),
+    owned_formats TEXT[] NOT NULL DEFAULT ARRAY[]::text[] CHECK (
+      (media_type = 'book' AND owned_formats <@ ARRAY['digital', 'paperback', 'trade_paperback', 'hardcover']::text[])
+      OR (media_type = 'comic_book' AND owned_formats <@ ARRAY['digital', 'paper']::text[])
+      OR (media_type = 'game' AND owned_formats <@ ARRAY['digital', 'disc', 'card', 'cartridge']::text[])
+      OR (media_type = 'audio' AND owned_formats <@ ARRAY['four_track', 'eight_track', 'cassette', 'vhs', 'vinyl', 'cd', 'digital']::text[])
+      OR (media_type = 'movie' AND owned_formats <@ ARRAY['vhs', 'beta', 'laserdisc', 'dvd', 'bluray', 'uhd', 'digital']::text[])
+      OR (media_type IN ('tv_series', 'tv_episode') AND owned_formats <@ ARRAY['vhs', 'dvd', 'bluray', 'uhd', 'digital']::text[])
+    ),
     genre VARCHAR(100),
     director VARCHAR(255),
     cast_members VARCHAR(1000),
@@ -875,5 +883,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (54, 'Add observability endpoint control-plane fields'),
     (55, 'Add observability endpoint validation fields'),
     (56, 'Add observability endpoint label fields'),
-    (57, 'Add observability endpoint debug field')
+    (57, 'Add observability endpoint debug field'),
+    (58, 'Add multi-format ownership fields for media entries')
 ON CONFLICT (version) DO NOTHING;

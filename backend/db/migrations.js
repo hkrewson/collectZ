@@ -2484,6 +2484,125 @@ const MIGRATIONS = [
       ALTER TABLE app_integrations
         ADD COLUMN IF NOT EXISTS log_export_debug BOOLEAN;
     `
+  },
+  {
+    version: 58,
+    description: 'Add multi-format ownership fields for media entries',
+    up: `
+      ALTER TABLE media
+        ADD COLUMN IF NOT EXISTS owned_formats TEXT[] NOT NULL DEFAULT ARRAY[]::text[];
+
+      UPDATE media
+      SET owned_formats = CASE
+        WHEN format IS NULL THEN ARRAY[]::text[]
+        WHEN COALESCE(media_type, 'movie') = 'book' THEN array_remove(ARRAY[
+          CASE
+            WHEN format = 'Digital' THEN 'digital'
+            WHEN format = 'Paperback' THEN 'paperback'
+            WHEN format = 'Trade' THEN 'trade_paperback'
+            WHEN format = 'Trade Paperback' THEN 'trade_paperback'
+            WHEN format = 'Hardcover' THEN 'hardcover'
+            ELSE NULL
+          END
+        ]::text[], NULL)
+        WHEN COALESCE(media_type, 'movie') = 'comic_book' THEN array_remove(ARRAY[
+          CASE
+            WHEN format = 'Digital' THEN 'digital'
+            WHEN format = 'Paper' THEN 'paper'
+            ELSE NULL
+          END
+        ]::text[], NULL)
+        WHEN COALESCE(media_type, 'movie') = 'game' THEN array_remove(ARRAY[
+          CASE
+            WHEN format = 'Digital' THEN 'digital'
+            WHEN format IN ('DVD', 'Blu-ray', 'Disc') THEN 'disc'
+            WHEN format = 'Card' THEN 'card'
+            WHEN format = 'Cartridge' THEN 'cartridge'
+            ELSE NULL
+          END
+        ]::text[], NULL)
+        WHEN COALESCE(media_type, 'movie') = 'audio' THEN array_remove(ARRAY[
+          CASE
+            WHEN format = 'Digital' THEN 'digital'
+            WHEN format = '4 Track' THEN 'four_track'
+            WHEN format = '8 Track' THEN 'eight_track'
+            WHEN format = 'Cassette' THEN 'cassette'
+            WHEN format = 'VHS' THEN 'vhs'
+            WHEN format = 'Vinyl' THEN 'vinyl'
+            WHEN format = 'CD' THEN 'cd'
+            ELSE NULL
+          END
+        ]::text[], NULL)
+        WHEN COALESCE(media_type, 'movie') IN ('tv_series', 'tv_episode') THEN array_remove(ARRAY[
+          CASE
+            WHEN format = 'VHS' THEN 'vhs'
+            WHEN format = 'DVD' THEN 'dvd'
+            WHEN format = 'Blu-ray' THEN 'bluray'
+            WHEN format = '4K UHD' THEN 'uhd'
+            ELSE NULL
+          END
+        ]::text[], NULL)
+        ELSE array_remove(ARRAY[
+          CASE
+            WHEN format = 'VHS' THEN 'vhs'
+            WHEN format = 'Beta' THEN 'beta'
+            WHEN format = 'Laserdisc' THEN 'laserdisc'
+            WHEN format = 'DVD' THEN 'dvd'
+            WHEN format = 'Blu-ray' THEN 'bluray'
+            WHEN format = '4K UHD' THEN 'uhd'
+            WHEN format = 'Digital' THEN 'digital'
+            ELSE NULL
+          END
+        ]::text[], NULL)
+      END
+      WHERE owned_formats = ARRAY[]::text[];
+
+      DO $$
+      DECLARE
+        cname text;
+      BEGIN
+        SELECT conname INTO cname
+        FROM pg_constraint
+        WHERE conrelid = 'media'::regclass
+          AND contype = 'c'
+          AND pg_get_constraintdef(oid) ILIKE '%format%';
+
+        IF cname IS NOT NULL THEN
+          EXECUTE format('ALTER TABLE media DROP CONSTRAINT %I', cname);
+        END IF;
+      END;
+      $$;
+
+      ALTER TABLE media
+        ADD CONSTRAINT media_format_check
+        CHECK (
+          format IS NULL OR format IN (
+            'VHS', 'Beta', 'Laserdisc', 'DVD', 'Blu-ray', '4K UHD', 'Digital',
+            'Paperback', 'Trade Paperback', 'Hardcover', 'Paper', 'Disc', 'Card',
+            'Cartridge', '4 Track', '8 Track', 'Cassette', 'Vinyl', 'CD'
+          )
+        );
+
+      ALTER TABLE media
+        ADD CONSTRAINT media_owned_formats_check
+        CHECK (
+          owned_formats IS NOT NULL
+          AND (
+            (COALESCE(media_type, 'movie') = 'book'
+              AND owned_formats <@ ARRAY['digital', 'paperback', 'trade_paperback', 'hardcover']::text[])
+            OR (COALESCE(media_type, 'movie') = 'comic_book'
+              AND owned_formats <@ ARRAY['digital', 'paper']::text[])
+            OR (COALESCE(media_type, 'movie') = 'game'
+              AND owned_formats <@ ARRAY['digital', 'disc', 'card', 'cartridge']::text[])
+            OR (COALESCE(media_type, 'movie') = 'audio'
+              AND owned_formats <@ ARRAY['four_track', 'eight_track', 'cassette', 'vhs', 'vinyl', 'cd', 'digital']::text[])
+            OR (COALESCE(media_type, 'movie') = 'movie'
+              AND owned_formats <@ ARRAY['vhs', 'beta', 'laserdisc', 'dvd', 'bluray', 'uhd', 'digital']::text[])
+            OR (COALESCE(media_type, 'movie') IN ('tv_series', 'tv_episode')
+              AND owned_formats <@ ARRAY['vhs', 'dvd', 'bluray', 'uhd', 'digital']::text[])
+          )
+        );
+    `
   }
 ];
 

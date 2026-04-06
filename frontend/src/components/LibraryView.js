@@ -17,8 +17,13 @@ import {
   normalizeIsbnCandidate,
   normalizeBarcodeInput
 } from './app/AppPrimitives';
-const MEDIA_FORMATS = ['VHS', 'Blu-ray', 'Digital', 'DVD', '4K UHD'];
-const BOOK_FORMATS = ['Digital', 'Paperback', 'Hardcover', 'Trade'];
+import {
+  getOwnedFormatLabels,
+  getOwnedFormatOptions,
+  normalizeOwnedFormats,
+  sortOwnedFormats
+} from './app/mediaFormats';
+
 const ENTRY_MEDIA_TABS = [
   { value: 'audio', label: 'Audio' },
   { value: 'book', label: 'Book' },
@@ -29,7 +34,7 @@ const ENTRY_MEDIA_TABS = [
 ];
 const DEFAULT_MEDIA_FORM = {
   media_type: 'movie',
-  title: '', original_title: '', release_date: '', year: '', format: 'Blu-ray', genre: '',
+  title: '', original_title: '', release_date: '', year: '', format: 'Blu-ray', owned_formats: ['bluray'], genre: '',
   director: '', cast: '', rating: '', user_rating: 0, runtime: '', upc: '', location: '', notes: '',
   signed_by: '', signed_role: '', signed_on: '', signed_at: '', signed_proof_path: '',
   overview: '', tmdb_id: '', tmdb_media_type: 'movie', tmdb_url: '', trailer_url: '', poster_path: '', backdrop_path: '',
@@ -40,6 +45,56 @@ const DEFAULT_MEDIA_FORM = {
   audio_artist: '', audio_album: '', audio_track_count: '',
   game_platform: '', game_developer: '', game_region: ''
 };
+
+function getOwnedFormatSummary(item = {}) {
+  const labels = getOwnedFormatLabels(item.media_type || 'movie', item.owned_formats || []);
+  if (labels.length > 0) return labels;
+  return item.format ? [item.format] : ['—'];
+}
+
+function OwnedFormatPicker({ mediaType, value = [], onChange }) {
+  const options = getOwnedFormatOptions(mediaType);
+  if (!options.length) return null;
+  const selected = new Set(sortOwnedFormats(mediaType, value));
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">
+        {options.map((option) => {
+          const active = selected.has(option.value);
+          return (
+            <button
+              key={option.value}
+              type="button"
+              className={cx(
+                'inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors',
+                active
+                  ? 'border-brand bg-brand/10 text-brand'
+                  : 'border-edge bg-surface text-dim hover:border-muted hover:text-ink'
+              )}
+              aria-pressed={active}
+              onClick={() => {
+                const next = active
+                  ? [...selected].filter((entry) => entry !== option.value)
+                  : [...selected, option.value];
+                onChange(sortOwnedFormats(mediaType, next));
+              }}
+            >
+              <span
+                className={cx(
+                  'inline-block h-2.5 w-2.5 rounded-full transition-colors',
+                  active ? 'bg-brand' : 'bg-ghost/50'
+                )}
+              />
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
+      <p className="text-xs text-ghost">Select every format you own for this title.</p>
+    </div>
+  );
+}
 
 function normalizeDateInput(value) {
   if (!value) return '';
@@ -227,7 +282,7 @@ function MediaCard({ item, onOpen, onEdit, onDelete, onRating, supportsHover, se
       onOpen={() => onOpen(item)}
       onPointerUp={onPointerUp}
       selected={selected}
-      leftBadges={[item.format || '—']}
+      leftBadges={getOwnedFormatSummary(item)}
       rightBadge={<span className="badge badge-dim text-[10px] backdrop-blur-sm bg-void/60 border-ghost/20">{mediaTypeLabel(item.media_type)}</span>}
       overlayChildren={selectionEnabled ? (
         <button
@@ -321,7 +376,7 @@ function MediaListRow({ item, onOpen, onEdit, onDelete, onRating, supportsHover,
       </div>
       <div className="flex-1 min-w-0">
         <p className={cx('font-medium truncate', selected ? 'text-brand' : 'text-ink')}>{item.title}</p>
-        <p className="text-sm text-ghost break-words">{[item.year, item.format, mediaTypeLabel(item.media_type), item.director].filter(Boolean).join(' · ')}</p>
+        <p className="text-sm text-ghost break-words">{[item.year, getOwnedFormatSummary(item).join(', '), mediaTypeLabel(item.media_type), item.director].filter(Boolean).join(' · ')}</p>
         {item.media_type === 'tv_series' && item.tv_all_seasons_completed && (
           <p className="text-xs text-ok mt-0.5 inline-flex items-center gap-1"><Icons.Check />All seasons completed</p>
         )}
@@ -476,7 +531,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall }) {
             </div>
             <p className="text-sm text-dim mt-1">{[item.year, item.director, item.cast].filter(Boolean).join(' · ')}</p>
             <div className="flex flex-wrap gap-2 mt-2">
-              {item.format && <span className="badge badge-gold">{item.format}</span>}
+              {getOwnedFormatSummary(item).map((formatLabel) => <span key={formatLabel} className="badge badge-gold">{formatLabel}</span>)}
               {item.media_type && <span className="badge badge-dim">{mediaTypeLabel(item.media_type)}</span>}
               {item.genre?.split(',').slice(0, 2).map((g) => <span key={g} className="badge badge-dim">{g.trim()}</span>)}
             </div>
@@ -982,11 +1037,16 @@ function CollectionDetail({ collectionId, apiCall, onClose, onEdit, onConvert })
 function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, onConvertToCollection, title = 'Add Media', apiCall }) {
   const mergeTypeDetails = (rawInitial) => {
     const details = rawInitial?.type_details || {};
+    const ownedFormats = sortOwnedFormats(
+      rawInitial?.media_type || 'movie',
+      normalizeOwnedFormats(rawInitial?.media_type || 'movie', rawInitial?.owned_formats, rawInitial?.format)
+    );
     return {
       ...rawInitial,
       release_date: normalizeDateInput(rawInitial?.release_date),
       signed_on: normalizeDateInput(rawInitial?.signed_on),
       signed_proof_path: rawInitial?.signed_proof_path || '',
+      owned_formats: ownedFormats,
       cast: rawInitial?.cast || rawInitial?.cast_members || '',
       book_author: details?.author || '',
       book_isbn: details?.isbn || '',
@@ -1029,6 +1089,9 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
   const coverImageInputRef = useRef(null);
 
   const set = (patch) => setForm((f) => ({ ...f, ...patch }));
+  const setOwnedFormats = (nextFormats) => {
+    set({ owned_formats: sortOwnedFormats(form.media_type, nextFormats) });
+  };
   const notify = (text, type = 'ok') => { setMsg(text); setMsgType(type); };
   const isMovieOrTv = ['movie', 'tv_series', 'tv_episode'].includes(form.media_type);
   const isBook = form.media_type === 'book';
@@ -1048,9 +1111,8 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
   const activeMediaTypeTab = form.media_type === 'tv_episode' ? 'tv_series' : form.media_type;
 
   const handleMediaTypeChange = (nextType) => {
-    const patch = { media_type: nextType };
-    if ((nextType === 'book' || nextType === 'comic_book') && !BOOK_FORMATS.includes(form.format)) patch.format = 'Digital';
-    if (nextType === 'audio' || nextType === 'game') patch.format = '';
+    const nextOwnedFormats = normalizeOwnedFormats(nextType, form.owned_formats, form.format);
+    const patch = { media_type: nextType, owned_formats: sortOwnedFormats(nextType, nextOwnedFormats) };
     if (!['movie', 'tv_series', 'tv_episode'].includes(nextType)) {
       patch.original_title = '';
       patch.director = '';
@@ -1269,7 +1331,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
         year: book?.year ? String(book.year) : form.year,
         overview: book?.overview || match?.description || form.overview,
         genre: book?.genre || form.genre,
-        format: match?.typeDetails?.format || form.format || 'Paperback',
+        owned_formats: sortOwnedFormats('book', normalizeOwnedFormats('book', form.owned_formats, match?.typeDetails?.format || form.format || 'paperback')),
         poster_path: book?.poster_path || match?.image || form.poster_path,
         upc: match?.upc || form.upc,
         book_isbn: preferredCapturedIsbn || bookTypeDetails?.isbn || match?.typeDetails?.isbn || form.book_isbn,
@@ -1494,9 +1556,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
         original_title: isMovieOrTv ? (String(form.original_title || '').trim() || null) : null,
         release_date: normalizeDateInput(form.release_date) || null,
         year: form.year ? Number(form.year) : null,
-        format: (isBook || isComic)
-          ? (BOOK_FORMATS.includes(form.format) ? form.format : 'Digital')
-          : (isMovieOrTv ? (form.format || null) : null),
+        owned_formats: sortOwnedFormats(form.media_type, form.owned_formats || []),
         genre: String(form.genre || '').trim() || null,
         director: isMovieOrTv ? (String(form.director || '').trim() || null) : null,
         cast: isMovieOrTv ? (String(form.cast || '').trim() || null) : null,
@@ -1635,11 +1695,9 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
                     )}
 
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-12">
-                      {(isMovieOrTv || isBook || isComic) && (
-                        <LabeledField label="Format" className="md:col-span-4 xl:col-span-3">
-                          <select className="select" value={form.format} onChange={(e) => set({ format: e.target.value })}>
-                            {((isBook || isComic) ? BOOK_FORMATS : MEDIA_FORMATS).map((f) => <option key={f}>{f}</option>)}
-                          </select>
+                      {(isMovieOrTv || isBook || isComic || isAudio || isGame) && (
+                        <LabeledField label="Owned Formats" className="md:col-span-12">
+                          <OwnedFormatPicker mediaType={form.media_type} value={form.owned_formats || []} onChange={setOwnedFormats} />
                         </LabeledField>
                       )}
                       {!isGame && (
