@@ -1,5 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { CameraCaptureModal, detectBarcodeCapturePayloadFromFile, extractIdentifierCandidatesFromFile, inferBookBarcodeIdentifier, isLikelyRetailBookBarcode, normalizeBarcodeInput, supportsBarcodeCapture } from './app/AppPrimitives';
+import {
+  CameraCaptureModal,
+  SectionTabPanel,
+  SectionTabs,
+  detectBarcodeCapturePayloadFromFile,
+  extractIdentifierCandidatesFromFile,
+  inferBookBarcodeIdentifier,
+  isLikelyRetailBookBarcode,
+  normalizeBarcodeInput,
+  supportsBarcodeCapture
+} from './app/AppPrimitives';
 import { normalizeOwnedFormats, sortOwnedFormats } from './app/mediaFormats';
 
 const cx = (...classes) => classes.filter(Boolean).join(' ');
@@ -10,28 +20,28 @@ function BookCaptureStatusCard({ state }) {
     ? 'border-gold/30 bg-gold/5'
     : state.tone === 'success'
       ? 'border-ok/30 bg-ok/5'
-      : 'border-edge bg-raised';
+      : 'border-edge/80 bg-surface';
   const headingClasses = state.tone === 'warning'
     ? 'text-gold'
     : state.tone === 'success'
       ? 'text-ok'
       : 'text-ink';
   return (
-    <div className={cx('rounded-xl border p-3 space-y-2', toneClasses)}>
+    <div className={cx('rounded-md border p-3 space-y-2', toneClasses)}>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className={cx('label', headingClasses)}>{state.heading}</p>
+          <p className={cx('text-sm font-medium', headingClasses)}>{state.heading}</p>
           {state.detail ? <p className="text-sm text-dim">{state.detail}</p> : null}
         </div>
-        <span className="text-[11px] uppercase tracking-[0.16em] text-ghost">{state.source}</span>
+        <span className="text-xs text-ghost">{state.source}</span>
       </div>
       <div className="grid gap-2 md:grid-cols-2">
-        <div className="rounded-lg border border-edge bg-surface/60 px-3 py-2">
-          <p className="text-[11px] uppercase tracking-[0.16em] text-ghost">Retail Barcode</p>
+        <div className="rounded-md border border-edge/80 bg-surface px-3 py-2">
+          <p className="text-xs text-ghost">Retail Barcode</p>
           <p className="mt-1 font-mono text-sm text-ink">{state.capturedBarcode || 'Not captured'}</p>
         </div>
-        <div className="rounded-lg border border-edge bg-surface/60 px-3 py-2">
-          <p className="text-[11px] uppercase tracking-[0.16em] text-ghost">Recovered ISBN</p>
+        <div className="rounded-md border border-edge/80 bg-surface px-3 py-2">
+          <p className="text-xs text-ghost">Recovered ISBN</p>
           <p className="mt-1 font-mono text-sm text-ink">{state.recoveredIsbn || 'Not recovered yet'}</p>
         </div>
       </div>
@@ -366,7 +376,6 @@ export default function ImportView({
   }, [firstEnabledSection, importSections, tab]);
 
   const hasActiveLibrary = Boolean(activeLibrary?.id);
-  const activeSectionLabel = importSections.find((section) => section.id === tab)?.label || tab;
   const recentJobs = useMemo(
     () => importJobs
       .filter((job) => ['plex', 'csv_generic', 'csv_calibre', 'csv_delicious'].includes(job.provider))
@@ -391,158 +400,143 @@ export default function ImportView({
 
   return (
     <div className="h-full overflow-y-auto p-4 sm:p-6 max-w-3xl space-y-6">
-      <div>
+      <div className="space-y-1">
         <h1 className="section-title">Import Media</h1>
-        <p className="text-sm text-ghost mt-1">Add titles from external sources into your library.</p>
+        <p className="text-sm text-ghost">
+          Bring titles into {activeLibrary?.name ? `“${activeLibrary.name}”` : 'your active library'} from scans, files, or connected services.
+        </p>
       </div>
 
-      <div className="md:hidden">
-        <label className="label">Import Source</label>
-        <select className="select mt-1" value={tab} onChange={(e) => setTab(e.target.value)}>
-          {importSections.map((section) => (
-            <option key={section.id} value={section.id} disabled={!section.enabled}>
-              {section.label}{section.enabled ? '' : ' (Unavailable)'}
-            </option>
-          ))}
-        </select>
-      </div>
+      <SectionTabs
+        tabs={importSections.filter((section) => section.enabled)}
+        activeId={tab}
+        onChange={setTab}
+        ariaLabel="Import sources"
+        className="border-b-0"
+        listClassName="gap-5"
+      />
 
-      <div className="grid gap-4 md:grid-cols-[220px_minmax(0,1fr)] items-start">
-        <div className="hidden md:block card p-2 space-y-1">
-          {importSections.map((section) => (
-            <button
-              key={section.id}
-              onClick={() => { if (section.enabled) setTab(section.id); }}
-              disabled={!section.enabled}
-              className={cx(
-                'w-full flex items-center gap-2 px-3 h-9 rounded-md text-sm text-left transition-colors',
-                tab === section.id
-                  ? 'bg-raised border border-edge text-ink'
-                  : 'text-dim hover:text-ink hover:bg-raised',
-                !section.enabled && 'opacity-50 cursor-not-allowed hover:bg-transparent hover:text-dim'
-              )}
-            >
-              <span className="flex-1">{section.label}</span>
-            </button>
-          ))}
-        </div>
-
-      <div className="card p-5 space-y-4 min-w-0">
-        <div className="flex items-center justify-between gap-3 border-b border-edge pb-3">
-          <h2 className="text-sm font-semibold tracking-wide uppercase text-dim">{activeSectionLabel}</h2>
-        </div>
-        {tab === 'plex' && (
-          <>
-            <p className="text-sm text-dim">Import titles from your configured Plex server and selected sections.</p>
-            <p className="text-xs text-ghost">Uses saved Admin Integrations Plex settings. Import runs async with progress, deduplication, and TMDB enrichment when possible.</p>
+      <div className="space-y-5 rounded-md border border-edge/70 bg-surface p-4 sm:p-5">
+        <SectionTabPanel activeId={tab} tabKey="plex" idBase="import-source-tabs" className="space-y-4">
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-ink">Plex</p>
+            <p className="text-sm text-ghost">Pull titles from your configured Plex sources and queue them for import.</p>
+          </div>
+          <div className="flex flex-wrap gap-3">
             <button onClick={runPlexImport} className="btn-primary" disabled={busy === 'plex' || !hasActiveLibrary}>
               {busy === 'plex' ? <Spinner size={14} /> : <><Icons.Upload />Start Plex Import</>}
             </button>
-            {recentJobs.length > 0 && (
-              <div className="card p-3 text-xs text-dim font-mono whitespace-pre-wrap">
+          </div>
+          {recentJobs.length > 0 && (
+            <div className="space-y-2 border-t border-edge/60 pt-4">
+              <p className="text-xs text-ghost">Recent jobs</p>
+              <div className="space-y-2">
                 {recentJobs.map((job) => (
-                  <div key={job.id} className="mb-2 last:mb-0">
-                    Job #{job.id} · {job.provider} · {job.status}
-                    {job.progress && (
-                      <>
-                        {'\n'}Processed: {job.progress.processed || 0} / {job.progress.total || 0}
-                        {'\n'}Created: {job.progress.created || 0} · Updated: {job.progress.updated || 0}
-                        {'\n'}Skipped: {job.progress.skipped || 0} · Errors: {job.progress.errorCount || 0}
-                      </>
-                    )}
+                  <div key={job.id} className="rounded-md border border-edge/70 bg-raised/40 px-3 py-2 text-xs text-dim">
+                    <div className="font-mono text-[11px] text-ghost">Job #{job.id} · {job.provider} · {job.status}</div>
+                    {job.progress ? (
+                      <div className="mt-1 text-xs text-dim">
+                        Processed {job.progress.processed || 0} / {job.progress.total || 0} · Created {job.progress.created || 0} · Updated {job.progress.updated || 0} · Skipped {job.progress.skipped || 0} · Errors {job.progress.errorCount || 0}
+                      </div>
+                    ) : null}
                   </div>
                 ))}
               </div>
-            )}
-          </>
-        )}
-
-        {tab === 'csv' && (
-          <>
-            <p className="text-sm text-dim">Import from a CSV file using collectZ columns.</p>
-            <p className="text-xs text-ghost">Required: title. Optional: year, owned_formats, format, director, genre, rating, user_rating, runtime, upc, isbn, ean_upc, asin, location, notes. Use `|` to separate multiple owned formats.</p>
-            <div className="flex flex-wrap gap-3">
-              <button onClick={() => csvInputRef.current?.click()} className="btn-primary" disabled={busy === 'CSV' || !hasActiveLibrary}>
-                {busy === 'CSV' ? <Spinner size={14} /> : <><Icons.Upload />Choose CSV File</>}
-              </button>
-              <a href={`${apiUrl}/media/import/template-csv`} className="btn-secondary"><Icons.Download />Download Template</a>
             </div>
-            <input
-              ref={csvInputRef}
-              type="file"
-              accept=".csv,text/csv"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                e.target.value = '';
-                runCsvImport(file, '/media/import-csv', 'CSV');
-              }}
-            />
-          </>
-        )}
+          )}
+        </SectionTabPanel>
 
-        {tab === 'calibre' && (
-          <>
-            <p className="text-sm text-dim">Import a Calibre CSV export (books/comics baseline mapping).</p>
-            <p className="text-xs text-ghost">Maps common Calibre columns (`title`, `authors`, `isbn`, `publisher`, `pubdate`, `tags`, `series`, `series_index`) and runs normal enrichment/dedup pipeline.</p>
-            <button onClick={() => calibreInputRef.current?.click()} className="btn-primary" disabled={busy === 'Calibre' || !hasActiveLibrary}>
-              {busy === 'Calibre' ? <Spinner size={14} /> : <><Icons.Upload />Choose Calibre CSV</>}
+        <SectionTabPanel activeId={tab} tabKey="csv" idBase="import-source-tabs" className="space-y-4">
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-ink">CSV</p>
+            <p className="text-sm text-ghost">Import a generic collectZ CSV. Use `|` to separate multiple owned formats.</p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <button onClick={() => csvInputRef.current?.click()} className="btn-primary" disabled={busy === 'CSV' || !hasActiveLibrary}>
+              {busy === 'CSV' ? <Spinner size={14} /> : <><Icons.Upload />Choose CSV File</>}
             </button>
+            <a href={`${apiUrl}/media/import/template-csv`} className="btn-secondary"><Icons.Download />Download Template</a>
+          </div>
+          <input
+            ref={csvInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = '';
+              runCsvImport(file, '/media/import-csv', 'CSV');
+            }}
+          />
+        </SectionTabPanel>
+
+        <SectionTabPanel activeId={tab} tabKey="calibre" idBase="import-source-tabs" className="space-y-4">
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-ink">Calibre</p>
+            <p className="text-sm text-ghost">Import a Calibre CSV export for books and comics using the normal dedupe and enrichment path.</p>
+          </div>
+          <button onClick={() => calibreInputRef.current?.click()} className="btn-primary" disabled={busy === 'Calibre' || !hasActiveLibrary}>
+            {busy === 'Calibre' ? <Spinner size={14} /> : <><Icons.Upload />Choose Calibre CSV</>}
+          </button>
+          <input
+            ref={calibreInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = '';
+              runCsvImport(file, '/media/import-csv/calibre', 'Calibre');
+            }}
+          />
+        </SectionTabPanel>
+
+        <SectionTabPanel activeId={tab} tabKey="delicious" idBase="import-source-tabs" className="space-y-4">
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-ink">Delicious</p>
+            <p className="text-sm text-ghost">Import a Delicious export with mixed media rows and identifier-first matching where possible.</p>
+          </div>
+          <button onClick={() => deliciousInputRef.current?.click()} className="btn-primary" disabled={busy === 'Delicious' || !hasActiveLibrary}>
+            {busy === 'Delicious' ? <Spinner size={14} /> : <><Icons.Upload />Choose Delicious CSV</>}
+          </button>
+          <input
+            ref={deliciousInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = '';
+              runCsvImport(file, '/media/import-csv/delicious', 'Delicious');
+            }}
+          />
+        </SectionTabPanel>
+
+        <SectionTabPanel activeId={tab} tabKey="barcode" idBase="import-source-tabs" className="space-y-4">
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-ink">Barcode</p>
+            <p className="text-sm text-ghost">Look up a barcode or Bookland ISBN and add a matched title directly into the active library.</p>
+          </div>
+          <div className="flex flex-col gap-3 md:flex-row">
             <input
-              ref={calibreInputRef}
-              type="file"
-              accept=".csv,text/csv"
-              className="hidden"
+              className="input flex-1 font-mono"
+              name="barcode_identifier"
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="012345678901 or 9780358447849"
+              value={barcodeUpc}
               onChange={(e) => {
-                const file = e.target.files?.[0];
-                e.target.value = '';
-                runCsvImport(file, '/media/import-csv/calibre', 'Calibre');
+                setBarcodeUpc(normalizeBarcodeInput(e.target.value));
+                setBookCaptureState(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  lookupBarcode();
+                }
               }}
             />
-          </>
-        )}
-
-        {tab === 'delicious' && (
-          <>
-            <p className="text-sm text-dim">Import a Delicious export CSV.</p>
-            <p className="text-xs text-ghost">Supports mixed media rows (movies, TV, books, audio, games). Uses provider enrichment + identifier-first matching when available.</p>
-            <button onClick={() => deliciousInputRef.current?.click()} className="btn-primary" disabled={busy === 'Delicious' || !hasActiveLibrary}>
-              {busy === 'Delicious' ? <Spinner size={14} /> : <><Icons.Upload />Choose Delicious CSV</>}
-            </button>
-            <input
-              ref={deliciousInputRef}
-              type="file"
-              accept=".csv,text/csv"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                e.target.value = '';
-                runCsvImport(file, '/media/import-csv/delicious', 'Delicious');
-              }}
-            />
-          </>
-        )}
-
-        {tab === 'barcode' && (
-          <>
-            <p className="text-sm text-dim">Look up a barcode or Bookland ISBN and add matched media to your library.</p>
-            <p className="text-xs text-ghost">Uses Admin Integrations barcode + TMDB settings for quick physical media ingest.</p>
-            <div className="flex gap-3">
-              <input
-                className="input flex-1 font-mono"
-                placeholder="012345678901 or 9780358447849"
-                value={barcodeUpc}
-                onChange={(e) => {
-                  setBarcodeUpc(normalizeBarcodeInput(e.target.value));
-                  setBookCaptureState(null);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    lookupBarcode();
-                  }
-                }}
-              />
+            <div className="flex flex-wrap gap-3">
               <button onClick={() => setBarcodeCameraOpen(true)} className="btn-secondary" disabled={barcodeCaptureLoading || !hasActiveLibrary}>
                 {barcodeCaptureLoading ? <Spinner size={14} /> : <><Icons.Camera />Camera</>}
               </button>
@@ -553,63 +547,61 @@ export default function ImportView({
                 {barcodeLookupLoading ? <Spinner size={14} /> : <><Icons.Barcode />Lookup</>}
               </button>
             </div>
-            <input
-              ref={barcodeCaptureInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={handleBarcodeCapture}
-            />
-            <p className="text-xs text-ghost">Use a live camera frame or a barcode photo. {canCaptureBarcode ? "We'll try to decode it automatically, including Bookland ISBN barcodes." : 'Some browsers may still require you to type the UPC or ISBN manually.'}</p>
-            <BookCaptureStatusCard state={bookCaptureState} />
-            {barcodeResults.length > 0 && (
-              <div className="space-y-2">
-                {barcodeResults.slice(0, 8).map((m, idx) => {
-                  const addId = `${m?.upc || barcodeUpc}-${idx}`;
-                  const isBook = m?.mediaTypeGuess === 'book' || Boolean(m?.book);
-                  const title = isBook
-                    ? (m?.book?.title || m?.normalizedTitle || m?.title || 'Unknown')
-                    : (m?.tmdb?.title || m?.title || 'Unknown');
-                  const year = isBook
-                    ? (m?.book?.year || m?.year || '')
-                    : (m?.tmdb?.release_year || (m?.tmdb?.release_date ? String(m.tmdb.release_date).slice(0, 4) : ''));
-                  const subtitle = isBook
-                    ? (m?.book?.type_details?.author || m?.typeDetails?.author || '')
-                    : '';
-                  return (
-                    <div key={addId} className="card p-3 flex items-center gap-3">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-ink truncate">{title}</p>
-                        {subtitle ? (
-                          <p className="text-xs text-ghost truncate">{subtitle}</p>
-                        ) : null}
-                        <p className="text-xs text-ghost">
-                          {year || 'n/a'}{m?.upc ? ` · UPC ${m.upc}` : ''}{m?.source ? ` · ${m.source}` : ''}
-                        </p>
-                      </div>
-                      <button className="btn-secondary btn-sm" disabled={barcodeAddingId === addId || !hasActiveLibrary} onClick={() => addBarcodeMatch(m, idx)}>
-                        {barcodeAddingId === addId ? <Spinner size={14} /> : 'Add'}
-                      </button>
+          </div>
+          <input
+            ref={barcodeCaptureInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={handleBarcodeCapture}
+          />
+          <p className="text-xs text-ghost">
+            {canCaptureBarcode
+              ? 'Camera and photo capture can try to decode the barcode automatically, including Bookland ISBN barcodes.'
+              : 'Some browsers may still require you to type the UPC or ISBN manually.'}
+          </p>
+          <BookCaptureStatusCard state={bookCaptureState} />
+          {barcodeResults.length > 0 && (
+            <div className="space-y-2 border-t border-edge/60 pt-4">
+              {barcodeResults.slice(0, 8).map((m, idx) => {
+                const addId = `${m?.upc || barcodeUpc}-${idx}`;
+                const isBook = m?.mediaTypeGuess === 'book' || Boolean(m?.book);
+                const title = isBook
+                  ? (m?.book?.title || m?.normalizedTitle || m?.title || 'Unknown')
+                  : (m?.tmdb?.title || m?.title || 'Unknown');
+                const year = isBook
+                  ? (m?.book?.year || m?.year || '')
+                  : (m?.tmdb?.release_year || (m?.tmdb?.release_date ? String(m.tmdb.release_date).slice(0, 4) : ''));
+                const subtitle = isBook
+                  ? (m?.book?.type_details?.author || m?.typeDetails?.author || '')
+                  : '';
+                return (
+                  <div key={addId} className="flex items-center gap-3 rounded-md border border-edge/70 bg-raised/40 px-3 py-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-ink truncate">{title}</p>
+                      {subtitle ? <p className="text-xs text-ghost truncate">{subtitle}</p> : null}
+                      <p className="text-xs text-ghost">
+                        {year || 'n/a'}{m?.upc ? ` · UPC ${m.upc}` : ''}{m?.source ? ` · ${m.source}` : ''}
+                      </p>
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </>
-        )}
-      </div>
-      </div>
-
-      <div className="card p-4 text-xs text-ghost space-y-1">
-        <p>Import behavior:</p>
-        <p>- Existing titles are matched identifier-first (ISBN/EAN/ASIN), then provider IDs, then title/year fallback.</p>
-        <p>- Audit downloads include normalized identifiers, match mode, duplicate-vs-near-match outcome, and debug diagnostic flags.</p>
-        <p>- Provider enrichment runs during import when configured.</p>
-        <p>- When debug logging and external log export are enabled, ambiguous rows can ship to the operator log pipeline without reopening a review queue.</p>
+                    <button className="btn-secondary btn-sm" disabled={barcodeAddingId === addId || !hasActiveLibrary} onClick={() => addBarcodeMatch(m, idx)}>
+                      {barcodeAddingId === addId ? <Spinner size={14} /> : 'Add'}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </SectionTabPanel>
       </div>
 
-      {result && <pre className="card p-4 text-xs text-dim whitespace-pre-wrap">{result}</pre>}
+      <div className="space-y-1 rounded-md border border-edge/60 bg-surface px-4 py-3 text-xs text-ghost">
+        <p>Imports match identifier-first, then provider IDs, then title and year fallback.</p>
+        <p>Audit downloads include normalized identifiers, match mode, and duplicate-vs-near-match outcomes.</p>
+      </div>
+
+      {result && <pre aria-live="polite" className="rounded-md border border-edge/60 bg-surface px-4 py-3 text-xs text-dim whitespace-pre-wrap">{result}</pre>}
       {auditRows.length > 0 && (
         <div className="flex">
           <button onClick={downloadAudit} className="btn-secondary"><Icons.Download />Download Audit CSV</button>
