@@ -2,7 +2,7 @@
 
 const { test, expect } = require('@playwright/test');
 const { createFreshUserCredentials, createAuthenticatedRequestContext } = require('../helpers/auth');
-const { deleteMediaByExactTitle } = require('../helpers/media');
+const { deleteMediaByExactTitle, findExactMediaByTitle } = require('../helpers/media');
 const { signInThroughUi } = require('../helpers/session');
 
 test.use({ storageState: { cookies: [], origins: [] } });
@@ -74,12 +74,19 @@ test.describe('import browser regressions', () => {
       await page.getByRole('button', { name: 'Add', exact: true }).click();
       const addResponse = await addResponsePromise;
       expect(addResponse.status()).toBe(201);
+      const addPayload = await addResponse.json();
+      expect(addPayload.owned_formats).toEqual(['bluray']);
+      expect(addPayload.format).toBe('Blu-ray');
       await expect(page.getByText(`Added "${title}" from barcode`, { exact: true })).toBeVisible();
 
       await page.goto('/dashboard?tab=library-movies');
       const searchInput = page.getByPlaceholder('Search title, director…');
       await searchInput.fill(title);
       await expect(page.getByText(title, { exact: true }).first()).toBeVisible();
+      const stored = await findExactMediaByTitle(requestContext, title);
+      expect(stored).not.toBeNull();
+      expect(stored.owned_formats).toEqual(['bluray']);
+      expect(stored.format).toBe('Blu-ray');
     } finally {
       await deleteMediaByExactTitle(requestContext, title).catch(() => {});
       await requestContext.dispose();

@@ -4,7 +4,7 @@ const fs = require('fs/promises');
 const path = require('path');
 const { test, expect } = require('@playwright/test');
 const { createFreshUserCredentials, createAuthenticatedRequestContext } = require('../helpers/auth');
-const { deleteMediaByExactTitle } = require('../helpers/media');
+const { deleteMediaByExactTitle, findExactMediaByTitle } = require('../helpers/media');
 const { waitForSyncJob } = require('../helpers/importJobs');
 const { signInThroughUi } = require('../helpers/session');
 
@@ -17,8 +17,8 @@ test.describe('csv import browser regressions', () => {
     const title = `Playwright CSV Import ${Date.now()}`;
     const csvPath = path.resolve(__dirname, '..', '..', '..', 'tmp', `playwright-import-${Date.now()}.csv`);
     const csvBody = [
-      'title,media_type,year,format,notes',
-      `"${title.replace(/"/g, '""')}",movie,2024,Blu-ray,"Seeded browser CSV import coverage row."`
+      'title,media_type,year,owned_formats,format,notes',
+      `"${title.replace(/"/g, '""')}",movie,2024,"dvd|bluray|digital",Blu-ray,"Seeded browser CSV import coverage row."`
     ].join('\n');
 
     await fs.mkdir(path.dirname(csvPath), { recursive: true });
@@ -51,6 +51,10 @@ test.describe('csv import browser regressions', () => {
       const searchInput = page.getByPlaceholder('Search title, director…');
       await searchInput.fill(title);
       await expect(page.getByText(title, { exact: true }).first()).toBeVisible();
+      const stored = await findExactMediaByTitle(requestContext, title);
+      expect(stored).not.toBeNull();
+      expect(stored.owned_formats).toEqual(['dvd', 'bluray', 'digital']);
+      expect(stored.format).toBe('Blu-ray');
     } finally {
       await deleteMediaByExactTitle(requestContext, title).catch(() => {});
       await fs.unlink(csvPath).catch(() => {});

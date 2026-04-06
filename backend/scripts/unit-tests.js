@@ -75,6 +75,7 @@ const approvedSupportSessionBrowserSpecSource = require('fs').readFileSync(requi
 const integrationsBrowserSpecSource = require('fs').readFileSync(require.resolve('../../tests/playwright/specs/integrations.browser.spec'), 'utf8');
 const importBrowserSpecSource = require('fs').readFileSync(require.resolve('../../tests/playwright/specs/import.browser.spec'), 'utf8');
 const importCsvBrowserSpecSource = require('fs').readFileSync(require.resolve('../../tests/playwright/specs/import-csv.browser.spec'), 'utf8');
+const libraryMultiFormatBrowserSpecSource = require('fs').readFileSync(require.resolve('../../tests/playwright/specs/library-multiformat.browser.spec'), 'utf8');
 const boundaryBrowserSpecSource = require('fs').readFileSync(require.resolve('../../tests/playwright/specs/boundary.browser.spec'), 'utf8');
 const eventsCollectiblesBrowserSpecSource = require('fs').readFileSync(require.resolve('../../tests/playwright/specs/events-collectibles.browser.spec'), 'utf8');
 const homelabHelpBrowserSpecSource = require('fs').readFileSync(require.resolve('../../tests/playwright/specs/homelab-help.browser.spec'), 'utf8');
@@ -245,6 +246,19 @@ results.push(run('mediaFormats.getOwnedFormatLabel maps canonical values to stab
   assert.strictEqual(getOwnedFormatLabel('book', 'trade_paperback'), 'Trade Paperback');
   assert.strictEqual(getOwnedFormatLabel('movie', 'bluray'), 'Blu-ray');
   assert.strictEqual(getOwnedFormatLabel('audio', 'eight_track'), '8 Track');
+}));
+
+results.push(run('media routes expose explicit owned_formats import parsing for generic CSV rows', () => {
+  assert.ok(mediaRoutesSource.includes('function parseOwnedFormatsInput('));
+  assert.ok(mediaRoutesSource.includes("value('owned_formats') || value('owned formats')"));
+  assert.ok(mediaRoutesSource.includes('owned_formats,format'));
+}));
+
+results.push(run('playwright multi-format regressions cover create, edit, and import paths', () => {
+  assert.ok(libraryMultiFormatBrowserSpecSource.includes("owned_formats).toEqual(['dvd', 'bluray', 'digital'])"));
+  assert.ok(libraryMultiFormatBrowserSpecSource.includes("owned_formats).toEqual(['dvd', 'uhd', 'digital'])"));
+  assert.ok(importBrowserSpecSource.includes("owned_formats).toEqual(['bluray'])"));
+  assert.ok(importCsvBrowserSpecSource.includes("owned_formats).toEqual(['dvd', 'bluray', 'digital'])"));
 }));
 
 results.push(run('releaseNotes.parseReleaseMarkdown extracts summary and change sections for help center feed', () => {

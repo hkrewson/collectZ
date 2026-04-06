@@ -23,7 +23,13 @@ async function deleteMediaByExactTitle(requestContext, title) {
   return matches.length;
 }
 
+async function findExactMediaByTitle(requestContext, title) {
+  const items = await findMediaByTitle(requestContext, title);
+  return items.find((item) => String(item?.title || '') === String(title)) || null;
+}
+
 module.exports = {
   findMediaByTitle,
+  findExactMediaByTitle,
   deleteMediaByExactTitle
 };
