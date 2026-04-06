@@ -285,8 +285,8 @@ function MediaCard({ item, onOpen, onEdit, onDelete, onRating, supportsHover, se
         <button
           type="button"
           className={cx(
-            'absolute left-2 top-9 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full border backdrop-blur-sm transition-colors',
-            selected ? 'border-brand bg-brand text-white shadow-[0_0_0_3px_rgba(68,130,255,0.18)]' : 'border-brand/45 bg-void/80 text-brand'
+            'absolute left-2 top-9 z-10 inline-flex h-6 w-6 items-center justify-center rounded-md border bg-void/88 text-dim transition-colors',
+            selected ? 'border-brand/70 text-ink' : 'border-edge/80 hover:border-muted hover:text-ink'
           )}
           aria-label={`Select ${item.title}`}
           aria-pressed={selected}
@@ -295,11 +295,10 @@ function MediaCard({ item, onOpen, onEdit, onDelete, onRating, supportsHover, se
             onToggleSelect?.(item.id);
           }}
         >
-          {selected ? <Icons.Check /> : <span className="block h-2.5 w-2.5 rounded-full bg-brand/80" />}
+          {selected ? <Icons.Check /> : null}
         </button>
       ) : null}
       subtitle={`${item.year || '—'}${item.director ? ` · ${item.director}` : ''}${item.media_type === 'tv_series' && item.tv_all_seasons_completed ? ' · Completed' : ''}`}
-      titleClassName={selected ? 'text-brand' : ''}
       meta={
         <div onClick={(e) => e.stopPropagation()}>
           <StarRating value={item.user_rating || 0} onChange={(r) => onRating(item.id, r)} />
@@ -347,20 +346,20 @@ function MediaListRow({ item, onOpen, onEdit, onDelete, onRating, supportsHover,
   };
 
   return (
-    <article onClick={() => onOpen(item)} onPointerUp={onPointerUp} className={cx('group flex items-start gap-3 p-3 rounded-lg bg-surface border hover:border-muted hover:bg-raised cursor-pointer transition-all duration-150 animate-fade-in sm:items-center', selected ? 'border-brand/60 ring-1 ring-brand/60 bg-brand/5' : 'border-edge')}>
+    <article onClick={() => onOpen(item)} onPointerUp={onPointerUp} className={cx('group flex items-start gap-3 rounded-lg border bg-surface p-3 transition-all duration-150 animate-fade-in sm:items-center', selected ? 'border-brand/55' : 'border-edge hover:border-muted hover:bg-raised', onOpen && 'cursor-pointer')}>
       {selectionEnabled && (
         <div onClick={(e) => e.stopPropagation()} className="shrink-0 pt-1 sm:pt-0">
           <button
             type="button"
             className={cx(
-              'inline-flex h-7 w-7 items-center justify-center rounded-full border transition-colors',
-              selected ? 'border-brand bg-brand text-white shadow-[0_0_0_3px_rgba(68,130,255,0.14)]' : 'border-brand/45 bg-void/70 text-brand'
+              'inline-flex h-6 w-6 items-center justify-center rounded-md border bg-void/88 text-dim transition-colors',
+              selected ? 'border-brand/70 text-ink' : 'border-edge/80 hover:border-muted hover:text-ink'
             )}
             aria-label={`Select ${item.title}`}
             aria-pressed={selected}
             onClick={() => onToggleSelect?.(item.id)}
           >
-            {selected ? <Icons.Check /> : <span className="block h-2.5 w-2.5 rounded-full bg-brand/80" />}
+            {selected ? <Icons.Check /> : null}
           </button>
         </div>
       )}
@@ -372,7 +371,7 @@ function MediaListRow({ item, onOpen, onEdit, onDelete, onRating, supportsHover,
         </div>
       </div>
       <div className="flex-1 min-w-0">
-        <p className={cx('font-medium truncate', selected ? 'text-brand' : 'text-ink')}>{item.title}</p>
+        <p className="font-medium truncate text-ink">{item.title}</p>
         <p className="text-sm text-ghost break-words">{[item.year, getOwnedFormatSummary(item).join(', '), mediaTypeLabel(item.media_type), item.director].filter(Boolean).join(' · ')}</p>
         {item.media_type === 'tv_series' && item.tv_all_seasons_completed && (
           <p className="text-xs text-ok mt-0.5 inline-flex items-center gap-1"><Icons.Check />All seasons completed</p>
@@ -2427,27 +2426,25 @@ export default function LibraryView({
           </div>
         </div>
         {!isCollectionMode && !(isComicsLibrary && comicView === 'series') && (
-          <div className={cx('mt-2.5 rounded-xl border px-3 py-2.5', selectedIds.length > 0 ? 'border-brand/40 bg-brand/5' : 'border-edge bg-surface/30')}>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <span className={cx('text-xs font-mono', selectedIds.length > 0 ? 'text-brand' : 'text-brand/75')}>
-              {selectedIds.length > 0 ? `${selectedIds.length} selected` : 'Select items for bulk actions'}
+          <div className="mt-2.5 flex flex-col gap-2 border-t border-edge/60 pt-3 sm:flex-row sm:items-center sm:justify-between">
+            <span className="text-xs text-ghost">
+              {selectedIds.length > 0 ? `${selectedIds.length} selected` : 'Bulk actions'}
             </span>
             <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={allVisibleSelected ? handleClearSelection : handleSelectAllVisible}
-              disabled={loading || visibleSelectableIds.length === 0}
-              className="btn-secondary btn-sm"
-            >
-              {allVisibleSelected ? 'Clear selection' : `Select visible (${visibleSelectableIds.length})`}
-            </button>
-            {selectedIds.length > 0 && (
-              <>
-                <button type="button" onClick={handleClearSelection} className="btn-secondary btn-sm">Clear</button>
-                <button type="button" onClick={handleBulkDelete} className="btn-danger btn-sm"><Icons.Trash />Delete selected</button>
-              </>
-            )}
-            </div>
+              <button
+                type="button"
+                onClick={allVisibleSelected ? handleClearSelection : handleSelectAllVisible}
+                disabled={loading || visibleSelectableIds.length === 0}
+                className="btn-secondary btn-sm"
+              >
+                {allVisibleSelected ? 'Clear selection' : `Select visible (${visibleSelectableIds.length})`}
+              </button>
+              {selectedIds.length > 0 && (
+                <>
+                  <button type="button" onClick={handleClearSelection} className="btn-secondary btn-sm">Clear</button>
+                  <button type="button" onClick={handleBulkDelete} className="btn-danger btn-sm"><Icons.Trash />Delete selected</button>
+                </>
+              )}
             </div>
           </div>
         )}

@@ -1210,13 +1210,12 @@ export function ObjectPosterCard({
       className={cx(
         'group relative animate-fade-in',
         onOpen && 'cursor-pointer',
-        selected && 'rounded-xl ring-2 ring-brand/70 ring-offset-2 ring-offset-void',
         articleClassName
       )}
       onClick={onOpen}
       onPointerUp={onPointerUp}
     >
-      <div className={cx('poster rounded-lg overflow-hidden shadow-card border transition-colors', selected ? 'border-brand/60' : 'border-transparent', !selected && 'group-hover:border-muted')}>
+      <div className={cx('poster rounded-lg overflow-hidden shadow-card border transition-colors', selected ? 'border-brand/55' : 'border-transparent', !selected && 'group-hover:border-muted')}>
         {posterUrl(imagePath)
           ? <img src={posterUrl(imagePath)} alt={title} className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
           : (
@@ -1225,7 +1224,7 @@ export function ObjectPosterCard({
               <span className="px-3 text-center text-xs leading-tight">{title}</span>
             </div>
           )}
-        <div className={cx('absolute inset-0 transition-opacity duration-300', selected ? 'bg-brand/20 opacity-100' : 'bg-card-fade', supportsHover ? (selected ? '' : 'opacity-0 group-hover:opacity-100') : (selected ? '' : 'opacity-10'))} />
+        <div className={cx('absolute inset-0 transition-opacity duration-300', 'bg-card-fade', supportsHover ? 'opacity-0 group-hover:opacity-100' : 'opacity-10')} />
         {leftBadges.length > 0 ? (
           <div className="absolute left-2 top-2 flex max-w-[70%] flex-wrap gap-2">
             {leftBadges.map((badge, index) => (
