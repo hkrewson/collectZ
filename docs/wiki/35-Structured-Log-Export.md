@@ -94,6 +94,17 @@ It also begins exposing the common control-plane endpoint fields for the common 
 - collector host
 - collector port
 
+`Admin -> Integrations -> External Logs` also now records the last validation attempt for that endpoint.
+
+- TCP backends:
+  - validation proves the backend could connect and write to the configured collector path
+- `stdout_json`:
+  - validation proves the backend could emit the structured event to stdout JSON successfully
+- UDP backends:
+  - validation proves the datagram send call succeeded locally
+  - it does **not** prove the downstream collector indexed or retained the event, because UDP collectors do not acknowledge receipt
+  - use the Graylog/Loki/syslog smoke paths when you need collector-specific end-to-end proof
+
 Use that view before debugging the collector itself.
 
 It answers:

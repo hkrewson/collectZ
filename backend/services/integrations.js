@@ -142,6 +142,16 @@ const normalizeIntegrationRecord = (row) => {
     cwaUsername: row?.cwa_username || process.env.CWA_USERNAME || '',
     cwaPassword,
     cwaTimeoutMs: 20000,
+    logExportLastValidation: row?.log_export_last_validation_status
+      ? {
+        status: String(row.log_export_last_validation_status).trim().toLowerCase(),
+        detail: String(row.log_export_last_validation_message || '').trim() || '',
+        backend: row.log_export_last_validation_backend || null,
+        host: row.log_export_last_validation_host || null,
+        port: Number(row.log_export_last_validation_port || 0) || null,
+        validatedAt: row.log_export_last_validated_at || null
+      }
+      : null,
     decryptWarnings
   };
 };

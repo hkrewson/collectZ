@@ -7,7 +7,7 @@ const { deriveCwaBaseUrl, loadAdminIntegrationConfig, normalizeIntegrationRecord
 const { encryptSecret } = require('../services/crypto');
 const { buildIntegrationResponse } = require('../services/integrationResponse');
 const { buildObservabilityRuntimeDiagnostics } = require('../services/observabilityRuntime');
-const { resolveExportConfig, invalidateStoredExportConfigCache, LOG_EXPORT_BACKENDS, LOG_EXPORT_SETTINGS_READ_ONLY } = require('../services/logExport');
+const { resolveExportConfig, invalidateStoredExportConfigCache, LOG_EXPORT_BACKENDS, LOG_EXPORT_SETTINGS_READ_ONLY, validateStructuredLogDelivery, normalizeExplicitExportConfig } = require('../services/logExport');
 const { resolveBarcodePreset } = require('../services/barcode');
 const { resolveTmdbPreset, searchTmdbMovie } = require('../services/tmdb');
 const { resolvePlexPreset, fetchPlexSections } = require('../services/plex');
@@ -32,9 +32,23 @@ async function buildAdminIntegrationPayload(config) {
         host: resolvedExportConfig.host,
         port: resolvedExportConfig.port
       },
-      stored: resolvedExportConfig.controlPlane?.stored || null
+      stored: resolvedExportConfig.controlPlane?.stored || null,
+      lastValidation: config?.logExportLastValidation || null
     },
     observabilityRuntime: await buildObservabilityRuntimeDiagnostics()
+  };
+}
+
+function normalizeLogExportValidationRecord(row) {
+  const status = String(row?.log_export_last_validation_status || '').trim().toLowerCase();
+  if (!status) return null;
+  return {
+    status,
+    detail: String(row?.log_export_last_validation_message || '').trim() || '',
+    backend: row?.log_export_last_validation_backend || null,
+    host: row?.log_export_last_validation_host || null,
+    port: Number(row?.log_export_last_validation_port || 0) || null,
+    validatedAt: row?.log_export_last_validated_at || null
   };
 }
 
@@ -535,6 +549,116 @@ router.post('/admin/settings/integrations/test-cwa', authenticateToken, requireR
     status: 410,
     provider: 'cwa_opds',
     detail: 'CWA OPDS integration testing is deferred and currently disabled.'
+  });
+}));
+
+router.post('/admin/settings/integrations/test-logs', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
+  const requestedBackend = req.body?.logExportBackend;
+  const requestedHost = req.body?.logExportHost;
+  const requestedPort = req.body?.logExportPort;
+  const resolved = await resolveExportConfig({ forceRefresh: true });
+
+  if (
+    requestedPort !== undefined
+    && requestedPort !== null
+    && requestedPort !== ''
+  ) {
+    const parsedRequestedPort = Number(requestedPort);
+    if (!Number.isInteger(parsedRequestedPort) || parsedRequestedPort < 1 || parsedRequestedPort > 65535) {
+      return res.status(400).json({
+        ok: false,
+        authenticated: false,
+        status: 400,
+        provider: 'structured_logs',
+        detail: 'External log port must be an integer between 1 and 65535'
+      });
+    }
+  }
+
+  let candidateConfig = resolved.controlPlane?.effective || {
+    backend: resolved.backend,
+    host: resolved.host,
+    port: resolved.port
+  };
+  if (!LOG_EXPORT_SETTINGS_READ_ONLY && requestedBackend !== undefined && String(requestedBackend || '').trim() !== '') {
+    const normalizedRequested = normalizeExplicitExportConfig({
+      backend: requestedBackend,
+      host: requestedHost,
+      port: requestedPort
+    });
+    if (!normalizedRequested) {
+      return res.status(400).json({
+        ok: false,
+        authenticated: false,
+        status: 400,
+        provider: 'structured_logs',
+        detail: 'Unsupported external log backend'
+      });
+    }
+    candidateConfig = normalizedRequested;
+  }
+
+  const validation = await validateStructuredLogDelivery(candidateConfig);
+  const now = new Date();
+  await pool.query(
+    `UPDATE app_integrations
+        SET log_export_last_validation_status = $1,
+            log_export_last_validation_message = $2,
+            log_export_last_validation_backend = $3,
+            log_export_last_validation_host = $4,
+            log_export_last_validation_port = $5,
+            log_export_last_validated_at = $6
+      WHERE id = 1`,
+    [
+      validation.status,
+      validation.detail,
+      validation.config?.backend || candidateConfig.backend || null,
+      validation.config?.host || candidateConfig.host || null,
+      validation.config?.port || candidateConfig.port || null,
+      now.toISOString()
+    ]
+  );
+  const config = await loadAdminIntegrationConfig();
+  await logActivity(req, 'admin.settings.integrations.test_logs', 'app_integrations', 1, {
+    ok: validation.ok,
+    status: validation.status,
+    backend: validation.config?.backend || candidateConfig.backend || null,
+    host: validation.config?.host || candidateConfig.host || null,
+    port: validation.config?.port || candidateConfig.port || null,
+    readOnly: LOG_EXPORT_SETTINGS_READ_ONLY,
+    mode: validation.mode
+  });
+
+  return res.json({
+    ok: validation.ok,
+    authenticated: validation.ok,
+    status: validation.ok ? 200 : 502,
+    provider: 'structured_logs',
+    detail: validation.detail,
+    validation,
+    logExportControl: {
+      readOnly: Boolean(LOG_EXPORT_SETTINGS_READ_ONLY),
+      source: LOG_EXPORT_SETTINGS_READ_ONLY
+        ? 'env_override'
+        : (resolved.controlPlane?.source || 'env_fallback'),
+      supportedBackends: resolved.controlPlane?.supportedBackends || [...LOG_EXPORT_BACKENDS],
+      effective: resolved.controlPlane?.effective || {
+        backend: resolved.backend,
+        host: resolved.host,
+        port: resolved.port
+      },
+      stored: resolved.controlPlane?.stored || null,
+      lastValidation: normalizeLogExportValidationRecord({
+        log_export_last_validation_status: validation.status,
+        log_export_last_validation_message: validation.detail,
+        log_export_last_validation_backend: validation.config?.backend || candidateConfig.backend || null,
+        log_export_last_validation_host: validation.config?.host || candidateConfig.host || null,
+        log_export_last_validation_port: validation.config?.port || candidateConfig.port || null,
+        log_export_last_validated_at: now.toISOString()
+      })
+    },
+    observabilityRuntime: await buildObservabilityRuntimeDiagnostics(),
+    config: await buildAdminIntegrationPayload(config)
   });
 }));
 

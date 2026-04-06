@@ -152,6 +152,11 @@ Use the smallest response that reduces harm:
 2. verify a fresh `activity_log` row still lands locally for the triggering action
 3. treat collector recovery as an observability repair, not as proof that the app itself was unavailable
 
+4. Check the latest `Admin -> Integrations -> External Logs` validation result before assuming the current endpoint was ever proven against the running config.
+   - A `passed` result on TCP means the backend connected and wrote to the configured collector path.
+   - A `passed` result on `stdout_json` means the backend emitted the structured event locally.
+   - A `warning` result on UDP means the datagram send succeeded locally, but downstream collector receipt is still unconfirmed.
+
 The expected failure mode is:
 
 - exporter warning noise may rise

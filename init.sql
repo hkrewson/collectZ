@@ -437,6 +437,12 @@ CREATE TABLE IF NOT EXISTS app_integrations (
     log_export_backend VARCHAR(50),
     log_export_host TEXT,
     log_export_port INTEGER,
+    log_export_last_validation_status VARCHAR(20),
+    log_export_last_validation_message TEXT,
+    log_export_last_validation_backend VARCHAR(50),
+    log_export_last_validation_host TEXT,
+    log_export_last_validation_port INTEGER,
+    log_export_last_validated_at TIMESTAMP,
     cwa_timeout_ms INTEGER DEFAULT 20000,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

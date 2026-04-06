@@ -65,6 +65,17 @@ function normalizeStoredExportConfig(row) {
   };
 }
 
+function normalizeExplicitExportConfig(input = {}) {
+  const backendRaw = String(input?.backend || '').trim().toLowerCase();
+  if (!backendRaw || !LOG_EXPORT_BACKENDS.has(backendRaw)) return null;
+  const defaultPort = defaultPortForBackend(backendRaw);
+  return {
+    backend: backendRaw,
+    host: String(input?.host || DEFAULT_GELF_HOST).trim() || DEFAULT_GELF_HOST,
+    port: Math.max(1, Number(input?.port || defaultPort) || defaultPort)
+  };
+}
+
 async function loadStoredExportConfig({ forceRefresh = false } = {}) {
   if (!forceRefresh && storedConfigCache && (Date.now() - storedConfigCacheAt) < LOG_EXPORT_CONFIG_CACHE_TTL_MS) {
     return storedConfigCache;
@@ -297,9 +308,8 @@ async function sendTcp(host, port, payload) {
   });
 }
 
-async function emitStructuredLog(event) {
-  const config = await resolveExportConfig();
-  if (config.backend === 'off') return false;
+async function emitStructuredLogWithConfig(event, config) {
+  if (!config || config.backend === 'off') return false;
 
   const payload = JSON.stringify(event);
   debugLog('emit.attempt', {
@@ -359,6 +369,70 @@ async function emitStructuredLog(event) {
   return false;
 }
 
+async function emitStructuredLog(event) {
+  const config = await resolveExportConfig();
+  return emitStructuredLogWithConfig(event, config);
+}
+
+async function validateStructuredLogDelivery(configInput) {
+  const config = normalizeExplicitExportConfig(configInput);
+  if (!config || config.backend === 'off') {
+    return {
+      ok: false,
+      status: 'failed',
+      detail: 'External structured log backend is off, so there is no collector path to validate.',
+      mode: 'disabled',
+      config: config || {
+        backend: 'off',
+        host: DEFAULT_GELF_HOST,
+        port: DEFAULT_GELF_PORT
+      }
+    };
+  }
+
+  const validationId = `log-validate-${Date.now()}`;
+  const event = buildGelfEvent({
+    action: 'admin.integrations.external_logs.validate',
+    entityType: 'app_integrations',
+    entityId: 1,
+    details: {
+      validationId,
+      backend: config.backend,
+      host: config.host,
+      port: config.port
+    }
+  });
+  try {
+    await emitStructuredLogWithConfig(event, config);
+    if (config.backend === 'gelf_udp' || config.backend === 'syslog_udp') {
+      return {
+        ok: true,
+        status: 'warning',
+        detail: 'Datagram send succeeded, but UDP collectors do not acknowledge receipt. Use the collector-specific smoke path when you need end-to-end proof.',
+        mode: 'udp_send',
+        config
+      };
+    }
+    return {
+      ok: true,
+      status: 'passed',
+      detail: config.backend === 'stdout_json'
+        ? 'Structured log event emitted to backend stdout JSON successfully.'
+        : 'Structured log event reached the configured TCP collector path successfully.',
+      mode: config.backend === 'stdout_json' ? 'stdout_emit' : 'tcp_connect',
+      config
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      status: 'failed',
+      detail: error?.message || 'Structured log validation failed.',
+      mode: config.backend === 'gelf_udp' || config.backend === 'syslog_udp' ? 'udp_send' : 'tcp_connect',
+      config
+    };
+  }
+}
+
 async function maybeExportActivityLog(event) {
   const config = await resolveExportConfig();
   if (config.backend === 'off') {
@@ -394,10 +468,12 @@ module.exports = {
   inferOutcome,
   invalidateStoredExportConfigCache,
   maybeExportActivityLog,
+  normalizeExplicitExportConfig,
   omitNilFields,
   formatSyslogMessage,
   promoteDetailFields,
   readExportConfig,
   resolveExportConfig,
+  validateStructuredLogDelivery,
   truncateJsonValue
 };

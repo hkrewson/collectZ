@@ -2448,6 +2448,24 @@ const MIGRATIONS = [
       ALTER TABLE app_integrations
         ADD COLUMN IF NOT EXISTS log_export_port INTEGER;
     `
+  },
+  {
+    version: 55,
+    description: 'Add observability endpoint validation fields',
+    up: `
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS log_export_last_validation_status VARCHAR(20);
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS log_export_last_validation_message TEXT;
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS log_export_last_validation_backend VARCHAR(50);
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS log_export_last_validation_host TEXT;
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS log_export_last_validation_port INTEGER;
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS log_export_last_validated_at TIMESTAMP;
+    `
   }
 ];
 

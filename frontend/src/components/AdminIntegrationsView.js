@@ -443,12 +443,25 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
               ? { title: 'Halo' }
               : sec === 'comics'
                 ? { title: 'Batman' }
+                : sec === 'logs'
+                  ? {
+                    logExportBackend: form.logExportBackend,
+                    logExportHost: form.logExportHost,
+                    logExportPort: form.logExportPort
+                  }
                 : sec === 'cwa'
                   ? {}
               : {};
       const result = await apiCall('post', `/admin/settings/integrations/test-${sec}`, payload);
-      setStatus((s) => ({ ...s, [sec]: result.authenticated ? 'ok' : 'auth_failed' }));
-      setTestMsg(`${sec.toUpperCase()}: ${result.authenticated ? 'Connected' : 'Auth failed'} — ${result.detail}`);
+      if (sec === 'logs') {
+        setLogExportControl(result.logExportControl || result.config?.logExportControl || null);
+        setObservabilityRuntime(result.observabilityRuntime || result.config?.observabilityRuntime || { logs: null, metrics: null });
+        setStatus((s) => ({ ...s, logs: result.ok ? 'ok' : 'missing' }));
+        setTestMsg(`LOGS: ${String(result.validation?.status || result.status || 'checked').toUpperCase()} — ${result.detail}`);
+      } else {
+        setStatus((s) => ({ ...s, [sec]: result.authenticated ? 'ok' : 'auth_failed' }));
+        setTestMsg(`${sec.toUpperCase()}: ${result.authenticated ? 'Connected' : 'Auth failed'} — ${result.detail}`);
+      }
       if (sec === 'plex') setPlexAvailableSections(Array.isArray(result.sections) ? result.sections : []);
     } catch (err) {
       setTestMsg(err.response?.data?.detail || `${sec} test failed`);
@@ -488,6 +501,7 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
   const sectionFeature = SETTINGS_SECTION_FEATURES[section] ? featureFlagMap.get(SETTINGS_SECTION_FEATURES[section]) : null;
   const logsRuntime = observabilityRuntime.logs;
   const metricsRuntime = observabilityRuntime.metrics;
+  const logLastValidation = logExportControl?.lastValidation || null;
   const logControlSourceLabel = logExportControl?.source === 'stored'
     ? 'Using Admin-managed endpoint settings.'
     : logExportControl?.source === 'env_override'
@@ -615,6 +629,38 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
                 />
               </LabeledField>
             </div>
+          </div>
+          <div className="border-t border-edge pt-4 space-y-3">
+            <div>
+              <h3 className="text-sm font-medium text-ink">Last validation</h3>
+              <p className="mt-1 text-sm text-ghost">Validation uses the current candidate endpoint in editable mode and the effective runtime endpoint in read-only mode.</p>
+            </div>
+            {logLastValidation ? (
+              <div className="rounded-lg border border-edge/70 bg-raised/50 px-4 py-3 space-y-3">
+                <RuntimeKeyValueList rows={[
+                  {
+                    label: 'Status',
+                    value: logLastValidation.status === 'passed'
+                      ? 'Passed'
+                      : logLastValidation.status === 'warning'
+                        ? 'Warning'
+                        : 'Failed'
+                  },
+                  {
+                    label: 'Validated endpoint',
+                    value: `${logLastValidation.backend || 'off'} @ ${logLastValidation.host || 'n/a'}:${logLastValidation.port || 'n/a'}`,
+                    mono: true
+                  },
+                  {
+                    label: 'Validated at',
+                    value: logLastValidation.validatedAt ? new Date(logLastValidation.validatedAt).toLocaleString() : 'Unknown'
+                  }
+                ]} />
+                <p className="text-sm text-dim">{logLastValidation.detail}</p>
+              </div>
+            ) : (
+              <p className="text-sm text-dim">No validation has been recorded yet for this external log endpoint.</p>
+            )}
           </div>
           {logsRuntime && (
             <div className="border-t border-edge pt-4 space-y-3">
@@ -825,6 +871,11 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
             {section !== 'logs' && (
               <button onClick={() => test(section)} disabled={testLoading === section} className="btn-secondary btn-sm">
                 {testLoading === section ? <Spinner size={14} /> : 'Test'}
+              </button>
+            )}
+            {section === 'logs' && (
+              <button onClick={() => test(section)} disabled={testLoading === section} className="btn-secondary btn-sm">
+                {testLoading === section ? <Spinner size={14} /> : 'Validate'}
               </button>
             )}
             <button
