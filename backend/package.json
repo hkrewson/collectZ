@@ -28,7 +28,7 @@
     "repair:comic-posters": "node scripts/repair-comic-posters.js"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1014.0",
+    "@aws-sdk/client-s3": "^3.1024.0",
     "axios": "^1.13.6",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.6",
