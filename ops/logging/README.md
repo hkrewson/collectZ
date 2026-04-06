@@ -70,6 +70,20 @@ export GRAYLOG_PASSWORD_SECRET='replace-with-a-long-random-string'
 docker compose -f ops/logging/docker-compose.graylog.yml up -d
 ```
 
+To rehearse persistence across a normal Graylog stack recreate:
+
+```bash
+bash ops/logging/verify-graylog-persistence.sh
+```
+
+That script verifies the named Docker volumes survive:
+
+- `docker compose down`
+- followed by:
+  - `docker compose up -d`
+
+It intentionally does **not** validate `down -v`, because removing volumes is the destructive reset path for this example stack.
+
 ## End-to-End Smoke Path
 
 1. Recreate collectZ backend with log export pointed at Graylog:
@@ -141,6 +155,13 @@ Afterward, restore the intended collector config.
 ## Persistence Notes
 
 The bundled Graylog example persists collector/index state through Docker volumes owned by the example stack. If you want log history to survive stack replacement, back up those volumes intentionally instead of treating the example as stateless.
+
+Practical restore note:
+
+- `docker compose down` keeps the named Graylog, MongoDB, and OpenSearch volumes
+- `docker compose down -v` removes them
+
+Use `down -v` only when you intentionally want to discard retained collector/index state.
 
 ## Quick Diagnosis: `backend_off` / Env Drift
 

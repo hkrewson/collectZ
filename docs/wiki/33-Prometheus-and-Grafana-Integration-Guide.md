@@ -280,6 +280,13 @@ Restoration note:
   - the running collectZ backend still sees the expected `DEBUG` level and scrape token env
   - Prometheus is using the matching token and still scraping the intended internal target
 
+Example-stack rehearsal:
+
+- run:
+  - `bash ops/monitoring/verify-monitoring-persistence.sh`
+- that verifies the named `prometheus_data` and `grafana_data` volumes survive a normal `docker compose down` / `up -d` cycle
+- treat `docker compose down -v` as the destructive reset path that intentionally discards monitoring history
+
 ## Follow-Up Candidates
 
 Later `2.6.x` work can add:

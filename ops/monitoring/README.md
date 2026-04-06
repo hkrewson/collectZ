@@ -57,6 +57,20 @@ Start the monitoring stack:
 docker compose -f ops/monitoring/docker-compose.monitoring.yml up -d
 ```
 
+To rehearse persistence across a normal stack recreate:
+
+```bash
+bash ops/monitoring/verify-monitoring-persistence.sh
+```
+
+That script verifies the named `prometheus_data` and `grafana_data` volumes survive:
+
+- `docker compose down`
+- followed by:
+  - `docker compose up -d`
+
+It intentionally does **not** prove `down -v`, because removing volumes is the destructive reset path.
+
 ## Endpoints
 
 - Prometheus:
@@ -122,3 +136,10 @@ For the bundled example stack, the durable data you may need to preserve is:
 - Grafana provisioning/auth state, depending on your deployment model
 
 If you recreate the monitoring stack without preserving those paths, expect dashboard history and alerting state to reset even when collectZ itself is still exporting metrics correctly.
+
+Practical restore note:
+
+- `docker compose down` keeps the named volumes
+- `docker compose down -v` removes them
+
+Treat `down -v` as a deliberate reset or disaster-recovery step, not as a routine restart.

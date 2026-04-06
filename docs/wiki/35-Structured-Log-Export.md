@@ -190,3 +190,10 @@ Rotation/restoration note:
 
 - changing collector endpoints, passwords, tokens, or persistent volumes can make older dashboards/search paths look empty even when collectZ is still exporting correctly
 - confirm both the running backend env and the collector’s retained state after any restore or secret rotation
+
+Example-stack rehearsal:
+
+- run:
+  - `bash ops/logging/verify-graylog-persistence.sh`
+- that verifies the named Graylog, MongoDB, and OpenSearch volumes survive a normal `docker compose down` / `up -d` cycle
+- treat `docker compose down -v` as the destructive reset path for the bundled Graylog example
