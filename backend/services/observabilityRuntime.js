@@ -69,12 +69,6 @@ async function buildLogsRuntimeDiagnostics() {
       'Runtime transport is off',
       'External Log Export is enabled in Admin -> Integrations, but the running backend still has LOG_EXPORT_BACKEND=off, so no collector transport will be used.'
     ));
-  } else {
-    checks.push(makeCheck(
-      'ok',
-      'Runtime transport is configured',
-      `The running backend is prepared to export structured events with ${config.backend} to ${config.host}:${config.port}.`
-    ));
   }
 
   if (flag?.enabled && config.backend !== 'off' && DEFAULT_LOG_HOSTS.has(String(config.host || '').toLowerCase())) {
@@ -98,14 +92,6 @@ async function buildLogsRuntimeDiagnostics() {
       'info',
       'Exporter debug tracing is on',
       'LOG_EXPORT_DEBUG is enabled, so the backend will emit extra exporter decision logs. That is useful for diagnosis, but it adds runtime noise.'
-    ));
-  }
-
-  if (flag?.enabled && config.backend !== 'off') {
-    checks.push(makeCheck(
-      'info',
-      'Collector outages should stay non-blocking',
-      'Export transport failures should only produce a warning log. The primary DB-backed activity_log write remains the durable audit path, so API and import work should keep succeeding even when the collector is unavailable.'
     ));
   }
 

@@ -1159,7 +1159,7 @@ results.push(run('observability runtime source includes log and metrics drift di
   assert.ok(observabilityRuntimeSource.includes('DEBUG_LEVEL < 1'));
   assert.ok(observabilityRuntimeSource.includes('TRUST_PROXY'));
   assert.ok(observabilityRuntimeSource.includes('Scrape token looks weak'));
-  assert.ok(observabilityRuntimeSource.includes('Collector outages should stay non-blocking'));
+  assert.ok(observabilityRuntimeSource.includes('Exporter debug tracing is on'));
 }));
 
 results.push(run('syncJobs.buildCompactJobSummary keeps status-relevant counters and omits verbose arrays', () => {

@@ -143,6 +143,20 @@ function RuntimeKeyValueList({ rows = [] }) {
   );
 }
 
+function DisclosureSection({ title, summary, children, defaultOpen = false }) {
+  return (
+    <details className="rounded-md border border-edge/60" open={defaultOpen}>
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-3 text-sm">
+        <span className="font-medium text-ink">{title}</span>
+        <span className="min-w-0 text-right text-dim">{summary}</span>
+      </summary>
+      <div className="border-t border-edge/60 px-4 py-4 space-y-3">
+        {children}
+      </div>
+    </details>
+  );
+}
+
 export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Spinner, cx, section: externalSection, onSectionChange }) {
   const integrationSections = useMemo(
     () => ([
@@ -519,10 +533,16 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
   const metricsRuntime = observabilityRuntime.metrics;
   const logLastValidation = logExportControl?.lastValidation || null;
   const logControlSourceLabel = logExportControl?.source === 'stored'
-    ? 'Using Admin-managed settings.'
+    ? 'Saved in Admin'
     : logExportControl?.source === 'env_override'
-      ? 'Using runtime env override.'
-      : 'Using runtime env fallback.';
+      ? 'Locked by runtime env'
+      : 'Using runtime env defaults';
+  const logValidationSummary = logLastValidation
+    ? `${logLastValidation.status === 'passed' ? 'Passed' : logLastValidation.status === 'warning' ? 'Warning' : 'Failed'} · ${logLastValidation.backend || 'off'}`
+    : 'Not yet run';
+  const logsRuntimeSummary = logsRuntime
+    ? `${logsRuntime.effectiveState === 'ready' ? 'Ready' : logsRuntime.effectiveState === 'attention' ? 'Needs attention' : 'Disabled'} · ${logsRuntime.configSource === 'stored' ? 'Saved in Admin' : logsRuntime.configSource === 'env_override' ? 'Locked by runtime env' : 'Using runtime env defaults'}`
+    : '';
 
   return (
     <div className="h-full overflow-y-auto p-4 sm:p-6 space-y-6">
@@ -602,8 +622,39 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
               onToggle={toggleIntegrationFeature}
             />
           )}
-          <div className="border-t border-edge pt-4 space-y-3">
-            <p className="text-sm text-dim">{logControlSourceLabel}</p>
+          <div className="space-y-4">
+            <div className="flex items-start justify-between gap-4 py-1">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-ink">Debug Mode</p>
+                <p className="mt-1 text-sm text-dim">Write extra backend logs while you diagnose export behavior.</p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={Boolean(form.logExportDebug)}
+                aria-label={`${form.logExportDebug ? 'Disable' : 'Enable'} debug mode`}
+                disabled={Boolean(logExportControl?.readOnly)}
+                onClick={() => setForm((f) => ({ ...f, logExportDebug: !f.logExportDebug }))}
+                className={[
+                  'relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-colors duration-150',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/30 focus-visible:ring-offset-2 focus-visible:ring-offset-surface',
+                  form.logExportDebug ? 'border-gold/30 bg-gold/15' : 'border-edge bg-raised/80',
+                  Boolean(logExportControl?.readOnly) ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:border-muted'
+                ].join(' ')}
+              >
+                <span
+                  className={[
+                    'inline-block h-5 w-5 rounded-full shadow-sm transition-transform duration-150',
+                    form.logExportDebug ? 'translate-x-6 bg-gold' : 'translate-x-1 bg-dim'
+                  ].join(' ')}
+                />
+              </button>
+            </div>
+            <div className="border-t border-edge pt-4 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-medium text-ink">Settings</p>
+                <p className="text-sm text-dim">{logControlSourceLabel}</p>
+              </div>
             {logExportControl?.readOnly && (
               <p className="text-sm text-warn">External log endpoint settings are read-only in this environment (`LOG_EXPORT_SETTINGS_READ_ONLY=true`).</p>
             )}
@@ -647,96 +698,88 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
                 />
               </LabeledField>
             </div>
-            <label className="flex items-center gap-2 text-sm text-dim cursor-pointer">
-              <input
-                type="checkbox"
-                className="rounded"
-                checked={form.logExportDebug}
-                disabled={Boolean(logExportControl?.readOnly)}
-                onChange={(e) => setForm((f) => ({ ...f, logExportDebug: e.target.checked }))}
-              />
-              Emit debug traces for exporter decisions
-            </label>
-            <details className="group rounded-md border border-edge/60">
-              <summary className="cursor-pointer list-none select-none px-4 py-3 text-sm text-ghost hover:text-ink">
-                Search Context
-              </summary>
-              <div className="grid gap-3 border-t border-edge/60 px-4 py-4 md:grid-cols-2">
-                <LabeledField label="Service Label" cx={cx}>
-                  <input
-                    className="input font-mono"
-                    name="log_export_service"
-                    autoComplete="off"
-                    spellCheck={false}
-                    placeholder="backend"
-                    value={form.logExportService}
-                    disabled={Boolean(logExportControl?.readOnly)}
-                    onChange={(e) => setForm((f) => ({ ...f, logExportService: e.target.value }))}
-                  />
-                </LabeledField>
-                <LabeledField label="Host Label" cx={cx}>
-                  <input
-                    className="input font-mono"
-                    name="log_export_host_label"
-                    autoComplete="off"
-                    spellCheck={false}
-                    placeholder="collectz-backend"
-                    value={form.logExportHostLabel}
-                    disabled={Boolean(logExportControl?.readOnly)}
-                    onChange={(e) => setForm((f) => ({ ...f, logExportHostLabel: e.target.value }))}
-                  />
-                </LabeledField>
-              </div>
-            </details>
+            <div className="grid gap-3 md:grid-cols-2">
+              <LabeledField label="Service Label" cx={cx}>
+                <input
+                  className="input font-mono"
+                  name="log_export_service"
+                  autoComplete="off"
+                  spellCheck={false}
+                  placeholder="backend"
+                  value={form.logExportService}
+                  disabled={Boolean(logExportControl?.readOnly)}
+                  onChange={(e) => setForm((f) => ({ ...f, logExportService: e.target.value }))}
+                />
+              </LabeledField>
+              <LabeledField label="Host Label" cx={cx}>
+                <input
+                  className="input font-mono"
+                  name="log_export_host_label"
+                  autoComplete="off"
+                  spellCheck={false}
+                  placeholder="collectz-backend"
+                  value={form.logExportHostLabel}
+                  disabled={Boolean(logExportControl?.readOnly)}
+                  onChange={(e) => setForm((f) => ({ ...f, logExportHostLabel: e.target.value }))}
+                />
+              </LabeledField>
+            </div>
           </div>
-          <div className="border-t border-edge pt-4 space-y-3">
-            <h3 className="text-sm font-medium text-ink">Last Validation</h3>
-            {logLastValidation ? (
-              <div className="rounded-lg border border-edge/70 bg-raised/50 px-4 py-3 space-y-3">
-                <RuntimeKeyValueList rows={[
-                  {
-                    label: 'Status',
-                    value: logLastValidation.status === 'passed'
-                      ? 'Passed'
-                      : logLastValidation.status === 'warning'
-                        ? 'Warning'
-                        : 'Failed'
-                  },
-                  {
-                    label: 'Validated endpoint',
-                    value: `${logLastValidation.backend || 'off'} @ ${logLastValidation.host || 'n/a'}:${logLastValidation.port || 'n/a'}`,
-                    mono: true
-                  },
-                  {
-                    label: 'Validated at',
-                    value: logLastValidation.validatedAt ? new Date(logLastValidation.validatedAt).toLocaleString() : 'Unknown'
-                  }
-                ]} />
-                <p className="text-sm text-dim">{logLastValidation.detail}</p>
-              </div>
-            ) : (
-              <p className="text-sm text-dim">No validation has been recorded yet for this external log endpoint.</p>
-            )}
+          <div className="border-t border-edge pt-4">
+            <DisclosureSection title="Last Validation" summary={logValidationSummary}>
+              {logLastValidation ? (
+                <>
+                  <RuntimeKeyValueList rows={[
+                    {
+                      label: 'Status',
+                      value: logLastValidation.status === 'passed'
+                        ? 'Passed'
+                        : logLastValidation.status === 'warning'
+                          ? 'Warning'
+                          : 'Failed'
+                    },
+                    {
+                      label: 'Validated endpoint',
+                      value: `${logLastValidation.backend || 'off'} @ ${logLastValidation.host || 'n/a'}:${logLastValidation.port || 'n/a'}`,
+                      mono: true
+                    },
+                    {
+                      label: 'Validated at',
+                      value: logLastValidation.validatedAt ? new Date(logLastValidation.validatedAt).toLocaleString() : 'Unknown'
+                    }
+                  ]} />
+                  <p className="text-sm text-dim">{logLastValidation.detail}</p>
+                </>
+              ) : (
+                <p className="text-sm text-dim">No validation has been recorded yet for this external log endpoint.</p>
+              )}
+            </DisclosureSection>
           </div>
           {logsRuntime && (
-            <div className="border-t border-edge pt-4 space-y-3">
-              <h3 className="text-sm font-medium text-ink">Runtime Checks</h3>
-              <RuntimeKeyValueList rows={[
-                { label: 'State', value: logsRuntime.effectiveState === 'ready' ? 'Ready' : logsRuntime.effectiveState === 'attention' ? 'Needs attention' : 'Disabled' },
-                { label: 'Config source', value: logsRuntime.configSource === 'stored' ? 'Admin-managed settings' : logsRuntime.configSource === 'env_override' ? 'Runtime env override' : 'Runtime env fallback' },
-                { label: 'Backend', value: logsRuntime.backend, mono: true },
-                { label: 'Collector', value: `${logsRuntime.host}:${logsRuntime.port}`, mono: true },
-                { label: 'Service', value: logsRuntime.service, mono: true },
-                { label: 'Host label', value: logsRuntime.hostLabel, mono: true },
-                { label: 'Debug traces', value: logsRuntime.debugEnabled ? 'On' : 'Off' }
-              ]} />
-              <ul className="divide-y divide-edge/60 rounded-md border border-edge/60 px-4">
-                {(logsRuntime.checks || []).map((check) => (
-                  <RuntimeCheckRow key={`${check.level}-${check.title}`} check={check} />
-                ))}
-              </ul>
+            <div className="border-t border-edge pt-4">
+              <DisclosureSection title="Runtime Checks" summary={logsRuntimeSummary}>
+                <RuntimeKeyValueList rows={[
+                  { label: 'State', value: logsRuntime.effectiveState === 'ready' ? 'Ready' : logsRuntime.effectiveState === 'attention' ? 'Needs attention' : 'Disabled' },
+                  { label: 'Config source', value: logsRuntime.configSource === 'stored' ? 'Saved in Admin' : logsRuntime.configSource === 'env_override' ? 'Locked by runtime env' : 'Using runtime env defaults' },
+                  { label: 'Backend', value: logsRuntime.backend, mono: true },
+                  { label: 'Collector', value: `${logsRuntime.host}:${logsRuntime.port}`, mono: true },
+                  { label: 'Service', value: logsRuntime.service, mono: true },
+                  { label: 'Host label', value: logsRuntime.hostLabel, mono: true },
+                  { label: 'Debug mode', value: logsRuntime.debugEnabled ? 'On' : 'Off' }
+                ]} />
+                {(logsRuntime.checks || []).length > 0 ? (
+                  <ul className="divide-y divide-edge/60 rounded-md border border-edge/60 px-4">
+                    {(logsRuntime.checks || []).map((check) => (
+                      <RuntimeCheckRow key={`${check.level}-${check.title}`} check={check} />
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-dim">No active runtime warnings right now.</p>
+                )}
+              </DisclosureSection>
             </div>
           )}
+          </div>
         </>}
 
         {section === 'metrics' && <>
