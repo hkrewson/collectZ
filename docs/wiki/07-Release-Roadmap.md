@@ -1079,9 +1079,19 @@ Historical planning notes may still exist in:
 36. `2.9.8` Runtime and operations hardening
 37. `2.9.9` Observability endpoint control plane
 38. `2.10.0` Multi-format ownership model (movies/games)
-37. `2.11.0` Optional market valuation integrations
-38. `2.12.0` Optional build: cost model and billing readiness
-39. `3.0.0` Frontend build modernization (CRA to Vite)
+37. `2.10.2` Global shell background flattening
+38. `2.10.3` Support-session banner normalization
+39. `2.10.4` Poster card hover flattening
+40. `2.10.5` Poster card action affordance flattening
+41. `2.10.6` Shared tab strip flattening
+42. `2.10.7` Sidebar ornament reduction
+43. `2.10.8` Mobile header copy normalization
+44. `2.10.9` Add/edit drawer heading normalization
+45. `2.10.10` Modal shell flattening
+46. `2.10.11` Shared form label normalization
+47. `2.11.0` Optional market valuation integrations
+48. `2.12.0` Optional build: cost model and billing readiness
+49. `3.0.0` Frontend build modernization (CRA to Vite)
 
 ## 2.1.0 — Metadata Normalization and Query Performance
 
@@ -2261,6 +2271,177 @@ Historical note:
 - Import tabs and related workflow surfaces feel aligned with the rest of the current admin/library UI instead of reading like a one-off flow.
 - Title selection and result-picking affordances are visually clear, stable in browser automation, and do not depend on fragile overlay/hover behavior for primary actions.
 - The repo has a documented pre-`3.0.0` checkpoint for these UX passes so build-tool modernization does not absorb or skip them.
+
+## 2.10.2 — Global Shell Background Flattening
+
+**Goal:** remove the remaining premium-SaaS background wash so the product shell depends on layout and typography rather than decorative gradients.
+
+### Scope
+
+- Remove or substantially reduce the global radial blue gradients defined in `frontend/src/index.css`.
+- Rebalance dark and light theme body backgrounds toward flatter, calmer surfaces.
+- Keep contrast, readability, and existing shell hierarchy intact without replacing the gradients with new decorative effects.
+
+### Acceptance Criteria
+
+- App backgrounds no longer read as a branded gradient stage set.
+- Core library/admin/import screens feel calmer without losing legibility or orientation.
+- Theme variants stay visually consistent after the background flattening.
+
+## 2.10.3 — Support-Session Banner Normalization
+
+**Goal:** keep support-session status obvious without the current high-drama amber control-plane banner treatment.
+
+### Scope
+
+- Flatten the active support-session banner in `frontend/src/App.js`.
+- Remove gradient banding, inset glow, and other alert-strip theatrics.
+- Simplify uppercase micro-labels and narrated copy into plain status language.
+- Preserve the key functional signals:
+  - support session active,
+  - current space/library context,
+  - started timestamp,
+  - session exit path.
+
+### Acceptance Criteria
+
+- Support-session state is still unmistakable.
+- The banner reads like normal product chrome rather than an emergency operations strip.
+- The copy is shorter and plainer without losing support-task clarity.
+
+## 2.10.4 — Poster Card Hover Flattening
+
+**Goal:** reduce the remaining AI-heavy poster-card hover theatrics across library-style surfaces.
+
+### Scope
+
+- Flatten poster-card hover behavior in `frontend/src/components/app/AppPrimitives.js`.
+- Remove or reduce image zoom, fade-overlay drama, and overemphasized shadow treatment.
+- Keep poster cards interactive and readable without switching into a “special mode” on hover.
+
+### Acceptance Criteria
+
+- Poster cards feel calmer and more durable in normal browsing.
+- Hover states still provide useful affordance without theatrical motion or layered effects.
+- Shared poster-card changes remain consistent across all surfaces that consume the primitive.
+
+## 2.10.5 — Poster Card Action Affordance Flattening
+
+**Goal:** replace hover-revealed showcase-style action trays with simpler, steadier card actions.
+
+### Scope
+
+- Rework the bottom action bar behavior in `frontend/src/components/app/AppPrimitives.js`.
+- Remove `translate-y`/opacity-reveal theatrics and blur-backed floating action buttons where possible.
+- Choose a more durable action pattern for edit/delete/secondary card actions that does not depend on dramatic hover-only reveal behavior.
+
+### Acceptance Criteria
+
+- Card actions are easier to discover and less theatrical.
+- Primary card interactions do not depend on showcase-style hover transitions.
+- Shared action treatment remains compact and consistent across card consumers.
+
+## 2.10.6 — Shared Tab Strip Flattening
+
+**Goal:** finish the move away from pill-shell tab groups toward the flatter horizontal tab language used in the newer surfaces.
+
+### Scope
+
+- Flatten the shared `.tab-strip` and `.tab` pattern in `frontend/src/index.css`.
+- Remove pill-group shell treatment and inset-button feel where it still reads as stylized chrome.
+- Keep horizontal tabs compact, readable, and consistent with the normalized import/admin/drawer tab direction.
+
+### Acceptance Criteria
+
+- Shared tab strips read as normal navigation, not segmented-control décor.
+- Existing tabbed surfaces remain visually consistent after the shared style change.
+- Active/inactive tab states are still obvious without pill-shell framing.
+
+## 2.10.7 — Sidebar Ornament Reduction
+
+**Goal:** simplify the library shell navigation so it feels less over-authored.
+
+### Scope
+
+- Review `frontend/src/components/SidebarNav.js` for remaining ornamental signals:
+  - uppercase library label,
+  - role badge styling,
+  - active gold accent bar,
+  - sub-item dot bullets.
+- Reduce decorative navigation cues while preserving hierarchy and current wayfinding.
+
+### Acceptance Criteria
+
+- Sidebar hierarchy is still clear.
+- Navigation reads as product navigation rather than styled dashboard chrome.
+- Supporting role/library context remains available without decorative overload.
+
+## 2.10.8 — Mobile Header Copy Normalization
+
+**Goal:** replace the remaining control-plane/product-marketing phrasing in the mobile header with plain product labeling.
+
+### Scope
+
+- Simplify the mobile header copy in `frontend/src/App.js`.
+- Remove phrases such as:
+  - `Homelab control plane`,
+  - `Platform control plane`,
+  - `Support control plane`.
+- Preserve role/context awareness using simpler library/space/product language.
+
+### Acceptance Criteria
+
+- Mobile header copy is plainer and more product-native.
+- Role and scope context remain understandable.
+- No marketing-flavored or AI-generated-sounding system labels remain in this header path.
+
+## 2.10.9 — Add/Edit Drawer Heading Normalization
+
+**Goal:** make add/edit drawers feel like normal working surfaces instead of staged modal moments.
+
+### Scope
+
+- Remove all-caps heading treatment and tracking-heavy display styling in `frontend/src/components/LibraryView.js`.
+- Revisit related drawer heading typography so it aligns with the calmer tab and selection work already completed.
+- Preserve strong hierarchy without shouting the drawer title.
+
+### Acceptance Criteria
+
+- Add/edit drawers feel more like normal product workspaces.
+- Drawer headings remain easy to scan without all-caps display styling.
+- The updated heading treatment is consistent across add/edit drawers for supported media types.
+
+## 2.10.10 — Modal Shell Flattening
+
+**Goal:** reduce the remaining blur-heavy, oversized modal shell treatment across shared overlays.
+
+### Scope
+
+- Review modal primitives in `frontend/src/components/app/AppPrimitives.js` and related modal surfaces.
+- Reduce oversized rounded shells, blur-heavy backdrops, and heavy shadow treatment where they still feel staged.
+- Keep modal focus, layering, and dismissal behavior intact.
+
+### Acceptance Criteria
+
+- Modals feel calmer and more functional.
+- Backdrop and shell styling support focus without becoming decorative.
+- Shared modal changes remain compatible with current capture/detail/editor flows.
+
+## 2.10.11 — Shared Form Label Normalization
+
+**Goal:** remove the remaining eyebrow-style uppercase label language that keeps resurfacing through shared form primitives.
+
+### Scope
+
+- Rework shared form label styling in `frontend/src/index.css`.
+- Reduce or remove global uppercase + tracking-heavy label defaults.
+- Preserve readable field hierarchy and accessibility across forms, drawers, admin surfaces, and supporting workflows.
+
+### Acceptance Criteria
+
+- Shared labels no longer force eyebrow-style UI language across the app.
+- Forms stay readable and scannable after the typography shift.
+- The label style feels consistent with the rest of the flattened `2.10.x` UX cleanup lane.
 
 ## 3.0.0 — Frontend Build Modernization (CRA to Vite)
 
