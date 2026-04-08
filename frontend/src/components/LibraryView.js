@@ -1113,6 +1113,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
   const isComic = form.media_type === 'comic_book';
   const isAudio = form.media_type === 'audio';
   const isGame = form.media_type === 'game';
+  const canUniversalLookup = isMovieOrTv || isBook || isComic || isAudio || isGame;
   const isBarcodeCapable = isMovieOrTv || isBook || isComic || isAudio || isGame;
   const canConvertToCollection = Boolean(onConvertToCollection) && ['movie', 'game'].includes(form.media_type);
   const editorTabs = useMemo(() => {
@@ -1169,27 +1170,137 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
     const next = [nextBase, nextAddon].filter(Boolean).join(' ');
     setComicIdentifierInput((current) => (current === next ? current : next));
   }, [form.book_isbn, form.upc, form.comic_barcode_addon, isComic]);
-  const lookupBarcode = async (upcOverride = null) => {
+
+  const resolveLookupTitle = () => String(form.title || '').trim();
+  const resolveLookupYear = () => {
+    const directYear = Number(String(form.year || '').trim());
+    if (Number.isFinite(directYear) && directYear > 0) return directYear;
+    const releaseDate = String(form.release_date || '').trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(releaseDate)) return Number(releaseDate.slice(0, 4));
+    return null;
+  };
+  const resolveLookupIdentifier = (upcOverride = null) => {
     const normalizedOverride = typeof upcOverride === 'string' || typeof upcOverride === 'number'
       ? upcOverride
       : null;
     const preferredLookupValue = normalizedOverride ?? (isBook ? (form.book_isbn || form.upc) : form.upc);
-    const upc = normalizeBarcodeInput(preferredLookupValue);
-    if (!upc) {
-      notify(isBook ? 'Enter an ISBN or retail barcode first' : 'Enter a UPC first', 'error');
+    return normalizeBarcodeInput(preferredLookupValue);
+  };
+
+  const lookupByIdentifier = async (identifier) => {
+    const data = await apiCall('post', '/media/lookup-upc', { upc: identifier, mediaType: form.media_type });
+    return data.matches || [];
+  };
+
+  const lookupByTitle = async (title) => {
+    if (isMovieOrTv) {
+      const matches = await apiCall('post', '/media/search-tmdb', {
+        title,
+        year: resolveLookupYear(),
+        mediaType: inferTmdbSearchType(form.media_type)
+      });
+      return (matches || []).map((row) => ({
+        title: row?.title || row?.name || '',
+        normalizedTitle: row?.title || row?.name || '',
+        description: row?.overview || '',
+        image: row?.poster_path || null,
+        tmdb: row
+      }));
+    }
+
+    if (isBook) {
+      const data = await apiCall('post', '/media/enrich/book/search', {
+        title,
+        author: String(form.book_author || '').trim()
+      });
+      return (data?.matches || []).map((row) => ({
+        mediaTypeGuess: 'book',
+        title: row?.title || '',
+        normalizedTitle: row?.title || '',
+        description: row?.overview || '',
+        image: row?.poster_path || null,
+        book: row,
+        typeDetails: row?.type_details || {}
+      }));
+    }
+
+    if (isComic) {
+      const data = await apiCall('post', '/media/enrich/comic/search', { title });
+      return (data?.matches || []).map((row) => ({
+        title: row?.title || '',
+        normalizedTitle: row?.title || '',
+        description: row?.overview || '',
+        image: row?.poster_path || null,
+        typeEnrichment: row,
+        typeDetails: row?.type_details || {}
+      }));
+    }
+
+    if (isAudio) {
+      const data = await apiCall('post', '/media/enrich/audio/search', {
+        title,
+        artist: String(form.audio_artist || '').trim()
+      });
+      return (data?.matches || []).map((row) => ({
+        title: row?.title || '',
+        normalizedTitle: row?.title || '',
+        description: row?.overview || '',
+        image: row?.poster_path || null,
+        typeEnrichment: row,
+        typeDetails: row?.type_details || {}
+      }));
+    }
+
+    if (isGame) {
+      const data = await apiCall('post', '/media/enrich/game/search', { title });
+      return (data?.matches || []).map((row) => ({
+        title: row?.title || '',
+        normalizedTitle: row?.title || '',
+        description: row?.overview || '',
+        image: row?.poster_path || null,
+        typeEnrichment: row,
+        typeDetails: row?.type_details || {}
+      }));
+    }
+
+    return [];
+  };
+
+  const runUniversalLookup = async (options = {}) => {
+    const {
+      identifierOverride = null,
+      forceIdentifierOnly = false
+    } = options;
+    const title = forceIdentifierOnly ? '' : resolveLookupTitle();
+    const identifier = resolveLookupIdentifier(identifierOverride);
+
+    if (!title && !identifier) {
+      notify('Enter a title or identifier first', 'error');
       return;
     }
+
     setBarcodeLoading(true);
     setBarcodeResults([]);
     setBarcodeError(null);
+
     try {
-      const data = await apiCall('post', '/media/lookup-upc', { upc, mediaType: form.media_type });
-      setBarcodeResults(data.matches || []);
-      if (!data.matches?.length) notify('No UPC matches found', 'error');
+      const source = identifier && (forceIdentifierOnly || !title) ? 'identifier' : 'title';
+      const matches = source === 'identifier'
+        ? await lookupByIdentifier(identifier)
+        : await lookupByTitle(title);
+
+      setBarcodeResults(matches);
+
+      if (!matches.length) {
+        notify('No matches found', 'error');
+        return;
+      }
+
+      notify(matches.length === 1 ? 'Found 1 match' : `Found ${matches.length} matches`);
     } catch (e) {
       const payload = e?.response?.data || null;
       setBarcodeError(payload);
-      notify(payload?.error || payload?.detail || 'UPC lookup failed', 'error');
+      notify(payload?.error || payload?.detail || 'Lookup failed', 'error');
     } finally {
       setBarcodeLoading(false);
     }
@@ -1317,7 +1428,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
       }
       notify(inferredBookIsbn ? `Recovered book identifier ${inferredBookIsbn}` : `Captured barcode ${lookupValue}`);
       if (isBarcodeCapable) {
-        await lookupBarcode(lookupValue);
+        await runUniversalLookup({ identifierOverride: lookupValue, forceIdentifierOnly: true });
       }
     } catch (error) {
       const reason = error?.message;
@@ -1333,7 +1444,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
     }
   };
 
-  const applyBarcode = async (match) => {
+  const applyLookupResult = async (match) => {
     const guessedBook = match?.mediaTypeGuess === 'book' || Boolean(match?.book);
     if (guessedBook) {
       const book = match?.book || null;
@@ -1356,7 +1467,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
       });
       setBarcodeError(null);
       setBarcodeResults([]);
-      notify('Barcode data applied');
+      notify('Lookup data applied');
       return;
     }
 
@@ -1387,7 +1498,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
       });
       setBarcodeError(null);
       setBarcodeResults([]);
-      notify('Barcode data applied');
+      notify('Lookup data applied');
       return;
     }
 
@@ -1406,7 +1517,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
       });
       setBarcodeError(null);
       setBarcodeResults([]);
-      notify('Barcode data applied');
+      notify('Lookup data applied');
       return;
     }
 
@@ -1425,7 +1536,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
       });
       setBarcodeError(null);
       setBarcodeResults([]);
-      notify('Barcode data applied');
+      notify('Lookup data applied');
       return;
     }
 
@@ -1461,7 +1572,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
     });
     setBarcodeError(null);
     setBarcodeResults([]);
-    notify('Barcode data applied');
+    notify('Lookup data applied');
   };
 
   const uploadCoverImage = async (file) => {
@@ -1697,7 +1808,12 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
                     {isMovieOrTv ? (
                       <div className="grid grid-cols-1 gap-3 md:grid-cols-12">
                         <LabeledField label="Title *" className="md:col-span-8">
-                          <input className="input" placeholder={form.media_type === 'movie' ? 'Movie title' : 'Title'} value={form.title} onChange={(e) => set({ title: e.target.value })} required />
+                          <div className="flex flex-wrap gap-2 md:flex-nowrap">
+                            <input className="input min-w-0 flex-1" placeholder={form.media_type === 'movie' ? 'Movie title' : 'Title'} value={form.title} onChange={(e) => set({ title: e.target.value })} required />
+                            <button type="button" onClick={() => runUniversalLookup()} disabled={barcodeLoading} className="btn-secondary btn-sm shrink-0 min-w-[76px]">
+                              {barcodeLoading ? <Spinner size={14} /> : 'Search'}
+                            </button>
+                          </div>
                         </LabeledField>
                         <LabeledField label="Original Title" className="md:col-span-4">
                           <input className="input" value={form.original_title} onChange={(e) => set({ original_title: e.target.value })} />
@@ -1705,7 +1821,14 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
                       </div>
                     ) : (
                       <LabeledField label={isAudio ? 'Album *' : 'Title *'}>
-                        <input className="input" placeholder={isAudio ? 'Album title' : 'Title'} value={form.title} onChange={(e) => set({ title: e.target.value })} required />
+                        <div className="flex flex-wrap gap-2 md:flex-nowrap">
+                          <input className="input min-w-0 flex-1" placeholder={isAudio ? 'Album title' : 'Title'} value={form.title} onChange={(e) => set({ title: e.target.value })} required />
+                          {canUniversalLookup ? (
+                            <button type="button" onClick={() => runUniversalLookup()} disabled={barcodeLoading} className="btn-secondary btn-sm shrink-0 min-w-[76px]">
+                              {barcodeLoading ? <Spinner size={14} /> : 'Search'}
+                            </button>
+                          ) : null}
+                        </div>
                       </LabeledField>
                     )}
 
@@ -1757,9 +1880,6 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
                               <button type="button" onClick={() => barcodeCaptureInputRef.current?.click()} disabled={barcodeCaptureLoading} className="btn-secondary btn-sm shrink-0 min-w-[76px]">
                                 {barcodeCaptureLoading ? <Spinner size={14} /> : <><Icons.Camera />Scan</>}
                               </button>
-                              <button type="button" onClick={() => lookupBarcode(form.book_isbn || form.upc)} disabled={barcodeLoading} className="btn-secondary btn-sm shrink-0 min-w-[76px]">
-                                {barcodeLoading ? <Spinner size={14} /> : <><Icons.Barcode />Lookup</>}
-                              </button>
                             </div>
                             <BookCaptureStatusCard state={bookCaptureState} />
                           </div>
@@ -1776,9 +1896,6 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
                               <button type="button" onClick={() => barcodeCaptureInputRef.current?.click()} disabled={barcodeCaptureLoading} className="btn-secondary btn-sm shrink-0 min-w-[76px]">
                                 {barcodeCaptureLoading ? <Spinner size={14} /> : <><Icons.Camera />Scan</>}
                               </button>
-                              <button type="button" onClick={() => lookupBarcode(form.book_isbn || form.upc)} disabled={barcodeLoading} className="btn-secondary btn-sm shrink-0 min-w-[76px]">
-                                {barcodeLoading ? <Spinner size={14} /> : <><Icons.Barcode />Lookup</>}
-                              </button>
                             </div>
                           </div>
                         ) : (
@@ -1787,9 +1904,6 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
                               <input className="input min-w-0 flex-1 font-mono" placeholder="012345678901" value={form.upc} onChange={(e) => set({ upc: normalizeBarcodeInput(e.target.value) })} />
                               <button type="button" onClick={() => barcodeCaptureInputRef.current?.click()} disabled={barcodeCaptureLoading} className="btn-secondary btn-sm shrink-0 min-w-[76px]">
                                 {barcodeCaptureLoading ? <Spinner size={14} /> : <><Icons.Camera />Scan</>}
-                              </button>
-                              <button type="button" onClick={() => lookupBarcode()} disabled={barcodeLoading} className="btn-secondary btn-sm shrink-0 min-w-[76px]">
-                                {barcodeLoading ? <Spinner size={14} /> : <><Icons.Barcode />Lookup</>}
                               </button>
                             </div>
                           </div>
@@ -1814,12 +1928,12 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
                   </div>
                 </div>
 
-                {isBarcodeCapable && barcodeResults.length > 0 && (
+                {canUniversalLookup && barcodeResults.length > 0 && (
                   <div className="mt-5 space-y-2">
-                    <p className="label">Barcode Matches — click to apply</p>
+                    <p className="label">Search Results — click to apply</p>
                     <div className="space-y-1.5 max-h-40 overflow-y-auto scroll-area pr-1">
                       {barcodeResults.map((m, i) => (
-                        <button key={i} type="button" onClick={() => applyBarcode(m)} className="w-full flex items-center gap-3 p-2.5 rounded-lg bg-raised border border-edge hover:border-gold/40 hover:bg-gold/5 transition-all text-left group">
+                        <button key={i} type="button" onClick={() => applyLookupResult(m)} className="w-full flex items-center gap-3 p-2.5 rounded-lg bg-raised border border-edge hover:border-gold/40 hover:bg-gold/5 transition-all text-left group">
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-ink truncate">{m?.typeEnrichment?.title || m?.book?.title || m?.normalizedTitle || m.tmdb?.title || m.title || 'Unknown'}</p>
                             <p className="text-xs text-ghost">
@@ -1839,12 +1953,12 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
                   </div>
                 )}
 
-                {isBarcodeCapable && barcodeError && (
+                {canUniversalLookup && barcodeError && (
                   <div className="mt-5 rounded-xl border border-err/30 bg-err/5 p-3 space-y-2">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="label text-err">Barcode lookup failed</p>
-                        <p className="text-sm text-ink">{barcodeError?.error || 'Unknown barcode lookup error'}</p>
+                        <p className="label text-err">Search failed</p>
+                        <p className="text-sm text-ink">{barcodeError?.error || 'Unknown lookup error'}</p>
                         {barcodeError?.detail && <p className="text-xs text-ghost mt-1">{barcodeError.detail}</p>}
                       </div>
                       {barcodeError?.stage && <span className="badge badge-dim">{barcodeError.stage}</span>}

@@ -1079,19 +1079,21 @@ Historical planning notes may still exist in:
 36. `2.9.8` Runtime and operations hardening
 37. `2.9.9` Observability endpoint control plane
 38. `2.10.0` Multi-format ownership model (movies/games)
-37. `2.10.2` Global shell background flattening
-38. `2.10.3` Support-session banner normalization
-39. `2.10.4` Poster card hover flattening
-40. `2.10.5` Poster card action affordance flattening
-41. `2.10.6` Shared tab strip flattening
-42. `2.10.7` Sidebar ornament reduction
-43. `2.10.8` Mobile header copy normalization
-44. `2.10.9` Add/edit drawer heading normalization
-45. `2.10.10` Modal shell flattening
-46. `2.10.11` Shared form label normalization
-47. `2.11.0` Optional market valuation integrations
-48. `2.12.0` Optional build: cost model and billing readiness
-49. `3.0.0` Frontend build modernization (CRA to Vite)
+39. `2.10.1` Library workflow UX polish
+40. `2.10.2` Global shell background flattening
+41. `2.10.3` Support-session banner normalization
+42. `2.10.4` Poster card hover flattening
+43. `2.10.5` Poster card action affordance flattening
+44. `2.10.6` Add and edit cards search
+45. `2.10.7` Shared tab strip flattening
+46. `2.10.8` Sidebar ornament reduction
+47. `2.10.9` Mobile header copy normalization
+48. `2.10.10` Add/edit drawer heading normalization
+49. `2.10.11` Modal shell flattening
+50. `2.10.12` Shared form label normalization
+51. `2.11.0` Optional market valuation integrations
+52. `2.12.0` Optional build: cost model and billing readiness
+53. `3.0.0` Frontend build modernization (CRA to Vite)
 
 ## 2.1.0 — Metadata Normalization and Query Performance
 
@@ -2272,49 +2274,7 @@ Historical note:
 - Title selection and result-picking affordances are visually clear, stable in browser automation, and do not depend on fragile overlay/hover behavior for primary actions.
 - The repo has a documented pre-`3.0.0` checkpoint for these UX passes so build-tool modernization does not absorb or skip them.
 
-## 2.10.2 - Add and Edit cards search.
-
-### BUG FIX
-
-- Bug: Add and Edit drawer lookup button requires barcode when the implication of a single lookup button is to search based on any data. This is bug results from work on Add Edit drawers to simplify and flatten the UI.
-
-### Requires Skills
-
-- This work requires the use of [$build-web-apps:web-design-guidelines](/Users/hamlin/.codex/plugins/cache/openai-curated/build-web-apps/f78e3ad49297672a905eb7afb6aa0cef34edc79e/skills/web-design-guidelines/SKILL.md) 
-- This work requires the use of [$uncodixfy](/Users/hamlin/.codex/skills/uncodixfy/SKILL.md) 
-- [$build-web-apps:frontend-skill](/Users/hamlin/.codex/plugins/cache/openai-curated/build-web-apps/f78e3ad49297672a905eb7afb6aa0cef34edc79e/skills/frontend-skill/SKILL.md) may be employed to further assist as needed.
-
-**Goal:** The lookup button should be universal. When clicked, it should use the available information entered to search the relevant API. The icon should be removed since it evokes a barcode only solution.
-
-### Scope
-- For Movies and TV when title exists, lookup should default to a search of TMDB API
-- For Movies and TV when UPC | Barcode exists, lookup should default to a search of upcitemdb API
-- For Movies and TV when UPC & Title exists, lookup can be run against both API endpoints using the relevant data. Results can be compared and combined for a result. 
-- For Movies and TV when UPC & Title exist and lookups differ, Both results should be presented for the user to select. If the UPC results are selected, a new search of TMDB API should be performed to gather new metadata.
-- For Audio when title exists, lookup should default to Discogs API
-- For Audio when UPC exists, lookup should default to upcitemdb API
-- For Audio when both title and upc exist, a search of both discogs and upcitemdb should be performed. Results can be compared and combined.
-- For Audio when both title and upc exist, and lookups differ, both results should be presented for the user to select. If the upc result is selected, a new request from discogs should be performed to gather new metadata.
-- For Books when title exists, lookup should default to Google books.
-- For books when upc | isbn exists, lookup should default to that endpoint
-- For books if both exist, perform both lookups and compare / combine results
-- For comic Books when title exists, lookup should default to Metron.
-- For comic books when upc | isbn exists, lookup should default to that endpoint
-- For comic books if both exist, perform both lookups and compare / combine results
-- For games if title exists, search should be performed with IGDB
-- For games if upc exists, search of upcitemdb should be performed
-- For games if both exist, search of IGDB and upcitemdb should both be performed. results can be compared and combined.
-- For all title add / edit cards, any additional data (year, release date, etc) can be used when appropriate to improve results
-
-### Acceptance Criteria
-
-- All Add and Edit drawers behave correctly for any search requests. 
-- Search Title only should default to the media type default title search API endpoint
-- Search Title with year or release date should get results from the media type default search API endpoint
-- Search UPC | Barcode | ISBN | ASN should get results from barcode/upc API endpoint
-- Search when title and barcode exist should pull results from media type default search api and from barcode search api. If results match, they are presented to the user for acceptance. If results differ both are presented to the user to choose from. If the barcode result is picked, those results inform a new search with the media type default title api endpoint.
-
-## 2.10.3 — Global Shell Background Flattening
+## 2.10.2 — Global Shell Background Flattening
 
 **Goal:** remove the remaining premium-SaaS background wash so the product shell depends on layout and typography rather than decorative gradients.
 
@@ -2330,7 +2290,7 @@ Historical note:
 - Core library/admin/import screens feel calmer without losing legibility or orientation.
 - Theme variants stay visually consistent after the background flattening.
 
-## 2.10.4 — Support-Session Banner Normalization
+## 2.10.3 — Support-Session Banner Normalization
 
 **Goal:** keep support-session status obvious without the current high-drama amber control-plane banner treatment.
 
@@ -2351,7 +2311,7 @@ Historical note:
 - The banner reads like normal product chrome rather than an emergency operations strip.
 - The copy is shorter and plainer without losing support-task clarity.
 
-## 2.10.5 — Poster Card Hover Flattening
+## 2.10.4 — Poster Card Hover Flattening
 
 **Goal:** reduce the remaining AI-heavy poster-card hover theatrics across library-style surfaces.
 
@@ -2367,7 +2327,7 @@ Historical note:
 - Hover states still provide useful affordance without theatrical motion or layered effects.
 - Shared poster-card changes remain consistent across all surfaces that consume the primitive.
 
-## 2.10.6 — Poster Card Action Affordance Flattening
+## 2.10.5 — Poster Card Action Affordance Flattening
 
 **Goal:** replace hover-revealed showcase-style action trays with simpler, steadier card actions.
 
@@ -2382,6 +2342,55 @@ Historical note:
 - Card actions are easier to discover and less theatrical.
 - Primary card interactions do not depend on showcase-style hover transitions.
 - Shared action treatment remains compact and consistent across card consumers.
+
+## 2.10.6 — Add and Edit Cards Search
+
+### BUG FIX
+
+- Bug: the Add and Edit drawer lookup button currently requires a barcode even though the flattened drawer UI now implies one universal search action based on any available identifying data.
+
+### Requires Skills
+
+- This work requires the use of [$build-web-apps:web-design-guidelines](/Users/hamlin/.codex/plugins/cache/openai-curated/build-web-apps/f78e3ad49297672a905eb7afb6aa0cef34edc79e/skills/web-design-guidelines/SKILL.md)
+- This work requires the use of [$uncodixfy](/Users/hamlin/.codex/skills/uncodixfy/SKILL.md)
+- [$build-web-apps:frontend-skill](/Users/hamlin/.codex/plugins/cache/openai-curated/build-web-apps/f78e3ad49297672a905eb7afb6aa0cef34edc79e/skills/frontend-skill/SKILL.md) may be employed to further assist as needed.
+
+**Goal:** The lookup button should be universal. When clicked, it should use the available information entered to search the relevant API. The icon should be removed since it evokes a barcode only solution.
+
+### Implementation Order
+
+- Slice 1: make the drawer lookup control universal, remove barcode-only iconography, and route single-source requests correctly for title-only and identifier-only searches.
+- Slice 2: when title and identifier both exist, run both relevant lookups, normalize the results into one picker, and compare/combine where practical.
+- Slice 3: when dual-source results differ and the user chooses the identifier match, perform the follow-up provider-default title lookup needed to complete enrichment.
+
+### Scope
+- For Movies and TV when title exists, lookup should default to a search of TMDB API
+- For Movies and TV when UPC | Barcode exists, lookup should default to a search of upcitemdb API
+- For Movies and TV when UPC & Title exists, both API endpoints should be eligible and their results can be compared and combined.
+- For Movies and TV when UPC & Title exist and lookups differ, both results should be presented for the user to select. If the UPC results are selected, a new search of TMDB API should be performed to gather new metadata.
+- For Audio when title exists, lookup should default to Discogs API
+- For Audio when UPC exists, lookup should default to upcitemdb API
+- For Audio when both title and upc exist, a search of both discogs and upcitemdb should be performed. Results can be compared and combined.
+- For Audio when both title and upc exist, and lookups differ, both results should be presented for the user to select. If the upc result is selected, a new request from discogs should be performed to gather new metadata.
+- For Books when title exists, lookup should default to Google books.
+- For books when upc | isbn exists, lookup should default to that endpoint
+- For books if both exist, perform both lookups and compare / combine results
+- For comic Books when title exists, lookup should default to Metron.
+- For comic books when upc | isbn exists, lookup should default to that endpoint
+- For comic books if both exist, perform both lookups and compare / combine results
+- For games if title exists, search should be performed with IGDB
+- For games if upc exists, search of upcitemdb should be performed
+- For games if both exist, search of IGDB and upcitemdb should both be performed. Results can be compared and combined.
+- For all title add / edit cards, any additional data (year, release date, etc) can be used when appropriate to improve results
+
+### Acceptance Criteria
+
+- All Add and Edit drawers behave correctly for any search requests.
+- The single lookup button is visually universal and no longer suggests barcode-only behavior.
+- Search Title only should default to the media type default title search API endpoint
+- Search Title with year or release date should get results from the media type default search API endpoint
+- Search UPC | Barcode | ISBN | ASIN should get results from barcode/upc API endpoint
+- Search when title and barcode exist should pull results from media type default search api and from barcode search api. If results match, they are presented to the user for acceptance. If results differ both are presented to the user to choose from. If the barcode result is picked, those results inform a new search with the media type default title api endpoint.
 
 ## 2.10.7 — Shared Tab Strip Flattening
 

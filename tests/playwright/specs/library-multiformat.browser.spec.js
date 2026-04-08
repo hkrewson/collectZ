@@ -109,6 +109,30 @@ test.describe('library multi-format browser regressions', () => {
     }
   });
 
+  test('add drawer uses one universal search action instead of barcode-only lookup buttons', async ({ page }) => {
+    const credentials = await createFreshUserCredentials();
+    const requestContext = await createAuthenticatedRequestContext(credentials);
+
+    try {
+      const storageState = await requestContext.storageState();
+      await page.context().addCookies(storageState.cookies || []);
+      await page.goto('/dashboard?tab=library-movies');
+      await page.getByRole('button', { name: 'Add', exact: true }).click();
+
+      await expect(page.getByRole('heading', { name: /add to library/i })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Search', exact: true })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Lookup', exact: true })).toHaveCount(0);
+
+      await page.getByRole('button', { name: 'Book', exact: true }).click();
+      await expect(page.getByPlaceholder('055357275X, 9780553572755, or 012345678901')).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Search', exact: true })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Scan', exact: true })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Lookup', exact: true })).toHaveCount(0);
+    } finally {
+      await requestContext.dispose();
+    }
+  });
+
   test('end user can shift-select a visible card range in alphabetical card view', async ({ page }) => {
     const credentials = await createFreshUserCredentials();
     const requestContext = await createAuthenticatedRequestContext(credentials);
