@@ -1187,9 +1187,52 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
     return normalizeBarcodeInput(preferredLookupValue);
   };
 
+  const annotateLookupMatches = (matches, source) => (matches || []).map((match) => ({
+    ...match,
+    lookupSources: [source]
+  }));
+
+  const buildLookupMatchKey = (match) => {
+    if (match?.tmdb?.id) return `tmdb:${match.tmdb.tmdb_media_type || form.media_type}:${match.tmdb.id}`;
+    if (match?.book?.id) return `book:${match.book.id}`;
+    if (match?.typeEnrichment?.id) return `${form.media_type}:${match.typeEnrichment.id}`;
+    if (match?.upc) return `upc:${match.upc}`;
+    return `${String(match?.normalizedTitle || match?.title || '').toLowerCase()}|${String(match?.release_date || match?.year || '')}`;
+  };
+
+  const mergeLookupMatches = (...groups) => {
+    const merged = new Map();
+    for (const group of groups) {
+      for (const match of group || []) {
+        const key = buildLookupMatchKey(match);
+        if (!merged.has(key)) {
+          merged.set(key, {
+            ...match,
+            lookupSources: Array.from(new Set(match?.lookupSources || []))
+          });
+          continue;
+        }
+        const current = merged.get(key);
+        merged.set(key, {
+          ...current,
+          ...match,
+          tmdb: current.tmdb || match.tmdb || null,
+          book: current.book || match.book || null,
+          typeEnrichment: current.typeEnrichment || match.typeEnrichment || null,
+          typeDetails: {
+            ...(current.typeDetails || {}),
+            ...(match.typeDetails || {})
+          },
+          lookupSources: Array.from(new Set([...(current.lookupSources || []), ...(match.lookupSources || [])]))
+        });
+      }
+    }
+    return Array.from(merged.values());
+  };
+
   const lookupByIdentifier = async (identifier) => {
     const data = await apiCall('post', '/media/lookup-upc', { upc: identifier, mediaType: form.media_type });
-    return data.matches || [];
+    return annotateLookupMatches(data.matches || [], 'identifier');
   };
 
   const lookupByTitle = async (title) => {
@@ -1199,13 +1242,13 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
         year: resolveLookupYear(),
         mediaType: inferTmdbSearchType(form.media_type)
       });
-      return (matches || []).map((row) => ({
+      return annotateLookupMatches((matches || []).map((row) => ({
         title: row?.title || row?.name || '',
         normalizedTitle: row?.title || row?.name || '',
         description: row?.overview || '',
         image: row?.poster_path || null,
         tmdb: row
-      }));
+      })), 'title');
     }
 
     if (isBook) {
@@ -1213,7 +1256,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
         title,
         author: String(form.book_author || '').trim()
       });
-      return (data?.matches || []).map((row) => ({
+      return annotateLookupMatches((data?.matches || []).map((row) => ({
         mediaTypeGuess: 'book',
         title: row?.title || '',
         normalizedTitle: row?.title || '',
@@ -1221,19 +1264,19 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
         image: row?.poster_path || null,
         book: row,
         typeDetails: row?.type_details || {}
-      }));
+      })), 'title');
     }
 
     if (isComic) {
       const data = await apiCall('post', '/media/enrich/comic/search', { title });
-      return (data?.matches || []).map((row) => ({
+      return annotateLookupMatches((data?.matches || []).map((row) => ({
         title: row?.title || '',
         normalizedTitle: row?.title || '',
         description: row?.overview || '',
         image: row?.poster_path || null,
         typeEnrichment: row,
         typeDetails: row?.type_details || {}
-      }));
+      })), 'title');
     }
 
     if (isAudio) {
@@ -1241,26 +1284,26 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
         title,
         artist: String(form.audio_artist || '').trim()
       });
-      return (data?.matches || []).map((row) => ({
+      return annotateLookupMatches((data?.matches || []).map((row) => ({
         title: row?.title || '',
         normalizedTitle: row?.title || '',
         description: row?.overview || '',
         image: row?.poster_path || null,
         typeEnrichment: row,
         typeDetails: row?.type_details || {}
-      }));
+      })), 'title');
     }
 
     if (isGame) {
       const data = await apiCall('post', '/media/enrich/game/search', { title });
-      return (data?.matches || []).map((row) => ({
+      return annotateLookupMatches((data?.matches || []).map((row) => ({
         title: row?.title || '',
         normalizedTitle: row?.title || '',
         description: row?.overview || '',
         image: row?.poster_path || null,
         typeEnrichment: row,
         typeDetails: row?.type_details || {}
-      }));
+      })), 'title');
     }
 
     return [];
@@ -1284,15 +1327,48 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
     setBarcodeError(null);
 
     try {
-      const source = identifier && (forceIdentifierOnly || !title) ? 'identifier' : 'title';
-      const matches = source === 'identifier'
-        ? await lookupByIdentifier(identifier)
-        : await lookupByTitle(title);
+      const titleOnly = Boolean(title) && !identifier;
+      const identifierOnly = Boolean(identifier) && (!title || forceIdentifierOnly);
+      const dualSource = Boolean(title) && Boolean(identifier) && !forceIdentifierOnly;
+      let matches = [];
+
+      if (dualSource) {
+        const [titleResult, identifierResult] = await Promise.allSettled([
+          lookupByTitle(title),
+          lookupByIdentifier(identifier)
+        ]);
+        const fulfilledGroups = [titleResult, identifierResult]
+          .filter((result) => result.status === 'fulfilled')
+          .map((result) => result.value || []);
+        const rejected = [titleResult, identifierResult]
+          .filter((result) => result.status === 'rejected')
+          .map((result) => result.reason);
+
+        matches = mergeLookupMatches(...fulfilledGroups);
+        if (rejected.length) {
+          const payload = rejected[0]?.response?.data || null;
+          if (payload) setBarcodeError(payload);
+        }
+      } else if (identifierOnly) {
+        matches = await lookupByIdentifier(identifier);
+      } else if (titleOnly) {
+        matches = await lookupByTitle(title);
+      }
 
       setBarcodeResults(matches);
 
       if (!matches.length) {
         notify('No matches found', 'error');
+        return;
+      }
+
+      if (dualSource) {
+        const sharedMatches = matches.filter((match) => (match.lookupSources || []).length > 1).length;
+        if (sharedMatches > 0) {
+          notify(`Found ${matches.length} matches across title and identifier search`);
+        } else {
+          notify('Showing title and identifier matches together');
+        }
         return;
       }
 
@@ -1935,7 +2011,14 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
                       {barcodeResults.map((m, i) => (
                         <button key={i} type="button" onClick={() => applyLookupResult(m)} className="w-full flex items-center gap-3 p-2.5 rounded-lg bg-raised border border-edge hover:border-gold/40 hover:bg-gold/5 transition-all text-left group">
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-ink truncate">{m?.typeEnrichment?.title || m?.book?.title || m?.normalizedTitle || m.tmdb?.title || m.title || 'Unknown'}</p>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="text-sm font-medium text-ink truncate">{m?.typeEnrichment?.title || m?.book?.title || m?.normalizedTitle || m.tmdb?.title || m.title || 'Unknown'}</p>
+                              {(m.lookupSources || []).map((source) => (
+                                <span key={source} className="badge badge-dim">
+                                  {source === 'identifier' ? 'Identifier' : 'Title'}
+                                </span>
+                              ))}
+                            </div>
                             <p className="text-xs text-ghost">
                               {m?.typeEnrichment?.type_details?.artist
                                 || m?.typeEnrichment?.type_details?.platform

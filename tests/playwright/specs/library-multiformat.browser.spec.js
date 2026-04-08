@@ -133,6 +133,118 @@ test.describe('library multi-format browser regressions', () => {
     }
   });
 
+  test('add drawer combines title and identifier search results into one picker', async ({ page }) => {
+    const credentials = await createFreshUserCredentials();
+    const requestContext = await createAuthenticatedRequestContext(credentials);
+    const title = `Playwright Dual Search ${Date.now()}`;
+    const alternateTitle = `${title} Alternate`;
+    const upc = `012345${Date.now().toString().slice(-6)}`;
+    let sawTitleLookup = false;
+    let sawIdentifierLookup = false;
+
+    try {
+      await page.route('**/api/media/search-tmdb', async (route) => {
+        sawTitleLookup = true;
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify([
+            {
+              id: 551122,
+              title,
+              original_title: title,
+              release_date: '2024-03-02',
+              release_year: 2024,
+              tmdb_media_type: 'movie',
+              overview: 'Title search result',
+              genre_names: ['Drama']
+            }
+          ])
+        });
+      });
+
+      await page.route('**/api/media/lookup-upc', async (route) => {
+        sawIdentifierLookup = true;
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            provider: 'playwright-stub',
+            upc,
+            matches: [
+              {
+                upc,
+                title,
+                normalizedTitle: title,
+                tmdb: {
+                  id: 551122,
+                  title,
+                  original_title: title,
+                  release_date: '2024-03-02',
+                  release_year: 2024,
+                  tmdb_media_type: 'movie',
+                  overview: 'Identifier search result',
+                  genre_names: ['Drama']
+                }
+              },
+              {
+                upc: `${upc}9`,
+                title: alternateTitle,
+                normalizedTitle: alternateTitle,
+                tmdb: {
+                  id: 551133,
+                  title: alternateTitle,
+                  original_title: alternateTitle,
+                  release_date: '2023-01-04',
+                  release_year: 2023,
+                  tmdb_media_type: 'movie',
+                  overview: 'Identifier-only result',
+                  genre_names: ['Sci-Fi']
+                }
+              }
+            ]
+          })
+        });
+      });
+
+      const storageState = await requestContext.storageState();
+      await page.context().addCookies(storageState.cookies || []);
+      await page.goto('/dashboard?tab=library-movies');
+      await page.getByRole('button', { name: 'Add', exact: true }).click();
+
+      await expect(page.getByRole('heading', { name: /add to library/i })).toBeVisible();
+      await page.getByPlaceholder('Movie title').fill(title);
+      await page.getByPlaceholder('012345678901').fill(upc);
+
+      const titleResponsePromise = page.waitForResponse((response) => (
+        response.url().includes('/api/media/search-tmdb')
+          && response.request().method() === 'POST'
+      ));
+      const identifierResponsePromise = page.waitForResponse((response) => (
+        response.url().includes('/api/media/lookup-upc')
+          && response.request().method() === 'POST'
+      ));
+      await page.getByRole('button', { name: 'Search', exact: true }).click();
+      const [titleResponse, identifierResponse] = await Promise.all([titleResponsePromise, identifierResponsePromise]);
+      expect(titleResponse.ok()).toBeTruthy();
+      expect(identifierResponse.ok()).toBeTruthy();
+      expect(sawTitleLookup).toBeTruthy();
+      expect(sawIdentifierLookup).toBeTruthy();
+
+      const mergedResult = page.locator('button').filter({ has: page.getByText(title, { exact: true }) }).first();
+      await expect(mergedResult).toBeVisible();
+      await expect(mergedResult.getByText('Title', { exact: true })).toBeVisible();
+      await expect(mergedResult.getByText('Identifier', { exact: true })).toBeVisible();
+
+      const identifierOnlyResult = page.locator('button').filter({ has: page.getByText(alternateTitle, { exact: true }) }).first();
+      await expect(identifierOnlyResult).toBeVisible();
+      await expect(identifierOnlyResult.getByText('Identifier', { exact: true })).toBeVisible();
+      await expect(identifierOnlyResult.getByText('Title', { exact: true })).toHaveCount(0);
+    } finally {
+      await requestContext.dispose();
+    }
+  });
+
   test('end user can shift-select a visible card range in alphabetical card view', async ({ page }) => {
     const credentials = await createFreshUserCredentials();
     const requestContext = await createAuthenticatedRequestContext(credentials);
