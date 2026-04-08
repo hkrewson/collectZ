@@ -1,5 +1,4 @@
 'use strict';
-
 const { test, expect } = require('@playwright/test');
 const { createFreshUserCredentials, createAuthenticatedRequestContext, postWithCsrf } = require('../helpers/auth');
 const { deleteMediaByExactTitle, findExactMediaByTitle } = require('../helpers/media');
@@ -240,6 +239,124 @@ test.describe('library multi-format browser regressions', () => {
       await expect(identifierOnlyResult).toBeVisible();
       await expect(identifierOnlyResult.getByText('Identifier', { exact: true })).toBeVisible();
       await expect(identifierOnlyResult.getByText('Title', { exact: true })).toHaveCount(0);
+    } finally {
+      await requestContext.dispose();
+    }
+  });
+
+  test('choosing an identifier-only movie result triggers follow-up title enrichment before apply', async ({ page }) => {
+    const title = `Playwright Follow Up ${Date.now()}`;
+    const alternateTitle = `${title} Identifier`;
+    const upc = `065432${Date.now().toString().slice(-6)}`;
+    const credentials = await createFreshUserCredentials();
+    const requestContext = await createAuthenticatedRequestContext(credentials);
+    let initialTitleLookupCount = 0;
+    let followUpLookupCount = 0;
+
+    try {
+      await page.route('**/api/media/search-tmdb', async (route) => {
+        const payload = route.request().postDataJSON();
+        if (payload?.title === title) {
+          initialTitleLookupCount += 1;
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify([
+              {
+                id: 661100,
+                title,
+                original_title: title,
+                release_date: '2024-02-01',
+                release_year: 2024,
+                tmdb_media_type: 'movie',
+                overview: 'Initial title result',
+                genre_names: ['Drama']
+              }
+            ])
+          });
+          return;
+        }
+
+        if (payload?.title === alternateTitle) {
+          followUpLookupCount += 1;
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify([
+              {
+                id: 661144,
+                title: alternateTitle,
+                original_title: alternateTitle,
+                release_date: '2023-07-12',
+                release_year: 2023,
+                tmdb_media_type: 'movie',
+                overview: 'Follow-up title enrichment result',
+                genre_names: ['Sci-Fi']
+              }
+            ])
+          });
+          return;
+        }
+
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify([])
+        });
+      });
+
+      await page.route('**/api/media/lookup-upc', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            provider: 'playwright-stub',
+            upc,
+            matches: [
+              {
+                upc,
+                title: alternateTitle,
+                normalizedTitle: alternateTitle,
+                description: 'Identifier-only candidate'
+              }
+            ]
+          })
+        });
+      });
+
+      await page.route('**/api/media/tmdb/661144/details?mediaType=movie', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            director: 'Pat Example',
+            cast: 'A. One, B. Two',
+            runtime: 123,
+            tmdb_url: 'https://www.themoviedb.org/movie/661144',
+            trailer_url: 'https://example.com/trailer'
+          })
+        });
+      });
+
+      const storageState = await requestContext.storageState();
+      await page.context().addCookies(storageState.cookies || []);
+      await page.goto('/dashboard?tab=library-movies');
+      await page.getByRole('button', { name: 'Add', exact: true }).click();
+
+      await page.getByPlaceholder('Movie title').fill(title);
+      await page.getByPlaceholder('012345678901').fill(upc);
+
+      await page.getByRole('button', { name: 'Search', exact: true }).click();
+      await expect(page.getByText(alternateTitle, { exact: true })).toBeVisible();
+
+      await page.locator('button').filter({ has: page.getByText(alternateTitle, { exact: true }) }).first().click();
+      await expect.poll(() => followUpLookupCount).toBe(1);
+      expect(initialTitleLookupCount).toBe(1);
+      expect(followUpLookupCount).toBe(1);
+
+      await expect(page.getByPlaceholder('Movie title')).toHaveValue(alternateTitle);
+      await expect(page.getByPlaceholder('2024')).toHaveValue('2023');
+      await expect(page.getByPlaceholder('Action, Drama…')).toHaveValue('Sci-Fi');
     } finally {
       await requestContext.dispose();
     }

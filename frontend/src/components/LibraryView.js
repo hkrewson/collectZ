@@ -1230,6 +1230,63 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
     return Array.from(merged.values());
   };
 
+  const normalizeLookupTitleForCompare = (value) => String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+
+  const resolveLookupMatchTitle = (match) => (
+    match?.typeEnrichment?.title
+      || match?.book?.title
+      || match?.normalizedTitle
+      || match?.tmdb?.title
+      || match?.title
+      || ''
+  );
+
+  const resolveLookupMatchYear = (match) => (
+    match?.typeEnrichment?.year
+      || match?.book?.year
+      || match?.tmdb?.release_year
+      || (match?.tmdb?.release_date ? Number(String(match.tmdb.release_date).slice(0, 4)) : null)
+      || (match?.release_date ? Number(String(match.release_date).slice(0, 4)) : null)
+      || (match?.year ? Number(match.year) : null)
+      || null
+  );
+
+  const mergeLookupCandidateData = (baseMatch, enrichmentMatch) => ({
+    ...baseMatch,
+    ...enrichmentMatch,
+    upc: baseMatch?.upc || enrichmentMatch?.upc || null,
+    tmdb: enrichmentMatch?.tmdb || baseMatch?.tmdb || null,
+    book: enrichmentMatch?.book || baseMatch?.book || null,
+    typeEnrichment: enrichmentMatch?.typeEnrichment || baseMatch?.typeEnrichment || null,
+    typeDetails: {
+      ...(baseMatch?.typeDetails || {}),
+      ...(enrichmentMatch?.typeDetails || {})
+    },
+    lookupSources: Array.from(new Set([...(baseMatch?.lookupSources || []), ...(enrichmentMatch?.lookupSources || [])]))
+  });
+
+  const pickBestTitleEnrichmentMatch = (baseMatch, enrichmentMatches) => {
+    if (!Array.isArray(enrichmentMatches) || enrichmentMatches.length === 0) return null;
+    const baseTitle = normalizeLookupTitleForCompare(resolveLookupMatchTitle(baseMatch));
+    const baseYear = resolveLookupMatchYear(baseMatch);
+
+    const exact = enrichmentMatches.find((candidate) => (
+      normalizeLookupTitleForCompare(resolveLookupMatchTitle(candidate)) === baseTitle
+        && (!baseYear || !resolveLookupMatchYear(candidate) || resolveLookupMatchYear(candidate) === baseYear)
+    ));
+    if (exact) return exact;
+
+    const sameTitle = enrichmentMatches.find((candidate) => (
+      normalizeLookupTitleForCompare(resolveLookupMatchTitle(candidate)) === baseTitle
+    ));
+    if (sameTitle) return sameTitle;
+
+    return enrichmentMatches[0] || null;
+  };
+
   const lookupByIdentifier = async (identifier) => {
     const data = await apiCall('post', '/media/lookup-upc', { upc: identifier, mediaType: form.media_type });
     return annotateLookupMatches(data.matches || [], 'identifier');
@@ -1307,6 +1364,24 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
     }
 
     return [];
+  };
+
+  const enrichIdentifierSelection = async (match) => {
+    const lookupSources = match?.lookupSources || [];
+    if (!lookupSources.includes('identifier') || lookupSources.includes('title')) {
+      return match;
+    }
+
+    const selectedTitle = String(resolveLookupMatchTitle(match) || '').trim();
+    if (!selectedTitle) return match;
+
+    try {
+      const enrichmentMatches = await lookupByTitle(selectedTitle);
+      const bestMatch = pickBestTitleEnrichmentMatch(match, enrichmentMatches);
+      return bestMatch ? mergeLookupCandidateData(match, bestMatch) : match;
+    } catch (error) {
+      return match;
+    }
   };
 
   const runUniversalLookup = async (options = {}) => {
@@ -1521,25 +1596,26 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
   };
 
   const applyLookupResult = async (match) => {
-    const guessedBook = match?.mediaTypeGuess === 'book' || Boolean(match?.book);
+    const resolvedMatch = await enrichIdentifierSelection(match);
+    const guessedBook = resolvedMatch?.mediaTypeGuess === 'book' || Boolean(resolvedMatch?.book);
     if (guessedBook) {
-      const book = match?.book || null;
+      const book = resolvedMatch?.book || null;
       const bookTypeDetails = book?.type_details || {};
       const preferredCapturedIsbn = String(form.book_isbn || '').trim();
       set({
         media_type: 'book',
-        title: book?.title || match?.normalizedTitle || match?.title || form.title,
+        title: book?.title || resolvedMatch?.normalizedTitle || resolvedMatch?.title || form.title,
         release_date: book?.release_date || form.release_date,
         year: book?.year ? String(book.year) : form.year,
-        overview: book?.overview || match?.description || form.overview,
+        overview: book?.overview || resolvedMatch?.description || form.overview,
         genre: book?.genre || form.genre,
-        owned_formats: sortOwnedFormats('book', normalizeOwnedFormats('book', form.owned_formats, match?.typeDetails?.format || form.format || 'paperback')),
-        poster_path: book?.poster_path || match?.image || form.poster_path,
-        upc: match?.upc || form.upc,
-        book_isbn: preferredCapturedIsbn || bookTypeDetails?.isbn || match?.typeDetails?.isbn || form.book_isbn,
-        book_author: bookTypeDetails?.author || match?.typeDetails?.author || form.book_author,
-        book_publisher: bookTypeDetails?.publisher || match?.typeDetails?.publisher || form.book_publisher,
-        book_edition: bookTypeDetails?.edition || match?.typeDetails?.format || form.book_edition
+        owned_formats: sortOwnedFormats('book', normalizeOwnedFormats('book', form.owned_formats, resolvedMatch?.typeDetails?.format || form.format || 'paperback')),
+        poster_path: book?.poster_path || resolvedMatch?.image || form.poster_path,
+        upc: resolvedMatch?.upc || form.upc,
+        book_isbn: preferredCapturedIsbn || bookTypeDetails?.isbn || resolvedMatch?.typeDetails?.isbn || form.book_isbn,
+        book_author: bookTypeDetails?.author || resolvedMatch?.typeDetails?.author || form.book_author,
+        book_publisher: bookTypeDetails?.publisher || resolvedMatch?.typeDetails?.publisher || form.book_publisher,
+        book_edition: bookTypeDetails?.edition || resolvedMatch?.typeDetails?.format || form.book_edition
       });
       setBarcodeError(null);
       setBarcodeResults([]);
@@ -1547,21 +1623,21 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
       return;
     }
 
-    const typeEnrichment = match?.typeEnrichment || null;
+    const typeEnrichment = resolvedMatch?.typeEnrichment || null;
     if (isComic && typeEnrichment) {
       set({
-        title: typeEnrichment.title || match?.normalizedTitle || match?.title || form.title,
+        title: typeEnrichment.title || resolvedMatch?.normalizedTitle || resolvedMatch?.title || form.title,
         year: typeEnrichment.year ? String(typeEnrichment.year) : form.year,
         release_date: typeEnrichment.release_date || form.release_date,
         genre: typeEnrichment.genre || form.genre,
-        overview: typeEnrichment.overview || match?.description || form.overview,
-        poster_path: typeEnrichment.poster_path || match?.image || form.poster_path,
-        upc: match?.upc || form.upc,
+        overview: typeEnrichment.overview || resolvedMatch?.description || form.overview,
+        poster_path: typeEnrichment.poster_path || resolvedMatch?.image || form.poster_path,
+        upc: resolvedMatch?.upc || form.upc,
         book_author: typeEnrichment.type_details?.author || form.book_author,
-        book_publisher: typeEnrichment.type_details?.publisher || match?.typeDetails?.publisher || form.book_publisher,
-        book_isbn: typeEnrichment.type_details?.isbn || match?.typeDetails?.isbn || form.book_isbn,
+        book_publisher: typeEnrichment.type_details?.publisher || resolvedMatch?.typeDetails?.publisher || form.book_publisher,
+        book_isbn: typeEnrichment.type_details?.isbn || resolvedMatch?.typeDetails?.isbn || form.book_isbn,
         book_edition: typeEnrichment.type_details?.edition || form.book_edition,
-        comic_series: typeEnrichment.type_details?.series || match?.typeDetails?.series || form.comic_series,
+        comic_series: typeEnrichment.type_details?.series || resolvedMatch?.typeDetails?.series || form.comic_series,
         comic_issue_number: typeEnrichment.type_details?.issue_number || form.comic_issue_number,
         comic_volume: typeEnrichment.type_details?.volume || form.comic_volume,
         comic_writer: typeEnrichment.type_details?.writer || form.comic_writer,
@@ -1580,13 +1656,13 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
 
     if (isAudio && typeEnrichment) {
       set({
-        title: typeEnrichment.title || match?.normalizedTitle || match?.title || form.title,
+        title: typeEnrichment.title || resolvedMatch?.normalizedTitle || resolvedMatch?.title || form.title,
         year: typeEnrichment.year ? String(typeEnrichment.year) : form.year,
         release_date: typeEnrichment.release_date || form.release_date,
         genre: typeEnrichment.genre || form.genre,
-        overview: typeEnrichment.overview || match?.description || form.overview,
-        poster_path: typeEnrichment.poster_path || match?.image || form.poster_path,
-        upc: match?.upc || form.upc,
+        overview: typeEnrichment.overview || resolvedMatch?.description || form.overview,
+        poster_path: typeEnrichment.poster_path || resolvedMatch?.image || form.poster_path,
+        upc: resolvedMatch?.upc || form.upc,
         audio_artist: typeEnrichment.type_details?.artist || form.audio_artist,
         audio_album: typeEnrichment.type_details?.album || typeEnrichment.title || form.audio_album || form.title,
         audio_track_count: typeEnrichment.type_details?.track_count ? String(typeEnrichment.type_details.track_count) : form.audio_track_count
@@ -1599,13 +1675,13 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
 
     if (isGame && typeEnrichment) {
       set({
-        title: typeEnrichment.title || match?.normalizedTitle || match?.title || form.title,
+        title: typeEnrichment.title || resolvedMatch?.normalizedTitle || resolvedMatch?.title || form.title,
         year: typeEnrichment.year ? String(typeEnrichment.year) : form.year,
         release_date: typeEnrichment.release_date || form.release_date,
         genre: typeEnrichment.genre || form.genre,
-        overview: typeEnrichment.overview || match?.description || form.overview,
-        poster_path: typeEnrichment.poster_path || match?.image || form.poster_path,
-        upc: match?.upc || form.upc,
+        overview: typeEnrichment.overview || resolvedMatch?.description || form.overview,
+        poster_path: typeEnrichment.poster_path || resolvedMatch?.image || form.poster_path,
+        upc: resolvedMatch?.upc || form.upc,
         game_platform: typeEnrichment.type_details?.platform || form.game_platform,
         game_developer: typeEnrichment.type_details?.developer || form.game_developer,
         game_region: typeEnrichment.type_details?.region || form.game_region
@@ -1616,7 +1692,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
       return;
     }
 
-    const tmdb = match.tmdb;
+    const tmdb = resolvedMatch.tmdb;
     let details = null;
     if (tmdb?.id) {
       try {
@@ -1630,21 +1706,22 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
     const releaseDate = tmdb?.release_date || '';
     const tmdbType = tmdb?.tmdb_media_type || inferTmdbSearchType(form.media_type);
     set({
-      title: tmdb?.title || match.title || form.title,
+      title: tmdb?.title || resolvedMatch.title || form.title,
       original_title: tmdb?.original_title || form.original_title,
       release_date: releaseDate || form.release_date,
       year: tmdb?.release_year ? String(tmdb.release_year) : (releaseDate ? String(releaseDate).slice(0, 4) : form.year),
       genre: genres || form.genre,
       director: details?.director || form.director,
       cast: details?.cast || form.cast,
-      overview: tmdb?.overview || match.description || form.overview,
+      overview: tmdb?.overview || resolvedMatch.description || form.overview,
       tmdb_id: tmdb?.id || form.tmdb_id,
       tmdb_media_type: tmdbType,
       tmdb_url: details?.tmdb_url || (tmdb?.id ? `https://www.themoviedb.org/${tmdbType}/${tmdb.id}` : form.tmdb_url),
       trailer_url: details?.trailer_url || form.trailer_url,
-      poster_path: tmdb?.poster_path || match.image || form.poster_path,
+      poster_path: tmdb?.poster_path || resolvedMatch.image || form.poster_path,
       backdrop_path: tmdb?.backdrop_path || form.backdrop_path,
-      runtime: details?.runtime || form.runtime
+      runtime: details?.runtime || form.runtime,
+      upc: resolvedMatch?.upc || form.upc
     });
     setBarcodeError(null);
     setBarcodeResults([]);
