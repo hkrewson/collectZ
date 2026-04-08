@@ -17,10 +17,6 @@
 
   body {
     @apply bg-void font-sans overflow-x-hidden;
-    background-image:
-      radial-gradient(ellipse 80% 60% at 20% -10%, rgba(59,130,246,0.08) 0%, transparent 60%),
-      radial-gradient(ellipse 60% 50% at 80% 100%, rgba(59,130,246,0.04) 0%, transparent 60%);
-    background-attachment: fixed;
   }
 
   /* Custom scrollbar */
@@ -54,9 +50,7 @@
   }
 
   html.theme-light body {
-    background-image:
-      radial-gradient(ellipse 80% 60% at 20% -10%, rgba(59,130,246,0.09) 0%, transparent 60%),
-      radial-gradient(ellipse 60% 50% at 80% 100%, rgba(59,130,246,0.07) 0%, transparent 60%);
+    background-image: none;
   }
 
   html.theme-light .bg-void { background-color: #eef3fb !important; }

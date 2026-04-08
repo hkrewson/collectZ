@@ -1201,10 +1201,7 @@ export function ObjectPosterCard({
   subtitle = null,
   meta = null,
   titleClassName = '',
-  articleClassName = '',
-  actionBar = null,
-  onEdit,
-  onDelete
+  articleClassName = ''
 }) {
   return (
     <article
@@ -1217,16 +1214,15 @@ export function ObjectPosterCard({
       onClick={onOpen}
       onPointerUp={onPointerUp}
     >
-      <div className={cx('poster rounded-lg overflow-hidden shadow-card border transition-colors', selected ? 'border-brand/55' : 'border-transparent', !selected && 'group-hover:border-muted')}>
+      <div className={cx('poster rounded-lg overflow-hidden border transition-colors', selected ? 'border-brand/55' : 'border-edge', !selected && 'hover:border-muted')}>
         {posterUrl(imagePath)
-          ? <img src={posterUrl(imagePath)} alt={title} className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
+          ? <img src={posterUrl(imagePath)} alt={title} className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
           : (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-ghost">
               {fallbackIcon}
               <span className="px-3 text-center text-xs leading-tight">{title}</span>
             </div>
           )}
-        <div className={cx('absolute inset-0 transition-opacity duration-300', 'bg-card-fade', supportsHover ? 'opacity-0 group-hover:opacity-100' : 'opacity-10')} />
         {leftBadges.length > 0 ? (
           <div className="absolute left-2 top-2 flex max-w-[70%] flex-wrap gap-2">
             {leftBadges.map((badge, index) => (
@@ -1242,19 +1238,9 @@ export function ObjectPosterCard({
           </div>
         ) : null}
         {overlayChildren}
-        {(actionBar || onEdit || onDelete) ? (
-          <div className={cx('absolute bottom-0 left-0 right-0 p-3 transition-all duration-300', supportsHover ? 'pointer-events-none translate-y-2 opacity-0 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100' : 'pointer-events-auto translate-y-0 opacity-100')}>
-            {actionBar || (
-              <div className="flex gap-2">
-                <button className="btn-secondary btn-sm flex-1 backdrop-blur-sm bg-void/60 border-ghost/30" onClick={(e) => { e.stopPropagation(); onEdit?.(e); }}><Icons.Edit />Edit</button>
-                <button className="btn-icon btn-sm backdrop-blur-sm bg-void/60 border-ghost/30 text-err hover:bg-err/20" onClick={(e) => { e.stopPropagation(); onDelete?.(e); }}><Icons.Trash /></button>
-              </div>
-            )}
-          </div>
-        ) : null}
       </div>
       <div className="mt-2 px-0.5">
-        <p className={cx('truncate text-sm font-medium text-ink', titleClassName)}>{title}</p>
+        <p className={cx('min-w-0 truncate text-sm font-medium text-ink', titleClassName)}>{title}</p>
         {subtitle ? <p className="text-xs text-ghost">{subtitle}</p> : null}
         {meta ? <div className="mt-1 flex flex-wrap gap-2">{meta}</div> : null}
       </div>

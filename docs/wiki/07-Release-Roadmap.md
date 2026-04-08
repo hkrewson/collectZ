@@ -2272,7 +2272,49 @@ Historical note:
 - Title selection and result-picking affordances are visually clear, stable in browser automation, and do not depend on fragile overlay/hover behavior for primary actions.
 - The repo has a documented pre-`3.0.0` checkpoint for these UX passes so build-tool modernization does not absorb or skip them.
 
-## 2.10.2 — Global Shell Background Flattening
+## 2.10.2 - Add and Edit cards search.
+
+### BUG FIX
+
+- Bug: Add and Edit drawer lookup button requires barcode when the implication of a single lookup button is to search based on any data. This is bug results from work on Add Edit drawers to simplify and flatten the UI.
+
+### Requires Skills
+
+- This work requires the use of [$build-web-apps:web-design-guidelines](/Users/hamlin/.codex/plugins/cache/openai-curated/build-web-apps/f78e3ad49297672a905eb7afb6aa0cef34edc79e/skills/web-design-guidelines/SKILL.md) 
+- This work requires the use of [$uncodixfy](/Users/hamlin/.codex/skills/uncodixfy/SKILL.md) 
+- [$build-web-apps:frontend-skill](/Users/hamlin/.codex/plugins/cache/openai-curated/build-web-apps/f78e3ad49297672a905eb7afb6aa0cef34edc79e/skills/frontend-skill/SKILL.md) may be employed to further assist as needed.
+
+**Goal:** The lookup button should be universal. When clicked, it should use the available information entered to search the relevant API. The icon should be removed since it evokes a barcode only solution.
+
+### Scope
+- For Movies and TV when title exists, lookup should default to a search of TMDB API
+- For Movies and TV when UPC | Barcode exists, lookup should default to a search of upcitemdb API
+- For Movies and TV when UPC & Title exists, lookup can be run against both API endpoints using the relevant data. Results can be compared and combined for a result. 
+- For Movies and TV when UPC & Title exist and lookups differ, Both results should be presented for the user to select. If the UPC results are selected, a new search of TMDB API should be performed to gather new metadata.
+- For Audio when title exists, lookup should default to Discogs API
+- For Audio when UPC exists, lookup should default to upcitemdb API
+- For Audio when both title and upc exist, a search of both discogs and upcitemdb should be performed. Results can be compared and combined.
+- For Audio when both title and upc exist, and lookups differ, both results should be presented for the user to select. If the upc result is selected, a new request from discogs should be performed to gather new metadata.
+- For Books when title exists, lookup should default to Google books.
+- For books when upc | isbn exists, lookup should default to that endpoint
+- For books if both exist, perform both lookups and compare / combine results
+- For comic Books when title exists, lookup should default to Metron.
+- For comic books when upc | isbn exists, lookup should default to that endpoint
+- For comic books if both exist, perform both lookups and compare / combine results
+- For games if title exists, search should be performed with IGDB
+- For games if upc exists, search of upcitemdb should be performed
+- For games if both exist, search of IGDB and upcitemdb should both be performed. results can be compared and combined.
+- For all title add / edit cards, any additional data (year, release date, etc) can be used when appropriate to improve results
+
+### Acceptance Criteria
+
+- All Add and Edit drawers behave correctly for any search requests. 
+- Search Title only should default to the media type default title search API endpoint
+- Search Title with year or release date should get results from the media type default search API endpoint
+- Search UPC | Barcode | ISBN | ASN should get results from barcode/upc API endpoint
+- Search when title and barcode exist should pull results from media type default search api and from barcode search api. If results match, they are presented to the user for acceptance. If results differ both are presented to the user to choose from. If the barcode result is picked, those results inform a new search with the media type default title api endpoint.
+
+## 2.10.3 — Global Shell Background Flattening
 
 **Goal:** remove the remaining premium-SaaS background wash so the product shell depends on layout and typography rather than decorative gradients.
 
@@ -2288,7 +2330,7 @@ Historical note:
 - Core library/admin/import screens feel calmer without losing legibility or orientation.
 - Theme variants stay visually consistent after the background flattening.
 
-## 2.10.3 — Support-Session Banner Normalization
+## 2.10.4 — Support-Session Banner Normalization
 
 **Goal:** keep support-session status obvious without the current high-drama amber control-plane banner treatment.
 
@@ -2309,7 +2351,7 @@ Historical note:
 - The banner reads like normal product chrome rather than an emergency operations strip.
 - The copy is shorter and plainer without losing support-task clarity.
 
-## 2.10.4 — Poster Card Hover Flattening
+## 2.10.5 — Poster Card Hover Flattening
 
 **Goal:** reduce the remaining AI-heavy poster-card hover theatrics across library-style surfaces.
 
@@ -2325,7 +2367,7 @@ Historical note:
 - Hover states still provide useful affordance without theatrical motion or layered effects.
 - Shared poster-card changes remain consistent across all surfaces that consume the primitive.
 
-## 2.10.5 — Poster Card Action Affordance Flattening
+## 2.10.6 — Poster Card Action Affordance Flattening
 
 **Goal:** replace hover-revealed showcase-style action trays with simpler, steadier card actions.
 
@@ -2341,7 +2383,7 @@ Historical note:
 - Primary card interactions do not depend on showcase-style hover transitions.
 - Shared action treatment remains compact and consistent across card consumers.
 
-## 2.10.6 — Shared Tab Strip Flattening
+## 2.10.7 — Shared Tab Strip Flattening
 
 **Goal:** finish the move away from pill-shell tab groups toward the flatter horizontal tab language used in the newer surfaces.
 
@@ -2357,7 +2399,7 @@ Historical note:
 - Existing tabbed surfaces remain visually consistent after the shared style change.
 - Active/inactive tab states are still obvious without pill-shell framing.
 
-## 2.10.7 — Sidebar Ornament Reduction
+## 2.10.8 — Sidebar Ornament Reduction
 
 **Goal:** simplify the library shell navigation so it feels less over-authored.
 
@@ -2376,7 +2418,7 @@ Historical note:
 - Navigation reads as product navigation rather than styled dashboard chrome.
 - Supporting role/library context remains available without decorative overload.
 
-## 2.10.8 — Mobile Header Copy Normalization
+## 2.10.9 — Mobile Header Copy Normalization
 
 **Goal:** replace the remaining control-plane/product-marketing phrasing in the mobile header with plain product labeling.
 
@@ -2395,7 +2437,7 @@ Historical note:
 - Role and scope context remain understandable.
 - No marketing-flavored or AI-generated-sounding system labels remain in this header path.
 
-## 2.10.9 — Add/Edit Drawer Heading Normalization
+## 2.10.10 — Add/Edit Drawer Heading Normalization
 
 **Goal:** make add/edit drawers feel like normal working surfaces instead of staged modal moments.
 
@@ -2411,7 +2453,7 @@ Historical note:
 - Drawer headings remain easy to scan without all-caps display styling.
 - The updated heading treatment is consistent across add/edit drawers for supported media types.
 
-## 2.10.10 — Modal Shell Flattening
+## 2.10.11 — Modal Shell Flattening
 
 **Goal:** reduce the remaining blur-heavy, oversized modal shell treatment across shared overlays.
 
@@ -2427,7 +2469,7 @@ Historical note:
 - Backdrop and shell styling support focus without becoming decorative.
 - Shared modal changes remain compatible with current capture/detail/editor flows.
 
-## 2.10.11 — Shared Form Label Normalization
+## 2.10.12 — Shared Form Label Normalization
 
 **Goal:** remove the remaining eyebrow-style uppercase label language that keeps resurfacing through shared form primitives.
 

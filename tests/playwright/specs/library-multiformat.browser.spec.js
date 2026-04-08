@@ -7,6 +7,43 @@ const { deleteMediaByExactTitle, findExactMediaByTitle } = require('../helpers/m
 test.use({ storageState: { cookies: [], origins: [] } });
 
 test.describe('library multi-format browser regressions', () => {
+  test('poster cards stay browse-first and open detail without inline action chrome', async ({ page }) => {
+    const credentials = await createFreshUserCredentials();
+    const requestContext = await createAuthenticatedRequestContext(credentials);
+    const title = `Playwright Browse First ${Date.now()}`;
+
+    await deleteMediaByExactTitle(requestContext, title).catch(() => {});
+
+    try {
+      await postWithCsrf(requestContext, '/api/media', {
+        title,
+        media_type: 'movie',
+        owned_formats: ['digital']
+      }, 201);
+
+      const storageState = await requestContext.storageState();
+      await page.context().addCookies(storageState.cookies || []);
+      await page.goto('/dashboard?tab=library-movies');
+
+      const searchInput = page.getByPlaceholder('Search title, director…');
+      await searchInput.fill(title);
+
+      const resultCard = page.locator('article').filter({
+        has: page.getByText(title, { exact: true })
+      }).first();
+
+      await expect(resultCard).toBeVisible();
+      await resultCard.hover();
+      await expect(resultCard.getByRole('button', { name: 'Edit', exact: true })).toHaveCount(0);
+      await expect(resultCard.getByRole('button', { name: 'Delete', exact: true })).toHaveCount(0);
+      await resultCard.click();
+      await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
+    } finally {
+      await deleteMediaByExactTitle(requestContext, title).catch(() => {});
+      await requestContext.dispose();
+    }
+  });
+
   test('end user can create and edit a movie with multiple owned formats', async ({ page }) => {
     const credentials = await createFreshUserCredentials();
     const requestContext = await createAuthenticatedRequestContext(credentials);
@@ -43,8 +80,9 @@ test.describe('library multi-format browser regressions', () => {
         has: page.getByText(title, { exact: true })
       }).first();
       await expect(resultCard).toBeVisible();
-      await resultCard.hover();
-      await resultCard.getByRole('button', { name: 'Edit', exact: true }).click({ force: true });
+      await resultCard.click();
+      await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
+      await page.getByRole('button', { name: 'Edit', exact: true }).click();
 
       await expect(page.getByRole('heading', { name: /edit media/i })).toBeVisible();
       await page.getByRole('button', { name: 'Blu-ray', exact: true }).click();

@@ -318,8 +318,6 @@ function MediaCard({ item, onOpen, onEdit, onDelete, onRating, supportsHover, se
           <StarRating value={item.user_rating || 0} onChange={(r) => onRating(item.id, r)} />
         </div>
       }
-      onEdit={() => onEdit(item)}
-      onDelete={() => onDelete(item.id)}
     />
   );
 }
@@ -342,12 +340,6 @@ function CollectionCard({ item, supportsHover, onOpen, onEdit, onConvert }) {
       leftBadges={[item.has_digital ? 'Digital' : 'Collection']}
       rightBadge={<span className="badge badge-dim text-[10px] backdrop-blur-sm bg-void/60 border-ghost/20">{mediaTypeLabel(item.media_type)}</span>}
       subtitle={`${item.item_count || 0} item${Number(item.item_count || 0) === 1 ? '' : 's'}${Number.isFinite(Number(item.expected_item_count)) && Number(item.expected_item_count) > 0 ? ` · expected ${item.expected_item_count}` : ''}`}
-      actionBar={
-        <div className="flex gap-2">
-          <button onClick={(e) => { e.stopPropagation(); onEdit(item.id); }} className="btn-secondary btn-sm flex-1 backdrop-blur-sm bg-void/60 border-ghost/30"><Icons.Edit />Edit</button>
-          <button onClick={(e) => { e.stopPropagation(); onConvert(item); }} className="btn-secondary btn-sm backdrop-blur-sm bg-void/60 border-ghost/30"><Icons.Film />Convert</button>
-        </div>
-      }
     />
   );
 }
