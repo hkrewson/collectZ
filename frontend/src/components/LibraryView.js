@@ -1050,6 +1050,25 @@ function CollectionDetail({ collectionId, apiCall, onClose, onEdit, onConvert })
 }
 
 function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, onConvertToCollection, title = 'Add Media', apiCall }) {
+  const hasInitialLookupContext = (rawInitial) => {
+    if (!rawInitial?.id) return false;
+    const details = rawInitial?.type_details || {};
+    return Boolean(
+      rawInitial?.overview
+      || rawInitial?.genre
+      || rawInitial?.year
+      || rawInitial?.release_date
+      || rawInitial?.poster_path
+      || rawInitial?.upc
+      || details?.isbn
+      || details?.author
+      || details?.platform
+      || details?.artist
+      || details?.series
+      || details?.developer
+    );
+  };
+
   const mergeTypeDetails = (rawInitial) => {
     const details = rawInitial?.type_details || {};
     const ownedFormats = sortOwnedFormats(
@@ -1088,10 +1107,14 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
   };
   const [form, setForm] = useState(mergeTypeDetails(initial));
   const [tvSeasonsText, setTvSeasonsText] = useState(Array.isArray(initial?.tv_seasons) ? initial.tv_seasons.join(', ') : '');
-  const [barcodeResults, setBarcodeResults] = useState([]);
-  const [barcodeError, setBarcodeError] = useState(null);
-  const [barcodeLoading, setBarcodeLoading] = useState(false);
-  const [barcodeCaptureLoading, setBarcodeCaptureLoading] = useState(false);
+  const [lookupPanel, setLookupPanel] = useState(() => ({
+    expanded: !hasInitialLookupContext(initial),
+    matches: [],
+    error: null,
+    loading: false,
+    appliedSummary: null
+  }));
+  const [lookupCaptureLoading, setLookupCaptureLoading] = useState(false);
   const [coverUploadLoading, setCoverUploadLoading] = useState(false);
   const [proofFile, setProofFile] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -1100,13 +1123,14 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
   const [bookCaptureState, setBookCaptureState] = useState(null);
   const [bookIdentifierInput, setBookIdentifierInput] = useState(() => normalizeBarcodeInput(initial?.type_details?.isbn || initial?.upc || ''));
   const [comicIdentifierInput, setComicIdentifierInput] = useState(() => normalizeBarcodeInput(initial?.type_details?.isbn || initial?.upc || '') + (initial?.type_details?.barcode_addon ? ` ${normalizeBarcodeInput(initial.type_details.barcode_addon)}` : ''));
-  const barcodeCaptureInputRef = useRef(null);
+  const lookupCaptureInputRef = useRef(null);
   const coverImageInputRef = useRef(null);
 
   const set = (patch) => setForm((f) => ({ ...f, ...patch }));
   const setOwnedFormats = (nextFormats) => {
     set({ owned_formats: sortOwnedFormats(form.media_type, nextFormats) });
   };
+  const patchLookupPanel = (patch) => setLookupPanel((current) => ({ ...current, ...patch }));
   const notify = (text, type = 'ok') => { setMsg(text); setMsgType(type); };
   const isMovieOrTv = ['movie', 'tv_series', 'tv_episode'].includes(form.media_type);
   const isBook = form.media_type === 'book';
@@ -1114,7 +1138,14 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
   const isAudio = form.media_type === 'audio';
   const isGame = form.media_type === 'game';
   const canUniversalLookup = isMovieOrTv || isBook || isComic || isAudio || isGame;
-  const isBarcodeCapable = isMovieOrTv || isBook || isComic || isAudio || isGame;
+  const canIdentifierLookup = isMovieOrTv || isBook || isComic || isAudio || isGame;
+  const {
+    expanded: lookupPanelExpanded,
+    matches: lookupMatches,
+    error: lookupError,
+    loading: lookupLoading,
+    appliedSummary: appliedLookupSummary
+  } = lookupPanel;
   const canConvertToCollection = Boolean(onConvertToCollection) && ['movie', 'game'].includes(form.media_type);
   const editorTabs = useMemo(() => {
     const tabs = [{ id: 'core', label: 'Core Details' }];
@@ -1143,6 +1174,12 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
     if (nextType !== 'movie') patch.movie_edition = '';
     set(patch);
     setBookCaptureState(null);
+    patchLookupPanel({
+      expanded: true,
+      matches: [],
+      error: null,
+      appliedSummary: null
+    });
   };
 
   useEffect(() => {
@@ -1287,6 +1324,33 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
     return enrichmentMatches[0] || null;
   };
 
+  const formatLookupSourceLabel = (source) => {
+    if (source === 'identifier') return 'Identifier';
+    if (source === 'title') return 'Title';
+    return source;
+  };
+
+  const resolveLookupProviderLabel = (match) => {
+    if (match?.tmdb) return 'TMDB';
+    if (match?.book) return 'Google Books';
+    if (isComic && match?.typeEnrichment) return 'Metron';
+    if (isAudio && match?.typeEnrichment) return 'Discogs';
+    if (isGame && match?.typeEnrichment) return 'Game Search';
+    if ((match?.lookupSources || []).includes('identifier')) return 'Identifier';
+    return '';
+  };
+
+  const buildAppliedLookupSummary = (match) => ({
+    title: resolveLookupMatchTitle(match) || String(form.title || '').trim() || 'Matched title',
+    identifier: String(match?.upc || '').trim() || resolveLookupIdentifier(),
+    sourceLabels: Array.from(new Set((match?.lookupSources || []).map(formatLookupSourceLabel))),
+    provider: resolveLookupProviderLabel(match)
+  });
+
+  const clearAppliedLookupSummary = () => {
+    patchLookupPanel({ appliedSummary: null, expanded: true, error: null });
+  };
+
   const lookupByIdentifier = async (identifier) => {
     const data = await apiCall('post', '/media/lookup-upc', { upc: identifier, mediaType: form.media_type });
     return annotateLookupMatches(data.matches || [], 'identifier');
@@ -1397,9 +1461,12 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
       return;
     }
 
-    setBarcodeLoading(true);
-    setBarcodeResults([]);
-    setBarcodeError(null);
+    patchLookupPanel({
+      loading: true,
+      matches: [],
+      error: null,
+      expanded: true
+    });
 
     try {
       const titleOnly = Boolean(title) && !identifier;
@@ -1422,7 +1489,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
         matches = mergeLookupMatches(...fulfilledGroups);
         if (rejected.length) {
           const payload = rejected[0]?.response?.data || null;
-          if (payload) setBarcodeError(payload);
+          if (payload) patchLookupPanel({ error: payload });
         }
       } else if (identifierOnly) {
         matches = await lookupByIdentifier(identifier);
@@ -1430,7 +1497,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
         matches = await lookupByTitle(title);
       }
 
-      setBarcodeResults(matches);
+      patchLookupPanel({ matches });
 
       if (!matches.length) {
         notify('No matches found', 'error');
@@ -1450,10 +1517,10 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
       notify(matches.length === 1 ? 'Found 1 match' : `Found ${matches.length} matches`);
     } catch (e) {
       const payload = e?.response?.data || null;
-      setBarcodeError(payload);
+      patchLookupPanel({ error: payload });
       notify(payload?.error || payload?.detail || 'Lookup failed', 'error');
     } finally {
-      setBarcodeLoading(false);
+      patchLookupPanel({ loading: false });
     }
   };
 
@@ -1532,11 +1599,11 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
     };
   };
 
-  const handleBarcodeCapture = async (event) => {
+  const handleLookupCapture = async (event) => {
     const file = event.target.files?.[0] || null;
     event.target.value = '';
     if (!file) return;
-    setBarcodeCaptureLoading(true);
+    setLookupCaptureLoading(true);
     try {
       let detected = '';
       let barcodeBoundingBox = null;
@@ -1578,7 +1645,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
         return;
       }
       notify(inferredBookIsbn ? `Recovered book identifier ${inferredBookIsbn}` : `Captured barcode ${lookupValue}`);
-      if (isBarcodeCapable) {
+      if (canIdentifierLookup) {
         await runUniversalLookup({ identifierOverride: lookupValue, forceIdentifierOnly: true });
       }
     } catch (error) {
@@ -1591,7 +1658,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
         notify('Barcode capture failed. Enter the UPC manually instead.', 'error');
       }
     } finally {
-      setBarcodeCaptureLoading(false);
+      setLookupCaptureLoading(false);
     }
   };
 
@@ -1617,8 +1684,11 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
         book_publisher: bookTypeDetails?.publisher || resolvedMatch?.typeDetails?.publisher || form.book_publisher,
         book_edition: bookTypeDetails?.edition || resolvedMatch?.typeDetails?.format || form.book_edition
       });
-      setBarcodeError(null);
-      setBarcodeResults([]);
+      patchLookupPanel({
+        error: null,
+        appliedSummary: buildAppliedLookupSummary(resolvedMatch),
+        expanded: false
+      });
       notify('Lookup data applied');
       return;
     }
@@ -1648,8 +1718,11 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
         comic_provider_issue_id: typeEnrichment.type_details?.provider_issue_id || typeEnrichment.id || form.comic_provider_issue_id,
         comic_barcode_addon: typeEnrichment.type_details?.barcode_addon || form.comic_barcode_addon
       });
-      setBarcodeError(null);
-      setBarcodeResults([]);
+      patchLookupPanel({
+        error: null,
+        appliedSummary: buildAppliedLookupSummary(resolvedMatch),
+        expanded: false
+      });
       notify('Lookup data applied');
       return;
     }
@@ -1667,8 +1740,11 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
         audio_album: typeEnrichment.type_details?.album || typeEnrichment.title || form.audio_album || form.title,
         audio_track_count: typeEnrichment.type_details?.track_count ? String(typeEnrichment.type_details.track_count) : form.audio_track_count
       });
-      setBarcodeError(null);
-      setBarcodeResults([]);
+      patchLookupPanel({
+        error: null,
+        appliedSummary: buildAppliedLookupSummary(resolvedMatch),
+        expanded: false
+      });
       notify('Lookup data applied');
       return;
     }
@@ -1686,8 +1762,11 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
         game_developer: typeEnrichment.type_details?.developer || form.game_developer,
         game_region: typeEnrichment.type_details?.region || form.game_region
       });
-      setBarcodeError(null);
-      setBarcodeResults([]);
+      patchLookupPanel({
+        error: null,
+        appliedSummary: buildAppliedLookupSummary(resolvedMatch),
+        expanded: false
+      });
       notify('Lookup data applied');
       return;
     }
@@ -1723,8 +1802,11 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
       runtime: details?.runtime || form.runtime,
       upc: resolvedMatch?.upc || form.upc
     });
-    setBarcodeError(null);
-    setBarcodeResults([]);
+    patchLookupPanel({
+      error: null,
+      appliedSummary: buildAppliedLookupSummary(resolvedMatch),
+      expanded: false
+    });
     notify('Lookup data applied');
   };
 
@@ -1878,6 +1960,19 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
     }
   };
 
+  const lookupSummary = appliedLookupSummary || {
+    title: resolveLookupTitle() || 'Search title or identifier',
+    identifier: resolveLookupIdentifier(),
+    sourceLabels: [],
+    provider: ''
+  };
+  const lookupSummaryMeta = [
+    ...(lookupSummary.sourceLabels || []),
+    lookupSummary.provider || '',
+    lookupSummary.identifier ? `ID ${lookupSummary.identifier}` : ''
+  ].filter(Boolean);
+  const searchActionLabel = (form.id || appliedLookupSummary) ? 'Search again' : 'Search';
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-3 px-6 py-4 border-b border-edge shrink-0">
@@ -1932,7 +2027,171 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
                   semantics="buttons"
                 />
 
-                <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
+                {canUniversalLookup && (
+                  <div className="border-b border-edge/60 pb-4">
+                    {lookupPanelExpanded ? (
+                      <div className="space-y-4 pt-3" aria-label="Search panel">
+                        <div className="grid grid-cols-1 gap-3 md:grid-cols-12">
+                          <LabeledField label={isAudio ? 'Album Title' : 'Title'} className={canIdentifierLookup ? 'md:col-span-7' : 'md:col-span-12'}>
+                            <input
+                              className="input min-w-0"
+                              placeholder={form.media_type === 'movie' ? 'Movie title' : isAudio ? 'Album title' : 'Title'}
+                              value={form.title}
+                              onChange={(e) => set({ title: e.target.value })}
+                            />
+                          </LabeledField>
+
+                          {canIdentifierLookup && (
+                            <LabeledField label={isBook ? 'ISBN / UPC' : isComic ? 'ISBN / UPC' : 'Identifier'} className="md:col-span-5">
+                              {isBook ? (
+                                <div className="flex flex-wrap gap-2 md:flex-nowrap">
+                                  <input
+                                    className="input min-w-0 flex-1 font-mono"
+                                    placeholder="055357275X, 9780553572755, or 012345678901"
+                                    value={bookIdentifierInput}
+                                    onChange={(e) => handleBookIdentifierChange(e.target.value)}
+                                  />
+                                  <button type="button" onClick={() => lookupCaptureInputRef.current?.click()} disabled={lookupCaptureLoading} className="btn-secondary btn-sm shrink-0 min-w-[76px]">
+                                    {lookupCaptureLoading ? <Spinner size={14} /> : <><Icons.Camera />Scan</>}
+                                  </button>
+                                </div>
+                              ) : isComic ? (
+                                <div className="flex flex-wrap gap-2 md:flex-nowrap">
+                                  <input
+                                    className="input min-w-0 flex-1 font-mono"
+                                    placeholder="012345678901 01 or 9781565048010"
+                                    value={comicIdentifierInput}
+                                    onChange={(e) => handleComicIdentifierChange(e.target.value)}
+                                  />
+                                  <button type="button" onClick={() => lookupCaptureInputRef.current?.click()} disabled={lookupCaptureLoading} className="btn-secondary btn-sm shrink-0 min-w-[76px]">
+                                    {lookupCaptureLoading ? <Spinner size={14} /> : <><Icons.Camera />Scan</>}
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="flex flex-wrap gap-2 md:flex-nowrap">
+                                  <input
+                                    className="input min-w-0 flex-1 font-mono"
+                                    placeholder="012345678901"
+                                    value={form.upc}
+                                    onChange={(e) => set({ upc: normalizeBarcodeInput(e.target.value) })}
+                                  />
+                                  <button type="button" onClick={() => lookupCaptureInputRef.current?.click()} disabled={lookupCaptureLoading} className="btn-secondary btn-sm shrink-0 min-w-[76px]">
+                                    {lookupCaptureLoading ? <Spinner size={14} /> : <><Icons.Camera />Scan</>}
+                                  </button>
+                                </div>
+                              )}
+                            </LabeledField>
+                          )}
+                        </div>
+
+                        {isBook && <BookCaptureStatusCard state={bookCaptureState} />}
+
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-edge/60 pt-3">
+                          <div className="text-sm text-ghost">Use title or identifier.</div>
+                          <div className="flex flex-wrap gap-2">
+                            {appliedLookupSummary ? (
+                              <button type="button" onClick={clearAppliedLookupSummary} className="btn-secondary btn-sm">
+                                Clear match
+                              </button>
+                            ) : null}
+                            <button type="button" onClick={() => runUniversalLookup()} disabled={lookupLoading} className="btn-secondary btn-sm min-w-[84px]">
+                              {lookupLoading ? <Spinner size={14} /> : <><Icons.Search />Search</>}
+                            </button>
+                          </div>
+                        </div>
+
+                        {lookupMatches.length > 0 && (
+                          <div className="border-t border-edge/60 pt-3">
+                            <div className="max-h-44 overflow-y-auto scroll-area">
+                              {lookupMatches.map((m, i) => (
+                                <button
+                                  key={i}
+                                  type="button"
+                                  onClick={() => applyLookupResult(m)}
+                                  className="flex w-full items-start gap-3 border-b border-edge/60 py-2 text-left last:border-b-0 hover:bg-panel/50"
+                                >
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <p className="truncate text-sm font-medium text-ink">{m?.typeEnrichment?.title || m?.book?.title || m?.normalizedTitle || m.tmdb?.title || m.title || 'Unknown'}</p>
+                                      {(m.lookupSources || []).map((source) => (
+                                        <span key={source} className="badge badge-dim">
+                                          {formatLookupSourceLabel(source)}
+                                        </span>
+                                      ))}
+                                    </div>
+                                    <p className="text-xs text-ghost">
+                                      {resolveLookupProviderLabel(m)}
+                                      {(resolveLookupProviderLabel(m) && (m?.typeEnrichment?.type_details?.artist
+                                        || m?.typeEnrichment?.type_details?.platform
+                                        || m?.typeEnrichment?.type_details?.series
+                                        || m?.book?.type_details?.author
+                                        || m?.typeDetails?.author
+                                        || m.description)) ? ' · ' : ''}
+                                      {m?.typeEnrichment?.type_details?.artist
+                                        || m?.typeEnrichment?.type_details?.platform
+                                        || m?.typeEnrichment?.type_details?.series
+                                        || m?.book?.type_details?.author
+                                        || m?.typeDetails?.author
+                                        || m.description
+                                        || ''}
+                                    </p>
+                                  </div>
+                                  <span className="shrink-0 text-xs text-dim">Apply</span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {lookupError && (
+                          <div className="border-t border-edge/60 pt-3">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="text-sm text-ink">{lookupError?.error || 'Search failed'}</p>
+                                {lookupError?.detail ? <p className="mt-1 text-xs text-ghost">{lookupError.detail}</p> : null}
+                              </div>
+                              {lookupError?.stage ? <span className="badge badge-dim">{lookupError.stage}</span> : null}
+                            </div>
+                            {lookupError?.request ? (
+                              <pre className="mt-2 overflow-x-auto border border-edge bg-panel p-2 text-xs text-ghost whitespace-pre-wrap break-all">
+{JSON.stringify(lookupError.request, null, 2)}
+                              </pre>
+                            ) : null}
+                          </div>
+                        )}
+
+                        <input
+                          ref={lookupCaptureInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleLookupCapture}
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap items-center justify-between gap-3" aria-label="Search summary">
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-ink">{lookupSummary.title}</p>
+                          {lookupSummaryMeta.length > 0 ? (
+                            <p className="mt-1 text-xs text-ghost">{lookupSummaryMeta.join(' · ')}</p>
+                          ) : null}
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {appliedLookupSummary ? (
+                            <button type="button" onClick={clearAppliedLookupSummary} className="btn-secondary btn-sm">
+                              Clear match
+                            </button>
+                          ) : null}
+                          <button type="button" onClick={() => patchLookupPanel({ expanded: true })} className="btn-secondary btn-sm">
+                            {searchActionLabel}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-5 pt-3 lg:flex-row lg:items-start">
                   <div className="w-full shrink-0 lg:w-32 xl:w-28">
                     <div className="space-y-3">
                       <button
@@ -1958,31 +2217,12 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
                   </div>
 
                   <div className="min-w-0 flex-1 space-y-4 xl:max-w-[28rem] 2xl:max-w-[30rem]">
-                    {isMovieOrTv ? (
+                    {isMovieOrTv && (
                       <div className="grid grid-cols-1 gap-3 md:grid-cols-12">
-                        <LabeledField label="Title *" className="md:col-span-8">
-                          <div className="flex flex-wrap gap-2 md:flex-nowrap">
-                            <input className="input min-w-0 flex-1" placeholder={form.media_type === 'movie' ? 'Movie title' : 'Title'} value={form.title} onChange={(e) => set({ title: e.target.value })} required />
-                            <button type="button" onClick={() => runUniversalLookup()} disabled={barcodeLoading} className="btn-secondary btn-sm shrink-0 min-w-[76px]">
-                              {barcodeLoading ? <Spinner size={14} /> : 'Search'}
-                            </button>
-                          </div>
-                        </LabeledField>
-                        <LabeledField label="Original Title" className="md:col-span-4">
+                        <LabeledField label="Original Title" className="md:col-span-12">
                           <input className="input" value={form.original_title} onChange={(e) => set({ original_title: e.target.value })} />
                         </LabeledField>
                       </div>
-                    ) : (
-                      <LabeledField label={isAudio ? 'Album *' : 'Title *'}>
-                        <div className="flex flex-wrap gap-2 md:flex-nowrap">
-                          <input className="input min-w-0 flex-1" placeholder={isAudio ? 'Album title' : 'Title'} value={form.title} onChange={(e) => set({ title: e.target.value })} required />
-                          {canUniversalLookup ? (
-                            <button type="button" onClick={() => runUniversalLookup()} disabled={barcodeLoading} className="btn-secondary btn-sm shrink-0 min-w-[76px]">
-                              {barcodeLoading ? <Spinner size={14} /> : 'Search'}
-                            </button>
-                          ) : null}
-                        </div>
-                      </LabeledField>
                     )}
 
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-12">
@@ -2018,59 +2258,6 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
                       )}
                     </div>
 
-                    {isBarcodeCapable && (
-                      <LabeledField label={isBook || isComic ? '' : 'UPC / Barcode'}>
-                        {isBook ? (
-                          <div className="space-y-3">
-                            <p className="text-xs font-medium text-dim">Book identifier</p>
-                            <div className="flex flex-wrap gap-2 md:flex-nowrap">
-                              <input
-                                className="input min-w-0 flex-1 font-mono"
-                                placeholder="055357275X, 9780553572755, or 012345678901"
-                                value={bookIdentifierInput}
-                                onChange={(e) => handleBookIdentifierChange(e.target.value)}
-                              />
-                              <button type="button" onClick={() => barcodeCaptureInputRef.current?.click()} disabled={barcodeCaptureLoading} className="btn-secondary btn-sm shrink-0 min-w-[76px]">
-                                {barcodeCaptureLoading ? <Spinner size={14} /> : <><Icons.Camera />Scan</>}
-                              </button>
-                            </div>
-                            <BookCaptureStatusCard state={bookCaptureState} />
-                          </div>
-                        ) : isComic ? (
-                          <div className="space-y-3">
-                            <p className="text-xs font-medium text-dim">UPC / Barcode</p>
-                            <div className="flex flex-wrap gap-2 md:flex-nowrap">
-                              <input
-                                className="input min-w-0 flex-1 font-mono"
-                                placeholder="012345678901 01 or 9781565048010"
-                                value={comicIdentifierInput}
-                                onChange={(e) => handleComicIdentifierChange(e.target.value)}
-                              />
-                              <button type="button" onClick={() => barcodeCaptureInputRef.current?.click()} disabled={barcodeCaptureLoading} className="btn-secondary btn-sm shrink-0 min-w-[76px]">
-                                {barcodeCaptureLoading ? <Spinner size={14} /> : <><Icons.Camera />Scan</>}
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="space-y-2">
-                            <div className="flex flex-wrap gap-2 md:flex-nowrap">
-                              <input className="input min-w-0 flex-1 font-mono" placeholder="012345678901" value={form.upc} onChange={(e) => set({ upc: normalizeBarcodeInput(e.target.value) })} />
-                              <button type="button" onClick={() => barcodeCaptureInputRef.current?.click()} disabled={barcodeCaptureLoading} className="btn-secondary btn-sm shrink-0 min-w-[76px]">
-                                {barcodeCaptureLoading ? <Spinner size={14} /> : <><Icons.Camera />Scan</>}
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                        <input
-                          ref={barcodeCaptureInputRef}
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={handleBarcodeCapture}
-                        />
-                      </LabeledField>
-                    )}
-
                     <input
                       ref={coverImageInputRef}
                       type="file"
@@ -2080,59 +2267,6 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
                     />
                   </div>
                 </div>
-
-                {canUniversalLookup && barcodeResults.length > 0 && (
-                  <div className="mt-5 space-y-2">
-                    <p className="label">Search Results — click to apply</p>
-                    <div className="space-y-1.5 max-h-40 overflow-y-auto scroll-area pr-1">
-                      {barcodeResults.map((m, i) => (
-                        <button key={i} type="button" onClick={() => applyLookupResult(m)} className="w-full flex items-center gap-3 p-2.5 rounded-lg bg-raised border border-edge hover:border-gold/40 hover:bg-gold/5 transition-all text-left group">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p className="text-sm font-medium text-ink truncate">{m?.typeEnrichment?.title || m?.book?.title || m?.normalizedTitle || m.tmdb?.title || m.title || 'Unknown'}</p>
-                              {(m.lookupSources || []).map((source) => (
-                                <span key={source} className="badge badge-dim">
-                                  {source === 'identifier' ? 'Identifier' : 'Title'}
-                                </span>
-                              ))}
-                            </div>
-                            <p className="text-xs text-ghost">
-                              {m?.typeEnrichment?.type_details?.artist
-                                || m?.typeEnrichment?.type_details?.platform
-                                || m?.typeEnrichment?.type_details?.series
-                                || m?.book?.type_details?.author
-                                || m?.typeDetails?.author
-                                || m.description
-                                || ''}
-                            </p>
-                          </div>
-                          <span className="text-xs text-gold opacity-0 group-hover:opacity-100 shrink-0">Apply →</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {canUniversalLookup && barcodeError && (
-                  <div className="mt-5 rounded-xl border border-err/30 bg-err/5 p-3 space-y-2">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="label text-err">Search failed</p>
-                        <p className="text-sm text-ink">{barcodeError?.error || 'Unknown lookup error'}</p>
-                        {barcodeError?.detail && <p className="text-xs text-ghost mt-1">{barcodeError.detail}</p>}
-                      </div>
-                      {barcodeError?.stage && <span className="badge badge-dim">{barcodeError.stage}</span>}
-                    </div>
-                    {barcodeError?.request && (
-                      <div className="space-y-1">
-                        <p className="label">Request context</p>
-                        <pre className="rounded-lg bg-void/60 border border-edge p-2 text-xs text-ghost overflow-x-auto whitespace-pre-wrap break-all">
-{JSON.stringify(barcodeError.request, null, 2)}
-                        </pre>
-                      </div>
-                    )}
-                  </div>
-                )}
 
                 <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:max-w-[28rem] 2xl:max-w-[30rem]">
                   {isMovieOrTv && (

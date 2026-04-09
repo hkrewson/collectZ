@@ -1,7 +1,30 @@
 'use strict';
-const { test, expect } = require('@playwright/test');
-const { createFreshUserCredentials, createAuthenticatedRequestContext, postWithCsrf } = require('../helpers/auth');
+const fs = require('fs');
+const { test, expect, request: playwrightRequest } = require('@playwright/test');
+const { AUTH_STATE_PATH, createFreshUserCredentials, createAuthenticatedRequestContext, postWithCsrf } = require('../helpers/auth');
 const { deleteMediaByExactTitle, findExactMediaByTitle } = require('../helpers/media');
+
+const PLAYWRIGHT_BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000';
+const PLAYWRIGHT_E2E_BYPASS_TOKEN = String(process.env.PLAYWRIGHT_E2E_BYPASS_TOKEN || '').trim();
+
+function buildBypassHeaders() {
+  return PLAYWRIGHT_E2E_BYPASS_TOKEN
+    ? { 'x-playwright-e2e-bypass': PLAYWRIGHT_E2E_BYPASS_TOKEN }
+    : undefined;
+}
+
+async function createSavedAdminRequestContext() {
+  return playwrightRequest.newContext({
+    baseURL: PLAYWRIGHT_BASE_URL,
+    storageState: AUTH_STATE_PATH,
+    extraHTTPHeaders: buildBypassHeaders()
+  });
+}
+
+async function addSavedAdminCookies(page) {
+  const storageState = JSON.parse(fs.readFileSync(AUTH_STATE_PATH, 'utf8'));
+  await page.context().addCookies(storageState.cookies || []);
+}
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
@@ -109,17 +132,17 @@ test.describe('library multi-format browser regressions', () => {
   });
 
   test('add drawer uses one universal search action instead of barcode-only lookup buttons', async ({ page }) => {
-    const credentials = await createFreshUserCredentials();
-    const requestContext = await createAuthenticatedRequestContext(credentials);
+    const requestContext = await createSavedAdminRequestContext();
 
     try {
-      const storageState = await requestContext.storageState();
-      await page.context().addCookies(storageState.cookies || []);
+      await addSavedAdminCookies(page);
       await page.goto('/dashboard?tab=library-movies');
       await page.getByRole('button', { name: 'Add', exact: true }).click();
 
       await expect(page.getByRole('heading', { name: /add to library/i })).toBeVisible();
+      await expect(page.locator('[aria-label="Search panel"]')).toBeVisible();
       await expect(page.getByRole('button', { name: 'Search', exact: true })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Search', exact: true })).toHaveCount(1);
       await expect(page.getByRole('button', { name: 'Lookup', exact: true })).toHaveCount(0);
 
       await page.getByRole('button', { name: 'Book', exact: true }).click();
@@ -132,9 +155,51 @@ test.describe('library multi-format browser regressions', () => {
     }
   });
 
+  test('edit drawer starts with collapsed search summary and reopens with Search again', async ({ page }) => {
+    const requestContext = await createSavedAdminRequestContext();
+    const title = `Playwright Edit Search Summary ${Date.now()}`;
+
+    await deleteMediaByExactTitle(requestContext, title).catch(() => {});
+
+    try {
+      await postWithCsrf(requestContext, '/api/media', {
+        title,
+        media_type: 'movie',
+        owned_formats: ['digital'],
+        year: 2022,
+        overview: 'Populated movie for edit search summary',
+        genre: 'Drama',
+        upc: '4006381333931'
+      }, 201);
+
+      await addSavedAdminCookies(page);
+      await page.goto('/dashboard?tab=library-movies');
+
+      const searchInput = page.getByPlaceholder('Search title, director…');
+      await searchInput.fill(title);
+      const resultCard = page.locator('article').filter({
+        has: page.getByText(title, { exact: true })
+      }).first();
+      await expect(resultCard).toBeVisible();
+      await resultCard.click();
+      await page.getByRole('button', { name: 'Edit', exact: true }).click();
+
+      await expect(page.getByRole('heading', { name: /edit media/i })).toBeVisible();
+      await expect(page.locator('[aria-label="Search summary"]')).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Search', exact: true })).toHaveCount(0);
+      await page.getByRole('button', { name: 'Search again', exact: true }).click();
+      await expect(page.locator('[aria-label="Search panel"]')).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Search', exact: true })).toBeVisible();
+      await expect(page.getByPlaceholder('Movie title')).toHaveValue(title);
+      await expect(page.getByPlaceholder('012345678901')).toHaveValue('4006381333931');
+    } finally {
+      await deleteMediaByExactTitle(requestContext, title).catch(() => {});
+      await requestContext.dispose();
+    }
+  });
+
   test('add drawer combines title and identifier search results into one picker', async ({ page }) => {
-    const credentials = await createFreshUserCredentials();
-    const requestContext = await createAuthenticatedRequestContext(credentials);
+    const requestContext = await createSavedAdminRequestContext();
     const title = `Playwright Dual Search ${Date.now()}`;
     const alternateTitle = `${title} Alternate`;
     const upc = `012345${Date.now().toString().slice(-6)}`;
@@ -206,8 +271,7 @@ test.describe('library multi-format browser regressions', () => {
         });
       });
 
-      const storageState = await requestContext.storageState();
-      await page.context().addCookies(storageState.cookies || []);
+      await addSavedAdminCookies(page);
       await page.goto('/dashboard?tab=library-movies');
       await page.getByRole('button', { name: 'Add', exact: true }).click();
 
@@ -248,8 +312,7 @@ test.describe('library multi-format browser regressions', () => {
     const title = `Playwright Follow Up ${Date.now()}`;
     const alternateTitle = `${title} Identifier`;
     const upc = `065432${Date.now().toString().slice(-6)}`;
-    const credentials = await createFreshUserCredentials();
-    const requestContext = await createAuthenticatedRequestContext(credentials);
+    const requestContext = await createSavedAdminRequestContext();
     let initialTitleLookupCount = 0;
     let followUpLookupCount = 0;
 
@@ -338,8 +401,7 @@ test.describe('library multi-format browser regressions', () => {
         });
       });
 
-      const storageState = await requestContext.storageState();
-      await page.context().addCookies(storageState.cookies || []);
+      await addSavedAdminCookies(page);
       await page.goto('/dashboard?tab=library-movies');
       await page.getByRole('button', { name: 'Add', exact: true }).click();
 
@@ -354,9 +416,16 @@ test.describe('library multi-format browser regressions', () => {
       expect(initialTitleLookupCount).toBe(1);
       expect(followUpLookupCount).toBe(1);
 
-      await expect(page.getByPlaceholder('Movie title')).toHaveValue(alternateTitle);
       await expect(page.getByPlaceholder('2024')).toHaveValue('2023');
       await expect(page.getByPlaceholder('Action, Drama…')).toHaveValue('Sci-Fi');
+      await expect(page.locator('[aria-label="Search summary"]')).toBeVisible();
+      await expect(page.locator('[aria-label="Search summary"]')).toContainText(alternateTitle);
+      await expect(page.getByRole('button', { name: 'Search', exact: true })).toHaveCount(0);
+      await page.getByRole('button', { name: 'Search again', exact: true }).click();
+      await expect(page.locator('[aria-label="Search panel"]')).toBeVisible();
+      await expect(page.getByPlaceholder('Movie title')).toHaveValue(alternateTitle);
+      await expect(page.getByText(alternateTitle, { exact: true })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Clear match', exact: true })).toBeVisible();
     } finally {
       await requestContext.dispose();
     }
