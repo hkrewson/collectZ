@@ -1,7 +1,7 @@
 'use strict';
 const fs = require('fs');
 const { test, expect, request: playwrightRequest } = require('@playwright/test');
-const { AUTH_STATE_PATH, createFreshUserCredentials, createAuthenticatedRequestContext, postWithCsrf } = require('../helpers/auth');
+const { AUTH_STATE_PATH, createFreshUserCredentials, createAuthenticatedRequestContext, createRequestContextFromStorageState, ensureAuthenticatedAdminStorageState, postWithCsrf } = require('../helpers/auth');
 const { deleteMediaByExactTitle, findExactMediaByTitle } = require('../helpers/media');
 
 const PLAYWRIGHT_BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000';
@@ -14,15 +14,22 @@ function buildBypassHeaders() {
 }
 
 async function createSavedAdminRequestContext() {
-  return playwrightRequest.newContext({
+  const seedContext = await playwrightRequest.newContext({
     baseURL: PLAYWRIGHT_BASE_URL,
-    storageState: AUTH_STATE_PATH,
     extraHTTPHeaders: buildBypassHeaders()
   });
+  try {
+    const adminState = await ensureAuthenticatedAdminStorageState(seedContext);
+    return createRequestContextFromStorageState(adminState.storageStatePath);
+  } finally {
+    await seedContext.dispose();
+  }
 }
 
-async function addSavedAdminCookies(page) {
-  const storageState = JSON.parse(fs.readFileSync(AUTH_STATE_PATH, 'utf8'));
+async function addSavedAdminCookies(page, requestContext = null) {
+  const storageState = requestContext
+    ? await requestContext.storageState()
+    : JSON.parse(fs.readFileSync(AUTH_STATE_PATH, 'utf8'));
   await page.context().addCookies(storageState.cookies || []);
 }
 
@@ -135,7 +142,7 @@ test.describe('library multi-format browser regressions', () => {
     const requestContext = await createSavedAdminRequestContext();
 
     try {
-      await addSavedAdminCookies(page);
+      await addSavedAdminCookies(page, requestContext);
       await page.goto('/dashboard?tab=library-movies');
       await page.getByRole('button', { name: 'Add', exact: true }).click();
 
@@ -172,7 +179,7 @@ test.describe('library multi-format browser regressions', () => {
         upc: '4006381333931'
       }, 201);
 
-      await addSavedAdminCookies(page);
+      await addSavedAdminCookies(page, requestContext);
       await page.goto('/dashboard?tab=library-movies');
 
       const searchInput = page.getByPlaceholder('Search title, director…');
@@ -271,7 +278,7 @@ test.describe('library multi-format browser regressions', () => {
         });
       });
 
-      await addSavedAdminCookies(page);
+      await addSavedAdminCookies(page, requestContext);
       await page.goto('/dashboard?tab=library-movies');
       await page.getByRole('button', { name: 'Add', exact: true }).click();
 

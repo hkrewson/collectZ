@@ -29,7 +29,8 @@ test.describe('csv import browser regressions', () => {
       await signInThroughUi(page, credentials);
       await page.goto('/dashboard?tab=library-import');
       await expect(page.getByRole('heading', { name: 'Import Media' })).toBeVisible();
-      await page.getByRole('button', { name: 'CSV' }).click();
+      await page.getByRole('tab', { name: 'CSV', exact: true }).click();
+      await expect(page.getByRole('button', { name: 'Choose CSV File', exact: true })).toBeVisible();
 
       const importResponsePromise = page.waitForResponse((response) => (
         response.url().includes('/api/media/import-csv')

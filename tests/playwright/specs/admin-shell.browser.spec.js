@@ -3,9 +3,14 @@
 const { test, expect } = require('@playwright/test');
 const { createSpaceFixture, deleteSpace } = require('../helpers/admin');
 const { ensureSavedAdminCredentials, createAuthenticatedRequestContext } = require('../helpers/auth');
+const { signInThroughUi } = require('../helpers/session');
+
+test.use({ storageState: { cookies: [], origins: [] } });
 
 test.describe('admin shell browser regressions', () => {
   test('authenticated admin shell loads and docs surface is available when debug gating is satisfied', async ({ page }) => {
+    const adminCredentials = await ensureSavedAdminCredentials();
+    await signInThroughUi(page, adminCredentials);
     await page.goto('/dashboard?tab=help');
     await expect(page.getByRole('heading', { name: 'HELP ADMIN' })).toBeVisible();
 
@@ -22,6 +27,8 @@ test.describe('admin shell browser regressions', () => {
     let cleanupPending = true;
 
     try {
+      await requestContext.delete('/api/auth/support-session').catch(() => {});
+      await signInThroughUi(page, adminCredentials);
       await page.goto('/dashboard?tab=admin-spaces');
       await expect(page.getByRole('heading', { name: 'All Spaces' })).toBeVisible();
 
@@ -40,12 +47,13 @@ test.describe('admin shell browser regressions', () => {
       await page.getByLabel('Reason').fill(`Playwright support session ${suffix}`);
       await page.getByRole('button', { name: 'Start Support Session' }).last().click();
 
-      await expect(page.getByText('Support Session Active')).toBeVisible();
+      await expect(page.getByText('Support session active')).toBeVisible();
       await expect(page.getByText(new RegExp(`Reason: Playwright support session ${suffix}`))).toBeVisible();
 
-      await page.getByRole('button', { name: 'End Session' }).click();
-      await expect(page.getByText('Support Session Active')).toHaveCount(0);
+      await page.getByRole('button', { name: 'End support session' }).click();
+      await expect(page.getByText('Support session active')).toHaveCount(0);
     } finally {
+      await requestContext.delete('/api/auth/support-session').catch(() => {});
       if (cleanupPending) {
         await deleteSpace(requestContext, Number(space.id)).catch(() => {});
       }
@@ -54,6 +62,8 @@ test.describe('admin shell browser regressions', () => {
   });
 
   test('integrations tabs switch and save feedback stays visible', async ({ page }) => {
+    const adminCredentials = await ensureSavedAdminCredentials();
+    await signInThroughUi(page, adminCredentials);
     await page.goto('/dashboard?tab=admin-integrations&integration=barcode');
     await expect(page.getByRole('heading', { name: 'Integrations' })).toBeVisible();
 

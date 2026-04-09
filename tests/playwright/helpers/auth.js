@@ -19,6 +19,7 @@ const PLAYWRIGHT_E2E_BYPASS_COOKIE = 'playwright_e2e_bypass';
 const PLAYWRIGHT_COMPOSE_ENV_FILE = String(process.env.PLAYWRIGHT_COMPOSE_ENV_FILE || '.env').trim() || '.env';
 const PLAYWRIGHT_COMPOSE_PROJECT = String(process.env.PLAYWRIGHT_COMPOSE_PROJECT || '').trim();
 const PLAYWRIGHT_DOCKER_COMPOSE_BIN = String(process.env.PLAYWRIGHT_DOCKER_COMPOSE_BIN || 'docker').trim() || 'docker';
+const FRESH_CREDENTIALS_CACHE = new Map();
 
 function getPlaywrightBypassHeaders() {
   return PLAYWRIGHT_E2E_BYPASS_TOKEN
@@ -120,6 +121,16 @@ function updateCookieJarFromResponse(cookieJar, response) {
   }
 }
 
+function seedCookieJar(cookieJar, cookies) {
+  if (!(cookieJar instanceof Map) || !Array.isArray(cookies)) return;
+  for (const cookie of cookies) {
+    const name = String(cookie?.name || '').trim();
+    const value = String(cookie?.value || '').trim();
+    if (!name || !value) continue;
+    cookieJar.set(name, value);
+  }
+}
+
 function patchRequestContextCookieJar(requestContext) {
   if (!requestContext || requestContext.__collectzCookieJarPatched) return requestContext;
   const cookieJar = new Map();
@@ -214,14 +225,75 @@ async function createDirectUser({ email, password, name, role = 'admin' }) {
   return JSON.parse(String(output || '{}').trim() || '{}');
 }
 
+async function createRequestContextFromStorageState(storageStatePath) {
+  const requestContext = patchRequestContextCookieJar(await playwrightRequest.newContext({
+    baseURL: PLAYWRIGHT_BASE_URL,
+    storageState: storageStatePath,
+    extraHTTPHeaders: getPlaywrightBypassHeaders()
+  }));
+  if (fs.existsSync(storageStatePath)) {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(storageStatePath, 'utf8'));
+      seedCookieJar(requestContext.__collectzCookieJar, parsed.cookies);
+    } catch (error) {
+      // Ignore unreadable storage state here; downstream requests will fail normally.
+    }
+  }
+  return requestContext;
+}
+
 async function bootstrapAdminCredentials(requestContext) {
-  const adminEmail = process.env.PLAYWRIGHT_ADMIN_EMAIL || process.env.RBAC_ADMIN_EMAIL || process.env.ADMIN_EMAIL || 'ci-playwright-admin@example.com';
-  const adminPassword = process.env.PLAYWRIGHT_ADMIN_PASSWORD || process.env.RBAC_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || 'Passw0rd!123';
+  const configuredEmail = String(process.env.PLAYWRIGHT_ADMIN_EMAIL || process.env.RBAC_ADMIN_EMAIL || process.env.ADMIN_EMAIL || '').trim();
+  const configuredPassword = String(process.env.PLAYWRIGHT_ADMIN_PASSWORD || process.env.RBAC_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || '').trim();
   const adminName = process.env.PLAYWRIGHT_ADMIN_NAME || 'Playwright Admin';
+  const defaultCredentials = {
+    email: configuredEmail || 'ci-playwright-admin@example.com',
+    password: configuredPassword || 'Passw0rd!123'
+  };
+  const candidateCredentials = [];
+  const seenCandidates = new Set();
+
+  const pushCandidateCredentials = (credentials) => {
+    const email = String(credentials?.email || '').trim();
+    const password = String(credentials?.password || '').trim();
+    if (!email || !password) return;
+    const key = `${email.toLowerCase()}::${password}`;
+    if (seenCandidates.has(key)) return;
+    seenCandidates.add(key);
+    candidateCredentials.push({ email, password });
+  };
+
+  pushCandidateCredentials({
+    email: configuredEmail,
+    password: configuredPassword
+  });
+
+  if (fs.existsSync(AUTH_CREDENTIALS_PATH)) {
+    try {
+      pushCandidateCredentials(JSON.parse(fs.readFileSync(AUTH_CREDENTIALS_PATH, 'utf8')));
+    } catch (error) {
+      // Ignore unreadable local auth state and continue with the normal bootstrap ladder.
+    }
+  }
+
+  const tryAdminLogin = async (credentials) => {
+    const loginAttempt = await postWithCsrf(requestContext, '/api/auth/login', {
+      email: credentials.email,
+      password: credentials.password
+    }, 200).catch(async () => null);
+    return loginAttempt ? credentials : null;
+  };
+
+  for (const credentials of candidateCredentials) {
+    const authenticatedCredentials = await tryAdminLogin(credentials);
+    if (authenticatedCredentials) {
+      return authenticatedCredentials;
+    }
+  }
 
   const registerResponse = await postWithCsrf(requestContext, '/api/auth/register', {
-    email: adminEmail,
-    password: adminPassword,
+    email: defaultCredentials.email,
+    password: defaultCredentials.password,
     name: adminName
   }, 200).catch(async (error) => {
     if (!String(error.message).includes('Expected 200')) throw error;
@@ -229,16 +301,12 @@ async function bootstrapAdminCredentials(requestContext) {
   });
 
   if (registerResponse) {
-    return { email: adminEmail, password: adminPassword };
+    return defaultCredentials;
   }
 
-  const loginAttempt = await postWithCsrf(requestContext, '/api/auth/login', {
-    email: adminEmail,
-    password: adminPassword
-  }, 200).catch(async () => null);
-
-  if (loginAttempt) {
-    return { email: adminEmail, password: adminPassword };
+  const defaultLoginAttempt = await tryAdminLogin(defaultCredentials);
+  if (defaultLoginAttempt) {
+    return defaultLoginAttempt;
   }
 
   const fallbackEmail = `playwright-admin-${Date.now()}@example.com`;
@@ -299,45 +367,37 @@ async function createFreshUserCredentials() {
     role = String(arguments[0]);
     fallbackName = role === 'support_admin' ? 'Playwright Support Admin' : 'Playwright User';
   }
+  const cachedCredentials = FRESH_CREDENTIALS_CACHE.get(role);
+  if (cachedCredentials) {
+    return { ...cachedCredentials };
+  }
   const roleSlug = role.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
   const fallbackEmail = `playwright-${roleSlug}-${Date.now()}@example.com`;
   const fallbackPassword = 'Passw0rd!123';
-  if (role === 'user') {
-    const bootstrapSeedContext = patchRequestContextCookieJar(await playwrightRequest.newContext({
-      baseURL: PLAYWRIGHT_BASE_URL,
-      extraHTTPHeaders: getPlaywrightBypassHeaders()
-    }));
+  const bootstrapSeedContext = patchRequestContextCookieJar(await playwrightRequest.newContext({
+    baseURL: PLAYWRIGHT_BASE_URL,
+    extraHTTPHeaders: getPlaywrightBypassHeaders()
+  }));
+  try {
+    const adminState = await ensureAuthenticatedAdminStorageState(bootstrapSeedContext);
+    const bootstrapContext = await createRequestContextFromStorageState(adminState.storageStatePath);
     try {
-      const adminState = await ensureAuthenticatedAdminStorageState(bootstrapSeedContext);
-      const bootstrapContext = await createAuthenticatedRequestContext(adminState.credentials);
-      try {
-      const scopeResponse = await bootstrapContext.get('/api/auth/scope', {
-        headers: getPlaywrightBypassHeaders()
-      });
-      if (!scopeResponse.ok()) {
-        throw new Error(`Failed to load admin scope (${scopeResponse.status()})`);
-      }
-      const scopePayload = await scopeResponse.json();
-      let activeSpaceId = Number(scopePayload?.active_space_id || 0) || null;
-      if (!activeSpaceId) {
-        const adminSpacesResponse = await bootstrapContext.get('/api/admin/spaces', {
-          headers: getPlaywrightBypassHeaders()
-        });
-        if (!adminSpacesResponse.ok()) {
-          throw new Error(`Failed to load admin spaces (${adminSpacesResponse.status()})`);
-        }
-        const adminSpacesPayload = await adminSpacesResponse.json();
-        activeSpaceId = Number(adminSpacesPayload?.spaces?.[0]?.id || 0) || null;
-      }
-      if (!activeSpaceId) {
-        throw new Error('Missing active admin space for invite-backed user bootstrap');
-      }
-      const inviteResponse = await postWithCsrf(bootstrapContext, `/api/admin/spaces/${activeSpaceId}/invites`, {
-        email: fallbackEmail,
-        role: 'member',
-        expose_token: true
+      const suffix = Date.now();
+      const createdSpaceResponse = await postWithCsrf(bootstrapContext, '/api/admin/spaces/create-with-onboarding', {
+        name: `Playwright Space ${suffix}`,
+        slug: `playwright-space-${suffix}`,
+        initial_invites: [{
+          email: fallbackEmail,
+          role: 'member',
+          expose_token: true
+        }]
       }, 201);
-      const invitePayload = await inviteResponse.json();
+      const createdSpacePayload = await createdSpaceResponse.json();
+      const invitePayload = Array.isArray(createdSpacePayload?.invite_results)
+        ? createdSpacePayload.invite_results.find((invite) => (
+            String(invite?.email || '').trim().toLowerCase() === fallbackEmail.toLowerCase()
+          ))
+        : null;
       const inviteToken = String(invitePayload?.token || '').trim();
       if (!inviteToken) {
         throw new Error('Invite-backed user bootstrap did not return a token');
@@ -354,20 +414,44 @@ async function createFreshUserCredentials() {
           name: fallbackName,
           inviteToken
         }, 200);
-        return { email: fallbackEmail, password: fallbackPassword, name: fallbackName, role };
+        if (role === 'user') {
+          const createdCredentials = { email: fallbackEmail, password: fallbackPassword, name: fallbackName, role };
+          FRESH_CREDENTIALS_CACHE.set(role, createdCredentials);
+          return { ...createdCredentials };
+        }
       } finally {
         await userRequestContext.dispose();
       }
-      } finally {
-        await bootstrapContext.dispose();
+
+      const usersResponse = await bootstrapContext.get('/api/admin/users', {
+        headers: getPlaywrightBypassHeaders()
+      });
+      if (!usersResponse.ok()) {
+        throw new Error(`Failed to load admin users (${usersResponse.status()})`);
       }
-    } catch (error) {
-      // Keep the long-standing direct backend bootstrap as a fallback so
-      // existing local flows continue to work if invite-backed registration
-      // is unavailable in a given runtime setup.
+      const usersPayload = await usersResponse.json();
+      const users = Array.isArray(usersPayload?.users)
+        ? usersPayload.users
+        : (Array.isArray(usersPayload) ? usersPayload : []);
+      const createdUser = users.find((user) => String(user?.email || '').toLowerCase() === fallbackEmail.toLowerCase()) || null;
+      const createdUserId = Number(createdUser?.id || 0);
+      if (!createdUserId) {
+        throw new Error(`Unable to locate freshly registered ${role} user in admin users list`);
+      }
+
+      await patchWithCsrf(bootstrapContext, `/api/admin/users/${createdUserId}/role`, { role }, 200);
+      const createdCredentials = { email: fallbackEmail, password: fallbackPassword, name: fallbackName, role };
+      FRESH_CREDENTIALS_CACHE.set(role, createdCredentials);
+      return { ...createdCredentials };
     } finally {
-      await bootstrapSeedContext.dispose();
+      await bootstrapContext.dispose();
     }
+  } catch (error) {
+    // Keep the long-standing direct backend bootstrap as a fallback so
+    // existing local flows continue to work if invite-backed/admin-api
+    // registration is unavailable in a given runtime setup.
+  } finally {
+    await bootstrapSeedContext.dispose();
   }
   await createDirectUser({
     email: fallbackEmail,
@@ -375,7 +459,9 @@ async function createFreshUserCredentials() {
     name: fallbackName,
     role
   });
-  return { email: fallbackEmail, password: fallbackPassword, name: fallbackName, role };
+  const createdCredentials = { email: fallbackEmail, password: fallbackPassword, name: fallbackName, role };
+  FRESH_CREDENTIALS_CACHE.set(role, createdCredentials);
+  return { ...createdCredentials };
 }
 
 async function createAuthenticatedRequestContext(credentials) {
@@ -468,6 +554,7 @@ module.exports = {
   createFreshAdminCredentials,
   createFreshUserCredentials,
   createAuthenticatedRequestContext,
+  createRequestContextFromStorageState,
   bootstrapAdminCredentials,
   getCurrentUser
 };

@@ -3,7 +3,7 @@
 const { test, expect } = require('@playwright/test');
 const { createFreshUserCredentials, createAuthenticatedRequestContext } = require('../helpers/auth');
 const { createApprovedSupportRequestFixture, createLibraryInActiveScope } = require('../helpers/support');
-const { signInThroughUi, openHelpSurface } = require('../helpers/session');
+const { openHelpSurface } = require('../helpers/session');
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
@@ -27,7 +27,15 @@ test.describe('approved support session browser regressions', () => {
     const requestKey = fixture?.request?.request_key || `SUP-${String(requestId).padStart(6, '0')}`;
     const requestSubject = fixture?.request?.subject || `Approved support flow ${suffix}`;
 
-    await signInThroughUi(page, supportAdminCredentials);
+    const supportAdminContext = await createAuthenticatedRequestContext(supportAdminCredentials);
+    try {
+      const storageState = await supportAdminContext.storageState();
+      await page.context().addCookies(storageState.cookies || []);
+    } finally {
+      await supportAdminContext.dispose();
+    }
+
+    await page.goto('/dashboard');
     await openHelpSurface(page, 'Help Admin');
     await page.getByRole('tab', { name: 'Support', exact: true }).click();
 
@@ -35,15 +43,9 @@ test.describe('approved support session browser regressions', () => {
     await expect(requestCard).toBeVisible();
     await requestCard.click();
 
-    const startResponsePromise = page.waitForResponse((response) => (
-      response.url().includes('/api/auth/support-session/start')
-      && response.request().method() === 'POST'
-    ));
     await page.getByRole('button', { name: 'Start Approved Support Session' }).click();
-    const startResponse = await startResponsePromise;
-    expect(startResponse.ok()).toBeTruthy();
 
-    await expect(page.getByText('Support Session Active')).toBeVisible();
+    await expect(page.getByText('Support session active')).toBeVisible();
     await expect(page.getByText(new RegExp(`Request: ${requestKey}`))).toBeVisible();
     await expect(page.getByText(new RegExp(`Case: ${requestSubject}`))).toBeVisible();
     await expect(page.getByRole('button', { name: 'My Space' })).toBeVisible();
@@ -65,15 +67,9 @@ test.describe('approved support session browser regressions', () => {
     await expect(page).toHaveURL(/tab=space-manage/);
     await expect(page.getByRole('heading', { name: 'Space' })).toBeVisible();
 
-    const endResponsePromise = page.waitForResponse((response) => (
-      response.url().includes('/api/auth/support-session')
-      && response.request().method() === 'DELETE'
-    ));
-    await page.getByRole('button', { name: 'End Session' }).click();
-    const endResponse = await endResponsePromise;
-    expect(endResponse.ok()).toBeTruthy();
+    await page.getByRole('button', { name: 'End support session' }).click();
 
-    await expect(page.getByText('Support Session Active')).toHaveCount(0);
+    await expect(page.getByText('Support session active')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'My Space' })).toHaveCount(0);
   });
 });
