@@ -262,7 +262,7 @@ results.push(run('media format filter matches any owned format instead of only d
 results.push(run('playwright multi-format regressions cover create, edit, and import paths', () => {
   assert.ok(libraryMultiFormatBrowserSpecSource.includes("owned_formats).toEqual(['dvd', 'bluray', 'digital'])"));
   assert.ok(libraryMultiFormatBrowserSpecSource.includes("owned_formats).toEqual(['dvd', 'uhd', 'digital'])"));
-  assert.ok(importBrowserSpecSource.includes("owned_formats).toEqual(['bluray'])"));
+  assert.ok(importBrowserSpecSource.includes("getByRole('tab', { name: 'Barcode', exact: true })).toHaveCount(0)"));
   assert.ok(importCsvBrowserSpecSource.includes("owned_formats).toEqual(['dvd', 'bluray', 'digital'])"));
 }));
 
@@ -676,9 +676,10 @@ results.push(run('repo includes 2.9.4 Playwright browser regression foundation h
   assert.ok(integrationsBrowserSpecSource.includes("getByRole('tablist', { name: 'Integration sections' })"));
   assert.ok(integrationsBrowserSpecSource.includes('Metrics Export'));
   assert.ok(importBrowserSpecSource.includes('/dashboard?tab=library-import'));
-  assert.ok(importBrowserSpecSource.includes('/api/media/lookup-upc'));
-  assert.ok(importBrowserSpecSource.includes('Added "'));
-  assert.ok(importBrowserSpecSource.includes('/dashboard?tab=library-movies'));
+  assert.ok(importBrowserSpecSource.includes("getByRole('tablist', { name: 'Import sources' })"));
+  assert.ok(importBrowserSpecSource.includes("getByRole('tab', { name: 'CSV', exact: true })"));
+  assert.ok(importBrowserSpecSource.includes("getByRole('tab', { name: 'Barcode', exact: true })).toHaveCount(0)"));
+  assert.ok(importBrowserSpecSource.includes('Choose Delicious CSV'));
   assert.ok(importCsvBrowserSpecSource.includes('/api/media/import-csv'));
   assert.ok(importCsvBrowserSpecSource.includes('CSV import queued'));
   assert.ok(importCsvBrowserSpecSource.includes('waitForSyncJob('));
