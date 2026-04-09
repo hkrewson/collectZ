@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v2.10.6",
+      "version": "2.10.6",
+      "date": "2026-04-08",
+      "status": "Completed",
+      "summary": "This patch release packages the post-`2.10.0` UI and workflow follow-through that was completed across the library and add/edit drawers. Import now reads like the rest of the product, bulk selection is calmer and more usable, the shell has less decorative chrome, and Add/Edit search now behaves like a true universal lookup flow instead of a barcode-only side path. The result is a quieter, more predictable product surface without changing the underlying multi-format ownership model that shipped in `2.10.0`.",
+      "details": []
+    },
+    {
       "title": "v2.10.0",
       "version": "2.10.0",
       "date": "2026-04-06",
@@ -278,49 +286,6 @@
             "Added an optional `Artist` field to collectibles.",
             "Collectible cards and detail drawers now surface artist information when present.",
             "Collectibles continue to support first-class image handling and now fit more naturally beside Movies, Games, Books, Audio, and Comics."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "v2.8.5",
-      "version": "2.8.5",
-      "date": "2026-03-29",
-      "status": "Completed",
-      "summary": "This release simplifies the shell and Integrations surface so admin configuration reads more like supported product setup and less like a low-level control panel. The stale sidebar scope card is gone, Integrations now uses lighter horizontal tabs, and redundant or overly technical integration settings were removed or derived from known provider behavior.",
-      "details": [
-        {
-          "heading": "Navigation shell cleanup",
-          "bullets": [
-            "Removed the old active-space/active-library card treatment from the sidebar shell.",
-            "Kept only the lighter library selector behavior where it remains meaningful for non-admin tenant use."
-          ]
-        },
-        {
-          "heading": "Integrations surface simplification",
-          "bullets": [
-            "Converted Integrations to the same calmer horizontal-tab language used elsewhere in admin surfaces.",
-            "Flattened the remaining heavy card framing so the active integration pane reads like the rest of Settings.",
-            "Moved `Metrics` and `External Logs` into first-class Integrations tabs instead of keeping them as a detached operator-export card."
-          ]
-        },
-        {
-          "heading": "Integration config cleanup",
-          "bullets": [
-            "Removed redundant integration toggles that no longer represented meaningful product choices:",
-            "Removed single-provider preset selectors where there was only one real supported source:",
-            "Removed editable low-level protocol fields such as custom key-header/query-param controls and dropped the unsupported `custom` preset path from the admin UI.",
-            "Shifted known provider protocol details back into backend-owned preset behavior for supported integrations."
-          ]
-        },
-        {
-          "heading": "CWA, Plex, Comics, and Games cleanup",
-          "bullets": [
-            "Derived `CWA Base URL` from the OPDS feed URL instead of requiring a second host field.",
-            "Removed CWA timeout as an admin-facing setting and normalized it to the backend default.",
-            "Removed Plex server-name editing from the admin UI.",
-            "Simplified Metron credentials so username and password sit together and the password field reads as a password instead of a token hybrid.",
-            "Tightened paired field layouts for CWA credentials, Games credentials, and Plex connection settings so related values sit together on desktop."
           ]
         }
       ]
