@@ -488,7 +488,7 @@ results.push(run('migrations source includes support role and help foundation sc
 }));
 
 results.push(run('frontend app source includes support session banner and admin trigger plumbing', () => {
-  assert.ok(frontendAppSource.includes('Support Session'));
+  assert.ok(frontendAppSource.includes('Support session active'));
   assert.ok(frontendAppSource.includes('/auth/support-session/start'));
   assert.ok(frontendAppSource.includes('request_id: requestId || undefined'));
   assert.ok(dashboardContentSource.includes('onStartSupportSession'));
