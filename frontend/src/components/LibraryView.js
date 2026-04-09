@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   Icons,
   Spinner,
@@ -1125,6 +1125,8 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
   const [comicIdentifierInput, setComicIdentifierInput] = useState(() => normalizeBarcodeInput(initial?.type_details?.isbn || initial?.upc || '') + (initial?.type_details?.barcode_addon ? ` ${normalizeBarcodeInput(initial.type_details.barcode_addon)}` : ''));
   const lookupCaptureInputRef = useRef(null);
   const coverImageInputRef = useRef(null);
+  const lookupPanelMeasureRef = useRef(null);
+  const [lookupOverlayTop, setLookupOverlayTop] = useState(null);
 
   const set = (patch) => setForm((f) => ({ ...f, ...patch }));
   const setOwnedFormats = (nextFormats) => {
@@ -1207,6 +1209,26 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
     const next = [nextBase, nextAddon].filter(Boolean).join(' ');
     setComicIdentifierInput((current) => (current === next ? current : next));
   }, [form.book_isbn, form.upc, form.comic_barcode_addon, isComic]);
+
+  useLayoutEffect(() => {
+    if (!lookupPanelExpanded) {
+      setLookupOverlayTop(null);
+      return undefined;
+    }
+
+    const measure = () => {
+      const panel = lookupPanelMeasureRef.current;
+      if (!panel) {
+        setLookupOverlayTop(null);
+        return;
+      }
+      setLookupOverlayTop(panel.offsetHeight);
+    };
+
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [lookupPanelExpanded, form.media_type, lookupCaptureLoading, lookupLoading, bookCaptureState, bookIdentifierInput, comicIdentifierInput, form.upc, form.title]);
 
   const resolveLookupTitle = () => String(form.title || '').trim();
   const resolveLookupYear = () => {
@@ -1972,6 +1994,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
     lookupSummary.identifier ? `ID ${lookupSummary.identifier}` : ''
   ].filter(Boolean);
   const searchActionLabel = (form.id || appliedLookupSummary) ? 'Search again' : 'Search';
+  const showLookupOverlay = Boolean(canUniversalLookup && lookupPanelExpanded && lookupOverlayTop !== null && (lookupMatches.length > 0 || lookupError));
 
   return (
     <div className="flex flex-col h-full">
@@ -2027,8 +2050,9 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
                   semantics="buttons"
                 />
 
+                <div className="relative">
                 {canUniversalLookup && (
-                  <div className="border-b border-edge/60 pb-4">
+                  <div className="border-b border-edge/60 pb-4" ref={lookupPanelMeasureRef}>
                     {lookupPanelExpanded ? (
                       <div className="space-y-4 pt-3" aria-label="Search panel">
                         <div className="grid grid-cols-1 gap-3 md:grid-cols-12">
@@ -2099,66 +2123,6 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
                             </button>
                           </div>
                         </div>
-
-                        {lookupMatches.length > 0 && (
-                          <div className="border-t border-edge/60 pt-3">
-                            <div className="max-h-44 overflow-y-auto scroll-area">
-                              {lookupMatches.map((m, i) => (
-                                <button
-                                  key={i}
-                                  type="button"
-                                  onClick={() => applyLookupResult(m)}
-                                  className="flex w-full items-start gap-3 border-b border-edge/60 py-2 text-left last:border-b-0 hover:bg-panel/50"
-                                >
-                                  <div className="min-w-0 flex-1">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                      <p className="truncate text-sm font-medium text-ink">{m?.typeEnrichment?.title || m?.book?.title || m?.normalizedTitle || m.tmdb?.title || m.title || 'Unknown'}</p>
-                                      {(m.lookupSources || []).map((source) => (
-                                        <span key={source} className="badge badge-dim">
-                                          {formatLookupSourceLabel(source)}
-                                        </span>
-                                      ))}
-                                    </div>
-                                    <p className="text-xs text-ghost">
-                                      {resolveLookupProviderLabel(m)}
-                                      {(resolveLookupProviderLabel(m) && (m?.typeEnrichment?.type_details?.artist
-                                        || m?.typeEnrichment?.type_details?.platform
-                                        || m?.typeEnrichment?.type_details?.series
-                                        || m?.book?.type_details?.author
-                                        || m?.typeDetails?.author
-                                        || m.description)) ? ' · ' : ''}
-                                      {m?.typeEnrichment?.type_details?.artist
-                                        || m?.typeEnrichment?.type_details?.platform
-                                        || m?.typeEnrichment?.type_details?.series
-                                        || m?.book?.type_details?.author
-                                        || m?.typeDetails?.author
-                                        || m.description
-                                        || ''}
-                                    </p>
-                                  </div>
-                                  <span className="shrink-0 text-xs text-dim">Apply</span>
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {lookupError && (
-                          <div className="border-t border-edge/60 pt-3">
-                            <div className="flex items-start justify-between gap-3">
-                              <div>
-                                <p className="text-sm text-ink">{lookupError?.error || 'Search failed'}</p>
-                                {lookupError?.detail ? <p className="mt-1 text-xs text-ghost">{lookupError.detail}</p> : null}
-                              </div>
-                              {lookupError?.stage ? <span className="badge badge-dim">{lookupError.stage}</span> : null}
-                            </div>
-                            {lookupError?.request ? (
-                              <pre className="mt-2 overflow-x-auto border border-edge bg-panel p-2 text-xs text-ghost whitespace-pre-wrap break-all">
-{JSON.stringify(lookupError.request, null, 2)}
-                              </pre>
-                            ) : null}
-                          </div>
-                        )}
 
                         <input
                           ref={lookupCaptureInputRef}
@@ -2340,6 +2304,74 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
                     </LabeledField>
                   </div>
                 )}
+                {showLookupOverlay && (
+                  <div
+                    aria-label="Search results overlay"
+                    className="absolute inset-x-0 bottom-0 z-20 overflow-hidden border-t border-edge/60 bg-abyss"
+                    style={{ top: `${lookupOverlayTop}px` }}
+                  >
+                    <div className="h-full overflow-y-auto scroll-area px-1 py-3">
+                      {lookupMatches.length > 0 ? (
+                        <div>
+                          {lookupMatches.map((m, i) => (
+                            <button
+                              key={i}
+                              type="button"
+                              onClick={() => applyLookupResult(m)}
+                              className="flex w-full items-start gap-3 border-b border-edge/60 px-3 py-2 text-left last:border-b-0 hover:bg-panel/50"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="truncate text-sm font-medium text-ink">{m?.typeEnrichment?.title || m?.book?.title || m?.normalizedTitle || m.tmdb?.title || m.title || 'Unknown'}</p>
+                                  {(m.lookupSources || []).map((source) => (
+                                    <span key={source} className="badge badge-dim">
+                                      {formatLookupSourceLabel(source)}
+                                    </span>
+                                  ))}
+                                </div>
+                                <p className="text-xs text-ghost">
+                                  {resolveLookupProviderLabel(m)}
+                                  {(resolveLookupProviderLabel(m) && (m?.typeEnrichment?.type_details?.artist
+                                    || m?.typeEnrichment?.type_details?.platform
+                                    || m?.typeEnrichment?.type_details?.series
+                                    || m?.book?.type_details?.author
+                                    || m?.typeDetails?.author
+                                    || m.description)) ? ' · ' : ''}
+                                  {m?.typeEnrichment?.type_details?.artist
+                                    || m?.typeEnrichment?.type_details?.platform
+                                    || m?.typeEnrichment?.type_details?.series
+                                    || m?.book?.type_details?.author
+                                    || m?.typeDetails?.author
+                                    || m.description
+                                    || ''}
+                                </p>
+                              </div>
+                              <span className="shrink-0 text-xs text-dim">Apply</span>
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+
+                      {lookupError ? (
+                        <div className="px-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-sm text-ink">{lookupError?.error || 'Search failed'}</p>
+                              {lookupError?.detail ? <p className="mt-1 text-xs text-ghost">{lookupError.detail}</p> : null}
+                            </div>
+                            {lookupError?.stage ? <span className="badge badge-dim">{lookupError.stage}</span> : null}
+                          </div>
+                          {lookupError?.request ? (
+                            <pre className="mt-2 overflow-x-auto border border-edge bg-panel p-2 text-xs text-ghost whitespace-pre-wrap break-all">
+{JSON.stringify(lookupError.request, null, 2)}
+                            </pre>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                )}
+                </div>
               </>
             </SectionTabPanel>
 
