@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { SectionTabs } from './app/AppPrimitives';
 import ActivityFeedView from './ActivityFeedView';
 import AdminIntegrationsView from './AdminIntegrationsView';
+import AdminSettingsView from './AdminSettingsView';
 
 function formatDateTime(value) {
   if (!value) return '';
@@ -11,7 +12,7 @@ function formatDateTime(value) {
 }
 
 function createEmptySpaceForm() {
-  return { name: '', slug: '', description: '' };
+  return { name: '' };
 }
 
 function KebabIcon() {
@@ -35,6 +36,7 @@ export default function SpaceManagerView({
   activeLibraryId,
   onSpaceSelect,
   onScopeRefresh,
+  onSettingsChange,
   Icons,
   Spinner,
   cx
@@ -66,9 +68,7 @@ export default function SpaceManagerView({
 
   useEffect(() => {
     setEditingSpace({
-      name: activeSpace?.name || '',
-      slug: activeSpace?.slug || '',
-      description: activeSpace?.description || ''
+      name: activeSpace?.name || ''
     });
   }, [activeSpace]);
 
@@ -331,36 +331,36 @@ export default function SpaceManagerView({
 
         {canManage && managerTab === 'settings' && (
           <div className="max-w-3xl">
-            <form className="space-y-4" onSubmit={saveSpace}>
-              <div>
-                <h2 className="text-xl font-medium text-ink">Settings</h2>
-                <p className="text-sm text-ghost mt-1">Update the active space details that owners and admins control directly.</p>
-              </div>
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className="field">
-                  <span className="label">Name</span>
-                  <input className="input" value={editingSpace.name} onChange={(e) => setEditingSpace((prev) => ({ ...prev, name: e.target.value }))} required />
-                </label>
-                <label className="field">
-                  <span className="label">Slug</span>
-                  <input className="input" value={editingSpace.slug} onChange={(e) => setEditingSpace((prev) => ({ ...prev, slug: e.target.value }))} placeholder="optional-space-slug" />
-                </label>
-              </div>
-              <label className="field">
-                <span className="label">Description</span>
-                <textarea
-                  className="input min-h-28 resize-y"
-                  value={editingSpace.description}
-                  onChange={(e) => setEditingSpace((prev) => ({ ...prev, description: e.target.value }))}
-                  placeholder="Optional description for this space"
+            <form className="flex flex-wrap items-end gap-3" onSubmit={saveSpace}>
+              <label className="field min-w-[220px] flex-1">
+                <span className="label">Name</span>
+                <input
+                  className="input"
+                  value={editingSpace.name}
+                  onChange={(e) => setEditingSpace((prev) => ({ ...prev, name: e.target.value }))}
+                  required
                 />
               </label>
-              <div className="flex justify-end">
+              <div className="shrink-0">
                 <button type="submit" className="btn-primary min-w-[140px]" disabled={savingSpace}>
-                  {savingSpace ? <Spinner size={14} /> : 'Save Settings'}
+                  {savingSpace ? <Spinner size={14} /> : 'Save'}
                 </button>
               </div>
             </form>
+            <div className="mt-6">
+              <AdminSettingsView
+                apiCall={apiCall}
+                onToast={onToast}
+                onSettingsChange={onSettingsChange}
+                Spinner={Spinner}
+                title={null}
+                embedded
+                generalSettingsEndpoint={`/spaces/${activeSpaceId}/settings/general`}
+                updateGeneralSettingsEndpoint={`/spaces/${activeSpaceId}/settings/general`}
+                featureFlagsEndpoint={`/spaces/${activeSpaceId}/feature-flags`}
+                featureFlagUpdatePath={(key) => `/spaces/${activeSpaceId}/feature-flags/${encodeURIComponent(key)}`}
+              />
+            </div>
           </div>
         )}
 

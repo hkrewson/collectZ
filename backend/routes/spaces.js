@@ -10,7 +10,8 @@ const {
   spaceMembershipCreateSchema,
   spaceMembershipUpdateSchema,
   spaceInviteCreateSchema,
-  spaceTransferCreateSchema
+  spaceTransferCreateSchema,
+  generalSettingsSchema
 } = require('../middleware/validate');
 const { logActivity } = require('../services/audit');
 const { sendInviteEmail } = require('../services/email');
@@ -33,6 +34,13 @@ const {
   countSpaceOwners,
   listSpaceMembers
 } = require('../services/spaces');
+const { loadGeneralSettings, updateScopedGeneralSettings } = require('../services/integrations');
+const {
+  listSpaceFeatureFlags,
+  getSpaceFeatureFlag,
+  updateSpaceFeatureFlag,
+  FEATURE_FLAGS_READ_ONLY
+} = require('../services/featureFlags');
 
 const router = express.Router();
 
@@ -276,6 +284,127 @@ router.patch('/spaces/:id', validate(spaceUpdateSchema), asyncHandler(async (req
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;
+  } finally {
+    client.release();
+  }
+}));
+
+router.get('/spaces/:id/settings/general', asyncHandler(async (req, res) => {
+  const spaceId = Number(req.params.id);
+  if (!Number.isFinite(spaceId) || spaceId <= 0) {
+    return res.status(400).json({ error: 'Invalid space id' });
+  }
+
+  const client = await pool.connect();
+  try {
+    const accessibleSpace = await requireAccessibleSpace(client, req, spaceId);
+    if (!accessibleSpace) {
+      return res.status(404).json({ error: 'Space not found' });
+    }
+    const settings = await loadGeneralSettings(spaceId);
+    res.json(settings);
+  } finally {
+    client.release();
+  }
+}));
+
+router.put('/spaces/:id/settings/general', validate(generalSettingsSchema), asyncHandler(async (req, res) => {
+  const spaceId = Number(req.params.id);
+  if (!Number.isFinite(spaceId) || spaceId <= 0) {
+    return res.status(400).json({ error: 'Invalid space id' });
+  }
+
+  const client = await pool.connect();
+  try {
+    const accessibleSpace = await requireAccessibleSpace(client, req, spaceId);
+    if (!accessibleSpace) {
+      return res.status(404).json({ error: 'Space not found' });
+    }
+    if (!canManageSpaceMemberships({
+      userRole: req.user.role,
+      membershipRole: accessibleSpace.actor_membership_role
+    })) {
+      return res.status(403).json({ error: 'Space management denied' });
+    }
+    const updated = await updateScopedGeneralSettings({
+      spaceId,
+      theme: req.body.theme,
+      density: req.body.density
+    });
+    await logActivity(req, 'space.settings.general.update', 'space', spaceId, {
+      theme: updated.theme,
+      density: updated.density
+    });
+    res.json(updated);
+  } finally {
+    client.release();
+  }
+}));
+
+router.get('/spaces/:id/feature-flags', asyncHandler(async (req, res) => {
+  const spaceId = Number(req.params.id);
+  if (!Number.isFinite(spaceId) || spaceId <= 0) {
+    return res.status(400).json({ error: 'Invalid space id' });
+  }
+
+  const client = await pool.connect();
+  try {
+    const accessibleSpace = await requireAccessibleSpace(client, req, spaceId);
+    if (!accessibleSpace) {
+      return res.status(404).json({ error: 'Space not found' });
+    }
+    if (!canManageSpaceMemberships({
+      userRole: req.user.role,
+      membershipRole: accessibleSpace.actor_membership_role
+    })) {
+      return res.status(403).json({ error: 'Space management denied' });
+    }
+    const flags = await listSpaceFeatureFlags(spaceId);
+    res.json({ readOnly: FEATURE_FLAGS_READ_ONLY, flags });
+  } finally {
+    client.release();
+  }
+}));
+
+router.patch('/spaces/:id/feature-flags/:key', asyncHandler(async (req, res) => {
+  const spaceId = Number(req.params.id);
+  const key = String(req.params.key || '').trim();
+  const { enabled } = req.body || {};
+  if (!Number.isFinite(spaceId) || spaceId <= 0) {
+    return res.status(400).json({ error: 'Invalid space id' });
+  }
+  if (!key) {
+    return res.status(400).json({ error: 'Feature flag key is required' });
+  }
+  if (typeof enabled !== 'boolean') {
+    return res.status(400).json({ error: 'enabled must be boolean' });
+  }
+
+  const client = await pool.connect();
+  try {
+    const accessibleSpace = await requireAccessibleSpace(client, req, spaceId);
+    if (!accessibleSpace) {
+      return res.status(404).json({ error: 'Space not found' });
+    }
+    if (!canManageSpaceMemberships({
+      userRole: req.user.role,
+      membershipRole: accessibleSpace.actor_membership_role
+    })) {
+      return res.status(403).json({ error: 'Space management denied' });
+    }
+
+    const previous = await getSpaceFeatureFlag(spaceId, key);
+    if (!previous) {
+      return res.status(404).json({ error: `Unknown feature flag: ${key}` });
+    }
+    const updated = await updateSpaceFeatureFlag({ spaceId, key, enabled, updatedBy: req.user?.id || null });
+    await logActivity(req, 'space.feature_flag.update', 'space', spaceId, {
+      key,
+      previousEnabled: previous.enabled,
+      nextEnabled: updated.enabled,
+      envOverride: updated.envOverride
+    });
+    res.json(updated);
   } finally {
     client.release();
   }

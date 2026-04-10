@@ -49,7 +49,7 @@ const { logError, logActivity } = require('../services/audit');
 const { recordImportJobEvent, recordImportEnrichmentEvent } = require('../services/metrics');
 const { uploadBuffer } = require('../services/storage');
 const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
-const { isFeatureEnabled } = require('../services/featureFlags');
+const { isFeatureEnabledForSpace } = require('../services/featureFlags');
 const { enforceScopeAccess } = require('../middleware/scopeAccess');
 const { ensureUserDefaultLibrary, ensureUserDefaultScope } = require('../services/libraries');
 
@@ -3687,9 +3687,10 @@ async function runDeliciousCsvImport({
 router.use(authenticateToken);
 router.use(enforceScopeAccess({ allowedHintRoles: ['admin'] }));
 
-router.get('/feature-flags', asyncHandler(async (_req, res) => {
-  const eventsEnabled = await isFeatureEnabled('events_enabled', false);
-  const collectiblesEnabled = await isFeatureEnabled('collectibles_enabled', false);
+router.get('/feature-flags', asyncHandler(async (req, res) => {
+  const activeSpaceId = Number(req.user?.activeSpaceId || 0) || null;
+  const eventsEnabled = await isFeatureEnabledForSpace(activeSpaceId, 'events_enabled', false);
+  const collectiblesEnabled = await isFeatureEnabledForSpace(activeSpaceId, 'collectibles_enabled', false);
   res.json({
     flags: {
       events_enabled: Boolean(eventsEnabled),

@@ -58,7 +58,8 @@ function normalizeLogExportValidationRecord(row) {
 // ── General settings (read — available to all authenticated users) ────────────
 
 router.get('/settings/general', authenticateToken, asyncHandler(async (req, res) => {
-  const settings = await loadGeneralSettings();
+  const activeSpaceId = Number(req.user?.activeSpaceId || 0) || null;
+  const settings = await loadGeneralSettings(activeSpaceId);
   res.json(settings);
 }));
 

@@ -191,12 +191,65 @@ const loadScopedIntegrationConfig = async (spaceId) => {
   return normalizeIntegrationRecord(row || null);
 };
 
-const loadGeneralSettings = async () => {
+const loadGeneralSettings = async (spaceId = null) => {
   const result = await pool.query('SELECT * FROM app_settings WHERE id = 1');
   const row = result.rows[0] || {};
+  const numericSpaceId = Number(spaceId || 0) || null;
+  let scopedRow = null;
+  if (numericSpaceId) {
+    const scopedResult = await pool.query(
+      `SELECT theme, density
+         FROM spaces
+        WHERE id = $1
+        LIMIT 1`,
+      [numericSpaceId]
+    );
+    scopedRow = scopedResult.rows[0] || null;
+  }
   return {
-    theme: row.theme || 'system',
-    density: row.density || 'comfortable'
+    theme: scopedRow?.theme || row.theme || 'system',
+    density: scopedRow?.density || row.density || 'comfortable'
+  };
+};
+
+const updateScopedGeneralSettings = async ({ spaceId, theme, density }) => {
+  const numericSpaceId = Number(spaceId || 0) || null;
+  if (!numericSpaceId) {
+    const error = new Error('space_id must be a positive integer');
+    error.status = 400;
+    throw error;
+  }
+
+  const existing = await pool.query(
+    `SELECT theme, density
+       FROM spaces
+      WHERE id = $1
+      LIMIT 1`,
+    [numericSpaceId]
+  );
+  if (existing.rows.length === 0) {
+    const error = new Error('Space not found');
+    error.status = 404;
+    throw error;
+  }
+
+  const current = existing.rows[0] || {};
+  const result = await pool.query(
+    `UPDATE spaces
+        SET theme = $2,
+            density = $3,
+            updated_at = CURRENT_TIMESTAMP
+      WHERE id = $1
+      RETURNING theme, density`,
+    [
+      numericSpaceId,
+      theme !== undefined ? theme : current.theme,
+      density !== undefined ? density : current.density
+    ]
+  );
+  return {
+    theme: result.rows[0]?.theme || 'system',
+    density: result.rows[0]?.density || 'comfortable'
   };
 };
 
@@ -206,5 +259,6 @@ module.exports = {
   loadIntegrationConfigRow,
   loadAdminIntegrationConfig,
   loadScopedIntegrationConfig,
-  loadGeneralSettings
+  loadGeneralSettings,
+  updateScopedGeneralSettings
 };

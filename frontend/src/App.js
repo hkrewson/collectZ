@@ -355,7 +355,7 @@ export default function App() {
   useEffect(() => {
     if (!(route === 'dashboard' && authChecked && user)) return;
     apiCall('get', '/settings/general').then((data) => setUiSettings(data)).catch(() => {});
-  }, [route, authChecked, user, apiCall]);
+  }, [route, authChecked, user, activeSpaceId, apiCall]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -390,7 +390,7 @@ export default function App() {
   useEffect(() => {
     if (!(route === 'dashboard' && authChecked && user)) return;
     loadClientFeatureFlags();
-  }, [route, authChecked, user, loadClientFeatureFlags]);
+  }, [route, authChecked, user, activeSpaceId, loadClientFeatureFlags]);
 
   useEffect(() => {
     if (!(route === 'dashboard' && authChecked && user)) return undefined;

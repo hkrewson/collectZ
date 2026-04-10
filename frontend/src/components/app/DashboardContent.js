@@ -195,6 +195,7 @@ export default function DashboardContent({
           activeLibraryId={activeLibraryId}
           onSpaceSelect={onSpaceSelect}
           onScopeRefresh={onScopeRefresh}
+          onSettingsChange={setUiSettings}
           Icons={Icons}
           Spinner={Spinner}
           cx={cx}

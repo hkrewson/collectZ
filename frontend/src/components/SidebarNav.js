@@ -52,8 +52,7 @@ export default function SidebarNav({
     showEvents
   });
   const releaseNotesUrl = `https://github.com/hkrewson/collectZ/tree/main/docs/releases/v${appVersion}.md`;
-  const [adminOpen, setAdminOpen] = useState(true);
-  const [globalOpen, setGlobalOpen] = useState(true);
+  const [platformOpen, setPlatformOpen] = useState(true);
   const [libraryOpen, setLibraryOpen] = useState(true);
   const isLibraryActive = [
     'library',
@@ -67,14 +66,8 @@ export default function SidebarNav({
     'library-events',
     'library-import'
   ].includes(activeTab);
-  const isAdminGroupActive = [
+  const isPlatformGroupActive = [
     'admin-activity',
-    'admin-integrations',
-    'admin-settings',
-    'admin-flags',
-    'space-manage'
-  ].includes(activeTab);
-  const isGlobalGroupActive = [
     'admin-spaces',
     'admin-users'
   ].includes(activeTab);
@@ -82,12 +75,8 @@ export default function SidebarNav({
   const showLibrarySwitcher = canUseLibraryShell && !isAdmin && libraries.length > 1;
   const showDesktopHamburger = !collapsed;
   const canOpenSpaceSurface = Boolean(activeMembershipRole) || canManageActiveSpace;
-  const showAdminGroup = (isAdmin || canManageActiveSpace) && [
-    isAdmin && isTabAllowed('admin-activity'),
-    isAdmin && isTabAllowed('admin-integrations'),
-    isAdmin && isTabAllowed('admin-settings')
-  ].some(Boolean);
-  const showGlobalGroup = isAdmin && [
+  const showPlatformGroup = isAdmin && [
+    isTabAllowed('admin-activity'),
     isTabAllowed('admin-spaces'),
     isTabAllowed('admin-users')
   ].some(Boolean);
@@ -255,54 +244,27 @@ export default function SidebarNav({
           {canOpenSpaceSurface && isTabAllowed('space-manage') && (
             <NavLink id="space-manage" icon={<Icons.Settings />} label="My Space" />
           )}
-          {showAdminGroup && (
+          {showPlatformGroup && (
             <div>
               <button
-                onClick={() => setAdminOpen((o) => !o)}
+                onClick={() => setPlatformOpen((o) => !o)}
                 className={cx(
                   'w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded transition-all',
-                  isAdminGroupActive ? 'bg-raised border border-edge text-ink' : 'text-dim hover:text-ink hover:bg-raised/50',
+                  isPlatformGroupActive ? 'bg-raised border border-edge text-ink' : 'text-dim hover:text-ink hover:bg-raised/50',
                   collapsed && 'justify-center px-0'
                 )}
               >
                 <span className="shrink-0"><Icons.Settings /></span>
                 {!collapsed && (
                   <>
-                    <span className="flex-1 text-left">Admin</span>
-                    <span className={cx('transition-transform duration-200', adminOpen && 'rotate-180')}><Icons.ChevronDown /></span>
+                    <span className="flex-1 text-left">Platform</span>
+                    <span className={cx('transition-transform duration-200', platformOpen && 'rotate-180')}><Icons.ChevronDown /></span>
                   </>
                 )}
               </button>
-              {adminOpen && !collapsed && (
+              {platformOpen && !collapsed && (
                 <div className="mt-1 space-y-0.5">
-                  {isAdmin && isTabAllowed('admin-activity') && <NavLink id="admin-activity" icon={null} label="Activity" sub />}
-                  {isAdmin && isTabAllowed('admin-integrations') && <NavLink id="admin-integrations" icon={null} label="Integrations" sub />}
-                  {isAdmin && isTabAllowed('admin-settings') && <NavLink id="admin-settings" icon={null} label="Settings" sub />}
-                </div>
-              )}
-            </div>
-          )}
-
-          {showGlobalGroup && (
-            <div>
-              <button
-                onClick={() => setGlobalOpen((o) => !o)}
-                className={cx(
-                  'w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded transition-all',
-                  isGlobalGroupActive ? 'bg-raised border border-edge text-ink' : 'text-dim hover:text-ink hover:bg-raised/50',
-                  collapsed && 'justify-center px-0'
-                )}
-              >
-                <span className="shrink-0"><Icons.Users /></span>
-                {!collapsed && (
-                  <>
-                    <span className="flex-1 text-left">Global</span>
-                    <span className={cx('transition-transform duration-200', globalOpen && 'rotate-180')}><Icons.ChevronDown /></span>
-                  </>
-                )}
-              </button>
-              {globalOpen && !collapsed && (
-                <div className="mt-1 space-y-0.5">
+                  {isTabAllowed('admin-activity') && <NavLink id="admin-activity" icon={null} label="Activity" sub />}
                   {isTabAllowed('admin-spaces') && <NavLink id="admin-spaces" icon={null} label="All Spaces" sub />}
                   {isTabAllowed('admin-users') && <NavLink id="admin-users" icon={null} label="All Members" sub />}
                 </div>

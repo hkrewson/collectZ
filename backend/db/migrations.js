@@ -2638,6 +2638,51 @@ const MIGRATIONS = [
       END;
       $$;
     `
+  },
+  {
+    version: 60,
+    description: 'Add space-scoped settings and library visibility controls',
+    up: `
+      ALTER TABLE spaces
+        ADD COLUMN IF NOT EXISTS theme VARCHAR(20);
+
+      ALTER TABLE spaces
+        ADD COLUMN IF NOT EXISTS density VARCHAR(20);
+
+      ALTER TABLE spaces
+        ADD COLUMN IF NOT EXISTS events_enabled BOOLEAN;
+
+      ALTER TABLE spaces
+        ADD COLUMN IF NOT EXISTS collectibles_enabled BOOLEAN;
+
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1
+          FROM pg_constraint
+          WHERE conname = 'spaces_theme_check'
+        ) THEN
+          ALTER TABLE spaces
+            ADD CONSTRAINT spaces_theme_check
+            CHECK (theme IS NULL OR theme IN ('system', 'light', 'dark'));
+        END IF;
+      END;
+      $$;
+
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1
+          FROM pg_constraint
+          WHERE conname = 'spaces_density_check'
+        ) THEN
+          ALTER TABLE spaces
+            ADD CONSTRAINT spaces_density_check
+            CHECK (density IS NULL OR density IN ('comfortable', 'compact'));
+        END IF;
+      END;
+      $$;
+    `
   }
 ];
 

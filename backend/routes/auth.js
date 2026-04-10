@@ -184,16 +184,6 @@ async function buildAuthScopePayload(req) {
     }
   }
 
-  if (req.user?.role === 'admin') {
-    return stripHomelabSpaceContext({
-      active_space_id: null,
-      active_library_id: null,
-      spaces: [],
-      libraries: [],
-      support_session: null
-    }, getProductEdition());
-  }
-
   if (req.user?.role === 'support_admin') {
     return stripHomelabSpaceContext({
       active_space_id: null,
@@ -501,7 +491,7 @@ router.post('/password-reset/consume', validate(passwordResetConsumeSchema), asy
 // ── Current user ──────────────────────────────────────────────────────────────
 
 router.get('/me', authenticateToken, asyncHandler(async (req, res) => {
-  if (!['admin', 'support_admin'].includes(String(req.user?.role || ''))) {
+  if (req.user?.role !== 'support_admin') {
     const ensuredScope = await ensureUserDefaultScope(req.user.id);
     req.user.activeSpaceId = ensuredScope.spaceId;
     req.user.activeLibraryId = ensuredScope.libraryId;
@@ -534,8 +524,8 @@ router.get('/scope', authenticateToken, asyncHandler(async (req, res) => {
 }));
 
 router.post('/scope', authenticateToken, requireSessionAuth, validate(authScopeSelectSchema), asyncHandler(async (req, res) => {
-  if (['admin', 'support_admin'].includes(String(req.user.role || ''))) {
-    return res.status(403).json({ error: 'Global admins must use explicit support-session controls instead of generic scope selection' });
+  if (String(req.user.role || '') === 'support_admin') {
+    return res.status(403).json({ error: 'Support admins must use explicit support-session controls instead of generic scope selection' });
   }
 
   const productEdition = getProductEdition();

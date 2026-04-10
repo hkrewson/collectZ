@@ -1701,6 +1701,182 @@
         }
       }
     },
+    "/api/spaces/{id}/settings/general": {
+      "get": {
+        "tags": ["Auth"],
+        "summary": "Read general settings for a managed space",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Space-scoped general settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "theme": { "type": "string", "enum": ["system", "light", "dark"] },
+                    "density": { "type": "string", "enum": ["comfortable", "compact"] }
+                  },
+                  "required": ["theme", "density"]
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["Auth"],
+        "summary": "Update general settings for a managed space",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "theme": { "type": "string", "enum": ["system", "light", "dark"] },
+                  "density": { "type": "string", "enum": ["comfortable", "compact"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated space general settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "theme": { "type": "string", "enum": ["system", "light", "dark"] },
+                    "density": { "type": "string", "enum": ["comfortable", "compact"] }
+                  },
+                  "required": ["theme", "density"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/spaces/{id}/feature-flags": {
+      "get": {
+        "tags": ["Auth"],
+        "summary": "List space-owned feature flags for a managed space",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Space-owned feature flags",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "readOnly": { "type": "boolean" },
+                    "flags": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "key": { "type": "string" },
+                          "enabled": { "type": "boolean" },
+                          "storedEnabled": { "type": "boolean" },
+                          "envOverride": { "type": ["boolean", "null"] },
+                          "description": { "type": "string" }
+                        },
+                        "required": ["key", "enabled", "storedEnabled", "description"]
+                      }
+                    }
+                  },
+                  "required": ["readOnly", "flags"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/spaces/{id}/feature-flags/{key}": {
+      "patch": {
+        "tags": ["Auth"],
+        "summary": "Update a space-owned feature flag for a managed space",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } },
+          { "in": "path", "name": "key", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "enabled": { "type": "boolean" }
+                },
+                "required": ["enabled"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated space-owned feature flag",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key": { "type": "string" },
+                    "enabled": { "type": "boolean" },
+                    "storedEnabled": { "type": "boolean" },
+                    "envOverride": { "type": ["boolean", "null"] },
+                    "description": { "type": "string" }
+                  },
+                  "required": ["key", "enabled", "storedEnabled", "description"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/spaces/{id}/activity": {
       "get": {
         "tags": ["Auth"],

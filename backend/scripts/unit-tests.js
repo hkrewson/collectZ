@@ -564,7 +564,7 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(helpViewSource.includes('A lightweight home for self-serve guidance and recent release notes for homelab users.'));
   assert.ok(frontendAppSource.includes('getSafeDashboardTab'));
   assert.ok(sidebarNavSource.includes('getAllowedDashboardTabs'));
-  assert.ok(sidebarNavSource.includes('showGlobalGroup'));
+  assert.ok(sidebarNavSource.includes('showPlatformGroup'));
   assert.ok(dockerComposeSource.includes('APP_EDITION: ${APP_EDITION:-platform}'));
   assert.ok(serverSource.includes('const HOMELAB_EDITION = isHomelabEdition();'));
   assert.ok(serverSource.includes("app.use('/api/auth', authPlatformRouter);"));

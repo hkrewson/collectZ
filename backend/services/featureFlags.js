@@ -25,6 +25,11 @@ const FEATURE_FLAGS_READ_ONLY = ['1', 'true', 'yes', 'on'].includes(
 );
 const FEATURE_FLAGS_CACHE_TTL_MS = Math.max(1000, Number(process.env.FEATURE_FLAGS_CACHE_TTL_SECONDS || 10) * 1000);
 const SETTINGS_OWNED_FLAGS = new Set(['metrics_enabled', 'external_log_export_enabled']);
+const SPACE_OWNED_FLAGS = new Set(['events_enabled', 'collectibles_enabled']);
+const SPACE_FLAG_COLUMNS = {
+  events_enabled: 'events_enabled',
+  collectibles_enabled: 'collectibles_enabled'
+};
 
 let cache = null;
 let cacheAt = 0;
@@ -38,6 +43,21 @@ function envOverrideForKey(key) {
   if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
   if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
   return null;
+}
+
+function normalizeFeatureFlagRecord(key, storedEnabled, row = null) {
+  const override = envOverrideForKey(key);
+  return {
+    key,
+    enabled: override !== null ? override : Boolean(storedEnabled),
+    storedEnabled: Boolean(storedEnabled),
+    envOverride: override,
+    description: row?.description || FEATURE_FLAG_DEFINITIONS[key]?.description || '',
+    createdAt: row?.created_at || null,
+    updatedAt: row?.updated_at || null,
+    updatedBy: row?.updated_by || null,
+    updatedByEmail: row?.updated_by_email || null
+  };
 }
 
 async function ensureDefaultFlags() {
@@ -83,35 +103,13 @@ async function loadFeatureFlags({ forceRefresh = false } = {}) {
 
   const byKey = new Map();
   for (const row of result.rows) {
-      const override = envOverrideForKey(row.key);
-      byKey.set(row.key, {
-        key: row.key,
-      enabled: override !== null ? override : Boolean(row.enabled),
-      storedEnabled: Boolean(row.enabled),
-      envOverride: override,
-      description: row.description || FEATURE_FLAG_DEFINITIONS[row.key]?.description || '',
-      createdAt: row.created_at || null,
-      updatedAt: row.updated_at || null,
-      updatedBy: row.updated_by || null,
-      updatedByEmail: row.updated_by_email || null
-    });
+    byKey.set(row.key, normalizeFeatureFlagRecord(row.key, row.enabled, row));
   }
 
   for (const key of FLAG_KEYS) {
     if (byKey.has(key)) continue;
     const def = FEATURE_FLAG_DEFINITIONS[key];
-    const override = envOverrideForKey(key);
-    byKey.set(key, {
-      key,
-      enabled: override !== null ? override : Boolean(def.defaultEnabled),
-      storedEnabled: Boolean(def.defaultEnabled),
-      envOverride: override,
-      description: def.description,
-      createdAt: null,
-      updatedAt: null,
-      updatedBy: null,
-      updatedByEmail: null
-    });
+    byKey.set(key, normalizeFeatureFlagRecord(key, def.defaultEnabled, { description: def.description }));
   }
 
   cache = byKey;
@@ -134,6 +132,53 @@ async function isFeatureEnabled(key, fallback = false) {
   const row = await getFeatureFlag(key);
   if (!row) return fallback;
   return Boolean(row.enabled);
+}
+
+async function listSpaceFeatureFlags(spaceId, options = {}) {
+  const numericSpaceId = Number(spaceId || 0);
+  if (!Number.isFinite(numericSpaceId) || numericSpaceId <= 0) {
+    const error = new Error('space_id must be a positive integer');
+    error.status = 400;
+    throw error;
+  }
+
+  const byKey = await loadFeatureFlags(options);
+  const result = await pool.query(
+    `SELECT events_enabled, collectibles_enabled
+       FROM spaces
+      WHERE id = $1
+      LIMIT 1`,
+    [numericSpaceId]
+  );
+  if (result.rows.length === 0) {
+    const error = new Error('Space not found');
+    error.status = 404;
+    throw error;
+  }
+
+  const scopedRow = result.rows[0];
+  return [...SPACE_OWNED_FLAGS].sort().map((key) => {
+    const globalFallback = byKey.get(key);
+    const column = SPACE_FLAG_COLUMNS[key];
+    const scopedValue = scopedRow?.[column];
+    const storedEnabled = scopedValue === null || scopedValue === undefined
+      ? Boolean(globalFallback?.storedEnabled)
+      : Boolean(scopedValue);
+    return normalizeFeatureFlagRecord(key, storedEnabled, globalFallback);
+  });
+}
+
+async function getSpaceFeatureFlag(spaceId, key, options = {}) {
+  if (!SPACE_OWNED_FLAGS.has(key)) return null;
+  const flags = await listSpaceFeatureFlags(spaceId, options);
+  return flags.find((flag) => flag.key === key) || null;
+}
+
+async function isFeatureEnabledForSpace(spaceId, key, fallback = false) {
+  if (!SPACE_OWNED_FLAGS.has(key)) return isFeatureEnabled(key, fallback);
+  const flag = await getSpaceFeatureFlag(spaceId, key);
+  if (!flag) return fallback;
+  return Boolean(flag.enabled);
 }
 
 function invalidateFeatureFlagsCache() {
@@ -176,13 +221,60 @@ async function updateFeatureFlag({ key, enabled, updatedBy = null }) {
   return getFeatureFlag(key, { forceRefresh: true });
 }
 
+async function updateSpaceFeatureFlag({ spaceId, key, enabled, updatedBy = null }) {
+  const numericSpaceId = Number(spaceId || 0);
+  if (!Number.isFinite(numericSpaceId) || numericSpaceId <= 0) {
+    const error = new Error('space_id must be a positive integer');
+    error.status = 400;
+    throw error;
+  }
+  if (!SPACE_OWNED_FLAGS.has(key)) {
+    const error = new Error(`Unknown space feature flag: ${key}`);
+    error.status = 404;
+    throw error;
+  }
+  if (FEATURE_FLAGS_READ_ONLY) {
+    const error = new Error('Feature flags are read-only in this environment');
+    error.status = 409;
+    error.code = 'feature_flags_read_only';
+    throw error;
+  }
+  if (envOverrideForKey(key) !== null) {
+    const error = new Error('Feature flag is controlled by the environment');
+    error.status = 409;
+    error.code = 'feature_flag_env_override';
+    throw error;
+  }
+
+  const column = SPACE_FLAG_COLUMNS[key];
+  const result = await pool.query(
+    `UPDATE spaces
+        SET ${column} = $2,
+            updated_at = CURRENT_TIMESTAMP
+      WHERE id = $1
+      RETURNING id`,
+    [numericSpaceId, Boolean(enabled)]
+  );
+  if (result.rows.length === 0) {
+    const error = new Error('Space not found');
+    error.status = 404;
+    throw error;
+  }
+  return getSpaceFeatureFlag(numericSpaceId, key, { forceRefresh: true });
+}
+
 module.exports = {
   FEATURE_FLAG_DEFINITIONS,
   FEATURE_FLAGS_READ_ONLY,
   FLAG_KEYS,
+  SPACE_OWNED_FLAGS,
   listFeatureFlags,
   getFeatureFlag,
   isFeatureEnabled,
+  listSpaceFeatureFlags,
+  getSpaceFeatureFlag,
+  isFeatureEnabledForSpace,
   updateFeatureFlag,
+  updateSpaceFeatureFlag,
   invalidateFeatureFlagsCache
 };

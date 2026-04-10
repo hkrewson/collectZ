@@ -106,6 +106,95 @@ test.describe('space manager browser regressions', () => {
     }
   });
 
+  test('space admin settings keep name at the top and show real space-owned controls', async ({ page }) => {
+    const adminCredentials = await ensureSavedAdminCredentials();
+    const adminContext = await createAuthenticatedRequestContext(adminCredentials);
+    const ownerEmail = `playwright-space-settings-${Date.now()}@example.com`;
+    const ownerPassword = 'Passw0rd!123';
+    const ownerName = 'Playwright Space Settings';
+    let ownerContext = null;
+
+    try {
+      const createdSpaceResponse = await postWithCsrf(adminContext, '/api/admin/spaces/create-with-onboarding', {
+        name: `Playwright Settings Space ${Date.now()}`,
+        slug: `playwright-settings-space-${Date.now()}`,
+        initial_invites: [{
+          email: ownerEmail,
+          role: 'admin',
+          expose_token: true
+        }]
+      }, 201);
+      const createdSpacePayload = await createdSpaceResponse.json();
+      const invitePayload = Array.isArray(createdSpacePayload?.invite_results)
+        ? createdSpacePayload.invite_results.find((invite) => String(invite?.email || '').toLowerCase() === ownerEmail.toLowerCase())
+        : null;
+      const inviteToken = String(invitePayload?.token || '').trim();
+      expect(inviteToken).toBeTruthy();
+
+      const registrationContext = await request.newContext({
+        baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000',
+        extraHTTPHeaders: getPlaywrightBypassHeaders()
+      });
+      try {
+        await postWithCsrf(registrationContext, '/api/auth/register', {
+          email: ownerEmail,
+          password: ownerPassword,
+          name: ownerName,
+          inviteToken
+        }, 200);
+      } finally {
+        await registrationContext.dispose();
+      }
+
+      ownerContext = await createAuthenticatedRequestContext({ email: ownerEmail, password: ownerPassword });
+      const storageState = await ownerContext.storageState();
+      await page.context().addCookies(storageState.cookies || []);
+
+      await page.goto('/dashboard?tab=space-manage');
+      await expect(page.getByRole('button', { name: 'Settings', exact: true })).toBeVisible();
+      await page.getByRole('button', { name: 'Settings', exact: true }).click();
+
+      await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible();
+      await expect(page.getByLabel('Name', { exact: true })).toBeVisible();
+      await expect(page.getByText('Theme', { exact: true })).toBeVisible();
+      await expect(page.getByText('Events Library', { exact: true })).toBeVisible();
+      await expect(page.getByText('Collectibles Library', { exact: true })).toBeVisible();
+      await expect(page.getByText('Slug', { exact: true })).toHaveCount(0);
+      await expect(page.getByText('Description', { exact: true })).toHaveCount(0);
+
+      const themeSavePromise = page.waitForResponse((response) => (
+        response.url().includes('/api/spaces/')
+        && response.url().includes('/settings/general')
+        && response.request().method() === 'PUT'
+      ));
+      await page.locator('select').first().selectOption('dark');
+      const themeSaveResponse = await themeSavePromise;
+      expect(themeSaveResponse.ok()).toBeTruthy();
+      const scopedSettingsResponse = await ownerContext.get('/api/settings/general');
+      expect(scopedSettingsResponse.ok()).toBeTruthy();
+      const scopedSettingsPayload = await scopedSettingsResponse.json();
+      expect(scopedSettingsPayload?.theme).toBe('dark');
+
+      const eventsSwitch = page.getByRole('switch', { name: /Events Library/i });
+      const nextEventsEnabled = (await eventsSwitch.getAttribute('aria-checked')) !== 'true';
+      const eventsTogglePromise = page.waitForResponse((response) => (
+        response.url().includes('/api/spaces/')
+        && response.url().includes('/feature-flags/events_enabled')
+        && response.request().method() === 'PATCH'
+      ));
+      await eventsSwitch.click();
+      const eventsToggleResponse = await eventsTogglePromise;
+      expect(eventsToggleResponse.ok()).toBeTruthy();
+      const scopedFlagsResponse = await ownerContext.get('/api/media/feature-flags');
+      expect(scopedFlagsResponse.ok()).toBeTruthy();
+      const scopedFlagsPayload = await scopedFlagsResponse.json();
+      expect(Boolean(scopedFlagsPayload?.flags?.events_enabled)).toBe(nextEventsEnabled);
+    } finally {
+      await ownerContext?.dispose();
+      await adminContext.dispose();
+    }
+  });
+
   test('opening My Space switches to a manageable space when current scope is only member-level', async ({ page }) => {
     const adminCredentials = await ensureSavedAdminCredentials();
     const adminContext = await createAuthenticatedRequestContext(adminCredentials);

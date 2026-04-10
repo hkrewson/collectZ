@@ -73,7 +73,19 @@ function ThemeSettingRow({ value, saving, onChange }) {
   );
 }
 
-export default function AdminSettingsView({ apiCall, onToast, onSettingsChange, Spinner }) {
+export default function AdminSettingsView({
+  apiCall,
+  onToast,
+  onSettingsChange,
+  Spinner,
+  generalSettingsEndpoint = '/settings/general',
+  updateGeneralSettingsEndpoint = '/admin/settings/general',
+  featureFlagsEndpoint = '/admin/feature-flags',
+  featureFlagUpdatePath = (key) => `/admin/feature-flags/${encodeURIComponent(key)}`,
+  title = 'Settings',
+  description = null,
+  embedded = false
+}) {
   const [settings, setSettings] = useState({ theme: 'system', density: 'comfortable' });
   const [savingGeneral, setSavingGeneral] = useState(false);
   const [flags, setFlags] = useState([]);
@@ -83,17 +95,17 @@ export default function AdminSettingsView({ apiCall, onToast, onSettingsChange, 
   const [flagsError, setFlagsError] = useState('');
 
   useEffect(() => {
-    apiCall('get', '/settings/general').then((data) => {
+    apiCall('get', generalSettingsEndpoint).then((data) => {
       setSettings(data);
       onSettingsChange?.(data);
     }).catch(() => {});
-  }, [apiCall, onSettingsChange]);
+  }, [apiCall, generalSettingsEndpoint, onSettingsChange]);
 
   const loadFlags = useCallback(async () => {
     setLoadingFlags(true);
     setFlagsError('');
     try {
-      const payload = await apiCall('get', '/admin/feature-flags');
+      const payload = await apiCall('get', featureFlagsEndpoint);
       setFlags(
         Array.isArray(payload?.flags)
           ? payload.flags.filter((flag) => SETTINGS_VISIBLE_FLAGS.has(flag?.key))
@@ -105,7 +117,7 @@ export default function AdminSettingsView({ apiCall, onToast, onSettingsChange, 
     } finally {
       setLoadingFlags(false);
     }
-  }, [apiCall]);
+  }, [apiCall, featureFlagsEndpoint]);
 
   useEffect(() => {
     loadFlags();
@@ -116,7 +128,7 @@ export default function AdminSettingsView({ apiCall, onToast, onSettingsChange, 
     const nextSettings = { ...settings, theme };
     setSettings(nextSettings);
     try {
-      const updated = await apiCall('put', '/admin/settings/general', nextSettings);
+      const updated = await apiCall('put', updateGeneralSettingsEndpoint, nextSettings);
       setSettings(updated);
       onSettingsChange?.(updated);
       onToast('Theme updated');
@@ -132,7 +144,7 @@ export default function AdminSettingsView({ apiCall, onToast, onSettingsChange, 
     if (!feature?.key) return;
     setSavingFlagKey(feature.key);
     try {
-      const updated = await apiCall('patch', `/admin/feature-flags/${encodeURIComponent(feature.key)}`, { enabled });
+      const updated = await apiCall('patch', featureFlagUpdatePath(feature.key), { enabled });
       setFlags((prev) => prev.map((row) => (row.key === updated.key ? updated : row)));
       onToast(`${FEATURE_FLAG_LABELS[feature.key] || feature.key} ${enabled ? 'enabled' : 'disabled'}`);
     } catch (error) {
@@ -143,9 +155,10 @@ export default function AdminSettingsView({ apiCall, onToast, onSettingsChange, 
   };
 
   return (
-    <div className="h-full overflow-y-auto p-4 sm:p-6 space-y-6">
+    <div className={embedded ? 'space-y-4' : 'h-full overflow-y-auto p-4 sm:p-6 space-y-6'}>
       <section className="space-y-3">
-        <h1 className="section-title mb-6">Settings</h1>
+        {title ? <h1 className={embedded ? 'text-xl font-medium text-ink' : 'section-title mb-6'}>{title}</h1> : null}
+        {description ? <p className="text-sm text-ghost">{description}</p> : null}
         <div className="space-y-1">
           <ThemeSettingRow value={settings.theme} saving={savingGeneral} onChange={updateTheme} />
           {flagsReadOnly && (
