@@ -81,6 +81,35 @@ export default function App() {
     return response.data;
   }, []);
   const { user, setUser, authChecked, setAuthChecked } = useSessionBootstrap({ route, apiCall, setRoute });
+  const applyScopePayload = useCallback((payload) => {
+    const nextSpaces = Array.isArray(payload?.spaces) ? payload.spaces : [];
+    const nextLibraries = Array.isArray(payload?.libraries) ? payload.libraries : [];
+    const nextActiveSpaceId = Number(payload?.active_space_id || 0) || null;
+    let nextActiveLibraryId = Number(payload?.active_library_id || 0) || null;
+    if (!nextActiveLibraryId && nextLibraries.length > 0) {
+      nextActiveLibraryId = Number(nextLibraries[0].id);
+    }
+
+    setSpaces(nextSpaces);
+    setLibraries(nextLibraries);
+    setActiveSpaceId(nextActiveSpaceId);
+    setActiveLibraryId(nextActiveLibraryId);
+    setSupportSession(payload?.support_session?.active ? payload.support_session : null);
+    setUser((prev) => {
+      if (!prev) return prev;
+      const prevActive = Number(prev.active_library_id || 0) || null;
+      const prevActiveSpace = Number(prev.active_space_id || 0) || null;
+      return prevActive === nextActiveLibraryId && prevActiveSpace === nextActiveSpaceId
+        ? prev
+        : { ...prev, active_space_id: nextActiveSpaceId, active_library_id: nextActiveLibraryId };
+    });
+    return {
+      nextSpaces,
+      nextLibraries,
+      nextActiveSpaceId,
+      nextActiveLibraryId
+    };
+  }, [setUser]);
   const productEdition = normalizeProductEdition(user?.product_edition);
   const homelabEdition = isHomelabEdition(productEdition);
   const navigate = useCallback((nextRoute) => {
@@ -228,33 +257,35 @@ export default function App() {
     if (!user) return null;
     try {
       const payload = await apiCall('get', '/auth/scope');
-      const nextSpaces = Array.isArray(payload?.spaces) ? payload.spaces : [];
-      const nextLibraries = Array.isArray(payload?.libraries) ? payload.libraries : [];
-      const nextActiveSpaceId = Number(payload?.active_space_id || 0) || null;
-      let nextActiveLibraryId = Number(payload?.active_library_id || 0) || null;
-      if (!nextActiveLibraryId && nextLibraries.length > 0) {
-        nextActiveLibraryId = Number(nextLibraries[0].id);
-      }
-
-      setSpaces(nextSpaces);
-      setLibraries(nextLibraries);
-      setActiveSpaceId(nextActiveSpaceId);
-      setActiveLibraryId(nextActiveLibraryId);
-      setSupportSession(payload?.support_session?.active ? payload.support_session : null);
-      setUser((prev) => {
-        if (!prev) return prev;
-        const prevActive = Number(prev.active_library_id || 0) || null;
-        const prevActiveSpace = Number(prev.active_space_id || 0) || null;
-        return prevActive === nextActiveLibraryId && prevActiveSpace === nextActiveSpaceId
-          ? prev
-          : { ...prev, active_space_id: nextActiveSpaceId, active_library_id: nextActiveLibraryId };
-      });
-      return nextActiveLibraryId;
+      const nextScope = applyScopePayload(payload);
+      return nextScope?.nextActiveLibraryId || null;
     } catch (error) {
       if (!silent) showToast(error.response?.data?.error || 'Failed to load session context', 'error');
       return null;
     }
-  }, [apiCall, showToast, user, setUser]);
+  }, [apiCall, applyScopePayload, showToast, user]);
+
+  const handleSpaceSelect = useCallback(async (spaceIdRaw, options = {}) => {
+    const nextSpaceId = Number(spaceIdRaw || 0) || null;
+    if (!nextSpaceId) return null;
+    if (nextSpaceId === Number(activeSpaceId || 0) && !options.force) return null;
+    try {
+      const payload = await apiCall('post', '/auth/scope', { space_id: nextSpaceId });
+      const nextScope = applyScopePayload(payload);
+      setMediaItems([]);
+      clearImportJobs();
+      if (!options.silent) {
+        const targetSpace = nextScope?.nextSpaces?.find((space) => Number(space.id) === Number(nextScope.nextActiveSpaceId || 0));
+        showToast(`Switched to ${targetSpace?.name || 'space'}`);
+      }
+      return payload;
+    } catch (error) {
+      if (!options.silent) {
+        showToast(error.response?.data?.error || 'Failed to switch space', 'error');
+      }
+      return null;
+    }
+  }, [activeSpaceId, apiCall, applyScopePayload, clearImportJobs, setMediaItems, showToast]);
 
   const handleLibrarySelect = useCallback(async (libraryIdRaw) => {
     const libraryId = Number(libraryIdRaw || 0);
@@ -462,7 +493,18 @@ export default function App() {
       <SidebarNav
         user={user}
         activeTab={activeTab}
-        onSelect={(nextTab) => {
+        onSelect={async (nextTab) => {
+          if (
+            nextTab === 'space-manage'
+            && !supportSession?.active
+            && !['admin', 'support_admin'].includes(String(user?.role || ''))
+            && !canManageActiveSpace
+          ) {
+            const fallbackManageableSpace = spaces.find((space) => ['owner', 'admin'].includes(String(space?.membership_role || '')));
+            if (fallbackManageableSpace && Number(fallbackManageableSpace.id) !== Number(activeSpaceId || 0)) {
+              await handleSpaceSelect(fallbackManageableSpace.id, { silent: true });
+            }
+          }
           setActiveTab(getSafeDashboardTab(productEdition, nextTab, {
             userRole: user?.role,
             supportSessionActive: Boolean(supportSession?.active),
@@ -612,6 +654,7 @@ export default function App() {
             canManageActiveSpace={canManageActiveSpace}
             libraries={libraries}
             activeLibraryId={activeLibraryId}
+            onSpaceSelect={handleSpaceSelect}
             onScopeRefresh={loadAuthScope}
             supportSession={supportSession}
             onStartSupportSession={startSupportSession}

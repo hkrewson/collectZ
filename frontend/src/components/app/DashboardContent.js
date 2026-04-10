@@ -56,6 +56,7 @@ export default function DashboardContent({
   canManageActiveSpace,
   libraries,
   activeLibraryId,
+  onSpaceSelect,
   onScopeRefresh,
   supportSession,
   onStartSupportSession,
@@ -192,6 +193,7 @@ export default function DashboardContent({
           activeMembershipRole={activeMembershipRole}
           libraries={libraries}
           activeLibraryId={activeLibraryId}
+          onSpaceSelect={onSpaceSelect}
           onScopeRefresh={onScopeRefresh}
           Icons={Icons}
           Spinner={Spinner}

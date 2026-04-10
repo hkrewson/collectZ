@@ -32,7 +32,7 @@ test.describe('space manager browser regressions', () => {
       await page.goto('/dashboard?tab=space-manage');
 
       await expect(page.getByRole('button', { name: 'My Space', exact: true })).toBeVisible();
-      await expect(page.getByRole('heading', { name: 'Space', exact: true })).toBeVisible();
+      await expect(page.getByRole('heading', { name: /Playwright Space/ })).toBeVisible();
       await expect(page.getByRole('button', { name: 'Activity', exact: true })).toBeVisible();
       await expect(page.getByRole('button', { name: 'Settings', exact: true })).toHaveCount(0);
       await expect(page.getByRole('button', { name: 'People', exact: true })).toHaveCount(0);
@@ -100,6 +100,89 @@ test.describe('space manager browser regressions', () => {
       await expect(page.getByRole('heading', { name: 'Integrations', exact: true })).toBeVisible();
       await expect(page.getByRole('button', { name: 'External Logs', exact: true })).toHaveCount(0);
       await expect(page.getByRole('button', { name: 'Metrics', exact: true })).toHaveCount(0);
+    } finally {
+      await ownerContext?.dispose();
+      await adminContext.dispose();
+    }
+  });
+
+  test('opening My Space switches to a manageable space when current scope is only member-level', async ({ page }) => {
+    const adminCredentials = await ensureSavedAdminCredentials();
+    const adminContext = await createAuthenticatedRequestContext(adminCredentials);
+    const timestamp = Date.now();
+    const ownerEmail = `playwright-space-switch-${timestamp}@example.com`;
+    const ownerPassword = 'Passw0rd!123';
+    const ownerName = 'Playwright Space Switcher';
+    let ownerContext = null;
+
+    try {
+      const ownedSpaceResponse = await postWithCsrf(adminContext, '/api/admin/spaces/create-with-onboarding', {
+        name: `Playwright Owned Space ${timestamp}`,
+        slug: `playwright-owned-space-${timestamp}`,
+        initial_invites: [{
+          email: ownerEmail,
+          role: 'admin',
+          expose_token: true
+        }]
+      }, 201);
+      const ownedSpacePayload = await ownedSpaceResponse.json();
+      const ownedSpaceId = Number(ownedSpacePayload?.space?.id || 0) || null;
+      const invitePayload = Array.isArray(ownedSpacePayload?.invite_results)
+        ? ownedSpacePayload.invite_results.find((invite) => String(invite?.email || '').toLowerCase() === ownerEmail.toLowerCase())
+        : null;
+      const inviteToken = String(invitePayload?.token || '').trim();
+      expect(ownedSpaceId).toBeTruthy();
+      expect(inviteToken).toBeTruthy();
+
+      const memberSpaceResponse = await postWithCsrf(adminContext, '/api/admin/spaces/create-with-onboarding', {
+        name: `Playwright Member Space ${timestamp}`,
+        slug: `playwright-member-space-${timestamp}`
+      }, 201);
+      const memberSpacePayload = await memberSpaceResponse.json();
+      const memberSpaceId = Number(memberSpacePayload?.space?.id || 0) || null;
+      expect(memberSpaceId).toBeTruthy();
+
+      const registrationContext = await request.newContext({
+        baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000',
+        extraHTTPHeaders: getPlaywrightBypassHeaders()
+      });
+      try {
+        await postWithCsrf(registrationContext, '/api/auth/register', {
+          email: ownerEmail,
+          password: ownerPassword,
+          name: ownerName,
+          inviteToken
+        }, 200);
+      } finally {
+        await registrationContext.dispose();
+      }
+
+      ownerContext = await createAuthenticatedRequestContext({ email: ownerEmail, password: ownerPassword });
+      const meResponse = await ownerContext.get('/api/auth/me');
+      expect(meResponse.ok()).toBeTruthy();
+      const mePayload = await meResponse.json();
+      const ownerUserId = Number(mePayload?.id || 0) || null;
+      expect(ownerUserId).toBeTruthy();
+
+      await postWithCsrf(adminContext, `/api/admin/spaces/${memberSpaceId}/members`, {
+        user_id: ownerUserId,
+        role: 'member'
+      }, 201);
+
+      await postWithCsrf(ownerContext, '/api/auth/scope', {
+        space_id: memberSpaceId
+      }, 200);
+
+      const storageState = await ownerContext.storageState();
+      await page.context().addCookies(storageState.cookies || []);
+
+      await page.goto('/dashboard');
+      await page.getByRole('button', { name: 'My Space', exact: true }).click();
+
+      await expect(page.getByRole('heading', { name: `Playwright Owned Space ${timestamp}`, exact: true })).toBeVisible();
+      await expect(page.getByText('Role: admin')).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Settings', exact: true })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Integrations', exact: true })).toBeVisible();
     } finally {
       await ownerContext?.dispose();
       await adminContext.dispose();
