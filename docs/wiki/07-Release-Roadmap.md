@@ -2517,7 +2517,19 @@ Historical note:
   - ornamental media-type pills,
   - all-caps marketing-style CTA/hero copy,
   - left-column hero posture,
-  - and any color treatment that still feels more template-driven than product-native.
+  - any color treatment that still feels more template-driven than product-native,
+  - and the misleading always-visible `Register` affordance while registration is still invite-led.
+- Normalize the shared heading system so workspace and panel headings read like normal product UI instead of display-font chrome, including examples such as:
+  - `Library`,
+  - `Import Media`,
+  - `Help`,
+  - `Integrations`,
+  - `Profile`,
+  - `Activity`,
+  - `All Spaces`,
+  - `Members`,
+  - `Space Controls`,
+  - and `Member Details`.
 - Reduce view-specific styling stacks where the styling is expressing shared product language rather than page-specific composition.
 - Keep page-specific composition and copy local to the views instead of over-abstracting unlike surfaces into forced primitives.
 - Complete this centralization pass before closing the `2.10.x` milestone train or starting `3.0.0 — Frontend Build Modernization (CRA to Vite)`.
@@ -2529,6 +2541,8 @@ Historical note:
 - Future UI adjustments can be made through shared layers more often than through repeated per-view class rewrites.
 - The centralization pass avoids over-abstraction and preserves clear boundaries between shared product language and view-specific layout.
 - The auth page no longer stands apart as a mini marketing surface with leftover AI-style pills, CTA posture, or mismatched palette tone.
+- The auth surface only exposes `Register` when registration is actually available, starting with invite-driven entry links in the current platform model.
+- Shared workspace and panel headings no longer read as uppercase display-font chrome across the app.
 
 ## 2.10.14 — Space-Scoped Parity For Settings, Integrations, and Activity
 

@@ -13,7 +13,7 @@ test.describe('support docs capture flows @capture', () => {
     const fixtureSubject = `Capture flow ${fixtureSuffix}`;
 
     await page.goto('/login');
-    await expect(page.locator('button[type="submit"]')).toHaveText('SIGN IN');
+    await expect(page.locator('button[type="submit"]')).toHaveText('Sign in');
     await captureNamedPage(page, 'auth-login');
 
     const adminCredentials = await ensureSavedAdminCredentials();

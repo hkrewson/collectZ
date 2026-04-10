@@ -205,11 +205,15 @@
 
   /* ── Section headings ────────────────────────────────────────── */
   .section-title {
-    @apply font-display text-3xl tracking-wider text-ink;
+    @apply text-3xl font-semibold tracking-tight text-ink;
   }
 
   .page-title {
-    @apply font-display text-5xl tracking-widest text-ink;
+    @apply text-4xl font-semibold tracking-tight text-ink sm:text-5xl;
+  }
+
+  .panel-title {
+    @apply text-2xl font-semibold tracking-tight text-ink;
   }
 
   /* ── Divider ─────────────────────────────────────────────────── */

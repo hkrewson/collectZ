@@ -1,6 +1,22 @@
 {
   "releases": [
     {
+      "title": "v2.10.13",
+      "version": "2.10.13",
+      "date": "2026-04-09",
+      "status": "Completed",
+      "summary": "This patch release finishes the remaining `2.10.x` shared-language cleanup by moving the app away from display-font chrome and auth-page mini-marketing toward calmer, more product-native shared UI. Workspace headings, panel headings, and the authentication surface now follow the same quieter language instead of drifting into uppercase dashboard theatrics.",
+      "details": []
+    },
+    {
+      "title": "v2.10.12",
+      "version": "2.10.12",
+      "date": "2026-04-09",
+      "status": "Completed",
+      "summary": "This patch release removes the remaining eyebrow-style uppercase language from the shared form label primitive so forms throughout the app inherit calmer, more product-native labeling by default. Instead of continuing to reintroduce tracked uppercase microheadings through the shared form layer, drawers, admin screens, auth flows, and supporting forms now share a quieter label treatment from the root.",
+      "details": []
+    },
+    {
       "title": "v2.10.11",
       "version": "2.10.11",
       "date": "2026-04-09",
@@ -63,65 +79,6 @@
       "status": "Completed",
       "summary": "This release moves External Logs from an env-only operator setup toward a real admin-managed control plane. Admin can now configure the common external log endpoint fields inside `Admin -> Integrations -> External Logs`, validate the running target, review the latest validation result, and understand whether the current runtime is using saved settings, env defaults, or an immutable env override. The existing fail-safe behavior remains intact: external export stays additive, collector failure stays non-blocking, and the primary DB-backed audit path remains durable.",
       "details": []
-    },
-    {
-      "title": "v2.9.8",
-      "version": "2.9.8",
-      "date": "2026-04-05",
-      "status": "Completed",
-      "summary": "This release ships two connected slices of hardening work. First, the app’s add/edit drawers, Help surfaces, and tabbed workflows were normalized onto calmer shared UI primitives so the product reads more consistently and accessibly across media, events, collectibles, help, and admin flows. Second, the runtime observability story was hardened for longer-lived operator use with clearer diagnostics, supported collector-path smokes, persistence rehearsals, and a repeatable observability release-evidence artifact that proves logs and metrics stay recoverable without turning collectors into a hidden runtime dependency.",
-      "details": []
-    },
-    {
-      "title": "v2.9.6",
-      "version": "2.9.6",
-      "date": "2026-04-04",
-      "status": "Completed",
-      "summary": "This release introduces the first explicit `platform` versus `homelab` product-edition boundary inside the private repo. The backend now owns the active edition contract, the frontend shell and Help surface follow that server-owned shape, and platform-only control-plane routes no longer leak into homelab. The release also adds repeatable runtime smoke gates and CI enforcement so both sides of the split stay proven as the repo moves toward a later product/repo separation.",
-      "details": [
-        {
-          "heading": "Product edition boundary",
-          "bullets": [
-            "Added a backend-owned edition contract with supported values:",
-            "Exposed the active `product_edition` through auth bootstrap so the frontend reads server-owned edition state instead of client-only assumptions.",
-            "Added a frontend shell composition boundary for homelab so platform control-plane surfaces are excluded as mounted routes and nav affordances, not just hidden late in rendering."
-          ]
-        },
-        {
-          "heading": "Homelab shell and Help surface",
-          "bullets": [
-            "Homelab Help now mounts a shared Help experience with:",
-            "Homelab does not mount:",
-            "Homelab shell/nav no longer exposes platform control-plane affordances such as:",
-            "Direct homelab navigation to platform-only dashboard tabs is redirected to homelab-safe destinations."
-          ]
-        },
-        {
-          "heading": "Backend route-group separation",
-          "bullets": [
-            "Split backend route mounting into shared versus platform-only groups so homelab no longer mounts platform-only APIs such as:",
-            "Kept shared homelab-safe surfaces mounted, including:"
-          ]
-        },
-        {
-          "heading": "Homelab product-shape tightening",
-          "bullets": [
-            "Homelab shared auth/scope/library responses now keep:",
-            "While no longer surfacing:",
-            "Homelab registration is now invite-free after the first admin, removing the remaining dependency on the platform tenant-invite model for local account creation.",
-            "Homelab rejects generic authenticated space switching through shared scope APIs.",
-            "Homelab still allows meaningful library creation and library selection inside the single-context product shape."
-          ]
-        },
-        {
-          "heading": "Runtime proof and CI enforcement",
-          "bullets": [
-            "Added a repeatable homelab edition-boundary smoke gate to verify the shared mounted surfaces and unmounted platform-only APIs against a live homelab stack.",
-            "Added a matching platform edition-boundary smoke gate to verify that invite-based registration and the tenant/admin control plane remain mounted in platform.",
-            "Wired both edition gates into the blocking CI/release workflow so publish and preflight paths now depend on both sides of the product split."
-          ]
-        }
-      ]
     }
   ]
 }

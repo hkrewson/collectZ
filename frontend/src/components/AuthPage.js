@@ -22,8 +22,16 @@ export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const isRegister = route === 'register';
+  const inviteAvailable = Boolean(invite);
+  const registerAvailable = inviteAvailable;
+  const isRegister = route === 'register' && registerAvailable;
   const isReset = route === 'reset';
+  const authTabs = registerAvailable
+    ? [
+        { id: 'login', label: 'Sign In' },
+        { id: 'register', label: 'Register' }
+      ]
+    : [{ id: 'login', label: 'Sign In' }];
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -67,28 +75,25 @@ export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion
 
   return (
     <div className="min-h-screen bg-void flex">
-      <div className="hidden lg:flex lg:w-1/2 xl:w-3/5 relative overflow-hidden flex-col justify-between p-12">
-        <div className="absolute inset-0 bg-gradient-to-br from-abyss via-deep to-void" />
-        <div className="absolute inset-0 bg-gradient-to-r from-void/20 via-void/50 to-void" />
-        <div className="relative z-10 flex items-center gap-3">
+      <div className="hidden lg:flex lg:w-1/2 xl:w-3/5 flex-col justify-between border-r border-edge bg-abyss px-12 py-14">
+        <div className="flex items-center gap-3">
           <CollectzMark className="h-9 w-9 text-gold" title="" />
-          <span className="font-display text-3xl tracking-widest text-gold">COLLECTZ</span>
+          <span className="text-2xl font-semibold tracking-tight text-ink">collectZ</span>
         </div>
-        <div className="relative z-10 space-y-4">
-          <h1 className="font-display text-6xl xl:text-7xl tracking-wider text-ink leading-none">
-            YOUR COLLECTION.<br />
-            <span className="text-gold">PERFECTLY</span><br />
-            CATALOGUED.
+        <div className="space-y-5">
+          <h1 className="page-title max-w-lg text-balance">
+            Keep your collection organized without losing the human details.
           </h1>
-          <p className="text-dim text-lg max-w-md leading-relaxed">
-            Track every item in your library. Powered by open source tools. Built for collectors.
+          <p className="max-w-xl text-base leading-7 text-dim xl:text-lg">
+            Track personal and shared libraries in one place, then keep editing simple once the item is in.
           </p>
+          <div className="space-y-2 text-sm text-ghost">
+            <p>Import what you already own.</p>
+            <p>Search when it helps, then edit everything directly.</p>
+            <p>Keep personal and shared spaces tidy.</p>
+          </div>
         </div>
-        <div className="relative z-10 flex items-center gap-6">
-          {['Audio', 'Books', 'Games', 'Movies'].map((f) => (
-            <span key={f} className="text-xs text-ghost tracking-widest uppercase border border-ghost/20 px-2 py-1 rounded">{f}</span>
-          ))}
-        </div>
+        <p className="text-sm text-ghost">Open-source tools for collectors who want a quieter workflow.</p>
       </div>
 
       <div className="w-full lg:w-1/2 xl:w-2/5 flex items-center justify-center p-8">
@@ -96,16 +101,13 @@ export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion
           <div className="lg:hidden text-center">
             <div className="inline-flex items-center gap-3">
               <CollectzMark className="h-8 w-8 text-gold" title="" />
-              <span className="font-display text-4xl tracking-widest text-gold">COLLECTZ</span>
+              <span className="text-3xl font-semibold tracking-tight text-ink">collectZ</span>
             </div>
           </div>
 
           {!isReset && (
             <SectionTabs
-              tabs={[
-                { id: 'login', label: 'Sign In' },
-                { id: 'register', label: 'Register' }
-              ]}
+              tabs={authTabs}
               activeId={isRegister ? 'register' : 'login'}
               onChange={onNavigate}
               semantics="buttons"
@@ -115,10 +117,15 @@ export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion
           )}
           {isReset && (
             <div className="space-y-2">
-              <p className="font-display text-xl tracking-wider text-ink">RESET PASSWORD</p>
+              <p className="panel-title !text-xl">Reset password</p>
               <p className="text-xs text-ghost">Use your one-time reset link to set a new password.</p>
             </div>
           )}
+          {!isReset && route === 'register' && !registerAvailable ? (
+            <div className="rounded-lg border border-edge bg-raised px-3 py-2 text-sm text-dim">
+              Use an invite link to create an account. You can still sign in below.
+            </div>
+          ) : null}
 
           <form onSubmit={submit} className="space-y-4">
             {isRegister && !isReset && (
@@ -167,8 +174,8 @@ export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion
             {error && <p className="text-sm text-err bg-err/10 border border-err/20 rounded px-3 py-2">{error}</p>}
 
             <button type="submit" disabled={loading}
-              className="btn-primary btn-lg w-full mt-2 font-display tracking-widest text-base">
-              {loading ? <Spinner size={18} /> : isReset ? 'SET PASSWORD' : isRegister ? 'CREATE ACCOUNT' : 'SIGN IN'}
+              className="btn-primary btn-lg w-full mt-2 text-base">
+              {loading ? <Spinner size={18} /> : isReset ? 'Set password' : isRegister ? 'Create account' : 'Sign in'}
             </button>
           </form>
 

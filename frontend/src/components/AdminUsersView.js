@@ -259,7 +259,7 @@ export default function AdminUsersView({ apiCall, onToast, currentUserId, Icons,
           <aside className="fixed top-0 right-0 h-full w-full max-w-md bg-abyss border-l border-edge z-50 overflow-y-auto">
             <div className="p-5 border-b border-edge flex items-start gap-3">
               <div className="flex-1">
-                <h2 className="font-display text-2xl tracking-wider text-ink">Member Details</h2>
+                <h2 className="panel-title">Member Details</h2>
                 {memberSummary?.user?.email && <p className="text-xs text-ghost mt-1">{memberSummary.user.email}</p>}
               </div>
               <button onClick={() => setSelectedMemberId(null)} className="btn-icon btn-sm"><Icons.X /></button>

@@ -735,7 +735,7 @@ export default function AdminSpacesView({
           <aside className="fixed top-0 right-0 h-full w-full max-w-lg bg-abyss border-l border-edge z-50 overflow-y-auto">
             <div className="p-5 border-b border-edge flex items-start gap-3">
               <div className="flex-1 min-w-0">
-                <h2 className="font-display text-2xl tracking-wider text-ink">Space Controls</h2>
+                <h2 className="panel-title">Space Controls</h2>
                 <p className="text-sm text-ghost mt-1">{selectedSpaceDetails?.space?.name || selectedSpace.name}</p>
               </div>
               <button
