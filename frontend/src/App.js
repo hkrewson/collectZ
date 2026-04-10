@@ -508,9 +508,9 @@ export default function App() {
             <div className="font-display text-lg tracking-wider text-gold leading-none">COLLECTZ</div>
             <div className="text-[11px] text-ghost mt-1 truncate">
               {user?.role === 'admin' && !supportSession?.active
-                ? (homelabEdition ? 'Homelab control plane' : 'Platform control plane')
+                ? (homelabEdition ? 'Homelab' : 'Platform admin')
                 : user?.role === 'support_admin'
-                  ? 'Support control plane'
+                  ? 'Support'
                   : `${activeSpace?.name || 'No current space'}${activeLibrary ? ` / ${activeLibrary.name}` : ''}`}
             </div>
           </div>

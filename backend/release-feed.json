@@ -1,6 +1,22 @@
 {
   "releases": [
     {
+      "title": "v2.10.9",
+      "version": "2.10.9",
+      "date": "2026-04-09",
+      "status": "Completed",
+      "summary": "This patch release removes the remaining “control plane” language from the mobile shell so the app header reads like a normal product instead of a product-marketing or ops-console surface. Mobile admin and support context is still visible, but the wording is now plainer and more honest about what the user is actually looking at.",
+      "details": []
+    },
+    {
+      "title": "v2.10.8",
+      "version": "2.10.8",
+      "date": "2026-04-09",
+      "status": "Completed",
+      "summary": "This patch release tones down the library shell navigation so it keeps its hierarchy and space context without feeling over-styled. The sidebar no longer leans on uppercase eyebrows, badge-like role chrome, gold active rails, or decorative sub-item bullets to explain itself, and instead reads more like ordinary product navigation.",
+      "details": []
+    },
+    {
       "title": "v2.10.7",
       "version": "2.10.7",
       "date": "2026-04-09",
@@ -165,93 +181,6 @@
             "Kept Playwright out of the shipped backend/frontend runtime images.",
             "Hardened CI artifact handling so saved Playwright auth bootstrap state stays outside uploaded artifact paths.",
             "Changed the Playwright CI bypass token flow to use a per-run random token instead of a fixed shared value."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "v2.9.2",
-      "version": "2.9.2",
-      "date": "2026-04-02",
-      "status": "Completed",
-      "summary": "This release finishes the support workflow move from a loosely administrative action into a request-driven, explicitly approved support model. It ships the support foundations introduced during `2.9.1`, including the in-app Help center, Help Admin, release-note visibility, and support triage, then completes the `2.9.2` consent and session work by linking support sessions to approved requests, limiting `support_admin` tenant access to approved request context, and making the support UI easier to operate with clearer request identity, chat-style history, and compact operational controls.",
-      "details": [
-        {
-          "heading": "Help center and Help Admin foundations",
-          "bullets": [
-            "Added the tabbed in-app Help experience with:",
-            "Added a dedicated Help Admin staff surface that unifies support reply and triage work instead of splitting it across separate admin views.",
-            "Added lightweight in-app release notes so users can see recent shipped changes without leaving the product.",
-            "Added queue badges and clearer support request identity with visible `SUP-######` request keys."
-          ]
-        },
-        {
-          "heading": "Support requests, triage, and user-visible status",
-          "bullets": [
-            "Added first-class support request creation and threaded replies.",
-            "Added staff triage controls for:",
-            "Added staff-only internal notes that save inline with the thread while remaining hidden from the requester.",
-            "Added support-side close and requester-side reopen actions so case lifecycle does not depend on one side remembering to resolve it."
-          ]
-        },
-        {
-          "heading": "Consent and request-linked support access",
-          "bullets": [
-            "Added explicit requester approval and revocation controls for support access on support requests.",
-            "Support access approval now creates clear in-thread system history instead of relying on out-of-band assumptions.",
-            "`support_admin` support-session starts are now request-linked and approval-gated:",
-            "Active support sessions now carry request identity so the authorized request stays visible during the session lifecycle.",
-            "`admin` retains the broader break-glass path as a separate operator capability."
-          ]
-        },
-        {
-          "heading": "Help Admin operations UX",
-          "bullets": [
-            "Help Admin now supports a denser operator workflow:",
-            "Guidance no longer mixes in redundant workload chrome for support staff.",
-            "Queue context now appears above the conversation thread so the thread column holds both operational context and the active case discussion."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "v2.9.0",
-      "version": "2.9.0",
-      "date": "2026-04-01",
-      "status": "Completed",
-      "summary": "This release completes the barcode-assisted entry milestone by turning barcode lookup and capture into a first-class workflow across the library and import surfaces. Shared barcode capture now supports direct camera or photo-assisted entry where browsers allow it, barcode lookup is media-type aware across books, audio, games, comics, movies, and TV, and direct cover-image attachment remains available without the abandoned OCR path. The release also hardens normalization, diagnostics, and result application against real-world UPC and ISBN cases encountered during milestone validation.",
-      "details": [
-        {
-          "heading": "Barcode-assisted entry completion",
-          "bullets": [
-            "Added and hardened a shared barcode-assisted capture path for manual entry and import flows.",
-            "Barcode lookup is now available directly in the relevant library media types rather than being limited to a movie/TV-only path.",
-            "The add/edit flow supports camera or photo-assisted barcode capture where the browser can provide it, while preserving direct manual barcode entry as a fallback."
-          ]
-        },
-        {
-          "heading": "Media-type-aware lookup and application",
-          "bullets": [
-            "The shared barcode route now normalizes provider responses and enriches results by media type:",
-            "ISBN-scanned books now populate structured book fields like title, author, ISBN, publisher, and edition instead of collapsing metadata into a single title string.",
-            "TV season box set lookups now normalize to series-level TMDB searches instead of being pushed through the movie path."
-          ]
-        },
-        {
-          "heading": "Normalization and diagnostics hardening",
-          "bullets": [
-            "Barcode input is normalized more defensively across typed, pasted, and captured values.",
-            "Weak or noisy provider titles are cleaned before enrichment so packaging noise does not dominate search queries.",
-            "Representative real-world barcode cases were used to improve parsing for books, TV season box sets, and combo-pack movie releases.",
-            "Barcode lookup failures now preserve stage-aware diagnostics and request context so debugging stays practical when an upstream provider misbehaves.",
-            "Fixed the library/import button-handler bug that could send the click event object instead of the intended UPC."
-          ]
-        },
-        {
-          "heading": "Capture and direct image attachment",
-          "bullets": [
-            "Manual entry continues to support direct cover-image capture and upload where appropriate.",
-            "The OCR/vision identification path was removed from the product surface so the milestone now focuses on dependable barcode completion rather than unreliable image identification."
           ]
         }
       ]
