@@ -2942,10 +2942,36 @@ export default function LibraryView({
               </select>
             )}
             <div className="flex items-center gap-2 ml-auto sm:ml-0">
-              <div className="tab-strip shrink-0">
-                <button className={cx('tab', viewMode === 'cards' && 'active')} onClick={() => setViewMode('cards')}><Icons.Film /></button>
-                <button className={cx('tab', viewMode === 'list' && 'active')} onClick={() => setViewMode('list')}><Icons.List /></button>
-              </div>
+              <SectionTabs
+                tabs={[
+                  {
+                    id: 'cards',
+                    label: (
+                      <>
+                        <span aria-hidden="true"><Icons.Film /></span>
+                        <span className="sr-only">Cards</span>
+                      </>
+                    )
+                  },
+                  {
+                    id: 'list',
+                    label: (
+                      <>
+                        <span aria-hidden="true"><Icons.List /></span>
+                        <span className="sr-only">List</span>
+                      </>
+                    )
+                  }
+                ]}
+                activeId={viewMode}
+                onChange={setViewMode}
+                semantics="buttons"
+                showDivider={false}
+                ariaLabel="Library view mode"
+                className="shrink-0"
+                listClassName="gap-2"
+                buttonClassName="px-2"
+              />
               <button onClick={() => { setFilters((f) => ({ ...f, sortDir: f.sortDir === 'asc' ? 'desc' : 'asc' })); setPage(1); }} className="btn-icon" title={filters.sortDir === 'asc' ? 'Sort ascending' : 'Sort descending'}>
                 {filters.sortDir === 'asc' ? <Icons.ArrowUp /> : <Icons.ArrowDown />}
               </button>
@@ -2979,23 +3005,33 @@ export default function LibraryView({
         )}
         {supportsCollections && (
           <div className="mt-2.5 flex items-center gap-3 flex-wrap">
-            <div className="tab-strip">
-              <button className={cx('tab', collectionMode === 'all' && 'active')} onClick={() => { setCollectionMode('all'); setPage(1); }}>
-                {forcedMediaType === 'game' ? 'All Games' : 'All Movies'}
-              </button>
-              <button className={cx('tab', collectionMode === 'collections' && 'active')} onClick={() => { setCollectionMode('collections'); setPage(1); }}>
-                {forcedMediaType === 'game' ? 'Game Collections' : 'Movie Collections'}
-              </button>
-            </div>
+            <SectionTabs
+              tabs={[
+                { id: 'all', label: forcedMediaType === 'game' ? 'All Games' : 'All Movies' },
+                { id: 'collections', label: forcedMediaType === 'game' ? 'Game Collections' : 'Movie Collections' }
+              ]}
+              activeId={collectionMode}
+              onChange={(nextMode) => { setCollectionMode(nextMode); setPage(1); }}
+              semantics="buttons"
+              ariaLabel="Collection views"
+              className="w-fit"
+            />
           </div>
         )}
         {isComicsLibrary && (
           <div className="mt-2.5 flex items-center gap-3 flex-wrap">
-            <div className="tab-strip">
-              <button className={cx('tab', comicView === 'issues' && 'active')} onClick={() => setComicView('issues')}>All Issues</button>
-              <button className={cx('tab', comicView === 'series' && 'active')} onClick={() => setComicView('series')}>Series</button>
-              <button className={cx('tab', comicView === 'series_issues' && 'active')} onClick={() => setComicView('series_issues')}>Series Issues</button>
-            </div>
+            <SectionTabs
+              tabs={[
+                { id: 'issues', label: 'All Issues' },
+                { id: 'series', label: 'Series' },
+                { id: 'series_issues', label: 'Series Issues' }
+              ]}
+              activeId={comicView}
+              onChange={setComicView}
+              semantics="buttons"
+              ariaLabel="Comic views"
+              className="w-fit"
+            />
             {comicView === 'series_issues' && (
               <select className="select min-w-[220px]" value={comicSeries} onChange={(e) => setComicSeries(e.target.value)}>
                 <option value="all">All series</option>

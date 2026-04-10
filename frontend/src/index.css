@@ -217,19 +217,6 @@
     @apply border-t border-edge;
   }
 
-  /* ── Tab strip ───────────────────────────────────────────────── */
-  .tab-strip {
-    @apply flex gap-1 p-1 bg-abyss rounded-lg border border-edge;
-  }
-
-  .tab {
-    @apply btn px-4 h-8 text-xs text-dim hover:text-ink rounded;
-  }
-
-  .tab.active {
-    @apply bg-raised text-ink border border-edge shadow-sm;
-  }
-
   /* ── Star rating ─────────────────────────────────────────────── */
   .star-wrap { @apply inline-flex items-center gap-0.5; }
   .star-btn  { @apply relative w-5 h-5 cursor-pointer; }

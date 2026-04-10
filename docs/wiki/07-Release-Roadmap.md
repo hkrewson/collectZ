@@ -1091,9 +1091,11 @@ Historical planning notes may still exist in:
 48. `2.10.10` Add/edit drawer heading normalization
 49. `2.10.11` Modal shell flattening
 50. `2.10.12` Shared form label normalization
-51. `2.11.0` Optional market valuation integrations
-52. `2.12.0` Optional build: cost model and billing readiness
-53. `3.0.0` Frontend build modernization (CRA to Vite)
+51. `2.10.13` Shared UI language consolidation
+52. `2.10.14` Space-scoped parity for settings, integrations, and activity
+53. `2.11.0` Optional market valuation integrations
+54. `2.12.0` Optional build: cost model and billing readiness
+55. `3.0.0` Frontend build modernization (CRA to Vite)
 
 ## 2.1.0 — Metadata Normalization and Query Performance
 
@@ -2493,6 +2495,69 @@ Historical note:
 - Shared labels no longer force eyebrow-style UI language across the app.
 - Forms stay readable and scannable after the typography shift.
 - The label style feels consistent with the rest of the flattened `2.10.x` UX cleanup lane.
+
+## 2.10.13 — Shared UI Language Consolidation
+
+**Goal:** finish the `2.10.x` frontend cleanup lane by centralizing the shared visual language into the global style layer and shared primitives so future UI changes rely less on view-level one-offs.
+
+### Scope
+
+- Audit the remaining shared product-language decisions that are still split between:
+  - `frontend/src/index.css`,
+  - `frontend/src/components/app/AppPrimitives.js`,
+  - and view-level files such as `frontend/src/App.js`, `frontend/src/components/LibraryView.js`, `frontend/src/components/SidebarNav.js`, and `frontend/src/components/AuthPage.js`.
+- Move repeated visual rules, interaction patterns, and shell treatments into shared layers where they genuinely belong:
+  - tabs,
+  - headings,
+  - toolbar/status rows,
+  - shared shell chrome,
+  - reusable form/layout rhythms,
+  - modal/drawer scaffolding.
+- Include the authentication surface in this consolidation pass so the remaining AI-shaped auth-page elements are normalized before `3.0.0`, especially:
+  - ornamental media-type pills,
+  - all-caps marketing-style CTA/hero copy,
+  - left-column hero posture,
+  - and any color treatment that still feels more template-driven than product-native.
+- Reduce view-specific styling stacks where the styling is expressing shared product language rather than page-specific composition.
+- Keep page-specific composition and copy local to the views instead of over-abstracting unlike surfaces into forced primitives.
+- Complete this centralization pass before closing the `2.10.x` milestone train or starting `3.0.0 — Frontend Build Modernization (CRA to Vite)`.
+
+### Acceptance Criteria
+
+- The app’s shared visual language lives primarily in `frontend/src/index.css` and `frontend/src/components/app/AppPrimitives.js`, with noticeably less duplicated styling logic in view files.
+- View components are left owning page-specific composition and product wording more than ad hoc brand/chrome styling.
+- Future UI adjustments can be made through shared layers more often than through repeated per-view class rewrites.
+- The centralization pass avoids over-abstraction and preserves clear boundaries between shared product language and view-specific layout.
+- The auth page no longer stands apart as a mini marketing surface with leftover AI-style pills, CTA posture, or mismatched palette tone.
+
+## 2.10.14 — Space-Scoped Parity For Settings, Integrations, and Activity
+
+### BUG FIX
+
+- Bug: space owners do not currently receive the space-scoped Settings, Integrations, and Activity parity that the product’s space-separation model implies.
+
+**Goal:** each space should control its own settings and free-token integrations, and should see its own activity feed, so space separation is real product behavior rather than only a library/access boundary.
+
+### Scope
+
+- Make Settings available at the space level so a space can manage its own settings instead of depending on global/admin-only control-plane access.
+- Make Integrations available at the space level for integrations that are intended to be space-owned and token-limited per user/space.
+- Preserve explicit exceptions where integrations remain outside per-space control:
+  - logs
+  - metrics
+- Make Activity feeds space-scoped so space owners and members see activity that belongs to their own space rather than depending on global/admin visibility.
+- Keep ownership and access aligned with the existing space/library separation model:
+  - a user sees only the settings, integrations, and activity for the space they are allowed to operate in,
+  - ownership of activity belongs to the space,
+  - and the product promise of meaningful server-side separation is maintained.
+- Complete this parity milestone before any large new feature work or `3.0.0 — Frontend Build Modernization (CRA to Vite)`.
+
+### Acceptance Criteria
+
+- Space owners can access and manage space-scoped Settings.
+- Space owners can access and manage space-scoped Integrations for the supported free-token integrations, excluding logs and metrics.
+- Space owners and members can access a space-scoped Activity surface that reflects only their own space activity.
+- The resulting behavior matches the product promise of server-side space separation rather than leaving these surfaces as global-only control-plane gaps.
 
 ## 3.0.0 — Frontend Build Modernization (CRA to Vite)
 

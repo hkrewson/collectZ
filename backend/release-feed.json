@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v2.10.7",
+      "version": "2.10.7",
+      "date": "2026-04-09",
+      "status": "Completed",
+      "summary": "This patch release finishes the shared tab-strip cleanup so the app’s remaining secondary tab and mode-toggle surfaces now use the same flattened tab language as the newer import, admin, help, and drawer flows. The old pill-shell tab strip is gone from the shared frontend layer, and auth, space management, library, events, and collectibles now all rely on the same shared tab primitive instead of preserving one-off segmented-control styling.",
+      "details": []
+    },
+    {
       "title": "v2.10.6",
       "version": "2.10.6",
       "date": "2026-04-08",
@@ -244,48 +252,6 @@
           "bullets": [
             "Manual entry continues to support direct cover-image capture and upload where appropriate.",
             "The OCR/vision identification path was removed from the product surface so the milestone now focuses on dependable barcode completion rather than unreliable image identification."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "v2.8.6",
-      "version": "2.8.6",
-      "date": "2026-03-30",
-      "status": "Completed",
-      "summary": "This release rounds out Events and Collectibles so they behave much more like the rest of the library. Shared object cards now align these surfaces with the main poster-style object language, drawers are read-first instead of implicitly editable, collectibles gained an optional artist field, and events now support their own images so they feel like first-class objects rather than lightweight utility records.",
-      "details": [
-        {
-          "heading": "Shared object treatment and interaction alignment",
-          "bullets": [
-            "Introduced and reused a shared poster-style object card primitive so Events, Collectibles, and the main library object surfaces follow the same size, shape, badge placement, and hover-action language.",
-            "Fixed the shared hover action strip so invisible actions no longer capture clicks in hidden areas of the card.",
-            "Aligned card-click and row-click behavior so Events and Collectibles open detail drawers first, with edit as an explicit secondary action."
-          ]
-        },
-        {
-          "heading": "Read-first detail drawers",
-          "bullets": [
-            "Updated Events and Collectibles detail drawers so they present object information in a read-first label/value rhythm like other object detail views.",
-            "Removed the odd summary badge band from these view drawers.",
-            "Kept editing explicit:"
-          ]
-        },
-        {
-          "heading": "Events object improvements",
-          "bullets": [
-            "Events now support first-class event images instead of only artifact-level images.",
-            "Event cards can render their own image treatment.",
-            "Event detail can show an image and provide a direct open-image action.",
-            "Event edit supports image URL, upload, device capture, and image removal."
-          ]
-        },
-        {
-          "heading": "Collectibles object improvements",
-          "bullets": [
-            "Added an optional `Artist` field to collectibles.",
-            "Collectible cards and detail drawers now surface artist information when present.",
-            "Collectibles continue to support first-class image handling and now fit more naturally beside Movies, Games, Books, Audio, and Comics."
           ]
         }
       ]

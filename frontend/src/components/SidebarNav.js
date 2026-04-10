@@ -109,18 +109,16 @@ export default function SidebarNav({
         }}
         className={cx(
           'w-full flex items-center gap-3 rounded transition-all duration-150 text-left',
-          sub ? 'pl-8 pr-3 py-2 text-xs' : 'px-3 py-2.5 text-sm font-medium',
+          sub ? 'pl-8 pr-3 py-2 text-sm' : 'px-3 py-2.5 text-sm font-medium',
           active ? 'bg-raised border border-edge text-ink' : 'text-dim hover:text-ink hover:bg-raised/50',
           collapsed && !sub && 'justify-center px-0'
         )}
       >
-        {!sub && <span className={cx('shrink-0', active && 'text-gold')}>{icon}</span>}
-        {sub && <span className="w-1 h-1 rounded-full bg-current mr-1 opacity-50" />}
+        {!sub && <span className="shrink-0">{icon}</span>}
         {(!collapsed || sub) && <span className="truncate">{label}</span>}
         {!collapsed && badge !== null && badge !== undefined && (
           <span className="ml-auto badge badge-dim text-[10px] min-w-5 text-center">{badge}</span>
         )}
-        {!collapsed && !sub && active && <span className="w-1 h-4 rounded-full bg-gold" />}
       </button>
     );
   };
@@ -195,8 +193,8 @@ export default function SidebarNav({
           {!collapsed && user && showLibrarySwitcher && (
             <div className="mb-3 space-y-1">
               <div className="flex items-center justify-between gap-2 px-1">
-                <span className="text-[10px] uppercase tracking-[0.18em] text-ghost">Library</span>
-                {activeMembershipRole ? <span className="badge badge-dim text-[10px]">{activeMembershipRole}</span> : null}
+                <span className="text-xs text-ghost">Library</span>
+                {activeMembershipRole ? <span className="text-xs text-ghost capitalize">{activeMembershipRole}</span> : null}
               </div>
               <select
                 className="select w-full"
@@ -225,7 +223,7 @@ export default function SidebarNav({
                 collapsed && 'justify-center px-0'
               )}
             >
-              <span className={cx('shrink-0', isLibraryActive && 'text-gold')}><Icons.Library /></span>
+              <span className="shrink-0"><Icons.Library /></span>
               {!collapsed && (
                 <>
                   <span className="flex-1 text-left">Library</span>
@@ -264,7 +262,7 @@ export default function SidebarNav({
                   collapsed && 'justify-center px-0'
                 )}
               >
-                <span className={cx('shrink-0', isAdminGroupActive && 'text-gold')}><Icons.Settings /></span>
+                <span className="shrink-0"><Icons.Settings /></span>
                 {!collapsed && (
                   <>
                     <span className="flex-1 text-left">Admin</span>
@@ -293,7 +291,7 @@ export default function SidebarNav({
                   collapsed && 'justify-center px-0'
                 )}
               >
-                <span className={cx('shrink-0', isGlobalGroupActive && 'text-gold')}><Icons.Users /></span>
+                <span className="shrink-0"><Icons.Users /></span>
                 {!collapsed && (
                   <>
                     <span className="flex-1 text-left">Global</span>

@@ -724,10 +724,35 @@ export default function EventsView({ apiCall, onToast }) {
             onChange={(e) => { setToDate(e.target.value); setPage(1); }}
             title="To date"
           />
-          <div className="tab-strip">
-            <button className={cx('tab', viewMode === 'cards' && 'active')} onClick={() => setViewMode('cards')}><Icons.Film /></button>
-            <button className={cx('tab', viewMode === 'list' && 'active')} onClick={() => setViewMode('list')}><Icons.List /></button>
-          </div>
+          <SectionTabs
+            tabs={[
+              {
+                id: 'cards',
+                label: (
+                  <>
+                    <span aria-hidden="true"><Icons.Film /></span>
+                    <span className="sr-only">Cards</span>
+                  </>
+                )
+              },
+              {
+                id: 'list',
+                label: (
+                  <>
+                    <span aria-hidden="true"><Icons.List /></span>
+                    <span className="sr-only">List</span>
+                  </>
+                )
+              }
+            ]}
+            activeId={viewMode}
+            onChange={setViewMode}
+            semantics="buttons"
+            showDivider={false}
+            ariaLabel="Event view mode"
+            listClassName="gap-2"
+            buttonClassName="px-2"
+          />
           <button
             onClick={() => { setSortDir((d) => (d === 'asc' ? 'desc' : 'asc')); setPage(1); }}
             className="btn-icon"

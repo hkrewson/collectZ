@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { SectionTabs } from './app/AppPrimitives';
 
 function formatDateTime(value) {
   if (!value) return '';
@@ -287,22 +288,17 @@ export default function SpaceManagerView({
           </div>
 
           <div className="space-y-4">
-            <div className="tab-strip w-fit">
-              <button
-                type="button"
-                className={cx('tab', peopleTab === 'members' && 'active')}
-                onClick={() => setPeopleTab('members')}
-              >
-                Members
-              </button>
-              <button
-                type="button"
-                className={cx('tab', peopleTab === 'invitations' && 'active')}
-                onClick={() => setPeopleTab('invitations')}
-              >
-                Invitations
-              </button>
-            </div>
+            <SectionTabs
+              tabs={[
+                { id: 'members', label: 'Members' },
+                { id: 'invitations', label: 'Invitations' }
+              ]}
+              activeId={peopleTab}
+              onChange={setPeopleTab}
+              semantics="buttons"
+              ariaLabel="Space people sections"
+              className="w-fit"
+            />
 
             {peopleTab === 'members' && (
             <div className="space-y-4">

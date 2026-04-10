@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import CollectzMark from './CollectzMark';
+import { SectionTabs } from './app/AppPrimitives';
 
 function readCookieValue(name) {
   const prefix = `${name}=`;
@@ -100,10 +101,17 @@ export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion
           </div>
 
           {!isReset && (
-            <div className="tab-strip">
-              <button className={cx('tab flex-1', !isRegister && 'active')} onClick={() => onNavigate('login')}>Sign In</button>
-              <button className={cx('tab flex-1', isRegister && 'active')} onClick={() => onNavigate('register')}>Register</button>
-            </div>
+            <SectionTabs
+              tabs={[
+                { id: 'login', label: 'Sign In' },
+                { id: 'register', label: 'Register' }
+              ]}
+              activeId={isRegister ? 'register' : 'login'}
+              onChange={onNavigate}
+              semantics="buttons"
+              stretch
+              ariaLabel="Authentication modes"
+            />
           )}
           {isReset && (
             <div className="space-y-2">

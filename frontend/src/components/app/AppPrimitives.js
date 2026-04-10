@@ -36,6 +36,7 @@ export function SectionTabs({
   buttonClassName = '',
   stretch = false,
   showIndex = false,
+  showDivider = true,
   ariaLabel = 'Sections',
   idBase,
   semantics = 'tabs'
@@ -80,7 +81,7 @@ export function SectionTabs({
   if (!Array.isArray(tabs) || tabs.length === 0) return null;
 
   return (
-    <div className={cx('border-b border-edge/60', className)}>
+    <div className={cx(showDivider && 'border-b border-edge/60', className)}>
       <div
         role={useTabSemantics ? 'tablist' : undefined}
         className={cx('flex gap-4 overflow-x-auto', stretch && 'w-full', listClassName)}
