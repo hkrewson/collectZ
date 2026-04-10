@@ -151,7 +151,7 @@
   }
 
   .label {
-    @apply block text-xs font-medium text-dim mb-1.5 tracking-wide uppercase;
+    @apply block text-sm font-medium text-dim mb-1.5;
   }
 
   .field {

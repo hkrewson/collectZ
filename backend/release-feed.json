@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v2.10.11",
+      "version": "2.10.11",
+      "date": "2026-04-09",
+      "status": "Completed",
+      "summary": "This patch release tones down the app’s remaining heavy overlay shells so the camera modal and the main slide-in drawers feel calmer and more functional. The overlays still focus attention and behave the same way, but they no longer rely as heavily on blur, oversized rounding, or dramatic shell/poster shadowing to create that sense of separation.",
+      "details": []
+    },
+    {
       "title": "v2.10.10",
       "version": "2.10.10",
       "date": "2026-04-09",
@@ -111,41 +119,6 @@
             "Added a repeatable homelab edition-boundary smoke gate to verify the shared mounted surfaces and unmounted platform-only APIs against a live homelab stack.",
             "Added a matching platform edition-boundary smoke gate to verify that invite-based registration and the tenant/admin control plane remain mounted in platform.",
             "Wired both edition gates into the blocking CI/release workflow so publish and preflight paths now depend on both sides of the product split."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "v2.9.5",
-      "version": "2.9.5",
-      "date": "2026-04-04",
-      "status": "Completed",
-      "summary": "This release expands the Playwright browser-regression layer from foundational coverage into broader product-critical workflows. It adds realistic browser protection for integrations persistence, barcode and CSV import paths, Help/Admin boundary behavior, and the Events/Collectibles surfaces, while keeping the suite deterministic through targeted helpers, cleanup paths, and job polling. The result is stronger browser confidence ahead of later frontend build-system work without bloating the suite into fragile snapshot noise.",
-      "details": [
-        {
-          "heading": "Critical browser flow expansion",
-          "bullets": [
-            "Added Playwright coverage for Integrations save/update flows, including:",
-            "Added Playwright coverage for Import Media workflows:",
-            "Added Playwright coverage for Events and Collectibles:",
-            "Added browser-visible negative-path coverage for shell and admin/privacy boundaries:"
-          ]
-        },
-        {
-          "heading": "Browser harness ergonomics",
-          "bullets": [
-            "Added reusable helpers for:",
-            "Kept test-created browser data cleaned up after runs so the suite remains reusable and deterministic.",
-            "Expanded roadmap/testing docs so the browser layer’s protected surfaces stay visible to maintainers."
-          ]
-        },
-        {
-          "heading": "Browser-driven fixes and refinements",
-          "bullets": [
-            "Fixed the admin integrations save query so the insert/update column list matches the values passed during real browser saves.",
-            "Fixed dashboard integration-section deep-link routing so supported sections like `metrics` and `logs` resolve correctly.",
-            "Hardened support/admin shell expectations with explicit browser coverage around redirect and surface-limit behavior.",
-            "Adjusted Events/Collectibles browser coverage to follow the real shell navigation and user-visible detail contracts instead of brittle direct-route or decorative overlay assumptions."
           ]
         }
       ]
