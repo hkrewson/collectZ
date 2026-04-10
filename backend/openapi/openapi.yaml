@@ -48,6 +48,27 @@
         "required": ["error"],
         "additionalProperties": true
       },
+      "ActivityEntry": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "user_id": { "type": ["integer", "null"] },
+          "user_email": { "type": ["string", "null"], "format": "email" },
+          "action": { "type": "string" },
+          "entity_type": { "type": ["string", "null"] },
+          "entity_id": { "type": ["integer", "null"] },
+          "details": { "type": ["object", "null"], "additionalProperties": true },
+          "details_reason": { "type": ["string", "null"] },
+          "details_status": { "type": ["string", "null"] },
+          "ip_address": { "type": ["string", "null"] },
+          "created_at": { "type": "string", "format": "date-time" }
+        },
+        "required": ["id", "action", "created_at"]
+      },
+      "IntegrationSettingsResponse": {
+        "type": "object",
+        "additionalProperties": true
+      },
       "Health": {
         "type": "object",
         "properties": {
@@ -1674,6 +1695,119 @@
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/SpaceRecord" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/spaces/{id}/activity": {
+      "get": {
+        "tags": ["Auth"],
+        "summary": "List activity scoped to a space the current actor can access",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 1, "maximum": 100 }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 0 }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Space-scoped activity entries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/ActivityEntry" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/spaces/{id}/integrations": {
+      "get": {
+        "tags": ["Auth"],
+        "summary": "Read integrations for a managed space",
+        "security": [
+          { "cookieSession": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Space integration settings",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/IntegrationSettingsResponse" }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["Auth"],
+        "summary": "Update integrations for a managed space",
+        "security": [
+          { "cookieSession": [] },
+          { "csrfHeader": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated space integration settings",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/IntegrationSettingsResponse" }
               }
             }
           }

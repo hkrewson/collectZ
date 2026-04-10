@@ -15,7 +15,7 @@ const {
   titleArtistSearchSchema,
   upcLookupSchema
 } = require('../middleware/validate');
-const { loadAdminIntegrationConfig } = require('../services/integrations');
+const { loadScopedIntegrationConfig } = require('../services/integrations');
 const {
   searchTmdbMovie,
   searchTmdbMulti,
@@ -2885,7 +2885,7 @@ async function runMetronImport({ req, config, scopeContext = null, onProgress = 
 
 async function maybePushComicToMetron({ req, mediaRow }) {
   if (!mediaRow || mediaRow.media_type !== 'comic_book') return;
-  const config = await loadAdminIntegrationConfig();
+  const config = await loadScopedIntegrationConfig(req.user.activeSpaceId);
   if (String(config.comicsProvider || '').toLowerCase() !== 'metron') return;
   if (!config.comicsApiKey || !config.comicsApiUrl) return;
 
@@ -2942,7 +2942,7 @@ async function runGenericCsvImport({
     auditOutcomes: buildImportAuditOutcomeCounters()
   };
   const auditRows = [];
-  const config = await loadAdminIntegrationConfig();
+  const config = await loadScopedIntegrationConfig(req.user.activeSpaceId);
   const caches = { tmdbCache: new Map(), providerCache: new Map() };
   const updateProgress = async (progress) => {
     if (typeof onProgress !== 'function') return;
@@ -3308,7 +3308,7 @@ async function runDeliciousCsvImport({
     auditOutcomes: buildImportAuditOutcomeCounters()
   };
   const auditRows = [];
-  const config = await loadAdminIntegrationConfig();
+  const config = await loadScopedIntegrationConfig(req.user.activeSpaceId);
   const caches = { tmdbCache: new Map(), providerCache: new Map() };
   const updateProgress = async (progress) => {
     if (typeof onProgress !== 'function') return;
@@ -4076,7 +4076,7 @@ router.get('/:id/tv-seasons/:seasonNumber', asyncHandler(async (req, res) => {
   let tmdb = null;
   let plexEpisodeState = { watchedEpisodeNumbers: [], availableEpisodeNumbers: [] };
   const needsIntegrationConfig = Boolean(media.tmdb_id) || Boolean(plexRatingKey);
-  const config = needsIntegrationConfig ? await loadAdminIntegrationConfig() : null;
+  const config = needsIntegrationConfig ? await loadScopedIntegrationConfig(req.user.activeSpaceId) : null;
   if (media.tmdb_id && config) {
     try {
       tmdb = await fetchTmdbTvSeasonDetails(media.tmdb_id, seasonNumber, config);
@@ -4306,7 +4306,7 @@ router.patch('/:id/tv-seasons/:seasonNumber', asyncHandler(async (req, res) => {
 
 router.post('/search-tmdb', validate(simpleSearchSchema), asyncHandler(async (req, res) => {
   const { title, year, mediaType } = req.body;
-  const config = await loadAdminIntegrationConfig();
+  const config = await loadScopedIntegrationConfig(req.user.activeSpaceId);
   const normalizedType = mediaType === 'tv' ? 'tv' : 'movie';
   const results = await searchTmdbMovie(title, year, config, normalizedType);
   res.json(results);
@@ -4315,7 +4315,7 @@ router.post('/search-tmdb', validate(simpleSearchSchema), asyncHandler(async (re
 router.post('/tmdb/trace-match', validate(simpleSearchSchema), asyncHandler(async (req, res) => {
   const { title, year, mediaType } = req.body;
   const lookupTitle = title;
-  const config = await loadAdminIntegrationConfig();
+  const config = await loadScopedIntegrationConfig(req.user.activeSpaceId);
   const normalizedType = mediaType === 'tv' ? 'tv' : 'movie';
   const searchResults = await searchTmdbMovie(lookupTitle, year, config, normalizedType);
   const scored = searchResults.map((row) => {
@@ -4358,7 +4358,7 @@ router.get('/tmdb/:id/details', asyncHandler(async (req, res) => {
   if (!Number.isFinite(movieId) || movieId <= 0) {
     return res.status(400).json({ error: 'Valid numeric TMDB id is required' });
   }
-  const config = await loadAdminIntegrationConfig();
+  const config = await loadScopedIntegrationConfig(req.user.activeSpaceId);
   const normalizedType = req.query.mediaType === 'tv' ? 'tv' : 'movie';
   const details = await fetchTmdbMovieDetails(movieId, config, normalizedType);
   res.json(details);
@@ -4418,28 +4418,28 @@ router.get('/tmdb/:id/trace', asyncHandler(async (req, res) => {
 
 router.post('/enrich/book/search', validate(titleAuthorSearchSchema), asyncHandler(async (req, res) => {
   const { title, author } = req.body;
-  const config = await loadAdminIntegrationConfig();
+  const config = await loadScopedIntegrationConfig(req.user.activeSpaceId);
   const matches = await searchBooksByTitle(title, config, 10, String(author || '').trim());
   res.json({ provider: config.booksProvider || 'googlebooks', matches });
 }));
 
 router.post('/enrich/audio/search', validate(titleArtistSearchSchema), asyncHandler(async (req, res) => {
   const { title, artist } = req.body;
-  const config = await loadAdminIntegrationConfig();
+  const config = await loadScopedIntegrationConfig(req.user.activeSpaceId);
   const matches = await searchAudioByTitle(title, config, 10, String(artist || '').trim());
   res.json({ provider: config.audioProvider || 'discogs', matches });
 }));
 
 router.post('/enrich/game/search', validate(simpleSearchSchema.pick({ title: true })), asyncHandler(async (req, res) => {
   const { title } = req.body;
-  const config = await loadAdminIntegrationConfig();
+  const config = await loadScopedIntegrationConfig(req.user.activeSpaceId);
   const matches = await searchGamesByTitle(title, config, 10);
   res.json({ provider: config.gamesProvider || 'igdb', matches });
 }));
 
 router.post('/enrich/comic/search', validate(simpleSearchSchema.pick({ title: true })), asyncHandler(async (req, res) => {
   const { title } = req.body;
-  const config = await loadAdminIntegrationConfig();
+  const config = await loadScopedIntegrationConfig(req.user.activeSpaceId);
   const matches = await searchComicsByTitle(title, config, 10);
   res.json({ provider: config.comicsProvider || 'metron', matches });
 }));
@@ -4449,7 +4449,7 @@ router.post('/enrich/comic/search', validate(simpleSearchSchema.pick({ title: tr
 router.post('/lookup-upc', validate(upcLookupSchema), asyncHandler(async (req, res) => {
   const { upc, mediaType } = req.body;
 
-  const config = await loadAdminIntegrationConfig();
+  const config = await loadScopedIntegrationConfig(req.user.activeSpaceId);
   const { barcodeProvider, barcodeApiUrl, barcodeQueryParam, barcodeApiKey, barcodeApiKeyHeader } = config;
   const directBookIsbn = mediaType === 'book' ? normalizeIsbn(upc) : '';
 
@@ -5233,7 +5233,7 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
   }
 
   const sectionIds = Array.isArray(req.body?.sectionIds) ? req.body.sectionIds : [];
-  const config = await loadAdminIntegrationConfig();
+  const config = await loadScopedIntegrationConfig(req.user.activeSpaceId);
   if (!config.plexApiUrl) {
     return res.status(400).json({ error: 'Plex API URL is not configured' });
   }
@@ -5393,7 +5393,7 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
 router.post('/import-comics', asyncHandler(async (req, res) => {
   const scopeContext = resolveScopeContext(req);
   const useAsync = shouldQueueImportByDefault(req);
-  const config = await loadAdminIntegrationConfig();
+  const config = await loadScopedIntegrationConfig(req.user.activeSpaceId);
   if (String(config.comicsProvider || '').toLowerCase() !== 'metron') {
     return res.status(400).json({ error: 'Comics provider must be set to Metron for collection import' });
   }
@@ -5809,7 +5809,7 @@ router.post('/collections/:id/items', asyncHandler(async (req, res) => {
       matchMode = 'fallback_title_only';
       confidenceScore = normalizedYear ? 95 : 90;
     } else {
-      const config = await loadAdminIntegrationConfig();
+      const config = await loadScopedIntegrationConfig(req.user.activeSpaceId);
       const enrichmentResult = await runImportEnrichmentPipeline(
         {
           title: containedTitle,

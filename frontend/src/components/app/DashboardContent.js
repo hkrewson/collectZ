@@ -177,8 +177,8 @@ export default function DashboardContent({
     case 'profile':
       return <ProfileViewComponent user={user} apiCall={apiCall} onToast={showToast} Spinner={Spinner} />;
     case 'space-manage':
-      if (!canManageActiveSpace) {
-        return <ForbiddenView detail="Space owner, space admin, or global admin permissions are required to manage the active space." />;
+      if (!activeMembershipRole && !canManageActiveSpace) {
+        return <ForbiddenView detail="An active space membership or approved support session is required to open this space surface." />;
       }
       return (
         <SpaceManagerView

@@ -157,7 +157,20 @@ function DisclosureSection({ title, summary, children, defaultOpen = false }) {
   );
 }
 
-export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Spinner, cx, section: externalSection, onSectionChange }) {
+export default function AdminIntegrationsView({
+  apiCall,
+  onToast,
+  onQueueJob,
+  Spinner,
+  cx,
+  section: externalSection,
+  onSectionChange,
+  endpointBase = '/admin/settings/integrations',
+  featureFlagsEndpoint = '/admin/feature-flags',
+  title = 'Integrations',
+  includeRuntimeSections = true,
+  allowImports = true
+}) {
   const integrationSections = useMemo(
     () => ([
       { id: 'audio', label: 'Audio' },
@@ -166,12 +179,14 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
       { id: 'cwa', label: 'CWA OPDS' },
       { id: 'comics', label: 'Comics' },
       { id: 'games', label: 'Games' },
-      { id: 'logs', label: 'External Logs' },
-      { id: 'metrics', label: 'Metrics' },
+      ...(includeRuntimeSections ? [
+        { id: 'logs', label: 'External Logs' },
+        { id: 'metrics', label: 'Metrics' }
+      ] : []),
       { id: 'plex', label: 'Plex' },
       { id: 'tmdb', label: 'TMDB' }
     ]),
-    []
+    [includeRuntimeSections]
   );
   const [section, setSection] = useState(externalSection || integrationSections[0].id);
   const [form, setForm] = useState({
@@ -229,7 +244,7 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
   };
 
   useEffect(() => {
-    apiCall('get', '/admin/settings/integrations').then((data) => {
+    apiCall('get', endpointBase).then((data) => {
       setForm((f) => ({
         ...f,
         barcodePreset: data.barcodePreset || 'upcitemdb', barcodeProvider: data.barcodeProvider || '', barcodeApiUrl: data.barcodeApiUrl || '',
@@ -275,13 +290,20 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
         cwa: data.cwaOpdsUrl ? 'configured' : 'missing'
       });
     }).catch(() => {});
-  }, [apiCall]);
+  }, [apiCall, endpointBase]);
 
   useEffect(() => {
+    if (!includeRuntimeSections) {
+      setFeatureFlags([]);
+      setFeatureFlagsReadOnly(false);
+      setFeatureFlagsError('');
+      setFeatureFlagsLoading(false);
+      return () => {};
+    }
     let active = true;
     setFeatureFlagsLoading(true);
     setFeatureFlagsError('');
-    apiCall('get', '/admin/feature-flags').then((payload) => {
+    apiCall('get', featureFlagsEndpoint).then((payload) => {
       if (!active) return;
       setFeatureFlags(
         Array.isArray(payload?.flags)
@@ -298,7 +320,7 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
     return () => {
       active = false;
     };
-  }, [apiCall]);
+  }, [apiCall, featureFlagsEndpoint, includeRuntimeSections]);
 
   const applyBarcodePreset = (p) => setForm((f) => ({ ...f, ...(BARCODE_PRESETS[p] || {}) }));
   const applyComicsPreset = (p) => setForm((f) => ({ ...f, ...(COMICS_PRESETS[p] || {}) }));
@@ -329,7 +351,7 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
     if (!feature?.key) return;
     setSavingFeatureKey(feature.key);
     try {
-      const updated = await apiCall('patch', `/admin/feature-flags/${encodeURIComponent(feature.key)}`, { enabled });
+      const updated = await apiCall('patch', `${featureFlagsEndpoint}/${encodeURIComponent(feature.key)}`, { enabled });
       setFeatureFlags((prev) => prev.map((row) => (row.key === updated.key ? updated : row)));
       onToast(`${INTEGRATION_FEATURE_LABELS[feature.key] || feature.key} ${enabled ? 'enabled' : 'disabled'}`);
     } catch (error) {
@@ -384,7 +406,7 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
       logExportDebug: form.logExportDebug
     });
     try {
-      const updated = await apiCall('put', '/admin/settings/integrations', payload);
+      const updated = await apiCall('put', endpointBase, payload);
       setMeta({
         barcodeApiKeySet: Boolean(updated.barcodeApiKeySet), barcodeApiKeyMasked: updated.barcodeApiKeyMasked || '',
         tmdbApiKeySet: Boolean(updated.tmdbApiKeySet), tmdbApiKeyMasked: updated.tmdbApiKeyMasked || '',
@@ -428,7 +450,9 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
       }
       onToast(`${sec.toUpperCase()} settings saved`);
       if (
-        sec === 'comics'
+        allowImports
+        && typeof onQueueJob === 'function'
+        && sec === 'comics'
         && String(updated.comicsProvider || form.comicsProvider || '').toLowerCase() === 'metron'
         && Boolean(updated.comicsApiKeySet)
       ) {
@@ -482,7 +506,7 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
                 : sec === 'cwa'
                   ? {}
               : {};
-      const result = await apiCall('post', `/admin/settings/integrations/test-${sec}`, payload);
+      const result = await apiCall('post', `${endpointBase}/test-${sec}`, payload);
       if (sec === 'logs') {
         setLogExportControl(result.logExportControl || result.config?.logExportControl || null);
         setObservabilityRuntime(result.observabilityRuntime || result.config?.observabilityRuntime || { logs: null, metrics: null });
@@ -546,7 +570,7 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
 
   return (
     <div className="h-full overflow-y-auto p-4 sm:p-6 space-y-6">
-      <h1 className="section-title">Integrations</h1>
+      <h1 className="section-title">{title}</h1>
 
       <div className="md:hidden">
         <label className="label">Integration</label>
@@ -981,7 +1005,7 @@ export default function AdminIntegrationsView({ apiCall, onToast, onQueueJob, Sp
             >
               {saving ? <Spinner size={14} /> : `Save ${section.toUpperCase()}`}
             </button>
-            {section === 'plex' && (
+            {allowImports && section === 'plex' && (
               <button onClick={runPlexImport} disabled={importingPlex} className="btn-secondary btn-sm">
                 {importingPlex ? <Spinner size={14} /> : 'Import from Plex'}
               </button>

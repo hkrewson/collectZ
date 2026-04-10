@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SectionTabs } from './app/AppPrimitives';
+import ActivityFeedView from './ActivityFeedView';
+import AdminIntegrationsView from './AdminIntegrationsView';
 
 function formatDateTime(value) {
   if (!value) return '';
@@ -47,6 +49,7 @@ export default function SpaceManagerView({
   const [creatingInvite, setCreatingInvite] = useState(false);
   const [memberBusyId, setMemberBusyId] = useState(null);
   const [showInviteHistory, setShowInviteHistory] = useState(false);
+  const [managerTab, setManagerTab] = useState('settings');
   const [peopleTab, setPeopleTab] = useState('members');
   const [openMemberMenuId, setOpenMemberMenuId] = useState(null);
   const memberLoadSeqRef = useRef(0);
@@ -73,6 +76,7 @@ export default function SpaceManagerView({
     setInvites([]);
     setInviteUrl('');
     setShowInviteHistory(false);
+    setManagerTab(canManage ? 'settings' : 'activity');
     setPeopleTab('members');
     setOpenMemberMenuId(null);
     setLoadError('');
@@ -238,6 +242,15 @@ export default function SpaceManagerView({
     }
   };
 
+  const managerTabs = useMemo(() => ([
+    ...(canManage ? [
+      { id: 'settings', label: 'Settings' },
+      { id: 'integrations', label: 'Integrations' },
+      { id: 'people', label: 'People' }
+    ] : []),
+    { id: 'activity', label: 'Activity' }
+  ]), [canManage]);
+
   const visibleInvites = useMemo(() => {
     if (showInviteHistory) return invites;
     return invites.filter((invite) => !invite.used && !invite.revoked && new Date(invite.expires_at).getTime() > Date.now());
@@ -260,33 +273,59 @@ export default function SpaceManagerView({
       {!canManage && (
         <div>
           <p className="text-sm text-ghost">
-            The active space can be viewed, but only its owner or admins can manage members, invites, and settings here.
+            The active space can be viewed here, and only its owner or admins can change settings, members, invites, and integrations.
           </p>
         </div>
       )}
 
       {loadError ? <div className="text-sm text-err">{loadError}</div> : null}
 
-      {canManage && (
-        <>
-          <div className="max-w-2xl">
+      <div className="space-y-5">
+        <SectionTabs
+          tabs={managerTabs}
+          activeId={managerTab}
+          onChange={setManagerTab}
+          semantics="buttons"
+          ariaLabel="My Space sections"
+          className="w-fit"
+        />
+
+        {canManage && managerTab === 'settings' && (
+          <div className="max-w-3xl">
             <form className="space-y-4" onSubmit={saveSpace}>
               <div>
-                <h2 className="text-xl font-medium text-ink">General</h2>
-                <p className="text-sm text-ghost mt-1">Update your Space&apos;s name.</p>
+                <h2 className="text-xl font-medium text-ink">Settings</h2>
+                <p className="text-sm text-ghost mt-1">Update the active space details that owners and admins control directly.</p>
               </div>
-              <div className="flex flex-wrap items-end gap-3">
-                <label className="field min-w-[240px] flex-1">
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="field">
                   <span className="label">Name</span>
                   <input className="input" value={editingSpace.name} onChange={(e) => setEditingSpace((prev) => ({ ...prev, name: e.target.value }))} required />
                 </label>
-                <button type="submit" className="btn-primary min-w-[120px] shrink-0" disabled={savingSpace}>
-                  {savingSpace ? <Spinner size={14} /> : 'Save Space'}
+                <label className="field">
+                  <span className="label">Slug</span>
+                  <input className="input" value={editingSpace.slug} onChange={(e) => setEditingSpace((prev) => ({ ...prev, slug: e.target.value }))} placeholder="optional-space-slug" />
+                </label>
+              </div>
+              <label className="field">
+                <span className="label">Description</span>
+                <textarea
+                  className="input min-h-28 resize-y"
+                  value={editingSpace.description}
+                  onChange={(e) => setEditingSpace((prev) => ({ ...prev, description: e.target.value }))}
+                  placeholder="Optional description for this space"
+                />
+              </label>
+              <div className="flex justify-end">
+                <button type="submit" className="btn-primary min-w-[140px]" disabled={savingSpace}>
+                  {savingSpace ? <Spinner size={14} /> : 'Save Settings'}
                 </button>
               </div>
             </form>
           </div>
+        )}
 
+        {canManage && managerTab === 'people' && (
           <div className="space-y-4">
             <SectionTabs
               tabs={[
@@ -517,9 +556,33 @@ export default function SpaceManagerView({
             </div>
             )}
           </div>
+        )}
 
-        </>
-      )}
+        {canManage && managerTab === 'integrations' && activeSpaceId ? (
+          <AdminIntegrationsView
+            apiCall={apiCall}
+            onToast={onToast}
+            Spinner={Spinner}
+            cx={cx}
+            endpointBase={`/spaces/${activeSpaceId}/integrations`}
+            title="Integrations"
+            includeRuntimeSections={false}
+            allowImports={false}
+          />
+        ) : null}
+
+        {managerTab === 'activity' && activeSpaceId ? (
+          <ActivityFeedView
+            apiCall={apiCall}
+            Spinner={Spinner}
+            endpoint={`/spaces/${activeSpaceId}/activity`}
+            title="Activity"
+            description="This feed is scoped to the active space so owners and members can review what belongs to this tenant."
+            emptyMessage="No activity has been recorded for this space yet."
+            embedded
+          />
+        ) : null}
+      </div>
     </div>
   );
 }

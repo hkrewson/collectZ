@@ -281,6 +281,98 @@ router.patch('/spaces/:id', validate(spaceUpdateSchema), asyncHandler(async (req
   }
 }));
 
+router.get('/spaces/:id/activity', asyncHandler(async (req, res) => {
+  const spaceId = Number(req.params.id);
+  if (!Number.isFinite(spaceId) || spaceId <= 0) {
+    return res.status(400).json({ error: 'Invalid space id' });
+  }
+
+  const client = await pool.connect();
+  try {
+    const accessibleSpace = await requireAccessibleSpace(client, req, spaceId);
+    if (!accessibleSpace) {
+      return res.status(404).json({ error: 'Space not found' });
+    }
+
+    const requestedLimit = Number(req.query.limit || 50);
+    const requestedOffset = Number(req.query.offset || 0);
+    const limit = Number.isFinite(requestedLimit)
+      ? Math.min(Math.max(Math.trunc(requestedLimit), 1), 100)
+      : 50;
+    const offset = Number.isFinite(requestedOffset)
+      ? Math.max(Math.trunc(requestedOffset), 0)
+      : 0;
+
+    const params = [spaceId];
+    const conditions = [
+      `(
+        (al.entity_type = 'space' AND al.entity_id = $1)
+        OR COALESCE(al.details->>'spaceId', '') = $1::text
+        OR COALESCE(al.details->>'targetSpaceId', '') = $1::text
+        OR COALESCE(al.details->>'sourceSpaceId', '') = $1::text
+        OR COALESCE(al.details->>'previousSpaceId', '') = $1::text
+        OR (al.entity_type = 'library' AND EXISTS (
+          SELECT 1 FROM libraries l WHERE l.id = al.entity_id AND l.space_id = $1
+        ))
+        OR (al.entity_type = 'media' AND EXISTS (
+          SELECT 1 FROM media m WHERE m.id = al.entity_id AND m.space_id = $1
+        ))
+        OR (al.entity_type = 'collection' AND EXISTS (
+          SELECT 1 FROM collections c WHERE c.id = al.entity_id AND c.space_id = $1
+        ))
+        OR (al.entity_type = 'event' AND EXISTS (
+          SELECT 1 FROM events e WHERE e.id = al.entity_id AND e.space_id = $1
+        ))
+        OR (al.entity_type = 'collectible' AND EXISTS (
+          SELECT 1 FROM collectibles c WHERE c.id = al.entity_id AND c.space_id = $1
+        ))
+        OR (al.entity_type = 'invite' AND EXISTS (
+          SELECT 1 FROM invites i WHERE i.id = al.entity_id AND i.space_id = $1
+        ))
+      )`
+    ];
+
+    if (req.query.search) {
+      const searchValue = String(req.query.search).trim();
+      if (searchValue) {
+        params.push(`%${searchValue}%`);
+        const token = `$${params.length}`;
+        conditions.push(`(
+          al.action ILIKE ${token}
+          OR COALESCE(al.entity_type, '') ILIKE ${token}
+          OR COALESCE(al.details->>'reason', '') ILIKE ${token}
+          OR COALESCE(al.details->>'status', '') ILIKE ${token}
+          OR al.details::text ILIKE ${token}
+          OR EXISTS (SELECT 1 FROM users u3 WHERE u3.id = al.user_id AND u3.email ILIKE ${token})
+        )`);
+      }
+    }
+
+    const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    params.push(limit);
+    params.push(offset);
+
+    const result = await client.query(
+      `SELECT al.id, al.user_id, al.action, al.entity_type, al.entity_id, al.details,
+              al.details->>'reason' AS details_reason,
+              al.details->>'status' AS details_status,
+              al.ip_address, al.created_at,
+              u.email AS user_email
+       FROM activity_log al
+       LEFT JOIN users u ON u.id = al.user_id
+       ${where}
+       ORDER BY al.id DESC
+       LIMIT $${params.length - 1}
+       OFFSET $${params.length}`,
+      params
+    );
+
+    res.json(result.rows);
+  } finally {
+    client.release();
+  }
+}));
+
 router.post('/spaces/select', requireSessionAuth, asyncHandler(async (req, res) => {
   if (req.user.role === 'admin') {
     return res.status(403).json({ error: 'Global admins must use explicit support-session controls instead of generic space selection' });

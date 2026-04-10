@@ -36,6 +36,7 @@ const { authRouter, authPlatformRouter } = require('./routes/auth');
 const mediaRouter = require('./routes/media');
 const { adminCommonRouter, adminPlatformRouter } = require('./routes/admin');
 const integrationsRouter = require('./routes/integrations');
+const spaceIntegrationsRouter = require('./routes/spaceIntegrations');
 const librariesRouter = require('./routes/libraries');
 const spacesRouter = require('./routes/spaces');
 const eventsRouter = require('./routes/events');
@@ -266,6 +267,7 @@ app.use('/api', eventsRouter);
 app.use('/api', collectiblesRouter);
 app.use('/api/support', supportSharedRouter);
 app.use('/api', integrationsRouter);
+app.use('/api', spaceIntegrationsRouter);
 app.use('/api', librariesRouter);
 app.use('/api/admin', adminCommonRouter);
 if (!HOMELAB_EDITION) {

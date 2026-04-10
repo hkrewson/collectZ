@@ -156,9 +156,39 @@ const normalizeIntegrationRecord = (row) => {
   };
 };
 
+async function loadIntegrationConfigRow(spaceId = null, { allowFallback = true } = {}) {
+  const numericSpaceId = Number(spaceId || 0) || null;
+  if (numericSpaceId) {
+    const scoped = await pool.query(
+      `SELECT *
+         FROM app_integrations
+        WHERE space_id = $1
+        ORDER BY id ASC
+        LIMIT 1`,
+      [numericSpaceId]
+    );
+    if (scoped.rows[0]) return scoped.rows[0];
+  }
+
+  if (!allowFallback) return null;
+
+  const fallback = await pool.query(
+    `SELECT *
+       FROM app_integrations
+      WHERE id = 1
+      LIMIT 1`
+  );
+  return fallback.rows[0] || null;
+}
+
 const loadAdminIntegrationConfig = async () => {
-  const result = await pool.query('SELECT * FROM app_integrations WHERE id = 1');
-  return normalizeIntegrationRecord(result.rows[0]);
+  const row = await loadIntegrationConfigRow(null, { allowFallback: true });
+  return normalizeIntegrationRecord(row || null);
+};
+
+const loadScopedIntegrationConfig = async (spaceId) => {
+  const row = await loadIntegrationConfigRow(spaceId, { allowFallback: true });
+  return normalizeIntegrationRecord(row || null);
 };
 
 const loadGeneralSettings = async () => {
@@ -170,4 +200,11 @@ const loadGeneralSettings = async () => {
   };
 };
 
-module.exports = { deriveCwaBaseUrl, normalizeIntegrationRecord, loadAdminIntegrationConfig, loadGeneralSettings };
+module.exports = {
+  deriveCwaBaseUrl,
+  normalizeIntegrationRecord,
+  loadIntegrationConfigRow,
+  loadAdminIntegrationConfig,
+  loadScopedIntegrationConfig,
+  loadGeneralSettings
+};

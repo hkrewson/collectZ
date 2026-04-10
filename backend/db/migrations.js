@@ -2603,6 +2603,41 @@ const MIGRATIONS = [
           )
         );
     `
+  },
+  {
+    version: 59,
+    description: 'Allow one integration config row per space',
+    up: `
+      CREATE SEQUENCE IF NOT EXISTS app_integrations_id_seq;
+
+      SELECT setval(
+        'app_integrations_id_seq',
+        GREATEST((SELECT COALESCE(MAX(id), 1) FROM app_integrations), 1),
+        true
+      );
+
+      ALTER TABLE app_integrations
+        ALTER COLUMN id SET DEFAULT nextval('app_integrations_id_seq');
+
+      ALTER SEQUENCE app_integrations_id_seq
+        OWNED BY app_integrations.id;
+
+      ALTER TABLE app_integrations
+        DROP CONSTRAINT IF EXISTS app_integrations_id_check;
+
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1
+          FROM pg_constraint
+          WHERE conname = 'app_integrations_space_id_key'
+        ) THEN
+          ALTER TABLE app_integrations
+            ADD CONSTRAINT app_integrations_space_id_key UNIQUE (space_id);
+        END IF;
+      END;
+      $$;
+    `
   }
 ];
 

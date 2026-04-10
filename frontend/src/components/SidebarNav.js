@@ -81,10 +81,10 @@ export default function SidebarNav({
   const isTabAllowed = (tabId) => !allowedTabs || allowedTabs.has(tabId);
   const showLibrarySwitcher = canUseLibraryShell && !isAdmin && libraries.length > 1;
   const showDesktopHamburger = !collapsed;
+  const canOpenSpaceSurface = Boolean(activeMembershipRole) || canManageActiveSpace;
   const showAdminGroup = (isAdmin || canManageActiveSpace) && [
     isAdmin && isTabAllowed('admin-activity'),
     isAdmin && isTabAllowed('admin-integrations'),
-    canManageActiveSpace && isTabAllowed('space-manage'),
     isAdmin && isTabAllowed('admin-settings')
   ].some(Boolean);
   const showGlobalGroup = isAdmin && [
@@ -252,6 +252,9 @@ export default function SidebarNav({
             label={getHelpNavLabel(productEdition, isSupportStaff)}
             badge={!homelabEdition && isSupportStaff ? supportBadgeCount : null}
           />
+          {canOpenSpaceSurface && isTabAllowed('space-manage') && (
+            <NavLink id="space-manage" icon={<Icons.Settings />} label="My Space" />
+          )}
           {showAdminGroup && (
             <div>
               <button
@@ -274,7 +277,6 @@ export default function SidebarNav({
                 <div className="mt-1 space-y-0.5">
                   {isAdmin && isTabAllowed('admin-activity') && <NavLink id="admin-activity" icon={null} label="Activity" sub />}
                   {isAdmin && isTabAllowed('admin-integrations') && <NavLink id="admin-integrations" icon={null} label="Integrations" sub />}
-                  {canManageActiveSpace && isTabAllowed('space-manage') && <NavLink id="space-manage" icon={null} label="My Space" sub />}
                   {isAdmin && isTabAllowed('admin-settings') && <NavLink id="admin-settings" icon={null} label="Settings" sub />}
                 </div>
               )}
