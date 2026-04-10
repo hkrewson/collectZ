@@ -1143,8 +1143,8 @@ export function CameraCaptureModal({
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center px-4">
-      <div className="absolute inset-0 bg-void/85 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-3xl rounded-2xl border border-edge bg-abyss shadow-deep overflow-hidden">
+      <div className="absolute inset-0 bg-void/78" onClick={onClose} />
+      <div className="relative w-full max-w-3xl rounded-xl border border-edge bg-abyss shadow-card overflow-hidden">
         <div className="flex items-start gap-3 border-b border-edge px-5 py-4">
           <div className="flex-1">
             <h3 className="section-title !text-lg">{title}</h3>
@@ -1153,7 +1153,7 @@ export function CameraCaptureModal({
           <button type="button" onClick={onClose} className="btn-icon btn-sm shrink-0"><Icons.X /></button>
         </div>
         <div className="p-5 space-y-4">
-          <div className="aspect-video w-full overflow-hidden rounded-2xl border border-edge bg-black">
+          <div className="aspect-video w-full overflow-hidden rounded-xl border border-edge bg-black">
             {capturedUrl ? (
               <img src={capturedUrl} alt="Captured frame" className="h-full w-full object-cover" />
             ) : (

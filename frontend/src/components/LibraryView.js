@@ -522,7 +522,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall }) {
 
   return (
     <div className="fixed inset-0 z-50 flex">
-      <div className="absolute inset-0 bg-void/80 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-void/72" onClick={onClose} />
       <div className="relative ml-auto w-full max-w-xl h-full bg-abyss border-l border-edge flex flex-col animate-slide-in">
         {posterUrl(item.backdrop_path) && (
           <div className="relative h-48 shrink-0 overflow-hidden">
@@ -532,7 +532,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall }) {
         )}
 
         <div className="flex items-start gap-4 px-6 pt-6 pb-4 shrink-0">
-          <div className="w-20 shrink-0 -mt-16 relative z-10 shadow-deep">
+          <div className="w-20 shrink-0 -mt-16 relative z-10 shadow-card">
             <div className="poster rounded-md">
               {posterUrl(item.poster_path)
                 ? <img src={posterUrl(item.poster_path)} alt={item.title} className="absolute inset-0 w-full h-full object-cover" />
@@ -871,8 +871,8 @@ function CollectionEditor({ collectionId, apiCall, onClose, onSaved }) {
 
   return (
     <div className="fixed inset-0 z-50 flex">
-      <div className="absolute inset-0 bg-void/80 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative ml-auto h-full w-full max-w-4xl bg-abyss border-l border-edge shadow-2xl flex flex-col animate-slide-in" onClick={(e) => e.stopPropagation()}>
+      <div className="absolute inset-0 bg-void/72" onClick={onClose} />
+      <div className="relative ml-auto h-full w-full max-w-4xl bg-abyss border-l border-edge shadow-card flex flex-col animate-slide-in" onClick={(e) => e.stopPropagation()}>
         <div className="px-5 py-4 border-b border-edge flex items-center gap-3 shrink-0">
           <h2 className="section-title !text-xl">Edit Collection</h2>
           <div className="flex-1" />
@@ -981,10 +981,10 @@ function CollectionDetail({ collectionId, apiCall, onClose, onEdit, onConvert })
 
   return (
     <div className="fixed inset-0 z-50 flex">
-      <div className="absolute inset-0 bg-void/80 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-void/72" onClick={onClose} />
       <div className="relative ml-auto w-full max-w-xl h-full bg-abyss border-l border-edge flex flex-col animate-slide-in">
         <div className="flex items-start gap-4 px-6 pt-6 pb-4 shrink-0">
-          <div className="w-20 shrink-0 relative z-10 shadow-deep">
+          <div className="w-20 shrink-0 relative z-10 shadow-card">
             <div className="poster rounded-md">
               {posterUrl(posterPath)
                 ? <img src={posterUrl(posterPath)} alt={title} className="absolute inset-0 w-full h-full object-cover" />
@@ -2000,7 +2000,9 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-3 px-6 py-4 border-b border-edge shrink-0">
         <button onClick={onCancel} className="btn-icon btn-sm"><Icons.ChevronLeft /></button>
-        <h2 className="font-display text-xl tracking-wider text-ink flex-1">{title.toUpperCase()}</h2>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-xl font-semibold leading-tight text-ink truncate">{title}</h2>
+        </div>
         {canConvertToCollection && (
           <button
             type="button"
@@ -3246,8 +3248,8 @@ export default function LibraryView({
       )}
       {(adding || editing) && (
         <div className="fixed inset-0 z-50 flex">
-          <div className="absolute inset-0 bg-black/45 backdrop-blur-[1px]" onClick={() => { setAdding(false); setEditing(null); }} />
-          <div className="ml-auto h-full w-full max-w-[40rem] bg-abyss border-l border-edge shadow-2xl relative">
+          <div className="absolute inset-0 bg-void/72" onClick={() => { setAdding(false); setEditing(null); }} />
+          <div className="ml-auto h-full w-full max-w-[40rem] bg-abyss border-l border-edge shadow-card relative">
             {renderMediaForm()}
           </div>
         </div>

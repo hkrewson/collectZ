@@ -139,7 +139,7 @@ function CollectibleDetailDrawer({ collectibleId, apiCall, categories, events, o
 
   return (
     <div className="fixed inset-0 z-50 flex">
-      <div className="absolute inset-0 bg-void/80 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-void/72" onClick={onClose} />
       <div className="relative ml-auto w-full max-w-xl h-full bg-abyss border-l border-edge flex flex-col animate-slide-in">
         {item?.image_path ? (
           <div className="relative h-48 shrink-0 overflow-hidden">
@@ -149,7 +149,7 @@ function CollectibleDetailDrawer({ collectibleId, apiCall, categories, events, o
         ) : null}
         <div className="flex items-start gap-4 px-6 pt-6 pb-4 shrink-0">
           {item?.image_path ? (
-            <div className="relative z-10 -mt-16 w-20 shrink-0 shadow-deep">
+            <div className="relative z-10 -mt-16 w-20 shrink-0 shadow-card">
               <div className="poster rounded-md">
                 <img src={posterUrl(item.image_path)} alt={item?.title || 'Collectible'} className="absolute inset-0 h-full w-full object-cover" />
               </div>
@@ -244,7 +244,7 @@ function CollectibleDrawer({
 
   return (
     <div className="fixed inset-0 z-50 flex">
-      <div className="absolute inset-0 bg-void/80 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-void/72" onClick={onClose} />
       <div className="relative ml-auto w-full max-w-[40rem] h-full bg-abyss border-l border-edge flex flex-col animate-slide-in">
         <div className="flex items-center gap-3 px-6 py-4 border-b border-edge shrink-0">
           <h2 className="section-title !text-xl">{initial?.id ? 'Edit Collectible' : 'Add Collectible'}</h2>

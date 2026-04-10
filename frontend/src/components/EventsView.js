@@ -440,8 +440,8 @@ function EventFormDrawer({ initial, apiCall, onClose, onSave, onDelete, onClearI
 
   return (
     <div className="fixed inset-0 z-50 flex">
-      <div className="absolute inset-0 bg-black/45 backdrop-blur-[1px]" onClick={onClose} />
-      <div className="ml-auto h-full w-full max-w-[40rem] bg-abyss border-l border-edge shadow-2xl relative flex flex-col">
+      <div className="absolute inset-0 bg-void/72" onClick={onClose} />
+      <div className="ml-auto h-full w-full max-w-[40rem] bg-abyss border-l border-edge shadow-card relative flex flex-col">
         <div className="px-6 py-4 border-b border-edge flex items-center gap-3">
           <h2 className="section-title !text-xl">{initial?.id ? 'Edit Event' : 'Add Event'}</h2>
           <div className="flex-1" />
@@ -550,7 +550,7 @@ function EventDetailDrawer({ eventId, apiCall, onClose, onEdit, onDeleted, onSav
 
   return (
     <div className="fixed inset-0 z-50 flex">
-      <div className="absolute inset-0 bg-void/80 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-void/72" onClick={onClose} />
       <div className="relative ml-auto w-full max-w-xl h-full bg-abyss border-l border-edge flex flex-col animate-slide-in">
         {event?.image_path ? (
           <div className="relative h-48 shrink-0 overflow-hidden">
