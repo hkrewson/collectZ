@@ -2479,7 +2479,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Member removed",
+            "description": "Member removed from workspace",
             "content": {
               "application/json": {
                 "schema": {

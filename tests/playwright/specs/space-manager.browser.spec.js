@@ -8,7 +8,7 @@ const {
   getPlaywrightBypassHeaders,
   postWithCsrf
 } = require('../helpers/auth');
-const { deleteMediaByExactTitle } = require('../helpers/media');
+const { deleteMediaByExactTitle, findExactMediaByTitle } = require('../helpers/media');
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
@@ -446,6 +446,123 @@ test.describe('space manager browser regressions', () => {
       expect(Array.isArray(memberSpacesAfterRestore?.spaces)).toBeTruthy();
       expect(memberSpacesAfterRestore.spaces.some((space) => Number(space.id) === createdSpaceId)).toBeTruthy();
     } finally {
+      await memberContext?.dispose();
+      await ownerContext?.dispose();
+      await adminContext.dispose();
+    }
+  });
+
+  test('workspace admin can remove a member without deleting the member-created workspace content', async ({ page }) => {
+    const adminCredentials = await ensureSavedAdminCredentials();
+    const adminContext = await createAuthenticatedRequestContext(adminCredentials);
+    const stamp = Date.now();
+    const ownerEmail = `playwright-space-remove-owner-${stamp}@example.com`;
+    const ownerPassword = 'Passw0rd!123';
+    const ownerName = 'Playwright Space Remove Owner';
+    const memberEmail = `playwright-space-remove-member-${stamp}@example.com`;
+    const memberPassword = 'Passw0rd!123';
+    const memberName = 'Playwright Space Remove Member';
+    const title = `Playwright Removed Member Content ${stamp}`;
+    let ownerContext = null;
+    let memberContext = null;
+
+    try {
+      const createdSpaceResponse = await postWithCsrf(adminContext, '/api/admin/spaces/create-with-onboarding', {
+        name: `Playwright Remove Space ${stamp}`,
+        slug: `playwright-remove-space-${stamp}`,
+        initial_invites: [
+          {
+            email: ownerEmail,
+            role: 'owner',
+            expose_token: true
+          },
+          {
+            email: memberEmail,
+            role: 'member',
+            expose_token: true
+          }
+        ]
+      }, 201);
+      const createdSpacePayload = await createdSpaceResponse.json();
+      const createdSpaceId = Number(createdSpacePayload?.space?.id || 0) || null;
+      expect(createdSpaceId).toBeTruthy();
+
+      const inviteResults = Array.isArray(createdSpacePayload?.invite_results) ? createdSpacePayload.invite_results : [];
+      const ownerInvite = inviteResults.find((invite) => String(invite?.email || '').toLowerCase() === ownerEmail.toLowerCase()) || null;
+      const memberInvite = inviteResults.find((invite) => String(invite?.email || '').toLowerCase() === memberEmail.toLowerCase()) || null;
+      const ownerInviteToken = String(ownerInvite?.token || '').trim();
+      const memberInviteToken = String(memberInvite?.token || '').trim();
+      expect(ownerInviteToken).toBeTruthy();
+      expect(memberInviteToken).toBeTruthy();
+
+      const registrationContext = await request.newContext({
+        baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000',
+        extraHTTPHeaders: getPlaywrightBypassHeaders()
+      });
+      try {
+        await postWithCsrf(registrationContext, '/api/auth/register', {
+          email: ownerEmail,
+          password: ownerPassword,
+          name: ownerName,
+          inviteToken: ownerInviteToken
+        }, 200);
+        await postWithCsrf(registrationContext, '/api/auth/register', {
+          email: memberEmail,
+          password: memberPassword,
+          name: memberName,
+          inviteToken: memberInviteToken
+        }, 200);
+      } finally {
+        await registrationContext.dispose();
+      }
+
+      ownerContext = await createAuthenticatedRequestContext({ email: ownerEmail, password: ownerPassword });
+      memberContext = await createAuthenticatedRequestContext({ email: memberEmail, password: memberPassword });
+
+      await deleteMediaByExactTitle(ownerContext, title).catch(() => {});
+      await deleteMediaByExactTitle(memberContext, title).catch(() => {});
+
+      await postWithCsrf(memberContext, '/api/media', {
+        title,
+        media_type: 'movie',
+        owned_formats: ['digital']
+      }, 201);
+
+      const memberCreatedItem = await findExactMediaByTitle(ownerContext, title);
+      expect(memberCreatedItem).toBeTruthy();
+
+      const storageState = await ownerContext.storageState();
+      await page.context().addCookies(storageState.cookies || []);
+      await page.goto('/dashboard?tab=space-manage');
+      await page.getByRole('button', { name: 'People', exact: true }).click();
+
+      const memberRow = page.getByText(memberEmail, { exact: true }).first();
+      await expect(memberRow).toBeVisible();
+      await memberRow.locator('xpath=ancestor::div[contains(@class,"grid")][1]/div[last()]//button[@aria-label="Member actions"]').click();
+
+      const removeResponsePromise = page.waitForResponse((response) => (
+        response.url().includes(`/api/spaces/${createdSpaceId}/members/`)
+        && response.request().method() === 'DELETE'
+      ));
+      await Promise.all([
+        page.waitForEvent('dialog').then((dialog) => dialog.accept()),
+        page.getByRole('button', { name: 'Remove from workspace', exact: true }).click()
+      ]);
+      const removeResponse = await removeResponsePromise;
+      expect(removeResponse.ok()).toBeTruthy();
+
+      await expect(page.getByText(memberEmail, { exact: true })).toHaveCount(0);
+
+      const memberSpacesAfterRemovalResponse = await memberContext.get('/api/spaces');
+      expect(memberSpacesAfterRemovalResponse.ok()).toBeTruthy();
+      const memberSpacesAfterRemoval = await memberSpacesAfterRemovalResponse.json();
+      expect(Array.isArray(memberSpacesAfterRemoval?.spaces)).toBeTruthy();
+      expect(memberSpacesAfterRemoval.spaces.some((space) => Number(space.id) === createdSpaceId)).toBeFalsy();
+
+      const preservedContent = await findExactMediaByTitle(ownerContext, title);
+      expect(preservedContent).toBeTruthy();
+    } finally {
+      await deleteMediaByExactTitle(ownerContext || adminContext, title).catch(() => {});
       await memberContext?.dispose();
       await ownerContext?.dispose();
       await adminContext.dispose();

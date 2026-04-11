@@ -278,13 +278,13 @@ export default function SpaceManagerView({
   };
 
   const removeMember = async (memberId) => {
-    if (!window.confirm('Remove this member from the workspace?')) return;
+    if (!window.confirm('Remove this member from the workspace? Their content stays here, but they will lose access.')) return;
     setMemberBusyId(memberId);
     try {
       await apiCall('delete', `/spaces/${activeSpaceId}/members/${memberId}`);
       setMembers((prev) => prev.filter((member) => member.id !== memberId));
       setOpenMemberMenuId((prev) => (Number(prev) === Number(memberId) ? null : prev));
-      onToast('Member removed');
+      onToast('Member removed from workspace');
     } catch (error) {
       const detail = error.response?.data?.detail;
       onToast(detail || error.response?.data?.error || 'Failed to remove member', 'error');
@@ -570,7 +570,7 @@ export default function SpaceManagerView({
                                       removeMember(member.id);
                                     }}
                                   >
-                                    Delete user
+                                    Remove from workspace
                                   </button>
                                   </div>
                                 </div>

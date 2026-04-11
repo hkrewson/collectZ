@@ -1099,6 +1099,7 @@ Historical planning notes may still exist in:
 56. `2.11.0` Optional market valuation integrations
 57. `2.12.0` Optional build: cost model and billing readiness
 58. `3.0.0` Frontend build modernization (CRA to Vite)
+59. `3.1.2` Personal workspace offboarding, archive retention, and recovery
 
 ## 2.1.0 — Metadata Normalization and Query Performance
 
@@ -2653,18 +2654,51 @@ Historical note:
 - Add workspace-scoped member lifecycle controls:
   - workspace owners/admins can force a password reset for a user,
   - workspace owners/admins can suspend a user,
-  - workspace owners/admins can delete/remove a user from the workspace according to the intended tenancy policy.
+  - workspace owners/admins can remove a user from the workspace according to the intended tenancy policy.
 - Keep authority boundaries explicit:
   - workspace-scoped lifecycle controls apply within the workspace model and must not silently become platform-global user administration,
   - global/platform admin authority remains distinct from normal workspace ownership,
   - all invite/member lifecycle actions should remain auditable.
+  - membership removal must preserve workspace content and attribution rather than silently deleting user-created records.
+  - removing the last owner must remain blocked until ownership is transferred or another owner exists.
 
 ### Acceptance Criteria
 
 - Workspace owners/admins can invite users by email into their workspace with setup-link delivery.
 - Workspace creation can assign a brand-new invited owner instead of requiring an existing active account as the initial owner.
-- Workspace owners/admins can force password reset, suspend, and delete/remove users through workspace-scoped controls.
+- Workspace owners/admins can force password reset, suspend, and remove users through workspace-scoped controls.
 - Invite claim and member lifecycle behavior remain aligned with the workspace ownership model rather than leaking into unrelated spaces or platform-global state.
+
+## 3.1.2 — Personal Workspace Offboarding, Archive Retention, and Recovery
+
+**Goal:** define the SaaS account/workspace offboarding path for personal workspaces so users can leave and later return without ambiguous deletion behavior or undefined retention handling.
+
+### Scope
+
+- Separate workspace membership removal from account/workspace offboarding:
+  - ordinary workspace admin actions stay limited to `Remove from Workspace`,
+  - do not turn normal workspace lifecycle actions into platform-global account deletion by accident.
+- Add personal-workspace offboarding policy for self-registered SaaS users:
+  - deleting/closing a personal workspace should move through an inactive/archive lifecycle rather than immediate hard deletion by default,
+  - archived workspaces should remain recoverable for a defined retention window when the same user later re-registers.
+- Implement recovery-aware archive lifecycle:
+  - `0-30 days`: personal workspace remains reclaimable directly by the user re-registering the same email,
+  - `day 31`: workspace data is removed from the live system and placed into the archive/backup pool,
+  - `day 91`: archived workspace data is deleted permanently.
+- Re-registration recovery flow:
+  - if an archived or inactive personal workspace exists for the same email, offer:
+    - restore the archived workspace,
+    - or start a new workspace and discard the archived copy according to the retention policy.
+- Preserve content attribution expectations:
+  - account/workspace offboarding must not make it impossible to understand who originally created content,
+  - if the original account no longer exists, preserve a stable attribution snapshot or equivalent former-member identity marker.
+
+### Acceptance Criteria
+
+- Workspace admins remove members from shared workspaces without deleting shared content.
+- Personal workspace offboarding uses the documented inactive/archive/deletion lifecycle instead of immediate ambiguous data loss.
+- Re-registration with the same email can recover an inactive/archive-eligible personal workspace during the retention window.
+- The `0-30 / 31-90 / 91+ day` retention behavior is documented, implemented, and auditable.
 
 ## 3.0.0 — Frontend Build Modernization (CRA to Vite)
 
