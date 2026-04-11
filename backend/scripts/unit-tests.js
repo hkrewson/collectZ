@@ -27,6 +27,11 @@ const {
   titleArtistSearchSchema,
   upcLookupSchema
 } = require('../middleware/validate');
+const {
+  MIN_PRICECHARTING_INTERVAL_MS,
+  buildPriceChartingRateLimitPolicy,
+  buildValuationLookupInput
+} = require('../services/valuations');
 process.env.INTEGRATION_ENCRYPTION_KEY = process.env.INTEGRATION_ENCRYPTION_KEY || 'unit-test-integration-key';
 const { buildIntegrationResponse } = require('../services/integrationResponse');
 const { buildCompactJobSummary, formatSyncJob } = require('../services/syncJobs');
@@ -695,17 +700,23 @@ results.push(run('repo includes 2.9.4 Playwright browser regression foundation h
   assert.ok(eventsCollectiblesBrowserSpecSource.includes('Linked Event'));
   assert.ok(dashboardRoutingSource.includes("'logs'"));
   assert.ok(dashboardRoutingSource.includes("'metrics'"));
+  assert.ok(dashboardRoutingSource.includes("'pricecharting'"));
+  assert.ok(dashboardRoutingSource.includes("'ebay'"));
   assert.ok(backendDockerfileSource.includes('COPY package*.json ./'));
   assert.ok(frontendDockerfileSource.includes('COPY package*.json ./'));
   assert.ok(!backendDockerfileSource.includes('@playwright/test'));
   assert.ok(!frontendDockerfileSource.includes('@playwright/test'));
 }));
 
-results.push(run('integrations route source narrows platform integration persistence to logs and metrics', () => {
+results.push(run('integrations route source extends platform integrations with valuation providers plus observability controls', () => {
   assert.ok(integrationsRoutesSource.includes('async function buildPlatformIntegrationPayload'));
+  assert.ok(integrationsRoutesSource.includes('valuationProviders'));
+  assert.ok(integrationsRoutesSource.includes('pricecharting_enabled = EXCLUDED.pricecharting_enabled'));
+  assert.ok(integrationsRoutesSource.includes('ebay_browse_enabled = EXCLUDED.ebay_browse_enabled'));
   assert.ok(integrationsRoutesSource.includes('log_export_backend = EXCLUDED.log_export_backend'));
   assert.ok(integrationsRoutesSource.includes('log_export_host = EXCLUDED.log_export_host'));
-  assert.ok(!integrationsRoutesSource.includes('cwa_timeout_ms'));
+  assert.ok(integrationsRoutesSource.includes("/admin/settings/integrations/test-pricecharting"));
+  assert.ok(integrationsRoutesSource.includes("/admin/settings/integrations/test-ebay"));
 }));
 
 results.push(run('media route source hardens image upload handlers', () => {
@@ -1187,6 +1198,34 @@ results.push(run('integrations.buildIntegrationResponse keeps empty secrets out 
   assert.strictEqual(response.decryptHealth.hasWarnings, true);
   assert.deepStrictEqual(response.decryptHealth.warnings, ['cannot_decrypt_tmdb_api_key']);
   assert.ok(response.decryptHealth.remediation);
+}));
+
+results.push(run('valuations.buildPriceChartingRateLimitPolicy enforces serialized provider safety floor', () => {
+  const policy = buildPriceChartingRateLimitPolicy({ priceChartingRateLimitMs: 250 });
+  assert.strictEqual(policy.provider, 'pricecharting');
+  assert.strictEqual(policy.queueMode, 'serialized');
+  assert.strictEqual(policy.concurrency, 1);
+  assert.strictEqual(policy.minIntervalMs, MIN_PRICECHARTING_INTERVAL_MS);
+  assert.strictEqual(policy.automatedTesting, 'fixture_only');
+}));
+
+results.push(run('valuations.buildValuationLookupInput prefers identifiers before title fallback', () => {
+  const input = buildValuationLookupInput({
+    title: 'Halo',
+    original_title: 'Halo: Combat Evolved',
+    media_type: 'game',
+    upc: '885370541981',
+    type_details: {
+      asin: 'B000B6MLPU',
+      series: 'Halo'
+    }
+  });
+  assert.deepStrictEqual(input.identifierSequence, [
+    { kind: 'ean_upc', value: '885370541981' },
+    { kind: 'asin', value: 'B000B6MLPU' }
+  ]);
+  assert.ok(input.titleCandidates.includes('Halo'));
+  assert.ok(input.titleCandidates.includes('Halo: Combat Evolved'));
 }));
 
 results.push(run('observability runtime source includes log and metrics drift diagnosis', () => {

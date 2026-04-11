@@ -2750,6 +2750,47 @@ const MIGRATIONS = [
         ON space_memberships(user_id, space_id)
         WHERE suspended_at IS NULL;
     `
+  },
+  {
+    version: 64,
+    description: 'Add optional valuation fields and platform valuation provider settings',
+    up: `
+      ALTER TABLE media
+        ADD COLUMN IF NOT EXISTS estimated_value_low NUMERIC(12,2),
+        ADD COLUMN IF NOT EXISTS estimated_value_mid NUMERIC(12,2),
+        ADD COLUMN IF NOT EXISTS estimated_value_high NUMERIC(12,2),
+        ADD COLUMN IF NOT EXISTS valuation_currency VARCHAR(8),
+        ADD COLUMN IF NOT EXISTS valuation_source VARCHAR(100),
+        ADD COLUMN IF NOT EXISTS valuation_last_updated TIMESTAMP;
+
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS pricecharting_enabled BOOLEAN DEFAULT false,
+        ADD COLUMN IF NOT EXISTS pricecharting_api_url TEXT,
+        ADD COLUMN IF NOT EXISTS pricecharting_api_key_encrypted TEXT,
+        ADD COLUMN IF NOT EXISTS pricecharting_rate_limit_ms INTEGER,
+        ADD COLUMN IF NOT EXISTS ebay_browse_enabled BOOLEAN DEFAULT false,
+        ADD COLUMN IF NOT EXISTS ebay_browse_api_url TEXT,
+        ADD COLUMN IF NOT EXISTS ebay_browse_client_id TEXT,
+        ADD COLUMN IF NOT EXISTS ebay_browse_client_secret_encrypted TEXT,
+        ADD COLUMN IF NOT EXISTS ebay_browse_marketplace_id VARCHAR(50);
+
+      UPDATE app_integrations
+         SET pricecharting_rate_limit_ms = 1100
+       WHERE pricecharting_rate_limit_ms IS NULL
+          OR pricecharting_rate_limit_ms < 1100;
+
+      UPDATE app_integrations
+         SET pricecharting_api_url = 'https://www.pricecharting.com/api'
+       WHERE COALESCE(TRIM(pricecharting_api_url), '') = '';
+
+      UPDATE app_integrations
+         SET ebay_browse_api_url = 'https://api.ebay.com/buy/browse/v1/item_summary/search'
+       WHERE COALESCE(TRIM(ebay_browse_api_url), '') = '';
+
+      UPDATE app_integrations
+         SET ebay_browse_marketplace_id = 'EBAY_US'
+       WHERE COALESCE(TRIM(ebay_browse_marketplace_id), '') = '';
+    `
   }
 ];
 

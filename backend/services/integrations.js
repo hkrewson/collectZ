@@ -7,6 +7,13 @@ const { resolveBooksPreset } = require('./books');
 const { resolveAudioPreset } = require('./audio');
 const { resolveGamesPreset } = require('./games');
 const { resolveComicsPreset } = require('./comics');
+const {
+  DEFAULT_PRICECHARTING_API_URL,
+  DEFAULT_EBAY_BROWSE_API_URL,
+  DEFAULT_EBAY_MARKETPLACE_ID,
+  MIN_PRICECHARTING_INTERVAL_MS,
+  normalizePositiveInteger
+} = require('./valuations');
 
 function deriveCwaBaseUrl(rawUrl = '') {
   const value = String(rawUrl || '').trim();
@@ -44,6 +51,8 @@ const normalizeIntegrationRecord = (row) => {
   const gamesClientSecretDecrypt = decryptSecretWithStatus(row?.games_client_secret_encrypted, 'games_client_secret_encrypted');
   const comicsDecrypt = decryptSecretWithStatus(row?.comics_api_key_encrypted, 'comics_api_key_encrypted');
   const cwaPasswordDecrypt = decryptSecretWithStatus(row?.cwa_password_encrypted, 'cwa_password_encrypted');
+  const priceChartingDecrypt = decryptSecretWithStatus(row?.pricecharting_api_key_encrypted, 'pricecharting_api_key_encrypted');
+  const ebayClientSecretDecrypt = decryptSecretWithStatus(row?.ebay_browse_client_secret_encrypted, 'ebay_browse_client_secret_encrypted');
 
   const barcodeApiKey = barcodeDecrypt.value || process.env.BARCODE_API_KEY || '';
   const tmdbApiKey = tmdbDecrypt.value || process.env.TMDB_API_KEY || '';
@@ -54,6 +63,8 @@ const normalizeIntegrationRecord = (row) => {
   const gamesClientSecret = gamesClientSecretDecrypt.value || process.env.GAMES_CLIENT_SECRET || '';
   const comicsApiKey = comicsDecrypt.value || process.env.COMICS_API_KEY || '';
   const cwaPassword = cwaPasswordDecrypt.value || process.env.CWA_PASSWORD || process.env.CWA_TOKEN || '';
+  const priceChartingApiKey = priceChartingDecrypt.value || process.env.PRICECHARTING_API_KEY || '';
+  const eBayBrowseClientSecret = ebayClientSecretDecrypt.value || process.env.EBAY_BROWSE_CLIENT_SECRET || '';
   const cwaOpdsUrl = row?.cwa_opds_url || process.env.CWA_OPDS_URL || '';
   const resolvedCwaBaseUrl = deriveCwaBaseUrl(cwaOpdsUrl);
 
@@ -76,6 +87,8 @@ const normalizeIntegrationRecord = (row) => {
   maybeWarn('games', 'games_client_secret_encrypted', row?.games_client_secret_encrypted, gamesClientSecretDecrypt);
   maybeWarn('comics', 'comics_api_key_encrypted', row?.comics_api_key_encrypted, comicsDecrypt);
   maybeWarn('cwa', 'cwa_password_encrypted', row?.cwa_password_encrypted, cwaPasswordDecrypt);
+  maybeWarn('pricecharting', 'pricecharting_api_key_encrypted', row?.pricecharting_api_key_encrypted, priceChartingDecrypt);
+  maybeWarn('ebay_browse', 'ebay_browse_client_secret_encrypted', row?.ebay_browse_client_secret_encrypted, ebayClientSecretDecrypt);
 
   const legacyAudioUrl = row?.audio_api_url || '';
   const resolvedAudioProviderRaw = row?.audio_provider || audioPreset.provider;
@@ -137,6 +150,25 @@ const normalizeIntegrationRecord = (row) => {
     comicsApiKeyQueryParam: comicsPreset.apiKeyQueryParam || 'api_key',
     comicsUsername: row?.comics_username || process.env.COMICS_USERNAME || '',
     comicsApiKey,
+    priceChartingEnabled: row?.pricecharting_enabled === undefined || row?.pricecharting_enabled === null
+      ? Boolean(process.env.PRICECHARTING_API_KEY)
+      : Boolean(row?.pricecharting_enabled),
+    priceChartingApiUrl: row?.pricecharting_api_url || process.env.PRICECHARTING_API_URL || DEFAULT_PRICECHARTING_API_URL,
+    priceChartingApiKey,
+    priceChartingRateLimitMs: Math.max(
+      MIN_PRICECHARTING_INTERVAL_MS,
+      normalizePositiveInteger(
+        row?.pricecharting_rate_limit_ms || process.env.PRICECHARTING_RATE_LIMIT_MS,
+        MIN_PRICECHARTING_INTERVAL_MS
+      )
+    ),
+    eBayBrowseEnabled: row?.ebay_browse_enabled === undefined || row?.ebay_browse_enabled === null
+      ? Boolean(process.env.EBAY_BROWSE_CLIENT_ID && (process.env.EBAY_BROWSE_CLIENT_SECRET || process.env.EBAY_BROWSE_TOKEN))
+      : Boolean(row?.ebay_browse_enabled),
+    eBayBrowseApiUrl: row?.ebay_browse_api_url || process.env.EBAY_BROWSE_API_URL || DEFAULT_EBAY_BROWSE_API_URL,
+    eBayBrowseClientId: row?.ebay_browse_client_id || process.env.EBAY_BROWSE_CLIENT_ID || '',
+    eBayBrowseClientSecret,
+    eBayBrowseMarketplaceId: row?.ebay_browse_marketplace_id || process.env.EBAY_BROWSE_MARKETPLACE_ID || DEFAULT_EBAY_MARKETPLACE_ID,
     cwaOpdsUrl,
     cwaBaseUrl: resolvedCwaBaseUrl,
     cwaUsername: row?.cwa_username || process.env.CWA_USERNAME || '',

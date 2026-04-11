@@ -34,7 +34,7 @@ async function saveSection(page, sectionLabel) {
 }
 
 test.describe('integrations browser regressions', () => {
-  test('platform admin integrations only expose logs and metrics and log settings persist after reload', async ({ page }) => {
+  test('platform admin integrations expose valuation plus observability sections and log settings persist after reload', async ({ page }) => {
     const adminCredentials = await ensureSavedAdminCredentials();
     const requestContext = await createAuthenticatedRequestContext(adminCredentials);
     const snapshot = await snapshotIntegrationState(requestContext);
@@ -48,6 +48,8 @@ test.describe('integrations browser regressions', () => {
 
       const sectionTabs = page.getByRole('tablist', { name: 'Integration sections' });
       await expect(sectionTabs.getByRole('tab')).toHaveText([
+        'PriceCharting',
+        'eBay Browse',
         'External Logs',
         'Metrics'
       ]);
@@ -82,6 +84,8 @@ test.describe('integrations browser regressions', () => {
       const sectionTabs = page.getByRole('tablist', { name: 'Integration sections' });
       await expect(sectionTabs).toBeVisible();
       await expect(sectionTabs.getByRole('tab')).toHaveText([
+        'PriceCharting',
+        'eBay Browse',
         'External Logs',
         'Metrics',
       ]);

@@ -2744,6 +2744,161 @@
         }
       }
     },
+    "/api/admin/settings/integrations": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Read platform integrations configuration",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "responses": {
+          "200": {
+            "description": "Platform integrations payload",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/IntegrationSettingsResponse" }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["Admin"],
+        "summary": "Update platform integrations configuration",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "properties": {
+                  "priceChartingEnabled": { "type": "boolean" },
+                  "priceChartingApiUrl": { "type": "string" },
+                  "priceChartingApiKey": { "type": "string" },
+                  "clearPriceChartingApiKey": { "type": "boolean" },
+                  "priceChartingRateLimitMs": { "type": ["integer", "string"] },
+                  "eBayBrowseEnabled": { "type": "boolean" },
+                  "eBayBrowseApiUrl": { "type": "string" },
+                  "eBayBrowseClientId": { "type": "string" },
+                  "eBayBrowseClientSecret": { "type": "string" },
+                  "clearEBayBrowseClientSecret": { "type": "boolean" },
+                  "eBayBrowseMarketplaceId": { "type": "string" },
+                  "logExportBackend": { "type": "string" },
+                  "logExportHost": { "type": "string" },
+                  "logExportPort": { "type": ["integer", "string"] },
+                  "logExportHostLabel": { "type": "string" },
+                  "logExportService": { "type": "string" },
+                  "logExportDebug": { "type": "boolean" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated platform integrations payload",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/IntegrationSettingsResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/settings/integrations/test-pricecharting": {
+      "post": {
+        "tags": ["Admin"],
+        "summary": "Dry-run PriceCharting valuation provider readiness",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Dry-run passed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Provider not configured for dry-run success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/settings/integrations/test-ebay": {
+      "post": {
+        "tags": ["Admin"],
+        "summary": "Dry-run eBay Browse valuation provider readiness",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Dry-run passed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Provider not configured for dry-run success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/settings/email-delivery": {
       "get": {
         "tags": ["Admin"],

@@ -27,10 +27,12 @@ export const VALID_INTEGRATION_SECTIONS = new Set([
   'barcode',
   'books',
   'comics',
+  'ebay',
   'games',
   'logs',
   'metrics',
   'plex',
+  'pricecharting',
   'tmdb'
 ]);
 export const DEFAULT_TAB = 'library-movies';

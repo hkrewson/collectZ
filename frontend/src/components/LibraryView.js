@@ -421,6 +421,26 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall }) {
   const externalMediaLabel = calibreExternalUrl
     ? 'Open in Calibre'
     : (item.media_type === 'book' || item.media_type === 'comic_book' ? 'Open source' : 'TMDB');
+  const formatValuation = (value) => {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return null;
+    try {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: String(item.valuation_currency || 'USD').trim().toUpperCase() || 'USD',
+        maximumFractionDigits: 2
+      }).format(numeric);
+    } catch (_) {
+      return `${String(item.valuation_currency || 'USD').trim().toUpperCase() || 'USD'} ${numeric.toFixed(2)}`;
+    }
+  };
+  const valuationRows = [
+    ['Value (mid)', formatValuation(item.estimated_value_mid)],
+    ['Value (low)', formatValuation(item.estimated_value_low)],
+    ['Value (high)', formatValuation(item.estimated_value_high)],
+    ['Valuation source', item.valuation_source],
+    ['Valuation updated', item.valuation_last_updated ? new Date(item.valuation_last_updated).toLocaleString() : null]
+  ].filter(([, value]) => value);
 
   const markSeasonWatched = async (seasonNumber) => {
     if (!item?.id || !Number.isInteger(Number(seasonNumber))) return;
@@ -580,6 +600,17 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall }) {
               <div key={k}><p className="label">{k}</p><p className="text-ink">{v}</p></div>
             ))}
           </div>
+
+          {valuationRows.length > 0 && (
+            <div>
+              <p className="label mb-2">Valuation</p>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                {valuationRows.map(([k, v]) => (
+                  <div key={k}><p className="label">{k}</p><p className="text-ink">{v}</p></div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {item.signed_proof_path && (
             <div>

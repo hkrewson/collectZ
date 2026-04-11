@@ -69,6 +69,8 @@ test.describe('admin shell browser regressions', () => {
 
     const sectionTabs = page.getByRole('tablist', { name: 'Integration sections' });
     await expect(sectionTabs.getByRole('tab')).toHaveText([
+      'PriceCharting',
+      'eBay Browse',
       'External Logs',
       'Metrics'
     ]);

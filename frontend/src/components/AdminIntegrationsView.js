@@ -34,10 +34,12 @@ const SECTION_DESCRIPTIONS = {
   books: 'Connection details, credentials, and runtime checks for this integration.',
   comics: 'Connection details, credentials, and runtime checks for this integration.',
   cwa: 'Connection details, credentials, and runtime checks for this integration.',
+  ebay: 'Configure eBay Browse as an optional market-signal fallback. Dry-run tests stay local in this milestone and do not hit the live provider.',
   games: 'Connection details, credentials, and runtime checks for this integration.',
   logs: 'Configure external log export and validate the running endpoint.',
   metrics: 'Enable admin-facing metrics export here, while scrape tokens and DEBUG-level access remain runtime infrastructure settings.',
   plex: 'Connection details, credentials, and runtime checks for this integration.',
+  pricecharting: 'Configure PriceCharting as the primary queued valuation provider. Dry-run tests confirm identifier-first lookup planning and the serialized rate-limit policy without calling the live API.',
   tmdb: 'Connection details, credentials, and runtime checks for this integration.'
 };
 
@@ -169,6 +171,7 @@ export default function AdminIntegrationsView({
   featureFlagsEndpoint = '/admin/feature-flags',
   title = 'Integrations',
   includeRuntimeSections = true,
+  includeValuationSections = false,
   allowImports = true,
   visibleSections = null
 }) {
@@ -179,6 +182,10 @@ export default function AdminIntegrationsView({
       { id: 'books', label: 'Books' },
       { id: 'cwa', label: 'CWA OPDS' },
       { id: 'comics', label: 'Comics' },
+      ...(includeValuationSections ? [
+        { id: 'pricecharting', label: 'PriceCharting' },
+        { id: 'ebay', label: 'eBay Browse' }
+      ] : []),
       { id: 'games', label: 'Games' },
       ...(includeRuntimeSections ? [
         { id: 'logs', label: 'External Logs' },
@@ -187,7 +194,7 @@ export default function AdminIntegrationsView({
       { id: 'plex', label: 'Plex' },
       { id: 'tmdb', label: 'TMDB' }
     ]),
-    [includeRuntimeSections]
+    [includeRuntimeSections, includeValuationSections]
   );
   const integrationSections = useMemo(() => {
     if (!Array.isArray(visibleSections) || visibleSections.length === 0) return allIntegrationSections;
@@ -209,6 +216,8 @@ export default function AdminIntegrationsView({
     gamesApiKey: '', gamesClientId: '', gamesClientSecret: '', clearGamesApiKey: false, clearGamesClientSecret: false,
     comicsPreset: 'metron', comicsProvider: 'metron', comicsApiUrl: 'https://metron.cloud/api/issue/',
     comicsApiKey: '', comicsUsername: '', clearComicsApiKey: false,
+    priceChartingEnabled: false, priceChartingApiUrl: 'https://www.pricecharting.com/api', priceChartingApiKey: '', clearPriceChartingApiKey: false, priceChartingRateLimitMs: '1100',
+    eBayBrowseEnabled: false, eBayBrowseApiUrl: 'https://api.ebay.com/buy/browse/v1/item_summary/search', eBayBrowseClientId: '', eBayBrowseClientSecret: '', clearEBayBrowseClientSecret: false, eBayBrowseMarketplaceId: 'EBAY_US',
     cwaOpdsUrl: '', cwaUsername: '', cwaPassword: '', clearCwaPassword: false,
     logExportBackend: '', logExportHost: '', logExportPort: '', logExportHostLabel: '', logExportService: '', logExportDebug: false
   });
@@ -221,10 +230,12 @@ export default function AdminIntegrationsView({
     gamesApiKeySet: false, gamesApiKeyMasked: '',
     gamesClientSecretSet: false, gamesClientSecretMasked: '',
     comicsApiKeySet: false, comicsApiKeyMasked: '',
+    priceChartingApiKeySet: false, priceChartingApiKeyMasked: '',
+    eBayBrowseClientSecretSet: false, eBayBrowseClientSecretMasked: '',
     cwaPasswordSet: false, cwaPasswordMasked: '',
     decryptHealth: { hasWarnings: false, warnings: [], remediation: '' }
   });
-  const [status, setStatus] = useState({ barcode: 'unknown', tmdb: 'unknown', plex: 'unknown', books: 'unknown', audio: 'unknown', games: 'unknown', comics: 'unknown', cwa: 'unknown' });
+  const [status, setStatus] = useState({ barcode: 'unknown', tmdb: 'unknown', plex: 'unknown', books: 'unknown', audio: 'unknown', games: 'unknown', comics: 'unknown', cwa: 'unknown', pricecharting: 'unknown', ebay: 'unknown' });
   const [testLoading, setTestLoading] = useState('');
   const [testMsg, setTestMsg] = useState('');
   const [saving, setSaving] = useState(false);
@@ -266,6 +277,13 @@ export default function AdminIntegrationsView({
         audioPreset: data.audioPreset || 'discogs', audioProvider: data.audioProvider || 'discogs', audioApiUrl: data.audioApiUrl || 'https://api.discogs.com/database/search',
         gamesPreset: data.gamesPreset || 'igdb', gamesProvider: data.gamesProvider || 'igdb', gamesApiUrl: data.gamesApiUrl || 'https://api.igdb.com/v4/games', gamesClientId: data.gamesClientId || '',
         comicsPreset: data.comicsPreset || 'metron', comicsProvider: data.comicsProvider || 'metron', comicsApiUrl: data.comicsApiUrl || 'https://metron.cloud/api/issue/', comicsUsername: data.comicsUsername || '',
+        priceChartingEnabled: Boolean(data.valuationProviders?.pricecharting?.enabled),
+        priceChartingApiUrl: data.valuationProviders?.pricecharting?.apiUrl || 'https://www.pricecharting.com/api',
+        priceChartingRateLimitMs: String(data.valuationProviders?.pricecharting?.rateLimitMs || '1100'),
+        eBayBrowseEnabled: Boolean(data.valuationProviders?.ebayBrowse?.enabled),
+        eBayBrowseApiUrl: data.valuationProviders?.ebayBrowse?.apiUrl || 'https://api.ebay.com/buy/browse/v1/item_summary/search',
+        eBayBrowseClientId: data.valuationProviders?.ebayBrowse?.clientId || '',
+        eBayBrowseMarketplaceId: data.valuationProviders?.ebayBrowse?.marketplaceId || 'EBAY_US',
         cwaOpdsUrl: data.cwaOpdsUrl || '', cwaUsername: data.cwaUsername || '',
         logExportBackend: data.logExportControl?.stored?.backend || data.logExportControl?.effective?.backend || '',
         logExportHost: data.logExportControl?.stored?.host || data.logExportControl?.effective?.host || '',
@@ -285,6 +303,8 @@ export default function AdminIntegrationsView({
         gamesApiKeySet: Boolean(data.gamesApiKeySet), gamesApiKeyMasked: data.gamesApiKeyMasked || '',
         gamesClientSecretSet: Boolean(data.gamesClientSecretSet), gamesClientSecretMasked: data.gamesClientSecretMasked || '',
         comicsApiKeySet: Boolean(data.comicsApiKeySet), comicsApiKeyMasked: data.comicsApiKeyMasked || '',
+        priceChartingApiKeySet: Boolean(data.valuationProviders?.pricecharting?.apiKeySet), priceChartingApiKeyMasked: data.valuationProviders?.pricecharting?.apiKeyMasked || '',
+        eBayBrowseClientSecretSet: Boolean(data.valuationProviders?.ebayBrowse?.clientSecretSet), eBayBrowseClientSecretMasked: data.valuationProviders?.ebayBrowse?.clientSecretMasked || '',
         cwaPasswordSet: Boolean(data.cwaPasswordSet), cwaPasswordMasked: data.cwaPasswordMasked || '',
         decryptHealth: data.decryptHealth || { hasWarnings: false, warnings: [], remediation: '' }
       });
@@ -298,6 +318,8 @@ export default function AdminIntegrationsView({
         audio: data.audioApiKeySet ? 'configured' : 'missing',
         games: (data.gamesApiKeySet || (data.gamesClientId && data.gamesClientSecretSet)) ? 'configured' : 'missing',
         comics: data.comicsApiKeySet ? 'configured' : 'missing',
+        pricecharting: (data.valuationProviders?.pricecharting?.enabled && data.valuationProviders?.pricecharting?.apiKeySet) ? 'configured' : 'missing',
+        ebay: (data.valuationProviders?.ebayBrowse?.enabled && data.valuationProviders?.ebayBrowse?.clientSecretSet && data.valuationProviders?.ebayBrowse?.clientId) ? 'configured' : 'missing',
         cwa: data.cwaOpdsUrl ? 'configured' : 'missing'
       });
     }).catch(() => {});
@@ -397,6 +419,21 @@ export default function AdminIntegrationsView({
       ...(form.gamesApiKey && { gamesApiKey: form.gamesApiKey }),
       ...(form.gamesClientSecret && { gamesClientSecret: form.gamesClientSecret })
     });
+    else if (sec === 'pricecharting') Object.assign(payload, {
+      priceChartingEnabled: form.priceChartingEnabled,
+      priceChartingApiUrl: form.priceChartingApiUrl,
+      priceChartingRateLimitMs: form.priceChartingRateLimitMs,
+      clearPriceChartingApiKey: form.clearPriceChartingApiKey,
+      ...(form.priceChartingApiKey && { priceChartingApiKey: form.priceChartingApiKey })
+    });
+    else if (sec === 'ebay') Object.assign(payload, {
+      eBayBrowseEnabled: form.eBayBrowseEnabled,
+      eBayBrowseApiUrl: form.eBayBrowseApiUrl,
+      eBayBrowseClientId: form.eBayBrowseClientId,
+      eBayBrowseMarketplaceId: form.eBayBrowseMarketplaceId,
+      clearEBayBrowseClientSecret: form.clearEBayBrowseClientSecret,
+      ...(form.eBayBrowseClientSecret && { eBayBrowseClientSecret: form.eBayBrowseClientSecret })
+    });
     else if (sec === 'comics') Object.assign(payload, {
       comicsPreset: form.comicsPreset, comicsProvider: form.comicsProvider, comicsApiUrl: form.comicsApiUrl,
       comicsUsername: form.comicsUsername, clearComicsApiKey: form.clearComicsApiKey,
@@ -427,6 +464,8 @@ export default function AdminIntegrationsView({
         gamesApiKeySet: Boolean(updated.gamesApiKeySet), gamesApiKeyMasked: updated.gamesApiKeyMasked || '',
         gamesClientSecretSet: Boolean(updated.gamesClientSecretSet), gamesClientSecretMasked: updated.gamesClientSecretMasked || '',
         comicsApiKeySet: Boolean(updated.comicsApiKeySet), comicsApiKeyMasked: updated.comicsApiKeyMasked || '',
+        priceChartingApiKeySet: Boolean(updated.valuationProviders?.pricecharting?.apiKeySet), priceChartingApiKeyMasked: updated.valuationProviders?.pricecharting?.apiKeyMasked || '',
+        eBayBrowseClientSecretSet: Boolean(updated.valuationProviders?.ebayBrowse?.clientSecretSet), eBayBrowseClientSecretMasked: updated.valuationProviders?.ebayBrowse?.clientSecretMasked || '',
         cwaPasswordSet: Boolean(updated.cwaPasswordSet), cwaPasswordMasked: updated.cwaPasswordMasked || '',
         decryptHealth: updated.decryptHealth || { hasWarnings: false, warnings: [], remediation: '' }
       });
@@ -436,16 +475,32 @@ export default function AdminIntegrationsView({
         ...s,
         [sec]: sec === 'games'
           ? ((updated.gamesApiKeySet || (updated.gamesClientId && updated.gamesClientSecretSet)) ? 'configured' : 'missing')
+          : sec === 'pricecharting'
+            ? ((updated.valuationProviders?.pricecharting?.enabled && updated.valuationProviders?.pricecharting?.apiKeySet) ? 'configured' : 'missing')
+          : sec === 'ebay'
+            ? ((updated.valuationProviders?.ebayBrowse?.enabled && updated.valuationProviders?.ebayBrowse?.clientId && updated.valuationProviders?.ebayBrowse?.clientSecretSet) ? 'configured' : 'missing')
           : sec === 'cwa'
             ? (updated.cwaOpdsUrl ? 'configured' : 'missing')
           : (updated[`${sec}ApiKeySet`] ? 'configured' : 'missing')
       }));
       setForm((f) => ({
         ...f,
-        barcodeApiKey: '', tmdbApiKey: '', plexApiKey: '', booksApiKey: '', audioApiKey: '', gamesApiKey: '', gamesClientSecret: '', comicsApiKey: '', cwaPassword: '',
+        barcodeApiKey: '', tmdbApiKey: '', plexApiKey: '', booksApiKey: '', audioApiKey: '', gamesApiKey: '', gamesClientSecret: '', comicsApiKey: '', cwaPassword: '', priceChartingApiKey: '', eBayBrowseClientSecret: '',
         clearBarcodeApiKey: false, clearTmdbApiKey: false, clearPlexApiKey: false,
-        clearBooksApiKey: false, clearAudioApiKey: false, clearGamesApiKey: false, clearGamesClientSecret: false, clearComicsApiKey: false, clearCwaPassword: false
+        clearBooksApiKey: false, clearAudioApiKey: false, clearGamesApiKey: false, clearGamesClientSecret: false, clearComicsApiKey: false, clearCwaPassword: false, clearPriceChartingApiKey: false, clearEBayBrowseClientSecret: false
       }));
+      if (updated.valuationProviders) {
+        setForm((f) => ({
+          ...f,
+          priceChartingEnabled: Boolean(updated.valuationProviders?.pricecharting?.enabled),
+          priceChartingApiUrl: updated.valuationProviders?.pricecharting?.apiUrl || f.priceChartingApiUrl,
+          priceChartingRateLimitMs: String(updated.valuationProviders?.pricecharting?.rateLimitMs || f.priceChartingRateLimitMs || '1100'),
+          eBayBrowseEnabled: Boolean(updated.valuationProviders?.ebayBrowse?.enabled),
+          eBayBrowseApiUrl: updated.valuationProviders?.ebayBrowse?.apiUrl || f.eBayBrowseApiUrl,
+          eBayBrowseClientId: updated.valuationProviders?.ebayBrowse?.clientId || '',
+          eBayBrowseMarketplaceId: updated.valuationProviders?.ebayBrowse?.marketplaceId || 'EBAY_US'
+        }));
+      }
       if (updated.logExportControl) {
         setForm((f) => ({
           ...f,
@@ -503,6 +558,10 @@ export default function AdminIntegrationsView({
             ? { title: 'Kind of Blue', artist: 'Miles Davis' }
             : sec === 'games'
               ? { title: 'Halo' }
+              : sec === 'pricecharting'
+                ? { title: 'Halo', media_type: 'game', upc: '885370541981' }
+                : sec === 'ebay'
+                  ? { title: 'Halo', media_type: 'game', upc: '885370541981' }
               : sec === 'comics'
                 ? { title: 'Batman' }
                 : sec === 'logs'
@@ -942,6 +1001,84 @@ export default function AdminIntegrationsView({
               <input className="input font-mono" type="password" placeholder="Enter new key to update" value={form.gamesApiKey} onChange={(e) => setForm((f) => ({ ...f, gamesApiKey: e.target.value }))} />
             </LabeledField>
           </div>
+        </>}
+
+        {section === 'pricecharting' && <>
+          <div className="flex items-start justify-between gap-4 py-1">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-ink">Enable PriceCharting</p>
+              <p className="mt-1 text-sm text-dim">Keep this provider optional. The runtime contract for `2.11.0` stays queued, serialized, and identifier-first.</p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={Boolean(form.priceChartingEnabled)}
+              aria-label={`${form.priceChartingEnabled ? 'Disable' : 'Enable'} PriceCharting`}
+              onClick={() => setForm((f) => ({ ...f, priceChartingEnabled: !f.priceChartingEnabled }))}
+              className={[
+                'relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-colors duration-150',
+                form.priceChartingEnabled ? 'border-gold/30 bg-gold/15' : 'border-edge bg-raised/80'
+              ].join(' ')}
+            >
+              <span className={[
+                'inline-block h-5 w-5 rounded-full shadow-sm transition-transform duration-150',
+                form.priceChartingEnabled ? 'translate-x-6 bg-gold' : 'translate-x-1 bg-dim'
+              ].join(' ')} />
+            </button>
+          </div>
+          <LabeledField label="PriceCharting API URL" cx={cx}><input className="input" value={form.priceChartingApiUrl} onChange={(e) => setForm((f) => ({ ...f, priceChartingApiUrl: e.target.value }))} /></LabeledField>
+          <div className="grid gap-3 md:grid-cols-2">
+            <LabeledField label={`API Key ${meta.priceChartingApiKeySet ? `(set: ${meta.priceChartingApiKeyMasked})` : '(not set)'}`} cx={cx}>
+              <input className="input font-mono" type="password" placeholder="Enter new key to update" value={form.priceChartingApiKey} onChange={(e) => setForm((f) => ({ ...f, priceChartingApiKey: e.target.value }))} />
+            </LabeledField>
+            <LabeledField label="Rate Limit Interval (ms)" cx={cx}>
+              <input className="input font-mono" inputMode="numeric" value={form.priceChartingRateLimitMs} onChange={(e) => setForm((f) => ({ ...f, priceChartingRateLimitMs: e.target.value.replace(/[^\d]/g, '') }))} />
+            </LabeledField>
+          </div>
+          <label className="flex items-center gap-2 text-sm text-dim cursor-pointer">
+            <input type="checkbox" checked={form.clearPriceChartingApiKey} onChange={(e) => setForm((f) => ({ ...f, clearPriceChartingApiKey: e.target.checked }))} className="rounded" />
+            Clear saved key
+          </label>
+          <div className="rounded-xl border border-edge bg-raised/60 px-4 py-3 text-sm text-dim">
+            Automated tests stay on fixtures in this milestone. The live provider should only be smoke-tested manually after the queued execution slice is in place.
+          </div>
+        </>}
+
+        {section === 'ebay' && <>
+          <div className="flex items-start justify-between gap-4 py-1">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-ink">Enable eBay Browse</p>
+              <p className="mt-1 text-sm text-dim">Use eBay Browse as a live-market fallback signal once valuation execution is enabled.</p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={Boolean(form.eBayBrowseEnabled)}
+              aria-label={`${form.eBayBrowseEnabled ? 'Disable' : 'Enable'} eBay Browse`}
+              onClick={() => setForm((f) => ({ ...f, eBayBrowseEnabled: !f.eBayBrowseEnabled }))}
+              className={[
+                'relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-colors duration-150',
+                form.eBayBrowseEnabled ? 'border-gold/30 bg-gold/15' : 'border-edge bg-raised/80'
+              ].join(' ')}
+            >
+              <span className={[
+                'inline-block h-5 w-5 rounded-full shadow-sm transition-transform duration-150',
+                form.eBayBrowseEnabled ? 'translate-x-6 bg-gold' : 'translate-x-1 bg-dim'
+              ].join(' ')} />
+            </button>
+          </div>
+          <LabeledField label="eBay Browse API URL" cx={cx}><input className="input" value={form.eBayBrowseApiUrl} onChange={(e) => setForm((f) => ({ ...f, eBayBrowseApiUrl: e.target.value }))} /></LabeledField>
+          <div className="grid gap-3 md:grid-cols-2">
+            <LabeledField label="Client ID" cx={cx}><input className="input" value={form.eBayBrowseClientId} onChange={(e) => setForm((f) => ({ ...f, eBayBrowseClientId: e.target.value }))} /></LabeledField>
+            <LabeledField label="Marketplace ID" cx={cx}><input className="input font-mono" value={form.eBayBrowseMarketplaceId} onChange={(e) => setForm((f) => ({ ...f, eBayBrowseMarketplaceId: e.target.value }))} /></LabeledField>
+          </div>
+          <LabeledField label={`Client Secret ${meta.eBayBrowseClientSecretSet ? `(set: ${meta.eBayBrowseClientSecretMasked})` : '(not set)'}`} cx={cx}>
+            <input className="input font-mono" type="password" placeholder="Enter new client secret to update" value={form.eBayBrowseClientSecret} onChange={(e) => setForm((f) => ({ ...f, eBayBrowseClientSecret: e.target.value }))} />
+          </LabeledField>
+          <label className="flex items-center gap-2 text-sm text-dim cursor-pointer">
+            <input type="checkbox" checked={form.clearEBayBrowseClientSecret} onChange={(e) => setForm((f) => ({ ...f, clearEBayBrowseClientSecret: e.target.checked }))} className="rounded" />
+            Clear saved client secret
+          </label>
         </>}
 
         {section === 'comics' && <>

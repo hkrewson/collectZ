@@ -109,6 +109,18 @@ These can be set in `.env`, but admin settings in UI now control active global i
 - Plex: `PLEX_PRESET`, `PLEX_PROVIDER`, `PLEX_API_URL`, `PLEX_API_KEY`
 - Supported provider presets now own their key-header and query-param details in backend service config.
 - Custom integration authoring is intentionally not part of the current Admin Integrations surface. If we need user-defined providers later, that belongs in a dedicated plugin/extensibility milestone.
+- Optional market valuation providers (`2.11.0`) can be bootstrapped from env or saved in `Platform -> Integrations`:
+  - PriceCharting:
+    - `PRICECHARTING_API_URL` (default `https://www.pricecharting.com/api`)
+    - `PRICECHARTING_API_KEY`
+    - `PRICECHARTING_RATE_LIMIT_MS` (default floor `1100`; never set lower than `1100`)
+  - eBay Browse:
+    - `EBAY_BROWSE_API_URL` (default `https://api.ebay.com/buy/browse/v1/item_summary/search`)
+    - `EBAY_BROWSE_CLIENT_ID`
+    - `EBAY_BROWSE_CLIENT_SECRET`
+    - `EBAY_BROWSE_MARKETPLACE_ID` (default `EBAY_US`)
+  - `2.11.0` keeps valuation requests behind platform-owned optional config with read-only valuation display in media detail views.
+  - Automated regression/testing should stay fixture-backed and must not hit the live PriceCharting API by default; only tiny manual smoke tests should call the real provider once queue/rate-limit execution is enabled.
 - CWA OPDS (deferred/disabled runtime surface): `CWA_OPDS_URL`, `CWA_USERNAME`, `CWA_PASSWORD`
 - Async import tuning:
   - `TMDB_IMPORT_MIN_INTERVAL_MS` (default `50`): minimum delay between TMDB enrichment calls during Plex import.

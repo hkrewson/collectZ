@@ -4,32 +4,19 @@ const { patchWithCsrf, requestWithCsrf } = require('./auth');
 
 function buildIntegrationRestorePayload(snapshot) {
   return {
-    barcodePreset: snapshot.barcodePreset,
-    barcodeProvider: snapshot.barcodeProvider,
-    barcodeApiUrl: snapshot.barcodeApiUrl,
-    tmdbPreset: snapshot.tmdbPreset,
-    tmdbProvider: snapshot.tmdbProvider,
-    tmdbApiUrl: snapshot.tmdbApiUrl,
-    plexPreset: snapshot.plexPreset,
-    plexProvider: snapshot.plexProvider,
-    plexApiUrl: snapshot.plexApiUrl,
-    plexLibrarySections: Array.isArray(snapshot.plexLibrarySections) ? snapshot.plexLibrarySections : [],
-    booksPreset: snapshot.booksPreset,
-    booksProvider: snapshot.booksProvider,
-    booksApiUrl: snapshot.booksApiUrl,
-    audioPreset: snapshot.audioPreset,
-    audioProvider: snapshot.audioProvider,
-    audioApiUrl: snapshot.audioApiUrl,
-    gamesPreset: snapshot.gamesPreset,
-    gamesProvider: snapshot.gamesProvider,
-    gamesApiUrl: snapshot.gamesApiUrl,
-    gamesClientId: snapshot.gamesClientId,
-    comicsPreset: snapshot.comicsPreset,
-    comicsProvider: snapshot.comicsProvider,
-    comicsApiUrl: snapshot.comicsApiUrl,
-    comicsUsername: snapshot.comicsUsername,
-    cwaOpdsUrl: snapshot.cwaOpdsUrl,
-    cwaUsername: snapshot.cwaUsername
+    priceChartingEnabled: snapshot.valuationProviders?.pricecharting?.enabled,
+    priceChartingApiUrl: snapshot.valuationProviders?.pricecharting?.apiUrl,
+    priceChartingRateLimitMs: snapshot.valuationProviders?.pricecharting?.rateLimitMs,
+    eBayBrowseEnabled: snapshot.valuationProviders?.ebayBrowse?.enabled,
+    eBayBrowseApiUrl: snapshot.valuationProviders?.ebayBrowse?.apiUrl,
+    eBayBrowseClientId: snapshot.valuationProviders?.ebayBrowse?.clientId,
+    eBayBrowseMarketplaceId: snapshot.valuationProviders?.ebayBrowse?.marketplaceId,
+    logExportBackend: snapshot.logExportControl?.stored?.backend || snapshot.logExportControl?.effective?.backend || '',
+    logExportHost: snapshot.logExportControl?.stored?.host || snapshot.logExportControl?.effective?.host || '',
+    logExportPort: snapshot.logExportControl?.stored?.port || snapshot.logExportControl?.effective?.port || '',
+    logExportHostLabel: snapshot.logExportControl?.stored?.hostLabel || snapshot.logExportControl?.effective?.hostLabel || '',
+    logExportService: snapshot.logExportControl?.stored?.service || snapshot.logExportControl?.effective?.service || '',
+    logExportDebug: snapshot.logExportControl?.stored?.debugEnabled ?? snapshot.logExportControl?.effective?.debugEnabled ?? false
   };
 }
 

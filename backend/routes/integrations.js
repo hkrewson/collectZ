@@ -4,9 +4,18 @@ const pool = require('../db/pool');
 const { asyncHandler } = require('../middleware/errors');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const { deriveCwaBaseUrl, loadAdminIntegrationConfig, normalizeIntegrationRecord, loadGeneralSettings } = require('../services/integrations');
-const { encryptSecret } = require('../services/crypto');
+const { encryptSecret, maskSecret } = require('../services/crypto');
 const { buildObservabilityRuntimeDiagnostics } = require('../services/observabilityRuntime');
 const { resolveExportConfig, invalidateStoredExportConfigCache, LOG_EXPORT_BACKENDS, LOG_EXPORT_SETTINGS_READ_ONLY, validateStructuredLogDelivery, normalizeExplicitExportConfig } = require('../services/logExport');
+const {
+  DEFAULT_PRICECHARTING_API_URL,
+  DEFAULT_EBAY_BROWSE_API_URL,
+  DEFAULT_EBAY_MARKETPLACE_ID,
+  MIN_PRICECHARTING_INTERVAL_MS,
+  normalizePositiveInteger,
+  buildPriceChartingDryRun,
+  buildEbayBrowseDryRun
+} = require('../services/valuations');
 const { resolveBarcodePreset } = require('../services/barcode');
 const { resolveTmdbPreset, searchTmdbMovie } = require('../services/tmdb');
 const { resolvePlexPreset, fetchPlexSections } = require('../services/plex');
@@ -15,12 +24,42 @@ const { resolveAudioPreset, searchAudioByTitle } = require('../services/audio');
 const { resolveGamesPreset, searchGamesByTitle } = require('../services/games');
 const { resolveComicsPreset, searchComicsByTitle, fetchMetronCollectionIssues } = require('../services/comics');
 const { logActivity, logError } = require('../services/audit');
+const { DECRYPT_REMEDIATION } = require('../services/integrationResponse');
 
 const router = express.Router();
 
 async function buildPlatformIntegrationPayload(config) {
   const resolvedExportConfig = await resolveExportConfig({ forceRefresh: true });
   return {
+    decryptHealth: {
+      hasWarnings: Array.isArray(config?.decryptWarnings) && config.decryptWarnings.length > 0,
+      warnings: Array.isArray(config?.decryptWarnings) ? config.decryptWarnings : [],
+      remediation: DECRYPT_REMEDIATION
+    },
+    valuationProviders: {
+      pricecharting: {
+        enabled: Boolean(config?.priceChartingEnabled),
+        apiUrl: config?.priceChartingApiUrl || DEFAULT_PRICECHARTING_API_URL,
+        apiKeySet: Boolean(config?.priceChartingApiKey),
+        apiKeyMasked: maskSecret(config?.priceChartingApiKey || ''),
+        rateLimitMs: Math.max(
+          MIN_PRICECHARTING_INTERVAL_MS,
+          normalizePositiveInteger(config?.priceChartingRateLimitMs, MIN_PRICECHARTING_INTERVAL_MS)
+        ),
+        queueMode: 'serialized',
+        concurrency: 1,
+        automatedTesting: 'fixture_only'
+      },
+      ebayBrowse: {
+        enabled: Boolean(config?.eBayBrowseEnabled),
+        apiUrl: config?.eBayBrowseApiUrl || DEFAULT_EBAY_BROWSE_API_URL,
+        clientId: config?.eBayBrowseClientId || '',
+        clientSecretSet: Boolean(config?.eBayBrowseClientSecret),
+        clientSecretMasked: maskSecret(config?.eBayBrowseClientSecret || ''),
+        marketplaceId: config?.eBayBrowseMarketplaceId || DEFAULT_EBAY_MARKETPLACE_ID,
+        automatedTesting: 'fixture_only'
+      }
+    },
     logExportControl: {
       readOnly: Boolean(resolvedExportConfig.controlPlane?.readOnly),
       source: resolvedExportConfig.controlPlane?.source || 'env_fallback',
@@ -37,6 +76,41 @@ async function buildPlatformIntegrationPayload(config) {
       lastValidation: config?.logExportLastValidation || null
     },
     observabilityRuntime: await buildObservabilityRuntimeDiagnostics()
+  };
+}
+
+function resolveNextAdminValuationState(body = {}, existing = null) {
+  const pick = (incoming, existingValue, fallback) =>
+    incoming !== undefined ? incoming : (existingValue ?? fallback);
+
+  const nextPriceChartingApiKey = body.clearPriceChartingApiKey
+    ? null
+    : (body.priceChartingApiKey
+      ? encryptSecret(body.priceChartingApiKey)
+      : existing?.pricecharting_api_key_encrypted || null);
+
+  const nextEbayClientSecret = body.clearEBayBrowseClientSecret
+    ? null
+    : (body.eBayBrowseClientSecret
+      ? encryptSecret(body.eBayBrowseClientSecret)
+      : existing?.ebay_browse_client_secret_encrypted || null);
+
+  return {
+    pricecharting_enabled: pick(body.priceChartingEnabled, existing?.pricecharting_enabled, false),
+    pricecharting_api_url: pick(body.priceChartingApiUrl, existing?.pricecharting_api_url, DEFAULT_PRICECHARTING_API_URL),
+    pricecharting_api_key_encrypted: nextPriceChartingApiKey,
+    pricecharting_rate_limit_ms: Math.max(
+      MIN_PRICECHARTING_INTERVAL_MS,
+      normalizePositiveInteger(
+        pick(body.priceChartingRateLimitMs, existing?.pricecharting_rate_limit_ms, MIN_PRICECHARTING_INTERVAL_MS),
+        MIN_PRICECHARTING_INTERVAL_MS
+      )
+    ),
+    ebay_browse_enabled: pick(body.eBayBrowseEnabled, existing?.ebay_browse_enabled, false),
+    ebay_browse_api_url: pick(body.eBayBrowseApiUrl, existing?.ebay_browse_api_url, DEFAULT_EBAY_BROWSE_API_URL),
+    ebay_browse_client_id: pick(body.eBayBrowseClientId, existing?.ebay_browse_client_id, ''),
+    ebay_browse_client_secret_encrypted: nextEbayClientSecret,
+    ebay_browse_marketplace_id: pick(body.eBayBrowseMarketplaceId, existing?.ebay_browse_marketplace_id, DEFAULT_EBAY_MARKETPLACE_ID)
   };
 }
 
@@ -84,6 +158,18 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
     || logExportHostLabel !== undefined
     || logExportService !== undefined
     || logExportDebug !== undefined;
+  const requestsValuationUpdate =
+    req.body.priceChartingEnabled !== undefined
+    || req.body.priceChartingApiUrl !== undefined
+    || req.body.priceChartingApiKey !== undefined
+    || req.body.clearPriceChartingApiKey !== undefined
+    || req.body.priceChartingRateLimitMs !== undefined
+    || req.body.eBayBrowseEnabled !== undefined
+    || req.body.eBayBrowseApiUrl !== undefined
+    || req.body.eBayBrowseClientId !== undefined
+    || req.body.eBayBrowseClientSecret !== undefined
+    || req.body.clearEBayBrowseClientSecret !== undefined
+    || req.body.eBayBrowseMarketplaceId !== undefined;
   if (requestsLogExportUpdate && LOG_EXPORT_SETTINGS_READ_ONLY) {
     return res.status(409).json({ error: 'External log endpoint settings are read-only in this environment' });
   }
@@ -98,6 +184,12 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
     const parsedLogExportPort = Number(logExportPort);
     if (!Number.isInteger(parsedLogExportPort) || parsedLogExportPort < 1 || parsedLogExportPort > 65535) {
       return res.status(400).json({ error: 'External log port must be an integer between 1 and 65535' });
+    }
+  }
+  if (req.body.priceChartingRateLimitMs !== undefined) {
+    const parsedRateLimitMs = Number(req.body.priceChartingRateLimitMs);
+    if (!Number.isInteger(parsedRateLimitMs) || parsedRateLimitMs < MIN_PRICECHARTING_INTERVAL_MS) {
+      return res.status(400).json({ error: `PriceCharting interval must be an integer >= ${MIN_PRICECHARTING_INTERVAL_MS}ms` });
     }
   }
   const clearLogExportControl = normalizedLogExportBackend !== undefined && normalizedLogExportBackend === '';
@@ -137,10 +229,20 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
       existing?.log_export_debug,
       null
     );
+  const valuationState = resolveNextAdminValuationState(req.body, existing);
 
   const result = await pool.query(
     `INSERT INTO app_integrations (
        id,
+       pricecharting_enabled,
+       pricecharting_api_url,
+       pricecharting_api_key_encrypted,
+       pricecharting_rate_limit_ms,
+       ebay_browse_enabled,
+       ebay_browse_api_url,
+       ebay_browse_client_id,
+       ebay_browse_client_secret_encrypted,
+       ebay_browse_marketplace_id,
        log_export_backend,
        log_export_host,
        log_export_port,
@@ -148,9 +250,18 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
        log_export_service,
        log_export_debug
      ) VALUES (
-       $1,$2,$3,$4,$5,$6,$7
+       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16
      )
      ON CONFLICT (id) DO UPDATE SET
+       pricecharting_enabled = EXCLUDED.pricecharting_enabled,
+       pricecharting_api_url = EXCLUDED.pricecharting_api_url,
+       pricecharting_api_key_encrypted = EXCLUDED.pricecharting_api_key_encrypted,
+       pricecharting_rate_limit_ms = EXCLUDED.pricecharting_rate_limit_ms,
+       ebay_browse_enabled = EXCLUDED.ebay_browse_enabled,
+       ebay_browse_api_url = EXCLUDED.ebay_browse_api_url,
+       ebay_browse_client_id = EXCLUDED.ebay_browse_client_id,
+       ebay_browse_client_secret_encrypted = EXCLUDED.ebay_browse_client_secret_encrypted,
+       ebay_browse_marketplace_id = EXCLUDED.ebay_browse_marketplace_id,
        log_export_backend = EXCLUDED.log_export_backend,
        log_export_host = EXCLUDED.log_export_host,
        log_export_port = EXCLUDED.log_export_port,
@@ -160,6 +271,15 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
      RETURNING *`,
     [
       1,
+      valuationState.pricecharting_enabled,
+      valuationState.pricecharting_api_url,
+      valuationState.pricecharting_api_key_encrypted,
+      valuationState.pricecharting_rate_limit_ms,
+      valuationState.ebay_browse_enabled,
+      valuationState.ebay_browse_api_url,
+      valuationState.ebay_browse_client_id,
+      valuationState.ebay_browse_client_secret_encrypted,
+      valuationState.ebay_browse_marketplace_id,
       nextLogExportBackend,
       nextLogExportHost,
       nextLogExportPort,
@@ -172,6 +292,25 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
   invalidateStoredExportConfigCache();
   const config = normalizeIntegrationRecord(result.rows[0]);
   await logActivity(req, 'admin.settings.integrations.update', 'app_integrations', 1, {
+    valuationProviders: requestsValuationUpdate
+      ? {
+        pricecharting: {
+          enabled: valuationState.pricecharting_enabled,
+          apiUrl: valuationState.pricecharting_api_url,
+          rateLimitMs: valuationState.pricecharting_rate_limit_ms,
+          apiKeyUpdated: Boolean(req.body.priceChartingApiKey),
+          apiKeyCleared: Boolean(req.body.clearPriceChartingApiKey)
+        },
+        ebayBrowse: {
+          enabled: valuationState.ebay_browse_enabled,
+          apiUrl: valuationState.ebay_browse_api_url,
+          clientId: valuationState.ebay_browse_client_id,
+          marketplaceId: valuationState.ebay_browse_marketplace_id,
+          clientSecretUpdated: Boolean(req.body.eBayBrowseClientSecret),
+          clientSecretCleared: Boolean(req.body.clearEBayBrowseClientSecret)
+        }
+      }
+      : null,
     logExportControl: requestsLogExportUpdate
       ? {
         backend: nextLogExportBackend,
@@ -186,6 +325,18 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
   });
 
   res.json(await buildPlatformIntegrationPayload(config));
+}));
+
+router.post('/admin/settings/integrations/test-pricecharting', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
+  const config = await loadAdminIntegrationConfig();
+  const dryRun = buildPriceChartingDryRun(config, req.body || {});
+  res.status(dryRun.status === 400 ? 400 : 200).json(dryRun);
+}));
+
+router.post('/admin/settings/integrations/test-ebay', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
+  const config = await loadAdminIntegrationConfig();
+  const dryRun = buildEbayBrowseDryRun(config, req.body || {});
+  res.status(dryRun.status === 400 ? 400 : 200).json(dryRun);
 }));
 
 // ── Integration test endpoints ────────────────────────────────────────────────
