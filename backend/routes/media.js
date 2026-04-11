@@ -10,6 +10,7 @@ const {
   validate,
   mediaCreateSchema,
   mediaUpdateSchema,
+  mediaValuationRefreshSchema,
   simpleSearchSchema,
   titleAuthorSearchSchema,
   titleArtistSearchSchema,
@@ -52,6 +53,7 @@ const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
 const { isFeatureEnabledForSpace } = require('../services/featureFlags');
 const { enforceScopeAccess } = require('../middleware/scopeAccess');
 const { ensureUserDefaultLibrary, ensureUserDefaultScope } = require('../services/libraries');
+const { refreshMediaValuation } = require('../services/valuations');
 
 const router = express.Router();
 
@@ -442,6 +444,58 @@ function normalizeMediaRecord(row = {}) {
     format: payload.format,
     cast: row.cast || row.cast_members || null
   };
+}
+
+async function loadScopedMediaItem(mediaId, scopeContext = null) {
+  const params = [mediaId];
+  const scopeClause = appendScopeSql(params, scopeContext);
+  const result = await pool.query(
+    `SELECT media.*,
+            COALESCE(season_stats.season_count, 0) AS tv_season_count,
+            COALESCE(season_stats.completed_count, 0) AS tv_completed_season_count,
+            CASE
+              WHEN media.media_type = 'tv_series'
+               AND COALESCE(season_stats.season_count, 0) > 0
+               AND COALESCE(season_stats.season_count, 0) = COALESCE(season_stats.completed_count, 0)
+                THEN TRUE
+              ELSE FALSE
+            END AS tv_all_seasons_completed
+     FROM media
+     LEFT JOIN LATERAL (
+       SELECT COUNT(*)::int AS season_count,
+              COUNT(*) FILTER (WHERE ms.is_complete = TRUE OR ms.watch_state = 'completed')::int AS completed_count
+       FROM media_seasons ms
+       WHERE ms.media_id = media.id
+     ) season_stats ON TRUE
+     WHERE media.id = $1${scopeClause}
+     LIMIT 1`,
+    params
+  );
+  return result.rows[0] ? normalizeMediaRecord(result.rows[0]) : null;
+}
+
+async function persistMediaValuation(mediaId, valuation) {
+  const result = await pool.query(
+    `UPDATE media
+     SET estimated_value_low = $2,
+         estimated_value_mid = $3,
+         estimated_value_high = $4,
+         valuation_currency = $5,
+         valuation_source = $6,
+         valuation_last_updated = $7
+     WHERE id = $1
+     RETURNING *`,
+    [
+      mediaId,
+      valuation.low,
+      valuation.mid,
+      valuation.high,
+      valuation.currency,
+      valuation.source,
+      valuation.lastUpdatedAt
+    ]
+  );
+  return normalizeMediaRecord(result.rows[0]);
 }
 
 function validateOwnedFormatsForType(mediaType, ownedFormats = []) {
@@ -3930,6 +3984,161 @@ router.get('/', asyncHandler(async (req, res) => {
       hasMore: pageNum < totalPages
     }
   });
+}));
+
+router.get('/:id', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const mediaId = Number(req.params.id);
+  if (!Number.isFinite(mediaId) || mediaId <= 0) {
+    return res.status(400).json({ error: 'Invalid media id' });
+  }
+  const media = await loadScopedMediaItem(mediaId, scopeContext);
+  if (!media) {
+    return res.status(404).json({ error: 'Media item not found' });
+  }
+  res.json(media);
+}));
+
+router.post('/:id/valuation-refresh', validate(mediaValuationRefreshSchema), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const mediaId = Number(req.params.id);
+  if (!Number.isFinite(mediaId) || mediaId <= 0) {
+    return res.status(400).json({ error: 'Invalid media id' });
+  }
+
+  const media = await loadScopedMediaItem(mediaId, scopeContext);
+  if (!media) {
+    return res.status(404).json({ error: 'Media item not found' });
+  }
+
+  const mode = String(req.body?.mode || 'live').trim().toLowerCase();
+  if (mode === 'fixture' && process.env.NODE_ENV === 'production') {
+    return res.status(403).json({ error: 'Fixture valuation mode is not available in production' });
+  }
+
+  const config = await loadScopedIntegrationConfig(req.user.activeSpaceId);
+  const asyncMode = shouldQueueImportByDefault(req);
+  const auditReq = {
+    user: req.user,
+    headers: req.headers,
+    ip: req.ip,
+    socket: req.socket
+  };
+
+  const runRefresh = async () => {
+    const outcome = await refreshMediaValuation(media, config, { mode, httpClient: axios });
+    let refreshedMedia = media;
+    if (outcome?.matched && outcome?.valuation) {
+      refreshedMedia = await persistMediaValuation(media.id, outcome.valuation);
+    }
+    return {
+      ...outcome,
+      media: refreshedMedia
+    };
+  };
+
+  if (asyncMode) {
+    const provider = mode === 'fixture'
+      ? (config.priceChartingEnabled ? 'pricecharting' : (config.eBayBrowseEnabled ? 'ebay_browse' : 'pricecharting'))
+      : (config.priceChartingEnabled ? 'pricecharting' : (config.eBayBrowseEnabled ? 'ebay_browse' : 'unknown'));
+    const job = await createSyncJob({
+      userId: req.user.id,
+      jobType: 'valuation_refresh',
+      provider,
+      scope: { ...jobScopePayload(scopeContext), mediaId },
+      progress: {
+        total: 1,
+        processed: 0,
+        matched: 0,
+        errorCount: 0
+      }
+    });
+
+    setImmediate(async () => {
+      try {
+        await updateSyncJob(job.id, { status: 'running', started_at: new Date() });
+        const result = await runRefresh();
+        await updateSyncJob(job.id, {
+          status: 'succeeded',
+          progress: {
+            total: 1,
+            processed: 1,
+            matched: result.matched ? 1 : 0,
+            errorCount: 0
+          },
+          summary: {
+            mediaId,
+            matched: Boolean(result.matched),
+            provider: result.provider,
+            liveNetwork: Boolean(result.liveNetwork),
+            fixture: Boolean(result.fixture),
+            valuation: result.valuation || null,
+            lookupPlan: result.lookupPlan || null
+          },
+          finished_at: new Date()
+        });
+        await logActivity(auditReq, 'media.valuation.refresh', 'media', mediaId, {
+          title: media.title || null,
+          provider: result.provider || null,
+          matched: Boolean(result.matched),
+          liveNetwork: Boolean(result.liveNetwork),
+          fixture: Boolean(result.fixture),
+          mode,
+          jobId: job.id
+        });
+      } catch (error) {
+        await updateSyncJob(job.id, {
+          status: 'failed',
+          error: error.message || 'Valuation refresh failed',
+          finished_at: new Date(),
+          progress: {
+            total: 1,
+            processed: 1,
+            matched: 0,
+            errorCount: 1
+          }
+        });
+        await logActivity(auditReq, 'media.valuation.refresh.failed', 'media', mediaId, {
+          title: media.title || null,
+          detail: error.message || 'Valuation refresh failed',
+          mode,
+          jobId: job.id
+        });
+      }
+    });
+
+    return res.status(202).json(buildQueuedJobResponse(job, provider));
+  }
+
+  try {
+    const result = await runRefresh();
+    await logActivity(req, 'media.valuation.refresh', 'media', mediaId, {
+      title: media.title || null,
+      provider: result.provider || null,
+      matched: Boolean(result.matched),
+      liveNetwork: Boolean(result.liveNetwork),
+      fixture: Boolean(result.fixture),
+      mode
+    });
+    return res.json({
+      ok: true,
+      queued: false,
+      provider: result.provider,
+      matched: Boolean(result.matched),
+      liveNetwork: Boolean(result.liveNetwork),
+      fixture: Boolean(result.fixture),
+      valuation: result.valuation || null,
+      media: result.media,
+      lookupPlan: result.lookupPlan || null
+    });
+  } catch (error) {
+    await logActivity(req, 'media.valuation.refresh.failed', 'media', mediaId, {
+      title: media.title || null,
+      detail: error.message || 'Valuation refresh failed',
+      mode
+    });
+    return res.status(502).json({ error: error.message || 'Valuation refresh failed' });
+  }
 }));
 
 router.get('/:id/variants', asyncHandler(async (req, res) => {

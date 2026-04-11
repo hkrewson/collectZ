@@ -131,6 +131,7 @@ export default function DashboardContent({
           error={mediaError}
           pagination={mediaPagination}
           onRefresh={loadMedia}
+          onToast={showToast}
           onOpen={addMedia}
           onEdit={editMedia}
           onDelete={deleteMedia}

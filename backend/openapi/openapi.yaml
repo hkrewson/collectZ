@@ -994,7 +994,13 @@
                 "library_id": { "type": ["integer", "null"] },
                 "tmdb_id": { "type": ["integer", "null"] },
                 "tmdb_media_type": { "type": ["string", "null"] },
-                "poster_path": { "type": ["string", "null"] }
+                "poster_path": { "type": ["string", "null"] },
+                "estimated_value_low": { "type": ["number", "null"] },
+                "estimated_value_mid": { "type": ["number", "null"] },
+                "estimated_value_high": { "type": ["number", "null"] },
+                "valuation_currency": { "type": ["string", "null"] },
+                "valuation_source": { "type": ["string", "null"] },
+                "valuation_last_updated": { "type": ["string", "null"], "format": "date-time" }
               },
               "required": ["id", "title", "media_type"]
             }
@@ -1012,6 +1018,58 @@
           }
         },
         "required": ["items", "pagination"]
+      },
+      "MediaDetailResponse": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "ValuationRefreshRequest": {
+        "type": "object",
+        "properties": {
+          "async": { "type": "boolean" },
+          "sync": { "type": "boolean" },
+          "mode": { "type": "string", "enum": ["live", "fixture"] }
+        }
+      },
+      "ValuationRefreshResponse": {
+        "type": "object",
+        "properties": {
+          "ok": { "type": "boolean" },
+          "queued": { "type": "boolean" },
+          "provider": { "type": ["string", "null"] },
+          "matched": { "type": "boolean" },
+          "liveNetwork": { "type": "boolean" },
+          "fixture": { "type": "boolean" },
+          "valuation": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "low": { "type": ["number", "null"] },
+                  "mid": { "type": ["number", "null"] },
+                  "high": { "type": ["number", "null"] },
+                  "currency": { "type": ["string", "null"] },
+                  "source": { "type": ["string", "null"] },
+                  "lastUpdatedAt": { "type": ["string", "null"], "format": "date-time" }
+                }
+              },
+              { "type": "null" }
+            ]
+          },
+          "media": {
+            "oneOf": [
+              { "$ref": "#/components/schemas/MediaDetailResponse" },
+              { "type": "null" }
+            ]
+          },
+          "lookupPlan": {
+            "oneOf": [
+              { "type": "object", "additionalProperties": true },
+              { "type": "null" }
+            ]
+          }
+        },
+        "required": ["ok", "queued", "provider", "matched", "liveNetwork", "fixture"]
       },
       "SyncJobResponse": {
         "type": "object",
@@ -3672,6 +3730,110 @@
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/MediaListResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/media/{id}": {
+      "get": {
+        "tags": ["Media"],
+        "summary": "Read a single media record in the active scope",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Media detail",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/MediaDetailResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "Media item not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/media/{id}/valuation-refresh": {
+      "post": {
+        "tags": ["Media"],
+        "summary": "Refresh a media item's valuation from the configured provider",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ValuationRefreshRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Valuation refresh completed synchronously",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ValuationRefreshResponse" }
+              }
+            }
+          },
+          "202": {
+            "description": "Valuation refresh queued",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/QueuedJobResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation or configuration error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "404": {
+            "description": "Media item not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "502": {
+            "description": "Provider execution failed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
               }
             }
           }

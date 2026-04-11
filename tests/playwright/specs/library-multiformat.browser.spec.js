@@ -73,6 +73,51 @@ test.describe('library multi-format browser regressions', () => {
     }
   });
 
+  test('media detail renders valuation data after a fixture-backed valuation refresh', async ({ page }) => {
+    const credentials = await createFreshUserCredentials();
+    const requestContext = await createAuthenticatedRequestContext(credentials);
+    const title = `Playwright Valuation ${Date.now()}`;
+
+    await deleteMediaByExactTitle(requestContext, title).catch(() => {});
+
+    try {
+      const createResponse = await postWithCsrf(requestContext, '/api/media', {
+        title,
+        media_type: 'game',
+        owned_formats: ['digital']
+      }, 201);
+      const created = await createResponse.json();
+
+      const refreshResponse = await postWithCsrf(requestContext, `/api/media/${created.id}/valuation-refresh`, {
+        async: false,
+        mode: 'fixture'
+      }, 200);
+      const refreshPayload = await refreshResponse.json();
+      expect(refreshPayload.matched).toBeTruthy();
+      expect(refreshPayload.valuation?.mid).toBeGreaterThan(0);
+
+      const storageState = await requestContext.storageState();
+      await page.context().addCookies(storageState.cookies || []);
+      await page.goto('/dashboard?tab=library-games');
+
+      const searchInput = page.getByPlaceholder('Search title, director…');
+      await searchInput.fill(title);
+      const resultCard = page.locator('article').filter({
+        has: page.getByText(title, { exact: true })
+      }).first();
+      await expect(resultCard).toBeVisible();
+      await resultCard.click();
+
+      await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
+      await expect(page.getByText('Valuation', { exact: true })).toBeVisible();
+      await expect(page.getByText('Value (mid)', { exact: true })).toBeVisible();
+      await expect(page.getByText('PriceCharting (fixture)', { exact: true })).toBeVisible();
+    } finally {
+      await deleteMediaByExactTitle(requestContext, title).catch(() => {});
+      await requestContext.dispose();
+    }
+  });
+
   test('end user can create and edit a movie with multiple owned formats', async ({ page }) => {
     const credentials = await createFreshUserCredentials();
     const requestContext = await createAuthenticatedRequestContext(credentials);

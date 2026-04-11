@@ -230,6 +230,12 @@ const mediaUpdateSchema = mediaBaseSchema.partial().superRefine((data, ctx) => {
   }
 });
 
+const mediaValuationRefreshSchema = z.object({
+  async: z.boolean().optional(),
+  sync: z.boolean().optional(),
+  mode: z.enum(['live', 'fixture']).optional()
+});
+
 // ── Profile ───────────────────────────────────────────────────────────────────
 
 const profileUpdateSchema = z.object({
@@ -625,6 +631,7 @@ module.exports = {
   upcLookupSchema,
   mediaCreateSchema,
   mediaUpdateSchema,
+  mediaValuationRefreshSchema,
   profileUpdateSchema,
   passwordResetConsumeSchema,
   roleUpdateSchema,

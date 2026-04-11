@@ -30,7 +30,9 @@ const {
 const {
   MIN_PRICECHARTING_INTERVAL_MS,
   buildPriceChartingRateLimitPolicy,
-  buildValuationLookupInput
+  buildValuationLookupInput,
+  buildFixtureValuationResult,
+  extractPriceChartingValuation
 } = require('../services/valuations');
 process.env.INTEGRATION_ENCRYPTION_KEY = process.env.INTEGRATION_ENCRYPTION_KEY || 'unit-test-integration-key';
 const { buildIntegrationResponse } = require('../services/integrationResponse');
@@ -259,6 +261,12 @@ results.push(run('media routes expose explicit owned_formats import parsing for 
   assert.ok(mediaRoutesSource.includes('owned_formats,format'));
 }));
 
+results.push(run('media route source includes valuation refresh + media detail endpoints', () => {
+  assert.ok(mediaRoutesSource.includes("router.get('/:id'"));
+  assert.ok(mediaRoutesSource.includes("router.post('/:id/valuation-refresh'"));
+  assert.ok(mediaRoutesSource.includes("jobType: 'valuation_refresh'"));
+}));
+
 results.push(run('media format filter matches any owned format instead of only derived primary format', () => {
   assert.ok(mediaRoutesSource.includes('function normalizeOwnedFormatFilterValue('));
   assert.ok(mediaRoutesSource.includes('owned_formats @> ARRAY['));
@@ -267,8 +275,45 @@ results.push(run('media format filter matches any owned format instead of only d
 results.push(run('playwright multi-format regressions cover create, edit, and import paths', () => {
   assert.ok(libraryMultiFormatBrowserSpecSource.includes("owned_formats).toEqual(['dvd', 'bluray', 'digital'])"));
   assert.ok(libraryMultiFormatBrowserSpecSource.includes("owned_formats).toEqual(['dvd', 'uhd', 'digital'])"));
+  assert.ok(libraryMultiFormatBrowserSpecSource.includes("mode: 'fixture'"));
+  assert.ok(libraryMultiFormatBrowserSpecSource.includes("PriceCharting (fixture)"));
   assert.ok(importBrowserSpecSource.includes("getByRole('tab', { name: 'Barcode', exact: true })).toHaveCount(0)"));
   assert.ok(importCsvBrowserSpecSource.includes("owned_formats).toEqual(['dvd', 'bluray', 'digital'])"));
+}));
+
+results.push(run('valuations.buildFixtureValuationResult returns deterministic normalized ranges', () => {
+  const first = buildFixtureValuationResult({ id: 7, title: 'Chrono Trigger', media_type: 'game', year: 1995 }, 'pricecharting');
+  const second = buildFixtureValuationResult({ id: 7, title: 'Chrono Trigger', media_type: 'game', year: 1995 }, 'pricecharting');
+  assert.strictEqual(first.provider, 'pricecharting');
+  assert.strictEqual(first.fixture, true);
+  assert.strictEqual(first.liveNetwork, false);
+  assert.deepStrictEqual(
+    { ...first.valuation, lastUpdatedAt: null },
+    { ...second.valuation, lastUpdatedAt: null }
+  );
+  assert.ok(/\d{4}-\d{2}-\d{2}T/.test(String(first.valuation.lastUpdatedAt || '')));
+  assert.ok(first.valuation.mid >= first.valuation.low);
+  assert.ok(first.valuation.high >= first.valuation.mid);
+}));
+
+results.push(run('valuations.extractPriceChartingValuation normalizes cents-style payloads into USD fields', () => {
+  const extracted = extractPriceChartingValuation({
+    id: 123,
+    'product-name': 'Chrono Trigger',
+    'loose-price': 2599,
+    'cib-price': 7499,
+    'new-price': 18999
+  });
+  assert.deepStrictEqual(extracted, {
+    low: 25.99,
+    mid: 74.99,
+    high: 189.99,
+    currency: 'USD',
+    source: 'PriceCharting',
+    productId: 123,
+    productName: 'Chrono Trigger',
+    consoleName: null
+  });
 }));
 
 results.push(run('releaseNotes.parseReleaseMarkdown extracts summary and change sections for help center feed', () => {

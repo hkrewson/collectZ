@@ -406,7 +406,7 @@ function MediaListRow({ item, onOpen, onEdit, onDelete, onRating, supportsHover,
   );
 }
 
-function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall }) {
+function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onValuationUpdated, onToast }) {
   const [variants, setVariants] = useState([]);
   const [variantLoading, setVariantLoading] = useState(false);
   const [, setSeasonDrafts] = useState({});
@@ -414,6 +414,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall }) {
   const [openSeason, setOpenSeason] = useState(null);
   const [seasonDetailLoading, setSeasonDetailLoading] = useState({});
   const [seasonDetails, setSeasonDetails] = useState({});
+  const [valuationRefreshing, setValuationRefreshing] = useState(false);
   const typeDetails = item?.type_details && typeof item.type_details === 'object' ? item.type_details : {};
   const calibreExternalUrl = String(typeDetails.calibre_external_url || '').trim();
   const providerExternalUrl = String(typeDetails.provider_external_url || '').trim();
@@ -441,6 +442,41 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall }) {
     ['Valuation source', item.valuation_source],
     ['Valuation updated', item.valuation_last_updated ? new Date(item.valuation_last_updated).toLocaleString() : null]
   ].filter(([, value]) => value);
+
+  const refreshValuation = async () => {
+    if (!item?.id || valuationRefreshing) return;
+    setValuationRefreshing(true);
+    try {
+      const payload = await apiCall('post', `/media/${item.id}/valuation-refresh`, {});
+      if (payload?.queued && payload?.job_id) {
+        const startedAt = Date.now();
+        let finalJob = null;
+        while (Date.now() - startedAt < 30000) {
+          // eslint-disable-next-line no-await-in-loop
+          const job = await apiCall('get', `/media/sync-jobs/${payload.job_id}`);
+          const status = String(job?.status || '').toLowerCase();
+          if (status === 'succeeded') {
+            finalJob = job;
+            break;
+          }
+          if (status === 'failed') {
+            throw new Error(job?.error || 'Valuation refresh failed');
+          }
+          // eslint-disable-next-line no-await-in-loop
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+        if (!finalJob) {
+          throw new Error('Timed out waiting for valuation refresh');
+        }
+      }
+      await onValuationUpdated?.(item.id);
+      onToast?.('Valuation refreshed');
+    } catch (error) {
+      onToast?.(error?.response?.data?.error || error?.message || 'Valuation refresh failed', 'error');
+    } finally {
+      setValuationRefreshing(false);
+    }
+  };
 
   const markSeasonWatched = async (seasonNumber) => {
     if (!item?.id || !Number.isInteger(Number(seasonNumber))) return;
@@ -603,12 +639,40 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall }) {
 
           {valuationRows.length > 0 && (
             <div>
-              <p className="label mb-2">Valuation</p>
+              <div className="mb-2 flex items-center gap-3">
+                <p className="label">Valuation</p>
+                <button
+                  type="button"
+                  className="btn-secondary btn-sm"
+                  onClick={refreshValuation}
+                  disabled={valuationRefreshing}
+                >
+                  {valuationRefreshing ? <Spinner size={14} /> : <Icons.Refresh />}
+                  Refresh valuation
+                </button>
+              </div>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 {valuationRows.map(([k, v]) => (
                   <div key={k}><p className="label">{k}</p><p className="text-ink">{v}</p></div>
                 ))}
               </div>
+            </div>
+          )}
+          {valuationRows.length === 0 && (
+            <div>
+              <div className="mb-2 flex items-center gap-3">
+                <p className="label">Valuation</p>
+                <button
+                  type="button"
+                  className="btn-secondary btn-sm"
+                  onClick={refreshValuation}
+                  disabled={valuationRefreshing}
+                >
+                  {valuationRefreshing ? <Spinner size={14} /> : <Icons.Refresh />}
+                  Refresh valuation
+                </button>
+              </div>
+              <p className="text-sm text-ghost">No valuation data yet.</p>
             </div>
           )}
 
@@ -2495,6 +2559,7 @@ export default function LibraryView({
   error,
   pagination,
   onRefresh,
+  onToast,
   onOpen,
   onEdit,
   onDelete,
@@ -2699,6 +2764,13 @@ export default function LibraryView({
     await onRating(id, rating);
     setDetail((d) => (d && d.id === id ? { ...d, user_rating: rating } : d));
   };
+
+  const refreshDetailItem = useCallback(async (mediaId) => {
+    const fresh = await apiCall('get', `/media/${mediaId}`);
+    setDetail((current) => (current && Number(current.id) === Number(mediaId) ? fresh : current));
+    onRefresh({ page: requestPage, limit: requestLimit, ...filters });
+    return fresh;
+  }, [apiCall, filters, onRefresh, requestLimit, requestPage]);
 
   const displayedTotal = isCollectionMode
     ? (collectionPagination?.total ?? collectionRows.length)
@@ -3247,6 +3319,8 @@ export default function LibraryView({
           onDelete={(id) => { onDelete(id); setDetail(null); }}
           onRating={rate}
           apiCall={apiCall}
+          onValuationUpdated={refreshDetailItem}
+          onToast={onToast}
         />
       )}
       {viewingCollectionId && (
