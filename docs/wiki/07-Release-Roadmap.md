@@ -1093,9 +1093,12 @@ Historical planning notes may still exist in:
 50. `2.10.12` Shared form label normalization
 51. `2.10.13` Shared UI language consolidation
 52. `2.10.14` Space-scoped parity for settings, integrations, and activity
-53. `2.11.0` Optional market valuation integrations
-54. `2.12.0` Optional build: cost model and billing readiness
-55. `3.0.0` Frontend build modernization (CRA to Vite)
+53. `2.10.15` Platform SMTP and email delivery foundation
+54. `2.10.16` SaaS self-registration and password recovery
+55. `2.10.17` Workspace invite and member lifecycle controls
+56. `2.11.0` Optional market valuation integrations
+57. `2.12.0` Optional build: cost model and billing readiness
+58. `3.0.0` Frontend build modernization (CRA to Vite)
 
 ## 2.1.0 — Metadata Normalization and Query Performance
 
@@ -1981,9 +1984,9 @@ Historical note:
   - admin bootstrap and shell load,
   - end-user Help Center support interactions,
   - Help Admin support workspace interactions,
-  - approved support-request session start/end, support-library switching, and temporary `My Space` access for support admins,
+  - approved support-request session start/end, support-library switching, and temporary `Workspace` access for support admins,
   - support-session start/end banner behavior,
-  - `All Spaces` drawer tab switching,
+  - `All Workspaces` drawer tab switching,
   - Integrations tab switching and save feedback,
   - docs surface availability behavior when authenticated admin + debug gating are satisfied.
 - Keep the current backend/API/release gates in place; Playwright complements them rather than replacing them.
@@ -2059,7 +2062,7 @@ Historical note:
   - define a `homelab` shell that excludes tenancy/global-management UI rather than merely hiding buttons late in the render tree,
   - define the homelab Help surface as a shared `Help` experience that exposes `Guidance` and `Releases` for all users,
   - do not mount `Metrics` or `Support` Help sections in `homelab` for either normal users or admins,
-  - do not expose homelab shell routes or nav affordances for `All Spaces`, `All Members`, `Activity`, or `My Space`.
+  - do not expose homelab shell routes or nav affordances for `All Workspaces`, `All Members`, `Activity`, or `Workspace`.
 - Backend route-mounting boundary:
   - separate shared/common routes from platform-only route groups,
   - do not mount platform-only APIs in `homelab`,
@@ -2526,9 +2529,9 @@ Historical note:
   - `Integrations`,
   - `Profile`,
   - `Activity`,
-  - `All Spaces`,
+  - `All Workspaces`,
   - `Members`,
-  - `Space Controls`,
+  - `Workspace Controls`,
   - and `Member Details`.
 - Reduce view-specific styling stacks where the styling is expressing shared product language rather than page-specific composition.
 - Keep page-specific composition and copy local to the views instead of over-abstracting unlike surfaces into forced primitives.
@@ -2572,6 +2575,96 @@ Historical note:
 - Space owners can access and manage space-scoped Integrations for the supported free-token integrations, excluding logs and metrics.
 - Space owners and members can access a space-scoped Activity surface that reflects only their own space activity.
 - The resulting behavior matches the product promise of server-side space separation rather than leaving these surfaces as global-only control-plane gaps.
+
+## 2.10.15 — Platform SMTP and Email Delivery Foundation
+
+**Goal:** establish a real platform-owned email delivery model for invites, password resets, and future SaaS auth flows so email-backed lifecycle actions stop depending on ad hoc copy-link-only operator behavior.
+
+### Scope
+
+- Define and implement the platform SMTP ownership model explicitly:
+  - SMTP is platform-level infrastructure, not workspace-owned infrastructure,
+  - runtime `.env` values remain the bootstrap/default source of truth for deployment,
+  - the app may expose a platform settings surface for viewing/editing SMTP configuration only where secrets can be handled safely and intentionally.
+- Keep the first delivery model intentionally simple and supportable:
+  - one platform SMTP configuration serves invite delivery, password resets, self-registration mail, and future admin-issued account lifecycle email,
+  - do not add per-workspace SMTP servers in this milestone,
+  - defer workspace-branded sender customization or richer branding overrides to a later milestone.
+- Add the platform settings/admin UX needed to make SMTP operationally usable:
+  - show whether SMTP is configured and available,
+  - allow operators to understand whether the platform will send email or require copy-link fallback,
+  - define whether in-app editing persists platform overrides or remains env-backed read-only configuration in the first slice.
+- Keep secrets and operator safety explicit:
+  - SMTP credentials must never be echoed back in plaintext,
+  - any settings/API surface must return masked/redacted values,
+  - operator docs must explain env-backed bootstrap, override behavior, and safe recovery/update workflow.
+- Complete this foundation before `2.10.16` and `2.10.17` so registration, password recovery, and workspace invite/member lifecycle work all build on the same delivery model rather than each inventing partial mail handling.
+
+### Acceptance Criteria
+
+- The platform has one documented and implemented SMTP delivery model that is clearly platform-owned rather than workspace-owned.
+- Platform operators can tell whether email delivery is available without exposing SMTP secrets.
+- Invites and password-reset-style workflows have a stable platform email path to build on, with copy-link fallback only where explicitly intended.
+- Docs explain the relationship between `.env` bootstrap values, any in-app settings surface, and masked secret handling clearly enough for operators to configure and troubleshoot delivery.
+
+## 2.10.16 — SaaS Self-Registration and Password Recovery
+
+**Goal:** add normal SaaS account-entry flows so the platform can support self-registration and email-based password recovery without requiring invite-only registration for every account.
+
+### Scope
+
+- Add SaaS self-registration as a first-class platform capability:
+  - invite-only registration is no longer the only account-creation path for the SaaS product,
+  - invite flows remain available where workspace or operator workflows require them,
+  - registration availability should remain explicit and configurable rather than implied by stale auth copy.
+- Add the standard auth-screen password recovery flow:
+  - request reset by email from the auth surface,
+  - send reset email through the platform SMTP model from `2.10.15`,
+  - complete password reset through a normal emailed token flow.
+- Keep account lifecycle and token handling aligned with the existing security direction:
+  - reset tokens remain one-time and non-replayable,
+  - raw token material is not exposed beyond intentional one-time creation moments where policy still allows it,
+  - activity/audit coverage should capture reset request, delivery, claim, and invalidation states where relevant.
+- Keep this milestone focused on public auth/account entry:
+  - do not absorb workspace member lifecycle controls here,
+  - do not absorb per-workspace branding or custom SMTP behavior here.
+
+### Acceptance Criteria
+
+- SaaS users can self-register without requiring an invite-only path.
+- The auth screen exposes a standard password-reset request flow that sends email through the platform SMTP model.
+- Reset completion works through an emailed link/token flow with safe one-time semantics.
+- Invite-based onboarding remains available where the platform still needs it, without forcing all registration through invites.
+
+## 2.10.17 — Workspace Invite and Member Lifecycle Controls
+
+**Goal:** give workspace owners/admins a complete email-first member lifecycle workflow so they can onboard and manage workspace users without relying on platform-only operator intervention.
+
+### Scope
+
+- Add workspace invite-by-email as the normal tenant onboarding path:
+  - workspace owners/admins can invite a user by email,
+  - the email sends a setup link that lands the user in the intended workspace context,
+  - invite claim/setup must preserve the intended workspace role after claim.
+- Finish the create-workspace onboarding gap left by earlier invite work:
+  - allow workspace creation to designate a brand-new invited user as the initial owner instead of requiring an already-active existing account for owner assignment,
+  - preserve clear “first assigned owner” semantics at claim time,
+  - keep the workflow usable when SMTP is unavailable by preserving explicit copy-link fallback where intended.
+- Add workspace-scoped member lifecycle controls:
+  - workspace owners/admins can force a password reset for a user,
+  - workspace owners/admins can suspend a user,
+  - workspace owners/admins can delete/remove a user from the workspace according to the intended tenancy policy.
+- Keep authority boundaries explicit:
+  - workspace-scoped lifecycle controls apply within the workspace model and must not silently become platform-global user administration,
+  - global/platform admin authority remains distinct from normal workspace ownership,
+  - all invite/member lifecycle actions should remain auditable.
+
+### Acceptance Criteria
+
+- Workspace owners/admins can invite users by email into their workspace with setup-link delivery.
+- Workspace creation can assign a brand-new invited owner instead of requiring an existing active account as the initial owner.
+- Workspace owners/admins can force password reset, suspend, and delete/remove users through workspace-scoped controls.
+- Invite claim and member lifecycle behavior remain aligned with the workspace ownership model rather than leaking into unrelated spaces or platform-global state.
 
 ## 3.0.0 — Frontend Build Modernization (CRA to Vite)
 

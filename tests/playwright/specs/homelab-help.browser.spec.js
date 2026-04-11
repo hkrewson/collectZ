@@ -49,10 +49,10 @@ test.describe('homelab help edition regressions', () => {
       await expect(page.getByRole('button', { name: 'Help', exact: true }).first()).toBeVisible();
       await expect(page.getByRole('button', { name: 'Help Admin', exact: true })).toHaveCount(0);
       await expect(page.getByRole('button', { name: 'Global', exact: true })).toHaveCount(0);
-      await expect(page.getByRole('button', { name: 'All Spaces', exact: true })).toHaveCount(0);
+      await expect(page.getByRole('button', { name: 'All Workspaces', exact: true })).toHaveCount(0);
       await expect(page.getByRole('button', { name: 'All Members', exact: true })).toHaveCount(0);
       await expect(page.getByRole('button', { name: 'Activity', exact: true })).toHaveCount(0);
-      await expect(page.getByRole('button', { name: 'My Space', exact: true })).toHaveCount(0);
+      await expect(page.getByRole('button', { name: 'Workspace', exact: true })).toHaveCount(0);
       await expect(page.getByRole('button', { name: 'Settings', exact: true })).toBeVisible();
       await expect(page.getByRole('button', { name: 'Integrations', exact: true })).toBeVisible();
       await openHelpSurface(page, 'Help');

@@ -179,7 +179,7 @@ export default function DashboardContent({
       return <ProfileViewComponent user={user} apiCall={apiCall} onToast={showToast} Spinner={Spinner} />;
     case 'space-manage':
       if (!activeMembershipRole && !canManageActiveSpace) {
-        return <ForbiddenView detail="An active space membership or approved support session is required to open this space surface." />;
+        return <ForbiddenView detail="An active workspace membership or approved support session is required to open this workspace surface." />;
       }
       return (
         <SpaceManagerView
@@ -219,7 +219,21 @@ export default function DashboardContent({
     case 'admin-activity':
       return <AdminActivityView apiCall={apiCall} Spinner={Spinner} />;
     case 'admin-settings':
-      return <AdminSettingsView apiCall={apiCall} onToast={showToast} onSettingsChange={setUiSettings} Spinner={Spinner} />;
+      return (
+        <AdminSettingsView
+          apiCall={apiCall}
+          onToast={showToast}
+          onSettingsChange={setUiSettings}
+          Spinner={Spinner}
+          title={productEdition === 'homelab' ? 'Settings' : 'Platform Settings'}
+          description={productEdition === 'homelab' ? null : 'Set platform-wide branding defaults for the server shell. Individual workspaces can override these choices where workspace settings are available.'}
+          themeLabel={productEdition === 'homelab' ? 'Theme' : 'Default Theme'}
+          themeDescription={productEdition === 'homelab' ? 'Choose whether collectZ follows your system appearance or stays fixed to a light or dark theme.' : 'Choose the default theme for the platform shell. Workspaces can override this in their own settings.'}
+          visibleFlagKeys={productEdition === 'homelab' ? undefined : []}
+          emptyFeatureFlagsMessage={null}
+          emailDeliveryEndpoint={productEdition === 'homelab' ? null : '/admin/settings/email-delivery'}
+        />
+      );
     case 'admin-flags':
       return <AdminSettingsView apiCall={apiCall} onToast={showToast} onSettingsChange={setUiSettings} Spinner={Spinner} />;
     case 'admin-integrations':
@@ -232,6 +246,8 @@ export default function DashboardContent({
           cx={cx}
           section={activeIntegrationSection}
           onSectionChange={setActiveIntegrationSection}
+          title={productEdition === 'homelab' ? 'Integrations' : 'Platform Integrations'}
+          visibleSections={productEdition === 'homelab' ? null : ['logs', 'metrics']}
         />
       );
     default:

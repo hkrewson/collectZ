@@ -670,9 +670,8 @@ results.push(run('repo includes 2.9.4 Playwright browser regression foundation h
   assert.ok(helpAdminSupportBrowserSpecSource.includes('Help Admin'));
   assert.ok(helpAdminSupportBrowserSpecSource.includes('Close Case'));
   assert.ok(approvedSupportSessionBrowserSpecSource.includes('Start Approved Support Session'));
-  assert.ok(approvedSupportSessionBrowserSpecSource.includes('My Space'));
-  assert.ok(integrationsBrowserSpecSource.includes("saveSection(page, 'BARCODE')"));
-  assert.ok(integrationsBrowserSpecSource.includes("saveSection(page, 'GAMES')"));
+  assert.ok(approvedSupportSessionBrowserSpecSource.includes('Workspace'));
+  assert.ok(integrationsBrowserSpecSource.includes("saveSection(page, 'LOGS')"));
   assert.ok(integrationsBrowserSpecSource.includes("getByRole('tablist', { name: 'Integration sections' })"));
   assert.ok(integrationsBrowserSpecSource.includes('Metrics Export'));
   assert.ok(importBrowserSpecSource.includes('/dashboard?tab=library-import'));
@@ -685,7 +684,7 @@ results.push(run('repo includes 2.9.4 Playwright browser regression foundation h
   assert.ok(importCsvBrowserSpecSource.includes('waitForSyncJob('));
   assert.ok(importCsvBrowserSpecSource.includes('/dashboard?tab=library-movies'));
   assert.ok(boundaryBrowserSpecSource.includes('support_admin'));
-  assert.ok(boundaryBrowserSpecSource.includes('/dashboard?tab=admin-integrations&integration=barcode'));
+  assert.ok(boundaryBrowserSpecSource.includes('/dashboard?tab=admin-integrations&integration=logs'));
   assert.ok(boundaryBrowserSpecSource.includes("toHaveURL(/tab=help/)"));
   assert.ok(boundaryBrowserSpecSource.includes('/dashboard?tab=admin-spaces'));
   assert.ok(eventsCollectiblesBrowserSpecSource.includes('/dashboard?tab=library-movies'));
@@ -702,10 +701,11 @@ results.push(run('repo includes 2.9.4 Playwright browser regression foundation h
   assert.ok(!frontendDockerfileSource.includes('@playwright/test'));
 }));
 
-results.push(run('integrations route source keeps admin integration save query aligned with full column set', () => {
-  assert.ok(integrationsRoutesSource.includes('cwa_timeout_ms'));
-  assert.ok(integrationsRoutesSource.includes('$48,$49,$50,$51,$52'));
-  assert.ok(integrationsRoutesSource.includes('$14,$15,$16,$17,$18,$19,$20::jsonb'));
+results.push(run('integrations route source narrows platform integration persistence to logs and metrics', () => {
+  assert.ok(integrationsRoutesSource.includes('async function buildPlatformIntegrationPayload'));
+  assert.ok(integrationsRoutesSource.includes('log_export_backend = EXCLUDED.log_export_backend'));
+  assert.ok(integrationsRoutesSource.includes('log_export_host = EXCLUDED.log_export_host'));
+  assert.ok(!integrationsRoutesSource.includes('cwa_timeout_ms'));
 }));
 
 results.push(run('media route source hardens image upload handlers', () => {
@@ -1763,8 +1763,8 @@ results.push(run('admin users view stays platform-only without invitation manage
   assert.ok(adminUsersViewSource.includes('Platform-level member administration.'));
   assert.ok(!adminUsersViewSource.includes("activeTab === 'invitations'"));
   assert.ok(!adminUsersViewSource.includes("/admin/invites"));
-  assert.ok(adminUsersViewSource.includes('Space memberships'));
-  assert.ok(adminUsersViewSource.includes('Owned spaces'));
+  assert.ok(adminUsersViewSource.includes('workspace memberships'));
+  assert.ok(adminUsersViewSource.includes('Owned workspaces'));
 }));
 
 results.push(run('phase5 smoke scripts avoid tenant admin invite bootstrapping and cover platform boundary checks', () => {

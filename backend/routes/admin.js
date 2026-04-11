@@ -6,6 +6,8 @@ const {
   validate,
   roleUpdateSchema,
   generalSettingsSchema,
+  emailDeliverySettingsSchema,
+  emailDeliveryTestSchema,
   spaceCreateSchema,
   adminSpaceCreateWithOnboardingSchema,
   spaceMembershipCreateSchema,
@@ -17,7 +19,7 @@ const { logActivity } = require('../services/audit');
 const { loadGeneralSettings } = require('../services/integrations');
 const { listFeatureFlags, getFeatureFlag, updateFeatureFlag, FEATURE_FLAGS_READ_ONLY } = require('../services/featureFlags');
 const { enforceScopeAccess } = require('../middleware/scopeAccess');
-const { sendInviteEmail, sendPasswordResetEmail } = require('../services/email');
+const { sendInviteEmail, sendPasswordResetEmail, sendTestEmail, getSmtpStatus, updateSmtpSettings } = require('../services/email');
 const crypto = require('crypto');
 const { getRequestOrigin } = require('../services/requestOrigin');
 const { syncLibraryMembershipsForSpaceUser } = require('../services/libraries');
@@ -46,6 +48,58 @@ commonRouter.put('/settings/general', validate(generalSettingsSchema), asyncHand
   );
   await logActivity(req, 'admin.settings.general.update', 'app_settings', 1, { theme, density });
   res.json(result.rows[0]);
+}));
+
+commonRouter.get('/settings/email-delivery', asyncHandler(async (_req, res) => {
+  res.json({
+    smtp: await getSmtpStatus()
+  });
+}));
+
+commonRouter.put('/settings/email-delivery', validate(emailDeliverySettingsSchema), asyncHandler(async (req, res) => {
+  const mode = String(req.body.mode || 'env').trim().toLowerCase();
+  const updated = await updateSmtpSettings({
+    mode,
+    host: req.body.host,
+    port: req.body.port,
+    secure: req.body.secure,
+    user: req.body.user,
+    password: req.body.keep_existing_password ? '__KEEP_EXISTING__' : req.body.password,
+    from: req.body.from
+  });
+  await logActivity(req, 'admin.settings.email_delivery.update', 'app_settings', 1, {
+    mode,
+    host: updated.host || null,
+    port: updated.port || null,
+    secure: Boolean(updated.secure),
+    authConfigured: Boolean(updated.user),
+    from: updated.from || null
+  });
+  res.json({
+    smtp: await getSmtpStatus()
+  });
+}));
+
+commonRouter.post('/settings/email-delivery/test', validate(emailDeliveryTestSchema), asyncHandler(async (req, res) => {
+  const targetEmail = String(req.body.email || req.user.email || '').trim().toLowerCase();
+  if (!targetEmail) {
+    return res.status(400).json({ error: 'A target email address is required' });
+  }
+  const delivery = await sendTestEmail({
+    to: targetEmail,
+    requestedByName: req.user.name || '',
+    requestedByEmail: req.user.email || ''
+  });
+  await logActivity(req, delivery.sent ? 'admin.settings.email_delivery.test' : 'admin.settings.email_delivery.test.failed', 'app_settings', 1, {
+    targetEmail,
+    sent: Boolean(delivery.sent),
+    reason: delivery.reason || null,
+    messageId: delivery.messageId || null
+  });
+  res.json({
+    email: targetEmail,
+    delivery
+  });
 }));
 
 // ── Feature flags ─────────────────────────────────────────────────────────────
@@ -1005,7 +1059,16 @@ platformRouter.get('/activity', asyncHandler(async (req, res) => {
   const offsetRaw = Number(req.query.offset || 0);
   const offset = Number.isFinite(offsetRaw) ? Math.max(0, offsetRaw) : 0;
 
-  const conditions = [];
+  const conditions = [`
+    (
+      al.action LIKE 'admin.%'
+      OR al.action LIKE 'support.%'
+      OR al.action LIKE 'auth.%'
+      OR al.action LIKE 'security.%'
+      OR al.action LIKE 'scope.access.%'
+      OR al.action IN ('invite.claimed', 'request.validation.failed')
+    )
+  `];
   const params = [];
 
   if (req.query.action) {

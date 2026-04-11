@@ -2683,6 +2683,20 @@ const MIGRATIONS = [
       END;
       $$;
     `
+  },
+  {
+    version: 61,
+    description: 'Add platform SMTP settings overrides',
+    up: `
+      ALTER TABLE app_settings
+        ADD COLUMN IF NOT EXISTS smtp_override_enabled BOOLEAN DEFAULT false,
+        ADD COLUMN IF NOT EXISTS smtp_host TEXT,
+        ADD COLUMN IF NOT EXISTS smtp_port INTEGER,
+        ADD COLUMN IF NOT EXISTS smtp_secure BOOLEAN,
+        ADD COLUMN IF NOT EXISTS smtp_user TEXT,
+        ADD COLUMN IF NOT EXISTS smtp_password_encrypted TEXT,
+        ADD COLUMN IF NOT EXISTS smtp_from TEXT;
+    `
   }
 ];
 

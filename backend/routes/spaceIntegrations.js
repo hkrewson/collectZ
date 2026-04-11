@@ -370,7 +370,7 @@ router.put('/spaces/:spaceId/integrations', authenticateToken, requireSessionAut
     if (!space) return res.status(404).json({ error: 'Space not found' });
     if (space === false) return res.status(403).json({ error: 'Space management denied' });
 
-    const inheritedRow = await loadIntegrationConfigRow(spaceId, { allowFallback: true });
+    const inheritedRow = await loadIntegrationConfigRow(spaceId, { allowFallback: false });
     const nextState = resolveNextSpaceIntegrationState(req.body || {}, inheritedRow || null);
     const persisted = await upsertSpaceIntegrationState(client, spaceId, nextState);
     const config = await loadScopedIntegrationConfig(spaceId);

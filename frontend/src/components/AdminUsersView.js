@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 const USER_ROLES = ['admin', 'support_admin', 'user', 'viewer'];
 
 function formatSpaceMemberships(spaces) {
-  if (!Array.isArray(spaces) || spaces.length === 0) return 'No space memberships';
+  if (!Array.isArray(spaces) || spaces.length === 0) return 'No workspace memberships';
   return spaces.map((space) => `${space.name} (${space.role})`).join(', ');
 }
 
@@ -146,7 +146,7 @@ export default function AdminUsersView({ apiCall, onToast, currentUserId, Icons,
         <div className="space-y-3">
           <h1 className="section-title">Members</h1>
           <p className="text-sm text-ghost max-w-3xl">
-            Platform-level member administration. Tenant invites and space governance live in the space-specific controls, not in this server-admin screen.
+            Platform-level member administration. Tenant invites and workspace governance live in the workspace-specific controls, not in this server-admin screen.
           </p>
         </div>
         {loadError && <p className="text-sm text-err">{loadError}</p>}
@@ -160,7 +160,7 @@ export default function AdminUsersView({ apiCall, onToast, currentUserId, Icons,
                   <div>Member</div>
                   <div>Email</div>
                   <div>Role</div>
-                  <div>Spaces</div>
+                  <div>Workspaces</div>
                   <div>Actions</div>
                 </div>
                 {users.map((user) => (
@@ -312,15 +312,15 @@ export default function AdminUsersView({ apiCall, onToast, currentUserId, Icons,
                       <p className="text-sm text-ink">{memberSummary.metrics?.lastLoginAt ? new Date(memberSummary.metrics.lastLoginAt).toLocaleString() : 'Never'}</p>
                     </div>
                     <div className="flex items-center justify-between">
-                      <p className="text-xs text-ghost">Space memberships</p>
+                      <p className="text-xs text-ghost">Workspace memberships</p>
                       <p className="text-sm text-ink">{memberSummary.metrics?.membershipCount ?? 0}</p>
                     </div>
                     <div className="flex items-center justify-between">
-                      <p className="text-xs text-ghost">Owned spaces</p>
+                      <p className="text-xs text-ghost">Owned workspaces</p>
                       <p className="text-sm text-ink">{memberSummary.metrics?.ownerCount ?? 0}</p>
                     </div>
                     <div className="flex items-center justify-between">
-                      <p className="text-xs text-ghost">Space-admin roles</p>
+                      <p className="text-xs text-ghost">Workspace-admin roles</p>
                       <p className="text-sm text-ink">{memberSummary.metrics?.adminCount ?? 0}</p>
                     </div>
                     <div className="flex items-center justify-between">
@@ -332,7 +332,7 @@ export default function AdminUsersView({ apiCall, onToast, currentUserId, Icons,
                   </div>
 
                   <div className="space-y-3 pt-2">
-                    <p className="text-xs text-ghost">Spaces</p>
+                    <p className="text-xs text-ghost">Workspaces</p>
                     {Array.isArray(memberSummary.spaces) && memberSummary.spaces.length > 0 ? (
                       <div className="space-y-2">
                         {memberSummary.spaces.map((space) => (
@@ -343,7 +343,7 @@ export default function AdminUsersView({ apiCall, onToast, currentUserId, Icons,
                         ))}
                       </div>
                     ) : (
-                      <p className="text-sm text-ghost">No active space memberships.</p>
+                      <p className="text-sm text-ghost">No active workspace memberships.</p>
                     )}
                   </div>
                 </>

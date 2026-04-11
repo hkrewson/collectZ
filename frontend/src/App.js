@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import appMeta from './app-meta.json';
 import AuthPageView from './components/AuthPage';
@@ -22,6 +22,7 @@ import {
 
 const API_URL = process.env.REACT_APP_API_URL || '/api';
 const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.frontend || appMeta.version || 'unknown';
+const SUPPORT_SUMMARY_POLL_MS = 60000;
 
 export default function App() {
   const initialDashboardState = readDashboardStateFromUrl();
@@ -53,6 +54,7 @@ export default function App() {
     }
   });
   const [toast, setToast] = useState(null);
+  const inFlightGetRequestsRef = useRef(new Map());
   const showToast = useCallback((message, type = 'ok') => setToast({ message, type }), []);
   const apiCall = useCallback(async (method, path, data, config = {}) => {
     const methodUpper = String(method || 'GET').toUpperCase();
@@ -77,7 +79,26 @@ export default function App() {
       if (csrfToken) headers['x-csrf-token'] = csrfToken;
     }
 
-    const response = await axios({ method, url: `${API_URL}${path}`, data, ...config, headers, withCredentials: true });
+    const requestConfig = { method, url: `${API_URL}${path}`, data, ...config, headers, withCredentials: true };
+
+    if (methodUpper === 'GET') {
+      const requestKey = JSON.stringify({
+        method: methodUpper,
+        path,
+        params: requestConfig.params || null
+      });
+      const existing = inFlightGetRequestsRef.current.get(requestKey);
+      if (existing) return existing;
+      const requestPromise = axios(requestConfig)
+        .then((response) => response.data)
+        .finally(() => {
+          inFlightGetRequestsRef.current.delete(requestKey);
+        });
+      inFlightGetRequestsRef.current.set(requestKey, requestPromise);
+      return requestPromise;
+    }
+
+    const response = await axios(requestConfig);
     return response.data;
   }, []);
   const { user, setUser, authChecked, setAuthChecked } = useSessionBootstrap({ route, apiCall, setRoute });
@@ -276,12 +297,12 @@ export default function App() {
       clearImportJobs();
       if (!options.silent) {
         const targetSpace = nextScope?.nextSpaces?.find((space) => Number(space.id) === Number(nextScope.nextActiveSpaceId || 0));
-        showToast(`Switched to ${targetSpace?.name || 'space'}`);
+        showToast(`Switched to ${targetSpace?.name || 'workspace'}`);
       }
       return payload;
     } catch (error) {
       if (!options.silent) {
-        showToast(error.response?.data?.error || 'Failed to switch space', 'error');
+        showToast(error.response?.data?.error || 'Failed to switch workspace', 'error');
       }
       return null;
     }
@@ -344,7 +365,7 @@ export default function App() {
       clearImportJobs();
       setMediaItems([]);
       setActiveTab('space-manage');
-      showToast(`Support session started for ${space?.name || 'space'}`);
+      showToast(`Support session started for ${space?.name || 'workspace'}`);
       return true;
     } catch (error) {
       showToast(error.response?.data?.error || 'Failed to start support session', 'error');
@@ -398,8 +419,9 @@ export default function App() {
     loadSupportSummary({ silent: true });
     if (!['admin', 'support_admin'].includes(String(user?.role || ''))) return undefined;
     const intervalId = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
       loadSupportSummary({ silent: true });
-    }, 15000);
+    }, SUPPORT_SUMMARY_POLL_MS);
     return () => window.clearInterval(intervalId);
   }, [route, authChecked, homelabEdition, user, loadSupportSummary]);
 
@@ -553,7 +575,7 @@ export default function App() {
                 ? (homelabEdition ? 'Homelab' : 'Platform admin')
                 : user?.role === 'support_admin'
                   ? 'Support'
-                  : `${activeSpace?.name || 'No current space'}${activeLibrary ? ` / ${activeLibrary.name}` : ''}`}
+                  : `${activeSpace?.name || 'No current workspace'}${activeLibrary ? ` / ${activeLibrary.name}` : ''}`}
             </div>
           </div>
         </div>

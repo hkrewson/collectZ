@@ -48,6 +48,7 @@ const { cleanupExpiredSessions, SESSION_MAX_PER_USER, SESSION_TTL_DAYS } = requi
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const APP_NAME = appMeta.app || 'collectZ';
 const APP_VERSION = process.env.APP_VERSION || appMeta.backend || appMeta.version;
 const FRONTEND_VERSION = appMeta.frontend || appMeta.version || APP_VERSION;
@@ -57,8 +58,8 @@ const HOMELAB_EDITION = isHomelabEdition();
 const SESSION_CLEANUP_INTERVAL_MINUTES = Math.max(1, Number(process.env.SESSION_CLEANUP_INTERVAL_MINUTES || 60));
 const RATE_LIMIT_WINDOW_MINUTES = Math.max(1, Number(process.env.RATE_LIMIT_WINDOW_MINUTES || 15));
 const RATE_LIMIT_WINDOW_MS = RATE_LIMIT_WINDOW_MINUTES * 60 * 1000;
-const RATE_LIMIT_GLOBAL_MAX = Math.max(50, Number(process.env.RATE_LIMIT_GLOBAL_MAX || 600));
-const RATE_LIMIT_AUTH_MAX = Math.max(5, Number(process.env.RATE_LIMIT_AUTH_MAX || 20));
+const RATE_LIMIT_GLOBAL_MAX = Math.max(50, Number(process.env.RATE_LIMIT_GLOBAL_MAX || (IS_PRODUCTION ? 600 : 5000)));
+const RATE_LIMIT_AUTH_MAX = Math.max(5, Number(process.env.RATE_LIMIT_AUTH_MAX || (IS_PRODUCTION ? 20 : 200)));
 const RATE_LIMIT_ADMIN_MAX = Math.max(30, Number(process.env.RATE_LIMIT_ADMIN_MAX || 300));
 const RATE_LIMIT_MEDIA_READ_MAX = Math.max(60, Number(process.env.RATE_LIMIT_MEDIA_READ_MAX || 600));
 const RATE_LIMIT_MEDIA_WRITE_MAX = Math.max(20, Number(process.env.RATE_LIMIT_MEDIA_WRITE_MAX || 240));
@@ -104,6 +105,8 @@ const requestHasPlaywrightBypass = (req) => {
     || String(req.cookies?.[PLAYWRIGHT_E2E_BYPASS_COOKIE] || '').trim() === PLAYWRIGHT_E2E_BYPASS_TOKEN
   );
 };
+
+const shouldSkipLocalRateLimit = () => !IS_PRODUCTION;
 
 const WEAK_SECRET_VALUES = new Set([
   'changeme',
@@ -183,7 +186,7 @@ const makeLimiter = ({ max, message, skip }) => rateLimit({
   max,
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req, res) => requestHasPlaywrightBypass(req) || (typeof skip === 'function' ? skip(req, res) : false),
+  skip: (req, res) => shouldSkipLocalRateLimit() || requestHasPlaywrightBypass(req) || (typeof skip === 'function' ? skip(req, res) : false),
   message
 });
 

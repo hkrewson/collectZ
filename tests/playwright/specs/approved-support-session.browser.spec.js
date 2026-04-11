@@ -8,7 +8,7 @@ const { openHelpSurface } = require('../helpers/session');
 test.use({ storageState: { cookies: [], origins: [] } });
 
 test.describe('approved support session browser regressions', () => {
-  test('support admin can start tenant access only from an approved request and gets My Space only while the session is active', async ({ page }) => {
+  test('support admin can start tenant access only from an approved request and gets Workspace only while the session is active', async ({ page }) => {
     const suffix = Date.now();
     const requesterCredentials = await createFreshUserCredentials({ role: 'user', name: 'Playwright Requester' });
     const supportAdminCredentials = await createFreshUserCredentials({ role: 'support_admin', name: 'Playwright Support Admin' });
@@ -48,7 +48,7 @@ test.describe('approved support session browser regressions', () => {
     await expect(page.getByText('Support session active')).toBeVisible();
     await expect(page.getByText(new RegExp(`Request: ${requestKey}`))).toBeVisible();
     await expect(page.getByText(new RegExp(`Case: ${requestSubject}`))).toBeVisible();
-    await expect(page.getByRole('button', { name: 'My Space' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Workspace' })).toBeVisible();
 
     const switchedLibraryName = String(extraLibrary?.name || `Support Session Library ${suffix}`);
     const switchedLibraryId = String(extraLibrary?.id || '');
@@ -63,13 +63,13 @@ test.describe('approved support session browser regressions', () => {
     }
     await expect(page.getByText(new RegExp(`Library: ${switchedLibraryName}`))).toBeVisible();
 
-    await page.getByRole('button', { name: 'My Space' }).click();
+    await page.getByRole('button', { name: 'Workspace' }).click();
     await expect(page).toHaveURL(/tab=space-manage/);
-    await expect(page.getByRole('heading', { name: 'Space' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Activity', exact: true })).toBeVisible();
 
     await page.getByRole('button', { name: 'End support session' }).click();
 
     await expect(page.getByText('Support session active')).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'My Space' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Workspace' })).toHaveCount(0);
   });
 });

@@ -30,10 +30,10 @@ test.describe('admin shell browser regressions', () => {
       await requestContext.delete('/api/auth/support-session').catch(() => {});
       await signInThroughUi(page, adminCredentials);
       await page.goto('/dashboard?tab=admin-spaces');
-      await expect(page.getByRole('heading', { name: 'All Spaces' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'All Workspaces' })).toBeVisible();
 
       await page.getByRole('heading', { name: space.name }).click();
-      await expect(page.getByRole('heading', { name: 'Space Controls' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Workspace Controls' })).toBeVisible();
 
       await page.getByRole('tab', { name: /Members \(/ }).click();
       await expect(page.getByRole('heading', { name: 'Members' })).toBeVisible();
@@ -64,12 +64,14 @@ test.describe('admin shell browser regressions', () => {
   test('integrations tabs switch and save feedback stays visible', async ({ page }) => {
     const adminCredentials = await ensureSavedAdminCredentials();
     await signInThroughUi(page, adminCredentials);
-    await page.goto('/dashboard?tab=admin-integrations&integration=barcode');
-    await expect(page.getByRole('heading', { name: 'Integrations' })).toBeVisible();
+    await page.goto('/dashboard?tab=admin-integrations&integration=logs');
+    await expect(page.getByRole('heading', { name: 'Platform Integrations' })).toBeVisible();
 
     const sectionTabs = page.getByRole('tablist', { name: 'Integration sections' });
-    await sectionTabs.getByRole('tab', { name: 'Games', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'Games', exact: true })).toBeVisible();
+    await expect(sectionTabs.getByRole('tab')).toHaveText([
+      'External Logs',
+      'Metrics'
+    ]);
 
     await sectionTabs.getByRole('tab', { name: 'Metrics', exact: true }).click();
     const metricsSwitch = page.getByRole('switch', { name: /Metrics Export/i });

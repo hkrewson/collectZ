@@ -13,7 +13,7 @@ const { deleteMediaByExactTitle } = require('../helpers/media');
 test.use({ storageState: { cookies: [], origins: [] } });
 
 test.describe('space manager browser regressions', () => {
-  test('space member can open My Space and see space-scoped activity entries', async ({ page }) => {
+  test('workspace member can open Workspace and see workspace-scoped activity entries', async ({ page }) => {
     const credentials = await createFreshUserCredentials();
     const requestContext = await createAuthenticatedRequestContext(credentials);
     const title = `Playwright Space Activity ${Date.now()}`;
@@ -31,7 +31,7 @@ test.describe('space manager browser regressions', () => {
       await page.context().addCookies(storageState.cookies || []);
       await page.goto('/dashboard?tab=space-manage');
 
-      await expect(page.getByRole('button', { name: 'My Space', exact: true })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Workspace', exact: true })).toBeVisible();
       await expect(page.getByRole('heading', { name: /Playwright Space/ })).toBeVisible();
       await expect(page.getByRole('button', { name: 'Activity', exact: true })).toBeVisible();
       await expect(page.getByRole('button', { name: 'Settings', exact: true })).toHaveCount(0);
@@ -46,7 +46,47 @@ test.describe('space manager browser regressions', () => {
     }
   });
 
-  test('space admin can open My Space integrations without global-only logs or metrics', async ({ page }) => {
+  test('platform activity excludes workspace-local media actions while workspace activity retains them', async () => {
+    const credentials = await createFreshUserCredentials();
+    const requestContext = await createAuthenticatedRequestContext(credentials);
+    const adminCredentials = await ensureSavedAdminCredentials();
+    const adminContext = await createAuthenticatedRequestContext(adminCredentials);
+    const title = `Playwright Workspace Activity Boundary ${Date.now()}`;
+
+    await deleteMediaByExactTitle(requestContext, title).catch(() => {});
+
+    try {
+      await postWithCsrf(requestContext, '/api/media', {
+        title,
+        media_type: 'movie',
+        owned_formats: ['digital']
+      }, 201);
+
+      const meResponse = await requestContext.get('/api/auth/me');
+      expect(meResponse.ok()).toBeTruthy();
+      const mePayload = await meResponse.json();
+      const activeSpaceId = Number(mePayload?.active_space_id || 0) || null;
+      expect(activeSpaceId).toBeTruthy();
+
+      const workspaceActivityResponse = await requestContext.get(`/api/spaces/${activeSpaceId}/activity?search=${encodeURIComponent(title)}`);
+      expect(workspaceActivityResponse.ok()).toBeTruthy();
+      const workspaceActivityRows = await workspaceActivityResponse.json();
+      expect(Array.isArray(workspaceActivityRows)).toBeTruthy();
+      expect(workspaceActivityRows.length).toBeGreaterThan(0);
+
+      const platformActivityResponse = await adminContext.get(`/api/admin/activity?search=${encodeURIComponent(title)}`);
+      expect(platformActivityResponse.ok()).toBeTruthy();
+      const platformActivityRows = await platformActivityResponse.json();
+      expect(Array.isArray(platformActivityRows)).toBeTruthy();
+      expect(platformActivityRows).toHaveLength(0);
+    } finally {
+      await deleteMediaByExactTitle(requestContext, title).catch(() => {});
+      await adminContext.dispose();
+      await requestContext.dispose();
+    }
+  });
+
+  test('workspace admin can open Workspace integrations without platform-only logs or metrics', async ({ page }) => {
     const adminCredentials = await ensureSavedAdminCredentials();
     const adminContext = await createAuthenticatedRequestContext(adminCredentials);
     const ownerEmail = `playwright-space-owner-${Date.now()}@example.com`;
@@ -91,7 +131,7 @@ test.describe('space manager browser regressions', () => {
       await page.context().addCookies(storageState.cookies || []);
 
       await page.goto('/dashboard?tab=space-manage');
-      await expect(page.getByRole('button', { name: 'My Space', exact: true })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Workspace', exact: true })).toBeVisible();
       await expect(page.getByRole('button', { name: 'Settings', exact: true })).toBeVisible();
       await expect(page.getByRole('button', { name: 'Integrations', exact: true })).toBeVisible();
       await expect(page.getByRole('button', { name: 'People', exact: true })).toBeVisible();
@@ -154,7 +194,6 @@ test.describe('space manager browser regressions', () => {
       await expect(page.getByRole('button', { name: 'Settings', exact: true })).toBeVisible();
       await page.getByRole('button', { name: 'Settings', exact: true }).click();
 
-      await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible();
       await expect(page.getByLabel('Name', { exact: true })).toBeVisible();
       await expect(page.getByText('Theme', { exact: true })).toBeVisible();
       await expect(page.getByText('Events Library', { exact: true })).toBeVisible();
@@ -195,7 +234,7 @@ test.describe('space manager browser regressions', () => {
     }
   });
 
-  test('opening My Space switches to a manageable space when current scope is only member-level', async ({ page }) => {
+  test('opening Workspace switches to a manageable workspace when current scope is only member-level', async ({ page }) => {
     const adminCredentials = await ensureSavedAdminCredentials();
     const adminContext = await createAuthenticatedRequestContext(adminCredentials);
     const timestamp = Date.now();
@@ -266,7 +305,7 @@ test.describe('space manager browser regressions', () => {
       await page.context().addCookies(storageState.cookies || []);
 
       await page.goto('/dashboard');
-      await page.getByRole('button', { name: 'My Space', exact: true }).click();
+      await page.getByRole('button', { name: 'Workspace', exact: true }).click();
 
       await expect(page.getByRole('heading', { name: `Playwright Owned Space ${timestamp}`, exact: true })).toBeVisible();
       await expect(page.getByText('Role: admin')).toBeVisible();

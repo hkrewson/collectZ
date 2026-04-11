@@ -34,68 +34,56 @@ async function saveSection(page, sectionLabel) {
 }
 
 test.describe('integrations browser regressions', () => {
-  test('admin can save barcode and games integrations and values persist after reload', async ({ page }) => {
+  test('platform admin integrations only expose logs and metrics and log settings persist after reload', async ({ page }) => {
     const adminCredentials = await ensureSavedAdminCredentials();
     const requestContext = await createAuthenticatedRequestContext(adminCredentials);
     const snapshot = await snapshotIntegrationState(requestContext);
     const suffix = Date.now();
+    const logHost = `collector-${suffix}`;
+    const logPort = '12201';
 
     try {
-      await page.goto('/dashboard?tab=admin-integrations&integration=barcode');
-      await expect(page.getByRole('heading', { name: 'Integrations' })).toBeVisible();
+      await page.goto('/dashboard?tab=admin-integrations&integration=logs');
+      await expect(page.getByRole('heading', { name: 'Platform Integrations' })).toBeVisible();
 
-      await activeSectionRoot(page).locator('select:visible').first().selectOption('barcodelookup');
-      const barcodeApiUrlInput = activeSectionRoot(page).locator('input:visible').first();
-      const barcodeUrl = `https://api.barcodelookup.com/v3/products?pw=${suffix}`;
-      await barcodeApiUrlInput.fill(barcodeUrl);
-      await saveSection(page, 'BARCODE');
-      await expect(page.getByText('BARCODE settings saved')).toBeVisible();
+      const sectionTabs = page.getByRole('tablist', { name: 'Integration sections' });
+      await expect(sectionTabs.getByRole('tab')).toHaveText([
+        'External Logs',
+        'Metrics'
+      ]);
 
-      await openIntegrationsSection(page, 'Games');
-      const gamesApiUrlInput = activeSectionRoot(page).locator('input:visible').nth(0);
-      const gamesClientIdInput = activeSectionRoot(page).locator('input:visible').nth(1);
-      const gamesUrl = `https://api.igdb.com/v4/games?pw=${suffix}`;
-      const gamesClientId = `playwright-client-${suffix}`;
-      await gamesApiUrlInput.fill(gamesUrl);
-      await gamesClientIdInput.fill(gamesClientId);
-      await saveSection(page, 'GAMES');
-      await expect(page.getByText('GAMES settings saved')).toBeVisible();
+      await expect(sectionTabs.getByRole('tab', { name: 'Barcode', exact: true })).toHaveCount(0);
+      await expect(sectionTabs.getByRole('tab', { name: 'Games', exact: true })).toHaveCount(0);
 
-      await page.goto('/dashboard?tab=admin-integrations&integration=barcode');
-      await expect(activeSectionRoot(page).locator('select:visible').first()).toHaveValue('barcodelookup');
-      await expect(activeSectionRoot(page).locator('input:visible').first()).toHaveValue(barcodeUrl);
+      await activeSectionRoot(page).locator('input[name="log_export_host"]').fill(logHost);
+      await activeSectionRoot(page).locator('input[name="log_export_port"]').fill(logPort);
+      await saveSection(page, 'LOGS');
+      await expect(page.getByText('LOGS settings saved')).toBeVisible();
 
-      await page.goto('/dashboard?tab=admin-integrations&integration=games');
-      await expect(activeSectionRoot(page).locator('input:visible').nth(0)).toHaveValue(gamesUrl);
-      await expect(activeSectionRoot(page).locator('input:visible').nth(1)).toHaveValue(gamesClientId);
+      await page.reload();
+      await expect(page.getByRole('heading', { name: 'Platform Integrations' })).toBeVisible();
+      await expect(activeSectionRoot(page).locator('input[name="log_export_host"]')).toHaveValue(logHost);
+      await expect(activeSectionRoot(page).locator('input[name="log_export_port"]')).toHaveValue(logPort);
     } finally {
       await restoreIntegrationState(requestContext, snapshot).catch(() => {});
       await requestContext.dispose();
     }
   });
 
-  test('metrics integration toggle persists after reload and integrations tab layout stays stable', async ({ page }) => {
+  test('metrics integration toggle persists after reload and platform integrations layout stays stable', async ({ page }) => {
     const adminCredentials = await ensureSavedAdminCredentials();
     const requestContext = await createAuthenticatedRequestContext(adminCredentials);
     const snapshot = await snapshotIntegrationState(requestContext);
 
     try {
-      await page.goto('/dashboard?tab=admin-integrations&integration=barcode');
-      await expect(page.getByRole('heading', { name: 'Integrations' })).toBeVisible();
+      await page.goto('/dashboard?tab=admin-integrations&integration=logs');
+      await expect(page.getByRole('heading', { name: 'Platform Integrations' })).toBeVisible();
 
       const sectionTabs = page.getByRole('tablist', { name: 'Integration sections' });
       await expect(sectionTabs).toBeVisible();
       await expect(sectionTabs.getByRole('tab')).toHaveText([
-        'Audio',
-        'Barcode',
-        'Books',
-        'CWA OPDS',
-        'Comics',
-        'Games',
         'External Logs',
         'Metrics',
-        'Plex',
-        'TMDB'
       ]);
 
       await page.goto('/dashboard?tab=admin-integrations&integration=metrics');
@@ -113,7 +101,7 @@ test.describe('integrations browser regressions', () => {
       await expect(metricsSwitch).toHaveAttribute('aria-checked', nextChecked);
 
       await page.reload();
-      await expect(page.getByRole('heading', { name: 'Integrations' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Platform Integrations' })).toBeVisible();
       await expect(page.getByRole('switch', { name: /Metrics Export/i })).toHaveAttribute('aria-checked', nextChecked);
       await expect(page.getByRole('heading', { name: 'Runtime checks' })).toBeVisible();
       await expect(activeSectionRoot(page).getByText('/api/metrics', { exact: true })).toBeVisible();

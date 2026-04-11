@@ -162,6 +162,21 @@ When SMTP is configured, admin-created invites and password resets are emailed d
 
 If SMTP is not configured, backend falls back to copy-link token workflows for admin UX.
 
+### Platform Settings Override Model
+
+The platform can now expose SMTP delivery status in `Platform Settings`, with an optional app-managed override model:
+
+- `.env` remains the bootstrap/default source for SMTP delivery,
+- platform operators can choose to keep using env-backed SMTP, or
+- save a platform-managed SMTP override inside app settings when runtime editing is preferred.
+
+Important safety rules:
+
+- SMTP passwords are encrypted at rest,
+- the UI/API only returns masked delivery status, never the stored password,
+- reverting to `Environment` mode clears the app-managed override and returns delivery to `.env` values.
+- `Platform Settings` can also trigger a test email so operators can verify whether the current platform mail path reaches the target inbox before relying on invite or reset workflows.
+
 ## Validation Tip
 
 Before startup:

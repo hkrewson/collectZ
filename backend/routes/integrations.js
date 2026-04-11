@@ -5,7 +5,6 @@ const { asyncHandler } = require('../middleware/errors');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const { deriveCwaBaseUrl, loadAdminIntegrationConfig, normalizeIntegrationRecord, loadGeneralSettings } = require('../services/integrations');
 const { encryptSecret } = require('../services/crypto');
-const { buildIntegrationResponse } = require('../services/integrationResponse');
 const { buildObservabilityRuntimeDiagnostics } = require('../services/observabilityRuntime');
 const { resolveExportConfig, invalidateStoredExportConfigCache, LOG_EXPORT_BACKENDS, LOG_EXPORT_SETTINGS_READ_ONLY, validateStructuredLogDelivery, normalizeExplicitExportConfig } = require('../services/logExport');
 const { resolveBarcodePreset } = require('../services/barcode');
@@ -19,10 +18,9 @@ const { logActivity, logError } = require('../services/audit');
 
 const router = express.Router();
 
-async function buildAdminIntegrationPayload(config) {
+async function buildPlatformIntegrationPayload(config) {
   const resolvedExportConfig = await resolveExportConfig({ forceRefresh: true });
   return {
-    ...buildIntegrationResponse(config),
     logExportControl: {
       readOnly: Boolean(resolvedExportConfig.controlPlane?.readOnly),
       source: resolvedExportConfig.controlPlane?.source || 'env_fallback',
@@ -67,36 +65,13 @@ router.get('/settings/general', authenticateToken, asyncHandler(async (req, res)
 
 router.get('/admin/settings/integrations', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
   const config = await loadAdminIntegrationConfig();
-  res.json(await buildAdminIntegrationPayload(config));
+  res.json(await buildPlatformIntegrationPayload(config));
 }));
 
 router.put('/admin/settings/integrations', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
   const {
-    barcodePreset, barcodeProvider, barcodeApiUrl,
-    barcodeApiKey, clearBarcodeApiKey,
-    tmdbPreset, tmdbProvider, tmdbApiUrl,
-    tmdbApiKey, clearTmdbApiKey,
-    plexPreset, plexProvider, plexApiUrl, plexLibrarySections,
-    plexApiKey, clearPlexApiKey,
-    booksPreset, booksProvider, booksApiUrl,
-    booksApiKey, clearBooksApiKey,
-    audioPreset, audioProvider, audioApiUrl,
-    audioApiKey, clearAudioApiKey,
-    gamesPreset, gamesProvider, gamesApiUrl, gamesClientId,
-    gamesApiKey, clearGamesApiKey, gamesClientSecret, clearGamesClientSecret,
-    comicsPreset, comicsProvider, comicsApiUrl, comicsUsername,
-    comicsApiKey, clearComicsApiKey,
-    cwaOpdsUrl, cwaUsername, cwaPassword, clearCwaPassword,
     logExportBackend, logExportHost, logExportPort, logExportHostLabel, logExportService, logExportDebug
   } = req.body;
-
-  const selectedBarcodePreset = resolveBarcodePreset(barcodePreset || 'upcitemdb');
-  const selectedTmdbPreset = resolveTmdbPreset(tmdbPreset || 'tmdb');
-  const selectedPlexPreset = resolvePlexPreset(plexPreset || 'plex');
-  const selectedBooksPreset = resolveBooksPreset(booksPreset || 'googlebooks');
-  const selectedAudioPreset = resolveAudioPreset(audioPreset || 'discogs');
-  const selectedGamesPreset = resolveGamesPreset(gamesPreset || 'igdb');
-  const selectedComicsPreset = resolveComicsPreset(comicsPreset || 'metron');
 
   const existingRow = await pool.query('SELECT * FROM app_integrations WHERE id = 1');
   const existing = existingRow.rows[0] || null;
@@ -163,90 +138,19 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
       null
     );
 
-  const finalBarcodeApiKey = clearBarcodeApiKey
-    ? null
-    : (barcodeApiKey ? encryptSecret(barcodeApiKey) : existing?.barcode_api_key_encrypted || null);
-  const finalTmdbApiKey = clearTmdbApiKey
-    ? null
-    : (tmdbApiKey ? encryptSecret(tmdbApiKey) : existing?.tmdb_api_key_encrypted || null);
-  const finalPlexApiKey = clearPlexApiKey
-    ? null
-    : (plexApiKey ? encryptSecret(plexApiKey) : existing?.plex_api_key_encrypted || null);
-  const finalBooksApiKey = clearBooksApiKey
-    ? null
-    : (booksApiKey ? encryptSecret(booksApiKey) : existing?.books_api_key_encrypted || null);
-  const finalAudioApiKey = clearAudioApiKey
-    ? null
-    : (audioApiKey ? encryptSecret(audioApiKey) : existing?.audio_api_key_encrypted || null);
-  const finalGamesApiKey = clearGamesApiKey
-    ? null
-    : (gamesApiKey ? encryptSecret(gamesApiKey) : existing?.games_api_key_encrypted || null);
-  const finalComicsApiKey = clearComicsApiKey
-    ? null
-    : (comicsApiKey ? encryptSecret(comicsApiKey) : existing?.comics_api_key_encrypted || null);
-  const finalCwaPassword = clearCwaPassword
-    ? null
-    : (cwaPassword ? encryptSecret(cwaPassword) : existing?.cwa_password_encrypted || null);
-  const finalGamesClientSecret = clearGamesClientSecret
-    ? null
-    : (gamesClientSecret ? encryptSecret(gamesClientSecret) : existing?.games_client_secret_encrypted || null);
-
-  const resolvedCwaBaseUrl = deriveCwaBaseUrl(pick(cwaOpdsUrl, existing?.cwa_opds_url, ''));
-
   const result = await pool.query(
     `INSERT INTO app_integrations (
-       id, barcode_preset, barcode_provider, barcode_api_url, barcode_api_key_encrypted,
-       barcode_api_key_header, barcode_query_param,
-       tmdb_preset, tmdb_provider, tmdb_api_url, tmdb_api_key_encrypted, tmdb_api_key_header, tmdb_api_key_query_param,
-       plex_preset, plex_provider, plex_api_url, plex_server_name, plex_api_key_encrypted, plex_api_key_query_param, plex_library_sections,
-       books_preset, books_provider, books_api_url, books_api_key_encrypted, books_api_key_header, books_api_key_query_param,
-       audio_preset, audio_provider, audio_api_url, audio_api_key_encrypted, audio_api_key_header, audio_api_key_query_param,
-       games_preset, games_provider, games_api_url, games_api_key_encrypted, games_api_key_header, games_api_key_query_param, games_client_id, games_client_secret_encrypted,
-       comics_preset, comics_provider, comics_api_url, comics_api_key_encrypted, comics_api_key_header, comics_api_key_query_param, comics_username,
-       cwa_opds_url, cwa_base_url, cwa_username, cwa_password_encrypted, cwa_timeout_ms,
-       log_export_backend, log_export_host, log_export_port, log_export_host_label, log_export_service, log_export_debug
+       id,
+       log_export_backend,
+       log_export_host,
+       log_export_port,
+       log_export_host_label,
+       log_export_service,
+       log_export_debug
      ) VALUES (
-       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,
-       $14,$15,$16,$17,$18,$19,$20::jsonb,
-       $21,$22,$23,$24,$25,$26,
-       $27,$28,$29,$30,$31,$32,
-       $33,$34,$35,$36,$37,$38,$39,$40,
-       $41,$42,$43,$44,$45,$46,$47,
-       $48,$49,$50,$51,$52,
-       $53,$54,$55,$56,$57,$58
+       $1,$2,$3,$4,$5,$6,$7
      )
      ON CONFLICT (id) DO UPDATE SET
-       barcode_preset = EXCLUDED.barcode_preset, barcode_provider = EXCLUDED.barcode_provider,
-       barcode_api_url = EXCLUDED.barcode_api_url, barcode_api_key_encrypted = EXCLUDED.barcode_api_key_encrypted,
-       barcode_api_key_header = EXCLUDED.barcode_api_key_header, barcode_query_param = EXCLUDED.barcode_query_param,
-       tmdb_preset = EXCLUDED.tmdb_preset, tmdb_provider = EXCLUDED.tmdb_provider,
-       tmdb_api_url = EXCLUDED.tmdb_api_url, tmdb_api_key_encrypted = EXCLUDED.tmdb_api_key_encrypted,
-       tmdb_api_key_header = EXCLUDED.tmdb_api_key_header, tmdb_api_key_query_param = EXCLUDED.tmdb_api_key_query_param,
-       plex_preset = EXCLUDED.plex_preset, plex_provider = EXCLUDED.plex_provider,
-       plex_api_url = EXCLUDED.plex_api_url, plex_server_name = EXCLUDED.plex_server_name,
-       plex_api_key_encrypted = EXCLUDED.plex_api_key_encrypted,
-       plex_api_key_query_param = EXCLUDED.plex_api_key_query_param,
-       plex_library_sections = EXCLUDED.plex_library_sections,
-       books_preset = EXCLUDED.books_preset, books_provider = EXCLUDED.books_provider,
-       books_api_url = EXCLUDED.books_api_url, books_api_key_encrypted = EXCLUDED.books_api_key_encrypted,
-       books_api_key_header = EXCLUDED.books_api_key_header, books_api_key_query_param = EXCLUDED.books_api_key_query_param,
-       audio_preset = EXCLUDED.audio_preset, audio_provider = EXCLUDED.audio_provider,
-       audio_api_url = EXCLUDED.audio_api_url, audio_api_key_encrypted = EXCLUDED.audio_api_key_encrypted,
-       audio_api_key_header = EXCLUDED.audio_api_key_header, audio_api_key_query_param = EXCLUDED.audio_api_key_query_param,
-       games_preset = EXCLUDED.games_preset, games_provider = EXCLUDED.games_provider,
-       games_api_url = EXCLUDED.games_api_url, games_api_key_encrypted = EXCLUDED.games_api_key_encrypted,
-       games_api_key_header = EXCLUDED.games_api_key_header, games_api_key_query_param = EXCLUDED.games_api_key_query_param,
-       games_client_id = EXCLUDED.games_client_id,
-       games_client_secret_encrypted = EXCLUDED.games_client_secret_encrypted,
-       comics_preset = EXCLUDED.comics_preset, comics_provider = EXCLUDED.comics_provider,
-       comics_api_url = EXCLUDED.comics_api_url, comics_api_key_encrypted = EXCLUDED.comics_api_key_encrypted,
-       comics_api_key_header = EXCLUDED.comics_api_key_header, comics_api_key_query_param = EXCLUDED.comics_api_key_query_param,
-       comics_username = EXCLUDED.comics_username,
-       cwa_opds_url = EXCLUDED.cwa_opds_url,
-       cwa_base_url = EXCLUDED.cwa_base_url,
-       cwa_username = EXCLUDED.cwa_username,
-       cwa_password_encrypted = EXCLUDED.cwa_password_encrypted,
-       cwa_timeout_ms = EXCLUDED.cwa_timeout_ms,
        log_export_backend = EXCLUDED.log_export_backend,
        log_export_host = EXCLUDED.log_export_host,
        log_export_port = EXCLUDED.log_export_port,
@@ -256,57 +160,6 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
      RETURNING *`,
     [
       1,
-      pick(barcodePreset, existing?.barcode_preset, 'upcitemdb'),
-      pick(barcodeProvider, existing?.barcode_provider, selectedBarcodePreset.provider),
-      pick(barcodeApiUrl, existing?.barcode_api_url, selectedBarcodePreset.apiUrl),
-      finalBarcodeApiKey,
-      selectedBarcodePreset.apiKeyHeader,
-      selectedBarcodePreset.queryParam,
-      pick(tmdbPreset, existing?.tmdb_preset, 'tmdb'),
-      pick(tmdbProvider, existing?.tmdb_provider, selectedTmdbPreset.provider),
-      pick(tmdbApiUrl, existing?.tmdb_api_url, selectedTmdbPreset.apiUrl),
-      finalTmdbApiKey,
-      selectedTmdbPreset.apiKeyHeader,
-      selectedTmdbPreset.apiKeyQueryParam,
-      pick(plexPreset, existing?.plex_preset, 'plex'),
-      pick(plexProvider, existing?.plex_provider, selectedPlexPreset.provider),
-      pick(plexApiUrl, existing?.plex_api_url, selectedPlexPreset.apiUrl),
-      '',
-      finalPlexApiKey,
-      selectedPlexPreset.apiKeyQueryParam,
-      JSON.stringify(Array.isArray(plexLibrarySections) ? plexLibrarySections : (existing?.plex_library_sections || [])),
-      pick(booksPreset, existing?.books_preset, 'googlebooks'),
-      pick(booksProvider, existing?.books_provider, selectedBooksPreset.provider),
-      pick(booksApiUrl, existing?.books_api_url, selectedBooksPreset.apiUrl),
-      finalBooksApiKey,
-      selectedBooksPreset.apiKeyHeader,
-      selectedBooksPreset.apiKeyQueryParam,
-      pick(audioPreset, existing?.audio_preset, 'discogs'),
-      pick(audioProvider, existing?.audio_provider, selectedAudioPreset.provider),
-      pick(audioApiUrl, existing?.audio_api_url, selectedAudioPreset.apiUrl),
-      finalAudioApiKey,
-      selectedAudioPreset.apiKeyHeader,
-      selectedAudioPreset.apiKeyQueryParam,
-      pick(gamesPreset, existing?.games_preset, 'igdb'),
-      pick(gamesProvider, existing?.games_provider, selectedGamesPreset.provider),
-      pick(gamesApiUrl, existing?.games_api_url, selectedGamesPreset.apiUrl),
-      finalGamesApiKey,
-      selectedGamesPreset.apiKeyHeader,
-      selectedGamesPreset.apiKeyQueryParam,
-      pick(gamesClientId, existing?.games_client_id, ''),
-      finalGamesClientSecret,
-      pick(comicsPreset, existing?.comics_preset, 'metron'),
-      pick(comicsProvider, existing?.comics_provider, selectedComicsPreset.provider),
-      pick(comicsApiUrl, existing?.comics_api_url, selectedComicsPreset.apiUrl),
-      finalComicsApiKey,
-      selectedComicsPreset.apiKeyHeader,
-      selectedComicsPreset.apiKeyQueryParam,
-      pick(comicsUsername, existing?.comics_username, ''),
-      pick(cwaOpdsUrl, existing?.cwa_opds_url, ''),
-      resolvedCwaBaseUrl,
-      pick(cwaUsername, existing?.cwa_username, ''),
-      finalCwaPassword,
-      20000,
       nextLogExportBackend,
       nextLogExportHost,
       nextLogExportPort,
@@ -319,36 +172,6 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
   invalidateStoredExportConfigCache();
   const config = normalizeIntegrationRecord(result.rows[0]);
   await logActivity(req, 'admin.settings.integrations.update', 'app_integrations', 1, {
-    barcodePreset: config.barcodePreset,
-    tmdbPreset: config.tmdbPreset,
-    plexPreset: config.plexPreset,
-    booksPreset: config.booksPreset,
-    audioPreset: config.audioPreset,
-    gamesPreset: config.gamesPreset,
-    comicsPreset: config.comicsPreset,
-    cwaEnabled: Boolean(config.cwaOpdsUrl),
-    keyUpdates: {
-      barcode: Boolean(barcodeApiKey),
-      tmdb: Boolean(tmdbApiKey),
-      plex: Boolean(plexApiKey),
-      books: Boolean(booksApiKey),
-      audio: Boolean(audioApiKey),
-      games: Boolean(gamesApiKey),
-      gamesClientSecret: Boolean(gamesClientSecret),
-      comics: Boolean(comicsApiKey),
-      cwaPassword: Boolean(cwaPassword)
-    },
-    keyClears: {
-      barcode: Boolean(clearBarcodeApiKey),
-      tmdb: Boolean(clearTmdbApiKey),
-      plex: Boolean(clearPlexApiKey),
-      books: Boolean(clearBooksApiKey),
-      audio: Boolean(clearAudioApiKey),
-      games: Boolean(clearGamesApiKey),
-      gamesClientSecret: Boolean(clearGamesClientSecret),
-      comics: Boolean(clearComicsApiKey),
-      cwaPassword: Boolean(clearCwaPassword)
-    },
     logExportControl: requestsLogExportUpdate
       ? {
         backend: nextLogExportBackend,
@@ -362,7 +185,7 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
       : null
   });
 
-  res.json(await buildAdminIntegrationPayload(config));
+  res.json(await buildPlatformIntegrationPayload(config));
 }));
 
 // ── Integration test endpoints ────────────────────────────────────────────────
@@ -734,7 +557,7 @@ router.post('/admin/settings/integrations/test-logs', authenticateToken, require
       })
     },
     observabilityRuntime: await buildObservabilityRuntimeDiagnostics(),
-    config: await buildAdminIntegrationPayload(config)
+    config: await buildPlatformIntegrationPayload(config)
   });
 }));
 

@@ -6292,6 +6292,12 @@ router.post('/', validate(mediaCreateSchema), asyncHandler(async (req, res) => {
     director: created.director,
     cast: created.cast || created.cast_members
   });
+  await logActivity(req, 'media.create', 'media', created.id, {
+    title: created.title || null,
+    mediaType: created.media_type || null,
+    libraryId: created.library_id || null,
+    spaceId: created.space_id || scopeContext.spaceId || null
+  });
   await maybePushComicToMetron({ req, mediaRow: created });
   res.status(201).json(created);
 }));
@@ -6419,6 +6425,13 @@ router.patch('/:id', validate(mediaUpdateSchema), asyncHandler(async (req, res) 
     director: updated.director,
     cast: updated.cast || updated.cast_members
   });
+  await logActivity(req, 'media.update', 'media', updated.id, {
+    title: updated.title || null,
+    mediaType: updated.media_type || null,
+    libraryId: updated.library_id || null,
+    spaceId: updated.space_id || scopeContext.spaceId || null,
+    fields: keys
+  });
   res.json(updated);
 }));
 
@@ -6431,7 +6444,12 @@ router.delete('/:id', asyncHandler(async (req, res) => {
 
   const existingParams = [id];
   const existingScopeClause = appendScopeSql(existingParams, scopeContext);
-  const existing = await pool.query(`SELECT id, added_by FROM media WHERE id = $1${existingScopeClause}`, existingParams);
+  const existing = await pool.query(
+    `SELECT id, added_by, title, media_type, library_id, space_id
+     FROM media
+     WHERE id = $1${existingScopeClause}`,
+    existingParams
+  );
   if (existing.rows.length === 0) {
     return res.status(404).json({ error: 'Media item not found' });
   }
@@ -6442,6 +6460,12 @@ router.delete('/:id', asyncHandler(async (req, res) => {
   const deleteParams = [id];
   const deleteScopeClause = appendScopeSql(deleteParams, scopeContext);
   await pool.query(`DELETE FROM media WHERE id = $1${deleteScopeClause}`, deleteParams);
+  await logActivity(req, 'media.delete', 'media', Number(id), {
+    title: existing.rows[0].title || null,
+    mediaType: existing.rows[0].media_type || null,
+    libraryId: existing.rows[0].library_id || null,
+    spaceId: existing.rows[0].space_id || scopeContext.spaceId || null
+  });
   res.json({ message: 'Media deleted' });
 }));
 

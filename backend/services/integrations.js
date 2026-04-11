@@ -187,7 +187,7 @@ const loadAdminIntegrationConfig = async () => {
 };
 
 const loadScopedIntegrationConfig = async (spaceId) => {
-  const row = await loadIntegrationConfigRow(spaceId, { allowFallback: true });
+  const row = await loadIntegrationConfigRow(spaceId, { allowFallback: false });
   return normalizeIntegrationRecord(row || null);
 };
 

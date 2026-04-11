@@ -169,9 +169,10 @@ export default function AdminIntegrationsView({
   featureFlagsEndpoint = '/admin/feature-flags',
   title = 'Integrations',
   includeRuntimeSections = true,
-  allowImports = true
+  allowImports = true,
+  visibleSections = null
 }) {
-  const integrationSections = useMemo(
+  const allIntegrationSections = useMemo(
     () => ([
       { id: 'audio', label: 'Audio' },
       { id: 'barcode', label: 'Barcode' },
@@ -188,7 +189,12 @@ export default function AdminIntegrationsView({
     ]),
     [includeRuntimeSections]
   );
-  const [section, setSection] = useState(externalSection || integrationSections[0].id);
+  const integrationSections = useMemo(() => {
+    if (!Array.isArray(visibleSections) || visibleSections.length === 0) return allIntegrationSections;
+    const allowed = new Set(visibleSections);
+    return allIntegrationSections.filter((item) => allowed.has(item.id));
+  }, [allIntegrationSections, visibleSections]);
+  const [section, setSection] = useState(externalSection || integrationSections[0]?.id || 'logs');
   const [form, setForm] = useState({
     barcodePreset: 'upcitemdb', barcodeProvider: 'upcitemdb', barcodeApiUrl: '', barcodeApiKey: '', clearBarcodeApiKey: false,
     tmdbPreset: 'tmdb', tmdbProvider: 'tmdb', tmdbApiUrl: 'https://api.themoviedb.org/3/search/movie',
@@ -237,6 +243,11 @@ export default function AdminIntegrationsView({
     const known = integrationSections.some((item) => item.id === externalSection);
     if (known) setSection(externalSection);
   }, [externalSection, integrationSections, section]);
+
+  useEffect(() => {
+    if (integrationSections.some((item) => item.id === section)) return;
+    if (integrationSections[0]?.id) setSection(integrationSections[0].id);
+  }, [integrationSections, section]);
 
   const setSectionWithSync = (nextSection) => {
     setSection(nextSection);
@@ -557,7 +568,7 @@ export default function AdminIntegrationsView({
   const metricsRuntime = observabilityRuntime.metrics;
   const logLastValidation = logExportControl?.lastValidation || null;
   const logControlSourceLabel = logExportControl?.source === 'stored'
-    ? 'Saved in Admin'
+    ? 'Saved in Platform'
     : logExportControl?.source === 'env_override'
       ? 'Locked by runtime env'
       : 'Using runtime env defaults';
@@ -784,7 +795,7 @@ export default function AdminIntegrationsView({
               <DisclosureSection title="Runtime Checks" summary={logsRuntimeSummary}>
                 <RuntimeKeyValueList rows={[
                   { label: 'State', value: logsRuntime.effectiveState === 'ready' ? 'Ready' : logsRuntime.effectiveState === 'attention' ? 'Needs attention' : 'Disabled' },
-                  { label: 'Config source', value: logsRuntime.configSource === 'stored' ? 'Saved in Admin' : logsRuntime.configSource === 'env_override' ? 'Locked by runtime env' : 'Using runtime env defaults' },
+                  { label: 'Config source', value: logsRuntime.configSource === 'stored' ? 'Saved in Platform' : logsRuntime.configSource === 'env_override' ? 'Locked by runtime env' : 'Using runtime env defaults' },
                   { label: 'Backend', value: logsRuntime.backend, mono: true },
                   { label: 'Collector', value: `${logsRuntime.host}:${logsRuntime.port}`, mono: true },
                   { label: 'Service', value: logsRuntime.service, mono: true },

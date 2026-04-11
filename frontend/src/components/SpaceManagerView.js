@@ -116,7 +116,7 @@ export default function SpaceManagerView({
     if (membersRes.status === 'fulfilled') {
       setMembers(Array.isArray(membersRes.value?.members) ? membersRes.value.members : []);
     } else {
-      setLoadError('Failed to load space members.');
+      setLoadError('Failed to load workspace members.');
     }
 
     setLoading(false);
@@ -179,9 +179,9 @@ export default function SpaceManagerView({
       await apiCall('patch', `/spaces/${activeSpaceId}`, editingSpace);
       await onScopeRefresh?.({ silent: true });
       await Promise.all([loadMembers(), loadInvites()]);
-      onToast('Space updated');
+      onToast('Workspace updated');
     } catch (error) {
-      onToast(error.response?.data?.error || 'Failed to update space', 'error');
+      onToast(error.response?.data?.error || 'Failed to update workspace', 'error');
     } finally {
       setSavingSpace(false);
     }
@@ -208,7 +208,7 @@ export default function SpaceManagerView({
   };
 
   const revokeInvite = async (inviteId) => {
-    if (!window.confirm('Invalidate this space invite?')) return;
+    if (!window.confirm('Invalidate this workspace invite?')) return;
     try {
       const payload = await apiCall('patch', `/spaces/${activeSpaceId}/invites/${inviteId}/revoke`);
       setInvites((prev) => prev.map((invite) => (invite.id === inviteId ? { ...invite, ...payload } : invite)));
@@ -234,7 +234,7 @@ export default function SpaceManagerView({
   };
 
   const removeMember = async (memberId) => {
-    if (!window.confirm('Remove this member from the space?')) return;
+    if (!window.confirm('Remove this member from the workspace?')) return;
     setMemberBusyId(memberId);
     try {
       await apiCall('delete', `/spaces/${activeSpaceId}/members/${memberId}`);
@@ -279,19 +279,19 @@ export default function SpaceManagerView({
       <div>
         <div className="flex flex-wrap items-end gap-4">
           <div className="min-w-0 flex-1">
-            <h1 className="section-title">{activeSpace?.name || 'Space'}</h1>
+            <h1 className="section-title">{activeSpace?.name || 'Workspace'}</h1>
             <p className="mt-2 text-sm text-ghost">
               {activeMembershipRole ? `Role: ${activeMembershipRole}` : 'Role unavailable'}
               {activeLibrary?.name ? ` · Library: ${activeLibrary.name}` : ''}
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
-              <span className="badge badge-dim">{spaces.length} accessible space{spaces.length === 1 ? '' : 's'}</span>
+              <span className="badge badge-dim">{spaces.length} accessible workspace{spaces.length === 1 ? '' : 's'}</span>
               <span className="badge badge-dim">{libraries.length} visible librar{libraries.length === 1 ? 'y' : 'ies'}</span>
             </div>
           </div>
           {selectableSpaces.length > 1 ? (
             <label className="field min-w-[220px] max-w-sm">
-              <span className="label">Viewing space</span>
+              <span className="label">Viewing workspace</span>
               <select
                 className="select"
                 value={activeSpaceId || ''}
@@ -312,7 +312,7 @@ export default function SpaceManagerView({
       {!canManage && (
         <div>
           <p className="text-sm text-ghost">
-            The active space can be viewed here, and only its owner or admins can change settings, members, invites, and integrations.
+            The active workspace can be viewed here, and only its owner or admins can change settings, members, invites, and integrations.
           </p>
         </div>
       )}
@@ -325,7 +325,7 @@ export default function SpaceManagerView({
           activeId={managerTab}
           onChange={setManagerTab}
           semantics="buttons"
-          ariaLabel="My Space sections"
+          ariaLabel="Workspace sections"
           className="w-fit"
         />
 
@@ -374,7 +374,7 @@ export default function SpaceManagerView({
               activeId={peopleTab}
               onChange={setPeopleTab}
               semantics="buttons"
-              ariaLabel="Space people sections"
+              ariaLabel="Workspace people sections"
               className="w-fit"
             />
 
@@ -388,7 +388,7 @@ export default function SpaceManagerView({
                 {loading ? <Spinner size={16} /> : <span className="badge badge-dim">{members.length} member{members.length === 1 ? '' : 's'}</span>}
               </div>
               <div className="space-y-1">
-                {!loading && members.length === 0 ? <p className="py-8 text-sm text-ghost text-center">No members found for this space.</p> : null}
+                {!loading && members.length === 0 ? <p className="py-8 text-sm text-ghost text-center">No members found for this workspace.</p> : null}
                 {members.length > 0 ? (
                   <div className="overflow-x-auto pb-2">
                     <div className="min-w-full w-max">
@@ -487,7 +487,7 @@ export default function SpaceManagerView({
             <div className="space-y-4">
               <div>
                 <h2 className="text-xl font-medium text-ink">Invitations</h2>
-                <p className="text-sm text-ghost mt-1">Review live and historical invites scoped to this space.</p>
+                  <p className="text-sm text-ghost mt-1">Review live and historical invites scoped to this workspace.</p>
               </div>
               <form className="space-y-4" onSubmit={createInvite}>
                 <div className="flex flex-wrap items-end gap-3">
@@ -616,8 +616,8 @@ export default function SpaceManagerView({
             Spinner={Spinner}
             endpoint={`/spaces/${activeSpaceId}/activity`}
             title="Activity"
-            description="This feed is scoped to the active space so owners and members can review what belongs to this tenant."
-            emptyMessage="No activity has been recorded for this space yet."
+            description="This feed is scoped to the active workspace so owners and members can review what belongs to this tenant."
+            emptyMessage="No activity has been recorded for this workspace yet."
             embedded
           />
         ) : null}

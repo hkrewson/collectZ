@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import CollectzMark from './CollectzMark';
 import { SectionTabs } from './app/AppPrimitives';
@@ -22,6 +22,7 @@ export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const submitInFlightRef = useRef(false);
   const inviteAvailable = Boolean(invite);
   const registerAvailable = inviteAvailable;
   const isRegister = route === 'register' && registerAvailable;
@@ -42,6 +43,8 @@ export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion
 
   const submit = async (e) => {
     e.preventDefault();
+    if (submitInFlightRef.current) return;
+    submitInFlightRef.current = true;
     setLoading(true);
     setError('');
     try {
@@ -69,6 +72,7 @@ export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion
     } catch (err) {
       setError(err.response?.data?.error || 'Authentication failed');
     } finally {
+      submitInFlightRef.current = false;
       setLoading(false);
     }
   };

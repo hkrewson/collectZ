@@ -8,7 +8,7 @@ export default function AdminActivityView({ apiCall, Spinner }) {
       Spinner={Spinner}
       endpoint="/admin/activity"
       title="Platform Activity"
-      description="Platform-wide audit trail for admin actions, account changes, and cross-space management events. Space-local activity lives in My Space."
+      description="Platform-wide audit trail for admin actions, account changes, and cross-workspace management events. Workspace-local activity lives in Workspace."
     />
   );
 }

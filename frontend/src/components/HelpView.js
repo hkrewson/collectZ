@@ -31,7 +31,7 @@ const HELP_ARTICLES = [
   },
   {
     id: 'spaces',
-    title: 'Spaces and support boundaries',
+    title: 'Workspaces and support boundaries',
     summary: 'Support requests do not automatically grant tenant access. They create a documented thread first.',
     bullets: [
       'Use the help form when self-serve guidance is not enough.',
@@ -148,7 +148,7 @@ function sessionEvidenceRows(session, selectedRequest) {
   if (session.requester_name || session.requester_email) {
     rows.push({ label: 'Requester', value: session.requester_name || session.requester_email });
   }
-  if (session.space_name) rows.push({ label: 'Space', value: session.space_name });
+  if (session.space_name) rows.push({ label: 'Workspace', value: session.space_name });
   if (session.library_name) rows.push({ label: 'Library', value: session.library_name });
   if (session.started_at) rows.push({ label: 'Started', value: formatTimestamp(session.started_at) });
   if (session.reason) rows.push({ label: 'Reason', value: session.reason });

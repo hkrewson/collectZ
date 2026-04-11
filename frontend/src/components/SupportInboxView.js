@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+const SUPPORT_INBOX_POLL_MS = 30000;
+
 function formatTimestamp(value) {
   if (!value) return 'Unknown';
   try {
@@ -109,11 +111,12 @@ export default function SupportInboxView({ apiCall, onToast, Spinner, Icons }) {
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
       loadInbox({ silent: true });
       if (selectedRequestId) {
         loadRequestDetail(selectedRequestId, { silent: true });
       }
-    }, 15000);
+    }, SUPPORT_INBOX_POLL_MS);
     return () => window.clearInterval(intervalId);
   }, [loadInbox, loadRequestDetail, selectedRequestId]);
 

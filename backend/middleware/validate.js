@@ -276,6 +276,37 @@ const generalSettingsSchema = z.object({
   density: z.enum(['comfortable', 'compact']).optional()
 });
 
+const emailDeliverySettingsSchema = z.object({
+  mode: z.enum(['env', 'app_settings']),
+  host: z.preprocess(emptyStringToNull, z.string().max(1000).optional().nullable()),
+  port: z.preprocess((value) => {
+    if (value === '' || value === null || value === undefined) return null;
+    const numeric = Number(value);
+    if (!Number.isNaN(numeric)) return numeric;
+    return value;
+  }, z.number().int().min(1).max(65535).optional().nullable()),
+  secure: z.boolean().optional(),
+  user: z.preprocess(emptyStringToNull, z.string().max(1000).optional().nullable()),
+  password: z.preprocess(emptyStringToNull, z.string().max(2000).optional().nullable()),
+  from: z.preprocess(emptyStringToNull, z.string().email('from must be a valid email address').optional().nullable()),
+  keep_existing_password: z.boolean().optional()
+}).superRefine((data, ctx) => {
+  if (data.mode !== 'app_settings') return;
+  if (!data.host) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['host'], message: 'host is required for app_settings mode' });
+  }
+  if (!data.from) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['from'], message: 'from is required for app_settings mode' });
+  }
+  if (data.user && !data.password && !data.keep_existing_password) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['password'], message: 'password is required when SMTP user is set unless keeping the existing password' });
+  }
+});
+
+const emailDeliveryTestSchema = z.object({
+  email: z.preprocess(emptyStringToNull, z.string().email('Invalid email address').optional().nullable())
+});
+
 const libraryCreateSchema = z.object({
   name: z.string().min(1, 'Library name is required').max(255),
   description: z.string().max(2000).optional().nullable()
@@ -567,6 +598,8 @@ module.exports = {
   personalAccessTokenCreateSchema,
   serviceAccountKeyCreateSchema,
   generalSettingsSchema,
+  emailDeliverySettingsSchema,
+  emailDeliveryTestSchema,
   spaceCreateSchema,
   adminSpaceCreateWithOnboardingSchema,
   spaceUpdateSchema,

@@ -23,7 +23,7 @@ test.describe('browser boundary regressions', () => {
     await expect(page).toHaveURL(/tab=help/);
     await expect(page.getByRole('heading', { name: 'Help Admin' })).toBeVisible();
 
-    await page.goto('/dashboard?tab=admin-integrations&integration=barcode');
+    await page.goto('/dashboard?tab=admin-integrations&integration=logs');
     await expect(page).toHaveURL(/tab=help/);
     await expect(page.getByRole('heading', { name: 'Help Admin' })).toBeVisible();
   });

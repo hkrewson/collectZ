@@ -174,7 +174,7 @@ export default function AdminSpacesView({
     if (spacesRes.status === 'fulfilled') {
       setSpaces(Array.isArray(spacesRes.value?.spaces) ? spacesRes.value.spaces : []);
     } else {
-      setLoadError('Failed to load spaces.');
+      setLoadError('Failed to load workspaces.');
     }
 
     if (usersRes.status === 'fulfilled') {
@@ -319,14 +319,14 @@ export default function AdminSpacesView({
       const failed = Number(result?.summary?.failed || 0);
       const created = Number(result?.summary?.created || 0);
       if (failed > 0) {
-        onToast(`Space created with ${created} invite${created === 1 ? '' : 's'} and ${failed} failure${failed === 1 ? '' : 's'}`, 'info');
+        onToast(`Workspace created with ${created} invite${created === 1 ? '' : 's'} and ${failed} failure${failed === 1 ? '' : 's'}`, 'info');
       } else if (created > 0) {
-        onToast(`Space created with ${created} invite${created === 1 ? '' : 's'}`);
+        onToast(`Workspace created with ${created} invite${created === 1 ? '' : 's'}`);
       } else {
-        onToast('Space created');
+        onToast('Workspace created');
       }
     } catch (error) {
-      onToast(error.response?.data?.detail || error.response?.data?.error || 'Failed to create space', 'error');
+      onToast(error.response?.data?.detail || error.response?.data?.error || 'Failed to create workspace', 'error');
     } finally {
       setCreating(false);
     }
@@ -469,9 +469,9 @@ export default function AdminSpacesView({
       setExistingUserForm({ user_id: '', role: selectedSpaceOwners.length > 0 ? 'member' : 'viewer' });
       await loadPlatformData();
       await loadSelectedSpaceDetails(selectedSpaceId);
-      onToast('User added to space');
+      onToast('User added to workspace');
     } catch (error) {
-      onToast(error.response?.data?.detail || error.response?.data?.error || 'Failed to add user to space', 'error');
+      onToast(error.response?.data?.detail || error.response?.data?.error || 'Failed to add user to workspace', 'error');
     } finally {
       setAddingExistingUser(false);
     }
@@ -490,15 +490,15 @@ export default function AdminSpacesView({
   };
 
   const deleteSpace = async (spaceId) => {
-    if (!window.confirm('Delete this empty space permanently? This cannot be undone.')) return;
+    if (!window.confirm('Delete this empty workspace permanently? This cannot be undone.')) return;
     setBusySpaceId(spaceId);
     try {
       await apiCall('delete', `/admin/spaces/${spaceId}`);
       await loadPlatformData();
       setOpenRowMenuId((prev) => (Number(prev) === Number(spaceId) ? null : prev));
-      onToast('Space deleted');
+      onToast('Workspace deleted');
     } catch (error) {
-      onToast(error.response?.data?.detail || error.response?.data?.error || 'Failed to delete space', 'error');
+      onToast(error.response?.data?.detail || error.response?.data?.error || 'Failed to delete workspace', 'error');
     } finally {
       setBusySpaceId(null);
     }
@@ -536,15 +536,15 @@ export default function AdminSpacesView({
   };
 
   if (loading) {
-    return <div className="p-4 sm:p-6 flex items-center gap-3 text-dim"><Spinner />Loading spaces…</div>;
+    return <div className="p-4 sm:p-6 flex items-center gap-3 text-dim"><Spinner />Loading workspaces…</div>;
   }
 
   return (
     <div className="h-full overflow-y-auto p-4 sm:p-6 space-y-6">
       <div className="space-y-2">
-        <h1 className="section-title">All Spaces</h1>
+        <h1 className="section-title">All Workspaces</h1>
         <p className="text-sm text-ghost max-w-3xl">
-          Platform control plane for global admins. Create spaces, recover owners, and run explicit support sessions without falling back to casual tenant-space browsing.
+          Platform control plane for global admins. Create workspaces, recover owners, and run explicit support sessions without falling back to casual tenant-workspace browsing.
         </p>
       </div>
 
@@ -552,8 +552,8 @@ export default function AdminSpacesView({
 
       <form className="space-y-4 max-w-3xl" onSubmit={createSpace}>
         <div>
-          <h2 className="text-xl font-medium text-ink">Create Space</h2>
-          <p className="text-sm text-ghost mt-1">Create a space, set its first owner, and optionally prepare its first space-scoped invites.</p>
+          <h2 className="text-xl font-medium text-ink">Create Workspace</h2>
+          <p className="text-sm text-ghost mt-1">Create a workspace, set its first owner, and optionally prepare its first workspace-scoped invites.</p>
         </div>
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:flex-nowrap">
           <label className="field xl:max-w-[360px] xl:flex-1">
@@ -580,7 +580,7 @@ export default function AdminSpacesView({
           </label>
           <div className="xl:shrink-0 xl:pb-[1px]">
             <button type="submit" className="btn-primary min-w-[132px] w-full xl:w-auto" disabled={creating}>
-              {creating ? <Spinner size={14} /> : 'Create Space'}
+              {creating ? <Spinner size={14} /> : 'Create Workspace'}
             </button>
           </div>
         </div>
@@ -589,7 +589,7 @@ export default function AdminSpacesView({
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h3 className="text-base font-medium text-ink">Initial Invites</h3>
-              <p className="text-sm text-ghost mt-1">Optional. Add the first people who should join this space after the owner.</p>
+              <p className="text-sm text-ghost mt-1">Optional. Add the first people who should join this workspace after the owner.</p>
             </div>
             <button type="button" className="btn-secondary btn-sm" onClick={addInitialInviteRow}>
               Add invite
@@ -641,12 +641,12 @@ export default function AdminSpacesView({
       </form>
 
       <div className="space-y-1">
-        {spaces.length === 0 ? <p className="px-5 py-8 text-sm text-ghost text-center">No spaces found.</p> : null}
+        {spaces.length === 0 ? <p className="px-5 py-8 text-sm text-ghost text-center">No workspaces found.</p> : null}
         {spaces.length > 0 ? (
           <div className="overflow-x-auto pb-2">
             <div className="min-w-full w-max">
               <div className="grid min-w-full grid-cols-[minmax(320px,2.2fr)_minmax(260px,1.5fr)_minmax(110px,0.7fr)_minmax(110px,0.7fr)_minmax(110px,0.8fr)_minmax(190px,1fr)] gap-4 px-1 pb-2 text-[11px] font-medium uppercase tracking-[0.18em] text-ghost">
-                <div>Space</div>
+                <div>Workspace</div>
                 <div>Owners</div>
                 <div>Members</div>
                 <div>Libraries</div>
@@ -735,7 +735,7 @@ export default function AdminSpacesView({
           <aside className="fixed top-0 right-0 h-full w-full max-w-lg bg-abyss border-l border-edge z-50 overflow-y-auto">
             <div className="p-5 border-b border-edge flex items-start gap-3">
               <div className="flex-1 min-w-0">
-                <h2 className="panel-title">Space Controls</h2>
+                <h2 className="panel-title">Workspace Controls</h2>
                 <p className="text-sm text-ghost mt-1">{selectedSpaceDetails?.space?.name || selectedSpace.name}</p>
               </div>
               <button
@@ -771,7 +771,7 @@ export default function AdminSpacesView({
                 />
               ) : null}
 
-              {detailLoading ? <p className="text-sm text-ghost flex items-center gap-2"><Spinner size={14} />Loading space detail…</p> : null}
+              {detailLoading ? <p className="text-sm text-ghost flex items-center gap-2"><Spinner size={14} />Loading workspace detail…</p> : null}
               {detailError ? <p className="text-sm text-err">{detailError}</p> : null}
 
               <section className="space-y-3">
@@ -782,7 +782,7 @@ export default function AdminSpacesView({
                   <p className="text-sm text-ghost mt-1">
                     {selectedSpaceOwners.length > 0
                       ? 'Create a password reset link for a current owner.'
-                      : 'This space is currently empty.'}
+                      : 'This workspace is currently empty.'}
                   </p>
                 </div>
 
@@ -855,7 +855,7 @@ export default function AdminSpacesView({
                   ]}
                   activeId={drawerTab}
                   onChange={setDrawerTab}
-                  ariaLabel="Space drawer sections"
+                  ariaLabel="Workspace drawer sections"
                   idBase="space-drawer-sections"
                 />
 
@@ -863,11 +863,11 @@ export default function AdminSpacesView({
                   <>
                 <div>
                   <h3 className="text-lg font-medium text-ink">Add people</h3>
-                  <p className="text-sm text-ghost mt-1">Invite someone directly to this space or add an existing user to it.</p>
+                  <p className="text-sm text-ghost mt-1">Invite someone directly to this workspace or add an existing user to it.</p>
                 </div>
 
                 <div className="space-y-3">
-                  <p className="text-xs uppercase tracking-[0.18em] text-ghost">Direct space-scoped invite</p>
+                  <p className="text-xs uppercase tracking-[0.18em] text-ghost">Direct workspace-scoped invite</p>
                   <div className="flex flex-wrap items-end gap-3">
                     <label className="field min-w-[220px] flex-1">
                       <span className="label">Email</span>
@@ -900,7 +900,7 @@ export default function AdminSpacesView({
                 </div>
 
                 <div className="space-y-3">
-                  <p className="text-xs uppercase tracking-[0.18em] text-ghost">Add existing user to this space</p>
+                  <p className="text-xs uppercase tracking-[0.18em] text-ghost">Add existing user to this workspace</p>
                   <div className="flex flex-wrap items-end gap-3">
                     <label className="field min-w-[240px] flex-1">
                       <span className="label">User</span>
@@ -939,7 +939,7 @@ export default function AdminSpacesView({
                   <section className="space-y-3">
                 <div>
                   <h3 className="text-lg font-medium text-ink">Members</h3>
-                  <p className="text-sm text-ghost mt-1">Reset passwords for existing users and review current access within this space.</p>
+                  <p className="text-sm text-ghost mt-1">Reset passwords for existing users and review current access within this workspace.</p>
                 </div>
                 {selectedNonOwnerMembers.length === 0 ? (
                   <p className="text-sm text-ghost">No non-owner members are currently assigned to this space.</p>
@@ -973,7 +973,7 @@ export default function AdminSpacesView({
                   <section className="space-y-3">
                 <div>
                   <h3 className="text-lg font-medium text-ink">Invitations</h3>
-                  <p className="text-sm text-ghost mt-1">Review pending and historical invitations for this space.</p>
+                  <p className="text-sm text-ghost mt-1">Review pending and historical invitations for this workspace.</p>
                 </div>
                 <OneTimeLinkPanel
                   label={inviteLinkLabel}
