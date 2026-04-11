@@ -570,7 +570,7 @@ export default function SpaceManagerView({
                                       removeMember(member.id);
                                     }}
                                   >
-                                    Remove from workspace
+                                    Remove
                                   </button>
                                   </div>
                                 </div>

@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v2.10.17",
+      "version": "2.10.17",
+      "date": "2026-04-11",
+      "status": "Completed",
+      "summary": "This patch release finishes the workspace-owned member lifecycle foundation. Workspace owners and admins can now force password resets, suspend and restore members within the workspace boundary, invite a brand-new person to become the initial owner during workspace creation, and remove a member from a workspace without silently deleting the content they contributed there. The release keeps platform-global administration distinct from workspace-scoped lifecycle control and preserves the intended tenancy model.",
+      "details": []
+    },
+    {
       "title": "v2.10.16",
       "version": "2.10.16",
       "date": "2026-04-11",
@@ -70,14 +78,6 @@
       "date": "2026-04-09",
       "status": "Completed",
       "summary": "This patch release tones down the library shell navigation so it keeps its hierarchy and space context without feeling over-styled. The sidebar no longer leans on uppercase eyebrows, badge-like role chrome, gold active rails, or decorative sub-item bullets to explain itself, and instead reads more like ordinary product navigation.",
-      "details": []
-    },
-    {
-      "title": "v2.10.7",
-      "version": "2.10.7",
-      "date": "2026-04-09",
-      "status": "Completed",
-      "summary": "This patch release finishes the shared tab-strip cleanup so the app’s remaining secondary tab and mode-toggle surfaces now use the same flattened tab language as the newer import, admin, help, and drawer flows. The old pill-shell tab strip is gone from the shared frontend layer, and auth, space management, library, events, and collectibles now all rely on the same shared tab primitive instead of preserving one-off segmented-control styling.",
       "details": []
     }
   ]
