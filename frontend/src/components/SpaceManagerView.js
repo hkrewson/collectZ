@@ -258,6 +258,25 @@ export default function SpaceManagerView({
     }
   };
 
+  const updateMemberSuspension = async (memberId, suspended) => {
+    const confirmationMessage = suspended
+      ? 'Suspend this member from the workspace? They will lose access until restored.'
+      : 'Restore this member to the workspace?';
+    if (!window.confirm(confirmationMessage)) return;
+    setMemberBusyId(memberId);
+    try {
+      const payload = await apiCall('patch', `/spaces/${activeSpaceId}/members/${memberId}/suspension`, { suspended });
+      setMembers((prev) => prev.map((member) => (member.id === memberId ? { ...member, ...payload } : member)));
+      setOpenMemberMenuId((prev) => (Number(prev) === Number(memberId) ? null : prev));
+      await onScopeRefresh?.({ silent: true });
+      onToast(suspended ? 'Member suspended' : 'Member restored');
+    } catch (error) {
+      onToast(error.response?.data?.error || (suspended ? 'Failed to suspend member' : 'Failed to restore member'), 'error');
+    } finally {
+      setMemberBusyId(null);
+    }
+  };
+
   const removeMember = async (memberId) => {
     if (!window.confirm('Remove this member from the workspace?')) return;
     setMemberBusyId(memberId);
@@ -465,6 +484,9 @@ export default function SpaceManagerView({
                               <p className="text-sm text-ink">
                                 {member.role}{member.user_role ? ` (${member.user_role})` : ''}
                               </p>
+                              {member.suspended_at ? (
+                                <p className="mt-1 text-xs text-amber-300">Suspended</p>
+                              ) : null}
                             </div>
 
                             <div className="relative inline-flex items-center">
@@ -504,6 +526,17 @@ export default function SpaceManagerView({
                                   <div className="mt-2 border-t border-edge pt-2">
                                     {member.role !== 'owner' ? (
                                       <>
+                                        <button
+                                          type="button"
+                                          className="w-full rounded-lg px-3 py-2 text-left text-sm text-ink hover:bg-raised disabled:opacity-60"
+                                          disabled={memberBusyId === member.id}
+                                          onClick={(event) => {
+                                            event.stopPropagation();
+                                            updateMemberSuspension(member.id, !member.suspended_at);
+                                          }}
+                                        >
+                                          {member.suspended_at ? 'Restore access' : 'Suspend access'}
+                                        </button>
                                         <button
                                           type="button"
                                           className="w-full rounded-lg px-3 py-2 text-left text-sm text-ink hover:bg-raised disabled:opacity-60"

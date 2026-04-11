@@ -233,6 +233,11 @@ export default function AdminSpacesView({
     const memberIds = new Set(selectedSpaceMembers.map((member) => Number(member.user_id)));
     return userOptions.filter((user) => !memberIds.has(Number(user.id)));
   }, [selectedSpaceMembers, userOptions]);
+  const initialOwnerInvite = useMemo(
+    () => initialInvites.find((invite) => String(invite?.role || '').trim() === 'owner') || null,
+    [initialInvites]
+  );
+  const ownerSelectionLockedToInvite = Boolean(initialOwnerInvite);
 
   const loadSelectedSpaceDetails = useCallback(async (spaceId) => {
     if (!spaceId) {
@@ -578,12 +583,18 @@ export default function AdminSpacesView({
               className="select"
               value={createForm.owner_user_id}
               onChange={(e) => setCreateForm((prev) => ({ ...prev, owner_user_id: e.target.value }))}
+              disabled={ownerSelectionLockedToInvite}
             >
-              <option value="">Current admin</option>
+              <option value="">{ownerSelectionLockedToInvite ? 'Invited owner below' : 'Current admin'}</option>
               {userOptions.map((user) => (
                 <option key={user.id} value={user.id}>{user.label}</option>
               ))}
             </select>
+            <span className="mt-2 text-xs text-ghost">
+              {ownerSelectionLockedToInvite
+                ? `First owner will be ${initialOwnerInvite.email} after they claim the invite below.`
+                : 'Leave this as Current admin, or choose an existing active user as the initial owner.'}
+            </span>
           </label>
           <div className="xl:shrink-0 xl:pb-[1px]">
             <button type="submit" className="btn-primary min-w-[132px] w-full xl:w-auto" disabled={creating}>
@@ -628,7 +639,19 @@ export default function AdminSpacesView({
                       className="select"
                       value={invite.role}
                       onChange={(e) => {
-                        updateInitialInvite(index, { role: e.target.value });
+                        const nextRole = e.target.value;
+                        if (nextRole === 'owner') {
+                          setCreateForm((prev) => ({ ...prev, owner_user_id: '' }));
+                          setInitialInvites((prev) => prev.map((currentInvite, currentIndex) => {
+                            if (currentIndex === index) return { ...currentInvite, role: 'owner' };
+                            if (String(currentInvite?.role || '').trim() === 'owner') {
+                              return { ...currentInvite, role: 'member' };
+                            }
+                            return currentInvite;
+                          }));
+                          return;
+                        }
+                        updateInitialInvite(index, { role: nextRole });
                       }}
                     >
                       <option value="owner">owner</option>

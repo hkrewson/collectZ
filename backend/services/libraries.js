@@ -19,6 +19,7 @@ async function canUserAccessSpace(client, { userId, spaceId }) {
      FROM space_memberships
      WHERE user_id = $1
        AND space_id = $2
+       AND suspended_at IS NULL
      LIMIT 1`,
     [numericUserId, numericSpaceId]
   );
@@ -35,6 +36,10 @@ async function getAccessibleLibraryRow(client, { userId, libraryId }) {
     `SELECT l.id, l.space_id
      FROM library_memberships lm
      JOIN libraries l ON l.id = lm.library_id
+     JOIN space_memberships sm
+       ON sm.space_id = l.space_id
+      AND sm.user_id = lm.user_id
+      AND sm.suspended_at IS NULL
      WHERE lm.user_id = $1
        AND l.id = $2
        AND l.archived_at IS NULL
@@ -105,6 +110,7 @@ async function ensureUserDefaultScope(userId, options = {}) {
         `SELECT space_id
          FROM space_memberships
          WHERE user_id = $1
+           AND suspended_at IS NULL
          ORDER BY
            CASE role
              WHEN 'owner' THEN 0
@@ -121,24 +127,46 @@ async function ensureUserDefaultScope(userId, options = {}) {
       }
     }
 
-    if (!spaceId) {
+    const anyMemberships = await client.query(
+      `SELECT COUNT(*)::int AS count
+       FROM space_memberships
+       WHERE user_id = $1`,
+      [numericUserId]
+    );
+    const anyMembershipCount = Number(anyMemberships.rows[0]?.count || 0);
+
+    if (!spaceId && anyMembershipCount === 0) {
       spaceId = defaultSpace.id;
     }
 
-    await client.query(
-      `INSERT INTO space_memberships (space_id, user_id, role, created_by)
-       VALUES ($1, $2, $3, $4)
-       ON CONFLICT (space_id, user_id) DO NOTHING`,
-      [
-        spaceId,
-        numericUserId,
-        deriveSpaceMembershipRole({
-          userRole: userRow.role,
-          isDefaultSpaceCreator: Number(defaultSpace.created_by || 0) === numericUserId && spaceId === defaultSpace.id
-        }),
-        defaultSpace.created_by || numericUserId
-      ]
-    );
+    if (!spaceId) {
+      await client.query(
+        `UPDATE users
+         SET active_space_id = NULL,
+             active_library_id = NULL
+         WHERE id = $1`,
+        [numericUserId]
+      );
+      await client.query('COMMIT');
+      return { spaceId: null, libraryId: null };
+    }
+
+    if (anyMembershipCount === 0) {
+      await client.query(
+        `INSERT INTO space_memberships (space_id, user_id, role, created_by)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (space_id, user_id) DO NOTHING`,
+        [
+          spaceId,
+          numericUserId,
+          deriveSpaceMembershipRole({
+            userRole: userRow.role,
+            isDefaultSpaceCreator: Number(defaultSpace.created_by || 0) === numericUserId && spaceId === defaultSpace.id
+          }),
+          defaultSpace.created_by || numericUserId
+        ]
+      );
+    }
 
     let libraryId = userRow.active_library_id || null;
     if (libraryId) {
@@ -156,6 +184,10 @@ async function ensureUserDefaultScope(userId, options = {}) {
         `SELECT lm.library_id
          FROM library_memberships lm
          JOIN libraries l ON l.id = lm.library_id
+         JOIN space_memberships sm
+           ON sm.space_id = l.space_id
+          AND sm.user_id = lm.user_id
+          AND sm.suspended_at IS NULL
          WHERE lm.user_id = $1
            AND l.archived_at IS NULL
            AND l.space_id = $2
@@ -217,6 +249,10 @@ async function listLibrariesForSpace({ userId, role, spaceId }) {
               COUNT(m.id)::int AS item_count
      FROM library_memberships lm
      JOIN libraries l ON l.id = lm.library_id
+     JOIN space_memberships sm
+       ON sm.space_id = l.space_id
+      AND sm.user_id = lm.user_id
+      AND sm.suspended_at IS NULL
      LEFT JOIN users u ON u.id = l.created_by
      LEFT JOIN media m ON m.library_id = l.id
      WHERE lm.user_id = $1
@@ -255,6 +291,10 @@ async function listLibrariesForUser({ userId, role }) {
               COUNT(m.id)::int AS item_count
      FROM library_memberships lm
      JOIN libraries l ON l.id = lm.library_id
+     JOIN space_memberships sm
+       ON sm.space_id = l.space_id
+      AND sm.user_id = lm.user_id
+      AND sm.suspended_at IS NULL
      LEFT JOIN users u ON u.id = l.created_by
      LEFT JOIN media m ON m.library_id = l.id
      WHERE lm.user_id = $1
@@ -274,6 +314,10 @@ async function getAccessibleLibrary({ userId, role, libraryId }) {
     `SELECT l.id, l.name, l.description, l.space_id, l.created_by, l.created_at, l.updated_at
      FROM library_memberships lm
      JOIN libraries l ON l.id = lm.library_id
+     JOIN space_memberships sm
+       ON sm.space_id = l.space_id
+      AND sm.user_id = lm.user_id
+      AND sm.suspended_at IS NULL
      WHERE lm.user_id = $1
        AND l.id = $2
        AND l.archived_at IS NULL

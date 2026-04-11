@@ -9,6 +9,7 @@ const {
   spaceUpdateSchema,
   spaceMembershipCreateSchema,
   spaceMembershipUpdateSchema,
+  spaceMembershipSuspensionSchema,
   spaceInviteCreateSchema,
   spaceTransferCreateSchema,
   generalSettingsSchema
@@ -717,7 +718,8 @@ router.patch('/spaces/:id/members/:memberId', validate(spaceMembershipUpdateSche
     }
 
     const current = await client.query(
-      `SELECT sm.id, sm.space_id, sm.user_id, sm.role, u.email, u.name, u.role AS user_role
+    `SELECT sm.id, sm.space_id, sm.user_id, sm.role, u.email, u.name, u.role AS user_role
+            , sm.suspended_at, sm.suspended_by
        FROM space_memberships sm
        JOIN users u ON u.id = sm.user_id
        WHERE sm.id = $1
@@ -755,7 +757,109 @@ router.patch('/spaces/:id/members/:memberId', validate(spaceMembershipUpdateSche
       ...updated.rows[0],
       email: current.rows[0].email,
       name: current.rows[0].name,
-      user_role: current.rows[0].user_role
+      user_role: current.rows[0].user_role,
+      suspended_at: current.rows[0].suspended_at || null,
+      suspended_by: current.rows[0].suspended_by || null
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}));
+
+router.patch('/spaces/:id/members/:memberId/suspension', validate(spaceMembershipSuspensionSchema), asyncHandler(async (req, res) => {
+  const spaceId = Number(req.params.id);
+  const membershipId = Number(req.params.memberId);
+  const nextSuspended = Boolean(req.body?.suspended);
+  const actorUserId = Number(req.user?.id || 0) || null;
+  if (!Number.isFinite(spaceId) || spaceId <= 0) {
+    return res.status(400).json({ error: 'Invalid space id' });
+  }
+  if (!Number.isFinite(membershipId) || membershipId <= 0) {
+    return res.status(400).json({ error: 'Invalid member id' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const accessibleSpace = await requireAccessibleSpace(client, req, spaceId);
+    if (!accessibleSpace) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Space not found' });
+    }
+    if (!canManageSpaceMemberships({
+      userRole: req.user.role,
+      membershipRole: accessibleSpace.actor_membership_role
+    })) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'Space membership management denied' });
+    }
+
+    const current = await client.query(
+      `SELECT sm.id, sm.space_id, sm.user_id, sm.role, sm.suspended_at, sm.suspended_by, u.email, u.name, u.role AS user_role
+       FROM space_memberships sm
+       JOIN users u ON u.id = sm.user_id
+       WHERE sm.id = $1
+         AND sm.space_id = $2
+       LIMIT 1`,
+      [membershipId, spaceId]
+    );
+    if (current.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Space member not found' });
+    }
+
+    const target = current.rows[0];
+    if (!canManageMemberLifecycle({
+      actorMembershipRole: accessibleSpace.actor_membership_role,
+      targetRole: target.role
+    })) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: nextSuspended ? 'Suspension denied for this workspace member' : 'Restore denied for this workspace member' });
+    }
+    if (nextSuspended === Boolean(target.suspended_at)) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: nextSuspended ? 'Workspace member is already suspended' : 'Workspace member is not suspended' });
+    }
+
+    const updated = await client.query(
+      `UPDATE space_memberships
+       SET suspended_at = CASE WHEN $3 THEN CURRENT_TIMESTAMP ELSE NULL END,
+           suspended_by = CASE WHEN $3 THEN $4::integer ELSE NULL END,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1
+         AND space_id = $2
+       RETURNING id, space_id, user_id, role, created_by, created_at, updated_at, suspended_at, suspended_by`,
+      [membershipId, spaceId, nextSuspended, actorUserId]
+    );
+
+    if (nextSuspended) {
+      await client.query(
+        `UPDATE users
+         SET active_space_id = CASE WHEN active_space_id = $2 THEN NULL ELSE active_space_id END,
+             active_library_id = CASE WHEN active_space_id = $2 THEN NULL ELSE active_library_id END
+         WHERE id = $1`,
+        [target.user_id, spaceId]
+      );
+    }
+
+    await client.query('COMMIT');
+
+    await logActivity(req, nextSuspended ? 'space.member.suspend' : 'space.member.restore', 'space_membership', membershipId, {
+      targetUserId: target.user_id,
+      targetUserEmail: target.email,
+      targetUserName: target.name || null,
+      role: target.role,
+      spaceId
+    });
+
+    res.json({
+      ...updated.rows[0],
+      email: target.email,
+      name: target.name,
+      user_role: target.user_role
     });
   } catch (error) {
     await client.query('ROLLBACK');

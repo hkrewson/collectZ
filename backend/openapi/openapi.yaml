@@ -630,11 +630,20 @@
           "created_by": { "type": ["integer", "null"] },
           "created_at": { "type": "string", "format": "date-time" },
           "updated_at": { "type": "string", "format": "date-time" },
+          "suspended_at": { "type": ["string", "null"], "format": "date-time" },
+          "suspended_by": { "type": ["integer", "null"] },
           "email": { "type": ["string", "null"] },
           "name": { "type": ["string", "null"] },
           "user_role": { "type": ["string", "null"] }
         },
         "required": ["id", "space_id", "user_id", "role", "created_at", "updated_at"]
+      },
+      "SpaceMembershipSuspensionRequest": {
+        "type": "object",
+        "properties": {
+          "suspended": { "type": "boolean" }
+        },
+        "required": ["suspended"]
       },
       "SpaceMembershipListResponse": {
         "type": "object",
@@ -2481,6 +2490,34 @@
                   },
                   "required": ["id", "removed"]
                 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/spaces/{id}/members/{memberId}/suspension": {
+      "patch": {
+        "summary": "Suspend or restore a workspace member",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer" } },
+          { "in": "path", "name": "memberId", "required": true, "schema": { "type": "integer" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SpaceMembershipSuspensionRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Workspace member suspension updated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SpaceMembershipRecord" }
               }
             }
           }

@@ -2737,6 +2737,19 @@ const MIGRATIONS = [
       CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_active
         ON email_verification_tokens(used, revoked, expires_at);
     `
+  },
+  {
+    version: 63,
+    description: 'Add workspace membership suspension lifecycle fields',
+    up: `
+      ALTER TABLE space_memberships
+        ADD COLUMN IF NOT EXISTS suspended_at TIMESTAMP,
+        ADD COLUMN IF NOT EXISTS suspended_by INTEGER REFERENCES users(id) ON DELETE SET NULL;
+
+      CREATE INDEX IF NOT EXISTS idx_space_memberships_user_active
+        ON space_memberships(user_id, space_id)
+        WHERE suspended_at IS NULL;
+    `
   }
 ];
 

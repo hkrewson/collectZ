@@ -456,6 +456,10 @@ const spaceMembershipUpdateSchema = z.object({
   role: z.enum(['owner', 'admin', 'member', 'viewer'])
 });
 
+const spaceMembershipSuspensionSchema = z.object({
+  suspended: z.boolean()
+});
+
 const spaceInviteCreateSchema = z.object({
   email: z.string().email('Valid email is required'),
   role: z.enum(['owner', 'admin', 'member', 'viewer']),
@@ -636,6 +640,7 @@ module.exports = {
   spaceUpdateSchema,
   spaceMembershipCreateSchema,
   spaceMembershipUpdateSchema,
+  spaceMembershipSuspensionSchema,
   spaceInviteCreateSchema,
   spaceTransferCreateSchema,
   libraryCreateSchema,

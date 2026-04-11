@@ -130,7 +130,12 @@ function enforceScopeAccess(options = {}) {
           const membership = await pool.query(
             `SELECT 1
              FROM library_memberships
-             WHERE user_id = $1
+             JOIN libraries l ON l.id = library_memberships.library_id
+             JOIN space_memberships sm
+               ON sm.space_id = l.space_id
+              AND sm.user_id = library_memberships.user_id
+              AND sm.suspended_at IS NULL
+             WHERE library_memberships.user_id = $1
                AND library_id = $2
              LIMIT 1`,
             [userId, resolvedLibraryId]
@@ -147,6 +152,7 @@ function enforceScopeAccess(options = {}) {
            FROM space_memberships
            WHERE user_id = $1
              AND space_id = $2
+             AND suspended_at IS NULL
            LIMIT 1`,
           [userId, resolvedSpaceId]
         );

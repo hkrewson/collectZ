@@ -327,6 +327,131 @@ test.describe('space manager browser regressions', () => {
     }
   });
 
+  test('workspace admin can suspend and restore a workspace member without affecting unrelated tenancy state', async ({ page }) => {
+    const adminCredentials = await ensureSavedAdminCredentials();
+    const adminContext = await createAuthenticatedRequestContext(adminCredentials);
+    const stamp = Date.now();
+    const ownerEmail = `playwright-space-suspend-owner-${stamp}@example.com`;
+    const ownerPassword = 'Passw0rd!123';
+    const ownerName = 'Playwright Space Suspend Owner';
+    const memberEmail = `playwright-space-suspend-member-${stamp}@example.com`;
+    const memberPassword = 'Passw0rd!123';
+    const memberName = 'Playwright Space Suspend Member';
+    let ownerContext = null;
+    let memberContext = null;
+
+    try {
+      const createdSpaceResponse = await postWithCsrf(adminContext, '/api/admin/spaces/create-with-onboarding', {
+        name: `Playwright Suspend Space ${stamp}`,
+        slug: `playwright-suspend-space-${stamp}`,
+        initial_invites: [
+          {
+            email: ownerEmail,
+            role: 'owner',
+            expose_token: true
+          },
+          {
+            email: memberEmail,
+            role: 'member',
+            expose_token: true
+          }
+        ]
+      }, 201);
+      const createdSpacePayload = await createdSpaceResponse.json();
+      const createdSpaceId = Number(createdSpacePayload?.space?.id || 0) || null;
+      expect(createdSpaceId).toBeTruthy();
+
+      const inviteResults = Array.isArray(createdSpacePayload?.invite_results) ? createdSpacePayload.invite_results : [];
+      const ownerInvite = inviteResults.find((invite) => String(invite?.email || '').toLowerCase() === ownerEmail.toLowerCase()) || null;
+      const memberInvite = inviteResults.find((invite) => String(invite?.email || '').toLowerCase() === memberEmail.toLowerCase()) || null;
+      const ownerInviteToken = String(ownerInvite?.token || '').trim();
+      const memberInviteToken = String(memberInvite?.token || '').trim();
+      expect(ownerInviteToken).toBeTruthy();
+      expect(memberInviteToken).toBeTruthy();
+
+      const registrationContext = await request.newContext({
+        baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000',
+        extraHTTPHeaders: getPlaywrightBypassHeaders()
+      });
+      try {
+        await postWithCsrf(registrationContext, '/api/auth/register', {
+          email: ownerEmail,
+          password: ownerPassword,
+          name: ownerName,
+          inviteToken: ownerInviteToken
+        }, 200);
+        await postWithCsrf(registrationContext, '/api/auth/register', {
+          email: memberEmail,
+          password: memberPassword,
+          name: memberName,
+          inviteToken: memberInviteToken
+        }, 200);
+      } finally {
+        await registrationContext.dispose();
+      }
+
+      ownerContext = await createAuthenticatedRequestContext({ email: ownerEmail, password: ownerPassword });
+      memberContext = await createAuthenticatedRequestContext({ email: memberEmail, password: memberPassword });
+
+      const memberSpacesBeforeResponse = await memberContext.get('/api/spaces');
+      expect(memberSpacesBeforeResponse.ok()).toBeTruthy();
+      const memberSpacesBefore = await memberSpacesBeforeResponse.json();
+      expect(Array.isArray(memberSpacesBefore?.spaces)).toBeTruthy();
+      expect(memberSpacesBefore.spaces.some((space) => Number(space.id) === createdSpaceId)).toBeTruthy();
+
+      const storageState = await ownerContext.storageState();
+      await page.context().addCookies(storageState.cookies || []);
+      await page.goto('/dashboard?tab=space-manage');
+      await page.getByRole('button', { name: 'People', exact: true }).click();
+
+      const memberRow = page.getByText(memberEmail, { exact: true }).first();
+      await expect(memberRow).toBeVisible();
+      await memberRow.locator('xpath=ancestor::div[contains(@class,"grid")][1]/div[last()]//button[@aria-label="Member actions"]').click();
+
+      const suspendResponsePromise = page.waitForResponse((response) => (
+        response.url().includes(`/api/spaces/${createdSpaceId}/members/`)
+        && response.url().includes('/suspension')
+        && response.request().method() === 'PATCH'
+      ));
+      await Promise.all([
+        page.waitForEvent('dialog').then((dialog) => dialog.accept()),
+        page.getByRole('button', { name: 'Suspend access', exact: true }).click()
+      ]);
+      const suspendResponse = await suspendResponsePromise;
+      expect(suspendResponse.ok()).toBeTruthy();
+      await expect(page.getByText('Suspended', { exact: true })).toBeVisible();
+
+      const memberSpacesAfterSuspendResponse = await memberContext.get('/api/spaces');
+      expect(memberSpacesAfterSuspendResponse.ok()).toBeTruthy();
+      const memberSpacesAfterSuspend = await memberSpacesAfterSuspendResponse.json();
+      expect(Array.isArray(memberSpacesAfterSuspend?.spaces)).toBeTruthy();
+      expect(memberSpacesAfterSuspend.spaces.some((space) => Number(space.id) === createdSpaceId)).toBeFalsy();
+
+      await memberRow.locator('xpath=ancestor::div[contains(@class,"grid")][1]/div[last()]//button[@aria-label="Member actions"]').click();
+      const restoreResponsePromise = page.waitForResponse((response) => (
+        response.url().includes(`/api/spaces/${createdSpaceId}/members/`)
+        && response.url().includes('/suspension')
+        && response.request().method() === 'PATCH'
+      ));
+      await Promise.all([
+        page.waitForEvent('dialog').then((dialog) => dialog.accept()),
+        page.getByRole('button', { name: 'Restore access', exact: true }).click()
+      ]);
+      const restoreResponse = await restoreResponsePromise;
+      expect(restoreResponse.ok()).toBeTruthy();
+
+      const memberSpacesAfterRestoreResponse = await memberContext.get('/api/spaces');
+      expect(memberSpacesAfterRestoreResponse.ok()).toBeTruthy();
+      const memberSpacesAfterRestore = await memberSpacesAfterRestoreResponse.json();
+      expect(Array.isArray(memberSpacesAfterRestore?.spaces)).toBeTruthy();
+      expect(memberSpacesAfterRestore.spaces.some((space) => Number(space.id) === createdSpaceId)).toBeTruthy();
+    } finally {
+      await memberContext?.dispose();
+      await ownerContext?.dispose();
+      await adminContext.dispose();
+    }
+  });
+
   test('opening Workspace switches to a manageable workspace when current scope is only member-level', async ({ page }) => {
     const adminCredentials = await ensureSavedAdminCredentials();
     const adminContext = await createAuthenticatedRequestContext(adminCredentials);

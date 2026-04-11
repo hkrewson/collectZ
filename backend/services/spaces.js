@@ -50,6 +50,7 @@ async function listAccessibleSpacesForUser(client, { userId, role }) {
        ON l.space_id = s.id
       AND l.archived_at IS NULL
      WHERE sm.user_id = $1
+       AND sm.suspended_at IS NULL
      GROUP BY s.id, sm.role
      ORDER BY lower(s.name) ASC, s.id ASC`,
     [numericUserId]
@@ -81,6 +82,7 @@ async function getAccessibleSpaceForUser(client, { userId, role, spaceId }) {
       AND s.archived_at IS NULL
      WHERE sm.user_id = $1
        AND s.id = $2
+       AND sm.suspended_at IS NULL
      LIMIT 1`,
     [numericUserId, numericSpaceId]
   );
@@ -100,6 +102,7 @@ async function getSpaceMembershipForUser(client, { userId, spaceId }) {
      JOIN spaces s ON s.id = sm.space_id
      WHERE sm.user_id = $1
        AND sm.space_id = $2
+       AND sm.suspended_at IS NULL
        AND s.archived_at IS NULL
      LIMIT 1`,
     [numericUserId, numericSpaceId]
@@ -148,6 +151,7 @@ async function createPersonalWorkspaceForUser(client, { userId, email, name }) {
      JOIN spaces s ON s.id = sm.space_id
      WHERE sm.user_id = $1
        AND s.is_personal = true
+       AND sm.suspended_at IS NULL
        AND s.archived_at IS NULL
      ORDER BY s.id ASC
      LIMIT 1`,
@@ -183,6 +187,7 @@ async function countSpaceOwners(client, { spaceId }) {
     `SELECT COUNT(*)::int AS count
      FROM space_memberships
      WHERE space_id = $1
+       AND suspended_at IS NULL
        AND role = 'owner'`,
     [numericSpaceId]
   );
@@ -201,6 +206,8 @@ async function listSpaceMembers(client, { spaceId }) {
        sm.created_by,
        sm.created_at,
        sm.updated_at,
+       sm.suspended_at,
+       sm.suspended_by,
        u.email,
        u.name,
        u.role AS user_role,
