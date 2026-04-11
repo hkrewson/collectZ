@@ -234,6 +234,99 @@ test.describe('space manager browser regressions', () => {
     }
   });
 
+  test('workspace admin can create a workspace-scoped password reset copy link for a member', async ({ page }) => {
+    const adminCredentials = await ensureSavedAdminCredentials();
+    const adminContext = await createAuthenticatedRequestContext(adminCredentials);
+    const stamp = Date.now();
+    const ownerEmail = `playwright-space-reset-owner-${stamp}@example.com`;
+    const ownerPassword = 'Passw0rd!123';
+    const ownerName = 'Playwright Space Reset Owner';
+    let ownerContext = null;
+
+    try {
+      const createdSpaceResponse = await postWithCsrf(adminContext, '/api/admin/spaces/create-with-onboarding', {
+        name: `Playwright Reset Space ${stamp}`,
+        slug: `playwright-reset-space-${stamp}`,
+        initial_invites: [{
+          email: ownerEmail,
+          role: 'admin',
+          expose_token: true
+        }]
+      }, 201);
+      const createdSpacePayload = await createdSpaceResponse.json();
+      const createdSpaceId = Number(createdSpacePayload?.space?.id || 0) || null;
+      expect(createdSpaceId).toBeTruthy();
+      const invitePayload = Array.isArray(createdSpacePayload?.invite_results)
+        ? createdSpacePayload.invite_results.find((invite) => String(invite?.email || '').toLowerCase() === ownerEmail.toLowerCase())
+        : null;
+      const inviteToken = String(invitePayload?.token || '').trim();
+      expect(inviteToken).toBeTruthy();
+
+      const registrationContext = await request.newContext({
+        baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000',
+        extraHTTPHeaders: getPlaywrightBypassHeaders()
+      });
+      try {
+        await postWithCsrf(registrationContext, '/api/auth/register', {
+          email: ownerEmail,
+          password: ownerPassword,
+          name: ownerName,
+          inviteToken
+        }, 200);
+      } finally {
+        await registrationContext.dispose();
+      }
+
+      const memberCredentials = await createFreshUserCredentials({
+        role: 'user',
+        name: 'Playwright Workspace Member'
+      });
+      expect(String(memberCredentials?.email || '')).toBeTruthy();
+      const adminUsersResponse = await adminContext.get('/api/admin/users', {
+        headers: getPlaywrightBypassHeaders()
+      });
+      expect(adminUsersResponse.ok()).toBeTruthy();
+      const adminUsersPayload = await adminUsersResponse.json();
+      const adminUsers = Array.isArray(adminUsersPayload?.users)
+        ? adminUsersPayload.users
+        : (Array.isArray(adminUsersPayload) ? adminUsersPayload : []);
+      const memberUser = adminUsers.find((user) => (
+        String(user?.email || '').trim().toLowerCase() === String(memberCredentials.email || '').trim().toLowerCase()
+      )) || null;
+      expect(Number(memberUser?.id || 0)).toBeGreaterThan(0);
+      await postWithCsrf(adminContext, `/api/admin/spaces/${createdSpaceId}/members`, {
+        user_id: Number(memberUser.id),
+        role: 'member'
+      }, 201);
+
+      ownerContext = await createAuthenticatedRequestContext({ email: ownerEmail, password: ownerPassword });
+      const storageState = await ownerContext.storageState();
+      await page.context().addCookies(storageState.cookies || []);
+
+      await page.goto('/dashboard?tab=space-manage');
+      await page.getByRole('button', { name: 'People', exact: true }).click();
+
+      const memberRow = page.getByText(memberCredentials.email, { exact: true }).first();
+      await expect(memberRow).toBeVisible();
+      await memberRow.locator('xpath=ancestor::div[contains(@class,"grid")][1]/div[last()]//button[@aria-label="Member actions"]').click();
+
+      const resetResponsePromise = page.waitForResponse((response) => (
+        response.url().includes(`/api/spaces/${createdSpaceId}/members/`)
+        && response.url().includes('/password-reset')
+        && response.request().method() === 'POST'
+      ));
+      await page.getByRole('button', { name: 'Create copy link', exact: true }).click();
+      const resetResponse = await resetResponsePromise;
+      expect(resetResponse.ok()).toBeTruthy();
+
+      await expect(page.getByText(`Password reset for ${memberCredentials.email}`, { exact: true })).toBeVisible();
+      await expect(page.locator('code').filter({ hasText: '/reset-password?token=' })).toBeVisible();
+    } finally {
+      await ownerContext?.dispose();
+      await adminContext.dispose();
+    }
+  });
+
   test('opening Workspace switches to a manageable workspace when current scope is only member-level', async ({ page }) => {
     const adminCredentials = await ensureSavedAdminCredentials();
     const adminContext = await createAuthenticatedRequestContext(adminCredentials);

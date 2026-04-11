@@ -73,8 +73,8 @@ function assert(condition, message) {
 async function createDirectUser({ email, password, name, role = 'user' }) {
   const passwordHash = await bcrypt.hash(password, 12);
   const result = await pool.query(
-    `INSERT INTO users (email, password, name, role)
-     VALUES ($1, $2, $3, $4)
+    `INSERT INTO users (email, password, name, role, email_verified, email_verified_at)
+     VALUES ($1, $2, $3, $4, true, NOW())
      RETURNING id, email, name, role`,
     [email, passwordHash, name, role]
   );
@@ -87,29 +87,6 @@ async function deleteDirectUser(userId) {
 }
 
 async function bootstrapAdmin(client, { fallbackEmail, fallbackPassword }) {
-  const bootstrapAdminEmail = process.env.RBAC_ADMIN_EMAIL || process.env.ADMIN_EMAIL || 'ci-rbac-admin@example.com';
-  const bootstrapAdminPassword = process.env.RBAC_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || 'Passw0rd!123';
-
-  await client.fetchCsrfToken();
-  const registerAdmin = await client.request('/api/auth/register', {
-    method: 'POST',
-    withCsrf: true,
-    body: { email: bootstrapAdminEmail, password: bootstrapAdminPassword, name: 'Phase5 Admin' }
-  });
-  if (registerAdmin.status === 200) {
-    return { email: bootstrapAdminEmail, password: bootstrapAdminPassword, userId: null };
-  }
-
-  await client.fetchCsrfToken();
-  const loginAttempt = await client.request('/api/auth/login', {
-    method: 'POST',
-    withCsrf: true,
-    body: { email: bootstrapAdminEmail, password: bootstrapAdminPassword }
-  });
-  if (loginAttempt.status === 200) {
-    return { email: bootstrapAdminEmail, password: bootstrapAdminPassword, userId: null };
-  }
-
   const directAdmin = await createDirectUser({
     email: fallbackEmail,
     password: fallbackPassword,
@@ -133,12 +110,17 @@ async function main() {
   const ownerEmail = `phase5-owner-${suffix}@example.com`;
   const ownerPassword = 'Passw0rd!123';
   const inviteEmail = `phase5-invite-${suffix}@example.com`;
+  const invitedOwnerEmail = `phase5-invited-owner-${suffix}@example.com`;
+  const invitedOwnerPassword = 'Passw0rd!123';
   const spaceSlug = `phase5-space-${suffix}`;
+  const inviteOwnerSpaceSlug = `phase5-invite-owner-space-${suffix}`;
   const tempAdminEmail = `phase5-admin-${suffix}@example.com`;
   const tempAdminPassword = 'Passw0rd!123';
   let tempAdminUserId = null;
   let ownerUserId = null;
+  let invitedOwnerUserId = null;
   let spaceId = null;
+  let invitedOwnerSpaceId = null;
 
   try {
     const bootstrappedAdmin = await bootstrapAdmin(admin, {
@@ -186,6 +168,65 @@ async function main() {
     assert((createdSpace.owners || []).some((entry) => Number(entry.user_id) === ownerUserId), 'Assigned owner missing from admin space list');
 
     await admin.fetchCsrfToken();
+    const invitedOwnerSpace = await admin.request('/api/admin/spaces/create-with-onboarding', {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 201,
+      body: {
+        name: `Phase 5 Invited Owner Space ${suffix}`,
+        slug: inviteOwnerSpaceSlug,
+        description: 'Pending owner invite smoke',
+        initial_invites: [
+          { email: invitedOwnerEmail, role: 'owner', expose_token: true }
+        ]
+      }
+    });
+    invitedOwnerSpaceId = Number(invitedOwnerSpace?.data?.space?.id || 0);
+    assert(Number.isFinite(invitedOwnerSpaceId) && invitedOwnerSpaceId > 0, 'Invited-owner space id missing after create');
+    assert(invitedOwnerSpace?.data?.owner?.pending === true, 'Invited owner should be pending in onboarding response');
+    assert(invitedOwnerSpace?.data?.owner?.email === invitedOwnerEmail, 'Pending owner email missing from onboarding response');
+    assert(invitedOwnerSpace?.data?.owner?.user_id === null, 'Pending owner should not have a user id yet');
+    assert(invitedOwnerSpace?.data?.invite_results?.[0]?.role === 'owner', 'Invited owner role missing from onboarding invite response');
+    const invitedOwnerToken = String(invitedOwnerSpace?.data?.invite_results?.[0]?.token || '').trim();
+    assert(invitedOwnerToken, 'Invited owner token missing from onboarding response');
+
+    const invitedOwnerClient = new HttpClient('invited-owner');
+    await invitedOwnerClient.fetchCsrfToken();
+    const invitedOwnerRegister = await invitedOwnerClient.request('/api/auth/register', {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 200,
+      body: {
+        email: invitedOwnerEmail,
+        password: invitedOwnerPassword,
+        name: 'Phase5 Invited Owner',
+        inviteToken: invitedOwnerToken
+      }
+    });
+    assert(Number(invitedOwnerRegister?.data?.user?.active_space_id || 0) === invitedOwnerSpaceId, 'Invited owner should land in the invited workspace');
+
+    const pendingOwnerMembership = await pool.query(
+      `SELECT user_id, role
+       FROM space_memberships
+       WHERE space_id = $1
+         AND user_id = (
+           SELECT id
+           FROM users
+           WHERE lower(email) = lower($2)
+           LIMIT 1
+         )
+       LIMIT 1`,
+      [invitedOwnerSpaceId, invitedOwnerEmail]
+    );
+    invitedOwnerUserId = Number(pendingOwnerMembership.rows[0]?.user_id || 0) || null;
+    assert(pendingOwnerMembership.rows[0]?.role === 'owner', 'Invited owner did not become owner on claim');
+
+    const listAfterInvitedOwnerClaim = await admin.request('/api/admin/spaces', { expectStatus: 200 });
+    const claimedOwnerSpace = (listAfterInvitedOwnerClaim?.data?.spaces || []).find((space) => Number(space.id) === invitedOwnerSpaceId);
+    assert(claimedOwnerSpace, 'Invited-owner space missing from admin list after claim');
+    assert((claimedOwnerSpace.owners || []).some((entry) => String(entry.email || '').toLowerCase() === invitedOwnerEmail), 'Claimed invited owner missing from admin space list');
+
+    await admin.fetchCsrfToken();
     await admin.request(`/api/admin/spaces/${spaceId}/owner`, {
       method: 'PATCH',
       withCsrf: true,
@@ -206,11 +247,17 @@ async function main() {
 
     console.log('Admin space control smoke passed');
   } finally {
+    if (invitedOwnerSpaceId) {
+      await pool.query('DELETE FROM spaces WHERE id = $1', [invitedOwnerSpaceId]).catch(() => {});
+    }
     if (spaceId) {
       await pool.query('DELETE FROM spaces WHERE id = $1', [spaceId]).catch(() => {});
     }
     if (ownerUserId) {
       await deleteDirectUser(ownerUserId).catch(() => {});
+    }
+    if (invitedOwnerUserId) {
+      await deleteDirectUser(invitedOwnerUserId).catch(() => {});
     }
     if (tempAdminUserId) {
       await deleteDirectUser(tempAdminUserId).catch(() => {});

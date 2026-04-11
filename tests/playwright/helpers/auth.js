@@ -553,6 +553,7 @@ module.exports = {
   ensureSavedAdminCredentials,
   createFreshAdminCredentials,
   createFreshUserCredentials,
+  createDirectUser,
   createAuthenticatedRequestContext,
   createRequestContextFromStorageState,
   bootstrapAdminCredentials,

@@ -401,7 +401,7 @@ const spaceCreateSchema = spaceBaseSchema.extend({
 
 const adminSpaceInitialInviteSchema = z.object({
   email: z.string().email('Valid email is required'),
-  role: z.enum(['admin', 'member', 'viewer']),
+  role: z.enum(['owner', 'admin', 'member', 'viewer']),
   expose_token: z.boolean().optional()
 });
 
@@ -412,6 +412,21 @@ const adminSpaceCreateWithOnboardingSchema = spaceBaseSchema.extend({
 }).superRefine((data, ctx) => {
   const seenEmails = new Set();
   const invites = Array.isArray(data.initial_invites) ? data.initial_invites : [];
+  const ownerInvites = invites.filter((invite) => String(invite?.role || '').trim() === 'owner');
+  if (ownerInvites.length > 1) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['initial_invites'],
+      message: 'Only one initial owner invite is supported'
+    });
+  }
+  if (data.owner_user_id && ownerInvites.length > 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['owner_user_id'],
+      message: 'Choose either an existing initial owner or one invited owner, not both'
+    });
+  }
   invites.forEach((invite, index) => {
     const normalizedEmail = String(invite.email || '').trim().toLowerCase();
     if (!normalizedEmail) return;

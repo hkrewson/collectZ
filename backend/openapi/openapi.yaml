@@ -542,7 +542,7 @@
         "type": "object",
         "properties": {
           "email": { "type": "string", "format": "email" },
-          "role": { "type": "string", "enum": ["admin", "member", "viewer"] },
+          "role": { "type": "string", "enum": ["owner", "admin", "member", "viewer"] },
           "expose_token": { "type": "boolean" }
         },
         "required": ["email", "role"]
@@ -568,7 +568,7 @@
         "properties": {
           "id": { "type": "integer" },
           "email": { "type": "string", "format": "email" },
-          "role": { "type": "string", "enum": ["admin", "member", "viewer"] },
+          "role": { "type": "string", "enum": ["owner", "admin", "member", "viewer"] },
           "created": { "type": "boolean" },
           "expires_at": { "type": "string", "format": "date-time" },
           "created_at": { "type": "string", "format": "date-time" },
@@ -596,12 +596,13 @@
           "owner": {
             "type": "object",
             "properties": {
-              "user_id": { "type": "integer" },
-              "email": { "type": "string", "format": "email" },
+              "user_id": { "type": ["integer", "null"] },
+              "email": { "type": ["string", "null"], "format": "email" },
               "name": { "type": ["string", "null"] },
-              "role": { "type": "string", "enum": ["owner"] }
+              "role": { "type": "string", "enum": ["owner"] },
+              "pending": { "type": "boolean" }
             },
-            "required": ["user_id", "email", "role"]
+            "required": ["role", "pending"]
           },
           "invite_results": {
             "type": "array",
@@ -688,6 +689,36 @@
           "role": { "type": "string", "enum": ["owner", "admin", "member", "viewer"] }
         },
         "required": ["role"]
+      },
+      "MemberPasswordResetCreateRequest": {
+        "type": "object",
+        "properties": {
+          "expose_token": { "type": "boolean" }
+        }
+      },
+      "MemberPasswordResetCreateResponse": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "user_id": { "type": "integer" },
+          "membership_id": { "type": "integer" },
+          "email": { "type": "string", "format": "email" },
+          "role": { "type": "string", "enum": ["owner", "admin", "member", "viewer"] },
+          "expires_at": { "type": "string", "format": "date-time" },
+          "delivery": {
+            "type": "object",
+            "properties": {
+              "attempted": { "type": "boolean" },
+              "sent": { "type": "boolean" },
+              "reason": { "type": ["string", "null"] },
+              "messageId": { "type": ["string", "null"] }
+            },
+            "required": ["attempted", "sent"]
+          },
+          "reset_url": { "type": ["string", "null"] },
+          "token": { "type": ["string", "null"] }
+        },
+        "required": ["id", "user_id", "membership_id", "email", "role", "expires_at", "delivery"]
       },
       "SpaceInviteRecord": {
         "type": "object",
@@ -2450,6 +2481,37 @@
                   },
                   "required": ["id", "removed"]
                 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/spaces/{id}/members/{memberId}/password-reset": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Create a workspace-scoped forced password reset for a managed member",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } },
+          { "in": "path", "name": "memberId", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/MemberPasswordResetCreateRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Workspace member password reset created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/MemberPasswordResetCreateResponse" }
               }
             }
           }

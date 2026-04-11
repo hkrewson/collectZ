@@ -51,6 +51,8 @@ export default function SpaceManagerView({
   const [savingSpace, setSavingSpace] = useState(false);
   const [creatingInvite, setCreatingInvite] = useState(false);
   const [memberBusyId, setMemberBusyId] = useState(null);
+  const [memberResetLink, setMemberResetLink] = useState('');
+  const [memberResetLabel, setMemberResetLabel] = useState('Workspace password reset link');
   const [showInviteHistory, setShowInviteHistory] = useState(false);
   const [managerTab, setManagerTab] = useState('settings');
   const [peopleTab, setPeopleTab] = useState('members');
@@ -82,6 +84,8 @@ export default function SpaceManagerView({
     setMembers([]);
     setInvites([]);
     setInviteUrl('');
+    setMemberResetLink('');
+    setMemberResetLabel('Workspace password reset link');
     setShowInviteHistory(false);
     setManagerTab(canManage ? 'settings' : 'activity');
     setPeopleTab('members');
@@ -215,6 +219,27 @@ export default function SpaceManagerView({
       onToast('Invite revoked');
     } catch (error) {
       onToast(error.response?.data?.error || 'Failed to revoke invite', 'error');
+    }
+  };
+
+  const createMemberPasswordReset = async (member, exposeToken = false) => {
+    if (!activeSpaceId || !member?.id) return;
+    setMemberBusyId(member.id);
+    try {
+      const payload = await apiCall('post', `/spaces/${activeSpaceId}/members/${member.id}/password-reset`, {
+        expose_token: exposeToken
+      });
+      const link = payload?.reset_url || '';
+      setMemberResetLink(link);
+      setMemberResetLabel(`Password reset for ${member.email}`);
+      setOpenMemberMenuId((prev) => (Number(prev) === Number(member.id) ? null : prev));
+      if (payload?.delivery?.sent) onToast('Password reset email sent');
+      else if (link) onToast('Password reset link created', 'info');
+      else onToast('Password reset created but no copy-link available', 'info');
+    } catch (error) {
+      onToast(error.response?.data?.error || 'Failed to create password reset link', 'error');
+    } finally {
+      setMemberBusyId(null);
     }
   };
 
@@ -389,6 +414,25 @@ export default function SpaceManagerView({
               </div>
               <div className="space-y-1">
                 {!loading && members.length === 0 ? <p className="py-8 text-sm text-ghost text-center">No members found for this workspace.</p> : null}
+                {memberResetLink ? (
+                  <div className="p-3 mb-4 flex items-center gap-3 bg-raised rounded-lg border border-edge">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-ghost">{memberResetLabel}</p>
+                      <code className="mt-2 block text-xs text-gold font-mono truncate">{memberResetLink}</code>
+                    </div>
+                    <button type="button" className="btn-icon btn-sm shrink-0" onClick={() => copy(memberResetLink)}><Icons.Copy /></button>
+                    <button
+                      type="button"
+                      className="btn-secondary btn-sm shrink-0"
+                      onClick={() => {
+                        setMemberResetLink('');
+                        setMemberResetLabel('Workspace password reset link');
+                      }}
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                ) : null}
                 {members.length > 0 ? (
                   <div className="overflow-x-auto pb-2">
                     <div className="min-w-full w-max">
@@ -437,7 +481,7 @@ export default function SpaceManagerView({
                               </button>
                               {Number(openMemberMenuId) === Number(member.id) ? (
                                 <div
-                                  className="absolute right-[calc(100%+4px)] top-1/2 z-10 min-w-[170px] -translate-y-1/2 rounded-xl border border-edge bg-abyss p-2 shadow-lg"
+                                  className="absolute right-[calc(100%+4px)] top-1/2 z-10 min-w-[190px] -translate-y-1/2 rounded-xl border border-edge bg-abyss p-2 shadow-lg"
                                   onClick={(event) => event.stopPropagation()}
                                 >
                                   <p className="px-3 py-2 text-[11px] font-medium uppercase tracking-[0.18em] text-ghost">Change Role</p>
@@ -458,6 +502,32 @@ export default function SpaceManagerView({
                                     ))}
                                   </div>
                                   <div className="mt-2 border-t border-edge pt-2">
+                                    {member.role !== 'owner' ? (
+                                      <>
+                                        <button
+                                          type="button"
+                                          className="w-full rounded-lg px-3 py-2 text-left text-sm text-ink hover:bg-raised disabled:opacity-60"
+                                          disabled={memberBusyId === member.id}
+                                          onClick={(event) => {
+                                            event.stopPropagation();
+                                            createMemberPasswordReset(member, false);
+                                          }}
+                                        >
+                                          Email reset link
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className="w-full rounded-lg px-3 py-2 text-left text-sm text-ink hover:bg-raised disabled:opacity-60"
+                                          disabled={memberBusyId === member.id}
+                                          onClick={(event) => {
+                                            event.stopPropagation();
+                                            createMemberPasswordReset(member, true);
+                                          }}
+                                        >
+                                          Create copy link
+                                        </button>
+                                      </>
+                                    ) : null}
                                     <button
                                     type="button"
                                     className="w-full rounded-lg px-3 py-2 text-left text-sm text-err hover:bg-err/10 disabled:opacity-60"

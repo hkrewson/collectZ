@@ -14,9 +14,10 @@ const {
   generalSettingsSchema
 } = require('../middleware/validate');
 const { logActivity } = require('../services/audit');
-const { sendInviteEmail } = require('../services/email');
+const { sendInviteEmail, sendPasswordResetEmail } = require('../services/email');
 const { hashInviteToken } = require('../services/invites');
 const { getRequestOrigin } = require('../services/requestOrigin');
+const { issuePasswordResetToken } = require('../services/passwordResets');
 const {
   listLibrariesForSpace,
   syncLibraryMembershipsForSpaceUser,
@@ -89,6 +90,12 @@ async function requireAccessibleSpace(client, req, spaceId) {
 }
 
 function canRemoveMembership({ actorUserRole, actorMembershipRole, targetRole }) {
+  if (actorMembershipRole === 'owner') return ['admin', 'member', 'viewer'].includes(targetRole);
+  if (actorMembershipRole === 'admin') return ['member', 'viewer'].includes(targetRole);
+  return false;
+}
+
+function canManageMemberLifecycle({ actorMembershipRole, targetRole }) {
   if (actorMembershipRole === 'owner') return ['admin', 'member', 'viewer'].includes(targetRole);
   if (actorMembershipRole === 'admin') return ['member', 'viewer'].includes(targetRole);
   return false;
@@ -753,6 +760,125 @@ router.patch('/spaces/:id/members/:memberId', validate(spaceMembershipUpdateSche
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;
+  } finally {
+    client.release();
+  }
+}));
+
+router.post('/spaces/:id/members/:memberId/password-reset', asyncHandler(async (req, res) => {
+  const spaceId = Number(req.params.id);
+  const membershipId = Number(req.params.memberId);
+  if (!Number.isFinite(spaceId) || spaceId <= 0) {
+    return res.status(400).json({ error: 'Invalid space id' });
+  }
+  if (!Number.isFinite(membershipId) || membershipId <= 0) {
+    return res.status(400).json({ error: 'Invalid member id' });
+  }
+
+  const client = await pool.connect();
+  try {
+    const accessibleSpace = await requireAccessibleSpace(client, req, spaceId);
+    if (!accessibleSpace) {
+      return res.status(404).json({ error: 'Space not found' });
+    }
+    if (!canManageSpaceMemberships({
+      userRole: req.user.role,
+      membershipRole: accessibleSpace.actor_membership_role
+    })) {
+      return res.status(403).json({ error: 'Space membership management denied' });
+    }
+
+    const current = await client.query(
+      `SELECT sm.id, sm.space_id, sm.user_id, sm.role, u.email, u.name
+       FROM space_memberships sm
+       JOIN users u ON u.id = sm.user_id
+       WHERE sm.id = $1
+         AND sm.space_id = $2
+       LIMIT 1`,
+      [membershipId, spaceId]
+    );
+    if (current.rows.length === 0) {
+      return res.status(404).json({ error: 'Space member not found' });
+    }
+
+    const target = current.rows[0];
+    if (!canManageMemberLifecycle({
+      actorMembershipRole: accessibleSpace.actor_membership_role,
+      targetRole: target.role
+    })) {
+      return res.status(403).json({ error: 'Password reset denied for this workspace member' });
+    }
+
+    const exposeToken = parseBool(req.body?.expose_token, false);
+    const issued = await issuePasswordResetToken({
+      userId: target.user_id,
+      createdBy: req.user.id
+    });
+    const resetUrl = `${getRequestOrigin(req)}/reset-password?token=${encodeURIComponent(issued.token)}&email=${encodeURIComponent(target.email)}`;
+
+    await logActivity(req, 'space.member.password_reset.create', 'user', target.user_id, {
+      email: target.email,
+      name: target.name || null,
+      spaceId,
+      spaceName: accessibleSpace.name,
+      membershipId,
+      memberRole: target.role,
+      resetTokenId: issued.id,
+      expiresAt: issued.expires_at
+    });
+    if (exposeToken) {
+      await logActivity(req, 'space.member.password_reset.token_exposed', 'user', target.user_id, {
+        email: target.email,
+        spaceId,
+        spaceName: accessibleSpace.name,
+        membershipId,
+        memberRole: target.role,
+        resetTokenId: issued.id,
+        exposureMode: 'workspace_copy_link'
+      });
+    }
+
+    let delivery = { attempted: false, sent: false, reason: 'smtp_not_configured' };
+    try {
+      delivery = await sendPasswordResetEmail({
+        to: target.email,
+        resetUrl,
+        expiresAt: issued.expires_at
+      });
+      if (delivery.sent) {
+        await logActivity(req, 'space.member.password_reset.delivered', 'user', target.user_id, {
+          email: target.email,
+          spaceId,
+          spaceName: accessibleSpace.name,
+          membershipId,
+          memberRole: target.role,
+          resetTokenId: issued.id,
+          delivery: 'smtp'
+        });
+      }
+    } catch (error) {
+      delivery = { attempted: true, sent: false, reason: error.message || 'smtp_send_failed' };
+      await logActivity(req, 'space.member.password_reset.delivery_failed', 'user', target.user_id, {
+        email: target.email,
+        spaceId,
+        spaceName: accessibleSpace.name,
+        membershipId,
+        memberRole: target.role,
+        resetTokenId: issued.id,
+        reason: delivery.reason
+      });
+    }
+
+    res.status(201).json({
+      id: issued.id,
+      user_id: target.user_id,
+      membership_id: membershipId,
+      email: target.email,
+      role: target.role,
+      expires_at: issued.expires_at,
+      delivery,
+      ...(exposeToken ? { reset_url: resetUrl, token: issued.token } : {})
+    });
   } finally {
     client.release();
   }

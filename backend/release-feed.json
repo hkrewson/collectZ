@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v2.10.16",
+      "version": "2.10.16",
+      "date": "2026-04-11",
+      "status": "Completed",
+      "summary": "This patch release turns the SaaS auth surface into a real public account-entry flow. Users can now request password resets from the sign-in screen, self-register when the platform allows it, verify their email before normal sign-in, and land in the correct workspace model depending on how they were onboarded. Public self-registration now creates a personal workspace after verification, while invite-based onboarding still lands a new user only in the invited workspace without creating an extra personal one.",
+      "details": []
+    },
+    {
       "title": "v2.10.15",
       "version": "2.10.15",
       "date": "2026-04-11",
@@ -70,14 +78,6 @@
       "date": "2026-04-09",
       "status": "Completed",
       "summary": "This patch release finishes the shared tab-strip cleanup so the app’s remaining secondary tab and mode-toggle surfaces now use the same flattened tab language as the newer import, admin, help, and drawer flows. The old pill-shell tab strip is gone from the shared frontend layer, and auth, space management, library, events, and collectibles now all rely on the same shared tab primitive instead of preserving one-off segmented-control styling.",
-      "details": []
-    },
-    {
-      "title": "v2.10.6",
-      "version": "2.10.6",
-      "date": "2026-04-08",
-      "status": "Completed",
-      "summary": "This patch release packages the post-`2.10.0` UI and workflow follow-through that was completed across the library and add/edit drawers. Import now reads like the rest of the product, bulk selection is calmer and more usable, the shell has less decorative chrome, and Add/Edit search now behaves like a true universal lookup flow instead of a barcode-only side path. The result is a quieter, more predictable product surface without changing the underlying multi-format ownership model that shipped in `2.10.0`.",
       "details": []
     }
   ]

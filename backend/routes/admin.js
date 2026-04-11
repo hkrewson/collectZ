@@ -541,9 +541,12 @@ platformRouter.post('/spaces/create-with-onboarding', validate(adminSpaceCreateW
     initial_invites: initialInvitesRaw,
     expose_invite_tokens: exposeInviteTokensRaw
   } = req.body;
-  const ownerUserId = Number(ownerUserIdRaw || req.user.id);
   const initialInvites = Array.isArray(initialInvitesRaw) ? initialInvitesRaw : [];
   const exposeInviteTokens = parseBool(exposeInviteTokensRaw, true);
+  const invitedOwner = initialInvites.find((invite) => String(invite?.role || '').trim() === 'owner') || null;
+  const ownerUserId = ownerUserIdRaw
+    ? Number(ownerUserIdRaw)
+    : (invitedOwner ? null : req.user.id);
 
   const client = await pool.connect();
   let space;
@@ -566,18 +569,27 @@ platformRouter.post('/spaces/create-with-onboarding', validate(adminSpaceCreateW
       }
     }
 
-    const ownerLookup = await client.query(
-      `SELECT id, email, name
-       FROM users
-       WHERE id = $1
-       LIMIT 1`,
-      [ownerUserId]
-    );
-    if (ownerLookup.rows.length === 0) {
-      await client.query('ROLLBACK');
-      return res.status(404).json({ error: 'Owner user not found' });
+    if (ownerUserId) {
+      const ownerLookup = await client.query(
+        `SELECT id, email, name
+         FROM users
+         WHERE id = $1
+         LIMIT 1`,
+        [ownerUserId]
+      );
+      if (ownerLookup.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Owner user not found' });
+      }
+      ownerRecord = ownerLookup.rows[0];
+    } else if (invitedOwner) {
+      ownerRecord = {
+        id: null,
+        email: String(invitedOwner.email || '').trim().toLowerCase(),
+        name: null,
+        pending: true
+      };
     }
-    ownerRecord = ownerLookup.rows[0];
 
     const created = await client.query(
       `INSERT INTO spaces (name, slug, description, created_by, is_personal)
@@ -587,28 +599,31 @@ platformRouter.post('/spaces/create-with-onboarding', validate(adminSpaceCreateW
     );
     space = created.rows[0];
 
-    await client.query(
-      `INSERT INTO space_memberships (space_id, user_id, role, created_by)
-       VALUES ($1, $2, 'owner', $3)
-       ON CONFLICT (space_id, user_id) DO UPDATE
-       SET role = 'owner',
-           updated_at = CURRENT_TIMESTAMP,
-           created_by = EXCLUDED.created_by`,
-      [space.id, ownerUserId, req.user.id]
-    );
-    await syncLibraryMembershipsForSpaceUser(client, {
-      spaceId: space.id,
-      userId: ownerUserId,
-      role: 'owner'
-    });
+    if (ownerUserId) {
+      await client.query(
+        `INSERT INTO space_memberships (space_id, user_id, role, created_by)
+         VALUES ($1, $2, 'owner', $3)
+         ON CONFLICT (space_id, user_id) DO UPDATE
+         SET role = 'owner',
+             updated_at = CURRENT_TIMESTAMP,
+             created_by = EXCLUDED.created_by`,
+        [space.id, ownerUserId, req.user.id]
+      );
+      await syncLibraryMembershipsForSpaceUser(client, {
+        spaceId: space.id,
+        userId: ownerUserId,
+        role: 'owner'
+      });
+    }
 
     await client.query('COMMIT');
 
     await logActivity(req, 'admin.space.create', 'space', space.id, {
       name: space.name,
       slug: space.slug || null,
-      ownerUserId,
-      ownerEmail: ownerRecord.email,
+      ownerUserId: ownerUserId || null,
+      ownerEmail: ownerRecord?.email || null,
+      ownerPendingInvite: Boolean(invitedOwner && !ownerUserId),
       initialInviteCount: initialInvites.length
     });
 
@@ -643,14 +658,15 @@ platformRouter.post('/spaces/create-with-onboarding', validate(adminSpaceCreateW
     res.status(201).json({
       space: {
         ...space,
-        owner_user_id: ownerUserId,
-        owner_email: ownerRecord.email
+        owner_user_id: ownerUserId || null,
+        owner_email: ownerRecord?.email || null
       },
       owner: {
-        user_id: ownerRecord.id,
-        email: ownerRecord.email,
-        name: ownerRecord.name || null,
-        role: 'owner'
+        user_id: ownerRecord?.id || null,
+        email: ownerRecord?.email || null,
+        name: ownerRecord?.name || null,
+        role: 'owner',
+        pending: Boolean(invitedOwner && !ownerUserId)
       },
       invite_results,
       summary: {

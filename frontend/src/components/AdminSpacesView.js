@@ -293,6 +293,13 @@ export default function AdminSpacesView({
     event.preventDefault();
     setCreating(true);
     try {
+      const ownerInviteCount = initialInvites.filter((invite) => String(invite.role || '').trim() === 'owner').length;
+      if (createForm.owner_user_id && ownerInviteCount > 0) {
+        throw new Error('Choose either an existing initial owner or one invited owner, not both');
+      }
+      if (ownerInviteCount > 1) {
+        throw new Error('Only one initial owner invite is supported');
+      }
       const slug = buildSpaceSlug(createForm.name);
       const payload = {
         name: createForm.name,
@@ -553,7 +560,7 @@ export default function AdminSpacesView({
       <form className="space-y-4 max-w-3xl" onSubmit={createSpace}>
         <div>
           <h2 className="text-xl font-medium text-ink">Create Workspace</h2>
-          <p className="text-sm text-ghost mt-1">Create a workspace, set its first owner, and optionally prepare its first workspace-scoped invites.</p>
+          <p className="text-sm text-ghost mt-1">Create a workspace, set its first owner, and optionally prepare workspace-scoped invites, including one invited owner if the owner should claim later.</p>
         </div>
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:flex-nowrap">
           <label className="field xl:max-w-[360px] xl:flex-1">
@@ -589,7 +596,8 @@ export default function AdminSpacesView({
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h3 className="text-base font-medium text-ink">Initial Invites</h3>
-              <p className="text-sm text-ghost mt-1">Optional. Add the first people who should join this workspace after the owner.</p>
+              <p className="text-sm text-ghost mt-1">Optional. Add the first people who should join this workspace, including one invited owner if the owner does not exist yet.</p>
+              <p className="text-xs text-ghost mt-2">Set one invite role to <span className="text-ink">owner</span> if a brand-new invited user should become the first owner when they claim the invite.</p>
             </div>
             <button type="button" className="btn-secondary btn-sm" onClick={addInitialInviteRow}>
               Add invite
@@ -623,6 +631,7 @@ export default function AdminSpacesView({
                         updateInitialInvite(index, { role: e.target.value });
                       }}
                     >
+                      <option value="owner">owner</option>
                       <option value="admin">admin</option>
                       <option value="member">member</option>
                       <option value="viewer">viewer</option>
