@@ -22,11 +22,24 @@ export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [errorCode, setErrorCode] = useState('');
+  const [authConfig, setAuthConfig] = useState({
+    register_available: false,
+    invite_required: true,
+    first_user_bootstrap: false,
+    password_reset_available: true,
+    email_verification_required: true,
+    smtp_configured: false
+  });
   const submitInFlightRef = useRef(false);
+  const verifyAttemptedRef = useRef(false);
   const inviteAvailable = Boolean(invite);
-  const registerAvailable = inviteAvailable;
+  const registerAvailable = inviteAvailable || Boolean(authConfig.register_available);
   const isRegister = route === 'register' && registerAvailable;
+  const isForgot = route === 'forgot';
   const isReset = route === 'reset';
+  const isVerify = route === 'verify';
   const authTabs = registerAvailable
     ? [
         { id: 'login', label: 'Sign In' },
@@ -41,16 +54,88 @@ export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion
     if (params.get('token')) setResetToken(params.get('token'));
   }, [route]);
 
+  useEffect(() => {
+    let cancelled = false;
+    axios.get(`${apiUrl}/auth/config`, { withCredentials: true })
+      .then((response) => {
+        if (cancelled) return;
+        setAuthConfig((prev) => ({
+          ...prev,
+          ...(response.data || {})
+        }));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [apiUrl]);
+
+  useEffect(() => {
+    setError('');
+    setNotice('');
+    setErrorCode('');
+    verifyAttemptedRef.current = false;
+  }, [route]);
+
+  useEffect(() => {
+    if (!isVerify || verifyAttemptedRef.current) return;
+    if (!resetToken || !email) return;
+
+    verifyAttemptedRef.current = true;
+    setLoading(true);
+    setError('');
+    setNotice('');
+    setErrorCode('');
+
+    axios.post(`${apiUrl}/auth/email-verification/consume`, { token: resetToken, email }, { withCredentials: true })
+      .then((response) => {
+        onAuth(response.data.user);
+      })
+      .catch((err) => {
+        setError(err.response?.data?.error || 'Verification failed');
+        setErrorCode(err.response?.data?.code || '');
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, [apiUrl, email, isVerify, onAuth, resetToken]);
+
+  const resendVerification = async () => {
+    if (!email) {
+      setError('Enter your email address first');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    setNotice('');
+    setErrorCode('');
+    try {
+      const response = await axios.post(`${apiUrl}/auth/email-verification/request`, { email }, { withCredentials: true });
+      setNotice(response.data?.message || 'If an unverified account exists for that email, a verification email will be sent shortly.');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Could not send verification email');
+      setErrorCode(err.response?.data?.code || '');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const submit = async (e) => {
     e.preventDefault();
     if (submitInFlightRef.current) return;
     submitInFlightRef.current = true;
     setLoading(true);
     setError('');
+    setNotice('');
+    setErrorCode('');
     try {
       let endpoint = '/auth/login';
       let payload = { email, password };
-      if (isReset) {
+      if (isForgot) {
+        endpoint = '/auth/password-reset/request';
+        payload = { email };
+      } else if (isReset) {
         if (password !== confirmPassword) {
           setError('Passwords do not match');
           setLoading(false);
@@ -68,9 +153,18 @@ export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion
         headers['x-playwright-e2e-bypass'] = playwrightBypassToken;
       }
       const data = await axios.post(`${apiUrl}${endpoint}`, payload, { withCredentials: true, headers });
-      onAuth(data.data.user);
+      if (isForgot) {
+        setNotice(data.data?.message || 'If an account exists for that email, you will receive a password reset email shortly.');
+      } else if (isRegister && data.data?.verification_required) {
+        setNotice(data.data?.message || 'Check your email to verify your account before signing in.');
+        setPassword('');
+        setConfirmPassword('');
+      } else {
+        onAuth(data.data.user);
+      }
     } catch (err) {
       setError(err.response?.data?.error || 'Authentication failed');
+      setErrorCode(err.response?.data?.code || '');
     } finally {
       submitInFlightRef.current = false;
       setLoading(false);
@@ -109,7 +203,7 @@ export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion
             </div>
           </div>
 
-          {!isReset && (
+          {!isReset && !isForgot && !isVerify && (
             <SectionTabs
               tabs={authTabs}
               activeId={isRegister ? 'register' : 'login'}
@@ -119,20 +213,40 @@ export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion
               ariaLabel="Authentication modes"
             />
           )}
+          {isForgot && (
+            <div className="space-y-2">
+              <p className="panel-title !text-xl">Request password reset</p>
+              <p className="text-xs text-ghost">Enter your email and we’ll send you a one-time reset link if an account exists.</p>
+            </div>
+          )}
           {isReset && (
             <div className="space-y-2">
               <p className="panel-title !text-xl">Reset password</p>
               <p className="text-xs text-ghost">Use your one-time reset link to set a new password.</p>
             </div>
           )}
+          {isVerify && (
+            <div className="space-y-2">
+              <p className="panel-title !text-xl">{loading ? 'Verifying email' : 'Verify email'}</p>
+              <p className="text-xs text-ghost">
+                {loading
+                  ? 'We are confirming your email address and activating your account.'
+                  : 'Use the verification link from your inbox to finish setting up your account.'}
+              </p>
+            </div>
+          )}
           {!isReset && route === 'register' && !registerAvailable ? (
             <div className="rounded-lg border border-edge bg-raised px-3 py-2 text-sm text-dim">
-              Use an invite link to create an account. You can still sign in below.
+              {authConfig.smtp_configured === false && !inviteAvailable
+                ? 'Registration is temporarily unavailable while email verification delivery is being configured. You can still sign in below.'
+                : 'Registration is currently invite-only. You can still sign in below.'}
             </div>
           ) : null}
 
           <form onSubmit={submit} className="space-y-4">
-            {isRegister && !isReset && (
+            {!isVerify && (
+              <>
+            {isRegister && !isReset && !isForgot && (
               <div className="field">
                 <label className="label">Name</label>
                 <input className="input input-lg" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} required />
@@ -142,7 +256,7 @@ export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion
               <label className="label">Email</label>
               <input className="input input-lg" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
             </div>
-            <div className="field">
+            {!isForgot && <div className="field">
               <label className="label">{isReset ? 'New Password' : 'Password'}</label>
               <div className="relative">
                 <input className="input input-lg pr-10" type={showPw ? 'text' : 'password'} placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
@@ -151,7 +265,7 @@ export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion
                   {showPw ? <Icons.EyeOff /> : <Icons.Eye />}
                 </button>
               </div>
-            </div>
+            </div>}
             {isReset && (
               <div className="field">
                 <label className="label">Confirm Password</label>
@@ -169,18 +283,38 @@ export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion
                 Invite link detected for {email || 'this account'}.
               </div>
             )}
-            {isReset && (
+            {!isRegister && !isReset && !isForgot && (
+              <button type="button" onClick={() => onNavigate('forgot')} className="btn-ghost btn-sm w-full">
+                Forgot password?
+              </button>
+            )}
+            {!isRegister && !isReset && !isForgot && errorCode === 'email_verification_required' && (
+              <button type="button" onClick={resendVerification} className="btn-ghost btn-sm w-full">
+                Resend verification email
+              </button>
+            )}
+            {(isReset || isForgot) && (
               <button type="button" onClick={() => onNavigate('login')} className="btn-ghost btn-sm w-full">
                 Back to Sign In
               </button>
             )}
+              </>
+            )}
 
             {error && <p className="text-sm text-err bg-err/10 border border-err/20 rounded px-3 py-2">{error}</p>}
+            {notice && <p className="text-sm text-ok bg-ok/10 border border-ok/20 rounded px-3 py-2">{notice}</p>}
 
-            <button type="submit" disabled={loading}
-              className="btn-primary btn-lg w-full mt-2 text-base">
-              {loading ? <Spinner size={18} /> : isReset ? 'Set password' : isRegister ? 'Create account' : 'Sign in'}
-            </button>
+            {!isVerify && (
+              <button type="submit" disabled={loading}
+                className="btn-primary btn-lg w-full mt-2 text-base">
+                {loading ? <Spinner size={18} /> : isForgot ? 'Send reset email' : isReset ? 'Set password' : isRegister ? 'Create account' : 'Sign in'}
+              </button>
+            )}
+            {isVerify && !loading && (
+              <button type="button" onClick={() => onNavigate('login')} className="btn-ghost btn-sm w-full">
+                Back to Sign In
+              </button>
+            )}
           </form>
 
           <p className="text-center text-xs text-ghost">

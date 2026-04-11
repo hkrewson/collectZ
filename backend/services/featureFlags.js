@@ -1,6 +1,10 @@
 const pool = require('../db/pool');
 
 const FEATURE_FLAG_DEFINITIONS = {
+  self_registration_enabled: {
+    description: 'Enable public SaaS self-registration on the auth screen',
+    defaultEnabled: true
+  },
   events_enabled: {
     description: 'Enable Events library UI and API',
     defaultEnabled: false
@@ -24,7 +28,7 @@ const FEATURE_FLAGS_READ_ONLY = ['1', 'true', 'yes', 'on'].includes(
   String(process.env.FEATURE_FLAGS_READ_ONLY || '').trim().toLowerCase()
 );
 const FEATURE_FLAGS_CACHE_TTL_MS = Math.max(1000, Number(process.env.FEATURE_FLAGS_CACHE_TTL_SECONDS || 10) * 1000);
-const SETTINGS_OWNED_FLAGS = new Set(['metrics_enabled', 'external_log_export_enabled']);
+const SETTINGS_OWNED_FLAGS = new Set(['self_registration_enabled', 'metrics_enabled', 'external_log_export_enabled']);
 const SPACE_OWNED_FLAGS = new Set(['events_enabled', 'collectibles_enabled']);
 const SPACE_FLAG_COLUMNS = {
   events_enabled: 'events_enabled',

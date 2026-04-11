@@ -463,7 +463,7 @@ results.push(run('auth route source includes explicit support session endpoints'
   assert.ok(authRoutesSource.includes('stripHomelabSpaceContext('));
   assert.ok(authRoutesSource.includes('stripHomelabSpaceContextFromUser('));
   assert.ok(authRoutesSource.includes('const homelabEdition = isHomelabEdition(productEdition);'));
-  assert.ok(authRoutesSource.includes('} else if (!homelabEdition && existingUserCount > 0) {'));
+  assert.ok(authRoutesSource.includes('} else if (!homelabEdition && existingUserCount > 0 && !selfRegistrationEnabled) {'));
   assert.ok(authRoutesSource.includes('if (homelabEdition && requestedSpaceId) {'));
   assert.ok(authRoutesSource.includes("return res.status(403).json({ error: 'Homelab does not expose generic space selection' });"));
 }));
@@ -1395,6 +1395,12 @@ results.push(run('openapi baseline documents key auth admin and media endpoints'
   const spec = JSON.parse(openApiSource);
   assert.strictEqual(spec.info.title, 'collectZ API');
   assert.ok(spec.paths['/api/auth/login']);
+  assert.ok(spec.paths['/api/auth/register']);
+  assert.ok(spec.paths['/api/auth/config']);
+  assert.ok(spec.paths['/api/auth/email-verification/request']);
+  assert.ok(spec.paths['/api/auth/email-verification/consume']);
+  assert.ok(spec.paths['/api/auth/password-reset/request']);
+  assert.ok(spec.paths['/api/auth/password-reset/consume']);
   assert.ok(spec.paths['/api/auth/me']);
   assert.ok(spec.paths['/api/support/requests']);
   assert.ok(spec.paths['/api/support/releases']);
@@ -1628,6 +1634,36 @@ results.push(run('auth routes attribute register and login audit events to the a
   const authRoutesSource = require('fs').readFileSync(require.resolve('../routes/auth'), 'utf8');
   assert.ok(authRoutesSource.includes("await logActivity({ ...req, user: { id: result.rows[0].id"));
   assert.ok(authRoutesSource.includes("await logActivity({ ...req, user: { id: user.id"));
+}));
+
+results.push(run('auth routes expose public password reset request and consume endpoints', () => {
+  const authRoutesSource = require('fs').readFileSync(require.resolve('../routes/auth'), 'utf8');
+  assert.ok(authRoutesSource.includes("router.post('/password-reset/request'"));
+  assert.ok(authRoutesSource.includes("router.post('/password-reset/consume'"));
+  assert.ok(authRoutesSource.includes("sendPasswordResetEmail"));
+  assert.ok(authRoutesSource.includes("issuePasswordResetToken"));
+}));
+
+results.push(run('auth routes expose public email verification request and consume endpoints', () => {
+  const authRoutesSource = require('fs').readFileSync(require.resolve('../routes/auth'), 'utf8');
+  const emailServiceSource = require('fs').readFileSync(require.resolve('../services/email'), 'utf8');
+  assert.ok(authRoutesSource.includes("router.post('/email-verification/request'"));
+  assert.ok(authRoutesSource.includes("router.post('/email-verification/consume'"));
+  assert.ok(authRoutesSource.includes('issueEmailVerificationToken'));
+  assert.ok(authRoutesSource.includes('email_verified = true'));
+  assert.ok(authRoutesSource.includes('createPersonalWorkspaceForUser'));
+  assert.ok(authRoutesSource.includes('workspace.create.personal'));
+  assert.ok(emailServiceSource.includes('sendEmailVerificationEmail'));
+}));
+
+results.push(run('auth routes expose public auth config and self-registration flag gating', () => {
+  const authRoutesSource = require('fs').readFileSync(require.resolve('../routes/auth'), 'utf8');
+  const featureFlagsSource = require('fs').readFileSync(require.resolve('../services/featureFlags'), 'utf8');
+  assert.ok(authRoutesSource.includes("router.get('/config'"));
+  assert.ok(authRoutesSource.includes("isFeatureEnabled('self_registration_enabled', true)"));
+  assert.ok(authRoutesSource.includes('email_verification_required'));
+  assert.ok(authRoutesSource.includes('smtp_configured'));
+  assert.ok(featureFlagsSource.includes('self_registration_enabled'));
 }));
 
 results.push(run('auth routes expose explicit scope bootstrap and selection endpoints', () => {

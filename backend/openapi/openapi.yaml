@@ -88,6 +88,8 @@
           "email": { "type": "string", "format": "email" },
           "name": { "type": "string" },
           "role": { "type": "string" },
+          "email_verified": { "type": "boolean" },
+          "email_verified_at": { "type": ["string", "null"], "format": "date-time" },
           "product_edition": { "type": "string", "enum": ["platform", "homelab"] },
           "active_space_id": { "type": ["integer", "null"] },
           "active_library_id": { "type": ["integer", "null"] },
@@ -146,6 +148,43 @@
           }
         },
         "required": ["spaces", "libraries"]
+      },
+      "AuthConfigResponse": {
+        "type": "object",
+        "properties": {
+          "product_edition": { "type": "string", "enum": ["platform", "homelab"] },
+          "register_available": { "type": "boolean" },
+          "invite_required": { "type": "boolean" },
+          "first_user_bootstrap": { "type": "boolean" },
+          "password_reset_available": { "type": "boolean" },
+          "email_verification_required": { "type": "boolean" },
+          "smtp_configured": { "type": ["boolean", "null"] }
+        },
+        "required": ["product_edition", "register_available", "invite_required", "first_user_bootstrap", "password_reset_available", "email_verification_required", "smtp_configured"]
+      },
+      "EmailVerificationRequest": {
+        "type": "object",
+        "properties": {
+          "email": { "type": "string", "format": "email" }
+        },
+        "required": ["email"]
+      },
+      "EmailVerificationConsumeRequest": {
+        "type": "object",
+        "properties": {
+          "email": { "type": "string", "format": "email" },
+          "token": { "type": "string" }
+        },
+        "required": ["email", "token"]
+      },
+      "VerificationPendingResponse": {
+        "type": "object",
+        "properties": {
+          "message": { "type": "string" },
+          "verification_required": { "type": "boolean" },
+          "email": { "type": "string", "format": "email" }
+        },
+        "required": ["message", "verification_required", "email"]
       },
       "AuthScopeSelectRequest": {
         "type": "object",
@@ -727,12 +766,45 @@
         },
         "required": ["email", "password"]
       },
+      "RegisterRequest": {
+        "type": "object",
+        "properties": {
+          "email": { "type": "string", "format": "email" },
+          "password": { "type": "string" },
+          "name": { "type": "string" },
+          "inviteToken": { "type": "string" }
+        },
+        "required": ["email", "password", "name"]
+      },
+      "PasswordResetRequest": {
+        "type": "object",
+        "properties": {
+          "email": { "type": "string", "format": "email" }
+        },
+        "required": ["email"]
+      },
+      "MessageResponse": {
+        "type": "object",
+        "properties": {
+          "message": { "type": "string" }
+        },
+        "required": ["message"]
+      },
       "LoginResponse": {
         "type": "object",
         "properties": {
           "user": { "$ref": "#/components/schemas/User" }
         },
         "required": ["user"]
+      },
+      "PasswordResetConsumeRequest": {
+        "type": "object",
+        "properties": {
+          "token": { "type": "string" },
+          "email": { "type": "string", "format": "email" },
+          "password": { "type": "string" }
+        },
+        "required": ["token", "email", "password"]
       },
       "NamedTokenRecord": {
         "type": "object",
@@ -983,6 +1055,206 @@
           },
           "401": {
             "description": "Invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Create an account through public registration or invite claim",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RegisterRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Invite or homelab registration succeeded and a browser session was issued",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/LoginResponse" }
+              }
+            }
+          },
+          "201": {
+            "description": "Public SaaS registration succeeded and email verification is still required",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/VerificationPendingResponse" }
+              }
+            }
+          },
+          "202": {
+            "description": "Account created but verification email delivery still needs operator attention",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/VerificationPendingResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invite required or invalid input",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "409": {
+            "description": "Account already exists",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "503": {
+            "description": "Public registration unavailable until email verification delivery is configured",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/config": {
+      "get": {
+        "tags": ["Auth"],
+        "summary": "Read public auth-surface availability settings",
+        "responses": {
+          "200": {
+            "description": "Public auth availability state",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AuthConfigResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/email-verification/request": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Request a fresh email verification link",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/EmailVerificationRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Generic verification resend acceptance response",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/MessageResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/email-verification/consume": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Consume a one-time email verification token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/EmailVerificationConsumeRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Email verification succeeded and a new browser session was issued",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/LoginResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or expired token, or email mismatch",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/password-reset/request": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Request a password reset email",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PasswordResetRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Generic password reset acceptance response",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/MessageResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/password-reset/consume": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Consume a one-time password reset token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PasswordResetConsumeRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password reset succeeded and a new browser session was issued",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/LoginResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or expired token, or email mismatch",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/Error" }

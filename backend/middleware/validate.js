@@ -24,6 +24,19 @@ const loginSchema = z.object({
   password: z.string().min(1, 'Password is required')
 });
 
+const passwordResetRequestSchema = z.object({
+  email: z.string().email('Invalid email address')
+});
+
+const emailVerificationRequestSchema = z.object({
+  email: z.string().email('Invalid email address')
+});
+
+const emailVerificationConsumeSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  token: z.string().min(1, 'Verification token is required')
+});
+
 const simpleSearchSchema = z.object({
   title: z.string().trim().min(1, 'title is required').max(255, 'title is too long'),
   year: z.preprocess((value) => {
@@ -584,6 +597,9 @@ module.exports = {
   validate,
   registerSchema,
   loginSchema,
+  passwordResetRequestSchema,
+  emailVerificationRequestSchema,
+  emailVerificationConsumeSchema,
   simpleSearchSchema,
   titleAuthorSearchSchema,
   titleArtistSearchSchema,

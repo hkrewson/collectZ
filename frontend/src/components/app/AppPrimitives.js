@@ -2,7 +2,9 @@ import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 
 export function routeFromPath(p) {
   if (p === '/register') return 'register';
+  if (p === '/forgot-password') return 'forgot';
   if (p === '/reset-password') return 'reset';
+  if (p === '/verify-email') return 'verify';
   if (
     p === '/dashboard' ||
     p.startsWith('/dashboard/') ||

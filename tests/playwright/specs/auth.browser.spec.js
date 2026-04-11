@@ -19,3 +19,35 @@ test('admin can sign in and sign out through the browser UI', async ({ page }) =
   await expect(page.locator('button[type="submit"]')).toHaveText('Sign in');
   await expect(page).toHaveURL(/\/login$/);
 });
+
+test('login screen exposes the forgot-password request flow', async ({ page }) => {
+  await page.goto('/login');
+
+  await expect(page.getByRole('button', { name: 'Forgot password?' })).toBeVisible();
+  await page.getByRole('button', { name: 'Forgot password?' }).click();
+
+  await expect(page).toHaveURL(/\/forgot-password$/);
+  await expect(page.getByText('Request password reset')).toBeVisible();
+  await expect(page.locator('input[type="email"]')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Send reset email' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Back to Sign In' })).toBeVisible();
+});
+
+test('login screen exposes self-registration when public registration is available', async ({ page }) => {
+  await page.goto('/login');
+
+  await expect(page.getByRole('button', { name: 'Register' })).toBeVisible();
+  await page.getByRole('button', { name: 'Register' }).click();
+
+  await expect(page).toHaveURL(/\/register$/);
+  await expect(page.getByText('Name')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Register' })).toBeVisible();
+});
+
+test('verify-email route handles invalid tokens gracefully', async ({ page }) => {
+  await page.goto('/verify-email?token=invalid-token&email=test@example.com');
+
+  await expect(page.getByText('Verify email')).toBeVisible();
+  await expect(page.getByText('Invalid or expired verification token')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Back to Sign In' })).toBeVisible();
+});

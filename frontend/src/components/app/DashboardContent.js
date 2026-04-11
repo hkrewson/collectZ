@@ -229,7 +229,7 @@ export default function DashboardContent({
           description={productEdition === 'homelab' ? null : 'Set platform-wide branding defaults for the server shell. Individual workspaces can override these choices where workspace settings are available.'}
           themeLabel={productEdition === 'homelab' ? 'Theme' : 'Default Theme'}
           themeDescription={productEdition === 'homelab' ? 'Choose whether collectZ follows your system appearance or stays fixed to a light or dark theme.' : 'Choose the default theme for the platform shell. Workspaces can override this in their own settings.'}
-          visibleFlagKeys={productEdition === 'homelab' ? undefined : []}
+          visibleFlagKeys={productEdition === 'homelab' ? undefined : ['self_registration_enabled']}
           emptyFeatureFlagsMessage={null}
           emailDeliveryEndpoint={productEdition === 'homelab' ? null : '/admin/settings/email-delivery'}
         />

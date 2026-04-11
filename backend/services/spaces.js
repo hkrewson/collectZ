@@ -122,6 +122,60 @@ function canAssignSpaceRole({ actorUserRole, actorMembershipRole, nextRole }) {
   return false;
 }
 
+function buildPersonalWorkspaceName(name, email) {
+  const trimmedName = String(name || '').trim();
+  const firstToken = trimmedName.split(/\s+/).find(Boolean) || '';
+  if (firstToken) {
+    const suffix = firstToken.toLowerCase().endsWith('s') ? "'" : "'s";
+    return `${firstToken}${suffix} Workspace`;
+  }
+  const localPart = String(email || '').trim().split('@')[0] || 'Personal';
+  const token = localPart.replace(/[^A-Za-z0-9]+/g, ' ').trim().split(/\s+/).find(Boolean) || 'Personal';
+  const normalized = token.charAt(0).toUpperCase() + token.slice(1);
+  const suffix = normalized.toLowerCase().endsWith('s') ? "'" : "'s";
+  return `${normalized}${suffix} Workspace`;
+}
+
+async function createPersonalWorkspaceForUser(client, { userId, email, name }) {
+  const numericUserId = Number(userId);
+  if (!Number.isFinite(numericUserId) || numericUserId <= 0) {
+    throw new Error('Valid userId is required');
+  }
+
+  const existing = await client.query(
+    `SELECT s.id, s.name, s.slug, s.description, s.created_by, s.is_personal, s.created_at, s.updated_at, s.archived_at
+     FROM space_memberships sm
+     JOIN spaces s ON s.id = sm.space_id
+     WHERE sm.user_id = $1
+       AND s.is_personal = true
+       AND s.archived_at IS NULL
+     ORDER BY s.id ASC
+     LIMIT 1`,
+    [numericUserId]
+  );
+  if (existing.rows.length > 0) return existing.rows[0];
+
+  const created = await client.query(
+    `INSERT INTO spaces (name, slug, description, created_by, is_personal)
+     VALUES ($1, NULL, NULL, $2, true)
+     RETURNING id, name, slug, description, created_by, is_personal, created_at, updated_at, archived_at`,
+    [buildPersonalWorkspaceName(name, email), numericUserId]
+  );
+  const space = created.rows[0];
+
+  await client.query(
+    `INSERT INTO space_memberships (space_id, user_id, role, created_by)
+     VALUES ($1, $2, 'owner', $3)
+     ON CONFLICT (space_id, user_id) DO UPDATE
+     SET role = 'owner',
+         updated_at = CURRENT_TIMESTAMP,
+         created_by = EXCLUDED.created_by`,
+    [space.id, numericUserId, numericUserId]
+  );
+
+  return space;
+}
+
 async function countSpaceOwners(client, { spaceId }) {
   const numericSpaceId = Number(spaceId);
   if (!Number.isFinite(numericSpaceId) || numericSpaceId <= 0) return 0;
@@ -182,6 +236,7 @@ module.exports = {
   isGlobalAdmin,
   canManageSpaceMemberships,
   canAssignSpaceRole,
+  createPersonalWorkspaceForUser,
   countSpaceOwners,
   listSpaceMembers
 };

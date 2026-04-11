@@ -1,4 +1,5 @@
 const express = require('express');
+const crypto = require('crypto');
 const pool = require('../db/pool');
 const { asyncHandler } = require('../middleware/errors');
 const { authenticateToken, requireRole } = require('../middleware/auth');
@@ -20,10 +21,10 @@ const { loadGeneralSettings } = require('../services/integrations');
 const { listFeatureFlags, getFeatureFlag, updateFeatureFlag, FEATURE_FLAGS_READ_ONLY } = require('../services/featureFlags');
 const { enforceScopeAccess } = require('../middleware/scopeAccess');
 const { sendInviteEmail, sendPasswordResetEmail, sendTestEmail, getSmtpStatus, updateSmtpSettings } = require('../services/email');
-const crypto = require('crypto');
 const { getRequestOrigin } = require('../services/requestOrigin');
 const { syncLibraryMembershipsForSpaceUser } = require('../services/libraries');
 const { hashInviteToken } = require('../services/invites');
+const { issuePasswordResetToken } = require('../services/passwordResets');
 
 const commonRouter = express.Router();
 const platformRouter = express.Router();
@@ -1326,38 +1327,23 @@ platformRouter.post('/users/:id/password-reset', asyncHandler(async (req, res) =
   if (userResult.rows.length === 0) {
     return res.status(404).json({ error: 'User not found' });
   }
-  const token = crypto.randomBytes(32).toString('hex');
-  const tokenHash = hashInviteToken(token);
-  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-
-  await pool.query(
-    `UPDATE password_reset_tokens
-     SET revoked = true
-     WHERE user_id = $1
-       AND used = false
-       AND revoked = false`,
-    [userId]
-  );
-
-  const insert = await pool.query(
-    `INSERT INTO password_reset_tokens (user_id, token_hash, expires_at, created_by)
-     VALUES ($1, $2, $3, $4)
-     RETURNING id, user_id, expires_at, created_at`,
-    [userId, tokenHash, expiresAt, req.user.id]
-  );
+  const issued = await issuePasswordResetToken({
+    userId,
+    createdBy: req.user.id
+  });
 
   const email = userResult.rows[0].email;
-  const resetUrl = `${getRequestOrigin(req)}/reset-password?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
+  const resetUrl = `${getRequestOrigin(req)}/reset-password?token=${encodeURIComponent(issued.token)}&email=${encodeURIComponent(email)}`;
   const exposeToken = parseBool(req.body?.expose_token, false);
   await logActivity(req, 'admin.user.password_reset.create', 'user', userId, {
     email,
-    resetTokenId: insert.rows[0].id,
-    expiresAt
+    resetTokenId: issued.id,
+    expiresAt: issued.expires_at
   });
   if (exposeToken) {
     await logActivity(req, 'admin.user.password_reset.token_exposed', 'user', userId, {
       email,
-      resetTokenId: insert.rows[0].id,
+      resetTokenId: issued.id,
       exposureMode: 'admin_copy_link'
     });
   }
@@ -1366,12 +1352,12 @@ platformRouter.post('/users/:id/password-reset', asyncHandler(async (req, res) =
     delivery = await sendPasswordResetEmail({
       to: email,
       resetUrl,
-      expiresAt: insert.rows[0].expires_at
+      expiresAt: issued.expires_at
     });
     if (delivery.sent) {
       await logActivity(req, 'admin.user.password_reset.delivered', 'user', userId, {
         email,
-        resetTokenId: insert.rows[0].id,
+        resetTokenId: issued.id,
         delivery: 'smtp'
       });
     }
@@ -1379,17 +1365,17 @@ platformRouter.post('/users/:id/password-reset', asyncHandler(async (req, res) =
     delivery = { attempted: true, sent: false, reason: error.message || 'smtp_send_failed' };
     await logActivity(req, 'admin.user.password_reset.delivery_failed', 'user', userId, {
       email,
-      resetTokenId: insert.rows[0].id,
+      resetTokenId: issued.id,
       reason: delivery.reason
     });
   }
   res.status(201).json({
-    id: insert.rows[0].id,
+    id: issued.id,
     user_id: userId,
     email,
-    expires_at: insert.rows[0].expires_at,
+    expires_at: issued.expires_at,
     delivery,
-    ...(exposeToken ? { reset_url: resetUrl, token } : {})
+    ...(exposeToken ? { reset_url: resetUrl, token: issued.token } : {})
   });
 }));
 

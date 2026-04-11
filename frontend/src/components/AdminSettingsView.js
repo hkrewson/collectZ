@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 const FEATURE_FLAG_LABELS = {
+  self_registration_enabled: 'Self-Registration',
   events_enabled: 'Events Library',
   collectibles_enabled: 'Collectibles Library'
 };

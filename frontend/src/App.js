@@ -138,8 +138,10 @@ export default function App() {
       {},
       '',
       nextRoute === 'register' ? '/register'
+        : nextRoute === 'forgot' ? '/forgot-password'
         : nextRoute === 'dashboard' ? dashboardUrl(activeTab, activeIntegrationSection)
           : nextRoute === 'reset' ? '/reset-password'
+            : nextRoute === 'verify' ? '/verify-email'
             : '/login'
     );
     setRoute(nextRoute);

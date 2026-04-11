@@ -272,6 +272,39 @@ async function sendPasswordResetEmail({ to, resetUrl, expiresAt }) {
   };
 }
 
+async function sendEmailVerificationEmail({ to, verificationUrl, expiresAt }) {
+  const config = await loadSmtpConfig();
+  if (!isSmtpConfigured(config)) {
+    return {
+      attempted: false,
+      sent: false,
+      reason: 'smtp_not_configured'
+    };
+  }
+  const transporter = buildTransport(config);
+  const expiryText = expiresAt ? new Date(expiresAt).toLocaleString() : '24 hours';
+  const text = [
+    'Welcome to collectZ.',
+    '',
+    `Verify your email: ${verificationUrl}`,
+    '',
+    `This link expires: ${expiryText}`,
+    '',
+    'If you did not create this account, you can ignore this email.'
+  ].join('\n');
+  const info = await transporter.sendMail({
+    from: config.from,
+    to,
+    subject: 'Verify your collectZ email',
+    text
+  });
+  return {
+    attempted: true,
+    sent: true,
+    messageId: info?.messageId || null
+  };
+}
+
 async function sendTestEmail({ to, requestedByName = '', requestedByEmail = '' }) {
   const config = await loadSmtpConfig();
   if (!isSmtpConfigured(config)) {
@@ -313,5 +346,6 @@ module.exports = {
   updateSmtpSettings,
   sendTestEmail,
   sendInviteEmail,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  sendEmailVerificationEmail
 };

@@ -1,4 +1,5 @@
 const express = require('express');
+const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const pool = require('../db/pool');
 const { asyncHandler } = require('../middleware/errors');
@@ -7,6 +8,9 @@ const {
   validate,
   registerSchema,
   loginSchema,
+  passwordResetRequestSchema,
+  emailVerificationRequestSchema,
+  emailVerificationConsumeSchema,
   profileUpdateSchema,
   passwordResetConsumeSchema,
   personalAccessTokenCreateSchema,
@@ -18,13 +22,17 @@ const { createSession, revokeSessionByToken, revokeSessionsForUser, getSessionUs
 const { logActivity } = require('../services/audit');
 const { issueCsrfToken, clearCsrfToken } = require('../middleware/csrf');
 const { hashInviteToken } = require('../services/invites');
+const { sendPasswordResetEmail, sendEmailVerificationEmail, loadSmtpConfig, isSmtpConfigured } = require('../services/email');
+const { getRequestOrigin } = require('../services/requestOrigin');
+const { issuePasswordResetToken } = require('../services/passwordResets');
+const { issueEmailVerificationToken } = require('../services/emailVerifications');
 const {
   ensureUserDefaultScope,
   getAccessibleLibrary,
   listLibrariesForSpace,
   syncLibraryMembershipsForSpaceUser
 } = require('../services/libraries');
-const { listAccessibleSpacesForUser, getAccessibleSpaceForUser } = require('../services/spaces');
+const { listAccessibleSpacesForUser, getAccessibleSpaceForUser, createPersonalWorkspaceForUser } = require('../services/spaces');
 const {
   PERSONAL_ACCESS_TOKEN_SCOPES,
   createPersonalAccessToken,
@@ -40,6 +48,7 @@ const {
 } = require('../services/serviceAccountKeys');
 const { recordAuthEvent } = require('../services/metrics');
 const { isSupportAccessApprovalActive } = require('../services/supportAccess');
+const { isFeatureEnabled } = require('../services/featureFlags');
 const {
   getProductEdition,
   isHomelabEdition,
@@ -232,10 +241,41 @@ async function buildAuthScopePayload(req) {
   }
 }
 
+async function buildPublicAuthConfig() {
+  const productEdition = getProductEdition();
+  const homelabEdition = isHomelabEdition(productEdition);
+  const userCountResult = await pool.query('SELECT COUNT(*)::int AS count FROM users');
+  const existingUserCount = userCountResult.rows[0]?.count || 0;
+  const selfRegistrationEnabled = homelabEdition
+    ? true
+    : await isFeatureEnabled('self_registration_enabled', true);
+  const smtpConfigured = homelabEdition
+    ? false
+    : isSmtpConfigured(await loadSmtpConfig());
+  const registrationRequested = homelabEdition || existingUserCount === 0 || selfRegistrationEnabled;
+  const registerAvailable = homelabEdition
+    ? true
+    : registrationRequested && smtpConfigured;
+
+  return {
+    product_edition: productEdition,
+    register_available: registerAvailable,
+    invite_required: !homelabEdition && existingUserCount > 0 && !selfRegistrationEnabled,
+    first_user_bootstrap: existingUserCount === 0,
+    password_reset_available: true,
+    email_verification_required: !homelabEdition,
+    smtp_configured: homelabEdition ? null : smtpConfigured
+  };
+}
+
 // ── CSRF token bootstrap ──────────────────────────────────────────────────────
 router.get('/csrf-token', asyncHandler(async (req, res) => {
   const token = issueCsrfToken(res);
   res.json({ csrfToken: token });
+}));
+
+router.get('/config', asyncHandler(async (_req, res) => {
+  res.json(await buildPublicAuthConfig());
 }));
 
 // ── Register ──────────────────────────────────────────────────────────────────
@@ -247,6 +287,16 @@ router.post('/register', validate(registerSchema), asyncHandler(async (req, res)
 
   const userCountResult = await pool.query('SELECT COUNT(*)::int AS count FROM users');
   const existingUserCount = userCountResult.rows[0]?.count || 0;
+
+  const selfRegistrationEnabled = homelabEdition
+    ? true
+    : await isFeatureEnabled('self_registration_enabled', true);
+  const smtpConfigured = homelabEdition
+    ? false
+    : isSmtpConfigured(await loadSmtpConfig());
+  const publicRegistrationAllowed = homelabEdition
+    ? true
+    : (existingUserCount === 0 || selfRegistrationEnabled) && smtpConfigured;
 
   let claimedInvite = null;
   if (!homelabEdition && inviteToken) {
@@ -268,9 +318,12 @@ router.post('/register', validate(registerSchema), asyncHandler(async (req, res)
       return res.status(400).json({ error: 'Invite token is not valid for this email address' });
     }
     claimedInvite = invite.rows[0];
-  } else if (!homelabEdition && existingUserCount > 0) {
+  } else if (!homelabEdition && existingUserCount > 0 && !selfRegistrationEnabled) {
     recordAuthEvent('register', 'failed');
     return res.status(400).json({ error: 'An invite token is required to register' });
+  } else if (!claimedInvite && !publicRegistrationAllowed) {
+    recordAuthEvent('register', 'failed');
+    return res.status(503).json({ error: 'Registration is temporarily unavailable until email verification delivery is configured' });
   }
 
   const existingUser = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
@@ -282,9 +335,13 @@ router.post('/register', validate(registerSchema), asyncHandler(async (req, res)
   const hashedPassword = await bcrypt.hash(password, 12);
   const role = existingUserCount === 0 ? 'admin' : 'user';
 
+  const emailVerified = homelabEdition || Boolean(claimedInvite);
+  const emailVerifiedAt = emailVerified ? new Date() : null;
   const result = await pool.query(
-    'INSERT INTO users (email, password, name, role) VALUES ($1, $2, $3, $4) RETURNING id, email, name, role',
-    [email, hashedPassword, name, role]
+    `INSERT INTO users (email, password, name, role, email_verified, email_verified_at)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING id, email, name, role, email_verified, email_verified_at`,
+    [email, hashedPassword, name, role, emailVerified, emailVerifiedAt]
   );
   if (claimedInvite?.space_id) {
     await pool.query(
@@ -311,12 +368,6 @@ router.post('/register', validate(registerSchema), asyncHandler(async (req, res)
       syncClient.release();
     }
   }
-  const ensuredScope = await ensureUserDefaultScope(result.rows[0].id, {
-    preferredSpaceId: claimedInvite?.space_id || null
-  });
-  const activeLibraryId = ensuredScope.libraryId;
-  const activeSpaceId = ensuredScope.spaceId;
-
   if (inviteToken) {
     await pool.query(
       'UPDATE invites SET used = true, used_by = $2, used_at = NOW() WHERE id = $1',
@@ -329,6 +380,84 @@ router.post('/register', validate(registerSchema), asyncHandler(async (req, res)
       role: claimedInvite?.space_role || null
     });
   }
+
+  if (!claimedInvite && !homelabEdition) {
+    const personalWorkspaceClient = await pool.connect();
+    try {
+      await personalWorkspaceClient.query('BEGIN');
+      const personalWorkspace = await createPersonalWorkspaceForUser(personalWorkspaceClient, {
+        userId: result.rows[0].id,
+        email: result.rows[0].email,
+        name: result.rows[0].name
+      });
+      await personalWorkspaceClient.query('COMMIT');
+      await logActivity(req, 'workspace.create.personal', 'space', personalWorkspace.id, {
+        userId: result.rows[0].id,
+        email: result.rows[0].email,
+        name: personalWorkspace.name,
+        isPersonal: true
+      });
+    } catch (error) {
+      await personalWorkspaceClient.query('ROLLBACK');
+      throw error;
+    } finally {
+      personalWorkspaceClient.release();
+    }
+  }
+
+  if (!emailVerified) {
+    const verification = await issueEmailVerificationToken({
+      userId: result.rows[0].id
+    });
+    const verificationUrl = `${getRequestOrigin(req)}/verify-email?token=${encodeURIComponent(verification.token)}&email=${encodeURIComponent(result.rows[0].email)}`;
+
+    await logActivity({ ...req, user: { id: result.rows[0].id, role: result.rows[0].role, email: result.rows[0].email } }, 'auth.user.register.pending_verification', 'user', result.rows[0].id, {
+      email: result.rows[0].email,
+      role: result.rows[0].role,
+      inviteTokenUsed: false,
+      productEdition,
+      verificationTokenId: verification.id,
+      verificationExpiresAt: verification.expires_at
+    });
+
+    try {
+      const delivery = await sendEmailVerificationEmail({
+        to: result.rows[0].email,
+        verificationUrl,
+        expiresAt: verification.expires_at
+      });
+      await logActivity(req, delivery.sent ? 'auth.email_verification.request.delivered' : 'auth.email_verification.request.delivery_skipped', 'user', result.rows[0].id, {
+        email: result.rows[0].email,
+        verificationTokenId: verification.id,
+        delivery: delivery.sent ? 'smtp' : 'none',
+        reason: delivery.reason || null
+      });
+      recordAuthEvent('register', delivery.sent ? 'verification_pending' : 'delivery_skipped');
+      return res.status(201).json({
+        message: 'Check your email to verify your account before signing in.',
+        verification_required: true,
+        email: result.rows[0].email
+      });
+    } catch (error) {
+      await logActivity(req, 'auth.email_verification.request.delivery_failed', 'user', result.rows[0].id, {
+        email: result.rows[0].email,
+        verificationTokenId: verification.id,
+        reason: error.message || 'smtp_send_failed'
+      });
+      recordAuthEvent('register', 'delivery_failed');
+      return res.status(202).json({
+        message: 'Your account was created, but we could not send the verification email. Use resend verification email from the sign-in screen.',
+        verification_required: true,
+        email: result.rows[0].email
+      });
+    }
+  }
+
+  const ensuredScope = await ensureUserDefaultScope(result.rows[0].id, {
+    preferredSpaceId: claimedInvite?.space_id || null
+  });
+  const activeLibraryId = ensuredScope.libraryId;
+  const activeSpaceId = ensuredScope.spaceId;
 
   const token = await createSession(result.rows[0].id, {
     ipAddress: req.ip,
@@ -372,6 +501,13 @@ router.post('/login', validate(loginSchema), asyncHandler(async (req, res) => {
     recordAuthEvent('login', 'failed');
     return res.status(401).json({ error: 'Invalid email or password' });
   }
+  if (!isHomelabEdition(getProductEdition()) && !user.email_verified) {
+    recordAuthEvent('login', 'verification_required');
+    return res.status(403).json({
+      error: 'Please verify your email before signing in',
+      code: 'email_verification_required'
+    });
+  }
   const ensuredScope = await ensureUserDefaultScope(user.id);
   const activeLibraryId = ensuredScope.libraryId;
   const activeSpaceId = ensuredScope.spaceId;
@@ -393,6 +529,200 @@ router.post('/login', validate(loginSchema), asyncHandler(async (req, res) => {
       active_library_id: activeLibraryId
     }
   });
+}));
+
+router.post('/email-verification/request', validate(emailVerificationRequestSchema), asyncHandler(async (req, res) => {
+  const { email } = req.body;
+  const genericResponse = {
+    message: 'If an unverified account exists for that email, a verification email will be sent shortly.'
+  };
+
+  const userResult = await pool.query(
+    'SELECT id, email, email_verified FROM users WHERE lower(email) = lower($1) LIMIT 1',
+    [email]
+  );
+  const user = userResult.rows[0] || null;
+
+  if (!user || user.email_verified) {
+    recordAuthEvent('email_verification_request', 'ignored');
+    await logActivity(req, 'auth.email_verification.request.ignored', 'user', user?.id || null, {
+      email
+    });
+    return res.json(genericResponse);
+  }
+
+  const verification = await issueEmailVerificationToken({
+    userId: user.id
+  });
+  const verificationUrl = `${getRequestOrigin(req)}/verify-email?token=${encodeURIComponent(verification.token)}&email=${encodeURIComponent(user.email)}`;
+
+  await logActivity(req, 'auth.email_verification.request', 'user', user.id, {
+    email: user.email,
+    verificationTokenId: verification.id,
+    expiresAt: verification.expires_at
+  });
+
+  try {
+    const delivery = await sendEmailVerificationEmail({
+      to: user.email,
+      verificationUrl,
+      expiresAt: verification.expires_at
+    });
+    await logActivity(
+      req,
+      delivery.sent ? 'auth.email_verification.request.delivered' : 'auth.email_verification.request.delivery_skipped',
+      'user',
+      user.id,
+      {
+        email: user.email,
+        verificationTokenId: verification.id,
+        delivery: delivery.sent ? 'smtp' : 'none',
+        reason: delivery.reason || null
+      }
+    );
+    recordAuthEvent('email_verification_request', delivery.sent ? 'succeeded' : 'delivery_skipped');
+  } catch (error) {
+    recordAuthEvent('email_verification_request', 'failed');
+    await logActivity(req, 'auth.email_verification.request.delivery_failed', 'user', user.id, {
+      email: user.email,
+      verificationTokenId: verification.id,
+      reason: error.message || 'smtp_send_failed'
+    });
+  }
+
+  res.json(genericResponse);
+}));
+
+router.post('/email-verification/consume', validate(emailVerificationConsumeSchema), asyncHandler(async (req, res) => {
+  const { token, email } = req.body;
+  const tokenHash = hashInviteToken(token);
+  const verificationLookup = await pool.query(
+    `SELECT evt.id, evt.user_id, u.email
+     FROM email_verification_tokens evt
+     JOIN users u ON u.id = evt.user_id
+     WHERE evt.token_hash = $1
+       AND evt.used = false
+       AND evt.revoked = false
+       AND evt.expires_at > NOW()
+     LIMIT 1`,
+    [tokenHash]
+  );
+  if (verificationLookup.rows.length === 0) {
+    recordAuthEvent('email_verification_consume', 'failed');
+    await logActivity(req, 'auth.email_verification.consume.failed', 'email_verification', null, {
+      email,
+      reason: 'invalid_or_expired_token'
+    });
+    return res.status(400).json({ error: 'Invalid or expired verification token' });
+  }
+  const verificationRow = verificationLookup.rows[0];
+  if (String(verificationRow.email).toLowerCase() !== String(email).toLowerCase()) {
+    recordAuthEvent('email_verification_consume', 'failed');
+    await logActivity(req, 'auth.email_verification.consume.failed', 'user', verificationRow.user_id, {
+      email,
+      reason: 'email_mismatch'
+    });
+    return res.status(400).json({ error: 'Verification token is not valid for this email address' });
+  }
+
+  await pool.query(
+    'UPDATE users SET email_verified = true, email_verified_at = NOW() WHERE id = $1',
+    [verificationRow.user_id]
+  );
+  await pool.query(
+    'UPDATE email_verification_tokens SET used = true, used_at = NOW() WHERE id = $1',
+    [verificationRow.id]
+  );
+
+  const ensuredScope = await ensureUserDefaultScope(verificationRow.user_id);
+  const newSessionToken = await createSession(verificationRow.user_id, {
+    ipAddress: req.ip,
+    userAgent: req.get('user-agent') || null
+  });
+  const meResult = await pool.query(
+    'SELECT id, email, name, role, created_at, updated_at, email_verified, email_verified_at FROM users WHERE id = $1',
+    [verificationRow.user_id]
+  );
+  const me = meResult.rows[0];
+
+  res.cookie('session_token', newSessionToken, SESSION_COOKIE_OPTIONS);
+  issueCsrfToken(res);
+  await logActivity(req, 'auth.email_verification.consume', 'user', verificationRow.user_id, {
+    email: verificationRow.email
+  });
+  recordAuthEvent('email_verification_consume', 'succeeded');
+  res.json({
+    user: {
+      ...stripHomelabSpaceContextFromUser(me, getProductEdition()),
+      active_space_id: stripHomelabSpaceContext({ active_space_id: ensuredScope.spaceId }, getProductEdition()).active_space_id,
+      active_library_id: ensuredScope.libraryId
+    }
+  });
+}));
+
+// ── Password reset request (email-first public flow) ────────────────────────
+router.post('/password-reset/request', validate(passwordResetRequestSchema), asyncHandler(async (req, res) => {
+  const { email } = req.body;
+  const genericResponse = {
+    message: 'If an account exists for that email, you will receive a password reset email shortly.'
+  };
+
+  const userResult = await pool.query(
+    'SELECT id, email FROM users WHERE lower(email) = lower($1) LIMIT 1',
+    [email]
+  );
+  const user = userResult.rows[0] || null;
+
+  if (!user) {
+    recordAuthEvent('password_reset_request', 'ignored');
+    await logActivity(req, 'auth.password_reset.request.unknown', 'password_reset', null, {
+      email
+    });
+    return res.json(genericResponse);
+  }
+
+  const issued = await issuePasswordResetToken({
+    userId: user.id,
+    createdBy: null
+  });
+  const resetUrl = `${getRequestOrigin(req)}/reset-password?token=${encodeURIComponent(issued.token)}&email=${encodeURIComponent(user.email)}`;
+
+  await logActivity(req, 'auth.password_reset.request', 'user', user.id, {
+    email: user.email,
+    resetTokenId: issued.id,
+    expiresAt: issued.expires_at
+  });
+
+  try {
+    const delivery = await sendPasswordResetEmail({
+      to: user.email,
+      resetUrl,
+      expiresAt: issued.expires_at
+    });
+
+    await logActivity(
+      req,
+      delivery.sent ? 'auth.password_reset.request.delivered' : 'auth.password_reset.request.delivery_skipped',
+      'user',
+      user.id,
+      {
+        email: user.email,
+        resetTokenId: issued.id,
+        delivery: delivery.sent ? 'smtp' : 'none',
+        reason: delivery.reason || null
+      }
+    );
+    recordAuthEvent('password_reset_request', delivery.sent ? 'succeeded' : 'delivery_skipped');
+  } catch (error) {
+    recordAuthEvent('password_reset_request', 'failed');
+    await logActivity(req, 'auth.password_reset.request.delivery_failed', 'user', user.id, {
+      email: user.email,
+      resetTokenId: issued.id,
+      reason: error.message || 'smtp_send_failed'
+    });
+  }
+
+  res.json(genericResponse);
 }));
 
 // ── Logout ────────────────────────────────────────────────────────────────────
@@ -461,7 +791,14 @@ router.post('/password-reset/consume', validate(passwordResetConsumeSchema), asy
   }
 
   const hashedPassword = await bcrypt.hash(password, 12);
-  await pool.query('UPDATE users SET password = $1 WHERE id = $2', [hashedPassword, resetRow.user_id]);
+  await pool.query(
+    `UPDATE users
+     SET password = $1,
+         email_verified = true,
+         email_verified_at = COALESCE(email_verified_at, NOW())
+     WHERE id = $2`,
+    [hashedPassword, resetRow.user_id]
+  );
   await pool.query(
     'UPDATE password_reset_tokens SET used = true, used_at = NOW() WHERE id = $1',
     [resetRow.id]
@@ -473,7 +810,7 @@ router.post('/password-reset/consume', validate(passwordResetConsumeSchema), asy
     userAgent: req.get('user-agent') || null
   });
   const meResult = await pool.query(
-    'SELECT id, email, name, role, created_at, updated_at FROM users WHERE id = $1',
+    'SELECT id, email, name, role, created_at, updated_at, email_verified, email_verified_at FROM users WHERE id = $1',
     [resetRow.user_id]
   );
   const me = meResult.rows[0];
@@ -503,7 +840,7 @@ router.get('/me', authenticateToken, asyncHandler(async (req, res) => {
     req.user.activeLibraryId = null;
   }
   const result = await pool.query(
-    'SELECT id, email, name, role, created_at, updated_at, active_space_id, active_library_id FROM users WHERE id = $1',
+    'SELECT id, email, name, role, created_at, updated_at, email_verified, email_verified_at, active_space_id, active_library_id FROM users WHERE id = $1',
     [req.user.id]
   );
   if (result.rows.length === 0) {
