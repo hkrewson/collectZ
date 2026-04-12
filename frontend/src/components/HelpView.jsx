@@ -314,6 +314,11 @@ export default function HelpView({
   }, [isSupportStaff, staffSearchInput]);
 
   const loadRequests = useCallback(async ({ silent = false } = {}) => {
+    if (!supportHelpEnabled) {
+      setRequests([]);
+      setSelectedRequestId(null);
+      return;
+    }
     if (!silent) setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -338,9 +343,15 @@ export default function HelpView({
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [apiCall, isSupportStaff, onToast, staffClassificationFilter, staffQueueFilter, staffSearchQuery]);
+  }, [apiCall, isSupportStaff, onToast, staffClassificationFilter, staffQueueFilter, staffSearchQuery, supportHelpEnabled]);
 
   const loadRequestDetail = useCallback(async (requestId, { silent = false } = {}) => {
+    if (!supportHelpEnabled) {
+      setSelectedRequest(null);
+      setMessages([]);
+      setTimeline([]);
+      return;
+    }
     if (!requestId) {
       setSelectedRequest(null);
       setMessages([]);
@@ -360,7 +371,7 @@ export default function HelpView({
     } finally {
       if (!silent) setDetailLoading(false);
     }
-  }, [apiCall, onToast]);
+  }, [apiCall, onToast, supportHelpEnabled]);
 
   const loadReleases = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setReleaseLoading(true);
@@ -398,11 +409,22 @@ export default function HelpView({
   }, [guidanceArticles]);
 
   useEffect(() => {
-    loadRequests();
+    if (supportHelpEnabled) {
+      loadRequests();
+    } else {
+      setRequests([]);
+      setSelectedRequestId(null);
+    }
     loadReleases();
-  }, [loadRequests, loadReleases]);
+  }, [loadRequests, loadReleases, supportHelpEnabled]);
 
   useEffect(() => {
+    if (!supportHelpEnabled) {
+      setSelectedRequest(null);
+      setMessages([]);
+      setTimeline([]);
+      return;
+    }
     if (!selectedRequestId) {
       setSelectedRequest(null);
       setMessages([]);
@@ -410,9 +432,10 @@ export default function HelpView({
       return;
     }
     loadRequestDetail(selectedRequestId);
-  }, [loadRequestDetail, selectedRequestId]);
+  }, [loadRequestDetail, selectedRequestId, supportHelpEnabled]);
 
   useEffect(() => {
+    if (!supportHelpEnabled) return undefined;
     if (activeTab !== 'support') return undefined;
     const intervalId = window.setInterval(() => {
       loadRequests({ silent: true });
@@ -422,7 +445,7 @@ export default function HelpView({
       onSupportSummaryRefresh?.({ silent: true });
     }, 15000);
     return () => window.clearInterval(intervalId);
-  }, [activeTab, loadRequestDetail, loadRequests, onSupportSummaryRefresh, selectedRequestId]);
+  }, [activeTab, loadRequestDetail, loadRequests, onSupportSummaryRefresh, selectedRequestId, supportHelpEnabled]);
 
   useEffect(() => {
     threadEndRef.current?.scrollIntoView?.({ block: 'end', behavior: 'smooth' });

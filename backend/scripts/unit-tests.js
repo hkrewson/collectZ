@@ -668,9 +668,11 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(serverSource.includes("app.use('/api/auth', authPlatformRouter);"));
   assert.ok(serverSource.includes("app.use('/api/support', supportSharedRouter);"));
   assert.ok(serverSource.includes("app.use('/api/admin', adminCommonRouter);"));
+  assert.ok(serverSource.includes("app.use('/api', sharedIntegrationsRouter);"));
   assert.ok(serverSource.includes("app.use('/api/docs', docsRouter);"));
   assert.ok(serverSource.includes("app.use('/api/metrics', metricsRouter);"));
   assert.ok(serverSource.includes("app.use('/api/support', supportPlatformRouter);"));
+  assert.ok(serverSource.includes("app.use('/api', platformIntegrationsRouter);"));
   assert.ok(serverSource.includes("app.use('/api', spacesRouter);"));
   assert.ok(serverSource.includes("app.use('/api/admin', adminPlatformRouter);"));
   assert.ok(authRoutesSource.includes('authPlatformRouter'));
@@ -706,6 +708,12 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/support/releases'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/auth/register'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/admin/settings/integrations'));
+  assert.ok(homelabEditionBoundarySmokeSource.includes('/api/admin/settings/integrations/test-pricecharting'));
+  assert.ok(homelabEditionBoundarySmokeSource.includes('/api/admin/settings/integrations/test-ebay'));
+  assert.ok(homelabEditionBoundarySmokeSource.includes('/api/admin/settings/integrations/test-logs'));
+  assert.ok(homelabEditionBoundarySmokeSource.includes('valuationProviders'));
+  assert.ok(homelabEditionBoundarySmokeSource.includes('logExportControl'));
+  assert.ok(homelabEditionBoundarySmokeSource.includes('observabilityRuntime'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/admin/feature-flags'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/support/requests'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/support/staff/summary'));
@@ -725,6 +733,9 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(platformEditionBoundarySmokeSource.includes('workspace_memberships'));
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/admin/spaces/${defaultSpaceId}/invites'));
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/auth/register'));
+  assert.ok(platformEditionBoundarySmokeSource.includes('/api/admin/settings/integrations/test-pricecharting'));
+  assert.ok(platformEditionBoundarySmokeSource.includes('/api/admin/settings/integrations/test-ebay'));
+  assert.ok(platformEditionBoundarySmokeSource.includes('/api/admin/settings/integrations/test-logs'));
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/support/staff/summary'));
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/admin/users'));
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/auth/support-session/start'));
@@ -815,12 +826,23 @@ results.push(run('repo includes 2.9.4 Playwright browser regression foundation h
 }));
 
 results.push(run('integrations route source extends platform integrations with valuation providers plus observability controls', () => {
+  assert.ok(integrationsRoutesSource.includes('const sharedRouter = express.Router();'));
+  assert.ok(integrationsRoutesSource.includes('const platformRouter = express.Router();'));
+  assert.ok(integrationsRoutesSource.includes('async function buildSharedIntegrationPayload'));
   assert.ok(integrationsRoutesSource.includes('async function buildPlatformIntegrationPayload'));
+  assert.ok(integrationsRoutesSource.includes('buildHomelabIntegrationPayload'));
+  assert.ok(integrationsRoutesSource.includes('hasPlatformOnlyIntegrationUpdate'));
   assert.ok(integrationsRoutesSource.includes('valuationProviders'));
   assert.ok(integrationsRoutesSource.includes('pricecharting_enabled = EXCLUDED.pricecharting_enabled'));
   assert.ok(integrationsRoutesSource.includes('ebay_browse_enabled = EXCLUDED.ebay_browse_enabled'));
   assert.ok(integrationsRoutesSource.includes('log_export_backend = EXCLUDED.log_export_backend'));
   assert.ok(integrationsRoutesSource.includes('log_export_host = EXCLUDED.log_export_host'));
+  assert.ok(integrationsRoutesSource.includes('Platform-only integration settings are not available in homelab edition'));
+  assert.ok(integrationsRoutesSource.includes("sharedRouter.get('/admin/settings/integrations'"));
+  assert.ok(integrationsRoutesSource.includes("sharedRouter.put('/admin/settings/integrations'"));
+  assert.ok(integrationsRoutesSource.includes("platformRouter.post('/admin/settings/integrations/test-pricecharting'"));
+  assert.ok(integrationsRoutesSource.includes("platformRouter.post('/admin/settings/integrations/test-ebay'"));
+  assert.ok(integrationsRoutesSource.includes("platformRouter.post('/admin/settings/integrations/test-logs'"));
   assert.ok(integrationsRoutesSource.includes("/admin/settings/integrations/test-pricecharting"));
   assert.ok(integrationsRoutesSource.includes("/admin/settings/integrations/test-ebay"));
 }));

@@ -35,7 +35,7 @@ const { isHomelabEdition } = require('./config/productEdition');
 const { authRouter, authPlatformRouter } = require('./routes/auth');
 const mediaRouter = require('./routes/media');
 const { adminCommonRouter, adminPlatformRouter } = require('./routes/admin');
-const integrationsRouter = require('./routes/integrations');
+const { sharedIntegrationsRouter, platformIntegrationsRouter } = require('./routes/integrations');
 const spaceIntegrationsRouter = require('./routes/spaceIntegrations');
 const librariesRouter = require('./routes/libraries');
 const spacesRouter = require('./routes/spaces');
@@ -269,7 +269,7 @@ app.use('/api/media', mediaRouter);
 app.use('/api', eventsRouter);
 app.use('/api', collectiblesRouter);
 app.use('/api/support', supportSharedRouter);
-app.use('/api', integrationsRouter);
+app.use('/api', sharedIntegrationsRouter);
 app.use('/api', spaceIntegrationsRouter);
 app.use('/api', librariesRouter);
 app.use('/api/admin', adminCommonRouter);
@@ -277,6 +277,7 @@ if (!HOMELAB_EDITION) {
   app.use('/api/docs', docsRouter);
   app.use('/api/metrics', metricsRouter);
   app.use('/api/support', supportPlatformRouter);
+  app.use('/api', platformIntegrationsRouter);
   app.use('/api', spacesRouter);
   app.use('/api/admin', adminPlatformRouter);
 }

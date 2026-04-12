@@ -2824,7 +2824,9 @@ Historical note:
   - use one explicit parallel homelab stack for edition-split verification so fresh isolated data is expected and obvious.
 - Early platform-route extraction:
   - move clearly platform-only auth/control-plane capabilities behind platform-only route registration instead of leaving them on shared routers,
-  - early example: service-account key management stays mounted in platform and is fully unmounted in homelab.
+  - early examples:
+    - service-account key management stays mounted in platform and is fully unmounted in homelab,
+    - platform-only valuation and log-export integration test routes stay mounted in platform while homelab keeps only the shared collector-safe integration surface.
 - Shared core extraction:
   - identify and extract domain logic that should be implemented once and consumed by both products,
   - expected core areas include media/import logic, shared auth/session primitives, shared API client patterns, shared UI primitives, and edition-safe integrations/metadata services.

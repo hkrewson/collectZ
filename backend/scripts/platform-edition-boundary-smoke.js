@@ -189,6 +189,24 @@ async function main() {
     const adminUsers = await admin.request('/api/admin/users', { expectStatus: 200 });
     const generalSettings = await admin.request('/api/settings/general', { expectStatus: 200 });
     const integrations = await admin.request('/api/admin/settings/integrations', { expectStatus: 200 });
+    const priceChartingTest = await admin.request('/api/admin/settings/integrations/test-pricecharting', {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 400,
+      body: { title: 'Batman' }
+    });
+    const ebayTest = await admin.request('/api/admin/settings/integrations/test-ebay', {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 400,
+      body: { title: 'Batman' }
+    });
+    const logsTest = await admin.request('/api/admin/settings/integrations/test-logs', {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 200,
+      body: { logExportBackend: 'off' }
+    });
     const featureFlags = await admin.request('/api/admin/feature-flags', { expectStatus: 200 });
     const serviceAccountKeys = await admin.request('/api/auth/service-account-keys', { expectStatus: 200 });
     const supportSessionStart = await admin.request('/api/auth/support-session/start', {
@@ -225,6 +243,12 @@ async function main() {
     assert(Array.isArray(adminUsers.data), `Platform /api/admin/users must stay mounted: ${JSON.stringify(adminUsers.data)}`);
     assert(typeof generalSettings.data?.theme === 'string', `Platform /api/settings/general must stay mounted: ${JSON.stringify(generalSettings.data)}`);
     assert(typeof integrations.data === 'object' && integrations.data !== null, `Platform /api/admin/settings/integrations must stay mounted: ${JSON.stringify(integrations.data)}`);
+    assert(typeof integrations.data?.valuationProviders === 'object' && integrations.data.valuationProviders !== null, `Platform integrations payload must keep valuation providers: ${JSON.stringify(integrations.data)}`);
+    assert(typeof integrations.data?.logExportControl === 'object' && integrations.data.logExportControl !== null, `Platform integrations payload must keep log export control: ${JSON.stringify(integrations.data)}`);
+    assert(typeof integrations.data?.observabilityRuntime === 'object' && integrations.data.observabilityRuntime !== null, `Platform integrations payload must keep observability runtime diagnostics: ${JSON.stringify(integrations.data)}`);
+    assert(priceChartingTest.data?.provider === 'pricecharting', `Platform PriceCharting integration test route must stay mounted: ${JSON.stringify(priceChartingTest.data)}`);
+    assert(ebayTest.data?.provider === 'ebay_browse', `Platform eBay integration test route must stay mounted: ${JSON.stringify(ebayTest.data)}`);
+    assert(logsTest.data?.provider === 'structured_logs', `Platform log export integration test route must stay mounted: ${JSON.stringify(logsTest.data)}`);
     assert(Array.isArray(featureFlags.data?.flags), `Platform /api/admin/feature-flags must stay mounted: ${JSON.stringify(featureFlags.data)}`);
     assert(Array.isArray(serviceAccountKeys.data?.keys), `Platform /api/auth/service-account-keys must stay mounted: ${JSON.stringify(serviceAccountKeys.data)}`);
     assert(supportSessionStart.data?.support_session?.active === true, `Platform /api/auth/support-session/start must stay mounted: ${JSON.stringify(supportSessionStart.data)}`);

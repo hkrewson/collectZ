@@ -248,8 +248,8 @@ export default function DashboardContent({
           section={activeIntegrationSection}
           onSectionChange={setActiveIntegrationSection}
           title={productEdition === 'homelab' ? 'Integrations' : 'Platform Integrations'}
+          includeRuntimeSections={productEdition !== 'homelab'}
           includeValuationSections={productEdition !== 'homelab'}
-          visibleSections={productEdition === 'homelab' ? null : ['pricecharting', 'ebay', 'logs', 'metrics']}
         />
       );
     default:

@@ -3,7 +3,8 @@ const axios = require('axios');
 const pool = require('../db/pool');
 const { asyncHandler } = require('../middleware/errors');
 const { authenticateToken, requireRole } = require('../middleware/auth');
-const { deriveCwaBaseUrl, loadAdminIntegrationConfig, normalizeIntegrationRecord, loadGeneralSettings } = require('../services/integrations');
+const { isHomelabEdition } = require('../config/productEdition');
+const { loadAdminIntegrationConfig, normalizeIntegrationRecord, loadGeneralSettings } = require('../services/integrations');
 const { encryptSecret, maskSecret } = require('../services/crypto');
 const { buildObservabilityRuntimeDiagnostics } = require('../services/observabilityRuntime');
 const { resolveExportConfig, invalidateStoredExportConfigCache, LOG_EXPORT_BACKENDS, LOG_EXPORT_SETTINGS_READ_ONLY, validateStructuredLogDelivery, normalizeExplicitExportConfig } = require('../services/logExport');
@@ -26,16 +27,68 @@ const { resolveComicsPreset, searchComicsByTitle, fetchMetronCollectionIssues } 
 const { logActivity, logError } = require('../services/audit');
 const { DECRYPT_REMEDIATION } = require('../services/integrationResponse');
 
-const router = express.Router();
+const sharedRouter = express.Router();
+const platformRouter = express.Router();
+const HOMELAB_EDITION = isHomelabEdition();
 
-async function buildPlatformIntegrationPayload(config) {
-  const resolvedExportConfig = await resolveExportConfig({ forceRefresh: true });
+async function buildSharedIntegrationPayload(config) {
   return {
+    barcodePreset: config?.barcodePreset || 'upcitemdb',
+    barcodeProvider: config?.barcodeProvider || resolveBarcodePreset(config).provider,
+    barcodeApiUrl: config?.barcodeApiUrl || '',
+    barcodeApiKeySet: Boolean(config?.barcodeApiKey),
+    barcodeApiKeyMasked: maskSecret(config?.barcodeApiKey || ''),
+    tmdbPreset: config?.tmdbPreset || 'tmdb',
+    tmdbProvider: config?.tmdbProvider || resolveTmdbPreset(config).provider,
+    tmdbApiUrl: config?.tmdbApiUrl || '',
+    tmdbApiKeySet: Boolean(config?.tmdbApiKey),
+    tmdbApiKeyMasked: maskSecret(config?.tmdbApiKey || ''),
+    plexPreset: config?.plexPreset || 'plex',
+    plexProvider: config?.plexProvider || resolvePlexPreset(config).provider,
+    plexApiUrl: config?.plexApiUrl || '',
+    plexLibrarySections: Array.isArray(config?.plexLibrarySections) ? config.plexLibrarySections : [],
+    plexApiKeySet: Boolean(config?.plexApiKey),
+    plexApiKeyMasked: maskSecret(config?.plexApiKey || ''),
+    booksPreset: config?.booksPreset || 'googlebooks',
+    booksProvider: config?.booksProvider || resolveBooksPreset(config).provider,
+    booksApiUrl: config?.booksApiUrl || '',
+    booksApiKeySet: Boolean(config?.booksApiKey),
+    booksApiKeyMasked: maskSecret(config?.booksApiKey || ''),
+    audioPreset: config?.audioPreset || 'discogs',
+    audioProvider: config?.audioProvider || resolveAudioPreset(config).provider,
+    audioApiUrl: config?.audioApiUrl || '',
+    audioApiKeySet: Boolean(config?.audioApiKey),
+    audioApiKeyMasked: maskSecret(config?.audioApiKey || ''),
+    gamesPreset: config?.gamesPreset || 'igdb',
+    gamesProvider: config?.gamesProvider || resolveGamesPreset(config).provider,
+    gamesApiUrl: config?.gamesApiUrl || '',
+    gamesClientId: config?.gamesClientId || '',
+    gamesApiKeySet: Boolean(config?.gamesApiKey),
+    gamesApiKeyMasked: maskSecret(config?.gamesApiKey || ''),
+    gamesClientSecretSet: Boolean(config?.gamesClientSecret),
+    gamesClientSecretMasked: maskSecret(config?.gamesClientSecret || ''),
+    comicsPreset: config?.comicsPreset || 'metron',
+    comicsProvider: config?.comicsProvider || resolveComicsPreset(config).provider,
+    comicsApiUrl: config?.comicsApiUrl || '',
+    comicsUsername: config?.comicsUsername || '',
+    comicsApiKeySet: Boolean(config?.comicsApiKey),
+    comicsApiKeyMasked: maskSecret(config?.comicsApiKey || ''),
+    cwaOpdsUrl: config?.cwaOpdsUrl || '',
+    cwaUsername: config?.cwaUsername || '',
+    cwaPasswordSet: Boolean(config?.cwaPassword),
+    cwaPasswordMasked: maskSecret(config?.cwaPassword || ''),
     decryptHealth: {
       hasWarnings: Array.isArray(config?.decryptWarnings) && config.decryptWarnings.length > 0,
       warnings: Array.isArray(config?.decryptWarnings) ? config.decryptWarnings : [],
       remediation: DECRYPT_REMEDIATION
-    },
+    }
+  };
+}
+
+async function buildPlatformIntegrationPayload(config) {
+  const resolvedExportConfig = await resolveExportConfig({ forceRefresh: true });
+  return {
+    ...(await buildSharedIntegrationPayload(config)),
     valuationProviders: {
       pricecharting: {
         enabled: Boolean(config?.priceChartingEnabled),
@@ -77,6 +130,10 @@ async function buildPlatformIntegrationPayload(config) {
     },
     observabilityRuntime: await buildObservabilityRuntimeDiagnostics()
   };
+}
+
+function buildHomelabIntegrationPayload(config) {
+  return buildSharedIntegrationPayload(config);
 }
 
 function resolveNextAdminValuationState(body = {}, existing = null) {
@@ -127,9 +184,31 @@ function normalizeLogExportValidationRecord(row) {
   };
 }
 
+function hasPlatformOnlyIntegrationUpdate(body = {}) {
+  return (
+    body.priceChartingEnabled !== undefined
+    || body.priceChartingApiUrl !== undefined
+    || body.priceChartingApiKey !== undefined
+    || body.clearPriceChartingApiKey !== undefined
+    || body.priceChartingRateLimitMs !== undefined
+    || body.eBayBrowseEnabled !== undefined
+    || body.eBayBrowseApiUrl !== undefined
+    || body.eBayBrowseClientId !== undefined
+    || body.eBayBrowseClientSecret !== undefined
+    || body.clearEBayBrowseClientSecret !== undefined
+    || body.eBayBrowseMarketplaceId !== undefined
+    || body.logExportBackend !== undefined
+    || body.logExportHost !== undefined
+    || body.logExportPort !== undefined
+    || body.logExportHostLabel !== undefined
+    || body.logExportService !== undefined
+    || body.logExportDebug !== undefined
+  );
+}
+
 // ── General settings (read — available to all authenticated users) ────────────
 
-router.get('/settings/general', authenticateToken, asyncHandler(async (req, res) => {
+sharedRouter.get('/settings/general', authenticateToken, asyncHandler(async (req, res) => {
   const activeSpaceId = Number(req.user?.activeSpaceId || 0) || null;
   const settings = await loadGeneralSettings(activeSpaceId);
   res.json(settings);
@@ -137,15 +216,19 @@ router.get('/settings/general', authenticateToken, asyncHandler(async (req, res)
 
 // ── Integration settings (admin only) ─────────────────────────────────────────
 
-router.get('/admin/settings/integrations', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
+sharedRouter.get('/admin/settings/integrations', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
   const config = await loadAdminIntegrationConfig();
-  res.json(await buildPlatformIntegrationPayload(config));
+  res.json(await (HOMELAB_EDITION ? buildHomelabIntegrationPayload(config) : buildPlatformIntegrationPayload(config)));
 }));
 
-router.put('/admin/settings/integrations', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
+sharedRouter.put('/admin/settings/integrations', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
   const {
     logExportBackend, logExportHost, logExportPort, logExportHostLabel, logExportService, logExportDebug
   } = req.body;
+
+  if (HOMELAB_EDITION && hasPlatformOnlyIntegrationUpdate(req.body)) {
+    return res.status(404).json({ error: 'Platform-only integration settings are not available in homelab edition' });
+  }
 
   const existingRow = await pool.query('SELECT * FROM app_integrations WHERE id = 1');
   const existing = existingRow.rows[0] || null;
@@ -324,16 +407,16 @@ router.put('/admin/settings/integrations', authenticateToken, requireRole('admin
       : null
   });
 
-  res.json(await buildPlatformIntegrationPayload(config));
+  res.json(await (HOMELAB_EDITION ? buildHomelabIntegrationPayload(config) : buildPlatformIntegrationPayload(config)));
 }));
 
-router.post('/admin/settings/integrations/test-pricecharting', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
+platformRouter.post('/admin/settings/integrations/test-pricecharting', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
   const config = await loadAdminIntegrationConfig();
   const dryRun = buildPriceChartingDryRun(config, req.body || {});
   res.status(dryRun.status === 400 ? 400 : 200).json(dryRun);
 }));
 
-router.post('/admin/settings/integrations/test-ebay', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
+platformRouter.post('/admin/settings/integrations/test-ebay', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
   const config = await loadAdminIntegrationConfig();
   const dryRun = buildEbayBrowseDryRun(config, req.body || {});
   res.status(dryRun.status === 400 ? 400 : 200).json(dryRun);
@@ -341,7 +424,7 @@ router.post('/admin/settings/integrations/test-ebay', authenticateToken, require
 
 // ── Integration test endpoints ────────────────────────────────────────────────
 
-router.post('/admin/settings/integrations/test-barcode', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
+sharedRouter.post('/admin/settings/integrations/test-barcode', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
   const { upc } = req.body || {};
   const config = await loadAdminIntegrationConfig();
   const testUpc = String(upc || '012569828708').trim();
@@ -368,7 +451,7 @@ router.post('/admin/settings/integrations/test-barcode', authenticateToken, requ
   });
 }));
 
-router.post('/admin/settings/integrations/test-tmdb', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
+sharedRouter.post('/admin/settings/integrations/test-tmdb', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
   const { title, year } = req.body || {};
   const config = await loadAdminIntegrationConfig();
 
@@ -389,7 +472,7 @@ router.post('/admin/settings/integrations/test-tmdb', authenticateToken, require
   }
 }));
 
-router.post('/admin/settings/integrations/test-plex', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
+sharedRouter.post('/admin/settings/integrations/test-plex', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
   const config = await loadAdminIntegrationConfig();
   if (!config.plexApiUrl) {
     return res.status(400).json({ ok: false, authenticated: false, detail: 'Plex API URL is not configured' });
@@ -428,7 +511,7 @@ router.post('/admin/settings/integrations/test-plex', authenticateToken, require
   }
 }));
 
-router.post('/admin/settings/integrations/test-books', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
+sharedRouter.post('/admin/settings/integrations/test-books', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
   const { title, author } = req.body || {};
   const config = await loadAdminIntegrationConfig();
   if (!config.booksApiUrl) {
@@ -457,7 +540,7 @@ router.post('/admin/settings/integrations/test-books', authenticateToken, requir
   }
 }));
 
-router.post('/admin/settings/integrations/test-audio', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
+sharedRouter.post('/admin/settings/integrations/test-audio', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
   const { title, artist } = req.body || {};
   const config = await loadAdminIntegrationConfig();
   if (!config.audioApiUrl) {
@@ -486,7 +569,7 @@ router.post('/admin/settings/integrations/test-audio', authenticateToken, requir
   }
 }));
 
-router.post('/admin/settings/integrations/test-games', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
+sharedRouter.post('/admin/settings/integrations/test-games', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
   const { title } = req.body || {};
   const config = await loadAdminIntegrationConfig();
   if (!config.gamesApiUrl) {
@@ -515,7 +598,7 @@ router.post('/admin/settings/integrations/test-games', authenticateToken, requir
   }
 }));
 
-router.post('/admin/settings/integrations/test-comics', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
+sharedRouter.post('/admin/settings/integrations/test-comics', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
   const { title } = req.body || {};
   const config = await loadAdminIntegrationConfig();
   if (!config.comicsApiUrl) {
@@ -556,7 +639,7 @@ router.post('/admin/settings/integrations/test-comics', authenticateToken, requi
   }
 }));
 
-router.post('/admin/settings/integrations/test-cwa', authenticateToken, requireRole('admin'), asyncHandler(async (_req, res) => {
+sharedRouter.post('/admin/settings/integrations/test-cwa', authenticateToken, requireRole('admin'), asyncHandler(async (_req, res) => {
   return res.status(410).json({
     ok: false,
     authenticated: false,
@@ -566,7 +649,7 @@ router.post('/admin/settings/integrations/test-cwa', authenticateToken, requireR
   });
 }));
 
-router.post('/admin/settings/integrations/test-logs', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
+platformRouter.post('/admin/settings/integrations/test-logs', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
   const requestedBackend = req.body?.logExportBackend;
   const requestedHost = req.body?.logExportHost;
   const requestedPort = req.body?.logExportPort;
@@ -712,4 +795,7 @@ router.post('/admin/settings/integrations/test-logs', authenticateToken, require
   });
 }));
 
-module.exports = router;
+module.exports = {
+  sharedIntegrationsRouter: sharedRouter,
+  platformIntegrationsRouter: platformRouter
+};
