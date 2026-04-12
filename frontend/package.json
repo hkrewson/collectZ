@@ -80,10 +80,13 @@
     }
   },
   "scripts": {
-    "start": "react-scripts start",
+    "start": "vite",
+    "start:cra": "react-scripts start",
     "dev:vite": "vite",
-    "build": "react-scripts build",
+    "build": "vite build",
+    "build:cra": "react-scripts build",
     "build:vite": "vite build",
+    "preview": "vite preview --host 0.0.0.0",
     "preview:vite": "vite preview --host 0.0.0.0",
     "test": "react-scripts test",
     "eject": "react-scripts eject"

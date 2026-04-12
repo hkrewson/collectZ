@@ -2773,6 +2773,7 @@ Historical note:
   - update release checks, artifact expectations, and any workflow assumptions tied to CRA build output.
   - current direction for this stage:
     - cut production Docker/nginx over to Vite output first,
+    - move local maintainer defaults (`start`, `build`, `preview`) to Vite once the production cutover is proven,
     - keep CRA scripts temporarily as a rollback rail,
     - remove CRA only after Docker, CI, and browser regression stay green on the Vite path.
 - Stage 4: remove CRA

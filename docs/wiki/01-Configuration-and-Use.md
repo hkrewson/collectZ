@@ -12,19 +12,23 @@ The frontend proxies `/api/*` to backend inside the Docker network.
 
 During the `3.0.0` CRA-to-Vite migration, the repo supports two frontend build paths:
 
-- Legacy CRA commands remain available:
+- Primary frontend commands now use Vite:
   - `npm --prefix frontend run start`
   - `npm --prefix frontend run build`
-- New parallel Vite commands are available for migration work:
+  - `npm --prefix frontend run preview`
+- Explicit migration/compatibility aliases remain available:
   - `npm --prefix frontend run dev:vite`
   - `npm --prefix frontend run build:vite`
   - `npm --prefix frontend run preview:vite`
+- Legacy CRA rollback commands remain available temporarily:
+  - `npm --prefix frontend run start:cra`
+  - `npm --prefix frontend run build:cra`
 
 Current migration intent:
 
 - Docker and CI now use the Vite production build path (`npm --prefix frontend run build:vite`) for the nginx-served frontend image.
-- CRA remains available temporarily as a rollback rail while we finish the `3.0.0` cleanup and remove `react-scripts`.
-- Vite should be treated as the primary forward-looking local dev/build shell during the remainder of the migration.
+- Local maintainer defaults now use Vite as well.
+- CRA remains available temporarily only as a rollback rail while we finish the `3.0.0` cleanup and remove `react-scripts`.
 - The Vite dev server proxies `/api` and `/uploads` to `http://localhost:3001` by default. Override with `VITE_PROXY_TARGET` when your backend is running elsewhere.
 - Existing frontend env names still work during the parallel phase:
   - `REACT_APP_API_URL`

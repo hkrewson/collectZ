@@ -31,6 +31,9 @@ module.exports = defineConfig(({ mode }) => {
 
   return {
     plugins: [jsxInJsPlugin(), react()],
+    optimizeDeps: {
+      noDiscovery: true
+    },
     server: {
       host: '0.0.0.0',
       port: Number(env.VITE_PORT || 5173),

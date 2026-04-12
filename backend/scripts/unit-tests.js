@@ -1984,6 +1984,11 @@ results.push(run('frontend package and vite scaffold support a parallel CRA-to-V
   assert.strictEqual(frontendPackageJson.devDependencies.vite !== undefined, true);
   assert.strictEqual(frontendPackageJson.devDependencies['@vitejs/plugin-react'] !== undefined, true);
   assert.strictEqual(frontendPackageJson.devDependencies.esbuild !== undefined, true);
+  assert.strictEqual(frontendPackageJson.scripts.start, 'vite');
+  assert.strictEqual(frontendPackageJson.scripts.build, 'vite build');
+  assert.strictEqual(frontendPackageJson.scripts.preview, 'vite preview --host 0.0.0.0');
+  assert.strictEqual(frontendPackageJson.scripts['start:cra'], 'react-scripts start');
+  assert.strictEqual(frontendPackageJson.scripts['build:cra'], 'react-scripts build');
   assert.strictEqual(frontendPackageJson.scripts['dev:vite'], 'vite');
   assert.strictEqual(frontendPackageJson.scripts['build:vite'], 'vite build');
   assert.ok(frontendViteConfigSource.includes('REACT_APP_API_URL'));
