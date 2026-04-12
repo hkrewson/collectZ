@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const pool = require('../db/pool');
 const { asyncHandler } = require('../middleware/errors');
 const { authenticateToken, requireRole } = require('../middleware/auth');
+const { isHomelabEdition } = require('../config/productEdition');
 const {
   validate,
   roleUpdateSchema,
@@ -28,6 +29,8 @@ const { issuePasswordResetToken } = require('../services/passwordResets');
 
 const commonRouter = express.Router();
 const platformRouter = express.Router();
+const HOMELAB_EDITION = isHomelabEdition();
+const HOMELAB_ALLOWED_FEATURE_FLAGS = new Set(['events_enabled', 'collectibles_enabled']);
 
 // All mounted admin routes require authentication + admin role
 commonRouter.use(authenticateToken, requireRole('admin'));
@@ -106,7 +109,9 @@ platformRouter.post('/settings/email-delivery/test', validate(emailDeliveryTestS
 // ── Feature flags ─────────────────────────────────────────────────────────────
 
 commonRouter.get('/feature-flags', asyncHandler(async (_req, res) => {
-  const flags = await listFeatureFlags();
+  const flags = (await listFeatureFlags()).filter((flag) => (
+    !HOMELAB_EDITION || HOMELAB_ALLOWED_FEATURE_FLAGS.has(flag.key)
+  ));
   res.json({ readOnly: FEATURE_FLAGS_READ_ONLY, flags });
 }));
 
@@ -116,6 +121,9 @@ commonRouter.patch('/feature-flags/:key', asyncHandler(async (req, res) => {
 
   if (!key) return res.status(400).json({ error: 'Feature flag key is required' });
   if (typeof enabled !== 'boolean') return res.status(400).json({ error: 'enabled must be boolean' });
+  if (HOMELAB_EDITION && !HOMELAB_ALLOWED_FEATURE_FLAGS.has(key)) {
+    return res.status(404).json({ error: `Unknown feature flag: ${key}` });
+  }
 
   const previous = await getFeatureFlag(key);
   if (!previous) return res.status(404).json({ error: `Unknown feature flag: ${key}` });

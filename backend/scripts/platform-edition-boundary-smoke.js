@@ -252,6 +252,9 @@ async function main() {
     assert(ebayTest.data?.provider === 'ebay_browse', `Platform eBay integration test route must stay mounted: ${JSON.stringify(ebayTest.data)}`);
     assert(logsTest.data?.provider === 'structured_logs', `Platform log export integration test route must stay mounted: ${JSON.stringify(logsTest.data)}`);
     assert(Array.isArray(featureFlags.data?.flags), `Platform /api/admin/feature-flags must stay mounted: ${JSON.stringify(featureFlags.data)}`);
+    assert(featureFlags.data.flags.some((flag) => String(flag.key || '') === 'self_registration_enabled'), `Platform feature flags must keep self_registration_enabled: ${JSON.stringify(featureFlags.data)}`);
+    assert(featureFlags.data.flags.some((flag) => String(flag.key || '') === 'metrics_enabled'), `Platform feature flags must keep metrics_enabled: ${JSON.stringify(featureFlags.data)}`);
+    assert(featureFlags.data.flags.some((flag) => String(flag.key || '') === 'external_log_export_enabled'), `Platform feature flags must keep external_log_export_enabled: ${JSON.stringify(featureFlags.data)}`);
     assert(Array.isArray(serviceAccountKeys.data?.keys), `Platform /api/auth/service-account-keys must stay mounted: ${JSON.stringify(serviceAccountKeys.data)}`);
     assert(supportSessionStart.data?.support_session?.active === true, `Platform /api/auth/support-session/start must stay mounted: ${JSON.stringify(supportSessionStart.data)}`);
     assert(Number(supportSessionStart.data?.support_session?.space_id || 0) === defaultSpaceId, `Platform support session start must target the selected space: ${JSON.stringify(supportSessionStart.data)}`);

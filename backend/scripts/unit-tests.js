@@ -682,9 +682,11 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(authRoutesSource.includes("platformRouter.delete('/support-session'"));
   assert.ok(adminRoutesSource.includes('adminCommonRouter'));
   assert.ok(adminRoutesSource.includes('adminPlatformRouter'));
+  assert.ok(adminRoutesSource.includes('HOMELAB_ALLOWED_FEATURE_FLAGS'));
   assert.ok(adminRoutesSource.includes("platformRouter.get('/settings/email-delivery'"));
   assert.ok(adminRoutesSource.includes("platformRouter.put('/settings/email-delivery'"));
   assert.ok(adminRoutesSource.includes("platformRouter.post('/settings/email-delivery/test'"));
+  assert.ok(adminRoutesSource.includes("Unknown feature flag: ${key}"));
   assert.ok(supportRoutesSource.includes('supportSharedRouter'));
   assert.ok(supportRoutesSource.includes('supportPlatformRouter'));
   assert.ok(homelabHelpBrowserSpecSource.includes('product_edition'));
@@ -721,6 +723,9 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(homelabEditionBoundarySmokeSource.includes('logExportControl'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('observabilityRuntime'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/admin/feature-flags'));
+  assert.ok(homelabEditionBoundarySmokeSource.includes('/api/admin/feature-flags/self_registration_enabled'));
+  assert.ok(homelabEditionBoundarySmokeSource.includes('events_enabled'));
+  assert.ok(homelabEditionBoundarySmokeSource.includes('collectibles_enabled'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/support/requests'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/support/staff/summary'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/admin/spaces'));
@@ -743,6 +748,9 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/admin/settings/integrations/test-pricecharting'));
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/admin/settings/integrations/test-ebay'));
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/admin/settings/integrations/test-logs'));
+  assert.ok(platformEditionBoundarySmokeSource.includes('self_registration_enabled'));
+  assert.ok(platformEditionBoundarySmokeSource.includes('metrics_enabled'));
+  assert.ok(platformEditionBoundarySmokeSource.includes('external_log_export_enabled'));
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/support/staff/summary'));
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/admin/users'));
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/auth/support-session/start'));

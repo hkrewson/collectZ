@@ -234,6 +234,12 @@ async function main() {
       body: { priceChartingEnabled: true }
     });
     const featureFlags = await admin.request('/api/admin/feature-flags', { expectStatus: 200 });
+    const blockedPlatformFlagUpdate = await admin.request('/api/admin/feature-flags/self_registration_enabled', {
+      method: 'PATCH',
+      withCsrf: true,
+      expectStatus: 404,
+      body: { enabled: false }
+    });
 
     const supportRequests = await user.request('/api/support/requests', { expectStatus: 404 });
     const supportStaffSummary = await admin.request('/api/support/staff/summary', { expectStatus: 404 });
@@ -316,6 +322,8 @@ async function main() {
     assert(logsTest.status === 404, `Homelab log export integration test route must be unmounted: ${JSON.stringify(logsTest.data)}`);
     assert(blockedPlatformIntegrationUpdate.status === 404, `Homelab must reject platform-only integration updates: ${JSON.stringify(blockedPlatformIntegrationUpdate.data)}`);
     assert(Array.isArray(featureFlags.data?.flags), `Homelab /api/admin/feature-flags must stay mounted: ${JSON.stringify(featureFlags.data)}`);
+    assert(featureFlags.data.flags.every((flag) => ['events_enabled', 'collectibles_enabled'].includes(String(flag.key || ''))), `Homelab feature flags must stay limited to homelab-safe keys: ${JSON.stringify(featureFlags.data)}`);
+    assert(blockedPlatformFlagUpdate.status === 404, `Homelab must reject platform-only feature flag updates: ${JSON.stringify(blockedPlatformFlagUpdate.data)}`);
     assert(supportRequests.status === 404, `Homelab /api/support/requests must be unmounted: ${JSON.stringify(supportRequests.data)}`);
     assert(supportStaffSummary.status === 404, `Homelab /api/support/staff/summary must be unmounted: ${JSON.stringify(supportStaffSummary.data)}`);
     assert(docs.status === 404, `Homelab /api/docs must be unmounted: ${JSON.stringify(docs.data)}`);
