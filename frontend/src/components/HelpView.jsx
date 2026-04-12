@@ -265,9 +265,9 @@ export default function HelpView({
   const [staffSearchQuery, setStaffSearchQuery] = useState('');
   const threadEndRef = useRef(null);
   const triageRequestIdRef = useRef(null);
-  const isSupportStaff = ['admin', 'support_admin'].includes(String(user?.role || ''));
-  const helpTitle = useMemo(() => getHelpSurfaceTitle(productEdition, isSupportStaff), [productEdition, isSupportStaff]);
   const supportHelpEnabled = useMemo(() => isSupportHelpEnabled(productEdition), [productEdition]);
+  const isSupportStaff = supportHelpEnabled && ['admin', 'support_admin'].includes(String(user?.role || ''));
+  const helpTitle = useMemo(() => getHelpSurfaceTitle(productEdition, isSupportStaff), [productEdition, isSupportStaff]);
   const requestStatusTone = useMemo(() => ({
     open: 'badge-warn',
     answered: 'badge-ok',
