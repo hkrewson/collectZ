@@ -619,6 +619,8 @@ results.push(run('frontend source includes tabbed help center and support inbox 
   assert.ok(helpViewSource.includes('Guidance'));
   assert.ok(helpViewSource.includes('Recent Releases'));
   assert.ok(productEditionFrontendSource.includes('Help Admin'));
+  assert.ok(helpViewSource.includes("HELP_ARTICLES.filter((article) => article.id !== 'spaces')"));
+  assert.ok(helpViewSource.includes('isSupportStaff && supportHelpEnabled'));
   assert.ok(helpViewSource.includes('Latest saved internal note'));
   assert.ok(helpViewSource.includes('New Internal Note'));
   assert.ok(helpViewSource.includes('Approve Support Access'));

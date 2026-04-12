@@ -277,10 +277,14 @@ export default function HelpView({
     version: appMeta?.version || null,
     build: appMeta?.build || null
   }), []);
-  const guidanceArticles = useMemo(
-    () => (isSupportStaff ? [...HELP_ARTICLES, SUPPORT_ADMIN_ARTICLE] : HELP_ARTICLES),
-    [isSupportStaff]
-  );
+  const guidanceArticles = useMemo(() => {
+    const baseArticles = supportHelpEnabled
+      ? HELP_ARTICLES
+      : HELP_ARTICLES.filter((article) => article.id !== 'spaces');
+    return isSupportStaff && supportHelpEnabled
+      ? [...baseArticles, SUPPORT_ADMIN_ARTICLE]
+      : baseArticles;
+  }, [isSupportStaff, supportHelpEnabled]);
   const helpTabs = useMemo(
     () => getHelpTabDefinitions(productEdition, isSupportStaff),
     [productEdition, isSupportStaff]
