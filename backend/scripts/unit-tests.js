@@ -80,6 +80,9 @@ const productEditionFrontendSource = require('fs').readFileSync(require.resolve(
 const supportSessionBannerSource = require('fs').readFileSync(require.resolve('../../frontend/src/components/app/SupportSessionBanner'), 'utf8');
 const helpViewSource = require('fs').readFileSync(require.resolve('../../frontend/src/components/HelpView'), 'utf8');
 const adminUsersViewSource = require('fs').readFileSync(require.resolve('../../frontend/src/components/AdminUsersView'), 'utf8');
+const frontendPackageJson = JSON.parse(require('fs').readFileSync(require.resolve('../../frontend/package.json'), 'utf8'));
+const frontendViteConfigSource = require('fs').readFileSync(require.resolve('../../frontend/vite.config.js'), 'utf8');
+const frontendViteIndexHtmlSource = require('fs').readFileSync(require.resolve('../../frontend/index.html'), 'utf8');
 const rootPackageJson = JSON.parse(require('fs').readFileSync(require.resolve('../../package.json'), 'utf8'));
 const playwrightConfigSource = require('fs').readFileSync(require.resolve('../../playwright.config'), 'utf8');
 const helpCenterBrowserSpecSource = require('fs').readFileSync(require.resolve('../../tests/playwright/specs/help-center.browser.spec'), 'utf8');
@@ -1975,6 +1978,19 @@ results.push(run('token auth sources derive fallback scope from accessible libra
 results.push(run('frontend syncs active space alongside active library context', () => {
   assert.ok(frontendAppSource.includes('const nextActiveSpaceId = Number(payload?.active_space_id || 0) || null;'));
   assert.ok(frontendAppSource.includes("active_space_id: nextActiveSpaceId, active_library_id: nextActiveLibraryId"));
+}));
+
+results.push(run('frontend package and vite scaffold support a parallel CRA-to-Vite migration path', () => {
+  assert.strictEqual(frontendPackageJson.devDependencies.vite !== undefined, true);
+  assert.strictEqual(frontendPackageJson.devDependencies['@vitejs/plugin-react'] !== undefined, true);
+  assert.strictEqual(frontendPackageJson.scripts['dev:vite'], 'vite');
+  assert.strictEqual(frontendPackageJson.scripts['build:vite'], 'vite build');
+  assert.ok(frontendViteConfigSource.includes('REACT_APP_API_URL'));
+  assert.ok(frontendViteConfigSource.includes("'/api'"));
+  assert.ok(frontendViteConfigSource.includes("'/uploads'"));
+  assert.ok(frontendViteConfigSource.includes("outDir: 'dist'"));
+  assert.ok(frontendViteIndexHtmlSource.includes('src="/src/main.jsx"'));
+  assert.ok(frontendViteIndexHtmlSource.includes('<div id="root"></div>'));
 }));
 
 results.push(run('dashboard content exposes dedicated admin spaces control plane tab', () => {
