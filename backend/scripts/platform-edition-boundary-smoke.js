@@ -190,6 +190,7 @@ async function main() {
     const generalSettings = await admin.request('/api/settings/general', { expectStatus: 200 });
     const integrations = await admin.request('/api/admin/settings/integrations', { expectStatus: 200 });
     const featureFlags = await admin.request('/api/admin/feature-flags', { expectStatus: 200 });
+    const serviceAccountKeys = await admin.request('/api/auth/service-account-keys', { expectStatus: 200 });
     const supportSessionStart = await admin.request('/api/auth/support-session/start', {
       method: 'POST',
       withCsrf: true,
@@ -225,6 +226,7 @@ async function main() {
     assert(typeof generalSettings.data?.theme === 'string', `Platform /api/settings/general must stay mounted: ${JSON.stringify(generalSettings.data)}`);
     assert(typeof integrations.data === 'object' && integrations.data !== null, `Platform /api/admin/settings/integrations must stay mounted: ${JSON.stringify(integrations.data)}`);
     assert(Array.isArray(featureFlags.data?.flags), `Platform /api/admin/feature-flags must stay mounted: ${JSON.stringify(featureFlags.data)}`);
+    assert(Array.isArray(serviceAccountKeys.data?.keys), `Platform /api/auth/service-account-keys must stay mounted: ${JSON.stringify(serviceAccountKeys.data)}`);
     assert(supportSessionStart.data?.support_session?.active === true, `Platform /api/auth/support-session/start must stay mounted: ${JSON.stringify(supportSessionStart.data)}`);
     assert(Number(supportSessionStart.data?.support_session?.space_id || 0) === defaultSpaceId, `Platform support session start must target the selected space: ${JSON.stringify(supportSessionStart.data)}`);
     assert(supportSessionEnd.data?.support_session === null, `Platform /api/auth/support-session must end the active support session: ${JSON.stringify(supportSessionEnd.data)}`);

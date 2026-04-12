@@ -8,6 +8,7 @@ module.exports = defineConfig(({ mode }) => {
     REACT_APP_API_URL: env.REACT_APP_API_URL || env.VITE_API_URL || '/api',
     REACT_APP_VERSION: env.REACT_APP_VERSION || env.VITE_APP_VERSION || '',
     REACT_APP_DEBUG: env.REACT_APP_DEBUG || env.VITE_DEBUG || '0',
+    REACT_APP_CSRF_COOKIE_NAME: env.REACT_APP_CSRF_COOKIE_NAME || env.VITE_CSRF_COOKIE_NAME || 'csrf_token',
     NODE_ENV: mode === 'production' ? 'production' : 'development'
   };
 

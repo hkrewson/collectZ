@@ -32,6 +32,7 @@ export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion
     email_verification_required: true,
     smtp_configured: false
   });
+  const [authConfigLoaded, setAuthConfigLoaded] = useState(false);
   const submitInFlightRef = useRef(false);
   const verifyAttemptedRef = useRef(false);
   const inviteAvailable = Boolean(invite);
@@ -63,8 +64,12 @@ export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion
           ...prev,
           ...(response.data || {})
         }));
+        setAuthConfigLoaded(true);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (cancelled) return;
+        setAuthConfigLoaded(true);
+      });
     return () => {
       cancelled = true;
     };
@@ -235,7 +240,7 @@ export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion
               </p>
             </div>
           )}
-          {!isReset && route === 'register' && !registerAvailable ? (
+          {!isReset && route === 'register' && authConfigLoaded && !registerAvailable ? (
             <div className="rounded-lg border border-edge bg-raised px-3 py-2 text-sm text-dim">
               {authConfig.smtp_configured === false && !inviteAvailable
                 ? 'Registration is temporarily unavailable while email verification delivery is being configured. You can still sign in below.'

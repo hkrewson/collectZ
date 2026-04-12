@@ -3,7 +3,7 @@ const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const pool = require('../db/pool');
 const { asyncHandler } = require('../middleware/errors');
-const { authenticateToken, requireRole, requireSessionAuth, SESSION_COOKIE_OPTIONS } = require('../middleware/auth');
+const { authenticateToken, requireRole, requireSessionAuth, SESSION_COOKIE_OPTIONS, SESSION_COOKIE_NAME, CSRF_COOKIE_NAME } = require('../middleware/auth');
 const {
   validate,
   registerSchema,
@@ -247,25 +247,26 @@ async function buildPublicAuthConfig() {
   const homelabEdition = isHomelabEdition(productEdition);
   const userCountResult = await pool.query('SELECT COUNT(*)::int AS count FROM users');
   const existingUserCount = userCountResult.rows[0]?.count || 0;
+  const firstUserBootstrap = existingUserCount === 0;
   const selfRegistrationEnabled = homelabEdition
     ? true
     : await isFeatureEnabled('self_registration_enabled', true);
   const smtpConfigured = homelabEdition
     ? false
     : isSmtpConfigured(await loadSmtpConfig());
-  const registrationRequested = homelabEdition || existingUserCount === 0 || selfRegistrationEnabled;
+  const registrationRequested = homelabEdition || firstUserBootstrap || selfRegistrationEnabled;
   const registerAvailable = homelabEdition
     ? true
-    : registrationRequested && smtpConfigured;
+    : firstUserBootstrap || (registrationRequested && smtpConfigured);
 
   return {
     product_edition: productEdition,
     edition_contract: buildEditionContract(productEdition),
     register_available: registerAvailable,
     invite_required: !homelabEdition && existingUserCount > 0 && !selfRegistrationEnabled,
-    first_user_bootstrap: existingUserCount === 0,
+    first_user_bootstrap: firstUserBootstrap,
     password_reset_available: true,
-    email_verification_required: !homelabEdition,
+    email_verification_required: !homelabEdition && !firstUserBootstrap,
     smtp_configured: homelabEdition ? null : smtpConfigured
   };
 }
@@ -289,6 +290,7 @@ router.post('/register', validate(registerSchema), asyncHandler(async (req, res)
 
   const userCountResult = await pool.query('SELECT COUNT(*)::int AS count FROM users');
   const existingUserCount = userCountResult.rows[0]?.count || 0;
+  const firstUserBootstrap = existingUserCount === 0;
 
   const selfRegistrationEnabled = homelabEdition
     ? true
@@ -296,9 +298,10 @@ router.post('/register', validate(registerSchema), asyncHandler(async (req, res)
   const smtpConfigured = homelabEdition
     ? false
     : isSmtpConfigured(await loadSmtpConfig());
+  const bootstrapWithoutSmtp = !homelabEdition && firstUserBootstrap && !smtpConfigured;
   const publicRegistrationAllowed = homelabEdition
     ? true
-    : (existingUserCount === 0 || selfRegistrationEnabled) && smtpConfigured;
+    : firstUserBootstrap || (selfRegistrationEnabled && smtpConfigured);
 
   let claimedInvite = null;
   if (!homelabEdition && inviteToken) {
@@ -335,9 +338,9 @@ router.post('/register', validate(registerSchema), asyncHandler(async (req, res)
   }
 
   const hashedPassword = await bcrypt.hash(password, 12);
-  const role = existingUserCount === 0 ? 'admin' : 'user';
+  const role = firstUserBootstrap ? 'admin' : 'user';
 
-  const emailVerified = homelabEdition || Boolean(claimedInvite);
+  const emailVerified = homelabEdition || Boolean(claimedInvite) || bootstrapWithoutSmtp;
   const emailVerifiedAt = emailVerified ? new Date() : null;
   const result = await pool.query(
     `INSERT INTO users (email, password, name, role, email_verified, email_verified_at)
@@ -466,7 +469,7 @@ router.post('/register', validate(registerSchema), asyncHandler(async (req, res)
     userAgent: req.get('user-agent') || null
   });
 
-  res.cookie('session_token', token, SESSION_COOKIE_OPTIONS);
+  res.cookie(SESSION_COOKIE_NAME, token, SESSION_COOKIE_OPTIONS);
   issueCsrfToken(res);
   await logActivity({ ...req, user: { id: result.rows[0].id, role: result.rows[0].role, email: result.rows[0].email } }, 'auth.user.register', 'user', result.rows[0].id, {
     email: result.rows[0].email,
@@ -520,7 +523,7 @@ router.post('/login', validate(loginSchema), asyncHandler(async (req, res) => {
   });
 
   const { password: _, ...userWithoutPassword } = user;
-  res.cookie('session_token', token, SESSION_COOKIE_OPTIONS);
+  res.cookie(SESSION_COOKIE_NAME, token, SESSION_COOKIE_OPTIONS);
   issueCsrfToken(res);
   await logActivity({ ...req, user: { id: user.id, role: user.role, email: user.email } }, 'auth.user.login', 'user', user.id, { email: user.email });
   recordAuthEvent('login', 'succeeded');
@@ -647,7 +650,7 @@ router.post('/email-verification/consume', validate(emailVerificationConsumeSche
   );
   const me = meResult.rows[0];
 
-  res.cookie('session_token', newSessionToken, SESSION_COOKIE_OPTIONS);
+  res.cookie(SESSION_COOKIE_NAME, newSessionToken, SESSION_COOKIE_OPTIONS);
   issueCsrfToken(res);
   await logActivity(req, 'auth.email_verification.consume', 'user', verificationRow.user_id, {
     email: verificationRow.email
@@ -730,12 +733,12 @@ router.post('/password-reset/request', validate(passwordResetRequestSchema), asy
 // ── Logout ────────────────────────────────────────────────────────────────────
 
 router.post('/logout', asyncHandler(async (req, res) => {
-  const cookieToken = req.cookies?.session_token;
+  const cookieToken = req.cookies?.[SESSION_COOKIE_NAME];
   const sessionUser = cookieToken ? await getSessionUserByToken(cookieToken) : null;
   if (cookieToken) {
     await revokeSessionByToken(cookieToken);
   }
-  res.clearCookie('session_token', {
+  res.clearCookie(SESSION_COOKIE_NAME, {
     httpOnly: SESSION_COOKIE_OPTIONS.httpOnly,
     sameSite: SESSION_COOKIE_OPTIONS.sameSite,
     secure: SESSION_COOKIE_OPTIONS.secure,
@@ -817,7 +820,7 @@ router.post('/password-reset/consume', validate(passwordResetConsumeSchema), asy
   );
   const me = meResult.rows[0];
 
-  res.cookie('session_token', newSessionToken, SESSION_COOKIE_OPTIONS);
+  res.cookie(SESSION_COOKIE_NAME, newSessionToken, SESSION_COOKIE_OPTIONS);
   issueCsrfToken(res);
   await logActivity(req, 'auth.password_reset.consume', 'user', resetRow.user_id, {
     email: resetRow.email,
@@ -1298,7 +1301,7 @@ router.delete('/personal-access-tokens/:id', authenticateToken, requireSessionAu
 
 // ── Service Account Keys (admin-only) ────────────────────────────────────────
 
-router.get('/service-account-keys', authenticateToken, requireSessionAuth, requireRole('admin'), asyncHandler(async (_req, res) => {
+platformRouter.get('/service-account-keys', authenticateToken, requireSessionAuth, requireRole('admin'), asyncHandler(async (_req, res) => {
   const keys = await listServiceAccountKeys();
   res.json({
     scopes: SERVICE_ACCOUNT_KEY_SCOPES,
@@ -1307,7 +1310,7 @@ router.get('/service-account-keys', authenticateToken, requireSessionAuth, requi
   });
 }));
 
-router.post('/service-account-keys', authenticateToken, requireSessionAuth, requireRole('admin'), validate(serviceAccountKeyCreateSchema), asyncHandler(async (req, res) => {
+platformRouter.post('/service-account-keys', authenticateToken, requireSessionAuth, requireRole('admin'), validate(serviceAccountKeyCreateSchema), asyncHandler(async (req, res) => {
   const expiresAt = req.body.expires_at ? new Date(req.body.expires_at) : null;
   const created = await createServiceAccountKey({
     ownerUserId: req.user.id,
@@ -1329,7 +1332,7 @@ router.post('/service-account-keys', authenticateToken, requireSessionAuth, requ
   });
 }));
 
-router.delete('/service-account-keys/:id', authenticateToken, requireSessionAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+platformRouter.delete('/service-account-keys/:id', authenticateToken, requireSessionAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   const keyId = Number(req.params.id);
   if (!Number.isFinite(keyId) || keyId <= 0) {
     return res.status(400).json({ error: 'Invalid service account key id' });

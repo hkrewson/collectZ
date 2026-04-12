@@ -6,13 +6,13 @@
     "test:browser:capture": "playwright test tests/playwright/specs/support-docs.capture.spec.js",
     "test:browser:headed": "playwright test --headed",
     "test:browser:ui": "playwright test --ui",
-    "stack:up:homelab": "FRONTEND_PORT=3000 docker compose -p collectz-homelab --env-file .env -f docker-compose.yml -f docker-compose.homelab.yml up -d --build",
-    "stack:up:platform": "FRONTEND_PORT=3100 docker compose -p collectz-platform --env-file .env -f docker-compose.yml -f docker-compose.platform.yml up -d --build",
+    "stack:up:homelab": "FRONTEND_PORT=3100 docker compose -p collectz-homelab --env-file .env -f docker-compose.yml -f docker-compose.homelab.yml up -d --build",
+    "stack:up:platform": "docker compose --env-file .env up -d --build",
     "stack:down:homelab": "docker compose -p collectz-homelab --env-file .env -f docker-compose.yml -f docker-compose.homelab.yml down",
-    "stack:down:platform": "docker compose -p collectz-platform --env-file .env -f docker-compose.yml -f docker-compose.platform.yml down",
+    "stack:down:platform": "docker compose --env-file .env down",
     "stack:ps:homelab": "docker compose -p collectz-homelab --env-file .env -f docker-compose.yml -f docker-compose.homelab.yml ps",
-    "stack:ps:platform": "docker compose -p collectz-platform --env-file .env -f docker-compose.yml -f docker-compose.platform.yml ps",
-    "test:edition-boundaries:local": "docker compose -p collectz-homelab --env-file .env -f docker-compose.yml -f docker-compose.homelab.yml exec -T -e BASE_URL=http://frontend:3000 backend npm run test:homelab-edition-boundary && docker compose -p collectz-platform --env-file .env -f docker-compose.yml -f docker-compose.platform.yml exec -T -e BASE_URL=http://frontend:3000 backend npm run test:platform-edition-boundary"
+    "stack:ps:platform": "docker compose --env-file .env ps",
+    "test:edition-boundaries:local": "docker compose --env-file .env exec -T -e BASE_URL=http://frontend:3000 backend npm run test:platform-edition-boundary && docker compose -p collectz-homelab --env-file .env -f docker-compose.yml -f docker-compose.homelab.yml exec -T -e BASE_URL=http://frontend:3000 backend npm run test:homelab-edition-boundary"
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1"

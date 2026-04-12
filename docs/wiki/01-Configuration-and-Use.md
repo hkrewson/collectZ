@@ -43,20 +43,20 @@ From repo root:
 ```bash
 cp env.example .env
 # edit .env and set required values
-npm run stack:up:homelab
+npm run stack:up:platform
 ```
 
 Check status/logs:
 
 ```bash
-npm run stack:ps:homelab
-docker compose -p collectz-homelab --env-file .env -f docker-compose.yml -f docker-compose.homelab.yml logs -f backend frontend db
+npm run stack:ps:platform
+docker compose --env-file .env logs -f backend frontend db
 ```
 
-For local platform verification, bring up the explicit private-shell overlay on port `3100`:
+For local homelab verification, bring up the explicit parallel stack on port `3100`:
 
 ```bash
-npm run stack:up:platform
+npm run stack:up:homelab
 ```
 
 ## Authentication Behavior

@@ -44,6 +44,8 @@ services:
       LOG_EXPORT_MAX_DETAIL_BYTES: ${LOG_EXPORT_MAX_DETAIL_BYTES:-16384}
       GIT_SHA: ${GIT_SHA:-}
       SESSION_SECRET: ${SESSION_SECRET}
+      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-session_token}
+      CSRF_COOKIE_NAME: ${CSRF_COOKIE_NAME:-csrf_token}
       INTEGRATION_ENCRYPTION_KEY: ${INTEGRATION_ENCRYPTION_KEY:-}
       METRICS_SCRAPE_TOKEN: ${METRICS_SCRAPE_TOKEN:-}
       TMDB_PRESET: ${TMDB_PRESET:-tmdb}
@@ -65,7 +67,7 @@ services:
       PLEX_API_KEY: ${PLEX_API_KEY:-}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
       APP_VERSION: ${APP_VERSION:-}
-      APP_EDITION: ${APP_EDITION:-homelab}
+      APP_EDITION: ${APP_EDITION:-platform}
       PLAYWRIGHT_E2E_BYPASS_TOKEN: ${PLAYWRIGHT_E2E_BYPASS_TOKEN:-}
     volumes:
       - media_uploads:/app/uploads
@@ -88,6 +90,8 @@ services:
         REACT_APP_API_URL: /api
         REACT_APP_VERSION: ${APP_VERSION:-}
         REACT_APP_DEBUG: ${DEBUG:-0}
+        REACT_APP_CSRF_COOKIE_NAME: ${CSRF_COOKIE_NAME:-csrf_token}
+        VITE_CSRF_COOKIE_NAME: ${CSRF_COOKIE_NAME:-csrf_token}
     image: mediavault-frontend:latest
     restart: unless-stopped
     depends_on:

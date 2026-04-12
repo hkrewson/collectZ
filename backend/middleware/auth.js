@@ -19,6 +19,8 @@ const parseBoolean = (value, fallback) => {
 };
 
 const ALLOW_SESSION_BEARER_FALLBACK = parseBoolean(process.env.ALLOW_SESSION_BEARER_FALLBACK, false);
+const SESSION_COOKIE_NAME = String(process.env.SESSION_COOKIE_NAME || 'session_token').trim() || 'session_token';
+const CSRF_COOKIE_NAME = String(process.env.CSRF_COOKIE_NAME || 'csrf_token').trim() || 'csrf_token';
 
 const extractBearerToken = (req) => {
   const authHeader = req.headers['authorization'];
@@ -28,7 +30,7 @@ const extractBearerToken = (req) => {
 };
 
 const resolveSessionToken = (req) => {
-  const cookieToken = req.cookies?.session_token || null;
+  const cookieToken = req.cookies?.[SESSION_COOKIE_NAME] || null;
   if (cookieToken) {
     return { token: cookieToken, source: 'cookie', deniedReason: null };
   }
@@ -118,7 +120,7 @@ const requireServiceAccountAccessForRequest = async (req, res) => {
  * linked to a user via the user_sessions table.
  */
 const authenticateToken = async (req, res, next) => {
-  const cookieToken = req.cookies?.session_token || null;
+  const cookieToken = req.cookies?.[SESSION_COOKIE_NAME] || null;
   const bearerToken = extractBearerToken(req);
 
   if (!cookieToken && bearerToken) {
@@ -199,14 +201,14 @@ const authenticateToken = async (req, res, next) => {
     const sessionUser = await getSessionUserByToken(token);
     if (!sessionUser) {
       if (source === 'cookie') {
-        res.clearCookie('session_token');
+        res.clearCookie(SESSION_COOKIE_NAME);
       }
       void logActivity(req, 'auth.access.denied', 'http_request', null, {
         reason: 'invalid_or_expired_session',
         method: req.method,
         url: req.originalUrl
       });
-      return res.status(403).json({ error: 'Invalid or expired session' });
+      return res.status(401).json({ error: 'Invalid or expired session' });
     }
 
     req.user = {
@@ -293,5 +295,7 @@ module.exports = {
   CSRF_COOKIE_OPTIONS,
   resolveSessionToken,
   extractBearerToken,
-  ALLOW_SESSION_BEARER_FALLBACK
+  ALLOW_SESSION_BEARER_FALLBACK,
+  SESSION_COOKIE_NAME,
+  CSRF_COOKIE_NAME
 };

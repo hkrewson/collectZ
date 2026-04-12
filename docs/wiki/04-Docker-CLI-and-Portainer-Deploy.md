@@ -12,10 +12,10 @@ cp env.example .env
 docker compose --env-file .env up -d --build
 ```
 
-Homelab is the default public/self-hosted shape. To bring up the private platform shell locally, use the explicit platform overlay:
+The default stack in this private repo is the platform/dev shell. To bring up a parallel homelab validation stack locally, use the explicit homelab overlay:
 
 ```bash
-docker compose --env-file .env -f docker-compose.yml -f docker-compose.platform.yml up -d --build
+FRONTEND_PORT=3100 docker compose --env-file .env -f docker-compose.yml -f docker-compose.homelab.yml up -d --build
 ```
 
 Versioned deploy (recommended):

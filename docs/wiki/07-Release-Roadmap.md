@@ -2820,8 +2820,11 @@ Historical note:
   - keep this slice focused on contract hardening and docs/smoke verification rather than the later public-repo promotion mechanics.
 - Early workflow hardening:
   - run both editions locally as first-class compose targets instead of temporarily flipping one shared stack back and forth,
-  - keep `homelab` as the default public/self-hosted compose shape,
-  - require an explicit platform overlay/workflow to boot the private multi-workspace shell locally.
+  - keep the default local/private stack on the real platform/dev dataset,
+  - use one explicit parallel homelab stack for edition-split verification so fresh isolated data is expected and obvious.
+- Early platform-route extraction:
+  - move clearly platform-only auth/control-plane capabilities behind platform-only route registration instead of leaving them on shared routers,
+  - early example: service-account key management stays mounted in platform and is fully unmounted in homelab.
 - Shared core extraction:
   - identify and extract domain logic that should be implemented once and consumed by both products,
   - expected core areas include media/import logic, shared auth/session primitives, shared API client patterns, shared UI primitives, and edition-safe integrations/metadata services.

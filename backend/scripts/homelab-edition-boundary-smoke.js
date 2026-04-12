@@ -229,6 +229,7 @@ async function main() {
       withCsrf: true,
       expectStatus: 404
     });
+    const serviceAccountKeys = await admin.request('/api/auth/service-account-keys', { expectStatus: 404 });
     const deniedSpaceSelect = await user.request('/api/auth/scope', {
       method: 'POST',
       withCsrf: true,
@@ -291,6 +292,7 @@ async function main() {
     assert(adminUsers.status === 404, `Homelab /api/admin/users must be unmounted: ${JSON.stringify(adminUsers.data)}`);
     assert(supportSessionStart.status === 404, `Homelab /api/auth/support-session/start must be unmounted: ${JSON.stringify(supportSessionStart.data)}`);
     assert(supportSessionEnd.status === 404, `Homelab /api/auth/support-session must be unmounted: ${JSON.stringify(supportSessionEnd.data)}`);
+    assert(serviceAccountKeys.status === 404, `Homelab /api/auth/service-account-keys must be unmounted: ${JSON.stringify(serviceAccountKeys.data)}`);
     assert(deniedSpaceSelect.data?.error === 'Homelab does not expose generic space selection', `Homelab /api/auth/scope POST must reject explicit space switching: ${JSON.stringify(deniedSpaceSelect.data)}`);
     assert(createdLibrary.data?.active_space_id === null, `Homelab /api/libraries create must hide active_space_id: ${JSON.stringify(createdLibrary.data)}`);
     assert(createdLibrary.data?.active_library_id === createdLibraryId, `Homelab /api/libraries create must surface the new active_library_id: ${JSON.stringify(createdLibrary.data)}`);

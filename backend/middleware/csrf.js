@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { CSRF_COOKIE_OPTIONS } = require('./auth');
+const { CSRF_COOKIE_OPTIONS, CSRF_COOKIE_NAME, SESSION_COOKIE_NAME } = require('./auth');
 const { logActivity } = require('../services/audit');
 
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
@@ -19,12 +19,12 @@ function hasBearerAuthorization(req) {
 
 function issueCsrfToken(res) {
   const token = crypto.randomBytes(24).toString('hex');
-  res.cookie('csrf_token', token, CSRF_COOKIE_OPTIONS);
+  res.cookie(CSRF_COOKIE_NAME, token, CSRF_COOKIE_OPTIONS);
   return token;
 }
 
 function clearCsrfToken(res) {
-  res.clearCookie('csrf_token', {
+  res.clearCookie(CSRF_COOKIE_NAME, {
     httpOnly: CSRF_COOKIE_OPTIONS.httpOnly,
     sameSite: CSRF_COOKIE_OPTIONS.sameSite,
     secure: CSRF_COOKIE_OPTIONS.secure,
@@ -36,13 +36,13 @@ function shouldEnforceCsrf(req) {
   if (!MUTATING_METHODS.has(req.method)) return false;
   if (EXEMPT_PATHS.has(getRequestPath(req))) return false;
   if (hasBearerAuthorization(req)) return false;
-  return Boolean(req.cookies?.session_token);
+  return Boolean(req.cookies?.[SESSION_COOKIE_NAME]);
 }
 
 function csrfProtection(req, res, next) {
   if (!shouldEnforceCsrf(req)) return next();
 
-  const cookieToken = req.cookies?.csrf_token;
+  const cookieToken = req.cookies?.[CSRF_COOKIE_NAME];
   const headerToken = req.get('x-csrf-token');
 
   if (cookieToken && headerToken && cookieToken === headerToken) {

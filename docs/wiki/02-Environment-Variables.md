@@ -25,14 +25,19 @@ openssl rand -hex 32
 - `POSTGRES_DB` (default: `mediavault`)
 - `DATABASE_SSL` (`false` by default)
 - `NODE_ENV` (`production` by default)
-- `APP_EDITION` (`homelab` by default)
+- `APP_EDITION` (`platform` by default in this private repo's local/dev workflow)
   - supported values:
-    - `homelab`: default public/self-hosted single-household surface with one shared library context, local accounts, and Help limited to `Guidance` and `Releases`
-    - `platform`: explicit private tenancy/global-admin product surface
+    - `platform`: local/private tenancy-global-admin product surface and the default runtime in this private repo
+    - `homelab`: explicit parallel single-household surface with one shared library context, local accounts, and Help limited to `Guidance` and `Releases`
   - backend is the source of truth for the active edition and exposes it through auth/bootstrap responses
 - `TRUST_PROXY` (`1` recommended behind one reverse proxy hop; `false` when backend is exposed directly)
 - `SESSION_COOKIE_SECURE` (default `true`): must remain `true` in production.
   - If you run plain HTTP development over `localhost` or a trusted LAN IP, use `NODE_ENV=development` and optionally set `SESSION_COOKIE_SECURE=false`.
+- `SESSION_COOKIE_NAME` (default `session_token`): session cookie name.
+- `CSRF_COOKIE_NAME` (default `csrf_token`): CSRF cookie name paired with browser session auth.
+  - These normally stay at their defaults.
+  - They are useful when running multiple local stacks on the same host, because browser cookies are shared by hostname rather than port.
+  - The parallel local homelab workflow uses distinct cookie names so `localhost:3000` and `localhost:3100` do not overwrite each other's auth state.
 - `ALLOWED_ORIGINS` (comma-separated origins)
   - For local LAN testing, include the exact origin you open in the browser, for example `http://10.22.20.91:3000`.
 - `ALLOW_SESSION_BEARER_FALLBACK` (default `false`): legacy escape hatch that permits session tokens in `Authorization: Bearer` headers.

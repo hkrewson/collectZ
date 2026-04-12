@@ -90,6 +90,7 @@ const dashboardContentSource = readFrontendSource(path.join('components', 'app',
 const dashboardRoutingSource = readFrontendSource(path.join('components', 'app', 'dashboardRouting'));
 const productEditionFrontendSource = readFrontendSource(path.join('components', 'app', 'productEdition'));
 const supportSessionBannerSource = readFrontendSource(path.join('components', 'app', 'SupportSessionBanner'));
+const useApiClientSource = readFrontendSource(path.join('components', 'app', 'hooks', 'useApiClient'));
 const helpViewSource = readFrontendSource(path.join('components', 'HelpView'));
 const adminUsersViewSource = readFrontendSource(path.join('components', 'AdminUsersView'));
 const frontendPackageJson = JSON.parse(fs.readFileSync(require.resolve('../../frontend/package.json'), 'utf8'));
@@ -115,7 +116,6 @@ const dockerPublishWorkflowSource = fs.readFileSync(require.resolve('../../.gith
 const browserCapturesWorkflowSource = fs.readFileSync(require.resolve('../../.github/workflows/browser-captures.yml'), 'utf8');
 const dockerComposeSource = fs.readFileSync(require.resolve('../../docker-compose.yml'), 'utf8');
 const dockerComposeHomelabSource = fs.readFileSync(require.resolve('../../docker-compose.homelab.yml'), 'utf8');
-const dockerComposePlatformSource = fs.readFileSync(require.resolve('../../docker-compose.platform.yml'), 'utf8');
 const backendDockerfileSource = fs.readFileSync(require.resolve('../../backend/Dockerfile'), 'utf8');
 const structuredLogSmokeSource = fs.readFileSync(require.resolve('../scripts/structured-log-smoke'), 'utf8');
 const structuredLogLokiSmokeSource = fs.readFileSync(require.resolve('../scripts/structured-log-loki-smoke'), 'utf8');
@@ -571,6 +571,21 @@ results.push(run('frontend app source includes support session banner and admin 
   assert.ok(dashboardContentSource.includes('onStartSupportSession'));
 }));
 
+results.push(run('auth page waits for backend auth config before showing registration-unavailable state', () => {
+  const authPageSource = readFrontendSource(path.join('components', 'AuthPage'));
+  assert.ok(authPageSource.includes('const [authConfigLoaded, setAuthConfigLoaded] = useState(false);'));
+  assert.ok(authPageSource.includes("route === 'register' && authConfigLoaded && !registerAvailable"));
+  assert.ok(authPageSource.includes('setAuthConfigLoaded(true);'));
+}));
+
+results.push(run('platform first-user bootstrap no longer depends on SMTP delivery being configured', () => {
+  assert.ok(authRoutesSource.includes('const firstUserBootstrap = existingUserCount === 0;'));
+  assert.ok(authRoutesSource.includes('const bootstrapWithoutSmtp = !homelabEdition && firstUserBootstrap && !smtpConfigured;'));
+  assert.ok(authRoutesSource.includes(': firstUserBootstrap || (registrationRequested && smtpConfigured);'));
+  assert.ok(authRoutesSource.includes('email_verification_required: !homelabEdition && !firstUserBootstrap'));
+  assert.ok(authRoutesSource.includes('const emailVerified = homelabEdition || Boolean(claimedInvite) || bootstrapWithoutSmtp;'));
+}));
+
 results.push(run('support route source includes request creation, releases feed, replies, and staff summary endpoints', () => {
   assert.ok(supportRoutesSource.includes("sharedRouter.get('/releases'"));
   assert.ok(supportRoutesSource.includes("platformRouter.get('/requests'"));
@@ -646,10 +661,9 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(frontendAppSource.includes('getSafeDashboardTab'));
   assert.ok(sidebarNavSource.includes('getAllowedDashboardTabs'));
   assert.ok(sidebarNavSource.includes('showPlatformGroup'));
-  assert.ok(dockerComposeSource.includes('APP_EDITION: ${APP_EDITION:-homelab}'));
+  assert.ok(dockerComposeSource.includes('APP_EDITION: ${APP_EDITION:-platform}'));
   assert.ok(dockerComposeSource.includes('${FRONTEND_PORT:-3000}:3000'));
   assert.ok(dockerComposeHomelabSource.includes('APP_EDITION: homelab'));
-  assert.ok(dockerComposePlatformSource.includes('APP_EDITION: platform'));
   assert.ok(serverSource.includes('const HOMELAB_EDITION = isHomelabEdition();'));
   assert.ok(serverSource.includes("app.use('/api/auth', authPlatformRouter);"));
   assert.ok(serverSource.includes("app.use('/api/support', supportSharedRouter);"));
@@ -719,8 +733,8 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(platformEditionBoundarySmokeSource.includes('Platform edition boundary smoke passed'));
   assert.ok(rootPackageJson.scripts['stack:up:homelab']);
   assert.ok(rootPackageJson.scripts['stack:up:platform']);
-  assert.ok(rootPackageJson.scripts['stack:up:homelab'].includes('FRONTEND_PORT=3000'));
-  assert.ok(rootPackageJson.scripts['stack:up:platform'].includes('FRONTEND_PORT=3100'));
+  assert.ok(rootPackageJson.scripts['stack:up:homelab'].includes('FRONTEND_PORT=3100'));
+  assert.ok(rootPackageJson.scripts['stack:up:platform'].includes('docker compose --env-file .env up -d --build'));
   assert.ok(rootPackageJson.scripts['stack:ps:homelab']);
   assert.ok(rootPackageJson.scripts['stack:ps:platform']);
   assert.ok(rootPackageJson.scripts['test:edition-boundaries:local']);
@@ -1706,9 +1720,9 @@ results.push(run('metrics route helper accepts dedicated scrape bearer token', (
 }));
 
 results.push(run('auth route source exposes admin-only service account key management', () => {
-  assert.ok(authRoutesSource.includes("router.get('/service-account-keys'"));
-  assert.ok(authRoutesSource.includes("router.post('/service-account-keys'"));
-  assert.ok(authRoutesSource.includes("router.delete('/service-account-keys/:id'"));
+  assert.ok(authRoutesSource.includes("platformRouter.get('/service-account-keys'"));
+  assert.ok(authRoutesSource.includes("platformRouter.post('/service-account-keys'"));
+  assert.ok(authRoutesSource.includes("platformRouter.delete('/service-account-keys/:id'"));
   assert.ok(authRoutesSource.includes("requireRole('admin')"));
 }));
 
@@ -1724,6 +1738,8 @@ results.push(run('auth middleware source returns invalid api token for revoked b
   const authSource = require('fs').readFileSync(require.resolve('../middleware/auth'), 'utf8');
   assert.ok(authSource.includes('invalid_or_expired_api_token'));
   assert.ok(authSource.includes('Invalid or expired API token'));
+  assert.ok(authSource.includes("process.env.SESSION_COOKIE_NAME || 'session_token'"));
+  assert.ok(authSource.includes("process.env.CSRF_COOKIE_NAME || 'csrf_token'"));
 }));
 
 results.push(run('auth.resolveSessionToken prefers cookie session token', () => {
@@ -1800,6 +1816,17 @@ results.push(run('csrf.shouldEnforceCsrf skips bearer-authenticated API requests
     headers: { authorization: 'Bearer test-token' },
     get: (name) => (String(name).toLowerCase() === 'authorization' ? 'Bearer test-token' : '')
   }), false);
+}));
+
+results.push(run('local compose sources keep homelab cookies isolated from the default platform stack', () => {
+  assert.ok(dockerComposeSource.includes('SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-session_token}'));
+  assert.ok(dockerComposeSource.includes('CSRF_COOKIE_NAME: ${CSRF_COOKIE_NAME:-csrf_token}'));
+  assert.ok(dockerComposeHomelabSource.includes('SESSION_COOKIE_NAME: session_token_homelab'));
+  assert.ok(dockerComposeHomelabSource.includes('CSRF_COOKIE_NAME: csrf_token_homelab'));
+  assert.ok(frontendDockerfileSource.includes('ARG REACT_APP_CSRF_COOKIE_NAME=csrf_token'));
+  assert.ok(frontendDockerfileSource.includes('ARG VITE_CSRF_COOKIE_NAME=csrf_token'));
+  assert.ok(frontendViteConfigSource.includes("REACT_APP_CSRF_COOKIE_NAME: env.REACT_APP_CSRF_COOKIE_NAME || env.VITE_CSRF_COOKIE_NAME || 'csrf_token'"));
+  assert.ok(useApiClientSource.includes("process.env.REACT_APP_CSRF_COOKIE_NAME || 'csrf_token'"));
 }));
 
 results.push(run('pat.hasPersonalAccessTokenScope matches exact scopes and admin wildcard', () => {

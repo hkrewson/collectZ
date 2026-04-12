@@ -3,6 +3,7 @@ import axios from 'axios';
 import { readCookie } from '../AppPrimitives';
 
 const API_URL = process.env.REACT_APP_API_URL || '/api';
+const CSRF_COOKIE_NAME = process.env.REACT_APP_CSRF_COOKIE_NAME || 'csrf_token';
 
 export default function useApiClient() {
   const inFlightGetRequestsRef = useRef(new Map());
@@ -18,13 +19,13 @@ export default function useApiClient() {
     }
 
     if (needsCsrf && !headers['x-csrf-token']) {
-      let csrfToken = readCookie('csrf_token');
+      let csrfToken = readCookie(CSRF_COOKIE_NAME);
       if (!csrfToken) {
         try {
           const csrfResp = await axios.get(`${API_URL}/auth/csrf-token`, { withCredentials: true });
-          csrfToken = csrfResp.data?.csrfToken || readCookie('csrf_token');
+          csrfToken = csrfResp.data?.csrfToken || readCookie(CSRF_COOKIE_NAME);
         } catch (_) {
-          csrfToken = readCookie('csrf_token');
+          csrfToken = readCookie(CSRF_COOKIE_NAME);
         }
       }
       if (csrfToken) headers['x-csrf-token'] = csrfToken;
