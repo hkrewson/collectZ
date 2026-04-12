@@ -32,7 +32,11 @@ const {
   buildPriceChartingRateLimitPolicy,
   buildValuationLookupInput,
   buildFixtureValuationResult,
-  extractPriceChartingValuation
+  extractPriceChartingValuation,
+  extractEbayBrowseValuation,
+  deriveEbayTokenUrl,
+  buildEbayKeywordCandidate,
+  refreshMediaValuation
 } = require('../services/valuations');
 process.env.INTEGRATION_ENCRYPTION_KEY = process.env.INTEGRATION_ENCRYPTION_KEY || 'unit-test-integration-key';
 const { buildIntegrationResponse } = require('../services/integrationResponse');
@@ -101,9 +105,9 @@ const structuredLogSmokeSharedSource = require('fs').readFileSync(require.resolv
 const dashboardSpec = JSON.parse(require('fs').readFileSync(require.resolve('../../ops/monitoring/grafana/dashboards/collectz-overview.json'), 'utf8'));
 const alertRulesSource = require('fs').readFileSync(require.resolve('../../docs/alerts/collectz-alert-rules.yaml'), 'utf8');
 
-function run(name, fn) {
+async function run(name, fn) {
   try {
-    fn();
+    await fn();
     console.log(`PASS ${name}`);
     return true;
   } catch (error) {
@@ -1273,6 +1277,105 @@ results.push(run('valuations.buildValuationLookupInput prefers identifiers befor
   assert.ok(input.titleCandidates.includes('Halo: Combat Evolved'));
 }));
 
+results.push(run('valuations.extractEbayBrowseValuation derives low mid high from live listing samples', () => {
+  const extracted = extractEbayBrowseValuation({
+    itemSummaries: [
+      { itemId: 'a', title: 'Chrono Trigger', price: { value: '49.99', currency: 'USD' } },
+      { itemId: 'b', title: 'Chrono Trigger', price: { value: '59.99', currency: 'USD' } },
+      { itemId: 'c', title: 'Chrono Trigger', price: { value: '79.99', currency: 'USD' } }
+    ]
+  });
+
+  assert.deepStrictEqual(extracted, {
+    low: 49.99,
+    mid: 59.99,
+    high: 79.99,
+    currency: 'USD',
+    source: 'eBay Browse',
+    sampleSize: 3,
+    sampleTitles: ['Chrono Trigger', 'Chrono Trigger', 'Chrono Trigger'],
+    itemIds: ['a', 'b', 'c']
+  });
+}));
+
+results.push(run('valuations.deriveEbayTokenUrl switches to sandbox identity for sandbox browse urls', () => {
+  assert.strictEqual(
+    deriveEbayTokenUrl('https://api.sandbox.ebay.com/buy/browse/v1/item_summary/search'),
+    'https://api.sandbox.ebay.com/identity/v1/oauth2/token'
+  );
+  assert.strictEqual(
+    deriveEbayTokenUrl('https://api.ebay.com/buy/browse/v1/item_summary/search'),
+    'https://api.ebay.com/identity/v1/oauth2/token'
+  );
+}));
+
+results.push(run('valuations.buildEbayKeywordCandidate includes year when present', () => {
+  assert.strictEqual(buildEbayKeywordCandidate('Halo', 2001), 'Halo 2001');
+  assert.strictEqual(buildEbayKeywordCandidate('Halo', null), 'Halo');
+}));
+
+results.push(run('valuations.refreshMediaValuation falls back to eBay Browse after a PriceCharting no-match', async () => {
+  const requests = [];
+  const httpClient = {
+    async get(url, options = {}) {
+      requests.push({ url, params: options.params || null, headers: options.headers || null });
+      if (String(url).includes('pricecharting.com')) {
+        return { status: 200, data: {} };
+      }
+      return {
+        status: 200,
+        data: {
+          itemSummaries: [
+            { itemId: 'ebay-1', title: 'Halo 2001', price: { value: '24.99', currency: 'USD' } },
+            { itemId: 'ebay-2', title: 'Halo 2001', price: { value: '34.99', currency: 'USD' } },
+            { itemId: 'ebay-3', title: 'Halo 2001', price: { value: '44.99', currency: 'USD' } }
+          ]
+        }
+      };
+    },
+    async post() {
+      return {
+        status: 200,
+        data: {
+          access_token: 'ebay-token',
+          expires_in: 7200
+        }
+      };
+    }
+  };
+
+  const outcome = await refreshMediaValuation(
+    {
+      id: 41,
+      title: 'Halo',
+      media_type: 'game',
+      year: 2001,
+      upc: '885370541981'
+    },
+    {
+      priceChartingEnabled: true,
+      priceChartingApiKey: 'pc-key',
+      priceChartingApiUrl: 'https://www.pricecharting.com/api',
+      priceChartingRateLimitMs: 1100,
+      eBayBrowseEnabled: true,
+      eBayBrowseApiUrl: 'https://api.ebay.com/buy/browse/v1/item_summary/search',
+      eBayBrowseClientId: 'ebay-client',
+      eBayBrowseClientSecret: 'ebay-secret',
+      eBayBrowseMarketplaceId: 'EBAY_US'
+    },
+    { httpClient }
+  );
+
+  assert.strictEqual(outcome.provider, 'ebay_browse');
+  assert.strictEqual(outcome.matched, true);
+  assert.strictEqual(outcome.fixture, false);
+  assert.strictEqual(outcome.valuation.source, 'eBay Browse');
+  assert.deepStrictEqual(
+    requests.map((entry) => entry.params && Object.keys(entry.params).sort()),
+    [['t', 'upc'], ['q', 't'], ['gtin', 'limit']]
+  );
+}));
+
 results.push(run('observability runtime source includes log and metrics drift diagnosis', () => {
   assert.ok(observabilityRuntimeSource.includes("getFeatureFlag('external_log_export_enabled')"));
   assert.ok(observabilityRuntimeSource.includes("getFeatureFlag('metrics_enabled')"));
@@ -1987,8 +2090,15 @@ results.push(run('feature flags source includes external log export flag', () =>
   assert.ok(featureFlagsSource.includes('external_log_export_enabled'));
 }));
 
-if (results.some((ok) => !ok)) {
-  process.exit(1);
-}
-
-console.log(`All unit tests passed (${results.length})`);
+Promise.all(results)
+  .then((resolved) => {
+    if (resolved.some((ok) => !ok)) {
+      process.exit(1);
+      return;
+    }
+    console.log(`All unit tests passed (${resolved.length})`);
+  })
+  .catch((error) => {
+    console.error(error.stack || error.message || error);
+    process.exit(1);
+  });

@@ -7,6 +7,7 @@ const DEFAULT_EBAY_BROWSE_API_URL = 'https://api.ebay.com/buy/browse/v1/item_sum
 const DEFAULT_EBAY_MARKETPLACE_ID = 'EBAY_US';
 const MIN_PRICECHARTING_INTERVAL_MS = 1100;
 const priceChartingLimiterCache = new Map();
+const eBayAppTokenCache = new Map();
 
 function normalizePositiveInteger(value, fallback) {
   const numeric = Number(value);
@@ -146,7 +147,7 @@ function buildEbayBrowseDryRun(config = {}, media = {}) {
     authenticated: configured,
     status: configured ? 200 : 400,
     detail: configured
-      ? 'Dry-run passed. eBay Browse is configured and ready for identifier-first or keyword fallback valuation lookups once the provider execution slice is enabled.'
+      ? 'Dry-run passed. eBay Browse is configured for identifier-first or keyword fallback valuation refreshes, with automated proof still fixture-backed by default.'
       : 'Enable eBay Browse and provide both client credentials to allow valuation fallback lookups.',
     liveNetwork: false,
     lookupPlan: {
@@ -257,6 +258,221 @@ function extractPriceChartingValuation(payload = {}) {
   };
 }
 
+function deriveEbayTokenUrl(searchUrl = DEFAULT_EBAY_BROWSE_API_URL) {
+  const raw = String(searchUrl || DEFAULT_EBAY_BROWSE_API_URL).trim();
+  try {
+    const parsed = new URL(raw);
+    if (/api\.sandbox\.ebay\.com$/i.test(parsed.hostname)) {
+      return 'https://api.sandbox.ebay.com/identity/v1/oauth2/token';
+    }
+  } catch (_) {
+    // Fall through to the production default if the configured URL is malformed.
+  }
+  return 'https://api.ebay.com/identity/v1/oauth2/token';
+}
+
+function buildEbayKeywordCandidate(title = '', year = null) {
+  const normalizedTitle = String(title || '').trim();
+  if (!normalizedTitle) return '';
+  const numericYear = Number.isFinite(Number(year)) ? Number(year) : null;
+  return numericYear ? `${normalizedTitle} ${numericYear}` : normalizedTitle;
+}
+
+function extractEbayBrowseValuation(payload = {}, { currency = 'USD' } = {}) {
+  const summaries = Array.isArray(payload?.itemSummaries)
+    ? payload.itemSummaries
+    : [];
+  const prices = summaries
+    .map((summary) => {
+      const rawValue = summary?.price?.value;
+      const numeric = Number(rawValue);
+      return Number.isFinite(numeric) && numeric > 0
+        ? {
+          value: Number(numeric.toFixed(2)),
+          currency: String(summary?.price?.currency || currency || 'USD').trim().toUpperCase() || 'USD',
+          itemId: summary?.itemId || null,
+          title: summary?.title || null,
+          itemWebUrl: summary?.itemWebUrl || null,
+          condition: summary?.condition || null
+        }
+        : null;
+    })
+    .filter(Boolean)
+    .sort((left, right) => left.value - right.value);
+
+  if (prices.length === 0) {
+    return null;
+  }
+
+  const low = prices[0].value;
+  const high = prices[prices.length - 1].value;
+  const medianIndex = Math.floor(prices.length / 2);
+  const mid = prices.length % 2 === 0
+    ? Number((((prices[medianIndex - 1].value + prices[medianIndex].value) / 2)).toFixed(2))
+    : prices[medianIndex].value;
+
+  return {
+    low,
+    mid,
+    high,
+    currency: prices[medianIndex]?.currency || prices[0]?.currency || String(currency || 'USD').trim().toUpperCase() || 'USD',
+    source: 'eBay Browse',
+    sampleSize: prices.length,
+    sampleTitles: prices.slice(0, 3).map((entry) => entry.title).filter(Boolean),
+    itemIds: prices.slice(0, 3).map((entry) => entry.itemId).filter(Boolean)
+  };
+}
+
+async function getEbayApplicationToken(config = {}, { httpClient = axios, now = () => Date.now() } = {}) {
+  if (!config.eBayBrowseEnabled || !config.eBayBrowseClientId || !config.eBayBrowseClientSecret) {
+    throw new Error('eBay Browse is not configured');
+  }
+
+  const tokenUrl = deriveEbayTokenUrl(config.eBayBrowseApiUrl);
+  const cacheKey = `${tokenUrl}|${config.eBayBrowseClientId}`;
+  const current = Number(now()) || Date.now();
+  const cached = eBayAppTokenCache.get(cacheKey);
+  if (cached && cached.token && cached.expiresAt > current + 15000) {
+    return cached.token;
+  }
+
+  const body = new URLSearchParams({
+    grant_type: 'client_credentials',
+    scope: 'https://api.ebay.com/oauth/api_scope'
+  }).toString();
+  const basicAuth = Buffer.from(`${config.eBayBrowseClientId}:${config.eBayBrowseClientSecret}`).toString('base64');
+  const response = await httpClient.post(tokenUrl, body, {
+    headers: {
+      Authorization: `Basic ${basicAuth}`,
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    timeout: 10000,
+    validateStatus: () => true
+  });
+
+  if (response.status >= 500) {
+    recordProviderRequestEvent('ebay_browse', 'valuation_refresh', 'provider_error');
+    throw new Error(`eBay Browse token service responded with ${response.status}`);
+  }
+  if (response.status >= 400) {
+    recordProviderRequestEvent('ebay_browse', 'valuation_refresh', 'request_rejected');
+    throw new Error(`eBay Browse token request was rejected with ${response.status}`);
+  }
+
+  const accessToken = String(response?.data?.access_token || '').trim();
+  if (!accessToken) {
+    recordProviderRequestEvent('ebay_browse', 'valuation_refresh', 'token_missing');
+    throw new Error('eBay Browse token service did not return an access token');
+  }
+  const expiresInSeconds = Math.max(60, Number(response?.data?.expires_in || 7200) || 7200);
+  eBayAppTokenCache.set(cacheKey, {
+    token: accessToken,
+    expiresAt: current + (expiresInSeconds * 1000)
+  });
+  return accessToken;
+}
+
+async function requestEbayBrowseValuation(config = {}, media = {}, { httpClient = axios } = {}) {
+  if (!config.eBayBrowseEnabled || !config.eBayBrowseClientId || !config.eBayBrowseClientSecret) {
+    throw new Error('eBay Browse is not configured');
+  }
+
+  const lookup = buildValuationLookupInput(media);
+  const querySequence = [];
+  for (const identifier of lookup.identifierSequence) {
+    if (identifier.kind === 'ean_upc' || identifier.kind === 'isbn') {
+      querySequence.push({ mode: 'gtin', value: identifier.value });
+    }
+  }
+  for (const title of lookup.titleCandidates) {
+    querySequence.push({ mode: 'q', value: buildEbayKeywordCandidate(title, lookup.year) });
+  }
+  if (querySequence.length === 0) {
+    throw new Error('No supported valuation lookup identifiers or titles are available for this media item');
+  }
+
+  const accessToken = await getEbayApplicationToken(config, { httpClient });
+  for (const candidate of querySequence) {
+    const params = {
+      limit: 10
+    };
+    if (candidate.mode === 'gtin') params.gtin = candidate.value;
+    else params.q = candidate.value;
+
+    const response = await httpClient.get(
+      config.eBayBrowseApiUrl || DEFAULT_EBAY_BROWSE_API_URL,
+      {
+        params,
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'X-EBAY-C-MARKETPLACE-ID': config.eBayBrowseMarketplaceId || DEFAULT_EBAY_MARKETPLACE_ID
+        },
+        timeout: 10000,
+        validateStatus: () => true
+      }
+    );
+
+    if (response.status === 429) {
+      recordProviderRequestEvent('ebay_browse', 'valuation_refresh', 'rate_limited');
+      throw new Error('eBay Browse temporarily rejected the valuation lookup due to rate limiting');
+    }
+    if (response.status >= 500) {
+      recordProviderRequestEvent('ebay_browse', 'valuation_refresh', 'provider_error');
+      throw new Error(`eBay Browse responded with ${response.status}`);
+    }
+    if (response.status >= 400) {
+      recordProviderRequestEvent('ebay_browse', 'valuation_refresh', 'request_rejected');
+      continue;
+    }
+
+    const extracted = extractEbayBrowseValuation(response.data);
+    if (extracted) {
+      recordProviderRequestEvent('ebay_browse', 'valuation_refresh', 'success');
+      return {
+        provider: 'ebay_browse',
+        matched: true,
+        liveNetwork: true,
+        fixture: false,
+        lookupPlan: {
+          mode: lookup.identifierSequence.length > 0 ? 'identifier_first_with_keyword_fallback' : 'keyword_fallback_only',
+          identifierSequence: lookup.identifierSequence,
+          keywordCandidates: lookup.titleCandidates.map((title) => buildEbayKeywordCandidate(title, lookup.year)),
+          year: lookup.year,
+          matchedBy: candidate.mode
+        },
+        valuation: {
+          low: extracted.low,
+          mid: extracted.mid,
+          high: extracted.high,
+          currency: extracted.currency || 'USD',
+          source: extracted.source || 'eBay Browse',
+          lastUpdatedAt: new Date().toISOString()
+        },
+        metadata: {
+          sampleSize: extracted.sampleSize,
+          itemIds: extracted.itemIds,
+          sampleTitles: extracted.sampleTitles
+        }
+      };
+    }
+    recordProviderRequestEvent('ebay_browse', 'valuation_refresh', 'no_match');
+  }
+
+  return {
+    provider: 'ebay_browse',
+    matched: false,
+    liveNetwork: true,
+    fixture: false,
+    lookupPlan: {
+      mode: lookup.identifierSequence.length > 0 ? 'identifier_first_with_keyword_fallback' : 'keyword_fallback_only',
+      identifierSequence: lookup.identifierSequence,
+      keywordCandidates: lookup.titleCandidates.map((title) => buildEbayKeywordCandidate(title, lookup.year)),
+      year: lookup.year
+    },
+    valuation: null
+  };
+}
+
 async function requestPriceChartingValuation(config = {}, media = {}, { httpClient = axios } = {}) {
   if (!config.priceChartingEnabled || !config.priceChartingApiKey) {
     throw new Error('PriceCharting is not configured');
@@ -363,10 +579,14 @@ async function refreshMediaValuation(media = {}, config = {}, { mode = 'live', h
   }
 
   if (config.priceChartingEnabled && config.priceChartingApiKey) {
-    return requestPriceChartingValuation(config, media, { httpClient });
+    const outcome = await requestPriceChartingValuation(config, media, { httpClient });
+    if (outcome?.matched || !(config.eBayBrowseEnabled && config.eBayBrowseClientId && config.eBayBrowseClientSecret)) {
+      return outcome;
+    }
+    return requestEbayBrowseValuation(config, media, { httpClient });
   }
   if (config.eBayBrowseEnabled && config.eBayBrowseClientId && config.eBayBrowseClientSecret) {
-    throw new Error('eBay Browse valuation execution lands later in 2.11.0; use PriceCharting for live refreshes right now');
+    return requestEbayBrowseValuation(config, media, { httpClient });
   }
   throw new Error('No valuation provider is configured for execution');
 }
@@ -399,7 +619,12 @@ module.exports = {
   getSerializedPriceChartingLimiter,
   buildFixtureValuationResult,
   extractPriceChartingValuation,
+  deriveEbayTokenUrl,
+  buildEbayKeywordCandidate,
+  extractEbayBrowseValuation,
+  getEbayApplicationToken,
   requestPriceChartingValuation,
+  requestEbayBrowseValuation,
   refreshMediaValuation,
   formatValuationDisplay
 };
