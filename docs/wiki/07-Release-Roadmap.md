@@ -464,7 +464,7 @@ This track converts the 1.9.1 external assessment findings into executable miles
 
 ### Scope
 
-- Refactor `frontend/src/App.js` into component/page modules.
+- Refactor `frontend/src/App.jsx` into component/page modules.
 - Keep role-gated rendering based on server-confirmed session state; treat local cache as non-authoritative or remove it.
 - Add clear loading/forbidden UX patterns for server-authoritative role checks.
 - Add smoke tests for navigation, role-gated views, and critical library flows.
@@ -662,7 +662,7 @@ This track converts the 1.9.1 external assessment findings into executable miles
   - `App.js` retains shell/routing/composition only,
   - page-level containers under dedicated module paths,
   - shared UI and state hooks in separate modules.
-- Add size-budget checks for `frontend/src/App.js` and other high-risk files.
+- Add size-budget checks for `frontend/src/App.jsx` and other high-risk files.
 - Add feature-creep policy and PR checklist requiring:
   - explicit scope statement,
   - rationale for new module vs existing module,
@@ -810,14 +810,14 @@ This track converts the 1.9.1 external assessment findings into executable miles
 
 ### Requirements
 
-- `REQ-1`: `frontend/src/App.js` MUST be reduced to shell orchestration only (routing, nav, providers).
+- `REQ-1`: `frontend/src/App.jsx` MUST be reduced to shell orchestration only (routing, nav, providers).
 - `REQ-2`: Feature views/stateful logic MUST live in module components/hooks under `frontend/src/components` and `frontend/src/hooks`.
 - `REQ-3`: CI MUST enforce an `App.js` line-budget gate with documented exception workflow and expiry.
 - `REQ-4`: New milestone features MUST NOT increase `App.js` net LOC unless an approved exception exists.
 
 ### Scope
 
-- Reduce `frontend/src/App.js` to shell-only orchestration:
+- Reduce `frontend/src/App.jsx` to shell-only orchestration:
   - routing,
   - nav,
   - global providers.
@@ -2302,7 +2302,7 @@ Historical note:
 
 ### Scope
 
-- Flatten the active support-session banner in `frontend/src/App.js`.
+- Flatten the active support-session banner in `frontend/src/App.jsx`.
 - Remove gradient banding, inset glow, and other alert-strip theatrics.
 - Simplify uppercase micro-labels and narrated copy into plain status language.
 - Preserve the key functional signals:
@@ -2323,7 +2323,7 @@ Historical note:
 
 ### Scope
 
-- Flatten poster-card hover behavior in `frontend/src/components/app/AppPrimitives.js`.
+- Flatten poster-card hover behavior in `frontend/src/components/app/AppPrimitives.jsx`.
 - Remove or reduce image zoom, fade-overlay drama, and overemphasized shadow treatment.
 - Keep poster cards interactive and readable without switching into a “special mode” on hover.
 
@@ -2339,7 +2339,7 @@ Historical note:
 
 ### Scope
 
-- Rework the bottom action bar behavior in `frontend/src/components/app/AppPrimitives.js`.
+- Rework the bottom action bar behavior in `frontend/src/components/app/AppPrimitives.jsx`.
 - Remove `translate-y`/opacity-reveal theatrics and blur-backed floating action buttons where possible.
 - Choose a more durable action pattern for edit/delete/secondary card actions that does not depend on dramatic hover-only reveal behavior.
 
@@ -2420,7 +2420,7 @@ Historical note:
 
 ### Scope
 
-- Review `frontend/src/components/SidebarNav.js` for remaining ornamental signals:
+- Review `frontend/src/components/SidebarNav.jsx` for remaining ornamental signals:
   - uppercase library label,
   - role badge styling,
   - active gold accent bar,
@@ -2439,7 +2439,7 @@ Historical note:
 
 ### Scope
 
-- Simplify the mobile header copy in `frontend/src/App.js`.
+- Simplify the mobile header copy in `frontend/src/App.jsx`.
 - Remove phrases such as:
   - `Homelab control plane`,
   - `Platform control plane`,
@@ -2458,7 +2458,7 @@ Historical note:
 
 ### Scope
 
-- Remove all-caps heading treatment and tracking-heavy display styling in `frontend/src/components/LibraryView.js`.
+- Remove all-caps heading treatment and tracking-heavy display styling in `frontend/src/components/LibraryView.jsx`.
 - Revisit related drawer heading typography so it aligns with the calmer tab and selection work already completed.
 - Preserve strong hierarchy without shouting the drawer title.
 
@@ -2474,7 +2474,7 @@ Historical note:
 
 ### Scope
 
-- Review modal primitives in `frontend/src/components/app/AppPrimitives.js` and related modal surfaces.
+- Review modal primitives in `frontend/src/components/app/AppPrimitives.jsx` and related modal surfaces.
 - Reduce oversized rounded shells, blur-heavy backdrops, and heavy shadow treatment where they still feel staged.
 - Keep modal focus, layering, and dismissal behavior intact.
 
@@ -2508,8 +2508,8 @@ Historical note:
 
 - Audit the remaining shared product-language decisions that are still split between:
   - `frontend/src/index.css`,
-  - `frontend/src/components/app/AppPrimitives.js`,
-  - and view-level files such as `frontend/src/App.js`, `frontend/src/components/LibraryView.js`, `frontend/src/components/SidebarNav.js`, and `frontend/src/components/AuthPage.js`.
+  - `frontend/src/components/app/AppPrimitives.jsx`,
+  - and view-level files such as `frontend/src/App.jsx`, `frontend/src/components/LibraryView.jsx`, `frontend/src/components/SidebarNav.jsx`, and `frontend/src/components/AuthPage.jsx`.
 - Move repeated visual rules, interaction patterns, and shell treatments into shared layers where they genuinely belong:
   - tabs,
   - headings,
@@ -2540,7 +2540,7 @@ Historical note:
 
 ### Acceptance Criteria
 
-- The app’s shared visual language lives primarily in `frontend/src/index.css` and `frontend/src/components/app/AppPrimitives.js`, with noticeably less duplicated styling logic in view files.
+- The app’s shared visual language lives primarily in `frontend/src/index.css` and `frontend/src/components/app/AppPrimitives.jsx`, with noticeably less duplicated styling logic in view files.
 - View components are left owning page-specific composition and product wording more than ad hoc brand/chrome styling.
 - Future UI adjustments can be made through shared layers more often than through repeated per-view class rewrites.
 - The centralization pass avoids over-abstraction and preserves clear boundaries between shared product language and view-specific layout.
@@ -3063,7 +3063,7 @@ Historical note:
 
 ## 2.4.4.1 — App Shell Decomposition (Hooks Extraction)
 
-**Goal:** Reduce orchestration risk in `frontend/src/App.js` by extracting side-effect-heavy concerns into focused hooks without changing behavior.
+**Goal:** Reduce orchestration risk in `frontend/src/App.jsx` by extracting side-effect-heavy concerns into focused hooks without changing behavior.
 **Status:** Completed.
 
 ### Scope
@@ -3075,7 +3075,7 @@ Historical note:
 
 ### Acceptance Criteria
 
-- `frontend/src/App.js` reduced to `<= 600` lines.
+- `frontend/src/App.jsx` reduced to `<= 600` lines.
 - No regression in auth/session bootstrap, import polling, or media CRUD flows.
 - Existing CI checks pass without increasing App.js exception budgets.
 
@@ -3100,13 +3100,13 @@ Historical note:
 
 ### Acceptance Criteria
 
-- `frontend/src/App.js` reduced to `<= 500` lines.
+- `frontend/src/App.jsx` reduced to `<= 500` lines.
 - Tab routing/render behavior matches pre-refactor behavior.
 - No regressions in admin gating, library forcing, or drawer/navigation wiring.
 
 ### Delivery Notes
 
-- Extracted dashboard tab renderer to `frontend/src/components/app/DashboardContent.js`.
+- Extracted dashboard tab renderer to `frontend/src/components/app/DashboardContent.jsx`.
 - App shell line count reduced from `462` to `360`.
 
 ## 2.4.4.3 — App Shell Guardrails Enforcement
@@ -3129,7 +3129,7 @@ Historical note:
 ### Delivery Notes
 
 - Removed stale app shell budget exception file (`.ci/exceptions/app-shell-budget.json`).
-- CI now fails if an exception file exists while `frontend/src/App.js` is already within hard budget.
+- CI now fails if an exception file exists while `frontend/src/App.jsx` is already within hard budget.
 - Updated engineering delivery policy with explicit app-shell ownership boundaries.
 
 ## 2.4.5 — Calibre Web Automated Integration (Comics/Books Bridge)

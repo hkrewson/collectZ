@@ -1,23 +1,5 @@
-const path = require('path');
-const { defineConfig, loadEnv, transformWithEsbuild } = require('vite');
+const { defineConfig, loadEnv } = require('vite');
 const react = require('@vitejs/plugin-react');
-
-function jsxInJsPlugin() {
-  const srcRoot = `${path.resolve(process.cwd(), 'src')}${path.sep}`;
-  return {
-    name: 'collectz-jsx-in-js',
-    enforce: 'pre',
-    async transform(code, id) {
-      if (!id.startsWith(srcRoot) || !id.endsWith('.js')) {
-        return null;
-      }
-      return transformWithEsbuild(code, id, {
-        loader: 'jsx',
-        jsx: 'automatic'
-      });
-    }
-  };
-}
 
 module.exports = defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
@@ -30,7 +12,7 @@ module.exports = defineConfig(({ mode }) => {
   };
 
   return {
-    plugins: [jsxInJsPlugin(), react()],
+    plugins: [react()],
     optimizeDeps: {
       noDiscovery: true
     },

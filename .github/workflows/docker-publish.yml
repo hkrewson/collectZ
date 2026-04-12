@@ -113,29 +113,29 @@ jobs:
             exit 1
           fi
 
-      - name: Enforce App.js modularity budget
+      - name: Enforce App shell modularity budget
         run: |
-          APP_FILE="frontend/src/App.js"
+          APP_FILE="frontend/src/App.jsx"
           EX_FILE=".ci/exceptions/app-shell-budget.json"
           HARD_BUDGET=550
           LINE_COUNT=$(wc -l < "$APP_FILE" | tr -d ' ')
-          echo "App.js line count: $LINE_COUNT (hard budget: $HARD_BUDGET)"
+          echo "App shell line count: $LINE_COUNT (hard budget: $HARD_BUDGET)"
           if [ "$LINE_COUNT" -le "$HARD_BUDGET" ]; then
             if [ -f "$EX_FILE" ]; then
-              echo "App.js is within hard budget; remove stale exception file: $EX_FILE"
+              echo "App shell is within hard budget; remove stale exception file: $EX_FILE"
               exit 1
             fi
-            echo "App.js budget check passed."
+            echo "App shell budget check passed."
             exit 0
           fi
           if [ ! -f "$EX_FILE" ]; then
-            echo "App.js exceeds hard budget and no exception file exists: $EX_FILE"
+            echo "App shell exceeds hard budget and no exception file exists: $EX_FILE"
             exit 1
           fi
           node <<'NODE'
           const fs = require('fs');
           const path = '.ci/exceptions/app-shell-budget.json';
-          const appFile = 'frontend/src/App.js';
+          const appFile = 'frontend/src/App.jsx';
           const hardBudget = 550;
           const lineCount = Number(fs.readFileSync(appFile, 'utf8').split('\n').length);
           const raw = fs.readFileSync(path, 'utf8');
@@ -143,23 +143,23 @@ jobs:
           const required = ['reason', 'approved_by', 'expires_on', 'max_lines', 'target_milestone'];
           for (const key of required) {
             if (!ex[key]) {
-              throw new Error(`App.js exception missing required field: ${key}`);
+              throw new Error(`App shell exception missing required field: ${key}`);
             }
           }
           const expires = new Date(ex.expires_on);
           if (Number.isNaN(expires.getTime())) {
-            throw new Error('App.js exception expires_on is not a valid date (YYYY-MM-DD expected).');
+            throw new Error('App shell exception expires_on is not a valid date (YYYY-MM-DD expected).');
           }
           if (expires.getTime() < Date.now()) {
-            throw new Error(`App.js exception expired on ${ex.expires_on}.`);
+            throw new Error(`App shell exception expired on ${ex.expires_on}.`);
           }
           if (!Number.isInteger(ex.max_lines) || ex.max_lines < hardBudget) {
-            throw new Error(`App.js exception max_lines must be an integer >= ${hardBudget}.`);
+            throw new Error(`App shell exception max_lines must be an integer >= ${hardBudget}.`);
           }
           if (lineCount > ex.max_lines) {
-            throw new Error(`App.js line count ${lineCount} exceeds exception max_lines ${ex.max_lines}.`);
+            throw new Error(`App shell line count ${lineCount} exceeds exception max_lines ${ex.max_lines}.`);
           }
-          console.log(`App.js exception accepted through ${ex.expires_on} (target ${ex.target_milestone}).`);
+          console.log(`App shell exception accepted through ${ex.expires_on} (target ${ex.target_milestone}).`);
           NODE
 
       - name: Lowercase owner

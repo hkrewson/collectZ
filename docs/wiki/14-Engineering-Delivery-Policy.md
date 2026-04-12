@@ -145,7 +145,7 @@ The review note should confirm the reviewer checked, where applicable:
 
 ## 3) Frontend Modularity Policy (App Shell vs Modules)
 
-### App Shell Contract (`frontend/src/App.js`)
+### App Shell Contract (`frontend/src/App.jsx`)
 
 `App.js` is limited to:
 
@@ -168,15 +168,15 @@ The review note should confirm the reviewer checked, where applicable:
 - Styles: feature-local classes/components where possible, avoid global bloat.
 - App shell ownership boundaries:
   - routing/url state: `frontend/src/components/app/dashboardRouting.js`
-  - dashboard tab rendering/composition: `frontend/src/components/app/DashboardContent.js`
+  - dashboard tab rendering/composition: `frontend/src/components/app/DashboardContent.jsx`
   - session bootstrap/auth state: `frontend/src/components/app/hooks/useSessionBootstrap.js`
   - import polling/leader election: `frontend/src/components/app/hooks/useImportJobPolling.js`
   - media CRUD/query orchestration: `frontend/src/components/app/hooks/useMediaApi.js`
 
 ### Complexity Budget
 
-- `frontend/src/App.js` soft budget: <= 450 LOC.
-- `frontend/src/App.js` hard budget: <= 550 LOC (CI failure beyond this without approved exception).
+- `frontend/src/App.jsx` soft budget: <= 450 LOC.
+- `frontend/src/App.jsx` hard budget: <= 550 LOC (CI failure beyond this without approved exception).
 - Any file exceeding 700 LOC should be split during the next relevant milestone.
 - CI exception file for temporary App shell overage: `.ci/exceptions/app-shell-budget.json`.
   Required fields: `reason`, `approved_by`, `expires_on` (`YYYY-MM-DD`), `max_lines`, `target_milestone`.
