@@ -2771,6 +2771,10 @@ Historical note:
 - Stage 3: parity and CI migration
   - switch Docker/CI/frontend build flows to Vite,
   - update release checks, artifact expectations, and any workflow assumptions tied to CRA build output.
+  - current direction for this stage:
+    - cut production Docker/nginx over to Vite output first,
+    - keep CRA scripts temporarily as a rollback rail,
+    - remove CRA only after Docker, CI, and browser regression stay green on the Vite path.
 - Stage 4: remove CRA
   - remove `react-scripts` and the old CRA-only dependency surface,
   - confirm the remaining frontend advisory cluster is actually gone from the lockfile and CI scans.

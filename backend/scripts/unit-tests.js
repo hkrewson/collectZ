@@ -83,6 +83,7 @@ const adminUsersViewSource = require('fs').readFileSync(require.resolve('../../f
 const frontendPackageJson = JSON.parse(require('fs').readFileSync(require.resolve('../../frontend/package.json'), 'utf8'));
 const frontendViteConfigSource = require('fs').readFileSync(require.resolve('../../frontend/vite.config.js'), 'utf8');
 const frontendViteIndexHtmlSource = require('fs').readFileSync(require.resolve('../../frontend/index.html'), 'utf8');
+const frontendDockerfileSource = require('fs').readFileSync(require.resolve('../../frontend/Dockerfile'), 'utf8');
 const rootPackageJson = JSON.parse(require('fs').readFileSync(require.resolve('../../package.json'), 'utf8'));
 const playwrightConfigSource = require('fs').readFileSync(require.resolve('../../playwright.config'), 'utf8');
 const helpCenterBrowserSpecSource = require('fs').readFileSync(require.resolve('../../tests/playwright/specs/help-center.browser.spec'), 'utf8');
@@ -102,7 +103,6 @@ const dockerPublishWorkflowSource = require('fs').readFileSync(require.resolve('
 const browserCapturesWorkflowSource = require('fs').readFileSync(require.resolve('../../.github/workflows/browser-captures.yml'), 'utf8');
 const dockerComposeSource = require('fs').readFileSync(require.resolve('../../docker-compose.yml'), 'utf8');
 const backendDockerfileSource = require('fs').readFileSync(require.resolve('../../backend/Dockerfile'), 'utf8');
-const frontendDockerfileSource = require('fs').readFileSync(require.resolve('../../frontend/Dockerfile'), 'utf8');
 const structuredLogSmokeSource = require('fs').readFileSync(require.resolve('../scripts/structured-log-smoke'), 'utf8');
 const structuredLogLokiSmokeSource = require('fs').readFileSync(require.resolve('../scripts/structured-log-loki-smoke'), 'utf8');
 const structuredLogSyslogSmokeSource = require('fs').readFileSync(require.resolve('../scripts/structured-log-syslog-smoke'), 'utf8');
@@ -1983,6 +1983,7 @@ results.push(run('frontend syncs active space alongside active library context',
 results.push(run('frontend package and vite scaffold support a parallel CRA-to-Vite migration path', () => {
   assert.strictEqual(frontendPackageJson.devDependencies.vite !== undefined, true);
   assert.strictEqual(frontendPackageJson.devDependencies['@vitejs/plugin-react'] !== undefined, true);
+  assert.strictEqual(frontendPackageJson.devDependencies.esbuild !== undefined, true);
   assert.strictEqual(frontendPackageJson.scripts['dev:vite'], 'vite');
   assert.strictEqual(frontendPackageJson.scripts['build:vite'], 'vite build');
   assert.ok(frontendViteConfigSource.includes('REACT_APP_API_URL'));
@@ -1991,6 +1992,9 @@ results.push(run('frontend package and vite scaffold support a parallel CRA-to-V
   assert.ok(frontendViteConfigSource.includes("outDir: 'dist'"));
   assert.ok(frontendViteIndexHtmlSource.includes('src="/src/main.jsx"'));
   assert.ok(frontendViteIndexHtmlSource.includes('<div id="root"></div>'));
+  assert.ok(frontendDockerfileSource.includes('ARG VITE_API_URL=/api'));
+  assert.ok(frontendDockerfileSource.includes('RUN npm run build:vite'));
+  assert.ok(frontendDockerfileSource.includes('COPY --from=builder /app/dist /usr/share/nginx/html'));
 }));
 
 results.push(run('dashboard content exposes dedicated admin spaces control plane tab', () => {
