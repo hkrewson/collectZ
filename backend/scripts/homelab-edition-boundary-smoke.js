@@ -129,7 +129,7 @@ async function registerWithEmail(client, { email, password, name }) {
   return client.request('/api/auth/register', {
     method: 'POST',
     withCsrf: true,
-    expectStatus: 201,
+    expectStatus: 200,
     body: { email, password, name }
   });
 }

@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 'use strict';
 
+const bcrypt = require('bcrypt');
+const pool = require('../db/pool');
+
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 
 class HttpClient {
@@ -65,6 +68,26 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
+async function loginIfPossible(client, email, password) {
+  await client.fetchCsrfToken();
+  return client.request('/api/auth/login', {
+    method: 'POST',
+    withCsrf: true,
+    body: { email, password }
+  });
+}
+
+async function createDirectUser({ email, password, name, role = 'user' }) {
+  const passwordHash = await bcrypt.hash(password, 12);
+  const result = await pool.query(
+    `INSERT INTO users (email, password, name, role, email_verified, email_verified_at)
+     VALUES ($1, $2, $3, $4, true, NOW())
+     RETURNING id, email, name, role`,
+    [email, passwordHash, name, role]
+  );
+  return result.rows[0];
+}
+
 function firstNByTitle(items, count = 3) {
   return (Array.isArray(items) ? items : []).slice(0, count).map((item) => String(item?.title || ''));
 }
@@ -74,44 +97,41 @@ async function main() {
   const probeToken = `query-reg-${suffix}`;
   const bootstrapAdminEmail = process.env.RBAC_ADMIN_EMAIL || process.env.ADMIN_EMAIL || 'ci-rbac-admin@example.com';
   const bootstrapAdminPassword = process.env.RBAC_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || 'Passw0rd!123';
+  const fallbackAdminEmail = `media-query-admin-${suffix}@example.com`;
+  const fallbackAdminPassword = 'Passw0rd!123';
   let activeAdminEmail = bootstrapAdminEmail;
   let activeAdminPassword = bootstrapAdminPassword;
 
   const admin = new HttpClient('admin');
   const createdIds = [];
 
-  await admin.fetchCsrfToken();
-  const registerAdmin = await admin.request('/api/auth/register', {
-    method: 'POST',
-    withCsrf: true,
-    body: { email: bootstrapAdminEmail, password: bootstrapAdminPassword, name: 'Media Query Admin' }
-  });
-  if (registerAdmin.status !== 200) {
-    const fallbackEmail = process.env.RBAC_ADMIN_EMAIL || process.env.ADMIN_EMAIL || bootstrapAdminEmail;
-    const fallbackPassword = process.env.RBAC_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || bootstrapAdminPassword;
+  const loginDefault = await loginIfPossible(admin, bootstrapAdminEmail, bootstrapAdminPassword);
+  if (loginDefault.status !== 200) {
     await admin.fetchCsrfToken();
-    const loginFallback = await admin.request('/api/auth/login', {
+    const registerAdmin = await admin.request('/api/auth/register', {
       method: 'POST',
       withCsrf: true,
-      body: { email: fallbackEmail, password: fallbackPassword }
+      body: { email: bootstrapAdminEmail, password: bootstrapAdminPassword, name: 'Media Query Admin' }
     });
-    if (loginFallback.status !== 200) {
-      throw new Error(
-        `[admin] Unable to bootstrap admin via register (${registerAdmin.status}) or login (${loginFallback.status}). ` +
-        'Set RBAC_ADMIN_EMAIL and RBAC_ADMIN_PASSWORD if needed.'
-      );
+    if (registerAdmin.status !== 200) {
+      const directAdmin = await createDirectUser({
+        email: fallbackAdminEmail,
+        password: fallbackAdminPassword,
+        name: 'Media Query Admin',
+        role: 'admin'
+      });
+      activeAdminEmail = directAdmin.email;
+      activeAdminPassword = fallbackAdminPassword;
     }
-    activeAdminEmail = fallbackEmail;
-    activeAdminPassword = fallbackPassword;
   }
 
-  await admin.fetchCsrfToken();
-  await admin.request('/api/auth/login', {
-    method: 'POST',
-    withCsrf: true,
-    expectStatus: 200,
-    body: { email: activeAdminEmail, password: activeAdminPassword }
-  });
+  const loginActive = await loginIfPossible(admin, activeAdminEmail, activeAdminPassword);
+  if (loginActive.status !== 200) {
+    throw new Error(
+      `[admin] Unable to bootstrap admin via login using ${activeAdminEmail}. ` +
+      'Set RBAC_ADMIN_EMAIL and RBAC_ADMIN_PASSWORD if needed.'
+    );
+  }
 
   const seedRows = [
     { title: 'The Zephyr', media_type: 'movie', notes: probeToken, format: 'Digital', year: 2001 },

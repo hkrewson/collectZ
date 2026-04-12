@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 'use strict';
 
+const bcrypt = require('bcrypt');
+const pool = require('../db/pool');
+
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 
 class HttpClient {
@@ -66,46 +69,64 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
+async function createDirectUser({ email, password, name, role = 'user' }) {
+  const passwordHash = await bcrypt.hash(password, 12);
+  const result = await pool.query(
+    `INSERT INTO users (email, password, name, role, email_verified, email_verified_at)
+     VALUES ($1, $2, $3, $4, true, NOW())
+     RETURNING id, email, name, role`,
+    [email, passwordHash, name, role]
+  );
+  return result.rows[0];
+}
+
 async function main() {
   const suffix = Date.now();
   const bootstrapAdminEmail = process.env.RBAC_ADMIN_EMAIL || process.env.ADMIN_EMAIL || 'ci-rbac-admin@example.com';
   const bootstrapAdminPassword = process.env.RBAC_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || 'Passw0rd!123';
+  const fallbackAdminEmail = `cross-type-admin-${suffix}@example.com`;
+  const fallbackAdminPassword = 'Passw0rd!123';
   let activeAdminEmail = bootstrapAdminEmail;
   let activeAdminPassword = bootstrapAdminPassword;
   const admin = new HttpClient('admin');
 
   await admin.fetchCsrfToken();
-  const registerAdmin = await admin.request('/api/auth/register', {
+  const loginDefault = await admin.request('/api/auth/login', {
     method: 'POST',
     withCsrf: true,
-    body: { email: bootstrapAdminEmail, password: bootstrapAdminPassword, name: 'CrossType Admin' }
+    body: { email: bootstrapAdminEmail, password: bootstrapAdminPassword }
   });
-  if (registerAdmin.status !== 200) {
-    const fallbackEmail = process.env.RBAC_ADMIN_EMAIL || process.env.ADMIN_EMAIL || bootstrapAdminEmail;
-    const fallbackPassword = process.env.RBAC_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || bootstrapAdminPassword;
+  if (loginDefault.status !== 200) {
     await admin.fetchCsrfToken();
-    const loginFallback = await admin.request('/api/auth/login', {
+    const registerAdmin = await admin.request('/api/auth/register', {
       method: 'POST',
       withCsrf: true,
-      body: { email: fallbackEmail, password: fallbackPassword }
+      body: { email: bootstrapAdminEmail, password: bootstrapAdminPassword, name: 'CrossType Admin' }
     });
-    if (loginFallback.status !== 200) {
-      throw new Error(
-        `[admin] Unable to bootstrap admin via register (${registerAdmin.status}) ` +
-        `or login (${loginFallback.status}). Set RBAC_ADMIN_EMAIL and RBAC_ADMIN_PASSWORD if needed.`
-      );
+    if (registerAdmin.status !== 200) {
+      const directAdmin = await createDirectUser({
+        email: fallbackAdminEmail,
+        password: fallbackAdminPassword,
+        name: 'CrossType Admin',
+        role: 'admin'
+      });
+      activeAdminEmail = directAdmin.email;
+      activeAdminPassword = fallbackAdminPassword;
     }
-    activeAdminEmail = fallbackEmail;
-    activeAdminPassword = fallbackPassword;
   }
 
   await admin.fetchCsrfToken();
-  await admin.request('/api/auth/login', {
+  const adminLogin = await admin.request('/api/auth/login', {
     method: 'POST',
     withCsrf: true,
-    expectStatus: 200,
     body: { email: activeAdminEmail, password: activeAdminPassword }
   });
+  if (adminLogin.status !== 200) {
+    throw new Error(
+      `[admin] Unable to bootstrap admin via login using ${activeAdminEmail}. ` +
+      `Set RBAC_ADMIN_EMAIL and RBAC_ADMIN_PASSWORD if needed.`
+    );
+  }
   // Login issues fresh cookies; fetch a fresh CSRF token bound to the new session.
   await admin.fetchCsrfToken();
 

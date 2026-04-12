@@ -96,6 +96,15 @@ const assert = (condition, message) => {
   if (!condition) throw new Error(message);
 };
 
+async function loginIfPossible(client, email, password) {
+  await client.fetchCsrfToken();
+  return client.request('/api/auth/login', {
+    method: 'POST',
+    withCsrf: true,
+    body: { email, password }
+  });
+}
+
 async function createDirectUser({ email, password, name, role = 'user' }) {
   const passwordHash = await bcrypt.hash(password, 12);
   const result = await pool.query(
@@ -141,20 +150,15 @@ async function main() {
   let userId = null;
 
   try {
-    await admin.fetchCsrfToken();
-    const registerAdmin = await admin.request('/api/auth/register', {
-      method: 'POST',
-      withCsrf: true,
-      body: { email: adminEmail, password: adminPassword, name: 'RBAC Admin' }
-    });
-    if (registerAdmin.status !== 200) {
+    const existingAdminLogin = await loginIfPossible(admin, adminEmail, adminPassword);
+    if (existingAdminLogin.status !== 200) {
       await admin.fetchCsrfToken();
-      const loginFallback = await admin.request('/api/auth/login', {
+      const registerAdmin = await admin.request('/api/auth/register', {
         method: 'POST',
         withCsrf: true,
-        body: { email: fallbackEmail, password: fallbackPassword }
+        body: { email: adminEmail, password: adminPassword, name: 'RBAC Admin' }
       });
-      if (loginFallback.status !== 200) {
+      if (registerAdmin.status !== 200) {
         const directAdmin = await createDirectUser({
           email: tempAdminEmail,
           password: tempAdminPassword,
@@ -162,16 +166,15 @@ async function main() {
           role: 'admin'
         });
         tempAdminUserId = Number(directAdmin?.id || 0) || null;
-        await admin.fetchCsrfToken();
-        await admin.request('/api/auth/login', {
-          method: 'POST',
-          withCsrf: true,
-          expectStatus: 200,
-          body: { email: tempAdminEmail, password: tempAdminPassword }
-        });
+        const tempAdminLogin = await loginIfPossible(admin, tempAdminEmail, tempAdminPassword);
+        assertStatusOneOf(tempAdminLogin, [200], 'temp admin bootstrap login');
       }
     }
 
+    const activeAdminLogin = await loginIfPossible(admin, tempAdminUserId ? tempAdminEmail : fallbackEmail, tempAdminUserId ? tempAdminPassword : fallbackPassword);
+    if (!tempAdminUserId && activeAdminLogin.status !== 200) {
+      throw new Error(`[admin] Unable to bootstrap admin via register or login (${activeAdminLogin.status}). Set RBAC_ADMIN_EMAIL and RBAC_ADMIN_PASSWORD if needed.`);
+    }
     await admin.fetchCsrfToken();
     const scopeResponse = await admin.request('/api/auth/scope', { expectStatus: 200 });
     const adminUserLookup = await pool.query(

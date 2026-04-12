@@ -180,9 +180,10 @@ async function requestWithCsrf(requestContext, method, pathName, body, expectedS
       'x-csrf-token': csrfToken
     }
   });
-  if (response.status() !== expectedStatus) {
+  const allowedStatuses = Array.isArray(expectedStatus) ? expectedStatus : [expectedStatus];
+  if (!allowedStatuses.includes(response.status())) {
     const text = await response.text();
-    throw new Error(`Expected ${expectedStatus} from ${pathName}, got ${response.status()}: ${text}`);
+    throw new Error(`Expected ${allowedStatuses.join(' or ')} from ${pathName}, got ${response.status()}: ${text}`);
   }
   return response;
 }
@@ -206,7 +207,7 @@ async function createDirectUser({ email, password, name, role = 'admin' }) {
     "const name=process.argv[3] || 'Playwright Admin';",
     "const role=process.argv[4] || 'admin';",
     "const hash=await bcrypt.hash(password,12);",
-    "const result=await pool.query(`INSERT INTO users (email, password, name, role) VALUES ($1, $2, $3, $4) RETURNING id, email, name, role`, [email, hash, name, role]);",
+    "const result=await pool.query(`INSERT INTO users (email, password, name, role, email_verified, email_verified_at) VALUES ($1, $2, $3, $4, true, NOW()) RETURNING id, email, name, role`, [email, hash, name, role]);",
     "await ensureUserDefaultScope(result.rows[0].id);",
     "console.log(JSON.stringify(result.rows[0]));",
     "await pool.end();",
@@ -295,18 +296,19 @@ async function bootstrapAdminCredentials(requestContext) {
     email: defaultCredentials.email,
     password: defaultCredentials.password,
     name: adminName
-  }, 200).catch(async (error) => {
-    if (!String(error.message).includes('Expected 200')) throw error;
+  }, [200, 201, 202]).catch(async (error) => {
+    if (!String(error.message).includes('Expected 200 or 201 or 202')) throw error;
     return null;
   });
 
-  if (registerResponse) {
+  if (registerResponse?.status() === 200) {
     return defaultCredentials;
   }
-
-  const defaultLoginAttempt = await tryAdminLogin(defaultCredentials);
-  if (defaultLoginAttempt) {
-    return defaultLoginAttempt;
+  if (!registerResponse) {
+    const defaultLoginAttempt = await tryAdminLogin(defaultCredentials);
+    if (defaultLoginAttempt) {
+      return defaultLoginAttempt;
+    }
   }
 
   const fallbackEmail = `playwright-admin-${Date.now()}@example.com`;
