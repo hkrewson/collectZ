@@ -270,7 +270,6 @@ app.use('/api', eventsRouter);
 app.use('/api', collectiblesRouter);
 app.use('/api/support', supportSharedRouter);
 app.use('/api', sharedIntegrationsRouter);
-app.use('/api', spaceIntegrationsRouter);
 app.use('/api', librariesRouter);
 app.use('/api/admin', adminCommonRouter);
 if (!HOMELAB_EDITION) {
@@ -278,6 +277,7 @@ if (!HOMELAB_EDITION) {
   app.use('/api/metrics', metricsRouter);
   app.use('/api/support', supportPlatformRouter);
   app.use('/api', platformIntegrationsRouter);
+  app.use('/api', spaceIntegrationsRouter);
   app.use('/api', spacesRouter);
   app.use('/api/admin', adminPlatformRouter);
 }

@@ -676,6 +676,7 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(serverSource.includes("app.use('/api/metrics', metricsRouter);"));
   assert.ok(serverSource.includes("app.use('/api/support', supportPlatformRouter);"));
   assert.ok(serverSource.includes("app.use('/api', platformIntegrationsRouter);"));
+  assert.ok(serverSource.includes("app.use('/api', spaceIntegrationsRouter);"));
   assert.ok(serverSource.includes("app.use('/api', spacesRouter);"));
   assert.ok(serverSource.includes("app.use('/api/admin', adminPlatformRouter);"));
   assert.ok(authRoutesSource.includes('authPlatformRouter'));
@@ -729,6 +730,7 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(homelabEditionBoundarySmokeSource.includes('collectibles_enabled'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/support/requests'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/support/staff/summary'));
+  assert.ok(homelabEditionBoundarySmokeSource.includes('/api/spaces/1/integrations'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/admin/spaces'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/admin/users'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/auth/support-session/start'));
@@ -744,6 +746,7 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(platformEditionBoundarySmokeSource.includes('multi_workspace_platform'));
   assert.ok(platformEditionBoundarySmokeSource.includes('workspace_memberships'));
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/admin/spaces/${defaultSpaceId}/invites'));
+  assert.ok(platformEditionBoundarySmokeSource.includes('/api/spaces/${managedSpaceId}/integrations'));
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/auth/register'));
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/admin/settings/email-delivery'));
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/admin/settings/integrations/test-pricecharting'));

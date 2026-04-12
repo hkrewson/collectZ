@@ -159,6 +159,19 @@ async function main() {
     const adminSpaces = await admin.request('/api/admin/spaces', { expectStatus: 200 });
     const defaultSpaceId = Number(adminSpaces.data?.spaces?.[0]?.id || 0) || null;
     assert(defaultSpaceId, `Expected platform admin to have an accessible space: ${JSON.stringify(adminSpaces.data)}`);
+    const managedSpace = await admin.request('/api/admin/spaces/create-with-onboarding', {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 201,
+      body: {
+        name: `Platform Boundary Managed Space ${suffix}`,
+        slug: `platform-boundary-${suffix}`,
+        description: 'Platform edition boundary smoke managed workspace',
+        owner_user_id: adminUserId
+      }
+    });
+    const managedSpaceId = Number(managedSpace.data?.space?.id || 0) || null;
+    assert(managedSpaceId, `Expected platform managed space to be created: ${JSON.stringify(managedSpace.data)}`);
 
     const invite = await admin.request(`/api/admin/spaces/${defaultSpaceId}/invites`, {
       method: 'POST',
@@ -237,8 +250,10 @@ async function main() {
     assert(Array.isArray(userScope.data?.spaces) && userScope.data.spaces.length > 0, `Platform /api/auth/scope must keep spaces: ${JSON.stringify(userScope.data)}`);
     assert(Number(userScope.data?.active_library_id || 0) > 0, `Platform /api/auth/scope must keep active_library_id: ${JSON.stringify(userScope.data)}`);
     assert(Array.isArray(userScope.data?.libraries) && userScope.data.libraries.length > 0, `Platform /api/auth/scope must keep libraries: ${JSON.stringify(userScope.data)}`);
+    const spaceIntegrations = await admin.request(`/api/spaces/${managedSpaceId}/integrations`, { expectStatus: 200 });
     assert(Number(userLibraries.data?.active_space_id || 0) > 0, `Platform /api/libraries must keep active_space_id: ${JSON.stringify(userLibraries.data)}`);
     assert(Array.isArray(userSpaces.data?.spaces) && userSpaces.data.spaces.length > 0, `Platform /api/spaces must stay mounted: ${JSON.stringify(userSpaces.data)}`);
+    assert(typeof spaceIntegrations.data === 'object' && spaceIntegrations.data !== null, `Platform /api/spaces/:id/integrations must stay mounted: ${JSON.stringify(spaceIntegrations.data)}`);
     assert(Array.isArray(supportRequests.data?.requests), `Platform /api/support/requests must stay mounted: ${JSON.stringify(supportRequests.data)}`);
     assert(typeof staffSummary.data?.queue?.open === 'number', `Platform /api/support/staff/summary must stay mounted: ${JSON.stringify(staffSummary.data)}`);
     assert(Array.isArray(adminUsers.data), `Platform /api/admin/users must stay mounted: ${JSON.stringify(adminUsers.data)}`);
