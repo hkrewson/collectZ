@@ -1,16 +1,13 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import axios from 'axios';
+import React, { useCallback, useEffect, useState } from 'react';
 import appMeta from './app-meta.json';
 import AuthPageView from './components/AuthPage';
-import SidebarNav from './components/SidebarNav';
-import CollectzMark from './components/CollectzMark';
-import DashboardContent from './components/app/DashboardContent';
-import { routeFromPath, readCookie, Spinner, Toast, ImportStatusDock, Icons, cx } from './components/app/AppPrimitives';
+import DashboardShell from './components/app/DashboardShell';
+import { routeFromPath, Spinner, Icons, cx } from './components/app/AppPrimitives';
 import {
-  DEFAULT_INTEGRATION_SECTION,
   dashboardUrl,
   readDashboardStateFromUrl
 } from './components/app/dashboardRouting';
+import useApiClient from './components/app/hooks/useApiClient';
 import useImportJobPolling from './components/app/hooks/useImportJobPolling';
 import useSessionBootstrap from './components/app/hooks/useSessionBootstrap';
 import useMediaApi from './components/app/hooks/useMediaApi';
@@ -20,7 +17,6 @@ import {
   normalizeProductEdition
 } from './components/app/productEdition';
 
-const API_URL = process.env.REACT_APP_API_URL || '/api';
 const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.frontend || appMeta.version || 'unknown';
 const SUPPORT_SUMMARY_POLL_MS = 60000;
 
@@ -54,53 +50,8 @@ export default function App() {
     }
   });
   const [toast, setToast] = useState(null);
-  const inFlightGetRequestsRef = useRef(new Map());
   const showToast = useCallback((message, type = 'ok') => setToast({ message, type }), []);
-  const apiCall = useCallback(async (method, path, data, config = {}) => {
-    const methodUpper = String(method || 'GET').toUpperCase();
-    const needsCsrf = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(methodUpper);
-    const headers = { ...(config.headers || {}) };
-    const playwrightBypassToken = readCookie('playwright_e2e_bypass');
-
-    if (playwrightBypassToken && !headers['x-playwright-e2e-bypass']) {
-      headers['x-playwright-e2e-bypass'] = playwrightBypassToken;
-    }
-
-    if (needsCsrf && !headers['x-csrf-token']) {
-      let csrfToken = readCookie('csrf_token');
-      if (!csrfToken) {
-        try {
-          const csrfResp = await axios.get(`${API_URL}/auth/csrf-token`, { withCredentials: true });
-          csrfToken = csrfResp.data?.csrfToken || readCookie('csrf_token');
-        } catch (_) {
-          csrfToken = readCookie('csrf_token');
-        }
-      }
-      if (csrfToken) headers['x-csrf-token'] = csrfToken;
-    }
-
-    const requestConfig = { method, url: `${API_URL}${path}`, data, ...config, headers, withCredentials: true };
-
-    if (methodUpper === 'GET') {
-      const requestKey = JSON.stringify({
-        method: methodUpper,
-        path,
-        params: requestConfig.params || null
-      });
-      const existing = inFlightGetRequestsRef.current.get(requestKey);
-      if (existing) return existing;
-      const requestPromise = axios(requestConfig)
-        .then((response) => response.data)
-        .finally(() => {
-          inFlightGetRequestsRef.current.delete(requestKey);
-        });
-      inFlightGetRequestsRef.current.set(requestKey, requestPromise);
-      return requestPromise;
-    }
-
-    const response = await axios(requestConfig);
-    return response.data;
-  }, []);
+  const { apiCall, apiUrl } = useApiClient();
   const { user, setUser, authChecked, setAuthChecked } = useSessionBootstrap({ route, apiCall, setRoute });
   const applyScopePayload = useCallback((payload) => {
     const nextSpaces = Array.isArray(payload?.spaces) ? payload.spaces : [];
@@ -451,7 +402,6 @@ export default function App() {
       : ['owner', 'admin'].includes(activeMembershipRole);
   const scopeKey = `${activeSpaceId || 'none'}:${activeLibraryId || 'none'}`;
   const collapsed = !pinnedExpanded;
-  const desktopNavExpanded = !collapsed;
 
   useEffect(() => {
     const nextTab = getSafeDashboardTab(productEdition, activeTab, {
@@ -478,7 +428,7 @@ export default function App() {
         route={route}
         onNavigate={navigate}
         onAuth={handleAuth}
-        apiUrl={API_URL}
+        apiUrl={apiUrl}
         appVersion={APP_VERSION}
         Icons={Icons}
         Spinner={Spinner}
@@ -501,7 +451,7 @@ export default function App() {
         route="login"
         onNavigate={navigate}
         onAuth={handleAuth}
-        apiUrl={API_URL}
+        apiUrl={apiUrl}
         appVersion={APP_VERSION}
         Icons={Icons}
         Spinner={Spinner}
@@ -513,186 +463,58 @@ export default function App() {
   const activeLibrary = libraries.find((library) => Number(library.id) === Number(activeLibraryId)) || null;
 
   return (
-    <div className="flex h-screen overflow-hidden bg-void">
-      <SidebarNav
-        user={user}
-        activeTab={activeTab}
-        onSelect={async (nextTab) => {
-          if (
-            nextTab === 'space-manage'
-            && !supportSession?.active
-            && !['admin', 'support_admin'].includes(String(user?.role || ''))
-            && !canManageActiveSpace
-          ) {
-            const fallbackManageableSpace = spaces.find((space) => ['owner', 'admin'].includes(String(space?.membership_role || '')));
-            if (fallbackManageableSpace && Number(fallbackManageableSpace.id) !== Number(activeSpaceId || 0)) {
-              await handleSpaceSelect(fallbackManageableSpace.id, { silent: true });
-            }
-          }
-          setActiveTab(getSafeDashboardTab(productEdition, nextTab, {
-            userRole: user?.role,
-            supportSessionActive: Boolean(supportSession?.active),
-            canManageActiveSpace,
-            showCollectibles: featureFlags.collectibles_enabled,
-            showEvents: featureFlags.events_enabled
-          }));
-          if (nextTab !== 'admin-integrations') setActiveIntegrationSection(DEFAULT_INTEGRATION_SECTION);
-        }}
-        onLogout={logout}
-        collapsed={collapsed}
-        pinnedExpanded={pinnedExpanded}
-        onToggle={() => setPinnedExpanded((prev) => !prev)}
-        mobileOpen={mobileNavOpen}
-        onMobileClose={() => setMobileNavOpen(false)}
-        appVersion={APP_VERSION}
-        spaces={spaces}
-        activeSpaceId={activeSpaceId}
-        libraries={libraries}
-        activeLibraryId={activeLibraryId}
-        onLibrarySelect={handleLibrarySelect}
-        canManageActiveSpace={canManageActiveSpace}
-        activeMembershipRole={activeMembershipRole}
-        supportSessionActive={Boolean(supportSession?.active)}
-        showCollectibles={featureFlags.collectibles_enabled}
-        showEvents={featureFlags.events_enabled}
-        supportBadgeCount={!homelabEdition && ['admin', 'support_admin'].includes(String(user?.role || '')) ? supportSummary.open : null}
-        productEdition={productEdition}
-      />
-
-      <div className={cx('flex-1 flex flex-col min-w-0 transition-all duration-300', desktopNavExpanded ? 'lg:ml-56' : 'lg:ml-16')}>
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-edge shrink-0 bg-void/95 backdrop-blur lg:hidden">
-          <button
-            onClick={() => setMobileNavOpen(true)}
-            className="btn-icon"
-            aria-label="Open navigation"
-            aria-expanded={mobileNavOpen}
-          >
-            <Icons.Menu />
-          </button>
-          <CollectzMark className="h-6 w-6 shrink-0 text-gold" title="" />
-          <div className="min-w-0">
-            <div className="font-display text-lg tracking-wider text-gold leading-none">COLLECTZ</div>
-            <div className="text-[11px] text-ghost mt-1 truncate">
-              {user?.role === 'admin' && !supportSession?.active
-                ? (homelabEdition ? 'Homelab' : 'Platform admin')
-                : user?.role === 'support_admin'
-                  ? 'Support'
-                  : `${activeSpace?.name || 'No current workspace'}${activeLibrary ? ` / ${activeLibrary.name}` : ''}`}
-            </div>
-          </div>
-        </div>
-
-        {['admin', 'support_admin'].includes(String(user?.role || '')) && supportSession?.active ? (
-          <div className="border-b border-amber-300/20 bg-amber-400/6">
-            <div className="flex flex-col gap-3 px-4 py-3 xl:flex-row xl:items-center xl:justify-between">
-              <div className="flex min-w-0 items-start gap-3">
-                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded border border-amber-300/20 bg-amber-400/8 text-amber-100/90">
-                  <Icons.Activity />
-                </div>
-                <div className="min-w-0 space-y-1">
-                  <p className="text-sm font-medium text-amber-50">Support session active</p>
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                    <p className="text-sm text-amber-100/90 truncate">{supportSession.space_name || 'Scoped tenant access'}</p>
-                    {(supportSession.library_name || activeLibrary) ? (
-                      <span className="text-xs text-amber-100/70">Library: {supportSession.library_name || activeLibrary?.name}</span>
-                    ) : null}
-                  </div>
-                  <p className="text-xs text-amber-100/70 max-w-3xl">
-                    You are working inside tenant support scope. End the session when you are done.
-                  </p>
-                  {supportSession.started_at ? (
-                    <p className="text-xs text-amber-100/80 truncate">Started: {new Date(supportSession.started_at).toLocaleString()}</p>
-                  ) : null}
-                  {supportSession.reason ? (
-                    <p className="text-xs text-amber-100/80 truncate">Reason: {supportSession.reason}</p>
-                  ) : null}
-                  {supportSession.request_key ? (
-                    <p className="text-xs text-amber-100/80 truncate">Request: {supportSession.request_key}</p>
-                  ) : null}
-                  {supportSession.request_subject ? (
-                    <p className="text-xs text-amber-100/80 truncate">Case: {supportSession.request_subject}</p>
-                  ) : null}
-                  {(supportSession.requester_name || supportSession.requester_email) ? (
-                    <p className="text-xs text-amber-100/80 truncate">
-                      Requester: {supportSession.requester_name || supportSession.requester_email}
-                    </p>
-                  ) : null}
-                </div>
-              </div>
-              <div className="flex flex-wrap items-end justify-end gap-2 shrink-0">
-                {libraries.length > 1 ? (
-                  <label className="field min-w-[220px]">
-                    <span className="text-[11px] font-medium text-amber-100/75">Support library</span>
-                    <select
-                      className="select border-amber-300/25 bg-amber-400/5 text-amber-50"
-                      value={activeLibraryId || ''}
-                      onChange={(e) => handleLibrarySelect(e.target.value)}
-                    >
-                      {libraries.map((library) => (
-                        <option key={library.id} value={library.id}>
-                          {library.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                ) : null}
-                <button type="button" className="btn-secondary btn-sm shrink-0 border-amber-300/25 bg-amber-400/5 text-amber-50 hover:bg-amber-400/10" onClick={endSupportSession}>
-                  End support session
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        <div className="flex-1 overflow-hidden">
-          <DashboardContent
-            activeTab={activeTab}
-            user={user}
-            featureFlags={featureFlags}
-            apiCall={apiCall}
-            showToast={showToast}
-            mediaItems={mediaItems}
-            mediaLoading={mediaLoading}
-            mediaError={mediaError}
-            mediaPagination={mediaPagination}
-            loadMedia={loadMedia}
-            addMedia={addMedia}
-            editMedia={editMedia}
-            deleteMedia={deleteMedia}
-            bulkDeleteMedia={bulkDeleteMedia}
-            rateMedia={rateMedia}
-            upsertImportJob={upsertImportJob}
-            importJobs={importJobs}
-            apiUrl={API_URL}
-            Icons={Icons}
-            Spinner={Spinner}
-            cx={cx}
-            activeLibrary={activeLibrary}
-            setUiSettings={setUiSettings}
-            activeIntegrationSection={activeIntegrationSection}
-            setActiveIntegrationSection={setActiveIntegrationSection}
-            spaces={spaces}
-            activeSpace={activeSpace}
-            activeSpaceId={activeSpaceId}
-            activeMembershipRole={activeMembershipRole}
-            canManageActiveSpace={canManageActiveSpace}
-            libraries={libraries}
-            activeLibraryId={activeLibraryId}
-            onSpaceSelect={handleSpaceSelect}
-            onScopeRefresh={loadAuthScope}
-            supportSession={supportSession}
-            onStartSupportSession={startSupportSession}
-            onEndSupportSession={endSupportSession}
-            scopeKey={scopeKey}
-            supportSummary={supportSummary}
-            onSupportSummaryRefresh={loadSupportSummary}
-            productEdition={productEdition}
-          />
-        </div>
-      </div>
-
-      {toast && <Toast message={toast.message} type={toast.type} onDismiss={() => setToast(null)} />}
-      <ImportStatusDock jobs={importJobs} onDismiss={dismissImportJob} />
-    </div>
+    <DashboardShell
+      user={user}
+      activeTab={activeTab}
+      setActiveTab={setActiveTab}
+      supportSession={supportSession}
+      canManageActiveSpace={canManageActiveSpace}
+      spaces={spaces}
+      activeSpaceId={activeSpaceId}
+      handleSpaceSelect={handleSpaceSelect}
+      productEdition={productEdition}
+      featureFlags={featureFlags}
+      setActiveIntegrationSection={setActiveIntegrationSection}
+      logout={logout}
+      collapsed={collapsed}
+      pinnedExpanded={pinnedExpanded}
+      setPinnedExpanded={setPinnedExpanded}
+      mobileNavOpen={mobileNavOpen}
+      setMobileNavOpen={setMobileNavOpen}
+      appVersion={APP_VERSION}
+      libraries={libraries}
+      activeLibraryId={activeLibraryId}
+      handleLibrarySelect={handleLibrarySelect}
+      activeMembershipRole={activeMembershipRole}
+      homelabEdition={homelabEdition}
+      supportSummary={supportSummary}
+      activeSpace={activeSpace}
+      activeLibrary={activeLibrary}
+      endSupportSession={endSupportSession}
+      apiCall={apiCall}
+      showToast={showToast}
+      mediaItems={mediaItems}
+      mediaLoading={mediaLoading}
+      mediaError={mediaError}
+      mediaPagination={mediaPagination}
+      loadMedia={loadMedia}
+      addMedia={addMedia}
+      editMedia={editMedia}
+      deleteMedia={deleteMedia}
+      bulkDeleteMedia={bulkDeleteMedia}
+      rateMedia={rateMedia}
+      upsertImportJob={upsertImportJob}
+      importJobs={importJobs}
+      apiUrl={apiUrl}
+      setUiSettings={setUiSettings}
+      activeIntegrationSection={activeIntegrationSection}
+      scopeKey={scopeKey}
+      loadAuthScope={loadAuthScope}
+      startSupportSession={startSupportSession}
+      loadSupportSummary={loadSupportSummary}
+      dismissImportJob={dismissImportJob}
+      toast={toast}
+      setToast={setToast}
+    />
   );
 }

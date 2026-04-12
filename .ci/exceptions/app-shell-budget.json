@@ -1,7 +1,0 @@
-{
-  "reason": "The shared app shell is still above the 550-line hard budget after the 2.9.7 shared tabbed-editor, 2.9.8 runtime hardening, and 2.9.9 observability control-plane work kept additional session, support-session, scope, and admin orchestration in App.js. Release closeout for 2.9.9 carries a time-bound exception so CI stays honest while the next frontend-focused milestone pulls the remaining shell orchestration into focused modules.",
-  "approved_by": "hamlin",
-  "expires_on": "2026-06-04",
-  "max_lines": 650,
-  "target_milestone": "3.0.0 — Frontend Build Modernization (CRA to Vite)"
-}
