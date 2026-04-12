@@ -180,6 +180,7 @@ async function main() {
 
     const adminMe = await admin.request('/api/auth/me', { expectStatus: 200 });
     const userMe = await user.request('/api/auth/me', { expectStatus: 200 });
+    const authConfig = await user.request('/api/auth/config', { expectStatus: 200 });
     const userScope = await user.request('/api/auth/scope', { expectStatus: 200 });
     const userLibraries = await user.request('/api/libraries', { expectStatus: 200 });
     const userSpaces = await user.request('/api/spaces', { expectStatus: 200 });
@@ -206,6 +207,11 @@ async function main() {
 
     assert(adminMe.data?.product_edition === 'platform', `Expected platform admin edition, got ${JSON.stringify(adminMe.data)}`);
     assert(userMe.data?.product_edition === 'platform', `Expected platform user edition, got ${JSON.stringify(userMe.data)}`);
+    assert(authConfig.data?.product_edition === 'platform', `Expected platform auth config edition, got ${JSON.stringify(authConfig.data)}`);
+    assert(adminMe.data?.edition_contract?.library_model === 'multi_workspace_platform', `Expected platform /api/auth/me library model, got ${JSON.stringify(adminMe.data)}`);
+    assert(adminMe.data?.edition_contract?.workspace_surface === true, `Expected platform /api/auth/me workspace surface true, got ${JSON.stringify(adminMe.data)}`);
+    assert(userMe.data?.edition_contract?.additional_user_model === 'workspace_memberships', `Expected platform /api/auth/me additional user model, got ${JSON.stringify(userMe.data)}`);
+    assert(authConfig.data?.edition_contract?.help_surface === 'full', `Expected platform /api/auth/config help surface contract, got ${JSON.stringify(authConfig.data)}`);
     assert(Number(userMe.data?.active_space_id || 0) > 0, `Platform /api/auth/me must keep active_space_id: ${JSON.stringify(userMe.data)}`);
     assert(Number(userScope.data?.active_space_id || 0) > 0, `Platform /api/auth/scope must keep active_space_id: ${JSON.stringify(userScope.data)}`);
     assert(Array.isArray(userScope.data?.spaces) && userScope.data.spaces.length > 0, `Platform /api/auth/scope must keep spaces: ${JSON.stringify(userScope.data)}`);

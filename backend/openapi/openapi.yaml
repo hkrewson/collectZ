@@ -91,12 +91,24 @@
           "email_verified": { "type": "boolean" },
           "email_verified_at": { "type": ["string", "null"], "format": "date-time" },
           "product_edition": { "type": "string", "enum": ["platform", "homelab"] },
+          "edition_contract": { "$ref": "#/components/schemas/EditionContract" },
           "active_space_id": { "type": ["integer", "null"] },
           "active_library_id": { "type": ["integer", "null"] },
           "created_at": { "type": "string", "format": "date-time" },
           "updated_at": { "type": "string", "format": "date-time" }
         },
         "required": ["id", "email", "name", "role"]
+      },
+      "EditionContract": {
+        "type": "object",
+        "properties": {
+          "shell": { "type": "string", "enum": ["platform", "homelab"] },
+          "library_model": { "type": "string", "enum": ["multi_workspace_platform", "single_library_household"] },
+          "additional_user_model": { "type": "string", "enum": ["workspace_memberships", "local_accounts"] },
+          "workspace_surface": { "type": "boolean" },
+          "help_surface": { "type": "string", "enum": ["full", "guidance_and_releases"] }
+        },
+        "required": ["shell", "library_model", "additional_user_model", "workspace_surface", "help_surface"]
       },
       "SpaceSummary": {
         "type": "object",
@@ -153,6 +165,7 @@
         "type": "object",
         "properties": {
           "product_edition": { "type": "string", "enum": ["platform", "homelab"] },
+          "edition_contract": { "$ref": "#/components/schemas/EditionContract" },
           "register_available": { "type": "boolean" },
           "invite_required": { "type": "boolean" },
           "first_user_bootstrap": { "type": "boolean" },
@@ -160,7 +173,7 @@
           "email_verification_required": { "type": "boolean" },
           "smtp_configured": { "type": ["boolean", "null"] }
         },
-        "required": ["product_edition", "register_available", "invite_required", "first_user_bootstrap", "password_reset_available", "email_verification_required", "smtp_configured"]
+        "required": ["product_edition", "edition_contract", "register_available", "invite_required", "first_user_bootstrap", "password_reset_available", "email_verification_required", "smtp_configured"]
       },
       "EmailVerificationRequest": {
         "type": "object",

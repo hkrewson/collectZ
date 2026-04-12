@@ -15,6 +15,26 @@ function isHomelabEdition(value = null) {
   return normalizeProductEdition(value || getProductEdition()) === 'homelab';
 }
 
+function buildEditionContract(edition = null) {
+  const normalizedEdition = normalizeProductEdition(edition || getProductEdition());
+  if (normalizedEdition === 'homelab') {
+    return {
+      shell: 'homelab',
+      library_model: 'single_library_household',
+      additional_user_model: 'local_accounts',
+      workspace_surface: false,
+      help_surface: 'guidance_and_releases'
+    };
+  }
+  return {
+    shell: 'platform',
+    library_model: 'multi_workspace_platform',
+    additional_user_model: 'workspace_memberships',
+    workspace_surface: true,
+    help_surface: 'full'
+  };
+}
+
 function stripHomelabSpaceContext(payload, edition = null) {
   if (!isHomelabEdition(edition)) return payload;
   if (!payload || typeof payload !== 'object') return payload;
@@ -39,6 +59,7 @@ module.exports = {
   normalizeProductEdition,
   getProductEdition,
   isHomelabEdition,
+  buildEditionContract,
   stripHomelabSpaceContext,
   stripHomelabSpaceContextFromUser
 };

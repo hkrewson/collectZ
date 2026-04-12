@@ -52,6 +52,7 @@ const { isFeatureEnabled } = require('../services/featureFlags');
 const {
   getProductEdition,
   isHomelabEdition,
+  buildEditionContract,
   stripHomelabSpaceContext,
   stripHomelabSpaceContextFromUser
 } = require('../config/productEdition');
@@ -259,6 +260,7 @@ async function buildPublicAuthConfig() {
 
   return {
     product_edition: productEdition,
+    edition_contract: buildEditionContract(productEdition),
     register_available: registerAvailable,
     invite_required: !homelabEdition && existingUserCount > 0 && !selfRegistrationEnabled,
     first_user_bootstrap: existingUserCount === 0,
@@ -850,6 +852,7 @@ router.get('/me', authenticateToken, asyncHandler(async (req, res) => {
   res.json(stripHomelabSpaceContextFromUser({
     ...row,
     product_edition: getProductEdition(),
+    edition_contract: buildEditionContract(getProductEdition()),
     active_space_id: req.user.activeSpaceId ?? row.active_space_id ?? null,
     active_library_id: req.user.activeLibraryId ?? row.active_library_id ?? null
   }, getProductEdition()));
@@ -1163,6 +1166,8 @@ router.get('/profile', authenticateToken, asyncHandler(async (req, res) => {
   const row = result.rows[0];
   res.json(stripHomelabSpaceContextFromUser({
     ...row,
+    product_edition: getProductEdition(),
+    edition_contract: buildEditionContract(getProductEdition()),
     active_space_id: req.user.activeSpaceId ?? row.active_space_id ?? null,
     active_library_id: req.user.activeLibraryId ?? row.active_library_id ?? null
   }, getProductEdition()));

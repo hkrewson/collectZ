@@ -201,6 +201,7 @@ async function main() {
 
     const adminMe = await admin.request('/api/auth/me', { expectStatus: 200 });
     const userMe = await user.request('/api/auth/me', { expectStatus: 200 });
+    const authConfig = await user.request('/api/auth/config', { expectStatus: 200 });
     const userScope = await user.request('/api/auth/scope', { expectStatus: 200 });
     const userLibraries = await user.request('/api/libraries', { expectStatus: 200 });
     const profile = await user.request('/api/profile', { expectStatus: 200 });
@@ -262,6 +263,11 @@ async function main() {
 
     assert(adminMe.data?.product_edition === 'homelab', `Expected homelab admin edition, got ${JSON.stringify(adminMe.data)}`);
     assert(userMe.data?.product_edition === 'homelab', `Expected homelab user edition, got ${JSON.stringify(userMe.data)}`);
+    assert(authConfig.data?.product_edition === 'homelab', `Expected homelab auth config edition, got ${JSON.stringify(authConfig.data)}`);
+    assert(adminMe.data?.edition_contract?.library_model === 'single_library_household', `Expected homelab /api/auth/me library model, got ${JSON.stringify(adminMe.data)}`);
+    assert(adminMe.data?.edition_contract?.workspace_surface === false, `Expected homelab /api/auth/me workspace surface false, got ${JSON.stringify(adminMe.data)}`);
+    assert(userMe.data?.edition_contract?.additional_user_model === 'local_accounts', `Expected homelab /api/auth/me additional user model, got ${JSON.stringify(userMe.data)}`);
+    assert(authConfig.data?.edition_contract?.help_surface === 'guidance_and_releases', `Expected homelab /api/auth/config help surface contract, got ${JSON.stringify(authConfig.data)}`);
     assert(userMe.data?.active_space_id === null, `Homelab /api/auth/me must hide active_space_id: ${JSON.stringify(userMe.data)}`);
     assert(profile.data?.active_space_id === null, `Homelab /api/profile must hide active_space_id: ${JSON.stringify(profile.data)}`);
     assert(userScope.data?.active_space_id === null, `Homelab /api/auth/scope must hide active_space_id: ${JSON.stringify(userScope.data)}`);

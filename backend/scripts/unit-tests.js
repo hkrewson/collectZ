@@ -631,7 +631,11 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(productEditionConfigSource.includes("'platform'"));
   assert.ok(productEditionConfigSource.includes("'homelab'"));
   assert.ok(authRoutesSource.includes('product_edition: getProductEdition()'));
+  assert.ok(authRoutesSource.includes('edition_contract: buildEditionContract(getProductEdition())'));
+  assert.ok(authRoutesSource.includes('edition_contract: buildEditionContract(productEdition)'));
   assert.ok(openApiSource.includes('"product_edition"'));
+  assert.ok(openApiSource.includes('"EditionContract"'));
+  assert.ok(openApiSource.includes('"edition_contract"'));
   assert.ok(productEditionFrontendSource.includes('getHelpTabDefinitions'));
   assert.ok(productEditionFrontendSource.includes('getHelpSurfaceTitle'));
   assert.ok(productEditionFrontendSource.includes('getAllowedDashboardTabs'));
@@ -674,7 +678,10 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(homelabSharedBrowserSpecSource.includes('/dashboard?tab=admin-integrations&integration=barcode'));
   assert.ok(homelabSharedBrowserSpecSource.includes('/api/admin/settings/general'));
   assert.ok(homelabSharedBrowserSpecSource.includes('/api/admin/settings/integrations'));
+  assert.ok(homelabEditionBoundarySmokeSource.includes('/api/auth/config'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/auth/me'));
+  assert.ok(homelabEditionBoundarySmokeSource.includes('single_library_household'));
+  assert.ok(homelabEditionBoundarySmokeSource.includes('local_accounts'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/auth/scope'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/libraries'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/support/releases'));
@@ -693,7 +700,10 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(homelabEditionBoundarySmokeSource.includes('Homelab /api/libraries/select must switch the active library'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('Homelab /api/auth/scope after library switch must keep the selected library'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('Homelab edition boundary smoke passed'));
+  assert.ok(platformEditionBoundarySmokeSource.includes('/api/auth/config'));
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/admin/spaces'));
+  assert.ok(platformEditionBoundarySmokeSource.includes('multi_workspace_platform'));
+  assert.ok(platformEditionBoundarySmokeSource.includes('workspace_memberships'));
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/admin/spaces/${defaultSpaceId}/invites'));
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/auth/register'));
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/support/staff/summary'));
@@ -1947,6 +1957,9 @@ results.push(run('library routes preserve active space when replacing archived o
 
 results.push(run('homelab edition helpers strip surfaced space context while preserving shared library flows', () => {
   const productEditionSource = require('fs').readFileSync(require.resolve('../config/productEdition'), 'utf8');
+  assert.ok(productEditionSource.includes('function buildEditionContract('));
+  assert.ok(productEditionSource.includes("library_model: 'single_library_household'"));
+  assert.ok(productEditionSource.includes("additional_user_model: 'workspace_memberships'"));
   assert.ok(productEditionSource.includes('function stripHomelabSpaceContext('));
   assert.ok(productEditionSource.includes('active_space_id: null'));
   assert.ok(productEditionSource.includes('spaces: []'));

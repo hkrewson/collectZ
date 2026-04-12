@@ -28,7 +28,7 @@ openssl rand -hex 32
 - `APP_EDITION` (`platform` by default)
   - supported values:
     - `platform`: current tenancy/global-admin product surface
-    - `homelab`: single-household surface with Help limited to `Guidance` and `Releases`
+    - `homelab`: single-household surface with one shared library context, local accounts, and Help limited to `Guidance` and `Releases`
   - backend is the source of truth for the active edition and exposes it through auth/bootstrap responses
 - `TRUST_PROXY` (`1` recommended behind one reverse proxy hop; `false` when backend is exposed directly)
 - `SESSION_COOKIE_SECURE` (default `true`): must remain `true` in production.

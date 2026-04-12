@@ -59,7 +59,10 @@ Registration logic:
 
 - If user count is `0`: first registered user becomes `admin` and no invite is required.
 - If user count is `> 0` in `platform`: invite token is required.
-- If user count is `> 0` in `homelab`: additional local accounts can still self-register without an invite token.
+- If user count is `> 0` in `homelab`: additional local accounts can still self-register without an invite token inside the single-library household model.
+- The backend auth/bootstrap contract is the source of truth for the active edition shape:
+  - `platform`: multi-workspace platform shell
+  - `homelab`: single-library household shell with local accounts and no workspace control-plane surface
 
 There is no default seeded admin account in current releases.
 
