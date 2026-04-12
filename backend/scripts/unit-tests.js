@@ -269,6 +269,9 @@ results.push(run('media route source includes valuation refresh + media detail e
   assert.ok(mediaRoutesSource.includes("router.get('/:id'"));
   assert.ok(mediaRoutesSource.includes("router.post('/:id/valuation-refresh'"));
   assert.ok(mediaRoutesSource.includes("jobType: 'valuation_refresh'"));
+  assert.ok(mediaRoutesSource.includes('async function queueImportedValuationRefresh('));
+  assert.ok(mediaRoutesSource.includes("req.get('x-valuation-refresh-mode')"));
+  assert.ok(mediaRoutesSource.includes('valuationRefresh'));
 }));
 
 results.push(run('media format filter matches any owned format instead of only derived primary format', () => {

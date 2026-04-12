@@ -1817,6 +1817,14 @@ function shouldQueueImportByDefault(req) {
   return true;
 }
 
+function resolveValuationExecutionMode(req) {
+  const normalized = String(req.get('x-valuation-refresh-mode') || 'live').trim().toLowerCase();
+  if (normalized === 'fixture' && process.env.NODE_ENV !== 'production') {
+    return 'fixture';
+  }
+  return 'live';
+}
+
 function buildQueuedJobResponse(job, provider) {
   return {
     ok: true,
@@ -1840,6 +1848,29 @@ function jobScopePayload(scopeContext, sectionIds = []) {
     libraryId: scopeContext?.libraryId ?? null,
     sectionIds: Array.isArray(sectionIds) ? sectionIds : []
   };
+}
+
+function resolveValuationProviderForConfig(config = {}, mode = 'live') {
+  const normalizedMode = String(mode || 'live').trim().toLowerCase();
+  if (normalizedMode === 'fixture') {
+    if (config.priceChartingEnabled) return 'pricecharting';
+    if (config.eBayBrowseEnabled) return 'ebay_browse';
+    return 'pricecharting';
+  }
+  if (config.priceChartingEnabled && config.priceChartingApiKey) return 'pricecharting';
+  if (config.eBayBrowseEnabled && config.eBayBrowseClientId && config.eBayBrowseClientSecret) return 'ebay_browse';
+  return 'unknown';
+}
+
+function canExecuteValuationForConfig(config = {}, mode = 'live') {
+  const normalizedMode = String(mode || 'live').trim().toLowerCase();
+  if (normalizedMode === 'fixture') {
+    return Boolean(config.priceChartingEnabled || config.eBayBrowseEnabled);
+  }
+  return Boolean(
+    (config.priceChartingEnabled && config.priceChartingApiKey)
+    || (config.eBayBrowseEnabled && config.eBayBrowseClientId && config.eBayBrowseClientSecret)
+  );
 }
 
 function buildDedupScopeKey(scopeContext = null) {
@@ -1937,6 +1968,138 @@ async function getSyncJob(jobId, reqUser) {
     params
   );
   return result.rows[0] || null;
+}
+
+async function queueImportedValuationRefresh({
+  mediaIds = [],
+  userId = null,
+  scopeContext = null,
+  mode = 'live',
+  auditReq = null,
+  importSource = null
+}) {
+  const uniqueMediaIds = [...new Set(
+    (Array.isArray(mediaIds) ? mediaIds : [])
+      .map((value) => Number(value))
+      .filter((value) => Number.isFinite(value) && value > 0)
+  )];
+  if (uniqueMediaIds.length === 0) {
+    return { queued: false, count: 0, jobId: null, provider: null };
+  }
+
+  const config = await loadScopedIntegrationConfig(scopeContext?.spaceId || null);
+  if (!canExecuteValuationForConfig(config, mode)) {
+    return { queued: false, count: 0, jobId: null, provider: null };
+  }
+
+  const provider = resolveValuationProviderForConfig(config, mode);
+  const job = await createSyncJob({
+    userId,
+    jobType: 'valuation_refresh',
+    provider,
+    scope: {
+      ...jobScopePayload(scopeContext),
+      importSource: importSource || null,
+      mediaCount: uniqueMediaIds.length
+    },
+    progress: {
+      total: uniqueMediaIds.length,
+      processed: 0,
+      matched: 0,
+      skipped: 0,
+      errorCount: 0
+    }
+  });
+
+  setImmediate(async () => {
+    const summary = {
+      importSource: importSource || null,
+      total: uniqueMediaIds.length,
+      matched: 0,
+      skipped: 0,
+      errorCount: 0,
+      providerCounts: {},
+      errorsSample: []
+    };
+    try {
+      await updateSyncJob(job.id, { status: 'running', started_at: new Date() });
+      for (let index = 0; index < uniqueMediaIds.length; index += 1) {
+        const mediaId = uniqueMediaIds[index];
+        try {
+          const media = await loadScopedMediaItem(mediaId, scopeContext);
+          if (!media) {
+            summary.skipped += 1;
+          } else {
+            const result = await refreshMediaValuation(media, config, { mode, httpClient: axios });
+            if (result?.matched && result?.valuation) {
+              await persistMediaValuation(mediaId, result.valuation);
+              summary.matched += 1;
+            } else {
+              summary.skipped += 1;
+            }
+            const providerKey = String(result?.provider || provider || 'unknown');
+            summary.providerCounts[providerKey] = (summary.providerCounts[providerKey] || 0) + 1;
+          }
+        } catch (error) {
+          summary.errorCount += 1;
+          if (summary.errorsSample.length < 20) {
+            summary.errorsSample.push({
+              mediaId,
+              detail: error.message || 'Valuation refresh failed'
+            });
+          }
+        }
+
+        await updateSyncJob(job.id, {
+          progress: {
+            total: uniqueMediaIds.length,
+            processed: index + 1,
+            matched: summary.matched,
+            skipped: summary.skipped,
+            errorCount: summary.errorCount
+          }
+        });
+      }
+
+      await updateSyncJob(job.id, {
+        status: 'succeeded',
+        summary,
+        finished_at: new Date()
+      });
+      await logActivity(auditReq, 'media.valuation.import_refresh', 'media', null, {
+        importSource: importSource || null,
+        provider,
+        mode,
+        mediaCount: uniqueMediaIds.length,
+        matched: summary.matched,
+        skipped: summary.skipped,
+        errorCount: summary.errorCount,
+        jobId: job.id
+      });
+    } catch (error) {
+      await updateSyncJob(job.id, {
+        status: 'failed',
+        error: error.message || 'Import valuation refresh failed',
+        finished_at: new Date(),
+        summary
+      });
+      await logActivity(auditReq, 'media.valuation.import_refresh.failed', 'media', null, {
+        importSource: importSource || null,
+        provider,
+        mode,
+        mediaCount: uniqueMediaIds.length,
+        detail: error.message || 'Import valuation refresh failed',
+        jobId: job.id
+      });
+    }
+  });
+
+  return {
+    queued: true,
+    count: uniqueMediaIds.length,
+    jobId: job.id,
+    provider
+  };
 }
 
 async function emitImportDiagnosticFlag({
@@ -2112,6 +2275,7 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
     enrichmentErrors: [],
     enrichmentMisses: []
   };
+  const createdMediaIds = [];
   const tmdbPosterLookupMissSamples = [];
   let tmdbPosterEnriched = 0;
   let tmdbPosterLookupMisses = 0;
@@ -2722,6 +2886,7 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
           const insertedRow = inserted.rows[0] || null;
           const insertedId = insertedRow?.id;
           if (insertedId) {
+          createdMediaIds.push(insertedId);
           await syncNormalizedMetadataForMedia({
             mediaId: insertedId,
             genre: insertedRow.genre,
@@ -2767,6 +2932,7 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
 
   return {
     imported: items.length,
+    createdMediaIds,
     summary: {
       ...summary,
       tmdbPosterLookupMissSamples
@@ -2784,6 +2950,7 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
 
 async function runMetronImport({ req, config, scopeContext = null, onProgress = null }) {
   const summary = { created: 0, updated: 0, skipped: 0, skipped_existing: 0, errors: [] };
+  const createdMediaIds = [];
   const detailCache = new Map();
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   const fetchDetailWithRetry = async (providerIssueId) => {
@@ -2906,7 +3073,10 @@ async function runMetronImport({ req, config, scopeContext = null, onProgress = 
         importSource: 'metron',
         scopeContext
       });
-      if (result.type === 'created') summary.created += 1;
+      if (result.type === 'created') {
+        summary.created += 1;
+        if (result.mediaId) createdMediaIds.push(result.mediaId);
+      }
       else if (result.type === 'updated') summary.updated += 1;
       else summary.skipped += 1;
       if (result.mediaId && issue.id) {
@@ -2932,6 +3102,7 @@ async function runMetronImport({ req, config, scopeContext = null, onProgress = 
   return {
     imported: pendingIssues.length,
     totalAvailable: issues.length,
+    createdMediaIds,
     summary,
     collectionEndpoint: endpoint
   };
@@ -2939,7 +3110,7 @@ async function runMetronImport({ req, config, scopeContext = null, onProgress = 
 
 async function maybePushComicToMetron({ req, mediaRow }) {
   if (!mediaRow || mediaRow.media_type !== 'comic_book') return;
-  const config = await loadScopedIntegrationConfig(req.user.activeSpaceId);
+  const config = await loadScopedIntegrationConfig(mediaRow.space_id || req.user.activeSpaceId || null);
   if (String(config.comicsProvider || '').toLowerCase() !== 'metron') return;
   if (!config.comicsApiKey || !config.comicsApiUrl) return;
 
@@ -2996,7 +3167,8 @@ async function runGenericCsvImport({
     auditOutcomes: buildImportAuditOutcomeCounters()
   };
   const auditRows = [];
-  const config = await loadScopedIntegrationConfig(req.user.activeSpaceId);
+  const createdMediaIds = [];
+  const config = await loadScopedIntegrationConfig(scopeContext?.spaceId || null);
   const caches = { tmdbCache: new Map(), providerCache: new Map() };
   const updateProgress = async (progress) => {
     if (typeof onProgress !== 'function') return;
@@ -3233,6 +3405,7 @@ async function runGenericCsvImport({
       }
       if (result.type === 'created') {
         summary.created += 1;
+        if (result.mediaId) createdMediaIds.push(result.mediaId);
         incrementImportAuditOutcomeCounter(summary.auditOutcomes, auditOutcome);
         auditRows.push({
           row: idx + 2,
@@ -3336,7 +3509,7 @@ async function runGenericCsvImport({
     }
   }
 
-  return { rows: rows.length, summary, auditRows };
+  return { rows: rows.length, summary, auditRows, createdMediaIds };
 }
 
 async function runDeliciousCsvImport({
@@ -3362,7 +3535,8 @@ async function runDeliciousCsvImport({
     auditOutcomes: buildImportAuditOutcomeCounters()
   };
   const auditRows = [];
-  const config = await loadScopedIntegrationConfig(req.user.activeSpaceId);
+  const createdMediaIds = [];
+  const config = await loadScopedIntegrationConfig(scopeContext?.spaceId || null);
   const caches = { tmdbCache: new Map(), providerCache: new Map() };
   const updateProgress = async (progress) => {
     if (typeof onProgress !== 'function') return;
@@ -3629,6 +3803,7 @@ async function runDeliciousCsvImport({
           }
           if (result.type === 'created') {
             summary.created += 1;
+            if (result.mediaId) createdMediaIds.push(result.mediaId);
             incrementImportAuditOutcomeCounter(summary.auditOutcomes, auditOutcome);
             auditRows.push({
               row: idx + 2,
@@ -3734,7 +3909,7 @@ async function runDeliciousCsvImport({
     }
   }
 
-  return { rows: rows.length, summary, auditRows };
+  return { rows: rows.length, summary, auditRows, createdMediaIds };
 }
 
 // All routes require auth
@@ -4016,7 +4191,7 @@ router.post('/:id/valuation-refresh', validate(mediaValuationRefreshSchema), asy
     return res.status(403).json({ error: 'Fixture valuation mode is not available in production' });
   }
 
-  const config = await loadScopedIntegrationConfig(req.user.activeSpaceId);
+  const config = await loadScopedIntegrationConfig(scopeContext?.spaceId || null);
   const asyncMode = shouldQueueImportByDefault(req);
   const auditReq = {
     user: req.user,
@@ -4515,8 +4690,9 @@ router.patch('/:id/tv-seasons/:seasonNumber', asyncHandler(async (req, res) => {
 // ── TMDB search ───────────────────────────────────────────────────────────────
 
 router.post('/search-tmdb', validate(simpleSearchSchema), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
   const { title, year, mediaType } = req.body;
-  const config = await loadScopedIntegrationConfig(req.user.activeSpaceId);
+  const config = await loadScopedIntegrationConfig(scopeContext?.spaceId || null);
   const normalizedType = mediaType === 'tv' ? 'tv' : 'movie';
   const results = await searchTmdbMovie(title, year, config, normalizedType);
   res.json(results);
@@ -4525,7 +4701,7 @@ router.post('/search-tmdb', validate(simpleSearchSchema), asyncHandler(async (re
 router.post('/tmdb/trace-match', validate(simpleSearchSchema), asyncHandler(async (req, res) => {
   const { title, year, mediaType } = req.body;
   const lookupTitle = title;
-  const config = await loadScopedIntegrationConfig(req.user.activeSpaceId);
+  const config = await loadScopedIntegrationConfig(scopeContext?.spaceId || null);
   const normalizedType = mediaType === 'tv' ? 'tv' : 'movie';
   const searchResults = await searchTmdbMovie(lookupTitle, year, config, normalizedType);
   const scored = searchResults.map((row) => {
@@ -4568,7 +4744,7 @@ router.get('/tmdb/:id/details', asyncHandler(async (req, res) => {
   if (!Number.isFinite(movieId) || movieId <= 0) {
     return res.status(400).json({ error: 'Valid numeric TMDB id is required' });
   }
-  const config = await loadScopedIntegrationConfig(req.user.activeSpaceId);
+  const config = await loadScopedIntegrationConfig(effectiveScopeContext?.spaceId || null);
   const normalizedType = req.query.mediaType === 'tv' ? 'tv' : 'movie';
   const details = await fetchTmdbMovieDetails(movieId, config, normalizedType);
   res.json(details);
@@ -4628,7 +4804,7 @@ router.get('/tmdb/:id/trace', asyncHandler(async (req, res) => {
 
 router.post('/enrich/book/search', validate(titleAuthorSearchSchema), asyncHandler(async (req, res) => {
   const { title, author } = req.body;
-  const config = await loadScopedIntegrationConfig(req.user.activeSpaceId);
+  const config = await loadScopedIntegrationConfig(scopeContext?.spaceId || null);
   const matches = await searchBooksByTitle(title, config, 10, String(author || '').trim());
   res.json({ provider: config.booksProvider || 'googlebooks', matches });
 }));
@@ -4993,6 +5169,7 @@ router.get('/import/template-csv', asyncHandler(async (_req, res) => {
 
 router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, res) => {
   const scopeContext = resolveScopeContext(req);
+  const valuationMode = resolveValuationExecutionMode(req);
   if (!req.file) {
     return res.status(400).json({ error: 'CSV file is required (multipart field: file)' });
   }
@@ -5052,6 +5229,14 @@ router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, r
           onProgress: async (progress) => updateSyncJob(job.id, { progress }),
           reviewContext: { jobId: job.id, provider: 'csv_generic', auditReq }
         });
+        const valuationRefresh = await queueImportedValuationRefresh({
+          mediaIds: result.createdMediaIds,
+          userId: req.user.id,
+          scopeContext,
+          mode: valuationMode,
+          auditReq,
+          importSource: 'csv_generic'
+        });
         await updateSyncJob(job.id, {
           status: 'succeeded',
           progress: {
@@ -5071,6 +5256,7 @@ router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, r
             matchModes: result.summary.matchModes,
             enrichment: result.summary.enrichment,
             diagnosticsFlagged: result.summary.diagnosticsFlagged,
+            valuationRefresh,
             collectionsDetected: result.summary.collectionsDetected || 0,
             collectionsCreated: result.summary.collectionsCreated || 0,
             collectionItemsSeeded: result.summary.collectionItemsSeeded || 0,
@@ -5089,6 +5275,7 @@ router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, r
           matchModes: result.summary.matchModes,
           enrichment: result.summary.enrichment,
           diagnosticsFlagged: result.summary.diagnosticsFlagged,
+          valuationRefresh,
           collectionsDetected: result.summary.collectionsDetected || 0,
           collectionsCreated: result.summary.collectionsCreated || 0,
           collectionItemsSeeded: result.summary.collectionItemsSeeded || 0,
@@ -5117,6 +5304,14 @@ router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, r
     scopeContext,
     reviewContext: { provider: 'csv_generic', auditReq: req }
   });
+  const valuationRefresh = await queueImportedValuationRefresh({
+    mediaIds: result.createdMediaIds,
+    userId: req.user.id,
+    scopeContext,
+    mode: valuationMode,
+    auditReq: req,
+    importSource: 'csv_generic'
+  });
   recordImportJobEvent('csv_generic', 'succeeded');
   recordImportEnrichmentSummaryMetrics('csv_generic', result.summary.enrichment);
   await logActivity(req, 'media.import.csv', 'media', null, {
@@ -5128,15 +5323,17 @@ router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, r
     matchModes: result.summary.matchModes,
     enrichment: result.summary.enrichment,
     diagnosticsFlagged: result.summary.diagnosticsFlagged,
+    valuationRefresh,
     collectionsDetected: result.summary.collectionsDetected || 0,
     collectionsCreated: result.summary.collectionsCreated || 0,
     collectionItemsSeeded: result.summary.collectionItemsSeeded || 0
   });
-  res.json({ ok: true, rows: result.rows, summary: result.summary, auditRows: result.auditRows });
+  res.json({ ok: true, rows: result.rows, summary: result.summary, auditRows: result.auditRows, valuationRefresh });
 }));
 
 router.post('/import-csv/calibre', tempUpload.single('file'), asyncHandler(async (req, res) => {
   const scopeContext = resolveScopeContext(req);
+  const valuationMode = resolveValuationExecutionMode(req);
   if (!req.file) {
     return res.status(400).json({ error: 'Calibre CSV file is required (multipart field: file)' });
   }
@@ -5190,6 +5387,14 @@ router.post('/import-csv/calibre', tempUpload.single('file'), asyncHandler(async
           importSource: 'csv_calibre',
           reviewContext: { jobId: job.id, provider: 'csv_calibre', auditReq }
         });
+        const valuationRefresh = await queueImportedValuationRefresh({
+          mediaIds: result.createdMediaIds,
+          userId: req.user.id,
+          scopeContext,
+          mode: valuationMode,
+          auditReq,
+          importSource: 'csv_calibre'
+        });
         await updateSyncJob(job.id, {
           status: 'succeeded',
           progress: {
@@ -5209,6 +5414,7 @@ router.post('/import-csv/calibre', tempUpload.single('file'), asyncHandler(async
             matchModes: result.summary.matchModes,
             enrichment: result.summary.enrichment,
             diagnosticsFlagged: result.summary.diagnosticsFlagged,
+            valuationRefresh,
             collectionsDetected: result.summary.collectionsDetected || 0,
             collectionsCreated: result.summary.collectionsCreated || 0,
             collectionItemsSeeded: result.summary.collectionItemsSeeded || 0,
@@ -5227,6 +5433,7 @@ router.post('/import-csv/calibre', tempUpload.single('file'), asyncHandler(async
           matchModes: result.summary.matchModes,
           enrichment: result.summary.enrichment,
           diagnosticsFlagged: result.summary.diagnosticsFlagged,
+          valuationRefresh,
           collectionsDetected: result.summary.collectionsDetected || 0,
           collectionsCreated: result.summary.collectionsCreated || 0,
           collectionItemsSeeded: result.summary.collectionItemsSeeded || 0,
@@ -5257,6 +5464,14 @@ router.post('/import-csv/calibre', tempUpload.single('file'), asyncHandler(async
     importSource: 'csv_calibre',
     reviewContext: { provider: 'csv_calibre', auditReq: req }
   });
+  const valuationRefresh = await queueImportedValuationRefresh({
+    mediaIds: result.createdMediaIds,
+    userId: req.user.id,
+    scopeContext,
+    mode: valuationMode,
+    auditReq: req,
+    importSource: 'csv_calibre'
+  });
   recordImportJobEvent('csv_calibre', 'succeeded');
   recordImportEnrichmentSummaryMetrics('csv_calibre', result.summary.enrichment);
   await logActivity(req, 'media.import.calibre', 'media', null, {
@@ -5268,11 +5483,12 @@ router.post('/import-csv/calibre', tempUpload.single('file'), asyncHandler(async
     matchModes: result.summary.matchModes,
     enrichment: result.summary.enrichment,
     diagnosticsFlagged: result.summary.diagnosticsFlagged,
+    valuationRefresh,
     collectionsDetected: result.summary.collectionsDetected || 0,
     collectionsCreated: result.summary.collectionsCreated || 0,
     collectionItemsSeeded: result.summary.collectionItemsSeeded || 0
   });
-  res.json({ ok: true, rows: result.rows, summary: result.summary, auditRows: result.auditRows });
+  res.json({ ok: true, rows: result.rows, summary: result.summary, auditRows: result.auditRows, valuationRefresh });
 }));
 
 router.post('/import-cwa', asyncHandler(async (_req, res) => {
@@ -5284,6 +5500,7 @@ router.post('/import-cwa', asyncHandler(async (_req, res) => {
 
 router.post('/import-csv/delicious', tempUpload.single('file'), asyncHandler(async (req, res) => {
   const scopeContext = resolveScopeContext(req);
+  const valuationMode = resolveValuationExecutionMode(req);
   if (!req.file) {
     return res.status(400).json({ error: 'Delicious CSV file is required (multipart field: file)' });
   }
@@ -5335,6 +5552,14 @@ router.post('/import-csv/delicious', tempUpload.single('file'), asyncHandler(asy
           onProgress: async (progress) => updateSyncJob(job.id, { progress }),
           reviewContext: { jobId: job.id, provider: 'csv_delicious', auditReq }
         });
+        const valuationRefresh = await queueImportedValuationRefresh({
+          mediaIds: result.createdMediaIds,
+          userId: req.user.id,
+          scopeContext,
+          mode: valuationMode,
+          auditReq,
+          importSource: 'csv_delicious'
+        });
         await updateSyncJob(job.id, {
           status: 'succeeded',
           progress: {
@@ -5355,6 +5580,7 @@ router.post('/import-csv/delicious', tempUpload.single('file'), asyncHandler(asy
             matchModes: result.summary.matchModes,
             enrichment: result.summary.enrichment,
             diagnosticsFlagged: result.summary.diagnosticsFlagged,
+            valuationRefresh,
             collectionsDetected: result.summary.collectionsDetected || 0,
             collectionsCreated: result.summary.collectionsCreated || 0,
             collectionItemsSeeded: result.summary.collectionItemsSeeded || 0,
@@ -5374,6 +5600,7 @@ router.post('/import-csv/delicious', tempUpload.single('file'), asyncHandler(asy
           matchModes: result.summary.matchModes,
           enrichment: result.summary.enrichment,
           diagnosticsFlagged: result.summary.diagnosticsFlagged,
+          valuationRefresh,
           collectionsDetected: result.summary.collectionsDetected || 0,
           collectionsCreated: result.summary.collectionsCreated || 0,
           collectionItemsSeeded: result.summary.collectionItemsSeeded || 0,
@@ -5403,6 +5630,14 @@ router.post('/import-csv/delicious', tempUpload.single('file'), asyncHandler(asy
     scopeContext,
     reviewContext: { provider: 'csv_delicious', auditReq: req }
   });
+  const valuationRefresh = await queueImportedValuationRefresh({
+    mediaIds: result.createdMediaIds,
+    userId: req.user.id,
+    scopeContext,
+    mode: valuationMode,
+    auditReq: req,
+    importSource: 'csv_delicious'
+  });
   recordImportJobEvent('csv_delicious', 'succeeded');
   recordImportEnrichmentSummaryMetrics('csv_delicious', result.summary.enrichment);
   await logActivity(req, 'media.import.csv.delicious', 'media', null, {
@@ -5415,17 +5650,19 @@ router.post('/import-csv/delicious', tempUpload.single('file'), asyncHandler(asy
     matchModes: result.summary.matchModes,
     enrichment: result.summary.enrichment,
     diagnosticsFlagged: result.summary.diagnosticsFlagged,
+    valuationRefresh,
     collectionsDetected: result.summary.collectionsDetected || 0,
     collectionsCreated: result.summary.collectionsCreated || 0,
     collectionItemsSeeded: result.summary.collectionItemsSeeded || 0
   });
-  res.json({ ok: true, rows: result.rows, summary: result.summary, auditRows: result.auditRows });
+  res.json({ ok: true, rows: result.rows, summary: result.summary, auditRows: result.auditRows, valuationRefresh });
 }));
 
 // ── Plex import (admin only) ─────────────────────────────────────────────────
 
 router.post('/import-plex', asyncHandler(async (req, res) => {
   const scopeContext = resolveScopeContext(req);
+  const valuationMode = resolveValuationExecutionMode(req);
   if (req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Only admins can import from Plex' });
   }
@@ -5489,6 +5726,14 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
             await updateSyncJob(job.id, { progress });
           }
         });
+        const valuationRefresh = await queueImportedValuationRefresh({
+          mediaIds: result.createdMediaIds,
+          userId: req.user.id,
+          scopeContext: effectiveScopeContext,
+          mode: valuationMode,
+          auditReq,
+          importSource: 'plex'
+        });
 
         await updateSyncJob(job.id, {
           status: 'succeeded',
@@ -5506,6 +5751,7 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
             variantsUpdated: result.variantsUpdated,
             seasonsCreated: result.seasonsCreated,
             seasonsUpdated: result.seasonsUpdated,
+            valuationRefresh,
             enrichmentErrors: result.summary.enrichmentErrors || [],
             enrichmentMisses: result.summary.enrichmentMisses || [],
             tmdbPosterLookupMissSamples: result.summary.tmdbPosterLookupMissSamples || [],
@@ -5539,6 +5785,7 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
           variantsUpdated: result.variantsUpdated,
           seasonsCreated: result.seasonsCreated,
           seasonsUpdated: result.seasonsUpdated,
+          valuationRefresh,
           enrichmentErrorCount: (result.summary.enrichmentErrors || []).length,
           enrichmentMissCount: (result.summary.enrichmentMisses || []).length,
           jobId: job.id
@@ -5569,6 +5816,14 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
       sectionIds,
       scopeContext: effectiveScopeContext
     });
+    const valuationRefresh = await queueImportedValuationRefresh({
+      mediaIds: result.createdMediaIds,
+      userId: req.user.id,
+      scopeContext: effectiveScopeContext,
+      mode: valuationMode,
+      auditReq: req,
+      importSource: 'plex'
+    });
 
     await logActivity(req, 'media.import.plex', 'media', null, {
       sectionIds,
@@ -5583,12 +5838,13 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
       variantsUpdated: result.variantsUpdated,
       seasonsCreated: result.seasonsCreated,
       seasonsUpdated: result.seasonsUpdated,
+      valuationRefresh,
       enrichmentErrorCount: (result.summary.enrichmentErrors || []).length
     });
     recordImportJobEvent('plex', 'succeeded');
     recordPlexEnrichmentMetrics(result);
 
-    return res.json({ ok: true, ...result });
+    return res.json({ ok: true, ...result, valuationRefresh });
   } catch (error) {
     logError('Plex import fetch failed', error);
     recordImportJobEvent('plex', 'failed');
@@ -5602,6 +5858,7 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
 
 router.post('/import-comics', asyncHandler(async (req, res) => {
   const scopeContext = resolveScopeContext(req);
+  const valuationMode = resolveValuationExecutionMode(req);
   const useAsync = shouldQueueImportByDefault(req);
   const config = await loadScopedIntegrationConfig(req.user.activeSpaceId);
   if (String(config.comicsProvider || '').toLowerCase() !== 'metron') {
@@ -5634,6 +5891,14 @@ router.post('/import-comics', asyncHandler(async (req, res) => {
           scopeContext,
           onProgress: async (progress) => updateSyncJob(job.id, { progress })
         });
+        const valuationRefresh = await queueImportedValuationRefresh({
+          mediaIds: result.createdMediaIds,
+          userId: req.user.id,
+          scopeContext,
+          mode: valuationMode,
+          auditReq,
+          importSource: 'metron'
+        });
         await updateSyncJob(job.id, {
           status: 'succeeded',
           finished_at: new Date(),
@@ -5643,6 +5908,7 @@ router.post('/import-comics', asyncHandler(async (req, res) => {
             skipped_existing: result.summary.skipped_existing || 0,
             created: result.summary.created,
             updated: result.summary.updated,
+            valuationRefresh,
             skipped: result.summary.skipped,
             errorCount: result.summary.errors.length,
             collectionEndpoint: result.collectionEndpoint
@@ -5663,6 +5929,7 @@ router.post('/import-comics', asyncHandler(async (req, res) => {
           skipped_existing: result.summary.skipped_existing || 0,
           created: result.summary.created,
           updated: result.summary.updated,
+          valuationRefresh,
           skipped: result.summary.skipped,
           errorCount: result.summary.errors.length,
           collectionEndpoint: result.collectionEndpoint,
@@ -5688,18 +5955,27 @@ router.post('/import-comics', asyncHandler(async (req, res) => {
 
   try {
     const result = await runMetronImport({ req, config, scopeContext });
+    const valuationRefresh = await queueImportedValuationRefresh({
+      mediaIds: result.createdMediaIds,
+      userId: req.user.id,
+      scopeContext,
+      mode: valuationMode,
+      auditReq: req,
+      importSource: 'metron'
+    });
     await logActivity(req, 'media.import.metron', 'media', null, {
       imported: result.imported,
       totalAvailable: result.totalAvailable || result.imported,
       skipped_existing: result.summary.skipped_existing || 0,
       created: result.summary.created,
       updated: result.summary.updated,
+      valuationRefresh,
       skipped: result.summary.skipped,
       errorCount: result.summary.errors.length,
       collectionEndpoint: result.collectionEndpoint
     });
     recordImportJobEvent('metron', 'succeeded');
-    return res.json({ ok: true, ...result });
+    return res.json({ ok: true, ...result, valuationRefresh });
   } catch (error) {
     logError('Metron import failed', error);
     recordImportJobEvent('metron', 'failed');
@@ -6019,7 +6295,7 @@ router.post('/collections/:id/items', asyncHandler(async (req, res) => {
       matchMode = 'fallback_title_only';
       confidenceScore = normalizedYear ? 95 : 90;
     } else {
-      const config = await loadScopedIntegrationConfig(req.user.activeSpaceId);
+      const config = await loadScopedIntegrationConfig(effectiveScope.spaceId || null);
       const enrichmentResult = await runImportEnrichmentPipeline(
         {
           title: containedTitle,
