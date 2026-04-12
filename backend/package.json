@@ -1,6 +1,6 @@
 {
   "name": "mediavault-backend",
-  "version": "2.11.0",
+  "version": "3.0.0",
   "description": "collectZ Backend API",
   "main": "server.js",
   "scripts": {
@@ -41,7 +41,7 @@
     "form-data": "^4.0.0",
     "helmet": "^8.1.0",
     "multer": "^2.1.1",
-    "nodemailer": "^8.0.4",
+    "nodemailer": "^8.0.5",
     "pg": "^8.20.0",
     "zod": "^3.22.4"
   },
