@@ -90,8 +90,8 @@ function assert(condition, message) {
 async function createDirectUser({ email, password, name, role = 'user' }) {
   const passwordHash = await bcrypt.hash(password, 12);
   const result = await pool.query(
-    `INSERT INTO users (email, password, name, role)
-     VALUES ($1, $2, $3, $4)
+    `INSERT INTO users (email, password, name, role, email_verified, email_verified_at)
+     VALUES ($1, $2, $3, $4, true, NOW())
      RETURNING id, email, name, role`,
     [email, passwordHash, name, role]
   );
@@ -129,9 +129,30 @@ async function registerWithEmail(client, { email, password, name }) {
   return client.request('/api/auth/register', {
     method: 'POST',
     withCsrf: true,
-    expectStatus: 200,
+    expectStatus: 201,
     body: { email, password, name }
   });
+}
+
+async function getUserByEmail(email) {
+  const result = await pool.query(
+    `SELECT id, email, email_verified
+       FROM users
+      WHERE lower(email) = lower($1)
+      LIMIT 1`,
+    [email]
+  );
+  return result.rows[0] || null;
+}
+
+async function markUserVerified(userId) {
+  await pool.query(
+    `UPDATE users
+        SET email_verified = true,
+            email_verified_at = COALESCE(email_verified_at, NOW())
+      WHERE id = $1`,
+    [userId]
+  );
 }
 
 async function getPersistedUserScope(userId) {
@@ -170,10 +191,13 @@ async function main() {
       password,
       name: 'Homelab Boundary User'
     });
-    userUserId = Number(registerUser?.data?.user?.id || 0) || null;
-    assert(Number.isFinite(userUserId) && userUserId > 0, `Expected homelab registration to succeed without invite: ${JSON.stringify(registerUser?.data)}`);
+    const persistedUser = await getUserByEmail(userEmail);
+    userUserId = Number(persistedUser?.id || 0) || null;
+    assert(Number.isFinite(userUserId) && userUserId > 0, `Expected homelab registration to create a user without invite: ${JSON.stringify(registerUser?.data)}`);
+    await markUserVerified(userUserId);
 
     await loginWithEmail(admin, adminEmail, password);
+    await loginWithEmail(user, userEmail, password);
 
     const adminMe = await admin.request('/api/auth/me', { expectStatus: 200 });
     const userMe = await user.request('/api/auth/me', { expectStatus: 200 });

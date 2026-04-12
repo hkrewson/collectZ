@@ -546,7 +546,7 @@ test.describe('space manager browser regressions', () => {
       ));
       await Promise.all([
         page.waitForEvent('dialog').then((dialog) => dialog.accept()),
-        page.getByRole('button', { name: 'Remove from workspace', exact: true }).click()
+        page.getByRole('button', { name: 'Remove', exact: true }).click()
       ]);
       const removeResponse = await removeResponsePromise;
       expect(removeResponse.ok()).toBeTruthy();

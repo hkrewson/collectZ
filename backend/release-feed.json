@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v2.11.0",
+      "version": "2.11.0",
+      "date": "2026-04-11",
+      "status": "Completed",
+      "summary": "This minor release adds the first optional market valuation foundation for collectZ. Workspace-scoped integrations can now carry valuation provider configuration, media records can store normalized read-only value bands, the library detail drawer can display and manually refresh valuation data, and imports can queue non-blocking follow-on valuation jobs for newly created media. The milestone keeps pricing optional, read-only, and safely decoupled from core catalog CRUD and import flows.",
+      "details": []
+    },
+    {
       "title": "v2.10.17",
       "version": "2.10.17",
       "date": "2026-04-11",
@@ -70,14 +78,6 @@
       "date": "2026-04-09",
       "status": "Completed",
       "summary": "This patch release removes the remaining “control plane” language from the mobile shell so the app header reads like a normal product instead of a product-marketing or ops-console surface. Mobile admin and support context is still visible, but the wording is now plainer and more honest about what the user is actually looking at.",
-      "details": []
-    },
-    {
-      "title": "v2.10.8",
-      "version": "2.10.8",
-      "date": "2026-04-09",
-      "status": "Completed",
-      "summary": "This patch release tones down the library shell navigation so it keeps its hierarchy and space context without feeling over-styled. The sidebar no longer leans on uppercase eyebrows, badge-like role chrome, gold active rails, or decorative sub-item bullets to explain itself, and instead reads more like ordinary product navigation.",
       "details": []
     }
   ]

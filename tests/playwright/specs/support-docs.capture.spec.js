@@ -25,7 +25,7 @@ test.describe('support docs capture flows @capture', () => {
     }
 
     await page.goto('/dashboard?tab=support-inbox');
-    await expect(page.getByRole('heading', { name: 'Help Admin' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Support Inbox' })).toBeVisible();
     await page.getByRole('textbox', { name: 'Search queue' }).fill(fixtureSubject);
 
     const requestCard = page.locator('button').filter({ hasText: fixtureSubject }).first();

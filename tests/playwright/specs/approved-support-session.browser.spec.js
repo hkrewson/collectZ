@@ -70,6 +70,6 @@ test.describe('approved support session browser regressions', () => {
     await page.getByRole('button', { name: 'End support session' }).click();
 
     await expect(page.getByText('Support session active')).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Workspace' })).toHaveCount(0);
+    await expect(page).toHaveURL(/tab=support-inbox/);
   });
 });

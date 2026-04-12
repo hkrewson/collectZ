@@ -90,8 +90,8 @@ function assert(condition, message) {
 async function createDirectUser({ email, password, name, role = 'user' }) {
   const passwordHash = await bcrypt.hash(password, 12);
   const result = await pool.query(
-    `INSERT INTO users (email, password, name, role)
-     VALUES ($1, $2, $3, $4)
+    `INSERT INTO users (email, password, name, role, email_verified, email_verified_at)
+     VALUES ($1, $2, $3, $4, true, NOW())
      RETURNING id, email, name, role`,
     [email, passwordHash, name, role]
   );

@@ -197,7 +197,7 @@ function createTempAdmin() {
     `const email=${JSON.stringify(email)};`,
     `const password=${JSON.stringify(password)};`,
     'const hash=await bcrypt.hash(password,12);',
-    'const result=await pool.query("INSERT INTO users (email, password, name, role) VALUES ($1,$2,$3,$4) RETURNING id,email",[email,hash,"Observability Evidence Admin","admin"]);',
+    'const result=await pool.query("INSERT INTO users (email, password, name, role, email_verified, email_verified_at) VALUES ($1,$2,$3,$4,true,NOW()) RETURNING id,email",[email,hash,"Observability Evidence Admin","admin"]);',
     'await ensureUserDefaultScope(result.rows[0].id);',
     'console.log(JSON.stringify({id: result.rows[0].id, email, password}));',
     'await pool.end();',
