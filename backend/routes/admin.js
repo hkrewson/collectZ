@@ -51,13 +51,13 @@ commonRouter.put('/settings/general', validate(generalSettingsSchema), asyncHand
   res.json(result.rows[0]);
 }));
 
-commonRouter.get('/settings/email-delivery', asyncHandler(async (_req, res) => {
+platformRouter.get('/settings/email-delivery', asyncHandler(async (_req, res) => {
   res.json({
     smtp: await getSmtpStatus()
   });
 }));
 
-commonRouter.put('/settings/email-delivery', validate(emailDeliverySettingsSchema), asyncHandler(async (req, res) => {
+platformRouter.put('/settings/email-delivery', validate(emailDeliverySettingsSchema), asyncHandler(async (req, res) => {
   const mode = String(req.body.mode || 'env').trim().toLowerCase();
   const updated = await updateSmtpSettings({
     mode,
@@ -81,7 +81,7 @@ commonRouter.put('/settings/email-delivery', validate(emailDeliverySettingsSchem
   });
 }));
 
-commonRouter.post('/settings/email-delivery/test', validate(emailDeliveryTestSchema), asyncHandler(async (req, res) => {
+platformRouter.post('/settings/email-delivery/test', validate(emailDeliveryTestSchema), asyncHandler(async (req, res) => {
   const targetEmail = String(req.body.email || req.user.email || '').trim().toLowerCase();
   if (!targetEmail) {
     return res.status(400).json({ error: 'A target email address is required' });

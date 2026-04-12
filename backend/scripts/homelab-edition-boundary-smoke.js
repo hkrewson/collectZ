@@ -208,6 +208,7 @@ async function main() {
     const releases = await user.request('/api/support/releases', { expectStatus: 200 });
     const generalSettings = await admin.request('/api/settings/general', { expectStatus: 200 });
     const integrations = await admin.request('/api/admin/settings/integrations', { expectStatus: 200 });
+    const emailDelivery = await admin.request('/api/admin/settings/email-delivery', { expectStatus: 404 });
     const priceChartingTest = await admin.request('/api/admin/settings/integrations/test-pricecharting', {
       method: 'POST',
       withCsrf: true,
@@ -306,6 +307,7 @@ async function main() {
     assert(Array.isArray(releases.data?.releases), `Homelab /api/support/releases must stay mounted: ${JSON.stringify(releases.data)}`);
     assert(typeof generalSettings.data?.theme === 'string', `Homelab /api/settings/general must stay mounted: ${JSON.stringify(generalSettings.data)}`);
     assert(typeof integrations.data === 'object' && integrations.data !== null, `Homelab /api/admin/settings/integrations must stay mounted: ${JSON.stringify(integrations.data)}`);
+    assert(emailDelivery.status === 404, `Homelab /api/admin/settings/email-delivery must be unmounted: ${JSON.stringify(emailDelivery.data)}`);
     assert(!('valuationProviders' in integrations.data), `Homelab integrations payload must not expose valuation providers: ${JSON.stringify(integrations.data)}`);
     assert(!('logExportControl' in integrations.data), `Homelab integrations payload must not expose log export controls: ${JSON.stringify(integrations.data)}`);
     assert(!('observabilityRuntime' in integrations.data), `Homelab integrations payload must not expose observability runtime diagnostics: ${JSON.stringify(integrations.data)}`);

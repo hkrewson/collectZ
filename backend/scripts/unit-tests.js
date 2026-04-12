@@ -682,6 +682,9 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(authRoutesSource.includes("platformRouter.delete('/support-session'"));
   assert.ok(adminRoutesSource.includes('adminCommonRouter'));
   assert.ok(adminRoutesSource.includes('adminPlatformRouter'));
+  assert.ok(adminRoutesSource.includes("platformRouter.get('/settings/email-delivery'"));
+  assert.ok(adminRoutesSource.includes("platformRouter.put('/settings/email-delivery'"));
+  assert.ok(adminRoutesSource.includes("platformRouter.post('/settings/email-delivery/test'"));
   assert.ok(supportRoutesSource.includes('supportSharedRouter'));
   assert.ok(supportRoutesSource.includes('supportPlatformRouter'));
   assert.ok(homelabHelpBrowserSpecSource.includes('product_edition'));
@@ -710,6 +713,7 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/support/releases'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/auth/register'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/admin/settings/integrations'));
+  assert.ok(homelabEditionBoundarySmokeSource.includes('/api/admin/settings/email-delivery'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/admin/settings/integrations/test-pricecharting'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/admin/settings/integrations/test-ebay'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/admin/settings/integrations/test-logs'));
@@ -735,6 +739,7 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(platformEditionBoundarySmokeSource.includes('workspace_memberships'));
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/admin/spaces/${defaultSpaceId}/invites'));
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/auth/register'));
+  assert.ok(platformEditionBoundarySmokeSource.includes('/api/admin/settings/email-delivery'));
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/admin/settings/integrations/test-pricecharting'));
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/admin/settings/integrations/test-ebay'));
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/admin/settings/integrations/test-logs'));
