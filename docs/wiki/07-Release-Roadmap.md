@@ -1097,9 +1097,9 @@ Historical planning notes may still exist in:
 54. `2.10.16` SaaS self-registration and password recovery
 55. `2.10.17` Workspace invite and member lifecycle controls
 56. `2.11.0` Optional market valuation integrations
-57. `2.12.0` Optional build: cost model and billing readiness
-58. `3.0.0` Frontend build modernization (CRA to Vite)
-59. `3.1.2` Personal workspace offboarding, archive retention, and recovery
+57. `3.0.0` Frontend build modernization (CRA to Vite)
+58. `3.1.2` Personal workspace offboarding, archive retention, and recovery
+59. `3.2.0` Optional build: cost model and billing readiness
 
 ## 2.1.0 — Metadata Normalization and Query Performance
 
@@ -3328,7 +3328,7 @@ Historical note:
 - Media detail view can show valuation fields when present and degrade gracefully when unavailable.
 - Pricing failures do not block media CRUD/import flows and are fully auditable.
 
-## 2.12.0 — Optional Build: Cost Model and Billing Readiness
+## 3.2.0 — Optional Build: Cost Model and Billing Readiness
 
 **Goal:** Prepare a data-backed cost model before any hosted subscription offering, while keeping self-hosted installs free of paid-provider dependencies.
 
