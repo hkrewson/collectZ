@@ -12,6 +12,12 @@ cp env.example .env
 docker compose --env-file .env up -d --build
 ```
 
+Homelab is the default public/self-hosted shape. To bring up the private platform shell locally, use the explicit platform overlay:
+
+```bash
+docker compose --env-file .env -f docker-compose.yml -f docker-compose.platform.yml up -d --build
+```
+
 Versioned deploy (recommended):
 
 ```bash

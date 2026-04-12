@@ -114,6 +114,8 @@ const platformEditionBoundarySmokeSource = fs.readFileSync(require.resolve('../s
 const dockerPublishWorkflowSource = fs.readFileSync(require.resolve('../../.github/workflows/docker-publish.yml'), 'utf8');
 const browserCapturesWorkflowSource = fs.readFileSync(require.resolve('../../.github/workflows/browser-captures.yml'), 'utf8');
 const dockerComposeSource = fs.readFileSync(require.resolve('../../docker-compose.yml'), 'utf8');
+const dockerComposeHomelabSource = fs.readFileSync(require.resolve('../../docker-compose.homelab.yml'), 'utf8');
+const dockerComposePlatformSource = fs.readFileSync(require.resolve('../../docker-compose.platform.yml'), 'utf8');
 const backendDockerfileSource = fs.readFileSync(require.resolve('../../backend/Dockerfile'), 'utf8');
 const structuredLogSmokeSource = fs.readFileSync(require.resolve('../scripts/structured-log-smoke'), 'utf8');
 const structuredLogLokiSmokeSource = fs.readFileSync(require.resolve('../scripts/structured-log-loki-smoke'), 'utf8');
@@ -644,7 +646,10 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(frontendAppSource.includes('getSafeDashboardTab'));
   assert.ok(sidebarNavSource.includes('getAllowedDashboardTabs'));
   assert.ok(sidebarNavSource.includes('showPlatformGroup'));
-  assert.ok(dockerComposeSource.includes('APP_EDITION: ${APP_EDITION:-platform}'));
+  assert.ok(dockerComposeSource.includes('APP_EDITION: ${APP_EDITION:-homelab}'));
+  assert.ok(dockerComposeSource.includes('${FRONTEND_PORT:-3000}:3000'));
+  assert.ok(dockerComposeHomelabSource.includes('APP_EDITION: homelab'));
+  assert.ok(dockerComposePlatformSource.includes('APP_EDITION: platform'));
   assert.ok(serverSource.includes('const HOMELAB_EDITION = isHomelabEdition();'));
   assert.ok(serverSource.includes("app.use('/api/auth', authPlatformRouter);"));
   assert.ok(serverSource.includes("app.use('/api/support', supportSharedRouter);"));
@@ -712,6 +717,13 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/auth/support-session'));
   assert.ok(platformEditionBoundarySmokeSource.includes('Platform /api/auth/support-session/start must stay mounted'));
   assert.ok(platformEditionBoundarySmokeSource.includes('Platform edition boundary smoke passed'));
+  assert.ok(rootPackageJson.scripts['stack:up:homelab']);
+  assert.ok(rootPackageJson.scripts['stack:up:platform']);
+  assert.ok(rootPackageJson.scripts['stack:up:homelab'].includes('FRONTEND_PORT=3000'));
+  assert.ok(rootPackageJson.scripts['stack:up:platform'].includes('FRONTEND_PORT=3100'));
+  assert.ok(rootPackageJson.scripts['stack:ps:homelab']);
+  assert.ok(rootPackageJson.scripts['stack:ps:platform']);
+  assert.ok(rootPackageJson.scripts['test:edition-boundaries:local']);
 }));
 
 results.push(run('repo includes 2.9.4 Playwright browser regression foundation harness', () => {

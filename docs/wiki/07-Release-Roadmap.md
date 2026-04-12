@@ -2818,6 +2818,10 @@ Historical note:
     - `platform`: multi-workspace platform shell,
     - `homelab`: single-library household shell with local accounts and no workspace control plane,
   - keep this slice focused on contract hardening and docs/smoke verification rather than the later public-repo promotion mechanics.
+- Early workflow hardening:
+  - run both editions locally as first-class compose targets instead of temporarily flipping one shared stack back and forth,
+  - keep `homelab` as the default public/self-hosted compose shape,
+  - require an explicit platform overlay/workflow to boot the private multi-workspace shell locally.
 - Shared core extraction:
   - identify and extract domain logic that should be implemented once and consumed by both products,
   - expected core areas include media/import logic, shared auth/session primitives, shared API client patterns, shared UI primitives, and edition-safe integrations/metadata services.

@@ -15,17 +15,39 @@ cp env.example .env
 - `INTEGRATION_ENCRYPTION_KEY`
 - `SESSION_COOKIE_SECURE=true` (required when `NODE_ENV=production`)
 
-3. Start stack:
+3. Start homelab stack:
 
 ```bash
-docker compose --env-file .env up -d --build
+docker compose --env-file .env -f docker-compose.yml -f docker-compose.homelab.yml up -d --build
 ```
 
 4. Verify:
 
 ```bash
-docker compose --env-file .env ps
-docker compose --env-file .env logs -f backend frontend db
+docker compose --env-file .env -f docker-compose.yml -f docker-compose.homelab.yml ps
+docker compose --env-file .env -f docker-compose.yml -f docker-compose.homelab.yml logs -f backend frontend db
+```
+
+## Local Edition Targets
+
+Use explicit compose overlays so both editions stay testable locally:
+
+- Homelab on port `3000`:
+
+```bash
+npm run stack:up:homelab
+```
+
+- Platform on port `3100`:
+
+```bash
+npm run stack:up:platform
+```
+
+- Run both edition-boundary smokes after both stacks are up:
+
+```bash
+npm run test:edition-boundaries:local
 ```
 
 ## Full Setup (Integrations + Production Origins)
@@ -40,7 +62,7 @@ In addition to basic setup:
 Start/update:
 
 ```bash
-docker compose --env-file .env up -d --build
+docker compose --env-file .env -f docker-compose.yml -f docker-compose.homelab.yml up -d --build
 ```
 
 ## Local LAN HTTP Setup
@@ -53,7 +75,7 @@ If you want to open the app from another device on your wired or Wi-Fi LAN over 
 4. Rebuild the stack:
 
 ```bash
-docker compose --env-file .env up -d --build backend frontend
+docker compose --env-file .env -f docker-compose.yml -f docker-compose.homelab.yml up -d --build backend frontend
 ```
 
 This keeps the registry/production default secure while allowing local non-TLS browser sessions to work correctly on the LAN.
@@ -62,7 +84,7 @@ This keeps the registry/production default secure while allowing local non-TLS b
 
 ```bash
 git pull
-docker compose --env-file .env up -d --build
+docker compose --env-file .env -f docker-compose.yml -f docker-compose.homelab.yml up -d --build
 ```
 
 ## Postgres Password Mismatch Recovery

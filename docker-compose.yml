@@ -65,7 +65,7 @@ services:
       PLEX_API_KEY: ${PLEX_API_KEY:-}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
       APP_VERSION: ${APP_VERSION:-}
-      APP_EDITION: ${APP_EDITION:-platform}
+      APP_EDITION: ${APP_EDITION:-homelab}
       PLAYWRIGHT_E2E_BYPASS_TOKEN: ${PLAYWRIGHT_E2E_BYPASS_TOKEN:-}
     volumes:
       - media_uploads:/app/uploads
@@ -95,7 +95,7 @@ services:
     networks:
       - internal
     ports:
-      - "3000:3000"
+      - "${FRONTEND_PORT:-3000}:3000"
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:3000/ || exit 1"]
       interval: 30s
