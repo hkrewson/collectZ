@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS users (
     password VARCHAR(255) NOT NULL,
     name VARCHAR(255) NOT NULL,
     role VARCHAR(50) DEFAULT 'user' CHECK (role IN ('admin', 'support_admin', 'user', 'viewer')),
+    email_verified BOOLEAN NOT NULL DEFAULT false,
+    email_verified_at TIMESTAMP,
     active_space_id INTEGER,
     active_library_id INTEGER,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -81,6 +83,12 @@ CREATE TABLE IF NOT EXISTS media (
     episode_title VARCHAR(500),
     network VARCHAR(255),
     type_details JSONB,
+    estimated_value_low NUMERIC(12,2),
+    estimated_value_mid NUMERIC(12,2),
+    estimated_value_high NUMERIC(12,2),
+    valuation_currency VARCHAR(8),
+    valuation_source VARCHAR(100),
+    valuation_last_updated TIMESTAMP,
     series_id INTEGER REFERENCES media(id) ON DELETE SET NULL,
     space_id INTEGER,
     library_id INTEGER,
@@ -189,10 +197,18 @@ CREATE TABLE IF NOT EXISTS spaces (
     slug VARCHAR(255),
     description TEXT,
     created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    theme VARCHAR(20),
+    density VARCHAR(20),
+    events_enabled BOOLEAN,
+    collectibles_enabled BOOLEAN,
     is_personal BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    archived_at TIMESTAMP
+    archived_at TIMESTAMP,
+    CONSTRAINT spaces_theme_check
+      CHECK (theme IS NULL OR theme IN ('system', 'light', 'dark')),
+    CONSTRAINT spaces_density_check
+      CHECK (density IS NULL OR density IN ('comfortable', 'compact'))
 );
 
 CREATE TABLE IF NOT EXISTS libraries (
@@ -212,6 +228,8 @@ CREATE TABLE IF NOT EXISTS space_memberships (
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     role VARCHAR(20) NOT NULL DEFAULT 'member'
       CHECK (role IN ('owner', 'admin', 'member', 'viewer')),
+    suspended_at TIMESTAMP,
+    suspended_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
     created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -265,6 +283,17 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
     used_at TIMESTAMP,
     expires_at TIMESTAMP NOT NULL,
     created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS email_verification_tokens (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash VARCHAR(64) UNIQUE NOT NULL,
+    used BOOLEAN DEFAULT false,
+    revoked BOOLEAN DEFAULT false,
+    used_at TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -383,9 +412,11 @@ CREATE TABLE IF NOT EXISTS user_integrations (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE SEQUENCE IF NOT EXISTS app_integrations_id_seq;
+
 -- App-level integration settings (admin-managed)
 CREATE TABLE IF NOT EXISTS app_integrations (
-    id INTEGER PRIMARY KEY CHECK (id = 1),
+    id INTEGER PRIMARY KEY DEFAULT nextval('app_integrations_id_seq'),
     space_id INTEGER,
     barcode_preset VARCHAR(100) DEFAULT 'upcitemdb',
     barcode_provider VARCHAR(100),
@@ -454,9 +485,19 @@ CREATE TABLE IF NOT EXISTS app_integrations (
     log_export_host_label TEXT,
     log_export_service TEXT,
     log_export_debug BOOLEAN,
+    pricecharting_enabled BOOLEAN DEFAULT false,
+    pricecharting_api_url TEXT,
+    pricecharting_api_key_encrypted TEXT,
+    pricecharting_rate_limit_ms INTEGER,
+    ebay_browse_enabled BOOLEAN DEFAULT false,
+    ebay_browse_api_url TEXT,
+    ebay_browse_client_id TEXT,
+    ebay_browse_client_secret_encrypted TEXT,
+    ebay_browse_marketplace_id VARCHAR(50),
     cwa_timeout_ms INTEGER DEFAULT 20000,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT app_integrations_space_id_key UNIQUE (space_id)
 );
 
 -- App-level display settings
@@ -464,6 +505,13 @@ CREATE TABLE IF NOT EXISTS app_settings (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     theme VARCHAR(20) DEFAULT 'system',
     density VARCHAR(20) DEFAULT 'comfortable',
+    smtp_override_enabled BOOLEAN DEFAULT false,
+    smtp_host TEXT,
+    smtp_port INTEGER,
+    smtp_secure BOOLEAN,
+    smtp_user TEXT,
+    smtp_password_encrypted TEXT,
+    smtp_from TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -623,6 +671,15 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
     applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+SELECT setval(
+    'app_integrations_id_seq',
+    GREATEST((SELECT COALESCE(MAX(id), 1) FROM app_integrations), 1),
+    true
+);
+
+ALTER SEQUENCE app_integrations_id_seq
+    OWNED BY app_integrations.id;
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_media_title ON media(title);
 CREATE INDEX IF NOT EXISTS idx_media_format ON media(format);
@@ -665,11 +722,14 @@ CREATE INDEX IF NOT EXISTS idx_user_sessions_support_space_id ON user_sessions(s
 CREATE INDEX IF NOT EXISTS idx_user_sessions_support_request_id ON user_sessions(support_request_id) WHERE support_request_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user_id ON password_reset_tokens(user_id);
 CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_active ON password_reset_tokens(used, revoked, expires_at);
+CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_user_id ON email_verification_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_active ON email_verification_tokens(used, revoked, expires_at);
 CREATE INDEX IF NOT EXISTS idx_libraries_name ON libraries(name);
 CREATE INDEX IF NOT EXISTS idx_spaces_slug_active ON spaces (lower(slug)) WHERE slug IS NOT NULL AND archived_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_spaces_created_by ON spaces(created_by);
 CREATE INDEX IF NOT EXISTS idx_space_memberships_space_id ON space_memberships(space_id);
 CREATE INDEX IF NOT EXISTS idx_space_memberships_user_id ON space_memberships(user_id);
+CREATE INDEX IF NOT EXISTS idx_space_memberships_user_active ON space_memberships(user_id, space_id) WHERE suspended_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_library_memberships_user_id ON library_memberships(user_id);
 CREATE INDEX IF NOT EXISTS idx_library_memberships_library_id ON library_memberships(library_id);
 CREATE INDEX IF NOT EXISTS idx_sync_jobs_status_created_at ON sync_jobs(status, created_at DESC);
@@ -811,6 +871,37 @@ $$;
 -- Seed singleton rows
 INSERT INTO app_integrations (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
 INSERT INTO app_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+
+UPDATE app_integrations
+   SET pricecharting_rate_limit_ms = 1100
+ WHERE pricecharting_rate_limit_ms IS NULL
+    OR pricecharting_rate_limit_ms < 1100;
+
+UPDATE app_integrations
+   SET pricecharting_api_url = 'https://www.pricecharting.com/api'
+ WHERE COALESCE(TRIM(pricecharting_api_url), '') = '';
+
+UPDATE app_integrations
+   SET ebay_browse_api_url = 'https://api.ebay.com/buy/browse/v1/item_summary/search'
+ WHERE COALESCE(TRIM(ebay_browse_api_url), '') = '';
+
+UPDATE app_integrations
+   SET ebay_browse_marketplace_id = 'EBAY_US'
+ WHERE COALESCE(TRIM(ebay_browse_marketplace_id), '') = '';
+
+UPDATE users
+   SET email_verified = true,
+       email_verified_at = COALESCE(email_verified_at, created_at)
+ WHERE email_verified = false
+   AND (
+     role IN ('admin', 'support_admin')
+     OR EXISTS (
+       SELECT 1
+       FROM space_memberships sm
+       WHERE sm.user_id = users.id
+         AND sm.role = 'owner'
+     )
+   );
 INSERT INTO feature_flags (key, enabled, description) VALUES
     ('import_plex_enabled', true, 'Allow Plex imports from the Import page and API'),
     ('import_csv_enabled', true, 'Allow CSV imports (generic and Delicious)'),
@@ -884,5 +975,11 @@ INSERT INTO schema_migrations (version, description) VALUES
     (55, 'Add observability endpoint validation fields'),
     (56, 'Add observability endpoint label fields'),
     (57, 'Add observability endpoint debug field'),
-    (58, 'Add multi-format ownership fields for media entries')
+    (58, 'Add multi-format ownership fields for media entries'),
+    (59, 'Allow one integration config row per space'),
+    (60, 'Add space-scoped settings and library visibility controls'),
+    (61, 'Add platform SMTP settings overrides'),
+    (62, 'Add SaaS email verification state and tokens'),
+    (63, 'Add workspace membership suspension lifecycle fields'),
+    (64, 'Add optional valuation fields and platform valuation provider settings')
 ON CONFLICT (version) DO NOTHING;
