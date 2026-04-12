@@ -8,7 +8,7 @@ test.use({ storageState: { cookies: [], origins: [] } });
 
 test.describe('help center browser regressions', () => {
   test('end user can create, reply to, close, reopen, and review support history in Help Center', async ({ page }) => {
-    const credentials = await createFreshUserCredentials();
+    const credentials = await createFreshUserCredentials({ noCache: true });
     const subject = `Playwright help flow ${Date.now()}`;
     const message = 'Need browser-level help coverage for the Help Center flow.';
     const reply = 'Adding a follow-up from the browser so this thread has realistic history.';

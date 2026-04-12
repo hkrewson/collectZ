@@ -4170,8 +4170,11 @@ router.get('/', asyncHandler(async (req, res) => {
   });
 }));
 
-router.get('/:id', asyncHandler(async (req, res) => {
+router.get('/:id', asyncHandler(async (req, res, next) => {
   const scopeContext = resolveScopeContext(req);
+  if (!/^\d+$/.test(String(req.params.id || ''))) {
+    return next();
+  }
   const mediaId = Number(req.params.id);
   if (!Number.isFinite(mediaId) || mediaId <= 0) {
     return res.status(400).json({ error: 'Invalid media id' });

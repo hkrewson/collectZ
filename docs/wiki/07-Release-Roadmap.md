@@ -2774,8 +2774,8 @@ Historical note:
   - current direction for this stage:
     - cut production Docker/nginx over to Vite output first,
     - move local maintainer defaults (`start`, `build`, `preview`) to Vite once the production cutover is proven,
-    - keep CRA scripts temporarily as a rollback rail,
-    - remove CRA only after Docker, CI, and browser regression stay green on the Vite path.
+    - prove Docker, CI, and browser regression on the Vite path,
+    - then retire the temporary CRA rollback rail.
 - Stage 4: remove CRA
   - remove `react-scripts` and the old CRA-only dependency surface,
   - confirm the remaining frontend advisory cluster is actually gone from the lockfile and CI scans.

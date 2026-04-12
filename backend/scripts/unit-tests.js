@@ -285,6 +285,7 @@ results.push(run('media routes expose explicit owned_formats import parsing for 
 results.push(run('media route source includes valuation refresh + media detail endpoints', () => {
   assert.ok(mediaRoutesSource.includes("router.get('/:id'"));
   assert.ok(mediaRoutesSource.includes("router.post('/:id/valuation-refresh'"));
+  assert.ok(mediaRoutesSource.includes("String(req.params.id || '')"));
   assert.ok(mediaRoutesSource.includes("jobType: 'valuation_refresh'"));
   assert.ok(mediaRoutesSource.includes('async function queueImportedValuationRefresh('));
   assert.ok(mediaRoutesSource.includes("req.get('x-valuation-refresh-mode')"));
@@ -1539,6 +1540,12 @@ results.push(run('media route source stores tmdb poster miss samples in async jo
   assert.ok(mediaRoutesSource.includes('posterPresentAfterEnrichment'));
 }));
 
+results.push(run('media route source prevents sync jobs and collections routes from being shadowed by generic media ids', () => {
+  assert.ok(mediaRoutesSource.includes("router.get('/sync-jobs'"));
+  assert.ok(mediaRoutesSource.includes("router.get('/collections'"));
+  assert.ok(mediaRoutesSource.includes("return next();"));
+}));
+
 results.push(run('media route source records import enrichment metrics for csv and plex paths', () => {
   assert.ok(mediaRoutesSource.includes("recordImportJobEvent('csv_generic', 'queued')"));
   assert.ok(mediaRoutesSource.includes("recordImportJobEvent('csv_calibre', 'queued')"));
@@ -1992,17 +1999,20 @@ results.push(run('frontend syncs active space alongside active library context',
   assert.ok(frontendAppSource.includes("active_space_id: nextActiveSpaceId, active_library_id: nextActiveLibraryId"));
 }));
 
-results.push(run('frontend package and vite scaffold support a parallel CRA-to-Vite migration path', () => {
+results.push(run('frontend package and vite scaffold support the Vite-first build contract', () => {
   assert.strictEqual(frontendPackageJson.devDependencies.vite !== undefined, true);
   assert.strictEqual(frontendPackageJson.devDependencies['@vitejs/plugin-react'] !== undefined, true);
   assert.strictEqual(frontendPackageJson.devDependencies.esbuild !== undefined, true);
+  assert.strictEqual(frontendPackageJson.devDependencies['react-scripts'], undefined);
   assert.strictEqual(frontendPackageJson.scripts.start, 'vite');
   assert.strictEqual(frontendPackageJson.scripts.build, 'vite build');
   assert.strictEqual(frontendPackageJson.scripts.preview, 'vite preview --host 0.0.0.0');
-  assert.strictEqual(frontendPackageJson.scripts['start:cra'], 'react-scripts start');
-  assert.strictEqual(frontendPackageJson.scripts['build:cra'], 'react-scripts build');
   assert.strictEqual(frontendPackageJson.scripts['dev:vite'], 'vite');
   assert.strictEqual(frontendPackageJson.scripts['build:vite'], 'vite build');
+  assert.strictEqual(frontendPackageJson.scripts['start:cra'], undefined);
+  assert.strictEqual(frontendPackageJson.scripts['build:cra'], undefined);
+  assert.strictEqual(frontendPackageJson.scripts.test, undefined);
+  assert.strictEqual(frontendPackageJson.scripts.eject, undefined);
   assert.ok(frontendViteConfigSource.includes('REACT_APP_API_URL'));
   assert.ok(frontendViteConfigSource.includes("'/api'"));
   assert.ok(frontendViteConfigSource.includes("'/uploads'"));
