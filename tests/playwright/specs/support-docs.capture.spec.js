@@ -24,8 +24,10 @@ test.describe('support docs capture flows @capture', () => {
       await requestContext.dispose();
     }
 
+    await signInThroughUi(page, adminCredentials);
     await page.goto('/dashboard?tab=support-inbox');
-    await expect(page.getByRole('heading', { name: 'Support Inbox' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Help Admin' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Support', exact: true })).toBeVisible();
     await page.getByRole('textbox', { name: 'Search queue' }).fill(fixtureSubject);
 
     const requestCard = page.locator('button').filter({ hasText: fixtureSubject }).first();
@@ -50,7 +52,7 @@ test.describe('help center docs capture flows @capture', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
   test('capture Help Center support and releases surfaces for end-user docs', async ({ page }) => {
-    const credentials = await createFreshUserCredentials();
+    const credentials = await createFreshUserCredentials({ noCache: true, name: 'Playwright Help Center User' });
     const subject = `Capture help flow ${Date.now()}`;
 
     await page.setViewportSize({ width: 1600, height: 1000 });

@@ -124,6 +124,15 @@ const IMPORT_AUDIT_OUTCOMES = [
   'collection_only'
 ];
 const GAME_UPC_FIRST_ENABLED = String(process.env.GAME_UPC_FIRST || 'false').trim().toLowerCase() === 'true';
+const PLAYWRIGHT_E2E_BYPASS_TOKEN = String(process.env.PLAYWRIGHT_E2E_BYPASS_TOKEN || '').trim();
+
+function requestHasPlaywrightBypass(req) {
+  if (!PLAYWRIGHT_E2E_BYPASS_TOKEN) return false;
+  return (
+    String(req.headers['x-playwright-e2e-bypass'] || '').trim() === PLAYWRIGHT_E2E_BYPASS_TOKEN
+    || String(req.cookies?.playwright_e2e_bypass || '').trim() === PLAYWRIGHT_E2E_BYPASS_TOKEN
+  );
+}
 
 const parsePlexRatingKeyFromItemKey = (itemKey) => {
   const raw = String(itemKey || '').trim();
@@ -4187,7 +4196,7 @@ router.post('/:id/valuation-refresh', validate(mediaValuationRefreshSchema), asy
   }
 
   const mode = String(req.body?.mode || 'live').trim().toLowerCase();
-  if (mode === 'fixture' && process.env.NODE_ENV === 'production') {
+  if (mode === 'fixture' && process.env.NODE_ENV === 'production' && !requestHasPlaywrightBypass(req)) {
     return res.status(403).json({ error: 'Fixture valuation mode is not available in production' });
   }
 

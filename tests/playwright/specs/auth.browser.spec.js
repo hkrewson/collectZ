@@ -36,12 +36,21 @@ test('login screen exposes the forgot-password request flow', async ({ page }) =
 test('login screen exposes self-registration when public registration is available', async ({ page }) => {
   await page.goto('/login');
 
-  await expect(page.getByRole('button', { name: 'Register' })).toBeVisible();
-  await page.getByRole('button', { name: 'Register' }).click();
+  const authConfigResponse = await page.request.get('/api/auth/config');
+  expect(authConfigResponse.ok()).toBeTruthy();
+  const authConfig = await authConfigResponse.json();
 
-  await expect(page).toHaveURL(/\/register$/);
-  await expect(page.getByText('Name')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Register' })).toBeVisible();
+  if (authConfig.register_available) {
+    await expect(page.getByRole('button', { name: 'Register' })).toBeVisible();
+    await page.getByRole('button', { name: 'Register' }).click();
+
+    await expect(page).toHaveURL(/\/register$/);
+    await expect(page.getByText('Name')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Register' })).toBeVisible();
+  } else {
+    await expect(page.getByRole('button', { name: 'Register' })).toHaveCount(0);
+    await expect(page).toHaveURL(/\/login$/);
+  }
 });
 
 test('verify-email route handles invalid tokens gracefully', async ({ page }) => {

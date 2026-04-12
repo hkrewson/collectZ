@@ -362,14 +362,16 @@ async function createFreshAdminCredentials() {
 async function createFreshUserCredentials() {
   let role = 'user';
   let fallbackName = 'Playwright User';
+  let noCache = false;
   if (arguments[0] && typeof arguments[0] === 'object') {
     role = String(arguments[0].role || 'user');
     fallbackName = String(arguments[0].name || (role === 'support_admin' ? 'Playwright Support Admin' : 'Playwright User'));
+    noCache = Boolean(arguments[0].noCache);
   } else if (typeof arguments[0] === 'string' && arguments[0]) {
     role = String(arguments[0]);
     fallbackName = role === 'support_admin' ? 'Playwright Support Admin' : 'Playwright User';
   }
-  const cachedCredentials = FRESH_CREDENTIALS_CACHE.get(role);
+  const cachedCredentials = noCache ? null : FRESH_CREDENTIALS_CACHE.get(role);
   if (cachedCredentials) {
     return { ...cachedCredentials };
   }
@@ -418,7 +420,7 @@ async function createFreshUserCredentials() {
         }, 200);
         if (role === 'user') {
           const createdCredentials = { email: fallbackEmail, password: fallbackPassword, name: fallbackName, role };
-          FRESH_CREDENTIALS_CACHE.set(role, createdCredentials);
+          if (!noCache) FRESH_CREDENTIALS_CACHE.set(role, createdCredentials);
           return { ...createdCredentials };
         }
       } finally {
@@ -443,7 +445,7 @@ async function createFreshUserCredentials() {
 
       await patchWithCsrf(bootstrapContext, `/api/admin/users/${createdUserId}/role`, { role }, 200);
       const createdCredentials = { email: fallbackEmail, password: fallbackPassword, name: fallbackName, role };
-      FRESH_CREDENTIALS_CACHE.set(role, createdCredentials);
+      if (!noCache) FRESH_CREDENTIALS_CACHE.set(role, createdCredentials);
       return { ...createdCredentials };
     } finally {
       await bootstrapContext.dispose();
@@ -462,7 +464,7 @@ async function createFreshUserCredentials() {
     role
   });
   const createdCredentials = { email: fallbackEmail, password: fallbackPassword, name: fallbackName, role };
-  FRESH_CREDENTIALS_CACHE.set(role, createdCredentials);
+  if (!noCache) FRESH_CREDENTIALS_CACHE.set(role, createdCredentials);
   return { ...createdCredentials };
 }
 
