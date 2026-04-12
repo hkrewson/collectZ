@@ -73,9 +73,11 @@ const supportRoutesSource = require('fs').readFileSync(require.resolve('../route
 const spacesServiceSource = require('fs').readFileSync(require.resolve('../services/spaces'), 'utf8');
 const frontendAppSource = require('fs').readFileSync(require.resolve('../../frontend/src/App'), 'utf8');
 const sidebarNavSource = require('fs').readFileSync(require.resolve('../../frontend/src/components/SidebarNav'), 'utf8');
+const dashboardShellSource = require('fs').readFileSync(require.resolve('../../frontend/src/components/app/DashboardShell'), 'utf8');
 const dashboardContentSource = require('fs').readFileSync(require.resolve('../../frontend/src/components/app/DashboardContent'), 'utf8');
 const dashboardRoutingSource = require('fs').readFileSync(require.resolve('../../frontend/src/components/app/dashboardRouting'), 'utf8');
 const productEditionFrontendSource = require('fs').readFileSync(require.resolve('../../frontend/src/components/app/productEdition'), 'utf8');
+const supportSessionBannerSource = require('fs').readFileSync(require.resolve('../../frontend/src/components/app/SupportSessionBanner'), 'utf8');
 const helpViewSource = require('fs').readFileSync(require.resolve('../../frontend/src/components/HelpView'), 'utf8');
 const adminUsersViewSource = require('fs').readFileSync(require.resolve('../../frontend/src/components/AdminUsersView'), 'utf8');
 const rootPackageJson = JSON.parse(require('fs').readFileSync(require.resolve('../../package.json'), 'utf8'));
@@ -545,7 +547,7 @@ results.push(run('migrations source includes support role and help foundation sc
 }));
 
 results.push(run('frontend app source includes support session banner and admin trigger plumbing', () => {
-  assert.ok(frontendAppSource.includes('Support session active'));
+  assert.ok(supportSessionBannerSource.includes('Support session active'));
   assert.ok(frontendAppSource.includes('/auth/support-session/start'));
   assert.ok(frontendAppSource.includes('request_id: requestId || undefined'));
   assert.ok(dashboardContentSource.includes('onStartSupportSession'));
@@ -602,9 +604,9 @@ results.push(run('frontend source includes tabbed help center and support inbox 
   assert.ok(helpViewSource.includes('Linked engineering work'));
   assert.ok(helpViewSource.includes('Tracked work'));
   assert.ok(helpViewSource.includes('effectiveRepoIssueUrl'));
-  assert.ok(frontendAppSource.includes('supportBadgeCount'));
-  assert.ok(frontendAppSource.includes('Requester:'));
-  assert.ok(frontendAppSource.includes('Case:'));
+  assert.ok(dashboardShellSource.includes('supportBadgeCount'));
+  assert.ok(supportSessionBannerSource.includes('Requester:'));
+  assert.ok(supportSessionBannerSource.includes('Case:'));
   assert.ok(helpViewSource.includes('Reply to Support'));
 }));
 
