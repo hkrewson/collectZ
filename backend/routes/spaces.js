@@ -43,6 +43,7 @@ const {
   updateSpaceFeatureFlag,
   FEATURE_FLAGS_READ_ONLY
 } = require('../services/featureFlags');
+const { getProductEdition, resolvePersistedActiveSpaceId } = require('../config/productEdition');
 
 const router = express.Router();
 
@@ -511,6 +512,7 @@ router.get('/spaces/:id/activity', asyncHandler(async (req, res) => {
 }));
 
 router.post('/spaces/select', requireSessionAuth, asyncHandler(async (req, res) => {
+  const productEdition = getProductEdition();
   if (req.user.role === 'admin') {
     return res.status(403).json({ error: 'Global admins must use explicit support-session controls instead of generic space selection' });
   }
@@ -541,7 +543,7 @@ router.post('/spaces/select', requireSessionAuth, asyncHandler(async (req, res) 
        SET active_space_id = $2,
            active_library_id = $3
        WHERE id = $1`,
-      [req.user.id, spaceId, nextLibraryId]
+      [req.user.id, resolvePersistedActiveSpaceId(spaceId, productEdition), nextLibraryId]
     );
     req.user.scopeSpaceId = spaceId;
     req.user.activeSpaceId = spaceId;
@@ -1391,7 +1393,11 @@ router.post('/spaces/:id/members/:memberId/transfer-new-space', validate(spaceTr
        SET active_space_id = $2,
            active_library_id = $3
        WHERE id = $1`,
-      [sourceMembership.rows[0].user_id, newSpace.id, librariesInNewSpace.rows[0]?.id || null]
+      [
+        sourceMembership.rows[0].user_id,
+        resolvePersistedActiveSpaceId(newSpace.id, getProductEdition()),
+        librariesInNewSpace.rows[0]?.id || null
+      ]
     );
 
     await client.query('COMMIT');

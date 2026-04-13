@@ -406,6 +406,10 @@ router.post('/libraries/:id/archive', validate(libraryArchiveSchema), asyncHandl
       `SELECT lm.library_id, l.space_id
        FROM library_memberships lm
        JOIN libraries l ON l.id = lm.library_id
+       JOIN space_memberships sm
+         ON sm.space_id = l.space_id
+        AND sm.user_id = lm.user_id
+        AND sm.suspended_at IS NULL
        WHERE lm.user_id = $1
          AND l.archived_at IS NULL
        ORDER BY lm.created_at ASC, lm.library_id ASC
@@ -516,6 +520,10 @@ router.delete('/libraries/:id', validate(libraryDeleteSchema), asyncHandler(asyn
       `SELECT lm.library_id, l.space_id
        FROM library_memberships lm
        JOIN libraries l ON l.id = lm.library_id
+       JOIN space_memberships sm
+         ON sm.space_id = l.space_id
+        AND sm.user_id = lm.user_id
+        AND sm.suspended_at IS NULL
        WHERE lm.user_id = $1
          AND l.archived_at IS NULL
        ORDER BY lm.created_at ASC, lm.library_id ASC

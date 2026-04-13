@@ -712,9 +712,12 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(personalAccessTokenSource.includes('COALESCE(active_library.space_id, u.active_space_id, fallback_library.space_id) AS active_space_id'));
   assert.ok(serviceAccountKeySource.includes('COALESCE(active_library.space_id, owner.active_space_id, fallback_library.space_id) AS scope_space_id'));
   assert.ok(serviceAccountKeySource.includes('COALESCE(active_library.space_id, owner.active_space_id, fallback_library.space_id) AS active_space_id'));
-  assert.ok(sessionsServiceSource.includes('LEFT JOIN libraries active_library ON active_library.id = u.active_library_id'));
-  assert.ok(personalAccessTokenSource.includes('LEFT JOIN libraries active_library ON active_library.id = u.active_library_id'));
-  assert.ok(serviceAccountKeySource.includes('LEFT JOIN libraries active_library ON active_library.id = owner.active_library_id'));
+  assert.ok(sessionsServiceSource.includes('LEFT JOIN libraries active_library'));
+  assert.ok(sessionsServiceSource.includes('active_library.archived_at IS NULL'));
+  assert.ok(personalAccessTokenSource.includes('LEFT JOIN libraries active_library'));
+  assert.ok(personalAccessTokenSource.includes('active_library.archived_at IS NULL'));
+  assert.ok(serviceAccountKeySource.includes('LEFT JOIN libraries active_library'));
+  assert.ok(serviceAccountKeySource.includes('active_library.archived_at IS NULL'));
   assert.ok(scopeContextSource.includes('req?.user?.scopeSpaceId ?? req?.user?.activeSpaceId'));
   assert.ok(authRoutesSource.includes('req.user.scopeSpaceId = supportSpace.id;'));
   assert.ok(authRoutesSource.includes('req.user.scopeSpaceId = currentSession.support_previous_space_id || null;'));
@@ -2063,6 +2066,9 @@ results.push(run('admin routes expose platform space control-plane endpoints', (
   assert.ok(adminRoutesSource.includes("platformRouter.delete('/spaces/:id'"));
   assert.ok(adminRoutesSource.includes("platformRouter.use(enforceScopeAccess({ allowedHintRoles: ['admin'] }));"));
   assert.ok(adminRoutesSource.includes("COUNT(*)::int AS membership_count"));
+  assert.ok(adminRoutesSource.includes('FROM libraries l'));
+  assert.ok(adminRoutesSource.includes('WHERE l.id = u.active_library_id'));
+  assert.ok(adminRoutesSource.includes('AND l.space_id = $1'));
   assert.ok(!adminRoutesSource.includes('contributionScore'));
 }));
 
@@ -2101,6 +2107,8 @@ results.push(run('request origin helper supports configured or forwarded host va
 
 results.push(run('library routes preserve active space when replacing archived or deleted libraries', () => {
   assert.ok(librariesRoutesSource.includes('SELECT lm.library_id, l.space_id'));
+  assert.ok(librariesRoutesSource.includes('JOIN space_memberships sm'));
+  assert.ok(librariesRoutesSource.includes('sm.suspended_at IS NULL'));
   assert.ok(librariesRoutesSource.includes('resolvePersistedActiveSpaceId'));
   assert.ok(librariesRoutesSource.includes('SET active_space_id = $2,'));
 }));
@@ -2145,6 +2153,9 @@ results.push(run('library transfer source revokes previous owner membership on o
 
 results.push(run('spaces select route is session-auth only for active scope mutation', () => {
   assert.ok(spacesRoutesSource.includes("router.post('/spaces/select', requireSessionAuth"));
+  assert.ok(spacesRoutesSource.includes('const productEdition = getProductEdition();'));
+  assert.ok(spacesRoutesSource.includes('resolvePersistedActiveSpaceId(spaceId, productEdition)'));
+  assert.ok(spacesRoutesSource.includes('resolvePersistedActiveSpaceId(newSpace.id, getProductEdition())'));
 }));
 
 results.push(run('auth register flow applies scoped invite role before ensuring default scope', () => {
@@ -2163,7 +2174,16 @@ results.push(run('scope access source enforces explicit space membership for non
 
 results.push(run('token auth sources derive fallback scope from accessible libraries', () => {
   assert.ok(personalAccessTokenSource.includes('COALESCE(active_library.space_id, u.active_space_id, fallback_library.space_id)'));
+  assert.ok(personalAccessTokenSource.includes('COALESCE(active_library.id, fallback_library.id) AS active_library_id'));
+  assert.ok(sessionsServiceSource.includes('COALESCE(active_library.id, fallback_library.id) AS active_library_id'));
   assert.ok(serviceAccountKeySource.includes('COALESCE(active_library.space_id, owner.active_space_id, fallback_library.space_id)'));
+  assert.ok(serviceAccountKeySource.includes('COALESCE(active_library.id, fallback_library.id) AS active_library_id'));
+  assert.ok(sessionsServiceSource.includes('JOIN space_memberships sm'));
+  assert.ok(personalAccessTokenSource.includes('JOIN space_memberships sm'));
+  assert.ok(serviceAccountKeySource.includes('JOIN space_memberships sm'));
+  assert.ok(sessionsServiceSource.includes('sm.suspended_at IS NULL'));
+  assert.ok(personalAccessTokenSource.includes('sm.suspended_at IS NULL'));
+  assert.ok(serviceAccountKeySource.includes('sm.suspended_at IS NULL'));
 }));
 
 results.push(run('frontend syncs active space alongside active library context', () => {

@@ -981,11 +981,33 @@ platformRouter.patch('/spaces/:id/archive', validate(adminSpaceArchiveSchema), a
     );
     if (archived) {
       await client.query(
-        `UPDATE users
-         SET active_space_id = CASE WHEN active_space_id = $2 THEN NULL ELSE active_space_id END,
-             active_library_id = CASE WHEN active_space_id = $2 THEN NULL ELSE active_library_id END
-         WHERE active_space_id = $1 OR active_space_id = $2`,
-        [spaceId, spaceId]
+        `UPDATE users u
+         SET active_space_id = CASE
+               WHEN u.active_space_id = $1 OR EXISTS (
+                 SELECT 1
+                 FROM libraries l
+                 WHERE l.id = u.active_library_id
+                   AND l.space_id = $1
+               ) THEN NULL
+               ELSE u.active_space_id
+             END,
+             active_library_id = CASE
+               WHEN u.active_space_id = $1 OR EXISTS (
+                 SELECT 1
+                 FROM libraries l
+                 WHERE l.id = u.active_library_id
+                   AND l.space_id = $1
+               ) THEN NULL
+               ELSE u.active_library_id
+             END
+         WHERE u.active_space_id = $1
+            OR EXISTS (
+              SELECT 1
+              FROM libraries l
+              WHERE l.id = u.active_library_id
+                AND l.space_id = $1
+            )`,
+        [spaceId]
       );
     }
 
@@ -1051,11 +1073,33 @@ platformRouter.delete('/spaces/:id', asyncHandler(async (req, res) => {
     await client.query('DELETE FROM invites WHERE space_id = $1', [spaceId]);
     await client.query('DELETE FROM space_memberships WHERE space_id = $1', [spaceId]);
     await client.query(
-      `UPDATE users
-       SET active_space_id = CASE WHEN active_space_id = $2 THEN NULL ELSE active_space_id END,
-           active_library_id = CASE WHEN active_space_id = $2 THEN NULL ELSE active_library_id END
-       WHERE active_space_id = $1 OR active_space_id = $2`,
-      [spaceId, spaceId]
+      `UPDATE users u
+       SET active_space_id = CASE
+             WHEN u.active_space_id = $1 OR EXISTS (
+               SELECT 1
+               FROM libraries l
+               WHERE l.id = u.active_library_id
+                 AND l.space_id = $1
+             ) THEN NULL
+             ELSE u.active_space_id
+           END,
+           active_library_id = CASE
+             WHEN u.active_space_id = $1 OR EXISTS (
+               SELECT 1
+               FROM libraries l
+               WHERE l.id = u.active_library_id
+                 AND l.space_id = $1
+             ) THEN NULL
+             ELSE u.active_library_id
+           END
+       WHERE u.active_space_id = $1
+          OR EXISTS (
+            SELECT 1
+            FROM libraries l
+            WHERE l.id = u.active_library_id
+              AND l.space_id = $1
+          )`,
+      [spaceId]
     );
     await client.query('DELETE FROM spaces WHERE id = $1', [spaceId]);
     await client.query('COMMIT');

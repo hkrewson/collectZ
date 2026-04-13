@@ -62,14 +62,20 @@ const getSessionUserByToken = async (token) => {
        u.role,
        COALESCE(active_library.space_id, u.active_space_id, fallback_library.space_id) AS scope_space_id,
        COALESCE(active_library.space_id, u.active_space_id, fallback_library.space_id) AS active_space_id,
-       COALESCE(u.active_library_id, fallback_library.id) AS active_library_id
+       COALESCE(active_library.id, fallback_library.id) AS active_library_id
      FROM user_sessions s
      JOIN users u ON u.id = s.user_id
-     LEFT JOIN libraries active_library ON active_library.id = u.active_library_id
+     LEFT JOIN libraries active_library
+       ON active_library.id = u.active_library_id
+      AND active_library.archived_at IS NULL
      LEFT JOIN LATERAL (
        SELECT l.id, l.space_id
        FROM library_memberships lm
        JOIN libraries l ON l.id = lm.library_id
+       JOIN space_memberships sm
+         ON sm.space_id = l.space_id
+        AND sm.user_id = lm.user_id
+        AND sm.suspended_at IS NULL
        WHERE lm.user_id = u.id
          AND l.archived_at IS NULL
        ORDER BY lm.created_at ASC, lm.library_id ASC
