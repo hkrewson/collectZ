@@ -2857,6 +2857,8 @@ Historical note:
     - shared library-membership removal continues to be tightened so removing a user's library access in a space immediately clears stale active-library and support-library pointers and opportunistically restores a replacement accessible library instead of depending on later fallback/bootstrap to repair the user's scope.
     - support-session bootstrap continues to be tightened so the stored previous support-session scope is validated against currently accessible space/library state before it is saved, preventing stale previous-space or previous-library pointers from being carried forward into support-session metadata.
     - support-session teardown continues to be tightened so request-level restored scope and support-session audit metadata use the same validated previous scope instead of copying raw previous-space or previous-library ids directly out of the session row.
+    - support-session `/api/auth/me` payload shaping continues to be tightened so active support-session library state is validated against the current support space instead of echoing a stale `supportLibraryId` directly out of request auth state.
+    - support-session scope payload shaping continues to be tightened so normalized support-session space/library results are written back into request auth state and invalid support-session request pointers are cleared instead of lingering after payload construction.
 - Shared core extraction:
   - identify and extract domain logic that should be implemented once and consumed by both products,
   - expected core areas include media/import logic, shared auth/session primitives, shared API client patterns, shared UI primitives, and edition-safe integrations/metadata services.

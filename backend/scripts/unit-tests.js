@@ -724,6 +724,17 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(authRoutesSource.includes('const previousSpace = await getAccessibleSpaceForUser(client, {'));
   assert.ok(authRoutesSource.includes('const previousLibraries = await listLibrariesForSpace({'));
   assert.ok(authRoutesSource.includes('} = await resolveSupportPreviousScope(client, req, currentSession);'));
+  assert.ok(authRoutesSource.includes('const supportSpace = await getSupportSpaceSummary(client, Number(req.user.supportSpaceId));'));
+  assert.ok(authRoutesSource.includes('const libraries = await listSupportLibrariesForSpace(client, supportSpace.id);'));
+  assert.ok(authRoutesSource.includes('const requestedLibraryId = Number(req.user.supportLibraryId || 0) || null;'));
+  assert.ok(authRoutesSource.includes('req.user.supportSpaceId = null;'));
+  assert.ok(authRoutesSource.includes('req.user.supportLibraryId = null;'));
+  assert.ok(authRoutesSource.includes('req.user.supportRequestId = null;'));
+  assert.ok(authRoutesSource.includes('req.user.supportStartedAt = null;'));
+  assert.ok(authRoutesSource.includes('req.user.supportReason = null;'));
+  assert.ok(authRoutesSource.includes('req.user.supportPreviousSpaceId = null;'));
+  assert.ok(authRoutesSource.includes('req.user.supportPreviousLibraryId = null;'));
+  assert.ok(authRoutesSource.includes('req.user.supportLibraryId = activeLibraryId;'));
   assert.ok(authRoutesSource.includes('req.user.scopeSpaceId = supportSpace.id;'));
   assert.ok(authRoutesSource.includes('req.user.scopeSpaceId = previousSpaceId;'));
   assert.ok(authRoutesSource.includes('req.user.scopeSpaceId = null;'));

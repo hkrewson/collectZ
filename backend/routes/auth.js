@@ -142,6 +142,16 @@ async function buildAuthScopePayload(req) {
     try {
       const supportSpace = await getSupportSpaceSummary(client, Number(req.user.supportSpaceId));
       if (!supportSpace) {
+        req.user.supportSpaceId = null;
+        req.user.supportLibraryId = null;
+        req.user.supportRequestId = null;
+        req.user.supportStartedAt = null;
+        req.user.supportReason = null;
+        req.user.supportPreviousSpaceId = null;
+        req.user.supportPreviousLibraryId = null;
+        req.user.scopeSpaceId = null;
+        req.user.activeSpaceId = null;
+        req.user.activeLibraryId = null;
         return {
           active_space_id: null,
           active_library_id: null,
@@ -158,6 +168,8 @@ async function buildAuthScopePayload(req) {
         : (libraries[0]?.id || null);
       const supportRequestSummary = await getSupportRequestSessionSummary(client, Number(req.user.supportRequestId || 0) || null);
       const activeLibrary = libraries.find((library) => Number(library.id) === Number(activeLibraryId)) || null;
+      req.user.supportSpaceId = supportSpace.id;
+      req.user.supportLibraryId = activeLibraryId;
       req.user.scopeSpaceId = supportSpace.id;
       req.user.activeSpaceId = supportSpace.id;
       req.user.activeLibraryId = activeLibraryId;
@@ -199,6 +211,13 @@ async function buildAuthScopePayload(req) {
   }
 
   if (req.user?.role === 'support_admin') {
+    req.user.supportSpaceId = null;
+    req.user.supportLibraryId = null;
+    req.user.supportRequestId = null;
+    req.user.supportStartedAt = null;
+    req.user.supportReason = null;
+    req.user.supportPreviousSpaceId = null;
+    req.user.supportPreviousLibraryId = null;
     req.user.scopeSpaceId = null;
     req.user.activeSpaceId = null;
     req.user.activeLibraryId = null;
@@ -895,9 +914,26 @@ router.get('/me', authenticateToken, asyncHandler(async (req, res) => {
     req.user.activeSpaceId = ensuredScope.spaceId;
     req.user.activeLibraryId = ensuredScope.libraryId;
   } else if (Number(req.user?.supportSpaceId || 0) > 0) {
-    req.user.scopeSpaceId = req.user.supportSpaceId;
-    req.user.activeSpaceId = req.user.supportSpaceId;
-    req.user.activeLibraryId = req.user.supportLibraryId || null;
+    const client = await pool.connect();
+    try {
+      const supportSpace = await getSupportSpaceSummary(client, Number(req.user.supportSpaceId));
+      if (supportSpace) {
+        const libraries = await listSupportLibrariesForSpace(client, supportSpace.id);
+        const requestedLibraryId = Number(req.user.supportLibraryId || 0) || null;
+        const activeLibraryId = requestedLibraryId && libraries.some((library) => Number(library.id) === requestedLibraryId)
+          ? requestedLibraryId
+          : (libraries[0]?.id || null);
+        req.user.scopeSpaceId = supportSpace.id;
+        req.user.activeSpaceId = supportSpace.id;
+        req.user.activeLibraryId = activeLibraryId;
+      } else {
+        req.user.scopeSpaceId = null;
+        req.user.activeSpaceId = null;
+        req.user.activeLibraryId = null;
+      }
+    } finally {
+      client.release();
+    }
   } else {
     req.user.scopeSpaceId = null;
     req.user.activeSpaceId = null;
