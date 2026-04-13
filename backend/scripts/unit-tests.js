@@ -707,6 +707,10 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(personalAccessTokenSource.includes('AS scope_space_id'));
   assert.ok(serviceAccountKeySource.includes('AS scope_space_id'));
   assert.ok(scopeContextSource.includes('req?.user?.scopeSpaceId ?? req?.user?.activeSpaceId'));
+  assert.ok(authRoutesSource.includes('req.user.scopeSpaceId = supportSpace.id;'));
+  assert.ok(authRoutesSource.includes('req.user.scopeSpaceId = currentSession.support_previous_space_id || null;'));
+  assert.ok(authRoutesSource.includes('req.user.scopeSpaceId = null;'));
+  assert.ok(librariesRoutesSource.includes('const existingScopeSpaceId = req.user.scopeSpaceId ?? req.user.activeSpaceId ?? null;'));
   assert.ok(authRoutesSource.includes("platformRouter.post('/support-session/start'"));
   assert.ok(authRoutesSource.includes("platformRouter.delete('/support-session'"));
   assert.ok(adminRoutesSource.includes('adminCommonRouter'));

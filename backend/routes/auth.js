@@ -158,6 +158,9 @@ async function buildAuthScopePayload(req) {
         : (libraries[0]?.id || null);
       const supportRequestSummary = await getSupportRequestSessionSummary(client, Number(req.user.supportRequestId || 0) || null);
       const activeLibrary = libraries.find((library) => Number(library.id) === Number(activeLibraryId)) || null;
+      req.user.scopeSpaceId = supportSpace.id;
+      req.user.activeSpaceId = supportSpace.id;
+      req.user.activeLibraryId = activeLibraryId;
 
       return stripHomelabSpaceContext({
         active_space_id: supportSpace.id,
@@ -196,6 +199,9 @@ async function buildAuthScopePayload(req) {
   }
 
   if (req.user?.role === 'support_admin') {
+    req.user.scopeSpaceId = null;
+    req.user.activeSpaceId = null;
+    req.user.activeLibraryId = null;
     return stripHomelabSpaceContext({
       active_space_id: null,
       active_library_id: null,
@@ -206,6 +212,7 @@ async function buildAuthScopePayload(req) {
   }
 
   const ensuredScope = await ensureUserDefaultScope(req.user.id);
+  req.user.scopeSpaceId = ensuredScope.spaceId;
   req.user.activeSpaceId = ensuredScope.spaceId;
   req.user.activeLibraryId = ensuredScope.libraryId;
 
@@ -836,12 +843,15 @@ router.post('/password-reset/consume', validate(passwordResetConsumeSchema), asy
 router.get('/me', authenticateToken, asyncHandler(async (req, res) => {
   if (req.user?.role !== 'support_admin') {
     const ensuredScope = await ensureUserDefaultScope(req.user.id);
+    req.user.scopeSpaceId = ensuredScope.spaceId;
     req.user.activeSpaceId = ensuredScope.spaceId;
     req.user.activeLibraryId = ensuredScope.libraryId;
   } else if (Number(req.user?.supportSpaceId || 0) > 0) {
+    req.user.scopeSpaceId = req.user.supportSpaceId;
     req.user.activeSpaceId = req.user.supportSpaceId;
     req.user.activeLibraryId = req.user.supportLibraryId || null;
   } else {
+    req.user.scopeSpaceId = null;
     req.user.activeSpaceId = null;
     req.user.activeLibraryId = null;
   }
@@ -941,6 +951,7 @@ router.post('/scope', authenticateToken, requireSessionAuth, validate(authScopeS
   );
 
   req.user.activeSpaceId = nextSpaceId;
+  req.user.scopeSpaceId = nextSpaceId;
   req.user.activeLibraryId = nextLibraryId;
 
   await logActivity(req, 'auth.scope.select', 'user', req.user.id, {
@@ -1036,7 +1047,7 @@ platformRouter.post('/support-session/start', authenticateToken, requireSessionA
     }
 
     const currentSession = sessionResult.rows[0];
-    const previousSpaceId = Number(currentSession.support_previous_space_id || 0) || Number(req.user.activeSpaceId || 0) || null;
+    const previousSpaceId = Number(currentSession.support_previous_space_id || 0) || Number(req.user.scopeSpaceId || req.user.activeSpaceId || 0) || null;
     const previousLibraryId = Number(currentSession.support_previous_library_id || 0) || Number(req.user.activeLibraryId || 0) || null;
 
     await client.query(
@@ -1062,6 +1073,7 @@ platformRouter.post('/support-session/start', authenticateToken, requireSessionA
     req.user.supportReason = reason;
     req.user.supportPreviousSpaceId = previousSpaceId;
     req.user.supportPreviousLibraryId = previousLibraryId;
+    req.user.scopeSpaceId = targetSpaceId;
     req.user.activeSpaceId = targetSpaceId;
     req.user.activeLibraryId = targetLibraryId;
 
@@ -1144,6 +1156,9 @@ platformRouter.delete('/support-session', authenticateToken, requireSessionAuth,
     req.user.supportReason = null;
     req.user.supportPreviousSpaceId = null;
     req.user.supportPreviousLibraryId = null;
+    req.user.scopeSpaceId = currentSession.support_previous_space_id || null;
+    req.user.activeSpaceId = currentSession.support_previous_space_id || null;
+    req.user.activeLibraryId = currentSession.support_previous_library_id || null;
 
     const payload = await buildAuthScopePayload(req);
     res.json(payload);

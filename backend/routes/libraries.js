@@ -30,6 +30,7 @@ router.use('/libraries', enforceScopeAccess({ allowedHintRoles: ['admin'] }));
 router.get('/libraries', asyncHandler(async (req, res) => {
   const productEdition = getProductEdition();
   const ensuredScope = await ensureUserDefaultScope(req.user.id);
+  req.user.scopeSpaceId = ensuredScope.spaceId;
   req.user.activeLibraryId = ensuredScope.libraryId;
   req.user.activeSpaceId = ensuredScope.spaceId;
   const libraries = await listLibrariesForUser({ userId: req.user.id, role: req.user.role });
@@ -52,6 +53,7 @@ router.get('/libraries', asyncHandler(async (req, res) => {
        WHERE id = $1`,
       [req.user.id, resolvePersistedActiveSpaceId(fallbackLibrary.space_id || null, productEdition), fallbackLibrary.id]
     );
+    req.user.scopeSpaceId = fallbackLibrary.space_id || null;
     req.user.activeSpaceId = fallbackLibrary.space_id || null;
     req.user.activeLibraryId = fallbackLibrary.id;
   }
@@ -68,8 +70,9 @@ router.get('/libraries', asyncHandler(async (req, res) => {
 router.post('/libraries', validate(libraryCreateSchema), asyncHandler(async (req, res) => {
   const productEdition = getProductEdition();
   const { name, description } = req.body;
-  const ensuredScope = req.user.activeSpaceId
-    ? { spaceId: req.user.activeSpaceId, libraryId: req.user.activeLibraryId || null }
+  const existingScopeSpaceId = req.user.scopeSpaceId ?? req.user.activeSpaceId ?? null;
+  const ensuredScope = existingScopeSpaceId
+    ? { spaceId: existingScopeSpaceId, libraryId: req.user.activeLibraryId || null }
     : await ensureUserDefaultScope(req.user.id);
   const created = await pool.query(
     `INSERT INTO libraries (name, description, created_by, space_id)
@@ -106,6 +109,7 @@ router.post('/libraries', validate(libraryCreateSchema), asyncHandler(async (req
      WHERE id = $1`,
     [req.user.id, resolvePersistedActiveSpaceId(library.space_id || ensuredScope.spaceId || null, productEdition), library.id]
   );
+  req.user.scopeSpaceId = library.space_id || ensuredScope.spaceId || null;
   req.user.activeSpaceId = library.space_id || ensuredScope.spaceId || null;
   req.user.activeLibraryId = library.id;
 
@@ -222,6 +226,7 @@ router.post('/libraries/select', requireSessionAuth, validate(librarySelectSchem
       committed = true;
 
       req.user.activeLibraryId = library.id;
+      req.user.scopeSpaceId = supportSpaceId;
       req.user.activeSpaceId = supportSpaceId;
       req.user.supportLibraryId = library.id;
 
@@ -261,6 +266,7 @@ router.post('/libraries/select', requireSessionAuth, validate(librarySelectSchem
      WHERE id = $1`,
     [req.user.id, selected.id, resolvePersistedActiveSpaceId(selected.space_id || null, productEdition)]
   );
+  req.user.scopeSpaceId = selected.space_id || null;
   req.user.activeLibraryId = selected.id;
   req.user.activeSpaceId = selected.space_id || null;
 
