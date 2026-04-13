@@ -1599,6 +1599,90 @@ router.post('/spaces/:id/members/:memberId/transfer-new-space', validate(spaceTr
         librariesInNewSpace.rows[0]?.id || null
       ]
     );
+    await client.query(
+      `UPDATE user_sessions s
+       SET support_space_id = CASE
+             WHEN s.support_space_id = $2 OR EXISTS (
+               SELECT 1
+               FROM libraries l
+               WHERE l.id = s.support_library_id
+                 AND l.space_id = $2
+             ) THEN NULL
+             ELSE s.support_space_id
+           END,
+           support_library_id = CASE
+             WHEN s.support_space_id = $2 OR EXISTS (
+               SELECT 1
+               FROM libraries l
+               WHERE l.id = s.support_library_id
+                 AND l.space_id = $2
+             ) THEN NULL
+             ELSE s.support_library_id
+           END,
+           support_request_id = CASE
+             WHEN s.support_space_id = $2 OR EXISTS (
+               SELECT 1
+               FROM libraries l
+               WHERE l.id = s.support_library_id
+                 AND l.space_id = $2
+             ) THEN NULL
+             ELSE s.support_request_id
+           END,
+           support_started_at = CASE
+             WHEN s.support_space_id = $2 OR EXISTS (
+               SELECT 1
+               FROM libraries l
+               WHERE l.id = s.support_library_id
+                 AND l.space_id = $2
+             ) THEN NULL
+             ELSE s.support_started_at
+           END,
+           support_reason = CASE
+             WHEN s.support_space_id = $2 OR EXISTS (
+               SELECT 1
+               FROM libraries l
+               WHERE l.id = s.support_library_id
+                 AND l.space_id = $2
+             ) THEN NULL
+             ELSE s.support_reason
+           END,
+           support_previous_space_id = CASE
+             WHEN s.support_previous_space_id = $2 OR EXISTS (
+               SELECT 1
+               FROM libraries l
+               WHERE l.id = s.support_previous_library_id
+                 AND l.space_id = $2
+             ) THEN NULL
+             ELSE s.support_previous_space_id
+           END,
+           support_previous_library_id = CASE
+             WHEN s.support_previous_space_id = $2 OR EXISTS (
+               SELECT 1
+               FROM libraries l
+               WHERE l.id = s.support_previous_library_id
+                 AND l.space_id = $2
+             ) THEN NULL
+             ELSE s.support_previous_library_id
+           END
+       WHERE s.user_id = $1
+         AND (
+           s.support_space_id = $2
+           OR s.support_previous_space_id = $2
+           OR EXISTS (
+             SELECT 1
+             FROM libraries l
+             WHERE l.id = s.support_library_id
+               AND l.space_id = $2
+           )
+           OR EXISTS (
+             SELECT 1
+             FROM libraries l
+             WHERE l.id = s.support_previous_library_id
+               AND l.space_id = $2
+           )
+         )`,
+      [sourceMembership.rows[0].user_id, sourceSpaceId]
+    );
 
     await client.query('COMMIT');
 

@@ -2062,6 +2062,7 @@ results.push(run('spaces routes expose core spaces and memberships endpoints', (
   assert.ok(spacesRoutesSource.includes('UPDATE user_sessions s'));
   assert.ok(spacesRoutesSource.includes('s.support_previous_space_id = $2'));
   assert.ok(spacesRoutesSource.includes('WHERE s.user_id = $1'));
+  assert.ok(spacesRoutesSource.includes("await logActivity(req, 'space.member.transfer_new_space'"));
 }));
 
 results.push(run('admin routes expose platform space control-plane endpoints', () => {
