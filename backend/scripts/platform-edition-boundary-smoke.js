@@ -201,6 +201,7 @@ async function main() {
     const staffSummary = await admin.request('/api/support/staff/summary', { expectStatus: 200 });
     const adminUsers = await admin.request('/api/admin/users', { expectStatus: 200 });
     const generalSettings = await admin.request('/api/settings/general', { expectStatus: 200 });
+    const mediaFeatureFlags = await user.request('/api/media/feature-flags', { expectStatus: 200 });
     const emailDelivery = await admin.request('/api/admin/settings/email-delivery', { expectStatus: 200 });
     const integrations = await admin.request('/api/admin/settings/integrations', { expectStatus: 200 });
     const priceChartingTest = await admin.request('/api/admin/settings/integrations/test-pricecharting', {
@@ -258,6 +259,9 @@ async function main() {
     assert(typeof staffSummary.data?.queue?.open === 'number', `Platform /api/support/staff/summary must stay mounted: ${JSON.stringify(staffSummary.data)}`);
     assert(Array.isArray(adminUsers.data), `Platform /api/admin/users must stay mounted: ${JSON.stringify(adminUsers.data)}`);
     assert(typeof generalSettings.data?.theme === 'string', `Platform /api/settings/general must stay mounted: ${JSON.stringify(generalSettings.data)}`);
+    assert(typeof mediaFeatureFlags.data?.flags === 'object' && mediaFeatureFlags.data.flags !== null, `Platform /api/media/feature-flags must stay mounted: ${JSON.stringify(mediaFeatureFlags.data)}`);
+    assert(typeof mediaFeatureFlags.data?.flags?.events_enabled === 'boolean', `Platform /api/media/feature-flags must return boolean events_enabled: ${JSON.stringify(mediaFeatureFlags.data)}`);
+    assert(typeof mediaFeatureFlags.data?.flags?.collectibles_enabled === 'boolean', `Platform /api/media/feature-flags must return boolean collectibles_enabled: ${JSON.stringify(mediaFeatureFlags.data)}`);
     assert(typeof emailDelivery.data?.smtp === 'object' && emailDelivery.data.smtp !== null, `Platform /api/admin/settings/email-delivery must stay mounted: ${JSON.stringify(emailDelivery.data)}`);
     assert(typeof integrations.data === 'object' && integrations.data !== null, `Platform /api/admin/settings/integrations must stay mounted: ${JSON.stringify(integrations.data)}`);
     assert(typeof integrations.data?.valuationProviders === 'object' && integrations.data.valuationProviders !== null, `Platform integrations payload must keep valuation providers: ${JSON.stringify(integrations.data)}`);

@@ -613,6 +613,10 @@ results.push(run('frontend source includes tabbed help center and support inbox 
   assert.ok(dashboardContentSource.includes("case 'help'"));
   assert.ok(dashboardContentSource.includes("case 'support-inbox'"));
   assert.ok(frontendAppSource.includes('getSafeDashboardTab'));
+  assert.ok(frontendAppSource.includes('isSupportHelpEnabled'));
+  assert.ok(frontendAppSource.includes("const supportStaffInEdition = supportHelpEnabled && ['admin', 'support_admin'].includes"));
+  assert.ok(frontendAppSource.includes('const supportSessionActiveInEdition = supportHelpEnabled && Boolean(supportSession?.active);'));
+  assert.ok(frontendAppSource.includes('supportSessionActive: supportSessionActiveInEdition,'));
   assert.ok(adminUsersViewSource.includes('support_admin'));
   assert.ok(dashboardContentSource.includes('<HelpView'));
   assert.ok(helpViewSource.includes('/support/releases'));
@@ -646,6 +650,7 @@ results.push(run('frontend source includes tabbed help center and support inbox 
   assert.ok(helpViewSource.includes('Reply to Support'));
   assert.ok(dashboardShellSource.includes('const supportHelpEnabled = isSupportHelpEnabled(productEdition);'));
   assert.ok(dashboardShellSource.includes("const supportStaffInEdition = supportHelpEnabled && ['admin', 'support_admin'].includes"));
+  assert.ok(dashboardShellSource.includes('const supportSessionActiveInEdition = supportHelpEnabled && Boolean(supportSession?.active);'));
   assert.ok(dashboardShellSource.includes("supportBadgeCount={supportStaffInEdition ? supportSummary.open : null}"));
   assert.ok(supportSessionBannerSource.includes('isSupportHelpEnabled(productEdition)'));
   assert.ok(supportSessionBannerSource.includes("&& ['admin', 'support_admin'].includes(String(user?.role || ''));"));
@@ -672,6 +677,7 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(productEditionFrontendSource.includes("return 'admin-settings'"));
   assert.ok(helpViewSource.includes('A lightweight home for self-serve guidance and recent release notes for homelab users.'));
   assert.ok(frontendAppSource.includes('getSafeDashboardTab'));
+  assert.ok(frontendAppSource.includes('supportSessionActiveInEdition'));
   assert.ok(dashboardContentSource.includes('const supportHelpEnabled = isSupportHelpEnabled(productEdition);'));
   assert.ok(dashboardContentSource.includes("const supportStaffInEdition = supportHelpEnabled && ['admin', 'support_admin'].includes"));
   assert.ok(dashboardContentSource.includes("...(supportHelpEnabled ? ['support-inbox'] : []),"));
@@ -702,6 +708,12 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(adminRoutesSource.includes("platformRouter.put('/settings/email-delivery'"));
   assert.ok(adminRoutesSource.includes("platformRouter.post('/settings/email-delivery/test'"));
   assert.ok(adminRoutesSource.includes("Unknown feature flag: ${key}"));
+  assert.ok(integrationsRoutesSource.includes("const { resolveScopeContext } = require('../db/scopeContext');"));
+  assert.ok(integrationsRoutesSource.includes('const scopeContext = resolveScopeContext(req);'));
+  assert.ok(integrationsRoutesSource.includes('loadGeneralSettings(scopeContext?.spaceId || null)'));
+  assert.ok(mediaRoutesSource.includes('const scopeContext = resolveScopeContext(req);'));
+  assert.ok(mediaRoutesSource.includes('loadScopedIntegrationConfig(scopeContext?.spaceId || null)'));
+  assert.ok(mediaRoutesSource.includes('loadScopedIntegrationConfig(effectiveScopeContext.spaceId || null)'));
   assert.ok(supportRoutesSource.includes('supportSharedRouter'));
   assert.ok(supportRoutesSource.includes('supportPlatformRouter'));
   assert.ok(homelabHelpBrowserSpecSource.includes('product_edition'));
@@ -728,6 +740,7 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/auth/scope'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/libraries'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/support/releases'));
+  assert.ok(homelabEditionBoundarySmokeSource.includes('/api/media/feature-flags'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/auth/register'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/admin/settings/integrations'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/admin/settings/email-delivery'));
@@ -764,6 +777,7 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/spaces/${managedSpaceId}/integrations'));
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/auth/register'));
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/admin/settings/email-delivery'));
+  assert.ok(platformEditionBoundarySmokeSource.includes('/api/media/feature-flags'));
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/admin/settings/integrations/test-pricecharting'));
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/admin/settings/integrations/test-ebay'));
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/admin/settings/integrations/test-logs'));

@@ -2831,6 +2831,7 @@ Historical note:
     - workspace-scoped integration routes stay mounted only with the platform workspace surface instead of remaining available to the homelab runtime,
     - shared dashboard shell helpers continue to be tightened so support badges, mobile header labels, support-session banners, and sidebar support-role handling only activate when the edition actually exposes the support lane,
     - shared scope and library flows continue to be tightened so homelab no longer persists a user-facing `active_space_id` selection in the database during default-scope and library-switch operations even though library ownership still maps internally to a backing space.
+    - always-mounted shared settings/media routes continue to be normalized around the resolved scope context so homelab-safe reads and enrichment/import helpers do not depend on raw persisted workspace state or stray `req.user.activeSpaceId` access in shared code.
 - Shared core extraction:
   - identify and extract domain logic that should be implemented once and consumed by both products,
   - expected core areas include media/import logic, shared auth/session primitives, shared API client patterns, shared UI primitives, and edition-safe integrations/metadata services.

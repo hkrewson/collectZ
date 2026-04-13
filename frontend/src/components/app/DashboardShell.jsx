@@ -63,7 +63,8 @@ export default function DashboardShell({
   const desktopNavExpanded = !collapsed;
   const supportHelpEnabled = isSupportHelpEnabled(productEdition);
   const supportStaffInEdition = supportHelpEnabled && ['admin', 'support_admin'].includes(String(user?.role || ''));
-  const adminWithoutSupportLane = user?.role === 'admin' && !supportSession?.active;
+  const supportSessionActiveInEdition = supportHelpEnabled && Boolean(supportSession?.active);
+  const adminWithoutSupportLane = user?.role === 'admin' && !supportSessionActiveInEdition;
 
   return (
     <div className="flex h-screen overflow-hidden bg-void">
@@ -73,8 +74,8 @@ export default function DashboardShell({
         onSelect={async (nextTab) => {
           if (
             nextTab === 'space-manage'
-            && !supportSession?.active
-            && !['admin', 'support_admin'].includes(String(user?.role || ''))
+            && !supportSessionActiveInEdition
+            && !supportStaffInEdition
             && !canManageActiveSpace
           ) {
             const fallbackManageableSpace = spaces.find((space) => ['owner', 'admin'].includes(String(space?.membership_role || '')));
@@ -84,7 +85,7 @@ export default function DashboardShell({
           }
           setActiveTab(getSafeDashboardTab(productEdition, nextTab, {
             userRole: user?.role,
-            supportSessionActive: Boolean(supportSession?.active),
+            supportSessionActive: supportSessionActiveInEdition,
             canManageActiveSpace,
             showCollectibles: featureFlags.collectibles_enabled,
             showEvents: featureFlags.events_enabled
@@ -105,7 +106,7 @@ export default function DashboardShell({
         onLibrarySelect={handleLibrarySelect}
         canManageActiveSpace={canManageActiveSpace}
         activeMembershipRole={activeMembershipRole}
-        supportSessionActive={Boolean(supportSession?.active)}
+        supportSessionActive={supportSessionActiveInEdition}
         showCollectibles={featureFlags.collectibles_enabled}
         showEvents={featureFlags.events_enabled}
         supportBadgeCount={supportStaffInEdition ? supportSummary.open : null}

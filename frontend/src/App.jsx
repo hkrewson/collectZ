@@ -13,6 +13,7 @@ import useSessionBootstrap from './components/app/hooks/useSessionBootstrap';
 import useMediaApi from './components/app/hooks/useMediaApi';
 import {
   getSafeDashboardTab,
+  isSupportHelpEnabled,
   isHomelabEdition,
   normalizeProductEdition
 } from './components/app/productEdition';
@@ -84,6 +85,9 @@ export default function App() {
   }, [setUser]);
   const productEdition = normalizeProductEdition(user?.product_edition);
   const homelabEdition = isHomelabEdition(productEdition);
+  const supportHelpEnabled = isSupportHelpEnabled(productEdition);
+  const supportStaffInEdition = supportHelpEnabled && ['admin', 'support_admin'].includes(String(user?.role || ''));
+  const supportSessionActiveInEdition = supportHelpEnabled && Boolean(supportSession?.active);
   const navigate = useCallback((nextRoute) => {
     window.history.pushState(
       {},
@@ -186,7 +190,7 @@ export default function App() {
   }, [apiCall, user]);
 
   const loadSupportSummary = useCallback(async ({ silent = false } = {}) => {
-    if (homelabEdition || !['admin', 'support_admin'].includes(String(user?.role || ''))) {
+    if (!supportStaffInEdition) {
       setSupportSummary({
         open: 0,
         answered: 0,
@@ -225,7 +229,7 @@ export default function App() {
       }
       return null;
     }
-  }, [apiCall, homelabEdition, showToast, user?.role]);
+  }, [apiCall, showToast, supportStaffInEdition]);
 
   const loadAuthScope = useCallback(async ({ silent = false } = {}) => {
     if (!user) return null;
@@ -280,11 +284,11 @@ export default function App() {
       if (nextActiveSpaceId !== Number(activeSpaceId || 0)) {
         await loadAuthScope({ silent: true });
       }
-      showToast(user?.role === 'admin' && supportSession?.active ? 'Support library updated' : 'Active library updated');
+      showToast(supportSessionActiveInEdition ? 'Support library updated' : 'Active library updated');
     } catch (error) {
       showToast(error.response?.data?.error || 'Failed to switch libraries', 'error');
     }
-  }, [activeLibraryId, activeSpaceId, apiCall, clearImportJobs, loadAuthScope, setMediaItems, setUser, showToast, supportSession?.active, user?.role]);
+  }, [activeLibraryId, activeSpaceId, apiCall, clearImportJobs, loadAuthScope, setMediaItems, setUser, showToast, supportSessionActiveInEdition]);
 
   const endSupportSession = useCallback(async () => {
     try {
@@ -368,15 +372,14 @@ export default function App() {
 
   useEffect(() => {
     if (!(route === 'dashboard' && authChecked && user)) return undefined;
-    if (homelabEdition) return undefined;
     loadSupportSummary({ silent: true });
-    if (!['admin', 'support_admin'].includes(String(user?.role || ''))) return undefined;
+    if (!supportStaffInEdition) return undefined;
     const intervalId = window.setInterval(() => {
       if (document.visibilityState !== 'visible') return;
       loadSupportSummary({ silent: true });
     }, SUPPORT_SUMMARY_POLL_MS);
     return () => window.clearInterval(intervalId);
-  }, [route, authChecked, homelabEdition, user, loadSupportSummary]);
+  }, [route, authChecked, user, loadSupportSummary, supportStaffInEdition]);
 
   useEffect(() => {
     if (activeTab === 'library-import-review') {
@@ -396,9 +399,9 @@ export default function App() {
   const activeSpace = spaces.find((space) => Number(space.id) === Number(activeSpaceId)) || null;
   const activeMembershipRole = activeSpace?.membership_role || null;
   const canManageActiveSpace = user?.role === 'admin'
-    ? Boolean(supportSession?.active) || ['owner', 'admin'].includes(activeMembershipRole)
+    ? supportSessionActiveInEdition || ['owner', 'admin'].includes(activeMembershipRole)
     : user?.role === 'support_admin'
-      ? Boolean(supportSession?.active)
+      ? supportSessionActiveInEdition
       : ['owner', 'admin'].includes(activeMembershipRole);
   const scopeKey = `${activeSpaceId || 'none'}:${activeLibraryId || 'none'}`;
   const collapsed = !pinnedExpanded;
@@ -406,7 +409,7 @@ export default function App() {
   useEffect(() => {
     const nextTab = getSafeDashboardTab(productEdition, activeTab, {
       userRole: user?.role,
-      supportSessionActive: Boolean(supportSession?.active),
+      supportSessionActive: supportSessionActiveInEdition,
       canManageActiveSpace,
       showCollectibles: featureFlags.collectibles_enabled,
       showEvents: featureFlags.events_enabled
@@ -418,7 +421,7 @@ export default function App() {
     featureFlags.collectibles_enabled,
     featureFlags.events_enabled,
     productEdition,
-    supportSession?.active,
+    supportSessionActiveInEdition,
     user?.role
   ]);
 

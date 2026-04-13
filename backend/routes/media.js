@@ -3119,7 +3119,8 @@ async function runMetronImport({ req, config, scopeContext = null, onProgress = 
 
 async function maybePushComicToMetron({ req, mediaRow }) {
   if (!mediaRow || mediaRow.media_type !== 'comic_book') return;
-  const config = await loadScopedIntegrationConfig(mediaRow.space_id || req.user.activeSpaceId || null);
+  const scopeContext = resolveScopeContext(req);
+  const config = await loadScopedIntegrationConfig(mediaRow.space_id || scopeContext?.spaceId || null);
   if (String(config.comicsProvider || '').toLowerCase() !== 'metron') return;
   if (!config.comicsApiKey || !config.comicsApiUrl) return;
 
@@ -3926,9 +3927,9 @@ router.use(authenticateToken);
 router.use(enforceScopeAccess({ allowedHintRoles: ['admin'] }));
 
 router.get('/feature-flags', asyncHandler(async (req, res) => {
-  const activeSpaceId = Number(req.user?.activeSpaceId || 0) || null;
-  const eventsEnabled = await isFeatureEnabledForSpace(activeSpaceId, 'events_enabled', false);
-  const collectiblesEnabled = await isFeatureEnabledForSpace(activeSpaceId, 'collectibles_enabled', false);
+  const scopeContext = resolveScopeContext(req);
+  const eventsEnabled = await isFeatureEnabledForSpace(scopeContext?.spaceId || null, 'events_enabled', false);
+  const collectiblesEnabled = await isFeatureEnabledForSpace(scopeContext?.spaceId || null, 'collectibles_enabled', false);
   res.json({
     flags: {
       events_enabled: Boolean(eventsEnabled),
@@ -4473,7 +4474,7 @@ router.get('/:id/tv-seasons/:seasonNumber', asyncHandler(async (req, res) => {
   let tmdb = null;
   let plexEpisodeState = { watchedEpisodeNumbers: [], availableEpisodeNumbers: [] };
   const needsIntegrationConfig = Boolean(media.tmdb_id) || Boolean(plexRatingKey);
-  const config = needsIntegrationConfig ? await loadScopedIntegrationConfig(req.user.activeSpaceId) : null;
+  const config = needsIntegrationConfig ? await loadScopedIntegrationConfig(scopeContext?.spaceId || null) : null;
   if (media.tmdb_id && config) {
     try {
       tmdb = await fetchTmdbTvSeasonDetails(media.tmdb_id, seasonNumber, config);
@@ -4711,6 +4712,7 @@ router.post('/search-tmdb', validate(simpleSearchSchema), asyncHandler(async (re
 }));
 
 router.post('/tmdb/trace-match', validate(simpleSearchSchema), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
   const { title, year, mediaType } = req.body;
   const lookupTitle = title;
   const config = await loadScopedIntegrationConfig(scopeContext?.spaceId || null);
@@ -4752,11 +4754,12 @@ router.post('/tmdb/trace-match', validate(simpleSearchSchema), asyncHandler(asyn
 }));
 
 router.get('/tmdb/:id/details', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
   const movieId = Number(req.params.id);
   if (!Number.isFinite(movieId) || movieId <= 0) {
     return res.status(400).json({ error: 'Valid numeric TMDB id is required' });
   }
-  const config = await loadScopedIntegrationConfig(effectiveScopeContext?.spaceId || null);
+  const config = await loadScopedIntegrationConfig(scopeContext?.spaceId || null);
   const normalizedType = req.query.mediaType === 'tv' ? 'tv' : 'movie';
   const details = await fetchTmdbMovieDetails(movieId, config, normalizedType);
   res.json(details);
@@ -4815,6 +4818,7 @@ router.get('/tmdb/:id/trace', asyncHandler(async (req, res) => {
 }));
 
 router.post('/enrich/book/search', validate(titleAuthorSearchSchema), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
   const { title, author } = req.body;
   const config = await loadScopedIntegrationConfig(scopeContext?.spaceId || null);
   const matches = await searchBooksByTitle(title, config, 10, String(author || '').trim());
@@ -4822,22 +4826,25 @@ router.post('/enrich/book/search', validate(titleAuthorSearchSchema), asyncHandl
 }));
 
 router.post('/enrich/audio/search', validate(titleArtistSearchSchema), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
   const { title, artist } = req.body;
-  const config = await loadScopedIntegrationConfig(req.user.activeSpaceId);
+  const config = await loadScopedIntegrationConfig(scopeContext?.spaceId || null);
   const matches = await searchAudioByTitle(title, config, 10, String(artist || '').trim());
   res.json({ provider: config.audioProvider || 'discogs', matches });
 }));
 
 router.post('/enrich/game/search', validate(simpleSearchSchema.pick({ title: true })), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
   const { title } = req.body;
-  const config = await loadScopedIntegrationConfig(req.user.activeSpaceId);
+  const config = await loadScopedIntegrationConfig(scopeContext?.spaceId || null);
   const matches = await searchGamesByTitle(title, config, 10);
   res.json({ provider: config.gamesProvider || 'igdb', matches });
 }));
 
 router.post('/enrich/comic/search', validate(simpleSearchSchema.pick({ title: true })), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
   const { title } = req.body;
-  const config = await loadScopedIntegrationConfig(req.user.activeSpaceId);
+  const config = await loadScopedIntegrationConfig(scopeContext?.spaceId || null);
   const matches = await searchComicsByTitle(title, config, 10);
   res.json({ provider: config.comicsProvider || 'metron', matches });
 }));
@@ -4845,9 +4852,10 @@ router.post('/enrich/comic/search', validate(simpleSearchSchema.pick({ title: tr
 // ── UPC lookup ────────────────────────────────────────────────────────────────
 
 router.post('/lookup-upc', validate(upcLookupSchema), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
   const { upc, mediaType } = req.body;
 
-  const config = await loadScopedIntegrationConfig(req.user.activeSpaceId);
+  const config = await loadScopedIntegrationConfig(scopeContext?.spaceId || null);
   const { barcodeProvider, barcodeApiUrl, barcodeQueryParam, barcodeApiKey, barcodeApiKeyHeader } = config;
   const directBookIsbn = mediaType === 'book' ? normalizeIsbn(upc) : '';
 
@@ -5692,7 +5700,7 @@ router.post('/import-plex', asyncHandler(async (req, res) => {
   }
 
   const sectionIds = Array.isArray(req.body?.sectionIds) ? req.body.sectionIds : [];
-  const config = await loadScopedIntegrationConfig(req.user.activeSpaceId);
+  const config = await loadScopedIntegrationConfig(effectiveScopeContext.spaceId || null);
   if (!config.plexApiUrl) {
     return res.status(400).json({ error: 'Plex API URL is not configured' });
   }
@@ -5872,7 +5880,7 @@ router.post('/import-comics', asyncHandler(async (req, res) => {
   const scopeContext = resolveScopeContext(req);
   const valuationMode = resolveValuationExecutionMode(req);
   const useAsync = shouldQueueImportByDefault(req);
-  const config = await loadScopedIntegrationConfig(req.user.activeSpaceId);
+  const config = await loadScopedIntegrationConfig(scopeContext?.spaceId || null);
   if (String(config.comicsProvider || '').toLowerCase() !== 'metron') {
     return res.status(400).json({ error: 'Comics provider must be set to Metron for collection import' });
   }

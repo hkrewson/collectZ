@@ -207,6 +207,7 @@ async function main() {
     const profile = await user.request('/api/profile', { expectStatus: 200 });
     const releases = await user.request('/api/support/releases', { expectStatus: 200 });
     const generalSettings = await admin.request('/api/settings/general', { expectStatus: 200 });
+    const mediaFeatureFlags = await user.request('/api/media/feature-flags', { expectStatus: 200 });
     const integrations = await admin.request('/api/admin/settings/integrations', { expectStatus: 200 });
     const emailDelivery = await admin.request('/api/admin/settings/email-delivery', { expectStatus: 404 });
     const priceChartingTest = await admin.request('/api/admin/settings/integrations/test-pricecharting', {
@@ -316,6 +317,9 @@ async function main() {
     assert(Number(persistedScope?.active_library_id || 0) > 0, `Homelab persisted user scope must keep active_library_id after bootstrap: ${JSON.stringify(persistedScope)}`);
     assert(Array.isArray(releases.data?.releases), `Homelab /api/support/releases must stay mounted: ${JSON.stringify(releases.data)}`);
     assert(typeof generalSettings.data?.theme === 'string', `Homelab /api/settings/general must stay mounted: ${JSON.stringify(generalSettings.data)}`);
+    assert(typeof mediaFeatureFlags.data?.flags === 'object' && mediaFeatureFlags.data.flags !== null, `Homelab /api/media/feature-flags must stay mounted: ${JSON.stringify(mediaFeatureFlags.data)}`);
+    assert(typeof mediaFeatureFlags.data?.flags?.events_enabled === 'boolean', `Homelab /api/media/feature-flags must return boolean events_enabled: ${JSON.stringify(mediaFeatureFlags.data)}`);
+    assert(typeof mediaFeatureFlags.data?.flags?.collectibles_enabled === 'boolean', `Homelab /api/media/feature-flags must return boolean collectibles_enabled: ${JSON.stringify(mediaFeatureFlags.data)}`);
     assert(typeof integrations.data === 'object' && integrations.data !== null, `Homelab /api/admin/settings/integrations must stay mounted: ${JSON.stringify(integrations.data)}`);
     assert(emailDelivery.status === 404, `Homelab /api/admin/settings/email-delivery must be unmounted: ${JSON.stringify(emailDelivery.data)}`);
     assert(!('valuationProviders' in integrations.data), `Homelab integrations payload must not expose valuation providers: ${JSON.stringify(integrations.data)}`);

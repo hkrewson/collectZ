@@ -26,6 +26,7 @@ const { resolveGamesPreset, searchGamesByTitle } = require('../services/games');
 const { resolveComicsPreset, searchComicsByTitle, fetchMetronCollectionIssues } = require('../services/comics');
 const { logActivity, logError } = require('../services/audit');
 const { DECRYPT_REMEDIATION } = require('../services/integrationResponse');
+const { resolveScopeContext } = require('../db/scopeContext');
 
 const sharedRouter = express.Router();
 const platformRouter = express.Router();
@@ -209,8 +210,8 @@ function hasPlatformOnlyIntegrationUpdate(body = {}) {
 // ── General settings (read — available to all authenticated users) ────────────
 
 sharedRouter.get('/settings/general', authenticateToken, asyncHandler(async (req, res) => {
-  const activeSpaceId = Number(req.user?.activeSpaceId || 0) || null;
-  const settings = await loadGeneralSettings(activeSpaceId);
+  const scopeContext = resolveScopeContext(req);
+  const settings = await loadGeneralSettings(scopeContext?.spaceId || null);
   res.json(settings);
 }));
 
