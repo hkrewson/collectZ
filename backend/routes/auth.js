@@ -760,7 +760,8 @@ router.post('/logout', asyncHandler(async (req, res) => {
           id: sessionUser.id,
           email: sessionUser.email,
           role: sessionUser.role,
-          activeSpaceId: sessionUser.active_space_id ?? null,
+          scopeSpaceId: sessionUser.scope_space_id ?? sessionUser.active_space_id ?? null,
+          activeSpaceId: sessionUser.scope_space_id ?? sessionUser.active_space_id ?? null,
           activeLibraryId: sessionUser.active_library_id ?? null
         },
         sessionId: sessionUser.session_id
@@ -867,7 +868,7 @@ router.get('/me', authenticateToken, asyncHandler(async (req, res) => {
     ...row,
     product_edition: getProductEdition(),
     edition_contract: buildEditionContract(getProductEdition()),
-    active_space_id: req.user.activeSpaceId ?? row.active_space_id ?? null,
+    active_space_id: req.user.scopeSpaceId ?? req.user.activeSpaceId ?? row.active_space_id ?? null,
     active_library_id: req.user.activeLibraryId ?? row.active_library_id ?? null
   }, getProductEdition()));
 }));
@@ -1187,7 +1188,7 @@ router.get('/profile', authenticateToken, asyncHandler(async (req, res) => {
     ...row,
     product_edition: getProductEdition(),
     edition_contract: buildEditionContract(getProductEdition()),
-    active_space_id: req.user.activeSpaceId ?? row.active_space_id ?? null,
+    active_space_id: req.user.scopeSpaceId ?? req.user.activeSpaceId ?? row.active_space_id ?? null,
     active_library_id: req.user.activeLibraryId ?? row.active_library_id ?? null
   }, getProductEdition()));
 }));

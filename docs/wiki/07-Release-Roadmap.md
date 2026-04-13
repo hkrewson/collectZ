@@ -2834,6 +2834,9 @@ Historical note:
     - always-mounted shared settings/media routes continue to be normalized around the resolved scope context so homelab-safe reads and enrichment/import helpers do not depend on raw persisted workspace state or stray `req.user.activeSpaceId` access in shared code.
     - auth/session/token bootstrap continues to be tightened so shared runtime scope resolution can use an internal effective scope field instead of assuming the user-facing `active_space_id` is the only safe source of truth.
     - scope-mutating shared and platform-safe routes continue to be tightened so support request targeting, space selection, and related request-level handoffs keep the internal effective scope aligned instead of mutating only `activeSpaceId`.
+    - auth principal bootstrap continues to be tightened so internal `scope_space_id` prefers the active library's backing space before falling back to persisted `active_space_id`, reducing drift between effective scope and user-facing workspace state in both editions.
+    - request-level auth middleware continues to be tightened so `req.user.activeSpaceId` stays aligned with the derived internal effective scope, reducing the chance that older direct reads accidentally revive persisted workspace-state drift.
+    - auth/profile payload shaping continues to be tightened so platform-facing `active_space_id` responses prefer the request's effective scope before falling back to legacy request fields or persisted workspace state.
 - Shared core extraction:
   - identify and extract domain logic that should be implemented once and consumed by both products,
   - expected core areas include media/import logic, shared auth/session primitives, shared API client patterns, shared UI primitives, and edition-safe integrations/metadata services.

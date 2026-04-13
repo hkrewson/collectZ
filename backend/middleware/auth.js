@@ -132,7 +132,7 @@ const authenticateToken = async (req, res, next) => {
           email: serviceAccountPrincipal.email,
           role: serviceAccountPrincipal.role,
           scopeSpaceId: serviceAccountPrincipal.scope_space_id ?? serviceAccountPrincipal.active_space_id ?? null,
-          activeSpaceId: serviceAccountPrincipal.active_space_id ?? null,
+          activeSpaceId: serviceAccountPrincipal.scope_space_id ?? serviceAccountPrincipal.active_space_id ?? null,
           activeLibraryId: serviceAccountPrincipal.active_library_id ?? null
         };
         req.authContext = {
@@ -156,7 +156,7 @@ const authenticateToken = async (req, res, next) => {
           email: patPrincipal.email,
           role: patPrincipal.role,
           scopeSpaceId: patPrincipal.scope_space_id ?? patPrincipal.active_space_id ?? null,
-          activeSpaceId: patPrincipal.active_space_id ?? null,
+          activeSpaceId: patPrincipal.scope_space_id ?? patPrincipal.active_space_id ?? null,
           activeLibraryId: patPrincipal.active_library_id ?? null
         };
         req.authContext = {
@@ -218,7 +218,7 @@ const authenticateToken = async (req, res, next) => {
       email: sessionUser.email,
       role: sessionUser.role,
       scopeSpaceId: sessionUser.support_space_id ?? sessionUser.scope_space_id ?? sessionUser.active_space_id ?? null,
-      activeSpaceId: sessionUser.support_space_id ?? sessionUser.active_space_id ?? null,
+      activeSpaceId: sessionUser.support_space_id ?? sessionUser.scope_space_id ?? sessionUser.active_space_id ?? null,
       activeLibraryId: sessionUser.support_library_id ?? sessionUser.active_library_id ?? null,
       supportSpaceId: sessionUser.support_space_id ?? null,
       supportLibraryId: sessionUser.support_library_id ?? null,
