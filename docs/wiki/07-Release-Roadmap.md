@@ -2854,6 +2854,7 @@ Historical note:
     - member transfer into a new space continues to be tightened so stale `user_sessions` support-session scope pointing at the source space is cleared when the user's source-space membership is removed, preventing old support-session targets or previous-space restore pointers from surviving after the transfer.
     - shared owned-library move cleanup continues to be tightened so users who lose memberships to libraries moved into a new space do not keep stale active-library or support-library pointers while waiting for later fallback bootstrap to repair them.
     - shared library-membership sync continues to be tightened so granting a user real library access in a space can immediately anchor an otherwise unscoped user to the first accessible library in that space instead of depending on later fallback/bootstrap to choose an active scope.
+    - shared library-membership removal continues to be tightened so removing a user's library access in a space immediately clears stale active-library and support-library pointers and opportunistically restores a replacement accessible library instead of depending on later fallback/bootstrap to repair the user's scope.
 - Shared core extraction:
   - identify and extract domain logic that should be implemented once and consumed by both products,
   - expected core areas include media/import logic, shared auth/session primitives, shared API client patterns, shared UI primitives, and edition-safe integrations/metadata services.
