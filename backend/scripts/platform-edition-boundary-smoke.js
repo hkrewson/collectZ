@@ -197,6 +197,14 @@ async function main() {
     const userScope = await user.request('/api/auth/scope', { expectStatus: 200 });
     const userLibraries = await user.request('/api/libraries', { expectStatus: 200 });
     const userSpaces = await user.request('/api/spaces', { expectStatus: 200 });
+    const firstUserSpaceId = Number(userSpaces.data?.spaces?.[0]?.id || 0) || null;
+    assert(firstUserSpaceId, `Expected platform /api/spaces to return an accessible space for selection: ${JSON.stringify(userSpaces.data)}`);
+    const selectedSpace = await user.request('/api/spaces/select', {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 200,
+      body: { space_id: firstUserSpaceId }
+    });
     const supportRequests = await user.request('/api/support/requests', { expectStatus: 200 });
     const staffSummary = await admin.request('/api/support/staff/summary', { expectStatus: 200 });
     const adminUsers = await admin.request('/api/admin/users', { expectStatus: 200 });
@@ -254,6 +262,8 @@ async function main() {
     const spaceIntegrations = await admin.request(`/api/spaces/${managedSpaceId}/integrations`, { expectStatus: 200 });
     assert(Number(userLibraries.data?.active_space_id || 0) > 0, `Platform /api/libraries must keep active_space_id: ${JSON.stringify(userLibraries.data)}`);
     assert(Array.isArray(userSpaces.data?.spaces) && userSpaces.data.spaces.length > 0, `Platform /api/spaces must stay mounted: ${JSON.stringify(userSpaces.data)}`);
+    assert(Number(selectedSpace.data?.active_space_id || 0) === firstUserSpaceId, `Platform /api/spaces/select must keep active_space_id in its response: ${JSON.stringify(selectedSpace.data)}`);
+    assert(Array.isArray(selectedSpace.data?.libraries), `Platform /api/spaces/select must keep libraries in its response: ${JSON.stringify(selectedSpace.data)}`);
     assert(typeof spaceIntegrations.data === 'object' && spaceIntegrations.data !== null, `Platform /api/spaces/:id/integrations must stay mounted: ${JSON.stringify(spaceIntegrations.data)}`);
     assert(Array.isArray(supportRequests.data?.requests), `Platform /api/support/requests must stay mounted: ${JSON.stringify(supportRequests.data)}`);
     assert(typeof staffSummary.data?.queue?.open === 'number', `Platform /api/support/staff/summary must stay mounted: ${JSON.stringify(staffSummary.data)}`);

@@ -2056,6 +2056,12 @@ results.push(run('spaces routes expose core spaces and memberships endpoints', (
   assert.ok(spacesRoutesSource.includes("router.post('/spaces/:id/invites'"));
   assert.ok(spacesRoutesSource.includes("router.patch('/spaces/:id/invites/:inviteId/revoke'"));
   assert.ok(spacesRoutesSource.includes("router.post('/spaces/:id/members/:memberId/transfer-new-space'"));
+  assert.ok(spacesRoutesSource.includes('FROM libraries l'));
+  assert.ok(spacesRoutesSource.includes('WHERE l.id = u.active_library_id'));
+  assert.ok(spacesRoutesSource.includes('AND l.space_id = $2'));
+  assert.ok(spacesRoutesSource.includes('UPDATE user_sessions s'));
+  assert.ok(spacesRoutesSource.includes('s.support_previous_space_id = $2'));
+  assert.ok(spacesRoutesSource.includes('WHERE s.user_id = $1'));
 }));
 
 results.push(run('admin routes expose platform space control-plane endpoints', () => {
@@ -2069,6 +2075,8 @@ results.push(run('admin routes expose platform space control-plane endpoints', (
   assert.ok(adminRoutesSource.includes('FROM libraries l'));
   assert.ok(adminRoutesSource.includes('WHERE l.id = u.active_library_id'));
   assert.ok(adminRoutesSource.includes('AND l.space_id = $1'));
+  assert.ok(adminRoutesSource.includes('UPDATE user_sessions s'));
+  assert.ok(adminRoutesSource.includes('s.support_previous_space_id = $1'));
   assert.ok(!adminRoutesSource.includes('contributionScore'));
 }));
 
@@ -2154,6 +2162,8 @@ results.push(run('library transfer source revokes previous owner membership on o
 results.push(run('spaces select route is session-auth only for active scope mutation', () => {
   assert.ok(spacesRoutesSource.includes("router.post('/spaces/select', requireSessionAuth"));
   assert.ok(spacesRoutesSource.includes('const productEdition = getProductEdition();'));
+  assert.ok(spacesRoutesSource.includes('stripHomelabSpaceContext({'));
+  assert.ok(spacesRoutesSource.includes('active_space_id: spaceId,'));
   assert.ok(spacesRoutesSource.includes('resolvePersistedActiveSpaceId(spaceId, productEdition)'));
   assert.ok(spacesRoutesSource.includes('resolvePersistedActiveSpaceId(newSpace.id, getProductEdition())'));
 }));
