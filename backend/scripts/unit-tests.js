@@ -2119,6 +2119,8 @@ results.push(run('library routes preserve active space when replacing archived o
   assert.ok(librariesRoutesSource.includes('sm.suspended_at IS NULL'));
   assert.ok(librariesRoutesSource.includes('resolvePersistedActiveSpaceId'));
   assert.ok(librariesRoutesSource.includes('SET active_space_id = $2,'));
+  assert.ok(librariesRoutesSource.includes('UPDATE user_sessions s'));
+  assert.ok(librariesRoutesSource.includes('s.support_previous_library_id = $1'));
 }));
 
 results.push(run('library routes shape /libraries payload from request scope instead of re-reading persisted user scope', () => {
@@ -2157,6 +2159,10 @@ results.push(run('library routes keep shared library selection while retaining p
 results.push(run('library transfer source revokes previous owner membership on ownership change', () => {
   assert.ok(librariesRoutesSource.includes('DELETE FROM library_memberships'));
   assert.ok(librariesRoutesSource.includes('Number(target.created_by || 0) !== newOwnerUserId'));
+  assert.ok(librariesRoutesSource.includes('const productEdition = getProductEdition();'));
+  assert.ok(librariesRoutesSource.includes('WHERE id = $1\n         AND active_library_id = $4'));
+  assert.ok(librariesRoutesSource.includes('UPDATE user_sessions s'));
+  assert.ok(librariesRoutesSource.includes('WHERE s.user_id = $1'));
 }));
 
 results.push(run('spaces select route is session-auth only for active scope mutation', () => {

@@ -273,6 +273,7 @@ router.post('/libraries/select', requireSessionAuth, validate(librarySelectSchem
 }));
 
 router.post('/libraries/:id/transfer', validate(libraryTransferSchema), asyncHandler(async (req, res) => {
+  const productEdition = getProductEdition();
   const libraryId = Number(req.params.id);
   if (!Number.isFinite(libraryId) || libraryId <= 0) {
     return res.status(400).json({ error: 'Invalid library id' });
@@ -319,11 +320,63 @@ router.post('/libraries/:id/transfer', validate(libraryTransferSchema), asyncHan
     [libraryId, newOwnerUserId]
   );
   if (Number(target.created_by || 0) && Number(target.created_by || 0) !== newOwnerUserId) {
+    const previousOwnerUserId = Number(target.created_by || 0);
     await pool.query(
       `DELETE FROM library_memberships
        WHERE user_id = $1
          AND library_id = $2`,
-      [Number(target.created_by), libraryId]
+      [previousOwnerUserId, libraryId]
+    );
+    const replacement = await pool.query(
+      `SELECT lm.library_id, l.space_id
+       FROM library_memberships lm
+       JOIN libraries l ON l.id = lm.library_id
+       JOIN space_memberships sm
+         ON sm.space_id = l.space_id
+        AND sm.user_id = lm.user_id
+        AND sm.suspended_at IS NULL
+       WHERE lm.user_id = $1
+         AND l.archived_at IS NULL
+       ORDER BY lm.created_at ASC, lm.library_id ASC
+       LIMIT 1`,
+      [previousOwnerUserId]
+    );
+    let replacementLibraryId = replacement.rows[0]?.library_id || null;
+    let replacementSpaceId = replacement.rows[0]?.space_id || null;
+    if (!replacementLibraryId) {
+      const ensuredScope = await ensureUserDefaultScope(previousOwnerUserId);
+      replacementLibraryId = ensuredScope.libraryId;
+      replacementSpaceId = ensuredScope.spaceId;
+    }
+    await pool.query(
+      `UPDATE users
+       SET active_space_id = $2,
+           active_library_id = $3
+       WHERE id = $1
+         AND active_library_id = $4`,
+      [
+        previousOwnerUserId,
+        resolvePersistedActiveSpaceId(replacementSpaceId, productEdition),
+        replacementLibraryId,
+        libraryId
+      ]
+    );
+    await pool.query(
+      `UPDATE user_sessions s
+       SET support_library_id = CASE
+             WHEN s.support_library_id = $2 THEN NULL
+             ELSE s.support_library_id
+           END,
+           support_previous_library_id = CASE
+             WHEN s.support_previous_library_id = $2 THEN NULL
+             ELSE s.support_previous_library_id
+           END
+       WHERE s.user_id = $1
+         AND (
+           s.support_library_id = $2
+           OR s.support_previous_library_id = $2
+         )`,
+      [previousOwnerUserId, libraryId]
     );
   }
   await pool.query(
@@ -424,6 +477,21 @@ router.post('/libraries/:id/archive', validate(libraryArchiveSchema), asyncHandl
       [row.id, resolvePersistedActiveSpaceId(replacement.rows[0]?.space_id || null, productEdition), replacement.rows[0]?.library_id || null]
     );
   }
+
+  await pool.query(
+    `UPDATE user_sessions s
+     SET support_library_id = CASE
+           WHEN s.support_library_id = $1 THEN NULL
+           ELSE s.support_library_id
+         END,
+         support_previous_library_id = CASE
+           WHEN s.support_previous_library_id = $1 THEN NULL
+           ELSE s.support_previous_library_id
+         END
+     WHERE s.support_library_id = $1
+        OR s.support_previous_library_id = $1`,
+    [libraryId]
+  );
 
   await logActivity(req, 'library.archive', 'library', libraryId, {
     name: target.name
@@ -545,6 +613,21 @@ router.delete('/libraries/:id', validate(libraryDeleteSchema), asyncHandler(asyn
       [row.id, resolvePersistedActiveSpaceId(replacementSpaceId, productEdition), replacementLibraryId]
     );
   }
+
+  await pool.query(
+    `UPDATE user_sessions s
+     SET support_library_id = CASE
+           WHEN s.support_library_id = $1 THEN NULL
+           ELSE s.support_library_id
+         END,
+         support_previous_library_id = CASE
+           WHEN s.support_previous_library_id = $1 THEN NULL
+           ELSE s.support_previous_library_id
+         END
+     WHERE s.support_library_id = $1
+        OR s.support_previous_library_id = $1`,
+    [libraryId]
+  );
 
   await logActivity(req, 'library.delete', 'library', libraryId, {
     name: target.name,
