@@ -2,10 +2,12 @@
 
 'use strict';
 
+const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const pool = require('../db/pool');
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
+const SESSION_COOKIE_NAME = process.env.SESSION_COOKIE_NAME || 'session_token';
 
 class HttpClient {
   constructor(name) {
@@ -86,12 +88,62 @@ async function deleteDirectUser(userId) {
   await pool.query('DELETE FROM users WHERE id = $1', [userId]);
 }
 
+function getSessionTokenForClient(client) {
+  return String(client?.cookies?.get(SESSION_COOKIE_NAME) || '').trim() || null;
+}
+
+function hashSessionToken(token) {
+  return crypto.createHash('sha256').update(String(token || '')).digest('hex');
+}
+
+async function updateSessionByToken(token, updates = {}) {
+  const tokenHash = hashSessionToken(token);
+  const keys = Object.keys(updates);
+  if (keys.length === 0) return;
+  const assignments = [];
+  const values = [];
+  for (const key of keys) {
+    assignments.push(`${key} = $${values.length + 1}`);
+    values.push(updates[key]);
+  }
+  values.push(tokenHash);
+  await pool.query(
+    `UPDATE user_sessions
+     SET ${assignments.join(', ')}
+     WHERE token_hash = $${values.length}`,
+    values
+  );
+}
+
+async function getSessionByToken(token) {
+  const tokenHash = hashSessionToken(token);
+  const result = await pool.query(
+    `SELECT support_space_id, support_library_id, support_request_id, support_started_at, support_reason,
+            support_previous_space_id, support_previous_library_id
+     FROM user_sessions
+     WHERE token_hash = $1
+     LIMIT 1`,
+    [tokenHash]
+  );
+  return result.rows[0] || null;
+}
+
 async function createLibraryInSpace({ name, spaceId, createdBy = null }) {
   const result = await pool.query(
     `INSERT INTO libraries (name, created_by, space_id)
      VALUES ($1, $2, $3)
      RETURNING id, name, space_id`,
     [name, createdBy, spaceId]
+  );
+  return result.rows[0];
+}
+
+async function createDetachedSpace({ name, slug, createdBy = null }) {
+  const result = await pool.query(
+    `INSERT INTO spaces (name, slug, created_by, is_personal)
+     VALUES ($1, $2, $3, false)
+     RETURNING id, name, slug`,
+    [name, slug, createdBy]
   );
   return result.rows[0];
 }
@@ -150,8 +202,10 @@ async function main() {
   let tempAdminUserId = null;
   let ownerUserId = null;
   let createdSpaceId = null;
+  let detachedSpaceId = null;
   let libraryOneId = null;
   let libraryTwoId = null;
+  let detachedLibraryId = null;
 
   try {
     const bootstrappedAdmin = await bootstrapAdmin(admin, {
@@ -192,8 +246,20 @@ async function main() {
       spaceId: createdSpaceId,
       createdBy: ownerUserId
     });
+    const detachedSpace = await createDetachedSpace({
+      name: `Support Session Detached ${suffix}`,
+      slug: `support-session-detached-${suffix}`,
+      createdBy: ownerUserId
+    });
+    detachedSpaceId = Number(detachedSpace.id);
+    const detachedLibrary = await createLibraryInSpace({
+      name: `Support Detached Library ${suffix}`,
+      spaceId: detachedSpaceId,
+      createdBy: ownerUserId
+    });
     libraryOneId = Number(libraryOne.id);
     libraryTwoId = Number(libraryTwo.id);
+    detachedLibraryId = Number(detachedLibrary.id);
 
     const adminLibrarySelectDenied = await admin.request('/api/libraries/select', {
       method: 'POST',
@@ -218,16 +284,20 @@ async function main() {
     );
 
     const adminScopeBeforeSupport = await admin.request('/api/auth/scope', { expectStatus: 200 });
-    assert(Array.isArray(adminScopeBeforeSupport?.data?.spaces) && adminScopeBeforeSupport.data.spaces.length === 0, 'Admin scope bootstrap should not expose tenant spaces outside support mode');
-    assert(Array.isArray(adminScopeBeforeSupport?.data?.libraries) && adminScopeBeforeSupport.data.libraries.length === 0, 'Admin scope bootstrap should not expose tenant libraries outside support mode');
-    assert((Number(adminScopeBeforeSupport?.data?.active_space_id || 0) || null) === null, 'Admin scope bootstrap should not set an active space outside support mode');
-    assert((Number(adminScopeBeforeSupport?.data?.active_library_id || 0) || null) === null, 'Admin scope bootstrap should not set an active library outside support mode');
+    assert(adminScopeBeforeSupport?.data?.support_session === null, `Admin scope bootstrap should not report an active support session before start: ${JSON.stringify(adminScopeBeforeSupport?.data)}`);
 
     const beforeSupport = await admin.request(`/api/spaces/${createdSpaceId}/members`, { expectStatus: 404 });
     assert(
       String(beforeSupport?.data?.error || '').toLowerCase().includes('space not found'),
       `Expected non-support access to be denied before support session, got ${JSON.stringify(beforeSupport?.data)}`
     );
+
+    const adminSessionToken = getSessionTokenForClient(admin);
+    assert(adminSessionToken, 'Expected admin session token to be present after login');
+    await updateSessionByToken(adminSessionToken, {
+      support_previous_space_id: detachedSpaceId,
+      support_previous_library_id: detachedLibraryId
+    });
 
     await admin.fetchCsrfToken();
     const started = await admin.request('/api/auth/support-session/start', {
@@ -241,7 +311,12 @@ async function main() {
     assert(Number(started?.data?.support_session?.library_id || 0) === libraryTwoId, 'Support session should honor the requested initial library');
     assert(Number(started?.data?.active_library_id || 0) === libraryTwoId, 'Support session start should update the active library');
     assert(started?.data?.support_session?.reason === reason, 'Support session should retain the provided reason');
+    assert((Number(started?.data?.support_session?.previous_space_id || 0) || null) === null, `Support session start should normalize stale previous space pointers: ${JSON.stringify(started?.data)}`);
+    assert((Number(started?.data?.support_session?.previous_library_id || 0) || null) === null, `Support session start should normalize stale previous library pointers: ${JSON.stringify(started?.data)}`);
     assert(Array.isArray(started?.data?.libraries) && started.data.libraries.length === 2, 'Support session should expose target-space libraries');
+    const startedSessionState = await getSessionByToken(adminSessionToken);
+    assert((Number(startedSessionState?.support_previous_space_id || 0) || null) === null, `Support session start should persist normalized previous space pointers: ${JSON.stringify(startedSessionState)}`);
+    assert((Number(startedSessionState?.support_previous_library_id || 0) || null) === null, `Support session start should persist normalized previous library pointers: ${JSON.stringify(startedSessionState)}`);
 
     const duringSupport = await admin.request(`/api/spaces/${createdSpaceId}/members`, { expectStatus: 200 });
     assert(Array.isArray(duringSupport?.data?.members), 'Expected support session to unlock space member access');
@@ -255,6 +330,23 @@ async function main() {
     });
     assert(Number(switchedLibrary?.data?.active_library_id || 0) === libraryOneId, 'Support library switch should update the active library');
 
+    await updateSessionByToken(adminSessionToken, {
+      support_library_id: detachedLibraryId
+    });
+
+    const meWithDriftedSupportLibrary = await admin.request('/api/auth/me', { expectStatus: 200 });
+    assert(Number(meWithDriftedSupportLibrary?.data?.active_space_id || 0) === createdSpaceId, `Support-session /api/auth/me should preserve the active support space under drifted library state: ${JSON.stringify(meWithDriftedSupportLibrary?.data)}`);
+    assert(Number(meWithDriftedSupportLibrary?.data?.active_library_id || 0) === libraryOneId, `Support-session /api/auth/me should normalize drifted support library state to the first valid library: ${JSON.stringify(meWithDriftedSupportLibrary?.data)}`);
+
+    const scopeWithDriftedSupportLibrary = await admin.request('/api/auth/scope', { expectStatus: 200 });
+    assert(Number(scopeWithDriftedSupportLibrary?.data?.support_session?.library_id || 0) === libraryOneId, `Support-session /api/auth/scope should normalize drifted support library state: ${JSON.stringify(scopeWithDriftedSupportLibrary?.data)}`);
+    assert(Number(scopeWithDriftedSupportLibrary?.data?.active_library_id || 0) === libraryOneId, `Support-session /api/auth/scope should keep active library aligned after drift normalization: ${JSON.stringify(scopeWithDriftedSupportLibrary?.data)}`);
+
+    await updateSessionByToken(adminSessionToken, {
+      support_previous_space_id: detachedSpaceId,
+      support_previous_library_id: detachedLibraryId
+    });
+
     await admin.fetchCsrfToken();
     const ended = await admin.request('/api/auth/support-session', {
       method: 'DELETE',
@@ -262,6 +354,12 @@ async function main() {
       expectStatus: 200
     });
     assert(ended?.data?.support_session === null, 'Support session should be cleared after end');
+    assert((Number(ended?.data?.active_space_id || 0) || null) === null, `Support-session end should normalize stale previous space restore targets: ${JSON.stringify(ended?.data)}`);
+    assert((Number(ended?.data?.active_library_id || 0) || null) === null, `Support-session end should normalize stale previous library restore targets: ${JSON.stringify(ended?.data)}`);
+
+    const afterEndMe = await admin.request('/api/auth/me', { expectStatus: 200 });
+    assert((Number(afterEndMe?.data?.active_space_id || 0) || null) === null, `Post-support /api/auth/me should remain outside support scope after stale previous restore normalization: ${JSON.stringify(afterEndMe?.data)}`);
+    assert((Number(afterEndMe?.data?.active_library_id || 0) || null) === null, `Post-support /api/auth/me should not retain a stale library after stale previous restore normalization: ${JSON.stringify(afterEndMe?.data)}`);
 
     const afterSupport = await admin.request(`/api/spaces/${createdSpaceId}/members`, { expectStatus: 404 });
     assert(
@@ -274,8 +372,14 @@ async function main() {
     if (createdSpaceId) {
       await pool.query('DELETE FROM libraries WHERE space_id = $1', [createdSpaceId]).catch(() => {});
     }
+    if (detachedSpaceId) {
+      await pool.query('DELETE FROM libraries WHERE space_id = $1', [detachedSpaceId]).catch(() => {});
+    }
     if (createdSpaceId) {
       await pool.query('DELETE FROM spaces WHERE id = $1', [createdSpaceId]).catch(() => {});
+    }
+    if (detachedSpaceId) {
+      await pool.query('DELETE FROM spaces WHERE id = $1', [detachedSpaceId]).catch(() => {});
     }
     if (ownerUserId) {
       await deleteDirectUser(ownerUserId).catch(() => {});

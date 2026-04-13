@@ -230,6 +230,124 @@ async function listSpaceMembers(client, { spaceId }) {
   return result.rows;
 }
 
+async function invalidateUserSpaceAccess(client, { userId, spaceId, clearPersistedScope = true }) {
+  const numericUserId = Number(userId);
+  const numericSpaceId = Number(spaceId);
+  if (!Number.isFinite(numericUserId) || numericUserId <= 0) return;
+  if (!Number.isFinite(numericSpaceId) || numericSpaceId <= 0) return;
+
+  if (clearPersistedScope) {
+    await client.query(
+      `UPDATE users u
+       SET active_space_id = CASE
+             WHEN u.active_space_id = $2 OR EXISTS (
+               SELECT 1
+               FROM libraries l
+               WHERE l.id = u.active_library_id
+                 AND l.space_id = $2
+             ) THEN NULL
+             ELSE u.active_space_id
+           END,
+           active_library_id = CASE
+             WHEN u.active_space_id = $2 OR EXISTS (
+               SELECT 1
+               FROM libraries l
+               WHERE l.id = u.active_library_id
+                 AND l.space_id = $2
+             ) THEN NULL
+             ELSE u.active_library_id
+           END
+       WHERE u.id = $1`,
+      [numericUserId, numericSpaceId]
+    );
+  }
+
+  await client.query(
+    `UPDATE user_sessions s
+     SET support_space_id = CASE
+           WHEN s.support_space_id = $2 OR EXISTS (
+             SELECT 1
+             FROM libraries l
+             WHERE l.id = s.support_library_id
+               AND l.space_id = $2
+           ) THEN NULL
+           ELSE s.support_space_id
+         END,
+         support_library_id = CASE
+           WHEN s.support_space_id = $2 OR EXISTS (
+             SELECT 1
+             FROM libraries l
+             WHERE l.id = s.support_library_id
+               AND l.space_id = $2
+           ) THEN NULL
+           ELSE s.support_library_id
+         END,
+         support_request_id = CASE
+           WHEN s.support_space_id = $2 OR EXISTS (
+             SELECT 1
+             FROM libraries l
+             WHERE l.id = s.support_library_id
+               AND l.space_id = $2
+           ) THEN NULL
+           ELSE s.support_request_id
+         END,
+         support_started_at = CASE
+           WHEN s.support_space_id = $2 OR EXISTS (
+             SELECT 1
+             FROM libraries l
+             WHERE l.id = s.support_library_id
+               AND l.space_id = $2
+           ) THEN NULL
+           ELSE s.support_started_at
+         END,
+         support_reason = CASE
+           WHEN s.support_space_id = $2 OR EXISTS (
+             SELECT 1
+             FROM libraries l
+             WHERE l.id = s.support_library_id
+               AND l.space_id = $2
+           ) THEN NULL
+           ELSE s.support_reason
+         END,
+         support_previous_space_id = CASE
+           WHEN s.support_previous_space_id = $2 OR EXISTS (
+             SELECT 1
+             FROM libraries l
+             WHERE l.id = s.support_previous_library_id
+               AND l.space_id = $2
+           ) THEN NULL
+           ELSE s.support_previous_space_id
+         END,
+         support_previous_library_id = CASE
+           WHEN s.support_previous_space_id = $2 OR EXISTS (
+             SELECT 1
+             FROM libraries l
+             WHERE l.id = s.support_previous_library_id
+               AND l.space_id = $2
+           ) THEN NULL
+           ELSE s.support_previous_library_id
+         END
+     WHERE s.user_id = $1
+       AND (
+         s.support_space_id = $2
+         OR s.support_previous_space_id = $2
+         OR EXISTS (
+           SELECT 1
+           FROM libraries l
+           WHERE l.id = s.support_library_id
+             AND l.space_id = $2
+         )
+         OR EXISTS (
+           SELECT 1
+           FROM libraries l
+           WHERE l.id = s.support_previous_library_id
+             AND l.space_id = $2
+         )
+       )`,
+    [numericUserId, numericSpaceId]
+  );
+}
+
 module.exports = {
   DEFAULT_SPACE_NAME,
   DEFAULT_SPACE_SLUG,
@@ -245,5 +363,6 @@ module.exports = {
   canAssignSpaceRole,
   createPersonalWorkspaceForUser,
   countSpaceOwners,
-  listSpaceMembers
+  listSpaceMembers,
+  invalidateUserSpaceAccess
 };

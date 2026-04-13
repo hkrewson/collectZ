@@ -94,6 +94,7 @@ const supportSessionBannerSource = readFrontendSource(path.join('components', 'a
 const useApiClientSource = readFrontendSource(path.join('components', 'app', 'hooks', 'useApiClient'));
 const helpViewSource = readFrontendSource(path.join('components', 'HelpView'));
 const adminUsersViewSource = readFrontendSource(path.join('components', 'AdminUsersView'));
+const backendPackageJson = JSON.parse(fs.readFileSync(require.resolve('../package.json'), 'utf8'));
 const frontendPackageJson = JSON.parse(fs.readFileSync(require.resolve('../../frontend/package.json'), 'utf8'));
 const frontendViteConfigSource = fs.readFileSync(require.resolve('../../frontend/vite.config.js'), 'utf8');
 const frontendViteIndexHtmlSource = fs.readFileSync(require.resolve('../../frontend/index.html'), 'utf8');
@@ -122,6 +123,7 @@ const structuredLogSmokeSource = fs.readFileSync(require.resolve('../scripts/str
 const structuredLogLokiSmokeSource = fs.readFileSync(require.resolve('../scripts/structured-log-loki-smoke'), 'utf8');
 const structuredLogSyslogSmokeSource = fs.readFileSync(require.resolve('../scripts/structured-log-syslog-smoke'), 'utf8');
 const structuredLogSmokeSharedSource = fs.readFileSync(require.resolve('../scripts/structured-log-smoke-shared'), 'utf8');
+const supportSessionSmokeSource = fs.readFileSync(require.resolve('../scripts/support-session-smoke'), 'utf8');
 const dashboardSpec = JSON.parse(fs.readFileSync(require.resolve('../../ops/monitoring/grafana/dashboards/collectz-overview.json'), 'utf8'));
 const alertRulesSource = fs.readFileSync(require.resolve('../../docs/alerts/collectz-alert-rules.yaml'), 'utf8');
 
@@ -525,6 +527,7 @@ results.push(run('admin route source includes platform-safe space detail and ros
 results.push(run('auth route source includes explicit support session endpoints', () => {
   assert.ok(authRoutesSource.includes("platformRouter.post('/support-session/start'"));
   assert.ok(authRoutesSource.includes("platformRouter.delete('/support-session'"));
+  assert.strictEqual(backendPackageJson.scripts['test:support-session-smoke'], 'node scripts/support-session-smoke.js');
   assert.ok(authRoutesSource.includes("requireRole('admin', 'support_admin')"));
   assert.ok(authRoutesSource.includes('auth.support_session.started'));
   assert.ok(authRoutesSource.includes('auth.support_session.ended'));
@@ -727,6 +730,8 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(authRoutesSource.includes('const supportSpace = await getSupportSpaceSummary(client, Number(req.user.supportSpaceId));'));
   assert.ok(authRoutesSource.includes('const libraries = await listSupportLibrariesForSpace(client, supportSpace.id);'));
   assert.ok(authRoutesSource.includes('const requestedLibraryId = Number(req.user.supportLibraryId || 0) || null;'));
+  assert.ok(authRoutesSource.includes("if (['admin', 'support_admin'].includes(String(req.user?.role || '')) && Number(req.user?.supportSpaceId || 0) > 0) {"));
+  assert.ok(authRoutesSource.includes('req.user.supportSpaceId = supportSpace.id;'));
   assert.ok(authRoutesSource.includes('req.user.supportSpaceId = null;'));
   assert.ok(authRoutesSource.includes('req.user.supportLibraryId = null;'));
   assert.ok(authRoutesSource.includes('req.user.supportRequestId = null;'));
@@ -837,6 +842,14 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/auth/support-session'));
   assert.ok(platformEditionBoundarySmokeSource.includes('Platform /api/auth/support-session/start must stay mounted'));
   assert.ok(platformEditionBoundarySmokeSource.includes('Platform edition boundary smoke passed'));
+  assert.ok(supportSessionSmokeSource.includes('support_previous_space_id: detachedSpaceId'));
+  assert.ok(supportSessionSmokeSource.includes('support_previous_library_id: detachedLibraryId'));
+  assert.ok(supportSessionSmokeSource.includes('support_library_id: detachedLibraryId'));
+  assert.ok(supportSessionSmokeSource.includes('const detachedSpace = await createDetachedSpace({'));
+  assert.ok(supportSessionSmokeSource.includes("const meWithDriftedSupportLibrary = await admin.request('/api/auth/me', { expectStatus: 200 });"));
+  assert.ok(supportSessionSmokeSource.includes("const scopeWithDriftedSupportLibrary = await admin.request('/api/auth/scope', { expectStatus: 200 });"));
+  assert.ok(supportSessionSmokeSource.includes('Support session start should normalize stale previous space pointers'));
+  assert.ok(supportSessionSmokeSource.includes('Support session start should persist normalized previous library pointers'));
   assert.ok(rootPackageJson.scripts['stack:up:homelab']);
   assert.ok(rootPackageJson.scripts['stack:up:platform']);
   assert.ok(rootPackageJson.scripts['stack:up:homelab'].includes('FRONTEND_PORT=3100'));
@@ -2074,12 +2087,8 @@ results.push(run('spaces routes expose core spaces and memberships endpoints', (
   assert.ok(spacesRoutesSource.includes("router.post('/spaces/:id/invites'"));
   assert.ok(spacesRoutesSource.includes("router.patch('/spaces/:id/invites/:inviteId/revoke'"));
   assert.ok(spacesRoutesSource.includes("router.post('/spaces/:id/members/:memberId/transfer-new-space'"));
-  assert.ok(spacesRoutesSource.includes('FROM libraries l'));
-  assert.ok(spacesRoutesSource.includes('WHERE l.id = u.active_library_id'));
-  assert.ok(spacesRoutesSource.includes('AND l.space_id = $2'));
-  assert.ok(spacesRoutesSource.includes('UPDATE user_sessions s'));
-  assert.ok(spacesRoutesSource.includes('s.support_previous_space_id = $2'));
-  assert.ok(spacesRoutesSource.includes('WHERE s.user_id = $1'));
+  assert.ok(spacesRoutesSource.includes('invalidateUserSpaceAccess'));
+  assert.ok(spacesRoutesSource.includes('clearPersistedScope: false'));
   assert.ok(spacesRoutesSource.includes("await logActivity(req, 'space.member.transfer_new_space'"));
 }));
 
@@ -2114,17 +2123,19 @@ results.push(run('library service source ensures default scope before returning 
   assert.ok(libraryServiceSource.includes('const currentActiveLibraryId = Number(userScope.rows[0]?.active_library_id || 0) || null;'));
   assert.ok(libraryServiceSource.includes('WHERE id = $1\n           AND active_library_id IS NULL'));
   assert.ok(libraryServiceSource.includes('FROM users u'));
+  assert.ok(libraryServiceSource.includes('async function findReplacementAccessibleLibrary'));
+  assert.ok(libraryServiceSource.includes('async function repairUserStateAfterLibraryAccessLoss'));
   assert.ok(libraryServiceSource.includes('async function removeLibraryMembershipsForSpaceUser'));
   assert.ok(libraryServiceSource.includes('RETURNING lm.library_id'));
-  assert.ok(libraryServiceSource.includes('active_library_id = ANY($2::int[])'));
-  assert.ok(libraryServiceSource.includes('s.support_previous_library_id = ANY($2::int[])'));
-  assert.ok(libraryServiceSource.includes('WHERE id = $1\n         AND active_library_id IS NULL'));
+  assert.ok(libraryServiceSource.includes('support_space_id = CASE'));
+  assert.ok(libraryServiceSource.includes('support_request_id = CASE'));
+  assert.ok(libraryServiceSource.includes('support_previous_space_id = CASE'));
+  assert.ok(libraryServiceSource.includes('await repairUserStateAfterLibraryAccessLoss(client, {'));
   assert.ok(libraryServiceSource.includes('async function moveOwnedLibrariesToSpace'));
   assert.ok(libraryServiceSource.includes('const affectedUsers = await client.query('));
-  assert.ok(libraryServiceSource.includes('active_library_id = ANY($2::int[])'));
   assert.ok(libraryServiceSource.includes('UPDATE user_sessions s'));
-  assert.ok(libraryServiceSource.includes('s.support_previous_library_id = ANY($2::int[])'));
-  assert.ok(libraryServiceSource.includes('AND active_library_id IS NULL'));
+  assert.ok(libraryServiceSource.includes('await repairUserStateAfterLibraryAccessLoss(client, {'));
+  assert.ok(libraryServiceSource.includes('const replacement = await findReplacementAccessibleLibrary(client, { userId: numericUserId });'));
   assert.ok(libraryServiceSource.includes('async function canUserAccessSpace'));
   assert.ok(libraryServiceSource.includes('async function getAccessibleLibraryRow'));
 }));
@@ -2134,6 +2145,10 @@ results.push(run('spaces service source distinguishes global admin from space me
   assert.ok(spacesServiceSource.includes("function isGlobalAdmin(userRole)"));
   assert.ok(spacesServiceSource.includes("function canAssignSpaceRole"));
   assert.ok(spacesServiceSource.includes('FROM space_memberships sm'));
+  assert.ok(spacesServiceSource.includes('async function invalidateUserSpaceAccess'));
+  assert.ok(spacesServiceSource.includes('support_space_id = CASE'));
+  assert.ok(spacesServiceSource.includes('support_previous_space_id = CASE'));
+  assert.ok(spacesServiceSource.includes('clearPersistedScope = true'));
   assert.ok(!spacesServiceSource.includes("COALESCE(sm.role, CASE WHEN s.created_by = $1 THEN 'owner' END, 'admin') AS membership_role"));
   assert.ok(!spacesServiceSource.includes('return isGlobalAdmin(userRole) || SPACE_MANAGE_ROLES.includes(membershipRole);'));
   assert.ok(!spacesServiceSource.includes('if (isGlobalAdmin(actorUserRole)) return true;'));
@@ -2205,6 +2220,8 @@ results.push(run('spaces select route is session-auth only for active scope muta
   assert.ok(spacesRoutesSource.includes('active_space_id: spaceId,'));
   assert.ok(spacesRoutesSource.includes('resolvePersistedActiveSpaceId(spaceId, productEdition)'));
   assert.ok(spacesRoutesSource.includes('resolvePersistedActiveSpaceId(newSpace.id, getProductEdition())'));
+  assert.ok(spacesRoutesSource.includes('invalidateUserSpaceAccess'));
+  assert.ok(spacesRoutesSource.includes('clearPersistedScope: false'));
 }));
 
 results.push(run('auth register flow applies scoped invite role before ensuring default scope', () => {

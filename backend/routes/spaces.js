@@ -34,7 +34,8 @@ const {
   canManageSpaceMemberships,
   canAssignSpaceRole,
   countSpaceOwners,
-  listSpaceMembers
+  listSpaceMembers,
+  invalidateUserSpaceAccess
 } = require('../services/spaces');
 const { loadGeneralSettings, updateScopedGeneralSettings } = require('../services/integrations');
 const {
@@ -839,113 +840,10 @@ router.patch('/spaces/:id/members/:memberId/suspension', validate(spaceMembershi
     );
 
     if (nextSuspended) {
-      await client.query(
-        `UPDATE users u
-         SET active_space_id = CASE
-               WHEN u.active_space_id = $2 OR EXISTS (
-                 SELECT 1
-                 FROM libraries l
-                 WHERE l.id = u.active_library_id
-                   AND l.space_id = $2
-               ) THEN NULL
-               ELSE u.active_space_id
-             END,
-             active_library_id = CASE
-               WHEN u.active_space_id = $2 OR EXISTS (
-                 SELECT 1
-                 FROM libraries l
-                 WHERE l.id = u.active_library_id
-                   AND l.space_id = $2
-               ) THEN NULL
-               ELSE u.active_library_id
-             END
-         WHERE u.id = $1`,
-        [target.user_id, spaceId]
-      );
-      await client.query(
-        `UPDATE user_sessions s
-         SET support_space_id = CASE
-               WHEN s.support_space_id = $2 OR EXISTS (
-                 SELECT 1
-                 FROM libraries l
-                 WHERE l.id = s.support_library_id
-                   AND l.space_id = $2
-               ) THEN NULL
-               ELSE s.support_space_id
-             END,
-             support_library_id = CASE
-               WHEN s.support_space_id = $2 OR EXISTS (
-                 SELECT 1
-                 FROM libraries l
-                 WHERE l.id = s.support_library_id
-                   AND l.space_id = $2
-               ) THEN NULL
-               ELSE s.support_library_id
-             END,
-             support_request_id = CASE
-               WHEN s.support_space_id = $2 OR EXISTS (
-                 SELECT 1
-                 FROM libraries l
-                 WHERE l.id = s.support_library_id
-                   AND l.space_id = $2
-               ) THEN NULL
-               ELSE s.support_request_id
-             END,
-             support_started_at = CASE
-               WHEN s.support_space_id = $2 OR EXISTS (
-                 SELECT 1
-                 FROM libraries l
-                 WHERE l.id = s.support_library_id
-                   AND l.space_id = $2
-               ) THEN NULL
-               ELSE s.support_started_at
-             END,
-             support_reason = CASE
-               WHEN s.support_space_id = $2 OR EXISTS (
-                 SELECT 1
-                 FROM libraries l
-                 WHERE l.id = s.support_library_id
-                   AND l.space_id = $2
-               ) THEN NULL
-               ELSE s.support_reason
-             END,
-             support_previous_space_id = CASE
-               WHEN s.support_previous_space_id = $2 OR EXISTS (
-                 SELECT 1
-                 FROM libraries l
-                 WHERE l.id = s.support_previous_library_id
-                   AND l.space_id = $2
-               ) THEN NULL
-               ELSE s.support_previous_space_id
-             END,
-             support_previous_library_id = CASE
-               WHEN s.support_previous_space_id = $2 OR EXISTS (
-                 SELECT 1
-                 FROM libraries l
-                 WHERE l.id = s.support_previous_library_id
-                   AND l.space_id = $2
-               ) THEN NULL
-               ELSE s.support_previous_library_id
-             END
-         WHERE s.user_id = $1
-           AND (
-             s.support_space_id = $2
-             OR s.support_previous_space_id = $2
-             OR EXISTS (
-               SELECT 1
-               FROM libraries l
-               WHERE l.id = s.support_library_id
-                 AND l.space_id = $2
-             )
-             OR EXISTS (
-               SELECT 1
-               FROM libraries l
-               WHERE l.id = s.support_previous_library_id
-                 AND l.space_id = $2
-             )
-           )`,
-        [target.user_id, spaceId]
-      );
+      await invalidateUserSpaceAccess(client, {
+        userId: target.user_id,
+        spaceId
+      });
     }
 
     await client.query('COMMIT');
@@ -1171,113 +1069,10 @@ router.delete('/spaces/:id/members/:memberId', asyncHandler(async (req, res) => 
       userId: current.rows[0].user_id,
       preserveOwned: false
     });
-    await client.query(
-      `UPDATE users u
-       SET active_space_id = CASE
-             WHEN u.active_space_id = $2 OR EXISTS (
-               SELECT 1
-               FROM libraries l
-               WHERE l.id = u.active_library_id
-                 AND l.space_id = $2
-             ) THEN NULL
-             ELSE u.active_space_id
-           END,
-           active_library_id = CASE
-             WHEN u.active_space_id = $2 OR EXISTS (
-               SELECT 1
-               FROM libraries l
-               WHERE l.id = u.active_library_id
-                 AND l.space_id = $2
-             ) THEN NULL
-             ELSE u.active_library_id
-             END
-       WHERE u.id = $1`,
-      [current.rows[0].user_id, spaceId]
-    );
-    await client.query(
-      `UPDATE user_sessions s
-       SET support_space_id = CASE
-             WHEN s.support_space_id = $2 OR EXISTS (
-               SELECT 1
-               FROM libraries l
-               WHERE l.id = s.support_library_id
-                 AND l.space_id = $2
-             ) THEN NULL
-             ELSE s.support_space_id
-           END,
-           support_library_id = CASE
-             WHEN s.support_space_id = $2 OR EXISTS (
-               SELECT 1
-               FROM libraries l
-               WHERE l.id = s.support_library_id
-                 AND l.space_id = $2
-             ) THEN NULL
-             ELSE s.support_library_id
-           END,
-           support_request_id = CASE
-             WHEN s.support_space_id = $2 OR EXISTS (
-               SELECT 1
-               FROM libraries l
-               WHERE l.id = s.support_library_id
-                 AND l.space_id = $2
-             ) THEN NULL
-             ELSE s.support_request_id
-           END,
-           support_started_at = CASE
-             WHEN s.support_space_id = $2 OR EXISTS (
-               SELECT 1
-               FROM libraries l
-               WHERE l.id = s.support_library_id
-                 AND l.space_id = $2
-             ) THEN NULL
-             ELSE s.support_started_at
-           END,
-           support_reason = CASE
-             WHEN s.support_space_id = $2 OR EXISTS (
-               SELECT 1
-               FROM libraries l
-               WHERE l.id = s.support_library_id
-                 AND l.space_id = $2
-             ) THEN NULL
-             ELSE s.support_reason
-           END,
-           support_previous_space_id = CASE
-             WHEN s.support_previous_space_id = $2 OR EXISTS (
-               SELECT 1
-               FROM libraries l
-               WHERE l.id = s.support_previous_library_id
-                 AND l.space_id = $2
-             ) THEN NULL
-             ELSE s.support_previous_space_id
-           END,
-           support_previous_library_id = CASE
-             WHEN s.support_previous_space_id = $2 OR EXISTS (
-               SELECT 1
-               FROM libraries l
-               WHERE l.id = s.support_previous_library_id
-                 AND l.space_id = $2
-             ) THEN NULL
-             ELSE s.support_previous_library_id
-           END
-       WHERE s.user_id = $1
-         AND (
-           s.support_space_id = $2
-           OR s.support_previous_space_id = $2
-           OR EXISTS (
-             SELECT 1
-             FROM libraries l
-             WHERE l.id = s.support_library_id
-               AND l.space_id = $2
-           )
-           OR EXISTS (
-             SELECT 1
-             FROM libraries l
-             WHERE l.id = s.support_previous_library_id
-               AND l.space_id = $2
-           )
-         )`,
-      [current.rows[0].user_id, spaceId]
-    );
+    await invalidateUserSpaceAccess(client, {
+      userId: current.rows[0].user_id,
+      spaceId
+    });
     await client.query('COMMIT');
 
     await logActivity(req, 'space.member.remove', 'space_membership', membershipId, {
@@ -1599,90 +1394,11 @@ router.post('/spaces/:id/members/:memberId/transfer-new-space', validate(spaceTr
         librariesInNewSpace.rows[0]?.id || null
       ]
     );
-    await client.query(
-      `UPDATE user_sessions s
-       SET support_space_id = CASE
-             WHEN s.support_space_id = $2 OR EXISTS (
-               SELECT 1
-               FROM libraries l
-               WHERE l.id = s.support_library_id
-                 AND l.space_id = $2
-             ) THEN NULL
-             ELSE s.support_space_id
-           END,
-           support_library_id = CASE
-             WHEN s.support_space_id = $2 OR EXISTS (
-               SELECT 1
-               FROM libraries l
-               WHERE l.id = s.support_library_id
-                 AND l.space_id = $2
-             ) THEN NULL
-             ELSE s.support_library_id
-           END,
-           support_request_id = CASE
-             WHEN s.support_space_id = $2 OR EXISTS (
-               SELECT 1
-               FROM libraries l
-               WHERE l.id = s.support_library_id
-                 AND l.space_id = $2
-             ) THEN NULL
-             ELSE s.support_request_id
-           END,
-           support_started_at = CASE
-             WHEN s.support_space_id = $2 OR EXISTS (
-               SELECT 1
-               FROM libraries l
-               WHERE l.id = s.support_library_id
-                 AND l.space_id = $2
-             ) THEN NULL
-             ELSE s.support_started_at
-           END,
-           support_reason = CASE
-             WHEN s.support_space_id = $2 OR EXISTS (
-               SELECT 1
-               FROM libraries l
-               WHERE l.id = s.support_library_id
-                 AND l.space_id = $2
-             ) THEN NULL
-             ELSE s.support_reason
-           END,
-           support_previous_space_id = CASE
-             WHEN s.support_previous_space_id = $2 OR EXISTS (
-               SELECT 1
-               FROM libraries l
-               WHERE l.id = s.support_previous_library_id
-                 AND l.space_id = $2
-             ) THEN NULL
-             ELSE s.support_previous_space_id
-           END,
-           support_previous_library_id = CASE
-             WHEN s.support_previous_space_id = $2 OR EXISTS (
-               SELECT 1
-               FROM libraries l
-               WHERE l.id = s.support_previous_library_id
-                 AND l.space_id = $2
-             ) THEN NULL
-             ELSE s.support_previous_library_id
-           END
-       WHERE s.user_id = $1
-         AND (
-           s.support_space_id = $2
-           OR s.support_previous_space_id = $2
-           OR EXISTS (
-             SELECT 1
-             FROM libraries l
-             WHERE l.id = s.support_library_id
-               AND l.space_id = $2
-           )
-           OR EXISTS (
-             SELECT 1
-             FROM libraries l
-             WHERE l.id = s.support_previous_library_id
-               AND l.space_id = $2
-           )
-         )`,
-      [sourceMembership.rows[0].user_id, sourceSpaceId]
-    );
+    await invalidateUserSpaceAccess(client, {
+      userId: sourceMembership.rows[0].user_id,
+      spaceId: sourceSpaceId,
+      clearPersistedScope: false
+    });
 
     await client.query('COMMIT');
 

@@ -908,12 +908,7 @@ router.post('/password-reset/consume', validate(passwordResetConsumeSchema), asy
 // ── Current user ──────────────────────────────────────────────────────────────
 
 router.get('/me', authenticateToken, asyncHandler(async (req, res) => {
-  if (req.user?.role !== 'support_admin') {
-    const ensuredScope = await ensureUserDefaultScope(req.user.id);
-    req.user.scopeSpaceId = ensuredScope.spaceId;
-    req.user.activeSpaceId = ensuredScope.spaceId;
-    req.user.activeLibraryId = ensuredScope.libraryId;
-  } else if (Number(req.user?.supportSpaceId || 0) > 0) {
+  if (['admin', 'support_admin'].includes(String(req.user?.role || '')) && Number(req.user?.supportSpaceId || 0) > 0) {
     const client = await pool.connect();
     try {
       const supportSpace = await getSupportSpaceSummary(client, Number(req.user.supportSpaceId));
@@ -923,10 +918,19 @@ router.get('/me', authenticateToken, asyncHandler(async (req, res) => {
         const activeLibraryId = requestedLibraryId && libraries.some((library) => Number(library.id) === requestedLibraryId)
           ? requestedLibraryId
           : (libraries[0]?.id || null);
+        req.user.supportSpaceId = supportSpace.id;
+        req.user.supportLibraryId = activeLibraryId;
         req.user.scopeSpaceId = supportSpace.id;
         req.user.activeSpaceId = supportSpace.id;
         req.user.activeLibraryId = activeLibraryId;
       } else {
+        req.user.supportSpaceId = null;
+        req.user.supportLibraryId = null;
+        req.user.supportRequestId = null;
+        req.user.supportStartedAt = null;
+        req.user.supportReason = null;
+        req.user.supportPreviousSpaceId = null;
+        req.user.supportPreviousLibraryId = null;
         req.user.scopeSpaceId = null;
         req.user.activeSpaceId = null;
         req.user.activeLibraryId = null;
@@ -934,6 +938,11 @@ router.get('/me', authenticateToken, asyncHandler(async (req, res) => {
     } finally {
       client.release();
     }
+  } else if (req.user?.role !== 'support_admin') {
+    const ensuredScope = await ensureUserDefaultScope(req.user.id);
+    req.user.scopeSpaceId = ensuredScope.spaceId;
+    req.user.activeSpaceId = ensuredScope.spaceId;
+    req.user.activeLibraryId = ensuredScope.libraryId;
   } else {
     req.user.scopeSpaceId = null;
     req.user.activeSpaceId = null;
