@@ -44,7 +44,7 @@ function extractScopeHints(req) {
 
 function resolveScopeContext(req) {
   if (req?.scopeContext) return req.scopeContext;
-  const userSpaceId = toNullableInt(req?.user?.activeSpaceId) ?? null;
+  const userSpaceId = toNullableInt(req?.user?.scopeSpaceId ?? req?.user?.activeSpaceId) ?? null;
   const userLibraryId = toNullableInt(req?.user?.activeLibraryId) ?? null;
   return {
     spaceId: userSpaceId,

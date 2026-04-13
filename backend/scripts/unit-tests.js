@@ -49,6 +49,7 @@ const observabilityRuntimeSource = fs.readFileSync(require.resolve('../services/
 const authModulePath = require.resolve('../middleware/auth');
 const authMiddlewareSource = fs.readFileSync(authModulePath, 'utf8');
 const scopeAccessSource = fs.readFileSync(require.resolve('../middleware/scopeAccess'), 'utf8');
+const scopeContextSource = fs.readFileSync(require.resolve('../db/scopeContext'), 'utf8');
 const sessionsServiceSource = fs.readFileSync(require.resolve('../services/sessions'), 'utf8');
 const productEditionConfigSource = fs.readFileSync(require.resolve('../config/productEdition'), 'utf8');
 const {
@@ -699,6 +700,13 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(serverSource.includes("app.use('/api', spacesRouter);"));
   assert.ok(serverSource.includes("app.use('/api/admin', adminPlatformRouter);"));
   assert.ok(authRoutesSource.includes('authPlatformRouter'));
+  assert.ok(authMiddlewareSource.includes('scopeSpaceId: serviceAccountPrincipal.scope_space_id'));
+  assert.ok(authMiddlewareSource.includes('scopeSpaceId: patPrincipal.scope_space_id'));
+  assert.ok(authMiddlewareSource.includes('scopeSpaceId: sessionUser.support_space_id ?? sessionUser.scope_space_id'));
+  assert.ok(sessionsServiceSource.includes('AS scope_space_id'));
+  assert.ok(personalAccessTokenSource.includes('AS scope_space_id'));
+  assert.ok(serviceAccountKeySource.includes('AS scope_space_id'));
+  assert.ok(scopeContextSource.includes('req?.user?.scopeSpaceId ?? req?.user?.activeSpaceId'));
   assert.ok(authRoutesSource.includes("platformRouter.post('/support-session/start'"));
   assert.ok(authRoutesSource.includes("platformRouter.delete('/support-session'"));
   assert.ok(adminRoutesSource.includes('adminCommonRouter'));
@@ -963,6 +971,14 @@ results.push(run('scope.resolveScopeContext prefers request scope context', () =
   };
   const scope = resolveScopeContext(req);
   assert.deepStrictEqual(scope, { spaceId: 9, libraryId: 12 });
+}));
+
+results.push(run('scope.resolveScopeContext prefers internal scopeSpaceId before activeSpaceId', () => {
+  const req = {
+    user: { scopeSpaceId: 12, activeSpaceId: 4, activeLibraryId: 10 }
+  };
+  const scope = resolveScopeContext(req);
+  assert.deepStrictEqual(scope, { spaceId: 12, libraryId: 10 });
 }));
 
 results.push(run('scope.appendScopeSql appends scoped clauses and params', () => {
