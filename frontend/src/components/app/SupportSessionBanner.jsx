@@ -1,7 +1,9 @@
 import React from 'react';
+import { isSupportHelpEnabled } from './productEdition';
 
 export default function SupportSessionBanner({
   user,
+  productEdition,
   supportSession,
   libraries,
   activeLibrary,
@@ -10,7 +12,10 @@ export default function SupportSessionBanner({
   endSupportSession,
   Icons
 }) {
-  if (!['admin', 'support_admin'].includes(String(user?.role || '')) || !supportSession?.active) {
+  const supportStaffInEdition = isSupportHelpEnabled(productEdition)
+    && ['admin', 'support_admin'].includes(String(user?.role || ''));
+
+  if (!supportStaffInEdition || !supportSession?.active) {
     return null;
   }
 

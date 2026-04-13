@@ -5,7 +5,7 @@ import DashboardContent from './DashboardContent';
 import SupportSessionBanner from './SupportSessionBanner';
 import { DEFAULT_INTEGRATION_SECTION } from './dashboardRouting';
 import { ImportStatusDock, Toast, Icons, Spinner, cx } from './AppPrimitives';
-import { getSafeDashboardTab } from './productEdition';
+import { getSafeDashboardTab, isSupportHelpEnabled } from './productEdition';
 
 export default function DashboardShell({
   user,
@@ -61,6 +61,9 @@ export default function DashboardShell({
   setToast
 }) {
   const desktopNavExpanded = !collapsed;
+  const supportHelpEnabled = isSupportHelpEnabled(productEdition);
+  const supportStaffInEdition = supportHelpEnabled && ['admin', 'support_admin'].includes(String(user?.role || ''));
+  const adminWithoutSupportLane = user?.role === 'admin' && !supportSession?.active;
 
   return (
     <div className="flex h-screen overflow-hidden bg-void">
@@ -105,7 +108,7 @@ export default function DashboardShell({
         supportSessionActive={Boolean(supportSession?.active)}
         showCollectibles={featureFlags.collectibles_enabled}
         showEvents={featureFlags.events_enabled}
-        supportBadgeCount={!homelabEdition && ['admin', 'support_admin'].includes(String(user?.role || '')) ? supportSummary.open : null}
+        supportBadgeCount={supportStaffInEdition ? supportSummary.open : null}
         productEdition={productEdition}
       />
 
@@ -123,9 +126,9 @@ export default function DashboardShell({
           <div className="min-w-0">
             <div className="font-display text-lg tracking-wider text-gold leading-none">COLLECTZ</div>
             <div className="text-[11px] text-ghost mt-1 truncate">
-              {user?.role === 'admin' && !supportSession?.active
+              {adminWithoutSupportLane
                 ? (homelabEdition ? 'Homelab' : 'Platform admin')
-                : user?.role === 'support_admin'
+                : supportStaffInEdition
                   ? 'Support'
                   : `${activeSpace?.name || 'No current workspace'}${activeLibrary ? ` / ${activeLibrary.name}` : ''}`}
             </div>
@@ -134,6 +137,7 @@ export default function DashboardShell({
 
         <SupportSessionBanner
           user={user}
+          productEdition={productEdition}
           supportSession={supportSession}
           libraries={libraries}
           activeLibrary={activeLibrary}

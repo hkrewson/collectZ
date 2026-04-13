@@ -2828,7 +2828,8 @@ Historical note:
     - service-account key management stays mounted in platform and is fully unmounted in homelab,
     - platform-only valuation and log-export integration test routes stay mounted in platform while homelab keeps only the shared collector-safe integration surface,
     - shared Help surfaces continue to be tightened so homelab role handling follows the edition contract instead of inheriting platform support-staff behavior from raw admin role checks,
-    - workspace-scoped integration routes stay mounted only with the platform workspace surface instead of remaining available to the homelab runtime.
+    - workspace-scoped integration routes stay mounted only with the platform workspace surface instead of remaining available to the homelab runtime,
+    - shared dashboard shell helpers continue to be tightened so support badges, mobile header labels, support-session banners, and sidebar support-role handling only activate when the edition actually exposes the support lane.
 - Shared core extraction:
   - identify and extract domain logic that should be implemented once and consumed by both products,
   - expected core areas include media/import logic, shared auth/session primitives, shared API client patterns, shared UI primitives, and edition-safe integrations/metadata services.

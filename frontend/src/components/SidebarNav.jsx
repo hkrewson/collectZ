@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Icons, cx, isInteractiveTarget } from './app/AppPrimitives';
 import CollectzMark from './CollectzMark';
-import { getAllowedDashboardTabs, getHelpNavLabel, isHomelabEdition } from './app/productEdition';
+import { getAllowedDashboardTabs, getHelpNavLabel, isHomelabEdition, isSupportHelpEnabled } from './app/productEdition';
 
 const DiscordIcon = () => (
   <svg viewBox="0 0 16 16" fill="currentColor" className="w-5 h-5" aria-hidden="true">
@@ -41,9 +41,10 @@ export default function SidebarNav({
 }) {
   const isAdmin = user?.role === 'admin';
   const isSupportAdmin = user?.role === 'support_admin';
-  const isSupportStaff = isAdmin || isSupportAdmin;
-  const canUseLibraryShell = !isSupportAdmin;
   const homelabEdition = isHomelabEdition(productEdition);
+  const supportHelpEnabled = isSupportHelpEnabled(productEdition);
+  const isSupportStaff = supportHelpEnabled && (isAdmin || isSupportAdmin);
+  const canUseLibraryShell = !isSupportAdmin || !supportHelpEnabled;
   const allowedTabs = getAllowedDashboardTabs(productEdition, {
     userRole: user?.role,
     supportSessionActive,

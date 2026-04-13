@@ -644,6 +644,14 @@ results.push(run('frontend source includes tabbed help center and support inbox 
   assert.ok(supportSessionBannerSource.includes('Requester:'));
   assert.ok(supportSessionBannerSource.includes('Case:'));
   assert.ok(helpViewSource.includes('Reply to Support'));
+  assert.ok(dashboardShellSource.includes('const supportHelpEnabled = isSupportHelpEnabled(productEdition);'));
+  assert.ok(dashboardShellSource.includes("const supportStaffInEdition = supportHelpEnabled && ['admin', 'support_admin'].includes"));
+  assert.ok(dashboardShellSource.includes("supportBadgeCount={supportStaffInEdition ? supportSummary.open : null}"));
+  assert.ok(supportSessionBannerSource.includes('isSupportHelpEnabled(productEdition)'));
+  assert.ok(supportSessionBannerSource.includes("&& ['admin', 'support_admin'].includes(String(user?.role || ''));"));
+  assert.ok(sidebarNavSource.includes('const supportHelpEnabled = isSupportHelpEnabled(productEdition);'));
+  assert.ok(sidebarNavSource.includes('const isSupportStaff = supportHelpEnabled && (isAdmin || isSupportAdmin);'));
+  assert.ok(sidebarNavSource.includes('const canUseLibraryShell = !isSupportAdmin || !supportHelpEnabled;'));
 }));
 
 results.push(run('edition boundary source includes backend-owned homelab shell and help surface rules', () => {
