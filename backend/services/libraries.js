@@ -74,7 +74,8 @@ async function findReplacementAccessibleLibrary(client, { userId }) {
 async function repairUserStateAfterLibraryAccessLoss(client, {
   userId,
   removedLibraryIds,
-  productEdition
+  productEdition,
+  fallbackToDefaultScope = false
 }) {
   const numericUserId = Number(userId);
   const normalizedLibraryIds = Array.isArray(removedLibraryIds)
@@ -147,6 +148,23 @@ async function repairUserStateAfterLibraryAccessLoss(client, {
         numericUserId,
         resolvePersistedActiveSpaceId(replacement.space_id || null, productEdition),
         replacement.library_id || null
+      ]
+    );
+    return;
+  }
+
+  if (fallbackToDefaultScope) {
+    const ensuredScope = await ensureUserDefaultScope(numericUserId);
+    await client.query(
+      `UPDATE users
+       SET active_space_id = $2,
+           active_library_id = $3
+       WHERE id = $1
+         AND active_library_id IS NULL`,
+      [
+        numericUserId,
+        resolvePersistedActiveSpaceId(ensuredScope.spaceId || null, productEdition),
+        ensuredScope.libraryId || null
       ]
     );
   }
@@ -630,6 +648,7 @@ module.exports = {
   listLibrariesForSpace,
   listLibrariesForUser,
   getAccessibleLibrary,
+  repairUserStateAfterLibraryAccessLoss,
   syncLibraryMembershipsForSpaceUser,
   removeLibraryMembershipsForSpaceUser,
   countOwnedLibrariesInSpace,

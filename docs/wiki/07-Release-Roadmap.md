@@ -14,6 +14,30 @@ This roadmap converts product direction into implementation milestones with acce
 - The CI/CD pipeline is a first-class concern — changes must be deployable via `docker compose pull && up -d` for homelab users.
 - Delivery and modularity controls in `14-Engineering-Delivery-Policy.md` are mandatory for pre-2.0 releases.
 
+## Backlog
+
+The backlog is the source of truth for work that has not yet been assigned a release version. It should hold individual tasks, bugs, feature ideas, discussions, and deferred milestones until they are ready to be promoted into a numbered milestone.
+
+### How to use the backlog
+
+- Keep backlog items small enough to be grouped into one coherent release theme later.
+- After each completed milestone, review the backlog to decide what the next version should be and what it should cover.
+- Prefer larger cohesive changes for minor releases and smaller grouped fixes for patch releases.
+- Do not assign a version number to a backlog item until it is selected for release planning.
+- When an item is promoted, write the milestone and version number into this document as a numbered section placed immediately after the milestone that precedes it.
+- Keep the active milestone intact while it is in progress; do not move it into backlog until it is completed or explicitly deferred.
+- Leave deferred or reconsidered work in the backlog rather than deleting it, so the decision history stays visible.
+- Record known dependencies and blockers in the backlog so release selection stays deliberate instead of ad hoc.
+- When a backlog item becomes a release, update the milestone section, release notes, in-app release feed, and related verification steps together.
+- Keep the short milestone index and the long-form milestone sections consistent whenever an item is promoted or demoted.
+- Treat release closeout requirements as part of the promotion workflow, not the backlog itself.
+
+### Current backlog items
+
+- Digital library sync revisit, including provider comparison and ingest-contract validation for CWA/OPDS or an alternative self-hosted provider.
+- Personal workspace offboarding, archive retention, and recovery for SaaS account lifecycle handling.
+- Optional build: cost model and billing readiness for hosted pricing and usage metering.
+
 ---
 
 ## 1.6.5-r1 — Auditability and Auth Operations
@@ -1098,8 +1122,9 @@ Historical planning notes may still exist in:
 55. `2.10.17` Workspace invite and member lifecycle controls
 56. `2.11.0` Optional market valuation integrations
 57. `3.0.0` Frontend build modernization (CRA to Vite)
-58. `3.1.2` Personal workspace offboarding, archive retention, and recovery
-59. `3.2.0` Optional build: cost model and billing readiness
+58. Backlog: Digital library sync revisit
+59. Backlog: Personal workspace offboarding, archive retention, and recovery
+60. Backlog: Optional build: cost model and billing readiness
 
 ## 2.1.0 — Metadata Normalization and Query Performance
 
@@ -2669,9 +2694,11 @@ Historical note:
 - Workspace owners/admins can force password reset, suspend, and remove users through workspace-scoped controls.
 - Invite claim and member lifecycle behavior remain aligned with the workspace ownership model rather than leaking into unrelated spaces or platform-global state.
 
-## 3.1.2 — Personal Workspace Offboarding, Archive Retention, and Recovery
+### Backlog Item: Personal Workspace Offboarding, Archive Retention, and Recovery
 
-**Goal:** define the SaaS account/workspace offboarding path for personal workspaces so users can leave and later return without ambiguous deletion behavior or undefined retention handling.
+**Type:** Backlog item
+
+**Goal:** Define the SaaS account/workspace offboarding path for personal workspaces so users can leave and later return without ambiguous deletion behavior or undefined retention handling.
 
 ### Scope
 
@@ -2856,6 +2883,7 @@ Historical note:
     - shared library-membership sync continues to be tightened so granting a user real library access in a space can immediately anchor an otherwise unscoped user to the first accessible library in that space instead of depending on later fallback/bootstrap to choose an active scope.
     - shared library-membership removal continues to be tightened so removing a user's library access in a space immediately clears stale active-library and support-library pointers and opportunistically restores a replacement accessible library instead of depending on later fallback/bootstrap to repair the user's scope.
     - shared library-membership loss repair continues to be extracted into common library-service helpers so removing or moving library access now clears stale support-space and previous-support-space session pointers alongside support-library state whenever those sessions were anchored to the lost library, reducing route-local patching and keeping the shared runtime aligned around one mutation-time repair path.
+    - shared library-access-loss repair continues to be extracted out of route-local archive, delete, and ownership-transfer flows so library lifecycle mutations now reuse the same service helper for restoring replacement active scope, clearing stale support-session library pointers, and optionally bootstrapping a default fallback scope when no accessible library remains.
     - shared space-access invalidation continues to be extracted into common space-service helpers so suspension, membership removal, and transfer-out lifecycle flows no longer carry duplicated route-local SQL for clearing persisted active scope and stale current/previous support-session state when a user loses access to a space.
     - support-session bootstrap continues to be tightened so the stored previous support-session scope is validated against currently accessible space/library state before it is saved, preventing stale previous-space or previous-library pointers from being carried forward into support-session metadata.
     - support-session teardown continues to be tightened so request-level restored scope and support-session audit metadata use the same validated previous scope instead of copying raw previous-space or previous-library ids directly out of the session row.
@@ -3329,7 +3357,9 @@ Historical note:
 - This is intentionally a separate planning domain inside collectZ, not a separate companion app.
 - This is intentionally not a first-pass arbitrary code plugin runtime; initial implementation should load vetted internal provider adapters only.
 
-## 3.1.1 — Deferred Revisit: Digital Library Sync (CWA or Alternative Self-Hosted Provider)
+### Backlog Item: Digital Library Sync Revisit (CWA or Alternative Self-Hosted Provider)
+
+**Type:** Backlog item
 
 **Goal:** Reassess digital-owned book/comic sync after core roadmap stabilization, with a stronger provider-evaluation phase before productizing ingestion.
 
@@ -3384,7 +3414,9 @@ Historical note:
 - Media detail view can show valuation fields when present and degrade gracefully when unavailable.
 - Pricing failures do not block media CRUD/import flows and are fully auditable.
 
-## 3.2.0 — Optional Build: Cost Model and Billing Readiness
+### Backlog Item: Optional Build: Cost Model and Billing Readiness
+
+**Type:** Backlog item
 
 **Goal:** Prepare a data-backed cost model before any hosted subscription offering, while keeping self-hosted installs free of paid-provider dependencies.
 
