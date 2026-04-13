@@ -532,6 +532,8 @@ results.push(run('auth route source includes explicit support session endpoints'
   assert.strictEqual(backendPackageJson.scripts['test:support-session-smoke'], 'node scripts/support-session-smoke.js');
   assert.strictEqual(backendPackageJson.scripts['test:library-lifecycle-smoke'], 'node scripts/library-lifecycle-smoke.js');
   assert.strictEqual(backendPackageJson.scripts['test:space-lifecycle-smoke'], 'node scripts/space-lifecycle-smoke.js');
+  assert.ok(authRoutesSource.includes('function clearSupportSessionAuthState(req, { clearScope = true } = {})'));
+  assert.ok(authRoutesSource.includes('async function normalizeRequestAuthState(req)'));
   assert.ok(authRoutesSource.includes("requireRole('admin', 'support_admin')"));
   assert.ok(authRoutesSource.includes('auth.support_session.started'));
   assert.ok(authRoutesSource.includes('auth.support_session.ended'));
@@ -543,6 +545,10 @@ results.push(run('auth route source includes explicit support session endpoints'
   assert.ok(authRoutesSource.includes('request_subject'));
   assert.ok(authRoutesSource.includes('requester_name'));
   assert.ok(authRoutesSource.includes('library_name'));
+  assert.ok(authRoutesSource.includes('const normalized = await normalizeRequestAuthState(req);'));
+  assert.ok(authRoutesSource.includes("router.get('/me', authenticateToken, asyncHandler(async (req, res) => {"));
+  assert.ok(authRoutesSource.includes("router.get('/profile', authenticateToken, asyncHandler(async (req, res) => {"));
+  assert.ok(authRoutesSource.includes('await normalizeRequestAuthState(req);'));
   assert.ok(authRoutesSource.includes('active_space_id: null'));
   assert.ok(authRoutesSource.includes('support_session: null'));
   assert.ok(authRoutesSource.includes('stripHomelabSpaceContext('));

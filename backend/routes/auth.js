@@ -136,28 +136,33 @@ function formatSupportRequestKey(id) {
   return `SUP-${String(numericId).padStart(6, '0')}`;
 }
 
-async function buildAuthScopePayload(req) {
+function clearSupportSessionAuthState(req, { clearScope = true } = {}) {
+  req.user.supportSpaceId = null;
+  req.user.supportLibraryId = null;
+  req.user.supportRequestId = null;
+  req.user.supportStartedAt = null;
+  req.user.supportReason = null;
+  req.user.supportPreviousSpaceId = null;
+  req.user.supportPreviousLibraryId = null;
+  if (clearScope) {
+    req.user.scopeSpaceId = null;
+    req.user.activeSpaceId = null;
+    req.user.activeLibraryId = null;
+  }
+}
+
+async function normalizeRequestAuthState(req) {
   if (['admin', 'support_admin'].includes(String(req.user?.role || '')) && Number(req.user?.supportSpaceId || 0) > 0) {
     const client = await pool.connect();
     try {
       const supportSpace = await getSupportSpaceSummary(client, Number(req.user.supportSpaceId));
       if (!supportSpace) {
-        req.user.supportSpaceId = null;
-        req.user.supportLibraryId = null;
-        req.user.supportRequestId = null;
-        req.user.supportStartedAt = null;
-        req.user.supportReason = null;
-        req.user.supportPreviousSpaceId = null;
-        req.user.supportPreviousLibraryId = null;
-        req.user.scopeSpaceId = null;
-        req.user.activeSpaceId = null;
-        req.user.activeLibraryId = null;
+        clearSupportSessionAuthState(req);
         return {
-          active_space_id: null,
-          active_library_id: null,
-          spaces: [],
+          kind: 'support_session',
+          supportSpace: null,
           libraries: [],
-          support_session: null
+          activeLibraryId: null
         };
       }
 
@@ -166,31 +171,80 @@ async function buildAuthScopePayload(req) {
       const activeLibraryId = requestedLibraryId && libraries.some((library) => Number(library.id) === requestedLibraryId)
         ? requestedLibraryId
         : (libraries[0]?.id || null);
-      const supportRequestSummary = await getSupportRequestSessionSummary(client, Number(req.user.supportRequestId || 0) || null);
-      const activeLibrary = libraries.find((library) => Number(library.id) === Number(activeLibraryId)) || null;
+
       req.user.supportSpaceId = supportSpace.id;
       req.user.supportLibraryId = activeLibraryId;
       req.user.scopeSpaceId = supportSpace.id;
       req.user.activeSpaceId = supportSpace.id;
       req.user.activeLibraryId = activeLibraryId;
 
-      return stripHomelabSpaceContext({
-        active_space_id: supportSpace.id,
-        active_library_id: activeLibraryId,
-        spaces: [{
-          id: supportSpace.id,
-          name: supportSpace.name,
-          slug: supportSpace.slug || null,
-          description: supportSpace.description || null,
-          is_personal: Boolean(supportSpace.is_personal),
-          membership_role: 'admin',
-          library_count: Number(supportSpace.library_count || 0)
-        }],
+      return {
+        kind: 'support_session',
+        supportSpace,
         libraries,
+        activeLibraryId
+      };
+    } finally {
+      client.release();
+    }
+  }
+
+  if (req.user?.role === 'support_admin') {
+    clearSupportSessionAuthState(req);
+    return {
+      kind: 'support_admin_idle',
+      supportSpace: null,
+      libraries: [],
+      activeLibraryId: null
+    };
+  }
+
+  const ensuredScope = await ensureUserDefaultScope(req.user.id);
+  req.user.scopeSpaceId = ensuredScope.spaceId;
+  req.user.activeSpaceId = ensuredScope.spaceId;
+  req.user.activeLibraryId = ensuredScope.libraryId;
+  return {
+    kind: 'default_scope',
+    ensuredScope
+  };
+}
+
+async function buildAuthScopePayload(req) {
+  const normalized = await normalizeRequestAuthState(req);
+  if (normalized.kind === 'support_session') {
+    if (!normalized.supportSpace) {
+      return {
+        active_space_id: null,
+        active_library_id: null,
+        spaces: [],
+        libraries: [],
+        support_session: null
+      };
+    }
+
+    const client = await pool.connect();
+    try {
+      const supportRequestSummary = await getSupportRequestSessionSummary(client, Number(req.user.supportRequestId || 0) || null);
+      // The summary lookup is separate from state normalization so /me and /profile
+      // can reuse the same request-state helper without always paying for request details.
+      const activeLibrary = normalized.libraries.find((library) => Number(library.id) === Number(normalized.activeLibraryId)) || null;
+      return stripHomelabSpaceContext({
+        active_space_id: normalized.supportSpace.id,
+        active_library_id: normalized.activeLibraryId,
+        spaces: [{
+          id: normalized.supportSpace.id,
+          name: normalized.supportSpace.name,
+          slug: normalized.supportSpace.slug || null,
+          description: normalized.supportSpace.description || null,
+          is_personal: Boolean(normalized.supportSpace.is_personal),
+          membership_role: 'admin',
+          library_count: Number(normalized.supportSpace.library_count || 0)
+        }],
+        libraries: normalized.libraries,
         support_session: {
           active: true,
-          space_id: supportSpace.id,
-          library_id: activeLibraryId,
+          space_id: normalized.supportSpace.id,
+          library_id: normalized.activeLibraryId,
           started_at: req.user.supportStartedAt || null,
           reason: req.user.supportReason || null,
           request_id: req.user.supportRequestId || null,
@@ -201,7 +255,7 @@ async function buildAuthScopePayload(req) {
           requester_email: supportRequestSummary?.requester_email || null,
           previous_space_id: req.user.supportPreviousSpaceId ?? null,
           previous_library_id: req.user.supportPreviousLibraryId ?? null,
-          space_name: supportSpace.name,
+          space_name: normalized.supportSpace.name,
           library_name: activeLibrary?.name || supportRequestSummary?.target_library_name || null
         }
       }, getProductEdition());
@@ -210,17 +264,7 @@ async function buildAuthScopePayload(req) {
     }
   }
 
-  if (req.user?.role === 'support_admin') {
-    req.user.supportSpaceId = null;
-    req.user.supportLibraryId = null;
-    req.user.supportRequestId = null;
-    req.user.supportStartedAt = null;
-    req.user.supportReason = null;
-    req.user.supportPreviousSpaceId = null;
-    req.user.supportPreviousLibraryId = null;
-    req.user.scopeSpaceId = null;
-    req.user.activeSpaceId = null;
-    req.user.activeLibraryId = null;
+  if (normalized.kind === 'support_admin_idle') {
     return stripHomelabSpaceContext({
       active_space_id: null,
       active_library_id: null,
@@ -230,28 +274,23 @@ async function buildAuthScopePayload(req) {
     }, getProductEdition());
   }
 
-  const ensuredScope = await ensureUserDefaultScope(req.user.id);
-  req.user.scopeSpaceId = ensuredScope.spaceId;
-  req.user.activeSpaceId = ensuredScope.spaceId;
-  req.user.activeLibraryId = ensuredScope.libraryId;
-
   const client = await pool.connect();
   try {
     const spaces = await listAccessibleSpacesForUser(client, {
       userId: req.user.id,
       role: req.user.role
     });
-    const libraries = ensuredScope.spaceId
+    const libraries = normalized.ensuredScope.spaceId
       ? await listLibrariesForSpace({
           userId: req.user.id,
           role: req.user.role,
-          spaceId: ensuredScope.spaceId
+          spaceId: normalized.ensuredScope.spaceId
         })
       : [];
 
     return stripHomelabSpaceContext({
-      active_space_id: ensuredScope.spaceId,
-      active_library_id: ensuredScope.libraryId,
+      active_space_id: normalized.ensuredScope.spaceId,
+      active_library_id: normalized.ensuredScope.libraryId,
       spaces: spaces.map((space) => ({
         id: space.id,
         name: space.name,
@@ -908,46 +947,7 @@ router.post('/password-reset/consume', validate(passwordResetConsumeSchema), asy
 // ── Current user ──────────────────────────────────────────────────────────────
 
 router.get('/me', authenticateToken, asyncHandler(async (req, res) => {
-  if (['admin', 'support_admin'].includes(String(req.user?.role || '')) && Number(req.user?.supportSpaceId || 0) > 0) {
-    const client = await pool.connect();
-    try {
-      const supportSpace = await getSupportSpaceSummary(client, Number(req.user.supportSpaceId));
-      if (supportSpace) {
-        const libraries = await listSupportLibrariesForSpace(client, supportSpace.id);
-        const requestedLibraryId = Number(req.user.supportLibraryId || 0) || null;
-        const activeLibraryId = requestedLibraryId && libraries.some((library) => Number(library.id) === requestedLibraryId)
-          ? requestedLibraryId
-          : (libraries[0]?.id || null);
-        req.user.supportSpaceId = supportSpace.id;
-        req.user.supportLibraryId = activeLibraryId;
-        req.user.scopeSpaceId = supportSpace.id;
-        req.user.activeSpaceId = supportSpace.id;
-        req.user.activeLibraryId = activeLibraryId;
-      } else {
-        req.user.supportSpaceId = null;
-        req.user.supportLibraryId = null;
-        req.user.supportRequestId = null;
-        req.user.supportStartedAt = null;
-        req.user.supportReason = null;
-        req.user.supportPreviousSpaceId = null;
-        req.user.supportPreviousLibraryId = null;
-        req.user.scopeSpaceId = null;
-        req.user.activeSpaceId = null;
-        req.user.activeLibraryId = null;
-      }
-    } finally {
-      client.release();
-    }
-  } else if (req.user?.role !== 'support_admin') {
-    const ensuredScope = await ensureUserDefaultScope(req.user.id);
-    req.user.scopeSpaceId = ensuredScope.spaceId;
-    req.user.activeSpaceId = ensuredScope.spaceId;
-    req.user.activeLibraryId = ensuredScope.libraryId;
-  } else {
-    req.user.scopeSpaceId = null;
-    req.user.activeSpaceId = null;
-    req.user.activeLibraryId = null;
-  }
+  await normalizeRequestAuthState(req);
   const result = await pool.query(
     'SELECT id, email, name, role, created_at, updated_at, email_verified, email_verified_at, active_space_id, active_library_id FROM users WHERE id = $1',
     [req.user.id]
@@ -1274,6 +1274,7 @@ platformRouter.delete('/support-session', authenticateToken, requireSessionAuth,
 // ── Profile ───────────────────────────────────────────────────────────────────
 
 router.get('/profile', authenticateToken, asyncHandler(async (req, res) => {
+  await normalizeRequestAuthState(req);
   const result = await pool.query(
     'SELECT id, email, name, role, created_at, updated_at, active_space_id, active_library_id FROM users WHERE id = $1',
     [req.user.id]

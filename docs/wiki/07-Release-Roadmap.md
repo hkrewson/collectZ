@@ -37,6 +37,9 @@ The backlog is the source of truth for work that has not yet been assigned a rel
 - Digital library sync revisit, including provider comparison and ingest-contract validation for CWA/OPDS or an alternative self-hosted provider.
 - Personal workspace offboarding, archive retention, and recovery for SaaS account lifecycle handling.
 - Optional build: cost model and billing readiness for hosted pricing and usage metering.
+- [tags: major feature, infra, risk] Public homelab repo promotion/export workflow after the shared-core boundary settles, including packaging, publication, and update flow for a repo that contains no private platform shell surfaces.
+- [tags: risk] Broader browser-visible regression expansion for extracted shared-core lifecycle flows after `3.1.0` stabilizes, covering support-session, library lifecycle, and space lifecycle paths beyond the minimum release gates.
+- [tags: ui polish] Post-split UI cleanup for support/help/auth shell surfaces once the edition boundary stops moving, including any remaining browser-visible polish that does not change the shared-core extraction story.
 
 ---
 
@@ -2892,6 +2895,7 @@ Historical note:
     - support-session `/api/auth/me` payload shaping continues to be tightened so active support-session library state is validated against the current support space instead of echoing a stale `supportLibraryId` directly out of request auth state.
     - support-session scope payload shaping continues to be tightened so normalized support-session space/library results are written back into request auth state and invalid support-session request pointers are cleared instead of lingering after payload construction.
     - support-session `/api/auth/me` request-state handling continues to be tightened so normalized support-session space/library results are written back into the request auth state and invalid support-session request pointers are cleared there too, keeping `/api/auth/me` aligned with the normalized scope payload path.
+    - shared auth/bootstrap normalization continues to be consolidated so `/api/auth/me`, `/api/profile`, and scope payload shaping reuse the same request-state normalization helper for support-session and default-scope handling instead of carrying parallel route-local normalization branches.
     - targeted support-session runtime coverage now proves `/api/auth/me` must honor active support-session scope for both `admin` and `support_admin` users instead of falling back to default admin scope during an active support session, tightening another remaining split between session normalization helpers and the live auth profile surface.
     - targeted backend/runtime regression coverage continues to be expanded around support-session normalization so the live platform stack now deliberately poisons stale previous-scope and support-library session state and proves `/api/auth/support-session/start`, `/api/auth/me`, `/api/auth/scope`, and `/api/auth/support-session` teardown normalize those cases back to valid runtime state instead of restoring drifted pointers.
 - Shared core extraction:

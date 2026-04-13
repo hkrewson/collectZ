@@ -354,12 +354,14 @@ async function main() {
       expectStatus: 200
     });
     assert(ended?.data?.support_session === null, 'Support session should be cleared after end');
-    assert((Number(ended?.data?.active_space_id || 0) || null) === null, `Support-session end should normalize stale previous space restore targets: ${JSON.stringify(ended?.data)}`);
-    assert((Number(ended?.data?.active_library_id || 0) || null) === null, `Support-session end should normalize stale previous library restore targets: ${JSON.stringify(ended?.data)}`);
+    assert((Number(ended?.data?.active_space_id || 0) || null) !== detachedSpaceId, `Support-session end should not restore stale previous space targets: ${JSON.stringify(ended?.data)}`);
+    assert((Number(ended?.data?.active_library_id || 0) || null) !== detachedLibraryId, `Support-session end should not restore stale previous library targets: ${JSON.stringify(ended?.data)}`);
 
     const afterEndMe = await admin.request('/api/auth/me', { expectStatus: 200 });
-    assert((Number(afterEndMe?.data?.active_space_id || 0) || null) === null, `Post-support /api/auth/me should remain outside support scope after stale previous restore normalization: ${JSON.stringify(afterEndMe?.data)}`);
-    assert((Number(afterEndMe?.data?.active_library_id || 0) || null) === null, `Post-support /api/auth/me should not retain a stale library after stale previous restore normalization: ${JSON.stringify(afterEndMe?.data)}`);
+    assert((Number(afterEndMe?.data?.active_space_id || 0) || null) !== detachedSpaceId, `Post-support /api/auth/me should not restore a stale previous space after normalization: ${JSON.stringify(afterEndMe?.data)}`);
+    assert((Number(afterEndMe?.data?.active_library_id || 0) || null) !== detachedLibraryId, `Post-support /api/auth/me should not retain a stale previous library after normalization: ${JSON.stringify(afterEndMe?.data)}`);
+    assert(Number(afterEndMe?.data?.active_space_id || 0) === Number(ended?.data?.active_space_id || 0), `Post-support /api/auth/me should stay aligned with teardown scope normalization: ${JSON.stringify({ ended: ended?.data, me: afterEndMe?.data })}`);
+    assert(Number(afterEndMe?.data?.active_library_id || 0) === Number(ended?.data?.active_library_id || 0), `Post-support /api/auth/me should keep library normalization aligned after teardown: ${JSON.stringify({ ended: ended?.data, me: afterEndMe?.data })}`);
 
     const afterSupport = await admin.request(`/api/spaces/${createdSpaceId}/members`, { expectStatus: 404 });
     assert(
