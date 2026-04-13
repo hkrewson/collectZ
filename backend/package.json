@@ -11,6 +11,8 @@
     "test:integration-smoke": "node scripts/api-integration-smoke.js",
     "test:structured-log-smoke": "node scripts/structured-log-smoke.js",
     "test:support-session-smoke": "node scripts/support-session-smoke.js",
+    "test:library-lifecycle-smoke": "node scripts/library-lifecycle-smoke.js",
+    "test:space-lifecycle-smoke": "node scripts/space-lifecycle-smoke.js",
     "test:admin-space-control": "node scripts/admin-space-control-smoke.js",
     "test:tenancy-platform-boundary": "node scripts/tenancy-platform-boundary-smoke.js",
     "test:homelab-edition-boundary": "node scripts/homelab-edition-boundary-smoke.js",

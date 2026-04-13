@@ -124,6 +124,8 @@ const structuredLogLokiSmokeSource = fs.readFileSync(require.resolve('../scripts
 const structuredLogSyslogSmokeSource = fs.readFileSync(require.resolve('../scripts/structured-log-syslog-smoke'), 'utf8');
 const structuredLogSmokeSharedSource = fs.readFileSync(require.resolve('../scripts/structured-log-smoke-shared'), 'utf8');
 const supportSessionSmokeSource = fs.readFileSync(require.resolve('../scripts/support-session-smoke'), 'utf8');
+const libraryLifecycleSmokeSource = fs.readFileSync(require.resolve('../scripts/library-lifecycle-smoke'), 'utf8');
+const spaceLifecycleSmokeSource = fs.readFileSync(require.resolve('../scripts/space-lifecycle-smoke'), 'utf8');
 const dashboardSpec = JSON.parse(fs.readFileSync(require.resolve('../../ops/monitoring/grafana/dashboards/collectz-overview.json'), 'utf8'));
 const alertRulesSource = fs.readFileSync(require.resolve('../../docs/alerts/collectz-alert-rules.yaml'), 'utf8');
 
@@ -528,6 +530,8 @@ results.push(run('auth route source includes explicit support session endpoints'
   assert.ok(authRoutesSource.includes("platformRouter.post('/support-session/start'"));
   assert.ok(authRoutesSource.includes("platformRouter.delete('/support-session'"));
   assert.strictEqual(backendPackageJson.scripts['test:support-session-smoke'], 'node scripts/support-session-smoke.js');
+  assert.strictEqual(backendPackageJson.scripts['test:library-lifecycle-smoke'], 'node scripts/library-lifecycle-smoke.js');
+  assert.strictEqual(backendPackageJson.scripts['test:space-lifecycle-smoke'], 'node scripts/space-lifecycle-smoke.js');
   assert.ok(authRoutesSource.includes("requireRole('admin', 'support_admin')"));
   assert.ok(authRoutesSource.includes('auth.support_session.started'));
   assert.ok(authRoutesSource.includes('auth.support_session.ended'));
@@ -850,6 +854,18 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(supportSessionSmokeSource.includes("const scopeWithDriftedSupportLibrary = await admin.request('/api/auth/scope', { expectStatus: 200 });"));
   assert.ok(supportSessionSmokeSource.includes('Support session start should normalize stale previous space pointers'));
   assert.ok(supportSessionSmokeSource.includes('Support session start should persist normalized previous library pointers'));
+  assert.ok(libraryLifecycleSmokeSource.includes("await ownerClient.request(`/api/libraries/${archiveTarget.id}/archive`, {"));
+  assert.ok(libraryLifecycleSmokeSource.includes("await transferOwnerClient.request(`/api/libraries/${transferTarget.id}/transfer`, {"));
+  assert.ok(libraryLifecycleSmokeSource.includes('Archive should move affected member to replacement library'));
+  assert.ok(libraryLifecycleSmokeSource.includes('Transfer should move previous owner off transferred library via default-scope fallback'));
+  assert.ok(libraryLifecycleSmokeSource.includes('Library lifecycle smoke passed'));
+  assert.ok(spaceLifecycleSmokeSource.includes("await suspendOwnerClient.request(`/api/spaces/${suspendSpace.id}/members/${suspendMemberMembership.id}/suspension`, {"));
+  assert.ok(spaceLifecycleSmokeSource.includes("await removalOwnerClient.request(`/api/spaces/${removalSpace.id}/members/${removalMemberMembership.id}`, {"));
+  assert.ok(spaceLifecycleSmokeSource.includes("await transferAdminClient.request(`/api/spaces/${transferSpace.id}/members/${transferOwnerMembership.id}/transfer-new-space`, {"));
+  assert.ok(spaceLifecycleSmokeSource.includes('Suspension should clear active space for suspended member'));
+  assert.ok(spaceLifecycleSmokeSource.includes('Membership removal should clear current support space tied to removed access'));
+  assert.ok(spaceLifecycleSmokeSource.includes('Transfer should preserve new active space after source invalidation cleanup'));
+  assert.ok(spaceLifecycleSmokeSource.includes('Space lifecycle smoke passed'));
   assert.ok(rootPackageJson.scripts['stack:up:homelab']);
   assert.ok(rootPackageJson.scripts['stack:up:platform']);
   assert.ok(rootPackageJson.scripts['stack:up:homelab'].includes('FRONTEND_PORT=3100'));
