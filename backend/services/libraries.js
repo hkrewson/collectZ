@@ -80,6 +80,13 @@ async function ensureUserDefaultScope(userId, options = {}) {
     });
 
     let spaceId = preferredSpaceId;
+    const activeLibrary = userRow.active_library_id
+      ? await getAccessibleLibraryRow(client, {
+          userId: numericUserId,
+          libraryId: userRow.active_library_id
+        })
+      : null;
+
     if (spaceId) {
       const preferredAllowed = await canUserAccessSpace(client, { userId: numericUserId, spaceId });
       if (!preferredAllowed) {
@@ -87,14 +94,8 @@ async function ensureUserDefaultScope(userId, options = {}) {
       }
     }
 
-    if (!spaceId && userRow.active_library_id) {
-      const activeLibrary = await getAccessibleLibraryRow(client, {
-        userId: numericUserId,
-        libraryId: userRow.active_library_id
-      });
-      if (activeLibrary) {
-        spaceId = activeLibrary.space_id || null;
-      }
+    if (!spaceId && activeLibrary) {
+      spaceId = activeLibrary.space_id || null;
     }
 
     if (!spaceId && userRow.active_space_id) {
@@ -132,7 +133,8 @@ async function ensureUserDefaultScope(userId, options = {}) {
     const anyMemberships = await client.query(
       `SELECT COUNT(*)::int AS count
        FROM space_memberships
-       WHERE user_id = $1`,
+       WHERE user_id = $1
+         AND suspended_at IS NULL`,
       [numericUserId]
     );
     const anyMembershipCount = Number(anyMemberships.rows[0]?.count || 0);
@@ -170,16 +172,9 @@ async function ensureUserDefaultScope(userId, options = {}) {
       );
     }
 
-    let libraryId = userRow.active_library_id || null;
-    if (libraryId) {
-      const activeLibrary = await getAccessibleLibraryRow(client, {
-        userId: numericUserId,
-        libraryId
-      });
-      if (!activeLibrary || Number(activeLibrary.space_id || 0) !== Number(spaceId || 0)) {
-        libraryId = null;
-      }
-    }
+    let libraryId = activeLibrary && Number(activeLibrary.space_id || 0) === Number(spaceId || 0)
+      ? activeLibrary.id
+      : null;
 
     if (!libraryId) {
       const memberships = await client.query(

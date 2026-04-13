@@ -2071,6 +2071,10 @@ results.push(run('library service source ensures default scope before returning 
   assert.ok(libraryServiceSource.includes('ensureDefaultSpaceForClient'));
   assert.ok(libraryServiceSource.includes('resolvePersistedActiveSpaceId'));
   assert.ok(libraryServiceSource.includes('SET active_space_id = $2,'));
+  assert.ok(libraryServiceSource.includes('const activeLibrary = userRow.active_library_id'));
+  assert.ok(libraryServiceSource.includes('if (!spaceId && activeLibrary) {'));
+  assert.ok(libraryServiceSource.includes('let libraryId = activeLibrary && Number(activeLibrary.space_id || 0) === Number(spaceId || 0)'));
+  assert.ok(libraryServiceSource.includes('AND suspended_at IS NULL'));
   assert.ok(libraryServiceSource.includes('async function syncLibraryMembershipsForSpaceUser'));
   assert.ok(libraryServiceSource.includes('FROM users u'));
   assert.ok(libraryServiceSource.includes('async function moveOwnedLibrariesToSpace'));
@@ -2151,6 +2155,8 @@ results.push(run('auth register flow applies scoped invite role before ensuring 
 results.push(run('scope access source enforces explicit space membership for non-admin space-only access', () => {
   const scopeAccessSource = require('fs').readFileSync(require.resolve('../middleware/scopeAccess'), 'utf8');
   assert.ok(scopeAccessSource.includes('FROM space_memberships'));
+  assert.ok(scopeAccessSource.includes('JOIN space_memberships sm'));
+  assert.ok(scopeAccessSource.includes('sm.suspended_at IS NULL'));
   assert.ok(scopeAccessSource.includes('space_membership_required'));
   assert.ok(scopeAccessSource.includes('admin_support_session_required'));
 }));

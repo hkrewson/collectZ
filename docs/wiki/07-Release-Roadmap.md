@@ -2839,6 +2839,9 @@ Historical note:
     - auth/profile payload shaping continues to be tightened so platform-facing `active_space_id` responses prefer the request's effective scope before falling back to legacy request fields or persisted workspace state.
     - internal auth principal records continue to be tightened so their `active_space_id` mirrors the effective scope derivation as well, reducing downstream drift in middleware and audit paths that still consume principal records directly.
     - shared library payload shaping continues to be tightened so `/api/libraries` prefers request-level effective scope and active-library state instead of re-reading raw persisted user scope after bootstrap.
+    - default-scope service resolution continues to be tightened so the active library row is reused as the primary scope anchor even when a preferred space is already in play, reducing duplicate lookups and keeping shared scope bootstrap centered on effective library state instead of older persisted workspace hints.
+    - default-scope membership counting continues to be tightened so suspended space memberships no longer count as usable scope during bootstrap, letting shared scope recovery follow active memberships instead of stale suspended workspace history.
+    - shared scope-access fallback resolution continues to be tightened so a fallback library is only derived from libraries whose backing space membership is still active, keeping scope bootstrap aligned with the same accessible-library semantics used elsewhere in the shared core.
 - Shared core extraction:
   - identify and extract domain logic that should be implemented once and consumed by both products,
   - expected core areas include media/import logic, shared auth/session primitives, shared API client patterns, shared UI primitives, and edition-safe integrations/metadata services.

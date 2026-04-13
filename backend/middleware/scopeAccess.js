@@ -74,12 +74,16 @@ function enforceScopeAccess(options = {}) {
       if (!resolvedLibraryId && userId && role !== 'admin') {
         const fallbackLibrary = await pool.query(
           `SELECT l.id, l.space_id
-               FROM library_memberships lm
-               JOIN libraries l ON l.id = lm.library_id
-               WHERE lm.user_id = $1
-                 AND l.archived_at IS NULL
-               ORDER BY lm.created_at ASC, lm.library_id ASC
-               LIMIT 1`,
+           FROM library_memberships lm
+           JOIN libraries l ON l.id = lm.library_id
+           JOIN space_memberships sm
+             ON sm.space_id = l.space_id
+            AND sm.user_id = lm.user_id
+            AND sm.suspended_at IS NULL
+           WHERE lm.user_id = $1
+             AND l.archived_at IS NULL
+           ORDER BY lm.created_at ASC, lm.library_id ASC
+           LIMIT 1`,
           [userId]
         );
         if (fallbackLibrary.rows.length > 0) {
