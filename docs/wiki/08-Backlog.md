@@ -117,3 +117,87 @@ This file is the staging area for work that has not yet been assigned a release 
 - Cost estimates can be generated from real usage telemetry.
 - Top cost drivers are visible and attributable.
 - The self-hosted profile remains fully functional with paid-provider integrations disabled.
+
+### Backlog Item: Library Loans Tracking
+**Type:** Task
+**Tags:** `library`, `loans`, `tracking`, `reminders`, `email`
+
+**Goal:** Add a loans section to the library for tracking borrowed items and reminders.
+
+**Scope**
+- Track what item is loaned.
+- Track who it is loaned to.
+- Track when it was loaned.
+- Track the format of the item.
+- Track the expected return date.
+- Track the borrower email address.
+- Support emailed reminders for upcoming or overdue returns.
+
+**Acceptance Criteria**
+- Library loans can be recorded with item, borrower, loan date, format, and return date.
+- Borrower email can be stored for reminder delivery.
+- Reminder behavior can be triggered from the stored loan record.
+- The loans section fits the library workflow without disrupting existing catalog behavior.
+
+### Backlog Item: Imports and Sync Cadence Expansion
+**Type:** Deferred milestone
+**Tags:** `imports`, `csv`, `plex`, `calibre`, `metron`, `sync`
+
+**Goal:** Expand import templates and synchronization cadence controls across the supported import sources.
+
+**Scope**
+- Add multiple CSV templates for:
+  - Games
+  - Movies / TV
+  - Audio
+  - Events
+  - Collectibles
+  - Books
+- Define cadence for updates from:
+  - Plex
+  - Calibre
+  - Metron
+- Move Plex import to the actual API instead of a placeholder or indirect path.
+- Set a cadence to check for new titles in Plex.
+- Set a cadence to check for updated watch statuses in Plex.
+- Receive and process Plex webhooks.
+
+**Acceptance Criteria**
+- The named CSV templates are available for the supported library types.
+- Update cadence can be described and configured for Plex, Calibre, and Metron sources.
+- Plex import uses the actual API path.
+- New-title checks, watch-status checks, and webhooks are all represented in the import design.
+
+### Backlog Item: Now Playing Viewer
+**Type:** Task
+**Tags:** `plex`, `now-playing`, `display`, `kiosk`, `ui`
+
+**Goal:** Add a dedicated Now Playing viewer for a display-driven device such as an SBC.
+
+**Scope**
+- Create a unique page that can be opened on an SBC or similar display device.
+- Show a full-sized Plex poster for either:
+  - the next queued title
+  - the title currently playing
+- Keep the page simple enough for passive viewing on a dedicated screen.
+
+**Acceptance Criteria**
+- The viewer can be opened independently from the main app shell.
+- The page shows a full-sized poster for the current or next queued title.
+- The display experience is readable from across a room.
+
+### Backlog Item: Support Metrics and Satisfaction Surveys
+**Type:** Task
+**Tags:** `support`, `metrics`, `csat`, `nps`, `survey`
+
+**Goal:** Add support metrics and a post-close satisfaction survey path.
+
+**Scope**
+- Track support metrics for CSat.
+- Track support metrics for Promoter-style feedback.
+- When a support request is closed, optionally send a satisfaction survey.
+
+**Acceptance Criteria**
+- Support metrics can capture satisfaction and promoter-style feedback.
+- Closed support requests can trigger an optional survey.
+- The survey flow stays aligned with the support request lifecycle.

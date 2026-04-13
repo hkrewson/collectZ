@@ -136,7 +136,7 @@ docker compose -f /Users/hamlin/Development/GitHub/hkrewson/collectZ/ops/logging
 ```bash
 ADMIN_EMAIL='your-admin-email' \
 ADMIN_PASSWORD='your-admin-password' \
-LOKI_URL='http://localhost:3100' \
+LOKI_URL='http://localhost:3150' \
 node /Users/hamlin/Development/GitHub/hkrewson/collectZ/backend/scripts/structured-log-loki-smoke.js
 ```
 

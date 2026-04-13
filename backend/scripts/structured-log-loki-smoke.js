@@ -1,6 +1,6 @@
 'use strict';
 
-const LOKI_URL = String(process.env.LOKI_URL || 'http://localhost:3100').replace(/\/$/, '');
+const LOKI_URL = String(process.env.LOKI_URL || 'http://localhost:3150').replace(/\/$/, '');
 const {
   POLL_ATTEMPTS,
   POLL_INTERVAL_MS,
