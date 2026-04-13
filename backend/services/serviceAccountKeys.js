@@ -133,7 +133,7 @@ const getServiceAccountKeyPrincipal = async (key) => {
        owner.email,
        owner.role,
        COALESCE(active_library.space_id, owner.active_space_id, fallback_library.space_id) AS scope_space_id,
-       COALESCE(owner.active_space_id, fallback_library.space_id) AS active_space_id,
+       COALESCE(active_library.space_id, owner.active_space_id, fallback_library.space_id) AS active_space_id,
        COALESCE(owner.active_library_id, fallback_library.id) AS active_library_id
      FROM service_account_keys sak
      JOIN users owner ON owner.id = sak.owner_user_id

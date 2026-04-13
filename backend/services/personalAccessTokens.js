@@ -86,7 +86,7 @@ const getPersonalAccessTokenPrincipal = async (token) => {
        u.email,
        u.role,
        COALESCE(active_library.space_id, u.active_space_id, fallback_library.space_id) AS scope_space_id,
-       COALESCE(u.active_space_id, fallback_library.space_id) AS active_space_id,
+       COALESCE(active_library.space_id, u.active_space_id, fallback_library.space_id) AS active_space_id,
        COALESCE(u.active_library_id, fallback_library.id) AS active_library_id
      FROM personal_access_tokens pat
      JOIN users u ON u.id = pat.user_id

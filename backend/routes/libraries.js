@@ -34,15 +34,8 @@ router.get('/libraries', asyncHandler(async (req, res) => {
   req.user.activeLibraryId = ensuredScope.libraryId;
   req.user.activeSpaceId = ensuredScope.spaceId;
   const libraries = await listLibrariesForUser({ userId: req.user.id, role: req.user.role });
-  const userScopeResult = await pool.query(
-    `SELECT active_space_id, active_library_id
-     FROM users
-     WHERE id = $1
-     LIMIT 1`,
-    [req.user.id]
-  );
-  const activeSpaceId = Number(userScopeResult.rows[0]?.active_space_id || 0) || null;
-  const activeLibraryId = Number(userScopeResult.rows[0]?.active_library_id || 0) || null;
+  const activeSpaceId = Number(req.user.scopeSpaceId || req.user.activeSpaceId || 0) || null;
+  const activeLibraryId = Number(req.user.activeLibraryId || 0) || null;
   const hasActive = activeLibraryId && libraries.some((lib) => Number(lib.id) === activeLibraryId);
   if (!hasActive && libraries.length > 0) {
     const fallbackLibrary = libraries[0];
@@ -57,12 +50,10 @@ router.get('/libraries', asyncHandler(async (req, res) => {
     req.user.activeSpaceId = fallbackLibrary.space_id || null;
     req.user.activeLibraryId = fallbackLibrary.id;
   }
-  const resolvedActiveLibraryId = hasActive
-    ? activeLibraryId
-    : (libraries[0]?.id || null);
+  const resolvedActiveLibraryId = req.user.activeLibraryId || (libraries[0]?.id || null);
   res.json(stripHomelabSpaceContext({
     libraries,
-    active_space_id: hasActive ? activeSpaceId : (libraries[0]?.space_id || null),
+    active_space_id: req.user.scopeSpaceId ?? req.user.activeSpaceId ?? (libraries[0]?.space_id || null),
     active_library_id: resolvedActiveLibraryId
   }, productEdition));
 }));

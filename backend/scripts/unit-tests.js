@@ -707,8 +707,11 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(authMiddlewareSource.includes('scopeSpaceId: sessionUser.support_space_id ?? sessionUser.scope_space_id'));
   assert.ok(authMiddlewareSource.includes('activeSpaceId: sessionUser.support_space_id ?? sessionUser.scope_space_id ?? sessionUser.active_space_id ?? null'));
   assert.ok(sessionsServiceSource.includes('COALESCE(active_library.space_id, u.active_space_id, fallback_library.space_id) AS scope_space_id'));
+  assert.ok(sessionsServiceSource.includes('COALESCE(active_library.space_id, u.active_space_id, fallback_library.space_id) AS active_space_id'));
   assert.ok(personalAccessTokenSource.includes('COALESCE(active_library.space_id, u.active_space_id, fallback_library.space_id) AS scope_space_id'));
+  assert.ok(personalAccessTokenSource.includes('COALESCE(active_library.space_id, u.active_space_id, fallback_library.space_id) AS active_space_id'));
   assert.ok(serviceAccountKeySource.includes('COALESCE(active_library.space_id, owner.active_space_id, fallback_library.space_id) AS scope_space_id'));
+  assert.ok(serviceAccountKeySource.includes('COALESCE(active_library.space_id, owner.active_space_id, fallback_library.space_id) AS active_space_id'));
   assert.ok(sessionsServiceSource.includes('LEFT JOIN libraries active_library ON active_library.id = u.active_library_id'));
   assert.ok(personalAccessTokenSource.includes('LEFT JOIN libraries active_library ON active_library.id = u.active_library_id'));
   assert.ok(serviceAccountKeySource.includes('LEFT JOIN libraries active_library ON active_library.id = owner.active_library_id'));
@@ -2098,6 +2101,13 @@ results.push(run('library routes preserve active space when replacing archived o
   assert.ok(librariesRoutesSource.includes('SET active_space_id = $2,'));
 }));
 
+results.push(run('library routes shape /libraries payload from request scope instead of re-reading persisted user scope', () => {
+  assert.ok(!librariesRoutesSource.includes('const userScopeResult = await pool.query('));
+  assert.ok(librariesRoutesSource.includes('const activeSpaceId = Number(req.user.scopeSpaceId || req.user.activeSpaceId || 0) || null;'));
+  assert.ok(librariesRoutesSource.includes('const resolvedActiveLibraryId = req.user.activeLibraryId || (libraries[0]?.id || null);'));
+  assert.ok(librariesRoutesSource.includes('active_space_id: req.user.scopeSpaceId ?? req.user.activeSpaceId ?? (libraries[0]?.space_id || null),'));
+}));
+
 results.push(run('homelab edition helpers strip surfaced space context while preserving shared library flows', () => {
   const productEditionSource = require('fs').readFileSync(require.resolve('../config/productEdition'), 'utf8');
   assert.ok(productEditionSource.includes('function buildEditionContract('));
@@ -2146,8 +2156,8 @@ results.push(run('scope access source enforces explicit space membership for non
 }));
 
 results.push(run('token auth sources derive fallback scope from accessible libraries', () => {
-  assert.ok(personalAccessTokenSource.includes('COALESCE(u.active_space_id, fallback_library.space_id)'));
-  assert.ok(serviceAccountKeySource.includes('COALESCE(owner.active_space_id, fallback_library.space_id)'));
+  assert.ok(personalAccessTokenSource.includes('COALESCE(active_library.space_id, u.active_space_id, fallback_library.space_id)'));
+  assert.ok(serviceAccountKeySource.includes('COALESCE(active_library.space_id, owner.active_space_id, fallback_library.space_id)'));
 }));
 
 results.push(run('frontend syncs active space alongside active library context', () => {

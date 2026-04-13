@@ -2837,6 +2837,8 @@ Historical note:
     - auth principal bootstrap continues to be tightened so internal `scope_space_id` prefers the active library's backing space before falling back to persisted `active_space_id`, reducing drift between effective scope and user-facing workspace state in both editions.
     - request-level auth middleware continues to be tightened so `req.user.activeSpaceId` stays aligned with the derived internal effective scope, reducing the chance that older direct reads accidentally revive persisted workspace-state drift.
     - auth/profile payload shaping continues to be tightened so platform-facing `active_space_id` responses prefer the request's effective scope before falling back to legacy request fields or persisted workspace state.
+    - internal auth principal records continue to be tightened so their `active_space_id` mirrors the effective scope derivation as well, reducing downstream drift in middleware and audit paths that still consume principal records directly.
+    - shared library payload shaping continues to be tightened so `/api/libraries` prefers request-level effective scope and active-library state instead of re-reading raw persisted user scope after bootstrap.
 - Shared core extraction:
   - identify and extract domain logic that should be implemented once and consumed by both products,
   - expected core areas include media/import logic, shared auth/session primitives, shared API client patterns, shared UI primitives, and edition-safe integrations/metadata services.
