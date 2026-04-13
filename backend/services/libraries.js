@@ -1,5 +1,6 @@
 const pool = require('../db/pool');
 const { ensureDefaultSpaceForClient } = require('./spaces');
+const { getProductEdition, resolvePersistedActiveSpaceId } = require('../config/productEdition');
 
 function deriveSpaceMembershipRole({ userRole, isDefaultSpaceCreator = false }) {
   if (isDefaultSpaceCreator) return 'owner';
@@ -55,6 +56,7 @@ async function ensureUserDefaultScope(userId, options = {}) {
     throw new Error('Invalid user id');
   }
 
+  const productEdition = getProductEdition();
   const preferredSpaceIdRaw = Number(options.preferredSpaceId);
   const preferredSpaceId = Number.isFinite(preferredSpaceIdRaw) && preferredSpaceIdRaw > 0
     ? preferredSpaceIdRaw
@@ -219,7 +221,7 @@ async function ensureUserDefaultScope(userId, options = {}) {
        SET active_space_id = $2,
            active_library_id = $3
        WHERE id = $1`,
-      [numericUserId, spaceId, libraryId]
+      [numericUserId, resolvePersistedActiveSpaceId(spaceId, productEdition), libraryId]
     );
 
     await client.query('COMMIT');

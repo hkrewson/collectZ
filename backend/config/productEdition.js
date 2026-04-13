@@ -54,6 +54,10 @@ function stripHomelabSpaceContextFromUser(user, edition = null) {
   };
 }
 
+function resolvePersistedActiveSpaceId(activeSpaceId, edition = null) {
+  return isHomelabEdition(edition) ? null : (activeSpaceId ?? null);
+}
+
 module.exports = {
   PRODUCT_EDITIONS,
   normalizeProductEdition,
@@ -61,5 +65,6 @@ module.exports = {
   isHomelabEdition,
   buildEditionContract,
   stripHomelabSpaceContext,
-  stripHomelabSpaceContextFromUser
+  stripHomelabSpaceContextFromUser,
+  resolvePersistedActiveSpaceId
 };

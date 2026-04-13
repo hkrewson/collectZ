@@ -53,6 +53,7 @@ const {
   getProductEdition,
   isHomelabEdition,
   buildEditionContract,
+  resolvePersistedActiveSpaceId,
   stripHomelabSpaceContext,
   stripHomelabSpaceContextFromUser
 } = require('../config/productEdition');
@@ -936,7 +937,7 @@ router.post('/scope', authenticateToken, requireSessionAuth, validate(authScopeS
      SET active_space_id = $2,
          active_library_id = $3
      WHERE id = $1`,
-    [req.user.id, nextSpaceId, nextLibraryId]
+    [req.user.id, resolvePersistedActiveSpaceId(nextSpaceId, productEdition), nextLibraryId]
   );
 
   req.user.activeSpaceId = nextSpaceId;

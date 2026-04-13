@@ -293,6 +293,7 @@ async function main() {
       body: { library_id: createdLibraryId }
     });
     const reloadedScope = await user.request('/api/auth/scope', { expectStatus: 200 });
+    const persistedScopeAfterLibrarySwitch = await getPersistedUserScope(userUserId);
 
     assert(adminMe.data?.product_edition === 'homelab', `Expected homelab admin edition, got ${JSON.stringify(adminMe.data)}`);
     assert(userMe.data?.product_edition === 'homelab', `Expected homelab user edition, got ${JSON.stringify(userMe.data)}`);
@@ -311,6 +312,8 @@ async function main() {
     assert(Array.isArray(userLibraries.data?.spaces) && userLibraries.data.spaces.length === 0, `Homelab /api/libraries must hide spaces: ${JSON.stringify(userLibraries.data)}`);
     assert(Number(userLibraries.data?.active_library_id || 0) > 0, `Homelab /api/libraries must keep active_library_id: ${JSON.stringify(userLibraries.data)}`);
     assert(Array.isArray(userLibraries.data?.libraries) && userLibraries.data.libraries.length > 0, `Homelab /api/libraries must keep libraries: ${JSON.stringify(userLibraries.data)}`);
+    assert(persistedScope?.active_space_id === null, `Homelab persisted user scope must not keep active_space_id after bootstrap: ${JSON.stringify(persistedScope)}`);
+    assert(Number(persistedScope?.active_library_id || 0) > 0, `Homelab persisted user scope must keep active_library_id after bootstrap: ${JSON.stringify(persistedScope)}`);
     assert(Array.isArray(releases.data?.releases), `Homelab /api/support/releases must stay mounted: ${JSON.stringify(releases.data)}`);
     assert(typeof generalSettings.data?.theme === 'string', `Homelab /api/settings/general must stay mounted: ${JSON.stringify(generalSettings.data)}`);
     assert(typeof integrations.data === 'object' && integrations.data !== null, `Homelab /api/admin/settings/integrations must stay mounted: ${JSON.stringify(integrations.data)}`);
@@ -343,6 +346,8 @@ async function main() {
     assert(selectedLibrary.data?.active_library_id === createdLibraryId, `Homelab /api/libraries/select must switch the active library: ${JSON.stringify(selectedLibrary.data)}`);
     assert(reloadedScope.data?.active_space_id === null, `Homelab /api/auth/scope after library switch must hide active_space_id: ${JSON.stringify(reloadedScope.data)}`);
     assert(reloadedScope.data?.active_library_id === createdLibraryId, `Homelab /api/auth/scope after library switch must keep the selected library: ${JSON.stringify(reloadedScope.data)}`);
+    assert(persistedScopeAfterLibrarySwitch?.active_space_id === null, `Homelab persisted user scope must keep active_space_id null after library switch: ${JSON.stringify(persistedScopeAfterLibrarySwitch)}`);
+    assert(Number(persistedScopeAfterLibrarySwitch?.active_library_id || 0) === createdLibraryId, `Homelab persisted user scope must keep the selected active_library_id after library switch: ${JSON.stringify(persistedScopeAfterLibrarySwitch)}`);
 
     console.log('Homelab edition boundary smoke passed');
   } finally {

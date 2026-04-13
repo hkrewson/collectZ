@@ -658,6 +658,7 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(productEditionConfigSource.includes('process.env.APP_EDITION'));
   assert.ok(productEditionConfigSource.includes("'platform'"));
   assert.ok(productEditionConfigSource.includes("'homelab'"));
+  assert.ok(productEditionConfigSource.includes('resolvePersistedActiveSpaceId'));
   assert.ok(authRoutesSource.includes('product_edition: getProductEdition()'));
   assert.ok(authRoutesSource.includes('edition_contract: buildEditionContract(getProductEdition())'));
   assert.ok(authRoutesSource.includes('edition_contract: buildEditionContract(productEdition)'));
@@ -752,6 +753,8 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(homelabEditionBoundarySmokeSource.includes('/api/libraries/select'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('Homelab /api/libraries/select must switch the active library'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('Homelab /api/auth/scope after library switch must keep the selected library'));
+  assert.ok(homelabEditionBoundarySmokeSource.includes('persistedScope?.active_space_id === null'));
+  assert.ok(homelabEditionBoundarySmokeSource.includes('persistedScopeAfterLibrarySwitch?.active_space_id === null'));
   assert.ok(homelabEditionBoundarySmokeSource.includes('Homelab edition boundary smoke passed'));
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/auth/config'));
   assert.ok(platformEditionBoundarySmokeSource.includes('/api/admin/spaces'));
@@ -1985,6 +1988,7 @@ results.push(run('auth routes expose public auth config and self-registration fl
 results.push(run('auth routes expose explicit scope bootstrap and selection endpoints', () => {
   assert.ok(authRoutesSource.includes("router.get('/scope', authenticateToken"));
   assert.ok(authRoutesSource.includes("router.post('/scope', authenticateToken, requireSessionAuth"));
+  assert.ok(authRoutesSource.includes('resolvePersistedActiveSpaceId'));
   assert.ok(authRoutesSource.includes("await logActivity(req, 'auth.scope.select'"));
 }));
 
@@ -2017,6 +2021,7 @@ results.push(run('admin routes expose platform space control-plane endpoints', (
 results.push(run('library service source ensures default scope before returning default library', () => {
   assert.ok(libraryServiceSource.includes('async function ensureUserDefaultScope'));
   assert.ok(libraryServiceSource.includes('ensureDefaultSpaceForClient'));
+  assert.ok(libraryServiceSource.includes('resolvePersistedActiveSpaceId'));
   assert.ok(libraryServiceSource.includes('SET active_space_id = $2,'));
   assert.ok(libraryServiceSource.includes('async function syncLibraryMembershipsForSpaceUser'));
   assert.ok(libraryServiceSource.includes('FROM users u'));
@@ -2044,6 +2049,7 @@ results.push(run('request origin helper supports configured or forwarded host va
 
 results.push(run('library routes preserve active space when replacing archived or deleted libraries', () => {
   assert.ok(librariesRoutesSource.includes('SELECT lm.library_id, l.space_id'));
+  assert.ok(librariesRoutesSource.includes('resolvePersistedActiveSpaceId'));
   assert.ok(librariesRoutesSource.includes('SET active_space_id = $2,'));
 }));
 

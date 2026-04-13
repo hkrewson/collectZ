@@ -20,7 +20,7 @@ const {
   ensureUserDefaultScope,
   syncLibraryMembershipsForSpaceUser
 } = require('../services/libraries');
-const { getProductEdition, stripHomelabSpaceContext } = require('../config/productEdition');
+const { getProductEdition, stripHomelabSpaceContext, resolvePersistedActiveSpaceId } = require('../config/productEdition');
 
 const router = express.Router();
 
@@ -28,6 +28,7 @@ router.use('/libraries', authenticateToken);
 router.use('/libraries', enforceScopeAccess({ allowedHintRoles: ['admin'] }));
 
 router.get('/libraries', asyncHandler(async (req, res) => {
+  const productEdition = getProductEdition();
   const ensuredScope = await ensureUserDefaultScope(req.user.id);
   req.user.activeLibraryId = ensuredScope.libraryId;
   req.user.activeSpaceId = ensuredScope.spaceId;
@@ -49,7 +50,7 @@ router.get('/libraries', asyncHandler(async (req, res) => {
        SET active_space_id = $2,
            active_library_id = $3
        WHERE id = $1`,
-      [req.user.id, fallbackLibrary.space_id || null, fallbackLibrary.id]
+      [req.user.id, resolvePersistedActiveSpaceId(fallbackLibrary.space_id || null, productEdition), fallbackLibrary.id]
     );
     req.user.activeSpaceId = fallbackLibrary.space_id || null;
     req.user.activeLibraryId = fallbackLibrary.id;
@@ -61,10 +62,11 @@ router.get('/libraries', asyncHandler(async (req, res) => {
     libraries,
     active_space_id: hasActive ? activeSpaceId : (libraries[0]?.space_id || null),
     active_library_id: resolvedActiveLibraryId
-  }, getProductEdition()));
+  }, productEdition));
 }));
 
 router.post('/libraries', validate(libraryCreateSchema), asyncHandler(async (req, res) => {
+  const productEdition = getProductEdition();
   const { name, description } = req.body;
   const ensuredScope = req.user.activeSpaceId
     ? { spaceId: req.user.activeSpaceId, libraryId: req.user.activeLibraryId || null }
@@ -102,7 +104,7 @@ router.post('/libraries', validate(libraryCreateSchema), asyncHandler(async (req
      SET active_space_id = $2,
          active_library_id = $3
      WHERE id = $1`,
-    [req.user.id, library.space_id || ensuredScope.spaceId || null, library.id]
+    [req.user.id, resolvePersistedActiveSpaceId(library.space_id || ensuredScope.spaceId || null, productEdition), library.id]
   );
   req.user.activeSpaceId = library.space_id || ensuredScope.spaceId || null;
   req.user.activeLibraryId = library.id;
@@ -114,7 +116,7 @@ router.post('/libraries', validate(libraryCreateSchema), asyncHandler(async (req
     ...library,
     active_space_id: library.space_id || ensuredScope.spaceId || null,
     active_library_id: library.id
-  }, getProductEdition()));
+  }, productEdition));
 }));
 
 router.patch('/libraries/:id', validate(libraryUpdateSchema), asyncHandler(async (req, res) => {
@@ -167,6 +169,7 @@ router.patch('/libraries/:id', validate(libraryUpdateSchema), asyncHandler(async
 }));
 
 router.post('/libraries/select', requireSessionAuth, validate(librarySelectSchema), asyncHandler(async (req, res) => {
+  const productEdition = getProductEdition();
   const libraryId = Number(req.body.library_id);
   if (['admin', 'support_admin'].includes(String(req.user.role || ''))) {
     const supportSpaceId = Number(req.user.supportSpaceId || 0) || null;
@@ -256,7 +259,7 @@ router.post('/libraries/select', requireSessionAuth, validate(librarySelectSchem
      SET active_library_id = $2,
          active_space_id = $3
      WHERE id = $1`,
-    [req.user.id, selected.id, selected.space_id || null]
+    [req.user.id, selected.id, resolvePersistedActiveSpaceId(selected.space_id || null, productEdition)]
   );
   req.user.activeLibraryId = selected.id;
   req.user.activeSpaceId = selected.space_id || null;
@@ -269,7 +272,7 @@ router.post('/libraries/select', requireSessionAuth, validate(librarySelectSchem
     active_library_id: selected.id,
     active_space_id: selected.space_id || null,
     library: selected
-  }, getProductEdition()));
+  }, productEdition));
 }));
 
 router.post('/libraries/:id/transfer', validate(libraryTransferSchema), asyncHandler(async (req, res) => {
@@ -351,6 +354,7 @@ router.post('/libraries/:id/transfer', validate(libraryTransferSchema), asyncHan
 }));
 
 router.post('/libraries/:id/archive', validate(libraryArchiveSchema), asyncHandler(async (req, res) => {
+  const productEdition = getProductEdition();
   const libraryId = Number(req.params.id);
   if (!Number.isFinite(libraryId) || libraryId <= 0) {
     return res.status(400).json({ error: 'Invalid library id' });
@@ -416,7 +420,7 @@ router.post('/libraries/:id/archive', validate(libraryArchiveSchema), asyncHandl
        SET active_space_id = $2,
            active_library_id = $3
        WHERE id = $1`,
-      [row.id, replacement.rows[0]?.space_id || null, replacement.rows[0]?.library_id || null]
+      [row.id, resolvePersistedActiveSpaceId(replacement.rows[0]?.space_id || null, productEdition), replacement.rows[0]?.library_id || null]
     );
   }
 
@@ -457,6 +461,7 @@ router.post('/libraries/:id/unarchive', asyncHandler(async (req, res) => {
 }));
 
 router.delete('/libraries/:id', validate(libraryDeleteSchema), asyncHandler(async (req, res) => {
+  const productEdition = getProductEdition();
   const libraryId = Number(req.params.id);
   if (!Number.isFinite(libraryId) || libraryId <= 0) {
     return res.status(400).json({ error: 'Invalid library id' });
@@ -532,7 +537,7 @@ router.delete('/libraries/:id', validate(libraryDeleteSchema), asyncHandler(asyn
        SET active_space_id = $2,
            active_library_id = $3
        WHERE id = $1`,
-      [row.id, replacementSpaceId, replacementLibraryId]
+      [row.id, resolvePersistedActiveSpaceId(replacementSpaceId, productEdition), replacementLibraryId]
     );
   }
 
