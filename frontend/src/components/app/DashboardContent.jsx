@@ -71,8 +71,8 @@ export default function DashboardContent({
   const supportStaffInEdition = supportHelpEnabled && ['admin', 'support_admin'].includes(String(user?.role || ''));
   const supportAdminAllowedTabs = new Set([
     'help',
-    'support-inbox',
     'profile',
+    ...(supportHelpEnabled ? ['support-inbox'] : []),
     ...(supportSession?.active ? ['space-manage'] : [])
   ]);
   if (isAdminTab && user?.role !== 'admin') {

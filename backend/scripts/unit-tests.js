@@ -665,6 +665,7 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(frontendAppSource.includes('getSafeDashboardTab'));
   assert.ok(dashboardContentSource.includes('const supportHelpEnabled = isSupportHelpEnabled(productEdition);'));
   assert.ok(dashboardContentSource.includes("const supportStaffInEdition = supportHelpEnabled && ['admin', 'support_admin'].includes"));
+  assert.ok(dashboardContentSource.includes("...(supportHelpEnabled ? ['support-inbox'] : []),"));
   assert.ok(sidebarNavSource.includes('getAllowedDashboardTabs'));
   assert.ok(sidebarNavSource.includes('showPlatformGroup'));
   assert.ok(dockerComposeSource.includes('APP_EDITION: ${APP_EDITION:-platform}'));
