@@ -327,6 +327,7 @@ async function getAccessibleLibrary({ userId, role, libraryId }) {
 async function syncLibraryMembershipsForSpaceUser(client, { spaceId, userId, ownerLibraryIds = [] }) {
   const numericSpaceId = Number(spaceId);
   const numericUserId = Number(userId);
+  const productEdition = getProductEdition();
   if (!Number.isFinite(numericSpaceId) || numericSpaceId <= 0) return 0;
   if (!Number.isFinite(numericUserId) || numericUserId <= 0) return 0;
 
@@ -355,6 +356,45 @@ async function syncLibraryMembershipsForSpaceUser(client, { spaceId, userId, own
      END`,
     [numericUserId, numericSpaceId, ownerIdList]
   );
+  const userScope = await client.query(
+    `SELECT active_library_id
+     FROM users
+     WHERE id = $1
+     LIMIT 1`,
+    [numericUserId]
+  );
+  const currentActiveLibraryId = Number(userScope.rows[0]?.active_library_id || 0) || null;
+  if (!currentActiveLibraryId) {
+    const firstAccessibleLibrary = await client.query(
+      `SELECT l.id, l.space_id
+       FROM library_memberships lm
+       JOIN libraries l ON l.id = lm.library_id
+       JOIN space_memberships sm
+         ON sm.space_id = l.space_id
+        AND sm.user_id = lm.user_id
+        AND sm.suspended_at IS NULL
+       WHERE lm.user_id = $1
+         AND l.space_id = $2
+         AND l.archived_at IS NULL
+       ORDER BY lm.created_at ASC, lm.library_id ASC
+       LIMIT 1`,
+      [numericUserId, numericSpaceId]
+    );
+    if (firstAccessibleLibrary.rows.length > 0) {
+      await client.query(
+        `UPDATE users
+         SET active_space_id = $2,
+             active_library_id = $3
+         WHERE id = $1
+           AND active_library_id IS NULL`,
+        [
+          numericUserId,
+          resolvePersistedActiveSpaceId(firstAccessibleLibrary.rows[0]?.space_id || null, productEdition),
+          firstAccessibleLibrary.rows[0]?.id || null
+        ]
+      );
+    }
+  }
   return result.rowCount || 0;
 }
 
@@ -398,6 +438,7 @@ async function moveOwnedLibrariesToSpace(client, { sourceSpaceId, targetSpaceId,
   const numericSourceSpaceId = Number(sourceSpaceId);
   const numericTargetSpaceId = Number(targetSpaceId);
   const numericUserId = Number(userId);
+  const productEdition = getProductEdition();
   if (!Number.isFinite(numericSourceSpaceId) || numericSourceSpaceId <= 0) return [];
   if (!Number.isFinite(numericTargetSpaceId) || numericTargetSpaceId <= 0) return [];
   if (!Number.isFinite(numericUserId) || numericUserId <= 0) return [];
@@ -413,6 +454,13 @@ async function moveOwnedLibrariesToSpace(client, { sourceSpaceId, targetSpaceId,
   );
   const libraryIds = movedLibraries.rows.map((row) => Number(row.id)).filter((value) => Number.isFinite(value) && value > 0);
   if (libraryIds.length === 0) return [];
+  const affectedUsers = await client.query(
+    `SELECT DISTINCT user_id
+     FROM library_memberships
+     WHERE library_id = ANY($1::int[])
+       AND user_id <> $2`,
+    [libraryIds, numericUserId]
+  );
 
   await client.query(
     `UPDATE media
@@ -444,6 +492,68 @@ async function moveOwnedLibrariesToSpace(client, { sourceSpaceId, targetSpaceId,
        AND user_id <> $2`,
     [libraryIds, numericUserId]
   );
+  for (const row of affectedUsers.rows) {
+    const affectedUserId = Number(row.user_id || 0) || null;
+    if (!affectedUserId) continue;
+    await client.query(
+      `UPDATE users
+       SET active_space_id = CASE
+             WHEN active_library_id = ANY($2::int[]) THEN NULL
+             ELSE active_space_id
+           END,
+           active_library_id = CASE
+             WHEN active_library_id = ANY($2::int[]) THEN NULL
+             ELSE active_library_id
+           END
+       WHERE id = $1`,
+      [affectedUserId, libraryIds]
+    );
+    await client.query(
+      `UPDATE user_sessions s
+       SET support_library_id = CASE
+             WHEN s.support_library_id = ANY($2::int[]) THEN NULL
+             ELSE s.support_library_id
+           END,
+           support_previous_library_id = CASE
+             WHEN s.support_previous_library_id = ANY($2::int[]) THEN NULL
+             ELSE s.support_previous_library_id
+           END
+       WHERE s.user_id = $1
+         AND (
+           s.support_library_id = ANY($2::int[])
+           OR s.support_previous_library_id = ANY($2::int[])
+         )`,
+      [affectedUserId, libraryIds]
+    );
+    const replacement = await client.query(
+      `SELECT lm.library_id, l.space_id
+       FROM library_memberships lm
+       JOIN libraries l ON l.id = lm.library_id
+       JOIN space_memberships sm
+         ON sm.space_id = l.space_id
+        AND sm.user_id = lm.user_id
+        AND sm.suspended_at IS NULL
+       WHERE lm.user_id = $1
+         AND l.archived_at IS NULL
+       ORDER BY lm.created_at ASC, lm.library_id ASC
+       LIMIT 1`,
+      [affectedUserId]
+    );
+    if (replacement.rows.length > 0) {
+      await client.query(
+        `UPDATE users
+         SET active_space_id = $2,
+             active_library_id = $3
+         WHERE id = $1
+           AND active_library_id IS NULL`,
+        [
+          affectedUserId,
+          resolvePersistedActiveSpaceId(replacement.rows[0]?.space_id || null, productEdition),
+          replacement.rows[0]?.library_id || null
+        ]
+      );
+    }
+  }
   await syncLibraryMembershipsForSpaceUser(client, {
     spaceId: numericTargetSpaceId,
     userId: numericUserId,

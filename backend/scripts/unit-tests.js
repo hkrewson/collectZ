@@ -2091,8 +2091,17 @@ results.push(run('library service source ensures default scope before returning 
   assert.ok(libraryServiceSource.includes('let libraryId = activeLibrary && Number(activeLibrary.space_id || 0) === Number(spaceId || 0)'));
   assert.ok(libraryServiceSource.includes('AND suspended_at IS NULL'));
   assert.ok(libraryServiceSource.includes('async function syncLibraryMembershipsForSpaceUser'));
+  assert.ok(libraryServiceSource.includes('const productEdition = getProductEdition();'));
+  assert.ok(libraryServiceSource.includes('SELECT active_library_id'));
+  assert.ok(libraryServiceSource.includes('const currentActiveLibraryId = Number(userScope.rows[0]?.active_library_id || 0) || null;'));
+  assert.ok(libraryServiceSource.includes('WHERE id = $1\n           AND active_library_id IS NULL'));
   assert.ok(libraryServiceSource.includes('FROM users u'));
   assert.ok(libraryServiceSource.includes('async function moveOwnedLibrariesToSpace'));
+  assert.ok(libraryServiceSource.includes('const affectedUsers = await client.query('));
+  assert.ok(libraryServiceSource.includes('active_library_id = ANY($2::int[])'));
+  assert.ok(libraryServiceSource.includes('UPDATE user_sessions s'));
+  assert.ok(libraryServiceSource.includes('s.support_previous_library_id = ANY($2::int[])'));
+  assert.ok(libraryServiceSource.includes('AND active_library_id IS NULL'));
   assert.ok(libraryServiceSource.includes('async function canUserAccessSpace'));
   assert.ok(libraryServiceSource.includes('async function getAccessibleLibraryRow'));
 }));
