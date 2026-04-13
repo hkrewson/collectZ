@@ -49,8 +49,6 @@ export function isSupportHelpEnabled(productEdition) {
 
 export function getHomelabAllowedTabs({
   userRole,
-  supportSessionActive = false,
-  canManageActiveSpace = false,
   showCollectibles = true,
   showEvents = true
 } = {}) {
@@ -76,14 +74,6 @@ export function getHomelabAllowedTabs({
     allowed.add('admin-integrations');
   }
 
-  if (normalizedRole === 'support_admin') {
-    allowed.add('help');
-    allowed.add('profile');
-    if (supportSessionActive && canManageActiveSpace) {
-      allowed.add('space-manage');
-    }
-  }
-
   return allowed;
 }
 
@@ -100,7 +90,7 @@ export function getSupportAdminAllowedTabs(productEdition, {
     allowed.add('support-inbox');
   }
 
-  if (supportSessionActive && canManageActiveSpace) {
+  if (!isHomelabEdition(productEdition) && supportSessionActive && canManageActiveSpace) {
     allowed.add('space-manage');
   }
 

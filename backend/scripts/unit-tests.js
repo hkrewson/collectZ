@@ -659,9 +659,12 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(productEditionFrontendSource.includes('getHelpTabDefinitions'));
   assert.ok(productEditionFrontendSource.includes('getHelpSurfaceTitle'));
   assert.ok(productEditionFrontendSource.includes('getAllowedDashboardTabs'));
+  assert.ok(productEditionFrontendSource.includes("if (!isHomelabEdition(productEdition) && supportSessionActive && canManageActiveSpace)"));
   assert.ok(productEditionFrontendSource.includes("return 'admin-settings'"));
   assert.ok(helpViewSource.includes('A lightweight home for self-serve guidance and recent release notes for homelab users.'));
   assert.ok(frontendAppSource.includes('getSafeDashboardTab'));
+  assert.ok(dashboardContentSource.includes('const supportHelpEnabled = isSupportHelpEnabled(productEdition);'));
+  assert.ok(dashboardContentSource.includes("const supportStaffInEdition = supportHelpEnabled && ['admin', 'support_admin'].includes"));
   assert.ok(sidebarNavSource.includes('getAllowedDashboardTabs'));
   assert.ok(sidebarNavSource.includes('showPlatformGroup'));
   assert.ok(dockerComposeSource.includes('APP_EDITION: ${APP_EDITION:-platform}'));

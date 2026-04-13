@@ -12,7 +12,7 @@ import CollectiblesView from '../CollectiblesView';
 import ForbiddenView from '../ForbiddenView';
 import SpaceManagerView from '../SpaceManagerView';
 import HelpView from '../HelpView';
-import { getSafeHelpTab } from './productEdition';
+import { getSafeHelpTab, isSupportHelpEnabled } from './productEdition';
 
 const forcedMediaTypeByTab = {
   'library-movies': 'movie',
@@ -67,6 +67,8 @@ export default function DashboardContent({
   productEdition = 'platform'
 }) {
   const isAdminTab = String(activeTab || '').startsWith('admin-');
+  const supportHelpEnabled = isSupportHelpEnabled(productEdition);
+  const supportStaffInEdition = supportHelpEnabled && ['admin', 'support_admin'].includes(String(user?.role || ''));
   const supportAdminAllowedTabs = new Set([
     'help',
     'support-inbox',
@@ -98,7 +100,7 @@ export default function DashboardContent({
           Icons={Icons}
           supportSummary={supportSummary}
           onSupportSummaryRefresh={onSupportSummaryRefresh}
-          initialTab={getSafeHelpTab(productEdition, ['admin', 'support_admin'].includes(String(user?.role || '')), activeTab === 'support-inbox' ? 'support' : 'guidance')}
+          initialTab={getSafeHelpTab(productEdition, supportStaffInEdition, activeTab === 'support-inbox' ? 'support' : 'guidance')}
           productEdition={productEdition}
         />
       );
