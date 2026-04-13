@@ -250,6 +250,53 @@ async function buildAuthScopePayload(req) {
   }
 }
 
+async function resolveSupportPreviousScope(client, req, currentSession) {
+  let previousSpaceId = Number(currentSession.support_previous_space_id || 0)
+    || Number(req.user.scopeSpaceId || req.user.activeSpaceId || 0)
+    || null;
+  let previousLibraryId = Number(currentSession.support_previous_library_id || 0)
+    || Number(req.user.activeLibraryId || 0)
+    || null;
+
+  if (previousLibraryId) {
+    const previousLibrary = await getAccessibleLibrary({
+      userId: req.user.id,
+      role: req.user.role,
+      libraryId: previousLibraryId
+    });
+    if (previousLibrary) {
+      return {
+        previousSpaceId: Number(previousLibrary.space_id || 0) || null,
+        previousLibraryId: Number(previousLibrary.id || 0) || null
+      };
+    }
+  }
+
+  if (previousSpaceId) {
+    const previousSpace = await getAccessibleSpaceForUser(client, {
+      userId: req.user.id,
+      role: req.user.role,
+      spaceId: previousSpaceId
+    });
+    if (previousSpace) {
+      const previousLibraries = await listLibrariesForSpace({
+        userId: req.user.id,
+        role: req.user.role,
+        spaceId: previousSpace.id
+      });
+      return {
+        previousSpaceId: Number(previousSpace.id || 0) || null,
+        previousLibraryId: Number(previousLibraries[0]?.id || 0) || null
+      };
+    }
+  }
+
+  return {
+    previousSpaceId: null,
+    previousLibraryId: null
+  };
+}
+
 async function buildPublicAuthConfig() {
   const productEdition = getProductEdition();
   const homelabEdition = isHomelabEdition(productEdition);
@@ -1048,8 +1095,10 @@ platformRouter.post('/support-session/start', authenticateToken, requireSessionA
     }
 
     const currentSession = sessionResult.rows[0];
-    const previousSpaceId = Number(currentSession.support_previous_space_id || 0) || Number(req.user.scopeSpaceId || req.user.activeSpaceId || 0) || null;
-    const previousLibraryId = Number(currentSession.support_previous_library_id || 0) || Number(req.user.activeLibraryId || 0) || null;
+    const {
+      previousSpaceId,
+      previousLibraryId
+    } = await resolveSupportPreviousScope(client, req, currentSession);
 
     await client.query(
       `UPDATE user_sessions

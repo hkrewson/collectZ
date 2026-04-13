@@ -719,6 +719,11 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(serviceAccountKeySource.includes('LEFT JOIN libraries active_library'));
   assert.ok(serviceAccountKeySource.includes('active_library.archived_at IS NULL'));
   assert.ok(scopeContextSource.includes('req?.user?.scopeSpaceId ?? req?.user?.activeSpaceId'));
+  assert.ok(authRoutesSource.includes('async function resolveSupportPreviousScope(client, req, currentSession) {'));
+  assert.ok(authRoutesSource.includes('const previousLibrary = await getAccessibleLibrary({'));
+  assert.ok(authRoutesSource.includes('const previousSpace = await getAccessibleSpaceForUser(client, {'));
+  assert.ok(authRoutesSource.includes('const previousLibraries = await listLibrariesForSpace({'));
+  assert.ok(authRoutesSource.includes('} = await resolveSupportPreviousScope(client, req, currentSession);'));
   assert.ok(authRoutesSource.includes('req.user.scopeSpaceId = supportSpace.id;'));
   assert.ok(authRoutesSource.includes('req.user.scopeSpaceId = currentSession.support_previous_space_id || null;'));
   assert.ok(authRoutesSource.includes('req.user.scopeSpaceId = null;'));
