@@ -543,6 +543,7 @@ router.post('/spaces/select', requireSessionAuth, asyncHandler(async (req, res) 
        WHERE id = $1`,
       [req.user.id, spaceId, nextLibraryId]
     );
+    req.user.scopeSpaceId = spaceId;
     req.user.activeSpaceId = spaceId;
     req.user.activeLibraryId = nextLibraryId;
 

@@ -2833,6 +2833,7 @@ Historical note:
     - shared scope and library flows continue to be tightened so homelab no longer persists a user-facing `active_space_id` selection in the database during default-scope and library-switch operations even though library ownership still maps internally to a backing space.
     - always-mounted shared settings/media routes continue to be normalized around the resolved scope context so homelab-safe reads and enrichment/import helpers do not depend on raw persisted workspace state or stray `req.user.activeSpaceId` access in shared code.
     - auth/session/token bootstrap continues to be tightened so shared runtime scope resolution can use an internal effective scope field instead of assuming the user-facing `active_space_id` is the only safe source of truth.
+    - scope-mutating shared and platform-safe routes continue to be tightened so support request targeting, space selection, and related request-level handoffs keep the internal effective scope aligned instead of mutating only `activeSpaceId`.
 - Shared core extraction:
   - identify and extract domain logic that should be implemented once and consumed by both products,
   - expected core areas include media/import logic, shared auth/session primitives, shared API client patterns, shared UI primitives, and edition-safe integrations/metadata services.

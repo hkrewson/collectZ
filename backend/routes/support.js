@@ -12,6 +12,7 @@ const {
 } = require('../middleware/validate');
 const { logActivity } = require('../services/audit');
 const { loadReleaseNotesFeed } = require('../services/releaseNotes');
+const { resolveScopeContext } = require('../db/scopeContext');
 const {
   SUPPORT_ACCESS_APPROVAL_TTL_DAYS,
   getEffectiveSupportAccessStatus,
@@ -418,12 +419,13 @@ platformRouter.post('/requests', authenticateToken, requireSessionAuth, validate
   const supportStaff = isSupportStaff(req);
   const subject = String(req.body.subject || '').trim();
   const message = String(req.body.message || '').trim();
+  const scopeContext = resolveScopeContext(req);
   const targetSpaceId = supportStaff
     ? null
-    : (Number(req.body.target_space_id || 0) || Number(req.user.activeSpaceId || 0) || null);
+    : (Number(req.body.target_space_id || 0) || scopeContext.spaceId || null);
   const targetLibraryId = supportStaff
     ? null
-    : (Number(req.body.target_library_id || 0) || Number(req.user.activeLibraryId || 0) || null);
+    : (Number(req.body.target_library_id || 0) || scopeContext.libraryId || null);
 
   const client = await pool.connect();
   try {
