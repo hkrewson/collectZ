@@ -2,6 +2,8 @@
 
 This roadmap converts product direction into implementation milestones with acceptance criteria and DB/API checklists. It incorporates findings from two independent architecture reviews conducted after the 1.6.3 baseline, and reflects the project's core priorities: security, data integrity, simple end-user deployment, CI/CD robustness, and a clear path to multi-space support.
 
+Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file stays focused on numbered milestones and the work that has already been selected for release planning.
+
 ---
 
 ## Guiding Principles
@@ -13,35 +15,6 @@ This roadmap converts product direction into implementation milestones with acce
 - Every milestone should leave the deployment story simpler, not more complex.
 - The CI/CD pipeline is a first-class concern — changes must be deployable via `docker compose pull && up -d` for homelab users.
 - Delivery and modularity controls in `14-Engineering-Delivery-Policy.md` are mandatory for pre-2.0 releases.
-
-## Backlog
-
-The backlog is the source of truth for work that has not yet been assigned a release version. It should hold individual tasks, bugs, feature ideas, discussions, and deferred milestones until they are ready to be promoted into a numbered milestone.
-
-### How to use the backlog
-
-- Keep backlog items small enough to be grouped into one coherent release theme later.
-- After each completed milestone, review the backlog to decide what the next version should be and what it should cover.
-- Prefer larger cohesive changes for minor releases and smaller grouped fixes for patch releases.
-- Do not assign a version number to a backlog item until it is selected for release planning.
-- When an item is promoted, write the milestone and version number into this document as a numbered section placed immediately after the milestone that precedes it.
-- Keep the active milestone intact while it is in progress; do not move it into backlog until it is completed or explicitly deferred.
-- Leave deferred or reconsidered work in the backlog rather than deleting it, so the decision history stays visible.
-- Record known dependencies and blockers in the backlog so release selection stays deliberate instead of ad hoc.
-- When a backlog item becomes a release, update the milestone section, release notes, in-app release feed, and related verification steps together.
-- Keep the short milestone index and the long-form milestone sections consistent whenever an item is promoted or demoted.
-- Treat release closeout requirements as part of the promotion workflow, not the backlog itself.
-
-### Current backlog items
-
-- Digital library sync revisit, including provider comparison and ingest-contract validation for CWA/OPDS or an alternative self-hosted provider.
-- Personal workspace offboarding, archive retention, and recovery for SaaS account lifecycle handling.
-- Optional build: cost model and billing readiness for hosted pricing and usage metering.
-- [tags: major feature, infra, risk] Public homelab repo promotion/export workflow after the shared-core boundary settles, including packaging, publication, and update flow for a repo that contains no private platform shell surfaces.
-- [tags: risk] Broader browser-visible regression expansion for extracted shared-core lifecycle flows after `3.1.0` stabilizes, covering support-session, library lifecycle, and space lifecycle paths beyond the minimum release gates.
-- [tags: ui polish] Post-split UI cleanup for support/help/auth shell surfaces once the edition boundary stops moving, including any remaining browser-visible polish that does not change the shared-core extraction story.
-
----
 
 ## 1.6.5-r1 — Auditability and Auth Operations
 
@@ -1125,9 +1098,7 @@ Historical planning notes may still exist in:
 55. `2.10.17` Workspace invite and member lifecycle controls
 56. `2.11.0` Optional market valuation integrations
 57. `3.0.0` Frontend build modernization (CRA to Vite)
-58. Backlog: Digital library sync revisit
-59. Backlog: Personal workspace offboarding, archive retention, and recovery
-60. Backlog: Optional build: cost model and billing readiness
+58. `3.1.0` Shared Core Extraction and Public Homelab Product Split
 
 ## 2.1.0 — Metadata Normalization and Query Performance
 
@@ -2697,39 +2668,6 @@ Historical note:
 - Workspace owners/admins can force password reset, suspend, and remove users through workspace-scoped controls.
 - Invite claim and member lifecycle behavior remain aligned with the workspace ownership model rather than leaking into unrelated spaces or platform-global state.
 
-### Backlog Item: Personal Workspace Offboarding, Archive Retention, and Recovery
-
-**Type:** Backlog item
-
-**Goal:** Define the SaaS account/workspace offboarding path for personal workspaces so users can leave and later return without ambiguous deletion behavior or undefined retention handling.
-
-### Scope
-
-- Separate workspace membership removal from account/workspace offboarding:
-  - ordinary workspace admin actions stay limited to `Remove from Workspace`,
-  - do not turn normal workspace lifecycle actions into platform-global account deletion by accident.
-- Add personal-workspace offboarding policy for self-registered SaaS users:
-  - deleting/closing a personal workspace should move through an inactive/archive lifecycle rather than immediate hard deletion by default,
-  - archived workspaces should remain recoverable for a defined retention window when the same user later re-registers.
-- Implement recovery-aware archive lifecycle:
-  - `0-30 days`: personal workspace remains reclaimable directly by the user re-registering the same email,
-  - `day 31`: workspace data is removed from the live system and placed into the archive/backup pool,
-  - `day 91`: archived workspace data is deleted permanently.
-- Re-registration recovery flow:
-  - if an archived or inactive personal workspace exists for the same email, offer:
-    - restore the archived workspace,
-    - or start a new workspace and discard the archived copy according to the retention policy.
-- Preserve content attribution expectations:
-  - account/workspace offboarding must not make it impossible to understand who originally created content,
-  - if the original account no longer exists, preserve a stable attribution snapshot or equivalent former-member identity marker.
-
-### Acceptance Criteria
-
-- Workspace admins remove members from shared workspaces without deleting shared content.
-- Personal workspace offboarding uses the documented inactive/archive/deletion lifecycle instead of immediate ambiguous data loss.
-- Re-registration with the same email can recover an inactive/archive-eligible personal workspace during the retention window.
-- The `0-30 / 31-90 / 91+ day` retention behavior is documented, implemented, and auditable.
-
 ## 3.0.0 — Frontend Build Modernization (CRA to Vite)
 
 **Goal:** Replace the legacy Create React App (`react-scripts`) frontend toolchain with a modern Vite-based build and dev workflow so the project can retire the remaining CRA-coupled advisory cluster, simplify frontend maintenance, and keep static nginx-based production deployment intact.
@@ -3363,37 +3301,6 @@ Historical note:
 - This is intentionally a separate planning domain inside collectZ, not a separate companion app.
 - This is intentionally not a first-pass arbitrary code plugin runtime; initial implementation should load vetted internal provider adapters only.
 
-### Backlog Item: Digital Library Sync Revisit (CWA or Alternative Self-Hosted Provider)
-
-**Type:** Backlog item
-
-**Goal:** Reassess digital-owned book/comic sync after core roadmap stabilization, with a stronger provider-evaluation phase before productizing ingestion.
-
-### Scope
-
-- Compare CWA/OPDS against at least one alternative self-hosted solution for:
-  - metadata quality and consistency,
-  - identifier richness for dedupe/enrichment,
-  - operational complexity for homelab users.
-- Define ingest contract for digital-owned items:
-  - canonical provider item identity,
-  - series/issue extraction reliability for comics,
-  - deep-link permanence.
-- Reintroduce only after:
-  - repeat-import idempotency is demonstrated at scale,
-  - dedupe quality meets target thresholds for comic-heavy datasets,
-  - UI workflow is simple enough for non-technical admins.
-
-### Acceptance Criteria
-
-- Chosen provider path has documented rationale and tradeoff matrix.
-- Pilot import quality report includes:
-  - duplicate rate,
-  - unmatched rate,
-  - series-grouping accuracy,
-  - enrichment uplift from second-pass providers.
-- If re-enabled, feature ships behind explicit rollout guardrails and migration notes.
-
 ## 2.11.0 — Optional Market Valuation Integrations
 
 **Goal:** Add optional value-estimate integrations for collectors without making pricing a hard dependency of core catalog features.
@@ -3419,34 +3326,6 @@ Historical note:
 - Admin can configure/test PriceCharting and eBay integrations independently.
 - Media detail view can show valuation fields when present and degrade gracefully when unavailable.
 - Pricing failures do not block media CRUD/import flows and are fully auditable.
-
-### Backlog Item: Optional Build: Cost Model and Billing Readiness
-
-**Type:** Backlog item
-
-**Goal:** Prepare a data-backed cost model before any hosted subscription offering, while keeping self-hosted installs free of paid-provider dependencies.
-
-### Scope
-
-- Add per-portal usage metering primitives:
-  - provider API call counts by integration and route,
-  - import/sync job runtime and volume counters,
-  - storage usage counters for uploads/attachments.
-- Build a cost estimation model:
-  - baseline infrastructure assumptions (compute, DB, storage, egress),
-  - provider usage multipliers (for paid APIs where configured),
-  - monthly low/mid/high estimate bands per portal.
-- Add read-only admin “Cost Estimate” reporting view for hosted-mode planning.
-- Define deployment profiles:
-  - `self_hosted` profile (no paid APIs required),
-  - `hosted_subscription` profile (paid integrations allowed and metered).
-- Document break-even and guardrail thresholds for enabling paid integrations by default in hosted mode.
-
-### Acceptance Criteria
-
-- Cost estimate report can be generated from real usage telemetry for a portal.
-- Top cost drivers are visible and attributable (API, storage, compute).
-- Self-hosted profile remains fully functional with all paid-provider integrations disabled.
 
 ---
 

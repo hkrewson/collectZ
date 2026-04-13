@@ -48,14 +48,19 @@ test.describe('integrations browser regressions', () => {
 
       const sectionTabs = page.getByRole('tablist', { name: 'Integration sections' });
       await expect(sectionTabs.getByRole('tab')).toHaveText([
+        'Audio',
+        'Barcode',
+        'Books',
+        'CWA OPDS',
+        'Comics',
         'PriceCharting',
         'eBay Browse',
+        'Games',
         'External Logs',
-        'Metrics'
+        'Metrics',
+        'Plex',
+        'TMDB'
       ]);
-
-      await expect(sectionTabs.getByRole('tab', { name: 'Barcode', exact: true })).toHaveCount(0);
-      await expect(sectionTabs.getByRole('tab', { name: 'Games', exact: true })).toHaveCount(0);
 
       await activeSectionRoot(page).locator('input[name="log_export_host"]').fill(logHost);
       await activeSectionRoot(page).locator('input[name="log_export_port"]').fill(logPort);
@@ -84,10 +89,18 @@ test.describe('integrations browser regressions', () => {
       const sectionTabs = page.getByRole('tablist', { name: 'Integration sections' });
       await expect(sectionTabs).toBeVisible();
       await expect(sectionTabs.getByRole('tab')).toHaveText([
+        'Audio',
+        'Barcode',
+        'Books',
+        'CWA OPDS',
+        'Comics',
         'PriceCharting',
         'eBay Browse',
+        'Games',
         'External Logs',
         'Metrics',
+        'Plex',
+        'TMDB',
       ]);
 
       await page.goto('/dashboard?tab=admin-integrations&integration=metrics');

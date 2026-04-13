@@ -66,3 +66,7 @@ For milestone, release, runtime, monitoring, auth, migration, or deployment work
     - If a scanner flags a transient/local credential, treat it as a real hygiene issue to resolve rather than dismissing it as “only local” or “only test”.
 20. During release, CI, smoke, or artifact work, proactively inspect generated artifacts/logs for secret leakage before calling the slice ready.
     - This includes release evidence JSON, Playwright artifacts, captured command strings, curl/basic-auth commands, and any uploaded troubleshooting bundles.
+21. Keep the roadmap and backlog separated by intent:
+   - `docs/wiki/07-Release-Roadmap.md` stays focused on numbered milestones and active milestone slices.
+   - `docs/wiki/08-Backlog.md` is the source of truth for unscheduled work.
+   - When a backlog item is selected for work, move it into the roadmap as a numbered milestone; do not copy it.
