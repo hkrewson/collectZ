@@ -1171,6 +1171,10 @@ platformRouter.delete('/support-session', authenticateToken, requireSessionAuth,
     }
 
     const currentSession = sessionResult.rows[0];
+    const {
+      previousSpaceId,
+      previousLibraryId
+    } = await resolveSupportPreviousScope(client, req, currentSession);
 
     await client.query(
       `UPDATE user_sessions
@@ -1195,8 +1199,8 @@ platformRouter.delete('/support-session', authenticateToken, requireSessionAuth,
       supportSpaceId: currentSession.support_space_id || null,
       supportLibraryId: currentSession.support_library_id || null,
       startedAt: currentSession.support_started_at || null,
-      previousSpaceId: currentSession.support_previous_space_id || null,
-      previousLibraryId: currentSession.support_previous_library_id || null
+      previousSpaceId,
+      previousLibraryId
     });
 
     req.user.supportSpaceId = null;
@@ -1206,9 +1210,9 @@ platformRouter.delete('/support-session', authenticateToken, requireSessionAuth,
     req.user.supportReason = null;
     req.user.supportPreviousSpaceId = null;
     req.user.supportPreviousLibraryId = null;
-    req.user.scopeSpaceId = currentSession.support_previous_space_id || null;
-    req.user.activeSpaceId = currentSession.support_previous_space_id || null;
-    req.user.activeLibraryId = currentSession.support_previous_library_id || null;
+    req.user.scopeSpaceId = previousSpaceId;
+    req.user.activeSpaceId = previousSpaceId;
+    req.user.activeLibraryId = previousLibraryId;
 
     const payload = await buildAuthScopePayload(req);
     res.json(payload);
