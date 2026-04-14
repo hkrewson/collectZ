@@ -932,6 +932,9 @@ results.push(run('repo includes 2.9.4 Playwright browser regression foundation h
   assert.ok(helpAdminSupportBrowserSpecSource.includes('Close Case'));
   assert.ok(approvedSupportSessionBrowserSpecSource.includes('Start Approved Support Session'));
   assert.ok(approvedSupportSessionBrowserSpecSource.includes('Workspace'));
+  assert.ok(approvedSupportSessionBrowserSpecSource.includes("getByRole('combobox', { name: 'Support Library' })"));
+  assert.ok(approvedSupportSessionBrowserSpecSource.includes("page.goto('/dashboard?tab=space-manage')"));
+  assert.ok(approvedSupportSessionBrowserSpecSource.includes("toHaveURL(/tab=help/)"));
   assert.ok(integrationsBrowserSpecSource.includes("saveSection(page, 'LOGS')"));
   assert.ok(integrationsBrowserSpecSource.includes("getByRole('tablist', { name: 'Integration sections' })"));
   assert.ok(integrationsBrowserSpecSource.includes('Metrics Export'));

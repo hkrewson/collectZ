@@ -71,5 +71,10 @@ test.describe('approved support session browser regressions', () => {
 
     await expect(page.getByText('Support session active')).toHaveCount(0);
     await expect(page).toHaveURL(/tab=help/);
+    await expect(page.getByRole('combobox', { name: 'Support Library' })).toHaveCount(0);
+
+    await page.goto('/dashboard?tab=space-manage');
+    await expect(page).toHaveURL(/tab=help/);
+    await expect(page.getByRole('heading', { name: 'Help Admin' })).toBeVisible();
   });
 });
