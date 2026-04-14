@@ -27,7 +27,7 @@ test('login screen exposes the forgot-password request flow', async ({ page }) =
   await page.getByRole('button', { name: 'Forgot password?' }).click();
 
   await expect(page).toHaveURL(/\/forgot-password$/);
-  await expect(page.getByText('Request password reset')).toBeVisible();
+  await expect(page.getByText('Let’s get you back in')).toBeVisible();
   await expect(page.locator('input[type="email"]')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Send reset email' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Back to Sign In' })).toBeVisible();
@@ -56,7 +56,7 @@ test('login screen exposes self-registration when public registration is availab
 test('verify-email route handles invalid tokens gracefully', async ({ page }) => {
   await page.goto('/verify-email?token=invalid-token&email=test@example.com');
 
-  await expect(page.getByText('Verify email')).toBeVisible();
+  await expect(page.getByText('Confirm your email')).toBeVisible();
   await expect(page.getByText('Invalid or expired verification token')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Back to Sign In' })).toBeVisible();
 });

@@ -2882,6 +2882,22 @@ Historical note:
 - Support-session, library, and space lifecycle paths are exercised beyond the minimum release gates where the shared-core split needs extra confidence.
 - Added browser coverage demonstrates that shell-visible scope, library, and workspace behavior stays aligned with the extracted lifecycle helpers.
 
+## 3.1.2 — Post-Split UI Cleanup for Support, Help, and Auth Shell Surfaces
+
+**Goal:** Clean up the visible support, help, and auth shell surfaces now that the shared-core and browser-visible lifecycle boundary work has stabilized.
+
+### Scope
+
+- Remove browser-visible polish that no longer matches the post-split shared-core story.
+- Focus on support, help, and auth shell surfaces that still read as overly heavy, inconsistent, or AI-shaped after the `3.1.0` and `3.1.1` stabilization work.
+- Keep the milestone bounded to UI/shell cleanup rather than reopening shared-core extraction or edition-boundary architecture work.
+
+### Acceptance Criteria
+
+- Support, help, and auth shell surfaces feel more consistent and restrained.
+- Remaining browser-visible polish is cleaned up without altering the core shared-core story.
+- The work stays clearly separated from milestone-level architecture changes.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

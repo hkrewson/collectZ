@@ -29,22 +29,6 @@ This file is the staging area for work that has not yet been assigned a release 
 - The packaging and publication flow is documented and repeatable.
 - Update flow from the private source into the public repo is clear and intentional.
 
-### Backlog Item: Post-Split UI Cleanup for Support, Help, and Auth Shell Surfaces
-**Type:** Task
-**Tags:** `ui`, `polish`, `support`, `help`, `auth`
-
-**Goal:** Clean up support, help, and auth shell surfaces once the edition boundary stops moving.
-
-**Scope**
-- Remove browser-visible polish that no longer matches the shared-core extraction story.
-- Focus on remaining shell surfaces that still read as overly heavy or AI-shaped.
-- Keep the cleanup bounded so it does not change the shared-core architecture work.
-
-**Acceptance Criteria**
-- Support, help, and auth shell surfaces feel more consistent and restrained.
-- Remaining browser-visible polish is cleaned up without altering the core shared-core story.
-- The work stays separate from milestone-level architecture changes.
-
 ### Backlog Item: Digital Library Sync Revisit
 **Type:** Deferred milestone
 **Tags:** `digital-library`, `cwa`, `opds`, `metadata`, `dedupe`
@@ -121,6 +105,36 @@ This file is the staging area for work that has not yet been assigned a release 
 - Borrower email can be stored for reminder delivery.
 - Reminder behavior can be triggered from the stored loan record.
 - The loans section fits the library workflow without disrupting existing catalog behavior.
+
+### Backlog Item: Library Controls and Selection Behavior
+**Type:** Task
+**Tags:** `ui`, `library`, `pagination`, `bulk-actions`, `selection`, `valuation`
+
+**Goal:** Clean up shared library controls and selection behavior across library types.
+
+**Scope**
+- Change `Previous` and `Next` buttons to `<` and `>` buttons.
+- Add library toggles for:
+  - `Audio`
+  - `Books`
+  - `Collectibles`
+  - `Comics`
+  - `Events`
+  - `Games`
+  - `Movies`
+  - `TV`
+- Make those toggles control visibility of the related integrations and imports.
+- Revisit whether `Bulk Actions` text should be removed.
+- Change `Select visible (50)` to `Select all (50)`.
+- After selection, offer `Select all in type`.
+- Remove `Delete selected` text from the delete button.
+- Add a valuation view treatment with a `Value` or `Valuation` label, a refresh icon, and low / mid / high values.
+
+**Acceptance Criteria**
+- Pagination controls are visually simpler.
+- Library-type toggles correctly affect related integrations and imports.
+- Bulk selection language is clearer and less verbose.
+- Valuation display includes low / mid / high values with a refresh action.
 
 ### Backlog Item: Imports and Sync Cadence Expansion
 **Type:** Deferred milestone
