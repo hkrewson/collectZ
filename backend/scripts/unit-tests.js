@@ -699,7 +699,8 @@ results.push(run('edition boundary source includes backend-owned homelab shell a
   assert.ok(productEditionFrontendSource.includes('getAllowedDashboardTabs'));
   assert.ok(productEditionFrontendSource.includes("if (!isHomelabEdition(productEdition) && supportSessionActive && canManageActiveSpace)"));
   assert.ok(productEditionFrontendSource.includes("return 'admin-settings'"));
-  assert.ok(helpViewSource.includes('A lightweight home for self-serve guidance and recent release notes for homelab users.'));
+  assert.ok(helpViewSource.includes('<h1 className="section-title">{helpTitle}</h1>'));
+  assert.ok(!helpViewSource.includes('A lightweight home for self-serve guidance and recent release notes for homelab users.'));
   assert.ok(frontendAppSource.includes('getSafeDashboardTab'));
   assert.ok(frontendAppSource.includes('supportSessionActiveInEdition'));
   assert.ok(dashboardContentSource.includes('const supportHelpEnabled = isSupportHelpEnabled(productEdition);'));

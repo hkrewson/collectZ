@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v3.1.2",
+      "version": "3.1.2",
+      "date": "2026-04-14",
+      "status": "Completed",
+      "summary": "This patch release tightens the post-split shell experience without reopening shared-core architecture work. The auth page now uses a simpler single-column layout, and the Help and Help Admin surfaces carry less narration and less panel-heavy chrome, so platform and homelab feel more consistent and less overdesigned.",
+      "details": []
+    },
+    {
       "title": "v3.1.1",
       "version": "3.1.1",
       "date": "2026-04-13",
@@ -70,14 +78,6 @@
       "date": "2026-04-09",
       "status": "Completed",
       "summary": "This patch release removes the remaining eyebrow-style uppercase language from the shared form label primitive so forms throughout the app inherit calmer, more product-native labeling by default. Instead of continuing to reintroduce tracked uppercase microheadings through the shared form layer, drawers, admin screens, auth flows, and supporting forms now share a quieter label treatment from the root.",
-      "details": []
-    },
-    {
-      "title": "v2.10.11",
-      "version": "2.10.11",
-      "date": "2026-04-09",
-      "status": "Completed",
-      "summary": "This patch release tones down the app’s remaining heavy overlay shells so the camera modal and the main slide-in drawers feel calmer and more functional. The overlays still focus attention and behave the same way, but they no longer rely as heavily on blur, oversized rounding, or dramatic shell/poster shadowing to create that sense of separation.",
       "details": []
     }
   ]
