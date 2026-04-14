@@ -676,11 +676,6 @@ export default function HelpView({
     <div className="h-full overflow-y-auto p-4 sm:p-6 space-y-6">
       <div className="space-y-3">
         <h1 className="section-title">{helpTitle}</h1>
-        <p className="max-w-2xl text-sm text-ghost">
-          {supportHelpEnabled
-            ? 'Guidance, release notes, and support threads in one place.'
-            : 'Guidance and release notes in one place.'}
-        </p>
       </div>
 
       <SectionTabs
@@ -696,7 +691,6 @@ export default function HelpView({
           <section className="space-y-4 border-t border-edge pt-5">
             <div>
               <h2 className="text-lg font-semibold text-ink">Guidance</h2>
-              <p className="text-sm text-ghost">Common questions, without the detour.</p>
             </div>
             <DisclosureList
               items={guidanceArticles}
@@ -750,7 +744,6 @@ export default function HelpView({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold text-ink">Recent Releases</h2>
-              <p className="text-sm text-ghost">Recent changes, without leaving the app.</p>
             </div>
             <button type="button" className="btn-secondary btn-sm" onClick={() => loadReleases()}>
               <Icons.Refresh />Refresh
@@ -816,7 +809,6 @@ export default function HelpView({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold text-ink">Support Metrics</h2>
-              <p className="text-sm text-ghost">Queue response and closure pace from live support traffic.</p>
             </div>
             <button type="button" className="btn-secondary btn-sm" onClick={() => onSupportSummaryRefresh?.()}>
               <Icons.Refresh />Refresh
