@@ -173,14 +173,14 @@ function ThreadBubble({ message, currentUserId }) {
     <div className={`flex ${isSystemMessage || isInternalMessage ? 'justify-center' : isOwnMessage ? 'justify-end' : 'justify-start'}`}>
       <div
         className={[
-          'max-w-[84%] rounded-2xl border px-3.5 py-2.5 space-y-1.5',
+          'max-w-[84%] rounded-lg border px-3.5 py-2.5 space-y-1.5',
           isInternalMessage
             ? 'border-sky-500/20 bg-sky-500/6 text-ink'
             : isSystemMessage
             ? 'border-edge/70 bg-void/20 text-ghost'
             : isOwnMessage
-              ? 'border-gold/25 bg-raised/28 text-ink rounded-br-lg'
-              : 'border-edge/70 bg-raised/24 text-ink rounded-bl-lg'
+              ? 'border-gold/25 bg-raised/28 text-ink'
+              : 'border-edge/70 bg-raised/24 text-ink'
         ].join(' ')}
       >
         <div className="flex items-center justify-between gap-3 text-[11px] text-ghost">
@@ -198,7 +198,7 @@ function ThreadBubble({ message, currentUserId }) {
 
 function TimelineItem({ event }) {
   return (
-    <div className="rounded-2xl border border-edge/60 bg-void/12 px-3.5 py-2.5">
+    <div className="rounded-lg border border-edge/60 bg-void/12 px-3.5 py-2.5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <span className="text-[11px] text-ghost">
@@ -676,10 +676,10 @@ export default function HelpView({
     <div className="h-full overflow-y-auto p-4 sm:p-6 space-y-6">
       <div className="space-y-3">
         <h1 className="section-title">{helpTitle}</h1>
-        <p className="text-sm text-ghost max-w-3xl">
+        <p className="max-w-2xl text-sm text-ghost">
           {supportHelpEnabled
-            ? 'A lightweight home for self-serve guidance, recent release notes, and support conversations. Support requests create a documented thread first, not ambient tenant access.'
-            : 'A lightweight home for self-serve guidance and recent release notes for homelab users.'}
+            ? 'Guidance, release notes, and support threads in one place.'
+            : 'Guidance and release notes in one place.'}
         </p>
       </div>
 
@@ -693,16 +693,16 @@ export default function HelpView({
 
       <SectionTabPanel activeId={activeTab} tabKey="guidance" idBase="help-sections">
         <div className={`grid gap-4 ${isSupportStaff ? '' : 'xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]'}`}>
-          <section className="panel p-5 space-y-4">
+          <section className="space-y-4 border-t border-edge pt-5">
             <div>
               <h2 className="text-lg font-semibold text-ink">Guidance</h2>
-              <p className="text-sm text-ghost">Quick starting points for the most common questions.</p>
+              <p className="text-sm text-ghost">Common questions, without the detour.</p>
             </div>
             <DisclosureList
               items={guidanceArticles}
               openId={expandedGuidanceId}
               onToggle={setExpandedGuidanceId}
-              className="bg-panel/20"
+              className=""
               renderSummary={(article) => (
                 <>
                   <p className="text-sm font-medium text-ink">{article.title}</p>
@@ -730,12 +730,12 @@ export default function HelpView({
           </section>
 
           {!isSupportStaff && supportHelpEnabled ? (
-            <section className="panel p-5 space-y-4">
+            <section className="space-y-4 border-t border-edge pt-5">
               <h2 className="text-lg font-semibold text-ink">Getting help</h2>
-              <p className="text-sm text-ghost">Use the Support tab when guidance is not enough or you need a human reply tied to your current context.</p>
+              <p className="text-sm text-ghost">Open a thread when guidance is not enough.</p>
               <div className="space-y-2 text-sm text-ghost leading-6">
                 <p>Your current context{activeSpace?.name ? `: ${activeSpace.name}` : ''}{activeLibrary?.name ? ` / ${activeLibrary.name}` : ''}.</p>
-                <p>Support requests keep the thread, timestamps, and target context together. Support staff respond there without browsing your tenant by default.</p>
+                <p>Requests keep the conversation, timestamps, and target context together.</p>
               </div>
               <button type="button" className="btn-secondary btn-sm" onClick={() => setActiveTab('support')}>
                 <Icons.Activity />Open Support
@@ -746,11 +746,11 @@ export default function HelpView({
       </SectionTabPanel>
 
       <SectionTabPanel activeId={activeTab} tabKey="releases" idBase="help-sections">
-        <section className="panel p-5 space-y-4">
+        <section className="space-y-4 border-t border-edge pt-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold text-ink">Recent Releases</h2>
-              <p className="text-sm text-ghost">A lightweight in-app version of recent release notes so users can see what changed without leaving the product.</p>
+              <p className="text-sm text-ghost">Recent changes, without leaving the app.</p>
             </div>
             <button type="button" className="btn-secondary btn-sm" onClick={() => loadReleases()}>
               <Icons.Refresh />Refresh
@@ -763,7 +763,7 @@ export default function HelpView({
               No release notes are available yet.
             </div>
           ) : (
-            <div className="divide-y divide-edge/60 rounded-md border border-edge/60 bg-panel/20">
+            <div className="divide-y divide-edge/60 border border-edge/60">
               {releases.map((release) => {
                 const expanded = expandedReleaseVersion === release.version;
                 const isCurrent = release.version === releaseMeta.version;
@@ -812,17 +812,17 @@ export default function HelpView({
 
       <SectionTabPanel activeId={activeTab} tabKey="metrics" idBase="help-sections">
         {isSupportStaff ? (
-        <section className="panel p-5 space-y-5">
+        <section className="space-y-5 border-t border-edge pt-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold text-ink">Support Metrics</h2>
-              <p className="text-sm text-ghost">A quick pulse on queue responsiveness and closure pace from the live support request data.</p>
+              <p className="text-sm text-ghost">Queue response and closure pace from live support traffic.</p>
             </div>
             <button type="button" className="btn-secondary btn-sm" onClick={() => onSupportSummaryRefresh?.()}>
               <Icons.Refresh />Refresh
             </button>
           </div>
-          <div className="divide-y divide-edge/60 rounded-md border border-edge/60 bg-panel/20">
+          <div className="divide-y divide-edge/60 border border-edge/60">
             <div className="grid gap-3 px-4 py-3 md:grid-cols-[180px_minmax(0,1fr)_minmax(140px,auto)]">
               <p className="text-sm font-medium text-ink">Time to open</p>
               <p className="text-sm text-ghost">Average time from request creation to the first public staff reply.</p>
@@ -847,10 +847,10 @@ export default function HelpView({
         <div className="grid gap-4 xl:grid-cols-[minmax(320px,0.8fr)_minmax(0,1.2fr)] xl:h-[calc(100vh-15.5rem)]">
           <div className="space-y-4 xl:min-h-0 xl:flex xl:flex-col">
             {!isSupportStaff && shouldShowReplyComposer ? (
-              <section className="panel p-5 space-y-4">
+              <section className="space-y-4 border-t border-edge pt-5">
                 <div className="space-y-1">
                   <h2 className="text-lg font-semibold text-ink">Reply to Support</h2>
-                  <p className="text-sm text-ghost">Keep the conversation in one place so it stays easy to follow over time.</p>
+                  <p className="text-sm text-ghost">Keep the thread moving in one place.</p>
                 </div>
                 <form className="space-y-4" onSubmit={submitReply}>
                   <label className="field">
@@ -868,11 +868,11 @@ export default function HelpView({
                 </form>
               </section>
             ) : !isSupportStaff ? (
-              <section className="panel p-5 space-y-4">
+              <section className="space-y-4 border-t border-edge pt-5">
                 <div className="space-y-1">
                   <h2 className="text-lg font-semibold text-ink">Ask for help</h2>
                   <p className="text-sm text-ghost">
-                    Share what happened, what you expected, and where you got stuck. We’ll keep the thread here so it stays easy to follow.
+                    Share what happened, what you expected, and where you got stuck.
                   </p>
                 </div>
                 <form className="space-y-4" onSubmit={submitRequest}>
@@ -901,7 +901,7 @@ export default function HelpView({
               </section>
             ) : null}
 
-            <section className="panel p-3 space-y-3 min-h-[320px] xl:min-h-0 xl:flex-1 xl:flex xl:flex-col">
+            <section className="space-y-3 border-t border-edge pt-5 min-h-[320px] xl:min-h-0 xl:flex-1 xl:flex xl:flex-col">
               {isSupportStaff ? (
                 <div className="space-y-3">
                   <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
@@ -951,7 +951,7 @@ export default function HelpView({
               {loading ? (
                 <div className="flex items-center gap-3 text-dim"><Spinner />Loading support requests…</div>
               ) : requests.length === 0 ? (
-                <div className="rounded-3xl border border-dashed border-edge p-6 text-sm text-ghost text-center">
+                <div className="border border-dashed border-edge p-6 text-sm text-ghost text-center">
                   {isSupportStaff ? 'No requests match the current queue filters.' : 'No support requests yet.'}
                 </div>
               ) : (
@@ -1000,7 +1000,7 @@ export default function HelpView({
             </section>
           </div>
 
-          <section className="panel p-0 min-h-[640px] overflow-hidden flex flex-col xl:min-h-0 xl:h-full">
+          <section className="min-h-[640px] overflow-hidden border border-edge/70 flex flex-col xl:min-h-0 xl:h-full">
             {!selectedRequestId ? (
               <div className="flex-1 flex items-center justify-center p-8 text-sm text-ghost text-center">
                 Select a support request to open the conversation.
@@ -1085,7 +1085,7 @@ export default function HelpView({
                     </div>
                     <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                       {activeSessionEvidence.map((row) => (
-                        <div key={row.label} className="rounded-2xl border border-edge/65 bg-void/14 px-3 py-2.5">
+                        <div key={row.label} className="rounded-lg border border-edge/65 bg-void/14 px-3 py-2.5">
                           <p className="text-[11px] text-ghost">{row.label}</p>
                           <p className="mt-1 text-sm text-ink break-words">{row.value}</p>
                         </div>
@@ -1134,7 +1134,7 @@ export default function HelpView({
                         <TimelineItem key={event.id} event={event} />
                       ))
                     ) : (
-                      <div className="rounded-2xl border border-dashed border-edge px-4 py-4 text-sm text-ghost">
+                      <div className="border border-dashed border-edge px-4 py-4 text-sm text-ghost">
                         No timeline events have been recorded for this request yet.
                       </div>
                     )}
@@ -1147,7 +1147,7 @@ export default function HelpView({
                       <form className="space-y-4 max-w-3xl" onSubmit={submitReply}>
                         <div className="space-y-1">
                           <h3 className="text-sm font-semibold text-ink">Reply to requester</h3>
-                          <p className="text-xs text-ghost">Send guidance, next steps, or a clarifying question without leaving the selected case.</p>
+                          <p className="text-xs text-ghost">Reply without leaving the selected case.</p>
                         </div>
                         <label className="field">
                           <span className="label">Reply</span>
@@ -1163,7 +1163,7 @@ export default function HelpView({
                         </button>
                       </form>
                     ) : (
-                      <div className="rounded-3xl border border-dashed border-edge p-4 text-sm text-ghost">
+                      <div className="border border-dashed border-edge p-4 text-sm text-ghost">
                         {selectedRequest
                           ? 'This case is closed. Reopen it first if you need to send another support reply.'
                           : 'Select a request from the queue to reply.'}
@@ -1182,9 +1182,7 @@ export default function HelpView({
                             <p className="text-xs text-ghost">Linked engineering work</p>
                             {selectedRequest.request_key ? <span className="font-mono text-[11px] text-ghost">{selectedRequest.request_key}</span> : null}
                           </div>
-                          <p className="text-sm text-ghost">
-                            Link a GitHub issue or mark a shipped version here so the support thread keeps a durable product trail for this request.
-                          </p>
+                          <p className="text-sm text-ghost">Link an issue or record the shipped version for this request.</p>
                           {trackedWorkItems.length ? (
                             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ghost">
                               {trackedWorkItems.map((item) => (
@@ -1257,7 +1255,7 @@ export default function HelpView({
                         </button>
                       </form>
                     ) : (
-                      <div className="rounded-3xl border border-dashed border-edge p-4 text-sm text-ghost">
+                      <div className="border border-dashed border-edge p-4 text-sm text-ghost">
                         Select a request from the queue to classify it, add repo linkage, or save an internal note.
                       </div>
                     )}
