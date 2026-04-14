@@ -12,6 +12,16 @@ const { deleteMediaByExactTitle, findExactMediaByTitle } = require('../helpers/m
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
+const PLAYWRIGHT_BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000';
+
+async function openPageForRequestContext(browser, requestContext) {
+  const context = await browser.newContext({ baseURL: PLAYWRIGHT_BASE_URL });
+  const storageState = await requestContext.storageState();
+  await context.addCookies(storageState.cookies || []);
+  const page = await context.newPage();
+  return { context, page };
+}
+
 test.describe('space manager browser regressions', () => {
   test('workspace member can open Workspace and see workspace-scoped activity entries', async ({ page }) => {
     const credentials = await createFreshUserCredentials();
@@ -327,7 +337,7 @@ test.describe('space manager browser regressions', () => {
     }
   });
 
-  test('workspace admin can suspend and restore a workspace member without affecting unrelated tenancy state', async ({ page }) => {
+  test('workspace admin can suspend and restore a workspace member without affecting unrelated tenancy state', async ({ page, browser }) => {
     const adminCredentials = await ensureSavedAdminCredentials();
     const adminContext = await createAuthenticatedRequestContext(adminCredentials);
     const stamp = Date.now();
@@ -339,6 +349,8 @@ test.describe('space manager browser regressions', () => {
     const memberName = 'Playwright Space Suspend Member';
     let ownerContext = null;
     let memberContext = null;
+    let memberBrowserContext = null;
+    let memberPage = null;
 
     try {
       const createdSpaceResponse = await postWithCsrf(adminContext, '/api/admin/spaces/create-with-onboarding', {
@@ -427,6 +439,13 @@ test.describe('space manager browser regressions', () => {
       expect(Array.isArray(memberSpacesAfterSuspend?.spaces)).toBeTruthy();
       expect(memberSpacesAfterSuspend.spaces.some((space) => Number(space.id) === createdSpaceId)).toBeFalsy();
 
+      ({ context: memberBrowserContext, page: memberPage } = await openPageForRequestContext(browser, memberContext));
+      await memberPage.goto('/dashboard');
+      await expect(memberPage.getByRole('button', { name: 'Workspace', exact: true })).toHaveCount(0);
+      await memberPage.goto('/dashboard?tab=space-manage');
+      await expect(memberPage.getByRole('heading', { name: 'Access Restricted' })).toBeVisible();
+      await expect(memberPage.getByText('An active workspace membership or approved support session is required to open this workspace surface.')).toBeVisible();
+
       await memberRow.locator('xpath=ancestor::div[contains(@class,"grid")][1]/div[last()]//button[@aria-label="Member actions"]').click();
       const restoreResponsePromise = page.waitForResponse((response) => (
         response.url().includes(`/api/spaces/${createdSpaceId}/members/`)
@@ -445,14 +464,21 @@ test.describe('space manager browser regressions', () => {
       const memberSpacesAfterRestore = await memberSpacesAfterRestoreResponse.json();
       expect(Array.isArray(memberSpacesAfterRestore?.spaces)).toBeTruthy();
       expect(memberSpacesAfterRestore.spaces.some((space) => Number(space.id) === createdSpaceId)).toBeTruthy();
+
+      await memberPage.goto('/dashboard');
+      await expect(memberPage.getByRole('button', { name: 'Workspace', exact: true })).toBeVisible();
+      await memberPage.goto('/dashboard?tab=space-manage');
+      await expect(memberPage.getByRole('heading', { name: 'Access Restricted' })).toHaveCount(0);
+      await expect(memberPage.getByRole('button', { name: 'Activity', exact: true })).toBeVisible();
     } finally {
+      await memberBrowserContext?.close();
       await memberContext?.dispose();
       await ownerContext?.dispose();
       await adminContext.dispose();
     }
   });
 
-  test('workspace admin can remove a member without deleting the member-created workspace content', async ({ page }) => {
+  test('workspace admin can remove a member without deleting the member-created workspace content', async ({ page, browser }) => {
     const adminCredentials = await ensureSavedAdminCredentials();
     const adminContext = await createAuthenticatedRequestContext(adminCredentials);
     const stamp = Date.now();
@@ -465,6 +491,8 @@ test.describe('space manager browser regressions', () => {
     const title = `Playwright Removed Member Content ${stamp}`;
     let ownerContext = null;
     let memberContext = null;
+    let memberBrowserContext = null;
+    let memberPage = null;
 
     try {
       const createdSpaceResponse = await postWithCsrf(adminContext, '/api/admin/spaces/create-with-onboarding', {
@@ -559,10 +587,18 @@ test.describe('space manager browser regressions', () => {
       expect(Array.isArray(memberSpacesAfterRemoval?.spaces)).toBeTruthy();
       expect(memberSpacesAfterRemoval.spaces.some((space) => Number(space.id) === createdSpaceId)).toBeFalsy();
 
+      ({ context: memberBrowserContext, page: memberPage } = await openPageForRequestContext(browser, memberContext));
+      await memberPage.goto('/dashboard');
+      await expect(memberPage.getByRole('button', { name: 'Workspace', exact: true })).toHaveCount(0);
+      await memberPage.goto('/dashboard?tab=space-manage');
+      await expect(memberPage.getByRole('heading', { name: 'Access Restricted' })).toBeVisible();
+      await expect(memberPage.getByText('An active workspace membership or approved support session is required to open this workspace surface.')).toBeVisible();
+
       const preservedContent = await findExactMediaByTitle(ownerContext, title);
       expect(preservedContent).toBeTruthy();
     } finally {
       await deleteMediaByExactTitle(ownerContext || adminContext, title).catch(() => {});
+      await memberBrowserContext?.close();
       await memberContext?.dispose();
       await ownerContext?.dispose();
       await adminContext.dispose();
