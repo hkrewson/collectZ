@@ -955,8 +955,8 @@ results.push(run('repo includes 2.9.4 Playwright browser regression foundation h
   assert.ok(libraryLifecycleBrowserSpecSource.includes('/dashboard?tab=library-import'));
   assert.ok(libraryLifecycleBrowserSpecSource.includes('Bring titles into “${libraryName}” from files or connected services.'));
   assert.ok(libraryLifecycleBrowserSpecSource.includes("toHaveCount(0)"));
-  assert.ok(spaceManagerBrowserSpecSource.includes("getByRole('heading', { name: 'Access Restricted' })"));
-  assert.ok(spaceManagerBrowserSpecSource.includes("getByRole('button', { name: 'Workspace', exact: true })).toHaveCount(0)"));
+  assert.ok(spaceManagerBrowserSpecSource.includes('expectManageableFallbackWorkspace'));
+  assert.ok(spaceManagerBrowserSpecSource.includes("getByRole('heading', { name: excludedSpaceName, exact: true })).toHaveCount(0)"));
   assert.ok(spaceManagerBrowserSpecSource.includes("getByRole('button', { name: 'Workspace', exact: true })).toBeVisible()"));
   assert.ok(boundaryBrowserSpecSource.includes('support_admin'));
   assert.ok(boundaryBrowserSpecSource.includes('/dashboard?tab=admin-integrations&integration=logs'));

@@ -1100,6 +1100,8 @@ Historical planning notes may still exist in:
 57. `3.0.0` Frontend build modernization (CRA to Vite)
 58. `3.1.0` Shared Core Extraction and Public Homelab Product Split
 59. `3.1.1` Browser-visible regression expansion for shared-core lifecycle flows
+60. `3.1.2` Post-split UI cleanup for support, help, and auth shell surfaces
+61. `3.1.3` Library controls and selection behavior cleanup
 
 ## 2.1.0 — Metadata Normalization and Query Performance
 
@@ -2897,6 +2899,44 @@ Historical note:
 - Support, help, and auth shell surfaces feel more consistent and restrained.
 - Remaining browser-visible polish is cleaned up without altering the core shared-core story.
 - The work stays clearly separated from milestone-level architecture changes.
+
+## 3.1.3 — Library Controls and Selection Behavior Cleanup
+
+**Goal:** Clean up shared library controls and selection behavior across library types so the main collection workflow feels simpler, clearer, and more consistent after the `3.1.2` shell cleanup pass.
+
+### Scope
+
+- Simplify pagination controls by replacing verbose `Previous` and `Next` labels with clearer directional controls.
+- Add library-type toggles for:
+  - `Audio`
+  - `Books`
+  - `Collectibles`
+  - `Comics`
+  - `Events`
+  - `Games`
+  - `Movies`
+  - `TV`
+- Make those toggles control the visibility of the related integrations and import entry points so the surrounding workflow reflects the active library types more clearly.
+- Tighten bulk-selection wording and affordances:
+  - revisit whether `Bulk Actions` needs to remain visible as a label,
+  - change `Select visible (50)` to `Select all (50)`,
+  - add `Select all in type` after an initial selection,
+  - remove unnecessary delete-button narration such as `Delete selected`.
+- Carry one browser-regression artifact modification from the `3.1.2` release evidence:
+  - align the space-manager Playwright assertions so suspension or removal with surviving unrelated workspace access proves redirect into a fallback manageable workspace instead of incorrectly expecting the `Access Restricted` boundary.
+- Add a cleaner valuation treatment with:
+  - a `Value` or `Valuation` label,
+  - a refresh affordance,
+  - low / mid / high valuation display.
+- Keep the milestone bounded to library workflow and UI behavior cleanup rather than widening back into support/help/auth shell work or broader product-split architecture changes.
+
+### Acceptance Criteria
+
+- Pagination controls are visually simpler and still unambiguous.
+- Library-type toggles correctly affect related integrations and imports.
+- Bulk selection language is clearer and less verbose.
+- Valuation display includes low / mid / high values with a refresh action.
+- The cleanup improves the main library workflow without reopening broader milestone-level UI redesign work.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 

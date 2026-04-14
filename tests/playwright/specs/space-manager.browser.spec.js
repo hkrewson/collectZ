@@ -15,11 +15,21 @@ test.use({ storageState: { cookies: [], origins: [] } });
 const PLAYWRIGHT_BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000';
 
 async function openPageForRequestContext(browser, requestContext) {
-  const context = await browser.newContext({ baseURL: PLAYWRIGHT_BASE_URL });
   const storageState = await requestContext.storageState();
-  await context.addCookies(storageState.cookies || []);
+  const context = await browser.newContext({
+    baseURL: PLAYWRIGHT_BASE_URL,
+    storageState
+  });
   const page = await context.newPage();
   return { context, page };
+}
+
+async function expectManageableFallbackWorkspace(page, excludedSpaceName) {
+  await expect(page.getByRole('button', { name: 'Workspace', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Access Restricted' })).toHaveCount(0);
+  if (excludedSpaceName) {
+    await expect(page.getByRole('heading', { name: excludedSpaceName, exact: true })).toHaveCount(0);
+  }
 }
 
 test.describe('space manager browser regressions', () => {
@@ -265,7 +275,9 @@ test.describe('space manager browser regressions', () => {
       }, 201);
       const createdSpacePayload = await createdSpaceResponse.json();
       const createdSpaceId = Number(createdSpacePayload?.space?.id || 0) || null;
+      const createdSpaceName = String(createdSpacePayload?.space?.name || '').trim();
       expect(createdSpaceId).toBeTruthy();
+      expect(createdSpaceName).toBeTruthy();
       const invitePayload = Array.isArray(createdSpacePayload?.invite_results)
         ? createdSpacePayload.invite_results.find((invite) => String(invite?.email || '').toLowerCase() === ownerEmail.toLowerCase())
         : null;
@@ -371,7 +383,9 @@ test.describe('space manager browser regressions', () => {
       }, 201);
       const createdSpacePayload = await createdSpaceResponse.json();
       const createdSpaceId = Number(createdSpacePayload?.space?.id || 0) || null;
+      const createdSpaceName = String(createdSpacePayload?.space?.name || '').trim();
       expect(createdSpaceId).toBeTruthy();
+      expect(createdSpaceName).toBeTruthy();
 
       const inviteResults = Array.isArray(createdSpacePayload?.invite_results) ? createdSpacePayload.invite_results : [];
       const ownerInvite = inviteResults.find((invite) => String(invite?.email || '').toLowerCase() === ownerEmail.toLowerCase()) || null;
@@ -441,9 +455,9 @@ test.describe('space manager browser regressions', () => {
 
       ({ context: memberBrowserContext, page: memberPage } = await openPageForRequestContext(browser, memberContext));
       await memberPage.goto('/dashboard');
-      await expect(memberPage.getByRole('button', { name: 'Workspace', exact: true })).toHaveCount(0);
+      await expect(memberPage.getByRole('button', { name: 'Workspace', exact: true })).toBeVisible();
       await memberPage.goto('/dashboard?tab=space-manage');
-      await expect(memberPage.getByRole('heading', { name: 'Access Restricted' })).toBeVisible();
+      await expectManageableFallbackWorkspace(memberPage, createdSpaceName);
 
       await memberRow.locator('xpath=ancestor::div[contains(@class,"grid")][1]/div[last()]//button[@aria-label="Member actions"]').click();
       const restoreResponsePromise = page.waitForResponse((response) => (
@@ -512,7 +526,9 @@ test.describe('space manager browser regressions', () => {
       }, 201);
       const createdSpacePayload = await createdSpaceResponse.json();
       const createdSpaceId = Number(createdSpacePayload?.space?.id || 0) || null;
+      const createdSpaceName = String(createdSpacePayload?.space?.name || '').trim();
       expect(createdSpaceId).toBeTruthy();
+      expect(createdSpaceName).toBeTruthy();
 
       const inviteResults = Array.isArray(createdSpacePayload?.invite_results) ? createdSpacePayload.invite_results : [];
       const ownerInvite = inviteResults.find((invite) => String(invite?.email || '').toLowerCase() === ownerEmail.toLowerCase()) || null;
@@ -588,9 +604,9 @@ test.describe('space manager browser regressions', () => {
 
       ({ context: memberBrowserContext, page: memberPage } = await openPageForRequestContext(browser, memberContext));
       await memberPage.goto('/dashboard');
-      await expect(memberPage.getByRole('button', { name: 'Workspace', exact: true })).toHaveCount(0);
+      await expect(memberPage.getByRole('button', { name: 'Workspace', exact: true })).toBeVisible();
       await memberPage.goto('/dashboard?tab=space-manage');
-      await expect(memberPage.getByRole('heading', { name: 'Access Restricted' })).toBeVisible();
+      await expectManageableFallbackWorkspace(memberPage, createdSpaceName);
 
       const preservedContent = await findExactMediaByTitle(ownerContext, title);
       expect(preservedContent).toBeTruthy();
