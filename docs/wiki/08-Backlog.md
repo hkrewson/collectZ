@@ -151,6 +151,25 @@ This file is the staging area for work that has not yet been assigned a release 
 - Plex import uses the actual API path.
 - New-title checks, watch-status checks, and webhooks are all represented in the import design.
 
+### Backlog Item: TMDB Rate-Limit Investigation and Search Optimization
+**Type:** Discussion
+**Tags:** `tmdb`, `rate-limit`, `search`, `imports`, `performance`
+
+**Goal:** Determine whether movie-add resource-limit failures are coming from the app API or from TMDB, then identify any safe optimization that reduces TMDB pressure.
+
+**Scope**
+- Reproduce the failure path for movie adds and identify which layer returned the limit response.
+- Distinguish between the app-side external-provider limiter and upstream TMDB rate limiting.
+- Review the movie add flow for avoidable duplicate TMDB calls.
+- Evaluate whether title search, identifier search, and follow-up details fetch can be consolidated or cached more effectively.
+- Consider whether the current app-level external provider limit should be tuned if the limiter is the real source of the problem.
+
+**Acceptance Criteria**
+- The likely source of the limit response is documented as app-side, TMDB-side, or still unverified.
+- Any safe optimization opportunities are identified with their tradeoffs.
+- If the app-side limiter is the issue, the relevant route and setting are called out clearly for follow-up work.
+- If TMDB pressure is the issue, the likely request-reduction path is documented for a future milestone or task.
+
 ### Backlog Item: Now Playing Viewer
 **Type:** Task
 **Tags:** `plex`, `now-playing`, `display`, `kiosk`, `ui`

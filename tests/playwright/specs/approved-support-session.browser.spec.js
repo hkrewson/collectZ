@@ -2,7 +2,12 @@
 
 const { test, expect } = require('@playwright/test');
 const { createFreshUserCredentials, createAuthenticatedRequestContext } = require('../helpers/auth');
-const { createApprovedSupportRequestFixture, createLibraryInActiveScope } = require('../helpers/support');
+const {
+  createApprovedSupportRequestFixture,
+  createLibraryInActiveScope,
+  createDetachedLibraryForCurrentUser,
+  updateSupportSessionStateForRequestContext
+} = require('../helpers/support');
 const { openHelpSurface } = require('../helpers/session');
 
 test.use({ storageState: { cookies: [], origins: [] } });
@@ -16,9 +21,11 @@ test.describe('approved support session browser regressions', () => {
 
     let fixture;
     let extraLibrary;
+    let detachedLibrary;
     try {
       fixture = await createApprovedSupportRequestFixture(requesterContext, suffix);
       extraLibrary = await createLibraryInActiveScope(requesterContext, `Support Session Library ${suffix}`);
+      detachedLibrary = await createDetachedLibraryForCurrentUser(requesterContext, suffix);
     } finally {
       await requesterContext.dispose();
     }
@@ -31,50 +38,63 @@ test.describe('approved support session browser regressions', () => {
     try {
       const storageState = await supportAdminContext.storageState();
       await page.context().addCookies(storageState.cookies || []);
+
+      await page.goto('/dashboard');
+      await openHelpSurface(page, 'Help Admin');
+      await page.getByRole('tab', { name: 'Support', exact: true }).click();
+
+      const requestCard = page.locator('button').filter({ hasText: requestKey }).first();
+      await expect(requestCard).toBeVisible();
+      await requestCard.click();
+
+      await page.getByRole('button', { name: 'Start Approved Support Session' }).click();
+
+      await expect(page.getByText('Support session active')).toBeVisible();
+      await expect(page.getByText(new RegExp(`Request: ${requestKey}`))).toBeVisible();
+      await expect(page.getByText(new RegExp(`Case: ${requestSubject}`))).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Workspace' })).toBeVisible();
+
+      const switchedLibraryName = String(extraLibrary?.name || `Support Session Library ${suffix}`);
+      const switchedLibraryId = String(extraLibrary?.id || '');
+      const supportLibrarySelect = page.getByRole('combobox', { name: 'Support Library' });
+      const switchLibraryResponsePromise = page.waitForResponse((response) => (
+        response.url().includes('/api/libraries/select')
+        && response.request().method() === 'POST'
+      ));
+      await supportLibrarySelect.selectOption(switchedLibraryId);
+      const switchLibraryResponse = await switchLibraryResponsePromise;
+      if (!switchLibraryResponse.ok()) {
+        throw new Error(`Support library switch failed (${switchLibraryResponse.status()}): ${await switchLibraryResponse.text()}`);
+      }
+      await expect(page.getByText(new RegExp(`Library: ${switchedLibraryName}`))).toBeVisible();
+
+      await updateSupportSessionStateForRequestContext(supportAdminContext, {
+        support_library_id: Number(detachedLibrary?.id || 0) || null
+      });
+
+      await page.reload();
+      await expect(page.getByText('Support session active')).toBeVisible();
+      await expect(page.getByText(new RegExp(`Request: ${requestKey}`))).toBeVisible();
+      await expect(page.getByText(new RegExp(`Case: ${requestSubject}`))).toBeVisible();
+      await expect(supportLibrarySelect).toHaveValue(/^\d+$/);
+      await expect(supportLibrarySelect).not.toHaveValue(switchedLibraryId);
+      await expect(page.getByText(new RegExp(`Library: ${switchedLibraryName}`))).toHaveCount(0);
+
+      await page.getByRole('button', { name: 'Workspace', exact: true }).click();
+      await expect(page).toHaveURL(/tab=space-manage/);
+      await expect(page.getByRole('button', { name: 'Activity', exact: true })).toBeVisible();
+
+      await page.getByRole('button', { name: 'End support session' }).click();
+
+      await expect(page.getByText('Support session active')).toHaveCount(0);
+      await expect(page).toHaveURL(/tab=help/);
+      await expect(page.getByRole('combobox', { name: 'Support Library' })).toHaveCount(0);
+
+      await page.goto('/dashboard?tab=space-manage');
+      await expect(page).toHaveURL(/tab=help/);
+      await expect(page.getByRole('heading', { name: 'Help Admin' })).toBeVisible();
     } finally {
       await supportAdminContext.dispose();
     }
-
-    await page.goto('/dashboard');
-    await openHelpSurface(page, 'Help Admin');
-    await page.getByRole('tab', { name: 'Support', exact: true }).click();
-
-    const requestCard = page.locator('button').filter({ hasText: requestKey }).first();
-    await expect(requestCard).toBeVisible();
-    await requestCard.click();
-
-    await page.getByRole('button', { name: 'Start Approved Support Session' }).click();
-
-    await expect(page.getByText('Support session active')).toBeVisible();
-    await expect(page.getByText(new RegExp(`Request: ${requestKey}`))).toBeVisible();
-    await expect(page.getByText(new RegExp(`Case: ${requestSubject}`))).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Workspace' })).toBeVisible();
-
-    const switchedLibraryName = String(extraLibrary?.name || `Support Session Library ${suffix}`);
-    const switchedLibraryId = String(extraLibrary?.id || '');
-    const switchLibraryResponsePromise = page.waitForResponse((response) => (
-      response.url().includes('/api/libraries/select')
-      && response.request().method() === 'POST'
-    ));
-    await page.getByRole('combobox', { name: 'Support Library' }).selectOption(switchedLibraryId);
-    const switchLibraryResponse = await switchLibraryResponsePromise;
-    if (!switchLibraryResponse.ok()) {
-      throw new Error(`Support library switch failed (${switchLibraryResponse.status()}): ${await switchLibraryResponse.text()}`);
-    }
-    await expect(page.getByText(new RegExp(`Library: ${switchedLibraryName}`))).toBeVisible();
-
-    await page.getByRole('button', { name: 'Workspace' }).click();
-    await expect(page).toHaveURL(/tab=space-manage/);
-    await expect(page.getByRole('button', { name: 'Activity', exact: true })).toBeVisible();
-
-    await page.getByRole('button', { name: 'End support session' }).click();
-
-    await expect(page.getByText('Support session active')).toHaveCount(0);
-    await expect(page).toHaveURL(/tab=help/);
-    await expect(page.getByRole('combobox', { name: 'Support Library' })).toHaveCount(0);
-
-    await page.goto('/dashboard?tab=space-manage');
-    await expect(page).toHaveURL(/tab=help/);
-    await expect(page.getByRole('heading', { name: 'Help Admin' })).toBeVisible();
   });
 });

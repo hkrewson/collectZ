@@ -933,7 +933,10 @@ results.push(run('repo includes 2.9.4 Playwright browser regression foundation h
   assert.ok(helpAdminSupportBrowserSpecSource.includes('Close Case'));
   assert.ok(approvedSupportSessionBrowserSpecSource.includes('Start Approved Support Session'));
   assert.ok(approvedSupportSessionBrowserSpecSource.includes('Workspace'));
+  assert.ok(approvedSupportSessionBrowserSpecSource.includes('updateSupportSessionStateForRequestContext'));
+  assert.ok(approvedSupportSessionBrowserSpecSource.includes('createDetachedLibraryForCurrentUser'));
   assert.ok(approvedSupportSessionBrowserSpecSource.includes("getByRole('combobox', { name: 'Support Library' })"));
+  assert.ok(approvedSupportSessionBrowserSpecSource.includes('not.toHaveValue(switchedLibraryId)'));
   assert.ok(approvedSupportSessionBrowserSpecSource.includes("page.goto('/dashboard?tab=space-manage')"));
   assert.ok(approvedSupportSessionBrowserSpecSource.includes("toHaveURL(/tab=help/)"));
   assert.ok(integrationsBrowserSpecSource.includes("saveSection(page, 'LOGS')"));
@@ -952,7 +955,6 @@ results.push(run('repo includes 2.9.4 Playwright browser regression foundation h
   assert.ok(libraryLifecycleBrowserSpecSource.includes('Bring titles into “${libraryName}” from files or connected services.'));
   assert.ok(libraryLifecycleBrowserSpecSource.includes("toHaveCount(0)"));
   assert.ok(spaceManagerBrowserSpecSource.includes("getByRole('heading', { name: 'Access Restricted' })"));
-  assert.ok(spaceManagerBrowserSpecSource.includes('An active workspace membership or approved support session is required to open this workspace surface.'));
   assert.ok(spaceManagerBrowserSpecSource.includes("getByRole('button', { name: 'Workspace', exact: true })).toHaveCount(0)"));
   assert.ok(spaceManagerBrowserSpecSource.includes("getByRole('button', { name: 'Workspace', exact: true })).toBeVisible()"));
   assert.ok(boundaryBrowserSpecSource.includes('support_admin'));

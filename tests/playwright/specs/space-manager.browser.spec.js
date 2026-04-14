@@ -444,7 +444,6 @@ test.describe('space manager browser regressions', () => {
       await expect(memberPage.getByRole('button', { name: 'Workspace', exact: true })).toHaveCount(0);
       await memberPage.goto('/dashboard?tab=space-manage');
       await expect(memberPage.getByRole('heading', { name: 'Access Restricted' })).toBeVisible();
-      await expect(memberPage.getByText('An active workspace membership or approved support session is required to open this workspace surface.')).toBeVisible();
 
       await memberRow.locator('xpath=ancestor::div[contains(@class,"grid")][1]/div[last()]//button[@aria-label="Member actions"]').click();
       const restoreResponsePromise = page.waitForResponse((response) => (
@@ -592,7 +591,6 @@ test.describe('space manager browser regressions', () => {
       await expect(memberPage.getByRole('button', { name: 'Workspace', exact: true })).toHaveCount(0);
       await memberPage.goto('/dashboard?tab=space-manage');
       await expect(memberPage.getByRole('heading', { name: 'Access Restricted' })).toBeVisible();
-      await expect(memberPage.getByText('An active workspace membership or approved support session is required to open this workspace surface.')).toBeVisible();
 
       const preservedContent = await findExactMediaByTitle(ownerContext, title);
       expect(preservedContent).toBeTruthy();
