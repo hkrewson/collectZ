@@ -29,23 +29,6 @@ This file is the staging area for work that has not yet been assigned a release 
 - The packaging and publication flow is documented and repeatable.
 - Update flow from the private source into the public repo is clear and intentional.
 
-### Backlog Item: Browser-Visible Regression Expansion for Shared-Core Lifecycle Flows
-**Type:** Task
-**Tags:** `testing`, `browser-regression`, `shared-core`, `risk`
-
-**Goal:** Expand browser-visible regression coverage for extracted shared-core lifecycle flows after `3.1.0` stabilizes.
-
-**Scope**
-- Add browser-visible coverage for support-session flows.
-- Add browser-visible coverage for library lifecycle flows.
-- Add browser-visible coverage for space lifecycle flows.
-- Go beyond the minimum release gates where the shared-core split needs extra confidence.
-
-**Acceptance Criteria**
-- Shared-core lifecycle flows are covered by browser-visible regression checks.
-- Support-session, library, and space lifecycle paths are exercised beyond the minimum gates.
-- The added coverage reduces risk for the split between shared-core and milestone-specific work.
-
 ### Backlog Item: Post-Split UI Cleanup for Support, Help, and Auth Shell Surfaces
 **Type:** Task
 **Tags:** `ui`, `polish`, `support`, `help`, `auth`

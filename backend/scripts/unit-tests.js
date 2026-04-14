@@ -108,6 +108,7 @@ const integrationsBrowserSpecSource = fs.readFileSync(require.resolve('../../tes
 const importBrowserSpecSource = fs.readFileSync(require.resolve('../../tests/playwright/specs/import.browser.spec'), 'utf8');
 const importCsvBrowserSpecSource = fs.readFileSync(require.resolve('../../tests/playwright/specs/import-csv.browser.spec'), 'utf8');
 const libraryMultiFormatBrowserSpecSource = fs.readFileSync(require.resolve('../../tests/playwright/specs/library-multiformat.browser.spec'), 'utf8');
+const libraryLifecycleBrowserSpecSource = fs.readFileSync(require.resolve('../../tests/playwright/specs/library-lifecycle.browser.spec'), 'utf8');
 const boundaryBrowserSpecSource = fs.readFileSync(require.resolve('../../tests/playwright/specs/boundary.browser.spec'), 'utf8');
 const eventsCollectiblesBrowserSpecSource = fs.readFileSync(require.resolve('../../tests/playwright/specs/events-collectibles.browser.spec'), 'utf8');
 const homelabHelpBrowserSpecSource = fs.readFileSync(require.resolve('../../tests/playwright/specs/homelab-help.browser.spec'), 'utf8');
@@ -311,6 +312,14 @@ results.push(run('playwright multi-format regressions cover create, edit, and im
   assert.ok(libraryMultiFormatBrowserSpecSource.includes("PriceCharting (fixture)"));
   assert.ok(importBrowserSpecSource.includes("getByRole('tab', { name: 'Barcode', exact: true })).toHaveCount(0)"));
   assert.ok(importCsvBrowserSpecSource.includes("owned_formats).toEqual(['dvd', 'bluray', 'digital'])"));
+}));
+
+results.push(run('playwright library lifecycle regressions cover archive and transfer fallback in browser-visible shell state', () => {
+  assert.ok(libraryLifecycleBrowserSpecSource.includes('archiving the active library falls back the browser shell onto a surviving accessible library'));
+  assert.ok(libraryLifecycleBrowserSpecSource.includes('transferring the active library away from the previous owner falls back the browser shell onto a surviving accessible library'));
+  assert.ok(libraryLifecycleBrowserSpecSource.includes("postWithCsrf(requestContext, `/api/libraries/${archiveTarget.id}/archive`"));
+  assert.ok(libraryLifecycleBrowserSpecSource.includes("postWithCsrf(ownerContext, `/api/libraries/${transferTarget.id}/transfer`"));
+  assert.ok(libraryLifecycleBrowserSpecSource.includes("Bring titles into “${libraryName}” from files or connected services."));
 }));
 
 results.push(run('valuations.buildFixtureValuationResult returns deterministic normalized ranges', () => {
@@ -935,6 +944,9 @@ results.push(run('repo includes 2.9.4 Playwright browser regression foundation h
   assert.ok(importCsvBrowserSpecSource.includes('CSV import queued'));
   assert.ok(importCsvBrowserSpecSource.includes('waitForSyncJob('));
   assert.ok(importCsvBrowserSpecSource.includes('/dashboard?tab=library-movies'));
+  assert.ok(libraryLifecycleBrowserSpecSource.includes('/dashboard?tab=library-import'));
+  assert.ok(libraryLifecycleBrowserSpecSource.includes('Bring titles into “${libraryName}” from files or connected services.'));
+  assert.ok(libraryLifecycleBrowserSpecSource.includes("toHaveCount(0)"));
   assert.ok(boundaryBrowserSpecSource.includes('support_admin'));
   assert.ok(boundaryBrowserSpecSource.includes('/dashboard?tab=admin-integrations&integration=logs'));
   assert.ok(boundaryBrowserSpecSource.includes("toHaveURL(/tab=help/)"));

@@ -3,6 +3,7 @@
 const { test, expect } = require('@playwright/test');
 const { ensureSavedAdminCredentials, createAuthenticatedRequestContext } = require('../helpers/auth');
 const { getIntegrationSettings, snapshotIntegrationState, restoreIntegrationState } = require('../helpers/integrations');
+const { signInThroughUi } = require('../helpers/session');
 
 async function openIntegrationsSection(page, name) {
   await page.getByRole('tablist', { name: 'Integration sections' }).getByRole('tab', { name, exact: true }).click();
@@ -43,6 +44,7 @@ test.describe('integrations browser regressions', () => {
     const logPort = '12201';
 
     try {
+      await signInThroughUi(page, adminCredentials);
       await page.goto('/dashboard?tab=admin-integrations&integration=logs');
       await expect(page.getByRole('heading', { name: 'Platform Integrations' })).toBeVisible();
 
@@ -83,6 +85,7 @@ test.describe('integrations browser regressions', () => {
     const snapshot = await snapshotIntegrationState(requestContext);
 
     try {
+      await signInThroughUi(page, adminCredentials);
       await page.goto('/dashboard?tab=admin-integrations&integration=logs');
       await expect(page.getByRole('heading', { name: 'Platform Integrations' })).toBeVisible();
 

@@ -1099,6 +1099,7 @@ Historical planning notes may still exist in:
 56. `2.11.0` Optional market valuation integrations
 57. `3.0.0` Frontend build modernization (CRA to Vite)
 58. `3.1.0` Shared Core Extraction and Public Homelab Product Split
+59. `3.1.1` Browser-visible regression expansion for shared-core lifecycle flows
 
 ## 2.1.0 — Metadata Normalization and Query Performance
 
@@ -2863,6 +2864,23 @@ Historical note:
 - The private platform product retains the full SaaS control plane.
 - Public homelab builds and release gates run independently from the private platform product.
 - The private-to-public promotion path is documented and disciplined enough to avoid accidental platform leakage.
+
+## 3.1.1 — Browser-Visible Regression Expansion for Shared-Core Lifecycle Flows
+
+**Goal:** Expand browser-visible regression coverage for the shared-core lifecycle repairs extracted in `3.1.0` so the next confidence layer proves what end users and support staff actually see after those mutations land.
+
+### Scope
+
+- Add browser-visible coverage for support-session lifecycle flows where normalized scope and request-state handling should stay visible in the shell.
+- Add browser-visible coverage for library lifecycle flows where active-library fallback, selector state, and import/library surfaces must recover after archive or ownership transfer.
+- Add browser-visible coverage for space lifecycle flows where suspension, removal, and other access invalidation mutations must remain visible through workspace navigation and scope-dependent shell affordances.
+- Keep this milestone focused on browser-facing proof of the extracted shared core rather than reopening architecture or product-boundary extraction work from `3.1.0`.
+
+### Acceptance Criteria
+
+- Shared-core lifecycle fallout is covered by browser-visible regression checks rather than backend/runtime smokes alone.
+- Support-session, library, and space lifecycle paths are exercised beyond the minimum release gates where the shared-core split needs extra confidence.
+- Added browser coverage demonstrates that shell-visible scope, library, and workspace behavior stays aligned with the extracted lifecycle helpers.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
