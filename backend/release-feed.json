@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v3.1.1",
+      "version": "3.1.1",
+      "date": "2026-04-13",
+      "status": "Completed",
+      "summary": "This patch release closes the confidence gap between the shared-core lifecycle work from `3.1.0` and what users actually see in the browser. The Playwright regression layer now proves browser-visible fallback and boundary behavior for support sessions, library lifecycle fallout, and space lifecycle fallout, so the extracted shared-core repair paths are no longer validated only by backend/runtime smokes.",
+      "details": []
+    },
+    {
       "title": "v3.0.0",
       "version": "3.0.0",
       "date": "2026-04-12",
@@ -70,14 +78,6 @@
       "date": "2026-04-09",
       "status": "Completed",
       "summary": "This patch release tones down the app’s remaining heavy overlay shells so the camera modal and the main slide-in drawers feel calmer and more functional. The overlays still focus attention and behave the same way, but they no longer rely as heavily on blur, oversized rounding, or dramatic shell/poster shadowing to create that sense of separation.",
-      "details": []
-    },
-    {
-      "title": "v2.10.10",
-      "version": "2.10.10",
-      "date": "2026-04-09",
-      "status": "Completed",
-      "summary": "This patch release makes the add/edit drawers feel more like normal working surfaces and less like staged modal moments. The editor header keeps the same structure and actions, but the title no longer shouts in forced all-caps display styling and instead reads like a calmer product workspace heading.",
       "details": []
     }
   ]
