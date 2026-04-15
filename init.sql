@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS users (
     role VARCHAR(50) DEFAULT 'user' CHECK (role IN ('admin', 'support_admin', 'user', 'viewer')),
     email_verified BOOLEAN NOT NULL DEFAULT false,
     email_verified_at TIMESTAMP,
+    image_path TEXT,
     active_space_id INTEGER,
     active_library_id INTEGER,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -981,5 +982,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (61, 'Add platform SMTP settings overrides'),
     (62, 'Add SaaS email verification state and tokens'),
     (63, 'Add workspace membership suspension lifecycle fields'),
-    (64, 'Add optional valuation fields and platform valuation provider settings')
+    (64, 'Add optional valuation fields and platform valuation provider settings'),
+    (65, 'Add optional user profile image field')
 ON CONFLICT (version) DO NOTHING;
