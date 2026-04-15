@@ -3299,7 +3299,7 @@ export default function LibraryView({
                     type="button"
                     onClick={handleSelectAllVisible}
                     disabled={loading}
-                    className="inline-flex items-center text-xs text-ghost underline-offset-4 hover:text-ink hover:underline disabled:cursor-default disabled:no-underline disabled:opacity-50"
+                    className="inline-flex items-center text-xs text-dim underline-offset-4 hover:text-ink hover:underline disabled:cursor-default disabled:no-underline disabled:opacity-50"
                   >
                     {`Select page (${visibleSelectableIds.length})`}
                   </button>
@@ -3309,20 +3309,20 @@ export default function LibraryView({
                     type="button"
                     onClick={handleSelectAllMatching}
                     disabled={loading || selectingAllMatching}
-                    className="inline-flex items-center text-xs text-ghost underline-offset-4 hover:text-ink hover:underline disabled:cursor-default disabled:no-underline disabled:opacity-50"
+                    className="inline-flex items-center text-xs text-dim underline-offset-4 hover:text-ink hover:underline disabled:cursor-default disabled:no-underline disabled:opacity-50"
                   >
                     {selectingAllMatching ? `Selecting ${selectionScopeLabel}…` : `Select all ${selectableResultTotal} ${selectionScopeLabel}`}
                   </button>
                 )}
                 {allMatchingSelected && selectableResultTotal > visibleSelectableIds.length ? (
-                  <span className="text-ghost">{`All ${selectableResultTotal} ${selectionScopeLabel} selected`}</span>
+                  <span className="text-dim">{`All ${selectableResultTotal} ${selectionScopeLabel} selected`}</span>
                 ) : null}
                 {selectedIds.length === 0 ? (
                   <button
                     type="button"
                     onClick={handleSelectAllVisible}
                     disabled={loading || visibleSelectableIds.length === 0}
-                    className="inline-flex items-center text-xs text-ghost underline-offset-4 hover:text-ink hover:underline disabled:cursor-default disabled:no-underline disabled:opacity-50 lg:ml-2"
+                    className="inline-flex items-center text-xs text-dim underline-offset-4 hover:text-ink hover:underline disabled:cursor-default disabled:no-underline disabled:opacity-50 lg:ml-2"
                   >
                     {`Select page (${visibleSelectableIds.length})`}
                   </button>
@@ -3331,14 +3331,14 @@ export default function LibraryView({
                     <button
                       type="button"
                       onClick={handleClearSelection}
-                      className="inline-flex items-center text-xs text-ghost underline-offset-4 hover:text-ink hover:underline"
+                      className="inline-flex items-center text-xs text-dim underline-offset-4 hover:text-ink hover:underline"
                     >
                       Clear
                     </button>
                     <button
                       type="button"
                       onClick={handleBulkDelete}
-                      className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-err transition-colors hover:bg-err/10"
+                      className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-err/90 transition-colors hover:bg-err/10 hover:text-err"
                       aria-label={`Delete ${selectedIds.length} selected`}
                     >
                       <Icons.Trash />

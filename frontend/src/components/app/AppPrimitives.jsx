@@ -173,7 +173,7 @@ export function CollectionPaginationFooter({
           <button
             onClick={onPrevious}
             disabled={loading || page <= 1}
-            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-ghost transition-colors hover:bg-raised/60 hover:text-ink disabled:cursor-default disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-ghost"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-dim transition-colors hover:bg-raised/55 hover:text-ink disabled:cursor-default disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-dim"
             aria-label="Previous page"
           >
             <Icons.ChevronLeft />
@@ -182,7 +182,7 @@ export function CollectionPaginationFooter({
           <button
             onClick={onNext}
             disabled={loading || !hasMore}
-            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-ghost transition-colors hover:bg-raised/60 hover:text-ink disabled:cursor-default disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-ghost"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-dim transition-colors hover:bg-raised/55 hover:text-ink disabled:cursor-default disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-dim"
             aria-label="Next page"
           >
             <Icons.ChevronRight />
@@ -190,9 +190,9 @@ export function CollectionPaginationFooter({
         </div>
       ) : null}
       <div className={cx('flex items-center gap-2.5 text-xs', (alignEndWhenSingle || showPager) && 'ml-auto')}>
-        <label className="text-[11px] text-ghost">Show</label>
+        <label className="text-[11px] text-dim">Show</label>
         <select
-          className="select h-7 w-20 border-edge/70 bg-transparent pr-7 text-xs text-dim hover:border-muted focus:border-gold/50 focus:ring-gold/30"
+          className="select h-7 w-20 border-edge bg-transparent pr-7 text-xs text-dim hover:border-muted focus:border-gold/50 focus:ring-gold/30"
           value={pageSize}
           onChange={(e) => onPageSizeChange?.(Number(e.target.value))}
         >
