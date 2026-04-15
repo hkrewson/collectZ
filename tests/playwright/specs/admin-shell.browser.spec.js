@@ -65,7 +65,7 @@ test.describe('admin shell browser regressions', () => {
     const adminCredentials = await ensureSavedAdminCredentials();
     await signInThroughUi(page, adminCredentials);
     await page.goto('/dashboard?tab=admin-integrations&integration=logs');
-    await expect(page.getByRole('heading', { name: 'Platform Integrations' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Integrations' })).toBeVisible();
 
     const sectionTabs = page.getByRole('tablist', { name: 'Integration sections' });
     await expect(sectionTabs.getByRole('tab')).toHaveText([

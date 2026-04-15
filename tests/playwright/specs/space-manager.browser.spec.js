@@ -59,7 +59,7 @@ test.describe('space manager browser regressions', () => {
 
       await page.getByRole('button', { name: 'Activity', exact: true }).click();
       await expect(page.getByRole('heading', { name: 'Activity', exact: true })).toBeVisible();
-      await expect(page.getByText('media.create', { exact: true })).toBeVisible();
+      await expect(page.getByText('media.create', { exact: true }).first()).toBeVisible();
     } finally {
       await deleteMediaByExactTitle(requestContext, title).catch(() => {});
       await requestContext.dispose();

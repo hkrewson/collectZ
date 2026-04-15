@@ -46,7 +46,7 @@ test.describe('integrations browser regressions', () => {
     try {
       await signInThroughUi(page, adminCredentials);
       await page.goto('/dashboard?tab=admin-integrations&integration=logs');
-      await expect(page.getByRole('heading', { name: 'Platform Integrations' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Integrations' })).toBeVisible();
 
       const sectionTabs = page.getByRole('tablist', { name: 'Integration sections' });
       await expect(sectionTabs.getByRole('tab')).toHaveText([
@@ -70,7 +70,7 @@ test.describe('integrations browser regressions', () => {
       await expect(page.getByText('LOGS settings saved')).toBeVisible();
 
       await page.reload();
-      await expect(page.getByRole('heading', { name: 'Platform Integrations' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Integrations' })).toBeVisible();
       await expect(activeSectionRoot(page).locator('input[name="log_export_host"]')).toHaveValue(logHost);
       await expect(activeSectionRoot(page).locator('input[name="log_export_port"]')).toHaveValue(logPort);
     } finally {
@@ -87,7 +87,7 @@ test.describe('integrations browser regressions', () => {
     try {
       await signInThroughUi(page, adminCredentials);
       await page.goto('/dashboard?tab=admin-integrations&integration=logs');
-      await expect(page.getByRole('heading', { name: 'Platform Integrations' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Integrations' })).toBeVisible();
 
       const sectionTabs = page.getByRole('tablist', { name: 'Integration sections' });
       await expect(sectionTabs).toBeVisible();
@@ -121,7 +121,7 @@ test.describe('integrations browser regressions', () => {
       await expect(metricsSwitch).toHaveAttribute('aria-checked', nextChecked);
 
       await page.reload();
-      await expect(page.getByRole('heading', { name: 'Platform Integrations' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Integrations' })).toBeVisible();
       await expect(page.getByRole('switch', { name: /Metrics Export/i })).toHaveAttribute('aria-checked', nextChecked);
       await expect(page.getByRole('heading', { name: 'Runtime checks' })).toBeVisible();
       await expect(activeSectionRoot(page).getByText('/api/metrics', { exact: true })).toBeVisible();

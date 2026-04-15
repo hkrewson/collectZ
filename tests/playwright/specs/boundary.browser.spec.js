@@ -17,7 +17,7 @@ test.describe('browser boundary regressions', () => {
     await expect(page.getByRole('button', { name: 'Import', exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Admin', exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Global', exact: true })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Profile', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Account menu', exact: true })).toBeVisible();
 
     await page.goto('/dashboard?tab=library-movies');
     await expect(page).toHaveURL(/tab=help/);

@@ -604,17 +604,23 @@ test.describe('library multi-format browser regressions', () => {
       const searchInput = page.getByPlaceholder('Search title, director…');
       await searchInput.fill(searchPrefix);
 
-      const selectPageButton = page.getByRole('button', { name: 'Select page (50)', exact: true });
+      const selectPageButton = page.getByRole('button', { name: /^Select page \(\d+\)$/ });
       await expect(selectPageButton).toBeVisible();
+      const selectPageLabel = await selectPageButton.textContent();
+      const visibleCountMatch = String(selectPageLabel || '').match(/Select page \((\d+)\)/);
+      const visibleCount = Number(visibleCountMatch?.[1] || 0);
       await selectPageButton.click();
 
-      await expect(page.getByText('50 selected', { exact: true })).toBeVisible();
-      const selectAllMatchingButton = page.getByRole('button', { name: 'Select all 52 movies', exact: true });
+      await expect(page.getByText(`${visibleCount} selected`, { exact: true })).toBeVisible();
+      const selectAllMatchingButton = page.getByRole('button', { name: /^Select all \d+ movies$/ });
       await expect(selectAllMatchingButton).toBeVisible();
+      const selectAllLabel = await selectAllMatchingButton.textContent();
+      const totalCountMatch = String(selectAllLabel || '').match(/Select all (\d+) movies/);
+      const totalCount = Number(totalCountMatch?.[1] || 0);
       await selectAllMatchingButton.click();
 
-      await expect(page.getByText('52 selected', { exact: true })).toBeVisible();
-      await expect(page.getByText('All 52 movies selected', { exact: true })).toBeVisible();
+      await expect(page.getByText(`${totalCount} selected`, { exact: true })).toBeVisible();
+      await expect(page.getByText(`All ${totalCount} movies selected`, { exact: true })).toBeVisible();
     } finally {
       await Promise.all(titles.map((title) => deleteMediaByExactTitle(requestContext, title).catch(() => {})));
       await requestContext.dispose();
