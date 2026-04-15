@@ -151,6 +151,56 @@ export function SectionTabPanel({
   );
 }
 
+export function CollectionPaginationFooter({
+  page = 1,
+  totalPages = 1,
+  hasMore = false,
+  loading = false,
+  pageSize = 50,
+  onPageSizeChange,
+  onPrevious,
+  onNext,
+  pageSizeOptions = [25, 50, 100],
+  className = '',
+  alignEndWhenSingle = true
+}) {
+  const showPager = Number(totalPages || 1) > 1 || Number(page || 1) > 1 || Boolean(hasMore);
+
+  return (
+    <div className={cx('shrink-0 border-t border-edge px-6 py-3 flex items-center gap-3 flex-wrap', className)}>
+      {showPager ? (
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={onPrevious}
+            disabled={loading || page <= 1}
+            className="btn-secondary btn-sm"
+            aria-label="Previous page"
+          >
+            <Icons.ChevronLeft />
+          </button>
+          <span className="text-xs text-ghost font-mono">Page {page} / {totalPages || 1}</span>
+          <button
+            onClick={onNext}
+            disabled={loading || !hasMore}
+            className="btn-secondary btn-sm"
+            aria-label="Next page"
+          >
+            <Icons.ChevronRight />
+          </button>
+        </div>
+      ) : null}
+      <div className={cx('flex items-center gap-2', (alignEndWhenSingle || showPager) && 'ml-auto')}>
+        <label className="text-xs text-ghost">Show</label>
+        <select className="select w-24" value={pageSize} onChange={(e) => onPageSizeChange?.(Number(e.target.value))}>
+          {pageSizeOptions.map((value) => (
+            <option key={value} value={value}>{value}</option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
+}
+
 function DisclosureChevron({ open }) {
   return (
     <svg

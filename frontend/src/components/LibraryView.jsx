@@ -4,6 +4,7 @@ import {
   Spinner,
   SectionTabs,
   SectionTabPanel,
+  CollectionPaginationFooter,
   cx,
   posterUrl,
   ObjectPosterCard,
@@ -436,9 +437,9 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
     }
   };
   const valuationRows = [
-    ['Value (mid)', formatValuation(item.estimated_value_mid)],
-    ['Value (low)', formatValuation(item.estimated_value_low)],
-    ['Value (high)', formatValuation(item.estimated_value_high)],
+    ['Mid', formatValuation(item.estimated_value_mid)],
+    ['Low', formatValuation(item.estimated_value_low)],
+    ['High', formatValuation(item.estimated_value_high)],
     ['Valuation source', item.valuation_source],
     ['Valuation updated', item.valuation_last_updated ? new Date(item.valuation_last_updated).toLocaleString() : null]
   ].filter(([, value]) => value);
@@ -648,7 +649,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                   disabled={valuationRefreshing}
                 >
                   {valuationRefreshing ? <Spinner size={14} /> : <Icons.Refresh />}
-                  Refresh valuation
+                  Refresh
                 </button>
               </div>
               <div className="grid grid-cols-2 gap-4 text-sm">
@@ -669,10 +670,10 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                   disabled={valuationRefreshing}
                 >
                   {valuationRefreshing ? <Spinner size={14} /> : <Icons.Refresh />}
-                  Refresh valuation
+                  Refresh
                 </button>
               </div>
-              <p className="text-sm text-ghost">No valuation data yet.</p>
+              <p className="text-sm text-ghost">No values yet.</p>
             </div>
           )}
 
@@ -2887,16 +2888,59 @@ export default function LibraryView({
     return inlineCards || visibleItems.map((item) => ({ kind: 'media', id: `media-${item.id}`, item }));
   }, [comicView, inlineCards, isCollectionMode, isComicsLibrary, viewMode, visibleItems]);
 
+  const comicPagedState = useMemo(() => {
+    if (!isComicsLibrary) {
+      return {
+        items: visibleItems,
+        cardEntries: renderedCardEntries,
+        seriesSummaries: comicSeriesSummaries,
+        totalPages: pagination?.totalPages || 1,
+        hasMore: pagination?.hasMore || false
+      };
+    }
+    const sourceLength = comicView === 'series'
+      ? comicSeriesSummaries.length
+      : (viewMode === 'cards' ? renderedCardEntries.length : visibleItems.length);
+    const totalPages = sourceLength > 0 ? Math.max(1, Math.ceil(sourceLength / pageSize)) : 1;
+    const clampedPage = Math.min(page, totalPages);
+    const start = (clampedPage - 1) * pageSize;
+    const end = start + pageSize;
+    return {
+      items: visibleItems.slice(start, end),
+      cardEntries: renderedCardEntries.slice(start, end),
+      seriesSummaries: comicSeriesSummaries.slice(start, end),
+      totalPages,
+      hasMore: clampedPage < totalPages
+    };
+  }, [comicSeriesSummaries, isComicsLibrary, page, pageSize, pagination?.hasMore, pagination?.totalPages, renderedCardEntries, viewMode, visibleItems, comicView]);
+
+  const displayedVisibleItems = isComicsLibrary ? comicPagedState.items : visibleItems;
+  const displayedCardEntries = isComicsLibrary ? comicPagedState.cardEntries : renderedCardEntries;
+  const displayedComicSeriesSummaries = isComicsLibrary ? comicPagedState.seriesSummaries : comicSeriesSummaries;
+  const footerTotalPages = isCollectionMode
+    ? (collectionPagination?.totalPages || 1)
+    : (isComicsLibrary ? comicPagedState.totalPages : (pagination?.totalPages || 1));
+  const footerHasMore = isCollectionMode
+    ? Boolean(collectionPagination?.hasMore)
+    : (isComicsLibrary ? comicPagedState.hasMore : Boolean(pagination?.hasMore));
+
+  useEffect(() => {
+    if (!isComicsLibrary) return;
+    if (page > comicPagedState.totalPages) {
+      setPage(comicPagedState.totalPages);
+    }
+  }, [comicPagedState.totalPages, isComicsLibrary, page]);
+
   const visibleSelectableIds = useMemo(() => {
     if (isCollectionMode || (isComicsLibrary && comicView === 'series')) return [];
     if (viewMode === 'cards') {
-      return renderedCardEntries
+      return displayedCardEntries
         .filter((entry) => entry.kind === 'media')
         .map((entry) => Number(entry.item.id))
         .filter((id) => Number.isFinite(id) && id > 0);
     }
-    return visibleItems.map((item) => Number(item.id)).filter((id) => Number.isFinite(id) && id > 0);
-  }, [comicView, isCollectionMode, isComicsLibrary, renderedCardEntries, viewMode, visibleItems]);
+    return displayedVisibleItems.map((item) => Number(item.id)).filter((id) => Number.isFinite(id) && id > 0);
+  }, [comicView, displayedCardEntries, displayedVisibleItems, isCollectionMode, isComicsLibrary, viewMode]);
   const selectedIdSet = useMemo(() => new Set(selectedIds.map((id) => Number(id))), [selectedIds]);
   const selectedVisibleCount = useMemo(
     () => visibleSelectableIds.filter((id) => selectedIdSet.has(id)).length,
@@ -2965,7 +3009,6 @@ export default function LibraryView({
     selectionAnchorIdRef.current = failedIds.length > 0 ? Number(failedIds[failedIds.length - 1]) : null;
   }, [detail?.id, editing?.id, onBulkDelete, selectedIds]);
 
-  const showPagination = !useComicFullFetch;
   const activeEdit = editing || null;
   const isEditingMode = Boolean(activeEdit);
   const convertCollectionToTitles = useCallback(async (collection) => {
@@ -3087,22 +3130,23 @@ export default function LibraryView({
         </div>
         {!isCollectionMode && !(isComicsLibrary && comicView === 'series') && (
           <div className="mt-2.5 flex flex-col gap-2 border-t border-edge/60 pt-3 sm:flex-row sm:items-center sm:justify-between">
-            <span className="text-xs text-ghost">
-              {selectedIds.length > 0 ? `${selectedIds.length} selected` : 'Bulk actions'}
-            </span>
-            <div className="flex flex-wrap items-center gap-2">
+            {selectedIds.length > 0 ? <span className="text-xs text-ghost">{selectedIds.length} selected</span> : null}
+            <div className={`flex flex-wrap items-center gap-2 ${selectedIds.length > 0 ? '' : 'sm:ml-auto'}`}>
               <button
                 type="button"
                 onClick={allVisibleSelected ? handleClearSelection : handleSelectAllVisible}
                 disabled={loading || visibleSelectableIds.length === 0}
                 className="btn-secondary btn-sm"
               >
-                {allVisibleSelected ? 'Clear selection' : `Select visible (${visibleSelectableIds.length})`}
+                {allVisibleSelected ? 'Clear selection' : `Select all (${visibleSelectableIds.length})`}
               </button>
               {selectedIds.length > 0 && (
                 <>
                   <button type="button" onClick={handleClearSelection} className="btn-secondary btn-sm">Clear</button>
-                  <button type="button" onClick={handleBulkDelete} className="btn-danger btn-sm"><Icons.Trash />Delete selected</button>
+                  <button type="button" onClick={handleBulkDelete} className="btn-danger btn-sm" aria-label={`Delete ${selectedIds.length} selected`}>
+                    <Icons.Trash />
+                    {selectedIds.length}
+                  </button>
                 </>
               )}
             </div>
@@ -3132,13 +3176,13 @@ export default function LibraryView({
                 { id: 'series_issues', label: 'Series Issues' }
               ]}
               activeId={comicView}
-              onChange={setComicView}
+              onChange={(nextView) => { setComicView(nextView); setPage(1); }}
               semantics="buttons"
               ariaLabel="Comic views"
               className="w-fit"
             />
             {comicView === 'series_issues' && (
-              <select className="select min-w-[220px]" value={comicSeries} onChange={(e) => setComicSeries(e.target.value)}>
+              <select className="select min-w-[220px]" value={comicSeries} onChange={(e) => { setComicSeries(e.target.value); setPage(1); }}>
                 <option value="all">All series</option>
                 {comicSeriesOptions.map((series) => (
                   <option key={series.name} value={series.name}>{series.name} ({series.count})</option>
@@ -3189,12 +3233,12 @@ export default function LibraryView({
           />
         )}
 
-        {!loading && isComicsLibrary && comicView === 'series' && comicSeriesSummaries.length > 0 && (
+        {!loading && isComicsLibrary && comicView === 'series' && displayedComicSeriesSummaries.length > 0 && (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-5">
-            {comicSeriesSummaries.map((series) => (
+            {displayedComicSeriesSummaries.map((series) => (
               <button
                 key={series.name}
-                onClick={() => { setComicSeries(series.name); setComicView('series_issues'); }}
+                onClick={() => { setComicSeries(series.name); setComicView('series_issues'); setPage(1); }}
                 className="text-left card p-4 hover:border-muted transition-colors"
               >
                 <div className="space-y-3">
@@ -3220,9 +3264,9 @@ export default function LibraryView({
           </div>
         )}
 
-        {!loading && viewMode === 'cards' && !isCollectionMode && !(isComicsLibrary && comicView === 'series') && renderedCardEntries.length > 0 && (
+        {!loading && viewMode === 'cards' && !isCollectionMode && !(isComicsLibrary && comicView === 'series') && displayedCardEntries.length > 0 && (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-            {renderedCardEntries.map((entry) => (
+            {displayedCardEntries.map((entry) => (
               entry.kind === 'collection'
                 ? (
                   <CollectionCard
@@ -3253,9 +3297,9 @@ export default function LibraryView({
           </div>
         )}
 
-        {!loading && viewMode === 'list' && visibleItems.length > 0 && !(isComicsLibrary && comicView === 'series') && (
+        {!loading && viewMode === 'list' && displayedVisibleItems.length > 0 && !(isComicsLibrary && comicView === 'series') && (
           <div className="space-y-2.5">
-            {visibleItems.map((item) => (
+            {displayedVisibleItems.map((item) => (
               <MediaListRow
                 key={item.id}
                 item={item}
@@ -3276,40 +3320,18 @@ export default function LibraryView({
         )}
       </div>
 
-      <div className="shrink-0 border-t border-edge px-4 py-3 sm:px-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:flex-wrap">
-        {showPagination ? (
-          <>
-            <div className="flex items-center gap-2 flex-wrap">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={loading || collectionLoading || page <= 1}
-                className="btn-secondary btn-sm"
-              >
-                Previous
-              </button>
-              <span className="text-xs text-ghost font-mono">Page {page} / {(isCollectionMode ? (collectionPagination?.totalPages || 1) : (pagination?.totalPages || 1))}</span>
-              <button
-                onClick={() => setPage((p) => p + 1)}
-                disabled={loading || collectionLoading || !(isCollectionMode ? collectionPagination?.hasMore : pagination?.hasMore)}
-                className="btn-secondary btn-sm"
-              >
-                Next
-              </button>
-            </div>
-            <div className="sm:ml-auto flex items-center gap-2">
-              <label className="text-xs text-ghost">Page size</label>
-              <select className="select w-24" value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}>
-                <option value={25}>25</option>
-                <option value={50}>50</option>
-                <option value={100}>100</option>
-                <option value={200}>200</option>
-              </select>
-            </div>
-          </>
-        ) : (
-          <span className="text-xs text-ghost font-mono">Full comic ordering mode (all issues loaded for accurate numeric sort)</span>
-        )}
-      </div>
+      <CollectionPaginationFooter
+        page={page}
+        totalPages={footerTotalPages}
+        hasMore={footerHasMore}
+        loading={loading || collectionLoading}
+        pageSize={pageSize}
+        pageSizeOptions={[25, 50, 100, 200]}
+        className="px-4 sm:px-6"
+        onPrevious={() => setPage((p) => Math.max(1, p - 1))}
+        onNext={() => setPage((p) => p + 1)}
+        onPageSizeChange={(value) => { setPageSize(value); setPage(1); }}
+      />
 
       {detail && (
         <MediaDetail

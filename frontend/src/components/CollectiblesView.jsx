@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CameraCaptureModal, Icons, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
+import { CameraCaptureModal, CollectionPaginationFooter, Icons, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
 
 const CATEGORY_OPTIONS = [
   { key: 'lego', label: 'Lego' },
@@ -673,19 +673,17 @@ export default function CollectiblesView({ apiCall, onToast }) {
           </div>
         ) : null}
       </div>
-      <div className="shrink-0 border-t border-edge px-6 py-3 flex items-center gap-3 flex-wrap">
-        <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={loading || page <= 1} className="btn-secondary btn-sm">Previous</button>
-        <span className="text-xs text-ghost font-mono">Page {page} / {pagination.totalPages || 1}</span>
-        <button onClick={() => setPage((p) => p + 1)} disabled={loading || !pagination.hasMore} className="btn-secondary btn-sm">Next</button>
-        <div className="ml-auto flex items-center gap-2">
-          <label className="text-xs text-ghost">Page size</label>
-          <select className="select w-24" value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}>
-            <option value={25}>25</option>
-            <option value={50}>50</option>
-            <option value={100}>100</option>
-          </select>
-        </div>
-      </div>
+      <CollectionPaginationFooter
+        page={page}
+        totalPages={pagination.totalPages || 1}
+        hasMore={pagination.hasMore}
+        loading={loading}
+        pageSize={pageSize}
+        pageSizeOptions={[25, 50, 100]}
+        onPrevious={() => setPage((p) => Math.max(1, p - 1))}
+        onNext={() => setPage((p) => p + 1)}
+        onPageSizeChange={(value) => { setPageSize(value); setPage(1); }}
+      />
       {(adding || editing) ? (
         <CollectibleDrawer
           initial={editing}

@@ -110,7 +110,7 @@ test.describe('library multi-format browser regressions', () => {
 
       await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
       await expect(page.getByText('Valuation', { exact: true })).toBeVisible();
-      await expect(page.getByText('Value (mid)', { exact: true })).toBeVisible();
+      await expect(page.getByText('Mid', { exact: true })).toBeVisible();
       await expect(page.getByText('PriceCharting (fixture)', { exact: true })).toBeVisible();
     } finally {
       await deleteMediaByExactTitle(requestContext, title).catch(() => {});
@@ -356,6 +356,53 @@ test.describe('library multi-format browser regressions', () => {
       await expect(identifierOnlyResult.getByText('Identifier', { exact: true })).toBeVisible();
       await expect(identifierOnlyResult.getByText('Title', { exact: true })).toHaveCount(0);
     } finally {
+      await requestContext.dispose();
+    }
+  });
+
+  test('comic books use the shared footer and page size selector instead of a full-load-only footer exception', async ({ page }) => {
+    const credentials = await createFreshUserCredentials();
+    const requestContext = await createAuthenticatedRequestContext(credentials);
+    const stamp = Date.now();
+    const seriesName = `Playwright Comics Footer ${stamp}`;
+    const titles = Array.from({ length: 30 }, (_, index) => `${seriesName} #${index + 1}`);
+
+    try {
+      for (let index = 0; index < titles.length; index += 1) {
+        await postWithCsrf(requestContext, '/api/media', {
+          title: titles[index],
+          media_type: 'comic_book',
+          owned_formats: ['paper'],
+          comic_series: seriesName,
+          comic_issue_number: String(index + 1)
+        }, 201);
+      }
+
+      const storageState = await requestContext.storageState();
+      await page.context().addCookies(storageState.cookies || []);
+      await page.goto('/dashboard?tab=library-comics');
+
+      await page.locator('select').filter({ has: page.locator('option[value="25"]') }).last().selectOption('25');
+      await expect(page.getByText('Page 1 / 2', { exact: true })).toBeVisible();
+      await expect(page.getByLabel('Previous page')).toBeVisible();
+      await expect(page.getByLabel('Next page')).toBeVisible();
+      await expect(page.locator('article').filter({ hasText: titles[0] }).first()).toBeVisible();
+      await expect(page.locator('article').filter({ hasText: titles[29] })).toHaveCount(0);
+
+      await page.getByLabel('Next page').click();
+      await expect(page.getByText('Page 2 / 2', { exact: true })).toBeVisible();
+      await expect(page.locator('article').filter({ hasText: titles[29] }).first()).toBeVisible();
+
+      await page.locator('select').filter({ has: page.locator('option[value="100"]') }).last().selectOption('100');
+      await expect(page.getByText('Page 2 / 2', { exact: true })).toHaveCount(0);
+      await expect(page.getByLabel('Previous page')).toHaveCount(0);
+      await expect(page.getByLabel('Next page')).toHaveCount(0);
+      await expect(page.locator('article').filter({ hasText: titles[0] }).first()).toBeVisible();
+      await expect(page.locator('article').filter({ hasText: titles[29] }).first()).toBeVisible();
+    } finally {
+      for (const title of titles) {
+        await deleteMediaByExactTitle(requestContext, title).catch(() => {});
+      }
       await requestContext.dispose();
     }
   });
