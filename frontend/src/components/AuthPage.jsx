@@ -65,7 +65,7 @@ export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion
             ? 'We’re confirming your address and finishing setup now.'
             : 'Open the link from your inbox to finish setting up your account.')
         : isRegister
-          ? 'Set things up once, then let the collection grow with you.'
+          ? ''
           : '';
 
   useEffect(() => {
@@ -210,7 +210,7 @@ export default function AuthPage({ route, onNavigate, onAuth, apiUrl, appVersion
                 Build your collection.
               </h1>
               <p className="max-w-md text-sm leading-6 text-dim sm:text-base">
-                Books, games, films, records, notes, and shared shelves, ready when you are.
+                Books, games, movies, and more. Your collection, whenever you need it.
               </p>
             </div>
           </div>

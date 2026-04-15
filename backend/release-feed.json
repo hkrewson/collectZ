@@ -17,6 +17,46 @@
       "details": []
     },
     {
+      "title": "v3.1.0",
+      "version": "3.1.0",
+      "date": "2026-04-13",
+      "status": "Completed",
+      "summary": "This minor release turns the proven edition boundary into a more explicit product split by tightening the shared core that both platform and homelab consume. Shared auth, scope, library, and lifecycle behavior now follow one more disciplined runtime contract, while the platform and homelab shells are kept distinct where their product responsibilities differ.",
+      "details": [
+        {
+          "heading": "Shared-core extraction and scope normalization",
+          "bullets": [
+            "Tightened shared auth/bootstrap behavior so effective scope resolution is derived more consistently from active library and accessible membership state instead of stale persisted workspace hints.",
+            "Consolidated more support-session, active-scope, and active-library normalization into shared helpers instead of leaving route-local repair logic scattered across auth and lifecycle flows.",
+            "Reduced drift between request-level effective scope, persisted profile state, and session-auth payload shaping so `/api/auth/me`, scope payloads, and related shared routes align on the same derived state."
+          ]
+        },
+        {
+          "heading": "Lifecycle repair hardening",
+          "bullets": [
+            "Extracted more library-access-loss and space-access-invalidation behavior into common service helpers so archive, delete, ownership transfer, suspension, and membership-removal flows reuse one repair path.",
+            "Tightened cleanup of stale active-library, support-library, current support-session, and previous support-session pointers when users lose access to a library or space.",
+            "Added targeted backend/runtime coverage to prove the extracted helpers repair real lifecycle fallout on the live stack."
+          ]
+        },
+        {
+          "heading": "Edition split and shell boundary tightening",
+          "bullets": [
+            "Made the edition contract more explicit in shared bootstrap/auth behavior so platform and homelab consume one authoritative definition of their allowed surfaces.",
+            "Continued separating platform-only route groups and shell behaviors from homelab-safe shared surfaces instead of relying on raw role checks or hidden-but-mounted behavior.",
+            "Hardened the local maintainer workflow so platform and homelab run as first-class parallel compose targets during split verification rather than toggling one shared stack back and forth."
+          ]
+        },
+        {
+          "heading": "Public homelab split preparation",
+          "bullets": [
+            "Kept the private platform control plane intact while tightening the shared core needed for a later public homelab repo promotion path.",
+            "Focused this release on safe extraction, contract hardening, and edition verification rather than public repo publishing mechanics."
+          ]
+        }
+      ]
+    },
+    {
       "title": "v3.0.0",
       "version": "3.0.0",
       "date": "2026-04-12",
@@ -70,14 +110,6 @@
       "date": "2026-04-09",
       "status": "Completed",
       "summary": "This patch release finishes the remaining `2.10.x` shared-language cleanup by moving the app away from display-font chrome and auth-page mini-marketing toward calmer, more product-native shared UI. Workspace headings, panel headings, and the authentication surface now follow the same quieter language instead of drifting into uppercase dashboard theatrics.",
-      "details": []
-    },
-    {
-      "title": "v2.10.12",
-      "version": "2.10.12",
-      "date": "2026-04-09",
-      "status": "Completed",
-      "summary": "This patch release removes the remaining eyebrow-style uppercase language from the shared form label primitive so forms throughout the app inherit calmer, more product-native labeling by default. Instead of continuing to reintroduce tracked uppercase microheadings through the shared form layer, drawers, admin screens, auth flows, and supporting forms now share a quieter label treatment from the root.",
       "details": []
     }
   ]
