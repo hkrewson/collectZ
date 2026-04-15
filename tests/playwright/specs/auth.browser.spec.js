@@ -13,9 +13,11 @@ test('admin can sign in and sign out through the browser UI', async ({ page }) =
     : await ensureSavedAdminCredentials();
 
   await signInThroughUi(page, credentials);
-  await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Account menu' })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Sign out' }).click();
+  await page.getByRole('button', { name: 'Account menu' }).click();
+  await expect(page.getByRole('menu', { name: 'Account' })).toBeVisible();
+  await page.getByRole('menuitem', { name: 'Sign out' }).click();
   await expect(page.locator('button[type="submit"]')).toHaveText('Sign in');
   await expect(page).toHaveURL(/\/login$/);
 });

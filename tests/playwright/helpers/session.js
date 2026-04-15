@@ -29,7 +29,7 @@ async function signInThroughUi(page, credentials) {
   await page.getByPlaceholder('you@example.com').fill(credentials.email);
   await page.getByPlaceholder('••••••••').first().fill(credentials.password);
   await page.locator('button[type="submit"]').click();
-  await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Account menu' })).toBeVisible();
   await expect(page).not.toHaveURL(/\/login$/);
   await removeForcedBypass();
 }
