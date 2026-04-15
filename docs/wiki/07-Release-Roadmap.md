@@ -1102,6 +1102,7 @@ Historical planning notes may still exist in:
 59. `3.1.1` Browser-visible regression expansion for shared-core lifecycle flows
 60. `3.1.2` Post-split UI cleanup for support, help, and auth shell surfaces
 61. `3.1.3` Library controls and selection behavior cleanup
+62. `3.1.4` Profile surface and account navigation cleanup
 
 ## 2.1.0 — Metadata Normalization and Query Performance
 
@@ -2938,6 +2939,30 @@ Historical note:
 - The selection state was moved into the results header so it reads as content-region state instead of a second toolbar.
 - Valuation presentation in the detail drawer was flattened into a simpler low / mid / high row with a reduced refresh affordance.
 - Broader drawer redesign, profile/account surface cleanup, and comic server-pagination normalization were intentionally deferred to the backlog rather than widening this milestone.
+
+## 3.1.4 — Profile Surface and Account Navigation Cleanup
+
+**Goal:** Rework the profile surface and account entry point so account management feels calmer, more intentional, and better integrated with the shell after the `3.1.3` library cleanup pass.
+
+### Scope
+
+- Take an `uncodixfy` pass over the profile page so it reads like a normal product surface instead of a generic boxed account screen.
+- Tighten the profile information hierarchy, spacing, and section structure without widening into broader auth/settings redesign work.
+- Replace the current direct profile/footer-account treatment with a clearer account menu from the profile nav entry.
+- Define the first account menu contents:
+  - `My profile`
+  - `Discord`
+  - `GitHub`
+  - `Sign out`
+- Consolidate duplicate shell footer account links into that profile/account menu so the shell carries one clearer account entry point.
+- Keep the milestone bounded to profile/account navigation cleanup rather than mixing it into drawer or broader shell milestones.
+
+### Acceptance Criteria
+
+- The profile page feels calmer, denser, and less AI-heavy.
+- The profile nav entry can open a clear account menu with `My profile`, `Discord`, `GitHub`, and `Sign out`.
+- Account navigation no longer duplicates itself awkwardly across the profile entry and footer links.
+- The resulting profile/account experience feels consistent with the calmer post-`3.1.2` and post-`3.1.3` shell direction.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 

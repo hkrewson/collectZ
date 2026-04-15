@@ -135,35 +135,6 @@ This file is the staging area for work that has not yet been assigned a release 
 - Footer actions are toned down so they support the drawer instead of dominating it.
 - The first-pass target drawers, especially books and collectibles, show clear layout improvement without regressing stronger drawers such as TV and comics.
 
-### Backlog Item: Profile Surface and Account Navigation Cleanup
-**Type:** Deferred milestone
-**Tags:** `profile`, `navigation`, `account`, `ui`, `shell`, `uncodixfy`
-
-**Goal:** Rework the profile surface and account navigation so they feel more intentional, less AI-heavy, and better integrated with the rest of the app shell.
-
-**Scope**
-- Take an [`$uncodixfy`](/Users/hamlin/.codex/skills/uncodixfy/SKILL.md) pass over the profile page so it reads like a normal product surface instead of an over-composed generic account screen.
-- Reassess the overall profile information hierarchy, spacing, and section structure so the page feels calmer and more deliberate.
-- Explore replacing the current direct profile/shell treatment with a clearer profile dropdown menu from the profile icon.
-- Define the first menu contents for that account dropdown:
-  - `My profile`
-  - `Discord`
-  - `GitHub`
-  - `Sign Out`
-- Decide whether Discord and GitHub should continue to live as standalone shell footer links once the profile dropdown exists, or whether those actions should consolidate into the account menu.
-- Keep the work focused on profile/account-surface behavior and shell navigation cleanup rather than mixing it into library milestones.
-
-**Recommended Update Path**
-- Treat the profile page cleanup and the profile dropdown as one milestone so the page and its entry point evolve together.
-- Start by tightening the profile page itself before finalizing the shell/menu placement, so the menu points to a surface that already feels intentional.
-- Use the account menu to simplify shell chrome, not just add one more place for the same links.
-
-**Acceptance Criteria**
-- The profile page no longer feels AI-heavy or over-designed.
-- The profile icon can open a clear account menu with `My profile`, `Discord`, `GitHub`, and `Sign Out`.
-- Account navigation feels more integrated with the shell and does not duplicate itself awkwardly across footer links and profile controls.
-- The resulting profile/account experience feels consistent with the rest of the app’s calmer post-`3.1.2` UI direction.
-
 ### Backlog Item: Personal Workspace Offboarding, Archive Retention, and Recovery
 **Type:** Deferred milestone
 **Tags:** `workspace`, `lifecycle`, `retention`, `recovery`

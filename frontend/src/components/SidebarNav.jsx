@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Icons, cx, isInteractiveTarget } from './app/AppPrimitives';
 import CollectzMark from './CollectzMark';
 import { getAllowedDashboardTabs, getHelpNavLabel, isHomelabEdition, isSupportHelpEnabled } from './app/productEdition';
@@ -55,6 +55,8 @@ export default function SidebarNav({
   const releaseNotesUrl = `https://github.com/hkrewson/collectZ/tree/main/docs/releases/v${appVersion}.md`;
   const [platformOpen, setPlatformOpen] = useState(true);
   const [libraryOpen, setLibraryOpen] = useState(true);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const accountMenuRef = useRef(null);
   const isLibraryActive = [
     'library',
     'library-movies',
@@ -86,6 +88,26 @@ export default function SidebarNav({
     isTabAllowed('admin-users')
   ].some(Boolean);
 
+  useEffect(() => {
+    if (!accountMenuOpen) return undefined;
+    const handlePointerDown = (event) => {
+      if (!accountMenuRef.current?.contains(event.target)) {
+        setAccountMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setAccountMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [accountMenuOpen]);
+
   const handleCollapsedRailClick = (event) => {
     if (!collapsed) return;
     if (!window.matchMedia('(min-width: 1024px)').matches) return;
@@ -116,24 +138,6 @@ export default function SidebarNav({
       </button>
     );
   };
-
-  const ExternalFooterLink = ({ href, title, children }) => (
-    <a
-      href={href}
-      target="_blank"
-      rel="noreferrer"
-      title={title}
-      aria-label={title}
-      className={cx(
-        'w-full flex items-center gap-3 px-3 py-2.5 rounded transition-all text-left',
-        'text-dim hover:text-ink hover:bg-raised/50',
-        collapsed && 'justify-center px-0'
-      )}
-    >
-      {children}
-      {!collapsed && <span className="text-sm">{title}</span>}
-    </a>
-  );
 
   return (
     <>
@@ -285,24 +289,96 @@ export default function SidebarNav({
             </div>
           )}
 
-          <NavLink id="profile" icon={<Icons.Profile />} label="Profile" />
-
         </nav>
 
-        <div className="p-3 border-t border-edge shrink-0 space-y-1">
-          <ExternalFooterLink href="https://discord.gg/ZV8f5nGT2R" title="Discord">
-            <DiscordIcon />
-          </ExternalFooterLink>
-          <ExternalFooterLink href="https://github.com/hkrewson/collectZ" title="GitHub">
-            <GitHubIcon />
-          </ExternalFooterLink>
+        <div className="relative p-3 border-t border-edge shrink-0" ref={accountMenuRef}>
           <button
-            onClick={onLogout}
-            className={cx('w-full flex items-center gap-3 px-3 py-2.5 text-sm text-dim hover:text-err rounded hover:bg-err/10 transition-all', collapsed && 'justify-center px-0')}
+            type="button"
+            onClick={() => setAccountMenuOpen((open) => !open)}
+            className={cx(
+              'w-full flex items-center gap-3 rounded px-3 py-2.5 text-left transition-all',
+              activeTab === 'profile' || accountMenuOpen ? 'bg-raised border border-edge text-ink' : 'text-dim hover:text-ink hover:bg-raised/50',
+              collapsed && 'justify-center px-0'
+            )}
+            aria-haspopup="menu"
+            aria-expanded={accountMenuOpen}
+            aria-label="Account menu"
           >
-            <Icons.LogOut />
-            {!collapsed && <span>Sign out</span>}
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-edge/80 bg-surface/60 text-sm font-medium text-ink">
+              {user?.name?.[0]?.toUpperCase() || '?'}
+            </span>
+            {!collapsed && (
+              <>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium text-ink">{user?.name || 'My account'}</span>
+                  <span className="block truncate text-xs text-ghost">{user?.email || 'Profile'}</span>
+                </span>
+                <span className={cx('text-dim transition-transform duration-150', accountMenuOpen && 'rotate-180')}>
+                  <Icons.ChevronDown />
+                </span>
+              </>
+            )}
           </button>
+
+          {accountMenuOpen && (
+            <div
+              role="menu"
+              aria-label="Account"
+              className={cx(
+                'absolute z-50 rounded-lg border border-edge bg-deep/95 p-1.5 shadow-card backdrop-blur-sm',
+                collapsed ? 'bottom-3 left-full ml-2 w-52' : 'bottom-full left-3 right-3 mb-2'
+              )}
+            >
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setAccountMenuOpen(false);
+                  onSelect('profile');
+                  onMobileClose();
+                }}
+                className="w-full flex items-center gap-3 rounded-md px-3 py-2 text-sm text-dim hover:bg-raised/60 hover:text-ink"
+              >
+                <Icons.Profile />
+                <span>My profile</span>
+              </button>
+              <a
+                role="menuitem"
+                href="https://discord.gg/ZV8f5nGT2R"
+                target="_blank"
+                rel="noreferrer"
+                className="w-full flex items-center gap-3 rounded-md px-3 py-2 text-sm text-dim hover:bg-raised/60 hover:text-ink"
+                onClick={() => setAccountMenuOpen(false)}
+              >
+                <DiscordIcon />
+                <span>Discord</span>
+              </a>
+              <a
+                role="menuitem"
+                href="https://github.com/hkrewson/collectZ"
+                target="_blank"
+                rel="noreferrer"
+                className="w-full flex items-center gap-3 rounded-md px-3 py-2 text-sm text-dim hover:bg-raised/60 hover:text-ink"
+                onClick={() => setAccountMenuOpen(false)}
+              >
+                <GitHubIcon />
+                <span>GitHub</span>
+              </a>
+              <div className="my-1 border-t border-edge/70" />
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setAccountMenuOpen(false);
+                  onLogout();
+                }}
+                className="w-full flex items-center gap-3 rounded-md px-3 py-2 text-sm text-dim hover:bg-err/10 hover:text-err"
+              >
+                <Icons.LogOut />
+                <span>Sign out</span>
+              </button>
+            </div>
+          )}
         </div>
       </aside>
     </>

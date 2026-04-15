@@ -42,7 +42,7 @@ export default function ProfileView({ user, apiCall, onToast, Spinner }) {
       }
       await apiCall('patch', '/profile', payload);
       onToast('Profile updated');
-      setForm((f) => ({ ...f, current_password: '', password: '' }));
+      setForm((current) => ({ ...current, current_password: '', password: '' }));
     } catch (err) {
       onToast(err.response?.data?.error || 'Update failed', 'error');
     } finally {
@@ -113,141 +113,191 @@ export default function ProfileView({ user, apiCall, onToast, Spinner }) {
   };
 
   return (
-    <div className="h-full overflow-y-auto p-4 sm:p-6 max-w-4xl">
-      <h1 className="section-title mb-6">Profile</h1>
-      <div className="space-y-6">
-        <div className="card p-5 sm:p-6 space-y-4">
-          <div className="flex items-center gap-4 pb-4 border-b border-edge flex-wrap">
-            <div className="w-14 h-14 rounded-xl bg-gold/10 border border-gold/20 flex items-center justify-center text-gold font-display text-2xl">
-              {user?.name?.[0]?.toUpperCase() || '?'}
-            </div>
-            <div>
-              <p className="font-medium text-ink">{user?.name}</p>
-              <p className="text-sm text-ghost">{user?.email}</p>
-              <span className="badge badge-gold mt-1">{user?.role}</span>
-            </div>
-          </div>
-          <form onSubmit={save} className="space-y-4">
-            <div className="field">
-              <label className="label">Name</label>
-              <input className="input" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
-            </div>
-            <div className="field">
-              <label className="label">Email</label>
-              <input className="input" type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
-            </div>
-            <div className="field">
-              <label className="label">Current Password <span className="normal-case text-ghost font-normal">(required for password change)</span></label>
-              <input className="input" type="password" value={form.current_password} onChange={(e) => setForm((f) => ({ ...f, current_password: e.target.value }))} />
-            </div>
-            <div className="field">
-              <label className="label">New Password <span className="normal-case text-ghost font-normal">(leave blank to keep)</span></label>
-              <input className="input" type="password" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} />
-            </div>
-            <button type="submit" disabled={saving} className="btn-primary">{saving ? <Spinner size={16} /> : 'Save Changes'}</button>
-          </form>
-        </div>
+    <div className="h-full overflow-y-auto p-4 sm:p-6">
+      <div className="mx-auto max-w-5xl space-y-8">
+        <header className="space-y-2">
+          <h1 className="section-title !mb-0">My profile</h1>
+          <p className="max-w-2xl text-sm text-ghost">
+            Update your account details, change your password, and manage personal access tokens for scripts and automation.
+          </p>
+        </header>
 
-        <div className="card p-5 sm:p-6 space-y-4">
-          <div className="space-y-1">
-            <h2 className="section-title !mb-0">Personal Access Tokens</h2>
-            <p className="text-sm text-ghost">Use these for API scripts and automation. Tokens are shown only once when created.</p>
-          </div>
-
-          {createdPatToken && (
-            <div className="rounded-xl border border-gold/20 bg-gold/5 p-4 space-y-3">
-              <p className="text-sm text-ink">New token</p>
-              <code className="block text-xs text-gold break-all font-mono">{createdPatToken}</code>
-              <div className="flex flex-wrap gap-2">
-                <button type="button" className="btn-secondary btn-sm" onClick={() => copyText(createdPatToken, 'Token copied')}>
-                  Copy token
-                </button>
-                <button type="button" className="btn-ghost btn-sm" onClick={() => setCreatedPatToken('')}>
-                  Hide
-                </button>
+        <div className="grid gap-10 xl:grid-cols-[220px_minmax(0,1fr)]">
+          <aside className="space-y-4 xl:sticky xl:top-6">
+            <div className="rounded-lg border border-edge/70 bg-surface/40 p-4">
+              <div className="flex items-center gap-4 xl:flex-col xl:items-start">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-gold/20 bg-gold/8 font-display text-2xl text-gold">
+                  {user?.name?.[0]?.toUpperCase() || '?'}
+                </div>
+                <div className="min-w-0 space-y-1">
+                  <p className="truncate text-base font-medium text-ink">{user?.name || 'Unknown user'}</p>
+                  <p className="truncate text-sm text-dim">{user?.email || 'No email'}</p>
+                  <span className="badge badge-dim mt-1 capitalize">{user?.role || 'member'}</span>
+                </div>
               </div>
             </div>
-          )}
+          </aside>
 
-          <form onSubmit={createPat} className="space-y-4">
-            <div className="field">
-              <label className="label">Token Name</label>
-              <input className="input" value={patName} onChange={(e) => setPatName(e.target.value)} placeholder="Automation token" />
-            </div>
-            <div className="field">
-              <label className="label">Expires At <span className="normal-case text-ghost font-normal">(optional)</span></label>
-              <input className="input" type="datetime-local" value={patExpiresAt} onChange={(e) => setPatExpiresAt(e.target.value)} />
-            </div>
-            <div className="field">
-              <label className="label">Scopes</label>
-              <p className="text-xs text-ghost mb-2">Selected: {patSelectedScopes.length}</p>
-              <div className="grid gap-2 md:grid-cols-2">
-                {patScopes.map((scope) => (
-                  <label
-                    key={scope}
-                    className={`inline-flex items-center gap-3 rounded-lg border px-3 py-2 text-sm cursor-pointer transition-colors ${
-                      patSelectedScopes.includes(scope)
-                        ? 'border-gold/40 bg-gold/10 text-gold'
-                        : 'border-edge text-ink hover:bg-raised/60'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 accent-current"
-                      checked={patSelectedScopes.includes(scope)}
-                      onChange={() => togglePatScope(scope)}
-                    />
-                    <span className="font-medium">{scope}</span>
-                  </label>
-                ))}
+          <div className="space-y-10">
+            <section className="space-y-5">
+              <div className="space-y-1">
+                <h2 className="text-lg font-semibold text-ink">Account details</h2>
+                <p className="text-sm text-ghost">Keep your name, email, and password up to date.</p>
               </div>
-            </div>
-            <button type="submit" disabled={patBusy || patLoading} className="btn-primary">
-              {patBusy ? <Spinner size={16} /> : 'Create Token'}
-            </button>
-          </form>
 
-          <div className="space-y-3 pt-2 border-t border-edge">
-            <p className="text-sm text-ink">Existing tokens</p>
-            {patLoading ? (
-              <div className="flex items-center gap-3 text-dim"><Spinner size={16} />Loading tokens…</div>
-            ) : patTokens.length === 0 ? (
-              <p className="text-sm text-ghost">No personal access tokens yet.</p>
-            ) : (
-              <div className="space-y-3">
-                {patTokens.map((token) => {
-                  const isRevoked = Boolean(token.revoked_at);
-                  const isExpired = Boolean(token.expires_at) && new Date(token.expires_at).getTime() <= Date.now();
-                  const status = isRevoked ? 'Revoked' : (isExpired ? 'Expired' : 'Active');
-                  return (
-                    <div key={token.id} className="rounded-xl border border-edge p-4 space-y-2">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                          <p className="text-sm text-ink font-medium">{token.name}</p>
-                          <p className="text-xs text-ghost font-mono">••••{token.token_last_four}</p>
+              <form onSubmit={save} className="space-y-5">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="field">
+                    <label className="label">Name</label>
+                    <input className="input" value={form.name} onChange={(e) => setForm((current) => ({ ...current, name: e.target.value }))} />
+                  </div>
+                  <div className="field">
+                    <label className="label">Email</label>
+                    <input className="input" type="email" value={form.email} onChange={(e) => setForm((current) => ({ ...current, email: e.target.value }))} />
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="field">
+                    <label className="label">Current password</label>
+                    <input className="input" type="password" value={form.current_password} onChange={(e) => setForm((current) => ({ ...current, current_password: e.target.value }))} />
+                    <p className="text-xs text-ghost">Required only when changing your password.</p>
+                  </div>
+                  <div className="field">
+                    <label className="label">New password</label>
+                    <input className="input" type="password" value={form.password} onChange={(e) => setForm((current) => ({ ...current, password: e.target.value }))} />
+                    <p className="text-xs text-ghost">Leave blank to keep your current password.</p>
+                  </div>
+                </div>
+
+                <div className="border-t border-edge/70 pt-4">
+                  <button type="submit" disabled={saving} className="btn-primary">
+                    {saving ? <Spinner size={16} /> : 'Save changes'}
+                  </button>
+                </div>
+              </form>
+            </section>
+
+            <section className="space-y-5 border-t border-edge pt-6">
+              <div className="space-y-1">
+                <h2 className="text-lg font-semibold text-ink">Personal access tokens</h2>
+                <p className="text-sm text-ghost">Create tokens for API scripts and automation. New tokens are shown once when created.</p>
+              </div>
+
+              {createdPatToken ? (
+                <div className="rounded-lg border border-gold/25 bg-gold/5 px-4 py-3 space-y-3">
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium text-ink">New token</p>
+                    <code className="block break-all font-mono text-xs text-gold">{createdPatToken}</code>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" className="btn-secondary btn-sm" onClick={() => copyText(createdPatToken, 'Token copied')}>
+                      Copy token
+                    </button>
+                    <button type="button" className="btn-ghost btn-sm" onClick={() => setCreatedPatToken('')}>
+                      Hide
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
+              <form onSubmit={createPat} className="space-y-5">
+                <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
+                  <div className="field">
+                    <label className="label">Token name</label>
+                    <input className="input" value={patName} onChange={(e) => setPatName(e.target.value)} placeholder="Automation token" />
+                  </div>
+                  <div className="field">
+                    <label className="label">Expires at</label>
+                    <input className="input" type="datetime-local" value={patExpiresAt} onChange={(e) => setPatExpiresAt(e.target.value)} />
+                  </div>
+                </div>
+
+                <div className="field">
+                  <div className="flex items-center justify-between gap-3">
+                    <label className="label !mb-0">Scopes</label>
+                    <span className="text-xs text-ghost">{patSelectedScopes.length} selected</span>
+                  </div>
+                  <div className="mt-2 grid gap-2 md:grid-cols-2">
+                    {patScopes.map((scope) => {
+                      const active = patSelectedScopes.includes(scope);
+                      return (
+                        <label
+                          key={scope}
+                          className={active
+                            ? 'inline-flex items-center gap-3 rounded-md border border-gold/35 bg-gold/8 px-3 py-2 text-sm text-ink'
+                            : 'inline-flex items-center gap-3 rounded-md border border-edge/70 px-3 py-2 text-sm text-dim hover:border-muted hover:text-ink'}
+                        >
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 accent-current"
+                            checked={active}
+                            onChange={() => togglePatScope(scope)}
+                          />
+                          <span>{scope}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="border-t border-edge/70 pt-4">
+                  <button type="submit" disabled={patBusy || patLoading} className="btn-primary">
+                    {patBusy ? <Spinner size={16} /> : 'Create token'}
+                  </button>
+                </div>
+              </form>
+
+              <div className="space-y-3 border-t border-edge/70 pt-5">
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="text-sm font-medium text-ink">Existing tokens</h3>
+                  {patLoading ? <span className="text-xs text-ghost">Loading…</span> : null}
+                </div>
+
+                {patLoading ? (
+                  <div className="flex items-center gap-3 text-dim">
+                    <Spinner size={16} />
+                    Loading tokens…
+                  </div>
+                ) : patTokens.length === 0 ? (
+                  <p className="text-sm text-ghost">No personal access tokens yet.</p>
+                ) : (
+                  <div className="divide-y divide-edge/60 rounded-lg border border-edge/60">
+                    {patTokens.map((token) => {
+                      const isRevoked = Boolean(token.revoked_at);
+                      const isExpired = Boolean(token.expires_at) && new Date(token.expires_at).getTime() <= Date.now();
+                      const status = isRevoked ? 'Revoked' : (isExpired ? 'Expired' : 'Active');
+                      return (
+                        <div key={token.id} className="space-y-3 px-4 py-4">
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium text-ink">{token.name}</p>
+                              <p className="mt-1 font-mono text-xs text-ghost">••••{token.token_last_four}</p>
+                            </div>
+                            <span className="badge badge-dim">{status}</span>
+                          </div>
+                          <p className="text-xs leading-5 text-ghost">
+                            Created {token.created_at ? new Date(token.created_at).toLocaleString() : '—'}
+                            {token.last_used_at ? ` · Last used ${new Date(token.last_used_at).toLocaleString()}` : ' · Never used'}
+                            {token.expires_at ? ` · Expires ${new Date(token.expires_at).toLocaleString()}` : ' · No expiry'}
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {(Array.isArray(token.scopes) ? token.scopes : []).map((scope) => (
+                              <span key={`${token.id}-${scope}`} className="badge badge-dim">{scope}</span>
+                            ))}
+                          </div>
+                          {!isRevoked ? (
+                            <button type="button" className="btn-danger btn-sm" disabled={patBusy} onClick={() => revokePat(token.id)}>
+                              Revoke
+                            </button>
+                          ) : null}
                         </div>
-                        <span className="badge badge-dim">{status}</span>
-                      </div>
-                      <p className="text-xs text-ghost">
-                        Created {token.created_at ? new Date(token.created_at).toLocaleString() : '—'}
-                        {token.last_used_at ? ` · Last used ${new Date(token.last_used_at).toLocaleString()}` : ' · Never used'}
-                        {token.expires_at ? ` · Expires ${new Date(token.expires_at).toLocaleString()}` : ' · No expiry'}
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {(Array.isArray(token.scopes) ? token.scopes : []).map((scope) => (
-                          <span key={`${token.id}-${scope}`} className="badge badge-gold">{scope}</span>
-                        ))}
-                      </div>
-                      {!isRevoked && (
-                        <button type="button" className="btn-danger btn-sm" disabled={patBusy} onClick={() => revokePat(token.id)}>
-                          Revoke
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            )}
+            </section>
           </div>
         </div>
       </div>
