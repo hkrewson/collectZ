@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { posterUrl } from './app/AppPrimitives';
 
 export default function ProfileView({ user, apiCall, onToast, Spinner, onUserUpdate }) {
   const [form, setForm] = useState({ name: user?.name || '', email: user?.email || '', image_path: user?.image_path || '', current_password: '', password: '' });
   const [saving, setSaving] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
   const [patScopes, setPatScopes] = useState([]);
   const [patTokens, setPatTokens] = useState([]);
   const [patLoading, setPatLoading] = useState(true);
@@ -12,6 +13,7 @@ export default function ProfileView({ user, apiCall, onToast, Spinner, onUserUpd
   const [patSelectedScopes, setPatSelectedScopes] = useState(['media:read']);
   const [patExpiresAt, setPatExpiresAt] = useState('');
   const [createdPatToken, setCreatedPatToken] = useState('');
+  const avatarInputRef = useRef(null);
 
   useEffect(() => {
     let active = true;
@@ -123,6 +125,26 @@ export default function ProfileView({ user, apiCall, onToast, Spinner, onUserUpd
     }
   };
 
+  const uploadAvatar = async (file) => {
+    if (!file) return;
+    setAvatarUploading(true);
+    try {
+      const body = new FormData();
+      body.append('cover', file);
+      const uploaded = await apiCall('post', '/media/upload-cover', body, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      if (!uploaded?.path) throw new Error('Profile image upload did not return a path');
+      setForm((current) => ({ ...current, image_path: uploaded.path }));
+      onToast('Profile image ready to save');
+    } catch (err) {
+      onToast(err.response?.data?.error || err.message || 'Profile image upload failed', 'error');
+    } finally {
+      setAvatarUploading(false);
+      if (avatarInputRef.current) avatarInputRef.current.value = '';
+    }
+  };
+
   const profileImage = posterUrl(form.image_path || user?.image_path || '');
 
   return (
@@ -172,22 +194,34 @@ export default function ProfileView({ user, apiCall, onToast, Spinner, onUserUpd
                   </div>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-[120px_minmax(0,1fr)]">
-                  <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-lg border border-edge/70 bg-surface/50 font-display text-3xl text-gold">
-                    {profileImage
-                      ? <img src={profileImage} alt={user?.name || 'Profile'} className="h-full w-full object-cover" />
-                      : (user?.name?.[0]?.toUpperCase() || '?')}
-                  </div>
-                  <div className="field">
-                    <label className="label">Profile image URL</label>
-                    <input
-                      className="input"
-                      value={form.image_path}
-                      onChange={(e) => setForm((current) => ({ ...current, image_path: e.target.value }))}
-                      placeholder="https://example.com/me.jpg"
-                    />
-                    <p className="text-xs text-ghost">Use a direct image URL. The avatar updates in the sidebar account menu and on this page.</p>
-                  </div>
+                <div className="field">
+                  <label className="label">Profile image</label>
+                  <input
+                    ref={avatarInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => uploadAvatar(e.target.files?.[0] || null)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => avatarInputRef.current?.click()}
+                    className="group flex min-h-28 w-full items-center gap-4 rounded-lg border border-edge/70 bg-surface/40 px-4 py-4 text-left transition-colors hover:border-edge hover:bg-surface/55"
+                    disabled={avatarUploading}
+                  >
+                    <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-edge/70 bg-surface/60 font-display text-3xl text-gold">
+                      {avatarUploading ? (
+                        <Spinner size={18} />
+                      ) : profileImage
+                        ? <img src={profileImage} alt={user?.name || 'Profile'} className="h-full w-full object-cover" />
+                        : (user?.name?.[0]?.toUpperCase() || '?')}
+                    </div>
+                    <div className="min-w-0 space-y-1">
+                      <p className="text-sm font-medium text-ink">{avatarUploading ? 'Uploading image…' : 'Upload profile image'}</p>
+                      <p className="text-sm text-dim">Click to choose a file. The avatar updates in the sidebar account menu and on this page.</p>
+                      <p className="text-xs text-ghost">PNG, JPG, WEBP, or GIF</p>
+                    </div>
+                  </button>
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-2">
