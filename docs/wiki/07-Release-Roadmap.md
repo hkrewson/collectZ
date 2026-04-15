@@ -2944,6 +2944,8 @@ Historical note:
 
 **Goal:** Rework the profile surface and account entry point so account management feels calmer, more intentional, and better integrated with the shell after the `3.1.3` library cleanup pass.
 
+**Status:** Completed.
+
 ### Scope
 
 - Take an `uncodixfy` pass over the profile page so it reads like a normal product surface instead of a generic boxed account screen.
@@ -2963,6 +2965,14 @@ Historical note:
 - The profile nav entry can open a clear account menu with `My profile`, `Discord`, `GitHub`, and `Sign out`.
 - Account navigation no longer duplicates itself awkwardly across the profile entry and footer links.
 - The resulting profile/account experience feels consistent with the calmer post-`3.1.2` and post-`3.1.3` shell direction.
+
+### Closeout Notes
+
+- The profile page was reshaped into a calmer account-management surface with cleaner spacing, flatter token treatment, and a more intentional identity summary.
+- The shell now uses one consolidated account menu entry point with `My profile`, `Discord`, `GitHub`, and `Sign out` instead of duplicated footer account links.
+- Profile images are now supported across the profile surface and shell account entry, with a clickable avatar upload target replacing the earlier separate image preview and URL field.
+- Backend auth/profile handling now persists `users.image_path`, and the milestone included a follow-on migration fix so `/api/auth/me` and profile edits recover cleanly on the running stack.
+- Homelab and platform were rebuilt onto the same refreshed shared shell/library-adjacent UI path so comics, search, pagination, nav, and profile/account updates land consistently across both editions while preserving intended feature-level product differences.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
