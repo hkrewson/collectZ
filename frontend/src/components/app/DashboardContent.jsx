@@ -26,6 +26,7 @@ const forcedMediaTypeByTab = {
 export default function DashboardContent({
   activeTab,
   user,
+  onUserUpdate,
   featureFlags,
   apiCall,
   showToast,
@@ -179,7 +180,7 @@ export default function DashboardContent({
         />
       );
     case 'profile':
-      return <ProfileViewComponent user={user} apiCall={apiCall} onToast={showToast} Spinner={Spinner} />;
+      return <ProfileViewComponent user={user} apiCall={apiCall} onToast={showToast} Spinner={Spinner} onUserUpdate={onUserUpdate} />;
     case 'space-manage':
       if (!activeMembershipRole && !canManageActiveSpace) {
         return <ForbiddenView detail="An active workspace membership or approved support session is required to open this workspace surface." />;
@@ -228,10 +229,10 @@ export default function DashboardContent({
           onToast={showToast}
           onSettingsChange={setUiSettings}
           Spinner={Spinner}
-          title={productEdition === 'homelab' ? 'Settings' : 'Platform Settings'}
-          description={productEdition === 'homelab' ? null : 'Set platform-wide branding defaults for the server shell. Individual workspaces can override these choices where workspace settings are available.'}
-          themeLabel={productEdition === 'homelab' ? 'Theme' : 'Default Theme'}
-          themeDescription={productEdition === 'homelab' ? 'Choose whether collectZ follows your system appearance or stays fixed to a light or dark theme.' : 'Choose the default theme for the platform shell. Workspaces can override this in their own settings.'}
+          title="Settings"
+          description="Set shell defaults for this installation. Where workspace settings exist, they can override these choices."
+          themeLabel="Theme"
+          themeDescription="Choose whether collectZ follows your system appearance or stays fixed to a light or dark theme."
           visibleFlagKeys={productEdition === 'homelab' ? undefined : ['self_registration_enabled']}
           emptyFeatureFlagsMessage={null}
           emailDeliveryEndpoint={productEdition === 'homelab' ? null : '/admin/settings/email-delivery'}
@@ -249,7 +250,7 @@ export default function DashboardContent({
           cx={cx}
           section={activeIntegrationSection}
           onSectionChange={setActiveIntegrationSection}
-          title={productEdition === 'homelab' ? 'Integrations' : 'Platform Integrations'}
+          title="Integrations"
           includeRuntimeSections={productEdition !== 'homelab'}
           includeValuationSections={productEdition !== 'homelab'}
         />

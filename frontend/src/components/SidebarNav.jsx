@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Icons, cx, isInteractiveTarget } from './app/AppPrimitives';
+import { Icons, cx, isInteractiveTarget, posterUrl } from './app/AppPrimitives';
 import CollectzMark from './CollectzMark';
-import { getAllowedDashboardTabs, getHelpNavLabel, isHomelabEdition, isSupportHelpEnabled } from './app/productEdition';
+import { getAllowedDashboardTabs, getHelpNavLabel, isSupportHelpEnabled } from './app/productEdition';
 
 const DiscordIcon = () => (
   <svg viewBox="0 0 16 16" fill="currentColor" className="w-5 h-5" aria-hidden="true">
@@ -41,7 +41,6 @@ export default function SidebarNav({
 }) {
   const isAdmin = user?.role === 'admin';
   const isSupportAdmin = user?.role === 'support_admin';
-  const homelabEdition = isHomelabEdition(productEdition);
   const supportHelpEnabled = isSupportHelpEnabled(productEdition);
   const isSupportStaff = supportHelpEnabled && (isAdmin || isSupportAdmin);
   const canUseLibraryShell = !isSupportAdmin || !supportHelpEnabled;
@@ -80,13 +79,14 @@ export default function SidebarNav({
   const showLibrarySwitcher = canUseLibraryShell && !isAdmin && libraries.length > 1;
   const showDesktopHamburger = !collapsed;
   const canOpenSpaceSurface = Boolean(activeMembershipRole) || canManageActiveSpace;
-  const showPlatformGroup = isAdmin && !homelabEdition && [
+  const showAdminGroup = isAdmin && [
     isTabAllowed('admin-settings'),
     isTabAllowed('admin-integrations'),
     isTabAllowed('admin-activity'),
     isTabAllowed('admin-spaces'),
     isTabAllowed('admin-users')
   ].some(Boolean);
+  const profileImage = posterUrl(user?.image_path || '');
 
   useEffect(() => {
     if (!accountMenuOpen) return undefined;
@@ -248,18 +248,12 @@ export default function SidebarNav({
             id="help"
             icon={<Icons.Activity />}
             label={getHelpNavLabel(productEdition, isSupportStaff)}
-            badge={!homelabEdition && isSupportStaff ? supportBadgeCount : null}
+            badge={isSupportStaff ? supportBadgeCount : null}
           />
           {canOpenSpaceSurface && isTabAllowed('space-manage') && (
             <NavLink id="space-manage" icon={<Icons.Users />} label="Workspace" />
           )}
-          {isAdmin && homelabEdition && isTabAllowed('admin-settings') && (
-            <NavLink id="admin-settings" icon={<Icons.Settings />} label="Settings" />
-          )}
-          {isAdmin && homelabEdition && isTabAllowed('admin-integrations') && (
-            <NavLink id="admin-integrations" icon={<Icons.Integrations />} label="Integrations" />
-          )}
-          {showPlatformGroup && (
+          {showAdminGroup && (
             <div>
               <button
                 onClick={() => setPlatformOpen((o) => !o)}
@@ -272,7 +266,7 @@ export default function SidebarNav({
                 <span className="shrink-0"><Icons.Settings /></span>
                 {!collapsed && (
                   <>
-                    <span className="flex-1 text-left">Platform</span>
+                    <span className="flex-1 text-left">Admin</span>
                     <span className={cx('transition-transform duration-200', platformOpen && 'rotate-180')}><Icons.ChevronDown /></span>
                   </>
                 )}
@@ -305,7 +299,9 @@ export default function SidebarNav({
             aria-label="Account menu"
           >
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-edge/80 bg-surface/60 text-sm font-medium text-ink">
-              {user?.name?.[0]?.toUpperCase() || '?'}
+              {profileImage
+                ? <img src={profileImage} alt={user?.name || 'Account'} className="h-full w-full rounded-md object-cover" />
+                : (user?.name?.[0]?.toUpperCase() || '?')}
             </span>
             {!collapsed && (
               <>

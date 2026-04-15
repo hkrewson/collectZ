@@ -9,6 +9,7 @@ import { getSafeDashboardTab, isSupportHelpEnabled } from './productEdition';
 
 export default function DashboardShell({
   user,
+  onUserUpdate,
   activeTab,
   setActiveTab,
   supportSession,
@@ -30,7 +31,6 @@ export default function DashboardShell({
   activeLibraryId,
   handleLibrarySelect,
   activeMembershipRole,
-  homelabEdition,
   supportSummary,
   activeSpace,
   activeLibrary,
@@ -128,7 +128,7 @@ export default function DashboardShell({
             <div className="font-display text-lg tracking-wider text-gold leading-none">COLLECTZ</div>
             <div className="text-[11px] text-ghost mt-1 truncate">
               {adminWithoutSupportLane
-                ? (homelabEdition ? 'Homelab' : 'Platform admin')
+                ? 'Admin'
                 : supportStaffInEdition
                   ? 'Support'
                   : `${activeSpace?.name || 'No current workspace'}${activeLibrary ? ` / ${activeLibrary.name}` : ''}`}
@@ -152,6 +152,7 @@ export default function DashboardShell({
           <DashboardContent
             activeTab={activeTab}
             user={user}
+            onUserUpdate={onUserUpdate}
             featureFlags={featureFlags}
             apiCall={apiCall}
             showToast={showToast}

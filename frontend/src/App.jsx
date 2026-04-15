@@ -14,7 +14,6 @@ import useMediaApi from './components/app/hooks/useMediaApi';
 import {
   getSafeDashboardTab,
   isSupportHelpEnabled,
-  isHomelabEdition,
   normalizeProductEdition
 } from './components/app/productEdition';
 
@@ -84,7 +83,6 @@ export default function App() {
     };
   }, [setUser]);
   const productEdition = normalizeProductEdition(user?.product_edition);
-  const homelabEdition = isHomelabEdition(productEdition);
   const supportHelpEnabled = isSupportHelpEnabled(productEdition);
   const supportStaffInEdition = supportHelpEnabled && ['admin', 'support_admin'].includes(String(user?.role || ''));
   const supportSessionActiveInEdition = supportHelpEnabled && Boolean(supportSession?.active);
@@ -170,6 +168,15 @@ export default function App() {
     clearImportJobs();
     navigate('login');
   }, [apiCall, clearImportJobs, navigate, setMediaItems, setUser, setAuthChecked]);
+
+  const handleUserUpdate = useCallback((nextUser) => {
+    if (!nextUser) return;
+    setUser((prev) => (
+      prev
+        ? { ...prev, ...nextUser }
+        : nextUser
+    ));
+  }, [setUser]);
 
   const loadClientFeatureFlags = useCallback(async () => {
     if (!user) return;
@@ -468,6 +475,7 @@ export default function App() {
   return (
     <DashboardShell
       user={user}
+      onUserUpdate={handleUserUpdate}
       activeTab={activeTab}
       setActiveTab={setActiveTab}
       supportSession={supportSession}
@@ -489,7 +497,6 @@ export default function App() {
       activeLibraryId={activeLibraryId}
       handleLibrarySelect={handleLibrarySelect}
       activeMembershipRole={activeMembershipRole}
-      homelabEdition={homelabEdition}
       supportSummary={supportSummary}
       activeSpace={activeSpace}
       activeLibrary={activeLibrary}

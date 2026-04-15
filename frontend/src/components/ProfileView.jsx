@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
+import { posterUrl } from './app/AppPrimitives';
 
-export default function ProfileView({ user, apiCall, onToast, Spinner }) {
-  const [form, setForm] = useState({ name: user?.name || '', email: user?.email || '', current_password: '', password: '' });
+export default function ProfileView({ user, apiCall, onToast, Spinner, onUserUpdate }) {
+  const [form, setForm] = useState({ name: user?.name || '', email: user?.email || '', image_path: user?.image_path || '', current_password: '', password: '' });
   const [saving, setSaving] = useState(false);
   const [patScopes, setPatScopes] = useState([]);
   const [patTokens, setPatTokens] = useState([]);
@@ -31,16 +32,26 @@ export default function ProfileView({ user, apiCall, onToast, Spinner }) {
     return () => { active = false; };
   }, [apiCall, onToast]);
 
+  useEffect(() => {
+    setForm((current) => ({
+      ...current,
+      name: user?.name || '',
+      email: user?.email || '',
+      image_path: user?.image_path || ''
+    }));
+  }, [user?.email, user?.image_path, user?.name]);
+
   const save = async (e) => {
     e.preventDefault();
     setSaving(true);
     try {
-      const payload = { name: form.name, email: form.email };
+      const payload = { name: form.name, email: form.email, image_path: form.image_path || null };
       if (form.password) {
         payload.current_password = form.current_password;
         payload.password = form.password;
       }
-      await apiCall('patch', '/profile', payload);
+      const nextUser = await apiCall('patch', '/profile', payload);
+      onUserUpdate?.(nextUser);
       onToast('Profile updated');
       setForm((current) => ({ ...current, current_password: '', password: '' }));
     } catch (err) {
@@ -112,6 +123,8 @@ export default function ProfileView({ user, apiCall, onToast, Spinner }) {
     }
   };
 
+  const profileImage = posterUrl(form.image_path || user?.image_path || '');
+
   return (
     <div className="h-full overflow-y-auto p-4 sm:p-6">
       <div className="mx-auto max-w-5xl space-y-8">
@@ -126,8 +139,10 @@ export default function ProfileView({ user, apiCall, onToast, Spinner }) {
           <aside className="space-y-4 xl:sticky xl:top-6">
             <div className="rounded-lg border border-edge/70 bg-surface/40 p-4">
               <div className="flex items-center gap-4 xl:flex-col xl:items-start">
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-gold/20 bg-gold/8 font-display text-2xl text-gold">
-                  {user?.name?.[0]?.toUpperCase() || '?'}
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-gold/20 bg-gold/8 font-display text-2xl text-gold">
+                  {profileImage
+                    ? <img src={profileImage} alt={user?.name || 'Profile'} className="h-full w-full object-cover" />
+                    : (user?.name?.[0]?.toUpperCase() || '?')}
                 </div>
                 <div className="min-w-0 space-y-1">
                   <p className="truncate text-base font-medium text-ink">{user?.name || 'Unknown user'}</p>
@@ -154,6 +169,24 @@ export default function ProfileView({ user, apiCall, onToast, Spinner }) {
                   <div className="field">
                     <label className="label">Email</label>
                     <input className="input" type="email" value={form.email} onChange={(e) => setForm((current) => ({ ...current, email: e.target.value }))} />
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-[120px_minmax(0,1fr)]">
+                  <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-lg border border-edge/70 bg-surface/50 font-display text-3xl text-gold">
+                    {profileImage
+                      ? <img src={profileImage} alt={user?.name || 'Profile'} className="h-full w-full object-cover" />
+                      : (user?.name?.[0]?.toUpperCase() || '?')}
+                  </div>
+                  <div className="field">
+                    <label className="label">Profile image URL</label>
+                    <input
+                      className="input"
+                      value={form.image_path}
+                      onChange={(e) => setForm((current) => ({ ...current, image_path: e.target.value }))}
+                      placeholder="https://example.com/me.jpg"
+                    />
+                    <p className="text-xs text-ghost">Use a direct image URL. The avatar updates in the sidebar account menu and on this page.</p>
                   </div>
                 </div>
 

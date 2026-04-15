@@ -241,6 +241,7 @@ const mediaValuationRefreshSchema = z.object({
 const profileUpdateSchema = z.object({
   name: z.string().min(1).max(255).optional(),
   email: z.string().email().optional(),
+  image_path: z.preprocess(emptyStringToNull, z.string().max(2000).optional().nullable()),
   password: z.string().min(8).optional(),
   current_password: z.string().min(1).optional()
 }).refine(

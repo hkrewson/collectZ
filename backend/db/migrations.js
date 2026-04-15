@@ -2791,6 +2791,14 @@ const MIGRATIONS = [
          SET ebay_browse_marketplace_id = 'EBAY_US'
        WHERE COALESCE(TRIM(ebay_browse_marketplace_id), '') = '';
     `
+  },
+  {
+    version: 65,
+    description: 'Add optional user profile image field',
+    up: `
+      ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS image_path TEXT;
+    `
   }
 ];
 

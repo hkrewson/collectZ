@@ -108,9 +108,6 @@ export function getAllowedDashboardTabs(productEdition, options = {}) {
 export function getDefaultDashboardTab(productEdition, { userRole } = {}) {
   const normalizedRole = String(userRole || '').trim().toLowerCase();
   if (normalizedRole === 'support_admin') return 'help';
-  if (isHomelabEdition(productEdition)) {
-    if (normalizedRole === 'admin') return 'admin-settings';
-  }
   return DEFAULT_PLATFORM_TAB;
 }
 

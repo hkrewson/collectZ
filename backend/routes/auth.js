@@ -758,7 +758,7 @@ router.post('/email-verification/consume', validate(emailVerificationConsumeSche
     userAgent: req.get('user-agent') || null
   });
   const meResult = await pool.query(
-    'SELECT id, email, name, role, created_at, updated_at, email_verified, email_verified_at FROM users WHERE id = $1',
+    'SELECT id, email, name, role, image_path, created_at, updated_at, email_verified, email_verified_at FROM users WHERE id = $1',
     [verificationRow.user_id]
   );
   const me = meResult.rows[0];
@@ -929,7 +929,7 @@ router.post('/password-reset/consume', validate(passwordResetConsumeSchema), asy
     userAgent: req.get('user-agent') || null
   });
   const meResult = await pool.query(
-    'SELECT id, email, name, role, created_at, updated_at, email_verified, email_verified_at FROM users WHERE id = $1',
+    'SELECT id, email, name, role, image_path, created_at, updated_at, email_verified, email_verified_at FROM users WHERE id = $1',
     [resetRow.user_id]
   );
   const me = meResult.rows[0];
@@ -949,7 +949,7 @@ router.post('/password-reset/consume', validate(passwordResetConsumeSchema), asy
 router.get('/me', authenticateToken, asyncHandler(async (req, res) => {
   await normalizeRequestAuthState(req);
   const result = await pool.query(
-    'SELECT id, email, name, role, created_at, updated_at, email_verified, email_verified_at, active_space_id, active_library_id FROM users WHERE id = $1',
+    'SELECT id, email, name, role, image_path, created_at, updated_at, email_verified, email_verified_at, active_space_id, active_library_id FROM users WHERE id = $1',
     [req.user.id]
   );
   if (result.rows.length === 0) {
@@ -1276,7 +1276,7 @@ platformRouter.delete('/support-session', authenticateToken, requireSessionAuth,
 router.get('/profile', authenticateToken, asyncHandler(async (req, res) => {
   await normalizeRequestAuthState(req);
   const result = await pool.query(
-    'SELECT id, email, name, role, created_at, updated_at, active_space_id, active_library_id FROM users WHERE id = $1',
+    'SELECT id, email, name, role, image_path, created_at, updated_at, active_space_id, active_library_id FROM users WHERE id = $1',
     [req.user.id]
   );
   if (result.rows.length === 0) {
@@ -1293,9 +1293,9 @@ router.get('/profile', authenticateToken, asyncHandler(async (req, res) => {
 }));
 
 router.patch('/profile', authenticateToken, validate(profileUpdateSchema), asyncHandler(async (req, res) => {
-  const { name, email, password, current_password: currentPassword } = req.body;
+  const { name, email, image_path: imagePath, password, current_password: currentPassword } = req.body;
   const previous = await pool.query(
-    'SELECT id, email, name, password FROM users WHERE id = $1',
+    'SELECT id, email, name, image_path, password FROM users WHERE id = $1',
     [req.user.id]
   );
   if (previous.rows.length === 0) {
@@ -1322,6 +1322,11 @@ router.patch('/profile', authenticateToken, validate(profileUpdateSchema), async
     updates.push(`email = $${values.length}`);
   }
 
+  if (Object.prototype.hasOwnProperty.call(req.body, 'image_path')) {
+    values.push(imagePath || null);
+    updates.push(`image_path = $${values.length}`);
+  }
+
   if (password) {
     const currentValid = await bcrypt.compare(currentPassword, previous.rows[0].password);
     if (!currentValid) {
@@ -1340,6 +1345,7 @@ router.patch('/profile', authenticateToken, validate(profileUpdateSchema), async
       id: previous.rows[0].id,
       email: previous.rows[0].email,
       name: previous.rows[0].name,
+      image_path: previous.rows[0].image_path || null,
       role: req.user.role
     });
   }
@@ -1347,7 +1353,7 @@ router.patch('/profile', authenticateToken, validate(profileUpdateSchema), async
   values.push(req.user.id);
   const result = await pool.query(
     `UPDATE users SET ${updates.join(', ')} WHERE id = $${values.length}
-     RETURNING id, email, name, role, created_at, updated_at`,
+     RETURNING id, email, name, role, image_path, created_at, updated_at`,
     values
   );
 
@@ -1361,8 +1367,10 @@ router.patch('/profile', authenticateToken, validate(profileUpdateSchema), async
   await logActivity(req, 'auth.profile.update', 'user', req.user.id, {
     previousName: previous.rows[0].name,
     previousEmail: previous.rows[0].email,
+    previousImagePath: previous.rows[0].image_path || null,
     nextName: result.rows[0].name,
     nextEmail: result.rows[0].email,
+    nextImagePath: result.rows[0].image_path || null,
     passwordChanged: Boolean(password),
     revokedSessionCount
   });
