@@ -2904,6 +2904,8 @@ Historical note:
 
 **Goal:** Clean up shared library controls, selection behavior, and valuation presentation so the main collection workflow feels simpler, clearer, and more consistent after the `3.1.2` shell cleanup pass.
 
+**Status:** Completed.
+
 ### Scope
 
 - Simplify pagination controls by replacing verbose `Previous` and `Next` labels with clearer directional controls and a tighter page-size toolbar.
@@ -2928,6 +2930,14 @@ Historical note:
 - Bulk selection can escalate cleanly from the current page to all matching titles in the current library type.
 - Valuation display includes low / mid / high values with a refresh action.
 - The cleanup improves the main library workflow without reopening broader milestone-level UI redesign work.
+
+### Closeout Notes
+
+- Shared library pagination now uses quieter directional controls with a tighter footer treatment.
+- Bulk selection now distinguishes current-page selection from full-result selection and can escalate to all matching titles in the active library type.
+- The selection state was moved into the results header so it reads as content-region state instead of a second toolbar.
+- Valuation presentation in the detail drawer was flattened into a simpler low / mid / high row with a reduced refresh affordance.
+- Broader drawer redesign, profile/account surface cleanup, and comic server-pagination normalization were intentionally deferred to the backlog rather than widening this milestone.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
