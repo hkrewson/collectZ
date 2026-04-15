@@ -2909,8 +2909,9 @@ Historical note:
 - Simplify pagination controls by replacing verbose `Previous` and `Next` labels with clearer directional controls and a tighter page-size toolbar.
 - Tighten bulk-selection wording and affordances:
   - remove the idle `Bulk Actions` label,
-  - change `Select visible (50)` to `Select all (50)`,
+  - make page selection and full-result selection distinct instead of overloading one `Select all` affordance,
   - keep the selection state readable without turning the toolbar into a wall of repeated verbs,
+  - once a full page is selected, offer escalation to select all matching titles in the current library type,
   - remove unnecessary delete-button narration such as `Delete selected`.
 - Carry one browser-regression artifact modification from the `3.1.2` release evidence:
   - align the space-manager Playwright assertions so suspension or removal with surviving unrelated workspace access proves redirect into a fallback manageable workspace instead of incorrectly expecting the `Access Restricted` boundary.
@@ -2924,6 +2925,7 @@ Historical note:
 
 - Pagination controls are visually simpler and still unambiguous.
 - Bulk selection language is clearer and less verbose.
+- Bulk selection can escalate cleanly from the current page to all matching titles in the current library type.
 - Valuation display includes low / mid / high values with a refresh action.
 - The cleanup improves the main library workflow without reopening broader milestone-level UI redesign work.
 

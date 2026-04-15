@@ -167,31 +167,35 @@ export function CollectionPaginationFooter({
   const showPager = Number(totalPages || 1) > 1 || Number(page || 1) > 1 || Boolean(hasMore);
 
   return (
-    <div className={cx('shrink-0 border-t border-edge px-6 py-3 flex items-center gap-3 flex-wrap', className)}>
+    <div className={cx('shrink-0 border-t border-edge px-6 py-2.5 flex items-center gap-4 flex-wrap', className)}>
       {showPager ? (
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <button
             onClick={onPrevious}
             disabled={loading || page <= 1}
-            className="btn-secondary btn-sm"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-ghost transition-colors hover:bg-raised/60 hover:text-ink disabled:cursor-default disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-ghost"
             aria-label="Previous page"
           >
             <Icons.ChevronLeft />
           </button>
-          <span className="text-xs text-ghost font-mono">Page {page} / {totalPages || 1}</span>
+          <span className="min-w-[88px] text-center text-xs font-mono text-dim">Page {page} / {totalPages || 1}</span>
           <button
             onClick={onNext}
             disabled={loading || !hasMore}
-            className="btn-secondary btn-sm"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-ghost transition-colors hover:bg-raised/60 hover:text-ink disabled:cursor-default disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-ghost"
             aria-label="Next page"
           >
             <Icons.ChevronRight />
           </button>
         </div>
       ) : null}
-      <div className={cx('flex items-center gap-2', (alignEndWhenSingle || showPager) && 'ml-auto')}>
-        <label className="text-xs text-ghost">Show</label>
-        <select className="select w-24" value={pageSize} onChange={(e) => onPageSizeChange?.(Number(e.target.value))}>
+      <div className={cx('flex items-center gap-2.5 text-xs', (alignEndWhenSingle || showPager) && 'ml-auto')}>
+        <label className="text-[11px] text-ghost">Show</label>
+        <select
+          className="select h-7 w-20 border-edge/70 bg-transparent pr-7 text-xs text-dim hover:border-muted focus:border-gold/50 focus:ring-gold/30"
+          value={pageSize}
+          onChange={(e) => onPageSizeChange?.(Number(e.target.value))}
+        >
           {pageSizeOptions.map((value) => (
             <option key={value} value={value}>{value}</option>
           ))}

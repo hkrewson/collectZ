@@ -436,13 +436,16 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
       return `${String(item.valuation_currency || 'USD').trim().toUpperCase() || 'USD'} ${numeric.toFixed(2)}`;
     }
   };
-  const valuationRows = [
-    ['Mid', formatValuation(item.estimated_value_mid)],
+  const valuationSummaryRows = [
     ['Low', formatValuation(item.estimated_value_low)],
-    ['High', formatValuation(item.estimated_value_high)],
+    ['Mid', formatValuation(item.estimated_value_mid)],
+    ['High', formatValuation(item.estimated_value_high)]
+  ].filter(([, value]) => value);
+  const valuationMetaRows = [
     ['Valuation source', item.valuation_source],
     ['Valuation updated', item.valuation_last_updated ? new Date(item.valuation_last_updated).toLocaleString() : null]
   ].filter(([, value]) => value);
+  const hasValuationData = valuationSummaryRows.length > 0 || valuationMetaRows.length > 0;
 
   const refreshValuation = async () => {
     if (!item?.id || valuationRefreshing) return;
@@ -638,39 +641,56 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
             ))}
           </div>
 
-          {valuationRows.length > 0 && (
+          {hasValuationData && (
             <div>
               <div className="mb-2 flex items-center gap-3">
                 <p className="label">Valuation</p>
                 <button
                   type="button"
-                  className="btn-secondary btn-sm"
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-md text-ghost transition-colors hover:bg-raised/70 hover:text-ink disabled:cursor-default disabled:opacity-50"
                   onClick={refreshValuation}
                   disabled={valuationRefreshing}
+                  aria-label="Refresh valuation"
+                  title="Refresh valuation"
                 >
                   {valuationRefreshing ? <Spinner size={14} /> : <Icons.Refresh />}
-                  Refresh
                 </button>
               </div>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                {valuationRows.map(([k, v]) => (
-                  <div key={k}><p className="label">{k}</p><p className="text-ink">{v}</p></div>
-                ))}
-              </div>
+              {valuationSummaryRows.length > 0 ? (
+                <div className="grid grid-cols-3 gap-4 border-b border-edge/60 pb-3">
+                  {valuationSummaryRows.map(([label, value]) => (
+                    <div key={label} className="min-w-0">
+                      <p className="text-[11px] font-medium text-ghost">{label}</p>
+                      <p className="mt-1 truncate text-sm font-medium text-ink">{value}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+              {valuationMetaRows.length > 0 ? (
+                <div className="mt-3 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
+                  {valuationMetaRows.map(([label, value]) => (
+                    <div key={label}>
+                      <p className="label">{label}</p>
+                      <p className="text-ink">{value}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </div>
           )}
-          {valuationRows.length === 0 && (
+          {!hasValuationData && (
             <div>
               <div className="mb-2 flex items-center gap-3">
                 <p className="label">Valuation</p>
                 <button
                   type="button"
-                  className="btn-secondary btn-sm"
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-md text-ghost transition-colors hover:bg-raised/70 hover:text-ink disabled:cursor-default disabled:opacity-50"
                   onClick={refreshValuation}
                   disabled={valuationRefreshing}
+                  aria-label="Refresh valuation"
+                  title="Refresh valuation"
                 >
                   {valuationRefreshing ? <Spinner size={14} /> : <Icons.Refresh />}
-                  Refresh
                 </button>
               </div>
               <p className="text-sm text-ghost">No values yet.</p>
@@ -2607,6 +2627,7 @@ export default function LibraryView({
   const [comicSeries, setComicSeries] = useState('all');
   const [debouncedSearchInput, setDebouncedSearchInput] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
+  const [selectingAllMatching, setSelectingAllMatching] = useState(false);
   const selectionAnchorIdRef = useRef(null);
   const shiftPressedRef = useRef(false);
   const selectionGestureRef = useRef(false);
@@ -2776,6 +2797,24 @@ export default function LibraryView({
   const displayedTotal = isCollectionMode
     ? (collectionPagination?.total ?? collectionRows.length)
     : ((pagination?.total ?? mediaItems.length) + (supportsCollections ? collectionRows.length : 0));
+  const selectionScopeLabel = useMemo(() => {
+    switch (forcedMediaType) {
+      case 'movie':
+        return 'movies';
+      case 'tv':
+        return 'TV titles';
+      case 'book':
+        return 'books';
+      case 'audio':
+        return 'audio titles';
+      case 'game':
+        return 'games';
+      case 'comic_book':
+        return 'comics';
+      default:
+        return 'titles';
+    }
+  }, [forcedMediaType]);
 
   const comicSeriesOptions = useMemo(() => {
     const map = new Map();
@@ -2947,6 +2986,18 @@ export default function LibraryView({
     [selectedIdSet, visibleSelectableIds]
   );
   const allVisibleSelected = visibleSelectableIds.length > 0 && selectedVisibleCount === visibleSelectableIds.length;
+  const selectableResultTotal = useMemo(() => {
+    if (isCollectionMode || (isComicsLibrary && comicView === 'series')) return 0;
+    if (isComicsLibrary) return visibleItems.length;
+    return Number(pagination?.total ?? mediaItems.length ?? 0);
+  }, [comicView, isCollectionMode, isComicsLibrary, mediaItems.length, pagination?.total, visibleItems.length]);
+  const allMatchingSelected = selectableResultTotal > 0 && selectedIds.length === selectableResultTotal;
+  const showSelectAllMatchingPrompt = allVisibleSelected
+    && selectableResultTotal > visibleSelectableIds.length
+    && !allMatchingSelected;
+  const canSelectVisiblePage = visibleSelectableIds.length > 0 && !allVisibleSelected;
+  const showSelectionControls = !isCollectionMode && !(isComicsLibrary && comicView === 'series');
+  const hasResultsTabs = supportsCollections || isComicsLibrary;
 
   const noteSelectionGesture = useCallback((event) => {
     selectionGestureRef.current = Boolean(event?.shiftKey || shiftPressedRef.current);
@@ -2991,10 +3042,81 @@ export default function LibraryView({
     }
   }, [visibleSelectableIds]);
 
+  const handleSelectAllMatching = useCallback(async () => {
+    if (selectingAllMatching || selectableResultTotal <= visibleSelectableIds.length) return;
+    setSelectingAllMatching(true);
+    try {
+      if (isComicsLibrary) {
+        const allIds = visibleItems
+          .map((item) => Number(item.id))
+          .filter((id) => Number.isFinite(id) && id > 0);
+        setSelectedIds([...new Set(allIds)]);
+        selectionAnchorIdRef.current = allIds.length > 0 ? allIds[allIds.length - 1] : null;
+        return;
+      }
+
+      const pageLimit = 200;
+      const paramsForPage = (targetPage) => {
+        const params = new URLSearchParams();
+        params.set('page', String(targetPage));
+        params.set('limit', String(pageLimit));
+        if (filters.media_type && filters.media_type !== 'all') params.set('media_type', filters.media_type);
+        if (filters.search) params.set('search', filters.search);
+        if (filters.sortBy) params.set('sortBy', filters.sortBy);
+        if (filters.sortDir) params.set('sortDir', filters.sortDir);
+        if (filters.resolution && filters.resolution !== 'all') params.set('resolution', filters.resolution);
+        if (filters.platform && filters.platform !== 'all') params.set('platform', filters.platform);
+        if (filters.publisher && filters.publisher !== 'all') params.set('publisher', filters.publisher);
+        return params;
+      };
+
+      const firstPayload = await apiCall('get', `/media?${paramsForPage(1).toString()}`);
+      const collectedIds = new Set(
+        (Array.isArray(firstPayload?.items) ? firstPayload.items : [])
+          .map((item) => Number(item.id))
+          .filter((id) => Number.isFinite(id) && id > 0)
+      );
+      const totalPages = Math.max(1, Number(firstPayload?.pagination?.totalPages || 1));
+
+      for (let targetPage = 2; targetPage <= totalPages; targetPage += 1) {
+        const payload = await apiCall('get', `/media?${paramsForPage(targetPage).toString()}`);
+        (Array.isArray(payload?.items) ? payload.items : []).forEach((item) => {
+          const id = Number(item.id);
+          if (Number.isFinite(id) && id > 0) collectedIds.add(id);
+        });
+      }
+
+      const nextIds = [...collectedIds];
+      setSelectedIds(nextIds);
+      selectionAnchorIdRef.current = nextIds.length > 0 ? nextIds[nextIds.length - 1] : null;
+    } catch (error) {
+      onToast?.(error?.response?.data?.error || `Failed to select all ${selectionScopeLabel}`, 'error');
+    } finally {
+      setSelectingAllMatching(false);
+    }
+  }, [
+    apiCall,
+    filters.media_type,
+    filters.platform,
+    filters.publisher,
+    filters.resolution,
+    filters.search,
+    filters.sortBy,
+    filters.sortDir,
+    isComicsLibrary,
+    onToast,
+    selectableResultTotal,
+    selectingAllMatching,
+    selectionScopeLabel,
+    visibleItems,
+    visibleSelectableIds.length
+  ]);
+
   const handleClearSelection = useCallback(() => {
     setSelectedIds([]);
     selectionAnchorIdRef.current = null;
     selectionGestureRef.current = false;
+    setSelectingAllMatching(false);
   }, []);
 
   const handleBulkDelete = useCallback(async () => {
@@ -3128,66 +3250,103 @@ export default function LibraryView({
           </div>
           </div>
         </div>
-        {!isCollectionMode && !(isComicsLibrary && comicView === 'series') && (
-          <div className="mt-2.5 flex flex-col gap-2 border-t border-edge/60 pt-3 sm:flex-row sm:items-center sm:justify-between">
-            {selectedIds.length > 0 ? <span className="text-xs text-ghost">{selectedIds.length} selected</span> : null}
-            <div className={`flex flex-wrap items-center gap-2 ${selectedIds.length > 0 ? '' : 'sm:ml-auto'}`}>
-              <button
-                type="button"
-                onClick={allVisibleSelected ? handleClearSelection : handleSelectAllVisible}
-                disabled={loading || visibleSelectableIds.length === 0}
-                className="btn-secondary btn-sm"
-              >
-                {allVisibleSelected ? 'Clear selection' : `Select all (${visibleSelectableIds.length})`}
-              </button>
-              {selectedIds.length > 0 && (
+        {(hasResultsTabs || showSelectionControls) && (
+          <div className="mt-2.5 flex flex-col gap-2 border-t border-edge/60 pt-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex min-w-0 flex-wrap items-center gap-3">
+              {supportsCollections && (
+                <SectionTabs
+                  tabs={[
+                    { id: 'all', label: forcedMediaType === 'game' ? 'All Games' : 'All Movies' },
+                    { id: 'collections', label: forcedMediaType === 'game' ? 'Game Collections' : 'Movie Collections' }
+                  ]}
+                  activeId={collectionMode}
+                  onChange={(nextMode) => { setCollectionMode(nextMode); setPage(1); }}
+                  semantics="buttons"
+                  ariaLabel="Collection views"
+                  className="w-fit"
+                />
+              )}
+              {isComicsLibrary && (
                 <>
-                  <button type="button" onClick={handleClearSelection} className="btn-secondary btn-sm">Clear</button>
-                  <button type="button" onClick={handleBulkDelete} className="btn-danger btn-sm" aria-label={`Delete ${selectedIds.length} selected`}>
-                    <Icons.Trash />
-                    {selectedIds.length}
-                  </button>
+                  <SectionTabs
+                    tabs={[
+                      { id: 'issues', label: 'All Issues' },
+                      { id: 'series', label: 'Series' },
+                      { id: 'series_issues', label: 'Series Issues' }
+                    ]}
+                    activeId={comicView}
+                    onChange={(nextView) => { setComicView(nextView); setPage(1); }}
+                    semantics="buttons"
+                    ariaLabel="Comic views"
+                    className="w-fit"
+                  />
+                  {comicView === 'series_issues' && (
+                    <select className="select min-w-[220px]" value={comicSeries} onChange={(e) => { setComicSeries(e.target.value); setPage(1); }}>
+                      <option value="all">All series</option>
+                      {comicSeriesOptions.map((series) => (
+                        <option key={series.name} value={series.name}>{series.name} ({series.count})</option>
+                      ))}
+                    </select>
+                  )}
                 </>
               )}
             </div>
-          </div>
-        )}
-        {supportsCollections && (
-          <div className="mt-2.5 flex items-center gap-3 flex-wrap">
-            <SectionTabs
-              tabs={[
-                { id: 'all', label: forcedMediaType === 'game' ? 'All Games' : 'All Movies' },
-                { id: 'collections', label: forcedMediaType === 'game' ? 'Game Collections' : 'Movie Collections' }
-              ]}
-              activeId={collectionMode}
-              onChange={(nextMode) => { setCollectionMode(nextMode); setPage(1); }}
-              semantics="buttons"
-              ariaLabel="Collection views"
-              className="w-fit"
-            />
-          </div>
-        )}
-        {isComicsLibrary && (
-          <div className="mt-2.5 flex items-center gap-3 flex-wrap">
-            <SectionTabs
-              tabs={[
-                { id: 'issues', label: 'All Issues' },
-                { id: 'series', label: 'Series' },
-                { id: 'series_issues', label: 'Series Issues' }
-              ]}
-              activeId={comicView}
-              onChange={(nextView) => { setComicView(nextView); setPage(1); }}
-              semantics="buttons"
-              ariaLabel="Comic views"
-              className="w-fit"
-            />
-            {comicView === 'series_issues' && (
-              <select className="select min-w-[220px]" value={comicSeries} onChange={(e) => { setComicSeries(e.target.value); setPage(1); }}>
-                <option value="all">All series</option>
-                {comicSeriesOptions.map((series) => (
-                  <option key={series.name} value={series.name}>{series.name} ({series.count})</option>
-                ))}
-              </select>
+            {showSelectionControls && (
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs lg:justify-end">
+                {selectedIds.length > 0 ? <span className="font-medium text-ink">{selectedIds.length} selected</span> : null}
+                {selectedIds.length > 0 && canSelectVisiblePage ? (
+                  <button
+                    type="button"
+                    onClick={handleSelectAllVisible}
+                    disabled={loading}
+                    className="inline-flex items-center text-xs text-ghost underline-offset-4 hover:text-ink hover:underline disabled:cursor-default disabled:no-underline disabled:opacity-50"
+                  >
+                    {`Select page (${visibleSelectableIds.length})`}
+                  </button>
+                ) : null}
+                {showSelectAllMatchingPrompt && (
+                  <button
+                    type="button"
+                    onClick={handleSelectAllMatching}
+                    disabled={loading || selectingAllMatching}
+                    className="inline-flex items-center text-xs text-ghost underline-offset-4 hover:text-ink hover:underline disabled:cursor-default disabled:no-underline disabled:opacity-50"
+                  >
+                    {selectingAllMatching ? `Selecting ${selectionScopeLabel}…` : `Select all ${selectableResultTotal} ${selectionScopeLabel}`}
+                  </button>
+                )}
+                {allMatchingSelected && selectableResultTotal > visibleSelectableIds.length ? (
+                  <span className="text-ghost">{`All ${selectableResultTotal} ${selectionScopeLabel} selected`}</span>
+                ) : null}
+                {selectedIds.length === 0 ? (
+                  <button
+                    type="button"
+                    onClick={handleSelectAllVisible}
+                    disabled={loading || visibleSelectableIds.length === 0}
+                    className="inline-flex items-center text-xs text-ghost underline-offset-4 hover:text-ink hover:underline disabled:cursor-default disabled:no-underline disabled:opacity-50 lg:ml-2"
+                  >
+                    {`Select page (${visibleSelectableIds.length})`}
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleClearSelection}
+                      className="inline-flex items-center text-xs text-ghost underline-offset-4 hover:text-ink hover:underline"
+                    >
+                      Clear
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleBulkDelete}
+                      className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-err transition-colors hover:bg-err/10"
+                      aria-label={`Delete ${selectedIds.length} selected`}
+                    >
+                      <Icons.Trash />
+                      {selectedIds.length}
+                    </button>
+                  </>
+                )}
+              </div>
             )}
           </div>
         )}

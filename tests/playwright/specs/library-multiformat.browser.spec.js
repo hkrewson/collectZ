@@ -579,4 +579,45 @@ test.describe('library multi-format browser regressions', () => {
       await requestContext.dispose();
     }
   });
+
+  test('bulk selection can escalate from the current page to all matching titles in the active library type', async ({ page }) => {
+    const credentials = await createFreshUserCredentials();
+    const requestContext = await createAuthenticatedRequestContext(credentials);
+    const searchPrefix = `Playwright Select All Scope ${Date.now()}`;
+    const titles = Array.from({ length: 52 }, (_, index) => `${searchPrefix} ${String(index + 1).padStart(2, '0')}`);
+
+    await Promise.all(titles.map((title) => deleteMediaByExactTitle(requestContext, title).catch(() => {})));
+
+    try {
+      for (const title of titles) {
+        await postWithCsrf(requestContext, '/api/media', {
+          title,
+          media_type: 'movie',
+          owned_formats: ['digital']
+        }, 201);
+      }
+
+      const storageState = await requestContext.storageState();
+      await page.context().addCookies(storageState.cookies || []);
+      await page.goto('/dashboard?tab=library-movies');
+
+      const searchInput = page.getByPlaceholder('Search title, director…');
+      await searchInput.fill(searchPrefix);
+
+      const selectPageButton = page.getByRole('button', { name: 'Select page (50)', exact: true });
+      await expect(selectPageButton).toBeVisible();
+      await selectPageButton.click();
+
+      await expect(page.getByText('50 selected', { exact: true })).toBeVisible();
+      const selectAllMatchingButton = page.getByRole('button', { name: 'Select all 52 movies', exact: true });
+      await expect(selectAllMatchingButton).toBeVisible();
+      await selectAllMatchingButton.click();
+
+      await expect(page.getByText('52 selected', { exact: true })).toBeVisible();
+      await expect(page.getByText('All 52 movies selected', { exact: true })).toBeVisible();
+    } finally {
+      await Promise.all(titles.map((title) => deleteMediaByExactTitle(requestContext, title).catch(() => {})));
+      await requestContext.dispose();
+    }
+  });
 });

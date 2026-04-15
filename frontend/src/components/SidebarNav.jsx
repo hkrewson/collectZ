@@ -229,7 +229,7 @@ export default function SidebarNav({
               <div className="mt-1 space-y-1">
                 <NavLink id="library-audio" icon={null} label="Audio" sub />
                 <NavLink id="library-books" icon={null} label="Books" sub />
-                <NavLink id="library-comics" icon={null} label="Comic Books" sub />
+                <NavLink id="library-comics" icon={null} label="Comics" sub />
                 {showCollectibles && <NavLink id="library-collectibles" icon={null} label="Collectibles" sub />}
                 {showEvents && <NavLink id="library-events" icon={null} label="Events" sub />}
                 <NavLink id="library-games" icon={null} label="Games" sub />
