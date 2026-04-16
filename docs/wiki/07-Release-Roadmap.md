@@ -2979,6 +2979,8 @@ Historical note:
 
 **Goal:** Make library detail drawers feel more content-shaped and less template-driven by tightening sparse layouts, relaxing overused metadata grids, and reducing visual weight in drawer chrome after the `3.1.3` and `3.1.4` cleanup passes.
 
+**Status:** Completed.
+
 ### Scope
 
 - Reassess the shared drawer pattern across library detail views, where one vertical rhythm and one metadata grammar are stretched across very different content types.
@@ -3033,6 +3035,15 @@ Historical note:
 - Drawer titles no longer render in all-caps.
 - Footer actions are toned down so they support the drawer instead of dominating it.
 - The first-pass target drawers, especially books and collectibles, show clear layout improvement without regressing stronger drawers such as TV and comics.
+
+### Closeout Notes
+
+- Book drawers now use a wider, less machine-shaped layout with calmer title treatment, labeled source links, reduced provider-plumbing exposure, and a tighter lower-half arrangement for editions, rating, and notes.
+- Collectible and event drawers were flattened and restrained rather than redesigned into heavier panel systems, with quieter links, lighter footer actions, and denser information hierarchy.
+- Shared media drawers for movies, TV, games, and comics were normalized so titles, notes, external actions, and footer controls no longer feel like leftovers from the older button-heavy drawer system.
+- Comic drawers now suppress visible internal/provider IDs, stop leaking Calibre and OPDS plumbing into `Type Details`, use provider-aware source labels such as `View on Metron` and `Download on Calibre`, and clamp long overview text behind a simple show more/show less control.
+- TV season handling was reshaped from stacked nested cards into a flatter season-tab treatment with shorter `S1`-style labels, checkmark completion state, and one selected-season detail area instead of multiple boxed subpanels.
+- The milestone also carried a small shared-library behavior fix so newer library tabs like events and collectibles persist correctly across refresh instead of falling back before feature flags finish loading.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
