@@ -416,14 +416,20 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   const [seasonDetailLoading, setSeasonDetailLoading] = useState({});
   const [seasonDetails, setSeasonDetails] = useState({});
   const [valuationRefreshing, setValuationRefreshing] = useState(false);
+  const [comicOverviewExpanded, setComicOverviewExpanded] = useState(false);
   const typeDetails = item?.type_details && typeof item.type_details === 'object' ? item.type_details : {};
   const isBook = item?.media_type === 'book';
+  const isComic = item?.media_type === 'comic_book';
+  const comicOverviewNeedsClamp = isComic && typeof item?.overview === 'string' && item.overview.trim().length > 420;
   const calibreExternalUrl = String(typeDetails.calibre_external_url || '').trim();
   const providerExternalUrl = String(typeDetails.provider_external_url || '').trim();
   const externalMediaUrl = calibreExternalUrl || providerExternalUrl || item.tmdb_url || '';
-  const externalMediaLabel = calibreExternalUrl
-    ? 'Open in Calibre'
-    : (item.media_type === 'book' || item.media_type === 'comic_book' ? 'Open source' : 'TMDB');
+  const externalMediaLabel = (() => {
+    if (calibreExternalUrl) return 'Open in Calibre';
+    if (item.media_type === 'game') return 'View on IGDB';
+    if (item.media_type === 'movie' || item.media_type === 'tv_series') return 'View on TMDB';
+    return 'Open source';
+  })();
   const titleClassName = 'text-2xl font-semibold tracking-tight text-ink leading-tight';
   const bookDetailRows = isBook
     ? [
@@ -436,7 +442,9 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   const hiddenTypeDetailKeys = new Set(
     isBook
       ? ['author', 'publisher', 'edition', 'isbn', 'calibre_external_url', 'provider_external_url']
-      : []
+      : isComic
+        ? ['calibre_entry_id', 'provider_item_id', 'calibre_external_url', 'provider_external_url', 'provider_name']
+        : []
   );
   const visibleTypeDetailEntries = Object.entries(typeDetails)
     .filter(([key, value]) => (
@@ -465,12 +473,50 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
     }
     return 'Open source';
   };
+  const inferComicSourceLabel = (href) => {
+    const value = String(href || '').trim();
+    if (!value) return 'Open source';
+    const providerName = String(typeDetails.provider_name || '').trim().toLowerCase();
+    try {
+      const parsed = new URL(value);
+      const host = parsed.hostname.toLowerCase();
+      const path = parsed.pathname.toLowerCase();
+      if (providerName.includes('cwa_opds') || providerName.includes('calibre') || host.includes('calibre') || path.includes('/opds/')) {
+        return path.includes('/download/') ? 'Download on Calibre' : 'View on Calibre';
+      }
+      if (host.includes('metron')) return 'View on Metron';
+      if (host.includes('comicvine')) return 'View on Comic Vine';
+      if (host.includes('leagueofcomicgeeks')) return 'View on League of Comic Geeks';
+      if (host.includes('marvel')) return 'View on Marvel';
+      if (host.includes('dc.com')) return 'View on DC';
+    } catch {
+      // fall back to provider-aware labels below
+    }
+    if (providerName.includes('cwa_opds') || providerName.includes('calibre')) return 'View on Calibre';
+    if (providerName.includes('metron')) return 'View on Metron';
+    if (providerName.includes('comicvine')) return 'View on Comic Vine';
+    return 'Open source';
+  };
   const bookSourceLinks = (() => {
     const seen = new Set();
     const candidates = [
       calibreExternalUrl ? ['Read in Calibre', calibreExternalUrl] : null,
       providerExternalUrl ? [inferBookSourceLabel(providerExternalUrl), providerExternalUrl] : null,
       item.tmdb_url ? [inferBookSourceLabel(item.tmdb_url), item.tmdb_url] : null,
+      item.trailer_url ? ['Watch trailer', item.trailer_url] : null
+    ].filter(Boolean);
+    return candidates.filter((entry) => {
+      const href = String(entry[1] || '').trim();
+      if (!href || seen.has(href)) return false;
+      seen.add(href);
+      return true;
+    });
+  })();
+  const comicSourceLinks = (() => {
+    const seen = new Set();
+    const candidates = [
+      providerExternalUrl ? [inferComicSourceLabel(providerExternalUrl), providerExternalUrl] : null,
+      item.tmdb_url ? [inferComicSourceLabel(item.tmdb_url), item.tmdb_url] : null,
       item.trailer_url ? ['Watch trailer', item.trailer_url] : null
     ].filter(Boolean);
     return candidates.filter((entry) => {
@@ -571,15 +617,11 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
     }
   };
 
-  const loadSeasonDetail = async (seasonNumber) => {
+  const loadSeasonDetail = async (seasonNumber, { force = false } = {}) => {
     if (!item?.id || !Number.isInteger(Number(seasonNumber))) return;
     const key = Number(seasonNumber);
-    if (openSeason === key) {
-      setOpenSeason(null);
-      return;
-    }
     setOpenSeason(key);
-    if (seasonDetails[key]) return;
+    if (seasonDetails[key] && !force) return;
     setSeasonDetailLoading((prev) => ({ ...prev, [key]: true }));
     try {
       const payload = await apiCall('get', `/media/${item.id}/tv-seasons/${key}`);
@@ -628,12 +670,32 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
             };
           });
           setSeasonDrafts(nextDrafts);
+          const firstSeason = nextRows
+            .map((row) => Number(row.season_number))
+            .find((seasonNum) => Number.isInteger(seasonNum) && seasonNum > 0);
+          setOpenSeason((prev) => (Number.isInteger(prev) && nextDrafts[prev] ? prev : (firstSeason || null)));
         }
       })
       .catch(() => { if (active) setVariants([]); })
       .finally(() => { if (active) setVariantLoading(false); });
     return () => { active = false; };
   }, [apiCall, item?.id, item?.media_type]);
+
+  useEffect(() => {
+    setComicOverviewExpanded(false);
+  }, [item?.id, item?.overview]);
+
+  useEffect(() => {
+    if (item?.media_type !== 'tv_series' || !Number.isInteger(openSeason) || seasonDetails[openSeason] || seasonDetailLoading[openSeason]) return;
+    loadSeasonDetail(openSeason);
+  }, [item?.media_type, openSeason, seasonDetails, seasonDetailLoading]);
+
+  const tvSeasonVariants = variants
+    .filter((v) => Boolean(v.edition))
+    .sort((a, b) => Number(a.season_number || 0) - Number(b.season_number || 0));
+  const activeSeasonVariant = item?.media_type === 'tv_series'
+    ? tvSeasonVariants.find((row) => Number(row.season_number) === openSeason) || tvSeasonVariants[0] || null
+    : null;
 
   if (!item) return null;
 
@@ -659,7 +721,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
           <div className="flex-1 min-w-0 mt-1">
             <div className="flex items-baseline gap-2">
               <h2 className={titleClassName}>{item.title}</h2>
-              <p className="text-sm text-ghost">#{item.id}</p>
+              {!isComic ? <p className="text-sm text-ghost">#{item.id}</p> : null}
             </div>
             <p className="text-sm text-dim mt-1">{[item.year, item.director, item.cast].filter(Boolean).join(' · ')}</p>
             <div className="flex flex-wrap gap-2 mt-2">
@@ -675,9 +737,30 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
 
         <div className="flex-1 overflow-y-auto scroll-area p-6 space-y-6">
           {item.overview && (
-            <div className={isBook ? 'max-w-3xl' : ''}>
+            <div className={cx(isBook || isComic ? 'max-w-3xl' : '')}>
               <p className="label mb-2">Overview</p>
-              <p className={cx('text-sm text-dim leading-relaxed', isBook ? 'leading-7' : '')}>{item.overview}</p>
+              <p
+                className={cx('text-sm text-dim leading-relaxed', isBook ? 'leading-7' : '')}
+                style={comicOverviewNeedsClamp && !comicOverviewExpanded
+                  ? {
+                      display: '-webkit-box',
+                      WebkitBoxOrient: 'vertical',
+                      WebkitLineClamp: 6,
+                      overflow: 'hidden'
+                    }
+                  : undefined}
+              >
+                {item.overview}
+              </p>
+              {comicOverviewNeedsClamp ? (
+                <button
+                  type="button"
+                  className="mt-2 text-sm font-medium text-dim transition-colors hover:text-ink"
+                  onClick={() => setComicOverviewExpanded((value) => !value)}
+                >
+                  {comicOverviewExpanded ? 'Show less' : 'Show more'}
+                </button>
+              ) : null}
             </div>
           )}
 
@@ -817,7 +900,27 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
             </div>
           )}
 
-          {!isBook && (externalMediaUrl || item.trailer_url) && (
+          {isComic && comicSourceLinks.length > 0 && (
+            <div>
+              <p className="label mb-2">Sources</p>
+              <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+                {comicSourceLinks.map(([label, href]) => (
+                  <a
+                    key={`${label}-${href}`}
+                    href={href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 text-dim transition-colors hover:text-ink"
+                  >
+                    <Icons.Link />
+                    <span>{label}</span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {!isBook && !isComic && (externalMediaUrl || item.trailer_url) && (
             <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
               {externalMediaUrl && (
                 <a
@@ -889,113 +992,113 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                   <p className="text-sm text-ghost">{item.media_type === 'tv_series' ? 'No season data yet' : 'No edition data yet'}</p>
                 )}
                 {!variantLoading && variants.length > 0 && (
-                  <div className="space-y-2">
-                    {variants
-                      .filter((v) => item.media_type !== 'tv_series' || Boolean(v.edition))
-                      .map((v) => (
-                        <div key={v.id} className="card p-3">
-                          <p className="text-sm text-ink font-medium flex items-center gap-2">
-                            <span>{v.edition || (item.media_type === 'movie' ? 'Theatrical' : 'Default edition')}</span>
-                            {item.media_type === 'tv_series' && (
-                              <span className={`inline-flex items-center gap-1 text-xs ${v.watch_state === 'completed' ? 'text-ok' : 'text-brand-300'}`}>
-                                {v.watch_state === 'completed' ? <Icons.Check /> : null}
-                                {v.watch_state === 'completed' ? 'Watched' : 'Unwatched'}
-                              </span>
-                            )}
-                          </p>
-                          {item.media_type === 'tv_series' && (
-                            <div className="mt-2 space-y-2">
-                              {(() => {
-                                const key = Number(v.season_number);
-                                const details = seasonDetails[key];
-                                const tmdbEpisodeCount = Number(details?.tmdb?.episode_count);
-                                const tmdbDerivedCount = Array.isArray(details?.tmdb?.episodes)
-                                  ? details.tmdb.episodes.length
-                                  : null;
-                                const expectedEpisodes = Number.isFinite(Number(v.expected_episodes))
-                                  && Number(v.expected_episodes) > 0
-                                  ? Number(v.expected_episodes)
-                                  : ((Number.isFinite(tmdbEpisodeCount) && tmdbEpisodeCount > 0)
-                                    ? tmdbEpisodeCount
-                                    : ((Number.isInteger(tmdbDerivedCount) && tmdbDerivedCount > 0) ? tmdbDerivedCount : null));
-                                const ownedEpisodes = Number.isFinite(Number(v.available_episodes)) ? Number(v.available_episodes) : null;
-                                const episodesLabel = ownedEpisodes !== null
-                                  ? `Episodes ${ownedEpisodes}/${expectedEpisodes ?? '?'}`
-                                  : `Episodes ?/${expectedEpisodes ?? '?'}`;
-                                return (
-                                  <p className="text-xs text-ghost">
-                                    {episodesLabel}
-                                    {expectedEpisodes !== null && ownedEpisodes !== null && ownedEpisodes < expectedEpisodes
-                                      ? ' · Missing episodes'
-                                      : ''}
-                                  </p>
-                                );
-                              })()}
-                              <div className="flex gap-2">
-                                <button
-                                  className="btn-secondary btn-sm"
-                                  onClick={() => markSeasonWatched(Number(v.season_number))}
-                                  disabled={Boolean(seasonSaving[Number(v.season_number)]) || v.watch_state === 'completed'}
-                                >
-                                  {seasonSaving[Number(v.season_number)] ? <Spinner size={14} /> : <Icons.Check />}
-                                  Mark all as watched
-                                </button>
-                                <button
-                                  className="btn-ghost btn-sm"
-                                  onClick={() => loadSeasonDetail(Number(v.season_number))}
-                                  disabled={Boolean(seasonDetailLoading[Number(v.season_number)])}
-                                >
-                                  {seasonDetailLoading[Number(v.season_number)] ? <Spinner size={14} /> : <Icons.ChevronRight />}
-                                  {openSeason === Number(v.season_number) ? 'Hide episodes' : 'View episodes'}
-                                </button>
-                              </div>
-                              {openSeason === Number(v.season_number) && (
-                                <div className="card p-3 bg-void/20 border border-edge/70">
-                                  {seasonDetailLoading[Number(v.season_number)] && (
-                                    <p className="text-xs text-ghost">Loading season metadata…</p>
-                                  )}
-                                  {!seasonDetailLoading[Number(v.season_number)] && (
-                                    <>
-                                      {seasonDetails[Number(v.season_number)]?.tmdb?.name && (
-                                        <p className="text-sm text-ink font-medium">{seasonDetails[Number(v.season_number)]?.tmdb?.name}</p>
-                                      )}
-                                      <p className="text-xs text-ghost mt-1">
-                                        {[
-                                          seasonDetails[Number(v.season_number)]?.tmdb?.air_date ? `Air date: ${seasonDetails[Number(v.season_number)]?.tmdb?.air_date}` : null,
-                                          Number.isFinite(Number(seasonDetails[Number(v.season_number)]?.tmdb?.episode_count))
-                                            && Number(seasonDetails[Number(v.season_number)]?.tmdb?.episode_count) > 0
-                                            ? `Episodes: ${seasonDetails[Number(v.season_number)]?.tmdb?.episode_count}`
-                                            : null
-                                        ].filter(Boolean).join(' · ') || 'No TMDB season metadata available'}
-                                      </p>
-                                      {Array.isArray(seasonDetails[Number(v.season_number)]?.tmdb?.episodes)
-                                        && seasonDetails[Number(v.season_number)]?.tmdb?.episodes.length > 0 && (
-                                          <div className="mt-2 max-h-44 overflow-auto pr-1 space-y-1">
-                                            {seasonDetails[Number(v.season_number)]?.tmdb?.episodes.map((episode) => (
-                                              <div key={episode.id || `ep-${episode.episode_number}`} className="text-xs text-dim">
-                                                <span className="text-ink">E{episode.episode_number}:</span> {episode.name || 'Untitled'}
-                                                {episode.watched
-                                                  ? <span className="text-ok"> · watched</span>
-                                                  : <span className="text-[#3b82f6] font-medium"> · unwatched</span>}
-                                                {episode.in_library ? <span className="text-ghost"> · in library</span> : null}
-                                                {episode.air_date ? <span className="text-ghost"> · {episode.air_date}</span> : null}
-                                              </div>
-                                            ))}
-                                          </div>
-                                        )}
-                                    </>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                          {item.media_type !== 'tv_series' && (
-                            <p className="text-xs text-ghost mt-1">{[v.resolution, v.container, v.video_codec, v.audio_codec, v.audio_channels ? `${v.audio_channels}ch` : null].filter(Boolean).join(' · ')}</p>
-                          )}
-                          {item.media_type !== 'tv_series' && v.file_path && <p className="text-xs text-ghost/80 font-mono mt-1 break-all">{v.file_path}</p>}
+                  item.media_type === 'tv_series' ? (
+                    <div className="space-y-4">
+                      <div className="overflow-x-auto no-scrollbar border-b border-edge/70">
+                        <div className="flex min-w-full gap-4 whitespace-nowrap">
+                          {tvSeasonVariants.map((v) => {
+                            const seasonKey = Number(v.season_number);
+                            const isActive = seasonKey === (activeSeasonVariant ? Number(activeSeasonVariant.season_number) : null);
+                            return (
+                              <button
+                                key={v.id}
+                                type="button"
+                                className={cx(
+                                  'inline-flex items-center gap-2 border-b-2 px-0 py-2 text-sm transition-colors',
+                                  isActive
+                                    ? 'border-brand text-ink'
+                                    : 'border-transparent text-dim hover:text-ink'
+                                )}
+                                onClick={() => loadSeasonDetail(seasonKey)}
+                              >
+                                <span>{`S${seasonKey}`}</span>
+                                {v.watch_state === 'completed' ? (
+                                  <span className="text-ok" aria-label="Watched" title="Watched">
+                                    <Icons.Check />
+                                  </span>
+                                ) : null}
+                              </button>
+                            );
+                          })}
                         </div>
-                      ))}
-                  </div>
+                      </div>
+                      {activeSeasonVariant && (() => {
+                        const key = Number(activeSeasonVariant.season_number);
+                        const details = seasonDetails[key];
+                        const tmdbEpisodeCount = Number(details?.tmdb?.episode_count);
+                        const tmdbDerivedCount = Array.isArray(details?.tmdb?.episodes)
+                          ? details.tmdb.episodes.length
+                          : null;
+                        const expectedEpisodes = Number.isFinite(Number(activeSeasonVariant.expected_episodes))
+                          && Number(activeSeasonVariant.expected_episodes) > 0
+                          ? Number(activeSeasonVariant.expected_episodes)
+                          : ((Number.isFinite(tmdbEpisodeCount) && tmdbEpisodeCount > 0)
+                            ? tmdbEpisodeCount
+                            : ((Number.isInteger(tmdbDerivedCount) && tmdbDerivedCount > 0) ? tmdbDerivedCount : null));
+                        const ownedEpisodes = Number.isFinite(Number(activeSeasonVariant.available_episodes)) ? Number(activeSeasonVariant.available_episodes) : null;
+                        const episodesLabel = ownedEpisodes !== null
+                          ? `Episodes ${ownedEpisodes}/${expectedEpisodes ?? '?'}`
+                          : `Episodes ?/${expectedEpisodes ?? '?'}`;
+                        return (
+                          <div className="space-y-3 pt-1">
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="min-w-0">
+                                <p className="mt-1 text-xs text-ghost">
+                                  {[episodesLabel, expectedEpisodes !== null && ownedEpisodes !== null && ownedEpisodes < expectedEpisodes ? 'Missing episodes' : null].filter(Boolean).join(' · ')}
+                                </p>
+                                <p className="mt-1 text-xs text-ghost">
+                                  {[
+                                    details?.tmdb?.air_date ? `Air date: ${details.tmdb.air_date}` : null,
+                                    Number.isFinite(tmdbEpisodeCount) && tmdbEpisodeCount > 0 ? `TMDB episodes: ${tmdbEpisodeCount}` : null
+                                  ].filter(Boolean).join(' · ') || 'No TMDB season metadata available'}
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                className="text-sm font-medium text-dim transition-colors hover:text-ink disabled:cursor-default disabled:opacity-50"
+                                onClick={() => markSeasonWatched(key)}
+                                disabled={Boolean(seasonSaving[key]) || activeSeasonVariant.watch_state === 'completed'}
+                              >
+                                {seasonSaving[key] ? <Spinner size={14} /> : null}
+                                {seasonSaving[key] ? 'Saving…' : 'Mark season watched'}
+                              </button>
+                            </div>
+                            {seasonDetailLoading[key] && (
+                              <p className="text-xs text-ghost">Loading season metadata…</p>
+                            )}
+                            {!seasonDetailLoading[key] && Array.isArray(details?.tmdb?.episodes) && details.tmdb.episodes.length > 0 ? (
+                              <div className="max-h-48 overflow-auto pr-1 space-y-1">
+                                {details.tmdb.episodes.map((episode) => (
+                                  <div key={episode.id || `ep-${episode.episode_number}`} className="text-xs text-dim">
+                                    <span className="text-ink">E{episode.episode_number}:</span> {episode.name || 'Untitled'}
+                                    {episode.watched
+                                      ? <span className="text-ok"> · watched</span>
+                                      : <span className="text-brand-300"> · unwatched</span>}
+                                    {episode.in_library ? <span className="text-ghost"> · in library</span> : null}
+                                    {episode.air_date ? <span className="text-ghost"> · {episode.air_date}</span> : null}
+                                  </div>
+                                ))}
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {variants
+                        .filter((v) => Boolean(v.edition))
+                        .map((v) => (
+                          <div key={v.id} className="card p-3">
+                            <p className="text-sm text-ink font-medium flex items-center gap-2">
+                              <span>{v.edition || (item.media_type === 'movie' ? 'Theatrical' : 'Default edition')}</span>
+                            </p>
+                            <p className="text-xs text-ghost mt-1">{[v.resolution, v.container, v.video_codec, v.audio_codec, v.audio_channels ? `${v.audio_channels}ch` : null].filter(Boolean).join(' · ')}</p>
+                            {v.file_path && <p className="text-xs text-ghost/80 font-mono mt-1 break-all">{v.file_path}</p>}
+                          </div>
+                        ))}
+                    </div>
+                  )
                 )}
               </div>
 
