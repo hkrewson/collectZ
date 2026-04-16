@@ -287,9 +287,9 @@ function EventArtifactsEditor({ eventId, apiCall, onSaved }) {
       {loading ? <div className="flex items-center gap-2 text-dim"><Spinner size={16} />Loading schedule…</div> : null}
       {artifactError ? <p className="text-xs text-err">{artifactError}</p> : null}
       {artifactNotice ? <p className="text-xs text-ok">{artifactNotice}</p> : null}
-      <div className="overflow-hidden rounded-md border border-edge bg-panel/20">
+      <div className="border-t border-edge/60">
         {artifacts.map((artifact) => (
-          <div key={artifact.id} className="flex items-start gap-3 border-b border-edge/60 px-3 py-3 last:border-b-0">
+          <div key={artifact.id} className="flex items-start gap-3 border-b border-edge/60 py-3 last:border-b-0">
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium text-ink">{artifact.title}</p>
               {formatArtifactMeta(artifact) ? (
@@ -327,7 +327,7 @@ function EventArtifactsEditor({ eventId, apiCall, onSaved }) {
           </div>
         ))}
         {!loading && artifacts.length === 0 ? (
-          <div className="px-4 py-5 text-sm text-ghost">
+          <div className="py-4 text-sm text-dim">
             No schedule items yet.
           </div>
         ) : null}
@@ -562,7 +562,7 @@ function EventDetailDrawer({ eventId, apiCall, onClose, onEdit, onDeleted, onSav
           <div className="flex items-start gap-2">
             <div className="flex-1 min-w-0">
               <div className="flex items-baseline gap-2">
-                <h2 className="font-display text-2xl tracking-wider text-ink leading-tight">{event?.title || `Event #${eventId}`}</h2>
+                <h2 className="text-2xl font-semibold tracking-tight text-ink leading-tight">{event?.title || `Event #${eventId}`}</h2>
                 <p className="text-sm text-ghost">#{eventId}</p>
               </div>
               <p className="text-sm text-dim mt-1">{toDisplayDate(event?.date_start)}{event?.location ? ` · ${event.location}` : ''}</p>
@@ -570,11 +570,11 @@ function EventDetailDrawer({ eventId, apiCall, onClose, onEdit, onDeleted, onSav
             <button onClick={onClose} className="btn-icon btn-sm shrink-0"><Icons.X /></button>
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto scroll-area p-6 space-y-4">
+        <div className="flex-1 overflow-y-auto scroll-area p-6 space-y-5">
           {loading && <div className="flex items-center gap-2 text-dim"><Spinner size={16} />Loading…</div>}
           {!loading && (
             <>
-              <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-x-8 gap-y-5 text-sm md:grid-cols-2">
                 <DetailField label="Start Date">{toDisplayDate(event?.date_start) || 'Date pending'}</DetailField>
                 <DetailField label="End Date">{event?.date_end ? toDisplayDate(event.date_end) : 'Single day event'}</DetailField>
                 <DetailField label="Location">{event?.location}</DetailField>
@@ -582,25 +582,45 @@ function EventDetailDrawer({ eventId, apiCall, onClose, onEdit, onDeleted, onSav
                 <DetailField label="Time">{event?.time_label}</DetailField>
                 <DetailField label="Host">{event?.host}</DetailField>
                 {event?.image_path ? (
-                  <DetailField label="Image" className="md:col-span-2">
-                    <a className="btn-secondary btn-sm w-fit" href={event.image_path} target="_blank" rel="noreferrer"><Icons.Link />Open image</a>
+                  <DetailField label="Image">
+                    <a
+                      className="inline-flex items-center gap-2 text-dim transition-colors hover:text-ink"
+                      href={event.image_path}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <Icons.Link />
+                      Open image
+                    </a>
                   </DetailField>
                 ) : null}
                 {event?.url ? (
-                  <DetailField label="URL" className="md:col-span-2">
-                    <a className="btn-secondary btn-sm w-fit" href={event.url} target="_blank" rel="noreferrer"><Icons.Link />Open event site</a>
+                  <DetailField label="Event site">
+                    <a
+                      className="inline-flex items-center gap-2 text-dim transition-colors hover:text-ink"
+                      href={event.url}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <Icons.Link />
+                      Open event site
+                    </a>
                   </DetailField>
                 ) : null}
               </div>
-              {event?.notes ? <DetailField label="Notes"><p className="text-dim">{event.notes}</p></DetailField> : null}
+              {event?.notes ? (
+                <DetailField label="Notes">
+                  <p className="max-w-3xl text-dim leading-7">{event.notes}</p>
+                </DetailField>
+              ) : null}
               <EventArtifactsEditor eventId={eventId} apiCall={apiCall} onSaved={onSaved} />
             </>
           )}
         </div>
         <div className="p-4 border-t border-edge flex gap-3 shrink-0">
           <button onClick={onClose} className="btn-ghost">Close</button>
-          <button onClick={() => onEdit(event)} className="btn-secondary flex-1"><Icons.Edit />Edit</button>
-          <button onClick={deleteEvent} className="btn-danger"><Icons.Trash />Delete</button>
+          <button onClick={() => onEdit(event)} className="btn-ghost flex-1"><Icons.Edit />Edit</button>
+          <button onClick={deleteEvent} className="btn-ghost text-err hover:bg-err/10"><Icons.Trash />Delete</button>
         </div>
       </div>
     </div>

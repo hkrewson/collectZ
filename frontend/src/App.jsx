@@ -34,8 +34,8 @@ export default function App() {
   const [supportSession, setSupportSession] = useState(null);
   const [uiSettings, setUiSettings] = useState({ theme: 'system', density: 'comfortable' });
   const [featureFlags, setFeatureFlags] = useState({
-    events_enabled: false,
-    collectibles_enabled: false
+    events_enabled: null,
+    collectibles_enabled: null
   });
   const [supportSummary, setSupportSummary] = useState({
     open: 0,
@@ -395,10 +395,10 @@ export default function App() {
   }, [activeTab]);
 
   useEffect(() => {
-    if (!featureFlags.collectibles_enabled && activeTab === 'library-collectibles') {
+    if (featureFlags.collectibles_enabled === false && activeTab === 'library-collectibles') {
       setActiveTab('library-movies');
     }
-    if (!featureFlags.events_enabled && activeTab === 'library-events') {
+    if (featureFlags.events_enabled === false && activeTab === 'library-events') {
       setActiveTab('library-movies');
     }
   }, [activeTab, featureFlags.collectibles_enabled, featureFlags.events_enabled]);
