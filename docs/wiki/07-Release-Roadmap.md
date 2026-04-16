@@ -1104,6 +1104,7 @@ Historical planning notes may still exist in:
 61. `3.1.3` Library controls and selection behavior cleanup
 62. `3.1.4` Profile surface and account navigation cleanup
 63. `3.1.5` Library detail drawer layout and information hierarchy cleanup
+64. `3.1.6` Cross-provider book and comic sync normalization
 
 ## 2.1.0 — Metadata Normalization and Query Performance
 
@@ -3044,6 +3045,37 @@ Historical note:
 - Comic drawers now suppress visible internal/provider IDs, stop leaking Calibre and OPDS plumbing into `Type Details`, use provider-aware source labels such as `View on Metron` and `Download on Calibre`, and clamp long overview text behind a simple show more/show less control.
 - TV season handling was reshaped from stacked nested cards into a flatter season-tab treatment with shorter `S1`-style labels, checkmark completion state, and one selected-season detail area instead of multiple boxed subpanels.
 - The milestone also carried a small shared-library behavior fix so newer library tabs like events and collectibles persist correctly across refresh instead of falling back before feature flags finish loading.
+
+## 3.1.6 — Cross-Provider Book and Comic Sync Normalization
+
+**Goal:** Normalize book and comic ingest across Metron and OPDS/CWA so equivalent titles can attach to one canonical library record instead of creating duplicate rows or drifting into the wrong media type when multiple sync-capable sources contribute overlapping data.
+
+### Scope
+
+- Reassess the current Metron and OPDS/CWA ingest paths for books and comics, where overlapping titles can arrive as separate rows without a shared normalization contract.
+- Start the milestone with a duplicate and misclassification audit against the running dev dataset before changing merge behavior.
+- Define cross-provider identity precedence for books and comics:
+  - books: ISBN and normalized book identifiers first,
+  - comics: provider-native IDs when durable, then series + issue/volume identity,
+  - title/date/publisher heuristics only as lower-confidence fallback.
+- Detect likely comic-like rows imported as `book` before they silently compete with canonical comic rows.
+- Define confidence bands for cross-provider matching:
+  - high confidence auto-attach / normalize,
+  - medium confidence review candidates,
+  - low confidence remain separate.
+- Preserve provider/source attribution even when one canonical record accumulates metadata from more than one provider.
+- Stop new duplicate creation during repeat Metron and OPDS/CWA syncs before attempting broad historical repair.
+- Keep this milestone explicitly separate from:
+  - OPDS browse/read/download link-contract cleanup,
+  - broader provider-comparison work,
+  - comic server-pagination normalization.
+
+### Acceptance Criteria
+
+- The dev dataset can be audited for duplicate clusters and likely comic/book misclassifications with a repeatable report.
+- Identifier precedence and confidence bands are documented clearly enough to explain why rows merge, link for review, or remain separate.
+- New Metron and OPDS/CWA syncs can enrich an existing canonical row instead of creating an obvious duplicate when confidence is high.
+- Historical duplicates have a defined repair path that is dry-run-safe before any bulk merge/update step is applied.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 

@@ -11,6 +11,11 @@ const { mapDeliciousItemTypeToMediaType } = require('../services/importMapping')
 const { normalizeDeliciousRow } = require('../services/deliciousNormalize');
 const { normalizeIsbn, normalizeIdentifierSet } = require('../services/importIdentifiers');
 const { normalizeTypeDetails } = require('../services/typeDetails');
+const {
+  buildBookNormalizationIdentity,
+  buildComicNormalizationIdentity,
+  detectLikelyComicLikeBook
+} = require('../services/bookComicNormalization');
 const { buildOwnedFormatsPayload, getOwnedFormatLabel } = require('../services/mediaFormats');
 const { compareReleaseVersions, parseReleaseMarkdown } = require('../services/releaseNotes');
 const {
@@ -227,6 +232,40 @@ results.push(run('barcode.normalizeBarcodeMatches prefers explicit trailing auth
   assert.strictEqual(matches[0].typeDetails.author, 'John Byrne & Marvel Various');
   assert.strictEqual(matches[0].typeDetails.format, 'Hardcover');
   assert.strictEqual(matches[0].typeDetails.publisher, 'Marvel Universe');
+}));
+
+results.push(run('bookComicNormalization uses ISBN as the highest-confidence book identity key', () => {
+  const identity = buildBookNormalizationIdentity({
+    title: 'Wool',
+    type_details: { isbn: '978-0-358-44784-9', author: 'Hugh Howey' }
+  });
+  assert.deepStrictEqual(identity, {
+    confidence: 'high',
+    kind: 'isbn',
+    key: 'book:isbn:9780358447849'
+  });
+}));
+
+results.push(run('bookComicNormalization uses series and issue for high-confidence comic identity', () => {
+  const identity = buildComicNormalizationIdentity({
+    title: 'Alpha Flight #10',
+    type_details: { series: 'Alpha Flight', issue_number: '#10', volume: '1' }
+  });
+  assert.deepStrictEqual(identity, {
+    confidence: 'high',
+    kind: 'series_issue',
+    key: 'comic:series_issue:alpha flight::1::10'
+  });
+}));
+
+results.push(run('bookComicNormalization flags comic-like book rows for review', () => {
+  const signal = detectLikelyComicLikeBook({
+    title: 'Invader Zim #1 Comics Dungeon Exclusive Variant by Vincent Perea',
+    type_details: {}
+  });
+  assert.strictEqual(signal.likely, true);
+  assert.ok(signal.reasons.includes('issue_number_in_title'));
+  assert.ok(signal.reasons.includes('variant_in_title'));
 }));
 
 results.push(run('barcode.normalizeBarcodeMatches infers TV season box sets and strips season suffix for search', () => {
