@@ -424,9 +424,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   const externalMediaLabel = calibreExternalUrl
     ? 'Open in Calibre'
     : (item.media_type === 'book' || item.media_type === 'comic_book' ? 'Open source' : 'TMDB');
-  const titleClassName = isBook
-    ? 'text-2xl font-semibold tracking-tight text-ink leading-tight'
-    : 'font-display text-2xl tracking-wider text-ink leading-tight';
+  const titleClassName = 'text-2xl font-semibold tracking-tight text-ink leading-tight';
   const bookDetailRows = isBook
     ? [
         ['Author', typeDetails.author],
@@ -759,7 +757,15 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
           {item.signed_proof_path && (
             <div>
               <p className="label mb-2">Signing proof</p>
-              <a href={posterUrl(item.signed_proof_path)} target="_blank" rel="noreferrer" className="btn-secondary btn-sm"><Icons.Link />Open proof image</a>
+              <a
+                href={posterUrl(item.signed_proof_path)}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 text-sm text-dim transition-colors hover:text-ink"
+              >
+                <Icons.Link />
+                Open proof image
+              </a>
             </div>
           )}
 
@@ -812,9 +818,29 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
           )}
 
           {!isBook && (externalMediaUrl || item.trailer_url) && (
-            <div className="flex gap-3">
-              {externalMediaUrl && <a href={externalMediaUrl} target="_blank" rel="noreferrer" className="btn-secondary btn-sm"><Icons.Link />{externalMediaLabel}</a>}
-              {item.trailer_url && <a href={item.trailer_url} target="_blank" rel="noreferrer" className="btn-primary btn-sm"><Icons.Play />Trailer</a>}
+            <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+              {externalMediaUrl && (
+                <a
+                  href={externalMediaUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 text-dim transition-colors hover:text-ink"
+                >
+                  <Icons.Link />
+                  <span>{externalMediaLabel}</span>
+                </a>
+              )}
+              {item.trailer_url && (
+                <a
+                  href={item.trailer_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 text-dim transition-colors hover:text-ink"
+                >
+                  <Icons.Play />
+                  <span>Trailer</span>
+                </a>
+              )}
             </div>
           )}
 
@@ -973,7 +999,12 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                 )}
               </div>
 
-              {item.notes && <div><p className="label mb-1">Notes</p><p className="text-sm text-dim">{item.notes}</p></div>}
+              {item.notes && (
+                <div>
+                  <p className="label mb-1">Notes</p>
+                  <p className="max-w-3xl text-sm text-dim leading-7">{item.notes}</p>
+                </div>
+              )}
 
               <div>
                 <p className="label mb-2">Your Rating</p>
@@ -985,10 +1016,10 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
 
         <div className="p-4 border-t border-edge flex gap-3 shrink-0">
           <button onClick={onClose} className="btn-ghost">Close</button>
-          <button onClick={() => onEdit(item)} className={cx(isBook ? 'btn-ghost' : 'btn-secondary', 'flex-1')}><Icons.Edit />Edit</button>
+          <button onClick={() => onEdit(item)} className="btn-ghost flex-1"><Icons.Edit />Edit</button>
           <button
             onClick={() => { if (window.confirm('Delete this item?')) { onDelete(item.id); onClose(); } }}
-            className={isBook ? 'btn-ghost text-err hover:bg-err/10' : 'btn-danger'}
+            className="btn-ghost text-err hover:bg-err/10"
           >
             <Icons.Trash />
           </button>
@@ -1245,7 +1276,7 @@ function CollectionDetail({ collectionId, apiCall, onClose, onEdit, onConvert })
           </div>
           <div className="flex-1 min-w-0 mt-1">
             <div className="flex items-baseline gap-2">
-              <h2 className="font-display text-2xl tracking-wider text-ink leading-tight">{title}</h2>
+              <h2 className="text-2xl font-semibold tracking-tight text-ink leading-tight">{title}</h2>
               <p className="text-sm text-ghost">#{collectionId}</p>
             </div>
             <p className="text-sm text-dim mt-1">{mediaTypeLabel(collection.media_type)} · {items.length} item{items.length === 1 ? '' : 's'}</p>
@@ -1293,8 +1324,8 @@ function CollectionDetail({ collectionId, apiCall, onClose, onEdit, onConvert })
         </div>
         <div className="p-4 border-t border-edge flex gap-3 shrink-0">
           <button onClick={onClose} className="btn-ghost">Close</button>
-          <button onClick={onEdit} className="btn-secondary flex-1"><Icons.Edit />Edit</button>
-          <button onClick={onConvert} className="btn-secondary"><Icons.Film />Convert</button>
+          <button onClick={onEdit} className="btn-ghost flex-1"><Icons.Edit />Edit</button>
+          <button onClick={onConvert} className="btn-ghost"><Icons.Film />Convert</button>
         </div>
       </div>
     </div>
