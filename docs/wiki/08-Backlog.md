@@ -48,6 +48,41 @@ This file is the staging area for work that has not yet been assigned a release 
 - Dedupe quality meets target thresholds for comic-heavy datasets.
 - The UI workflow is simple enough for non-technical admins.
 
+### Backlog Item: OPDS Sync Contract and Reader-Link Separation
+**Type:** Deferred milestone
+**Tags:** `digital-library`, `opds`, `cwa`, `sync`, `metadata`, `links`
+
+**Goal:** Tighten the OPDS/CWA sync contract so imported digital books and comics preserve meaningful browse/read/download links, expose clearer source labels in the UI, and stop collapsing different OPDS link types into one generic external URL.
+
+**Scope**
+- Reassess OPDS entry link handling in the CWA importer, where acquisition/download links are currently preferred over alternate or catalog/detail links.
+- Separate OPDS link semantics into distinct stored fields where the feed supports them:
+  - browse/source URL
+  - read/detail URL
+  - download/acquisition URL
+- Stop treating one captured OPDS link as all of the following at once:
+  - `tmdb_url`
+  - `external_url`
+  - `provider_external_url`
+  - `calibre_external_url`
+- Define how OPDS-imported items should be labeled in the UI based on actual provider context:
+  - `Read in Calibre`
+  - `Open source`
+  - `View on Google Books`
+  - `Download EPUB`
+  - or similar truthful action labels
+- Dedupe identical URLs before surfacing them so one destination does not appear as multiple different sources.
+- Decide whether non-reader-facing provider plumbing such as raw OPDS identifiers should stay hidden from drawers by default unless explicitly useful.
+- Preserve idempotent sync behavior while introducing the richer link contract for existing and newly imported OPDS rows.
+- Keep the work explicitly separate from the broader provider-comparison item in `Digital Library Sync Revisit` and from the current `3.1.5` drawer-only milestone.
+
+**Acceptance Criteria**
+- OPDS-imported titles no longer surface the same URL as multiple different source actions.
+- Browse/detail/read URLs and download/acquisition URLs are stored separately when the feed provides them.
+- The drawer can render truthful, provider-aware labels instead of misleading generic labels like `View on TMDB` for books.
+- OPDS-imported book and comic drawers do not expose non-useful plumbing metadata by default.
+- Repeat syncs preserve the richer link contract without regressing dedupe or creating duplicate source entries.
+
 ### Backlog Item: Comic Sort and Server Pagination Normalization
 **Type:** Deferred milestone
 **Tags:** `comics`, `pagination`, `sorting`, `backend`, `data-model`
@@ -78,62 +113,6 @@ This file is the staging area for work that has not yet been assigned a release 
 - Server-side pagination preserves the same practical issue ordering users expect today.
 - The `Series` and `Series Issues` views work without relying on the full comic issue set being present in browser memory.
 - The chosen approach is documented clearly enough to explain whether it relies on existing JSONB fields, new normalized columns, or both.
-
-### Backlog Item: Library Detail Drawer Layout and Information Hierarchy Cleanup
-**Type:** Deferred milestone
-**Tags:** `ui`, `drawers`, `library`, `layout`, `detail-view`, `information-hierarchy`
-
-**Goal:** Make library detail drawers feel more content-shaped and less template-driven by tightening sparse layouts, relaxing overused metadata grids, and reducing visual weight in drawer chrome.
-
-**Scope**
-- Reassess the current shared drawer pattern across library detail views, where one vertical rhythm and one metadata grammar are stretched across very different content types.
-- Reduce excessive empty vertical space in sparse drawers so the body does not feel abandoned or bottom-light while the footer feels dominant.
-- Allow selective width variants instead of assuming one universal drawer width:
-  - media drawers may need a slightly wider detail variant,
-  - collectibles and events likely need denser composition rather than more width.
-- Reduce dependence on repeated two-column metadata grids when they flatten the content hierarchy.
-- Let overview content remain block-oriented instead of forcing it into surrounding field-grid logic.
-- Rework technical and provider-heavy metadata so long machine values do not strain narrow two-column layouts:
-  - prefer stacked or list-style treatments where they read more naturally than field matrices.
-- Keep valuation treatment compact and integrated:
-  - `Low`, `Mid`, and `High` on one horizontal row,
-  - supporting source and update metadata quieter than the values,
-  - refresh control treated as a low-emphasis utility action.
-- Replace long raw external URLs and oversized external-link buttons with quieter labeled links or link-style actions:
-  - use destination/action labels such as `Read in Calibre`, `Open source`, `View on TMDB`, `Open event site`, or `Open image`,
-  - avoid exposing infrastructure-heavy raw URLs in the drawer body when a descriptive link label will do.
-- Move drawer titles away from all-caps so the hierarchy stays strong without shouting.
-- Tone down the footer action bar so `Close`, `Edit`, and `Delete` no longer carry more visual weight than the drawer content above them.
-- Let drawer layouts vary more intentionally by content density and content type instead of enforcing the same section rhythm everywhere.
-
-**Assessment Notes**
-- Overall drawer pattern is coherent and serviceable, but still feels too templated:
-  - too much empty vertical space in sparse drawers,
-  - same structure regardless of content density,
-  - footer actions often feel heavier than the body.
-- TV and comics are among the stronger fits because they have enough content to justify the current structure.
-- Games are solid but still a little long and overly sectioned.
-- Movies are competent but read like the default media drawer rather than a fully resolved layout.
-- Audio drawers are clean but underfilled for the amount of space they use.
-- Events are acceptable but often feel like drawers waiting for more content.
-- Books are functionally useful but visually rough because long provider IDs and URLs strain the current grid.
-- Collectibles are the weakest fit because the sparse body leaves too much dead space and makes the footer disproportionately important.
-
-**Recommended First Focus**
-- Start with the weakest structural fits:
-  - collectibles,
-  - books.
-- Use those two surfaces to prove the broader direction before touching every drawer type.
-
-**Acceptance Criteria**
-- Sparse drawers no longer feel empty, abandoned, or bottom-heavy.
-- Drawer composition varies intentionally by content density instead of relying on one overused two-column field grammar.
-- Media drawers that need more width have it without forcing the same width on collectibles or events.
-- Long technical/provider metadata no longer breaks the reading rhythm of the drawer.
-- External sources are presented as labeled links or quieter actions instead of raw URLs and chunky buttons.
-- Drawer titles no longer render in all-caps.
-- Footer actions are toned down so they support the drawer instead of dominating it.
-- The first-pass target drawers, especially books and collectibles, show clear layout improvement without regressing stronger drawers such as TV and comics.
 
 ### Backlog Item: Personal Workspace Offboarding, Archive Retention, and Recovery
 **Type:** Deferred milestone

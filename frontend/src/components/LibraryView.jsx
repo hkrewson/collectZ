@@ -417,12 +417,71 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   const [seasonDetails, setSeasonDetails] = useState({});
   const [valuationRefreshing, setValuationRefreshing] = useState(false);
   const typeDetails = item?.type_details && typeof item.type_details === 'object' ? item.type_details : {};
+  const isBook = item?.media_type === 'book';
   const calibreExternalUrl = String(typeDetails.calibre_external_url || '').trim();
   const providerExternalUrl = String(typeDetails.provider_external_url || '').trim();
   const externalMediaUrl = calibreExternalUrl || providerExternalUrl || item.tmdb_url || '';
   const externalMediaLabel = calibreExternalUrl
     ? 'Open in Calibre'
     : (item.media_type === 'book' || item.media_type === 'comic_book' ? 'Open source' : 'TMDB');
+  const titleClassName = isBook
+    ? 'text-2xl font-semibold tracking-tight text-ink leading-tight'
+    : 'font-display text-2xl tracking-wider text-ink leading-tight';
+  const bookDetailRows = isBook
+    ? [
+        ['Author', typeDetails.author],
+        ['Publisher', typeDetails.publisher],
+        ['Edition', typeDetails.edition],
+        ['ISBN', typeDetails.isbn]
+      ].filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== '')
+    : [];
+  const hiddenTypeDetailKeys = new Set(
+    isBook
+      ? ['author', 'publisher', 'edition', 'isbn', 'calibre_external_url', 'provider_external_url']
+      : []
+  );
+  const visibleTypeDetailEntries = Object.entries(typeDetails)
+    .filter(([key, value]) => (
+      value !== null
+      && value !== undefined
+      && String(value).trim() !== ''
+      && !hiddenTypeDetailKeys.has(key)
+    ));
+  const defaultTypeDetailEntries = isBook
+    ? []
+    : visibleTypeDetailEntries;
+  const inferBookSourceLabel = (href) => {
+    const value = String(href || '').trim();
+    if (!value) return 'Open source';
+    try {
+      const host = new URL(value).hostname.toLowerCase();
+      if (host.includes('google')) return 'View on Google Books';
+      if (host.includes('openlibrary')) return 'View on Open Library';
+      if (host.includes('archive.org')) return 'View on Internet Archive';
+      if (host.includes('metron')) return 'View on Metron';
+    } catch {
+      // fall back to provider-aware labels below
+    }
+    if (String(typeDetails.provider_name || '').trim().toLowerCase() === 'googlebooks') {
+      return 'View on Google Books';
+    }
+    return 'Open source';
+  };
+  const bookSourceLinks = (() => {
+    const seen = new Set();
+    const candidates = [
+      calibreExternalUrl ? ['Read in Calibre', calibreExternalUrl] : null,
+      providerExternalUrl ? [inferBookSourceLabel(providerExternalUrl), providerExternalUrl] : null,
+      item.tmdb_url ? [inferBookSourceLabel(item.tmdb_url), item.tmdb_url] : null,
+      item.trailer_url ? ['Watch trailer', item.trailer_url] : null
+    ].filter(Boolean);
+    return candidates.filter((entry) => {
+      const href = String(entry[1] || '').trim();
+      if (!href || seen.has(href)) return false;
+      seen.add(href);
+      return true;
+    });
+  })();
   const formatValuation = (value) => {
     const numeric = Number(value);
     if (!Number.isFinite(numeric)) return null;
@@ -583,7 +642,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   return (
     <div className="fixed inset-0 z-50 flex">
       <div className="absolute inset-0 bg-void/72" onClick={onClose} />
-      <div className="relative ml-auto w-full max-w-xl h-full bg-abyss border-l border-edge flex flex-col animate-slide-in">
+      <div className={cx('relative ml-auto h-full w-full bg-abyss border-l border-edge flex flex-col animate-slide-in', isBook ? 'max-w-2xl' : 'max-w-xl')}>
         {posterUrl(item.backdrop_path) && (
           <div className="relative h-48 shrink-0 overflow-hidden">
             <img src={posterUrl(item.backdrop_path)} alt="" className="w-full h-full object-cover" />
@@ -601,7 +660,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
           </div>
           <div className="flex-1 min-w-0 mt-1">
             <div className="flex items-baseline gap-2">
-              <h2 className="font-display text-2xl tracking-wider text-ink leading-tight">{item.title}</h2>
+              <h2 className={titleClassName}>{item.title}</h2>
               <p className="text-sm text-ghost">#{item.id}</p>
             </div>
             <p className="text-sm text-dim mt-1">{[item.year, item.director, item.cast].filter(Boolean).join(' · ')}</p>
@@ -618,9 +677,9 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
 
         <div className="flex-1 overflow-y-auto scroll-area p-6 space-y-6">
           {item.overview && (
-            <div>
+            <div className={isBook ? 'max-w-3xl' : ''}>
               <p className="label mb-2">Overview</p>
-              <p className="text-sm text-dim leading-relaxed">{item.overview}</p>
+              <p className={cx('text-sm text-dim leading-relaxed', isBook ? 'leading-7' : '')}>{item.overview}</p>
             </div>
           )}
 
@@ -704,158 +763,235 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
             </div>
           )}
 
-          {item.type_details && typeof item.type_details === 'object' && (
+          {isBook && bookDetailRows.length > 0 && (
             <div>
-              <p className="label mb-2">Type Details</p>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                {Object.entries(item.type_details)
-                  .filter(([, v]) => v !== null && v !== undefined && String(v).trim() !== '')
-                  .map(([k, v]) => (
-                    <div key={k}>
-                      <p className="label">{k.replace(/_/g, ' ')}</p>
-                      <p className="text-ink">{String(v)}</p>
-                    </div>
-                  ))}
+              <p className="label mb-2">Book details</p>
+              <div className="grid gap-x-8 gap-y-3 text-sm md:grid-cols-2">
+                {bookDetailRows.map(([label, value]) => (
+                  <div key={label} className="border-b border-edge/60 pb-3 last:border-b-0">
+                    <p className="text-[11px] font-medium text-ghost">{label}</p>
+                    <p className="mt-1 text-sm text-ink">{String(value)}</p>
+                  </div>
+                ))}
               </div>
             </div>
           )}
 
-          {(externalMediaUrl || item.trailer_url) && (
+          {!isBook && item.type_details && typeof item.type_details === 'object' && defaultTypeDetailEntries.length > 0 && (
+            <div>
+              <p className="label mb-2">Type Details</p>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                {defaultTypeDetailEntries.map(([k, v]) => (
+                  <div key={k}>
+                    <p className="label">{k.replace(/_/g, ' ')}</p>
+                    <p className="text-ink">{String(v)}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {isBook && bookSourceLinks.length > 0 && (
+            <div>
+              <p className="label mb-2">Sources</p>
+              <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+                {bookSourceLinks.map(([label, href]) => (
+                  <a
+                    key={`${label}-${href}`}
+                    href={href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 text-dim transition-colors hover:text-ink"
+                  >
+                    <Icons.Link />
+                    <span>{label}</span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {!isBook && (externalMediaUrl || item.trailer_url) && (
             <div className="flex gap-3">
               {externalMediaUrl && <a href={externalMediaUrl} target="_blank" rel="noreferrer" className="btn-secondary btn-sm"><Icons.Link />{externalMediaLabel}</a>}
               {item.trailer_url && <a href={item.trailer_url} target="_blank" rel="noreferrer" className="btn-primary btn-sm"><Icons.Play />Trailer</a>}
             </div>
           )}
 
-          <div>
-            <p className="label mb-2">{item.media_type === 'tv_series' ? 'Seasons' : 'Editions'}</p>
-            {variantLoading && <p className="text-sm text-ghost">Loading variants…</p>}
-            {!variantLoading && variants.length === 0 && (
-              <p className="text-sm text-ghost">{item.media_type === 'tv_series' ? 'No season data yet' : 'No edition data yet'}</p>
-            )}
-            {!variantLoading && variants.length > 0 && (
-              <div className="space-y-2">
-                {variants
-                  .filter((v) => item.media_type !== 'tv_series' || Boolean(v.edition))
-                  .map((v) => (
-                    <div key={v.id} className="card p-3">
-                      <p className="text-sm text-ink font-medium flex items-center gap-2">
-                        <span>{v.edition || (item.media_type === 'movie' ? 'Theatrical' : 'Default edition')}</span>
-                        {item.media_type === 'tv_series' && (
-                          <span className={`inline-flex items-center gap-1 text-xs ${v.watch_state === 'completed' ? 'text-ok' : 'text-brand-300'}`}>
-                            {v.watch_state === 'completed' ? <Icons.Check /> : null}
-                            {v.watch_state === 'completed' ? 'Watched' : 'Unwatched'}
-                          </span>
-                        )}
-                      </p>
-                      {item.media_type === 'tv_series' && (
-                        <div className="mt-2 space-y-2">
-                          {(() => {
-                            const key = Number(v.season_number);
-                            const details = seasonDetails[key];
-                            const tmdbEpisodeCount = Number(details?.tmdb?.episode_count);
-                            const tmdbDerivedCount = Array.isArray(details?.tmdb?.episodes)
-                              ? details.tmdb.episodes.length
-                              : null;
-                            const expectedEpisodes = Number.isFinite(Number(v.expected_episodes))
-                              && Number(v.expected_episodes) > 0
-                              ? Number(v.expected_episodes)
-                              : ((Number.isFinite(tmdbEpisodeCount) && tmdbEpisodeCount > 0)
-                                ? tmdbEpisodeCount
-                                : ((Number.isInteger(tmdbDerivedCount) && tmdbDerivedCount > 0) ? tmdbDerivedCount : null));
-                            const ownedEpisodes = Number.isFinite(Number(v.available_episodes)) ? Number(v.available_episodes) : null;
-                            const episodesLabel = ownedEpisodes !== null
-                              ? `Episodes ${ownedEpisodes}/${expectedEpisodes ?? '?'}`
-                              : `Episodes ?/${expectedEpisodes ?? '?'}`;
-                            return (
-                              <p className="text-xs text-ghost">
-                                {episodesLabel}
-                                {expectedEpisodes !== null && ownedEpisodes !== null && ownedEpisodes < expectedEpisodes
-                                  ? ' · Missing episodes'
-                                  : ''}
-                              </p>
-                            );
-                          })()}
-                          <div className="flex gap-2">
-                            <button
-                              className="btn-secondary btn-sm"
-                              onClick={() => markSeasonWatched(Number(v.season_number))}
-                              disabled={Boolean(seasonSaving[Number(v.season_number)]) || v.watch_state === 'completed'}
-                            >
-                              {seasonSaving[Number(v.season_number)] ? <Spinner size={14} /> : <Icons.Check />}
-                              Mark all as watched
-                            </button>
-                            <button
-                              className="btn-ghost btn-sm"
-                              onClick={() => loadSeasonDetail(Number(v.season_number))}
-                              disabled={Boolean(seasonDetailLoading[Number(v.season_number)])}
-                            >
-                              {seasonDetailLoading[Number(v.season_number)] ? <Spinner size={14} /> : <Icons.ChevronRight />}
-                              {openSeason === Number(v.season_number) ? 'Hide episodes' : 'View episodes'}
-                            </button>
-                          </div>
-                          {openSeason === Number(v.season_number) && (
-                            <div className="card p-3 bg-void/20 border border-edge/70">
-                              {seasonDetailLoading[Number(v.season_number)] && (
-                                <p className="text-xs text-ghost">Loading season metadata…</p>
-                              )}
-                              {!seasonDetailLoading[Number(v.season_number)] && (
-                                <>
-                                  {seasonDetails[Number(v.season_number)]?.tmdb?.name && (
-                                    <p className="text-sm text-ink font-medium">{seasonDetails[Number(v.season_number)]?.tmdb?.name}</p>
-                                  )}
-                                  <p className="text-xs text-ghost mt-1">
-                                    {[
-                                      seasonDetails[Number(v.season_number)]?.tmdb?.air_date ? `Air date: ${seasonDetails[Number(v.season_number)]?.tmdb?.air_date}` : null,
-                                      Number.isFinite(Number(seasonDetails[Number(v.season_number)]?.tmdb?.episode_count))
-                                        && Number(seasonDetails[Number(v.season_number)]?.tmdb?.episode_count) > 0
-                                        ? `Episodes: ${seasonDetails[Number(v.season_number)]?.tmdb?.episode_count}`
-                                        : null
-                                    ].filter(Boolean).join(' · ') || 'No TMDB season metadata available'}
+          {isBook ? (
+            <div className="grid gap-6 border-t border-edge/60 pt-5 md:grid-cols-[minmax(0,1fr)_220px]">
+              <div>
+                <p className="label mb-2">Editions</p>
+                {variantLoading && <p className="text-sm text-ghost">Loading variants…</p>}
+                {!variantLoading && variants.length === 0 && (
+                  <p className="text-sm text-ghost">No edition data yet</p>
+                )}
+                {!variantLoading && variants.length > 0 && (
+                  <div className="space-y-2">
+                    {variants
+                      .filter((v) => Boolean(v.edition))
+                      .map((v) => (
+                        <div key={v.id} className="border-b border-edge/60 pb-2 last:border-b-0">
+                          <p className="text-sm font-medium text-ink">{v.edition || 'Default edition'}</p>
+                          <p className="mt-1 text-xs text-ghost">{[v.resolution, v.container, v.video_codec, v.audio_codec, v.audio_channels ? `${v.audio_channels}ch` : null].filter(Boolean).join(' · ')}</p>
+                          {v.file_path ? <p className="mt-1 break-all font-mono text-[11px] text-ghost/80">{v.file_path}</p> : null}
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-5">
+                <div>
+                  <p className="label mb-2">Your Rating</p>
+                  <StarRating value={item.user_rating || 0} onChange={(r) => onRating(item.id, r)} />
+                </div>
+                {item.notes ? (
+                  <div>
+                    <p className="label mb-1">Notes</p>
+                    <p className="text-sm text-dim">{item.notes}</p>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          ) : (
+            <>
+              <div>
+                <p className="label mb-2">{item.media_type === 'tv_series' ? 'Seasons' : 'Editions'}</p>
+                {variantLoading && <p className="text-sm text-ghost">Loading variants…</p>}
+                {!variantLoading && variants.length === 0 && (
+                  <p className="text-sm text-ghost">{item.media_type === 'tv_series' ? 'No season data yet' : 'No edition data yet'}</p>
+                )}
+                {!variantLoading && variants.length > 0 && (
+                  <div className="space-y-2">
+                    {variants
+                      .filter((v) => item.media_type !== 'tv_series' || Boolean(v.edition))
+                      .map((v) => (
+                        <div key={v.id} className="card p-3">
+                          <p className="text-sm text-ink font-medium flex items-center gap-2">
+                            <span>{v.edition || (item.media_type === 'movie' ? 'Theatrical' : 'Default edition')}</span>
+                            {item.media_type === 'tv_series' && (
+                              <span className={`inline-flex items-center gap-1 text-xs ${v.watch_state === 'completed' ? 'text-ok' : 'text-brand-300'}`}>
+                                {v.watch_state === 'completed' ? <Icons.Check /> : null}
+                                {v.watch_state === 'completed' ? 'Watched' : 'Unwatched'}
+                              </span>
+                            )}
+                          </p>
+                          {item.media_type === 'tv_series' && (
+                            <div className="mt-2 space-y-2">
+                              {(() => {
+                                const key = Number(v.season_number);
+                                const details = seasonDetails[key];
+                                const tmdbEpisodeCount = Number(details?.tmdb?.episode_count);
+                                const tmdbDerivedCount = Array.isArray(details?.tmdb?.episodes)
+                                  ? details.tmdb.episodes.length
+                                  : null;
+                                const expectedEpisodes = Number.isFinite(Number(v.expected_episodes))
+                                  && Number(v.expected_episodes) > 0
+                                  ? Number(v.expected_episodes)
+                                  : ((Number.isFinite(tmdbEpisodeCount) && tmdbEpisodeCount > 0)
+                                    ? tmdbEpisodeCount
+                                    : ((Number.isInteger(tmdbDerivedCount) && tmdbDerivedCount > 0) ? tmdbDerivedCount : null));
+                                const ownedEpisodes = Number.isFinite(Number(v.available_episodes)) ? Number(v.available_episodes) : null;
+                                const episodesLabel = ownedEpisodes !== null
+                                  ? `Episodes ${ownedEpisodes}/${expectedEpisodes ?? '?'}`
+                                  : `Episodes ?/${expectedEpisodes ?? '?'}`;
+                                return (
+                                  <p className="text-xs text-ghost">
+                                    {episodesLabel}
+                                    {expectedEpisodes !== null && ownedEpisodes !== null && ownedEpisodes < expectedEpisodes
+                                      ? ' · Missing episodes'
+                                      : ''}
                                   </p>
-                                  {Array.isArray(seasonDetails[Number(v.season_number)]?.tmdb?.episodes)
-                                    && seasonDetails[Number(v.season_number)]?.tmdb?.episodes.length > 0 && (
-                                      <div className="mt-2 max-h-44 overflow-auto pr-1 space-y-1">
-                                        {seasonDetails[Number(v.season_number)]?.tmdb?.episodes.map((episode) => (
-                                          <div key={episode.id || `ep-${episode.episode_number}`} className="text-xs text-dim">
-                                            <span className="text-ink">E{episode.episode_number}:</span> {episode.name || 'Untitled'}
-                                            {episode.watched
-                                              ? <span className="text-ok"> · watched</span>
-                                              : <span className="text-[#3b82f6] font-medium"> · unwatched</span>}
-                                            {episode.in_library ? <span className="text-ghost"> · in library</span> : null}
-                                            {episode.air_date ? <span className="text-ghost"> · {episode.air_date}</span> : null}
+                                );
+                              })()}
+                              <div className="flex gap-2">
+                                <button
+                                  className="btn-secondary btn-sm"
+                                  onClick={() => markSeasonWatched(Number(v.season_number))}
+                                  disabled={Boolean(seasonSaving[Number(v.season_number)]) || v.watch_state === 'completed'}
+                                >
+                                  {seasonSaving[Number(v.season_number)] ? <Spinner size={14} /> : <Icons.Check />}
+                                  Mark all as watched
+                                </button>
+                                <button
+                                  className="btn-ghost btn-sm"
+                                  onClick={() => loadSeasonDetail(Number(v.season_number))}
+                                  disabled={Boolean(seasonDetailLoading[Number(v.season_number)])}
+                                >
+                                  {seasonDetailLoading[Number(v.season_number)] ? <Spinner size={14} /> : <Icons.ChevronRight />}
+                                  {openSeason === Number(v.season_number) ? 'Hide episodes' : 'View episodes'}
+                                </button>
+                              </div>
+                              {openSeason === Number(v.season_number) && (
+                                <div className="card p-3 bg-void/20 border border-edge/70">
+                                  {seasonDetailLoading[Number(v.season_number)] && (
+                                    <p className="text-xs text-ghost">Loading season metadata…</p>
+                                  )}
+                                  {!seasonDetailLoading[Number(v.season_number)] && (
+                                    <>
+                                      {seasonDetails[Number(v.season_number)]?.tmdb?.name && (
+                                        <p className="text-sm text-ink font-medium">{seasonDetails[Number(v.season_number)]?.tmdb?.name}</p>
+                                      )}
+                                      <p className="text-xs text-ghost mt-1">
+                                        {[
+                                          seasonDetails[Number(v.season_number)]?.tmdb?.air_date ? `Air date: ${seasonDetails[Number(v.season_number)]?.tmdb?.air_date}` : null,
+                                          Number.isFinite(Number(seasonDetails[Number(v.season_number)]?.tmdb?.episode_count))
+                                            && Number(seasonDetails[Number(v.season_number)]?.tmdb?.episode_count) > 0
+                                            ? `Episodes: ${seasonDetails[Number(v.season_number)]?.tmdb?.episode_count}`
+                                            : null
+                                        ].filter(Boolean).join(' · ') || 'No TMDB season metadata available'}
+                                      </p>
+                                      {Array.isArray(seasonDetails[Number(v.season_number)]?.tmdb?.episodes)
+                                        && seasonDetails[Number(v.season_number)]?.tmdb?.episodes.length > 0 && (
+                                          <div className="mt-2 max-h-44 overflow-auto pr-1 space-y-1">
+                                            {seasonDetails[Number(v.season_number)]?.tmdb?.episodes.map((episode) => (
+                                              <div key={episode.id || `ep-${episode.episode_number}`} className="text-xs text-dim">
+                                                <span className="text-ink">E{episode.episode_number}:</span> {episode.name || 'Untitled'}
+                                                {episode.watched
+                                                  ? <span className="text-ok"> · watched</span>
+                                                  : <span className="text-[#3b82f6] font-medium"> · unwatched</span>}
+                                                {episode.in_library ? <span className="text-ghost"> · in library</span> : null}
+                                                {episode.air_date ? <span className="text-ghost"> · {episode.air_date}</span> : null}
+                                              </div>
+                                            ))}
                                           </div>
-                                        ))}
-                                      </div>
-                                    )}
-                                </>
+                                        )}
+                                    </>
+                                  )}
+                                </div>
                               )}
                             </div>
                           )}
+                          {item.media_type !== 'tv_series' && (
+                            <p className="text-xs text-ghost mt-1">{[v.resolution, v.container, v.video_codec, v.audio_codec, v.audio_channels ? `${v.audio_channels}ch` : null].filter(Boolean).join(' · ')}</p>
+                          )}
+                          {item.media_type !== 'tv_series' && v.file_path && <p className="text-xs text-ghost/80 font-mono mt-1 break-all">{v.file_path}</p>}
                         </div>
-                      )}
-                      {item.media_type !== 'tv_series' && (
-                        <p className="text-xs text-ghost mt-1">{[v.resolution, v.container, v.video_codec, v.audio_codec, v.audio_channels ? `${v.audio_channels}ch` : null].filter(Boolean).join(' · ')}</p>
-                      )}
-                      {item.media_type !== 'tv_series' && v.file_path && <p className="text-xs text-ghost/80 font-mono mt-1 break-all">{v.file_path}</p>}
-                    </div>
-                  ))}
+                      ))}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
 
-          {item.notes && <div><p className="label mb-1">Notes</p><p className="text-sm text-dim">{item.notes}</p></div>}
+              {item.notes && <div><p className="label mb-1">Notes</p><p className="text-sm text-dim">{item.notes}</p></div>}
 
-          <div>
-            <p className="label mb-2">Your Rating</p>
-            <StarRating value={item.user_rating || 0} onChange={(r) => onRating(item.id, r)} />
-          </div>
+              <div>
+                <p className="label mb-2">Your Rating</p>
+                <StarRating value={item.user_rating || 0} onChange={(r) => onRating(item.id, r)} />
+              </div>
+            </>
+          )}
         </div>
 
         <div className="p-4 border-t border-edge flex gap-3 shrink-0">
           <button onClick={onClose} className="btn-ghost">Close</button>
-          <button onClick={() => onEdit(item)} className="btn-secondary flex-1"><Icons.Edit />Edit</button>
-          <button onClick={() => { if (window.confirm('Delete this item?')) { onDelete(item.id); onClose(); } }} className="btn-danger"><Icons.Trash /></button>
+          <button onClick={() => onEdit(item)} className={cx(isBook ? 'btn-ghost' : 'btn-secondary', 'flex-1')}><Icons.Edit />Edit</button>
+          <button
+            onClick={() => { if (window.confirm('Delete this item?')) { onDelete(item.id); onClose(); } }}
+            className={isBook ? 'btn-ghost text-err hover:bg-err/10' : 'btn-danger'}
+          >
+            <Icons.Trash />
+          </button>
         </div>
       </div>
     </div>

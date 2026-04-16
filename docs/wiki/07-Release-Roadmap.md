@@ -1103,6 +1103,7 @@ Historical planning notes may still exist in:
 60. `3.1.2` Post-split UI cleanup for support, help, and auth shell surfaces
 61. `3.1.3` Library controls and selection behavior cleanup
 62. `3.1.4` Profile surface and account navigation cleanup
+63. `3.1.5` Library detail drawer layout and information hierarchy cleanup
 
 ## 2.1.0 — Metadata Normalization and Query Performance
 
@@ -2973,6 +2974,65 @@ Historical note:
 - Profile images are now supported across the profile surface and shell account entry, with a clickable avatar upload target replacing the earlier separate image preview and URL field.
 - Backend auth/profile handling now persists `users.image_path`, and the milestone included a follow-on migration fix so `/api/auth/me` and profile edits recover cleanly on the running stack.
 - Homelab and platform were rebuilt onto the same refreshed shared shell/library-adjacent UI path so comics, search, pagination, nav, and profile/account updates land consistently across both editions while preserving intended feature-level product differences.
+
+## 3.1.5 — Library Detail Drawer Layout and Information Hierarchy Cleanup
+
+**Goal:** Make library detail drawers feel more content-shaped and less template-driven by tightening sparse layouts, relaxing overused metadata grids, and reducing visual weight in drawer chrome after the `3.1.3` and `3.1.4` cleanup passes.
+
+### Scope
+
+- Reassess the shared drawer pattern across library detail views, where one vertical rhythm and one metadata grammar are stretched across very different content types.
+- Reduce excessive empty vertical space in sparse drawers so the body does not feel abandoned or bottom-light while the footer feels dominant.
+- Allow selective width variants instead of assuming one universal drawer width:
+  - media drawers may need a slightly wider detail variant,
+  - collectibles and events likely need denser composition rather than more width.
+- Reduce dependence on repeated two-column metadata grids when they flatten the content hierarchy.
+- Let overview content remain block-oriented instead of forcing it into surrounding field-grid logic.
+- Rework technical and provider-heavy metadata so long machine values do not strain narrow two-column layouts:
+  - prefer stacked or list-style treatments where they read more naturally than field matrices.
+- Keep valuation treatment compact and integrated:
+  - `Low`, `Mid`, and `High` on one horizontal row,
+  - supporting source and update metadata quieter than the values,
+  - refresh control treated as a low-emphasis utility action.
+- Replace long raw external URLs and oversized external-link buttons with quieter labeled links or link-style actions:
+  - use destination/action labels such as `Read in Calibre`, `Open source`, `View on TMDB`, `Open event site`, or `Open image`,
+  - avoid exposing infrastructure-heavy raw URLs in the drawer body when a descriptive link label will do.
+- Move drawer titles away from all-caps so the hierarchy stays strong without shouting.
+- Tone down the footer action bar so `Close`, `Edit`, and `Delete` no longer carry more visual weight than the drawer content above them.
+- Let drawer layouts vary more intentionally by content density and content type instead of enforcing the same section rhythm everywhere.
+- Keep the milestone bounded to drawer surfaces and information hierarchy rather than widening back into profile, auth, or library data-flow milestones.
+
+### Assessment Notes
+
+- Overall drawer pattern is coherent and serviceable, but still feels too templated:
+  - too much empty vertical space in sparse drawers,
+  - same structure regardless of content density,
+  - footer actions often feel heavier than the body.
+- TV and comics are among the stronger fits because they have enough content to justify the current structure.
+- Games are solid but still a little long and overly sectioned.
+- Movies are competent but read like the default media drawer rather than a fully resolved layout.
+- Audio drawers are clean but underfilled for the amount of space they use.
+- Events are acceptable but often feel like drawers waiting for more content.
+- Books are functionally useful but visually rough because long provider IDs and URLs strain the current grid.
+- Collectibles are the weakest fit because the sparse body leaves too much dead space and makes the footer disproportionately important.
+
+### Recommended First Focus
+
+- Start with the weakest structural fits:
+  - collectibles,
+  - books.
+- Use those two surfaces to prove the broader direction before touching every drawer type.
+
+### Acceptance Criteria
+
+- Sparse drawers no longer feel empty, abandoned, or bottom-heavy.
+- Drawer composition varies intentionally by content density instead of relying on one overused two-column field grammar.
+- Media drawers that need more width have it without forcing the same width on collectibles or events.
+- Long technical/provider metadata no longer breaks the reading rhythm of the drawer.
+- External sources are presented as labeled links or quieter actions instead of raw URLs and chunky buttons.
+- Drawer titles no longer render in all-caps.
+- Footer actions are toned down so they support the drawer instead of dominating it.
+- The first-pass target drawers, especially books and collectibles, show clear layout improvement without regressing stronger drawers such as TV and comics.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
