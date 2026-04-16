@@ -136,7 +136,10 @@ function CollectibleDetailDrawer({ collectibleId, apiCall, categories, events, o
   const resolvedEvent = item?.event_title
     || events.find((evt) => String(evt.id) === String(item?.event_id))?.title
     || null;
-
+  const itemTypeLabel = item?.subtype
+    ? ITEM_TYPES.find((opt) => opt.value === item.subtype)?.label || item.subtype
+    : item?.item_type || 'Collectible';
+  const factSummary = [resolvedCategory || 'Uncategorized', resolvedEvent, item?.booth_or_vendor].filter(Boolean);
   return (
     <div className="fixed inset-0 z-50 flex">
       <div className="absolute inset-0 bg-void/72" onClick={onClose} />
@@ -157,44 +160,54 @@ function CollectibleDetailDrawer({ collectibleId, apiCall, categories, events, o
           ) : null}
           <div className={cx('min-w-0 flex-1', item?.image_path ? 'mt-1' : '')}>
             <div className="flex items-baseline gap-2">
-              <h2 className="font-display text-2xl tracking-wider text-ink leading-tight">{item?.title || `Collectible #${collectibleId}`}</h2>
+              <h2 className="text-2xl font-semibold tracking-tight text-ink leading-tight">{item?.title || `Collectible #${collectibleId}`}</h2>
               <p className="text-sm text-ghost">#{collectibleId}</p>
             </div>
             <p className="mt-1 text-sm text-dim">
-              {[resolvedCategory, resolvedEvent, item?.booth_or_vendor].filter(Boolean).join(' · ')}
+              {factSummary.join(' · ')}
             </p>
           </div>
           <button onClick={onClose} className="btn-icon btn-sm shrink-0"><Icons.X /></button>
         </div>
         <div className="divider" />
-        <div className="flex-1 overflow-y-auto scroll-area p-6 space-y-4">
+        <div className="flex-1 overflow-y-auto scroll-area p-6 space-y-5">
           {loading ? <div className="flex items-center gap-2 text-dim"><Spinner size={16} />Loading…</div> : null}
           {!loading && item ? (
             <>
-              <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
-                <DetailField label="Type">{item.subtype || item.item_type || 'collectible'}</DetailField>
+              <div className="grid grid-cols-1 gap-x-8 gap-y-5 text-sm md:grid-cols-2">
+                <DetailField label="Type">{itemTypeLabel}</DetailField>
                 <DetailField label="Category">{resolvedCategory || 'Uncategorized'}</DetailField>
                 <DetailField label="Event">{resolvedEvent || 'None linked'}</DetailField>
                 <DetailField label="Exclusive">{item.exclusive ? 'Yes' : 'No'}</DetailField>
                 <DetailField label="Artist">{item.artist}</DetailField>
                 <DetailField label="Vendor / Booth">{item.booth_or_vendor}</DetailField>
-                <DetailField label="Price">{item.price !== null && item.price !== undefined ? `$${item.price}` : null}</DetailField>
+                <DetailField label="Price">{item.price !== null && item.price !== undefined && item.price !== '' ? `$${item.price}` : null}</DetailField>
                 {item.image_path ? (
-                  <DetailField label="Image" className="md:col-span-2">
-                    <a className="btn-secondary btn-sm w-fit" href={item.image_path} target="_blank" rel="noreferrer"><Icons.Link />Open image</a>
+                  <DetailField label="Image">
+                    <a
+                      className="inline-flex items-center gap-2 text-dim transition-colors hover:text-ink"
+                      href={item.image_path}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <Icons.Link />
+                      Open image
+                    </a>
+                  </DetailField>
+                ) : null}
+                {item.notes ? (
+                  <DetailField label="Notes" className="md:col-span-2">
+                    <p className="max-w-3xl text-dim leading-7">{item.notes}</p>
                   </DetailField>
                 ) : null}
               </div>
-              {item.notes ? (
-                <DetailField label="Notes"><p className="text-dim">{item.notes}</p></DetailField>
-              ) : null}
             </>
           ) : null}
         </div>
         <div className="p-4 border-t border-edge flex gap-3 shrink-0">
           <button onClick={onClose} className="btn-ghost">Close</button>
-          <button onClick={() => onEdit(item)} className="btn-secondary flex-1" disabled={!item}><Icons.Edit />Edit</button>
-          <button onClick={deleteCollectible} className="btn-danger" disabled={!item}><Icons.Trash />Delete</button>
+          <button onClick={() => onEdit(item)} className="btn-ghost flex-1" disabled={!item}><Icons.Edit />Edit</button>
+          <button onClick={deleteCollectible} className="btn-ghost text-err hover:bg-err/10" disabled={!item}><Icons.Trash />Delete</button>
         </div>
       </div>
     </div>
