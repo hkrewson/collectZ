@@ -37,6 +37,10 @@ const { normalizeIdentifierSet, normalizeIsbn } = require('../services/importIde
 const { syncNormalizedMetadataForMedia } = require('../services/mediaTaxonomy');
 const { normalizeTypeDetails } = require('../services/typeDetails');
 const {
+  buildBookNormalizationIdentity,
+  buildComicNormalizationIdentity
+} = require('../services/bookComicNormalization');
+const {
   ALL_DISPLAY_FORMAT_LABELS,
   getOwnedFormatOptions,
   normalizeOwnedFormatValue,
@@ -104,6 +108,7 @@ const SORT_COLUMNS = {
 };
 const IMPORT_MATCH_MODES = [
   'matched_by_identifier',
+  'matched_by_normalization_high',
   'identifier_no_match_fallback_title',
   'fallback_title_only',
   'identifier_conflict'
@@ -230,6 +235,7 @@ function deriveImportConfidenceScore({
   const profile = resolveImportDecisionProfile({ mediaType, importSource });
   let score = profile.scoreBase;
   if (matchMode === 'matched_by_identifier') score += 25;
+  if (matchMode === 'matched_by_normalization_high') score += 18;
   if (matchMode === 'identifier_conflict') score -= 35;
   if (matchMode === 'identifier_no_match_fallback_title') score -= 15;
   if (matchMode === 'fallback_title_only') score -= 20;
@@ -296,6 +302,7 @@ function deriveImportAuditOutcome({
     const matched = String(matchedBy || '');
     if (
       matchMode === 'matched_by_identifier'
+      || matchMode === 'matched_by_normalization_high'
       || matchMode === 'identifier_conflict'
       || matched.startsWith('identifier_')
       || matched.startsWith('provider_')
@@ -1522,6 +1529,86 @@ async function findExistingByProviderIds({ item, normalizedMediaType, normalized
   return { row: null, matchedBy: null };
 }
 
+function buildNormalizationIdentityForImportedItem({ normalizedMediaType, title, normalizedTypeDetails, resolvedIdentifiers }) {
+  const payload = {
+    title,
+    media_type: normalizedMediaType,
+    isbn: resolvedIdentifiers?.isbn || '',
+    type_details: normalizedTypeDetails || {}
+  };
+  if (normalizedMediaType === 'book') return buildBookNormalizationIdentity(payload);
+  if (normalizedMediaType === 'comic_book') return buildComicNormalizationIdentity(payload);
+  return null;
+}
+
+async function findExistingByNormalizationIdentity({
+  normalizedMediaType,
+  normalizationIdentity,
+  title,
+  normalizedTypeDetails,
+  scopeContext = null
+}) {
+  if (!normalizationIdentity?.key || normalizationIdentity.confidence !== 'high') {
+    return { row: null, matchedBy: null, matchMode: null };
+  }
+
+  const params = [normalizedMediaType];
+  let scopeClause = '';
+
+  let candidateQuery = '';
+  if (normalizedMediaType === 'book' && normalizationIdentity.kind === 'isbn') {
+    params.push(String(normalizedTypeDetails?.isbn || '').replace(/\D+/g, ''));
+    scopeClause = appendScopeSql(params, scopeContext, {
+      spaceColumn: 'm.space_id',
+      libraryColumn: 'm.library_id'
+    });
+    candidateQuery = `
+      SELECT DISTINCT m.id, m.title, m.type_details, m.media_type
+      FROM media m
+      LEFT JOIN media_metadata mm ON mm.media_id = m.id
+      WHERE COALESCE(m.media_type, 'movie') = $1
+        AND (
+          regexp_replace(COALESCE(m.type_details->>'isbn', ''), '\\D+', '', 'g') = $2
+          OR (mm."key" = 'isbn' AND regexp_replace(COALESCE(mm."value", ''), '\\D+', '', 'g') = $2)
+        )
+        ${scopeClause}
+      ORDER BY m.id DESC
+      LIMIT 10`;
+  } else if (normalizedMediaType === 'comic_book' && normalizationIdentity.kind === 'series_issue_volume') {
+    params.push(String(normalizedTypeDetails?.series || '').trim().toLowerCase());
+    scopeClause = appendScopeSql(params, scopeContext, {
+      spaceColumn: 'm.space_id',
+      libraryColumn: 'm.library_id'
+    });
+    candidateQuery = `
+      SELECT m.id, m.title, m.type_details, m.media_type
+      FROM media m
+      WHERE COALESCE(m.media_type, 'movie') = $1
+        AND lower(trim(COALESCE(m.type_details->>'series', ''))) = $2
+        ${scopeClause}
+      ORDER BY m.id DESC
+      LIMIT 100`;
+  } else if (normalizedMediaType === 'comic_book' && normalizationIdentity.kind === 'provider_item') {
+    return { row: null, matchedBy: null, matchMode: null };
+  } else {
+    return { row: null, matchedBy: null, matchMode: null };
+  }
+
+  const result = await pool.query(candidateQuery, params);
+  const builder = normalizedMediaType === 'book' ? buildBookNormalizationIdentity : buildComicNormalizationIdentity;
+  const matchedRow = (result.rows || []).find((candidate) => {
+    const candidateIdentity = builder(candidate);
+    return candidateIdentity?.confidence === 'high' && candidateIdentity?.key === normalizationIdentity.key;
+  });
+
+  if (!matchedRow) return { row: null, matchedBy: null, matchMode: null };
+  return {
+    row: { id: matchedRow.id },
+    matchedBy: `normalization_${normalizationIdentity.kind}`,
+    matchMode: 'matched_by_normalization_high'
+  };
+}
+
 async function upsertImportedMedia({ userId, item, importSource, scopeContext = null, identifiers = null }) {
   const title = String(item.title || '').trim();
   if (!title) {
@@ -1583,6 +1670,27 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
       if (providerMatch.row) {
         existingRow = providerMatch.row;
         matchedBy = providerMatch.matchedBy || 'provider';
+      }
+    }
+
+    if (!existingRow && ['book', 'comic_book'].includes(normalizedMediaType)) {
+      const normalizationIdentity = buildNormalizationIdentityForImportedItem({
+        normalizedMediaType,
+        title,
+        normalizedTypeDetails,
+        resolvedIdentifiers
+      });
+      const normalizationMatch = await findExistingByNormalizationIdentity({
+        normalizedMediaType,
+        normalizationIdentity,
+        title,
+        normalizedTypeDetails,
+        scopeContext
+      });
+      if (normalizationMatch.row) {
+        existingRow = normalizationMatch.row;
+        matchedBy = normalizationMatch.matchedBy || 'normalization_high';
+        matchMode = normalizationMatch.matchMode || 'matched_by_normalization_high';
       }
     }
 

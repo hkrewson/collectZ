@@ -3050,6 +3050,8 @@ Historical note:
 
 **Goal:** Normalize book and comic ingest across Metron and OPDS/CWA so equivalent titles can attach to one canonical library record instead of creating duplicate rows or drifting into the wrong media type when multiple sync-capable sources contribute overlapping data.
 
+**Current Slice:** `3.1.6.3 — Runtime Import Proof for High-Confidence Auto-Attach`
+
 ### Scope
 
 - Reassess the current Metron and OPDS/CWA ingest paths for books and comics, where overlapping titles can arrive as separate rows without a shared normalization contract.
@@ -3076,6 +3078,21 @@ Historical note:
 - Identifier precedence and confidence bands are documented clearly enough to explain why rows merge, link for review, or remain separate.
 - New Metron and OPDS/CWA syncs can enrich an existing canonical row instead of creating an obvious duplicate when confidence is high.
 - Historical duplicates have a defined repair path that is dry-run-safe before any bulk merge/update step is applied.
+
+### Active Slice Notes
+
+- Keep provider and identifier matches as the first dedupe layer.
+- After those hard identifiers, use the normalization contract during ingest only when confidence is `high`.
+- Keep `medium` confidence matches out of auto-attach for now:
+  - no silent merge for series + issue without volume,
+  - no title/author auto-merge for books without stronger proof,
+  - no historical backfill yet.
+- Use the running dev dataset to verify that obvious duplicates stop creating new rows while review-scoped cases remain separate until a later slice adds an operator-facing decision path.
+- Prove the new behavior with a runtime smoke that seeds a scoped existing comic row, imports a CSV duplicate through the real `/api/media/import-csv?sync=1` path, and confirms:
+  - `created = 0`
+  - `updated = 1`
+  - `match_mode = matched_by_normalization_high`
+  - `matched_by = normalization_series_issue_volume`
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 

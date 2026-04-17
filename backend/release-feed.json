@@ -1,6 +1,132 @@
 {
   "releases": [
     {
+      "title": "v3.1.5",
+      "version": "3.1.5",
+      "date": "2026-04-16",
+      "status": "Completed",
+      "summary": "This patch release makes library detail drawers feel more content-shaped and less template-driven after the earlier library and profile cleanup passes. Books, collectibles, events, comics, TV seasons, and the shared media drawers now use calmer hierarchy, quieter actions, and more truthful source treatment, while newer library tabs also persist correctly across refresh.",
+      "details": [
+        {
+          "heading": "Book drawer cleanup",
+          "bullets": [
+            "Reworked book drawers into a wider, less machine-shaped layout with calmer title treatment and labeled source links.",
+            "Reduced provider-plumbing exposure so raw URLs, duplicated destinations, and low-value technical metadata no longer dominate the book detail surface.",
+            "Tightened the lower-half arrangement for editions, rating, and notes so the drawer feels less bottom-light."
+          ]
+        },
+        {
+          "heading": "Collectible and event drawer restraint passes",
+          "bullets": [
+            "Flattened collectible and event drawers rather than redesigning them into heavier panel systems.",
+            "Replaced louder button-like external actions with quieter links where appropriate and toned down footer controls.",
+            "Tightened spacing and information hierarchy so these sparser drawers feel denser and more intentional without becoming overdesigned."
+          ]
+        },
+        {
+          "heading": "Shared media drawer normalization",
+          "bullets": [
+            "Normalized shared media drawers for movies, TV, games, and comics so titles, notes, external actions, and footer controls no longer feel like leftovers from the older button-heavy drawer system.",
+            "Corrected provider/source labeling so games point to `View on IGDB` instead of inheriting movie/TV labels, and media actions read more truthfully by destination."
+          ]
+        },
+        {
+          "heading": "Comic drawer cleanup",
+          "bullets": [
+            "Suppressed visible internal and provider IDs in comic drawers.",
+            "Stopped leaking Calibre and OPDS plumbing into `Type Details` and converted provider links into clearer labels such as `View on Metron` and `Download on Calibre`.",
+            "Added a restrained long-overview treatment so oversized comic summaries collapse behind a simple show more/show less toggle."
+          ]
+        },
+        {
+          "heading": "TV season cleanup and shared-library persistence fix",
+          "bullets": [
+            "Replaced stacked nested TV season cards with a flatter season-tab treatment using shorter `S1`-style labels and quieter watched-state feedback.",
+            "Fixed newer library tabs like events and collectibles so they persist correctly across refresh instead of falling back before feature flags finish loading."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "v3.1.4",
+      "version": "3.1.4",
+      "date": "2026-04-15",
+      "status": "Completed",
+      "summary": "This patch release reshapes account management into a calmer, more intentional shell surface after the library cleanup from `3.1.3`. The profile page, account menu, and profile-image flow now feel more integrated with the rest of the app, and platform and homelab were brought back onto the same refreshed shared UI path where intended.",
+      "details": [
+        {
+          "heading": "Profile surface cleanup",
+          "bullets": [
+            "Reshaped the profile page into a calmer account-management surface with cleaner spacing, flatter supporting treatments, and a more intentional identity summary.",
+            "Reduced the boxed, generic account-page feel so the profile page sits more naturally inside the shell.",
+            "Kept the milestone focused on account/profile experience instead of widening into broader auth or settings redesign."
+          ]
+        },
+        {
+          "heading": "Consolidated account navigation",
+          "bullets": [
+            "Replaced the duplicated footer-account treatment with one clearer account entry point in the shell.",
+            "Standardized the account menu contents around `My profile`, `Discord`, `GitHub`, and `Sign out`.",
+            "Tightened the profile/account entry so navigation feels more deliberate and less duplicated across the shell."
+          ]
+        },
+        {
+          "heading": "Profile image support and auth/profile persistence",
+          "bullets": [
+            "Added profile-image support across the profile surface and shell account entry.",
+            "Simplified the avatar interaction into a clickable upload target instead of a separate preview box and direct URL field.",
+            "Persisted `users.image_path` through auth/profile handling and added the follow-on schema/migration repair needed so `/api/auth/me` and profile edits recover cleanly on the running stack."
+          ]
+        },
+        {
+          "heading": "Edition UI alignment",
+          "bullets": [
+            "Rebuilt homelab and platform onto the same refreshed shared shell and library-adjacent UI path so comics, search, pagination, nav, and profile/account updates land consistently across both editions.",
+            "Preserved intended feature-level differences while removing presentation drift caused by stale frontend/runtime divergence."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "v3.1.3",
+      "version": "3.1.3",
+      "date": "2026-04-14",
+      "status": "Completed",
+      "summary": "This patch release cleans up the shared library workflow after the `3.1.2` shell pass by simplifying pagination, clarifying bulk-selection behavior, and flattening valuation presentation. The collection surface now reads more clearly during day-to-day browsing and bulk management without widening back into broader shell or drawer redesign work.",
+      "details": [
+        {
+          "heading": "Pagination and footer control cleanup",
+          "bullets": [
+            "Replaced the older verbose `Previous` and `Next` footer wording with quieter directional pagination controls.",
+            "Tightened the page-size and results-footer treatment so navigation feels lighter and less repetitive.",
+            "Kept pagination behavior intact while reducing the amount of interface copy users have to parse."
+          ]
+        },
+        {
+          "heading": "Bulk-selection behavior cleanup",
+          "bullets": [
+            "Removed the idle `Bulk Actions` framing and clarified the difference between selecting the current page and selecting all matching results in the active library type.",
+            "Moved selection state into the results header so it reads as content-region state instead of a second heavy toolbar.",
+            "Kept escalation from page selection to full-result selection available without overloading one ambiguous `Select all` affordance."
+          ]
+        },
+        {
+          "heading": "Valuation presentation cleanup",
+          "bullets": [
+            "Simplified valuation display in library detail drawers into a straightforward `Low` / `Mid` / `High` row.",
+            "Reduced the visual weight of the refresh affordance so valuation reads like normal metadata rather than a noisy utility widget.",
+            "Kept the valuation treatment compact so it supports the drawer instead of dominating it."
+          ]
+        },
+        {
+          "heading": "Supporting regression alignment",
+          "bullets": [
+            "Carried the browser-regression contract correction for the space-manager flow so fallback manageable-workspace behavior is asserted correctly after suspension or removal with surviving unrelated workspace access."
+          ]
+        }
+      ]
+    },
+    {
       "title": "v3.1.2",
       "version": "3.1.2",
       "date": "2026-04-14",
@@ -86,30 +212,6 @@
       "date": "2026-04-11",
       "status": "Completed",
       "summary": "This patch release turns the SaaS auth surface into a real public account-entry flow. Users can now request password resets from the sign-in screen, self-register when the platform allows it, verify their email before normal sign-in, and land in the correct workspace model depending on how they were onboarded. Public self-registration now creates a personal workspace after verification, while invite-based onboarding still lands a new user only in the invited workspace without creating an extra personal one.",
-      "details": []
-    },
-    {
-      "title": "v2.10.15",
-      "version": "2.10.15",
-      "date": "2026-04-11",
-      "status": "Completed",
-      "summary": "This patch release establishes a real platform-owned SMTP delivery model for the SaaS product. Platform operators can now see whether email delivery is configured, manage a masked app-level SMTP override on top of environment defaults, and validate live delivery with a protected test-send flow before the next registration, password-reset, and workspace invite milestones build on top of it.",
-      "details": []
-    },
-    {
-      "title": "v2.10.14",
-      "version": "2.10.14",
-      "date": "2026-04-10",
-      "status": "Completed",
-      "summary": "This patch release turns the product’s space-separation promise into real workspace behavior. Settings, integrations, and activity now belong to the current workspace instead of quietly depending on global admin surfaces, while the platform layer is narrowed toward true platform concerns.",
-      "details": []
-    },
-    {
-      "title": "v2.10.13",
-      "version": "2.10.13",
-      "date": "2026-04-09",
-      "status": "Completed",
-      "summary": "This patch release finishes the remaining `2.10.x` shared-language cleanup by moving the app away from display-font chrome and auth-page mini-marketing toward calmer, more product-native shared UI. Workspace headings, panel headings, and the authentication surface now follow the same quieter language instead of drifting into uppercase dashboard theatrics.",
       "details": []
     }
   ]

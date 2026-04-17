@@ -1,6 +1,6 @@
 {
   "name": "mediavault-backend",
-  "version": "3.1.2",
+  "version": "3.1.5",
   "description": "collectZ Backend API",
   "main": "server.js",
   "scripts": {
@@ -19,6 +19,7 @@
     "test:platform-edition-boundary": "node scripts/platform-edition-boundary-smoke.js",
     "test:csv-import": "node scripts/csv-parse-smoke.js",
     "test:rbac-regression": "node scripts/rbac-regression-check.js",
+    "test:import-normalization-smoke": "node scripts/import-normalization-smoke.js",
     "test:cross-type-isolation": "node scripts/cross-type-isolation-check.js",
     "test:media-query-regression": "node scripts/media-query-regression-check.js",
     "test:book-comic-normalization-audit": "node scripts/book-comic-normalization-audit.js",

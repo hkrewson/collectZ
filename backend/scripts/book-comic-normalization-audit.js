@@ -4,8 +4,10 @@ const pool = require('../db/pool');
 const {
   buildBookNormalizationIdentity,
   buildComicNormalizationIdentity,
+  buildNormalizationMatchContract,
   detectLikelyComicLikeBook,
-  groupRowsByNormalizationKey
+  groupRowsByNormalizationKey,
+  splitClustersByConfidence
 } = require('../services/bookComicNormalization');
 
 function parseArgs(argv = []) {
@@ -48,7 +50,9 @@ function summarizeCluster(cluster = {}) {
   return {
     key: cluster.key,
     confidence: cluster.confidence,
+    action: cluster.action || null,
     kind: cluster.kind,
+    rationale: Array.isArray(cluster.rationale) ? cluster.rationale : [],
     count: cluster.rows.length,
     sample: cluster.rows.slice(0, 6).map((row) => ({
       id: row.id,
@@ -89,8 +93,11 @@ async function run() {
   const duplicateComicClusters = groupRowsByNormalizationKey(comics, buildComicNormalizationIdentity)
     .filter((bucket) => bucket.confidence !== 'low')
     .sort((left, right) => right.rows.length - left.rows.length || left.key.localeCompare(right.key));
+  const bookClustersByConfidence = splitClustersByConfidence(duplicateBookClusters);
+  const comicClustersByConfidence = splitClustersByConfidence(duplicateComicClusters);
 
   const report = {
+    matchContract: buildNormalizationMatchContract(),
     totals: {
       books: books.length,
       comics: comics.length
@@ -110,9 +117,26 @@ async function run() {
         return acc;
       }, {})
     },
+    summary: {
+      likelyComicLikeBooks: likelyComicLikeBooks.length,
+      duplicateBookClusters: {
+        high: bookClustersByConfidence.high.length,
+        medium: bookClustersByConfidence.medium.length
+      },
+      duplicateComicClusters: {
+        high: comicClustersByConfidence.high.length,
+        medium: comicClustersByConfidence.medium.length
+      }
+    },
     likelyComicLikeBooks: likelyComicLikeBooks.slice(0, options.limit),
-    duplicateBookClusters: duplicateBookClusters.slice(0, options.limit).map(summarizeCluster),
-    duplicateComicClusters: duplicateComicClusters.slice(0, options.limit).map(summarizeCluster)
+    duplicateBookClusters: {
+      highConfidence: bookClustersByConfidence.high.slice(0, options.limit).map(summarizeCluster),
+      mediumConfidence: bookClustersByConfidence.medium.slice(0, options.limit).map(summarizeCluster)
+    },
+    duplicateComicClusters: {
+      highConfidence: comicClustersByConfidence.high.slice(0, options.limit).map(summarizeCluster),
+      mediumConfidence: comicClustersByConfidence.medium.slice(0, options.limit).map(summarizeCluster)
+    }
   };
 
   if (options.json) {
@@ -128,6 +152,14 @@ async function run() {
   console.log(`Comics with series: ${report.identifierCoverage.comicsWithSeries}`);
   console.log(`Comics with issue number: ${report.identifierCoverage.comicsWithIssueNumber}`);
   console.log('');
+  console.log('Match contract:');
+  report.matchContract.books.forEach((rule) => {
+    console.log(`- book ${rule.precedence}. ${rule.kind} => ${rule.confidence}/${rule.action}`);
+  });
+  report.matchContract.comics.forEach((rule) => {
+    console.log(`- comic ${rule.precedence}. ${rule.kind} => ${rule.confidence}/${rule.action}`);
+  });
+  console.log('');
   console.log('Book provider coverage:', report.identifierCoverage.booksByProvider);
   console.log('Comic provider coverage:', report.identifierCoverage.comicsByProvider);
   console.log('');
@@ -136,13 +168,23 @@ async function run() {
     console.log(`- [book:${row.id}] ${row.title} (${row.reasons.join(', ')})`);
   });
   console.log('');
-  console.log(`Duplicate book clusters (high/medium confidence): ${duplicateBookClusters.length}`);
-  duplicateBookClusters.slice(0, options.limit).forEach((cluster) => {
+  console.log(`High-confidence duplicate book clusters: ${report.summary.duplicateBookClusters.high}`);
+  bookClustersByConfidence.high.slice(0, options.limit).forEach((cluster) => {
     console.log(`- ${cluster.key} (${cluster.rows.length} rows)`);
   });
   console.log('');
-  console.log(`Duplicate comic clusters (high/medium confidence): ${duplicateComicClusters.length}`);
-  duplicateComicClusters.slice(0, options.limit).forEach((cluster) => {
+  console.log(`Medium-confidence duplicate book clusters: ${report.summary.duplicateBookClusters.medium}`);
+  bookClustersByConfidence.medium.slice(0, options.limit).forEach((cluster) => {
+    console.log(`- ${cluster.key} (${cluster.rows.length} rows)`);
+  });
+  console.log('');
+  console.log(`High-confidence duplicate comic clusters: ${report.summary.duplicateComicClusters.high}`);
+  comicClustersByConfidence.high.slice(0, options.limit).forEach((cluster) => {
+    console.log(`- ${cluster.key} (${cluster.rows.length} rows)`);
+  });
+  console.log('');
+  console.log(`Medium-confidence duplicate comic clusters: ${report.summary.duplicateComicClusters.medium}`);
+  comicClustersByConfidence.medium.slice(0, options.limit).forEach((cluster) => {
     console.log(`- ${cluster.key} (${cluster.rows.length} rows)`);
   });
 }

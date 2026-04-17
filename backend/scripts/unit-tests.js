@@ -14,6 +14,7 @@ const { normalizeTypeDetails } = require('../services/typeDetails');
 const {
   buildBookNormalizationIdentity,
   buildComicNormalizationIdentity,
+  buildNormalizationMatchContract,
   detectLikelyComicLikeBook
 } = require('../services/bookComicNormalization');
 const { buildOwnedFormatsPayload, getOwnedFormatLabel } = require('../services/mediaFormats');
@@ -130,6 +131,7 @@ const structuredLogSmokeSource = fs.readFileSync(require.resolve('../scripts/str
 const structuredLogLokiSmokeSource = fs.readFileSync(require.resolve('../scripts/structured-log-loki-smoke'), 'utf8');
 const structuredLogSyslogSmokeSource = fs.readFileSync(require.resolve('../scripts/structured-log-syslog-smoke'), 'utf8');
 const structuredLogSmokeSharedSource = fs.readFileSync(require.resolve('../scripts/structured-log-smoke-shared'), 'utf8');
+const importNormalizationSmokeSource = fs.readFileSync(require.resolve('../scripts/import-normalization-smoke'), 'utf8');
 const supportSessionSmokeSource = fs.readFileSync(require.resolve('../scripts/support-session-smoke'), 'utf8');
 const libraryLifecycleSmokeSource = fs.readFileSync(require.resolve('../scripts/library-lifecycle-smoke'), 'utf8');
 const spaceLifecycleSmokeSource = fs.readFileSync(require.resolve('../scripts/space-lifecycle-smoke'), 'utf8');
@@ -240,9 +242,11 @@ results.push(run('bookComicNormalization uses ISBN as the highest-confidence boo
     type_details: { isbn: '978-0-358-44784-9', author: 'Hugh Howey' }
   });
   assert.deepStrictEqual(identity, {
+    action: 'auto_attach',
     confidence: 'high',
     kind: 'isbn',
-    key: 'book:isbn:9780358447849'
+    key: 'book:isbn:9780358447849',
+    rationale: ['normalized_isbn']
   });
 }));
 
@@ -253,8 +257,24 @@ results.push(run('bookComicNormalization uses series and issue for high-confiden
   });
   assert.deepStrictEqual(identity, {
     confidence: 'high',
+    action: 'auto_attach',
+    kind: 'series_issue_volume',
+    key: 'comic:series_issue:alpha flight::1::10',
+    rationale: ['normalized_series', 'normalized_issue_number', 'normalized_volume']
+  });
+}));
+
+results.push(run('bookComicNormalization treats series and issue without volume as review confidence', () => {
+  const identity = buildComicNormalizationIdentity({
+    title: 'Alpha Flight #10',
+    type_details: { series: 'Alpha Flight', issue_number: '#10' }
+  });
+  assert.deepStrictEqual(identity, {
+    confidence: 'medium',
+    action: 'review',
     kind: 'series_issue',
-    key: 'comic:series_issue:alpha flight::1::10'
+    key: 'comic:series_issue:alpha flight::-::10',
+    rationale: ['normalized_series', 'normalized_issue_number']
   });
 }));
 
@@ -266,6 +286,15 @@ results.push(run('bookComicNormalization flags comic-like book rows for review',
   assert.strictEqual(signal.likely, true);
   assert.ok(signal.reasons.includes('issue_number_in_title'));
   assert.ok(signal.reasons.includes('variant_in_title'));
+}));
+
+results.push(run('bookComicNormalization exposes explicit match contract precedence', () => {
+  const contract = buildNormalizationMatchContract();
+  assert.strictEqual(contract.books[0].kind, 'isbn');
+  assert.strictEqual(contract.books[0].action, 'auto_attach');
+  assert.strictEqual(contract.comics[2].kind, 'series_issue');
+  assert.strictEqual(contract.comics[2].confidence, 'medium');
+  assert.strictEqual(contract.comics[2].action, 'review');
 }));
 
 results.push(run('barcode.normalizeBarcodeMatches infers TV season box sets and strips season suffix for search', () => {
@@ -1055,6 +1084,19 @@ results.push(run('media route source prefers direct isbn lookup for explicit boo
   assert.ok(mediaRoutesSource.includes('const directBookIsbn = mediaType === \'book\' ? normalizeIsbn(upc) : \'\''));
   assert.ok(mediaRoutesSource.includes("provider: 'books:isbn-direct'"));
   assert.ok(mediaRoutesSource.includes("stage: 'book_isbn_direct'"));
+}));
+
+results.push(run('media route source applies high-confidence normalization before title fallback for books and comics', () => {
+  assert.ok(mediaRoutesSource.includes('matched_by_normalization_high'));
+  assert.ok(mediaRoutesSource.includes('findExistingByNormalizationIdentity'));
+  assert.ok(mediaRoutesSource.includes('buildNormalizationIdentityForImportedItem'));
+}));
+
+results.push(run('repo includes import normalization smoke coverage for high-confidence auto-attach', () => {
+  assert.ok(backendPackageJson.scripts['test:import-normalization-smoke']);
+  assert.ok(importNormalizationSmokeSource.includes('matched_by_normalization_high'));
+  assert.ok(importNormalizationSmokeSource.includes('normalization_series_issue_volume'));
+  assert.ok(importNormalizationSmokeSource.includes('/api/media/import-csv?sync=1'));
 }));
 
 results.push(run('media route source uses title candidate fallback for tmdb lookups', () => {

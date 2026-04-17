@@ -1,5 +1,11 @@
 'use strict';
 
+const CONFIDENCE_ACTIONS = {
+  high: 'auto_attach',
+  medium: 'review',
+  low: 'keep_separate'
+};
+
 function normalizeText(value) {
   return String(value || '')
     .toLowerCase()
@@ -26,33 +32,44 @@ function toPlainTypeDetails(typeDetails) {
   return typeDetails && typeof typeDetails === 'object' ? typeDetails : {};
 }
 
+function withAction(identity) {
+  if (!identity) return null;
+  return {
+    ...identity,
+    action: CONFIDENCE_ACTIONS[identity.confidence] || 'keep_separate'
+  };
+}
+
 function buildBookNormalizationIdentity(row = {}) {
   const typeDetails = toPlainTypeDetails(row.type_details);
   const isbn = normalizeDigits(typeDetails.isbn || row.isbn || '');
   if (isbn) {
-    return {
+    return withAction({
       confidence: 'high',
       kind: 'isbn',
-      key: `book:isbn:${isbn}`
-    };
+      key: `book:isbn:${isbn}`,
+      rationale: ['normalized_isbn']
+    });
   }
 
   const normalizedTitle = normalizeText(row.title);
   const normalizedAuthor = normalizeText(typeDetails.author || row.book_author || '');
   if (normalizedTitle && normalizedAuthor) {
-    return {
+    return withAction({
       confidence: 'medium',
       kind: 'title_author',
-      key: `book:title_author:${normalizedTitle}::${normalizedAuthor}`
-    };
+      key: `book:title_author:${normalizedTitle}::${normalizedAuthor}`,
+      rationale: ['normalized_title', 'normalized_author']
+    });
   }
 
   if (normalizedTitle) {
-    return {
+    return withAction({
       confidence: 'low',
       kind: 'title_only',
-      key: `book:title:${normalizedTitle}`
-    };
+      key: `book:title:${normalizedTitle}`,
+      rationale: ['normalized_title_only']
+    });
   }
 
   return null;
@@ -63,31 +80,43 @@ function buildComicNormalizationIdentity(row = {}) {
   const providerName = normalizeText(typeDetails.provider_name || '');
   const providerItemId = String(typeDetails.provider_item_id || '').trim();
   if (providerName && providerItemId) {
-    return {
+    return withAction({
       confidence: 'high',
       kind: 'provider_item',
-      key: `comic:provider:${providerName}::${providerItemId}`
-    };
+      key: `comic:provider:${providerName}::${providerItemId}`,
+      rationale: ['provider_name', 'provider_item_id']
+    });
   }
 
   const series = normalizeText(typeDetails.series || '');
   const issueNumber = normalizeIssueToken(typeDetails.issue_number || '');
   const volume = normalizeText(typeDetails.volume || '');
-  if (series && issueNumber) {
-    return {
+  if (series && issueNumber && volume) {
+    return withAction({
       confidence: 'high',
+      kind: 'series_issue_volume',
+      key: `comic:series_issue:${series}::${volume || '-'}::${issueNumber}`,
+      rationale: ['normalized_series', 'normalized_issue_number', 'normalized_volume']
+    });
+  }
+
+  if (series && issueNumber) {
+    return withAction({
+      confidence: 'medium',
       kind: 'series_issue',
-      key: `comic:series_issue:${series}::${volume || '-'}::${issueNumber}`
-    };
+      key: `comic:series_issue:${series}::-::${issueNumber}`,
+      rationale: ['normalized_series', 'normalized_issue_number']
+    });
   }
 
   const normalizedTitle = normalizeText(row.title);
   if (normalizedTitle) {
-    return {
+    return withAction({
       confidence: 'low',
       kind: 'title_only',
-      key: `comic:title:${normalizedTitle}`
-    };
+      key: `comic:title:${normalizedTitle}`,
+      rationale: ['normalized_title_only']
+    });
   }
 
   return null;
@@ -132,12 +161,82 @@ function groupRowsByNormalizationKey(rows = [], builder) {
   return Array.from(grouped.values()).filter((bucket) => bucket.rows.length > 1);
 }
 
+function splitClustersByConfidence(clusters = []) {
+  return clusters.reduce((acc, cluster) => {
+    const key = cluster.confidence || 'unknown';
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(cluster);
+    return acc;
+  }, { high: [], medium: [], low: [] });
+}
+
+function buildNormalizationMatchContract() {
+  return {
+    books: [
+      {
+        confidence: 'high',
+        action: CONFIDENCE_ACTIONS.high,
+        precedence: 1,
+        kind: 'isbn',
+        matchRule: 'Normalized ISBN matches across rows.'
+      },
+      {
+        confidence: 'medium',
+        action: CONFIDENCE_ACTIONS.medium,
+        precedence: 2,
+        kind: 'title_author',
+        matchRule: 'Normalized title plus normalized author matches, but no ISBN is present.'
+      },
+      {
+        confidence: 'low',
+        action: CONFIDENCE_ACTIONS.low,
+        precedence: 3,
+        kind: 'title_only',
+        matchRule: 'Only normalized title matches, so rows remain separate until stronger evidence exists.'
+      }
+    ],
+    comics: [
+      {
+        confidence: 'high',
+        action: CONFIDENCE_ACTIONS.high,
+        precedence: 1,
+        kind: 'provider_item',
+        matchRule: 'Provider name plus provider item id matches across rows.'
+      },
+      {
+        confidence: 'high',
+        action: CONFIDENCE_ACTIONS.high,
+        precedence: 2,
+        kind: 'series_issue_volume',
+        matchRule: 'Normalized series, issue number, and volume all match.'
+      },
+      {
+        confidence: 'medium',
+        action: CONFIDENCE_ACTIONS.medium,
+        precedence: 3,
+        kind: 'series_issue',
+        matchRule: 'Normalized series and issue number match, but volume is missing or ambiguous.'
+      },
+      {
+        confidence: 'low',
+        action: CONFIDENCE_ACTIONS.low,
+        precedence: 4,
+        kind: 'title_only',
+        matchRule: 'Only normalized title matches, so rows remain separate until stronger evidence exists.'
+      }
+    ]
+  };
+}
+
 module.exports = {
+  CONFIDENCE_ACTIONS,
   normalizeText,
   normalizeDigits,
   normalizeIssueToken,
   buildBookNormalizationIdentity,
   buildComicNormalizationIdentity,
   detectLikelyComicLikeBook,
-  groupRowsByNormalizationKey
+  groupRowsByNormalizationKey,
+  splitClustersByConfidence,
+  buildNormalizationMatchContract
 };

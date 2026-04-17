@@ -53,20 +53,23 @@ For milestone, release, runtime, monitoring, auth, migration, or deployment work
 15. For release/version/docs/auth/infra changes, do not call work complete until version sync, release-note requirements, init parity, and relevant regression gates have been checked or explicitly marked blocked.
     - “Relevant regression gates” is not generic shorthand here; for semver or release-shaped closeout it includes `rbac-regression`, `browser-regression`, `homelab-edition-boundary`, and `platform-edition-boundary` unless the roadmap slice clearly proves one is out of scope.
     - The assistant must verify that repo docs still explain what each gate is proving, what runtime/env assumptions it depends on, and what evidence/artifacts are expected when it fails.
-16. For every semver release or release-shaped closeout, update the in-app Help > Releases source as part of the release note workflow:
+16. Every completed numbered roadmap milestone must end with a version closeout, even when the slice does not require a full release-shaped gate run.
+   - A version closeout always includes semver/app-version sync, the matching `docs/releases/vX.Y.Z.md`, regenerated in-app release-feed data, and running-stack verification of recent Help > Releases entries.
+   - A numbered milestone may defer some release gates only when those gates are explicitly marked blocked or clearly out of scope, but it may not be closed without version/release artifact alignment.
+17. For every semver release or release-shaped closeout, update the in-app Help > Releases source as part of the release note workflow:
    - ensure the matching `docs/releases/vX.Y.Z.md` exists,
    - regenerate any release-feed snapshot used by the app,
    - verify the running stack can still serve recent Help > Releases entries.
-17. If a change introduces work from a later roadmap milestone, pause and call out the milestone boundary before continuing.
-18. For OpenAPI, metrics, dashboard, alerting, or monitoring changes, keep implementation, docs/specs, and validation artifacts in sync before calling the slice complete.
-19. Never treat localhost, transient, fixture, smoke-test, or release-evidence credentials as safe to expose in plaintext.
+18. If a change introduces work from a later roadmap milestone, pause and call out the milestone boundary before continuing.
+19. For OpenAPI, metrics, dashboard, alerting, or monitoring changes, keep implementation, docs/specs, and validation artifacts in sync before calling the slice complete.
+20. Never treat localhost, transient, fixture, smoke-test, or release-evidence credentials as safe to expose in plaintext.
     - Do not commit plaintext passwords, tokens, API keys, or basic-auth strings into docs, generated artifacts, logs, screenshots, traces, or recorded command strings.
     - If a workflow or evidence artifact needs to show that a secret-bearing step ran, redact the secret value before writing the artifact.
     - Prefer runtime-generated ephemeral credentials over hardcoded fallback secrets in release evidence, smoke scripts, and test harnesses whenever practical.
     - If a scanner flags a transient/local credential, treat it as a real hygiene issue to resolve rather than dismissing it as “only local” or “only test”.
-20. During release, CI, smoke, or artifact work, proactively inspect generated artifacts/logs for secret leakage before calling the slice ready.
+21. During release, CI, smoke, or artifact work, proactively inspect generated artifacts/logs for secret leakage before calling the slice ready.
     - This includes release evidence JSON, Playwright artifacts, captured command strings, curl/basic-auth commands, and any uploaded troubleshooting bundles.
-21. Keep the roadmap and backlog separated by intent:
+22. Keep the roadmap and backlog separated by intent:
    - `docs/wiki/07-Release-Roadmap.md` stays focused on numbered milestones and active milestone slices.
    - `docs/wiki/08-Backlog.md` is the source of truth for unscheduled work.
    - When a backlog item is selected for work, move it into the roadmap as a numbered milestone; do not copy it.
