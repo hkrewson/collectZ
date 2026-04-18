@@ -2707,14 +2707,19 @@ results.push(run('frontend import flow no longer mounts standalone Import Review
   assert.ok(!frontendAppSource.includes('const importReviewEnabled'));
 }));
 
-results.push(run('library drawer source includes simplified match evidence disclosure section', () => {
+results.push(run('library drawer source includes compact match evidence summaries with richer expanded validation details', () => {
   assert.ok(libraryViewSource.includes('Match evidence'));
   assert.ok(libraryViewSource.includes("${Number(mergeSummary?.active_merge_count || 0)} ${Number(mergeSummary?.active_merge_count || 0) === 1 ? 'merge event' : 'merge events'}"));
   assert.ok(libraryViewSource.includes('supporting sources'));
-  assert.ok(!libraryViewSource.includes('Merged sources</p>'));
-  assert.ok(libraryViewSource.includes('Source: {formatMergeSourceLabel(entry?.merged)}'));
+  assert.ok(libraryViewSource.includes('Canonical: ${formatMergeSourceLabel(entry?.canonical)} · Matched: ${formatMergeSourceLabel(entry?.merged)}'));
   assert.ok(libraryViewSource.includes('Canonical record'));
   assert.ok(libraryViewSource.includes('Matched record'));
+  assert.ok(libraryViewSource.includes('Compared fields'));
+  assert.ok(libraryViewSource.includes('Matched on'));
+  assert.ok(libraryViewSource.includes('This record'));
+  assert.ok(libraryViewSource.includes('Matched record'));
+  assert.ok(libraryViewSource.includes('{formatMergeValue(row.canonical_value)}'));
+  assert.ok(libraryViewSource.includes('{formatMergeValue(row.merged_value)}'));
   assert.ok(libraryViewSource.includes('Record #{entry.technical_details.canonical_id}'));
   assert.ok(libraryViewSource.includes('Record #{entry.technical_details.duplicate_id}'));
   assert.ok(libraryViewSource.includes('Merged at:'));

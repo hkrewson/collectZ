@@ -3050,10 +3050,10 @@ Historical note:
 
 **Goal:** Normalize book and comic ingest across Metron and OPDS/CWA so equivalent titles can attach to one canonical library record instead of creating duplicate rows or drifting into the wrong media type when multiple sync-capable sources contribute overlapping data.
 
-**Current Slice:** `3.1.6.25 — Match Evidence Drawer Simplification`
+**Current Slice:** `3.1.6.27 — Match Evidence Comparison Table Simplification`
 
-- Reduce the drawer provenance surface to a single `Match evidence` section so merged records read as concise pairwise evidence instead of a stacked audit wall with repeated source, field-provenance, and event-history blocks.
-- Keep one collapsed disclosure per merge event, showing the two matched records, user-facing source/provider labels, record ids, timestamp, confidence, and match rationale without the always-open aggregate provenance grid.
+- Keep the richer expanded merge validation detail but simplify the compared-fields presentation into a plain three-column comparison table so users can scan how the canonical and matched records line up without repeating "used from" prose on every row.
+- Preserve the compact collapsed summary from the prior slice while making the expanded comparison feel more like a direct record check than an audit narrative.
 
 ### Scope
 

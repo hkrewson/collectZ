@@ -570,15 +570,6 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
     if (value === null || value === undefined || String(value).trim() === '') return '—';
     return String(value);
   };
-  const formatMergeUsedFrom = (value) => {
-    if (value === 'all_sources') return 'Confirmed by all merged sources';
-    if (value === 'canonical_and_merged') return 'Confirmed by canonical and merged sources';
-    if (value === 'merged_sources') return 'Confirmed by multiple merged sources';
-    if (value === 'both') return 'Used from both records';
-    if (value === 'canonical') return 'Used from canonical record';
-    if (value === 'merged') return 'Used from merged record';
-    return 'Resolved during merge';
-  };
   const formatMergeTechnicalLabel = (value) => {
     const normalized = String(value || '').trim();
     if (!normalized) return null;
@@ -977,23 +968,20 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                       <>
                         <p className="text-sm font-medium text-ink">{entry?.match_summary || 'Merged record'}</p>
                         <p className="mt-1 text-sm text-ghost">
-                          {[entry?.canonical?.title || item.title, formatMergeSourceLabel(entry?.canonical)].filter(Boolean).join(' · ')}
-                        </p>
-                        <p className="mt-1 text-sm text-ghost">
-                          {[entry?.merged?.title || 'Merged record', formatMergeSourceLabel(entry?.merged)].filter(Boolean).join(' · ')}
+                          {`Canonical: ${formatMergeSourceLabel(entry?.canonical)} · Matched: ${formatMergeSourceLabel(entry?.merged)}`}
                         </p>
                         <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ghost">
                           {entry?.confidence ? <span>{String(entry.confidence).charAt(0).toUpperCase() + String(entry.confidence).slice(1)} confidence</span> : null}
                           {entry?.applied_at ? <span>{formatMergeTimestamp(entry.applied_at)}</span> : null}
-                          {Array.isArray(entry?.rationale) && entry.rationale.length > 0 ? <span>{entry.rationale.join(' · ')}</span> : null}
                         </div>
                       </>
                     );
                   }}
                   renderContent={(itemEntry) => {
                     const entry = itemEntry.entry;
+                    const provenanceRows = Array.isArray(entry?.field_provenance) ? entry.field_provenance : [];
                     return (
-                      <div className="space-y-4">
+                      <div className="space-y-5">
                         <div className="grid gap-4 md:grid-cols-2">
                           <div>
                             <p className="text-[11px] font-medium text-ghost">Canonical record</p>
@@ -1012,10 +1000,31 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                             ) : null}
                           </div>
                         </div>
+                        {provenanceRows.length > 0 ? (
+                          <div>
+                            <p className="text-[11px] font-medium text-ghost">Compared fields</p>
+                            <div className="mt-3 overflow-hidden rounded-[10px] border border-edge/60">
+                              <div className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1fr)] border-b border-edge/60 bg-panel/40 px-3 py-2 text-[11px] font-medium text-ghost">
+                                <p>Matched on</p>
+                                <p>This record</p>
+                                <p>Matched record</p>
+                              </div>
+                              {provenanceRows.map((row) => (
+                                <div
+                                  key={row.key}
+                                  className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1fr)] gap-3 border-t border-edge/50 px-3 py-2 text-sm text-ink first:border-t-0"
+                                >
+                                  <p className="text-dim">{row.label}</p>
+                                  <p>{formatMergeValue(row.canonical_value)}</p>
+                                  <p>{formatMergeValue(row.merged_value)}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
                         <div className="grid gap-2 text-xs text-ghost sm:grid-cols-2">
                           {entry?.applied_at ? <p>Merged at: {formatMergeTimestamp(entry.applied_at)}</p> : null}
                           {entry?.confidence ? <p>Confidence: {String(entry.confidence).charAt(0).toUpperCase() + String(entry.confidence).slice(1)}</p> : null}
-                          {entry?.match_summary ? <p className="sm:col-span-2">{entry.match_summary}</p> : null}
                           {Array.isArray(entry?.rationale) && entry.rationale.length > 0 ? (
                             <p className="sm:col-span-2">Matched on: {entry.rationale.join(' · ')}</p>
                           ) : null}
