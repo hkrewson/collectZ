@@ -213,14 +213,90 @@ async function main() {
       throw new Error(`Expected genre relation to rewire to canonical, got ${JSON.stringify(genreAfter.rows)}`);
     }
 
+    const reverted = await runRepairBookComicDuplicates({
+      ids: [canonicalId, duplicateId],
+      canonicalId,
+      revert: true
+    });
+    if (reverted.reverted !== 1) {
+      throw new Error(`Expected one reverted duplicate attach, got ${JSON.stringify(reverted)}`);
+    }
+
+    const canonicalRestored = await pool.query(
+      `SELECT id, media_type, type_details
+       FROM media
+       WHERE id = $1`,
+      [canonicalId]
+    );
+    const duplicateRestored = await pool.query(
+      `SELECT id, media_type, type_details
+       FROM media
+       WHERE id = $1`,
+      [duplicateId]
+    );
+    const metadataRestored = await pool.query(
+      `SELECT "key", "value"
+       FROM media_metadata
+       WHERE media_id = $1
+       ORDER BY "key" ASC`,
+      [canonicalId]
+    );
+    const duplicateMetadataRestored = await pool.query(
+      `SELECT "key", "value"
+       FROM media_metadata
+       WHERE media_id = $1
+       ORDER BY "key" ASC`,
+      [duplicateId]
+    );
+    const collectionRestored = await pool.query(
+      `SELECT media_id
+       FROM collection_items
+       WHERE collection_id = $1`,
+      [collectionId]
+    );
+    const genreRestored = await pool.query(
+      `SELECT media_id
+       FROM media_genres
+       WHERE genre_id = $1`,
+      [genreId]
+    );
+
+    const canonicalRestoredRow = canonicalRestored.rows[0] || {};
+    const duplicateRestoredRow = duplicateRestored.rows[0] || {};
+    if (String(canonicalRestoredRow.type_details?.author || '').trim() !== '') {
+      throw new Error(`Expected canonical author enrichment to be reverted, got ${JSON.stringify(canonicalRestoredRow.type_details)}`);
+    }
+    if (duplicateRestored.rows.length !== 1 || duplicateRestoredRow.media_type !== 'book') {
+      throw new Error(`Expected duplicate row restored as book, got ${JSON.stringify(duplicateRestored.rows)}`);
+    }
+    if (String(duplicateRestoredRow.type_details?.author || '') !== 'Hugh Howey') {
+      throw new Error(`Expected restored duplicate author details, got ${JSON.stringify(duplicateRestoredRow.type_details)}`);
+    }
+    if (!duplicateMetadataRestored.rows.some((row) => row.key === 'amazon_item_id' && row.value === 'B00DUPLICATEATTACH')) {
+      throw new Error(`Expected duplicate metadata restored, got ${JSON.stringify(duplicateMetadataRestored.rows)}`);
+    }
+    if (Number(collectionRestored.rows[0]?.media_id || 0) !== duplicateId) {
+      throw new Error(`Expected collection item to rewire back to duplicate, got ${JSON.stringify(collectionRestored.rows)}`);
+    }
+    if (Number(genreRestored.rows[0]?.media_id || 0) !== duplicateId) {
+      throw new Error(`Expected genre relation to rewire back to duplicate, got ${JSON.stringify(genreRestored.rows)}`);
+    }
+    if (!metadataRestored.rows.some((row) => row.key === `historical_duplicate_attach_reverted_at_${duplicateId}`)) {
+      throw new Error(`Expected revert marker metadata on canonical, got ${JSON.stringify(metadataRestored.rows)}`);
+    }
+
     console.log('Repair book/comic duplicates smoke passed');
     console.log(JSON.stringify({
       canonicalId,
       duplicateId,
       attached: applied.attached,
-      canonicalAuthor: canonicalRow.type_details?.author || null,
-      collectionMediaId: Number(collectionAfter.rows[0]?.media_id || 0) || null,
-      snapshotKeyPresent: metadataAfter.rows.some((row) => row.key === `historical_duplicate_attach_snapshot_${duplicateId}`)
+      reverted: reverted.reverted,
+      canonicalAuthorAfterAttach: canonicalRow.type_details?.author || null,
+      canonicalAuthorAfterRevert: canonicalRestoredRow.type_details?.author || null,
+      collectionMediaIdAfterAttach: Number(collectionAfter.rows[0]?.media_id || 0) || null,
+      collectionMediaIdAfterRevert: Number(collectionRestored.rows[0]?.media_id || 0) || null,
+      snapshotKeyPresent: metadataAfter.rows.some((row) => row.key === `historical_duplicate_attach_snapshot_${duplicateId}`),
+      revertKeyPresent: metadataRestored.rows.some((row) => row.key === `historical_duplicate_attach_reverted_at_${duplicateId}`)
     }, null, 2));
   } finally {
     await cleanupTemporaryState({ userId, libraryId, spaceId, collectionId, genreId });

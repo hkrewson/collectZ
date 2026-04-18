@@ -11,6 +11,7 @@ const {
 function parseArgs(argv = []) {
   const args = {
     apply: false,
+    revert: false,
     json: false,
     ids: [],
     canonicalId: null
@@ -20,6 +21,10 @@ function parseArgs(argv = []) {
     if (!token) continue;
     if (token === '--apply') {
       args.apply = true;
+      continue;
+    }
+    if (token === '--revert') {
+      args.revert = true;
       continue;
     }
     if (token === '--json') {
@@ -54,6 +59,9 @@ function parseArgs(argv = []) {
   }
   if (args.ids.length < 2) {
     throw new Error('Provide at least two ids with --ids for duplicate attach repair');
+  }
+  if (args.apply && args.revert) {
+    throw new Error('Use either --apply or --revert, not both');
   }
   return args;
 }
@@ -132,6 +140,107 @@ async function upsertCanonicalMetadata(client, mediaId, key, value) {
      DO UPDATE SET "value" = EXCLUDED."value"`,
     [mediaId, key, value]
   );
+}
+
+async function deleteCanonicalMetadata(client, mediaId, key) {
+  await client.query(
+    `DELETE FROM media_metadata
+      WHERE media_id = $1
+        AND "key" = $2`,
+    [mediaId, key]
+  );
+}
+
+async function getCanonicalMetadataEntries(client, mediaId, keys = []) {
+  if (!Array.isArray(keys) || keys.length === 0) return [];
+  const result = await client.query(
+    `SELECT "key", "value"
+       FROM media_metadata
+      WHERE media_id = $1
+        AND "key" = ANY($2::varchar[])
+      ORDER BY "key" ASC`,
+    [mediaId, keys]
+  );
+  return result.rows || [];
+}
+
+async function getCanonicalRelationState(client, canonicalId, duplicateSnapshot) {
+  const metadataKeys = (duplicateSnapshot?.media_metadata || []).map((entry) => entry.key).filter(Boolean);
+  const duplicateSeasonNumbers = (duplicateSnapshot?.media_seasons || [])
+    .map((row) => Number(row.season_number))
+    .filter((value) => Number.isFinite(value));
+  const duplicateGenreIds = (duplicateSnapshot?.media_genres || [])
+    .map((row) => Number(row.genre_id))
+    .filter((value) => Number.isFinite(value));
+  const duplicateDirectorIds = (duplicateSnapshot?.media_directors || [])
+    .map((row) => Number(row.director_id))
+    .filter((value) => Number.isFinite(value));
+  const duplicateActorIds = (duplicateSnapshot?.media_actors || [])
+    .map((row) => Number(row.actor_id))
+    .filter((value) => Number.isFinite(value));
+
+  const metadata = await getCanonicalMetadataEntries(client, canonicalId, metadataKeys);
+  const seasons = duplicateSeasonNumbers.length
+    ? (await client.query(
+        `SELECT season_number
+           FROM media_seasons
+          WHERE media_id = $1
+            AND season_number = ANY($2::int[])
+          ORDER BY season_number ASC`,
+        [canonicalId, duplicateSeasonNumbers]
+      )).rows
+    : [];
+  const genres = duplicateGenreIds.length
+    ? (await client.query(
+        `SELECT genre_id
+           FROM media_genres
+          WHERE media_id = $1
+            AND genre_id = ANY($2::int[])
+          ORDER BY genre_id ASC`,
+        [canonicalId, duplicateGenreIds]
+      )).rows
+    : [];
+  const directors = duplicateDirectorIds.length
+    ? (await client.query(
+        `SELECT director_id
+           FROM media_directors
+          WHERE media_id = $1
+            AND director_id = ANY($2::int[])
+          ORDER BY director_id ASC`,
+        [canonicalId, duplicateDirectorIds]
+      )).rows
+    : [];
+  const actors = duplicateActorIds.length
+    ? (await client.query(
+        `SELECT actor_id
+           FROM media_actors
+          WHERE media_id = $1
+            AND actor_id = ANY($2::int[])
+          ORDER BY actor_id ASC`,
+        [canonicalId, duplicateActorIds]
+      )).rows
+    : [];
+
+  return {
+    canonicalTypeDetails: null,
+    canonicalMetadata: metadata,
+    canonicalSeasonNumbers: seasons.map((row) => Number(row.season_number)).filter((value) => Number.isFinite(value)),
+    canonicalGenreIds: genres.map((row) => Number(row.genre_id)).filter((value) => Number.isFinite(value)),
+    canonicalDirectorIds: directors.map((row) => Number(row.director_id)).filter((value) => Number.isFinite(value)),
+    canonicalActorIds: actors.map((row) => Number(row.actor_id)).filter((value) => Number.isFinite(value))
+  };
+}
+
+function buildAttachContext({ duplicateSnapshot, canonicalRow, canonicalRelationState }) {
+  return {
+    duplicateSnapshot,
+    previousCanonicalTypeDetails: toPlainTypeDetails(canonicalRow.type_details),
+    previousCanonicalMetadata: canonicalRelationState.canonicalMetadata || [],
+    previousCanonicalSeasonNumbers: canonicalRelationState.canonicalSeasonNumbers || [],
+    previousCanonicalGenreIds: canonicalRelationState.canonicalGenreIds || [],
+    previousCanonicalDirectorIds: canonicalRelationState.canonicalDirectorIds || [],
+    previousCanonicalActorIds: canonicalRelationState.canonicalActorIds || []
+  };
 }
 
 async function snapshotDuplicateState(client, duplicateId) {
@@ -236,6 +345,10 @@ async function mergeDuplicateIntoCanonical(client, canonicalRow, duplicateRow) {
   const duplicateTypeDetails = toPlainTypeDetails(duplicateRow.type_details);
   const mergedTypeDetails = mergeMissingObjectFields(canonicalTypeDetails, duplicateTypeDetails);
 
+  const snapshot = await snapshotDuplicateState(client, duplicateRow.id);
+  const canonicalRelationState = await getCanonicalRelationState(client, canonicalRow.id, snapshot);
+  canonicalRelationState.canonicalTypeDetails = canonicalTypeDetails;
+
   await client.query(
     `UPDATE media
      SET type_details = $2::jsonb,
@@ -244,11 +357,17 @@ async function mergeDuplicateIntoCanonical(client, canonicalRow, duplicateRow) {
     [canonicalRow.id, JSON.stringify(mergedTypeDetails)]
   );
 
-  const snapshot = await snapshotDuplicateState(client, duplicateRow.id);
   const snapshotKey = `historical_duplicate_attach_snapshot_${duplicateRow.id}`;
   const appliedKey = `historical_duplicate_attach_applied_at_${duplicateRow.id}`;
+  const contextKey = `historical_duplicate_attach_context_${duplicateRow.id}`;
+  const attachContext = buildAttachContext({
+    duplicateSnapshot: snapshot,
+    canonicalRow,
+    canonicalRelationState
+  });
   await upsertCanonicalMetadata(client, canonicalRow.id, snapshotKey, JSON.stringify(snapshot));
   await upsertCanonicalMetadata(client, canonicalRow.id, appliedKey, new Date().toISOString());
+  await upsertCanonicalMetadata(client, canonicalRow.id, contextKey, JSON.stringify(attachContext));
 
   const mergedMetadataEntries = await mergeDuplicateMetadataIntoCanonical(client, canonicalRow.id, duplicateRow.id);
   const mergedTaxonomy = await mergeDuplicateTaxonomyIntoCanonical(client, canonicalRow.id, duplicateRow.id);
@@ -260,6 +379,7 @@ async function mergeDuplicateIntoCanonical(client, canonicalRow, duplicateRow) {
   return {
     duplicateId: Number(duplicateRow.id || 0) || null,
     snapshotKey,
+    contextKey,
     mergedMetadataEntries,
     mergedTaxonomy,
     mergedSeasons,
@@ -267,42 +387,430 @@ async function mergeDuplicateIntoCanonical(client, canonicalRow, duplicateRow) {
   };
 }
 
+function parseJsonText(value, fallback = null) {
+  if (value === null || value === undefined || value === '') return fallback;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+}
+
+function buildCanonicalMetadataMap(entries = []) {
+  const map = new Map();
+  for (const entry of entries) {
+    if (!entry?.key) continue;
+    map.set(String(entry.key), entry.value);
+  }
+  return map;
+}
+
+async function restoreDuplicateMediaRow(client, mediaRow) {
+  if (!mediaRow?.id) {
+    throw new Error('Missing duplicate media snapshot row for revert');
+  }
+  await client.query(
+    `INSERT INTO media (
+       id, title, media_type, original_title, release_date, year, format, owned_formats, genre,
+       director, cast_members, rating, user_rating, tmdb_id, tmdb_media_type, tmdb_url,
+       poster_path, backdrop_path, overview, trailer_url, runtime, upc, signed_by, signed_role,
+       signed_on, signed_at, signed_proof_path, location, notes, estimated_value_low,
+       estimated_value_mid, estimated_value_high, valuation_currency, valuation_source,
+       valuation_last_updated, type_details, library_id, space_id, series_id, import_source,
+       added_by, created_at, updated_at
+     ) VALUES (
+       $1, $2, $3, $4, $5, $6, $7, $8::text[], $9, $10, $11, $12, $13, $14, $15, $16,
+       $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30,
+       $31, $32, $33, $34, $35, $36::jsonb, $37, $38, $39, $40, $41, $42, $43
+     )`,
+    [
+      mediaRow.id,
+      mediaRow.title,
+      mediaRow.media_type,
+      mediaRow.original_title,
+      mediaRow.release_date,
+      mediaRow.year,
+      mediaRow.format,
+      Array.isArray(mediaRow.owned_formats) ? mediaRow.owned_formats : null,
+      mediaRow.genre,
+      mediaRow.director,
+      mediaRow.cast_members,
+      mediaRow.rating,
+      mediaRow.user_rating,
+      mediaRow.tmdb_id,
+      mediaRow.tmdb_media_type,
+      mediaRow.tmdb_url,
+      mediaRow.poster_path,
+      mediaRow.backdrop_path,
+      mediaRow.overview,
+      mediaRow.trailer_url,
+      mediaRow.runtime,
+      mediaRow.upc,
+      mediaRow.signed_by,
+      mediaRow.signed_role,
+      mediaRow.signed_on,
+      mediaRow.signed_at,
+      mediaRow.signed_proof_path,
+      mediaRow.location,
+      mediaRow.notes,
+      mediaRow.estimated_value_low,
+      mediaRow.estimated_value_mid,
+      mediaRow.estimated_value_high,
+      mediaRow.valuation_currency,
+      mediaRow.valuation_source,
+      mediaRow.valuation_last_updated,
+      JSON.stringify(mediaRow.type_details || {}),
+      mediaRow.library_id,
+      mediaRow.space_id,
+      mediaRow.series_id,
+      mediaRow.import_source,
+      mediaRow.added_by,
+      mediaRow.created_at,
+      mediaRow.updated_at
+    ]
+  );
+}
+
+async function restoreDuplicateMetadata(client, duplicateId, metadataEntries = []) {
+  for (const entry of metadataEntries) {
+    await client.query(
+      `INSERT INTO media_metadata (media_id, "key", "value", created_at)
+       VALUES ($1, $2, $3, COALESCE($4, NOW()))
+       ON CONFLICT (media_id, "key")
+       DO UPDATE SET "value" = EXCLUDED."value"`,
+      [duplicateId, entry.key, entry.value, entry.created_at || null]
+    );
+  }
+}
+
+async function restoreDuplicateVariants(client, duplicateId, variantRows = []) {
+  for (const row of variantRows) {
+    await client.query(
+      `INSERT INTO media_variants (
+         id, media_id, variant_key, variant_label, variant_type, source, provider_id,
+         provider_key, release_date, release_year, artwork_url, metadata, created_at, updated_at
+       ) VALUES (
+         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, $13, $14
+       )
+       ON CONFLICT (id)
+       DO UPDATE SET
+         media_id = EXCLUDED.media_id,
+         variant_key = EXCLUDED.variant_key,
+         variant_label = EXCLUDED.variant_label,
+         variant_type = EXCLUDED.variant_type,
+         source = EXCLUDED.source,
+         provider_id = EXCLUDED.provider_id,
+         provider_key = EXCLUDED.provider_key,
+         release_date = EXCLUDED.release_date,
+         release_year = EXCLUDED.release_year,
+         artwork_url = EXCLUDED.artwork_url,
+         metadata = EXCLUDED.metadata,
+         updated_at = EXCLUDED.updated_at`,
+      [
+        row.id,
+        duplicateId,
+        row.variant_key,
+        row.variant_label,
+        row.variant_type,
+        row.source,
+        row.provider_id,
+        row.provider_key,
+        row.release_date,
+        row.release_year,
+        row.artwork_url,
+        JSON.stringify(row.metadata || {}),
+        row.created_at,
+        row.updated_at
+      ]
+    );
+  }
+}
+
+async function restoreDuplicateSeasons(client, duplicateId, seasonRows = []) {
+  for (const row of seasonRows) {
+    await client.query(
+      `INSERT INTO media_seasons (
+         id, media_id, season_number, expected_episodes, available_episodes, is_complete,
+         watch_state, watchlist, last_watched_at, source, created_at, updated_at
+       ) VALUES (
+         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+       )
+       ON CONFLICT (id)
+       DO UPDATE SET
+         media_id = EXCLUDED.media_id,
+         season_number = EXCLUDED.season_number,
+         expected_episodes = EXCLUDED.expected_episodes,
+         available_episodes = EXCLUDED.available_episodes,
+         is_complete = EXCLUDED.is_complete,
+         watch_state = EXCLUDED.watch_state,
+         watchlist = EXCLUDED.watchlist,
+         last_watched_at = EXCLUDED.last_watched_at,
+         source = EXCLUDED.source,
+         updated_at = EXCLUDED.updated_at`,
+      [
+        row.id,
+        duplicateId,
+        row.season_number,
+        row.expected_episodes,
+        row.available_episodes,
+        row.is_complete,
+        row.watch_state,
+        row.watchlist,
+        row.last_watched_at,
+        row.source,
+        row.created_at,
+        row.updated_at
+      ]
+    );
+  }
+}
+
+async function restoreDuplicateTaxonomy(client, duplicateId, snapshot = {}) {
+  for (const row of snapshot.media_genres || []) {
+    await client.query(
+      `INSERT INTO media_genres (media_id, genre_id)
+       VALUES ($1, $2)
+       ON CONFLICT (media_id, genre_id) DO NOTHING`,
+      [duplicateId, row.genre_id]
+    );
+  }
+  for (const row of snapshot.media_directors || []) {
+    await client.query(
+      `INSERT INTO media_directors (media_id, director_id)
+       VALUES ($1, $2)
+       ON CONFLICT (media_id, director_id) DO NOTHING`,
+      [duplicateId, row.director_id]
+    );
+  }
+  for (const row of snapshot.media_actors || []) {
+    await client.query(
+      `INSERT INTO media_actors (media_id, actor_id)
+       VALUES ($1, $2)
+       ON CONFLICT (media_id, actor_id) DO NOTHING`,
+      [duplicateId, row.actor_id]
+    );
+  }
+}
+
+async function restoreDuplicateReferences(client, duplicateId, snapshot = {}) {
+  const collectionItemIds = (snapshot.collection_items || []).map((row) => Number(row.id)).filter((value) => Number.isFinite(value));
+  if (collectionItemIds.length > 0) {
+    await client.query(
+      `UPDATE collection_items
+          SET media_id = $1,
+              updated_at = NOW()
+        WHERE id = ANY($2::int[])`,
+      [duplicateId, collectionItemIds]
+    );
+  }
+
+  const variantIds = (snapshot.media_variants || []).map((row) => Number(row.id)).filter((value) => Number.isFinite(value));
+  if (variantIds.length > 0) {
+    await client.query(
+      `UPDATE media_variants
+          SET media_id = $1,
+              updated_at = NOW()
+        WHERE id = ANY($2::int[])`,
+      [duplicateId, variantIds]
+    );
+  }
+
+  const childSeriesRefIds = (snapshot.child_series_refs || []).map((row) => Number(row.id)).filter((value) => Number.isFinite(value));
+  if (childSeriesRefIds.length > 0) {
+    await client.query(
+      `UPDATE media
+          SET series_id = $1,
+              updated_at = NOW()
+        WHERE id = ANY($2::int[])`,
+      [duplicateId, childSeriesRefIds]
+    );
+  }
+}
+
+async function revertCanonicalTypeDetails(client, canonicalId, previousCanonicalTypeDetails) {
+  await client.query(
+    `UPDATE media
+        SET type_details = $2::jsonb,
+            updated_at = NOW()
+      WHERE id = $1`,
+    [canonicalId, JSON.stringify(previousCanonicalTypeDetails || {})]
+  );
+}
+
+async function revertCanonicalMetadata(client, canonicalId, snapshot = {}, previousCanonicalMetadata = []) {
+  const previousMap = buildCanonicalMetadataMap(previousCanonicalMetadata);
+  for (const entry of snapshot.media_metadata || []) {
+    if (!entry?.key || String(entry.key).startsWith('historical_')) continue;
+    if (previousMap.has(entry.key)) {
+      await upsertCanonicalMetadata(client, canonicalId, entry.key, previousMap.get(entry.key));
+    } else {
+      await deleteCanonicalMetadata(client, canonicalId, entry.key);
+    }
+  }
+}
+
+async function revertCanonicalTaxonomyAndSeasons(client, canonicalId, snapshot = {}, context = {}) {
+  const previousSeasonNumbers = new Set((context.previousCanonicalSeasonNumbers || []).map((value) => Number(value)));
+  for (const row of snapshot.media_seasons || []) {
+    const seasonNumber = Number(row.season_number);
+    if (!previousSeasonNumbers.has(seasonNumber)) {
+      await client.query(
+        `DELETE FROM media_seasons
+          WHERE media_id = $1
+            AND season_number = $2`,
+        [canonicalId, seasonNumber]
+      );
+    }
+  }
+
+  const previousGenreIds = new Set((context.previousCanonicalGenreIds || []).map((value) => Number(value)));
+  for (const row of snapshot.media_genres || []) {
+    const genreId = Number(row.genre_id);
+    if (!previousGenreIds.has(genreId)) {
+      await client.query(
+        `DELETE FROM media_genres
+          WHERE media_id = $1
+            AND genre_id = $2`,
+        [canonicalId, genreId]
+      );
+    }
+  }
+
+  const previousDirectorIds = new Set((context.previousCanonicalDirectorIds || []).map((value) => Number(value)));
+  for (const row of snapshot.media_directors || []) {
+    const directorId = Number(row.director_id);
+    if (!previousDirectorIds.has(directorId)) {
+      await client.query(
+        `DELETE FROM media_directors
+          WHERE media_id = $1
+            AND director_id = $2`,
+        [canonicalId, directorId]
+      );
+    }
+  }
+
+  const previousActorIds = new Set((context.previousCanonicalActorIds || []).map((value) => Number(value)));
+  for (const row of snapshot.media_actors || []) {
+    const actorId = Number(row.actor_id);
+    if (!previousActorIds.has(actorId)) {
+      await client.query(
+        `DELETE FROM media_actors
+          WHERE media_id = $1
+            AND actor_id = $2`,
+        [canonicalId, actorId]
+      );
+    }
+  }
+}
+
+async function revertDuplicateAttachIntoSeparateRow(client, canonicalRow, duplicateId) {
+  const snapshotKey = `historical_duplicate_attach_snapshot_${duplicateId}`;
+  const contextKey = `historical_duplicate_attach_context_${duplicateId}`;
+  const appliedKey = `historical_duplicate_attach_applied_at_${duplicateId}`;
+  const revertedKey = `historical_duplicate_attach_reverted_at_${duplicateId}`;
+
+  const metadataRows = await client.query(
+    `SELECT "key", "value"
+       FROM media_metadata
+      WHERE media_id = $1
+        AND "key" = ANY($2::varchar[])
+      ORDER BY "key" ASC`,
+    [canonicalRow.id, [snapshotKey, contextKey, appliedKey]]
+  );
+  const metadataByKey = new Map((metadataRows.rows || []).map((row) => [String(row.key), row.value]));
+  const snapshot = parseJsonText(metadataByKey.get(snapshotKey), null);
+  const context = parseJsonText(metadataByKey.get(contextKey), null);
+  if (!snapshot?.media?.id || Number(snapshot.media.id) !== Number(duplicateId)) {
+    throw new Error(`Missing valid duplicate snapshot metadata for duplicate ${duplicateId}`);
+  }
+  if (!context) {
+    throw new Error(`Missing duplicate attach context metadata for duplicate ${duplicateId}`);
+  }
+
+  const duplicateExists = await client.query('SELECT id FROM media WHERE id = $1', [duplicateId]);
+  if ((duplicateExists.rows || []).length > 0) {
+    throw new Error(`Cannot revert duplicate attach because media ${duplicateId} already exists`);
+  }
+
+  await restoreDuplicateMediaRow(client, snapshot.media);
+  await restoreDuplicateMetadata(client, duplicateId, snapshot.media_metadata || []);
+  await restoreDuplicateVariants(client, duplicateId, snapshot.media_variants || []);
+  await restoreDuplicateSeasons(client, duplicateId, snapshot.media_seasons || []);
+  await restoreDuplicateTaxonomy(client, duplicateId, snapshot);
+  await restoreDuplicateReferences(client, duplicateId, snapshot);
+
+  await revertCanonicalTypeDetails(client, canonicalRow.id, context.previousCanonicalTypeDetails || {});
+  await revertCanonicalMetadata(client, canonicalRow.id, snapshot, context.previousCanonicalMetadata || []);
+  await revertCanonicalTaxonomyAndSeasons(client, canonicalRow.id, snapshot, context);
+  await upsertCanonicalMetadata(client, canonicalRow.id, revertedKey, new Date().toISOString());
+
+  return {
+    duplicateId,
+    restored: true,
+    snapshotKey,
+    contextKey,
+    revertedKey
+  };
+}
+
 async function runRepairBookComicDuplicates(options = {}) {
   const client = await pool.connect();
   try {
     const rows = await loadRows(client, options.ids || []);
-    if (rows.length !== (options.ids || []).length) {
+    if (!options.revert && rows.length !== (options.ids || []).length) {
       throw new Error(`Expected ${options.ids.length} rows, found ${rows.length}`);
     }
 
-    const cluster = buildClusterFromRows(rows);
-    const canonical = options.canonicalId
-      ? rows.find((row) => Number(row.id) === Number(options.canonicalId))
-      : chooseCanonicalRow(rows);
-    if (!canonical) {
-      throw new Error('Unable to determine canonical row for duplicate attach repair');
-    }
-    const duplicates = rows.filter((row) => Number(row.id) !== Number(canonical.id));
-    if (duplicates.length === 0) {
-      throw new Error('Duplicate attach repair requires at least one duplicate row after canonical selection');
-    }
+    let cluster = null;
+    let canonical = null;
+    let duplicates = [];
+    let plan = null;
 
-    const plan = buildDuplicateRepairPlan({
-      ...cluster,
-      rows
-    });
+    if (options.revert) {
+      canonical = options.canonicalId
+        ? rows.find((row) => Number(row.id) === Number(options.canonicalId))
+        : chooseCanonicalRow(rows);
+      if (!canonical) {
+        throw new Error('Duplicate attach revert requires an existing canonical row');
+      }
+      duplicates = (options.ids || [])
+        .map((value) => Number(value))
+        .filter((value) => Number.isFinite(value) && value > 0 && value !== Number(canonical.id))
+        .map((id) => ({ id }));
+      if (duplicates.length === 0) {
+        throw new Error('Duplicate attach revert requires at least one duplicate id besides the canonical id');
+      }
+    } else {
+      cluster = buildClusterFromRows(rows);
+      canonical = options.canonicalId
+        ? rows.find((row) => Number(row.id) === Number(options.canonicalId))
+        : chooseCanonicalRow(rows);
+      if (!canonical) {
+        throw new Error('Unable to determine canonical row for duplicate attach repair');
+      }
+      duplicates = rows.filter((row) => Number(row.id) !== Number(canonical.id));
+      if (duplicates.length === 0) {
+        throw new Error('Duplicate attach repair requires at least one duplicate row after canonical selection');
+      }
+
+      plan = buildDuplicateRepairPlan({
+        ...cluster,
+        rows
+      });
+    }
 
     const result = {
-      mode: options.apply ? 'apply' : 'dry-run',
-      confidence: cluster.confidence,
-      key: cluster.key,
-      canonical: plan.canonical,
-      duplicates: plan.duplicates,
+      mode: options.revert ? 'revert' : options.apply ? 'apply' : 'dry-run',
+      confidence: cluster?.confidence || 'high',
+      key: cluster?.key || null,
+      canonical: plan?.canonical || { id: canonical.id, title: canonical.title, media_type: canonical.media_type },
+      duplicates: plan?.duplicates || duplicates.map((row) => ({ id: Number(row.id || 0) || null })),
       attached: 0,
+      reverted: 0,
       appliedDetails: []
     };
 
-    if (!options.apply) {
+    if (!options.apply && !options.revert) {
       return result;
     }
 
@@ -311,9 +819,15 @@ async function runRepairBookComicDuplicates(options = {}) {
       const refreshedCanonicalRows = await loadRows(client, [canonical.id]);
       const refreshedCanonical = refreshedCanonicalRows[0];
       for (const duplicate of duplicates) {
-        const detail = await mergeDuplicateIntoCanonical(client, refreshedCanonical, duplicate);
+        const detail = options.revert
+          ? await revertDuplicateAttachIntoSeparateRow(client, refreshedCanonical, duplicate.id)
+          : await mergeDuplicateIntoCanonical(client, refreshedCanonical, duplicate);
         result.appliedDetails.push(detail);
-        result.attached += 1;
+        if (options.revert) {
+          result.reverted += 1;
+        } else {
+          result.attached += 1;
+        }
       }
       await client.query('COMMIT');
     } catch (error) {
