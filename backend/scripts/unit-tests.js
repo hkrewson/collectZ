@@ -138,7 +138,10 @@ const importNormalizationReviewSmokeSource = fs.readFileSync(require.resolve('..
 const historicalRepairPlanSource = fs.readFileSync(require.resolve('../scripts/book-comic-historical-repair-plan'), 'utf8');
 const repairComicLikeBooksSource = fs.readFileSync(require.resolve('../scripts/repair-comic-like-books'), 'utf8');
 const repairComicLikeBooksSmokeSource = fs.readFileSync(require.resolve('../scripts/repair-comic-like-books-smoke'), 'utf8');
+const repairBookComicDuplicatesSource = fs.readFileSync(require.resolve('../scripts/repair-book-comic-duplicates'), 'utf8');
+const repairBookComicDuplicatesSmokeSource = fs.readFileSync(require.resolve('../scripts/repair-book-comic-duplicates-smoke'), 'utf8');
 const { parseComicMetadataFromTitle, buildComicLikeBookProposal, buildComicLikeBookRevertProposal } = require('../scripts/repair-comic-like-books');
+const { buildClusterFromRows, mergeMissingObjectFields } = require('../scripts/repair-book-comic-duplicates');
 const supportSessionSmokeSource = fs.readFileSync(require.resolve('../scripts/support-session-smoke'), 'utf8');
 const libraryLifecycleSmokeSource = fs.readFileSync(require.resolve('../scripts/library-lifecycle-smoke'), 'utf8');
 const spaceLifecycleSmokeSource = fs.readFileSync(require.resolve('../scripts/space-lifecycle-smoke'), 'utf8');
@@ -416,6 +419,53 @@ results.push(run('repairComicLikeBooks builds a revert proposal from stored hist
   assert.strictEqual(proposal.proposed_media_type, 'book');
   assert.strictEqual(proposal.proposed_type_details.author, 'Sergio Aragonés, Mark Evanier');
   assert.strictEqual(proposal.proposed_type_details.provider_name, 'cwa_opds');
+}));
+
+results.push(run('repairBookComicDuplicates merges only missing canonical type-detail fields', () => {
+  const merged = mergeMissingObjectFields(
+    {
+      isbn: '9780358447849',
+      author: '',
+      publisher: 'Crown',
+      owned_formats: []
+    },
+    {
+      author: 'Hugh Howey',
+      publisher: 'Broad Reach',
+      owned_formats: ['Hardcover'],
+      language: 'en'
+    }
+  );
+
+  assert.deepStrictEqual(merged, {
+    isbn: '9780358447849',
+    author: 'Hugh Howey',
+    publisher: 'Crown',
+    owned_formats: ['Hardcover'],
+    language: 'en'
+  });
+}));
+
+results.push(run('repairBookComicDuplicates builds a single high-confidence duplicate cluster for homogeneous rows', () => {
+  const cluster = buildClusterFromRows([
+    {
+      id: 21,
+      title: 'Duplicate Attach Smoke Book',
+      media_type: 'book',
+      type_details: { isbn: '9780358447849' }
+    },
+    {
+      id: 22,
+      title: 'Duplicate Attach Smoke Book',
+      media_type: 'book',
+      type_details: { isbn: '978-0-358-44784-9', author: 'Hugh Howey' }
+    }
+  ]);
+
+  assert.strictEqual(cluster.confidence, 'high');
+  assert.strictEqual(cluster.kind, 'isbn');
+  assert.strictEqual(cluster.key, 'book:isbn:9780358447849');
+  assert.strictEqual(cluster.rows.length, 2);
 }));
 
 results.push(run('barcode.normalizeBarcodeMatches infers TV season box sets and strips season suffix for search', () => {
@@ -1258,6 +1308,18 @@ results.push(run('repo includes comic-like book reclassification repair tooling 
   assert.ok(repairComicLikeBooksSmokeSource.includes('Repair comic-like books smoke passed'));
   assert.ok(repairComicLikeBooksSmokeSource.includes('historical_repair_previous_media_type'));
   assert.ok(repairComicLikeBooksSmokeSource.includes('historical_repair_reverted_at'));
+}));
+
+results.push(run('repo includes historical duplicate attach repair tooling with snapshot metadata and smoke proof', () => {
+  assert.ok(backendPackageJson.scripts['repair:book-comic-duplicates']);
+  assert.ok(backendPackageJson.scripts['test:repair-book-comic-duplicates-smoke']);
+  assert.ok(repairBookComicDuplicatesSource.includes('historical_duplicate_attach_snapshot_'));
+  assert.ok(repairBookComicDuplicatesSource.includes('mergeDuplicateMetadataIntoCanonical'));
+  assert.ok(repairBookComicDuplicatesSource.includes('rewireDuplicateReferences'));
+  assert.ok(repairBookComicDuplicatesSource.includes('DELETE FROM media WHERE id = $1'));
+  assert.ok(repairBookComicDuplicatesSmokeSource.includes('Repair book/comic duplicates smoke passed'));
+  assert.ok(repairBookComicDuplicatesSmokeSource.includes('historical_duplicate_attach_snapshot_'));
+  assert.ok(repairBookComicDuplicatesSmokeSource.includes('collection_items'));
 }));
 
 results.push(run('media route source uses title candidate fallback for tmdb lookups', () => {

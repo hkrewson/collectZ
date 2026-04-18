@@ -3050,7 +3050,7 @@ Historical note:
 
 **Goal:** Normalize book and comic ingest across Metron and OPDS/CWA so equivalent titles can attach to one canonical library record instead of creating duplicate rows or drifting into the wrong media type when multiple sync-capable sources contribute overlapping data.
 
-**Current Slice:** `3.1.6.11 — Remaining Obvious OPDS Reclassification Validation`
+**Current Slice:** `3.1.6.12 — Historical Duplicate Attach Repair Tooling`
 
 ### Scope
 
@@ -3132,6 +3132,11 @@ Historical note:
   - apply the final explicit-id OPDS issue rows that still dry-run cleanly,
   - re-run the live historical repair report afterward,
   - confirm that only fuzzy review cases remain once the obvious OPDS issue rows are exhausted.
+- Switch from type reclassification into duplicate-attach repair once the obvious OPDS reclassification set is exhausted:
+  - keep the attach tool restricted to explicit ids and one high-confidence normalization cluster at a time,
+  - choose or override one canonical row, snapshot the duplicate onto the canonical row before deletion, and preserve a timestamped attach record in `media_metadata`,
+  - merge missing canonical `type_details`, metadata, taxonomy, seasons, and rewired references like collection items before deleting the duplicate row,
+  - prove the behavior with a Docker-backed smoke that seeds a canonical and duplicate row, enriches the canonical row from duplicate-only fields, rewires a collection item, and confirms the duplicate row is removed.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
