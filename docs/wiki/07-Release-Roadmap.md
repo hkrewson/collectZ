@@ -3228,7 +3228,7 @@ Historical note:
 
 **Goal:** Add a controlled operator-facing manual merge workflow so supported media types can be reviewed, compared, merged, and reverted intentionally without allowing unsafe cross-type merges.
 
-**Current Slice:** `3.2.0.2 — Operator Review Surface for Manual Merge Preview`
+**Current Slice:** `3.2.0.3 — Operator Apply Flow for Manual Merge Review`
 
 - Start with same-type manual merge only:
   - books
@@ -3305,7 +3305,8 @@ Historical note:
   - preview one canonical record plus one matched record at a time,
   - help operators find candidate records inside the current scope instead of assuming they already know both ids,
   - show compared fields, winning values, rewiring impact, and history context,
-  - stop short of apply/revert actions until the review flow feels solid.
+  - add apply only as an explicit operator confirmation step on top of the preview contract,
+  - keep revert for a later operator slice rather than crowding the first apply workflow.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 

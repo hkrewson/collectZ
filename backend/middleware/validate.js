@@ -249,6 +249,8 @@ const mediaMergePreviewSchema = z.object({
   }
 });
 
+const mediaMergeApplySchema = mediaMergePreviewSchema;
+
 // ── Profile ───────────────────────────────────────────────────────────────────
 
 const profileUpdateSchema = z.object({
@@ -647,6 +649,7 @@ module.exports = {
   mediaUpdateSchema,
   mediaValuationRefreshSchema,
   mediaMergePreviewSchema,
+  mediaMergeApplySchema,
   profileUpdateSchema,
   passwordResetConsumeSchema,
   roleUpdateSchema,

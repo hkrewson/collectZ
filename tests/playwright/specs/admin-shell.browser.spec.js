@@ -108,7 +108,7 @@ test.describe('admin shell browser regressions', () => {
     await expect(metricsSwitch).toHaveAttribute('aria-checked', wasEnabled || 'false');
   });
 
-  test('manual merge review previews same-type candidates and blocks cross-type pairs', async ({ page }) => {
+  test('manual merge review previews, applies same-type candidates, and blocks cross-type pairs', async ({ page }) => {
     const suffix = Date.now();
     const adminCredentials = await ensureSavedAdminCredentials();
     const requestContext = await createAuthenticatedRequestContext(adminCredentials);
@@ -190,6 +190,29 @@ test.describe('admin shell browser regressions', () => {
 
       await expect(page.getByText('Cross-type merges are not allowed')).toBeVisible();
       await expect(page.getByText('This record is Book and the matched record is Movie.')).toBeVisible();
+
+      await page.getByLabel('Matched record id').fill(String(duplicate.id));
+      const secondPreviewResponsePromise = page.waitForResponse((response) => (
+        response.url().includes('/api/media/merge-preview')
+        && response.request().method() === 'POST'
+        && response.status() === 200
+      ));
+      await page.getByRole('button', { name: 'Preview merge' }).click();
+      const secondPreviewResponse = await secondPreviewResponsePromise;
+      expect(secondPreviewResponse.ok()).toBeTruthy();
+
+      await page.getByRole('button', { name: 'Apply merge' }).click();
+      const applyResponsePromise = page.waitForResponse((response) => (
+        response.url().includes('/api/media/merge-apply')
+        && response.request().method() === 'POST'
+        && response.status() === 200
+      ));
+      await page.getByRole('button', { name: 'Confirm apply' }).click();
+      const applyResponse = await applyResponsePromise;
+      expect(applyResponse.ok()).toBeTruthy();
+
+      await expect(page.getByRole('heading', { name: 'Merge applied' })).toBeVisible();
+      await expect(page.getByText(`Record #${canonical.id} absorbed record #${duplicate.id}`)).toBeVisible();
     } finally {
       for (const mediaId of createdIds.reverse()) {
         await requestContext.delete(`/api/media/${mediaId}`).catch(() => {});

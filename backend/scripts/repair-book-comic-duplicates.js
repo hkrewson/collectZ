@@ -971,6 +971,89 @@ async function runRepairBookComicDuplicates(options = {}) {
   }
 }
 
+async function runManualMediaMergeApply(options = {}) {
+  const canonicalId = Number(options.canonicalId || 0);
+  const duplicateId = Number(options.duplicateId || 0);
+  if (!Number.isFinite(canonicalId) || canonicalId <= 0) {
+    throw new Error('Manual merge apply requires a valid canonicalId');
+  }
+  if (!Number.isFinite(duplicateId) || duplicateId <= 0) {
+    throw new Error('Manual merge apply requires a valid duplicateId');
+  }
+  if (canonicalId === duplicateId) {
+    throw new Error('Manual merge apply requires different canonical and duplicate ids');
+  }
+
+  const client = await pool.connect();
+  try {
+    const rows = await loadRows(client, [canonicalId, duplicateId]);
+    if (rows.length !== 2) {
+      throw new Error('Manual merge apply requires both records to exist');
+    }
+
+    const canonicalRow = rows.find((row) => Number(row.id) === canonicalId);
+    const duplicateRow = rows.find((row) => Number(row.id) === duplicateId);
+    if (!canonicalRow || !duplicateRow) {
+      throw new Error('Manual merge apply requires both records to exist');
+    }
+
+    const canonicalMediaType = String(canonicalRow.media_type || '').trim();
+    const duplicateMediaType = String(duplicateRow.media_type || '').trim();
+    if (!canonicalMediaType || canonicalMediaType !== duplicateMediaType) {
+      throw new Error('Manual merge apply requires a same-type pair');
+    }
+
+    const mergeEvidence = options.mergeEvidence && typeof options.mergeEvidence === 'object'
+      ? {
+          ...options.mergeEvidence,
+          action: String(options.mergeEvidence.action || 'manual_merge').trim() || 'manual_merge',
+          canonical_selection: {
+            ...(options.mergeEvidence.canonical_selection || {}),
+            canonical_id: canonicalId,
+            duplicate_id: duplicateId
+          }
+        }
+      : {
+          action: 'manual_merge',
+          canonical_selection: {
+            canonical_id: canonicalId,
+            duplicate_id: duplicateId
+          }
+        };
+
+    const result = {
+      mode: 'manual-apply',
+      canonical: {
+        id: canonicalRow.id,
+        title: canonicalRow.title,
+        media_type: canonicalRow.media_type
+      },
+      duplicate: {
+        id: duplicateRow.id,
+        title: duplicateRow.title,
+        media_type: duplicateRow.media_type
+      },
+      attached: 0,
+      appliedDetails: []
+    };
+
+    await client.query('BEGIN');
+    try {
+      const detail = await mergeDuplicateIntoCanonical(client, canonicalRow, duplicateRow, mergeEvidence);
+      result.appliedDetails.push(detail);
+      result.attached = 1;
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    }
+
+    return result;
+  } finally {
+    client.release();
+  }
+}
+
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   const result = await runRepairBookComicDuplicates(options);
@@ -991,5 +1074,6 @@ if (require.main === module) {
 module.exports = {
   buildClusterFromRows,
   mergeMissingObjectFields,
-  runRepairBookComicDuplicates
+  runRepairBookComicDuplicates,
+  runManualMediaMergeApply
 };

@@ -12,6 +12,7 @@ const {
   mediaUpdateSchema,
   mediaValuationRefreshSchema,
   mediaMergePreviewSchema,
+  mediaMergeApplySchema,
   simpleSearchSchema,
   titleAuthorSearchSchema,
   titleArtistSearchSchema,
@@ -63,6 +64,7 @@ const { isFeatureEnabledForSpace } = require('../services/featureFlags');
 const { enforceScopeAccess } = require('../middleware/scopeAccess');
 const { ensureUserDefaultLibrary, ensureUserDefaultScope } = require('../services/libraries');
 const { refreshMediaValuation } = require('../services/valuations');
+const { runManualMediaMergeApply } = require('../scripts/repair-book-comic-duplicates');
 
 const router = express.Router();
 
@@ -5168,6 +5170,55 @@ router.post('/merge-preview', requireSessionAuth, requireRole('admin', 'support_
     });
   }
   res.json(preview);
+}));
+
+router.post('/merge-apply', requireSessionAuth, requireRole('admin', 'support_admin'), validate(mediaMergeApplySchema), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const canonicalMediaId = Number(req.body?.canonical_id);
+  const duplicateMediaId = Number(req.body?.duplicate_id);
+  const preview = await loadScopedManualMergePreview({
+    canonicalMediaId,
+    duplicateMediaId,
+    scopeContext
+  });
+  if (!preview) {
+    return res.status(404).json({ error: 'One or both media items were not found in the active scope' });
+  }
+  if (!preview.allowed) {
+    return res.status(409).json({
+      error: 'Cross-type merges are not allowed',
+      details: preview.details,
+      canonical: preview.canonical,
+      duplicate: preview.duplicate
+    });
+  }
+
+  const mergeEvidence = {
+    ...(preview.preview?.evidence || {}),
+    action: 'manual_merge',
+    summary: String(preview.preview?.evidence?.summary || 'Manual merge').trim() || 'Manual merge',
+    canonical_selection: {
+      requested_canonical_id: canonicalMediaId,
+      recommended_canonical_id: Number(preview.preview?.canonical_selection?.recommended_canonical_id || 0) || canonicalMediaId,
+      requested_matches_recommended: Boolean(preview.preview?.canonical_selection?.requested_matches_recommended),
+      selection_reason: String(preview.preview?.canonical_selection?.selection_reason || CANONICAL_SELECTION_REASON).trim() || CANONICAL_SELECTION_REASON
+    }
+  };
+
+  const result = await runManualMediaMergeApply({
+    canonicalId: canonicalMediaId,
+    duplicateId: duplicateMediaId,
+    mergeEvidence
+  });
+  const mergeDetails = await loadScopedMergeDetails(canonicalMediaId, scopeContext);
+
+  res.json({
+    applied: true,
+    canonical: summarizeMergeSourceRow(await loadScopedMediaItem(canonicalMediaId, scopeContext)),
+    duplicate: preview.duplicate,
+    result,
+    merge_details: mergeDetails
+  });
 }));
 
 router.post('/:id/valuation-refresh', validate(mediaValuationRefreshSchema), asyncHandler(async (req, res) => {

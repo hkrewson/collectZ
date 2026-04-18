@@ -147,6 +147,7 @@ const repairBookComicDuplicatesSource = fs.readFileSync(require.resolve('../scri
 const repairBookComicDuplicatesSmokeSource = fs.readFileSync(require.resolve('../scripts/repair-book-comic-duplicates-smoke'), 'utf8');
 const repairBookComicMultiRevertSmokeSource = fs.readFileSync(require.resolve('../scripts/repair-book-comic-multi-revert-smoke'), 'utf8');
 const manualMergePreviewSmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-preview-smoke'), 'utf8');
+const manualMergeApplySmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-apply-smoke'), 'utf8');
 const { parseComicMetadataFromTitle, buildComicLikeBookProposal, buildComicLikeBookRevertProposal } = require('../scripts/repair-comic-like-books');
 const { buildClusterFromRows, mergeMissingObjectFields } = require('../scripts/repair-book-comic-duplicates');
 const supportSessionSmokeSource = fs.readFileSync(require.resolve('../scripts/support-session-smoke'), 'utf8');
@@ -1328,7 +1329,9 @@ results.push(run('media route source exposes merge details provenance for canoni
 
 results.push(run('media route source exposes operator-only manual merge preview for same-type records', () => {
   assert.ok(mediaRoutesSource.includes("router.post('/merge-preview'"));
+  assert.ok(mediaRoutesSource.includes("router.post('/merge-apply'"));
   assert.ok(mediaRoutesSource.includes('loadScopedManualMergePreview'));
+  assert.ok(mediaRoutesSource.includes('runManualMediaMergeApply'));
   assert.ok(mediaRoutesSource.includes("requireRole('admin', 'support_admin')"));
   assert.ok(mediaRoutesSource.includes('requireSessionAuth'));
   assert.ok(mediaRoutesSource.includes('Cross-type merges are not allowed'));
@@ -1410,9 +1413,13 @@ results.push(run('repo includes historical duplicate attach repair tooling with 
 
 results.push(run('repo includes manual merge preview smoke coverage for same-type preview and cross-type rejection', () => {
   assert.ok(backendPackageJson.scripts['test:manual-merge-preview-smoke']);
+  assert.ok(backendPackageJson.scripts['test:manual-merge-apply-smoke']);
   assert.ok(manualMergePreviewSmokeSource.includes('/api/media/merge-preview'));
+  assert.ok(manualMergeApplySmokeSource.includes('/api/media/merge-apply'));
   assert.ok(manualMergePreviewSmokeSource.includes('Matched on ISBN'));
   assert.ok(manualMergePreviewSmokeSource.includes('Cross-type merges are not allowed'));
+  assert.ok(manualMergeApplySmokeSource.includes('manual_merge'));
+  assert.ok(manualMergeApplySmokeSource.includes('activeMergeCount'));
 }));
 
 results.push(run('repo includes merge evidence backfill tooling for older duplicate attach history rows', () => {
@@ -2769,12 +2776,16 @@ results.push(run('library drawer source includes compact match evidence summarie
 
 results.push(run('admin merge review view posts preview requests and renders operator-facing comparison details', () => {
   assert.ok(adminMergeReviewViewSource.includes("/media/merge-preview"));
+  assert.ok(adminMergeReviewViewSource.includes("/media/merge-apply"));
   assert.ok(adminMergeReviewViewSource.includes('/media?search='));
-  assert.ok(adminMergeReviewViewSource.includes('Preview only. No data changes happen here.'));
+  assert.ok(adminMergeReviewViewSource.includes('Review a same-type pairwise merge inside the current workspace and library scope'));
   assert.ok(adminMergeReviewViewSource.includes('Find this record'));
   assert.ok(adminMergeReviewViewSource.includes('Find matched record'));
   assert.ok(adminMergeReviewViewSource.includes('Search inside the active workspace and library scope.'));
   assert.ok(adminMergeReviewViewSource.includes('Type at least two characters to search.'));
+  assert.ok(adminMergeReviewViewSource.includes('Apply merge'));
+  assert.ok(adminMergeReviewViewSource.includes('Confirm apply'));
+  assert.ok(adminMergeReviewViewSource.includes('Merge applied'));
   assert.ok(adminMergeReviewViewSource.includes('Compared fields'));
   assert.ok(adminMergeReviewViewSource.includes('This record'));
   assert.ok(adminMergeReviewViewSource.includes('Matched record'));
@@ -2788,6 +2799,7 @@ results.push(run('admin merge review view posts preview requests and renders ope
 results.push(run('admin shell browser coverage includes manual merge review preview and cross-type guardrails', () => {
   assert.ok(adminShellBrowserSpecSource.includes('/dashboard?tab=admin-merges'));
   assert.ok(adminShellBrowserSpecSource.includes('Preview merge'));
+  assert.ok(adminShellBrowserSpecSource.includes('Apply merge'));
   assert.ok(adminShellBrowserSpecSource.includes('Cross-type merges are not allowed'));
   assert.ok(adminShellBrowserSpecSource.includes('Compared fields'));
 }));

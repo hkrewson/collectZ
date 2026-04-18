@@ -161,8 +161,11 @@ export default function AdminMergeReviewView({
   const [canonicalSearchLoading, setCanonicalSearchLoading] = useState(false);
   const [duplicateSearchLoading, setDuplicateSearchLoading] = useState(false);
   const [preview, setPreview] = useState(null);
+  const [applyResult, setApplyResult] = useState(null);
+  const [applyConfirmOpen, setApplyConfirmOpen] = useState(false);
   const [errorState, setErrorState] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [applying, setApplying] = useState(false);
 
   const comparedRows = Array.isArray(preview?.preview?.field_comparison) ? preview.preview.field_comparison : [];
   const rewiringRows = useMemo(
@@ -176,6 +179,8 @@ export default function AdminMergeReviewView({
 
   const clearPreview = () => {
     setPreview(null);
+    setApplyResult(null);
+    setApplyConfirmOpen(false);
     setErrorState(null);
   };
 
@@ -258,6 +263,8 @@ export default function AdminMergeReviewView({
     event.preventDefault();
     setLoading(true);
     setPreview(null);
+    setApplyResult(null);
+    setApplyConfirmOpen(false);
     setErrorState(null);
     try {
       const payload = await apiCall('post', '/media/merge-preview', {
@@ -279,12 +286,41 @@ export default function AdminMergeReviewView({
     }
   };
 
+  const handleApply = async () => {
+    if (!preview?.allowed || applying) return;
+    setApplying(true);
+    setErrorState(null);
+    try {
+      const payload = await apiCall('post', '/media/merge-apply', {
+        canonical_id: Number(preview.canonical?.id || canonicalId),
+        duplicate_id: Number(preview.duplicate?.id || duplicateId)
+      });
+      setApplyResult(payload);
+      setPreview(null);
+      setApplyConfirmOpen(false);
+      setDuplicateId('');
+      setDuplicateSearch('');
+      onToast('Manual merge applied', 'success');
+    } catch (error) {
+      const response = error?.response?.data || null;
+      setErrorState({
+        message: response?.error || 'Failed to apply manual merge.',
+        details: response?.details || null,
+        canonical: response?.canonical || preview?.canonical || null,
+        duplicate: response?.duplicate || preview?.duplicate || null
+      });
+      onToast(response?.error || 'Failed to apply manual merge', 'error');
+    } finally {
+      setApplying(false);
+    }
+  };
+
   return (
     <div className="h-full overflow-y-auto p-4 sm:p-6 space-y-6">
       <div className="space-y-3">
         <h1 className="section-title">Merge Review</h1>
         <p className="max-w-3xl text-sm text-ghost">
-          Preview a same-type pairwise merge inside the current workspace and library scope. Preview only. No data changes happen here.
+          Review a same-type pairwise merge inside the current workspace and library scope, then apply it deliberately when the comparison looks right.
         </p>
       </div>
 
@@ -292,7 +328,7 @@ export default function AdminMergeReviewView({
         <SummaryStat label="Workspace" value={activeSpace?.name || 'Current workspace'} />
         <SummaryStat label="Library" value={activeLibrary?.name || 'Current library'} />
         <SummaryStat label="Merge boundary" value="Same type only" />
-        <SummaryStat label="Action mode" value="Preview only" />
+        <SummaryStat label="Action mode" value="Preview first" />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
@@ -402,6 +438,31 @@ export default function AdminMergeReviewView({
             <RecordSummary title="Matched record" record={preview.duplicate} />
           </div>
 
+          <div className="rounded-lg border border-edge bg-void/10 p-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="space-y-1">
+                <h2 className="text-sm font-medium text-ink">Apply merge</h2>
+                <p className="text-sm text-ghost">
+                  This will absorb the matched record into this record and preserve repair history so the merge can be reverted later through the operator workflow.
+                </p>
+              </div>
+              {!applyConfirmOpen ? (
+                <button type="button" className="btn-primary h-10" onClick={() => setApplyConfirmOpen(true)} disabled={applying}>
+                  Apply merge
+                </button>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" className="btn-primary h-10" onClick={handleApply} disabled={applying}>
+                    {applying ? <><Spinner size={14} />Applying…</> : 'Confirm apply'}
+                  </button>
+                  <button type="button" className="btn-secondary h-10" onClick={() => setApplyConfirmOpen(false)} disabled={applying}>
+                    Cancel
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="rounded-lg border border-edge bg-void/10">
             <div className="border-b border-edge/70 px-4 py-3">
               <h2 className="text-sm font-medium text-ink">Compared fields</h2>
@@ -458,6 +519,23 @@ export default function AdminMergeReviewView({
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {applyResult?.applied ? (
+        <div className="space-y-4 rounded-lg border border-edge bg-void/10 p-4">
+          <div className="space-y-1">
+            <h2 className="text-sm font-medium text-ink">Merge applied</h2>
+            <p className="text-sm text-ghost">
+              Record #{applyResult?.canonical?.id || '—'} absorbed record #{applyResult?.duplicate?.id || '—'} and the merge is now part of the normal provenance history.
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <SummaryStat label="Canonical record" value={`#${applyResult?.canonical?.id || '—'}`} />
+            <SummaryStat label="Merged record" value={`#${applyResult?.duplicate?.id || '—'}`} />
+            <SummaryStat label="Attach count" value={formatValue(applyResult?.result?.attached || 0)} />
+            <SummaryStat label="Active merge count" value={formatValue(applyResult?.merge_details?.summary?.active_merge_count || 0)} />
           </div>
         </div>
       ) : null}
