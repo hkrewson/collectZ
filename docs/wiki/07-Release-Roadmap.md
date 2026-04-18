@@ -3050,10 +3050,10 @@ Historical note:
 
 **Goal:** Normalize book and comic ingest across Metron and OPDS/CWA so equivalent titles can attach to one canonical library record instead of creating duplicate rows or drifting into the wrong media type when multiple sync-capable sources contribute overlapping data.
 
-**Current Slice:** `3.1.6.24 — Multi-Merge Evidence Aggregation and Source Labels`
+**Current Slice:** `3.1.6.25 — Match Evidence Drawer Simplification`
 
-- Aggregate multiple active `duplicate_attach` events for one canonical record into a cluster-aware merge summary so drawers can show supporting-source counts, merged-source lists, and multi-source field provenance instead of behaving like only the latest merge happened.
-- Normalize merged record source/provider labels into user-facing names like `Metron`, `OPDS / Calibre`, `CSV Import`, and `Delicious Library`, and surface those labels directly in merge evidence so users can tell where each absorbed record came from.
+- Reduce the drawer provenance surface to a single `Match evidence` section so merged records read as concise pairwise evidence instead of a stacked audit wall with repeated source, field-provenance, and event-history blocks.
+- Keep one collapsed disclosure per merge event, showing the two matched records, user-facing source/provider labels, record ids, timestamp, confidence, and match rationale without the always-open aggregate provenance grid.
 
 ### Scope
 

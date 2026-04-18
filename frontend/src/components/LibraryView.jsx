@@ -587,10 +587,6 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   };
   const mergeEntries = Array.isArray(mergeDetails?.entries) ? mergeDetails.entries : [];
   const mergeSummary = mergeDetails?.summary || null;
-  const aggregateMergeSources = Array.isArray(mergeSummary?.merged_sources) ? mergeSummary.merged_sources : [];
-  const aggregateFieldProvenance = Array.isArray(mergeSummary?.field_provenance) ? mergeSummary.field_provenance : [];
-  const aggregateMatchSummaries = Array.isArray(mergeSummary?.match_summaries) ? mergeSummary.match_summaries : [];
-  const aggregateRationale = Array.isArray(mergeSummary?.rationale) ? mergeSummary.rationale : [];
   const mergeDisclosureItems = mergeEntries.map((entry) => ({
     id: String(entry.duplicate_id || entry.applied_at || Math.random()),
     entry
@@ -959,75 +955,17 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
             <div>
               <div className="mb-3 flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <p className="label">Merge details</p>
+                  <p className="label">Match evidence</p>
                   {mergeDetailsLoading ? (
                     <p className="mt-1 text-sm text-ghost">Loading merge evidence…</p>
                   ) : (
-                    <>
-                      <p className="mt-1 text-sm text-dim">
-                        {`Merged from ${Number(mergeSummary?.merged_source_count || mergeSummary?.active_merge_count || 0)} ${Number(mergeSummary?.merged_source_count || mergeSummary?.active_merge_count || 0) === 1 ? 'duplicate' : 'duplicates'}`}
-                      </p>
-                      <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ghost">
-                        {mergeSummary?.source_count ? <span>{`${mergeSummary.source_count} supporting sources`}</span> : null}
-                        {mergeSummary?.last_merge_at ? <span>{`Last merge: ${formatMergeTimestamp(mergeSummary.last_merge_at)}`}</span> : null}
-                        {aggregateMatchSummaries.length > 0 ? <span>{aggregateMatchSummaries.join(' · ')}</span> : null}
-                      </div>
-                    </>
+                    <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-dim">
+                      <span>{`${Number(mergeSummary?.active_merge_count || 0)} ${Number(mergeSummary?.active_merge_count || 0) === 1 ? 'merge event' : 'merge events'}`}</span>
+                      {mergeSummary?.source_count ? <span>{`${mergeSummary.source_count} supporting sources`}</span> : null}
+                    </div>
                   )}
                 </div>
               </div>
-              {!mergeDetailsLoading && (aggregateMergeSources.length > 0 || aggregateFieldProvenance.length > 0 || aggregateRationale.length > 0) ? (
-                <div className="mb-5 space-y-5 border-t border-edge/60 pt-5">
-                  {aggregateMergeSources.length > 0 ? (
-                    <div>
-                      <p className="text-[11px] font-medium text-ghost">Merged sources</p>
-                      <div className="mt-3 space-y-3">
-                        {aggregateMergeSources.map((source) => (
-                          <div key={source.id || `${source.title}-${source.import_source || 'source'}`} className="border-t border-edge/50 pt-3 first:border-t-0 first:pt-0">
-                            <div className="flex flex-wrap items-baseline justify-between gap-3">
-                              <p className="text-sm font-medium text-ink">{source?.title || 'Merged record'}</p>
-                              {source?.id ? <p className="text-xs text-ghost">Record #{source.id}</p> : null}
-                            </div>
-                            <p className="mt-1 text-xs text-ghost">Source: {formatMergeSourceLabel(source)}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null}
-
-                  {aggregateFieldProvenance.length > 0 ? (
-                    <div>
-                      <p className="text-[11px] font-medium text-ghost">Field provenance</p>
-                      <div className="mt-3 space-y-3">
-                        {aggregateFieldProvenance.map((row) => (
-                          <div key={row.key} className="border-t border-edge/50 pt-3 first:border-t-0 first:pt-0">
-                            <div className="flex flex-wrap items-baseline justify-between gap-3">
-                              <p className="text-sm font-medium text-ink">{row.label}</p>
-                              <p className="text-xs text-ghost">
-                                {row.support_count && row.total_source_count
-                                  ? `Confirmed by ${row.support_count} of ${row.total_source_count} sources`
-                                  : formatMergeUsedFrom(row.used_from)}
-                              </p>
-                            </div>
-                            <p className="mt-1 text-sm text-dim">{formatMergeValue(row.current_value)}</p>
-                            <div className="mt-2 grid gap-2 text-xs text-ghost sm:grid-cols-2">
-                              <p>Canonical: {formatMergeValue(row.canonical_value)}</p>
-                              <p>Merged sources: {Array.isArray(row.merged_values) && row.merged_values.length > 0 ? row.merged_values.join(' · ') : '—'}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null}
-
-                  {aggregateRationale.length > 0 ? (
-                    <div>
-                      <p className="text-[11px] font-medium text-ghost">Match evidence</p>
-                      <p className="mt-2 text-sm text-dim">{aggregateRationale.join(' · ')}</p>
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
               {!mergeDetailsLoading && mergeDisclosureItems.length > 0 ? (
                 <DisclosureList
                   items={mergeDisclosureItems}
@@ -1039,7 +977,10 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                       <>
                         <p className="text-sm font-medium text-ink">{entry?.match_summary || 'Merged record'}</p>
                         <p className="mt-1 text-sm text-ghost">
-                          {[entry?.merged?.title, formatMergeSourceLabel(entry?.merged)].filter(Boolean).join(' · ')}
+                          {[entry?.canonical?.title || item.title, formatMergeSourceLabel(entry?.canonical)].filter(Boolean).join(' · ')}
+                        </p>
+                        <p className="mt-1 text-sm text-ghost">
+                          {[entry?.merged?.title || 'Merged record', formatMergeSourceLabel(entry?.merged)].filter(Boolean).join(' · ')}
                         </p>
                         <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ghost">
                           {entry?.confidence ? <span>{String(entry.confidence).charAt(0).toUpperCase() + String(entry.confidence).slice(1)} confidence</span> : null}
@@ -1051,71 +992,34 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                   }}
                   renderContent={(itemEntry) => {
                     const entry = itemEntry.entry;
-                    const provenanceRows = Array.isArray(entry?.field_provenance) ? entry.field_provenance : [];
                     return (
-                      <div className="space-y-5">
+                      <div className="space-y-4">
                         <div className="grid gap-4 md:grid-cols-2">
                           <div>
                             <p className="text-[11px] font-medium text-ghost">Canonical record</p>
                             <p className="mt-1 text-sm text-ink">{entry?.canonical?.title || item.title}</p>
                             <p className="mt-1 text-xs text-ghost">Source: {formatMergeSourceLabel(entry?.canonical)}</p>
+                            {entry?.technical_details?.canonical_id ? (
+                              <p className="mt-1 text-xs text-ghost">Record #{entry.technical_details.canonical_id}</p>
+                            ) : null}
                           </div>
                           <div>
-                            <p className="text-[11px] font-medium text-ghost">Merged record</p>
+                            <p className="text-[11px] font-medium text-ghost">Matched record</p>
                             <p className="mt-1 text-sm text-ink">{entry?.merged?.title || 'Merged record'}</p>
                             <p className="mt-1 text-xs text-ghost">Source: {formatMergeSourceLabel(entry?.merged)}</p>
+                            {entry?.technical_details?.duplicate_id ? (
+                              <p className="mt-1 text-xs text-ghost">Record #{entry.technical_details.duplicate_id}</p>
+                            ) : null}
                           </div>
                         </div>
-
-                        {provenanceRows.length > 0 ? (
-                          <div>
-                            <p className="text-[11px] font-medium text-ghost">Field provenance</p>
-                            <div className="mt-3 space-y-3">
-                              {provenanceRows.map((row) => (
-                                <div key={row.key} className="border-t border-edge/50 pt-3 first:border-t-0 first:pt-0">
-                                  <div className="flex flex-wrap items-baseline justify-between gap-3">
-                                    <p className="text-sm font-medium text-ink">{row.label}</p>
-                                    <p className="text-xs text-ghost">{formatMergeUsedFrom(row.used_from)}</p>
-                                  </div>
-                                  <p className="mt-1 text-sm text-dim">{formatMergeValue(row.current_value)}</p>
-                                  <div className="mt-2 grid gap-2 text-xs text-ghost sm:grid-cols-2">
-                                    <p>Canonical: {formatMergeValue(row.canonical_value)}</p>
-                                    <p>Merged: {formatMergeValue(row.merged_value)}</p>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        ) : null}
-
-                        {entry?.technical_details ? (
-                          <div>
-                            <p className="text-[11px] font-medium text-ghost">Technical details</p>
-                            <div className="mt-3 grid gap-2 text-xs text-ghost sm:grid-cols-2">
-                              {entry.technical_details.repair_type ? (
-                                <p>Repair: {formatMergeTechnicalLabel(entry.technical_details.repair_type)}</p>
-                              ) : null}
-                              {entry.technical_details.canonical_id ? (
-                                <p>Canonical id: {entry.technical_details.canonical_id}</p>
-                              ) : null}
-                              {entry.technical_details.duplicate_id ? (
-                                <p>Merged id: {entry.technical_details.duplicate_id}</p>
-                              ) : null}
-                              {entry.technical_details.applied_at ? (
-                                <p>Merged at: {formatMergeTimestamp(entry.technical_details.applied_at)}</p>
-                              ) : null}
-                              {entry.technical_details.reverted_at ? (
-                                <p>Reverted at: {formatMergeTimestamp(entry.technical_details.reverted_at)}</p>
-                              ) : null}
-                              {entry.technical_details.selection_reason ? (
-                                <p>Selection: {entry.technical_details.selection_reason.replace(/_/g, ' ')}</p>
-                              ) : null}
-                              {entry.technical_details.merge_key ? (
-                                <p className="sm:col-span-2">Merge key: {entry.technical_details.merge_key}</p>
-                              ) : null}
-                            </div>
-                          </div>
-                        ) : null}
+                        <div className="grid gap-2 text-xs text-ghost sm:grid-cols-2">
+                          {entry?.applied_at ? <p>Merged at: {formatMergeTimestamp(entry.applied_at)}</p> : null}
+                          {entry?.confidence ? <p>Confidence: {String(entry.confidence).charAt(0).toUpperCase() + String(entry.confidence).slice(1)}</p> : null}
+                          {entry?.match_summary ? <p className="sm:col-span-2">{entry.match_summary}</p> : null}
+                          {Array.isArray(entry?.rationale) && entry.rationale.length > 0 ? (
+                            <p className="sm:col-span-2">Matched on: {entry.rationale.join(' · ')}</p>
+                          ) : null}
+                        </div>
                       </div>
                     );
                   }}

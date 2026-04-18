@@ -2707,21 +2707,18 @@ results.push(run('frontend import flow no longer mounts standalone Import Review
   assert.ok(!frontendAppSource.includes('const importReviewEnabled'));
 }));
 
-results.push(run('library drawer source includes persistent merge details provenance section', () => {
-  assert.ok(libraryViewSource.includes('Merge details'));
-  assert.ok(libraryViewSource.includes('Merged from ${Number(mergeSummary?.merged_source_count || mergeSummary?.active_merge_count || 0)}'));
-  assert.ok(libraryViewSource.includes('supporting sources'));
-  assert.ok(libraryViewSource.includes('Merged sources'));
-  assert.ok(libraryViewSource.includes('Source: {formatMergeSourceLabel(source)}'));
-  assert.ok(libraryViewSource.includes('Source: {formatMergeSourceLabel(entry?.merged)}'));
-  assert.ok(libraryViewSource.includes('Field provenance'));
-  assert.ok(libraryViewSource.includes('Confirmed by ${row.support_count} of ${row.total_source_count} sources'));
-  assert.ok(libraryViewSource.includes('Merged sources:'));
+results.push(run('library drawer source includes simplified match evidence disclosure section', () => {
   assert.ok(libraryViewSource.includes('Match evidence'));
-  assert.ok(libraryViewSource.includes('Technical details'));
-  assert.ok(libraryViewSource.includes('selection_reason'));
-  assert.ok(libraryViewSource.includes('Canonical id:'));
+  assert.ok(libraryViewSource.includes("${Number(mergeSummary?.active_merge_count || 0)} ${Number(mergeSummary?.active_merge_count || 0) === 1 ? 'merge event' : 'merge events'}"));
+  assert.ok(libraryViewSource.includes('supporting sources'));
+  assert.ok(!libraryViewSource.includes('Merged sources</p>'));
+  assert.ok(libraryViewSource.includes('Source: {formatMergeSourceLabel(entry?.merged)}'));
+  assert.ok(libraryViewSource.includes('Canonical record'));
+  assert.ok(libraryViewSource.includes('Matched record'));
+  assert.ok(libraryViewSource.includes('Record #{entry.technical_details.canonical_id}'));
+  assert.ok(libraryViewSource.includes('Record #{entry.technical_details.duplicate_id}'));
   assert.ok(libraryViewSource.includes('Merged at:'));
+  assert.ok(libraryViewSource.includes('Matched on:'));
   assert.ok(libraryViewSource.includes("apiCall('get', `/media/${item.id}/merge-details`)"));
   assert.ok(libraryViewSource.includes('DisclosureList'));
 }));
