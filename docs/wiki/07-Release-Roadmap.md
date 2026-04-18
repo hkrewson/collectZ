@@ -3050,7 +3050,7 @@ Historical note:
 
 **Goal:** Normalize book and comic ingest across Metron and OPDS/CWA so equivalent titles can attach to one canonical library record instead of creating duplicate rows or drifting into the wrong media type when multiple sync-capable sources contribute overlapping data.
 
-**Current Slice:** `3.1.6.10 — Second Narrow Real-Data Reclassification Batch`
+**Current Slice:** `3.1.6.11 — Remaining Obvious OPDS Reclassification Validation`
 
 ### Scope
 
@@ -3128,6 +3128,10 @@ Historical note:
   - keep the second batch explicit-id only,
   - verify the same rollback metadata contract after apply,
   - still avoid fuzzy review cases like duplicate-leaning variant titles.
+- Finish the obvious OPDS-only reclassification set before stopping this repair lane:
+  - apply the final explicit-id OPDS issue rows that still dry-run cleanly,
+  - re-run the live historical repair report afterward,
+  - confirm that only fuzzy review cases remain once the obvious OPDS issue rows are exhausted.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
