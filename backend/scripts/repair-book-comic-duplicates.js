@@ -173,6 +173,35 @@ async function getDuplicateAttachHistory(client, canonicalMediaId, duplicateMedi
   return result.rows[0] || null;
 }
 
+async function getExistingDuplicateAttachHistory(client, canonicalMediaId, duplicateMediaId) {
+  const history = await getDuplicateAttachHistory(client, canonicalMediaId, duplicateMediaId);
+  if (history && !history.reverted_at) {
+    return history;
+  }
+
+  const snapshotKey = `historical_duplicate_attach_snapshot_${duplicateMediaId}`;
+  const contextKey = `historical_duplicate_attach_context_${duplicateMediaId}`;
+  const revertedKey = `historical_duplicate_attach_reverted_at_${duplicateMediaId}`;
+  const result = await client.query(
+    `SELECT "key", "value"
+       FROM media_metadata
+      WHERE media_id = $1
+        AND "key" = ANY($2::varchar[])`,
+    [canonicalMediaId, [snapshotKey, contextKey, revertedKey]]
+  );
+  const metadataByKey = new Map((result.rows || []).map((row) => [row.key, row.value]));
+  if (!metadataByKey.has(snapshotKey) || !metadataByKey.has(contextKey) || metadataByKey.has(revertedKey)) {
+    return null;
+  }
+  return {
+    canonical_media_id: Number(canonicalMediaId),
+    duplicate_media_id: Number(duplicateMediaId),
+    repair_type: 'duplicate_attach',
+    applied_at: null,
+    reverted_at: null
+  };
+}
+
 async function markDuplicateAttachHistoryReverted(client, canonicalMediaId, duplicateMediaId) {
   await client.query(
     `UPDATE media_repair_history
@@ -800,14 +829,56 @@ async function runRepairBookComicDuplicates(options = {}) {
   const client = await pool.connect();
   try {
     const rows = await loadRows(client, options.ids || []);
-    if (!options.revert && rows.length !== (options.ids || []).length) {
-      throw new Error(`Expected ${options.ids.length} rows, found ${rows.length}`);
-    }
-
     let cluster = null;
     let canonical = null;
     let duplicates = [];
     let plan = null;
+    let alreadyAppliedDuplicateIds = [];
+
+    if (!options.revert && rows.length !== (options.ids || []).length) {
+      if (!(options.apply && options.canonicalId)) {
+        throw new Error(`Expected ${options.ids.length} rows, found ${rows.length}`);
+      }
+
+      canonical = rows.find((row) => Number(row.id) === Number(options.canonicalId));
+      if (!canonical) {
+        throw new Error(`Expected ${options.ids.length} rows, found ${rows.length}`);
+      }
+
+      const foundIds = new Set(rows.map((row) => Number(row.id)));
+      const requestedDuplicateIds = (options.ids || [])
+        .map((value) => Number(value))
+        .filter((value) => Number.isFinite(value) && value > 0 && value !== Number(canonical.id));
+      const missingDuplicateIds = requestedDuplicateIds.filter((id) => !foundIds.has(id));
+
+      if (missingDuplicateIds.length === 0) {
+        throw new Error(`Expected ${options.ids.length} rows, found ${rows.length}`);
+      }
+
+      for (const duplicateId of missingDuplicateIds) {
+        const existingHistory = await getExistingDuplicateAttachHistory(client, canonical.id, duplicateId);
+        if (!existingHistory) {
+          throw new Error(`Expected ${options.ids.length} rows, found ${rows.length}`);
+        }
+      }
+
+      alreadyAppliedDuplicateIds = missingDuplicateIds;
+      duplicates = rows.filter((row) => Number(row.id) !== Number(canonical.id));
+      if (duplicates.length === 0) {
+        return {
+          mode: 'apply',
+          confidence: 'high',
+          key: null,
+          canonical: { id: canonical.id, title: canonical.title, media_type: canonical.media_type },
+          duplicates: missingDuplicateIds.map((id) => ({ id })),
+          attached: 0,
+          reverted: 0,
+          appliedDetails: [],
+          alreadyAppliedDuplicateIds,
+          status: 'already_attached'
+        };
+      }
+    }
 
     if (options.revert) {
       canonical = options.canonicalId
@@ -850,7 +921,8 @@ async function runRepairBookComicDuplicates(options = {}) {
       duplicates: plan?.duplicates || duplicates.map((row) => ({ id: Number(row.id || 0) || null })),
       attached: 0,
       reverted: 0,
-      appliedDetails: []
+      appliedDetails: [],
+      alreadyAppliedDuplicateIds
     };
 
     if (!options.apply && !options.revert) {

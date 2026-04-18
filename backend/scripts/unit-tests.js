@@ -1316,7 +1316,10 @@ results.push(run('repo includes historical duplicate attach repair tooling with 
   assert.ok(repairBookComicDuplicatesSource.includes('media_repair_history'));
   assert.ok(repairBookComicDuplicatesSource.includes('upsertDuplicateAttachHistory'));
   assert.ok(repairBookComicDuplicatesSource.includes('getDuplicateAttachHistory'));
+  assert.ok(repairBookComicDuplicatesSource.includes('getExistingDuplicateAttachHistory'));
   assert.ok(repairBookComicDuplicatesSource.includes('markDuplicateAttachHistoryReverted'));
+  assert.ok(repairBookComicDuplicatesSource.includes("status: 'already_attached'"));
+  assert.ok(repairBookComicDuplicatesSource.includes('alreadyAppliedDuplicateIds'));
   assert.ok(repairBookComicDuplicatesSource.includes('mergeDuplicateMetadataIntoCanonical'));
   assert.ok(repairBookComicDuplicatesSource.includes('rewireDuplicateReferences'));
   assert.ok(repairBookComicDuplicatesSource.includes('DELETE FROM media WHERE id = $1'));
