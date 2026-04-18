@@ -3050,7 +3050,7 @@ Historical note:
 
 **Goal:** Normalize book and comic ingest across Metron and OPDS/CWA so equivalent titles can attach to one canonical library record instead of creating duplicate rows or drifting into the wrong media type when multiple sync-capable sources contribute overlapping data.
 
-**Current Slice:** `3.1.6.8 — Comic-Like Book Reclassification Revert Path`
+**Current Slice:** `3.1.6.9 — Narrow Real-Data Reclassification Pilot`
 
 ### Scope
 
@@ -3118,6 +3118,11 @@ Historical note:
   - keep the revert path narrowly scoped by ids and optional library scope,
   - record when a revert was executed,
   - prove the same Docker-backed smoke can restore the seeded row back to `book` with its prior metadata intact.
+- Run one tiny real-data pilot before attempting any broader sweep:
+  - choose only obvious OPDS comic-issue titles that already dry-run cleanly,
+  - apply reclassification by explicit ids only,
+  - verify the live rows and stored historical snapshot metadata directly in the running DB after mutation,
+  - keep broader candidate sets untouched until the narrow pilot is judged safe.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
