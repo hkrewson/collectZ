@@ -17,7 +17,8 @@ const {
   buildNormalizationMatchContract,
   detectLikelyComicLikeBook,
   chooseCanonicalRow,
-  buildHistoricalRepairPlan
+  buildHistoricalRepairPlan,
+  buildPersistedMergeEvidence
 } = require('../services/bookComicNormalization');
 const { buildOwnedFormatsPayload, getOwnedFormatLabel } = require('../services/mediaFormats');
 const { compareReleaseVersions, parseReleaseMarkdown } = require('../services/releaseNotes');
@@ -328,6 +329,34 @@ results.push(run('bookComicNormalization chooses canonical rows by richer identi
     }
   ]);
   assert.strictEqual(chosen.id, 12);
+}));
+
+results.push(run('bookComicNormalization builds persisted merge evidence for canonical plus duplicate history rows', () => {
+  const evidence = buildPersistedMergeEvidence({
+    canonicalRow: {
+      id: 4935,
+      media_type: 'comic_book',
+      title: 'Alpha Flight #11',
+      import_source: 'metron',
+      type_details: { series: 'Alpha Flight', issue_number: '11', volume: '1', provider_name: 'metron', provider_issue_id: '37018' }
+    },
+    duplicateRow: {
+      id: 6757,
+      media_type: 'comic_book',
+      title: 'Alpha Flight #11',
+      import_source: 'cwa',
+      type_details: { series: 'Alpha Flight', issue_number: '11', volume: '1', provider_name: 'cwa_opds', provider_issue_id: '37018' }
+    }
+  });
+
+  assert.strictEqual(evidence.confidence, 'high');
+  assert.strictEqual(evidence.kind, 'series_issue_volume');
+  assert.strictEqual(evidence.key, 'comic:series_issue:alpha flight::1::11');
+  assert.ok(Array.isArray(evidence.rationale));
+  assert.ok(evidence.rationale.includes('normalized_series'));
+  assert.strictEqual(evidence.canonical_selection.canonical_id, 4935);
+  assert.strictEqual(evidence.canonical_selection.duplicate_id, 6757);
+  assert.strictEqual(evidence.canonical_selection.selection_reason, 'choose_canonical_row_by_identifier_richness_then_lowest_id');
 }));
 
 results.push(run('bookComicNormalization builds a dry-run historical repair plan with safe attach and review buckets', () => {
@@ -1278,6 +1307,13 @@ results.push(run('media route source exposes merge details provenance for canoni
   assert.ok(mediaRoutesSource.includes("router.get('/:id/merge-details'"));
   assert.ok(mediaRoutesSource.includes('loadScopedMergeDetails'));
   assert.ok(mediaRoutesSource.includes('field_provenance'));
+  assert.ok(mediaRoutesSource.includes('merged_sources'));
+  assert.ok(mediaRoutesSource.includes('source_count'));
+  assert.ok(mediaRoutesSource.includes('source_provider_label'));
+  assert.ok(mediaRoutesSource.includes('source_import_label'));
+  assert.ok(mediaRoutesSource.includes('source_label'));
+  assert.ok(mediaRoutesSource.includes('humanizeMergeSourceToken'));
+  assert.ok(mediaRoutesSource.includes('buildAggregateMergeFieldProvenance'));
   assert.ok(mediaRoutesSource.includes('technical_details'));
   assert.ok(mediaRoutesSource.includes('mergeEvidence'));
   assert.ok(mediaRoutesSource.includes('applied_at'));
@@ -2673,8 +2709,15 @@ results.push(run('frontend import flow no longer mounts standalone Import Review
 
 results.push(run('library drawer source includes persistent merge details provenance section', () => {
   assert.ok(libraryViewSource.includes('Merge details'));
-  assert.ok(libraryViewSource.includes('Merged from ${Number(mergeSummary?.active_merge_count || 0)}'));
+  assert.ok(libraryViewSource.includes('Merged from ${Number(mergeSummary?.merged_source_count || mergeSummary?.active_merge_count || 0)}'));
+  assert.ok(libraryViewSource.includes('supporting sources'));
+  assert.ok(libraryViewSource.includes('Merged sources'));
+  assert.ok(libraryViewSource.includes('Source: {formatMergeSourceLabel(source)}'));
+  assert.ok(libraryViewSource.includes('Source: {formatMergeSourceLabel(entry?.merged)}'));
   assert.ok(libraryViewSource.includes('Field provenance'));
+  assert.ok(libraryViewSource.includes('Confirmed by ${row.support_count} of ${row.total_source_count} sources'));
+  assert.ok(libraryViewSource.includes('Merged sources:'));
+  assert.ok(libraryViewSource.includes('Match evidence'));
   assert.ok(libraryViewSource.includes('Technical details'));
   assert.ok(libraryViewSource.includes('selection_reason'));
   assert.ok(libraryViewSource.includes('Canonical id:'));

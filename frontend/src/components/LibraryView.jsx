@@ -562,7 +562,8 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
     return parsed.toLocaleString();
   };
   const formatMergeSourceLabel = (record = {}) => {
-    const parts = [record?.import_source, record?.provider_name].filter(Boolean);
+    if (record?.source_label) return record.source_label;
+    const parts = [record?.source_label, record?.import_source, record?.provider_name].filter(Boolean);
     return parts.length > 0 ? parts.join(' · ') : 'Library record';
   };
   const formatMergeValue = (value) => {
@@ -570,6 +571,9 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
     return String(value);
   };
   const formatMergeUsedFrom = (value) => {
+    if (value === 'all_sources') return 'Confirmed by all merged sources';
+    if (value === 'canonical_and_merged') return 'Confirmed by canonical and merged sources';
+    if (value === 'merged_sources') return 'Confirmed by multiple merged sources';
     if (value === 'both') return 'Used from both records';
     if (value === 'canonical') return 'Used from canonical record';
     if (value === 'merged') return 'Used from merged record';
@@ -583,6 +587,10 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   };
   const mergeEntries = Array.isArray(mergeDetails?.entries) ? mergeDetails.entries : [];
   const mergeSummary = mergeDetails?.summary || null;
+  const aggregateMergeSources = Array.isArray(mergeSummary?.merged_sources) ? mergeSummary.merged_sources : [];
+  const aggregateFieldProvenance = Array.isArray(mergeSummary?.field_provenance) ? mergeSummary.field_provenance : [];
+  const aggregateMatchSummaries = Array.isArray(mergeSummary?.match_summaries) ? mergeSummary.match_summaries : [];
+  const aggregateRationale = Array.isArray(mergeSummary?.rationale) ? mergeSummary.rationale : [];
   const mergeDisclosureItems = mergeEntries.map((entry) => ({
     id: String(entry.duplicate_id || entry.applied_at || Math.random()),
     entry
@@ -957,15 +965,69 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                   ) : (
                     <>
                       <p className="mt-1 text-sm text-dim">
-                        {`Merged from ${Number(mergeSummary?.active_merge_count || 0)} ${Number(mergeSummary?.active_merge_count || 0) === 1 ? 'record' : 'records'}`}
+                        {`Merged from ${Number(mergeSummary?.merged_source_count || mergeSummary?.active_merge_count || 0)} ${Number(mergeSummary?.merged_source_count || mergeSummary?.active_merge_count || 0) === 1 ? 'duplicate' : 'duplicates'}`}
                       </p>
-                      {mergeSummary?.last_merge_at ? (
-                        <p className="mt-1 text-xs text-ghost">Last merge: {formatMergeTimestamp(mergeSummary.last_merge_at)}</p>
-                      ) : null}
+                      <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ghost">
+                        {mergeSummary?.source_count ? <span>{`${mergeSummary.source_count} supporting sources`}</span> : null}
+                        {mergeSummary?.last_merge_at ? <span>{`Last merge: ${formatMergeTimestamp(mergeSummary.last_merge_at)}`}</span> : null}
+                        {aggregateMatchSummaries.length > 0 ? <span>{aggregateMatchSummaries.join(' · ')}</span> : null}
+                      </div>
                     </>
                   )}
                 </div>
               </div>
+              {!mergeDetailsLoading && (aggregateMergeSources.length > 0 || aggregateFieldProvenance.length > 0 || aggregateRationale.length > 0) ? (
+                <div className="mb-5 space-y-5 border-t border-edge/60 pt-5">
+                  {aggregateMergeSources.length > 0 ? (
+                    <div>
+                      <p className="text-[11px] font-medium text-ghost">Merged sources</p>
+                      <div className="mt-3 space-y-3">
+                        {aggregateMergeSources.map((source) => (
+                          <div key={source.id || `${source.title}-${source.import_source || 'source'}`} className="border-t border-edge/50 pt-3 first:border-t-0 first:pt-0">
+                            <div className="flex flex-wrap items-baseline justify-between gap-3">
+                              <p className="text-sm font-medium text-ink">{source?.title || 'Merged record'}</p>
+                              {source?.id ? <p className="text-xs text-ghost">Record #{source.id}</p> : null}
+                            </div>
+                            <p className="mt-1 text-xs text-ghost">Source: {formatMergeSourceLabel(source)}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {aggregateFieldProvenance.length > 0 ? (
+                    <div>
+                      <p className="text-[11px] font-medium text-ghost">Field provenance</p>
+                      <div className="mt-3 space-y-3">
+                        {aggregateFieldProvenance.map((row) => (
+                          <div key={row.key} className="border-t border-edge/50 pt-3 first:border-t-0 first:pt-0">
+                            <div className="flex flex-wrap items-baseline justify-between gap-3">
+                              <p className="text-sm font-medium text-ink">{row.label}</p>
+                              <p className="text-xs text-ghost">
+                                {row.support_count && row.total_source_count
+                                  ? `Confirmed by ${row.support_count} of ${row.total_source_count} sources`
+                                  : formatMergeUsedFrom(row.used_from)}
+                              </p>
+                            </div>
+                            <p className="mt-1 text-sm text-dim">{formatMergeValue(row.current_value)}</p>
+                            <div className="mt-2 grid gap-2 text-xs text-ghost sm:grid-cols-2">
+                              <p>Canonical: {formatMergeValue(row.canonical_value)}</p>
+                              <p>Merged sources: {Array.isArray(row.merged_values) && row.merged_values.length > 0 ? row.merged_values.join(' · ') : '—'}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {aggregateRationale.length > 0 ? (
+                    <div>
+                      <p className="text-[11px] font-medium text-ghost">Match evidence</p>
+                      <p className="mt-2 text-sm text-dim">{aggregateRationale.join(' · ')}</p>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
               {!mergeDetailsLoading && mergeDisclosureItems.length > 0 ? (
                 <DisclosureList
                   items={mergeDisclosureItems}
@@ -996,12 +1058,12 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                           <div>
                             <p className="text-[11px] font-medium text-ghost">Canonical record</p>
                             <p className="mt-1 text-sm text-ink">{entry?.canonical?.title || item.title}</p>
-                            <p className="mt-1 text-xs text-ghost">{formatMergeSourceLabel(entry?.canonical)}</p>
+                            <p className="mt-1 text-xs text-ghost">Source: {formatMergeSourceLabel(entry?.canonical)}</p>
                           </div>
                           <div>
                             <p className="text-[11px] font-medium text-ghost">Merged record</p>
                             <p className="mt-1 text-sm text-ink">{entry?.merged?.title || 'Merged record'}</p>
-                            <p className="mt-1 text-xs text-ghost">{formatMergeSourceLabel(entry?.merged)}</p>
+                            <p className="mt-1 text-xs text-ghost">Source: {formatMergeSourceLabel(entry?.merged)}</p>
                           </div>
                         </div>
 

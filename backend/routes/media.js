@@ -470,17 +470,44 @@ function normalizeMediaRecord(row = {}) {
   };
 }
 
+function humanizeMergeSourceToken(value = '') {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized) return null;
+  if (normalized.includes('metron')) return 'Metron';
+  if (normalized.includes('cwa_opds') || normalized.includes('opds')) return 'OPDS / Calibre';
+  if (normalized.includes('calibre')) return 'Calibre';
+  if (normalized === 'csv_delicious') return 'Delicious Library';
+  if (normalized === 'csv_generic') return 'CSV Import';
+  if (normalized === 'csv_calibre') return 'Calibre CSV';
+  if (normalized.includes('delicious')) return 'Delicious Library';
+  if (normalized.includes('plex')) return 'Plex';
+  if (normalized.startsWith('manual') || normalized.includes('manual')) return 'Manual';
+  return normalized
+    .split(/[_\s-]+/)
+    .filter(Boolean)
+    .map((token) => token.charAt(0).toUpperCase() + token.slice(1))
+    .join(' ');
+}
+
 function summarizeMergeSourceRow(row = {}) {
   const typeDetails = row?.type_details && typeof row.type_details === 'object' ? row.type_details : {};
+  const importSource = String(row.import_source || '').trim() || null;
+  const providerName = String(typeDetails.provider_name || '').trim() || null;
+  const sourceProviderLabel = humanizeMergeSourceToken(providerName);
+  const sourceImportLabel = humanizeMergeSourceToken(importSource);
+  const sourceLabelParts = Array.from(new Set([sourceProviderLabel, sourceImportLabel].filter(Boolean)));
   return {
     id: Number(row.id || 0) || null,
     title: String(row.title || '').trim() || null,
     media_type: String(row.media_type || '').trim() || null,
-    import_source: String(row.import_source || '').trim() || null,
+    import_source: importSource,
     type_details: typeDetails,
-    provider_name: String(typeDetails.provider_name || '').trim() || null,
+    provider_name: providerName,
     provider_item_id: String(typeDetails.provider_item_id || '').trim() || null,
-    provider_issue_id: String(typeDetails.provider_issue_id || '').trim() || null
+    provider_issue_id: String(typeDetails.provider_issue_id || '').trim() || null,
+    source_provider_label: sourceProviderLabel,
+    source_import_label: sourceImportLabel,
+    source_label: sourceLabelParts.join(' · ') || null
   };
 }
 
@@ -607,6 +634,79 @@ function buildMergeFieldProvenance({
     .filter((entry) => entry && (entry.current_value !== null || entry.canonical_value !== null || entry.merged_value !== null));
 }
 
+function buildAggregateMergeFieldProvenance({
+  currentTypeDetails = {},
+  previousCanonicalTypeDetails = {},
+  mergedTypeDetailsList = [],
+  mediaType = ''
+} = {}) {
+  const prioritizedKeys = mediaType === 'book'
+    ? ['isbn', 'author', 'publisher', 'edition', 'provider_name', 'provider_item_id']
+    : mediaType === 'comic_book'
+      ? ['series', 'issue_number', 'volume', 'cover_date', 'publisher', 'provider_issue_id', 'provider_name', 'provider_item_id']
+      : [];
+  const keySet = new Set(prioritizedKeys);
+  Object.keys(currentTypeDetails || {}).forEach((key) => keySet.add(key));
+  Object.keys(previousCanonicalTypeDetails || {}).forEach((key) => keySet.add(key));
+  (Array.isArray(mergedTypeDetailsList) ? mergedTypeDetailsList : []).forEach((details) => {
+    Object.keys(details && typeof details === 'object' ? details : {}).forEach((key) => keySet.add(key));
+  });
+
+  return Array.from(keySet)
+    .filter(Boolean)
+    .map((key) => {
+      const currentValue = currentTypeDetails?.[key] ?? null;
+      const canonicalValue = currentTypeDetails?.[key] ?? null;
+      const mergedValues = (Array.isArray(mergedTypeDetailsList) ? mergedTypeDetailsList : [])
+        .map((details) => (details && typeof details === 'object' ? (details[key] ?? null) : null));
+      if (
+        currentValue === null &&
+        mergedValues.every((value) => value === null)
+      ) return null;
+
+      const canonicalMatched = true;
+      const mergedSupportCount = mergedValues.filter((value) => valuesEqualForMerge(currentValue, value)).length;
+      const totalSourceCount = 1 + mergedValues.length;
+      const supportCount = (canonicalMatched ? 1 : 0) + mergedSupportCount;
+
+      let usedFrom = 'resolved';
+      if (supportCount === totalSourceCount && totalSourceCount > 1) {
+        usedFrom = 'all_sources';
+      } else if (canonicalMatched && mergedSupportCount > 0) {
+        usedFrom = 'canonical_and_merged';
+      } else if (canonicalMatched) {
+        usedFrom = 'canonical';
+      } else if (mergedSupportCount > 1) {
+        usedFrom = 'merged_sources';
+      } else if (mergedSupportCount === 1) {
+        usedFrom = 'merged';
+      }
+
+      const distinctMergedValues = Array.from(new Set(
+        mergedValues
+          .filter((value) => value !== null && value !== undefined && String(value).trim() !== '')
+          .map((value) => String(value))
+      ));
+
+      return {
+        key,
+        label: formatMergeFieldLabel(key),
+        used_from: usedFrom,
+        current_value: currentValue,
+        canonical_value: canonicalValue,
+        merged_values: distinctMergedValues,
+        support_count: supportCount,
+        total_source_count: totalSourceCount,
+        merged_support_count: mergedSupportCount
+      };
+    })
+    .filter((entry) => entry && (
+      entry.current_value !== null ||
+      entry.canonical_value !== null ||
+      (Array.isArray(entry.merged_values) && entry.merged_values.length > 0)
+    ));
+}
+
 async function loadScopedMergeDetails(mediaId, scopeContext = null) {
   const canonical = await loadScopedMediaItem(mediaId, scopeContext);
   if (!canonical) return null;
@@ -627,7 +727,13 @@ async function loadScopedMergeDetails(mediaId, scopeContext = null) {
       summary: {
         merge_count: 0,
         active_merge_count: 0,
-        last_merge_at: null
+        source_count: 1,
+        merged_source_count: 0,
+        last_merge_at: null,
+        merged_sources: [],
+        field_provenance: [],
+        match_summaries: [],
+        rationale: []
       },
       entries: []
     };
@@ -696,12 +802,39 @@ async function loadScopedMergeDetails(mediaId, scopeContext = null) {
     };
   });
 
+  const uniqueMergedSourceMap = new Map();
+  entries.forEach((entry) => {
+    if (!entry?.merged?.id) return;
+    if (!uniqueMergedSourceMap.has(entry.merged.id)) {
+      uniqueMergedSourceMap.set(entry.merged.id, entry.merged);
+    }
+  });
+  const mergedSources = Array.from(uniqueMergedSourceMap.values());
+  const previousCanonicalTypeDetails = entries[0]?.canonical?.type_details && typeof entries[0].canonical.type_details === 'object'
+    ? entries[0].canonical.type_details
+    : {};
+  const mergedTypeDetailsList = mergedSources
+    .map((entry) => (entry?.type_details && typeof entry.type_details === 'object' ? entry.type_details : {}));
+  const matchSummaries = Array.from(new Set(entries.map((entry) => entry?.match_summary).filter(Boolean)));
+  const rationale = Array.from(new Set(entries.flatMap((entry) => Array.isArray(entry?.rationale) ? entry.rationale : []).filter(Boolean)));
+
   return {
     canonical: summarizeMergeSourceRow(canonical),
     summary: {
       merge_count: entries.length,
       active_merge_count: entries.length,
-      last_merge_at: entries[0]?.applied_at || null
+      source_count: 1 + mergedSources.length,
+      merged_source_count: mergedSources.length,
+      last_merge_at: entries[0]?.applied_at || null,
+      merged_sources: mergedSources,
+      field_provenance: buildAggregateMergeFieldProvenance({
+        currentTypeDetails: canonical.type_details || {},
+        previousCanonicalTypeDetails,
+        mergedTypeDetailsList,
+        mediaType: canonical.media_type
+      }),
+      match_summaries: matchSummaries,
+      rationale
     },
     entries
   };
