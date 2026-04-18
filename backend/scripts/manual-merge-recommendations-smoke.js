@@ -188,6 +188,24 @@ async function main() {
       userId,
       importSource: 'csv_generic'
     });
+    const suppressedVolumeCanonicalId = await createMediaRow({
+      title: 'Mystery Science Theater 3000, Vol. XIV',
+      mediaType: 'movie',
+      year: 2015,
+      libraryId,
+      spaceId,
+      userId,
+      importSource: 'csv_delicious'
+    });
+    const suppressedVolumeDuplicateId = await createMediaRow({
+      title: 'Mystery Science Theater 3000, Vol. XXX',
+      mediaType: 'movie',
+      year: 2015,
+      libraryId,
+      spaceId,
+      userId,
+      importSource: 'csv_delicious'
+    });
 
     const response = await client.request('/api/media/merge-recommendations?limit=10', {
       method: 'GET',
@@ -197,9 +215,15 @@ async function main() {
     const items = Array.isArray(response.data?.items) ? response.data.items : [];
     const bookRecommendation = items.find((item) => Number(item?.canonical?.id || 0) === bookCanonicalId && Number(item?.duplicate?.id || 0) === bookDuplicateId);
     const movieRecommendation = items.find((item) => Number(item?.canonical?.id || 0) === movieCanonicalId && Number(item?.duplicate?.id || 0) === movieDuplicateId);
+    const suppressedVolumeRecommendation = items.find((item) => {
+      const left = Number(item?.canonical?.id || 0);
+      const right = Number(item?.duplicate?.id || 0);
+      return [left, right].includes(suppressedVolumeCanonicalId) && [left, right].includes(suppressedVolumeDuplicateId);
+    });
 
     assert(bookRecommendation, 'Expected book recommendation pair in queue');
     assert(movieRecommendation, 'Expected movie recommendation pair in queue');
+    assert(!suppressedVolumeRecommendation, 'Expected franchise volume titles to stay out of the recommendation queue');
     assert(bookRecommendation.confidence === 'high', 'Expected book recommendation to be high confidence');
     assert(bookRecommendation.summary === 'Matched on ISBN', 'Expected book recommendation summary to describe ISBN match');
     assert(movieRecommendation.confidence === 'medium', 'Expected movie recommendation to be medium confidence');

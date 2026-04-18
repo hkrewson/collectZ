@@ -20,6 +20,11 @@ const {
   buildHistoricalRepairPlan,
   buildPersistedMergeEvidence
 } = require('../services/bookComicNormalization');
+const {
+  extractStructuredTitleSignals,
+  isTitleSafeForGenericYearRecommendation,
+  buildGenericManualMergeIdentity
+} = require('../services/manualMergeRecommendations');
 const { buildOwnedFormatsPayload, getOwnedFormatLabel } = require('../services/mediaFormats');
 const { compareReleaseVersions, parseReleaseMarkdown } = require('../services/releaseNotes');
 const {
@@ -68,6 +73,7 @@ const {
 const { isServiceAccountPrefixAllowed } = require('../services/serviceAccountKeys');
 const authRoutesSource = fs.readFileSync(require.resolve('../routes/auth'), 'utf8');
 const mediaRoutesSource = fs.readFileSync(require.resolve('../routes/media'), 'utf8');
+const manualMergeRecommendationsServiceSource = fs.readFileSync(require.resolve('../services/manualMergeRecommendations'), 'utf8');
 const openApiSource = fs.readFileSync(require.resolve('../openapi/openapi.yaml'), 'utf8');
 const docsRoutesSource = fs.readFileSync(require.resolve('../routes/docs'), 'utf8');
 const metricsRoutesSource = fs.readFileSync(require.resolve('../routes/metrics'), 'utf8');
@@ -297,6 +303,31 @@ results.push(run('bookComicNormalization treats series and issue without volume 
     key: 'comic:series_issue:alpha flight::-::10',
     rationale: ['normalized_series', 'normalized_issue_number']
   });
+}));
+
+results.push(run('manualMergeRecommendations suppresses collection and volume titles from generic title-year recommendations', () => {
+  const volumeSignals = extractStructuredTitleSignals('Mystery Science Theater 3000, Vol. XIV');
+  assert.strictEqual(volumeSignals.volumeToken, 'xiv');
+  assert.strictEqual(volumeSignals.hasCollectionSignal, true);
+  assert.strictEqual(isTitleSafeForGenericYearRecommendation('Mystery Science Theater 3000, Vol. XIV'), false);
+
+  const identity = buildGenericManualMergeIdentity({
+    title: 'Mystery Science Theater 3000, Vol. XIV',
+    media_type: 'movie',
+    year: 2015
+  });
+  assert.strictEqual(identity.confidence, 'low');
+  assert.strictEqual(identity.kind, 'title_only');
+}));
+
+results.push(run('manualMergeRecommendations suppresses franchise titles with generic subtitles from title-year recommendations', () => {
+  const genericSignals = extractStructuredTitleSignals('Mystery Science Theater 3000: The Movie');
+  assert.strictEqual(genericSignals.hasGenericSubtitle, true);
+  assert.strictEqual(isTitleSafeForGenericYearRecommendation('Mystery Science Theater 3000: The Movie'), false);
+
+  const specificSignals = extractStructuredTitleSignals("Mystery Science Theater 3000: Angel's Revenge");
+  assert.strictEqual(specificSignals.hasGenericSubtitle, false);
+  assert.strictEqual(isTitleSafeForGenericYearRecommendation("Mystery Science Theater 3000: Angel's Revenge"), true);
 }));
 
 results.push(run('bookComicNormalization flags comic-like book rows for review', () => {
@@ -1433,6 +1464,8 @@ results.push(run('repo includes manual merge preview smoke coverage for same-typ
   assert.ok(manualMergeApplySmokeSource.includes('manual_merge'));
   assert.ok(manualMergeApplySmokeSource.includes('activeMergeCount'));
   assert.ok(manualMergeRecommendationsSmokeSource.includes('Matched on title and year'));
+  assert.ok(manualMergeRecommendationsSmokeSource.includes('Mystery Science Theater 3000, Vol. XIV'));
+  assert.ok(manualMergeRecommendationsSmokeSource.includes('franchise volume titles to stay out of the recommendation queue'));
   assert.ok(manualMergeRecommendationRejectSmokeSource.includes('rejectedPairRemoved'));
   assert.ok(manualMergeRecommendationRejectSmokeSource.includes('feedbackOutcome'));
 }));

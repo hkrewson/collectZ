@@ -48,6 +48,7 @@ const {
   normalizeText,
   normalizeIssueToken
 } = require('../services/bookComicNormalization');
+const { buildGenericManualMergeIdentity } = require('../services/manualMergeRecommendations');
 const {
   ALL_DISPLAY_FORMAT_LABELS,
   getOwnedFormatOptions,
@@ -538,63 +539,6 @@ function formatMergeMatchKind(kind = '', mediaType = '') {
     if (normalized === 'title_only') return 'Matched on title';
   }
   return 'Matched on normalized record identity';
-}
-
-function buildGenericManualMergeIdentity(row = {}) {
-  const mediaType = String(row.media_type || '').trim();
-  const typeDetails = row?.type_details && typeof row.type_details === 'object' ? row.type_details : {};
-  const providerName = normalizeText(typeDetails.provider_name || '');
-  const providerItemId = String(typeDetails.provider_item_id || '').trim();
-  if (providerName && providerItemId) {
-    return {
-      confidence: 'high',
-      kind: 'provider_item',
-      key: `${mediaType}:provider:${providerName}::${providerItemId}`,
-      rationale: ['provider_name', 'provider_item_id']
-    };
-  }
-
-  const tmdbId = String(row.tmdb_id || '').trim();
-  if (tmdbId) {
-    return {
-      confidence: 'high',
-      kind: 'tmdb_id',
-      key: `${mediaType}:tmdb:${tmdbId}`,
-      rationale: ['tmdb_id']
-    };
-  }
-
-  const normalizedUpc = normalizeDigits(row.upc || '');
-  if (normalizedUpc) {
-    return {
-      confidence: 'high',
-      kind: 'upc',
-      key: `${mediaType}:upc:${normalizedUpc}`,
-      rationale: ['upc']
-    };
-  }
-
-  const normalizedTitle = normalizeText(row.title || '');
-  const year = String(row.year || '').trim();
-  if (normalizedTitle && year) {
-    return {
-      confidence: 'medium',
-      kind: 'title_year',
-      key: `${mediaType}:title_year:${normalizedTitle}::${year}`,
-      rationale: ['normalized_title', 'year']
-    };
-  }
-
-  if (normalizedTitle) {
-    return {
-      confidence: 'low',
-      kind: 'title_only',
-      key: `${mediaType}:title:${normalizedTitle}`,
-      rationale: ['normalized_title_only']
-    };
-  }
-
-  return null;
 }
 
 function buildManualMergeRecommendationIdentity(row = {}) {
