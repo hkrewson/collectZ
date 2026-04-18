@@ -3050,7 +3050,7 @@ Historical note:
 
 **Goal:** Normalize book and comic ingest across Metron and OPDS/CWA so equivalent titles can attach to one canonical library record instead of creating duplicate rows or drifting into the wrong media type when multiple sync-capable sources contribute overlapping data.
 
-**Current Slice:** `3.1.6.18 — Fifth Narrow Real-Data Duplicate Attach Pilot`
+**Current Slice:** `3.1.6.19 — First Comic Duplicate Attach Pilot`
 
 ### Scope
 
@@ -3170,6 +3170,11 @@ Historical note:
   - verify that the pair still has no existing repair history and no review-tier ambiguity,
   - apply the attach through the running backend and confirm the duplicate row disappears while the canonical row remains unchanged apart from repair history,
   - rerun the live repair report and confirm the safe duplicate cluster count drops again before deciding whether to keep doing tiny book pilots or switch shape.
+- Start the first comic duplicate attach pilot only after the book lane proves repeatable:
+  - choose one explicit-id duplicate from the cleanest `series + issue + volume` comic cluster instead of collapsing an entire comic cluster at once,
+  - verify in the running backend that the canonical and chosen duplicate share the same normalized comic identity and have no prior repair history,
+  - apply the attach for that one duplicate only and confirm the duplicate row is removed while `media_repair_history` records the attach,
+  - rerun the live repair report afterward and confirm the report rolls forward to the next comic duplicate in the sequence without disturbing review-tier cases.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
