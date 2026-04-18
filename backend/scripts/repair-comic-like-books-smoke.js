@@ -133,11 +133,50 @@ async function main() {
       throw new Error(`Expected repair snapshot metadata, got ${JSON.stringify(metadata.rows)}`);
     }
 
+    const reverted = await runRepairComicLikeBooks({
+      revert: true,
+      ids: [mediaId],
+      limit: 5
+    });
+    if (reverted.updated !== 1) {
+      throw new Error(`Expected one updated row during revert, got ${JSON.stringify(reverted)}`);
+    }
+
+    const restored = await pool.query(
+      `SELECT media_type, type_details
+       FROM media
+       WHERE id = $1`,
+      [mediaId]
+    );
+    const restoredMedia = restored.rows[0] || {};
+    if (restoredMedia.media_type !== 'book') {
+      throw new Error(`Expected media_type book after revert, got ${JSON.stringify(restoredMedia)}`);
+    }
+    if (String(restoredMedia.type_details?.author || '') !== 'Sergio Aragonés, Mark Evanier') {
+      throw new Error(`Expected restored author details, got ${JSON.stringify(restoredMedia.type_details)}`);
+    }
+    if (String(restoredMedia.type_details?.provider_name || '') !== 'cwa_opds') {
+      throw new Error(`Expected restored provider details, got ${JSON.stringify(restoredMedia.type_details)}`);
+    }
+
+    const revertMetadata = await pool.query(
+      `SELECT "value"
+       FROM media_metadata
+       WHERE media_id = $1
+         AND "key" = 'historical_repair_reverted_at'`,
+      [mediaId]
+    );
+    if (!String(revertMetadata.rows[0]?.value || '').trim()) {
+      throw new Error(`Expected historical_repair_reverted_at metadata, got ${JSON.stringify(revertMetadata.rows)}`);
+    }
+
     console.log('Repair comic-like books smoke passed');
     console.log(JSON.stringify({
       dryRunApplicable: dryRun.applicable,
       appliedUpdated: applied.updated,
+      revertedUpdated: reverted.updated,
       mediaType: media.media_type,
+      restoredMediaType: restoredMedia.media_type,
       series: media.type_details?.series || null,
       issue_number: media.type_details?.issue_number || null,
       volume: media.type_details?.volume || null,

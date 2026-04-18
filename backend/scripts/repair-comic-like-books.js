@@ -8,6 +8,7 @@ const { normalizeTypeDetails } = require('../services/typeDetails');
 function parseArgs(argv = []) {
   const args = {
     apply: false,
+    revert: false,
     json: false,
     ids: [],
     libraryId: null,
@@ -18,6 +19,10 @@ function parseArgs(argv = []) {
     if (!token) continue;
     if (token === '--apply') {
       args.apply = true;
+      continue;
+    }
+    if (token === '--revert') {
+      args.revert = true;
       continue;
     }
     if (token === '--json') {
@@ -60,6 +65,9 @@ function parseArgs(argv = []) {
       if (Number.isFinite(value) && value > 0) args.limit = Math.min(Math.floor(value), 5000);
       i += 1;
     }
+  }
+  if (args.apply && args.revert) {
+    throw new Error('Use either --apply or --revert, not both');
   }
   return args;
 }
@@ -147,20 +155,47 @@ function summarizeProposal(proposal = {}) {
   };
 }
 
-function buildWhereClause({ ids = [], libraryId = null }) {
-  const params = ['book'];
-  const conditions = ['media_type = $1'];
+function buildWhereClause({ ids = [], libraryId = null, mediaType = 'book', tableAlias = '' }) {
+  const prefix = tableAlias ? `${tableAlias}.` : '';
+  const params = [mediaType];
+  const conditions = [`${prefix}media_type = $1`];
   if (libraryId) {
     params.push(libraryId);
-    conditions.push(`library_id = $${params.length}`);
+    conditions.push(`${prefix}library_id = $${params.length}`);
   }
   if (Array.isArray(ids) && ids.length > 0) {
     params.push(ids);
-    conditions.push(`id = ANY($${params.length}::int[])`);
+    conditions.push(`${prefix}id = ANY($${params.length}::int[])`);
   }
   return {
     params,
     where: `WHERE ${conditions.join(' AND ')}`
+  };
+}
+
+function safeJsonParseObject(value) {
+  if (!value) return {};
+  if (typeof value === 'object' && !Array.isArray(value)) return value;
+  try {
+    const parsed = JSON.parse(String(value));
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function buildComicLikeBookRevertProposal(row = {}) {
+  const previousMediaType = String(row.historical_repair_previous_media_type || '').trim();
+  const previousTypeDetails = safeJsonParseObject(row.historical_repair_previous_type_details);
+  const action = String(row.historical_repair_action || '').trim();
+  if (action !== 'reclassify_book_to_comic') return null;
+  if (previousMediaType !== 'book') return null;
+  return {
+    action: 'revert_comic_to_book',
+    confidence: 'high',
+    source: row,
+    proposed_media_type: previousMediaType,
+    proposed_type_details: previousTypeDetails
   };
 }
 
@@ -175,43 +210,73 @@ async function upsertRepairMetadata(client, mediaId, key, value) {
 }
 
 async function runRepairComicLikeBooks(options = {}) {
-  const { params, where } = buildWhereClause(options);
+  const revertMode = Boolean(options.revert);
+  const { params, where } = buildWhereClause({
+    ...options,
+    mediaType: revertMode ? 'comic_book' : 'book',
+    tableAlias: revertMode ? 'm' : ''
+  });
   params.push(options.limit || 100);
 
-  const rowsResult = await pool.query(
-    `SELECT id, title, media_type, import_source, library_id, space_id, type_details
-       FROM media
-       ${where}
-      ORDER BY id ASC
-      LIMIT $${params.length}`,
-    params
-  );
+  const rowsResult = revertMode
+    ? await pool.query(
+      `SELECT m.id, m.title, m.media_type, m.import_source, m.library_id, m.space_id, m.type_details,
+              prev_type.value AS historical_repair_previous_media_type,
+              prev_details.value AS historical_repair_previous_type_details,
+              repair_action.value AS historical_repair_action
+         FROM media m
+         LEFT JOIN media_metadata prev_type
+           ON prev_type.media_id = m.id
+          AND prev_type."key" = 'historical_repair_previous_media_type'
+         LEFT JOIN media_metadata prev_details
+           ON prev_details.media_id = m.id
+          AND prev_details."key" = 'historical_repair_previous_type_details'
+         LEFT JOIN media_metadata repair_action
+           ON repair_action.media_id = m.id
+          AND repair_action."key" = 'historical_repair_action'
+         ${where}
+        ORDER BY m.id ASC
+        LIMIT $${params.length}`,
+      params
+    )
+    : await pool.query(
+      `SELECT id, title, media_type, import_source, library_id, space_id, type_details
+         FROM media
+         ${where}
+        ORDER BY id ASC
+        LIMIT $${params.length}`,
+      params
+    );
 
   const rows = rowsResult.rows || [];
   const proposals = rows
-    .map(buildComicLikeBookProposal)
+    .map(revertMode ? buildComicLikeBookRevertProposal : buildComicLikeBookProposal)
     .filter(Boolean);
 
-  const applicable = proposals.filter((proposal) => proposal.action === 'reclassify_book_to_comic');
-  const skipped = proposals.filter((proposal) => proposal.action !== 'reclassify_book_to_comic');
+  const applicable = proposals.filter((proposal) => proposal.action === (revertMode ? 'revert_comic_to_book' : 'reclassify_book_to_comic'));
+  const skipped = proposals.filter((proposal) => proposal.action !== (revertMode ? 'revert_comic_to_book' : 'reclassify_book_to_comic'));
   let updated = 0;
 
-  if (options.apply && applicable.length > 0) {
+  if ((options.apply || options.revert) && applicable.length > 0) {
     await pool.query('BEGIN');
     try {
       for (const proposal of applicable) {
         const row = proposal.source;
-        await upsertRepairMetadata(pool, row.id, 'historical_repair_previous_media_type', String(row.media_type || ''));
-        await upsertRepairMetadata(pool, row.id, 'historical_repair_previous_type_details', JSON.stringify(row.type_details || {}));
-        await upsertRepairMetadata(pool, row.id, 'historical_repair_action', 'reclassify_book_to_comic');
-        await upsertRepairMetadata(pool, row.id, 'historical_repair_applied_at', new Date().toISOString());
+        if (!revertMode) {
+          await upsertRepairMetadata(pool, row.id, 'historical_repair_previous_media_type', String(row.media_type || ''));
+          await upsertRepairMetadata(pool, row.id, 'historical_repair_previous_type_details', JSON.stringify(row.type_details || {}));
+          await upsertRepairMetadata(pool, row.id, 'historical_repair_action', 'reclassify_book_to_comic');
+          await upsertRepairMetadata(pool, row.id, 'historical_repair_applied_at', new Date().toISOString());
+        } else {
+          await upsertRepairMetadata(pool, row.id, 'historical_repair_reverted_at', new Date().toISOString());
+        }
         await pool.query(
           `UPDATE media
-           SET media_type = 'comic_book',
-               type_details = $2::jsonb,
+           SET media_type = $2,
+               type_details = $3::jsonb,
                updated_at = NOW()
            WHERE id = $1`,
-          [row.id, JSON.stringify(proposal.proposed_type_details || {})]
+          [row.id, proposal.proposed_media_type, JSON.stringify(proposal.proposed_type_details || {})]
         );
         updated += 1;
       }
@@ -223,7 +288,7 @@ async function runRepairComicLikeBooks(options = {}) {
   }
 
   return {
-    mode: options.apply ? 'apply' : 'dry-run',
+    mode: revertMode ? 'revert' : (options.apply ? 'apply' : 'dry-run'),
     scanned: rows.length,
     applicable: applicable.length,
     skipped: skipped.length,
@@ -257,5 +322,6 @@ if (require.main === module) {
 module.exports = {
   parseComicMetadataFromTitle,
   buildComicLikeBookProposal,
+  buildComicLikeBookRevertProposal,
   runRepairComicLikeBooks
 };

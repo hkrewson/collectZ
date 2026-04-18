@@ -138,7 +138,7 @@ const importNormalizationReviewSmokeSource = fs.readFileSync(require.resolve('..
 const historicalRepairPlanSource = fs.readFileSync(require.resolve('../scripts/book-comic-historical-repair-plan'), 'utf8');
 const repairComicLikeBooksSource = fs.readFileSync(require.resolve('../scripts/repair-comic-like-books'), 'utf8');
 const repairComicLikeBooksSmokeSource = fs.readFileSync(require.resolve('../scripts/repair-comic-like-books-smoke'), 'utf8');
-const { parseComicMetadataFromTitle, buildComicLikeBookProposal } = require('../scripts/repair-comic-like-books');
+const { parseComicMetadataFromTitle, buildComicLikeBookProposal, buildComicLikeBookRevertProposal } = require('../scripts/repair-comic-like-books');
 const supportSessionSmokeSource = fs.readFileSync(require.resolve('../scripts/support-session-smoke'), 'utf8');
 const libraryLifecycleSmokeSource = fs.readFileSync(require.resolve('../scripts/library-lifecycle-smoke'), 'utf8');
 const spaceLifecycleSmokeSource = fs.readFileSync(require.resolve('../scripts/space-lifecycle-smoke'), 'utf8');
@@ -396,6 +396,24 @@ results.push(run('repairComicLikeBooks builds a comic reclassification proposal 
   assert.strictEqual(proposal.proposed_type_details.series, 'Groo The Wanderer');
   assert.strictEqual(proposal.proposed_type_details.issue_number, '1');
   assert.strictEqual(proposal.proposed_type_details.volume, '1');
+  assert.strictEqual(proposal.proposed_type_details.author, 'Sergio Aragonés, Mark Evanier');
+  assert.strictEqual(proposal.proposed_type_details.provider_name, 'cwa_opds');
+}));
+
+results.push(run('repairComicLikeBooks builds a revert proposal from stored historical metadata', () => {
+  const proposal = buildComicLikeBookRevertProposal({
+    id: 88,
+    title: 'Groo The Wanderer v1 #1 - Friends and Enemies',
+    media_type: 'comic_book',
+    historical_repair_action: 'reclassify_book_to_comic',
+    historical_repair_previous_media_type: 'book',
+    historical_repair_previous_type_details: JSON.stringify({
+      author: 'Sergio Aragonés, Mark Evanier',
+      provider_name: 'cwa_opds'
+    })
+  });
+  assert.strictEqual(proposal.action, 'revert_comic_to_book');
+  assert.strictEqual(proposal.proposed_media_type, 'book');
   assert.strictEqual(proposal.proposed_type_details.author, 'Sergio Aragonés, Mark Evanier');
   assert.strictEqual(proposal.proposed_type_details.provider_name, 'cwa_opds');
 }));
@@ -1235,8 +1253,11 @@ results.push(run('repo includes comic-like book reclassification repair tooling 
   assert.ok(repairComicLikeBooksSource.includes('historical_repair_previous_media_type'));
   assert.ok(repairComicLikeBooksSource.includes('historical_repair_previous_type_details'));
   assert.ok(repairComicLikeBooksSource.includes('reclassify_book_to_comic'));
+  assert.ok(repairComicLikeBooksSource.includes('revert_comic_to_book'));
+  assert.ok(repairComicLikeBooksSource.includes('historical_repair_reverted_at'));
   assert.ok(repairComicLikeBooksSmokeSource.includes('Repair comic-like books smoke passed'));
   assert.ok(repairComicLikeBooksSmokeSource.includes('historical_repair_previous_media_type'));
+  assert.ok(repairComicLikeBooksSmokeSource.includes('historical_repair_reverted_at'));
 }));
 
 results.push(run('media route source uses title candidate fallback for tmdb lookups', () => {
