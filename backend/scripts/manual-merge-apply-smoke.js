@@ -107,15 +107,26 @@ async function cleanupTemporaryState({ userId, libraryId, spaceId }) {
   }
 }
 
-async function createMediaRow({ title, mediaType, typeDetails = {}, year = null, libraryId, spaceId, userId, importSource = 'manual' }) {
+async function createMediaRow({
+  title,
+  mediaType,
+  typeDetails = {},
+  year = null,
+  format = 'Digital',
+  ownedFormats = null,
+  libraryId,
+  spaceId,
+  userId,
+  importSource = 'manual'
+}) {
   const result = await pool.query(
     `INSERT INTO media (
-       title, media_type, format, year, type_details, library_id, space_id, added_by, import_source
+       title, media_type, format, owned_formats, year, type_details, library_id, space_id, added_by, import_source
      ) VALUES (
-       $1, $2, 'Digital', $3, $4::jsonb, $5, $6, $7, $8
+       $1, $2, $3, $4::text[], $5, $6::jsonb, $7, $8, $9, $10
      )
      RETURNING id`,
-    [title, mediaType, year, JSON.stringify(typeDetails || {}), libraryId, spaceId, userId, importSource]
+    [title, mediaType, format, ownedFormats, year, JSON.stringify(typeDetails || {}), libraryId, spaceId, userId, importSource]
   );
   return Number(result.rows[0]?.id || 0) || null;
 }
@@ -157,6 +168,8 @@ async function main() {
         author: 'Hugh Howey',
         publisher: 'Mariner Books'
       },
+      format: 'Hardcover',
+      ownedFormats: ['hardcover'],
       libraryId,
       spaceId,
       userId,
@@ -170,6 +183,8 @@ async function main() {
         isbn: '9780358447849',
         author: 'Hugh Howey'
       },
+      format: 'Digital',
+      ownedFormats: ['digital'],
       libraryId,
       spaceId,
       userId,
@@ -187,6 +202,9 @@ async function main() {
     });
 
     assert(preview.data?.allowed === true, 'Expected manual merge preview to be allowed before apply');
+    const formatComparison = (preview.data?.preview?.field_comparison || []).find((entry) => entry.key === 'owned_formats');
+    assert(formatComparison, 'Expected manual merge preview to include owned_formats comparison');
+    assert(formatComparison.result_value === 'Digital, Hardcover', 'Expected preview to show merged format ownership');
 
     const apply = await client.request('/api/media/merge-apply', {
       method: 'POST',
@@ -206,6 +224,14 @@ async function main() {
 
     const duplicateLookup = await pool.query('SELECT id FROM media WHERE id = $1', [duplicateBookId]);
     assert((duplicateLookup.rows || []).length === 0, 'Expected duplicate row to be deleted after manual merge apply');
+    const canonicalLookup = await pool.query('SELECT format, owned_formats FROM media WHERE id = $1', [canonicalBookId]);
+    const canonicalRow = canonicalLookup.rows[0] || null;
+    assert(canonicalRow, 'Expected canonical row to remain after merge apply');
+    assert(canonicalRow.format === 'Hardcover', 'Expected primary format to remain derived from merged ownership');
+    assert(
+      JSON.stringify(canonicalRow.owned_formats || []) === JSON.stringify(['digital', 'hardcover']),
+      'Expected canonical row to keep both owned formats after merge apply'
+    );
 
     const history = await pool.query(
       `SELECT repair_type, context
@@ -225,7 +251,8 @@ async function main() {
       applied: apply.data?.applied === true,
       attached: Number(apply.data?.result?.attached || 0),
       activeMergeCount: Number(apply.data?.merge_details?.summary?.active_merge_count || 0),
-      persistedAction: historyRow?.context?.mergeEvidence?.action || null
+      persistedAction: historyRow?.context?.mergeEvidence?.action || null,
+      mergedOwnedFormats: canonicalRow?.owned_formats || []
     }, null, 2));
   } finally {
     await cleanupTemporaryState({ userId, libraryId, spaceId });

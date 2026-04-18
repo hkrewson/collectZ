@@ -8,6 +8,7 @@ const {
   buildDuplicateRepairPlan,
   buildPersistedMergeEvidence
 } = require('../services/bookComicNormalization');
+const { buildMergedOwnedFormatsPayload } = require('../services/mediaFormats');
 
 function parseArgs(argv = []) {
   const args = {
@@ -87,6 +88,16 @@ function mergeMissingObjectFields(base = {}, extra = {}) {
     }
   }
   return merged;
+}
+
+function buildMergedFormatState(canonicalRow = {}, duplicateRow = {}) {
+  return buildMergedOwnedFormatsPayload(
+    canonicalRow.media_type || duplicateRow.media_type || 'movie',
+    canonicalRow.owned_formats,
+    canonicalRow.format,
+    duplicateRow.owned_formats,
+    duplicateRow.format
+  );
 }
 
 function buildClusterFromRows(rows = []) {
@@ -296,6 +307,8 @@ async function getCanonicalRelationState(client, canonicalId, duplicateSnapshot)
 
   return {
     canonicalTypeDetails: null,
+    canonicalFormat: null,
+    canonicalOwnedFormats: [],
     canonicalMetadata: metadata,
     canonicalSeasonNumbers: seasons.map((row) => Number(row.season_number)).filter((value) => Number.isFinite(value)),
     canonicalGenreIds: genres.map((row) => Number(row.genre_id)).filter((value) => Number.isFinite(value)),
@@ -308,6 +321,10 @@ function buildAttachContext({ duplicateSnapshot, canonicalRow, canonicalRelation
   return {
     duplicateSnapshot,
     previousCanonicalTypeDetails: toPlainTypeDetails(canonicalRow.type_details),
+    previousCanonicalFormat: canonicalRelationState.canonicalFormat ?? canonicalRow.format ?? null,
+    previousCanonicalOwnedFormats: Array.isArray(canonicalRelationState.canonicalOwnedFormats)
+      ? canonicalRelationState.canonicalOwnedFormats
+      : (Array.isArray(canonicalRow.owned_formats) ? canonicalRow.owned_formats : []),
     previousCanonicalMetadata: canonicalRelationState.canonicalMetadata || [],
     previousCanonicalSeasonNumbers: canonicalRelationState.canonicalSeasonNumbers || [],
     previousCanonicalGenreIds: canonicalRelationState.canonicalGenreIds || [],
@@ -417,17 +434,24 @@ async function mergeDuplicateIntoCanonical(client, canonicalRow, duplicateRow, m
   const canonicalTypeDetails = toPlainTypeDetails(canonicalRow.type_details);
   const duplicateTypeDetails = toPlainTypeDetails(duplicateRow.type_details);
   const mergedTypeDetails = mergeMissingObjectFields(canonicalTypeDetails, duplicateTypeDetails);
+  const mergedFormatState = buildMergedFormatState(canonicalRow, duplicateRow);
 
   const snapshot = await snapshotDuplicateState(client, duplicateRow.id);
   const canonicalRelationState = await getCanonicalRelationState(client, canonicalRow.id, snapshot);
   canonicalRelationState.canonicalTypeDetails = canonicalTypeDetails;
+  canonicalRelationState.canonicalFormat = canonicalRow.format || null;
+  canonicalRelationState.canonicalOwnedFormats = Array.isArray(canonicalRow.owned_formats)
+    ? canonicalRow.owned_formats
+    : [];
 
   await client.query(
     `UPDATE media
      SET type_details = $2::jsonb,
+         format = $3,
+         owned_formats = $4::text[],
          updated_at = NOW()
      WHERE id = $1`,
-    [canonicalRow.id, JSON.stringify(mergedTypeDetails)]
+    [canonicalRow.id, JSON.stringify(mergedTypeDetails), mergedFormatState.format, mergedFormatState.ownedFormats]
   );
 
   const attachContext = buildAttachContext({
@@ -697,13 +721,26 @@ async function restoreDuplicateReferences(client, duplicateId, snapshot = {}) {
   }
 }
 
-async function revertCanonicalTypeDetails(client, canonicalId, previousCanonicalTypeDetails) {
+async function revertCanonicalTypeDetails(
+  client,
+  canonicalId,
+  previousCanonicalTypeDetails,
+  previousCanonicalFormat = null,
+  previousCanonicalOwnedFormats = []
+) {
   await client.query(
     `UPDATE media
         SET type_details = $2::jsonb,
+            format = $3,
+            owned_formats = $4::text[],
             updated_at = NOW()
       WHERE id = $1`,
-    [canonicalId, JSON.stringify(previousCanonicalTypeDetails || {})]
+    [
+      canonicalId,
+      JSON.stringify(previousCanonicalTypeDetails || {}),
+      previousCanonicalFormat,
+      Array.isArray(previousCanonicalOwnedFormats) ? previousCanonicalOwnedFormats : []
+    ]
   );
 }
 
@@ -812,7 +849,13 @@ async function revertDuplicateAttachIntoSeparateRow(client, canonicalRow, duplic
   await restoreDuplicateTaxonomy(client, duplicateId, snapshot);
   await restoreDuplicateReferences(client, duplicateId, snapshot);
 
-  await revertCanonicalTypeDetails(client, canonicalRow.id, context.previousCanonicalTypeDetails || {});
+  await revertCanonicalTypeDetails(
+    client,
+    canonicalRow.id,
+    context.previousCanonicalTypeDetails || {},
+    context.previousCanonicalFormat || null,
+    context.previousCanonicalOwnedFormats || []
+  );
   await revertCanonicalMetadata(client, canonicalRow.id, snapshot, context.previousCanonicalMetadata || []);
   await revertCanonicalTaxonomyAndSeasons(client, canonicalRow.id, snapshot, context);
   if (history) {

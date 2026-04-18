@@ -52,11 +52,13 @@ const { buildGenericManualMergeIdentity } = require('../services/manualMergeReco
 const {
   ALL_DISPLAY_FORMAT_LABELS,
   getOwnedFormatOptions,
+  getOwnedFormatLabel,
   normalizeOwnedFormatValue,
   normalizeOwnedFormats,
   sortOwnedFormats,
   derivePrimaryFormat,
-  buildOwnedFormatsPayload
+  buildOwnedFormatsPayload,
+  buildMergedOwnedFormatsPayload
 } = require('../services/mediaFormats');
 const { formatSyncJob } = require('../services/syncJobs');
 const { logError, logActivity } = require('../services/audit');
@@ -981,6 +983,21 @@ function formatManualMergeValue(value) {
   return trimmed || null;
 }
 
+function formatManualMergeFieldValue(mediaType, key, value) {
+  if (key === 'owned_formats') {
+    const normalized = normalizeOwnedFormats(mediaType, value, null);
+    if (normalized.length === 0) return null;
+    return normalized
+      .map((entry) => getOwnedFormatLabel(mediaType, entry) || entry)
+      .join(', ');
+  }
+  if (key === 'format') {
+    const normalized = normalizeOwnedFormatValue(mediaType, value);
+    if (normalized) return getOwnedFormatLabel(mediaType, normalized) || normalized;
+  }
+  return formatManualMergeValue(value);
+}
+
 function chooseManualMergeResultValue(canonicalValue, duplicateValue) {
   const canonicalText = formatManualMergeValue(canonicalValue);
   const duplicateText = formatManualMergeValue(duplicateValue);
@@ -1005,6 +1022,41 @@ function chooseManualMergeResultValue(canonicalValue, duplicateValue) {
   return {
     result_value: null,
     resolution: 'empty'
+  };
+}
+
+function chooseManualMergeFormatResult(mediaType, canonical = {}, duplicate = {}, key = 'format') {
+  const merged = buildMergedOwnedFormatsPayload(
+    mediaType,
+    canonical.owned_formats,
+    canonical.format,
+    duplicate.owned_formats,
+    duplicate.format
+  );
+  const resultValue = key === 'owned_formats'
+    ? formatManualMergeFieldValue(mediaType, key, merged.ownedFormats)
+    : formatManualMergeFieldValue(mediaType, key, merged.format);
+  const canonicalValue = key === 'owned_formats'
+    ? formatManualMergeFieldValue(mediaType, key, canonical.owned_formats)
+    : formatManualMergeFieldValue(mediaType, key, canonical.format);
+  const duplicateValue = key === 'owned_formats'
+    ? formatManualMergeFieldValue(mediaType, key, duplicate.owned_formats)
+    : formatManualMergeFieldValue(mediaType, key, duplicate.format);
+
+  let resolution = 'empty';
+  if (resultValue && canonicalValue && duplicateValue && resultValue === canonicalValue && resultValue === duplicateValue) {
+    resolution = 'both';
+  } else if (resultValue && canonicalValue && resultValue === canonicalValue) {
+    resolution = 'canonical';
+  } else if (resultValue && duplicateValue && resultValue === duplicateValue) {
+    resolution = 'matched';
+  } else if (resultValue) {
+    resolution = 'merged';
+  }
+
+  return {
+    result_value: resultValue,
+    resolution
   };
 }
 
@@ -1101,10 +1153,16 @@ function buildManualMergeFieldComparisons(canonical = {}, duplicate = {}) {
       const duplicateRaw = source === 'type_details'
         ? (duplicate.type_details && typeof duplicate.type_details === 'object' ? duplicate.type_details[key] : null)
         : duplicate[key];
-      const canonicalValue = formatManualMergeValue(canonicalRaw);
-      const duplicateValue = formatManualMergeValue(duplicateRaw);
+      const canonicalValue = source === 'top_level'
+        ? formatManualMergeFieldValue(mediaType, key, canonicalRaw)
+        : formatManualMergeValue(canonicalRaw);
+      const duplicateValue = source === 'top_level'
+        ? formatManualMergeFieldValue(mediaType, key, duplicateRaw)
+        : formatManualMergeValue(duplicateRaw);
       if (!canonicalValue && !duplicateValue) return null;
-      const result = chooseManualMergeResultValue(canonicalRaw, duplicateRaw);
+      const result = (source === 'top_level' && (key === 'format' || key === 'owned_formats'))
+        ? chooseManualMergeFormatResult(mediaType, canonical, duplicate, key)
+        : chooseManualMergeResultValue(canonicalRaw, duplicateRaw);
       return {
         key,
         label: formatManualMergeFieldLabel(key),

@@ -25,7 +25,7 @@ const {
   isTitleSafeForGenericYearRecommendation,
   buildGenericManualMergeIdentity
 } = require('../services/manualMergeRecommendations');
-const { buildOwnedFormatsPayload, getOwnedFormatLabel } = require('../services/mediaFormats');
+const { buildOwnedFormatsPayload, buildMergedOwnedFormatsPayload, getOwnedFormatLabel } = require('../services/mediaFormats');
 const { compareReleaseVersions, parseReleaseMarkdown } = require('../services/releaseNotes');
 const {
   SUPPORT_ACCESS_APPROVAL_TTL_DAYS,
@@ -585,6 +585,12 @@ results.push(run('mediaFormats.buildOwnedFormatsPayload preserves multi-format o
   const audioPayload = buildOwnedFormatsPayload('audio', ['cassette', 'vinyl', 'digital'], null);
   assert.deepStrictEqual(audioPayload.ownedFormats, ['cassette', 'vinyl', 'digital']);
   assert.strictEqual(audioPayload.format, 'Digital');
+}));
+
+results.push(run('mediaFormats.buildMergedOwnedFormatsPayload unions owned formats and derives the merged primary format', () => {
+  const mergedPayload = buildMergedOwnedFormatsPayload('book', ['hardcover'], 'Hardcover', ['digital'], 'Digital');
+  assert.deepStrictEqual(mergedPayload.ownedFormats, ['digital', 'hardcover']);
+  assert.strictEqual(mergedPayload.format, 'Hardcover');
 }));
 
 results.push(run('mediaFormats.getOwnedFormatLabel maps canonical values to stable UI labels', () => {
@@ -1433,6 +1439,9 @@ results.push(run('repo includes historical duplicate attach repair tooling with 
   assert.ok(repairBookComicDuplicatesSource.includes("status: 'already_attached'"));
   assert.ok(repairBookComicDuplicatesSource.includes('alreadyAppliedDuplicateIds'));
   assert.ok(repairBookComicDuplicatesSource.includes('mergeDuplicateMetadataIntoCanonical'));
+  assert.ok(repairBookComicDuplicatesSource.includes('buildMergedFormatState'));
+  assert.ok(repairBookComicDuplicatesSource.includes('previousCanonicalOwnedFormats'));
+  assert.ok(repairBookComicDuplicatesSource.includes('previousCanonicalFormat'));
   assert.ok(repairBookComicDuplicatesSource.includes('rewireDuplicateReferences'));
   assert.ok(repairBookComicDuplicatesSource.includes('DELETE FROM media WHERE id = $1'));
   assert.ok(repairBookComicDuplicatesSource.includes('restoreDuplicateMediaRow'));
@@ -1463,6 +1472,8 @@ results.push(run('repo includes manual merge preview smoke coverage for same-typ
   assert.ok(manualMergePreviewSmokeSource.includes('Cross-type merges are not allowed'));
   assert.ok(manualMergeApplySmokeSource.includes('manual_merge'));
   assert.ok(manualMergeApplySmokeSource.includes('activeMergeCount'));
+  assert.ok(manualMergeApplySmokeSource.includes('Expected preview to show merged format ownership'));
+  assert.ok(manualMergeApplySmokeSource.includes('Expected canonical row to keep both owned formats after merge apply'));
   assert.ok(manualMergeRecommendationsSmokeSource.includes('Matched on title and year'));
   assert.ok(manualMergeRecommendationsSmokeSource.includes('Mystery Science Theater 3000, Vol. XIV'));
   assert.ok(manualMergeRecommendationsSmokeSource.includes('franchise volume titles to stay out of the recommendation queue'));

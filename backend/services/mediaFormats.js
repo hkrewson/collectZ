@@ -195,6 +195,19 @@ function buildOwnedFormatsPayload(mediaType = 'movie', ownedFormats = null, fall
   };
 }
 
+function buildMergedOwnedFormatsPayload(
+  mediaType = 'movie',
+  canonicalOwnedFormats = null,
+  canonicalFormat = null,
+  duplicateOwnedFormats = null,
+  duplicateFormat = null
+) {
+  const canonicalNormalized = normalizeOwnedFormats(mediaType, canonicalOwnedFormats, canonicalFormat);
+  const duplicateNormalized = normalizeOwnedFormats(mediaType, duplicateOwnedFormats, duplicateFormat);
+  const merged = sortOwnedFormats(mediaType, [...canonicalNormalized, ...duplicateNormalized]);
+  return buildOwnedFormatsPayload(mediaType, merged, canonicalFormat || duplicateFormat || null);
+}
+
 module.exports = {
   ALL_DISPLAY_FORMAT_LABELS,
   ALL_OWNED_FORMAT_VALUES,
@@ -206,5 +219,6 @@ module.exports = {
   normalizeOwnedFormats,
   sortOwnedFormats,
   derivePrimaryFormat,
-  buildOwnedFormatsPayload
+  buildOwnedFormatsPayload,
+  buildMergedOwnedFormatsPayload
 };
