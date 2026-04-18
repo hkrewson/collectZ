@@ -20,6 +20,7 @@
     "test:csv-import": "node scripts/csv-parse-smoke.js",
     "test:rbac-regression": "node scripts/rbac-regression-check.js",
     "test:import-normalization-smoke": "node scripts/import-normalization-smoke.js",
+    "test:import-normalization-review-smoke": "node scripts/import-normalization-review-smoke.js",
     "test:cross-type-isolation": "node scripts/cross-type-isolation-check.js",
     "test:media-query-regression": "node scripts/media-query-regression-check.js",
     "test:book-comic-normalization-audit": "node scripts/book-comic-normalization-audit.js",

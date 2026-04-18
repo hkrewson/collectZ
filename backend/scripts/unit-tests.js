@@ -132,6 +132,7 @@ const structuredLogLokiSmokeSource = fs.readFileSync(require.resolve('../scripts
 const structuredLogSyslogSmokeSource = fs.readFileSync(require.resolve('../scripts/structured-log-syslog-smoke'), 'utf8');
 const structuredLogSmokeSharedSource = fs.readFileSync(require.resolve('../scripts/structured-log-smoke-shared'), 'utf8');
 const importNormalizationSmokeSource = fs.readFileSync(require.resolve('../scripts/import-normalization-smoke'), 'utf8');
+const importNormalizationReviewSmokeSource = fs.readFileSync(require.resolve('../scripts/import-normalization-review-smoke'), 'utf8');
 const supportSessionSmokeSource = fs.readFileSync(require.resolve('../scripts/support-session-smoke'), 'utf8');
 const libraryLifecycleSmokeSource = fs.readFileSync(require.resolve('../scripts/library-lifecycle-smoke'), 'utf8');
 const spaceLifecycleSmokeSource = fs.readFileSync(require.resolve('../scripts/space-lifecycle-smoke'), 'utf8');
@@ -1092,11 +1093,26 @@ results.push(run('media route source applies high-confidence normalization befor
   assert.ok(mediaRoutesSource.includes('buildNormalizationIdentityForImportedItem'));
 }));
 
+results.push(run('media route source keeps medium-confidence normalization candidates in audit without silent title fallback merges', () => {
+  assert.ok(mediaRoutesSource.includes('normalization_review_medium'));
+  assert.ok(mediaRoutesSource.includes('findNormalizationReviewCandidates'));
+  assert.ok(mediaRoutesSource.includes('normalizationReviewCandidates.length > 0'));
+  assert.ok(mediaRoutesSource.includes('normalization_review_candidates'));
+}));
+
 results.push(run('repo includes import normalization smoke coverage for high-confidence auto-attach', () => {
   assert.ok(backendPackageJson.scripts['test:import-normalization-smoke']);
   assert.ok(importNormalizationSmokeSource.includes('matched_by_normalization_high'));
   assert.ok(importNormalizationSmokeSource.includes('normalization_series_issue_volume'));
   assert.ok(importNormalizationSmokeSource.includes('/api/media/import-csv?sync=1'));
+}));
+
+results.push(run('repo includes import normalization review smoke coverage for medium-confidence candidates', () => {
+  assert.ok(backendPackageJson.scripts['test:import-normalization-review-smoke']);
+  assert.ok(importNormalizationReviewSmokeSource.includes('normalization_review_medium'));
+  assert.ok(importNormalizationReviewSmokeSource.includes('normalization_series_issue'));
+  assert.ok(importNormalizationReviewSmokeSource.includes('normalization_review_candidate_count'));
+  assert.ok(importNormalizationReviewSmokeSource.includes('/api/media/import-csv?sync=1'));
 }));
 
 results.push(run('media route source uses title candidate fallback for tmdb lookups', () => {

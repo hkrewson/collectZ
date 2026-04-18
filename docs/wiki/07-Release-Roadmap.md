@@ -3050,7 +3050,7 @@ Historical note:
 
 **Goal:** Normalize book and comic ingest across Metron and OPDS/CWA so equivalent titles can attach to one canonical library record instead of creating duplicate rows or drifting into the wrong media type when multiple sync-capable sources contribute overlapping data.
 
-**Current Slice:** `3.1.6.3 — Runtime Import Proof for High-Confidence Auto-Attach`
+**Current Slice:** `3.1.6.4 — Medium-Confidence Review Candidate Surfacing`
 
 ### Scope
 
@@ -3093,6 +3093,11 @@ Historical note:
   - `updated = 1`
   - `match_mode = matched_by_normalization_high`
   - `matched_by = normalization_series_issue_volume`
+- Surface medium-confidence matches in the import audit rather than reviving the retired review queue:
+  - suppress plain title fallback when a `medium` normalization candidate is found,
+  - keep the incoming row separate,
+  - return review candidate details in `auditRows`,
+  - track the candidate count in import `summary`.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 

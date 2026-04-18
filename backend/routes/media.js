@@ -38,7 +38,9 @@ const { syncNormalizedMetadataForMedia } = require('../services/mediaTaxonomy');
 const { normalizeTypeDetails } = require('../services/typeDetails');
 const {
   buildBookNormalizationIdentity,
-  buildComicNormalizationIdentity
+  buildComicNormalizationIdentity,
+  normalizeText,
+  normalizeIssueToken
 } = require('../services/bookComicNormalization');
 const {
   ALL_DISPLAY_FORMAT_LABELS,
@@ -109,6 +111,7 @@ const SORT_COLUMNS = {
 const IMPORT_MATCH_MODES = [
   'matched_by_identifier',
   'matched_by_normalization_high',
+  'normalization_review_medium',
   'identifier_no_match_fallback_title',
   'fallback_title_only',
   'identifier_conflict'
@@ -236,6 +239,7 @@ function deriveImportConfidenceScore({
   let score = profile.scoreBase;
   if (matchMode === 'matched_by_identifier') score += 25;
   if (matchMode === 'matched_by_normalization_high') score += 18;
+  if (matchMode === 'normalization_review_medium') score += 6;
   if (matchMode === 'identifier_conflict') score -= 35;
   if (matchMode === 'identifier_no_match_fallback_title') score -= 15;
   if (matchMode === 'fallback_title_only') score -= 20;
@@ -1541,6 +1545,108 @@ function buildNormalizationIdentityForImportedItem({ normalizedMediaType, title,
   return null;
 }
 
+function buildNormalizationReviewCandidatesForRows({
+  rows = [],
+  normalizedMediaType,
+  normalizationIdentity
+}) {
+  if (!Array.isArray(rows) || rows.length === 0 || !normalizationIdentity?.key || normalizationIdentity.confidence !== 'medium') {
+    return [];
+  }
+
+  let matches = [];
+  if (normalizedMediaType === 'book' && normalizationIdentity.kind === 'title_author') {
+    const keyBody = String(normalizationIdentity.key).replace(/^book:title_author:/, '');
+    const [normalizedTitle = '', normalizedAuthor = ''] = keyBody.split('::');
+    matches = rows.filter((candidate) => {
+      const typeDetails = candidate?.type_details && typeof candidate.type_details === 'object' ? candidate.type_details : {};
+      return (
+        normalizeText(candidate?.title || '') === normalizedTitle
+        && normalizeText(typeDetails.author || '') === normalizedAuthor
+      );
+    });
+  } else if (normalizedMediaType === 'comic_book' && normalizationIdentity.kind === 'series_issue') {
+    const keyBody = String(normalizationIdentity.key).replace(/^comic:series_issue:/, '');
+    const [normalizedSeries = '', , normalizedIssue = ''] = keyBody.split('::');
+    matches = rows.filter((candidate) => {
+      const typeDetails = candidate?.type_details && typeof candidate.type_details === 'object' ? candidate.type_details : {};
+      return (
+        normalizeText(typeDetails.series || '') === normalizedSeries
+        && normalizeIssueToken(typeDetails.issue_number || '') === normalizedIssue
+      );
+    });
+  }
+
+  return matches.slice(0, 5).map((candidate) => {
+    const typeDetails = candidate?.type_details && typeof candidate.type_details === 'object' ? candidate.type_details : {};
+    return {
+      media_id: Number(candidate.id || 0) || null,
+      title: String(candidate.title || '').trim() || null,
+      media_type: String(candidate.media_type || normalizedMediaType || '').trim() || null,
+      confidence: normalizationIdentity.confidence,
+      action: normalizationIdentity.action,
+      matched_by: `normalization_${normalizationIdentity.kind}`,
+      rationale: Array.isArray(normalizationIdentity.rationale) ? normalizationIdentity.rationale : [],
+      type_details: {
+        author: String(typeDetails.author || '').trim() || null,
+        series: String(typeDetails.series || '').trim() || null,
+        issue_number: String(typeDetails.issue_number || '').trim() || null,
+        volume: String(typeDetails.volume || '').trim() || null,
+        isbn: String(typeDetails.isbn || '').trim() || null
+      }
+    };
+  });
+}
+
+async function findNormalizationReviewCandidates({
+  normalizedMediaType,
+  normalizationIdentity,
+  scopeContext = null
+}) {
+  if (!normalizationIdentity?.key || normalizationIdentity.confidence !== 'medium') {
+    return [];
+  }
+
+  const params = [normalizedMediaType];
+  let scopeClause = '';
+  let candidateQuery = '';
+
+  if (normalizedMediaType === 'book' && normalizationIdentity.kind === 'title_author') {
+    scopeClause = appendScopeSql(params, scopeContext, {
+      spaceColumn: 'm.space_id',
+      libraryColumn: 'm.library_id'
+    });
+    candidateQuery = `
+      SELECT m.id, m.title, m.type_details, m.media_type
+      FROM media m
+      WHERE COALESCE(m.media_type, 'movie') = $1
+        ${scopeClause}
+      ORDER BY m.id DESC
+      LIMIT 250`;
+  } else if (normalizedMediaType === 'comic_book' && normalizationIdentity.kind === 'series_issue') {
+    scopeClause = appendScopeSql(params, scopeContext, {
+      spaceColumn: 'm.space_id',
+      libraryColumn: 'm.library_id'
+    });
+    candidateQuery = `
+      SELECT m.id, m.title, m.type_details, m.media_type
+      FROM media m
+      WHERE COALESCE(m.media_type, 'movie') = $1
+        ${scopeClause}
+      ORDER BY m.id DESC
+      LIMIT 250`;
+  } else {
+    return [];
+  }
+
+  const result = await pool.query(candidateQuery, params);
+  return buildNormalizationReviewCandidatesForRows({
+    rows: result.rows || [],
+    normalizedMediaType,
+    normalizationIdentity
+  });
+}
+
 async function findExistingByNormalizationIdentity({
   normalizedMediaType,
   normalizationIdentity,
@@ -1633,6 +1739,8 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
     let matchMode = identifierAttempted ? 'identifier_no_match_fallback_title' : 'fallback_title_only';
     let matchedBy = 'title_year_media_type';
     let identifierConflict = false;
+    let normalizationReviewCandidates = [];
+    let normalizationIdentity = null;
 
     const identifierPriority = getIdentifierMatchPriority({
       mediaType: normalizedMediaType,
@@ -1674,7 +1782,7 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
     }
 
     if (!existingRow && ['book', 'comic_book'].includes(normalizedMediaType)) {
-      const normalizationIdentity = buildNormalizationIdentityForImportedItem({
+      normalizationIdentity = buildNormalizationIdentityForImportedItem({
         normalizedMediaType,
         title,
         normalizedTypeDetails,
@@ -1694,11 +1802,24 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
       }
     }
 
+    if (!existingRow && normalizationIdentity?.confidence === 'medium') {
+      normalizationReviewCandidates = await findNormalizationReviewCandidates({
+        normalizedMediaType,
+        normalizationIdentity,
+        scopeContext
+      });
+      if (normalizationReviewCandidates.length > 0) {
+        matchMode = 'normalization_review_medium';
+        matchedBy = `normalization_${normalizationIdentity.kind}`;
+      }
+    }
+
     if (!existingRow) {
       const comicProviderIssueId = normalizedMediaType === 'comic_book'
         ? String(normalizedTypeDetails?.provider_issue_id || '').trim()
         : '';
-      const shouldSkipTitleFallback = normalizedMediaType === 'comic_book' && Boolean(comicProviderIssueId);
+      const shouldSkipTitleFallback = (normalizedMediaType === 'comic_book' && Boolean(comicProviderIssueId))
+        || normalizationReviewCandidates.length > 0;
       if (!shouldSkipTitleFallback) {
         const year = item.year ?? null;
         const existingParams = [title, year, normalizedMediaType];
@@ -1818,7 +1939,8 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
         matchMode,
         matchedBy,
         identifiers: resolvedIdentifiers,
-        identifierConflict
+        identifierConflict,
+        normalizationReviewCandidates
       };
     }
 
@@ -1883,7 +2005,8 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
       matchMode,
       matchedBy,
       identifiers: resolvedIdentifiers,
-      identifierConflict
+      identifierConflict,
+      normalizationReviewCandidates
     };
   });
 }
@@ -3276,6 +3399,7 @@ async function runGenericCsvImport({
     skipped_invalid: 0,
     skipped_collection: 0,
     diagnosticsFlagged: 0,
+    normalizationReviewCandidates: 0,
     collectionsDetected: 0,
     collectionsCreated: 0,
     collectionItemsSeeded: 0,
@@ -3466,6 +3590,9 @@ async function runGenericCsvImport({
         }
       }
       incrementImportMatchCounter(summary.matchModes, result.matchMode);
+      summary.normalizationReviewCandidates += Array.isArray(result.normalizationReviewCandidates)
+        ? result.normalizationReviewCandidates.length
+        : 0;
       const confidenceScore = deriveImportConfidenceScore({
         matchMode: result.matchMode,
         matchedBy: result.matchedBy,
@@ -3540,6 +3667,8 @@ async function runGenericCsvImport({
           classification_detail: classificationDetail,
           confidence_score: confidenceScore,
           diagnostic_flagged: diagnosticFlagged,
+          normalization_review_candidates: result.normalizationReviewCandidates || [],
+          normalization_review_candidate_count: Array.isArray(result.normalizationReviewCandidates) ? result.normalizationReviewCandidates.length : 0,
           isbn: rowIdentifiers.isbn || '',
           ean_upc: rowIdentifiers.eanUpc || '',
           asin: rowIdentifiers.asin || ''
@@ -3562,6 +3691,8 @@ async function runGenericCsvImport({
           classification_detail: classificationDetail,
           confidence_score: confidenceScore,
           diagnostic_flagged: diagnosticFlagged,
+          normalization_review_candidates: result.normalizationReviewCandidates || [],
+          normalization_review_candidate_count: Array.isArray(result.normalizationReviewCandidates) ? result.normalizationReviewCandidates.length : 0,
           isbn: rowIdentifiers.isbn || '',
           ean_upc: rowIdentifiers.eanUpc || '',
           asin: rowIdentifiers.asin || ''
@@ -3584,6 +3715,8 @@ async function runGenericCsvImport({
           classification_detail: classificationDetail,
           confidence_score: confidenceScore,
           diagnostic_flagged: diagnosticFlagged,
+          normalization_review_candidates: result.normalizationReviewCandidates || [],
+          normalization_review_candidate_count: Array.isArray(result.normalizationReviewCandidates) ? result.normalizationReviewCandidates.length : 0,
           isbn: rowIdentifiers.isbn || '',
           ean_upc: rowIdentifiers.eanUpc || '',
           asin: rowIdentifiers.asin || ''
@@ -3644,6 +3777,7 @@ async function runDeliciousCsvImport({
     skipped_invalid: 0,
     skipped_collection: 0,
     diagnosticsFlagged: 0,
+    normalizationReviewCandidates: 0,
     collectionsDetected: 0,
     collectionsCreated: 0,
     collectionItemsSeeded: 0,
@@ -3845,6 +3979,9 @@ async function runDeliciousCsvImport({
             identifiers: rowIdentifiers
           });
           incrementImportMatchCounter(summary.matchModes, result.matchMode);
+          summary.normalizationReviewCandidates += Array.isArray(result.normalizationReviewCandidates)
+            ? result.normalizationReviewCandidates.length
+            : 0;
           const confidenceScore = deriveImportConfidenceScore({
             matchMode: result.matchMode,
             matchedBy: result.matchedBy,
@@ -3938,6 +4075,8 @@ async function runDeliciousCsvImport({
               classification_detail: classificationDetail,
               confidence_score: confidenceScore,
               diagnostic_flagged: diagnosticFlagged,
+              normalization_review_candidates: result.normalizationReviewCandidates || [],
+              normalization_review_candidate_count: Array.isArray(result.normalizationReviewCandidates) ? result.normalizationReviewCandidates.length : 0,
               isbn: rowIdentifiers.isbn || '',
               ean_upc: rowIdentifiers.eanUpc || '',
               asin: rowIdentifiers.asin || ''
@@ -3960,6 +4099,8 @@ async function runDeliciousCsvImport({
               classification_detail: classificationDetail,
               confidence_score: confidenceScore,
               diagnostic_flagged: diagnosticFlagged,
+              normalization_review_candidates: result.normalizationReviewCandidates || [],
+              normalization_review_candidate_count: Array.isArray(result.normalizationReviewCandidates) ? result.normalizationReviewCandidates.length : 0,
               isbn: rowIdentifiers.isbn || '',
               ean_upc: rowIdentifiers.eanUpc || '',
               asin: rowIdentifiers.asin || ''
@@ -3982,6 +4123,8 @@ async function runDeliciousCsvImport({
               classification_detail: classificationDetail,
               confidence_score: confidenceScore,
               diagnostic_flagged: diagnosticFlagged,
+              normalization_review_candidates: result.normalizationReviewCandidates || [],
+              normalization_review_candidate_count: Array.isArray(result.normalizationReviewCandidates) ? result.normalizationReviewCandidates.length : 0,
               isbn: rowIdentifiers.isbn || '',
               ean_upc: rowIdentifiers.eanUpc || '',
               asin: rowIdentifiers.asin || ''
@@ -5384,6 +5527,7 @@ router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, r
             matchModes: result.summary.matchModes,
             enrichment: result.summary.enrichment,
             diagnosticsFlagged: result.summary.diagnosticsFlagged,
+            normalizationReviewCandidates: result.summary.normalizationReviewCandidates || 0,
             valuationRefresh,
             collectionsDetected: result.summary.collectionsDetected || 0,
             collectionsCreated: result.summary.collectionsCreated || 0,
@@ -5403,6 +5547,7 @@ router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, r
           matchModes: result.summary.matchModes,
           enrichment: result.summary.enrichment,
           diagnosticsFlagged: result.summary.diagnosticsFlagged,
+          normalizationReviewCandidates: result.summary.normalizationReviewCandidates || 0,
           valuationRefresh,
           collectionsDetected: result.summary.collectionsDetected || 0,
           collectionsCreated: result.summary.collectionsCreated || 0,
@@ -5451,6 +5596,7 @@ router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, r
     matchModes: result.summary.matchModes,
     enrichment: result.summary.enrichment,
     diagnosticsFlagged: result.summary.diagnosticsFlagged,
+    normalizationReviewCandidates: result.summary.normalizationReviewCandidates || 0,
     valuationRefresh,
     collectionsDetected: result.summary.collectionsDetected || 0,
     collectionsCreated: result.summary.collectionsCreated || 0,
@@ -5542,6 +5688,7 @@ router.post('/import-csv/calibre', tempUpload.single('file'), asyncHandler(async
             matchModes: result.summary.matchModes,
             enrichment: result.summary.enrichment,
             diagnosticsFlagged: result.summary.diagnosticsFlagged,
+            normalizationReviewCandidates: result.summary.normalizationReviewCandidates || 0,
             valuationRefresh,
             collectionsDetected: result.summary.collectionsDetected || 0,
             collectionsCreated: result.summary.collectionsCreated || 0,
@@ -5561,6 +5708,7 @@ router.post('/import-csv/calibre', tempUpload.single('file'), asyncHandler(async
           matchModes: result.summary.matchModes,
           enrichment: result.summary.enrichment,
           diagnosticsFlagged: result.summary.diagnosticsFlagged,
+          normalizationReviewCandidates: result.summary.normalizationReviewCandidates || 0,
           valuationRefresh,
           collectionsDetected: result.summary.collectionsDetected || 0,
           collectionsCreated: result.summary.collectionsCreated || 0,
@@ -5611,6 +5759,7 @@ router.post('/import-csv/calibre', tempUpload.single('file'), asyncHandler(async
     matchModes: result.summary.matchModes,
     enrichment: result.summary.enrichment,
     diagnosticsFlagged: result.summary.diagnosticsFlagged,
+    normalizationReviewCandidates: result.summary.normalizationReviewCandidates || 0,
     valuationRefresh,
     collectionsDetected: result.summary.collectionsDetected || 0,
     collectionsCreated: result.summary.collectionsCreated || 0,
