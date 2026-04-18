@@ -282,5 +282,6 @@ async function fetchCwaOpdsItems(config = {}, options = {}) {
 }
 
 module.exports = {
-  fetchCwaOpdsItems
+  fetchCwaOpdsItems,
+  parseComicTitleMetadata
 };

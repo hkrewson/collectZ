@@ -136,6 +136,9 @@ const structuredLogSmokeSharedSource = fs.readFileSync(require.resolve('../scrip
 const importNormalizationSmokeSource = fs.readFileSync(require.resolve('../scripts/import-normalization-smoke'), 'utf8');
 const importNormalizationReviewSmokeSource = fs.readFileSync(require.resolve('../scripts/import-normalization-review-smoke'), 'utf8');
 const historicalRepairPlanSource = fs.readFileSync(require.resolve('../scripts/book-comic-historical-repair-plan'), 'utf8');
+const repairComicLikeBooksSource = fs.readFileSync(require.resolve('../scripts/repair-comic-like-books'), 'utf8');
+const repairComicLikeBooksSmokeSource = fs.readFileSync(require.resolve('../scripts/repair-comic-like-books-smoke'), 'utf8');
+const { parseComicMetadataFromTitle, buildComicLikeBookProposal } = require('../scripts/repair-comic-like-books');
 const supportSessionSmokeSource = fs.readFileSync(require.resolve('../scripts/support-session-smoke'), 'utf8');
 const libraryLifecycleSmokeSource = fs.readFileSync(require.resolve('../scripts/library-lifecycle-smoke'), 'utf8');
 const spaceLifecycleSmokeSource = fs.readFileSync(require.resolve('../scripts/space-lifecycle-smoke'), 'utf8');
@@ -362,6 +365,39 @@ results.push(run('bookComicNormalization builds a dry-run historical repair plan
   assert.strictEqual(plan.safeAutoAttachDuplicateClusters[0].action, 'attach_duplicate_to_canonical');
   assert.strictEqual(plan.reviewDuplicateClusters[0].action, 'review_duplicate_cluster');
   assert.strictEqual(plan.likelyTypeRepairs[0].action, 'review_reclassify_book_to_comic');
+}));
+
+results.push(run('repairComicLikeBooks infers comic metadata from year-prefixed and volume issue titles', () => {
+  const yearPrefixed = parseComicMetadataFromTitle('(1982) Starslayer #05');
+  assert.strictEqual(yearPrefixed.series, 'Starslayer');
+  assert.strictEqual(yearPrefixed.issue_number, '05');
+  assert.strictEqual(yearPrefixed.cover_date, '1982-01-01');
+
+  const volumeHash = parseComicMetadataFromTitle('Groo The Wanderer v1 #1 - Friends and Enemies');
+  assert.strictEqual(volumeHash.series, 'Groo The Wanderer');
+  assert.strictEqual(volumeHash.volume, '1');
+  assert.strictEqual(volumeHash.issue_number, '1');
+}));
+
+results.push(run('repairComicLikeBooks builds a comic reclassification proposal with preserved metadata', () => {
+  const proposal = buildComicLikeBookProposal({
+    id: 77,
+    title: 'Groo The Wanderer v1 #1 - Friends and Enemies',
+    media_type: 'book',
+    import_source: 'cwa_opds',
+    type_details: {
+      author: 'Sergio Aragonés, Mark Evanier',
+      provider_name: 'cwa_opds',
+      provider_item_id: 'urn:uuid:test'
+    }
+  });
+  assert.strictEqual(proposal.action, 'reclassify_book_to_comic');
+  assert.strictEqual(proposal.proposed_media_type, 'comic_book');
+  assert.strictEqual(proposal.proposed_type_details.series, 'Groo The Wanderer');
+  assert.strictEqual(proposal.proposed_type_details.issue_number, '1');
+  assert.strictEqual(proposal.proposed_type_details.volume, '1');
+  assert.strictEqual(proposal.proposed_type_details.author, 'Sergio Aragonés, Mark Evanier');
+  assert.strictEqual(proposal.proposed_type_details.provider_name, 'cwa_opds');
 }));
 
 results.push(run('barcode.normalizeBarcodeMatches infers TV season box sets and strips season suffix for search', () => {
@@ -1191,6 +1227,16 @@ results.push(run('repo includes dry-run historical repair plan coverage for dupl
   assert.ok(bookComicNormalizationSource.includes('attach_duplicate_to_canonical'));
   assert.ok(bookComicNormalizationSource.includes('review_reclassify_book_to_comic'));
   assert.ok(bookComicNormalizationSource.includes('dryRun: true'));
+}));
+
+results.push(run('repo includes comic-like book reclassification repair tooling with snapshot metadata and smoke proof', () => {
+  assert.ok(backendPackageJson.scripts['repair:comic-like-books']);
+  assert.ok(backendPackageJson.scripts['test:repair-comic-like-books-smoke']);
+  assert.ok(repairComicLikeBooksSource.includes('historical_repair_previous_media_type'));
+  assert.ok(repairComicLikeBooksSource.includes('historical_repair_previous_type_details'));
+  assert.ok(repairComicLikeBooksSource.includes('reclassify_book_to_comic'));
+  assert.ok(repairComicLikeBooksSmokeSource.includes('Repair comic-like books smoke passed'));
+  assert.ok(repairComicLikeBooksSmokeSource.includes('historical_repair_previous_media_type'));
 }));
 
 results.push(run('media route source uses title candidate fallback for tmdb lookups', () => {

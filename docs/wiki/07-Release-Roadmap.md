@@ -3050,7 +3050,7 @@ Historical note:
 
 **Goal:** Normalize book and comic ingest across Metron and OPDS/CWA so equivalent titles can attach to one canonical library record instead of creating duplicate rows or drifting into the wrong media type when multiple sync-capable sources contribute overlapping data.
 
-**Current Slice:** `3.1.6.6 — Historical Repair Dry-Run Plan`
+**Current Slice:** `3.1.6.7 — Comic-Like Book Reclassification Repair`
 
 ### Scope
 
@@ -3108,6 +3108,11 @@ Historical note:
   - keep medium-confidence duplicate clusters in a review bucket,
   - emit likely comic-like `book` rows as separate reclassification candidates,
   - do not mutate data yet.
+- Add a scoped comic-like book repair tool after the dry-run planner:
+  - keep the mutation path opt-in with `--apply`,
+  - allow narrow targeting by explicit ids and optional library scope,
+  - preserve the previous `media_type` and `type_details` in `media_metadata` before reclassification,
+  - prove the repair with a Docker-backed smoke that reclassifies one seeded `book` row into `comic_book` without attempting a broad sweep.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
