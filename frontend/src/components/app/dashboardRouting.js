@@ -16,6 +16,7 @@ export const VALID_DASHBOARD_TABS = new Set([
   'admin-spaces',
   'profile',
   'admin-users',
+  'admin-merges',
   'admin-activity',
   'admin-settings',
   'admin-flags',

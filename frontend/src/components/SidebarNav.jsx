@@ -69,6 +69,7 @@ export default function SidebarNav({
     'library-import'
   ].includes(activeTab);
   const isPlatformGroupActive = [
+    'admin-merges',
     'admin-settings',
     'admin-integrations',
     'admin-activity',
@@ -81,6 +82,7 @@ export default function SidebarNav({
   const canOpenSpaceSurface = Boolean(activeMembershipRole) || canManageActiveSpace;
   const showAdminGroup = isAdmin && [
     isTabAllowed('admin-settings'),
+    isTabAllowed('admin-merges'),
     isTabAllowed('admin-integrations'),
     isTabAllowed('admin-activity'),
     isTabAllowed('admin-spaces'),
@@ -273,6 +275,7 @@ export default function SidebarNav({
               </button>
               {platformOpen && !collapsed && (
                 <div className="mt-1 space-y-0.5">
+                  {isTabAllowed('admin-merges') && <NavLink id="admin-merges" icon={null} label="Merge Review" sub />}
                   {isTabAllowed('admin-settings') && <NavLink id="admin-settings" icon={null} label="Settings" sub />}
                   {isTabAllowed('admin-integrations') && <NavLink id="admin-integrations" icon={null} label="Integrations" sub />}
                   {isTabAllowed('admin-activity') && <NavLink id="admin-activity" icon={null} label="Activity" sub />}

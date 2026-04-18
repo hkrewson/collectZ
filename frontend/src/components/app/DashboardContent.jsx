@@ -3,6 +3,7 @@ import AdminActivityView from '../AdminActivityView';
 import ImportViewComponent from '../ImportView';
 import ProfileViewComponent from '../ProfileView';
 import AdminUsersView from '../AdminUsersView';
+import AdminMergeReviewView from '../AdminMergeReviewView';
 import AdminSettingsView from '../AdminSettingsView';
 import AdminIntegrationsView from '../AdminIntegrationsView';
 import AdminSpacesView from '../AdminSpacesView';
@@ -207,6 +208,16 @@ export default function DashboardContent({
       );
     case 'admin-users':
       return <AdminUsersView apiCall={apiCall} onToast={showToast} currentUserId={user?.id} Icons={Icons} Spinner={Spinner} />;
+    case 'admin-merges':
+      return (
+        <AdminMergeReviewView
+          apiCall={apiCall}
+          onToast={showToast}
+          Spinner={Spinner}
+          activeSpace={activeSpace}
+          activeLibrary={activeLibrary}
+        />
+      );
     case 'admin-spaces':
       return (
         <AdminSpacesView

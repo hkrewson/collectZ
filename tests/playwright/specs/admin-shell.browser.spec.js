@@ -2,7 +2,8 @@
 
 const { test, expect } = require('@playwright/test');
 const { createSpaceFixture, deleteSpace } = require('../helpers/admin');
-const { ensureSavedAdminCredentials, createAuthenticatedRequestContext } = require('../helpers/auth');
+const { ensureSavedAdminCredentials, createAuthenticatedRequestContext, postWithCsrf } = require('../helpers/auth');
+const { deleteMediaByExactTitle } = require('../helpers/media');
 const { signInThroughUi } = require('../helpers/session');
 
 test.use({ storageState: { cookies: [], origins: [] } });
@@ -105,5 +106,95 @@ test.describe('admin shell browser regressions', () => {
     const restoreResponse = await restoreResponsePromise;
     expect(restoreResponse.ok()).toBeTruthy();
     await expect(metricsSwitch).toHaveAttribute('aria-checked', wasEnabled || 'false');
+  });
+
+  test('manual merge review previews same-type candidates and blocks cross-type pairs', async ({ page }) => {
+    const suffix = Date.now();
+    const adminCredentials = await ensureSavedAdminCredentials();
+    const requestContext = await createAuthenticatedRequestContext(adminCredentials);
+    const canonicalTitle = `Playwright Manual Merge Book ${suffix}`;
+    const movieTitle = `Playwright Manual Merge Movie ${suffix}`;
+    const createdIds = [];
+
+    await deleteMediaByExactTitle(requestContext, canonicalTitle).catch(() => {});
+    await deleteMediaByExactTitle(requestContext, movieTitle).catch(() => {});
+
+    try {
+      const canonicalResponse = await postWithCsrf(requestContext, '/api/media', {
+        title: canonicalTitle,
+        media_type: 'book',
+        year: 2024,
+        owned_formats: ['digital'],
+        type_details: {
+          author: 'Hugh Howey',
+          isbn: '9780358447849',
+          publisher: 'Mariner Books'
+        }
+      }, 201);
+      const canonical = await canonicalResponse.json();
+      createdIds.push(Number(canonical.id));
+
+      const duplicateResponse = await postWithCsrf(requestContext, '/api/media', {
+        title: canonicalTitle,
+        media_type: 'book',
+        year: 2024,
+        owned_formats: ['paperback'],
+        type_details: {
+          author: 'Hugh Howey',
+          isbn: '9780358447849',
+          publisher: 'Mariner Books'
+        }
+      }, 201);
+      const duplicate = await duplicateResponse.json();
+      createdIds.push(Number(duplicate.id));
+
+      const movieResponse = await postWithCsrf(requestContext, '/api/media', {
+        title: movieTitle,
+        media_type: 'movie',
+        year: 1999,
+        owned_formats: ['digital']
+      }, 201);
+      const movie = await movieResponse.json();
+      createdIds.push(Number(movie.id));
+
+      await signInThroughUi(page, adminCredentials);
+      await page.goto('/dashboard?tab=admin-merges');
+
+      await expect(page.getByRole('heading', { name: 'Merge Review' })).toBeVisible();
+      await page.getByLabel('This record id').fill(String(canonical.id));
+      await page.getByLabel('Matched record id').fill(String(duplicate.id));
+
+      const previewResponsePromise = page.waitForResponse((response) => (
+        response.url().includes('/api/media/merge-preview')
+        && response.request().method() === 'POST'
+        && response.status() === 200
+      ));
+      await page.getByRole('button', { name: 'Preview merge' }).click();
+      const previewResponse = await previewResponsePromise;
+      expect(previewResponse.ok()).toBeTruthy();
+
+      await expect(page.getByText('Matched on ISBN')).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Compared fields' })).toBeVisible();
+      await expect(page.getByRole('cell', { name: 'ISBN' })).toBeVisible();
+      await expect(page.getByText('9780358447849').first()).toBeVisible();
+
+      await page.getByLabel('Matched record id').fill(String(movie.id));
+      const crossTypeResponsePromise = page.waitForResponse((response) => (
+        response.url().includes('/api/media/merge-preview')
+        && response.request().method() === 'POST'
+        && response.status() === 409
+      ));
+      await page.getByRole('button', { name: 'Preview merge' }).click();
+      const crossTypeResponse = await crossTypeResponsePromise;
+      expect(crossTypeResponse.status()).toBe(409);
+
+      await expect(page.getByText('Cross-type merges are not allowed')).toBeVisible();
+      await expect(page.getByText('This record is Book and the matched record is Movie.')).toBeVisible();
+    } finally {
+      for (const mediaId of createdIds.reverse()) {
+        await requestContext.delete(`/api/media/${mediaId}`).catch(() => {});
+      }
+      await requestContext.dispose();
+    }
   });
 });

@@ -103,6 +103,7 @@ const supportSessionBannerSource = readFrontendSource(path.join('components', 'a
 const useApiClientSource = readFrontendSource(path.join('components', 'app', 'hooks', 'useApiClient'));
 const helpViewSource = readFrontendSource(path.join('components', 'HelpView'));
 const adminUsersViewSource = readFrontendSource(path.join('components', 'AdminUsersView'));
+const adminMergeReviewViewSource = readFrontendSource(path.join('components', 'AdminMergeReviewView'));
 const libraryViewSource = readFrontendSource(path.join('components', 'LibraryView'));
 const backendPackageJson = JSON.parse(fs.readFileSync(require.resolve('../package.json'), 'utf8'));
 const frontendPackageJson = JSON.parse(fs.readFileSync(require.resolve('../../frontend/package.json'), 'utf8'));
@@ -117,6 +118,7 @@ const approvedSupportSessionBrowserSpecSource = fs.readFileSync(require.resolve(
 const integrationsBrowserSpecSource = fs.readFileSync(require.resolve('../../tests/playwright/specs/integrations.browser.spec'), 'utf8');
 const importBrowserSpecSource = fs.readFileSync(require.resolve('../../tests/playwright/specs/import.browser.spec'), 'utf8');
 const importCsvBrowserSpecSource = fs.readFileSync(require.resolve('../../tests/playwright/specs/import-csv.browser.spec'), 'utf8');
+const adminShellBrowserSpecSource = fs.readFileSync(require.resolve('../../tests/playwright/specs/admin-shell.browser.spec'), 'utf8');
 const libraryMultiFormatBrowserSpecSource = fs.readFileSync(require.resolve('../../tests/playwright/specs/library-multiformat.browser.spec'), 'utf8');
 const libraryLifecycleBrowserSpecSource = fs.readFileSync(require.resolve('../../tests/playwright/specs/library-lifecycle.browser.spec'), 'utf8');
 const spaceManagerBrowserSpecSource = fs.readFileSync(require.resolve('../../tests/playwright/specs/space-manager.browser.spec'), 'utf8');
@@ -2730,6 +2732,15 @@ results.push(run('dashboard content exposes dedicated admin spaces control plane
   assert.ok(dashboardContentSource.includes('AdminSpacesView'));
 }));
 
+results.push(run('dashboard shell exposes admin merge review as a dedicated operator tab', () => {
+  assert.ok(dashboardRoutingSource.includes("'admin-merges'"));
+  assert.ok(sidebarNavSource.includes("admin-merges"));
+  assert.ok(sidebarNavSource.includes('Merge Review'));
+  assert.ok(dashboardContentSource.includes("case 'admin-merges'"));
+  assert.ok(dashboardContentSource.includes('AdminMergeReviewView'));
+  assert.ok(productEditionFrontendSource.includes("allowed.add('admin-merges')"));
+}));
+
 results.push(run('frontend import flow no longer mounts standalone Import Review view', () => {
   assert.ok(!dashboardContentSource.includes('ImportReviewView'));
   assert.ok(!frontendAppSource.includes('const importReviewEnabled'));
@@ -2754,6 +2765,26 @@ results.push(run('library drawer source includes compact match evidence summarie
   assert.ok(libraryViewSource.includes('Matched on:'));
   assert.ok(libraryViewSource.includes("apiCall('get', `/media/${item.id}/merge-details`)"));
   assert.ok(libraryViewSource.includes('DisclosureList'));
+}));
+
+results.push(run('admin merge review view posts preview requests and renders operator-facing comparison details', () => {
+  assert.ok(adminMergeReviewViewSource.includes("/media/merge-preview"));
+  assert.ok(adminMergeReviewViewSource.includes('Preview only. No data changes happen here.'));
+  assert.ok(adminMergeReviewViewSource.includes('Compared fields'));
+  assert.ok(adminMergeReviewViewSource.includes('This record'));
+  assert.ok(adminMergeReviewViewSource.includes('Matched record'));
+  assert.ok(adminMergeReviewViewSource.includes('Result'));
+  assert.ok(adminMergeReviewViewSource.includes('Dependent rewiring'));
+  assert.ok(adminMergeReviewViewSource.includes('Merge history'));
+  assert.ok(adminMergeReviewViewSource.includes('Swap'));
+  assert.ok(adminMergeReviewViewSource.includes('Recommended canonical'));
+}));
+
+results.push(run('admin shell browser coverage includes manual merge review preview and cross-type guardrails', () => {
+  assert.ok(adminShellBrowserSpecSource.includes('/dashboard?tab=admin-merges'));
+  assert.ok(adminShellBrowserSpecSource.includes('Preview merge'));
+  assert.ok(adminShellBrowserSpecSource.includes('Cross-type merges are not allowed'));
+  assert.ok(adminShellBrowserSpecSource.includes('Compared fields'));
 }));
 
 results.push(run('admin users view stays platform-only without invitation management tab', () => {

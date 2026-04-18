@@ -70,6 +70,7 @@ export function getHomelabAllowedTabs({
   if (showEvents) allowed.add('library-events');
 
   if (normalizedRole === 'admin') {
+    allowed.add('admin-merges');
     allowed.add('admin-settings');
     allowed.add('admin-integrations');
   }

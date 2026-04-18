@@ -3228,7 +3228,7 @@ Historical note:
 
 **Goal:** Add a controlled operator-facing manual merge workflow so supported media types can be reviewed, compared, merged, and reverted intentionally without allowing unsafe cross-type merges.
 
-**Current Slice:** `3.2.0.1 — Manual Merge Preview Contract and Operator Boundary`
+**Current Slice:** `3.2.0.2 — Operator Review Surface for Manual Merge Preview`
 
 - Start with same-type manual merge only:
   - books
@@ -3299,6 +3299,12 @@ Historical note:
   - future action menu entry,
   - possible support-session tooling later.
 - Treat the `3.1.6` merge evidence drawer as the user-visible provenance layer, not as the primary action surface for manual merge.
+- The first operator UI should stay scoped and quiet:
+  - live in the admin/operator lane rather than the normal drawer,
+  - use active workspace/library scope,
+  - preview one canonical record plus one matched record at a time,
+  - show compared fields, winning values, rewiring impact, and history context,
+  - stop short of apply/revert actions until the review flow feels solid.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
