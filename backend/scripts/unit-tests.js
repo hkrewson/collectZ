@@ -15,7 +15,9 @@ const {
   buildBookNormalizationIdentity,
   buildComicNormalizationIdentity,
   buildNormalizationMatchContract,
-  detectLikelyComicLikeBook
+  detectLikelyComicLikeBook,
+  chooseCanonicalRow,
+  buildHistoricalRepairPlan
 } = require('../services/bookComicNormalization');
 const { buildOwnedFormatsPayload, getOwnedFormatLabel } = require('../services/mediaFormats');
 const { compareReleaseVersions, parseReleaseMarkdown } = require('../services/releaseNotes');
@@ -133,11 +135,13 @@ const structuredLogSyslogSmokeSource = fs.readFileSync(require.resolve('../scrip
 const structuredLogSmokeSharedSource = fs.readFileSync(require.resolve('../scripts/structured-log-smoke-shared'), 'utf8');
 const importNormalizationSmokeSource = fs.readFileSync(require.resolve('../scripts/import-normalization-smoke'), 'utf8');
 const importNormalizationReviewSmokeSource = fs.readFileSync(require.resolve('../scripts/import-normalization-review-smoke'), 'utf8');
+const historicalRepairPlanSource = fs.readFileSync(require.resolve('../scripts/book-comic-historical-repair-plan'), 'utf8');
 const supportSessionSmokeSource = fs.readFileSync(require.resolve('../scripts/support-session-smoke'), 'utf8');
 const libraryLifecycleSmokeSource = fs.readFileSync(require.resolve('../scripts/library-lifecycle-smoke'), 'utf8');
 const spaceLifecycleSmokeSource = fs.readFileSync(require.resolve('../scripts/space-lifecycle-smoke'), 'utf8');
 const dashboardSpec = JSON.parse(fs.readFileSync(require.resolve('../../ops/monitoring/grafana/dashboards/collectz-overview.json'), 'utf8'));
 const alertRulesSource = fs.readFileSync(require.resolve('../../docs/alerts/collectz-alert-rules.yaml'), 'utf8');
+const bookComicNormalizationSource = fs.readFileSync(require.resolve('../services/bookComicNormalization'), 'utf8');
 
 async function run(name, fn) {
   try {
@@ -296,6 +300,68 @@ results.push(run('bookComicNormalization exposes explicit match contract precede
   assert.strictEqual(contract.comics[2].kind, 'series_issue');
   assert.strictEqual(contract.comics[2].confidence, 'medium');
   assert.strictEqual(contract.comics[2].action, 'review');
+}));
+
+results.push(run('bookComicNormalization chooses canonical rows by richer identity before falling back to older ids', () => {
+  const chosen = chooseCanonicalRow([
+    {
+      id: 9,
+      media_type: 'comic_book',
+      title: 'Alpha Flight #10',
+      import_source: 'csv',
+      type_details: { series: 'Alpha Flight', issue_number: '10', volume: '1' }
+    },
+    {
+      id: 12,
+      media_type: 'comic_book',
+      title: 'Alpha Flight #10',
+      import_source: 'cwa',
+      type_details: { series: 'Alpha Flight', issue_number: '10', volume: '1', provider_name: 'cwa_opds', provider_item_id: 'abc-123' }
+    }
+  ]);
+  assert.strictEqual(chosen.id, 12);
+}));
+
+results.push(run('bookComicNormalization builds a dry-run historical repair plan with safe attach and review buckets', () => {
+  const plan = buildHistoricalRepairPlan({
+    duplicateBookClusters: [
+      {
+        key: 'book:isbn:9780306406157',
+        confidence: 'high',
+        kind: 'isbn',
+        rationale: ['normalized_isbn'],
+        rows: [
+          { id: 1, media_type: 'book', title: 'Dune', import_source: 'csv', type_details: { isbn: '9780306406157', author: 'Frank Herbert' } },
+          { id: 2, media_type: 'book', title: 'Dune', import_source: 'opds', type_details: { isbn: '9780306406157' } }
+        ]
+      }
+    ],
+    duplicateComicClusters: [
+      {
+        key: 'comic:series_issue:alpha flight::-::10',
+        confidence: 'medium',
+        kind: 'series_issue',
+        rationale: ['normalized_series', 'normalized_issue_number'],
+        rows: [
+          { id: 3, media_type: 'comic_book', title: 'Alpha Flight #10', import_source: 'csv', type_details: { series: 'Alpha Flight', issue_number: '10' } },
+          { id: 4, media_type: 'comic_book', title: 'Alpha Flight #10', import_source: 'opds', type_details: { series: 'Alpha Flight', issue_number: '10', volume: '1' } }
+        ]
+      }
+    ],
+    likelyComicLikeBooks: [
+      {
+        row: { id: 5, media_type: 'book', title: 'Groo The Wanderer v1 #1', import_source: 'opds', type_details: {} },
+        signal: { likely: true, reasons: ['volume_issue_pattern'] }
+      }
+    ]
+  });
+  assert.strictEqual(plan.dryRun, true);
+  assert.strictEqual(plan.summary.safeAutoAttachDuplicateClusters, 1);
+  assert.strictEqual(plan.summary.reviewDuplicateClusters, 1);
+  assert.strictEqual(plan.summary.likelyTypeRepairs, 1);
+  assert.strictEqual(plan.safeAutoAttachDuplicateClusters[0].action, 'attach_duplicate_to_canonical');
+  assert.strictEqual(plan.reviewDuplicateClusters[0].action, 'review_duplicate_cluster');
+  assert.strictEqual(plan.likelyTypeRepairs[0].action, 'review_reclassify_book_to_comic');
 }));
 
 results.push(run('barcode.normalizeBarcodeMatches infers TV season box sets and strips season suffix for search', () => {
@@ -1117,6 +1183,14 @@ results.push(run('repo includes import normalization review smoke coverage for m
   assert.ok(importNormalizationReviewSmokeSource.includes('normalization_series_issue'));
   assert.ok(importNormalizationReviewSmokeSource.includes('normalization_review_candidate_count'));
   assert.ok(importNormalizationReviewSmokeSource.includes('/api/media/import-csv?sync=1'));
+}));
+
+results.push(run('repo includes dry-run historical repair plan coverage for duplicate and type-repair reporting', () => {
+  assert.ok(backendPackageJson.scripts['test:book-comic-historical-repair-plan']);
+  assert.ok(historicalRepairPlanSource.includes('buildHistoricalRepairPlan'));
+  assert.ok(bookComicNormalizationSource.includes('attach_duplicate_to_canonical'));
+  assert.ok(bookComicNormalizationSource.includes('review_reclassify_book_to_comic'));
+  assert.ok(bookComicNormalizationSource.includes('dryRun: true'));
 }));
 
 results.push(run('media route source uses title candidate fallback for tmdb lookups', () => {

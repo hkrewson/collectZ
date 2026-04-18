@@ -228,6 +228,135 @@ function buildNormalizationMatchContract() {
   };
 }
 
+function scoreRowForCanonicalSelection(row = {}) {
+  const typeDetails = toPlainTypeDetails(row.type_details);
+  const mediaType = String(row.media_type || '').trim();
+  let score = 0;
+
+  if (mediaType === 'book') {
+    if (normalizeDigits(typeDetails.isbn || row.isbn || '')) score += 10;
+    if (normalizeText(typeDetails.author || row.book_author || '')) score += 4;
+    if (normalizeText(typeDetails.publisher || '')) score += 2;
+  }
+
+  if (mediaType === 'comic_book') {
+    if (normalizeText(typeDetails.provider_name || '') && String(typeDetails.provider_item_id || '').trim()) score += 12;
+    if (normalizeText(typeDetails.series || '')) score += 4;
+    if (normalizeIssueToken(typeDetails.issue_number || '')) score += 3;
+    if (normalizeText(typeDetails.volume || '')) score += 2;
+  }
+
+  if (String(typeDetails.provider_name || '').trim()) score += 2;
+  if (String(row.import_source || '').trim()) score += 1;
+  if (String(row.title || '').trim()) score += 1;
+
+  return score;
+}
+
+function chooseCanonicalRow(rows = []) {
+  const candidates = Array.isArray(rows) ? rows.filter(Boolean) : [];
+  if (candidates.length === 0) return null;
+  return candidates
+    .map((row) => ({
+      row,
+      score: scoreRowForCanonicalSelection(row),
+      id: Number(row.id || Number.MAX_SAFE_INTEGER)
+    }))
+    .sort((left, right) => right.score - left.score || left.id - right.id)[0]?.row || null;
+}
+
+function summarizeRepairTargetRow(row = {}) {
+  const typeDetails = toPlainTypeDetails(row.type_details);
+  return {
+    id: Number(row.id || 0) || null,
+    media_type: String(row.media_type || '').trim() || null,
+    title: String(row.title || '').trim() || null,
+    import_source: String(row.import_source || '').trim() || null,
+    provider: String(typeDetails.provider_name || '').trim() || null,
+    provider_item_id: String(typeDetails.provider_item_id || '').trim() || null,
+    isbn: String(typeDetails.isbn || '').trim() || null,
+    author: String(typeDetails.author || '').trim() || null,
+    series: String(typeDetails.series || '').trim() || null,
+    issue_number: String(typeDetails.issue_number || '').trim() || null,
+    volume: String(typeDetails.volume || '').trim() || null
+  };
+}
+
+function buildDuplicateRepairPlan(cluster = {}) {
+  const rows = Array.isArray(cluster.rows) ? cluster.rows : [];
+  if (rows.length < 2) return null;
+
+  const canonical = chooseCanonicalRow(rows);
+  if (!canonical) return null;
+
+  const duplicates = rows
+    .filter((row) => Number(row.id) !== Number(canonical.id))
+    .sort((left, right) => Number(left.id || 0) - Number(right.id || 0));
+
+  const confidence = String(cluster.confidence || '').trim() || 'unknown';
+  const action = confidence === 'high'
+    ? 'attach_duplicate_to_canonical'
+    : 'review_duplicate_cluster';
+
+  return {
+    key: cluster.key || null,
+    confidence,
+    action,
+    kind: cluster.kind || null,
+    rationale: Array.isArray(cluster.rationale) ? cluster.rationale : [],
+    canonical: summarizeRepairTargetRow(canonical),
+    duplicates: duplicates.map(summarizeRepairTargetRow)
+  };
+}
+
+function buildHistoricalRepairPlan({
+  duplicateBookClusters = [],
+  duplicateComicClusters = [],
+  likelyComicLikeBooks = []
+} = {}) {
+  const highConfidenceDuplicates = [
+    ...duplicateBookClusters,
+    ...duplicateComicClusters
+  ]
+    .filter((cluster) => cluster?.confidence === 'high')
+    .map(buildDuplicateRepairPlan)
+    .filter(Boolean);
+
+  const reviewDuplicateClusters = [
+    ...duplicateBookClusters,
+    ...duplicateComicClusters
+  ]
+    .filter((cluster) => cluster?.confidence === 'medium')
+    .map(buildDuplicateRepairPlan)
+    .filter(Boolean);
+
+  const likelyTypeRepairs = (Array.isArray(likelyComicLikeBooks) ? likelyComicLikeBooks : [])
+    .map((entry) => {
+      const row = entry?.row || entry;
+      const signal = entry?.signal || detectLikelyComicLikeBook(row);
+      if (!signal?.likely) return null;
+      return {
+        action: 'review_reclassify_book_to_comic',
+        confidence: 'review',
+        reasons: Array.isArray(signal.reasons) ? signal.reasons : [],
+        source: summarizeRepairTargetRow(row)
+      };
+    })
+    .filter(Boolean);
+
+  return {
+    dryRun: true,
+    summary: {
+      safeAutoAttachDuplicateClusters: highConfidenceDuplicates.length,
+      reviewDuplicateClusters: reviewDuplicateClusters.length,
+      likelyTypeRepairs: likelyTypeRepairs.length
+    },
+    safeAutoAttachDuplicateClusters: highConfidenceDuplicates,
+    reviewDuplicateClusters,
+    likelyTypeRepairs
+  };
+}
+
 module.exports = {
   CONFIDENCE_ACTIONS,
   normalizeText,
@@ -236,6 +365,10 @@ module.exports = {
   buildBookNormalizationIdentity,
   buildComicNormalizationIdentity,
   detectLikelyComicLikeBook,
+  scoreRowForCanonicalSelection,
+  chooseCanonicalRow,
+  buildDuplicateRepairPlan,
+  buildHistoricalRepairPlan,
   groupRowsByNormalizationKey,
   splitClustersByConfidence,
   buildNormalizationMatchContract

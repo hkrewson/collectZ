@@ -24,6 +24,7 @@
     "test:cross-type-isolation": "node scripts/cross-type-isolation-check.js",
     "test:media-query-regression": "node scripts/media-query-regression-check.js",
     "test:book-comic-normalization-audit": "node scripts/book-comic-normalization-audit.js",
+    "test:book-comic-historical-repair-plan": "node scripts/book-comic-historical-repair-plan.js",
     "test:mixed-media-filters": "node scripts/check-mixed-media-filters.js",
     "test:mixed-media-benchmark": "node scripts/benchmark-mixed-media-queries.js",
     "test:migration-rehearsal": "node scripts/migration-rehearsal.js",

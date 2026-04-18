@@ -3050,7 +3050,7 @@ Historical note:
 
 **Goal:** Normalize book and comic ingest across Metron and OPDS/CWA so equivalent titles can attach to one canonical library record instead of creating duplicate rows or drifting into the wrong media type when multiple sync-capable sources contribute overlapping data.
 
-**Current Slice:** `3.1.6.5 — Audit-Only Review Visibility`
+**Current Slice:** `3.1.6.6 — Historical Repair Dry-Run Plan`
 
 ### Scope
 
@@ -3102,6 +3102,12 @@ Historical note:
   - medium-confidence creates should emit `audit_outcome = review_candidate_created`,
   - import `summary` should track both review-candidate count and review-row count,
   - runtime smoke should prove those fields without introducing a merge action UI.
+- Historical repair remains dry-run-only in this slice:
+  - choose one canonical row per high-confidence duplicate cluster using deterministic precedence,
+  - list the rows that would attach to that canonical record,
+  - keep medium-confidence duplicate clusters in a review bucket,
+  - emit likely comic-like `book` rows as separate reclassification candidates,
+  - do not mutate data yet.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
