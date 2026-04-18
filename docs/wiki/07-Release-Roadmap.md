@@ -3050,7 +3050,7 @@ Historical note:
 
 **Goal:** Normalize book and comic ingest across Metron and OPDS/CWA so equivalent titles can attach to one canonical library record instead of creating duplicate rows or drifting into the wrong media type when multiple sync-capable sources contribute overlapping data.
 
-**Current Slice:** `3.1.6.13 — Historical Duplicate Attach Revert Path`
+**Current Slice:** `3.1.6.14 — Narrow Real-Data Duplicate Attach Pilot`
 
 ### Scope
 
@@ -3142,6 +3142,11 @@ Historical note:
   - store enough canonical pre-attach context to restore canonical `type_details`, metadata, taxonomy, and season ownership after the duplicate row is recreated,
   - rewire collection items, variants, and child series references back to the restored duplicate row,
   - prove the same Docker-backed smoke can round-trip `apply -> revert` with the duplicate row restored and the canonical enrichment removed.
+- Run the first real-data duplicate-attach pilot only after the revert path is proven:
+  - pick one obvious high-confidence cluster with a shared ISBN or fully matching comic identity and no review-tier ambiguity,
+  - dry-run it first, then apply by explicit ids only,
+  - verify directly in the running backend that the canonical row remains, the duplicate row is removed, and the canonical row now carries the duplicate attach snapshot/context metadata,
+  - rerun the live historical repair report afterward and confirm the cluster count drops by one before attempting any second real-data duplicate attach.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
