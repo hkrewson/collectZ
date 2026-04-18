@@ -1095,6 +1095,8 @@ results.push(run('media route source applies high-confidence normalization befor
 
 results.push(run('media route source keeps medium-confidence normalization candidates in audit without silent title fallback merges', () => {
   assert.ok(mediaRoutesSource.includes('normalization_review_medium'));
+  assert.ok(mediaRoutesSource.includes('review_candidate_created'));
+  assert.ok(mediaRoutesSource.includes('normalizationReviewRows'));
   assert.ok(mediaRoutesSource.includes('findNormalizationReviewCandidates'));
   assert.ok(mediaRoutesSource.includes('normalizationReviewCandidates.length > 0'));
   assert.ok(mediaRoutesSource.includes('normalization_review_candidates'));
@@ -1110,6 +1112,8 @@ results.push(run('repo includes import normalization smoke coverage for high-con
 results.push(run('repo includes import normalization review smoke coverage for medium-confidence candidates', () => {
   assert.ok(backendPackageJson.scripts['test:import-normalization-review-smoke']);
   assert.ok(importNormalizationReviewSmokeSource.includes('normalization_review_medium'));
+  assert.ok(importNormalizationReviewSmokeSource.includes('review_candidate_created'));
+  assert.ok(importNormalizationReviewSmokeSource.includes('normalizationReviewRows'));
   assert.ok(importNormalizationReviewSmokeSource.includes('normalization_series_issue'));
   assert.ok(importNormalizationReviewSmokeSource.includes('normalization_review_candidate_count'));
   assert.ok(importNormalizationReviewSmokeSource.includes('/api/media/import-csv?sync=1'));

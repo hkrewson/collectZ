@@ -207,6 +207,12 @@ async function main() {
     if (Number(summary.normalizationReviewCandidates || 0) !== 1) {
       throw new Error(`Expected one normalization review candidate in summary, got summary=${JSON.stringify(summary)}`);
     }
+    if (Number(summary.normalizationReviewRows || 0) !== 1) {
+      throw new Error(`Expected one normalization review row in summary, got summary=${JSON.stringify(summary)}`);
+    }
+    if (Number(summary?.auditOutcomes?.review_candidate_created || 0) !== 1) {
+      throw new Error(`Expected review_candidate_created audit outcome count, got summary=${JSON.stringify(summary)}`);
+    }
     if (firstAuditRow?.match_mode !== 'normalization_review_medium') {
       throw new Error(`Expected normalization_review_medium, got audit=${JSON.stringify(firstAuditRow)}`);
     }
@@ -215,6 +221,9 @@ async function main() {
     }
     if (Number(firstAuditRow?.normalization_review_candidate_count || 0) !== 1) {
       throw new Error(`Expected one review candidate on audit row, got audit=${JSON.stringify(firstAuditRow)}`);
+    }
+    if (firstAuditRow?.audit_outcome !== 'review_candidate_created') {
+      throw new Error(`Expected review_candidate_created audit outcome, got audit=${JSON.stringify(firstAuditRow)}`);
     }
 
     const candidates = Array.isArray(firstAuditRow?.normalization_review_candidates)
@@ -241,8 +250,10 @@ async function main() {
       created: summary.created,
       updated: summary.updated,
       normalizationReviewCandidates: summary.normalizationReviewCandidates,
+      normalizationReviewRows: summary.normalizationReviewRows,
       match_mode: firstAuditRow.match_mode,
       matched_by: firstAuditRow.matched_by,
+      audit_outcome: firstAuditRow.audit_outcome,
       normalization_review_candidate_count: firstAuditRow.normalization_review_candidate_count,
       libraryComicCount: count
     }, null, 2));

@@ -124,6 +124,7 @@ const IMPORT_ENRICHMENT_STATUSES = [
 ];
 const IMPORT_AUDIT_OUTCOMES = [
   'new_created',
+  'review_candidate_created',
   'duplicate_exact',
   'near_match_update',
   'created_debug_flagged',
@@ -300,6 +301,9 @@ function deriveImportAuditOutcome({
   diagnosticFlagged
 }) {
   if (upsertStatus === 'created') {
+    if (matchMode === 'normalization_review_medium') {
+      return 'review_candidate_created';
+    }
     return diagnosticFlagged ? 'created_debug_flagged' : 'new_created';
   }
   if (upsertStatus === 'updated') {
@@ -3400,6 +3404,7 @@ async function runGenericCsvImport({
     skipped_collection: 0,
     diagnosticsFlagged: 0,
     normalizationReviewCandidates: 0,
+    normalizationReviewRows: 0,
     collectionsDetected: 0,
     collectionsCreated: 0,
     collectionItemsSeeded: 0,
@@ -3624,6 +3629,9 @@ async function runGenericCsvImport({
         matchMode: result.matchMode,
         diagnosticFlagged
       });
+      if (auditOutcome === 'review_candidate_created') {
+        summary.normalizationReviewRows += 1;
+      }
       if (diagnosticFlagged) {
         await emitImportDiagnosticFlag({
           auditReq: reviewContext?.auditReq || null,
@@ -3778,6 +3786,7 @@ async function runDeliciousCsvImport({
     skipped_collection: 0,
     diagnosticsFlagged: 0,
     normalizationReviewCandidates: 0,
+    normalizationReviewRows: 0,
     collectionsDetected: 0,
     collectionsCreated: 0,
     collectionItemsSeeded: 0,
@@ -4013,6 +4022,9 @@ async function runDeliciousCsvImport({
             matchMode: result.matchMode,
             diagnosticFlagged
           });
+          if (auditOutcome === 'review_candidate_created') {
+            summary.normalizationReviewRows += 1;
+          }
           if (diagnosticFlagged) {
             await emitImportDiagnosticFlag({
               auditReq: reviewContext?.auditReq || null,
@@ -5528,6 +5540,7 @@ router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, r
             enrichment: result.summary.enrichment,
             diagnosticsFlagged: result.summary.diagnosticsFlagged,
             normalizationReviewCandidates: result.summary.normalizationReviewCandidates || 0,
+            normalizationReviewRows: result.summary.normalizationReviewRows || 0,
             valuationRefresh,
             collectionsDetected: result.summary.collectionsDetected || 0,
             collectionsCreated: result.summary.collectionsCreated || 0,
@@ -5548,6 +5561,7 @@ router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, r
           enrichment: result.summary.enrichment,
           diagnosticsFlagged: result.summary.diagnosticsFlagged,
           normalizationReviewCandidates: result.summary.normalizationReviewCandidates || 0,
+          normalizationReviewRows: result.summary.normalizationReviewRows || 0,
           valuationRefresh,
           collectionsDetected: result.summary.collectionsDetected || 0,
           collectionsCreated: result.summary.collectionsCreated || 0,
@@ -5597,6 +5611,7 @@ router.post('/import-csv', tempUpload.single('file'), asyncHandler(async (req, r
     enrichment: result.summary.enrichment,
     diagnosticsFlagged: result.summary.diagnosticsFlagged,
     normalizationReviewCandidates: result.summary.normalizationReviewCandidates || 0,
+    normalizationReviewRows: result.summary.normalizationReviewRows || 0,
     valuationRefresh,
     collectionsDetected: result.summary.collectionsDetected || 0,
     collectionsCreated: result.summary.collectionsCreated || 0,
@@ -5689,6 +5704,7 @@ router.post('/import-csv/calibre', tempUpload.single('file'), asyncHandler(async
             enrichment: result.summary.enrichment,
             diagnosticsFlagged: result.summary.diagnosticsFlagged,
             normalizationReviewCandidates: result.summary.normalizationReviewCandidates || 0,
+            normalizationReviewRows: result.summary.normalizationReviewRows || 0,
             valuationRefresh,
             collectionsDetected: result.summary.collectionsDetected || 0,
             collectionsCreated: result.summary.collectionsCreated || 0,
@@ -5709,6 +5725,7 @@ router.post('/import-csv/calibre', tempUpload.single('file'), asyncHandler(async
           enrichment: result.summary.enrichment,
           diagnosticsFlagged: result.summary.diagnosticsFlagged,
           normalizationReviewCandidates: result.summary.normalizationReviewCandidates || 0,
+          normalizationReviewRows: result.summary.normalizationReviewRows || 0,
           valuationRefresh,
           collectionsDetected: result.summary.collectionsDetected || 0,
           collectionsCreated: result.summary.collectionsCreated || 0,
@@ -5760,6 +5777,7 @@ router.post('/import-csv/calibre', tempUpload.single('file'), asyncHandler(async
     enrichment: result.summary.enrichment,
     diagnosticsFlagged: result.summary.diagnosticsFlagged,
     normalizationReviewCandidates: result.summary.normalizationReviewCandidates || 0,
+    normalizationReviewRows: result.summary.normalizationReviewRows || 0,
     valuationRefresh,
     collectionsDetected: result.summary.collectionsDetected || 0,
     collectionsCreated: result.summary.collectionsCreated || 0,

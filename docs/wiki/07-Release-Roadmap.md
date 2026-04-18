@@ -3050,7 +3050,7 @@ Historical note:
 
 **Goal:** Normalize book and comic ingest across Metron and OPDS/CWA so equivalent titles can attach to one canonical library record instead of creating duplicate rows or drifting into the wrong media type when multiple sync-capable sources contribute overlapping data.
 
-**Current Slice:** `3.1.6.4 — Medium-Confidence Review Candidate Surfacing`
+**Current Slice:** `3.1.6.5 — Audit-Only Review Visibility`
 
 ### Scope
 
@@ -3098,6 +3098,10 @@ Historical note:
   - keep the incoming row separate,
   - return review candidate details in `auditRows`,
   - track the candidate count in import `summary`.
+- Make review-tier rows visibly distinct in the audit-only contract:
+  - medium-confidence creates should emit `audit_outcome = review_candidate_created`,
+  - import `summary` should track both review-candidate count and review-row count,
+  - runtime smoke should prove those fields without introducing a merge action UI.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
