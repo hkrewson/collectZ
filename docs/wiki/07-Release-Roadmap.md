@@ -3050,7 +3050,7 @@ Historical note:
 
 **Goal:** Normalize book and comic ingest across Metron and OPDS/CWA so equivalent titles can attach to one canonical library record instead of creating duplicate rows or drifting into the wrong media type when multiple sync-capable sources contribute overlapping data.
 
-**Current Slice:** `3.1.6.16 — Third Narrow Real-Data Duplicate Attach Pilot and Already-Attached Guard`
+**Current Slice:** `3.1.6.18 — Fifth Narrow Real-Data Duplicate Attach Pilot`
 
 ### Scope
 
@@ -3160,6 +3160,16 @@ Historical note:
 - Harden the duplicate-attach CLI around repeated explicit-id reruns:
   - if the requested duplicate row is already gone but the canonical row and unreverted attach history still exist, report the repair as already attached instead of throwing a misleading row-count failure,
   - prove the already-attached path against a real pilot pair in the running backend after the third pilot lands.
+- Continue with one more tiny ISBN-backed duplicate-attach pilot after the already-attached guard is proven:
+  - pick the next clean book pair from the running repair report,
+  - dry-run it and inspect the live DB before mutation,
+  - apply the repair through the running backend and confirm the duplicate row is removed while `media_repair_history` records the attach,
+  - rerun the live repair report afterward and confirm the safe duplicate cluster count drops again.
+- Continue with one more ISBN-backed book pilot after the fourth attach stays clean:
+  - pick the next top book cluster from the running repair report instead of widening into comic duplicates yet,
+  - verify that the pair still has no existing repair history and no review-tier ambiguity,
+  - apply the attach through the running backend and confirm the duplicate row disappears while the canonical row remains unchanged apart from repair history,
+  - rerun the live repair report and confirm the safe duplicate cluster count drops again before deciding whether to keep doing tiny book pilots or switch shape.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
