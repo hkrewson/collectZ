@@ -3050,10 +3050,10 @@ Historical note:
 
 **Goal:** Normalize book and comic ingest across Metron and OPDS/CWA so equivalent titles can attach to one canonical library record instead of creating duplicate rows or drifting into the wrong media type when multiple sync-capable sources contribute overlapping data.
 
-**Current Slice:** `3.1.6.27 — Match Evidence Comparison Table Simplification`
+**Current Slice:** `3.1.6.28 — Multi-Event Duplicate Revert Proof`
 
-- Keep the richer expanded merge validation detail but simplify the compared-fields presentation into a plain three-column comparison table so users can scan how the canonical and matched records line up without repeating "used from" prose on every row.
-- Preserve the compact collapsed summary from the prior slice while making the expanded comparison feel more like a direct record check than an audit narrative.
+- Prove that a canonical record with more than one absorbed duplicate can revert one merge event without disturbing the others, and verify the merge-details evidence summary updates cleanly after the partial revert.
+- Keep any future user-facing revert affordance out of the normal drawer for now; if we surface revert later, it should start as an operator-facing action layered on top of the same event-based repair history.
 
 ### Scope
 

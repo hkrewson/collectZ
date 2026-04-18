@@ -143,6 +143,7 @@ const repairComicLikeBooksSource = fs.readFileSync(require.resolve('../scripts/r
 const repairComicLikeBooksSmokeSource = fs.readFileSync(require.resolve('../scripts/repair-comic-like-books-smoke'), 'utf8');
 const repairBookComicDuplicatesSource = fs.readFileSync(require.resolve('../scripts/repair-book-comic-duplicates'), 'utf8');
 const repairBookComicDuplicatesSmokeSource = fs.readFileSync(require.resolve('../scripts/repair-book-comic-duplicates-smoke'), 'utf8');
+const repairBookComicMultiRevertSmokeSource = fs.readFileSync(require.resolve('../scripts/repair-book-comic-multi-revert-smoke'), 'utf8');
 const { parseComicMetadataFromTitle, buildComicLikeBookProposal, buildComicLikeBookRevertProposal } = require('../scripts/repair-comic-like-books');
 const { buildClusterFromRows, mergeMissingObjectFields } = require('../scripts/repair-book-comic-duplicates');
 const supportSessionSmokeSource = fs.readFileSync(require.resolve('../scripts/support-session-smoke'), 'utf8');
@@ -1363,6 +1364,7 @@ results.push(run('repo includes comic-like book reclassification repair tooling 
 results.push(run('repo includes historical duplicate attach repair tooling with snapshot metadata and smoke proof', () => {
   assert.ok(backendPackageJson.scripts['repair:book-comic-duplicates']);
   assert.ok(backendPackageJson.scripts['test:repair-book-comic-duplicates-smoke']);
+  assert.ok(backendPackageJson.scripts['test:repair-book-comic-multi-revert-smoke']);
   assert.ok(repairBookComicDuplicatesSource.includes('media_repair_history'));
   assert.ok(repairBookComicDuplicatesSource.includes('buildPersistedMergeEvidence'));
   assert.ok(repairBookComicDuplicatesSource.includes('mergeEvidence'));
@@ -1383,6 +1385,11 @@ results.push(run('repo includes historical duplicate attach repair tooling with 
   assert.ok(repairBookComicDuplicatesSmokeSource.includes('revertRecorded'));
   assert.ok(repairBookComicDuplicatesSmokeSource.includes('canonicalAuthorAfterRevert'));
   assert.ok(repairBookComicDuplicatesSmokeSource.includes('collection_items'));
+  assert.ok(repairBookComicMultiRevertSmokeSource.includes('/api/media/${canonicalId}/merge-details'));
+  assert.ok(repairBookComicMultiRevertSmokeSource.includes('beforeActiveMergeCount'));
+  assert.ok(repairBookComicMultiRevertSmokeSource.includes('afterActiveMergeCount'));
+  assert.ok(repairBookComicMultiRevertSmokeSource.includes('remainingMergeDetailDuplicateId'));
+  assert.ok(repairBookComicMultiRevertSmokeSource.includes('remainingHistoryStillActive'));
 }));
 
 results.push(run('repo includes merge evidence backfill tooling for older duplicate attach history rows', () => {
