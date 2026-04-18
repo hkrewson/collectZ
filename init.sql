@@ -108,6 +108,21 @@ CREATE TABLE IF NOT EXISTS media_metadata (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS media_repair_history (
+    id SERIAL PRIMARY KEY,
+    canonical_media_id INTEGER NOT NULL REFERENCES media(id) ON DELETE CASCADE,
+    duplicate_media_id INTEGER NOT NULL,
+    repair_type VARCHAR(50) NOT NULL CHECK (repair_type IN ('duplicate_attach')),
+    snapshot JSONB NOT NULL,
+    context JSONB NOT NULL,
+    applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    reverted_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT media_repair_history_unique_duplicate_attach
+      UNIQUE (canonical_media_id, duplicate_media_id, repair_type)
+);
+
 CREATE TABLE IF NOT EXISTS genres (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
@@ -698,6 +713,9 @@ CREATE INDEX IF NOT EXISTS idx_media_metadata_key_value ON media_metadata("key",
 CREATE INDEX IF NOT EXISTS idx_media_metadata_isbn_value ON media_metadata("value") WHERE "key" = 'isbn';
 CREATE INDEX IF NOT EXISTS idx_media_metadata_ean_value ON media_metadata("value") WHERE "key" IN ('ean', 'ean_upc', 'upc');
 CREATE INDEX IF NOT EXISTS idx_media_metadata_asin_value ON media_metadata("value") WHERE "key" = 'amazon_item_id';
+CREATE INDEX IF NOT EXISTS idx_media_repair_history_canonical_type ON media_repair_history(canonical_media_id, repair_type);
+CREATE INDEX IF NOT EXISTS idx_media_repair_history_duplicate_type ON media_repair_history(duplicate_media_id, repair_type);
+CREATE INDEX IF NOT EXISTS idx_media_repair_history_reverted_at ON media_repair_history(reverted_at);
 CREATE INDEX IF NOT EXISTS idx_media_genres_genre_id ON media_genres(genre_id);
 CREATE INDEX IF NOT EXISTS idx_media_directors_director_id ON media_directors(director_id);
 CREATE INDEX IF NOT EXISTS idx_genres_name ON genres(name);
@@ -983,5 +1001,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (62, 'Add SaaS email verification state and tokens'),
     (63, 'Add workspace membership suspension lifecycle fields'),
     (64, 'Add optional valuation fields and platform valuation provider settings'),
-    (65, 'Add optional user profile image field')
+    (65, 'Add optional user profile image field'),
+    (66, 'Add media repair history table for duplicate attach snapshots')
 ON CONFLICT (version) DO NOTHING;

@@ -3050,7 +3050,7 @@ Historical note:
 
 **Goal:** Normalize book and comic ingest across Metron and OPDS/CWA so equivalent titles can attach to one canonical library record instead of creating duplicate rows or drifting into the wrong media type when multiple sync-capable sources contribute overlapping data.
 
-**Current Slice:** `3.1.6.14 — Narrow Real-Data Duplicate Attach Pilot`
+**Current Slice:** `3.1.6.15 — Duplicate Attach Snapshot Store Hardening and Second Pilot`
 
 ### Scope
 
@@ -3147,6 +3147,11 @@ Historical note:
   - dry-run it first, then apply by explicit ids only,
   - verify directly in the running backend that the canonical row remains, the duplicate row is removed, and the canonical row now carries the duplicate attach snapshot/context metadata,
   - rerun the live historical repair report afterward and confirm the cluster count drops by one before attempting any second real-data duplicate attach.
+- Harden duplicate-attach snapshot storage before widening the pilot set:
+  - move large duplicate attach snapshot/context payloads out of `media_metadata` and into a dedicated repair-history store so larger real duplicates cannot hit metadata index row-size limits,
+  - keep the existing revert path backward-compatible for any earlier metadata-backed pilot rows,
+  - re-run init parity and migration rehearsal after the schema change,
+  - retry the next tiny explicit-id duplicate-attach pilot only after the storage change is proven in Docker-backed smoke and the live repair report confirms the cluster count drops again.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 

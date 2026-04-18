@@ -22,6 +22,7 @@ async function cleanupTemporaryState({ userId, libraryId, spaceId, collectionId,
     await pool.query('DELETE FROM collections WHERE id = $1', [collectionId]).catch(() => {});
   }
   if (libraryId) {
+    await pool.query('DELETE FROM media_repair_history WHERE canonical_media_id IN (SELECT id FROM media WHERE library_id = $1)', [libraryId]).catch(() => {});
     await pool.query('DELETE FROM media_metadata WHERE media_id IN (SELECT id FROM media WHERE library_id = $1)', [libraryId]).catch(() => {});
     await pool.query('DELETE FROM media_variants WHERE media_id IN (SELECT id FROM media WHERE library_id = $1)', [libraryId]).catch(() => {});
     await pool.query('DELETE FROM media_genres WHERE media_id IN (SELECT id FROM media WHERE library_id = $1)', [libraryId]).catch(() => {});
@@ -177,6 +178,14 @@ async function main() {
        ORDER BY "key" ASC`,
       [canonicalId]
     );
+    const repairHistoryAfter = await pool.query(
+      `SELECT canonical_media_id, duplicate_media_id, repair_type, applied_at, reverted_at
+       FROM media_repair_history
+       WHERE canonical_media_id = $1
+         AND duplicate_media_id = $2
+         AND repair_type = 'duplicate_attach'`,
+      [canonicalId, duplicateId]
+    );
     const collectionAfter = await pool.query(
       `SELECT media_id
        FROM collection_items
@@ -203,8 +212,8 @@ async function main() {
     if (!metadataAfter.rows.some((row) => row.key === 'amazon_item_id' && row.value === 'B00DUPLICATEATTACH')) {
       throw new Error(`Expected canonical metadata to retain duplicate metadata entries, got ${JSON.stringify(metadataAfter.rows)}`);
     }
-    if (!metadataAfter.rows.some((row) => row.key === `historical_duplicate_attach_snapshot_${duplicateId}`)) {
-      throw new Error(`Expected canonical snapshot metadata for duplicate, got ${JSON.stringify(metadataAfter.rows)}`);
+    if (repairHistoryAfter.rows.length !== 1 || !String(repairHistoryAfter.rows[0]?.applied_at || '').trim()) {
+      throw new Error(`Expected duplicate attach repair history record, got ${JSON.stringify(repairHistoryAfter.rows)}`);
     }
     if (Number(collectionAfter.rows[0]?.media_id || 0) !== canonicalId) {
       throw new Error(`Expected collection item to rewire to canonical, got ${JSON.stringify(collectionAfter.rows)}`);
@@ -240,6 +249,14 @@ async function main() {
        WHERE media_id = $1
        ORDER BY "key" ASC`,
       [canonicalId]
+    );
+    const repairHistoryRestored = await pool.query(
+      `SELECT canonical_media_id, duplicate_media_id, repair_type, applied_at, reverted_at
+       FROM media_repair_history
+       WHERE canonical_media_id = $1
+         AND duplicate_media_id = $2
+         AND repair_type = 'duplicate_attach'`,
+      [canonicalId, duplicateId]
     );
     const duplicateMetadataRestored = await pool.query(
       `SELECT "key", "value"
@@ -281,8 +298,8 @@ async function main() {
     if (Number(genreRestored.rows[0]?.media_id || 0) !== duplicateId) {
       throw new Error(`Expected genre relation to rewire back to duplicate, got ${JSON.stringify(genreRestored.rows)}`);
     }
-    if (!metadataRestored.rows.some((row) => row.key === `historical_duplicate_attach_reverted_at_${duplicateId}`)) {
-      throw new Error(`Expected revert marker metadata on canonical, got ${JSON.stringify(metadataRestored.rows)}`);
+    if (repairHistoryRestored.rows.length !== 1 || !String(repairHistoryRestored.rows[0]?.reverted_at || '').trim()) {
+      throw new Error(`Expected duplicate attach revert marker in repair history, got ${JSON.stringify(repairHistoryRestored.rows)}`);
     }
 
     console.log('Repair book/comic duplicates smoke passed');
@@ -295,8 +312,8 @@ async function main() {
       canonicalAuthorAfterRevert: canonicalRestoredRow.type_details?.author || null,
       collectionMediaIdAfterAttach: Number(collectionAfter.rows[0]?.media_id || 0) || null,
       collectionMediaIdAfterRevert: Number(collectionRestored.rows[0]?.media_id || 0) || null,
-      snapshotKeyPresent: metadataAfter.rows.some((row) => row.key === `historical_duplicate_attach_snapshot_${duplicateId}`),
-      revertKeyPresent: metadataRestored.rows.some((row) => row.key === `historical_duplicate_attach_reverted_at_${duplicateId}`)
+      historyStored: repairHistoryAfter.rows.length === 1,
+      revertRecorded: repairHistoryRestored.rows.length === 1 && Boolean(repairHistoryRestored.rows[0]?.reverted_at)
     }, null, 2));
   } finally {
     await cleanupTemporaryState({ userId, libraryId, spaceId, collectionId, genreId });

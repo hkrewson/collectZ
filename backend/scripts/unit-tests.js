@@ -1313,17 +1313,19 @@ results.push(run('repo includes comic-like book reclassification repair tooling 
 results.push(run('repo includes historical duplicate attach repair tooling with snapshot metadata and smoke proof', () => {
   assert.ok(backendPackageJson.scripts['repair:book-comic-duplicates']);
   assert.ok(backendPackageJson.scripts['test:repair-book-comic-duplicates-smoke']);
-  assert.ok(repairBookComicDuplicatesSource.includes('historical_duplicate_attach_snapshot_'));
-  assert.ok(repairBookComicDuplicatesSource.includes('historical_duplicate_attach_context_'));
-  assert.ok(repairBookComicDuplicatesSource.includes('historical_duplicate_attach_reverted_at_'));
+  assert.ok(repairBookComicDuplicatesSource.includes('media_repair_history'));
+  assert.ok(repairBookComicDuplicatesSource.includes('upsertDuplicateAttachHistory'));
+  assert.ok(repairBookComicDuplicatesSource.includes('getDuplicateAttachHistory'));
+  assert.ok(repairBookComicDuplicatesSource.includes('markDuplicateAttachHistoryReverted'));
   assert.ok(repairBookComicDuplicatesSource.includes('mergeDuplicateMetadataIntoCanonical'));
   assert.ok(repairBookComicDuplicatesSource.includes('rewireDuplicateReferences'));
   assert.ok(repairBookComicDuplicatesSource.includes('DELETE FROM media WHERE id = $1'));
   assert.ok(repairBookComicDuplicatesSource.includes('restoreDuplicateMediaRow'));
   assert.ok(repairBookComicDuplicatesSource.includes('revertDuplicateAttachIntoSeparateRow'));
   assert.ok(repairBookComicDuplicatesSmokeSource.includes('Repair book/comic duplicates smoke passed'));
-  assert.ok(repairBookComicDuplicatesSmokeSource.includes('historical_duplicate_attach_snapshot_'));
-  assert.ok(repairBookComicDuplicatesSmokeSource.includes('historical_duplicate_attach_reverted_at_'));
+  assert.ok(repairBookComicDuplicatesSmokeSource.includes('media_repair_history'));
+  assert.ok(repairBookComicDuplicatesSmokeSource.includes('historyStored'));
+  assert.ok(repairBookComicDuplicatesSmokeSource.includes('revertRecorded'));
   assert.ok(repairBookComicDuplicatesSmokeSource.includes('canonicalAuthorAfterRevert'));
   assert.ok(repairBookComicDuplicatesSmokeSource.includes('collection_items'));
 }));

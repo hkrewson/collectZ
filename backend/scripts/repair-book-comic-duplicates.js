@@ -142,6 +142,49 @@ async function upsertCanonicalMetadata(client, mediaId, key, value) {
   );
 }
 
+async function upsertDuplicateAttachHistory(client, canonicalMediaId, duplicateMediaId, snapshot, context) {
+  await client.query(
+    `INSERT INTO media_repair_history (
+       canonical_media_id, duplicate_media_id, repair_type, snapshot, context, applied_at, updated_at
+     ) VALUES (
+       $1, $2, 'duplicate_attach', $3::jsonb, $4::jsonb, NOW(), NOW()
+     )
+     ON CONFLICT (canonical_media_id, duplicate_media_id, repair_type)
+     DO UPDATE SET
+       snapshot = EXCLUDED.snapshot,
+       context = EXCLUDED.context,
+       applied_at = NOW(),
+       updated_at = NOW(),
+       reverted_at = NULL`,
+    [canonicalMediaId, duplicateMediaId, JSON.stringify(snapshot), JSON.stringify(context)]
+  );
+}
+
+async function getDuplicateAttachHistory(client, canonicalMediaId, duplicateMediaId) {
+  const result = await client.query(
+    `SELECT canonical_media_id, duplicate_media_id, repair_type, snapshot, context, applied_at, reverted_at
+       FROM media_repair_history
+      WHERE canonical_media_id = $1
+        AND duplicate_media_id = $2
+        AND repair_type = 'duplicate_attach'
+      LIMIT 1`,
+    [canonicalMediaId, duplicateMediaId]
+  );
+  return result.rows[0] || null;
+}
+
+async function markDuplicateAttachHistoryReverted(client, canonicalMediaId, duplicateMediaId) {
+  await client.query(
+    `UPDATE media_repair_history
+        SET reverted_at = NOW(),
+            updated_at = NOW()
+      WHERE canonical_media_id = $1
+        AND duplicate_media_id = $2
+        AND repair_type = 'duplicate_attach'`,
+    [canonicalMediaId, duplicateMediaId]
+  );
+}
+
 async function deleteCanonicalMetadata(client, mediaId, key) {
   await client.query(
     `DELETE FROM media_metadata
@@ -357,17 +400,12 @@ async function mergeDuplicateIntoCanonical(client, canonicalRow, duplicateRow) {
     [canonicalRow.id, JSON.stringify(mergedTypeDetails)]
   );
 
-  const snapshotKey = `historical_duplicate_attach_snapshot_${duplicateRow.id}`;
-  const appliedKey = `historical_duplicate_attach_applied_at_${duplicateRow.id}`;
-  const contextKey = `historical_duplicate_attach_context_${duplicateRow.id}`;
   const attachContext = buildAttachContext({
     duplicateSnapshot: snapshot,
     canonicalRow,
     canonicalRelationState
   });
-  await upsertCanonicalMetadata(client, canonicalRow.id, snapshotKey, JSON.stringify(snapshot));
-  await upsertCanonicalMetadata(client, canonicalRow.id, appliedKey, new Date().toISOString());
-  await upsertCanonicalMetadata(client, canonicalRow.id, contextKey, JSON.stringify(attachContext));
+  await upsertDuplicateAttachHistory(client, canonicalRow.id, duplicateRow.id, snapshot, attachContext);
 
   const mergedMetadataEntries = await mergeDuplicateMetadataIntoCanonical(client, canonicalRow.id, duplicateRow.id);
   const mergedTaxonomy = await mergeDuplicateTaxonomyIntoCanonical(client, canonicalRow.id, duplicateRow.id);
@@ -378,8 +416,7 @@ async function mergeDuplicateIntoCanonical(client, canonicalRow, duplicateRow) {
 
   return {
     duplicateId: Number(duplicateRow.id || 0) || null,
-    snapshotKey,
-    contextKey,
+    historyStored: true,
     mergedMetadataEntries,
     mergedTaxonomy,
     mergedSeasons,
@@ -704,27 +741,30 @@ async function revertCanonicalTaxonomyAndSeasons(client, canonicalId, snapshot =
 }
 
 async function revertDuplicateAttachIntoSeparateRow(client, canonicalRow, duplicateId) {
-  const snapshotKey = `historical_duplicate_attach_snapshot_${duplicateId}`;
-  const contextKey = `historical_duplicate_attach_context_${duplicateId}`;
-  const appliedKey = `historical_duplicate_attach_applied_at_${duplicateId}`;
-  const revertedKey = `historical_duplicate_attach_reverted_at_${duplicateId}`;
+  const history = await getDuplicateAttachHistory(client, canonicalRow.id, duplicateId);
+  let snapshot = history?.snapshot || null;
+  let context = history?.context || null;
+  if (!snapshot || !context) {
+    const snapshotKey = `historical_duplicate_attach_snapshot_${duplicateId}`;
+    const contextKey = `historical_duplicate_attach_context_${duplicateId}`;
+    const metadataRows = await client.query(
+      `SELECT "key", "value"
+         FROM media_metadata
+        WHERE media_id = $1
+          AND "key" = ANY($2::varchar[])
+        ORDER BY "key" ASC`,
+      [canonicalRow.id, [snapshotKey, contextKey]]
+    );
+    const metadataByKey = new Map((metadataRows.rows || []).map((row) => [String(row.key), row.value]));
+    snapshot = snapshot || parseJsonText(metadataByKey.get(snapshotKey), null);
+    context = context || parseJsonText(metadataByKey.get(contextKey), null);
+  }
 
-  const metadataRows = await client.query(
-    `SELECT "key", "value"
-       FROM media_metadata
-      WHERE media_id = $1
-        AND "key" = ANY($2::varchar[])
-      ORDER BY "key" ASC`,
-    [canonicalRow.id, [snapshotKey, contextKey, appliedKey]]
-  );
-  const metadataByKey = new Map((metadataRows.rows || []).map((row) => [String(row.key), row.value]));
-  const snapshot = parseJsonText(metadataByKey.get(snapshotKey), null);
-  const context = parseJsonText(metadataByKey.get(contextKey), null);
   if (!snapshot?.media?.id || Number(snapshot.media.id) !== Number(duplicateId)) {
-    throw new Error(`Missing valid duplicate snapshot metadata for duplicate ${duplicateId}`);
+    throw new Error(`Missing valid duplicate attach snapshot for duplicate ${duplicateId}`);
   }
   if (!context) {
-    throw new Error(`Missing duplicate attach context metadata for duplicate ${duplicateId}`);
+    throw new Error(`Missing duplicate attach context for duplicate ${duplicateId}`);
   }
 
   const duplicateExists = await client.query('SELECT id FROM media WHERE id = $1', [duplicateId]);
@@ -742,14 +782,17 @@ async function revertDuplicateAttachIntoSeparateRow(client, canonicalRow, duplic
   await revertCanonicalTypeDetails(client, canonicalRow.id, context.previousCanonicalTypeDetails || {});
   await revertCanonicalMetadata(client, canonicalRow.id, snapshot, context.previousCanonicalMetadata || []);
   await revertCanonicalTaxonomyAndSeasons(client, canonicalRow.id, snapshot, context);
-  await upsertCanonicalMetadata(client, canonicalRow.id, revertedKey, new Date().toISOString());
+  if (history) {
+    await markDuplicateAttachHistoryReverted(client, canonicalRow.id, duplicateId);
+  } else {
+    const revertedKey = `historical_duplicate_attach_reverted_at_${duplicateId}`;
+    await upsertCanonicalMetadata(client, canonicalRow.id, revertedKey, new Date().toISOString());
+  }
 
   return {
     duplicateId,
     restored: true,
-    snapshotKey,
-    contextKey,
-    revertedKey
+    usedHistoryTable: Boolean(history)
   };
 }
 
