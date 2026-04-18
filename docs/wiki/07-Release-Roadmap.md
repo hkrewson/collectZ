@@ -3050,7 +3050,7 @@ Historical note:
 
 **Goal:** Normalize book and comic ingest across Metron and OPDS/CWA so equivalent titles can attach to one canonical library record instead of creating duplicate rows or drifting into the wrong media type when multiple sync-capable sources contribute overlapping data.
 
-**Current Slice:** `3.1.6.19 — First Comic Duplicate Attach Pilot`
+**Current Slice:** `3.1.6.21 — Drawer Merge Details and Provenance Surface`
 
 ### Scope
 
@@ -3093,6 +3093,13 @@ Historical note:
   - `updated = 1`
   - `match_mode = matched_by_normalization_high`
   - `matched_by = normalization_series_issue_volume`
+- Surface duplicate-attach evidence in the record drawer as a persistent but quiet `Merge details` section for books and comics rather than a transient banner or a heavy dedicated tab.
+- Build the drawer evidence from the existing SQL repair history so canonical records can show:
+  - how many merged records they absorbed,
+  - the match confidence and rationale,
+  - source summaries for canonical and merged rows,
+  - field-level provenance for the current merged metadata.
+- Keep the first provenance UI scoped to books and comics until the repair history model and drawer treatment have been validated on the running stack.
 - Surface medium-confidence matches in the import audit rather than reviving the retired review queue:
   - suppress plain title fallback when a `medium` normalization candidate is found,
   - keep the incoming row separate,
@@ -3175,6 +3182,11 @@ Historical note:
   - verify in the running backend that the canonical and chosen duplicate share the same normalized comic identity and have no prior repair history,
   - apply the attach for that one duplicate only and confirm the duplicate row is removed while `media_repair_history` records the attach,
   - rerun the live repair report afterward and confirm the report rolls forward to the next comic duplicate in the sequence without disturbing review-tier cases.
+- Continue with a second comic duplicate pilot before changing the repair shape:
+  - use the next issue in the same clean comic family so the validation stays apples-to-apples with the first comic pilot,
+  - verify the canonical and selected duplicate still share the same provider issue id, normalized comic identity, and no prior repair history,
+  - attach only one duplicate row and rerun the live repair report afterward,
+  - confirm the report advances cleanly to the next issue before deciding whether the comic lane is ready for repeated one-at-a-time work or any broader batching rule.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 

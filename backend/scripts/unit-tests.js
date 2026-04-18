@@ -102,6 +102,7 @@ const supportSessionBannerSource = readFrontendSource(path.join('components', 'a
 const useApiClientSource = readFrontendSource(path.join('components', 'app', 'hooks', 'useApiClient'));
 const helpViewSource = readFrontendSource(path.join('components', 'HelpView'));
 const adminUsersViewSource = readFrontendSource(path.join('components', 'AdminUsersView'));
+const libraryViewSource = readFrontendSource(path.join('components', 'LibraryView'));
 const backendPackageJson = JSON.parse(fs.readFileSync(require.resolve('../package.json'), 'utf8'));
 const frontendPackageJson = JSON.parse(fs.readFileSync(require.resolve('../../frontend/package.json'), 'utf8'));
 const frontendViteConfigSource = fs.readFileSync(require.resolve('../../frontend/vite.config.js'), 'utf8');
@@ -1270,6 +1271,14 @@ results.push(run('media route source keeps medium-confidence normalization candi
   assert.ok(mediaRoutesSource.includes('findNormalizationReviewCandidates'));
   assert.ok(mediaRoutesSource.includes('normalizationReviewCandidates.length > 0'));
   assert.ok(mediaRoutesSource.includes('normalization_review_candidates'));
+}));
+
+results.push(run('media route source exposes merge details provenance for canonical records', () => {
+  assert.ok(mediaRoutesSource.includes("router.get('/:id/merge-details'"));
+  assert.ok(mediaRoutesSource.includes('loadScopedMergeDetails'));
+  assert.ok(mediaRoutesSource.includes('field_provenance'));
+  assert.ok(mediaRoutesSource.includes('formatMergeMatchKind'));
+  assert.ok(mediaRoutesSource.includes('media_repair_history'));
 }));
 
 results.push(run('repo includes import normalization smoke coverage for high-confidence auto-attach', () => {
@@ -2645,6 +2654,14 @@ results.push(run('dashboard content exposes dedicated admin spaces control plane
 results.push(run('frontend import flow no longer mounts standalone Import Review view', () => {
   assert.ok(!dashboardContentSource.includes('ImportReviewView'));
   assert.ok(!frontendAppSource.includes('const importReviewEnabled'));
+}));
+
+results.push(run('library drawer source includes persistent merge details provenance section', () => {
+  assert.ok(libraryViewSource.includes('Merge details'));
+  assert.ok(libraryViewSource.includes('Merged from ${Number(mergeSummary?.active_merge_count || 0)}'));
+  assert.ok(libraryViewSource.includes('Field provenance'));
+  assert.ok(libraryViewSource.includes("apiCall('get', `/media/${item.id}/merge-details`)"));
+  assert.ok(libraryViewSource.includes('DisclosureList'));
 }));
 
 results.push(run('admin users view stays platform-only without invitation management tab', () => {

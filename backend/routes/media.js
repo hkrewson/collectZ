@@ -470,6 +470,214 @@ function normalizeMediaRecord(row = {}) {
   };
 }
 
+function summarizeMergeSourceRow(row = {}) {
+  const typeDetails = row?.type_details && typeof row.type_details === 'object' ? row.type_details : {};
+  return {
+    id: Number(row.id || 0) || null,
+    title: String(row.title || '').trim() || null,
+    media_type: String(row.media_type || '').trim() || null,
+    import_source: String(row.import_source || '').trim() || null,
+    type_details: typeDetails,
+    provider_name: String(typeDetails.provider_name || '').trim() || null,
+    provider_item_id: String(typeDetails.provider_item_id || '').trim() || null,
+    provider_issue_id: String(typeDetails.provider_issue_id || '').trim() || null
+  };
+}
+
+function formatMergeMatchKind(kind = '', mediaType = '') {
+  const normalized = String(kind || '').trim();
+  const normalizedMediaType = String(mediaType || '').trim();
+  if (normalizedMediaType === 'book') {
+    if (normalized === 'isbn') return 'Matched on ISBN';
+    if (normalized === 'title_author') return 'Matched on title and author';
+    if (normalized === 'title_only') return 'Matched on title';
+  }
+  if (normalizedMediaType === 'comic_book') {
+    if (normalized === 'provider_item') return 'Matched on provider item';
+    if (normalized === 'series_issue_volume') return 'Matched on series, issue, and volume';
+    if (normalized === 'series_issue') return 'Matched on series and issue';
+    if (normalized === 'title_only') return 'Matched on title';
+  }
+  return 'Matched on normalized record identity';
+}
+
+function formatMergeRationaleLabel(token = '') {
+  const normalized = String(token || '').trim();
+  const labels = {
+    normalized_isbn: 'ISBN',
+    normalized_title: 'Title',
+    normalized_author: 'Author',
+    normalized_title_only: 'Title',
+    provider_name: 'Provider name',
+    provider_item_id: 'Provider item id',
+    normalized_series: 'Series',
+    normalized_issue_number: 'Issue number',
+    normalized_volume: 'Volume'
+  };
+  return labels[normalized] || normalized.replace(/_/g, ' ');
+}
+
+function formatMergeFieldLabel(key = '') {
+  const normalized = String(key || '').trim();
+  const labels = {
+    isbn: 'ISBN',
+    author: 'Author',
+    publisher: 'Publisher',
+    edition: 'Edition',
+    series: 'Series',
+    issue_number: 'Issue number',
+    volume: 'Volume',
+    provider_issue_id: 'Provider issue id',
+    provider_item_id: 'Provider item id',
+    provider_name: 'Provider name',
+    cover_date: 'Cover date',
+    writer: 'Writer',
+    artist: 'Artist',
+    inker: 'Inker',
+    colorist: 'Colorist'
+  };
+  return labels[normalized] || normalized.replace(/_/g, ' ');
+}
+
+function valuesEqualForMerge(left, right) {
+  if (left === right) return true;
+  if ((left === null || left === undefined || left === '') && (right === null || right === undefined || right === '')) return true;
+  return String(left ?? '').trim() === String(right ?? '').trim();
+}
+
+function buildMergeFieldProvenance({
+  currentTypeDetails = {},
+  previousCanonicalTypeDetails = {},
+  duplicateTypeDetails = {},
+  mediaType = ''
+} = {}) {
+  const prioritizedKeys = mediaType === 'book'
+    ? ['isbn', 'author', 'publisher', 'edition', 'provider_name', 'provider_item_id']
+    : mediaType === 'comic_book'
+      ? ['series', 'issue_number', 'volume', 'cover_date', 'publisher', 'provider_issue_id', 'provider_name', 'provider_item_id']
+      : [];
+  const keySet = new Set(prioritizedKeys);
+  Object.keys(currentTypeDetails || {}).forEach((key) => keySet.add(key));
+  Object.keys(previousCanonicalTypeDetails || {}).forEach((key) => keySet.add(key));
+  Object.keys(duplicateTypeDetails || {}).forEach((key) => keySet.add(key));
+
+  return Array.from(keySet)
+    .filter(Boolean)
+    .map((key) => {
+      const currentValue = currentTypeDetails?.[key] ?? null;
+      const canonicalValue = previousCanonicalTypeDetails?.[key] ?? null;
+      const duplicateValue = duplicateTypeDetails?.[key] ?? null;
+      if (
+        currentValue === null && canonicalValue === null && duplicateValue === null
+      ) return null;
+
+      let usedFrom = 'resolved';
+      if (valuesEqualForMerge(currentValue, canonicalValue) && valuesEqualForMerge(currentValue, duplicateValue)) {
+        usedFrom = 'both';
+      } else if (valuesEqualForMerge(currentValue, canonicalValue)) {
+        usedFrom = 'canonical';
+      } else if (valuesEqualForMerge(currentValue, duplicateValue)) {
+        usedFrom = 'merged';
+      }
+
+      return {
+        key,
+        label: formatMergeFieldLabel(key),
+        used_from: usedFrom,
+        current_value: currentValue,
+        canonical_value: canonicalValue,
+        merged_value: duplicateValue
+      };
+    })
+    .filter((entry) => entry && (entry.current_value !== null || entry.canonical_value !== null || entry.merged_value !== null));
+}
+
+async function loadScopedMergeDetails(mediaId, scopeContext = null) {
+  const canonical = await loadScopedMediaItem(mediaId, scopeContext);
+  if (!canonical) return null;
+
+  const historyResult = await pool.query(
+    `SELECT canonical_media_id, duplicate_media_id, repair_type, snapshot, context, applied_at, reverted_at
+       FROM media_repair_history
+      WHERE canonical_media_id = $1
+        AND repair_type = 'duplicate_attach'
+      ORDER BY applied_at DESC NULLS LAST, duplicate_media_id DESC`,
+    [mediaId]
+  );
+
+  const historyRows = (historyResult.rows || []).filter((row) => !row.reverted_at);
+  if (historyRows.length === 0) {
+    return {
+      canonical: summarizeMergeSourceRow(canonical),
+      summary: {
+        merge_count: 0,
+        active_merge_count: 0,
+        last_merge_at: null
+      },
+      entries: []
+    };
+  }
+
+  const entries = historyRows.map((row) => {
+    const snapshot = row.snapshot && typeof row.snapshot === 'object' ? row.snapshot : {};
+    const context = row.context && typeof row.context === 'object' ? row.context : {};
+    const duplicateMedia = snapshot.media && typeof snapshot.media === 'object' ? snapshot.media : {};
+    const previousCanonicalTypeDetails = context.previousCanonicalTypeDetails && typeof context.previousCanonicalTypeDetails === 'object'
+      ? context.previousCanonicalTypeDetails
+      : {};
+    const duplicateTypeDetails = duplicateMedia.type_details && typeof duplicateMedia.type_details === 'object'
+      ? duplicateMedia.type_details
+      : {};
+    const canonicalRowForIdentity = {
+      ...canonical,
+      type_details: previousCanonicalTypeDetails
+    };
+    const duplicateRowForIdentity = {
+      ...duplicateMedia,
+      media_type: duplicateMedia.media_type || canonical.media_type,
+      type_details: duplicateTypeDetails
+    };
+    const identity = canonical.media_type === 'comic_book'
+      ? buildComicNormalizationIdentity(canonicalRowForIdentity)
+      : buildBookNormalizationIdentity(canonicalRowForIdentity);
+    const duplicateIdentity = canonical.media_type === 'comic_book'
+      ? buildComicNormalizationIdentity(duplicateRowForIdentity)
+      : buildBookNormalizationIdentity(duplicateRowForIdentity);
+    const resolvedIdentity = identity?.key && duplicateIdentity?.key === identity.key ? identity : (duplicateIdentity || identity || null);
+
+    return {
+      duplicate_id: Number(row.duplicate_media_id || 0) || null,
+      applied_at: row.applied_at || null,
+      reverted_at: row.reverted_at || null,
+      confidence: resolvedIdentity?.confidence || 'high',
+      match_kind: resolvedIdentity?.kind || null,
+      match_summary: formatMergeMatchKind(resolvedIdentity?.kind, canonical.media_type),
+      rationale: Array.isArray(resolvedIdentity?.rationale) ? resolvedIdentity.rationale.map(formatMergeRationaleLabel) : [],
+      canonical: summarizeMergeSourceRow({
+        ...canonical,
+        type_details: previousCanonicalTypeDetails
+      }),
+      merged: summarizeMergeSourceRow(duplicateMedia),
+      field_provenance: buildMergeFieldProvenance({
+        currentTypeDetails: canonical.type_details || {},
+        previousCanonicalTypeDetails,
+        duplicateTypeDetails,
+        mediaType: canonical.media_type
+      })
+    };
+  });
+
+  return {
+    canonical: summarizeMergeSourceRow(canonical),
+    summary: {
+      merge_count: entries.length,
+      active_merge_count: entries.length,
+      last_merge_at: entries[0]?.applied_at || null
+    },
+    entries
+  };
+}
+
 async function loadScopedMediaItem(mediaId, scopeContext = null) {
   const params = [mediaId];
   const scopeClause = appendScopeSql(params, scopeContext);
@@ -4448,6 +4656,19 @@ router.get('/:id', asyncHandler(async (req, res, next) => {
     return res.status(404).json({ error: 'Media item not found' });
   }
   res.json(media);
+}));
+
+router.get('/:id/merge-details', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const mediaId = Number(req.params.id);
+  if (!Number.isFinite(mediaId) || mediaId <= 0) {
+    return res.status(400).json({ error: 'Invalid media id' });
+  }
+  const details = await loadScopedMergeDetails(mediaId, scopeContext);
+  if (!details) {
+    return res.status(404).json({ error: 'Media item not found' });
+  }
+  res.json(details);
 }));
 
 router.post('/:id/valuation-refresh', validate(mediaValuationRefreshSchema), asyncHandler(async (req, res) => {
