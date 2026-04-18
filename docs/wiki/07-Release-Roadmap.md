@@ -3050,7 +3050,7 @@ Historical note:
 
 **Goal:** Normalize book and comic ingest across Metron and OPDS/CWA so equivalent titles can attach to one canonical library record instead of creating duplicate rows or drifting into the wrong media type when multiple sync-capable sources contribute overlapping data.
 
-**Current Slice:** `3.1.6.9 — Narrow Real-Data Reclassification Pilot`
+**Current Slice:** `3.1.6.10 — Second Narrow Real-Data Reclassification Batch`
 
 ### Scope
 
@@ -3123,6 +3123,11 @@ Historical note:
   - apply reclassification by explicit ids only,
   - verify the live rows and stored historical snapshot metadata directly in the running DB after mutation,
   - keep broader candidate sets untouched until the narrow pilot is judged safe.
+- Continue with one additional tiny OPDS-only follow-on batch if the first pilot stays clean:
+  - use the updated running repair report after the first mutation to choose the next obvious ids,
+  - keep the second batch explicit-id only,
+  - verify the same rollback metadata contract after apply,
+  - still avoid fuzzy review cases like duplicate-leaning variant titles.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
