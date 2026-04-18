@@ -145,7 +145,7 @@ function RecordSearchPanel({
   );
 }
 
-function RecommendationRow({ item, onReview, loading }) {
+function RecommendationRow({ item, onReview, onReject, loading, rejecting, confirmRejecting }) {
   return (
     <div className="flex flex-col gap-3 border-t border-edge/60 px-4 py-4 first:border-t-0">
       <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
@@ -157,14 +157,45 @@ function RecommendationRow({ item, onReview, loading }) {
         </div>
         <div className="flex items-center gap-3 text-xs text-ghost">
           <span>{formatMediaType(item.confidence)}</span>
-          <button
-            type="button"
-            className="btn-secondary btn-sm h-8"
-            onClick={() => onReview(item)}
-            disabled={loading}
-          >
-            Review pair
-          </button>
+          {!confirmRejecting ? (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="btn-secondary btn-sm h-8"
+                onClick={() => onReview(item)}
+                disabled={loading}
+              >
+                Review pair
+              </button>
+              <button
+                type="button"
+                className="btn-secondary btn-sm h-8"
+                onClick={() => onReject(item, false)}
+                disabled={loading}
+              >
+                Reject match
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="btn-primary btn-sm h-8"
+                onClick={() => onReject(item, true)}
+                disabled={loading || rejecting}
+              >
+                {rejecting ? 'Rejecting…' : 'Confirm reject'}
+              </button>
+              <button
+                type="button"
+                className="btn-secondary btn-sm h-8"
+                onClick={() => onReject(item, null)}
+                disabled={rejecting}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
         </div>
       </div>
       <div className="grid gap-3 text-sm sm:grid-cols-2">
@@ -201,6 +232,8 @@ export default function AdminMergeReviewView({
   const [recommendations, setRecommendations] = useState([]);
   const [recommendationsSummary, setRecommendationsSummary] = useState(null);
   const [recommendationsLoading, setRecommendationsLoading] = useState(true);
+  const [rejectingRecommendationId, setRejectingRecommendationId] = useState('');
+  const [rejectConfirmId, setRejectConfirmId] = useState('');
   const [preview, setPreview] = useState(null);
   const [applyResult, setApplyResult] = useState(null);
   const [applyConfirmOpen, setApplyConfirmOpen] = useState(false);
@@ -350,11 +383,42 @@ export default function AdminMergeReviewView({
   };
 
   const handleRecommendationReview = async (item) => {
+    setRejectConfirmId('');
     setCanonicalId(String(item?.canonical?.id || ''));
     setDuplicateId(String(item?.duplicate?.id || ''));
     setCanonicalSearch(item?.canonical?.title || '');
     setDuplicateSearch(item?.duplicate?.title || '');
     await requestPreview(Number(item?.canonical?.id || 0), Number(item?.duplicate?.id || 0));
+  };
+
+  const handleRecommendationReject = async (item, confirmed) => {
+    const recommendationId = String(item?.recommendation_id || '');
+    if (!recommendationId) return;
+    if (confirmed === null) {
+      setRejectConfirmId('');
+      return;
+    }
+    if (!confirmed) {
+      setRejectConfirmId(recommendationId);
+      return;
+    }
+    setRejectingRecommendationId(recommendationId);
+    setErrorState(null);
+    try {
+      const payload = await apiCall('post', '/media/merge-recommendations/reject', {
+        canonical_id: Number(item?.canonical?.id || 0),
+        duplicate_id: Number(item?.duplicate?.id || 0)
+      });
+      setRecommendations(Array.isArray(payload?.recommendations?.items) ? payload.recommendations.items : []);
+      setRecommendationsSummary(payload?.recommendations?.summary || null);
+      setRejectConfirmId('');
+      onToast('Recommendation removed from the queue', 'success');
+    } catch (error) {
+      const response = error?.response?.data || null;
+      onToast(response?.error || 'Failed to reject recommendation', 'error');
+    } finally {
+      setRejectingRecommendationId('');
+    }
   };
 
   const handleApply = async () => {
@@ -426,7 +490,10 @@ export default function AdminMergeReviewView({
                 key={item.recommendation_id}
                 item={item}
                 onReview={handleRecommendationReview}
+                onReject={handleRecommendationReject}
                 loading={loading || applying}
+                rejecting={rejectingRecommendationId === item.recommendation_id}
+                confirmRejecting={rejectConfirmId === item.recommendation_id}
               />
             ))}
           </div>

@@ -162,6 +162,7 @@ test.describe('admin shell browser regressions', () => {
 
       await expect(page.getByRole('heading', { name: 'Merge Review' })).toBeVisible();
       await expect(page.getByRole('heading', { name: 'Recommended pairs' })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Reject match' })).toBeVisible();
       await page.getByLabel('This record id').fill(String(canonical.id));
       await page.getByLabel('Matched record id').fill(String(duplicate.id));
 

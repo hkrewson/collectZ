@@ -250,6 +250,19 @@ const mediaMergePreviewSchema = z.object({
 });
 
 const mediaMergeApplySchema = mediaMergePreviewSchema;
+const mediaMergeRecommendationRejectSchema = z.object({
+  canonical_id: z.number().int().positive('canonical_id is required'),
+  duplicate_id: z.number().int().positive('duplicate_id is required'),
+  reason: z.preprocess(emptyStringToNull, z.string().max(1000).optional().nullable())
+}).superRefine((data, ctx) => {
+  if (Number(data.canonical_id) === Number(data.duplicate_id)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['duplicate_id'],
+      message: 'canonical_id and duplicate_id must be different'
+    });
+  }
+});
 
 // ── Profile ───────────────────────────────────────────────────────────────────
 
@@ -650,6 +663,7 @@ module.exports = {
   mediaValuationRefreshSchema,
   mediaMergePreviewSchema,
   mediaMergeApplySchema,
+  mediaMergeRecommendationRejectSchema,
   profileUpdateSchema,
   passwordResetConsumeSchema,
   roleUpdateSchema,

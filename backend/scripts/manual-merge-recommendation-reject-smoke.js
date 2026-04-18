@@ -123,9 +123,9 @@ async function createMediaRow({ title, mediaType, typeDetails = {}, year = null,
 
 async function main() {
   const suffix = Date.now();
-  const email = `manual-merge-recommend-${suffix}@example.com`;
+  const email = `manual-merge-reject-${suffix}@example.com`;
   const password = 'Passw0rd!123';
-  const client = new HttpClient('manual-merge-recommendations-smoke');
+  const client = new HttpClient('manual-merge-recommendation-reject-smoke');
   let userId = null;
   let libraryId = null;
   let spaceId = null;
@@ -134,7 +134,7 @@ async function main() {
     userId = await createDirectUser({
       email,
       password,
-      name: 'Manual Merge Recommendation Smoke Admin',
+      name: 'Manual Merge Recommendation Reject Smoke Admin',
       role: 'admin'
     });
 
@@ -206,11 +206,46 @@ async function main() {
     assert(movieRecommendation.summary === 'Matched on title and year', 'Expected movie recommendation summary to describe title/year match');
     assert(Number(response.data?.summary?.total_candidates || 0) >= 2, 'Expected recommendation summary to count created pairs');
 
+    const rejectResponse = await client.request('/api/media/merge-recommendations/reject?limit=10', {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 200,
+      body: {
+        canonical_id: bookCanonicalId,
+        duplicate_id: bookDuplicateId,
+        reason: 'Not a match for operator review'
+      }
+    });
+    assert(rejectResponse.data?.rejected === true, 'Expected reject endpoint to confirm rejection');
+    assert(rejectResponse.data?.feedback?.outcome === 'rejected', 'Expected reject feedback outcome');
+
+    const remainingItems = Array.isArray(rejectResponse.data?.recommendations?.items)
+      ? rejectResponse.data.recommendations.items
+      : [];
+    const remainingBookRecommendation = remainingItems.find((item) => Number(item?.canonical?.id || 0) === bookCanonicalId && Number(item?.duplicate?.id || 0) === bookDuplicateId);
+    const remainingMovieRecommendation = remainingItems.find((item) => Number(item?.canonical?.id || 0) === movieCanonicalId && Number(item?.duplicate?.id || 0) === movieDuplicateId);
+    assert(!remainingBookRecommendation, 'Expected rejected book recommendation to disappear from queue');
+    assert(remainingMovieRecommendation, 'Expected unrelated movie recommendation to remain in queue');
+    assert(Number(rejectResponse.data?.recommendations?.summary?.total_candidates || 0) === 1, 'Expected recommendation summary to drop after rejection');
+
+    const feedbackRow = await pool.query(
+      `SELECT outcome, reason
+         FROM media_merge_recommendation_feedback
+        WHERE pair_low_media_id = $1
+          AND pair_high_media_id = $2
+          AND library_id = $3
+        LIMIT 1`,
+      [Math.min(bookCanonicalId, bookDuplicateId), Math.max(bookCanonicalId, bookDuplicateId), libraryId]
+    );
+    assert(feedbackRow.rows.length === 1, 'Expected recommendation feedback row to persist');
+    assert(String(feedbackRow.rows[0]?.outcome || '') === 'rejected', 'Expected persisted feedback outcome to be rejected');
+
     console.log(JSON.stringify({
-      totalCandidates: Number(response.data?.summary?.total_candidates || 0),
-      returnedCandidates: Number(response.data?.summary?.returned_candidates || 0),
-      bookSummary: bookRecommendation.summary,
-      movieSummary: movieRecommendation.summary
+      beforeTotalCandidates: Number(response.data?.summary?.total_candidates || 0),
+      afterTotalCandidates: Number(rejectResponse.data?.recommendations?.summary?.total_candidates || 0),
+      rejectedPairRemoved: !remainingBookRecommendation,
+      remainingMovieSummary: remainingMovieRecommendation.summary,
+      feedbackOutcome: feedbackRow.rows[0]?.outcome || null
     }, null, 2));
   } finally {
     await cleanupTemporaryState({ userId, libraryId, spaceId });

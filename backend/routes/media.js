@@ -13,6 +13,7 @@ const {
   mediaValuationRefreshSchema,
   mediaMergePreviewSchema,
   mediaMergeApplySchema,
+  mediaMergeRecommendationRejectSchema,
   simpleSearchSchema,
   titleAuthorSearchSchema,
   titleArtistSearchSchema,
@@ -603,6 +604,19 @@ function buildManualMergeRecommendationIdentity(row = {}) {
   return buildGenericManualMergeIdentity(row);
 }
 
+function buildRecommendationPairKey(canonicalId, duplicateId) {
+  const left = Number(canonicalId || 0);
+  const right = Number(duplicateId || 0);
+  if (!left || !right) return null;
+  const pairLowId = Math.min(left, right);
+  const pairHighId = Math.max(left, right);
+  return {
+    pairLowId,
+    pairHighId,
+    key: `${pairLowId}:${pairHighId}`
+  };
+}
+
 async function loadScopedManualMergeRecommendations({ scopeContext = null, limit = 12 } = {}) {
   const cappedLimit = Math.max(1, Math.min(50, Number(limit || 12) || 12));
   const params = [];
@@ -613,6 +627,18 @@ async function loadScopedManualMergeRecommendations({ scopeContext = null, limit
        ${where}
       ORDER BY updated_at DESC, id DESC`,
     params
+  );
+
+  const suppressedParams = [];
+  const suppressedScopeClause = appendScopeSql(suppressedParams, scopeContext);
+  const suppressedResult = await pool.query(
+    `SELECT pair_low_media_id, pair_high_media_id
+       FROM media_merge_recommendation_feedback
+      WHERE outcome = 'rejected'${suppressedScopeClause}`,
+    suppressedParams
+  );
+  const suppressedPairs = new Set(
+    (suppressedResult.rows || []).map((row) => `${Number(row.pair_low_media_id || 0)}:${Number(row.pair_high_media_id || 0)}`)
   );
 
   const buckets = new Map();
@@ -637,8 +663,12 @@ async function loadScopedManualMergeRecommendations({ scopeContext = null, limit
       return bucket.rows
         .filter((row) => Number(row.id) !== Number(canonical.id))
         .sort((left, right) => Number(left.id || 0) - Number(right.id || 0))
-        .map((duplicate) => ({
+        .map((duplicate) => {
+          const pairKey = buildRecommendationPairKey(canonical.id, duplicate.id);
+          if (!pairKey || suppressedPairs.has(pairKey.key)) return null;
+          return {
           recommendation_id: `${bucket.key}:${canonical.id}:${duplicate.id}`,
+          pair_key: pairKey.key,
           media_type: bucket.media_type,
           confidence: bucket.confidence,
           kind: bucket.kind,
@@ -653,7 +683,9 @@ async function loadScopedManualMergeRecommendations({ scopeContext = null, limit
             requested_matches_recommended: true,
             selection_reason: CANONICAL_SELECTION_REASON
           }
-        }));
+          };
+        })
+        .filter(Boolean);
     })
     .sort((left, right) => {
       const confidenceDelta = (confidenceOrder[left.confidence] ?? 99) - (confidenceOrder[right.confidence] ?? 99);
@@ -673,6 +705,92 @@ async function loadScopedManualMergeRecommendations({ scopeContext = null, limit
       medium_confidence: allItems.filter((item) => item.confidence === 'medium').length
     },
     items: limitedItems
+  };
+}
+
+async function recordManualMergeRecommendationFeedback({
+  canonicalMediaId,
+  duplicateMediaId,
+  scopeContext = null,
+  userId = null,
+  reason = null,
+  preview = null
+} = {}) {
+  const pairKey = buildRecommendationPairKey(canonicalMediaId, duplicateMediaId);
+  if (!pairKey) {
+    throw new Error('Invalid recommendation pair');
+  }
+  const previewEvidence = preview?.preview?.evidence || {};
+  const payload = {
+    action: 'manual_merge_recommendation_rejected',
+    summary: String(previewEvidence.summary || 'Rejected suggested merge').trim() || 'Rejected suggested merge',
+    confidence: String(previewEvidence.confidence || '').trim() || null,
+    kind: String(previewEvidence.kind || '').trim() || null,
+    key: String(previewEvidence.key || '').trim() || null,
+    rationale: Array.isArray(previewEvidence.rationale) ? previewEvidence.rationale : [],
+    canonical: summarizeMergeSourceRow(preview?.canonical || {}),
+    duplicate: summarizeMergeSourceRow(preview?.duplicate || {})
+  };
+  const values = [
+    pairKey.pairLowId,
+    pairKey.pairHighId,
+    Number(canonicalMediaId || 0),
+    Number(duplicateMediaId || 0),
+    String(preview?.preview?.media_type || preview?.canonical?.media_type || '').trim() || null,
+    reason,
+    JSON.stringify(payload),
+    scopeContext?.spaceId || null,
+    scopeContext?.libraryId || null,
+    userId || null
+  ];
+  const existing = await pool.query(
+    `SELECT id
+       FROM media_merge_recommendation_feedback
+      WHERE pair_low_media_id = $1
+        AND pair_high_media_id = $2
+        AND outcome = 'rejected'
+        AND COALESCE(space_id, 0) = COALESCE($3, 0)
+        AND COALESCE(library_id, 0) = COALESCE($4, 0)
+      LIMIT 1`,
+    [pairKey.pairLowId, pairKey.pairHighId, scopeContext?.spaceId || null, scopeContext?.libraryId || null]
+  );
+  const result = existing.rows?.[0]?.id
+    ? await pool.query(
+      `UPDATE media_merge_recommendation_feedback
+          SET canonical_media_id = $3,
+              duplicate_media_id = $4,
+              media_type = $5,
+              reason = $6,
+              context = $7::jsonb,
+              created_by = $10,
+              created_at = CURRENT_TIMESTAMP
+        WHERE id = $11
+        RETURNING id, created_at`,
+      [...values, Number(existing.rows[0].id)]
+    )
+    : await pool.query(
+      `INSERT INTO media_merge_recommendation_feedback (
+         pair_low_media_id,
+         pair_high_media_id,
+         canonical_media_id,
+         duplicate_media_id,
+         media_type,
+         outcome,
+         reason,
+         context,
+         space_id,
+         library_id,
+         created_by
+       )
+       VALUES ($1, $2, $3, $4, $5, 'rejected', $6, $7::jsonb, $8, $9, $10)
+       RETURNING id, created_at`,
+      values
+    );
+  return {
+    id: Number(result.rows?.[0]?.id || 0) || null,
+    pair_key: pairKey.key,
+    created_at: result.rows?.[0]?.created_at || null,
+    outcome: 'rejected'
   };
 }
 
@@ -5300,6 +5418,56 @@ router.get('/merge-recommendations', requireSessionAuth, requireRole('admin', 's
     limit
   });
   res.json(recommendations);
+}));
+
+router.post('/merge-recommendations/reject', requireSessionAuth, requireRole('admin', 'support_admin'), validate(mediaMergeRecommendationRejectSchema), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const canonicalMediaId = Number(req.body?.canonical_id);
+  const duplicateMediaId = Number(req.body?.duplicate_id);
+  const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim() || null : null;
+  const preview = await loadScopedManualMergePreview({
+    canonicalMediaId,
+    duplicateMediaId,
+    scopeContext
+  });
+  if (!preview) {
+    return res.status(404).json({ error: 'One or both media items were not found in the active scope' });
+  }
+  if (!preview.allowed) {
+    return res.status(409).json({
+      error: 'Cross-type merges are not allowed',
+      details: preview.details,
+      canonical: preview.canonical,
+      duplicate: preview.duplicate
+    });
+  }
+
+  const feedback = await recordManualMergeRecommendationFeedback({
+    canonicalMediaId,
+    duplicateMediaId,
+    scopeContext,
+    userId: req.user?.id || null,
+    reason,
+    preview
+  });
+  await logActivity(req, 'media.merge_recommendation.reject', 'media', canonicalMediaId, {
+    canonical_id: canonicalMediaId,
+    duplicate_id: duplicateMediaId,
+    pair_key: feedback.pair_key,
+    reason,
+    media_type: preview.preview?.media_type || preview.canonical?.media_type || null
+  });
+  const recommendations = await loadScopedManualMergeRecommendations({
+    scopeContext,
+    limit: Math.max(1, Math.min(50, Number(req.query?.limit || 12) || 12))
+  });
+  res.json({
+    rejected: true,
+    feedback,
+    canonical: preview.canonical,
+    duplicate: preview.duplicate,
+    recommendations
+  });
 }));
 
 router.post('/merge-preview', requireSessionAuth, requireRole('admin', 'support_admin'), validate(mediaMergePreviewSchema), asyncHandler(async (req, res) => {

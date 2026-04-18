@@ -123,6 +123,22 @@ CREATE TABLE IF NOT EXISTS media_repair_history (
       UNIQUE (canonical_media_id, duplicate_media_id, repair_type)
 );
 
+CREATE TABLE IF NOT EXISTS media_merge_recommendation_feedback (
+    id SERIAL PRIMARY KEY,
+    pair_low_media_id INTEGER NOT NULL REFERENCES media(id) ON DELETE CASCADE,
+    pair_high_media_id INTEGER NOT NULL REFERENCES media(id) ON DELETE CASCADE,
+    canonical_media_id INTEGER NOT NULL REFERENCES media(id) ON DELETE CASCADE,
+    duplicate_media_id INTEGER NOT NULL REFERENCES media(id) ON DELETE CASCADE,
+    media_type VARCHAR(50) NOT NULL,
+    outcome VARCHAR(32) NOT NULL CHECK (outcome IN ('rejected')),
+    reason TEXT,
+    context JSONB NOT NULL DEFAULT '{}'::jsonb,
+    space_id INTEGER,
+    library_id INTEGER,
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS genres (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
@@ -716,6 +732,14 @@ CREATE INDEX IF NOT EXISTS idx_media_metadata_asin_value ON media_metadata("valu
 CREATE INDEX IF NOT EXISTS idx_media_repair_history_canonical_type ON media_repair_history(canonical_media_id, repair_type);
 CREATE INDEX IF NOT EXISTS idx_media_repair_history_duplicate_type ON media_repair_history(duplicate_media_id, repair_type);
 CREATE INDEX IF NOT EXISTS idx_media_repair_history_reverted_at ON media_repair_history(reverted_at);
+CREATE INDEX IF NOT EXISTS idx_media_merge_recommendation_feedback_pair_scope ON media_merge_recommendation_feedback(pair_low_media_id, pair_high_media_id, space_id, library_id, outcome);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_media_merge_recommendation_feedback_unique_rejected_pair_scope ON media_merge_recommendation_feedback(
+    COALESCE(space_id, 0),
+    COALESCE(library_id, 0),
+    pair_low_media_id,
+    pair_high_media_id,
+    outcome
+);
 CREATE INDEX IF NOT EXISTS idx_media_genres_genre_id ON media_genres(genre_id);
 CREATE INDEX IF NOT EXISTS idx_media_directors_director_id ON media_directors(director_id);
 CREATE INDEX IF NOT EXISTS idx_genres_name ON genres(name);
@@ -1002,5 +1026,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (63, 'Add workspace membership suspension lifecycle fields'),
     (64, 'Add optional valuation fields and platform valuation provider settings'),
     (65, 'Add optional user profile image field'),
-    (66, 'Add media repair history table for duplicate attach snapshots')
+    (66, 'Add media repair history table for duplicate attach snapshots'),
+    (67, 'Add recommendation feedback table for manual merge rejection outcomes')
 ON CONFLICT (version) DO NOTHING;

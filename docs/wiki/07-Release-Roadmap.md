@@ -3228,7 +3228,7 @@ Historical note:
 
 **Goal:** Add a controlled operator-facing manual merge workflow so supported media types can be reviewed, compared, merged, and reverted intentionally without allowing unsafe cross-type merges.
 
-**Current Slice:** `3.2.0.4 — Recommended Merge Candidate Queue`
+**Current Slice:** `3.2.0.5 — Recommendation Outcome Capture`
 
 - Start with same-type manual merge only:
   - books
@@ -3266,6 +3266,7 @@ Historical note:
 - Keep merge preview and apply pairwise:
   - one canonical record,
   - one duplicate record,
+- Capture operator outcomes for recommended pairs so accepted and rejected decisions can inform future merge automation without mutating records when a pair is rejected.
   - one explicit confirmation.
 - Keep the work explicitly separate from:
   - broader ingest/provider normalization changes already completed in `3.1.6`,

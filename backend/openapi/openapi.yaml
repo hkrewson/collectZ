@@ -3896,6 +3896,67 @@
         }
       }
     },
+    "/api/media/merge-recommendations/reject": {
+      "post": {
+        "tags": ["Media"],
+        "summary": "Reject a recommended manual merge pair for the active scope",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "canonical_id": { "type": "integer", "minimum": 1 },
+                  "duplicate_id": { "type": "integer", "minimum": 1 },
+                  "reason": { "type": "string", "maxLength": 1000, "nullable": true }
+                },
+                "required": ["canonical_id", "duplicate_id"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Recommendation was rejected and removed from the active queue",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "rejected": { "type": "boolean" },
+                    "feedback": { "type": "object", "additionalProperties": true },
+                    "canonical": { "type": "object", "additionalProperties": true },
+                    "duplicate": { "type": "object", "additionalProperties": true },
+                    "recommendations": { "type": "object", "additionalProperties": true }
+                  },
+                  "required": ["rejected", "feedback", "canonical", "duplicate", "recommendations"]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "One or both media items were not found in the active scope",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "409": {
+            "description": "Cross-type merge rejection attempt rejected",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/media/merge-apply": {
       "post": {
         "tags": ["Media"],
