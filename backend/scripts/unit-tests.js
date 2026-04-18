@@ -2769,7 +2769,12 @@ results.push(run('library drawer source includes compact match evidence summarie
 
 results.push(run('admin merge review view posts preview requests and renders operator-facing comparison details', () => {
   assert.ok(adminMergeReviewViewSource.includes("/media/merge-preview"));
+  assert.ok(adminMergeReviewViewSource.includes('/media?search='));
   assert.ok(adminMergeReviewViewSource.includes('Preview only. No data changes happen here.'));
+  assert.ok(adminMergeReviewViewSource.includes('Find this record'));
+  assert.ok(adminMergeReviewViewSource.includes('Find matched record'));
+  assert.ok(adminMergeReviewViewSource.includes('Search inside the active workspace and library scope.'));
+  assert.ok(adminMergeReviewViewSource.includes('Type at least two characters to search.'));
   assert.ok(adminMergeReviewViewSource.includes('Compared fields'));
   assert.ok(adminMergeReviewViewSource.includes('This record'));
   assert.ok(adminMergeReviewViewSource.includes('Matched record'));

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
 function formatValue(value) {
   if (value === null || value === undefined || value === '') return '—';
@@ -15,6 +15,14 @@ function formatMediaType(value) {
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ') || 'Unknown';
+}
+
+function formatSearchMeta(record = {}) {
+  const bits = [];
+  if (record?.media_type) bits.push(formatMediaType(record.media_type));
+  if (record?.year) bits.push(String(record.year));
+  bits.push(`Record #${record?.id || '—'}`);
+  return bits.join(' · ');
 }
 
 function buildImpactRows(summary = {}) {
@@ -74,6 +82,69 @@ function RecordSummary({ title, record }) {
   );
 }
 
+function RecordSearchPanel({
+  title,
+  value,
+  onChange,
+  loading,
+  results,
+  selectedId,
+  onPick,
+  placeholder
+}) {
+  return (
+    <div className="rounded-lg border border-edge bg-void/10 p-4 space-y-3">
+      <div className="space-y-1">
+        <h2 className="text-sm font-medium text-ink">{title}</h2>
+        <p className="text-sm text-ghost">Search inside the active workspace and library scope.</p>
+      </div>
+      <label className="field">
+        <span className="label">Search</span>
+        <input
+          className="input"
+          placeholder={placeholder}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+        />
+      </label>
+      <div className="rounded-lg border border-edge/70 bg-raised/20">
+        {loading ? (
+          <div className="px-4 py-6 text-sm text-ghost">Searching…</div>
+        ) : results.length > 0 ? (
+          <div className="divide-y divide-edge/60">
+            {results.map((record) => {
+              const selected = Number(selectedId || 0) === Number(record.id || 0);
+              return (
+                <button
+                  key={`${title}-${record.id}`}
+                  type="button"
+                  onClick={() => onPick(record)}
+                  className={`w-full px-4 py-3 text-left transition-colors ${selected ? 'bg-raised/55' : 'hover:bg-raised/35'}`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-ink">{record.title || 'Untitled record'}</p>
+                      <p className="mt-1 text-xs text-ghost">{formatSearchMeta(record)}</p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      {record.source_label ? <p className="text-xs text-ghost">{record.source_label}</p> : null}
+                      {selected ? <p className="mt-1 text-xs text-ink">Selected</p> : null}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        ) : value.trim().length >= 2 ? (
+          <div className="px-4 py-6 text-sm text-ghost">No matching records found.</div>
+        ) : (
+          <div className="px-4 py-6 text-sm text-ghost">Type at least two characters to search.</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminMergeReviewView({
   apiCall,
   onToast,
@@ -83,6 +154,12 @@ export default function AdminMergeReviewView({
 }) {
   const [canonicalId, setCanonicalId] = useState('');
   const [duplicateId, setDuplicateId] = useState('');
+  const [canonicalSearch, setCanonicalSearch] = useState('');
+  const [duplicateSearch, setDuplicateSearch] = useState('');
+  const [canonicalResults, setCanonicalResults] = useState([]);
+  const [duplicateResults, setDuplicateResults] = useState([]);
+  const [canonicalSearchLoading, setCanonicalSearchLoading] = useState(false);
+  const [duplicateSearchLoading, setDuplicateSearchLoading] = useState(false);
   const [preview, setPreview] = useState(null);
   const [errorState, setErrorState] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -102,9 +179,77 @@ export default function AdminMergeReviewView({
     setErrorState(null);
   };
 
+  useEffect(() => {
+    let active = true;
+    if (canonicalSearch.trim().length < 2) {
+      setCanonicalResults([]);
+      setCanonicalSearchLoading(false);
+      return undefined;
+    }
+    setCanonicalSearchLoading(true);
+    const timer = window.setTimeout(async () => {
+      try {
+        const payload = await apiCall('get', `/media?search=${encodeURIComponent(canonicalSearch.trim())}&limit=8`);
+        if (!active) return;
+        setCanonicalResults(Array.isArray(payload?.items) ? payload.items : []);
+      } catch (_) {
+        if (!active) return;
+        setCanonicalResults([]);
+      } finally {
+        if (active) setCanonicalSearchLoading(false);
+      }
+    }, 220);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [apiCall, canonicalSearch]);
+
+  useEffect(() => {
+    let active = true;
+    if (duplicateSearch.trim().length < 2) {
+      setDuplicateResults([]);
+      setDuplicateSearchLoading(false);
+      return undefined;
+    }
+    setDuplicateSearchLoading(true);
+    const timer = window.setTimeout(async () => {
+      try {
+        const payload = await apiCall('get', `/media?search=${encodeURIComponent(duplicateSearch.trim())}&limit=8`);
+        if (!active) return;
+        setDuplicateResults(Array.isArray(payload?.items) ? payload.items : []);
+      } catch (_) {
+        if (!active) return;
+        setDuplicateResults([]);
+      } finally {
+        if (active) setDuplicateSearchLoading(false);
+      }
+    }, 220);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [apiCall, duplicateSearch]);
+
   const swapDraft = () => {
     setCanonicalId(duplicateId);
     setDuplicateId(canonicalId);
+    setCanonicalSearch(duplicateSearch);
+    setDuplicateSearch(canonicalSearch);
+    setPreview(null);
+    setErrorState(null);
+  };
+
+  const pickCanonicalRecord = (record) => {
+    setCanonicalId(String(record?.id || ''));
+    setCanonicalSearch(record?.title || '');
+    setPreview(null);
+    setErrorState(null);
+  };
+
+  const pickDuplicateRecord = (record) => {
+    setDuplicateId(String(record?.id || ''));
+    setDuplicateSearch(record?.title || '');
     setPreview(null);
     setErrorState(null);
   };
@@ -148,6 +293,29 @@ export default function AdminMergeReviewView({
         <SummaryStat label="Library" value={activeLibrary?.name || 'Current library'} />
         <SummaryStat label="Merge boundary" value="Same type only" />
         <SummaryStat label="Action mode" value="Preview only" />
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <RecordSearchPanel
+          title="Find this record"
+          value={canonicalSearch}
+          onChange={setCanonicalSearch}
+          loading={canonicalSearchLoading}
+          results={canonicalResults}
+          selectedId={canonicalId}
+          onPick={pickCanonicalRecord}
+          placeholder="Search title, isbn, creator, or year"
+        />
+        <RecordSearchPanel
+          title="Find matched record"
+          value={duplicateSearch}
+          onChange={setDuplicateSearch}
+          loading={duplicateSearchLoading}
+          results={duplicateResults}
+          selectedId={duplicateId}
+          onPick={pickDuplicateRecord}
+          placeholder="Search title, isbn, creator, or year"
+        />
       </div>
 
       <form onSubmit={handleSubmit} className="rounded-lg border border-edge bg-void/10 p-4 space-y-4">

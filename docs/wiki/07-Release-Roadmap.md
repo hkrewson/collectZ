@@ -3303,6 +3303,7 @@ Historical note:
   - live in the admin/operator lane rather than the normal drawer,
   - use active workspace/library scope,
   - preview one canonical record plus one matched record at a time,
+  - help operators find candidate records inside the current scope instead of assuming they already know both ids,
   - show compared fields, winning values, rewiring impact, and history context,
   - stop short of apply/revert actions until the review flow feels solid.
 
