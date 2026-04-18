@@ -145,6 +145,44 @@ function RecordSearchPanel({
   );
 }
 
+function RecommendationRow({ item, onReview, loading }) {
+  return (
+    <div className="flex flex-col gap-3 border-t border-edge/60 px-4 py-4 first:border-t-0">
+      <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-ink">{item.summary || 'Recommended merge'}</p>
+          <p className="text-sm text-ghost">
+            {item.canonical?.title || 'This record'} <span className="text-dim">→</span> {item.duplicate?.title || 'Matched record'}
+          </p>
+        </div>
+        <div className="flex items-center gap-3 text-xs text-ghost">
+          <span>{formatMediaType(item.confidence)}</span>
+          <button
+            type="button"
+            className="btn-secondary btn-sm h-8"
+            onClick={() => onReview(item)}
+            disabled={loading}
+          >
+            Review pair
+          </button>
+        </div>
+      </div>
+      <div className="grid gap-3 text-sm sm:grid-cols-2">
+        <div className="space-y-1">
+          <p className="text-ghost">This record</p>
+          <p className="text-ink">{item.canonical?.source_label || 'Unknown source'}</p>
+          <p className="font-mono text-xs text-ghost">#{item.canonical?.id || '—'}</p>
+        </div>
+        <div className="space-y-1">
+          <p className="text-ghost">Matched record</p>
+          <p className="text-ink">{item.duplicate?.source_label || 'Unknown source'}</p>
+          <p className="font-mono text-xs text-ghost">#{item.duplicate?.id || '—'}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminMergeReviewView({
   apiCall,
   onToast,
@@ -160,6 +198,9 @@ export default function AdminMergeReviewView({
   const [duplicateResults, setDuplicateResults] = useState([]);
   const [canonicalSearchLoading, setCanonicalSearchLoading] = useState(false);
   const [duplicateSearchLoading, setDuplicateSearchLoading] = useState(false);
+  const [recommendations, setRecommendations] = useState([]);
+  const [recommendationsSummary, setRecommendationsSummary] = useState(null);
+  const [recommendationsLoading, setRecommendationsLoading] = useState(true);
   const [preview, setPreview] = useState(null);
   const [applyResult, setApplyResult] = useState(null);
   const [applyConfirmOpen, setApplyConfirmOpen] = useState(false);
@@ -183,6 +224,24 @@ export default function AdminMergeReviewView({
     setApplyConfirmOpen(false);
     setErrorState(null);
   };
+
+  const loadRecommendations = async () => {
+    setRecommendationsLoading(true);
+    try {
+      const payload = await apiCall('get', '/media/merge-recommendations?limit=12');
+      setRecommendations(Array.isArray(payload?.items) ? payload.items : []);
+      setRecommendationsSummary(payload?.summary || null);
+    } catch (_) {
+      setRecommendations([]);
+      setRecommendationsSummary(null);
+    } finally {
+      setRecommendationsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadRecommendations();
+  }, [apiCall, activeLibrary?.id, activeSpace?.id]);
 
   useEffect(() => {
     let active = true;
@@ -261,6 +320,10 @@ export default function AdminMergeReviewView({
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    await requestPreview(Number(canonicalId), Number(duplicateId));
+  };
+
+  const requestPreview = async (nextCanonicalId, nextDuplicateId) => {
     setLoading(true);
     setPreview(null);
     setApplyResult(null);
@@ -268,8 +331,8 @@ export default function AdminMergeReviewView({
     setErrorState(null);
     try {
       const payload = await apiCall('post', '/media/merge-preview', {
-        canonical_id: Number(canonicalId),
-        duplicate_id: Number(duplicateId)
+        canonical_id: Number(nextCanonicalId),
+        duplicate_id: Number(nextDuplicateId)
       });
       setPreview(payload);
     } catch (error) {
@@ -286,6 +349,14 @@ export default function AdminMergeReviewView({
     }
   };
 
+  const handleRecommendationReview = async (item) => {
+    setCanonicalId(String(item?.canonical?.id || ''));
+    setDuplicateId(String(item?.duplicate?.id || ''));
+    setCanonicalSearch(item?.canonical?.title || '');
+    setDuplicateSearch(item?.duplicate?.title || '');
+    await requestPreview(Number(item?.canonical?.id || 0), Number(item?.duplicate?.id || 0));
+  };
+
   const handleApply = async () => {
     if (!preview?.allowed || applying) return;
     setApplying(true);
@@ -300,6 +371,7 @@ export default function AdminMergeReviewView({
       setApplyConfirmOpen(false);
       setDuplicateId('');
       setDuplicateSearch('');
+      await loadRecommendations();
       onToast('Manual merge applied', 'success');
     } catch (error) {
       const response = error?.response?.data || null;
@@ -329,6 +401,38 @@ export default function AdminMergeReviewView({
         <SummaryStat label="Library" value={activeLibrary?.name || 'Current library'} />
         <SummaryStat label="Merge boundary" value="Same type only" />
         <SummaryStat label="Action mode" value="Preview first" />
+      </div>
+
+      <div className="rounded-lg border border-edge bg-void/10">
+        <div className="flex flex-col gap-2 border-b border-edge/70 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-1">
+            <h2 className="text-sm font-medium text-ink">Recommended pairs</h2>
+            <p className="text-sm text-ghost">Suggested same-type pairs from the active workspace and library scope.</p>
+          </div>
+          {recommendationsSummary ? (
+            <div className="flex gap-3 text-xs text-ghost">
+              <span>{recommendationsSummary.returned_candidates || 0} shown</span>
+              <span>{recommendationsSummary.high_confidence || 0} high confidence</span>
+              <span>{recommendationsSummary.medium_confidence || 0} medium confidence</span>
+            </div>
+          ) : null}
+        </div>
+        {recommendationsLoading ? (
+          <div className="px-4 py-6 text-sm text-ghost">Loading recommendations…</div>
+        ) : recommendations.length > 0 ? (
+          <div>
+            {recommendations.map((item) => (
+              <RecommendationRow
+                key={item.recommendation_id}
+                item={item}
+                onReview={handleRecommendationReview}
+                loading={loading || applying}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="px-4 py-6 text-sm text-ghost">No recommended pairs found in the current scope yet.</div>
+        )}
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">

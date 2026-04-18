@@ -43,6 +43,7 @@ const {
   buildComicNormalizationIdentity,
   CANONICAL_SELECTION_REASON,
   chooseCanonicalRow,
+  normalizeDigits,
   normalizeText,
   normalizeIssueToken
 } = require('../services/bookComicNormalization');
@@ -519,6 +520,11 @@ function summarizeMergeSourceRow(row = {}) {
 function formatMergeMatchKind(kind = '', mediaType = '') {
   const normalized = String(kind || '').trim();
   const normalizedMediaType = String(mediaType || '').trim();
+  if (normalized === 'tmdb_id') return 'Matched on TMDB id';
+  if (normalized === 'upc') return 'Matched on UPC';
+  if (normalized === 'provider_item') return 'Matched on provider item';
+  if (normalized === 'title_year') return 'Matched on title and year';
+  if (normalized === 'title_only') return 'Matched on title';
   if (normalizedMediaType === 'book') {
     if (normalized === 'isbn') return 'Matched on ISBN';
     if (normalized === 'title_author') return 'Matched on title and author';
@@ -531,6 +537,143 @@ function formatMergeMatchKind(kind = '', mediaType = '') {
     if (normalized === 'title_only') return 'Matched on title';
   }
   return 'Matched on normalized record identity';
+}
+
+function buildGenericManualMergeIdentity(row = {}) {
+  const mediaType = String(row.media_type || '').trim();
+  const typeDetails = row?.type_details && typeof row.type_details === 'object' ? row.type_details : {};
+  const providerName = normalizeText(typeDetails.provider_name || '');
+  const providerItemId = String(typeDetails.provider_item_id || '').trim();
+  if (providerName && providerItemId) {
+    return {
+      confidence: 'high',
+      kind: 'provider_item',
+      key: `${mediaType}:provider:${providerName}::${providerItemId}`,
+      rationale: ['provider_name', 'provider_item_id']
+    };
+  }
+
+  const tmdbId = String(row.tmdb_id || '').trim();
+  if (tmdbId) {
+    return {
+      confidence: 'high',
+      kind: 'tmdb_id',
+      key: `${mediaType}:tmdb:${tmdbId}`,
+      rationale: ['tmdb_id']
+    };
+  }
+
+  const normalizedUpc = normalizeDigits(row.upc || '');
+  if (normalizedUpc) {
+    return {
+      confidence: 'high',
+      kind: 'upc',
+      key: `${mediaType}:upc:${normalizedUpc}`,
+      rationale: ['upc']
+    };
+  }
+
+  const normalizedTitle = normalizeText(row.title || '');
+  const year = String(row.year || '').trim();
+  if (normalizedTitle && year) {
+    return {
+      confidence: 'medium',
+      kind: 'title_year',
+      key: `${mediaType}:title_year:${normalizedTitle}::${year}`,
+      rationale: ['normalized_title', 'year']
+    };
+  }
+
+  if (normalizedTitle) {
+    return {
+      confidence: 'low',
+      kind: 'title_only',
+      key: `${mediaType}:title:${normalizedTitle}`,
+      rationale: ['normalized_title_only']
+    };
+  }
+
+  return null;
+}
+
+function buildManualMergeRecommendationIdentity(row = {}) {
+  const mediaType = String(row.media_type || '').trim();
+  if (mediaType === 'book') return buildBookNormalizationIdentity(row);
+  if (mediaType === 'comic_book') return buildComicNormalizationIdentity(row);
+  return buildGenericManualMergeIdentity(row);
+}
+
+async function loadScopedManualMergeRecommendations({ scopeContext = null, limit = 12 } = {}) {
+  const cappedLimit = Math.max(1, Math.min(50, Number(limit || 12) || 12));
+  const params = [];
+  const where = `WHERE 1=1${appendScopeSql(params, scopeContext)}`;
+  const result = await pool.query(
+    `SELECT id, title, media_type, import_source, type_details, year, upc, tmdb_id, tmdb_media_type
+       FROM media
+       ${where}
+      ORDER BY updated_at DESC, id DESC`,
+    params
+  );
+
+  const buckets = new Map();
+  for (const row of result.rows || []) {
+    const identity = buildManualMergeRecommendationIdentity(row);
+    if (!identity?.key || identity.confidence === 'low') continue;
+    const bucket = buckets.get(identity.key) || {
+      ...identity,
+      media_type: String(row.media_type || '').trim() || null,
+      rows: []
+    };
+    bucket.rows.push(normalizeMediaRecord(row));
+    buckets.set(identity.key, bucket);
+  }
+
+  const confidenceOrder = { high: 0, medium: 1, low: 2, review: 3 };
+  const allItems = Array.from(buckets.values())
+    .filter((bucket) => Array.isArray(bucket.rows) && bucket.rows.length > 1)
+    .flatMap((bucket) => {
+      const canonical = chooseCanonicalRow(bucket.rows);
+      if (!canonical) return [];
+      return bucket.rows
+        .filter((row) => Number(row.id) !== Number(canonical.id))
+        .sort((left, right) => Number(left.id || 0) - Number(right.id || 0))
+        .map((duplicate) => ({
+          recommendation_id: `${bucket.key}:${canonical.id}:${duplicate.id}`,
+          media_type: bucket.media_type,
+          confidence: bucket.confidence,
+          kind: bucket.kind,
+          key: bucket.key,
+          summary: formatMergeMatchKind(bucket.kind, bucket.media_type),
+          rationale: Array.isArray(bucket.rationale) ? bucket.rationale : [],
+          rationale_labels: (Array.isArray(bucket.rationale) ? bucket.rationale : []).map(formatMergeRationaleLabel),
+          canonical: summarizeMergeSourceRow(canonical),
+          duplicate: summarizeMergeSourceRow(duplicate),
+          canonical_selection: {
+            recommended_canonical_id: Number(canonical.id || 0) || null,
+            requested_matches_recommended: true,
+            selection_reason: CANONICAL_SELECTION_REASON
+          }
+        }));
+    })
+    .sort((left, right) => {
+      const confidenceDelta = (confidenceOrder[left.confidence] ?? 99) - (confidenceOrder[right.confidence] ?? 99);
+      if (confidenceDelta !== 0) return confidenceDelta;
+      const mediaTypeDelta = String(left.media_type || '').localeCompare(String(right.media_type || ''));
+      if (mediaTypeDelta !== 0) return mediaTypeDelta;
+      return Number(left.canonical?.id || 0) - Number(right.canonical?.id || 0)
+        || Number(left.duplicate?.id || 0) - Number(right.duplicate?.id || 0);
+    });
+
+  const limitedItems = allItems.slice(0, cappedLimit);
+  return {
+    summary: {
+      total_candidates: allItems.length,
+      returned_candidates: limitedItems.length,
+      high_confidence: allItems.filter((item) => item.confidence === 'high').length,
+      medium_confidence: allItems.filter((item) => item.confidence === 'medium').length
+    },
+    items: limitedItems
+  };
 }
 
 function buildMergeTechnicalDetails({
@@ -5147,6 +5290,16 @@ router.get('/:id/merge-details', asyncHandler(async (req, res) => {
     return res.status(404).json({ error: 'Media item not found' });
   }
   res.json(details);
+}));
+
+router.get('/merge-recommendations', requireSessionAuth, requireRole('admin', 'support_admin'), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const limit = Math.max(1, Math.min(50, Number(req.query?.limit || 12) || 12));
+  const recommendations = await loadScopedManualMergeRecommendations({
+    scopeContext,
+    limit
+  });
+  res.json(recommendations);
 }));
 
 router.post('/merge-preview', requireSessionAuth, requireRole('admin', 'support_admin'), validate(mediaMergePreviewSchema), asyncHandler(async (req, res) => {

@@ -3228,7 +3228,7 @@ Historical note:
 
 **Goal:** Add a controlled operator-facing manual merge workflow so supported media types can be reviewed, compared, merged, and reverted intentionally without allowing unsafe cross-type merges.
 
-**Current Slice:** `3.2.0.3 — Operator Apply Flow for Manual Merge Review`
+**Current Slice:** `3.2.0.4 — Recommended Merge Candidate Queue`
 
 - Start with same-type manual merge only:
   - books
@@ -3307,6 +3307,11 @@ Historical note:
   - show compared fields, winning values, rewiring impact, and history context,
   - add apply only as an explicit operator confirmation step on top of the preview contract,
   - keep revert for a later operator slice rather than crowding the first apply workflow.
+- Use the next slice to bridge manual review toward future automation:
+  - surface conservative same-type recommended pairs in active scope,
+  - rank high-confidence identity matches ahead of medium-confidence title/year matches,
+  - let operators flow from a recommendation into the existing preview/apply path,
+  - keep rejection/outcome learning for a later follow-up slice.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 

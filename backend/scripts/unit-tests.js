@@ -148,6 +148,7 @@ const repairBookComicDuplicatesSmokeSource = fs.readFileSync(require.resolve('..
 const repairBookComicMultiRevertSmokeSource = fs.readFileSync(require.resolve('../scripts/repair-book-comic-multi-revert-smoke'), 'utf8');
 const manualMergePreviewSmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-preview-smoke'), 'utf8');
 const manualMergeApplySmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-apply-smoke'), 'utf8');
+const manualMergeRecommendationsSmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-recommendations-smoke'), 'utf8');
 const { parseComicMetadataFromTitle, buildComicLikeBookProposal, buildComicLikeBookRevertProposal } = require('../scripts/repair-comic-like-books');
 const { buildClusterFromRows, mergeMissingObjectFields } = require('../scripts/repair-book-comic-duplicates');
 const supportSessionSmokeSource = fs.readFileSync(require.resolve('../scripts/support-session-smoke'), 'utf8');
@@ -1328,9 +1329,12 @@ results.push(run('media route source exposes merge details provenance for canoni
 }));
 
 results.push(run('media route source exposes operator-only manual merge preview for same-type records', () => {
+  assert.ok(mediaRoutesSource.includes("router.get('/merge-recommendations'"));
   assert.ok(mediaRoutesSource.includes("router.post('/merge-preview'"));
   assert.ok(mediaRoutesSource.includes("router.post('/merge-apply'"));
   assert.ok(mediaRoutesSource.includes('loadScopedManualMergePreview'));
+  assert.ok(mediaRoutesSource.includes('loadScopedManualMergeRecommendations'));
+  assert.ok(mediaRoutesSource.includes('buildManualMergeRecommendationIdentity'));
   assert.ok(mediaRoutesSource.includes('runManualMediaMergeApply'));
   assert.ok(mediaRoutesSource.includes("requireRole('admin', 'support_admin')"));
   assert.ok(mediaRoutesSource.includes('requireSessionAuth'));
@@ -1414,12 +1418,15 @@ results.push(run('repo includes historical duplicate attach repair tooling with 
 results.push(run('repo includes manual merge preview smoke coverage for same-type preview and cross-type rejection', () => {
   assert.ok(backendPackageJson.scripts['test:manual-merge-preview-smoke']);
   assert.ok(backendPackageJson.scripts['test:manual-merge-apply-smoke']);
+  assert.ok(backendPackageJson.scripts['test:manual-merge-recommendations-smoke']);
   assert.ok(manualMergePreviewSmokeSource.includes('/api/media/merge-preview'));
   assert.ok(manualMergeApplySmokeSource.includes('/api/media/merge-apply'));
+  assert.ok(manualMergeRecommendationsSmokeSource.includes('/api/media/merge-recommendations'));
   assert.ok(manualMergePreviewSmokeSource.includes('Matched on ISBN'));
   assert.ok(manualMergePreviewSmokeSource.includes('Cross-type merges are not allowed'));
   assert.ok(manualMergeApplySmokeSource.includes('manual_merge'));
   assert.ok(manualMergeApplySmokeSource.includes('activeMergeCount'));
+  assert.ok(manualMergeRecommendationsSmokeSource.includes('Matched on title and year'));
 }));
 
 results.push(run('repo includes merge evidence backfill tooling for older duplicate attach history rows', () => {
@@ -2777,8 +2784,11 @@ results.push(run('library drawer source includes compact match evidence summarie
 results.push(run('admin merge review view posts preview requests and renders operator-facing comparison details', () => {
   assert.ok(adminMergeReviewViewSource.includes("/media/merge-preview"));
   assert.ok(adminMergeReviewViewSource.includes("/media/merge-apply"));
+  assert.ok(adminMergeReviewViewSource.includes('/media/merge-recommendations?limit=12'));
   assert.ok(adminMergeReviewViewSource.includes('/media?search='));
   assert.ok(adminMergeReviewViewSource.includes('Review a same-type pairwise merge inside the current workspace and library scope'));
+  assert.ok(adminMergeReviewViewSource.includes('Recommended pairs'));
+  assert.ok(adminMergeReviewViewSource.includes('Review pair'));
   assert.ok(adminMergeReviewViewSource.includes('Find this record'));
   assert.ok(adminMergeReviewViewSource.includes('Find matched record'));
   assert.ok(adminMergeReviewViewSource.includes('Search inside the active workspace and library scope.'));
