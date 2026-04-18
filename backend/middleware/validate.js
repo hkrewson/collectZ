@@ -236,6 +236,19 @@ const mediaValuationRefreshSchema = z.object({
   mode: z.enum(['live', 'fixture']).optional()
 });
 
+const mediaMergePreviewSchema = z.object({
+  canonical_id: z.number().int().positive('canonical_id is required'),
+  duplicate_id: z.number().int().positive('duplicate_id is required')
+}).superRefine((data, ctx) => {
+  if (Number(data.canonical_id) === Number(data.duplicate_id)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['duplicate_id'],
+      message: 'canonical_id and duplicate_id must be different'
+    });
+  }
+});
+
 // ── Profile ───────────────────────────────────────────────────────────────────
 
 const profileUpdateSchema = z.object({
@@ -633,6 +646,7 @@ module.exports = {
   mediaCreateSchema,
   mediaUpdateSchema,
   mediaValuationRefreshSchema,
+  mediaMergePreviewSchema,
   profileUpdateSchema,
   passwordResetConsumeSchema,
   roleUpdateSchema,

@@ -3224,6 +3224,82 @@ Historical note:
 
 **Status:** Completed on `2026-04-18`
 
+## 3.2.0 — Manual Media Merge Review and Apply Workflow
+
+**Goal:** Add a controlled operator-facing manual merge workflow so supported media types can be reviewed, compared, merged, and reverted intentionally without allowing unsafe cross-type merges.
+
+**Current Slice:** `3.2.0.1 — Manual Merge Preview Contract and Operator Boundary`
+
+- Start with same-type manual merge only:
+  - books
+  - comics
+  - movies
+  - TV
+  - games
+  - audio
+  - collectibles
+  - events
+- Explicitly block cross-type merges such as:
+  - `book -> tv`
+  - `movie -> game`
+  - `comic -> audio`
+- Keep the first implementation operator/admin-facing, pairwise, preview-first, and revert-safe.
+- Reuse the existing repair-history, match-evidence, and revert model instead of inventing a second merge system.
+
+### Scope
+
+- Add a manual merge workflow for same-type records across the supported media families.
+- Build a preview surface that compares:
+  - canonical record candidate,
+  - matched record candidate,
+  - current metadata from both records,
+  - expected winning values,
+  - rewired dependents,
+  - resulting provenance/evidence.
+- Reuse the existing duplicate-attach repair model where practical so manual merge preserves:
+  - merge evidence,
+  - source/provider summaries,
+  - repair history,
+  - revert behavior,
+  - drawer-visible provenance.
+- Keep the first action surface operator/admin-only rather than turning the normal record drawer into a general-purpose merge workstation.
+- Keep merge preview and apply pairwise:
+  - one canonical record,
+  - one duplicate record,
+  - one explicit confirmation.
+- Keep the work explicitly separate from:
+  - broader ingest/provider normalization changes already completed in `3.1.6`,
+  - cross-type record conversion,
+  - batch merge automation.
+
+### Acceptance Criteria
+
+- Operators can preview a same-type merge before applying it.
+- The preview clearly shows canonical vs matched values and the expected post-merge record shape.
+- Cross-type merge attempts are blocked explicitly and explained clearly.
+- Applied manual merges persist evidence through the existing repair-history model and remain visible in the drawer provenance surface.
+- Manual merges can be reverted through the same historical repair model rather than becoming one-way destructive actions.
+
+### Active Slice Notes
+
+- Define the operator boundary first:
+  - read-only drawer evidence remains available to normal users,
+  - preview/apply/revert actions stay out of the default drawer flow,
+  - first implementation should live behind operator/admin permissions.
+- Start with a read-first merge preview contract before adding apply:
+  - canonical id,
+  - duplicate id,
+  - same-type validation result,
+  - field-by-field comparison,
+  - resulting value selection,
+  - dependent rewiring summary,
+  - existing merge/revert history if present.
+- Prefer one API contract that future UI surfaces can reuse:
+  - operator review surface,
+  - future action menu entry,
+  - possible support-session tooling later.
+- Treat the `3.1.6` merge evidence drawer as the user-visible provenance layer, not as the primary action surface for manual merge.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

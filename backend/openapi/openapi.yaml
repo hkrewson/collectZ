@@ -3785,6 +3785,80 @@
         }
       }
     },
+    "/api/media/merge-preview": {
+      "post": {
+        "tags": ["Media"],
+        "summary": "Preview an operator-facing same-type manual merge without applying it",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "canonical_id": { "type": "integer", "minimum": 1 },
+                  "duplicate_id": { "type": "integer", "minimum": 1 }
+                },
+                "required": ["canonical_id", "duplicate_id"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Manual merge preview for two same-type records",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "allowed": { "type": "boolean" },
+                    "canonical": { "type": "object", "additionalProperties": true },
+                    "duplicate": { "type": "object", "additionalProperties": true },
+                    "preview": {
+                      "type": "object",
+                      "properties": {
+                        "media_type": { "type": "string" },
+                        "operator_review_required": { "type": "boolean" },
+                        "canonical_selection": { "type": "object", "additionalProperties": true },
+                        "evidence": { "type": "object", "additionalProperties": true },
+                        "field_comparison": {
+                          "type": "array",
+                          "items": { "type": "object", "additionalProperties": true }
+                        },
+                        "dependent_rewiring": { "type": "object", "additionalProperties": true },
+                        "history_context": { "type": "object", "additionalProperties": true }
+                      },
+                      "required": ["media_type", "operator_review_required", "canonical_selection", "evidence", "field_comparison", "dependent_rewiring", "history_context"]
+                    }
+                  },
+                  "required": ["allowed", "canonical", "duplicate", "preview"]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "One or both media items were not found in the active scope",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "409": {
+            "description": "Cross-type merge preview attempt rejected",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/media/{id}/valuation-refresh": {
       "post": {
         "tags": ["Media"],

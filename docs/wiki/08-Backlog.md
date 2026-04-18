@@ -12,6 +12,32 @@ This file is the staging area for work that has not yet been assigned a release 
 - Keep the roadmap focused on milestone work only.
 - Update the roadmap, release notes, release feed, and verification steps together when a backlog item is promoted.
 
+### Backlog Item: Apple Platform App Contract Publishing
+**Type:** Deferred milestone
+**Tags:** `apple`, `ios`, `ipados`, `macos`, `tvos`, `openapi`, `releases`, `contract`
+
+**Goal:** Publish collectZ as a versioned backend contract and release artifact set so a separate SwiftUI Apple-platform repo can build and consume the API without depending on the web app repo layout or source tree.
+
+**Why this work exists**
+- The Apple app will live in its own repository and needs a stable way to consume collectZ API changes.
+- The Apple app should not depend on the web frontend build output or on direct source sharing from this repo.
+- Versioned contract artifacts give the Apple repo a pinned, reproducible input for Swift code generation and client integration.
+
+**Scope**
+- Keep `backend/openapi/openapi.yaml` as the source-of-truth contract for backend behavior.
+- Publish the OpenAPI contract as a versioned artifact on tagged releases.
+- Keep the existing GHCR backend/frontend image publishing flow for deployable runtime images.
+- Expose a clear release package for other repos to consume, without splitting this repository into multiple source trees.
+- Document how a separate Apple repo should download the pinned contract artifact and generate Swift client types from it.
+- Decide whether GitHub Releases, release assets, or another versioned artifact host is the canonical distribution path for the contract.
+
+**Acceptance Criteria**
+- A tagged backend release publishes a versioned API contract artifact.
+- The contract artifact can be consumed from a separate repository without checking out this repo.
+- The Apple repo can pin to a specific backend version and generate Swift client models from it.
+- Backend/frontend deployable images remain versioned and published as they are today.
+- The publication and consumption flow is documented clearly enough for a separate Apple app repo to implement it without guesswork.
+
 ### Backlog Item: Public Homelab Repo Promotion and Export Workflow
 **Type:** Deferred milestone
 **Tags:** `major-feature`, `infra`, `risk`, `homelab`, `repo-promotion`
@@ -171,50 +197,6 @@ This file is the staging area for work that has not yet been assigned a release 
 - Borrower email can be stored for reminder delivery.
 - Reminder behavior can be triggered from the stored loan record.
 - The loans section fits the library workflow without disrupting existing catalog behavior.
-
-### Backlog Item: Manual Media Merge Review and Apply Workflow
-**Type:** Deferred milestone
-**Tags:** `dedupe`, `merge`, `provenance`, `admin`, `library`, `repair`
-
-**Goal:** Add a controlled manual merge workflow so operators can review, compare, merge, and revert duplicate media records across supported media types without allowing unsafe cross-type merges.
-
-**Scope**
-- Build an operator-facing manual merge flow for all supported media families:
-  - books
-  - comics
-  - movies
-  - TV
-  - games
-  - audio
-  - collectibles
-  - events
-- Explicitly disallow cross-type merges such as:
-  - book -> tv
-  - movie -> game
-  - comic -> audio
-- Keep the first implementation pairwise and explicit:
-  - choose one canonical record
-  - choose one duplicate record
-  - preview the merge before applying it
-- Reuse the existing historical repair model where practical so manual merges preserve:
-  - merge evidence
-  - source summaries
-  - revert history
-  - field provenance
-- Add a merge preview surface that shows:
-  - why the pair is being considered
-  - current metadata from each record
-  - which values would win
-  - what dependent references would be rewired
-- Keep the first UI scoped to operator/admin workflows rather than ordinary day-to-day library browsing.
-- Treat the drawer-level merge-details provenance surface as a dependency and extension point rather than a replacement.
-
-**Acceptance Criteria**
-- Operators can preview a same-type merge before applying it.
-- The merge preview clearly shows canonical vs duplicate values and the expected resulting record shape.
-- Cross-type merge attempts are blocked explicitly and explained clearly.
-- Applied manual merges persist evidence and remain visible through the record provenance UI.
-- Manual merges can be reverted through the same historical repair model instead of becoming one-way destructive actions.
 
 ### Backlog Item: Imports and Sync Cadence Expansion
 **Type:** Deferred milestone
