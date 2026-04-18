@@ -1277,6 +1277,8 @@ results.push(run('media route source exposes merge details provenance for canoni
   assert.ok(mediaRoutesSource.includes("router.get('/:id/merge-details'"));
   assert.ok(mediaRoutesSource.includes('loadScopedMergeDetails'));
   assert.ok(mediaRoutesSource.includes('field_provenance'));
+  assert.ok(mediaRoutesSource.includes('technical_details'));
+  assert.ok(mediaRoutesSource.includes('mergeEvidence'));
   assert.ok(mediaRoutesSource.includes('formatMergeMatchKind'));
   assert.ok(mediaRoutesSource.includes('media_repair_history'));
 }));
@@ -1323,6 +1325,8 @@ results.push(run('repo includes historical duplicate attach repair tooling with 
   assert.ok(backendPackageJson.scripts['repair:book-comic-duplicates']);
   assert.ok(backendPackageJson.scripts['test:repair-book-comic-duplicates-smoke']);
   assert.ok(repairBookComicDuplicatesSource.includes('media_repair_history'));
+  assert.ok(repairBookComicDuplicatesSource.includes('buildPersistedMergeEvidence'));
+  assert.ok(repairBookComicDuplicatesSource.includes('mergeEvidence'));
   assert.ok(repairBookComicDuplicatesSource.includes('upsertDuplicateAttachHistory'));
   assert.ok(repairBookComicDuplicatesSource.includes('getDuplicateAttachHistory'));
   assert.ok(repairBookComicDuplicatesSource.includes('getExistingDuplicateAttachHistory'));
@@ -2660,6 +2664,8 @@ results.push(run('library drawer source includes persistent merge details proven
   assert.ok(libraryViewSource.includes('Merge details'));
   assert.ok(libraryViewSource.includes('Merged from ${Number(mergeSummary?.active_merge_count || 0)}'));
   assert.ok(libraryViewSource.includes('Field provenance'));
+  assert.ok(libraryViewSource.includes('Technical details'));
+  assert.ok(libraryViewSource.includes('selection_reason'));
   assert.ok(libraryViewSource.includes("apiCall('get', `/media/${item.id}/merge-details`)"));
   assert.ok(libraryViewSource.includes('DisclosureList'));
 }));

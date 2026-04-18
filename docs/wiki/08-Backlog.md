@@ -172,6 +172,50 @@ This file is the staging area for work that has not yet been assigned a release 
 - Reminder behavior can be triggered from the stored loan record.
 - The loans section fits the library workflow without disrupting existing catalog behavior.
 
+### Backlog Item: Manual Media Merge Review and Apply Workflow
+**Type:** Deferred milestone
+**Tags:** `dedupe`, `merge`, `provenance`, `admin`, `library`, `repair`
+
+**Goal:** Add a controlled manual merge workflow so operators can review, compare, merge, and revert duplicate media records across supported media types without allowing unsafe cross-type merges.
+
+**Scope**
+- Build an operator-facing manual merge flow for all supported media families:
+  - books
+  - comics
+  - movies
+  - TV
+  - games
+  - audio
+  - collectibles
+  - events
+- Explicitly disallow cross-type merges such as:
+  - book -> tv
+  - movie -> game
+  - comic -> audio
+- Keep the first implementation pairwise and explicit:
+  - choose one canonical record
+  - choose one duplicate record
+  - preview the merge before applying it
+- Reuse the existing historical repair model where practical so manual merges preserve:
+  - merge evidence
+  - source summaries
+  - revert history
+  - field provenance
+- Add a merge preview surface that shows:
+  - why the pair is being considered
+  - current metadata from each record
+  - which values would win
+  - what dependent references would be rewired
+- Keep the first UI scoped to operator/admin workflows rather than ordinary day-to-day library browsing.
+- Treat the drawer-level merge-details provenance surface as a dependency and extension point rather than a replacement.
+
+**Acceptance Criteria**
+- Operators can preview a same-type merge before applying it.
+- The merge preview clearly shows canonical vs duplicate values and the expected resulting record shape.
+- Cross-type merge attempts are blocked explicitly and explained clearly.
+- Applied manual merges persist evidence and remain visible through the record provenance UI.
+- Manual merges can be reverted through the same historical repair model instead of becoming one-way destructive actions.
+
 ### Backlog Item: Imports and Sync Cadence Expansion
 **Type:** Deferred milestone
 **Tags:** `imports`, `csv`, `plex`, `calibre`, `metron`, `sync`

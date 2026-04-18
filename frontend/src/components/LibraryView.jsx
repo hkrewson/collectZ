@@ -575,6 +575,12 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
     if (value === 'merged') return 'Used from merged record';
     return 'Resolved during merge';
   };
+  const formatMergeTechnicalLabel = (value) => {
+    const normalized = String(value || '').trim();
+    if (!normalized) return null;
+    if (normalized === 'duplicate_attach') return 'Duplicate attach';
+    return normalized.replace(/_/g, ' ');
+  };
   const mergeEntries = Array.isArray(mergeDetails?.entries) ? mergeDetails.entries : [];
   const mergeSummary = mergeDetails?.summary || null;
   const mergeDisclosureItems = mergeEntries.map((entry) => ({
@@ -1016,6 +1022,23 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                                   </div>
                                 </div>
                               ))}
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {entry?.technical_details ? (
+                          <div>
+                            <p className="text-[11px] font-medium text-ghost">Technical details</p>
+                            <div className="mt-3 grid gap-2 text-xs text-ghost sm:grid-cols-2">
+                              {entry.technical_details.repair_type ? (
+                                <p>Repair: {formatMergeTechnicalLabel(entry.technical_details.repair_type)}</p>
+                              ) : null}
+                              {entry.technical_details.selection_reason ? (
+                                <p>Selection: {entry.technical_details.selection_reason.replace(/_/g, ' ')}</p>
+                              ) : null}
+                              {entry.technical_details.merge_key ? (
+                                <p className="sm:col-span-2">Merge key: {entry.technical_details.merge_key}</p>
+                              ) : null}
                             </div>
                           </div>
                         ) : null}

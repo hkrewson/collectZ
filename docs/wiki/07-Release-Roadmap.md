@@ -3050,7 +3050,7 @@ Historical note:
 
 **Goal:** Normalize book and comic ingest across Metron and OPDS/CWA so equivalent titles can attach to one canonical library record instead of creating duplicate rows or drifting into the wrong media type when multiple sync-capable sources contribute overlapping data.
 
-**Current Slice:** `3.1.6.21 — Drawer Merge Details and Provenance Surface`
+**Current Slice:** `3.1.6.22 — Persisted Merge Evidence and API Hardening`
 
 ### Scope
 
@@ -3100,6 +3100,13 @@ Historical note:
   - source summaries for canonical and merged rows,
   - field-level provenance for the current merged metadata.
 - Keep the first provenance UI scoped to books and comics until the repair history model and drawer treatment have been validated on the running stack.
+- Persist first-class merge evidence at duplicate-attach time so the drawer and API can read durable facts instead of reconstructing as much at read time:
+  - confidence
+  - match kind
+  - merge key
+  - rationale tokens
+  - canonical-selection reason
+- Expose that persisted evidence through the merge-details API as stable technical details for future operator tooling and provenance UI reuse.
 - Surface medium-confidence matches in the import audit rather than reviving the retired review queue:
   - suppress plain title fallback when a `medium` normalization candidate is found,
   - keep the incoming row separate,

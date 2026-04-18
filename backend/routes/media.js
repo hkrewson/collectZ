@@ -501,6 +501,19 @@ function formatMergeMatchKind(kind = '', mediaType = '') {
   return 'Matched on normalized record identity';
 }
 
+function buildMergeTechnicalDetails({
+  row = {},
+  mergeEvidence = null
+} = {}) {
+  return {
+    repair_type: String(row?.repair_type || 'duplicate_attach').trim() || 'duplicate_attach',
+    merge_key: String(mergeEvidence?.key || '').trim() || null,
+    canonical_id: Number(mergeEvidence?.canonical_selection?.canonical_id || row?.canonical_media_id || 0) || null,
+    duplicate_id: Number(mergeEvidence?.canonical_selection?.duplicate_id || row?.duplicate_media_id || 0) || null,
+    selection_reason: String(mergeEvidence?.canonical_selection?.selection_reason || '').trim() || null
+  };
+}
+
 function formatMergeRationaleLabel(token = '') {
   const normalized = String(token || '').trim();
   const labels = {
@@ -621,6 +634,9 @@ async function loadScopedMergeDetails(mediaId, scopeContext = null) {
   const entries = historyRows.map((row) => {
     const snapshot = row.snapshot && typeof row.snapshot === 'object' ? row.snapshot : {};
     const context = row.context && typeof row.context === 'object' ? row.context : {};
+    const mergeEvidence = context.mergeEvidence && typeof context.mergeEvidence === 'object'
+      ? context.mergeEvidence
+      : null;
     const duplicateMedia = snapshot.media && typeof snapshot.media === 'object' ? snapshot.media : {};
     const previousCanonicalTypeDetails = context.previousCanonicalTypeDetails && typeof context.previousCanonicalTypeDetails === 'object'
       ? context.previousCanonicalTypeDetails
@@ -644,20 +660,31 @@ async function loadScopedMergeDetails(mediaId, scopeContext = null) {
       ? buildComicNormalizationIdentity(duplicateRowForIdentity)
       : buildBookNormalizationIdentity(duplicateRowForIdentity);
     const resolvedIdentity = identity?.key && duplicateIdentity?.key === identity.key ? identity : (duplicateIdentity || identity || null);
+    const persistedKind = String(mergeEvidence?.kind || '').trim() || null;
+    const persistedConfidence = String(mergeEvidence?.confidence || '').trim() || null;
+    const persistedRationale = Array.isArray(mergeEvidence?.rationale) ? mergeEvidence.rationale : null;
+    const matchKind = persistedKind || resolvedIdentity?.kind || null;
+    const confidence = persistedConfidence || resolvedIdentity?.confidence || 'high';
+    const rationale = persistedRationale || (Array.isArray(resolvedIdentity?.rationale) ? resolvedIdentity.rationale : []);
 
     return {
       duplicate_id: Number(row.duplicate_media_id || 0) || null,
+      repair_type: String(row.repair_type || 'duplicate_attach').trim() || 'duplicate_attach',
       applied_at: row.applied_at || null,
       reverted_at: row.reverted_at || null,
-      confidence: resolvedIdentity?.confidence || 'high',
-      match_kind: resolvedIdentity?.kind || null,
-      match_summary: formatMergeMatchKind(resolvedIdentity?.kind, canonical.media_type),
-      rationale: Array.isArray(resolvedIdentity?.rationale) ? resolvedIdentity.rationale.map(formatMergeRationaleLabel) : [],
+      confidence,
+      match_kind: matchKind,
+      match_summary: formatMergeMatchKind(matchKind, canonical.media_type),
+      rationale: rationale.map(formatMergeRationaleLabel),
       canonical: summarizeMergeSourceRow({
         ...canonical,
         type_details: previousCanonicalTypeDetails
       }),
       merged: summarizeMergeSourceRow(duplicateMedia),
+      technical_details: buildMergeTechnicalDetails({
+        row,
+        mergeEvidence
+      }),
       field_provenance: buildMergeFieldProvenance({
         currentTypeDetails: canonical.type_details || {},
         previousCanonicalTypeDetails,

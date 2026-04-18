@@ -315,6 +315,29 @@ function buildAttachContext({ duplicateSnapshot, canonicalRow, canonicalRelation
   };
 }
 
+function buildPersistedMergeEvidence({ cluster = null, plan = null, canonicalRow = null, duplicateRow = null } = {}) {
+  const canonicalSummary = plan?.canonical || null;
+  const duplicateSummary = Array.isArray(plan?.duplicates)
+    ? plan.duplicates.find((entry) => Number(entry?.id || 0) === Number(duplicateRow?.id || 0)) || null
+    : null;
+  return {
+    confidence: String(cluster?.confidence || 'high').trim() || 'high',
+    action: String(plan?.action || 'attach_duplicate_to_canonical').trim() || 'attach_duplicate_to_canonical',
+    key: String(cluster?.key || '').trim() || null,
+    kind: String(cluster?.kind || '').trim() || null,
+    rationale: Array.isArray(cluster?.rationale) ? cluster.rationale : [],
+    canonical_selection: {
+      canonical_id: Number(canonicalRow?.id || canonicalSummary?.id || 0) || null,
+      duplicate_id: Number(duplicateRow?.id || duplicateSummary?.id || 0) || null,
+      canonical_title: String(canonicalRow?.title || canonicalSummary?.title || '').trim() || null,
+      duplicate_title: String(duplicateRow?.title || duplicateSummary?.title || '').trim() || null,
+      canonical_import_source: String(canonicalRow?.import_source || canonicalSummary?.import_source || '').trim() || null,
+      duplicate_import_source: String(duplicateRow?.import_source || duplicateSummary?.import_source || '').trim() || null,
+      selection_reason: 'choose_canonical_row_by_identifier_richness_then_lowest_id'
+    }
+  };
+}
+
 async function snapshotDuplicateState(client, duplicateId) {
   const mediaRow = await client.query('SELECT * FROM media WHERE id = $1', [duplicateId]);
   const metadataRows = await client.query('SELECT "key", "value", created_at FROM media_metadata WHERE media_id = $1 ORDER BY id ASC', [duplicateId]);
@@ -412,7 +435,7 @@ async function rewireDuplicateReferences(client, canonicalId, duplicateId) {
   };
 }
 
-async function mergeDuplicateIntoCanonical(client, canonicalRow, duplicateRow) {
+async function mergeDuplicateIntoCanonical(client, canonicalRow, duplicateRow, mergeEvidence = null) {
   const canonicalTypeDetails = toPlainTypeDetails(canonicalRow.type_details);
   const duplicateTypeDetails = toPlainTypeDetails(duplicateRow.type_details);
   const mergedTypeDetails = mergeMissingObjectFields(canonicalTypeDetails, duplicateTypeDetails);
@@ -434,6 +457,9 @@ async function mergeDuplicateIntoCanonical(client, canonicalRow, duplicateRow) {
     canonicalRow,
     canonicalRelationState
   });
+  attachContext.mergeEvidence = mergeEvidence && typeof mergeEvidence === 'object'
+    ? mergeEvidence
+    : null;
   await upsertDuplicateAttachHistory(client, canonicalRow.id, duplicateRow.id, snapshot, attachContext);
 
   const mergedMetadataEntries = await mergeDuplicateMetadataIntoCanonical(client, canonicalRow.id, duplicateRow.id);
@@ -934,9 +960,17 @@ async function runRepairBookComicDuplicates(options = {}) {
       const refreshedCanonicalRows = await loadRows(client, [canonical.id]);
       const refreshedCanonical = refreshedCanonicalRows[0];
       for (const duplicate of duplicates) {
+        const mergeEvidence = (!options.revert && cluster && plan)
+          ? buildPersistedMergeEvidence({
+              cluster,
+              plan,
+              canonicalRow: refreshedCanonical,
+              duplicateRow: duplicate
+            })
+          : null;
         const detail = options.revert
           ? await revertDuplicateAttachIntoSeparateRow(client, refreshedCanonical, duplicate.id)
-          : await mergeDuplicateIntoCanonical(client, refreshedCanonical, duplicate);
+          : await mergeDuplicateIntoCanonical(client, refreshedCanonical, duplicate, mergeEvidence);
         result.appliedDetails.push(detail);
         if (options.revert) {
           result.reverted += 1;
