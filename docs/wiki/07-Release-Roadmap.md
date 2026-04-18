@@ -3050,10 +3050,15 @@ Historical note:
 
 **Goal:** Normalize book and comic ingest across Metron and OPDS/CWA so equivalent titles can attach to one canonical library record instead of creating duplicate rows or drifting into the wrong media type when multiple sync-capable sources contribute overlapping data.
 
-**Current Slice:** `3.1.6.28 — Multi-Event Duplicate Revert Proof`
+**Current Slice:** `3.1.6.29 — Browser Regression Repair and Milestone Closeout`
 
 - Prove that a canonical record with more than one absorbed duplicate can revert one merge event without disturbing the others, and verify the merge-details evidence summary updates cleanly after the partial revert.
 - Keep any future user-facing revert affordance out of the normal drawer for now; if we surface revert later, it should start as an operator-facing action layered on top of the same event-based repair history.
+- Finish the milestone with release-shaped closeout discipline:
+  - version metadata synchronized to `3.1.6`,
+  - release note + release-feed snapshot regenerated,
+  - running-stack `Help > Releases` proof reverified,
+  - browser-regression repaired and rerun green after the library bulk-selection fix.
 
 ### Scope
 
@@ -3197,6 +3202,27 @@ Historical note:
   - verify the canonical and selected duplicate still share the same provider issue id, normalized comic identity, and no prior repair history,
   - attach only one duplicate row and rerun the live repair report afterward,
   - confirm the report advances cleanly to the next issue before deciding whether the comic lane is ready for repeated one-at-a-time work or any broader batching rule.
+
+### Closeout Notes
+
+- Books and comics now follow one explicit normalization contract across ingest and historical repair:
+  - high-confidence matches attach to a canonical row,
+  - medium-confidence matches stay visible and review-scoped,
+  - low-confidence rows remain separate.
+- Historical cleanup is no longer theoretical:
+  - comic-like `book` rows have a rollback-safe reclassification path,
+  - duplicate attach repairs have rollback-safe revert support,
+  - both lanes were proven with Docker-backed smokes and narrow real-data pilots.
+- Canonical rows can now accumulate more than one absorbed duplicate without losing explainability:
+  - repair history stores durable merge evidence,
+  - the drawer shows persistent match evidence with provider/source labels,
+  - partial revert proof confirms one merge event can be restored without disturbing another still-active merge.
+- The drawer treatment intentionally stops short of a user-facing repair action surface:
+  - match evidence stays inline and read-only for now,
+  - any future revert affordance should begin as an operator-facing action, not a default end-user drawer control.
+- The milestone closed with semver/release alignment on `3.1.6`, including release notes, the in-app release feed snapshot, rebuilt platform/homelab stacks, green RBAC/browser/edition-boundary gates, and live Help > Releases proof on the running stack.
+
+**Status:** Completed on `2026-04-18`
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 

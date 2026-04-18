@@ -3389,6 +3389,24 @@ export default function LibraryView({
   const footerHasMore = isCollectionMode
     ? Boolean(collectionPagination?.hasMore)
     : (isComicsLibrary ? comicPagedState.hasMore : Boolean(pagination?.hasMore));
+  const filtersPending = useMemo(() => {
+    const normalizedSearchInput = searchInput.trim();
+    return normalizedSearchInput !== debouncedSearchInput
+      || debouncedSearchInput !== (filters.search || '')
+      || resolutionInput !== filters.resolution
+      || platformInput !== filters.platform
+      || publisherInput !== filters.publisher;
+  }, [
+    debouncedSearchInput,
+    filters.platform,
+    filters.publisher,
+    filters.resolution,
+    filters.search,
+    platformInput,
+    publisherInput,
+    resolutionInput,
+    searchInput
+  ]);
 
   useEffect(() => {
     if (!isComicsLibrary) return;
@@ -3424,6 +3442,7 @@ export default function LibraryView({
     && !allMatchingSelected;
   const canSelectVisiblePage = visibleSelectableIds.length > 0 && !allVisibleSelected;
   const showSelectionControls = !isCollectionMode && !(isComicsLibrary && comicView === 'series');
+  const selectionControlsPending = loading || filtersPending;
   const hasResultsTabs = supportsCollections || isComicsLibrary;
 
   const noteSelectionGesture = useCallback((event) => {
@@ -3725,7 +3744,7 @@ export default function LibraryView({
                   <button
                     type="button"
                     onClick={handleSelectAllVisible}
-                    disabled={loading}
+                    disabled={selectionControlsPending}
                     className="inline-flex items-center text-xs text-dim underline-offset-4 hover:text-ink hover:underline disabled:cursor-default disabled:no-underline disabled:opacity-50"
                   >
                     {`Select page (${visibleSelectableIds.length})`}
@@ -3735,7 +3754,7 @@ export default function LibraryView({
                   <button
                     type="button"
                     onClick={handleSelectAllMatching}
-                    disabled={loading || selectingAllMatching}
+                    disabled={selectionControlsPending || selectingAllMatching}
                     className="inline-flex items-center text-xs text-dim underline-offset-4 hover:text-ink hover:underline disabled:cursor-default disabled:no-underline disabled:opacity-50"
                   >
                     {selectingAllMatching ? `Selecting ${selectionScopeLabel}…` : `Select all ${selectableResultTotal} ${selectionScopeLabel}`}
@@ -3748,7 +3767,7 @@ export default function LibraryView({
                   <button
                     type="button"
                     onClick={handleSelectAllVisible}
-                    disabled={loading || visibleSelectableIds.length === 0}
+                    disabled={selectionControlsPending || visibleSelectableIds.length === 0}
                     className="inline-flex items-center text-xs text-dim underline-offset-4 hover:text-ink hover:underline disabled:cursor-default disabled:no-underline disabled:opacity-50 lg:ml-2"
                   >
                     {`Select page (${visibleSelectableIds.length})`}

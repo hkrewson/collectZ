@@ -1,6 +1,39 @@
 {
   "releases": [
     {
+      "title": "v3.1.6",
+      "version": "3.1.6",
+      "date": "2026-04-18",
+      "status": "Completed",
+      "summary": "This patch release finishes the book and comic normalization milestone by turning duplicate handling from a one-off audit into a proven repair workflow. High-confidence ingest now attaches to existing canonical rows instead of multiplying obvious duplicates, medium-confidence matches stay review-scoped, historical comic-like books and duplicate clusters have rollback-safe repair tooling, and merged records now explain what happened directly inside the library drawer with durable match evidence.",
+      "details": [
+        {
+          "heading": "Normalization contract and ingest behavior",
+          "bullets": [
+            "Defined explicit confidence bands and match rationale for books and comics so ISBN-backed books and series/issue/volume comics can auto-attach only when the evidence is strong enough.",
+            "Wired high-confidence normalization into ingest before loose title fallback so obvious Metron and OPDS/CWA duplicates stop creating new rows.",
+            "Kept medium-confidence matches out of silent merges and surfaced them as review-tier import audit outcomes instead."
+          ]
+        },
+        {
+          "heading": "Historical repair tooling and live validation",
+          "bullets": [
+            "Added dry-run repair planning for duplicate clusters and comic-like book misclassifications.",
+            "Added rollback-safe historical repair tooling for comic-like `book` rows and high-confidence duplicate attach repairs, including revert support.",
+            "Validated the repair model through targeted real-data pilots for obvious OPDS comic issues, ISBN-backed book duplicates, and conservative comic duplicate pairs."
+          ]
+        },
+        {
+          "heading": "Merge evidence and drawer provenance",
+          "bullets": [
+            "Persisted first-class merge evidence in repair history so the app can explain confidence, match rule, merge key, and canonical-selection reasoning from durable data rather than reconstructed guesses.",
+            "Added a persistent drawer-level match-evidence surface for merged books and comics with source/provider labels, compared-field validation, record ids, and merge timestamps.",
+            "Aggregated multiple merge events under one canonical record and proved partial revert behavior so one absorbed duplicate can be restored without disturbing another still-attached merge event."
+          ]
+        }
+      ]
+    },
+    {
       "title": "v3.1.5",
       "version": "3.1.5",
       "date": "2026-04-16",
@@ -204,14 +237,6 @@
       "date": "2026-04-11",
       "status": "Completed",
       "summary": "This patch release finishes the workspace-owned member lifecycle foundation. Workspace owners and admins can now force password resets, suspend and restore members within the workspace boundary, invite a brand-new person to become the initial owner during workspace creation, and remove a member from a workspace without silently deleting the content they contributed there. The release keeps platform-global administration distinct from workspace-scoped lifecycle control and preserves the intended tenancy model.",
-      "details": []
-    },
-    {
-      "title": "v2.10.16",
-      "version": "2.10.16",
-      "date": "2026-04-11",
-      "status": "Completed",
-      "summary": "This patch release turns the SaaS auth surface into a real public account-entry flow. Users can now request password resets from the sign-in screen, self-register when the platform allows it, verify their email before normal sign-in, and land in the correct workspace model depending on how they were onboarded. Public self-registration now creates a personal workspace after verification, while invite-based onboarding still lands a new user only in the invited workspace without creating an extra personal one.",
       "details": []
     }
   ]

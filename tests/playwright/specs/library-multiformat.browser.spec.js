@@ -614,6 +614,7 @@ test.describe('library multi-format browser regressions', () => {
       await expect(page.getByText(`${visibleCount} selected`, { exact: true })).toBeVisible();
       const selectAllMatchingButton = page.getByRole('button', { name: /^Select all \d+ movies$/ });
       await expect(selectAllMatchingButton).toBeVisible();
+      await expect(selectAllMatchingButton).toBeEnabled();
       const selectAllLabel = await selectAllMatchingButton.textContent();
       const totalCountMatch = String(selectAllLabel || '').match(/Select all (\d+) movies/);
       const totalCount = Number(totalCountMatch?.[1] || 0);
