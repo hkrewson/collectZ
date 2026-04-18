@@ -137,6 +137,7 @@ const structuredLogSmokeSharedSource = fs.readFileSync(require.resolve('../scrip
 const importNormalizationSmokeSource = fs.readFileSync(require.resolve('../scripts/import-normalization-smoke'), 'utf8');
 const importNormalizationReviewSmokeSource = fs.readFileSync(require.resolve('../scripts/import-normalization-review-smoke'), 'utf8');
 const historicalRepairPlanSource = fs.readFileSync(require.resolve('../scripts/book-comic-historical-repair-plan'), 'utf8');
+const backfillMergeEvidenceSource = fs.readFileSync(require.resolve('../scripts/backfill-merge-evidence'), 'utf8');
 const repairComicLikeBooksSource = fs.readFileSync(require.resolve('../scripts/repair-comic-like-books'), 'utf8');
 const repairComicLikeBooksSmokeSource = fs.readFileSync(require.resolve('../scripts/repair-comic-like-books-smoke'), 'utf8');
 const repairBookComicDuplicatesSource = fs.readFileSync(require.resolve('../scripts/repair-book-comic-duplicates'), 'utf8');
@@ -1279,6 +1280,8 @@ results.push(run('media route source exposes merge details provenance for canoni
   assert.ok(mediaRoutesSource.includes('field_provenance'));
   assert.ok(mediaRoutesSource.includes('technical_details'));
   assert.ok(mediaRoutesSource.includes('mergeEvidence'));
+  assert.ok(mediaRoutesSource.includes('applied_at'));
+  assert.ok(mediaRoutesSource.includes('canonical_id'));
   assert.ok(mediaRoutesSource.includes('formatMergeMatchKind'));
   assert.ok(mediaRoutesSource.includes('media_repair_history'));
 }));
@@ -1344,6 +1347,14 @@ results.push(run('repo includes historical duplicate attach repair tooling with 
   assert.ok(repairBookComicDuplicatesSmokeSource.includes('revertRecorded'));
   assert.ok(repairBookComicDuplicatesSmokeSource.includes('canonicalAuthorAfterRevert'));
   assert.ok(repairBookComicDuplicatesSmokeSource.includes('collection_items'));
+}));
+
+results.push(run('repo includes merge evidence backfill tooling for older duplicate attach history rows', () => {
+  assert.ok(backendPackageJson.scripts['test:backfill-merge-evidence']);
+  assert.ok(backendPackageJson.scripts['repair:backfill-merge-evidence']);
+  assert.ok(backfillMergeEvidenceSource.includes("context->'mergeEvidence'"));
+  assert.ok(backfillMergeEvidenceSource.includes('buildPersistedMergeEvidence'));
+  assert.ok(backfillMergeEvidenceSource.includes('updated_at = NOW()'));
 }));
 
 results.push(run('media route source uses title candidate fallback for tmdb lookups', () => {
@@ -2666,6 +2677,8 @@ results.push(run('library drawer source includes persistent merge details proven
   assert.ok(libraryViewSource.includes('Field provenance'));
   assert.ok(libraryViewSource.includes('Technical details'));
   assert.ok(libraryViewSource.includes('selection_reason'));
+  assert.ok(libraryViewSource.includes('Canonical id:'));
+  assert.ok(libraryViewSource.includes('Merged at:'));
   assert.ok(libraryViewSource.includes("apiCall('get', `/media/${item.id}/merge-details`)"));
   assert.ok(libraryViewSource.includes('DisclosureList'));
 }));

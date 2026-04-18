@@ -1033,6 +1033,18 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                               {entry.technical_details.repair_type ? (
                                 <p>Repair: {formatMergeTechnicalLabel(entry.technical_details.repair_type)}</p>
                               ) : null}
+                              {entry.technical_details.canonical_id ? (
+                                <p>Canonical id: {entry.technical_details.canonical_id}</p>
+                              ) : null}
+                              {entry.technical_details.duplicate_id ? (
+                                <p>Merged id: {entry.technical_details.duplicate_id}</p>
+                              ) : null}
+                              {entry.technical_details.applied_at ? (
+                                <p>Merged at: {formatMergeTimestamp(entry.technical_details.applied_at)}</p>
+                              ) : null}
+                              {entry.technical_details.reverted_at ? (
+                                <p>Reverted at: {formatMergeTimestamp(entry.technical_details.reverted_at)}</p>
+                              ) : null}
                               {entry.technical_details.selection_reason ? (
                                 <p>Selection: {entry.technical_details.selection_reason.replace(/_/g, ' ')}</p>
                               ) : null}

@@ -3050,7 +3050,10 @@ Historical note:
 
 **Goal:** Normalize book and comic ingest across Metron and OPDS/CWA so equivalent titles can attach to one canonical library record instead of creating duplicate rows or drifting into the wrong media type when multiple sync-capable sources contribute overlapping data.
 
-**Current Slice:** `3.1.6.22 — Persisted Merge Evidence and API Hardening`
+**Current Slice:** `3.1.6.23 — Merge Evidence Backfill and Technical Detail Expansion`
+
+- Backfill persisted `mergeEvidence` onto older `duplicate_attach` repair-history rows so drawer provenance can rely on durable history instead of reconstructing older merges at read time.
+- Expand merge technical details in the drawer/API to include canonical and merged ids plus merge and revert timestamps so users can see what happened and when without leaving the record drawer.
 
 ### Scope
 

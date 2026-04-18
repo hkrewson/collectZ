@@ -27,6 +27,7 @@
     "test:book-comic-historical-repair-plan": "node scripts/book-comic-historical-repair-plan.js",
     "test:repair-comic-like-books-smoke": "node scripts/repair-comic-like-books-smoke.js",
     "test:repair-book-comic-duplicates-smoke": "node scripts/repair-book-comic-duplicates-smoke.js",
+    "test:backfill-merge-evidence": "node scripts/backfill-merge-evidence.js",
     "test:mixed-media-filters": "node scripts/check-mixed-media-filters.js",
     "test:mixed-media-benchmark": "node scripts/benchmark-mixed-media-queries.js",
     "test:migration-rehearsal": "node scripts/migration-rehearsal.js",
@@ -36,7 +37,8 @@
     "repair:comic-issues": "node scripts/repair-comic-issue-mismatches.js",
     "repair:comic-posters": "node scripts/repair-comic-posters.js",
     "repair:comic-like-books": "node scripts/repair-comic-like-books.js",
-    "repair:book-comic-duplicates": "node scripts/repair-book-comic-duplicates.js"
+    "repair:book-comic-duplicates": "node scripts/repair-book-comic-duplicates.js",
+    "repair:backfill-merge-evidence": "node scripts/backfill-merge-evidence.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1014.0",

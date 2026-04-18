@@ -510,7 +510,9 @@ function buildMergeTechnicalDetails({
     merge_key: String(mergeEvidence?.key || '').trim() || null,
     canonical_id: Number(mergeEvidence?.canonical_selection?.canonical_id || row?.canonical_media_id || 0) || null,
     duplicate_id: Number(mergeEvidence?.canonical_selection?.duplicate_id || row?.duplicate_media_id || 0) || null,
-    selection_reason: String(mergeEvidence?.canonical_selection?.selection_reason || '').trim() || null
+    selection_reason: String(mergeEvidence?.canonical_selection?.selection_reason || '').trim() || null,
+    applied_at: row?.applied_at || null,
+    reverted_at: row?.reverted_at || null
   };
 }
 

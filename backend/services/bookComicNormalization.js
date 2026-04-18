@@ -5,6 +5,7 @@ const CONFIDENCE_ACTIONS = {
   medium: 'review',
   low: 'keep_separate'
 };
+const CANONICAL_SELECTION_REASON = 'choose_canonical_row_by_identifier_richness_then_lowest_id';
 
 function normalizeText(value) {
   return String(value || '')
@@ -265,6 +266,55 @@ function chooseCanonicalRow(rows = []) {
     .sort((left, right) => right.score - left.score || left.id - right.id)[0]?.row || null;
 }
 
+function buildPersistedMergeEvidence({
+  canonicalRow = null,
+  duplicateRow = null,
+  previousCanonicalTypeDetails = null,
+  confidence = null,
+  kind = null,
+  key = null,
+  rationale = null,
+  action = null
+} = {}) {
+  if (!canonicalRow || !duplicateRow) return null;
+  const mediaType = String(canonicalRow.media_type || duplicateRow.media_type || '').trim();
+  const builder = mediaType === 'comic_book'
+    ? buildComicNormalizationIdentity
+    : buildBookNormalizationIdentity;
+  const canonicalForIdentity = {
+    ...canonicalRow,
+    type_details: previousCanonicalTypeDetails && typeof previousCanonicalTypeDetails === 'object'
+      ? previousCanonicalTypeDetails
+      : canonicalRow.type_details
+  };
+  const canonicalIdentity = builder(canonicalForIdentity);
+  const duplicateIdentity = builder(duplicateRow);
+  const resolvedIdentity = (
+    canonicalIdentity?.key
+    && duplicateIdentity?.key
+    && canonicalIdentity.key === duplicateIdentity.key
+  )
+    ? canonicalIdentity
+    : (duplicateIdentity || canonicalIdentity || null);
+
+  return {
+    confidence: String(confidence || resolvedIdentity?.confidence || 'high').trim() || 'high',
+    action: String(action || resolvedIdentity?.action || 'auto_attach').trim() || 'auto_attach',
+    key: String(key || resolvedIdentity?.key || '').trim() || null,
+    kind: String(kind || resolvedIdentity?.kind || '').trim() || null,
+    rationale: Array.isArray(rationale) ? rationale : (Array.isArray(resolvedIdentity?.rationale) ? resolvedIdentity.rationale : []),
+    canonical_selection: {
+      canonical_id: Number(canonicalRow.id || 0) || null,
+      duplicate_id: Number(duplicateRow.id || 0) || null,
+      canonical_title: String(canonicalRow.title || '').trim() || null,
+      duplicate_title: String(duplicateRow.title || '').trim() || null,
+      canonical_import_source: String(canonicalRow.import_source || '').trim() || null,
+      duplicate_import_source: String(duplicateRow.import_source || '').trim() || null,
+      selection_reason: CANONICAL_SELECTION_REASON
+    }
+  };
+}
+
 function summarizeRepairTargetRow(row = {}) {
   const typeDetails = toPlainTypeDetails(row.type_details);
   return {
@@ -358,6 +408,7 @@ function buildHistoricalRepairPlan({
 }
 
 module.exports = {
+  CANONICAL_SELECTION_REASON,
   CONFIDENCE_ACTIONS,
   normalizeText,
   normalizeDigits,
@@ -367,6 +418,7 @@ module.exports = {
   detectLikelyComicLikeBook,
   scoreRowForCanonicalSelection,
   chooseCanonicalRow,
+  buildPersistedMergeEvidence,
   buildDuplicateRepairPlan,
   buildHistoricalRepairPlan,
   groupRowsByNormalizationKey,
