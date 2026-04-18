@@ -185,6 +185,21 @@ async function getDuplicateAttachHistory(client, canonicalMediaId, duplicateMedi
   return result.rows[0] || null;
 }
 
+async function listActiveDuplicateAttachHistories(client, canonicalMediaId, options = {}) {
+  const excludedDuplicateId = Number(options.excludeDuplicateId || 0);
+  const result = await client.query(
+    `SELECT canonical_media_id, duplicate_media_id, repair_type, snapshot, context, applied_at, reverted_at
+       FROM media_repair_history
+      WHERE canonical_media_id = $1
+        AND repair_type = 'duplicate_attach'
+        AND reverted_at IS NULL
+        AND ($2::int = 0 OR duplicate_media_id <> $2)
+      ORDER BY applied_at ASC NULLS LAST, duplicate_media_id ASC`,
+    [canonicalMediaId, excludedDuplicateId]
+  );
+  return result.rows || [];
+}
+
 async function getExistingDuplicateAttachHistory(client, canonicalMediaId, duplicateMediaId) {
   const history = await getDuplicateAttachHistory(client, canonicalMediaId, duplicateMediaId);
   if (history && !history.reverted_at) {
@@ -744,6 +759,29 @@ async function revertCanonicalTypeDetails(
   );
 }
 
+function rebuildCanonicalFormatStateAfterRevert(canonicalRow, revertContext = {}, remainingHistories = []) {
+  let state = {
+    media_type: canonicalRow.media_type || 'movie',
+    format: revertContext.previousCanonicalFormat || null,
+    owned_formats: Array.isArray(revertContext.previousCanonicalOwnedFormats)
+      ? revertContext.previousCanonicalOwnedFormats
+      : []
+  };
+
+  for (const history of remainingHistories) {
+    const remainingSnapshotMedia = history?.snapshot?.media || null;
+    if (!remainingSnapshotMedia) continue;
+    const mergedState = buildMergedFormatState(state, remainingSnapshotMedia);
+    state = {
+      media_type: state.media_type,
+      format: mergedState.format,
+      owned_formats: mergedState.ownedFormats
+    };
+  }
+
+  return state;
+}
+
 async function revertCanonicalMetadata(client, canonicalId, snapshot = {}, previousCanonicalMetadata = []) {
   const previousMap = buildCanonicalMetadataMap(previousCanonicalMetadata);
   for (const entry of snapshot.media_metadata || []) {
@@ -836,6 +874,14 @@ async function revertDuplicateAttachIntoSeparateRow(client, canonicalRow, duplic
   if (!context) {
     throw new Error(`Missing duplicate attach context for duplicate ${duplicateId}`);
   }
+  const remainingActiveHistories = await listActiveDuplicateAttachHistories(client, canonicalRow.id, {
+    excludeDuplicateId: duplicateId
+  });
+  const restoredCanonicalFormatState = rebuildCanonicalFormatStateAfterRevert(
+    canonicalRow,
+    context,
+    remainingActiveHistories
+  );
 
   const duplicateExists = await client.query('SELECT id FROM media WHERE id = $1', [duplicateId]);
   if ((duplicateExists.rows || []).length > 0) {
@@ -853,8 +899,8 @@ async function revertDuplicateAttachIntoSeparateRow(client, canonicalRow, duplic
     client,
     canonicalRow.id,
     context.previousCanonicalTypeDetails || {},
-    context.previousCanonicalFormat || null,
-    context.previousCanonicalOwnedFormats || []
+    restoredCanonicalFormatState.format,
+    restoredCanonicalFormatState.owned_formats
   );
   await revertCanonicalMetadata(client, canonicalRow.id, snapshot, context.previousCanonicalMetadata || []);
   await revertCanonicalTaxonomyAndSeasons(client, canonicalRow.id, snapshot, context);

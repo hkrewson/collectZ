@@ -158,16 +158,21 @@ async function main() {
       headers: { 'Content-Type': 'application/json' }
     });
     await client.fetchCsrfToken();
+    const scopeBootstrap = await client.request('/api/auth/scope', { expectStatus: 200 });
+    if (Number(scopeBootstrap?.data?.active_library_id || 0) !== libraryId) {
+      throw new Error(`Expected scope bootstrap to expose the temp library, got ${JSON.stringify(scopeBootstrap?.data)}`);
+    }
 
     const canonical = await pool.query(
       `INSERT INTO media (
-         title, media_type, format, type_details, library_id, space_id, added_by, import_source
+         title, media_type, format, owned_formats, type_details, library_id, space_id, added_by, import_source
        ) VALUES (
-         $1, 'comic_book', 'Digital', $2::jsonb, $3, $4, $5, 'metron_sync'
+         $1, 'comic_book', 'Paper', $2::text[], $3::jsonb, $4, $5, $6, 'metron_sync'
        )
        RETURNING id`,
       [
         'Alpha Flight #11: Set-Up / Unleash the Beast!',
+        ['paper'],
         JSON.stringify({
           series: 'Alpha Flight',
           issue_number: '11',
@@ -186,13 +191,14 @@ async function main() {
 
     const duplicateOne = await pool.query(
       `INSERT INTO media (
-         title, media_type, format, type_details, library_id, space_id, added_by, import_source
+         title, media_type, format, owned_formats, type_details, library_id, space_id, added_by, import_source
        ) VALUES (
-         $1, 'comic_book', 'Digital', $2::jsonb, $3, $4, $5, 'metron_sync'
+         $1, 'comic_book', 'Digital', $2::text[], $3::jsonb, $4, $5, $6, 'metron_sync'
        )
        RETURNING id`,
       [
         'Alpha Flight #11: Set-Up / Unleash the Beast!',
+        ['digital'],
         JSON.stringify({
           series: 'Alpha Flight',
           issue_number: '11',
@@ -211,13 +217,14 @@ async function main() {
 
     const duplicateTwo = await pool.query(
       `INSERT INTO media (
-         title, media_type, format, type_details, library_id, space_id, added_by, import_source
+         title, media_type, format, owned_formats, type_details, library_id, space_id, added_by, import_source
        ) VALUES (
-         $1, 'comic_book', 'Digital', $2::jsonb, $3, $4, $5, 'metron_sync'
+         $1, 'comic_book', 'Digital', $2::text[], $3::jsonb, $4, $5, $6, 'metron_sync'
        )
        RETURNING id`,
       [
         'Alpha Flight #11: Set-Up / Unleash the Beast!',
+        ['digital'],
         JSON.stringify({
           series: 'Alpha Flight',
           issue_number: '11',
@@ -267,6 +274,14 @@ async function main() {
     if (beforeEntries.length !== 2) {
       throw new Error(`Expected two merge-detail entries before revert, got ${JSON.stringify(beforeEntries)}`);
     }
+    const canonicalBeforeRevert = await pool.query(
+      'SELECT format, owned_formats FROM media WHERE id = $1',
+      [canonicalId]
+    );
+    const canonicalBeforeRow = canonicalBeforeRevert.rows[0] || null;
+    if (!canonicalBeforeRow || canonicalBeforeRow.format !== 'Paper' || JSON.stringify(canonicalBeforeRow.owned_formats || []) !== JSON.stringify(['digital', 'paper'])) {
+      throw new Error(`Expected canonical row to hold merged multi-format ownership before revert, got ${JSON.stringify(canonicalBeforeRow)}`);
+    }
 
     const reverted = await runRepairBookComicDuplicates({
       ids: [canonicalId, duplicateOneId],
@@ -309,6 +324,22 @@ async function main() {
     if (String(revertedRow?.media_type || '') !== 'comic_book') {
       throw new Error(`Expected reverted duplicate to restore as comic_book, got ${JSON.stringify(revertedRow)}`);
     }
+    const canonicalAfterRevert = await pool.query(
+      'SELECT format, owned_formats FROM media WHERE id = $1',
+      [canonicalId]
+    );
+    const canonicalAfterRow = canonicalAfterRevert.rows[0] || null;
+    if (!canonicalAfterRow || canonicalAfterRow.format !== 'Paper' || JSON.stringify(canonicalAfterRow.owned_formats || []) !== JSON.stringify(['digital', 'paper'])) {
+      throw new Error(`Expected canonical row to keep format state from the remaining attached duplicate after partial revert, got ${JSON.stringify(canonicalAfterRow)}`);
+    }
+    const revertedDuplicateFormats = await pool.query(
+      'SELECT format, owned_formats FROM media WHERE id = $1',
+      [duplicateOneId]
+    );
+    const revertedFormatRow = revertedDuplicateFormats.rows[0] || null;
+    if (!revertedFormatRow || revertedFormatRow.format !== 'Digital' || JSON.stringify(revertedFormatRow.owned_formats || []) !== JSON.stringify(['digital'])) {
+      throw new Error(`Expected reverted duplicate to restore its original format state, got ${JSON.stringify(revertedFormatRow)}`);
+    }
 
     const historyRows = await pool.query(
       `SELECT duplicate_media_id, applied_at, reverted_at
@@ -337,6 +368,8 @@ async function main() {
       beforeSourceCount: beforeSummary.source_count,
       afterSourceCount: afterSummary.source_count,
       remainingMergeDetailDuplicateId: afterEntries[0]?.technical_details?.duplicate_id || null,
+      canonicalOwnedFormatsAfterRevert: canonicalAfterRow?.owned_formats || [],
+      revertedDuplicateOwnedFormats: revertedFormatRow?.owned_formats || [],
       revertedHistoryRecorded: Boolean(historyByDuplicateId.get(duplicateOneId)?.reverted_at),
       remainingHistoryStillActive: !historyByDuplicateId.get(duplicateTwoId)?.reverted_at
     }, null, 2));

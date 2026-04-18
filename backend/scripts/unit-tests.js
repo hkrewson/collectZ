@@ -1442,6 +1442,8 @@ results.push(run('repo includes historical duplicate attach repair tooling with 
   assert.ok(repairBookComicDuplicatesSource.includes('buildMergedFormatState'));
   assert.ok(repairBookComicDuplicatesSource.includes('previousCanonicalOwnedFormats'));
   assert.ok(repairBookComicDuplicatesSource.includes('previousCanonicalFormat'));
+  assert.ok(repairBookComicDuplicatesSource.includes('listActiveDuplicateAttachHistories'));
+  assert.ok(repairBookComicDuplicatesSource.includes('rebuildCanonicalFormatStateAfterRevert'));
   assert.ok(repairBookComicDuplicatesSource.includes('rewireDuplicateReferences'));
   assert.ok(repairBookComicDuplicatesSource.includes('DELETE FROM media WHERE id = $1'));
   assert.ok(repairBookComicDuplicatesSource.includes('restoreDuplicateMediaRow'));
@@ -1453,9 +1455,12 @@ results.push(run('repo includes historical duplicate attach repair tooling with 
   assert.ok(repairBookComicDuplicatesSmokeSource.includes('canonicalAuthorAfterRevert'));
   assert.ok(repairBookComicDuplicatesSmokeSource.includes('collection_items'));
   assert.ok(repairBookComicMultiRevertSmokeSource.includes('/api/media/${canonicalId}/merge-details'));
+  assert.ok(repairBookComicMultiRevertSmokeSource.includes('/api/auth/scope'));
   assert.ok(repairBookComicMultiRevertSmokeSource.includes('beforeActiveMergeCount'));
   assert.ok(repairBookComicMultiRevertSmokeSource.includes('afterActiveMergeCount'));
   assert.ok(repairBookComicMultiRevertSmokeSource.includes('remainingMergeDetailDuplicateId'));
+  assert.ok(repairBookComicMultiRevertSmokeSource.includes('canonicalOwnedFormatsAfterRevert'));
+  assert.ok(repairBookComicMultiRevertSmokeSource.includes('revertedDuplicateOwnedFormats'));
   assert.ok(repairBookComicMultiRevertSmokeSource.includes('remainingHistoryStillActive'));
 }));
 
