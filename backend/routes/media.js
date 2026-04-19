@@ -59,6 +59,9 @@ const {
   isStructuredTitlePairUnsafeForSharedCoverDiscovery
 } = require('../services/manualMergeRecommendations');
 const {
+  buildMediaIdentityAliasKey
+} = require('../services/mediaIdentityAliases');
+const {
   ALL_DISPLAY_FORMAT_LABELS,
   getOwnedFormatOptions,
   getOwnedFormatLabel,
@@ -3544,11 +3547,14 @@ async function findExistingByIdentifier({ identifierType, identifierValue, norma
   });
   let condition = '';
   if (identifierType === 'isbn') {
-    condition = `(COALESCE(m.type_details->>'isbn', '') = $2 OR (mm."key" = 'isbn' AND mm."value" = $2))`;
+    const aliasKey = buildMediaIdentityAliasKey('isbn', identifierValue);
+    condition = `(COALESCE(m.type_details->>'isbn', '') = $2 OR (mm."key" = 'isbn' AND mm."value" = $2)${aliasKey ? ` OR mm."key" = '${aliasKey.replace(/'/g, "''")}'` : ''})`;
   } else if (identifierType === 'ean_upc') {
-    condition = `(COALESCE(m.upc, '') = $2 OR (mm."key" IN ('ean', 'ean_upc', 'upc') AND mm."value" = $2))`;
+    const aliasKey = buildMediaIdentityAliasKey('eanUpc', identifierValue);
+    condition = `(COALESCE(m.upc, '') = $2 OR (mm."key" IN ('ean', 'ean_upc', 'upc') AND mm."value" = $2)${aliasKey ? ` OR mm."key" = '${aliasKey.replace(/'/g, "''")}'` : ''})`;
   } else if (identifierType === 'asin') {
-    condition = `(mm."key" = 'amazon_item_id' AND mm."value" = $2)`;
+    const aliasKey = buildMediaIdentityAliasKey('amazonItemId', identifierValue);
+    condition = `((mm."key" = 'amazon_item_id' AND mm."value" = $2)${aliasKey ? ` OR mm."key" = '${aliasKey.replace(/'/g, "''")}'` : ''})`;
   } else {
     return { row: null, conflict: false };
   }
@@ -3575,6 +3581,8 @@ async function findExistingByProviderIds({ item, normalizedMediaType, normalized
     item?.type_details?.provider_item_id || item?.type_details?.calibre_entry_id || item?.provider_item_id || ''
   ).trim();
   if (providerItemId) {
+    const providerItemAliasKey = buildMediaIdentityAliasKey('providerItemId', providerItemId);
+    const calibreEntryAliasKey = buildMediaIdentityAliasKey('calibreEntryId', providerItemId);
     const params = [providerItemId, normalizedMediaType];
     const scopeClause = appendScopeSql(params, scopeContext, {
       spaceColumn: 'm.space_id',
@@ -3590,6 +3598,8 @@ async function findExistingByProviderIds({ item, normalizedMediaType, normalized
            OR COALESCE(m.type_details->>'calibre_entry_id', '') = $1
            OR (mm."key" = 'provider_item_id' AND mm."value" = $1)
            OR (mm."key" = 'calibre_entry_id' AND mm."value" = $1)
+           ${providerItemAliasKey ? `OR mm."key" = '${providerItemAliasKey.replace(/'/g, "''")}'` : ''}
+           ${calibreEntryAliasKey ? `OR mm."key" = '${calibreEntryAliasKey.replace(/'/g, "''")}'` : ''}
          )
          ${scopeClause}
        ORDER BY m.id DESC
@@ -3606,6 +3616,7 @@ async function findExistingByProviderIds({ item, normalizedMediaType, normalized
       item?.type_details?.provider_issue_id || item?.provider_issue_id || ''
     ).trim();
     if (providerIssueId) {
+      const providerIssueAliasKey = buildMediaIdentityAliasKey('providerIssueId', providerIssueId);
       const params = [providerIssueId, normalizedMediaType];
       const scopeClause = appendScopeSql(params, scopeContext, {
         spaceColumn: 'm.space_id',
@@ -3619,6 +3630,7 @@ async function findExistingByProviderIds({ item, normalizedMediaType, normalized
            AND (
              COALESCE(m.type_details->>'provider_issue_id', '') = $1
              OR (mm."key" = 'metron_issue_id' AND mm."value" = $1)
+             ${providerIssueAliasKey ? `OR mm."key" = '${providerIssueAliasKey.replace(/'/g, "''")}'` : ''}
            )
            ${scopeClause}
          ORDER BY m.id DESC
@@ -3650,6 +3662,7 @@ async function findExistingByProviderIds({ item, normalizedMediaType, normalized
 
   const plexGuid = item.plex_guid || null;
   if (plexGuid) {
+    const plexGuidAliasKey = buildMediaIdentityAliasKey('plexGuid', plexGuid);
     const params = [plexGuid];
     const scopeClause = appendScopeSql(params, scopeContext, {
       spaceColumn: 'm.space_id',
@@ -3659,8 +3672,7 @@ async function findExistingByProviderIds({ item, normalizedMediaType, normalized
       `SELECT m.id
        FROM media m
        JOIN media_metadata mm ON mm.media_id = m.id
-       WHERE mm."key" = 'plex_guid'
-         AND mm."value" = $1
+       WHERE ((mm."key" = 'plex_guid' AND mm."value" = $1)${plexGuidAliasKey ? ` OR mm."key" = '${plexGuidAliasKey.replace(/'/g, "''")}'` : ''})
          ${scopeClause}
        ORDER BY m.id DESC
        LIMIT 1`,
@@ -3671,6 +3683,7 @@ async function findExistingByProviderIds({ item, normalizedMediaType, normalized
 
   const plexRatingKey = item.plex_rating_key || null;
   if (plexRatingKey) {
+    const plexItemAliasKey = buildMediaIdentityAliasKey('plexItemKey', plexRatingKey);
     const params = [plexRatingKey];
     const scopeClause = appendScopeSql(params, scopeContext, {
       spaceColumn: 'm.space_id',
@@ -3680,8 +3693,7 @@ async function findExistingByProviderIds({ item, normalizedMediaType, normalized
       `SELECT m.id
        FROM media m
        JOIN media_metadata mm ON mm.media_id = m.id
-       WHERE mm."key" = 'plex_item_key'
-         AND mm."value" = $1
+       WHERE ((mm."key" = 'plex_item_key' AND mm."value" = $1)${plexItemAliasKey ? ` OR mm."key" = '${plexItemAliasKey.replace(/'/g, "''")}'` : ''})
          ${scopeClause}
        ORDER BY m.id DESC
        LIMIT 1`,
@@ -5098,6 +5110,7 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
         let existing = null;
 
         if (plexGuid) {
+        const plexGuidAliasKey = buildMediaIdentityAliasKey('plexGuid', plexGuid);
         const byPlexGuidParams = [plexGuid];
         const byPlexGuidScopeClause = appendScopeSql(byPlexGuidParams, scopeContext, {
           spaceColumn: 'm.space_id',
@@ -5107,8 +5120,7 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
           `SELECT m.id
            FROM media m
            JOIN media_metadata mm ON mm.media_id = m.id
-           WHERE mm."key" = 'plex_guid'
-             AND mm."value" = $1
+           WHERE ((mm."key" = 'plex_guid' AND mm."value" = $1)${plexGuidAliasKey ? ` OR mm."key" = '${plexGuidAliasKey.replace(/'/g, "''")}'` : ''})
              ${byPlexGuidScopeClause}
            ORDER BY m.created_at DESC
            LIMIT 1`,
@@ -5119,6 +5131,9 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
 
         if (!existing && (plexItemKey || rawPlexItemKey)) {
         const byPlexItemKeyCandidates = [...new Set([plexItemKey, rawPlexItemKey].filter(Boolean))];
+        const byPlexItemKeyAliasKeys = byPlexItemKeyCandidates
+          .map((value) => buildMediaIdentityAliasKey('plexItemKey', value))
+          .filter(Boolean);
         const byPlexItemKeyParams = [byPlexItemKeyCandidates];
         const byPlexItemKeyScopeClause = appendScopeSql(byPlexItemKeyParams, scopeContext, {
           spaceColumn: 'm.space_id',
@@ -5128,8 +5143,7 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
           `SELECT m.id
            FROM media m
            JOIN media_metadata mm ON mm.media_id = m.id
-           WHERE mm."key" = 'plex_item_key'
-             AND mm."value" = ANY($1::text[])
+           WHERE ((mm."key" = 'plex_item_key' AND mm."value" = ANY($1::text[]))${byPlexItemKeyAliasKeys.length ? ` OR mm."key" = ANY(ARRAY[${byPlexItemKeyAliasKeys.map((key) => `'${key.replace(/'/g, "''")}'`).join(', ')}]::text[])` : ''})
              ${byPlexItemKeyScopeClause}
            ORDER BY m.created_at DESC
            LIMIT 1`,

@@ -26,6 +26,10 @@ const {
   isTitleSafeForGenericYearRecommendation,
   buildGenericManualMergeIdentity
 } = require('../services/manualMergeRecommendations');
+const {
+  buildMediaIdentityAliasKey,
+  buildMediaIdentityAliasEntries
+} = require('../services/mediaIdentityAliases');
 const { buildOwnedFormatsPayload, buildMergedOwnedFormatsPayload, getOwnedFormatLabel } = require('../services/mediaFormats');
 const { compareReleaseVersions, parseReleaseMarkdown } = require('../services/releaseNotes');
 const {
@@ -159,6 +163,7 @@ const manualMergeRevertSmokeSource = fs.readFileSync(require.resolve('../scripts
 const manualMergeRecommendationsSmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-recommendations-smoke'), 'utf8');
 const manualMergeRecommendationRejectSmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-recommendation-reject-smoke'), 'utf8');
 const manualMergeRecommendationRestoreSmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-recommendation-restore-smoke'), 'utf8');
+const manualMergeIdentityAliasSmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-identity-alias-smoke'), 'utf8');
 const collectionDuplicatePreviewSmokeSource = fs.readFileSync(require.resolve('../scripts/collection-duplicate-preview-smoke'), 'utf8');
 const collectionMergeApplyRevertSmokeSource = fs.readFileSync(require.resolve('../scripts/collection-merge-apply-revert-smoke'), 'utf8');
 const comicDuplicateCandidatesSmokeSource = fs.readFileSync(require.resolve('../scripts/comic-duplicate-candidates-smoke'), 'utf8');
@@ -359,6 +364,62 @@ results.push(run('manualMergeRecommendations suppresses shared-cover discovery f
     ),
     true
   );
+  assert.strictEqual(
+    isStructuredTitlePairUnsafeForSharedCoverDiscovery(
+      'SCTV Disc 2 - Southside Fracas & The Sammy Maudlin Show',
+      'SCTV, Volume 2'
+    ),
+    true
+  );
+  assert.strictEqual(
+    isStructuredTitlePairUnsafeForSharedCoverDiscovery(
+      'SCTV, Volume 2',
+      'SCTV - Best Of The Early Years'
+    ),
+    true
+  );
+  assert.strictEqual(
+    isStructuredTitlePairUnsafeForSharedCoverDiscovery(
+      'Star Trek II: The Wrath of Khan',
+      'Star Trek II - The Wrath of Khan'
+    ),
+    false
+  );
+}));
+
+results.push(run('mediaIdentityAliases builds stable alias keys and duplicate-row alias entries for future reimports', () => {
+  assert.strictEqual(
+    buildMediaIdentityAliasKey('providerItemId', 'urn:uuid:duplicate-entry'),
+    'identity_alias:provider_item_id:urn:uuid:duplicate-entry'
+  );
+  assert.strictEqual(
+    buildMediaIdentityAliasKey('eanUpc', ' 024543079491 '),
+    'identity_alias:ean_upc:024543079491'
+  );
+
+  const entries = buildMediaIdentityAliasEntries({
+    mediaRow: {
+      upc: '024543079491',
+      type_details: {
+        provider_item_id: 'urn:uuid:duplicate-entry',
+        calibre_entry_id: 'urn:uuid:duplicate-entry',
+        isbn: '978-0-316-76948-8'
+      }
+    },
+    snapshot: {
+      media_metadata: [
+        { key: 'plex_guid', value: 'plex://movie/123' },
+        { key: 'plex_item_key', value: '1:987' }
+      ]
+    }
+  });
+  const keys = entries.map((entry) => entry.key);
+  assert.ok(keys.includes('identity_alias:provider_item_id:urn:uuid:duplicate-entry'));
+  assert.ok(keys.includes('identity_alias:calibre_entry_id:urn:uuid:duplicate-entry'));
+  assert.ok(keys.includes('identity_alias:isbn:9780316769488'));
+  assert.ok(keys.includes('identity_alias:ean_upc:024543079491'));
+  assert.ok(keys.includes('identity_alias:plex_guid:plex://movie/123'));
+  assert.ok(keys.includes('identity_alias:plex_item_key:1:987'));
 }));
 
 results.push(run('bookComicNormalization flags comic-like book rows for review', () => {
@@ -1484,6 +1545,9 @@ results.push(run('repo includes historical duplicate attach repair tooling with 
   assert.ok(repairBookComicDuplicatesSource.includes('alreadyAppliedDuplicateIds'));
   assert.ok(repairBookComicDuplicatesSource.includes('mergeDuplicateMetadataIntoCanonical'));
   assert.ok(repairBookComicDuplicatesSource.includes('buildMergedFormatState'));
+  assert.ok(repairBookComicDuplicatesSource.includes('buildMediaIdentityAliasEntries'));
+  assert.ok(repairBookComicDuplicatesSource.includes('preserveDuplicateIdentityAliases'));
+  assert.ok(repairBookComicDuplicatesSource.includes('preservedIdentityAliases'));
   assert.ok(repairBookComicDuplicatesSource.includes('previousCanonicalOwnedFormats'));
   assert.ok(repairBookComicDuplicatesSource.includes('previousCanonicalFormat'));
   assert.ok(repairBookComicDuplicatesSource.includes('listActiveDuplicateAttachHistories'));
@@ -1512,6 +1576,7 @@ results.push(run('repo includes manual merge preview smoke coverage for same-typ
   assert.ok(backendPackageJson.scripts['test:manual-merge-preview-smoke']);
   assert.ok(backendPackageJson.scripts['test:manual-merge-apply-smoke']);
   assert.ok(backendPackageJson.scripts['test:manual-merge-revert-smoke']);
+  assert.ok(backendPackageJson.scripts['test:manual-merge-identity-alias-smoke']);
   assert.ok(backendPackageJson.scripts['test:manual-merge-recommendations-smoke']);
   assert.ok(backendPackageJson.scripts['test:manual-merge-recommendation-restore-smoke']);
   assert.ok(backendPackageJson.scripts['test:comic-duplicate-candidates-smoke']);
@@ -1522,6 +1587,10 @@ results.push(run('repo includes manual merge preview smoke coverage for same-typ
   assert.ok(manualMergePreviewSmokeSource.includes('/api/media/merge-preview'));
   assert.ok(manualMergeApplySmokeSource.includes('/api/media/merge-apply'));
   assert.ok(manualMergeRevertSmokeSource.includes('/api/media/merge-revert'));
+  assert.ok(manualMergeIdentityAliasSmokeSource.includes('/api/media/import-csv?sync=1'));
+  assert.ok(manualMergeIdentityAliasSmokeSource.includes('aliasStored'));
+  assert.ok(manualMergeIdentityAliasSmokeSource.includes('matchedBy'));
+  assert.ok(manualMergeIdentityAliasSmokeSource.includes('scopedBookCount'));
   assert.ok(manualMergeRecommendationsSmokeSource.includes('/api/media/merge-recommendations'));
   assert.ok(comicDuplicateCandidatesSmokeSource.includes('/api/media/comics/duplicate-candidates'));
   assert.ok(manualMergeRecommendationRejectSmokeSource.includes('/api/media/merge-recommendations/reject'));
@@ -2934,6 +3003,8 @@ results.push(run('admin merge review view posts preview requests and renders ope
   assert.ok(adminMergeReviewViewSource.includes('Likely duplicates surfaced from lighter signals'));
   assert.ok(adminMergeReviewViewSource.includes('Possible duplicates for:'));
   assert.ok(adminMergeReviewViewSource.includes('Clear focus'));
+  assert.ok(adminMergeReviewViewSource.includes('Discovery candidate removed from the queue'));
+  assert.ok(adminMergeReviewViewSource.includes('onReject={handleDiscoveryReject}'));
   assert.ok(adminMergeReviewViewSource.includes('Recommended pairs'));
   assert.ok(adminMergeReviewViewSource.includes('Suppressed pairs'));
   assert.ok(adminMergeReviewViewSource.includes('Restore to queue'));

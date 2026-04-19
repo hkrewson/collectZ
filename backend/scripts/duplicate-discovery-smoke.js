@@ -190,6 +190,36 @@ async function main() {
       userId,
       importSource: 'csv_delicious'
     });
+    const sctvLeftId = await createMediaRow({
+      title: 'SCTV Disc 2 - Southside Fracas & The Sammy Maudlin Show',
+      mediaType: 'movie',
+      year: 1982,
+      posterPath: '/sctv-shared-cover.jpg',
+      libraryId,
+      spaceId,
+      userId,
+      importSource: 'csv_delicious'
+    });
+    const sctvRightId = await createMediaRow({
+      title: 'SCTV, Volume 2',
+      mediaType: 'movie',
+      year: 1982,
+      posterPath: '/sctv-shared-cover.jpg',
+      libraryId,
+      spaceId,
+      userId,
+      importSource: 'csv_delicious'
+    });
+    const sctvBestOfId = await createMediaRow({
+      title: 'SCTV - Best Of The Early Years',
+      mediaType: 'movie',
+      year: 1982,
+      posterPath: '/sctv-shared-cover.jpg',
+      libraryId,
+      spaceId,
+      userId,
+      importSource: 'csv_delicious'
+    });
     await createMediaRow({
       title: 'Exact Title Duplicate',
       mediaType: 'movie',
@@ -227,6 +257,16 @@ async function main() {
       const right = Number(item?.duplicate?.id || 0);
       return [left, right].includes(mst3kVolumeLeftId) && [left, right].includes(mst3kVolumeRightId);
     });
+    const sctvDiscVolumeCandidate = items.find((item) => {
+      const left = Number(item?.canonical?.id || 0);
+      const right = Number(item?.duplicate?.id || 0);
+      return [left, right].includes(sctvLeftId) && [left, right].includes(sctvRightId);
+    });
+    const sctvVolumeBestOfCandidate = items.find((item) => {
+      const left = Number(item?.canonical?.id || 0);
+      const right = Number(item?.duplicate?.id || 0);
+      return [left, right].includes(sctvRightId) && [left, right].includes(sctvBestOfId);
+    });
 
     assert(response.data?.focus?.id === focusId, 'Expected focused discovery record in response');
     assert(focusedCandidate, 'Expected shared-cover discovery candidate for focused record');
@@ -234,13 +274,51 @@ async function main() {
     assert(focusedCandidate.summary === 'Matched on shared cover art path', 'Expected focused discovery summary to describe shared cover art path');
     assert(Number(response.data?.summary?.shared_cover_candidates || 0) >= 1, 'Expected shared-cover candidates in discovery summary');
     assert(!mst3kCandidate, 'Expected franchise-separated MST3K titles with a shared cover path to stay out of discovery candidates');
+    assert(!sctvDiscVolumeCandidate, 'Expected SCTV disc-versus-volume titles with a shared cover path to stay out of discovery candidates');
+    assert(!sctvVolumeBestOfCandidate, 'Expected SCTV volume-versus-best-of titles with a shared cover path to stay out of discovery candidates');
+
+    await client.request('/api/media/merge-recommendations/reject', {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 200,
+      body: {
+        canonical_id: Number(focusedCandidate?.canonical?.id || 0),
+        duplicate_id: Number(focusedCandidate?.duplicate?.id || 0),
+        reason_code: 'different_title_identity',
+        reason: 'Discovery queue smoke rejection'
+      }
+    });
+    const refreshedDiscoveryResponse = await client.request(`/api/media/discovery-candidates?limit=12&media_id=${focusId}`, {
+      method: 'GET',
+      expectStatus: 200
+    });
+    const refreshedHistoryResponse = await client.request('/api/media/merge-recommendations/history?limit=12&outcome=rejected', {
+      method: 'GET',
+      expectStatus: 200
+    });
+    const refreshedDiscovery = Array.isArray(refreshedDiscoveryResponse.data?.items) ? refreshedDiscoveryResponse.data.items : [];
+    const refreshedHistory = Array.isArray(refreshedHistoryResponse.data?.items) ? refreshedHistoryResponse.data.items : [];
+    const rejectedDiscoveryCandidate = refreshedDiscovery.find((item) => {
+      const left = Number(item?.canonical?.id || 0);
+      const right = Number(item?.duplicate?.id || 0);
+      return [left, right].includes(focusId) && [left, right].includes(posterDuplicateId);
+    });
+    const discoveryHistoryEntry = refreshedHistory.find((item) => {
+      const left = Number(item?.canonical?.id || 0);
+      const right = Number(item?.duplicate?.id || 0);
+      return [left, right].includes(focusId) && [left, right].includes(posterDuplicateId);
+    });
+    assert(!rejectedDiscoveryCandidate, 'Expected rejected discovery candidate to disappear from discovery queue');
+    assert(discoveryHistoryEntry?.outcome === 'rejected', 'Expected rejected discovery candidate to appear in suppressed history');
 
     console.log(JSON.stringify({
       focusedTitle: response.data?.focus?.title || null,
       returnedCandidates: Number(response.data?.summary?.returned_candidates || 0),
       sharedCoverCandidates: Number(response.data?.summary?.shared_cover_candidates || 0),
       firstSignal: focusedCandidate.signal,
-      firstSummary: focusedCandidate.summary
+      firstSummary: focusedCandidate.summary,
+      discoveryRejected: true,
+      suppressedHistoryOutcome: discoveryHistoryEntry?.outcome || null
     }, null, 2));
   } finally {
     await cleanupTemporaryState({ userId, libraryId, spaceId });

@@ -287,7 +287,7 @@ function RecommendationRow({ item, onReview, onReject, loading, rejecting, confi
   );
 }
 
-function DiscoveryCandidateRow({ item, onReview, loading }) {
+function DiscoveryCandidateRow({ item, onReview, onReject, loading, rejecting, confirmRejecting, rejectDraft, onRejectDraftChange }) {
   return (
     <div className="flex flex-col gap-3 border-t border-edge/60 px-4 py-4 first:border-t-0">
       <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
@@ -297,14 +297,70 @@ function DiscoveryCandidateRow({ item, onReview, loading }) {
             {item.canonical?.title || 'This record'} <span className="text-dim">↔</span> {item.duplicate?.title || 'Possible match'}
           </p>
         </div>
-        <button
-          type="button"
-          className="btn-secondary btn-sm h-8"
-          onClick={() => onReview(item)}
-          disabled={loading}
-        >
-          Review pair
-        </button>
+        {!confirmRejecting ? (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="btn-secondary btn-sm h-8"
+              onClick={() => onReview(item)}
+              disabled={loading}
+            >
+              Review pair
+            </button>
+            <button
+              type="button"
+              className="btn-secondary btn-sm h-8"
+              onClick={() => onReject(item, false)}
+              disabled={loading}
+            >
+              Reject match
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2 sm:min-w-72">
+            <select
+              className="input h-8 text-xs"
+              value={rejectDraft?.reason_code || RECOMMENDATION_REJECTION_REASONS[0].value}
+              onChange={(event) => onRejectDraftChange(item, {
+                ...(rejectDraft || {}),
+                reason_code: event.target.value
+              })}
+              disabled={rejecting}
+            >
+              {RECOMMENDATION_REJECTION_REASONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+            <input
+              className="input h-8 text-xs"
+              placeholder="Optional note"
+              value={rejectDraft?.reason || ''}
+              onChange={(event) => onRejectDraftChange(item, {
+                ...(rejectDraft || {}),
+                reason: event.target.value
+              })}
+              disabled={rejecting}
+            />
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="btn-primary btn-sm h-8"
+                onClick={() => onReject(item, true)}
+                disabled={loading || rejecting}
+              >
+                {rejecting ? 'Rejecting…' : 'Confirm reject'}
+              </button>
+              <button
+                type="button"
+                className="btn-secondary btn-sm h-8"
+                onClick={() => onReject(item, null)}
+                disabled={rejecting}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
       </div>
       <div className="grid gap-3 text-sm sm:grid-cols-2">
         <div className="space-y-1">
@@ -600,6 +656,7 @@ export default function AdminMergeReviewView({
   const [collectionApplying, setCollectionApplying] = useState(false);
   const [revertingCollectionDuplicateId, setRevertingCollectionDuplicateId] = useState('');
   const [rejectingRecommendationId, setRejectingRecommendationId] = useState('');
+  const [rejectingDiscoveryId, setRejectingDiscoveryId] = useState('');
   const [rejectConfirmId, setRejectConfirmId] = useState('');
   const [rejectDrafts, setRejectDrafts] = useState({});
   const [preview, setPreview] = useState(null);
@@ -1045,6 +1102,7 @@ export default function AdminMergeReviewView({
     setActiveComicGroupId('');
     setActiveComicGroupLabel('');
     setComicAdvanceMessage('');
+    setRejectConfirmId('');
     setCanonicalId(String(item?.canonical?.id || ''));
     setDuplicateId(String(item?.duplicate?.id || ''));
     setCanonicalSearch(item?.canonical?.title || '');
@@ -1112,12 +1170,66 @@ export default function AdminMergeReviewView({
         delete next[recommendationId];
         return next;
       });
+      await loadSuppressedHistory({ outcomeValue: suppressedOutcomeFilter, searchValue: suppressedSearch });
       onToast('Recommendation removed from the queue', 'success');
     } catch (error) {
       const response = error?.response?.data || null;
       onToast(response?.error || 'Failed to reject recommendation', 'error');
     } finally {
       setRejectingRecommendationId('');
+    }
+  };
+
+  const handleDiscoveryReject = async (item, confirmed) => {
+    const discoveryId = String(item?.discovery_id || '');
+    if (!discoveryId) return;
+    if (confirmed === null) {
+      setRejectConfirmId('');
+      setRejectDrafts((current) => {
+        const next = { ...current };
+        delete next[discoveryId];
+        return next;
+      });
+      return;
+    }
+    if (!confirmed) {
+      setRejectDrafts((current) => ({
+        ...current,
+        [discoveryId]: current[discoveryId] || {
+          reason_code: RECOMMENDATION_REJECTION_REASONS[0].value,
+          reason: ''
+        }
+      }));
+      setRejectConfirmId(discoveryId);
+      return;
+    }
+    const rejectDraft = rejectDrafts[discoveryId] || {
+      reason_code: RECOMMENDATION_REJECTION_REASONS[0].value,
+      reason: ''
+    };
+    setRejectingDiscoveryId(discoveryId);
+    setErrorState(null);
+    try {
+      await apiCall('post', '/media/merge-recommendations/reject', {
+        canonical_id: Number(item?.canonical?.id || 0),
+        duplicate_id: Number(item?.duplicate?.id || 0),
+        reason_code: rejectDraft.reason_code,
+        reason: String(rejectDraft.reason || '').trim() || null
+      });
+      await loadDiscoveryCandidates({ searchValue: discoverySearch, mediaId: discoveryFocus?.id || null });
+      await loadSuppressedHistory({ outcomeValue: suppressedOutcomeFilter, searchValue: suppressedSearch });
+      setRejectConfirmId('');
+      setRejectDrafts((current) => {
+        const next = { ...current };
+        delete next[discoveryId];
+        return next;
+      });
+      onToast('Discovery candidate removed from the queue', 'success');
+    } catch (error) {
+      const response = error?.response?.data || null;
+      onToast(response?.error || 'Failed to reject discovery candidate', 'error');
+    } finally {
+      setRejectingDiscoveryId('');
     }
   };
 
@@ -1432,7 +1544,12 @@ export default function AdminMergeReviewView({
                 key={item.discovery_id}
                 item={item}
                 onReview={handleDiscoveryReview}
+                onReject={handleDiscoveryReject}
+                rejectDraft={rejectDrafts[item.discovery_id]}
+                onRejectDraftChange={handleRejectDraftChange}
                 loading={loading || applying}
+                rejecting={rejectingDiscoveryId === item.discovery_id}
+                confirmRejecting={rejectConfirmId === item.discovery_id}
               />
             ))}
           </div>

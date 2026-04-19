@@ -9,6 +9,7 @@ const {
   buildPersistedMergeEvidence
 } = require('../services/bookComicNormalization');
 const { buildMergedOwnedFormatsPayload } = require('../services/mediaFormats');
+const { buildMediaIdentityAliasEntries } = require('../services/mediaIdentityAliases');
 
 function parseArgs(argv = []) {
   const args = {
@@ -385,6 +386,39 @@ async function mergeDuplicateMetadataIntoCanonical(client, canonicalId, duplicat
   return Number(result.rowCount || 0);
 }
 
+async function preserveDuplicateIdentityAliases(client, canonicalRow, duplicateSnapshot) {
+  const aliasEntries = buildMediaIdentityAliasEntries({
+    mediaRow: duplicateSnapshot?.media || null,
+    snapshot: duplicateSnapshot
+  });
+  if (aliasEntries.length === 0) return 0;
+
+  const canonicalDetails = canonicalRow?.type_details && typeof canonicalRow.type_details === 'object'
+    ? canonicalRow.type_details
+    : {};
+  const canonicalIdentityValues = new Set([
+    String(canonicalDetails.provider_item_id || '').trim(),
+    String(canonicalDetails.calibre_entry_id || '').trim(),
+    String(canonicalDetails.provider_issue_id || '').trim(),
+    String(canonicalRow?.upc || '').trim(),
+    String(canonicalDetails.isbn || '').trim()
+  ].filter(Boolean));
+
+  let inserted = 0;
+  for (const entry of aliasEntries) {
+    if (!entry?.key || !entry?.value) continue;
+    if (canonicalIdentityValues.has(String(entry.value).trim())) continue;
+    const result = await client.query(
+      `INSERT INTO media_metadata (media_id, "key", "value")
+       VALUES ($1::int, $2::varchar, $3::text)
+       ON CONFLICT (media_id, "key") DO NOTHING`,
+      [canonicalRow.id, entry.key, entry.value]
+    );
+    inserted += Number(result.rowCount || 0);
+  }
+  return inserted;
+}
+
 async function mergeDuplicateTaxonomyIntoCanonical(client, canonicalId, duplicateId) {
   const genres = await client.query(
     `INSERT INTO media_genres (media_id, genre_id)
@@ -480,6 +514,7 @@ async function mergeDuplicateIntoCanonical(client, canonicalRow, duplicateRow, m
   await upsertDuplicateAttachHistory(client, canonicalRow.id, duplicateRow.id, snapshot, attachContext);
 
   const mergedMetadataEntries = await mergeDuplicateMetadataIntoCanonical(client, canonicalRow.id, duplicateRow.id);
+  const preservedIdentityAliases = await preserveDuplicateIdentityAliases(client, canonicalRow, snapshot);
   const mergedTaxonomy = await mergeDuplicateTaxonomyIntoCanonical(client, canonicalRow.id, duplicateRow.id);
   const mergedSeasons = await mergeDuplicateSeasonsIntoCanonical(client, canonicalRow.id, duplicateRow.id);
   const rewired = await rewireDuplicateReferences(client, canonicalRow.id, duplicateRow.id);
@@ -490,6 +525,7 @@ async function mergeDuplicateIntoCanonical(client, canonicalRow, duplicateRow, m
     duplicateId: Number(duplicateRow.id || 0) || null,
     historyStored: true,
     mergedMetadataEntries,
+    preservedIdentityAliases,
     mergedTaxonomy,
     mergedSeasons,
     rewired

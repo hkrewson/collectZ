@@ -12,6 +12,13 @@ const GENERIC_SUBTITLE_TOKENS = new Set([
   'complete series'
 ]);
 
+function buildStructuredTitleNamespace(raw = '') {
+  const namespaceMatch = String(raw || '').trim().match(
+    /^(.*?)(?:(?:\s*[:\-]\s*)|(?:,\s*)|(?:\s+\b(?:vol(?:ume)?\.?|season|disc|part)\b))/i
+  );
+  return normalizeText(namespaceMatch?.[1] || '');
+}
+
 function extractStructuredTitleSignals(title = '') {
   const raw = String(title || '').trim();
   const normalizedTitle = normalizeText(raw);
@@ -23,6 +30,10 @@ function extractStructuredTitleSignals(title = '') {
   const separatorParts = raw.match(/^(.*?)[\s]*[:\-][\s]*(.+)$/);
   const separatorPrefix = separatorParts ? normalizeText(separatorParts[1]) : '';
   const separatorSuffix = separatorParts ? normalizeText(separatorParts[2]) : '';
+  const titleNamespace = buildStructuredTitleNamespace(raw);
+  const namespaceRemainder = titleNamespace && normalizedTitle.startsWith(`${titleNamespace} `)
+    ? normalizedTitle.slice(titleNamespace.length).trim()
+    : normalizedTitle !== titleNamespace ? normalizedTitle : '';
   return {
     raw,
     normalizedTitle,
@@ -33,6 +44,8 @@ function extractStructuredTitleSignals(title = '') {
     hasCollectionSignal: collectionSignal,
     separatorPrefix,
     separatorSuffix,
+    titleNamespace,
+    namespaceRemainder,
     hasGenericSubtitle: Boolean(separatorSuffix) && GENERIC_SUBTITLE_TOKENS.has(separatorSuffix)
   };
 }
@@ -41,9 +54,16 @@ function isStructuredTitlePairUnsafeForSharedCoverDiscovery(leftTitle = '', righ
   const left = extractStructuredTitleSignals(leftTitle);
   const right = extractStructuredTitleSignals(rightTitle);
   if (!left.normalizedTitle || !right.normalizedTitle) return false;
+  if (left.normalizedTitle === right.normalizedTitle) return false;
 
   if (left.separatorPrefix && right.separatorPrefix && left.separatorPrefix === right.separatorPrefix) {
     if (left.separatorSuffix && right.separatorSuffix && left.separatorSuffix !== right.separatorSuffix) {
+      return true;
+    }
+  }
+
+  if (left.titleNamespace && right.titleNamespace && left.titleNamespace === right.titleNamespace) {
+    if (left.namespaceRemainder && right.namespaceRemainder && left.namespaceRemainder !== right.namespaceRemainder) {
       return true;
     }
   }
