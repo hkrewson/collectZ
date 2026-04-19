@@ -3054,6 +3054,10 @@ results.push(run('admin merge review view posts preview requests and renders ope
   assert.ok(adminMergeReviewViewSource.includes('Return to row'));
   assert.ok(adminMergeReviewViewSource.includes('scrollIntoView'));
   assert.ok(adminMergeReviewViewSource.includes('merge-review-row-'));
+  assert.ok(adminMergeReviewViewSource.includes('buildReviewRowClassName'));
+  assert.ok(adminMergeReviewViewSource.includes('border-brand/40 bg-brand/10'));
+  assert.ok(adminMergeReviewViewSource.includes('setHighlightedReviewSource'));
+  assert.ok(adminMergeReviewViewSource.includes('setHighlightedReviewKey'));
   assert.ok(adminMergeReviewViewSource.includes("activeReviewSource === 'discovery' && !discoveryInlineReviewPresent"));
   assert.ok(adminMergeReviewViewSource.includes("activeReviewSource === 'recommended' && !recommendationInlineReviewPresent"));
   assert.ok(adminMergeReviewViewSource.includes("activeReviewSource === 'comics' && !comicInlineReviewPresent"));

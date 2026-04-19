@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { SectionTabPanel, SectionTabs } from './app/AppPrimitives';
 
 function formatValue(value) {
@@ -118,6 +118,13 @@ function buildReviewItemKey(item = {}) {
 function buildReviewAnchorId(source = '', reviewKey = '') {
   if (!source || !reviewKey) return '';
   return `merge-review-row-${source}-${String(reviewKey).replace(/[^a-zA-Z0-9_-]/g, '-')}`;
+}
+
+function buildReviewRowClassName(highlighted = false) {
+  return [
+    'flex flex-col gap-3 border-t px-4 py-4 first:border-t-0 transition-colors duration-300',
+    highlighted ? 'border-brand/40 bg-brand/10' : 'border-edge/60'
+  ].join(' ');
 }
 
 function formatReviewSourceLabel(source = '') {
@@ -495,9 +502,12 @@ function MergeReviewWorkspace({
   );
 }
 
-function RecommendationRow({ item, onReview, onReject, loading, rejecting, confirmRejecting, rejectDraft, onRejectDraftChange, children }) {
+function RecommendationRow({ item, onReview, onReject, loading, rejecting, confirmRejecting, rejectDraft, onRejectDraftChange, highlighted = false, children }) {
   return (
-    <div id={buildReviewAnchorId('recommended', buildReviewItemKey(item))} className="flex flex-col gap-3 border-t border-edge/60 px-4 py-4 first:border-t-0">
+    <div
+      id={buildReviewAnchorId('recommended', buildReviewItemKey(item))}
+      className={buildReviewRowClassName(highlighted)}
+    >
       <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-1">
           <p className="text-sm font-medium text-ink">{item.summary || 'Recommended merge'}</p>
@@ -590,9 +600,12 @@ function RecommendationRow({ item, onReview, onReject, loading, rejecting, confi
   );
 }
 
-function DiscoveryCandidateRow({ item, onReview, onReject, loading, rejecting, confirmRejecting, rejectDraft, onRejectDraftChange, children }) {
+function DiscoveryCandidateRow({ item, onReview, onReject, loading, rejecting, confirmRejecting, rejectDraft, onRejectDraftChange, highlighted = false, children }) {
   return (
-    <div id={buildReviewAnchorId('discovery', buildReviewItemKey(item))} className="flex flex-col gap-3 border-t border-edge/60 px-4 py-4 first:border-t-0">
+    <div
+      id={buildReviewAnchorId('discovery', buildReviewItemKey(item))}
+      className={buildReviewRowClassName(highlighted)}
+    >
       <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-1">
           <p className="text-sm font-medium text-ink">{item.summary || 'Possible duplicate'}</p>
@@ -682,9 +695,12 @@ function DiscoveryCandidateRow({ item, onReview, onReject, loading, rejecting, c
   );
 }
 
-function SuppressedPairRow({ item, onReview, onRestore, restoring, loading, children }) {
+function SuppressedPairRow({ item, onReview, onRestore, restoring, loading, highlighted = false, children }) {
   return (
-    <div id={buildReviewAnchorId('suppressed', buildReviewItemKey(item))} className="flex flex-col gap-3 border-t border-edge/60 px-4 py-4 first:border-t-0">
+    <div
+      id={buildReviewAnchorId('suppressed', buildReviewItemKey(item))}
+      className={buildReviewRowClassName(highlighted)}
+    >
       <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-1">
           <p className="text-sm font-medium text-ink">{item.summary || 'Suppressed pair'}</p>
@@ -820,7 +836,7 @@ function CollectionDuplicateGroup({ group, onReview, loading }) {
   );
 }
 
-function ComicDuplicateCandidateGroup({ group, onReview, loading, activeReviewKey, renderReviewPanel }) {
+function ComicDuplicateCandidateGroup({ group, onReview, loading, activeReviewKey, highlightedReviewKey, renderReviewPanel }) {
   return (
     <div className="rounded-lg border border-edge/70 bg-raised/15">
       <div className="border-b border-edge/60 px-4 py-3">
@@ -850,7 +866,12 @@ function ComicDuplicateCandidateGroup({ group, onReview, loading, activeReviewKe
             <div
               key={`comic-candidate-${group.duplicate_group_id}-${record.id}`}
               id={buildReviewAnchorId('comics', buildPairReviewKey(group?.canonical?.id, record?.id))}
-              className="rounded-md border border-edge/70 bg-void/10 px-3 py-3"
+              className={[
+                'rounded-md border px-3 py-3 transition-colors duration-300',
+                highlightedReviewKey === buildPairReviewKey(group?.canonical?.id, record?.id)
+                  ? 'border-brand/40 bg-brand/10'
+                  : 'border-edge/70 bg-void/10'
+              ].join(' ')}
             >
               <div className="flex flex-col gap-3">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -956,6 +977,8 @@ export default function AdminMergeReviewView({
   const [activeTab, setActiveTab] = useState('recommended');
   const [activeReviewSource, setActiveReviewSource] = useState('manual');
   const [activeReviewKey, setActiveReviewKey] = useState('');
+  const [highlightedReviewSource, setHighlightedReviewSource] = useState('');
+  const [highlightedReviewKey, setHighlightedReviewKey] = useState('');
   const [suppressedOutcomeFilter, setSuppressedOutcomeFilter] = useState('all');
   const [suppressedSearch, setSuppressedSearch] = useState('');
   const [suppressedHistory, setSuppressedHistory] = useState([]);
@@ -983,6 +1006,7 @@ export default function AdminMergeReviewView({
   const [applying, setApplying] = useState(false);
   const [revertingDuplicateId, setRevertingDuplicateId] = useState('');
   const [restoringFeedbackId, setRestoringFeedbackId] = useState('');
+  const reviewHighlightTimeoutRef = useRef(null);
 
   const comparedRows = Array.isArray(preview?.preview?.field_comparison) ? preview.preview.field_comparison : [];
   const activeComicGroup = useMemo(
@@ -1072,6 +1096,12 @@ export default function AdminMergeReviewView({
     }),
     [activeReviewContext, activeReviewSource, activeReviewRowPresent]
   );
+
+  useEffect(() => () => {
+    if (reviewHighlightTimeoutRef.current) {
+      clearTimeout(reviewHighlightTimeoutRef.current);
+    }
+  }, []);
 
   const clearPreview = ({ closeReview = false } = {}) => {
     setPreview(null);
@@ -1880,6 +1910,16 @@ export default function AdminMergeReviewView({
     if (!activeReviewAnchorId) return;
     const target = typeof document !== 'undefined' ? document.getElementById(activeReviewAnchorId) : null;
     if (!target) return;
+    setHighlightedReviewSource(activeReviewSource);
+    setHighlightedReviewKey(activeReviewKey);
+    if (reviewHighlightTimeoutRef.current) {
+      clearTimeout(reviewHighlightTimeoutRef.current);
+    }
+    reviewHighlightTimeoutRef.current = window.setTimeout(() => {
+      setHighlightedReviewSource('');
+      setHighlightedReviewKey('');
+      reviewHighlightTimeoutRef.current = null;
+    }, 2200);
     target.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
 
@@ -2089,6 +2129,7 @@ export default function AdminMergeReviewView({
                 loading={loading || applying}
                 rejecting={rejectingDiscoveryId === item.discovery_id}
                 confirmRejecting={rejectConfirmId === item.discovery_id}
+                highlighted={highlightedReviewSource === 'discovery' && highlightedReviewKey === buildReviewItemKey(item)}
               >
                 {activeReviewSource === 'discovery' && activeReviewKey === buildReviewItemKey(item) ? renderActiveReviewWorkspace() : null}
               </DiscoveryCandidateRow>
@@ -2137,6 +2178,7 @@ export default function AdminMergeReviewView({
                 loading={loading || applying}
                 rejecting={rejectingRecommendationId === item.recommendation_id}
                 confirmRejecting={rejectConfirmId === item.recommendation_id}
+                highlighted={highlightedReviewSource === 'recommended' && highlightedReviewKey === buildReviewItemKey(item)}
               >
                 {activeReviewSource === 'recommended' && activeReviewKey === buildReviewItemKey(item) ? renderActiveReviewWorkspace() : null}
               </RecommendationRow>
@@ -2193,6 +2235,7 @@ export default function AdminMergeReviewView({
                 onReview={handleComicDuplicateReview}
                 loading={loading || applying}
                 activeReviewKey={activeReviewSource === 'comics' ? activeReviewKey : ''}
+                highlightedReviewKey={highlightedReviewSource === 'comics' ? highlightedReviewKey : ''}
                 renderReviewPanel={renderActiveReviewWorkspace}
               />
             ))}
@@ -2267,6 +2310,7 @@ export default function AdminMergeReviewView({
                 onRestore={handleRestoreSuppressedPair}
                 restoring={restoringFeedbackId === String(item.feedback_id || '')}
                 loading={loading || applying}
+                highlighted={highlightedReviewSource === 'suppressed' && highlightedReviewKey === buildReviewItemKey(item)}
               >
                 {activeReviewSource === 'suppressed' && activeReviewKey === buildReviewItemKey(item) ? renderActiveReviewWorkspace() : null}
               </SuppressedPairRow>
