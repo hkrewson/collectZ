@@ -3228,7 +3228,7 @@ Historical note:
 
 **Goal:** Add a controlled operator-facing manual merge workflow so supported media types can be reviewed, compared, merged, and reverted intentionally without allowing unsafe cross-type merges.
 
-**Current Slice:** `3.2.0.20 — Merge Review Section Filtering, Activity Logging, and Shared Drawer Evidence`
+**Current Slice:** `3.2.0.21 — Operator Suppressed Pair History and Restore Flow`
 
 - Start with same-type manual merge only:
   - books

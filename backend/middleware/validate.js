@@ -275,6 +275,9 @@ const mediaMergeRecommendationRejectSchema = z.object({
   }
 });
 const mediaMergeRecommendationDeferSchema = mediaMergeRecommendationRejectSchema;
+const mediaMergeRecommendationRestoreSchema = z.object({
+  feedback_id: z.number().int().positive('feedback_id is required')
+});
 
 // ── Profile ───────────────────────────────────────────────────────────────────
 
@@ -681,6 +684,7 @@ module.exports = {
   MANUAL_MERGE_REJECTION_REASON_CODES,
   mediaMergeRecommendationRejectSchema,
   mediaMergeRecommendationDeferSchema,
+  mediaMergeRecommendationRestoreSchema,
   profileUpdateSchema,
   passwordResetConsumeSchema,
   roleUpdateSchema,

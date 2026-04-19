@@ -4326,6 +4326,110 @@
         }
       }
     },
+    "/api/media/merge-recommendations/history": {
+      "get": {
+        "tags": ["Media"],
+        "summary": "List suppressed manual merge recommendation outcomes for the active scope",
+        "security": [
+          { "cookieSession": [] }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": { "type": "integer", "minimum": 1, "maximum": 50 }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "schema": { "type": "string" }
+          },
+          {
+            "in": "query",
+            "name": "outcome",
+            "schema": { "type": "string", "enum": ["rejected", "deferred", "all"] }
+          },
+          {
+            "in": "query",
+            "name": "media_type",
+            "schema": {
+              "type": "string",
+              "enum": ["movie", "tv_series", "book", "audio", "game", "comic_book", "all"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Suppressed merge recommendation history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "summary": { "type": "object", "additionalProperties": true },
+                    "items": {
+                      "type": "array",
+                      "items": { "type": "object", "additionalProperties": true }
+                    }
+                  },
+                  "required": ["summary", "items"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/media/merge-recommendations/restore": {
+      "post": {
+        "tags": ["Media"],
+        "summary": "Restore a suppressed manual merge recommendation pair back into review queues",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "feedback_id": { "type": "integer", "minimum": 1 }
+                },
+                "required": ["feedback_id"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Suppressed pair restored to review queues",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "restored": { "type": "boolean" },
+                    "feedback": { "type": "object", "additionalProperties": true },
+                    "recommendations": { "type": "object", "additionalProperties": true },
+                    "history": { "type": "object", "additionalProperties": true }
+                  },
+                  "required": ["restored", "feedback", "recommendations", "history"]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Suppressed pair entry was not found in the active scope",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/media/collections/duplicates": {
       "get": {
         "summary": "List duplicate collections in the active operator scope",

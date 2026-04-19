@@ -42,6 +42,12 @@ const MERGE_REVIEW_SECTION_OPTIONS = [
   { value: 'audio', label: 'Audio' }
 ];
 
+const SUPPRESSED_OUTCOME_OPTIONS = [
+  { value: 'all', label: 'All suppressed pairs' },
+  { value: 'deferred', label: 'Deferred' },
+  { value: 'rejected', label: 'Rejected' }
+];
+
 const COMIC_SUPPRESSION_REASON_LABELS = {
   title_issue_mismatch: 'Title issue does not match stored issue number',
   edition_issue_mismatch: 'Edition issue does not match stored issue number'
@@ -316,6 +322,48 @@ function DiscoveryCandidateRow({ item, onReview, loading }) {
   );
 }
 
+function SuppressedPairRow({ item, onReview, onRestore, restoring, loading }) {
+  return (
+    <div className="flex flex-col gap-3 border-t border-edge/60 px-4 py-4 first:border-t-0">
+      <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-ink">{item.summary || 'Suppressed pair'}</p>
+          <p className="text-sm text-ghost">
+            {item.canonical?.title || 'This record'} <span className="text-dim">↔</span> {item.duplicate?.title || 'Suppressed match'}
+          </p>
+          <p className="text-xs text-ghost">
+            {formatMediaType(item.media_type)} · {item.created_by_name || 'Operator'} · {formatTimestamp(item.created_at)}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-xs text-ghost">
+          <span>{item.outcome === 'deferred' ? 'Deferred' : 'Rejected'}</span>
+          <button
+            type="button"
+            className="btn-secondary btn-sm h-8"
+            onClick={() => onReview(item)}
+            disabled={loading}
+          >
+            Review pair
+          </button>
+          <button
+            type="button"
+            className="btn-secondary btn-sm h-8"
+            onClick={() => onRestore(item)}
+            disabled={loading || restoring}
+          >
+            {restoring ? 'Restoring…' : 'Restore to queue'}
+          </button>
+        </div>
+      </div>
+      {(item.reason_code || item.reason) ? (
+        <p className="text-sm text-ghost">
+          <span className="text-ink">Why:</span> {[item.reason_code, item.reason].filter(Boolean).join(' · ')}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 function formatCollectionMeta(collection = {}) {
   const bits = [];
   if (collection.library_name) bits.push(collection.library_name);
@@ -538,6 +586,11 @@ export default function AdminMergeReviewView({
   const [collectionDuplicateSummary, setCollectionDuplicateSummary] = useState(null);
   const [collectionDuplicatesLoading, setCollectionDuplicatesLoading] = useState(true);
   const [sectionFilter, setSectionFilter] = useState('all');
+  const [suppressedOutcomeFilter, setSuppressedOutcomeFilter] = useState('all');
+  const [suppressedSearch, setSuppressedSearch] = useState('');
+  const [suppressedHistory, setSuppressedHistory] = useState([]);
+  const [suppressedHistorySummary, setSuppressedHistorySummary] = useState(null);
+  const [suppressedHistoryLoading, setSuppressedHistoryLoading] = useState(true);
   const [collectionPreview, setCollectionPreview] = useState(null);
   const [collectionPreviewLoading, setCollectionPreviewLoading] = useState(false);
   const [collectionMergeDetails, setCollectionMergeDetails] = useState(null);
@@ -558,6 +611,7 @@ export default function AdminMergeReviewView({
   const [loading, setLoading] = useState(false);
   const [applying, setApplying] = useState(false);
   const [revertingDuplicateId, setRevertingDuplicateId] = useState('');
+  const [restoringFeedbackId, setRestoringFeedbackId] = useState('');
 
   const comparedRows = Array.isArray(preview?.preview?.field_comparison) ? preview.preview.field_comparison : [];
   const activeComicGroup = useMemo(
@@ -707,11 +761,32 @@ export default function AdminMergeReviewView({
     }
   };
 
+  const loadSuppressedHistory = async ({ outcomeValue = suppressedOutcomeFilter, searchValue = suppressedSearch } = {}) => {
+    setSuppressedHistoryLoading(true);
+    try {
+      const query = new URLSearchParams({ limit: '12' });
+      if (sectionFilter !== 'all') query.set('media_type', sectionFilter);
+      if (outcomeValue !== 'all') query.set('outcome', outcomeValue);
+      if (String(searchValue || '').trim()) query.set('search', String(searchValue).trim());
+      const payload = await apiCall('get', `/media/merge-recommendations/history?${query.toString()}`);
+      setSuppressedHistory(Array.isArray(payload?.items) ? payload.items : []);
+      setSuppressedHistorySummary(payload?.summary || null);
+      return payload || null;
+    } catch (_) {
+      setSuppressedHistory([]);
+      setSuppressedHistorySummary(null);
+      return null;
+    } finally {
+      setSuppressedHistoryLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadRecommendations();
     loadDiscoveryCandidates({ searchValue: '', mediaId: null });
     loadComicDuplicateCandidates('');
     loadCollectionDuplicates('');
+    loadSuppressedHistory({ outcomeValue: 'all', searchValue: '' });
   }, [apiCall, activeLibrary?.id, activeSpace?.id, sectionFilter]);
 
   useEffect(() => {
@@ -810,6 +885,33 @@ export default function AdminMergeReviewView({
       window.clearTimeout(timer);
     };
   }, [apiCall, collectionDuplicateSearch, sectionFilter]);
+
+  useEffect(() => {
+    let active = true;
+    const timer = window.setTimeout(async () => {
+      try {
+        const query = new URLSearchParams({ limit: '12' });
+        if (sectionFilter !== 'all') query.set('media_type', sectionFilter);
+        if (suppressedOutcomeFilter !== 'all') query.set('outcome', suppressedOutcomeFilter);
+        if (suppressedSearch.trim()) query.set('search', suppressedSearch.trim());
+        const payload = await apiCall('get', `/media/merge-recommendations/history?${query.toString()}`);
+        if (!active) return;
+        setSuppressedHistory(Array.isArray(payload?.items) ? payload.items : []);
+        setSuppressedHistorySummary(payload?.summary || null);
+      } catch (_) {
+        if (!active) return;
+        setSuppressedHistory([]);
+        setSuppressedHistorySummary(null);
+      } finally {
+        if (active) setSuppressedHistoryLoading(false);
+      }
+    }, 220);
+    setSuppressedHistoryLoading(true);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [apiCall, sectionFilter, suppressedOutcomeFilter, suppressedSearch]);
 
   useEffect(() => {
     let active = true;
@@ -940,6 +1042,17 @@ export default function AdminMergeReviewView({
   };
 
   const handleDiscoveryReview = async (item) => {
+    setActiveComicGroupId('');
+    setActiveComicGroupLabel('');
+    setComicAdvanceMessage('');
+    setCanonicalId(String(item?.canonical?.id || ''));
+    setDuplicateId(String(item?.duplicate?.id || ''));
+    setCanonicalSearch(item?.canonical?.title || '');
+    setDuplicateSearch(item?.duplicate?.title || '');
+    await requestPreview(Number(item?.canonical?.id || 0), Number(item?.duplicate?.id || 0));
+  };
+
+  const handleSuppressedReview = async (item) => {
     setActiveComicGroupId('');
     setActiveComicGroupLabel('');
     setComicAdvanceMessage('');
@@ -1131,6 +1244,33 @@ export default function AdminMergeReviewView({
       onToast(response?.error || 'Failed to revert merge', 'error');
     } finally {
       setRevertingDuplicateId('');
+    }
+  };
+
+  const handleRestoreSuppressedPair = async (item) => {
+    const feedbackId = String(item?.feedback_id || '');
+    if (!feedbackId) return;
+    setRestoringFeedbackId(feedbackId);
+    try {
+      const query = new URLSearchParams({ limit: '12', history_limit: '12' });
+      if (sectionFilter !== 'all') query.set('media_type', sectionFilter);
+      if (suppressedOutcomeFilter !== 'all') query.set('outcome', suppressedOutcomeFilter);
+      if (suppressedSearch.trim()) query.set('search', suppressedSearch.trim());
+      const payload = await apiCall('post', `/media/merge-recommendations/restore?${query.toString()}`, {
+        feedback_id: Number(feedbackId)
+      });
+      setRecommendations(Array.isArray(payload?.recommendations?.items) ? payload.recommendations.items : []);
+      setRecommendationsSummary(payload?.recommendations?.summary || null);
+      setSuppressedHistory(Array.isArray(payload?.history?.items) ? payload.history.items : []);
+      setSuppressedHistorySummary(payload?.history?.summary || null);
+      await loadComicDuplicateCandidates();
+      await loadDiscoveryCandidates({ searchValue: discoverySearch, mediaId: discoveryFocus?.id || null });
+      onToast('Suppressed pair restored to the review queues', 'success');
+    } catch (error) {
+      const response = error?.response?.data || null;
+      onToast(response?.error || 'Failed to restore suppressed pair', 'error');
+    } finally {
+      setRestoringFeedbackId('');
     }
   };
 
@@ -1397,6 +1537,55 @@ export default function AdminMergeReviewView({
           </div>
         ) : (
           <div className="px-4 py-6 text-sm text-ghost">No comic duplicate candidates found in the current scope.</div>
+        )}
+      </div>
+
+      <div className="rounded-lg border border-edge bg-void/10">
+        <div className="flex flex-col gap-3 border-b border-edge/70 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-1">
+            <h2 className="text-sm font-medium text-ink">Suppressed pairs</h2>
+            <p className="text-sm text-ghost">Review rejected and deferred pairs, understand why they were suppressed, and restore them to the queue when needed.</p>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            {suppressedHistorySummary ? (
+              <div className="text-xs text-ghost">
+                {selectedSectionLabel} · {suppressedHistorySummary.returned_items || 0} shown · {suppressedHistorySummary.deferred_items || 0} deferred · {suppressedHistorySummary.rejected_items || 0} rejected
+              </div>
+            ) : null}
+            <select
+              className="input h-9 w-full sm:w-44"
+              value={suppressedOutcomeFilter}
+              onChange={(event) => setSuppressedOutcomeFilter(event.target.value)}
+            >
+              {SUPPRESSED_OUTCOME_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+            <input
+              className="input h-9 w-full sm:w-64"
+              value={suppressedSearch}
+              onChange={(event) => setSuppressedSearch(event.target.value)}
+              placeholder="Search suppressed pairs"
+            />
+          </div>
+        </div>
+        {suppressedHistoryLoading ? (
+          <div className="px-4 py-6 text-sm text-ghost">Loading suppressed pairs…</div>
+        ) : suppressedHistory.length > 0 ? (
+          <div>
+            {suppressedHistory.map((item) => (
+              <SuppressedPairRow
+                key={`suppressed-pair-${item.feedback_id}`}
+                item={item}
+                onReview={handleSuppressedReview}
+                onRestore={handleRestoreSuppressedPair}
+                restoring={restoringFeedbackId === String(item.feedback_id || '')}
+                loading={loading || applying}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="px-4 py-6 text-sm text-ghost">No suppressed pairs found in the current scope.</div>
         )}
       </div>
 

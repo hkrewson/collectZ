@@ -19,6 +19,7 @@ const {
   MANUAL_MERGE_REJECTION_REASON_CODES,
   mediaMergeRecommendationRejectSchema,
   mediaMergeRecommendationDeferSchema,
+  mediaMergeRecommendationRestoreSchema,
   simpleSearchSchema,
   titleAuthorSearchSchema,
   titleArtistSearchSchema,
@@ -225,6 +226,12 @@ function normalizeMergeReviewMediaTypeFilter(value) {
   const normalized = String(value || '').trim().toLowerCase();
   if (!normalized || normalized === 'all') return null;
   return MERGE_REVIEW_MEDIA_TYPES.has(normalized) ? normalized : null;
+}
+
+function normalizeRecommendationFeedbackOutcomeFilter(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized || normalized === 'all') return null;
+  return ['rejected', 'deferred'].includes(normalized) ? normalized : null;
 }
 
 function buildImportAuditOutcomeCounters() {
@@ -1799,6 +1806,132 @@ async function recordManualMergeRecommendationFeedback({
     outcome: normalizedOutcome,
     reason_code: payload.reason_code,
     reason: reason || null
+  };
+}
+
+async function loadScopedMergeRecommendationFeedbackHistory({
+  scopeContext = null,
+  limit = 12,
+  search = '',
+  mediaType = null,
+  outcome = null
+} = {}) {
+  const cappedLimit = Math.max(1, Math.min(50, Number(limit || 12) || 12));
+  const normalizedSearch = String(search || '').trim();
+  const normalizedMediaType = normalizeMergeReviewMediaTypeFilter(mediaType);
+  const normalizedOutcome = normalizeRecommendationFeedbackOutcomeFilter(outcome);
+  const params = [];
+  let where = 'WHERE 1=1';
+  if (normalizedOutcome) {
+    params.push(normalizedOutcome);
+    where += ` AND f.outcome = $${params.length}`;
+  }
+  if (normalizedMediaType) {
+    params.push(normalizedMediaType);
+    where += ` AND f.media_type = $${params.length}`;
+  }
+  if (normalizedSearch) {
+    params.push(`%${normalizedSearch}%`);
+    where += ` AND (
+      COALESCE(canonical.title, '') ILIKE $${params.length}
+      OR COALESCE(duplicate.title, '') ILIKE $${params.length}
+      OR COALESCE(f.reason, '') ILIKE $${params.length}
+    )`;
+  }
+  where += appendScopeSql(params, scopeContext, {
+    spaceColumn: 'f.space_id',
+    libraryColumn: 'f.library_id'
+  });
+
+  const result = await pool.query(
+    `SELECT
+       f.id,
+       f.outcome,
+       f.reason,
+       f.context,
+       f.media_type,
+       f.created_at,
+       f.created_by,
+       f.canonical_media_id,
+       f.duplicate_media_id,
+       canonical.title AS canonical_title,
+       canonical.import_source AS canonical_import_source,
+       duplicate.title AS duplicate_title,
+       duplicate.import_source AS duplicate_import_source,
+       u.name AS created_by_name
+     FROM media_merge_recommendation_feedback f
+     LEFT JOIN media canonical ON canonical.id = f.canonical_media_id
+     LEFT JOIN media duplicate ON duplicate.id = f.duplicate_media_id
+     LEFT JOIN users u ON u.id = f.created_by
+     ${where}
+     ORDER BY f.created_at DESC, f.id DESC
+     LIMIT ${cappedLimit}`,
+    params
+  );
+
+  const items = (result.rows || []).map((row) => ({
+    feedback_id: Number(row.id || 0) || null,
+    outcome: String(row.outcome || '').trim() || null,
+    media_type: String(row.media_type || '').trim() || null,
+    reason: row.reason || null,
+    reason_code: String(row?.context?.reason_code || '').trim() || null,
+    created_at: row.created_at || null,
+    created_by: Number(row.created_by || 0) || null,
+    created_by_name: row.created_by_name || null,
+    pair_key: buildRecommendationPairKey(row.canonical_media_id, row.duplicate_media_id)?.key || null,
+    summary: String(row?.context?.summary || '').trim() || 'Suppressed pair',
+    canonical: summarizeMergeSourceRow({
+      id: row.canonical_media_id,
+      title: row.canonical_title,
+      media_type: row.media_type,
+      import_source: row.canonical_import_source
+    }),
+    duplicate: summarizeMergeSourceRow({
+      id: row.duplicate_media_id,
+      title: row.duplicate_title,
+      media_type: row.media_type,
+      import_source: row.duplicate_import_source
+    })
+  }));
+
+  return {
+    summary: {
+      total_items: items.length,
+      rejected_items: items.filter((item) => item.outcome === 'rejected').length,
+      deferred_items: items.filter((item) => item.outcome === 'deferred').length,
+      returned_items: items.length
+    },
+    items
+  };
+}
+
+async function restoreScopedMergeRecommendationFeedback({ feedbackId, scopeContext = null } = {}) {
+  const id = Number(feedbackId || 0);
+  if (!id) return null;
+  const params = [id];
+  const scopedClause = appendScopeSql(params, scopeContext, {
+    spaceColumn: 'space_id',
+    libraryColumn: 'library_id'
+  });
+  const existing = await pool.query(
+    `SELECT id, outcome, reason, context, media_type, canonical_media_id, duplicate_media_id
+       FROM media_merge_recommendation_feedback
+      WHERE id = $1${scopedClause}
+      LIMIT 1`,
+    params
+  );
+  const row = existing.rows?.[0] || null;
+  if (!row) return null;
+  await pool.query('DELETE FROM media_merge_recommendation_feedback WHERE id = $1', [id]);
+  return {
+    feedback_id: Number(row.id || 0) || null,
+    outcome: String(row.outcome || '').trim() || null,
+    reason: row.reason || null,
+    reason_code: String(row?.context?.reason_code || '').trim() || null,
+    media_type: String(row.media_type || '').trim() || null,
+    canonical_media_id: Number(row.canonical_media_id || 0) || null,
+    duplicate_media_id: Number(row.duplicate_media_id || 0) || null,
+    pair_key: buildRecommendationPairKey(row.canonical_media_id, row.duplicate_media_id)?.key || null
   };
 }
 
@@ -6672,6 +6805,22 @@ router.post('/collections/merge-revert', requireSessionAuth, requireRole('admin'
   }
 }));
 
+router.get('/merge-recommendations/history', requireSessionAuth, requireRole('admin', 'support_admin'), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const limit = Math.max(1, Math.min(50, Number(req.query?.limit || 12) || 12));
+  const search = String(req.query?.search || '').trim();
+  const mediaType = normalizeMergeReviewMediaTypeFilter(req.query?.media_type);
+  const outcome = normalizeRecommendationFeedbackOutcomeFilter(req.query?.outcome);
+  const history = await loadScopedMergeRecommendationFeedbackHistory({
+    scopeContext,
+    limit,
+    search,
+    mediaType,
+    outcome
+  });
+  res.json(history);
+}));
+
 router.post('/merge-recommendations/reject', requireSessionAuth, requireRole('admin', 'support_admin'), validate(mediaMergeRecommendationRejectSchema), asyncHandler(async (req, res) => {
   const scopeContext = resolveScopeContext(req);
   const canonicalMediaId = Number(req.body?.canonical_id);
@@ -6781,6 +6930,42 @@ router.post('/merge-recommendations/defer', requireSessionAuth, requireRole('adm
     canonical: preview.canonical,
     duplicate: preview.duplicate,
     recommendations
+  });
+}));
+
+router.post('/merge-recommendations/restore', requireSessionAuth, requireRole('admin', 'support_admin'), validate(mediaMergeRecommendationRestoreSchema), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const restored = await restoreScopedMergeRecommendationFeedback({
+    feedbackId: Number(req.body?.feedback_id || 0),
+    scopeContext
+  });
+  if (!restored) {
+    return res.status(404).json({ error: 'Suppressed pair entry was not found in the active scope' });
+  }
+  await logActivity(req, 'media.merge_recommendation.restore', 'media', restored.canonical_media_id, {
+    canonical_id: restored.canonical_media_id,
+    duplicate_id: restored.duplicate_media_id,
+    pair_key: restored.pair_key,
+    restored_outcome: restored.outcome,
+    media_type: restored.media_type || null
+  });
+  const recommendations = await loadScopedManualMergeRecommendations({
+    scopeContext,
+    limit: Math.max(1, Math.min(50, Number(req.query?.limit || 12) || 12)),
+    mediaType: normalizeMergeReviewMediaTypeFilter(req.query?.media_type)
+  });
+  const history = await loadScopedMergeRecommendationFeedbackHistory({
+    scopeContext,
+    limit: Math.max(1, Math.min(50, Number(req.query?.history_limit || 12) || 12)),
+    search: String(req.query?.search || '').trim(),
+    mediaType: normalizeMergeReviewMediaTypeFilter(req.query?.media_type),
+    outcome: normalizeRecommendationFeedbackOutcomeFilter(req.query?.outcome)
+  });
+  res.json({
+    restored: true,
+    feedback: restored,
+    recommendations,
+    history
   });
 }));
 

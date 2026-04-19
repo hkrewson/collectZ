@@ -158,6 +158,7 @@ const manualMergeApplySmokeSource = fs.readFileSync(require.resolve('../scripts/
 const manualMergeRevertSmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-revert-smoke'), 'utf8');
 const manualMergeRecommendationsSmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-recommendations-smoke'), 'utf8');
 const manualMergeRecommendationRejectSmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-recommendation-reject-smoke'), 'utf8');
+const manualMergeRecommendationRestoreSmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-recommendation-restore-smoke'), 'utf8');
 const collectionDuplicatePreviewSmokeSource = fs.readFileSync(require.resolve('../scripts/collection-duplicate-preview-smoke'), 'utf8');
 const collectionMergeApplyRevertSmokeSource = fs.readFileSync(require.resolve('../scripts/collection-merge-apply-revert-smoke'), 'utf8');
 const comicDuplicateCandidatesSmokeSource = fs.readFileSync(require.resolve('../scripts/comic-duplicate-candidates-smoke'), 'utf8');
@@ -1512,6 +1513,7 @@ results.push(run('repo includes manual merge preview smoke coverage for same-typ
   assert.ok(backendPackageJson.scripts['test:manual-merge-apply-smoke']);
   assert.ok(backendPackageJson.scripts['test:manual-merge-revert-smoke']);
   assert.ok(backendPackageJson.scripts['test:manual-merge-recommendations-smoke']);
+  assert.ok(backendPackageJson.scripts['test:manual-merge-recommendation-restore-smoke']);
   assert.ok(backendPackageJson.scripts['test:comic-duplicate-candidates-smoke']);
   assert.ok(backendPackageJson.scripts['test:manual-merge-recommendation-reject-smoke']);
   assert.ok(backendPackageJson.scripts['test:comic-duplicate-defer-smoke']);
@@ -1523,6 +1525,8 @@ results.push(run('repo includes manual merge preview smoke coverage for same-typ
   assert.ok(manualMergeRecommendationsSmokeSource.includes('/api/media/merge-recommendations'));
   assert.ok(comicDuplicateCandidatesSmokeSource.includes('/api/media/comics/duplicate-candidates'));
   assert.ok(manualMergeRecommendationRejectSmokeSource.includes('/api/media/merge-recommendations/reject'));
+  assert.ok(manualMergeRecommendationRestoreSmokeSource.includes('/api/media/merge-recommendations/history'));
+  assert.ok(manualMergeRecommendationRestoreSmokeSource.includes('/api/media/merge-recommendations/restore'));
   assert.ok(comicDuplicateDeferSmokeSource.includes('/api/media/merge-recommendations/defer'));
   assert.ok(collectionDuplicatePreviewSmokeSource.includes('/api/media/collections/duplicate-preview'));
   assert.ok(collectionMergeApplyRevertSmokeSource.includes('/api/media/collections/merge-apply'));
@@ -1543,6 +1547,8 @@ results.push(run('repo includes manual merge preview smoke coverage for same-typ
   assert.ok(manualMergeRecommendationRejectSmokeSource.includes('rejectedPairRemoved'));
   assert.ok(manualMergeRecommendationRejectSmokeSource.includes('feedbackOutcome'));
   assert.ok(manualMergeRecommendationRejectSmokeSource.includes('feedbackReasonCode'));
+  assert.ok(manualMergeRecommendationRestoreSmokeSource.includes('recommendationReturned'));
+  assert.ok(manualMergeRecommendationRestoreSmokeSource.includes('removedFromHistory'));
   assert.ok(comicDuplicateDeferSmokeSource.includes('deferredPairRemovedFromRecommendations'));
   assert.ok(comicDuplicateDeferSmokeSource.includes('deferredPairRemovedFromComicCandidates'));
   assert.ok(collectionDuplicatePreviewSmokeSource.includes('Matched on collection name and expected item count'));
@@ -2929,6 +2935,10 @@ results.push(run('admin merge review view posts preview requests and renders ope
   assert.ok(adminMergeReviewViewSource.includes('Possible duplicates for:'));
   assert.ok(adminMergeReviewViewSource.includes('Clear focus'));
   assert.ok(adminMergeReviewViewSource.includes('Recommended pairs'));
+  assert.ok(adminMergeReviewViewSource.includes('Suppressed pairs'));
+  assert.ok(adminMergeReviewViewSource.includes('Restore to queue'));
+  assert.ok(adminMergeReviewViewSource.includes('/media/merge-recommendations/history?'));
+  assert.ok(adminMergeReviewViewSource.includes('/media/merge-recommendations/restore?'));
   assert.ok(adminMergeReviewViewSource.includes('Comic duplicate candidates'));
   assert.ok(adminMergeReviewViewSource.includes('Search comic duplicates'));
   assert.ok(adminMergeReviewViewSource.includes('Safe issue-level comic duplicates surfaced separately'));
@@ -2980,6 +2990,8 @@ results.push(run('admin merge review view posts preview requests and renders ope
 
 results.push(run('manual merge apply source records activity log evidence', () => {
   assert.ok(mediaRoutesSource.includes("await logActivity(req, 'media.merge_apply', 'media', canonicalMediaId"));
+  assert.ok(mediaRoutesSource.includes("router.get('/merge-recommendations/history'"));
+  assert.ok(mediaRoutesSource.includes("router.post('/merge-recommendations/restore'"));
   assert.ok(manualMergeApplySmokeSource.includes("action = 'media.merge_apply'"));
   assert.ok(manualMergeApplySmokeSource.includes('activityAction'));
 }));
