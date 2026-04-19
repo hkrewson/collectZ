@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { SectionTabPanel, SectionTabs } from './app/AppPrimitives';
 
 function formatValue(value) {
   if (value === null || value === undefined || value === '') return '—';
@@ -46,6 +47,14 @@ const SUPPRESSED_OUTCOME_OPTIONS = [
   { value: 'all', label: 'All suppressed pairs' },
   { value: 'deferred', label: 'Deferred' },
   { value: 'rejected', label: 'Rejected' }
+];
+
+const MERGE_REVIEW_TABS = [
+  { id: 'discovery', label: 'Discovery' },
+  { id: 'recommended', label: 'Recommended' },
+  { id: 'comics', label: 'Comics' },
+  { id: 'suppressed', label: 'Suppressed' },
+  { id: 'collections', label: 'Collections' }
 ];
 
 const COMIC_SUPPRESSION_REASON_LABELS = {
@@ -96,6 +105,14 @@ function buildHistoryRows(historyContext = {}) {
     { label: 'Matched record active merges', value: Number(historyContext.duplicate_active_merge_count || 0) },
     { label: 'Matched record already absorbed', value: historyContext.duplicate_is_absorbed ? 'Yes' : 'No' }
   ];
+}
+
+function buildPairReviewKey(canonicalId, duplicateId) {
+  return `${Number(canonicalId || 0)}:${Number(duplicateId || 0)}`;
+}
+
+function buildReviewItemKey(item = {}) {
+  return buildPairReviewKey(item?.canonical?.id, item?.duplicate?.id);
 }
 
 function SummaryStat({ label, value }) {
@@ -193,7 +210,253 @@ function RecordSearchPanel({
   );
 }
 
-function RecommendationRow({ item, onReview, onReject, loading, rejecting, confirmRejecting, rejectDraft, onRejectDraftChange }) {
+function MergeReviewWorkspace({
+  preview,
+  errorState,
+  comparedRows,
+  rewiringRows,
+  historyRows,
+  activeComicGroupId,
+  activeComicGroupLabel,
+  activeRemainingComicPairs,
+  applyConfirmOpen,
+  setApplyConfirmOpen,
+  applying,
+  onApply,
+  onSkipComicPair,
+  onClose,
+  mergeDetails,
+  revertingDuplicateId,
+  onRevert,
+  applyResult,
+  revertResult,
+  Spinner
+}) {
+  if (!preview && !errorState && !applyResult?.applied && !revertResult?.reverted && Number(mergeDetails?.summary?.active_merge_count || 0) <= 0) {
+    return null;
+  }
+  return (
+    <div className="space-y-4 rounded-lg border border-edge/70 bg-void/10 p-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-1">
+          <h3 className="text-sm font-medium text-ink">Pair review</h3>
+          <p className="text-sm text-ghost">Compare both records, confirm the merge effect, and keep repair history intact.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          {activeComicGroupId ? (
+            <span className="text-xs text-ghost">
+              {activeComicGroupLabel || 'Comic issue cluster'} · {activeRemainingComicPairs} remaining pairs
+            </span>
+          ) : null}
+          <button type="button" className="btn-secondary btn-sm h-8" onClick={onClose}>
+            Close review
+          </button>
+        </div>
+      </div>
+
+      {errorState ? (
+        <div className="rounded-lg border border-err/30 bg-err/5 p-4 space-y-4">
+          <div>
+            <p className="text-sm font-medium text-ink">{errorState.message}</p>
+            {errorState.details ? (
+              <p className="mt-2 text-sm text-ghost">
+                This record is {formatMediaType(errorState.details.canonical_media_type)} and the matched record is {formatMediaType(errorState.details.duplicate_media_type)}.
+              </p>
+            ) : null}
+          </div>
+          {(errorState.canonical || errorState.duplicate) ? (
+            <div className="grid gap-4 lg:grid-cols-2">
+              <RecordSummary title="This record" record={errorState.canonical} />
+              <RecordSummary title="Matched record" record={errorState.duplicate} />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {preview?.allowed ? (
+        <div className="space-y-6">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <SummaryStat label="Matched on" value={preview.preview?.evidence?.summary || 'Manual review'} />
+            <SummaryStat label="Confidence" value={formatMediaType(preview.preview?.evidence?.confidence)} />
+            <SummaryStat label="Media type" value={formatMediaType(preview.preview?.media_type)} />
+            <SummaryStat
+              label="Recommended canonical"
+              value={`#${preview.preview?.canonical_selection?.recommended_canonical_id || preview.canonical?.id || '—'}`}
+            />
+          </div>
+
+          {!preview.preview?.canonical_selection?.requested_matches_recommended ? (
+            <div className="rounded-lg border border-gold/30 bg-gold/5 px-4 py-3 text-sm text-ghost">
+              Recommended canonical is record #{preview.preview?.canonical_selection?.recommended_canonical_id || '—'} based on the current canonical selection rule.
+            </div>
+          ) : null}
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <RecordSummary title="This record" record={preview.canonical} />
+            <RecordSummary title="Matched record" record={preview.duplicate} />
+          </div>
+
+          <div className="rounded-lg border border-edge bg-raised/15 p-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="space-y-1">
+                <h4 className="text-sm font-medium text-ink">Apply merge</h4>
+                <p className="text-sm text-ghost">
+                  This will absorb the matched record into this record and preserve repair history so the merge can be reverted later through the operator workflow.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {activeComicGroupId ? (
+                  <button type="button" className="btn-secondary h-10" onClick={onSkipComicPair} disabled={applying}>
+                    Skip pair
+                  </button>
+                ) : null}
+                {!applyConfirmOpen ? (
+                  <button type="button" className="btn-primary h-10" onClick={() => setApplyConfirmOpen(true)} disabled={applying}>
+                    Apply merge
+                  </button>
+                ) : (
+                  <>
+                    <button type="button" className="btn-primary h-10" onClick={onApply} disabled={applying}>
+                      {applying ? <><Spinner size={14} />Applying…</> : 'Confirm apply'}
+                    </button>
+                    <button type="button" className="btn-secondary h-10" onClick={() => setApplyConfirmOpen(false)} disabled={applying}>
+                      Cancel
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-edge bg-raised/15">
+            <div className="border-b border-edge/70 px-4 py-3">
+              <h4 className="text-sm font-medium text-ink">Compared fields</h4>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-edge/60 text-sm">
+                <thead className="bg-raised/25 text-left text-[11px] text-ghost">
+                  <tr>
+                    <th className="px-4 py-3 font-medium">Matched on</th>
+                    <th className="px-4 py-3 font-medium">This record</th>
+                    <th className="px-4 py-3 font-medium">Matched record</th>
+                    <th className="px-4 py-3 font-medium">Result</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-edge/60">
+                  {comparedRows.map((row) => (
+                    <tr key={row.key}>
+                      <td className="px-4 py-3 text-ink">{row.label}</td>
+                      <td className="px-4 py-3 text-ghost">{formatValue(row.canonical_value)}</td>
+                      <td className="px-4 py-3 text-ghost">{formatValue(row.duplicate_value)}</td>
+                      <td className="px-4 py-3 text-ink">{formatValue(row.result_value)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="rounded-lg border border-edge bg-raised/15 p-4">
+              <h4 className="text-sm font-medium text-ink">Dependent rewiring</h4>
+              <div className="mt-3 space-y-2 text-sm">
+                {rewiringRows.map((row) => (
+                  <div key={row.label} className="flex items-start justify-between gap-4">
+                    <span className="text-ghost">{row.label}</span>
+                    <span className="text-ink">{formatValue(row.value)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-edge bg-raised/15 p-4">
+              <h4 className="text-sm font-medium text-ink">Merge history</h4>
+              <div className="mt-3 space-y-2 text-sm">
+                {historyRows.map((row) => (
+                  <div key={row.label} className="flex items-start justify-between gap-4">
+                    <span className="text-ghost">{row.label}</span>
+                    <span className="text-ink">{formatValue(row.value)}</span>
+                  </div>
+                ))}
+                <div className="flex items-start justify-between gap-4">
+                  <span className="text-ghost">Selection reason</span>
+                  <span className="text-right text-ink">{formatValue(preview.preview?.canonical_selection?.selection_reason)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {Number(mergeDetails?.summary?.active_merge_count || 0) > 0 ? (
+        <div className="rounded-lg border border-edge bg-raised/15">
+          <div className="border-b border-edge/70 px-4 py-3">
+            <h4 className="text-sm font-medium text-ink">Active merge events</h4>
+          </div>
+          <div className="divide-y divide-edge/60">
+            {(mergeDetails?.entries || []).map((entry) => (
+              <div key={`active-merge-${entry.duplicate_id}`} className="flex flex-col gap-3 px-4 py-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-ink">
+                    {entry?.merged?.title || 'Merged record'} <span className="font-mono text-xs text-ghost">#{entry?.duplicate_id || '—'}</span>
+                  </p>
+                  <p className="text-sm text-ghost">
+                    {entry?.match_summary || 'Manual merge'} · {entry?.merged?.source_label || 'Unknown source'}
+                  </p>
+                  <p className="text-xs text-ghost">Merged at {formatTimestamp(entry?.applied_at)}</p>
+                </div>
+                <button
+                  type="button"
+                  className="btn-secondary btn-sm h-8"
+                  onClick={() => onRevert(entry)}
+                  disabled={revertingDuplicateId === String(entry?.duplicate_id || '')}
+                >
+                  {revertingDuplicateId === String(entry?.duplicate_id || '') ? 'Reverting…' : 'Revert merge'}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {applyResult?.applied ? (
+        <div className="space-y-4 rounded-lg border border-edge bg-raised/15 p-4">
+          <div className="space-y-1">
+            <h4 className="text-sm font-medium text-ink">Merge applied</h4>
+            <p className="text-sm text-ghost">
+              Record #{applyResult?.canonical?.id || '—'} absorbed record #{applyResult?.duplicate?.id || '—'} and the merge is now part of the normal provenance history.
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <SummaryStat label="Canonical record" value={`#${applyResult?.canonical?.id || '—'}`} />
+            <SummaryStat label="Merged record" value={`#${applyResult?.duplicate?.id || '—'}`} />
+            <SummaryStat label="Attach count" value={formatValue(applyResult?.result?.attached || 0)} />
+            <SummaryStat label="Active merge count" value={formatValue(applyResult?.merge_details?.summary?.active_merge_count || 0)} />
+          </div>
+        </div>
+      ) : null}
+
+      {revertResult?.reverted ? (
+        <div className="space-y-4 rounded-lg border border-edge bg-raised/15 p-4">
+          <div className="space-y-1">
+            <h4 className="text-sm font-medium text-ink">Merge reverted</h4>
+            <p className="text-sm text-ghost">
+              Record #{revertResult?.duplicate?.id || '—'} was restored from record #{revertResult?.canonical?.id || '—'} and the remaining active merge history was left intact.
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <SummaryStat label="Canonical record" value={`#${revertResult?.canonical?.id || '—'}`} />
+            <SummaryStat label="Restored record" value={`#${revertResult?.duplicate?.id || '—'}`} />
+            <SummaryStat label="Reverted count" value={formatValue(revertResult?.result?.reverted || 0)} />
+            <SummaryStat label="Active merge count" value={formatValue(revertResult?.merge_details?.summary?.active_merge_count || 0)} />
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function RecommendationRow({ item, onReview, onReject, loading, rejecting, confirmRejecting, rejectDraft, onRejectDraftChange, children }) {
   return (
     <div className="flex flex-col gap-3 border-t border-edge/60 px-4 py-4 first:border-t-0">
       <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
@@ -227,7 +490,7 @@ function RecommendationRow({ item, onReview, onReject, loading, rejecting, confi
           ) : (
             <div className="flex flex-col gap-2 sm:min-w-72">
               <select
-                className="input h-8 text-xs"
+                className="select h-8 text-xs"
                 value={rejectDraft?.reason_code || RECOMMENDATION_REJECTION_REASONS[0].value}
                 onChange={(event) => onRejectDraftChange(item, {
                   ...(rejectDraft || {}),
@@ -283,11 +546,12 @@ function RecommendationRow({ item, onReview, onReject, loading, rejecting, confi
           <p className="font-mono text-xs text-ghost">#{item.duplicate?.id || '—'}</p>
         </div>
       </div>
+      {children}
     </div>
   );
 }
 
-function DiscoveryCandidateRow({ item, onReview, onReject, loading, rejecting, confirmRejecting, rejectDraft, onRejectDraftChange }) {
+function DiscoveryCandidateRow({ item, onReview, onReject, loading, rejecting, confirmRejecting, rejectDraft, onRejectDraftChange, children }) {
   return (
     <div className="flex flex-col gap-3 border-t border-edge/60 px-4 py-4 first:border-t-0">
       <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
@@ -319,7 +583,7 @@ function DiscoveryCandidateRow({ item, onReview, onReject, loading, rejecting, c
         ) : (
           <div className="flex flex-col gap-2 sm:min-w-72">
             <select
-              className="input h-8 text-xs"
+              className="select h-8 text-xs"
               value={rejectDraft?.reason_code || RECOMMENDATION_REJECTION_REASONS[0].value}
               onChange={(event) => onRejectDraftChange(item, {
                 ...(rejectDraft || {}),
@@ -374,11 +638,12 @@ function DiscoveryCandidateRow({ item, onReview, onReject, loading, rejecting, c
           <p className="font-mono text-xs text-ghost">#{item.duplicate?.id || '—'}</p>
         </div>
       </div>
+      {children}
     </div>
   );
 }
 
-function SuppressedPairRow({ item, onReview, onRestore, restoring, loading }) {
+function SuppressedPairRow({ item, onReview, onRestore, restoring, loading, children }) {
   return (
     <div className="flex flex-col gap-3 border-t border-edge/60 px-4 py-4 first:border-t-0">
       <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
@@ -416,6 +681,7 @@ function SuppressedPairRow({ item, onReview, onRestore, restoring, loading }) {
           <span className="text-ink">Why:</span> {[item.reason_code, item.reason].filter(Boolean).join(' · ')}
         </p>
       ) : null}
+      {children}
     </div>
   );
 }
@@ -515,7 +781,7 @@ function CollectionDuplicateGroup({ group, onReview, loading }) {
   );
 }
 
-function ComicDuplicateCandidateGroup({ group, onReview, loading }) {
+function ComicDuplicateCandidateGroup({ group, onReview, loading, activeReviewKey, renderReviewPanel }) {
   return (
     <div className="rounded-lg border border-edge/70 bg-raised/15">
       <div className="border-b border-edge/60 px-4 py-3">
@@ -544,20 +810,25 @@ function ComicDuplicateCandidateGroup({ group, onReview, loading }) {
           {(group.duplicates || []).map((record) => (
             <div
               key={`comic-candidate-${group.duplicate_group_id}-${record.id}`}
-              className="flex flex-col gap-3 rounded-md border border-edge/70 bg-void/10 px-3 py-3 sm:flex-row sm:items-start sm:justify-between"
+              className="rounded-md border border-edge/70 bg-void/10 px-3 py-3"
             >
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-ink">{record.title || 'Untitled record'}</p>
-                <p className="mt-1 text-xs text-ghost">{formatComicCandidateMeta(record)}</p>
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-ink">{record.title || 'Untitled record'}</p>
+                    <p className="mt-1 text-xs text-ghost">{formatComicCandidateMeta(record)}</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-secondary btn-sm h-8 shrink-0"
+                    onClick={() => onReview(group, record)}
+                    disabled={loading || !group?.canonical?.id || !record?.id}
+                  >
+                    Review pair
+                  </button>
+                </div>
+                {activeReviewKey === buildPairReviewKey(group?.canonical?.id, record?.id) ? renderReviewPanel?.() : null}
               </div>
-              <button
-                type="button"
-                className="btn-secondary btn-sm h-8 shrink-0"
-                onClick={() => onReview(group, record)}
-                disabled={loading || !group?.canonical?.id || !record?.id}
-              >
-                Review pair
-              </button>
             </div>
           ))}
         </div>
@@ -642,6 +913,9 @@ export default function AdminMergeReviewView({
   const [collectionDuplicateSummary, setCollectionDuplicateSummary] = useState(null);
   const [collectionDuplicatesLoading, setCollectionDuplicatesLoading] = useState(true);
   const [sectionFilter, setSectionFilter] = useState('all');
+  const [activeTab, setActiveTab] = useState('recommended');
+  const [activeReviewSource, setActiveReviewSource] = useState('manual');
+  const [activeReviewKey, setActiveReviewKey] = useState('');
   const [suppressedOutcomeFilter, setSuppressedOutcomeFilter] = useState('all');
   const [suppressedSearch, setSuppressedSearch] = useState('');
   const [suppressedHistory, setSuppressedHistory] = useState([]);
@@ -691,14 +965,20 @@ export default function AdminMergeReviewView({
     () => MERGE_REVIEW_SECTION_OPTIONS.find((option) => option.value === sectionFilter)?.label || 'All sections',
     [sectionFilter]
   );
+  const tabOptions = useMemo(() => MERGE_REVIEW_TABS, []);
+  const manualReviewOpen = activeReviewSource === 'manual' && (!!preview || !!errorState || !!applyResult?.applied || !!revertResult?.reverted || Number(mergeDetails?.summary?.active_merge_count || 0) > 0);
 
-  const clearPreview = () => {
+  const clearPreview = ({ closeReview = false } = {}) => {
     setPreview(null);
     setMergeDetails(null);
     setApplyResult(null);
     setRevertResult(null);
     setApplyConfirmOpen(false);
     setErrorState(null);
+    if (closeReview) {
+      setActiveReviewSource('manual');
+      setActiveReviewKey('');
+    }
   };
 
   const loadComicPair = async (group, duplicate, options = {}) => {
@@ -707,6 +987,9 @@ export default function AdminMergeReviewView({
       onToast('Pick a comic duplicate group with at least two records', 'error');
       return false;
     }
+    setActiveTab('comics');
+    setActiveReviewSource('comics');
+    setActiveReviewKey(buildPairReviewKey(canonical.id, duplicate.id));
     if (!options.preserveGroup) {
       setActiveComicGroupId(String(group?.duplicate_group_id || ''));
       setActiveComicGroupLabel(`${group?.series || 'Unknown series'} #${group?.issue_number || '—'}`);
@@ -848,6 +1131,7 @@ export default function AdminMergeReviewView({
 
   useEffect(() => {
     if (!seededDiscovery?.mediaId) return;
+    setActiveTab('discovery');
     setDiscoverySearch('');
     loadDiscoveryCandidates({
       searchValue: '',
@@ -1027,22 +1311,19 @@ export default function AdminMergeReviewView({
     setDuplicateId(canonicalId);
     setCanonicalSearch(duplicateSearch);
     setDuplicateSearch(canonicalSearch);
-    setPreview(null);
-    setErrorState(null);
+    clearPreview();
   };
 
   const pickCanonicalRecord = (record) => {
     setCanonicalId(String(record?.id || ''));
     setCanonicalSearch(record?.title || '');
-    setPreview(null);
-    setErrorState(null);
+    clearPreview();
   };
 
   const pickDuplicateRecord = (record) => {
     setDuplicateId(String(record?.id || ''));
     setDuplicateSearch(record?.title || '');
-    setPreview(null);
-    setErrorState(null);
+    clearPreview();
   };
 
   const handleSubmit = async (event) => {
@@ -1050,6 +1331,8 @@ export default function AdminMergeReviewView({
     setActiveComicGroupId('');
     setActiveComicGroupLabel('');
     setComicAdvanceMessage('');
+    setActiveReviewSource('manual');
+    setActiveReviewKey('manual');
     await requestPreview(Number(canonicalId), Number(duplicateId));
   };
 
@@ -1087,6 +1370,9 @@ export default function AdminMergeReviewView({
   };
 
   const handleRecommendationReview = async (item) => {
+    setActiveTab('recommended');
+    setActiveReviewSource('recommended');
+    setActiveReviewKey(buildReviewItemKey(item));
     setActiveComicGroupId('');
     setActiveComicGroupLabel('');
     setComicAdvanceMessage('');
@@ -1099,6 +1385,9 @@ export default function AdminMergeReviewView({
   };
 
   const handleDiscoveryReview = async (item) => {
+    setActiveTab('discovery');
+    setActiveReviewSource('discovery');
+    setActiveReviewKey(buildReviewItemKey(item));
     setActiveComicGroupId('');
     setActiveComicGroupLabel('');
     setComicAdvanceMessage('');
@@ -1111,6 +1400,9 @@ export default function AdminMergeReviewView({
   };
 
   const handleSuppressedReview = async (item) => {
+    setActiveTab('suppressed');
+    setActiveReviewSource('suppressed');
+    setActiveReviewKey(buildReviewItemKey(item));
     setActiveComicGroupId('');
     setActiveComicGroupLabel('');
     setComicAdvanceMessage('');
@@ -1234,7 +1526,7 @@ export default function AdminMergeReviewView({
   };
 
   const handleRejectDraftChange = (item, nextDraft) => {
-    const recommendationId = String(item?.recommendation_id || '');
+    const recommendationId = String(item?.recommendation_id || item?.discovery_id || '');
     if (!recommendationId) return;
     setRejectDrafts((current) => ({
       ...current,
@@ -1387,6 +1679,7 @@ export default function AdminMergeReviewView({
   };
 
   const handleCollectionReview = async (group) => {
+    setActiveTab('collections');
     setActiveComicGroupId('');
     setActiveComicGroupLabel('');
     setComicAdvanceMessage('');
@@ -1471,6 +1764,38 @@ export default function AdminMergeReviewView({
     }
   };
 
+  const closeInlineReview = () => {
+    clearPreview({ closeReview: true });
+    setActiveComicGroupId('');
+    setActiveComicGroupLabel('');
+    setComicAdvanceMessage('');
+  };
+
+  const renderActiveReviewWorkspace = () => (
+    <MergeReviewWorkspace
+      preview={preview}
+      errorState={errorState}
+      comparedRows={comparedRows}
+      rewiringRows={rewiringRows}
+      historyRows={historyRows}
+      activeComicGroupId={activeComicGroupId}
+      activeComicGroupLabel={activeComicGroupLabel}
+      activeRemainingComicPairs={activeRemainingComicPairs}
+      applyConfirmOpen={applyConfirmOpen}
+      setApplyConfirmOpen={setApplyConfirmOpen}
+      applying={applying}
+      onApply={handleApply}
+      onSkipComicPair={handleSkipComicPair}
+      onClose={closeInlineReview}
+      mergeDetails={mergeDetails}
+      revertingDuplicateId={revertingDuplicateId}
+      onRevert={handleRevert}
+      applyResult={applyResult}
+      revertResult={revertResult}
+      Spinner={Spinner}
+    />
+  );
+
   return (
     <div className="h-full overflow-y-auto p-4 sm:p-6 space-y-6">
       <div className="space-y-3">
@@ -1490,7 +1815,7 @@ export default function AdminMergeReviewView({
           </div>
           <label className="field min-w-0 xl:w-64">
             <span className="label">Library section</span>
-            <select className="input h-9" value={sectionFilter} onChange={(event) => setSectionFilter(event.target.value)}>
+            <select className="select h-9" value={sectionFilter} onChange={(event) => setSectionFilter(event.target.value)}>
               {MERGE_REVIEW_SECTION_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>{option.label}</option>
               ))}
@@ -1499,25 +1824,124 @@ export default function AdminMergeReviewView({
         </div>
       </div>
 
+      <section className="space-y-4">
+        <div className="space-y-1">
+          <h2 className="text-lg font-semibold text-ink">Exact pair review</h2>
+          <p className="text-sm text-ghost">Search for an exact pair at any time, then keep the lane tabs focused on the queues that need attention.</p>
+        </div>
+        <div className="grid gap-4 xl:grid-cols-2">
+          <RecordSearchPanel
+            title="Find this record"
+            value={canonicalSearch}
+            onChange={setCanonicalSearch}
+            loading={canonicalSearchLoading}
+            results={canonicalResults}
+            selectedId={canonicalId}
+            onPick={pickCanonicalRecord}
+            placeholder="Search title, isbn, creator, or year"
+          />
+          <RecordSearchPanel
+            title="Find matched record"
+            value={duplicateSearch}
+            onChange={setDuplicateSearch}
+            loading={duplicateSearchLoading}
+            results={duplicateResults}
+            selectedId={duplicateId}
+            onPick={pickDuplicateRecord}
+            placeholder="Search title, isbn, creator, or year"
+          />
+        </div>
+
+        <form onSubmit={handleSubmit} className="rounded-lg border border-edge bg-void/10 p-4 space-y-4">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto] lg:items-end">
+            <label className="field">
+              <span className="label">This record id</span>
+              <input
+                className="input"
+                inputMode="numeric"
+                placeholder="Canonical record id"
+                value={canonicalId}
+                onChange={(event) => setCanonicalId(event.target.value)}
+              />
+            </label>
+            <button type="button" className="btn-secondary btn-sm h-10" onClick={swapDraft} disabled={loading}>
+              Swap
+            </button>
+            <label className="field">
+              <span className="label">Matched record id</span>
+              <input
+                className="input"
+                inputMode="numeric"
+                placeholder="Matched record id"
+                value={duplicateId}
+                onChange={(event) => setDuplicateId(event.target.value)}
+              />
+            </label>
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                className="btn-primary h-10"
+                disabled={loading || !canonicalId.trim() || !duplicateId.trim()}
+              >
+                {loading ? <><Spinner size={14} />Loading…</> : 'Preview merge'}
+              </button>
+              {manualReviewOpen ? (
+                <button type="button" className="btn-secondary h-10" onClick={() => clearPreview({ closeReview: true })} disabled={loading}>
+                  Clear
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </form>
+
+        {manualReviewOpen ? renderActiveReviewWorkspace() : null}
+      </section>
+
+      <div className="md:hidden">
+        <label className="field">
+          <span className="label">Section</span>
+          <select className="select h-9" value={activeTab} onChange={(event) => setActiveTab(event.target.value)}>
+            {tabOptions.map((tab) => (
+              <option key={tab.id} value={tab.id}>{tab.label}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      <div className="hidden md:block">
+        <SectionTabs
+          tabs={tabOptions}
+          activeId={activeTab}
+          onChange={setActiveTab}
+          ariaLabel="Merge review sections"
+          idBase="merge-review-sections"
+        />
+      </div>
+
+      <SectionTabPanel activeId={activeTab} tabKey="discovery" idBase="merge-review-sections" className="space-y-4 border-t border-edge pt-5">
+      <section className="space-y-4">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="space-y-1">
+          <h2 className="text-lg font-semibold text-ink">Discovery</h2>
+          <p className="text-sm text-ghost">Likely duplicates surfaced from lighter signals so visually obvious pairs do not depend on strict merge rules alone.</p>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          {discoverySummary ? (
+            <div className="text-xs text-ghost">
+              {selectedSectionLabel} · {discoverySummary.returned_candidates || 0} shown · {discoverySummary.shared_cover_candidates || 0} cover-path matches · {discoverySummary.exact_title_candidates || 0} exact-title matches
+            </div>
+          ) : null}
+          <input
+            className="input h-9 w-full sm:w-64"
+            value={discoverySearch}
+            onChange={(event) => setDiscoverySearch(event.target.value)}
+            placeholder="Search discovery queue"
+          />
+        </div>
+      </div>
       <div className="rounded-lg border border-edge bg-void/10">
         <div className="flex flex-col gap-3 border-b border-edge/70 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-1">
-            <h2 className="text-sm font-medium text-ink">Discovery queue</h2>
-            <p className="text-sm text-ghost">Likely duplicates surfaced from lighter signals so visually obvious pairs do not depend on strict merge rules alone.</p>
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            {discoverySummary ? (
-              <div className="text-xs text-ghost">
-                {selectedSectionLabel} · {discoverySummary.returned_candidates || 0} shown · {discoverySummary.shared_cover_candidates || 0} cover-path matches · {discoverySummary.exact_title_candidates || 0} exact-title matches
-              </div>
-            ) : null}
-            <input
-              className="input h-9 w-full sm:w-64"
-              value={discoverySearch}
-              onChange={(event) => setDiscoverySearch(event.target.value)}
-              placeholder="Search discovery queue"
-            />
-          </div>
+          <h3 className="text-sm font-medium text-ink">Discovery queue</h3>
         </div>
         {discoveryFocus?.id ? (
           <div className="flex flex-col gap-2 border-b border-edge/60 px-4 py-3 text-sm text-ghost sm:flex-row sm:items-center sm:justify-between">
@@ -1550,28 +1974,37 @@ export default function AdminMergeReviewView({
                 loading={loading || applying}
                 rejecting={rejectingDiscoveryId === item.discovery_id}
                 confirmRejecting={rejectConfirmId === item.discovery_id}
-              />
+              >
+                {activeReviewSource === 'discovery' && activeReviewKey === buildReviewItemKey(item) ? renderActiveReviewWorkspace() : null}
+              </DiscoveryCandidateRow>
             ))}
           </div>
         ) : (
           <div className="px-4 py-6 text-sm text-ghost">No discovery candidates found in the current scope.</div>
         )}
       </div>
+      </section>
+      </SectionTabPanel>
 
+      <SectionTabPanel activeId={activeTab} tabKey="recommended" idBase="merge-review-sections" className="space-y-4 border-t border-edge pt-5">
+      <section className="space-y-4">
+      <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+        <div className="space-y-1">
+          <h2 className="text-lg font-semibold text-ink">Recommended</h2>
+          <p className="text-sm text-ghost">Suggested same-type pairs from the active workspace and library scope.</p>
+        </div>
+        {recommendationsSummary ? (
+          <div className="flex gap-3 text-xs text-ghost">
+            <span>{selectedSectionLabel}</span>
+            <span>{recommendationsSummary.returned_candidates || 0} shown</span>
+            <span>{recommendationsSummary.high_confidence || 0} high confidence</span>
+            <span>{recommendationsSummary.medium_confidence || 0} medium confidence</span>
+          </div>
+        ) : null}
+      </div>
       <div className="rounded-lg border border-edge bg-void/10">
         <div className="flex flex-col gap-2 border-b border-edge/70 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-1">
-            <h2 className="text-sm font-medium text-ink">Recommended pairs</h2>
-            <p className="text-sm text-ghost">Suggested same-type pairs from the active workspace and library scope.</p>
-          </div>
-          {recommendationsSummary ? (
-            <div className="flex gap-3 text-xs text-ghost">
-              <span>{selectedSectionLabel}</span>
-              <span>{recommendationsSummary.returned_candidates || 0} shown</span>
-              <span>{recommendationsSummary.high_confidence || 0} high confidence</span>
-              <span>{recommendationsSummary.medium_confidence || 0} medium confidence</span>
-            </div>
-          ) : null}
+          <h3 className="text-sm font-medium text-ink">Recommended pairs</h3>
         </div>
         {recommendationsLoading ? (
           <div className="px-4 py-6 text-sm text-ghost">Loading recommendations…</div>
@@ -1588,33 +2021,42 @@ export default function AdminMergeReviewView({
                 loading={loading || applying}
                 rejecting={rejectingRecommendationId === item.recommendation_id}
                 confirmRejecting={rejectConfirmId === item.recommendation_id}
-              />
+              >
+                {activeReviewSource === 'recommended' && activeReviewKey === buildReviewItemKey(item) ? renderActiveReviewWorkspace() : null}
+              </RecommendationRow>
             ))}
           </div>
         ) : (
           <div className="px-4 py-6 text-sm text-ghost">No recommended pairs found in the current scope yet.</div>
         )}
       </div>
+      </section>
+      </SectionTabPanel>
 
+      <SectionTabPanel activeId={activeTab} tabKey="comics" idBase="merge-review-sections" className="space-y-4 border-t border-edge pt-5">
+      <section className="space-y-4">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="space-y-1">
+          <h2 className="text-lg font-semibold text-ink">Comics</h2>
+          <p className="text-sm text-ghost">Safe issue-level comic duplicates surfaced separately so broken comic metadata clusters do not crowd the main queue.</p>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          {comicDuplicateSummary ? (
+            <div className="text-xs text-ghost">
+              {selectedSectionLabel} · {comicDuplicateSummary.candidate_groups || 0} candidate groups · {comicDuplicateSummary.suppressed_groups || 0} suppressed
+            </div>
+          ) : null}
+          <input
+            className="input h-9 w-full sm:w-64"
+            value={comicDuplicateSearch}
+            onChange={(event) => setComicDuplicateSearch(event.target.value)}
+            placeholder="Search comic duplicates"
+          />
+        </div>
+      </div>
       <div className="rounded-lg border border-edge bg-void/10">
         <div className="flex flex-col gap-3 border-b border-edge/70 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-1">
-            <h2 className="text-sm font-medium text-ink">Comic duplicate candidates</h2>
-            <p className="text-sm text-ghost">Safe issue-level comic duplicates surfaced separately so broken comic metadata clusters do not crowd the main queue.</p>
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            {comicDuplicateSummary ? (
-              <div className="text-xs text-ghost">
-                {selectedSectionLabel} · {comicDuplicateSummary.candidate_groups || 0} candidate groups · {comicDuplicateSummary.suppressed_groups || 0} suppressed
-              </div>
-            ) : null}
-            <input
-              className="input h-9 w-full sm:w-64"
-              value={comicDuplicateSearch}
-              onChange={(event) => setComicDuplicateSearch(event.target.value)}
-              placeholder="Search comic duplicates"
-            />
-          </div>
+          <h3 className="text-sm font-medium text-ink">Comic duplicate candidates</h3>
         </div>
         {activeComicGroupId ? (
           <div className="border-b border-edge/60 px-4 py-3 text-sm text-ghost">
@@ -1633,6 +2075,8 @@ export default function AdminMergeReviewView({
                 group={group}
                 onReview={handleComicDuplicateReview}
                 loading={loading || applying}
+                activeReviewKey={activeReviewSource === 'comics' ? activeReviewKey : ''}
+                renderReviewPanel={renderActiveReviewWorkspace}
               />
             ))}
             {suppressedComicGroups.length > 0 ? (
@@ -1656,35 +2100,42 @@ export default function AdminMergeReviewView({
           <div className="px-4 py-6 text-sm text-ghost">No comic duplicate candidates found in the current scope.</div>
         )}
       </div>
+      </section>
+      </SectionTabPanel>
 
+      <SectionTabPanel activeId={activeTab} tabKey="suppressed" idBase="merge-review-sections" className="space-y-4 border-t border-edge pt-5">
+      <section className="space-y-4">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="space-y-1">
+          <h2 className="text-lg font-semibold text-ink">Suppressed</h2>
+          <p className="text-sm text-ghost">Review rejected and deferred pairs, understand why they were suppressed, and restore them to the queue when needed.</p>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          {suppressedHistorySummary ? (
+            <div className="text-xs text-ghost">
+              {selectedSectionLabel} · {suppressedHistorySummary.returned_items || 0} shown · {suppressedHistorySummary.deferred_items || 0} deferred · {suppressedHistorySummary.rejected_items || 0} rejected
+            </div>
+          ) : null}
+          <select
+            className="select h-9 w-full sm:w-44"
+            value={suppressedOutcomeFilter}
+            onChange={(event) => setSuppressedOutcomeFilter(event.target.value)}
+          >
+            {SUPPRESSED_OUTCOME_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+          <input
+            className="input h-9 w-full sm:w-64"
+            value={suppressedSearch}
+            onChange={(event) => setSuppressedSearch(event.target.value)}
+            placeholder="Search suppressed pairs"
+          />
+        </div>
+      </div>
       <div className="rounded-lg border border-edge bg-void/10">
         <div className="flex flex-col gap-3 border-b border-edge/70 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-1">
-            <h2 className="text-sm font-medium text-ink">Suppressed pairs</h2>
-            <p className="text-sm text-ghost">Review rejected and deferred pairs, understand why they were suppressed, and restore them to the queue when needed.</p>
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            {suppressedHistorySummary ? (
-              <div className="text-xs text-ghost">
-                {selectedSectionLabel} · {suppressedHistorySummary.returned_items || 0} shown · {suppressedHistorySummary.deferred_items || 0} deferred · {suppressedHistorySummary.rejected_items || 0} rejected
-              </div>
-            ) : null}
-            <select
-              className="input h-9 w-full sm:w-44"
-              value={suppressedOutcomeFilter}
-              onChange={(event) => setSuppressedOutcomeFilter(event.target.value)}
-            >
-              {SUPPRESSED_OUTCOME_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-            <input
-              className="input h-9 w-full sm:w-64"
-              value={suppressedSearch}
-              onChange={(event) => setSuppressedSearch(event.target.value)}
-              placeholder="Search suppressed pairs"
-            />
-          </div>
+          <h3 className="text-sm font-medium text-ink">Suppressed pairs</h3>
         </div>
         {suppressedHistoryLoading ? (
           <div className="px-4 py-6 text-sm text-ghost">Loading suppressed pairs…</div>
@@ -1698,33 +2149,42 @@ export default function AdminMergeReviewView({
                 onRestore={handleRestoreSuppressedPair}
                 restoring={restoringFeedbackId === String(item.feedback_id || '')}
                 loading={loading || applying}
-              />
+              >
+                {activeReviewSource === 'suppressed' && activeReviewKey === buildReviewItemKey(item) ? renderActiveReviewWorkspace() : null}
+              </SuppressedPairRow>
             ))}
           </div>
         ) : (
           <div className="px-4 py-6 text-sm text-ghost">No suppressed pairs found in the current scope.</div>
         )}
       </div>
+      </section>
+      </SectionTabPanel>
 
+      <SectionTabPanel activeId={activeTab} tabKey="collections" idBase="merge-review-sections" className="space-y-4 border-t border-edge pt-5">
+      <section className="space-y-4">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="space-y-1">
+          <h2 className="text-lg font-semibold text-ink">Collections</h2>
+          <p className="text-sm text-ghost">Collection entities are reviewed separately from title merges so duplicate sets can be compared without mixing them into media merges.</p>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          {collectionDuplicateSummary ? (
+            <div className="text-xs text-ghost">
+              {selectedSectionLabel} · {collectionDuplicateSummary.returned_groups || 0} groups · {collectionDuplicateSummary.duplicate_collections || 0} collections
+            </div>
+          ) : null}
+          <input
+            className="input h-9 w-full sm:w-64"
+            value={collectionDuplicateSearch}
+            onChange={(event) => setCollectionDuplicateSearch(event.target.value)}
+            placeholder="Search duplicate collections"
+          />
+        </div>
+      </div>
       <div className="rounded-lg border border-edge bg-void/10">
         <div className="flex flex-col gap-3 border-b border-edge/70 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-1">
-            <h2 className="text-sm font-medium text-ink">Duplicate collections</h2>
-            <p className="text-sm text-ghost">Collection entities are reviewed separately from title merges. This helps surface duplicate sets like multi-movie collections.</p>
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            {collectionDuplicateSummary ? (
-              <div className="text-xs text-ghost">
-                {selectedSectionLabel} · {collectionDuplicateSummary.returned_groups || 0} groups · {collectionDuplicateSummary.duplicate_collections || 0} collections
-              </div>
-            ) : null}
-            <input
-              className="input h-9 w-full sm:w-64"
-              value={collectionDuplicateSearch}
-              onChange={(event) => setCollectionDuplicateSearch(event.target.value)}
-              placeholder="Search duplicate collections"
-            />
-          </div>
+          <h3 className="text-sm font-medium text-ink">Duplicate collections</h3>
         </div>
         {collectionDuplicatesLoading ? (
           <div className="px-4 py-6 text-sm text-ghost">Loading duplicate collections…</div>
@@ -1743,6 +2203,7 @@ export default function AdminMergeReviewView({
           <div className="px-4 py-6 text-sm text-ghost">No duplicate collections found in the current scope.</div>
         )}
       </div>
+      </section>
 
       {collectionPreview?.allowed ? (
         <div className="rounded-lg border border-edge bg-void/10">
@@ -1921,270 +2382,8 @@ export default function AdminMergeReviewView({
           </div>
         </div>
       ) : null}
+      </SectionTabPanel>
 
-      <div className="grid gap-4 xl:grid-cols-2">
-        <RecordSearchPanel
-          title="Find this record"
-          value={canonicalSearch}
-          onChange={setCanonicalSearch}
-          loading={canonicalSearchLoading}
-          results={canonicalResults}
-          selectedId={canonicalId}
-          onPick={pickCanonicalRecord}
-          placeholder="Search title, isbn, creator, or year"
-        />
-        <RecordSearchPanel
-          title="Find matched record"
-          value={duplicateSearch}
-          onChange={setDuplicateSearch}
-          loading={duplicateSearchLoading}
-          results={duplicateResults}
-          selectedId={duplicateId}
-          onPick={pickDuplicateRecord}
-          placeholder="Search title, isbn, creator, or year"
-        />
-      </div>
-
-      <form onSubmit={handleSubmit} className="rounded-lg border border-edge bg-void/10 p-4 space-y-4">
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto] lg:items-end">
-          <label className="field">
-            <span className="label">This record id</span>
-            <input
-              className="input"
-              inputMode="numeric"
-              placeholder="Canonical record id"
-              value={canonicalId}
-              onChange={(event) => setCanonicalId(event.target.value)}
-            />
-          </label>
-          <button type="button" className="btn-secondary btn-sm h-10" onClick={swapDraft} disabled={loading}>
-            Swap
-          </button>
-          <label className="field">
-            <span className="label">Matched record id</span>
-            <input
-              className="input"
-              inputMode="numeric"
-              placeholder="Matched record id"
-              value={duplicateId}
-              onChange={(event) => setDuplicateId(event.target.value)}
-            />
-          </label>
-          <div className="flex gap-2">
-            <button
-              type="submit"
-              className="btn-primary h-10"
-              disabled={loading || !canonicalId.trim() || !duplicateId.trim()}
-            >
-              {loading ? <><Spinner size={14} />Loading…</> : 'Preview merge'}
-            </button>
-            {(preview || errorState) ? (
-              <button type="button" className="btn-secondary h-10" onClick={clearPreview} disabled={loading}>
-                Clear
-              </button>
-            ) : null}
-          </div>
-        </div>
-      </form>
-
-      {errorState ? (
-        <div className="rounded-lg border border-err/30 bg-err/5 p-4 space-y-4">
-          <div>
-            <p className="text-sm font-medium text-ink">{errorState.message}</p>
-            {errorState.details ? (
-              <p className="mt-2 text-sm text-ghost">
-                This record is {formatMediaType(errorState.details.canonical_media_type)} and the matched record is {formatMediaType(errorState.details.duplicate_media_type)}.
-              </p>
-            ) : null}
-          </div>
-          {(errorState.canonical || errorState.duplicate) ? (
-            <div className="grid gap-4 lg:grid-cols-2">
-              <RecordSummary title="This record" record={errorState.canonical} />
-              <RecordSummary title="Matched record" record={errorState.duplicate} />
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-
-      {preview?.allowed ? (
-        <div className="space-y-6">
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <SummaryStat label="Matched on" value={preview.preview?.evidence?.summary || 'Manual review'} />
-            <SummaryStat label="Confidence" value={formatMediaType(preview.preview?.evidence?.confidence)} />
-            <SummaryStat label="Media type" value={formatMediaType(preview.preview?.media_type)} />
-            <SummaryStat
-              label="Recommended canonical"
-              value={`#${preview.preview?.canonical_selection?.recommended_canonical_id || preview.canonical?.id || '—'}`}
-            />
-          </div>
-
-          {!preview.preview?.canonical_selection?.requested_matches_recommended ? (
-            <div className="rounded-lg border border-gold/30 bg-gold/5 px-4 py-3 text-sm text-ghost">
-              Recommended canonical is record #{preview.preview?.canonical_selection?.recommended_canonical_id || '—'} based on the current canonical selection rule.
-            </div>
-          ) : null}
-
-          <div className="grid gap-4 lg:grid-cols-2">
-            <RecordSummary title="This record" record={preview.canonical} />
-            <RecordSummary title="Matched record" record={preview.duplicate} />
-          </div>
-
-          <div className="rounded-lg border border-edge bg-void/10 p-4">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="space-y-1">
-                <h2 className="text-sm font-medium text-ink">Apply merge</h2>
-                <p className="text-sm text-ghost">
-                  This will absorb the matched record into this record and preserve repair history so the merge can be reverted later through the operator workflow.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {activeComicGroupId ? (
-                  <button type="button" className="btn-secondary h-10" onClick={handleSkipComicPair} disabled={applying}>
-                    Skip pair
-                  </button>
-                ) : null}
-                {!applyConfirmOpen ? (
-                  <button type="button" className="btn-primary h-10" onClick={() => setApplyConfirmOpen(true)} disabled={applying}>
-                    Apply merge
-                  </button>
-                ) : (
-                  <>
-                    <button type="button" className="btn-primary h-10" onClick={handleApply} disabled={applying}>
-                      {applying ? <><Spinner size={14} />Applying…</> : 'Confirm apply'}
-                    </button>
-                    <button type="button" className="btn-secondary h-10" onClick={() => setApplyConfirmOpen(false)} disabled={applying}>
-                      Cancel
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-edge bg-void/10">
-            <div className="border-b border-edge/70 px-4 py-3">
-              <h2 className="text-sm font-medium text-ink">Compared fields</h2>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-edge/60 text-sm">
-                <thead className="bg-raised/25 text-left text-[11px] text-ghost">
-                  <tr>
-                    <th className="px-4 py-3 font-medium">Matched on</th>
-                    <th className="px-4 py-3 font-medium">This record</th>
-                    <th className="px-4 py-3 font-medium">Matched record</th>
-                    <th className="px-4 py-3 font-medium">Result</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-edge/60">
-                  {comparedRows.map((row) => (
-                    <tr key={row.key}>
-                      <td className="px-4 py-3 text-ink">{row.label}</td>
-                      <td className="px-4 py-3 text-ghost">{formatValue(row.canonical_value)}</td>
-                      <td className="px-4 py-3 text-ghost">{formatValue(row.duplicate_value)}</td>
-                      <td className="px-4 py-3 text-ink">{formatValue(row.result_value)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="grid gap-4 lg:grid-cols-2">
-            <div className="rounded-lg border border-edge bg-void/10 p-4">
-              <h2 className="text-sm font-medium text-ink">Dependent rewiring</h2>
-              <div className="mt-3 space-y-2 text-sm">
-                {rewiringRows.map((row) => (
-                  <div key={row.label} className="flex items-start justify-between gap-4">
-                    <span className="text-ghost">{row.label}</span>
-                    <span className="text-ink">{formatValue(row.value)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-lg border border-edge bg-void/10 p-4">
-              <h2 className="text-sm font-medium text-ink">Merge history</h2>
-              <div className="mt-3 space-y-2 text-sm">
-                {historyRows.map((row) => (
-                  <div key={row.label} className="flex items-start justify-between gap-4">
-                    <span className="text-ghost">{row.label}</span>
-                    <span className="text-ink">{formatValue(row.value)}</span>
-                  </div>
-                ))}
-                <div className="flex items-start justify-between gap-4">
-                  <span className="text-ghost">Selection reason</span>
-                  <span className="text-right text-ink">{formatValue(preview.preview?.canonical_selection?.selection_reason)}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {Number(mergeDetails?.summary?.active_merge_count || 0) > 0 ? (
-        <div className="rounded-lg border border-edge bg-void/10">
-          <div className="border-b border-edge/70 px-4 py-3">
-            <h2 className="text-sm font-medium text-ink">Active merge events</h2>
-          </div>
-          <div className="divide-y divide-edge/60">
-            {(mergeDetails?.entries || []).map((entry) => (
-              <div key={`active-merge-${entry.duplicate_id}`} className="flex flex-col gap-3 px-4 py-4 lg:flex-row lg:items-start lg:justify-between">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-ink">
-                    {entry?.merged?.title || 'Merged record'} <span className="font-mono text-xs text-ghost">#{entry?.duplicate_id || '—'}</span>
-                  </p>
-                  <p className="text-sm text-ghost">
-                    {entry?.match_summary || 'Manual merge'} · {entry?.merged?.source_label || 'Unknown source'}
-                  </p>
-                  <p className="text-xs text-ghost">Merged at {formatTimestamp(entry?.applied_at)}</p>
-                </div>
-                <button
-                  type="button"
-                  className="btn-secondary btn-sm h-8"
-                  onClick={() => handleRevert(entry)}
-                  disabled={revertingDuplicateId === String(entry?.duplicate_id || '')}
-                >
-                  {revertingDuplicateId === String(entry?.duplicate_id || '') ? 'Reverting…' : 'Revert merge'}
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
-
-      {applyResult?.applied ? (
-        <div className="space-y-4 rounded-lg border border-edge bg-void/10 p-4">
-          <div className="space-y-1">
-            <h2 className="text-sm font-medium text-ink">Merge applied</h2>
-            <p className="text-sm text-ghost">
-              Record #{applyResult?.canonical?.id || '—'} absorbed record #{applyResult?.duplicate?.id || '—'} and the merge is now part of the normal provenance history.
-            </p>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <SummaryStat label="Canonical record" value={`#${applyResult?.canonical?.id || '—'}`} />
-            <SummaryStat label="Merged record" value={`#${applyResult?.duplicate?.id || '—'}`} />
-            <SummaryStat label="Attach count" value={formatValue(applyResult?.result?.attached || 0)} />
-            <SummaryStat label="Active merge count" value={formatValue(applyResult?.merge_details?.summary?.active_merge_count || 0)} />
-          </div>
-        </div>
-      ) : null}
-
-      {revertResult?.reverted ? (
-        <div className="space-y-4 rounded-lg border border-edge bg-void/10 p-4">
-          <div className="space-y-1">
-            <h2 className="text-sm font-medium text-ink">Merge reverted</h2>
-            <p className="text-sm text-ghost">
-              Record #{revertResult?.duplicate?.id || '—'} was restored from record #{revertResult?.canonical?.id || '—'} and the remaining active merge history was left intact.
-            </p>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <SummaryStat label="Canonical record" value={`#${revertResult?.canonical?.id || '—'}`} />
-            <SummaryStat label="Restored record" value={`#${revertResult?.duplicate?.id || '—'}`} />
-            <SummaryStat label="Reverted count" value={formatValue(revertResult?.result?.reverted || 0)} />
-            <SummaryStat label="Active merge count" value={formatValue(revertResult?.merge_details?.summary?.active_merge_count || 0)} />
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }

@@ -2991,6 +2991,10 @@ results.push(run('admin merge review view posts preview requests and renders ope
   assert.ok(adminMergeReviewViewSource.includes('/media/comics/duplicate-candidates?'));
   assert.ok(adminMergeReviewViewSource.includes('/media/collections/duplicates?'));
   assert.ok(adminMergeReviewViewSource.includes('/media/collections/duplicate-preview?'));
+  assert.ok(adminMergeReviewViewSource.includes('SectionTabs'));
+  assert.ok(adminMergeReviewViewSource.includes('SectionTabPanel'));
+  assert.ok(adminMergeReviewViewSource.includes('Merge review sections'));
+  assert.ok(!adminMergeReviewViewSource.includes("{ id: 'review', label: 'Review' }"));
   assert.ok(adminMergeReviewViewSource.includes('/media/collections/merge-apply'));
   assert.ok(adminMergeReviewViewSource.includes('/media/collections/merge-revert'));
   assert.ok(adminMergeReviewViewSource.includes('/media/collections/${left.id}/merge-details'));
@@ -3025,7 +3029,7 @@ results.push(run('admin merge review view posts preview requests and renders ope
   assert.ok(adminMergeReviewViewSource.includes('Deferred this comic pair'));
   assert.ok(adminMergeReviewViewSource.includes('Duplicate collections'));
   assert.ok(adminMergeReviewViewSource.includes('Search duplicate collections'));
-  assert.ok(adminMergeReviewViewSource.includes('Collection entities are reviewed separately from title merges.'));
+  assert.ok(adminMergeReviewViewSource.includes('Collection entities are reviewed separately from title merges so duplicate sets can be compared without mixing them into media merges.'));
   assert.ok(adminMergeReviewViewSource.includes('Review group'));
   assert.ok(adminMergeReviewViewSource.includes('Collection preview'));
   assert.ok(adminMergeReviewViewSource.includes('Preview a duplicate collection merge in the current scope before applying it.'));
@@ -3036,9 +3040,13 @@ results.push(run('admin merge review view posts preview requests and renders ope
   assert.ok(adminMergeReviewViewSource.includes('Review pair'));
   assert.ok(adminMergeReviewViewSource.includes('Reject match'));
   assert.ok(adminMergeReviewViewSource.includes('Confirm reject'));
+  assert.ok(adminMergeReviewViewSource.includes('className="select h-8 text-xs"'));
+  assert.ok(adminMergeReviewViewSource.includes('className="select h-9"'));
   assert.ok(adminMergeReviewViewSource.includes('Optional note'));
   assert.ok(adminMergeReviewViewSource.includes('different_title_identity'));
   assert.ok(adminMergeReviewViewSource.includes("/media/merge-recommendations/reject"));
+  assert.ok(adminMergeReviewViewSource.includes('Exact pair review'));
+  assert.ok(adminMergeReviewViewSource.includes('Pair review'));
   assert.ok(adminMergeReviewViewSource.includes('Find this record'));
   assert.ok(adminMergeReviewViewSource.includes('Find matched record'));
   assert.ok(adminMergeReviewViewSource.includes('Search inside the active workspace and library scope.'));
