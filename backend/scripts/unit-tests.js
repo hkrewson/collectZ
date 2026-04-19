@@ -3051,6 +3051,9 @@ results.push(run('admin merge review view posts preview requests and renders ope
   assert.ok(adminMergeReviewViewSource.includes('Inline queue review'));
   assert.ok(adminMergeReviewViewSource.includes('From:'));
   assert.ok(adminMergeReviewViewSource.includes('Pair:'));
+  assert.ok(adminMergeReviewViewSource.includes('Return to row'));
+  assert.ok(adminMergeReviewViewSource.includes('scrollIntoView'));
+  assert.ok(adminMergeReviewViewSource.includes('merge-review-row-'));
   assert.ok(adminMergeReviewViewSource.includes("activeReviewSource === 'discovery' && !discoveryInlineReviewPresent"));
   assert.ok(adminMergeReviewViewSource.includes("activeReviewSource === 'recommended' && !recommendationInlineReviewPresent"));
   assert.ok(adminMergeReviewViewSource.includes("activeReviewSource === 'comics' && !comicInlineReviewPresent"));

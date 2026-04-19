@@ -115,6 +115,11 @@ function buildReviewItemKey(item = {}) {
   return buildPairReviewKey(item?.canonical?.id, item?.duplicate?.id);
 }
 
+function buildReviewAnchorId(source = '', reviewKey = '') {
+  if (!source || !reviewKey) return '';
+  return `merge-review-row-${source}-${String(reviewKey).replace(/[^a-zA-Z0-9_-]/g, '-')}`;
+}
+
 function formatReviewSourceLabel(source = '') {
   switch (source) {
     case 'discovery':
@@ -241,6 +246,7 @@ function MergeReviewWorkspace({
   onApply,
   onSkipComicPair,
   onClose,
+  onReturnToRow,
   mergeDetails,
   revertingDuplicateId,
   onRevert,
@@ -276,7 +282,14 @@ function MergeReviewWorkspace({
             {reviewContext?.sourceLabel ? <span><span className="text-ink">From:</span> {reviewContext.sourceLabel}</span> : null}
             {reviewContext?.pairLabel ? <span><span className="text-ink">Pair:</span> {reviewContext.pairLabel}</span> : null}
           </div>
-          {reviewContext?.modeLabel ? <span className="text-xs text-ghost">{reviewContext.modeLabel}</span> : null}
+          <div className="flex items-center gap-2">
+            {reviewContext?.modeLabel ? <span className="text-xs text-ghost">{reviewContext.modeLabel}</span> : null}
+            {reviewContext?.canReturnToRow ? (
+              <button type="button" className="btn-secondary btn-sm h-8" onClick={onReturnToRow}>
+                Return to row
+              </button>
+            ) : null}
+          </div>
         </div>
       ) : null}
 
@@ -484,7 +497,7 @@ function MergeReviewWorkspace({
 
 function RecommendationRow({ item, onReview, onReject, loading, rejecting, confirmRejecting, rejectDraft, onRejectDraftChange, children }) {
   return (
-    <div className="flex flex-col gap-3 border-t border-edge/60 px-4 py-4 first:border-t-0">
+    <div id={buildReviewAnchorId('recommended', buildReviewItemKey(item))} className="flex flex-col gap-3 border-t border-edge/60 px-4 py-4 first:border-t-0">
       <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-1">
           <p className="text-sm font-medium text-ink">{item.summary || 'Recommended merge'}</p>
@@ -579,7 +592,7 @@ function RecommendationRow({ item, onReview, onReject, loading, rejecting, confi
 
 function DiscoveryCandidateRow({ item, onReview, onReject, loading, rejecting, confirmRejecting, rejectDraft, onRejectDraftChange, children }) {
   return (
-    <div className="flex flex-col gap-3 border-t border-edge/60 px-4 py-4 first:border-t-0">
+    <div id={buildReviewAnchorId('discovery', buildReviewItemKey(item))} className="flex flex-col gap-3 border-t border-edge/60 px-4 py-4 first:border-t-0">
       <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-1">
           <p className="text-sm font-medium text-ink">{item.summary || 'Possible duplicate'}</p>
@@ -671,7 +684,7 @@ function DiscoveryCandidateRow({ item, onReview, onReject, loading, rejecting, c
 
 function SuppressedPairRow({ item, onReview, onRestore, restoring, loading, children }) {
   return (
-    <div className="flex flex-col gap-3 border-t border-edge/60 px-4 py-4 first:border-t-0">
+    <div id={buildReviewAnchorId('suppressed', buildReviewItemKey(item))} className="flex flex-col gap-3 border-t border-edge/60 px-4 py-4 first:border-t-0">
       <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-1">
           <p className="text-sm font-medium text-ink">{item.summary || 'Suppressed pair'}</p>
@@ -836,6 +849,7 @@ function ComicDuplicateCandidateGroup({ group, onReview, loading, activeReviewKe
           {(group.duplicates || []).map((record) => (
             <div
               key={`comic-candidate-${group.duplicate_group_id}-${record.id}`}
+              id={buildReviewAnchorId('comics', buildPairReviewKey(group?.canonical?.id, record?.id))}
               className="rounded-md border border-edge/70 bg-void/10 px-3 py-3"
             >
               <div className="flex flex-col gap-3">
@@ -1026,6 +1040,37 @@ export default function AdminMergeReviewView({
       (group?.duplicates || []).some((record) => buildPairReviewKey(group?.canonical?.id, record?.id) === activeReviewKey)
     ),
     [comicDuplicateCandidates, activeReviewKey]
+  );
+  const activeReviewRowPresent = useMemo(() => {
+    switch (activeReviewSource) {
+      case 'discovery':
+        return discoveryInlineReviewPresent;
+      case 'recommended':
+        return recommendationInlineReviewPresent;
+      case 'comics':
+        return comicInlineReviewPresent;
+      case 'suppressed':
+        return suppressedInlineReviewPresent;
+      default:
+        return false;
+    }
+  }, [
+    activeReviewSource,
+    discoveryInlineReviewPresent,
+    recommendationInlineReviewPresent,
+    comicInlineReviewPresent,
+    suppressedInlineReviewPresent
+  ]);
+  const activeReviewAnchorId = useMemo(
+    () => buildReviewAnchorId(activeReviewSource, activeReviewKey),
+    [activeReviewSource, activeReviewKey]
+  );
+  const activeReviewContextWithRowLink = useMemo(
+    () => ({
+      ...activeReviewContext,
+      canReturnToRow: activeReviewSource !== 'manual' && activeReviewRowPresent
+    }),
+    [activeReviewContext, activeReviewSource, activeReviewRowPresent]
   );
 
   const clearPreview = ({ closeReview = false } = {}) => {
@@ -1831,9 +1876,16 @@ export default function AdminMergeReviewView({
     setComicAdvanceMessage('');
   };
 
+  const returnToActiveReviewRow = () => {
+    if (!activeReviewAnchorId) return;
+    const target = typeof document !== 'undefined' ? document.getElementById(activeReviewAnchorId) : null;
+    if (!target) return;
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+
   const renderActiveReviewWorkspace = () => (
     <MergeReviewWorkspace
-      reviewContext={activeReviewContext}
+      reviewContext={activeReviewContextWithRowLink}
       preview={preview}
       errorState={errorState}
       comparedRows={comparedRows}
@@ -1848,6 +1900,7 @@ export default function AdminMergeReviewView({
       onApply={handleApply}
       onSkipComicPair={handleSkipComicPair}
       onClose={closeInlineReview}
+      onReturnToRow={returnToActiveReviewRow}
       mergeDetails={mergeDetails}
       revertingDuplicateId={revertingDuplicateId}
       onRevert={handleRevert}
