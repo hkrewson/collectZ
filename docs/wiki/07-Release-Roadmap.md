@@ -3228,7 +3228,7 @@ Historical note:
 
 **Goal:** Add a controlled operator-facing manual merge workflow so supported media types can be reviewed, compared, merged, and reverted intentionally without allowing unsafe cross-type merges.
 
-**Current Slice:** `3.2.0.26 — Inline Pair Review Expansion`
+**Current Slice:** `3.2.0.27 — Inline Review Continuity After Queue Mutation`
 
 - Start with same-type manual merge only:
   - books

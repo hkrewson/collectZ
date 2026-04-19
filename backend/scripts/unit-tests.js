@@ -3047,6 +3047,10 @@ results.push(run('admin merge review view posts preview requests and renders ope
   assert.ok(adminMergeReviewViewSource.includes("/media/merge-recommendations/reject"));
   assert.ok(adminMergeReviewViewSource.includes('Exact pair review'));
   assert.ok(adminMergeReviewViewSource.includes('Pair review'));
+  assert.ok(adminMergeReviewViewSource.includes("activeReviewSource === 'discovery' && !discoveryInlineReviewPresent"));
+  assert.ok(adminMergeReviewViewSource.includes("activeReviewSource === 'recommended' && !recommendationInlineReviewPresent"));
+  assert.ok(adminMergeReviewViewSource.includes("activeReviewSource === 'comics' && !comicInlineReviewPresent"));
+  assert.ok(adminMergeReviewViewSource.includes("activeReviewSource === 'suppressed' && !suppressedInlineReviewPresent"));
   assert.ok(adminMergeReviewViewSource.includes('Find this record'));
   assert.ok(adminMergeReviewViewSource.includes('Find matched record'));
   assert.ok(adminMergeReviewViewSource.includes('Search inside the active workspace and library scope.'));

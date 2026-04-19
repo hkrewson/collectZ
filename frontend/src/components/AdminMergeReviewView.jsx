@@ -967,6 +967,24 @@ export default function AdminMergeReviewView({
   );
   const tabOptions = useMemo(() => MERGE_REVIEW_TABS, []);
   const manualReviewOpen = activeReviewSource === 'manual' && (!!preview || !!errorState || !!applyResult?.applied || !!revertResult?.reverted || Number(mergeDetails?.summary?.active_merge_count || 0) > 0);
+  const discoveryInlineReviewPresent = useMemo(
+    () => discoveryCandidates.some((item) => buildReviewItemKey(item) === activeReviewKey),
+    [discoveryCandidates, activeReviewKey]
+  );
+  const recommendationInlineReviewPresent = useMemo(
+    () => recommendations.some((item) => buildReviewItemKey(item) === activeReviewKey),
+    [recommendations, activeReviewKey]
+  );
+  const suppressedInlineReviewPresent = useMemo(
+    () => suppressedHistory.some((item) => buildReviewItemKey(item) === activeReviewKey),
+    [suppressedHistory, activeReviewKey]
+  );
+  const comicInlineReviewPresent = useMemo(
+    () => comicDuplicateCandidates.some((group) =>
+      (group?.duplicates || []).some((record) => buildPairReviewKey(group?.canonical?.id, record?.id) === activeReviewKey)
+    ),
+    [comicDuplicateCandidates, activeReviewKey]
+  );
 
   const clearPreview = ({ closeReview = false } = {}) => {
     setPreview(null);
@@ -1939,6 +1957,7 @@ export default function AdminMergeReviewView({
           />
         </div>
       </div>
+      {activeReviewSource === 'discovery' && !discoveryInlineReviewPresent ? renderActiveReviewWorkspace() : null}
       <div className="rounded-lg border border-edge bg-void/10">
         <div className="flex flex-col gap-3 border-b border-edge/70 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
           <h3 className="text-sm font-medium text-ink">Discovery queue</h3>
@@ -2002,6 +2021,7 @@ export default function AdminMergeReviewView({
           </div>
         ) : null}
       </div>
+      {activeReviewSource === 'recommended' && !recommendationInlineReviewPresent ? renderActiveReviewWorkspace() : null}
       <div className="rounded-lg border border-edge bg-void/10">
         <div className="flex flex-col gap-2 border-b border-edge/70 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
           <h3 className="text-sm font-medium text-ink">Recommended pairs</h3>
@@ -2054,6 +2074,7 @@ export default function AdminMergeReviewView({
           />
         </div>
       </div>
+      {activeReviewSource === 'comics' && !comicInlineReviewPresent ? renderActiveReviewWorkspace() : null}
       <div className="rounded-lg border border-edge bg-void/10">
         <div className="flex flex-col gap-3 border-b border-edge/70 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
           <h3 className="text-sm font-medium text-ink">Comic duplicate candidates</h3>
@@ -2133,6 +2154,7 @@ export default function AdminMergeReviewView({
           />
         </div>
       </div>
+      {activeReviewSource === 'suppressed' && !suppressedInlineReviewPresent ? renderActiveReviewWorkspace() : null}
       <div className="rounded-lg border border-edge bg-void/10">
         <div className="flex flex-col gap-3 border-b border-edge/70 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
           <h3 className="text-sm font-medium text-ink">Suppressed pairs</h3>
