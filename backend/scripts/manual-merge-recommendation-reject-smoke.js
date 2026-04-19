@@ -213,6 +213,7 @@ async function main() {
       body: {
         canonical_id: bookCanonicalId,
         duplicate_id: bookDuplicateId,
+        reason_code: 'different_title_identity',
         reason: 'Not a match for operator review'
       }
     });
@@ -229,7 +230,7 @@ async function main() {
     assert(Number(rejectResponse.data?.recommendations?.summary?.total_candidates || 0) === 1, 'Expected recommendation summary to drop after rejection');
 
     const feedbackRow = await pool.query(
-      `SELECT outcome, reason
+      `SELECT outcome, reason, context->>'reason_code' AS reason_code
          FROM media_merge_recommendation_feedback
         WHERE pair_low_media_id = $1
           AND pair_high_media_id = $2
@@ -239,13 +240,15 @@ async function main() {
     );
     assert(feedbackRow.rows.length === 1, 'Expected recommendation feedback row to persist');
     assert(String(feedbackRow.rows[0]?.outcome || '') === 'rejected', 'Expected persisted feedback outcome to be rejected');
+    assert(String(feedbackRow.rows[0]?.reason_code || '') === 'different_title_identity', 'Expected persisted recommendation feedback reason code');
 
     console.log(JSON.stringify({
       beforeTotalCandidates: Number(response.data?.summary?.total_candidates || 0),
       afterTotalCandidates: Number(rejectResponse.data?.recommendations?.summary?.total_candidates || 0),
       rejectedPairRemoved: !remainingBookRecommendation,
       remainingMovieSummary: remainingMovieRecommendation.summary,
-      feedbackOutcome: feedbackRow.rows[0]?.outcome || null
+      feedbackOutcome: feedbackRow.rows[0]?.outcome || null,
+      feedbackReasonCode: feedbackRow.rows[0]?.reason_code || null
     }, null, 2));
   } finally {
     await cleanupTemporaryState({ userId, libraryId, spaceId });

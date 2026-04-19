@@ -24,6 +24,14 @@ function formatTimestamp(value) {
   return parsed.toLocaleString();
 }
 
+const RECOMMENDATION_REJECTION_REASONS = [
+  { value: 'different_title_identity', label: 'Different title identity' },
+  { value: 'different_volume_or_edition', label: 'Different volume or edition' },
+  { value: 'different_season_or_part', label: 'Different season or part' },
+  { value: 'collection_wrapper_only', label: 'Collection wrapper only' },
+  { value: 'other', label: 'Other' }
+];
+
 function formatSearchMeta(record = {}) {
   const bits = [];
   if (record?.media_type) bits.push(formatMediaType(record.media_type));
@@ -152,7 +160,7 @@ function RecordSearchPanel({
   );
 }
 
-function RecommendationRow({ item, onReview, onReject, loading, rejecting, confirmRejecting }) {
+function RecommendationRow({ item, onReview, onReject, loading, rejecting, confirmRejecting, rejectDraft, onRejectDraftChange }) {
   return (
     <div className="flex flex-col gap-3 border-t border-edge/60 px-4 py-4 first:border-t-0">
       <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
@@ -184,23 +192,48 @@ function RecommendationRow({ item, onReview, onReject, loading, rejecting, confi
               </button>
             </div>
           ) : (
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                className="btn-primary btn-sm h-8"
-                onClick={() => onReject(item, true)}
-                disabled={loading || rejecting}
-              >
-                {rejecting ? 'Rejecting…' : 'Confirm reject'}
-              </button>
-              <button
-                type="button"
-                className="btn-secondary btn-sm h-8"
-                onClick={() => onReject(item, null)}
+            <div className="flex flex-col gap-2 sm:min-w-72">
+              <select
+                className="input h-8 text-xs"
+                value={rejectDraft?.reason_code || RECOMMENDATION_REJECTION_REASONS[0].value}
+                onChange={(event) => onRejectDraftChange(item, {
+                  ...(rejectDraft || {}),
+                  reason_code: event.target.value
+                })}
                 disabled={rejecting}
               >
-                Cancel
-              </button>
+                {RECOMMENDATION_REJECTION_REASONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+              <input
+                className="input h-8 text-xs"
+                placeholder="Optional note"
+                value={rejectDraft?.reason || ''}
+                onChange={(event) => onRejectDraftChange(item, {
+                  ...(rejectDraft || {}),
+                  reason: event.target.value
+                })}
+                disabled={rejecting}
+              />
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="btn-primary btn-sm h-8"
+                  onClick={() => onReject(item, true)}
+                  disabled={loading || rejecting}
+                >
+                  {rejecting ? 'Rejecting…' : 'Confirm reject'}
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary btn-sm h-8"
+                  onClick={() => onReject(item, null)}
+                  disabled={rejecting}
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -342,6 +375,7 @@ export default function AdminMergeReviewView({
   const [collectionPreviewLoading, setCollectionPreviewLoading] = useState(false);
   const [rejectingRecommendationId, setRejectingRecommendationId] = useState('');
   const [rejectConfirmId, setRejectConfirmId] = useState('');
+  const [rejectDrafts, setRejectDrafts] = useState({});
   const [preview, setPreview] = useState(null);
   const [mergeDetails, setMergeDetails] = useState(null);
   const [applyResult, setApplyResult] = useState(null);
@@ -562,22 +596,45 @@ export default function AdminMergeReviewView({
     if (!recommendationId) return;
     if (confirmed === null) {
       setRejectConfirmId('');
+      setRejectDrafts((current) => {
+        const next = { ...current };
+        delete next[recommendationId];
+        return next;
+      });
       return;
     }
     if (!confirmed) {
+      setRejectDrafts((current) => ({
+        ...current,
+        [recommendationId]: current[recommendationId] || {
+          reason_code: RECOMMENDATION_REJECTION_REASONS[0].value,
+          reason: ''
+        }
+      }));
       setRejectConfirmId(recommendationId);
       return;
     }
+    const rejectDraft = rejectDrafts[recommendationId] || {
+      reason_code: RECOMMENDATION_REJECTION_REASONS[0].value,
+      reason: ''
+    };
     setRejectingRecommendationId(recommendationId);
     setErrorState(null);
     try {
       const payload = await apiCall('post', '/media/merge-recommendations/reject', {
         canonical_id: Number(item?.canonical?.id || 0),
-        duplicate_id: Number(item?.duplicate?.id || 0)
+        duplicate_id: Number(item?.duplicate?.id || 0),
+        reason_code: rejectDraft.reason_code,
+        reason: String(rejectDraft.reason || '').trim() || null
       });
       setRecommendations(Array.isArray(payload?.recommendations?.items) ? payload.recommendations.items : []);
       setRecommendationsSummary(payload?.recommendations?.summary || null);
       setRejectConfirmId('');
+      setRejectDrafts((current) => {
+        const next = { ...current };
+        delete next[recommendationId];
+        return next;
+      });
       onToast('Recommendation removed from the queue', 'success');
     } catch (error) {
       const response = error?.response?.data || null;
@@ -585,6 +642,15 @@ export default function AdminMergeReviewView({
     } finally {
       setRejectingRecommendationId('');
     }
+  };
+
+  const handleRejectDraftChange = (item, nextDraft) => {
+    const recommendationId = String(item?.recommendation_id || '');
+    if (!recommendationId) return;
+    setRejectDrafts((current) => ({
+      ...current,
+      [recommendationId]: nextDraft
+    }));
   };
 
   const handleApply = async () => {
@@ -707,6 +773,8 @@ export default function AdminMergeReviewView({
                 item={item}
                 onReview={handleRecommendationReview}
                 onReject={handleRecommendationReject}
+                rejectDraft={rejectDrafts[item.recommendation_id]}
+                onRejectDraftChange={handleRejectDraftChange}
                 loading={loading || applying}
                 rejecting={rejectingRecommendationId === item.recommendation_id}
                 confirmRejecting={rejectConfirmId === item.recommendation_id}

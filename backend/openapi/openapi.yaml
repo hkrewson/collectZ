@@ -3978,6 +3978,17 @@
                 "properties": {
                   "canonical_id": { "type": "integer", "minimum": 1 },
                   "duplicate_id": { "type": "integer", "minimum": 1 },
+                  "reason_code": {
+                    "type": "string",
+                    "enum": [
+                      "different_title_identity",
+                      "different_volume_or_edition",
+                      "different_season_or_part",
+                      "collection_wrapper_only",
+                      "other"
+                    ],
+                    "nullable": true
+                  },
                   "reason": { "type": "string", "maxLength": 1000, "nullable": true }
                 },
                 "required": ["canonical_id", "duplicate_id"]

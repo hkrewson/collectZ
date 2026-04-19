@@ -3228,7 +3228,7 @@ Historical note:
 
 **Goal:** Add a controlled operator-facing manual merge workflow so supported media types can be reviewed, compared, merged, and reverted intentionally without allowing unsafe cross-type merges.
 
-**Current Slice:** `3.2.0.11 — Operator Merge Revert Controls`
+**Current Slice:** `3.2.0.12 — Recommendation Rejection Reason Capture`
 
 - Start with same-type manual merge only:
   - books

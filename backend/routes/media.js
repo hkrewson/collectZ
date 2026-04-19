@@ -14,6 +14,7 @@ const {
   mediaMergePreviewSchema,
   mediaMergeApplySchema,
   mediaMergeRevertSchema,
+  MANUAL_MERGE_REJECTION_REASON_CODES,
   mediaMergeRecommendationRejectSchema,
   simpleSearchSchema,
   titleAuthorSearchSchema,
@@ -897,6 +898,7 @@ async function recordManualMergeRecommendationFeedback({
   duplicateMediaId,
   scopeContext = null,
   userId = null,
+  reasonCode = null,
   reason = null,
   preview = null
 } = {}) {
@@ -912,6 +914,7 @@ async function recordManualMergeRecommendationFeedback({
     kind: String(previewEvidence.kind || '').trim() || null,
     key: String(previewEvidence.key || '').trim() || null,
     rationale: Array.isArray(previewEvidence.rationale) ? previewEvidence.rationale : [],
+    reason_code: String(reasonCode || '').trim() || null,
     canonical: summarizeMergeSourceRow(preview?.canonical || {}),
     duplicate: summarizeMergeSourceRow(preview?.duplicate || {})
   };
@@ -974,7 +977,9 @@ async function recordManualMergeRecommendationFeedback({
     id: Number(result.rows?.[0]?.id || 0) || null,
     pair_key: pairKey.key,
     created_at: result.rows?.[0]?.created_at || null,
-    outcome: 'rejected'
+    outcome: 'rejected',
+    reason_code: payload.reason_code,
+    reason: reason || null
   };
 }
 
@@ -991,6 +996,18 @@ function buildMergeTechnicalDetails({
     applied_at: row?.applied_at || null,
     reverted_at: row?.reverted_at || null
   };
+}
+
+function formatManualMergeRejectionReasonLabel(reasonCode = '') {
+  const normalized = String(reasonCode || '').trim();
+  const labels = {
+    different_title_identity: 'Different title identity',
+    different_volume_or_edition: 'Different volume or edition',
+    different_season_or_part: 'Different season or part',
+    collection_wrapper_only: 'Collection wrapper only',
+    other: 'Other'
+  };
+  return labels[normalized] || null;
 }
 
 function formatMergeRationaleLabel(token = '') {
@@ -5702,6 +5719,9 @@ router.post('/merge-recommendations/reject', requireSessionAuth, requireRole('ad
   const scopeContext = resolveScopeContext(req);
   const canonicalMediaId = Number(req.body?.canonical_id);
   const duplicateMediaId = Number(req.body?.duplicate_id);
+  const reasonCode = MANUAL_MERGE_REJECTION_REASON_CODES.includes(String(req.body?.reason_code || '').trim())
+    ? String(req.body.reason_code).trim()
+    : null;
   const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim() || null : null;
   const preview = await loadScopedManualMergePreview({
     canonicalMediaId,
@@ -5725,6 +5745,7 @@ router.post('/merge-recommendations/reject', requireSessionAuth, requireRole('ad
     duplicateMediaId,
     scopeContext,
     userId: req.user?.id || null,
+    reasonCode,
     reason,
     preview
   });
@@ -5732,6 +5753,7 @@ router.post('/merge-recommendations/reject', requireSessionAuth, requireRole('ad
     canonical_id: canonicalMediaId,
     duplicate_id: duplicateMediaId,
     pair_key: feedback.pair_key,
+    reason_code: reasonCode,
     reason,
     media_type: preview.preview?.media_type || preview.canonical?.media_type || null
   });

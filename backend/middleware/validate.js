@@ -251,9 +251,17 @@ const mediaMergePreviewSchema = z.object({
 
 const mediaMergeApplySchema = mediaMergePreviewSchema;
 const mediaMergeRevertSchema = mediaMergePreviewSchema;
+const MANUAL_MERGE_REJECTION_REASON_CODES = [
+  'different_title_identity',
+  'different_volume_or_edition',
+  'different_season_or_part',
+  'collection_wrapper_only',
+  'other'
+];
 const mediaMergeRecommendationRejectSchema = z.object({
   canonical_id: z.number().int().positive('canonical_id is required'),
   duplicate_id: z.number().int().positive('duplicate_id is required'),
+  reason_code: z.enum(MANUAL_MERGE_REJECTION_REASON_CODES).optional().nullable(),
   reason: z.preprocess(emptyStringToNull, z.string().max(1000).optional().nullable())
 }).superRefine((data, ctx) => {
   if (Number(data.canonical_id) === Number(data.duplicate_id)) {
@@ -665,6 +673,7 @@ module.exports = {
   mediaMergePreviewSchema,
   mediaMergeApplySchema,
   mediaMergeRevertSchema,
+  MANUAL_MERGE_REJECTION_REASON_CODES,
   mediaMergeRecommendationRejectSchema,
   profileUpdateSchema,
   passwordResetConsumeSchema,

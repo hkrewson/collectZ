@@ -1493,6 +1493,7 @@ results.push(run('repo includes manual merge preview smoke coverage for same-typ
   assert.ok(manualMergeRecommendationsSmokeSource.includes('franchise volume titles to stay out of the recommendation queue'));
   assert.ok(manualMergeRecommendationRejectSmokeSource.includes('rejectedPairRemoved'));
   assert.ok(manualMergeRecommendationRejectSmokeSource.includes('feedbackOutcome'));
+  assert.ok(manualMergeRecommendationRejectSmokeSource.includes('feedbackReasonCode'));
   assert.ok(collectionDuplicatePreviewSmokeSource.includes('Matched on collection name and expected item count'));
   assert.ok(collectionDuplicatePreviewSmokeSource.includes('Expected duplicate collection preview to be allowed'));
 }));
@@ -2867,6 +2868,8 @@ results.push(run('admin merge review view posts preview requests and renders ope
   assert.ok(adminMergeReviewViewSource.includes('Review pair'));
   assert.ok(adminMergeReviewViewSource.includes('Reject match'));
   assert.ok(adminMergeReviewViewSource.includes('Confirm reject'));
+  assert.ok(adminMergeReviewViewSource.includes('Optional note'));
+  assert.ok(adminMergeReviewViewSource.includes('different_title_identity'));
   assert.ok(adminMergeReviewViewSource.includes("/media/merge-recommendations/reject"));
   assert.ok(adminMergeReviewViewSource.includes('Find this record'));
   assert.ok(adminMergeReviewViewSource.includes('Find matched record'));
