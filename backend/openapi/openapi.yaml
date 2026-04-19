@@ -3896,6 +3896,72 @@
         }
       }
     },
+    "/api/media/collections/duplicate-preview": {
+      "get": {
+        "tags": ["Media"],
+        "summary": "Preview a duplicate collection pair for the active scope",
+        "security": [
+          { "cookieSession": [] }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "left_id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          },
+          {
+            "in": "query",
+            "name": "right_id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Read-only duplicate collection preview",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "allowed": { "type": "boolean" },
+                    "left": { "type": "object", "additionalProperties": true },
+                    "right": { "type": "object", "additionalProperties": true },
+                    "preview": { "type": "object", "additionalProperties": true }
+                  },
+                  "required": ["allowed", "left", "right", "preview"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid duplicate collection preview request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "404": {
+            "description": "One or both collections were not found in the active scope",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "409": {
+            "description": "Cross-type collection preview attempt rejected",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/media/merge-recommendations/reject": {
       "post": {
         "tags": ["Media"],
@@ -3954,6 +4020,30 @@
               }
             }
           }
+        }
+      }
+    },
+    "/api/media/collections/duplicates": {
+      "get": {
+        "summary": "List duplicate collections in the active operator scope",
+        "tags": ["Media"],
+        "security": [{ "bearerAuth": [] }, { "cookieAuth": [] }],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": { "type": "integer", "minimum": 1, "maximum": 50 }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Duplicate collection groups" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
         }
       }
     },

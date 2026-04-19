@@ -162,7 +162,7 @@ test.describe('admin shell browser regressions', () => {
 
       await expect(page.getByRole('heading', { name: 'Merge Review' })).toBeVisible();
       await expect(page.getByRole('heading', { name: 'Recommended pairs' })).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Reject match' })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Reject match' }).first()).toBeVisible();
       await page.getByLabel('This record id').fill(String(canonical.id));
       await page.getByLabel('Matched record id').fill(String(duplicate.id));
 
@@ -175,7 +175,7 @@ test.describe('admin shell browser regressions', () => {
       const previewResponse = await previewResponsePromise;
       expect(previewResponse.ok()).toBeTruthy();
 
-      await expect(page.getByText('Matched on ISBN')).toBeVisible();
+      await expect(page.getByText('Matched on ISBN').first()).toBeVisible();
       await expect(page.getByRole('heading', { name: 'Compared fields' })).toBeVisible();
       await expect(page.getByRole('cell', { name: 'ISBN' })).toBeVisible();
       await expect(page.getByText('9780358447849').first()).toBeVisible();
@@ -190,8 +190,8 @@ test.describe('admin shell browser regressions', () => {
       const crossTypeResponse = await crossTypeResponsePromise;
       expect(crossTypeResponse.status()).toBe(409);
 
-      await expect(page.getByText('Cross-type merges are not allowed')).toBeVisible();
-      await expect(page.getByText('This record is Book and the matched record is Movie.')).toBeVisible();
+      await expect(page.getByText('Cross-type merges are not allowed').first()).toBeVisible();
+      await expect(page.getByText('This record is Book and the matched record is Movie.').first()).toBeVisible();
 
       await page.getByLabel('Matched record id').fill(String(duplicate.id));
       const secondPreviewResponsePromise = page.waitForResponse((response) => (

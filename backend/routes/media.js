@@ -654,6 +654,243 @@ async function loadScopedManualMergeRecommendations({ scopeContext = null, limit
   };
 }
 
+async function loadScopedCollectionDuplicateGroups({ scopeContext = null, limit = 12, search = '' } = {}) {
+  const cappedLimit = Math.max(1, Math.min(50, Number(limit || 12) || 12));
+  const normalizedSearch = String(search || '').trim();
+  const params = [];
+  let where = 'WHERE 1=1';
+  if (normalizedSearch) {
+    params.push(`%${normalizedSearch}%`);
+    where += ` AND (
+      c.name ILIKE $${params.length}
+      OR COALESCE(c.source_title, '') ILIKE $${params.length}
+    )`;
+  }
+  where += appendScopeSql(params, scopeContext, {
+    spaceColumn: 'c.space_id',
+    libraryColumn: 'c.library_id'
+  });
+
+  const result = await pool.query(
+    `SELECT
+       c.id,
+       c.name,
+       c.media_type,
+       c.source_title,
+       c.import_source,
+       c.expected_item_count,
+       c.library_id,
+       c.space_id,
+       c.created_at,
+       c.updated_at,
+       l.name AS library_name,
+       COUNT(ci.id)::int AS item_count,
+       COUNT(ci.id) FILTER (WHERE ci.media_id IS NOT NULL)::int AS linked_item_count
+     FROM collections c
+     LEFT JOIN collection_items ci ON ci.collection_id = c.id
+     LEFT JOIN libraries l ON l.id = c.library_id
+     ${where}
+     GROUP BY c.id, l.name
+     ORDER BY c.created_at DESC, c.id DESC`,
+    params
+  );
+
+  const groups = new Map();
+  for (const row of result.rows || []) {
+    const expectedItemCount = Number(row.expected_item_count || 0) || 0;
+    const key = `${normalizeText(row.name || '')}::${String(row.media_type || '').trim()}::${expectedItemCount}`;
+    const group = groups.get(key) || {
+      duplicate_group_id: key,
+      name: row.name || row.source_title || `Collection #${row.id}`,
+      media_type: String(row.media_type || '').trim() || null,
+      expected_item_count: expectedItemCount,
+      collections: []
+    };
+    group.collections.push({
+      id: Number(row.id || 0) || null,
+      name: row.name || row.source_title || `Collection #${row.id}`,
+      source_title: row.source_title || null,
+      import_source: row.import_source || null,
+      library_id: Number(row.library_id || 0) || null,
+      library_name: row.library_name || null,
+      space_id: Number(row.space_id || 0) || null,
+      created_at: row.created_at || null,
+      item_count: Number(row.item_count || 0) || 0,
+      linked_item_count: Number(row.linked_item_count || 0) || 0
+    });
+    groups.set(key, group);
+  }
+
+  const allItems = Array.from(groups.values())
+    .filter((group) => Array.isArray(group.collections) && group.collections.length > 1)
+    .sort((left, right) => {
+      const countDelta = Number(right.collections.length || 0) - Number(left.collections.length || 0);
+      if (countDelta !== 0) return countDelta;
+      return String(left.name || '').localeCompare(String(right.name || ''));
+    });
+  const limitedItems = allItems.slice(0, cappedLimit);
+
+  return {
+    summary: {
+      total_groups: allItems.length,
+      returned_groups: limitedItems.length,
+      duplicate_collections: allItems.reduce((sum, item) => sum + Number(item.collections?.length || 0), 0)
+    },
+    items: limitedItems
+  };
+}
+
+async function loadScopedCollectionDuplicatePreview({
+  leftCollectionId,
+  rightCollectionId,
+  scopeContext = null
+} = {}) {
+  const leftId = Number(leftCollectionId || 0);
+  const rightId = Number(rightCollectionId || 0);
+  if (!leftId || !rightId || leftId === rightId) return null;
+
+  const params = [leftId, rightId];
+  const scopeClause = appendScopeSql(params, scopeContext, {
+    spaceColumn: 'c.space_id',
+    libraryColumn: 'c.library_id'
+  });
+  const collectionResult = await pool.query(
+    `SELECT
+       c.id, c.name, c.media_type, c.source_title, c.import_source, c.expected_item_count, c.metadata,
+       c.library_id, c.space_id, c.created_by, c.created_at, c.updated_at,
+       l.name AS library_name
+     FROM collections c
+     LEFT JOIN libraries l ON l.id = c.library_id
+     WHERE c.id IN ($1, $2)
+     ${scopeClause}
+     ORDER BY c.created_at DESC, c.id DESC`,
+    params
+  );
+  const collections = (collectionResult.rows || []).map((row) => ({
+    id: Number(row.id || 0) || null,
+    name: row.name || row.source_title || `Collection #${row.id}`,
+    media_type: String(row.media_type || '').trim() || null,
+    source_title: row.source_title || null,
+    import_source: row.import_source || null,
+    source_label: humanizeMergeSourceToken(row.import_source) || 'Unknown source',
+    expected_item_count: Number(row.expected_item_count || 0) || 0,
+    metadata: row.metadata && typeof row.metadata === 'object' ? row.metadata : {},
+    library_id: Number(row.library_id || 0) || null,
+    library_name: row.library_name || null,
+    space_id: Number(row.space_id || 0) || null,
+    created_by: Number(row.created_by || 0) || null,
+    created_at: row.created_at || null,
+    updated_at: row.updated_at || null
+  }));
+  if (collections.length !== 2) return null;
+
+  const collectionById = new Map(collections.map((collection) => [Number(collection.id || 0), collection]));
+  const left = collectionById.get(leftId) || null;
+  const right = collectionById.get(rightId) || null;
+  if (!left || !right) return null;
+
+  if (String(left.media_type || '') !== String(right.media_type || '')) {
+    return {
+      allowed: false,
+      details: {
+        left_media_type: left.media_type || null,
+        right_media_type: right.media_type || null
+      },
+      left,
+      right
+    };
+  }
+
+  const itemsResult = await pool.query(
+    `SELECT
+       ci.id, ci.collection_id, ci.media_id, ci.contained_title, ci.position, ci.confidence_score,
+       ci.resolution_status, ci.source_payload, ci.created_at, ci.updated_at,
+       m.title AS media_title, m.media_type AS media_type, m.poster_path AS media_poster_path, m.year AS media_year
+     FROM collection_items ci
+     LEFT JOIN media m ON m.id = ci.media_id
+     WHERE ci.collection_id = ANY($1::int[])
+     ORDER BY ci.collection_id ASC, COALESCE(ci.position, 999999), ci.id ASC`,
+    [[leftId, rightId]]
+  );
+  const itemsByCollectionId = new Map([[leftId, []], [rightId, []]]);
+  for (const row of itemsResult.rows || []) {
+    const collectionId = Number(row.collection_id || 0);
+    const bucket = itemsByCollectionId.get(collectionId);
+    if (!bucket) continue;
+    bucket.push({
+      id: Number(row.id || 0) || null,
+      collection_id: collectionId,
+      media_id: Number(row.media_id || 0) || null,
+      contained_title: row.contained_title || null,
+      position: Number.isFinite(Number(row.position)) ? Number(row.position) : null,
+      confidence_score: row.confidence_score === null || row.confidence_score === undefined ? null : Number(row.confidence_score),
+      resolution_status: row.resolution_status || null,
+      media_title: row.media_title || null,
+      media_type: row.media_type || null,
+      media_year: row.media_year === null || row.media_year === undefined ? null : Number(row.media_year),
+      label: row.media_title || row.contained_title || `Collection item #${row.id}`
+    });
+  }
+
+  const leftItems = itemsByCollectionId.get(leftId) || [];
+  const rightItems = itemsByCollectionId.get(rightId) || [];
+  const comparedFields = [
+    {
+      key: 'name',
+      label: 'Collection name',
+      left_value: left.name || null,
+      right_value: right.name || null
+    },
+    {
+      key: 'source_title',
+      label: 'Source title',
+      left_value: left.source_title || null,
+      right_value: right.source_title || null
+    },
+    {
+      key: 'expected_item_count',
+      label: 'Expected items',
+      left_value: left.expected_item_count || 0,
+      right_value: right.expected_item_count || 0
+    },
+    {
+      key: 'linked_items',
+      label: 'Linked items',
+      left_value: leftItems.filter((item) => item.media_id).length,
+      right_value: rightItems.filter((item) => item.media_id).length
+    },
+    {
+      key: 'source',
+      label: 'Source',
+      left_value: left.source_label || null,
+      right_value: right.source_label || null
+    }
+  ];
+
+  return {
+    allowed: true,
+    left: {
+      ...left,
+      items: leftItems
+    },
+    right: {
+      ...right,
+      items: rightItems
+    },
+    preview: {
+      media_type: left.media_type || right.media_type || null,
+      summary: 'Matched on collection name and expected item count',
+      compared_fields: comparedFields,
+      item_summary: {
+        left_item_count: leftItems.length,
+        right_item_count: rightItems.length,
+        left_linked_item_count: leftItems.filter((item) => item.media_id).length,
+        right_linked_item_count: rightItems.filter((item) => item.media_id).length
+      }
+    }
+  };
+}
+
 async function recordManualMergeRecommendationFeedback({
   canonicalMediaId,
   duplicateMediaId,
@@ -5420,6 +5657,44 @@ router.get('/merge-recommendations', requireSessionAuth, requireRole('admin', 's
     limit
   });
   res.json(recommendations);
+}));
+
+router.get('/collections/duplicates', requireSessionAuth, requireRole('admin', 'support_admin'), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const limit = Math.max(1, Math.min(50, Number(req.query?.limit || 12) || 12));
+  const search = String(req.query?.search || '').trim();
+  const duplicates = await loadScopedCollectionDuplicateGroups({
+    scopeContext,
+    limit,
+    search
+  });
+  res.json(duplicates);
+}));
+
+router.get('/collections/duplicate-preview', requireSessionAuth, requireRole('admin', 'support_admin'), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const leftCollectionId = Number(req.query?.left_id || 0);
+  const rightCollectionId = Number(req.query?.right_id || 0);
+  if (!leftCollectionId || !rightCollectionId || leftCollectionId === rightCollectionId) {
+    return res.status(400).json({ error: 'left_id and right_id must be different positive integers' });
+  }
+  const preview = await loadScopedCollectionDuplicatePreview({
+    leftCollectionId,
+    rightCollectionId,
+    scopeContext
+  });
+  if (!preview) {
+    return res.status(404).json({ error: 'One or both collections were not found in the active scope' });
+  }
+  if (!preview.allowed) {
+    return res.status(409).json({
+      error: 'Cross-type collection previews are not allowed',
+      details: preview.details,
+      left: preview.left,
+      right: preview.right
+    });
+  }
+  res.json(preview);
 }));
 
 router.post('/merge-recommendations/reject', requireSessionAuth, requireRole('admin', 'support_admin'), validate(mediaMergeRecommendationRejectSchema), asyncHandler(async (req, res) => {

@@ -214,6 +214,101 @@ function RecommendationRow({ item, onReview, onReject, loading, rejecting, confi
   );
 }
 
+function formatCollectionMeta(collection = {}) {
+  const bits = [];
+  if (collection.library_name) bits.push(collection.library_name);
+  bits.push(`Collection #${collection.id || '—'}`);
+  bits.push(`${collection.item_count || 0} items`);
+  return bits.join(' · ');
+}
+
+function formatCollectionPreviewDate(value) {
+  if (!value) return '—';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '—';
+  return parsed.toLocaleString();
+}
+
+function formatCollectionPreviewItem(item = {}) {
+  const label = item.media_title || item.contained_title || `Collection item #${item.id || '—'}`;
+  const bits = [];
+  if (item.position !== null && item.position !== undefined) bits.push(`Pos ${item.position}`);
+  if (item.media_year) bits.push(String(item.media_year));
+  if (item.media_id) bits.push(`Linked #${item.media_id}`);
+  return {
+    label,
+    meta: bits.join(' · ')
+  };
+}
+
+function CollectionPreviewSummary({ title, collection }) {
+  return (
+    <div className="rounded-lg border border-edge/70 bg-void/10 p-4">
+      <p className="text-sm font-medium text-ink">{title}</p>
+      <p className="mt-2 text-base font-medium text-ink">{collection?.name || 'Untitled collection'}</p>
+      <dl className="mt-3 space-y-2 text-sm text-ghost">
+        <div className="flex items-start justify-between gap-4">
+          <dt>Source</dt>
+          <dd className="text-right text-ink">{collection?.source_label || 'Unknown source'}</dd>
+        </div>
+        <div className="flex items-start justify-between gap-4">
+          <dt>Collection id</dt>
+          <dd className="font-mono text-right text-ink">#{collection?.id || '—'}</dd>
+        </div>
+        <div className="flex items-start justify-between gap-4">
+          <dt>Expected items</dt>
+          <dd className="text-right text-ink">{collection?.expected_item_count ?? '—'}</dd>
+        </div>
+        <div className="flex items-start justify-between gap-4">
+          <dt>Created</dt>
+          <dd className="text-right text-ink">{formatCollectionPreviewDate(collection?.created_at)}</dd>
+        </div>
+      </dl>
+    </div>
+  );
+}
+
+function CollectionDuplicateGroup({ group, onReview, loading }) {
+  return (
+    <div className="rounded-lg border border-edge/70 bg-raised/15">
+      <div className="border-b border-edge/60 px-4 py-3">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-ink">{group.name || 'Untitled collection'}</p>
+            <p className="text-xs text-ghost">
+              {group.collections?.length || 0} duplicate collections · {formatMediaType(group.media_type)} · expected {group.expected_item_count || 0} items
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="text-xs text-ghost">
+              Collection review only for now
+            </div>
+            <button
+              type="button"
+              className="btn-secondary btn-sm h-8"
+              onClick={() => onReview(group)}
+              disabled={loading || Number(group.collections?.length || 0) < 2}
+            >
+              Review group
+            </button>
+          </div>
+        </div>
+      </div>
+      <div className="divide-y divide-edge/60">
+        {(group.collections || []).map((collection) => (
+          <div key={`collection-dup-${collection.id}`} className="px-4 py-3">
+            <p className="text-sm font-medium text-ink">{collection.name || 'Untitled collection'}</p>
+            <p className="mt-1 text-xs text-ghost">{formatCollectionMeta(collection)}</p>
+            {collection.source_title ? (
+              <p className="mt-2 text-xs text-ghost">Source title: {collection.source_title}</p>
+            ) : null}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminMergeReviewView({
   apiCall,
   onToast,
@@ -232,6 +327,12 @@ export default function AdminMergeReviewView({
   const [recommendations, setRecommendations] = useState([]);
   const [recommendationsSummary, setRecommendationsSummary] = useState(null);
   const [recommendationsLoading, setRecommendationsLoading] = useState(true);
+  const [collectionDuplicateSearch, setCollectionDuplicateSearch] = useState('');
+  const [collectionDuplicates, setCollectionDuplicates] = useState([]);
+  const [collectionDuplicateSummary, setCollectionDuplicateSummary] = useState(null);
+  const [collectionDuplicatesLoading, setCollectionDuplicatesLoading] = useState(true);
+  const [collectionPreview, setCollectionPreview] = useState(null);
+  const [collectionPreviewLoading, setCollectionPreviewLoading] = useState(false);
   const [rejectingRecommendationId, setRejectingRecommendationId] = useState('');
   const [rejectConfirmId, setRejectConfirmId] = useState('');
   const [preview, setPreview] = useState(null);
@@ -258,6 +359,10 @@ export default function AdminMergeReviewView({
     setErrorState(null);
   };
 
+  const clearCollectionPreview = () => {
+    setCollectionPreview(null);
+  };
+
   const loadRecommendations = async () => {
     setRecommendationsLoading(true);
     try {
@@ -272,9 +377,51 @@ export default function AdminMergeReviewView({
     }
   };
 
+  const loadCollectionDuplicates = async (searchValue = collectionDuplicateSearch) => {
+    setCollectionDuplicatesLoading(true);
+    try {
+      const query = new URLSearchParams({ limit: '12' });
+      if (String(searchValue || '').trim()) query.set('search', String(searchValue).trim());
+      const payload = await apiCall('get', `/media/collections/duplicates?${query.toString()}`);
+      setCollectionDuplicates(Array.isArray(payload?.items) ? payload.items : []);
+      setCollectionDuplicateSummary(payload?.summary || null);
+    } catch (_) {
+      setCollectionDuplicates([]);
+      setCollectionDuplicateSummary(null);
+    } finally {
+      setCollectionDuplicatesLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadRecommendations();
+    loadCollectionDuplicates('');
   }, [apiCall, activeLibrary?.id, activeSpace?.id]);
+
+  useEffect(() => {
+    let active = true;
+    const timer = window.setTimeout(async () => {
+      try {
+        const query = new URLSearchParams({ limit: '12' });
+        if (collectionDuplicateSearch.trim()) query.set('search', collectionDuplicateSearch.trim());
+        const payload = await apiCall('get', `/media/collections/duplicates?${query.toString()}`);
+        if (!active) return;
+        setCollectionDuplicates(Array.isArray(payload?.items) ? payload.items : []);
+        setCollectionDuplicateSummary(payload?.summary || null);
+      } catch (_) {
+        if (!active) return;
+        setCollectionDuplicates([]);
+        setCollectionDuplicateSummary(null);
+      } finally {
+        if (active) setCollectionDuplicatesLoading(false);
+      }
+    }, 220);
+    setCollectionDuplicatesLoading(true);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [apiCall, collectionDuplicateSearch]);
 
   useEffect(() => {
     let active = true;
@@ -451,6 +598,30 @@ export default function AdminMergeReviewView({
     }
   };
 
+  const handleCollectionReview = async (group) => {
+    const left = group?.collections?.[0];
+    const right = group?.collections?.[1];
+    if (!left?.id || !right?.id) {
+      onToast('Pick a duplicate collection group with at least two collections', 'error');
+      return;
+    }
+    setCollectionPreviewLoading(true);
+    setCollectionPreview(null);
+    try {
+      const query = new URLSearchParams({
+        left_id: String(left.id),
+        right_id: String(right.id)
+      });
+      const payload = await apiCall('get', `/media/collections/duplicate-preview?${query.toString()}`);
+      setCollectionPreview(payload);
+    } catch (error) {
+      const response = error?.response?.data || null;
+      onToast(response?.error || 'Failed to load collection preview', 'error');
+    } finally {
+      setCollectionPreviewLoading(false);
+    }
+  };
+
   return (
     <div className="h-full overflow-y-auto p-4 sm:p-6 space-y-6">
       <div className="space-y-3">
@@ -501,6 +672,144 @@ export default function AdminMergeReviewView({
           <div className="px-4 py-6 text-sm text-ghost">No recommended pairs found in the current scope yet.</div>
         )}
       </div>
+
+      <div className="rounded-lg border border-edge bg-void/10">
+        <div className="flex flex-col gap-3 border-b border-edge/70 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-1">
+            <h2 className="text-sm font-medium text-ink">Duplicate collections</h2>
+            <p className="text-sm text-ghost">Collection entities are reviewed separately from title merges. This helps surface duplicate sets like multi-movie collections.</p>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            {collectionDuplicateSummary ? (
+              <div className="text-xs text-ghost">
+                {collectionDuplicateSummary.returned_groups || 0} groups · {collectionDuplicateSummary.duplicate_collections || 0} collections
+              </div>
+            ) : null}
+            <input
+              className="input h-9 w-full sm:w-64"
+              value={collectionDuplicateSearch}
+              onChange={(event) => setCollectionDuplicateSearch(event.target.value)}
+              placeholder="Search duplicate collections"
+            />
+          </div>
+        </div>
+        {collectionDuplicatesLoading ? (
+          <div className="px-4 py-6 text-sm text-ghost">Loading duplicate collections…</div>
+        ) : collectionDuplicates.length > 0 ? (
+          <div className="space-y-3 px-4 py-4">
+            {collectionDuplicates.map((group) => (
+              <CollectionDuplicateGroup
+                key={group.duplicate_group_id}
+                group={group}
+                onReview={handleCollectionReview}
+                loading={collectionPreviewLoading}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="px-4 py-6 text-sm text-ghost">No duplicate collections found in the current scope.</div>
+        )}
+      </div>
+
+      {collectionPreview?.allowed ? (
+        <div className="rounded-lg border border-edge bg-void/10">
+          <div className="flex flex-col gap-2 border-b border-edge/70 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="space-y-1">
+              <h2 className="text-sm font-medium text-ink">Collection preview</h2>
+              <p className="text-sm text-ghost">Read-only compare for duplicate collections in the current scope.</p>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-ghost">
+              <span>{collectionPreview.preview?.summary || 'Collection review'}</span>
+              <button type="button" className="btn-secondary btn-sm h-8" onClick={clearCollectionPreview}>
+                Clear
+              </button>
+            </div>
+          </div>
+          <div className="space-y-4 px-4 py-4">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <SummaryStat label="Media type" value={formatMediaType(collectionPreview.preview?.media_type)} />
+              <SummaryStat label="This collection items" value={collectionPreview.preview?.item_summary?.left_item_count ?? 0} />
+              <SummaryStat label="Matched collection items" value={collectionPreview.preview?.item_summary?.right_item_count ?? 0} />
+              <SummaryStat label="Expected items" value={collectionPreview.left?.expected_item_count ?? collectionPreview.right?.expected_item_count ?? '—'} />
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <CollectionPreviewSummary title="This collection" collection={collectionPreview.left} />
+              <CollectionPreviewSummary title="Matched collection" collection={collectionPreview.right} />
+            </div>
+
+            <div className="rounded-lg border border-edge/70 bg-raised/15">
+              <div className="border-b border-edge/60 px-4 py-3">
+                <h3 className="text-sm font-medium text-ink">Compared fields</h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-edge/60 text-left text-ghost">
+                      <th className="px-4 py-3 font-medium">Compared field</th>
+                      <th className="px-4 py-3 font-medium">This collection</th>
+                      <th className="px-4 py-3 font-medium">Matched collection</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(collectionPreview.preview?.compared_fields || []).map((row) => (
+                      <tr key={`collection-preview-field-${row.key}`} className="border-b border-edge/40 last:border-b-0">
+                        <td className="px-4 py-3 text-ghost">{row.label || row.key}</td>
+                        <td className="px-4 py-3 text-ink">{formatValue(row.left_value)}</td>
+                        <td className="px-4 py-3 text-ink">{formatValue(row.right_value)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="rounded-lg border border-edge/70 bg-raised/15">
+                <div className="border-b border-edge/60 px-4 py-3">
+                  <h3 className="text-sm font-medium text-ink">This collection items</h3>
+                </div>
+                <div className="divide-y divide-edge/60">
+                  {(collectionPreview.left?.items || []).length > 0 ? (
+                    (collectionPreview.left.items || []).map((item) => {
+                      const previewItem = formatCollectionPreviewItem(item);
+                      return (
+                        <div key={`collection-left-item-${item.id}`} className="px-4 py-3">
+                          <p className="text-sm font-medium text-ink">{previewItem.label}</p>
+                          <p className="mt-1 text-xs text-ghost">{previewItem.meta || 'Unlinked collection item'}</p>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="px-4 py-6 text-sm text-ghost">No collection items linked yet.</div>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-edge/70 bg-raised/15">
+                <div className="border-b border-edge/60 px-4 py-3">
+                  <h3 className="text-sm font-medium text-ink">Matched collection items</h3>
+                </div>
+                <div className="divide-y divide-edge/60">
+                  {(collectionPreview.right?.items || []).length > 0 ? (
+                    (collectionPreview.right.items || []).map((item) => {
+                      const previewItem = formatCollectionPreviewItem(item);
+                      return (
+                        <div key={`collection-right-item-${item.id}`} className="px-4 py-3">
+                          <p className="text-sm font-medium text-ink">{previewItem.label}</p>
+                          <p className="mt-1 text-xs text-ghost">{previewItem.meta || 'Unlinked collection item'}</p>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="px-4 py-6 text-sm text-ghost">No collection items linked yet.</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="grid gap-4 xl:grid-cols-2">
         <RecordSearchPanel

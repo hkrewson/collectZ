@@ -32,6 +32,7 @@
     "test:manual-merge-apply-smoke": "node scripts/manual-merge-apply-smoke.js",
     "test:manual-merge-recommendations-smoke": "node scripts/manual-merge-recommendations-smoke.js",
     "test:manual-merge-recommendation-reject-smoke": "node scripts/manual-merge-recommendation-reject-smoke.js",
+    "test:collection-duplicate-preview-smoke": "node scripts/collection-duplicate-preview-smoke.js",
     "test:backfill-merge-evidence": "node scripts/backfill-merge-evidence.js",
     "test:mixed-media-filters": "node scripts/check-mixed-media-filters.js",
     "test:mixed-media-benchmark": "node scripts/benchmark-mixed-media-queries.js",
