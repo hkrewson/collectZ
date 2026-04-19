@@ -13,6 +13,7 @@ const {
   mediaValuationRefreshSchema,
   mediaMergePreviewSchema,
   mediaMergeApplySchema,
+  mediaMergeRevertSchema,
   mediaMergeRecommendationRejectSchema,
   simpleSearchSchema,
   titleAuthorSearchSchema,
@@ -69,7 +70,7 @@ const { isFeatureEnabledForSpace } = require('../services/featureFlags');
 const { enforceScopeAccess } = require('../middleware/scopeAccess');
 const { ensureUserDefaultLibrary, ensureUserDefaultScope } = require('../services/libraries');
 const { refreshMediaValuation } = require('../services/valuations');
-const { runManualMediaMergeApply } = require('../scripts/repair-book-comic-duplicates');
+const { runManualMediaMergeApply, runManualMediaMergeRevert } = require('../scripts/repair-book-comic-duplicates');
 
 const router = express.Router();
 
@@ -5814,6 +5815,45 @@ router.post('/merge-apply', requireSessionAuth, requireRole('admin', 'support_ad
     applied: true,
     canonical: summarizeMergeSourceRow(await loadScopedMediaItem(canonicalMediaId, scopeContext)),
     duplicate: preview.duplicate,
+    result,
+    merge_details: mergeDetails
+  });
+}));
+
+router.post('/merge-revert', requireSessionAuth, requireRole('admin', 'support_admin'), validate(mediaMergeRevertSchema), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const canonicalMediaId = Number(req.body?.canonical_id);
+  const duplicateMediaId = Number(req.body?.duplicate_id);
+  const canonical = await loadScopedMediaItem(canonicalMediaId, scopeContext);
+  if (!canonical) {
+    return res.status(404).json({ error: 'Canonical media item was not found in the active scope' });
+  }
+  const mergeDetailsBefore = await loadScopedMergeDetails(canonicalMediaId, scopeContext);
+  const matchingEntry = Array.isArray(mergeDetailsBefore?.entries)
+    ? mergeDetailsBefore.entries.find((entry) => Number(entry?.duplicate_id || 0) === duplicateMediaId)
+    : null;
+  if (!matchingEntry) {
+    return res.status(404).json({ error: 'Active merge event was not found for the requested duplicate id' });
+  }
+
+  const result = await runManualMediaMergeRevert({
+    canonicalId: canonicalMediaId,
+    duplicateId: duplicateMediaId
+  });
+  const mergeDetails = await loadScopedMergeDetails(canonicalMediaId, scopeContext);
+  const restoredDuplicate = await loadScopedMediaItem(duplicateMediaId, scopeContext);
+
+  await logActivity(req, 'media.merge_revert', 'media', canonicalMediaId, {
+    canonical_id: canonicalMediaId,
+    duplicate_id: duplicateMediaId,
+    media_type: canonical.media_type || null,
+    repair_type: matchingEntry?.repair_type || 'duplicate_attach'
+  });
+
+  res.json({
+    reverted: true,
+    canonical: summarizeMergeSourceRow(await loadScopedMediaItem(canonicalMediaId, scopeContext)),
+    duplicate: restoredDuplicate ? summarizeMergeSourceRow(restoredDuplicate) : matchingEntry?.merged || null,
     result,
     merge_details: mergeDetails
   });

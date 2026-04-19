@@ -215,6 +215,19 @@ test.describe('admin shell browser regressions', () => {
 
       await expect(page.getByRole('heading', { name: 'Merge applied' })).toBeVisible();
       await expect(page.getByText(`Record #${canonical.id} absorbed record #${duplicate.id}`)).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Active merge events' })).toBeVisible();
+
+      const revertResponsePromise = page.waitForResponse((response) => (
+        response.url().includes('/api/media/merge-revert')
+        && response.request().method() === 'POST'
+        && response.status() === 200
+      ));
+      await page.getByRole('button', { name: 'Revert merge' }).first().click();
+      const revertResponse = await revertResponsePromise;
+      expect(revertResponse.ok()).toBeTruthy();
+
+      await expect(page.getByRole('heading', { name: 'Merge reverted' })).toBeVisible();
+      await expect(page.getByText(`Record #${duplicate.id} was restored from record #${canonical.id}`)).toBeVisible();
     } finally {
       for (const mediaId of createdIds.reverse()) {
         await requestContext.delete(`/api/media/${mediaId}`).catch(() => {});

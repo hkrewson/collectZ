@@ -154,6 +154,7 @@ const repairBookComicDuplicatesSmokeSource = fs.readFileSync(require.resolve('..
 const repairBookComicMultiRevertSmokeSource = fs.readFileSync(require.resolve('../scripts/repair-book-comic-multi-revert-smoke'), 'utf8');
 const manualMergePreviewSmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-preview-smoke'), 'utf8');
 const manualMergeApplySmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-apply-smoke'), 'utf8');
+const manualMergeRevertSmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-revert-smoke'), 'utf8');
 const manualMergeRecommendationsSmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-recommendations-smoke'), 'utf8');
 const manualMergeRecommendationRejectSmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-recommendation-reject-smoke'), 'utf8');
 const collectionDuplicatePreviewSmokeSource = fs.readFileSync(require.resolve('../scripts/collection-duplicate-preview-smoke'), 'utf8');
@@ -1469,11 +1470,13 @@ results.push(run('repo includes historical duplicate attach repair tooling with 
 results.push(run('repo includes manual merge preview smoke coverage for same-type preview and cross-type rejection', () => {
   assert.ok(backendPackageJson.scripts['test:manual-merge-preview-smoke']);
   assert.ok(backendPackageJson.scripts['test:manual-merge-apply-smoke']);
+  assert.ok(backendPackageJson.scripts['test:manual-merge-revert-smoke']);
   assert.ok(backendPackageJson.scripts['test:manual-merge-recommendations-smoke']);
   assert.ok(backendPackageJson.scripts['test:manual-merge-recommendation-reject-smoke']);
   assert.ok(backendPackageJson.scripts['test:collection-duplicate-preview-smoke']);
   assert.ok(manualMergePreviewSmokeSource.includes('/api/media/merge-preview'));
   assert.ok(manualMergeApplySmokeSource.includes('/api/media/merge-apply'));
+  assert.ok(manualMergeRevertSmokeSource.includes('/api/media/merge-revert'));
   assert.ok(manualMergeRecommendationsSmokeSource.includes('/api/media/merge-recommendations'));
   assert.ok(manualMergeRecommendationRejectSmokeSource.includes('/api/media/merge-recommendations/reject'));
   assert.ok(collectionDuplicatePreviewSmokeSource.includes('/api/media/collections/duplicate-preview'));
@@ -1481,6 +1484,8 @@ results.push(run('repo includes manual merge preview smoke coverage for same-typ
   assert.ok(manualMergePreviewSmokeSource.includes('Cross-type merges are not allowed'));
   assert.ok(manualMergeApplySmokeSource.includes('manual_merge'));
   assert.ok(manualMergeApplySmokeSource.includes('activeMergeCount'));
+  assert.ok(manualMergeRevertSmokeSource.includes('Expected manual merge revert to succeed'));
+  assert.ok(manualMergeRevertSmokeSource.includes('restoredDuplicateId'));
   assert.ok(manualMergeApplySmokeSource.includes('Expected preview to show merged format ownership'));
   assert.ok(manualMergeApplySmokeSource.includes('Expected canonical row to keep both owned formats after merge apply'));
   assert.ok(manualMergeRecommendationsSmokeSource.includes('Matched on title and year'));
@@ -2847,6 +2852,7 @@ results.push(run('library drawer source includes compact match evidence summarie
 results.push(run('admin merge review view posts preview requests and renders operator-facing comparison details', () => {
   assert.ok(adminMergeReviewViewSource.includes("/media/merge-preview"));
   assert.ok(adminMergeReviewViewSource.includes("/media/merge-apply"));
+  assert.ok(adminMergeReviewViewSource.includes("/media/merge-revert"));
   assert.ok(adminMergeReviewViewSource.includes('/media/merge-recommendations?limit=12'));
   assert.ok(adminMergeReviewViewSource.includes('/media/collections/duplicates?'));
   assert.ok(adminMergeReviewViewSource.includes('/media/collections/duplicate-preview?'));
@@ -2867,8 +2873,11 @@ results.push(run('admin merge review view posts preview requests and renders ope
   assert.ok(adminMergeReviewViewSource.includes('Search inside the active workspace and library scope.'));
   assert.ok(adminMergeReviewViewSource.includes('Type at least two characters to search.'));
   assert.ok(adminMergeReviewViewSource.includes('Apply merge'));
+  assert.ok(adminMergeReviewViewSource.includes('Active merge events'));
+  assert.ok(adminMergeReviewViewSource.includes('Revert merge'));
   assert.ok(adminMergeReviewViewSource.includes('Confirm apply'));
   assert.ok(adminMergeReviewViewSource.includes('Merge applied'));
+  assert.ok(adminMergeReviewViewSource.includes('Merge reverted'));
   assert.ok(adminMergeReviewViewSource.includes('Compared fields'));
   assert.ok(adminMergeReviewViewSource.includes('This record'));
   assert.ok(adminMergeReviewViewSource.includes('Matched record'));

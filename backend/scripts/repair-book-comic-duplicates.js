@@ -1143,6 +1143,26 @@ async function runManualMediaMergeApply(options = {}) {
   }
 }
 
+async function runManualMediaMergeRevert(options = {}) {
+  const canonicalId = Number(options.canonicalId || 0);
+  const duplicateId = Number(options.duplicateId || 0);
+  if (!Number.isFinite(canonicalId) || canonicalId <= 0) {
+    throw new Error('Manual merge revert requires a valid canonicalId');
+  }
+  if (!Number.isFinite(duplicateId) || duplicateId <= 0) {
+    throw new Error('Manual merge revert requires a valid duplicateId');
+  }
+  if (canonicalId === duplicateId) {
+    throw new Error('Manual merge revert requires different canonical and duplicate ids');
+  }
+
+  return runRepairBookComicDuplicates({
+    ids: [canonicalId, duplicateId],
+    canonicalId,
+    revert: true
+  });
+}
+
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   const result = await runRepairBookComicDuplicates(options);
@@ -1164,5 +1184,6 @@ module.exports = {
   buildClusterFromRows,
   mergeMissingObjectFields,
   runRepairBookComicDuplicates,
-  runManualMediaMergeApply
+  runManualMediaMergeApply,
+  runManualMediaMergeRevert
 };

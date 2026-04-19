@@ -4107,6 +4107,58 @@
         }
       }
     },
+    "/api/media/merge-revert": {
+      "post": {
+        "tags": ["Media"],
+        "summary": "Revert one active manual merge event for the active scope",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "canonical_id": { "type": "integer", "minimum": 1 },
+                  "duplicate_id": { "type": "integer", "minimum": 1 }
+                },
+                "required": ["canonical_id", "duplicate_id"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Manual merge event reverted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "reverted": { "type": "boolean" },
+                    "canonical": { "type": "object", "additionalProperties": true },
+                    "duplicate": { "type": "object", "additionalProperties": true },
+                    "result": { "type": "object", "additionalProperties": true },
+                    "merge_details": { "type": "object", "additionalProperties": true }
+                  },
+                  "required": ["reverted", "canonical", "duplicate", "result", "merge_details"]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Canonical item or merge event was not found in the active scope",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/media/{id}/valuation-refresh": {
       "post": {
         "tags": ["Media"],

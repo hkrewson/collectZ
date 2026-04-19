@@ -250,6 +250,7 @@ const mediaMergePreviewSchema = z.object({
 });
 
 const mediaMergeApplySchema = mediaMergePreviewSchema;
+const mediaMergeRevertSchema = mediaMergePreviewSchema;
 const mediaMergeRecommendationRejectSchema = z.object({
   canonical_id: z.number().int().positive('canonical_id is required'),
   duplicate_id: z.number().int().positive('duplicate_id is required'),
@@ -663,6 +664,7 @@ module.exports = {
   mediaValuationRefreshSchema,
   mediaMergePreviewSchema,
   mediaMergeApplySchema,
+  mediaMergeRevertSchema,
   mediaMergeRecommendationRejectSchema,
   profileUpdateSchema,
   passwordResetConsumeSchema,

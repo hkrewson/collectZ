@@ -17,6 +17,13 @@ function formatMediaType(value) {
     .join(' ') || 'Unknown';
 }
 
+function formatTimestamp(value) {
+  if (!value) return '—';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '—';
+  return parsed.toLocaleString();
+}
+
 function formatSearchMeta(record = {}) {
   const bits = [];
   if (record?.media_type) bits.push(formatMediaType(record.media_type));
@@ -336,11 +343,14 @@ export default function AdminMergeReviewView({
   const [rejectingRecommendationId, setRejectingRecommendationId] = useState('');
   const [rejectConfirmId, setRejectConfirmId] = useState('');
   const [preview, setPreview] = useState(null);
+  const [mergeDetails, setMergeDetails] = useState(null);
   const [applyResult, setApplyResult] = useState(null);
+  const [revertResult, setRevertResult] = useState(null);
   const [applyConfirmOpen, setApplyConfirmOpen] = useState(false);
   const [errorState, setErrorState] = useState(null);
   const [loading, setLoading] = useState(false);
   const [applying, setApplying] = useState(false);
+  const [revertingDuplicateId, setRevertingDuplicateId] = useState('');
 
   const comparedRows = Array.isArray(preview?.preview?.field_comparison) ? preview.preview.field_comparison : [];
   const rewiringRows = useMemo(
@@ -354,7 +364,9 @@ export default function AdminMergeReviewView({
 
   const clearPreview = () => {
     setPreview(null);
+    setMergeDetails(null);
     setApplyResult(null);
+    setRevertResult(null);
     setApplyConfirmOpen(false);
     setErrorState(null);
   };
@@ -507,6 +519,7 @@ export default function AdminMergeReviewView({
     setLoading(true);
     setPreview(null);
     setApplyResult(null);
+    setRevertResult(null);
     setApplyConfirmOpen(false);
     setErrorState(null);
     try {
@@ -515,6 +528,12 @@ export default function AdminMergeReviewView({
         duplicate_id: Number(nextDuplicateId)
       });
       setPreview(payload);
+      try {
+        const details = await apiCall('get', `/media/${Number(nextCanonicalId)}/merge-details`);
+        setMergeDetails(details);
+      } catch (_) {
+        setMergeDetails(null);
+      }
     } catch (error) {
       const response = error?.response?.data || null;
       setErrorState({
@@ -578,7 +597,9 @@ export default function AdminMergeReviewView({
         duplicate_id: Number(preview.duplicate?.id || duplicateId)
       });
       setApplyResult(payload);
+      setRevertResult(null);
       setPreview(null);
+      setMergeDetails(payload?.merge_details || null);
       setApplyConfirmOpen(false);
       setDuplicateId('');
       setDuplicateSearch('');
@@ -595,6 +616,30 @@ export default function AdminMergeReviewView({
       onToast(response?.error || 'Failed to apply manual merge', 'error');
     } finally {
       setApplying(false);
+    }
+  };
+
+  const handleRevert = async (entry) => {
+    const canonicalIdValue = Number(mergeDetails?.canonical?.id || preview?.canonical?.id || applyResult?.canonical?.id || canonicalId || 0);
+    const duplicateIdValue = Number(entry?.duplicate_id || entry?.technical_details?.duplicate_id || 0);
+    if (!canonicalIdValue || !duplicateIdValue) return;
+    setRevertingDuplicateId(String(duplicateIdValue));
+    setErrorState(null);
+    try {
+      const payload = await apiCall('post', '/media/merge-revert', {
+        canonical_id: canonicalIdValue,
+        duplicate_id: duplicateIdValue
+      });
+      setMergeDetails(payload?.merge_details || null);
+      setApplyResult(null);
+      setRevertResult(payload);
+      await loadRecommendations();
+      onToast('Merge reverted', 'success');
+    } catch (error) {
+      const response = error?.response?.data || null;
+      onToast(response?.error || 'Failed to revert merge', 'error');
+    } finally {
+      setRevertingDuplicateId('');
     }
   };
 
@@ -1003,6 +1048,37 @@ export default function AdminMergeReviewView({
         </div>
       ) : null}
 
+      {Number(mergeDetails?.summary?.active_merge_count || 0) > 0 ? (
+        <div className="rounded-lg border border-edge bg-void/10">
+          <div className="border-b border-edge/70 px-4 py-3">
+            <h2 className="text-sm font-medium text-ink">Active merge events</h2>
+          </div>
+          <div className="divide-y divide-edge/60">
+            {(mergeDetails?.entries || []).map((entry) => (
+              <div key={`active-merge-${entry.duplicate_id}`} className="flex flex-col gap-3 px-4 py-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-ink">
+                    {entry?.merged?.title || 'Merged record'} <span className="font-mono text-xs text-ghost">#{entry?.duplicate_id || '—'}</span>
+                  </p>
+                  <p className="text-sm text-ghost">
+                    {entry?.match_summary || 'Manual merge'} · {entry?.merged?.source_label || 'Unknown source'}
+                  </p>
+                  <p className="text-xs text-ghost">Merged at {formatTimestamp(entry?.applied_at)}</p>
+                </div>
+                <button
+                  type="button"
+                  className="btn-secondary btn-sm h-8"
+                  onClick={() => handleRevert(entry)}
+                  disabled={revertingDuplicateId === String(entry?.duplicate_id || '')}
+                >
+                  {revertingDuplicateId === String(entry?.duplicate_id || '') ? 'Reverting…' : 'Revert merge'}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       {applyResult?.applied ? (
         <div className="space-y-4 rounded-lg border border-edge bg-void/10 p-4">
           <div className="space-y-1">
@@ -1016,6 +1092,23 @@ export default function AdminMergeReviewView({
             <SummaryStat label="Merged record" value={`#${applyResult?.duplicate?.id || '—'}`} />
             <SummaryStat label="Attach count" value={formatValue(applyResult?.result?.attached || 0)} />
             <SummaryStat label="Active merge count" value={formatValue(applyResult?.merge_details?.summary?.active_merge_count || 0)} />
+          </div>
+        </div>
+      ) : null}
+
+      {revertResult?.reverted ? (
+        <div className="space-y-4 rounded-lg border border-edge bg-void/10 p-4">
+          <div className="space-y-1">
+            <h2 className="text-sm font-medium text-ink">Merge reverted</h2>
+            <p className="text-sm text-ghost">
+              Record #{revertResult?.duplicate?.id || '—'} was restored from record #{revertResult?.canonical?.id || '—'} and the remaining active merge history was left intact.
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <SummaryStat label="Canonical record" value={`#${revertResult?.canonical?.id || '—'}`} />
+            <SummaryStat label="Restored record" value={`#${revertResult?.duplicate?.id || '—'}`} />
+            <SummaryStat label="Reverted count" value={formatValue(revertResult?.result?.reverted || 0)} />
+            <SummaryStat label="Active merge count" value={formatValue(revertResult?.merge_details?.summary?.active_merge_count || 0)} />
           </div>
         </div>
       ) : null}

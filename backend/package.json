@@ -30,6 +30,7 @@
     "test:repair-book-comic-multi-revert-smoke": "node scripts/repair-book-comic-multi-revert-smoke.js",
     "test:manual-merge-preview-smoke": "node scripts/manual-merge-preview-smoke.js",
     "test:manual-merge-apply-smoke": "node scripts/manual-merge-apply-smoke.js",
+    "test:manual-merge-revert-smoke": "node scripts/manual-merge-revert-smoke.js",
     "test:manual-merge-recommendations-smoke": "node scripts/manual-merge-recommendations-smoke.js",
     "test:manual-merge-recommendation-reject-smoke": "node scripts/manual-merge-recommendation-reject-smoke.js",
     "test:collection-duplicate-preview-smoke": "node scripts/collection-duplicate-preview-smoke.js",
