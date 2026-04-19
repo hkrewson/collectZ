@@ -408,6 +408,121 @@ function MediaListRow({ item, onOpen, onEdit, onDelete, onRating, supportsHover,
   );
 }
 
+function MergeEvidenceSection({
+  mergeDetailsLoading,
+  mergeSummary,
+  mergeDisclosureItems,
+  openMergeEntryId,
+  setOpenMergeEntryId,
+  itemTitle,
+  formatMergeSourceLabel,
+  formatMergeTimestamp,
+  formatMergeValue,
+  formatMergeTechnicalLabel
+}) {
+  if (!(mergeDetailsLoading || (mergeSummary && Number(mergeSummary.active_merge_count || 0) > 0))) {
+    return null;
+  }
+
+  return (
+    <div>
+      <div className="mb-3 flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="label">Match evidence</p>
+          {mergeDetailsLoading ? (
+            <p className="mt-1 text-sm text-ghost">Loading merge evidence…</p>
+          ) : (
+            <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-dim">
+              <span>{`${Number(mergeSummary?.active_merge_count || 0)} ${Number(mergeSummary?.active_merge_count || 0) === 1 ? 'merge event' : 'merge events'}`}</span>
+              {mergeSummary?.source_count ? <span>{`${mergeSummary.source_count} supporting sources`}</span> : null}
+            </div>
+          )}
+        </div>
+      </div>
+      {!mergeDetailsLoading && mergeDisclosureItems.length > 0 ? (
+        <DisclosureList
+          items={mergeDisclosureItems}
+          openId={openMergeEntryId}
+          onToggle={setOpenMergeEntryId}
+          renderSummary={(itemEntry) => {
+            const entry = itemEntry.entry;
+            return (
+              <>
+                <p className="text-sm font-medium text-ink">{entry?.match_summary || 'Merged record'}</p>
+                <p className="mt-1 text-sm text-ghost">
+                  {`Canonical: ${formatMergeSourceLabel(entry?.canonical)} · Matched: ${formatMergeSourceLabel(entry?.merged)}`}
+                </p>
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ghost">
+                  {entry?.confidence ? <span>{String(entry.confidence).charAt(0).toUpperCase() + String(entry.confidence).slice(1)} confidence</span> : null}
+                  {entry?.applied_at ? <span>{formatMergeTimestamp(entry.applied_at)}</span> : null}
+                </div>
+              </>
+            );
+          }}
+          renderContent={(itemEntry) => {
+            const entry = itemEntry.entry;
+            const provenanceRows = Array.isArray(entry?.field_provenance) ? entry.field_provenance : [];
+            return (
+              <div className="space-y-5">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <p className="text-[11px] font-medium text-ghost">Canonical record</p>
+                    <p className="mt-1 text-sm text-ink">{entry?.canonical?.title || itemTitle}</p>
+                    <p className="mt-1 text-xs text-ghost">Source: {formatMergeSourceLabel(entry?.canonical)}</p>
+                    {entry?.technical_details?.canonical_id ? (
+                      <p className="mt-1 text-xs text-ghost">Record #{entry.technical_details.canonical_id}</p>
+                    ) : null}
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-medium text-ghost">Matched record</p>
+                    <p className="mt-1 text-sm text-ink">{entry?.merged?.title || 'Merged record'}</p>
+                    <p className="mt-1 text-xs text-ghost">Source: {formatMergeSourceLabel(entry?.merged)}</p>
+                    {entry?.technical_details?.duplicate_id ? (
+                      <p className="mt-1 text-xs text-ghost">Record #{entry.technical_details.duplicate_id}</p>
+                    ) : null}
+                  </div>
+                </div>
+                {provenanceRows.length > 0 ? (
+                  <div>
+                    <p className="text-[11px] font-medium text-ghost">Compared fields</p>
+                    <div className="mt-3 overflow-hidden rounded-[10px] border border-edge/60">
+                      <div className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1fr)] border-b border-edge/60 bg-panel/40 px-3 py-2 text-[11px] font-medium text-ghost">
+                        <p>Matched on</p>
+                        <p>This record</p>
+                        <p>Matched record</p>
+                      </div>
+                      {provenanceRows.map((row) => (
+                        <div
+                          key={row.key}
+                          className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1fr)] gap-3 border-t border-edge/50 px-3 py-2 text-sm text-ink first:border-t-0"
+                        >
+                          <p className="text-dim">{row.label}</p>
+                          <p>{formatMergeValue(row.canonical_value)}</p>
+                          <p>{formatMergeValue(row.merged_value)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+                <div className="grid gap-2 text-xs text-ghost sm:grid-cols-2">
+                  {entry?.applied_at ? <p>Merged at: {formatMergeTimestamp(entry.applied_at)}</p> : null}
+                  {entry?.confidence ? <p>Confidence: {String(entry.confidence).charAt(0).toUpperCase() + String(entry.confidence).slice(1)}</p> : null}
+                  {Array.isArray(entry?.rationale) && entry.rationale.length > 0 ? (
+                    <p className="sm:col-span-2">Matched on: {entry.rationale.join(' · ')}</p>
+                  ) : null}
+                  {formatMergeTechnicalLabel(entry?.repair_type) ? (
+                    <p>Repair type: {formatMergeTechnicalLabel(entry?.repair_type)}</p>
+                  ) : null}
+                </div>
+              </div>
+            );
+          }}
+        />
+      ) : null}
+    </div>
+  );
+}
+
 function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onValuationUpdated, onToast, onFindPossibleDuplicates }) {
   const [variants, setVariants] = useState([]);
   const [variantLoading, setVariantLoading] = useState(false);
@@ -424,7 +539,6 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   const typeDetails = item?.type_details && typeof item.type_details === 'object' ? item.type_details : {};
   const isBook = item?.media_type === 'book';
   const isComic = item?.media_type === 'comic_book';
-  const supportsMergeDetails = isBook || isComic;
   const comicOverviewNeedsClamp = isComic && typeof item?.overview === 'string' && item.overview.trim().length > 420;
   const calibreExternalUrl = String(typeDetails.calibre_external_url || '').trim();
   const providerExternalUrl = String(typeDetails.provider_external_url || '').trim();
@@ -718,7 +832,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   }, [apiCall, item?.id, item?.media_type]);
 
   useEffect(() => {
-    if (!item?.id || !supportsMergeDetails) {
+    if (!item?.id) {
       setMergeDetails(null);
       setMergeDetailsLoading(false);
       setOpenMergeEntryId(null);
@@ -741,7 +855,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
     return () => {
       active = false;
     };
-  }, [apiCall, item?.id, supportsMergeDetails]);
+  }, [apiCall, item?.id]);
 
   useEffect(() => {
     setComicOverviewExpanded(false);
@@ -942,100 +1056,18 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
             </div>
           )}
 
-          {supportsMergeDetails && (mergeDetailsLoading || (mergeSummary && Number(mergeSummary.active_merge_count || 0) > 0)) && (
-            <div>
-              <div className="mb-3 flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <p className="label">Match evidence</p>
-                  {mergeDetailsLoading ? (
-                    <p className="mt-1 text-sm text-ghost">Loading merge evidence…</p>
-                  ) : (
-                    <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-dim">
-                      <span>{`${Number(mergeSummary?.active_merge_count || 0)} ${Number(mergeSummary?.active_merge_count || 0) === 1 ? 'merge event' : 'merge events'}`}</span>
-                      {mergeSummary?.source_count ? <span>{`${mergeSummary.source_count} supporting sources`}</span> : null}
-                    </div>
-                  )}
-                </div>
-              </div>
-              {!mergeDetailsLoading && mergeDisclosureItems.length > 0 ? (
-                <DisclosureList
-                  items={mergeDisclosureItems}
-                  openId={openMergeEntryId}
-                  onToggle={setOpenMergeEntryId}
-                  renderSummary={(itemEntry) => {
-                    const entry = itemEntry.entry;
-                    return (
-                      <>
-                        <p className="text-sm font-medium text-ink">{entry?.match_summary || 'Merged record'}</p>
-                        <p className="mt-1 text-sm text-ghost">
-                          {`Canonical: ${formatMergeSourceLabel(entry?.canonical)} · Matched: ${formatMergeSourceLabel(entry?.merged)}`}
-                        </p>
-                        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ghost">
-                          {entry?.confidence ? <span>{String(entry.confidence).charAt(0).toUpperCase() + String(entry.confidence).slice(1)} confidence</span> : null}
-                          {entry?.applied_at ? <span>{formatMergeTimestamp(entry.applied_at)}</span> : null}
-                        </div>
-                      </>
-                    );
-                  }}
-                  renderContent={(itemEntry) => {
-                    const entry = itemEntry.entry;
-                    const provenanceRows = Array.isArray(entry?.field_provenance) ? entry.field_provenance : [];
-                    return (
-                      <div className="space-y-5">
-                        <div className="grid gap-4 md:grid-cols-2">
-                          <div>
-                            <p className="text-[11px] font-medium text-ghost">Canonical record</p>
-                            <p className="mt-1 text-sm text-ink">{entry?.canonical?.title || item.title}</p>
-                            <p className="mt-1 text-xs text-ghost">Source: {formatMergeSourceLabel(entry?.canonical)}</p>
-                            {entry?.technical_details?.canonical_id ? (
-                              <p className="mt-1 text-xs text-ghost">Record #{entry.technical_details.canonical_id}</p>
-                            ) : null}
-                          </div>
-                          <div>
-                            <p className="text-[11px] font-medium text-ghost">Matched record</p>
-                            <p className="mt-1 text-sm text-ink">{entry?.merged?.title || 'Merged record'}</p>
-                            <p className="mt-1 text-xs text-ghost">Source: {formatMergeSourceLabel(entry?.merged)}</p>
-                            {entry?.technical_details?.duplicate_id ? (
-                              <p className="mt-1 text-xs text-ghost">Record #{entry.technical_details.duplicate_id}</p>
-                            ) : null}
-                          </div>
-                        </div>
-                        {provenanceRows.length > 0 ? (
-                          <div>
-                            <p className="text-[11px] font-medium text-ghost">Compared fields</p>
-                            <div className="mt-3 overflow-hidden rounded-[10px] border border-edge/60">
-                              <div className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1fr)] border-b border-edge/60 bg-panel/40 px-3 py-2 text-[11px] font-medium text-ghost">
-                                <p>Matched on</p>
-                                <p>This record</p>
-                                <p>Matched record</p>
-                              </div>
-                              {provenanceRows.map((row) => (
-                                <div
-                                  key={row.key}
-                                  className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1fr)] gap-3 border-t border-edge/50 px-3 py-2 text-sm text-ink first:border-t-0"
-                                >
-                                  <p className="text-dim">{row.label}</p>
-                                  <p>{formatMergeValue(row.canonical_value)}</p>
-                                  <p>{formatMergeValue(row.merged_value)}</p>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        ) : null}
-                        <div className="grid gap-2 text-xs text-ghost sm:grid-cols-2">
-                          {entry?.applied_at ? <p>Merged at: {formatMergeTimestamp(entry.applied_at)}</p> : null}
-                          {entry?.confidence ? <p>Confidence: {String(entry.confidence).charAt(0).toUpperCase() + String(entry.confidence).slice(1)}</p> : null}
-                          {Array.isArray(entry?.rationale) && entry.rationale.length > 0 ? (
-                            <p className="sm:col-span-2">Matched on: {entry.rationale.join(' · ')}</p>
-                          ) : null}
-                        </div>
-                      </div>
-                    );
-                  }}
-                />
-              ) : null}
-            </div>
-          )}
+          <MergeEvidenceSection
+            mergeDetailsLoading={mergeDetailsLoading}
+            mergeSummary={mergeSummary}
+            mergeDisclosureItems={mergeDisclosureItems}
+            openMergeEntryId={openMergeEntryId}
+            setOpenMergeEntryId={setOpenMergeEntryId}
+            itemTitle={item.title}
+            formatMergeSourceLabel={formatMergeSourceLabel}
+            formatMergeTimestamp={formatMergeTimestamp}
+            formatMergeValue={formatMergeValue}
+            formatMergeTechnicalLabel={formatMergeTechnicalLabel}
+          />
 
           {isBook && bookSourceLinks.length > 0 && (
             <div>

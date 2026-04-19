@@ -53,7 +53,10 @@ const {
   normalizeText,
   normalizeIssueToken
 } = require('../services/bookComicNormalization');
-const { buildGenericManualMergeIdentity } = require('../services/manualMergeRecommendations');
+const {
+  buildGenericManualMergeIdentity,
+  isStructuredTitlePairUnsafeForSharedCoverDiscovery
+} = require('../services/manualMergeRecommendations');
 const {
   ALL_DISPLAY_FORMAT_LABELS,
   getOwnedFormatOptions,
@@ -105,6 +108,7 @@ const tempUpload = multer({ storage: tempDiskStorage, limits: { fileSize: 10 * 1
 const memoryImageUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 }, fileFilter: imageFileFilter });
 
 const MEDIA_TYPES = ['movie', 'tv_series', 'tv_episode', 'book', 'audio', 'game', 'comic_book'];
+const MERGE_REVIEW_MEDIA_TYPES = new Set(['movie', 'tv_series', 'book', 'audio', 'game', 'comic_book']);
 const TV_WATCH_STATES = new Set(['unwatched', 'in_progress', 'completed']);
 const SYNC_JOB_ALLOWED_FIELDS = new Set([
   'status',
@@ -215,6 +219,12 @@ function recordPlexEnrichmentMetrics(result = null) {
   if (posterNoImage > 0) recordImportEnrichmentEvent('plex', 'tmdb_poster', 'no_image', posterNoImage);
   if (seasonMisses > 0) recordImportEnrichmentEvent('plex', 'tmdb_season_summary', 'miss', seasonMisses);
   if (seasonErrors > 0) recordImportEnrichmentEvent('plex', 'tmdb_season_summary', 'error', seasonErrors);
+}
+
+function normalizeMergeReviewMediaTypeFilter(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized || normalized === 'all') return null;
+  return MERGE_REVIEW_MEDIA_TYPES.has(normalized) ? normalized : null;
 }
 
 function buildImportAuditOutcomeCounters() {
@@ -647,10 +657,16 @@ async function loadScopedSuppressedMergeRecommendationPairs({ scopeContext = nul
   );
 }
 
-async function loadScopedManualMergeRecommendations({ scopeContext = null, limit = 12 } = {}) {
+async function loadScopedManualMergeRecommendations({ scopeContext = null, limit = 12, mediaType = null } = {}) {
   const cappedLimit = Math.max(1, Math.min(50, Number(limit || 12) || 12));
   const params = [];
-  const where = `WHERE 1=1${appendScopeSql(params, scopeContext)}`;
+  let where = 'WHERE 1=1';
+  const normalizedMediaType = normalizeMergeReviewMediaTypeFilter(mediaType);
+  if (normalizedMediaType) {
+    params.push(normalizedMediaType);
+    where += ` AND media_type = $${params.length}`;
+  }
+  where += appendScopeSql(params, scopeContext);
   const result = await pool.query(
     `SELECT id, title, media_type, import_source, type_details, year, upc, tmdb_id, tmdb_media_type
        FROM media
@@ -735,8 +751,21 @@ async function loadScopedManualMergeRecommendations({ scopeContext = null, limit
   };
 }
 
-async function loadScopedComicDuplicateCandidates({ scopeContext = null, limit = 12, search = '' } = {}) {
+async function loadScopedComicDuplicateCandidates({ scopeContext = null, limit = 12, search = '', mediaType = null } = {}) {
   const cappedLimit = Math.max(1, Math.min(50, Number(limit || 12) || 12));
+  const normalizedMediaType = normalizeMergeReviewMediaTypeFilter(mediaType);
+  if (normalizedMediaType && normalizedMediaType !== 'comic_book') {
+    return {
+      summary: {
+        total_groups: 0,
+        candidate_groups: 0,
+        suppressed_groups: 0,
+        returned_groups: 0
+      },
+      items: [],
+      suppressed_items: []
+    };
+  }
   const normalizedSearch = normalizeText(search || '');
   const params = [];
   const where = `WHERE m.media_type = 'comic_book'
@@ -813,12 +842,18 @@ async function loadScopedComicDuplicateCandidates({ scopeContext = null, limit =
   };
 }
 
-async function loadScopedDuplicateDiscoveryCandidates({ scopeContext = null, limit = 12, search = '', mediaId = null } = {}) {
+async function loadScopedDuplicateDiscoveryCandidates({ scopeContext = null, limit = 12, search = '', mediaId = null, mediaType = null } = {}) {
   const cappedLimit = Math.max(1, Math.min(50, Number(limit || 12) || 12));
   const focusedMediaId = Number(mediaId || 0) || null;
   const normalizedSearch = normalizeText(search || '');
   const params = [];
-  const where = `WHERE 1=1${appendScopeSql(params, scopeContext)}`;
+  let where = 'WHERE 1=1';
+  const normalizedMediaType = normalizeMergeReviewMediaTypeFilter(mediaType);
+  if (normalizedMediaType) {
+    params.push(normalizedMediaType);
+    where += ` AND media_type = $${params.length}`;
+  }
+  where += appendScopeSql(params, scopeContext);
   const result = await pool.query(
     `SELECT id, title, media_type, import_source, type_details, year, upc, tmdb_id, tmdb_media_type, poster_path
        FROM media
@@ -832,10 +867,10 @@ async function loadScopedDuplicateDiscoveryCandidates({ scopeContext = null, lim
     outcomes: ['rejected', 'deferred']
   });
   const strictRecommendationPairs = new Set(
-    (await loadScopedManualMergeRecommendations({ scopeContext, limit: 500 })).items.map((item) => item.pair_key).filter(Boolean)
+    (await loadScopedManualMergeRecommendations({ scopeContext, limit: 500, mediaType: normalizedMediaType })).items.map((item) => item.pair_key).filter(Boolean)
   );
   const comicCandidatePairs = new Set();
-  const comicDuplicateGroups = await loadScopedComicDuplicateCandidates({ scopeContext, limit: 500, search: '' });
+  const comicDuplicateGroups = await loadScopedComicDuplicateCandidates({ scopeContext, limit: 500, search: '', mediaType: normalizedMediaType });
   for (const group of comicDuplicateGroups.items || []) {
     for (const duplicate of group.duplicates || []) {
       const pairKey = buildRecommendationPairKey(group?.canonical?.id, duplicate?.id);
@@ -874,6 +909,12 @@ async function loadScopedDuplicateDiscoveryCandidates({ scopeContext = null, lim
     if (!pairKey?.key || knownPairs.has(pairKey.key)) return;
     if (String(leftRow?.media_type || '') !== String(rightRow?.media_type || '')) return;
     if (focusedMediaId && ![Number(leftRow?.id || 0), Number(rightRow?.id || 0)].includes(focusedMediaId)) return;
+    if (
+      signal === 'shared_cover_path'
+      && isStructuredTitlePairUnsafeForSharedCoverDiscovery(leftRow?.title || '', rightRow?.title || '')
+    ) {
+      return;
+    }
 
     const canonical = chooseCanonicalRow([leftRow, rightRow]);
     const duplicate = Number(canonical?.id || 0) === Number(leftRow?.id || 0) ? rightRow : leftRow;
@@ -987,11 +1028,16 @@ async function loadScopedDuplicateDiscoveryCandidates({ scopeContext = null, lim
   };
 }
 
-async function loadScopedCollectionDuplicateGroups({ scopeContext = null, limit = 12, search = '' } = {}) {
+async function loadScopedCollectionDuplicateGroups({ scopeContext = null, limit = 12, search = '', mediaType = null } = {}) {
   const cappedLimit = Math.max(1, Math.min(50, Number(limit || 12) || 12));
   const normalizedSearch = String(search || '').trim();
+  const normalizedMediaType = normalizeMergeReviewMediaTypeFilter(mediaType);
   const params = [];
   let where = 'WHERE 1=1';
+  if (normalizedMediaType) {
+    params.push(normalizedMediaType);
+    where += ` AND c.media_type = $${params.length}`;
+  }
   if (normalizedSearch) {
     params.push(`%${normalizedSearch}%`);
     where += ` AND (
@@ -6443,9 +6489,11 @@ router.get('/:id/merge-details', asyncHandler(async (req, res) => {
 router.get('/merge-recommendations', requireSessionAuth, requireRole('admin', 'support_admin'), asyncHandler(async (req, res) => {
   const scopeContext = resolveScopeContext(req);
   const limit = Math.max(1, Math.min(50, Number(req.query?.limit || 12) || 12));
+  const mediaType = normalizeMergeReviewMediaTypeFilter(req.query?.media_type);
   const recommendations = await loadScopedManualMergeRecommendations({
     scopeContext,
-    limit
+    limit,
+    mediaType
   });
   res.json(recommendations);
 }));
@@ -6455,11 +6503,13 @@ router.get('/discovery-candidates', requireSessionAuth, requireRole('admin', 'su
   const limit = Math.max(1, Math.min(50, Number(req.query?.limit || 12) || 12));
   const search = String(req.query?.search || '').trim();
   const mediaId = Number(req.query?.media_id || 0) || null;
+  const mediaType = normalizeMergeReviewMediaTypeFilter(req.query?.media_type);
   const discovery = await loadScopedDuplicateDiscoveryCandidates({
     scopeContext,
     limit,
     search,
-    mediaId
+    mediaId,
+    mediaType
   });
   res.json(discovery);
 }));
@@ -6468,10 +6518,12 @@ router.get('/comics/duplicate-candidates', requireSessionAuth, requireRole('admi
   const scopeContext = resolveScopeContext(req);
   const limit = Math.max(1, Math.min(50, Number(req.query?.limit || 12) || 12));
   const search = String(req.query?.search || '').trim();
+  const mediaType = normalizeMergeReviewMediaTypeFilter(req.query?.media_type);
   const candidates = await loadScopedComicDuplicateCandidates({
     scopeContext,
     limit,
-    search
+    search,
+    mediaType
   });
   res.json(candidates);
 }));
@@ -6480,10 +6532,12 @@ router.get('/collections/duplicates', requireSessionAuth, requireRole('admin', '
   const scopeContext = resolveScopeContext(req);
   const limit = Math.max(1, Math.min(50, Number(req.query?.limit || 12) || 12));
   const search = String(req.query?.search || '').trim();
+  const mediaType = normalizeMergeReviewMediaTypeFilter(req.query?.media_type);
   const duplicates = await loadScopedCollectionDuplicateGroups({
     scopeContext,
     limit,
-    search
+    search,
+    mediaType
   });
   res.json(duplicates);
 }));
@@ -6792,10 +6846,20 @@ router.post('/merge-apply', requireSessionAuth, requireRole('admin', 'support_ad
     mergeEvidence
   });
   const mergeDetails = await loadScopedMergeDetails(canonicalMediaId, scopeContext);
+  const canonical = summarizeMergeSourceRow(await loadScopedMediaItem(canonicalMediaId, scopeContext));
+
+  await logActivity(req, 'media.merge_apply', 'media', canonicalMediaId, {
+    canonical_id: canonicalMediaId,
+    duplicate_id: duplicateMediaId,
+    media_type: preview.preview?.media_type || canonical?.media_type || null,
+    evidence_summary: mergeEvidence.summary,
+    evidence_confidence: mergeEvidence.confidence || null,
+    attached_count: Number(result?.attached || 0) || 0
+  });
 
   res.json({
     applied: true,
-    canonical: summarizeMergeSourceRow(await loadScopedMediaItem(canonicalMediaId, scopeContext)),
+    canonical,
     duplicate: preview.duplicate,
     result,
     merge_details: mergeDetails

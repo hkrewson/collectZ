@@ -32,6 +32,16 @@ const RECOMMENDATION_REJECTION_REASONS = [
   { value: 'other', label: 'Other' }
 ];
 
+const MERGE_REVIEW_SECTION_OPTIONS = [
+  { value: 'all', label: 'All sections' },
+  { value: 'movie', label: 'Movies' },
+  { value: 'tv_series', label: 'TV' },
+  { value: 'book', label: 'Books' },
+  { value: 'comic_book', label: 'Comics' },
+  { value: 'game', label: 'Games' },
+  { value: 'audio', label: 'Audio' }
+];
+
 const COMIC_SUPPRESSION_REASON_LABELS = {
   title_issue_mismatch: 'Title issue does not match stored issue number',
   edition_issue_mismatch: 'Edition issue does not match stored issue number'
@@ -527,6 +537,7 @@ export default function AdminMergeReviewView({
   const [collectionDuplicates, setCollectionDuplicates] = useState([]);
   const [collectionDuplicateSummary, setCollectionDuplicateSummary] = useState(null);
   const [collectionDuplicatesLoading, setCollectionDuplicatesLoading] = useState(true);
+  const [sectionFilter, setSectionFilter] = useState('all');
   const [collectionPreview, setCollectionPreview] = useState(null);
   const [collectionPreviewLoading, setCollectionPreviewLoading] = useState(false);
   const [collectionMergeDetails, setCollectionMergeDetails] = useState(null);
@@ -564,6 +575,10 @@ export default function AdminMergeReviewView({
   const historyRows = useMemo(
     () => buildHistoryRows(preview?.preview?.history_context || {}),
     [preview]
+  );
+  const selectedSectionLabel = useMemo(
+    () => MERGE_REVIEW_SECTION_OPTIONS.find((option) => option.value === sectionFilter)?.label || 'All sections',
+    [sectionFilter]
   );
 
   const clearPreview = () => {
@@ -609,7 +624,9 @@ export default function AdminMergeReviewView({
   const loadRecommendations = async () => {
     setRecommendationsLoading(true);
     try {
-      const payload = await apiCall('get', '/media/merge-recommendations?limit=12');
+      const query = new URLSearchParams({ limit: '12' });
+      if (sectionFilter !== 'all') query.set('media_type', sectionFilter);
+      const payload = await apiCall('get', `/media/merge-recommendations?${query.toString()}`);
       setRecommendations(Array.isArray(payload?.items) ? payload.items : []);
       setRecommendationsSummary(payload?.summary || null);
     } catch (_) {
@@ -626,6 +643,7 @@ export default function AdminMergeReviewView({
       const query = new URLSearchParams({ limit: '12' });
       if (String(searchValue || '').trim()) query.set('search', String(searchValue).trim());
       if (Number(mediaId || 0) > 0) query.set('media_id', String(Number(mediaId)));
+      if (sectionFilter !== 'all') query.set('media_type', sectionFilter);
       const payload = await apiCall('get', `/media/discovery-candidates?${query.toString()}`);
       setDiscoveryCandidates(Array.isArray(payload?.items) ? payload.items : []);
       setDiscoverySummary(payload?.summary || null);
@@ -646,6 +664,7 @@ export default function AdminMergeReviewView({
     try {
       const query = new URLSearchParams({ limit: '12' });
       if (String(searchValue || '').trim()) query.set('search', String(searchValue).trim());
+      if (sectionFilter !== 'all') query.set('media_type', sectionFilter);
       const payload = await apiCall('get', `/media/comics/duplicate-candidates?${query.toString()}`);
       const items = Array.isArray(payload?.items) ? payload.items : [];
       const suppressedItems = Array.isArray(payload?.suppressed_items) ? payload.suppressed_items : [];
@@ -676,6 +695,7 @@ export default function AdminMergeReviewView({
     try {
       const query = new URLSearchParams({ limit: '12' });
       if (String(searchValue || '').trim()) query.set('search', String(searchValue).trim());
+      if (sectionFilter !== 'all') query.set('media_type', sectionFilter);
       const payload = await apiCall('get', `/media/collections/duplicates?${query.toString()}`);
       setCollectionDuplicates(Array.isArray(payload?.items) ? payload.items : []);
       setCollectionDuplicateSummary(payload?.summary || null);
@@ -692,7 +712,7 @@ export default function AdminMergeReviewView({
     loadDiscoveryCandidates({ searchValue: '', mediaId: null });
     loadComicDuplicateCandidates('');
     loadCollectionDuplicates('');
-  }, [apiCall, activeLibrary?.id, activeSpace?.id]);
+  }, [apiCall, activeLibrary?.id, activeSpace?.id, sectionFilter]);
 
   useEffect(() => {
     if (!seededDiscovery?.mediaId) return;
@@ -715,6 +735,7 @@ export default function AdminMergeReviewView({
         const query = new URLSearchParams({ limit: '12' });
         if (discoverySearch.trim()) query.set('search', discoverySearch.trim());
         if (discoveryFocus?.id) query.set('media_id', String(discoveryFocus.id));
+        if (sectionFilter !== 'all') query.set('media_type', sectionFilter);
         const payload = await apiCall('get', `/media/discovery-candidates?${query.toString()}`);
         if (!active) return;
         setDiscoveryCandidates(Array.isArray(payload?.items) ? payload.items : []);
@@ -734,7 +755,7 @@ export default function AdminMergeReviewView({
       active = false;
       window.clearTimeout(timer);
     };
-  }, [apiCall, discoverySearch, discoveryFocus?.id]);
+  }, [apiCall, discoverySearch, discoveryFocus?.id, sectionFilter]);
 
   useEffect(() => {
     let active = true;
@@ -742,6 +763,7 @@ export default function AdminMergeReviewView({
       try {
         const query = new URLSearchParams({ limit: '12' });
         if (comicDuplicateSearch.trim()) query.set('search', comicDuplicateSearch.trim());
+        if (sectionFilter !== 'all') query.set('media_type', sectionFilter);
         const payload = await apiCall('get', `/media/comics/duplicate-candidates?${query.toString()}`);
         if (!active) return;
         setComicDuplicateCandidates(Array.isArray(payload?.items) ? payload.items : []);
@@ -761,7 +783,7 @@ export default function AdminMergeReviewView({
       active = false;
       window.clearTimeout(timer);
     };
-  }, [apiCall, comicDuplicateSearch]);
+  }, [apiCall, comicDuplicateSearch, sectionFilter]);
 
   useEffect(() => {
     let active = true;
@@ -769,6 +791,7 @@ export default function AdminMergeReviewView({
       try {
         const query = new URLSearchParams({ limit: '12' });
         if (collectionDuplicateSearch.trim()) query.set('search', collectionDuplicateSearch.trim());
+        if (sectionFilter !== 'all') query.set('media_type', sectionFilter);
         const payload = await apiCall('get', `/media/collections/duplicates?${query.toString()}`);
         if (!active) return;
         setCollectionDuplicates(Array.isArray(payload?.items) ? payload.items : []);
@@ -786,7 +809,7 @@ export default function AdminMergeReviewView({
       active = false;
       window.clearTimeout(timer);
     };
-  }, [apiCall, collectionDuplicateSearch]);
+  }, [apiCall, collectionDuplicateSearch, sectionFilter]);
 
   useEffect(() => {
     let active = true;
@@ -1205,11 +1228,23 @@ export default function AdminMergeReviewView({
         </p>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <SummaryStat label="Workspace" value={activeSpace?.name || 'Current workspace'} />
-        <SummaryStat label="Library" value={activeLibrary?.name || 'Current library'} />
-        <SummaryStat label="Merge boundary" value="Same type only" />
-        <SummaryStat label="Action mode" value="Preview first" />
+      <div className="rounded-lg border border-edge bg-void/10 px-4 py-3">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-ghost">
+            <span><span className="text-ink">Workspace:</span> {activeSpace?.name || 'Current workspace'}</span>
+            <span><span className="text-ink">Library:</span> {activeLibrary?.name || 'Current library'}</span>
+            <span><span className="text-ink">Boundary:</span> Same type only</span>
+            <span><span className="text-ink">Mode:</span> Preview first</span>
+          </div>
+          <label className="field min-w-0 xl:w-64">
+            <span className="label">Library section</span>
+            <select className="input h-9" value={sectionFilter} onChange={(event) => setSectionFilter(event.target.value)}>
+              {MERGE_REVIEW_SECTION_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+        </div>
       </div>
 
       <div className="rounded-lg border border-edge bg-void/10">
@@ -1221,7 +1256,7 @@ export default function AdminMergeReviewView({
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             {discoverySummary ? (
               <div className="text-xs text-ghost">
-                {discoverySummary.returned_candidates || 0} shown · {discoverySummary.shared_cover_candidates || 0} cover-path matches · {discoverySummary.exact_title_candidates || 0} exact-title matches
+                {selectedSectionLabel} · {discoverySummary.returned_candidates || 0} shown · {discoverySummary.shared_cover_candidates || 0} cover-path matches · {discoverySummary.exact_title_candidates || 0} exact-title matches
               </div>
             ) : null}
             <input
@@ -1274,6 +1309,7 @@ export default function AdminMergeReviewView({
           </div>
           {recommendationsSummary ? (
             <div className="flex gap-3 text-xs text-ghost">
+              <span>{selectedSectionLabel}</span>
               <span>{recommendationsSummary.returned_candidates || 0} shown</span>
               <span>{recommendationsSummary.high_confidence || 0} high confidence</span>
               <span>{recommendationsSummary.medium_confidence || 0} medium confidence</span>
@@ -1312,7 +1348,7 @@ export default function AdminMergeReviewView({
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             {comicDuplicateSummary ? (
               <div className="text-xs text-ghost">
-                {comicDuplicateSummary.candidate_groups || 0} candidate groups · {comicDuplicateSummary.suppressed_groups || 0} suppressed
+                {selectedSectionLabel} · {comicDuplicateSummary.candidate_groups || 0} candidate groups · {comicDuplicateSummary.suppressed_groups || 0} suppressed
               </div>
             ) : null}
             <input
@@ -1373,7 +1409,7 @@ export default function AdminMergeReviewView({
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             {collectionDuplicateSummary ? (
               <div className="text-xs text-ghost">
-                {collectionDuplicateSummary.returned_groups || 0} groups · {collectionDuplicateSummary.duplicate_collections || 0} collections
+                {selectedSectionLabel} · {collectionDuplicateSummary.returned_groups || 0} groups · {collectionDuplicateSummary.duplicate_collections || 0} collections
               </div>
             ) : null}
             <input

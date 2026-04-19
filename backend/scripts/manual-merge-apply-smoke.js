@@ -246,13 +246,28 @@ async function main() {
     assert(historyRow, 'Expected media_repair_history row for manual merge apply');
     assert(historyRow.context?.mergeEvidence?.action === 'manual_merge', 'Expected manual merge action to be persisted in history context');
     assert(historyRow.context?.mergeEvidence?.canonical_selection?.canonical_id === canonicalBookId, 'Expected canonical id to be stored in manual merge evidence');
+    const activity = await pool.query(
+      `SELECT action, entity_type, entity_id, details
+         FROM activity_log
+        WHERE user_id = $1
+          AND action = 'media.merge_apply'
+          AND entity_type = 'media'
+          AND entity_id = $2
+        ORDER BY created_at DESC, id DESC
+        LIMIT 1`,
+      [userId, canonicalBookId]
+    );
+    const activityRow = activity.rows[0] || null;
+    assert(activityRow, 'Expected activity_log row for manual media merge apply');
+    assert(Number(activityRow.details?.duplicate_id || 0) === duplicateBookId, 'Expected activity log to capture duplicate id for manual merge apply');
 
     console.log(JSON.stringify({
       applied: apply.data?.applied === true,
       attached: Number(apply.data?.result?.attached || 0),
       activeMergeCount: Number(apply.data?.merge_details?.summary?.active_merge_count || 0),
       persistedAction: historyRow?.context?.mergeEvidence?.action || null,
-      mergedOwnedFormats: canonicalRow?.owned_formats || []
+      mergedOwnedFormats: canonicalRow?.owned_formats || [],
+      activityAction: activityRow?.action || null
     }, null, 2));
   } finally {
     await cleanupTemporaryState({ userId, libraryId, spaceId });

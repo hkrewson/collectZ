@@ -170,6 +170,26 @@ async function main() {
       userId,
       importSource: 'csv_generic'
     });
+    const mst3kVolumeLeftId = await createMediaRow({
+      title: 'Mystery Science Theater 3000: Angel\'s Revenge',
+      mediaType: 'movie',
+      year: 1999,
+      posterPath: '/mst3k-shared-cover.jpg',
+      libraryId,
+      spaceId,
+      userId,
+      importSource: 'csv_delicious'
+    });
+    const mst3kVolumeRightId = await createMediaRow({
+      title: 'Mystery Science Theater 3000: The Movie',
+      mediaType: 'movie',
+      year: 1999,
+      posterPath: '/mst3k-shared-cover.jpg',
+      libraryId,
+      spaceId,
+      userId,
+      importSource: 'csv_delicious'
+    });
     await createMediaRow({
       title: 'Exact Title Duplicate',
       mediaType: 'movie',
@@ -202,12 +222,18 @@ async function main() {
       const right = Number(item?.duplicate?.id || 0);
       return [left, right].includes(focusId) && [left, right].includes(posterDuplicateId);
     });
+    const mst3kCandidate = items.find((item) => {
+      const left = Number(item?.canonical?.id || 0);
+      const right = Number(item?.duplicate?.id || 0);
+      return [left, right].includes(mst3kVolumeLeftId) && [left, right].includes(mst3kVolumeRightId);
+    });
 
     assert(response.data?.focus?.id === focusId, 'Expected focused discovery record in response');
     assert(focusedCandidate, 'Expected shared-cover discovery candidate for focused record');
     assert(focusedCandidate.signal === 'shared_cover_path', 'Expected shared-cover discovery candidate to use shared_cover_path signal');
     assert(focusedCandidate.summary === 'Matched on shared cover art path', 'Expected focused discovery summary to describe shared cover art path');
     assert(Number(response.data?.summary?.shared_cover_candidates || 0) >= 1, 'Expected shared-cover candidates in discovery summary');
+    assert(!mst3kCandidate, 'Expected franchise-separated MST3K titles with a shared cover path to stay out of discovery candidates');
 
     console.log(JSON.stringify({
       focusedTitle: response.data?.focus?.title || null,

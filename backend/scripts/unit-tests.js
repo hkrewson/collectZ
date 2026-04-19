@@ -22,6 +22,7 @@ const {
 } = require('../services/bookComicNormalization');
 const {
   extractStructuredTitleSignals,
+  isStructuredTitlePairUnsafeForSharedCoverDiscovery,
   isTitleSafeForGenericYearRecommendation,
   buildGenericManualMergeIdentity
 } = require('../services/manualMergeRecommendations');
@@ -333,6 +334,30 @@ results.push(run('manualMergeRecommendations suppresses franchise titles with ge
   const specificSignals = extractStructuredTitleSignals("Mystery Science Theater 3000: Angel's Revenge");
   assert.strictEqual(specificSignals.hasGenericSubtitle, false);
   assert.strictEqual(isTitleSafeForGenericYearRecommendation("Mystery Science Theater 3000: Angel's Revenge"), true);
+}));
+
+results.push(run('manualMergeRecommendations suppresses shared-cover discovery for franchise-separated titles with differing suffixes', () => {
+  assert.strictEqual(
+    isStructuredTitlePairUnsafeForSharedCoverDiscovery(
+      'Mystery Science Theater 3000: Angel\'s Revenge',
+      'Mystery Science Theater 3000: The Movie'
+    ),
+    true
+  );
+  assert.strictEqual(
+    isStructuredTitlePairUnsafeForSharedCoverDiscovery(
+      'Alpha Flight #12: ...And One Shall Surely Die',
+      'Alpha Flight #12: ...And One Shall Surely Die'
+    ),
+    false
+  );
+  assert.strictEqual(
+    isStructuredTitlePairUnsafeForSharedCoverDiscovery(
+      'Mystery Science Theater 3000, Vol. XIV',
+      'Mystery Science Theater 3000, Vol. XXX'
+    ),
+    true
+  );
 }));
 
 results.push(run('bookComicNormalization flags comic-like book rows for review', () => {
@@ -2859,6 +2884,7 @@ results.push(run('frontend import flow no longer mounts standalone Import Review
 
 results.push(run('library drawer source includes compact match evidence summaries with richer expanded validation details', () => {
   assert.ok(libraryViewSource.includes('Match evidence'));
+  assert.ok(libraryViewSource.includes('function MergeEvidenceSection({'));
   assert.ok(libraryViewSource.includes("${Number(mergeSummary?.active_merge_count || 0)} ${Number(mergeSummary?.active_merge_count || 0) === 1 ? 'merge event' : 'merge events'}"));
   assert.ok(libraryViewSource.includes('supporting sources'));
   assert.ok(libraryViewSource.includes('Canonical: ${formatMergeSourceLabel(entry?.canonical)} · Matched: ${formatMergeSourceLabel(entry?.merged)}'));
@@ -2874,16 +2900,18 @@ results.push(run('library drawer source includes compact match evidence summarie
   assert.ok(libraryViewSource.includes('Record #{entry.technical_details.duplicate_id}'));
   assert.ok(libraryViewSource.includes('Merged at:'));
   assert.ok(libraryViewSource.includes('Matched on:'));
+  assert.ok(libraryViewSource.includes('Repair type: {formatMergeTechnicalLabel(entry?.repair_type)}'));
   assert.ok(libraryViewSource.includes("apiCall('get', `/media/${item.id}/merge-details`)"));
   assert.ok(libraryViewSource.includes('DisclosureList'));
   assert.ok(libraryViewSource.includes('Find possible duplicates'));
+  assert.ok(!libraryViewSource.includes('const supportsMergeDetails = isBook || isComic;'));
 }));
 
 results.push(run('admin merge review view posts preview requests and renders operator-facing comparison details', () => {
   assert.ok(adminMergeReviewViewSource.includes("/media/merge-preview"));
   assert.ok(adminMergeReviewViewSource.includes("/media/merge-apply"));
   assert.ok(adminMergeReviewViewSource.includes("/media/merge-revert"));
-  assert.ok(adminMergeReviewViewSource.includes('/media/merge-recommendations?limit=12'));
+  assert.ok(adminMergeReviewViewSource.includes("/media/merge-recommendations?${query.toString()}"));
   assert.ok(adminMergeReviewViewSource.includes('/media/discovery-candidates?'));
   assert.ok(adminMergeReviewViewSource.includes('/media/comics/duplicate-candidates?'));
   assert.ok(adminMergeReviewViewSource.includes('/media/collections/duplicates?'));
@@ -2893,6 +2921,9 @@ results.push(run('admin merge review view posts preview requests and renders ope
   assert.ok(adminMergeReviewViewSource.includes('/media/collections/${left.id}/merge-details'));
   assert.ok(adminMergeReviewViewSource.includes('/media?search='));
   assert.ok(adminMergeReviewViewSource.includes('Review a same-type pairwise merge inside the current workspace and library scope'));
+  assert.ok(adminMergeReviewViewSource.includes('Library section'));
+  assert.ok(adminMergeReviewViewSource.includes('All sections'));
+  assert.ok(adminMergeReviewViewSource.includes("query.set('media_type', sectionFilter)"));
   assert.ok(adminMergeReviewViewSource.includes('Discovery queue'));
   assert.ok(adminMergeReviewViewSource.includes('Likely duplicates surfaced from lighter signals'));
   assert.ok(adminMergeReviewViewSource.includes('Possible duplicates for:'));
@@ -2945,6 +2976,12 @@ results.push(run('admin merge review view posts preview requests and renders ope
   assert.ok(adminMergeReviewViewSource.includes('Merge history'));
   assert.ok(adminMergeReviewViewSource.includes('Swap'));
   assert.ok(adminMergeReviewViewSource.includes('Recommended canonical'));
+}));
+
+results.push(run('manual merge apply source records activity log evidence', () => {
+  assert.ok(mediaRoutesSource.includes("await logActivity(req, 'media.merge_apply', 'media', canonicalMediaId"));
+  assert.ok(manualMergeApplySmokeSource.includes("action = 'media.merge_apply'"));
+  assert.ok(manualMergeApplySmokeSource.includes('activityAction'));
 }));
 
 results.push(run('admin shell browser coverage includes manual merge review preview and cross-type guardrails', () => {

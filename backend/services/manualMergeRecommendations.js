@@ -20,8 +20,9 @@ function extractStructuredTitleSignals(title = '') {
   const discMatch = raw.match(/\bdisc\s+([ivxlcdm0-9]+|\d+)\b/i);
   const partMatch = raw.match(/\bpart\s+([ivxlcdm0-9]+|\d+)\b/i);
   const collectionSignal = /\b(collection|box set|collector'?s edition|anthology|complete series|complete collection|volume|vol(?:ume)?\.?|season|disc|part)\b/i.test(raw);
-  const separatorMatch = raw.match(/[:\-]\s*([^:-]+)$/);
-  const suffix = separatorMatch ? normalizeText(separatorMatch[1]) : '';
+  const separatorParts = raw.match(/^(.*?)[\s]*[:\-][\s]*(.+)$/);
+  const separatorPrefix = separatorParts ? normalizeText(separatorParts[1]) : '';
+  const separatorSuffix = separatorParts ? normalizeText(separatorParts[2]) : '';
   return {
     raw,
     normalizedTitle,
@@ -30,8 +31,28 @@ function extractStructuredTitleSignals(title = '') {
     discToken: normalizeText(discMatch?.[1] || ''),
     partToken: normalizeText(partMatch?.[1] || ''),
     hasCollectionSignal: collectionSignal,
-    hasGenericSubtitle: Boolean(suffix) && GENERIC_SUBTITLE_TOKENS.has(suffix)
+    separatorPrefix,
+    separatorSuffix,
+    hasGenericSubtitle: Boolean(separatorSuffix) && GENERIC_SUBTITLE_TOKENS.has(separatorSuffix)
   };
+}
+
+function isStructuredTitlePairUnsafeForSharedCoverDiscovery(leftTitle = '', rightTitle = '') {
+  const left = extractStructuredTitleSignals(leftTitle);
+  const right = extractStructuredTitleSignals(rightTitle);
+  if (!left.normalizedTitle || !right.normalizedTitle) return false;
+
+  if (left.separatorPrefix && right.separatorPrefix && left.separatorPrefix === right.separatorPrefix) {
+    if (left.separatorSuffix && right.separatorSuffix && left.separatorSuffix !== right.separatorSuffix) {
+      return true;
+    }
+  }
+
+  if (left.volumeToken && right.volumeToken && left.volumeToken !== right.volumeToken) return true;
+  if (left.seasonToken && right.seasonToken && left.seasonToken !== right.seasonToken) return true;
+  if (left.discToken && right.discToken && left.discToken !== right.discToken) return true;
+  if (left.partToken && right.partToken && left.partToken !== right.partToken) return true;
+  return false;
 }
 
 function isTitleSafeForGenericYearRecommendation(title = '') {
@@ -100,6 +121,7 @@ function buildGenericManualMergeIdentity(row = {}) {
 
 module.exports = {
   extractStructuredTitleSignals,
+  isStructuredTitlePairUnsafeForSharedCoverDiscovery,
   isTitleSafeForGenericYearRecommendation,
   buildGenericManualMergeIdentity
 };
