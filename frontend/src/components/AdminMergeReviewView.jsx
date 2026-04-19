@@ -49,6 +49,14 @@ function formatComicSuppressionReason(reason = '') {
   return COMIC_SUPPRESSION_REASON_LABELS[reason] || reason || 'Suppressed cluster';
 }
 
+function formatComicCandidateMeta(record = {}) {
+  const bits = [];
+  if (record?.source_label) bits.push(record.source_label);
+  if (record?.year) bits.push(String(record.year));
+  bits.push(`Record #${record?.id || '—'}`);
+  return bits.join(' · ');
+}
+
 function buildImpactRows(summary = {}) {
   const rows = [
     { label: 'Collection items', value: Number(summary.collection_items || 0) },
@@ -362,7 +370,7 @@ function ComicDuplicateCandidateGroup({ group, onReview, loading }) {
   return (
     <div className="rounded-lg border border-edge/70 bg-raised/15">
       <div className="border-b border-edge/60 px-4 py-3">
-        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-1">
             <p className="text-sm font-medium text-ink">
               {group.series || 'Unknown series'} #{group.issue_number || '—'}
@@ -371,29 +379,39 @@ function ComicDuplicateCandidateGroup({ group, onReview, loading }) {
               {group.duplicate_count || 0} matching records · Volume {group.volume || '—'} · {group.summary || 'Comic duplicate'}
             </p>
           </div>
-          <button
-            type="button"
-            className="btn-secondary btn-sm h-8"
-            onClick={() => onReview(group)}
-            disabled={loading || !group?.canonical?.id || Number(group?.duplicates?.length || 0) < 1}
-          >
-            Review issue
-          </button>
+          <div className="text-xs text-ghost">
+            Pick the exact pair you want to review.
+          </div>
         </div>
       </div>
-      <div className="divide-y divide-edge/60">
-        <div className="px-4 py-3">
-          <p className="text-xs text-ghost">Canonical</p>
-          <p className="mt-1 text-sm font-medium text-ink">{group.canonical?.title || 'Untitled record'}</p>
-          <p className="mt-1 text-xs text-ghost">{group.canonical?.source_label || 'Unknown source'} · #{group.canonical?.id || '—'}</p>
+      <div className="px-4 py-3">
+        <p className="text-xs text-ghost">This record</p>
+        <p className="mt-1 text-sm font-medium text-ink">{group.canonical?.title || 'Untitled record'}</p>
+        <p className="mt-1 text-xs text-ghost">{formatComicCandidateMeta(group.canonical)}</p>
+      </div>
+      <div className="border-t border-edge/60 px-4 py-3">
+        <p className="text-xs text-ghost">Matched records</p>
+        <div className="mt-3 space-y-2">
+          {(group.duplicates || []).map((record) => (
+            <div
+              key={`comic-candidate-${group.duplicate_group_id}-${record.id}`}
+              className="flex flex-col gap-3 rounded-md border border-edge/70 bg-void/10 px-3 py-3 sm:flex-row sm:items-start sm:justify-between"
+            >
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-ink">{record.title || 'Untitled record'}</p>
+                <p className="mt-1 text-xs text-ghost">{formatComicCandidateMeta(record)}</p>
+              </div>
+              <button
+                type="button"
+                className="btn-secondary btn-sm h-8 shrink-0"
+                onClick={() => onReview(group, record)}
+                disabled={loading || !group?.canonical?.id || !record?.id}
+              >
+                Review pair
+              </button>
+            </div>
+          ))}
         </div>
-        {(group.duplicates || []).slice(0, 3).map((record) => (
-          <div key={`comic-candidate-${group.duplicate_group_id}-${record.id}`} className="px-4 py-3">
-            <p className="text-xs text-ghost">Matched record</p>
-            <p className="mt-1 text-sm font-medium text-ink">{record.title || 'Untitled record'}</p>
-            <p className="mt-1 text-xs text-ghost">{record.source_label || 'Unknown source'} · #{record.id || '—'}</p>
-          </div>
-        ))}
       </div>
     </div>
   );
@@ -460,6 +478,9 @@ export default function AdminMergeReviewView({
   const [comicDuplicateSummary, setComicDuplicateSummary] = useState(null);
   const [suppressedComicGroups, setSuppressedComicGroups] = useState([]);
   const [comicDuplicatesLoading, setComicDuplicatesLoading] = useState(true);
+  const [activeComicGroupId, setActiveComicGroupId] = useState('');
+  const [activeComicGroupLabel, setActiveComicGroupLabel] = useState('');
+  const [comicAdvanceMessage, setComicAdvanceMessage] = useState('');
   const [collectionDuplicateSearch, setCollectionDuplicateSearch] = useState('');
   const [collectionDuplicates, setCollectionDuplicates] = useState([]);
   const [collectionDuplicateSummary, setCollectionDuplicateSummary] = useState(null);
@@ -532,13 +553,25 @@ export default function AdminMergeReviewView({
       const query = new URLSearchParams({ limit: '12' });
       if (String(searchValue || '').trim()) query.set('search', String(searchValue).trim());
       const payload = await apiCall('get', `/media/comics/duplicate-candidates?${query.toString()}`);
-      setComicDuplicateCandidates(Array.isArray(payload?.items) ? payload.items : []);
+      const items = Array.isArray(payload?.items) ? payload.items : [];
+      const suppressedItems = Array.isArray(payload?.suppressed_items) ? payload.suppressed_items : [];
+      setComicDuplicateCandidates(items);
       setComicDuplicateSummary(payload?.summary || null);
-      setSuppressedComicGroups(Array.isArray(payload?.suppressed_items) ? payload.suppressed_items : []);
+      setSuppressedComicGroups(suppressedItems);
+      return {
+        items,
+        summary: payload?.summary || null,
+        suppressedItems
+      };
     } catch (_) {
       setComicDuplicateCandidates([]);
       setComicDuplicateSummary(null);
       setSuppressedComicGroups([]);
+      return {
+        items: [],
+        summary: null,
+        suppressedItems: []
+      };
     } finally {
       setComicDuplicatesLoading(false);
     }
@@ -695,6 +728,9 @@ export default function AdminMergeReviewView({
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    setActiveComicGroupId('');
+    setActiveComicGroupLabel('');
+    setComicAdvanceMessage('');
     await requestPreview(Number(canonicalId), Number(duplicateId));
   };
 
@@ -732,6 +768,9 @@ export default function AdminMergeReviewView({
   };
 
   const handleRecommendationReview = async (item) => {
+    setActiveComicGroupId('');
+    setActiveComicGroupLabel('');
+    setComicAdvanceMessage('');
     setRejectConfirmId('');
     setCanonicalId(String(item?.canonical?.id || ''));
     setDuplicateId(String(item?.duplicate?.id || ''));
@@ -740,13 +779,16 @@ export default function AdminMergeReviewView({
     await requestPreview(Number(item?.canonical?.id || 0), Number(item?.duplicate?.id || 0));
   };
 
-  const handleComicDuplicateReview = async (group) => {
+  const handleComicDuplicateReview = async (group, duplicateRecord = null) => {
     const canonical = group?.canonical || null;
-    const duplicate = Array.isArray(group?.duplicates) ? group.duplicates[0] : null;
+    const duplicate = duplicateRecord || (Array.isArray(group?.duplicates) ? group.duplicates[0] : null);
     if (!canonical?.id || !duplicate?.id) {
       onToast('Pick a comic duplicate group with at least two records', 'error');
       return;
     }
+    setActiveComicGroupId(String(group?.duplicate_group_id || ''));
+    setActiveComicGroupLabel(`${group?.series || 'Unknown series'} #${group?.issue_number || '—'}`);
+    setComicAdvanceMessage('');
     setCanonicalId(String(canonical.id));
     setDuplicateId(String(duplicate.id));
     setCanonicalSearch(canonical.title || '');
@@ -833,8 +875,26 @@ export default function AdminMergeReviewView({
       setDuplicateId('');
       setDuplicateSearch('');
       await loadRecommendations();
-      await loadComicDuplicateCandidates();
-      onToast('Manual merge applied', 'success');
+      const refreshedComicGroups = await loadComicDuplicateCandidates();
+      const activeGroup = (refreshedComicGroups?.items || []).find(
+        (group) => String(group?.duplicate_group_id || '') === String(activeComicGroupId || '')
+      );
+      if (activeGroup?.canonical?.id && Number(activeGroup?.duplicates?.length || 0) > 0) {
+        const nextDuplicate = activeGroup.duplicates[0];
+        setComicAdvanceMessage(`Next pair ready for ${activeComicGroupLabel || `${activeGroup.series || 'Unknown series'} #${activeGroup.issue_number || '—'}`}.`);
+        setCanonicalId(String(activeGroup.canonical.id));
+        setDuplicateId(String(nextDuplicate.id));
+        setCanonicalSearch(activeGroup.canonical.title || '');
+        setDuplicateSearch(nextDuplicate.title || '');
+        await requestPreview(Number(activeGroup.canonical.id), Number(nextDuplicate.id));
+        onToast('Manual merge applied. Loaded the next comic pair in this issue cluster.', 'success');
+      } else if (activeComicGroupId) {
+        setActiveComicGroupId('');
+        setComicAdvanceMessage('');
+        onToast('Manual merge applied. This comic issue cluster is clear.', 'success');
+      } else {
+        onToast('Manual merge applied', 'success');
+      }
     } catch (error) {
       const response = error?.response?.data || null;
       setErrorState({
@@ -875,6 +935,9 @@ export default function AdminMergeReviewView({
   };
 
   const handleCollectionReview = async (group) => {
+    setActiveComicGroupId('');
+    setActiveComicGroupLabel('');
+    setComicAdvanceMessage('');
     const left = group?.collections?.[0];
     const right = group?.collections?.[1];
     if (!left?.id || !right?.id) {
@@ -1029,6 +1092,12 @@ export default function AdminMergeReviewView({
             />
           </div>
         </div>
+        {activeComicGroupId ? (
+          <div className="border-b border-edge/60 px-4 py-3 text-sm text-ghost">
+            <span className="text-ink">Working through:</span> {activeComicGroupLabel || 'Comic issue cluster'}
+            {comicAdvanceMessage ? <span>{' · '}{comicAdvanceMessage}</span> : null}
+          </div>
+        ) : null}
         {comicDuplicatesLoading ? (
           <div className="px-4 py-6 text-sm text-ghost">Loading comic duplicates…</div>
         ) : comicDuplicateCandidates.length > 0 ? (

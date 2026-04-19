@@ -2890,7 +2890,11 @@ results.push(run('admin merge review view posts preview requests and renders ope
   assert.ok(adminMergeReviewViewSource.includes('Search comic duplicates'));
   assert.ok(adminMergeReviewViewSource.includes('Safe issue-level comic duplicates surfaced separately'));
   assert.ok(adminMergeReviewViewSource.includes('Suppressed comic clusters'));
-  assert.ok(adminMergeReviewViewSource.includes('Review issue'));
+  assert.ok(adminMergeReviewViewSource.includes('Pick the exact pair you want to review.'));
+  assert.ok(adminMergeReviewViewSource.includes('Matched records'));
+  assert.ok(adminMergeReviewViewSource.includes('Review pair'));
+  assert.ok(adminMergeReviewViewSource.includes('Working through:'));
+  assert.ok(adminMergeReviewViewSource.includes('Next pair ready for'));
   assert.ok(adminMergeReviewViewSource.includes('Duplicate collections'));
   assert.ok(adminMergeReviewViewSource.includes('Search duplicate collections'));
   assert.ok(adminMergeReviewViewSource.includes('Collection entities are reviewed separately from title merges.'));
