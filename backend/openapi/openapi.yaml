@@ -3962,6 +3962,172 @@
         }
       }
     },
+    "/api/media/collections/{id}/merge-details": {
+      "get": {
+        "tags": ["Media"],
+        "summary": "Load active collection merge details for the active scope",
+        "security": [
+          { "cookieSession": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Collection merge details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "collection": { "type": "object", "additionalProperties": true },
+                    "summary": { "type": "object", "additionalProperties": true },
+                    "entries": {
+                      "type": "array",
+                      "items": { "type": "object", "additionalProperties": true }
+                    }
+                  },
+                  "required": ["collection", "summary", "entries"]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Collection was not found in the active scope",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/media/collections/merge-apply": {
+      "post": {
+        "tags": ["Media"],
+        "summary": "Apply an operator-facing duplicate collection merge",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "canonical_id": { "type": "integer", "minimum": 1 },
+                  "duplicate_id": { "type": "integer", "minimum": 1 }
+                },
+                "required": ["canonical_id", "duplicate_id"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Collection merge applied successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "applied": { "type": "boolean" },
+                    "canonical": { "type": "object", "additionalProperties": true },
+                    "duplicate": { "type": "object", "additionalProperties": true },
+                    "result": { "type": "object", "additionalProperties": true },
+                    "merge_details": { "type": "object", "additionalProperties": true }
+                  },
+                  "required": ["applied", "canonical", "duplicate", "result", "merge_details"]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "One or both collections were not found in the active scope",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "409": {
+            "description": "Cross-type collection merge attempt rejected",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/media/collections/merge-revert": {
+      "post": {
+        "tags": ["Media"],
+        "summary": "Revert one active duplicate collection merge event for the active scope",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "canonical_id": { "type": "integer", "minimum": 1 },
+                  "duplicate_id": { "type": "integer", "minimum": 1 }
+                },
+                "required": ["canonical_id", "duplicate_id"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Collection merge event reverted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "reverted": { "type": "boolean" },
+                    "canonical": { "type": "object", "additionalProperties": true },
+                    "duplicate": { "type": "object", "additionalProperties": true },
+                    "result": { "type": "object", "additionalProperties": true },
+                    "merge_details": { "type": "object", "additionalProperties": true }
+                  },
+                  "required": ["reverted", "canonical", "duplicate", "result", "merge_details"]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Canonical collection or merge event was not found in the active scope",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "409": {
+            "description": "Only the latest active collection merge can be reverted",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/media/merge-recommendations/reject": {
       "post": {
         "tags": ["Media"],

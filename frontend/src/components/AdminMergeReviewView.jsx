@@ -321,7 +321,7 @@ function CollectionDuplicateGroup({ group, onReview, loading }) {
           </div>
           <div className="flex items-center gap-2">
             <div className="text-xs text-ghost">
-              Collection review only for now
+              Preview first
             </div>
             <button
               type="button"
@@ -344,6 +344,44 @@ function CollectionDuplicateGroup({ group, onReview, loading }) {
             ) : null}
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+function CollectionMergeEventRow({ entry, onRevert, reverting }) {
+  return (
+    <div className="flex flex-col gap-3 border-t border-edge/60 px-4 py-4 first:border-t-0">
+      <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-ink">{entry.summary || 'Collection merge'}</p>
+          <p className="text-sm text-ghost">
+            {entry.canonical?.name || 'This collection'} <span className="text-dim">←</span> {entry.duplicate?.name || 'Matched collection'}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 text-xs text-ghost">
+          <span>{formatTimestamp(entry.applied_at)}</span>
+          <button
+            type="button"
+            className="btn-secondary btn-sm h-8"
+            onClick={() => onRevert(entry)}
+            disabled={reverting}
+          >
+            {reverting ? 'Reverting…' : 'Revert merge'}
+          </button>
+        </div>
+      </div>
+      <div className="grid gap-3 text-sm sm:grid-cols-2">
+        <div className="space-y-1">
+          <p className="text-ghost">Matched collection</p>
+          <p className="text-ink">{entry.duplicate?.source_label || 'Unknown source'}</p>
+          <p className="font-mono text-xs text-ghost">#{entry.duplicate?.id || '—'}</p>
+        </div>
+        <div className="space-y-1">
+          <p className="text-ghost">Merge effect</p>
+          <p className="text-ink">{entry.moved_item_count || 0} moved items</p>
+          <p className="text-xs text-ghost">{entry.skipped_item_count || 0} skipped as duplicates</p>
+        </div>
       </div>
     </div>
   );
@@ -373,6 +411,12 @@ export default function AdminMergeReviewView({
   const [collectionDuplicatesLoading, setCollectionDuplicatesLoading] = useState(true);
   const [collectionPreview, setCollectionPreview] = useState(null);
   const [collectionPreviewLoading, setCollectionPreviewLoading] = useState(false);
+  const [collectionMergeDetails, setCollectionMergeDetails] = useState(null);
+  const [collectionApplyResult, setCollectionApplyResult] = useState(null);
+  const [collectionRevertResult, setCollectionRevertResult] = useState(null);
+  const [collectionApplyConfirmOpen, setCollectionApplyConfirmOpen] = useState(false);
+  const [collectionApplying, setCollectionApplying] = useState(false);
+  const [revertingCollectionDuplicateId, setRevertingCollectionDuplicateId] = useState('');
   const [rejectingRecommendationId, setRejectingRecommendationId] = useState('');
   const [rejectConfirmId, setRejectConfirmId] = useState('');
   const [rejectDrafts, setRejectDrafts] = useState({});
@@ -407,6 +451,10 @@ export default function AdminMergeReviewView({
 
   const clearCollectionPreview = () => {
     setCollectionPreview(null);
+    setCollectionMergeDetails(null);
+    setCollectionApplyResult(null);
+    setCollectionRevertResult(null);
+    setCollectionApplyConfirmOpen(false);
   };
 
   const loadRecommendations = async () => {
@@ -718,6 +766,10 @@ export default function AdminMergeReviewView({
     }
     setCollectionPreviewLoading(true);
     setCollectionPreview(null);
+    setCollectionMergeDetails(null);
+    setCollectionApplyResult(null);
+    setCollectionRevertResult(null);
+    setCollectionApplyConfirmOpen(false);
     try {
       const query = new URLSearchParams({
         left_id: String(left.id),
@@ -725,11 +777,65 @@ export default function AdminMergeReviewView({
       });
       const payload = await apiCall('get', `/media/collections/duplicate-preview?${query.toString()}`);
       setCollectionPreview(payload);
+      try {
+        const details = await apiCall('get', `/media/collections/${left.id}/merge-details`);
+        setCollectionMergeDetails(details);
+      } catch (_) {
+        setCollectionMergeDetails(null);
+      }
     } catch (error) {
       const response = error?.response?.data || null;
       onToast(response?.error || 'Failed to load collection preview', 'error');
     } finally {
       setCollectionPreviewLoading(false);
+    }
+  };
+
+  const handleCollectionApply = async () => {
+    const canonicalCollectionId = Number(collectionPreview?.left?.id || 0);
+    const duplicateCollectionId = Number(collectionPreview?.right?.id || 0);
+    if (!canonicalCollectionId || !duplicateCollectionId || collectionApplying) return;
+    setCollectionApplying(true);
+    try {
+      const payload = await apiCall('post', '/media/collections/merge-apply', {
+        canonical_id: canonicalCollectionId,
+        duplicate_id: duplicateCollectionId
+      });
+      setCollectionApplyResult(payload);
+      setCollectionRevertResult(null);
+      setCollectionPreview(null);
+      setCollectionMergeDetails(payload?.merge_details || null);
+      setCollectionApplyConfirmOpen(false);
+      await loadCollectionDuplicates();
+      onToast('Collection merge applied', 'success');
+    } catch (error) {
+      const response = error?.response?.data || null;
+      onToast(response?.error || 'Failed to apply collection merge', 'error');
+    } finally {
+      setCollectionApplying(false);
+    }
+  };
+
+  const handleCollectionRevert = async (entry) => {
+    const canonicalCollectionId = Number(collectionMergeDetails?.collection?.id || collectionApplyResult?.canonical?.id || 0);
+    const duplicateCollectionId = Number(entry?.duplicate_id || 0);
+    if (!canonicalCollectionId || !duplicateCollectionId) return;
+    setRevertingCollectionDuplicateId(String(duplicateCollectionId));
+    try {
+      const payload = await apiCall('post', '/media/collections/merge-revert', {
+        canonical_id: canonicalCollectionId,
+        duplicate_id: duplicateCollectionId
+      });
+      setCollectionMergeDetails(payload?.merge_details || null);
+      setCollectionApplyResult(null);
+      setCollectionRevertResult(payload);
+      await loadCollectionDuplicates();
+      onToast('Collection merge reverted', 'success');
+    } catch (error) {
+      const response = error?.response?.data || null;
+      onToast(response?.error || 'Failed to revert collection merge', 'error');
+    } finally {
+      setRevertingCollectionDuplicateId('');
     }
   };
 
@@ -829,10 +935,39 @@ export default function AdminMergeReviewView({
           <div className="flex flex-col gap-2 border-b border-edge/70 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="space-y-1">
               <h2 className="text-sm font-medium text-ink">Collection preview</h2>
-              <p className="text-sm text-ghost">Read-only compare for duplicate collections in the current scope.</p>
+              <p className="text-sm text-ghost">Preview a duplicate collection merge in the current scope before applying it.</p>
             </div>
-            <div className="flex items-center gap-2 text-xs text-ghost">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-ghost">
               <span>{collectionPreview.preview?.summary || 'Collection review'}</span>
+              {!collectionApplyConfirmOpen ? (
+                <button
+                  type="button"
+                  className="btn-primary btn-sm h-8"
+                  onClick={() => setCollectionApplyConfirmOpen(true)}
+                  disabled={collectionApplying}
+                >
+                  Apply merge
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="btn-primary btn-sm h-8"
+                    onClick={handleCollectionApply}
+                    disabled={collectionApplying}
+                  >
+                    {collectionApplying ? 'Applying…' : 'Confirm apply'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-secondary btn-sm h-8"
+                    onClick={() => setCollectionApplyConfirmOpen(false)}
+                    disabled={collectionApplying}
+                  >
+                    Cancel
+                  </button>
+                </>
+              )}
               <button type="button" className="btn-secondary btn-sm h-8" onClick={clearCollectionPreview}>
                 Clear
               </button>
@@ -843,7 +978,14 @@ export default function AdminMergeReviewView({
               <SummaryStat label="Media type" value={formatMediaType(collectionPreview.preview?.media_type)} />
               <SummaryStat label="This collection items" value={collectionPreview.preview?.item_summary?.left_item_count ?? 0} />
               <SummaryStat label="Matched collection items" value={collectionPreview.preview?.item_summary?.right_item_count ?? 0} />
-              <SummaryStat label="Expected items" value={collectionPreview.left?.expected_item_count ?? collectionPreview.right?.expected_item_count ?? '—'} />
+              <SummaryStat label="Merged items" value={collectionPreview.preview?.item_summary?.merged_item_count ?? '—'} />
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <SummaryStat label="Moved items" value={collectionPreview.preview?.item_summary?.moved_item_count ?? 0} />
+              <SummaryStat label="Result name" value={collectionPreview.preview?.resulting_collection?.name || '—'} />
+              <SummaryStat label="Result source title" value={collectionPreview.preview?.resulting_collection?.source_title || '—'} />
+              <SummaryStat label="Result expected items" value={collectionPreview.preview?.resulting_collection?.expected_item_count ?? '—'} />
             </div>
 
             <div className="grid gap-4 lg:grid-cols-2">
@@ -920,6 +1062,48 @@ export default function AdminMergeReviewView({
                 </div>
               </div>
             </div>
+
+          </div>
+        </div>
+      ) : null}
+
+      {collectionApplyResult?.applied ? (
+        <div className="rounded-lg border border-edge bg-void/10 px-4 py-4">
+          <h2 className="text-sm font-medium text-ink">Collection merge applied</h2>
+          <p className="mt-2 text-sm text-ghost">
+            Collection #{collectionApplyResult.canonical?.id || '—'} absorbed collection #{collectionApplyResult.duplicate?.id || '—'}.
+          </p>
+        </div>
+      ) : null}
+
+      {collectionRevertResult?.reverted ? (
+        <div className="rounded-lg border border-edge bg-void/10 px-4 py-4">
+          <h2 className="text-sm font-medium text-ink">Collection merge reverted</h2>
+          <p className="mt-2 text-sm text-ghost">
+            Collection #{collectionRevertResult.duplicate?.id || '—'} was restored from collection #{collectionRevertResult.canonical?.id || '—'}.
+          </p>
+        </div>
+      ) : null}
+
+      {collectionMergeDetails?.entries?.length > 0 ? (
+        <div className="rounded-lg border border-edge bg-void/10">
+          <div className="border-b border-edge/70 px-4 py-3">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className="text-sm font-medium text-ink">Active collection merge events</h2>
+              <p className="text-xs text-ghost">
+                {collectionMergeDetails.summary?.active_merge_count || 0} active · {collectionMergeDetails.summary?.supporting_collections || 1} supporting collections
+              </p>
+            </div>
+          </div>
+          <div>
+            {(collectionMergeDetails.entries || []).map((entry) => (
+              <CollectionMergeEventRow
+                key={`collection-merge-event-${entry.history_id || entry.duplicate_id}`}
+                entry={entry}
+                onRevert={handleCollectionRevert}
+                reverting={revertingCollectionDuplicateId === String(entry.duplicate_id || '')}
+              />
+            ))}
           </div>
         </div>
       ) : null}

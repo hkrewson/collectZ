@@ -603,6 +603,22 @@ CREATE TABLE IF NOT EXISTS collection_items (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS collection_merge_history (
+    id SERIAL PRIMARY KEY,
+    canonical_collection_id INTEGER NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+    duplicate_collection_id INTEGER NOT NULL,
+    repair_type VARCHAR(50) NOT NULL CHECK (repair_type IN ('duplicate_attach')),
+    snapshot JSONB NOT NULL,
+    context JSONB NOT NULL,
+    applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    reverted_at TIMESTAMP,
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT collection_merge_history_unique_duplicate_attach
+      UNIQUE (canonical_collection_id, duplicate_collection_id, repair_type)
+);
+
 -- Events and event artifacts
 CREATE TABLE IF NOT EXISTS events (
     id SERIAL PRIMARY KEY,
@@ -780,6 +796,9 @@ CREATE INDEX IF NOT EXISTS idx_sync_jobs_created_by_created_at ON sync_jobs(crea
 CREATE INDEX IF NOT EXISTS idx_collections_library_created_at ON collections(library_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_collection_items_collection_position ON collection_items(collection_id, position);
 CREATE INDEX IF NOT EXISTS idx_collection_items_media_id ON collection_items(media_id);
+CREATE INDEX IF NOT EXISTS idx_collection_merge_history_canonical_type ON collection_merge_history(canonical_collection_id, repair_type);
+CREATE INDEX IF NOT EXISTS idx_collection_merge_history_duplicate_type ON collection_merge_history(duplicate_collection_id, repair_type);
+CREATE INDEX IF NOT EXISTS idx_collection_merge_history_reverted_at ON collection_merge_history(reverted_at);
 CREATE INDEX IF NOT EXISTS idx_events_library_date_start ON events(library_id, date_start DESC);
 CREATE INDEX IF NOT EXISTS idx_events_created_by_created_at ON events(created_by, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_event_artifacts_event_created_at ON event_artifacts(event_id, created_at DESC);
@@ -1027,5 +1046,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (64, 'Add optional valuation fields and platform valuation provider settings'),
     (65, 'Add optional user profile image field'),
     (66, 'Add media repair history table for duplicate attach snapshots'),
-    (67, 'Add recommendation feedback table for manual merge rejection outcomes')
+    (67, 'Add recommendation feedback table for manual merge rejection outcomes'),
+    (68, 'Add collection merge history table for duplicate collection snapshots')
 ON CONFLICT (version) DO NOTHING;

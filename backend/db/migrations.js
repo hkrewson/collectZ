@@ -2858,6 +2858,34 @@ const MIGRATIONS = [
           outcome
         );
     `
+  },
+  {
+    version: 68,
+    description: 'Add collection merge history table for duplicate collection snapshots',
+    up: `
+      CREATE TABLE IF NOT EXISTS collection_merge_history (
+        id SERIAL PRIMARY KEY,
+        canonical_collection_id INTEGER NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+        duplicate_collection_id INTEGER NOT NULL,
+        repair_type VARCHAR(50) NOT NULL CHECK (repair_type IN ('duplicate_attach')),
+        snapshot JSONB NOT NULL,
+        context JSONB NOT NULL,
+        applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        reverted_at TIMESTAMP,
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT collection_merge_history_unique_duplicate_attach
+          UNIQUE (canonical_collection_id, duplicate_collection_id, repair_type)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_collection_merge_history_canonical_type
+        ON collection_merge_history(canonical_collection_id, repair_type);
+      CREATE INDEX IF NOT EXISTS idx_collection_merge_history_duplicate_type
+        ON collection_merge_history(duplicate_collection_id, repair_type);
+      CREATE INDEX IF NOT EXISTS idx_collection_merge_history_reverted_at
+        ON collection_merge_history(reverted_at);
+    `
   }
 ];
 

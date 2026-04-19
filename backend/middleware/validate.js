@@ -251,6 +251,8 @@ const mediaMergePreviewSchema = z.object({
 
 const mediaMergeApplySchema = mediaMergePreviewSchema;
 const mediaMergeRevertSchema = mediaMergePreviewSchema;
+const collectionMergeApplySchema = mediaMergePreviewSchema;
+const collectionMergeRevertSchema = mediaMergePreviewSchema;
 const MANUAL_MERGE_REJECTION_REASON_CODES = [
   'different_title_identity',
   'different_volume_or_edition',
@@ -673,6 +675,8 @@ module.exports = {
   mediaMergePreviewSchema,
   mediaMergeApplySchema,
   mediaMergeRevertSchema,
+  collectionMergeApplySchema,
+  collectionMergeRevertSchema,
   MANUAL_MERGE_REJECTION_REASON_CODES,
   mediaMergeRecommendationRejectSchema,
   profileUpdateSchema,

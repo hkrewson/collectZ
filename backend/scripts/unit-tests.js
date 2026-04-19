@@ -158,6 +158,7 @@ const manualMergeRevertSmokeSource = fs.readFileSync(require.resolve('../scripts
 const manualMergeRecommendationsSmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-recommendations-smoke'), 'utf8');
 const manualMergeRecommendationRejectSmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-recommendation-reject-smoke'), 'utf8');
 const collectionDuplicatePreviewSmokeSource = fs.readFileSync(require.resolve('../scripts/collection-duplicate-preview-smoke'), 'utf8');
+const collectionMergeApplyRevertSmokeSource = fs.readFileSync(require.resolve('../scripts/collection-merge-apply-revert-smoke'), 'utf8');
 const { parseComicMetadataFromTitle, buildComicLikeBookProposal, buildComicLikeBookRevertProposal } = require('../scripts/repair-comic-like-books');
 const { buildClusterFromRows, mergeMissingObjectFields } = require('../scripts/repair-book-comic-duplicates');
 const supportSessionSmokeSource = fs.readFileSync(require.resolve('../scripts/support-session-smoke'), 'utf8');
@@ -1370,6 +1371,9 @@ results.push(run('media route source exposes merge details provenance for canoni
 
 results.push(run('media route source exposes operator-only manual merge preview for same-type records', () => {
   assert.ok(mediaRoutesSource.includes("router.get('/collections/duplicates'"));
+  assert.ok(mediaRoutesSource.includes("router.get('/collections/:id/merge-details'"));
+  assert.ok(mediaRoutesSource.includes("router.post('/collections/merge-apply'"));
+  assert.ok(mediaRoutesSource.includes("router.post('/collections/merge-revert'"));
   assert.ok(mediaRoutesSource.includes("router.get('/merge-recommendations'"));
   assert.ok(mediaRoutesSource.includes("router.post('/merge-recommendations/reject'"));
   assert.ok(mediaRoutesSource.includes("router.post('/merge-preview'"));
@@ -1388,6 +1392,10 @@ results.push(run('media route source exposes operator-only manual merge preview 
   assert.ok(mediaRoutesSource.includes('requested_matches_recommended'));
   assert.ok(mediaRoutesSource.includes('operator_review_required'));
   assert.ok(mediaRoutesSource.includes('CANONICAL_SELECTION_REASON'));
+  assert.ok(mediaRoutesSource.includes('collection_merge_history'));
+  assert.ok(mediaRoutesSource.includes('runManualCollectionMergeApply'));
+  assert.ok(mediaRoutesSource.includes('runManualCollectionMergeRevert'));
+  assert.ok(mediaRoutesSource.includes('Only the latest collection merge event can be reverted right now'));
 }));
 
 results.push(run('repo includes import normalization smoke coverage for high-confidence auto-attach', () => {
@@ -1474,12 +1482,15 @@ results.push(run('repo includes manual merge preview smoke coverage for same-typ
   assert.ok(backendPackageJson.scripts['test:manual-merge-recommendations-smoke']);
   assert.ok(backendPackageJson.scripts['test:manual-merge-recommendation-reject-smoke']);
   assert.ok(backendPackageJson.scripts['test:collection-duplicate-preview-smoke']);
+  assert.ok(backendPackageJson.scripts['test:collection-merge-apply-revert-smoke']);
   assert.ok(manualMergePreviewSmokeSource.includes('/api/media/merge-preview'));
   assert.ok(manualMergeApplySmokeSource.includes('/api/media/merge-apply'));
   assert.ok(manualMergeRevertSmokeSource.includes('/api/media/merge-revert'));
   assert.ok(manualMergeRecommendationsSmokeSource.includes('/api/media/merge-recommendations'));
   assert.ok(manualMergeRecommendationRejectSmokeSource.includes('/api/media/merge-recommendations/reject'));
   assert.ok(collectionDuplicatePreviewSmokeSource.includes('/api/media/collections/duplicate-preview'));
+  assert.ok(collectionMergeApplyRevertSmokeSource.includes('/api/media/collections/merge-apply'));
+  assert.ok(collectionMergeApplyRevertSmokeSource.includes('/api/media/collections/merge-revert'));
   assert.ok(manualMergePreviewSmokeSource.includes('Matched on ISBN'));
   assert.ok(manualMergePreviewSmokeSource.includes('Cross-type merges are not allowed'));
   assert.ok(manualMergeApplySmokeSource.includes('manual_merge'));
@@ -1496,6 +1507,8 @@ results.push(run('repo includes manual merge preview smoke coverage for same-typ
   assert.ok(manualMergeRecommendationRejectSmokeSource.includes('feedbackReasonCode'));
   assert.ok(collectionDuplicatePreviewSmokeSource.includes('Matched on collection name and expected item count'));
   assert.ok(collectionDuplicatePreviewSmokeSource.includes('Expected duplicate collection preview to be allowed'));
+  assert.ok(collectionMergeApplyRevertSmokeSource.includes('Expected collection merge apply to succeed'));
+  assert.ok(collectionMergeApplyRevertSmokeSource.includes('Expected duplicate collection to be restored with two items after revert'));
 }));
 
 results.push(run('repo includes merge evidence backfill tooling for older duplicate attach history rows', () => {
@@ -2857,6 +2870,9 @@ results.push(run('admin merge review view posts preview requests and renders ope
   assert.ok(adminMergeReviewViewSource.includes('/media/merge-recommendations?limit=12'));
   assert.ok(adminMergeReviewViewSource.includes('/media/collections/duplicates?'));
   assert.ok(adminMergeReviewViewSource.includes('/media/collections/duplicate-preview?'));
+  assert.ok(adminMergeReviewViewSource.includes('/media/collections/merge-apply'));
+  assert.ok(adminMergeReviewViewSource.includes('/media/collections/merge-revert'));
+  assert.ok(adminMergeReviewViewSource.includes('/media/collections/${left.id}/merge-details'));
   assert.ok(adminMergeReviewViewSource.includes('/media?search='));
   assert.ok(adminMergeReviewViewSource.includes('Review a same-type pairwise merge inside the current workspace and library scope'));
   assert.ok(adminMergeReviewViewSource.includes('Recommended pairs'));
@@ -2865,6 +2881,11 @@ results.push(run('admin merge review view posts preview requests and renders ope
   assert.ok(adminMergeReviewViewSource.includes('Collection entities are reviewed separately from title merges.'));
   assert.ok(adminMergeReviewViewSource.includes('Review group'));
   assert.ok(adminMergeReviewViewSource.includes('Collection preview'));
+  assert.ok(adminMergeReviewViewSource.includes('Preview a duplicate collection merge in the current scope before applying it.'));
+  assert.ok(adminMergeReviewViewSource.includes('Merged items'));
+  assert.ok(adminMergeReviewViewSource.includes('Collection merge applied'));
+  assert.ok(adminMergeReviewViewSource.includes('Active collection merge events'));
+  assert.ok(adminMergeReviewViewSource.includes('Collection merge reverted'));
   assert.ok(adminMergeReviewViewSource.includes('Review pair'));
   assert.ok(adminMergeReviewViewSource.includes('Reject match'));
   assert.ok(adminMergeReviewViewSource.includes('Confirm reject'));

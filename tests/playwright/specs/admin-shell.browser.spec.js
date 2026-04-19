@@ -8,6 +8,16 @@ const { signInThroughUi } = require('../helpers/session');
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
+async function findCollectionsByName(requestContext, name) {
+  const response = await requestContext.get(`/api/media/collections?search=${encodeURIComponent(name)}&limit=20`);
+  if (!response.ok()) {
+    const text = await response.text();
+    throw new Error(`Failed to list collections for "${name}" (${response.status()}): ${text}`);
+  }
+  const payload = await response.json();
+  return Array.isArray(payload?.items) ? payload.items.filter((item) => String(item?.name || '') === String(name)) : [];
+}
+
 test.describe('admin shell browser regressions', () => {
   test('authenticated admin shell loads and docs surface is available when debug gating is satisfied', async ({ page }) => {
     const adminCredentials = await ensureSavedAdminCredentials();
@@ -230,6 +240,131 @@ test.describe('admin shell browser regressions', () => {
       await expect(page.getByText(`Record #${duplicate.id} was restored from record #${canonical.id}`)).toBeVisible();
     } finally {
       for (const mediaId of createdIds.reverse()) {
+        await requestContext.delete(`/api/media/${mediaId}`).catch(() => {});
+      }
+      await requestContext.dispose();
+    }
+  });
+
+  test('collection merge review previews, applies duplicate collections, and reverts the active event', async ({ page }) => {
+    const suffix = Date.now();
+    const adminCredentials = await ensureSavedAdminCredentials();
+    const requestContext = await createAuthenticatedRequestContext(adminCredentials);
+    const collectionTitle = `Playwright Water Monsters Set ${suffix}`;
+    const itemTitleA = `Playwright Kraken ${suffix}`;
+    const itemTitleB = `Playwright Octopus ${suffix}`;
+    const createdMediaIds = [];
+
+    await deleteMediaByExactTitle(requestContext, collectionTitle).catch(() => {});
+    await deleteMediaByExactTitle(requestContext, itemTitleA).catch(() => {});
+    await deleteMediaByExactTitle(requestContext, itemTitleB).catch(() => {});
+
+    try {
+      const sourceResponse = await postWithCsrf(requestContext, '/api/media', {
+        title: collectionTitle,
+        media_type: 'movie',
+        year: 2024,
+        owned_formats: ['digital']
+      }, 201);
+      const sourceTitleA = await sourceResponse.json();
+      createdMediaIds.push(Number(sourceTitleA.id));
+
+      const duplicateResponse = await postWithCsrf(requestContext, '/api/media', {
+        title: collectionTitle,
+        media_type: 'movie',
+        year: 2024,
+        owned_formats: ['digital']
+      }, 201);
+      const sourceTitleB = await duplicateResponse.json();
+      createdMediaIds.push(Number(sourceTitleB.id));
+
+      const itemResponseA = await postWithCsrf(requestContext, '/api/media', {
+        title: itemTitleA,
+        media_type: 'movie',
+        year: 2020,
+        owned_formats: ['digital']
+      }, 201);
+      const itemA = await itemResponseA.json();
+      createdMediaIds.push(Number(itemA.id));
+
+      const itemResponseB = await postWithCsrf(requestContext, '/api/media', {
+        title: itemTitleB,
+        media_type: 'movie',
+        year: 2021,
+        owned_formats: ['digital']
+      }, 201);
+      const itemB = await itemResponseB.json();
+      createdMediaIds.push(Number(itemB.id));
+
+      const convertResponseA = await postWithCsrf(requestContext, `/api/media/${sourceTitleA.id}/convert-to-collection`, {}, 200);
+      const convertedA = await convertResponseA.json();
+      const convertResponseB = await postWithCsrf(requestContext, `/api/media/${sourceTitleB.id}/convert-to-collection`, {}, 200);
+      const convertedB = await convertResponseB.json();
+
+      await postWithCsrf(requestContext, `/api/media/collections/${convertedA.collection_id}/items`, {
+        media_id: itemA.id,
+        position: 1
+      }, 201);
+      await postWithCsrf(requestContext, `/api/media/collections/${convertedB.collection_id}/items`, {
+        media_id: itemA.id,
+        position: 1
+      }, 201);
+      await postWithCsrf(requestContext, `/api/media/collections/${convertedB.collection_id}/items`, {
+        media_id: itemB.id,
+        position: 2
+      }, 201);
+
+      await signInThroughUi(page, adminCredentials);
+      await page.goto('/dashboard?tab=admin-merges');
+
+      await page.getByPlaceholder('Search duplicate collections').fill(collectionTitle);
+      await expect(page.getByText(collectionTitle).first()).toBeVisible();
+
+      const previewResponsePromise = page.waitForResponse((response) => (
+        response.url().includes('/api/media/collections/duplicate-preview')
+        && response.request().method() === 'GET'
+        && response.status() === 200
+      ));
+      await page.getByRole('button', { name: 'Review group' }).first().click();
+      const previewResponse = await previewResponsePromise;
+      expect(previewResponse.ok()).toBeTruthy();
+
+      await expect(page.getByRole('heading', { name: 'Collection preview' })).toBeVisible();
+      await expect(page.getByText('Matched on collection name and expected item count').first()).toBeVisible();
+      await expect(page.getByText('Merged items').first()).toBeVisible();
+
+      const applyResponsePromise = page.waitForResponse((response) => (
+        response.url().includes('/api/media/collections/merge-apply')
+        && response.request().method() === 'POST'
+        && response.status() === 200
+      ));
+      await page.getByRole('button', { name: 'Apply merge' }).click();
+      await page.getByRole('button', { name: 'Confirm apply' }).click();
+      const applyResponse = await applyResponsePromise;
+      expect(applyResponse.ok()).toBeTruthy();
+
+      await expect(page.getByRole('heading', { name: 'Collection merge applied' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Active collection merge events' })).toBeVisible();
+
+      const revertResponsePromise = page.waitForResponse((response) => (
+        response.url().includes('/api/media/collections/merge-revert')
+        && response.request().method() === 'POST'
+        && response.status() === 200
+      ));
+      await page.getByRole('button', { name: 'Revert merge' }).first().click();
+      const revertResponse = await revertResponsePromise;
+      expect(revertResponse.ok()).toBeTruthy();
+
+      await expect(page.getByRole('heading', { name: 'Collection merge reverted' })).toBeVisible();
+    } finally {
+      const collections = await findCollectionsByName(requestContext, collectionTitle).catch(() => []);
+      for (const collection of collections) {
+        await postWithCsrf(requestContext, `/api/media/collections/${collection.id}/convert-to-individual`, {}, 200).catch(() => {});
+      }
+      await deleteMediaByExactTitle(requestContext, collectionTitle).catch(() => {});
+      await deleteMediaByExactTitle(requestContext, itemTitleA).catch(() => {});
+      await deleteMediaByExactTitle(requestContext, itemTitleB).catch(() => {});
+      for (const mediaId of createdMediaIds.reverse()) {
         await requestContext.delete(`/api/media/${mediaId}`).catch(() => {});
       }
       await requestContext.dispose();

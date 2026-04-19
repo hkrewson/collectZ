@@ -14,6 +14,8 @@ const {
   mediaMergePreviewSchema,
   mediaMergeApplySchema,
   mediaMergeRevertSchema,
+  collectionMergeApplySchema,
+  collectionMergeRevertSchema,
   MANUAL_MERGE_REJECTION_REASON_CODES,
   mediaMergeRecommendationRejectSchema,
   simpleSearchSchema,
@@ -742,33 +744,9 @@ async function loadScopedCollectionDuplicateGroups({ scopeContext = null, limit 
   };
 }
 
-async function loadScopedCollectionDuplicatePreview({
-  leftCollectionId,
-  rightCollectionId,
-  scopeContext = null
-} = {}) {
-  const leftId = Number(leftCollectionId || 0);
-  const rightId = Number(rightCollectionId || 0);
-  if (!leftId || !rightId || leftId === rightId) return null;
-
-  const params = [leftId, rightId];
-  const scopeClause = appendScopeSql(params, scopeContext, {
-    spaceColumn: 'c.space_id',
-    libraryColumn: 'c.library_id'
-  });
-  const collectionResult = await pool.query(
-    `SELECT
-       c.id, c.name, c.media_type, c.source_title, c.import_source, c.expected_item_count, c.metadata,
-       c.library_id, c.space_id, c.created_by, c.created_at, c.updated_at,
-       l.name AS library_name
-     FROM collections c
-     LEFT JOIN libraries l ON l.id = c.library_id
-     WHERE c.id IN ($1, $2)
-     ${scopeClause}
-     ORDER BY c.created_at DESC, c.id DESC`,
-    params
-  );
-  const collections = (collectionResult.rows || []).map((row) => ({
+function summarizeCollectionRow(row = {}, items = null) {
+  const normalizedItems = Array.isArray(items) ? items : (Array.isArray(row.items) ? row.items : []);
+  return {
     id: Number(row.id || 0) || null,
     name: row.name || row.source_title || `Collection #${row.id}`,
     media_type: String(row.media_type || '').trim() || null,
@@ -782,8 +760,183 @@ async function loadScopedCollectionDuplicatePreview({
     space_id: Number(row.space_id || 0) || null,
     created_by: Number(row.created_by || 0) || null,
     created_at: row.created_at || null,
-    updated_at: row.updated_at || null
-  }));
+    updated_at: row.updated_at || null,
+    item_count: normalizedItems.length
+  };
+}
+
+function buildCollectionItemIdentityKey(item = {}) {
+  const mediaId = Number(item.media_id || 0) || null;
+  if (mediaId) return `media:${mediaId}`;
+  const containedTitle = normalizeText(item.contained_title || item.media_title || '');
+  if (containedTitle) return `title:${containedTitle}`;
+  return `item:${Number(item.id || 0) || 'unknown'}`;
+}
+
+function mergeCollectionMetadataObjects(leftValue, rightValue) {
+  const left = leftValue && typeof leftValue === 'object' && !Array.isArray(leftValue) ? leftValue : {};
+  const right = rightValue && typeof rightValue === 'object' && !Array.isArray(rightValue) ? rightValue : {};
+  return {
+    ...right,
+    ...left
+  };
+}
+
+function buildCollectionMergeResult({
+  canonical = {},
+  duplicate = {},
+  canonicalItems = [],
+  duplicateItems = []
+} = {}) {
+  const existingKeys = new Set((canonicalItems || []).map((item) => buildCollectionItemIdentityKey(item)));
+  let appendedItems = 0;
+  for (const item of duplicateItems || []) {
+    const key = buildCollectionItemIdentityKey(item);
+    if (existingKeys.has(key)) continue;
+    existingKeys.add(key);
+    appendedItems += 1;
+  }
+  const mergedItemCount = Number(canonicalItems.length || 0) + appendedItems;
+  return {
+    name: canonical.name || duplicate.name || null,
+    source_title: canonical.source_title || duplicate.source_title || null,
+    expected_item_count: Math.max(
+      Number(canonical.expected_item_count || 0) || 0,
+      Number(duplicate.expected_item_count || 0) || 0,
+      mergedItemCount
+    ) || 0,
+    import_source: canonical.import_source || duplicate.import_source || null,
+    metadata: mergeCollectionMetadataObjects(canonical.metadata, duplicate.metadata),
+    merged_item_count: mergedItemCount,
+    moved_item_count: appendedItems
+  };
+}
+
+async function loadScopedCollectionsByIds(collectionIds = [], scopeContext = null) {
+  const normalizedIds = Array.from(new Set((collectionIds || []).map((value) => Number(value || 0)).filter((value) => value > 0)));
+  if (normalizedIds.length === 0) return [];
+  const params = [normalizedIds];
+  const scopeClause = appendScopeSql(params, scopeContext, {
+    spaceColumn: 'c.space_id',
+    libraryColumn: 'c.library_id'
+  });
+  const result = await pool.query(
+    `SELECT
+       c.id, c.name, c.media_type, c.source_title, c.import_source, c.expected_item_count, c.metadata,
+       c.library_id, c.space_id, c.created_by, c.created_at, c.updated_at,
+       l.name AS library_name
+     FROM collections c
+     LEFT JOIN libraries l ON l.id = c.library_id
+     WHERE c.id = ANY($1::int[])
+     ${scopeClause}
+     ORDER BY c.created_at DESC, c.id DESC`,
+    params
+  );
+  return (result.rows || []).map((row) => summarizeCollectionRow(row));
+}
+
+async function loadCollectionItemsByCollectionIds(collectionIds = []) {
+  const normalizedIds = Array.from(new Set((collectionIds || []).map((value) => Number(value || 0)).filter((value) => value > 0)));
+  if (normalizedIds.length === 0) return new Map();
+  const result = await pool.query(
+    `SELECT
+       ci.id, ci.collection_id, ci.media_id, ci.contained_title, ci.position, ci.confidence_score,
+       ci.resolution_status, ci.source_payload, ci.created_at, ci.updated_at,
+       m.title AS media_title, m.media_type AS media_type, m.poster_path AS media_poster_path, m.year AS media_year
+     FROM collection_items ci
+     LEFT JOIN media m ON m.id = ci.media_id
+     WHERE ci.collection_id = ANY($1::int[])
+     ORDER BY ci.collection_id ASC, COALESCE(ci.position, 999999), ci.id ASC`,
+    [normalizedIds]
+  );
+  const itemsByCollectionId = new Map(normalizedIds.map((id) => [id, []]));
+  for (const row of result.rows || []) {
+    const collectionId = Number(row.collection_id || 0);
+    const bucket = itemsByCollectionId.get(collectionId);
+    if (!bucket) continue;
+    bucket.push({
+      id: Number(row.id || 0) || null,
+      collection_id: collectionId,
+      media_id: Number(row.media_id || 0) || null,
+      contained_title: row.contained_title || null,
+      position: Number.isFinite(Number(row.position)) ? Number(row.position) : null,
+      confidence_score: row.confidence_score === null || row.confidence_score === undefined ? null : Number(row.confidence_score),
+      resolution_status: row.resolution_status || null,
+      source_payload: row.source_payload && typeof row.source_payload === 'object' ? row.source_payload : {},
+      created_at: row.created_at || null,
+      updated_at: row.updated_at || null,
+      media_title: row.media_title || null,
+      media_type: row.media_type || null,
+      media_year: row.media_year === null || row.media_year === undefined ? null : Number(row.media_year),
+      label: row.media_title || row.contained_title || `Collection item #${row.id}`
+    });
+  }
+  return itemsByCollectionId;
+}
+
+async function loadScopedCollectionMergeDetails(collectionId, scopeContext = null) {
+  const canonicalCollectionId = Number(collectionId || 0);
+  if (!canonicalCollectionId) return null;
+  const collections = await loadScopedCollectionsByIds([canonicalCollectionId], scopeContext);
+  const canonical = collections[0] || null;
+  if (!canonical) return null;
+
+  const params = [canonicalCollectionId];
+  const scopeClause = appendScopeSql(params, scopeContext, {
+    spaceColumn: 'c.space_id',
+    libraryColumn: 'c.library_id'
+  });
+  const result = await pool.query(
+    `SELECT h.id, h.duplicate_collection_id, h.repair_type, h.snapshot, h.context, h.applied_at, h.reverted_at
+       FROM collection_merge_history h
+       JOIN collections c ON c.id = h.canonical_collection_id
+      WHERE h.canonical_collection_id = $1
+        AND h.reverted_at IS NULL
+        ${scopeClause}
+      ORDER BY h.applied_at DESC, h.id DESC`,
+    params
+  );
+  const entries = (result.rows || []).map((row) => {
+    const snapshot = row.snapshot && typeof row.snapshot === 'object' ? row.snapshot : {};
+    const context = row.context && typeof row.context === 'object' ? row.context : {};
+    const duplicate = summarizeCollectionRow(snapshot.duplicate_before || {
+      id: row.duplicate_collection_id,
+      name: `Collection #${row.duplicate_collection_id}`
+    }, Array.isArray(snapshot.duplicate_items_before) ? snapshot.duplicate_items_before : []);
+    return {
+      history_id: Number(row.id || 0) || null,
+      duplicate_id: Number(row.duplicate_collection_id || 0) || null,
+      repair_type: row.repair_type || 'duplicate_attach',
+      applied_at: row.applied_at || null,
+      summary: String(context.summary || 'Collection merge').trim() || 'Collection merge',
+      canonical,
+      duplicate,
+      moved_item_count: Number(context.moved_item_count || 0) || 0,
+      skipped_item_count: Number(context.skipped_item_count || 0) || 0
+    };
+  });
+
+  return {
+    collection: canonical,
+    summary: {
+      active_merge_count: entries.length,
+      supporting_collections: 1 + entries.length,
+      latest_merge_at: entries[0]?.applied_at || null
+    },
+    entries
+  };
+}
+
+async function loadScopedCollectionDuplicatePreview({
+  leftCollectionId,
+  rightCollectionId,
+  scopeContext = null
+} = {}) {
+  const leftId = Number(leftCollectionId || 0);
+  const rightId = Number(rightCollectionId || 0);
+  if (!leftId || !rightId || leftId === rightId) return null;
+
+  const collections = await loadScopedCollectionsByIds([leftId, rightId], scopeContext);
   if (collections.length !== 2) return null;
 
   const collectionById = new Map(collections.map((collection) => [Number(collection.id || 0), collection]));
@@ -803,39 +956,15 @@ async function loadScopedCollectionDuplicatePreview({
     };
   }
 
-  const itemsResult = await pool.query(
-    `SELECT
-       ci.id, ci.collection_id, ci.media_id, ci.contained_title, ci.position, ci.confidence_score,
-       ci.resolution_status, ci.source_payload, ci.created_at, ci.updated_at,
-       m.title AS media_title, m.media_type AS media_type, m.poster_path AS media_poster_path, m.year AS media_year
-     FROM collection_items ci
-     LEFT JOIN media m ON m.id = ci.media_id
-     WHERE ci.collection_id = ANY($1::int[])
-     ORDER BY ci.collection_id ASC, COALESCE(ci.position, 999999), ci.id ASC`,
-    [[leftId, rightId]]
-  );
-  const itemsByCollectionId = new Map([[leftId, []], [rightId, []]]);
-  for (const row of itemsResult.rows || []) {
-    const collectionId = Number(row.collection_id || 0);
-    const bucket = itemsByCollectionId.get(collectionId);
-    if (!bucket) continue;
-    bucket.push({
-      id: Number(row.id || 0) || null,
-      collection_id: collectionId,
-      media_id: Number(row.media_id || 0) || null,
-      contained_title: row.contained_title || null,
-      position: Number.isFinite(Number(row.position)) ? Number(row.position) : null,
-      confidence_score: row.confidence_score === null || row.confidence_score === undefined ? null : Number(row.confidence_score),
-      resolution_status: row.resolution_status || null,
-      media_title: row.media_title || null,
-      media_type: row.media_type || null,
-      media_year: row.media_year === null || row.media_year === undefined ? null : Number(row.media_year),
-      label: row.media_title || row.contained_title || `Collection item #${row.id}`
-    });
-  }
-
+  const itemsByCollectionId = await loadCollectionItemsByCollectionIds([leftId, rightId]);
   const leftItems = itemsByCollectionId.get(leftId) || [];
   const rightItems = itemsByCollectionId.get(rightId) || [];
+  const resultingCollection = buildCollectionMergeResult({
+    canonical: left,
+    duplicate: right,
+    canonicalItems: leftItems,
+    duplicateItems: rightItems
+  });
   const comparedFields = [
     {
       key: 'name',
@@ -883,14 +1012,319 @@ async function loadScopedCollectionDuplicatePreview({
       media_type: left.media_type || right.media_type || null,
       summary: 'Matched on collection name and expected item count',
       compared_fields: comparedFields,
+      resulting_collection: resultingCollection,
       item_summary: {
         left_item_count: leftItems.length,
         right_item_count: rightItems.length,
+        merged_item_count: resultingCollection.merged_item_count,
+        moved_item_count: resultingCollection.moved_item_count,
         left_linked_item_count: leftItems.filter((item) => item.media_id).length,
         right_linked_item_count: rightItems.filter((item) => item.media_id).length
       }
     }
   };
+}
+
+async function runManualCollectionMergeApply({
+  canonicalCollectionId,
+  duplicateCollectionId,
+  userId = null,
+  preview = null
+} = {}) {
+  const canonicalId = Number(canonicalCollectionId || 0);
+  const duplicateId = Number(duplicateCollectionId || 0);
+  if (!canonicalId || !duplicateId || canonicalId === duplicateId) {
+    throw new Error('Invalid collection merge pair');
+  }
+
+  const mergePreview = preview || await loadScopedCollectionDuplicatePreview({
+    leftCollectionId: canonicalId,
+    rightCollectionId: duplicateId,
+    scopeContext: null
+  });
+  if (!mergePreview || !mergePreview.allowed) {
+    throw new Error('Collection merge preview is not available');
+  }
+
+  const canonical = mergePreview.left;
+  const duplicate = mergePreview.right;
+  const canonicalItems = Array.isArray(canonical?.items) ? canonical.items : [];
+  const duplicateItems = Array.isArray(duplicate?.items) ? duplicate.items : [];
+  const mergeResult = buildCollectionMergeResult({
+    canonical,
+    duplicate,
+    canonicalItems,
+    duplicateItems
+  });
+
+  const snapshot = {
+    canonical_before: canonical,
+    duplicate_before: duplicate,
+    duplicate_items_before: duplicateItems
+  };
+  const baseContext = {
+    summary: String(mergePreview.preview?.summary || 'Collection merge').trim() || 'Collection merge',
+    moved_item_count: 0,
+    skipped_item_count: 0,
+    resulting_collection: mergeResult
+  };
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const historyInsert = await client.query(
+      `INSERT INTO collection_merge_history (
+         canonical_collection_id, duplicate_collection_id, repair_type, snapshot, context, created_by
+       ) VALUES (
+         $1, $2, 'duplicate_attach', $3::jsonb, $4::jsonb, $5
+       )
+       RETURNING id`,
+      [
+        canonicalId,
+        duplicateId,
+        JSON.stringify(snapshot),
+        JSON.stringify(baseContext),
+        userId || null
+      ]
+    );
+    const historyId = Number(historyInsert.rows[0]?.id || 0) || null;
+
+    const existingKeys = new Set(canonicalItems.map((item) => buildCollectionItemIdentityKey(item)));
+    let nextPosition = canonicalItems.reduce((maxValue, item) => Math.max(maxValue, Number(item.position || 0) || 0), 0);
+    const movedItems = [];
+    let skippedItemCount = 0;
+    for (const item of duplicateItems) {
+      const identityKey = buildCollectionItemIdentityKey(item);
+      if (existingKeys.has(identityKey)) {
+        skippedItemCount += 1;
+        continue;
+      }
+      existingKeys.add(identityKey);
+      nextPosition += 1;
+      const inserted = await client.query(
+        `INSERT INTO collection_items (
+           collection_id, media_id, contained_title, position, confidence_score, resolution_status, source_payload
+         ) VALUES (
+           $1, $2, $3, $4, $5, $6, $7::jsonb
+         )
+         RETURNING id`,
+        [
+          canonicalId,
+          item.media_id || null,
+          item.contained_title || item.media_title || null,
+          nextPosition,
+          item.confidence_score === null || item.confidence_score === undefined ? null : Number(item.confidence_score),
+          item.resolution_status || 'pending',
+          item.source_payload && typeof item.source_payload === 'object' ? JSON.stringify(item.source_payload) : null
+        ]
+      );
+      movedItems.push({
+        original_duplicate_item_id: item.id,
+        inserted_canonical_item_id: Number(inserted.rows[0]?.id || 0) || null,
+        identity_key: identityKey
+      });
+    }
+
+    await client.query(`DELETE FROM collection_items WHERE collection_id = $1`, [duplicateId]);
+    await client.query(`DELETE FROM collections WHERE id = $1`, [duplicateId]);
+    await client.query(
+      `UPDATE collections
+          SET name = $2,
+              source_title = $3,
+              expected_item_count = $4,
+              metadata = $5::jsonb,
+              updated_at = NOW()
+        WHERE id = $1`,
+      [
+        canonicalId,
+        mergeResult.name || canonical.name || `Collection #${canonicalId}`,
+        mergeResult.source_title || null,
+        mergeResult.expected_item_count || null,
+        JSON.stringify(mergeResult.metadata || {})
+      ]
+    );
+    await client.query(
+      `UPDATE collection_merge_history
+          SET context = $2::jsonb,
+              updated_at = NOW()
+        WHERE id = $1`,
+      [
+        historyId,
+        JSON.stringify({
+          ...baseContext,
+          moved_item_count: movedItems.length,
+          skipped_item_count: skippedItemCount,
+          moved_items: movedItems
+        })
+      ]
+    );
+    await client.query('COMMIT');
+    return {
+      history_id: historyId,
+      moved_item_count: movedItems.length,
+      skipped_item_count: skippedItemCount
+    };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function runManualCollectionMergeRevert({
+  canonicalCollectionId,
+  duplicateCollectionId
+} = {}) {
+  const canonicalId = Number(canonicalCollectionId || 0);
+  const duplicateId = Number(duplicateCollectionId || 0);
+  if (!canonicalId || !duplicateId || canonicalId === duplicateId) {
+    throw new Error('Invalid collection merge revert pair');
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const historyResult = await client.query(
+      `SELECT id, snapshot, context, applied_at
+         FROM collection_merge_history
+        WHERE canonical_collection_id = $1
+          AND duplicate_collection_id = $2
+          AND repair_type = 'duplicate_attach'
+          AND reverted_at IS NULL
+        LIMIT 1`,
+      [canonicalId, duplicateId]
+    );
+    const historyRow = historyResult.rows[0];
+    if (!historyRow) {
+      throw new Error('Active collection merge event was not found');
+    }
+    const newerActive = await client.query(
+      `SELECT 1
+         FROM collection_merge_history
+        WHERE canonical_collection_id = $1
+          AND id <> $2
+          AND reverted_at IS NULL
+          AND applied_at > $3
+        LIMIT 1`,
+      [canonicalId, historyRow.id, historyRow.applied_at]
+    );
+    if (newerActive.rows[0]) {
+      const err = new Error('Only the latest collection merge event can be reverted right now');
+      err.statusCode = 409;
+      throw err;
+    }
+
+    const snapshot = historyRow.snapshot && typeof historyRow.snapshot === 'object' ? historyRow.snapshot : {};
+    const context = historyRow.context && typeof historyRow.context === 'object' ? historyRow.context : {};
+    const canonicalBefore = snapshot.canonical_before && typeof snapshot.canonical_before === 'object' ? snapshot.canonical_before : null;
+    const duplicateBefore = snapshot.duplicate_before && typeof snapshot.duplicate_before === 'object' ? snapshot.duplicate_before : null;
+    const duplicateItemsBefore = Array.isArray(snapshot.duplicate_items_before) ? snapshot.duplicate_items_before : [];
+    const movedItems = Array.isArray(context.moved_items) ? context.moved_items : [];
+
+    if (!canonicalBefore || !duplicateBefore) {
+      throw new Error('Collection merge snapshot is incomplete');
+    }
+
+    await client.query(
+      `DELETE FROM collection_items
+        WHERE collection_id = $1
+          AND id = ANY($2::int[])`,
+      [
+        canonicalId,
+        movedItems.map((item) => Number(item.inserted_canonical_item_id || 0)).filter((value) => value > 0)
+      ]
+    );
+
+    await client.query(
+      `UPDATE collections
+          SET name = $2,
+              source_title = $3,
+              import_source = $4,
+              expected_item_count = $5,
+              metadata = $6::jsonb,
+              updated_at = NOW()
+        WHERE id = $1`,
+      [
+        canonicalId,
+        canonicalBefore.name || `Collection #${canonicalId}`,
+        canonicalBefore.source_title || null,
+        canonicalBefore.import_source || null,
+        canonicalBefore.expected_item_count || null,
+        JSON.stringify(canonicalBefore.metadata || {})
+      ]
+    );
+
+    await client.query(
+      `INSERT INTO collections (
+         id, name, media_type, source_title, import_source, expected_item_count, metadata,
+         library_id, space_id, created_by, created_at, updated_at
+       ) VALUES (
+         $1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, $11, $12
+       )`,
+      [
+        duplicateBefore.id,
+        duplicateBefore.name || `Collection #${duplicateId}`,
+        duplicateBefore.media_type || null,
+        duplicateBefore.source_title || null,
+        duplicateBefore.import_source || null,
+        duplicateBefore.expected_item_count || null,
+        JSON.stringify(duplicateBefore.metadata || {}),
+        duplicateBefore.library_id || null,
+        duplicateBefore.space_id || null,
+        duplicateBefore.created_by || null,
+        duplicateBefore.created_at || new Date().toISOString(),
+        duplicateBefore.updated_at || new Date().toISOString()
+      ]
+    );
+
+    for (const item of duplicateItemsBefore) {
+      await client.query(
+        `INSERT INTO collection_items (
+           id, collection_id, media_id, contained_title, position, confidence_score,
+           resolution_status, source_payload, created_at, updated_at
+         ) VALUES (
+           $1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10
+         )`,
+        [
+          item.id,
+          duplicateBefore.id,
+          item.media_id || null,
+          item.contained_title || null,
+          item.position === null || item.position === undefined ? null : Number(item.position),
+          item.confidence_score === null || item.confidence_score === undefined ? null : Number(item.confidence_score),
+          item.resolution_status || 'pending',
+          item.source_payload && typeof item.source_payload === 'object' ? JSON.stringify(item.source_payload) : null,
+          item.created_at || new Date().toISOString(),
+          item.updated_at || new Date().toISOString()
+        ]
+      );
+    }
+
+    await client.query(
+      `SELECT setval(pg_get_serial_sequence('collections', 'id'), GREATEST((SELECT COALESCE(MAX(id), 0) FROM collections), 1), true)`
+    );
+    await client.query(
+      `SELECT setval(pg_get_serial_sequence('collection_items', 'id'), GREATEST((SELECT COALESCE(MAX(id), 0) FROM collection_items), 1), true)`
+    );
+    await client.query(
+      `UPDATE collection_merge_history
+          SET reverted_at = NOW(),
+              updated_at = NOW()
+        WHERE id = $1`,
+      [historyRow.id]
+    );
+    await client.query('COMMIT');
+    return {
+      reverted: true,
+      restored_item_count: duplicateItemsBefore.length
+    };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 async function recordManualMergeRecommendationFeedback({
@@ -5713,6 +6147,110 @@ router.get('/collections/duplicate-preview', requireSessionAuth, requireRole('ad
     });
   }
   res.json(preview);
+}));
+
+router.get('/collections/:id/merge-details', requireSessionAuth, requireRole('admin', 'support_admin'), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const collectionId = Number(req.params.id || 0);
+  if (!collectionId) {
+    return res.status(400).json({ error: 'Invalid collection id' });
+  }
+  const details = await loadScopedCollectionMergeDetails(collectionId, scopeContext);
+  if (!details) {
+    return res.status(404).json({ error: 'Collection not found in the active scope' });
+  }
+  res.json(details);
+}));
+
+router.post('/collections/merge-apply', requireSessionAuth, requireRole('admin', 'support_admin'), validate(collectionMergeApplySchema), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const canonicalCollectionId = Number(req.body?.canonical_id);
+  const duplicateCollectionId = Number(req.body?.duplicate_id);
+  const preview = await loadScopedCollectionDuplicatePreview({
+    leftCollectionId: canonicalCollectionId,
+    rightCollectionId: duplicateCollectionId,
+    scopeContext
+  });
+  if (!preview) {
+    return res.status(404).json({ error: 'One or both collections were not found in the active scope' });
+  }
+  if (!preview.allowed) {
+    return res.status(409).json({
+      error: 'Cross-type collection merges are not allowed',
+      details: preview.details,
+      canonical: preview.left,
+      duplicate: preview.right
+    });
+  }
+
+  const result = await runManualCollectionMergeApply({
+    canonicalCollectionId,
+    duplicateCollectionId,
+    userId: req.user?.id || null,
+    preview
+  });
+  const mergeDetails = await loadScopedCollectionMergeDetails(canonicalCollectionId, scopeContext);
+
+  await logActivity(req, 'media.collection.merge_apply', 'collection', canonicalCollectionId, {
+    canonical_collection_id: canonicalCollectionId,
+    duplicate_collection_id: duplicateCollectionId,
+    media_type: preview.preview?.media_type || null,
+    moved_item_count: Number(result.moved_item_count || 0) || 0,
+    skipped_item_count: Number(result.skipped_item_count || 0) || 0
+  });
+
+  res.json({
+    applied: true,
+    canonical: mergeDetails?.collection || preview.left,
+    duplicate: preview.right,
+    result,
+    merge_details: mergeDetails
+  });
+}));
+
+router.post('/collections/merge-revert', requireSessionAuth, requireRole('admin', 'support_admin'), validate(collectionMergeRevertSchema), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const canonicalCollectionId = Number(req.body?.canonical_id);
+  const duplicateCollectionId = Number(req.body?.duplicate_id);
+  const beforeDetails = await loadScopedCollectionMergeDetails(canonicalCollectionId, scopeContext);
+  if (!beforeDetails?.collection) {
+    return res.status(404).json({ error: 'Canonical collection was not found in the active scope' });
+  }
+  const matchingEntry = Array.isArray(beforeDetails.entries)
+    ? beforeDetails.entries.find((entry) => Number(entry?.duplicate_id || 0) === duplicateCollectionId)
+    : null;
+  if (!matchingEntry) {
+    return res.status(404).json({ error: 'Active collection merge event was not found for the requested duplicate id' });
+  }
+
+  try {
+    const result = await runManualCollectionMergeRevert({
+      canonicalCollectionId,
+      duplicateCollectionId
+    });
+    const mergeDetails = await loadScopedCollectionMergeDetails(canonicalCollectionId, scopeContext);
+    const restoredCollections = await loadScopedCollectionsByIds([duplicateCollectionId], scopeContext);
+    const restoredDuplicate = restoredCollections[0] || matchingEntry.duplicate || null;
+
+    await logActivity(req, 'media.collection.merge_revert', 'collection', canonicalCollectionId, {
+      canonical_collection_id: canonicalCollectionId,
+      duplicate_collection_id: duplicateCollectionId,
+      media_type: beforeDetails.collection?.media_type || null
+    });
+
+    res.json({
+      reverted: true,
+      canonical: mergeDetails?.collection || beforeDetails.collection,
+      duplicate: restoredDuplicate,
+      result,
+      merge_details: mergeDetails
+    });
+  } catch (error) {
+    if (Number(error?.statusCode || 0) === 409) {
+      return res.status(409).json({ error: error.message });
+    }
+    throw error;
+  }
 }));
 
 router.post('/merge-recommendations/reject', requireSessionAuth, requireRole('admin', 'support_admin'), validate(mediaMergeRecommendationRejectSchema), asyncHandler(async (req, res) => {
