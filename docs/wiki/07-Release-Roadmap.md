@@ -3228,7 +3228,7 @@ Historical note:
 
 **Goal:** Add a controlled operator-facing manual merge workflow so supported media types can be reviewed, compared, merged, and reverted intentionally without allowing unsafe cross-type merges.
 
-**Current Slice:** `3.2.0.32 — Inline Review Context Snapshot`
+**Current Slice:** `3.2.0.33 — Inline Review Restore Original Filters`
 
 - Start with same-type manual merge only:
   - books

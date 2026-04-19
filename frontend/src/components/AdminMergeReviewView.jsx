@@ -148,6 +148,10 @@ function formatReviewContextDetail(label = '', value = '') {
   return `${label}: ${normalized}`;
 }
 
+function areReviewLaneSnapshotsEqual(left = null, right = null) {
+  return JSON.stringify(left || null) === JSON.stringify(right || null);
+}
+
 function SummaryStat({ label, value }) {
   return (
     <div className="rounded-lg border border-edge/70 bg-raised/30 px-3 py-2">
@@ -260,6 +264,7 @@ function MergeReviewWorkspace({
   onSkipComicPair,
   onClose,
   onReturnToRow,
+  onRestoreLaneState,
   mergeDetails,
   revertingDuplicateId,
   onRevert,
@@ -301,6 +306,11 @@ function MergeReviewWorkspace({
             {reviewContext?.canReturnToRow ? (
               <button type="button" className="btn-secondary btn-sm h-8" onClick={onReturnToRow}>
                 Return to row
+              </button>
+            ) : null}
+            {reviewContext?.canRestoreLaneState ? (
+              <button type="button" className="btn-secondary btn-sm h-8" onClick={onRestoreLaneState}>
+                Restore filters
               </button>
             ) : null}
           </div>
@@ -985,6 +995,7 @@ export default function AdminMergeReviewView({
   const [activeReviewSource, setActiveReviewSource] = useState('manual');
   const [activeReviewKey, setActiveReviewKey] = useState('');
   const [activeReviewContextSnapshot, setActiveReviewContextSnapshot] = useState('');
+  const [activeReviewLaneStateSnapshot, setActiveReviewLaneStateSnapshot] = useState(null);
   const [highlightedReviewSource, setHighlightedReviewSource] = useState('');
   const [highlightedReviewKey, setHighlightedReviewKey] = useState('');
   const [suppressedOutcomeFilter, setSuppressedOutcomeFilter] = useState('all');
@@ -1041,6 +1052,17 @@ export default function AdminMergeReviewView({
     () => SUPPRESSED_OUTCOME_OPTIONS.find((option) => option.value === suppressedOutcomeFilter)?.label || 'All suppressed pairs',
     [suppressedOutcomeFilter]
   );
+  const captureReviewLaneState = (source, options = {}) => ({
+    source,
+    sectionFilter,
+    discoverySearch: String(options.discoverySearch ?? discoverySearch).trim(),
+    discoveryFocusId: String(options.discoveryFocusId ?? discoveryFocus?.id ?? ''),
+    discoveryFocusTitle: String(options.discoveryFocusTitle ?? discoveryFocus?.title ?? ''),
+    comicDuplicateSearch: String(options.comicDuplicateSearch ?? comicDuplicateSearch).trim(),
+    activeComicGroupLabel: String(options.activeComicGroupLabel ?? activeComicGroupLabel ?? ''),
+    suppressedOutcomeFilter: String(options.suppressedOutcomeFilter ?? suppressedOutcomeFilter ?? 'all'),
+    suppressedSearch: String(options.suppressedSearch ?? suppressedSearch).trim()
+  });
   const captureReviewContextLabel = (source, options = {}) => {
     const contextParts = [selectedSectionLabel];
     if (source === 'discovery') {
@@ -1141,9 +1163,12 @@ export default function AdminMergeReviewView({
   const activeReviewContextWithRowLink = useMemo(
     () => ({
       ...activeReviewContext,
-      canReturnToRow: activeReviewSource !== 'manual' && activeReviewRowPresent
+      canReturnToRow: activeReviewSource !== 'manual' && activeReviewRowPresent,
+      canRestoreLaneState:
+        activeReviewSource !== 'manual' &&
+        !areReviewLaneSnapshotsEqual(activeReviewLaneStateSnapshot, captureReviewLaneState(activeReviewSource))
     }),
-    [activeReviewContext, activeReviewSource, activeReviewRowPresent]
+    [activeReviewContext, activeReviewSource, activeReviewRowPresent, activeReviewLaneStateSnapshot, sectionFilter, discoverySearch, discoveryFocus, comicDuplicateSearch, activeComicGroupLabel, suppressedOutcomeFilter, suppressedSearch]
   );
 
   useEffect(() => () => {
@@ -1163,6 +1188,7 @@ export default function AdminMergeReviewView({
       setActiveReviewSource('manual');
       setActiveReviewKey('');
       setActiveReviewContextSnapshot('');
+      setActiveReviewLaneStateSnapshot(null);
     }
   };
 
@@ -1177,6 +1203,7 @@ export default function AdminMergeReviewView({
     setActiveReviewKey(buildPairReviewKey(canonical.id, duplicate.id));
     const groupLabel = `${group?.series || 'Unknown series'} #${group?.issue_number || '—'}`;
     setActiveReviewContextSnapshot(captureReviewContextLabel('comics', { groupLabel }));
+    setActiveReviewLaneStateSnapshot(captureReviewLaneState('comics', { activeComicGroupLabel: groupLabel }));
     if (!options.preserveGroup) {
       setActiveComicGroupId(String(group?.duplicate_group_id || ''));
       setActiveComicGroupLabel(groupLabel);
@@ -1521,6 +1548,7 @@ export default function AdminMergeReviewView({
     setActiveReviewSource('manual');
     setActiveReviewKey('manual');
     setActiveReviewContextSnapshot(captureReviewContextLabel('manual'));
+    setActiveReviewLaneStateSnapshot(captureReviewLaneState('manual'));
     await requestPreview(Number(canonicalId), Number(duplicateId));
   };
 
@@ -1562,6 +1590,7 @@ export default function AdminMergeReviewView({
     setActiveReviewSource('recommended');
     setActiveReviewKey(buildReviewItemKey(item));
     setActiveReviewContextSnapshot(captureReviewContextLabel('recommended'));
+    setActiveReviewLaneStateSnapshot(captureReviewLaneState('recommended'));
     setActiveComicGroupId('');
     setActiveComicGroupLabel('');
     setComicAdvanceMessage('');
@@ -1578,6 +1607,7 @@ export default function AdminMergeReviewView({
     setActiveReviewSource('discovery');
     setActiveReviewKey(buildReviewItemKey(item));
     setActiveReviewContextSnapshot(captureReviewContextLabel('discovery'));
+    setActiveReviewLaneStateSnapshot(captureReviewLaneState('discovery'));
     setActiveComicGroupId('');
     setActiveComicGroupLabel('');
     setComicAdvanceMessage('');
@@ -1594,6 +1624,7 @@ export default function AdminMergeReviewView({
     setActiveReviewSource('suppressed');
     setActiveReviewKey(buildReviewItemKey(item));
     setActiveReviewContextSnapshot(captureReviewContextLabel('suppressed'));
+    setActiveReviewLaneStateSnapshot(captureReviewLaneState('suppressed'));
     setActiveComicGroupId('');
     setActiveComicGroupLabel('');
     setComicAdvanceMessage('');
@@ -1979,6 +2010,34 @@ export default function AdminMergeReviewView({
     target.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
 
+  const restoreActiveReviewLaneState = async () => {
+    const snapshot = activeReviewLaneStateSnapshot;
+    if (!snapshot || activeReviewSource === 'manual') return;
+    if (snapshot.sectionFilter && snapshot.sectionFilter !== sectionFilter) {
+      setSectionFilter(snapshot.sectionFilter);
+    }
+    if (activeReviewSource === 'discovery') {
+      setDiscoverySearch(snapshot.discoverySearch || '');
+      await loadDiscoveryCandidates({
+        searchValue: snapshot.discoverySearch || '',
+        mediaId: Number(snapshot.discoveryFocusId || 0) > 0 ? Number(snapshot.discoveryFocusId) : null
+      });
+    } else if (activeReviewSource === 'comics') {
+      if (snapshot.activeComicGroupLabel) {
+        setActiveComicGroupLabel(snapshot.activeComicGroupLabel);
+      }
+      setComicDuplicateSearch(snapshot.comicDuplicateSearch || '');
+      await loadComicDuplicateCandidates(snapshot.comicDuplicateSearch || '');
+    } else if (activeReviewSource === 'suppressed') {
+      setSuppressedOutcomeFilter(snapshot.suppressedOutcomeFilter || 'all');
+      setSuppressedSearch(snapshot.suppressedSearch || '');
+      await loadSuppressedHistory({
+        outcomeValue: snapshot.suppressedOutcomeFilter || 'all',
+        searchValue: snapshot.suppressedSearch || ''
+      });
+    }
+  };
+
   const renderActiveReviewWorkspace = () => (
     <MergeReviewWorkspace
       reviewContext={activeReviewContextWithRowLink}
@@ -1997,6 +2056,7 @@ export default function AdminMergeReviewView({
       onSkipComicPair={handleSkipComicPair}
       onClose={closeInlineReview}
       onReturnToRow={returnToActiveReviewRow}
+      onRestoreLaneState={restoreActiveReviewLaneState}
       mergeDetails={mergeDetails}
       revertingDuplicateId={revertingDuplicateId}
       onRevert={handleRevert}

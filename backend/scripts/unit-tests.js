@@ -3053,7 +3053,12 @@ results.push(run('admin merge review view posts preview requests and renders ope
   assert.ok(adminMergeReviewViewSource.includes('Pair:'));
   assert.ok(adminMergeReviewViewSource.includes('Context:'));
   assert.ok(adminMergeReviewViewSource.includes('activeReviewContextSnapshot'));
+  assert.ok(adminMergeReviewViewSource.includes('activeReviewLaneStateSnapshot'));
   assert.ok(adminMergeReviewViewSource.includes('captureReviewContextLabel'));
+  assert.ok(adminMergeReviewViewSource.includes('captureReviewLaneState'));
+  assert.ok(adminMergeReviewViewSource.includes('Restore filters'));
+  assert.ok(adminMergeReviewViewSource.includes('restoreActiveReviewLaneState'));
+  assert.ok(adminMergeReviewViewSource.includes('areReviewLaneSnapshotsEqual'));
   assert.ok(adminMergeReviewViewSource.includes('Return to row'));
   assert.ok(adminMergeReviewViewSource.includes('scrollIntoView'));
   assert.ok(adminMergeReviewViewSource.includes('merge-review-row-'));
