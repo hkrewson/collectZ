@@ -115,6 +115,21 @@ function buildReviewItemKey(item = {}) {
   return buildPairReviewKey(item?.canonical?.id, item?.duplicate?.id);
 }
 
+function formatReviewSourceLabel(source = '') {
+  switch (source) {
+    case 'discovery':
+      return 'Discovery queue';
+    case 'recommended':
+      return 'Recommended pairs';
+    case 'comics':
+      return 'Comic duplicate candidates';
+    case 'suppressed':
+      return 'Suppressed pairs';
+    default:
+      return 'Exact pair review';
+  }
+}
+
 function SummaryStat({ label, value }) {
   return (
     <div className="rounded-lg border border-edge/70 bg-raised/30 px-3 py-2">
@@ -211,6 +226,7 @@ function RecordSearchPanel({
 }
 
 function MergeReviewWorkspace({
+  reviewContext,
   preview,
   errorState,
   comparedRows,
@@ -253,6 +269,16 @@ function MergeReviewWorkspace({
           </button>
         </div>
       </div>
+
+      {(reviewContext?.sourceLabel || reviewContext?.pairLabel) ? (
+        <div className="flex flex-col gap-2 rounded-lg border border-edge/70 bg-raised/15 px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ghost">
+            {reviewContext?.sourceLabel ? <span><span className="text-ink">From:</span> {reviewContext.sourceLabel}</span> : null}
+            {reviewContext?.pairLabel ? <span><span className="text-ink">Pair:</span> {reviewContext.pairLabel}</span> : null}
+          </div>
+          {reviewContext?.modeLabel ? <span className="text-xs text-ghost">{reviewContext.modeLabel}</span> : null}
+        </div>
+      ) : null}
 
       {errorState ? (
         <div className="rounded-lg border border-err/30 bg-err/5 p-4 space-y-4">
@@ -967,6 +993,22 @@ export default function AdminMergeReviewView({
   );
   const tabOptions = useMemo(() => MERGE_REVIEW_TABS, []);
   const manualReviewOpen = activeReviewSource === 'manual' && (!!preview || !!errorState || !!applyResult?.applied || !!revertResult?.reverted || Number(mergeDetails?.summary?.active_merge_count || 0) > 0);
+  const activeReviewRecords = useMemo(() => ({
+    canonical: preview?.canonical || errorState?.canonical || applyResult?.canonical || revertResult?.canonical || null,
+    duplicate: preview?.duplicate || errorState?.duplicate || applyResult?.duplicate || revertResult?.duplicate || null
+  }), [preview, errorState, applyResult, revertResult]);
+  const activeReviewContext = useMemo(() => {
+    const canonicalTitle = activeReviewRecords.canonical?.title || activeReviewRecords.canonical?.name || '';
+    const duplicateTitle = activeReviewRecords.duplicate?.title || activeReviewRecords.duplicate?.name || '';
+    const pairLabel = canonicalTitle || duplicateTitle
+      ? `${canonicalTitle || 'This record'} ↔ ${duplicateTitle || 'Matched record'}`
+      : '';
+    return {
+      sourceLabel: formatReviewSourceLabel(activeReviewSource),
+      pairLabel,
+      modeLabel: manualReviewOpen ? 'Manual exact pair' : 'Inline queue review'
+    };
+  }, [activeReviewRecords, activeReviewSource, manualReviewOpen]);
   const discoveryInlineReviewPresent = useMemo(
     () => discoveryCandidates.some((item) => buildReviewItemKey(item) === activeReviewKey),
     [discoveryCandidates, activeReviewKey]
@@ -1791,6 +1833,7 @@ export default function AdminMergeReviewView({
 
   const renderActiveReviewWorkspace = () => (
     <MergeReviewWorkspace
+      reviewContext={activeReviewContext}
       preview={preview}
       errorState={errorState}
       comparedRows={comparedRows}
