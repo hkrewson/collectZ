@@ -142,6 +142,12 @@ function formatReviewSourceLabel(source = '') {
   }
 }
 
+function formatReviewContextDetail(label = '', value = '') {
+  const normalized = String(value || '').trim();
+  if (!normalized) return '';
+  return `${label}: ${normalized}`;
+}
+
 function SummaryStat({ label, value }) {
   return (
     <div className="rounded-lg border border-edge/70 bg-raised/30 px-3 py-2">
@@ -288,6 +294,7 @@ function MergeReviewWorkspace({
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ghost">
             {reviewContext?.sourceLabel ? <span><span className="text-ink">From:</span> {reviewContext.sourceLabel}</span> : null}
             {reviewContext?.pairLabel ? <span><span className="text-ink">Pair:</span> {reviewContext.pairLabel}</span> : null}
+            {reviewContext?.contextLabel ? <span><span className="text-ink">Context:</span> {reviewContext.contextLabel}</span> : null}
           </div>
           <div className="flex items-center gap-2">
             {reviewContext?.modeLabel ? <span className="text-xs text-ghost">{reviewContext.modeLabel}</span> : null}
@@ -1029,6 +1036,10 @@ export default function AdminMergeReviewView({
     () => MERGE_REVIEW_SECTION_OPTIONS.find((option) => option.value === sectionFilter)?.label || 'All sections',
     [sectionFilter]
   );
+  const selectedSuppressedOutcomeLabel = useMemo(
+    () => SUPPRESSED_OUTCOME_OPTIONS.find((option) => option.value === suppressedOutcomeFilter)?.label || 'All suppressed pairs',
+    [suppressedOutcomeFilter]
+  );
   const tabOptions = useMemo(() => MERGE_REVIEW_TABS, []);
   const manualReviewOpen = activeReviewSource === 'manual' && (!!preview || !!errorState || !!applyResult?.applied || !!revertResult?.reverted || Number(mergeDetails?.summary?.active_merge_count || 0) > 0);
   const activeReviewRecords = useMemo(() => ({
@@ -1041,12 +1052,45 @@ export default function AdminMergeReviewView({
     const pairLabel = canonicalTitle || duplicateTitle
       ? `${canonicalTitle || 'This record'} ↔ ${duplicateTitle || 'Matched record'}`
       : '';
+    const contextParts = [selectedSectionLabel];
+    if (activeReviewSource === 'discovery') {
+      if (discoveryFocus?.title) {
+        contextParts.push(formatReviewContextDetail('Focus', discoveryFocus.title));
+      }
+      if (discoverySearch.trim()) {
+        contextParts.push(formatReviewContextDetail('Search', discoverySearch));
+      }
+    } else if (activeReviewSource === 'comics') {
+      if (activeComicGroupLabel) {
+        contextParts.push(formatReviewContextDetail('Cluster', activeComicGroupLabel));
+      }
+      if (comicDuplicateSearch.trim()) {
+        contextParts.push(formatReviewContextDetail('Search', comicDuplicateSearch));
+      }
+    } else if (activeReviewSource === 'suppressed') {
+      contextParts.push(selectedSuppressedOutcomeLabel);
+      if (suppressedSearch.trim()) {
+        contextParts.push(formatReviewContextDetail('Search', suppressedSearch));
+      }
+    }
     return {
       sourceLabel: formatReviewSourceLabel(activeReviewSource),
       pairLabel,
+      contextLabel: contextParts.filter(Boolean).join(' · '),
       modeLabel: manualReviewOpen ? 'Manual exact pair' : 'Inline queue review'
     };
-  }, [activeReviewRecords, activeReviewSource, manualReviewOpen]);
+  }, [
+    activeReviewRecords,
+    activeReviewSource,
+    manualReviewOpen,
+    selectedSectionLabel,
+    discoveryFocus,
+    discoverySearch,
+    activeComicGroupLabel,
+    comicDuplicateSearch,
+    selectedSuppressedOutcomeLabel,
+    suppressedSearch
+  ]);
   const discoveryInlineReviewPresent = useMemo(
     () => discoveryCandidates.some((item) => buildReviewItemKey(item) === activeReviewKey),
     [discoveryCandidates, activeReviewKey]
