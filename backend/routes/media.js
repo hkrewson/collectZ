@@ -18,6 +18,7 @@ const {
   collectionMergeRevertSchema,
   MANUAL_MERGE_REJECTION_REASON_CODES,
   mediaMergeRecommendationRejectSchema,
+  mediaMergeRecommendationDeferSchema,
   simpleSearchSchema,
   titleAuthorSearchSchema,
   titleArtistSearchSchema,
@@ -624,6 +625,24 @@ function buildComicDuplicateGroupSummary(bucket = {}) {
   };
 }
 
+async function loadScopedSuppressedMergeRecommendationPairs({ scopeContext = null, outcomes = ['rejected'] } = {}) {
+  const normalizedOutcomes = Array.from(new Set((outcomes || [])
+    .map((value) => String(value || '').trim().toLowerCase())
+    .filter(Boolean)));
+  if (normalizedOutcomes.length === 0) return new Set();
+  const params = [normalizedOutcomes];
+  const suppressedScopeClause = appendScopeSql(params, scopeContext);
+  const suppressedResult = await pool.query(
+    `SELECT pair_low_media_id, pair_high_media_id
+       FROM media_merge_recommendation_feedback
+      WHERE outcome = ANY($1::text[])${suppressedScopeClause}`,
+    params
+  );
+  return new Set(
+    (suppressedResult.rows || []).map((row) => `${Number(row.pair_low_media_id || 0)}:${Number(row.pair_high_media_id || 0)}`)
+  );
+}
+
 async function loadScopedManualMergeRecommendations({ scopeContext = null, limit = 12 } = {}) {
   const cappedLimit = Math.max(1, Math.min(50, Number(limit || 12) || 12));
   const params = [];
@@ -636,17 +655,10 @@ async function loadScopedManualMergeRecommendations({ scopeContext = null, limit
     params
   );
 
-  const suppressedParams = [];
-  const suppressedScopeClause = appendScopeSql(suppressedParams, scopeContext);
-  const suppressedResult = await pool.query(
-    `SELECT pair_low_media_id, pair_high_media_id
-       FROM media_merge_recommendation_feedback
-      WHERE outcome = 'rejected'${suppressedScopeClause}`,
-    suppressedParams
-  );
-  const suppressedPairs = new Set(
-    (suppressedResult.rows || []).map((row) => `${Number(row.pair_low_media_id || 0)}:${Number(row.pair_high_media_id || 0)}`)
-  );
+  const suppressedPairs = await loadScopedSuppressedMergeRecommendationPairs({
+    scopeContext,
+    outcomes: ['rejected', 'deferred']
+  });
 
   const buckets = new Map();
   for (const row of result.rows || []) {
@@ -734,6 +746,10 @@ async function loadScopedComicDuplicateCandidates({ scopeContext = null, limit =
       ORDER BY updated_at DESC, id DESC`,
     params
   );
+  const suppressedPairs = await loadScopedSuppressedMergeRecommendationPairs({
+    scopeContext,
+    outcomes: ['rejected', 'deferred']
+  });
 
   const buckets = new Map();
   for (const row of result.rows || []) {
@@ -760,6 +776,20 @@ async function loadScopedComicDuplicateCandidates({ scopeContext = null, limit =
   const summarizedGroups = Array.from(buckets.values())
     .filter((bucket) => Array.isArray(bucket.rows) && bucket.rows.length > 1)
     .map((bucket) => buildComicDuplicateGroupSummary(bucket))
+    .map((group) => {
+      if (!group?.canonical?.id || !Array.isArray(group.duplicates)) return group;
+      const remainingDuplicates = group.duplicates.filter((duplicate) => {
+        const pairKey = buildRecommendationPairKey(group.canonical.id, duplicate.id);
+        return pairKey ? !suppressedPairs.has(pairKey.key) : false;
+      });
+      if (remainingDuplicates.length === 0) return null;
+      return {
+        ...group,
+        duplicates: remainingDuplicates,
+        duplicate_count: remainingDuplicates.length + 1,
+        supporting_sources: remainingDuplicates.length + 1
+      };
+    })
     .filter(Boolean)
     .sort((left, right) => Number(right.duplicate_count || 0) - Number(left.duplicate_count || 0)
       || String(left.series || '').localeCompare(String(right.series || ''))
@@ -1451,6 +1481,7 @@ async function runManualCollectionMergeRevert({
 async function recordManualMergeRecommendationFeedback({
   canonicalMediaId,
   duplicateMediaId,
+  outcome = 'rejected',
   scopeContext = null,
   userId = null,
   reasonCode = null,
@@ -1461,10 +1492,19 @@ async function recordManualMergeRecommendationFeedback({
   if (!pairKey) {
     throw new Error('Invalid recommendation pair');
   }
+  const normalizedOutcome = String(outcome || 'rejected').trim().toLowerCase();
+  if (!['rejected', 'deferred'].includes(normalizedOutcome)) {
+    throw new Error('Invalid recommendation feedback outcome');
+  }
   const previewEvidence = preview?.preview?.evidence || {};
   const payload = {
-    action: 'manual_merge_recommendation_rejected',
-    summary: String(previewEvidence.summary || 'Rejected suggested merge').trim() || 'Rejected suggested merge',
+    action: normalizedOutcome === 'deferred'
+      ? 'manual_merge_recommendation_deferred'
+      : 'manual_merge_recommendation_rejected',
+    summary: String(
+      previewEvidence.summary
+      || (normalizedOutcome === 'deferred' ? 'Deferred suggested merge' : 'Rejected suggested merge')
+    ).trim() || (normalizedOutcome === 'deferred' ? 'Deferred suggested merge' : 'Rejected suggested merge'),
     confidence: String(previewEvidence.confidence || '').trim() || null,
     kind: String(previewEvidence.kind || '').trim() || null,
     key: String(previewEvidence.key || '').trim() || null,
@@ -1490,11 +1530,11 @@ async function recordManualMergeRecommendationFeedback({
        FROM media_merge_recommendation_feedback
       WHERE pair_low_media_id = $1
         AND pair_high_media_id = $2
-        AND outcome = 'rejected'
+        AND outcome = $5
         AND COALESCE(space_id, 0) = COALESCE($3, 0)
         AND COALESCE(library_id, 0) = COALESCE($4, 0)
       LIMIT 1`,
-    [pairKey.pairLowId, pairKey.pairHighId, scopeContext?.spaceId || null, scopeContext?.libraryId || null]
+    [pairKey.pairLowId, pairKey.pairHighId, scopeContext?.spaceId || null, scopeContext?.libraryId || null, normalizedOutcome]
   );
   const result = existing.rows?.[0]?.id
     ? await pool.query(
@@ -1522,17 +1562,17 @@ async function recordManualMergeRecommendationFeedback({
          context,
          space_id,
          library_id,
-         created_by
+       created_by
        )
-       VALUES ($1, $2, $3, $4, $5, 'rejected', $6, $7::jsonb, $8, $9, $10)
+       VALUES ($1, $2, $3, $4, $5, $11, $6, $7::jsonb, $8, $9, $10)
        RETURNING id, created_at`,
-      values
+      [...values, normalizedOutcome]
     );
   return {
     id: Number(result.rows?.[0]?.id || 0) || null,
     pair_key: pairKey.key,
     created_at: result.rows?.[0]?.created_at || null,
-    outcome: 'rejected',
+    outcome: normalizedOutcome,
     reason_code: payload.reason_code,
     reason: reason || null
   };
@@ -6414,6 +6454,7 @@ router.post('/merge-recommendations/reject', requireSessionAuth, requireRole('ad
   const feedback = await recordManualMergeRecommendationFeedback({
     canonicalMediaId,
     duplicateMediaId,
+    outcome: 'rejected',
     scopeContext,
     userId: req.user?.id || null,
     reasonCode,
@@ -6434,6 +6475,62 @@ router.post('/merge-recommendations/reject', requireSessionAuth, requireRole('ad
   });
   res.json({
     rejected: true,
+    feedback,
+    canonical: preview.canonical,
+    duplicate: preview.duplicate,
+    recommendations
+  });
+}));
+
+router.post('/merge-recommendations/defer', requireSessionAuth, requireRole('admin', 'support_admin'), validate(mediaMergeRecommendationDeferSchema), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const canonicalMediaId = Number(req.body?.canonical_id);
+  const duplicateMediaId = Number(req.body?.duplicate_id);
+  const reasonCode = MANUAL_MERGE_REJECTION_REASON_CODES.includes(String(req.body?.reason_code || '').trim())
+    ? String(req.body.reason_code).trim()
+    : null;
+  const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim() || null : null;
+  const preview = await loadScopedManualMergePreview({
+    canonicalMediaId,
+    duplicateMediaId,
+    scopeContext
+  });
+  if (!preview) {
+    return res.status(404).json({ error: 'One or both media items were not found in the active scope' });
+  }
+  if (!preview.allowed) {
+    return res.status(409).json({
+      error: 'Cross-type merges are not allowed',
+      details: preview.details,
+      canonical: preview.canonical,
+      duplicate: preview.duplicate
+    });
+  }
+
+  const feedback = await recordManualMergeRecommendationFeedback({
+    canonicalMediaId,
+    duplicateMediaId,
+    outcome: 'deferred',
+    scopeContext,
+    userId: req.user?.id || null,
+    reasonCode,
+    reason,
+    preview
+  });
+  await logActivity(req, 'media.merge_recommendation.defer', 'media', canonicalMediaId, {
+    canonical_id: canonicalMediaId,
+    duplicate_id: duplicateMediaId,
+    pair_key: feedback.pair_key,
+    reason_code: reasonCode,
+    reason,
+    media_type: preview.preview?.media_type || preview.canonical?.media_type || null
+  });
+  const recommendations = await loadScopedManualMergeRecommendations({
+    scopeContext,
+    limit: Math.max(1, Math.min(50, Number(req.query?.limit || 12) || 12))
+  });
+  res.json({
+    deferred: true,
     feedback,
     canonical: preview.canonical,
     duplicate: preview.duplicate,

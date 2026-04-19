@@ -274,6 +274,7 @@ const mediaMergeRecommendationRejectSchema = z.object({
     });
   }
 });
+const mediaMergeRecommendationDeferSchema = mediaMergeRecommendationRejectSchema;
 
 // ── Profile ───────────────────────────────────────────────────────────────────
 
@@ -679,6 +680,7 @@ module.exports = {
   collectionMergeRevertSchema,
   MANUAL_MERGE_REJECTION_REASON_CODES,
   mediaMergeRecommendationRejectSchema,
+  mediaMergeRecommendationDeferSchema,
   profileUpdateSchema,
   passwordResetConsumeSchema,
   roleUpdateSchema,

@@ -2886,6 +2886,18 @@ const MIGRATIONS = [
       CREATE INDEX IF NOT EXISTS idx_collection_merge_history_reverted_at
         ON collection_merge_history(reverted_at);
     `
+  },
+  {
+    version: 69,
+    description: 'Allow deferred recommendation feedback outcomes for operator merge workflow',
+    up: `
+      ALTER TABLE media_merge_recommendation_feedback
+        DROP CONSTRAINT IF EXISTS media_merge_recommendation_feedback_outcome_check;
+
+      ALTER TABLE media_merge_recommendation_feedback
+        ADD CONSTRAINT media_merge_recommendation_feedback_outcome_check
+        CHECK (outcome IN ('rejected', 'deferred'));
+    `
   }
 ];
 

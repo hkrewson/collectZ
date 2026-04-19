@@ -507,6 +507,14 @@ export default function AdminMergeReviewView({
   const [revertingDuplicateId, setRevertingDuplicateId] = useState('');
 
   const comparedRows = Array.isArray(preview?.preview?.field_comparison) ? preview.preview.field_comparison : [];
+  const activeComicGroup = useMemo(
+    () => comicDuplicateCandidates.find((group) => String(group?.duplicate_group_id || '') === String(activeComicGroupId || '')) || null,
+    [comicDuplicateCandidates, activeComicGroupId]
+  );
+  const activeRemainingComicPairs = useMemo(() => {
+    if (!activeComicGroup) return 0;
+    return Array.isArray(activeComicGroup.duplicates) ? activeComicGroup.duplicates.length : 0;
+  }, [activeComicGroup]);
   const rewiringRows = useMemo(
     () => buildImpactRows(preview?.preview?.dependent_rewiring || {}),
     [preview]
@@ -524,6 +532,29 @@ export default function AdminMergeReviewView({
     setApplyConfirmOpen(false);
     setErrorState(null);
   };
+
+  const loadComicPair = async (group, duplicate, options = {}) => {
+    const canonical = group?.canonical || null;
+    if (!canonical?.id || !duplicate?.id) {
+      onToast('Pick a comic duplicate group with at least two records', 'error');
+      return false;
+    }
+    if (!options.preserveGroup) {
+      setActiveComicGroupId(String(group?.duplicate_group_id || ''));
+      setActiveComicGroupLabel(`${group?.series || 'Unknown series'} #${group?.issue_number || '—'}`);
+    }
+    if (!options.preserveMessage) {
+      setComicAdvanceMessage('');
+    }
+    setCanonicalId(String(canonical.id));
+    setDuplicateId(String(duplicate.id));
+    setCanonicalSearch(canonical.title || '');
+    setDuplicateSearch(duplicate.title || '');
+    await requestPreview(Number(canonical.id), Number(duplicate.id));
+    return true;
+  };
+
+  const findNextComicDuplicate = (group) => (group?.duplicates || [])[0] || null;
 
   const clearCollectionPreview = () => {
     setCollectionPreview(null);
@@ -780,20 +811,8 @@ export default function AdminMergeReviewView({
   };
 
   const handleComicDuplicateReview = async (group, duplicateRecord = null) => {
-    const canonical = group?.canonical || null;
     const duplicate = duplicateRecord || (Array.isArray(group?.duplicates) ? group.duplicates[0] : null);
-    if (!canonical?.id || !duplicate?.id) {
-      onToast('Pick a comic duplicate group with at least two records', 'error');
-      return;
-    }
-    setActiveComicGroupId(String(group?.duplicate_group_id || ''));
-    setActiveComicGroupLabel(`${group?.series || 'Unknown series'} #${group?.issue_number || '—'}`);
-    setComicAdvanceMessage('');
-    setCanonicalId(String(canonical.id));
-    setDuplicateId(String(duplicate.id));
-    setCanonicalSearch(canonical.title || '');
-    setDuplicateSearch(duplicate.title || '');
-    await requestPreview(Number(canonical.id), Number(duplicate.id));
+    await loadComicPair(group, duplicate);
   };
 
   const handleRecommendationReject = async (item, confirmed) => {
@@ -879,17 +898,14 @@ export default function AdminMergeReviewView({
       const activeGroup = (refreshedComicGroups?.items || []).find(
         (group) => String(group?.duplicate_group_id || '') === String(activeComicGroupId || '')
       );
-      if (activeGroup?.canonical?.id && Number(activeGroup?.duplicates?.length || 0) > 0) {
-        const nextDuplicate = activeGroup.duplicates[0];
+      const nextDuplicate = findNextComicDuplicate(activeGroup);
+      if (activeGroup?.canonical?.id && nextDuplicate?.id) {
         setComicAdvanceMessage(`Next pair ready for ${activeComicGroupLabel || `${activeGroup.series || 'Unknown series'} #${activeGroup.issue_number || '—'}`}.`);
-        setCanonicalId(String(activeGroup.canonical.id));
-        setDuplicateId(String(nextDuplicate.id));
-        setCanonicalSearch(activeGroup.canonical.title || '');
-        setDuplicateSearch(nextDuplicate.title || '');
-        await requestPreview(Number(activeGroup.canonical.id), Number(nextDuplicate.id));
+        await loadComicPair(activeGroup, nextDuplicate, { preserveGroup: true, preserveMessage: true });
         onToast('Manual merge applied. Loaded the next comic pair in this issue cluster.', 'success');
       } else if (activeComicGroupId) {
         setActiveComicGroupId('');
+        setActiveComicGroupLabel('');
         setComicAdvanceMessage('');
         onToast('Manual merge applied. This comic issue cluster is clear.', 'success');
       } else {
@@ -904,6 +920,50 @@ export default function AdminMergeReviewView({
         duplicate: response?.duplicate || preview?.duplicate || null
       });
       onToast(response?.error || 'Failed to apply manual merge', 'error');
+    } finally {
+      setApplying(false);
+    }
+  };
+
+  const handleSkipComicPair = async () => {
+    if (!activeComicGroupId || !activeComicGroup) return;
+    const canonicalIdValue = Number(preview?.canonical?.id || activeComicGroup?.canonical?.id || canonicalId || 0);
+    const currentDuplicateId = Number(preview?.duplicate?.id || duplicateId || 0);
+    if (!currentDuplicateId || !canonicalIdValue) return;
+    setApplying(true);
+    setErrorState(null);
+    try {
+      await apiCall('post', '/media/merge-recommendations/defer?limit=12', {
+        canonical_id: canonicalIdValue,
+        duplicate_id: currentDuplicateId,
+        reason_code: 'other',
+        reason: 'Deferred from the comic issue workflow'
+      });
+      const refreshedComicGroups = await loadComicDuplicateCandidates();
+      const activeGroup = (refreshedComicGroups?.items || []).find(
+        (group) => String(group?.duplicate_group_id || '') === String(activeComicGroupId || '')
+      );
+      const nextDuplicate = findNextComicDuplicate(activeGroup);
+      if (!nextDuplicate?.id) {
+        setComicAdvanceMessage(`All remaining pairs in ${activeComicGroupLabel || 'this issue cluster'} are deferred for now.`);
+        clearPreview();
+        setActiveComicGroupId('');
+        setActiveComicGroupLabel('');
+        onToast('Deferred this comic pair. No more active pairs remain in this issue cluster right now.', 'success');
+        return;
+      }
+      setComicAdvanceMessage(`Next pair ready for ${activeComicGroupLabel || 'this issue cluster'}.`);
+      await loadComicPair(activeGroup, nextDuplicate, { preserveGroup: true, preserveMessage: true });
+      onToast('Deferred this comic pair and loaded the next one in the issue cluster.', 'success');
+    } catch (error) {
+      const response = error?.response?.data || null;
+      setErrorState({
+        message: response?.error || 'Failed to defer comic pair.',
+        details: response?.details || null,
+        canonical: response?.canonical || preview?.canonical || null,
+        duplicate: response?.duplicate || preview?.duplicate || null
+      });
+      onToast(response?.error || 'Failed to defer comic pair', 'error');
     } finally {
       setApplying(false);
     }
@@ -1095,6 +1155,7 @@ export default function AdminMergeReviewView({
         {activeComicGroupId ? (
           <div className="border-b border-edge/60 px-4 py-3 text-sm text-ghost">
             <span className="text-ink">Working through:</span> {activeComicGroupLabel || 'Comic issue cluster'}
+            <span>{' · '}{activeRemainingComicPairs} remaining pairs</span>
             {comicAdvanceMessage ? <span>{' · '}{comicAdvanceMessage}</span> : null}
           </div>
         ) : null}
@@ -1463,20 +1524,27 @@ export default function AdminMergeReviewView({
                   This will absorb the matched record into this record and preserve repair history so the merge can be reverted later through the operator workflow.
                 </p>
               </div>
-              {!applyConfirmOpen ? (
-                <button type="button" className="btn-primary h-10" onClick={() => setApplyConfirmOpen(true)} disabled={applying}>
-                  Apply merge
-                </button>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  <button type="button" className="btn-primary h-10" onClick={handleApply} disabled={applying}>
-                    {applying ? <><Spinner size={14} />Applying…</> : 'Confirm apply'}
+              <div className="flex flex-wrap gap-2">
+                {activeComicGroupId ? (
+                  <button type="button" className="btn-secondary h-10" onClick={handleSkipComicPair} disabled={applying}>
+                    Skip pair
                   </button>
-                  <button type="button" className="btn-secondary h-10" onClick={() => setApplyConfirmOpen(false)} disabled={applying}>
-                    Cancel
+                ) : null}
+                {!applyConfirmOpen ? (
+                  <button type="button" className="btn-primary h-10" onClick={() => setApplyConfirmOpen(true)} disabled={applying}>
+                    Apply merge
                   </button>
-                </div>
-              )}
+                ) : (
+                  <>
+                    <button type="button" className="btn-primary h-10" onClick={handleApply} disabled={applying}>
+                      {applying ? <><Spinner size={14} />Applying…</> : 'Confirm apply'}
+                    </button>
+                    <button type="button" className="btn-secondary h-10" onClick={() => setApplyConfirmOpen(false)} disabled={applying}>
+                      Cancel
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 

@@ -130,7 +130,7 @@ CREATE TABLE IF NOT EXISTS media_merge_recommendation_feedback (
     canonical_media_id INTEGER NOT NULL REFERENCES media(id) ON DELETE CASCADE,
     duplicate_media_id INTEGER NOT NULL REFERENCES media(id) ON DELETE CASCADE,
     media_type VARCHAR(50) NOT NULL,
-    outcome VARCHAR(32) NOT NULL CHECK (outcome IN ('rejected')),
+    outcome VARCHAR(32) NOT NULL CHECK (outcome IN ('rejected', 'deferred')),
     reason TEXT,
     context JSONB NOT NULL DEFAULT '{}'::jsonb,
     space_id INTEGER,
@@ -1047,5 +1047,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (65, 'Add optional user profile image field'),
     (66, 'Add media repair history table for duplicate attach snapshots'),
     (67, 'Add recommendation feedback table for manual merge rejection outcomes'),
-    (68, 'Add collection merge history table for duplicate collection snapshots')
+    (68, 'Add collection merge history table for duplicate collection snapshots'),
+    (69, 'Allow deferred recommendation feedback outcomes for operator merge workflow')
 ON CONFLICT (version) DO NOTHING;

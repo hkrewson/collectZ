@@ -160,6 +160,7 @@ const manualMergeRecommendationRejectSmokeSource = fs.readFileSync(require.resol
 const collectionDuplicatePreviewSmokeSource = fs.readFileSync(require.resolve('../scripts/collection-duplicate-preview-smoke'), 'utf8');
 const collectionMergeApplyRevertSmokeSource = fs.readFileSync(require.resolve('../scripts/collection-merge-apply-revert-smoke'), 'utf8');
 const comicDuplicateCandidatesSmokeSource = fs.readFileSync(require.resolve('../scripts/comic-duplicate-candidates-smoke'), 'utf8');
+const comicDuplicateDeferSmokeSource = fs.readFileSync(require.resolve('../scripts/comic-duplicate-defer-smoke'), 'utf8');
 const { parseComicMetadataFromTitle, buildComicLikeBookProposal, buildComicLikeBookRevertProposal } = require('../scripts/repair-comic-like-books');
 const { buildClusterFromRows, mergeMissingObjectFields } = require('../scripts/repair-book-comic-duplicates');
 const supportSessionSmokeSource = fs.readFileSync(require.resolve('../scripts/support-session-smoke'), 'utf8');
@@ -1378,6 +1379,7 @@ results.push(run('media route source exposes operator-only manual merge preview 
   assert.ok(mediaRoutesSource.includes("router.get('/comics/duplicate-candidates'"));
   assert.ok(mediaRoutesSource.includes("router.get('/merge-recommendations'"));
   assert.ok(mediaRoutesSource.includes("router.post('/merge-recommendations/reject'"));
+  assert.ok(mediaRoutesSource.includes("router.post('/merge-recommendations/defer'"));
   assert.ok(mediaRoutesSource.includes("router.post('/merge-preview'"));
   assert.ok(mediaRoutesSource.includes("router.post('/merge-apply'"));
   assert.ok(mediaRoutesSource.includes('loadScopedManualMergePreview'));
@@ -1487,6 +1489,7 @@ results.push(run('repo includes manual merge preview smoke coverage for same-typ
   assert.ok(backendPackageJson.scripts['test:manual-merge-recommendations-smoke']);
   assert.ok(backendPackageJson.scripts['test:comic-duplicate-candidates-smoke']);
   assert.ok(backendPackageJson.scripts['test:manual-merge-recommendation-reject-smoke']);
+  assert.ok(backendPackageJson.scripts['test:comic-duplicate-defer-smoke']);
   assert.ok(backendPackageJson.scripts['test:collection-duplicate-preview-smoke']);
   assert.ok(backendPackageJson.scripts['test:collection-merge-apply-revert-smoke']);
   assert.ok(manualMergePreviewSmokeSource.includes('/api/media/merge-preview'));
@@ -1495,6 +1498,7 @@ results.push(run('repo includes manual merge preview smoke coverage for same-typ
   assert.ok(manualMergeRecommendationsSmokeSource.includes('/api/media/merge-recommendations'));
   assert.ok(comicDuplicateCandidatesSmokeSource.includes('/api/media/comics/duplicate-candidates'));
   assert.ok(manualMergeRecommendationRejectSmokeSource.includes('/api/media/merge-recommendations/reject'));
+  assert.ok(comicDuplicateDeferSmokeSource.includes('/api/media/merge-recommendations/defer'));
   assert.ok(collectionDuplicatePreviewSmokeSource.includes('/api/media/collections/duplicate-preview'));
   assert.ok(collectionMergeApplyRevertSmokeSource.includes('/api/media/collections/merge-apply'));
   assert.ok(collectionMergeApplyRevertSmokeSource.includes('/api/media/collections/merge-revert'));
@@ -1514,6 +1518,8 @@ results.push(run('repo includes manual merge preview smoke coverage for same-typ
   assert.ok(manualMergeRecommendationRejectSmokeSource.includes('rejectedPairRemoved'));
   assert.ok(manualMergeRecommendationRejectSmokeSource.includes('feedbackOutcome'));
   assert.ok(manualMergeRecommendationRejectSmokeSource.includes('feedbackReasonCode'));
+  assert.ok(comicDuplicateDeferSmokeSource.includes('deferredPairRemovedFromRecommendations'));
+  assert.ok(comicDuplicateDeferSmokeSource.includes('deferredPairRemovedFromComicCandidates'));
   assert.ok(collectionDuplicatePreviewSmokeSource.includes('Matched on collection name and expected item count'));
   assert.ok(collectionDuplicatePreviewSmokeSource.includes('Expected duplicate collection preview to be allowed'));
   assert.ok(collectionMergeApplyRevertSmokeSource.includes('Expected collection merge apply to succeed'));
@@ -2895,6 +2901,10 @@ results.push(run('admin merge review view posts preview requests and renders ope
   assert.ok(adminMergeReviewViewSource.includes('Review pair'));
   assert.ok(adminMergeReviewViewSource.includes('Working through:'));
   assert.ok(adminMergeReviewViewSource.includes('Next pair ready for'));
+  assert.ok(adminMergeReviewViewSource.includes('remaining pairs'));
+  assert.ok(adminMergeReviewViewSource.includes('Skip pair'));
+  assert.ok(adminMergeReviewViewSource.includes("/media/merge-recommendations/defer"));
+  assert.ok(adminMergeReviewViewSource.includes('Deferred this comic pair'));
   assert.ok(adminMergeReviewViewSource.includes('Duplicate collections'));
   assert.ok(adminMergeReviewViewSource.includes('Search duplicate collections'));
   assert.ok(adminMergeReviewViewSource.includes('Collection entities are reviewed separately from title merges.'));

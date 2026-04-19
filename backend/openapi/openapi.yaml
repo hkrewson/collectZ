@@ -4579,6 +4579,78 @@
           }
         }
       }
+    },
+    "/api/media/merge-recommendations/defer": {
+      "post": {
+        "tags": ["Media"],
+        "summary": "Defer a recommended manual merge pair for the active scope",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "canonical_id": { "type": "integer", "minimum": 1 },
+                  "duplicate_id": { "type": "integer", "minimum": 1 },
+                  "reason_code": {
+                    "type": "string",
+                    "enum": [
+                      "different_title_identity",
+                      "different_volume_or_edition",
+                      "different_season_or_part",
+                      "collection_wrapper_only",
+                      "other"
+                    ],
+                    "nullable": true
+                  },
+                  "reason": { "type": "string", "maxLength": 1000, "nullable": true }
+                },
+                "required": ["canonical_id", "duplicate_id"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Recommendation was deferred and removed from the active queue for now",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deferred": { "type": "boolean" },
+                    "feedback": { "type": "object", "additionalProperties": true },
+                    "canonical": { "type": "object", "additionalProperties": true },
+                    "duplicate": { "type": "object", "additionalProperties": true },
+                    "recommendations": { "type": "object", "additionalProperties": true }
+                  },
+                  "required": ["deferred", "feedback", "canonical", "duplicate", "recommendations"]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "One or both media items were not found in the active scope",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "409": {
+            "description": "Cross-type merges are not allowed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }
