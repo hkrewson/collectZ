@@ -567,6 +567,63 @@ function buildRecommendationPairKey(canonicalId, duplicateId) {
   };
 }
 
+function extractComicTitleIssueToken(title = '') {
+  const raw = String(title || '').trim();
+  if (!raw) return '';
+  const directMatch = raw.match(/#\s*([0-9]+[a-z]?)/i);
+  if (directMatch?.[1]) return normalizeIssueToken(directMatch[1]);
+  const volumeMatch = raw.match(/\bv\d+\s+([0-9]+[a-z]?)\b/i);
+  if (volumeMatch?.[1]) return normalizeIssueToken(volumeMatch[1]);
+  const trailingMatch = raw.match(/\b([0-9]+[a-z]?)\b\s*$/i);
+  if (trailingMatch?.[1]) return normalizeIssueToken(trailingMatch[1]);
+  return '';
+}
+
+function assessComicRecommendationSuppression(row = {}) {
+  if (String(row.media_type || '').trim() !== 'comic_book') return [];
+  const typeDetails = row?.type_details && typeof row.type_details === 'object' ? row.type_details : {};
+  const issueNumber = normalizeIssueToken(typeDetails.issue_number || '');
+  const editionIssue = normalizeIssueToken(String(typeDetails.edition || '').replace(/^issue\s*/i, ''));
+  const titleIssue = extractComicTitleIssueToken(row.title || '');
+  const reasons = [];
+  if (issueNumber && titleIssue && titleIssue !== issueNumber) {
+    reasons.push('title_issue_mismatch');
+  }
+  if (issueNumber && editionIssue && editionIssue !== issueNumber) {
+    reasons.push('edition_issue_mismatch');
+  }
+  return reasons;
+}
+
+function buildComicDuplicateGroupSummary(bucket = {}) {
+  const rows = Array.isArray(bucket.rows) ? bucket.rows : [];
+  if (rows.length < 2) return null;
+  const canonical = chooseCanonicalRow(rows);
+  if (!canonical) return null;
+  const suppressionReasons = Array.from(new Set(rows.flatMap((row) => assessComicRecommendationSuppression(row))));
+  return {
+    duplicate_group_id: String(bucket.key || ''),
+    media_type: 'comic_book',
+    confidence: bucket.confidence || null,
+    kind: bucket.kind || null,
+    summary: formatMergeMatchKind(bucket.kind, 'comic_book'),
+    rationale: Array.isArray(bucket.rationale) ? bucket.rationale : [],
+    rationale_labels: (Array.isArray(bucket.rationale) ? bucket.rationale : []).map(formatMergeRationaleLabel),
+    suppressed: suppressionReasons.length > 0,
+    suppression_reasons: suppressionReasons,
+    canonical: summarizeMergeSourceRow(canonical),
+    duplicates: rows
+      .filter((row) => Number(row.id || 0) !== Number(canonical.id || 0))
+      .sort((left, right) => Number(left.id || 0) - Number(right.id || 0))
+      .map((row) => summarizeMergeSourceRow(row)),
+    duplicate_count: rows.length,
+    supporting_sources: rows.length,
+    series: String(canonical?.type_details?.series || '').trim() || null,
+    issue_number: String(canonical?.type_details?.issue_number || '').trim() || null,
+    volume: String(canonical?.type_details?.volume || '').trim() || null
+  };
+}
+
 async function loadScopedManualMergeRecommendations({ scopeContext = null, limit = 12 } = {}) {
   const cappedLimit = Math.max(1, Math.min(50, Number(limit || 12) || 12));
   const params = [];
@@ -610,6 +667,10 @@ async function loadScopedManualMergeRecommendations({ scopeContext = null, limit
     .flatMap((bucket) => {
       const canonical = chooseCanonicalRow(bucket.rows);
       if (!canonical) return [];
+      if (bucket.media_type === 'comic_book') {
+        const suppressionReasons = Array.from(new Set(bucket.rows.flatMap((row) => assessComicRecommendationSuppression(row))));
+        if (suppressionReasons.length > 0) return [];
+      }
       return bucket.rows
         .filter((row) => Number(row.id) !== Number(canonical.id))
         .sort((left, right) => Number(left.id || 0) - Number(right.id || 0))
@@ -655,6 +716,66 @@ async function loadScopedManualMergeRecommendations({ scopeContext = null, limit
       medium_confidence: allItems.filter((item) => item.confidence === 'medium').length
     },
     items: limitedItems
+  };
+}
+
+async function loadScopedComicDuplicateCandidates({ scopeContext = null, limit = 12, search = '' } = {}) {
+  const cappedLimit = Math.max(1, Math.min(50, Number(limit || 12) || 12));
+  const normalizedSearch = normalizeText(search || '');
+  const params = [];
+  const where = `WHERE m.media_type = 'comic_book'
+    AND COALESCE(m.type_details->>'series','') <> ''
+    AND COALESCE(m.type_details->>'issue_number','') <> ''
+    ${appendScopeSql(params, scopeContext, { spaceColumn: 'm.space_id', libraryColumn: 'm.library_id' })}`;
+  const result = await pool.query(
+    `SELECT id, title, media_type, import_source, type_details, year, upc, tmdb_id, tmdb_media_type
+       FROM media m
+       ${where}
+      ORDER BY updated_at DESC, id DESC`,
+    params
+  );
+
+  const buckets = new Map();
+  for (const row of result.rows || []) {
+    const identity = buildComicNormalizationIdentity(row);
+    if (!identity?.key || identity.confidence === 'low') continue;
+    const normalizedRow = normalizeMediaRecord(row);
+    if (normalizedSearch) {
+      const haystack = normalizeText([
+        normalizedRow.title || '',
+        normalizedRow?.type_details?.series || '',
+        normalizedRow?.type_details?.issue_number || '',
+        normalizedRow?.type_details?.volume || ''
+      ].join(' '));
+      if (!haystack.includes(normalizedSearch)) continue;
+    }
+    const bucket = buckets.get(identity.key) || {
+      ...identity,
+      rows: []
+    };
+    bucket.rows.push(normalizedRow);
+    buckets.set(identity.key, bucket);
+  }
+
+  const summarizedGroups = Array.from(buckets.values())
+    .filter((bucket) => Array.isArray(bucket.rows) && bucket.rows.length > 1)
+    .map((bucket) => buildComicDuplicateGroupSummary(bucket))
+    .filter(Boolean)
+    .sort((left, right) => Number(right.duplicate_count || 0) - Number(left.duplicate_count || 0)
+      || String(left.series || '').localeCompare(String(right.series || ''))
+      || String(left.issue_number || '').localeCompare(String(right.issue_number || '')));
+
+  const candidateItems = summarizedGroups.filter((item) => !item.suppressed);
+  const suppressedItems = summarizedGroups.filter((item) => item.suppressed);
+  return {
+    summary: {
+      total_groups: summarizedGroups.length,
+      candidate_groups: candidateItems.length,
+      suppressed_groups: suppressedItems.length,
+      returned_groups: Math.min(candidateItems.length, cappedLimit)
+    },
+    items: candidateItems.slice(0, cappedLimit),
+    suppressed_items: suppressedItems.slice(0, Math.min(6, suppressedItems.length))
   };
 }
 
@@ -6109,6 +6230,18 @@ router.get('/merge-recommendations', requireSessionAuth, requireRole('admin', 's
     limit
   });
   res.json(recommendations);
+}));
+
+router.get('/comics/duplicate-candidates', requireSessionAuth, requireRole('admin', 'support_admin'), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const limit = Math.max(1, Math.min(50, Number(req.query?.limit || 12) || 12));
+  const search = String(req.query?.search || '').trim();
+  const candidates = await loadScopedComicDuplicateCandidates({
+    scopeContext,
+    limit,
+    search
+  });
+  res.json(candidates);
 }));
 
 router.get('/collections/duplicates', requireSessionAuth, requireRole('admin', 'support_admin'), asyncHandler(async (req, res) => {

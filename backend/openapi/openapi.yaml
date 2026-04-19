@@ -3962,6 +3962,51 @@
         }
       }
     },
+    "/api/media/comics/duplicate-candidates": {
+      "get": {
+        "tags": ["Media"],
+        "summary": "List safe comic duplicate candidate groups in the active operator scope",
+        "security": [
+          { "cookieSession": [] }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": { "type": "integer", "minimum": 1, "maximum": 50 }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Comic duplicate candidates and suppressed clusters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "summary": { "type": "object", "additionalProperties": true },
+                    "items": {
+                      "type": "array",
+                      "items": { "type": "object", "additionalProperties": true }
+                    },
+                    "suppressed_items": {
+                      "type": "array",
+                      "items": { "type": "object", "additionalProperties": true }
+                    }
+                  },
+                  "required": ["summary", "items", "suppressed_items"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/media/collections/{id}/merge-details": {
       "get": {
         "tags": ["Media"],

@@ -159,6 +159,7 @@ const manualMergeRecommendationsSmokeSource = fs.readFileSync(require.resolve('.
 const manualMergeRecommendationRejectSmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-recommendation-reject-smoke'), 'utf8');
 const collectionDuplicatePreviewSmokeSource = fs.readFileSync(require.resolve('../scripts/collection-duplicate-preview-smoke'), 'utf8');
 const collectionMergeApplyRevertSmokeSource = fs.readFileSync(require.resolve('../scripts/collection-merge-apply-revert-smoke'), 'utf8');
+const comicDuplicateCandidatesSmokeSource = fs.readFileSync(require.resolve('../scripts/comic-duplicate-candidates-smoke'), 'utf8');
 const { parseComicMetadataFromTitle, buildComicLikeBookProposal, buildComicLikeBookRevertProposal } = require('../scripts/repair-comic-like-books');
 const { buildClusterFromRows, mergeMissingObjectFields } = require('../scripts/repair-book-comic-duplicates');
 const supportSessionSmokeSource = fs.readFileSync(require.resolve('../scripts/support-session-smoke'), 'utf8');
@@ -1374,6 +1375,7 @@ results.push(run('media route source exposes operator-only manual merge preview 
   assert.ok(mediaRoutesSource.includes("router.get('/collections/:id/merge-details'"));
   assert.ok(mediaRoutesSource.includes("router.post('/collections/merge-apply'"));
   assert.ok(mediaRoutesSource.includes("router.post('/collections/merge-revert'"));
+  assert.ok(mediaRoutesSource.includes("router.get('/comics/duplicate-candidates'"));
   assert.ok(mediaRoutesSource.includes("router.get('/merge-recommendations'"));
   assert.ok(mediaRoutesSource.includes("router.post('/merge-recommendations/reject'"));
   assert.ok(mediaRoutesSource.includes("router.post('/merge-preview'"));
@@ -1396,6 +1398,9 @@ results.push(run('media route source exposes operator-only manual merge preview 
   assert.ok(mediaRoutesSource.includes('runManualCollectionMergeApply'));
   assert.ok(mediaRoutesSource.includes('runManualCollectionMergeRevert'));
   assert.ok(mediaRoutesSource.includes('Only the latest collection merge event can be reverted right now'));
+  assert.ok(mediaRoutesSource.includes('loadScopedComicDuplicateCandidates'));
+  assert.ok(mediaRoutesSource.includes('assessComicRecommendationSuppression'));
+  assert.ok(mediaRoutesSource.includes('title_issue_mismatch'));
 }));
 
 results.push(run('repo includes import normalization smoke coverage for high-confidence auto-attach', () => {
@@ -1480,6 +1485,7 @@ results.push(run('repo includes manual merge preview smoke coverage for same-typ
   assert.ok(backendPackageJson.scripts['test:manual-merge-apply-smoke']);
   assert.ok(backendPackageJson.scripts['test:manual-merge-revert-smoke']);
   assert.ok(backendPackageJson.scripts['test:manual-merge-recommendations-smoke']);
+  assert.ok(backendPackageJson.scripts['test:comic-duplicate-candidates-smoke']);
   assert.ok(backendPackageJson.scripts['test:manual-merge-recommendation-reject-smoke']);
   assert.ok(backendPackageJson.scripts['test:collection-duplicate-preview-smoke']);
   assert.ok(backendPackageJson.scripts['test:collection-merge-apply-revert-smoke']);
@@ -1487,6 +1493,7 @@ results.push(run('repo includes manual merge preview smoke coverage for same-typ
   assert.ok(manualMergeApplySmokeSource.includes('/api/media/merge-apply'));
   assert.ok(manualMergeRevertSmokeSource.includes('/api/media/merge-revert'));
   assert.ok(manualMergeRecommendationsSmokeSource.includes('/api/media/merge-recommendations'));
+  assert.ok(comicDuplicateCandidatesSmokeSource.includes('/api/media/comics/duplicate-candidates'));
   assert.ok(manualMergeRecommendationRejectSmokeSource.includes('/api/media/merge-recommendations/reject'));
   assert.ok(collectionDuplicatePreviewSmokeSource.includes('/api/media/collections/duplicate-preview'));
   assert.ok(collectionMergeApplyRevertSmokeSource.includes('/api/media/collections/merge-apply'));
@@ -1502,6 +1509,8 @@ results.push(run('repo includes manual merge preview smoke coverage for same-typ
   assert.ok(manualMergeRecommendationsSmokeSource.includes('Matched on title and year'));
   assert.ok(manualMergeRecommendationsSmokeSource.includes('Mystery Science Theater 3000, Vol. XIV'));
   assert.ok(manualMergeRecommendationsSmokeSource.includes('franchise volume titles to stay out of the recommendation queue'));
+  assert.ok(comicDuplicateCandidatesSmokeSource.includes('Expected safe Alpha Flight duplicate group to be surfaced'));
+  assert.ok(comicDuplicateCandidatesSmokeSource.includes('Expected broken Dark Avengers / Uncanny X-Men cluster to be suppressed'));
   assert.ok(manualMergeRecommendationRejectSmokeSource.includes('rejectedPairRemoved'));
   assert.ok(manualMergeRecommendationRejectSmokeSource.includes('feedbackOutcome'));
   assert.ok(manualMergeRecommendationRejectSmokeSource.includes('feedbackReasonCode'));
@@ -2868,6 +2877,7 @@ results.push(run('admin merge review view posts preview requests and renders ope
   assert.ok(adminMergeReviewViewSource.includes("/media/merge-apply"));
   assert.ok(adminMergeReviewViewSource.includes("/media/merge-revert"));
   assert.ok(adminMergeReviewViewSource.includes('/media/merge-recommendations?limit=12'));
+  assert.ok(adminMergeReviewViewSource.includes('/media/comics/duplicate-candidates?'));
   assert.ok(adminMergeReviewViewSource.includes('/media/collections/duplicates?'));
   assert.ok(adminMergeReviewViewSource.includes('/media/collections/duplicate-preview?'));
   assert.ok(adminMergeReviewViewSource.includes('/media/collections/merge-apply'));
@@ -2876,6 +2886,11 @@ results.push(run('admin merge review view posts preview requests and renders ope
   assert.ok(adminMergeReviewViewSource.includes('/media?search='));
   assert.ok(adminMergeReviewViewSource.includes('Review a same-type pairwise merge inside the current workspace and library scope'));
   assert.ok(adminMergeReviewViewSource.includes('Recommended pairs'));
+  assert.ok(adminMergeReviewViewSource.includes('Comic duplicate candidates'));
+  assert.ok(adminMergeReviewViewSource.includes('Search comic duplicates'));
+  assert.ok(adminMergeReviewViewSource.includes('Safe issue-level comic duplicates surfaced separately'));
+  assert.ok(adminMergeReviewViewSource.includes('Suppressed comic clusters'));
+  assert.ok(adminMergeReviewViewSource.includes('Review issue'));
   assert.ok(adminMergeReviewViewSource.includes('Duplicate collections'));
   assert.ok(adminMergeReviewViewSource.includes('Search duplicate collections'));
   assert.ok(adminMergeReviewViewSource.includes('Collection entities are reviewed separately from title merges.'));
