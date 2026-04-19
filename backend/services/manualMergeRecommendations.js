@@ -12,6 +12,12 @@ const GENERIC_SUBTITLE_TOKENS = new Set([
   'complete series'
 ]);
 
+function normalizeComparableIdentityText(value = '') {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  return normalizeText(raw) || raw.toLowerCase();
+}
+
 function buildStructuredTitleNamespace(raw = '') {
   const namespaceMatch = String(raw || '').trim().match(
     /^(.*?)(?:(?:\s*[:\-]\s*)|(?:,\s*)|(?:\s+\b(?:vol(?:ume)?\.?|season|disc|part)\b))/i
@@ -82,6 +88,34 @@ function isTitleSafeForGenericYearRecommendation(title = '') {
     && !signals.hasGenericSubtitle;
 }
 
+function assessMovieDiscoveryConflictReasons(leftRow = {}, rightRow = {}) {
+  if (String(leftRow.media_type || '').trim() !== 'movie' || String(rightRow.media_type || '').trim() !== 'movie') {
+    return [];
+  }
+  const reasons = [];
+  const leftTmdbId = String(leftRow.tmdb_id || '').trim();
+  const rightTmdbId = String(rightRow.tmdb_id || '').trim();
+  const leftUpc = normalizeDigits(leftRow.upc || '');
+  const rightUpc = normalizeDigits(rightRow.upc || '');
+  const leftOriginalTitle = normalizeComparableIdentityText(leftRow.original_title || '');
+  const rightOriginalTitle = normalizeComparableIdentityText(rightRow.original_title || '');
+  const leftDirector = normalizeComparableIdentityText(leftRow.director || '');
+  const rightDirector = normalizeComparableIdentityText(rightRow.director || '');
+  const leftYear = Number(leftRow.year || 0) || null;
+  const rightYear = Number(rightRow.year || 0) || null;
+  const leftRuntime = Number(leftRow.runtime || 0) || null;
+  const rightRuntime = Number(rightRow.runtime || 0) || null;
+
+  if (leftTmdbId && rightTmdbId && leftTmdbId !== rightTmdbId) reasons.push('tmdb_id_conflict');
+  if (leftUpc && rightUpc && leftUpc !== rightUpc) reasons.push('upc_conflict');
+  if (leftOriginalTitle && rightOriginalTitle && leftOriginalTitle !== rightOriginalTitle) reasons.push('original_title_conflict');
+  if (leftDirector && rightDirector && leftDirector !== rightDirector) reasons.push('director_conflict');
+  if (leftYear && rightYear && Math.abs(leftYear - rightYear) >= 2) reasons.push('year_conflict');
+  if (leftRuntime && rightRuntime && Math.abs(leftRuntime - rightRuntime) >= 10) reasons.push('runtime_conflict');
+
+  return reasons;
+}
+
 function buildGenericManualMergeIdentity(row = {}) {
   const mediaType = String(row.media_type || '').trim();
   const typeDetails = row?.type_details && typeof row.type_details === 'object' ? row.type_details : {};
@@ -140,6 +174,7 @@ function buildGenericManualMergeIdentity(row = {}) {
 }
 
 module.exports = {
+  assessMovieDiscoveryConflictReasons,
   extractStructuredTitleSignals,
   isStructuredTitlePairUnsafeForSharedCoverDiscovery,
   isTitleSafeForGenericYearRecommendation,

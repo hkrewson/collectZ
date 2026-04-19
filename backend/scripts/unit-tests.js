@@ -21,6 +21,7 @@ const {
   buildPersistedMergeEvidence
 } = require('../services/bookComicNormalization');
 const {
+  assessMovieDiscoveryConflictReasons,
   extractStructuredTitleSignals,
   isStructuredTitlePairUnsafeForSharedCoverDiscovery,
   isTitleSafeForGenericYearRecommendation,
@@ -384,6 +385,53 @@ results.push(run('manualMergeRecommendations suppresses shared-cover discovery f
       'Star Trek II - The Wrath of Khan'
     ),
     false
+  );
+}));
+
+results.push(run('manualMergeRecommendations suppresses movie discovery when strong identity fields conflict', () => {
+  assert.deepStrictEqual(
+    assessMovieDiscoveryConflictReasons(
+      {
+        media_type: 'movie',
+        original_title: 'Future Shock',
+        year: 2021,
+        upc: '0732302616930',
+        tmdb_id: '878032',
+        director: 'Jose Luis Mora',
+        runtime: 98
+      },
+      {
+        media_type: 'movie',
+        original_title: 'Future Shock',
+        year: 2003,
+        upc: '0761450635036',
+        tmdb_id: '91605',
+        director: 'Oley Sassone',
+        runtime: 98
+      }
+    ).sort(),
+    ['director_conflict', 'tmdb_id_conflict', 'upc_conflict', 'year_conflict'].sort()
+  );
+  assert.deepStrictEqual(
+    assessMovieDiscoveryConflictReasons(
+      {
+        media_type: 'movie',
+        original_title: '王立宇宙軍 オネアミスの翼',
+        year: 2023,
+        tmdb_id: '20043',
+        director: 'Hiroyuki Yamaga',
+        runtime: 121
+      },
+      {
+        media_type: 'movie',
+        original_title: 'Terminal Voyage',
+        year: 1994,
+        tmdb_id: '183013',
+        director: 'Rick Jacobson',
+        runtime: 79
+      }
+    ).sort(),
+    ['director_conflict', 'original_title_conflict', 'runtime_conflict', 'tmdb_id_conflict', 'year_conflict'].sort()
   );
 }));
 

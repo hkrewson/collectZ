@@ -83,15 +83,29 @@ async function createDirectUser({ email, password, name, role = 'admin' }) {
   return Number(result.rows[0]?.id || 0) || null;
 }
 
-async function createMediaRow({ title, mediaType, year = null, posterPath = null, libraryId, spaceId, userId, importSource = 'manual' }) {
+async function createMediaRow({
+  title,
+  mediaType,
+  year = null,
+  posterPath = null,
+  originalTitle = null,
+  director = null,
+  runtime = null,
+  upc = null,
+  tmdbId = null,
+  libraryId,
+  spaceId,
+  userId,
+  importSource = 'manual'
+}) {
   const result = await pool.query(
     `INSERT INTO media (
-       title, media_type, format, year, poster_path, type_details, library_id, space_id, added_by, import_source
+       title, media_type, format, year, poster_path, original_title, director, runtime, upc, tmdb_id, type_details, library_id, space_id, added_by, import_source
      ) VALUES (
-       $1, $2, 'Digital', $3, $4, '{}'::jsonb, $5, $6, $7, $8
+       $1, $2, 'Digital', $3, $4, $5, $6, $7, $8, $9, '{}'::jsonb, $10, $11, $12, $13
      )
      RETURNING id`,
-    [title, mediaType, year, posterPath, libraryId, spaceId, userId, importSource]
+    [title, mediaType, year, posterPath, originalTitle, director, runtime, upc, tmdbId, libraryId, spaceId, userId, importSource]
   );
   return Number(result.rows[0]?.id || 0) || null;
 }
@@ -150,26 +164,6 @@ async function main() {
       body: { email, password }
     });
 
-    const focusId = await createMediaRow({
-      title: 'Visual Duplicate Left',
-      mediaType: 'movie',
-      year: 2001,
-      posterPath: '/shared-cover.jpg',
-      libraryId,
-      spaceId,
-      userId,
-      importSource: 'manual'
-    });
-    const posterDuplicateId = await createMediaRow({
-      title: 'Visual Duplicate Right',
-      mediaType: 'movie',
-      year: 2004,
-      posterPath: '/shared-cover.jpg',
-      libraryId,
-      spaceId,
-      userId,
-      importSource: 'csv_generic'
-    });
     const mst3kVolumeLeftId = await createMediaRow({
       title: 'Mystery Science Theater 3000: Angel\'s Revenge',
       mediaType: 'movie',
@@ -220,7 +214,96 @@ async function main() {
       userId,
       importSource: 'csv_delicious'
     });
-    await createMediaRow({
+    const gorkhaProtectorId = await createMediaRow({
+      title: 'Gorkha Protector',
+      mediaType: 'movie',
+      year: 2021,
+      posterPath: '/movie-conflict-shared-cover.jpg',
+      originalTitle: 'Gorkha Protector',
+      director: 'Akash Adhikari',
+      runtime: 80,
+      upc: '0889290029546',
+      tmdbId: '747574',
+      libraryId,
+      spaceId,
+      userId,
+      importSource: 'csv_delicious'
+    });
+    const reykjavikId = await createMediaRow({
+      title: '101 Reykjavik',
+      mediaType: 'movie',
+      year: 2000,
+      posterPath: '/movie-conflict-shared-cover.jpg',
+      originalTitle: '101 Reykjavík',
+      director: 'Baltasar Kormákur',
+      runtime: 88,
+      upc: '0099096120136',
+      tmdbId: '10989',
+      libraryId,
+      spaceId,
+      userId,
+      importSource: 'csv_delicious'
+    });
+    const futureShock2021Id = await createMediaRow({
+      title: 'Future Shock',
+      mediaType: 'movie',
+      year: 2021,
+      posterPath: '/future-shock-a.jpg',
+      originalTitle: 'Future Shock',
+      director: 'Jose Luis Mora',
+      runtime: 98,
+      upc: '0732302616930',
+      tmdbId: '878032',
+      libraryId,
+      spaceId,
+      userId,
+      importSource: 'csv_delicious'
+    });
+    const futureShock2003Id = await createMediaRow({
+      title: 'Future Shock',
+      mediaType: 'movie',
+      year: 2003,
+      posterPath: '/future-shock-b.jpg',
+      originalTitle: 'Future Shock',
+      director: 'Oley Sassone',
+      runtime: 98,
+      upc: '0761450635036',
+      tmdbId: '91605',
+      libraryId,
+      spaceId,
+      userId,
+      importSource: 'csv_delicious'
+    });
+    const starQuestAnimeId = await createMediaRow({
+      title: 'Star Quest',
+      mediaType: 'movie',
+      year: 2023,
+      posterPath: '/star-quest-a.jpg',
+      originalTitle: '王立宇宙軍 オネアミスの翼',
+      director: 'Hiroyuki Yamaga',
+      runtime: 121,
+      upc: '0736991452336',
+      tmdbId: '20043',
+      libraryId,
+      spaceId,
+      userId,
+      importSource: 'csv_delicious'
+    });
+    const starQuestTerminalVoyageId = await createMediaRow({
+      title: 'Star Quest',
+      mediaType: 'movie',
+      year: 1994,
+      posterPath: '/star-quest-b.jpg',
+      originalTitle: 'Terminal Voyage',
+      director: 'Rick Jacobson',
+      runtime: 79,
+      tmdbId: '183013',
+      libraryId,
+      spaceId,
+      userId,
+      importSource: 'plex'
+    });
+    const exactTitleLeftId = await createMediaRow({
       title: 'Exact Title Duplicate',
       mediaType: 'movie',
       year: null,
@@ -230,7 +313,7 @@ async function main() {
       userId,
       importSource: 'manual'
     });
-    await createMediaRow({
+    const exactTitleRightId = await createMediaRow({
       title: 'Exact Title Duplicate',
       mediaType: 'movie',
       year: null,
@@ -241,7 +324,7 @@ async function main() {
       importSource: 'csv_generic'
     });
 
-    const response = await client.request(`/api/media/discovery-candidates?limit=12&media_id=${focusId}`, {
+    const response = await client.request(`/api/media/discovery-candidates?limit=12&media_id=${exactTitleLeftId}`, {
       method: 'GET',
       expectStatus: 200
     });
@@ -250,7 +333,7 @@ async function main() {
     const focusedCandidate = items.find((item) => {
       const left = Number(item?.canonical?.id || 0);
       const right = Number(item?.duplicate?.id || 0);
-      return [left, right].includes(focusId) && [left, right].includes(posterDuplicateId);
+      return [left, right].includes(exactTitleLeftId) && [left, right].includes(exactTitleRightId);
     });
     const mst3kCandidate = items.find((item) => {
       const left = Number(item?.canonical?.id || 0);
@@ -268,14 +351,38 @@ async function main() {
       return [left, right].includes(sctvRightId) && [left, right].includes(sctvBestOfId);
     });
 
-    assert(response.data?.focus?.id === focusId, 'Expected focused discovery record in response');
-    assert(focusedCandidate, 'Expected shared-cover discovery candidate for focused record');
-    assert(focusedCandidate.signal === 'shared_cover_path', 'Expected shared-cover discovery candidate to use shared_cover_path signal');
-    assert(focusedCandidate.summary === 'Matched on shared cover art path', 'Expected focused discovery summary to describe shared cover art path');
-    assert(Number(response.data?.summary?.shared_cover_candidates || 0) >= 1, 'Expected shared-cover candidates in discovery summary');
+    const broadResponse = await client.request('/api/media/discovery-candidates?limit=50', {
+      method: 'GET',
+      expectStatus: 200
+    });
+    const broadItems = Array.isArray(broadResponse.data?.items) ? broadResponse.data.items : [];
+    const gorkhaConflictCandidate = broadItems.find((item) => {
+      const left = Number(item?.canonical?.id || 0);
+      const right = Number(item?.duplicate?.id || 0);
+      return [left, right].includes(gorkhaProtectorId) && [left, right].includes(reykjavikId);
+    });
+    const futureShockConflictCandidate = broadItems.find((item) => {
+      const left = Number(item?.canonical?.id || 0);
+      const right = Number(item?.duplicate?.id || 0);
+      return [left, right].includes(futureShock2021Id) && [left, right].includes(futureShock2003Id);
+    });
+    const starQuestConflictCandidate = broadItems.find((item) => {
+      const left = Number(item?.canonical?.id || 0);
+      const right = Number(item?.duplicate?.id || 0);
+      return [left, right].includes(starQuestAnimeId) && [left, right].includes(starQuestTerminalVoyageId);
+    });
+
+    assert(response.data?.focus?.id === exactTitleLeftId, 'Expected focused discovery record in response');
+    assert(focusedCandidate, 'Expected exact-title discovery candidate for focused record');
+    assert(focusedCandidate.signal === 'exact_title', 'Expected focused discovery candidate to use exact_title signal');
+    assert(focusedCandidate.summary === 'Matched on exact title', 'Expected focused discovery summary to describe exact title');
+    assert(Number(response.data?.summary?.exact_title_candidates || 0) >= 1, 'Expected exact-title candidates in discovery summary');
     assert(!mst3kCandidate, 'Expected franchise-separated MST3K titles with a shared cover path to stay out of discovery candidates');
     assert(!sctvDiscVolumeCandidate, 'Expected SCTV disc-versus-volume titles with a shared cover path to stay out of discovery candidates');
     assert(!sctvVolumeBestOfCandidate, 'Expected SCTV volume-versus-best-of titles with a shared cover path to stay out of discovery candidates');
+    assert(!gorkhaConflictCandidate, 'Expected movie shared-cover candidates with conflicting strong identity fields to stay out of discovery');
+    assert(!futureShockConflictCandidate, 'Expected exact-title movie candidates with conflicting tmdb, upc, year, and director fields to stay out of discovery');
+    assert(!starQuestConflictCandidate, 'Expected exact-title movie candidates with conflicting original title, runtime, year, and director fields to stay out of discovery');
 
     await client.request('/api/media/merge-recommendations/reject', {
       method: 'POST',
@@ -288,7 +395,7 @@ async function main() {
         reason: 'Discovery queue smoke rejection'
       }
     });
-    const refreshedDiscoveryResponse = await client.request(`/api/media/discovery-candidates?limit=12&media_id=${focusId}`, {
+    const refreshedDiscoveryResponse = await client.request(`/api/media/discovery-candidates?limit=12&media_id=${exactTitleLeftId}`, {
       method: 'GET',
       expectStatus: 200
     });
@@ -301,12 +408,12 @@ async function main() {
     const rejectedDiscoveryCandidate = refreshedDiscovery.find((item) => {
       const left = Number(item?.canonical?.id || 0);
       const right = Number(item?.duplicate?.id || 0);
-      return [left, right].includes(focusId) && [left, right].includes(posterDuplicateId);
+      return [left, right].includes(exactTitleLeftId) && [left, right].includes(exactTitleRightId);
     });
     const discoveryHistoryEntry = refreshedHistory.find((item) => {
       const left = Number(item?.canonical?.id || 0);
       const right = Number(item?.duplicate?.id || 0);
-      return [left, right].includes(focusId) && [left, right].includes(posterDuplicateId);
+      return [left, right].includes(exactTitleLeftId) && [left, right].includes(exactTitleRightId);
     });
     assert(!rejectedDiscoveryCandidate, 'Expected rejected discovery candidate to disappear from discovery queue');
     assert(discoveryHistoryEntry?.outcome === 'rejected', 'Expected rejected discovery candidate to appear in suppressed history');
@@ -314,7 +421,7 @@ async function main() {
     console.log(JSON.stringify({
       focusedTitle: response.data?.focus?.title || null,
       returnedCandidates: Number(response.data?.summary?.returned_candidates || 0),
-      sharedCoverCandidates: Number(response.data?.summary?.shared_cover_candidates || 0),
+      exactTitleCandidates: Number(response.data?.summary?.exact_title_candidates || 0),
       firstSignal: focusedCandidate.signal,
       firstSummary: focusedCandidate.summary,
       discoveryRejected: true,

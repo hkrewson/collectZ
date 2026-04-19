@@ -55,6 +55,7 @@ const {
   normalizeIssueToken
 } = require('../services/bookComicNormalization');
 const {
+  assessMovieDiscoveryConflictReasons,
   buildGenericManualMergeIdentity,
   isStructuredTitlePairUnsafeForSharedCoverDiscovery
 } = require('../services/manualMergeRecommendations');
@@ -865,7 +866,8 @@ async function loadScopedDuplicateDiscoveryCandidates({ scopeContext = null, lim
   }
   where += appendScopeSql(params, scopeContext);
   const result = await pool.query(
-    `SELECT id, title, media_type, import_source, type_details, year, upc, tmdb_id, tmdb_media_type, poster_path
+    `SELECT id, title, media_type, import_source, type_details, year, upc, tmdb_id, tmdb_media_type, poster_path,
+            original_title, director, cast_members AS cast, runtime
        FROM media
        ${where}
       ORDER BY updated_at DESC, id DESC`,
@@ -923,6 +925,9 @@ async function loadScopedDuplicateDiscoveryCandidates({ scopeContext = null, lim
       signal === 'shared_cover_path'
       && isStructuredTitlePairUnsafeForSharedCoverDiscovery(leftRow?.title || '', rightRow?.title || '')
     ) {
+      return;
+    }
+    if (assessMovieDiscoveryConflictReasons(leftRow, rightRow).length > 0) {
       return;
     }
 
