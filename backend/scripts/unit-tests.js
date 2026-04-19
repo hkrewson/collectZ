@@ -3052,6 +3052,8 @@ results.push(run('admin merge review view posts preview requests and renders ope
   assert.ok(adminMergeReviewViewSource.includes('From:'));
   assert.ok(adminMergeReviewViewSource.includes('Pair:'));
   assert.ok(adminMergeReviewViewSource.includes('Context:'));
+  assert.ok(adminMergeReviewViewSource.includes('activeReviewContextSnapshot'));
+  assert.ok(adminMergeReviewViewSource.includes('captureReviewContextLabel'));
   assert.ok(adminMergeReviewViewSource.includes('Return to row'));
   assert.ok(adminMergeReviewViewSource.includes('scrollIntoView'));
   assert.ok(adminMergeReviewViewSource.includes('merge-review-row-'));
@@ -3059,8 +3061,8 @@ results.push(run('admin merge review view posts preview requests and renders ope
   assert.ok(adminMergeReviewViewSource.includes('border-brand/40 bg-brand/10'));
   assert.ok(adminMergeReviewViewSource.includes('setHighlightedReviewSource'));
   assert.ok(adminMergeReviewViewSource.includes('setHighlightedReviewKey'));
-  assert.ok(adminMergeReviewViewSource.includes("formatReviewContextDetail('Search', discoverySearch)"));
-  assert.ok(adminMergeReviewViewSource.includes("formatReviewContextDetail('Cluster', activeComicGroupLabel)"));
+  assert.ok(adminMergeReviewViewSource.includes("formatReviewContextDetail('Search', String(options.searchValue ?? discoverySearch).trim())"));
+  assert.ok(adminMergeReviewViewSource.includes("formatReviewContextDetail('Cluster', options.groupLabel || activeComicGroupLabel)"));
   assert.ok(adminMergeReviewViewSource.includes('selectedSuppressedOutcomeLabel'));
   assert.ok(adminMergeReviewViewSource.includes("activeReviewSource === 'discovery' && !discoveryInlineReviewPresent"));
   assert.ok(adminMergeReviewViewSource.includes("activeReviewSource === 'recommended' && !recommendationInlineReviewPresent"));

@@ -984,6 +984,7 @@ export default function AdminMergeReviewView({
   const [activeTab, setActiveTab] = useState('recommended');
   const [activeReviewSource, setActiveReviewSource] = useState('manual');
   const [activeReviewKey, setActiveReviewKey] = useState('');
+  const [activeReviewContextSnapshot, setActiveReviewContextSnapshot] = useState('');
   const [highlightedReviewSource, setHighlightedReviewSource] = useState('');
   const [highlightedReviewKey, setHighlightedReviewKey] = useState('');
   const [suppressedOutcomeFilter, setSuppressedOutcomeFilter] = useState('all');
@@ -1040,6 +1041,30 @@ export default function AdminMergeReviewView({
     () => SUPPRESSED_OUTCOME_OPTIONS.find((option) => option.value === suppressedOutcomeFilter)?.label || 'All suppressed pairs',
     [suppressedOutcomeFilter]
   );
+  const captureReviewContextLabel = (source, options = {}) => {
+    const contextParts = [selectedSectionLabel];
+    if (source === 'discovery') {
+      if (options.focusTitle || discoveryFocus?.title) {
+        contextParts.push(formatReviewContextDetail('Focus', options.focusTitle || discoveryFocus?.title));
+      }
+      if (String(options.searchValue ?? discoverySearch).trim()) {
+        contextParts.push(formatReviewContextDetail('Search', String(options.searchValue ?? discoverySearch).trim()));
+      }
+    } else if (source === 'comics') {
+      if (options.groupLabel || activeComicGroupLabel) {
+        contextParts.push(formatReviewContextDetail('Cluster', options.groupLabel || activeComicGroupLabel));
+      }
+      if (String(options.searchValue ?? comicDuplicateSearch).trim()) {
+        contextParts.push(formatReviewContextDetail('Search', String(options.searchValue ?? comicDuplicateSearch).trim()));
+      }
+    } else if (source === 'suppressed') {
+      contextParts.push(selectedSuppressedOutcomeLabel);
+      if (String(options.searchValue ?? suppressedSearch).trim()) {
+        contextParts.push(formatReviewContextDetail('Search', String(options.searchValue ?? suppressedSearch).trim()));
+      }
+    }
+    return contextParts.filter(Boolean).join(' · ');
+  };
   const tabOptions = useMemo(() => MERGE_REVIEW_TABS, []);
   const manualReviewOpen = activeReviewSource === 'manual' && (!!preview || !!errorState || !!applyResult?.applied || !!revertResult?.reverted || Number(mergeDetails?.summary?.active_merge_count || 0) > 0);
   const activeReviewRecords = useMemo(() => ({
@@ -1052,37 +1077,17 @@ export default function AdminMergeReviewView({
     const pairLabel = canonicalTitle || duplicateTitle
       ? `${canonicalTitle || 'This record'} ↔ ${duplicateTitle || 'Matched record'}`
       : '';
-    const contextParts = [selectedSectionLabel];
-    if (activeReviewSource === 'discovery') {
-      if (discoveryFocus?.title) {
-        contextParts.push(formatReviewContextDetail('Focus', discoveryFocus.title));
-      }
-      if (discoverySearch.trim()) {
-        contextParts.push(formatReviewContextDetail('Search', discoverySearch));
-      }
-    } else if (activeReviewSource === 'comics') {
-      if (activeComicGroupLabel) {
-        contextParts.push(formatReviewContextDetail('Cluster', activeComicGroupLabel));
-      }
-      if (comicDuplicateSearch.trim()) {
-        contextParts.push(formatReviewContextDetail('Search', comicDuplicateSearch));
-      }
-    } else if (activeReviewSource === 'suppressed') {
-      contextParts.push(selectedSuppressedOutcomeLabel);
-      if (suppressedSearch.trim()) {
-        contextParts.push(formatReviewContextDetail('Search', suppressedSearch));
-      }
-    }
     return {
       sourceLabel: formatReviewSourceLabel(activeReviewSource),
       pairLabel,
-      contextLabel: contextParts.filter(Boolean).join(' · '),
+      contextLabel: activeReviewContextSnapshot || captureReviewContextLabel(activeReviewSource),
       modeLabel: manualReviewOpen ? 'Manual exact pair' : 'Inline queue review'
     };
   }, [
     activeReviewRecords,
     activeReviewSource,
     manualReviewOpen,
+    activeReviewContextSnapshot,
     selectedSectionLabel,
     discoveryFocus,
     discoverySearch,
@@ -1157,6 +1162,7 @@ export default function AdminMergeReviewView({
     if (closeReview) {
       setActiveReviewSource('manual');
       setActiveReviewKey('');
+      setActiveReviewContextSnapshot('');
     }
   };
 
@@ -1169,9 +1175,11 @@ export default function AdminMergeReviewView({
     setActiveTab('comics');
     setActiveReviewSource('comics');
     setActiveReviewKey(buildPairReviewKey(canonical.id, duplicate.id));
+    const groupLabel = `${group?.series || 'Unknown series'} #${group?.issue_number || '—'}`;
+    setActiveReviewContextSnapshot(captureReviewContextLabel('comics', { groupLabel }));
     if (!options.preserveGroup) {
       setActiveComicGroupId(String(group?.duplicate_group_id || ''));
-      setActiveComicGroupLabel(`${group?.series || 'Unknown series'} #${group?.issue_number || '—'}`);
+      setActiveComicGroupLabel(groupLabel);
     }
     if (!options.preserveMessage) {
       setComicAdvanceMessage('');
@@ -1512,6 +1520,7 @@ export default function AdminMergeReviewView({
     setComicAdvanceMessage('');
     setActiveReviewSource('manual');
     setActiveReviewKey('manual');
+    setActiveReviewContextSnapshot(captureReviewContextLabel('manual'));
     await requestPreview(Number(canonicalId), Number(duplicateId));
   };
 
@@ -1552,6 +1561,7 @@ export default function AdminMergeReviewView({
     setActiveTab('recommended');
     setActiveReviewSource('recommended');
     setActiveReviewKey(buildReviewItemKey(item));
+    setActiveReviewContextSnapshot(captureReviewContextLabel('recommended'));
     setActiveComicGroupId('');
     setActiveComicGroupLabel('');
     setComicAdvanceMessage('');
@@ -1567,6 +1577,7 @@ export default function AdminMergeReviewView({
     setActiveTab('discovery');
     setActiveReviewSource('discovery');
     setActiveReviewKey(buildReviewItemKey(item));
+    setActiveReviewContextSnapshot(captureReviewContextLabel('discovery'));
     setActiveComicGroupId('');
     setActiveComicGroupLabel('');
     setComicAdvanceMessage('');
@@ -1582,6 +1593,7 @@ export default function AdminMergeReviewView({
     setActiveTab('suppressed');
     setActiveReviewSource('suppressed');
     setActiveReviewKey(buildReviewItemKey(item));
+    setActiveReviewContextSnapshot(captureReviewContextLabel('suppressed'));
     setActiveComicGroupId('');
     setActiveComicGroupLabel('');
     setComicAdvanceMessage('');
