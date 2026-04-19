@@ -26,6 +26,7 @@ const forcedMediaTypeByTab = {
 
 export default function DashboardContent({
   activeTab,
+  setActiveTab,
   user,
   onUserUpdate,
   featureFlags,
@@ -68,6 +69,7 @@ export default function DashboardContent({
   onSupportSummaryRefresh,
   productEdition = 'platform'
 }) {
+  const [mergeReviewSeed, setMergeReviewSeed] = React.useState(null);
   const isAdminTab = String(activeTab || '').startsWith('admin-');
   const supportHelpEnabled = isSupportHelpEnabled(productEdition);
   const supportStaffInEdition = supportHelpEnabled && ['admin', 'support_admin'].includes(String(user?.role || ''));
@@ -143,6 +145,15 @@ export default function DashboardContent({
           onRating={rateMedia}
           apiCall={apiCall}
           forcedMediaType={forcedMediaTypeByTab[activeTab] || 'movie'}
+          onFindPossibleDuplicates={user?.role === 'admin'
+            ? (item) => {
+                setMergeReviewSeed({
+                  mediaId: Number(item?.id || 0) || null,
+                  title: item?.title || 'Selected record'
+                });
+                setActiveTab('admin-merges');
+              }
+            : null}
         />
       );
     }
@@ -216,6 +227,8 @@ export default function DashboardContent({
           Spinner={Spinner}
           activeSpace={activeSpace}
           activeLibrary={activeLibrary}
+          seededDiscovery={mergeReviewSeed}
+          onDiscoverySeedConsumed={() => setMergeReviewSeed(null)}
         />
       );
     case 'admin-spaces':

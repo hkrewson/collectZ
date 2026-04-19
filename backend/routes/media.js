@@ -515,6 +515,8 @@ function summarizeMergeSourceRow(row = {}) {
     id: Number(row.id || 0) || null,
     title: String(row.title || '').trim() || null,
     media_type: String(row.media_type || '').trim() || null,
+    year: Number(row.year || 0) || null,
+    poster_path: String(row.poster_path || '').trim() || null,
     import_source: importSource,
     type_details: typeDetails,
     provider_name: providerName,
@@ -529,6 +531,8 @@ function summarizeMergeSourceRow(row = {}) {
 function formatMergeMatchKind(kind = '', mediaType = '') {
   const normalized = String(kind || '').trim();
   const normalizedMediaType = String(mediaType || '').trim();
+  if (normalized === 'shared_cover_path') return 'Matched on shared cover art path';
+  if (normalized === 'exact_title') return 'Matched on exact title';
   if (normalized === 'tmdb_id') return 'Matched on TMDB id';
   if (normalized === 'upc') return 'Matched on UPC';
   if (normalized === 'provider_item') return 'Matched on provider item';
@@ -806,6 +810,180 @@ async function loadScopedComicDuplicateCandidates({ scopeContext = null, limit =
     },
     items: candidateItems.slice(0, cappedLimit),
     suppressed_items: suppressedItems.slice(0, Math.min(6, suppressedItems.length))
+  };
+}
+
+async function loadScopedDuplicateDiscoveryCandidates({ scopeContext = null, limit = 12, search = '', mediaId = null } = {}) {
+  const cappedLimit = Math.max(1, Math.min(50, Number(limit || 12) || 12));
+  const focusedMediaId = Number(mediaId || 0) || null;
+  const normalizedSearch = normalizeText(search || '');
+  const params = [];
+  const where = `WHERE 1=1${appendScopeSql(params, scopeContext)}`;
+  const result = await pool.query(
+    `SELECT id, title, media_type, import_source, type_details, year, upc, tmdb_id, tmdb_media_type, poster_path
+       FROM media
+       ${where}
+      ORDER BY updated_at DESC, id DESC`,
+    params
+  );
+
+  const suppressedPairs = await loadScopedSuppressedMergeRecommendationPairs({
+    scopeContext,
+    outcomes: ['rejected', 'deferred']
+  });
+  const strictRecommendationPairs = new Set(
+    (await loadScopedManualMergeRecommendations({ scopeContext, limit: 500 })).items.map((item) => item.pair_key).filter(Boolean)
+  );
+  const comicCandidatePairs = new Set();
+  const comicDuplicateGroups = await loadScopedComicDuplicateCandidates({ scopeContext, limit: 500, search: '' });
+  for (const group of comicDuplicateGroups.items || []) {
+    for (const duplicate of group.duplicates || []) {
+      const pairKey = buildRecommendationPairKey(group?.canonical?.id, duplicate?.id);
+      if (pairKey?.key) comicCandidatePairs.add(pairKey.key);
+    }
+  }
+
+  const knownPairs = new Set([
+    ...suppressedPairs,
+    ...strictRecommendationPairs,
+    ...comicCandidatePairs
+  ]);
+
+  const normalizedRows = (result.rows || []).map((row) => normalizeMediaRecord(row));
+  const focusRow = focusedMediaId
+    ? normalizedRows.find((row) => Number(row.id || 0) === focusedMediaId) || null
+    : null;
+  if (focusedMediaId && !focusRow) {
+    return {
+      summary: {
+        total_candidates: 0,
+        returned_candidates: 0,
+        shared_cover_candidates: 0,
+        exact_title_candidates: 0,
+        focused_media_id: focusedMediaId,
+        focused_title: null
+      },
+      focus: null,
+      items: []
+    };
+  }
+
+  const candidateMap = new Map();
+  const considerPair = (leftRow, rightRow, signal) => {
+    const pairKey = buildRecommendationPairKey(leftRow?.id, rightRow?.id);
+    if (!pairKey?.key || knownPairs.has(pairKey.key)) return;
+    if (String(leftRow?.media_type || '') !== String(rightRow?.media_type || '')) return;
+    if (focusedMediaId && ![Number(leftRow?.id || 0), Number(rightRow?.id || 0)].includes(focusedMediaId)) return;
+
+    const canonical = chooseCanonicalRow([leftRow, rightRow]);
+    const duplicate = Number(canonical?.id || 0) === Number(leftRow?.id || 0) ? rightRow : leftRow;
+    if (!canonical?.id || !duplicate?.id) return;
+
+    const haystack = normalizeText([
+      canonical.title || '',
+      duplicate.title || '',
+      canonical?.type_details?.series || '',
+      duplicate?.type_details?.series || ''
+    ].join(' '));
+    if (normalizedSearch && !haystack.includes(normalizedSearch)) return;
+
+    const existing = candidateMap.get(pairKey.key);
+    if (existing) {
+      const existingRank = existing.signal === 'shared_cover_path' ? 0 : 1;
+      const nextRank = signal === 'shared_cover_path' ? 0 : 1;
+      if (nextRank < existingRank) {
+        candidateMap.set(pairKey.key, {
+          ...existing,
+          signal,
+          summary: formatMergeMatchKind(signal, canonical.media_type),
+          rationale: signal === 'shared_cover_path' ? ['poster_path'] : ['exact_title'],
+          rationale_labels: signal === 'shared_cover_path' ? ['Poster path'] : ['Exact title']
+        });
+      }
+      return;
+    }
+
+    candidateMap.set(pairKey.key, {
+      discovery_id: `discovery:${signal}:${pairKey.key}`,
+      pair_key: pairKey.key,
+      media_type: canonical.media_type,
+      confidence: signal === 'shared_cover_path' ? 'review' : 'review',
+      signal,
+      summary: formatMergeMatchKind(signal, canonical.media_type),
+      rationale: signal === 'shared_cover_path' ? ['poster_path'] : ['exact_title'],
+      rationale_labels: signal === 'shared_cover_path' ? ['Poster path'] : ['Exact title'],
+      canonical: summarizeMergeSourceRow(canonical),
+      duplicate: summarizeMergeSourceRow(duplicate),
+      canonical_selection: {
+        recommended_canonical_id: Number(canonical.id || 0) || null,
+        requested_matches_recommended: true,
+        selection_reason: CANONICAL_SELECTION_REASON
+      }
+    });
+  };
+
+  const posterBuckets = new Map();
+  const titleBuckets = new Map();
+  for (const row of normalizedRows) {
+    const mediaType = String(row.media_type || '').trim();
+    const posterPath = String(row.poster_path || '').trim();
+    const normalizedTitle = normalizeText(row.title || '');
+    if (posterPath) {
+      const key = `${mediaType}:poster:${posterPath}`;
+      const bucket = posterBuckets.get(key) || [];
+      bucket.push(row);
+      posterBuckets.set(key, bucket);
+    }
+    if (normalizedTitle) {
+      const key = `${mediaType}:title:${normalizedTitle}`;
+      const bucket = titleBuckets.get(key) || [];
+      bucket.push(row);
+      titleBuckets.set(key, bucket);
+    }
+  }
+
+  for (const bucket of posterBuckets.values()) {
+    if (bucket.length < 2) continue;
+    const sortedRows = [...bucket].sort((left, right) => Number(left.id || 0) - Number(right.id || 0));
+    for (let index = 0; index < sortedRows.length - 1; index += 1) {
+      for (let offset = index + 1; offset < sortedRows.length; offset += 1) {
+        considerPair(sortedRows[index], sortedRows[offset], 'shared_cover_path');
+      }
+    }
+  }
+
+  for (const bucket of titleBuckets.values()) {
+    if (bucket.length < 2) continue;
+    const sortedRows = [...bucket].sort((left, right) => Number(left.id || 0) - Number(right.id || 0));
+    for (let index = 0; index < sortedRows.length - 1; index += 1) {
+      for (let offset = index + 1; offset < sortedRows.length; offset += 1) {
+        considerPair(sortedRows[index], sortedRows[offset], 'exact_title');
+      }
+    }
+  }
+
+  const confidenceOrder = { review: 0 };
+  const signalOrder = { shared_cover_path: 0, exact_title: 1 };
+  const allItems = Array.from(candidateMap.values()).sort((left, right) => {
+    const signalDelta = (signalOrder[left.signal] ?? 99) - (signalOrder[right.signal] ?? 99);
+    if (signalDelta !== 0) return signalDelta;
+    const confidenceDelta = (confidenceOrder[left.confidence] ?? 99) - (confidenceOrder[right.confidence] ?? 99);
+    if (confidenceDelta !== 0) return confidenceDelta;
+    return Number(left.canonical?.id || 0) - Number(right.canonical?.id || 0)
+      || Number(left.duplicate?.id || 0) - Number(right.duplicate?.id || 0);
+  });
+  const limitedItems = allItems.slice(0, cappedLimit);
+  return {
+    summary: {
+      total_candidates: allItems.length,
+      returned_candidates: limitedItems.length,
+      shared_cover_candidates: allItems.filter((item) => item.signal === 'shared_cover_path').length,
+      exact_title_candidates: allItems.filter((item) => item.signal === 'exact_title').length,
+      focused_media_id: focusedMediaId,
+      focused_title: focusRow?.title || null
+    },
+    focus: focusRow ? summarizeMergeSourceRow(focusRow) : null,
+    items: limitedItems
   };
 }
 
@@ -6270,6 +6448,20 @@ router.get('/merge-recommendations', requireSessionAuth, requireRole('admin', 's
     limit
   });
   res.json(recommendations);
+}));
+
+router.get('/discovery-candidates', requireSessionAuth, requireRole('admin', 'support_admin'), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const limit = Math.max(1, Math.min(50, Number(req.query?.limit || 12) || 12));
+  const search = String(req.query?.search || '').trim();
+  const mediaId = Number(req.query?.media_id || 0) || null;
+  const discovery = await loadScopedDuplicateDiscoveryCandidates({
+    scopeContext,
+    limit,
+    search,
+    mediaId
+  });
+  res.json(discovery);
 }));
 
 router.get('/comics/duplicate-candidates', requireSessionAuth, requireRole('admin', 'support_admin'), asyncHandler(async (req, res) => {

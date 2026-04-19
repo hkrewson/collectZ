@@ -3896,6 +3896,61 @@
         }
       }
     },
+    "/api/media/discovery-candidates": {
+      "get": {
+        "tags": ["Media"],
+        "summary": "List lower-confidence duplicate discovery candidates for the active scope",
+        "security": [
+          { "cookieSession": [] }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 1, "maximum": 50 }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": { "type": "string" }
+          },
+          {
+            "in": "query",
+            "name": "media_id",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Discovery candidates plus optional focused record context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "summary": { "type": "object", "additionalProperties": true },
+                    "focus": {
+                      "anyOf": [
+                        { "type": "object", "additionalProperties": true },
+                        { "type": "null" }
+                      ]
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": { "type": "object", "additionalProperties": true }
+                    }
+                  },
+                  "required": ["summary", "focus", "items"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/media/collections/duplicate-preview": {
       "get": {
         "tags": ["Media"],

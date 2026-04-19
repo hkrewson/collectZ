@@ -408,7 +408,7 @@ function MediaListRow({ item, onOpen, onEdit, onDelete, onRating, supportsHover,
   );
 }
 
-function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onValuationUpdated, onToast }) {
+function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onValuationUpdated, onToast, onFindPossibleDuplicates }) {
   const [variants, setVariants] = useState([]);
   const [variantLoading, setVariantLoading] = useState(false);
   const [mergeDetails, setMergeDetails] = useState(null);
@@ -1276,6 +1276,18 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
 
         <div className="p-4 border-t border-edge flex gap-3 shrink-0">
           <button onClick={onClose} className="btn-ghost">Close</button>
+          {onFindPossibleDuplicates ? (
+            <button
+              onClick={() => {
+                onFindPossibleDuplicates(item);
+                onClose();
+              }}
+              className="btn-ghost"
+            >
+              <Icons.Link />
+              Find possible duplicates
+            </button>
+          ) : null}
           <button onClick={() => onEdit(item)} className="btn-ghost flex-1"><Icons.Edit />Edit</button>
           <button
             onClick={() => { if (window.confirm('Delete this item?')) { onDelete(item.id); onClose(); } }}
@@ -3014,7 +3026,8 @@ export default function LibraryView({
   onBulkDelete,
   onRating,
   apiCall,
-  forcedMediaType
+  forcedMediaType,
+  onFindPossibleDuplicates = null
 }) {
   const PAGE_SIZE_STORAGE_KEY = 'collectz_library_page_size';
   const VIEW_MODE_STORAGE_KEY = 'collectz_library_view_mode';
@@ -3948,6 +3961,7 @@ export default function LibraryView({
           apiCall={apiCall}
           onValuationUpdated={refreshDetailItem}
           onToast={onToast}
+          onFindPossibleDuplicates={onFindPossibleDuplicates}
         />
       )}
       {viewingCollectionId && (

@@ -151,6 +151,7 @@ export default function DashboardShell({
         <div className="flex-1 overflow-hidden">
           <DashboardContent
             activeTab={activeTab}
+            setActiveTab={setActiveTab}
             user={user}
             onUserUpdate={onUserUpdate}
             featureFlags={featureFlags}

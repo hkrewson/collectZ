@@ -2876,6 +2876,7 @@ results.push(run('library drawer source includes compact match evidence summarie
   assert.ok(libraryViewSource.includes('Matched on:'));
   assert.ok(libraryViewSource.includes("apiCall('get', `/media/${item.id}/merge-details`)"));
   assert.ok(libraryViewSource.includes('DisclosureList'));
+  assert.ok(libraryViewSource.includes('Find possible duplicates'));
 }));
 
 results.push(run('admin merge review view posts preview requests and renders operator-facing comparison details', () => {
@@ -2883,6 +2884,7 @@ results.push(run('admin merge review view posts preview requests and renders ope
   assert.ok(adminMergeReviewViewSource.includes("/media/merge-apply"));
   assert.ok(adminMergeReviewViewSource.includes("/media/merge-revert"));
   assert.ok(adminMergeReviewViewSource.includes('/media/merge-recommendations?limit=12'));
+  assert.ok(adminMergeReviewViewSource.includes('/media/discovery-candidates?'));
   assert.ok(adminMergeReviewViewSource.includes('/media/comics/duplicate-candidates?'));
   assert.ok(adminMergeReviewViewSource.includes('/media/collections/duplicates?'));
   assert.ok(adminMergeReviewViewSource.includes('/media/collections/duplicate-preview?'));
@@ -2891,6 +2893,10 @@ results.push(run('admin merge review view posts preview requests and renders ope
   assert.ok(adminMergeReviewViewSource.includes('/media/collections/${left.id}/merge-details'));
   assert.ok(adminMergeReviewViewSource.includes('/media?search='));
   assert.ok(adminMergeReviewViewSource.includes('Review a same-type pairwise merge inside the current workspace and library scope'));
+  assert.ok(adminMergeReviewViewSource.includes('Discovery queue'));
+  assert.ok(adminMergeReviewViewSource.includes('Likely duplicates surfaced from lighter signals'));
+  assert.ok(adminMergeReviewViewSource.includes('Possible duplicates for:'));
+  assert.ok(adminMergeReviewViewSource.includes('Clear focus'));
   assert.ok(adminMergeReviewViewSource.includes('Recommended pairs'));
   assert.ok(adminMergeReviewViewSource.includes('Comic duplicate candidates'));
   assert.ok(adminMergeReviewViewSource.includes('Search comic duplicates'));

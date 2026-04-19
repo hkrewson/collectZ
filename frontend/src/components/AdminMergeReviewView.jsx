@@ -271,6 +271,41 @@ function RecommendationRow({ item, onReview, onReject, loading, rejecting, confi
   );
 }
 
+function DiscoveryCandidateRow({ item, onReview, loading }) {
+  return (
+    <div className="flex flex-col gap-3 border-t border-edge/60 px-4 py-4 first:border-t-0">
+      <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-ink">{item.summary || 'Possible duplicate'}</p>
+          <p className="text-sm text-ghost">
+            {item.canonical?.title || 'This record'} <span className="text-dim">↔</span> {item.duplicate?.title || 'Possible match'}
+          </p>
+        </div>
+        <button
+          type="button"
+          className="btn-secondary btn-sm h-8"
+          onClick={() => onReview(item)}
+          disabled={loading}
+        >
+          Review pair
+        </button>
+      </div>
+      <div className="grid gap-3 text-sm sm:grid-cols-2">
+        <div className="space-y-1">
+          <p className="text-ghost">This record</p>
+          <p className="text-ink">{item.canonical?.source_label || 'Unknown source'}</p>
+          <p className="font-mono text-xs text-ghost">#{item.canonical?.id || '—'}</p>
+        </div>
+        <div className="space-y-1">
+          <p className="text-ghost">Possible match</p>
+          <p className="text-ink">{item.duplicate?.source_label || 'Unknown source'}</p>
+          <p className="font-mono text-xs text-ghost">#{item.duplicate?.id || '—'}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function formatCollectionMeta(collection = {}) {
   const bits = [];
   if (collection.library_name) bits.push(collection.library_name);
@@ -460,7 +495,9 @@ export default function AdminMergeReviewView({
   onToast,
   Spinner,
   activeSpace,
-  activeLibrary
+  activeLibrary,
+  seededDiscovery = null,
+  onDiscoverySeedConsumed = null
 }) {
   const [canonicalId, setCanonicalId] = useState('');
   const [duplicateId, setDuplicateId] = useState('');
@@ -473,6 +510,11 @@ export default function AdminMergeReviewView({
   const [recommendations, setRecommendations] = useState([]);
   const [recommendationsSummary, setRecommendationsSummary] = useState(null);
   const [recommendationsLoading, setRecommendationsLoading] = useState(true);
+  const [discoverySearch, setDiscoverySearch] = useState('');
+  const [discoveryCandidates, setDiscoveryCandidates] = useState([]);
+  const [discoverySummary, setDiscoverySummary] = useState(null);
+  const [discoveryFocus, setDiscoveryFocus] = useState(null);
+  const [discoveryLoading, setDiscoveryLoading] = useState(true);
   const [comicDuplicateSearch, setComicDuplicateSearch] = useState('');
   const [comicDuplicateCandidates, setComicDuplicateCandidates] = useState([]);
   const [comicDuplicateSummary, setComicDuplicateSummary] = useState(null);
@@ -578,6 +620,27 @@ export default function AdminMergeReviewView({
     }
   };
 
+  const loadDiscoveryCandidates = async ({ searchValue = discoverySearch, mediaId = null } = {}) => {
+    setDiscoveryLoading(true);
+    try {
+      const query = new URLSearchParams({ limit: '12' });
+      if (String(searchValue || '').trim()) query.set('search', String(searchValue).trim());
+      if (Number(mediaId || 0) > 0) query.set('media_id', String(Number(mediaId)));
+      const payload = await apiCall('get', `/media/discovery-candidates?${query.toString()}`);
+      setDiscoveryCandidates(Array.isArray(payload?.items) ? payload.items : []);
+      setDiscoverySummary(payload?.summary || null);
+      setDiscoveryFocus(payload?.focus || null);
+      return payload || null;
+    } catch (_) {
+      setDiscoveryCandidates([]);
+      setDiscoverySummary(null);
+      setDiscoveryFocus(null);
+      return null;
+    } finally {
+      setDiscoveryLoading(false);
+    }
+  };
+
   const loadComicDuplicateCandidates = async (searchValue = comicDuplicateSearch) => {
     setComicDuplicatesLoading(true);
     try {
@@ -626,9 +689,52 @@ export default function AdminMergeReviewView({
 
   useEffect(() => {
     loadRecommendations();
+    loadDiscoveryCandidates({ searchValue: '', mediaId: null });
     loadComicDuplicateCandidates('');
     loadCollectionDuplicates('');
   }, [apiCall, activeLibrary?.id, activeSpace?.id]);
+
+  useEffect(() => {
+    if (!seededDiscovery?.mediaId) return;
+    setDiscoverySearch('');
+    loadDiscoveryCandidates({
+      searchValue: '',
+      mediaId: seededDiscovery.mediaId
+    }).then((payload) => {
+      if (payload?.focus?.title) {
+        onToast(`Loaded possible duplicates for ${payload.focus.title}.`, 'success');
+      }
+    });
+    onDiscoverySeedConsumed?.();
+  }, [seededDiscovery?.mediaId]);
+
+  useEffect(() => {
+    let active = true;
+    const timer = window.setTimeout(async () => {
+      try {
+        const query = new URLSearchParams({ limit: '12' });
+        if (discoverySearch.trim()) query.set('search', discoverySearch.trim());
+        if (discoveryFocus?.id) query.set('media_id', String(discoveryFocus.id));
+        const payload = await apiCall('get', `/media/discovery-candidates?${query.toString()}`);
+        if (!active) return;
+        setDiscoveryCandidates(Array.isArray(payload?.items) ? payload.items : []);
+        setDiscoverySummary(payload?.summary || null);
+        setDiscoveryFocus(payload?.focus || null);
+      } catch (_) {
+        if (!active) return;
+        setDiscoveryCandidates([]);
+        setDiscoverySummary(null);
+        setDiscoveryFocus(null);
+      } finally {
+        if (active) setDiscoveryLoading(false);
+      }
+    }, 220);
+    setDiscoveryLoading(true);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [apiCall, discoverySearch, discoveryFocus?.id]);
 
   useEffect(() => {
     let active = true;
@@ -803,6 +909,17 @@ export default function AdminMergeReviewView({
     setActiveComicGroupLabel('');
     setComicAdvanceMessage('');
     setRejectConfirmId('');
+    setCanonicalId(String(item?.canonical?.id || ''));
+    setDuplicateId(String(item?.duplicate?.id || ''));
+    setCanonicalSearch(item?.canonical?.title || '');
+    setDuplicateSearch(item?.duplicate?.title || '');
+    await requestPreview(Number(item?.canonical?.id || 0), Number(item?.duplicate?.id || 0));
+  };
+
+  const handleDiscoveryReview = async (item) => {
+    setActiveComicGroupId('');
+    setActiveComicGroupLabel('');
+    setComicAdvanceMessage('');
     setCanonicalId(String(item?.canonical?.id || ''));
     setDuplicateId(String(item?.duplicate?.id || ''));
     setCanonicalSearch(item?.canonical?.title || '');
@@ -1093,6 +1210,60 @@ export default function AdminMergeReviewView({
         <SummaryStat label="Library" value={activeLibrary?.name || 'Current library'} />
         <SummaryStat label="Merge boundary" value="Same type only" />
         <SummaryStat label="Action mode" value="Preview first" />
+      </div>
+
+      <div className="rounded-lg border border-edge bg-void/10">
+        <div className="flex flex-col gap-3 border-b border-edge/70 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-1">
+            <h2 className="text-sm font-medium text-ink">Discovery queue</h2>
+            <p className="text-sm text-ghost">Likely duplicates surfaced from lighter signals so visually obvious pairs do not depend on strict merge rules alone.</p>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            {discoverySummary ? (
+              <div className="text-xs text-ghost">
+                {discoverySummary.returned_candidates || 0} shown · {discoverySummary.shared_cover_candidates || 0} cover-path matches · {discoverySummary.exact_title_candidates || 0} exact-title matches
+              </div>
+            ) : null}
+            <input
+              className="input h-9 w-full sm:w-64"
+              value={discoverySearch}
+              onChange={(event) => setDiscoverySearch(event.target.value)}
+              placeholder="Search discovery queue"
+            />
+          </div>
+        </div>
+        {discoveryFocus?.id ? (
+          <div className="flex flex-col gap-2 border-b border-edge/60 px-4 py-3 text-sm text-ghost sm:flex-row sm:items-center sm:justify-between">
+            <p>
+              <span className="text-ink">Possible duplicates for:</span> {discoveryFocus.title || 'Selected record'}
+              {discoveryFocus.year ? ` · ${discoveryFocus.year}` : ''}
+              {discoveryFocus.id ? ` · Record #${discoveryFocus.id}` : ''}
+            </p>
+            <button
+              type="button"
+              className="btn-secondary btn-sm h-8"
+              onClick={() => loadDiscoveryCandidates({ searchValue: discoverySearch, mediaId: null })}
+            >
+              Clear focus
+            </button>
+          </div>
+        ) : null}
+        {discoveryLoading ? (
+          <div className="px-4 py-6 text-sm text-ghost">Loading discovery candidates…</div>
+        ) : discoveryCandidates.length > 0 ? (
+          <div>
+            {discoveryCandidates.map((item) => (
+              <DiscoveryCandidateRow
+                key={item.discovery_id}
+                item={item}
+                onReview={handleDiscoveryReview}
+                loading={loading || applying}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="px-4 py-6 text-sm text-ghost">No discovery candidates found in the current scope.</div>
+        )}
       </div>
 
       <div className="rounded-lg border border-edge bg-void/10">
