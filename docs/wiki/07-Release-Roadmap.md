@@ -3415,6 +3415,47 @@ Historical note:
   - regenerated `backend/release-feed.json`,
   - authenticated running-stack `Help > Releases` proof on platform and homelab containers.
 
+## 3.2.2 — Release Gate and Evidence Hardening
+
+**Goal:** Reduce the gap between local release closeout evidence and the CI gates that still decide whether a patch is truly ready to ship.
+
+**Current Slice:** `Local Preflight Audit and Go/No-Go Report`
+
+### Scope
+
+- Add repo-native local preflight helpers that generate release-facing evidence instead of relying on ad hoc manual command transcripts.
+- Generate local dependency-audit artifacts in the same shape CI expects for release closeout.
+- Generate a local go/no-go report that records:
+  - version alignment,
+  - dependency audit status,
+  - compose-smoke basics against the live stack,
+  - discovered blocked CI-only gates.
+- Keep the patch focused on release hardening and evidence quality, not new end-user product features.
+
+### Acceptance Criteria
+
+- Maintainers can generate `dependency-audit` artifacts locally without hand-assembling them.
+- Maintainers can generate a local `preflight-go-no-go.md` that explicitly distinguishes:
+  - passed local evidence,
+  - failed local gates,
+  - blocked CI-only gates.
+- The preflight helper uses the running stack for runtime checks where the stack can answer directly.
+- The resulting report is good enough to attach to a release closeout without reconstructing the gate state from memory.
+
+### Active Slice Notes
+
+- Start by mirroring the CI dependency-audit artifact shape locally:
+  - `artifacts/dependency-audit/backend-audit.json`
+  - `artifacts/dependency-audit/frontend-audit.json`
+- Record the live local compose-smoke basics directly from the running stack:
+  - `/api/health`,
+  - response security headers,
+  - CSRF cookie issuance,
+  - unauthenticated `/api/auth/me`,
+  - API integration smoke.
+- Make blocked CI-only gates explicit in the generated report instead of silently omitting them.
+- Keep the helper text aligned with `docs/wiki/17-Release-Go-No-Go-Checklist.md` and `.github/workflows/docker-publish.yml`.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

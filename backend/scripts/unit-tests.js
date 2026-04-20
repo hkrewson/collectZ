@@ -67,6 +67,7 @@ const { buildCompactJobSummary, formatSyncJob } = require('../services/syncJobs'
 const metricsModule = require('../services/metrics');
 const { shouldEnforceCsrf } = require('../middleware/csrf');
 const observabilityRuntimeSource = fs.readFileSync(require.resolve('../services/observabilityRuntime'), 'utf8');
+const releasePreflightLocalSource = fs.readFileSync(require.resolve('../scripts/release-preflight-local'), 'utf8');
 const authModulePath = require.resolve('../middleware/auth');
 const authMiddlewareSource = fs.readFileSync(authModulePath, 'utf8');
 const scopeAccessSource = fs.readFileSync(require.resolve('../middleware/scopeAccess'), 'utf8');
@@ -1778,6 +1779,19 @@ results.push(run('repo includes manual merge preview smoke coverage for same-typ
   assert.ok(collectionDuplicatePreviewSmokeSource.includes('Expected duplicate collection preview to be allowed'));
   assert.ok(collectionMergeApplyRevertSmokeSource.includes('Expected collection merge apply to succeed'));
   assert.ok(collectionMergeApplyRevertSmokeSource.includes('Expected duplicate collection to be restored with two items after revert'));
+}));
+
+results.push(run('repo includes local release preflight helper coverage for dependency audits and go-no-go reporting', () => {
+  assert.ok(backendPackageJson.scripts['test:release-preflight-local']);
+  assert.ok(releasePreflightLocalSource.includes("artifacts', 'dependency-audit'"));
+  assert.ok(releasePreflightLocalSource.includes('preflight-go-no-go.md'));
+  assert.ok(releasePreflightLocalSource.includes('Compose smoke basics'));
+  assert.ok(releasePreflightLocalSource.includes('Secret scan'));
+  assert.ok(releasePreflightLocalSource.includes('Image security and SBOM'));
+  assert.ok(releasePreflightLocalSource.includes('test:integration-smoke'));
+  assert.ok(releasePreflightLocalSource.includes('/api/auth/csrf-token'));
+  assert.ok(releasePreflightLocalSource.includes('/api/auth/me'));
+  assert.ok(releasePreflightLocalSource.includes('npm audit'));
 }));
 
 results.push(run('repo includes merge evidence backfill tooling for older duplicate attach history rows', () => {
