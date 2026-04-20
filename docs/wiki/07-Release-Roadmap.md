@@ -3351,7 +3351,7 @@ Historical note:
 
 **Goal:** Prove that merged canonical records survive repeat imports and later syncs across supported providers without silently recreating duplicates or attaching conflicting identities to the wrong row.
 
-**Current Slice:** `Cross-Source Canonical Reuse Smoke`
+**Current Slice:** `Multi-Hop Merge Alias Smoke`
 
 ### Scope
 
@@ -3389,6 +3389,11 @@ Historical note:
   - update from a second source,
   - update again from a third source,
   - while preserving one canonical row.
+- Then prove alias reuse survives multi-hop merge history:
+  - merge duplicate B into canonical A,
+  - merge canonical A into canonical C,
+  - reimport identities from both A and B,
+  - and confirm they both resolve to C.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
