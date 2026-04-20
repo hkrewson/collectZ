@@ -1,6 +1,29 @@
 {
   "releases": [
     {
+      "title": "v3.2.3",
+      "version": "3.2.3",
+      "date": "2026-04-20",
+      "status": "Completed",
+      "summary": "This patch release hardens merge durability boundaries. It adds a Docker-backed proof that preserved merge identities only resolve inside the currently active library scope, so later re-syncs cannot silently update or recreate rows in the wrong library when the same external/provider identifier exists elsewhere.",
+      "details": [
+        {
+          "heading": "Scope-isolated merge re-sync proof",
+          "bullets": [
+            "Added a dedicated runtime smoke for:",
+            "Proved the live CSV sync path updates the correct row with:"
+          ]
+        },
+        {
+          "heading": "Smoke harness hardening",
+          "bullets": [
+            "Refactored the new scope-isolation smoke to use:",
+            "so the proof exercises actual route-level scope rules instead of getting tangled in admin support-session restrictions."
+          ]
+        }
+      ]
+    },
+    {
       "title": "v3.2.2",
       "version": "3.2.2",
       "date": "2026-04-19",
@@ -257,46 +280,6 @@
       "status": "Completed",
       "summary": "This patch release closes the confidence gap between the shared-core lifecycle work from `3.1.0` and what users actually see in the browser. The Playwright regression layer now proves browser-visible fallback and boundary behavior for support sessions, library lifecycle fallout, and space lifecycle fallout, so the extracted shared-core repair paths are no longer validated only by backend/runtime smokes.",
       "details": []
-    },
-    {
-      "title": "v3.1.0",
-      "version": "3.1.0",
-      "date": "2026-04-13",
-      "status": "Completed",
-      "summary": "This minor release turns the proven edition boundary into a more explicit product split by tightening the shared core that both platform and homelab consume. Shared auth, scope, library, and lifecycle behavior now follow one more disciplined runtime contract, while the platform and homelab shells are kept distinct where their product responsibilities differ.",
-      "details": [
-        {
-          "heading": "Shared-core extraction and scope normalization",
-          "bullets": [
-            "Tightened shared auth/bootstrap behavior so effective scope resolution is derived more consistently from active library and accessible membership state instead of stale persisted workspace hints.",
-            "Consolidated more support-session, active-scope, and active-library normalization into shared helpers instead of leaving route-local repair logic scattered across auth and lifecycle flows.",
-            "Reduced drift between request-level effective scope, persisted profile state, and session-auth payload shaping so `/api/auth/me`, scope payloads, and related shared routes align on the same derived state."
-          ]
-        },
-        {
-          "heading": "Lifecycle repair hardening",
-          "bullets": [
-            "Extracted more library-access-loss and space-access-invalidation behavior into common service helpers so archive, delete, ownership transfer, suspension, and membership-removal flows reuse one repair path.",
-            "Tightened cleanup of stale active-library, support-library, current support-session, and previous support-session pointers when users lose access to a library or space.",
-            "Added targeted backend/runtime coverage to prove the extracted helpers repair real lifecycle fallout on the live stack."
-          ]
-        },
-        {
-          "heading": "Edition split and shell boundary tightening",
-          "bullets": [
-            "Made the edition contract more explicit in shared bootstrap/auth behavior so platform and homelab consume one authoritative definition of their allowed surfaces.",
-            "Continued separating platform-only route groups and shell behaviors from homelab-safe shared surfaces instead of relying on raw role checks or hidden-but-mounted behavior.",
-            "Hardened the local maintainer workflow so platform and homelab run as first-class parallel compose targets during split verification rather than toggling one shared stack back and forth."
-          ]
-        },
-        {
-          "heading": "Public homelab split preparation",
-          "bullets": [
-            "Kept the private platform control plane intact while tightening the shared core needed for a later public homelab repo promotion path.",
-            "Focused this release on safe extraction, contract hardening, and edition verification rather than public repo publishing mechanics."
-          ]
-        }
-      ]
     }
   ]
 }

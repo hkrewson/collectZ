@@ -3479,6 +3479,7 @@ Historical note:
 
 **Goal:** Prove that preserved merge identities only resolve within the correct active scope so later re-syncs cannot update or recreate records in the wrong space or library when overlapping identifiers exist elsewhere.
 
+**Status:** Completed.
 **Current Slice:** `Scope Isolation Re-Sync Smoke`
 
 ### Scope
@@ -3509,6 +3510,21 @@ Historical note:
   - collection re-sync boundary behavior,
   - strong-id conflict guards,
   - sparse-metadata alias reuse.
+
+### Closeout Notes
+
+- `3.2.3` closed with Docker-backed runtime proof that:
+  - a manually merged canonical record in library A is reused on later scoped re-sync,
+  - the same overlapping provider identity in library B remains untouched until its own scoped re-sync runs,
+  - and neither scoped import creates an extra row while `provider_item_id` matching stays isolated to the active library context.
+- The milestone also tightened the smoke harness itself by:
+  - switching the runtime actor to a normal library-switching user,
+  - and using the direct manual merge helper to seed the merged precondition without relying on admin-only support-session flows.
+- Version closeout for `3.2.3` includes:
+  - semver/app metadata sync to `3.2.3`,
+  - matching `docs/releases/v3.2.3.md`,
+  - regenerated `backend/release-feed.json`,
+  - running-stack `Help > Releases` verification on platform and homelab.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
