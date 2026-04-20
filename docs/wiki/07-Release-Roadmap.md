@@ -3228,7 +3228,7 @@ Historical note:
 
 **Goal:** Add a controlled operator-facing manual merge workflow so supported media types can be reviewed, compared, merged, and reverted intentionally without allowing unsafe cross-type merges.
 
-**Current Slice:** `3.2.0.35 — Movie Positive Discovery Normalization and Soft-Match Preservation`
+**Current Slice:** `3.2.0.36 — Plex Merge Identity Alias Runtime Proof`
 
 - Start with same-type manual merge only:
   - books
