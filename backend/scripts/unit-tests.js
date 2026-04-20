@@ -152,6 +152,8 @@ const structuredLogSyslogSmokeSource = fs.readFileSync(require.resolve('../scrip
 const structuredLogSmokeSharedSource = fs.readFileSync(require.resolve('../scripts/structured-log-smoke-shared'), 'utf8');
 const importNormalizationSmokeSource = fs.readFileSync(require.resolve('../scripts/import-normalization-smoke'), 'utf8');
 const importNormalizationReviewSmokeSource = fs.readFileSync(require.resolve('../scripts/import-normalization-review-smoke'), 'utf8');
+const repeatSyncIdempotencySmokeSource = fs.readFileSync(require.resolve('../scripts/repeat-sync-idempotency-smoke'), 'utf8');
+const crossSourceCanonicalReuseSmokeSource = fs.readFileSync(require.resolve('../scripts/cross-source-canonical-reuse-smoke'), 'utf8');
 const historicalRepairPlanSource = fs.readFileSync(require.resolve('../scripts/book-comic-historical-repair-plan'), 'utf8');
 const backfillMergeEvidenceSource = fs.readFileSync(require.resolve('../scripts/backfill-merge-evidence'), 'utf8');
 const repairComicLikeBooksSource = fs.readFileSync(require.resolve('../scripts/repair-comic-like-books'), 'utf8');
@@ -1613,6 +1615,25 @@ results.push(run('repo includes import normalization review smoke coverage for m
   assert.ok(importNormalizationReviewSmokeSource.includes('normalization_series_issue'));
   assert.ok(importNormalizationReviewSmokeSource.includes('normalization_review_candidate_count'));
   assert.ok(importNormalizationReviewSmokeSource.includes('/api/media/import-csv?sync=1'));
+}));
+
+results.push(run('repo includes repeat-sync idempotency smoke coverage for csv import families', () => {
+  assert.ok(backendPackageJson.scripts['test:repeat-sync-idempotency-smoke']);
+  assert.ok(repeatSyncIdempotencySmokeSource.includes('/api/media/import-csv?sync=1'));
+  assert.ok(repeatSyncIdempotencySmokeSource.includes('/api/media/import-csv/calibre?sync=1'));
+  assert.ok(repeatSyncIdempotencySmokeSource.includes('/api/media/import-csv/delicious?sync=1'));
+  assert.ok(repeatSyncIdempotencySmokeSource.includes('secondUpdated'));
+  assert.ok(repeatSyncIdempotencySmokeSource.includes('scopedCount'));
+}));
+
+results.push(run('repo includes cross-source canonical reuse smoke coverage for csv import families', () => {
+  assert.ok(backendPackageJson.scripts['test:cross-source-canonical-reuse-smoke']);
+  assert.ok(crossSourceCanonicalReuseSmokeSource.includes('/api/media/import-csv?sync=1'));
+  assert.ok(crossSourceCanonicalReuseSmokeSource.includes('/api/media/import-csv/calibre?sync=1'));
+  assert.ok(crossSourceCanonicalReuseSmokeSource.includes('/api/media/import-csv/delicious?sync=1'));
+  assert.ok(crossSourceCanonicalReuseSmokeSource.includes('canonicalId'));
+  assert.ok(crossSourceCanonicalReuseSmokeSource.includes('canonicalImportSource'));
+  assert.ok(crossSourceCanonicalReuseSmokeSource.includes('scopedCount'));
 }));
 
 results.push(run('repo includes dry-run historical repair plan coverage for duplicate and type-repair reporting', () => {

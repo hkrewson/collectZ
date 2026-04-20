@@ -3351,7 +3351,7 @@ Historical note:
 
 **Goal:** Prove that merged canonical records survive repeat imports and later syncs across supported providers without silently recreating duplicates or attaching conflicting identities to the wrong row.
 
-**Current Slice:** `Metron Re-Sync Alias Smoke`
+**Current Slice:** `Cross-Source Canonical Reuse Smoke`
 
 ### Scope
 
@@ -3379,6 +3379,16 @@ Historical note:
 - Use the real `POST /api/media/import-comics?sync=1` path, not a mock-only helper.
 - Prefer a fake Metron provider that exercises the real collection and issue-detail fetch flow over a direct DB-only proof.
 - Verify that alias-preserved canonical reuse updates the merged canonical comic instead of creating a new duplicate row.
+- Follow with the CSV-family import endpoints because they are the widest repeat-import surface today:
+  - generic CSV,
+  - Calibre CSV,
+  - Delicious CSV.
+- Prove each supported CSV import path is idempotent when the same source payload is imported twice into the same scope.
+- Then prove the same scoped title can move across different import families without forking into duplicates:
+  - create from one source,
+  - update from a second source,
+  - update again from a third source,
+  - while preserving one canonical row.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
