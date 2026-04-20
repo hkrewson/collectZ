@@ -38,6 +38,7 @@
     "test:manual-merge-plex-identity-alias-smoke": "node scripts/manual-merge-plex-identity-alias-smoke.js",
     "test:help-releases-smoke": "node scripts/help-releases-smoke.js",
     "test:manual-merge-revert-smoke": "node scripts/manual-merge-revert-smoke.js",
+    "test:manual-merge-revert-resync-integrity-smoke": "node scripts/manual-merge-revert-resync-integrity-smoke.js",
     "test:manual-merge-recommendations-smoke": "node scripts/manual-merge-recommendations-smoke.js",
     "test:manual-merge-recommendation-restore-smoke": "node scripts/manual-merge-recommendation-restore-smoke.js",
     "test:duplicate-discovery-smoke": "node scripts/duplicate-discovery-smoke.js",

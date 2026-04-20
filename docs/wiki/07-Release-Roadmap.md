@@ -3351,7 +3351,7 @@ Historical note:
 
 **Goal:** Prove that merged canonical records survive repeat imports and later syncs across supported providers without silently recreating duplicates or attaching conflicting identities to the wrong row.
 
-**Current Slice:** `Multi-Hop Merge Alias Smoke`
+**Current Slice:** `Merge Revert Re-Sync Integrity Smoke`
 
 ### Scope
 
@@ -3394,6 +3394,11 @@ Historical note:
   - merge canonical A into canonical C,
   - reimport identities from both A and B,
   - and confirm they both resolve to C.
+- Finally prove revert integrity:
+  - merge a duplicate into a canonical row,
+  - revert that merge,
+  - reimport the old duplicate identity,
+  - and confirm the restored duplicate row, not the former canonical, receives the update without creating a third row.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 

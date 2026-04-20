@@ -164,6 +164,7 @@ const repairBookComicMultiRevertSmokeSource = fs.readFileSync(require.resolve('.
 const manualMergePreviewSmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-preview-smoke'), 'utf8');
 const manualMergeApplySmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-apply-smoke'), 'utf8');
 const manualMergeRevertSmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-revert-smoke'), 'utf8');
+const manualMergeRevertResyncIntegritySmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-revert-resync-integrity-smoke'), 'utf8');
 const manualMergeRecommendationsSmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-recommendations-smoke'), 'utf8');
 const manualMergeRecommendationRejectSmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-recommendation-reject-smoke'), 'utf8');
 const manualMergeRecommendationRestoreSmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-recommendation-restore-smoke'), 'utf8');
@@ -1704,6 +1705,7 @@ results.push(run('repo includes manual merge preview smoke coverage for same-typ
   assert.ok(backendPackageJson.scripts['test:manual-merge-preview-smoke']);
   assert.ok(backendPackageJson.scripts['test:manual-merge-apply-smoke']);
   assert.ok(backendPackageJson.scripts['test:manual-merge-revert-smoke']);
+  assert.ok(backendPackageJson.scripts['test:manual-merge-revert-resync-integrity-smoke']);
   assert.ok(backendPackageJson.scripts['test:manual-merge-identity-alias-smoke']);
   assert.ok(backendPackageJson.scripts['test:manual-merge-multi-hop-identity-alias-smoke']);
   assert.ok(backendPackageJson.scripts['test:manual-merge-metron-identity-alias-smoke']);
@@ -1719,6 +1721,10 @@ results.push(run('repo includes manual merge preview smoke coverage for same-typ
   assert.ok(manualMergePreviewSmokeSource.includes('/api/media/merge-preview'));
   assert.ok(manualMergeApplySmokeSource.includes('/api/media/merge-apply'));
   assert.ok(manualMergeRevertSmokeSource.includes('/api/media/merge-revert'));
+  assert.ok(manualMergeRevertResyncIntegritySmokeSource.includes('/api/media/merge-revert'));
+  assert.ok(manualMergeRevertResyncIntegritySmokeSource.includes('/api/media/import-csv?sync=1'));
+  assert.ok(manualMergeRevertResyncIntegritySmokeSource.includes('aliasRemoved'));
+  assert.ok(manualMergeRevertResyncIntegritySmokeSource.includes('restoredDuplicateImportSource'));
   assert.ok(manualMergeIdentityAliasSmokeSource.includes('/api/media/import-csv?sync=1'));
   assert.ok(manualMergeIdentityAliasSmokeSource.includes('aliasStored'));
   assert.ok(manualMergeIdentityAliasSmokeSource.includes('matchedBy'));

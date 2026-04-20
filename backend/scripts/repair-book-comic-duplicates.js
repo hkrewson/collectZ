@@ -830,6 +830,29 @@ async function revertCanonicalMetadata(client, canonicalId, snapshot = {}, previ
   }
 }
 
+async function revertCanonicalIdentityAliases(client, canonicalRow, snapshot = {}, remainingHistories = []) {
+  const activeAliasKeys = new Set();
+  for (const history of remainingHistories) {
+    const entries = buildMediaIdentityAliasEntries({
+      mediaRow: history?.snapshot?.media || null,
+      snapshot: history?.snapshot || null
+    });
+    for (const entry of entries) {
+      if (entry?.key) activeAliasKeys.add(String(entry.key));
+    }
+  }
+
+  const revertedEntries = buildMediaIdentityAliasEntries({
+    mediaRow: snapshot?.media || null,
+    snapshot
+  });
+  for (const entry of revertedEntries) {
+    if (!entry?.key) continue;
+    if (activeAliasKeys.has(String(entry.key))) continue;
+    await deleteCanonicalMetadata(client, canonicalRow.id, String(entry.key));
+  }
+}
+
 async function revertCanonicalTaxonomyAndSeasons(client, canonicalId, snapshot = {}, context = {}) {
   const previousSeasonNumbers = new Set((context.previousCanonicalSeasonNumbers || []).map((value) => Number(value)));
   for (const row of snapshot.media_seasons || []) {
@@ -939,6 +962,7 @@ async function revertDuplicateAttachIntoSeparateRow(client, canonicalRow, duplic
     restoredCanonicalFormatState.owned_formats
   );
   await revertCanonicalMetadata(client, canonicalRow.id, snapshot, context.previousCanonicalMetadata || []);
+  await revertCanonicalIdentityAliases(client, canonicalRow, snapshot, remainingActiveHistories);
   await revertCanonicalTaxonomyAndSeasons(client, canonicalRow.id, snapshot, context);
   if (history) {
     await markDuplicateAttachHistoryReverted(client, canonicalRow.id, duplicateId);
