@@ -1,6 +1,6 @@
 {
   "name": "mediavault-backend",
-  "version": "3.1.6",
+  "version": "3.2.0",
   "description": "collectZ Backend API",
   "main": "server.js",
   "scripts": {
@@ -32,6 +32,7 @@
     "test:manual-merge-apply-smoke": "node scripts/manual-merge-apply-smoke.js",
     "test:manual-merge-identity-alias-smoke": "node scripts/manual-merge-identity-alias-smoke.js",
     "test:manual-merge-plex-identity-alias-smoke": "node scripts/manual-merge-plex-identity-alias-smoke.js",
+    "test:help-releases-smoke": "node scripts/help-releases-smoke.js",
     "test:manual-merge-revert-smoke": "node scripts/manual-merge-revert-smoke.js",
     "test:manual-merge-recommendations-smoke": "node scripts/manual-merge-recommendations-smoke.js",
     "test:manual-merge-recommendation-restore-smoke": "node scripts/manual-merge-recommendation-restore-smoke.js",

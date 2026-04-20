@@ -38,6 +38,11 @@ function enforceScopeAccess(options = {}) {
         req.path === '/select'
         && String(req.baseUrl || '').endsWith('/libraries')
       );
+      const isLibraryCreatePath = (
+        req.path === '/'
+        && String(req.baseUrl || '').endsWith('/libraries')
+        && String(req.method || '').toUpperCase() === 'POST'
+      );
 
       if (
         role === 'admin'
@@ -71,7 +76,7 @@ function enforceScopeAccess(options = {}) {
         if (hints.libraryProvided) resolvedLibraryId = hints.libraryId;
       }
 
-      if (!resolvedLibraryId && userId && role !== 'admin') {
+      if (!resolvedLibraryId && userId && role !== 'admin' && !isLibraryCreatePath) {
         const fallbackLibrary = await pool.query(
           `SELECT l.id, l.space_id
            FROM library_memberships lm
@@ -94,7 +99,7 @@ function enforceScopeAccess(options = {}) {
         }
       }
 
-      if (resolvedLibraryId) {
+      if (resolvedLibraryId && !isLibraryCreatePath) {
         const libraryLookup = await pool.query(
           `SELECT id, space_id
            FROM libraries

@@ -167,6 +167,7 @@ const manualMergeRecommendationRejectSmokeSource = fs.readFileSync(require.resol
 const manualMergeRecommendationRestoreSmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-recommendation-restore-smoke'), 'utf8');
 const manualMergeIdentityAliasSmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-identity-alias-smoke'), 'utf8');
 const manualMergePlexIdentityAliasSmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-plex-identity-alias-smoke'), 'utf8');
+const helpReleasesSmokeSource = fs.readFileSync(require.resolve('../scripts/help-releases-smoke'), 'utf8');
 const collectionDuplicatePreviewSmokeSource = fs.readFileSync(require.resolve('../scripts/collection-duplicate-preview-smoke'), 'utf8');
 const collectionMergeApplyRevertSmokeSource = fs.readFileSync(require.resolve('../scripts/collection-merge-apply-revert-smoke'), 'utf8');
 const comicDuplicateCandidatesSmokeSource = fs.readFileSync(require.resolve('../scripts/comic-duplicate-candidates-smoke'), 'utf8');
@@ -1682,6 +1683,7 @@ results.push(run('repo includes manual merge preview smoke coverage for same-typ
   assert.ok(backendPackageJson.scripts['test:manual-merge-revert-smoke']);
   assert.ok(backendPackageJson.scripts['test:manual-merge-identity-alias-smoke']);
   assert.ok(backendPackageJson.scripts['test:manual-merge-plex-identity-alias-smoke']);
+  assert.ok(backendPackageJson.scripts['test:help-releases-smoke']);
   assert.ok(backendPackageJson.scripts['test:manual-merge-recommendations-smoke']);
   assert.ok(backendPackageJson.scripts['test:manual-merge-recommendation-restore-smoke']);
   assert.ok(backendPackageJson.scripts['test:comic-duplicate-candidates-smoke']);
@@ -1700,6 +1702,9 @@ results.push(run('repo includes manual merge preview smoke coverage for same-typ
   assert.ok(manualMergePlexIdentityAliasSmokeSource.includes("buildMediaIdentityAliasKey('plexGuid'"));
   assert.ok(manualMergePlexIdentityAliasSmokeSource.includes("buildMediaIdentityAliasKey('plexItemKey'"));
   assert.ok(manualMergePlexIdentityAliasSmokeSource.includes('Imported from Plex section 1'));
+  assert.ok(helpReleasesSmokeSource.includes('/api/support/releases?limit=5'));
+  assert.ok(helpReleasesSmokeSource.includes('EXPECTED_VERSION'));
+  assert.ok(helpReleasesSmokeSource.includes('foundExpectedVersion'));
   assert.ok(manualMergeRecommendationsSmokeSource.includes('/api/media/merge-recommendations'));
   assert.ok(comicDuplicateCandidatesSmokeSource.includes('/api/media/comics/duplicate-candidates'));
   assert.ok(manualMergeRecommendationRejectSmokeSource.includes('/api/media/merge-recommendations/reject'));
@@ -3001,6 +3006,9 @@ results.push(run('scope access source enforces explicit space membership for non
   assert.ok(scopeAccessSource.includes('sm.suspended_at IS NULL'));
   assert.ok(scopeAccessSource.includes('space_membership_required'));
   assert.ok(scopeAccessSource.includes('admin_support_session_required'));
+  assert.ok(scopeAccessSource.includes('const isLibraryCreatePath = ('));
+  assert.ok(scopeAccessSource.includes("String(req.method || '').toUpperCase() === 'POST'"));
+  assert.ok(scopeAccessSource.includes('!isLibraryCreatePath'));
 }));
 
 results.push(run('token auth sources derive fallback scope from accessible libraries', () => {

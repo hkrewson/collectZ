@@ -3228,7 +3228,7 @@ Historical note:
 
 **Goal:** Add a controlled operator-facing manual merge workflow so supported media types can be reviewed, compared, merged, and reverted intentionally without allowing unsafe cross-type merges.
 
-**Current Slice:** `3.2.0.36 — Plex Merge Identity Alias Runtime Proof`
+**Status:** Completed on `2026-04-19`
 
 - Start with same-type manual merge only:
   - books
@@ -3314,6 +3314,38 @@ Historical note:
   - rank high-confidence identity matches ahead of medium-confidence title/year matches,
   - let operators flow from a recommendation into the existing preview/apply path,
   - keep rejection/outcome learning for a later follow-up slice.
+
+### Milestone Closeout
+
+- Operators now have a full manual merge workflow across supported same-type media:
+  - preview,
+  - apply,
+  - revert,
+  - reject,
+  - defer,
+  - suppressed-pair history restore,
+  - duplicate discovery,
+  - collection duplicate review,
+  - inline lane-native review continuity.
+- Discovery hardening now blocks the highest-volume false-positive classes we encountered during operator review:
+  - franchise/series wrapper collisions,
+  - comic issue-title namespace mismatches,
+  - movie exact-title collisions with conflicting identity fields.
+- Good messy matches remain reviewable instead of disappearing behind over-tight rules:
+  - packaging-heavy movie titles,
+  - partial-director overlap,
+  - missing-one-side identifier cases.
+- Merge provenance is now a shared drawer primitive rather than a books/comics-only affordance.
+- Manual merge apply writes activity evidence and preserves absorbed provider/sync identities so future imports can resolve back to the canonical row.
+- Re-sync durability is runtime-proven today for:
+  - provider-item / Calibre-style alias reuse,
+  - Plex `plex_guid` / `plex_item_key` alias reuse.
+- The milestone closes with semver/release artifact alignment on `3.2.0`, including:
+  - synced app/package metadata,
+  - matching `docs/releases/v3.2.0.md`,
+  - regenerated `backend/release-feed.json`,
+  - authenticated running-stack `Help > Releases` proof on both platform and homelab containers.
+- The next priority moves into a new milestone focused on re-sync durability proofs rather than extending the manual merge milestone indefinitely.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 

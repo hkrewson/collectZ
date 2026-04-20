@@ -1,6 +1,39 @@
 {
   "releases": [
     {
+      "title": "v3.2.0",
+      "version": "3.2.0",
+      "date": "2026-04-19",
+      "status": "Completed",
+      "summary": "This minor release adds the first full operator-facing manual merge workflow across supported same-type media. Operators can now discover likely duplicates, review exact pairs inline, apply or revert merges, reject or defer bad matches, inspect suppressed history, work through comic duplicate runs more efficiently, and rely on preserved identity aliases so future provider and Plex syncs can resolve back to canonical merged records instead of recreating obvious duplicates.",
+      "details": [
+        {
+          "heading": "Manual merge workflow",
+          "bullets": [
+            "Added operator-only same-type merge preview, apply, and revert contracts for supported media families.",
+            "Added inline pair review inside merge-review lanes so operators can work inside discovery, recommended, comic, suppressed, and collection queues without context switching.",
+            "Added activity evidence for manual merge apply events and shared drawer-visible merge provenance across media drawers."
+          ]
+        },
+        {
+          "heading": "Recommendation and discovery review",
+          "bullets": [
+            "Added conservative merge recommendations, discovery queue surfacing, comic duplicate candidate review, and duplicate collection review.",
+            "Added operator outcomes for reject, defer, suppressed-history review, and restore-to-queue.",
+            "Tightened false-positive suppression for structured title families and conflicting movie identity fields while preserving good messy matches such as packaging-heavy movie variants."
+          ]
+        },
+        {
+          "heading": "Throughput and durability",
+          "bullets": [
+            "Added comic cluster pair selection, auto-advance, skip/defer handling, and remaining-count guidance for issue-level duplicate runs.",
+            "Preserved absorbed provider and Plex identities as canonical alias evidence during manual merge apply.",
+            "Added Docker-backed runtime proof that provider-item and Plex re-syncs can update canonical merged rows through preserved alias identity instead of recreating duplicates."
+          ]
+        }
+      ]
+    },
+    {
       "title": "v3.1.6",
       "version": "3.1.6",
       "date": "2026-04-18",
@@ -229,14 +262,6 @@
       "date": "2026-04-11",
       "status": "Completed",
       "summary": "This minor release adds the first optional market valuation foundation for collectZ. Workspace-scoped integrations can now carry valuation provider configuration, media records can store normalized read-only value bands, the library detail drawer can display and manually refresh valuation data, and imports can queue non-blocking follow-on valuation jobs for newly created media. The milestone keeps pricing optional, read-only, and safely decoupled from core catalog CRUD and import flows.",
-      "details": []
-    },
-    {
-      "title": "v2.10.17",
-      "version": "2.10.17",
-      "date": "2026-04-11",
-      "status": "Completed",
-      "summary": "This patch release finishes the workspace-owned member lifecycle foundation. Workspace owners and admins can now force password resets, suspend and restore members within the workspace boundary, invite a brand-new person to become the initial owner during workspace creation, and remove a member from a workspace without silently deleting the content they contributed there. The release keeps platform-global administration distinct from workspace-scoped lifecycle control and preserves the intended tenancy model.",
       "details": []
     }
   ]

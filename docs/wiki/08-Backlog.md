@@ -74,6 +74,30 @@ This file is the staging area for work that has not yet been assigned a release 
 - Dedupe quality meets target thresholds for comic-heavy datasets.
 - The UI workflow is simple enough for non-technical admins.
 
+### Backlog Item: Re-Sync Idempotency and Canonical Reuse Proofs
+**Type:** Deferred milestone
+**Tags:** `sync`, `dedupe`, `canonical-reuse`, `metron`, `plex`, `imports`
+
+**Goal:** Prove that merged canonical records survive repeat imports and later syncs across supported providers without silently recreating duplicates or attaching conflicting identities to the wrong row.
+
+**Scope**
+- Add Docker-backed runtime proofs for import and sync paths that can recreate duplicates after operator merges.
+- Prove alias-preserved canonical reuse when the same content is imported again from the same provider.
+- Prove repeat-sync idempotency where supported import contracts should update-or-no-op instead of create.
+- Keep the work proof-first rather than widening the merge UI unless a failing proof exposes a real runtime bug.
+- Prioritize:
+  - Metron re-sync alias proof
+  - repeat-sync idempotency smokes
+  - cross-source canonical reuse
+  - multi-hop merge alias reuse
+  - merge revert re-sync integrity
+
+**Acceptance Criteria**
+- Active provider/sync paths have concrete runtime smokes proving canonical reuse after merge.
+- Reimporting the same content on proven paths does not recreate duplicate rows in the active scope.
+- Failures identify the exact provider identity field or sync assumption that regressed.
+- The resulting proof matrix is strong enough to support future ingest and dedupe work without guesswork.
+
 ### Backlog Item: OPDS Sync Contract and Reader-Link Separation
 **Type:** Deferred milestone
 **Tags:** `digital-library`, `opds`, `cwa`, `sync`, `metadata`, `links`
