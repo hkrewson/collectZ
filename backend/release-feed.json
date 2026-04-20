@@ -1,6 +1,32 @@
 {
   "releases": [
     {
+      "title": "v3.2.1",
+      "version": "3.2.1",
+      "date": "2026-04-19",
+      "status": "Completed",
+      "summary": "This patch release hardens post-merge import durability. It adds runtime proof that canonical records survive repeat imports, cross-source imports, chained merge history, Metron re-syncs, Plex re-syncs, and merge reverts without silently recreating duplicates. It also fixes a real revert bug so absorbed identity aliases are removed from the former canonical when a merge is undone, allowing later imports to update the restored duplicate row cleanly.",
+      "details": [
+        {
+          "heading": "Re-sync durability proofs",
+          "bullets": [
+            "Added Docker-backed Metron re-sync alias proof for merged comic rows.",
+            "Added Docker-backed repeat-import idempotency proof for generic CSV, Calibre CSV, and Delicious CSV import families.",
+            "Added Docker-backed cross-source canonical reuse proof across generic CSV, Calibre CSV, and Delicious CSV.",
+            "Added Docker-backed multi-hop merge alias proof so historical provider identities from chained merges still resolve to the final canonical row.",
+            "Added Docker-backed merge revert re-sync integrity proof for restored duplicate rows."
+          ]
+        },
+        {
+          "heading": "Merge identity hardening",
+          "bullets": [
+            "Preserved canonical reuse behavior across provider-item, Plex, and Metron re-sync paths with explicit smoke coverage.",
+            "Fixed revert cleanup so duplicate-only identity alias metadata no longer remains attached to the former canonical after a merge is reverted."
+          ]
+        }
+      ]
+    },
+    {
       "title": "v3.2.0",
       "version": "3.2.0",
       "date": "2026-04-19",
@@ -254,14 +280,6 @@
       "date": "2026-04-12",
       "status": "Completed",
       "summary": "This major release completes the frontend build modernization from Create React App to Vite. The app now builds and runs through a single Vite-based toolchain for local development and production static assets, the nginx-served frontend image uses Vite output directly, the legacy CRA fallback rail is removed, and the repo has been re-proven against the live Docker stack and browser-regression suite on the final Vite-only state.",
-      "details": []
-    },
-    {
-      "title": "v2.11.0",
-      "version": "2.11.0",
-      "date": "2026-04-11",
-      "status": "Completed",
-      "summary": "This minor release adds the first optional market valuation foundation for collectZ. Workspace-scoped integrations can now carry valuation provider configuration, media records can store normalized read-only value bands, the library detail drawer can display and manually refresh valuation data, and imports can queue non-blocking follow-on valuation jobs for newly created media. The milestone keeps pricing optional, read-only, and safely decoupled from core catalog CRUD and import flows.",
       "details": []
     }
   ]

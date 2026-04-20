@@ -3400,6 +3400,21 @@ Historical note:
   - reimport the old duplicate identity,
   - and confirm the restored duplicate row, not the former canonical, receives the update without creating a third row.
 
+### Closeout Notes
+
+- `3.2.1` closed with Docker-backed runtime proof for:
+  - Metron re-sync alias reuse,
+  - CSV-family repeat-import idempotency,
+  - CSV-family cross-source canonical reuse,
+  - multi-hop merge alias reuse,
+  - merge revert re-sync integrity.
+- The milestone also fixed a real revert-path bug where duplicate-only preserved identity aliases could remain attached to the former canonical after revert.
+- Version closeout for `3.2.1` includes:
+  - synced app/package metadata,
+  - matching `docs/releases/v3.2.1.md`,
+  - regenerated `backend/release-feed.json`,
+  - authenticated running-stack `Help > Releases` proof on platform and homelab containers.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.
