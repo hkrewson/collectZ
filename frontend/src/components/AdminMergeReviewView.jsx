@@ -2199,6 +2199,7 @@ export default function AdminMergeReviewView({
           {discoverySummary ? (
             <div className="text-xs text-ghost">
               {selectedSectionLabel} · {discoverySummary.returned_candidates || 0} shown · {discoverySummary.shared_cover_candidates || 0} cover-path matches · {discoverySummary.exact_title_candidates || 0} exact-title matches
+              {Number(discoverySummary.normalized_movie_title_candidates || 0) > 0 ? ` · ${discoverySummary.normalized_movie_title_candidates || 0} normalized-movie-title matches` : ''}
             </div>
           ) : null}
           <input

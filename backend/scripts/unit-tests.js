@@ -25,7 +25,8 @@ const {
   extractStructuredTitleSignals,
   isStructuredTitlePairUnsafeForSharedCoverDiscovery,
   isTitleSafeForGenericYearRecommendation,
-  buildGenericManualMergeIdentity
+  buildGenericManualMergeIdentity,
+  normalizeMovieDiscoveryTitle
 } = require('../services/manualMergeRecommendations');
 const {
   buildMediaIdentityAliasKey,
@@ -432,6 +433,60 @@ results.push(run('manualMergeRecommendations suppresses movie discovery when str
       }
     ).sort(),
     ['director_conflict', 'original_title_conflict', 'runtime_conflict', 'tmdb_id_conflict', 'year_conflict'].sort()
+  );
+}));
+
+results.push(run('manualMergeRecommendations keeps packaging-heavy movie variants eligible for discovery', () => {
+  assert.strictEqual(
+    normalizeMovieDiscoveryTitle('Creating Rem Lezar 35th Anniversary Edition Blu-ray'),
+    'creating rem lezar'
+  );
+  assert.strictEqual(
+    normalizeMovieDiscoveryTitle('BLACK PANTHER US/EC/BD'),
+    'black panther'
+  );
+  assert.strictEqual(
+    normalizeMovieDiscoveryTitle('Avengers Infinity War 4K Ultra HD + Blu Ray + Digital Code'),
+    'avengers infinity war'
+  );
+  assert.deepStrictEqual(
+    assessMovieDiscoveryConflictReasons(
+      {
+        media_type: 'movie',
+        title: 'Creating Rem Lezar',
+        original_title: 'Creating Rem Lezar',
+        year: 2021,
+        tmdb_id: '124532',
+        director: 'Scott Zakarin',
+        runtime: 48
+      },
+      {
+        media_type: 'movie',
+        title: 'Creating Rem Lezar 35th Anniversary Edition Blu-ray',
+        year: 2023
+      }
+    ),
+    []
+  );
+  assert.deepStrictEqual(
+    assessMovieDiscoveryConflictReasons(
+      {
+        media_type: 'movie',
+        title: 'Avengers Infinity War 4K Ultra HD + Blu Ray + Digital Code',
+        year: 2018,
+        upc: '0786936858112',
+        director: 'Joe Russo, Anthony Russo'
+      },
+      {
+        media_type: 'movie',
+        title: 'Avengers: Infinity War',
+        year: 2018,
+        tmdb_id: '299536',
+        director: 'Joe Russo',
+        runtime: 149
+      }
+    ),
+    []
   );
 }));
 
@@ -3053,6 +3108,7 @@ results.push(run('admin merge review view posts preview requests and renders ope
   assert.ok(adminMergeReviewViewSource.includes("query.set('media_type', sectionFilter)"));
   assert.ok(adminMergeReviewViewSource.includes('Discovery queue'));
   assert.ok(adminMergeReviewViewSource.includes('Likely duplicates surfaced from lighter signals'));
+  assert.ok(adminMergeReviewViewSource.includes('normalized-movie-title matches'));
   assert.ok(adminMergeReviewViewSource.includes('Possible duplicates for:'));
   assert.ok(adminMergeReviewViewSource.includes('Clear focus'));
   assert.ok(adminMergeReviewViewSource.includes('Discovery candidate removed from the queue'));

@@ -57,7 +57,8 @@ const {
 const {
   assessMovieDiscoveryConflictReasons,
   buildGenericManualMergeIdentity,
-  isStructuredTitlePairUnsafeForSharedCoverDiscovery
+  isStructuredTitlePairUnsafeForSharedCoverDiscovery,
+  normalizeMovieDiscoveryTitle
 } = require('../services/manualMergeRecommendations');
 const {
   buildMediaIdentityAliasKey
@@ -554,6 +555,7 @@ function formatMergeMatchKind(kind = '', mediaType = '') {
   const normalizedMediaType = String(mediaType || '').trim();
   if (normalized === 'shared_cover_path') return 'Matched on shared cover art path';
   if (normalized === 'exact_title') return 'Matched on exact title';
+  if (normalized === 'normalized_movie_title') return 'Matched on normalized movie title';
   if (normalized === 'tmdb_id') return 'Matched on TMDB id';
   if (normalized === 'upc') return 'Matched on UPC';
   if (normalized === 'provider_item') return 'Matched on provider item';
@@ -907,6 +909,7 @@ async function loadScopedDuplicateDiscoveryCandidates({ scopeContext = null, lim
         returned_candidates: 0,
         shared_cover_candidates: 0,
         exact_title_candidates: 0,
+        normalized_movie_title_candidates: 0,
         focused_media_id: focusedMediaId,
         focused_title: null
       },
@@ -952,8 +955,16 @@ async function loadScopedDuplicateDiscoveryCandidates({ scopeContext = null, lim
           ...existing,
           signal,
           summary: formatMergeMatchKind(signal, canonical.media_type),
-          rationale: signal === 'shared_cover_path' ? ['poster_path'] : ['exact_title'],
-          rationale_labels: signal === 'shared_cover_path' ? ['Poster path'] : ['Exact title']
+          rationale: signal === 'shared_cover_path'
+            ? ['poster_path']
+            : signal === 'normalized_movie_title'
+              ? ['normalized_movie_title']
+              : ['exact_title'],
+          rationale_labels: signal === 'shared_cover_path'
+            ? ['Poster path']
+            : signal === 'normalized_movie_title'
+              ? ['Normalized movie title']
+              : ['Exact title']
         });
       }
       return;
@@ -966,8 +977,16 @@ async function loadScopedDuplicateDiscoveryCandidates({ scopeContext = null, lim
       confidence: signal === 'shared_cover_path' ? 'review' : 'review',
       signal,
       summary: formatMergeMatchKind(signal, canonical.media_type),
-      rationale: signal === 'shared_cover_path' ? ['poster_path'] : ['exact_title'],
-      rationale_labels: signal === 'shared_cover_path' ? ['Poster path'] : ['Exact title'],
+      rationale: signal === 'shared_cover_path'
+        ? ['poster_path']
+        : signal === 'normalized_movie_title'
+          ? ['normalized_movie_title']
+          : ['exact_title'],
+      rationale_labels: signal === 'shared_cover_path'
+        ? ['Poster path']
+        : signal === 'normalized_movie_title'
+          ? ['Normalized movie title']
+          : ['Exact title'],
       canonical: summarizeMergeSourceRow(canonical),
       duplicate: summarizeMergeSourceRow(duplicate),
       canonical_selection: {
@@ -980,10 +999,12 @@ async function loadScopedDuplicateDiscoveryCandidates({ scopeContext = null, lim
 
   const posterBuckets = new Map();
   const titleBuckets = new Map();
+  const normalizedMovieTitleBuckets = new Map();
   for (const row of normalizedRows) {
     const mediaType = String(row.media_type || '').trim();
     const posterPath = String(row.poster_path || '').trim();
     const normalizedTitle = normalizeText(row.title || '');
+    const normalizedMovieTitle = mediaType === 'movie' ? normalizeMovieDiscoveryTitle(row.title || '') : '';
     if (posterPath) {
       const key = `${mediaType}:poster:${posterPath}`;
       const bucket = posterBuckets.get(key) || [];
@@ -995,6 +1016,12 @@ async function loadScopedDuplicateDiscoveryCandidates({ scopeContext = null, lim
       const bucket = titleBuckets.get(key) || [];
       bucket.push(row);
       titleBuckets.set(key, bucket);
+    }
+    if (normalizedMovieTitle) {
+      const key = `${mediaType}:normalized_title:${normalizedMovieTitle}`;
+      const bucket = normalizedMovieTitleBuckets.get(key) || [];
+      bucket.push(row);
+      normalizedMovieTitleBuckets.set(key, bucket);
     }
   }
 
@@ -1018,8 +1045,18 @@ async function loadScopedDuplicateDiscoveryCandidates({ scopeContext = null, lim
     }
   }
 
+  for (const bucket of normalizedMovieTitleBuckets.values()) {
+    if (bucket.length < 2) continue;
+    const sortedRows = [...bucket].sort((left, right) => Number(left.id || 0) - Number(right.id || 0));
+    for (let index = 0; index < sortedRows.length - 1; index += 1) {
+      for (let offset = index + 1; offset < sortedRows.length; offset += 1) {
+        considerPair(sortedRows[index], sortedRows[offset], 'normalized_movie_title');
+      }
+    }
+  }
+
   const confidenceOrder = { review: 0 };
-  const signalOrder = { shared_cover_path: 0, exact_title: 1 };
+  const signalOrder = { shared_cover_path: 0, exact_title: 1, normalized_movie_title: 2 };
   const allItems = Array.from(candidateMap.values()).sort((left, right) => {
     const signalDelta = (signalOrder[left.signal] ?? 99) - (signalOrder[right.signal] ?? 99);
     if (signalDelta !== 0) return signalDelta;
@@ -1035,6 +1072,7 @@ async function loadScopedDuplicateDiscoveryCandidates({ scopeContext = null, lim
       returned_candidates: limitedItems.length,
       shared_cover_candidates: allItems.filter((item) => item.signal === 'shared_cover_path').length,
       exact_title_candidates: allItems.filter((item) => item.signal === 'exact_title').length,
+      normalized_movie_title_candidates: allItems.filter((item) => item.signal === 'normalized_movie_title').length,
       focused_media_id: focusedMediaId,
       focused_title: focusRow?.title || null
     },

@@ -323,6 +323,80 @@ async function main() {
       userId,
       importSource: 'csv_generic'
     });
+    const creatingRemLezarId = await createMediaRow({
+      title: 'Creating Rem Lezar',
+      mediaType: 'movie',
+      year: 2021,
+      posterPath: '/creating-rem-lezar-a.jpg',
+      originalTitle: 'Creating Rem Lezar',
+      director: 'Scott Zakarin',
+      runtime: 48,
+      tmdbId: '124532',
+      libraryId,
+      spaceId,
+      userId,
+      importSource: 'plex'
+    });
+    const creatingRemLezarAnniversaryId = await createMediaRow({
+      title: 'Creating Rem Lezar 35th Anniversary Edition Blu-ray',
+      mediaType: 'movie',
+      year: 2023,
+      posterPath: '/creating-rem-lezar-b.jpg',
+      libraryId,
+      spaceId,
+      userId,
+      importSource: 'csv_delicious'
+    });
+    const blackPantherPlexId = await createMediaRow({
+      title: 'Black Panther',
+      mediaType: 'movie',
+      year: 2018,
+      posterPath: '/black-panther-a.jpg',
+      director: 'Ryan Coogler',
+      runtime: 135,
+      tmdbId: '284054',
+      libraryId,
+      spaceId,
+      userId,
+      importSource: 'plex'
+    });
+    const blackPantherPackagingId = await createMediaRow({
+      title: 'BLACK PANTHER US/EC/BD',
+      mediaType: 'movie',
+      year: 2018,
+      posterPath: '/black-panther-b.jpg',
+      director: 'Ryan Coogler',
+      upc: '0786936856330',
+      libraryId,
+      spaceId,
+      userId,
+      importSource: 'csv_delicious'
+    });
+    const infinityWarPackagingId = await createMediaRow({
+      title: 'Avengers Infinity War 4K Ultra HD + Blu Ray + Digital Code',
+      mediaType: 'movie',
+      year: 2018,
+      posterPath: '/infinity-war-a.jpg',
+      director: 'Joe Russo, Anthony Russo',
+      upc: '0786936858112',
+      libraryId,
+      spaceId,
+      userId,
+      importSource: 'csv_delicious'
+    });
+    const infinityWarPlexId = await createMediaRow({
+      title: 'Avengers: Infinity War',
+      mediaType: 'movie',
+      year: 2018,
+      posterPath: '/infinity-war-b.jpg',
+      director: 'Joe Russo',
+      runtime: 149,
+      tmdbId: '299536',
+      libraryId,
+      spaceId,
+      userId,
+      importSource: 'plex'
+    });
 
     const response = await client.request(`/api/media/discovery-candidates?limit=12&media_id=${exactTitleLeftId}`, {
       method: 'GET',
@@ -355,7 +429,22 @@ async function main() {
       method: 'GET',
       expectStatus: 200
     });
+    const creatingRemLezarResponse = await client.request(`/api/media/discovery-candidates?limit=12&media_id=${creatingRemLezarId}`, {
+      method: 'GET',
+      expectStatus: 200
+    });
+    const blackPantherResponse = await client.request(`/api/media/discovery-candidates?limit=12&media_id=${blackPantherPlexId}`, {
+      method: 'GET',
+      expectStatus: 200
+    });
+    const infinityWarResponse = await client.request(`/api/media/discovery-candidates?limit=12&media_id=${infinityWarPackagingId}`, {
+      method: 'GET',
+      expectStatus: 200
+    });
     const broadItems = Array.isArray(broadResponse.data?.items) ? broadResponse.data.items : [];
+    const creatingRemLezarItems = Array.isArray(creatingRemLezarResponse.data?.items) ? creatingRemLezarResponse.data.items : [];
+    const blackPantherItems = Array.isArray(blackPantherResponse.data?.items) ? blackPantherResponse.data.items : [];
+    const infinityWarItems = Array.isArray(infinityWarResponse.data?.items) ? infinityWarResponse.data.items : [];
     const gorkhaConflictCandidate = broadItems.find((item) => {
       const left = Number(item?.canonical?.id || 0);
       const right = Number(item?.duplicate?.id || 0);
@@ -371,6 +460,21 @@ async function main() {
       const right = Number(item?.duplicate?.id || 0);
       return [left, right].includes(starQuestAnimeId) && [left, right].includes(starQuestTerminalVoyageId);
     });
+    const creatingRemLezarCandidate = creatingRemLezarItems.find((item) => {
+      const left = Number(item?.canonical?.id || 0);
+      const right = Number(item?.duplicate?.id || 0);
+      return [left, right].includes(creatingRemLezarId) && [left, right].includes(creatingRemLezarAnniversaryId);
+    });
+    const blackPantherCandidate = blackPantherItems.find((item) => {
+      const left = Number(item?.canonical?.id || 0);
+      const right = Number(item?.duplicate?.id || 0);
+      return [left, right].includes(blackPantherPlexId) && [left, right].includes(blackPantherPackagingId);
+    });
+    const infinityWarCandidate = infinityWarItems.find((item) => {
+      const left = Number(item?.canonical?.id || 0);
+      const right = Number(item?.duplicate?.id || 0);
+      return [left, right].includes(infinityWarPackagingId) && [left, right].includes(infinityWarPlexId);
+    });
 
     assert(response.data?.focus?.id === exactTitleLeftId, 'Expected focused discovery record in response');
     assert(focusedCandidate, 'Expected exact-title discovery candidate for focused record');
@@ -383,6 +487,9 @@ async function main() {
     assert(!gorkhaConflictCandidate, 'Expected movie shared-cover candidates with conflicting strong identity fields to stay out of discovery');
     assert(!futureShockConflictCandidate, 'Expected exact-title movie candidates with conflicting tmdb, upc, year, and director fields to stay out of discovery');
     assert(!starQuestConflictCandidate, 'Expected exact-title movie candidates with conflicting original title, runtime, year, and director fields to stay out of discovery');
+    assert(creatingRemLezarCandidate?.signal === 'normalized_movie_title', 'Expected Creating Rem Lezar anniversary packaging variant to surface through normalized movie title discovery');
+    assert(blackPantherCandidate?.signal === 'normalized_movie_title', 'Expected Black Panther packaging variant to surface through normalized movie title discovery');
+    assert(infinityWarCandidate?.signal === 'normalized_movie_title', 'Expected Infinity War packaging variant to surface through normalized movie title discovery');
 
     await client.request('/api/media/merge-recommendations/reject', {
       method: 'POST',
@@ -422,6 +529,7 @@ async function main() {
       focusedTitle: response.data?.focus?.title || null,
       returnedCandidates: Number(response.data?.summary?.returned_candidates || 0),
       exactTitleCandidates: Number(response.data?.summary?.exact_title_candidates || 0),
+      normalizedMovieTitleCandidates: Number(broadResponse.data?.summary?.normalized_movie_title_candidates || 0),
       firstSignal: focusedCandidate.signal,
       firstSummary: focusedCandidate.summary,
       discoveryRejected: true,

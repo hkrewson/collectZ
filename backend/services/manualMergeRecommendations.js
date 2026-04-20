@@ -11,11 +11,75 @@ const GENERIC_SUBTITLE_TOKENS = new Set([
   'the series',
   'complete series'
 ]);
+const MOVIE_TITLE_NOISE_TOKENS = new Set([
+  '4k',
+  'uhd',
+  'ultra',
+  'hd',
+  'bluray',
+  'blu',
+  'ray',
+  'bd',
+  'dvd',
+  'digital',
+  'code',
+  'copy',
+  'edition',
+  'anniversary',
+  'special',
+  'collectors',
+  'collector',
+  'ultimate',
+  'ultraviolet',
+  'uv',
+  'combo',
+  'ec',
+  'us'
+]);
 
 function normalizeComparableIdentityText(value = '') {
   const raw = String(value || '').trim();
   if (!raw) return '';
   return normalizeText(raw) || raw.toLowerCase();
+}
+
+function normalizeMovieDiscoveryTitle(title = '') {
+  const base = normalizeText(title || '');
+  if (!base) return '';
+  let normalized = base
+    .replace(/\b\d+(?:st|nd|rd|th)\s+anniversary(?:\s+edition)?\b/g, ' ')
+    .replace(/\b(?:theatrical|extended|remastered|restored|uncut|limited|collector(?:s)?|special)\s+edition\b/g, ' ')
+    .replace(/\b(?:digital\s+(?:copy|code|hd)|blu\s*ray|bluray|4k\s+ultra\s+hd|ultra\s+hd)\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const tokens = normalized.split(' ').filter(Boolean);
+  while (tokens.length > 1) {
+    const last = tokens[tokens.length - 1];
+    if (!MOVIE_TITLE_NOISE_TOKENS.has(last)) break;
+    tokens.pop();
+  }
+  if (tokens.length > 1 && /^\d+(?:st|nd|rd|th)?$/.test(tokens[tokens.length - 1])) {
+    tokens.pop();
+  }
+  normalized = tokens.join(' ').trim();
+  return normalized || base;
+}
+
+function normalizeDirectorNameTokens(value = '') {
+  return Array.from(new Set(
+    String(value || '')
+      .split(/\s*(?:,|&|\band\b)\s*/i)
+      .map((entry) => normalizeComparableIdentityText(entry))
+      .filter(Boolean)
+  ));
+}
+
+function haveOverlappingDirectorTokens(leftValue = '', rightValue = '') {
+  const leftTokens = normalizeDirectorNameTokens(leftValue);
+  const rightTokens = normalizeDirectorNameTokens(rightValue);
+  if (leftTokens.length === 0 || rightTokens.length === 0) return false;
+  return leftTokens.some((token) => rightTokens.includes(token));
 }
 
 function buildStructuredTitleNamespace(raw = '') {
@@ -109,8 +173,10 @@ function assessMovieDiscoveryConflictReasons(leftRow = {}, rightRow = {}) {
   if (leftTmdbId && rightTmdbId && leftTmdbId !== rightTmdbId) reasons.push('tmdb_id_conflict');
   if (leftUpc && rightUpc && leftUpc !== rightUpc) reasons.push('upc_conflict');
   if (leftOriginalTitle && rightOriginalTitle && leftOriginalTitle !== rightOriginalTitle) reasons.push('original_title_conflict');
-  if (leftDirector && rightDirector && leftDirector !== rightDirector) reasons.push('director_conflict');
-  if (leftYear && rightYear && Math.abs(leftYear - rightYear) >= 2) reasons.push('year_conflict');
+  if (leftDirector && rightDirector && leftDirector !== rightDirector && !haveOverlappingDirectorTokens(leftRow.director || '', rightRow.director || '')) {
+    reasons.push('director_conflict');
+  }
+  if (leftYear && rightYear && Math.abs(leftYear - rightYear) >= 3) reasons.push('year_conflict');
   if (leftRuntime && rightRuntime && Math.abs(leftRuntime - rightRuntime) >= 10) reasons.push('runtime_conflict');
 
   return reasons;
@@ -178,5 +244,6 @@ module.exports = {
   extractStructuredTitleSignals,
   isStructuredTitlePairUnsafeForSharedCoverDiscovery,
   isTitleSafeForGenericYearRecommendation,
-  buildGenericManualMergeIdentity
+  buildGenericManualMergeIdentity,
+  normalizeMovieDiscoveryTitle
 };
