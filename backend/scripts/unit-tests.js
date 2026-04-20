@@ -1787,6 +1787,9 @@ results.push(run('repo includes local release preflight helper coverage for depe
   assert.ok(releasePreflightLocalSource.includes('preflight-go-no-go.md'));
   assert.ok(releasePreflightLocalSource.includes('Compose smoke basics'));
   assert.ok(releasePreflightLocalSource.includes('Secret scan'));
+  assert.ok(releasePreflightLocalSource.includes('RELEASE_PREFLIGHT_RUN_BROWSER'));
+  assert.ok(releasePreflightLocalSource.includes('Browser regression'));
+  assert.ok(releasePreflightLocalSource.includes('test:browser'));
   assert.ok(releasePreflightLocalSource.includes('Image security and SBOM'));
   assert.ok(releasePreflightLocalSource.includes('test:integration-smoke'));
   assert.ok(releasePreflightLocalSource.includes('/api/auth/csrf-token'));

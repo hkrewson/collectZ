@@ -1,6 +1,6 @@
 {
   "name": "mediavault-backend",
-  "version": "3.2.1",
+  "version": "3.2.2",
   "description": "collectZ Backend API",
   "main": "server.js",
   "scripts": {
@@ -83,6 +83,7 @@
     "nodemon": "^3.0.2"
   },
   "overrides": {
+    "follow-redirects": "1.16.0",
     "path-to-regexp": "0.1.13",
     "nodemon": {
       "minimatch": "10.2.3"

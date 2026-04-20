@@ -317,6 +317,7 @@ test.describe('admin shell browser regressions', () => {
       await signInThroughUi(page, adminCredentials);
       await page.goto('/dashboard?tab=admin-merges');
 
+      await page.getByRole('tab', { name: 'Collections' }).click();
       await page.getByPlaceholder('Search duplicate collections').fill(collectionTitle);
       await expect(page.getByText(collectionTitle).first()).toBeVisible();
 

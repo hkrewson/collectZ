@@ -27,6 +27,7 @@ const initParityEvidencePath = path.join(repoRoot, 'artifacts', 'init-parity-evi
 const migrationRehearsalEvidencePath = path.join(repoRoot, 'artifacts', 'migration-rehearsal-evidence', 'migration-rehearsal-evidence.json');
 const observabilityEvidencePath = path.join(repoRoot, 'artifacts', 'observability-evidence', 'observability-release-evidence.json');
 const releaseNotePath = path.join(repoRoot, 'docs', 'releases', `v${appMeta.version}.md`);
+const browserRegressionSpec = 'tests/playwright/specs/admin-shell.browser.spec.js';
 
 function ensureDir(dirPath) {
   fs.mkdirSync(dirPath, { recursive: true });
@@ -260,6 +261,42 @@ async function runComposeSmokeBasics() {
   }
 }
 
+function runOptionalBrowserRegression() {
+  if (String(process.env.RELEASE_PREFLIGHT_RUN_BROWSER || '') !== '1') {
+    return buildGate('Browser regression', 'BLOCKED', 'not run by this local preflight helper');
+  }
+  if (!String(process.env.PLAYWRIGHT_E2E_BYPASS_TOKEN || '').trim()) {
+    return buildGate('Browser regression', 'BLOCKED', 'missing PLAYWRIGHT_E2E_BYPASS_TOKEN for local browser run');
+  }
+
+  const browserResult = runCommand(
+    'npm',
+    ['run', 'test:browser', '--', browserRegressionSpec],
+    {
+      cwd: repoRoot,
+      env: {
+        ...process.env,
+        PLAYWRIGHT_E2E_BYPASS_TOKEN: String(process.env.PLAYWRIGHT_E2E_BYPASS_TOKEN || '')
+      }
+    }
+  );
+
+  if (browserResult.status === 0) {
+    return buildGate('Browser regression', 'PASS', 'local Playwright admin shell regression passed');
+  }
+
+  const output = `${String(browserResult.stdout || '')}\n${String(browserResult.stderr || '')}`.trim();
+  if (/bootstrap_check_in/i.test(output) || /Permission denied \(1100\)/i.test(output)) {
+    return buildGate('Browser regression', 'BLOCKED', 'local Chromium launcher is blocked in this shell');
+  }
+
+  return buildGate('Browser regression', 'FAIL', 'local Playwright admin shell regression failed', {
+    exitCode: browserResult.status,
+    stdout: String(browserResult.stdout || '').trim(),
+    stderr: String(browserResult.stderr || '').trim()
+  });
+}
+
 function buildMarkdownReport({ gates, noteExists, noteText }) {
   const lines = [];
   lines.push('# Local Release Go/No-Go Preflight');
@@ -297,7 +334,7 @@ function buildMarkdownReport({ gates, noteExists, noteText }) {
   lines.push('## CI-Only Follow-Through');
   lines.push('');
   lines.push('- `secret-scan`');
-  lines.push('- `browser-regression` when the local browser environment is blocked');
+  lines.push('- `browser-regression` when it is not run locally or the local browser environment is blocked');
   lines.push('- `image-security-and-sbom`');
   lines.push('- any stricter CI `compose-smoke` conditions not exercised by this local helper');
   return `${lines.join('\n')}\n`;
@@ -381,7 +418,7 @@ async function main() {
 
   gates.push(await runComposeSmokeBasics());
   gates.push(buildGate('Secret scan', 'BLOCKED', 'CI-only gitleaks gate'));
-  gates.push(buildGate('Browser regression', 'BLOCKED', 'requires CI or an unrestricted local Chromium environment'));
+  gates.push(runOptionalBrowserRegression());
   gates.push(buildGate('Image security and SBOM', 'BLOCKED', 'CI-only Trivy/SBOM gate'));
 
   const report = buildMarkdownReport({ gates, noteExists, noteText });

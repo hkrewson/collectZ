@@ -3419,6 +3419,7 @@ Historical note:
 
 **Goal:** Reduce the gap between local release closeout evidence and the CI gates that still decide whether a patch is truly ready to ship.
 
+**Status:** Completed.
 **Current Slice:** `Local Preflight Audit and Go/No-Go Report`
 
 ### Scope
@@ -3455,6 +3456,24 @@ Historical note:
   - API integration smoke.
 - Make blocked CI-only gates explicit in the generated report instead of silently omitting them.
 - Keep the helper text aligned with `docs/wiki/17-Release-Go-No-Go-Checklist.md` and `.github/workflows/docker-publish.yml`.
+
+### Closeout Notes
+
+- `3.2.2` closed with:
+  - repo-native local release preflight generation,
+  - regenerated dependency-audit artifacts,
+  - a refreshed `preflight-go-no-go.md`,
+  - `follow-redirects` remediation to `1.16.0` in backend and frontend dependency trees,
+  - browser-regression proof updated for the current tabbed merge-review flow.
+- Version closeout for `3.2.2` includes:
+  - semver/app metadata sync to `3.2.2`,
+  - matching `docs/releases/v3.2.2.md`,
+  - regenerated `backend/release-feed.json`,
+  - running-stack `Help > Releases` verification on platform and homelab.
+- Remaining release follow-through stays in CI:
+  - `secret-scan`,
+  - `image-security-and-sbom`,
+  - stricter CI `compose-smoke` conditions beyond the local development stack's secure-cookie profile.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 

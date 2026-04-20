@@ -1,6 +1,30 @@
 {
   "releases": [
     {
+      "title": "v3.2.2",
+      "version": "3.2.2",
+      "date": "2026-04-19",
+      "status": "Completed",
+      "summary": "This patch release hardens release readiness evidence. It adds a repo-native local preflight helper that generates dependency audit artifacts and a go/no-go report from live stack evidence, and it remediates the `follow-redirects` dependency advisory in both backend and frontend package trees so the local dependency audit closes cleanly before release.",
+      "details": [
+        {
+          "heading": "Release evidence hardening",
+          "bullets": [
+            "Added a local release preflight helper that generates:",
+            "Made the local preflight explicitly distinguish:",
+            "Aligned the release checklist docs with the new preflight workflow."
+          ]
+        },
+        {
+          "heading": "Dependency remediation",
+          "bullets": [
+            "Added package overrides so backend and frontend resolve `follow-redirects` to `1.16.0`.",
+            "Refreshed both lockfiles so local dependency audits no longer report the previously tracked moderate advisory."
+          ]
+        }
+      ]
+    },
+    {
       "title": "v3.2.1",
       "version": "3.2.1",
       "date": "2026-04-19",
@@ -273,14 +297,6 @@
           ]
         }
       ]
-    },
-    {
-      "title": "v3.0.0",
-      "version": "3.0.0",
-      "date": "2026-04-12",
-      "status": "Completed",
-      "summary": "This major release completes the frontend build modernization from Create React App to Vite. The app now builds and runs through a single Vite-based toolchain for local development and production static assets, the nginx-served frontend image uses Vite output directly, the legacy CRA fallback rail is removed, and the repo has been re-proven against the live Docker stack and browser-regression suite on the final Vite-only state.",
-      "details": []
     }
   ]
 }
