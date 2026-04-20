@@ -34,6 +34,7 @@
     "test:manual-merge-apply-smoke": "node scripts/manual-merge-apply-smoke.js",
     "test:manual-merge-identity-alias-smoke": "node scripts/manual-merge-identity-alias-smoke.js",
     "test:manual-merge-multi-hop-identity-alias-smoke": "node scripts/manual-merge-multi-hop-identity-alias-smoke.js",
+    "test:manual-merge-scope-isolation-resync-smoke": "node scripts/manual-merge-scope-isolation-resync-smoke.js",
     "test:manual-merge-metron-identity-alias-smoke": "node scripts/manual-merge-metron-identity-alias-smoke.js",
     "test:manual-merge-plex-identity-alias-smoke": "node scripts/manual-merge-plex-identity-alias-smoke.js",
     "test:help-releases-smoke": "node scripts/help-releases-smoke.js",

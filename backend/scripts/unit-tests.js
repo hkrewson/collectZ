@@ -171,6 +171,7 @@ const manualMergeRecommendationRejectSmokeSource = fs.readFileSync(require.resol
 const manualMergeRecommendationRestoreSmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-recommendation-restore-smoke'), 'utf8');
 const manualMergeIdentityAliasSmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-identity-alias-smoke'), 'utf8');
 const manualMergeMultiHopIdentityAliasSmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-multi-hop-identity-alias-smoke'), 'utf8');
+const manualMergeScopeIsolationResyncSmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-scope-isolation-resync-smoke'), 'utf8');
 const manualMergeMetronIdentityAliasSmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-metron-identity-alias-smoke'), 'utf8');
 const manualMergePlexIdentityAliasSmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-plex-identity-alias-smoke'), 'utf8');
 const helpReleasesSmokeSource = fs.readFileSync(require.resolve('../scripts/help-releases-smoke'), 'utf8');
@@ -1735,6 +1736,11 @@ results.push(run('repo includes manual merge preview smoke coverage for same-typ
   assert.ok(manualMergeMultiHopIdentityAliasSmokeSource.includes('secondImport'));
   assert.ok(manualMergeMultiHopIdentityAliasSmokeSource.includes('aliasKeys'));
   assert.ok(manualMergeMultiHopIdentityAliasSmokeSource.includes('finalCanonicalId'));
+  assert.ok(backendPackageJson.scripts['test:manual-merge-scope-isolation-resync-smoke']);
+  assert.ok(manualMergeScopeIsolationResyncSmokeSource.includes('/api/libraries/select'));
+  assert.ok(manualMergeScopeIsolationResyncSmokeSource.includes('/api/media/import-csv?sync=1'));
+  assert.ok(manualMergeScopeIsolationResyncSmokeSource.includes('Scope B untouched marker'));
+  assert.ok(manualMergeScopeIsolationResyncSmokeSource.includes('isolationPreserved'));
   assert.ok(manualMergeMetronIdentityAliasSmokeSource.includes('/api/media/import-comics?sync=1'));
   assert.ok(manualMergeMetronIdentityAliasSmokeSource.includes("buildMediaIdentityAliasKey('providerIssueId'"));
   assert.ok(manualMergeMetronIdentityAliasSmokeSource.includes('canonicalProviderIssueId'));

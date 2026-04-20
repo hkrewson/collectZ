@@ -3475,6 +3475,41 @@ Historical note:
   - `image-security-and-sbom`,
   - stricter CI `compose-smoke` conditions beyond the local development stack's secure-cookie profile.
 
+## 3.2.3 — Scope-Isolated Merge Re-Sync Boundaries
+
+**Goal:** Prove that preserved merge identities only resolve within the correct active scope so later re-syncs cannot update or recreate records in the wrong space or library when overlapping identifiers exist elsewhere.
+
+**Current Slice:** `Scope Isolation Re-Sync Smoke`
+
+### Scope
+
+- Add a Docker-backed runtime smoke that exercises post-merge re-sync behavior across more than one scope.
+- Prove that a re-sync in one scope reuses the intended canonical row only inside that same scope.
+- Prove that overlapping provider or alias identifiers in another scope do not get updated, absorbed, or recreated by the wrong re-sync.
+- Keep the patch focused on merge-boundary correctness rather than widening the operator merge UI.
+
+### Acceptance Criteria
+
+- A runtime smoke proves a merged canonical record is reused only inside its own scope on later re-sync.
+- The same incoming identifier does not attach to or mutate rows outside the active scope.
+- If the proof exposes a scope-resolution bug, the bug is fixed before `3.2.3` closes.
+- The milestone ends with a clear statement of what scope-isolated merge/re-sync behavior is now proven versus what remains future proof work.
+
+### Active Slice Notes
+
+- Start with the narrowest high-value boundary:
+  - one canonical merge in scope A,
+  - an overlapping external/provider identity in scope B,
+  - a later re-sync in scope A,
+  - and proof that only scope A is touched.
+- Prefer using a real supported re-sync path rather than a DB-only helper so the proof exercises the live route-level scope rules.
+- Treat this as the first promoted item from the merge-proof backlog rather than trying to solve the whole remaining matrix in one patch.
+- Keep the still-unscheduled follow-up proof families out of this milestone for now:
+  - provider-family cross-source canonical reuse beyond the current CSV matrix,
+  - collection re-sync boundary behavior,
+  - strong-id conflict guards,
+  - sparse-metadata alias reuse.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.
