@@ -3347,6 +3347,39 @@ Historical note:
   - authenticated running-stack `Help > Releases` proof on both platform and homelab containers.
 - The next priority moves into a new milestone focused on re-sync durability proofs rather than extending the manual merge milestone indefinitely.
 
+## 3.2.1 — Re-Sync Idempotency and Canonical Reuse Proofs
+
+**Goal:** Prove that merged canonical records survive repeat imports and later syncs across supported providers without silently recreating duplicates or attaching conflicting identities to the wrong row.
+
+**Current Slice:** `Metron Re-Sync Alias Smoke`
+
+### Scope
+
+- Add Docker-backed runtime proofs for import and sync paths that can recreate duplicates after operator merges.
+- Prove alias-preserved canonical reuse when the same content is imported again from the same provider.
+- Prove repeat-sync idempotency where supported import contracts should update-or-no-op instead of create.
+- Keep the work proof-first rather than widening the merge UI unless a failing proof exposes a real runtime bug.
+- Prioritize:
+  - Metron re-sync alias proof
+  - repeat-sync idempotency smokes
+  - cross-source canonical reuse
+  - multi-hop merge alias reuse
+  - merge revert re-sync integrity
+
+### Acceptance Criteria
+
+- Active provider/sync paths have concrete runtime smokes proving canonical reuse after merge.
+- Reimporting the same content on proven paths does not recreate duplicate rows in the active scope.
+- Failures identify the exact provider identity field or sync assumption that regressed.
+- The resulting proof matrix is strong enough to support future ingest and dedupe work without guesswork.
+
+### Active Slice Notes
+
+- Start with Metron/comics because that path still lacks the same post-merge re-sync proof we now have for provider-item imports and Plex.
+- Use the real `POST /api/media/import-comics?sync=1` path, not a mock-only helper.
+- Prefer a fake Metron provider that exercises the real collection and issue-detail fetch flow over a direct DB-only proof.
+- Verify that alias-preserved canonical reuse updates the merged canonical comic instead of creating a new duplicate row.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

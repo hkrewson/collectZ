@@ -31,6 +31,7 @@
     "test:manual-merge-preview-smoke": "node scripts/manual-merge-preview-smoke.js",
     "test:manual-merge-apply-smoke": "node scripts/manual-merge-apply-smoke.js",
     "test:manual-merge-identity-alias-smoke": "node scripts/manual-merge-identity-alias-smoke.js",
+    "test:manual-merge-metron-identity-alias-smoke": "node scripts/manual-merge-metron-identity-alias-smoke.js",
     "test:manual-merge-plex-identity-alias-smoke": "node scripts/manual-merge-plex-identity-alias-smoke.js",
     "test:help-releases-smoke": "node scripts/help-releases-smoke.js",
     "test:manual-merge-revert-smoke": "node scripts/manual-merge-revert-smoke.js",

@@ -166,6 +166,7 @@ const manualMergeRecommendationsSmokeSource = fs.readFileSync(require.resolve('.
 const manualMergeRecommendationRejectSmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-recommendation-reject-smoke'), 'utf8');
 const manualMergeRecommendationRestoreSmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-recommendation-restore-smoke'), 'utf8');
 const manualMergeIdentityAliasSmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-identity-alias-smoke'), 'utf8');
+const manualMergeMetronIdentityAliasSmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-metron-identity-alias-smoke'), 'utf8');
 const manualMergePlexIdentityAliasSmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-plex-identity-alias-smoke'), 'utf8');
 const helpReleasesSmokeSource = fs.readFileSync(require.resolve('../scripts/help-releases-smoke'), 'utf8');
 const collectionDuplicatePreviewSmokeSource = fs.readFileSync(require.resolve('../scripts/collection-duplicate-preview-smoke'), 'utf8');
@@ -1682,6 +1683,7 @@ results.push(run('repo includes manual merge preview smoke coverage for same-typ
   assert.ok(backendPackageJson.scripts['test:manual-merge-apply-smoke']);
   assert.ok(backendPackageJson.scripts['test:manual-merge-revert-smoke']);
   assert.ok(backendPackageJson.scripts['test:manual-merge-identity-alias-smoke']);
+  assert.ok(backendPackageJson.scripts['test:manual-merge-metron-identity-alias-smoke']);
   assert.ok(backendPackageJson.scripts['test:manual-merge-plex-identity-alias-smoke']);
   assert.ok(backendPackageJson.scripts['test:help-releases-smoke']);
   assert.ok(backendPackageJson.scripts['test:manual-merge-recommendations-smoke']);
@@ -1698,6 +1700,10 @@ results.push(run('repo includes manual merge preview smoke coverage for same-typ
   assert.ok(manualMergeIdentityAliasSmokeSource.includes('aliasStored'));
   assert.ok(manualMergeIdentityAliasSmokeSource.includes('matchedBy'));
   assert.ok(manualMergeIdentityAliasSmokeSource.includes('scopedBookCount'));
+  assert.ok(manualMergeMetronIdentityAliasSmokeSource.includes('/api/media/import-comics?sync=1'));
+  assert.ok(manualMergeMetronIdentityAliasSmokeSource.includes("buildMediaIdentityAliasKey('providerIssueId'"));
+  assert.ok(manualMergeMetronIdentityAliasSmokeSource.includes('canonicalProviderIssueId'));
+  assert.ok(manualMergeMetronIdentityAliasSmokeSource.includes('scopedComicCount'));
   assert.ok(manualMergePlexIdentityAliasSmokeSource.includes('/api/media/import-plex?sync=1'));
   assert.ok(manualMergePlexIdentityAliasSmokeSource.includes("buildMediaIdentityAliasKey('plexGuid'"));
   assert.ok(manualMergePlexIdentityAliasSmokeSource.includes("buildMediaIdentityAliasKey('plexItemKey'"));
