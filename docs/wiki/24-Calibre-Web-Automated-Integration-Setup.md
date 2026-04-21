@@ -1,6 +1,6 @@
 # Calibre Web Automated Integration Setup
 
-Status: Deferred. This integration is currently disabled in active product surfaces.
+Status: `3.2.7` re-enabled the core OPDS import path for dedupe-hardening proof work. The importer is active again, while richer OPDS contract and link-semantics work remains deferred.
 
 This guide covers setup, verification, and troubleshooting for the CWA OPDS integration used by collectZ (`2.4.5` milestone).
 
@@ -40,7 +40,13 @@ Optional:
 - `Username` (`cwa_username`) when the OPDS feed requires authentication
 - `Password` (`cwa_password`) (encrypted at rest)
 
-Then click `Save`, then `Test CWA`.
+Then click `Save`.
+
+Current note:
+
+- the import path is active again for OPDS dedupe hardening,
+- the dedicated `Test CWA` endpoint is still deferred,
+- so import/runtime proof is currently the authoritative verification path.
 
 ## Import Flow
 

@@ -3653,6 +3653,50 @@ Historical note:
   - regenerated `backend/release-feed.json`,
   - running-stack `Help > Releases` verification on platform and homelab.
 
+## 3.2.7 — OPDS / Digital-Library Dedupe Hardening
+
+**Goal:** Re-enable the deferred OPDS/CWA import path behind a proof-first dedupe contract so digital-library syncs can repeat safely without recreating duplicate book or comic rows when stable provider identities already exist.
+
+**Current Slice:** `CWA OPDS Repeat-Sync Idempotency Smoke`
+
+### Scope
+
+- Promote the digital-library duplicate-prevention work out of backlog and keep this patch tightly focused on dedupe-safe OPDS/CWA reintroduction rather than broader provider comparison.
+- Re-enable the real `/api/media/import-cwa` runtime path instead of leaving the importer service stranded behind a deferred route.
+- Prove that repeat OPDS/CWA syncs reuse the same canonical row through stable provider identities such as `provider_item_id` / `calibre_entry_id`.
+- Keep the patch focused on repeat-import idempotency and duplicate prevention before widening into richer OPDS link semantics or broader digital-library product UX.
+
+### Acceptance Criteria
+
+- A Docker-backed runtime smoke proves the same OPDS/CWA entry imported twice updates or no-ops instead of creating a duplicate row.
+- The live `/api/media/import-cwa` route uses the existing importer service rather than returning the deferred `410` response.
+- The resulting imported row preserves the provider identity fields needed for later dedupe and alias reuse.
+- If the proof exposes a route-level or type-details merge bug, the bug is fixed before `3.2.7` closes.
+
+### Active Slice Notes
+
+- Start with the smallest truthful milestone boundary:
+  - one OPDS/CWA importer path,
+  - one repeat-sync idempotency proof,
+  - one canonical row reused across reruns.
+- The current codebase already contains:
+  - `backend/services/cwa.js`,
+  - OPDS entry normalization,
+  - and product/setup docs describing a dedupe-safe importer,
+  - but the live route is still deferred with `cwa_import_deferred`.
+- The first slice should therefore:
+  - re-enable the route,
+  - drive the real importer through a deterministic OPDS fixture/feed,
+  - and prove duplicate-safe repeat import behavior on both platform and homelab stacks.
+- The completed first slice now covers:
+  - live `/api/media/import-cwa` re-enabled through the existing OPDS importer service,
+  - Docker-backed repeat-sync idempotency proof on platform and homelab,
+  - and canonical book reuse through persisted `provider_item_id` / `calibre_entry_id` identity fields instead of duplicate row recreation.
+- Keep the remaining digital-library follow-up out of this patch for now:
+  - provider comparison and alternative reader evaluation,
+  - richer OPDS browse/read/download link separation,
+  - and larger-scale comic-heavy dedupe tuning.
+
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 

@@ -40,6 +40,7 @@ const { searchAudioByTitle } = require('../services/audio');
 const { searchGamesByTitle } = require('../services/games');
 const { searchComicsByTitle, fetchMetronCollectionIssues, fetchMetronIssueDetails, pushMetronCollectionIssue } = require('../services/comics');
 const { parseCsvText } = require('../services/csv');
+const { fetchCwaOpdsItems } = require('../services/cwa');
 const { mapDeliciousItemTypeToMediaType } = require('../services/importMapping');
 const { normalizeDeliciousRow } = require('../services/deliciousNormalize');
 const { normalizeIdentifierSet, normalizeIsbn } = require('../services/importIdentifiers');
@@ -8685,10 +8686,173 @@ router.post('/import-csv/calibre', tempUpload.single('file'), asyncHandler(async
   res.json({ ok: true, rows: result.rows, summary: result.summary, auditRows: result.auditRows, valuationRefresh });
 }));
 
-router.post('/import-cwa', asyncHandler(async (_req, res) => {
-  return res.status(410).json({
-    error: 'CWA OPDS import is deferred and currently disabled.',
-    code: 'cwa_import_deferred'
+router.post('/import-cwa', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const valuationMode = resolveValuationExecutionMode(req);
+  const config = await loadScopedIntegrationConfig(scopeContext?.spaceId || null);
+  const maxPagesRaw = Number(req.body?.maxPages ?? req.query?.maxPages);
+  const maxPages = Number.isFinite(maxPagesRaw) ? Math.max(1, Math.min(100, maxPagesRaw)) : undefined;
+  const asyncMode = shouldQueueImportByDefault(req);
+  const auditReq = {
+    user: req.user,
+    headers: req.headers,
+    ip: req.ip,
+    socket: req.socket
+  };
+
+  const runImport = async ({ onProgress = null, reviewContext = null } = {}) => {
+    const fetched = await fetchCwaOpdsItems(config, { maxPages });
+    const result = await runGenericCsvImport({
+      rows: fetched.rows,
+      userId: req.user.id,
+      scopeContext,
+      onProgress,
+      importSource: 'cwa_opds',
+      reviewContext
+    });
+    const valuationRefresh = await queueImportedValuationRefresh({
+      mediaIds: result.createdMediaIds,
+      userId: req.user.id,
+      scopeContext,
+      mode: valuationMode,
+      auditReq: reviewContext?.auditReq || req,
+      importSource: 'cwa_opds'
+    });
+    return { fetched, result, valuationRefresh };
+  };
+
+  if (asyncMode) {
+    const job = await createSyncJob({
+      userId: req.user.id,
+      jobType: 'media_import',
+      provider: 'cwa_opds',
+      scope: jobScopePayload(scopeContext),
+      progress: {
+        total: 0,
+        processed: 0,
+        created: 0,
+        updated: 0,
+        skipped: 0,
+        errorCount: 0
+      }
+    });
+    recordImportJobEvent('cwa_opds', 'queued');
+
+    setImmediate(async () => {
+      try {
+        await updateSyncJob(job.id, { status: 'running', started_at: new Date() });
+        const { fetched, result, valuationRefresh } = await runImport({
+          onProgress: async (progress) => updateSyncJob(job.id, { progress }),
+          reviewContext: { jobId: job.id, provider: 'cwa_opds', auditReq }
+        });
+        await updateSyncJob(job.id, {
+          status: 'succeeded',
+          progress: {
+            total: result.rows,
+            processed: result.rows,
+            created: result.summary.created,
+            updated: result.summary.updated,
+            skipped: result.summary.skipped_invalid + result.summary.skipped_collection,
+            errorCount: result.summary.errors.length
+          },
+          summary: {
+            rows: result.rows,
+            created: result.summary.created,
+            updated: result.summary.updated,
+            skipped_invalid: result.summary.skipped_invalid,
+            skipped_collection: result.summary.skipped_collection,
+            errorCount: result.summary.errors.length,
+            matchModes: result.summary.matchModes,
+            enrichment: result.summary.enrichment,
+            diagnosticsFlagged: result.summary.diagnosticsFlagged,
+            normalizationReviewCandidates: result.summary.normalizationReviewCandidates || 0,
+            normalizationReviewRows: result.summary.normalizationReviewRows || 0,
+            valuationRefresh,
+            pagesFetched: fetched.pagesFetched,
+            endpoint: fetched.endpoint,
+            hasMore: Boolean(fetched.hasMore),
+            subsectionDiscovered: fetched.subsectionDiscovered || 0,
+            navigationEntriesSkipped: fetched.navigationEntriesSkipped || 0,
+            auditRows: result.auditRows
+          },
+          finished_at: new Date()
+        });
+        recordImportJobEvent('cwa_opds', 'succeeded');
+        recordImportEnrichmentSummaryMetrics('cwa_opds', result.summary.enrichment);
+        await logActivity(auditReq, 'media.import.cwa', 'media', null, {
+          rows: result.rows,
+          created: result.summary.created,
+          updated: result.summary.updated,
+          skipped_invalid: result.summary.skipped_invalid,
+          skipped_collection: result.summary.skipped_collection,
+          errorCount: result.summary.errors.length,
+          matchModes: result.summary.matchModes,
+          enrichment: result.summary.enrichment,
+          diagnosticsFlagged: result.summary.diagnosticsFlagged,
+          normalizationReviewCandidates: result.summary.normalizationReviewCandidates || 0,
+          normalizationReviewRows: result.summary.normalizationReviewRows || 0,
+          valuationRefresh,
+          pagesFetched: fetched.pagesFetched,
+          endpoint: fetched.endpoint,
+          hasMore: Boolean(fetched.hasMore),
+          subsectionDiscovered: fetched.subsectionDiscovered || 0,
+          navigationEntriesSkipped: fetched.navigationEntriesSkipped || 0,
+          jobId: job.id
+        });
+      } catch (error) {
+        recordImportJobEvent('cwa_opds', 'failed');
+        await updateSyncJob(job.id, {
+          status: 'failed',
+          error: error.message || 'CWA OPDS import failed',
+          finished_at: new Date()
+        });
+        await logActivity(auditReq, 'media.import.cwa.failed', 'media', null, {
+          detail: error.message || 'CWA OPDS import failed',
+          jobId: job.id
+        });
+      }
+    });
+
+    return res.status(202).json(buildQueuedJobResponse(job, 'cwa_opds'));
+  }
+
+  const { fetched, result, valuationRefresh } = await runImport({
+    reviewContext: { provider: 'cwa_opds', auditReq: req }
+  });
+  recordImportJobEvent('cwa_opds', 'succeeded');
+  recordImportEnrichmentSummaryMetrics('cwa_opds', result.summary.enrichment);
+  await logActivity(req, 'media.import.cwa', 'media', null, {
+    rows: result.rows,
+    created: result.summary.created,
+    updated: result.summary.updated,
+    skipped_invalid: result.summary.skipped_invalid,
+    skipped_collection: result.summary.skipped_collection,
+    errorCount: result.summary.errors.length,
+    matchModes: result.summary.matchModes,
+    enrichment: result.summary.enrichment,
+    diagnosticsFlagged: result.summary.diagnosticsFlagged,
+    normalizationReviewCandidates: result.summary.normalizationReviewCandidates || 0,
+    normalizationReviewRows: result.summary.normalizationReviewRows || 0,
+    valuationRefresh,
+    pagesFetched: fetched.pagesFetched,
+    endpoint: fetched.endpoint,
+    hasMore: Boolean(fetched.hasMore),
+    subsectionDiscovered: fetched.subsectionDiscovered || 0,
+    navigationEntriesSkipped: fetched.navigationEntriesSkipped || 0
+  });
+  res.json({
+    ok: true,
+    rows: result.rows,
+    summary: {
+      ...result.summary,
+      pagesFetched: fetched.pagesFetched,
+      endpoint: fetched.endpoint,
+      hasMore: Boolean(fetched.hasMore),
+      subsectionDiscovered: fetched.subsectionDiscovered || 0,
+      navigationEntriesSkipped: fetched.navigationEntriesSkipped || 0
+    },
+    auditRows: result.auditRows,
+    valuationRefresh
   });
 }));
 

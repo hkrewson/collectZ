@@ -55,25 +55,6 @@ This file is the staging area for work that has not yet been assigned a release 
 - The packaging and publication flow is documented and repeatable.
 - Update flow from the private source into the public repo is clear and intentional.
 
-### Backlog Item: Digital Library Sync Revisit
-**Type:** Deferred milestone
-**Tags:** `digital-library`, `cwa`, `opds`, `metadata`, `dedupe`
-
-**Goal:** Reassess digital-owned book and comic sync after core roadmap stabilization.
-
-**Scope**
-- Compare CWA/OPDS against at least one alternative self-hosted solution.
-- Evaluate metadata quality and consistency.
-- Evaluate identifier richness for dedupe and enrichment.
-- Evaluate operational complexity for homelab users.
-- Define a stronger ingest contract for digital-owned items, especially comics.
-
-**Acceptance Criteria**
-- The chosen provider path has a documented rationale and tradeoff matrix.
-- Repeat-import idempotency is demonstrated at scale before reintroduction.
-- Dedupe quality meets target thresholds for comic-heavy datasets.
-- The UI workflow is simple enough for non-technical admins.
-
 ### Backlog Item: OPDS Sync Contract and Reader-Link Separation
 **Type:** Deferred milestone
 **Tags:** `digital-library`, `opds`, `cwa`, `sync`, `metadata`, `links`

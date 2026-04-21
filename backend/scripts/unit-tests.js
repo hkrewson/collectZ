@@ -158,6 +158,7 @@ const crossSourceCanonicalReuseSmokeSource = fs.readFileSync(require.resolve('..
 const providerFamilyCrossSourceCanonicalReuseSmokeSource = fs.readFileSync(require.resolve('../scripts/provider-family-cross-source-canonical-reuse-smoke'), 'utf8');
 const sparseMetadataAliasReuseSmokeSource = fs.readFileSync(require.resolve('../scripts/sparse-metadata-alias-reuse-smoke'), 'utf8');
 const collectionResyncBoundarySmokeSource = fs.readFileSync(require.resolve('../scripts/collection-resync-boundary-smoke'), 'utf8');
+const cwaOpdsRepeatSyncIdempotencySmokeSource = fs.readFileSync(require.resolve('../scripts/cwa-opds-repeat-sync-idempotency-smoke'), 'utf8');
 const historicalRepairPlanSource = fs.readFileSync(require.resolve('../scripts/book-comic-historical-repair-plan'), 'utf8');
 const backfillMergeEvidenceSource = fs.readFileSync(require.resolve('../scripts/backfill-merge-evidence'), 'utf8');
 const repairComicLikeBooksSource = fs.readFileSync(require.resolve('../scripts/repair-comic-like-books'), 'utf8');
@@ -1676,6 +1677,15 @@ results.push(run('repo includes collection re-sync boundary smoke coverage for m
   assert.ok(collectionResyncBoundarySmokeSource.includes('scopedCollectionCount'));
 }));
 
+results.push(run('repo includes CWA OPDS repeat-sync idempotency smoke coverage for digital-library imports', () => {
+  assert.ok(backendPackageJson.scripts['test:cwa-opds-repeat-sync-idempotency-smoke']);
+  assert.ok(cwaOpdsRepeatSyncIdempotencySmokeSource.includes('/api/media/import-cwa?sync=1'));
+  assert.ok(cwaOpdsRepeatSyncIdempotencySmokeSource.includes('Expected second CWA import to avoid duplicate creation'));
+  assert.ok(cwaOpdsRepeatSyncIdempotencySmokeSource.includes('Expected calibre_entry_id to persist OPDS identity'));
+  assert.ok(cwaOpdsRepeatSyncIdempotencySmokeSource.includes("stableIdentity: 'provider_item_id/calibre_entry_id'"));
+  assert.ok(cwaOpdsRepeatSyncIdempotencySmokeSource.includes('scopedBookCount'));
+}));
+
 results.push(run('repo includes dry-run historical repair plan coverage for duplicate and type-repair reporting', () => {
   assert.ok(backendPackageJson.scripts['test:book-comic-historical-repair-plan']);
   assert.ok(historicalRepairPlanSource.includes('buildHistoricalRepairPlan'));
@@ -1757,6 +1767,7 @@ results.push(run('repo includes manual merge preview smoke coverage for same-typ
   assert.ok(backendPackageJson.scripts['test:collection-duplicate-preview-smoke']);
   assert.ok(backendPackageJson.scripts['test:collection-merge-apply-revert-smoke']);
   assert.ok(backendPackageJson.scripts['test:collection-resync-boundary-smoke']);
+  assert.ok(backendPackageJson.scripts['test:cwa-opds-repeat-sync-idempotency-smoke']);
   assert.ok(manualMergePreviewSmokeSource.includes('/api/media/merge-preview'));
   assert.ok(manualMergeApplySmokeSource.includes('/api/media/merge-apply'));
   assert.ok(manualMergeRevertSmokeSource.includes('/api/media/merge-revert'));
@@ -1794,6 +1805,10 @@ results.push(run('repo includes manual merge preview smoke coverage for same-typ
   assert.ok(strongIdPlexTmdbConflictGuardSmokeSource.includes('conflictGuarded'));
   assert.ok(mediaRoutesSource.includes('strong_identifier_conflict_guarded'));
   assert.ok(mediaRoutesSource.includes('assessTitleFallbackStrongIdentifierConflicts'));
+  assert.ok(mediaRoutesSource.includes("router.post('/import-cwa'"));
+  assert.ok(mediaRoutesSource.includes('fetchCwaOpdsItems'));
+  assert.ok(mediaRoutesSource.includes("'media.import.cwa'"));
+  assert.ok(!mediaRoutesSource.includes("code: 'cwa_import_deferred'"));
   assert.ok(manualMergeMetronIdentityAliasSmokeSource.includes('/api/media/import-comics?sync=1'));
   assert.ok(manualMergeMetronIdentityAliasSmokeSource.includes("buildMediaIdentityAliasKey('providerIssueId'"));
   assert.ok(manualMergeMetronIdentityAliasSmokeSource.includes('canonicalProviderIssueId'));
