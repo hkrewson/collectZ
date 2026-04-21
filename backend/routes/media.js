@@ -433,12 +433,15 @@ function getCandidateStrongIdentifiers(candidateRow = {}) {
 }
 
 function getIncomingStrongIdentifiers({ item = {}, normalizedTypeDetails = {}, resolvedIdentifiers = {} } = {}) {
+  const typeDetails = normalizedTypeDetails && typeof normalizedTypeDetails === 'object'
+    ? normalizedTypeDetails
+    : {};
   return {
-    isbn: normalizeStrongIsbnValue(resolvedIdentifiers.isbn || normalizedTypeDetails.isbn || ''),
+    isbn: normalizeStrongIsbnValue(resolvedIdentifiers.isbn || typeDetails.isbn || ''),
     eanUpc: normalizeStrongIdentifierValue(resolvedIdentifiers.eanUpc || item.upc || ''),
     tmdbId: normalizeStrongIdentifierValue(item.tmdb_id || ''),
-    providerItemId: normalizeStrongIdentifierValue(normalizedTypeDetails.provider_item_id || normalizedTypeDetails.calibre_entry_id || item.provider_item_id || ''),
-    providerIssueId: normalizeStrongIdentifierValue(normalizedTypeDetails.provider_issue_id || item.provider_issue_id || '')
+    providerItemId: normalizeStrongIdentifierValue(typeDetails.provider_item_id || typeDetails.calibre_entry_id || item.provider_item_id || ''),
+    providerIssueId: normalizeStrongIdentifierValue(typeDetails.provider_issue_id || item.provider_issue_id || '')
   };
 }
 
