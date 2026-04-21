@@ -3560,6 +3560,15 @@ Historical note:
   - provider-family cross-source canonical reuse beyond the current CSV matrix,
   - collection re-sync boundary behavior,
   - sparse-metadata alias reuse.
+- The completed `3.2.4` runtime proof matrix now covers:
+  - book conflict guard via ISBN on the generic CSV import path,
+  - movie conflict guard via UPC on the generic CSV import path,
+  - movie conflict guard via TMDB on the Plex import path.
+- Version closeout for `3.2.4` includes:
+  - semver/app metadata sync to `3.2.4`,
+  - matching `docs/releases/v3.2.4.md`,
+  - regenerated `backend/release-feed.json`,
+  - running-stack `Help > Releases` verification on platform and homelab.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
