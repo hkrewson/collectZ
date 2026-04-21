@@ -1,6 +1,6 @@
 {
   "name": "mediavault-backend",
-  "version": "3.2.6",
+  "version": "3.2.7",
   "description": "collectZ Backend API",
   "main": "server.js",
   "scripts": {
@@ -28,6 +28,7 @@
     "test:collection-resync-boundary-smoke": "node scripts/collection-resync-boundary-smoke.js",
     "test:cwa-opds-repeat-sync-idempotency-smoke": "node scripts/cwa-opds-repeat-sync-idempotency-smoke.js",
     "test:cwa-opds-link-contract-smoke": "node scripts/cwa-opds-link-contract-smoke.js",
+    "test:cwa-opds-comic-identity-reuse-smoke": "node scripts/cwa-opds-comic-identity-reuse-smoke.js",
     "test:cross-type-isolation": "node scripts/cross-type-isolation-check.js",
     "test:media-query-regression": "node scripts/media-query-regression-check.js",
     "test:book-comic-normalization-audit": "node scripts/book-comic-normalization-audit.js",

@@ -161,6 +161,7 @@ const sparseMetadataAliasReuseSmokeSource = fs.readFileSync(require.resolve('../
 const collectionResyncBoundarySmokeSource = fs.readFileSync(require.resolve('../scripts/collection-resync-boundary-smoke'), 'utf8');
 const cwaOpdsRepeatSyncIdempotencySmokeSource = fs.readFileSync(require.resolve('../scripts/cwa-opds-repeat-sync-idempotency-smoke'), 'utf8');
 const cwaOpdsLinkContractSmokeSource = fs.readFileSync(require.resolve('../scripts/cwa-opds-link-contract-smoke'), 'utf8');
+const cwaOpdsComicIdentityReuseSmokeSource = fs.readFileSync(require.resolve('../scripts/cwa-opds-comic-identity-reuse-smoke'), 'utf8');
 const historicalRepairPlanSource = fs.readFileSync(require.resolve('../scripts/book-comic-historical-repair-plan'), 'utf8');
 const backfillMergeEvidenceSource = fs.readFileSync(require.resolve('../scripts/backfill-merge-evidence'), 'utf8');
 const repairComicLikeBooksSource = fs.readFileSync(require.resolve('../scripts/repair-comic-like-books'), 'utf8');
@@ -1694,6 +1695,15 @@ results.push(run('repo includes CWA OPDS link-contract smoke coverage for separa
   assert.ok(cwaOpdsLinkContractSmokeSource.includes('Expected OPDS import to leave tmdb_url null'));
   assert.ok(cwaOpdsLinkContractSmokeSource.includes('Expected provider_download_url to keep acquisition URL'));
   assert.ok(cwaOpdsLinkContractSmokeSource.includes('stableIdentity'));
+}));
+
+results.push(run('repo includes CWA OPDS comic identity reuse smoke coverage for comic-heavy repeat syncs', () => {
+  assert.ok(backendPackageJson.scripts['test:cwa-opds-comic-identity-reuse-smoke']);
+  assert.ok(cwaOpdsComicIdentityReuseSmokeSource.includes('/api/media/import-cwa?sync=1'));
+  assert.ok(cwaOpdsComicIdentityReuseSmokeSource.includes('Expected OPDS comic import to classify as comic_book'));
+  assert.ok(cwaOpdsComicIdentityReuseSmokeSource.includes('Expected second CWA comic import to avoid duplicate creation'));
+  assert.ok(cwaOpdsComicIdentityReuseSmokeSource.includes('Expected comic issue metadata to persist'));
+  assert.ok(cwaOpdsComicIdentityReuseSmokeSource.includes('scopedComicCount'));
 }));
 
 results.push(run('repo includes dry-run historical repair plan coverage for duplicate and type-repair reporting', () => {

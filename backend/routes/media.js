@@ -5849,6 +5849,7 @@ async function runGenericCsvImport({
 
   for (let idx = 0; idx < rows.length; idx += 1) {
     const row = rows[idx];
+    const rowTypeDetails = row?.type_details || {};
     const value = (name) => getRowValue(row, name);
     const mappedMediaType = normalizeMediaType(
       value('media_type') || value('media type') || value('type') || value('item type') || 'movie',
@@ -5885,26 +5886,32 @@ async function runGenericCsvImport({
       location: value('location'),
       notes: value('notes'),
       type_details: {
-        author: value('author'),
-        isbn: value('isbn') || value('isbn13'),
-        publisher: value('publisher'),
-        edition: value('edition'),
-        series: value('series'),
-        issue_number: value('issue_number') || value('issue number'),
-        volume: value('volume'),
-        artist: value('artist'),
-        album: value('album'),
-        track_count: value('track_count'),
-        platform: value('platform'),
-        developer: value('developer'),
-        region: value('region'),
-        provider_name: value('provider_name') || row?.type_details?.provider_name || null,
-        provider_item_id: value('provider_item_id') || row?.type_details?.provider_item_id || row?.type_details?.calibre_entry_id || null,
-        provider_external_url: value('provider_external_url') || row?.type_details?.provider_external_url || row?.type_details?.calibre_external_url || value('external_url') || null,
-        provider_download_url: value('provider_download_url') || row?.type_details?.provider_download_url || row?.type_details?.calibre_download_url || null,
-        calibre_entry_id: value('calibre_entry_id') || row?.type_details?.calibre_entry_id || null,
-        calibre_external_url: value('calibre_external_url') || row?.type_details?.calibre_external_url || null,
-        calibre_download_url: value('calibre_download_url') || row?.type_details?.calibre_download_url || null
+        author: value('author') || rowTypeDetails.author || null,
+        isbn: value('isbn') || value('isbn13') || rowTypeDetails.isbn || null,
+        publisher: value('publisher') || rowTypeDetails.publisher || null,
+        edition: value('edition') || rowTypeDetails.edition || null,
+        series: value('series') || rowTypeDetails.series || null,
+        issue_number: value('issue_number') || value('issue number') || rowTypeDetails.issue_number || null,
+        volume: value('volume') || rowTypeDetails.volume || null,
+        writer: value('writer') || rowTypeDetails.writer || null,
+        artist: value('artist') || rowTypeDetails.artist || null,
+        inker: value('inker') || rowTypeDetails.inker || null,
+        colorist: value('colorist') || rowTypeDetails.colorist || null,
+        cover_date: value('cover_date') || value('cover date') || rowTypeDetails.cover_date || null,
+        album: value('album') || rowTypeDetails.album || null,
+        track_count: value('track_count') || rowTypeDetails.track_count || null,
+        platform: value('platform') || rowTypeDetails.platform || null,
+        developer: value('developer') || rowTypeDetails.developer || null,
+        region: value('region') || rowTypeDetails.region || null,
+        provider_issue_id: value('provider_issue_id') || rowTypeDetails.provider_issue_id || null,
+        provider_name: value('provider_name') || rowTypeDetails.provider_name || null,
+        provider_item_id: value('provider_item_id') || rowTypeDetails.provider_item_id || rowTypeDetails.calibre_entry_id || null,
+        provider_external_url: value('provider_external_url') || rowTypeDetails.provider_external_url || rowTypeDetails.calibre_external_url || value('external_url') || null,
+        provider_download_url: value('provider_download_url') || rowTypeDetails.provider_download_url || rowTypeDetails.calibre_download_url || null,
+        calibre_entry_id: value('calibre_entry_id') || rowTypeDetails.calibre_entry_id || null,
+        calibre_external_url: value('calibre_external_url') || rowTypeDetails.calibre_external_url || null,
+        calibre_download_url: value('calibre_download_url') || rowTypeDetails.calibre_download_url || null,
+        source_updated_at: value('source_updated_at') || rowTypeDetails.source_updated_at || null
       }
     };
     let collectionId = null;

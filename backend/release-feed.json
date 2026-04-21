@@ -1,6 +1,37 @@
 {
   "releases": [
     {
+      "title": "v3.2.7",
+      "version": "3.2.7",
+      "date": "2026-04-21",
+      "status": "Completed",
+      "summary": "This patch release hardens duplicate prevention for the re-enabled OPDS / digital-library import path. It proves repeat OPDS syncs reuse canonicals safely, fixes the stored OPDS link contract for browse versus download actions, and closes a comic-heavy import gap so parsed comic identity metadata survives persistence without recreating duplicate rows on later syncs.",
+      "details": [
+        {
+          "heading": "OPDS importer reactivation and repeat-sync proof",
+          "bullets": [
+            "Re-enabled the live `/api/media/import-cwa` route instead of leaving the existing importer stranded behind a deferred response.",
+            "Added a Docker-backed repeat-sync smoke proving one OPDS entry imported twice updates or no-ops the same canonical row through persisted `provider_item_id` / `calibre_entry_id` identities."
+          ]
+        },
+        {
+          "heading": "OPDS link contract cleanup",
+          "bullets": [
+            "Separated OPDS browse/detail links from acquisition/download links in the importer contract.",
+            "Stopped treating OPDS external URLs as `tmdb_url` stand-ins for books and comics.",
+            "Preserved download-link fields through generic import mapping and drawer rendering so Calibre/OPDS actions stay truthful and deduped in the UI."
+          ]
+        },
+        {
+          "heading": "Comic-heavy dedupe hardening",
+          "bullets": [
+            "Added a Docker-backed comic-heavy OPDS smoke that proves a clearly comic-shaped OPDS entry imports as `comic_book`, persists parsed `series`, `issue_number`, and `volume`, and then reuses the same canonical row on repeat sync.",
+            "Fixed generic import mapping so row-backed OPDS `type_details` fields are not dropped before persistence, which previously stripped comic identity metadata from live OPDS imports."
+          ]
+        }
+      ]
+    },
+    {
       "title": "v3.2.6",
       "version": "3.2.6",
       "date": "2026-04-21",
@@ -254,46 +285,6 @@
           "bullets": [
             "Replaced stacked nested TV season cards with a flatter season-tab treatment using shorter `S1`-style labels and quieter watched-state feedback.",
             "Fixed newer library tabs like events and collectibles so they persist correctly across refresh instead of falling back before feature flags finish loading."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "v3.1.4",
-      "version": "3.1.4",
-      "date": "2026-04-15",
-      "status": "Completed",
-      "summary": "This patch release reshapes account management into a calmer, more intentional shell surface after the library cleanup from `3.1.3`. The profile page, account menu, and profile-image flow now feel more integrated with the rest of the app, and platform and homelab were brought back onto the same refreshed shared UI path where intended.",
-      "details": [
-        {
-          "heading": "Profile surface cleanup",
-          "bullets": [
-            "Reshaped the profile page into a calmer account-management surface with cleaner spacing, flatter supporting treatments, and a more intentional identity summary.",
-            "Reduced the boxed, generic account-page feel so the profile page sits more naturally inside the shell.",
-            "Kept the milestone focused on account/profile experience instead of widening into broader auth or settings redesign."
-          ]
-        },
-        {
-          "heading": "Consolidated account navigation",
-          "bullets": [
-            "Replaced the duplicated footer-account treatment with one clearer account entry point in the shell.",
-            "Standardized the account menu contents around `My profile`, `Discord`, `GitHub`, and `Sign out`.",
-            "Tightened the profile/account entry so navigation feels more deliberate and less duplicated across the shell."
-          ]
-        },
-        {
-          "heading": "Profile image support and auth/profile persistence",
-          "bullets": [
-            "Added profile-image support across the profile surface and shell account entry.",
-            "Simplified the avatar interaction into a clickable upload target instead of a separate preview box and direct URL field.",
-            "Persisted `users.image_path` through auth/profile handling and added the follow-on schema/migration repair needed so `/api/auth/me` and profile edits recover cleanly on the running stack."
-          ]
-        },
-        {
-          "heading": "Edition UI alignment",
-          "bullets": [
-            "Rebuilt homelab and platform onto the same refreshed shared shell and library-adjacent UI path so comics, search, pagination, nav, and profile/account updates land consistently across both editions.",
-            "Preserved intended feature-level differences while removing presentation drift caused by stale frontend/runtime divergence."
           ]
         }
       ]

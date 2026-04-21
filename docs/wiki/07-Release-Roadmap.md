@@ -3657,7 +3657,7 @@ Historical note:
 
 **Goal:** Re-enable the deferred OPDS/CWA import path behind a proof-first dedupe contract so digital-library syncs can repeat safely without recreating duplicate book or comic rows when stable provider identities already exist.
 
-**Current Slice:** `CWA OPDS Link Contract Smoke`
+**Current Slice:** `Version Closeout`
 
 ### Scope
 
@@ -3696,6 +3696,23 @@ Historical note:
   - preserve browse/detail URLs separately from acquisition/download URLs,
   - stop treating OPDS links as generic `tmdb_url` surrogates for books and comics,
   - and prove the stored link contract through a Docker-backed runtime smoke before any broader reader-link UX work.
+- The completed second slice now covers:
+  - browse/detail and download/acquisition OPDS link separation,
+  - `tmdb_url` cleanup for OPDS-imported books and comics,
+  - and Docker-backed link-contract proof on platform and homelab.
+- The next active slice adds one comic-heavy dedupe proof before closeout:
+  - drive the live `/api/media/import-cwa?sync=1` path with a clearly comic-shaped OPDS entry,
+  - prove it imports as `comic_book` with parsed `series`, `issue_number`, and `volume`,
+  - and confirm a second sync reuses the same canonical row through persisted OPDS identities instead of recreating a duplicate comic row.
+- The completed third slice now covers:
+  - a Docker-backed comic-heavy OPDS runtime proof on platform and homelab,
+  - `comic_book` classification plus persisted `series`, `issue_number`, and `volume`,
+  - and duplicate-safe canonical reuse through `provider_item_id` / `calibre_entry_id` on repeat sync.
+- Version closeout for `3.2.7` includes:
+  - semver/app metadata sync to `3.2.7`,
+  - matching `docs/releases/v3.2.7.md`,
+  - regenerated `backend/release-feed.json`,
+  - and running-stack `Help > Releases` verification on platform and homelab.
 - Keep the remaining digital-library follow-up out of this patch for now:
   - provider comparison and alternative reader evaluation,
   - and larger-scale comic-heavy dedupe tuning.
