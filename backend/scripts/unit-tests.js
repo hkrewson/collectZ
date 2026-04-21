@@ -157,6 +157,7 @@ const repeatSyncIdempotencySmokeSource = fs.readFileSync(require.resolve('../scr
 const crossSourceCanonicalReuseSmokeSource = fs.readFileSync(require.resolve('../scripts/cross-source-canonical-reuse-smoke'), 'utf8');
 const providerFamilyCrossSourceCanonicalReuseSmokeSource = fs.readFileSync(require.resolve('../scripts/provider-family-cross-source-canonical-reuse-smoke'), 'utf8');
 const sparseMetadataAliasReuseSmokeSource = fs.readFileSync(require.resolve('../scripts/sparse-metadata-alias-reuse-smoke'), 'utf8');
+const collectionResyncBoundarySmokeSource = fs.readFileSync(require.resolve('../scripts/collection-resync-boundary-smoke'), 'utf8');
 const historicalRepairPlanSource = fs.readFileSync(require.resolve('../scripts/book-comic-historical-repair-plan'), 'utf8');
 const backfillMergeEvidenceSource = fs.readFileSync(require.resolve('../scripts/backfill-merge-evidence'), 'utf8');
 const repairComicLikeBooksSource = fs.readFileSync(require.resolve('../scripts/repair-comic-like-books'), 'utf8');
@@ -1665,6 +1666,16 @@ results.push(run('repo includes sparse-metadata alias reuse smoke coverage for d
   assert.ok(sparseMetadataAliasReuseSmokeSource.includes('scopedBookCount'));
 }));
 
+results.push(run('repo includes collection re-sync boundary smoke coverage for merged collection durability', () => {
+  assert.ok(backendPackageJson.scripts['test:collection-resync-boundary-smoke']);
+  assert.ok(collectionResyncBoundarySmokeSource.includes('/api/media/collections/merge-apply'));
+  assert.ok(collectionResyncBoundarySmokeSource.includes('/api/media/import-csv?sync=1'));
+  assert.ok(collectionResyncBoundarySmokeSource.includes('Expected merged canonical collection to preserve the absorbed csv alias'));
+  assert.ok(collectionResyncBoundarySmokeSource.includes('Expected re-sync to avoid recreating a duplicate collection'));
+  assert.ok(collectionResyncBoundarySmokeSource.includes('Expected later collection-shaped re-sync to land a new contained item on the canonical collection'));
+  assert.ok(collectionResyncBoundarySmokeSource.includes('scopedCollectionCount'));
+}));
+
 results.push(run('repo includes dry-run historical repair plan coverage for duplicate and type-repair reporting', () => {
   assert.ok(backendPackageJson.scripts['test:book-comic-historical-repair-plan']);
   assert.ok(historicalRepairPlanSource.includes('buildHistoricalRepairPlan'));
@@ -1745,6 +1756,7 @@ results.push(run('repo includes manual merge preview smoke coverage for same-typ
   assert.ok(backendPackageJson.scripts['test:comic-duplicate-defer-smoke']);
   assert.ok(backendPackageJson.scripts['test:collection-duplicate-preview-smoke']);
   assert.ok(backendPackageJson.scripts['test:collection-merge-apply-revert-smoke']);
+  assert.ok(backendPackageJson.scripts['test:collection-resync-boundary-smoke']);
   assert.ok(manualMergePreviewSmokeSource.includes('/api/media/merge-preview'));
   assert.ok(manualMergeApplySmokeSource.includes('/api/media/merge-apply'));
   assert.ok(manualMergeRevertSmokeSource.includes('/api/media/merge-revert'));
@@ -1802,6 +1814,10 @@ results.push(run('repo includes manual merge preview smoke coverage for same-typ
   assert.ok(collectionDuplicatePreviewSmokeSource.includes('/api/media/collections/duplicate-preview'));
   assert.ok(collectionMergeApplyRevertSmokeSource.includes('/api/media/collections/merge-apply'));
   assert.ok(collectionMergeApplyRevertSmokeSource.includes('/api/media/collections/merge-revert'));
+  assert.ok(collectionResyncBoundarySmokeSource.includes('/api/media/collections/merge-apply'));
+  assert.ok(collectionResyncBoundarySmokeSource.includes('/api/media/import-csv?sync=1'));
+  assert.ok(collectionResyncBoundarySmokeSource.includes('aliasStored'));
+  assert.ok(collectionResyncBoundarySmokeSource.includes('scopedCollectionCount'));
   assert.ok(manualMergePreviewSmokeSource.includes('Matched on ISBN'));
   assert.ok(manualMergePreviewSmokeSource.includes('Cross-type merges are not allowed'));
   assert.ok(manualMergeApplySmokeSource.includes('manual_merge'));
@@ -1826,6 +1842,8 @@ results.push(run('repo includes manual merge preview smoke coverage for same-typ
   assert.ok(collectionDuplicatePreviewSmokeSource.includes('Expected duplicate collection preview to be allowed'));
   assert.ok(collectionMergeApplyRevertSmokeSource.includes('Expected collection merge apply to succeed'));
   assert.ok(collectionMergeApplyRevertSmokeSource.includes('Expected duplicate collection to be restored with two items after revert'));
+  assert.ok(collectionResyncBoundarySmokeSource.includes('Expected re-sync to avoid recreating a duplicate collection'));
+  assert.ok(collectionResyncBoundarySmokeSource.includes('Expected later collection-shaped re-sync to land a new contained item on the canonical collection'));
 }));
 
 results.push(run('repo includes local release preflight helper coverage for dependency audits and go-no-go reporting', () => {

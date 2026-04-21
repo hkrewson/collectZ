@@ -25,6 +25,7 @@
     "test:cross-source-canonical-reuse-smoke": "node scripts/cross-source-canonical-reuse-smoke.js",
     "test:provider-family-cross-source-canonical-reuse-smoke": "node scripts/provider-family-cross-source-canonical-reuse-smoke.js",
     "test:sparse-metadata-alias-reuse-smoke": "node scripts/sparse-metadata-alias-reuse-smoke.js",
+    "test:collection-resync-boundary-smoke": "node scripts/collection-resync-boundary-smoke.js",
     "test:cross-type-isolation": "node scripts/cross-type-isolation-check.js",
     "test:media-query-regression": "node scripts/media-query-regression-check.js",
     "test:book-comic-normalization-audit": "node scripts/book-comic-normalization-audit.js",

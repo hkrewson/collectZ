@@ -3613,6 +3613,37 @@ Historical note:
   - regenerated `backend/release-feed.json`,
   - running-stack `Help > Releases` verification on platform and homelab.
 
+## 3.2.6 — Collection Re-Sync Boundaries
+
+**Goal:** Prove that collection merge decisions remain durable when collection-shaped imports run again later, so merged collection containers do not silently reappear as duplicates.
+
+**Current Slice:** `Collection Re-Sync Boundary Smoke`
+
+### Scope
+
+- Promote the collection-side duplicate-prevention work out of backlog and keep it narrowly focused on durability of merged collections.
+- Exercise a real collection-shaped import path rather than a DB-only reconstruction.
+- Prove that a previously absorbed collection identity can still resolve onto the surviving canonical collection after merge.
+- Keep the patch focused on collection duplicate prevention and boundary durability rather than expanding collection UI or editing flows.
+
+### Acceptance Criteria
+
+- A Docker-backed runtime smoke proves a merged collection state survives later collection-shaped import activity without recreating a duplicate collection row.
+- The surviving canonical collection remains the landing point for the later import even when the absorbed collection arrived from a different source/title identity.
+- Collection-linked item relationships remain consistent after the re-sync.
+- If the proof exposes a collection identity gap, the bug is fixed before `3.2.6` closes.
+
+### Active Slice Notes
+
+- Start with the highest-risk collection recreation shape:
+  - a canonical collection survives a manual merge,
+  - the absorbed duplicate came from a collection-shaped import source,
+  - and that same collection import runs again later.
+- Prefer the generic CSV boxed-set path first because it exercises the real `ensureImportCollection(...)` boundary used by collection-only imports.
+- The proof should show both:
+  - no duplicate collection row recreated,
+  - and the surviving canonical collection still able to absorb collection item updates from the re-sync.
+
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 

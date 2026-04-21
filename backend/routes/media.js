@@ -1260,6 +1260,87 @@ function mergeCollectionMetadataObjects(leftValue, rightValue) {
   };
 }
 
+function normalizeCollectionImportAlias({
+  sourceTitle = '',
+  importSource = null,
+  mediaType = null,
+  source_title = '',
+  import_source = null,
+  media_type = null
+} = {}) {
+  const normalizedSourceTitle = String(sourceTitle || source_title || '').trim();
+  if (!normalizedSourceTitle) return null;
+  return {
+    source_title: normalizedSourceTitle,
+    import_source: importSource || import_source || null,
+    media_type: normalizeMediaType(mediaType || media_type || 'movie', 'movie')
+  };
+}
+
+function dedupeCollectionImportAliases(aliases = []) {
+  const deduped = [];
+  const seen = new Set();
+  for (const alias of aliases || []) {
+    const normalized = normalizeCollectionImportAlias(alias || {});
+    if (!normalized) continue;
+    const key = [
+      normalizeText(normalized.source_title || ''),
+      String(normalized.import_source || ''),
+      String(normalized.media_type || '')
+    ].join('|');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(normalized);
+  }
+  return deduped;
+}
+
+function extractCollectionImportAliases(metadata = null) {
+  const source = metadata && typeof metadata === 'object' && !Array.isArray(metadata)
+    ? metadata.import_collection_aliases
+    : [];
+  return dedupeCollectionImportAliases(Array.isArray(source) ? source : []);
+}
+
+function collectionMatchesImportAlias(collection = {}, alias = null) {
+  const normalizedAlias = normalizeCollectionImportAlias(alias || {});
+  if (!normalizedAlias) return false;
+  const directAlias = normalizeCollectionImportAlias({
+    sourceTitle: collection.source_title || '',
+    importSource: collection.import_source || null,
+    mediaType: collection.media_type || null
+  });
+  if (directAlias) {
+    const directMatch = normalizeText(directAlias.source_title || '') === normalizeText(normalizedAlias.source_title || '')
+      && String(directAlias.import_source || '') === String(normalizedAlias.import_source || '')
+      && String(directAlias.media_type || '') === String(normalizedAlias.media_type || '');
+    if (directMatch) return true;
+  }
+  return extractCollectionImportAliases(collection.metadata).some((candidate) => (
+    normalizeText(candidate.source_title || '') === normalizeText(normalizedAlias.source_title || '')
+    && String(candidate.import_source || '') === String(normalizedAlias.import_source || '')
+    && String(candidate.media_type || '') === String(normalizedAlias.media_type || '')
+  ));
+}
+
+function buildMergedCollectionImportAliases({
+  canonical = {},
+  duplicate = {},
+  mergedMetadata = {}
+} = {}) {
+  const aliases = [
+    ...extractCollectionImportAliases(mergedMetadata),
+    ...extractCollectionImportAliases(canonical.metadata),
+    ...extractCollectionImportAliases(duplicate.metadata),
+    normalizeCollectionImportAlias({
+      sourceTitle: duplicate.source_title || '',
+      importSource: duplicate.import_source || null,
+      mediaType: duplicate.media_type || null
+    })
+  ];
+  return dedupeCollectionImportAliases(aliases);
+}
+
 function buildCollectionMergeResult({
   canonical = {},
   duplicate = {},
@@ -1275,6 +1356,15 @@ function buildCollectionMergeResult({
     appendedItems += 1;
   }
   const mergedItemCount = Number(canonicalItems.length || 0) + appendedItems;
+  const mergedMetadata = mergeCollectionMetadataObjects(canonical.metadata, duplicate.metadata);
+  const importAliases = buildMergedCollectionImportAliases({
+    canonical,
+    duplicate,
+    mergedMetadata
+  });
+  if (importAliases.length > 0) {
+    mergedMetadata.import_collection_aliases = importAliases;
+  }
   return {
     name: canonical.name || duplicate.name || null,
     source_title: canonical.source_title || duplicate.source_title || null,
@@ -1284,7 +1374,7 @@ function buildCollectionMergeResult({
       mergedItemCount
     ) || 0,
     import_source: canonical.import_source || duplicate.import_source || null,
-    metadata: mergeCollectionMetadataObjects(canonical.metadata, duplicate.metadata),
+    metadata: mergedMetadata,
     merged_item_count: mergedItemCount,
     moved_item_count: appendedItems
   };
@@ -1534,6 +1624,17 @@ async function runManualCollectionMergeApply({
     canonicalItems,
     duplicateItems
   });
+  const mergedCollectionMetadata = mergeCollectionMetadataObjects(canonical.metadata, duplicate.metadata);
+  const mergedCollectionAliases = buildMergedCollectionImportAliases({
+    canonical,
+    duplicate,
+    mergedMetadata: mergeResult.metadata && typeof mergeResult.metadata === 'object'
+      ? mergeResult.metadata
+      : mergedCollectionMetadata
+  });
+  if (mergedCollectionAliases.length > 0) {
+    mergedCollectionMetadata.import_collection_aliases = mergedCollectionAliases;
+  }
 
   const snapshot = {
     canonical_before: canonical,
@@ -1618,7 +1719,7 @@ async function runManualCollectionMergeApply({
         mergeResult.name || canonical.name || `Collection #${canonicalId}`,
         mergeResult.source_title || null,
         mergeResult.expected_item_count || null,
-        JSON.stringify(mergeResult.metadata || {})
+        JSON.stringify(mergedCollectionMetadata || {})
       ]
     );
     await client.query(
@@ -4700,6 +4801,29 @@ async function ensureImportCollection({
     params
   );
   if (existing.rows[0]?.id) return { id: existing.rows[0].id, created: false };
+
+  const alias = normalizeCollectionImportAlias({
+    sourceTitle: normalizedSourceTitle,
+    importSource,
+    mediaType
+  });
+  if (alias) {
+    const aliasCandidates = await pool.query(
+      `SELECT id, source_title, import_source, media_type, metadata
+         FROM collections
+        WHERE COALESCE(media_type, '') = COALESCE($1, '')
+          AND COALESCE(library_id, 0) = COALESCE($2, 0)
+          AND COALESCE(space_id, 0) = COALESCE($3, 0)
+        ORDER BY id DESC`,
+      [
+        alias.media_type || null,
+        scopeContext?.libraryId || null,
+        scopeContext?.spaceId || null
+      ]
+    );
+    const aliasMatch = aliasCandidates.rows.find((row) => collectionMatchesImportAlias(row, alias));
+    if (aliasMatch?.id) return { id: aliasMatch.id, created: false };
+  }
 
   const created = await pool.query(
     `INSERT INTO collections (

@@ -239,23 +239,6 @@ This file is the staging area for work that has not yet been assigned a release 
 - Review the movie add flow for avoidable duplicate TMDB calls.
 - Evaluate whether title search, identifier search, and follow-up details fetch can be consolidated or cached more effectively.
 
-### Backlog Item: Collection Re-Sync Boundary Proof
-**Type:** Deferred milestone
-**Tags:** `merge`, `collections`, `sync`, `dedupe`, `proofs`
-
-**Goal:** Prove that collection-level merge decisions remain durable when collection-shaped imports or sync updates run again later.
-
-**Scope**
-- Revisit collection merge behavior after the current collection merge review/apply/revert work.
-- Prove that a merged collection does not silently reappear as a duplicate container on later sync/import activity.
-- Verify that collection-linked items still resolve against the intended merged collection state.
-- Keep the work limited to boundary and durability proof rather than expanding collection UI.
-
-**Acceptance Criteria**
-- A runtime smoke proves a merged collection state survives later sync/import activity without recreating a duplicate collection row.
-- Collection-linked item relationships remain consistent after the re-sync.
-- The proof identifies what collection boundary behavior is now guaranteed and what still remains future work.
-
 - Consider whether the current app-level external provider limit should be tuned if the limiter is the real source of the problem.
 
 **Acceptance Criteria**
