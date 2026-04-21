@@ -3526,6 +3526,41 @@ Historical note:
   - regenerated `backend/release-feed.json`,
   - running-stack `Help > Releases` verification on platform and homelab.
 
+## 3.2.4 — Strong-Identifier Merge Conflict Guards
+
+**Goal:** Prove that later syncs and imports refuse to mutate an existing canonical row when strong identifiers materially conflict, even if weaker title or packaging signals look similar.
+
+**Current Slice:** `Strong-Identifier Conflict Guard Smoke`
+
+### Scope
+
+- Add a Docker-backed runtime smoke for a same-title or near-same-title sync/import case where strong identifiers disagree.
+- Prove that the incoming row does not auto-attach to the wrong canonical when:
+  - provider identity conflicts,
+  - canonical alias reuse would be unsafe,
+  - or stronger identifiers disagree with the apparent title match.
+- Keep the patch focused on duplicate-avoidance safety and sync correctness rather than expanding merge UI.
+
+### Acceptance Criteria
+
+- A runtime smoke proves the wrong canonical is not updated when strong identifiers conflict.
+- The conflicting content remains separate instead of silently mutating an existing canonical row.
+- If the proof exposes an unsafe auto-attach path, the bug is fixed before `3.2.4` closes.
+- The milestone ends with a clear statement of which strong-id conflict cases are now guarded in runtime proof.
+
+### Active Slice Notes
+
+- Start with the highest-risk case:
+  - a previously merged canonical exists,
+  - a later sync/import arrives with a misleadingly similar title,
+  - but strong identifiers conflict,
+  - and the runtime proof confirms the canonical is left untouched.
+- Prefer a real supported sync/import path over a DB-only setup so the proof exercises the live matching logic.
+- Keep the remaining merge-proof follow-ups out of this patch for now:
+  - provider-family cross-source canonical reuse beyond the current CSV matrix,
+  - collection re-sync boundary behavior,
+  - sparse-metadata alias reuse.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

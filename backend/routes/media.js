@@ -279,6 +279,7 @@ function deriveImportConfidenceScore({
   if (matchMode === 'matched_by_normalization_high') score += 18;
   if (matchMode === 'normalization_review_medium') score += 6;
   if (matchMode === 'identifier_conflict') score -= 35;
+  if (matchMode === 'strong_identifier_conflict_guarded') score -= 32;
   if (matchMode === 'identifier_no_match_fallback_title') score -= 15;
   if (matchMode === 'fallback_title_only') score -= 20;
 
@@ -314,6 +315,7 @@ function shouldFlagImportDiagnostic({
   const score = Number.isFinite(Number(confidenceScore)) ? Number(confidenceScore) : 0;
   const noMatch = enrichmentStatus === 'no_match';
   if (matchMode === 'identifier_conflict') return true;
+  if (matchMode === 'strong_identifier_conflict_guarded') return true;
   // If a row already created/updated a media record successfully,
   // review queue provides no operator value; keep this in CSV audit only.
   if (upsertStatus === 'created' || upsertStatus === 'updated') return false;
@@ -407,6 +409,51 @@ function normalizeMediaType(input, fallback = 'movie') {
   if (raw === 'game' || raw === 'games' || raw === 'video_game' || raw === 'videogame') return 'game';
   if (raw === 'other') return 'comic_book';
   return fallback;
+}
+
+function normalizeStrongIdentifierValue(value) {
+  return String(value || '').trim();
+}
+
+function normalizeStrongIsbnValue(value) {
+  return String(value || '').replace(/\D+/g, '').trim();
+}
+
+function getCandidateStrongIdentifiers(candidateRow = {}) {
+  const typeDetails = candidateRow?.type_details && typeof candidateRow.type_details === 'object'
+    ? candidateRow.type_details
+    : {};
+  return {
+    isbn: normalizeStrongIsbnValue(typeDetails.isbn || ''),
+    eanUpc: normalizeStrongIdentifierValue(candidateRow.upc || ''),
+    tmdbId: normalizeStrongIdentifierValue(candidateRow.tmdb_id || ''),
+    providerItemId: normalizeStrongIdentifierValue(typeDetails.provider_item_id || typeDetails.calibre_entry_id || ''),
+    providerIssueId: normalizeStrongIdentifierValue(typeDetails.provider_issue_id || '')
+  };
+}
+
+function getIncomingStrongIdentifiers({ item = {}, normalizedTypeDetails = {}, resolvedIdentifiers = {} } = {}) {
+  return {
+    isbn: normalizeStrongIsbnValue(resolvedIdentifiers.isbn || normalizedTypeDetails.isbn || ''),
+    eanUpc: normalizeStrongIdentifierValue(resolvedIdentifiers.eanUpc || item.upc || ''),
+    tmdbId: normalizeStrongIdentifierValue(item.tmdb_id || ''),
+    providerItemId: normalizeStrongIdentifierValue(normalizedTypeDetails.provider_item_id || normalizedTypeDetails.calibre_entry_id || item.provider_item_id || ''),
+    providerIssueId: normalizeStrongIdentifierValue(normalizedTypeDetails.provider_issue_id || item.provider_issue_id || '')
+  };
+}
+
+function assessTitleFallbackStrongIdentifierConflicts({ item = {}, normalizedTypeDetails = {}, resolvedIdentifiers = {}, candidateRow = {} } = {}) {
+  const incoming = getIncomingStrongIdentifiers({ item, normalizedTypeDetails, resolvedIdentifiers });
+  const candidate = getCandidateStrongIdentifiers(candidateRow);
+  const conflicts = [];
+
+  if (incoming.isbn && candidate.isbn && incoming.isbn !== candidate.isbn) conflicts.push('isbn_conflict');
+  if (incoming.eanUpc && candidate.eanUpc && incoming.eanUpc !== candidate.eanUpc) conflicts.push('ean_upc_conflict');
+  if (incoming.tmdbId && candidate.tmdbId && incoming.tmdbId !== candidate.tmdbId) conflicts.push('tmdb_id_conflict');
+  if (incoming.providerItemId && candidate.providerItemId && incoming.providerItemId !== candidate.providerItemId) conflicts.push('provider_item_id_conflict');
+  if (incoming.providerIssueId && candidate.providerIssueId && incoming.providerIssueId !== candidate.providerIssueId) conflicts.push('provider_issue_id_conflict');
+
+  return conflicts;
 }
 
 function validateTypeSpecificFields(mediaType, payload = {}) {
@@ -4040,17 +4087,32 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
         const existingParams = [title, year, normalizedMediaType];
         const existingScopeClause = appendScopeSql(existingParams, scopeContext);
         const existing = await pool.query(
-          `SELECT id
+          `SELECT id, title, media_type, type_details, upc, tmdb_id
            FROM media
            WHERE LOWER(TRIM(title)) = LOWER(TRIM($1))
              AND (($2::int IS NOT NULL AND year = $2::int) OR ($2::int IS NULL))
              AND COALESCE(media_type, 'movie') = $3
              ${existingScopeClause}
            ORDER BY created_at DESC
-           LIMIT 1`,
+           LIMIT 5`,
           existingParams
         );
-        existingRow = existing.rows[0] || null;
+        const titleFallbackCandidates = existing.rows || [];
+        const safeTitleFallbackCandidate = titleFallbackCandidates.find((candidate) => {
+          const conflicts = assessTitleFallbackStrongIdentifierConflicts({
+            item,
+            normalizedTypeDetails,
+            resolvedIdentifiers,
+            candidateRow: candidate
+          });
+          return conflicts.length === 0;
+        }) || null;
+        if (safeTitleFallbackCandidate) {
+          existingRow = safeTitleFallbackCandidate;
+        } else if (titleFallbackCandidates.length > 0) {
+          matchMode = 'strong_identifier_conflict_guarded';
+          matchedBy = 'title_year_media_type';
+        }
       }
     }
 
