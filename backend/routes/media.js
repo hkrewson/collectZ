@@ -4199,7 +4199,10 @@ async function upsertImportedMedia({ userId, item, importSource, scopeContext = 
            signed_proof_path = COALESCE($25, signed_proof_path),
            location = COALESCE($26, location),
            notes = COALESCE($27, notes),
-           type_details = COALESCE($28::jsonb, type_details),
+           type_details = CASE
+             WHEN $28::jsonb IS NULL THEN type_details
+             ELSE COALESCE(type_details, '{}'::jsonb) || $28::jsonb
+           END,
            import_source = COALESCE($29, import_source)
          WHERE id = $30${updateScopeClause}
          RETURNING id, genre, director, cast_members AS cast`,

@@ -256,22 +256,6 @@ This file is the staging area for work that has not yet been assigned a release 
 - Collection-linked item relationships remain consistent after the re-sync.
 - The proof identifies what collection boundary behavior is now guaranteed and what still remains future work.
 
-### Backlog Item: Sparse-Metadata Alias Reuse Proof
-**Type:** Deferred milestone
-**Tags:** `merge`, `sync`, `aliases`, `dedupe`, `proofs`
-
-**Goal:** Prove that preserved merge aliases still avoid duplicate recreation when later sync payloads are weak or incomplete.
-
-**Scope**
-- Choose one or more re-sync paths where the follow-up payload carries only sparse metadata.
-- Prove that preserved alias keys still land the update on the existing canonical row instead of creating a new duplicate.
-- Verify that missing strong metadata is treated as incomplete input, not as evidence to fork a second record.
-- Keep the work narrowly focused on post-merge durability under degraded payload quality.
-
-**Acceptance Criteria**
-- A runtime smoke proves sparse follow-up payloads still resolve to the canonical row through preserved aliases.
-- The same content does not recreate a duplicate row solely because the later payload is metadata-poor.
-- The proof documents which alias fields remain sufficient for safe reuse in the sparse case.
 - Consider whether the current app-level external provider limit should be tuned if the limiter is the real source of the problem.
 
 **Acceptance Criteria**

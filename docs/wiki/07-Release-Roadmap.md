@@ -3574,7 +3574,7 @@ Historical note:
 
 **Goal:** Prove that canonical reuse survives across a real non-CSV provider-family boundary so later syncs do not fork the same content into duplicate canonicals when provider contracts change.
 
-**Current Slice:** `Provider-Family Cross-Source Canonical Reuse Smoke`
+**Current Slice:** `Sparse-Metadata Alias Reuse Smoke`
 
 ### Scope
 
@@ -3597,9 +3597,12 @@ Historical note:
   - a later Plex sync for the same title family,
   - and TMDB identity proving the existing canonical should be reused.
 - Prefer a runtime shape where the seeded canonical title intentionally differs from the later Plex title so the proof demonstrates TMDB-based reuse rather than a weaker title fallback.
+- Add a second proof shape for this patch:
+  - a merged canonical with preserved duplicate aliases,
+  - a later metadata-poor follow-up payload,
+  - and runtime proof that alias reuse still resolves the update onto the canonical row.
 - Keep the remaining merge-proof follow-ups out of this patch for now:
-  - collection re-sync boundary behavior,
-  - sparse-metadata alias reuse.
+  - collection re-sync boundary behavior.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 

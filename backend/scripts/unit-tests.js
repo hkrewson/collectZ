@@ -156,6 +156,7 @@ const importNormalizationReviewSmokeSource = fs.readFileSync(require.resolve('..
 const repeatSyncIdempotencySmokeSource = fs.readFileSync(require.resolve('../scripts/repeat-sync-idempotency-smoke'), 'utf8');
 const crossSourceCanonicalReuseSmokeSource = fs.readFileSync(require.resolve('../scripts/cross-source-canonical-reuse-smoke'), 'utf8');
 const providerFamilyCrossSourceCanonicalReuseSmokeSource = fs.readFileSync(require.resolve('../scripts/provider-family-cross-source-canonical-reuse-smoke'), 'utf8');
+const sparseMetadataAliasReuseSmokeSource = fs.readFileSync(require.resolve('../scripts/sparse-metadata-alias-reuse-smoke'), 'utf8');
 const historicalRepairPlanSource = fs.readFileSync(require.resolve('../scripts/book-comic-historical-repair-plan'), 'utf8');
 const backfillMergeEvidenceSource = fs.readFileSync(require.resolve('../scripts/backfill-merge-evidence'), 'utf8');
 const repairComicLikeBooksSource = fs.readFileSync(require.resolve('../scripts/repair-comic-like-books'), 'utf8');
@@ -1652,6 +1653,16 @@ results.push(run('repo includes provider-family cross-source canonical reuse smo
   assert.ok(providerFamilyCrossSourceCanonicalReuseSmokeSource.includes("matchedBy: 'provider_tmdb'"));
   assert.ok(providerFamilyCrossSourceCanonicalReuseSmokeSource.includes("stableIdentity: 'tmdb_id'"));
   assert.ok(providerFamilyCrossSourceCanonicalReuseSmokeSource.includes('scopedMovieCount'));
+}));
+
+results.push(run('repo includes sparse-metadata alias reuse smoke coverage for degraded post-merge payloads', () => {
+  assert.ok(backendPackageJson.scripts['test:sparse-metadata-alias-reuse-smoke']);
+  assert.ok(sparseMetadataAliasReuseSmokeSource.includes('/api/media/merge-apply'));
+  assert.ok(sparseMetadataAliasReuseSmokeSource.includes('/api/media/import-csv?sync=1'));
+  assert.ok(sparseMetadataAliasReuseSmokeSource.includes('Expected sparse follow-up payload to reuse the canonical row'));
+  assert.ok(sparseMetadataAliasReuseSmokeSource.includes('Expected richer canonical author metadata to survive sparse follow-up import'));
+  assert.ok(sparseMetadataAliasReuseSmokeSource.includes("stableIdentity: 'provider_item_id_alias'"));
+  assert.ok(sparseMetadataAliasReuseSmokeSource.includes('scopedBookCount'));
 }));
 
 results.push(run('repo includes dry-run historical repair plan coverage for duplicate and type-repair reporting', () => {
