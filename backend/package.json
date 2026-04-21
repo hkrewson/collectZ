@@ -37,6 +37,7 @@
     "test:manual-merge-scope-isolation-resync-smoke": "node scripts/manual-merge-scope-isolation-resync-smoke.js",
     "test:strong-id-conflict-guard-smoke": "node scripts/strong-id-conflict-guard-smoke.js",
     "test:strong-id-movie-conflict-guard-smoke": "node scripts/strong-id-movie-conflict-guard-smoke.js",
+    "test:strong-id-plex-tmdb-conflict-guard-smoke": "node scripts/strong-id-plex-tmdb-conflict-guard-smoke.js",
     "test:manual-merge-metron-identity-alias-smoke": "node scripts/manual-merge-metron-identity-alias-smoke.js",
     "test:manual-merge-plex-identity-alias-smoke": "node scripts/manual-merge-plex-identity-alias-smoke.js",
     "test:help-releases-smoke": "node scripts/help-releases-smoke.js",

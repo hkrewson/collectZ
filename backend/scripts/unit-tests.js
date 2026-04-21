@@ -174,6 +174,7 @@ const manualMergeMultiHopIdentityAliasSmokeSource = fs.readFileSync(require.reso
 const manualMergeScopeIsolationResyncSmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-scope-isolation-resync-smoke'), 'utf8');
 const strongIdConflictGuardSmokeSource = fs.readFileSync(require.resolve('../scripts/strong-id-conflict-guard-smoke'), 'utf8');
 const strongIdMovieConflictGuardSmokeSource = fs.readFileSync(require.resolve('../scripts/strong-id-movie-conflict-guard-smoke'), 'utf8');
+const strongIdPlexTmdbConflictGuardSmokeSource = fs.readFileSync(require.resolve('../scripts/strong-id-plex-tmdb-conflict-guard-smoke'), 'utf8');
 const manualMergeMetronIdentityAliasSmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-metron-identity-alias-smoke'), 'utf8');
 const manualMergePlexIdentityAliasSmokeSource = fs.readFileSync(require.resolve('../scripts/manual-merge-plex-identity-alias-smoke'), 'utf8');
 const helpReleasesSmokeSource = fs.readFileSync(require.resolve('../scripts/help-releases-smoke'), 'utf8');
@@ -1752,6 +1753,11 @@ results.push(run('repo includes manual merge preview smoke coverage for same-typ
   assert.ok(strongIdMovieConflictGuardSmokeSource.includes('Conflicting same-title movie import should create a separate row'));
   assert.ok(strongIdMovieConflictGuardSmokeSource.includes('canonicalTmdbId'));
   assert.ok(strongIdMovieConflictGuardSmokeSource.includes('conflictGuarded'));
+  assert.ok(backendPackageJson.scripts['test:strong-id-plex-tmdb-conflict-guard-smoke']);
+  assert.ok(strongIdPlexTmdbConflictGuardSmokeSource.includes('/api/media/import-plex?sync=1'));
+  assert.ok(strongIdPlexTmdbConflictGuardSmokeSource.includes('Canonical Plex TMDB conflict row should stay untouched'));
+  assert.ok(strongIdPlexTmdbConflictGuardSmokeSource.includes('conflictingTmdbId'));
+  assert.ok(strongIdPlexTmdbConflictGuardSmokeSource.includes('conflictGuarded'));
   assert.ok(mediaRoutesSource.includes('strong_identifier_conflict_guarded'));
   assert.ok(mediaRoutesSource.includes('assessTitleFallbackStrongIdentifierConflicts'));
   assert.ok(manualMergeMetronIdentityAliasSmokeSource.includes('/api/media/import-comics?sync=1'));

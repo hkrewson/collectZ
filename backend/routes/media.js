@@ -5279,7 +5279,7 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
         const byTitleYearParams = [media.title, media.year || null];
         const byTitleYearScopeClause = appendScopeSql(byTitleYearParams, scopeContext);
         const byTitleYear = await pool.query(
-          `SELECT id
+          `SELECT id, title, media_type, type_details, upc, tmdb_id
            FROM media
            WHERE LOWER(TRIM(title)) = LOWER(TRIM($1))
              AND (
@@ -5288,10 +5288,20 @@ async function runPlexImport({ req, config, sectionIds = [], scopeContext = null
              )
              ${byTitleYearScopeClause}
            ORDER BY created_at DESC
-           LIMIT 1`,
+           LIMIT 5`,
           byTitleYearParams
         );
-          existing = byTitleYear.rows[0] || null;
+        const titleFallbackCandidates = byTitleYear.rows || [];
+        const safeTitleFallbackCandidate = titleFallbackCandidates.find((candidate) => {
+          const conflicts = assessTitleFallbackStrongIdentifierConflicts({
+            item: media,
+            normalizedTypeDetails: media.type_details,
+            resolvedIdentifiers: { isbn: '', eanUpc: '', asin: '' },
+            candidateRow: candidate
+          });
+          return conflicts.length === 0;
+        }) || null;
+          existing = safeTitleFallbackCandidate || null;
         }
 
         if (existing) {
