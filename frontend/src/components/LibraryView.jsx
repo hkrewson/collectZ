@@ -542,6 +542,8 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   const comicOverviewNeedsClamp = isComic && typeof item?.overview === 'string' && item.overview.trim().length > 420;
   const calibreExternalUrl = String(typeDetails.calibre_external_url || '').trim();
   const providerExternalUrl = String(typeDetails.provider_external_url || '').trim();
+  const calibreDownloadUrl = String(typeDetails.calibre_download_url || '').trim();
+  const providerDownloadUrl = String(typeDetails.provider_download_url || '').trim();
   const externalMediaUrl = calibreExternalUrl || providerExternalUrl || item.tmdb_url || '';
   const externalMediaLabel = (() => {
     if (calibreExternalUrl) return 'Open in Calibre';
@@ -560,9 +562,9 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
     : [];
   const hiddenTypeDetailKeys = new Set(
     isBook
-      ? ['author', 'publisher', 'edition', 'isbn', 'calibre_external_url', 'provider_external_url']
+      ? ['author', 'publisher', 'edition', 'isbn', 'calibre_external_url', 'provider_external_url', 'calibre_download_url', 'provider_download_url']
       : isComic
-        ? ['calibre_entry_id', 'provider_item_id', 'calibre_external_url', 'provider_external_url', 'provider_name']
+        ? ['calibre_entry_id', 'provider_item_id', 'calibre_external_url', 'provider_external_url', 'calibre_download_url', 'provider_download_url', 'provider_name']
         : []
   );
   const visibleTypeDetailEntries = Object.entries(typeDetails)
@@ -591,6 +593,15 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
       return 'View on Google Books';
     }
     return 'Open source';
+  };
+  const inferDownloadLabel = (href, fallback = 'Download file') => {
+    const value = String(href || '').trim().toLowerCase();
+    if (!value) return fallback;
+    if (value.includes('.epub')) return 'Download EPUB';
+    if (value.includes('.pdf')) return 'Download PDF';
+    if (value.includes('.cbz')) return 'Download CBZ';
+    if (value.includes('.cbr')) return 'Download CBR';
+    return fallback;
   };
   const inferComicSourceLabel = (href) => {
     const value = String(href || '').trim();
@@ -621,6 +632,8 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
     const candidates = [
       calibreExternalUrl ? ['Read in Calibre', calibreExternalUrl] : null,
       providerExternalUrl ? [inferBookSourceLabel(providerExternalUrl), providerExternalUrl] : null,
+      calibreDownloadUrl ? [inferDownloadLabel(calibreDownloadUrl, 'Download from Calibre'), calibreDownloadUrl] : null,
+      providerDownloadUrl ? [inferDownloadLabel(providerDownloadUrl), providerDownloadUrl] : null,
       item.tmdb_url ? [inferBookSourceLabel(item.tmdb_url), item.tmdb_url] : null,
       item.trailer_url ? ['Watch trailer', item.trailer_url] : null
     ].filter(Boolean);
@@ -635,6 +648,8 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
     const seen = new Set();
     const candidates = [
       providerExternalUrl ? [inferComicSourceLabel(providerExternalUrl), providerExternalUrl] : null,
+      calibreDownloadUrl ? [inferDownloadLabel(calibreDownloadUrl, 'Download from Calibre'), calibreDownloadUrl] : null,
+      providerDownloadUrl ? [inferDownloadLabel(providerDownloadUrl, 'Download from Calibre'), providerDownloadUrl] : null,
       item.tmdb_url ? [inferComicSourceLabel(item.tmdb_url), item.tmdb_url] : null,
       item.trailer_url ? ['Watch trailer', item.trailer_url] : null
     ].filter(Boolean);

@@ -55,41 +55,6 @@ This file is the staging area for work that has not yet been assigned a release 
 - The packaging and publication flow is documented and repeatable.
 - Update flow from the private source into the public repo is clear and intentional.
 
-### Backlog Item: OPDS Sync Contract and Reader-Link Separation
-**Type:** Deferred milestone
-**Tags:** `digital-library`, `opds`, `cwa`, `sync`, `metadata`, `links`
-
-**Goal:** Tighten the OPDS/CWA sync contract so imported digital books and comics preserve meaningful browse/read/download links, expose clearer source labels in the UI, and stop collapsing different OPDS link types into one generic external URL.
-
-**Scope**
-- Reassess OPDS entry link handling in the CWA importer, where acquisition/download links are currently preferred over alternate or catalog/detail links.
-- Separate OPDS link semantics into distinct stored fields where the feed supports them:
-  - browse/source URL
-  - read/detail URL
-  - download/acquisition URL
-- Stop treating one captured OPDS link as all of the following at once:
-  - `tmdb_url`
-  - `external_url`
-  - `provider_external_url`
-  - `calibre_external_url`
-- Define how OPDS-imported items should be labeled in the UI based on actual provider context:
-  - `Read in Calibre`
-  - `Open source`
-  - `View on Google Books`
-  - `Download EPUB`
-  - or similar truthful action labels
-- Dedupe identical URLs before surfacing them so one destination does not appear as multiple different sources.
-- Decide whether non-reader-facing provider plumbing such as raw OPDS identifiers should stay hidden from drawers by default unless explicitly useful.
-- Preserve idempotent sync behavior while introducing the richer link contract for existing and newly imported OPDS rows.
-- Keep the work explicitly separate from the broader provider-comparison item in `Digital Library Sync Revisit` and from the current `3.1.5` drawer-only milestone.
-
-**Acceptance Criteria**
-- OPDS-imported titles no longer surface the same URL as multiple different source actions.
-- Browse/detail/read URLs and download/acquisition URLs are stored separately when the feed provides them.
-- The drawer can render truthful, provider-aware labels instead of misleading generic labels like `View on TMDB` for books.
-- OPDS-imported book and comic drawers do not expose non-useful plumbing metadata by default.
-- Repeat syncs preserve the richer link contract without regressing dedupe or creating duplicate source entries.
-
 ### Backlog Item: Comic Sort and Server Pagination Normalization
 **Type:** Deferred milestone
 **Tags:** `comics`, `pagination`, `sorting`, `backend`, `data-model`

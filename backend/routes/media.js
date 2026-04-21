@@ -5871,7 +5871,9 @@ async function runGenericCsvImport({
       cast: value('cast') || value('actors') || value('actor'),
       rating: value('rating') ? Number(value('rating')) : null,
       user_rating: value('user_rating') ? Number(value('user_rating')) : null,
-      tmdb_url: value('tmdb_url') || value('external_url') || null,
+      tmdb_url: value('tmdb_url')
+        || (['movie', 'tv_series', 'tv_episode'].includes(mappedMediaType) ? value('external_url') : null)
+        || null,
       poster_path: value('poster_path') || value('image_url') || null,
       overview: value('overview') || value('summary') || value('description') || null,
       runtime: value('runtime') ? Number(value('runtime')) : null,
@@ -5899,8 +5901,10 @@ async function runGenericCsvImport({
         provider_name: value('provider_name') || row?.type_details?.provider_name || null,
         provider_item_id: value('provider_item_id') || row?.type_details?.provider_item_id || row?.type_details?.calibre_entry_id || null,
         provider_external_url: value('provider_external_url') || row?.type_details?.provider_external_url || row?.type_details?.calibre_external_url || value('external_url') || null,
+        provider_download_url: value('provider_download_url') || row?.type_details?.provider_download_url || row?.type_details?.calibre_download_url || null,
         calibre_entry_id: value('calibre_entry_id') || row?.type_details?.calibre_entry_id || null,
-        calibre_external_url: value('calibre_external_url') || row?.type_details?.calibre_external_url || null
+        calibre_external_url: value('calibre_external_url') || row?.type_details?.calibre_external_url || null,
+        calibre_download_url: value('calibre_download_url') || row?.type_details?.calibre_download_url || null
       }
     };
     let collectionId = null;

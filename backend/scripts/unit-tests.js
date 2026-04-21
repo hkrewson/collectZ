@@ -11,6 +11,7 @@ const { mapDeliciousItemTypeToMediaType } = require('../services/importMapping')
 const { normalizeDeliciousRow } = require('../services/deliciousNormalize');
 const { normalizeIsbn, normalizeIdentifierSet } = require('../services/importIdentifiers');
 const { normalizeTypeDetails } = require('../services/typeDetails');
+const { normalizeOpdsEntry } = require('../services/cwa');
 const {
   buildBookNormalizationIdentity,
   buildComicNormalizationIdentity,
@@ -159,6 +160,7 @@ const providerFamilyCrossSourceCanonicalReuseSmokeSource = fs.readFileSync(requi
 const sparseMetadataAliasReuseSmokeSource = fs.readFileSync(require.resolve('../scripts/sparse-metadata-alias-reuse-smoke'), 'utf8');
 const collectionResyncBoundarySmokeSource = fs.readFileSync(require.resolve('../scripts/collection-resync-boundary-smoke'), 'utf8');
 const cwaOpdsRepeatSyncIdempotencySmokeSource = fs.readFileSync(require.resolve('../scripts/cwa-opds-repeat-sync-idempotency-smoke'), 'utf8');
+const cwaOpdsLinkContractSmokeSource = fs.readFileSync(require.resolve('../scripts/cwa-opds-link-contract-smoke'), 'utf8');
 const historicalRepairPlanSource = fs.readFileSync(require.resolve('../scripts/book-comic-historical-repair-plan'), 'utf8');
 const backfillMergeEvidenceSource = fs.readFileSync(require.resolve('../scripts/backfill-merge-evidence'), 'utf8');
 const repairComicLikeBooksSource = fs.readFileSync(require.resolve('../scripts/repair-comic-like-books'), 'utf8');
@@ -1686,6 +1688,14 @@ results.push(run('repo includes CWA OPDS repeat-sync idempotency smoke coverage 
   assert.ok(cwaOpdsRepeatSyncIdempotencySmokeSource.includes('scopedBookCount'));
 }));
 
+results.push(run('repo includes CWA OPDS link-contract smoke coverage for separated browse and download urls', () => {
+  assert.ok(backendPackageJson.scripts['test:cwa-opds-link-contract-smoke']);
+  assert.ok(cwaOpdsLinkContractSmokeSource.includes('/api/media/import-cwa?sync=1'));
+  assert.ok(cwaOpdsLinkContractSmokeSource.includes('Expected OPDS import to leave tmdb_url null'));
+  assert.ok(cwaOpdsLinkContractSmokeSource.includes('Expected provider_download_url to keep acquisition URL'));
+  assert.ok(cwaOpdsLinkContractSmokeSource.includes('stableIdentity'));
+}));
+
 results.push(run('repo includes dry-run historical repair plan coverage for duplicate and type-repair reporting', () => {
   assert.ok(backendPackageJson.scripts['test:book-comic-historical-repair-plan']);
   assert.ok(historicalRepairPlanSource.includes('buildHistoricalRepairPlan'));
@@ -1861,6 +1871,14 @@ results.push(run('repo includes manual merge preview smoke coverage for same-typ
   assert.ok(collectionResyncBoundarySmokeSource.includes('Expected later collection-shaped re-sync to land a new contained item on the canonical collection'));
 }));
 
+results.push(run('LibraryView renders distinct OPDS browse and download actions without leaking TMDB labels for books', () => {
+  assert.ok(libraryViewSource.includes('calibre_download_url'));
+  assert.ok(libraryViewSource.includes('provider_download_url'));
+  assert.ok(libraryViewSource.includes('Download EPUB'));
+  assert.ok(libraryViewSource.includes('Download from Calibre'));
+  assert.ok(libraryViewSource.includes('Read in Calibre'));
+}));
+
 results.push(run('repo includes local release preflight helper coverage for dependency audits and go-no-go reporting', () => {
   assert.ok(backendPackageJson.scripts['test:release-preflight-local']);
   assert.ok(releasePreflightLocalSource.includes("artifacts', 'dependency-audit'"));
@@ -2034,8 +2052,10 @@ results.push(run('typeDetails keeps canonical provider linkage fields for CWA im
     provider_name: 'cwa_opds',
     provider_item_id: 'urn:uuid:abc-123',
     provider_external_url: 'https://cwa.example/books/abc-123',
+    provider_download_url: 'https://cwa.example/downloads/abc-123.epub',
     calibre_entry_id: 'urn:uuid:abc-123',
-    calibre_external_url: 'https://cwa.example/books/abc-123'
+    calibre_external_url: 'https://cwa.example/books/abc-123',
+    calibre_download_url: 'https://cwa.example/downloads/abc-123.epub'
   }, { strict: true });
   assert.deepStrictEqual(out.invalidKeys, []);
   assert.deepStrictEqual(out.errors, []);
@@ -2044,9 +2064,39 @@ results.push(run('typeDetails keeps canonical provider linkage fields for CWA im
     provider_name: 'cwa_opds',
     provider_item_id: 'urn:uuid:abc-123',
     provider_external_url: 'https://cwa.example/books/abc-123',
+    provider_download_url: 'https://cwa.example/downloads/abc-123.epub',
     calibre_entry_id: 'urn:uuid:abc-123',
-    calibre_external_url: 'https://cwa.example/books/abc-123'
+    calibre_external_url: 'https://cwa.example/books/abc-123',
+    calibre_download_url: 'https://cwa.example/downloads/abc-123.epub'
   });
+}));
+
+results.push(run('cwa.normalizeOpdsEntry separates browse and download links without misusing tmdb_url', () => {
+  const normalized = normalizeOpdsEntry({
+    id: 'urn:uuid:opds-entry-1',
+    title: 'OPDS Contract Smoke Book',
+    author: { name: 'Contract Smoke Author' },
+    identifier: '9781476735402',
+    published: '2021-09-15',
+    summary: 'Contract smoke summary',
+    link: [
+      { '@_rel': 'alternate', '@_type': 'text/html', '@_href': '/books/opds-entry-1' },
+      { '@_rel': 'http://opds-spec.org/acquisition', '@_type': 'application/epub+zip', '@_href': '/download/opds-entry-1.epub' }
+    ]
+  }, 'https://cwa.example/opds/books');
+
+  assert.strictEqual(normalized.tmdb_url, null);
+  assert.strictEqual(normalized.external_url, 'https://cwa.example/books/opds-entry-1');
+  assert.strictEqual(normalized.type_details.provider_external_url, 'https://cwa.example/books/opds-entry-1');
+  assert.strictEqual(normalized.type_details.provider_download_url, 'https://cwa.example/download/opds-entry-1.epub');
+  assert.strictEqual(normalized.type_details.calibre_external_url, 'https://cwa.example/books/opds-entry-1');
+  assert.strictEqual(normalized.type_details.calibre_download_url, 'https://cwa.example/download/opds-entry-1.epub');
+}));
+
+results.push(run('generic import mapping keeps OPDS external urls out of tmdb_url for books and preserves download links', () => {
+  assert.ok(mediaRoutesSource.includes("['movie', 'tv_series', 'tv_episode'].includes(mappedMediaType) ? value('external_url') : null"));
+  assert.ok(mediaRoutesSource.includes("provider_download_url: value('provider_download_url')"));
+  assert.ok(mediaRoutesSource.includes("calibre_download_url: value('calibre_download_url')"));
 }));
 
 results.push(run('audit.sanitizeAuditDetails redacts token and secret fields recursively', () => {

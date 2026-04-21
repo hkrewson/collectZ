@@ -3657,7 +3657,7 @@ Historical note:
 
 **Goal:** Re-enable the deferred OPDS/CWA import path behind a proof-first dedupe contract so digital-library syncs can repeat safely without recreating duplicate book or comic rows when stable provider identities already exist.
 
-**Current Slice:** `CWA OPDS Repeat-Sync Idempotency Smoke`
+**Current Slice:** `CWA OPDS Link Contract Smoke`
 
 ### Scope
 
@@ -3692,9 +3692,12 @@ Historical note:
   - live `/api/media/import-cwa` re-enabled through the existing OPDS importer service,
   - Docker-backed repeat-sync idempotency proof on platform and homelab,
   - and canonical book reuse through persisted `provider_item_id` / `calibre_entry_id` identity fields instead of duplicate row recreation.
+- The next active slice tightens the OPDS contract without widening provider scope:
+  - preserve browse/detail URLs separately from acquisition/download URLs,
+  - stop treating OPDS links as generic `tmdb_url` surrogates for books and comics,
+  - and prove the stored link contract through a Docker-backed runtime smoke before any broader reader-link UX work.
 - Keep the remaining digital-library follow-up out of this patch for now:
   - provider comparison and alternative reader evaluation,
-  - richer OPDS browse/read/download link separation,
   - and larger-scale comic-heavy dedupe tuning.
 
 

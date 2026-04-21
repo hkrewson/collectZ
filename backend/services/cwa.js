@@ -60,6 +60,33 @@ function extractBestLink(entry) {
   return sorted[0]?.['@_href'] || '';
 }
 
+function extractOpdsLinks(entry = {}, baseUrl = '') {
+  const links = toArray(entry.link).filter((link) => String(link?.['@_href'] || '').trim());
+  const findLink = (predicate) => links.find((link) => predicate({
+    rel: String(link?.['@_rel'] || '').toLowerCase(),
+    type: String(link?.['@_type'] || '').toLowerCase(),
+    href: String(link?.['@_href'] || '').trim()
+  })) || null;
+
+  const alternateLink = findLink(({ rel, type }) => (
+    rel === 'alternate'
+    && !/application\/(epub\+zip|pdf|x-cbz|x-cbr|zip|octet-stream)/.test(type)
+  ));
+  const acquisitionLink = findLink(({ rel, type }) => (
+    rel.includes('acquisition')
+    || /application\/(epub\+zip|pdf|x-cbz|x-cbr|zip|octet-stream)/.test(type)
+  ));
+  const fallbackHref = extractBestLink(entry);
+  const browseUrl = resolveUrl(alternateLink?.['@_href'] || '', baseUrl)
+    || (alternateLink ? '' : resolveUrl(fallbackHref, baseUrl));
+  const downloadUrl = resolveUrl(acquisitionLink?.['@_href'] || '', baseUrl);
+
+  return {
+    browseUrl: browseUrl || null,
+    downloadUrl: downloadUrl || null
+  };
+}
+
 function hasAcquisitionLink(entry = {}) {
   const links = toArray(entry.link);
   return links.some((link) => {
@@ -147,10 +174,8 @@ function normalizeOpdsEntry(entry = {}, baseUrl = '') {
   const published = firstString(entry.published, entry.issued, entry.updated, entry['dc:date']);
   const normalizedDate = normalizeDate(published);
   const sourceUpdatedAt = firstString(entry.updated, entry.published, entry.issued, entry['dc:date']);
-  const linkRaw = extractBestLink(entry);
   const imageRaw = extractImageLink(entry);
-
-  const externalUrl = resolveUrl(linkRaw, baseUrl);
+  const links = extractOpdsLinks(entry, baseUrl);
   const imageUrl = resolveUrl(imageRaw, baseUrl);
 
   const summary = firstString(entry.summary?.['#text'], entry.summary, entry.content?.['#text'], entry.content, entry.description);
@@ -165,8 +190,8 @@ function normalizeOpdsEntry(entry = {}, baseUrl = '') {
     release_date: normalizedDate.release_date || null,
     format: 'Digital',
     overview: summary || null,
-    tmdb_url: externalUrl || null,
-    external_url: externalUrl || null,
+    tmdb_url: null,
+    external_url: links.browseUrl || links.downloadUrl || null,
     poster_path: imageUrl || null,
     type_details: {
       author: author || null,
@@ -178,9 +203,11 @@ function normalizeOpdsEntry(entry = {}, baseUrl = '') {
       volume: parsedComic.volume || null,
       provider_name: 'cwa_opds',
       provider_item_id: identifier || null,
-      provider_external_url: externalUrl || null,
+      provider_external_url: links.browseUrl || null,
+      provider_download_url: links.downloadUrl || null,
       calibre_entry_id: identifier || null,
-      calibre_external_url: externalUrl || null,
+      calibre_external_url: links.browseUrl || null,
+      calibre_download_url: links.downloadUrl || null,
       source_updated_at: sourceUpdatedAt || null
     }
   };
@@ -283,5 +310,6 @@ async function fetchCwaOpdsItems(config = {}, options = {}) {
 
 module.exports = {
   fetchCwaOpdsItems,
-  parseComicTitleMetadata
+  parseComicTitleMetadata,
+  normalizeOpdsEntry
 };

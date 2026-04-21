@@ -10,8 +10,10 @@ const TYPE_DETAILS_ALLOWED_BY_MEDIA_TYPE = {
     'provider_name',
     'provider_item_id',
     'provider_external_url',
+    'provider_download_url',
     'calibre_entry_id',
     'calibre_external_url',
+    'calibre_download_url',
     'source_updated_at'
   ],
   audio: ['artist', 'album', 'track_count'],
@@ -33,8 +35,10 @@ const TYPE_DETAILS_ALLOWED_BY_MEDIA_TYPE = {
     'provider_name',
     'provider_item_id',
     'provider_external_url',
+    'provider_download_url',
     'calibre_entry_id',
     'calibre_external_url',
+    'calibre_download_url',
     'source_updated_at'
   ]
 };
