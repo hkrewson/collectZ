@@ -23,6 +23,7 @@
     "test:import-normalization-review-smoke": "node scripts/import-normalization-review-smoke.js",
     "test:repeat-sync-idempotency-smoke": "node scripts/repeat-sync-idempotency-smoke.js",
     "test:cross-source-canonical-reuse-smoke": "node scripts/cross-source-canonical-reuse-smoke.js",
+    "test:provider-family-cross-source-canonical-reuse-smoke": "node scripts/provider-family-cross-source-canonical-reuse-smoke.js",
     "test:cross-type-isolation": "node scripts/cross-type-isolation-check.js",
     "test:media-query-regression": "node scripts/media-query-regression-check.js",
     "test:book-comic-normalization-audit": "node scripts/book-comic-normalization-audit.js",

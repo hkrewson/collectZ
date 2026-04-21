@@ -155,6 +155,7 @@ const importNormalizationSmokeSource = fs.readFileSync(require.resolve('../scrip
 const importNormalizationReviewSmokeSource = fs.readFileSync(require.resolve('../scripts/import-normalization-review-smoke'), 'utf8');
 const repeatSyncIdempotencySmokeSource = fs.readFileSync(require.resolve('../scripts/repeat-sync-idempotency-smoke'), 'utf8');
 const crossSourceCanonicalReuseSmokeSource = fs.readFileSync(require.resolve('../scripts/cross-source-canonical-reuse-smoke'), 'utf8');
+const providerFamilyCrossSourceCanonicalReuseSmokeSource = fs.readFileSync(require.resolve('../scripts/provider-family-cross-source-canonical-reuse-smoke'), 'utf8');
 const historicalRepairPlanSource = fs.readFileSync(require.resolve('../scripts/book-comic-historical-repair-plan'), 'utf8');
 const backfillMergeEvidenceSource = fs.readFileSync(require.resolve('../scripts/backfill-merge-evidence'), 'utf8');
 const repairComicLikeBooksSource = fs.readFileSync(require.resolve('../scripts/repair-comic-like-books'), 'utf8');
@@ -1641,6 +1642,16 @@ results.push(run('repo includes cross-source canonical reuse smoke coverage for 
   assert.ok(crossSourceCanonicalReuseSmokeSource.includes('canonicalId'));
   assert.ok(crossSourceCanonicalReuseSmokeSource.includes('canonicalImportSource'));
   assert.ok(crossSourceCanonicalReuseSmokeSource.includes('scopedCount'));
+}));
+
+results.push(run('repo includes provider-family cross-source canonical reuse smoke coverage for non-csv imports', () => {
+  assert.ok(backendPackageJson.scripts['test:provider-family-cross-source-canonical-reuse-smoke']);
+  assert.ok(providerFamilyCrossSourceCanonicalReuseSmokeSource.includes('/api/media/import-plex?sync=1'));
+  assert.ok(providerFamilyCrossSourceCanonicalReuseSmokeSource.includes('Expected Plex sync to reuse the original canonical row'));
+  assert.ok(providerFamilyCrossSourceCanonicalReuseSmokeSource.includes('Expected canonical title variant to remain unchanged, proving TMDB-based reuse instead of title fallback'));
+  assert.ok(providerFamilyCrossSourceCanonicalReuseSmokeSource.includes("matchedBy: 'provider_tmdb'"));
+  assert.ok(providerFamilyCrossSourceCanonicalReuseSmokeSource.includes("stableIdentity: 'tmdb_id'"));
+  assert.ok(providerFamilyCrossSourceCanonicalReuseSmokeSource.includes('scopedMovieCount'));
 }));
 
 results.push(run('repo includes dry-run historical repair plan coverage for duplicate and type-repair reporting', () => {

@@ -3570,6 +3570,37 @@ Historical note:
   - regenerated `backend/release-feed.json`,
   - running-stack `Help > Releases` verification on platform and homelab.
 
+## 3.2.5 — Provider-Family Cross-Source Canonical Reuse
+
+**Goal:** Prove that canonical reuse survives across a real non-CSV provider-family boundary so later syncs do not fork the same content into duplicate canonicals when provider contracts change.
+
+**Current Slice:** `Provider-Family Cross-Source Canonical Reuse Smoke`
+
+### Scope
+
+- Extend the existing canonical-reuse proof matrix beyond the CSV-family coverage already shipped in `3.2.1`.
+- Choose a real mixed provider-family path where the same item can plausibly arrive through different source contracts.
+- Prove that the later provider-family sync reuses the existing canonical row instead of creating a duplicate.
+- Keep the work proof-first unless runtime evidence exposes a real merge or sync bug.
+
+### Acceptance Criteria
+
+- A Docker-backed runtime smoke proves one canonical row is reused across the selected provider-family boundary.
+- The later provider-family sync updates or no-ops instead of creating a duplicate row.
+- The proof clearly identifies the stable identity contract that allowed the reuse.
+- If the proof exposes an unsafe cross-family attach gap, the bug is fixed before `3.2.5` closes.
+
+### Active Slice Notes
+
+- Start with the highest-confidence mixed provider-family path:
+  - a canonical movie row created by a non-Plex source contract,
+  - a later Plex sync for the same title family,
+  - and TMDB identity proving the existing canonical should be reused.
+- Prefer a runtime shape where the seeded canonical title intentionally differs from the later Plex title so the proof demonstrates TMDB-based reuse rather than a weaker title fallback.
+- Keep the remaining merge-proof follow-ups out of this patch for now:
+  - collection re-sync boundary behavior,
+  - sparse-metadata alias reuse.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

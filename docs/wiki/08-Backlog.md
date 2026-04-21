@@ -239,23 +239,6 @@ This file is the staging area for work that has not yet been assigned a release 
 - Review the movie add flow for avoidable duplicate TMDB calls.
 - Evaluate whether title search, identifier search, and follow-up details fetch can be consolidated or cached more effectively.
 
-### Backlog Item: Provider-Family Cross-Source Canonical Reuse Proof
-**Type:** Deferred milestone
-**Tags:** `merge`, `dedupe`, `sync`, `providers`, `proofs`
-
-**Goal:** Prove that canonical reuse survives across different non-CSV provider families so the same content does not fork into duplicate canonicals when imports arrive through different provider contracts.
-
-**Scope**
-- Extend the current canonical-reuse proof matrix beyond the CSV-family coverage already shipped.
-- Choose at least one mixed provider-family path where the same item can plausibly arrive through different source contracts.
-- Prove that a later sync from a different provider family reuses the existing canonical row instead of creating a new one.
-- Keep the work proof-first unless the runtime evidence exposes a real merge or sync bug.
-
-**Acceptance Criteria**
-- A runtime smoke proves one canonical row is reused across the selected provider-family boundary.
-- The later import updates or no-ops instead of creating a duplicate row.
-- The proof clearly identifies the stable identity contract that allowed the reuse.
-
 ### Backlog Item: Collection Re-Sync Boundary Proof
 **Type:** Deferred milestone
 **Tags:** `merge`, `collections`, `sync`, `dedupe`, `proofs`
