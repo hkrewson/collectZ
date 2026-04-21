@@ -3643,6 +3643,15 @@ Historical note:
 - The proof should show both:
   - no duplicate collection row recreated,
   - and the surviving canonical collection still able to absorb collection item updates from the re-sync.
+- The completed `3.2.6` runtime proof now covers:
+  - preservation of absorbed collection import identities during collection merge apply,
+  - alias-aware collection reuse on later boxed-set CSV imports,
+  - and canonical collection reuse without duplicate container recreation across platform and homelab stacks.
+- Version closeout for `3.2.6` includes:
+  - semver/app metadata sync to `3.2.6`,
+  - matching `docs/releases/v3.2.6.md`,
+  - regenerated `backend/release-feed.json`,
+  - running-stack `Help > Releases` verification on platform and homelab.
 
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)

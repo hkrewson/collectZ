@@ -1,6 +1,29 @@
 {
   "releases": [
     {
+      "title": "v3.2.6",
+      "version": "3.2.6",
+      "date": "2026-04-21",
+      "status": "Completed",
+      "summary": "This patch release hardens collection-side duplicate prevention after collection merges. It proves that a merged collection can survive a later boxed-set CSV import without recreating the absorbed duplicate container, and it fixes the collection identity persistence needed to make that behavior durable in runtime.",
+      "details": [
+        {
+          "heading": "Collection import alias durability",
+          "bullets": [
+            "Added collection-side absorbed identity preservation for merged collections through `import_collection_aliases`.",
+            "Taught collection-only import lookup to reuse those stored aliases instead of relying only on the current `source_title + import_source + media_type + scope` key.",
+            "Fixed alias normalization so stored snake_case collection alias fields survive dedupe and matching correctly."
+          ]
+        },
+        {
+          "heading": "Collection re-sync runtime proof",
+          "bullets": [
+            "Added a Docker-backed runtime smoke that:"
+          ]
+        }
+      ]
+    },
+    {
       "title": "v3.2.5",
       "version": "3.2.5",
       "date": "2026-04-20",
@@ -271,45 +294,6 @@
           "bullets": [
             "Rebuilt homelab and platform onto the same refreshed shared shell and library-adjacent UI path so comics, search, pagination, nav, and profile/account updates land consistently across both editions.",
             "Preserved intended feature-level differences while removing presentation drift caused by stale frontend/runtime divergence."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "v3.1.3",
-      "version": "3.1.3",
-      "date": "2026-04-14",
-      "status": "Completed",
-      "summary": "This patch release cleans up the shared library workflow after the `3.1.2` shell pass by simplifying pagination, clarifying bulk-selection behavior, and flattening valuation presentation. The collection surface now reads more clearly during day-to-day browsing and bulk management without widening back into broader shell or drawer redesign work.",
-      "details": [
-        {
-          "heading": "Pagination and footer control cleanup",
-          "bullets": [
-            "Replaced the older verbose `Previous` and `Next` footer wording with quieter directional pagination controls.",
-            "Tightened the page-size and results-footer treatment so navigation feels lighter and less repetitive.",
-            "Kept pagination behavior intact while reducing the amount of interface copy users have to parse."
-          ]
-        },
-        {
-          "heading": "Bulk-selection behavior cleanup",
-          "bullets": [
-            "Removed the idle `Bulk Actions` framing and clarified the difference between selecting the current page and selecting all matching results in the active library type.",
-            "Moved selection state into the results header so it reads as content-region state instead of a second heavy toolbar.",
-            "Kept escalation from page selection to full-result selection available without overloading one ambiguous `Select all` affordance."
-          ]
-        },
-        {
-          "heading": "Valuation presentation cleanup",
-          "bullets": [
-            "Simplified valuation display in library detail drawers into a straightforward `Low` / `Mid` / `High` row.",
-            "Reduced the visual weight of the refresh affordance so valuation reads like normal metadata rather than a noisy utility widget.",
-            "Kept the valuation treatment compact so it supports the drawer instead of dominating it."
-          ]
-        },
-        {
-          "heading": "Supporting regression alignment",
-          "bullets": [
-            "Carried the browser-regression contract correction for the space-manager flow so fallback manageable-workspace behavior is asserted correctly after suspension or removal with surviving unrelated workspace access."
           ]
         }
       ]

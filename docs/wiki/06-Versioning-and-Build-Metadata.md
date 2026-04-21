@@ -9,7 +9,7 @@ This project uses **Semantic Versioning** with Docker build metadata.
 - `MINOR` (`1.X.0`): new features.
 - `PATCH` (`1.6.X`): fixes/refinements.
 
-Current project version: `3.2.5`.
+Current project version: `3.2.6`.
 
 ## Source of Truth
 
@@ -37,7 +37,7 @@ Version source:
 Use this command for local or server deploys:
 
 ```bash
-APP_VERSION=3.2.5 \
+APP_VERSION=3.2.6 \
 docker compose --env-file .env up -d --build
 ```
 
