@@ -3603,6 +3603,16 @@ Historical note:
   - and runtime proof that alias reuse still resolves the update onto the canonical row.
 - Keep the remaining merge-proof follow-ups out of this patch for now:
   - collection re-sync boundary behavior.
+- The completed `3.2.5` runtime proof matrix now covers:
+  - non-Plex canonical reuse by a later Plex sync through `tmdb_id`,
+  - sparse post-merge CSV follow-up reuse through preserved `provider_item_id` aliases,
+  - and canonical metadata preservation under degraded `type_details` payloads.
+- Version closeout for `3.2.5` includes:
+  - semver/app metadata sync to `3.2.5`,
+  - matching `docs/releases/v3.2.5.md`,
+  - regenerated `backend/release-feed.json`,
+  - running-stack `Help > Releases` verification on platform and homelab.
+
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 

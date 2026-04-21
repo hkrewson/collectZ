@@ -1,6 +1,30 @@
 {
   "releases": [
     {
+      "title": "v3.2.5",
+      "version": "3.2.5",
+      "date": "2026-04-20",
+      "status": "Completed",
+      "summary": "This patch release hardens post-merge duplicate avoidance across changing provider contracts and degraded sync payloads. It proves that a canonical created by one source family can be reused by a later Plex sync through TMDB identity, and that a metadata-poor follow-up payload can still resolve through preserved merge aliases instead of recreating a duplicate. The release also fixes a real metadata-clobbering bug exposed by the new sparse alias proof.",
+      "details": [
+        {
+          "heading": "Cross-provider canonical reuse",
+          "bullets": [
+            "Added runtime proof that a movie canonical first created by a non-Plex source is reused by a later Plex sync through `tmdb_id`.",
+            "Proved the reused row keeps its seeded title variant, showing the update happened through strong identity rather than weak title fallback."
+          ]
+        },
+        {
+          "heading": "Sparse alias reuse and metadata preservation",
+          "bullets": [
+            "Added runtime proof that a metadata-poor follow-up CSV payload still resolves to the canonical row through a preserved `provider_item_id` alias after merge.",
+            "Fixed imported media updates so sparse `type_details` merge into the existing canonical metadata instead of replacing richer fields wholesale.",
+            "Proved richer canonical metadata such as author and ISBN survive the degraded follow-up payload."
+          ]
+        }
+      ]
+    },
+    {
       "title": "v3.2.4",
       "version": "3.2.4",
       "date": "2026-04-20",
@@ -289,14 +313,6 @@
           ]
         }
       ]
-    },
-    {
-      "title": "v3.1.2",
-      "version": "3.1.2",
-      "date": "2026-04-14",
-      "status": "Completed",
-      "summary": "This patch release tightens the post-split shell experience without reopening shared-core architecture work. The auth page now uses a simpler single-column layout, and the Help and Help Admin surfaces carry less narration and less panel-heavy chrome, so platform and homelab feel more consistent and less overdesigned.",
-      "details": []
     }
   ]
 }
