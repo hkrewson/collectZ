@@ -3088,7 +3088,7 @@ export default function LibraryView({
     resolution: 'all',
     platform: 'all',
     publisher: 'all',
-    sortBy: 'title',
+    sortBy: forcedMediaType === 'comic_book' ? 'comic_issue' : 'title',
     sortDir: 'asc'
   });
   const [page, setPage] = useState(1);
@@ -3108,6 +3108,10 @@ export default function LibraryView({
   const [collectionLoading, setCollectionLoading] = useState(false);
   const [collectionError, setCollectionError] = useState('');
   const [collectionPagination, setCollectionPagination] = useState({ page: 1, limit: 50, total: 0, totalPages: 1, hasMore: false });
+  const [comicSeriesRows, setComicSeriesRows] = useState([]);
+  const [comicSeriesLoading, setComicSeriesLoading] = useState(false);
+  const [comicSeriesError, setComicSeriesError] = useState('');
+  const [comicSeriesPagination, setComicSeriesPagination] = useState({ page: 1, limit: 50, total: 0, totalPages: 1, hasMore: false });
   const [editingCollectionId, setEditingCollectionId] = useState(null);
   const [viewingCollectionId, setViewingCollectionId] = useState(null);
   const [comicView, setComicView] = useState('issues');
@@ -3136,7 +3140,7 @@ export default function LibraryView({
   const isComicsLibrary = forcedMediaType === 'comic_book';
   const supportsCollections = forcedMediaType === 'movie' || forcedMediaType === 'game';
   const isCollectionMode = supportsCollections && collectionMode === 'collections';
-  const useComicFullFetch = isComicsLibrary;
+  const useComicFullFetch = isComicsLibrary && comicView === 'series_issues';
   const requestPage = useComicFullFetch ? 1 : page;
   const requestLimit = useComicFullFetch ? 5000 : pageSize;
   const quickFilterConfig = useMemo(() => {
@@ -3199,9 +3203,9 @@ export default function LibraryView({
   }, [debouncedSearchInput]);
 
   useEffect(() => {
-    if (isCollectionMode) return;
+    if (isCollectionMode || (isComicsLibrary && comicView === 'series')) return;
     onRefresh({ page: requestPage, limit: requestLimit, ...filters });
-  }, [filters, page, pageSize, onRefresh, requestPage, requestLimit, isCollectionMode]);
+  }, [comicView, filters, isCollectionMode, isComicsLibrary, onRefresh, page, pageSize, requestLimit, requestPage]);
 
   useEffect(() => {
     if (!forcedMediaType) return;
@@ -3210,7 +3214,9 @@ export default function LibraryView({
       media_type: forcedMediaType,
       resolution: 'all',
       platform: 'all',
-      publisher: 'all'
+      publisher: 'all',
+      sortBy: forcedMediaType === 'comic_book' ? 'comic_issue' : 'title',
+      sortDir: 'asc'
     }));
     setPage(1);
     setResolutionInput('all');
@@ -3219,11 +3225,49 @@ export default function LibraryView({
     setCollectionMode('all');
     setCollectionRows([]);
     setCollectionError('');
+    setComicSeriesRows([]);
+    setComicSeriesError('');
     if (forcedMediaType !== 'comic_book') {
       setComicView('issues');
       setComicSeries('all');
     }
   }, [forcedMediaType]);
+
+  const refreshComicSeries = useCallback(async (targetPage = page) => {
+    if (!isComicsLibrary) return;
+    setComicSeriesLoading(true);
+    setComicSeriesError('');
+    try {
+      const params = new URLSearchParams();
+      params.set('page', String(targetPage));
+      params.set('limit', String(pageSize));
+      if (debouncedSearchInput) params.set('search', debouncedSearchInput);
+      if (publisherInput && publisherInput !== 'all') params.set('publisher', publisherInput);
+      const payload = await apiCall('get', `/media/comic-series?${params.toString()}`);
+      setComicSeriesRows(Array.isArray(payload?.items) ? payload.items : []);
+      const nextPagination = payload?.pagination || { page: 1, limit: pageSize, total: 0, totalPages: 1 };
+      setComicSeriesPagination({
+        ...nextPagination,
+        hasMore: Number(nextPagination.page || 1) < Number(nextPagination.totalPages || 1)
+      });
+    } catch (err) {
+      setComicSeriesError(err?.response?.data?.error || 'Failed to load comic series');
+    } finally {
+      setComicSeriesLoading(false);
+    }
+  }, [apiCall, debouncedSearchInput, isComicsLibrary, page, pageSize, publisherInput]);
+
+  useEffect(() => {
+    if (!isComicsLibrary || comicView !== 'series') return undefined;
+    let active = true;
+    (async () => {
+      if (!active) return;
+      await refreshComicSeries(page);
+    })();
+    return () => {
+      active = false;
+    };
+  }, [comicView, isComicsLibrary, page, refreshComicSeries]);
 
   const refreshCollections = useCallback(async (targetPage = page) => {
     if (!supportsCollections) return;
@@ -3283,6 +3327,8 @@ export default function LibraryView({
 
   const displayedTotal = isCollectionMode
     ? (collectionPagination?.total ?? collectionRows.length)
+    : (isComicsLibrary && comicView === 'series')
+      ? (comicSeriesPagination?.total ?? comicSeriesRows.length)
     : ((pagination?.total ?? mediaItems.length) + (supportsCollections ? collectionRows.length : 0));
   const selectionScopeLabel = useMemo(() => {
     switch (forcedMediaType) {
@@ -3315,6 +3361,7 @@ export default function LibraryView({
   }, [mediaItems]);
 
   const comicSeriesSummaries = useMemo(() => {
+    if (isComicsLibrary && comicView === 'series') return comicSeriesRows;
     const bySeries = new Map();
     for (const item of mediaItems) {
       const seriesName = getComicSeriesName(item);
@@ -3329,7 +3376,7 @@ export default function LibraryView({
       bySeries.set(seriesName, entry);
     }
     return [...bySeries.values()].sort((a, b) => a.name.localeCompare(b.name));
-  }, [mediaItems]);
+  }, [comicSeriesRows, comicView, isComicsLibrary, mediaItems]);
 
   const visibleItems = useMemo(() => {
     if (!isComicsLibrary) return mediaItems;
@@ -3338,11 +3385,7 @@ export default function LibraryView({
       items = items.filter((item) => getComicSeriesName(item) === comicSeries);
     }
     if (comicView === 'issues') {
-      return [...items].sort((a, b) => {
-        const seriesCmp = getComicSeriesName(a).localeCompare(getComicSeriesName(b), undefined, { sensitivity: 'base' });
-        if (seriesCmp !== 0) return seriesCmp;
-        return compareComicIssueOrder(a, b);
-      });
+      return items;
     }
     if (comicView === 'series_issues') {
       return [...items].sort(compareComicIssueOrder);
@@ -3415,13 +3458,17 @@ export default function LibraryView({
   }, [comicView, inlineCards, isCollectionMode, isComicsLibrary, viewMode, visibleItems]);
 
   const comicPagedState = useMemo(() => {
-    if (!isComicsLibrary) {
+    if (!isComicsLibrary || !useComicFullFetch) {
       return {
         items: visibleItems,
         cardEntries: renderedCardEntries,
         seriesSummaries: comicSeriesSummaries,
-        totalPages: pagination?.totalPages || 1,
-        hasMore: pagination?.hasMore || false
+        totalPages: comicView === 'series'
+          ? (comicSeriesPagination?.totalPages || 1)
+          : (pagination?.totalPages || 1),
+        hasMore: comicView === 'series'
+          ? (comicSeriesPagination?.hasMore || false)
+          : (pagination?.hasMore || false)
       };
     }
     const sourceLength = comicView === 'series'
@@ -3438,7 +3485,7 @@ export default function LibraryView({
       totalPages,
       hasMore: clampedPage < totalPages
     };
-  }, [comicSeriesSummaries, isComicsLibrary, page, pageSize, pagination?.hasMore, pagination?.totalPages, renderedCardEntries, viewMode, visibleItems, comicView]);
+  }, [comicSeriesPagination?.hasMore, comicSeriesPagination?.totalPages, comicSeriesSummaries, comicView, isComicsLibrary, page, pageSize, pagination?.hasMore, pagination?.totalPages, renderedCardEntries, useComicFullFetch, viewMode, visibleItems]);
 
   const displayedVisibleItems = isComicsLibrary ? comicPagedState.items : visibleItems;
   const displayedCardEntries = isComicsLibrary ? comicPagedState.cardEntries : renderedCardEntries;
@@ -3493,9 +3540,9 @@ export default function LibraryView({
   const allVisibleSelected = visibleSelectableIds.length > 0 && selectedVisibleCount === visibleSelectableIds.length;
   const selectableResultTotal = useMemo(() => {
     if (isCollectionMode || (isComicsLibrary && comicView === 'series')) return 0;
-    if (isComicsLibrary) return visibleItems.length;
+    if (useComicFullFetch) return visibleItems.length;
     return Number(pagination?.total ?? mediaItems.length ?? 0);
-  }, [comicView, isCollectionMode, isComicsLibrary, mediaItems.length, pagination?.total, visibleItems.length]);
+  }, [comicView, isCollectionMode, mediaItems.length, pagination?.total, useComicFullFetch, visibleItems.length]);
   const allMatchingSelected = selectableResultTotal > 0 && selectedIds.length === selectableResultTotal;
   const showSelectAllMatchingPrompt = allVisibleSelected
     && selectableResultTotal > visibleSelectableIds.length
@@ -3508,6 +3555,10 @@ export default function LibraryView({
   const noteSelectionGesture = useCallback((event) => {
     selectionGestureRef.current = Boolean(event?.shiftKey || shiftPressedRef.current);
   }, []);
+  const comicSeriesViewActive = isComicsLibrary && comicView === 'series';
+  const activeMediaError = comicSeriesViewActive ? comicSeriesError : error;
+  const activeMediaLoading = comicSeriesViewActive ? comicSeriesLoading : loading;
+  const activeMediaResultCount = comicSeriesViewActive ? comicSeriesRows.length : mediaItems.length;
 
   const toggleSelectedId = useCallback((idRaw, event = null) => {
     const id = Number(idRaw);
@@ -3552,7 +3603,7 @@ export default function LibraryView({
     if (selectingAllMatching || selectableResultTotal <= visibleSelectableIds.length) return;
     setSelectingAllMatching(true);
     try {
-      if (isComicsLibrary) {
+      if (useComicFullFetch) {
         const allIds = visibleItems
           .map((item) => Number(item.id))
           .filter((id) => Number.isFinite(id) && id > 0);
@@ -3609,11 +3660,11 @@ export default function LibraryView({
     filters.search,
     filters.sortBy,
     filters.sortDir,
-    isComicsLibrary,
     onToast,
     selectableResultTotal,
     selectingAllMatching,
     selectionScopeLabel,
+    useComicFullFetch,
     visibleItems,
     visibleSelectableIds.length
   ]);
@@ -3887,18 +3938,20 @@ export default function LibraryView({
           </>
         ) : (
           <>
-            {error && <p className="text-sm text-err mb-4">{error}</p>}
-            {loading && <div className="flex items-center justify-center py-20"><Spinner size={32} /></div>}
-            {!loading && mediaItems.length === 0 && (
+            {activeMediaError && <p className="text-sm text-err mb-4">{activeMediaError}</p>}
+            {activeMediaLoading && <div className="flex items-center justify-center py-20"><Spinner size={32} /></div>}
+            {!activeMediaLoading && activeMediaResultCount === 0 && (
           <EmptyState
             icon={<Icons.Film />}
-            title="No items found"
-            subtitle={filters.search || filters.resolution !== 'all' || filters.platform !== 'all' || filters.publisher !== 'all' ? 'Try adjusting your filters' : 'Add your first title to get started'}
+            title={comicSeriesViewActive ? 'No series found' : 'No items found'}
+            subtitle={filters.search || filters.resolution !== 'all' || filters.platform !== 'all' || filters.publisher !== 'all'
+              ? 'Try adjusting your filters'
+              : (comicSeriesViewActive ? 'No comic series are available for this library yet' : 'Add your first title to get started')}
             action={!filters.search && filters.resolution === 'all' && filters.platform === 'all' && filters.publisher === 'all' && <button onClick={() => setAdding(true)} className="btn-primary"><Icons.Plus />Add Media</button>}
           />
         )}
 
-        {!loading && isComicsLibrary && comicView === 'series' && displayedComicSeriesSummaries.length > 0 && (
+        {!activeMediaLoading && isComicsLibrary && comicView === 'series' && displayedComicSeriesSummaries.length > 0 && (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-5">
             {displayedComicSeriesSummaries.map((series) => (
               <button

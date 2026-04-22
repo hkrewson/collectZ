@@ -55,37 +55,6 @@ This file is the staging area for work that has not yet been assigned a release 
 - The packaging and publication flow is documented and repeatable.
 - Update flow from the private source into the public repo is clear and intentional.
 
-### Backlog Item: Comic Sort and Server Pagination Normalization
-**Type:** Deferred milestone
-**Tags:** `comics`, `pagination`, `sorting`, `backend`, `data-model`
-
-**Goal:** Remove the comic-book full-fetch exception by moving comic ordering and series browsing onto a server-backed pagination path.
-
-**Scope**
-- Reassess the current comic-book list path, where the frontend requests a single large page and sorts issues client-side for accurate issue ordering.
-- Determine whether comic ordering can be handled directly from existing `type_details` values first:
-  - `series`
-  - `issue_number`
-  - `volume`
-- If the SQL path from JSONB fields becomes too fragile or unreadable, introduce dedicated normalized comic sort fields with a backfill/repair pass for older rows.
-- Define how the `Series` and `Series Issues` views should work without requiring the full comic issue set to be loaded into memory.
-- Keep the work explicitly separate from UI-only library cleanup milestones.
-
-**Recommended Update Path**
-- Start with a proof-of-concept using the existing `type_details` structure rather than assuming new columns are required.
-- If that query path is too brittle, add dedicated normalized fields such as:
-  - a series sort field
-  - raw issue number
-  - parsed issue numeric/suffix fields for stable ordering
-- Use title parsing only as a repair/backfill fallback for legacy rows with incomplete comic metadata.
-- Treat server-backed series aggregation as part of the same milestone, not as an afterthought once issue pagination works.
-
-**Acceptance Criteria**
-- Comic books no longer require a special full-fetch client path for ordinary issue browsing.
-- Server-side pagination preserves the same practical issue ordering users expect today.
-- The `Series` and `Series Issues` views work without relying on the full comic issue set being present in browser memory.
-- The chosen approach is documented clearly enough to explain whether it relies on existing JSONB fields, new normalized columns, or both.
-
 ### Backlog Item: Personal Workspace Offboarding, Archive Retention, and Recovery
 **Type:** Deferred milestone
 **Tags:** `workspace`, `lifecycle`, `retention`, `recovery`
@@ -192,6 +161,34 @@ This file is the staging area for work that has not yet been assigned a release 
 - Any safe optimization opportunities are identified with their tradeoffs.
 - If the app-side limiter is the issue, the relevant route and setting are called out clearly for follow-up work.
 - If TMDB pressure is the issue, the likely request-reduction path is documented for a future milestone or task.
+
+### Backlog Item: Comic Overview Validation and Metron Description Handling
+**Type:** Task
+**Tags:** `comics`, `metron`, `validation`, `edit-drawer`, `ux`
+
+**Goal:** Prevent comic edit saves from failing when provider-enriched Metron descriptions exceed the local `overview` validation limit.
+
+**Scope**
+- Reproduce and fix the comic edit flow where reselecting Metron metadata for an existing comic can return a description longer than the current `overview` validation cap.
+- Decide and implement the provider-handling rule explicitly:
+  - auto-truncate Metron description text to the allowed limit before save, or
+  - allow user editing/review of the incoming overview text inside the drawer before save, or
+  - combine both by truncating safely while still leaving the field editable.
+- Keep the edit drawer usable if overview editing remains visible:
+  - the field should not overflow or crowd out the rest of the drawer workflow.
+- Ensure activity/error surfaces no longer fail with a generic validation surprise when the provider payload is otherwise valid.
+- Add runtime proof for the exact comic re-enrichment case:
+  - existing comic row,
+  - Metron lookup reselected,
+  - oversized provider description,
+  - successful save with the chosen truncation/edit behavior.
+
+**Acceptance Criteria**
+- Re-enriching and saving a comic with an oversized Metron description no longer fails on the current `overview` validation cap alone.
+- The chosen behavior for oversized descriptions is documented and consistent in UI and backend handling.
+- If truncation is used, it is deterministic and preserves a reasonable readable summary.
+- If editing is required, the drawer remains compact enough to use without breaking layout.
+- The exact Alpha Flight-style repro shape is covered by a regression proof.
 
 ### Backlog Item: Now Playing Viewer
 **Type:** Task

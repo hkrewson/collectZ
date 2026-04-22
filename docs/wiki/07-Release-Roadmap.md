@@ -3717,6 +3717,49 @@ Historical note:
   - provider comparison and alternative reader evaluation,
   - and larger-scale comic-heavy dedupe tuning.
 
+## 3.2.8 — Comic Sort and Server Pagination Normalization
+
+**Goal:** Remove the comic-book full-fetch exception by moving comic ordering and series browsing onto a server-backed pagination path that relies on stable comic identity fields instead of client-only full-list sorting.
+
+**Current Slice:** `Comic Series Summary Query Contract`
+
+### Scope
+
+- Promote comic-heavy normalization quality work out of backlog and keep it distinct from the `3.2.7` dedupe milestone.
+- Reassess the current comic library/list path where the frontend requests a single large page and sorts issues client-side for practical issue ordering.
+- Determine whether stable server-side ordering can be built directly from existing comic identity fields first:
+  - `series`
+  - `issue_number`
+  - `volume`
+- If JSONB-based query logic becomes too brittle or unreadable, introduce dedicated normalized comic sort fields with a backfill/repair plan for older rows.
+- Keep the first slice focused on query contract and runtime proof shape before widening into larger comic UI redesign.
+
+### Acceptance Criteria
+
+- A server-backed path for comic ordering and series browsing is defined clearly enough to replace the current comic full-fetch exception.
+- The chosen contract explains whether it relies on existing `type_details`, new normalized sort fields, or both.
+- The milestone proves comic issue ordering can remain stable without requiring the full comic issue set in browser memory.
+- If the proof exposes missing comic sort metadata on existing rows, the follow-up repair/backfill path is defined before `3.2.8` closes.
+
+### Active Slice Notes
+
+- This belongs in `3.2.8` rather than `3.2.7` because it follows the comic-heavy OPDS dedupe hardening without widening that release beyond import/sync correctness.
+- Audit findings for the first slice:
+  - the backend list route still allowed a comic-specific `limit=5000` ceiling,
+  - the frontend `LibraryView` still forced comics onto `page=1` with `limit=5000`,
+  - and comic issue ordering plus page slicing still happened in browser memory.
+- Chosen first contract:
+  - add a server-backed `comic_issue` sort built from existing `type_details.series`, `issue_number`, and `volume` with title fallback parsing,
+  - use normal API pagination for the main comic `issues` view,
+  - then add a paginated `/api/media/comic-series` summary path for the `series` tab,
+  - while keeping `series_issues` explicitly client-derived until a later slice widens series browsing itself.
+- Runtime proof for the first slice must show:
+  - the comic issue list honors requested page size,
+  - page-to-page issue ordering stays stable in server results,
+  - the comic series list returns grouped summaries with true series counts and paging,
+  - and the browser no longer needs the full comic issue set in memory for either the default `issues` view or the `series` tab.
+- Keep broader comic UI cleanup and drawer work out of this milestone unless the query contract forces it.
+
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 

@@ -132,7 +132,8 @@ const SORT_COLUMNS = {
   format: 'format',
   created_at: 'created_at',
   user_rating: 'user_rating',
-  rating: 'rating'
+  rating: 'rating',
+  comic_issue: 'comic_issue'
 };
 const IMPORT_MATCH_MODES = [
   'matched_by_identifier',
@@ -6651,9 +6652,64 @@ router.get('/', asyncHandler(async (req, res) => {
   const safeSortBy = SORT_COLUMNS[String(sortBy || '').toLowerCase()] || 'title';
   const safeSortDir = String(sortDir || '').toLowerCase() === 'desc' ? 'DESC' : 'ASC';
   const normalizedSearch = typeof search === 'string' ? search.trim() : '';
-  const sortExpression = safeSortBy === 'title'
-    ? `regexp_replace(lower(coalesce(title, '')), '^(the|an|a)\\s+', '', 'i') ${safeSortDir}, lower(title) ${safeSortDir}`
-    : `${safeSortBy} ${safeSortDir} NULLS LAST, lower(title) ASC`;
+  const comicSeriesSortExpr = `
+    lower(
+      coalesce(
+        nullif(trim(coalesce(type_details->>'series', '')), ''),
+        nullif(trim(regexp_replace(coalesce(title, ''), '\\s+#\\s*[A-Za-z0-9.-]+.*$', '', '')), ''),
+        coalesce(title, '')
+      )
+    )
+  `;
+  const comicIssueRawExpr = `
+    nullif(
+      trim(
+        coalesce(
+          nullif(trim(coalesce(type_details->>'issue_number', '')), ''),
+          substring(coalesce(title, '') from '#\\s*([A-Za-z0-9.-]+)')
+        )
+      ),
+      ''
+    )
+  `;
+  const comicIssueNumericExpr = `
+    CASE
+      WHEN ${comicIssueRawExpr} ~ '^\\d+(?:\\.\\d+)?' THEN regexp_replace(${comicIssueRawExpr}, '^(\\d+(?:\\.\\d+)?).*$' , '\\1')::numeric
+      ELSE NULL
+    END
+  `;
+  const comicIssueSuffixExpr = `
+    lower(
+      trim(
+        regexp_replace(
+          coalesce(${comicIssueRawExpr}, ''),
+          '^\\d+(?:\\.\\d+)?',
+          ''
+        )
+      )
+    )
+  `;
+  const comicVolumeExpr = `
+    CASE
+      WHEN nullif(trim(coalesce(type_details->>'volume', '')), '') ~ '^\\d+$'
+        THEN (type_details->>'volume')::int
+      ELSE NULL
+    END
+  `;
+  const sortExpression = safeSortBy === 'comic_issue'
+    ? `${comicSeriesSortExpr} ${safeSortDir},
+       ${comicVolumeExpr} ${safeSortDir} NULLS LAST,
+       CASE
+         WHEN ${comicIssueRawExpr} IS NULL THEN 2
+         WHEN ${comicIssueRawExpr} ~ '^\\d+(?:\\.\\d+)?' THEN 0
+         ELSE 1
+       END ${safeSortDir},
+       ${comicIssueNumericExpr} ${safeSortDir} NULLS LAST,
+       ${comicIssueSuffixExpr} ${safeSortDir},
+       lower(title) ${safeSortDir}`
+    : safeSortBy === 'title'
+      ? `regexp_replace(lower(coalesce(title, '')), '^(the|an|a)\\s+', '', 'i') ${safeSortDir}, lower(title) ${safeSortDir}`
+      : `${safeSortBy} ${safeSortDir} NULLS LAST, lower(title) ASC`;
 
   const normalizedFormatFilter = normalizeOwnedFormatFilterValue(format);
   if (format && format !== 'all' && (normalizedFormatFilter || ALL_DISPLAY_FORMAT_LABELS.includes(format))) {
@@ -6851,6 +6907,139 @@ router.get('/', asyncHandler(async (req, res) => {
   const totalPages = total > 0 ? Math.ceil(total / limitNum) : 1;
   res.json({
     items: normalizedItems,
+    pagination: {
+      page: pageNum,
+      limit: limitNum,
+      total,
+      totalPages,
+      hasMore: pageNum < totalPages
+    }
+  });
+}));
+
+router.get('/comic-series', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const {
+    search,
+    page,
+    limit,
+    publisher,
+    sortDir
+  } = req.query;
+
+  const pageNum = Number.isFinite(Number(page)) ? Math.max(1, Number(page)) : 1;
+  const limitNum = Number.isFinite(Number(limit)) ? Math.max(1, Math.min(200, Number(limit))) : 50;
+  const offset = (pageNum - 1) * limitNum;
+  const safeSortDir = String(sortDir || '').toLowerCase() === 'desc' ? 'DESC' : 'ASC';
+  const normalizedSearch = typeof search === 'string' ? search.trim() : '';
+  let where = `WHERE media.media_type = 'comic_book'`;
+  const params = [];
+
+  if (normalizedSearch) {
+    params.push(normalizedSearch);
+    const tsqIdx = params.length;
+    params.push(`%${normalizedSearch}%`);
+    const likeIdx = params.length;
+    where += ` AND (
+      to_tsvector('simple', coalesce(media.title,'') || ' ' || coalesce(media.original_title,'') || ' ' || coalesce(media.notes,'')) @@ plainto_tsquery('simple', $${tsqIdx})
+      OR media.title ILIKE $${likeIdx}
+      OR media.original_title ILIKE $${likeIdx}
+      OR media.notes ILIKE $${likeIdx}
+      OR COALESCE(media.type_details->>'series', '') ILIKE $${likeIdx}
+      OR COALESCE(media.type_details->>'writer', '') ILIKE $${likeIdx}
+      OR COALESCE(media.type_details->>'artist', '') ILIKE $${likeIdx}
+    )`;
+  }
+
+  const normalizedPublisher = String(publisher || '').trim();
+  if (normalizedPublisher && normalizedPublisher.toLowerCase() !== 'all') {
+    params.push(`%${normalizedPublisher}%`);
+    where += ` AND COALESCE(media.type_details->>'publisher', '') ILIKE $${params.length}`;
+  }
+
+  where += appendScopeSql(params, scopeContext);
+
+  const countResult = await pool.query(
+    `WITH filtered AS (
+       SELECT lower(
+         coalesce(
+           nullif(trim(coalesce(media.type_details->>'series', '')), ''),
+           nullif(trim(regexp_replace(coalesce(media.title, ''), '\\s+#\\s*[A-Za-z0-9.-]+.*$', '', '')), ''),
+           coalesce(media.title, '')
+         )
+       ) AS series_sort_key
+       FROM media
+       ${where}
+     )
+     SELECT COUNT(DISTINCT series_sort_key)::int AS total FROM filtered`,
+    params
+  );
+  const total = Number(countResult.rows[0]?.total || 0);
+
+  params.push(limitNum);
+  params.push(offset);
+  const result = await pool.query(
+    `WITH filtered AS (
+       SELECT
+         media.id,
+         media.title,
+         media.year,
+         media.poster_path,
+         lower(
+           coalesce(
+             nullif(trim(coalesce(media.type_details->>'series', '')), ''),
+             nullif(trim(regexp_replace(coalesce(media.title, ''), '\\s+#\\s*[A-Za-z0-9.-]+.*$', '', '')), ''),
+             coalesce(media.title, '')
+           )
+         ) AS series_sort_key,
+         coalesce(
+           nullif(trim(coalesce(media.type_details->>'series', '')), ''),
+           nullif(trim(regexp_replace(coalesce(media.title, ''), '\\s+#\\s*[A-Za-z0-9.-]+.*$', '', '')), ''),
+           coalesce(media.title, ''),
+           'Unknown Series'
+         ) AS series_name
+       FROM media
+       ${where}
+     ),
+     grouped AS (
+       SELECT
+         series_sort_key,
+         MIN(series_name) AS name,
+         COUNT(*)::int AS count,
+         MIN(year) FILTER (WHERE year IS NOT NULL) AS year_min,
+         MAX(year) FILTER (WHERE year IS NOT NULL) AS year_max
+       FROM filtered
+       GROUP BY series_sort_key
+     )
+     SELECT
+       grouped.name,
+       grouped.count,
+       grouped.year_min,
+       grouped.year_max,
+       (
+         SELECT f.poster_path
+         FROM filtered f
+         WHERE f.series_sort_key = grouped.series_sort_key
+           AND f.poster_path IS NOT NULL
+         ORDER BY f.year DESC NULLS LAST, f.id DESC
+         LIMIT 1
+       ) AS poster_path
+     FROM grouped
+     ORDER BY grouped.series_sort_key ${safeSortDir}
+     LIMIT $${params.length - 1}
+     OFFSET $${params.length}`,
+    params
+  );
+
+  const totalPages = total > 0 ? Math.ceil(total / limitNum) : 1;
+  res.json({
+    items: result.rows.map((row) => ({
+      name: row.name,
+      count: Number(row.count || 0),
+      yearMin: row.year_min === null ? null : Number(row.year_min),
+      yearMax: row.year_max === null ? null : Number(row.year_max),
+      poster_path: row.poster_path || null
+    })),
     pagination: {
       page: pageNum,
       limit: limitNum,

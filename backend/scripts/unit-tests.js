@@ -188,6 +188,8 @@ const helpReleasesSmokeSource = fs.readFileSync(require.resolve('../scripts/help
 const collectionDuplicatePreviewSmokeSource = fs.readFileSync(require.resolve('../scripts/collection-duplicate-preview-smoke'), 'utf8');
 const collectionMergeApplyRevertSmokeSource = fs.readFileSync(require.resolve('../scripts/collection-merge-apply-revert-smoke'), 'utf8');
 const comicDuplicateCandidatesSmokeSource = fs.readFileSync(require.resolve('../scripts/comic-duplicate-candidates-smoke'), 'utf8');
+const comicQueryContractSmokeSource = fs.readFileSync(require.resolve('../scripts/comic-query-contract-smoke'), 'utf8');
+const comicSeriesQueryContractSmokeSource = fs.readFileSync(require.resolve('../scripts/comic-series-query-contract-smoke'), 'utf8');
 const comicDuplicateDeferSmokeSource = fs.readFileSync(require.resolve('../scripts/comic-duplicate-defer-smoke'), 'utf8');
 const { parseComicMetadataFromTitle, buildComicLikeBookProposal, buildComicLikeBookRevertProposal } = require('../scripts/repair-comic-like-books');
 const { buildClusterFromRows, mergeMissingObjectFields } = require('../scripts/repair-book-comic-duplicates');
@@ -1704,6 +1706,24 @@ results.push(run('repo includes CWA OPDS comic identity reuse smoke coverage for
   assert.ok(cwaOpdsComicIdentityReuseSmokeSource.includes('Expected second CWA comic import to avoid duplicate creation'));
   assert.ok(cwaOpdsComicIdentityReuseSmokeSource.includes('Expected comic issue metadata to persist'));
   assert.ok(cwaOpdsComicIdentityReuseSmokeSource.includes('scopedComicCount'));
+}));
+
+results.push(run('repo includes comic query contract smoke coverage for paginated server-backed issue ordering', () => {
+  assert.ok(backendPackageJson.scripts['test:comic-query-contract-smoke']);
+  assert.ok(comicQueryContractSmokeSource.includes('/api/media?media_type=comic_book&sortBy=comic_issue'));
+  assert.ok(comicQueryContractSmokeSource.includes('Expected comic query to honor requested page limit instead of forcing a full fetch'));
+  assert.ok(comicQueryContractSmokeSource.includes('Expected first comic page to start with the earliest issue in series order'));
+  assert.ok(comicQueryContractSmokeSource.includes('Expected server sort to group later series after finishing the first series'));
+  assert.ok(comicQueryContractSmokeSource.includes("stableSort: 'comic_issue'"));
+}));
+
+results.push(run('repo includes comic series query contract smoke coverage for paginated grouped summaries', () => {
+  assert.ok(backendPackageJson.scripts['test:comic-series-query-contract-smoke']);
+  assert.ok(comicSeriesQueryContractSmokeSource.includes('/api/media/comic-series?page=1&limit=2'));
+  assert.ok(comicSeriesQueryContractSmokeSource.includes('Expected comic series query to honor requested page size'));
+  assert.ok(comicSeriesQueryContractSmokeSource.includes('Expected grouped comic series total to reflect unique series count'));
+  assert.ok(comicSeriesQueryContractSmokeSource.includes('Expected Alpha Flight summary to aggregate both issues into one series row'));
+  assert.ok(comicSeriesQueryContractSmokeSource.includes("stableGrouping: 'comic_series'"));
 }));
 
 results.push(run('repo includes dry-run historical repair plan coverage for duplicate and type-repair reporting', () => {
