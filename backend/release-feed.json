@@ -1,6 +1,37 @@
 {
   "releases": [
     {
+      "title": "v3.2.9",
+      "version": "3.2.9",
+      "date": "2026-04-22",
+      "status": "Completed",
+      "summary": "This patch release fixes a comic edit and provider-enrichment failure in the Metron flow. When a reselection from Metron returns an oversized description, the app now clamps that overview safely instead of failing save validation, while keeping the field editable in the drawer and preserving deterministic backend behavior for direct API clients.",
+      "details": [
+        {
+          "heading": "Backend-safe overview normalization",
+          "bullets": [
+            "Added overview normalization in request validation so incoming overview text is trimmed, empty values resolve to `null`, and oversized descriptions are truncated deterministically to the current 10,000-character limit before validation completes.",
+            "Kept the existing save contract stable while making the API resilient to provider payloads that exceed the local overview cap."
+          ]
+        },
+        {
+          "heading": "Drawer-side truncation and edit usability",
+          "bullets": [
+            "Clamped provider overview text in the comic edit drawer before save so the common Metron re-enrichment path no longer surprises the user with a validation failure.",
+            "Kept the overview field editable and added a compact character count so the drawer remains usable when provider text is long.",
+            "Added a lightweight warning when provider overview text had to be truncated to fit the save limit."
+          ]
+        },
+        {
+          "heading": "Docker-backed Metron regression proof",
+          "bullets": [
+            "Added a Docker-backed fake-Metron smoke covering the exact Alpha Flight-style repro: existing comic, Metron reselect, oversized provider overview, successful save, and preserved provider issue identity.",
+            "Proved on both platform and homelab stacks that an oversized Metron overview now saves with deterministic truncation instead of failing validation."
+          ]
+        }
+      ]
+    },
+    {
       "title": "v3.2.8",
       "version": "3.2.8",
       "date": "2026-04-21",
@@ -236,39 +267,6 @@
             "Added comic cluster pair selection, auto-advance, skip/defer handling, and remaining-count guidance for issue-level duplicate runs.",
             "Preserved absorbed provider and Plex identities as canonical alias evidence during manual merge apply.",
             "Added Docker-backed runtime proof that provider-item and Plex re-syncs can update canonical merged rows through preserved alias identity instead of recreating duplicates."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "v3.1.6",
-      "version": "3.1.6",
-      "date": "2026-04-18",
-      "status": "Completed",
-      "summary": "This patch release finishes the book and comic normalization milestone by turning duplicate handling from a one-off audit into a proven repair workflow. High-confidence ingest now attaches to existing canonical rows instead of multiplying obvious duplicates, medium-confidence matches stay review-scoped, historical comic-like books and duplicate clusters have rollback-safe repair tooling, and merged records now explain what happened directly inside the library drawer with durable match evidence.",
-      "details": [
-        {
-          "heading": "Normalization contract and ingest behavior",
-          "bullets": [
-            "Defined explicit confidence bands and match rationale for books and comics so ISBN-backed books and series/issue/volume comics can auto-attach only when the evidence is strong enough.",
-            "Wired high-confidence normalization into ingest before loose title fallback so obvious Metron and OPDS/CWA duplicates stop creating new rows.",
-            "Kept medium-confidence matches out of silent merges and surfaced them as review-tier import audit outcomes instead."
-          ]
-        },
-        {
-          "heading": "Historical repair tooling and live validation",
-          "bullets": [
-            "Added dry-run repair planning for duplicate clusters and comic-like book misclassifications.",
-            "Added rollback-safe historical repair tooling for comic-like `book` rows and high-confidence duplicate attach repairs, including revert support.",
-            "Validated the repair model through targeted real-data pilots for obvious OPDS comic issues, ISBN-backed book duplicates, and conservative comic duplicate pairs."
-          ]
-        },
-        {
-          "heading": "Merge evidence and drawer provenance",
-          "bullets": [
-            "Persisted first-class merge evidence in repair history so the app can explain confidence, match rule, merge key, and canonical-selection reasoning from durable data rather than reconstructed guesses.",
-            "Added a persistent drawer-level match-evidence surface for merged books and comics with source/provider labels, compared-field validation, record ids, and merge timestamps.",
-            "Aggregated multiple merge events under one canonical record and proved partial revert behavior so one absorbed duplicate can be restored without disturbing another still-attached merge event."
           ]
         }
       ]

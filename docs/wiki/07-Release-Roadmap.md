@@ -3776,7 +3776,7 @@ Historical note:
 
 **Goal:** Prevent comic edit saves from failing when provider-enriched Metron descriptions exceed the local `overview` validation limit.
 
-**Current Slice:** `Metron Overview Truncation and Re-Enrichment Proof`
+**Current Slice:** `Version Closeout`
 
 ### Scope
 

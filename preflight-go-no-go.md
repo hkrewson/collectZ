@@ -1,20 +1,20 @@
 # Local Release Go/No-Go Preflight
 
-- Version: `3.2.8`
-- Generated: `2026-04-22T05:02:30.637Z`
+- Version: `3.2.9`
+- Generated: `2026-04-22T06:11:34.112Z`
 - Base URL: `http://localhost:3000`
 
 ## Gate Results
 
-- Version metadata sync: PASS — all manifests aligned on 3.2.8
-- Release note presence: PASS — docs/releases/v3.2.8.md
-- Backend dependency audit: PASS — low=0 moderate=0 high=0 critical=0
-- Frontend dependency audit: PASS — low=0 moderate=0 high=0 critical=0
+- Version metadata sync: PASS — all manifests aligned on 3.2.9
+- Release note presence: PASS — docs/releases/v3.2.9.md
+- Backend dependency audit: BLOCKED — request to https://registry.npmjs.org/-/npm/v1/security/advisories/bulk failed, reason: getaddrinfo ENOTFOUND registry.npmjs.org
+- Frontend dependency audit: BLOCKED — request to https://registry.npmjs.org/-/npm/v1/security/advisories/bulk failed, reason: getaddrinfo ENOTFOUND registry.npmjs.org
 - Migration evidence presence: PASS — init parity and migration rehearsal evidence are present
-- Observability release evidence: PASS — observability artifact present for 3.2.8 with 9/9 checks passed
-- Compose smoke basics: BLOCKED — current local stack is not running with CI secure-cookie settings (SESSION_COOKIE_SECURE=false, NODE_ENV=development)
+- Observability release evidence: PASS — observability artifact present for 3.2.9 with 9/9 checks passed
+- Compose smoke basics: BLOCKED — in-stack /api/health probe failed: permission denied while trying to connect to the docker API at unix:///Users/hamlin/.docker/run/docker.sock
 - Secret scan: BLOCKED — CI-only gitleaks gate
-- Browser regression: PASS — local Playwright admin shell regression passed
+- Browser regression: BLOCKED — local Chromium launcher is blocked in this shell
 - Image security and SBOM: BLOCKED — CI-only Trivy/SBOM gate
 
 ## Evidence Artifacts
@@ -28,7 +28,7 @@
 
 ## Release Note
 
-- `docs/releases/v3.2.8.md`: present
+- `docs/releases/v3.2.9.md`: present
 - Security triage markers: present
 
 ## Blocking Criteria
