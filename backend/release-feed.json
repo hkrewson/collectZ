@@ -1,6 +1,37 @@
 {
   "releases": [
     {
+      "title": "v3.2.8",
+      "version": "3.2.8",
+      "date": "2026-04-21",
+      "status": "Completed",
+      "summary": "This patch release removes the comic-library full-fetch exception from the main browsing paths. Comic issues, comic series summaries, and selected-series issue browsing now all run through server-backed pagination and stable comic ordering contracts built from existing series, issue, and volume metadata instead of browser-only full-list sorting.",
+      "details": [
+        {
+          "heading": "Server-backed comic issue ordering",
+          "bullets": [
+            "Added a backend `comic_issue` ordering contract built from existing comic metadata with title fallback parsing.",
+            "Switched the default comic `issues` tab to use normal paged API results instead of forcing a one-shot full fetch into browser memory."
+          ]
+        },
+        {
+          "heading": "Server-backed comic series summaries",
+          "bullets": [
+            "Added a grouped `/api/media/comic-series` API for paginated comic series summaries.",
+            "Switched the comic `series` tab to use grouped server summaries with stable counts, poster selection, and paging."
+          ]
+        },
+        {
+          "heading": "Server-backed selected-series issue browsing",
+          "bullets": [
+            "Added `/api/media/comic-series/issues` for paginated issue browsing inside a selected comic series.",
+            "Switched the `series_issues` tab off the last comic full-fetch path so selected-series issue browsing now uses server results with stable in-series ordering.",
+            "Added Docker-backed proof coverage for all three comic query contracts across both platform and homelab stacks."
+          ]
+        }
+      ]
+    },
+    {
       "title": "v3.2.7",
       "version": "3.2.7",
       "date": "2026-04-21",
@@ -238,53 +269,6 @@
             "Persisted first-class merge evidence in repair history so the app can explain confidence, match rule, merge key, and canonical-selection reasoning from durable data rather than reconstructed guesses.",
             "Added a persistent drawer-level match-evidence surface for merged books and comics with source/provider labels, compared-field validation, record ids, and merge timestamps.",
             "Aggregated multiple merge events under one canonical record and proved partial revert behavior so one absorbed duplicate can be restored without disturbing another still-attached merge event."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "v3.1.5",
-      "version": "3.1.5",
-      "date": "2026-04-16",
-      "status": "Completed",
-      "summary": "This patch release makes library detail drawers feel more content-shaped and less template-driven after the earlier library and profile cleanup passes. Books, collectibles, events, comics, TV seasons, and the shared media drawers now use calmer hierarchy, quieter actions, and more truthful source treatment, while newer library tabs also persist correctly across refresh.",
-      "details": [
-        {
-          "heading": "Book drawer cleanup",
-          "bullets": [
-            "Reworked book drawers into a wider, less machine-shaped layout with calmer title treatment and labeled source links.",
-            "Reduced provider-plumbing exposure so raw URLs, duplicated destinations, and low-value technical metadata no longer dominate the book detail surface.",
-            "Tightened the lower-half arrangement for editions, rating, and notes so the drawer feels less bottom-light."
-          ]
-        },
-        {
-          "heading": "Collectible and event drawer restraint passes",
-          "bullets": [
-            "Flattened collectible and event drawers rather than redesigning them into heavier panel systems.",
-            "Replaced louder button-like external actions with quieter links where appropriate and toned down footer controls.",
-            "Tightened spacing and information hierarchy so these sparser drawers feel denser and more intentional without becoming overdesigned."
-          ]
-        },
-        {
-          "heading": "Shared media drawer normalization",
-          "bullets": [
-            "Normalized shared media drawers for movies, TV, games, and comics so titles, notes, external actions, and footer controls no longer feel like leftovers from the older button-heavy drawer system.",
-            "Corrected provider/source labeling so games point to `View on IGDB` instead of inheriting movie/TV labels, and media actions read more truthfully by destination."
-          ]
-        },
-        {
-          "heading": "Comic drawer cleanup",
-          "bullets": [
-            "Suppressed visible internal and provider IDs in comic drawers.",
-            "Stopped leaking Calibre and OPDS plumbing into `Type Details` and converted provider links into clearer labels such as `View on Metron` and `Download on Calibre`.",
-            "Added a restrained long-overview treatment so oversized comic summaries collapse behind a simple show more/show less toggle."
-          ]
-        },
-        {
-          "heading": "TV season cleanup and shared-library persistence fix",
-          "bullets": [
-            "Replaced stacked nested TV season cards with a flatter season-tab treatment using shorter `S1`-style labels and quieter watched-state feedback.",
-            "Fixed newer library tabs like events and collectibles so they persist correctly across refresh instead of falling back before feature flags finish loading."
           ]
         }
       ]

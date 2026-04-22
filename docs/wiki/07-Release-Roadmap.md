@@ -3721,7 +3721,7 @@ Historical note:
 
 **Goal:** Remove the comic-book full-fetch exception by moving comic ordering and series browsing onto a server-backed pagination path that relies on stable comic identity fields instead of client-only full-list sorting.
 
-**Current Slice:** `Comic Series Issues Query Contract`
+**Current Slice:** `Version Closeout`
 
 ### Scope
 
@@ -3761,6 +3761,16 @@ Historical note:
   - the selected-series issues list returns only the chosen series with stable in-series ordering and paging,
   - and the browser no longer needs the full comic issue set in memory for the default `issues`, `series`, or selected-series `series_issues` tabs.
 - Keep broader comic UI cleanup and drawer work out of this milestone unless the query contract forces it.
+- The completed milestone now covers:
+  - server-backed `comic_issue` ordering for the default comic `issues` tab,
+  - paginated grouped `/api/media/comic-series` summaries for the `series` tab,
+  - paginated `/api/media/comic-series/issues` browsing for selected-series `series_issues`,
+  - and Docker-backed platform plus homelab runtime proof that the browser no longer needs the comic full-fetch exception for those browsing paths.
+- Version closeout for `3.2.8` includes:
+  - semver/app metadata sync to `3.2.8`,
+  - matching `docs/releases/v3.2.8.md`,
+  - regenerated `backend/release-feed.json`,
+  - and running-stack `Help > Releases` verification on platform and homelab.
 
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
