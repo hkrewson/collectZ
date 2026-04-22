@@ -9,6 +9,13 @@ const { SERVICE_ACCOUNT_KEY_SCOPES, SERVICE_ACCOUNT_ALLOWED_PREFIXES } = require
 const emptyStringToNull = (value) => (
   typeof value === 'string' && value.trim() === '' ? null : value
 );
+const OVERVIEW_MAX_LENGTH = 10000;
+const normalizeOverviewInput = (value) => {
+  if (typeof value !== 'string') return value;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return trimmed.slice(0, OVERVIEW_MAX_LENGTH);
+};
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
 
@@ -122,7 +129,7 @@ const mediaBaseSchema = z.object({
   signed_proof_path: z.string().max(1000).optional().nullable(),
   location: z.string().max(255).optional().nullable(),
   notes: z.string().max(5000).optional().nullable(),
-  overview: z.string().max(10000).optional().nullable(),
+  overview: z.preprocess(normalizeOverviewInput, z.string().max(OVERVIEW_MAX_LENGTH).optional().nullable()),
   tmdb_id: nullableNumberSchema(z.number().int().positive()),
   tmdb_media_type: z.enum(['movie', 'tv']).optional().nullable(),
   tmdb_url: nullableUrlSchema,

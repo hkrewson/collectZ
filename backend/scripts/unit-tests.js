@@ -191,6 +191,7 @@ const comicDuplicateCandidatesSmokeSource = fs.readFileSync(require.resolve('../
 const comicQueryContractSmokeSource = fs.readFileSync(require.resolve('../scripts/comic-query-contract-smoke'), 'utf8');
 const comicSeriesQueryContractSmokeSource = fs.readFileSync(require.resolve('../scripts/comic-series-query-contract-smoke'), 'utf8');
 const comicSeriesIssuesQueryContractSmokeSource = fs.readFileSync(require.resolve('../scripts/comic-series-issues-query-contract-smoke'), 'utf8');
+const comicMetronOverviewTruncationSmokeSource = fs.readFileSync(require.resolve('../scripts/comic-metron-overview-truncation-smoke'), 'utf8');
 const comicDuplicateDeferSmokeSource = fs.readFileSync(require.resolve('../scripts/comic-duplicate-defer-smoke'), 'utf8');
 const { parseComicMetadataFromTitle, buildComicLikeBookProposal, buildComicLikeBookRevertProposal } = require('../scripts/repair-comic-like-books');
 const { buildClusterFromRows, mergeMissingObjectFields } = require('../scripts/repair-book-comic-duplicates');
@@ -1734,6 +1735,15 @@ results.push(run('repo includes comic series issues query contract smoke coverag
   assert.ok(comicSeriesIssuesQueryContractSmokeSource.includes('Expected selected series query to return only the chosen series count'));
   assert.ok(comicSeriesIssuesQueryContractSmokeSource.includes('Expected selected series query to exclude issues from other series'));
   assert.ok(comicSeriesIssuesQueryContractSmokeSource.includes("stableSeriesFilter: 'Alpha Flight'"));
+}));
+
+results.push(run('repo includes comic Metron overview truncation smoke coverage for oversized provider descriptions', () => {
+  assert.ok(backendPackageJson.scripts['test:comic-metron-overview-truncation-smoke']);
+  assert.ok(comicMetronOverviewTruncationSmokeSource.includes('/api/media/enrich/comic/search'));
+  assert.ok(comicMetronOverviewTruncationSmokeSource.includes('Expected fake Metron search result to exceed overview validation cap'));
+  assert.ok(comicMetronOverviewTruncationSmokeSource.includes('Expected saved overview to clamp to 10000'));
+  assert.ok(comicMetronOverviewTruncationSmokeSource.includes('savedOverviewLength'));
+  assert.ok(comicMetronOverviewTruncationSmokeSource.includes('truncated'));
 }));
 
 results.push(run('repo includes dry-run historical repair plan coverage for duplicate and type-repair reporting', () => {

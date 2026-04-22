@@ -3772,6 +3772,49 @@ Historical note:
   - regenerated `backend/release-feed.json`,
   - and running-stack `Help > Releases` verification on platform and homelab.
 
+## 3.2.9 — Comic Overview Validation and Metron Description Handling
+
+**Goal:** Prevent comic edit saves from failing when provider-enriched Metron descriptions exceed the local `overview` validation limit.
+
+**Current Slice:** `Metron Overview Truncation and Re-Enrichment Proof`
+
+### Scope
+
+- Reproduce the comic edit flow where reselecting Metron metadata for an existing comic can return a description longer than the current `overview` validation cap.
+- Decide and implement the provider-handling rule explicitly:
+  - auto-truncate Metron description text to the allowed limit before save,
+  - while keeping the field editable in the drawer,
+  - and preserving backend-safe behavior for direct API clients too.
+- Keep the edit drawer usable if overview editing remains visible:
+  - the field should not overflow or crowd out the rest of the drawer workflow.
+- Ensure activity and error surfaces no longer fail with a generic validation surprise when the provider payload is otherwise valid.
+- Add runtime proof for the exact comic re-enrichment case:
+  - existing comic row,
+  - Metron lookup reselected,
+  - oversized provider description,
+  - successful save with deterministic truncation behavior.
+
+### Acceptance Criteria
+
+- Re-enriching and saving a comic with an oversized Metron description no longer fails on the current `overview` validation cap alone.
+- The chosen behavior for oversized descriptions is documented and consistent in UI and backend handling.
+- Truncation is deterministic and preserves a readable summary.
+- The edit drawer remains usable without layout overflow.
+- The exact Alpha Flight-style repro shape is covered by a regression proof.
+
+### Active Slice Notes
+
+- This belongs in `3.2.9` rather than widening `3.2.8`, because it is a comic edit and provider-validation bug rather than a comic query contract issue.
+- The current failure shape is:
+  - comic lookup applies Metron `overview` into the edit form,
+  - submit sends that text unchanged,
+  - backend validation rejects `overview` values longer than 10,000 characters.
+- The chosen first fix should be layered:
+  - clamp the overview before applying provider lookup data in the drawer,
+  - keep the field editable,
+  - clamp again in backend validation so non-UI clients cannot trigger the same failure,
+  - and prove the exact re-enrichment save path through a Docker-backed fake-Metron smoke.
+
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 

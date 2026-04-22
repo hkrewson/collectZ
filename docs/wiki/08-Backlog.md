@@ -162,34 +162,6 @@ This file is the staging area for work that has not yet been assigned a release 
 - If the app-side limiter is the issue, the relevant route and setting are called out clearly for follow-up work.
 - If TMDB pressure is the issue, the likely request-reduction path is documented for a future milestone or task.
 
-### Backlog Item: Comic Overview Validation and Metron Description Handling
-**Type:** Task
-**Tags:** `comics`, `metron`, `validation`, `edit-drawer`, `ux`
-
-**Goal:** Prevent comic edit saves from failing when provider-enriched Metron descriptions exceed the local `overview` validation limit.
-
-**Scope**
-- Reproduce and fix the comic edit flow where reselecting Metron metadata for an existing comic can return a description longer than the current `overview` validation cap.
-- Decide and implement the provider-handling rule explicitly:
-  - auto-truncate Metron description text to the allowed limit before save, or
-  - allow user editing/review of the incoming overview text inside the drawer before save, or
-  - combine both by truncating safely while still leaving the field editable.
-- Keep the edit drawer usable if overview editing remains visible:
-  - the field should not overflow or crowd out the rest of the drawer workflow.
-- Ensure activity/error surfaces no longer fail with a generic validation surprise when the provider payload is otherwise valid.
-- Add runtime proof for the exact comic re-enrichment case:
-  - existing comic row,
-  - Metron lookup reselected,
-  - oversized provider description,
-  - successful save with the chosen truncation/edit behavior.
-
-**Acceptance Criteria**
-- Re-enriching and saving a comic with an oversized Metron description no longer fails on the current `overview` validation cap alone.
-- The chosen behavior for oversized descriptions is documented and consistent in UI and backend handling.
-- If truncation is used, it is deterministic and preserves a reasonable readable summary.
-- If editing is required, the drawer remains compact enough to use without breaking layout.
-- The exact Alpha Flight-style repro shape is covered by a regression proof.
-
 ### Backlog Item: Now Playing Viewer
 **Type:** Task
 **Tags:** `plex`, `now-playing`, `display`, `kiosk`, `ui`

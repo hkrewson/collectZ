@@ -47,6 +47,13 @@ const DEFAULT_MEDIA_FORM = {
   audio_artist: '', audio_album: '', audio_track_count: '',
   game_platform: '', game_developer: '', game_region: ''
 };
+const OVERVIEW_MAX_LENGTH = 10000;
+
+function clampOverviewText(value) {
+  const raw = typeof value === 'string' ? value.trim() : '';
+  if (!raw) return '';
+  return raw.slice(0, OVERVIEW_MAX_LENGTH);
+}
 
 function getOwnedFormatSummary(item = {}) {
   const labels = getOwnedFormatLabels(item.media_type || 'movie', item.owned_formats || []);
@@ -2288,17 +2295,23 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
 
   const applyLookupResult = async (match) => {
     const resolvedMatch = await enrichIdentifierSelection(match);
+    const notifyIfOverviewClamped = (incomingOverview, appliedOverview) => {
+      if (typeof incomingOverview === 'string' && incomingOverview.trim().length > OVERVIEW_MAX_LENGTH && appliedOverview.length <= OVERVIEW_MAX_LENGTH) {
+        notify('Provider overview was truncated to fit the save limit');
+      }
+    };
     const guessedBook = resolvedMatch?.mediaTypeGuess === 'book' || Boolean(resolvedMatch?.book);
     if (guessedBook) {
       const book = resolvedMatch?.book || null;
       const bookTypeDetails = book?.type_details || {};
       const preferredCapturedIsbn = String(form.book_isbn || '').trim();
+      const nextOverview = clampOverviewText(book?.overview || resolvedMatch?.description || form.overview);
       set({
         media_type: 'book',
         title: book?.title || resolvedMatch?.normalizedTitle || resolvedMatch?.title || form.title,
         release_date: book?.release_date || form.release_date,
         year: book?.year ? String(book.year) : form.year,
-        overview: book?.overview || resolvedMatch?.description || form.overview,
+        overview: nextOverview,
         genre: book?.genre || form.genre,
         owned_formats: sortOwnedFormats('book', normalizeOwnedFormats('book', form.owned_formats, resolvedMatch?.typeDetails?.format || form.format || 'paperback')),
         poster_path: book?.poster_path || resolvedMatch?.image || form.poster_path,
@@ -2313,18 +2326,20 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
         appliedSummary: buildAppliedLookupSummary(resolvedMatch),
         expanded: false
       });
+      notifyIfOverviewClamped(book?.overview || resolvedMatch?.description || '', nextOverview);
       notify('Lookup data applied');
       return;
     }
 
     const typeEnrichment = resolvedMatch?.typeEnrichment || null;
     if (isComic && typeEnrichment) {
+      const nextOverview = clampOverviewText(typeEnrichment.overview || resolvedMatch?.description || form.overview);
       set({
         title: typeEnrichment.title || resolvedMatch?.normalizedTitle || resolvedMatch?.title || form.title,
         year: typeEnrichment.year ? String(typeEnrichment.year) : form.year,
         release_date: typeEnrichment.release_date || form.release_date,
         genre: typeEnrichment.genre || form.genre,
-        overview: typeEnrichment.overview || resolvedMatch?.description || form.overview,
+        overview: nextOverview,
         poster_path: typeEnrichment.poster_path || resolvedMatch?.image || form.poster_path,
         upc: resolvedMatch?.upc || form.upc,
         book_author: typeEnrichment.type_details?.author || form.book_author,
@@ -2347,17 +2362,19 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
         appliedSummary: buildAppliedLookupSummary(resolvedMatch),
         expanded: false
       });
+      notifyIfOverviewClamped(typeEnrichment.overview || resolvedMatch?.description || '', nextOverview);
       notify('Lookup data applied');
       return;
     }
 
     if (isAudio && typeEnrichment) {
+      const nextOverview = clampOverviewText(typeEnrichment.overview || resolvedMatch?.description || form.overview);
       set({
         title: typeEnrichment.title || resolvedMatch?.normalizedTitle || resolvedMatch?.title || form.title,
         year: typeEnrichment.year ? String(typeEnrichment.year) : form.year,
         release_date: typeEnrichment.release_date || form.release_date,
         genre: typeEnrichment.genre || form.genre,
-        overview: typeEnrichment.overview || resolvedMatch?.description || form.overview,
+        overview: nextOverview,
         poster_path: typeEnrichment.poster_path || resolvedMatch?.image || form.poster_path,
         upc: resolvedMatch?.upc || form.upc,
         audio_artist: typeEnrichment.type_details?.artist || form.audio_artist,
@@ -2369,17 +2386,19 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
         appliedSummary: buildAppliedLookupSummary(resolvedMatch),
         expanded: false
       });
+      notifyIfOverviewClamped(typeEnrichment.overview || resolvedMatch?.description || '', nextOverview);
       notify('Lookup data applied');
       return;
     }
 
     if (isGame && typeEnrichment) {
+      const nextOverview = clampOverviewText(typeEnrichment.overview || resolvedMatch?.description || form.overview);
       set({
         title: typeEnrichment.title || resolvedMatch?.normalizedTitle || resolvedMatch?.title || form.title,
         year: typeEnrichment.year ? String(typeEnrichment.year) : form.year,
         release_date: typeEnrichment.release_date || form.release_date,
         genre: typeEnrichment.genre || form.genre,
-        overview: typeEnrichment.overview || resolvedMatch?.description || form.overview,
+        overview: nextOverview,
         poster_path: typeEnrichment.poster_path || resolvedMatch?.image || form.poster_path,
         upc: resolvedMatch?.upc || form.upc,
         game_platform: typeEnrichment.type_details?.platform || form.game_platform,
@@ -2391,6 +2410,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
         appliedSummary: buildAppliedLookupSummary(resolvedMatch),
         expanded: false
       });
+      notifyIfOverviewClamped(typeEnrichment.overview || resolvedMatch?.description || '', nextOverview);
       notify('Lookup data applied');
       return;
     }
@@ -2408,6 +2428,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
     const genres = Array.isArray(tmdb?.genre_names) ? tmdb.genre_names.join(', ') : '';
     const releaseDate = tmdb?.release_date || '';
     const tmdbType = tmdb?.tmdb_media_type || inferTmdbSearchType(form.media_type);
+    const nextOverview = clampOverviewText(tmdb?.overview || resolvedMatch.description || form.overview);
     set({
       title: tmdb?.title || resolvedMatch.title || form.title,
       original_title: tmdb?.original_title || form.original_title,
@@ -2416,7 +2437,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
       genre: genres || form.genre,
       director: details?.director || form.director,
       cast: details?.cast || form.cast,
-      overview: tmdb?.overview || resolvedMatch.description || form.overview,
+      overview: nextOverview,
       tmdb_id: tmdb?.id || form.tmdb_id,
       tmdb_media_type: tmdbType,
       tmdb_url: details?.tmdb_url || (tmdb?.id ? `https://www.themoviedb.org/${tmdbType}/${tmdb.id}` : form.tmdb_url),
@@ -2431,6 +2452,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
       appliedSummary: buildAppliedLookupSummary(resolvedMatch),
       expanded: false
     });
+    notifyIfOverviewClamped(tmdb?.overview || resolvedMatch?.description || '', nextOverview);
     notify('Lookup data applied');
   };
 
@@ -2551,7 +2573,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
         upc: String(form.upc || '').trim() || null,
         location: String(form.location || '').trim() || null,
         notes: String(form.notes || '').trim() || null,
-        overview: String(form.overview || '').trim() || null,
+        overview: clampOverviewText(form.overview) || null,
         tmdb_id: isMovieOrTv ? (form.tmdb_id ? Number(form.tmdb_id) : null) : null,
         tmdb_media_type: isMovieOrTv ? (form.tmdb_media_type || null) : null,
         tmdb_url: form.tmdb_url ? String(form.tmdb_url).trim() || null : null,
@@ -3026,7 +3048,14 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
             <SectionTabPanel activeId={activeEditorTab} tabKey="storage" idBase="media-editor-steps">
               <div className="space-y-4">
                 <LabeledField label="Storage Location"><input className="input" placeholder="Shelf A3, Box 2…" value={form.location} onChange={(e) => set({ location: e.target.value })} /></LabeledField>
-                <LabeledField label="Overview"><textarea className="textarea" rows={4} value={form.overview} onChange={(e) => set({ overview: e.target.value })} /></LabeledField>
+                <LabeledField label="Overview">
+                  <div className="space-y-1">
+                    <textarea className="textarea" rows={4} value={form.overview} onChange={(e) => set({ overview: e.target.value })} />
+                    <p className="text-xs text-ghost">
+                      {Math.min(String(form.overview || '').trim().length, OVERVIEW_MAX_LENGTH)} / {OVERVIEW_MAX_LENGTH} characters
+                    </p>
+                  </div>
+                </LabeledField>
                 <LabeledField label="Notes"><textarea className="textarea" rows={3} value={form.notes} onChange={(e) => set({ notes: e.target.value })} /></LabeledField>
 
                 {isMovieOrTv && (
