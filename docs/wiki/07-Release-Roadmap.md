@@ -3815,6 +3815,38 @@ Historical note:
   - clamp again in backend validation so non-UI clients cannot trigger the same failure,
   - and prove the exact re-enrichment save path through a Docker-backed fake-Metron smoke.
 
+## 3.2.10 — Comic Provider Search Result Thumbnails
+
+**Goal:** Make comic provider re-enrichment easier to scan by showing compact cover thumbnails directly in the lookup result list.
+
+**Current Slice:** `Comic Lookup Result Thumbnail Rendering`
+
+### Scope
+
+- Add a small thumbnail to provider lookup results in the edit drawer overlay.
+- Reuse the poster/image data already returned by comic and other provider lookup flows instead of adding a new provider contract.
+- Keep the result list compact and readable:
+  - thumbnail should not dominate the row,
+  - text and source badges should still scan well,
+  - rows should degrade gracefully when no image is available.
+- Preserve the current apply behavior and result ordering.
+
+### Acceptance Criteria
+
+- Comic search results show a compact cover thumbnail when provider image data is present.
+- Result rows remain usable when images are missing.
+- The change works with the existing lookup payload shape and does not require provider API changes.
+- Frontend regression coverage proves the thumbnail rendering contract is present in the source.
+
+### Active Slice Notes
+
+- This belongs after `3.2.9` as a small comic UX refinement rather than reopening the Metron validation bugfix patch.
+- The current lookup payloads already include image candidates like:
+  - `image`
+  - `poster_path`
+  - type-specific poster fields under enrichment results
+- The slice should stay render-only unless the runtime proof shows the payload shape needs cleanup first.
+
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 

@@ -1860,6 +1860,15 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
     lookupSources: [source]
   }));
 
+  const resolveLookupThumbnailPath = (match) => (
+    match?.image
+    || match?.typeEnrichment?.poster_path
+    || match?.book?.poster_path
+    || match?.tmdb?.poster_path
+    || match?.poster_path
+    || null
+  );
+
   const buildLookupMatchKey = (match) => {
     if (match?.tmdb?.id) return `tmdb:${match.tmdb.tmdb_media_type || form.media_type}:${match.tmdb.id}`;
     if (match?.book?.id) return `book:${match.book.id}`;
@@ -2939,42 +2948,55 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
                     <div className="h-full overflow-y-auto scroll-area px-1 py-3">
                       {lookupMatches.length > 0 ? (
                         <div>
-                          {lookupMatches.map((m, i) => (
-                            <button
-                              key={i}
-                              type="button"
-                              onClick={() => applyLookupResult(m)}
-                              className="flex w-full items-start gap-3 border-b border-edge/60 px-3 py-2 text-left last:border-b-0 hover:bg-panel/50"
-                            >
-                              <div className="min-w-0 flex-1">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <p className="truncate text-sm font-medium text-ink">{m?.typeEnrichment?.title || m?.book?.title || m?.normalizedTitle || m.tmdb?.title || m.title || 'Unknown'}</p>
-                                  {(m.lookupSources || []).map((source) => (
-                                    <span key={source} className="badge badge-dim">
-                                      {formatLookupSourceLabel(source)}
-                                    </span>
-                                  ))}
+                          {lookupMatches.map((m, i) => {
+                            const title = m?.typeEnrichment?.title || m?.book?.title || m?.normalizedTitle || m.tmdb?.title || m.title || 'Unknown';
+                            const providerLabel = resolveLookupProviderLabel(m);
+                            const supportingDetail = m?.typeEnrichment?.type_details?.artist
+                              || m?.typeEnrichment?.type_details?.platform
+                              || m?.typeEnrichment?.type_details?.series
+                              || m?.book?.type_details?.author
+                              || m?.typeDetails?.author
+                              || m.description
+                              || '';
+                            const thumbnailSrc = posterUrl(resolveLookupThumbnailPath(m));
+                            return (
+                              <button
+                                key={i}
+                                type="button"
+                                onClick={() => applyLookupResult(m)}
+                                className="flex w-full items-start gap-3 border-b border-edge/60 px-3 py-2 text-left last:border-b-0 hover:bg-panel/50"
+                              >
+                                <div
+                                  aria-label="Search result thumbnail"
+                                  className="relative mt-0.5 h-16 w-11 shrink-0 overflow-hidden rounded-md border border-edge/70 bg-panel"
+                                >
+                                  {thumbnailSrc ? (
+                                    <img src={thumbnailSrc} alt={title} className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
+                                  ) : (
+                                    <div className="absolute inset-0 flex items-center justify-center bg-panel text-[10px] font-medium uppercase tracking-[0.18em] text-dim">
+                                      {String(title).trim().charAt(0) || '?'}
+                                    </div>
+                                  )}
                                 </div>
-                                <p className="text-xs text-ghost">
-                                  {resolveLookupProviderLabel(m)}
-                                  {(resolveLookupProviderLabel(m) && (m?.typeEnrichment?.type_details?.artist
-                                    || m?.typeEnrichment?.type_details?.platform
-                                    || m?.typeEnrichment?.type_details?.series
-                                    || m?.book?.type_details?.author
-                                    || m?.typeDetails?.author
-                                    || m.description)) ? ' · ' : ''}
-                                  {m?.typeEnrichment?.type_details?.artist
-                                    || m?.typeEnrichment?.type_details?.platform
-                                    || m?.typeEnrichment?.type_details?.series
-                                    || m?.book?.type_details?.author
-                                    || m?.typeDetails?.author
-                                    || m.description
-                                    || ''}
-                                </p>
-                              </div>
-                              <span className="shrink-0 text-xs text-dim">Apply</span>
-                            </button>
-                          ))}
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <p className="truncate text-sm font-medium text-ink">{title}</p>
+                                    {(m.lookupSources || []).map((source) => (
+                                      <span key={source} className="badge badge-dim">
+                                        {formatLookupSourceLabel(source)}
+                                      </span>
+                                    ))}
+                                  </div>
+                                  <p className="text-xs text-ghost">
+                                    {providerLabel}
+                                    {(providerLabel && supportingDetail) ? ' · ' : ''}
+                                    {supportingDetail}
+                                  </p>
+                                </div>
+                                <span className="shrink-0 pt-1 text-xs text-dim">Apply</span>
+                              </button>
+                            );
+                          })}
                         </div>
                       ) : null}
 
