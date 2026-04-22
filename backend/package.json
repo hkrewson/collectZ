@@ -55,6 +55,7 @@
     "test:comic-duplicate-candidates-smoke": "node scripts/comic-duplicate-candidates-smoke.js",
     "test:comic-query-contract-smoke": "node scripts/comic-query-contract-smoke.js",
     "test:comic-series-query-contract-smoke": "node scripts/comic-series-query-contract-smoke.js",
+    "test:comic-series-issues-query-contract-smoke": "node scripts/comic-series-issues-query-contract-smoke.js",
     "test:manual-merge-recommendation-reject-smoke": "node scripts/manual-merge-recommendation-reject-smoke.js",
     "test:comic-duplicate-defer-smoke": "node scripts/comic-duplicate-defer-smoke.js",
     "test:collection-duplicate-preview-smoke": "node scripts/collection-duplicate-preview-smoke.js",

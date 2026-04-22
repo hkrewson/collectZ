@@ -3721,7 +3721,7 @@ Historical note:
 
 **Goal:** Remove the comic-book full-fetch exception by moving comic ordering and series browsing onto a server-backed pagination path that relies on stable comic identity fields instead of client-only full-list sorting.
 
-**Current Slice:** `Comic Series Summary Query Contract`
+**Current Slice:** `Comic Series Issues Query Contract`
 
 ### Scope
 
@@ -3752,12 +3752,14 @@ Historical note:
   - add a server-backed `comic_issue` sort built from existing `type_details.series`, `issue_number`, and `volume` with title fallback parsing,
   - use normal API pagination for the main comic `issues` view,
   - then add a paginated `/api/media/comic-series` summary path for the `series` tab,
-  - while keeping `series_issues` explicitly client-derived until a later slice widens series browsing itself.
+  - then add a paginated `/api/media/comic-series/issues` path for selected-series issue browsing,
+  - while allowing the `series_issues` view to reuse normal paged `issues` results when the selected series filter is still `all`.
 - Runtime proof for the first slice must show:
   - the comic issue list honors requested page size,
   - page-to-page issue ordering stays stable in server results,
   - the comic series list returns grouped summaries with true series counts and paging,
-  - and the browser no longer needs the full comic issue set in memory for either the default `issues` view or the `series` tab.
+  - the selected-series issues list returns only the chosen series with stable in-series ordering and paging,
+  - and the browser no longer needs the full comic issue set in memory for the default `issues`, `series`, or selected-series `series_issues` tabs.
 - Keep broader comic UI cleanup and drawer work out of this milestone unless the query contract forces it.
 
 

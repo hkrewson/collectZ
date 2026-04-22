@@ -3112,6 +3112,10 @@ export default function LibraryView({
   const [comicSeriesLoading, setComicSeriesLoading] = useState(false);
   const [comicSeriesError, setComicSeriesError] = useState('');
   const [comicSeriesPagination, setComicSeriesPagination] = useState({ page: 1, limit: 50, total: 0, totalPages: 1, hasMore: false });
+  const [comicSeriesIssueRows, setComicSeriesIssueRows] = useState([]);
+  const [comicSeriesIssueLoading, setComicSeriesIssueLoading] = useState(false);
+  const [comicSeriesIssueError, setComicSeriesIssueError] = useState('');
+  const [comicSeriesIssuePagination, setComicSeriesIssuePagination] = useState({ page: 1, limit: 50, total: 0, totalPages: 1, hasMore: false });
   const [editingCollectionId, setEditingCollectionId] = useState(null);
   const [viewingCollectionId, setViewingCollectionId] = useState(null);
   const [comicView, setComicView] = useState('issues');
@@ -3140,7 +3144,8 @@ export default function LibraryView({
   const isComicsLibrary = forcedMediaType === 'comic_book';
   const supportsCollections = forcedMediaType === 'movie' || forcedMediaType === 'game';
   const isCollectionMode = supportsCollections && collectionMode === 'collections';
-  const useComicFullFetch = isComicsLibrary && comicView === 'series_issues';
+  const useComicSeriesIssueQuery = isComicsLibrary && comicView === 'series_issues' && comicSeries !== 'all';
+  const useComicFullFetch = false;
   const requestPage = useComicFullFetch ? 1 : page;
   const requestLimit = useComicFullFetch ? 5000 : pageSize;
   const quickFilterConfig = useMemo(() => {
@@ -3203,9 +3208,9 @@ export default function LibraryView({
   }, [debouncedSearchInput]);
 
   useEffect(() => {
-    if (isCollectionMode || (isComicsLibrary && comicView === 'series')) return;
+    if (isCollectionMode || (isComicsLibrary && (comicView === 'series' || useComicSeriesIssueQuery))) return;
     onRefresh({ page: requestPage, limit: requestLimit, ...filters });
-  }, [comicView, filters, isCollectionMode, isComicsLibrary, onRefresh, page, pageSize, requestLimit, requestPage]);
+  }, [comicView, filters, isCollectionMode, isComicsLibrary, onRefresh, page, pageSize, requestLimit, requestPage, useComicSeriesIssueQuery]);
 
   useEffect(() => {
     if (!forcedMediaType) return;
@@ -3227,6 +3232,8 @@ export default function LibraryView({
     setCollectionError('');
     setComicSeriesRows([]);
     setComicSeriesError('');
+    setComicSeriesIssueRows([]);
+    setComicSeriesIssueError('');
     if (forcedMediaType !== 'comic_book') {
       setComicView('issues');
       setComicSeries('all');
@@ -3268,6 +3275,43 @@ export default function LibraryView({
       active = false;
     };
   }, [comicView, isComicsLibrary, page, refreshComicSeries]);
+
+  const refreshComicSeriesIssues = useCallback(async (targetPage = page) => {
+    if (!isComicsLibrary || comicSeries === 'all') return;
+    setComicSeriesIssueLoading(true);
+    setComicSeriesIssueError('');
+    try {
+      const params = new URLSearchParams();
+      params.set('series', comicSeries);
+      params.set('page', String(targetPage));
+      params.set('limit', String(pageSize));
+      if (debouncedSearchInput) params.set('search', debouncedSearchInput);
+      if (publisherInput && publisherInput !== 'all') params.set('publisher', publisherInput);
+      const payload = await apiCall('get', `/media/comic-series/issues?${params.toString()}`);
+      setComicSeriesIssueRows(Array.isArray(payload?.items) ? payload.items : []);
+      const nextPagination = payload?.pagination || { page: 1, limit: pageSize, total: 0, totalPages: 1 };
+      setComicSeriesIssuePagination({
+        ...nextPagination,
+        hasMore: Number(nextPagination.page || 1) < Number(nextPagination.totalPages || 1)
+      });
+    } catch (err) {
+      setComicSeriesIssueError(err?.response?.data?.error || 'Failed to load comic issues for series');
+    } finally {
+      setComicSeriesIssueLoading(false);
+    }
+  }, [apiCall, comicSeries, debouncedSearchInput, isComicsLibrary, page, pageSize, publisherInput]);
+
+  useEffect(() => {
+    if (!useComicSeriesIssueQuery) return undefined;
+    let active = true;
+    (async () => {
+      if (!active) return;
+      await refreshComicSeriesIssues(page);
+    })();
+    return () => {
+      active = false;
+    };
+  }, [page, refreshComicSeriesIssues, useComicSeriesIssueQuery]);
 
   const refreshCollections = useCallback(async (targetPage = page) => {
     if (!supportsCollections) return;
@@ -3329,6 +3373,8 @@ export default function LibraryView({
     ? (collectionPagination?.total ?? collectionRows.length)
     : (isComicsLibrary && comicView === 'series')
       ? (comicSeriesPagination?.total ?? comicSeriesRows.length)
+    : useComicSeriesIssueQuery
+      ? (comicSeriesIssuePagination?.total ?? comicSeriesIssueRows.length)
     : ((pagination?.total ?? mediaItems.length) + (supportsCollections ? collectionRows.length : 0));
   const selectionScopeLabel = useMemo(() => {
     switch (forcedMediaType) {
@@ -3380,18 +3426,15 @@ export default function LibraryView({
 
   const visibleItems = useMemo(() => {
     if (!isComicsLibrary) return mediaItems;
-    let items = mediaItems;
-    if (comicView === 'series_issues' && comicSeries !== 'all') {
-      items = items.filter((item) => getComicSeriesName(item) === comicSeries);
-    }
+    let items = useComicSeriesIssueQuery ? comicSeriesIssueRows : mediaItems;
     if (comicView === 'issues') {
       return items;
     }
     if (comicView === 'series_issues') {
-      return [...items].sort(compareComicIssueOrder);
+      return useComicSeriesIssueQuery ? items : [...items].sort(compareComicIssueOrder);
     }
     return items;
-  }, [mediaItems, isComicsLibrary, comicView, comicSeries]);
+  }, [comicSeries, comicSeriesIssueRows, comicView, isComicsLibrary, mediaItems, useComicSeriesIssueQuery]);
 
   useEffect(() => {
     const availableIds = new Set(mediaItems.map((item) => Number(item.id)).filter((id) => Number.isFinite(id) && id > 0));
@@ -3465,9 +3508,13 @@ export default function LibraryView({
         seriesSummaries: comicSeriesSummaries,
         totalPages: comicView === 'series'
           ? (comicSeriesPagination?.totalPages || 1)
+          : useComicSeriesIssueQuery
+            ? (comicSeriesIssuePagination?.totalPages || 1)
           : (pagination?.totalPages || 1),
         hasMore: comicView === 'series'
           ? (comicSeriesPagination?.hasMore || false)
+          : useComicSeriesIssueQuery
+            ? (comicSeriesIssuePagination?.hasMore || false)
           : (pagination?.hasMore || false)
       };
     }
@@ -3485,7 +3532,7 @@ export default function LibraryView({
       totalPages,
       hasMore: clampedPage < totalPages
     };
-  }, [comicSeriesPagination?.hasMore, comicSeriesPagination?.totalPages, comicSeriesSummaries, comicView, isComicsLibrary, page, pageSize, pagination?.hasMore, pagination?.totalPages, renderedCardEntries, useComicFullFetch, viewMode, visibleItems]);
+  }, [comicSeriesIssuePagination?.hasMore, comicSeriesIssuePagination?.totalPages, comicSeriesPagination?.hasMore, comicSeriesPagination?.totalPages, comicSeriesSummaries, comicView, isComicsLibrary, page, pageSize, pagination?.hasMore, pagination?.totalPages, renderedCardEntries, useComicFullFetch, useComicSeriesIssueQuery, viewMode, visibleItems]);
 
   const displayedVisibleItems = isComicsLibrary ? comicPagedState.items : visibleItems;
   const displayedCardEntries = isComicsLibrary ? comicPagedState.cardEntries : renderedCardEntries;
@@ -3556,9 +3603,22 @@ export default function LibraryView({
     selectionGestureRef.current = Boolean(event?.shiftKey || shiftPressedRef.current);
   }, []);
   const comicSeriesViewActive = isComicsLibrary && comicView === 'series';
-  const activeMediaError = comicSeriesViewActive ? comicSeriesError : error;
-  const activeMediaLoading = comicSeriesViewActive ? comicSeriesLoading : loading;
-  const activeMediaResultCount = comicSeriesViewActive ? comicSeriesRows.length : mediaItems.length;
+  const comicSeriesIssuesViewActive = isComicsLibrary && comicView === 'series_issues' && useComicSeriesIssueQuery;
+  const activeMediaError = comicSeriesViewActive
+    ? comicSeriesError
+    : comicSeriesIssuesViewActive
+      ? comicSeriesIssueError
+      : error;
+  const activeMediaLoading = comicSeriesViewActive
+    ? comicSeriesLoading
+    : comicSeriesIssuesViewActive
+      ? comicSeriesIssueLoading
+      : loading;
+  const activeMediaResultCount = comicSeriesViewActive
+    ? comicSeriesRows.length
+    : comicSeriesIssuesViewActive
+      ? comicSeriesIssueRows.length
+      : mediaItems.length;
 
   const toggleSelectedId = useCallback((idRaw, event = null) => {
     const id = Number(idRaw);

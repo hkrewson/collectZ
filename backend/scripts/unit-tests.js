@@ -190,6 +190,7 @@ const collectionMergeApplyRevertSmokeSource = fs.readFileSync(require.resolve('.
 const comicDuplicateCandidatesSmokeSource = fs.readFileSync(require.resolve('../scripts/comic-duplicate-candidates-smoke'), 'utf8');
 const comicQueryContractSmokeSource = fs.readFileSync(require.resolve('../scripts/comic-query-contract-smoke'), 'utf8');
 const comicSeriesQueryContractSmokeSource = fs.readFileSync(require.resolve('../scripts/comic-series-query-contract-smoke'), 'utf8');
+const comicSeriesIssuesQueryContractSmokeSource = fs.readFileSync(require.resolve('../scripts/comic-series-issues-query-contract-smoke'), 'utf8');
 const comicDuplicateDeferSmokeSource = fs.readFileSync(require.resolve('../scripts/comic-duplicate-defer-smoke'), 'utf8');
 const { parseComicMetadataFromTitle, buildComicLikeBookProposal, buildComicLikeBookRevertProposal } = require('../scripts/repair-comic-like-books');
 const { buildClusterFromRows, mergeMissingObjectFields } = require('../scripts/repair-book-comic-duplicates');
@@ -1724,6 +1725,15 @@ results.push(run('repo includes comic series query contract smoke coverage for p
   assert.ok(comicSeriesQueryContractSmokeSource.includes('Expected grouped comic series total to reflect unique series count'));
   assert.ok(comicSeriesQueryContractSmokeSource.includes('Expected Alpha Flight summary to aggregate both issues into one series row'));
   assert.ok(comicSeriesQueryContractSmokeSource.includes("stableGrouping: 'comic_series'"));
+}));
+
+results.push(run('repo includes comic series issues query contract smoke coverage for paginated server-backed series browsing', () => {
+  assert.ok(backendPackageJson.scripts['test:comic-series-issues-query-contract-smoke']);
+  assert.ok(comicSeriesIssuesQueryContractSmokeSource.includes('/api/media/comic-series/issues?series=Alpha%20Flight&page=1&limit=2'));
+  assert.ok(comicSeriesIssuesQueryContractSmokeSource.includes('Expected comic series issues query to honor requested page size'));
+  assert.ok(comicSeriesIssuesQueryContractSmokeSource.includes('Expected selected series query to return only the chosen series count'));
+  assert.ok(comicSeriesIssuesQueryContractSmokeSource.includes('Expected selected series query to exclude issues from other series'));
+  assert.ok(comicSeriesIssuesQueryContractSmokeSource.includes("stableSeriesFilter: 'Alpha Flight'"));
 }));
 
 results.push(run('repo includes dry-run historical repair plan coverage for duplicate and type-repair reporting', () => {
