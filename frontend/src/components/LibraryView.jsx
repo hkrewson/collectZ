@@ -2968,7 +2968,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
                               >
                                 <div
                                   aria-label="Search result thumbnail"
-                                  className="relative mt-0.5 h-16 w-11 shrink-0 overflow-hidden rounded-md border border-edge/70 bg-panel"
+                                  className="relative mt-0.5 h-16 w-11 shrink-0 overflow-hidden rounded-[4px] border border-edge/70 bg-panel"
                                 >
                                   {thumbnailSrc ? (
                                     <img src={thumbnailSrc} alt={title} className="absolute inset-0 h-full w-full object-cover" loading="lazy" />

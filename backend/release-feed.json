@@ -1,6 +1,37 @@
 {
   "releases": [
     {
+      "title": "v3.2.10",
+      "version": "3.2.10",
+      "date": "2026-04-22",
+      "status": "Completed",
+      "summary": "This patch release makes comic provider re-enrichment easier to scan by adding compact cover thumbnails directly in the edit drawer lookup results. The lookup rows now reuse the provider image data already returned by Metron and other search flows, keep the result list compact, and fall back cleanly when a result has no image.",
+      "details": [
+        {
+          "heading": "Compact lookup thumbnails",
+          "bullets": [
+            "Added a compact thumbnail treatment to provider lookup results in the edit drawer overlay.",
+            "Reused the existing image fields already present in lookup payloads instead of introducing any new provider or API contract.",
+            "Tightened the thumbnail corners to a more deliberate utility treatment so the results feel functional rather than soft or card-like."
+          ]
+        },
+        {
+          "heading": "Graceful no-image fallback",
+          "bullets": [
+            "Added a lightweight fallback tile for results that do not include an image.",
+            "Kept the current title, source badges, subtitle details, and `Apply` action behavior intact."
+          ]
+        },
+        {
+          "heading": "Regression coverage",
+          "bullets": [
+            "Added source-backed regression coverage proving the lookup overlay still includes the compact thumbnail rendering contract.",
+            "Rebuilt the platform and homelab frontend bundles so the shipped app includes the new result-row treatment."
+          ]
+        }
+      ]
+    },
+    {
       "title": "v3.2.9",
       "version": "3.2.9",
       "date": "2026-04-22",
@@ -234,39 +265,6 @@
           "bullets": [
             "Preserved canonical reuse behavior across provider-item, Plex, and Metron re-sync paths with explicit smoke coverage.",
             "Fixed revert cleanup so duplicate-only identity alias metadata no longer remains attached to the former canonical after a merge is reverted."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "v3.2.0",
-      "version": "3.2.0",
-      "date": "2026-04-19",
-      "status": "Completed",
-      "summary": "This minor release adds the first full operator-facing manual merge workflow across supported same-type media. Operators can now discover likely duplicates, review exact pairs inline, apply or revert merges, reject or defer bad matches, inspect suppressed history, work through comic duplicate runs more efficiently, and rely on preserved identity aliases so future provider and Plex syncs can resolve back to canonical merged records instead of recreating obvious duplicates.",
-      "details": [
-        {
-          "heading": "Manual merge workflow",
-          "bullets": [
-            "Added operator-only same-type merge preview, apply, and revert contracts for supported media families.",
-            "Added inline pair review inside merge-review lanes so operators can work inside discovery, recommended, comic, suppressed, and collection queues without context switching.",
-            "Added activity evidence for manual merge apply events and shared drawer-visible merge provenance across media drawers."
-          ]
-        },
-        {
-          "heading": "Recommendation and discovery review",
-          "bullets": [
-            "Added conservative merge recommendations, discovery queue surfacing, comic duplicate candidate review, and duplicate collection review.",
-            "Added operator outcomes for reject, defer, suppressed-history review, and restore-to-queue.",
-            "Tightened false-positive suppression for structured title families and conflicting movie identity fields while preserving good messy matches such as packaging-heavy movie variants."
-          ]
-        },
-        {
-          "heading": "Throughput and durability",
-          "bullets": [
-            "Added comic cluster pair selection, auto-advance, skip/defer handling, and remaining-count guidance for issue-level duplicate runs.",
-            "Preserved absorbed provider and Plex identities as canonical alias evidence during manual merge apply.",
-            "Added Docker-backed runtime proof that provider-item and Plex re-syncs can update canonical merged rows through preserved alias identity instead of recreating duplicates."
           ]
         }
       ]

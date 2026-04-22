@@ -1,17 +1,17 @@
 # Local Release Go/No-Go Preflight
 
-- Version: `3.2.9`
-- Generated: `2026-04-22T06:11:34.112Z`
+- Version: `3.2.10`
+- Generated: `2026-04-22T13:38:52.156Z`
 - Base URL: `http://localhost:3000`
 
 ## Gate Results
 
-- Version metadata sync: PASS — all manifests aligned on 3.2.9
-- Release note presence: PASS — docs/releases/v3.2.9.md
+- Version metadata sync: PASS — all manifests aligned on 3.2.10
+- Release note presence: PASS — docs/releases/v3.2.10.md
 - Backend dependency audit: BLOCKED — request to https://registry.npmjs.org/-/npm/v1/security/advisories/bulk failed, reason: getaddrinfo ENOTFOUND registry.npmjs.org
 - Frontend dependency audit: BLOCKED — request to https://registry.npmjs.org/-/npm/v1/security/advisories/bulk failed, reason: getaddrinfo ENOTFOUND registry.npmjs.org
 - Migration evidence presence: PASS — init parity and migration rehearsal evidence are present
-- Observability release evidence: PASS — observability artifact present for 3.2.9 with 9/9 checks passed
+- Observability release evidence: PASS — observability artifact present for 3.2.10 with 9/9 checks passed
 - Compose smoke basics: BLOCKED — in-stack /api/health probe failed: permission denied while trying to connect to the docker API at unix:///Users/hamlin/.docker/run/docker.sock
 - Secret scan: BLOCKED — CI-only gitleaks gate
 - Browser regression: BLOCKED — local Chromium launcher is blocked in this shell
@@ -28,7 +28,7 @@
 
 ## Release Note
 
-- `docs/releases/v3.2.9.md`: present
+- `docs/releases/v3.2.10.md`: present
 - Security triage markers: present
 
 ## Blocking Criteria

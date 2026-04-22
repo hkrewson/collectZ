@@ -3819,7 +3819,7 @@ Historical note:
 
 **Goal:** Make comic provider re-enrichment easier to scan by showing compact cover thumbnails directly in the lookup result list.
 
-**Current Slice:** `Comic Lookup Result Thumbnail Rendering`
+**Current Slice:** `Version Closeout`
 
 ### Scope
 

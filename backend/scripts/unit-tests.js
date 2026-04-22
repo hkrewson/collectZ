@@ -1933,7 +1933,7 @@ results.push(run('LibraryView renders compact lookup thumbnails for provider sea
   assert.ok(libraryViewSource.includes('const resolveLookupThumbnailPath = (match) => ('));
   assert.ok(libraryViewSource.includes("aria-label=\"Search result thumbnail\""));
   assert.ok(libraryViewSource.includes('const thumbnailSrc = posterUrl(resolveLookupThumbnailPath(m));'));
-  assert.ok(libraryViewSource.includes("className=\"relative mt-0.5 h-16 w-11 shrink-0 overflow-hidden rounded-md border border-edge/70 bg-panel\""));
+  assert.ok(libraryViewSource.includes("className=\"relative mt-0.5 h-16 w-11 shrink-0 overflow-hidden rounded-[4px] border border-edge/70 bg-panel\""));
 }));
 
 results.push(run('repo includes local release preflight helper coverage for dependency audits and go-no-go reporting', () => {
