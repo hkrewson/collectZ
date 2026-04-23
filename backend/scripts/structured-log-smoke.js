@@ -97,6 +97,9 @@ async function searchOpenSearch(action, requestId) {
       Accept: 'application/json'
     }
   });
+  if (result.response.status === 404) {
+    return [];
+  }
   if (!result.response.ok) {
     throw new Error(`OpenSearch search failed (${result.response.status})`);
   }

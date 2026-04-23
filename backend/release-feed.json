@@ -1,6 +1,49 @@
 {
   "releases": [
     {
+      "title": "v3.3.0",
+      "version": "3.3.0",
+      "date": "2026-04-23",
+      "status": "Completed",
+      "summary": "This minor release adds a new library loans workflow so borrowed items can be tracked from one management surface instead of disappearing into title-level notes. The release introduces scoped loan records, item-attached loan actions, a dedicated `Loans` view, and stronger current-loan visibility for active, overdue, and returned items across both platform and homelab stacks.",
+      "details": [
+        {
+          "heading": "Loans workflow foundation",
+          "bullets": [
+            "Added a dedicated `media_loans` record shape with one-active-loan-per-media protection.",
+            "Added scoped create, edit, list, and return APIs for loan lifecycle management.",
+            "Added OpenAPI coverage for the new loans endpoints.",
+            "Normalized loan date fields in API responses to a cleaner date-only contract."
+          ]
+        },
+        {
+          "heading": "Library loans management view",
+          "bullets": [
+            "Added a dedicated `Loans` navigation surface in the library shell.",
+            "Added active, overdue, returned, and all-loans filters.",
+            "Added edit and return actions directly from the loans view.",
+            "Added counts and urgency cues so the screen reads as the place to manage what is currently out."
+          ]
+        },
+        {
+          "heading": "Item-attached loan actions",
+          "bullets": [
+            "Added a loan creation form and active-loan summary inside the media detail drawer.",
+            "Added recent loan history visibility for individual titles.",
+            "Kept loan entry attached to the title while still making the overall workflow browsable from one place."
+          ]
+        },
+        {
+          "heading": "Verification and release evidence",
+          "bullets": [
+            "Added a Docker-backed loans workflow smoke proving create, update, return, and history behavior.",
+            "Verified init parity and migration rehearsal after adding the loans schema.",
+            "Regenerated the in-app release feed for `Help > Releases`."
+          ]
+        }
+      ]
+    },
+    {
       "title": "v3.2.10",
       "version": "3.2.10",
       "date": "2026-04-22",
@@ -239,32 +282,6 @@
           "bullets": [
             "Added package overrides so backend and frontend resolve `follow-redirects` to `1.16.0`.",
             "Refreshed both lockfiles so local dependency audits no longer report the previously tracked moderate advisory."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "v3.2.1",
-      "version": "3.2.1",
-      "date": "2026-04-19",
-      "status": "Completed",
-      "summary": "This patch release hardens post-merge import durability. It adds runtime proof that canonical records survive repeat imports, cross-source imports, chained merge history, Metron re-syncs, Plex re-syncs, and merge reverts without silently recreating duplicates. It also fixes a real revert bug so absorbed identity aliases are removed from the former canonical when a merge is undone, allowing later imports to update the restored duplicate row cleanly.",
-      "details": [
-        {
-          "heading": "Re-sync durability proofs",
-          "bullets": [
-            "Added Docker-backed Metron re-sync alias proof for merged comic rows.",
-            "Added Docker-backed repeat-import idempotency proof for generic CSV, Calibre CSV, and Delicious CSV import families.",
-            "Added Docker-backed cross-source canonical reuse proof across generic CSV, Calibre CSV, and Delicious CSV.",
-            "Added Docker-backed multi-hop merge alias proof so historical provider identities from chained merges still resolve to the final canonical row.",
-            "Added Docker-backed merge revert re-sync integrity proof for restored duplicate rows."
-          ]
-        },
-        {
-          "heading": "Merge identity hardening",
-          "bullets": [
-            "Preserved canonical reuse behavior across provider-item, Plex, and Metron re-sync paths with explicit smoke coverage.",
-            "Fixed revert cleanup so duplicate-only identity alias metadata no longer remains attached to the former canonical after a merge is reverted."
           ]
         }
       ]

@@ -297,9 +297,6 @@ export default function LibraryLoansView({
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
             <h1 className="section-title">Loans</h1>
-            <p className="mt-1 text-sm text-ghost">
-              See what is currently out from {activeLibrary?.name ? `“${activeLibrary.name}”` : 'the active library'}, what is overdue, and what has already come back.
-            </p>
           </div>
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
             <div className="relative w-full sm:w-80">

@@ -3547,6 +3547,7 @@ results.push(run('server source assigns request ids before request logging', () 
 results.push(run('structured log smoke source falls back to OpenSearch-backed verification', () => {
   assert.ok(structuredLogSmokeSource.includes('const OPENSEARCH_URL'));
   assert.ok(structuredLogSmokeSource.includes('async function searchOpenSearch'));
+  assert.ok(structuredLogSmokeSource.includes('if (result.response.status === 404)'));
   assert.ok(structuredLogSmokeSource.includes("source: 'opensearch-index'"));
   assert.ok(structuredLogSmokeSource.includes("message.request_id === requestId"));
   assert.ok(structuredLogSmokeSource.includes('withStructuredLogSmokeEvent'));
