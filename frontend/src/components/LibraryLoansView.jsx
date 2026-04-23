@@ -201,7 +201,7 @@ export default function LibraryLoansView({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [pagination, setPagination] = useState({ page: 1, limit: 25, total: 0, totalPages: 1, hasMore: false });
-  const [totals, setTotals] = useState({ active: 0, overdue: 0, returned: 0, all: 0 });
+  const [totals, setTotals] = useState({ active: 0, overdue: 0, returned: 0, all: 0, dueSoon: 0 });
   const [page, setPage] = useState(1);
   const [editingLoan, setEditingLoan] = useState(null);
   const [savingLoan, setSavingLoan] = useState(false);
@@ -244,24 +244,24 @@ export default function LibraryLoansView({
         active: Number(countPayloads[0]?.pagination?.total || 0),
         overdue: Number(countPayloads[1]?.pagination?.total || 0),
         returned: Number(countPayloads[2]?.pagination?.total || 0),
-        all: Number(countPayloads[3]?.pagination?.total || 0)
+        all: Number(countPayloads[3]?.pagination?.total || 0),
+        dueSoon: Number(payload?.summary?.dueSoon || 0)
       });
     } catch (err) {
       setError(err?.response?.data?.error || 'Failed to load loans');
       setLoans([]);
-      setTotals({ active: 0, overdue: 0, returned: 0, all: 0 });
+      setTotals({ active: 0, overdue: 0, returned: 0, all: 0, dueSoon: 0 });
     } finally {
       setLoading(false);
     }
   }, [apiCall, debouncedSearch, page, status]);
 
   const summary = useMemo(() => {
-    const counts = { active: 0, overdue: 0, returned: 0, dueSoon: 0 };
+    const counts = { active: 0, overdue: 0, returned: 0 };
     loans.forEach((loan) => {
       if (loan?.status === 'overdue') counts.overdue += 1;
       else if (loan?.status === 'returned') counts.returned += 1;
       else counts.active += 1;
-      if (isDueSoon(loan)) counts.dueSoon += 1;
     });
     return counts;
   }, [loans]);
@@ -357,7 +357,7 @@ export default function LibraryLoansView({
             {[
               ['Currently out', totals.active, 'text-ink'],
               ['Overdue', totals.overdue, 'text-err'],
-              ['Due soon', summary.dueSoon, 'text-ink'],
+              ['Due soon', totals.dueSoon, 'text-ink'],
               ['Returned', totals.returned, 'text-ink']
             ].map(([label, value, valueClass], index) => (
               <div

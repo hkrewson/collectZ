@@ -3939,7 +3939,6 @@ Historical note:
   - show accurate status counts across the scoped result set,
   - surface due-soon and overdue urgency more clearly without pulling full reminder delivery into the same milestone.
 - Remaining follow-through to keep tracked in `3.3.1`:
-  - decide whether `due soon` should become a true backend-scoped total instead of a page-derived frontend count,
   - add a browser-level regression for the loan-first drawer and reminder actions once local browser gating is cooperative again,
   - decide whether reminder history depth and automatic sending belong in a later slice instead of widening this patch.
 - Preferred minimal DB/API contract:

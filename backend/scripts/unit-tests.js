@@ -3351,11 +3351,14 @@ results.push(run('library loans view exposes management-focused counts and due-s
   assert.ok(libraryLoansViewSource.includes('Due soon'));
   assert.ok(libraryLoansViewSource.includes("['active', 'overdue', 'returned', 'all']"));
   assert.ok(libraryLoansViewSource.includes("pagination.total || 0"));
+  assert.ok(libraryLoansViewSource.includes('totals.dueSoon'));
   assert.ok(libraryLoansViewSource.includes('Send Reminder'));
   assert.ok(libraryLoansViewSource.includes('reminder_sent_today'));
   assert.ok(libraryViewSource.includes('Add borrower email to send reminders.'));
   assert.ok(mediaRoutesSource.includes('reminder_eligible'));
   assert.ok(mediaRoutesSource.includes('media.loan.reminder.send'));
+  assert.ok(openApiSource.includes('"summary"'));
+  assert.ok(openApiSource.includes('"dueSoon"'));
   assert.ok(libraryLoanReminderWorkflowSmokeSource.includes('/api/media/loans/${loanId}/reminder'));
   assert.ok(libraryLoanReminderWorkflowSmokeSource.includes('smtp_override_enabled'));
 }));

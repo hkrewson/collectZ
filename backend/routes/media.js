@@ -7478,6 +7478,17 @@ router.get('/loans', requireSessionAuth, asyncHandler(async (req, res) => {
     params
   );
   const total = Number(countResult.rows[0]?.total || 0);
+  const dueSoonResult = await pool.query(
+    `SELECT COUNT(*)::int AS total
+       FROM media_loans ml
+       JOIN media m ON m.id = ml.media_id
+      ${where}
+        AND ml.returned_at IS NULL
+        AND ml.due_at >= CURRENT_DATE
+        AND ml.due_at <= (CURRENT_DATE + INTERVAL '3 days')`,
+    params
+  );
+  const dueSoonTotal = Number(dueSoonResult.rows[0]?.total || 0);
 
   const rowParams = [...params, limit, offset];
   const rows = await pool.query(
@@ -7501,6 +7512,9 @@ router.get('/loans', requireSessionAuth, asyncHandler(async (req, res) => {
 
   res.json({
     items: rows.rows.map(formatMediaLoanRow),
+    summary: {
+      dueSoon: dueSoonTotal
+    },
     pagination: {
       page,
       limit,

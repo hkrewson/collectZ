@@ -1088,6 +1088,13 @@
             "type": "array",
             "items": { "$ref": "#/components/schemas/MediaLoanRecord" }
           },
+          "summary": {
+            "type": "object",
+            "properties": {
+              "dueSoon": { "type": "integer" }
+            },
+            "required": ["dueSoon"]
+          },
           "pagination": {
             "type": "object",
             "properties": {
@@ -1100,7 +1107,7 @@
             "required": ["page", "limit", "total", "totalPages", "hasMore"]
           }
         },
-        "required": ["items", "pagination"]
+        "required": ["items", "summary", "pagination"]
       },
       "MediaLoanHistoryResponse": {
         "type": "object",
