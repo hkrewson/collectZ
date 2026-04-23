@@ -3847,11 +3847,11 @@ Historical note:
   - type-specific poster fields under enrichment results
 - The slice should stay render-only unless the runtime proof shows the payload shape needs cleanup first.
 
-## 3.2.11 — Library Loans Tracking
+## 3.3.0 — Library Loans Tracking
 
 **Goal:** Add a loans workflow to the library so borrowed items, borrower details, and reminder timing can be tracked without disrupting the core catalog experience.
 
-**Current Slice:** `Loans Workflow Foundation`
+**Current Slice:** `Loans View Management Polish`
 
 ### Scope
 
@@ -3879,7 +3879,7 @@ Historical note:
 
 ### Active Slice Notes
 
-- This belongs after `3.2.10` as a fresh library workflow milestone rather than another comic/provider follow-up.
+- This belongs after `3.2.10` as a fresh minor-feature milestone rather than another comic/provider follow-up or a patch-sized cleanup.
 - The first slice should stay contract-first:
   - decide UI placement,
   - decide item-attached versus dedicated-list behavior,
@@ -3899,6 +3899,10 @@ Historical note:
   - the media detail drawer can record and return loans,
   - the dedicated `library-loans` view can browse active, overdue, returned, and all loans,
   - a Docker-backed smoke proves create, update, return, and history behavior on both platform and homelab stacks.
+- Current polish slice focus:
+  - make the dedicated loans view feel like the management surface for everything currently out,
+  - show accurate status counts across the scoped result set,
+  - surface due-soon and overdue urgency more clearly without pulling full reminder delivery into the same milestone.
 - Preferred minimal DB/API contract:
   - a separate `media_loans` table rather than adding single loan fields directly onto `media`,
   - one active loan per media item at a time, enforced by an active-loan constraint,

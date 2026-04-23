@@ -9,6 +9,46 @@ function formatDate(value) {
   return parsed.toLocaleDateString();
 }
 
+function normalizeDateValue(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  return raw.slice(0, 10);
+}
+
+function daysUntilDate(value) {
+  const normalized = normalizeDateValue(value);
+  if (!normalized) return null;
+  const target = new Date(`${normalized}T00:00:00`);
+  if (Number.isNaN(target.getTime())) return null;
+  const today = new Date();
+  const base = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  return Math.round((target.getTime() - base.getTime()) / 86400000);
+}
+
+function isDueSoon(loan) {
+  if (!loan || loan.returned_at || loan.status === 'overdue') return false;
+  const days = daysUntilDate(loan.due_at);
+  return Number.isInteger(days) && days >= 0 && days <= 3;
+}
+
+function relativeDueLabel(loan) {
+  if (!loan || loan.returned_at) return null;
+  if (loan.status === 'overdue') {
+    const days = daysUntilDate(loan.due_at);
+    const overdueDays = Number.isInteger(days) ? Math.abs(days) : null;
+    if (overdueDays === 0) return 'Due today';
+    if (overdueDays === 1) return '1 day overdue';
+    if (Number.isInteger(overdueDays)) return `${overdueDays} days overdue`;
+    return 'Overdue';
+  }
+  const days = daysUntilDate(loan.due_at);
+  if (!Number.isInteger(days)) return null;
+  if (days === 0) return 'Due today';
+  if (days === 1) return 'Due tomorrow';
+  if (days > 1 && days <= 3) return `Due in ${days} days`;
+  return null;
+}
+
 function statusLabel(status) {
   if (status === 'overdue') return 'Overdue';
   if (status === 'returned') return 'Returned';
@@ -146,6 +186,7 @@ export default function LibraryLoansView({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [pagination, setPagination] = useState({ page: 1, limit: 25, total: 0, totalPages: 1, hasMore: false });
+  const [totals, setTotals] = useState({ active: 0, overdue: 0, returned: 0, all: 0 });
   const [page, setPage] = useState(1);
   const [editingLoan, setEditingLoan] = useState(null);
   const [savingLoan, setSavingLoan] = useState(false);
@@ -169,30 +210,56 @@ export default function LibraryLoansView({
       params.set('page', String(targetPage));
       params.set('limit', '25');
       if (debouncedSearch) params.set('search', debouncedSearch);
-      const payload = await apiCall('get', `/media/loans?${params.toString()}`);
+      const countStatuses = ['active', 'overdue', 'returned', 'all'];
+      const [payload, ...countPayloads] = await Promise.all([
+        apiCall('get', `/media/loans?${params.toString()}`),
+        ...countStatuses.map((entryStatus) => {
+          const countParams = new URLSearchParams();
+          countParams.set('status', entryStatus);
+          countParams.set('page', '1');
+          countParams.set('limit', '1');
+          if (debouncedSearch) countParams.set('search', debouncedSearch);
+          return apiCall('get', `/media/loans?${countParams.toString()}`);
+        })
+      ]);
       setLoans(Array.isArray(payload?.items) ? payload.items : []);
       setPagination(payload?.pagination || { page: 1, limit: 25, total: 0, totalPages: 1, hasMore: false });
+      setTotals({
+        active: Number(countPayloads[0]?.pagination?.total || 0),
+        overdue: Number(countPayloads[1]?.pagination?.total || 0),
+        returned: Number(countPayloads[2]?.pagination?.total || 0),
+        all: Number(countPayloads[3]?.pagination?.total || 0)
+      });
     } catch (err) {
       setError(err?.response?.data?.error || 'Failed to load loans');
       setLoans([]);
+      setTotals({ active: 0, overdue: 0, returned: 0, all: 0 });
     } finally {
       setLoading(false);
     }
   }, [apiCall, debouncedSearch, page, status]);
 
-  useEffect(() => {
-    loadLoans(page);
-  }, [loadLoans, page]);
-
   const summary = useMemo(() => {
-    const counts = { active: 0, overdue: 0, returned: 0 };
+    const counts = { active: 0, overdue: 0, returned: 0, dueSoon: 0 };
     loans.forEach((loan) => {
       if (loan?.status === 'overdue') counts.overdue += 1;
       else if (loan?.status === 'returned') counts.returned += 1;
       else counts.active += 1;
+      if (isDueSoon(loan)) counts.dueSoon += 1;
     });
     return counts;
   }, [loans]);
+
+  useEffect(() => {
+    loadLoans(page);
+  }, [loadLoans, page]);
+
+  const statusSummaryLabel = useMemo(() => {
+    if (status === 'overdue') return `${totals.overdue} overdue loan${totals.overdue === 1 ? '' : 's'}`;
+    if (status === 'returned') return `${totals.returned} returned loan${totals.returned === 1 ? '' : 's'}`;
+    if (status === 'all') return `${totals.all} total loan${totals.all === 1 ? '' : 's'}`;
+    return `${totals.active} currently out`;
+  }, [status, totals]);
 
   const handleReturn = async (loanId) => {
     if (!loanId) return;
@@ -231,7 +298,7 @@ export default function LibraryLoansView({
           <div className="min-w-0">
             <h1 className="section-title">Loans</h1>
             <p className="mt-1 text-sm text-ghost">
-              Track borrowed titles in {activeLibrary?.name ? `“${activeLibrary.name}”` : 'the active library'} without losing sight of what is due back next.
+              See what is currently out from {activeLibrary?.name ? `“${activeLibrary.name}”` : 'the active library'}, what is overdue, and what has already come back.
             </p>
           </div>
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
@@ -261,10 +328,26 @@ export default function LibraryLoansView({
             ariaLabel="Loan status filters"
             className="w-fit"
           />
-          <div className="flex flex-wrap items-center gap-2 text-xs text-ghost">
-            <span className="badge badge-dim">{summary.active} active</span>
-            <span className="badge badge-dim">{summary.overdue} overdue</span>
-            <span className="badge badge-dim">{summary.returned} returned</span>
+          <div className="text-sm text-dim">
+            {statusSummaryLabel}
+          </div>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="rounded-lg border border-edge bg-panel px-4 py-3">
+            <p className="text-sm font-medium text-ink">Currently out</p>
+            <p className="mt-1 text-2xl font-semibold text-ink">{totals.active}</p>
+          </div>
+          <div className="rounded-lg border border-err/20 bg-panel px-4 py-3">
+            <p className="text-sm font-medium text-ink">Overdue</p>
+            <p className="mt-1 text-2xl font-semibold text-err">{totals.overdue}</p>
+          </div>
+          <div className="rounded-lg border border-edge bg-panel px-4 py-3">
+            <p className="text-sm font-medium text-ink">Due soon</p>
+            <p className="mt-1 text-2xl font-semibold text-ink">{summary.dueSoon}</p>
+          </div>
+          <div className="rounded-lg border border-edge bg-panel px-4 py-3">
+            <p className="text-sm font-medium text-ink">Returned</p>
+            <p className="mt-1 text-2xl font-semibold text-ink">{totals.returned}</p>
           </div>
         </div>
       </div>
@@ -288,7 +371,15 @@ export default function LibraryLoansView({
         ) : (
           <div className="space-y-3">
             {loans.map((loan) => (
-              <div key={loan.id} className="rounded-lg border border-edge bg-panel px-4 py-4">
+              <div
+                key={loan.id}
+                className={[
+                  'rounded-lg border bg-panel px-4 py-4',
+                  loan.status === 'overdue'
+                    ? 'border-err/35'
+                    : 'border-edge'
+                ].join(' ')}
+              >
                 <div className="flex gap-4">
                   <div className="h-20 w-14 shrink-0 overflow-hidden rounded-[4px] border border-edge bg-abyss">
                     {posterUrl(loan?.media?.poster_path)
@@ -301,6 +392,7 @@ export default function LibraryLoansView({
                         <div className="flex flex-wrap items-center gap-2">
                           <h2 className="truncate text-base font-semibold text-ink">{loan?.media?.title || 'Loaned title'}</h2>
                           <span className={statusBadgeClass(loan.status)}>{statusLabel(loan.status)}</span>
+                          {isDueSoon(loan) ? <span className="badge border border-edge bg-abyss text-dim">Due soon</span> : null}
                         </div>
                         <p className="mt-1 text-sm text-ghost">
                           {[loan?.borrower_name, loan?.loan_format, loan?.media?.year].filter(Boolean).join(' · ')}
@@ -330,6 +422,11 @@ export default function LibraryLoansView({
                       <div>
                         <dt className="text-xs font-medium text-ghost">Due Back</dt>
                         <dd className="mt-1 text-ink">{formatDate(loan.due_at)}</dd>
+                        {relativeDueLabel(loan) ? (
+                          <p className={loan.status === 'overdue' ? 'mt-1 text-xs text-err' : 'mt-1 text-xs text-dim'}>
+                            {relativeDueLabel(loan)}
+                          </p>
+                        ) : null}
                       </div>
                       <div>
                         <dt className="text-xs font-medium text-ghost">Returned</dt>
@@ -347,7 +444,7 @@ export default function LibraryLoansView({
 
       <div className="border-t border-edge px-4 py-3 sm:px-6">
         <div className="flex items-center justify-between text-sm text-ghost">
-          <span>{pagination.total || 0} loan{Number(pagination.total || 0) === 1 ? '' : 's'}</span>
+          <span>{statusSummaryLabel}</span>
           <div className="flex items-center gap-2">
             <button className="btn-secondary" onClick={() => setPage((value) => Math.max(1, value - 1))} disabled={loading || page <= 1}>Previous</button>
             <span>Page {pagination.page || page} of {pagination.totalPages || 1}</span>

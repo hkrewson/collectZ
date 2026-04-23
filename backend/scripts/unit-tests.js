@@ -3341,6 +3341,13 @@ results.push(run('library loans workflow is wired into dashboard navigation rout
   assert.ok(backendPackageJson.scripts['test:library-loans-workflow-smoke']);
 }));
 
+results.push(run('library loans view exposes management-focused counts and due-soon emphasis', () => {
+  assert.ok(libraryLoansViewSource.includes('Currently out'));
+  assert.ok(libraryLoansViewSource.includes('Due soon'));
+  assert.ok(libraryLoansViewSource.includes('statusSummaryLabel'));
+  assert.ok(libraryLoansViewSource.includes("['active', 'overdue', 'returned', 'all']"));
+}));
+
 results.push(run('frontend import flow no longer mounts standalone Import Review view', () => {
   assert.ok(!dashboardContentSource.includes('ImportReviewView'));
   assert.ok(!frontendAppSource.includes('const importReviewEnabled'));
