@@ -8,6 +8,7 @@ import AdminSettingsView from '../AdminSettingsView';
 import AdminIntegrationsView from '../AdminIntegrationsView';
 import AdminSpacesView from '../AdminSpacesView';
 import LibraryView from '../LibraryView';
+import LibraryLoansView from '../LibraryLoansView';
 import EventsView from '../EventsView';
 import CollectiblesView from '../CollectiblesView';
 import ForbiddenView from '../ForbiddenView';
@@ -115,6 +116,7 @@ export default function DashboardContent({
     case 'library-audio':
     case 'library-games':
     case 'library-comics':
+    case 'library-loans':
     case 'library-collectibles':
     case 'library-events': {
       if (activeTab === 'library-collectibles' && !featureFlags.collectibles_enabled) {
@@ -128,6 +130,18 @@ export default function DashboardContent({
       }
       if (activeTab === 'library-events') {
         return <EventsView key={`events:${scopeKey}`} apiCall={apiCall} onToast={showToast} />;
+      }
+      if (activeTab === 'library-loans') {
+        return (
+          <LibraryLoansView
+            key={`library-loans:${scopeKey}`}
+            apiCall={apiCall}
+            onToast={showToast}
+            activeLibrary={activeLibrary}
+            Icons={Icons}
+            Spinner={Spinner}
+          />
+        );
       }
       return (
         <LibraryView

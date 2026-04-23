@@ -3851,7 +3851,7 @@ Historical note:
 
 **Goal:** Add a loans workflow to the library so borrowed items, borrower details, and reminder timing can be tracked without disrupting the core catalog experience.
 
-**Current Slice:** `Loans Workflow Contract Audit`
+**Current Slice:** `Loans Workflow Foundation`
 
 ### Scope
 
@@ -3893,6 +3893,12 @@ Historical note:
   - add a `library-loans` view in the existing library/dashboard family,
   - add a loan action and active-loan summary inside the media detail drawer,
   - keep loan return and borrower edits reachable from the dedicated loans view.
+- Foundation slice now verified:
+  - `media_loans` exists in both `init.sql` and migrations with one-active-loan-per-media protection,
+  - scoped loan create/list/update/return APIs are documented in OpenAPI,
+  - the media detail drawer can record and return loans,
+  - the dedicated `library-loans` view can browse active, overdue, returned, and all loans,
+  - a Docker-backed smoke proves create, update, return, and history behavior on both platform and homelab stacks.
 - Preferred minimal DB/API contract:
   - a separate `media_loans` table rather than adding single loan fields directly onto `media`,
   - one active loan per media item at a time, enforced by an active-loan constraint,

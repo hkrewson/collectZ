@@ -118,6 +118,7 @@ const supportSessionBannerSource = readFrontendSource(path.join('components', 'a
 const useApiClientSource = readFrontendSource(path.join('components', 'app', 'hooks', 'useApiClient'));
 const helpViewSource = readFrontendSource(path.join('components', 'HelpView'));
 const adminUsersViewSource = readFrontendSource(path.join('components', 'AdminUsersView'));
+const libraryLoansViewSource = readFrontendSource(path.join('components', 'LibraryLoansView'));
 const adminMergeReviewViewSource = readFrontendSource(path.join('components', 'AdminMergeReviewView'));
 const libraryViewSource = readFrontendSource(path.join('components', 'LibraryView'));
 const backendPackageJson = JSON.parse(fs.readFileSync(require.resolve('../package.json'), 'utf8'));
@@ -1118,6 +1119,9 @@ results.push(run('migrations source includes support role and help foundation sc
   assert.ok(migrationsSource.includes('internal_notes TEXT'));
   assert.ok(migrationsSource.includes('is_internal BOOLEAN'));
   assert.ok(migrationsSource.includes('support_access_status VARCHAR(20)'));
+  assert.ok(migrationsSource.includes('version: 70'));
+  assert.ok(migrationsSource.includes('CREATE TABLE IF NOT EXISTS media_loans'));
+  assert.ok(migrationsSource.includes('idx_media_loans_unique_active_per_media'));
 }));
 
 results.push(run('frontend app source includes support session banner and admin trigger plumbing', () => {
@@ -2823,6 +2827,10 @@ results.push(run('openapi baseline documents key auth admin and media endpoints'
   assert.ok(spec.paths['/api/docs/openapi.json']);
   assert.ok(spec.paths['/api/metrics']);
   assert.ok(spec.paths['/api/media']);
+  assert.ok(spec.paths['/api/media/loans']);
+  assert.ok(spec.paths['/api/media/loans/{loanId}']);
+  assert.ok(spec.paths['/api/media/loans/{loanId}/return']);
+  assert.ok(spec.paths['/api/media/{id}/loans']);
   assert.ok(spec.paths['/api/media/import-plex']);
   assert.ok(spec.paths['/api/media/sync-jobs']);
   assert.ok(spec.paths['/api/media/sync-jobs/{id}']);
@@ -2836,6 +2844,8 @@ results.push(run('openapi baseline documents key auth admin and media endpoints'
   assert.ok(spec.components.schemas.SupportRequestTriageUpdateRequest);
   assert.ok(spec.components.schemas.SupportRequestMutationResponse);
   assert.ok(spec.components.schemas.SupportReleaseFeedResponse);
+  assert.ok(spec.components.schemas.MediaLoanRecord);
+  assert.ok(spec.components.schemas.MediaLoanListResponse);
 }));
 
 results.push(run('docs route source enforces admin plus debug gating', () => {
@@ -3311,6 +3321,24 @@ results.push(run('dashboard shell exposes admin merge review as a dedicated oper
   assert.ok(dashboardContentSource.includes("case 'admin-merges'"));
   assert.ok(dashboardContentSource.includes('AdminMergeReviewView'));
   assert.ok(productEditionFrontendSource.includes("allowed.add('admin-merges')"));
+}));
+
+results.push(run('library loans workflow is wired into dashboard navigation routes and media source', () => {
+  assert.ok(dashboardRoutingSource.includes("'library-loans'"));
+  assert.ok(productEditionFrontendSource.includes("'library-loans'"));
+  assert.ok(sidebarNavSource.includes("library-loans"));
+  assert.ok(sidebarNavSource.includes('label="Loans"'));
+  assert.ok(dashboardContentSource.includes("case 'library-loans'"));
+  assert.ok(dashboardContentSource.includes('LibraryLoansView'));
+  assert.ok(libraryLoansViewSource.includes("/media/loans?${params.toString()}"));
+  assert.ok(libraryLoansViewSource.includes("/media/loans/${loanId}/return"));
+  assert.ok(libraryViewSource.includes("/media/${item.id}/loans"));
+  assert.ok(libraryViewSource.includes("/media/${item.id}/loans`, loanForm"));
+  assert.ok(mediaRoutesSource.includes("router.get('/loans'"));
+  assert.ok(mediaRoutesSource.includes("router.get('/:id/loans'"));
+  assert.ok(mediaRoutesSource.includes("router.post('/:id/loans'"));
+  assert.ok(mediaRoutesSource.includes("router.patch('/loans/:loanId/return'"));
+  assert.ok(backendPackageJson.scripts['test:library-loans-workflow-smoke']);
 }));
 
 results.push(run('frontend import flow no longer mounts standalone Import Review view', () => {

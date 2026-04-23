@@ -63,6 +63,7 @@ export function getHomelabAllowedTabs({
     'library-audio',
     'library-games',
     'library-comics',
+    'library-loans',
     'library-import'
   ]);
 

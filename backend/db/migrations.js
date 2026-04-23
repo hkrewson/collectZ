@@ -2898,6 +2898,41 @@ const MIGRATIONS = [
         ADD CONSTRAINT media_merge_recommendation_feedback_outcome_check
         CHECK (outcome IN ('rejected', 'deferred'));
     `
+  },
+  {
+    version: 70,
+    description: 'Add media loans workflow table and active-loan indexes',
+    up: `
+      CREATE TABLE IF NOT EXISTS media_loans (
+        id SERIAL PRIMARY KEY,
+        media_id INTEGER NOT NULL REFERENCES media(id) ON DELETE CASCADE,
+        library_id INTEGER,
+        space_id INTEGER,
+        borrower_name VARCHAR(255) NOT NULL,
+        borrower_email VARCHAR(255),
+        loaned_at DATE NOT NULL,
+        due_at DATE NOT NULL,
+        returned_at DATE,
+        loan_format VARCHAR(50),
+        notes TEXT,
+        reminder_last_sent_at TIMESTAMP,
+        reminder_status VARCHAR(20) DEFAULT 'pending' CHECK (reminder_status IN ('pending', 'sent', 'skipped')),
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_media_loans_library_due_at
+        ON media_loans(library_id, due_at ASC, id DESC);
+      CREATE INDEX IF NOT EXISTS idx_media_loans_space_due_at
+        ON media_loans(space_id, due_at ASC, id DESC);
+      CREATE INDEX IF NOT EXISTS idx_media_loans_media_active
+        ON media_loans(media_id) WHERE returned_at IS NULL;
+      CREATE INDEX IF NOT EXISTS idx_media_loans_returned_at
+        ON media_loans(returned_at);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_media_loans_unique_active_per_media
+        ON media_loans(media_id) WHERE returned_at IS NULL;
+    `
   }
 ];
 

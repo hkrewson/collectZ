@@ -10,6 +10,9 @@ const {
   validate,
   mediaCreateSchema,
   mediaUpdateSchema,
+  mediaLoanCreateSchema,
+  mediaLoanUpdateSchema,
+  mediaLoanReturnSchema,
   mediaValuationRefreshSchema,
   mediaMergePreviewSchema,
   mediaMergeApplySchema,
@@ -556,6 +559,57 @@ function normalizeMediaRecord(row = {}) {
     owned_formats: payload.ownedFormats,
     format: payload.format,
     cast: row.cast || row.cast_members || null
+  };
+}
+
+function buildMediaLoanStatus(row = {}) {
+  if (row?.returned_at) return 'returned';
+  const dueAt = String(row?.due_at || '').trim().slice(0, 10);
+  if (dueAt) {
+    const today = new Date().toISOString().slice(0, 10);
+    if (dueAt < today) return 'overdue';
+  }
+  return 'active';
+}
+
+function normalizeLoanDateValue(value) {
+  if (!value) return null;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toISOString().slice(0, 10);
+  }
+  const normalized = String(value).trim();
+  if (!normalized) return null;
+  return normalized.slice(0, 10);
+}
+
+function formatMediaLoanRow(row = {}) {
+  const status = buildMediaLoanStatus(row);
+  return {
+    id: Number(row.id || 0) || null,
+    media_id: Number(row.media_id || 0) || null,
+    library_id: Number(row.library_id || 0) || null,
+    space_id: Number(row.space_id || 0) || null,
+    borrower_name: String(row.borrower_name || '').trim() || null,
+    borrower_email: String(row.borrower_email || '').trim() || null,
+    loaned_at: normalizeLoanDateValue(row.loaned_at),
+    due_at: normalizeLoanDateValue(row.due_at),
+    returned_at: normalizeLoanDateValue(row.returned_at),
+    loan_format: String(row.loan_format || '').trim() || null,
+    notes: row.notes || null,
+    reminder_last_sent_at: row.reminder_last_sent_at || null,
+    reminder_status: String(row.reminder_status || '').trim() || 'pending',
+    created_by: Number(row.created_by || 0) || null,
+    created_at: row.created_at || null,
+    updated_at: row.updated_at || null,
+    media: row.media_id ? {
+      id: Number(row.media_id || 0) || null,
+      title: String(row.media_title || '').trim() || null,
+      media_type: String(row.media_type || '').trim() || null,
+      poster_path: String(row.poster_path || '').trim() || null,
+      year: Number(row.year || 0) || null
+    } : null,
+    status,
+    is_overdue: status === 'overdue'
   };
 }
 
@@ -2851,6 +2905,27 @@ async function loadScopedMediaItem(mediaId, scopeContext = null) {
     params
   );
   return result.rows[0] ? normalizeMediaRecord(result.rows[0]) : null;
+}
+
+async function loadScopedMediaLoan(loanId, scopeContext = null) {
+  const params = [loanId];
+  const scopeClause = appendScopeSql(params, scopeContext, {
+    spaceColumn: 'ml.space_id',
+    libraryColumn: 'ml.library_id'
+  });
+  const result = await pool.query(
+    `SELECT ml.*,
+            m.title AS media_title,
+            m.media_type,
+            m.poster_path,
+            m.year
+       FROM media_loans ml
+       JOIN media m ON m.id = ml.media_id
+      WHERE ml.id = $1${scopeClause}
+      LIMIT 1`,
+    params
+  );
+  return result.rows[0] ? formatMediaLoanRow(result.rows[0]) : null;
 }
 
 async function persistMediaValuation(mediaId, valuation) {
@@ -7332,6 +7407,274 @@ router.get('/collections/:id/merge-details', requireSessionAuth, requireRole('ad
     return res.status(404).json({ error: 'Collection not found in the active scope' });
   }
   res.json(details);
+}));
+
+router.get('/loans', requireSessionAuth, asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const page = Math.max(1, Number(req.query?.page || 1) || 1);
+  const limit = Math.max(1, Math.min(100, Number(req.query?.limit || 25) || 25));
+  const offset = (page - 1) * limit;
+  const status = ['active', 'overdue', 'returned', 'all'].includes(String(req.query?.status || '').trim().toLowerCase())
+    ? String(req.query.status || '').trim().toLowerCase()
+    : 'active';
+  const search = String(req.query?.search || '').trim();
+
+  const params = [];
+  let where = ' WHERE 1=1';
+  where += appendScopeSql(params, scopeContext, {
+    spaceColumn: 'ml.space_id',
+    libraryColumn: 'ml.library_id'
+  });
+  if (status === 'active') {
+    where += ` AND ml.returned_at IS NULL AND ml.due_at >= CURRENT_DATE`;
+  } else if (status === 'overdue') {
+    where += ` AND ml.returned_at IS NULL AND ml.due_at < CURRENT_DATE`;
+  } else if (status === 'returned') {
+    where += ` AND ml.returned_at IS NOT NULL`;
+  }
+  if (search) {
+    params.push(`%${search.toLowerCase()}%`);
+    where += ` AND (
+      lower(m.title) LIKE $${params.length}
+      OR lower(COALESCE(ml.borrower_name, '')) LIKE $${params.length}
+      OR lower(COALESCE(ml.borrower_email, '')) LIKE $${params.length}
+    )`;
+  }
+
+  const countResult = await pool.query(
+    `SELECT COUNT(*)::int AS total
+       FROM media_loans ml
+       JOIN media m ON m.id = ml.media_id
+      ${where}`,
+    params
+  );
+  const total = Number(countResult.rows[0]?.total || 0);
+
+  const rowParams = [...params, limit, offset];
+  const rows = await pool.query(
+    `SELECT ml.*,
+            m.title AS media_title,
+            m.media_type,
+            m.poster_path,
+            m.year
+       FROM media_loans ml
+       JOIN media m ON m.id = ml.media_id
+      ${where}
+      ORDER BY
+        CASE WHEN ml.returned_at IS NULL THEN 0 ELSE 1 END ASC,
+        CASE WHEN ml.returned_at IS NULL THEN ml.due_at END ASC NULLS LAST,
+        COALESCE(ml.returned_at, ml.created_at) DESC,
+        ml.id DESC
+      LIMIT $${rowParams.length - 1}
+      OFFSET $${rowParams.length}`,
+    rowParams
+  );
+
+  res.json({
+    items: rows.rows.map(formatMediaLoanRow),
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
+      hasMore: offset + rows.rows.length < total
+    }
+  });
+}));
+
+router.get('/:id/loans', requireSessionAuth, asyncHandler(async (req, res, next) => {
+  const scopeContext = resolveScopeContext(req);
+  if (!/^\d+$/.test(String(req.params.id || ''))) {
+    return next();
+  }
+  const mediaId = Number(req.params.id || 0);
+  if (!mediaId) {
+    return res.status(400).json({ error: 'Invalid media id' });
+  }
+  const media = await loadScopedMediaItem(mediaId, scopeContext);
+  if (!media) {
+    return res.status(404).json({ error: 'Media item not found' });
+  }
+  const params = [mediaId];
+  const scopeClause = appendScopeSql(params, scopeContext, {
+    spaceColumn: 'ml.space_id',
+    libraryColumn: 'ml.library_id'
+  });
+  const result = await pool.query(
+    `SELECT ml.*,
+            m.title AS media_title,
+            m.media_type,
+            m.poster_path,
+            m.year
+       FROM media_loans ml
+       JOIN media m ON m.id = ml.media_id
+      WHERE ml.media_id = $1${scopeClause}
+      ORDER BY
+        CASE WHEN ml.returned_at IS NULL THEN 0 ELSE 1 END ASC,
+        COALESCE(ml.returned_at, ml.due_at, ml.created_at) DESC,
+        ml.id DESC`,
+    params
+  );
+  const items = result.rows.map(formatMediaLoanRow);
+  res.json({
+    media: {
+      id: media.id,
+      title: media.title,
+      media_type: media.media_type,
+      poster_path: media.poster_path,
+      year: media.year
+    },
+    active_loan: items.find((entry) => !entry.returned_at) || null,
+    history: items
+  });
+}));
+
+router.post('/:id/loans', requireSessionAuth, validate(mediaLoanCreateSchema), asyncHandler(async (req, res, next) => {
+  const scopeContext = resolveScopeContext(req);
+  if (!/^\d+$/.test(String(req.params.id || ''))) {
+    return next();
+  }
+  const mediaId = Number(req.params.id || 0);
+  if (!mediaId) {
+    return res.status(400).json({ error: 'Invalid media id' });
+  }
+  const media = await loadScopedMediaItem(mediaId, scopeContext);
+  if (!media) {
+    return res.status(404).json({ error: 'Media item not found' });
+  }
+  const existingActiveParams = [mediaId];
+  const existingActiveScopeClause = appendScopeSql(existingActiveParams, scopeContext, {
+    spaceColumn: 'space_id',
+    libraryColumn: 'library_id'
+  });
+  const existingActive = await pool.query(
+    `SELECT id
+       FROM media_loans
+      WHERE media_id = $1
+        AND returned_at IS NULL${existingActiveScopeClause}
+      LIMIT 1`,
+    existingActiveParams
+  );
+  if (existingActive.rows[0]) {
+    return res.status(409).json({ error: 'This item already has an active loan' });
+  }
+
+  const payload = buildOwnedFormatsPayload(media.media_type || 'movie', media.owned_formats, media.format);
+  const defaultLoanFormat = media.format || (payload.ownedFormats[0] ? getOwnedFormatLabel(media.media_type || 'movie', payload.ownedFormats[0]) : null);
+  const result = await pool.query(
+    `INSERT INTO media_loans (
+       media_id, library_id, space_id, borrower_name, borrower_email, loaned_at, due_at, loan_format, notes, created_by
+     ) VALUES (
+       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10
+     )
+     RETURNING *`,
+    [
+      media.id,
+      media.library_id || scopeContext.libraryId || null,
+      media.space_id || scopeContext.spaceId || null,
+      req.body.borrower_name,
+      req.body.borrower_email || null,
+      req.body.loaned_at,
+      req.body.due_at,
+      req.body.loan_format || defaultLoanFormat || null,
+      req.body.notes || null,
+      req.user.id
+    ]
+  );
+  const loan = await loadScopedMediaLoan(result.rows[0].id, scopeContext);
+  await logActivity(req, 'media.loan.create', 'media_loan', loan.id, {
+    mediaId: media.id,
+    title: media.title || null,
+    borrowerName: loan.borrower_name || null,
+    dueAt: loan.due_at || null,
+    libraryId: media.library_id || null,
+    spaceId: media.space_id || scopeContext.spaceId || null
+  });
+  res.status(201).json(loan);
+}));
+
+router.patch('/loans/:loanId', requireSessionAuth, validate(mediaLoanUpdateSchema), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const loanId = Number(req.params.loanId || 0);
+  if (!loanId) {
+    return res.status(400).json({ error: 'Invalid loan id' });
+  }
+  const existing = await loadScopedMediaLoan(loanId, scopeContext);
+  if (!existing) {
+    return res.status(404).json({ error: 'Loan not found' });
+  }
+  if (existing.returned_at) {
+    return res.status(409).json({ error: 'Returned loans cannot be edited' });
+  }
+  const nextLoanedAt = req.body.loaned_at || existing.loaned_at;
+  const nextDueAt = req.body.due_at || existing.due_at;
+  if (nextLoanedAt && nextDueAt && nextDueAt < nextLoanedAt) {
+    return res.status(400).json({ error: 'due_at must be on or after loaned_at' });
+  }
+  const fields = Object.fromEntries(
+    Object.entries(req.body).filter(([, value]) => value !== undefined)
+  );
+  const keys = Object.keys(fields);
+  if (keys.length === 0) {
+    return res.status(400).json({ error: 'No valid fields provided for update' });
+  }
+  const values = keys.map((key) => fields[key]);
+  const params = [...values, loanId];
+  const scopeClause = appendScopeSql(params, scopeContext, {
+    spaceColumn: 'space_id',
+    libraryColumn: 'library_id'
+  });
+  const setClause = keys.map((key, index) => `${key} = $${index + 1}`).join(', ');
+  await pool.query(
+    `UPDATE media_loans
+        SET ${setClause},
+            updated_at = CURRENT_TIMESTAMP
+      WHERE id = $${keys.length + 1}${scopeClause}`,
+    params
+  );
+  const updated = await loadScopedMediaLoan(loanId, scopeContext);
+  await logActivity(req, 'media.loan.update', 'media_loan', updated.id, {
+    mediaId: updated.media_id || null,
+    borrowerName: updated.borrower_name || null,
+    dueAt: updated.due_at || null,
+    fields: keys
+  });
+  res.json(updated);
+}));
+
+router.patch('/loans/:loanId/return', requireSessionAuth, validate(mediaLoanReturnSchema), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const loanId = Number(req.params.loanId || 0);
+  if (!loanId) {
+    return res.status(400).json({ error: 'Invalid loan id' });
+  }
+  const existing = await loadScopedMediaLoan(loanId, scopeContext);
+  if (!existing) {
+    return res.status(404).json({ error: 'Loan not found' });
+  }
+  if (existing.returned_at) {
+    return res.status(409).json({ error: 'Loan is already returned' });
+  }
+  const returnedAt = req.body.returned_at || new Date().toISOString().slice(0, 10);
+  const params = [returnedAt, loanId];
+  const scopeClause = appendScopeSql(params, scopeContext, {
+    spaceColumn: 'space_id',
+    libraryColumn: 'library_id'
+  });
+  await pool.query(
+    `UPDATE media_loans
+        SET returned_at = $1,
+            updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2${scopeClause}`,
+    params
+  );
+  const updated = await loadScopedMediaLoan(loanId, scopeContext);
+  await logActivity(req, 'media.loan.return', 'media_loan', updated.id, {
+    mediaId: updated.media_id || null,
+    borrowerName: updated.borrower_name || null,
+    returnedAt: updated.returned_at || null
+  });
+  res.json(updated);
 }));
 
 router.post('/collections/merge-apply', requireSessionAuth, requireRole('admin', 'support_admin'), validate(collectionMergeApplySchema), asyncHandler(async (req, res) => {

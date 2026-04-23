@@ -243,6 +243,60 @@ const mediaValuationRefreshSchema = z.object({
   mode: z.enum(['live', 'fixture']).optional()
 });
 
+const mediaLoanBaseSchema = z.object({
+  borrower_name: z.string().trim().min(1, 'borrower_name is required').max(255),
+  borrower_email: z.preprocess(emptyStringToNull, z.string().email('Invalid borrower email address').max(255).optional().nullable()),
+  loaned_at: nullableDateSchema,
+  due_at: nullableDateSchema,
+  loan_format: z.preprocess(emptyStringToNull, z.string().max(50).optional().nullable()),
+  notes: z.preprocess(emptyStringToNull, z.string().max(2000).optional().nullable())
+});
+
+const mediaLoanCreateSchema = mediaLoanBaseSchema.superRefine((data, ctx) => {
+  if (!data.loaned_at) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['loaned_at'],
+      message: 'loaned_at is required'
+    });
+  }
+  if (!data.due_at) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['due_at'],
+      message: 'due_at is required'
+    });
+  }
+  if (data.loaned_at && data.due_at && data.due_at < data.loaned_at) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['due_at'],
+      message: 'due_at must be on or after loaned_at'
+    });
+  }
+});
+
+const mediaLoanUpdateSchema = mediaLoanBaseSchema.partial().superRefine((data, ctx) => {
+  if (Object.keys(data).length === 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'At least one field is required for update'
+    });
+    return;
+  }
+  if (data.loaned_at && data.due_at && data.due_at < data.loaned_at) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['due_at'],
+      message: 'due_at must be on or after loaned_at'
+    });
+  }
+});
+
+const mediaLoanReturnSchema = z.object({
+  returned_at: nullableDateSchema
+});
+
 const mediaMergePreviewSchema = z.object({
   canonical_id: z.number().int().positive('canonical_id is required'),
   duplicate_id: z.number().int().positive('duplicate_id is required')
@@ -682,6 +736,9 @@ module.exports = {
   upcLookupSchema,
   mediaCreateSchema,
   mediaUpdateSchema,
+  mediaLoanCreateSchema,
+  mediaLoanUpdateSchema,
+  mediaLoanReturnSchema,
   mediaValuationRefreshSchema,
   mediaMergePreviewSchema,
   mediaMergeApplySchema,

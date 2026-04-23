@@ -112,6 +112,35 @@ function normalizeDateInput(value) {
   return parsed.toISOString().slice(0, 10);
 }
 
+function formatDate(value) {
+  const normalized = normalizeDateInput(value);
+  if (!normalized) return '—';
+  const parsed = new Date(`${normalized}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return normalized;
+  return parsed.toLocaleDateString();
+}
+
+function addDaysToIsoDate(value, days) {
+  const base = normalizeDateInput(value) || new Date().toISOString().slice(0, 10);
+  const parsed = new Date(`${base}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return base;
+  parsed.setDate(parsed.getDate() + Number(days || 0));
+  return parsed.toISOString().slice(0, 10);
+}
+
+function buildLoanFormState(item = {}) {
+  const primaryFormat = getOwnedFormatSummary(item).find((entry) => entry && entry !== '—') || '';
+  const today = new Date().toISOString().slice(0, 10);
+  return {
+    borrower_name: '',
+    borrower_email: '',
+    loaned_at: today,
+    due_at: addDaysToIsoDate(today, 14),
+    loan_format: primaryFormat,
+    notes: ''
+  };
+}
+
 function StarRating({ value = 0, onChange, readOnly = false }) {
   const safe = Number(value) || 0;
   return (
@@ -543,6 +572,11 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   const [seasonDetails, setSeasonDetails] = useState({});
   const [valuationRefreshing, setValuationRefreshing] = useState(false);
   const [comicOverviewExpanded, setComicOverviewExpanded] = useState(false);
+  const [loanHistory, setLoanHistory] = useState([]);
+  const [loanLoading, setLoanLoading] = useState(false);
+  const [loanSaving, setLoanSaving] = useState(false);
+  const [loanFormOpen, setLoanFormOpen] = useState(false);
+  const [loanForm, setLoanForm] = useState(() => buildLoanFormState(item));
   const typeDetails = item?.type_details && typeof item.type_details === 'object' ? item.type_details : {};
   const isBook = item?.media_type === 'book';
   const isComic = item?.media_type === 'comic_book';
@@ -718,6 +752,56 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
     id: String(entry.duplicate_id || entry.applied_at || Math.random()),
     entry
   }));
+  const activeLoan = loanHistory.find((entry) => !entry?.returned_at) || null;
+
+  const refreshLoans = useCallback(async () => {
+    if (!item?.id) return null;
+    setLoanLoading(true);
+    try {
+      const payload = await apiCall('get', `/media/${item.id}/loans`);
+      const nextHistory = Array.isArray(payload?.history) ? payload.history : [];
+      setLoanHistory(nextHistory);
+      return payload;
+    } catch (error) {
+      setLoanHistory([]);
+      return null;
+    } finally {
+      setLoanLoading(false);
+    }
+  }, [apiCall, item?.id]);
+
+  const submitLoan = async (event) => {
+    event.preventDefault();
+    if (!item?.id || loanSaving) return;
+    setLoanSaving(true);
+    try {
+      await apiCall('post', `/media/${item.id}/loans`, loanForm);
+      await refreshLoans();
+      setLoanForm(buildLoanFormState(item));
+      setLoanFormOpen(false);
+      onToast?.('Loan recorded');
+    } catch (error) {
+      onToast?.(error?.response?.data?.error || 'Failed to record loan', 'error');
+    } finally {
+      setLoanSaving(false);
+    }
+  };
+
+  const markLoanReturned = async (loanId) => {
+    if (!loanId || loanSaving) return;
+    setLoanSaving(true);
+    try {
+      await apiCall('patch', `/media/loans/${loanId}/return`, {
+        returned_at: new Date().toISOString().slice(0, 10)
+      });
+      await refreshLoans();
+      onToast?.('Loan marked returned');
+    } catch (error) {
+      onToast?.(error?.response?.data?.error || 'Failed to mark loan returned', 'error');
+    } finally {
+      setLoanSaving(false);
+    }
+  };
 
   const refreshValuation = async () => {
     if (!item?.id || valuationRefreshing) return;
@@ -821,6 +905,11 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
       setOpenSeason(null);
       setSeasonDetailLoading({});
       setSeasonDetails({});
+      setLoanHistory([]);
+      setLoanLoading(false);
+      setLoanSaving(false);
+      setLoanFormOpen(false);
+      setLoanForm(buildLoanFormState({}));
       return;
     }
     let active = true;
@@ -882,6 +971,16 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   useEffect(() => {
     setComicOverviewExpanded(false);
   }, [item?.id, item?.overview]);
+
+  useEffect(() => {
+    setLoanForm(buildLoanFormState(item));
+    setLoanFormOpen(false);
+  }, [item?.id]);
+
+  useEffect(() => {
+    if (!item?.id) return;
+    void refreshLoans();
+  }, [item?.id, refreshLoans]);
 
   useEffect(() => {
     if (item?.media_type !== 'tv_series' || !Number.isInteger(openSeason) || seasonDetails[openSeason] || seasonDetailLoading[openSeason]) return;
@@ -961,6 +1060,177 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
               ) : null}
             </div>
           )}
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="label">Loans</p>
+                <p className="mt-1 text-sm text-ghost">
+                  {activeLoan
+                    ? `Currently loaned to ${activeLoan.borrower_name || 'Borrower'}`
+                    : 'Record when this title leaves the shelf and when it should come back.'}
+                </p>
+              </div>
+              {!activeLoan ? (
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setLoanFormOpen((value) => !value)}
+                  disabled={loanSaving}
+                >
+                  <Icons.Users />
+                  {loanFormOpen ? 'Hide Loan Form' : 'Loan Out'}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => markLoanReturned(activeLoan.id)}
+                  disabled={loanSaving || loanLoading}
+                >
+                  <Icons.Check />
+                  {loanSaving ? 'Returning…' : 'Mark Returned'}
+                </button>
+              )}
+            </div>
+
+            {loanLoading ? (
+              <div className="flex items-center gap-2 text-sm text-ghost"><Spinner size={16} />Loading loans…</div>
+            ) : null}
+
+            {activeLoan ? (
+              <div className="rounded-lg border border-edge bg-panel px-4 py-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={cx(
+                        'badge',
+                        activeLoan.is_overdue
+                          ? 'border border-err/25 bg-err/10 text-err'
+                          : 'border border-gold/25 bg-gold/10 text-gold'
+                      )}>
+                        {activeLoan.is_overdue ? 'Overdue' : 'Active'}
+                      </span>
+                      <p className="text-sm font-medium text-ink">{activeLoan.borrower_name || 'Borrower'}</p>
+                    </div>
+                    {activeLoan.borrower_email ? <p className="mt-1 text-sm text-dim">{activeLoan.borrower_email}</p> : null}
+                  </div>
+                  <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
+                    <div>
+                      <dt className="text-xs font-medium text-ghost">Loaned</dt>
+                      <dd className="mt-1 text-ink">{formatDate(activeLoan.loaned_at)}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs font-medium text-ghost">Due Back</dt>
+                      <dd className="mt-1 text-ink">{formatDate(activeLoan.due_at)}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs font-medium text-ghost">Format</dt>
+                      <dd className="mt-1 text-ink">{activeLoan.loan_format || '—'}</dd>
+                    </div>
+                  </dl>
+                </div>
+                {activeLoan.notes ? <p className="mt-3 text-sm text-dim">{activeLoan.notes}</p> : null}
+              </div>
+            ) : null}
+
+            {loanFormOpen ? (
+              <form className="rounded-lg border border-edge bg-panel px-4 py-4" onSubmit={submitLoan}>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <label className="space-y-1">
+                    <span className="text-xs font-medium text-ghost">Borrower</span>
+                    <input
+                      className="input w-full"
+                      value={loanForm.borrower_name}
+                      onChange={(event) => setLoanForm((current) => ({ ...current, borrower_name: event.target.value }))}
+                      required
+                    />
+                  </label>
+                  <label className="space-y-1">
+                    <span className="text-xs font-medium text-ghost">Borrower Email</span>
+                    <input
+                      className="input w-full"
+                      type="email"
+                      value={loanForm.borrower_email}
+                      onChange={(event) => setLoanForm((current) => ({ ...current, borrower_email: event.target.value }))}
+                    />
+                  </label>
+                  <label className="space-y-1">
+                    <span className="text-xs font-medium text-ghost">Loaned On</span>
+                    <input
+                      className="input w-full"
+                      type="date"
+                      value={loanForm.loaned_at}
+                      onChange={(event) => setLoanForm((current) => ({
+                        ...current,
+                        loaned_at: event.target.value,
+                        due_at: current.due_at && current.due_at >= event.target.value ? current.due_at : addDaysToIsoDate(event.target.value, 14)
+                      }))}
+                      required
+                    />
+                  </label>
+                  <label className="space-y-1">
+                    <span className="text-xs font-medium text-ghost">Due Back</span>
+                    <input
+                      className="input w-full"
+                      type="date"
+                      value={loanForm.due_at}
+                      onChange={(event) => setLoanForm((current) => ({ ...current, due_at: event.target.value }))}
+                      required
+                    />
+                  </label>
+                </div>
+                <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,220px),1fr]">
+                  <label className="space-y-1">
+                    <span className="text-xs font-medium text-ghost">Loan Format</span>
+                    <input
+                      className="input w-full"
+                      value={loanForm.loan_format}
+                      onChange={(event) => setLoanForm((current) => ({ ...current, loan_format: event.target.value }))}
+                    />
+                  </label>
+                  <label className="space-y-1">
+                    <span className="text-xs font-medium text-ghost">Notes</span>
+                    <input
+                      className="input w-full"
+                      value={loanForm.notes}
+                      onChange={(event) => setLoanForm((current) => ({ ...current, notes: event.target.value }))}
+                    />
+                  </label>
+                </div>
+                <div className="mt-4 flex items-center justify-end gap-2">
+                  <button type="button" className="btn-secondary" onClick={() => setLoanFormOpen(false)} disabled={loanSaving}>Cancel</button>
+                  <button type="submit" className="btn-primary" disabled={loanSaving}>
+                    {loanSaving ? 'Saving…' : 'Save Loan'}
+                  </button>
+                </div>
+              </form>
+            ) : null}
+
+            {!loanLoading && loanHistory.length > 0 ? (
+              <div className="rounded-lg border border-edge bg-panel px-4 py-4">
+                <p className="text-xs font-medium text-ghost">Recent history</p>
+                <div className="mt-3 space-y-3">
+                  {loanHistory.slice(0, 3).map((loan) => (
+                    <div key={loan.id} className="flex items-start justify-between gap-3 border-t border-edge/70 pt-3 first:border-t-0 first:pt-0">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-ink">{loan.borrower_name || 'Borrower'}</p>
+                        <p className="mt-1 text-sm text-ghost">
+                          {formatDate(loan.loaned_at)} to {loan.returned_at ? formatDate(loan.returned_at) : formatDate(loan.due_at)}
+                        </p>
+                      </div>
+                      <span className={cx(
+                        'badge shrink-0',
+                        loan.returned_at ? 'border border-edge/70 bg-abyss text-dim' : 'border border-gold/25 bg-gold/10 text-gold'
+                      )}>
+                        {loan.returned_at ? 'Returned' : (loan.is_overdue ? 'Overdue' : 'Out')}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
 
           <div className="grid grid-cols-2 gap-4 text-sm">
             {[

@@ -1036,6 +1036,117 @@
         "type": "object",
         "additionalProperties": true
       },
+      "MediaLoanRecord": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "media_id": { "type": "integer" },
+          "library_id": { "type": ["integer", "null"] },
+          "space_id": { "type": ["integer", "null"] },
+          "borrower_name": { "type": ["string", "null"] },
+          "borrower_email": { "type": ["string", "null"] },
+          "loaned_at": { "type": ["string", "null"], "format": "date" },
+          "due_at": { "type": ["string", "null"], "format": "date" },
+          "returned_at": { "type": ["string", "null"], "format": "date" },
+          "loan_format": { "type": ["string", "null"] },
+          "notes": { "type": ["string", "null"] },
+          "reminder_last_sent_at": { "type": ["string", "null"], "format": "date-time" },
+          "reminder_status": { "type": "string" },
+          "created_by": { "type": ["integer", "null"] },
+          "created_at": { "type": ["string", "null"], "format": "date-time" },
+          "updated_at": { "type": ["string", "null"], "format": "date-time" },
+          "media": {
+            "type": ["object", "null"],
+            "properties": {
+              "id": { "type": "integer" },
+              "title": { "type": ["string", "null"] },
+              "media_type": { "type": ["string", "null"] },
+              "poster_path": { "type": ["string", "null"] },
+              "year": { "type": ["integer", "null"] }
+            }
+          },
+          "status": { "type": "string", "enum": ["active", "overdue", "returned"] },
+          "is_overdue": { "type": "boolean" }
+        },
+        "required": ["id", "media_id", "status", "is_overdue", "reminder_status"]
+      },
+      "MediaLoanListResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/MediaLoanRecord" }
+          },
+          "pagination": {
+            "type": "object",
+            "properties": {
+              "page": { "type": "integer" },
+              "limit": { "type": "integer" },
+              "total": { "type": "integer" },
+              "totalPages": { "type": "integer" },
+              "hasMore": { "type": "boolean" }
+            },
+            "required": ["page", "limit", "total", "totalPages", "hasMore"]
+          }
+        },
+        "required": ["items", "pagination"]
+      },
+      "MediaLoanHistoryResponse": {
+        "type": "object",
+        "properties": {
+          "media": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "integer" },
+              "title": { "type": ["string", "null"] },
+              "media_type": { "type": ["string", "null"] },
+              "poster_path": { "type": ["string", "null"] },
+              "year": { "type": ["integer", "null"] }
+            },
+            "required": ["id"]
+          },
+          "active_loan": {
+            "oneOf": [
+              { "$ref": "#/components/schemas/MediaLoanRecord" },
+              { "type": "null" }
+            ]
+          },
+          "history": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/MediaLoanRecord" }
+          }
+        },
+        "required": ["media", "active_loan", "history"]
+      },
+      "MediaLoanCreateRequest": {
+        "type": "object",
+        "properties": {
+          "borrower_name": { "type": "string" },
+          "borrower_email": { "type": ["string", "null"], "format": "email" },
+          "loaned_at": { "type": "string", "format": "date" },
+          "due_at": { "type": "string", "format": "date" },
+          "loan_format": { "type": ["string", "null"] },
+          "notes": { "type": ["string", "null"] }
+        },
+        "required": ["borrower_name", "loaned_at", "due_at"]
+      },
+      "MediaLoanUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "borrower_name": { "type": "string" },
+          "borrower_email": { "type": ["string", "null"], "format": "email" },
+          "loaned_at": { "type": ["string", "null"], "format": "date" },
+          "due_at": { "type": ["string", "null"], "format": "date" },
+          "loan_format": { "type": ["string", "null"] },
+          "notes": { "type": ["string", "null"] }
+        }
+      },
+      "MediaLoanReturnRequest": {
+        "type": "object",
+        "properties": {
+          "returned_at": { "type": ["string", "null"], "format": "date" }
+        }
+      },
       "ValuationRefreshRequest": {
         "type": "object",
         "properties": {
@@ -3749,6 +3860,118 @@
         }
       }
     },
+    "/api/media/loans": {
+      "get": {
+        "tags": ["Media"],
+        "summary": "List scoped media loan records",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "schema": { "type": "string", "enum": ["active", "overdue", "returned", "all"] }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "schema": { "type": "string" }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": { "type": "integer", "minimum": 1 }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paged media loan list",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/MediaLoanListResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/media/loans/{loanId}": {
+      "patch": {
+        "tags": ["Media"],
+        "summary": "Update an active media loan",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "loanId",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/MediaLoanUpdateRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated loan record",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/MediaLoanRecord" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/media/loans/{loanId}/return": {
+      "patch": {
+        "tags": ["Media"],
+        "summary": "Mark an active media loan returned",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "loanId",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/MediaLoanReturnRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Returned loan record",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/MediaLoanRecord" }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/media/{id}": {
       "get": {
         "tags": ["Media"],
@@ -3779,6 +4002,67 @@
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/media/{id}/loans": {
+      "get": {
+        "tags": ["Media"],
+        "summary": "Read loan history for a scoped media record",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Loan history for the media record",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/MediaLoanHistoryResponse" }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Media"],
+        "summary": "Create a loan record for a scoped media record",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/MediaLoanCreateRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created loan record",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/MediaLoanRecord" }
               }
             }
           }
