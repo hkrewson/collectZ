@@ -593,6 +593,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   const [loanLoading, setLoanLoading] = useState(false);
   const [loanSaving, setLoanSaving] = useState(false);
   const [loanReminderSending, setLoanReminderSending] = useState(false);
+  const [showLoanItemDetails, setShowLoanItemDetails] = useState(false);
   const [loanFormOpen, setLoanFormOpen] = useState(false);
   const [loanForm, setLoanForm] = useState(() => buildLoanFormState(item));
   const typeDetails = item?.type_details && typeof item.type_details === 'object' ? item.type_details : {};
@@ -771,6 +772,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
     entry
   }));
   const activeLoan = loanHistory.find((entry) => !entry?.returned_at) || null;
+  const showLoanFocusedView = Boolean(activeLoan) && !showLoanItemDetails;
 
   const refreshLoans = useCallback(async () => {
     if (!item?.id) return null;
@@ -941,6 +943,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
       setLoanLoading(false);
       setLoanSaving(false);
       setLoanReminderSending(false);
+      setShowLoanItemDetails(false);
       setLoanFormOpen(false);
       setLoanForm(buildLoanFormState({}));
       return;
@@ -1007,6 +1010,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
 
   useEffect(() => {
     setLoanForm(buildLoanFormState(item));
+    setShowLoanItemDetails(false);
     setLoanFormOpen(false);
   }, [item?.id]);
 
@@ -1059,6 +1063,18 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
               {item.media_type && <span className="badge badge-dim">{mediaTypeLabel(item.media_type)}</span>}
               {item.genre?.split(',').slice(0, 2).map((g) => <span key={g} className="badge badge-dim">{g.trim()}</span>)}
             </div>
+            {activeLoan ? (
+              <p className={cx(
+                'mt-3 text-sm',
+                activeLoan.is_overdue ? 'text-err' : 'text-gold'
+              )}>
+                {activeLoan.is_overdue ? 'Loaned out · overdue' : 'Loaned out'}
+                {' · '}
+                {activeLoan.borrower_name || 'Borrower'}
+                {' · Due '}
+                {formatDate(activeLoan.due_at)}
+              </p>
+            ) : null}
           </div>
           <button onClick={onClose} className="btn-icon btn-sm shrink-0"><Icons.X /></button>
         </div>
@@ -1066,7 +1082,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
         <div className="divider" />
 
         <div className="flex-1 overflow-y-auto scroll-area p-6 space-y-6">
-          {item.overview && (
+          {!showLoanFocusedView && item.overview && (
             <div className={cx(isBook || isComic ? 'max-w-3xl' : '')}>
               <p className="label mb-2">Overview</p>
               <p
@@ -1119,6 +1135,13 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                   <button
                     type="button"
                     className="btn-secondary"
+                    onClick={() => setShowLoanItemDetails((value) => !value)}
+                  >
+                    {showLoanItemDetails ? 'Hide Details' : 'Show Details'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-secondary"
                     onClick={() => sendLoanReminder(activeLoan.id)}
                     disabled={!activeLoan.reminder_eligible || loanReminderSending}
                   >
@@ -1147,7 +1170,10 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
             ) : null}
 
             {activeLoan ? (
-              <div className="rounded-lg border border-edge bg-panel px-4 py-4">
+              <div className={cx(
+                'rounded-lg border bg-panel px-4 py-4',
+                activeLoan.is_overdue ? 'border-err/30' : 'border-gold/20'
+              )}>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
@@ -1290,6 +1316,8 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
             ) : null}
           </div>
 
+          {!showLoanFocusedView ? (
+          <>
           <div className="grid grid-cols-2 gap-4 text-sm">
             {[
               ['Runtime', item.runtime ? `${item.runtime} min` : null],
@@ -1654,6 +1682,8 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
               </div>
             </>
           )}
+          </>
+          ) : null}
         </div>
 
         <div className="p-4 border-t border-edge flex gap-3 shrink-0">

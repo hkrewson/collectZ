@@ -3349,8 +3349,8 @@ results.push(run('library loans workflow is wired into dashboard navigation rout
 results.push(run('library loans view exposes management-focused counts and due-soon emphasis', () => {
   assert.ok(libraryLoansViewSource.includes('Currently out'));
   assert.ok(libraryLoansViewSource.includes('Due soon'));
-  assert.ok(libraryLoansViewSource.includes('statusSummaryLabel'));
   assert.ok(libraryLoansViewSource.includes("['active', 'overdue', 'returned', 'all']"));
+  assert.ok(libraryLoansViewSource.includes("pagination.total || 0"));
   assert.ok(libraryLoansViewSource.includes('Send Reminder'));
   assert.ok(libraryLoansViewSource.includes('reminder_sent_today'));
   assert.ok(libraryViewSource.includes('Add borrower email to send reminders.'));

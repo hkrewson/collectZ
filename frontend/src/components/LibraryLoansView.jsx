@@ -270,13 +270,6 @@ export default function LibraryLoansView({
     loadLoans(page);
   }, [loadLoans, page]);
 
-  const statusSummaryLabel = useMemo(() => {
-    if (status === 'overdue') return `${totals.overdue} overdue loan${totals.overdue === 1 ? '' : 's'}`;
-    if (status === 'returned') return `${totals.returned} returned loan${totals.returned === 1 ? '' : 's'}`;
-    if (status === 'all') return `${totals.all} total loan${totals.all === 1 ? '' : 's'}`;
-    return `${totals.active} currently out`;
-  }, [status, totals]);
-
   const handleReturn = async (loanId) => {
     if (!loanId) return;
     setReturningLoanId(loanId);
@@ -358,26 +351,28 @@ export default function LibraryLoansView({
             ariaLabel="Loan status filters"
             className="w-fit"
           />
-          <div className="text-sm text-dim">
-            {statusSummaryLabel}
-          </div>
         </div>
-        <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <div className="rounded-lg border border-edge bg-panel px-4 py-3">
-            <p className="text-sm font-medium text-ink">Currently out</p>
-            <p className="mt-1 text-2xl font-semibold text-ink">{totals.active}</p>
-          </div>
-          <div className="rounded-lg border border-err/20 bg-panel px-4 py-3">
-            <p className="text-sm font-medium text-ink">Overdue</p>
-            <p className="mt-1 text-2xl font-semibold text-err">{totals.overdue}</p>
-          </div>
-          <div className="rounded-lg border border-edge bg-panel px-4 py-3">
-            <p className="text-sm font-medium text-ink">Due soon</p>
-            <p className="mt-1 text-2xl font-semibold text-ink">{summary.dueSoon}</p>
-          </div>
-          <div className="rounded-lg border border-edge bg-panel px-4 py-3">
-            <p className="text-sm font-medium text-ink">Returned</p>
-            <p className="mt-1 text-2xl font-semibold text-ink">{totals.returned}</p>
+        <div className="mt-4 overflow-hidden rounded-lg border border-edge bg-panel">
+          <div className="grid grid-cols-2 sm:grid-cols-4">
+            {[
+              ['Currently out', totals.active, 'text-ink'],
+              ['Overdue', totals.overdue, 'text-err'],
+              ['Due soon', summary.dueSoon, 'text-ink'],
+              ['Returned', totals.returned, 'text-ink']
+            ].map(([label, value, valueClass], index) => (
+              <div
+                key={label}
+                className={[
+                  'px-4 py-3',
+                  index > 0 ? 'border-t border-edge sm:border-t-0 sm:border-l' : ''
+                ].join(' ')}
+              >
+                <div className="flex items-baseline justify-between gap-3">
+                  <p className="text-sm text-dim">{label}</p>
+                  <p className={`text-lg font-semibold ${valueClass}`}>{value}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -501,7 +496,7 @@ export default function LibraryLoansView({
 
       <div className="border-t border-edge px-4 py-3 sm:px-6">
         <div className="flex items-center justify-between text-sm text-ghost">
-          <span>{statusSummaryLabel}</span>
+          <span>{pagination.total || 0} item{Number(pagination.total || 0) === 1 ? '' : 's'}</span>
           <div className="flex items-center gap-2">
             <button className="btn-secondary" onClick={() => setPage((value) => Math.max(1, value - 1))} disabled={loading || page <= 1}>Previous</button>
             <span>Page {pagination.page || page} of {pagination.totalPages || 1}</span>
