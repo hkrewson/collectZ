@@ -92,27 +92,6 @@ This file is the staging area for work that has not yet been assigned a release 
 - Top cost drivers are visible and attributable.
 - The self-hosted profile remains fully functional with paid-provider integrations disabled.
 
-### Backlog Item: Library Loans Tracking
-**Type:** Task
-**Tags:** `library`, `loans`, `tracking`, `reminders`, `email`
-
-**Goal:** Add a loans section to the library for tracking borrowed items and reminders.
-
-**Scope**
-- Track what item is loaned.
-- Track who it is loaned to.
-- Track when it was loaned.
-- Track the format of the item.
-- Track the expected return date.
-- Track the borrower email address.
-- Support emailed reminders for upcoming or overdue returns.
-
-**Acceptance Criteria**
-- Library loans can be recorded with item, borrower, loan date, format, and return date.
-- Borrower email can be stored for reminder delivery.
-- Reminder behavior can be triggered from the stored loan record.
-- The loans section fits the library workflow without disrupting existing catalog behavior.
-
 ### Backlog Item: Imports and Sync Cadence Expansion
 **Type:** Deferred milestone
 **Tags:** `imports`, `csv`, `plex`, `calibre`, `metron`, `sync`
@@ -179,6 +158,35 @@ This file is the staging area for work that has not yet been assigned a release 
 - The viewer can be opened independently from the main app shell.
 - The page shows a full-sized poster for the current or next queued title.
 - The display experience is readable from across a room.
+
+### Backlog Item: Plex PMS API Modernization Foundation
+**Type:** Deferred milestone
+**Tags:** `plex`, `api`, `pms`, `integration`, `modernization`
+
+**Goal:** Gradually move Plex integration work toward the Plex Media Server API model documented in the official PMS API guide instead of continuing to hardwire older library-section request paths everywhere.
+
+**Why this work exists**
+- The current Plex integration in this repo still centers on direct library endpoints such as `/library/sections` and `/library/metadata/...`.
+- The official Plex PMS guidance for new applications recommends JSON responses and a provider-oriented approach centered on `/media/providers`.
+- New Plex-facing features such as a future Now Playing viewer are a good opportunity to adopt the newer contract intentionally instead of expanding older assumptions further.
+
+**Scope**
+- Audit the current Plex service layer and identify where it still hard-codes legacy library-section and metadata paths.
+- Define a provider-oriented Plex client contract aligned with the official PMS API guidance:
+  - prefer JSON,
+  - prefer `/media/providers` and feature discovery where practical,
+  - reduce reliance on hard-coded library-path assumptions for new work.
+- Keep existing import and dedupe behavior stable while adding the newer Plex contract alongside the current one.
+- Use one narrow Plex-facing feature to prove the newer contract before considering broader migration of existing import flows.
+- Document migration boundaries clearly so future Plex milestones can choose whether they are:
+  - legacy-path maintenance,
+  - or new-contract adoption.
+
+**Acceptance Criteria**
+- The current legacy Plex-path usage is documented clearly enough to distinguish maintenance work from modernization work.
+- A provider-oriented Plex client contract is defined for new Plex-facing features.
+- At least one future Plex milestone can adopt the newer PMS model without forcing an all-at-once rewrite of import behavior.
+- The roadmap has a clean versionless backlog task available when the team decides to begin the migration.
 
 ### Backlog Item: Support Metrics and Satisfaction Surveys
 **Type:** Task

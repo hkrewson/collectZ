@@ -3847,6 +3847,62 @@ Historical note:
   - type-specific poster fields under enrichment results
 - The slice should stay render-only unless the runtime proof shows the payload shape needs cleanup first.
 
+## 3.2.11 — Library Loans Tracking
+
+**Goal:** Add a loans workflow to the library so borrowed items, borrower details, and reminder timing can be tracked without disrupting the core catalog experience.
+
+**Current Slice:** `Loans Workflow Contract Audit`
+
+### Scope
+
+- Promote library loans tracking out of backlog and define the smallest durable product contract before building reminder delivery or broader support flows.
+- Track the essential loan record fields:
+  - media item,
+  - borrower name,
+  - loan date,
+  - format,
+  - expected return date,
+  - borrower email.
+- Fit loans into the existing library workflow without turning the main catalog views into a support-style queue.
+- Keep reminder work in scope only as far as needed to define how reminder eligibility and timing should be stored and triggered.
+- Use the first slice to determine:
+  - where the loans surface belongs in the current app shell,
+  - whether loans should be item-attached only or also browsable in a dedicated view,
+  - and what the minimal DB/API contract needs to be for later reminder delivery.
+
+### Acceptance Criteria
+
+- The loans workflow contract is defined clearly enough to implement without re-deciding ownership, placement, and reminder primitives mid-slice.
+- The chosen loans surface fits the existing library experience without disrupting normal catalog browsing.
+- The required DB/API shape for recording and later reminding from a loan record is called out explicitly.
+- If reminder delivery is not fully implemented in the first milestone slice, the storage and trigger boundary is still defined before the milestone closes.
+
+### Active Slice Notes
+
+- This belongs after `3.2.10` as a fresh library workflow milestone rather than another comic/provider follow-up.
+- The first slice should stay contract-first:
+  - decide UI placement,
+  - decide item-attached versus dedicated-list behavior,
+  - define the minimal reminder-ready record shape,
+  - then implement from that contract instead of letting reminder behavior leak into the initial schema by accident.
+- Contract audit outcome:
+  - loans should be item-attached at creation time but also browsable in a dedicated library-level loans view,
+  - item-attached alone would hide overdue and due-soon workflow too deeply inside per-title drawers,
+  - reminder delivery should be designed around stored eligibility fields first rather than a full scheduler in the initial slice.
+- Preferred initial product shape:
+  - add a `library-loans` view in the existing library/dashboard family,
+  - add a loan action and active-loan summary inside the media detail drawer,
+  - keep loan return and borrower edits reachable from the dedicated loans view.
+- Preferred minimal DB/API contract:
+  - a separate `media_loans` table rather than adding single loan fields directly onto `media`,
+  - one active loan per media item at a time, enforced by an active-loan constraint,
+  - fields for `media_id`, `library_id`, `space_id`, `borrower_name`, `borrower_email`, `loaned_at`, `due_at`, `returned_at`, `loan_format`, and optional notes,
+  - reminder-ready timestamps/status fields can exist without requiring full reminder sending in the first implementation slice.
+- Preferred first implementation slice after this audit:
+  - create and return loans,
+  - show active/overdue loans in a dedicated list,
+  - leave actual outbound reminder sending for a later slice once the record lifecycle is proven.
+
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
