@@ -1052,6 +1052,9 @@
           "notes": { "type": ["string", "null"] },
           "reminder_last_sent_at": { "type": ["string", "null"], "format": "date-time" },
           "reminder_status": { "type": "string" },
+          "reminder_phase": { "type": ["string", "null"], "enum": ["due_soon", "overdue", null] },
+          "reminder_eligible": { "type": "boolean" },
+          "reminder_sent_today": { "type": "boolean" },
           "created_by": { "type": ["integer", "null"] },
           "created_at": { "type": ["string", "null"], "format": "date-time" },
           "updated_at": { "type": ["string", "null"], "format": "date-time" },
@@ -1068,7 +1071,15 @@
           "status": { "type": "string", "enum": ["active", "overdue", "returned"] },
           "is_overdue": { "type": "boolean" }
         },
-        "required": ["id", "media_id", "status", "is_overdue", "reminder_status"]
+        "required": [
+          "id",
+          "media_id",
+          "status",
+          "is_overdue",
+          "reminder_status",
+          "reminder_eligible",
+          "reminder_sent_today"
+        ]
       },
       "MediaLoanListResponse": {
         "type": "object",
@@ -1146,6 +1157,10 @@
         "properties": {
           "returned_at": { "type": ["string", "null"], "format": "date" }
         }
+      },
+      "MediaLoanReminderSendRequest": {
+        "type": "object",
+        "additionalProperties": false
       },
       "ValuationRefreshRequest": {
         "type": "object",
@@ -3963,6 +3978,41 @@
         "responses": {
           "200": {
             "description": "Returned loan record",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/MediaLoanRecord" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/media/loans/{loanId}/reminder": {
+      "post": {
+        "tags": ["Media"],
+        "summary": "Send a manual reminder for an eligible media loan",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "loanId",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/MediaLoanReminderSendRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Loan record after reminder send metadata is updated",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/MediaLoanRecord" }

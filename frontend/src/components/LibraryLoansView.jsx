@@ -49,6 +49,21 @@ function relativeDueLabel(loan) {
   return null;
 }
 
+function reminderPhaseLabel(loan) {
+  if (!loan || loan.returned_at) return null;
+  if (loan.reminder_phase === 'overdue') return 'Overdue reminder';
+  if (loan.reminder_phase === 'due_soon') return 'Due soon reminder';
+  return null;
+}
+
+function formatReminderTimestamp(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return raw;
+  return parsed.toLocaleString();
+}
+
 function statusLabel(status) {
   if (status === 'overdue') return 'Overdue';
   if (status === 'returned') return 'Returned';
@@ -191,6 +206,7 @@ export default function LibraryLoansView({
   const [editingLoan, setEditingLoan] = useState(null);
   const [savingLoan, setSavingLoan] = useState(false);
   const [returningLoanId, setReturningLoanId] = useState(null);
+  const [remindingLoanId, setRemindingLoanId] = useState(null);
 
   useEffect(() => {
     const handle = window.setTimeout(() => setDebouncedSearch(searchInput.trim()), 250);
@@ -288,6 +304,23 @@ export default function LibraryLoansView({
       onToast?.(err?.response?.data?.error || 'Failed to update loan', 'error');
     } finally {
       setSavingLoan(false);
+    }
+  };
+
+  const handleSendReminder = async (loan) => {
+    if (!loan?.id || remindingLoanId === loan.id) return;
+    setRemindingLoanId(loan.id);
+    try {
+      await apiCall('post', `/media/loans/${loan.id}/reminder`, {});
+      onToast?.('Reminder sent');
+      await loadLoans(page);
+      if (editingLoan && Number(editingLoan.id) === Number(loan.id)) {
+        setEditingLoan(null);
+      }
+    } catch (err) {
+      onToast?.(err?.response?.data?.error || 'Failed to send reminder', 'error');
+    } finally {
+      setRemindingLoanId(null);
     }
   };
 
@@ -399,6 +432,17 @@ export default function LibraryLoansView({
                       <div className="flex shrink-0 flex-wrap items-center gap-2">
                         {!loan.returned_at ? (
                           <>
+                            <button
+                              className="btn-secondary"
+                              onClick={() => handleSendReminder(loan)}
+                              disabled={!loan.reminder_eligible || remindingLoanId === loan.id}
+                            >
+                              {remindingLoanId === loan.id
+                                ? 'Sending…'
+                                : loan.reminder_sent_today
+                                  ? 'Sent Today'
+                                  : 'Send Reminder'}
+                            </button>
                             <button className="btn-secondary" onClick={() => setEditingLoan(loan)}>Edit</button>
                             <button
                               className="btn-primary"
@@ -423,6 +467,22 @@ export default function LibraryLoansView({
                           <p className={loan.status === 'overdue' ? 'mt-1 text-xs text-err' : 'mt-1 text-xs text-dim'}>
                             {relativeDueLabel(loan)}
                           </p>
+                        ) : null}
+                      </div>
+                      <div>
+                        <dt className="text-xs font-medium text-ghost">Reminder</dt>
+                        <dd className="mt-1 text-ink">
+                          {loan.returned_at
+                            ? 'Not needed'
+                            : loan.reminder_sent_today
+                              ? 'Sent today'
+                              : reminderPhaseLabel(loan) || (loan.borrower_email ? 'Waiting' : 'Add email')}
+                        </dd>
+                        {loan.reminder_last_sent_at ? (
+                          <p className="mt-1 text-xs text-dim">Last sent {formatReminderTimestamp(loan.reminder_last_sent_at)}</p>
+                        ) : null}
+                        {!loan.borrower_email && !loan.returned_at ? (
+                          <p className="mt-1 text-xs text-dim">Add borrower email to send reminders.</p>
                         ) : null}
                       </div>
                       <div>

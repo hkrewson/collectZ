@@ -3893,6 +3893,41 @@ Historical note:
   - add a `library-loans` view in the existing library/dashboard family,
   - add a loan action and active-loan summary inside the media detail drawer,
   - keep loan return and borrower edits reachable from the dedicated loans view.
+
+## 3.3.1 — Loan Reminder Workflow
+
+**Goal:** Add reminder behavior on top of the new library loans workflow so due-soon and overdue items can be followed up from one place without requiring manual date checking.
+
+**Current Slice:** `Reminder Eligibility and Manual Send`
+
+### Scope
+
+- Build on the shipped `3.3.0` loans workflow instead of reopening the core loans schema and browsing milestone.
+- Define reminder eligibility for at least:
+  - due soon
+  - overdue
+- Surface reminder state clearly in the loans view and media drawer.
+- Add a manual reminder-send action for eligible loans with borrower email addresses.
+- Persist reminder status and last-sent timing on the loan record.
+- Reuse the existing email delivery primitives instead of inventing a second outbound channel.
+- Defer automatic background sending unless the manual reminder path proves stable first.
+
+### Acceptance Criteria
+
+- Eligible loans can be identified clearly as due soon or overdue from the loans workflow.
+- A reminder can be sent manually from the app for loans with borrower email.
+- Reminder status and last-sent timing are stored and visible enough to avoid duplicate/manual confusion.
+- The reminder slice stays additive to the shipped `3.3.0` loans feature instead of turning into a second schema-redesign pass.
+
+### Active Slice Notes
+
+- This belongs after `3.3.0` as a follow-on patch because reminder delivery adds a second workflow layer:
+  - eligibility timing,
+  - send actions,
+  - duplicate-send guardrails,
+  - delivery status,
+  - and overdue follow-up handling.
+- Start with manual reminder behavior and visible status before deciding whether automatic sending belongs in a later slice.
 - Foundation slice now verified:
   - `media_loans` exists in both `init.sql` and migrations with one-active-loan-per-media protection,
   - scoped loan create/list/update/return APIs are documented in OpenAPI,

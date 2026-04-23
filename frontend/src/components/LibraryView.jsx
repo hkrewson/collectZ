@@ -141,6 +141,23 @@ function buildLoanFormState(item = {}) {
   };
 }
 
+function loanReminderLabel(loan) {
+  if (!loan || loan.returned_at) return 'Not needed';
+  if (loan.reminder_sent_today) return 'Sent today';
+  if (loan.reminder_phase === 'overdue') return 'Overdue reminder';
+  if (loan.reminder_phase === 'due_soon') return 'Due soon reminder';
+  if (!loan.borrower_email) return 'Add email';
+  return 'Waiting';
+}
+
+function formatReminderTimestamp(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return raw;
+  return parsed.toLocaleString();
+}
+
 function StarRating({ value = 0, onChange, readOnly = false }) {
   const safe = Number(value) || 0;
   return (
@@ -575,6 +592,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   const [loanHistory, setLoanHistory] = useState([]);
   const [loanLoading, setLoanLoading] = useState(false);
   const [loanSaving, setLoanSaving] = useState(false);
+  const [loanReminderSending, setLoanReminderSending] = useState(false);
   const [loanFormOpen, setLoanFormOpen] = useState(false);
   const [loanForm, setLoanForm] = useState(() => buildLoanFormState(item));
   const typeDetails = item?.type_details && typeof item.type_details === 'object' ? item.type_details : {};
@@ -803,6 +821,20 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
     }
   };
 
+  const sendLoanReminder = async (loanId) => {
+    if (!loanId || loanReminderSending) return;
+    setLoanReminderSending(true);
+    try {
+      await apiCall('post', `/media/loans/${loanId}/reminder`, {});
+      await refreshLoans();
+      onToast?.('Reminder sent');
+    } catch (error) {
+      onToast?.(error?.response?.data?.error || 'Failed to send reminder', 'error');
+    } finally {
+      setLoanReminderSending(false);
+    }
+  };
+
   const refreshValuation = async () => {
     if (!item?.id || valuationRefreshing) return;
     setValuationRefreshing(true);
@@ -908,6 +940,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
       setLoanHistory([]);
       setLoanLoading(false);
       setLoanSaving(false);
+      setLoanReminderSending(false);
       setLoanFormOpen(false);
       setLoanForm(buildLoanFormState({}));
       return;
@@ -1082,15 +1115,30 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                   {loanFormOpen ? 'Hide Loan Form' : 'Loan Out'}
                 </button>
               ) : (
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => markLoanReturned(activeLoan.id)}
-                  disabled={loanSaving || loanLoading}
-                >
-                  <Icons.Check />
-                  {loanSaving ? 'Returning…' : 'Mark Returned'}
-                </button>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => sendLoanReminder(activeLoan.id)}
+                    disabled={!activeLoan.reminder_eligible || loanReminderSending}
+                  >
+                    <Icons.Mail />
+                    {loanReminderSending
+                      ? 'Sending…'
+                      : activeLoan.reminder_sent_today
+                        ? 'Sent Today'
+                        : 'Send Reminder'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => markLoanReturned(activeLoan.id)}
+                    disabled={loanSaving || loanLoading}
+                  >
+                    <Icons.Check />
+                    {loanSaving ? 'Returning…' : 'Mark Returned'}
+                  </button>
+                </div>
               )}
             </div>
 
@@ -1115,7 +1163,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                     </div>
                     {activeLoan.borrower_email ? <p className="mt-1 text-sm text-dim">{activeLoan.borrower_email}</p> : null}
                   </div>
-                  <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
+                  <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
                     <div>
                       <dt className="text-xs font-medium text-ghost">Loaned</dt>
                       <dd className="mt-1 text-ink">{formatDate(activeLoan.loaned_at)}</dd>
@@ -1128,9 +1176,19 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                       <dt className="text-xs font-medium text-ghost">Format</dt>
                       <dd className="mt-1 text-ink">{activeLoan.loan_format || '—'}</dd>
                     </div>
+                    <div>
+                      <dt className="text-xs font-medium text-ghost">Reminder</dt>
+                      <dd className="mt-1 text-ink">{loanReminderLabel(activeLoan)}</dd>
+                      {activeLoan.reminder_last_sent_at ? (
+                        <p className="mt-1 text-xs text-dim">Last sent {formatReminderTimestamp(activeLoan.reminder_last_sent_at)}</p>
+                      ) : null}
+                    </div>
                   </dl>
                 </div>
                 {activeLoan.notes ? <p className="mt-3 text-sm text-dim">{activeLoan.notes}</p> : null}
+                {!activeLoan.borrower_email ? (
+                  <p className="mt-3 text-sm text-dim">Add borrower email to send reminders.</p>
+                ) : null}
               </div>
             ) : null}
 

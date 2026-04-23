@@ -193,6 +193,7 @@ const comicQueryContractSmokeSource = fs.readFileSync(require.resolve('../script
 const comicSeriesQueryContractSmokeSource = fs.readFileSync(require.resolve('../scripts/comic-series-query-contract-smoke'), 'utf8');
 const comicSeriesIssuesQueryContractSmokeSource = fs.readFileSync(require.resolve('../scripts/comic-series-issues-query-contract-smoke'), 'utf8');
 const comicMetronOverviewTruncationSmokeSource = fs.readFileSync(require.resolve('../scripts/comic-metron-overview-truncation-smoke'), 'utf8');
+const libraryLoanReminderWorkflowSmokeSource = fs.readFileSync(require.resolve('../scripts/library-loan-reminder-workflow-smoke'), 'utf8');
 const comicDuplicateDeferSmokeSource = fs.readFileSync(require.resolve('../scripts/comic-duplicate-defer-smoke'), 'utf8');
 const { parseComicMetadataFromTitle, buildComicLikeBookProposal, buildComicLikeBookRevertProposal } = require('../scripts/repair-comic-like-books');
 const { buildClusterFromRows, mergeMissingObjectFields } = require('../scripts/repair-book-comic-duplicates');
@@ -2830,6 +2831,7 @@ results.push(run('openapi baseline documents key auth admin and media endpoints'
   assert.ok(spec.paths['/api/media/loans']);
   assert.ok(spec.paths['/api/media/loans/{loanId}']);
   assert.ok(spec.paths['/api/media/loans/{loanId}/return']);
+  assert.ok(spec.paths['/api/media/loans/{loanId}/reminder']);
   assert.ok(spec.paths['/api/media/{id}/loans']);
   assert.ok(spec.paths['/api/media/import-plex']);
   assert.ok(spec.paths['/api/media/sync-jobs']);
@@ -3332,13 +3334,16 @@ results.push(run('library loans workflow is wired into dashboard navigation rout
   assert.ok(dashboardContentSource.includes('LibraryLoansView'));
   assert.ok(libraryLoansViewSource.includes("/media/loans?${params.toString()}"));
   assert.ok(libraryLoansViewSource.includes("/media/loans/${loanId}/return"));
+  assert.ok(libraryLoansViewSource.includes("/media/loans/${loan.id}/reminder"));
   assert.ok(libraryViewSource.includes("/media/${item.id}/loans"));
   assert.ok(libraryViewSource.includes("/media/${item.id}/loans`, loanForm"));
   assert.ok(mediaRoutesSource.includes("router.get('/loans'"));
   assert.ok(mediaRoutesSource.includes("router.get('/:id/loans'"));
   assert.ok(mediaRoutesSource.includes("router.post('/:id/loans'"));
   assert.ok(mediaRoutesSource.includes("router.patch('/loans/:loanId/return'"));
+  assert.ok(mediaRoutesSource.includes("router.post('/loans/:loanId/reminder'"));
   assert.ok(backendPackageJson.scripts['test:library-loans-workflow-smoke']);
+  assert.ok(backendPackageJson.scripts['test:library-loan-reminder-workflow-smoke']);
 }));
 
 results.push(run('library loans view exposes management-focused counts and due-soon emphasis', () => {
@@ -3346,6 +3351,13 @@ results.push(run('library loans view exposes management-focused counts and due-s
   assert.ok(libraryLoansViewSource.includes('Due soon'));
   assert.ok(libraryLoansViewSource.includes('statusSummaryLabel'));
   assert.ok(libraryLoansViewSource.includes("['active', 'overdue', 'returned', 'all']"));
+  assert.ok(libraryLoansViewSource.includes('Send Reminder'));
+  assert.ok(libraryLoansViewSource.includes('reminder_sent_today'));
+  assert.ok(libraryViewSource.includes('Add borrower email to send reminders.'));
+  assert.ok(mediaRoutesSource.includes('reminder_eligible'));
+  assert.ok(mediaRoutesSource.includes('media.loan.reminder.send'));
+  assert.ok(libraryLoanReminderWorkflowSmokeSource.includes('/api/media/loans/${loanId}/reminder'));
+  assert.ok(libraryLoanReminderWorkflowSmokeSource.includes('smtp_override_enabled'));
 }));
 
 results.push(run('frontend import flow no longer mounts standalone Import Review view', () => {

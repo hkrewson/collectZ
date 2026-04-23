@@ -13,6 +13,7 @@ const {
   mediaLoanCreateSchema,
   mediaLoanUpdateSchema,
   mediaLoanReturnSchema,
+  mediaLoanReminderSendSchema,
   mediaValuationRefreshSchema,
   mediaMergePreviewSchema,
   mediaMergeApplySchema,
@@ -87,6 +88,7 @@ const { isFeatureEnabledForSpace } = require('../services/featureFlags');
 const { enforceScopeAccess } = require('../middleware/scopeAccess');
 const { ensureUserDefaultLibrary, ensureUserDefaultScope } = require('../services/libraries');
 const { refreshMediaValuation } = require('../services/valuations');
+const { sendLoanReminderEmail } = require('../services/email');
 const { runManualMediaMergeApply, runManualMediaMergeRevert } = require('../scripts/repair-book-comic-duplicates');
 
 const router = express.Router();
@@ -582,8 +584,32 @@ function normalizeLoanDateValue(value) {
   return normalized.slice(0, 10);
 }
 
+function buildLoanReminderPhase(row = {}) {
+  if (row?.returned_at) return null;
+  const dueAt = normalizeLoanDateValue(row?.due_at);
+  if (!dueAt) return null;
+  const today = new Date().toISOString().slice(0, 10);
+  if (dueAt < today) return 'overdue';
+  const dueDate = new Date(`${dueAt}T00:00:00Z`);
+  const todayDate = new Date(`${today}T00:00:00Z`);
+  const daysUntilDue = Math.round((dueDate.getTime() - todayDate.getTime()) / 86400000);
+  if (Number.isInteger(daysUntilDue) && daysUntilDue >= 0 && daysUntilDue <= 3) return 'due_soon';
+  return null;
+}
+
+function wasLoanReminderSentToday(row = {}) {
+  const raw = row?.reminder_last_sent_at;
+  const sentAt = raw instanceof Date && !Number.isNaN(raw.getTime())
+    ? raw.toISOString()
+    : String(raw || '').trim();
+  if (!sentAt) return false;
+  return sentAt.slice(0, 10) === new Date().toISOString().slice(0, 10);
+}
+
 function formatMediaLoanRow(row = {}) {
   const status = buildMediaLoanStatus(row);
+  const reminderPhase = buildLoanReminderPhase(row);
+  const reminderSentToday = wasLoanReminderSentToday(row);
   return {
     id: Number(row.id || 0) || null,
     media_id: Number(row.media_id || 0) || null,
@@ -609,7 +635,10 @@ function formatMediaLoanRow(row = {}) {
       year: Number(row.year || 0) || null
     } : null,
     status,
-    is_overdue: status === 'overdue'
+    is_overdue: status === 'overdue',
+    reminder_phase: reminderPhase,
+    reminder_eligible: Boolean(reminderPhase && row?.borrower_email && !reminderSentToday),
+    reminder_sent_today: reminderSentToday
   };
 }
 
@@ -7673,6 +7702,68 @@ router.patch('/loans/:loanId/return', requireSessionAuth, validate(mediaLoanRetu
     mediaId: updated.media_id || null,
     borrowerName: updated.borrower_name || null,
     returnedAt: updated.returned_at || null
+  });
+  res.json(updated);
+}));
+
+router.post('/loans/:loanId/reminder', requireSessionAuth, validate(mediaLoanReminderSendSchema), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const loanId = Number(req.params.loanId || 0);
+  if (!loanId) {
+    return res.status(400).json({ error: 'Invalid loan id' });
+  }
+  const existing = await loadScopedMediaLoan(loanId, scopeContext);
+  if (!existing) {
+    return res.status(404).json({ error: 'Loan not found' });
+  }
+  if (existing.returned_at) {
+    return res.status(409).json({ error: 'Returned loans cannot receive reminders' });
+  }
+  if (!existing.borrower_email) {
+    return res.status(409).json({ error: 'Add a borrower email before sending reminders' });
+  }
+  const reminderPhase = buildLoanReminderPhase(existing);
+  if (!reminderPhase) {
+    return res.status(409).json({ error: 'Reminders can only be sent for due-soon or overdue loans' });
+  }
+  if (wasLoanReminderSentToday(existing)) {
+    return res.status(409).json({ error: 'A reminder has already been sent today for this loan' });
+  }
+
+  const reminderResult = await sendLoanReminderEmail({
+    to: existing.borrower_email,
+    borrowerName: existing.borrower_name || '',
+    title: existing.media?.title || '',
+    dueAt: existing.due_at || '',
+    phase: reminderPhase
+  });
+  if (!reminderResult?.sent) {
+    if (reminderResult?.reason === 'smtp_not_configured') {
+      return res.status(503).json({ error: 'Email delivery is not configured for reminders' });
+    }
+    return res.status(502).json({ error: 'Failed to send reminder email' });
+  }
+
+  const params = [loanId];
+  const scopeClause = appendScopeSql(params, scopeContext, {
+    spaceColumn: 'space_id',
+    libraryColumn: 'library_id'
+  });
+  await pool.query(
+    `UPDATE media_loans
+        SET reminder_last_sent_at = CURRENT_TIMESTAMP,
+            reminder_status = 'sent',
+            updated_at = CURRENT_TIMESTAMP
+      WHERE id = $1${scopeClause}`,
+    params
+  );
+  const updated = await loadScopedMediaLoan(loanId, scopeContext);
+  await logActivity(req, 'media.loan.reminder.send', 'media_loan', updated.id, {
+    mediaId: updated.media_id || null,
+    borrowerName: updated.borrower_name || null,
+    borrowerEmail: updated.borrower_email || null,
+    reminderPhase,
+    reminderLastSentAt: updated.reminder_last_sent_at || null
   });
   res.json(updated);
 }));

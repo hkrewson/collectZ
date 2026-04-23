@@ -297,6 +297,8 @@ const mediaLoanReturnSchema = z.object({
   returned_at: nullableDateSchema
 });
 
+const mediaLoanReminderSendSchema = z.object({}).passthrough();
+
 const mediaMergePreviewSchema = z.object({
   canonical_id: z.number().int().positive('canonical_id is required'),
   duplicate_id: z.number().int().positive('duplicate_id is required')
@@ -739,6 +741,7 @@ module.exports = {
   mediaLoanCreateSchema,
   mediaLoanUpdateSchema,
   mediaLoanReturnSchema,
+  mediaLoanReminderSendSchema,
   mediaValuationRefreshSchema,
   mediaMergePreviewSchema,
   mediaMergeApplySchema,

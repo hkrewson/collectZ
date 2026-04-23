@@ -339,12 +339,63 @@ async function sendTestEmail({ to, requestedByName = '', requestedByEmail = '' }
   };
 }
 
+async function sendLoanReminderEmail({
+  to,
+  borrowerName = '',
+  title = '',
+  dueAt = '',
+  phase = 'due_soon'
+}) {
+  const config = await loadSmtpConfig();
+  if (!isSmtpConfigured(config)) {
+    return {
+      attempted: false,
+      sent: false,
+      reason: 'smtp_not_configured'
+    };
+  }
+
+  const transporter = buildTransport(config);
+  const normalizedPhase = String(phase || '').trim().toLowerCase() === 'overdue' ? 'overdue' : 'due_soon';
+  const borrowerLabel = String(borrowerName || '').trim() || 'there';
+  const titleLabel = String(title || '').trim() || 'your borrowed item';
+  const dueLabel = String(dueAt || '').trim() || 'soon';
+  const timingLine = normalizedPhase === 'overdue'
+    ? `This loan is now overdue. It was due back on ${dueLabel}.`
+    : `This loan is due back on ${dueLabel}.`;
+  const text = [
+    `Hi ${borrowerLabel},`,
+    '',
+    `This is a reminder about "${titleLabel}".`,
+    timingLine,
+    '',
+    'Please return it when you can.',
+    '',
+    'Thanks,',
+    'collectZ'
+  ].join('\n');
+  const info = await transporter.sendMail({
+    from: config.from,
+    to,
+    subject: normalizedPhase === 'overdue'
+      ? `Reminder: "${titleLabel}" is overdue`
+      : `Reminder: "${titleLabel}" is due soon`,
+    text
+  });
+  return {
+    attempted: true,
+    sent: true,
+    messageId: info?.messageId || null
+  };
+}
+
 module.exports = {
   loadSmtpConfig,
   getSmtpStatus,
   isSmtpConfigured,
   updateSmtpSettings,
   sendTestEmail,
+  sendLoanReminderEmail,
   sendInviteEmail,
   sendPasswordResetEmail,
   sendEmailVerificationEmail
