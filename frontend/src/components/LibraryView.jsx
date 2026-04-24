@@ -1168,27 +1168,36 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                 <div className="flex flex-wrap items-center justify-end gap-2">
                   <button
                     type="button"
-                    className="btn-secondary"
+                    className="btn-ghost"
                     onClick={() => setShowLoanItemDetails((value) => !value)}
                   >
                     {showLoanItemDetails ? 'Hide Details' : 'Show Details'}
                   </button>
+                  {activeLoan.reminder_eligible ? (
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => sendLoanReminder(activeLoan.id)}
+                      disabled={loanReminderSending}
+                    >
+                      <Icons.Mail />
+                      {loanReminderSending ? 'Sending…' : 'Send Reminder'}
+                    </button>
+                  ) : (
+                    <div className="inline-flex h-9 items-center gap-2 px-1 text-sm text-dim">
+                      <Icons.Mail />
+                      <span>
+                        {!activeLoan.borrower_email
+                          ? 'Add email to send reminder'
+                          : activeLoan.reminder_sent_today
+                            ? 'Reminder sent today'
+                            : loanReminderLabel(activeLoan)}
+                      </span>
+                    </div>
+                  )}
                   <button
                     type="button"
-                    className="btn-secondary"
-                    onClick={() => sendLoanReminder(activeLoan.id)}
-                    disabled={!activeLoan.reminder_eligible || loanReminderSending}
-                  >
-                    <Icons.Mail />
-                    {loanReminderSending
-                      ? 'Sending…'
-                      : activeLoan.reminder_sent_today
-                        ? 'Sent Today'
-                        : 'Send Reminder'}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-secondary"
+                    className="btn-primary"
                     onClick={() => markLoanReturned(activeLoan.id)}
                     disabled={loanSaving || loanLoading}
                   >
