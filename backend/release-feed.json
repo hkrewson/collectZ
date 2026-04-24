@@ -1,47 +1,20 @@
 {
   "releases": [
     {
+      "title": "v3.3.1",
+      "version": "3.3.1",
+      "date": "2026-04-23",
+      "status": "Completed",
+      "summary": "This patch release builds on `3.3.0` library loans tracking by adding manual loan reminders, clearer reminder status in the drawer and Loans view, a more accurate due-soon count, and focused browser coverage for the loan-first drawer flow. The result is a tighter follow-up workflow for items that are due soon or already overdue without widening the release into automatic scheduling.",
+      "details": []
+    },
+    {
       "title": "v3.3.0",
       "version": "3.3.0",
       "date": "2026-04-23",
       "status": "Completed",
       "summary": "This minor release adds a new library loans workflow so borrowed items can be tracked from one management surface instead of disappearing into title-level notes. The release introduces scoped loan records, item-attached loan actions, a dedicated `Loans` view, and stronger current-loan visibility for active, overdue, and returned items across both platform and homelab stacks.",
-      "details": [
-        {
-          "heading": "Loans workflow foundation",
-          "bullets": [
-            "Added a dedicated `media_loans` record shape with one-active-loan-per-media protection.",
-            "Added scoped create, edit, list, and return APIs for loan lifecycle management.",
-            "Added OpenAPI coverage for the new loans endpoints.",
-            "Normalized loan date fields in API responses to a cleaner date-only contract."
-          ]
-        },
-        {
-          "heading": "Library loans management view",
-          "bullets": [
-            "Added a dedicated `Loans` navigation surface in the library shell.",
-            "Added active, overdue, returned, and all-loans filters.",
-            "Added edit and return actions directly from the loans view.",
-            "Added counts and urgency cues so the screen reads as the place to manage what is currently out."
-          ]
-        },
-        {
-          "heading": "Item-attached loan actions",
-          "bullets": [
-            "Added a loan creation form and active-loan summary inside the media detail drawer.",
-            "Added recent loan history visibility for individual titles.",
-            "Kept loan entry attached to the title while still making the overall workflow browsable from one place."
-          ]
-        },
-        {
-          "heading": "Verification and release evidence",
-          "bullets": [
-            "Added a Docker-backed loans workflow smoke proving create, update, return, and history behavior.",
-            "Verified init parity and migration rehearsal after adding the loans schema.",
-            "Regenerated the in-app release feed for `Help > Releases`."
-          ]
-        }
-      ]
+      "details": []
     },
     {
       "title": "v3.2.10",
@@ -258,30 +231,6 @@
           "bullets": [
             "Refactored the new scope-isolation smoke to use:",
             "so the proof exercises actual route-level scope rules instead of getting tangled in admin support-session restrictions."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "v3.2.2",
-      "version": "3.2.2",
-      "date": "2026-04-19",
-      "status": "Completed",
-      "summary": "This patch release hardens release readiness evidence. It adds a repo-native local preflight helper that generates dependency audit artifacts and a go/no-go report from live stack evidence, and it remediates the `follow-redirects` dependency advisory in both backend and frontend package trees so the local dependency audit closes cleanly before release.",
-      "details": [
-        {
-          "heading": "Release evidence hardening",
-          "bullets": [
-            "Added a local release preflight helper that generates:",
-            "Made the local preflight explicitly distinguish:",
-            "Aligned the release checklist docs with the new preflight workflow."
-          ]
-        },
-        {
-          "heading": "Dependency remediation",
-          "bullets": [
-            "Added package overrides so backend and frontend resolve `follow-redirects` to `1.16.0`.",
-            "Refreshed both lockfiles so local dependency audits no longer report the previously tracked moderate advisory."
           ]
         }
       ]

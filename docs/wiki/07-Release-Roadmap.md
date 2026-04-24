@@ -3898,7 +3898,7 @@ Historical note:
 
 **Goal:** Add reminder behavior on top of the new library loans workflow so due-soon and overdue items can be followed up from one place without requiring manual date checking.
 
-**Current Slice:** `Reminder Eligibility and Manual Send`
+**Current Slice:** `Version Closeout`
 
 ### Scope
 
@@ -3939,8 +3939,7 @@ Historical note:
   - show accurate status counts across the scoped result set,
   - surface due-soon and overdue urgency more clearly without pulling full reminder delivery into the same milestone.
 - Remaining follow-through to keep tracked in `3.3.1`:
-  - add a browser-level regression for the loan-first drawer and reminder actions once local browser gating is cooperative again,
-  - decide whether reminder history depth and automatic sending belong in a later slice instead of widening this patch.
+  - keep reminder history depth and automatic sending deferred to backlog follow-up work instead of widening this patch.
 - Preferred minimal DB/API contract:
   - a separate `media_loans` table rather than adding single loan fields directly onto `media`,
   - one active loan per media item at a time, enforced by an active-loan constraint,

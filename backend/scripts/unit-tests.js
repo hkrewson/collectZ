@@ -194,6 +194,7 @@ const comicSeriesQueryContractSmokeSource = fs.readFileSync(require.resolve('../
 const comicSeriesIssuesQueryContractSmokeSource = fs.readFileSync(require.resolve('../scripts/comic-series-issues-query-contract-smoke'), 'utf8');
 const comicMetronOverviewTruncationSmokeSource = fs.readFileSync(require.resolve('../scripts/comic-metron-overview-truncation-smoke'), 'utf8');
 const libraryLoanReminderWorkflowSmokeSource = fs.readFileSync(require.resolve('../scripts/library-loan-reminder-workflow-smoke'), 'utf8');
+const libraryMultiformatBrowserSpecSource = fs.readFileSync(require.resolve('../../tests/playwright/specs/library-multiformat.browser.spec.js'), 'utf8');
 const comicDuplicateDeferSmokeSource = fs.readFileSync(require.resolve('../scripts/comic-duplicate-defer-smoke'), 'utf8');
 const { parseComicMetadataFromTitle, buildComicLikeBookProposal, buildComicLikeBookRevertProposal } = require('../scripts/repair-comic-like-books');
 const { buildClusterFromRows, mergeMissingObjectFields } = require('../scripts/repair-book-comic-duplicates');
@@ -3361,6 +3362,11 @@ results.push(run('library loans view exposes management-focused counts and due-s
   assert.ok(openApiSource.includes('"dueSoon"'));
   assert.ok(libraryLoanReminderWorkflowSmokeSource.includes('/api/media/loans/${loanId}/reminder'));
   assert.ok(libraryLoanReminderWorkflowSmokeSource.includes('smtp_override_enabled'));
+  assert.ok(libraryMultiformatBrowserSpecSource.includes('loaned game cards open a loan-first drawer and keep the reminder action resilient'));
+  assert.ok(libraryMultiformatBrowserSpecSource.includes("page.goto('/dashboard?tab=library-games')"));
+  assert.ok(libraryMultiformatBrowserSpecSource.includes('Show Details'));
+  assert.ok(libraryMultiformatBrowserSpecSource.includes('/api/media/${mediaId}/loans'));
+  assert.ok(libraryMultiformatBrowserSpecSource.includes('/\\/api\\/media\\/loans\\/\\d+\\/reminder$/'));
 }));
 
 results.push(run('frontend import flow no longer mounts standalone Import Review view', () => {

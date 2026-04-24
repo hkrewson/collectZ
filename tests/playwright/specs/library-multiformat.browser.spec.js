@@ -36,6 +36,91 @@ async function addSavedAdminCookies(page, requestContext = null) {
 test.use({ storageState: { cookies: [], origins: [] } });
 
 test.describe('library multi-format browser regressions', () => {
+  test('loaned game cards open a loan-first drawer and keep the reminder action resilient', async ({ page }) => {
+    const credentials = await createFreshUserCredentials({ role: 'admin', noCache: true });
+    const requestContext = await createAuthenticatedRequestContext(credentials);
+    const title = `Playwright Loaned Game ${Date.now()}`;
+    const overview = 'Loan-first drawer overview text';
+    let mediaId = null;
+
+    await deleteMediaByExactTitle(requestContext, title).catch(() => {});
+
+    try {
+      const createResponse = await postWithCsrf(requestContext, '/api/media', {
+        title,
+        overview,
+        media_type: 'game',
+        format: 'Disc',
+        owned_formats: ['disc'],
+        year: 2024
+      }, 201);
+      const created = await createResponse.json();
+      mediaId = Number(created?.id || 0) || null;
+      expect(mediaId).toBeTruthy();
+
+      const today = new Date();
+      const loanedAt = new Date(today);
+      loanedAt.setDate(today.getDate() - 14);
+      const dueAt = new Date(today);
+      dueAt.setDate(today.getDate() - 1);
+
+      await postWithCsrf(requestContext, `/api/media/${mediaId}/loans`, {
+        borrower_name: 'Ted',
+        borrower_email: 'ted@example.com',
+        loaned_at: loanedAt.toISOString().slice(0, 10),
+        due_at: dueAt.toISOString().slice(0, 10),
+        loan_format: 'Disc',
+        notes: 'Playwright reminder regression loan'
+      }, 201);
+
+      const storageState = await requestContext.storageState();
+      await page.context().addCookies(storageState.cookies || []);
+      await page.goto('/dashboard?tab=library-games');
+
+      const searchInput = page.getByPlaceholder('Search title, director…');
+      await searchInput.fill(title);
+      const resultCard = page.locator('article').filter({
+        has: page.getByText(title, { exact: true })
+      }).first();
+      await expect(resultCard).toBeVisible();
+      await resultCard.locator('.poster').click();
+
+      await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
+      await expect(page.getByText(/Loaned out.*Ted.*Due/i)).toBeVisible();
+      await expect(page.getByText(overview, { exact: true })).toHaveCount(0);
+
+      const showDetailsButton = page.getByRole('button', { name: 'Show Details', exact: true });
+      await expect(showDetailsButton).toBeVisible();
+      await showDetailsButton.click();
+      await expect(page.getByRole('button', { name: 'Hide Details', exact: true })).toBeVisible();
+      await expect(page.getByText(overview, { exact: true })).toBeVisible();
+
+      const reminderButton = page.getByRole('button', { name: 'Send Reminder', exact: true });
+      const reminderResponsePromise = page.waitForResponse((response) => (
+        /\/api\/media\/loans\/\d+\/reminder$/.test(response.url())
+          && response.request().method() === 'POST'
+      ));
+      await reminderButton.click();
+      const reminderResponse = await reminderResponsePromise;
+
+      expect([200, 502, 503]).toContain(reminderResponse.status());
+
+      if (reminderResponse.status() === 200) {
+        await expect(page.getByRole('button', { name: 'Sent Today', exact: true })).toBeVisible();
+        await expect(page.getByText(/Last sent/i)).toBeVisible();
+      } else {
+        const responseBody = await reminderResponse.json().catch(() => ({}));
+        const expectedMessage = responseBody?.error || 'Failed to send reminder';
+        await expect(page.getByText(expectedMessage, { exact: false })).toBeVisible();
+        await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
+        await expect(page.getByRole('button', { name: /Send Reminder|Sending…/ })).toBeVisible();
+      }
+    } finally {
+      await deleteMediaByExactTitle(requestContext, title).catch(() => {});
+      await requestContext.dispose();
+    }
+  });
+
   test('poster cards stay browse-first and open detail without inline action chrome', async ({ page }) => {
     const credentials = await createFreshUserCredentials();
     const requestContext = await createAuthenticatedRequestContext(credentials);
