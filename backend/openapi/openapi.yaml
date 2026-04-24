@@ -1051,6 +1051,8 @@
           "loan_format": { "type": ["string", "null"] },
           "notes": { "type": ["string", "null"] },
           "reminder_last_sent_at": { "type": ["string", "null"], "format": "date-time" },
+          "due_soon_reminder_last_sent_at": { "type": ["string", "null"], "format": "date-time" },
+          "overdue_reminder_last_sent_at": { "type": ["string", "null"], "format": "date-time" },
           "reminder_status": { "type": "string" },
           "reminder_phase": { "type": ["string", "null"], "enum": ["due_soon", "overdue", null] },
           "reminder_eligible": { "type": "boolean" },
@@ -1168,6 +1170,41 @@
       "MediaLoanReminderSendRequest": {
         "type": "object",
         "additionalProperties": false
+      },
+      "AutomaticLoanReminderRunResponse": {
+        "type": "object",
+        "properties": {
+          "enabled": { "type": "boolean" },
+          "reason": { "type": "string" },
+          "intervalMinutes": { "type": "integer" },
+          "batchSize": { "type": "integer" },
+          "smtpConfigured": { "type": "boolean" },
+          "scanned": { "type": "integer" },
+          "eligible": { "type": "integer" },
+          "sent": { "type": "integer" },
+          "dueSoonSent": { "type": "integer" },
+          "overdueSent": { "type": "integer" },
+          "skippedAlreadySent": { "type": "integer" },
+          "skippedNoEmail": { "type": "integer" },
+          "skippedNotEligible": { "type": "integer" },
+          "failed": { "type": "integer" }
+        },
+        "required": [
+          "enabled",
+          "reason",
+          "intervalMinutes",
+          "batchSize",
+          "smtpConfigured",
+          "scanned",
+          "eligible",
+          "sent",
+          "dueSoonSent",
+          "overdueSent",
+          "skippedAlreadySent",
+          "skippedNoEmail",
+          "skippedNotEligible",
+          "failed"
+        ]
       },
       "ValuationRefreshRequest": {
         "type": "object",
@@ -4023,6 +4060,25 @@
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/MediaLoanRecord" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/media/loan-reminders/run-auto": {
+      "post": {
+        "tags": ["Media"],
+        "summary": "Trigger an automatic loan reminder sweep",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "responses": {
+          "200": {
+            "description": "Summary of the automatic loan reminder sweep",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AutomaticLoanReminderRunResponse" }
               }
             }
           }

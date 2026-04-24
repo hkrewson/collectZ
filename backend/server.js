@@ -45,6 +45,7 @@ const { supportSharedRouter, supportPlatformRouter } = require('./routes/support
 const docsRouter = require('./routes/docs');
 const metricsRouter = require('./routes/metrics');
 const { cleanupExpiredSessions, SESSION_MAX_PER_USER, SESSION_TTL_DAYS } = require('./services/sessions');
+const { startAutomaticLoanReminderScheduler, getAutomaticLoanReminderRuntimeConfig } = require('./services/loanReminders');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -68,6 +69,7 @@ const RATE_LIMIT_SYNC_POLL_MAX = Math.max(30, Number(process.env.RATE_LIMIT_SYNC
 const RATE_LIMIT_EXTERNAL_API_MAX = Math.max(5, Number(process.env.RATE_LIMIT_EXTERNAL_API_MAX || 30));
 const PLAYWRIGHT_E2E_BYPASS_TOKEN = String(process.env.PLAYWRIGHT_E2E_BYPASS_TOKEN || '').trim();
 const PLAYWRIGHT_E2E_BYPASS_COOKIE = 'playwright_e2e_bypass';
+const AUTO_LOAN_REMINDER_RUNTIME = getAutomaticLoanReminderRuntimeConfig();
 const parseBoolean = (value, fallback = false) => {
   if (value === undefined || value === null || value === '') return fallback;
   return ['1', 'true', 'yes', 'on'].includes(String(value).toLowerCase().trim());
@@ -319,12 +321,14 @@ const startServer = async () => {
       }
     }, SESSION_CLEANUP_INTERVAL_MINUTES * 60 * 1000);
     cleanupTimer.unref();
+    startAutomaticLoanReminderScheduler();
     app.listen(PORT, '0.0.0.0', () => {
       console.log(
         `collectZ backend ${BUILD_LABEL} listening on port ${PORT} (audit=${getMode()}, ` +
         `sessionTtlDays=${SESSION_TTL_DAYS}, sessionMaxPerUser=${SESSION_MAX_PER_USER}, ` +
         `sessionCleanupMinutes=${SESSION_CLEANUP_INTERVAL_MINUTES}, ` +
         `rateWindowMin=${RATE_LIMIT_WINDOW_MINUTES}, globalMax=${RATE_LIMIT_GLOBAL_MAX}, ` +
+        `autoLoanReminders=${AUTO_LOAN_REMINDER_RUNTIME.enabled ? `on/${AUTO_LOAN_REMINDER_RUNTIME.intervalMinutes}m` : 'off'}, ` +
         `externalApiMax=${RATE_LIMIT_EXTERNAL_API_MAX})`
       );
     });

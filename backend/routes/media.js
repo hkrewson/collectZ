@@ -88,7 +88,14 @@ const { isFeatureEnabledForSpace } = require('../services/featureFlags');
 const { enforceScopeAccess } = require('../middleware/scopeAccess');
 const { ensureUserDefaultLibrary, ensureUserDefaultScope } = require('../services/libraries');
 const { refreshMediaValuation } = require('../services/valuations');
-const { sendLoanReminderEmail } = require('../services/email');
+const {
+  normalizeLoanDateValue,
+  buildLoanReminderPhase,
+  wasLoanReminderSentToday,
+  formatMediaLoanRow,
+  sendReminderForLoanRow,
+  runAutomaticLoanReminderSweep
+} = require('../services/loanReminders');
 const { runManualMediaMergeApply, runManualMediaMergeRevert } = require('../scripts/repair-book-comic-duplicates');
 
 const router = express.Router();
@@ -561,84 +568,6 @@ function normalizeMediaRecord(row = {}) {
     owned_formats: payload.ownedFormats,
     format: payload.format,
     cast: row.cast || row.cast_members || null
-  };
-}
-
-function buildMediaLoanStatus(row = {}) {
-  if (row?.returned_at) return 'returned';
-  const dueAt = String(row?.due_at || '').trim().slice(0, 10);
-  if (dueAt) {
-    const today = new Date().toISOString().slice(0, 10);
-    if (dueAt < today) return 'overdue';
-  }
-  return 'active';
-}
-
-function normalizeLoanDateValue(value) {
-  if (!value) return null;
-  if (value instanceof Date && !Number.isNaN(value.getTime())) {
-    return value.toISOString().slice(0, 10);
-  }
-  const normalized = String(value).trim();
-  if (!normalized) return null;
-  return normalized.slice(0, 10);
-}
-
-function buildLoanReminderPhase(row = {}) {
-  if (row?.returned_at) return null;
-  const dueAt = normalizeLoanDateValue(row?.due_at);
-  if (!dueAt) return null;
-  const today = new Date().toISOString().slice(0, 10);
-  if (dueAt < today) return 'overdue';
-  const dueDate = new Date(`${dueAt}T00:00:00Z`);
-  const todayDate = new Date(`${today}T00:00:00Z`);
-  const daysUntilDue = Math.round((dueDate.getTime() - todayDate.getTime()) / 86400000);
-  if (Number.isInteger(daysUntilDue) && daysUntilDue >= 0 && daysUntilDue <= 3) return 'due_soon';
-  return null;
-}
-
-function wasLoanReminderSentToday(row = {}) {
-  const raw = row?.reminder_last_sent_at;
-  const sentAt = raw instanceof Date && !Number.isNaN(raw.getTime())
-    ? raw.toISOString()
-    : String(raw || '').trim();
-  if (!sentAt) return false;
-  return sentAt.slice(0, 10) === new Date().toISOString().slice(0, 10);
-}
-
-function formatMediaLoanRow(row = {}) {
-  const status = buildMediaLoanStatus(row);
-  const reminderPhase = buildLoanReminderPhase(row);
-  const reminderSentToday = wasLoanReminderSentToday(row);
-  return {
-    id: Number(row.id || 0) || null,
-    media_id: Number(row.media_id || 0) || null,
-    library_id: Number(row.library_id || 0) || null,
-    space_id: Number(row.space_id || 0) || null,
-    borrower_name: String(row.borrower_name || '').trim() || null,
-    borrower_email: String(row.borrower_email || '').trim() || null,
-    loaned_at: normalizeLoanDateValue(row.loaned_at),
-    due_at: normalizeLoanDateValue(row.due_at),
-    returned_at: normalizeLoanDateValue(row.returned_at),
-    loan_format: String(row.loan_format || '').trim() || null,
-    notes: row.notes || null,
-    reminder_last_sent_at: row.reminder_last_sent_at || null,
-    reminder_status: String(row.reminder_status || '').trim() || 'pending',
-    created_by: Number(row.created_by || 0) || null,
-    created_at: row.created_at || null,
-    updated_at: row.updated_at || null,
-    media: row.media_id ? {
-      id: Number(row.media_id || 0) || null,
-      title: String(row.media_title || '').trim() || null,
-      media_type: String(row.media_type || '').trim() || null,
-      poster_path: String(row.poster_path || '').trim() || null,
-      year: Number(row.year || 0) || null
-    } : null,
-    status,
-    is_overdue: status === 'overdue',
-    reminder_phase: reminderPhase,
-    reminder_eligible: Boolean(reminderPhase && row?.borrower_email && !reminderSentToday),
-    reminder_sent_today: reminderSentToday
   };
 }
 
@@ -7743,43 +7672,23 @@ router.post('/loans/:loanId/reminder', requireSessionAuth, validate(mediaLoanRem
   if (wasLoanReminderSentToday(existing)) {
     return res.status(409).json({ error: 'A reminder has already been sent today for this loan' });
   }
-
-  const reminderResult = await sendLoanReminderEmail({
-    to: existing.borrower_email,
-    borrowerName: existing.borrower_name || '',
-    title: existing.media?.title || '',
-    dueAt: existing.due_at || '',
-    phase: reminderPhase
-  });
+  const reminderResult = await sendReminderForLoanRow(existing, reminderPhase, { source: 'manual', req });
   if (!reminderResult?.sent) {
     if (reminderResult?.reason === 'smtp_not_configured') {
       return res.status(503).json({ error: 'Email delivery is not configured for reminders' });
     }
     return res.status(502).json({ error: 'Failed to send reminder email' });
   }
-
-  const params = [loanId];
-  const scopeClause = appendScopeSql(params, scopeContext, {
-    spaceColumn: 'space_id',
-    libraryColumn: 'library_id'
-  });
-  await pool.query(
-    `UPDATE media_loans
-        SET reminder_last_sent_at = CURRENT_TIMESTAMP,
-            reminder_status = 'sent',
-            updated_at = CURRENT_TIMESTAMP
-      WHERE id = $1${scopeClause}`,
-    params
-  );
   const updated = await loadScopedMediaLoan(loanId, scopeContext);
-  await logActivity(req, 'media.loan.reminder.send', 'media_loan', updated.id, {
-    mediaId: updated.media_id || null,
-    borrowerName: updated.borrower_name || null,
-    borrowerEmail: updated.borrower_email || null,
-    reminderPhase,
-    reminderLastSentAt: updated.reminder_last_sent_at || null
-  });
   res.json(updated);
+}));
+
+router.post('/loan-reminders/run-auto', requireSessionAuth, requireRole('admin', 'support_admin'), asyncHandler(async (_req, res) => {
+  const summary = await runAutomaticLoanReminderSweep({
+    reason: 'manual_trigger',
+    logSummary: true
+  });
+  res.json(summary);
 }));
 
 router.post('/collections/merge-apply', requireSessionAuth, requireRole('admin', 'support_admin'), validate(collectionMergeApplySchema), asyncHandler(async (req, res) => {

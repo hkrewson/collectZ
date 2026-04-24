@@ -3954,7 +3954,7 @@ Historical note:
 
 **Goal:** Add automatic due-soon and overdue reminder sending on top of the shipped manual loan reminder workflow without reopening the core loans record model.
 
-**Current Slice:** `Automatic Reminder Cadence and Job Contract`
+**Current Slice:** `Automatic Reminder Scheduler Foundation`
 
 ### Scope
 
@@ -3994,6 +3994,12 @@ Historical note:
   - because loans already use `DATE` fields, the scheduler can run on a simple hourly-style interval while still evaluating date-based due-soon and overdue windows,
   - the current shallow reminder fields are not enough to distinguish automatic due-soon sends from automatic overdue sends without guesswork,
   - so the first implementation slice may add narrow phase-specific send tracking while still keeping full reminder-event history out of scope.
+- Current implementation shape:
+  - automatic reminder sweeps run through a shared backend reminder service so manual send, scheduler execution, and smoke proofs use the same phase rules,
+  - due-soon reminders send once per loan lifecycle,
+  - overdue reminders send at most once per day,
+  - phase-specific reminder timestamps support duplicate prevention without requiring full reminder-event history yet,
+  - a restricted admin trigger endpoint can run the same sweep on demand for operator troubleshooting and smoke verification.
 - `Loan Reminder History Depth` remains in backlog as a separate follow-up unless automatic scheduling proves it is required immediately for safe delivery or troubleshooting.
 
 

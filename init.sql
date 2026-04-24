@@ -112,6 +112,8 @@ CREATE TABLE IF NOT EXISTS media_loans (
     loan_format VARCHAR(50),
     notes TEXT,
     reminder_last_sent_at TIMESTAMP,
+    due_soon_reminder_last_sent_at TIMESTAMP,
+    overdue_reminder_last_sent_at TIMESTAMP,
     reminder_status VARCHAR(20) DEFAULT 'pending' CHECK (reminder_status IN ('pending', 'sent', 'skipped')),
     created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -1073,5 +1075,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (67, 'Add recommendation feedback table for manual merge rejection outcomes'),
     (68, 'Add collection merge history table for duplicate collection snapshots'),
     (69, 'Allow deferred recommendation feedback outcomes for operator merge workflow'),
-    (70, 'Add media loans workflow table and active-loan indexes')
+    (70, 'Add media loans workflow table and active-loan indexes'),
+    (71, 'Add phase-specific reminder tracking to media loans')
 ON CONFLICT (version) DO NOTHING;

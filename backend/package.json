@@ -59,6 +59,7 @@
     "test:comic-metron-overview-truncation-smoke": "node scripts/comic-metron-overview-truncation-smoke.js",
     "test:library-loans-workflow-smoke": "node scripts/library-loans-workflow-smoke.js",
     "test:library-loan-reminder-workflow-smoke": "node scripts/library-loan-reminder-workflow-smoke.js",
+    "test:automatic-loan-reminders-smoke": "node scripts/automatic-loan-reminders-smoke.js",
     "test:manual-merge-recommendation-reject-smoke": "node scripts/manual-merge-recommendation-reject-smoke.js",
     "test:comic-duplicate-defer-smoke": "node scripts/comic-duplicate-defer-smoke.js",
     "test:collection-duplicate-preview-smoke": "node scripts/collection-duplicate-preview-smoke.js",

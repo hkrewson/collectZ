@@ -2933,6 +2933,17 @@ const MIGRATIONS = [
       CREATE UNIQUE INDEX IF NOT EXISTS idx_media_loans_unique_active_per_media
         ON media_loans(media_id) WHERE returned_at IS NULL;
     `
+  },
+  {
+    version: 71,
+    description: 'Add phase-specific reminder tracking to media loans',
+    up: `
+      ALTER TABLE media_loans
+        ADD COLUMN IF NOT EXISTS due_soon_reminder_last_sent_at TIMESTAMP;
+
+      ALTER TABLE media_loans
+        ADD COLUMN IF NOT EXISTS overdue_reminder_last_sent_at TIMESTAMP;
+    `
   }
 ];
 
