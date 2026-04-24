@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v3.3.2",
+      "version": "3.3.2",
+      "date": "2026-04-23",
+      "status": "Completed",
+      "summary": "This patch release builds on `3.3.1` loan reminders by adding automatic reminder scheduling for due-soon and overdue loans. The shipped scope keeps the implementation deliberately tight: a shared backend reminder service, a lightweight in-process scheduler, phase-aware duplicate prevention, and Docker-backed proof that automatic sweeps send the right reminders without repeating them immediately.",
+      "details": []
+    },
+    {
       "title": "v3.3.1",
       "version": "3.3.1",
       "date": "2026-04-23",
@@ -208,29 +216,6 @@
             "Extended the title-fallback import guard logic so strong-identifier conflicts are checked before reusing same-title candidates.",
             "Hardened the Plex movie import fallback so it no longer trusts title/year alone when TMDB or UPC conflicts make reuse unsafe.",
             "Fixed a null-safe incoming strong-identifier helper bug surfaced by the new movie-shaped guard coverage."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "v3.2.3",
-      "version": "3.2.3",
-      "date": "2026-04-20",
-      "status": "Completed",
-      "summary": "This patch release hardens merge durability boundaries. It adds a Docker-backed proof that preserved merge identities only resolve inside the currently active library scope, so later re-syncs cannot silently update or recreate rows in the wrong library when the same external/provider identifier exists elsewhere.",
-      "details": [
-        {
-          "heading": "Scope-isolated merge re-sync proof",
-          "bullets": [
-            "Added a dedicated runtime smoke for:",
-            "Proved the live CSV sync path updates the correct row with:"
-          ]
-        },
-        {
-          "heading": "Smoke harness hardening",
-          "bullets": [
-            "Refactored the new scope-isolation smoke to use:",
-            "so the proof exercises actual route-level scope rules instead of getting tangled in admin support-session restrictions."
           ]
         }
       ]
