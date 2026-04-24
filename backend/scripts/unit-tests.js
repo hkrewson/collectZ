@@ -3407,6 +3407,8 @@ results.push(run('library loans view exposes management-focused counts and due-s
   assert.ok(libraryLoansViewSource.includes('totals.dueSoon'));
   assert.ok(libraryLoansViewSource.includes('Send Reminder'));
   assert.ok(libraryLoansViewSource.includes('reminder_sent_today'));
+  assert.ok(libraryLoansViewSource.includes('CollectionPaginationFooter'));
+  assert.ok(libraryLoansViewSource.includes('showPageSize={false}'));
   assert.ok(libraryViewSource.includes('Add borrower email to send reminders.'));
   assert.ok(loanRemindersServiceSource.includes('reminder_eligible'));
   assert.ok(loanRemindersServiceSource.includes('media.loan.reminder.send'));

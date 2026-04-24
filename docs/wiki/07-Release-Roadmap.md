@@ -4002,6 +4002,58 @@ Historical note:
   - a restricted admin trigger endpoint can run the same sweep on demand for operator troubleshooting and smoke verification.
 - `Loan Reminder History Depth` remains in backlog as a separate follow-up unless automatic scheduling proves it is required immediately for safe delivery or troubleshooting.
 
+## 3.3.3 — Loan Reminder History Depth
+
+**Goal:** Deepen library-loan reminder tracking beyond the current shallow loan-level state so reminder behavior can be audited and explained without overloading the active loan record.
+
+**Current Slice:** `Reminder Event History Contract and Loans Pagination Alignment`
+
+### Scope
+
+- Build on the shipped `3.3.1` and `3.3.2` reminder workflows instead of redesigning the core `media_loans` lifecycle.
+- Define an event-level reminder history model, likely through a dedicated table such as `media_loan_reminders`.
+- Record reminder attempts and outcomes with enough detail to explain:
+  - due-soon vs overdue phase,
+  - manual vs automatic trigger,
+  - sent, skipped, or failed status,
+  - timestamp,
+  - optional triggering user and failure context.
+- Preserve the existing shallow fields on the loan record for simple UI status while introducing deeper audit history behind them.
+- Keep the first slice grounded by aligning any remaining loan-view pagination affordances with the shared library pagination treatment instead of leaving one-off controls behind.
+
+### Acceptance Criteria
+
+- Reminder history can answer more than just the latest send state for a loan.
+- The design clearly distinguishes between current reminder status on the loan record and event-by-event reminder history.
+- The next implementation slice can add event persistence without reopening the shipped loan workflow contract.
+- Loans pagination uses the same footer control treatment as the other library pages.
+
+### Active Slice Notes
+
+- This follows `3.3.2` directly because automatic reminders now make auditability the main remaining loans-specific gap.
+- The first slice should settle:
+  - event history shape,
+  - minimum fields for audit and troubleshooting,
+  - and how the deeper history coexists with the existing shallow reminder state
+  before adding new persistence paths.
+- A small UI alignment pass is included in this opening slice so the loans view no longer carries custom previous/next controls that drift from the shared library pagination shell.
+- Contract outcome from the audit:
+  - the existing `media_loans` reminder fields remain the source for simple current-state UI such as latest reminder status and last-sent timing,
+  - deeper reminder history should live in a separate `media_loan_reminders` table rather than expanding `media_loans` into a multi-event ledger,
+  - the minimum event shape should capture:
+    - `loan_id`,
+    - `library_id`,
+    - `space_id`,
+    - `phase` (`due_soon` or `overdue`),
+    - `trigger` (`manual` or `automatic`),
+    - `status` (`sent`, `skipped`, or `failed`),
+    - `sent_at`,
+    - optional `triggered_by_user_id`,
+    - optional failure summary,
+    - and a stable delivery window key so duplicate-prevention decisions are explainable,
+  - automatic reminder duplicate prevention should continue to rely on the shallow phase timestamps for fast eligibility checks while the event table becomes the audit source of truth,
+  - the first implementation slice should write event rows only for actual reminder attempts and outcomes, not for every ineligible loan scan.
+
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 

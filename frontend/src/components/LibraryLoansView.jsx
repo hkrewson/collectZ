@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { SectionTabs, posterUrl } from './app/AppPrimitives';
+import { CollectionPaginationFooter, SectionTabs, posterUrl } from './app/AppPrimitives';
 
 function formatDate(value) {
   const raw = String(value || '').trim();
@@ -494,16 +494,19 @@ export default function LibraryLoansView({
         )}
       </div>
 
-      <div className="border-t border-edge px-4 py-3 sm:px-6">
-        <div className="flex items-center justify-between text-sm text-ghost">
-          <span>{pagination.total || 0} item{Number(pagination.total || 0) === 1 ? '' : 's'}</span>
-          <div className="flex items-center gap-2">
-            <button className="btn-secondary" onClick={() => setPage((value) => Math.max(1, value - 1))} disabled={loading || page <= 1}>Previous</button>
-            <span>Page {pagination.page || page} of {pagination.totalPages || 1}</span>
-            <button className="btn-secondary" onClick={() => setPage((value) => value + 1)} disabled={loading || !pagination.hasMore}>Next</button>
-          </div>
-        </div>
-      </div>
+      <CollectionPaginationFooter
+        page={pagination.page || page}
+        totalPages={pagination.totalPages || 1}
+        hasMore={pagination.hasMore}
+        loading={loading}
+        pageSize={pagination.limit || 25}
+        pageSizeOptions={[25]}
+        showPageSize={false}
+        className="px-4 sm:px-6"
+        leadingContent={`${pagination.total || 0} item${Number(pagination.total || 0) === 1 ? '' : 's'}`}
+        onPrevious={() => setPage((value) => Math.max(1, value - 1))}
+        onNext={() => setPage((value) => value + 1)}
+      />
 
       {editingLoan ? (
         <LoanEditor

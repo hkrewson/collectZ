@@ -161,6 +161,8 @@ export function CollectionPaginationFooter({
   onPrevious,
   onNext,
   pageSizeOptions = [25, 50, 100],
+  leadingContent = null,
+  showPageSize = true,
   className = '',
   alignEndWhenSingle = true
 }) {
@@ -168,6 +170,9 @@ export function CollectionPaginationFooter({
 
   return (
     <div className={cx('shrink-0 border-t border-edge px-6 py-2.5 flex items-center gap-4 flex-wrap', className)}>
+      {leadingContent ? (
+        <div className="text-sm text-ghost">{leadingContent}</div>
+      ) : null}
       {showPager ? (
         <div className="flex items-center gap-1.5 flex-wrap">
           <button
@@ -189,18 +194,20 @@ export function CollectionPaginationFooter({
           </button>
         </div>
       ) : null}
-      <div className={cx('flex items-center gap-2.5 text-xs', (alignEndWhenSingle || showPager) && 'ml-auto')}>
-        <label className="text-[11px] text-dim">Show</label>
-        <select
-          className="select h-7 w-20 border-edge bg-transparent pr-7 text-xs text-dim hover:border-muted focus:border-gold/50 focus:ring-gold/30"
-          value={pageSize}
-          onChange={(e) => onPageSizeChange?.(Number(e.target.value))}
-        >
-          {pageSizeOptions.map((value) => (
-            <option key={value} value={value}>{value}</option>
-          ))}
-        </select>
-      </div>
+      {showPageSize ? (
+        <div className={cx('flex items-center gap-2.5 text-xs', (alignEndWhenSingle || showPager || leadingContent) && 'ml-auto')}>
+          <label className="text-[11px] text-dim">Show</label>
+          <select
+            className="select h-7 w-20 border-edge bg-transparent pr-7 text-xs text-dim hover:border-muted focus:border-gold/50 focus:ring-gold/30"
+            value={pageSize}
+            onChange={(e) => onPageSizeChange?.(Number(e.target.value))}
+          >
+            {pageSizeOptions.map((value) => (
+              <option key={value} value={value}>{value}</option>
+            ))}
+          </select>
+        </div>
+      ) : null}
     </div>
   );
 }
