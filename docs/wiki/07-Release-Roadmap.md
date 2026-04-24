@@ -3950,6 +3950,52 @@ Historical note:
   - show active/overdue loans in a dedicated list,
   - leave actual outbound reminder sending for a later slice once the record lifecycle is proven.
 
+## 3.3.2 — Automatic Loan Reminders
+
+**Goal:** Add automatic due-soon and overdue reminder sending on top of the shipped manual loan reminder workflow without reopening the core loans record model.
+
+**Current Slice:** `Automatic Reminder Cadence and Job Contract`
+
+### Scope
+
+- Build on the shipped `3.3.1` manual reminder workflow instead of replacing it.
+- Define the automatic reminder cadence for:
+  - due-soon reminders,
+  - overdue reminders,
+  - and resend/backoff rules.
+- Add a background reminder job or equivalent runtime-safe automation path.
+- Prevent duplicate sends across repeated job runs and date-boundary edge cases.
+- Surface enough audit and failure visibility to explain:
+  - why a reminder sent,
+  - why it did not send,
+  - and whether delivery failed.
+- Keep manual reminder send behavior intact while layering automation on top.
+- Keep deeper reminder-event history out of this milestone unless the contract work proves it is an immediate blocker.
+
+### Acceptance Criteria
+
+- Eligible loans can receive automatic reminders without requiring a user to click `Send Reminder`.
+- Automatic reminder runs do not repeatedly send duplicate messages for the same reminder phase/day.
+- Reminder activity is visible enough to troubleshoot scheduled sends and failures.
+- The existing manual reminder workflow continues to work alongside the automated path.
+
+### Active Slice Notes
+
+- This follows `3.3.1` directly because the manual reminder workflow and UI state are already in place.
+- The first slice should settle:
+  - cadence,
+  - scheduling/runtime shape,
+  - duplicate prevention rules,
+  - and minimum audit visibility
+  before implementation starts.
+- Contract outcome from the audit:
+  - the first automation slice should reuse the existing lightweight startup-timer pattern in `backend/server.js` rather than introducing a separate worker/queue system,
+  - automation should be explicitly gated by reminder-delivery readiness so the runtime no-ops cleanly when SMTP is unavailable or automation is disabled,
+  - because loans already use `DATE` fields, the scheduler can run on a simple hourly-style interval while still evaluating date-based due-soon and overdue windows,
+  - the current shallow reminder fields are not enough to distinguish automatic due-soon sends from automatic overdue sends without guesswork,
+  - so the first implementation slice may add narrow phase-specific send tracking while still keeping full reminder-event history out of scope.
+- `Loan Reminder History Depth` remains in backlog as a separate follow-up unless automatic scheduling proves it is required immediately for safe delivery or troubleshooting.
+
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 

@@ -204,36 +204,6 @@ This file is the staging area for work that has not yet been assigned a release 
 - Closed support requests can trigger an optional survey.
 - The survey flow stays aligned with the support request lifecycle.
 
-### Backlog Item: Automatic Loan Reminders
-**Type:** Task
-**Tags:** `loans`, `reminders`, `automation`, `email`
-
-**Goal:** Add automatic due-soon and overdue reminder sending on top of the shipped manual loan reminder workflow without reopening the core loans record model.
-
-**Why this work exists**
-- `3.3.1` is intentionally stopping at reminder eligibility, visible status, and manual send.
-- Automatic sending adds scheduling, duplicate prevention, failure handling, and audit expectations that deserve their own scope.
-- The current loan reminder fields are already shaped to support later automation without requiring a schema redesign first.
-
-**Scope**
-- Define the automatic reminder cadence for:
-  - due-soon reminders,
-  - overdue reminders,
-  - and any resend/backoff rules.
-- Add a background reminder job or equivalent runtime-safe automation path.
-- Prevent duplicate sends across repeated job runs and date-boundary edge cases.
-- Surface enough audit and failure visibility to explain:
-  - why a reminder sent,
-  - why it did not send,
-  - and whether delivery failed.
-- Keep manual reminder send behavior intact while layering automation on top.
-
-**Acceptance Criteria**
-- Eligible loans can receive automatic reminders without requiring a user to click `Send Reminder`.
-- Automatic reminder runs do not repeatedly send duplicate messages for the same reminder phase/day.
-- Reminder activity is visible enough to troubleshoot scheduled sends and failures.
-- The existing manual reminder workflow continues to work alongside the automated path.
-
 ### Backlog Item: Loan Reminder History Depth
 **Type:** Task
 **Tags:** `loans`, `reminders`, `audit`, `history`
