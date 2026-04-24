@@ -167,6 +167,31 @@ function formatReminderEventLabel(event) {
   return `${trigger} ${phase} reminder sent`;
 }
 
+function ReminderHistorySummary({ events = [], className = '' }) {
+  if (!Array.isArray(events) || events.length === 0) return null;
+  return (
+    <div className={cx('mt-4 border-t border-edge/70 pt-3', className)}>
+      <p className="text-xs font-medium text-ghost">Reminder history</p>
+      <div className="mt-2 space-y-2">
+        {events.slice(0, 3).map((event) => (
+          <div
+            key={event.id || `${event.sent_at || 'event'}-${event.delivery_window_key || ''}`}
+            className="flex items-start justify-between gap-3 text-sm"
+          >
+            <div className="min-w-0">
+              <p className="text-ink">{formatReminderEventLabel(event)}</p>
+              {event.failure_summary ? (
+                <p className="mt-1 text-xs text-dim">{event.failure_summary}</p>
+              ) : null}
+            </div>
+            <span className="shrink-0 text-xs text-dim">{formatReminderTimestamp(event.sent_at)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function StarRating({ value = 0, onChange, readOnly = false }) {
   const safe = Number(value) || 0;
   return (
@@ -1224,27 +1249,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                 {!activeLoan.borrower_email ? (
                   <p className="mt-3 text-sm text-dim">Add borrower email to send reminders.</p>
                 ) : null}
-                {Array.isArray(activeLoan.reminder_events) && activeLoan.reminder_events.length > 0 ? (
-                  <div className="mt-4 border-t border-edge/70 pt-3">
-                    <p className="text-xs font-medium text-ghost">Reminder history</p>
-                    <div className="mt-2 space-y-2">
-                      {activeLoan.reminder_events.slice(0, 3).map((event) => (
-                        <div
-                          key={event.id || `${event.sent_at || 'event'}-${event.delivery_window_key || ''}`}
-                          className="flex items-start justify-between gap-3 text-sm"
-                        >
-                          <div className="min-w-0">
-                            <p className="text-ink">{formatReminderEventLabel(event)}</p>
-                            {event.failure_summary ? (
-                              <p className="mt-1 text-xs text-dim">{event.failure_summary}</p>
-                            ) : null}
-                          </div>
-                          <span className="shrink-0 text-xs text-dim">{formatReminderTimestamp(event.sent_at)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
+                <ReminderHistorySummary events={activeLoan.reminder_events} />
               </div>
             ) : null}
 
@@ -1327,11 +1332,12 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                 <div className="mt-3 space-y-3">
                   {loanHistory.slice(0, 3).map((loan) => (
                     <div key={loan.id} className="flex items-start justify-between gap-3 border-t border-edge/70 pt-3 first:border-t-0 first:pt-0">
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-ink">{loan.borrower_name || 'Borrower'}</p>
                         <p className="mt-1 text-sm text-ghost">
                           {formatDate(loan.loaned_at)} to {loan.returned_at ? formatDate(loan.returned_at) : formatDate(loan.due_at)}
                         </p>
+                        <ReminderHistorySummary events={loan.reminder_events} className="mt-3 pt-2" />
                       </div>
                       <span className={cx(
                         'badge shrink-0',

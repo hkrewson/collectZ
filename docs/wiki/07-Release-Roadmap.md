@@ -4058,7 +4058,8 @@ Historical note:
   - `media_loans` remains the fast current-state source for reminder status and latest-send timing,
   - manual and automatic reminder sends now write event rows to a dedicated `media_loan_reminders` table,
   - event rows capture phase, trigger source, status, timestamp, and delivery window key so duplicate-prevention decisions are explainable without reopening the loan record itself,
-  - `GET /api/media/:id/loans` now expands loan history records with `reminder_events` so readback stays attached to the loan-detail/history path instead of widening the library-level loans list payload.
+  - `GET /api/media/:id/loans` now expands loan history records with `reminder_events` so readback stays attached to the loan-detail/history path instead of widening the library-level loans list payload,
+  - the loan-first media drawer now surfaces compact reminder history for both the active loan and recent returned loans so reminder audit context is visible where the richer loan-detail payload is already being read.
 
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
