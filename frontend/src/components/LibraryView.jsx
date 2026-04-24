@@ -162,21 +162,21 @@ function formatReminderEventLabel(event) {
   if (!event) return 'Reminder event';
   const trigger = event.trigger_source === 'automatic' ? 'Automatic' : 'Manual';
   const phase = event.phase === 'overdue' ? 'overdue' : 'due soon';
-  if (event.status === 'failed') return `${trigger} ${phase} reminder failed`;
-  if (event.status === 'skipped') return `${trigger} ${phase} reminder skipped`;
-  return `${trigger} ${phase} reminder sent`;
+  if (event.status === 'failed') return `${phase} reminder failed (${trigger.toLowerCase()})`;
+  if (event.status === 'skipped') return `${phase} reminder skipped (${trigger.toLowerCase()})`;
+  return `${phase} reminder sent (${trigger.toLowerCase()})`;
 }
 
 function ReminderHistorySummary({ events = [], className = '' }) {
   if (!Array.isArray(events) || events.length === 0) return null;
   return (
-    <div className={cx('mt-4 border-t border-edge/70 pt-3', className)}>
-      <p className="text-xs font-medium text-ghost">Reminder history</p>
+    <div className={cx('mt-4 pt-2', className)}>
+      <p className="text-xs text-ghost">Reminder history</p>
       <div className="mt-2 space-y-2">
         {events.slice(0, 3).map((event) => (
           <div
             key={event.id || `${event.sent_at || 'event'}-${event.delivery_window_key || ''}`}
-            className="flex items-start justify-between gap-3 text-sm"
+            className="flex items-start justify-between gap-4 text-sm"
           >
             <div className="min-w-0">
               <p className="text-ink">{formatReminderEventLabel(event)}</p>
@@ -184,7 +184,7 @@ function ReminderHistorySummary({ events = [], className = '' }) {
                 <p className="mt-1 text-xs text-dim">{event.failure_summary}</p>
               ) : null}
             </div>
-            <span className="shrink-0 text-xs text-dim">{formatReminderTimestamp(event.sent_at)}</span>
+            <span className="shrink-0 text-xs text-ghost">{formatReminderTimestamp(event.sent_at)}</span>
           </div>
         ))}
       </div>
@@ -1206,7 +1206,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
             {activeLoan ? (
               <div className={cx(
                 'rounded-lg border bg-panel px-4 py-4',
-                activeLoan.is_overdue ? 'border-err/30' : 'border-gold/20'
+                activeLoan.is_overdue ? 'border-err/30' : 'border-edge'
               )}>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
@@ -1215,7 +1215,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                         'badge',
                         activeLoan.is_overdue
                           ? 'border border-err/25 bg-err/10 text-err'
-                          : 'border border-gold/25 bg-gold/10 text-gold'
+                          : 'border border-edge/70 bg-abyss text-dim'
                       )}>
                         {activeLoan.is_overdue ? 'Overdue' : 'Active'}
                       </span>
@@ -1327,17 +1327,17 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
             ) : null}
 
             {!loanLoading && loanHistory.length > 0 ? (
-              <div className="rounded-lg border border-edge bg-panel px-4 py-4">
-                <p className="text-xs font-medium text-ghost">Recent history</p>
-                <div className="mt-3 space-y-3">
+              <div className="pt-1">
+                <p className="text-sm text-dim">History</p>
+                <div className="mt-3 space-y-0">
                   {loanHistory.slice(0, 3).map((loan) => (
-                    <div key={loan.id} className="flex items-start justify-between gap-3 border-t border-edge/70 pt-3 first:border-t-0 first:pt-0">
+                    <div key={loan.id} className="flex items-start justify-between gap-3 border-t border-edge/70 py-3 first:border-t-0 first:pt-0">
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-ink">{loan.borrower_name || 'Borrower'}</p>
                         <p className="mt-1 text-sm text-ghost">
                           {formatDate(loan.loaned_at)} to {loan.returned_at ? formatDate(loan.returned_at) : formatDate(loan.due_at)}
                         </p>
-                        <ReminderHistorySummary events={loan.reminder_events} className="mt-3 pt-2" />
+                        <ReminderHistorySummary events={loan.reminder_events} className="mt-2 pt-0" />
                       </div>
                       <span className={cx(
                         'badge shrink-0',
