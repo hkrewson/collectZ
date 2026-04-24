@@ -2886,6 +2886,48 @@ async function loadScopedMediaLoan(loanId, scopeContext = null) {
   return result.rows[0] ? formatMediaLoanRow(result.rows[0]) : null;
 }
 
+function formatLoanReminderEventRow(row = {}) {
+  return {
+    id: Number(row.id || 0) || null,
+    loan_id: Number(row.loan_id || 0) || null,
+    media_id: Number(row.media_id || 0) || null,
+    library_id: Number(row.library_id || 0) || null,
+    space_id: Number(row.space_id || 0) || null,
+    phase: String(row.phase || '').trim() || null,
+    trigger_source: String(row.trigger_source || '').trim() || null,
+    status: String(row.status || '').trim() || null,
+    sent_at: row.sent_at || null,
+    triggered_by_user_id: Number(row.triggered_by_user_id || 0) || null,
+    failure_summary: row.failure_summary || null,
+    delivery_window_key: String(row.delivery_window_key || '').trim() || null
+  };
+}
+
+async function loadLoanReminderEventsByLoanIds(loanIds = [], scopeContext = null) {
+  const ids = Array.isArray(loanIds) ? loanIds.map((value) => Number(value || 0)).filter(Boolean) : [];
+  if (ids.length === 0) return new Map();
+  const params = [ids];
+  const scopeClause = appendScopeSql(params, scopeContext, {
+    spaceColumn: 'mlr.space_id',
+    libraryColumn: 'mlr.library_id'
+  });
+  const result = await pool.query(
+    `SELECT mlr.*
+       FROM media_loan_reminders mlr
+      WHERE mlr.loan_id = ANY($1::int[])${scopeClause}
+      ORDER BY mlr.sent_at DESC, mlr.id DESC`,
+    params
+  );
+  const grouped = new Map();
+  for (const row of result.rows || []) {
+    const loanId = Number(row.loan_id || 0) || null;
+    if (!loanId) continue;
+    if (!grouped.has(loanId)) grouped.set(loanId, []);
+    grouped.get(loanId).push(formatLoanReminderEventRow(row));
+  }
+  return grouped;
+}
+
 async function persistMediaValuation(mediaId, valuation) {
   const result = await pool.query(
     `UPDATE media
@@ -7488,6 +7530,11 @@ router.get('/:id/loans', requireSessionAuth, asyncHandler(async (req, res, next)
     params
   );
   const items = result.rows.map(formatMediaLoanRow);
+  const reminderEventsByLoanId = await loadLoanReminderEventsByLoanIds(items.map((entry) => entry.id), scopeContext);
+  const itemsWithReminderEvents = items.map((entry) => ({
+    ...entry,
+    reminder_events: reminderEventsByLoanId.get(Number(entry.id || 0)) || []
+  }));
   res.json({
     media: {
       id: media.id,
@@ -7496,8 +7543,8 @@ router.get('/:id/loans', requireSessionAuth, asyncHandler(async (req, res, next)
       poster_path: media.poster_path,
       year: media.year
     },
-    active_loan: items.find((entry) => !entry.returned_at) || null,
-    history: items
+    active_loan: itemsWithReminderEvents.find((entry) => !entry.returned_at) || null,
+    history: itemsWithReminderEvents
   });
 }));
 

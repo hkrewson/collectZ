@@ -1057,6 +1057,10 @@
           "reminder_phase": { "type": ["string", "null"], "enum": ["due_soon", "overdue", null] },
           "reminder_eligible": { "type": "boolean" },
           "reminder_sent_today": { "type": "boolean" },
+          "reminder_events": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/MediaLoanReminderEvent" }
+          },
           "created_by": { "type": ["integer", "null"] },
           "created_at": { "type": ["string", "null"], "format": "date-time" },
           "updated_at": { "type": ["string", "null"], "format": "date-time" },
@@ -1080,8 +1084,26 @@
           "is_overdue",
           "reminder_status",
           "reminder_eligible",
-          "reminder_sent_today"
+          "reminder_sent_today",
+          "reminder_events"
         ]
+      },
+      "MediaLoanReminderEvent": {
+        "type": "object",
+        "properties": {
+          "id": { "type": ["integer", "null"] },
+          "loan_id": { "type": ["integer", "null"] },
+          "media_id": { "type": ["integer", "null"] },
+          "library_id": { "type": ["integer", "null"] },
+          "space_id": { "type": ["integer", "null"] },
+          "phase": { "type": ["string", "null"], "enum": ["due_soon", "overdue", null] },
+          "trigger_source": { "type": ["string", "null"], "enum": ["manual", "automatic", null] },
+          "status": { "type": ["string", "null"], "enum": ["sent", "skipped", "failed", null] },
+          "sent_at": { "type": ["string", "null"], "format": "date-time" },
+          "triggered_by_user_id": { "type": ["integer", "null"] },
+          "failure_summary": { "type": ["string", "null"] },
+          "delivery_window_key": { "type": ["string", "null"] }
+        }
       },
       "MediaLoanListResponse": {
         "type": "object",

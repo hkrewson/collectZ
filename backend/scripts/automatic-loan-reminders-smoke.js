@@ -392,6 +392,10 @@ async function main() {
     const reminderEvents = await loadReminderEventsForLoans([dueSoonLoanId, overdueLoanId]);
     assert(Boolean(dueSoonHistory.data?.active_loan?.due_soon_reminder_last_sent_at), 'Expected due soon loan to persist phase-specific reminder tracking');
     assert(Boolean(overdueHistory.data?.active_loan?.overdue_reminder_last_sent_at), 'Expected overdue loan to persist phase-specific reminder tracking');
+    assert(Array.isArray(dueSoonHistory.data?.active_loan?.reminder_events), 'Expected due soon active loan response to include reminder events');
+    assert(Array.isArray(overdueHistory.data?.active_loan?.reminder_events), 'Expected overdue active loan response to include reminder events');
+    assert(dueSoonHistory.data?.active_loan?.reminder_events?.length === 1, `Expected due soon active loan to include one reminder event, got ${JSON.stringify(dueSoonHistory.data?.active_loan?.reminder_events)}`);
+    assert(overdueHistory.data?.active_loan?.reminder_events?.length === 1, `Expected overdue active loan to include one reminder event, got ${JSON.stringify(overdueHistory.data?.active_loan?.reminder_events)}`);
     assert(reminderEvents.length === 2, `Expected two reminder history events, got ${JSON.stringify(reminderEvents)}`);
     const dueSoonEvent = reminderEvents.find((entry) => Number(entry.loan_id) === dueSoonLoanId) || null;
     const overdueEvent = reminderEvents.find((entry) => Number(entry.loan_id) === overdueLoanId) || null;
@@ -412,7 +416,8 @@ async function main() {
       duplicateSkips: secondRun.data?.skippedAlreadySent,
       dueSoonTracked: Boolean(dueSoonHistory.data?.active_loan?.due_soon_reminder_last_sent_at),
       overdueTracked: Boolean(overdueHistory.data?.active_loan?.overdue_reminder_last_sent_at),
-      reminderEventCount: reminderEvents.length
+      reminderEventCount: reminderEvents.length,
+      apiReminderEventCount: Number(dueSoonHistory.data?.active_loan?.reminder_events?.length || 0) + Number(overdueHistory.data?.active_loan?.reminder_events?.length || 0)
     }, null, 2));
   } finally {
     await saveSmtpAppSettingsSnapshot(previousSmtpSettings);

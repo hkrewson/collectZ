@@ -378,6 +378,9 @@ async function main() {
     const activeLoan = refreshedHistory.data?.active_loan || null;
     assert(activeLoan?.reminder_status === 'sent', 'Expected media loan history to surface reminder status');
     assert(activeLoan?.reminder_sent_today === true, 'Expected media loan history to surface sent-today state');
+    assert(Array.isArray(activeLoan?.reminder_events), 'Expected active loan history response to include reminder events');
+    assert(activeLoan?.reminder_events?.length === 1, `Expected active loan history response to include one reminder event, got ${JSON.stringify(activeLoan?.reminder_events)}`);
+    assert(activeLoan?.reminder_events?.[0]?.trigger_source === 'manual', `Expected active loan reminder event to show manual trigger, got ${JSON.stringify(activeLoan?.reminder_events)}`);
     assert(reminderEvents.length === 1, `Expected one reminder history event, got ${JSON.stringify(reminderEvents)}`);
     assert(reminderEvents[0]?.status === 'sent', `Expected sent reminder history event, got ${JSON.stringify(reminderEvents)}`);
     assert(reminderEvents[0]?.phase === 'overdue', `Expected overdue reminder history event, got ${JSON.stringify(reminderEvents)}`);
@@ -392,6 +395,7 @@ async function main() {
       reminderEligibleAfterSend: reminded.data?.reminder_eligible,
       lastSentAtPresent: Boolean(reminded.data?.reminder_last_sent_at),
       reminderEventCount: reminderEvents.length,
+      apiReminderEventCount: Array.isArray(activeLoan?.reminder_events) ? activeLoan.reminder_events.length : 0,
       reminderEventStatus: reminderEvents[0]?.status || null,
       capturedMessageMentionsTitle: capturedMessage.includes('Loan Reminder Smoke Test'),
       secondAttemptStatus: secondAttempt.status

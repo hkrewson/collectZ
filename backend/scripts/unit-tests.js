@@ -3400,6 +3400,8 @@ results.push(run('library loans workflow is wired into dashboard navigation rout
   assert.ok(mediaRoutesSource.includes("router.patch('/loans/:loanId/return'"));
   assert.ok(mediaRoutesSource.includes("router.post('/loans/:loanId/reminder'"));
   assert.ok(mediaRoutesSource.includes("router.post('/loan-reminders/run-auto'"));
+  assert.ok(mediaRoutesSource.includes('loadLoanReminderEventsByLoanIds'));
+  assert.ok(mediaRoutesSource.includes('reminder_events: reminderEventsByLoanId.get'));
   assert.ok(backendPackageJson.scripts['test:library-loans-workflow-smoke']);
   assert.ok(backendPackageJson.scripts['test:library-loan-reminder-workflow-smoke']);
   assert.ok(backendPackageJson.scripts['test:automatic-loan-reminders-smoke']);
@@ -3429,12 +3431,16 @@ results.push(run('library loans view exposes management-focused counts and due-s
   assert.ok(serverSource.includes('autoLoanReminders='));
   assert.ok(openApiSource.includes('"summary"'));
   assert.ok(openApiSource.includes('"dueSoon"'));
+  assert.ok(openApiSource.includes('"MediaLoanReminderEvent"'));
+  assert.ok(openApiSource.includes('"reminder_events"'));
   assert.ok(openApiSource.includes('/api/media/loan-reminders/run-auto'));
   assert.ok(libraryLoanReminderWorkflowSmokeSource.includes('/api/media/loans/${loanId}/reminder'));
   assert.ok(automaticLoanRemindersSmokeSource.includes('/api/media/loan-reminders/run-auto'));
   assert.ok(automaticLoanRemindersSmokeSource.includes('Expected first automatic reminder run to send at least the two test reminders'));
   assert.ok(libraryLoanReminderWorkflowSmokeSource.includes('Expected one reminder history event'));
   assert.ok(automaticLoanRemindersSmokeSource.includes('Expected two reminder history events'));
+  assert.ok(libraryLoanReminderWorkflowSmokeSource.includes('active loan history response to include reminder events'));
+  assert.ok(automaticLoanRemindersSmokeSource.includes('active loan response to include reminder events'));
   assert.ok(libraryLoanReminderWorkflowSmokeSource.includes('smtp_override_enabled'));
   assert.ok(libraryMultiformatBrowserSpecSource.includes('loaned game cards open a loan-first drawer and keep the reminder action resilient'));
   assert.ok(libraryMultiformatBrowserSpecSource.includes("page.goto('/dashboard?tab=library-games')"));
