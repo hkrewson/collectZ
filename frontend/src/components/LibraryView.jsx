@@ -158,6 +158,15 @@ function formatReminderTimestamp(value) {
   return parsed.toLocaleString();
 }
 
+function formatReminderEventLabel(event) {
+  if (!event) return 'Reminder event';
+  const trigger = event.trigger_source === 'automatic' ? 'Automatic' : 'Manual';
+  const phase = event.phase === 'overdue' ? 'overdue' : 'due soon';
+  if (event.status === 'failed') return `${trigger} ${phase} reminder failed`;
+  if (event.status === 'skipped') return `${trigger} ${phase} reminder skipped`;
+  return `${trigger} ${phase} reminder sent`;
+}
+
 function StarRating({ value = 0, onChange, readOnly = false }) {
   const safe = Number(value) || 0;
   return (
@@ -1214,6 +1223,27 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                 {activeLoan.notes ? <p className="mt-3 text-sm text-dim">{activeLoan.notes}</p> : null}
                 {!activeLoan.borrower_email ? (
                   <p className="mt-3 text-sm text-dim">Add borrower email to send reminders.</p>
+                ) : null}
+                {Array.isArray(activeLoan.reminder_events) && activeLoan.reminder_events.length > 0 ? (
+                  <div className="mt-4 border-t border-edge/70 pt-3">
+                    <p className="text-xs font-medium text-ghost">Reminder history</p>
+                    <div className="mt-2 space-y-2">
+                      {activeLoan.reminder_events.slice(0, 3).map((event) => (
+                        <div
+                          key={event.id || `${event.sent_at || 'event'}-${event.delivery_window_key || ''}`}
+                          className="flex items-start justify-between gap-3 text-sm"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-ink">{formatReminderEventLabel(event)}</p>
+                            {event.failure_summary ? (
+                              <p className="mt-1 text-xs text-dim">{event.failure_summary}</p>
+                            ) : null}
+                          </div>
+                          <span className="shrink-0 text-xs text-dim">{formatReminderTimestamp(event.sent_at)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 ) : null}
               </div>
             ) : null}
