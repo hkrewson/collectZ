@@ -24,6 +24,15 @@ function getTodayIsoDate() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function buildLoanReminderDeliveryWindowKey(row = {}, phase = null) {
+  const normalizedPhase = String(phase || '').trim().toLowerCase() === 'overdue' ? 'overdue' : 'due_soon';
+  if (normalizedPhase === 'overdue') {
+    return `overdue:${getTodayIsoDate()}`;
+  }
+  const dueAt = normalizeLoanDateValue(row?.due_at) || 'unknown';
+  return `due_soon:${dueAt}`;
+}
+
 function buildMediaLoanStatus(row = {}) {
   if (row?.returned_at) return 'returned';
   const dueAt = normalizeLoanDateValue(row?.due_at);
@@ -128,6 +137,49 @@ function buildSystemAuditRequest() {
   };
 }
 
+async function insertLoanReminderEvent(row = {}, {
+  phase = null,
+  triggerSource = 'manual',
+  status = 'sent',
+  req = null,
+  failureSummary = null
+} = {}) {
+  const normalizedPhase = String(phase || '').trim().toLowerCase() === 'overdue' ? 'overdue' : 'due_soon';
+  const normalizedTriggerSource = String(triggerSource || '').trim().toLowerCase() === 'automatic' ? 'automatic' : 'manual';
+  const normalizedStatus = ['sent', 'skipped', 'failed'].includes(String(status || '').trim().toLowerCase())
+    ? String(status || '').trim().toLowerCase()
+    : 'sent';
+  await pool.query(
+    `INSERT INTO media_loan_reminders (
+       loan_id,
+       media_id,
+       library_id,
+       space_id,
+       phase,
+       trigger_source,
+       status,
+       sent_at,
+       triggered_by_user_id,
+       failure_summary,
+       delivery_window_key
+     ) VALUES (
+       $1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, $8, $9, $10
+     )`,
+    [
+      row?.id || null,
+      row?.media_id || null,
+      row?.library_id || null,
+      row?.space_id || null,
+      normalizedPhase,
+      normalizedTriggerSource,
+      normalizedStatus,
+      Number(req?.user?.id || 0) || null,
+      failureSummary ? String(failureSummary).slice(0, 500) : null,
+      buildLoanReminderDeliveryWindowKey(row, normalizedPhase)
+    ]
+  );
+}
+
 function getAutomaticLoanReminderRuntimeConfig() {
   return {
     enabled: parseBoolean(process.env.AUTO_LOAN_REMINDERS_ENABLED, false),
@@ -160,14 +212,33 @@ async function loadAutomaticReminderCandidateRows(limit = 100) {
 
 async function sendReminderForLoanRow(row, phase, { source = 'manual', req = null } = {}) {
   const normalizedPhase = String(phase || '').trim().toLowerCase() === 'overdue' ? 'overdue' : 'due_soon';
-  const reminderResult = await sendLoanReminderEmail({
-    to: row.borrower_email,
-    borrowerName: row.borrower_name || '',
-    title: row.media?.title || row.media_title || '',
-    dueAt: row.due_at || '',
-    phase: normalizedPhase
-  });
+  let reminderResult = null;
+  try {
+    reminderResult = await sendLoanReminderEmail({
+      to: row.borrower_email,
+      borrowerName: row.borrower_name || '',
+      title: row.media?.title || row.media_title || '',
+      dueAt: row.due_at || '',
+      phase: normalizedPhase
+    });
+  } catch (error) {
+    await insertLoanReminderEvent(row, {
+      phase: normalizedPhase,
+      triggerSource: source,
+      status: 'failed',
+      req,
+      failureSummary: error?.message || 'send_failed'
+    });
+    throw error;
+  }
   if (!reminderResult?.sent) {
+    await insertLoanReminderEvent(row, {
+      phase: normalizedPhase,
+      triggerSource: source,
+      status: 'failed',
+      req,
+      failureSummary: reminderResult?.reason || 'send_failed'
+    });
     return reminderResult || { attempted: true, sent: false, reason: 'send_failed' };
   }
 
@@ -181,6 +252,12 @@ async function sendReminderForLoanRow(row, phase, { source = 'manual', req = nul
       WHERE id = $1`,
     [row.id]
   );
+  await insertLoanReminderEvent(row, {
+    phase: normalizedPhase,
+    triggerSource: source,
+    status: 'sent',
+    req
+  });
 
   const auditReq = req || buildSystemAuditRequest();
   await logActivity(auditReq, source === 'automatic' ? 'media.loan.reminder.auto_send' : 'media.loan.reminder.send', 'media_loan', row.id, {
@@ -316,5 +393,6 @@ module.exports = {
   sendReminderForLoanRow,
   runAutomaticLoanReminderSweep,
   startAutomaticLoanReminderScheduler,
-  isAutomaticReminderEligible
+  isAutomaticReminderEligible,
+  buildLoanReminderDeliveryWindowKey
 };

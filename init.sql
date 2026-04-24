@@ -120,6 +120,30 @@ CREATE TABLE IF NOT EXISTS media_loans (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS media_loan_reminders (
+    id SERIAL PRIMARY KEY,
+    loan_id INTEGER NOT NULL REFERENCES media_loans(id) ON DELETE CASCADE,
+    media_id INTEGER REFERENCES media(id) ON DELETE CASCADE,
+    library_id INTEGER,
+    space_id INTEGER,
+    phase VARCHAR(20) NOT NULL CHECK (phase IN ('due_soon', 'overdue')),
+    trigger_source VARCHAR(20) NOT NULL CHECK (trigger_source IN ('manual', 'automatic')),
+    status VARCHAR(20) NOT NULL CHECK (status IN ('sent', 'skipped', 'failed')),
+    sent_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    triggered_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    failure_summary TEXT,
+    delivery_window_key VARCHAR(100) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_media_loan_reminders_loan_sent_at
+    ON media_loan_reminders(loan_id, sent_at DESC, id DESC);
+CREATE INDEX IF NOT EXISTS idx_media_loan_reminders_library_sent_at
+    ON media_loan_reminders(library_id, sent_at DESC, id DESC);
+CREATE INDEX IF NOT EXISTS idx_media_loan_reminders_space_sent_at
+    ON media_loan_reminders(space_id, sent_at DESC, id DESC);
+CREATE INDEX IF NOT EXISTS idx_media_loan_reminders_window
+    ON media_loan_reminders(loan_id, phase, delivery_window_key);
+
 -- Media metadata table
 CREATE TABLE IF NOT EXISTS media_metadata (
     id SERIAL PRIMARY KEY,
@@ -1076,5 +1100,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (68, 'Add collection merge history table for duplicate collection snapshots'),
     (69, 'Allow deferred recommendation feedback outcomes for operator merge workflow'),
     (70, 'Add media loans workflow table and active-loan indexes'),
-    (71, 'Add phase-specific reminder tracking to media loans')
+    (71, 'Add phase-specific reminder tracking to media loans'),
+    (72, 'Add event-level reminder history for media loans')
 ON CONFLICT (version) DO NOTHING;

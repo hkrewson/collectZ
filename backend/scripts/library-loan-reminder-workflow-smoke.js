@@ -240,6 +240,7 @@ async function saveSmtpAppSettingsSnapshot(snapshot) {
 
 async function cleanupTemporaryState({ userId, libraryId, spaceId }) {
   if (libraryId) {
+    await pool.query('DELETE FROM media_loan_reminders WHERE library_id = $1', [libraryId]).catch(() => {});
     await pool.query('DELETE FROM media_loans WHERE library_id = $1', [libraryId]).catch(() => {});
     await pool.query('DELETE FROM media_metadata WHERE media_id IN (SELECT id FROM media WHERE library_id = $1)', [libraryId]).catch(() => {});
     await pool.query('DELETE FROM collection_items WHERE media_id IN (SELECT id FROM media WHERE library_id = $1)', [libraryId]).catch(() => {});
@@ -259,6 +260,17 @@ async function cleanupTemporaryState({ userId, libraryId, spaceId }) {
   if (userId) {
     await pool.query('DELETE FROM users WHERE id = $1', [userId]).catch(() => {});
   }
+}
+
+async function loadReminderEventsForLoan(loanId) {
+  const result = await pool.query(
+    `SELECT phase, trigger_source, status, delivery_window_key
+       FROM media_loan_reminders
+      WHERE loan_id = $1
+      ORDER BY sent_at ASC, id ASC`,
+    [loanId]
+  );
+  return result.rows || [];
 }
 
 async function main() {
@@ -362,9 +374,15 @@ async function main() {
       method: 'GET',
       expectStatus: 200
     });
+    const reminderEvents = await loadReminderEventsForLoan(loanId);
     const activeLoan = refreshedHistory.data?.active_loan || null;
     assert(activeLoan?.reminder_status === 'sent', 'Expected media loan history to surface reminder status');
     assert(activeLoan?.reminder_sent_today === true, 'Expected media loan history to surface sent-today state');
+    assert(reminderEvents.length === 1, `Expected one reminder history event, got ${JSON.stringify(reminderEvents)}`);
+    assert(reminderEvents[0]?.status === 'sent', `Expected sent reminder history event, got ${JSON.stringify(reminderEvents)}`);
+    assert(reminderEvents[0]?.phase === 'overdue', `Expected overdue reminder history event, got ${JSON.stringify(reminderEvents)}`);
+    assert(reminderEvents[0]?.trigger_source === 'manual', `Expected manual reminder history event, got ${JSON.stringify(reminderEvents)}`);
+    assert(String(reminderEvents[0]?.delivery_window_key || '').startsWith('overdue:'), `Expected overdue delivery window key, got ${JSON.stringify(reminderEvents)}`);
 
     console.log(JSON.stringify({
       created: true,
@@ -373,6 +391,8 @@ async function main() {
       reminderSentToday: reminded.data?.reminder_sent_today,
       reminderEligibleAfterSend: reminded.data?.reminder_eligible,
       lastSentAtPresent: Boolean(reminded.data?.reminder_last_sent_at),
+      reminderEventCount: reminderEvents.length,
+      reminderEventStatus: reminderEvents[0]?.status || null,
       capturedMessageMentionsTitle: capturedMessage.includes('Loan Reminder Smoke Test'),
       secondAttemptStatus: secondAttempt.status
     }, null, 2));

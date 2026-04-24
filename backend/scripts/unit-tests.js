@@ -69,7 +69,8 @@ const {
   buildLoanReminderPhase,
   wasLoanReminderSentToday,
   getLoanReminderTrackingField,
-  isAutomaticReminderEligible
+  isAutomaticReminderEligible,
+  buildLoanReminderDeliveryWindowKey
 } = require('../services/loanReminders');
 const metricsModule = require('../services/metrics');
 const { shouldEnforceCsrf } = require('../middleware/csrf');
@@ -3376,6 +3377,11 @@ results.push(run('loan reminder helpers distinguish due-soon versus overdue auto
   assert.strictEqual(isAutomaticReminderEligible(sentOverdueLoan), false);
 }));
 
+results.push(run('loan reminder helpers build stable delivery window keys by phase', () => {
+  assert.strictEqual(buildLoanReminderDeliveryWindowKey({ due_at: '2026-04-30' }, 'due_soon'), 'due_soon:2026-04-30');
+  assert.strictEqual(buildLoanReminderDeliveryWindowKey({ due_at: '2026-04-30' }, 'overdue'), `overdue:${new Date().toISOString().slice(0, 10)}`);
+}));
+
 results.push(run('library loans workflow is wired into dashboard navigation routes and media source', () => {
   assert.ok(dashboardRoutingSource.includes("'library-loans'"));
   assert.ok(productEditionFrontendSource.includes("'library-loans'"));
@@ -3416,6 +3422,9 @@ results.push(run('library loans view exposes management-focused counts and due-s
   assert.ok(loanRemindersServiceSource.includes('runAutomaticLoanReminderSweep'));
   assert.ok(loanRemindersServiceSource.includes('due_soon_reminder_last_sent_at'));
   assert.ok(loanRemindersServiceSource.includes('overdue_reminder_last_sent_at'));
+  assert.ok(loanRemindersServiceSource.includes('media_loan_reminders'));
+  assert.ok(loanRemindersServiceSource.includes('delivery_window_key'));
+  assert.ok(loanRemindersServiceSource.includes('trigger_source'));
   assert.ok(serverSource.includes('startAutomaticLoanReminderScheduler()'));
   assert.ok(serverSource.includes('autoLoanReminders='));
   assert.ok(openApiSource.includes('"summary"'));
@@ -3423,7 +3432,9 @@ results.push(run('library loans view exposes management-focused counts and due-s
   assert.ok(openApiSource.includes('/api/media/loan-reminders/run-auto'));
   assert.ok(libraryLoanReminderWorkflowSmokeSource.includes('/api/media/loans/${loanId}/reminder'));
   assert.ok(automaticLoanRemindersSmokeSource.includes('/api/media/loan-reminders/run-auto'));
-  assert.ok(automaticLoanRemindersSmokeSource.includes('Expected first automatic reminder run to send two reminders'));
+  assert.ok(automaticLoanRemindersSmokeSource.includes('Expected first automatic reminder run to send at least the two test reminders'));
+  assert.ok(libraryLoanReminderWorkflowSmokeSource.includes('Expected one reminder history event'));
+  assert.ok(automaticLoanRemindersSmokeSource.includes('Expected two reminder history events'));
   assert.ok(libraryLoanReminderWorkflowSmokeSource.includes('smtp_override_enabled'));
   assert.ok(libraryMultiformatBrowserSpecSource.includes('loaned game cards open a loan-first drawer and keep the reminder action resilient'));
   assert.ok(libraryMultiformatBrowserSpecSource.includes("page.goto('/dashboard?tab=library-games')"));

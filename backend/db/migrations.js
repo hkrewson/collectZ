@@ -2944,6 +2944,35 @@ const MIGRATIONS = [
       ALTER TABLE media_loans
         ADD COLUMN IF NOT EXISTS overdue_reminder_last_sent_at TIMESTAMP;
     `
+  },
+  {
+    version: 72,
+    description: 'Add event-level reminder history for media loans',
+    up: `
+      CREATE TABLE IF NOT EXISTS media_loan_reminders (
+        id SERIAL PRIMARY KEY,
+        loan_id INTEGER NOT NULL REFERENCES media_loans(id) ON DELETE CASCADE,
+        media_id INTEGER REFERENCES media(id) ON DELETE CASCADE,
+        library_id INTEGER,
+        space_id INTEGER,
+        phase VARCHAR(20) NOT NULL CHECK (phase IN ('due_soon', 'overdue')),
+        trigger_source VARCHAR(20) NOT NULL CHECK (trigger_source IN ('manual', 'automatic')),
+        status VARCHAR(20) NOT NULL CHECK (status IN ('sent', 'skipped', 'failed')),
+        sent_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        triggered_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        failure_summary TEXT,
+        delivery_window_key VARCHAR(100) NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_media_loan_reminders_loan_sent_at
+        ON media_loan_reminders(loan_id, sent_at DESC, id DESC);
+      CREATE INDEX IF NOT EXISTS idx_media_loan_reminders_library_sent_at
+        ON media_loan_reminders(library_id, sent_at DESC, id DESC);
+      CREATE INDEX IF NOT EXISTS idx_media_loan_reminders_space_sent_at
+        ON media_loan_reminders(space_id, sent_at DESC, id DESC);
+      CREATE INDEX IF NOT EXISTS idx_media_loan_reminders_window
+        ON media_loan_reminders(loan_id, phase, delivery_window_key);
+    `
   }
 ];
 

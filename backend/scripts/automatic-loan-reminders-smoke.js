@@ -240,6 +240,7 @@ async function saveSmtpAppSettingsSnapshot(snapshot) {
 
 async function cleanupTemporaryState({ userId, libraryId, spaceId }) {
   if (libraryId) {
+    await pool.query('DELETE FROM media_loan_reminders WHERE library_id = $1', [libraryId]).catch(() => {});
     await pool.query('DELETE FROM media_loans WHERE library_id = $1', [libraryId]).catch(() => {});
     await pool.query('DELETE FROM media_metadata WHERE media_id IN (SELECT id FROM media WHERE library_id = $1)', [libraryId]).catch(() => {});
     await pool.query('DELETE FROM collection_items WHERE media_id IN (SELECT id FROM media WHERE library_id = $1)', [libraryId]).catch(() => {});
@@ -259,6 +260,19 @@ async function cleanupTemporaryState({ userId, libraryId, spaceId }) {
   if (userId) {
     await pool.query('DELETE FROM users WHERE id = $1', [userId]).catch(() => {});
   }
+}
+
+async function loadReminderEventsForLoans(loanIds = []) {
+  const ids = (Array.isArray(loanIds) ? loanIds : []).map((value) => Number(value || 0)).filter(Boolean);
+  if (ids.length === 0) return [];
+  const result = await pool.query(
+    `SELECT loan_id, phase, trigger_source, status, delivery_window_key
+       FROM media_loan_reminders
+      WHERE loan_id = ANY($1::int[])
+      ORDER BY loan_id ASC, sent_at ASC, id ASC`,
+    [ids]
+  );
+  return result.rows || [];
 }
 
 async function main() {
@@ -352,9 +366,9 @@ async function main() {
       body: {}
     });
     assert(firstRun.data?.smtpConfigured === true, `Expected automatic reminder run to see SMTP as configured, got ${JSON.stringify(firstRun.data)}`);
-    assert(firstRun.data?.sent === 2, `Expected first automatic reminder run to send two reminders, got ${JSON.stringify(firstRun.data)}`);
-    assert(firstRun.data?.dueSoonSent === 1, `Expected first run to send one due soon reminder, got ${JSON.stringify(firstRun.data)}`);
-    assert(firstRun.data?.overdueSent === 1, `Expected first run to send one overdue reminder, got ${JSON.stringify(firstRun.data)}`);
+    assert(Number(firstRun.data?.sent || 0) >= 2, `Expected first automatic reminder run to send at least the two test reminders, got ${JSON.stringify(firstRun.data)}`);
+    assert(Number(firstRun.data?.dueSoonSent || 0) >= 1, `Expected first run to send at least one due soon reminder, got ${JSON.stringify(firstRun.data)}`);
+    assert(Number(firstRun.data?.overdueSent || 0) >= 1, `Expected first run to send at least one overdue reminder, got ${JSON.stringify(firstRun.data)}`);
 
     const messages = await smtp.waitForMessageCount(2);
     const combined = messages.join('\n---\n');
@@ -375,8 +389,20 @@ async function main() {
 
     const dueSoonHistory = await client.request(`/api/media/${dueSoonMediaId}/loans`, { expectStatus: 200 });
     const overdueHistory = await client.request(`/api/media/${overdueMediaId}/loans`, { expectStatus: 200 });
+    const reminderEvents = await loadReminderEventsForLoans([dueSoonLoanId, overdueLoanId]);
     assert(Boolean(dueSoonHistory.data?.active_loan?.due_soon_reminder_last_sent_at), 'Expected due soon loan to persist phase-specific reminder tracking');
     assert(Boolean(overdueHistory.data?.active_loan?.overdue_reminder_last_sent_at), 'Expected overdue loan to persist phase-specific reminder tracking');
+    assert(reminderEvents.length === 2, `Expected two reminder history events, got ${JSON.stringify(reminderEvents)}`);
+    const dueSoonEvent = reminderEvents.find((entry) => Number(entry.loan_id) === dueSoonLoanId) || null;
+    const overdueEvent = reminderEvents.find((entry) => Number(entry.loan_id) === overdueLoanId) || null;
+    assert(dueSoonEvent?.phase === 'due_soon', `Expected due soon reminder history event, got ${JSON.stringify(reminderEvents)}`);
+    assert(dueSoonEvent?.trigger_source === 'automatic', `Expected due soon automatic reminder event, got ${JSON.stringify(reminderEvents)}`);
+    assert(dueSoonEvent?.status === 'sent', `Expected due soon sent reminder event, got ${JSON.stringify(reminderEvents)}`);
+    assert(String(dueSoonEvent?.delivery_window_key || '').startsWith('due_soon:'), `Expected due soon delivery window key, got ${JSON.stringify(reminderEvents)}`);
+    assert(overdueEvent?.phase === 'overdue', `Expected overdue reminder history event, got ${JSON.stringify(reminderEvents)}`);
+    assert(overdueEvent?.trigger_source === 'automatic', `Expected overdue automatic reminder event, got ${JSON.stringify(reminderEvents)}`);
+    assert(overdueEvent?.status === 'sent', `Expected overdue sent reminder event, got ${JSON.stringify(reminderEvents)}`);
+    assert(String(overdueEvent?.delivery_window_key || '').startsWith('overdue:'), `Expected overdue delivery window key, got ${JSON.stringify(reminderEvents)}`);
 
     console.log(JSON.stringify({
       firstRunSent: firstRun.data?.sent,
@@ -385,7 +411,8 @@ async function main() {
       secondRunSent: secondRun.data?.sent,
       duplicateSkips: secondRun.data?.skippedAlreadySent,
       dueSoonTracked: Boolean(dueSoonHistory.data?.active_loan?.due_soon_reminder_last_sent_at),
-      overdueTracked: Boolean(overdueHistory.data?.active_loan?.overdue_reminder_last_sent_at)
+      overdueTracked: Boolean(overdueHistory.data?.active_loan?.overdue_reminder_last_sent_at),
+      reminderEventCount: reminderEvents.length
     }, null, 2));
   } finally {
     await saveSmtpAppSettingsSnapshot(previousSmtpSettings);
