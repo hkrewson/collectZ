@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { CollectionPaginationFooter, SectionTabs, posterUrl } from './app/AppPrimitives';
 
 function formatDate(value) {
@@ -78,6 +78,12 @@ function formatLoanHistoryRange(loan) {
   const start = formatDate(loan.loaned_at);
   if (loan.returned_at) return `Loaned ${start} · Returned ${formatDate(loan.returned_at)}`;
   return `Loaned ${start} · Due ${formatDate(loan.due_at)}`;
+}
+
+function sortLoanHistoryEntries(left, right) {
+  const leftValue = String(left?.returned_at || left?.due_at || left?.loaned_at || '');
+  const rightValue = String(right?.returned_at || right?.due_at || right?.loaned_at || '');
+  return rightValue.localeCompare(leftValue);
 }
 
 function ReminderHistorySummary({ events = [] }) {
@@ -487,7 +493,17 @@ export default function LibraryLoansView({
           </div>
         ) : (
           <div className="space-y-3">
-            {loans.map((loan) => (
+            {loans.map((loan) => {
+              const historyEntries = Array.isArray(historyByMediaId[loan?.media?.id]?.history)
+                ? [...historyByMediaId[loan.media.id].history].sort(sortLoanHistoryEntries)
+                : null;
+              const currentHistoryCount = Array.isArray(historyEntries)
+                ? historyEntries.filter((entry) => !entry.returned_at).length
+                : 0;
+              const returnedHistoryCount = Array.isArray(historyEntries)
+                ? historyEntries.filter((entry) => Boolean(entry.returned_at)).length
+                : 0;
+              return (
               <div
                 key={loan.id}
                 className={[
@@ -590,8 +606,8 @@ export default function LibraryLoansView({
                           <div>
                             <p className="text-sm text-ink">Loan history</p>
                             <p className="mt-1 text-xs text-ghost">
-                              {Array.isArray(historyByMediaId[loan?.media?.id]?.history)
-                                ? `${historyByMediaId[loan.media.id].history.length} loan record${historyByMediaId[loan.media.id].history.length === 1 ? '' : 's'}`
+                              {Array.isArray(historyEntries)
+                                ? `${currentHistoryCount} current · ${returnedHistoryCount} returned`
                                 : 'Tracking active and returned loan records for this title'}
                             </p>
                           </div>
@@ -599,16 +615,16 @@ export default function LibraryLoansView({
                         {historyLoadingMediaId === Number(loan?.media?.id || 0) && !historyByMediaId[loan?.media?.id] ? (
                           <div className="mt-3 flex items-center gap-2 text-sm text-ghost"><Spinner size={16} />Loading history…</div>
                         ) : null}
-                        {Array.isArray(historyByMediaId[loan?.media?.id]?.history) ? (
+                        {Array.isArray(historyEntries) ? (
                           <div className="mt-4 space-y-5">
                             <LoanHistorySection
                               title="Current"
-                              loans={historyByMediaId[loan.media.id].history.filter((entry) => !entry.returned_at)}
+                              loans={historyEntries.filter((entry) => !entry.returned_at)}
                               activeLoanId={loan.id}
                             />
                             <LoanHistorySection
                               title="Returned"
-                              loans={historyByMediaId[loan.media.id].history.filter((entry) => Boolean(entry.returned_at))}
+                              loans={historyEntries.filter((entry) => Boolean(entry.returned_at))}
                               activeLoanId={loan.id}
                             />
                           </div>
@@ -618,7 +634,8 @@ export default function LibraryLoansView({
                   </div>
                 </div>
               </div>
-            ))}
+            );
+            })}
           </div>
         )}
       </div>
