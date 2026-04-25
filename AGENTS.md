@@ -56,7 +56,7 @@ For milestone, release, runtime, monitoring, auth, migration, or deployment work
 16. Every completed numbered roadmap milestone must end with a version closeout, even when the slice does not require a full release-shaped gate run.
    - A version closeout always includes semver/app-version sync, the matching `docs/releases/vX.Y.Z.md`, regenerated in-app release-feed data, and running-stack verification of recent Help > Releases entries.
    - A numbered milestone may defer some release gates only when those gates are explicitly marked blocked or clearly out of scope, but it may not be closed without version/release artifact alignment.
-17. For every semver release or release-shaped closeout, update the in-app Help > Releases source as part of the release note workflow:
+17. For every backlog task closeout, update the in-app Help > Releases source as part of the release note workflow:
    - ensure the matching `docs/releases/vX.Y.Z.md` exists,
    - regenerate any release-feed snapshot used by the app,
    - verify the running stack can still serve recent Help > Releases entries.

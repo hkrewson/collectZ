@@ -124,6 +124,7 @@ const productEditionFrontendSource = readFrontendSource(path.join('components', 
 const supportSessionBannerSource = readFrontendSource(path.join('components', 'app', 'SupportSessionBanner'));
 const useApiClientSource = readFrontendSource(path.join('components', 'app', 'hooks', 'useApiClient'));
 const helpViewSource = readFrontendSource(path.join('components', 'HelpView'));
+const adminActivityViewSource = readFrontendSource(path.join('components', 'AdminActivityView'));
 const adminUsersViewSource = readFrontendSource(path.join('components', 'AdminUsersView'));
 const libraryLoansViewSource = readFrontendSource(path.join('components', 'LibraryLoansView'));
 const adminMergeReviewViewSource = readFrontendSource(path.join('components', 'AdminMergeReviewView'));
@@ -1086,6 +1087,10 @@ results.push(run('admin route source includes automatic loan reminder operations
   assert.ok(adminRoutesSource.includes("action = 'media.loan.reminder.auto_fail'"));
   assert.ok(adminRoutesSource.includes('buildAutomaticLoanReminderRunRecord'));
   assert.ok(adminRoutesSource.includes('buildAutomaticLoanReminderFailureRecord'));
+  assert.ok(adminActivityViewSource.includes("/admin/loan-reminder-operations"));
+  assert.ok(adminActivityViewSource.includes('Loan reminder operations'));
+  assert.ok(adminActivityViewSource.includes('Latest automatic run'));
+  assert.ok(adminActivityViewSource.includes('Recent failures'));
 }));
 
 results.push(run('auth route source includes explicit support session endpoints', () => {
