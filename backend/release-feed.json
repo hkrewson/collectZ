@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v3.3.5",
+      "version": "3.3.5",
+      "date": "2026-04-25",
+      "status": "Completed",
+      "summary": "This patch release rounds out the current library-loans reminder line by adding an operator-facing reminder-operations surface. The release keeps the scope intentionally narrow: instead of creating a separate monitoring dashboard, it adds a dedicated admin read contract and a compact panel inside the existing platform activity view so operators can see reminder runtime state, latest automatic run results, and recent failures in one place.",
+      "details": []
+    },
+    {
       "title": "v3.3.4",
       "version": "3.3.4",
       "date": "2026-04-24",
@@ -160,29 +168,6 @@
           "bullets": [
             "Added a Docker-backed comic-heavy OPDS smoke that proves a clearly comic-shaped OPDS entry imports as `comic_book`, persists parsed `series`, `issue_number`, and `volume`, and then reuses the same canonical row on repeat sync.",
             "Fixed generic import mapping so row-backed OPDS `type_details` fields are not dropped before persistence, which previously stripped comic identity metadata from live OPDS imports."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "v3.2.6",
-      "version": "3.2.6",
-      "date": "2026-04-21",
-      "status": "Completed",
-      "summary": "This patch release hardens collection-side duplicate prevention after collection merges. It proves that a merged collection can survive a later boxed-set CSV import without recreating the absorbed duplicate container, and it fixes the collection identity persistence needed to make that behavior durable in runtime.",
-      "details": [
-        {
-          "heading": "Collection import alias durability",
-          "bullets": [
-            "Added collection-side absorbed identity preservation for merged collections through `import_collection_aliases`.",
-            "Taught collection-only import lookup to reuse those stored aliases instead of relying only on the current `source_title + import_source + media_type + scope` key.",
-            "Fixed alias normalization so stored snake_case collection alias fields survive dedupe and matching correctly."
-          ]
-        },
-        {
-          "heading": "Collection re-sync runtime proof",
-          "bullets": [
-            "Added a Docker-backed runtime smoke that:"
           ]
         }
       ]

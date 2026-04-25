@@ -4103,7 +4103,7 @@ Historical note:
 
 **Goal:** Make automatic loan reminder behavior easier to trust and troubleshoot by surfacing run-level operational visibility without turning the loans workflow into a broad reporting dashboard.
 
-**Current Slice:** `Reminder Operations Admin Surface`
+**Current Slice:** `Version Closeout`
 
 ### Scope
 
