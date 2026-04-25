@@ -4099,6 +4099,53 @@ Historical note:
   - returned and active historical entries are shown together inside that inline history panel,
   - and reminder-event history is surfaced there as supporting context instead of turning the top-level loans list into a full audit grid.
 
+## 3.3.5 — Loan Reminder Operations Visibility
+
+**Goal:** Make automatic loan reminder behavior easier to trust and troubleshoot by surfacing run-level operational visibility without turning the loans workflow into a broad reporting dashboard.
+
+**Current Slice:** `Reminder Operations Contract Audit`
+
+### Scope
+
+- Build on the shipped `3.3.1` through `3.3.4` reminder workflow, automation, history-depth, and global-history milestones instead of redesigning reminder execution.
+- Focus the first slice on operational visibility for reminder automation:
+  - last automatic reminder run,
+  - sent/skipped/failed counts,
+  - recent failures or no-send reasons,
+  - and whether any lightweight operator trigger/readback belongs in the same surface.
+- Keep the milestone scoped to reminder-operations trust and troubleshooting:
+  - do not broaden into a full analytics/reporting dashboard,
+  - do not introduce new reminder channels,
+  - do not redesign the main Loans workspace again unless the operations contract clearly needs a small visibility hook there.
+
+### Acceptance Criteria
+
+- Operators can tell whether automatic loan reminders ran recently.
+- Operators can review enough sent/skipped/failed summary context to troubleshoot basic reminder behavior.
+- The implementation keeps run-level operations visibility distinct from per-loan history detail.
+- The first slice defines whether operations visibility lives in an admin/operator surface, the Loans workspace, or a lightweight hybrid without widening scope accidentally.
+
+### Active Slice Notes
+
+- This follows `3.3.4` because the remaining loan/reminder gap is no longer basic workflow state or history depth; it is trust in the automation layer itself.
+- The first slice should settle:
+  - the run-level reminder operations model,
+  - the minimum counts and failure details required,
+  - and whether the existing admin-trigger path should surface summary results more explicitly
+  before implementation starts.
+- Contract decision:
+  - keep reminder operations visibility separate from per-loan history,
+  - start in an admin/operator-facing surface instead of widening the main `Loans` workspace again,
+  - and reuse the existing automatic sweep summary plus audit events as the first data source instead of inventing a parallel metrics system.
+- First implementation target:
+  - a small read contract that exposes the latest automatic reminder run summary,
+  - recent automatic run history,
+  - and recent automatic failure entries with enough detail to answer basic “why didn’t this send?” questions.
+- Scope boundary:
+  - do not build a broad analytics dashboard in this milestone,
+  - do not add cross-system notification reporting,
+  - and only add UI beyond an admin/operator visibility surface if the first implementation proves the reminder operations summary cannot stand on its own.
+
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
