@@ -1157,11 +1157,10 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
               {!activeLoan ? (
                 <button
                   type="button"
-                  className="btn-secondary"
+                  className="btn-ghost"
                   onClick={() => setLoanFormOpen((value) => !value)}
                   disabled={loanSaving}
                 >
-                  <Icons.Users />
                   {loanFormOpen ? 'Hide Loan Form' : 'Loan Out'}
                 </button>
               ) : (
