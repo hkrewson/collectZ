@@ -11,6 +11,7 @@ import LibraryView from '../LibraryView';
 import LibraryLoansView from '../LibraryLoansView';
 import EventsView from '../EventsView';
 import CollectiblesView from '../CollectiblesView';
+import ArtView from '../ArtView';
 import ForbiddenView from '../ForbiddenView';
 import SpaceManagerView from '../SpaceManagerView';
 import HelpView from '../HelpView';
@@ -117,13 +118,17 @@ export default function DashboardContent({
     case 'library-games':
     case 'library-comics':
     case 'library-loans':
+    case 'library-art':
     case 'library-collectibles':
     case 'library-events': {
-      if (activeTab === 'library-collectibles' && !featureFlags.collectibles_enabled) {
+      if ((activeTab === 'library-collectibles' || activeTab === 'library-art') && !featureFlags.collectibles_enabled) {
         return <ForbiddenView detail="Collectibles is currently disabled by feature flag." />;
       }
       if (activeTab === 'library-events' && !featureFlags.events_enabled) {
         return <ForbiddenView detail="Events is currently disabled by feature flag." />;
+      }
+      if (activeTab === 'library-art') {
+        return <ArtView key={`art:${scopeKey}`} apiCall={apiCall} onToast={showToast} />;
       }
       if (activeTab === 'library-collectibles') {
         return <CollectiblesView key={`collectibles:${scopeKey}`} apiCall={apiCall} onToast={showToast} />;

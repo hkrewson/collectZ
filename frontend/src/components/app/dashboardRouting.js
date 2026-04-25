@@ -6,6 +6,7 @@ export const VALID_DASHBOARD_TABS = new Set([
   'library-tv',
   'library-books',
   'library-audio',
+  'library-art',
   'library-games',
   'library-comics',
   'library-loans',
@@ -42,7 +43,7 @@ export const DEFAULT_INTEGRATION_SECTION = 'audio';
 
 export function readDashboardStateFromUrl() {
   const path = String(window.location.pathname || '');
-  const libMatch = path.match(/^\/library\/(movies|tv|books|audio|games|comics|loans|collectibles|events|other|import|import-review)\/?$/);
+  const libMatch = path.match(/^\/library\/(movies|tv|books|audio|art|games|comics|loans|collectibles|events|other|import|import-review)\/?$/);
   if (libMatch) {
     const slug = libMatch[1];
     return {

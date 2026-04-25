@@ -4152,6 +4152,91 @@ Historical note:
   - do not add cross-system notification reporting,
   - and only add UI beyond an admin/operator visibility surface if the first implementation proves the reminder operations summary cannot stand on its own.
 
+## 3.4.0 — Art Library Promotion and Event Purchase Linking
+
+**Goal:** Promote Art into its own first-class library surface while preserving event-linked purchase history so art remains anchored to convention and show activity instead of becoming an orphaned side model.
+
+**Current Slice:** `Art Metadata and Collectibles Taxonomy Simplification`
+
+### Why this is a minor version
+
+- This is a new first-class library surface, not just a taxonomy cleanup inside an existing screen.
+- The milestone changes how users understand and navigate a real collection domain by moving Art out of the broader Collectibles bucket.
+- It also touches event purchase relationships and migration boundaries for existing data, which is broader than a normal patch-only polish pass.
+
+### Scope
+
+- Promote Art into its own product/library surface instead of treating it only as a collectibles subtype.
+- Preserve the ability to link purchased art back to events:
+  - convention purchases,
+  - artist alley purchases,
+  - gallery or show purchases,
+  - and similar event-scoped acquisition history.
+- Decide whether the event purchase relationship should:
+  - stay as a shared event-to-object model across Collectibles and Art,
+  - or move behind a new cross-domain purchased-item relationship contract.
+- Keep current collectible/event behavior intact while defining how existing art-classified collectible rows should migrate.
+- Keep this milestone intentionally focused:
+  - do not redesign Events broadly,
+  - do not absorb Collectibles taxonomy simplification automatically unless the contract audit proves it is an immediate blocker,
+  - do not widen into Apple/public-export/library-repo concerns.
+
+### Acceptance Criteria
+
+- Art can be managed through its own first-class library surface rather than only through Collectibles.
+- Art items can still be linked to events as purchased items.
+- Existing art-classified collectible rows can migrate without losing event purchase history, attribution, or basic discoverability.
+- The relationship model between events and purchased items is documented clearly enough to support both Collectibles and Art without guesswork.
+
+### Active Slice Notes
+
+- This follows the completed `3.3.x` loans line because it is the next product-visible collection-domain expansion already identified in backlog.
+- The first slice should settle:
+  - whether Art is modeled as a new media/library domain, a promoted object model parallel to Collectibles, or a hybrid,
+  - whether event purchase linking remains a direct foreign-key style attachment or becomes a more general purchased-item relationship,
+  - and what minimum migration path is required for existing collectible rows where `subtype = art`.
+- Starting-point audit outcome:
+  - the current collectibles model already treats `art` and `card` as collectible subtypes,
+  - the current collectible model already supports `event_id` purchase/event linking,
+  - and the earlier `2.4.4` milestone intentionally framed Art and Cards as taxonomy expansion inside Collectibles rather than as separate library surfaces.
+- Contract questions to answer before implementation:
+  - should Art reuse the same object fields as Collectibles with a new library shell,
+  - should Art keep or replace collectible-specific fields such as `booth_or_vendor`, `artist`, `exclusive`, and `price`,
+  - and how should event-linked purchases be queried and displayed once Art is no longer only a collectible subtype.
+- Contract outcome from the audit:
+  - the current product has two overlapping purchase/history paths:
+    - Art and other collectibles can link directly to an event through `collectibles.event_id`,
+    - and Events also maintain a separate freeform `purchase` artifact lane that is not object-linked to a collectible record.
+  - promoting Art into its own library should not start by inventing a brand-new detached purchase-history model.
+  - the safer first boundary is:
+    - keep one object-backed purchase relationship model for collectible-like things,
+    - let both Collectibles and Art participate in that shared relationship,
+    - and treat freeform event purchase artifacts as supporting notes/history rather than the primary canonical ownership link for tracked objects.
+  - the first implementation should therefore prefer:
+    - Art as a promoted parallel object domain that reuses most of the current collectible field shape,
+    - a shared event-linked purchased-item relationship contract across Collectibles and Art,
+    - and a migration path that lifts existing `subtype = art` rows without discarding their current `event_id`, `artist`, `price`, or vendor context.
+- Explicit scope boundary for the next slice:
+  - do not collapse the entire Collectibles taxonomy in this milestone unless the migration contract proves it is required,
+  - do not redesign the Events artifact editor yet,
+  - and do not force Art into the media-provider/media-import model prematurely just to make it look like Movies/Books/Games.
+- First implementation slice now in progress:
+  - Art has a dedicated backend route surface on top of the shared collectibles storage contract,
+  - the dashboard/library shell exposes a dedicated `Art` destination instead of forcing users through Collectibles first,
+  - and event-linked purchase behavior still rides the same `event_id` relationship rather than branching into a new detached purchase ledger.
+- Current metadata follow-up in progress:
+  - add `series` as a first-class field for Art and reusable collectible cases like comic panels,
+  - split the overloaded `booth_or_vendor` field into distinct `vendor` and `booth` fields while keeping backward-compatible read behavior,
+  - and preserve searchability/discoverability for artist plus series combinations.
+- Narrow taxonomy simplification now pulled into this milestone intentionally:
+  - Art promotion removed the old rationale for keeping `Art` in the Collectibles type menu,
+  - so Collectibles can collapse its duplicate `Type` plus `Category` editor choice into one classification selector,
+  - with `Card` living in that single selector and ordinary collectible categories continuing through the same control,
+  - while leaving the broader versionless `Collectibles Taxonomy Simplification` backlog item available for any later cleanup that is not directly required by the Art split.
+- Scope boundary for this foundation slice:
+  - keep Art on the existing collectibles feature-flag boundary for now,
+  - keep event purchase linking direct and shared,
+  - and defer deeper row migration or schema split decisions until the dedicated Art surface has proven itself.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 

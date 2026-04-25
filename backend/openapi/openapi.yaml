@@ -1281,6 +1281,88 @@
         },
         "required": ["runtime", "latest_run", "recent_runs", "recent_failures"]
       },
+      "ArtRecord": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "library_id": { "type": ["integer", "null"] },
+          "space_id": { "type": ["integer", "null"] },
+          "title": { "type": "string" },
+          "subtype": { "type": "string", "enum": ["art"] },
+          "item_type": { "type": "string", "enum": ["art"] },
+          "category_key": { "type": ["string", "null"] },
+          "category": { "type": ["string", "null"] },
+          "event_id": { "type": ["integer", "null"] },
+          "series": { "type": ["string", "null"] },
+          "artist": { "type": ["string", "null"] },
+          "vendor": { "type": ["string", "null"] },
+          "booth": { "type": ["string", "null"] },
+          "booth_or_vendor": { "type": ["string", "null"] },
+          "price": { "type": ["number", "null"] },
+          "exclusive": { "type": "boolean" },
+          "image_path": { "type": ["string", "null"] },
+          "notes": { "type": ["string", "null"] },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        },
+        "required": ["id", "title", "subtype", "item_type", "exclusive", "created_at", "updated_at"]
+      },
+      "ArtListResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ArtRecord" }
+          },
+          "pagination": {
+            "type": "object",
+            "properties": {
+              "page": { "type": "integer" },
+              "limit": { "type": "integer" },
+              "total": { "type": "integer" },
+              "totalPages": { "type": "integer" },
+              "hasMore": { "type": "boolean" }
+            },
+            "required": ["page", "limit", "total", "totalPages", "hasMore"]
+          }
+        },
+        "required": ["items", "pagination"]
+      },
+      "ArtCategoriesResponse": {
+        "type": "object",
+        "properties": {
+          "categories": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": { "type": "string" },
+                "label": { "type": "string" }
+              },
+              "required": ["key", "label"]
+            }
+          }
+        },
+        "required": ["categories"]
+      },
+      "ArtUpsertRequest": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string" },
+          "category_key": { "type": ["string", "null"] },
+          "event_id": { "type": ["integer", "null"] },
+          "series": { "type": ["string", "null"] },
+          "artist": { "type": ["string", "null"] },
+          "vendor": { "type": ["string", "null"] },
+          "booth": { "type": ["string", "null"] },
+          "booth_or_vendor": { "type": ["string", "null"] },
+          "price": { "type": ["number", "null"] },
+          "exclusive": { "type": ["boolean", "null"] },
+          "image_path": { "type": ["string", "null"] },
+          "notes": { "type": ["string", "null"] }
+        },
+        "required": ["title"]
+      },
       "ValuationRefreshRequest": {
         "type": "object",
         "properties": {
@@ -4174,6 +4256,167 @@
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/LoanReminderOperationsResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/art/categories": {
+      "get": {
+        "tags": ["Media"],
+        "summary": "List available art categories",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "responses": {
+          "200": {
+            "description": "Art category options",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ArtCategoriesResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/art": {
+      "get": {
+        "tags": ["Media"],
+        "summary": "List art records in the active scope",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paged art results",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ArtListResponse" }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Media"],
+        "summary": "Create an art record linked to the active scope",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ArtUpsertRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created art record",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ArtRecord" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/art/{id}": {
+      "get": {
+        "tags": ["Media"],
+        "summary": "Read a single art record in the active scope",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Art detail",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ArtRecord" }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": ["Media"],
+        "summary": "Update a single art record in the active scope",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ArtUpsertRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated art record",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ArtRecord" }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Media"],
+        "summary": "Archive an art record in the active scope",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Archive confirmation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "id": { "type": "integer" }
+                  },
+                  "required": ["ok", "id"]
+                }
               }
             }
           }

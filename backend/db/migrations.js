@@ -2973,6 +2973,26 @@ const MIGRATIONS = [
       CREATE INDEX IF NOT EXISTS idx_media_loan_reminders_window
         ON media_loan_reminders(loan_id, phase, delivery_window_key);
     `
+  },
+  {
+    version: 73,
+    description: 'Add collectible series plus split vendor and booth fields',
+    up: `
+      ALTER TABLE collectibles
+        ADD COLUMN IF NOT EXISTS series VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS vendor VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS booth VARCHAR(255);
+
+      UPDATE collectibles
+      SET vendor = COALESCE(vendor, booth_or_vendor)
+      WHERE COALESCE(vendor, '') = ''
+        AND COALESCE(booth_or_vendor, '') <> '';
+
+      CREATE INDEX IF NOT EXISTS idx_collectibles_vendor_v2
+        ON collectibles(vendor);
+      CREATE INDEX IF NOT EXISTS idx_collectibles_series
+        ON collectibles(series);
+    `
   }
 ];
 

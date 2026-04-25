@@ -150,6 +150,7 @@ const getRequiredPatScopesForRequest = (req) => {
   if (path.startsWith('/api/media/import-')) return ['import:run'];
   if (path.startsWith('/api/media')) return [isRead ? 'media:read' : 'media:write'];
   if (path.startsWith('/api/events')) return [isRead ? 'events:read' : 'events:write'];
+  if (path.startsWith('/api/art')) return [isRead ? 'collectibles:read' : 'collectibles:write'];
   if (path.startsWith('/api/collectibles')) return [isRead ? 'collectibles:read' : 'collectibles:write'];
 
   return null;

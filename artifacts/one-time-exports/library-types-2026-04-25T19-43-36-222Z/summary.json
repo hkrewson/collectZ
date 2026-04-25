@@ -1,0 +1,38 @@
+{
+  "base_url": "http://localhost:3000/api",
+  "export_root": "/Users/hamlin/Development/GitHub/hkrewson/collectZ/artifacts/one-time-exports/library-types-2026-04-25T19-43-36-222Z",
+  "auth_mode": "login",
+  "auth_email": "hamlin@krewson.org",
+  "files": [
+    {
+      "media_type": "movie",
+      "row_count": 1849,
+      "file": "/Users/hamlin/Development/GitHub/hkrewson/collectZ/artifacts/one-time-exports/library-types-2026-04-25T19-43-36-222Z/movie.csv"
+    },
+    {
+      "media_type": "tv_series",
+      "row_count": 375,
+      "file": "/Users/hamlin/Development/GitHub/hkrewson/collectZ/artifacts/one-time-exports/library-types-2026-04-25T19-43-36-222Z/tv_series.csv"
+    },
+    {
+      "media_type": "book",
+      "row_count": 51,
+      "file": "/Users/hamlin/Development/GitHub/hkrewson/collectZ/artifacts/one-time-exports/library-types-2026-04-25T19-43-36-222Z/book.csv"
+    },
+    {
+      "media_type": "audio",
+      "row_count": 220,
+      "file": "/Users/hamlin/Development/GitHub/hkrewson/collectZ/artifacts/one-time-exports/library-types-2026-04-25T19-43-36-222Z/audio.csv"
+    },
+    {
+      "media_type": "game",
+      "row_count": 588,
+      "file": "/Users/hamlin/Development/GitHub/hkrewson/collectZ/artifacts/one-time-exports/library-types-2026-04-25T19-43-36-222Z/game.csv"
+    },
+    {
+      "media_type": "comic_book",
+      "row_count": 461,
+      "file": "/Users/hamlin/Development/GitHub/hkrewson/collectZ/artifacts/one-time-exports/library-types-2026-04-25T19-43-36-222Z/comic_book.csv"
+    }
+  ]
+}

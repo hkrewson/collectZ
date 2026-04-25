@@ -102,6 +102,7 @@ const serviceAccountKeySource = fs.readFileSync(require.resolve('../services/ser
 const librariesRoutesSource = fs.readFileSync(require.resolve('../routes/libraries'), 'utf8');
 const spacesRoutesSource = fs.readFileSync(require.resolve('../routes/spaces'), 'utf8');
 const adminRoutesSource = fs.readFileSync(require.resolve('../routes/admin'), 'utf8');
+const collectiblesRoutesSource = fs.readFileSync(require.resolve('../routes/collectibles'), 'utf8');
 const integrationsRoutesSource = fs.readFileSync(require.resolve('../routes/integrations'), 'utf8');
 const supportRoutesSource = fs.readFileSync(require.resolve('../routes/support'), 'utf8');
 const spacesServiceSource = fs.readFileSync(require.resolve('../services/spaces'), 'utf8');
@@ -129,6 +130,7 @@ const adminUsersViewSource = readFrontendSource(path.join('components', 'AdminUs
 const libraryLoansViewSource = readFrontendSource(path.join('components', 'LibraryLoansView'));
 const adminMergeReviewViewSource = readFrontendSource(path.join('components', 'AdminMergeReviewView'));
 const libraryViewSource = readFrontendSource(path.join('components', 'LibraryView'));
+const artViewSource = readFrontendSource(path.join('components', 'ArtView'));
 const backendPackageJson = JSON.parse(fs.readFileSync(require.resolve('../package.json'), 'utf8'));
 const frontendPackageJson = JSON.parse(fs.readFileSync(require.resolve('../../frontend/package.json'), 'utf8'));
 const frontendViteConfigSource = fs.readFileSync(require.resolve('../../frontend/vite.config.js'), 'utf8');
@@ -3053,6 +3055,10 @@ results.push(run('pat.getRequiredPatScopesForRequest maps media and import route
     getRequiredPatScopesForRequest({ originalUrl: '/api/media/import-plex', method: 'POST' }),
     ['import:run']
   );
+  assert.deepStrictEqual(
+    getRequiredPatScopesForRequest({ originalUrl: '/api/art/14', method: 'PATCH' }),
+    ['collectibles:write']
+  );
 }));
 
 results.push(run('serviceAccount.isServiceAccountPrefixAllowed matches explicit route prefixes', () => {
@@ -3422,6 +3428,36 @@ results.push(run('library loans workflow is wired into dashboard navigation rout
   assert.ok(backendPackageJson.scripts['test:library-loans-workflow-smoke']);
   assert.ok(backendPackageJson.scripts['test:library-loan-reminder-workflow-smoke']);
   assert.ok(backendPackageJson.scripts['test:automatic-loan-reminders-smoke']);
+}));
+
+results.push(run('art library surface is promoted through shared collectible contracts without losing event linkage', () => {
+  assert.ok(sidebarNavSource.includes("library-art"));
+  assert.ok(sidebarNavSource.includes('label="Art"'));
+  assert.ok(dashboardRoutingSource.includes("'library-art'"));
+  assert.ok(dashboardContentSource.includes("case 'library-art'"));
+  assert.ok(dashboardContentSource.includes('ArtView'));
+  assert.ok(frontendAppSource.includes("activeTab === 'library-art'"));
+  assert.ok(productEditionFrontendSource.includes("allowed.add('library-art')"));
+  assert.ok(artViewSource.includes('mode="art"'));
+  assert.ok(openApiSource.includes('"/api/art"'));
+  assert.ok(openApiSource.includes('"/api/art/{id}"'));
+  assert.ok(openApiSource.includes('"ArtRecord"'));
+  assert.ok(openApiSource.includes('"ArtUpsertRequest"'));
+  assert.ok(openApiSource.includes('"series"'));
+  assert.ok(openApiSource.includes('"vendor"'));
+  assert.ok(openApiSource.includes('"booth"'));
+  assert.ok(openApiSource.includes('"summary": "List art records in the active scope"'));
+  assert.ok(collectiblesRoutesSource.includes("'/art'"));
+  assert.ok(collectiblesRoutesSource.includes('Art items stay in the Art library'));
+  assert.ok(collectiblesRoutesSource.includes('entityLabel'));
+  assert.ok(collectiblesRoutesSource.includes('ADD COLUMN IF NOT EXISTS series') || migrationsSource.includes('version: 73'));
+  assert.ok(libraryViewSource.includes('comic_series'));
+  assert.ok(readFrontendSource(path.join('components', 'CollectiblesView')).includes('Series'));
+  assert.ok(readFrontendSource(path.join('components', 'CollectiblesView')).includes('Vendor'));
+  assert.ok(readFrontendSource(path.join('components', 'CollectiblesView')).includes('Booth'));
+  assert.ok(readFrontendSource(path.join('components', 'CollectiblesView')).includes('COLLECTIBLE_CLASSIFICATIONS'));
+  assert.ok(readFrontendSource(path.join('components', 'CollectiblesView')).includes("categoryFilter === 'card'"));
+  assert.ok(readFrontendSource(path.join('components', 'CollectiblesView')).includes("setForm((p) => ({ ...p, ...next }))"));
 }));
 
 results.push(run('library loans view exposes management-focused counts and due-soon emphasis', () => {

@@ -746,6 +746,9 @@ CREATE TABLE IF NOT EXISTS collectibles (
       ),
     category_key VARCHAR(64) REFERENCES collectible_categories(key) ON UPDATE CASCADE ON DELETE SET NULL,
     event_id INTEGER REFERENCES events(id) ON DELETE SET NULL,
+    series VARCHAR(255),
+    vendor VARCHAR(255),
+    booth VARCHAR(255),
     booth_or_vendor VARCHAR(255),
     artist VARCHAR(255),
     price NUMERIC(10,2),
@@ -851,6 +854,8 @@ CREATE INDEX IF NOT EXISTS idx_collectibles_library_created_at ON collectibles(l
 CREATE INDEX IF NOT EXISTS idx_collectibles_event_id ON collectibles(event_id);
 CREATE INDEX IF NOT EXISTS idx_collectibles_category ON collectibles(category);
 CREATE INDEX IF NOT EXISTS idx_collectibles_vendor ON collectibles(booth_or_vendor);
+CREATE INDEX IF NOT EXISTS idx_collectibles_vendor_v2 ON collectibles(vendor);
+CREATE INDEX IF NOT EXISTS idx_collectibles_series ON collectibles(series);
 CREATE INDEX IF NOT EXISTS idx_collectibles_exclusive ON collectibles(exclusive);
 CREATE INDEX IF NOT EXISTS idx_collectibles_library_subtype_category ON collectibles(library_id, subtype, category_key);
 CREATE INDEX IF NOT EXISTS idx_collectibles_event_id_v2 ON collectibles(event_id);
@@ -1101,5 +1106,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (69, 'Allow deferred recommendation feedback outcomes for operator merge workflow'),
     (70, 'Add media loans workflow table and active-loan indexes'),
     (71, 'Add phase-specific reminder tracking to media loans'),
-    (72, 'Add event-level reminder history for media loans')
+    (72, 'Add event-level reminder history for media loans'),
+    (73, 'Add collectible series plus split vendor and booth fields')
 ON CONFLICT (version) DO NOTHING;

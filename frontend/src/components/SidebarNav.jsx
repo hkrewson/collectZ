@@ -62,6 +62,7 @@ export default function SidebarNav({
     'library-tv',
     'library-books',
     'library-audio',
+    'library-art',
     'library-games',
     'library-comics',
     'library-loans',
@@ -235,6 +236,7 @@ export default function SidebarNav({
             {libraryOpen && !collapsed && (
               <div className="mt-1 space-y-1">
                 <NavLink id="library-audio" icon={null} label="Audio" sub />
+                {showCollectibles && <NavLink id="library-art" icon={null} label="Art" sub />}
                 <NavLink id="library-books" icon={null} label="Books" sub />
                 <NavLink id="library-comics" icon={null} label="Comics" sub />
                 {showCollectibles && <NavLink id="library-collectibles" icon={null} label="Collectibles" sub />}

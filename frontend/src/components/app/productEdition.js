@@ -61,13 +61,17 @@ export function getHomelabAllowedTabs({
     'library-tv',
     'library-books',
     'library-audio',
+    'library-art',
     'library-games',
     'library-comics',
     'library-loans',
     'library-import'
   ]);
 
-  if (showCollectibles) allowed.add('library-collectibles');
+  if (showCollectibles) {
+    allowed.add('library-art');
+    allowed.add('library-collectibles');
+  }
   if (showEvents) allowed.add('library-events');
 
   if (normalizedRole === 'admin') {

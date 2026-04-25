@@ -674,6 +674,7 @@ const collectibleCategoryKeys = [
 
 const collectibleBaseSchema = z.object({
   title: z.string().min(1, 'Title is required').max(255),
+  series: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
   subtype: z.enum(COLLECTIBLE_SUBTYPES).optional().nullable(),
   item_type: z.enum(COLLECTIBLE_SUBTYPES).optional().nullable(), // legacy alias
   category_key: z.preprocess(
@@ -685,6 +686,8 @@ const collectibleBaseSchema = z.object({
     z.string().max(100).optional().nullable()
   ),
   event_id: nullableNumberSchema(z.number().int().positive()),
+  vendor: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
+  booth: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
   booth_or_vendor: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
   artist: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
   price: nullableNumberSchema(z.number().min(0).max(1000000)),

@@ -395,7 +395,7 @@ export default function App() {
   }, [activeTab]);
 
   useEffect(() => {
-    if (featureFlags.collectibles_enabled === false && activeTab === 'library-collectibles') {
+    if (featureFlags.collectibles_enabled === false && (activeTab === 'library-collectibles' || activeTab === 'library-art')) {
       setActiveTab('library-movies');
     }
     if (featureFlags.events_enabled === false && activeTab === 'library-events') {
