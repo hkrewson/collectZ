@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v3.3.3",
+      "version": "3.3.3",
+      "date": "2026-04-24",
+      "status": "Completed",
+      "summary": "This patch release deepens the shipped library-loans reminder workflow by adding event-level reminder history, exposing that history through the loan-detail API, and surfacing compact reminder audit context in the loan-first media drawer. The release keeps the design intentionally narrow: reminder history is now explainable and reviewable without widening the main Loans list into a heavier operator console.",
+      "details": []
+    },
+    {
       "title": "v3.3.2",
       "version": "3.3.2",
       "date": "2026-04-23",
@@ -191,31 +199,6 @@
             "Added runtime proof that a metadata-poor follow-up CSV payload still resolves to the canonical row through a preserved `provider_item_id` alias after merge.",
             "Fixed imported media updates so sparse `type_details` merge into the existing canonical metadata instead of replacing richer fields wholesale.",
             "Proved richer canonical metadata such as author and ISBN survive the degraded follow-up payload."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "v3.2.4",
-      "version": "3.2.4",
-      "date": "2026-04-20",
-      "status": "Completed",
-      "summary": "This patch release hardens duplicate-avoidance safety during later imports and syncs. It proves that when strong identifiers materially conflict, the system refuses to mutate an existing merged canonical even if weaker title or year signals look similar. The release covers both generic CSV and Plex movie paths, and it fixes a real null-safety issue exposed while expanding the guard proof matrix.",
-      "details": [
-        {
-          "heading": "Strong-identifier conflict guards",
-          "bullets": [
-            "Added runtime proof that a same-title book import with a conflicting ISBN creates a separate row instead of mutating an existing merged canonical.",
-            "Added runtime proof that a same-title movie import with a conflicting UPC creates a separate row instead of mutating an existing merged canonical.",
-            "Added runtime proof that a same-title Plex movie import with a conflicting TMDB id creates a separate row instead of mutating an existing merged canonical."
-          ]
-        },
-        {
-          "heading": "Import-path hardening",
-          "bullets": [
-            "Extended the title-fallback import guard logic so strong-identifier conflicts are checked before reusing same-title candidates.",
-            "Hardened the Plex movie import fallback so it no longer trusts title/year alone when TMDB or UPC conflicts make reuse unsafe.",
-            "Fixed a null-safe incoming strong-identifier helper bug surfaced by the new movie-shaped guard coverage."
           ]
         }
       ]

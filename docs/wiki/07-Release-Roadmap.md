@@ -4006,7 +4006,7 @@ Historical note:
 
 **Goal:** Deepen library-loan reminder tracking beyond the current shallow loan-level state so reminder behavior can be audited and explained without overloading the active loan record.
 
-**Current Slice:** `Reminder History Read Contract on Loan Detail`
+**Current Slice:** `Version Closeout`
 
 ### Scope
 
