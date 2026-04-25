@@ -1080,6 +1080,14 @@ results.push(run('admin route source includes platform-safe space detail and ros
   assert.ok(adminRoutesSource.includes("platformRouter.patch('/spaces/:id/invites/:inviteId/revoke'"));
 }));
 
+results.push(run('admin route source includes automatic loan reminder operations readback', () => {
+  assert.ok(adminRoutesSource.includes("platformRouter.get('/loan-reminder-operations'"));
+  assert.ok(adminRoutesSource.includes("action = 'media.loan.reminder.auto_run'"));
+  assert.ok(adminRoutesSource.includes("action = 'media.loan.reminder.auto_fail'"));
+  assert.ok(adminRoutesSource.includes('buildAutomaticLoanReminderRunRecord'));
+  assert.ok(adminRoutesSource.includes('buildAutomaticLoanReminderFailureRecord'));
+}));
+
 results.push(run('auth route source includes explicit support session endpoints', () => {
   assert.ok(authRoutesSource.includes("platformRouter.post('/support-session/start'"));
   assert.ok(authRoutesSource.includes("platformRouter.delete('/support-session'"));
@@ -2833,6 +2841,10 @@ results.push(run('openapi baseline documents key auth admin and media endpoints'
   assert.ok(spec.paths['/api/support/staff/summary']);
   assert.ok(spec.paths['/api/auth/personal-access-tokens']);
   assert.ok(spec.paths['/api/auth/service-account-keys']);
+  assert.ok(spec.paths['/api/admin/loan-reminder-operations']);
+  assert.ok(spec.components.schemas.LoanReminderOperationsResponse);
+  assert.ok(spec.components.schemas.AutomaticLoanReminderRunRecord);
+  assert.ok(spec.components.schemas.AutomaticLoanReminderFailureRecord);
   assert.ok(!spec.paths['/api/admin/invites']);
   assert.ok(spec.paths['/api/docs']);
   assert.ok(spec.paths['/api/docs/openapi.json']);

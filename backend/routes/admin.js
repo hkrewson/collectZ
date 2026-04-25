@@ -22,6 +22,7 @@ const { loadGeneralSettings } = require('../services/integrations');
 const { listFeatureFlags, getFeatureFlag, updateFeatureFlag, FEATURE_FLAGS_READ_ONLY } = require('../services/featureFlags');
 const { enforceScopeAccess } = require('../middleware/scopeAccess');
 const { sendInviteEmail, sendPasswordResetEmail, sendTestEmail, getSmtpStatus, updateSmtpSettings } = require('../services/email');
+const { getAutomaticLoanReminderRuntimeConfig } = require('../services/loanReminders');
 const { getRequestOrigin } = require('../services/requestOrigin');
 const { syncLibraryMembershipsForSpaceUser } = require('../services/libraries');
 const { hashInviteToken } = require('../services/invites');
@@ -31,6 +32,44 @@ const commonRouter = express.Router();
 const platformRouter = express.Router();
 const HOMELAB_EDITION = isHomelabEdition();
 const HOMELAB_ALLOWED_FEATURE_FLAGS = new Set(['events_enabled', 'collectibles_enabled']);
+
+function buildAutomaticLoanReminderRunRecord(row = {}) {
+  const details = row?.details && typeof row.details === 'object' ? row.details : {};
+  return {
+    id: Number(row.id || 0) || null,
+    created_at: row.created_at || null,
+    summary: {
+      enabled: Boolean(details.enabled),
+      reason: String(details.reason || '').trim() || 'unknown',
+      intervalMinutes: Number(details.intervalMinutes || 0) || 0,
+      batchSize: Number(details.batchSize || 0) || 0,
+      smtpConfigured: Boolean(details.smtpConfigured),
+      scanned: Number(details.scanned || 0) || 0,
+      eligible: Number(details.eligible || 0) || 0,
+      sent: Number(details.sent || 0) || 0,
+      dueSoonSent: Number(details.dueSoonSent || 0) || 0,
+      overdueSent: Number(details.overdueSent || 0) || 0,
+      skippedAlreadySent: Number(details.skippedAlreadySent || 0) || 0,
+      skippedNoEmail: Number(details.skippedNoEmail || 0) || 0,
+      skippedNotEligible: Number(details.skippedNotEligible || 0) || 0,
+      failed: Number(details.failed || 0) || 0
+    },
+    outcome: String(details.outcome || '').trim() || null
+  };
+}
+
+function buildAutomaticLoanReminderFailureRecord(row = {}) {
+  const details = row?.details && typeof row.details === 'object' ? row.details : {};
+  return {
+    id: Number(row.id || 0) || null,
+    created_at: row.created_at || null,
+    loan_id: Number(row.entity_id || 0) || null,
+    media_id: Number(details.mediaId || 0) || null,
+    borrower_email: String(details.borrowerEmail || '').trim() || null,
+    reminder_phase: String(details.reminderPhase || '').trim() || null,
+    reason: String(details.reason || '').trim() || 'send_failed'
+  };
+}
 
 // All mounted admin routes require authentication + admin role
 commonRouter.use(authenticateToken, requireRole('admin'));
@@ -1417,6 +1456,42 @@ platformRouter.get('/activity', asyncHandler(async (req, res) => {
     params
   );
   res.json(result.rows);
+}));
+
+platformRouter.get('/loan-reminder-operations', asyncHandler(async (_req, res) => {
+  const runtimeConfig = getAutomaticLoanReminderRuntimeConfig();
+  const smtpStatus = await getSmtpStatus();
+  const [recentRunsResult, recentFailuresResult] = await Promise.all([
+    pool.query(
+      `SELECT id, entity_id, details, created_at
+         FROM activity_log
+        WHERE action = 'media.loan.reminder.auto_run'
+        ORDER BY id DESC
+        LIMIT 10`
+    ),
+    pool.query(
+      `SELECT id, entity_id, details, created_at
+         FROM activity_log
+        WHERE action = 'media.loan.reminder.auto_fail'
+        ORDER BY id DESC
+        LIMIT 10`
+    )
+  ]);
+
+  const recentRuns = (recentRunsResult.rows || []).map(buildAutomaticLoanReminderRunRecord);
+  const recentFailures = (recentFailuresResult.rows || []).map(buildAutomaticLoanReminderFailureRecord);
+
+  res.json({
+    runtime: {
+      enabled: runtimeConfig.enabled,
+      intervalMinutes: runtimeConfig.intervalMinutes,
+      batchSize: runtimeConfig.batchSize,
+      smtpConfigured: Boolean(smtpStatus?.configured)
+    },
+    latest_run: recentRuns[0] || null,
+    recent_runs: recentRuns,
+    recent_failures: recentFailures
+  });
 }));
 
 platformRouter.use(enforceScopeAccess({ allowedHintRoles: ['admin'] }));

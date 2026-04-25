@@ -1228,6 +1228,59 @@
           "failed"
         ]
       },
+      "AutomaticLoanReminderRunRecord": {
+        "type": "object",
+        "properties": {
+          "id": { "type": ["integer", "null"] },
+          "created_at": { "type": ["string", "null"], "format": "date-time" },
+          "summary": { "$ref": "#/components/schemas/AutomaticLoanReminderRunResponse" },
+          "outcome": { "type": ["string", "null"] }
+        },
+        "required": ["id", "created_at", "summary", "outcome"]
+      },
+      "AutomaticLoanReminderFailureRecord": {
+        "type": "object",
+        "properties": {
+          "id": { "type": ["integer", "null"] },
+          "created_at": { "type": ["string", "null"], "format": "date-time" },
+          "loan_id": { "type": ["integer", "null"] },
+          "media_id": { "type": ["integer", "null"] },
+          "borrower_email": { "type": ["string", "null"], "format": "email" },
+          "reminder_phase": { "type": ["string", "null"], "enum": ["due_soon", "overdue", null] },
+          "reason": { "type": "string" }
+        },
+        "required": ["id", "created_at", "loan_id", "media_id", "borrower_email", "reminder_phase", "reason"]
+      },
+      "LoanReminderOperationsResponse": {
+        "type": "object",
+        "properties": {
+          "runtime": {
+            "type": "object",
+            "properties": {
+              "enabled": { "type": "boolean" },
+              "intervalMinutes": { "type": "integer" },
+              "batchSize": { "type": "integer" },
+              "smtpConfigured": { "type": "boolean" }
+            },
+            "required": ["enabled", "intervalMinutes", "batchSize", "smtpConfigured"]
+          },
+          "latest_run": {
+            "oneOf": [
+              { "$ref": "#/components/schemas/AutomaticLoanReminderRunRecord" },
+              { "type": "null" }
+            ]
+          },
+          "recent_runs": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/AutomaticLoanReminderRunRecord" }
+          },
+          "recent_failures": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/AutomaticLoanReminderFailureRecord" }
+          }
+        },
+        "required": ["runtime", "latest_run", "recent_runs", "recent_failures"]
+      },
       "ValuationRefreshRequest": {
         "type": "object",
         "properties": {
@@ -4101,6 +4154,26 @@
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/AutomaticLoanReminderRunResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/loan-reminder-operations": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Read automatic loan reminder operations visibility",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "responses": {
+          "200": {
+            "description": "Automatic loan reminder runtime, recent runs, and recent failures",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/LoanReminderOperationsResponse" }
               }
             }
           }

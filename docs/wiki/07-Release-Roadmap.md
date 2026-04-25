@@ -4103,7 +4103,7 @@ Historical note:
 
 **Goal:** Make automatic loan reminder behavior easier to trust and troubleshoot by surfacing run-level operational visibility without turning the loans workflow into a broad reporting dashboard.
 
-**Current Slice:** `Reminder Operations Contract Audit`
+**Current Slice:** `Reminder Operations Read Contract`
 
 ### Scope
 
@@ -4141,6 +4141,11 @@ Historical note:
   - a small read contract that exposes the latest automatic reminder run summary,
   - recent automatic run history,
   - and recent automatic failure entries with enough detail to answer basic “why didn’t this send?” questions.
+- Current implementation shape:
+  - the platform admin surface now has a dedicated reminder-operations read contract,
+  - runtime configuration is reported alongside the latest automatic reminder run,
+  - recent automatic run summaries are read back from `media.loan.reminder.auto_run` activity events,
+  - and recent automatic reminder failures are read back from `media.loan.reminder.auto_fail` activity events instead of introducing a separate reporting store.
 - Scope boundary:
   - do not build a broad analytics dashboard in this milestone,
   - do not add cross-system notification reporting,
