@@ -3420,6 +3420,9 @@ results.push(run('library loans view exposes management-focused counts and due-s
   assert.ok(libraryLoansViewSource.includes('Tracking active and returned loan records for this title'));
   assert.ok(libraryLoansViewSource.includes('historyLoan.reminder_events'));
   assert.ok(libraryLoansViewSource.includes('ReminderHistorySummary'));
+  assert.ok(libraryLoansViewSource.includes('LoanHistorySection'));
+  assert.ok(libraryLoansViewSource.includes('title="Current"'));
+  assert.ok(libraryLoansViewSource.includes('title="Returned"'));
   assert.ok(libraryLoansViewSource.includes('formatLoanHistoryRange'));
   assert.ok(libraryLoansViewSource.includes('reminder_sent_today'));
   assert.ok(libraryLoansViewSource.includes('CollectionPaginationFooter'));

@@ -101,6 +101,36 @@ function ReminderHistorySummary({ events = [] }) {
   );
 }
 
+function LoanHistorySection({ title, loans = [], activeLoanId = null }) {
+  if (!Array.isArray(loans) || loans.length === 0) return null;
+  return (
+    <div>
+      <p className="text-xs text-ghost">{title}</p>
+      <div className="mt-3 space-y-4">
+        {loans.map((historyLoan) => (
+          <div key={historyLoan.id} className="border-l border-edge/70 pl-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-medium text-ink">{historyLoan.borrower_name || 'Borrower'}</p>
+                  {historyLoan.id === activeLoanId ? (
+                    <span className="badge border border-edge/70 bg-abyss text-dim">This loan</span>
+                  ) : null}
+                </div>
+                <p className="mt-1 text-sm text-ghost">{formatLoanHistoryRange(historyLoan)}</p>
+                {historyLoan.borrower_email ? <p className="mt-1 text-xs text-ghost">{historyLoan.borrower_email}</p> : null}
+              </div>
+              <span className={statusBadgeClass(historyLoan.status)}>{statusLabel(historyLoan.status)}</span>
+            </div>
+            {historyLoan.notes ? <p className="mt-2 text-sm text-dim">{historyLoan.notes}</p> : null}
+            <ReminderHistorySummary events={historyLoan.reminder_events} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function statusLabel(status) {
   if (status === 'overdue') return 'Overdue';
   if (status === 'returned') return 'Returned';
@@ -570,26 +600,17 @@ export default function LibraryLoansView({
                           <div className="mt-3 flex items-center gap-2 text-sm text-ghost"><Spinner size={16} />Loading history…</div>
                         ) : null}
                         {Array.isArray(historyByMediaId[loan?.media?.id]?.history) ? (
-                          <div className="mt-4 space-y-4">
-                            {historyByMediaId[loan.media.id].history.map((historyLoan) => (
-                              <div key={historyLoan.id} className="border-l border-edge/70 pl-4">
-                                <div className="flex items-start justify-between gap-3">
-                                  <div className="min-w-0">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                      <p className="text-sm font-medium text-ink">{historyLoan.borrower_name || 'Borrower'}</p>
-                                      {historyLoan.id === loan.id ? (
-                                        <span className="badge border border-edge/70 bg-abyss text-dim">This loan</span>
-                                      ) : null}
-                                    </div>
-                                    <p className="mt-1 text-sm text-ghost">{formatLoanHistoryRange(historyLoan)}</p>
-                                    {historyLoan.borrower_email ? <p className="mt-1 text-xs text-ghost">{historyLoan.borrower_email}</p> : null}
-                                  </div>
-                                  <span className={statusBadgeClass(historyLoan.status)}>{statusLabel(historyLoan.status)}</span>
-                                </div>
-                                {historyLoan.notes ? <p className="mt-2 text-sm text-dim">{historyLoan.notes}</p> : null}
-                                <ReminderHistorySummary events={historyLoan.reminder_events} />
-                              </div>
-                            ))}
+                          <div className="mt-4 space-y-5">
+                            <LoanHistorySection
+                              title="Current"
+                              loans={historyByMediaId[loan.media.id].history.filter((entry) => !entry.returned_at)}
+                              activeLoanId={loan.id}
+                            />
+                            <LoanHistorySection
+                              title="Returned"
+                              loans={historyByMediaId[loan.media.id].history.filter((entry) => Boolean(entry.returned_at))}
+                              activeLoanId={loan.id}
+                            />
                           </div>
                         ) : null}
                       </div>
