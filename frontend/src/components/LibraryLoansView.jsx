@@ -268,19 +268,13 @@ export default function LibraryLoansView({
     }
   }, [apiCall, debouncedSearch, page, status]);
 
-  const summary = useMemo(() => {
-    const counts = { active: 0, overdue: 0, returned: 0 };
-    loans.forEach((loan) => {
-      if (loan?.status === 'overdue') counts.overdue += 1;
-      else if (loan?.status === 'returned') counts.returned += 1;
-      else counts.active += 1;
-    });
-    return counts;
-  }, [loans]);
-
   useEffect(() => {
     loadLoans(page);
   }, [loadLoans, page]);
+
+  useEffect(() => {
+    setExpandedLoanId(null);
+  }, [status, debouncedSearch, page]);
 
   const handleReturn = async (loanId) => {
     if (!loanId) return;
