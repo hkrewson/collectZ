@@ -64,6 +64,15 @@ function formatReminderTimestamp(value) {
   return parsed.toLocaleString();
 }
 
+function formatReminderEventLabel(event) {
+  if (!event) return 'Reminder event';
+  const trigger = event.trigger_source === 'automatic' ? 'Automatic' : 'Manual';
+  const phase = event.phase === 'overdue' ? 'overdue' : 'due soon';
+  if (event.status === 'failed') return `${phase} reminder failed (${trigger.toLowerCase()})`;
+  if (event.status === 'skipped') return `${phase} reminder skipped (${trigger.toLowerCase()})`;
+  return `${phase} reminder sent (${trigger.toLowerCase()})`;
+}
+
 function statusLabel(status) {
   if (status === 'overdue') return 'Overdue';
   if (status === 'returned') return 'Returned';
@@ -207,6 +216,9 @@ export default function LibraryLoansView({
   const [savingLoan, setSavingLoan] = useState(false);
   const [returningLoanId, setReturningLoanId] = useState(null);
   const [remindingLoanId, setRemindingLoanId] = useState(null);
+  const [expandedLoanId, setExpandedLoanId] = useState(null);
+  const [historyByMediaId, setHistoryByMediaId] = useState({});
+  const [historyLoadingMediaId, setHistoryLoadingMediaId] = useState(null);
 
   useEffect(() => {
     const handle = window.setTimeout(() => setDebouncedSearch(searchInput.trim()), 250);
@@ -317,6 +329,34 @@ export default function LibraryLoansView({
     }
   };
 
+  const loadMediaLoanHistory = useCallback(async (mediaId) => {
+    if (!mediaId) return null;
+    if (historyByMediaId[mediaId]) return historyByMediaId[mediaId];
+    setHistoryLoadingMediaId(mediaId);
+    try {
+      const payload = await apiCall('get', `/media/${mediaId}/loans`);
+      setHistoryByMediaId((current) => ({ ...current, [mediaId]: payload }));
+      return payload;
+    } catch (err) {
+      onToast?.(err?.response?.data?.error || 'Failed to load loan history', 'error');
+      return null;
+    } finally {
+      setHistoryLoadingMediaId((current) => (current === mediaId ? null : current));
+    }
+  }, [apiCall, historyByMediaId, onToast]);
+
+  const toggleHistory = useCallback(async (loan) => {
+    const loanId = Number(loan?.id || 0);
+    const mediaId = Number(loan?.media?.id || 0);
+    if (!loanId || !mediaId) return;
+    if (expandedLoanId === loanId) {
+      setExpandedLoanId(null);
+      return;
+    }
+    setExpandedLoanId(loanId);
+    await loadMediaLoanHistory(mediaId);
+  }, [expandedLoanId, loadMediaLoanHistory]);
+
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-edge px-4 py-4 sm:px-6">
@@ -425,6 +465,12 @@ export default function LibraryLoansView({
                         {loan.borrower_email ? <p className="mt-1 text-sm text-dim">{loan.borrower_email}</p> : null}
                       </div>
                       <div className="flex shrink-0 flex-wrap items-center gap-2">
+                        <button
+                          className="btn-ghost"
+                          onClick={() => toggleHistory(loan)}
+                        >
+                          {expandedLoanId === loan.id ? 'Hide History' : 'Show History'}
+                        </button>
                         {!loan.returned_at ? (
                           <>
                             <button
@@ -486,6 +532,53 @@ export default function LibraryLoansView({
                       </div>
                     </dl>
                     {loan.notes ? <p className="mt-3 text-sm text-dim">{loan.notes}</p> : null}
+                    {expandedLoanId === loan.id ? (
+                      <div className="mt-4 border-t border-edge/70 pt-3">
+                        <p className="text-sm text-dim">Loan history</p>
+                        {historyLoadingMediaId === Number(loan?.media?.id || 0) && !historyByMediaId[loan?.media?.id] ? (
+                          <div className="mt-3 flex items-center gap-2 text-sm text-ghost"><Spinner size={16} />Loading history…</div>
+                        ) : null}
+                        {Array.isArray(historyByMediaId[loan?.media?.id]?.history) ? (
+                          <div className="mt-3 space-y-0">
+                            {historyByMediaId[loan.media.id].history.map((historyLoan) => (
+                              <div key={historyLoan.id} className="border-t border-edge/70 py-3 first:border-t-0 first:pt-0">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <p className="text-sm font-medium text-ink">{historyLoan.borrower_name || 'Borrower'}</p>
+                                      {historyLoan.id === loan.id ? (
+                                        <span className="badge border border-edge/70 bg-abyss text-dim">This loan</span>
+                                      ) : null}
+                                    </div>
+                                    <p className="mt-1 text-sm text-ghost">
+                                      {formatDate(historyLoan.loaned_at)} to {historyLoan.returned_at ? formatDate(historyLoan.returned_at) : formatDate(historyLoan.due_at)}
+                                    </p>
+                                  </div>
+                                  <span className={statusBadgeClass(historyLoan.status)}>{statusLabel(historyLoan.status)}</span>
+                                </div>
+                                {historyLoan.notes ? <p className="mt-2 text-sm text-dim">{historyLoan.notes}</p> : null}
+                                {Array.isArray(historyLoan.reminder_events) && historyLoan.reminder_events.length > 0 ? (
+                                  <div className="mt-3">
+                                    <p className="text-xs text-ghost">Reminder history</p>
+                                    <div className="mt-2 space-y-2">
+                                      {historyLoan.reminder_events.slice(0, 3).map((event) => (
+                                        <div key={event.id || `${event.sent_at || 'event'}-${event.delivery_window_key || ''}`} className="flex items-start justify-between gap-4 text-sm">
+                                          <div className="min-w-0">
+                                            <p className="text-ink">{formatReminderEventLabel(event)}</p>
+                                            {event.failure_summary ? <p className="mt-1 text-xs text-dim">{event.failure_summary}</p> : null}
+                                          </div>
+                                          <span className="shrink-0 text-xs text-ghost">{formatReminderTimestamp(event.sent_at)}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ) : null}
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               </div>

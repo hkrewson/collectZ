@@ -3414,6 +3414,10 @@ results.push(run('library loans view exposes management-focused counts and due-s
   assert.ok(libraryLoansViewSource.includes("pagination.total || 0"));
   assert.ok(libraryLoansViewSource.includes('totals.dueSoon'));
   assert.ok(libraryLoansViewSource.includes('Send Reminder'));
+  assert.ok(libraryLoansViewSource.includes('Show History'));
+  assert.ok(libraryLoansViewSource.includes("apiCall('get', `/media/${mediaId}/loans`)"));
+  assert.ok(libraryLoansViewSource.includes('Loan history'));
+  assert.ok(libraryLoansViewSource.includes('historyLoan.reminder_events'));
   assert.ok(libraryLoansViewSource.includes('reminder_sent_today'));
   assert.ok(libraryLoansViewSource.includes('CollectionPaginationFooter'));
   assert.ok(libraryLoansViewSource.includes('showPageSize={false}'));

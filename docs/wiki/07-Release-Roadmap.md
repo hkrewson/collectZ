@@ -4061,6 +4061,44 @@ Historical note:
   - `GET /api/media/:id/loans` now expands loan history records with `reminder_events` so readback stays attached to the loan-detail/history path instead of widening the library-level loans list payload,
   - the loan-first media drawer now surfaces compact reminder history for both the active loan and recent returned loans so reminder audit context is visible where the richer loan-detail payload is already being read.
 
+## 3.3.4 — Global Loan History View
+
+**Goal:** Surface library loan history in a dedicated management view so past loans are visible and searchable outside the title-level drawer.
+
+**Current Slice:** `Global Loan History Inline Readback`
+
+### Scope
+
+- Build on the shipped `3.3.0` through `3.3.3` loans and reminder workflows instead of redesigning the loan record model.
+- Expose historical loans in the dedicated `Loans` workspace rather than keeping past activity discoverable only from the item drawer.
+- Decide the first read model for:
+  - active loans,
+  - returned loans,
+  - reminder-event context attached to historical loans,
+  - and the filters/search states that belong in the global view.
+- Keep the first slice focused on history visibility and management readability, not on new reminder automation or broader admin operations tooling.
+
+### Acceptance Criteria
+
+- Users can review past loan records without opening title drawers one by one.
+- The global loans surface distinguishes clearly between currently out items and returned history.
+- The first implementation slice can add the history view without widening the existing core loan lifecycle contract.
+- Reminder-history visibility can be reused where it adds value without turning the Loans workspace into a noisy operator console.
+
+### Active Slice Notes
+
+- This follows `3.3.3` directly because reminder history now exists as persisted event data and drawer-level readback, making a broader history view the next natural surface question.
+- The first slice should settle:
+  - whether history lives as a dedicated filter/state inside `Loans` or as a separate subview,
+  - what summary fields belong in the global history list,
+  - and how much reminder-event detail should appear inline versus behind expansion
+  before implementation starts.
+- Current implementation shape:
+  - the dedicated `Loans` workspace now keeps its main list payload lean,
+  - each loan row can expand into a per-title history readback by reusing the existing `GET /api/media/:id/loans` detail/history contract,
+  - returned and active historical entries are shown together inside that inline history panel,
+  - and reminder-event history is surfaced there as supporting context instead of turning the top-level loans list into a full audit grid.
+
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
