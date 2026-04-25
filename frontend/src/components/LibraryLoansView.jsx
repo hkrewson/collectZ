@@ -73,6 +73,34 @@ function formatReminderEventLabel(event) {
   return `${phase} reminder sent (${trigger.toLowerCase()})`;
 }
 
+function formatLoanHistoryRange(loan) {
+  if (!loan) return 'Loan record';
+  const start = formatDate(loan.loaned_at);
+  if (loan.returned_at) return `Loaned ${start} · Returned ${formatDate(loan.returned_at)}`;
+  return `Loaned ${start} · Due ${formatDate(loan.due_at)}`;
+}
+
+function ReminderHistorySummary({ events = [] }) {
+  if (!Array.isArray(events) || events.length === 0) return null;
+  return (
+    <div className="mt-3 space-y-2">
+      <p className="text-xs text-ghost">Reminder history</p>
+      {events.slice(0, 3).map((event) => (
+        <div
+          key={event.id || `${event.sent_at || 'event'}-${event.delivery_window_key || ''}`}
+          className="flex items-start justify-between gap-4 text-sm"
+        >
+          <div className="min-w-0">
+            <p className="text-dim">{formatReminderEventLabel(event)}</p>
+            {event.failure_summary ? <p className="mt-1 text-xs text-ghost">{event.failure_summary}</p> : null}
+          </div>
+          <span className="shrink-0 text-xs text-ghost">{formatReminderTimestamp(event.sent_at)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function statusLabel(status) {
   if (status === 'overdue') return 'Overdue';
   if (status === 'returned') return 'Returned';
@@ -527,15 +555,24 @@ export default function LibraryLoansView({
                     </dl>
                     {loan.notes ? <p className="mt-3 text-sm text-dim">{loan.notes}</p> : null}
                     {expandedLoanId === loan.id ? (
-                      <div className="mt-4 border-t border-edge/70 pt-3">
-                        <p className="text-sm text-dim">Loan history</p>
+                      <div className="mt-4 border-t border-edge/70 pt-4">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <p className="text-sm text-ink">Loan history</p>
+                            <p className="mt-1 text-xs text-ghost">
+                              {Array.isArray(historyByMediaId[loan?.media?.id]?.history)
+                                ? `${historyByMediaId[loan.media.id].history.length} loan record${historyByMediaId[loan.media.id].history.length === 1 ? '' : 's'}`
+                                : 'Tracking active and returned loan records for this title'}
+                            </p>
+                          </div>
+                        </div>
                         {historyLoadingMediaId === Number(loan?.media?.id || 0) && !historyByMediaId[loan?.media?.id] ? (
                           <div className="mt-3 flex items-center gap-2 text-sm text-ghost"><Spinner size={16} />Loading history…</div>
                         ) : null}
                         {Array.isArray(historyByMediaId[loan?.media?.id]?.history) ? (
-                          <div className="mt-3 space-y-0">
+                          <div className="mt-4 space-y-4">
                             {historyByMediaId[loan.media.id].history.map((historyLoan) => (
-                              <div key={historyLoan.id} className="border-t border-edge/70 py-3 first:border-t-0 first:pt-0">
+                              <div key={historyLoan.id} className="border-l border-edge/70 pl-4">
                                 <div className="flex items-start justify-between gap-3">
                                   <div className="min-w-0">
                                     <div className="flex flex-wrap items-center gap-2">
@@ -544,29 +581,13 @@ export default function LibraryLoansView({
                                         <span className="badge border border-edge/70 bg-abyss text-dim">This loan</span>
                                       ) : null}
                                     </div>
-                                    <p className="mt-1 text-sm text-ghost">
-                                      {formatDate(historyLoan.loaned_at)} to {historyLoan.returned_at ? formatDate(historyLoan.returned_at) : formatDate(historyLoan.due_at)}
-                                    </p>
+                                    <p className="mt-1 text-sm text-ghost">{formatLoanHistoryRange(historyLoan)}</p>
+                                    {historyLoan.borrower_email ? <p className="mt-1 text-xs text-ghost">{historyLoan.borrower_email}</p> : null}
                                   </div>
                                   <span className={statusBadgeClass(historyLoan.status)}>{statusLabel(historyLoan.status)}</span>
                                 </div>
                                 {historyLoan.notes ? <p className="mt-2 text-sm text-dim">{historyLoan.notes}</p> : null}
-                                {Array.isArray(historyLoan.reminder_events) && historyLoan.reminder_events.length > 0 ? (
-                                  <div className="mt-3">
-                                    <p className="text-xs text-ghost">Reminder history</p>
-                                    <div className="mt-2 space-y-2">
-                                      {historyLoan.reminder_events.slice(0, 3).map((event) => (
-                                        <div key={event.id || `${event.sent_at || 'event'}-${event.delivery_window_key || ''}`} className="flex items-start justify-between gap-4 text-sm">
-                                          <div className="min-w-0">
-                                            <p className="text-ink">{formatReminderEventLabel(event)}</p>
-                                            {event.failure_summary ? <p className="mt-1 text-xs text-dim">{event.failure_summary}</p> : null}
-                                          </div>
-                                          <span className="shrink-0 text-xs text-ghost">{formatReminderTimestamp(event.sent_at)}</span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                ) : null}
+                                <ReminderHistorySummary events={historyLoan.reminder_events} />
                               </div>
                             ))}
                           </div>

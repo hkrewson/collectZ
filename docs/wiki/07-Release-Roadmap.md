@@ -4065,7 +4065,7 @@ Historical note:
 
 **Goal:** Surface library loan history in a dedicated management view so past loans are visible and searchable outside the title-level drawer.
 
-**Current Slice:** `Global Loan History Inline Readback`
+**Current Slice:** `Global Loan History Inline Readback and UI Polish`
 
 ### Scope
 
