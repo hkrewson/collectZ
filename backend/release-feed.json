@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v3.3.4",
+      "version": "3.3.4",
+      "date": "2026-04-24",
+      "status": "Completed",
+      "summary": "This patch release broadens the shipped library-loans workflow by bringing title-level loan history into the dedicated `Loans` workspace. The release keeps the implementation intentionally narrow: the main loans list stays lean, while each row can expand into per-title current and returned history with attached reminder-event context. The result is a clearer management view for past loans without turning the workspace into a full operator audit console.",
+      "details": []
+    },
+    {
       "title": "v3.3.3",
       "version": "3.3.3",
       "date": "2026-04-24",
@@ -175,30 +183,6 @@
           "heading": "Collection re-sync runtime proof",
           "bullets": [
             "Added a Docker-backed runtime smoke that:"
-          ]
-        }
-      ]
-    },
-    {
-      "title": "v3.2.5",
-      "version": "3.2.5",
-      "date": "2026-04-20",
-      "status": "Completed",
-      "summary": "This patch release hardens post-merge duplicate avoidance across changing provider contracts and degraded sync payloads. It proves that a canonical created by one source family can be reused by a later Plex sync through TMDB identity, and that a metadata-poor follow-up payload can still resolve through preserved merge aliases instead of recreating a duplicate. The release also fixes a real metadata-clobbering bug exposed by the new sparse alias proof.",
-      "details": [
-        {
-          "heading": "Cross-provider canonical reuse",
-          "bullets": [
-            "Added runtime proof that a movie canonical first created by a non-Plex source is reused by a later Plex sync through `tmdb_id`.",
-            "Proved the reused row keeps its seeded title variant, showing the update happened through strong identity rather than weak title fallback."
-          ]
-        },
-        {
-          "heading": "Sparse alias reuse and metadata preservation",
-          "bullets": [
-            "Added runtime proof that a metadata-poor follow-up CSV payload still resolves to the canonical row through a preserved `provider_item_id` alias after merge.",
-            "Fixed imported media updates so sparse `type_details` merge into the existing canonical metadata instead of replacing richer fields wholesale.",
-            "Proved richer canonical metadata such as author and ISBN survive the degraded follow-up payload."
           ]
         }
       ]
