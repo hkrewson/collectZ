@@ -1,15 +1,26 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CameraCaptureModal, CollectionPaginationFooter, Icons, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
 
+const ART_MEDIUM_OPTIONS = [
+  { value: 'original', label: 'Original' },
+  { value: 'print', label: 'Print' },
+  { value: 'comic_panel', label: 'Comic Panel' },
+  { value: 'sketch', label: 'Sketch' },
+  { value: 'commission', label: 'Commission' },
+  { value: 'other', label: 'Other' }
+];
+
 const DEFAULT_FORM = {
   title: '',
   series: '',
   artist: '',
+  medium: '',
   event_id: '',
   vendor: '',
   booth: '',
   price: '',
   exclusive: false,
+  signed: false,
   image_path: '',
   notes: ''
 };
@@ -57,7 +68,8 @@ function DetailField({ label, children, className = '' }) {
 }
 
 function ArtCard({ item, supportsHover, onOpen, onEdit, onDelete }) {
-  const subtitle = [item.series, item.artist, item.event_title].filter(Boolean).join(' · ');
+  const mediumLabel = ART_MEDIUM_OPTIONS.find((option) => option.value === item.medium)?.label || null;
+  const subtitle = [item.series, item.artist, mediumLabel, item.event_title].filter(Boolean).join(' · ');
   return (
     <ObjectPosterCard
       title={item.title}
@@ -66,13 +78,15 @@ function ArtCard({ item, supportsHover, onOpen, onEdit, onDelete }) {
       supportsHover={supportsHover}
       onOpen={() => onOpen(item)}
       leftBadges={[`#${item.id}`, 'Art']}
-      rightBadge={item.exclusive ? <span className="badge badge-brand text-[10px] bg-brand/20 border-brand/30">Exclusive</span> : null}
+      rightBadge={item.signed ? <span className="badge badge-brand text-[10px] bg-brand/20 border-brand/30">Signed</span> : (item.exclusive ? <span className="badge badge-brand text-[10px] bg-brand/20 border-brand/30">Exclusive</span> : null)}
       subtitle={subtitle || 'Artwork'}
       meta={
         <>
+          {mediumLabel ? <FilterPill>{mediumLabel}</FilterPill> : null}
           {item.artist ? <FilterPill>{item.artist}</FilterPill> : null}
           {item.series ? <FilterPill>{item.series}</FilterPill> : null}
           {item.event_title ? <FilterPill>{item.event_title}</FilterPill> : null}
+          {item.exclusive ? <FilterPill tone="brand">Exclusive</FilterPill> : null}
         </>
       }
       onEdit={() => onEdit(item)}
@@ -82,6 +96,7 @@ function ArtCard({ item, supportsHover, onOpen, onEdit, onDelete }) {
 }
 
 function ArtRow({ item, supportsHover, onOpen, onEdit, onDelete }) {
+  const mediumLabel = ART_MEDIUM_OPTIONS.find((option) => option.value === item.medium)?.label || null;
   return (
     <article className="group flex items-center gap-4 rounded-xl border border-edge bg-surface p-3 hover:border-muted hover:bg-raised transition-colors duration-150 animate-fade-in cursor-pointer" onClick={() => onOpen(item)}>
       <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-edge bg-raised text-ghost"><Icons.Activity /></div>
@@ -89,9 +104,11 @@ function ArtRow({ item, supportsHover, onOpen, onEdit, onDelete }) {
         <p className="text-sm font-medium text-ink truncate">{item.title}</p>
         <div className="mt-1 flex flex-wrap gap-2">
           <FilterPill>Art</FilterPill>
+          {mediumLabel ? <FilterPill>{mediumLabel}</FilterPill> : null}
           {item.series ? <FilterPill>{item.series}</FilterPill> : null}
           {item.artist ? <FilterPill>{item.artist}</FilterPill> : null}
           {item.event_title ? <FilterPill>{item.event_title}</FilterPill> : null}
+          {item.signed ? <FilterPill tone="brand">Signed</FilterPill> : null}
           {item.exclusive ? <FilterPill tone="brand">Exclusive</FilterPill> : null}
         </div>
       </div>
@@ -132,7 +149,8 @@ function ArtDetailDrawer({ artId, apiCall, events, onClose, onEdit, onDeleted })
     || events.find((evt) => String(evt.id) === String(item?.event_id))?.title
     || null;
   const showPurchaseContext = hasPurchaseContext(item);
-  const factSummary = [item?.series, item?.artist, resolvedEvent].filter(Boolean);
+  const mediumLabel = ART_MEDIUM_OPTIONS.find((option) => option.value === item?.medium)?.label || null;
+  const factSummary = [item?.series, item?.artist, mediumLabel, resolvedEvent].filter(Boolean);
 
   return (
     <div className="fixed inset-0 z-50 flex">
@@ -167,8 +185,10 @@ function ArtDetailDrawer({ artId, apiCall, events, onClose, onEdit, onDeleted })
           {!loading && item ? (
             <div className="grid grid-cols-1 gap-x-8 gap-y-5 text-sm md:grid-cols-2">
               <DetailField label="Series">{item.series}</DetailField>
+              <DetailField label="Medium / Type">{mediumLabel}</DetailField>
               <DetailField label="Artist">{item.artist}</DetailField>
               <DetailField label="Event">{resolvedEvent || 'None linked'}</DetailField>
+              <DetailField label="Signed">{item.signed ? 'Yes' : 'No'}</DetailField>
               <DetailField label="Exclusive">{item.exclusive ? 'Yes' : 'No'}</DetailField>
               {showPurchaseContext ? <DetailField label="Vendor">{item.vendor || item.booth_or_vendor}</DetailField> : null}
               {showPurchaseContext ? <DetailField label="Booth">{item.booth}</DetailField> : null}
@@ -254,6 +274,12 @@ function ArtDrawer({ initial, events, saving, error, notice, onClose, onSave, on
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <label className="field"><span className="label">Title *</span><input className="input" value={form.title || ''} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} /></label>
                 <label className="field"><span className="label">Series</span><input className="input" value={form.series || ''} onChange={(e) => setForm((p) => ({ ...p, series: e.target.value }))} /></label>
+                <label className="field"><span className="label">Medium / Type</span>
+                  <select className="select" value={form.medium || ''} onChange={(e) => setForm((p) => ({ ...p, medium: e.target.value }))}>
+                    <option value="">None</option>
+                    {ART_MEDIUM_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  </select>
+                </label>
                 <label className="field"><span className="label">Artist</span><input className="input" value={form.artist || ''} onChange={(e) => setForm((p) => ({ ...p, artist: e.target.value }))} /></label>
                 <label className="field"><span className="label">Price</span><input className="input" value={form.price ?? ''} onChange={(e) => setForm((p) => ({ ...p, price: e.target.value }))} /></label>
                 <label className="field md:col-span-2"><span className="label">Linked Event</span>
@@ -271,6 +297,10 @@ function ArtDrawer({ initial, events, saving, error, notice, onClose, onSave, on
                 <label className="field md:col-span-2 inline-flex items-center gap-2 text-sm text-dim">
                   <input type="checkbox" checked={Boolean(form.exclusive)} onChange={(e) => setForm((p) => ({ ...p, exclusive: e.target.checked }))} />
                   Exclusive item
+                </label>
+                <label className="field md:col-span-2 inline-flex items-center gap-2 text-sm text-dim">
+                  <input type="checkbox" checked={Boolean(form.signed)} onChange={(e) => setForm((p) => ({ ...p, signed: e.target.checked }))} />
+                  Signed
                 </label>
               </div>
             </SectionTabPanel>
@@ -404,6 +434,7 @@ export default function ArtView({ apiCall, onToast }) {
       const payload = {
         title: String(form.title || '').trim(),
         series: form.series || null,
+        medium: form.medium || null,
         subtype: 'art',
         event_id: form.event_id ? Number(form.event_id) : null,
         artist: form.artist || null,
@@ -411,6 +442,7 @@ export default function ArtView({ apiCall, onToast }) {
         booth: form.booth || null,
         price: form.price === '' ? null : Number(form.price),
         exclusive: Boolean(form.exclusive),
+        signed: Boolean(form.signed),
         image_path: form.image_path || null,
         notes: form.notes || null
       };

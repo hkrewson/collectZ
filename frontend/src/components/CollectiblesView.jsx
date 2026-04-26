@@ -6,8 +6,6 @@ const CATEGORY_OPTIONS = [
   { key: 'figures_statues', label: 'Figures / Statues' },
   { key: 'props_replicas_originals', label: 'Props / Replicas / Originals' },
   { key: 'funko', label: 'Funko' },
-  { key: 'comic_panels', label: 'Comic Panels' },
-  { key: 'anime', label: 'Anime' },
   { key: 'toys', label: 'Toys' },
   { key: 'clothing', label: 'Clothing' }
 ];

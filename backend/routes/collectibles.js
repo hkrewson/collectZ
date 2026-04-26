@@ -9,8 +9,8 @@ const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
 const { logActivity } = require('../services/audit');
 const { uploadBuffer } = require('../services/storage');
 const {
+  ACTIVE_COLLECTIBLE_CATEGORY_KEYS,
   COLLECTIBLE_SUBTYPES,
-  COLLECTIBLE_CATEGORY_DEFINITIONS,
   resolveCategoryKey,
   resolveCategoryLabel
 } = require('../services/collectibles');
@@ -97,12 +97,14 @@ const serializeNativeArtRow = (row) => {
     event_id: row.event_id || null,
     purchased_item_id: row.purchased_item_id || null,
     series: row.series || null,
+    medium: row.medium || null,
     artist: row.artist || null,
     vendor,
     booth,
     booth_or_vendor: vendor && booth ? `${vendor} / ${booth}` : (vendor || booth || null),
     price: row.price === null || row.price === undefined ? null : Number(row.price),
     exclusive: row.exclusive === true,
+    signed: row.signed === true,
     image_path: row.image_path || null,
     notes: row.notes || null,
     created_at: row.created_at,
@@ -139,15 +141,17 @@ const upsertNativeArtFromCollectible = async (collectibleRow) => {
        title,
        artist,
        series,
+       medium,
        vendor,
        booth,
        price,
        exclusive,
+       signed,
        image_path,
        notes,
        archived_at
      ) VALUES (
-       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14
+       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16
      )
      ON CONFLICT (source_collectible_id) DO UPDATE
        SET library_id = EXCLUDED.library_id,
@@ -155,10 +159,12 @@ const upsertNativeArtFromCollectible = async (collectibleRow) => {
            title = EXCLUDED.title,
            artist = EXCLUDED.artist,
            series = EXCLUDED.series,
+           medium = COALESCE(EXCLUDED.medium, art_items.medium),
            vendor = EXCLUDED.vendor,
            booth = EXCLUDED.booth,
            price = EXCLUDED.price,
            exclusive = EXCLUDED.exclusive,
+           signed = COALESCE(EXCLUDED.signed, art_items.signed, false),
            image_path = EXCLUDED.image_path,
            notes = EXCLUDED.notes,
            archived_at = EXCLUDED.archived_at,
@@ -172,10 +178,12 @@ const upsertNativeArtFromCollectible = async (collectibleRow) => {
       collectibleRow.title,
       collectibleRow.artist || null,
       collectibleRow.series || null,
+      collectibleRow.medium || null,
       collectibleRow.vendor || null,
       collectibleRow.booth || null,
       collectibleRow.price ?? null,
       collectibleRow.exclusive === true,
+      typeof collectibleRow.signed === 'boolean' ? collectibleRow.signed : null,
       collectibleRow.image_path || null,
       collectibleRow.notes || null,
       collectibleRow.archived_at || null
@@ -215,7 +223,10 @@ router.get('/collectibles/categories', asyncHandler(async (_req, res) => {
   const rows = await pool.query(
     `SELECT key, label, sort_order
      FROM collectible_categories
+     WHERE key = ANY($1)
      ORDER BY sort_order ASC, label ASC`
+    ,
+    [ACTIVE_COLLECTIBLE_CATEGORY_KEYS]
   );
   res.json({
     categories: rows.rows.map((row) => ({
@@ -468,8 +479,10 @@ const createCollectible = asyncHandler(async (req, res) => {
     booth,
     booth_or_vendor,
     artist,
+    medium,
     price,
     exclusive,
+    signed,
     image_path,
     notes
   } = req.body;
@@ -537,7 +550,11 @@ const createCollectible = asyncHandler(async (req, res) => {
     ]
   );
   const row = created.rows[0];
-  const nativeArt = row.subtype === ART_SUBTYPE ? await upsertNativeArtFromCollectible(row) : null;
+  const nativeArt = row.subtype === ART_SUBTYPE ? await upsertNativeArtFromCollectible({
+    ...row,
+    medium: medium || null,
+    signed: signed === true
+  }) : null;
   await logActivity(req, 'collectibles.create', 'collectible', row.id, {
     title: row.title,
     subtype: row.subtype,
@@ -570,7 +587,7 @@ const updateCollectible = asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'Invalid collectible id' });
   }
 
-  const allowed = ['title', 'series', 'subtype', 'item_type', 'category_key', 'category', 'event_id', 'vendor', 'booth', 'booth_or_vendor', 'artist', 'price', 'exclusive', 'image_path', 'notes'];
+  const allowed = ['title', 'series', 'subtype', 'item_type', 'category_key', 'category', 'event_id', 'vendor', 'booth', 'booth_or_vendor', 'artist', 'medium', 'price', 'exclusive', 'signed', 'image_path', 'notes'];
   const fields = Object.entries(req.body || {}).filter(([key]) => allowed.includes(key));
   if (fields.length === 0) return res.status(400).json({ error: 'No valid collectible fields provided' });
 
@@ -640,7 +657,7 @@ const updateCollectible = asyncHandler(async (req, res) => {
   const params = [collectibleId];
   const updates = [];
   for (const [key, value] of fields) {
-    if (['subtype', 'item_type', 'category_key', 'category', 'series', 'vendor', 'booth', 'booth_or_vendor'].includes(key)) continue;
+    if (['subtype', 'item_type', 'category_key', 'category', 'series', 'vendor', 'booth', 'booth_or_vendor', 'medium', 'signed'].includes(key)) continue;
     params.push(value === '' ? null : value);
     updates.push({ key, ref: `$${params.length}` });
   }
@@ -673,6 +690,9 @@ const updateCollectible = asyncHandler(async (req, res) => {
     params.push(normalizedPayload.category);
     updates.push({ key: 'category', ref: `$${params.length}` });
   }
+  if (updates.length === 0 && routeConfig.isArtRoute) {
+    updates.push({ key: 'updated_at', ref: 'CURRENT_TIMESTAMP' });
+  }
   const setClause = updates.map((entry) => `${entry.key} = ${entry.ref}`).join(', ');
   const whereScope = appendScopeSql(params, scopeContext, {
     libraryColumn: 'library_id',
@@ -694,7 +714,11 @@ const updateCollectible = asyncHandler(async (req, res) => {
   if (!updated.rows[0]) return res.status(404).json({ error: 'Collectible not found' });
   const updatedRow = updated.rows[0];
   const nativeArt = updatedRow.subtype === ART_SUBTYPE
-    ? await upsertNativeArtFromCollectible(updatedRow)
+    ? await upsertNativeArtFromCollectible({
+        ...updatedRow,
+        medium: Object.prototype.hasOwnProperty.call(req.body || {}, 'medium') ? (req.body.medium || null) : undefined,
+        signed: Object.prototype.hasOwnProperty.call(req.body || {}, 'signed') ? req.body.signed === true : undefined
+      })
     : (current.rows[0].subtype === ART_SUBTYPE ? (await archiveNativeArtFromCollectible(collectibleId), null) : null);
   if (hadSubtypeKey && current.rows[0].subtype !== updatedRow.subtype) {
     await logActivity(req, 'collectibles.reclassify', 'collectible', collectibleId, {

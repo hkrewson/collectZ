@@ -688,6 +688,8 @@ const collectibleCategoryKeys = [
   'clothing'
 ];
 
+const artMediumValues = ['original', 'print', 'comic_panel', 'sketch', 'commission', 'other'];
+
 const collectibleBaseSchema = z.object({
   title: z.string().min(1, 'Title is required').max(255),
   series: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
@@ -721,6 +723,7 @@ const collectibleUpdateSchema = collectibleBaseSchema.partial().refine(
 const artBaseSchema = z.object({
   title: z.string().min(1, 'Title is required').max(255),
   series: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
+  medium: z.preprocess(emptyStringToNull, z.enum(artMediumValues).optional().nullable()),
   event_id: nullableNumberSchema(z.number().int().positive()),
   vendor: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
   booth: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
@@ -728,6 +731,7 @@ const artBaseSchema = z.object({
   artist: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
   price: nullableNumberSchema(z.number().min(0).max(1000000)),
   exclusive: z.boolean().optional().nullable(),
+  signed: z.boolean().optional().nullable(),
   image_path: z.preprocess(emptyStringToNull, z.string().max(2000).optional().nullable()),
   notes: z.preprocess(emptyStringToNull, z.string().max(5000).optional().nullable())
 });

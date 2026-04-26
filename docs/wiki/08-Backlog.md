@@ -92,33 +92,6 @@ This file is the staging area for work that has not yet been assigned a release 
 - Top cost drivers are visible and attributable.
 - The self-hosted profile remains fully functional with paid-provider integrations disabled.
 
-### Backlog Item: Collectibles Taxonomy Simplification
-**Type:** Task
-**Tags:** `collectibles`, `taxonomy`, `ui`, `forms`
-
-**Goal:** Simplify collectibles entry so the product uses one clear taxonomy selector instead of separate `type` and `category` menus.
-
-**Why this work exists**
-- The current collectibles model exposes both `type` and `category`, which makes entry feel more complicated than it needs to be.
-- `Card` should be represented as a normal collectibles choice in the remaining taxonomy model.
-- The UI should not make users decide between two overlapping classification controls for one item.
-
-**Scope**
-- Add `Card` as one of the supported collectibles categories in the surviving taxonomy path.
-- Remove the separate collectibles `type` menu, or collapse categories into that menu so there is only one selector.
-- Decide whether the canonical taxonomy should be:
-  - category-first,
-  - or type-first,
-  - but not both in the data-entry UI.
-- Keep existing collectibles filtering, event linking, and stored taxonomy data coherent after the simplification.
-- Document any migration or mapping needed from the current dual-field model.
-
-**Acceptance Criteria**
-- Collectibles entry exposes one taxonomy selector instead of separate `type` and `category` menus.
-- `Card` is available as a supported selectable option in that remaining taxonomy model.
-- Existing collectibles data continues to resolve to the correct visible classification after any mapping or migration.
-- The simplified taxonomy behavior is documented clearly enough for future collectibles work to build on it consistently.
-
 ### Backlog Item: Imports and Sync Cadence Expansion
 **Type:** Deferred milestone
 **Tags:** `imports`, `csv`, `plex`, `calibre`, `metron`, `sync`

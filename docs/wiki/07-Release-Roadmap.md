@@ -4550,6 +4550,37 @@ Historical note:
 - Follow-up boundary:
   - deeper removal of bridge columns or bridge-safe ID compatibility should be planned as a separate migration-safe milestone.
 
+## 3.4.5 — Collectibles Taxonomy Cleanup and Art Medium Boundary
+
+**Goal:** Finish the visible Collectibles taxonomy simplification while giving Art the medium/type boundary needed to absorb comic-panel-style artwork cleanly.
+
+**Current Slice:** `Implementation`
+
+### Scope
+
+- Keep Collectibles on one visible classification selector instead of separate type/category controls.
+- Keep `Card` as a supported Collectibles classification in that one selector.
+- Remove `Anime` from new Collectibles taxonomy choices because it is a fandom/source descriptor rather than an owned-object class.
+- Move `Comic Panels` out of new Collectibles choices and into Art as a medium/type value.
+- Add Art fields for:
+  - medium/type (`Original`, `Print`, `Comic Panel`, `Sketch`, `Commission`, `Other`),
+  - signed status.
+- Preserve legacy readability for existing Collectibles records while migrating active Comic Panels records into native Art.
+
+### Acceptance Criteria
+
+- Collectibles entry and filtering no longer offer `Anime` or `Comic Panels` as new categories.
+- Existing legacy Anime records remain readable and do not break validation/readback.
+- Existing active Comic Panels collectibles are migrated into Art with `medium = comic_panel`.
+- Art create/edit/detail/list surfaces read and write medium/type and signed status.
+- The API/OpenAPI/init/migration contract stays aligned with the Art medium boundary.
+
+### Active Slice Notes
+
+- Do not rename Collectibles to Fandom in this slice. `Fandom` remains a possible future metadata/tagging concept, not the library name.
+- Do not build a separate Comic Panels library; use Art medium/type first.
+- Do not add full signature provenance in this slice; start with a simple signed boolean and leave signer/proof details for a future provenance task if needed.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

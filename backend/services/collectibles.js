@@ -11,6 +11,15 @@ const COLLECTIBLE_CATEGORY_DEFINITIONS = [
   { key: 'clothing', label: 'Clothing' }
 ];
 
+const ACTIVE_COLLECTIBLE_CATEGORY_KEYS = [
+  'lego',
+  'figures_statues',
+  'props_replicas_originals',
+  'funko',
+  'toys',
+  'clothing'
+];
+
 const CATEGORY_KEY_TO_LABEL = new Map(
   COLLECTIBLE_CATEGORY_DEFINITIONS.map((entry) => [entry.key, entry.label])
 );
@@ -34,6 +43,7 @@ const resolveCategoryLabel = (value) => {
 module.exports = {
   COLLECTIBLE_SUBTYPES,
   COLLECTIBLE_CATEGORY_DEFINITIONS,
+  ACTIVE_COLLECTIBLE_CATEGORY_KEYS,
   CATEGORY_KEY_TO_LABEL,
   CATEGORY_LABEL_TO_KEY,
   resolveCategoryKey,

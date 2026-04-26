@@ -3544,6 +3544,32 @@ results.push(run('art ui divergence keeps Art out of the Collectibles component 
   assert.ok(!collectiblesViewSource.includes("apiBasePath: '/art'"));
 }));
 
+results.push(run('collectibles taxonomy cleanup and art medium boundary are wired for the 3.4.5 split', () => {
+  const collectiblesViewSource = readFrontendSource(path.join('components', 'CollectiblesView'));
+  assert.ok(artViewSource.includes('ART_MEDIUM_OPTIONS'));
+  assert.ok(artViewSource.includes("'comic_panel'"));
+  assert.ok(artViewSource.includes('Medium / Type'));
+  assert.ok(artViewSource.includes('Signed'));
+  assert.ok(artViewSource.includes('signed: Boolean(form.signed)'));
+  assert.ok(!collectiblesViewSource.includes("{ key: 'comic_panels'"));
+  assert.ok(!collectiblesViewSource.includes("{ key: 'anime'"));
+  assert.ok(collectiblesViewSource.includes("{ value: 'card', label: 'Card'"));
+  assert.ok(validateMiddlewareSource.includes('const artMediumValues'));
+  assert.ok(validateMiddlewareSource.includes('signed: z.boolean().optional().nullable()'));
+  assert.ok(collectiblesRoutesSource.includes('ACTIVE_COLLECTIBLE_CATEGORY_KEYS'));
+  assert.ok(collectiblesRoutesSource.includes('medium: row.medium || null'));
+  assert.ok(collectiblesRoutesSource.includes('signed: row.signed === true'));
+  assert.ok(migrationsSource.includes('version: 76'));
+  assert.ok(migrationsSource.includes('Add art medium and signed fields with comic panel migration boundary'));
+  assert.ok(migrationsSource.includes("medium = 'comic_panel'"));
+  assert.ok(migrationsSource.includes("category_key = 'comic_panels'"));
+  assert.ok(initSqlSource.includes('medium VARCHAR(50)'));
+  assert.ok(initSqlSource.includes('signed BOOLEAN NOT NULL DEFAULT false'));
+  assert.ok(initSqlSource.includes("(76, 'Add art medium and signed fields with comic panel migration boundary')"));
+  assert.ok(openApiSource.includes('"medium"'));
+  assert.ok(openApiSource.includes('"signed"'));
+}));
+
 results.push(run('library loans view exposes management-focused counts and due-soon emphasis', () => {
   assert.ok(libraryLoansViewSource.includes('Currently out'));
   assert.ok(libraryLoansViewSource.includes('Due soon'));

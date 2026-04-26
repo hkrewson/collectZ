@@ -3166,7 +3166,139 @@ const MIGRATIONS = [
           WHERE epi.event_id = c.event_id
             AND epi.item_type = 'art'
             AND epi.item_id = a.id
+      );
+    `
+  },
+  {
+    version: 76,
+    description: 'Add art medium and signed fields with comic panel migration boundary',
+    up: `
+      ALTER TABLE art_items
+        ADD COLUMN IF NOT EXISTS medium VARCHAR(50),
+        ADD COLUMN IF NOT EXISTS signed BOOLEAN NOT NULL DEFAULT false;
+
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1
+          FROM pg_constraint
+          WHERE conname = 'art_items_medium_check'
+        ) THEN
+          ALTER TABLE art_items
+            ADD CONSTRAINT art_items_medium_check
+            CHECK (medium IS NULL OR medium IN ('original', 'print', 'comic_panel', 'sketch', 'commission', 'other'));
+        END IF;
+      END;
+      $$;
+
+      INSERT INTO art_items (
+        source_collectible_id,
+        library_id,
+        space_id,
+        created_by,
+        title,
+        artist,
+        series,
+        medium,
+        vendor,
+        booth,
+        price,
+        exclusive,
+        signed,
+        image_path,
+        notes,
+        created_at,
+        updated_at,
+        archived_at
+      )
+      SELECT
+        c.id,
+        c.library_id,
+        c.space_id,
+        c.created_by,
+        c.title,
+        c.artist,
+        c.series,
+        'comic_panel',
+        COALESCE(NULLIF(c.vendor, ''), NULLIF(c.booth_or_vendor, '')),
+        c.booth,
+        c.price,
+        COALESCE(c.exclusive, false),
+        false,
+        c.image_path,
+        c.notes,
+        COALESCE(c.created_at, CURRENT_TIMESTAMP),
+        COALESCE(c.updated_at, c.created_at, CURRENT_TIMESTAMP),
+        c.archived_at
+      FROM collectibles c
+      WHERE c.archived_at IS NULL
+        AND COALESCE(c.subtype, c.item_type, 'collectible') <> 'art'
+        AND c.category_key = 'comic_panels'
+      ON CONFLICT (source_collectible_id) DO UPDATE
+        SET library_id = EXCLUDED.library_id,
+            space_id = EXCLUDED.space_id,
+            title = EXCLUDED.title,
+            artist = EXCLUDED.artist,
+            series = EXCLUDED.series,
+            medium = 'comic_panel',
+            vendor = EXCLUDED.vendor,
+            booth = EXCLUDED.booth,
+            price = EXCLUDED.price,
+            exclusive = EXCLUDED.exclusive,
+            image_path = EXCLUDED.image_path,
+            notes = EXCLUDED.notes,
+            archived_at = EXCLUDED.archived_at,
+            updated_at = CURRENT_TIMESTAMP;
+
+      INSERT INTO event_purchased_items (
+        event_id,
+        item_type,
+        item_id,
+        title_snapshot,
+        vendor_snapshot,
+        booth_snapshot,
+        price_snapshot,
+        created_by,
+        created_at,
+        updated_at,
+        archived_at
+      )
+      SELECT
+        c.event_id,
+        'art',
+        a.id,
+        c.title,
+        COALESCE(NULLIF(c.vendor, ''), NULLIF(c.booth_or_vendor, '')),
+        c.booth,
+        c.price,
+        c.created_by,
+        COALESCE(c.created_at, CURRENT_TIMESTAMP),
+        COALESCE(c.updated_at, c.created_at, CURRENT_TIMESTAMP),
+        c.archived_at
+      FROM collectibles c
+      INNER JOIN art_items a
+        ON a.source_collectible_id = c.id
+      WHERE c.archived_at IS NULL
+        AND c.category_key = 'comic_panels'
+        AND c.event_id IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1
+          FROM event_purchased_items epi
+          WHERE epi.event_id = c.event_id
+            AND epi.item_type = 'art'
+            AND epi.item_id = a.id
+            AND epi.archived_at IS NULL
         );
+
+      UPDATE collectibles
+      SET subtype = 'art',
+          item_type = 'art',
+          category_key = NULL,
+          category = NULL,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE archived_at IS NULL
+        AND COALESCE(subtype, item_type, 'collectible') <> 'art'
+        AND category_key = 'comic_panels';
     `
   }
 ];

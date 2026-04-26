@@ -769,10 +769,13 @@ CREATE TABLE IF NOT EXISTS art_items (
     title VARCHAR(255) NOT NULL,
     artist VARCHAR(255),
     series VARCHAR(255),
+    medium VARCHAR(50)
+      CHECK (medium IS NULL OR medium IN ('original', 'print', 'comic_panel', 'sketch', 'commission', 'other')),
     vendor VARCHAR(255),
     booth VARCHAR(255),
     price NUMERIC(10,2),
     exclusive BOOLEAN NOT NULL DEFAULT false,
+    signed BOOLEAN NOT NULL DEFAULT false,
     image_path TEXT,
     notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -1160,5 +1163,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (72, 'Add event-level reminder history for media loans'),
     (73, 'Add collectible series plus split vendor and booth fields'),
     (74, 'Add native art storage and shared event purchased item links'),
-    (75, 'Backfill native art rows and shared event purchased item links')
+    (75, 'Backfill native art rows and shared event purchased item links'),
+    (76, 'Add art medium and signed fields with comic panel migration boundary')
 ON CONFLICT (version) DO NOTHING;
