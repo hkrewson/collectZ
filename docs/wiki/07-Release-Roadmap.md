@@ -4681,7 +4681,7 @@ Historical note:
 
 **Goal:** Make shared purchased-item linking feel first-class from the Event view now that Art and Collectibles participate in the same tracked purchase relationship.
 
-**Current Slice:** `Implementation`
+**Current Slice:** `Closed as v3.4.7`
 
 ### Scope
 
@@ -4704,6 +4704,41 @@ Historical note:
 - Do not replace the freeform Event artifact purchase lane in this slice.
 - Do not introduce a new purchase-history table; keep the shared `event_purchased_items` contract.
 - Keep the UI consistent with the existing drawer controls rather than redesigning the Event surface.
+
+### Closeout
+
+- Status: `Closed` as `v3.4.7`.
+- Release artifact: `docs/releases/v3.4.7.md`.
+- Version/feed sync:
+  - root, backend, frontend, lockfile, and app-meta metadata are aligned on `3.4.7`,
+  - and the in-app Help > Releases snapshot was regenerated with `3.4.7` as the latest entry.
+- Runtime verification:
+  - rebuilt backend/frontend images reported `3.4.7` from `/api/health`,
+  - Help > Releases smoke served `3.4.7` as the newest release,
+  - event purchased-items smoke passed with shared Art and Collectibles links,
+  - RBAC regression passed in-stack,
+  - platform edition boundary passed in-stack,
+  - homelab edition boundary passed after recreating the app in homelab edition,
+  - browser regression passed locally with `45` passed and `4` skipped,
+  - CI-shaped compose smoke basics passed under secure-cookie overrides,
+  - and observability release evidence passed `9/9`.
+- Local checks:
+  - backend unit tests passed,
+  - OpenAPI validation passed,
+  - release preflight was regenerated for `3.4.7`,
+  - backend production dependency audit reported `0` critical, `0` high, `2` moderate,
+  - frontend production dependency audit reported `0` vulnerabilities,
+  - init parity passed,
+  - and migration rehearsal passed.
+- Artifact hygiene:
+  - generated preflight, dependency audit, init parity, migration rehearsal, observability, release note, and release feed artifacts were checked for secret-bearing output,
+  - and the only matches in the generated closeout artifact scan were literal gate names for `secret-scan` / secret scan.
+- CI-only follow-through:
+  - secret scan remains authoritative in tagged CI because `gitleaks` is not installed locally,
+  - and image security/SBOM remain authoritative in tagged CI because local Trivy/SBOM tooling is not installed.
+- Follow-up boundary:
+  - broader purchase reporting, bulk linking, and deeper purchase analytics remain future work if needed,
+  - and this release intentionally keeps freeform Event artifacts separate from tracked purchased-item links.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
