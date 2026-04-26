@@ -1,17 +1,17 @@
 # Local Release Go/No-Go Preflight
 
-- Version: `3.3.5`
-- Generated: `2026-04-25T05:47:19.015Z`
+- Version: `3.4.0`
+- Generated: `2026-04-26T01:32:45.189Z`
 - Base URL: `http://localhost:3000`
 
 ## Gate Results
 
-- Version metadata sync: PASS — all manifests aligned on 3.3.5
-- Release note presence: PASS — docs/releases/v3.3.5.md
+- Version metadata sync: PASS — all manifests aligned on 3.4.0
+- Release note presence: PASS — docs/releases/v3.4.0.md
 - Backend dependency audit: BLOCKED — request to https://registry.npmjs.org/-/npm/v1/security/advisories/bulk failed, reason: getaddrinfo ENOTFOUND registry.npmjs.org
 - Frontend dependency audit: BLOCKED — request to https://registry.npmjs.org/-/npm/v1/security/advisories/bulk failed, reason: getaddrinfo ENOTFOUND registry.npmjs.org
 - Migration evidence presence: PASS — init parity and migration rehearsal evidence are present
-- Observability release evidence: PASS — observability artifact present for 3.3.5 with 9/9 checks passed
+- Observability release evidence: FAIL — observability artifact missing, stale, or contains failed/blocked checks
 - Compose smoke basics: BLOCKED — in-stack /api/health probe failed: permission denied while trying to connect to the docker API at unix:///Users/hamlin/.docker/run/docker.sock
 - Secret scan: BLOCKED — CI-only gitleaks gate
 - Browser regression: BLOCKED — not run by this local preflight helper
@@ -28,7 +28,7 @@
 
 ## Release Note
 
-- `docs/releases/v3.3.5.md`: present
+- `docs/releases/v3.4.0.md`: present
 - Security triage markers: present
 
 ## Blocking Criteria

@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v3.4.0",
+      "version": "3.4.0",
+      "date": "2026-04-25",
+      "status": "Completed",
+      "summary": "This minor release promotes Art into its own first-class library surface while preserving event-linked purchase history and cleaning up the remaining Collectibles entry friction that no longer made sense once Art stopped living only as a subtype. The release keeps the underlying bridge model intentionally pragmatic: Art now has dedicated routes and navigation, shared collectible-style purchase linkage still works, Art metadata grows into a more natural shape with `series`, `vendor`, and `booth`, and the Collectibles drawer collapses its duplicate taxonomy controls into one clearer selector.",
+      "details": []
+    },
+    {
       "title": "v3.3.5",
       "version": "3.3.5",
       "date": "2026-04-25",
@@ -137,37 +145,6 @@
             "Added `/api/media/comic-series/issues` for paginated issue browsing inside a selected comic series.",
             "Switched the `series_issues` tab off the last comic full-fetch path so selected-series issue browsing now uses server results with stable in-series ordering.",
             "Added Docker-backed proof coverage for all three comic query contracts across both platform and homelab stacks."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "v3.2.7",
-      "version": "3.2.7",
-      "date": "2026-04-21",
-      "status": "Completed",
-      "summary": "This patch release hardens duplicate prevention for the re-enabled OPDS / digital-library import path. It proves repeat OPDS syncs reuse canonicals safely, fixes the stored OPDS link contract for browse versus download actions, and closes a comic-heavy import gap so parsed comic identity metadata survives persistence without recreating duplicate rows on later syncs.",
-      "details": [
-        {
-          "heading": "OPDS importer reactivation and repeat-sync proof",
-          "bullets": [
-            "Re-enabled the live `/api/media/import-cwa` route instead of leaving the existing importer stranded behind a deferred response.",
-            "Added a Docker-backed repeat-sync smoke proving one OPDS entry imported twice updates or no-ops the same canonical row through persisted `provider_item_id` / `calibre_entry_id` identities."
-          ]
-        },
-        {
-          "heading": "OPDS link contract cleanup",
-          "bullets": [
-            "Separated OPDS browse/detail links from acquisition/download links in the importer contract.",
-            "Stopped treating OPDS external URLs as `tmdb_url` stand-ins for books and comics.",
-            "Preserved download-link fields through generic import mapping and drawer rendering so Calibre/OPDS actions stay truthful and deduped in the UI."
-          ]
-        },
-        {
-          "heading": "Comic-heavy dedupe hardening",
-          "bullets": [
-            "Added a Docker-backed comic-heavy OPDS smoke that proves a clearly comic-shaped OPDS entry imports as `comic_book`, persists parsed `series`, `issue_number`, and `volume`, and then reuses the same canonical row on repeat sync.",
-            "Fixed generic import mapping so row-backed OPDS `type_details` fields are not dropped before persistence, which previously stripped comic identity metadata from live OPDS imports."
           ]
         }
       ]

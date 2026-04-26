@@ -4156,7 +4156,7 @@ Historical note:
 
 **Goal:** Promote Art into its own first-class library surface while preserving event-linked purchase history so art remains anchored to convention and show activity instead of becoming an orphaned side model.
 
-**Current Slice:** `Art Metadata and Collectibles Taxonomy Simplification`
+**Current Slice:** `Version Closeout`
 
 ### Why this is a minor version
 
