@@ -26,7 +26,6 @@ const ALLOWED_IMAGE_MIME_TYPES = new Set([
 ]);
 const ART_SUBTYPE = 'art';
 const COLLECTIBLE_ROUTE_PATHS = ['/collectibles', '/art'];
-const COLLECTIBLE_CATEGORY_PATHS = ['/collectibles/categories', '/art/categories'];
 const COLLECTIBLE_DETAIL_PATHS = ['/collectibles/:id', '/art/:id'];
 const COLLECTIBLE_DELETE_PATHS = ['/collectibles/:id', '/art/:id'];
 const COLLECTIBLE_UPLOAD_PATHS = ['/collectibles/:id/upload-image', '/art/:id/upload-image'];
@@ -212,7 +211,7 @@ const normalizeCollectiblePayload = (payload = {}) => {
   };
 };
 
-router.get(COLLECTIBLE_CATEGORY_PATHS, asyncHandler(async (_req, res) => {
+router.get('/collectibles/categories', asyncHandler(async (_req, res) => {
   const rows = await pool.query(
     `SELECT key, label, sort_order
      FROM collectible_categories
@@ -224,6 +223,10 @@ router.get(COLLECTIBLE_CATEGORY_PATHS, asyncHandler(async (_req, res) => {
       label: row.label
     }))
   });
+}));
+
+router.get('/art/categories', asyncHandler(async (_req, res) => {
+  res.status(404).json({ error: 'Art categories are not available' });
 }));
 
 router.get(COLLECTIBLE_ROUTE_PATHS, asyncHandler(async (req, res) => {

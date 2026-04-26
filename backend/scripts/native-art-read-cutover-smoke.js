@@ -221,6 +221,7 @@ async function main() {
       }),
       headers: { 'Content-Type': 'application/json' }
     });
+    await client.request('/api/art/categories', { expectStatus: 404 });
     await client.request(`/api/collectibles/${bridgeArtId}`, {
       method: 'PATCH',
       withCsrf: true,

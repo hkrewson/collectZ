@@ -4516,6 +4516,7 @@ Historical note:
 - Keep `/api/art` as the Art route contract while the backend still owns bridge-safe write compatibility.
 - Keep Events as the shared readback surface for tracked purchases through `event_purchased_items`.
 - Keep Collectibles focused on non-Art collectible classifications, including `Card` plus collectible categories.
+- Retire Art category endpoints and OpenAPI taxonomy docs because Art no longer uses collectible categories.
 - Do not remove bridge columns or migration compatibility until the native Art write path and cleanup boundary are proven separately.
 
 ### Long-Term Relationship Contract
@@ -4526,6 +4527,7 @@ Historical note:
 - `event_purchased_items.item_type = 'art'` points at `art_items.id`; `item_type = 'collectible'` points at `collectibles.id`.
 - `art_items.source_collectible_id` is bridge compatibility for migrated rows and current safe writes, not the product identity users should reason about.
 - `/api/collectibles` should not expose or accept Art records now that Art has a native library surface.
+- `/api/art` does not expose collectible categories; Art search/filtering is title, artist, series, event, vendor/booth context, and exclusive state.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 

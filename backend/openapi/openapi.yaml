@@ -1351,23 +1351,6 @@
         },
         "required": ["items", "pagination"]
       },
-      "ArtCategoriesResponse": {
-        "type": "object",
-        "properties": {
-          "categories": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "key": { "type": "string" },
-                "label": { "type": "string" }
-              },
-              "required": ["key", "label"]
-            }
-          }
-        },
-        "required": ["categories"]
-      },
       "ArtUpsertRequest": {
         "type": "object",
         "properties": {
@@ -4478,26 +4461,6 @@
                   },
                   "required": ["ok", "id"]
                 }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/art/categories": {
-      "get": {
-        "tags": ["Media"],
-        "summary": "List available art categories",
-        "security": [
-          { "cookieSession": [] },
-          { "bearerAuth": [] }
-        ],
-        "responses": {
-          "200": {
-            "description": "Art category options",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/ArtCategoriesResponse" }
               }
             }
           }

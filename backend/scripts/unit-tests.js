@@ -3531,6 +3531,11 @@ results.push(run('art ui divergence keeps Art out of the Collectibles component 
   assert.ok(validateMiddlewareSource.includes('const artBaseSchema'));
   assert.ok(collectiblesRoutesSource.includes("router.post('/art', validate(artCreateSchema), createCollectible)"));
   assert.ok(collectiblesRoutesSource.includes("router.patch('/art/:id', validate(artUpdateSchema), updateCollectible)"));
+  assert.ok(collectiblesRoutesSource.includes("router.get('/collectibles/categories'"));
+  assert.ok(collectiblesRoutesSource.includes("router.get('/art/categories'"));
+  assert.ok(collectiblesRoutesSource.includes('Art categories are not available'));
+  assert.ok(!openApiSource.includes('"/api/art/categories"'));
+  assert.ok(!openApiSource.includes('"ArtCategoriesResponse"'));
   assert.ok(collectiblesRoutesSource.includes("COALESCE(c.subtype, c.item_type, 'collectible') <> '${ART_SUBTYPE}'"));
   assert.ok(collectiblesRoutesSource.includes('Use the Art library for art records'));
   assert.ok(!collectiblesViewSource.includes('VIEW_VARIANTS'));
