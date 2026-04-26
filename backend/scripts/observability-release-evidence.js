@@ -48,6 +48,8 @@ function randomPassword(prefix = 'collectz') {
 
 function sanitizeText(value) {
   return String(value || '')
+    .replace(/(ADMIN_PASSWORD=)\\?"[^"\\]*(?:\\.[^"\\]*)*\\?"/g, '$1"[REDACTED]"')
+    .replace(/(GRAYLOG_PASSWORD=)\\?"[^"\\]*(?:\\.[^"\\]*)*\\?"/g, '$1"[REDACTED]"')
     .replace(/(ADMIN_PASSWORD=)"[^"]*"/g, '$1"[REDACTED]"')
     .replace(/(GRAYLOG_PASSWORD=)"[^"]*"/g, '$1"[REDACTED]"')
     .replace(/(-u\s+[^:\s]+:)([^\s]+)/g, '$1[REDACTED]')

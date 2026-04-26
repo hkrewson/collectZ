@@ -4903,7 +4903,7 @@ Historical note:
 
 **Goal:** Give the Event drawer a first-class workflow for turning an event autograph artifact into canonical Art/media signature provenance without creating a separate event-signature system.
 
-**Current Slice:** `Implementation`
+**Current Slice:** `Closed as v3.4.12`
 
 ### Scope
 
@@ -4926,6 +4926,20 @@ Historical note:
 - Do not add many-signature management or multi-proof management in this slice.
 - Do not rename Event artifacts into a separate Signatures library.
 - Prefer a compact drawer workflow over another navigation surface.
+
+### Closeout — 2026-04-26
+
+- Released as `v3.4.12`.
+- Version metadata synced across root app metadata, backend app/package metadata, and frontend app/package metadata.
+- Release note added at `docs/releases/v3.4.12.md`.
+- In-app Help > Releases feed regenerated with `v3.4.12` as the latest entry.
+- Runtime verification used Docker-first evidence from rebuilt `backend`, `frontend`, `db`, and homelab compose services.
+- No schema migration was added; init parity and migration rehearsal were rerun against the existing migration set through version `79`.
+- Local release closeout accounted for unit, OpenAPI, Event autograph linking smoke, RBAC, browser regression, homelab edition boundary, platform edition boundary, dependency audit, init parity, migration rehearsal, observability evidence, release note, release feed, and running-stack health gates.
+- Local preflight marked CI-secure compose-smoke cookie checks blocked because this local development stack runs with `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`; tagged CI remains authoritative for that secure-cookie variant.
+- Local `gitleaks`, Trivy, and SBOM tooling were not installed in this shell, so tagged CI remains authoritative for `secret-scan`, `image-security-and-sbom`, and final release publication.
+- Release evidence artifacts were inspected for unredacted secret-bearing patterns after observability evidence generation, with no unredacted hits found.
+- The release intentionally leaves multiple signatures per object and multi-proof management as follow-up work.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 

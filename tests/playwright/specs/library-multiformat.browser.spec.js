@@ -691,7 +691,7 @@ test.describe('library multi-format browser regressions', () => {
 
       const selectPageButton = page.getByRole('button', { name: /^Select page \(\d+\)$/ });
       await expect(selectPageButton).toBeVisible();
-      const selectPageLabel = await selectPageButton.textContent();
+      const selectPageLabel = await selectPageButton.getAttribute('aria-label') || await selectPageButton.textContent();
       const visibleCountMatch = String(selectPageLabel || '').match(/Select page \((\d+)\)/);
       const visibleCount = Number(visibleCountMatch?.[1] || 0);
       await selectPageButton.click();
