@@ -300,6 +300,20 @@ const buildArtSignaturePayload = (payload = {}) => ({
   notes: payload.signature_notes
 });
 
+const buildArtSignaturePayloadFromRecord = (signature = {}, overrides = {}) => {
+  const row = signature || {};
+  return {
+    signer_name: row.signer_name || null,
+    signer_role: row.signer_role || null,
+    signed_on: row.signed_on || null,
+    signed_at: row.signed_at || null,
+    signed_event_id: row.signed_event_id || null,
+    proof_path: row.proof_path || null,
+    notes: row.notes || null,
+    ...overrides
+  };
+};
+
 const syncArtPrimarySignature = async ({ artRow, payload = {}, userId = null }) => {
   if (!artRow?.id) return null;
   return syncPrimarySignatureRecord(pool, {
@@ -1136,6 +1150,94 @@ const updateCollectible = asyncHandler(async (req, res) => {
 
 router.patch('/collectibles/:id', validate(collectibleUpdateSchema), updateCollectible);
 router.patch('/art/:id', validate(artUpdateSchema), updateArt);
+
+router.post('/art/:id/upload-signature-proof', memoryUpload.single('proof'), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const artRouteId = Number(req.params.id);
+  if (!Number.isFinite(artRouteId) || artRouteId <= 0) {
+    return res.status(400).json({ error: 'Invalid art id' });
+  }
+  if (!req.file) return res.status(400).json({ error: 'Proof image file is required' });
+  if (!ALLOWED_IMAGE_MIME_TYPES.has(String(req.file.mimetype || '').toLowerCase())) {
+    return res.status(400).json({ error: 'Unsupported image type' });
+  }
+
+  const current = await attachSignaturesToArtRow(await loadNativeArtByRouteId(scopeContext, artRouteId));
+  if (!current) return res.status(404).json({ error: 'Art item not found' });
+  const primarySignature = current.signatures?.find((signature) => signature.is_primary) || current.signatures?.[0] || null;
+  const previousPath = primarySignature?.proof_path || null;
+  const stored = await uploadBuffer(req.file.buffer, req.file.originalname, req.file.mimetype);
+  const signature = await syncPrimarySignatureRecord(pool, {
+    ownerType: 'art',
+    ownerId: current.id,
+    libraryId: current.library_id || null,
+    spaceId: current.space_id || null,
+    createdBy: req.user.id,
+    signature: buildArtSignaturePayloadFromRecord(primarySignature, { proof_path: stored.url }),
+    signed: true
+  });
+  await pool.query(
+    `UPDATE art_items
+     SET signed = TRUE,
+         updated_at = CURRENT_TIMESTAMP
+     WHERE id = $1`,
+    [current.id]
+  );
+  const publicId = buildPublicNativeArtId(current);
+  await logActivity(req, previousPath ? 'art.signature_proof.replace' : 'art.signature_proof.upload', 'art', publicId, {
+    previousPath,
+    nextPath: stored.url,
+    provider: stored.provider,
+    native_art_id: current.id
+  });
+  res.json({
+    id: publicId,
+    native_art_id: current.id,
+    signature_proof_path: signature?.proof_path || stored.url,
+    proof_path: signature?.proof_path || stored.url,
+    signatures: signature ? [signature] : [],
+    provider: stored.provider
+  });
+}));
+
+router.delete('/art/:id/signature-proof', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const artRouteId = Number(req.params.id);
+  if (!Number.isFinite(artRouteId) || artRouteId <= 0) {
+    return res.status(400).json({ error: 'Invalid art id' });
+  }
+
+  const current = await attachSignaturesToArtRow(await loadNativeArtByRouteId(scopeContext, artRouteId));
+  if (!current) return res.status(404).json({ error: 'Art item not found' });
+  const primarySignature = current.signatures?.find((signature) => signature.is_primary) || current.signatures?.[0] || null;
+  const previousPath = primarySignature?.proof_path || null;
+  if (!previousPath) {
+    return res.json({ ok: true, removed: false, id: buildPublicNativeArtId(current), signature_proof_path: null });
+  }
+  const signature = await syncPrimarySignatureRecord(pool, {
+    ownerType: 'art',
+    ownerId: current.id,
+    libraryId: current.library_id || null,
+    spaceId: current.space_id || null,
+    createdBy: req.user.id,
+    signature: buildArtSignaturePayloadFromRecord(primarySignature, { proof_path: null }),
+    signed: current.signed === true
+  });
+  const publicId = buildPublicNativeArtId(current);
+  await logActivity(req, 'art.signature_proof.remove', 'art', publicId, {
+    previousPath,
+    native_art_id: current.id
+  });
+  res.json({
+    ok: true,
+    removed: true,
+    id: publicId,
+    native_art_id: current.id,
+    signature_proof_path: signature?.proof_path || null,
+    proof_path: signature?.proof_path || null,
+    signatures: signature ? [signature] : []
+  });
+}));
 
 router.post('/collectibles/:id/reclassify', asyncHandler(async (req, res) => {
   const scopeContext = resolveScopeContext(req);

@@ -4820,6 +4820,33 @@ Historical note:
 - Local release closeout accounted for unit, OpenAPI, browser, RBAC, edition-boundary, dependency, migration, observability, compose-smoke, secret-scan, image-security, and SBOM gates.
 - CI remains the authoritative source for tagged `secret-scan`, image security, and SBOM publication artifacts.
 
+## 3.4.10 — Shared Signature Proof Attachments
+
+**Goal:** Let Art use the same proof upload/remove behavior already available to media signing proofs while keeping signature proof storage anchored to the shared signature provenance contract.
+
+**Current Slice:** `Implementation`
+
+### Scope
+
+- Add Art signature proof upload and remove endpoints backed by the primary shared `signature_records` row.
+- Keep existing media signing proof routes compatible while tightening shared-record sync on removal.
+- Add Art drawer controls for proof file upload, proof removal, and proof viewing without replacing the existing URL fallback field.
+- Cover the shared proof attachment path in source-level checks and the Art signature provenance browser regression.
+
+### Acceptance Criteria
+
+- Art proof uploads create or update the active primary signature record with `owner_type = 'art'`.
+- Art proof removal clears the primary signature proof path without deleting the rest of the signer/provenance data.
+- Media signing proof removal still clears the legacy media field and syncs the shared signature record.
+- Art create/edit can upload a selected proof file after the Art record exists.
+- API/OpenAPI/runtime checks stay aligned for the new Art proof endpoints.
+
+### Active Slice Notes
+
+- Do not introduce a general attachment library in this slice.
+- Do not add multiple proof images per signature yet.
+- Do not convert Event autograph artifacts into object-level signature records here.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

@@ -9120,22 +9120,16 @@ router.delete('/:id/signing-proof', asyncHandler(async (req, res) => {
   if (!previousPath) {
     return res.json({ ok: true, removed: false });
   }
-  await pool.query(
+  const updated = await pool.query(
     `UPDATE media
      SET signed_proof_path = NULL
      WHERE id = $1
      RETURNING id, library_id, space_id, signed_by, signed_role, signed_on, signed_at, signed_proof_path`,
     [mediaId]
   );
-  const updated = await pool.query(
-    `SELECT id, library_id, space_id, signed_by, signed_role, signed_on, signed_at, signed_proof_path
-       FROM media
-      WHERE id = $1`,
-    [mediaId]
-  );
   await syncMediaPrimarySignature(updated.rows[0], req.user.id);
   await logActivity(req, 'media.signing_proof.remove', 'media', mediaId, { previousPath });
-  res.json({ ok: true, removed: true });
+  res.json({ ok: true, removed: true, signed_proof_path: null });
 }));
 
 // ── CSV import ────────────────────────────────────────────────────────────────

@@ -5,6 +5,8 @@ const {
   ensureSavedAdminCredentials,
   createFreshUserCredentials,
   createAuthenticatedRequestContext,
+  fetchCsrfToken,
+  requestWithCsrf,
   postWithCsrf,
   patchWithCsrf
 } = require('../helpers/auth');
@@ -70,12 +72,33 @@ test.describe('events and collectibles browser regressions', () => {
       expect(patched.signatures[0].signed_on).toBe('2026-04-27');
       expect(patched.signature_notes).toBe('Updated provenance note.');
 
+      const csrfToken = await fetchCsrfToken(userRequestContext);
+      const uploadResponse = await userRequestContext.post(`/api/art/${created.id}/upload-signature-proof`, {
+        multipart: {
+          proof: {
+            name: 'signature-proof.png',
+            mimeType: 'image/png',
+            buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=', 'base64')
+          }
+        },
+        headers: { 'x-csrf-token': csrfToken }
+      });
+      expect(uploadResponse.ok()).toBeTruthy();
+      const uploaded = await uploadResponse.json();
+      expect(uploaded.signature_proof_path).toBeTruthy();
+
       const detailResponse = await userRequestContext.get(`/api/art/${created.id}`);
       expect(detailResponse.ok()).toBeTruthy();
       const detail = await detailResponse.json();
       expect(detail.signatures).toHaveLength(1);
       expect(detail.signer_name).toBe('Updated Playwright Signer');
       expect(detail.signatures[0].owner_type).toBe('art');
+      expect(detail.signatures[0].proof_path).toBe(uploaded.signature_proof_path);
+
+      const removeResponse = await requestWithCsrf(userRequestContext, 'DELETE', `/api/art/${created.id}/signature-proof`);
+      const removed = await removeResponse.json();
+      expect(removed.removed).toBe(true);
+      expect(removed.signature_proof_path).toBeNull();
     } finally {
       await deleteArtByExactTitle(userRequestContext, artTitle).catch(() => {});
       if (!originalCollectiblesEnabled) {

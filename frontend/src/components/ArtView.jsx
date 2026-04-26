@@ -246,7 +246,7 @@ function ArtDetailDrawer({ artId, apiCall, events, onClose, onEdit, onDeleted })
   );
 }
 
-function ArtDrawer({ initial, events, saving, error, notice, onClose, onSave, onDelete, onClearImage }) {
+function ArtDrawer({ initial, events, saving, error, notice, onClose, onSave, onDelete, onClearImage, onUploadSignatureProof, onRemoveSignatureProof }) {
   const primaryInitialSignature = initial?.signatures?.find((signature) => signature.is_primary) || initial?.signatures?.[0] || null;
   const [form, setForm] = useState(() => ({
     ...DEFAULT_FORM,
@@ -263,6 +263,8 @@ function ArtDrawer({ initial, events, saving, error, notice, onClose, onSave, on
     booth: initial?.booth || ''
   }));
   const [imageFile, setImageFile] = useState(null);
+  const [proofFile, setProofFile] = useState(null);
+  const [proofWorking, setProofWorking] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
   const tabs = useMemo(() => ([
     { id: 'core', label: 'Artwork' },
@@ -287,11 +289,39 @@ function ArtDrawer({ initial, events, saving, error, notice, onClose, onSave, on
       booth: initial?.booth || ''
     });
     setImageFile(null);
+    setProofFile(null);
+    setProofWorking(false);
     setActiveTab('core');
   }, [initial, primaryInitialSignature]);
 
   const showPurchaseContext = hasPurchaseContext(form);
-  const submit = () => onSave(form, imageFile);
+  const submit = () => onSave(form, imageFile, proofFile);
+  const currentProofPath = form.signature_proof_path || '';
+
+  const uploadSignatureProof = async () => {
+    if (!initial?.id || !proofFile || !onUploadSignatureProof) return;
+    setProofWorking(true);
+    try {
+      const updated = await onUploadSignatureProof(initial.id, proofFile);
+      const nextPath = updated?.signature_proof_path || updated?.proof_path || '';
+      setForm((prev) => ({ ...prev, signed: true, signature_proof_path: nextPath }));
+      setProofFile(null);
+    } finally {
+      setProofWorking(false);
+    }
+  };
+
+  const removeSignatureProof = async () => {
+    if (!initial?.id || !currentProofPath || !onRemoveSignatureProof) return;
+    setProofWorking(true);
+    try {
+      await onRemoveSignatureProof(initial.id);
+      setForm((prev) => ({ ...prev, signature_proof_path: '' }));
+      setProofFile(null);
+    } finally {
+      setProofWorking(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex">
@@ -368,6 +398,16 @@ function ArtDrawer({ initial, events, saving, error, notice, onClose, onSave, on
                   </select>
                 </label>
                 <label className="field"><span className="label">Proof image URL</span><input className="input" value={form.signature_proof_path || ''} onChange={(e) => setForm((p) => ({ ...p, signature_proof_path: e.target.value }))} /></label>
+                <label className="field md:col-span-2"><span className="label">Signature proof image</span><input className="input" type="file" accept="image/*" capture="environment" onChange={(e) => setProofFile(e.target.files?.[0] || null)} /></label>
+                <div className="md:col-span-2 flex flex-wrap items-center gap-2">
+                  {currentProofPath ? <a className="btn-ghost btn-sm" href={posterUrl(currentProofPath)} target="_blank" rel="noreferrer"><Icons.Link />Open proof</a> : null}
+                  <button type="button" className="btn-secondary btn-sm" onClick={uploadSignatureProof} disabled={!initial?.id || !proofFile || proofWorking}>
+                    {proofWorking ? <><Spinner size={14} />Uploading…</> : <><Icons.Check />Upload proof</>}
+                  </button>
+                  <button type="button" className="btn-ghost btn-sm" onClick={removeSignatureProof} disabled={!initial?.id || !currentProofPath || proofWorking}><Icons.X />Remove proof</button>
+                  {!initial?.id && proofFile ? <span className="text-xs text-ghost">Proof will upload after the art record is saved.</span> : null}
+                </div>
+                {proofFile ? <p className="text-xs text-ghost md:col-span-2">Selected proof: {proofFile.name}</p> : null}
                 <label className="field md:col-span-2"><span className="label">Signature notes</span><textarea className="textarea min-h-[80px]" value={form.signature_notes || ''} onChange={(e) => setForm((p) => ({ ...p, signature_notes: e.target.value }))} /></label>
               </div>
             </SectionTabPanel>
@@ -492,7 +532,23 @@ export default function ArtView({ apiCall, onToast }) {
     setNotice('');
   };
 
-  const saveArt = async (form, imageFile) => {
+  const uploadSignatureProof = async (id, proofFile) => {
+    if (!id || !proofFile) return null;
+    const formData = new FormData();
+    formData.append('proof', proofFile);
+    const updated = await api('post', `/art/${id}/upload-signature-proof`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+    onToast?.('Signature proof uploaded');
+    return updated;
+  };
+
+  const removeSignatureProof = async (id) => {
+    if (!id) return null;
+    const updated = await api('delete', `/art/${id}/signature-proof`);
+    onToast?.('Signature proof removed');
+    return updated;
+  };
+
+  const saveArt = async (form, imageFile, proofFile) => {
     if (!String(form.title || '').trim()) return;
     setSaving(true);
     setError('');
@@ -537,6 +593,13 @@ export default function ArtView({ apiCall, onToast }) {
           setError(parseUploadError(uploadErr?.response?.data?.error || uploadErr?.message));
         }
       }
+      if (proofFile && id) {
+        try {
+          await uploadSignatureProof(id, proofFile);
+        } catch (uploadErr) {
+          setError(parseUploadError(uploadErr?.response?.data?.error || uploadErr?.message));
+        }
+      }
       onToast?.(editing?.id ? 'Art saved' : 'Art created');
       setNotice(editing?.id ? 'Art saved' : 'Art created');
       setAdding(false);
@@ -565,6 +628,22 @@ export default function ArtView({ apiCall, onToast }) {
     const refreshed = await api('get', `/art/${editing.id}`);
     setEditing(refreshed);
     await load();
+  };
+
+  const uploadSignatureProofFromDrawer = async (id, proofFile) => {
+    const updated = await uploadSignatureProof(id, proofFile);
+    const refreshed = await api('get', `/art/${id}`);
+    setEditing(refreshed);
+    await load();
+    return updated;
+  };
+
+  const removeSignatureProofFromDrawer = async (id) => {
+    const updated = await removeSignatureProof(id);
+    const refreshed = await api('get', `/art/${id}`);
+    setEditing(refreshed);
+    await load();
+    return updated;
   };
 
   return (
@@ -683,6 +762,8 @@ export default function ArtView({ apiCall, onToast }) {
           onSave={saveArt}
           onDelete={editing?.id ? () => deleteArt(editing.id) : null}
           onClearImage={clearImage}
+          onUploadSignatureProof={uploadSignatureProofFromDrawer}
+          onRemoveSignatureProof={removeSignatureProofFromDrawer}
         />
       ) : null}
       {detailId ? (

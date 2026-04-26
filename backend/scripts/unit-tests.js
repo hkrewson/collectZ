@@ -3616,6 +3616,22 @@ results.push(run('shared signature provenance foundation supports Art and media 
   assert.ok(openApiSource.includes('"signatures"'));
 }));
 
+results.push(run('shared signature proof attachments support Art upload removal and media compatibility sync', () => {
+  assert.ok(collectiblesRoutesSource.includes("router.post('/art/:id/upload-signature-proof', memoryUpload.single('proof')"));
+  assert.ok(collectiblesRoutesSource.includes("router.delete('/art/:id/signature-proof'"));
+  assert.ok(collectiblesRoutesSource.includes('art.signature_proof.upload'));
+  assert.ok(collectiblesRoutesSource.includes('art.signature_proof.remove'));
+  assert.ok(collectiblesRoutesSource.includes('buildArtSignaturePayloadFromRecord'));
+  assert.ok(mediaRoutesSource.includes('const updated = await pool.query'));
+  assert.ok(mediaRoutesSource.includes('signed_proof_path: null'));
+  assert.ok(artViewSource.includes('/upload-signature-proof'));
+  assert.ok(artViewSource.includes('/signature-proof'));
+  assert.ok(artViewSource.includes('Signature proof image'));
+  assert.ok(openApiSource.includes('"/api/art/{id}/upload-signature-proof"'));
+  assert.ok(openApiSource.includes('"/api/art/{id}/signature-proof"'));
+  assert.ok(openApiSource.includes('"SignatureProofResponse"'));
+}));
+
 results.push(run('library loans view exposes management-focused counts and due-soon emphasis', () => {
   assert.ok(libraryLoansViewSource.includes('Currently out'));
   assert.ok(libraryLoansViewSource.includes('Due soon'));

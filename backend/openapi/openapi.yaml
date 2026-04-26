@@ -1420,6 +1420,23 @@
         },
         "required": ["is_primary"]
       },
+      "SignatureProofResponse": {
+        "type": "object",
+        "properties": {
+          "ok": { "type": "boolean" },
+          "removed": { "type": "boolean" },
+          "id": { "type": "integer" },
+          "native_art_id": { "type": ["integer", "null"] },
+          "signature_proof_path": { "type": ["string", "null"] },
+          "proof_path": { "type": ["string", "null"] },
+          "provider": { "type": ["string", "null"] },
+          "signatures": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/SignatureRecord" }
+          }
+        },
+        "required": ["id", "signature_proof_path", "proof_path", "signatures"]
+      },
       "EventPurchasedItemRecord": {
         "type": "object",
         "properties": {
@@ -4655,6 +4672,76 @@
                   },
                   "required": ["ok", "id"]
                 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/art/{id}/upload-signature-proof": {
+      "post": {
+        "tags": ["Media"],
+        "summary": "Upload or replace the primary signature proof image for an art record",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "proof": { "type": "string", "format": "binary" }
+                },
+                "required": ["proof"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Uploaded signature proof",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SignatureProofResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/art/{id}/signature-proof": {
+      "delete": {
+        "tags": ["Media"],
+        "summary": "Remove the primary signature proof image from an art record",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Removed signature proof",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SignatureProofResponse" }
               }
             }
           }
