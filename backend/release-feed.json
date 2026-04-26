@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v3.4.3",
+      "version": "3.4.3",
+      "date": "2026-04-26",
+      "status": "Completed",
+      "summary": "This patch cuts the Art library read path over to native Art storage while keeping bridge-compatible response ids during the transition. Events now read tracked Art purchases and tracked Collectibles purchases through the shared purchased-item relationship, and the Art drawer treats vendor and booth as event purchase context instead of always-on Art identity fields.",
+      "details": []
+    },
+    {
       "title": "v3.4.2",
       "version": "3.4.2",
       "date": "2026-04-26",
@@ -71,37 +79,6 @@
       "status": "Completed",
       "summary": "This minor release adds a new library loans workflow so borrowed items can be tracked from one management surface instead of disappearing into title-level notes. The release introduces scoped loan records, item-attached loan actions, a dedicated `Loans` view, and stronger current-loan visibility for active, overdue, and returned items across both platform and homelab stacks.",
       "details": []
-    },
-    {
-      "title": "v3.2.10",
-      "version": "3.2.10",
-      "date": "2026-04-22",
-      "status": "Completed",
-      "summary": "This patch release makes comic provider re-enrichment easier to scan by adding compact cover thumbnails directly in the edit drawer lookup results. The lookup rows now reuse the provider image data already returned by Metron and other search flows, keep the result list compact, and fall back cleanly when a result has no image.",
-      "details": [
-        {
-          "heading": "Compact lookup thumbnails",
-          "bullets": [
-            "Added a compact thumbnail treatment to provider lookup results in the edit drawer overlay.",
-            "Reused the existing image fields already present in lookup payloads instead of introducing any new provider or API contract.",
-            "Tightened the thumbnail corners to a more deliberate utility treatment so the results feel functional rather than soft or card-like."
-          ]
-        },
-        {
-          "heading": "Graceful no-image fallback",
-          "bullets": [
-            "Added a lightweight fallback tile for results that do not include an image.",
-            "Kept the current title, source badges, subtitle details, and `Apply` action behavior intact."
-          ]
-        },
-        {
-          "heading": "Regression coverage",
-          "bullets": [
-            "Added source-backed regression coverage proving the lookup overlay still includes the compact thumbnail rendering contract.",
-            "Rebuilt the platform and homelab frontend bundles so the shipped app includes the new result-row treatment."
-          ]
-        }
-      ]
     }
   ]
 }

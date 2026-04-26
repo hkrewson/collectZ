@@ -4446,7 +4446,7 @@ Historical note:
 
 **Goal:** Switch runtime reads to the native Art model and let Events read Art and Collectibles through the shared purchased-item relationship.
 
-**Current Slice:** `Native Art Read Cutover`
+**Current Slice:** `Closed`
 
 ### Scope
 
@@ -4461,17 +4461,36 @@ Historical note:
 - Events can read linked Art purchases and linked Collectibles purchases through the same relationship model.
 - Art UI behavior reflects the event-aware vendor/booth rule without losing editability or data fidelity.
 
-### Implementation Notes
+### Closeout
 
-- In progress:
-  - `/api/art` list/detail reads are being cut over to `art_items` with bridge-compatible response ids during the transition.
-  - Event detail readback now includes linked Art and Collectibles purchases from `event_purchased_items`.
-  - The shared Art drawer hides vendor/booth unless purchase context exists, while preserving existing values for editability.
-  - `test:native-art-read-cutover-smoke` covers the `/api/art` native detail/list/event-filter read contract against the running backend stack.
-- Verification still needed before closeout:
-  - rebuilt frontend/browser verification of the Art drawer behavior,
-  - full rebuilt-image verification of `/api/art` list/detail reads after the updated backend/frontend images are rebuilt,
-  - and the normal version/release artifact closeout required for numbered roadmap milestones.
+- Status: `Closed` as `v3.4.3`.
+- Release artifact: `docs/releases/v3.4.3.md`.
+- Version/feed sync:
+  - root, backend, and frontend metadata are aligned on `3.4.3`,
+  - and the in-app Help > Releases snapshot was regenerated with `3.4.3` as the latest entry.
+- Runtime verification:
+  - rebuilt backend/frontend images reported `3.4.3` from `/api/health`,
+  - native Art read cutover smoke passed against the running backend stack,
+  - event purchased-items smoke passed against the running backend stack,
+  - targeted Playwright Events/Collectibles/Art browser regression passed against the rebuilt frontend,
+  - full Playwright browser regression passed locally (`44` passed, `4` skipped homelab-browser specs),
+  - in-stack Help > Releases smoke served `3.4.3`,
+  - RBAC regression passed in-stack,
+  - platform edition boundary passed in-stack,
+  - homelab edition boundary passed in-stack,
+  - and observability release evidence passed.
+- Local checks:
+  - backend unit tests passed (`207`),
+  - OpenAPI validation passed,
+  - release preflight was regenerated for `3.4.3` with compose smoke basics passing under CI secure-cookie overrides,
+  - dependency audit artifacts were regenerated,
+  - init parity was checked,
+  - and migration rehearsal was checked.
+- CI-only follow-through:
+  - secret scan remains authoritative in tagged CI because `gitleaks` is not installed locally,
+  - and image security/SBOM remain authoritative in tagged CI because local Trivy/SBOM tooling is not installed.
+- Follow-up release boundary:
+  - `3.4.4` owns Art UI divergence and legacy Collectibles decoupling.
 
 ## 3.4.4 — Art UI Divergence and Legacy Collectibles Decoupling
 
