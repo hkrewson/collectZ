@@ -4862,7 +4862,7 @@ Historical note:
 
 **Goal:** Let event-captured autographs feed the same shared signature provenance model used by Art and media, while keeping Events as the capture/history surface instead of a separate signature system.
 
-**Current Slice:** `Implementation`
+**Current Slice:** `Closed as v3.4.11`
 
 ### Scope
 
@@ -4885,6 +4885,19 @@ Historical note:
 - Do not add a dedicated frontend linking workflow in this first API slice.
 - Do not make Events themselves signed objects; signings remain artifacts/sub-events.
 - Do not add multi-proof or many-signature management UI in this slice.
+
+### Closeout — 2026-04-26
+
+- Released as `v3.4.11`.
+- Version metadata synced across `app-meta.json`, backend package metadata, frontend package metadata, backend app metadata, and frontend app metadata.
+- Release note added at `docs/releases/v3.4.11.md`.
+- In-app Help > Releases feed regenerated with `v3.4.11` as the latest entry.
+- Runtime verification used Docker-first evidence from rebuilt `backend`, `frontend`, and `db` services.
+- Schema migration `79` applied in the running stack and was verified with init parity plus migration rehearsal evidence.
+- Local release closeout accounted for unit, OpenAPI, browser, RBAC, edition-boundary, dependency, migration, observability, release note, release feed, and targeted Event signature-linking smoke gates.
+- Local preflight marked CI-secure compose-smoke cookie checks blocked because this local development stack runs with `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`; tagged CI remains authoritative for that secure-cookie variant.
+- Local gitleaks, Trivy, and SBOM tooling were not installed, so tagged CI remains authoritative for `secret-scan`, `image-security-and-sbom`, and final release publication.
+- The release intentionally leaves dedicated frontend autograph-to-object linking workflow, multi-signature management, and multi-proof management as follow-up work.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 

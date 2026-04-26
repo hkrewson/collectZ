@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v3.4.11",
+      "version": "3.4.11",
+      "date": "2026-04-26",
+      "status": "Completed",
+      "summary": "This release connects event-captured autographs to the shared signature provenance model introduced for Art and media. Events remain the capture/history surface, while Art and media records remain the canonical signed-object evidence surface.",
+      "details": []
+    },
+    {
       "title": "v3.4.10",
       "version": "3.4.10",
       "date": "2026-04-26",
@@ -102,14 +110,6 @@
       "date": "2026-04-26",
       "status": "Completed",
       "summary": "This patch migrates existing bridge-era Art data into the native Art storage introduced in `3.4.1`. Existing `collectibles.subtype = art` rows now receive native `art_items` mappings, and event-linked Art purchases now receive shared `event_purchased_items` links so Events can carry Art purchase history through the same canonical relationship used for tracked purchased objects.",
-      "details": []
-    },
-    {
-      "title": "v3.4.1",
-      "version": "3.4.1",
-      "date": "2026-04-25",
-      "status": "Completed",
-      "summary": "This patch builds the foundation for separating Art from Collectibles without forcing an immediate read cutover. Art still works through the bridge-era `/api/art` surface, but new and edited Art records now dual-write into dedicated native Art storage. Events also gain a shared purchased-item relationship so tracked purchases can link to either native Art rows or non-Art Collectibles through one event-facing contract.",
       "details": []
     }
   ]
