@@ -4783,7 +4783,7 @@ Historical note:
 
 **Goal:** Replace one-off signed-object fields with a shared signature/provenance contract that Art can use immediately and existing media/title endpoints can adopt without losing compatibility.
 
-**Current Slice:** `Implementation`
+**Current Slice:** `Closed as v3.4.9`
 
 ### Scope
 
@@ -4808,6 +4808,17 @@ Historical note:
 - Treat event autograph artifacts as event history, not object-level signed-copy provenance, in this slice.
 - Keep proof image storage path-based for now and reuse existing upload/storage plumbing rather than introducing a new attachment service.
 - Avoid a controlled signer directory or many-to-many signer catalog until repeated signer reuse proves the need.
+
+### Closeout — 2026-04-26
+
+- Released as `v3.4.9`.
+- Version metadata synced across `app-meta.json`, backend package metadata, frontend package metadata, backend app metadata, and frontend app metadata.
+- Release note added at `docs/releases/v3.4.9.md`.
+- In-app Help > Releases feed regenerated with `v3.4.9` as the latest entry.
+- Runtime verification used Docker-first evidence from the rebuilt `backend`, `frontend`, and `db` services.
+- Migration `78` verified against the running stack and release evidence through init parity and migration rehearsal checks.
+- Local release closeout accounted for unit, OpenAPI, browser, RBAC, edition-boundary, dependency, migration, observability, compose-smoke, secret-scan, image-security, and SBOM gates.
+- CI remains the authoritative source for tagged `secret-scan`, image security, and SBOM publication artifacts.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 

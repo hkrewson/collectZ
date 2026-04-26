@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v3.4.9",
+      "version": "3.4.9",
+      "date": "2026-04-26",
+      "status": "Completed",
+      "summary": "This release introduces one shared signature provenance contract for signed collection objects. Art now records richer signature details through the shared model, while existing media title signature fields continue to work as compatibility projections onto the same foundation.",
+      "details": []
+    },
+    {
       "title": "v3.4.8",
       "version": "3.4.8",
       "date": "2026-04-26",
@@ -102,14 +110,6 @@
       "date": "2026-04-25",
       "status": "Completed",
       "summary": "This minor release promotes Art into its own first-class library surface while preserving event-linked purchase history and cleaning up the remaining Collectibles entry friction that no longer made sense once Art stopped living only as a subtype. The release keeps the underlying bridge model intentionally pragmatic: Art now has dedicated routes and navigation, shared collectible-style purchase linkage still works, Art metadata grows into a more natural shape with `series`, `vendor`, and `booth`, and the Collectibles drawer collapses its duplicate taxonomy controls into one clearer selector.",
-      "details": []
-    },
-    {
-      "title": "v3.3.5",
-      "version": "3.3.5",
-      "date": "2026-04-25",
-      "status": "Completed",
-      "summary": "This patch release rounds out the current library-loans reminder line by adding an operator-facing reminder-operations surface. The release keeps the scope intentionally narrow: instead of creating a separate monitoring dashboard, it adds a dedicated admin read contract and a compact panel inside the existing platform activity view so operators can see reminder runtime state, latest automatic run results, and recent failures in one place.",
       "details": []
     }
   ]
