@@ -1,20 +1,20 @@
 # Local Release Go/No-Go Preflight
 
-- Version: `3.4.5`
-- Generated: `2026-04-26T07:00:33.395Z`
+- Version: `3.4.6`
+- Generated: `2026-04-26T07:22:09.190Z`
 - Base URL: `http://localhost:3000`
 
 ## Gate Results
 
-- Version metadata sync: PASS — all manifests aligned on 3.4.5
-- Release note presence: PASS — docs/releases/v3.4.5.md
+- Version metadata sync: PASS — all manifests aligned on 3.4.6
+- Release note presence: PASS — docs/releases/v3.4.6.md
 - Backend dependency audit: PASS — low=0 moderate=2 high=0 critical=0
 - Frontend dependency audit: PASS — low=0 moderate=0 high=0 critical=0
 - Migration evidence presence: PASS — init parity and migration rehearsal evidence are present
-- Observability release evidence: PASS — observability artifact present for 3.4.5 with 9/9 checks passed
+- Observability release evidence: PASS — observability artifact present for 3.4.6 with 9/9 checks passed
 - Compose smoke basics: PASS — in-stack health, headers, CSRF cookie, 401 auth check, and integration smoke passed
 - Secret scan: BLOCKED — CI-only gitleaks gate
-- Browser regression: PASS — supplemental local Playwright gate passed after preflight generation (`44` passed, `4` skipped homelab browser specs)
+- Browser regression: BLOCKED — not run by this local preflight helper
 - Image security and SBOM: BLOCKED — CI-only Trivy/SBOM gate
 
 ## Evidence Artifacts
@@ -28,7 +28,7 @@
 
 ## Release Note
 
-- `docs/releases/v3.4.5.md`: present
+- `docs/releases/v3.4.6.md`: present
 - Security triage markers: present
 
 ## Blocking Criteria
@@ -38,5 +38,6 @@ Release is NO-GO if any required local gate fails, any required artifact is miss
 ## CI-Only Follow-Through
 
 - `secret-scan`
+- `browser-regression` when it is not run locally or the local browser environment is blocked
 - `image-security-and-sbom`
 - any stricter CI `compose-smoke` conditions not exercised by this local helper

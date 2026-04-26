@@ -4616,7 +4616,7 @@ Historical note:
 
 **Goal:** Reduce Art's bridge-era dependence on hidden Collectibles rows now that Art has a native object model, while preserving compatibility for migrated records.
 
-**Current Slice:** `Implementation`
+**Current Slice:** `Closed`
 
 ### Scope
 
@@ -4639,6 +4639,43 @@ Historical note:
 - Do not remove the `source_collectible_id` column in this slice.
 - Do not switch all legacy public Art IDs to native IDs in this slice.
 - Deeper bridge-column removal or a public-ID cutover should remain a separate migration-safe milestone after compatibility behavior is proven.
+
+### Closeout
+
+- Status: `Closed` as `v3.4.6`.
+- Release artifact: `docs/releases/v3.4.6.md`.
+- Version/feed sync:
+  - root, backend, frontend, lockfile, and app-meta metadata are aligned on `3.4.6`,
+  - and the in-app Help > Releases snapshot was regenerated with `3.4.6` as the latest entry.
+- Runtime verification:
+  - rebuilt backend/frontend images reported `3.4.6` from `/api/health`,
+  - live native Art smoke confirmed new `/api/art` creates write directly to `art_items` with `source_collectible_id = NULL`,
+  - native Art detail/update/delete smoke passed against the running backend/frontend stack,
+  - event purchased-items smoke passed with Art links resolved through native `art_items.id`,
+  - Help > Releases smoke served `3.4.6`,
+  - RBAC regression passed in-stack,
+  - platform edition boundary passed in-stack,
+  - homelab edition boundary passed in-stack,
+  - browser regression passed locally with `44` passed and `4` skipped,
+  - CI-shaped compose smoke basics passed under secure-cookie overrides,
+  - and observability release evidence passed `9/9`.
+- Local checks:
+  - backend unit tests passed,
+  - OpenAPI validation passed,
+  - release preflight was regenerated for `3.4.6`,
+  - backend production dependency audit reported `0` critical, `0` high, `2` moderate,
+  - frontend production dependency audit reported `0` vulnerabilities,
+  - init parity passed,
+  - and migration rehearsal passed.
+- Artifact hygiene:
+  - generated preflight, dependency audit, init parity, migration rehearsal, and observability artifacts were checked for secret-bearing output,
+  - observability command evidence contains redacted password values rather than plaintext credentials.
+- CI-only follow-through:
+  - secret scan remains authoritative in tagged CI because `gitleaks` is not installed locally,
+  - and image security/SBOM remain authoritative in tagged CI because local Trivy/SBOM tooling is not installed.
+- Follow-up boundary:
+  - full removal of `source_collectible_id` remains deferred until legacy/public-ID compatibility is proven safe,
+  - and a later public-ID cutover may be needed if migrated Art should expose native IDs everywhere.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 

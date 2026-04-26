@@ -1,6 +1,46 @@
 {
   "releases": [
     {
+      "title": "v3.4.6",
+      "version": "3.4.6",
+      "date": "2026-04-26",
+      "status": "Completed",
+      "summary": "This release moves new Art writes off the bridge-era Collectibles write path. Art now creates, edits, uploads images, removes images, and archives records through native `art_items` first, while migrated Art records remain readable through their existing bridge-compatible IDs.",
+      "details": [
+        {
+          "heading": "Native Art writes",
+          "bullets": [
+            "New `/api/art` creates now persist directly to `art_items` with `source_collectible_id = NULL`.",
+            "Art updates now apply to native `art_items` rows first.",
+            "Art image upload, image removal, and archive/delete flows no longer require a hidden Collectibles row for native-only Art.",
+            "Existing migrated Art rows with `source_collectible_id` remain editable and readable through the bridge-safe route ID."
+          ]
+        },
+        {
+          "heading": "Bridge compatibility",
+          "bullets": [
+            "`/api/art/:id` resolves native-only Art by native ID and migrated Art by `source_collectible_id`.",
+            "Public Art responses continue to include `native_art_id` and `source_collectible_id` so the UI can distinguish native-only and migrated records during the compatibility window.",
+            "The `source_collectible_id` column intentionally remains in place for migrated rows."
+          ]
+        },
+        {
+          "heading": "Event purchase links",
+          "bullets": [
+            "Art create/update flows preserve shared Event purchase linking through `event_purchased_items`.",
+            "Event purchase filters and readback continue to resolve Art through native `art_items.id`.",
+            "Collectibles remain excluded from Art writes and `/api/collectibles` continues to reject Art records."
+          ]
+        },
+        {
+          "heading": "Backlog tracking",
+          "bullets": [
+            "Added explicit backlog follow-ups for Art signature provenance, fandom/franchise metadata, Event purchase linking polish, and Collectibles naming review."
+          ]
+        }
+      ]
+    },
+    {
       "title": "v3.4.5",
       "version": "3.4.5",
       "date": "2026-04-26",
@@ -70,14 +110,6 @@
       "date": "2026-04-24",
       "status": "Completed",
       "summary": "This patch release deepens the shipped library-loans reminder workflow by adding event-level reminder history, exposing that history through the loan-detail API, and surfacing compact reminder audit context in the loan-first media drawer. The release keeps the design intentionally narrow: reminder history is now explainable and reviewable without widening the main Loans list into a heavier operator console.",
-      "details": []
-    },
-    {
-      "title": "v3.3.2",
-      "version": "3.3.2",
-      "date": "2026-04-23",
-      "status": "Completed",
-      "summary": "This patch release builds on `3.3.1` loan reminders by adding automatic reminder scheduling for due-soon and overdue loans. The shipped scope keeps the implementation deliberately tight: a shared backend reminder service, a lightweight in-process scheduler, phase-aware duplicate prevention, and Docker-backed proof that automatic sweeps send the right reminders without repeating them immediately.",
       "details": []
     }
   ]
