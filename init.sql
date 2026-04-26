@@ -1159,5 +1159,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (71, 'Add phase-specific reminder tracking to media loans'),
     (72, 'Add event-level reminder history for media loans'),
     (73, 'Add collectible series plus split vendor and booth fields'),
-    (74, 'Add native art storage and shared event purchased item links')
+    (74, 'Add native art storage and shared event purchased item links'),
+    (75, 'Backfill native art rows and shared event purchased item links')
 ON CONFLICT (version) DO NOTHING;

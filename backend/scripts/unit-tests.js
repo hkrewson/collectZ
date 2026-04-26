@@ -76,6 +76,7 @@ const metricsModule = require('../services/metrics');
 const { shouldEnforceCsrf } = require('../middleware/csrf');
 const observabilityRuntimeSource = fs.readFileSync(require.resolve('../services/observabilityRuntime'), 'utf8');
 const releasePreflightLocalSource = fs.readFileSync(require.resolve('../scripts/release-preflight-local'), 'utf8');
+const artMigrationBackfillSmokeSource = fs.readFileSync(require.resolve('../scripts/art-migration-backfill-smoke'), 'utf8');
 const authModulePath = require.resolve('../middleware/auth');
 const authMiddlewareSource = fs.readFileSync(authModulePath, 'utf8');
 const scopeAccessSource = fs.readFileSync(require.resolve('../middleware/scopeAccess'), 'utf8');
@@ -96,6 +97,7 @@ const metricsRoutesSource = fs.readFileSync(require.resolve('../routes/metrics')
 const logExportSource = fs.readFileSync(require.resolve('../services/logExport'), 'utf8');
 const serverSource = fs.readFileSync(require.resolve('../server'), 'utf8');
 const migrationsSource = fs.readFileSync(require.resolve('../db/migrations'), 'utf8');
+const initSqlSource = fs.readFileSync(path.resolve(__dirname, '..', '..', 'init.sql'), 'utf8');
 const libraryServiceSource = fs.readFileSync(require.resolve('../services/libraries'), 'utf8');
 const personalAccessTokenSource = fs.readFileSync(require.resolve('../services/personalAccessTokens'), 'utf8');
 const serviceAccountKeySource = fs.readFileSync(require.resolve('../services/serviceAccountKeys'), 'utf8');
@@ -3477,6 +3479,18 @@ results.push(run('native art schema and shared event purchased-item contract are
   assert.ok(eventsRoutesSource.includes('/events/:id/purchased-items'));
   assert.ok(eventsRoutesSource.includes('events.purchased_item.create'));
   assert.ok(backendPackageJson.scripts['test:event-purchased-items-smoke']);
+}));
+
+results.push(run('native art migration and shared event purchase backfill are wired for the 3.4.2 migration phase', () => {
+  assert.ok(migrationsSource.includes('version: 75'));
+  assert.ok(migrationsSource.includes('Backfill native art rows and shared event purchased item links'));
+  assert.ok(migrationsSource.includes("WHERE c.subtype = 'art'"));
+  assert.ok(migrationsSource.includes("COALESCE(NULLIF(c.vendor, ''), NULLIF(c.booth_or_vendor, ''))"));
+  assert.ok(migrationsSource.includes('INSERT INTO event_purchased_items'));
+  assert.ok(migrationsSource.includes("AND epi.item_type = 'art'"));
+  assert.ok(initSqlSource.includes("(75, 'Backfill native art rows and shared event purchased item links')"));
+  assert.ok(backendPackageJson.scripts['test:art-migration-backfill-smoke']);
+  assert.ok(artMigrationBackfillSmokeSource.includes('backfillMigration.up'));
 }));
 
 results.push(run('library loans view exposes management-focused counts and due-soon emphasis', () => {

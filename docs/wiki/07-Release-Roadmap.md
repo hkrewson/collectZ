@@ -3721,7 +3721,7 @@ Historical note:
 
 **Goal:** Remove the comic-book full-fetch exception by moving comic ordering and series browsing onto a server-backed pagination path that relies on stable comic identity fields instead of client-only full-list sorting.
 
-**Current Slice:** `Version Closeout`
+**Current Slice:** `Closed`
 
 ### Scope
 
@@ -4350,6 +4350,8 @@ Historical note:
 
 **Goal:** Move existing art-classified collectible rows into native Art storage and backfill shared purchased-item links without losing attribution, pricing, images, or event history.
 
+**Current Slice:** `Version Closeout`
+
 ### Scope
 
 - Backfill existing `collectibles` rows where `subtype = art` into native Art records.
@@ -4369,6 +4371,45 @@ Historical note:
 - Existing Art data migrates without silent loss of linked event purchase history.
 - Shared purchased-item rows exist for migrated Art purchases.
 - Migration rehearsal and parity checks prove the backfill contract locally or are explicitly documented as blocked.
+
+### Active Slice Notes
+
+- Start from the `3.4.1` bridge state:
+  - new and edited `/api/art` records already dual-write into `art_items`,
+  - but older `collectibles.subtype = art` rows may not yet have native Art rows,
+  - and older event-linked Art rows may still depend only on `collectibles.event_id`.
+- Migration/backfill foundation:
+  - add an idempotent migration that copies legacy Art collectible rows into `art_items` through `source_collectible_id`,
+  - preserve `artist`, `series`, `title`, vendor/booth context, `price`, `exclusive`, images, notes, creator, timestamps, library, space, and archived state,
+  - backfill `event_purchased_items` for legacy Art rows with `event_id`,
+  - keep non-Art Collectibles out of the Art backfill,
+  - and keep runtime reads on the bridge-era `/api/art` surface until `3.4.3`.
+
+### Migration and Backfill Foundation Closeout
+
+- Status: implementation complete; milestone moved to `Version Closeout`.
+- Implemented migration `v75 — Backfill native art rows and shared event purchased item links`.
+- Added transactional smoke coverage for:
+  - active legacy Art rows,
+  - standalone legacy Art rows,
+  - archived legacy Art rows,
+  - event-linked Art purchased-item backfill,
+  - idempotent rerun behavior,
+  - and non-Art Collectibles staying out of the Art backfill.
+- Running localhost DB evidence after applying `v75`:
+  - legacy Art rows: `3`,
+  - native Art mappings: `3`,
+  - event-linked Art rows: `2`,
+  - shared Art purchase links: `2`,
+  - missing native Art mappings: `0`,
+  - missing event purchase links: `0`.
+- Verification run:
+  - backend unit tests passed (`206`),
+  - Art migration backfill smoke passed in a backend-container transaction,
+  - migration rehearsal passed through `v75`,
+  - init parity passed through `v75`.
+- Remaining work:
+  - version sync, `docs/releases/v3.4.2.md`, Help > Releases feed regeneration, and release-shaped gates for `3.4.2`.
 
 ## 3.4.3 — Art Native Read Cutover and Event Purchase Readback
 

@@ -3070,6 +3070,104 @@ const MIGRATIONS = [
       END;
       $$;
     `
+  },
+  {
+    version: 75,
+    description: 'Backfill native art rows and shared event purchased item links',
+    up: `
+      INSERT INTO art_items (
+        source_collectible_id,
+        library_id,
+        space_id,
+        created_by,
+        title,
+        artist,
+        series,
+        vendor,
+        booth,
+        price,
+        exclusive,
+        image_path,
+        notes,
+        created_at,
+        updated_at,
+        archived_at
+      )
+      SELECT
+        c.id,
+        c.library_id,
+        c.space_id,
+        c.created_by,
+        c.title,
+        c.artist,
+        c.series,
+        COALESCE(NULLIF(c.vendor, ''), NULLIF(c.booth_or_vendor, '')),
+        c.booth,
+        c.price,
+        COALESCE(c.exclusive, false),
+        c.image_path,
+        c.notes,
+        COALESCE(c.created_at, CURRENT_TIMESTAMP),
+        COALESCE(c.updated_at, c.created_at, CURRENT_TIMESTAMP),
+        c.archived_at
+      FROM collectibles c
+      WHERE c.subtype = 'art'
+      ON CONFLICT (source_collectible_id) DO UPDATE
+        SET library_id = EXCLUDED.library_id,
+            space_id = EXCLUDED.space_id,
+            created_by = COALESCE(art_items.created_by, EXCLUDED.created_by),
+            title = EXCLUDED.title,
+            artist = EXCLUDED.artist,
+            series = EXCLUDED.series,
+            vendor = EXCLUDED.vendor,
+            booth = EXCLUDED.booth,
+            price = EXCLUDED.price,
+            exclusive = EXCLUDED.exclusive,
+            image_path = EXCLUDED.image_path,
+            notes = EXCLUDED.notes,
+            archived_at = EXCLUDED.archived_at,
+            updated_at = CURRENT_TIMESTAMP;
+
+      INSERT INTO event_purchased_items (
+        event_id,
+        item_type,
+        item_id,
+        title_snapshot,
+        vendor_snapshot,
+        booth_snapshot,
+        price_snapshot,
+        created_by,
+        created_at,
+        updated_at,
+        archived_at
+      )
+      SELECT
+        c.event_id,
+        'art',
+        a.id,
+        c.title,
+        COALESCE(NULLIF(c.vendor, ''), NULLIF(c.booth_or_vendor, '')),
+        c.booth,
+        c.price,
+        c.created_by,
+        COALESCE(c.created_at, CURRENT_TIMESTAMP),
+        COALESCE(c.updated_at, c.created_at, CURRENT_TIMESTAMP),
+        c.archived_at
+      FROM collectibles c
+      INNER JOIN art_items a
+        ON a.source_collectible_id = c.id
+      INNER JOIN events e
+        ON e.id = c.event_id
+      WHERE c.subtype = 'art'
+        AND c.event_id IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1
+          FROM event_purchased_items epi
+          WHERE epi.event_id = c.event_id
+            AND epi.item_type = 'art'
+            AND epi.item_id = a.id
+        );
+    `
   }
 ];
 
