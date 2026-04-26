@@ -387,6 +387,88 @@ function EventArtifactsEditor({ eventId, apiCall, onSaved }) {
   );
 }
 
+function EventPurchasedItemsReadback({ eventId, apiCall }) {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const loadPurchasedItems = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const payload = await apiCall('get', `/events/${eventId}/purchased-items`);
+      setItems(Array.isArray(payload?.items) ? payload.items : []);
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Failed to load purchased items');
+    } finally {
+      setLoading(false);
+    }
+  }, [apiCall, eventId]);
+
+  useEffect(() => { loadPurchasedItems(); }, [loadPurchasedItems]);
+
+  const formatPurchaseMeta = (item) => {
+    const resolved = item?.resolved_item || {};
+    const parts = [item.item_type === 'art' ? 'Art' : 'Collectible'];
+    const maker = resolved.artist || resolved.series;
+    if (maker) parts.push(maker);
+    const vendor = item.vendor_snapshot || resolved.vendor;
+    const booth = item.booth_snapshot || resolved.booth;
+    if (vendor && booth) parts.push(`${vendor} / ${booth}`);
+    else if (vendor || booth) parts.push(vendor || booth);
+    const price = item.price_snapshot ?? resolved.price;
+    if (price !== null && price !== undefined && price !== '') parts.push(`$${price}`);
+    return parts.filter(Boolean).join(' · ');
+  };
+
+  return (
+    <section className="rounded-2xl border border-edge bg-surface p-4">
+      <div className="flex items-start gap-3">
+        <div>
+          <p className="label">Tracked purchases</p>
+          <p className="text-sm text-dim">{items.length} linked item{items.length === 1 ? '' : 's'}</p>
+        </div>
+        <div className="flex-1" />
+        <button className="btn-ghost btn-sm" onClick={loadPurchasedItems} disabled={loading}>
+          {loading ? <><Spinner size={14} />Loading…</> : 'Refresh'}
+        </button>
+      </div>
+      {error ? <p className="mt-3 text-xs text-err">{error}</p> : null}
+      {!loading && items.length === 0 ? (
+        <p className="mt-4 rounded-xl border border-dashed border-edge bg-raised px-3 py-3 text-sm text-ghost">
+          No tracked Art or Collectibles purchases are linked through the shared purchase relationship yet.
+        </p>
+      ) : null}
+      {items.length > 0 ? (
+        <div className="mt-3 divide-y divide-edge/60">
+          {items.map((item) => {
+            const resolved = item.resolved_item || {};
+            const title = item.title_snapshot || resolved.title || `${item.item_type} #${item.item_id}`;
+            return (
+              <article key={item.id} className="flex items-start gap-3 py-3">
+                {resolved.image_path ? (
+                  <div className="h-14 w-10 shrink-0 overflow-hidden rounded-md border border-edge bg-raised">
+                    <img src={posterUrl(resolved.image_path)} alt="" className="h-full w-full object-cover" />
+                  </div>
+                ) : (
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-edge bg-raised text-ghost">
+                    <Icons.Activity />
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-ink truncate">{title}</p>
+                  {formatPurchaseMeta(item) ? <p className="mt-1 text-xs text-dim">{formatPurchaseMeta(item)}</p> : null}
+                </div>
+                <span className="badge badge-dim text-[10px]">{item.item_type}</span>
+              </article>
+            );
+          })}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 function EventFormDrawer({ initial, apiCall, onClose, onSave, onDelete, onClearImage }) {
   const [form, setForm] = useState(() => ({
     ...DEFAULT_EVENT_FORM,
@@ -613,6 +695,7 @@ function EventDetailDrawer({ eventId, apiCall, onClose, onEdit, onDeleted, onSav
                   <p className="max-w-3xl text-dim leading-7">{event.notes}</p>
                 </DetailField>
               ) : null}
+              <EventPurchasedItemsReadback eventId={eventId} apiCall={apiCall} />
               <EventArtifactsEditor eventId={eventId} apiCall={apiCall} onSaved={onSaved} />
             </>
           )}

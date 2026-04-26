@@ -83,6 +83,55 @@ const serializeCollectibleRow = (row) => {
   };
 };
 
+const serializeNativeArtRow = (row) => {
+  const vendor = row.vendor || null;
+  const booth = row.booth || null;
+  return {
+    id: row.source_collectible_id || row.id,
+    native_art_id: row.id,
+    source_collectible_id: row.source_collectible_id || null,
+    library_id: row.library_id || null,
+    space_id: row.space_id || null,
+    title: row.title,
+    subtype: ART_SUBTYPE,
+    item_type: ART_SUBTYPE,
+    category_key: null,
+    category: null,
+    event_id: row.event_id || null,
+    purchased_item_id: row.purchased_item_id || null,
+    series: row.series || null,
+    artist: row.artist || null,
+    vendor,
+    booth,
+    booth_or_vendor: vendor && booth ? `${vendor} / ${booth}` : (vendor || booth || null),
+    price: row.price === null || row.price === undefined ? null : Number(row.price),
+    exclusive: row.exclusive === true,
+    image_path: row.image_path || null,
+    notes: row.notes || null,
+    created_at: row.created_at,
+    updated_at: row.updated_at
+  };
+};
+
+const buildNativeArtSelect = () => `
+  SELECT a.*,
+         COALESCE(epi.event_id, c.event_id) AS event_id,
+         epi.id AS purchased_item_id
+  FROM art_items a
+  LEFT JOIN collectibles c
+    ON c.id = a.source_collectible_id
+   AND c.archived_at IS NULL
+  LEFT JOIN LATERAL (
+    SELECT id, event_id
+    FROM event_purchased_items
+    WHERE item_type = 'art'
+      AND item_id = a.id
+      AND archived_at IS NULL
+    ORDER BY created_at DESC, id DESC
+    LIMIT 1
+  ) epi ON true
+`;
+
 const upsertNativeArtFromCollectible = async (collectibleRow) => {
   const result = await pool.query(
     `INSERT INTO art_items (
@@ -193,6 +242,74 @@ router.get(COLLECTIBLE_ROUTE_PATHS, asyncHandler(async (req, res) => {
   const exclusiveRaw = String(req.query?.exclusive || '').trim().toLowerCase();
   const sortDir = String(req.query?.sort_dir || '').trim().toLowerCase() === 'desc' ? 'DESC' : 'ASC';
 
+  if (routeConfig.isArtRoute) {
+    const params = [];
+    let where = 'WHERE a.archived_at IS NULL';
+
+    if (q) {
+      params.push(`%${q}%`);
+      where += ` AND (
+        a.title ILIKE $${params.length}
+        OR COALESCE(a.series, '') ILIKE $${params.length}
+        OR COALESCE(a.artist, '') ILIKE $${params.length}
+        OR COALESCE(a.notes, '') ILIKE $${params.length}
+      )`;
+    }
+    if (vendor) {
+      params.push(`%${vendor}%`);
+      where += ` AND COALESCE(a.vendor, '') ILIKE $${params.length}`;
+    }
+    if (booth) {
+      params.push(`%${booth}%`);
+      where += ` AND COALESCE(a.booth, '') ILIKE $${params.length}`;
+    }
+    if (series) {
+      params.push(`%${series}%`);
+      where += ` AND COALESCE(a.series, '') ILIKE $${params.length}`;
+    }
+    if (Number.isFinite(eventIdRaw) && eventIdRaw > 0) {
+      params.push(eventIdRaw);
+      where += ` AND COALESCE(epi.event_id, c.event_id) = $${params.length}`;
+    }
+    if (exclusiveRaw === 'true' || exclusiveRaw === 'false') {
+      params.push(exclusiveRaw === 'true');
+      where += ` AND a.exclusive = $${params.length}`;
+    }
+
+    const scopeClause = appendScopeSql(params, scopeContext, {
+      libraryColumn: 'a.library_id',
+      spaceColumn: 'a.space_id'
+    });
+    where += scopeClause;
+
+    const countResult = await pool.query(
+      `SELECT COUNT(*)::int AS total
+       FROM (${buildNativeArtSelect()}) native_art
+       ${where.replaceAll('a.', 'native_art.').replaceAll('c.', 'native_art.').replaceAll('epi.', 'native_art.')}`,
+      params
+    );
+    params.push(limit);
+    params.push(offset);
+    const rows = await pool.query(
+      `${buildNativeArtSelect()}
+       ${where}
+       ORDER BY LOWER(a.title) ${sortDir} NULLS LAST, a.id ${sortDir}
+       LIMIT $${params.length - 1} OFFSET $${params.length}`,
+      params
+    );
+    const total = Number(countResult.rows[0]?.total || 0);
+    return res.json({
+      items: rows.rows.map(serializeNativeArtRow),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+        hasMore: page < Math.max(1, Math.ceil(total / limit))
+      }
+    });
+  }
+
   const params = [];
   let where = 'WHERE c.archived_at IS NULL';
 
@@ -282,6 +399,25 @@ router.get(COLLECTIBLE_DETAIL_PATHS, asyncHandler(async (req, res) => {
   if (!Number.isFinite(collectibleId) || collectibleId <= 0) {
     return res.status(400).json({ error: 'Invalid collectible id' });
   }
+
+  if (routeConfig.isArtRoute) {
+    const params = [collectibleId];
+    const scopeClause = appendScopeSql(params, scopeContext, {
+      libraryColumn: 'a.library_id',
+      spaceColumn: 'a.space_id'
+    });
+    const result = await pool.query(
+      `${buildNativeArtSelect()}
+       WHERE (a.source_collectible_id = $1 OR (a.source_collectible_id IS NULL AND a.id = $1))
+         AND a.archived_at IS NULL
+         ${scopeClause}
+       LIMIT 1`,
+      params
+    );
+    if (!result.rows[0]) return res.status(404).json({ error: 'Art item not found' });
+    return res.json(serializeNativeArtRow(result.rows[0]));
+  }
+
   const params = [collectibleId];
   const scopeClause = appendScopeSql(params, scopeContext, {
     libraryColumn: 'c.library_id',

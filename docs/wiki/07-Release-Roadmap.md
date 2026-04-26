@@ -3657,7 +3657,7 @@ Historical note:
 
 **Goal:** Re-enable the deferred OPDS/CWA import path behind a proof-first dedupe contract so digital-library syncs can repeat safely without recreating duplicate book or comic rows when stable provider identities already exist.
 
-**Current Slice:** `Closed`
+**Current Slice:** `Version Closeout — Pending Live Runtime Rebuild`
 
 ### Scope
 
@@ -4413,7 +4413,7 @@ Historical note:
 
 ### Version Closeout
 
-- Status: `Closed` as `v3.4.2`.
+- Status: release artifacts are prepared for `v3.4.2`, but final closeout is pending a live runtime rebuild/verification because the live app version was reported as not matching the release closeout.
 - Release artifact: `docs/releases/v3.4.2.md`.
 - Version/feed sync:
   - root, backend, and frontend metadata are aligned on `3.4.2`,
@@ -4436,6 +4436,7 @@ Historical note:
   - compose-smoke and homelab boundary were blocked by Docker socket permission failures,
   - browser regression was blocked by host Chromium launch permission failure before app code ran,
   - host `localhost:3000` health was unreachable from this shell during final closeout,
+  - live backend/frontend images still need to be rebuilt/recreated with `APP_VERSION=3.4.2` and verified from `/api/health`,
   - and secret scan plus image security/SBOM remain CI-only gates.
 - Follow-up release boundary:
   - `3.4.3` owns native Art read cutover and event purchase readback UI,
@@ -4444,6 +4445,8 @@ Historical note:
 ## 3.4.3 — Art Native Read Cutover and Event Purchase Readback
 
 **Goal:** Switch runtime reads to the native Art model and let Events read Art and Collectibles through the shared purchased-item relationship.
+
+**Current Slice:** `Native Art Read Cutover`
 
 ### Scope
 
@@ -4457,6 +4460,17 @@ Historical note:
 - The running Art library no longer depends on collectible-backed Art reads.
 - Events can read linked Art purchases and linked Collectibles purchases through the same relationship model.
 - Art UI behavior reflects the event-aware vendor/booth rule without losing editability or data fidelity.
+
+### Implementation Notes
+
+- In progress:
+  - `/api/art` list/detail reads are being cut over to `art_items` with bridge-compatible response ids during the transition.
+  - Event detail readback now includes linked Art and Collectibles purchases from `event_purchased_items`.
+  - The shared Art drawer hides vendor/booth unless purchase context exists, while preserving existing values for editability.
+- Verification still needed before closeout:
+  - rebuilt frontend/browser verification of the Art drawer behavior,
+  - running-stack verification of `/api/art` list/detail reads after the updated backend/frontend images are rebuilt,
+  - and the normal version/release artifact closeout required for numbered roadmap milestones.
 
 ## 3.4.4 — Art UI Divergence and Legacy Collectibles Decoupling
 

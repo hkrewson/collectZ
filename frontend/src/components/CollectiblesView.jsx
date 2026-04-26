@@ -90,6 +90,18 @@ const parseUploadError = (message) => {
 
 const isCollectiblesMode = (viewConfig) => viewConfig?.apiBasePath === '/collectibles';
 
+const hasPurchaseContext = (item = {}) => Boolean(
+  item.event_id
+  || item.event_title
+  || item.vendor
+  || item.booth
+  || item.booth_or_vendor
+);
+
+const shouldShowPurchaseContext = (item, viewConfig) => (
+  isCollectiblesMode(viewConfig) || hasPurchaseContext(item)
+);
+
 const getCollectibleClassificationOption = (subtype, categoryKey) => {
   if (String(subtype || '').trim() === 'card') {
     return COLLECTIBLE_CLASSIFICATIONS.find((option) => option.value === 'card') || null;
@@ -209,7 +221,13 @@ function CollectibleDetailDrawer({ collectibleId, apiCall, categories, events, o
     || events.find((evt) => String(evt.id) === String(item?.event_id))?.title
     || null;
   const itemTypeLabel = getCollectibleClassificationLabel(item, viewConfig);
-  const factSummary = [item?.series, resolvedEvent, itemTypeLabel, item?.vendor || item?.booth || item?.booth_or_vendor].filter(Boolean);
+  const showPurchaseContext = shouldShowPurchaseContext(item, viewConfig);
+  const factSummary = [
+    item?.series,
+    resolvedEvent,
+    itemTypeLabel,
+    showPurchaseContext ? (item?.vendor || item?.booth || item?.booth_or_vendor) : null
+  ].filter(Boolean);
   return (
     <div className="fixed inset-0 z-50 flex">
       <div className="absolute inset-0 bg-void/72" onClick={onClose} />
@@ -251,8 +269,8 @@ function CollectibleDetailDrawer({ collectibleId, apiCall, categories, events, o
                 <DetailField label="Event">{resolvedEvent || 'None linked'}</DetailField>
                 <DetailField label="Exclusive">{item.exclusive ? 'Yes' : 'No'}</DetailField>
                 <DetailField label="Artist">{item.artist}</DetailField>
-                <DetailField label="Vendor">{item.vendor || item.booth_or_vendor}</DetailField>
-                <DetailField label="Booth">{item.booth}</DetailField>
+                {showPurchaseContext ? <DetailField label="Vendor">{item.vendor || item.booth_or_vendor}</DetailField> : null}
+                {showPurchaseContext ? <DetailField label="Booth">{item.booth}</DetailField> : null}
                 <DetailField label="Price">{item.price !== null && item.price !== undefined && item.price !== '' ? `$${item.price}` : null}</DetailField>
                 {item.image_path ? (
                   <DetailField label="Image">
@@ -349,6 +367,7 @@ function CollectibleDrawer({
       form.category_key || ''
     )?.value || ''
   ), [form.category_key, form.subtype, viewConfig.lockedSubtype]);
+  const showPurchaseContext = shouldShowPurchaseContext(form, viewConfig);
 
   const submit = () => onSave(form, imageFile);
 
@@ -416,8 +435,12 @@ function CollectibleDrawer({
                   </select>
                 </label>
                 <label className="field"><span className="label">Artist</span><input className="input" value={form.artist || ''} onChange={(e) => setForm((p) => ({ ...p, artist: e.target.value }))} /></label>
-                <label className="field"><span className="label">Vendor</span><input className="input" value={form.vendor || ''} onChange={(e) => setForm((p) => ({ ...p, vendor: e.target.value, booth_or_vendor: e.target.value || p.booth || '' }))} /></label>
-                <label className="field"><span className="label">Booth</span><input className="input" value={form.booth || ''} onChange={(e) => setForm((p) => ({ ...p, booth: e.target.value, booth_or_vendor: p.vendor || e.target.value || '' }))} /></label>
+                {showPurchaseContext ? (
+                  <>
+                    <label className="field"><span className="label">Vendor</span><input className="input" value={form.vendor || ''} onChange={(e) => setForm((p) => ({ ...p, vendor: e.target.value, booth_or_vendor: e.target.value || p.booth || '' }))} /></label>
+                    <label className="field"><span className="label">Booth</span><input className="input" value={form.booth || ''} onChange={(e) => setForm((p) => ({ ...p, booth: e.target.value, booth_or_vendor: p.vendor || e.target.value || '' }))} /></label>
+                  </>
+                ) : null}
                 <label className="field"><span className="label">Price</span><input className="input" value={form.price ?? ''} onChange={(e) => setForm((p) => ({ ...p, price: e.target.value }))} /></label>
                 <label className="field md:col-span-2 inline-flex items-center gap-2 text-sm text-dim">
                   <input type="checkbox" checked={Boolean(form.exclusive)} onChange={(e) => setForm((p) => ({ ...p, exclusive: e.target.checked }))} />

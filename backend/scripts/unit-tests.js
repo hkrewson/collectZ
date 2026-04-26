@@ -133,6 +133,7 @@ const adminUsersViewSource = readFrontendSource(path.join('components', 'AdminUs
 const libraryLoansViewSource = readFrontendSource(path.join('components', 'LibraryLoansView'));
 const adminMergeReviewViewSource = readFrontendSource(path.join('components', 'AdminMergeReviewView'));
 const libraryViewSource = readFrontendSource(path.join('components', 'LibraryView'));
+const eventsViewSource = readFrontendSource(path.join('components', 'EventsView'));
 const artViewSource = readFrontendSource(path.join('components', 'ArtView'));
 const backendPackageJson = JSON.parse(fs.readFileSync(require.resolve('../package.json'), 'utf8'));
 const frontendPackageJson = JSON.parse(fs.readFileSync(require.resolve('../../frontend/package.json'), 'utf8'));
@@ -3491,6 +3492,22 @@ results.push(run('native art migration and shared event purchase backfill are wi
   assert.ok(initSqlSource.includes("(75, 'Backfill native art rows and shared event purchased item links')"));
   assert.ok(backendPackageJson.scripts['test:art-migration-backfill-smoke']);
   assert.ok(artMigrationBackfillSmokeSource.includes('backfillMigration.up'));
+}));
+
+results.push(run('native art read cutover and event purchase readback are wired for the 3.4.3 read phase', () => {
+  const collectiblesViewSource = readFrontendSource(path.join('components', 'CollectiblesView'));
+  assert.ok(collectiblesRoutesSource.includes('serializeNativeArtRow'));
+  assert.ok(collectiblesRoutesSource.includes('buildNativeArtSelect'));
+  assert.ok(collectiblesRoutesSource.includes('FROM art_items a'));
+  assert.ok(collectiblesRoutesSource.includes('LEFT JOIN LATERAL'));
+  assert.ok(collectiblesRoutesSource.includes('event_purchased_items'));
+  assert.ok(collectiblesRoutesSource.includes('source_collectible_id'));
+  assert.ok(collectiblesRoutesSource.includes('purchased_item_id'));
+  assert.ok(eventsViewSource.includes('EventPurchasedItemsReadback'));
+  assert.ok(eventsViewSource.includes('/events/${eventId}/purchased-items'));
+  assert.ok(eventsViewSource.includes('resolved_item'));
+  assert.ok(collectiblesViewSource.includes('shouldShowPurchaseContext'));
+  assert.ok(collectiblesViewSource.includes('hasPurchaseContext'));
 }));
 
 results.push(run('library loans view exposes management-focused counts and due-soon emphasis', () => {
