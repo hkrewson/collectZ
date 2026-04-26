@@ -3776,7 +3776,7 @@ Historical note:
 
 **Goal:** Prevent comic edit saves from failing when provider-enriched Metron descriptions exceed the local `overview` validation limit.
 
-**Current Slice:** `Version Closeout`
+**Current Slice:** `Closed`
 
 ### Scope
 
@@ -4350,7 +4350,7 @@ Historical note:
 
 **Goal:** Move existing art-classified collectible rows into native Art storage and backfill shared purchased-item links without losing attribution, pricing, images, or event history.
 
-**Current Slice:** `Version Closeout`
+**Current Slice:** `Closed`
 
 ### Scope
 
@@ -4410,6 +4410,36 @@ Historical note:
   - init parity passed through `v75`.
 - Remaining work:
   - version sync, `docs/releases/v3.4.2.md`, Help > Releases feed regeneration, and release-shaped gates for `3.4.2`.
+
+### Version Closeout
+
+- Status: `Closed` as `v3.4.2`.
+- Release artifact: `docs/releases/v3.4.2.md`.
+- Version/feed sync:
+  - root, backend, and frontend metadata are aligned on `3.4.2`,
+  - and the in-app Help > Releases snapshot was regenerated with `3.4.2` as the latest entry.
+- Runtime verification:
+  - in-stack Help > Releases smoke served `3.4.2`,
+  - Art migration backfill smoke passed in a backend-container transaction,
+  - live localhost DB had migration `v75` applied with `0` missing native Art mappings and `0` missing event purchase links,
+  - RBAC regression passed in-stack,
+  - platform edition boundary passed in-stack,
+  - and observability release evidence passed `9/9` checks.
+- Local checks:
+  - backend unit tests passed (`206`),
+  - OpenAPI validation passed,
+  - init parity passed through `v75`,
+  - migration rehearsal passed through `v75`,
+  - release preflight was regenerated for `3.4.2`.
+- Blocked local gates:
+  - dependency audits were blocked by restricted registry DNS,
+  - compose-smoke and homelab boundary were blocked by Docker socket permission failures,
+  - browser regression was blocked by host Chromium launch permission failure before app code ran,
+  - host `localhost:3000` health was unreachable from this shell during final closeout,
+  - and secret scan plus image security/SBOM remain CI-only gates.
+- Follow-up release boundary:
+  - `3.4.3` owns native Art read cutover and event purchase readback UI,
+  - and `3.4.4` owns Art UI divergence and legacy Collectibles decoupling.
 
 ## 3.4.3 — Art Native Read Cutover and Event Purchase Readback
 
