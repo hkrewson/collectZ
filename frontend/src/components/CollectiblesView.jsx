@@ -90,13 +90,16 @@ const parseUploadError = (message) => {
 
 const isCollectiblesMode = (viewConfig) => viewConfig?.apiBasePath === '/collectibles';
 
-const hasPurchaseContext = (item = {}) => Boolean(
-  item.event_id
-  || item.event_title
-  || item.vendor
-  || item.booth
-  || item.booth_or_vendor
-);
+const hasPurchaseContext = (item) => {
+  const record = item || {};
+  return Boolean(
+    record.event_id
+    || record.event_title
+    || record.vendor
+    || record.booth
+    || record.booth_or_vendor
+  );
+};
 
 const shouldShowPurchaseContext = (item, viewConfig) => (
   isCollectiblesMode(viewConfig) || hasPurchaseContext(item)

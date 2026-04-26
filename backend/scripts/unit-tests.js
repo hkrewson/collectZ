@@ -3509,6 +3509,7 @@ results.push(run('native art read cutover and event purchase readback are wired 
   assert.ok(eventsViewSource.includes('resolved_item'));
   assert.ok(collectiblesViewSource.includes('shouldShowPurchaseContext'));
   assert.ok(collectiblesViewSource.includes('hasPurchaseContext'));
+  assert.ok(collectiblesViewSource.includes('const record = item || {};'));
   assert.ok(backendPackageJson.scripts['test:native-art-read-cutover-smoke']);
   assert.ok(nativeArtReadCutoverSmokeSource.includes('/api/art?q=Bast&series=Croyance&vendor=Studio&booth=A12&exclusive=true'));
   assert.ok(nativeArtReadCutoverSmokeSource.includes('/api/art/${bridgeArtId}'));

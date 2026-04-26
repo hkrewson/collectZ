@@ -46,9 +46,34 @@ async function deleteCollectiblesByExactTitle(requestContext, title) {
   return matches.length;
 }
 
+async function listArtByTitle(requestContext, title) {
+  const response = await requestContext.get(`/api/art?q=${encodeURIComponent(title)}&limit=50`);
+  if (!response.ok()) {
+    const text = await response.text();
+    throw new Error(`Failed to list art for "${title}" (${response.status()}): ${text}`);
+  }
+  const payload = await response.json();
+  return Array.isArray(payload?.items) ? payload.items : [];
+}
+
+async function deleteArtByExactTitle(requestContext, title) {
+  const items = await listArtByTitle(requestContext, title);
+  const matches = items.filter((item) => String(item?.title || '') === String(title));
+  for (const item of matches) {
+    const response = await requestContext.delete(`/api/art/${item.id}`);
+    if (!response.ok() && response.status() !== 404) {
+      const text = await response.text();
+      throw new Error(`Failed to delete art #${item.id} for "${title}" (${response.status()}): ${text}`);
+    }
+  }
+  return matches.length;
+}
+
 module.exports = {
   listEventsByTitle,
   deleteEventsByExactTitle,
   listCollectiblesByTitle,
-  deleteCollectiblesByExactTitle
+  deleteCollectiblesByExactTitle,
+  listArtByTitle,
+  deleteArtByExactTitle
 };
