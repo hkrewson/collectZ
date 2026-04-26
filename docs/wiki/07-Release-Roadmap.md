@@ -4677,6 +4677,34 @@ Historical note:
   - full removal of `source_collectible_id` remains deferred until legacy/public-ID compatibility is proven safe,
   - and a later public-ID cutover may be needed if migrated Art should expose native IDs everywhere.
 
+## 3.4.7 — Event Purchase Linking Polish
+
+**Goal:** Make shared purchased-item linking feel first-class from the Event view now that Art and Collectibles participate in the same tracked purchase relationship.
+
+**Current Slice:** `Implementation`
+
+### Scope
+
+- Refine Event detail browsing for tracked Art and Collectibles purchases.
+- Add event-side search/link flows so users can attach existing Art or Collectibles without leaving the Event drawer.
+- Improve duplicate-link prevention and conflict copy.
+- Allow event-side editing of purchase snapshots such as title, vendor, booth, and price.
+- Keep `event_purchased_items` as the shared relationship.
+
+### Acceptance Criteria
+
+- Users can link Art and Collectibles from Events without needing to know each object's backing table.
+- Event-side search distinguishes Art from Collectibles and uses the right native item id for Art.
+- Duplicate links are prevented with useful UI feedback.
+- Event purchase history remains readable and editable after item edits or archival.
+- Existing freeform Event artifacts remain separate from tracked purchased-item links.
+
+### Active Slice Notes
+
+- Do not replace the freeform Event artifact purchase lane in this slice.
+- Do not introduce a new purchase-history table; keep the shared `event_purchased_items` contract.
+- Keep the UI consistent with the existing drawer controls rather than redesigning the Event surface.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

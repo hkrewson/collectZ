@@ -3510,6 +3510,10 @@ results.push(run('native art read cutover and event purchase readback are wired 
   assert.ok(eventsViewSource.includes('EventPurchasedItemsReadback'));
   assert.ok(eventsViewSource.includes('/events/${eventId}/purchased-items'));
   assert.ok(eventsViewSource.includes('resolved_item'));
+  assert.ok(eventsViewSource.includes('Link item'));
+  assert.ok(eventsViewSource.includes("searchType === 'art' ? '/art' : '/collectibles'"));
+  assert.ok(eventsViewSource.includes('That item is already linked to this event.'));
+  assert.ok(eventsViewSource.includes('Purchase details saved'));
   assert.ok(artViewSource.includes('hasPurchaseContext'));
   assert.ok(artViewSource.includes('const record = item || {};'));
   assert.ok(artViewSource.includes("api('patch', `/art/${editing.id}`, payload)"));

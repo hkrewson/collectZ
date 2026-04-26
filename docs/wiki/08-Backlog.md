@@ -154,23 +154,6 @@ This file is the staging area for work that has not yet been assigned a release 
 - Anime-like descriptors have an intentional home if users need to track them.
 - The decision does not rename Collectibles by accident or blur Art's native boundary.
 
-### Backlog Item: Event Purchase Linking Polish
-**Type:** Task
-**Tags:** `events`, `art`, `collectibles`, `purchase-links`, `ui`
-
-**Goal:** Make shared purchased-item linking feel first-class from the Event view now that Art and Collectibles are separate native concepts.
-
-**Scope**
-- Refine add/search/link flows for tracked Art and Collectibles purchases from an Event.
-- Improve duplicate-link prevention and conflict copy.
-- Make linked purchase readback clearer in event detail surfaces.
-- Keep `event_purchased_items` as the shared relationship.
-
-**Acceptance Criteria**
-- Users can link Art and Collectibles from Events without needing to know each object's backing table.
-- Duplicate links are prevented with useful UI feedback.
-- Event purchase history remains readable after item edits or archival.
-
 ### Backlog Item: Collectibles Naming Review
 **Type:** Discussion
 **Tags:** `collectibles`, `naming`, `taxonomy`, `fandom`

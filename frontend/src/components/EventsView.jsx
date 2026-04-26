@@ -391,6 +391,20 @@ function EventPurchasedItemsReadback({ eventId, apiCall }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [searchType, setSearchType] = useState('art');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [linkingId, setLinkingId] = useState(null);
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({
+    title_snapshot: '',
+    vendor_snapshot: '',
+    booth_snapshot: '',
+    price_snapshot: ''
+  });
 
   const loadPurchasedItems = useCallback(async () => {
     setLoading(true);
@@ -407,6 +421,18 @@ function EventPurchasedItemsReadback({ eventId, apiCall }) {
 
   useEffect(() => { loadPurchasedItems(); }, [loadPurchasedItems]);
 
+  const linkedKeys = useMemo(() => new Set(items.map((item) => `${item.item_type}:${item.item_id}`)), [items]);
+
+  const getCandidateId = (candidate, type = searchType) => Number(type === 'art' ? (candidate.native_art_id || candidate.id) : candidate.id);
+  const getCandidateKey = (candidate, type = searchType) => `${type}:${getCandidateId(candidate, type)}`;
+
+  const formatMoney = (value) => {
+    if (value === null || value === undefined || value === '') return '';
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return `$${value}`;
+    return `$${numeric.toFixed(Number.isInteger(numeric) ? 0 : 2)}`;
+  };
+
   const formatPurchaseMeta = (item) => {
     const resolved = item?.resolved_item || {};
     const parts = [item.item_type === 'art' ? 'Art' : 'Collectible'];
@@ -417,25 +443,219 @@ function EventPurchasedItemsReadback({ eventId, apiCall }) {
     if (vendor && booth) parts.push(`${vendor} / ${booth}`);
     else if (vendor || booth) parts.push(vendor || booth);
     const price = item.price_snapshot ?? resolved.price;
-    if (price !== null && price !== undefined && price !== '') parts.push(`$${price}`);
+    if (price !== null && price !== undefined && price !== '') parts.push(formatMoney(price));
     return parts.filter(Boolean).join(' · ');
   };
 
+  const formatCandidateMeta = (candidate, type = searchType) => {
+    const parts = [];
+    if (type === 'art') {
+      parts.push('Art');
+      if (candidate.medium) parts.push(String(candidate.medium).replaceAll('_', ' '));
+      if (candidate.artist) parts.push(candidate.artist);
+      if (candidate.series) parts.push(candidate.series);
+    } else {
+      parts.push('Collectible');
+      if (candidate.category || candidate.category_key) parts.push(candidate.category || candidate.category_key);
+      if (candidate.series) parts.push(candidate.series);
+    }
+    if (candidate.vendor && candidate.booth) parts.push(`${candidate.vendor} / ${candidate.booth}`);
+    else if (candidate.vendor || candidate.booth) parts.push(candidate.vendor || candidate.booth);
+    if (candidate.price !== null && candidate.price !== undefined && candidate.price !== '') parts.push(formatMoney(candidate.price));
+    return parts.filter(Boolean).join(' · ');
+  };
+
+  const searchPurchaseSources = async () => {
+    setSearching(true);
+    setError('');
+    setNotice('');
+    try {
+      const params = new URLSearchParams();
+      params.set('limit', '8');
+      params.set('sort_dir', 'asc');
+      if (searchTerm.trim()) params.set('q', searchTerm.trim());
+      const payload = await apiCall('get', `${searchType === 'art' ? '/art' : '/collectibles'}?${params.toString()}`);
+      const rows = Array.isArray(payload?.items) ? payload.items : [];
+      setSearchResults(rows);
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Failed to search purchase sources');
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const linkCandidate = async (candidate) => {
+    const itemId = getCandidateId(candidate);
+    if (!itemId) return;
+    setLinkingId(itemId);
+    setError('');
+    setNotice('');
+    try {
+      await apiCall('post', `/events/${eventId}/purchased-items`, {
+        item_type: searchType,
+        item_id: itemId
+      });
+      await loadPurchasedItems();
+      setLinkOpen(false);
+      setSearchResults([]);
+      setSearchTerm('');
+      setNotice(`${candidate.title || 'Item'} linked to this event`);
+    } catch (err) {
+      if (err?.response?.status === 409) {
+        setNotice('That item is already linked to this event.');
+      } else {
+        setError(err?.response?.data?.error || 'Failed to link purchased item');
+      }
+    } finally {
+      setLinkingId(null);
+    }
+  };
+
+  const beginEdit = (item) => {
+    const resolved = item.resolved_item || {};
+    setEditingId(item.id);
+    setEditForm({
+      title_snapshot: item.title_snapshot || resolved.title || '',
+      vendor_snapshot: item.vendor_snapshot || resolved.vendor || '',
+      booth_snapshot: item.booth_snapshot || resolved.booth || '',
+      price_snapshot: item.price_snapshot ?? resolved.price ?? ''
+    });
+    setError('');
+    setNotice('');
+  };
+
+  const savePurchaseSnapshot = async (item) => {
+    setError('');
+    setNotice('');
+    try {
+      await apiCall('patch', `/events/${eventId}/purchased-items/${item.id}`, {
+        title_snapshot: editForm.title_snapshot || null,
+        vendor_snapshot: editForm.vendor_snapshot || null,
+        booth_snapshot: editForm.booth_snapshot || null,
+        price_snapshot: editForm.price_snapshot === '' ? null : Number(editForm.price_snapshot)
+      });
+      setEditingId(null);
+      await loadPurchasedItems();
+      setNotice('Purchase details saved');
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Failed to save purchase details');
+    }
+  };
+
+  const unlinkPurchasedItem = async (item) => {
+    if (!window.confirm('Remove this purchase link from the event?')) return;
+    setError('');
+    setNotice('');
+    try {
+      await apiCall('delete', `/events/${eventId}/purchased-items/${item.id}`);
+      await loadPurchasedItems();
+      setNotice('Purchase link removed');
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Failed to remove purchase link');
+    }
+  };
+
   return (
-    <section className="rounded-2xl border border-edge bg-surface p-4">
+    <section className="rounded-xl border border-edge bg-surface p-4">
       <div className="flex items-start gap-3">
         <div>
           <p className="label">Tracked purchases</p>
           <p className="text-sm text-dim">{items.length} linked item{items.length === 1 ? '' : 's'}</p>
         </div>
         <div className="flex-1" />
+        <button
+          className="btn-secondary btn-sm"
+          onClick={() => {
+            setLinkOpen((open) => !open);
+            setError('');
+            setNotice('');
+          }}
+        >
+          <Icons.Plus />Link item
+        </button>
         <button className="btn-ghost btn-sm" onClick={loadPurchasedItems} disabled={loading}>
           {loading ? <><Spinner size={14} />Loading…</> : 'Refresh'}
         </button>
       </div>
       {error ? <p className="mt-3 text-xs text-err">{error}</p> : null}
+      {notice ? <p className="mt-3 text-xs text-ok">{notice}</p> : null}
+      {linkOpen ? (
+        <div className="mt-4 rounded-lg border border-edge bg-raised p-3">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-[10rem_1fr_auto]">
+            <label className="field">
+              <span className="label">Library</span>
+              <select
+                className="select"
+                value={searchType}
+                onChange={(event) => {
+                  setSearchType(event.target.value);
+                  setSearchResults([]);
+                }}
+              >
+                <option value="art">Art</option>
+                <option value="collectible">Collectibles</option>
+              </select>
+            </label>
+            <label className="field">
+              <span className="label">Search</span>
+              <input
+                className="input"
+                placeholder={searchType === 'art' ? 'Title, artist, or series' : 'Title, category, or vendor'}
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    searchPurchaseSources();
+                  }
+                }}
+              />
+            </label>
+            <div className="flex items-end">
+              <button className="btn-secondary w-full md:w-auto" onClick={searchPurchaseSources} disabled={searching}>
+                {searching ? <><Spinner size={14} />Searching…</> : <><Icons.Search />Search</>}
+              </button>
+            </div>
+          </div>
+          {searchResults.length > 0 ? (
+            <div className="mt-3 divide-y divide-edge/60 border-t border-edge/60">
+              {searchResults.map((candidate) => {
+                const candidateId = getCandidateId(candidate);
+                const alreadyLinked = linkedKeys.has(getCandidateKey(candidate));
+                return (
+                  <article key={`${searchType}-${candidateId}`} className="flex items-start gap-3 py-3">
+                    {candidate.image_path ? (
+                      <div className="h-14 w-10 shrink-0 overflow-hidden rounded-md border border-edge bg-surface">
+                        <img src={posterUrl(candidate.image_path)} alt="" className="h-full w-full object-cover" />
+                      </div>
+                    ) : (
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-edge bg-surface text-ghost">
+                        {searchType === 'art' ? <Icons.Activity /> : <Icons.Library />}
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-ink truncate">{candidate.title}</p>
+                      <p className="mt-1 text-xs text-dim">{formatCandidateMeta(candidate)}</p>
+                    </div>
+                    <button
+                      className={alreadyLinked ? 'btn-ghost btn-sm' : 'btn-secondary btn-sm'}
+                      disabled={alreadyLinked || linkingId === candidateId}
+                      onClick={() => linkCandidate(candidate)}
+                    >
+                      {alreadyLinked ? 'Linked' : (linkingId === candidateId ? <><Spinner size={14} />Linking…</> : 'Link')}
+                    </button>
+                  </article>
+                );
+              })}
+            </div>
+          ) : null}
+          {!searching && searchResults.length === 0 ? (
+            <p className="mt-3 text-sm text-ghost">Search existing Art or Collectibles, then link the tracked item here.</p>
+          ) : null}
+        </div>
+      ) : null}
       {!loading && items.length === 0 ? (
-        <p className="mt-4 rounded-xl border border-dashed border-edge bg-raised px-3 py-3 text-sm text-ghost">
+        <p className="mt-4 rounded-lg border border-dashed border-edge bg-raised px-3 py-3 text-sm text-ghost">
           No tracked Art or Collectibles purchases are linked through the shared purchase relationship yet.
         </p>
       ) : null}
@@ -444,14 +664,16 @@ function EventPurchasedItemsReadback({ eventId, apiCall }) {
           {items.map((item) => {
             const resolved = item.resolved_item || {};
             const title = item.title_snapshot || resolved.title || `${item.item_type} #${item.item_id}`;
+            const isEditing = editingId === item.id;
             return (
-              <article key={item.id} className="flex items-start gap-3 py-3">
+              <article key={item.id} className="py-3">
+                <div className="flex items-start gap-3">
                 {resolved.image_path ? (
                   <div className="h-14 w-10 shrink-0 overflow-hidden rounded-md border border-edge bg-raised">
                     <img src={posterUrl(resolved.image_path)} alt="" className="h-full w-full object-cover" />
                   </div>
                 ) : (
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-edge bg-raised text-ghost">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-edge bg-raised text-ghost">
                     <Icons.Activity />
                   </div>
                 )}
@@ -460,6 +682,37 @@ function EventPurchasedItemsReadback({ eventId, apiCall }) {
                   {formatPurchaseMeta(item) ? <p className="mt-1 text-xs text-dim">{formatPurchaseMeta(item)}</p> : null}
                 </div>
                 <span className="badge badge-dim text-[10px]">{item.item_type}</span>
+                <button className="btn-ghost btn-sm" onClick={() => beginEdit(item)} aria-label={`Edit purchase details for ${title}`}>
+                  <Icons.Edit />
+                </button>
+                <button className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={() => unlinkPurchasedItem(item)} aria-label={`Remove purchase link for ${title}`}>
+                  <Icons.Trash />
+                </button>
+                </div>
+                {isEditing ? (
+                  <div className="mt-3 grid grid-cols-1 gap-3 rounded-lg border border-edge bg-raised p-3 md:grid-cols-2">
+                    <label className="field md:col-span-2">
+                      <span className="label">Display title</span>
+                      <input className="input" value={editForm.title_snapshot} onChange={(event) => setEditForm((prev) => ({ ...prev, title_snapshot: event.target.value }))} />
+                    </label>
+                    <label className="field">
+                      <span className="label">Vendor</span>
+                      <input className="input" value={editForm.vendor_snapshot} onChange={(event) => setEditForm((prev) => ({ ...prev, vendor_snapshot: event.target.value }))} />
+                    </label>
+                    <label className="field">
+                      <span className="label">Booth</span>
+                      <input className="input" value={editForm.booth_snapshot} onChange={(event) => setEditForm((prev) => ({ ...prev, booth_snapshot: event.target.value }))} />
+                    </label>
+                    <label className="field">
+                      <span className="label">Price</span>
+                      <input className="input" inputMode="decimal" value={editForm.price_snapshot} onChange={(event) => setEditForm((prev) => ({ ...prev, price_snapshot: event.target.value }))} />
+                    </label>
+                    <div className="flex items-end gap-2">
+                      <button className="btn-secondary flex-1" onClick={() => savePurchaseSnapshot(item)}><Icons.Check />Save</button>
+                      <button className="btn-ghost" onClick={() => setEditingId(null)}>Cancel</button>
+                    </div>
+                  </div>
+                ) : null}
               </article>
             );
           })}

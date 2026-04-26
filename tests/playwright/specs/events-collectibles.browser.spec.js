@@ -4,7 +4,8 @@ const { test, expect } = require('@playwright/test');
 const {
   ensureSavedAdminCredentials,
   createFreshUserCredentials,
-  createAuthenticatedRequestContext
+  createAuthenticatedRequestContext,
+  postWithCsrf
 } = require('../helpers/auth');
 const { signInThroughUi } = require('../helpers/session');
 const {
@@ -181,6 +182,100 @@ test.describe('events and collectibles browser regressions', () => {
     } finally {
       await deleteArtByExactTitle(userRequestContext, artWithoutEventTitle).catch(() => {});
       await deleteArtByExactTitle(userRequestContext, artWithEventTitle).catch(() => {});
+      await deleteEventsByExactTitle(userRequestContext, eventTitle).catch(() => {});
+      if (!originalEventsEnabled) {
+        await updateFeatureFlag(adminRequestContext, 'events_enabled', false).catch(() => {});
+      }
+      if (!originalCollectiblesEnabled) {
+        await updateFeatureFlag(adminRequestContext, 'collectibles_enabled', false).catch(() => {});
+      }
+      await userRequestContext.dispose();
+      await adminRequestContext.dispose();
+    }
+  });
+
+  test('event detail can search, link, and edit native art purchase links', async ({ page }) => {
+    const adminCredentials = await ensureSavedAdminCredentials();
+    const adminRequestContext = await createAuthenticatedRequestContext(adminCredentials);
+    const userCredentials = await createFreshUserCredentials();
+    const userRequestContext = await createAuthenticatedRequestContext(userCredentials);
+    const suffix = Date.now();
+    const eventTitle = `Playwright Purchase Link Event ${suffix}`;
+    const artTitle = `Playwright Comic Panel Purchase ${suffix}`;
+    const originalFlagsPayload = await getFeatureFlags(adminRequestContext);
+    const originalFlags = Array.isArray(originalFlagsPayload?.flags) ? originalFlagsPayload.flags : [];
+    const originalEventsEnabled = Boolean(originalFlags.find((flag) => flag?.key === 'events_enabled')?.enabled);
+    const originalCollectiblesEnabled = Boolean(originalFlags.find((flag) => flag?.key === 'collectibles_enabled')?.enabled);
+
+    await deleteArtByExactTitle(userRequestContext, artTitle).catch(() => {});
+    await deleteEventsByExactTitle(userRequestContext, eventTitle).catch(() => {});
+
+    try {
+      if (!originalEventsEnabled) {
+        await updateFeatureFlag(adminRequestContext, 'events_enabled', true);
+      }
+      if (!originalCollectiblesEnabled) {
+        await updateFeatureFlag(adminRequestContext, 'collectibles_enabled', true);
+      }
+
+      const eventResponse = await postWithCsrf(userRequestContext, '/api/events', {
+        title: eventTitle,
+        url: `https://example.test/event-purchase-link/${suffix}`,
+        location: 'Playwright Hall',
+        date_start: '2026-04-12'
+      }, 201);
+      const eventPayload = await eventResponse.json();
+      expect(Number(eventPayload?.id || 0)).toBeGreaterThan(0);
+
+      const artResponse = await postWithCsrf(userRequestContext, '/api/art', {
+        title: artTitle,
+        artist: 'Playwright Artist',
+        series: 'Purchase Link Series',
+        medium: 'comic_panel',
+        vendor: 'Original Studio',
+        booth: 'C4',
+        price: 40,
+        signed: true
+      }, 201);
+      const artPayload = await artResponse.json();
+      expect(Number(artPayload?.native_art_id || 0)).toBeGreaterThan(0);
+
+      await signInThroughUi(page, userCredentials);
+      await page.goto('/dashboard?tab=library-events');
+      await expect(page.getByRole('heading', { name: 'Events' })).toBeVisible();
+
+      await page.getByPlaceholder('Search title or location…').fill(eventTitle);
+      await expect(page.getByText(eventTitle, { exact: true }).first()).toBeVisible();
+      await page.locator('article').filter({ hasText: eventTitle }).first().click();
+      await expect(page.getByRole('heading', { name: eventTitle })).toBeVisible();
+
+      const purchaseSection = page.locator('section').filter({ hasText: 'Tracked purchases' }).first();
+      await expect(purchaseSection.getByText('No tracked Art or Collectibles purchases')).toBeVisible();
+      await purchaseSection.getByRole('button', { name: 'Link item' }).click();
+      await purchaseSection.locator('label:has-text("Library") select').selectOption('art');
+      await purchaseSection.getByPlaceholder('Title, artist, or series').fill(artTitle);
+      await purchaseSection.getByRole('button', { name: 'Search' }).click();
+      await expect(purchaseSection.getByText(artTitle, { exact: true })).toBeVisible();
+      await expect(purchaseSection.getByText('Art · comic panel · Playwright Artist')).toBeVisible();
+
+      await purchaseSection
+        .locator('article')
+        .filter({ hasText: artTitle })
+        .getByRole('button', { name: 'Link', exact: true })
+        .click();
+      await expect(purchaseSection.getByText(`${artTitle} linked to this event`, { exact: true })).toBeVisible();
+      await expect(purchaseSection.getByText('Original Studio / C4')).toBeVisible();
+
+      await purchaseSection.getByLabel(`Edit purchase details for ${artTitle}`).click();
+      await purchaseSection.locator('label:has-text("Vendor") input').fill('Updated Studio');
+      await purchaseSection.locator('label:has-text("Booth") input').fill('D8');
+      await purchaseSection.locator('label:has-text("Price") input').fill('55');
+      await purchaseSection.getByRole('button', { name: 'Save' }).click();
+      await expect(purchaseSection.getByText('Purchase details saved', { exact: true })).toBeVisible();
+      await expect(purchaseSection.getByText('Updated Studio / D8')).toBeVisible();
+      await expect(purchaseSection.getByText('$55')).toBeVisible();
+    } finally {
+      await deleteArtByExactTitle(userRequestContext, artTitle).catch(() => {});
       await deleteEventsByExactTitle(userRequestContext, eventTitle).catch(() => {});
       if (!originalEventsEnabled) {
         await updateFeatureFlag(adminRequestContext, 'events_enabled', false).catch(() => {});
