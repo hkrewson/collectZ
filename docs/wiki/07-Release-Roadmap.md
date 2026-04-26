@@ -4496,7 +4496,7 @@ Historical note:
 
 **Goal:** Finish separating Art from Collectibles at the product layer and remove the remaining bridge-era compatibility assumptions.
 
-**Current Slice:** `Art UI Split`
+**Current Slice:** `Closed`
 
 ### Scope
 
@@ -4510,24 +4510,45 @@ Historical note:
 - The Collectibles surface no longer carries Art-specific compatibility logic that should live only in migration history.
 - The long-term Art/Event/Collectibles relationship model is documented clearly enough for future work to build on without revisiting the bridge design.
 
-### Active Implementation Notes
+### Closeout
 
-- Split `ArtView` into a native Art component instead of rendering `CollectiblesView` with an Art mode.
-- Keep `/api/art` as the Art route contract while the backend still owns bridge-safe write compatibility.
-- Keep Events as the shared readback surface for tracked purchases through `event_purchased_items`.
-- Keep Collectibles focused on non-Art collectible classifications, including `Card` plus collectible categories.
-- Retire Art category endpoints and OpenAPI taxonomy docs because Art no longer uses collectible categories.
-- Do not remove bridge columns or migration compatibility until the native Art write path and cleanup boundary are proven separately.
-
-### Long-Term Relationship Contract
-
-- Art is product-owned by the Art surface and native `art_items` records.
-- Collectibles are product-owned by non-Art collectible rows and classifications such as `Card`, `Funko`, and `Comic Panels`.
-- Events do not need separate Art-specific or Collectible-specific purchase widgets; they read tracked purchases through `event_purchased_items`.
-- `event_purchased_items.item_type = 'art'` points at `art_items.id`; `item_type = 'collectible'` points at `collectibles.id`.
-- `art_items.source_collectible_id` is bridge compatibility for migrated rows and current safe writes, not the product identity users should reason about.
-- `/api/collectibles` should not expose or accept Art records now that Art has a native library surface.
-- `/api/art` does not expose collectible categories; Art search/filtering is title, artist, series, event, vendor/booth context, and exclusive state.
+- Status: `Closed` as `v3.4.4`.
+- Release artifact: `docs/releases/v3.4.4.md`.
+- Version/feed sync:
+  - root, backend, frontend, and lockfile metadata are aligned on `3.4.4`,
+  - and the in-app Help > Releases snapshot was regenerated with `3.4.4` as the latest entry.
+- Runtime verification:
+  - rebuilt backend/frontend images reported `3.4.4` from `/api/health`,
+  - native Art read cutover smoke passed against the running backend stack,
+  - event purchased-items smoke passed against the running backend stack,
+  - targeted Playwright Events/Collectibles/Art browser regression passed against the rebuilt frontend,
+  - full Playwright browser regression passed locally,
+  - in-stack Help > Releases smoke served `3.4.4`,
+  - RBAC regression passed in-stack,
+  - platform edition boundary passed in-stack,
+  - homelab edition boundary passed in-stack,
+  - and observability release evidence passed.
+- Local checks:
+  - backend unit tests passed,
+  - OpenAPI validation passed,
+  - release preflight was regenerated for `3.4.4` with compose smoke basics passing under CI secure-cookie overrides,
+  - dependency audit artifacts were regenerated,
+  - init parity was checked,
+  - and migration rehearsal was checked.
+- CI-only follow-through:
+  - secret scan remains authoritative in tagged CI because `gitleaks` is not installed locally,
+  - and image security/SBOM remain authoritative in tagged CI because local Trivy/SBOM tooling is not installed.
+- Long-term relationship contract:
+  - Art is product-owned by the Art surface and native `art_items` records,
+  - Collectibles are product-owned by non-Art collectible rows and classifications such as `Card`, `Funko`, and `Comic Panels`,
+  - Events read tracked purchases through `event_purchased_items`,
+  - `event_purchased_items.item_type = 'art'` points at `art_items.id`,
+  - `event_purchased_items.item_type = 'collectible'` points at `collectibles.id`,
+  - `art_items.source_collectible_id` remains bridge compatibility for migrated rows and current safe writes,
+  - `/api/collectibles` does not expose or accept Art records,
+  - and `/api/art` does not expose collectible categories.
+- Follow-up boundary:
+  - deeper removal of bridge columns or bridge-safe ID compatibility should be planned as a separate migration-safe milestone.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 

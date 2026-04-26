@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v3.4.4",
+      "version": "3.4.4",
+      "date": "2026-04-26",
+      "status": "Completed",
+      "summary": "This release finishes the product-layer Art split by giving Art its own frontend surface, reducing Collectibles-specific compatibility assumptions, and documenting the shared Event purchase relationship. Art remains bridge-safe for migrated rows and existing IDs, but users now interact with Art as its own object domain rather than as a Collectibles subtype.",
+      "details": []
+    },
+    {
       "title": "v3.4.3",
       "version": "3.4.3",
       "date": "2026-04-26",
@@ -70,14 +78,6 @@
       "date": "2026-04-23",
       "status": "Completed",
       "summary": "This patch release builds on `3.3.0` library loans tracking by adding manual loan reminders, clearer reminder status in the drawer and Loans view, a more accurate due-soon count, and focused browser coverage for the loan-first drawer flow. The result is a tighter follow-up workflow for items that are due soon or already overdue without widening the release into automatic scheduling.",
-      "details": []
-    },
-    {
-      "title": "v3.3.0",
-      "version": "3.3.0",
-      "date": "2026-04-23",
-      "status": "Completed",
-      "summary": "This minor release adds a new library loans workflow so borrowed items can be tracked from one management surface instead of disappearing into title-level notes. The release introduces scoped loan records, item-attached loan actions, a dedicated `Loans` view, and stronger current-loan visibility for active, overdue, and returned items across both platform and homelab stacks.",
       "details": []
     }
   ]
