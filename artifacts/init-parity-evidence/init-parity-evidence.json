@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-04-26T14:33:50.596Z",
+  "generatedAt": "2026-04-26T15:46:16.063Z",
   "initSqlPath": "/workspace/init.sql",
-  "initDb": "collectz_init_parity_init_mofvch4a",
-  "migDb": "collectz_init_parity_mig_mofvch4a",
+  "initDb": "collectz_init_parity_init_mofxxmhv",
+  "migDb": "collectz_init_parity_mig_mofxxmhv",
   "checks": [
     {
       "label": "columns",

@@ -73,6 +73,7 @@ const serializeCollectibleRow = (row) => {
     category: row.category || resolveCategoryLabel(row.category_key) || null,
     item_type: row.subtype || row.item_type || 'collectible',
     series: row.series || null,
+    franchise: row.franchise || null,
     native_art_id: row.native_art_id || null,
     vendor,
     booth,
@@ -97,6 +98,7 @@ const serializeNativeArtRow = (row) => {
     event_id: row.event_id || null,
     purchased_item_id: row.purchased_item_id || null,
     series: row.series || null,
+    franchise: row.franchise || null,
     medium: row.medium || null,
     artist: row.artist || null,
     vendor,
@@ -141,6 +143,7 @@ const upsertNativeArtFromCollectible = async (collectibleRow) => {
        title,
        artist,
        series,
+       franchise,
        medium,
        vendor,
        booth,
@@ -151,7 +154,7 @@ const upsertNativeArtFromCollectible = async (collectibleRow) => {
        notes,
        archived_at
      ) VALUES (
-       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16
+       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17
      )
      ON CONFLICT (source_collectible_id) DO UPDATE
        SET library_id = EXCLUDED.library_id,
@@ -159,6 +162,7 @@ const upsertNativeArtFromCollectible = async (collectibleRow) => {
            title = EXCLUDED.title,
            artist = EXCLUDED.artist,
            series = EXCLUDED.series,
+           franchise = EXCLUDED.franchise,
            medium = COALESCE(EXCLUDED.medium, art_items.medium),
            vendor = EXCLUDED.vendor,
            booth = EXCLUDED.booth,
@@ -178,6 +182,7 @@ const upsertNativeArtFromCollectible = async (collectibleRow) => {
       collectibleRow.title,
       collectibleRow.artist || null,
       collectibleRow.series || null,
+      collectibleRow.franchise || null,
       collectibleRow.medium || null,
       collectibleRow.vendor || null,
       collectibleRow.booth || null,
@@ -304,6 +309,7 @@ const normalizeArtPayload = (payload = {}) => {
   return {
     title: payload.title,
     series: payload.series || null,
+    franchise: payload.franchise || null,
     medium: payload.medium || null,
     event_id: payload.event_id || null,
     vendor,
@@ -328,6 +334,7 @@ const normalizeCollectiblePayload = (payload = {}) => {
     category_key: categoryKey || null,
     category: categoryLabel || null,
     series: payload.series || null,
+    franchise: payload.franchise || null,
     vendor,
     booth,
     booth_or_vendor: vendor || booth || payload.booth_or_vendor || null
@@ -365,6 +372,7 @@ router.get(COLLECTIBLE_ROUTE_PATHS, asyncHandler(async (req, res) => {
   const vendor = String(req.query?.vendor || '').trim();
   const booth = String(req.query?.booth || '').trim();
   const series = String(req.query?.series || '').trim();
+  const franchise = String(req.query?.franchise || '').trim();
   const eventIdRaw = Number(req.query?.event_id);
   const exclusiveRaw = String(req.query?.exclusive || '').trim().toLowerCase();
   const sortDir = String(req.query?.sort_dir || '').trim().toLowerCase() === 'desc' ? 'DESC' : 'ASC';
@@ -382,6 +390,7 @@ router.get(COLLECTIBLE_ROUTE_PATHS, asyncHandler(async (req, res) => {
       where += ` AND (
         a.title ILIKE $${params.length}
         OR COALESCE(a.series, '') ILIKE $${params.length}
+        OR COALESCE(a.franchise, '') ILIKE $${params.length}
         OR COALESCE(a.artist, '') ILIKE $${params.length}
         OR COALESCE(a.notes, '') ILIKE $${params.length}
       )`;
@@ -397,6 +406,10 @@ router.get(COLLECTIBLE_ROUTE_PATHS, asyncHandler(async (req, res) => {
     if (series) {
       params.push(`%${series}%`);
       where += ` AND COALESCE(a.series, '') ILIKE $${params.length}`;
+    }
+    if (franchise) {
+      params.push(`%${franchise}%`);
+      where += ` AND COALESCE(a.franchise, '') ILIKE $${params.length}`;
     }
     if (Number.isFinite(eventIdRaw) && eventIdRaw > 0) {
       params.push(eventIdRaw);
@@ -450,6 +463,7 @@ router.get(COLLECTIBLE_ROUTE_PATHS, asyncHandler(async (req, res) => {
     where += ` AND (
       c.title ILIKE $${params.length}
       OR COALESCE(c.series, '') ILIKE $${params.length}
+      OR COALESCE(c.franchise, '') ILIKE $${params.length}
       OR COALESCE(c.artist, '') ILIKE $${params.length}
       OR COALESCE(c.notes, '') ILIKE $${params.length}
     )`;
@@ -475,6 +489,10 @@ router.get(COLLECTIBLE_ROUTE_PATHS, asyncHandler(async (req, res) => {
   if (series) {
     params.push(`%${series}%`);
     where += ` AND COALESCE(c.series, '') ILIKE $${params.length}`;
+  }
+  if (franchise) {
+    params.push(`%${franchise}%`);
+    where += ` AND COALESCE(c.franchise, '') ILIKE $${params.length}`;
   }
   if (Number.isFinite(eventIdRaw) && eventIdRaw > 0) {
     params.push(eventIdRaw);
@@ -584,6 +602,7 @@ const createArt = asyncHandler(async (req, res) => {
        title,
        artist,
        series,
+       franchise,
        medium,
        vendor,
        booth,
@@ -592,7 +611,7 @@ const createArt = asyncHandler(async (req, res) => {
        signed,
        image_path,
        notes
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
      RETURNING *`,
     [
       libraryId,
@@ -601,6 +620,7 @@ const createArt = asyncHandler(async (req, res) => {
       payload.title,
       payload.artist,
       payload.series,
+      payload.franchise,
       payload.medium,
       payload.vendor,
       payload.booth,
@@ -620,6 +640,7 @@ const createArt = asyncHandler(async (req, res) => {
     title: artRow.title,
     native_art_id: artRow.id,
     event_id: payload.event_id || null,
+    franchise: artRow.franchise || null,
     medium: artRow.medium || null,
     signed: artRow.signed === true
   });
@@ -647,6 +668,7 @@ const createCollectible = asyncHandler(async (req, res) => {
     category, // legacy alias
     event_id,
     series,
+    franchise,
     vendor,
     booth,
     booth_or_vendor,
@@ -664,6 +686,7 @@ const createCollectible = asyncHandler(async (req, res) => {
     category_key,
     category,
     series,
+    franchise,
     vendor,
     booth,
     booth_or_vendor
@@ -695,9 +718,9 @@ const createCollectible = asyncHandler(async (req, res) => {
 
   const created = await pool.query(
     `INSERT INTO collectibles (
-       library_id, space_id, created_by, title, series, subtype, item_type, category_key, category, event_id, vendor, booth, booth_or_vendor, artist, price, exclusive, image_path, notes
+       library_id, space_id, created_by, title, series, franchise, subtype, item_type, category_key, category, event_id, vendor, booth, booth_or_vendor, artist, price, exclusive, image_path, notes
      ) VALUES (
-       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18
+       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19
      )
      RETURNING *`,
     [
@@ -706,6 +729,7 @@ const createCollectible = asyncHandler(async (req, res) => {
       req.user.id,
       title,
       normalizedPayload.series,
+      normalizedPayload.franchise,
       normalizedPayload.subtype,
       normalizedPayload.subtype,
       normalizedPayload.category_key,
@@ -733,6 +757,7 @@ const createCollectible = asyncHandler(async (req, res) => {
     category_key: row.category_key,
     event_id: row.event_id,
     series: row.series,
+    franchise: row.franchise,
     vendor: row.vendor,
     booth: row.booth,
     native_art_id: nativeArt?.id || null
@@ -766,7 +791,7 @@ const updateArt = asyncHandler(async (req, res) => {
     if (!eventRow) return res.status(404).json({ error: 'Linked event not found in scope' });
   }
 
-  const allowed = ['title', 'series', 'medium', 'vendor', 'booth', 'booth_or_vendor', 'artist', 'price', 'exclusive', 'signed', 'image_path', 'notes'];
+  const allowed = ['title', 'series', 'franchise', 'medium', 'vendor', 'booth', 'booth_or_vendor', 'artist', 'price', 'exclusive', 'signed', 'image_path', 'notes'];
   const payload = normalizeArtPayload({
     ...current,
     ...req.body
@@ -811,21 +836,23 @@ const updateArt = asyncHandler(async (req, res) => {
       `UPDATE collectibles
        SET title = $2,
            series = $3,
-           vendor = $4,
-           booth = $5,
-           booth_or_vendor = $6,
-           artist = $7,
-           price = $8,
-           exclusive = $9,
-           event_id = $10,
-           image_path = $11,
-           notes = $12,
+           franchise = $4,
+           vendor = $5,
+           booth = $6,
+           booth_or_vendor = $7,
+           artist = $8,
+           price = $9,
+           exclusive = $10,
+           event_id = $11,
+           image_path = $12,
+           notes = $13,
            updated_at = CURRENT_TIMESTAMP
        WHERE id = $1`,
       [
         current.source_collectible_id,
         hydrated.title,
         hydrated.series || null,
+        hydrated.franchise || null,
         hydrated.vendor || null,
         hydrated.booth || null,
         hydrated.vendor && hydrated.booth ? `${hydrated.vendor} / ${hydrated.booth}` : (hydrated.vendor || hydrated.booth || null),
@@ -857,7 +884,7 @@ const updateCollectible = asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'Invalid collectible id' });
   }
 
-  const allowed = ['title', 'series', 'subtype', 'item_type', 'category_key', 'category', 'event_id', 'vendor', 'booth', 'booth_or_vendor', 'artist', 'medium', 'price', 'exclusive', 'signed', 'image_path', 'notes'];
+  const allowed = ['title', 'series', 'franchise', 'subtype', 'item_type', 'category_key', 'category', 'event_id', 'vendor', 'booth', 'booth_or_vendor', 'artist', 'medium', 'price', 'exclusive', 'signed', 'image_path', 'notes'];
   const fields = Object.entries(req.body || {}).filter(([key]) => allowed.includes(key));
   if (fields.length === 0) return res.status(400).json({ error: 'No valid collectible fields provided' });
 
@@ -891,6 +918,7 @@ const updateCollectible = asyncHandler(async (req, res) => {
     category_key: req.body?.category_key,
     category: req.body?.category,
     series: req.body?.series,
+    franchise: req.body?.franchise,
     vendor: req.body?.vendor,
     booth: req.body?.booth,
     booth_or_vendor: req.body?.booth_or_vendor
@@ -927,13 +955,17 @@ const updateCollectible = asyncHandler(async (req, res) => {
   const params = [collectibleId];
   const updates = [];
   for (const [key, value] of fields) {
-    if (['subtype', 'item_type', 'category_key', 'category', 'series', 'vendor', 'booth', 'booth_or_vendor', 'medium', 'signed'].includes(key)) continue;
+    if (['subtype', 'item_type', 'category_key', 'category', 'series', 'franchise', 'vendor', 'booth', 'booth_or_vendor', 'medium', 'signed'].includes(key)) continue;
     params.push(value === '' ? null : value);
     updates.push({ key, ref: `$${params.length}` });
   }
   if (Object.prototype.hasOwnProperty.call(req.body || {}, 'series')) {
     params.push(normalizedPayload.series);
     updates.push({ key: 'series', ref: `$${params.length}` });
+  }
+  if (Object.prototype.hasOwnProperty.call(req.body || {}, 'franchise')) {
+    params.push(normalizedPayload.franchise);
+    updates.push({ key: 'franchise', ref: `$${params.length}` });
   }
   if (
     Object.prototype.hasOwnProperty.call(req.body || {}, 'vendor')

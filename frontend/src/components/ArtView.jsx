@@ -13,6 +13,7 @@ const ART_MEDIUM_OPTIONS = [
 const DEFAULT_FORM = {
   title: '',
   series: '',
+  franchise: '',
   artist: '',
   medium: '',
   event_id: '',
@@ -69,7 +70,7 @@ function DetailField({ label, children, className = '' }) {
 
 function ArtCard({ item, supportsHover, onOpen, onEdit, onDelete }) {
   const mediumLabel = ART_MEDIUM_OPTIONS.find((option) => option.value === item.medium)?.label || null;
-  const subtitle = [item.series, item.artist, mediumLabel, item.event_title].filter(Boolean).join(' · ');
+  const subtitle = [item.franchise, item.series, item.artist, mediumLabel, item.event_title].filter(Boolean).join(' · ');
   return (
     <ObjectPosterCard
       title={item.title}
@@ -83,6 +84,7 @@ function ArtCard({ item, supportsHover, onOpen, onEdit, onDelete }) {
       meta={
         <>
           {mediumLabel ? <FilterPill>{mediumLabel}</FilterPill> : null}
+          {item.franchise ? <FilterPill>{item.franchise}</FilterPill> : null}
           {item.artist ? <FilterPill>{item.artist}</FilterPill> : null}
           {item.series ? <FilterPill>{item.series}</FilterPill> : null}
           {item.event_title ? <FilterPill>{item.event_title}</FilterPill> : null}
@@ -105,6 +107,7 @@ function ArtRow({ item, supportsHover, onOpen, onEdit, onDelete }) {
         <div className="mt-1 flex flex-wrap gap-2">
           <FilterPill>Art</FilterPill>
           {mediumLabel ? <FilterPill>{mediumLabel}</FilterPill> : null}
+          {item.franchise ? <FilterPill>{item.franchise}</FilterPill> : null}
           {item.series ? <FilterPill>{item.series}</FilterPill> : null}
           {item.artist ? <FilterPill>{item.artist}</FilterPill> : null}
           {item.event_title ? <FilterPill>{item.event_title}</FilterPill> : null}
@@ -150,7 +153,7 @@ function ArtDetailDrawer({ artId, apiCall, events, onClose, onEdit, onDeleted })
     || null;
   const showPurchaseContext = hasPurchaseContext(item);
   const mediumLabel = ART_MEDIUM_OPTIONS.find((option) => option.value === item?.medium)?.label || null;
-  const factSummary = [item?.series, item?.artist, mediumLabel, resolvedEvent].filter(Boolean);
+  const factSummary = [item?.franchise, item?.series, item?.artist, mediumLabel, resolvedEvent].filter(Boolean);
 
   return (
     <div className="fixed inset-0 z-50 flex">
@@ -185,6 +188,7 @@ function ArtDetailDrawer({ artId, apiCall, events, onClose, onEdit, onDeleted })
           {!loading && item ? (
             <div className="grid grid-cols-1 gap-x-8 gap-y-5 text-sm md:grid-cols-2">
               <DetailField label="Series">{item.series}</DetailField>
+              <DetailField label="Fandom / Franchise">{item.franchise}</DetailField>
               <DetailField label="Medium / Type">{mediumLabel}</DetailField>
               <DetailField label="Artist">{item.artist}</DetailField>
               <DetailField label="Event">{resolvedEvent || 'None linked'}</DetailField>
@@ -274,6 +278,7 @@ function ArtDrawer({ initial, events, saving, error, notice, onClose, onSave, on
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <label className="field"><span className="label">Title *</span><input className="input" value={form.title || ''} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} /></label>
                 <label className="field"><span className="label">Series</span><input className="input" value={form.series || ''} onChange={(e) => setForm((p) => ({ ...p, series: e.target.value }))} /></label>
+                <label className="field"><span className="label">Fandom / Franchise</span><input className="input" value={form.franchise || ''} onChange={(e) => setForm((p) => ({ ...p, franchise: e.target.value }))} /></label>
                 <label className="field"><span className="label">Medium / Type</span>
                   <select className="select" value={form.medium || ''} onChange={(e) => setForm((p) => ({ ...p, medium: e.target.value }))}>
                     <option value="">None</option>
@@ -434,6 +439,7 @@ export default function ArtView({ apiCall, onToast }) {
       const payload = {
         title: String(form.title || '').trim(),
         series: form.series || null,
+        franchise: form.franchise || null,
         medium: form.medium || null,
         subtype: 'art',
         event_id: form.event_id ? Number(form.event_id) : null,

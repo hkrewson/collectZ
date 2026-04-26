@@ -3574,6 +3574,22 @@ results.push(run('collectibles taxonomy cleanup and art medium boundary are wire
   assert.ok(openApiSource.includes('"signed"'));
 }));
 
+results.push(run('fandom franchise metadata is shared by Art and Collectibles without taxonomy drift', () => {
+  const collectiblesViewSource = readFrontendSource(path.join('components', 'CollectiblesView'));
+  assert.ok(migrationsSource.includes('version: 77'));
+  assert.ok(migrationsSource.includes('Add shared fandom franchise metadata to Art and Collectibles'));
+  assert.ok(initSqlSource.includes('franchise VARCHAR(255)'));
+  assert.ok(initSqlSource.includes('idx_collectibles_franchise'));
+  assert.ok(initSqlSource.includes('idx_art_items_franchise'));
+  assert.ok(validateMiddlewareSource.includes('franchise: z.preprocess(emptyStringToNull'));
+  assert.ok(collectiblesRoutesSource.includes('COALESCE(a.franchise'));
+  assert.ok(collectiblesRoutesSource.includes('COALESCE(c.franchise'));
+  assert.ok(artViewSource.includes('Fandom / Franchise'));
+  assert.ok(collectiblesViewSource.includes('Fandom / Franchise'));
+  assert.ok(eventsViewSource.includes('candidate.franchise'));
+  assert.ok(openApiSource.includes('"franchise"'));
+}));
+
 results.push(run('library loans view exposes management-focused counts and due-soon emphasis', () => {
   assert.ok(libraryLoansViewSource.includes('Currently out'));
   assert.ok(libraryLoansViewSource.includes('Due soon'));

@@ -138,22 +138,6 @@ This file is the staging area for work that has not yet been assigned a release 
 - The drawer/detail surface can show provenance without crowding ordinary unsigned items.
 - Existing signed boolean data remains readable and migrates cleanly into the richer model.
 
-### Backlog Item: Fandom and Franchise Metadata
-**Type:** Discussion
-**Tags:** `collectibles`, `taxonomy`, `fandom`, `franchise`, `metadata`
-
-**Goal:** Decide how fandom/franchise/source metadata should be represented after removing fandom-like labels such as Anime from Collectibles category choices.
-
-**Scope**
-- Define whether fandom/franchise is a freeform field, controlled vocabulary, tag, or future shared metadata primitive.
-- Keep owned-object category choices focused on object shape such as Card, Funko, Toys, Clothing, and similar classes.
-- Evaluate whether Art and Collectibles should share this metadata or expose it differently.
-
-**Acceptance Criteria**
-- The app has a clear model for recording source/fandom/franchise without overloading object categories.
-- Anime-like descriptors have an intentional home if users need to track them.
-- The decision does not rename Collectibles by accident or blur Art's native boundary.
-
 ### Backlog Item: Collectibles Naming Review
 **Type:** Discussion
 **Tags:** `collectibles`, `naming`, `taxonomy`, `fandom`

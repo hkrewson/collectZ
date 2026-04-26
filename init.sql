@@ -747,6 +747,7 @@ CREATE TABLE IF NOT EXISTS collectibles (
     category_key VARCHAR(64) REFERENCES collectible_categories(key) ON UPDATE CASCADE ON DELETE SET NULL,
     event_id INTEGER REFERENCES events(id) ON DELETE SET NULL,
     series VARCHAR(255),
+    franchise VARCHAR(255),
     vendor VARCHAR(255),
     booth VARCHAR(255),
     booth_or_vendor VARCHAR(255),
@@ -769,6 +770,7 @@ CREATE TABLE IF NOT EXISTS art_items (
     title VARCHAR(255) NOT NULL,
     artist VARCHAR(255),
     series VARCHAR(255),
+    franchise VARCHAR(255),
     medium VARCHAR(50)
       CHECK (medium IS NULL OR medium IN ('original', 'print', 'comic_panel', 'sketch', 'commission', 'other')),
     vendor VARCHAR(255),
@@ -894,6 +896,7 @@ CREATE INDEX IF NOT EXISTS idx_collectibles_category ON collectibles(category);
 CREATE INDEX IF NOT EXISTS idx_collectibles_vendor ON collectibles(booth_or_vendor);
 CREATE INDEX IF NOT EXISTS idx_collectibles_vendor_v2 ON collectibles(vendor);
 CREATE INDEX IF NOT EXISTS idx_collectibles_series ON collectibles(series);
+CREATE INDEX IF NOT EXISTS idx_collectibles_franchise ON collectibles(franchise);
 CREATE INDEX IF NOT EXISTS idx_collectibles_exclusive ON collectibles(exclusive);
 CREATE INDEX IF NOT EXISTS idx_collectibles_library_subtype_category ON collectibles(library_id, subtype, category_key);
 CREATE INDEX IF NOT EXISTS idx_collectibles_event_id_v2 ON collectibles(event_id);
@@ -902,6 +905,7 @@ CREATE INDEX IF NOT EXISTS idx_art_items_library_created_at ON art_items(library
 CREATE INDEX IF NOT EXISTS idx_art_items_space_created_at ON art_items(space_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_art_items_artist ON art_items(artist);
 CREATE INDEX IF NOT EXISTS idx_art_items_series ON art_items(series);
+CREATE INDEX IF NOT EXISTS idx_art_items_franchise ON art_items(franchise);
 CREATE INDEX IF NOT EXISTS idx_art_items_vendor ON art_items(vendor);
 CREATE INDEX IF NOT EXISTS idx_event_purchased_items_event_created ON event_purchased_items(event_id, created_at DESC, id DESC);
 CREATE INDEX IF NOT EXISTS idx_event_purchased_items_item_lookup ON event_purchased_items(item_type, item_id, created_at DESC);
@@ -1164,5 +1168,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (73, 'Add collectible series plus split vendor and booth fields'),
     (74, 'Add native art storage and shared event purchased item links'),
     (75, 'Backfill native art rows and shared event purchased item links'),
-    (76, 'Add art medium and signed fields with comic panel migration boundary')
+    (76, 'Add art medium and signed fields with comic panel migration boundary'),
+    (77, 'Add shared fandom franchise metadata to Art and Collectibles')
 ON CONFLICT (version) DO NOTHING;

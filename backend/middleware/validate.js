@@ -693,6 +693,7 @@ const artMediumValues = ['original', 'print', 'comic_panel', 'sketch', 'commissi
 const collectibleBaseSchema = z.object({
   title: z.string().min(1, 'Title is required').max(255),
   series: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
+  franchise: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
   subtype: z.enum(COLLECTIBLE_SUBTYPES).optional().nullable(),
   item_type: z.enum(COLLECTIBLE_SUBTYPES).optional().nullable(), // legacy alias
   category_key: z.preprocess(
@@ -723,6 +724,7 @@ const collectibleUpdateSchema = collectibleBaseSchema.partial().refine(
 const artBaseSchema = z.object({
   title: z.string().min(1, 'Title is required').max(255),
   series: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
+  franchise: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
   medium: z.preprocess(emptyStringToNull, z.enum(artMediumValues).optional().nullable()),
   event_id: nullableNumberSchema(z.number().int().positive()),
   vendor: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),

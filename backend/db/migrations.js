@@ -3300,6 +3300,23 @@ const MIGRATIONS = [
         AND COALESCE(subtype, item_type, 'collectible') <> 'art'
         AND category_key = 'comic_panels';
     `
+  },
+  {
+    version: 77,
+    description: 'Add shared fandom franchise metadata to Art and Collectibles',
+    up: `
+      ALTER TABLE collectibles
+        ADD COLUMN IF NOT EXISTS franchise VARCHAR(255);
+
+      ALTER TABLE art_items
+        ADD COLUMN IF NOT EXISTS franchise VARCHAR(255);
+
+      CREATE INDEX IF NOT EXISTS idx_collectibles_franchise
+        ON collectibles(franchise);
+
+      CREATE INDEX IF NOT EXISTS idx_art_items_franchise
+        ON art_items(franchise);
+    `
   }
 ];
 

@@ -40,6 +40,7 @@ const VIEW_CONFIG = {
 const DEFAULT_FORM = {
   title: '',
   series: '',
+  franchise: '',
   subtype: 'collectible',
   category_key: '',
   event_id: '',
@@ -97,9 +98,10 @@ function CollectibleCard({ item, supportsHover, onOpen, onEdit, onDelete, viewCo
       onOpen={() => onOpen(item)}
       leftBadges={[`#${item.id}`, classificationLabel]}
       rightBadge={item.exclusive ? <span className="badge badge-brand text-[10px] backdrop-blur-sm bg-brand/20 border-brand/30">Exclusive</span> : null}
-      subtitle={`${item.series ? `${item.series} · ` : ''}${item.event_title ? `${item.event_title} · ` : ''}${classificationLabel}`}
+      subtitle={`${item.franchise ? `${item.franchise} · ` : ''}${item.series ? `${item.series} · ` : ''}${item.event_title ? `${item.event_title} · ` : ''}${classificationLabel}`}
       meta={
         <>
+          {item.franchise ? <FilterPill>{item.franchise}</FilterPill> : null}
           {item.artist ? <FilterPill>{item.artist}</FilterPill> : null}
           {item.vendor ? <FilterPill>{item.vendor}</FilterPill> : null}
           {item.booth ? <FilterPill>{item.booth}</FilterPill> : null}
@@ -130,6 +132,7 @@ function CollectibleRow({ item, supportsHover, onOpen, onEdit, onDelete, viewCon
         <p className="text-sm font-medium text-ink truncate">{item.title}</p>
         <div className="mt-1 flex flex-wrap gap-2">
           <FilterPill>{classificationLabel}</FilterPill>
+          {item.franchise ? <FilterPill>{item.franchise}</FilterPill> : null}
           {item.series ? <FilterPill>{item.series}</FilterPill> : null}
           {item.event_title ? <FilterPill>{item.event_title}</FilterPill> : null}
           {item.exclusive ? <FilterPill tone="brand">Exclusive</FilterPill> : null}
@@ -177,6 +180,7 @@ function CollectibleDetailDrawer({ collectibleId, apiCall, categories, events, o
   const itemTypeLabel = getCollectibleClassificationLabel(item);
   const showPurchaseContext = true;
   const factSummary = [
+    item?.franchise,
     item?.series,
     resolvedEvent,
     itemTypeLabel,
@@ -219,6 +223,7 @@ function CollectibleDetailDrawer({ collectibleId, apiCall, categories, events, o
               <div className="grid grid-cols-1 gap-x-8 gap-y-5 text-sm md:grid-cols-2">
                 <DetailField label="Classification">{itemTypeLabel}</DetailField>
                 <DetailField label="Series">{item.series}</DetailField>
+                <DetailField label="Fandom / Franchise">{item.franchise}</DetailField>
                 <DetailField label="Event">{resolvedEvent || 'None linked'}</DetailField>
                 <DetailField label="Exclusive">{item.exclusive ? 'Yes' : 'No'}</DetailField>
                 <DetailField label="Artist">{item.artist}</DetailField>
@@ -352,6 +357,7 @@ function CollectibleDrawer({
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <label className="field"><span className="label">Title *</span><input className="input" value={form.title || ''} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} /></label>
                 <label className="field"><span className="label">Series</span><input className="input" value={form.series || ''} onChange={(e) => setForm((p) => ({ ...p, series: e.target.value }))} /></label>
+                <label className="field"><span className="label">Fandom / Franchise</span><input className="input" value={form.franchise || ''} onChange={(e) => setForm((p) => ({ ...p, franchise: e.target.value }))} /></label>
                 <label className="field"><span className="label">Category</span>
                   <select
                     className="select"
@@ -538,6 +544,7 @@ export default function CollectiblesView({ apiCall, onToast }) {
       const payload = {
         title: String(form.title || '').trim(),
         series: form.series || null,
+        franchise: form.franchise || null,
         subtype: form.subtype || 'collectible',
         category_key: form.category_key || null,
         event_id: form.event_id ? Number(form.event_id) : null,

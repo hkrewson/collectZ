@@ -451,11 +451,13 @@ function EventPurchasedItemsReadback({ eventId, apiCall }) {
     const parts = [];
     if (type === 'art') {
       parts.push('Art');
+      if (candidate.franchise) parts.push(candidate.franchise);
       if (candidate.medium) parts.push(String(candidate.medium).replaceAll('_', ' '));
       if (candidate.artist) parts.push(candidate.artist);
       if (candidate.series) parts.push(candidate.series);
     } else {
       parts.push('Collectible');
+      if (candidate.franchise) parts.push(candidate.franchise);
       if (candidate.category || candidate.category_key) parts.push(candidate.category || candidate.category_key);
       if (candidate.series) parts.push(candidate.series);
     }
@@ -600,7 +602,7 @@ function EventPurchasedItemsReadback({ eventId, apiCall }) {
               <span className="label">Search</span>
               <input
                 className="input"
-                placeholder={searchType === 'art' ? 'Title, artist, or series' : 'Title, category, or vendor'}
+                placeholder={searchType === 'art' ? 'Title, fandom, artist, or series' : 'Title, fandom, category, or vendor'}
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
                 onKeyDown={(event) => {

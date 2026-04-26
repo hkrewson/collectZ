@@ -4740,6 +4740,34 @@ Historical note:
   - broader purchase reporting, bulk linking, and deeper purchase analytics remain future work if needed,
   - and this release intentionally keeps freeform Event artifacts separate from tracked purchased-item links.
 
+## 3.4.8 — Fandom and Franchise Metadata
+
+**Goal:** Give Art and Collectibles a shared place for fandom/source/franchise metadata without overloading object categories or renaming Collectibles.
+
+**Current Slice:** `Implementation`
+
+### Scope
+
+- Add a shared freeform `franchise` field to native Art and Collectibles.
+- Surface the field as `Fandom / Franchise` in Art and Collectibles create/edit/detail/card surfaces.
+- Include franchise values in Art and Collectibles search.
+- Keep Collectibles categories focused on owned-object shape such as Card, Funko, Toys, Clothing, and similar classes.
+- Keep Art medium/type focused on physical/artistic form such as Original, Print, Comic Panel, Sketch, Commission, and Other.
+
+### Acceptance Criteria
+
+- Art and Collectibles can record a source/fandom/franchise value without changing object category or medium/type.
+- Anime-like descriptors have a home as metadata rather than category taxonomy.
+- The API/OpenAPI/init/migration contract stays aligned for the shared field.
+- Existing Art/Collectibles records remain readable with `franchise = NULL`.
+- The product copy does not rename Collectibles to Fandom in this slice.
+
+### Active Slice Notes
+
+- Use a simple freeform field first; do not add a controlled vocabulary or tag table in this slice.
+- Do not rename Collectibles.
+- Do not alter Event purchased-item snapshot semantics in this slice.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

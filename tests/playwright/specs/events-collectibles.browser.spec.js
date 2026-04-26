@@ -75,6 +75,7 @@ test.describe('events and collectibles browser regressions', () => {
       await page.getByRole('button', { name: 'Add' }).click();
       await expect(page.getByRole('heading', { name: 'Add Collectible' })).toBeVisible();
       await page.locator('label:has-text("Title *") input').fill(collectibleTitle);
+      await page.locator('label:has-text("Fandom / Franchise") input').fill('Playwright Universe');
       await page.locator('label:has-text("Category") select').selectOption('funko');
       await page.locator('label:has-text("Linked Event") select').selectOption({ label: eventTitle });
       await page.locator('label:has-text("Vendor") input').fill('Playwright Vendor');
@@ -93,6 +94,7 @@ test.describe('events and collectibles browser regressions', () => {
 
       await page.locator('article').filter({ hasText: collectibleTitle }).first().click();
       await expect(page.getByRole('heading', { name: collectibleTitle })).toBeVisible();
+      await expect(page.getByText('Playwright Universe', { exact: true }).first()).toBeVisible();
       await expect(page.getByText(eventTitle, { exact: true }).first()).toBeVisible();
     } finally {
       await deleteCollectiblesByExactTitle(userRequestContext, collectibleTitle).catch(() => {});
@@ -231,6 +233,7 @@ test.describe('events and collectibles browser regressions', () => {
         title: artTitle,
         artist: 'Playwright Artist',
         series: 'Purchase Link Series',
+        franchise: 'Playwright Franchise',
         medium: 'comic_panel',
         vendor: 'Original Studio',
         booth: 'C4',
@@ -253,10 +256,10 @@ test.describe('events and collectibles browser regressions', () => {
       await expect(purchaseSection.getByText('No tracked Art or Collectibles purchases')).toBeVisible();
       await purchaseSection.getByRole('button', { name: 'Link item' }).click();
       await purchaseSection.locator('label:has-text("Library") select').selectOption('art');
-      await purchaseSection.getByPlaceholder('Title, artist, or series').fill(artTitle);
+      await purchaseSection.getByPlaceholder('Title, fandom, artist, or series').fill(artTitle);
       await purchaseSection.getByRole('button', { name: 'Search' }).click();
       await expect(purchaseSection.getByText(artTitle, { exact: true })).toBeVisible();
-      await expect(purchaseSection.getByText('Art · comic panel · Playwright Artist')).toBeVisible();
+      await expect(purchaseSection.getByText('Art · Playwright Franchise · comic panel · Playwright Artist')).toBeVisible();
 
       await purchaseSection
         .locator('article')
