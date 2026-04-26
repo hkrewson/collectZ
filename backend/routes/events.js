@@ -10,6 +10,7 @@ const {
   eventUpdateSchema,
   eventArtifactCreateSchema,
   eventArtifactUpdateSchema,
+  eventArtifactSignatureLinkSchema,
   eventPurchasedItemCreateSchema,
   eventPurchasedItemUpdateSchema
 } = require('../middleware/validate');
@@ -17,6 +18,11 @@ const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
 const { logActivity } = require('../services/audit');
 const { uploadBuffer } = require('../services/storage');
 const { isFeatureEnabled } = require('../services/featureFlags');
+const {
+  loadSignatureRecords,
+  serializeSignatureRow,
+  syncPrimarySignatureRecord
+} = require('../services/signatures');
 
 const router = express.Router();
 const memoryUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
@@ -59,11 +65,78 @@ const serializePurchasedItemRecord = (row) => ({
   resolved_item: row.resolved_item || null
 });
 
+const ARTIFACT_DB_FIELDS = ['artifact_type', 'title', 'description', 'image_path', 'price', 'vendor'];
+const ARTIFACT_SIGNATURE_FIELDS = ['signer_name', 'signer_role', 'signed_on', 'signed_at', 'signature_notes', 'proof_path'];
+
+const serializeEventArtifactRow = (row = {}) => ({
+  ...row,
+  signature: row.signature || null,
+  event_artifact_signature: row.event_artifact_signature || null,
+  linked_signature: row.linked_signature || null
+});
+
+const buildEventArtifactSignaturePayload = ({ artifact = {}, event = {}, payload = {} }) => ({
+  signer_name: payload.signer_name || artifact.signer_name || artifact.title || null,
+  signer_role: payload.signer_role || artifact.signer_role || null,
+  signed_on: payload.signed_on || artifact.signed_on || event.date_start || null,
+  signed_at: payload.signed_at || artifact.signed_at || event.location || null,
+  signed_event_id: event.id || artifact.event_id || null,
+  proof_path: payload.proof_path || payload.image_path || artifact.image_path || null,
+  notes: payload.signature_notes || payload.notes || payload.description || artifact.description || null
+});
+
+async function loadSignatureRowsByIds(signatureIds = []) {
+  const ids = Array.from(new Set((signatureIds || [])
+    .map((value) => Number(value || 0))
+    .filter((value) => Number.isFinite(value) && value > 0)));
+  if (ids.length === 0) return new Map();
+  const result = await pool.query(
+    `SELECT *
+       FROM signature_records
+      WHERE id = ANY($1::int[])
+        AND archived_at IS NULL`,
+    [ids]
+  );
+  return new Map((result.rows || []).map((row) => [Number(row.id), serializeSignatureRow(row)]));
+}
+
+async function attachSignaturesToEventArtifacts(rows = []) {
+  const artifacts = Array.isArray(rows) ? rows : [];
+  if (artifacts.length === 0) return artifacts;
+  const artifactIds = artifacts.map((row) => Number(row.id || 0)).filter(Boolean);
+  const eventArtifactSignatures = await loadSignatureRecords(pool, { ownerType: 'event_artifact', ownerIds: artifactIds });
+  const linkedSignatures = await loadSignatureRowsByIds(artifacts.map((row) => row.signature_record_id));
+  return artifacts.map((row) => {
+    const eventArtifactSignature = (eventArtifactSignatures.get(Number(row.id || 0)) || [])[0] || null;
+    const linkedSignature = linkedSignatures.get(Number(row.signature_record_id || 0)) || null;
+    return serializeEventArtifactRow({
+      ...row,
+      event_artifact_signature: eventArtifactSignature,
+      linked_signature: linkedSignature,
+      signature: linkedSignature || eventArtifactSignature || null
+    });
+  });
+}
+
+async function syncEventArtifactSignature({ artifact, event, payload = {}, userId = null }) {
+  if (!artifact?.id || artifact.artifact_type !== 'autograph') return null;
+  const signature = await syncPrimarySignatureRecord(pool, {
+    ownerType: 'event_artifact',
+    ownerId: artifact.id,
+    libraryId: event.library_id || null,
+    spaceId: event.space_id || null,
+    createdBy: userId,
+    signature: buildEventArtifactSignaturePayload({ artifact, event, payload }),
+    signed: true
+  });
+  return signature;
+}
+
 async function ensureScopedEvent(scopeContext, eventId) {
   const eventParams = [eventId];
   const eventScopeClause = appendScopeSql(eventParams, scopeContext);
   const eventResult = await pool.query(
-    `SELECT id
+    `SELECT id, library_id, space_id, date_start, location
      FROM events
      WHERE id = $1
        AND archived_at IS NULL
@@ -152,6 +225,49 @@ async function loadPurchasedItemSource(scopeContext, itemType, itemId) {
     }
   };
 }
+
+async function loadSignatureTargetSource(scopeContext, ownerType, ownerId) {
+  const params = [ownerId];
+  const scopeClause = appendScopeSql(params, scopeContext, {
+    libraryColumn: 'library_id',
+    spaceColumn: 'space_id'
+  });
+  if (ownerType === 'art') {
+    const result = await pool.query(
+      `SELECT id, library_id, space_id, title, artist, image_path
+       FROM art_items
+       WHERE id = $1
+         AND archived_at IS NULL
+         ${scopeClause}
+       LIMIT 1`,
+      params
+    );
+    return result.rows[0] || null;
+  }
+  if (ownerType === 'media') {
+    const result = await pool.query(
+      `SELECT id, library_id, space_id, title, signed_by, signed_role, signed_on, signed_at, signed_proof_path
+       FROM media
+       WHERE id = $1
+         AND archived_at IS NULL
+         ${scopeClause}
+       LIMIT 1`,
+      params
+    );
+    return result.rows[0] || null;
+  }
+  return null;
+}
+
+const buildLinkedObjectSignaturePayload = ({ artifact = {}, event = {}, sourceSignature = null, payload = {} }) => ({
+  signer_name: payload.signer_name || sourceSignature?.signer_name || artifact.title || null,
+  signer_role: payload.signer_role || sourceSignature?.signer_role || null,
+  signed_on: payload.signed_on || sourceSignature?.signed_on || event.date_start || null,
+  signed_at: payload.signed_at || sourceSignature?.signed_at || event.location || null,
+  signed_event_id: event.id || sourceSignature?.signed_event_id || null,
+  proof_path: payload.proof_path || sourceSignature?.proof_path || artifact.image_path || null,
+  notes: payload.notes || sourceSignature?.notes || artifact.description || null
+});
 
 async function loadPurchasedItemsForEvent(eventId, scopeContext) {
   const result = await pool.query(
@@ -482,7 +598,7 @@ router.get('/events/:id/artifacts', asyncHandler(async (req, res) => {
      ORDER BY created_at DESC, id DESC`,
     [eventId]
   );
-  res.json(artifacts.rows);
+  res.json(await attachSignaturesToEventArtifacts(artifacts.rows));
 }));
 
 router.post('/events/:id/artifacts', validate(eventArtifactCreateSchema), asyncHandler(async (req, res) => {
@@ -494,7 +610,7 @@ router.post('/events/:id/artifacts', validate(eventArtifactCreateSchema), asyncH
   const eventParams = [eventId];
   const eventScopeClause = appendScopeSql(eventParams, scopeContext);
   const eventResult = await pool.query(
-    `SELECT id
+    `SELECT id, library_id, space_id, date_start, location
      FROM events
      WHERE id = $1
        AND archived_at IS NULL
@@ -515,13 +631,27 @@ router.post('/events/:id/artifacts', validate(eventArtifactCreateSchema), asyncH
      RETURNING *`,
     [eventId, artifact_type, title, description || null, image_path || null, price ?? null, vendor || null, req.user.id]
   );
-  const row = created.rows[0];
+  let row = created.rows[0];
+  const signature = await syncEventArtifactSignature({
+    artifact: row,
+    event: eventResult.rows[0],
+    payload: req.body,
+    userId: req.user.id
+  });
+  if (signature) {
+    row = {
+      ...row,
+      event_artifact_signature: signature,
+      linked_signature: null,
+      signature
+    };
+  }
   await logActivity(req, 'events.artifact.create', 'event', eventId, {
     artifactId: row.id,
     artifactType: row.artifact_type,
     title: row.title
   });
-  res.status(201).json(row);
+  res.status(201).json(serializeEventArtifactRow(row));
 }));
 
 router.patch('/events/:id/artifacts/:artifactId', validate(eventArtifactUpdateSchema), asyncHandler(async (req, res) => {
@@ -535,7 +665,7 @@ router.patch('/events/:id/artifacts/:artifactId', validate(eventArtifactUpdateSc
   const eventParams = [eventId];
   const eventScopeClause = appendScopeSql(eventParams, scopeContext);
   const eventResult = await pool.query(
-    `SELECT id
+    `SELECT id, library_id, space_id, date_start, location
      FROM events
      WHERE id = $1
        AND archived_at IS NULL
@@ -547,10 +677,10 @@ router.patch('/events/:id/artifacts/:artifactId', validate(eventArtifactUpdateSc
     return res.status(404).json({ error: 'Event not found' });
   }
 
-  const allowed = ['artifact_type', 'title', 'description', 'image_path', 'price', 'vendor'];
-  const fields = Object.entries(req.body || {}).filter(([key]) => allowed.includes(key));
+  const fields = Object.entries(req.body || {}).filter(([key]) => ARTIFACT_DB_FIELDS.includes(key));
+  const touchesSignature = ARTIFACT_SIGNATURE_FIELDS.some((key) => Object.prototype.hasOwnProperty.call(req.body || {}, key));
   if (!fields.length) {
-    return res.status(400).json({ error: 'No valid artifact fields provided' });
+    if (!touchesSignature) return res.status(400).json({ error: 'No valid artifact fields provided' });
   }
   const updates = [];
   const params = [eventId, artifactId];
@@ -558,22 +688,140 @@ router.patch('/events/:id/artifacts/:artifactId', validate(eventArtifactUpdateSc
     params.push(value ?? null);
     updates.push(`${key} = $${params.length}`);
   }
-  const result = await pool.query(
-    `UPDATE event_artifacts
-     SET ${updates.join(', ')}
-     WHERE event_id = $1
-       AND id = $2
-     RETURNING *`,
-    params
-  );
+  const result = updates.length > 0
+    ? await pool.query(
+      `UPDATE event_artifacts
+       SET ${updates.join(', ')}
+       WHERE event_id = $1
+         AND id = $2
+       RETURNING *`,
+      params
+    )
+    : await pool.query(
+      `SELECT *
+       FROM event_artifacts
+       WHERE event_id = $1
+         AND id = $2
+       LIMIT 1`,
+      params
+    );
   if (!result.rows[0]) {
     return res.status(404).json({ error: 'Artifact not found' });
   }
+  let row = result.rows[0];
+  const signature = await syncEventArtifactSignature({
+    artifact: row,
+    event: eventResult.rows[0],
+    payload: req.body,
+    userId: req.user.id
+  });
   await logActivity(req, 'events.artifact.update', 'event', eventId, {
     artifactId,
-    fields: fields.map(([k]) => k)
+    fields: [
+      ...fields.map(([k]) => k),
+      ...(touchesSignature ? ['signature'] : [])
+    ]
   });
-  res.json(result.rows[0]);
+  const hydrated = await attachSignaturesToEventArtifacts([row]);
+  res.json(hydrated[0] || serializeEventArtifactRow(row));
+}));
+
+router.post('/events/:id/artifacts/:artifactId/link-signature', validate(eventArtifactSignatureLinkSchema), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const eventId = Number(req.params.id);
+  const artifactId = Number(req.params.artifactId);
+  if (!Number.isFinite(eventId) || eventId <= 0 || !Number.isFinite(artifactId) || artifactId <= 0) {
+    return res.status(400).json({ error: 'Invalid event/artifact id' });
+  }
+
+  const eventRow = await ensureScopedEvent(scopeContext, eventId);
+  if (!eventRow) return res.status(404).json({ error: 'Event not found' });
+
+  const artifactResult = await pool.query(
+    `SELECT *
+       FROM event_artifacts
+      WHERE id = $1
+        AND event_id = $2
+      LIMIT 1`,
+    [artifactId, eventId]
+  );
+  const artifact = artifactResult.rows[0] || null;
+  if (!artifact) return res.status(404).json({ error: 'Artifact not found' });
+  if (artifact.artifact_type !== 'autograph') {
+    return res.status(400).json({ error: 'Only autograph artifacts can be linked to object signatures' });
+  }
+
+  const target = await loadSignatureTargetSource(scopeContext, req.body.owner_type, Number(req.body.owner_id));
+  if (!target) return res.status(404).json({ error: 'Signature target not found in scope' });
+
+  const hydratedArtifact = (await attachSignaturesToEventArtifacts([artifact]))[0] || artifact;
+  const sourceSignature = hydratedArtifact.event_artifact_signature || hydratedArtifact.signature || null;
+  const signaturePayload = buildLinkedObjectSignaturePayload({
+    artifact,
+    event: eventRow,
+    sourceSignature,
+    payload: req.body
+  });
+
+  const signature = await syncPrimarySignatureRecord(pool, {
+    ownerType: req.body.owner_type,
+    ownerId: target.id,
+    libraryId: target.library_id || null,
+    spaceId: target.space_id || null,
+    createdBy: req.user.id,
+    signature: signaturePayload,
+    signed: true
+  });
+
+  if (req.body.owner_type === 'art') {
+    await pool.query(
+      `UPDATE art_items
+       SET signed = TRUE,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1`,
+      [target.id]
+    );
+  } else if (req.body.owner_type === 'media') {
+    await pool.query(
+      `UPDATE media
+       SET signed_by = $2,
+           signed_role = $3,
+           signed_on = $4,
+           signed_at = $5,
+           signed_proof_path = $6
+       WHERE id = $1`,
+      [
+        target.id,
+        signaturePayload.signer_name || null,
+        signaturePayload.signer_role || null,
+        signaturePayload.signed_on || null,
+        signaturePayload.signed_at || null,
+        signaturePayload.proof_path || null
+      ]
+    );
+  }
+
+  const updatedArtifact = await pool.query(
+    `UPDATE event_artifacts
+     SET signature_record_id = $1
+     WHERE id = $2
+       AND event_id = $3
+     RETURNING *`,
+    [signature?.id || null, artifactId, eventId]
+  );
+
+  await logActivity(req, 'events.artifact.signature.link', 'event', eventId, {
+    artifactId,
+    signatureRecordId: signature?.id || null,
+    ownerType: req.body.owner_type,
+    ownerId: target.id
+  });
+
+  const hydrated = await attachSignaturesToEventArtifacts(updatedArtifact.rows);
+  res.json({
+    artifact: hydrated[0] || serializeEventArtifactRow(updatedArtifact.rows[0] || artifact),
+    signature
+  });
 }));
 
 router.delete('/events/:id/artifacts/:artifactId', asyncHandler(async (req, res) => {

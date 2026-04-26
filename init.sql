@@ -694,6 +694,7 @@ CREATE TABLE IF NOT EXISTS event_artifacts (
     image_path TEXT,
     price NUMERIC(10,2),
     vendor VARCHAR(255),
+    signature_record_id INTEGER,
     created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -802,7 +803,7 @@ CREATE TABLE IF NOT EXISTS event_purchased_items (
 
 CREATE TABLE IF NOT EXISTS signature_records (
     id SERIAL PRIMARY KEY,
-    owner_type VARCHAR(20) NOT NULL CHECK (owner_type IN ('media', 'art')),
+    owner_type VARCHAR(20) NOT NULL CHECK (owner_type IN ('media', 'art', 'event_artifact')),
     owner_id INTEGER NOT NULL,
     library_id INTEGER,
     space_id INTEGER,
@@ -830,6 +831,25 @@ CREATE INDEX IF NOT EXISTS idx_signature_records_owner_active
 CREATE INDEX IF NOT EXISTS idx_signature_records_signed_event
     ON signature_records(signed_event_id)
     WHERE signed_event_id IS NOT NULL AND archived_at IS NULL;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'event_artifacts_signature_record_id_fkey'
+          AND conrelid = 'event_artifacts'::regclass
+    ) THEN
+        ALTER TABLE event_artifacts
+            ADD CONSTRAINT event_artifacts_signature_record_id_fkey
+            FOREIGN KEY (signature_record_id) REFERENCES signature_records(id) ON DELETE SET NULL;
+    END IF;
+END;
+$$;
+
+CREATE INDEX IF NOT EXISTS idx_event_artifacts_signature_record
+    ON event_artifacts(signature_record_id)
+    WHERE signature_record_id IS NOT NULL;
 
 -- Migration tracking (used by db/migrations.js)
 CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -1201,5 +1221,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (75, 'Backfill native art rows and shared event purchased item links'),
     (76, 'Add art medium and signed fields with comic panel migration boundary'),
     (77, 'Add shared fandom franchise metadata to Art and Collectibles'),
-    (78, 'Add shared signature provenance records for Art and media')
+    (78, 'Add shared signature provenance records for Art and media'),
+    (79, 'Link event autograph artifacts to shared signature provenance')
 ON CONFLICT (version) DO NOTHING;

@@ -1403,7 +1403,7 @@
         "type": "object",
         "properties": {
           "id": { "type": ["integer", "null"] },
-          "owner_type": { "type": ["string", "null"], "enum": ["media", "art", null] },
+          "owner_type": { "type": ["string", "null"], "enum": ["media", "art", "event_artifact", null] },
           "owner_id": { "type": ["integer", "null"] },
           "library_id": { "type": ["integer", "null"] },
           "space_id": { "type": ["integer", "null"] },
@@ -1436,6 +1436,81 @@
           }
         },
         "required": ["id", "signature_proof_path", "proof_path", "signatures"]
+      },
+      "EventArtifactRecord": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "event_id": { "type": "integer" },
+          "artifact_type": { "type": "string", "enum": ["session", "person", "autograph", "purchase", "freebie", "note"] },
+          "title": { "type": "string" },
+          "description": { "type": ["string", "null"] },
+          "image_path": { "type": ["string", "null"] },
+          "price": { "type": ["number", "null"] },
+          "vendor": { "type": ["string", "null"] },
+          "signature_record_id": { "type": ["integer", "null"] },
+          "created_by": { "type": ["integer", "null"] },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" },
+          "signature": {
+            "oneOf": [
+              { "$ref": "#/components/schemas/SignatureRecord" },
+              { "type": "null" }
+            ]
+          },
+          "event_artifact_signature": {
+            "oneOf": [
+              { "$ref": "#/components/schemas/SignatureRecord" },
+              { "type": "null" }
+            ]
+          },
+          "linked_signature": {
+            "oneOf": [
+              { "$ref": "#/components/schemas/SignatureRecord" },
+              { "type": "null" }
+            ]
+          }
+        },
+        "required": ["id", "event_id", "artifact_type", "title", "created_at", "updated_at"]
+      },
+      "EventArtifactUpsertRequest": {
+        "type": "object",
+        "properties": {
+          "artifact_type": { "type": "string", "enum": ["session", "person", "autograph", "purchase", "freebie", "note"] },
+          "title": { "type": "string" },
+          "description": { "type": ["string", "null"] },
+          "image_path": { "type": ["string", "null"] },
+          "price": { "type": ["number", "null"] },
+          "vendor": { "type": ["string", "null"] },
+          "signer_name": { "type": ["string", "null"] },
+          "signer_role": { "type": ["string", "null"] },
+          "signed_on": { "type": ["string", "null"], "format": "date" },
+          "signed_at": { "type": ["string", "null"] },
+          "proof_path": { "type": ["string", "null"] },
+          "signature_notes": { "type": ["string", "null"] }
+        }
+      },
+      "EventArtifactSignatureLinkRequest": {
+        "type": "object",
+        "properties": {
+          "owner_type": { "type": "string", "enum": ["art", "media"] },
+          "owner_id": { "type": "integer", "minimum": 1 },
+          "signer_name": { "type": ["string", "null"] },
+          "signer_role": { "type": ["string", "null"] },
+          "signed_on": { "type": ["string", "null"], "format": "date" },
+          "signed_at": { "type": ["string", "null"] },
+          "proof_path": { "type": ["string", "null"] },
+          "notes": { "type": ["string", "null"] }
+        },
+        "required": ["owner_type", "owner_id"]
+      },
+      "EventArtifactSignatureLinkResponse": {
+        "type": "object",
+        "properties": {
+          "artifact": { "$ref": "#/components/schemas/EventArtifactRecord" },
+          "signature": { "$ref": "#/components/schemas/SignatureRecord" }
+        },
+        "required": ["artifact", "signature"]
       },
       "EventPurchasedItemRecord": {
         "type": "object",
@@ -4391,6 +4466,190 @@
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/LoanReminderOperationsResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/events/{id}/artifacts": {
+      "get": {
+        "tags": ["Events"],
+        "summary": "List event artifacts with hydrated autograph signature provenance",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Event artifacts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/EventArtifactRecord" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Events"],
+        "summary": "Create an event artifact and capture autograph provenance when applicable",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/EventArtifactUpsertRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created event artifact",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/EventArtifactRecord" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/events/{id}/artifacts/{artifactId}": {
+      "patch": {
+        "tags": ["Events"],
+        "summary": "Update an event artifact or its event-captured autograph provenance",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          },
+          {
+            "in": "path",
+            "name": "artifactId",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/EventArtifactUpsertRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated event artifact",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/EventArtifactRecord" }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Events"],
+        "summary": "Delete an event artifact",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          },
+          {
+            "in": "path",
+            "name": "artifactId",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted event artifact",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "id": { "type": "integer" }
+                  },
+                  "required": ["ok", "id"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/events/{id}/artifacts/{artifactId}/link-signature": {
+      "post": {
+        "tags": ["Events"],
+        "summary": "Link an event autograph artifact to an Art or media signature record",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          },
+          {
+            "in": "path",
+            "name": "artifactId",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/EventArtifactSignatureLinkRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Linked autograph provenance",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/EventArtifactSignatureLinkResponse" }
               }
             }
           }

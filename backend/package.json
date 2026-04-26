@@ -61,6 +61,7 @@
     "test:library-loan-reminder-workflow-smoke": "node scripts/library-loan-reminder-workflow-smoke.js",
     "test:automatic-loan-reminders-smoke": "node scripts/automatic-loan-reminders-smoke.js",
     "test:event-purchased-items-smoke": "node scripts/event-purchased-items-smoke.js",
+    "test:event-signature-linking-smoke": "node scripts/event-signature-linking-smoke.js",
     "test:art-migration-backfill-smoke": "node scripts/art-migration-backfill-smoke.js",
     "test:native-art-read-cutover-smoke": "node scripts/native-art-read-cutover-smoke.js",
     "test:manual-merge-recommendation-reject-smoke": "node scripts/manual-merge-recommendation-reject-smoke.js",

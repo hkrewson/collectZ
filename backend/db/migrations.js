@@ -3428,6 +3428,40 @@ const MIGRATIONS = [
             AND sr.archived_at IS NULL
         );
     `
+  },
+  {
+    version: 79,
+    description: 'Link event autograph artifacts to shared signature provenance',
+    up: `
+      ALTER TABLE event_artifacts
+        ADD COLUMN IF NOT EXISTS signature_record_id INTEGER REFERENCES signature_records(id) ON DELETE SET NULL;
+
+      DO $$
+      DECLARE
+        constraint_name text;
+      BEGIN
+        SELECT conname
+          INTO constraint_name
+          FROM pg_constraint
+         WHERE conrelid = 'signature_records'::regclass
+           AND contype = 'c'
+           AND pg_get_constraintdef(oid) LIKE '%owner_type%'
+         LIMIT 1;
+
+        IF constraint_name IS NOT NULL THEN
+          EXECUTE format('ALTER TABLE signature_records DROP CONSTRAINT %I', constraint_name);
+        END IF;
+      END;
+      $$;
+
+      ALTER TABLE signature_records
+        ADD CONSTRAINT signature_records_owner_type_check
+        CHECK (owner_type IN ('media', 'art', 'event_artifact'));
+
+      CREATE INDEX IF NOT EXISTS idx_event_artifacts_signature_record
+        ON event_artifacts(signature_record_id)
+        WHERE signature_record_id IS NOT NULL;
+    `
   }
 ];
 

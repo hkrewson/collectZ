@@ -3632,6 +3632,26 @@ results.push(run('shared signature proof attachments support Art upload removal 
   assert.ok(openApiSource.includes('"SignatureProofResponse"'));
 }));
 
+results.push(run('event autograph artifacts can link into shared object signature provenance', () => {
+  assert.ok(migrationsSource.includes('version: 79'));
+  assert.ok(migrationsSource.includes('Link event autograph artifacts to shared signature provenance'));
+  assert.ok(migrationsSource.includes("CHECK (owner_type IN ('media', 'art', 'event_artifact'))"));
+  assert.ok(initSqlSource.includes('signature_record_id INTEGER'));
+  assert.ok(initSqlSource.includes("(79, 'Link event autograph artifacts to shared signature provenance')"));
+  assert.ok(signaturesServiceSource.includes("['media', 'art', 'event_artifact']"));
+  assert.ok(validateMiddlewareSource.includes('eventArtifactSignatureLinkSchema'));
+  assert.ok(validateMiddlewareSource.includes("owner_type: z.enum(['art', 'media'])"));
+  assert.ok(eventsRoutesSource.includes("router.post('/events/:id/artifacts/:artifactId/link-signature'"));
+  assert.ok(eventsRoutesSource.includes('syncEventArtifactSignature'));
+  assert.ok(eventsRoutesSource.includes("ownerType: 'event_artifact'"));
+  assert.ok(eventsRoutesSource.includes('events.artifact.signature.link'));
+  assert.ok(eventsRoutesSource.includes('signed_event_id: event.id'));
+  assert.ok(fs.existsSync(path.resolve(__dirname, 'event-signature-linking-smoke.js')));
+  assert.ok(openApiSource.includes('"/api/events/{id}/artifacts/{artifactId}/link-signature"'));
+  assert.ok(openApiSource.includes('"EventArtifactSignatureLinkRequest"'));
+  assert.ok(openApiSource.includes('"event_artifact"'));
+}));
+
 results.push(run('library loans view exposes management-focused counts and due-soon emphasis', () => {
   assert.ok(libraryLoansViewSource.includes('Currently out'));
   assert.ok(libraryLoansViewSource.includes('Due soon'));

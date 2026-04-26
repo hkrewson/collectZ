@@ -1,6 +1,6 @@
 'use strict';
 
-const VALID_OWNER_TYPES = new Set(['media', 'art']);
+const VALID_OWNER_TYPES = new Set(['media', 'art', 'event_artifact']);
 
 function cleanString(value, maxLength = 1000) {
   if (value === undefined || value === null) return null;

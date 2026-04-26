@@ -650,7 +650,13 @@ const eventArtifactBaseSchema = z.object({
   description: z.preprocess(emptyStringToNull, z.string().max(5000).optional().nullable()),
   image_path: z.preprocess(emptyStringToNull, z.string().max(2000).optional().nullable()),
   price: nullableNumberSchema(z.number().min(0).max(1000000)),
-  vendor: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable())
+  vendor: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
+  signer_name: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
+  signer_role: z.preprocess(emptyStringToNull, z.string().max(100).optional().nullable()),
+  signed_on: optionalEventDateSchema,
+  signed_at: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
+  proof_path: z.preprocess(emptyStringToNull, z.string().max(2000).optional().nullable()),
+  signature_notes: z.preprocess(emptyStringToNull, z.string().max(5000).optional().nullable())
 });
 
 const eventArtifactCreateSchema = eventArtifactBaseSchema;
@@ -658,6 +664,17 @@ const eventArtifactUpdateSchema = eventArtifactBaseSchema.partial().refine(
   (data) => Object.keys(data).length > 0,
   { message: 'At least one artifact field is required' }
 );
+
+const eventArtifactSignatureLinkSchema = z.object({
+  owner_type: z.enum(['art', 'media']),
+  owner_id: z.number().int().positive('owner_id must be a positive integer'),
+  signer_name: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
+  signer_role: z.preprocess(emptyStringToNull, z.string().max(100).optional().nullable()),
+  signed_on: optionalEventDateSchema,
+  signed_at: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
+  proof_path: z.preprocess(emptyStringToNull, z.string().max(2000).optional().nullable()),
+  notes: z.preprocess(emptyStringToNull, z.string().max(5000).optional().nullable())
+});
 
 const purchasedItemTypes = ['art', 'collectible'];
 const eventPurchasedItemBaseSchema = z.object({
@@ -839,6 +856,7 @@ module.exports = {
   eventUpdateSchema,
   eventArtifactCreateSchema,
   eventArtifactUpdateSchema,
+  eventArtifactSignatureLinkSchema,
   eventPurchasedItemCreateSchema,
   eventPurchasedItemUpdateSchema,
   collectibleCreateSchema,

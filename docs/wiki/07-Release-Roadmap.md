@@ -4858,6 +4858,34 @@ Historical note:
 - Local release closeout accounted for unit, OpenAPI, browser, RBAC, edition-boundary, dependency, migration, observability, compose-smoke, secret-scan, image-security, and SBOM gates.
 - CI remains the authoritative source for tagged `secret-scan`, image security, and SBOM publication artifacts.
 
+## 3.4.11 — Event Autograph Signature Linking
+
+**Goal:** Let event-captured autographs feed the same shared signature provenance model used by Art and media, while keeping Events as the capture/history surface instead of a separate signature system.
+
+**Current Slice:** `Implementation`
+
+### Scope
+
+- Extend shared `signature_records` to support event autograph artifacts as a provenance owner type.
+- Store event artifact links to the canonical Art/media signature record when an event autograph is attached to an owned object.
+- Add an API endpoint that links an event autograph artifact to an Art or media signature without duplicating signature concepts.
+- Keep event artifacts as event history; owned-object signatures remain canonical evidence on the Art/media object.
+- Keep OpenAPI and source-level regression checks aligned with the new link path.
+
+### Acceptance Criteria
+
+- Autograph artifacts can capture signer, role, date, location, proof path, and notes in shared signature records.
+- Linking an autograph artifact to Art creates/updates the Art primary shared signature and marks the Art item signed.
+- Linking an autograph artifact to media creates/updates the media primary shared signature and keeps legacy media signature fields compatible.
+- Event artifact reads expose both event-captured signature details and any linked object signature.
+- Existing event purchased-item links remain separate from autograph provenance links.
+
+### Active Slice Notes
+
+- Do not add a dedicated frontend linking workflow in this first API slice.
+- Do not make Events themselves signed objects; signings remain artifacts/sub-events.
+- Do not add multi-proof or many-signature management UI in this slice.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.
