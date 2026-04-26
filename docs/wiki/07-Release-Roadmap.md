@@ -4238,6 +4238,140 @@ Historical note:
   - keep event purchase linking direct and shared,
   - and defer deeper row migration or schema split decisions until the dedicated Art surface has proven itself.
 
+### Planned Follow-Through
+
+- `3.4.0` is the bridge milestone:
+  - Art gets its own first-class surface,
+  - art-native metadata settles,
+  - and Collectibles sheds the redundant taxonomy controls that no longer make sense once Art is promoted out.
+- Native Art separation is explicitly planned as the next `3.4.x` line rather than being silently absorbed into this milestone.
+
+## 3.4.1 — Art Native Schema and Purchased-Item Contract
+
+**Goal:** Create a dedicated Art object model and the shared purchased-item relationship contract needed to let Events link to Art and Collectibles through one canonical purchase model.
+
+**Current Slice:** `Native Art and Purchased-Item Contract Audit`
+
+### Scope
+
+- Add dedicated Art storage instead of relying on `collectibles.subtype = art` as the long-term source of truth.
+- Treat these as native Art fields:
+  - `artist`
+  - `series`
+  - `title`
+  - `vendor`
+  - `booth`
+  - `price`
+  - `exclusive`
+  - `notes`
+  - image fields and ownership metadata
+- Add a shared event-facing purchased-item relationship model so Events can attach to:
+  - Art
+  - Collectibles
+  - and later collectible-like domains
+- Keep vendor and booth in the data model even when the default Art UI only surfaces them when an event link is present.
+
+### Acceptance Criteria
+
+- A dedicated Art storage contract exists in schema, migrations, API contracts, and docs.
+- A shared purchased-item relationship contract exists for event-linked object purchases.
+- The new schema can coexist with the bridge-era Art routes without forcing immediate cutover.
+
+### Active Slice Notes
+
+- Current runtime starting point:
+  - tracked Art still lives in `collectibles` rows with `subtype = art`,
+  - direct object linkage currently happens through `collectibles.event_id`,
+  - and Events separately expose freeform `event_artifacts` rows with `artifact_type = purchase`.
+- Contract decision:
+  - keep `event_artifacts` as the freeform event-history lane for notes, ad-hoc purchases, freebies, signings, and other non-canonical event memories,
+  - and add a separate shared purchased-item relationship for tracked library objects.
+- Shared purchased-item relationship shape should start narrowly:
+  - `id`
+  - `event_id`
+  - `item_type` (`art`, `collectible`)
+  - `item_id`
+  - optional display snapshot fields for stability in event readback:
+    - `title_snapshot`
+    - `vendor_snapshot`
+    - `booth_snapshot`
+    - `price_snapshot`
+  - audit timestamps and creator attribution
+- Native Art storage should treat these as first-class fields rather than collectible leftovers:
+  - `artist`
+  - `series`
+  - `title`
+  - `vendor`
+  - `booth`
+  - `price`
+  - `exclusive`
+  - `notes`
+  - image fields
+- UI rule carried forward from the contract:
+  - `vendor` and `booth` remain native Art fields,
+  - but the Art UI only needs to emphasize them when an event purchase link exists.
+- Boundary for this contract slice:
+  - do not redesign the current freeform event artifact editor yet,
+  - do not cut Art reads away from the bridge model yet,
+  - and do not try to absorb Cards or the rest of Collectibles into the native Art schema just because the purchased-item relationship becomes shared.
+
+## 3.4.2 — Art Migration and Shared Event Purchase Backfill
+
+**Goal:** Move existing art-classified collectible rows into native Art storage and backfill shared purchased-item links without losing attribution, pricing, images, or event history.
+
+### Scope
+
+- Backfill existing `collectibles` rows where `subtype = art` into native Art records.
+- Backfill event-linked Art purchases into the shared purchased-item relationship.
+- Preserve:
+  - event linkage
+  - attribution
+  - notes
+  - vendor/booth context
+  - pricing
+  - images
+  - and discoverability/search behavior
+- Produce migration verification evidence that proves row counts and linkage integrity before cutover.
+
+### Acceptance Criteria
+
+- Existing Art data migrates without silent loss of linked event purchase history.
+- Shared purchased-item rows exist for migrated Art purchases.
+- Migration rehearsal and parity checks prove the backfill contract locally or are explicitly documented as blocked.
+
+## 3.4.3 — Art Native Read Cutover and Event Purchase Readback
+
+**Goal:** Switch runtime reads to the native Art model and let Events read Art and Collectibles through the shared purchased-item relationship.
+
+### Scope
+
+- Cut `/api/art` over to native Art reads.
+- Update Event-side purchased-item readback to use the shared relationship rather than collectible-only assumptions.
+- Make Art-side vendor/booth visibility conditional on event linkage in the UI.
+- Keep compatibility behavior only where required for cutover safety.
+
+### Acceptance Criteria
+
+- The running Art library no longer depends on collectible-backed Art reads.
+- Events can read linked Art purchases and linked Collectibles purchases through the same relationship model.
+- Art UI behavior reflects the event-aware vendor/booth rule without losing editability or data fidelity.
+
+## 3.4.4 — Art UI Divergence and Legacy Collectibles Decoupling
+
+**Goal:** Finish separating Art from Collectibles at the product layer and remove the remaining bridge-era compatibility assumptions.
+
+### Scope
+
+- Give Art its own intentionally designed drawer/editor and detail/read surfaces where shared Collectibles UI is no longer the right fit.
+- Remove or reduce the remaining shared-storage and shared-view assumptions that only exist to support the bridge phase.
+- Clean up leftover taxonomy and compatibility code that was necessary during migration but should not define the long-term product model.
+
+### Acceptance Criteria
+
+- Art is a fully separate object domain in the product and no longer behaves like a collectible subtype with a nicer tab.
+- The Collectibles surface no longer carries Art-specific compatibility logic that should live only in migration history.
+- The long-term Art/Event/Collectibles relationship model is documented clearly enough for future work to build on without revisiting the bridge design.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.
