@@ -53,12 +53,22 @@ const hasPurchaseContext = (item) => {
   );
 };
 
-function CheckboxControl({ checked, children, onChange }) {
+function CheckboxControl({ checked, children, id, onChange }) {
   return (
-    <label className="inline-flex min-h-9 items-center gap-2 text-sm text-dim">
+    <label
+      htmlFor={id}
+      className={cx(
+        'inline-flex min-h-9 cursor-pointer select-none items-center gap-2 rounded-md border px-3 text-sm transition-colors duration-150',
+        checked
+          ? 'border-gold/50 bg-gold/10 text-ink'
+          : 'border-edge bg-surface/60 text-dim hover:border-muted hover:text-ink'
+      )}
+    >
       <input
+        id={id}
+        name={id}
         type="checkbox"
-        className="h-4 w-4 rounded border-edge bg-surface text-gold focus:ring-1 focus:ring-gold/40"
+        className="h-4 w-4 shrink-0 rounded border-edge bg-surface accent-gold focus:ring-1 focus:ring-gold/40"
         checked={checked}
         onChange={onChange}
       />
@@ -428,16 +438,16 @@ function ArtDrawer({ initial, events, saving, error, notice, onClose, onSave, on
                   </>
                 ) : null}
                 <div className="md:col-span-2 flex flex-wrap items-center gap-x-6 gap-y-1 pt-1">
-                  <CheckboxControl checked={Boolean(form.framed)} onChange={(e) => setForm((p) => ({ ...p, framed: e.target.checked }))}>Framed</CheckboxControl>
-                  <CheckboxControl checked={Boolean(form.exclusive)} onChange={(e) => setForm((p) => ({ ...p, exclusive: e.target.checked }))}>Exclusive item</CheckboxControl>
-                  <CheckboxControl checked={Boolean(form.signed)} onChange={(e) => setForm((p) => ({ ...p, signed: e.target.checked }))}>Signed</CheckboxControl>
+                  <CheckboxControl id="art-framed" checked={Boolean(form.framed)} onChange={(e) => setForm((p) => ({ ...p, framed: e.target.checked }))}>Framed</CheckboxControl>
+                  <CheckboxControl id="art-exclusive" checked={Boolean(form.exclusive)} onChange={(e) => setForm((p) => ({ ...p, exclusive: e.target.checked }))}>Exclusive item</CheckboxControl>
+                  <CheckboxControl id="art-signed" checked={Boolean(form.signed)} onChange={(e) => setForm((p) => ({ ...p, signed: e.target.checked }))}>Signed</CheckboxControl>
                 </div>
               </div>
             </SectionTabPanel>
             <SectionTabPanel activeId={activeTab} tabKey="signatures" idBase="art-editor-steps">
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <div className="md:col-span-2">
-                  <CheckboxControl checked={Boolean(form.signed)} onChange={(e) => setForm((p) => ({ ...p, signed: e.target.checked }))}>This piece is signed</CheckboxControl>
+                  <CheckboxControl id="art-signature-signed" checked={Boolean(form.signed)} onChange={(e) => setForm((p) => ({ ...p, signed: e.target.checked }))}>This piece is signed</CheckboxControl>
                 </div>
                 <label className="field"><span className="label">Signer</span><input className="input" value={form.signer_name || ''} onChange={(e) => setForm((p) => ({ ...p, signer_name: e.target.value, signed: Boolean(e.target.value.trim()) || p.signed }))} /></label>
                 <label className="field"><span className="label">Signer role</span><input className="input" placeholder="Artist, writer, voice actor…" value={form.signer_role || ''} onChange={(e) => setForm((p) => ({ ...p, signer_role: e.target.value }))} /></label>

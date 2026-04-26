@@ -401,6 +401,12 @@ test.describe('events and collectibles browser regressions', () => {
       await page.locator('label:has-text("Artist") input').fill('Playwright Event Artist');
       await page.locator('label:has-text("Vendor") input').fill('Playwright Studio');
       await page.locator('label:has-text("Booth") input').fill('A12');
+      await page.getByLabel('Framed').check();
+      await page.getByLabel('Exclusive item').check();
+      await page.getByLabel('Signed').check();
+      await expect(page.getByLabel('Framed')).toBeChecked();
+      await expect(page.getByLabel('Exclusive item')).toBeChecked();
+      await expect(page.getByLabel('Signed')).toBeChecked();
       await page.getByRole('button', { name: 'Save' }).click();
       await expect(page.getByText(artWithEventTitle, { exact: true }).first()).toBeVisible();
 
