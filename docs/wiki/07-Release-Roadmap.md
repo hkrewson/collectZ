@@ -4824,7 +4824,7 @@ Historical note:
 
 **Goal:** Let Art use the same proof upload/remove behavior already available to media signing proofs while keeping signature proof storage anchored to the shared signature provenance contract.
 
-**Current Slice:** `Implementation`
+**Current Slice:** `Closed as v3.4.10`
 
 ### Scope
 
@@ -4846,6 +4846,17 @@ Historical note:
 - Do not introduce a general attachment library in this slice.
 - Do not add multiple proof images per signature yet.
 - Do not convert Event autograph artifacts into object-level signature records here.
+
+### Closeout — 2026-04-26
+
+- Released as `v3.4.10`.
+- Version metadata synced across `app-meta.json`, backend package metadata, frontend package metadata, backend app metadata, and frontend app metadata.
+- Release note added at `docs/releases/v3.4.10.md`.
+- In-app Help > Releases feed regenerated with `v3.4.10` as the latest entry.
+- Runtime verification used Docker-first evidence from the rebuilt `backend`, `frontend`, and `db` services.
+- No schema migration was required; the release reuses migration `78` from `3.4.9`.
+- Local release closeout accounted for unit, OpenAPI, browser, RBAC, edition-boundary, dependency, migration, observability, compose-smoke, secret-scan, image-security, and SBOM gates.
+- CI remains the authoritative source for tagged `secret-scan`, image security, and SBOM publication artifacts.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 

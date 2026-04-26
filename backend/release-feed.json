@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v3.4.10",
+      "version": "3.4.10",
+      "date": "2026-04-26",
+      "status": "Completed",
+      "summary": "This release completes the next shared signature provenance slice by giving Art the same proof-image upload and removal path already available to media signing proofs. Art proof files now update the shared primary signature record directly, while media proof removal keeps the legacy media field and shared signature record aligned.",
+      "details": []
+    },
+    {
       "title": "v3.4.9",
       "version": "3.4.9",
       "date": "2026-04-26",
@@ -102,14 +110,6 @@
       "date": "2026-04-25",
       "status": "Completed",
       "summary": "This patch builds the foundation for separating Art from Collectibles without forcing an immediate read cutover. Art still works through the bridge-era `/api/art` surface, but new and edited Art records now dual-write into dedicated native Art storage. Events also gain a shared purchased-item relationship so tracked purchases can link to either native Art rows or non-Art Collectibles through one event-facing contract.",
-      "details": []
-    },
-    {
-      "title": "v3.4.0",
-      "version": "3.4.0",
-      "date": "2026-04-25",
-      "status": "Completed",
-      "summary": "This minor release promotes Art into its own first-class library surface while preserving event-linked purchase history and cleaning up the remaining Collectibles entry friction that no longer made sense once Art stopped living only as a subtype. The release keeps the underlying bridge model intentionally pragmatic: Art now has dedicated routes and navigation, shared collectible-style purchase linkage still works, Art metadata grows into a more natural shape with `series`, `vendor`, and `booth`, and the Collectibles drawer collapses its duplicate taxonomy controls into one clearer selector.",
       "details": []
     }
   ]
