@@ -2,6 +2,7 @@
 
 const { test, expect } = require('@playwright/test');
 const { ensureSavedAdminCredentials, createAuthenticatedRequestContext } = require('../helpers/auth');
+const { signInThroughUi } = require('../helpers/session');
 const { createSupportCaptureFixture } = require('../helpers/support');
 
 test.describe('help admin support workspace regressions', () => {
@@ -16,6 +17,7 @@ test.describe('help admin support workspace regressions', () => {
       const requestSubject = fixture?.subject || requestKey;
       const replyText = `Admin browser reply ${Date.now()}`;
 
+      await signInThroughUi(page, adminCredentials);
       await page.goto('/dashboard?tab=support-inbox');
       await expect(page.getByRole('heading', { name: 'Help Admin' })).toBeVisible();
       await page.getByRole('textbox', { name: 'Search queue' }).fill(requestSubject);

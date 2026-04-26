@@ -106,7 +106,7 @@ test.describe('library multi-format browser regressions', () => {
       expect([200, 502, 503]).toContain(reminderResponse.status());
 
       if (reminderResponse.status() === 200) {
-        await expect(page.getByRole('button', { name: 'Sent Today', exact: true })).toBeVisible();
+        await expect(page.getByText('Reminder sent today', { exact: true })).toBeVisible();
         await expect(page.getByText(/Last sent/i)).toBeVisible();
       } else {
         const responseBody = await reminderResponse.json().catch(() => ({}));

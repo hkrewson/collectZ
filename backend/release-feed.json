@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v3.4.1",
+      "version": "3.4.1",
+      "date": "2026-04-25",
+      "status": "Completed",
+      "summary": "This patch builds the foundation for separating Art from Collectibles without forcing an immediate read cutover. Art still works through the bridge-era `/api/art` surface, but new and edited Art records now dual-write into dedicated native Art storage. Events also gain a shared purchased-item relationship so tracked purchases can link to either native Art rows or non-Art Collectibles through one event-facing contract.",
+      "details": []
+    },
+    {
       "title": "v3.4.0",
       "version": "3.4.0",
       "date": "2026-04-25",
@@ -114,37 +122,6 @@
           "bullets": [
             "Added a Docker-backed fake-Metron smoke covering the exact Alpha Flight-style repro: existing comic, Metron reselect, oversized provider overview, successful save, and preserved provider issue identity.",
             "Proved on both platform and homelab stacks that an oversized Metron overview now saves with deterministic truncation instead of failing validation."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "v3.2.8",
-      "version": "3.2.8",
-      "date": "2026-04-21",
-      "status": "Completed",
-      "summary": "This patch release removes the comic-library full-fetch exception from the main browsing paths. Comic issues, comic series summaries, and selected-series issue browsing now all run through server-backed pagination and stable comic ordering contracts built from existing series, issue, and volume metadata instead of browser-only full-list sorting.",
-      "details": [
-        {
-          "heading": "Server-backed comic issue ordering",
-          "bullets": [
-            "Added a backend `comic_issue` ordering contract built from existing comic metadata with title fallback parsing.",
-            "Switched the default comic `issues` tab to use normal paged API results instead of forcing a one-shot full fetch into browser memory."
-          ]
-        },
-        {
-          "heading": "Server-backed comic series summaries",
-          "bullets": [
-            "Added a grouped `/api/media/comic-series` API for paginated comic series summaries.",
-            "Switched the comic `series` tab to use grouped server summaries with stable counts, poster selection, and paging."
-          ]
-        },
-        {
-          "heading": "Server-backed selected-series issue browsing",
-          "bullets": [
-            "Added `/api/media/comic-series/issues` for paginated issue browsing inside a selected comic series.",
-            "Switched the `series_issues` tab off the last comic full-fetch path so selected-series issue browsing now uses server results with stable in-series ordering.",
-            "Added Docker-backed proof coverage for all three comic query contracts across both platform and homelab stacks."
           ]
         }
       ]

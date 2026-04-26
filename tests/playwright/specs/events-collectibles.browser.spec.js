@@ -75,7 +75,7 @@ test.describe('events and collectibles browser regressions', () => {
       await page.locator('label:has-text("Title *") input').fill(collectibleTitle);
       await page.locator('label:has-text("Category") select').selectOption('funko');
       await page.locator('label:has-text("Linked Event") select').selectOption({ label: eventTitle });
-      await page.locator('label:has-text("Vendor/Booth") input').fill('Playwright Booth');
+      await page.locator('label:has-text("Vendor") input').fill('Playwright Vendor');
 
       const createCollectibleResponsePromise = page.waitForResponse((response) => (
         response.url().includes('/api/collectibles')

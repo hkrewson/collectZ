@@ -3657,7 +3657,7 @@ Historical note:
 
 **Goal:** Re-enable the deferred OPDS/CWA import path behind a proof-first dedupe contract so digital-library syncs can repeat safely without recreating duplicate book or comic rows when stable provider identities already exist.
 
-**Current Slice:** `Version Closeout`
+**Current Slice:** `Closed`
 
 ### Scope
 
@@ -4250,7 +4250,7 @@ Historical note:
 
 **Goal:** Create a dedicated Art object model and the shared purchased-item relationship contract needed to let Events link to Art and Collectibles through one canonical purchase model.
 
-**Current Slice:** `Native Art Schema and Purchased-Item Bridge Foundation`
+**Current Slice:** `Version Closeout`
 
 ### Scope
 
@@ -4319,6 +4319,32 @@ Historical note:
   - add a shared `event_purchased_items` table keyed by `event_id + item_type + item_id`,
   - expose narrow event-facing purchased-item CRUD under `/api/events/:id/purchased-items`,
   - and keep the old `collectibles.event_id` and `event_artifacts` purchase lane intact until the dedicated migration and cutover milestones.
+
+### Closeout
+
+- Status: `Closed` as `v3.4.1`.
+- Release artifact: `docs/releases/v3.4.1.md`.
+- Version/feed sync:
+  - root, backend, and frontend metadata are aligned on `3.4.1`,
+  - and the in-app Help > Releases snapshot was regenerated with `3.4.1` as the latest entry.
+- Runtime verification:
+  - in-stack Help > Releases smoke served `3.4.1`,
+  - event purchased-item smoke passed against the running backend/frontend stack,
+  - RBAC regression passed in-stack,
+  - platform edition boundary passed in-stack,
+  - and observability release evidence passed `9/9` checks.
+- Local checks:
+  - backend unit tests passed (`205`),
+  - OpenAPI validation passed,
+  - release preflight was regenerated for `3.4.1`.
+- Blocked local gates:
+  - dependency audits were blocked by restricted registry DNS,
+  - compose-smoke and homelab boundary were blocked by intermittent Docker socket permission failures,
+  - browser regression was blocked by host Chromium launch permission failure after stale UI expectations were updated,
+  - and secret scan plus image security/SBOM remain CI-only gates.
+- Follow-up release boundary:
+  - `3.4.2` owns existing Art migration and shared event purchase backfill,
+  - and `3.4.3` owns native Art read cutover and event purchase readback UI.
 
 ## 3.4.2 — Art Migration and Shared Event Purchase Backfill
 
