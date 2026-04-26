@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v3.4.8",
+      "version": "3.4.8",
+      "date": "2026-04-26",
+      "status": "Completed",
+      "summary": "This release gives Art and Collectibles a shared `Fandom / Franchise` metadata field so source, fandom, franchise, and universe context can live beside the item without becoming object taxonomy. Art medium/type and Collectibles category stay focused on what the object is, while fandom context becomes searchable metadata across both libraries.",
+      "details": []
+    },
+    {
       "title": "v3.4.7",
       "version": "3.4.7",
       "date": "2026-04-26",
@@ -102,14 +110,6 @@
       "date": "2026-04-25",
       "status": "Completed",
       "summary": "This patch release rounds out the current library-loans reminder line by adding an operator-facing reminder-operations surface. The release keeps the scope intentionally narrow: instead of creating a separate monitoring dashboard, it adds a dedicated admin read contract and a compact panel inside the existing platform activity view so operators can see reminder runtime state, latest automatic run results, and recent failures in one place.",
-      "details": []
-    },
-    {
-      "title": "v3.3.4",
-      "version": "3.3.4",
-      "date": "2026-04-24",
-      "status": "Completed",
-      "summary": "This patch release broadens the shipped library-loans workflow by bringing title-level loan history into the dedicated `Loans` workspace. The release keeps the implementation intentionally narrow: the main loans list stays lean, while each row can expand into per-title current and returned history with attached reminder-event context. The result is a clearer management view for past loans without turning the workspace into a full operator audit console.",
       "details": []
     }
   ]

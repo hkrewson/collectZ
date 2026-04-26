@@ -4744,7 +4744,7 @@ Historical note:
 
 **Goal:** Give Art and Collectibles a shared place for fandom/source/franchise metadata without overloading object categories or renaming Collectibles.
 
-**Current Slice:** `Implementation`
+**Current Slice:** `Closed as v3.4.8`
 
 ### Scope
 
@@ -4767,6 +4767,17 @@ Historical note:
 - Use a simple freeform field first; do not add a controlled vocabulary or tag table in this slice.
 - Do not rename Collectibles.
 - Do not alter Event purchased-item snapshot semantics in this slice.
+
+### Closeout — 2026-04-26
+
+- Released as `v3.4.8`.
+- Version metadata synced across `app-meta.json`, backend package metadata, frontend package metadata, backend app metadata, and frontend app metadata.
+- Release note added at `docs/releases/v3.4.8.md`.
+- In-app Help > Releases feed regenerated with `v3.4.8` as the latest entry.
+- Runtime verification used Docker-first evidence from the rebuilt `backend`, `frontend`, and `db` services.
+- Migration `77` verified against the running stack and release evidence through init parity and migration rehearsal checks.
+- Local release closeout accounted for unit, OpenAPI, browser, RBAC, edition-boundary, dependency, migration, observability, compose-smoke, secret-scan, image-security, and SBOM gates.
+- CI remains the authoritative source for tagged `secret-scan`, image security, and SBOM publication artifacts.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
