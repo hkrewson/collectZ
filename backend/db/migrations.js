@@ -2993,6 +2993,83 @@ const MIGRATIONS = [
       CREATE INDEX IF NOT EXISTS idx_collectibles_series
         ON collectibles(series);
     `
+  },
+  {
+    version: 74,
+    description: 'Add native art storage and shared event purchased item links',
+    up: `
+      CREATE TABLE IF NOT EXISTS art_items (
+        id SERIAL PRIMARY KEY,
+        source_collectible_id INTEGER UNIQUE REFERENCES collectibles(id) ON DELETE SET NULL,
+        library_id INTEGER REFERENCES libraries(id) ON DELETE SET NULL,
+        space_id INTEGER,
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        title VARCHAR(255) NOT NULL,
+        artist VARCHAR(255),
+        series VARCHAR(255),
+        vendor VARCHAR(255),
+        booth VARCHAR(255),
+        price NUMERIC(10,2),
+        exclusive BOOLEAN NOT NULL DEFAULT false,
+        image_path TEXT,
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        archived_at TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_art_items_library_created_at
+        ON art_items(library_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_art_items_space_created_at
+        ON art_items(space_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_art_items_artist
+        ON art_items(artist);
+      CREATE INDEX IF NOT EXISTS idx_art_items_series
+        ON art_items(series);
+      CREATE INDEX IF NOT EXISTS idx_art_items_vendor
+        ON art_items(vendor);
+
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_art_items_updated_at') THEN
+          CREATE TRIGGER update_art_items_updated_at BEFORE UPDATE ON art_items
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+        END IF;
+      END;
+      $$;
+
+      CREATE TABLE IF NOT EXISTS event_purchased_items (
+        id SERIAL PRIMARY KEY,
+        event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+        item_type VARCHAR(20) NOT NULL CHECK (item_type IN ('art', 'collectible')),
+        item_id INTEGER NOT NULL,
+        title_snapshot VARCHAR(255),
+        vendor_snapshot VARCHAR(255),
+        booth_snapshot VARCHAR(255),
+        price_snapshot NUMERIC(10,2),
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        archived_at TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_event_purchased_items_event_created
+        ON event_purchased_items(event_id, created_at DESC, id DESC);
+      CREATE INDEX IF NOT EXISTS idx_event_purchased_items_item_lookup
+        ON event_purchased_items(item_type, item_id, created_at DESC);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_event_purchased_items_active_unique
+        ON event_purchased_items(event_id, item_type, item_id)
+        WHERE archived_at IS NULL;
+
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_event_purchased_items_updated_at') THEN
+          CREATE TRIGGER update_event_purchased_items_updated_at BEFORE UPDATE ON event_purchased_items
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+        END IF;
+      END;
+      $$;
+    `
   }
 ];
 

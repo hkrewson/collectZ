@@ -76,10 +76,76 @@ const serializeCollectibleRow = (row) => {
     category: row.category || resolveCategoryLabel(row.category_key) || null,
     item_type: row.subtype || row.item_type || 'collectible',
     series: row.series || null,
+    native_art_id: row.native_art_id || null,
     vendor,
     booth,
     booth_or_vendor: vendor && booth ? `${vendor} / ${booth}` : (vendor || booth || legacyVendorValue || null)
   };
+};
+
+const upsertNativeArtFromCollectible = async (collectibleRow) => {
+  const result = await pool.query(
+    `INSERT INTO art_items (
+       source_collectible_id,
+       library_id,
+       space_id,
+       created_by,
+       title,
+       artist,
+       series,
+       vendor,
+       booth,
+       price,
+       exclusive,
+       image_path,
+       notes,
+       archived_at
+     ) VALUES (
+       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14
+     )
+     ON CONFLICT (source_collectible_id) DO UPDATE
+       SET library_id = EXCLUDED.library_id,
+           space_id = EXCLUDED.space_id,
+           title = EXCLUDED.title,
+           artist = EXCLUDED.artist,
+           series = EXCLUDED.series,
+           vendor = EXCLUDED.vendor,
+           booth = EXCLUDED.booth,
+           price = EXCLUDED.price,
+           exclusive = EXCLUDED.exclusive,
+           image_path = EXCLUDED.image_path,
+           notes = EXCLUDED.notes,
+           archived_at = EXCLUDED.archived_at,
+           updated_at = CURRENT_TIMESTAMP
+     RETURNING *`,
+    [
+      collectibleRow.id,
+      collectibleRow.library_id || null,
+      collectibleRow.space_id || null,
+      collectibleRow.created_by || null,
+      collectibleRow.title,
+      collectibleRow.artist || null,
+      collectibleRow.series || null,
+      collectibleRow.vendor || null,
+      collectibleRow.booth || null,
+      collectibleRow.price ?? null,
+      collectibleRow.exclusive === true,
+      collectibleRow.image_path || null,
+      collectibleRow.notes || null,
+      collectibleRow.archived_at || null
+    ]
+  );
+  return result.rows[0] || null;
+};
+
+const archiveNativeArtFromCollectible = async (collectibleId) => {
+  await pool.query(
+    `UPDATE art_items
+     SET archived_at = COALESCE(archived_at, CURRENT_TIMESTAMP),
+         updated_at = CURRENT_TIMESTAMP
+     WHERE source_collectible_id = $1`,
+    [collectibleId]
+  );
 };
 
 const normalizeCollectiblePayload = (payload = {}) => {
@@ -171,8 +237,8 @@ router.get(COLLECTIBLE_ROUTE_PATHS, asyncHandler(async (req, res) => {
   }
 
   const scopeClause = appendScopeSql(params, scopeContext, {
-    libraryColumn: 'library_id',
-    spaceColumn: 'space_id'
+    libraryColumn: 'c.library_id',
+    spaceColumn: 'c.space_id'
   });
   where += scopeClause;
 
@@ -185,8 +251,12 @@ router.get(COLLECTIBLE_ROUTE_PATHS, asyncHandler(async (req, res) => {
   params.push(limit);
   params.push(offset);
   const rows = await pool.query(
-    `SELECT c.*
+    `SELECT c.*,
+            a.id AS native_art_id
      FROM collectibles c
+     LEFT JOIN art_items a
+       ON a.source_collectible_id = c.id
+      AND a.archived_at IS NULL
      ${where}
      ORDER BY LOWER(c.title) ${sortDir} NULLS LAST, c.id ${sortDir}
      LIMIT $${params.length - 1} OFFSET $${params.length}`,
@@ -214,16 +284,20 @@ router.get(COLLECTIBLE_DETAIL_PATHS, asyncHandler(async (req, res) => {
   }
   const params = [collectibleId];
   const scopeClause = appendScopeSql(params, scopeContext, {
-    libraryColumn: 'library_id',
-    spaceColumn: 'space_id'
+    libraryColumn: 'c.library_id',
+    spaceColumn: 'c.space_id'
   });
   const subtypeClause = routeConfig.forcedSubtype
     ? `AND c.subtype = $${params.push(routeConfig.forcedSubtype)}`
     : '';
   const result = await pool.query(
-    `SELECT c.*
+    `SELECT c.*,
+            a.id AS native_art_id
      FROM collectibles c
-     WHERE id = $1
+     LEFT JOIN art_items a
+       ON a.source_collectible_id = c.id
+      AND a.archived_at IS NULL
+     WHERE c.id = $1
        AND c.archived_at IS NULL
        ${subtypeClause}
        ${scopeClause}
@@ -319,6 +393,7 @@ router.post(COLLECTIBLE_CREATE_PATHS, validate(collectibleCreateSchema), asyncHa
     ]
   );
   const row = created.rows[0];
+  const nativeArt = row.subtype === ART_SUBTYPE ? await upsertNativeArtFromCollectible(row) : null;
   await logActivity(req, 'collectibles.create', 'collectible', row.id, {
     title: row.title,
     subtype: row.subtype,
@@ -326,14 +401,18 @@ router.post(COLLECTIBLE_CREATE_PATHS, validate(collectibleCreateSchema), asyncHa
     event_id: row.event_id,
     series: row.series,
     vendor: row.vendor,
-    booth: row.booth
+    booth: row.booth,
+    native_art_id: nativeArt?.id || null
   });
   if (row.event_id) {
     await logActivity(req, 'collectibles.link_event', 'collectible', row.id, {
       event_id: row.event_id
     });
   }
-  res.status(201).json(serializeCollectibleRow(row));
+  res.status(201).json(serializeCollectibleRow({
+    ...row,
+    native_art_id: nativeArt?.id || null
+  }));
 }));
 
 router.patch(COLLECTIBLE_PATCH_PATHS, validate(collectibleUpdateSchema), asyncHandler(async (req, res) => {
@@ -465,6 +544,9 @@ router.patch(COLLECTIBLE_PATCH_PATHS, validate(collectibleUpdateSchema), asyncHa
   );
   if (!updated.rows[0]) return res.status(404).json({ error: 'Collectible not found' });
   const updatedRow = updated.rows[0];
+  const nativeArt = updatedRow.subtype === ART_SUBTYPE
+    ? await upsertNativeArtFromCollectible(updatedRow)
+    : (current.rows[0].subtype === ART_SUBTYPE ? (await archiveNativeArtFromCollectible(collectibleId), null) : null);
   if (hadSubtypeKey && current.rows[0].subtype !== updatedRow.subtype) {
     await logActivity(req, 'collectibles.reclassify', 'collectible', collectibleId, {
       from: current.rows[0].subtype,
@@ -478,9 +560,13 @@ router.patch(COLLECTIBLE_PATCH_PATHS, validate(collectibleUpdateSchema), asyncHa
     });
   }
   await logActivity(req, 'collectibles.update', 'collectible', collectibleId, {
-    fields: updates.map((entry) => entry.key)
+    fields: updates.map((entry) => entry.key),
+    native_art_id: nativeArt?.id || null
   });
-  res.json(serializeCollectibleRow(updatedRow));
+  res.json(serializeCollectibleRow({
+    ...updatedRow,
+    native_art_id: nativeArt?.id || null
+  }));
 }));
 
 router.post('/collectibles/:id/reclassify', asyncHandler(async (req, res) => {
@@ -509,6 +595,11 @@ router.post('/collectibles/:id/reclassify', asyncHandler(async (req, res) => {
     [...params, requestedSubtype]
   );
   if (!updated.rows[0]) return res.status(404).json({ error: 'Collectible not found' });
+  if (requestedSubtype === ART_SUBTYPE) {
+    await upsertNativeArtFromCollectible(updated.rows[0]);
+  } else {
+    await archiveNativeArtFromCollectible(collectibleId);
+  }
   await logActivity(req, 'collectibles.reclassify', 'collectible', collectibleId, {
     to: requestedSubtype
   });
@@ -541,6 +632,9 @@ router.delete(COLLECTIBLE_DELETE_PATHS, asyncHandler(async (req, res) => {
     params
   );
   if (!deleted.rows[0]) return res.status(404).json({ error: `${routeConfig.entityLabel === 'art' ? 'Art item' : 'Collectible'} not found` });
+  if (routeConfig.forcedSubtype === ART_SUBTYPE || routeConfig.entityLabel === 'art') {
+    await archiveNativeArtFromCollectible(collectibleId);
+  }
   await logActivity(req, 'collectibles.delete', 'collectible', collectibleId, {
     title: deleted.rows[0].title
   });
@@ -588,6 +682,15 @@ router.post(COLLECTIBLE_UPLOAD_PATHS, memoryUpload.single('image'), asyncHandler
      RETURNING id, image_path`,
     [stored.url, collectibleId]
   );
+  if (routeConfig.forcedSubtype === ART_SUBTYPE || String(req.path || '').startsWith('/art')) {
+    await pool.query(
+      `UPDATE art_items
+       SET image_path = $1,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE source_collectible_id = $2`,
+      [stored.url, collectibleId]
+    );
+  }
 
   await logActivity(req, previousPath ? 'collectibles.image.replace' : 'collectibles.image.upload', 'collectible', collectibleId, {
     previousPath,
@@ -628,6 +731,15 @@ router.delete(COLLECTIBLE_IMAGE_DELETE_PATHS, asyncHandler(async (req, res) => {
   if (!existing.rows[0].image_path) return res.status(400).json({ error: 'No image attached' });
 
   await pool.query(`UPDATE collectibles SET image_path = NULL WHERE id = $1`, [collectibleId]);
+  if (routeConfig.forcedSubtype === ART_SUBTYPE || String(req.path || '').startsWith('/art')) {
+    await pool.query(
+      `UPDATE art_items
+       SET image_path = NULL,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE source_collectible_id = $1`,
+      [collectibleId]
+    );
+  }
   await logActivity(req, 'collectibles.image.delete', 'collectible', collectibleId, {
     previousPath: existing.rows[0].image_path
   });

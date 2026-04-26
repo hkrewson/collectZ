@@ -102,6 +102,7 @@ const serviceAccountKeySource = fs.readFileSync(require.resolve('../services/ser
 const librariesRoutesSource = fs.readFileSync(require.resolve('../routes/libraries'), 'utf8');
 const spacesRoutesSource = fs.readFileSync(require.resolve('../routes/spaces'), 'utf8');
 const adminRoutesSource = fs.readFileSync(require.resolve('../routes/admin'), 'utf8');
+const eventsRoutesSource = fs.readFileSync(require.resolve('../routes/events'), 'utf8');
 const collectiblesRoutesSource = fs.readFileSync(require.resolve('../routes/collectibles'), 'utf8');
 const integrationsRoutesSource = fs.readFileSync(require.resolve('../routes/integrations'), 'utf8');
 const supportRoutesSource = fs.readFileSync(require.resolve('../routes/support'), 'utf8');
@@ -3458,6 +3459,24 @@ results.push(run('art library surface is promoted through shared collectible con
   assert.ok(readFrontendSource(path.join('components', 'CollectiblesView')).includes('COLLECTIBLE_CLASSIFICATIONS'));
   assert.ok(readFrontendSource(path.join('components', 'CollectiblesView')).includes("categoryFilter === 'card'"));
   assert.ok(readFrontendSource(path.join('components', 'CollectiblesView')).includes("setForm((p) => ({ ...p, ...next }))"));
+}));
+
+results.push(run('native art schema and shared event purchased-item contract are wired for the 3.4.1 bridge phase', () => {
+  assert.ok(migrationsSource.includes('version: 74'));
+  assert.ok(migrationsSource.includes('CREATE TABLE IF NOT EXISTS art_items'));
+  assert.ok(migrationsSource.includes('CREATE TABLE IF NOT EXISTS event_purchased_items'));
+  assert.ok(migrationsSource.includes("item_type IN ('art', 'collectible')"));
+  assert.ok(collectiblesRoutesSource.includes('upsertNativeArtFromCollectible'));
+  assert.ok(collectiblesRoutesSource.includes('source_collectible_id'));
+  assert.ok(collectiblesRoutesSource.includes('native_art_id'));
+  assert.ok(collectiblesRoutesSource.includes('archiveNativeArtFromCollectible'));
+  assert.ok(openApiSource.includes('"NativeArtRecord"'));
+  assert.ok(openApiSource.includes('"EventPurchasedItemRecord"'));
+  assert.ok(openApiSource.includes('"/api/events/{id}/purchased-items"'));
+  assert.ok(openApiSource.includes('"/api/events/{id}/purchased-items/{purchasedItemId}"'));
+  assert.ok(eventsRoutesSource.includes('/events/:id/purchased-items'));
+  assert.ok(eventsRoutesSource.includes('events.purchased_item.create'));
+  assert.ok(backendPackageJson.scripts['test:event-purchased-items-smoke']);
 }));
 
 results.push(run('library loans view exposes management-focused counts and due-soon emphasis', () => {

@@ -659,6 +659,22 @@ const eventArtifactUpdateSchema = eventArtifactBaseSchema.partial().refine(
   { message: 'At least one artifact field is required' }
 );
 
+const purchasedItemTypes = ['art', 'collectible'];
+const eventPurchasedItemBaseSchema = z.object({
+  item_type: z.enum(purchasedItemTypes),
+  item_id: z.number().int().positive('item_id must be a positive integer'),
+  title_snapshot: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
+  vendor_snapshot: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
+  booth_snapshot: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
+  price_snapshot: nullableNumberSchema(z.number().min(0).max(1000000))
+});
+
+const eventPurchasedItemCreateSchema = eventPurchasedItemBaseSchema;
+const eventPurchasedItemUpdateSchema = eventPurchasedItemBaseSchema.partial().refine(
+  (data) => Object.keys(data).length > 0,
+  { message: 'At least one purchased item field is required' }
+);
+
 // ── Collectibles ─────────────────────────────────────────────────────────────
 
 const collectibleCategoryKeys = [
@@ -790,6 +806,8 @@ module.exports = {
   eventUpdateSchema,
   eventArtifactCreateSchema,
   eventArtifactUpdateSchema,
+  eventPurchasedItemCreateSchema,
+  eventPurchasedItemUpdateSchema,
   collectibleCreateSchema,
   collectibleUpdateSchema
 };

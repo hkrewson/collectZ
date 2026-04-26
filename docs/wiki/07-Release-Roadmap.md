@@ -4250,7 +4250,7 @@ Historical note:
 
 **Goal:** Create a dedicated Art object model and the shared purchased-item relationship contract needed to let Events link to Art and Collectibles through one canonical purchase model.
 
-**Current Slice:** `Native Art and Purchased-Item Contract Audit`
+**Current Slice:** `Native Art Schema and Purchased-Item Bridge Foundation`
 
 ### Scope
 
@@ -4314,6 +4314,11 @@ Historical note:
   - do not redesign the current freeform event artifact editor yet,
   - do not cut Art reads away from the bridge model yet,
   - and do not try to absorb Cards or the rest of Collectibles into the native Art schema just because the purchased-item relationship becomes shared.
+- First implementation foundation in this milestone:
+  - add a dedicated `art_items` table with `source_collectible_id` bridge mapping so the current `/api/art` surface can dual-write native Art rows without cutting reads over yet,
+  - add a shared `event_purchased_items` table keyed by `event_id + item_type + item_id`,
+  - expose narrow event-facing purchased-item CRUD under `/api/events/:id/purchased-items`,
+  - and keep the old `collectibles.event_id` and `event_artifacts` purchase lane intact until the dedicated migration and cutover milestones.
 
 ## 3.4.2 — Art Migration and Shared Event Purchase Backfill
 

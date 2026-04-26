@@ -1285,6 +1285,7 @@
         "type": "object",
         "properties": {
           "id": { "type": "integer" },
+          "native_art_id": { "type": ["integer", "null"] },
           "library_id": { "type": ["integer", "null"] },
           "space_id": { "type": ["integer", "null"] },
           "title": { "type": "string" },
@@ -1306,6 +1307,28 @@
           "updated_at": { "type": "string", "format": "date-time" }
         },
         "required": ["id", "title", "subtype", "item_type", "exclusive", "created_at", "updated_at"]
+      },
+      "NativeArtRecord": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "source_collectible_id": { "type": ["integer", "null"] },
+          "library_id": { "type": ["integer", "null"] },
+          "space_id": { "type": ["integer", "null"] },
+          "title": { "type": "string" },
+          "artist": { "type": ["string", "null"] },
+          "series": { "type": ["string", "null"] },
+          "vendor": { "type": ["string", "null"] },
+          "booth": { "type": ["string", "null"] },
+          "price": { "type": ["number", "null"] },
+          "exclusive": { "type": "boolean" },
+          "image_path": { "type": ["string", "null"] },
+          "notes": { "type": ["string", "null"] },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" },
+          "archived_at": { "type": ["string", "null"], "format": "date-time" }
+        },
+        "required": ["id", "title", "exclusive", "created_at", "updated_at"]
       },
       "ArtListResponse": {
         "type": "object",
@@ -1362,6 +1385,66 @@
           "notes": { "type": ["string", "null"] }
         },
         "required": ["title"]
+      },
+      "EventPurchasedItemRecord": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "event_id": { "type": "integer" },
+          "item_type": { "type": "string", "enum": ["art", "collectible"] },
+          "item_id": { "type": "integer" },
+          "title_snapshot": { "type": ["string", "null"] },
+          "vendor_snapshot": { "type": ["string", "null"] },
+          "booth_snapshot": { "type": ["string", "null"] },
+          "price_snapshot": { "type": ["number", "null"] },
+          "created_by": { "type": ["integer", "null"] },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" },
+          "resolved_item": {
+            "oneOf": [
+              { "$ref": "#/components/schemas/NativeArtRecord" },
+              {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "integer" },
+                  "item_type": { "type": "string", "enum": ["collectible"] },
+                  "subtype": { "type": ["string", "null"] },
+                  "category_key": { "type": ["string", "null"] },
+                  "title": { "type": "string" },
+                  "artist": { "type": ["string", "null"] },
+                  "series": { "type": ["string", "null"] },
+                  "vendor": { "type": ["string", "null"] },
+                  "booth": { "type": ["string", "null"] },
+                  "image_path": { "type": ["string", "null"] }
+                },
+                "required": ["id", "item_type", "title"]
+              },
+              { "type": "null" }
+            ]
+          }
+        },
+        "required": ["id", "event_id", "item_type", "item_id", "created_at", "updated_at"]
+      },
+      "EventPurchasedItemListResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/EventPurchasedItemRecord" }
+          }
+        },
+        "required": ["items"]
+      },
+      "EventPurchasedItemUpsertRequest": {
+        "type": "object",
+        "properties": {
+          "item_type": { "type": "string", "enum": ["art", "collectible"] },
+          "item_id": { "type": "integer", "minimum": 1 },
+          "title_snapshot": { "type": ["string", "null"] },
+          "vendor_snapshot": { "type": ["string", "null"] },
+          "booth_snapshot": { "type": ["string", "null"] },
+          "price_snapshot": { "type": ["number", "null"] }
+        }
       },
       "ValuationRefreshRequest": {
         "type": "object",
@@ -4256,6 +4339,146 @@
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/LoanReminderOperationsResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/events/{id}/purchased-items": {
+      "get": {
+        "tags": ["Events"],
+        "summary": "List tracked purchased-item links for a scoped event",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tracked purchased items for the event",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/EventPurchasedItemListResponse" }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Events"],
+        "summary": "Link a tracked art or collectible item to a scoped event purchase history",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/EventPurchasedItemUpsertRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created tracked purchased-item link",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/EventPurchasedItemRecord" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/events/{id}/purchased-items/{purchasedItemId}": {
+      "patch": {
+        "tags": ["Events"],
+        "summary": "Update a tracked purchased-item link for a scoped event",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          },
+          {
+            "in": "path",
+            "name": "purchasedItemId",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/EventPurchasedItemUpsertRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated tracked purchased-item link",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/EventPurchasedItemRecord" }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Events"],
+        "summary": "Archive a tracked purchased-item link for a scoped event",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          },
+          {
+            "in": "path",
+            "name": "purchasedItemId",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Archived tracked purchased-item link",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "id": { "type": "integer" }
+                  },
+                  "required": ["ok", "id"]
+                }
               }
             }
           }
