@@ -4554,7 +4554,7 @@ Historical note:
 
 **Goal:** Finish the visible Collectibles taxonomy simplification while giving Art the medium/type boundary needed to absorb comic-panel-style artwork cleanly.
 
-**Current Slice:** `Implementation`
+**Current Slice:** `Closed`
 
 ### Scope
 
@@ -4580,6 +4580,37 @@ Historical note:
 - Do not rename Collectibles to Fandom in this slice. `Fandom` remains a possible future metadata/tagging concept, not the library name.
 - Do not build a separate Comic Panels library; use Art medium/type first.
 - Do not add full signature provenance in this slice; start with a simple signed boolean and leave signer/proof details for a future provenance task if needed.
+
+### Closeout
+
+- Status: `Closed` as `v3.4.5`.
+- Release artifact: `docs/releases/v3.4.5.md`.
+- Version/feed sync:
+  - root, backend, frontend, and lockfile metadata are aligned on `3.4.5`,
+  - and the in-app Help > Releases snapshot was regenerated with `3.4.5` as the latest entry.
+- Runtime verification:
+  - rebuilt backend/frontend images reported `3.4.5` from `/api/health`,
+  - migration `76` applied in the running database,
+  - live taxonomy/API smoke confirmed active Collectibles categories exclude `Anime` and `Comic Panels`,
+  - live Art smoke confirmed `medium = comic_panel` and `signed = true` round-trip through create/detail,
+  - targeted Events/Collectibles/Art browser regression passed,
+  - RBAC regression passed in-stack,
+  - platform edition boundary passed in-stack,
+  - homelab edition boundary passed in-stack,
+  - and in-stack Help > Releases served `3.4.5`.
+- Local checks:
+  - backend unit tests passed,
+  - OpenAPI validation passed,
+  - release preflight was regenerated for `3.4.5` with compose smoke basics passing under CI secure-cookie overrides,
+  - dependency audit artifacts were regenerated,
+  - init parity was checked,
+  - and migration rehearsal was checked.
+- CI-only follow-through:
+  - secret scan remains authoritative in tagged CI because `gitleaks` is not installed locally,
+  - and image security/SBOM remain authoritative in tagged CI because local Trivy/SBOM tooling is not installed.
+- Follow-up boundary:
+  - `Fandom` remains a possible future metadata/tagging concept, not the Collectibles library name,
+  - and richer signature provenance should be planned separately if signer/proof detail becomes important.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
