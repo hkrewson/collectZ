@@ -4467,9 +4467,10 @@ Historical note:
   - `/api/art` list/detail reads are being cut over to `art_items` with bridge-compatible response ids during the transition.
   - Event detail readback now includes linked Art and Collectibles purchases from `event_purchased_items`.
   - The shared Art drawer hides vendor/booth unless purchase context exists, while preserving existing values for editability.
+  - `test:native-art-read-cutover-smoke` covers the `/api/art` native detail/list/event-filter read contract against the running backend stack.
 - Verification still needed before closeout:
   - rebuilt frontend/browser verification of the Art drawer behavior,
-  - running-stack verification of `/api/art` list/detail reads after the updated backend/frontend images are rebuilt,
+  - full rebuilt-image verification of `/api/art` list/detail reads after the updated backend/frontend images are rebuilt,
   - and the normal version/release artifact closeout required for numbered roadmap milestones.
 
 ## 3.4.4 — Art UI Divergence and Legacy Collectibles Decoupling

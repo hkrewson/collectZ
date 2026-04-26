@@ -77,6 +77,7 @@ const { shouldEnforceCsrf } = require('../middleware/csrf');
 const observabilityRuntimeSource = fs.readFileSync(require.resolve('../services/observabilityRuntime'), 'utf8');
 const releasePreflightLocalSource = fs.readFileSync(require.resolve('../scripts/release-preflight-local'), 'utf8');
 const artMigrationBackfillSmokeSource = fs.readFileSync(require.resolve('../scripts/art-migration-backfill-smoke'), 'utf8');
+const nativeArtReadCutoverSmokeSource = fs.readFileSync(require.resolve('../scripts/native-art-read-cutover-smoke'), 'utf8');
 const authModulePath = require.resolve('../middleware/auth');
 const authMiddlewareSource = fs.readFileSync(authModulePath, 'utf8');
 const scopeAccessSource = fs.readFileSync(require.resolve('../middleware/scopeAccess'), 'utf8');
@@ -3508,6 +3509,10 @@ results.push(run('native art read cutover and event purchase readback are wired 
   assert.ok(eventsViewSource.includes('resolved_item'));
   assert.ok(collectiblesViewSource.includes('shouldShowPurchaseContext'));
   assert.ok(collectiblesViewSource.includes('hasPurchaseContext'));
+  assert.ok(backendPackageJson.scripts['test:native-art-read-cutover-smoke']);
+  assert.ok(nativeArtReadCutoverSmokeSource.includes('/api/art?q=Bast&series=Croyance&vendor=Studio&booth=A12&exclusive=true'));
+  assert.ok(nativeArtReadCutoverSmokeSource.includes('/api/art/${bridgeArtId}'));
+  assert.ok(nativeArtReadCutoverSmokeSource.includes('purchased_item_id'));
 }));
 
 results.push(run('library loans view exposes management-focused counts and due-soon emphasis', () => {

@@ -62,6 +62,7 @@
     "test:automatic-loan-reminders-smoke": "node scripts/automatic-loan-reminders-smoke.js",
     "test:event-purchased-items-smoke": "node scripts/event-purchased-items-smoke.js",
     "test:art-migration-backfill-smoke": "node scripts/art-migration-backfill-smoke.js",
+    "test:native-art-read-cutover-smoke": "node scripts/native-art-read-cutover-smoke.js",
     "test:manual-merge-recommendation-reject-smoke": "node scripts/manual-merge-recommendation-reject-smoke.js",
     "test:comic-duplicate-defer-smoke": "node scripts/comic-duplicate-defer-smoke.js",
     "test:collection-duplicate-preview-smoke": "node scripts/collection-duplicate-preview-smoke.js",
