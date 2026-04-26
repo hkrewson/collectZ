@@ -3515,7 +3515,7 @@ results.push(run('native art read cutover and event purchase readback are wired 
   assert.ok(artViewSource.includes("api('patch', `/art/${editing.id}`, payload)"));
   assert.ok(backendPackageJson.scripts['test:native-art-read-cutover-smoke']);
   assert.ok(nativeArtReadCutoverSmokeSource.includes('/api/art?q=Bast&series=Croyance&vendor=Studio&booth=A12&exclusive=true'));
-  assert.ok(nativeArtReadCutoverSmokeSource.includes('/api/art/${bridgeArtId}'));
+  assert.ok(nativeArtReadCutoverSmokeSource.includes('/api/art/${nativeArtPublicId}'));
   assert.ok(nativeArtReadCutoverSmokeSource.includes('purchased_item_id'));
 }));
 
@@ -3529,8 +3529,8 @@ results.push(run('art ui divergence keeps Art out of the Collectibles component 
   assert.ok(artViewSource.includes('hasPurchaseContext'));
   assert.ok(!artViewSource.includes('CollectiblesView'));
   assert.ok(validateMiddlewareSource.includes('const artBaseSchema'));
-  assert.ok(collectiblesRoutesSource.includes("router.post('/art', validate(artCreateSchema), createCollectible)"));
-  assert.ok(collectiblesRoutesSource.includes("router.patch('/art/:id', validate(artUpdateSchema), updateCollectible)"));
+  assert.ok(collectiblesRoutesSource.includes("router.post('/art', validate(artCreateSchema), createArt)"));
+  assert.ok(collectiblesRoutesSource.includes("router.patch('/art/:id', validate(artUpdateSchema), updateArt)"));
   assert.ok(collectiblesRoutesSource.includes("router.get('/collectibles/categories'"));
   assert.ok(collectiblesRoutesSource.includes("router.get('/art/categories'"));
   assert.ok(collectiblesRoutesSource.includes('Art categories are not available'));

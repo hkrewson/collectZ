@@ -166,23 +166,24 @@ async function main() {
         vendor: 'Studio Sade',
         booth: 'A12',
         price: 250,
-        notes: 'Bridge art item for native art dual-write verification'
+        notes: 'Native art item for purchased item verification'
       }),
       headers: { 'Content-Type': 'application/json' }
     });
-    const artCollectibleId = Number(artResponse?.data?.id || 0);
-    assert(artCollectibleId > 0, `Expected art collectible id, got ${JSON.stringify(artResponse?.data)}`);
+    const nativeArtPublicId = Number(artResponse?.data?.id || 0);
+    assert(nativeArtPublicId > 0, `Expected native art id, got ${JSON.stringify(artResponse?.data)}`);
 
     const nativeArtRow = await pool.query(
       `SELECT id, source_collectible_id, title, artist, series, vendor, booth
        FROM art_items
-       WHERE source_collectible_id = $1
+       WHERE id = $1
+         AND source_collectible_id IS NULL
          AND archived_at IS NULL
        LIMIT 1`,
-      [artCollectibleId]
+      [nativeArtPublicId]
     );
     const nativeArtId = Number(nativeArtRow.rows[0]?.id || 0);
-    assert(nativeArtId > 0, 'Expected art route create to dual-write a native art row');
+    assert(nativeArtId > 0, 'Expected art route create to write a native-only art row');
 
     const collectibleResponse = await client.request('/api/collectibles', {
       method: 'POST',
@@ -248,7 +249,7 @@ async function main() {
 
     console.log(JSON.stringify({
       eventId,
-      artCollectibleId,
+      nativeArtPublicId,
       nativeArtId,
       purchasedItemCount: items.length,
       remainingActivePurchasedItems: Number(activePurchasedItems.rows[0]?.total || 0),

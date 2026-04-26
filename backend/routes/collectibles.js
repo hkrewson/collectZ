@@ -202,6 +202,121 @@ const archiveNativeArtFromCollectible = async (collectibleId) => {
   );
 };
 
+const validateScopedEvent = async (scopeContext, eventId) => {
+  if (!eventId) return null;
+  const eventParams = [Number(eventId)];
+  const eventScopeClause = appendScopeSql(eventParams, scopeContext);
+  const eventResult = await pool.query(
+    `SELECT id
+     FROM events
+     WHERE id = $1
+       AND archived_at IS NULL
+       ${eventScopeClause}
+     LIMIT 1`,
+    eventParams
+  );
+  return eventResult.rows[0] || null;
+};
+
+const buildPublicNativeArtId = (row) => Number(row.source_collectible_id || row.id);
+
+const loadNativeArtByRouteId = async (scopeContext, routeId) => {
+  const params = [routeId];
+  const scopeClause = appendScopeSql(params, scopeContext, {
+    libraryColumn: 'a.library_id',
+    spaceColumn: 'a.space_id'
+  });
+  const result = await pool.query(
+    `${buildNativeArtSelect()}
+     WHERE (a.source_collectible_id = $1 OR (a.source_collectible_id IS NULL AND a.id = $1))
+       AND a.archived_at IS NULL
+       ${scopeClause}
+     LIMIT 1`,
+    params
+  );
+  return result.rows[0] || null;
+};
+
+const loadNativeArtById = async (scopeContext, nativeArtId) => {
+  const params = [nativeArtId];
+  const scopeClause = appendScopeSql(params, scopeContext, {
+    libraryColumn: 'a.library_id',
+    spaceColumn: 'a.space_id'
+  });
+  const result = await pool.query(
+    `${buildNativeArtSelect()}
+     WHERE a.id = $1
+       AND a.archived_at IS NULL
+       ${scopeClause}
+     LIMIT 1`,
+    params
+  );
+  return result.rows[0] || null;
+};
+
+const syncNativeArtEventLink = async ({ artRow, eventId, userId }) => {
+  if (!artRow?.id) return null;
+  await pool.query(
+    `UPDATE event_purchased_items
+     SET archived_at = COALESCE(archived_at, CURRENT_TIMESTAMP),
+         updated_at = CURRENT_TIMESTAMP
+     WHERE item_type = 'art'
+       AND item_id = $1
+       AND archived_at IS NULL
+       AND ($2::integer IS NULL OR event_id <> $2)`,
+    [artRow.id, eventId || null]
+  );
+  if (!eventId) return null;
+  const linked = await pool.query(
+    `INSERT INTO event_purchased_items (
+       event_id,
+       item_type,
+       item_id,
+       title_snapshot,
+       vendor_snapshot,
+       booth_snapshot,
+       price_snapshot,
+       created_by
+     ) VALUES ($1,'art',$2,$3,$4,$5,$6,$7)
+     ON CONFLICT (event_id, item_type, item_id) WHERE archived_at IS NULL
+     DO UPDATE SET title_snapshot = EXCLUDED.title_snapshot,
+                   vendor_snapshot = EXCLUDED.vendor_snapshot,
+                   booth_snapshot = EXCLUDED.booth_snapshot,
+                   price_snapshot = EXCLUDED.price_snapshot,
+                   updated_at = CURRENT_TIMESTAMP
+     RETURNING *`,
+    [
+      eventId,
+      artRow.id,
+      artRow.title,
+      artRow.vendor || null,
+      artRow.booth || null,
+      artRow.price ?? null,
+      userId || null
+    ]
+  );
+  return linked.rows[0] || null;
+};
+
+const normalizeArtPayload = (payload = {}) => {
+  const vendor = payload.vendor ?? payload.booth_or_vendor ?? null;
+  const booth = payload.booth ?? null;
+  return {
+    title: payload.title,
+    series: payload.series || null,
+    medium: payload.medium || null,
+    event_id: payload.event_id || null,
+    vendor,
+    booth,
+    artist: payload.artist || null,
+    price: payload.price ?? null,
+    exclusive: payload.exclusive === true,
+    signed: payload.signed === true,
+    image_path: payload.image_path || null,
+    notes: payload.notes || null
+  };
+};
+
 const normalizeCollectiblePayload = (payload = {}) => {
   const subtype = payload.subtype || payload.item_type || 'collectible';
   const categoryKey = resolveCategoryKey(payload.category_key || payload.category);
@@ -418,21 +533,9 @@ router.get(COLLECTIBLE_DETAIL_PATHS, asyncHandler(async (req, res) => {
   }
 
   if (routeConfig.isArtRoute) {
-    const params = [collectibleId];
-    const scopeClause = appendScopeSql(params, scopeContext, {
-      libraryColumn: 'a.library_id',
-      spaceColumn: 'a.space_id'
-    });
-    const result = await pool.query(
-      `${buildNativeArtSelect()}
-       WHERE (a.source_collectible_id = $1 OR (a.source_collectible_id IS NULL AND a.id = $1))
-         AND a.archived_at IS NULL
-         ${scopeClause}
-       LIMIT 1`,
-      params
-    );
-    if (!result.rows[0]) return res.status(404).json({ error: 'Art item not found' });
-    return res.json(serializeNativeArtRow(result.rows[0]));
+    const row = await loadNativeArtByRouteId(scopeContext, collectibleId);
+    if (!row) return res.status(404).json({ error: 'Art item not found' });
+    return res.json(serializeNativeArtRow(row));
   }
 
   const params = [collectibleId];
@@ -460,6 +563,75 @@ router.get(COLLECTIBLE_DETAIL_PATHS, asyncHandler(async (req, res) => {
   if (!result.rows[0]) return res.status(404).json({ error: `${routeConfig.entityLabel === 'art' ? 'Art item' : 'Collectible'} not found` });
   res.json(serializeCollectibleRow(result.rows[0]));
 }));
+
+const createArt = asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const libraryId = req.body.library_id || scopeContext.libraryId || null;
+  const spaceId = req.body.space_id || scopeContext.spaceId || null;
+  if (!libraryId) return res.status(400).json({ error: 'No active library selected for art creation' });
+
+  const payload = normalizeArtPayload(req.body);
+  if (payload.event_id) {
+    const eventRow = await validateScopedEvent(scopeContext, payload.event_id);
+    if (!eventRow) return res.status(404).json({ error: 'Linked event not found in scope' });
+  }
+
+  const created = await pool.query(
+    `INSERT INTO art_items (
+       library_id,
+       space_id,
+       created_by,
+       title,
+       artist,
+       series,
+       medium,
+       vendor,
+       booth,
+       price,
+       exclusive,
+       signed,
+       image_path,
+       notes
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+     RETURNING *`,
+    [
+      libraryId,
+      spaceId,
+      req.user.id,
+      payload.title,
+      payload.artist,
+      payload.series,
+      payload.medium,
+      payload.vendor,
+      payload.booth,
+      payload.price,
+      payload.exclusive,
+      payload.signed,
+      payload.image_path,
+      payload.notes
+    ]
+  );
+  const artRow = created.rows[0];
+  await syncNativeArtEventLink({ artRow, eventId: payload.event_id, userId: req.user.id });
+  const hydrated = await loadNativeArtById(scopeContext, artRow.id);
+  const publicId = buildPublicNativeArtId(hydrated || artRow);
+
+  await logActivity(req, 'art.create', 'art', publicId, {
+    title: artRow.title,
+    native_art_id: artRow.id,
+    event_id: payload.event_id || null,
+    medium: artRow.medium || null,
+    signed: artRow.signed === true
+  });
+  if (payload.event_id) {
+    await logActivity(req, 'art.link_event', 'art', publicId, {
+      event_id: payload.event_id,
+      native_art_id: artRow.id
+    });
+  }
+
+  res.status(201).json(serializeNativeArtRow(hydrated || artRow));
+});
 
 const createCollectible = asyncHandler(async (req, res) => {
   const routeConfig = resolveRouteConfig(req);
@@ -577,7 +749,105 @@ const createCollectible = asyncHandler(async (req, res) => {
 });
 
 router.post('/collectibles', validate(collectibleCreateSchema), createCollectible);
-router.post('/art', validate(artCreateSchema), createCollectible);
+router.post('/art', validate(artCreateSchema), createArt);
+
+const updateArt = asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const artRouteId = Number(req.params.id);
+  if (!Number.isFinite(artRouteId) || artRouteId <= 0) {
+    return res.status(400).json({ error: 'Invalid art id' });
+  }
+
+  const current = await loadNativeArtByRouteId(scopeContext, artRouteId);
+  if (!current) return res.status(404).json({ error: 'Art item not found' });
+
+  if (Object.prototype.hasOwnProperty.call(req.body || {}, 'event_id') && req.body.event_id) {
+    const eventRow = await validateScopedEvent(scopeContext, req.body.event_id);
+    if (!eventRow) return res.status(404).json({ error: 'Linked event not found in scope' });
+  }
+
+  const allowed = ['title', 'series', 'medium', 'vendor', 'booth', 'booth_or_vendor', 'artist', 'price', 'exclusive', 'signed', 'image_path', 'notes'];
+  const payload = normalizeArtPayload({
+    ...current,
+    ...req.body
+  });
+  const updates = [];
+  const params = [current.id];
+  for (const key of allowed) {
+    if (!Object.prototype.hasOwnProperty.call(req.body || {}, key)) continue;
+    if (key === 'booth_or_vendor') continue;
+    let value = payload[key];
+    if (key === 'vendor' || key === 'booth') value = payload[key] || null;
+    params.push(value === '' ? null : value);
+    updates.push({ key, ref: `$${params.length}` });
+  }
+  if (Object.prototype.hasOwnProperty.call(req.body || {}, 'booth_or_vendor')
+    && !Object.prototype.hasOwnProperty.call(req.body || {}, 'vendor')) {
+    params.push(payload.vendor || null);
+    updates.push({ key: 'vendor', ref: `$${params.length}` });
+  }
+  if (updates.length > 0) {
+    const setClause = updates.map((entry) => `${entry.key} = ${entry.ref}`).join(', ');
+    await pool.query(
+      `UPDATE art_items
+       SET ${setClause},
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1`,
+      params
+    );
+  }
+
+  if (Object.prototype.hasOwnProperty.call(req.body || {}, 'event_id')) {
+    await syncNativeArtEventLink({
+      artRow: { ...current, ...payload, id: current.id },
+      eventId: req.body.event_id || null,
+      userId: req.user.id
+    });
+  }
+
+  const hydrated = await loadNativeArtById(scopeContext, current.id);
+  if (current.source_collectible_id && hydrated) {
+    await pool.query(
+      `UPDATE collectibles
+       SET title = $2,
+           series = $3,
+           vendor = $4,
+           booth = $5,
+           booth_or_vendor = $6,
+           artist = $7,
+           price = $8,
+           exclusive = $9,
+           event_id = $10,
+           image_path = $11,
+           notes = $12,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1`,
+      [
+        current.source_collectible_id,
+        hydrated.title,
+        hydrated.series || null,
+        hydrated.vendor || null,
+        hydrated.booth || null,
+        hydrated.vendor && hydrated.booth ? `${hydrated.vendor} / ${hydrated.booth}` : (hydrated.vendor || hydrated.booth || null),
+        hydrated.artist || null,
+        hydrated.price ?? null,
+        hydrated.exclusive === true,
+        hydrated.event_id || null,
+        hydrated.image_path || null,
+        hydrated.notes || null
+      ]
+    );
+  }
+  const publicId = buildPublicNativeArtId(hydrated || current);
+  await logActivity(req, 'art.update', 'art', publicId, {
+    fields: [
+      ...updates.map((entry) => entry.key),
+      ...(Object.prototype.hasOwnProperty.call(req.body || {}, 'event_id') ? ['event_id'] : [])
+    ],
+    native_art_id: current.id
+  });
+  res.json(serializeNativeArtRow(hydrated || current));
+});
 
 const updateCollectible = asyncHandler(async (req, res) => {
   const routeConfig = resolveRouteConfig(req);
@@ -743,7 +1013,7 @@ const updateCollectible = asyncHandler(async (req, res) => {
 });
 
 router.patch('/collectibles/:id', validate(collectibleUpdateSchema), updateCollectible);
-router.patch('/art/:id', validate(artUpdateSchema), updateCollectible);
+router.patch('/art/:id', validate(artUpdateSchema), updateArt);
 
 router.post('/collectibles/:id/reclassify', asyncHandler(async (req, res) => {
   const scopeContext = resolveScopeContext(req);
@@ -793,6 +1063,42 @@ router.delete(COLLECTIBLE_DELETE_PATHS, asyncHandler(async (req, res) => {
   if (!Number.isFinite(collectibleId) || collectibleId <= 0) {
     return res.status(400).json({ error: 'Invalid collectible id' });
   }
+
+  if (routeConfig.isArtRoute) {
+    const current = await loadNativeArtByRouteId(scopeContext, collectibleId);
+    if (!current) return res.status(404).json({ error: 'Art item not found' });
+    await pool.query(
+      `UPDATE art_items
+       SET archived_at = COALESCE(archived_at, CURRENT_TIMESTAMP),
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1`,
+      [current.id]
+    );
+    await pool.query(
+      `UPDATE event_purchased_items
+       SET archived_at = COALESCE(archived_at, CURRENT_TIMESTAMP),
+           updated_at = CURRENT_TIMESTAMP
+       WHERE item_type = 'art'
+         AND item_id = $1
+         AND archived_at IS NULL`,
+      [current.id]
+    );
+    if (current.source_collectible_id) {
+      await pool.query(
+        `UPDATE collectibles
+         SET archived_at = COALESCE(archived_at, CURRENT_TIMESTAMP)
+         WHERE id = $1`,
+        [current.source_collectible_id]
+      );
+    }
+    const publicId = buildPublicNativeArtId(current);
+    await logActivity(req, 'art.delete', 'art', publicId, {
+      title: current.title,
+      native_art_id: current.id
+    });
+    return res.json({ ok: true, id: publicId });
+  }
+
   const params = [collectibleId];
   const scopeClause = appendScopeSql(params, scopeContext, {
     libraryColumn: 'library_id',
@@ -831,6 +1137,37 @@ router.post(COLLECTIBLE_UPLOAD_PATHS, memoryUpload.single('image'), asyncHandler
   if (!req.file) return res.status(400).json({ error: 'Image file is required' });
   if (!ALLOWED_IMAGE_MIME_TYPES.has(String(req.file.mimetype || '').toLowerCase())) {
     return res.status(400).json({ error: 'Unsupported image type' });
+  }
+
+  if (routeConfig.isArtRoute) {
+    const current = await loadNativeArtByRouteId(scopeContext, collectibleId);
+    if (!current) return res.status(404).json({ error: 'Art item not found' });
+    const previousPath = current.image_path || null;
+    const stored = await uploadBuffer(req.file.buffer, req.file.originalname, req.file.mimetype);
+    const updated = await pool.query(
+      `UPDATE art_items
+       SET image_path = $1,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $2
+       RETURNING id, image_path`,
+      [stored.url, current.id]
+    );
+    if (current.source_collectible_id) {
+      await pool.query(
+        `UPDATE collectibles
+         SET image_path = $1
+         WHERE id = $2`,
+        [stored.url, current.source_collectible_id]
+      );
+    }
+    const publicId = buildPublicNativeArtId(current);
+    await logActivity(req, previousPath ? 'art.image.replace' : 'art.image.upload', 'art', publicId, {
+      previousPath,
+      imagePath: updated.rows[0].image_path,
+      provider: stored.provider,
+      native_art_id: current.id
+    });
+    return res.json({ id: publicId, image_path: updated.rows[0].image_path });
   }
 
   const params = [collectibleId];
@@ -887,6 +1224,28 @@ router.delete(COLLECTIBLE_IMAGE_DELETE_PATHS, asyncHandler(async (req, res) => {
   const collectibleId = Number(req.params.id);
   if (!Number.isFinite(collectibleId) || collectibleId <= 0) {
     return res.status(400).json({ error: 'Invalid collectible id' });
+  }
+
+  if (routeConfig.isArtRoute) {
+    const current = await loadNativeArtByRouteId(scopeContext, collectibleId);
+    if (!current) return res.status(404).json({ error: 'Art item not found' });
+    if (!current.image_path) return res.status(400).json({ error: 'No image attached' });
+    await pool.query(
+      `UPDATE art_items
+       SET image_path = NULL,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1`,
+      [current.id]
+    );
+    if (current.source_collectible_id) {
+      await pool.query(`UPDATE collectibles SET image_path = NULL WHERE id = $1`, [current.source_collectible_id]);
+    }
+    const publicId = buildPublicNativeArtId(current);
+    await logActivity(req, 'art.image.delete', 'art', publicId, {
+      previousPath: current.image_path,
+      native_art_id: current.id
+    });
+    return res.json({ ok: true, id: publicId });
   }
 
   const params = [collectibleId];

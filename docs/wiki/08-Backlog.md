@@ -121,6 +121,72 @@ This file is the staging area for work that has not yet been assigned a release 
 - Plex import uses the actual API path.
 - New-title checks, watch-status checks, and webhooks are all represented in the import design.
 
+### Backlog Item: Art Signature Provenance
+**Type:** Task
+**Tags:** `art`, `signatures`, `provenance`, `attachments`
+
+**Goal:** Expand Art's simple signed status into richer provenance when signer and proof details matter.
+
+**Scope**
+- Add optional signer/provenance fields for Art records.
+- Decide whether proof images reuse existing image storage or need a distinct attachment type.
+- Preserve the simple `signed` boolean as the fast visual marker.
+- Keep provenance fields out of Collectibles unless a future object type proves it needs the same contract.
+
+**Acceptance Criteria**
+- Art can record who signed an item and any supporting proof metadata.
+- The drawer/detail surface can show provenance without crowding ordinary unsigned items.
+- Existing signed boolean data remains readable and migrates cleanly into the richer model.
+
+### Backlog Item: Fandom and Franchise Metadata
+**Type:** Discussion
+**Tags:** `collectibles`, `taxonomy`, `fandom`, `franchise`, `metadata`
+
+**Goal:** Decide how fandom/franchise/source metadata should be represented after removing fandom-like labels such as Anime from Collectibles category choices.
+
+**Scope**
+- Define whether fandom/franchise is a freeform field, controlled vocabulary, tag, or future shared metadata primitive.
+- Keep owned-object category choices focused on object shape such as Card, Funko, Toys, Clothing, and similar classes.
+- Evaluate whether Art and Collectibles should share this metadata or expose it differently.
+
+**Acceptance Criteria**
+- The app has a clear model for recording source/fandom/franchise without overloading object categories.
+- Anime-like descriptors have an intentional home if users need to track them.
+- The decision does not rename Collectibles by accident or blur Art's native boundary.
+
+### Backlog Item: Event Purchase Linking Polish
+**Type:** Task
+**Tags:** `events`, `art`, `collectibles`, `purchase-links`, `ui`
+
+**Goal:** Make shared purchased-item linking feel first-class from the Event view now that Art and Collectibles are separate native concepts.
+
+**Scope**
+- Refine add/search/link flows for tracked Art and Collectibles purchases from an Event.
+- Improve duplicate-link prevention and conflict copy.
+- Make linked purchase readback clearer in event detail surfaces.
+- Keep `event_purchased_items` as the shared relationship.
+
+**Acceptance Criteria**
+- Users can link Art and Collectibles from Events without needing to know each object's backing table.
+- Duplicate links are prevented with useful UI feedback.
+- Event purchase history remains readable after item edits or archival.
+
+### Backlog Item: Collectibles Naming Review
+**Type:** Discussion
+**Tags:** `collectibles`, `naming`, `taxonomy`, `fandom`
+
+**Goal:** Revisit whether the Collectibles library name still communicates the right boundary after Art promotion and taxonomy cleanup.
+
+**Scope**
+- Compare `Collectibles` against alternatives such as `Fandom` without changing product copy in this task.
+- Evaluate whether a future fandom/franchise metadata field solves the naming pressure better than a library rename.
+- Identify downstream effects of any rename on navigation, API copy, docs, imports, and user expectations.
+
+**Acceptance Criteria**
+- The team has an explicit decision record for keeping or renaming Collectibles.
+- Any future rename has a migration/product-copy checklist before implementation.
+- The current Collectibles object-category boundary stays stable unless a later milestone intentionally changes it.
+
 ### Backlog Item: TMDB Rate-Limit Investigation and Search Optimization
 **Type:** Discussion
 **Tags:** `tmdb`, `rate-limit`, `search`, `imports`, `performance`

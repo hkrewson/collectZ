@@ -4612,6 +4612,34 @@ Historical note:
   - `Fandom` remains a possible future metadata/tagging concept, not the Collectibles library name,
   - and richer signature provenance should be planned separately if signer/proof detail becomes important.
 
+## 3.4.6 — Art Bridge Cleanup and Native Art Write Hardening
+
+**Goal:** Reduce Art's bridge-era dependence on hidden Collectibles rows now that Art has a native object model, while preserving compatibility for migrated records.
+
+**Current Slice:** `Implementation`
+
+### Scope
+
+- Stop creating new hidden `collectibles.subtype = art` rows when users create Art from `/api/art`.
+- Route Art updates, image uploads, image removal, and archive/delete behavior through native `art_items` first.
+- Keep bridge-compatible reads for migrated Art rows whose public ID still resolves through `art_items.source_collectible_id`.
+- Preserve shared Event purchase linking through `event_purchased_items`.
+- Keep existing migrated Art records readable and editable without forcing a destructive ID cutover.
+
+### Acceptance Criteria
+
+- New `/api/art` creates persist directly to `art_items` with `source_collectible_id = NULL`.
+- `/api/art/:id` continues to resolve native-only rows by native ID and migrated rows by bridge-compatible source collectible ID.
+- Art create/update/delete/image flows do not require a Collectibles row for native-only Art.
+- Event purchase filters and readback continue to work for native-only Art.
+- `/api/collectibles` continues to reject/exclude Art records.
+
+### Active Slice Notes
+
+- Do not remove the `source_collectible_id` column in this slice.
+- Do not switch all legacy public Art IDs to native IDs in this slice.
+- Deeper bridge-column removal or a public-ID cutover should remain a separate migration-safe milestone after compatibility behavior is proven.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

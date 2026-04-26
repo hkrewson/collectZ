@@ -170,36 +170,53 @@ async function main() {
       }),
       headers: { 'Content-Type': 'application/json' }
     });
-    const bridgeArtId = Number(artResponse?.data?.id || 0);
-    assert(bridgeArtId > 0, `Expected bridge-compatible art id, got ${JSON.stringify(artResponse?.data)}`);
+    const nativeArtPublicId = Number(artResponse?.data?.id || 0);
+    assert(nativeArtPublicId > 0, `Expected native art id, got ${JSON.stringify(artResponse?.data)}`);
 
     const nativeArtRow = await pool.query(
       `SELECT id, source_collectible_id, title, artist, series, vendor, booth, price, exclusive
        FROM art_items
-       WHERE source_collectible_id = $1
+       WHERE id = $1
+         AND source_collectible_id IS NULL
          AND archived_at IS NULL
        LIMIT 1`,
-      [bridgeArtId]
+      [nativeArtPublicId]
     );
     const nativeArt = nativeArtRow.rows[0] || null;
     const nativeArtId = Number(nativeArt?.id || 0);
-    assert(nativeArtId > 0, 'Expected art route create to dual-write a native art row');
+    assert(nativeArtId > 0, 'Expected art route create to create a native-only art row');
 
-    const detailResponse = await client.request(`/api/art/${bridgeArtId}`, { expectStatus: 200 });
+    const detailResponse = await client.request(`/api/art/${nativeArtPublicId}`, { expectStatus: 200 });
     const detail = detailResponse?.data || {};
-    assert(Number(detail.id) === bridgeArtId, `Expected detail id ${bridgeArtId}, got ${detail.id}`);
+    assert(Number(detail.id) === nativeArtPublicId, `Expected detail id ${nativeArtPublicId}, got ${detail.id}`);
     assert(Number(detail.native_art_id) === nativeArtId, `Expected native_art_id ${nativeArtId}, got ${detail.native_art_id}`);
-    assert(detail.source_collectible_id === bridgeArtId, 'Expected detail response to retain source_collectible_id during cutover');
+    assert(detail.source_collectible_id === null, 'Expected new Art create to avoid source_collectible_id bridge rows');
     assert(detail.title === 'Bast', `Expected detail title Bast, got ${detail.title}`);
     assert(detail.series === 'Croyance', `Expected detail series Croyance, got ${detail.series}`);
     assert(detail.artist === 'Nigel Sade', `Expected detail artist Nigel Sade, got ${detail.artist}`);
     assert(detail.vendor === 'Studio Sade', `Expected detail vendor Studio Sade, got ${detail.vendor}`);
     assert(detail.booth === 'A12', `Expected detail booth A12, got ${detail.booth}`);
 
+    const updatedResponse = await client.request(`/api/art/${nativeArtPublicId}`, {
+      method: 'PATCH',
+      withCsrf: true,
+      expectStatus: 200,
+      body: JSON.stringify({
+        medium: 'print',
+        signed: true,
+        notes: 'Updated native-only smoke item'
+      }),
+      headers: { 'Content-Type': 'application/json' }
+    });
+    const updatedDetail = updatedResponse?.data || {};
+    assert(updatedDetail.source_collectible_id === null, 'Expected native-only Art update to avoid bridge rows');
+    assert(updatedDetail.medium === 'print', `Expected updated medium print, got ${updatedDetail.medium}`);
+    assert(updatedDetail.signed === true, `Expected updated signed true, got ${updatedDetail.signed}`);
+
     const listResponse = await client.request('/api/art?q=Bast&series=Croyance&vendor=Studio&booth=A12&exclusive=true', { expectStatus: 200 });
     const listItems = Array.isArray(listResponse?.data?.items) ? listResponse.data.items : [];
-    const listed = listItems.find((item) => Number(item.id) === bridgeArtId);
-    assert(listed, `Expected list response to include bridge art id ${bridgeArtId}, got ${JSON.stringify(listResponse?.data)}`);
+    const listed = listItems.find((item) => Number(item.id) === nativeArtPublicId);
+    assert(listed, `Expected list response to include native art id ${nativeArtPublicId}, got ${JSON.stringify(listResponse?.data)}`);
     assert(Number(listed.native_art_id) === nativeArtId, `Expected listed native_art_id ${nativeArtId}, got ${listed.native_art_id}`);
     assert(listed.category === null, 'Expected native art list response to avoid collectible category');
     assert(listed.item_type === 'art', `Expected listed item_type art, got ${listed.item_type}`);
@@ -207,7 +224,7 @@ async function main() {
     const collectibleListResponse = await client.request('/api/collectibles?q=Bast&limit=50', { expectStatus: 200 });
     const collectibleListItems = Array.isArray(collectibleListResponse?.data?.items) ? collectibleListResponse.data.items : [];
     assert(
-      !collectibleListItems.some((item) => Number(item.id) === bridgeArtId || String(item?.subtype || item?.item_type || '') === 'art'),
+      !collectibleListItems.some((item) => Number(item.id) === nativeArtPublicId || String(item?.subtype || item?.item_type || '') === 'art'),
       `Expected Collectibles list to exclude Art rows, got ${JSON.stringify(collectibleListResponse?.data)}`
     );
 
@@ -222,7 +239,7 @@ async function main() {
       headers: { 'Content-Type': 'application/json' }
     });
     await client.request('/api/art/categories', { expectStatus: 404 });
-    await client.request(`/api/collectibles/${bridgeArtId}`, {
+    await client.request(`/api/collectibles/${nativeArtPublicId}`, {
       method: 'PATCH',
       withCsrf: true,
       expectStatus: 404,
@@ -230,26 +247,47 @@ async function main() {
       headers: { 'Content-Type': 'application/json' }
     });
 
-    await client.request(`/api/events/${eventId}/purchased-items`, {
+    const eventFilteredResponse = await client.request(`/api/art?event_id=${eventId}`, { expectStatus: 200 });
+    const eventFilteredItems = Array.isArray(eventFilteredResponse?.data?.items) ? eventFilteredResponse.data.items : [];
+    const eventFiltered = eventFilteredItems.find((item) => Number(item.id) === nativeArtPublicId);
+    assert(eventFiltered, `Expected event filtered art response to include ${nativeArtPublicId}`);
+    assert(Number(eventFiltered.purchased_item_id || 0) > 0, 'Expected event-filtered native art row to include purchased_item_id');
+
+    const deleteResponse = await client.request('/api/art', {
       method: 'POST',
       withCsrf: true,
       expectStatus: 201,
-      body: JSON.stringify({ item_type: 'art', item_id: nativeArtId }),
+      body: JSON.stringify({
+        title: 'Native Delete Smoke',
+        artist: 'Cleanup Artist'
+      }),
       headers: { 'Content-Type': 'application/json' }
     });
-
-    const eventFilteredResponse = await client.request(`/api/art?event_id=${eventId}`, { expectStatus: 200 });
-    const eventFilteredItems = Array.isArray(eventFilteredResponse?.data?.items) ? eventFilteredResponse.data.items : [];
-    const eventFiltered = eventFilteredItems.find((item) => Number(item.id) === bridgeArtId);
-    assert(eventFiltered, `Expected event filtered art response to include ${bridgeArtId}`);
-    assert(Number(eventFiltered.purchased_item_id || 0) > 0, 'Expected event-filtered native art row to include purchased_item_id');
+    const deleteArtId = Number(deleteResponse?.data?.id || 0);
+    assert(deleteArtId > 0, `Expected delete smoke native art id, got ${JSON.stringify(deleteResponse?.data)}`);
+    await client.request(`/api/art/${deleteArtId}`, {
+      method: 'DELETE',
+      withCsrf: true,
+      expectStatus: 200
+    });
+    await client.request(`/api/art/${deleteArtId}`, { expectStatus: 404 });
+    const deletedNative = await pool.query(
+      `SELECT archived_at, source_collectible_id
+       FROM art_items
+       WHERE id = $1
+       LIMIT 1`,
+      [deleteArtId]
+    );
+    assert(deletedNative.rows[0]?.archived_at, 'Expected native-only Art delete to archive art_items row');
+    assert(deletedNative.rows[0]?.source_collectible_id === null, 'Expected native-only Art delete smoke row to avoid collectible bridge');
 
     console.log(JSON.stringify({
-      bridgeArtId,
+      nativeArtPublicId,
       nativeArtId,
       eventId,
       listCount: listItems.length,
       eventFilteredCount: eventFilteredItems.length,
+      deleteArtId,
       detailTitle: detail.title,
       detailSeries: detail.series,
       detailVendor: detail.vendor,
