@@ -5,7 +5,8 @@ const {
   ensureSavedAdminCredentials,
   createFreshUserCredentials,
   createAuthenticatedRequestContext,
-  postWithCsrf
+  postWithCsrf,
+  patchWithCsrf
 } = require('../helpers/auth');
 const { signInThroughUi } = require('../helpers/session');
 const {
@@ -21,6 +22,70 @@ const {
 test.use({ storageState: { cookies: [], origins: [] } });
 
 test.describe('events and collectibles browser regressions', () => {
+  test('art signature provenance round-trips through the shared signature record contract', async () => {
+    const adminCredentials = await ensureSavedAdminCredentials();
+    const adminRequestContext = await createAuthenticatedRequestContext(adminCredentials);
+    const userCredentials = await createFreshUserCredentials();
+    const userRequestContext = await createAuthenticatedRequestContext(userCredentials);
+    const artTitle = `Playwright Signed Art ${Date.now()}`;
+    const originalFlagsPayload = await getFeatureFlags(adminRequestContext);
+    const originalFlags = Array.isArray(originalFlagsPayload?.flags) ? originalFlagsPayload.flags : [];
+    const originalCollectiblesEnabled = Boolean(originalFlags.find((flag) => flag?.key === 'collectibles_enabled')?.enabled);
+
+    await deleteArtByExactTitle(userRequestContext, artTitle).catch(() => {});
+    try {
+      if (!originalCollectiblesEnabled) {
+        await updateFeatureFlag(adminRequestContext, 'collectibles_enabled', true);
+      }
+
+      const createResponse = await postWithCsrf(userRequestContext, '/api/art', {
+        title: artTitle,
+        artist: 'Playwright Artist',
+        medium: 'print',
+        signed: true,
+        signer_name: 'Playwright Signer',
+        signer_role: 'Artist',
+        signed_on: '2026-04-26',
+        signed_at: 'Playwright Signing Table',
+        signature_proof_path: 'https://example.test/signature-proof.jpg',
+        signature_notes: 'Witnessed during the shared signature provenance regression.'
+      }, 201);
+      const created = await createResponse.json();
+      expect(created.signed).toBe(true);
+      expect(created.signer_name).toBe('Playwright Signer');
+      expect(created.signatures?.[0]?.signer_name).toBe('Playwright Signer');
+      expect(created.signatures?.[0]?.proof_path).toBe('https://example.test/signature-proof.jpg');
+
+      const patchResponse = await patchWithCsrf(userRequestContext, `/api/art/${created.id}`, {
+        signed: true,
+        signer_name: 'Updated Playwright Signer',
+        signer_role: 'Writer',
+        signed_on: '2026-04-27',
+        signed_at: 'Updated Signing Table',
+        signature_notes: 'Updated provenance note.'
+      }, 200);
+      const patched = await patchResponse.json();
+      expect(patched.signatures).toHaveLength(1);
+      expect(patched.signatures[0].signer_name).toBe('Updated Playwright Signer');
+      expect(patched.signatures[0].signed_on).toBe('2026-04-27');
+      expect(patched.signature_notes).toBe('Updated provenance note.');
+
+      const detailResponse = await userRequestContext.get(`/api/art/${created.id}`);
+      expect(detailResponse.ok()).toBeTruthy();
+      const detail = await detailResponse.json();
+      expect(detail.signatures).toHaveLength(1);
+      expect(detail.signer_name).toBe('Updated Playwright Signer');
+      expect(detail.signatures[0].owner_type).toBe('art');
+    } finally {
+      await deleteArtByExactTitle(userRequestContext, artTitle).catch(() => {});
+      if (!originalCollectiblesEnabled) {
+        await updateFeatureFlag(adminRequestContext, 'collectibles_enabled', false).catch(() => {});
+      }
+      await adminRequestContext.dispose();
+      await userRequestContext.dispose();
+    }
+  });
+
   test('end user can create an event, link a collectible to it, and find that link in the collectible detail view', async ({ page }) => {
     const adminCredentials = await ensureSavedAdminCredentials();
     const adminRequestContext = await createAuthenticatedRequestContext(adminCredentials);

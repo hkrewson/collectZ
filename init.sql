@@ -800,6 +800,37 @@ CREATE TABLE IF NOT EXISTS event_purchased_items (
     archived_at TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS signature_records (
+    id SERIAL PRIMARY KEY,
+    owner_type VARCHAR(20) NOT NULL CHECK (owner_type IN ('media', 'art')),
+    owner_id INTEGER NOT NULL,
+    library_id INTEGER,
+    space_id INTEGER,
+    signer_name VARCHAR(255),
+    signer_role VARCHAR(100),
+    signed_on DATE,
+    signed_at VARCHAR(255),
+    signed_event_id INTEGER REFERENCES events(id) ON DELETE SET NULL,
+    proof_path TEXT,
+    notes TEXT,
+    is_primary BOOLEAN NOT NULL DEFAULT false,
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    archived_at TIMESTAMP
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_signature_records_primary_active
+    ON signature_records(owner_type, owner_id)
+    WHERE is_primary = TRUE AND archived_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_signature_records_owner_active
+    ON signature_records(owner_type, owner_id, archived_at);
+
+CREATE INDEX IF NOT EXISTS idx_signature_records_signed_event
+    ON signature_records(signed_event_id)
+    WHERE signed_event_id IS NOT NULL AND archived_at IS NULL;
+
 -- Migration tracking (used by db/migrations.js)
 CREATE TABLE IF NOT EXISTS schema_migrations (
     version INTEGER PRIMARY KEY,
@@ -1169,5 +1200,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (74, 'Add native art storage and shared event purchased item links'),
     (75, 'Backfill native art rows and shared event purchased item links'),
     (76, 'Add art medium and signed fields with comic panel migration boundary'),
-    (77, 'Add shared fandom franchise metadata to Art and Collectibles')
+    (77, 'Add shared fandom franchise metadata to Art and Collectibles'),
+    (78, 'Add shared signature provenance records for Art and media')
 ON CONFLICT (version) DO NOTHING;

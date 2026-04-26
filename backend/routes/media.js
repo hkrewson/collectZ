@@ -83,6 +83,11 @@ const { formatSyncJob } = require('../services/syncJobs');
 const { logError, logActivity } = require('../services/audit');
 const { recordImportJobEvent, recordImportEnrichmentEvent } = require('../services/metrics');
 const { uploadBuffer } = require('../services/storage');
+const {
+  loadSignatureRecordsForOwner,
+  syncPrimarySignatureRecord,
+  buildLegacyMediaSignature
+} = require('../services/signatures');
 const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
 const { isFeatureEnabledForSpace } = require('../services/featureFlags');
 const { enforceScopeAccess } = require('../middleware/scopeAccess');
@@ -569,6 +574,29 @@ function normalizeMediaRecord(row = {}) {
     format: payload.format,
     cast: row.cast || row.cast_members || null
   };
+}
+
+async function attachSignaturesToMediaRecord(row = {}) {
+  if (!row?.id) return row;
+  const signatures = await loadSignatureRecordsForOwner(pool, { ownerType: 'media', ownerId: row.id });
+  return {
+    ...row,
+    signatures
+  };
+}
+
+async function syncMediaPrimarySignature(row = {}, userId = null) {
+  if (!row?.id) return null;
+  const signature = buildLegacyMediaSignature(row);
+  return syncPrimarySignatureRecord(pool, {
+    ownerType: 'media',
+    ownerId: row.id,
+    libraryId: row.library_id || null,
+    spaceId: row.space_id || null,
+    createdBy: userId,
+    signature,
+    signed: signature.hasDetails
+  });
 }
 
 function humanizeMergeSourceToken(value = '') {
@@ -2862,7 +2890,7 @@ async function loadScopedMediaItem(mediaId, scopeContext = null) {
      LIMIT 1`,
     params
   );
-  return result.rows[0] ? normalizeMediaRecord(result.rows[0]) : null;
+  return result.rows[0] ? attachSignaturesToMediaRecord(normalizeMediaRecord(result.rows[0])) : null;
 }
 
 async function loadScopedMediaLoan(loanId, scopeContext = null) {
@@ -9059,9 +9087,10 @@ router.post('/:id/upload-signing-proof', memoryImageUpload.single('proof'), asyn
     `UPDATE media
      SET signed_proof_path = $1
      WHERE id = $2
-     RETURNING id, signed_proof_path`,
+     RETURNING id, library_id, space_id, signed_by, signed_role, signed_on, signed_at, signed_proof_path`,
     [stored.url, mediaId]
   );
+  await syncMediaPrimarySignature(updated.rows[0], req.user.id);
   await logActivity(
     req,
     previousPath ? 'media.signing_proof.replace' : 'media.signing_proof.upload',
@@ -9094,9 +9123,17 @@ router.delete('/:id/signing-proof', asyncHandler(async (req, res) => {
   await pool.query(
     `UPDATE media
      SET signed_proof_path = NULL
-     WHERE id = $1`,
+     WHERE id = $1
+     RETURNING id, library_id, space_id, signed_by, signed_role, signed_on, signed_at, signed_proof_path`,
     [mediaId]
   );
+  const updated = await pool.query(
+    `SELECT id, library_id, space_id, signed_by, signed_role, signed_on, signed_at, signed_proof_path
+       FROM media
+      WHERE id = $1`,
+    [mediaId]
+  );
+  await syncMediaPrimarySignature(updated.rows[0], req.user.id);
   await logActivity(req, 'media.signing_proof.remove', 'media', mediaId, { previousPath });
   res.json({ ok: true, removed: true });
 }));
@@ -10893,6 +10930,8 @@ router.post('/', validate(mediaCreateSchema), asyncHandler(async (req, res) => {
     ]
   );
   const created = normalizeMediaRecord(result.rows[0]);
+  await syncMediaPrimarySignature(created, req.user.id);
+  const createdWithSignatures = await attachSignaturesToMediaRecord(created);
   await syncNormalizedMetadataForMedia({
     mediaId: created.id,
     genre: created.genre,
@@ -10906,7 +10945,7 @@ router.post('/', validate(mediaCreateSchema), asyncHandler(async (req, res) => {
     spaceId: created.space_id || scopeContext.spaceId || null
   });
   await maybePushComicToMetron({ req, mediaRow: created });
-  res.status(201).json(created);
+  res.status(201).json(createdWithSignatures);
 }));
 
 // ── Update ─────────────────────────────────────────────────────────────────────
@@ -11026,6 +11065,10 @@ router.patch('/:id', validate(mediaUpdateSchema), asyncHandler(async (req, res) 
     return res.status(403).json({ error: 'You do not have permission to edit this item' });
   }
   const updated = normalizeMediaRecord(result.rows[0]);
+  if (['signed_by', 'signed_role', 'signed_on', 'signed_at', 'signed_proof_path', 'library_id', 'space_id'].some((key) => keys.includes(key))) {
+    await syncMediaPrimarySignature(updated, req.user.id);
+  }
+  const updatedWithSignatures = await attachSignaturesToMediaRecord(updated);
   await syncNormalizedMetadataForMedia({
     mediaId: updated.id,
     genre: updated.genre,
@@ -11039,7 +11082,7 @@ router.patch('/:id', validate(mediaUpdateSchema), asyncHandler(async (req, res) 
     spaceId: updated.space_id || scopeContext.spaceId || null,
     fields: keys
   });
-  res.json(updated);
+  res.json(updatedWithSignatures);
 }));
 
 // ── Delete ────────────────────────────────────────────────────────────────────

@@ -734,6 +734,13 @@ const artBaseSchema = z.object({
   price: nullableNumberSchema(z.number().min(0).max(1000000)),
   exclusive: z.boolean().optional().nullable(),
   signed: z.boolean().optional().nullable(),
+  signer_name: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
+  signer_role: z.preprocess(emptyStringToNull, z.string().max(100).optional().nullable()),
+  signed_on: nullableDateSchema,
+  signed_at: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
+  signed_event_id: nullableNumberSchema(z.number().int().positive()),
+  signature_proof_path: z.preprocess(emptyStringToNull, z.string().max(1000).optional().nullable()),
+  signature_notes: z.preprocess(emptyStringToNull, z.string().max(5000).optional().nullable()),
   image_path: z.preprocess(emptyStringToNull, z.string().max(2000).optional().nullable()),
   notes: z.preprocess(emptyStringToNull, z.string().max(5000).optional().nullable())
 });

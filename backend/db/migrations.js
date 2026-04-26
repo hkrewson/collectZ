@@ -3317,6 +3317,117 @@ const MIGRATIONS = [
       CREATE INDEX IF NOT EXISTS idx_art_items_franchise
         ON art_items(franchise);
     `
+  },
+  {
+    version: 78,
+    description: 'Add shared signature provenance records for Art and media',
+    up: `
+      CREATE TABLE IF NOT EXISTS signature_records (
+        id SERIAL PRIMARY KEY,
+        owner_type VARCHAR(20) NOT NULL CHECK (owner_type IN ('media', 'art')),
+        owner_id INTEGER NOT NULL,
+        library_id INTEGER,
+        space_id INTEGER,
+        signer_name VARCHAR(255),
+        signer_role VARCHAR(100),
+        signed_on DATE,
+        signed_at VARCHAR(255),
+        signed_event_id INTEGER REFERENCES events(id) ON DELETE SET NULL,
+        proof_path TEXT,
+        notes TEXT,
+        is_primary BOOLEAN NOT NULL DEFAULT false,
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        archived_at TIMESTAMP
+      );
+
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_signature_records_primary_active
+        ON signature_records(owner_type, owner_id)
+        WHERE is_primary = TRUE AND archived_at IS NULL;
+
+      CREATE INDEX IF NOT EXISTS idx_signature_records_owner_active
+        ON signature_records(owner_type, owner_id, archived_at);
+
+      CREATE INDEX IF NOT EXISTS idx_signature_records_signed_event
+        ON signature_records(signed_event_id)
+        WHERE signed_event_id IS NOT NULL AND archived_at IS NULL;
+
+      INSERT INTO signature_records (
+        owner_type,
+        owner_id,
+        library_id,
+        space_id,
+        signer_name,
+        signer_role,
+        signed_on,
+        signed_at,
+        proof_path,
+        is_primary,
+        created_by,
+        created_at,
+        updated_at
+      )
+      SELECT
+        'media',
+        m.id,
+        m.library_id,
+        m.space_id,
+        NULLIF(m.signed_by, ''),
+        NULLIF(m.signed_role, ''),
+        m.signed_on,
+        NULLIF(m.signed_at, ''),
+        NULLIF(m.signed_proof_path, ''),
+        TRUE,
+        m.added_by,
+        COALESCE(m.created_at, CURRENT_TIMESTAMP),
+        COALESCE(m.updated_at, m.created_at, CURRENT_TIMESTAMP)
+      FROM media m
+      WHERE (NULLIF(m.signed_by, '') IS NOT NULL
+          OR NULLIF(m.signed_role, '') IS NOT NULL
+          OR m.signed_on IS NOT NULL
+          OR NULLIF(m.signed_at, '') IS NOT NULL
+          OR NULLIF(m.signed_proof_path, '') IS NOT NULL)
+        AND NOT EXISTS (
+          SELECT 1
+          FROM signature_records sr
+          WHERE sr.owner_type = 'media'
+            AND sr.owner_id = m.id
+            AND sr.is_primary = TRUE
+            AND sr.archived_at IS NULL
+        );
+
+      INSERT INTO signature_records (
+        owner_type,
+        owner_id,
+        library_id,
+        space_id,
+        is_primary,
+        created_by,
+        created_at,
+        updated_at
+      )
+      SELECT
+        'art',
+        a.id,
+        a.library_id,
+        a.space_id,
+        TRUE,
+        a.created_by,
+        COALESCE(a.created_at, CURRENT_TIMESTAMP),
+        COALESCE(a.updated_at, a.created_at, CURRENT_TIMESTAMP)
+      FROM art_items a
+      WHERE a.signed = TRUE
+        AND a.archived_at IS NULL
+        AND NOT EXISTS (
+          SELECT 1
+          FROM signature_records sr
+          WHERE sr.owner_type = 'art'
+            AND sr.owner_id = a.id
+            AND sr.is_primary = TRUE
+            AND sr.archived_at IS NULL
+        );
+    `
   }
 ];
 

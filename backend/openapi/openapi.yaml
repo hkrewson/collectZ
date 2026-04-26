@@ -1304,6 +1304,17 @@
           "price": { "type": ["number", "null"] },
           "exclusive": { "type": "boolean" },
           "signed": { "type": "boolean" },
+          "signatures": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/SignatureRecord" }
+          },
+          "signer_name": { "type": ["string", "null"] },
+          "signer_role": { "type": ["string", "null"] },
+          "signed_on": { "type": ["string", "null"], "format": "date" },
+          "signed_at": { "type": ["string", "null"] },
+          "signed_event_id": { "type": ["integer", "null"] },
+          "signature_proof_path": { "type": ["string", "null"] },
+          "signature_notes": { "type": ["string", "null"] },
           "image_path": { "type": ["string", "null"] },
           "notes": { "type": ["string", "null"] },
           "created_at": { "type": "string", "format": "date-time" },
@@ -1328,6 +1339,10 @@
           "price": { "type": ["number", "null"] },
           "exclusive": { "type": "boolean" },
           "signed": { "type": "boolean" },
+          "signatures": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/SignatureRecord" }
+          },
           "image_path": { "type": ["string", "null"] },
           "notes": { "type": ["string", "null"] },
           "created_at": { "type": "string", "format": "date-time" },
@@ -1372,10 +1387,38 @@
           "price": { "type": ["number", "null"] },
           "exclusive": { "type": ["boolean", "null"] },
           "signed": { "type": ["boolean", "null"] },
+          "signer_name": { "type": ["string", "null"] },
+          "signer_role": { "type": ["string", "null"] },
+          "signed_on": { "type": ["string", "null"], "format": "date" },
+          "signed_at": { "type": ["string", "null"] },
+          "signed_event_id": { "type": ["integer", "null"] },
+          "signature_proof_path": { "type": ["string", "null"] },
+          "signature_notes": { "type": ["string", "null"] },
           "image_path": { "type": ["string", "null"] },
           "notes": { "type": ["string", "null"] }
         },
         "required": ["title"]
+      },
+      "SignatureRecord": {
+        "type": "object",
+        "properties": {
+          "id": { "type": ["integer", "null"] },
+          "owner_type": { "type": ["string", "null"], "enum": ["media", "art", null] },
+          "owner_id": { "type": ["integer", "null"] },
+          "library_id": { "type": ["integer", "null"] },
+          "space_id": { "type": ["integer", "null"] },
+          "signer_name": { "type": ["string", "null"] },
+          "signer_role": { "type": ["string", "null"] },
+          "signed_on": { "type": ["string", "null"], "format": "date" },
+          "signed_at": { "type": ["string", "null"] },
+          "signed_event_id": { "type": ["integer", "null"] },
+          "proof_path": { "type": ["string", "null"] },
+          "notes": { "type": ["string", "null"] },
+          "is_primary": { "type": "boolean" },
+          "created_at": { "type": ["string", "null"], "format": "date-time" },
+          "updated_at": { "type": ["string", "null"], "format": "date-time" }
+        },
+        "required": ["is_primary"]
       },
       "EventPurchasedItemRecord": {
         "type": "object",

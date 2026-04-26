@@ -4779,6 +4779,36 @@ Historical note:
 - Local release closeout accounted for unit, OpenAPI, browser, RBAC, edition-boundary, dependency, migration, observability, compose-smoke, secret-scan, image-security, and SBOM gates.
 - CI remains the authoritative source for tagged `secret-scan`, image security, and SBOM publication artifacts.
 
+## 3.4.9 — Shared Signature Provenance Foundation
+
+**Goal:** Replace one-off signed-object fields with a shared signature/provenance contract that Art can use immediately and existing media/title endpoints can adopt without losing compatibility.
+
+**Current Slice:** `Implementation`
+
+### Scope
+
+- Add a shared `signature_records` storage model keyed by owner type and owner id.
+- Support Art and media titles in the first slice; keep Collectibles out until a specific object case needs signed-copy provenance.
+- Preserve existing media `signed_by`, `signed_role`, `signed_on`, `signed_at`, and `signed_proof_path` fields as compatibility projections.
+- Preserve Art's simple `signed` boolean as the fast visual marker while adding richer signer/provenance details through the shared model.
+- Surface Art signature provenance in the Art drawer/editor/detail flow without crowding unsigned items.
+- Expose shared `signatures` readback through Art and media/title endpoints so future title surfaces use the same contract.
+
+### Acceptance Criteria
+
+- Art can record signer name, role, date, location/event context, notes, and proof path through a shared signature record.
+- Existing media signature metadata is backfilled into the shared table and remains readable through current title fields.
+- Art and media detail responses include a normalized `signatures` array.
+- Updating Art signature provenance updates the shared table and keeps `art_items.signed` aligned.
+- Upload/removal of media signing proof keeps the shared primary signature record in sync.
+- API/OpenAPI/init/migration contracts stay aligned.
+
+### Active Slice Notes
+
+- Treat event autograph artifacts as event history, not object-level signed-copy provenance, in this slice.
+- Keep proof image storage path-based for now and reuse existing upload/storage plumbing rather than introducing a new attachment service.
+- Avoid a controlled signer directory or many-to-many signer catalog until repeated signer reuse proves the need.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

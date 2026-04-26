@@ -110,6 +110,7 @@ const eventsRoutesSource = fs.readFileSync(require.resolve('../routes/events'), 
 const collectiblesRoutesSource = fs.readFileSync(require.resolve('../routes/collectibles'), 'utf8');
 const integrationsRoutesSource = fs.readFileSync(require.resolve('../routes/integrations'), 'utf8');
 const supportRoutesSource = fs.readFileSync(require.resolve('../routes/support'), 'utf8');
+const signaturesServiceSource = fs.readFileSync(require.resolve('../services/signatures'), 'utf8');
 const spacesServiceSource = fs.readFileSync(require.resolve('../services/spaces'), 'utf8');
 function readFrontendSource(relativePath) {
   const base = path.resolve(__dirname, '..', '..', 'frontend', 'src', relativePath);
@@ -3588,6 +3589,31 @@ results.push(run('fandom franchise metadata is shared by Art and Collectibles wi
   assert.ok(collectiblesViewSource.includes('Fandom / Franchise'));
   assert.ok(eventsViewSource.includes('candidate.franchise'));
   assert.ok(openApiSource.includes('"franchise"'));
+}));
+
+results.push(run('shared signature provenance foundation supports Art and media title endpoints', () => {
+  assert.ok(migrationsSource.includes('version: 78'));
+  assert.ok(migrationsSource.includes('Add shared signature provenance records for Art and media'));
+  assert.ok(migrationsSource.includes('CREATE TABLE IF NOT EXISTS signature_records'));
+  assert.ok(migrationsSource.includes("owner_type VARCHAR(20) NOT NULL CHECK (owner_type IN ('media', 'art'))"));
+  assert.ok(migrationsSource.includes('idx_signature_records_primary_active'));
+  assert.ok(migrationsSource.includes("SELECT\n        'media'"));
+  assert.ok(migrationsSource.includes("SELECT\n        'art'"));
+  assert.ok(initSqlSource.includes('CREATE TABLE IF NOT EXISTS signature_records'));
+  assert.ok(initSqlSource.includes("(78, 'Add shared signature provenance records for Art and media')"));
+  assert.ok(signaturesServiceSource.includes('syncPrimarySignatureRecord'));
+  assert.ok(signaturesServiceSource.includes('loadSignatureRecordsForOwner'));
+  assert.ok(collectiblesRoutesSource.includes('syncArtPrimarySignature'));
+  assert.ok(collectiblesRoutesSource.includes('signatures: signaturesByOwner.get'));
+  assert.ok(mediaRoutesSource.includes('syncMediaPrimarySignature'));
+  assert.ok(mediaRoutesSource.includes('attachSignaturesToMediaRecord'));
+  assert.ok(validateMiddlewareSource.includes('signer_name: z.preprocess(emptyStringToNull'));
+  assert.ok(validateMiddlewareSource.includes('signature_notes: z.preprocess(emptyStringToNull'));
+  assert.ok(artViewSource.includes("label: 'Signatures'"));
+  assert.ok(artViewSource.includes('Signature provenance'));
+  assert.ok(artViewSource.includes('signer_name: form.signer_name || null'));
+  assert.ok(openApiSource.includes('"SignatureRecord"'));
+  assert.ok(openApiSource.includes('"signatures"'));
 }));
 
 results.push(run('library loans view exposes management-focused counts and due-soon emphasis', () => {

@@ -9,6 +9,11 @@ const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
 const { logActivity } = require('../services/audit');
 const { uploadBuffer } = require('../services/storage');
 const {
+  loadSignatureRecords,
+  loadSignatureRecordsForOwner,
+  syncPrimarySignatureRecord
+} = require('../services/signatures');
+const {
   ACTIVE_COLLECTIBLE_CATEGORY_KEYS,
   COLLECTIBLE_SUBTYPES,
   resolveCategoryKey,
@@ -84,6 +89,8 @@ const serializeCollectibleRow = (row) => {
 const serializeNativeArtRow = (row) => {
   const vendor = row.vendor || null;
   const booth = row.booth || null;
+  const signatures = Array.isArray(row.signatures) ? row.signatures : [];
+  const primarySignature = signatures.find((signature) => signature.is_primary) || signatures[0] || null;
   return {
     id: row.source_collectible_id || row.id,
     native_art_id: row.id,
@@ -106,7 +113,15 @@ const serializeNativeArtRow = (row) => {
     booth_or_vendor: vendor && booth ? `${vendor} / ${booth}` : (vendor || booth || null),
     price: row.price === null || row.price === undefined ? null : Number(row.price),
     exclusive: row.exclusive === true,
-    signed: row.signed === true,
+    signed: row.signed === true || signatures.length > 0,
+    signatures,
+    signer_name: primarySignature?.signer_name || null,
+    signer_role: primarySignature?.signer_role || null,
+    signed_on: primarySignature?.signed_on || null,
+    signed_at: primarySignature?.signed_at || null,
+    signed_event_id: primarySignature?.signed_event_id || null,
+    signature_proof_path: primarySignature?.proof_path || null,
+    signature_notes: primarySignature?.notes || null,
     image_path: row.image_path || null,
     notes: row.notes || null,
     created_at: row.created_at,
@@ -259,6 +274,45 @@ const loadNativeArtById = async (scopeContext, nativeArtId) => {
   return result.rows[0] || null;
 };
 
+const attachSignaturesToArtRows = async (rows = []) => {
+  const artRows = Array.isArray(rows) ? rows : [];
+  const ids = artRows.map((row) => Number(row.id || 0)).filter(Boolean);
+  const signaturesByOwner = await loadSignatureRecords(pool, { ownerType: 'art', ownerIds: ids });
+  return artRows.map((row) => ({
+    ...row,
+    signatures: signaturesByOwner.get(Number(row.id || 0)) || []
+  }));
+};
+
+const attachSignaturesToArtRow = async (row) => {
+  if (!row?.id) return row;
+  const signatures = await loadSignatureRecordsForOwner(pool, { ownerType: 'art', ownerId: row.id });
+  return { ...row, signatures };
+};
+
+const buildArtSignaturePayload = (payload = {}) => ({
+  signer_name: payload.signer_name,
+  signer_role: payload.signer_role,
+  signed_on: payload.signed_on,
+  signed_at: payload.signed_at,
+  signed_event_id: payload.signed_event_id,
+  proof_path: payload.signature_proof_path || payload.proof_path,
+  notes: payload.signature_notes
+});
+
+const syncArtPrimarySignature = async ({ artRow, payload = {}, userId = null }) => {
+  if (!artRow?.id) return null;
+  return syncPrimarySignatureRecord(pool, {
+    ownerType: 'art',
+    ownerId: artRow.id,
+    libraryId: artRow.library_id || null,
+    spaceId: artRow.space_id || null,
+    createdBy: userId,
+    signature: buildArtSignaturePayload(payload),
+    signed: payload.signed === true
+  });
+};
+
 const syncNativeArtEventLink = async ({ artRow, eventId, userId }) => {
   if (!artRow?.id) return null;
   await pool.query(
@@ -318,6 +372,13 @@ const normalizeArtPayload = (payload = {}) => {
     price: payload.price ?? null,
     exclusive: payload.exclusive === true,
     signed: payload.signed === true,
+    signer_name: payload.signer_name || null,
+    signer_role: payload.signer_role || null,
+    signed_on: payload.signed_on || null,
+    signed_at: payload.signed_at || null,
+    signed_event_id: payload.signed_event_id || null,
+    signature_proof_path: payload.signature_proof_path || null,
+    signature_notes: payload.signature_notes || null,
     image_path: payload.image_path || null,
     notes: payload.notes || null
   };
@@ -442,8 +503,9 @@ router.get(COLLECTIBLE_ROUTE_PATHS, asyncHandler(async (req, res) => {
       params
     );
     const total = Number(countResult.rows[0]?.total || 0);
+    const artRows = await attachSignaturesToArtRows(rows.rows);
     return res.json({
-      items: rows.rows.map(serializeNativeArtRow),
+      items: artRows.map(serializeNativeArtRow),
       pagination: {
         page,
         limit,
@@ -553,7 +615,7 @@ router.get(COLLECTIBLE_DETAIL_PATHS, asyncHandler(async (req, res) => {
   if (routeConfig.isArtRoute) {
     const row = await loadNativeArtByRouteId(scopeContext, collectibleId);
     if (!row) return res.status(404).json({ error: 'Art item not found' });
-    return res.json(serializeNativeArtRow(row));
+    return res.json(serializeNativeArtRow(await attachSignaturesToArtRow(row)));
   }
 
   const params = [collectibleId];
@@ -632,8 +694,9 @@ const createArt = asyncHandler(async (req, res) => {
     ]
   );
   const artRow = created.rows[0];
+  await syncArtPrimarySignature({ artRow, payload, userId: req.user.id });
   await syncNativeArtEventLink({ artRow, eventId: payload.event_id, userId: req.user.id });
-  const hydrated = await loadNativeArtById(scopeContext, artRow.id);
+  const hydrated = await attachSignaturesToArtRow(await loadNativeArtById(scopeContext, artRow.id));
   const publicId = buildPublicNativeArtId(hydrated || artRow);
 
   await logActivity(req, 'art.create', 'art', publicId, {
@@ -783,8 +846,20 @@ const updateArt = asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'Invalid art id' });
   }
 
-  const current = await loadNativeArtByRouteId(scopeContext, artRouteId);
+  let current = await loadNativeArtByRouteId(scopeContext, artRouteId);
   if (!current) return res.status(404).json({ error: 'Art item not found' });
+  current = await attachSignaturesToArtRow(current);
+  const currentPrimarySignature = current.signatures?.find((signature) => signature.is_primary) || current.signatures?.[0] || null;
+  current = {
+    ...current,
+    signer_name: currentPrimarySignature?.signer_name || null,
+    signer_role: currentPrimarySignature?.signer_role || null,
+    signed_on: currentPrimarySignature?.signed_on || null,
+    signed_at: currentPrimarySignature?.signed_at || null,
+    signed_event_id: currentPrimarySignature?.signed_event_id || null,
+    signature_proof_path: currentPrimarySignature?.proof_path || null,
+    signature_notes: currentPrimarySignature?.notes || null
+  };
 
   if (Object.prototype.hasOwnProperty.call(req.body || {}, 'event_id') && req.body.event_id) {
     const eventRow = await validateScopedEvent(scopeContext, req.body.event_id);
@@ -822,6 +897,20 @@ const updateArt = asyncHandler(async (req, res) => {
     );
   }
 
+  const signatureKeys = ['signed', 'signer_name', 'signer_role', 'signed_on', 'signed_at', 'signed_event_id', 'signature_proof_path', 'signature_notes'];
+  const touchesSignature = signatureKeys.some((key) => Object.prototype.hasOwnProperty.call(req.body || {}, key));
+  if (touchesSignature) {
+    await syncArtPrimarySignature({
+      artRow: { ...current, ...payload, id: current.id },
+      payload: {
+        ...current,
+        ...payload,
+        signed: Object.prototype.hasOwnProperty.call(req.body || {}, 'signed') ? payload.signed : current.signed === true
+      },
+      userId: req.user.id
+    });
+  }
+
   if (Object.prototype.hasOwnProperty.call(req.body || {}, 'event_id')) {
     await syncNativeArtEventLink({
       artRow: { ...current, ...payload, id: current.id },
@@ -830,7 +919,7 @@ const updateArt = asyncHandler(async (req, res) => {
     });
   }
 
-  const hydrated = await loadNativeArtById(scopeContext, current.id);
+  const hydrated = await attachSignaturesToArtRow(await loadNativeArtById(scopeContext, current.id));
   if (current.source_collectible_id && hydrated) {
     await pool.query(
       `UPDATE collectibles
@@ -869,6 +958,7 @@ const updateArt = asyncHandler(async (req, res) => {
   await logActivity(req, 'art.update', 'art', publicId, {
     fields: [
       ...updates.map((entry) => entry.key),
+      ...(touchesSignature ? ['signature'] : []),
       ...(Object.prototype.hasOwnProperty.call(req.body || {}, 'event_id') ? ['event_id'] : [])
     ],
     native_art_id: current.id

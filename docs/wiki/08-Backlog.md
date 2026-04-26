@@ -121,23 +121,6 @@ This file is the staging area for work that has not yet been assigned a release 
 - Plex import uses the actual API path.
 - New-title checks, watch-status checks, and webhooks are all represented in the import design.
 
-### Backlog Item: Art Signature Provenance
-**Type:** Task
-**Tags:** `art`, `signatures`, `provenance`, `attachments`
-
-**Goal:** Expand Art's simple signed status into richer provenance when signer and proof details matter.
-
-**Scope**
-- Add optional signer/provenance fields for Art records.
-- Decide whether proof images reuse existing image storage or need a distinct attachment type.
-- Preserve the simple `signed` boolean as the fast visual marker.
-- Keep provenance fields out of Collectibles unless a future object type proves it needs the same contract.
-
-**Acceptance Criteria**
-- Art can record who signed an item and any supporting proof metadata.
-- The drawer/detail surface can show provenance without crowding ordinary unsigned items.
-- Existing signed boolean data remains readable and migrates cleanly into the richer model.
-
 ### Backlog Item: Collectibles Naming Review
 **Type:** Discussion
 **Tags:** `collectibles`, `naming`, `taxonomy`, `fandom`

@@ -22,6 +22,13 @@ const DEFAULT_FORM = {
   price: '',
   exclusive: false,
   signed: false,
+  signer_name: '',
+  signer_role: '',
+  signed_on: '',
+  signed_at: '',
+  signed_event_id: '',
+  signature_proof_path: '',
+  signature_notes: '',
   image_path: '',
   notes: ''
 };
@@ -154,6 +161,14 @@ function ArtDetailDrawer({ artId, apiCall, events, onClose, onEdit, onDeleted })
   const showPurchaseContext = hasPurchaseContext(item);
   const mediumLabel = ART_MEDIUM_OPTIONS.find((option) => option.value === item?.medium)?.label || null;
   const factSummary = [item?.franchise, item?.series, item?.artist, mediumLabel, resolvedEvent].filter(Boolean);
+  const primarySignature = item?.signatures?.find((signature) => signature.is_primary) || item?.signatures?.[0] || null;
+  const signatureEventTitle = events.find((evt) => String(evt.id) === String(primarySignature?.signed_event_id || item?.signed_event_id))?.title || null;
+  const signatureSummary = [
+    primarySignature?.signer_name || item?.signer_name,
+    primarySignature?.signer_role || item?.signer_role,
+    primarySignature?.signed_on || item?.signed_on,
+    primarySignature?.signed_at || item?.signed_at || signatureEventTitle
+  ].filter(Boolean).join(' · ');
 
   return (
     <div className="fixed inset-0 z-50 flex">
@@ -193,6 +208,17 @@ function ArtDetailDrawer({ artId, apiCall, events, onClose, onEdit, onDeleted })
               <DetailField label="Artist">{item.artist}</DetailField>
               <DetailField label="Event">{resolvedEvent || 'None linked'}</DetailField>
               <DetailField label="Signed">{item.signed ? 'Yes' : 'No'}</DetailField>
+              {item.signed || primarySignature ? <DetailField label="Signature provenance">{signatureSummary || 'Signed copy'}</DetailField> : null}
+              {(primarySignature?.notes || item.signature_notes) ? (
+                <DetailField label="Signature notes" className="md:col-span-2">
+                  <p className="max-w-3xl text-dim leading-7">{primarySignature?.notes || item.signature_notes}</p>
+                </DetailField>
+              ) : null}
+              {(primarySignature?.proof_path || item.signature_proof_path) ? (
+                <DetailField label="Signature proof">
+                  <a className="inline-flex items-center gap-2 text-dim transition-colors hover:text-ink" href={posterUrl(primarySignature?.proof_path || item.signature_proof_path)} target="_blank" rel="noreferrer"><Icons.Link />Open proof</a>
+                </DetailField>
+              ) : null}
               <DetailField label="Exclusive">{item.exclusive ? 'Yes' : 'No'}</DetailField>
               {showPurchaseContext ? <DetailField label="Vendor">{item.vendor || item.booth_or_vendor}</DetailField> : null}
               {showPurchaseContext ? <DetailField label="Booth">{item.booth}</DetailField> : null}
@@ -221,10 +247,18 @@ function ArtDetailDrawer({ artId, apiCall, events, onClose, onEdit, onDeleted })
 }
 
 function ArtDrawer({ initial, events, saving, error, notice, onClose, onSave, onDelete, onClearImage }) {
+  const primaryInitialSignature = initial?.signatures?.find((signature) => signature.is_primary) || initial?.signatures?.[0] || null;
   const [form, setForm] = useState(() => ({
     ...DEFAULT_FORM,
     ...(initial || {}),
     event_id: initial?.event_id ? String(initial.event_id) : '',
+    signer_name: primaryInitialSignature?.signer_name || initial?.signer_name || '',
+    signer_role: primaryInitialSignature?.signer_role || initial?.signer_role || '',
+    signed_on: primaryInitialSignature?.signed_on || initial?.signed_on || '',
+    signed_at: primaryInitialSignature?.signed_at || initial?.signed_at || '',
+    signed_event_id: primaryInitialSignature?.signed_event_id ? String(primaryInitialSignature.signed_event_id) : (initial?.signed_event_id ? String(initial.signed_event_id) : ''),
+    signature_proof_path: primaryInitialSignature?.proof_path || initial?.signature_proof_path || '',
+    signature_notes: primaryInitialSignature?.notes || initial?.signature_notes || '',
     vendor: initial?.vendor || '',
     booth: initial?.booth || ''
   }));
@@ -232,6 +266,7 @@ function ArtDrawer({ initial, events, saving, error, notice, onClose, onSave, on
   const [cameraOpen, setCameraOpen] = useState(false);
   const tabs = useMemo(() => ([
     { id: 'core', label: 'Artwork' },
+    { id: 'signatures', label: 'Signatures' },
     { id: 'notes', label: 'Image & Notes' }
   ]), []);
   const [activeTab, setActiveTab] = useState('core');
@@ -241,12 +276,19 @@ function ArtDrawer({ initial, events, saving, error, notice, onClose, onSave, on
       ...DEFAULT_FORM,
       ...(initial || {}),
       event_id: initial?.event_id ? String(initial.event_id) : '',
+      signer_name: primaryInitialSignature?.signer_name || initial?.signer_name || '',
+      signer_role: primaryInitialSignature?.signer_role || initial?.signer_role || '',
+      signed_on: primaryInitialSignature?.signed_on || initial?.signed_on || '',
+      signed_at: primaryInitialSignature?.signed_at || initial?.signed_at || '',
+      signed_event_id: primaryInitialSignature?.signed_event_id ? String(primaryInitialSignature.signed_event_id) : (initial?.signed_event_id ? String(initial.signed_event_id) : ''),
+      signature_proof_path: primaryInitialSignature?.proof_path || initial?.signature_proof_path || '',
+      signature_notes: primaryInitialSignature?.notes || initial?.signature_notes || '',
       vendor: initial?.vendor || '',
       booth: initial?.booth || ''
     });
     setImageFile(null);
     setActiveTab('core');
-  }, [initial]);
+  }, [initial, primaryInitialSignature]);
 
   const showPurchaseContext = hasPurchaseContext(form);
   const submit = () => onSave(form, imageFile);
@@ -307,6 +349,26 @@ function ArtDrawer({ initial, events, saving, error, notice, onClose, onSave, on
                   <input type="checkbox" checked={Boolean(form.signed)} onChange={(e) => setForm((p) => ({ ...p, signed: e.target.checked }))} />
                   Signed
                 </label>
+              </div>
+            </SectionTabPanel>
+            <SectionTabPanel activeId={activeTab} tabKey="signatures" idBase="art-editor-steps">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <label className="field md:col-span-2 inline-flex items-center gap-2 text-sm text-dim">
+                  <input type="checkbox" checked={Boolean(form.signed)} onChange={(e) => setForm((p) => ({ ...p, signed: e.target.checked }))} />
+                  This piece is signed
+                </label>
+                <label className="field"><span className="label">Signer</span><input className="input" value={form.signer_name || ''} onChange={(e) => setForm((p) => ({ ...p, signer_name: e.target.value, signed: Boolean(e.target.value.trim()) || p.signed }))} /></label>
+                <label className="field"><span className="label">Signer role</span><input className="input" placeholder="Artist, writer, voice actor…" value={form.signer_role || ''} onChange={(e) => setForm((p) => ({ ...p, signer_role: e.target.value }))} /></label>
+                <label className="field"><span className="label">Signed on</span><input className="input" type="date" value={form.signed_on || ''} onChange={(e) => setForm((p) => ({ ...p, signed_on: e.target.value }))} /></label>
+                <label className="field"><span className="label">Signed at</span><input className="input" placeholder="Convention, gallery, signing table…" value={form.signed_at || ''} onChange={(e) => setForm((p) => ({ ...p, signed_at: e.target.value }))} /></label>
+                <label className="field"><span className="label">Signing event</span>
+                  <select className="select" value={form.signed_event_id || ''} onChange={(e) => setForm((p) => ({ ...p, signed_event_id: e.target.value }))}>
+                    <option value="">None</option>
+                    {events.map((evt) => <option key={evt.id} value={String(evt.id)}>{evt.title}</option>)}
+                  </select>
+                </label>
+                <label className="field"><span className="label">Proof image URL</span><input className="input" value={form.signature_proof_path || ''} onChange={(e) => setForm((p) => ({ ...p, signature_proof_path: e.target.value }))} /></label>
+                <label className="field md:col-span-2"><span className="label">Signature notes</span><textarea className="textarea min-h-[80px]" value={form.signature_notes || ''} onChange={(e) => setForm((p) => ({ ...p, signature_notes: e.target.value }))} /></label>
               </div>
             </SectionTabPanel>
             <SectionTabPanel activeId={activeTab} tabKey="notes" idBase="art-editor-steps">
@@ -449,6 +511,13 @@ export default function ArtView({ apiCall, onToast }) {
         price: form.price === '' ? null : Number(form.price),
         exclusive: Boolean(form.exclusive),
         signed: Boolean(form.signed),
+        signer_name: form.signer_name || null,
+        signer_role: form.signer_role || null,
+        signed_on: form.signed_on || null,
+        signed_at: form.signed_at || null,
+        signed_event_id: form.signed_event_id ? Number(form.signed_event_id) : null,
+        signature_proof_path: form.signature_proof_path || null,
+        signature_notes: form.signature_notes || null,
         image_path: form.image_path || null,
         notes: form.notes || null
       };
