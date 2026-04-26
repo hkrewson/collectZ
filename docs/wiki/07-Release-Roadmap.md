@@ -4496,6 +4496,8 @@ Historical note:
 
 **Goal:** Finish separating Art from Collectibles at the product layer and remove the remaining bridge-era compatibility assumptions.
 
+**Current Slice:** `Art UI Split`
+
 ### Scope
 
 - Give Art its own intentionally designed drawer/editor and detail/read surfaces where shared Collectibles UI is no longer the right fit.
@@ -4507,6 +4509,14 @@ Historical note:
 - Art is a fully separate object domain in the product and no longer behaves like a collectible subtype with a nicer tab.
 - The Collectibles surface no longer carries Art-specific compatibility logic that should live only in migration history.
 - The long-term Art/Event/Collectibles relationship model is documented clearly enough for future work to build on without revisiting the bridge design.
+
+### Active Implementation Notes
+
+- Split `ArtView` into a native Art component instead of rendering `CollectiblesView` with an Art mode.
+- Keep `/api/art` as the Art route contract while the backend still owns bridge-safe write compatibility.
+- Keep Events as the shared readback surface for tracked purchases through `event_purchased_items`.
+- Keep Collectibles focused on non-Art collectible classifications, including `Card` plus collectible categories.
+- Do not remove bridge columns or migration compatibility until the native Art write path and cleanup boundary are proven separately.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 

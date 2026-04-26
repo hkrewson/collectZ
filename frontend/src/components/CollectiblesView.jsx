@@ -12,12 +12,6 @@ const CATEGORY_OPTIONS = [
   { key: 'clothing', label: 'Clothing' }
 ];
 
-const ITEM_TYPES = [
-  { value: 'art', label: 'Art' },
-  { value: 'card', label: 'Card' },
-  { value: 'collectible', label: 'Collectible' }
-];
-
 const COLLECTIBLE_CLASSIFICATIONS = [
   { value: 'card', label: 'Card', subtype: 'card', category_key: '' },
   ...CATEGORY_OPTIONS.map((option) => ({
@@ -27,45 +21,22 @@ const COLLECTIBLE_CLASSIFICATIONS = [
     category_key: option.key
   }))
 ];
-const VIEW_VARIANTS = {
-  collectibles: {
-    title: 'Collectibles',
-    singularLabel: 'Collectible',
-    entityNoun: 'collectible',
-    detailFallback: 'Collectible',
-    apiBasePath: '/collectibles',
-    description: 'Keep convention pickups, exclusives, props, and shelf pieces feeling connected to the events they came from.',
-    emptyState: 'No collectibles found. Add exclusives, props, cards, and shelf pieces here so they feel anchored to your events and vendors.',
-    cameraTitle: 'Capture collectible image',
-    cameraDescription: 'Capture a collectible image and attach it directly to this item.',
-    cameraConfirmLabel: 'Use collectible image',
-    addLabel: 'Add Collectible',
-    createToast: 'Collectible created',
-    saveToast: 'Collectible saved',
-    deleteToast: 'Collectible deleted',
-    lockedSubtype: null,
-    showSubtypeFilter: true,
-    showSubtypeField: true
-  },
-  art: {
-    title: 'Art',
-    singularLabel: 'Art',
-    entityNoun: 'art piece',
-    detailFallback: 'Art',
-    apiBasePath: '/art',
-    description: 'Track original art, prints, and sketch commissions as their own library while keeping event purchases and vendor context attached.',
-    emptyState: 'No art found yet. Add commissions, prints, and original pieces here so their artist, vendor, and event purchase history stays intact.',
-    cameraTitle: 'Capture art image',
-    cameraDescription: 'Capture an art image and attach it directly to this piece.',
-    cameraConfirmLabel: 'Use art image',
-    addLabel: 'Add Art',
-    createToast: 'Art created',
-    saveToast: 'Art saved',
-    deleteToast: 'Art deleted',
-    lockedSubtype: 'art',
-    showSubtypeFilter: false,
-    showSubtypeField: false
-  }
+
+const VIEW_CONFIG = {
+  title: 'Collectibles',
+  singularLabel: 'Collectible',
+  entityNoun: 'collectible',
+  detailFallback: 'Collectible',
+  apiBasePath: '/collectibles',
+  description: 'Keep convention pickups, exclusives, props, cards, and shelf pieces feeling connected to the events they came from.',
+  emptyState: 'No collectibles found. Add exclusives, props, cards, and shelf pieces here so they feel anchored to your events and vendors.',
+  cameraTitle: 'Capture collectible image',
+  cameraDescription: 'Capture a collectible image and attach it directly to this item.',
+  cameraConfirmLabel: 'Use collectible image',
+  addLabel: 'Add Collectible',
+  createToast: 'Collectible created',
+  saveToast: 'Collectible saved',
+  deleteToast: 'Collectible deleted'
 };
 
 const DEFAULT_FORM = {
@@ -88,23 +59,6 @@ const parseUploadError = (message) => {
   return raw || 'Image upload failed';
 };
 
-const isCollectiblesMode = (viewConfig) => viewConfig?.apiBasePath === '/collectibles';
-
-const hasPurchaseContext = (item) => {
-  const record = item || {};
-  return Boolean(
-    record.event_id
-    || record.event_title
-    || record.vendor
-    || record.booth
-    || record.booth_or_vendor
-  );
-};
-
-const shouldShowPurchaseContext = (item, viewConfig) => (
-  isCollectiblesMode(viewConfig) || hasPurchaseContext(item)
-);
-
 const getCollectibleClassificationOption = (subtype, categoryKey) => {
   if (String(subtype || '').trim() === 'card') {
     return COLLECTIBLE_CLASSIFICATIONS.find((option) => option.value === 'card') || null;
@@ -114,8 +68,7 @@ const getCollectibleClassificationOption = (subtype, categoryKey) => {
   return COLLECTIBLE_CLASSIFICATIONS.find((option) => option.value === normalizedCategoryKey) || null;
 };
 
-const getCollectibleClassificationLabel = (item, viewConfig) => {
-  if (viewConfig?.lockedSubtype === 'art') return 'Art';
+const getCollectibleClassificationLabel = (item) => {
   if (String(item?.subtype || item?.item_type || '').trim() === 'card') return 'Card';
   return item?.category || 'Collectible';
 };
@@ -136,7 +89,7 @@ function FilterPill({ children, tone = 'default' }) {
 }
 
 function CollectibleCard({ item, supportsHover, onOpen, onEdit, onDelete, viewConfig }) {
-  const classificationLabel = getCollectibleClassificationLabel(item, viewConfig);
+  const classificationLabel = getCollectibleClassificationLabel(item);
   return (
     <ObjectPosterCard
       title={item.title}
@@ -171,7 +124,7 @@ function DetailField({ label, children, className = '' }) {
 }
 
 function CollectibleRow({ item, supportsHover, onOpen, onEdit, onDelete, viewConfig }) {
-  const classificationLabel = getCollectibleClassificationLabel(item, viewConfig);
+  const classificationLabel = getCollectibleClassificationLabel(item);
   return (
     <article className="group flex items-center gap-4 rounded-xl border border-edge bg-surface p-3 hover:border-muted hover:bg-raised transition-all duration-150 animate-fade-in cursor-pointer" onClick={() => onOpen(item)}>
       <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-edge bg-raised text-ghost"><Icons.Activity /></div>
@@ -223,8 +176,8 @@ function CollectibleDetailDrawer({ collectibleId, apiCall, categories, events, o
   const resolvedEvent = item?.event_title
     || events.find((evt) => String(evt.id) === String(item?.event_id))?.title
     || null;
-  const itemTypeLabel = getCollectibleClassificationLabel(item, viewConfig);
-  const showPurchaseContext = shouldShowPurchaseContext(item, viewConfig);
+  const itemTypeLabel = getCollectibleClassificationLabel(item);
+  const showPurchaseContext = true;
   const factSummary = [
     item?.series,
     resolvedEvent,
@@ -266,9 +219,8 @@ function CollectibleDetailDrawer({ collectibleId, apiCall, categories, events, o
           {!loading && item ? (
             <>
               <div className="grid grid-cols-1 gap-x-8 gap-y-5 text-sm md:grid-cols-2">
-                <DetailField label={isCollectiblesMode(viewConfig) ? 'Classification' : 'Type'}>{itemTypeLabel}</DetailField>
+                <DetailField label="Classification">{itemTypeLabel}</DetailField>
                 <DetailField label="Series">{item.series}</DetailField>
-                {!isCollectiblesMode(viewConfig) ? <DetailField label="Category">{resolvedCategory || 'Uncategorized'}</DetailField> : null}
                 <DetailField label="Event">{resolvedEvent || 'None linked'}</DetailField>
                 <DetailField label="Exclusive">{item.exclusive ? 'Yes' : 'No'}</DetailField>
                 <DetailField label="Artist">{item.artist}</DetailField>
@@ -334,7 +286,7 @@ function CollectibleDrawer({
   const [form, setForm] = useState(() => ({
     ...DEFAULT_FORM,
     ...(initial || {}),
-    subtype: initial?.subtype || initial?.item_type || viewConfig.lockedSubtype || 'collectible',
+    subtype: initial?.subtype || initial?.item_type || 'collectible',
     category_key: initial?.category_key || '',
     event_id: initial?.event_id ? String(initial.event_id) : '',
     booth_or_vendor: initial?.booth_or_vendor || '',
@@ -353,7 +305,7 @@ function CollectibleDrawer({
     setForm({
       ...DEFAULT_FORM,
       ...(initial || {}),
-      subtype: initial?.subtype || initial?.item_type || viewConfig.lockedSubtype || 'collectible',
+      subtype: initial?.subtype || initial?.item_type || 'collectible',
       category_key: initial?.category_key || '',
       event_id: initial?.event_id ? String(initial.event_id) : '',
       booth_or_vendor: initial?.booth_or_vendor || '',
@@ -362,15 +314,15 @@ function CollectibleDrawer({
     });
     setImageFile(null);
     setActiveTab('core');
-  }, [initial, viewConfig.lockedSubtype]);
+  }, [initial]);
 
   const collectibleClassificationValue = useMemo(() => (
     getCollectibleClassificationOption(
-      form.subtype || viewConfig.lockedSubtype || 'collectible',
+      form.subtype || 'collectible',
       form.category_key || ''
     )?.value || ''
-  ), [form.category_key, form.subtype, viewConfig.lockedSubtype]);
-  const showPurchaseContext = shouldShowPurchaseContext(form, viewConfig);
+  ), [form.category_key, form.subtype]);
+  const showPurchaseContext = true;
 
   const submit = () => onSave(form, imageFile);
 
@@ -402,35 +354,19 @@ function CollectibleDrawer({
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <label className="field"><span className="label">Title *</span><input className="input" value={form.title || ''} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} /></label>
                 <label className="field"><span className="label">Series</span><input className="input" value={form.series || ''} onChange={(e) => setForm((p) => ({ ...p, series: e.target.value }))} /></label>
-                {isCollectiblesMode(viewConfig) ? (
-                  <label className="field"><span className="label">Category</span>
-                    <select
-                      className="select"
-                      value={collectibleClassificationValue}
-                      onChange={(e) => {
-                        const next = classifyCollectibleForm(e.target.value);
-                        setForm((p) => ({ ...p, ...next }));
-                      }}
-                    >
-                      <option value="">None</option>
-                      {COLLECTIBLE_CLASSIFICATIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                    </select>
-                  </label>
-                ) : viewConfig.showSubtypeField ? (
-                  <label className="field"><span className="label">Type</span>
-                    <select className="select" value={form.subtype || 'collectible'} onChange={(e) => setForm((p) => ({ ...p, subtype: e.target.value }))}>
-                      {ITEM_TYPES.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                    </select>
-                  </label>
-                ) : null}
-                {!isCollectiblesMode(viewConfig) ? (
-                  <label className="field"><span className="label">Category</span>
-                    <select className="select" value={form.category_key || ''} onChange={(e) => setForm((p) => ({ ...p, category_key: e.target.value }))}>
-                      <option value="">None</option>
-                      {CATEGORY_OPTIONS.map((cat) => <option key={cat.key} value={cat.key}>{cat.label}</option>)}
-                    </select>
-                  </label>
-                ) : null}
+                <label className="field"><span className="label">Category</span>
+                  <select
+                    className="select"
+                    value={collectibleClassificationValue}
+                    onChange={(e) => {
+                      const next = classifyCollectibleForm(e.target.value);
+                      setForm((p) => ({ ...p, ...next }));
+                    }}
+                  >
+                    <option value="">None</option>
+                    {COLLECTIBLE_CLASSIFICATIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                  </select>
+                </label>
                 <label className="field md:col-span-2"><span className="label">Linked Event</span>
                   <select className="select" value={form.event_id || ''} onChange={(e) => setForm((p) => ({ ...p, event_id: e.target.value }))}>
                     <option value="">None</option>
@@ -494,8 +430,8 @@ function CollectibleDrawer({
   );
 }
 
-export default function CollectiblesView({ apiCall, onToast, mode = 'collectibles' }) {
-  const viewConfig = VIEW_VARIANTS[mode] || VIEW_VARIANTS.collectibles;
+export default function CollectiblesView({ apiCall, onToast }) {
+  const viewConfig = VIEW_CONFIG;
   const apiBasePath = viewConfig.apiBasePath;
   const api = useCallback((method, path, data, config = {}) => (
     apiCall(method, path, data, { timeout: 15000, ...config })
@@ -510,7 +446,6 @@ export default function CollectiblesView({ apiCall, onToast, mode = 'collectible
   const [notice, setNotice] = useState('');
   const [search, setSearch] = useState('');
   const [sortDir, setSortDir] = useState('asc');
-  const [subtypeFilter, setSubtypeFilter] = useState('');
   const [viewMode, setViewMode] = useState('cards');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [eventFilter, setEventFilter] = useState('');
@@ -525,10 +460,9 @@ export default function CollectiblesView({ apiCall, onToast, mode = 'collectible
   const filterMenuRef = useRef(null);
 
   const supportsHover = useMemo(() => window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches, []);
-  const collectiblesMode = isCollectiblesMode(viewConfig);
   const activeFilterCount = useMemo(
-    () => [search.trim(), viewConfig.showSubtypeFilter && !collectiblesMode ? subtypeFilter : '', categoryFilter, eventFilter, exclusiveFilter].filter(Boolean).length,
-    [categoryFilter, collectiblesMode, eventFilter, exclusiveFilter, search, subtypeFilter, viewConfig.showSubtypeFilter]
+    () => [search.trim(), categoryFilter, eventFilter, exclusiveFilter].filter(Boolean).length,
+    [categoryFilter, eventFilter, exclusiveFilter, search]
   );
 
   const loadEvents = useCallback(async () => {
@@ -559,15 +493,10 @@ export default function CollectiblesView({ apiCall, onToast, mode = 'collectible
       params.set('limit', String(pageSize));
       if (search.trim()) params.set('q', search.trim());
       params.set('sort_dir', sortDir);
-      if (collectiblesMode) {
-        if (categoryFilter === 'card') {
-          params.set('subtype', 'card');
-        } else if (categoryFilter) {
-          params.set('category_key', categoryFilter);
-        }
-      } else {
-        if (viewConfig.showSubtypeFilter && subtypeFilter) params.set('subtype', subtypeFilter);
-        if (categoryFilter) params.set('category_key', categoryFilter);
+      if (categoryFilter === 'card') {
+        params.set('subtype', 'card');
+      } else if (categoryFilter) {
+        params.set('category_key', categoryFilter);
       }
       if (eventFilter) params.set('event_id', eventFilter);
       if (exclusiveFilter) params.set('exclusive', exclusiveFilter);
@@ -579,7 +508,7 @@ export default function CollectiblesView({ apiCall, onToast, mode = 'collectible
     } finally {
       setLoading(false);
     }
-  }, [api, apiBasePath, categoryFilter, collectiblesMode, eventFilter, exclusiveFilter, page, pageSize, search, sortDir, subtypeFilter, viewConfig.showSubtypeFilter, viewConfig.title]);
+  }, [api, apiBasePath, categoryFilter, eventFilter, exclusiveFilter, page, pageSize, search, sortDir, viewConfig.title]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { loadEvents(); }, [loadEvents]);
@@ -611,7 +540,7 @@ export default function CollectiblesView({ apiCall, onToast, mode = 'collectible
       const payload = {
         title: String(form.title || '').trim(),
         series: form.series || null,
-        subtype: viewConfig.lockedSubtype || form.subtype || 'collectible',
+        subtype: form.subtype || 'collectible',
         category_key: form.category_key || null,
         event_id: form.event_id ? Number(form.event_id) : null,
         artist: form.artist || null,
@@ -694,14 +623,14 @@ export default function CollectiblesView({ apiCall, onToast, mode = 'collectible
             {filterOpen ? (
               <div className="absolute right-0 mt-2 w-80 rounded-xl border border-edge bg-raised p-3 z-20 shadow-2xl space-y-3">
                 <div>
-                  <p className="text-xs text-ghost mb-2">{collectiblesMode ? 'Category' : 'Categories'}</p>
+                  <p className="text-xs text-ghost mb-2">Category</p>
                   <select
                     className="select w-full"
                     value={categoryFilter}
                     onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }}
                   >
-                    <option value="">{collectiblesMode ? 'All categories' : 'All categories'}</option>
-                    {(collectiblesMode ? COLLECTIBLE_CLASSIFICATIONS : (categories.length > 0 ? categories : CATEGORY_OPTIONS)).map((cat) => (
+                    <option value="">All categories</option>
+                    {COLLECTIBLE_CLASSIFICATIONS.map((cat) => (
                       <option key={cat.value || cat.key} value={cat.value || cat.key}>{cat.label}</option>
                     ))}
                   </select>
@@ -725,28 +654,10 @@ export default function CollectiblesView({ apiCall, onToast, mode = 'collectible
                     <button className={cx('btn-ghost btn-sm', exclusiveFilter === 'false' && 'bg-brand/20 text-brand')} onClick={() => { setExclusiveFilter('false'); setPage(1); }}>Non-exclusive</button>
                   </div>
                 </div>
-                {viewConfig.showSubtypeFilter && !collectiblesMode ? (
-                  <div>
-                    <p className="text-xs text-ghost mb-2">Types</p>
-                    <div className="flex gap-2">
-                      <button className={cx('btn-ghost btn-sm', subtypeFilter === '' && 'bg-brand/20 text-brand')} onClick={() => { setSubtypeFilter(''); setPage(1); }}>All</button>
-                      {ITEM_TYPES.map((opt) => (
-                        <button
-                          key={opt.value}
-                          className={cx('btn-ghost btn-sm', subtypeFilter === opt.value && 'bg-brand/20 text-brand')}
-                          onClick={() => { setSubtypeFilter(opt.value); setPage(1); }}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
                 <div className="pt-1 border-t border-edge flex justify-end">
                   <button
                     className="btn-ghost btn-sm"
                     onClick={() => {
-                      setSubtypeFilter('');
                       setCategoryFilter('');
                       setEventFilter('');
                       setExclusiveFilter('');
@@ -801,14 +712,12 @@ export default function CollectiblesView({ apiCall, onToast, mode = 'collectible
         {activeFilterCount > 0 ? (
           <div className="mt-4 flex flex-wrap gap-2">
             {search.trim() ? <FilterPill>{`Search: ${search.trim()}`}</FilterPill> : null}
-            {viewConfig.showSubtypeFilter && !collectiblesMode && subtypeFilter ? <FilterPill>{`Type: ${ITEM_TYPES.find((opt) => opt.value === subtypeFilter)?.label || subtypeFilter}`}</FilterPill> : null}
-            {categoryFilter ? <FilterPill>{`${collectiblesMode ? 'Category' : 'Category'}: ${(collectiblesMode ? COLLECTIBLE_CLASSIFICATIONS : (categories.length > 0 ? categories : CATEGORY_OPTIONS)).find((cat) => (cat.value || cat.key) === categoryFilter)?.label || categoryFilter}`}</FilterPill> : null}
+            {categoryFilter ? <FilterPill>{`Category: ${COLLECTIBLE_CLASSIFICATIONS.find((cat) => cat.value === categoryFilter)?.label || categoryFilter}`}</FilterPill> : null}
             {eventFilter ? <FilterPill>{`Event: ${events.find((evt) => String(evt.id) === String(eventFilter))?.title || eventFilter}`}</FilterPill> : null}
             {exclusiveFilter ? <FilterPill>{exclusiveFilter === 'true' ? 'Exclusive only' : 'Non-exclusive only'}</FilterPill> : null}
             <button
               className="btn-ghost btn-sm"
               onClick={() => {
-                setSubtypeFilter('');
                 setCategoryFilter('');
                 setEventFilter('');
                 setExclusiveFilter('');

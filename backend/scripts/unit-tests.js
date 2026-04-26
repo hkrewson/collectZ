@@ -3443,7 +3443,10 @@ results.push(run('art library surface is promoted through shared collectible con
   assert.ok(dashboardContentSource.includes('ArtView'));
   assert.ok(frontendAppSource.includes("activeTab === 'library-art'"));
   assert.ok(productEditionFrontendSource.includes("allowed.add('library-art')"));
-  assert.ok(artViewSource.includes('mode="art"'));
+  assert.ok(artViewSource.includes('export default function ArtView'));
+  assert.ok(artViewSource.includes("api('get', `/art?${params.toString()}`)"));
+  assert.ok(artViewSource.includes('ArtDetailDrawer'));
+  assert.ok(artViewSource.includes('ArtDrawer'));
   assert.ok(openApiSource.includes('"/api/art"'));
   assert.ok(openApiSource.includes('"/api/art/{id}"'));
   assert.ok(openApiSource.includes('"ArtRecord"'));
@@ -3496,7 +3499,6 @@ results.push(run('native art migration and shared event purchase backfill are wi
 }));
 
 results.push(run('native art read cutover and event purchase readback are wired for the 3.4.3 read phase', () => {
-  const collectiblesViewSource = readFrontendSource(path.join('components', 'CollectiblesView'));
   assert.ok(collectiblesRoutesSource.includes('serializeNativeArtRow'));
   assert.ok(collectiblesRoutesSource.includes('buildNativeArtSelect'));
   assert.ok(collectiblesRoutesSource.includes('FROM art_items a'));
@@ -3507,13 +3509,28 @@ results.push(run('native art read cutover and event purchase readback are wired 
   assert.ok(eventsViewSource.includes('EventPurchasedItemsReadback'));
   assert.ok(eventsViewSource.includes('/events/${eventId}/purchased-items'));
   assert.ok(eventsViewSource.includes('resolved_item'));
-  assert.ok(collectiblesViewSource.includes('shouldShowPurchaseContext'));
-  assert.ok(collectiblesViewSource.includes('hasPurchaseContext'));
-  assert.ok(collectiblesViewSource.includes('const record = item || {};'));
+  assert.ok(artViewSource.includes('hasPurchaseContext'));
+  assert.ok(artViewSource.includes('const record = item || {};'));
+  assert.ok(artViewSource.includes("api('patch', `/art/${editing.id}`, payload)"));
   assert.ok(backendPackageJson.scripts['test:native-art-read-cutover-smoke']);
   assert.ok(nativeArtReadCutoverSmokeSource.includes('/api/art?q=Bast&series=Croyance&vendor=Studio&booth=A12&exclusive=true'));
   assert.ok(nativeArtReadCutoverSmokeSource.includes('/api/art/${bridgeArtId}'));
   assert.ok(nativeArtReadCutoverSmokeSource.includes('purchased_item_id'));
+}));
+
+results.push(run('art ui divergence keeps Art out of the Collectibles component for the 3.4.4 product split', () => {
+  const collectiblesViewSource = readFrontendSource(path.join('components', 'CollectiblesView'));
+  assert.ok(artViewSource.includes('function ArtDrawer'));
+  assert.ok(artViewSource.includes('function ArtDetailDrawer'));
+  assert.ok(artViewSource.includes("api('get', `/art?${params.toString()}`)"));
+  assert.ok(artViewSource.includes("api('post', '/art', payload)"));
+  assert.ok(artViewSource.includes("api('delete', `/art/${id}`)"));
+  assert.ok(artViewSource.includes('hasPurchaseContext'));
+  assert.ok(!artViewSource.includes('CollectiblesView'));
+  assert.ok(!collectiblesViewSource.includes('VIEW_VARIANTS'));
+  assert.ok(!collectiblesViewSource.includes('mode="art"'));
+  assert.ok(!collectiblesViewSource.includes("lockedSubtype: 'art'"));
+  assert.ok(!collectiblesViewSource.includes("apiBasePath: '/art'"));
 }));
 
 results.push(run('library loans view exposes management-focused counts and due-soon emphasis', () => {
