@@ -4984,6 +4984,33 @@ Historical note:
 - Release evidence artifacts were inspected for unredacted secret-bearing patterns; secret-like values found in observability command evidence were redacted.
 - Follow-up remains: full drawer-side multi-signature management UI and multi-proof-per-signature management.
 
+## 3.4.14 — Art Physical Dimensions and Framing Metadata
+
+**Goal:** Let native Art records track physical image dimensions and framed status as first-class Art metadata.
+
+**Current Slice:** `Implementation in progress`
+
+### Scope
+
+- Add Art height and width fields for artwork/image dimensions.
+- Add a framed boolean field for Art records.
+- Surface the fields in Art create/edit and detail readback.
+- Keep the fields native to Art; do not add them back to Collectibles.
+- Keep event purchase linking unchanged.
+
+### Acceptance Criteria
+
+- Art create/update accepts height, width, and framed metadata.
+- Art detail/list responses include height, width, and framed metadata.
+- The Art drawer can edit height, width, and framed status without changing the existing Art field layout.
+- OpenAPI, init parity, migration rehearsal, and regression checks stay aligned.
+
+### Active Slice Notes
+
+- Treat dimensions as decimal numeric values without enforcing a unit in this slice.
+- Label the UI fields as `H` and `W` to match the collection shorthand.
+- A future task can add a unit field if mixed inches/centimeters becomes a real data need.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

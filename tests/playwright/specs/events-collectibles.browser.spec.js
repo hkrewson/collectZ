@@ -44,6 +44,9 @@ test.describe('events and collectibles browser regressions', () => {
         title: artTitle,
         artist: 'Playwright Artist',
         medium: 'print',
+        height: 18,
+        width: 24,
+        framed: true,
         signed: true,
         signer_name: 'Playwright Signer',
         signer_role: 'Artist',
@@ -54,6 +57,9 @@ test.describe('events and collectibles browser regressions', () => {
       }, 201);
       const created = await createResponse.json();
       expect(created.signed).toBe(true);
+      expect(created.height).toBe(18);
+      expect(created.width).toBe(24);
+      expect(created.framed).toBe(true);
       expect(created.signer_name).toBe('Playwright Signer');
       expect(created.signatures?.[0]?.signer_name).toBe('Playwright Signer');
       expect(created.signatures?.[0]?.proof_path).toBe('https://example.test/signature-proof.jpg');
@@ -62,6 +68,9 @@ test.describe('events and collectibles browser regressions', () => {
         signed: true,
         signer_name: 'Updated Playwright Signer',
         signer_role: 'Writer',
+        height: 20.5,
+        width: 30.25,
+        framed: false,
         signed_on: '2026-04-27',
         signed_at: 'Updated Signing Table',
         signature_notes: 'Updated provenance note.'
@@ -69,6 +78,9 @@ test.describe('events and collectibles browser regressions', () => {
       const patched = await patchResponse.json();
       expect(patched.signatures).toHaveLength(1);
       expect(patched.signatures[0].signer_name).toBe('Updated Playwright Signer');
+      expect(patched.height).toBe(20.5);
+      expect(patched.width).toBe(30.25);
+      expect(patched.framed).toBe(false);
       expect(patched.signatures[0].signed_on).toBe('2026-04-27');
       expect(patched.signature_notes).toBe('Updated provenance note.');
 
@@ -109,6 +121,9 @@ test.describe('events and collectibles browser regressions', () => {
       const detail = await detailResponse.json();
       expect(detail.signatures).toHaveLength(2);
       expect(detail.signer_name).toBe('Second Playwright Signer');
+      expect(detail.height).toBe(20.5);
+      expect(detail.width).toBe(30.25);
+      expect(detail.framed).toBe(false);
       expect(detail.signatures[0].owner_type).toBe('art');
       expect(detail.signatures[0].is_primary).toBe(true);
 

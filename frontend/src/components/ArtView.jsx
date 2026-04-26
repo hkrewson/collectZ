@@ -16,6 +16,9 @@ const DEFAULT_FORM = {
   franchise: '',
   artist: '',
   medium: '',
+  height: '',
+  width: '',
+  framed: false,
   event_id: '',
   vendor: '',
   booth: '',
@@ -216,6 +219,9 @@ function ArtDetailDrawer({ artId, apiCall, events, onClose, onEdit, onDeleted })
               <DetailField label="Fandom / Franchise">{item.franchise}</DetailField>
               <DetailField label="Medium / Type">{mediumLabel}</DetailField>
               <DetailField label="Artist">{item.artist}</DetailField>
+              <DetailField label="H">{item.height !== null && item.height !== undefined && item.height !== '' ? item.height : null}</DetailField>
+              <DetailField label="W">{item.width !== null && item.width !== undefined && item.width !== '' ? item.width : null}</DetailField>
+              <DetailField label="Framed">{item.framed ? 'Yes' : 'No'}</DetailField>
               <DetailField label="Event">{resolvedEvent || 'None linked'}</DetailField>
               <DetailField label="Signed">{item.signed ? 'Yes' : 'No'}</DetailField>
               {item.signed || primarySignature ? <DetailField label="Signature provenance">{signatureSummary || 'Signed copy'}</DetailField> : null}
@@ -287,6 +293,9 @@ function ArtDrawer({ initial, events, saving, error, notice, onClose, onSave, on
     signed_event_id: primaryInitialSignature?.signed_event_id ? String(primaryInitialSignature.signed_event_id) : (initial?.signed_event_id ? String(initial.signed_event_id) : ''),
     signature_proof_path: primaryInitialSignature?.proof_path || initial?.signature_proof_path || '',
     signature_notes: primaryInitialSignature?.notes || initial?.signature_notes || '',
+    height: initial?.height ?? '',
+    width: initial?.width ?? '',
+    framed: Boolean(initial?.framed),
     vendor: initial?.vendor || '',
     booth: initial?.booth || ''
   }));
@@ -313,6 +322,9 @@ function ArtDrawer({ initial, events, saving, error, notice, onClose, onSave, on
       signed_event_id: primaryInitialSignature?.signed_event_id ? String(primaryInitialSignature.signed_event_id) : (initial?.signed_event_id ? String(initial.signed_event_id) : ''),
       signature_proof_path: primaryInitialSignature?.proof_path || initial?.signature_proof_path || '',
       signature_notes: primaryInitialSignature?.notes || initial?.signature_notes || '',
+      height: initial?.height ?? '',
+      width: initial?.width ?? '',
+      framed: Boolean(initial?.framed),
       vendor: initial?.vendor || '',
       booth: initial?.booth || ''
     });
@@ -387,6 +399,8 @@ function ArtDrawer({ initial, events, saving, error, notice, onClose, onSave, on
                 </label>
                 <label className="field"><span className="label">Artist</span><input className="input" value={form.artist || ''} onChange={(e) => setForm((p) => ({ ...p, artist: e.target.value }))} /></label>
                 <label className="field"><span className="label">Price</span><input className="input" value={form.price ?? ''} onChange={(e) => setForm((p) => ({ ...p, price: e.target.value }))} /></label>
+                <label className="field"><span className="label">H</span><input className="input" type="number" min="0" step="0.01" value={form.height ?? ''} onChange={(e) => setForm((p) => ({ ...p, height: e.target.value }))} /></label>
+                <label className="field"><span className="label">W</span><input className="input" type="number" min="0" step="0.01" value={form.width ?? ''} onChange={(e) => setForm((p) => ({ ...p, width: e.target.value }))} /></label>
                 <label className="field md:col-span-2"><span className="label">Linked Event</span>
                   <select className="select" value={form.event_id || ''} onChange={(e) => setForm((p) => ({ ...p, event_id: e.target.value }))}>
                     <option value="">None</option>
@@ -399,6 +413,10 @@ function ArtDrawer({ initial, events, saving, error, notice, onClose, onSave, on
                     <label className="field"><span className="label">Booth</span><input className="input" value={form.booth || ''} onChange={(e) => setForm((p) => ({ ...p, booth: e.target.value }))} /></label>
                   </>
                 ) : null}
+                <label className="field md:col-span-2 inline-flex items-center gap-2 text-sm text-dim">
+                  <input type="checkbox" checked={Boolean(form.framed)} onChange={(e) => setForm((p) => ({ ...p, framed: e.target.checked }))} />
+                  Framed
+                </label>
                 <label className="field md:col-span-2 inline-flex items-center gap-2 text-sm text-dim">
                   <input type="checkbox" checked={Boolean(form.exclusive)} onChange={(e) => setForm((p) => ({ ...p, exclusive: e.target.checked }))} />
                   Exclusive item
@@ -587,6 +605,9 @@ export default function ArtView({ apiCall, onToast }) {
         series: form.series || null,
         franchise: form.franchise || null,
         medium: form.medium || null,
+        height: form.height === '' ? null : Number(form.height),
+        width: form.width === '' ? null : Number(form.width),
+        framed: Boolean(form.framed),
         subtype: 'art',
         event_id: form.event_id ? Number(form.event_id) : null,
         artist: form.artist || null,

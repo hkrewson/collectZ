@@ -3462,6 +3462,16 @@ const MIGRATIONS = [
         ON event_artifacts(signature_record_id)
         WHERE signature_record_id IS NOT NULL;
     `
+  },
+  {
+    version: 80,
+    description: 'Add Art physical dimensions and framed metadata',
+    up: `
+      ALTER TABLE art_items
+        ADD COLUMN IF NOT EXISTS height NUMERIC(10,2),
+        ADD COLUMN IF NOT EXISTS width NUMERIC(10,2),
+        ADD COLUMN IF NOT EXISTS framed BOOLEAN NOT NULL DEFAULT false;
+    `
   }
 ];
 

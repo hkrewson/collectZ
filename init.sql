@@ -774,6 +774,9 @@ CREATE TABLE IF NOT EXISTS art_items (
     franchise VARCHAR(255),
     medium VARCHAR(50)
       CHECK (medium IS NULL OR medium IN ('original', 'print', 'comic_panel', 'sketch', 'commission', 'other')),
+    height NUMERIC(10,2),
+    width NUMERIC(10,2),
+    framed BOOLEAN NOT NULL DEFAULT false,
     vendor VARCHAR(255),
     booth VARCHAR(255),
     price NUMERIC(10,2),
@@ -1222,5 +1225,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (76, 'Add art medium and signed fields with comic panel migration boundary'),
     (77, 'Add shared fandom franchise metadata to Art and Collectibles'),
     (78, 'Add shared signature provenance records for Art and media'),
-    (79, 'Link event autograph artifacts to shared signature provenance')
+    (79, 'Link event autograph artifacts to shared signature provenance'),
+    (80, 'Add Art physical dimensions and framed metadata')
 ON CONFLICT (version) DO NOTHING;

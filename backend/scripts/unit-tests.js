@@ -3692,6 +3692,26 @@ results.push(run('multi-signature Art and media support keeps primary compatibil
   assert.ok(openApiSource.includes('"SignatureRecordMutationResponse"'));
 }));
 
+results.push(run('Art physical dimensions and framed metadata are wired through native Art contracts', () => {
+  assert.ok(migrationsSource.includes('version: 80'));
+  assert.ok(migrationsSource.includes('Add Art physical dimensions and framed metadata'));
+  assert.ok(initSqlSource.includes('height NUMERIC(10,2)'));
+  assert.ok(initSqlSource.includes('width NUMERIC(10,2)'));
+  assert.ok(initSqlSource.includes('framed BOOLEAN NOT NULL DEFAULT false'));
+  assert.ok(validateMiddlewareSource.includes('height: nullableNumberSchema'));
+  assert.ok(validateMiddlewareSource.includes('width: nullableNumberSchema'));
+  assert.ok(validateMiddlewareSource.includes('framed: z.boolean().optional().nullable()'));
+  assert.ok(collectiblesRoutesSource.includes('height: row.height === null'));
+  assert.ok(collectiblesRoutesSource.includes('framed: row.framed === true'));
+  assert.ok(collectiblesRoutesSource.includes("'height', 'width', 'framed'"));
+  assert.ok(artViewSource.includes('<span className="label">H</span>'));
+  assert.ok(artViewSource.includes('<span className="label">W</span>'));
+  assert.ok(artViewSource.includes('Framed'));
+  assert.ok(openApiSource.includes('"height"'));
+  assert.ok(openApiSource.includes('"width"'));
+  assert.ok(openApiSource.includes('"framed"'));
+}));
+
 results.push(run('library loans view exposes management-focused counts and due-soon emphasis', () => {
   assert.ok(libraryLoansViewSource.includes('Currently out'));
   assert.ok(libraryLoansViewSource.includes('Due soon'));

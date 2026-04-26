@@ -1297,6 +1297,9 @@
           "series": { "type": ["string", "null"] },
           "franchise": { "type": ["string", "null"] },
           "medium": { "type": ["string", "null"], "enum": ["original", "print", "comic_panel", "sketch", "commission", "other", null] },
+          "height": { "type": ["number", "null"] },
+          "width": { "type": ["number", "null"] },
+          "framed": { "type": "boolean" },
           "artist": { "type": ["string", "null"] },
           "vendor": { "type": ["string", "null"] },
           "booth": { "type": ["string", "null"] },
@@ -1320,7 +1323,7 @@
           "created_at": { "type": "string", "format": "date-time" },
           "updated_at": { "type": "string", "format": "date-time" }
         },
-        "required": ["id", "title", "subtype", "item_type", "exclusive", "signed", "created_at", "updated_at"]
+        "required": ["id", "title", "subtype", "item_type", "exclusive", "framed", "signed", "created_at", "updated_at"]
       },
       "NativeArtRecord": {
         "type": "object",
@@ -1334,6 +1337,9 @@
           "series": { "type": ["string", "null"] },
           "franchise": { "type": ["string", "null"] },
           "medium": { "type": ["string", "null"], "enum": ["original", "print", "comic_panel", "sketch", "commission", "other", null] },
+          "height": { "type": ["number", "null"] },
+          "width": { "type": ["number", "null"] },
+          "framed": { "type": "boolean" },
           "vendor": { "type": ["string", "null"] },
           "booth": { "type": ["string", "null"] },
           "price": { "type": ["number", "null"] },
@@ -1349,7 +1355,7 @@
           "updated_at": { "type": "string", "format": "date-time" },
           "archived_at": { "type": ["string", "null"], "format": "date-time" }
         },
-        "required": ["id", "title", "exclusive", "signed", "created_at", "updated_at"]
+        "required": ["id", "title", "exclusive", "framed", "signed", "created_at", "updated_at"]
       },
       "ArtListResponse": {
         "type": "object",
@@ -1380,6 +1386,9 @@
           "series": { "type": ["string", "null"] },
           "franchise": { "type": ["string", "null"] },
           "medium": { "type": ["string", "null"], "enum": ["original", "print", "comic_panel", "sketch", "commission", "other", null] },
+          "height": { "type": ["number", "null"] },
+          "width": { "type": ["number", "null"] },
+          "framed": { "type": ["boolean", "null"] },
           "artist": { "type": ["string", "null"] },
           "vendor": { "type": ["string", "null"] },
           "booth": { "type": ["string", "null"] },
