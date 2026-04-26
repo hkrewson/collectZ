@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v3.4.13",
+      "version": "3.4.13",
+      "date": "2026-04-26",
+      "status": "Completed",
+      "summary": "This release lets Art and media records carry multiple shared signature provenance records while preserving the existing single-primary compatibility fields used by older forms, imports, and title endpoints.",
+      "details": []
+    },
+    {
       "title": "v3.4.12",
       "version": "3.4.12",
       "date": "2026-04-26",
@@ -102,14 +110,6 @@
       "date": "2026-04-26",
       "status": "Completed",
       "summary": "This release finishes the product-layer Art split by giving Art its own frontend surface, reducing Collectibles-specific compatibility assumptions, and documenting the shared Event purchase relationship. Art remains bridge-safe for migrated rows and existing IDs, but users now interact with Art as its own object domain rather than as a Collectibles subtype.",
-      "details": []
-    },
-    {
-      "title": "v3.4.3",
-      "version": "3.4.3",
-      "date": "2026-04-26",
-      "status": "Completed",
-      "summary": "This patch cuts the Art library read path over to native Art storage while keeping bridge-compatible response ids during the transition. Events now read tracked Art purchases and tracked Collectibles purchases through the shared purchased-item relationship, and the Art drawer treats vendor and booth as event purchase context instead of always-on Art identity fields.",
       "details": []
     }
   ]

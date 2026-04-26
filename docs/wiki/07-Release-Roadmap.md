@@ -4945,7 +4945,7 @@ Historical note:
 
 **Goal:** Let Art and media objects carry multiple signature provenance records while preserving the existing single-primary compatibility fields used by older forms, imports, and title endpoints.
 
-**Current Slice:** `Implementation in progress`
+**Current Slice:** `Closed as v3.4.13`
 
 ### Scope
 
@@ -4969,6 +4969,20 @@ Historical note:
 - Do not add multiple proof images per signature in this slice; each signature record keeps a single `proof_path`.
 - Do not introduce a signer/person directory or controlled authority file yet.
 - Keep Events as capture/history; object-level Art/media signatures remain canonical provenance.
+
+### Closeout — 2026-04-26
+
+- Released as `v3.4.13`.
+- Version metadata synced across root app metadata, backend app/package metadata, and frontend app/package metadata.
+- Release note added at `docs/releases/v3.4.13.md`.
+- In-app Help > Releases feed regenerated with `v3.4.13` as the latest entry.
+- Runtime verification used Docker-first evidence from rebuilt `backend`, `frontend`, `db`, homelab mode, and platform mode services.
+- No schema migration was added; init parity and migration rehearsal were rerun against the existing migration set through version `79`.
+- Local release closeout accounted for unit, OpenAPI, Art/media multi-signature browser regression, full browser regression, RBAC regression, homelab edition boundary, platform edition boundary, dependency audit, init parity, migration rehearsal, observability evidence, release note, release feed, API integration smoke, and running-stack health gates.
+- Local preflight marked CI-secure compose-smoke cookie checks blocked because this local development stack runs with `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`; tagged CI remains authoritative for that secure-cookie variant.
+- Local `gitleaks`, Trivy, and SBOM tooling were not run in this shell, so tagged CI remains authoritative for `secret-scan`, `image-security-and-sbom`, and final release publication.
+- Release evidence artifacts were inspected for unredacted secret-bearing patterns; secret-like values found in observability command evidence were redacted.
+- Follow-up remains: full drawer-side multi-signature management UI and multi-proof-per-signature management.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 

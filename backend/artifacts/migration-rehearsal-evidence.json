@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-04-26T17:49:07.789Z",
+  "generatedAt": "2026-04-26T20:56:57.058Z",
   "baselineVersion": 78,
   "latestVersion": 79,
   "databases": {
-    "legacyDb": "collectz_rehearsal_legacy_mog2bnek",
-    "snapshotDb": "collectz_rehearsal_snapshot_mog2bnek",
-    "rollbackDb": "collectz_rehearsal_rollback_mog2bnek"
+    "legacyDb": "collectz_rehearsal_legacy_mog916ty",
+    "snapshotDb": "collectz_rehearsal_snapshot_mog916ty",
+    "rollbackDb": "collectz_rehearsal_rollback_mog916ty"
   },
   "preUpgradeCounts": {
     "users": 1,
