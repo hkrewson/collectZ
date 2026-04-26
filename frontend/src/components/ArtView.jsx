@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CameraCaptureModal, CollectionPaginationFooter, Icons, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
+import { CameraCaptureModal, CheckboxControl, CollectionPaginationFooter, Icons, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
 
 const ART_MEDIUM_OPTIONS = [
   { value: 'original', label: 'Original' },
@@ -52,38 +52,6 @@ const hasPurchaseContext = (item) => {
     || record.booth_or_vendor
   );
 };
-
-function CheckboxControl({ checked, children, id, onChange }) {
-  return (
-    <label
-      htmlFor={id}
-      className="relative inline-flex min-h-9 cursor-pointer select-none items-center gap-2 text-sm text-dim hover:text-ink"
-    >
-      <input
-        id={id}
-        name={id}
-        type="checkbox"
-        className="peer absolute inset-0 h-full w-full cursor-pointer opacity-0"
-        checked={checked}
-        onChange={onChange}
-      />
-      <span
-        aria-hidden="true"
-        className={cx(
-          'grid h-4 w-4 shrink-0 place-items-center rounded-[3px] border transition-colors duration-150 peer-focus-visible:ring-2 peer-focus-visible:ring-gold/35',
-          checked
-            ? 'border-gold bg-gold text-void'
-            : 'border-muted bg-surface text-transparent'
-        )}
-      >
-        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-          <path d="M10 3L4.75 8.25L2 5.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </span>
-      <span className={checked ? 'text-ink' : undefined}>{children}</span>
-    </label>
-  );
-}
 
 function FilterPill({ children, tone = 'default' }) {
   return (

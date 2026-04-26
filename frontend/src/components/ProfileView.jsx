@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { posterUrl } from './app/AppPrimitives';
+import { CheckboxControl, posterUrl } from './app/AppPrimitives';
 
 export default function ProfileView({ user, apiCall, onToast, Spinner, onUserUpdate }) {
   const [form, setForm] = useState({ name: user?.name || '', email: user?.email || '', image_path: user?.image_path || '', current_password: '', password: '' });
@@ -289,20 +289,15 @@ export default function ProfileView({ user, apiCall, onToast, Spinner, onUserUpd
                     {patScopes.map((scope) => {
                       const active = patSelectedScopes.includes(scope);
                       return (
-                        <label
+                        <CheckboxControl
                           key={scope}
-                          className={active
-                            ? 'inline-flex items-center gap-3 rounded-md border border-gold/35 bg-gold/8 px-3 py-2 text-sm text-ink'
-                            : 'inline-flex items-center gap-3 rounded-md border border-edge/70 px-3 py-2 text-sm text-dim hover:border-muted hover:text-ink'}
+                          id={`pat-scope-${scope.replace(/[^a-z0-9_-]/gi, '-')}`}
+                          checked={active}
+                          labelClassName="px-3 py-2"
+                          onChange={() => togglePatScope(scope)}
                         >
-                          <input
-                            type="checkbox"
-                            className="h-4 w-4 accent-current"
-                            checked={active}
-                            onChange={() => togglePatScope(scope)}
-                          />
-                          <span>{scope}</span>
-                        </label>
+                          {scope}
+                        </CheckboxControl>
                       );
                     })}
                   </div>

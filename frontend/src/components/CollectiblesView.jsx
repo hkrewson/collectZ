@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CameraCaptureModal, CollectionPaginationFooter, Icons, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
+import { CameraCaptureModal, CheckboxControl, CollectionPaginationFooter, Icons, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
 
 const CATEGORY_OPTIONS = [
   { key: 'lego', label: 'Lego' },
@@ -385,10 +385,9 @@ function CollectibleDrawer({
                   </>
                 ) : null}
                 <label className="field"><span className="label">Price</span><input className="input" value={form.price ?? ''} onChange={(e) => setForm((p) => ({ ...p, price: e.target.value }))} /></label>
-                <label className="field md:col-span-2 inline-flex items-center gap-2 text-sm text-dim">
-                  <input type="checkbox" checked={Boolean(form.exclusive)} onChange={(e) => setForm((p) => ({ ...p, exclusive: e.target.checked }))} />
-                  Exclusive item
-                </label>
+                <div className="md:col-span-2 pt-1">
+                  <CheckboxControl id="collectible-exclusive" checked={Boolean(form.exclusive)} onChange={(e) => setForm((p) => ({ ...p, exclusive: e.target.checked }))}>Exclusive item</CheckboxControl>
+                </div>
               </div>
             </SectionTabPanel>
 

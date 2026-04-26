@@ -29,6 +29,41 @@ export function cx(...classes) {
   return classes.filter(Boolean).join(' ');
 }
 
+export function CheckboxControl({ checked, children, id, labelClassName = '', onChange }) {
+  const fallbackId = useId();
+  const inputId = id || fallbackId;
+
+  return (
+    <label
+      htmlFor={inputId}
+      className={cx('relative inline-flex min-h-9 cursor-pointer select-none items-center gap-2 text-sm text-dim hover:text-ink', labelClassName)}
+    >
+      <input
+        id={inputId}
+        name={inputId}
+        type="checkbox"
+        className="peer absolute inset-0 h-full w-full cursor-pointer opacity-0"
+        checked={checked}
+        onChange={onChange}
+      />
+      <span
+        aria-hidden="true"
+        className={cx(
+          'grid h-4 w-4 shrink-0 place-items-center rounded-[3px] border transition-colors duration-150 peer-focus-visible:ring-2 peer-focus-visible:ring-gold/35',
+          checked
+            ? 'border-gold bg-gold text-void'
+            : 'border-muted bg-surface text-transparent'
+        )}
+      >
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+          <path d="M10 3L4.75 8.25L2 5.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </span>
+      <span className={checked ? 'text-ink' : undefined}>{children}</span>
+    </label>
+  );
+}
+
 export function SectionTabs({
   tabs = [],
   activeId,

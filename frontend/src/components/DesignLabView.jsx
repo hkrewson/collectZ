@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import SidebarNav from './SidebarNav';
-import { Icons, cx, posterUrl } from './app/AppPrimitives';
+import { CheckboxControl, Icons, cx, posterUrl } from './app/AppPrimitives';
 
 const LAB_PATH = '/design-lab';
 const SAMPLE_USER = { id: 1, role: 'admin', email: 'designer@collectz.local' };
@@ -1086,15 +1086,16 @@ export default function DesignLabView({ setUiSettings, showToast }) {
               ]}
               onChange={(value) => updateValue('backgroundMood', value)}
             />
-            <label className="flex items-center justify-between gap-3 rounded-lg border border-edge bg-raised px-3 py-2.5 text-sm text-dim">
-              <span>Desktop nav pinned</span>
-              <input
-                type="checkbox"
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-edge bg-raised px-3 py-2.5 text-sm text-dim">
+              <CheckboxControl
+                id="design-lab-shell-pinned"
                 checked={state.shellPinned}
                 onChange={(event) => updateValue('shellPinned', event.target.checked)}
-                className="h-4 w-4 accent-gold"
-              />
-            </label>
+                labelClassName="min-h-0"
+              >
+                Desktop nav pinned
+              </CheckboxControl>
+            </div>
           </section>
 
           <section className="card p-5 space-y-4">

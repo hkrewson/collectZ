@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { SectionTabPanel, SectionTabs } from './app/AppPrimitives';
+import { CheckboxControl, SectionTabPanel, SectionTabs } from './app/AppPrimitives';
 
 const BARCODE_PRESETS = {
   upcitemdb: { barcodePreset: 'upcitemdb', barcodeProvider: 'upcitemdb', barcodeApiUrl: 'https://api.upcitemdb.com/prod/trial/lookup' },
@@ -695,10 +695,9 @@ export default function AdminIntegrationsView({
           <LabeledField label={`API Key ${meta.barcodeApiKeySet ? `(set: ${meta.barcodeApiKeyMasked})` : '(not set)'}`} cx={cx}>
             <input className="input font-mono" type="password" placeholder="Enter new key to update" value={form.barcodeApiKey} onChange={(e) => setForm((f) => ({ ...f, barcodeApiKey: e.target.value }))} />
           </LabeledField>
-          <label className="flex items-center gap-2 text-sm text-dim cursor-pointer">
-            <input type="checkbox" checked={form.clearBarcodeApiKey} onChange={(e) => setForm((f) => ({ ...f, clearBarcodeApiKey: e.target.checked }))} className="rounded" />
+          <CheckboxControl id="clear-barcode-api-key" checked={form.clearBarcodeApiKey} onChange={(e) => setForm((f) => ({ ...f, clearBarcodeApiKey: e.target.checked }))}>
             Clear saved key
-          </label>
+          </CheckboxControl>
         </>}
 
         {section === 'logs' && <>
@@ -926,10 +925,9 @@ export default function AdminIntegrationsView({
           <LabeledField label={`API Key ${meta.tmdbApiKeySet ? `(set: ${meta.tmdbApiKeyMasked})` : '(not set)'}`} cx={cx}>
             <input className="input font-mono" type="password" placeholder="Enter new key to update" value={form.tmdbApiKey} onChange={(e) => setForm((f) => ({ ...f, tmdbApiKey: e.target.value }))} />
           </LabeledField>
-          <label className="flex items-center gap-2 text-sm text-dim cursor-pointer">
-            <input type="checkbox" checked={form.clearTmdbApiKey} onChange={(e) => setForm((f) => ({ ...f, clearTmdbApiKey: e.target.checked }))} className="rounded" />
+          <CheckboxControl id="clear-tmdb-api-key" checked={form.clearTmdbApiKey} onChange={(e) => setForm((f) => ({ ...f, clearTmdbApiKey: e.target.checked }))}>
             Clear saved key
-          </label>
+          </CheckboxControl>
         </>}
 
         {section === 'plex' && <>
@@ -949,12 +947,11 @@ export default function AdminIntegrationsView({
               <p className="text-xs text-ghost">Detected Plex Libraries</p>
               <div className="space-y-1.5">
                 {plexAvailableSections.map((sec) => (
-                  <label key={sec.id} className="flex items-center gap-2 text-sm text-dim cursor-pointer">
-                    <input type="checkbox" checked={plexSectionIds.includes(String(sec.id))} onChange={() => togglePlexSection(String(sec.id))} className="rounded" />
+                  <CheckboxControl key={sec.id} id={`plex-section-${sec.id}`} checked={plexSectionIds.includes(String(sec.id))} labelClassName="flex w-full" onChange={() => togglePlexSection(String(sec.id))}>
                     <span className="font-medium text-ink">{sec.title || `Section ${sec.id}`}</span>
                     <span className="text-ghost">({sec.type || 'unknown'})</span>
                     <span className="ml-auto font-mono text-xs text-ghost">#{sec.id}</span>
-                  </label>
+                  </CheckboxControl>
                 ))}
               </div>
             </div>
@@ -962,10 +959,9 @@ export default function AdminIntegrationsView({
           <LabeledField label={`Plex API Key ${meta.plexApiKeySet ? `(set: ${meta.plexApiKeyMasked})` : '(not set)'}`} cx={cx}>
             <input className="input font-mono" type="password" placeholder="Enter new key to update" value={form.plexApiKey} onChange={(e) => setForm((f) => ({ ...f, plexApiKey: e.target.value }))} />
           </LabeledField>
-          <label className="flex items-center gap-2 text-sm text-dim cursor-pointer">
-            <input type="checkbox" checked={form.clearPlexApiKey} onChange={(e) => setForm((f) => ({ ...f, clearPlexApiKey: e.target.checked }))} className="rounded" />
+          <CheckboxControl id="clear-plex-api-key" checked={form.clearPlexApiKey} onChange={(e) => setForm((f) => ({ ...f, clearPlexApiKey: e.target.checked }))}>
             Clear saved key
-          </label>
+          </CheckboxControl>
         </>}
 
         {section === 'books' && <>
@@ -973,10 +969,9 @@ export default function AdminIntegrationsView({
           <LabeledField label={`Books API Key ${meta.booksApiKeySet ? `(set: ${meta.booksApiKeyMasked})` : '(not set)'}`} cx={cx}>
             <input className="input font-mono" type="password" placeholder="Enter new key to update" value={form.booksApiKey} onChange={(e) => setForm((f) => ({ ...f, booksApiKey: e.target.value }))} />
           </LabeledField>
-          <label className="flex items-center gap-2 text-sm text-dim cursor-pointer">
-            <input type="checkbox" checked={form.clearBooksApiKey} onChange={(e) => setForm((f) => ({ ...f, clearBooksApiKey: e.target.checked }))} className="rounded" />
+          <CheckboxControl id="clear-books-api-key" checked={form.clearBooksApiKey} onChange={(e) => setForm((f) => ({ ...f, clearBooksApiKey: e.target.checked }))}>
             Clear saved key
-          </label>
+          </CheckboxControl>
         </>}
 
         {section === 'audio' && <>
@@ -984,10 +979,9 @@ export default function AdminIntegrationsView({
           <LabeledField label={`Discogs Token ${meta.audioApiKeySet ? `(set: ${meta.audioApiKeyMasked})` : '(not set)'}`} cx={cx}>
             <input className="input font-mono" type="password" placeholder="Enter new key to update" value={form.audioApiKey} onChange={(e) => setForm((f) => ({ ...f, audioApiKey: e.target.value }))} />
           </LabeledField>
-          <label className="flex items-center gap-2 text-sm text-dim cursor-pointer">
-            <input type="checkbox" checked={form.clearAudioApiKey} onChange={(e) => setForm((f) => ({ ...f, clearAudioApiKey: e.target.checked }))} className="rounded" />
+          <CheckboxControl id="clear-audio-api-key" checked={form.clearAudioApiKey} onChange={(e) => setForm((f) => ({ ...f, clearAudioApiKey: e.target.checked }))}>
             Clear saved key
-          </label>
+          </CheckboxControl>
         </>}
 
         {section === 'games' && <>
@@ -1035,10 +1029,9 @@ export default function AdminIntegrationsView({
               <input className="input font-mono" inputMode="numeric" value={form.priceChartingRateLimitMs} onChange={(e) => setForm((f) => ({ ...f, priceChartingRateLimitMs: e.target.value.replace(/[^\d]/g, '') }))} />
             </LabeledField>
           </div>
-          <label className="flex items-center gap-2 text-sm text-dim cursor-pointer">
-            <input type="checkbox" checked={form.clearPriceChartingApiKey} onChange={(e) => setForm((f) => ({ ...f, clearPriceChartingApiKey: e.target.checked }))} className="rounded" />
+          <CheckboxControl id="clear-pricecharting-api-key" checked={form.clearPriceChartingApiKey} onChange={(e) => setForm((f) => ({ ...f, clearPriceChartingApiKey: e.target.checked }))}>
             Clear saved key
-          </label>
+          </CheckboxControl>
           <div className="rounded-xl border border-edge bg-raised/60 px-4 py-3 text-sm text-dim">
             Automated tests stay on fixtures in this milestone. The live provider should only be smoke-tested manually after the queued execution slice is in place.
           </div>
@@ -1075,10 +1068,9 @@ export default function AdminIntegrationsView({
           <LabeledField label={`Client Secret ${meta.eBayBrowseClientSecretSet ? `(set: ${meta.eBayBrowseClientSecretMasked})` : '(not set)'}`} cx={cx}>
             <input className="input font-mono" type="password" placeholder="Enter new client secret to update" value={form.eBayBrowseClientSecret} onChange={(e) => setForm((f) => ({ ...f, eBayBrowseClientSecret: e.target.value }))} />
           </LabeledField>
-          <label className="flex items-center gap-2 text-sm text-dim cursor-pointer">
-            <input type="checkbox" checked={form.clearEBayBrowseClientSecret} onChange={(e) => setForm((f) => ({ ...f, clearEBayBrowseClientSecret: e.target.checked }))} className="rounded" />
+          <CheckboxControl id="clear-ebay-browse-client-secret" checked={form.clearEBayBrowseClientSecret} onChange={(e) => setForm((f) => ({ ...f, clearEBayBrowseClientSecret: e.target.checked }))}>
             Clear saved client secret
-          </label>
+          </CheckboxControl>
         </>}
 
         {section === 'comics' && <>
@@ -1107,10 +1099,9 @@ export default function AdminIntegrationsView({
               </LabeledField>
             </>
           )}
-          <label className="flex items-center gap-2 text-sm text-dim cursor-pointer">
-            <input type="checkbox" checked={form.clearComicsApiKey} onChange={(e) => setForm((f) => ({ ...f, clearComicsApiKey: e.target.checked }))} className="rounded" />
+          <CheckboxControl id="clear-comics-api-key" checked={form.clearComicsApiKey} onChange={(e) => setForm((f) => ({ ...f, clearComicsApiKey: e.target.checked }))}>
             {form.comicsPreset === 'metron' ? 'Clear saved password' : 'Clear saved key'}
-          </label>
+          </CheckboxControl>
         </>}
 
         {section === 'cwa' && <>
@@ -1128,10 +1119,9 @@ export default function AdminIntegrationsView({
               <input className="input font-mono" type="password" placeholder="Enter password to update" value={form.cwaPassword} onChange={(e) => setForm((f) => ({ ...f, cwaPassword: e.target.value }))} />
             </LabeledField>
           </div>
-          <label className="flex items-center gap-2 text-sm text-dim cursor-pointer">
-            <input type="checkbox" checked={form.clearCwaPassword} onChange={(e) => setForm((f) => ({ ...f, clearCwaPassword: e.target.checked }))} className="rounded" />
+          <CheckboxControl id="clear-cwa-password" checked={form.clearCwaPassword} onChange={(e) => setForm((f) => ({ ...f, clearCwaPassword: e.target.checked }))}>
             Clear saved password
-          </label>
+          </CheckboxControl>
         </>}
 
         {!['metrics'].includes(section) && (

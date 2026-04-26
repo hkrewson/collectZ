@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { SectionTabs } from './app/AppPrimitives';
+import { CheckboxControl, SectionTabs } from './app/AppPrimitives';
 import ActivityFeedView from './ActivityFeedView';
 import AdminIntegrationsView from './AdminIntegrationsView';
 import AdminSettingsView from './AdminSettingsView';
@@ -629,10 +629,14 @@ export default function SpaceManagerView({
                   </div>
                 ) : null}
                 <div className="flex justify-between items-center gap-3">
-                  <label className="inline-flex items-center gap-2 text-xs text-ghost">
-                    <input type="checkbox" checked={showInviteHistory} onChange={(e) => setShowInviteHistory(e.target.checked)} />
+                  <CheckboxControl
+                    id="space-show-invite-history"
+                    checked={showInviteHistory}
+                    labelClassName="min-h-0 text-xs text-ghost"
+                    onChange={(e) => setShowInviteHistory(e.target.checked)}
+                  >
                     Show invite history
-                  </label>
+                  </CheckboxControl>
                   <span className="text-xs text-ghost">{inviteForm.expose_token ? 'Copy-link enabled' : 'Email-only invite'}</span>
                 </div>
               </form>
