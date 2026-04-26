@@ -3652,6 +3652,18 @@ results.push(run('event autograph artifacts can link into shared object signatur
   assert.ok(openApiSource.includes('"event_artifact"'));
 }));
 
+results.push(run('event autograph linking UI exposes shared Art and media signature attachment workflow', () => {
+  assert.ok(eventsViewSource.includes('EventAutographSignatureLinker'));
+  assert.ok(eventsViewSource.includes('/events/${eventId}/artifacts/${artifact.id}/link-signature'));
+  assert.ok(eventsViewSource.includes("owner_type: targetType"));
+  assert.ok(eventsViewSource.includes("const path = targetType === 'art' ? '/art' : '/media';"));
+  assert.ok(eventsViewSource.includes("params.set('search', searchTerm.trim())"));
+  assert.ok(eventsViewSource.includes('event_artifact_signature'));
+  assert.ok(eventsViewSource.includes('linked_signature'));
+  assert.ok(eventsViewSource.includes('Link signature'));
+  assert.ok(eventsViewSource.includes('Signature notes'));
+}));
+
 results.push(run('library loans view exposes management-focused counts and due-soon emphasis', () => {
   assert.ok(libraryLoansViewSource.includes('Currently out'));
   assert.ok(libraryLoansViewSource.includes('Due soon'));

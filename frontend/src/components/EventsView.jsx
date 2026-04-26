@@ -19,7 +19,13 @@ const DEFAULT_ARTIFACT_FORM = {
   description: '',
   vendor: '',
   price: '',
-  image_path: ''
+  image_path: '',
+  signer_name: '',
+  signer_role: '',
+  signed_on: '',
+  signed_at: '',
+  signature_proof_path: '',
+  signature_notes: ''
 };
 
 const toInputDate = (value) => {
@@ -119,6 +125,206 @@ function EventListRow({ item, supportsHover, onOpen, onEdit, onDelete }) {
   );
 }
 
+function formatSignatureLine(signature) {
+  const parts = [];
+  if (signature?.signer_name) parts.push(signature.signer_name);
+  if (signature?.signer_role) parts.push(signature.signer_role);
+  if (signature?.signed_on) parts.push(toDisplayDate(signature.signed_on));
+  if (signature?.signed_at) parts.push(signature.signed_at);
+  return parts.filter(Boolean).join(' · ');
+}
+
+function EventAutographSignatureLinker({ eventId, artifact, apiCall, onLinked }) {
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [targetType, setTargetType] = useState('art');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [linkingId, setLinkingId] = useState(null);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const eventSignature = artifact?.event_artifact_signature || artifact?.signature || null;
+  const linkedSignature = artifact?.linked_signature || null;
+
+  const getCandidateId = (candidate) => Number(targetType === 'art' ? (candidate.native_art_id || candidate.id) : candidate.id);
+
+  const formatCandidateMeta = (candidate) => {
+    const parts = [targetType === 'art' ? 'Art' : 'Media'];
+    if (targetType === 'art') {
+      if (candidate.franchise) parts.push(candidate.franchise);
+      if (candidate.medium) parts.push(String(candidate.medium).replaceAll('_', ' '));
+      if (candidate.artist) parts.push(candidate.artist);
+      if (candidate.series) parts.push(candidate.series);
+    } else {
+      if (candidate.media_type) parts.push(String(candidate.media_type).replaceAll('_', ' '));
+      if (candidate.year) parts.push(candidate.year);
+      if (candidate.format) parts.push(candidate.format);
+    }
+    return parts.filter(Boolean).join(' · ');
+  };
+
+  const searchTargets = async () => {
+    setSearching(true);
+    setError('');
+    setNotice('');
+    try {
+      const params = new URLSearchParams();
+      params.set('limit', '8');
+      if (targetType === 'art') {
+        params.set('sort_dir', 'asc');
+        if (searchTerm.trim()) params.set('q', searchTerm.trim());
+      } else {
+        params.set('sortDir', 'asc');
+        if (searchTerm.trim()) params.set('search', searchTerm.trim());
+      }
+      const path = targetType === 'art' ? '/art' : '/media';
+      const payload = await apiCall('get', `${path}?${params.toString()}`);
+      setSearchResults(Array.isArray(payload?.items) ? payload.items : []);
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Failed to search signature targets');
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const linkTarget = async (candidate) => {
+    const ownerId = getCandidateId(candidate);
+    if (!ownerId || linkingId) return;
+    setLinkingId(ownerId);
+    setError('');
+    setNotice('');
+    try {
+      await apiCall('post', `/events/${eventId}/artifacts/${artifact.id}/link-signature`, {
+        owner_type: targetType,
+        owner_id: ownerId
+      });
+      setNotice(`${candidate.title || 'Object'} linked as a signature`);
+      setLinkOpen(false);
+      setSearchResults([]);
+      setSearchTerm('');
+      await onLinked?.();
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Failed to link object signature');
+    } finally {
+      setLinkingId(null);
+    }
+  };
+
+  return (
+    <div className="mt-3 rounded-lg border border-edge bg-raised p-3">
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-medium text-ink">Event autograph</p>
+          <p className="mt-1 text-xs text-dim">{formatSignatureLine(eventSignature) || artifact.title}</p>
+          {eventSignature?.proof_path ? (
+            <a className="mt-2 inline-flex items-center gap-1 text-xs text-dim hover:text-ink" href={eventSignature.proof_path} target="_blank" rel="noreferrer">
+              <Icons.Link />Proof image
+            </a>
+          ) : null}
+        </div>
+        {linkedSignature ? (
+          <span className="badge badge-brand text-[10px]">Linked</span>
+        ) : (
+          <button className="btn-secondary btn-sm" onClick={() => setLinkOpen((open) => !open)}>
+            <Icons.Link />Link signature
+          </button>
+        )}
+      </div>
+      {linkedSignature ? (
+        <div className="mt-3 border-t border-edge/60 pt-3">
+          <p className="text-xs font-medium text-ink">Object signature</p>
+          <p className="mt-1 text-xs text-dim">
+            {`Linked to ${linkedSignature.owner_type === 'art' ? 'Art' : 'Media'} #${linkedSignature.owner_id}`}
+            {formatSignatureLine(linkedSignature) ? ` · ${formatSignatureLine(linkedSignature)}` : ''}
+          </p>
+          {linkedSignature.proof_path ? (
+            <a className="mt-2 inline-flex items-center gap-1 text-xs text-dim hover:text-ink" href={linkedSignature.proof_path} target="_blank" rel="noreferrer">
+              <Icons.Link />Object proof
+            </a>
+          ) : null}
+        </div>
+      ) : null}
+      {error ? <p className="mt-3 text-xs text-err">{error}</p> : null}
+      {notice ? <p className="mt-3 text-xs text-ok">{notice}</p> : null}
+      {linkOpen ? (
+        <div className="mt-3 border-t border-edge/60 pt-3">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-[8rem_1fr_auto]">
+            <label className="field">
+              <span className="label">Target</span>
+              <select
+                className="select"
+                value={targetType}
+                onChange={(event) => {
+                  setTargetType(event.target.value);
+                  setSearchResults([]);
+                }}
+              >
+                <option value="art">Art</option>
+                <option value="media">Media</option>
+              </select>
+            </label>
+            <label className="field">
+              <span className="label">Search</span>
+              <input
+                className="input"
+                placeholder={targetType === 'art' ? 'Title, artist, series, or fandom' : 'Title, person, genre, or notes'}
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    searchTargets();
+                  }
+                }}
+              />
+            </label>
+            <div className="flex items-end">
+              <button className="btn-secondary w-full md:w-auto" onClick={searchTargets} disabled={searching}>
+                {searching ? <><Spinner size={14} />Searching…</> : <><Icons.Search />Search</>}
+              </button>
+            </div>
+          </div>
+          {searchResults.length > 0 ? (
+            <div className="mt-3 divide-y divide-edge/60 border-t border-edge/60">
+              {searchResults.map((candidate) => {
+                const candidateId = getCandidateId(candidate);
+                const imagePath = candidate.image_path || candidate.poster_path || candidate.cover_path;
+                return (
+                  <article key={`${targetType}-${candidateId}`} className="flex items-start gap-3 py-3">
+                    {imagePath ? (
+                      <div className="h-14 w-10 shrink-0 overflow-hidden rounded-md border border-edge bg-surface">
+                        <img src={posterUrl(imagePath)} alt="" className="h-full w-full object-cover" />
+                      </div>
+                    ) : (
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-edge bg-surface text-ghost">
+                        {targetType === 'art' ? <Icons.Activity /> : <Icons.Film />}
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-ink truncate">{candidate.title}</p>
+                      <p className="mt-1 text-xs text-dim">{formatCandidateMeta(candidate)}</p>
+                    </div>
+                    <button
+                      className="btn-secondary btn-sm"
+                      disabled={linkingId === candidateId}
+                      onClick={() => linkTarget(candidate)}
+                    >
+                      {linkingId === candidateId ? <><Spinner size={14} />Linking…</> : 'Link'}
+                    </button>
+                  </article>
+                );
+              })}
+            </div>
+          ) : null}
+          {!searching && searchResults.length === 0 ? (
+            <p className="mt-3 text-sm text-ghost">Search an owned Art or media record, then attach this autograph as its signature evidence.</p>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function EventArtifactsEditor({ eventId, apiCall, onSaved }) {
   const [artifacts, setArtifacts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -176,7 +382,13 @@ function EventArtifactsEditor({ eventId, apiCall, onSaved }) {
         description: artifactForm.description || null,
         vendor: artifactForm.vendor || null,
         price: artifactForm.price === '' ? null : Number(artifactForm.price),
-        image_path: artifactForm.image_path || null
+        image_path: artifactForm.image_path || null,
+        signer_name: artifactForm.artifact_type === 'autograph' ? (artifactForm.signer_name || null) : null,
+        signer_role: artifactForm.artifact_type === 'autograph' ? (artifactForm.signer_role || null) : null,
+        signed_on: artifactForm.artifact_type === 'autograph' ? (artifactForm.signed_on || null) : null,
+        signed_at: artifactForm.artifact_type === 'autograph' ? (artifactForm.signed_at || null) : null,
+        proof_path: artifactForm.artifact_type === 'autograph' ? (artifactForm.signature_proof_path || artifactForm.image_path || null) : null,
+        signature_notes: artifactForm.artifact_type === 'autograph' ? (artifactForm.signature_notes || artifactForm.description || null) : null
       };
       let artifactId = editingArtifactId;
       if (editingArtifactId) {
@@ -237,6 +449,7 @@ function EventArtifactsEditor({ eventId, apiCall, onSaved }) {
   };
 
   const editArtifact = (artifact) => {
+    const signature = artifact.event_artifact_signature || artifact.signature || {};
     setEditingArtifactId(artifact.id);
     setArtifactFile(null);
     setArtifactForm({
@@ -245,7 +458,13 @@ function EventArtifactsEditor({ eventId, apiCall, onSaved }) {
       description: artifact.description || '',
       vendor: artifact.vendor || '',
       price: artifact.price ?? '',
-      image_path: artifact.image_path || ''
+      image_path: artifact.image_path || '',
+      signer_name: signature.signer_name || '',
+      signer_role: signature.signer_role || '',
+      signed_on: toInputDate(signature.signed_on),
+      signed_at: signature.signed_at || '',
+      signature_proof_path: signature.proof_path || '',
+      signature_notes: signature.notes || ''
     });
   };
 
@@ -296,6 +515,17 @@ function EventArtifactsEditor({ eventId, apiCall, onSaved }) {
                 <p className="mt-1 text-xs text-dim">{formatArtifactMeta(artifact)}</p>
               ) : null}
               {artifact.description ? <p className="mt-2 text-sm text-ghost">{artifact.description}</p> : null}
+              {artifact.artifact_type === 'autograph' ? (
+                <EventAutographSignatureLinker
+                  eventId={eventId}
+                  artifact={artifact}
+                  apiCall={apiCall}
+                  onLinked={async () => {
+                    await loadArtifacts();
+                    onSaved?.();
+                  }}
+                />
+              ) : null}
             </div>
             {artifact.image_path ? (
               <a
@@ -351,6 +581,26 @@ function EventArtifactsEditor({ eventId, apiCall, onSaved }) {
               <span className="label">Title</span>
               <input className="input" value={artifactForm.title} onChange={(e) => setArtifactForm((prev) => ({ ...prev, title: e.target.value }))} />
             </label>
+            {artifactForm.artifact_type === 'autograph' ? (
+              <>
+                <label className="field">
+                  <span className="label">Signer</span>
+                  <input className="input" value={artifactForm.signer_name} onChange={(e) => setArtifactForm((prev) => ({ ...prev, signer_name: e.target.value }))} />
+                </label>
+                <label className="field">
+                  <span className="label">Role</span>
+                  <input className="input" placeholder="Artist, actor, writer…" value={artifactForm.signer_role} onChange={(e) => setArtifactForm((prev) => ({ ...prev, signer_role: e.target.value }))} />
+                </label>
+                <label className="field">
+                  <span className="label">Signed date</span>
+                  <input type="date" className="input" value={artifactForm.signed_on} onChange={(e) => setArtifactForm((prev) => ({ ...prev, signed_on: e.target.value }))} />
+                </label>
+                <label className="field">
+                  <span className="label">Signed at</span>
+                  <input className="input" placeholder="Booth, table, room, or event spot" value={artifactForm.signed_at} onChange={(e) => setArtifactForm((prev) => ({ ...prev, signed_at: e.target.value }))} />
+                </label>
+              </>
+            ) : null}
             <label className="field">
               <span className="label">Vendor</span>
               <input className="input" value={artifactForm.vendor} onChange={(e) => setArtifactForm((prev) => ({ ...prev, vendor: e.target.value }))} />
@@ -363,6 +613,12 @@ function EventArtifactsEditor({ eventId, apiCall, onSaved }) {
               <span className="label">Image URL</span>
               <input className="input" placeholder="Optional" value={artifactForm.image_path} onChange={(e) => setArtifactForm((prev) => ({ ...prev, image_path: e.target.value }))} />
             </label>
+            {artifactForm.artifact_type === 'autograph' ? (
+              <label className="field md:col-span-2">
+                <span className="label">Proof image URL</span>
+                <input className="input" placeholder="Optional proof image for this signature" value={artifactForm.signature_proof_path} onChange={(e) => setArtifactForm((prev) => ({ ...prev, signature_proof_path: e.target.value }))} />
+              </label>
+            ) : null}
             <label className="field md:col-span-2">
               <span className="label">Image</span>
               <input className="input" type="file" accept="image/*" capture="environment" onChange={(e) => setArtifactFile(e.target.files?.[0] || null)} />
@@ -372,6 +628,12 @@ function EventArtifactsEditor({ eventId, apiCall, onSaved }) {
               <span className="label">Notes</span>
               <textarea className="textarea min-h-[88px]" value={artifactForm.description} onChange={(e) => setArtifactForm((prev) => ({ ...prev, description: e.target.value }))} />
             </label>
+            {artifactForm.artifact_type === 'autograph' ? (
+              <label className="field md:col-span-2">
+                <span className="label">Signature notes</span>
+                <textarea className="textarea min-h-[72px]" value={artifactForm.signature_notes} onChange={(e) => setArtifactForm((prev) => ({ ...prev, signature_notes: e.target.value }))} />
+              </label>
+            ) : null}
             <div className="md:col-span-2 flex gap-2">
               <button className="btn-secondary flex-1" onClick={saveArtifact} disabled={artifactSaving}>
                 {artifactSaving

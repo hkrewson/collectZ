@@ -109,6 +109,111 @@ test.describe('events and collectibles browser regressions', () => {
     }
   });
 
+  test('event drawer links an autograph artifact to an Art signature record', async ({ page }) => {
+    const adminCredentials = await ensureSavedAdminCredentials();
+    const adminRequestContext = await createAuthenticatedRequestContext(adminCredentials);
+    const userCredentials = await createFreshUserCredentials();
+    const userRequestContext = await createAuthenticatedRequestContext(userCredentials);
+    const suffix = Date.now();
+    const eventTitle = `Playwright Autograph Link Event ${suffix}`;
+    const artTitle = `Playwright Autographed Art ${suffix}`;
+    const autographTitle = `Playwright Autograph ${suffix}`;
+    const originalFlagsPayload = await getFeatureFlags(adminRequestContext);
+    const originalFlags = Array.isArray(originalFlagsPayload?.flags) ? originalFlagsPayload.flags : [];
+    const originalEventsEnabled = Boolean(originalFlags.find((flag) => flag?.key === 'events_enabled')?.enabled);
+    const originalCollectiblesEnabled = Boolean(originalFlags.find((flag) => flag?.key === 'collectibles_enabled')?.enabled);
+
+    await deleteArtByExactTitle(userRequestContext, artTitle).catch(() => {});
+    await deleteEventsByExactTitle(userRequestContext, eventTitle).catch(() => {});
+
+    try {
+      if (!originalEventsEnabled) {
+        await updateFeatureFlag(adminRequestContext, 'events_enabled', true);
+      }
+      if (!originalCollectiblesEnabled) {
+        await updateFeatureFlag(adminRequestContext, 'collectibles_enabled', true);
+      }
+
+      const eventResponse = await postWithCsrf(userRequestContext, '/api/events', {
+        title: eventTitle,
+        url: `https://example.test/autograph-link/${suffix}`,
+        location: 'Playwright Signing Hall',
+        date_start: '2026-04-26'
+      }, 201);
+      const eventPayload = await eventResponse.json();
+      expect(Number(eventPayload?.id || 0)).toBeGreaterThan(0);
+
+      const artResponse = await postWithCsrf(userRequestContext, '/api/art', {
+        title: artTitle,
+        artist: 'Playwright Signature Artist',
+        series: 'Signature Link Series',
+        medium: 'print',
+        signed: false
+      }, 201);
+      const artPayload = await artResponse.json();
+      const nativeArtId = Number(artPayload?.native_art_id || artPayload?.id || 0);
+      expect(nativeArtId).toBeGreaterThan(0);
+
+      const artifactResponse = await postWithCsrf(userRequestContext, `/api/events/${eventPayload.id}/artifacts`, {
+        artifact_type: 'autograph',
+        title: autographTitle,
+        description: 'Captured in the Event drawer linking regression.',
+        image_path: 'https://example.test/event-autograph-proof.jpg',
+        signer_name: 'Playwright Signature Artist',
+        signer_role: 'Artist',
+        signed_on: '2026-04-26',
+        signed_at: 'Playwright Signing Table',
+        proof_path: 'https://example.test/event-autograph-proof.jpg',
+        signature_notes: 'This autograph should attach to the Art signature record.'
+      }, 201);
+      const artifactPayload = await artifactResponse.json();
+      expect(artifactPayload.event_artifact_signature?.signer_name).toBe('Playwright Signature Artist');
+
+      await signInThroughUi(page, userCredentials);
+      await page.goto('/dashboard?tab=library-events');
+      await expect(page.getByRole('heading', { name: 'Events' })).toBeVisible();
+
+      await page.getByPlaceholder('Search title or location…').fill(eventTitle);
+      await expect(page.getByText(eventTitle, { exact: true }).first()).toBeVisible();
+      await page.locator('article').filter({ hasText: eventTitle }).first().click();
+      await expect(page.getByRole('heading', { name: eventTitle })).toBeVisible();
+      await expect(page.getByText(autographTitle, { exact: true })).toBeVisible();
+      await expect(page.getByText('Playwright Signature Artist · Artist · 04/26/2026 · Playwright Signing Table')).toBeVisible();
+
+      const autographPanel = page.locator('div').filter({ hasText: autographTitle }).filter({ hasText: 'Event autograph' }).first();
+      await autographPanel.getByRole('button', { name: 'Link signature' }).click();
+      await autographPanel.locator('label:has-text("Target") select').selectOption('art');
+      await autographPanel.getByPlaceholder('Title, artist, series, or fandom').fill(artTitle);
+      await autographPanel.getByRole('button', { name: 'Search' }).click();
+      await expect(autographPanel.getByText(artTitle, { exact: true })).toBeVisible();
+      await autographPanel
+        .locator('article')
+        .filter({ hasText: artTitle })
+        .getByRole('button', { name: 'Link', exact: true })
+        .click();
+
+      await expect(page.getByText(`Linked to Art #${nativeArtId}`).first()).toBeVisible();
+
+      const detailResponse = await userRequestContext.get(`/api/art/${nativeArtId}`);
+      expect(detailResponse.ok()).toBeTruthy();
+      const detail = await detailResponse.json();
+      expect(detail.signed).toBe(true);
+      expect(detail.signatures?.[0]?.signer_name).toBe('Playwright Signature Artist');
+      expect(detail.signatures?.[0]?.signed_event_id).toBe(eventPayload.id);
+    } finally {
+      await deleteArtByExactTitle(userRequestContext, artTitle).catch(() => {});
+      await deleteEventsByExactTitle(userRequestContext, eventTitle).catch(() => {});
+      if (!originalEventsEnabled) {
+        await updateFeatureFlag(adminRequestContext, 'events_enabled', false).catch(() => {});
+      }
+      if (!originalCollectiblesEnabled) {
+        await updateFeatureFlag(adminRequestContext, 'collectibles_enabled', false).catch(() => {});
+      }
+      await userRequestContext.dispose();
+      await adminRequestContext.dispose();
+    }
+  });
+
   test('end user can create an event, link a collectible to it, and find that link in the collectible detail view', async ({ page }) => {
     const adminCredentials = await ensureSavedAdminCredentials();
     const adminRequestContext = await createAuthenticatedRequestContext(adminCredentials);

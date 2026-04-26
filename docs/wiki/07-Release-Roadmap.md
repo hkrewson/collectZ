@@ -4899,6 +4899,34 @@ Historical note:
 - Local gitleaks, Trivy, and SBOM tooling were not installed, so tagged CI remains authoritative for `secret-scan`, `image-security-and-sbom`, and final release publication.
 - The release intentionally leaves dedicated frontend autograph-to-object linking workflow, multi-signature management, and multi-proof management as follow-up work.
 
+## 3.4.12 — Event Autograph Linking UI
+
+**Goal:** Give the Event drawer a first-class workflow for turning an event autograph artifact into canonical Art/media signature provenance without creating a separate event-signature system.
+
+**Current Slice:** `Implementation`
+
+### Scope
+
+- Add autograph-specific signer/provenance fields to Event artifact editing.
+- Surface event-captured autograph provenance and linked object signature readback in the Event detail drawer.
+- Add a compact Art/media search-and-link workflow for autograph artifacts using the existing `link-signature` API.
+- Keep Events as the capture/history surface and Art/media as the canonical owned-object signature evidence surface.
+- Cover the UI wiring with source-level checks and a targeted browser regression.
+
+### Acceptance Criteria
+
+- Autograph artifacts can be created/edited with signer name, signer role, signed date, signed location, proof path, and notes.
+- Event autograph rows show captured signature details in the drawer.
+- Unlinked autograph rows can search Art or media records and link one object signature from the drawer.
+- Linked autograph rows show the canonical object signature target/readback.
+- Existing purchased-item linking remains separate from autograph provenance linking.
+
+### Active Slice Notes
+
+- Do not add many-signature management or multi-proof management in this slice.
+- Do not rename Event artifacts into a separate Signatures library.
+- Prefer a compact drawer workflow over another navigation surface.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.
