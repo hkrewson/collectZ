@@ -57,22 +57,30 @@ function CheckboxControl({ checked, children, id, onChange }) {
   return (
     <label
       htmlFor={id}
-      className={cx(
-        'inline-flex min-h-9 cursor-pointer select-none items-center gap-2 rounded-md border px-3 text-sm transition-colors duration-150',
-        checked
-          ? 'border-gold/50 bg-gold/10 text-ink'
-          : 'border-edge bg-surface/60 text-dim hover:border-muted hover:text-ink'
-      )}
+      className="relative inline-flex min-h-9 cursor-pointer select-none items-center gap-2 text-sm text-dim hover:text-ink"
     >
       <input
         id={id}
         name={id}
         type="checkbox"
-        className="h-4 w-4 shrink-0 rounded border-edge bg-surface accent-gold focus:ring-1 focus:ring-gold/40"
+        className="peer absolute inset-0 h-full w-full cursor-pointer opacity-0"
         checked={checked}
         onChange={onChange}
       />
-      <span>{children}</span>
+      <span
+        aria-hidden="true"
+        className={cx(
+          'grid h-4 w-4 shrink-0 place-items-center rounded-[3px] border transition-colors duration-150 peer-focus-visible:ring-2 peer-focus-visible:ring-gold/35',
+          checked
+            ? 'border-gold bg-gold text-void'
+            : 'border-muted bg-surface text-transparent'
+        )}
+      >
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+          <path d="M10 3L4.75 8.25L2 5.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </span>
+      <span className={checked ? 'text-ink' : undefined}>{children}</span>
     </label>
   );
 }
