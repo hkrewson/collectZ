@@ -204,6 +204,31 @@ async function main() {
     assert(listed.category === null, 'Expected native art list response to avoid collectible category');
     assert(listed.item_type === 'art', `Expected listed item_type art, got ${listed.item_type}`);
 
+    const collectibleListResponse = await client.request('/api/collectibles?q=Bast&limit=50', { expectStatus: 200 });
+    const collectibleListItems = Array.isArray(collectibleListResponse?.data?.items) ? collectibleListResponse.data.items : [];
+    assert(
+      !collectibleListItems.some((item) => Number(item.id) === bridgeArtId || String(item?.subtype || item?.item_type || '') === 'art'),
+      `Expected Collectibles list to exclude Art rows, got ${JSON.stringify(collectibleListResponse?.data)}`
+    );
+
+    await client.request('/api/collectibles', {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 400,
+      body: JSON.stringify({
+        title: 'Collectible Route Art Reject',
+        subtype: 'art'
+      }),
+      headers: { 'Content-Type': 'application/json' }
+    });
+    await client.request(`/api/collectibles/${bridgeArtId}`, {
+      method: 'PATCH',
+      withCsrf: true,
+      expectStatus: 404,
+      body: JSON.stringify({ title: 'Collectible Route Should Not Patch Art' }),
+      headers: { 'Content-Type': 'application/json' }
+    });
+
     await client.request(`/api/events/${eventId}/purchased-items`, {
       method: 'POST',
       withCsrf: true,

@@ -80,6 +80,7 @@ const artMigrationBackfillSmokeSource = fs.readFileSync(require.resolve('../scri
 const nativeArtReadCutoverSmokeSource = fs.readFileSync(require.resolve('../scripts/native-art-read-cutover-smoke'), 'utf8');
 const authModulePath = require.resolve('../middleware/auth');
 const authMiddlewareSource = fs.readFileSync(authModulePath, 'utf8');
+const validateMiddlewareSource = fs.readFileSync(require.resolve('../middleware/validate'), 'utf8');
 const scopeAccessSource = fs.readFileSync(require.resolve('../middleware/scopeAccess'), 'utf8');
 const scopeContextSource = fs.readFileSync(require.resolve('../db/scopeContext'), 'utf8');
 const sessionsServiceSource = fs.readFileSync(require.resolve('../services/sessions'), 'utf8');
@@ -3527,6 +3528,11 @@ results.push(run('art ui divergence keeps Art out of the Collectibles component 
   assert.ok(artViewSource.includes("api('delete', `/art/${id}`)"));
   assert.ok(artViewSource.includes('hasPurchaseContext'));
   assert.ok(!artViewSource.includes('CollectiblesView'));
+  assert.ok(validateMiddlewareSource.includes('const artBaseSchema'));
+  assert.ok(collectiblesRoutesSource.includes("router.post('/art', validate(artCreateSchema), createCollectible)"));
+  assert.ok(collectiblesRoutesSource.includes("router.patch('/art/:id', validate(artUpdateSchema), updateCollectible)"));
+  assert.ok(collectiblesRoutesSource.includes("COALESCE(c.subtype, c.item_type, 'collectible') <> '${ART_SUBTYPE}'"));
+  assert.ok(collectiblesRoutesSource.includes('Use the Art library for art records'));
   assert.ok(!collectiblesViewSource.includes('VIEW_VARIANTS'));
   assert.ok(!collectiblesViewSource.includes('mode="art"'));
   assert.ok(!collectiblesViewSource.includes("lockedSubtype: 'art'"));

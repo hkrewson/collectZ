@@ -4518,6 +4518,15 @@ Historical note:
 - Keep Collectibles focused on non-Art collectible classifications, including `Card` plus collectible categories.
 - Do not remove bridge columns or migration compatibility until the native Art write path and cleanup boundary are proven separately.
 
+### Long-Term Relationship Contract
+
+- Art is product-owned by the Art surface and native `art_items` records.
+- Collectibles are product-owned by non-Art collectible rows and classifications such as `Card`, `Funko`, and `Comic Panels`.
+- Events do not need separate Art-specific or Collectible-specific purchase widgets; they read tracked purchases through `event_purchased_items`.
+- `event_purchased_items.item_type = 'art'` points at `art_items.id`; `item_type = 'collectible'` points at `collectibles.id`.
+- `art_items.source_collectible_id` is bridge compatibility for migrated rows and current safe writes, not the product identity users should reason about.
+- `/api/collectibles` should not expose or accept Art records now that Art has a native library surface.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

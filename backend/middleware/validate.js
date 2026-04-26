@@ -718,6 +718,26 @@ const collectibleUpdateSchema = collectibleBaseSchema.partial().refine(
   { message: 'At least one collectible field is required' }
 );
 
+const artBaseSchema = z.object({
+  title: z.string().min(1, 'Title is required').max(255),
+  series: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
+  event_id: nullableNumberSchema(z.number().int().positive()),
+  vendor: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
+  booth: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
+  booth_or_vendor: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
+  artist: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
+  price: nullableNumberSchema(z.number().min(0).max(1000000)),
+  exclusive: z.boolean().optional().nullable(),
+  image_path: z.preprocess(emptyStringToNull, z.string().max(2000).optional().nullable()),
+  notes: z.preprocess(emptyStringToNull, z.string().max(5000).optional().nullable())
+});
+
+const artCreateSchema = artBaseSchema;
+const artUpdateSchema = artBaseSchema.partial().refine(
+  (data) => Object.keys(data).length > 0,
+  { message: 'At least one art field is required' }
+);
+
 // ── Middleware factory ────────────────────────────────────────────────────────
 
 /**
@@ -809,5 +829,7 @@ module.exports = {
   eventPurchasedItemCreateSchema,
   eventPurchasedItemUpdateSchema,
   collectibleCreateSchema,
-  collectibleUpdateSchema
+  collectibleUpdateSchema,
+  artCreateSchema,
+  artUpdateSchema
 };

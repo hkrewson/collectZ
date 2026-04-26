@@ -4,7 +4,7 @@ const pool = require('../db/pool');
 const { asyncHandler } = require('../middleware/errors');
 const { authenticateToken } = require('../middleware/auth');
 const { enforceScopeAccess } = require('../middleware/scopeAccess');
-const { validate, collectibleCreateSchema, collectibleUpdateSchema } = require('../middleware/validate');
+const { validate, collectibleCreateSchema, collectibleUpdateSchema, artCreateSchema, artUpdateSchema } = require('../middleware/validate');
 const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
 const { logActivity } = require('../services/audit');
 const { uploadBuffer } = require('../services/storage');
@@ -28,8 +28,6 @@ const ART_SUBTYPE = 'art';
 const COLLECTIBLE_ROUTE_PATHS = ['/collectibles', '/art'];
 const COLLECTIBLE_CATEGORY_PATHS = ['/collectibles/categories', '/art/categories'];
 const COLLECTIBLE_DETAIL_PATHS = ['/collectibles/:id', '/art/:id'];
-const COLLECTIBLE_CREATE_PATHS = ['/collectibles', '/art'];
-const COLLECTIBLE_PATCH_PATHS = ['/collectibles/:id', '/art/:id'];
 const COLLECTIBLE_DELETE_PATHS = ['/collectibles/:id', '/art/:id'];
 const COLLECTIBLE_UPLOAD_PATHS = ['/collectibles/:id/upload-image', '/art/:id/upload-image'];
 const COLLECTIBLE_IMAGE_DELETE_PATHS = ['/collectibles/:id/image', '/art/:id/image'];
@@ -242,6 +240,10 @@ router.get(COLLECTIBLE_ROUTE_PATHS, asyncHandler(async (req, res) => {
   const exclusiveRaw = String(req.query?.exclusive || '').trim().toLowerCase();
   const sortDir = String(req.query?.sort_dir || '').trim().toLowerCase() === 'desc' ? 'DESC' : 'ASC';
 
+  if (!routeConfig.isArtRoute && subtype === ART_SUBTYPE) {
+    return res.status(400).json({ error: 'Use the Art library for art records' });
+  }
+
   if (routeConfig.isArtRoute) {
     const params = [];
     let where = 'WHERE a.archived_at IS NULL';
@@ -311,7 +313,8 @@ router.get(COLLECTIBLE_ROUTE_PATHS, asyncHandler(async (req, res) => {
   }
 
   const params = [];
-  let where = 'WHERE c.archived_at IS NULL';
+  let where = `WHERE c.archived_at IS NULL
+    AND COALESCE(c.subtype, c.item_type, 'collectible') <> '${ART_SUBTYPE}'`;
 
   if (q) {
     params.push(`%${q}%`);
@@ -425,7 +428,7 @@ router.get(COLLECTIBLE_DETAIL_PATHS, asyncHandler(async (req, res) => {
   });
   const subtypeClause = routeConfig.forcedSubtype
     ? `AND c.subtype = $${params.push(routeConfig.forcedSubtype)}`
-    : '';
+    : `AND COALESCE(c.subtype, c.item_type, 'collectible') <> '${ART_SUBTYPE}'`;
   const result = await pool.query(
     `SELECT c.*,
             a.id AS native_art_id
@@ -444,7 +447,7 @@ router.get(COLLECTIBLE_DETAIL_PATHS, asyncHandler(async (req, res) => {
   res.json(serializeCollectibleRow(result.rows[0]));
 }));
 
-router.post(COLLECTIBLE_CREATE_PATHS, validate(collectibleCreateSchema), asyncHandler(async (req, res) => {
+const createCollectible = asyncHandler(async (req, res) => {
   const routeConfig = resolveRouteConfig(req);
   const scopeContext = resolveScopeContext(req);
   const libraryId = req.body.library_id || scopeContext.libraryId || null;
@@ -479,6 +482,8 @@ router.post(COLLECTIBLE_CREATE_PATHS, validate(collectibleCreateSchema), asyncHa
   });
   if (routeConfig.forcedSubtype) {
     normalizedPayload.subtype = routeConfig.forcedSubtype;
+  } else if (normalizedPayload.subtype === ART_SUBTYPE) {
+    return res.status(400).json({ error: 'Use the Art library for art records' });
   }
   const requestedCategory = category_key ?? category;
   if (requestedCategory !== undefined && requestedCategory !== null && requestedCategory !== '' && !normalizedPayload.category_key) {
@@ -549,9 +554,12 @@ router.post(COLLECTIBLE_CREATE_PATHS, validate(collectibleCreateSchema), asyncHa
     ...row,
     native_art_id: nativeArt?.id || null
   }));
-}));
+});
 
-router.patch(COLLECTIBLE_PATCH_PATHS, validate(collectibleUpdateSchema), asyncHandler(async (req, res) => {
+router.post('/collectibles', validate(collectibleCreateSchema), createCollectible);
+router.post('/art', validate(artCreateSchema), createCollectible);
+
+const updateCollectible = asyncHandler(async (req, res) => {
   const routeConfig = resolveRouteConfig(req);
   const scopeContext = resolveScopeContext(req);
   const collectibleId = Number(req.params.id);
@@ -570,7 +578,7 @@ router.patch(COLLECTIBLE_PATCH_PATHS, validate(collectibleUpdateSchema), asyncHa
   });
   const currentSubtypeClause = routeConfig.forcedSubtype
     ? `AND subtype = $${currentParams.push(routeConfig.forcedSubtype)}`
-    : '';
+    : `AND COALESCE(subtype, item_type, 'collectible') <> '${ART_SUBTYPE}'`;
   const current = await pool.query(
     `SELECT id, subtype, event_id
      FROM collectibles
@@ -602,6 +610,8 @@ router.patch(COLLECTIBLE_PATCH_PATHS, validate(collectibleUpdateSchema), asyncHa
       return res.status(400).json({ error: 'Art items stay in the Art library' });
     }
     normalizedPayload.subtype = routeConfig.forcedSubtype;
+  } else if (hadSubtypeKey && normalizedPayload.subtype === ART_SUBTYPE) {
+    return res.status(400).json({ error: 'Use the Art library for art records' });
   }
   const requestedCategory = req.body?.category_key ?? req.body?.category;
   if (requestedCategory !== undefined && requestedCategory !== null && requestedCategory !== '' && !normalizedPayload.category_key) {
@@ -667,7 +677,7 @@ router.patch(COLLECTIBLE_PATCH_PATHS, validate(collectibleUpdateSchema), asyncHa
   });
   const updateSubtypeClause = routeConfig.forcedSubtype
     ? `AND subtype = $${params.push(routeConfig.forcedSubtype)}`
-    : '';
+    : `AND COALESCE(subtype, item_type, 'collectible') <> '${ART_SUBTYPE}'`;
   const updated = await pool.query(
     `UPDATE collectibles
      SET ${setClause}
@@ -703,7 +713,10 @@ router.patch(COLLECTIBLE_PATCH_PATHS, validate(collectibleUpdateSchema), asyncHa
     ...updatedRow,
     native_art_id: nativeArt?.id || null
   }));
-}));
+});
+
+router.patch('/collectibles/:id', validate(collectibleUpdateSchema), updateCollectible);
+router.patch('/art/:id', validate(artUpdateSchema), updateCollectible);
 
 router.post('/collectibles/:id/reclassify', asyncHandler(async (req, res) => {
   const scopeContext = resolveScopeContext(req);
@@ -714,6 +727,9 @@ router.post('/collectibles/:id/reclassify', asyncHandler(async (req, res) => {
   }
   if (!COLLECTIBLE_SUBTYPES.includes(requestedSubtype)) {
     return res.status(400).json({ error: 'Invalid subtype' });
+  }
+  if (requestedSubtype === ART_SUBTYPE) {
+    return res.status(400).json({ error: 'Use the Art library for art records' });
   }
   const params = [collectibleId];
   const scopeClause = appendScopeSql(params, scopeContext, {
@@ -726,6 +742,7 @@ router.post('/collectibles/:id/reclassify', asyncHandler(async (req, res) => {
          item_type = $2
      WHERE id = $1
        AND archived_at IS NULL
+       AND COALESCE(subtype, item_type, 'collectible') <> '${ART_SUBTYPE}'
        ${scopeClause}
      RETURNING *`,
     [...params, requestedSubtype]
@@ -756,7 +773,7 @@ router.delete(COLLECTIBLE_DELETE_PATHS, asyncHandler(async (req, res) => {
   });
   const subtypeClause = routeConfig.forcedSubtype
     ? `AND subtype = $${params.push(routeConfig.forcedSubtype)}`
-    : '';
+    : `AND COALESCE(subtype, item_type, 'collectible') <> '${ART_SUBTYPE}'`;
   const deleted = await pool.query(
     `UPDATE collectibles
      SET archived_at = CURRENT_TIMESTAMP
@@ -796,7 +813,7 @@ router.post(COLLECTIBLE_UPLOAD_PATHS, memoryUpload.single('image'), asyncHandler
   });
   const subtypeClause = routeConfig.forcedSubtype
     ? `AND subtype = $${params.push(routeConfig.forcedSubtype)}`
-    : '';
+    : `AND COALESCE(subtype, item_type, 'collectible') <> '${ART_SUBTYPE}'`;
   const existing = await pool.query(
     `SELECT id, image_path
      FROM collectibles
@@ -852,7 +869,7 @@ router.delete(COLLECTIBLE_IMAGE_DELETE_PATHS, asyncHandler(async (req, res) => {
   });
   const subtypeClause = routeConfig.forcedSubtype
     ? `AND subtype = $${params.push(routeConfig.forcedSubtype)}`
-    : '';
+    : `AND COALESCE(subtype, item_type, 'collectible') <> '${ART_SUBTYPE}'`;
   const existing = await pool.query(
     `SELECT id, image_path
      FROM collectibles
