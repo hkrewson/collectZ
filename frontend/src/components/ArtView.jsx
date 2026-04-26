@@ -169,6 +169,16 @@ function ArtDetailDrawer({ artId, apiCall, events, onClose, onEdit, onDeleted })
     primarySignature?.signed_on || item?.signed_on,
     primarySignature?.signed_at || item?.signed_at || signatureEventTitle
   ].filter(Boolean).join(' · ');
+  const signatureRows = Array.isArray(item?.signatures) ? item.signatures : [];
+  const formatSignatureLine = (signature) => {
+    const eventTitle = events.find((evt) => String(evt.id) === String(signature?.signed_event_id))?.title || null;
+    return [
+      signature?.signer_name,
+      signature?.signer_role,
+      signature?.signed_on,
+      signature?.signed_at || eventTitle
+    ].filter(Boolean).join(' · ') || 'Signed copy';
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex">
@@ -209,6 +219,24 @@ function ArtDetailDrawer({ artId, apiCall, events, onClose, onEdit, onDeleted })
               <DetailField label="Event">{resolvedEvent || 'None linked'}</DetailField>
               <DetailField label="Signed">{item.signed ? 'Yes' : 'No'}</DetailField>
               {item.signed || primarySignature ? <DetailField label="Signature provenance">{signatureSummary || 'Signed copy'}</DetailField> : null}
+              {signatureRows.length > 1 ? (
+                <DetailField label="All signatures" className="md:col-span-2">
+                  <div className="space-y-2">
+                    {signatureRows.map((signature) => (
+                      <div key={signature.id} className="border-t border-edge/70 pt-2 first:border-t-0 first:pt-0">
+                        <div className="flex items-start justify-between gap-3">
+                          <p className="text-dim">{formatSignatureLine(signature)}</p>
+                          {signature.is_primary ? <span className="badge badge-dim shrink-0">Primary</span> : null}
+                        </div>
+                        {signature.notes ? <p className="mt-1 text-xs text-ghost">{signature.notes}</p> : null}
+                        {signature.proof_path ? (
+                          <a className="mt-1 inline-flex items-center gap-2 text-xs text-dim transition-colors hover:text-ink" href={posterUrl(signature.proof_path)} target="_blank" rel="noreferrer"><Icons.Link />Open proof</a>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                </DetailField>
+              ) : null}
               {(primarySignature?.notes || item.signature_notes) ? (
                 <DetailField label="Signature notes" className="md:col-span-2">
                   <p className="max-w-3xl text-dim leading-7">{primarySignature?.notes || item.signature_notes}</p>

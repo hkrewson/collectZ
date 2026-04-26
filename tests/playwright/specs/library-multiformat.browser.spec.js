@@ -1,7 +1,7 @@
 'use strict';
 const fs = require('fs');
 const { test, expect, request: playwrightRequest } = require('@playwright/test');
-const { AUTH_STATE_PATH, createFreshUserCredentials, createAuthenticatedRequestContext, createRequestContextFromStorageState, ensureAuthenticatedAdminStorageState, postWithCsrf } = require('../helpers/auth');
+const { AUTH_STATE_PATH, createFreshUserCredentials, createAuthenticatedRequestContext, createRequestContextFromStorageState, ensureAuthenticatedAdminStorageState, postWithCsrf, requestWithCsrf } = require('../helpers/auth');
 const { deleteMediaByExactTitle, findExactMediaByTitle } = require('../helpers/media');
 
 const PLAYWRIGHT_BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000';
@@ -36,6 +36,64 @@ async function addSavedAdminCookies(page, requestContext = null) {
 test.use({ storageState: { cookies: [], origins: [] } });
 
 test.describe('library multi-format browser regressions', () => {
+  test('media can keep multiple signatures while projecting one primary legacy signer', async () => {
+    const credentials = await createFreshUserCredentials({ role: 'admin', noCache: true });
+    const requestContext = await createAuthenticatedRequestContext(credentials);
+    const title = `Playwright Multi Signed Media ${Date.now()}`;
+    let mediaId = null;
+
+    await deleteMediaByExactTitle(requestContext, title).catch(() => {});
+
+    try {
+      const createResponse = await postWithCsrf(requestContext, '/api/media', {
+        title,
+        media_type: 'book',
+        format: 'Hardcover',
+        owned_formats: ['hardcover'],
+        signed_by: 'Primary Playwright Author',
+        signed_role: 'author',
+        signed_on: '2026-04-26',
+        signed_at: 'Original Signing Table'
+      }, 201);
+      const created = await createResponse.json();
+      mediaId = Number(created?.id || 0) || null;
+      expect(mediaId).toBeTruthy();
+      expect(created.signatures).toHaveLength(1);
+      expect(created.signed_by).toBe('Primary Playwright Author');
+
+      const secondaryResponse = await postWithCsrf(requestContext, `/api/media/${mediaId}/signatures`, {
+        signer_name: 'Secondary Playwright Cast',
+        signer_role: 'cast',
+        signed_on: '2026-04-27',
+        signed_at: 'Second Signing Table'
+      }, 201);
+      const secondary = await secondaryResponse.json();
+      expect(secondary.signatures).toHaveLength(2);
+      expect(secondary.media.signed_by).toBe('Primary Playwright Author');
+
+      const promoteResponse = await requestWithCsrf(requestContext, 'POST', `/api/media/${mediaId}/signatures/${secondary.signature.id}/primary`);
+      expect(promoteResponse.ok()).toBeTruthy();
+      const promoted = await promoteResponse.json();
+      expect(promoted.media.signed_by).toBe('Secondary Playwright Cast');
+      expect(promoted.signatures).toHaveLength(2);
+
+      const detailResponse = await requestContext.get(`/api/media/${mediaId}`);
+      expect(detailResponse.ok()).toBeTruthy();
+      const detail = await detailResponse.json();
+      expect(detail.signatures).toHaveLength(2);
+      expect(detail.signed_by).toBe('Secondary Playwright Cast');
+
+      const archiveResponse = await requestWithCsrf(requestContext, 'DELETE', `/api/media/${mediaId}/signatures/${secondary.signature.id}`);
+      expect(archiveResponse.ok()).toBeTruthy();
+      const archived = await archiveResponse.json();
+      expect(archived.signatures).toHaveLength(1);
+      expect(archived.media.signed_by).toBe('Primary Playwright Author');
+    } finally {
+      await deleteMediaByExactTitle(requestContext, title).catch(() => {});
+      await requestContext.dispose();
+    }
+  });
+
   test('loaned game cards open a loan-first drawer and keep the reminder action resilient', async ({ page }) => {
     const credentials = await createFreshUserCredentials({ role: 'admin', noCache: true });
     const requestContext = await createAuthenticatedRequestContext(credentials);

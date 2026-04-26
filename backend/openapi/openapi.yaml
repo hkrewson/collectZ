@@ -1420,6 +1420,35 @@
         },
         "required": ["is_primary"]
       },
+      "SignatureRecordMutationRequest": {
+        "type": "object",
+        "properties": {
+          "signer_name": { "type": ["string", "null"] },
+          "signer_role": { "type": ["string", "null"] },
+          "signed_on": { "type": ["string", "null"], "format": "date" },
+          "signed_at": { "type": ["string", "null"] },
+          "signed_event_id": { "type": ["integer", "null"] },
+          "proof_path": { "type": ["string", "null"] },
+          "signed_proof_path": { "type": ["string", "null"] },
+          "notes": { "type": ["string", "null"] },
+          "signature_notes": { "type": ["string", "null"] },
+          "is_primary": { "type": ["boolean", "null"] }
+        }
+      },
+      "SignatureRecordMutationResponse": {
+        "type": "object",
+        "properties": {
+          "signature": { "$ref": "#/components/schemas/SignatureRecord" },
+          "signatures": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/SignatureRecord" }
+          },
+          "art": { "$ref": "#/components/schemas/ArtRecord" },
+          "media": { "$ref": "#/components/schemas/MediaDetailResponse" },
+          "archived": { "type": "boolean" }
+        },
+        "required": ["signature", "signatures"]
+      },
       "SignatureProofResponse": {
         "type": "object",
         "properties": {
@@ -4937,6 +4966,145 @@
         }
       }
     },
+    "/api/art/{id}/signatures": {
+      "get": {
+        "tags": ["Media"],
+        "summary": "List active signature records for an art record",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Art signatures",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "art_id": { "type": "integer" },
+                    "native_art_id": { "type": "integer" },
+                    "signatures": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/SignatureRecord" }
+                    }
+                  },
+                  "required": ["art_id", "native_art_id", "signatures"]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Media"],
+        "summary": "Add a signature record to an art record",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SignatureRecordMutationRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created signature",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SignatureRecordMutationResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/art/{id}/signatures/{signatureId}": {
+      "patch": {
+        "tags": ["Media"],
+        "summary": "Update an art signature record",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } },
+          { "in": "path", "name": "signatureId", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SignatureRecordMutationRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated signature",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SignatureRecordMutationResponse" } } }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Media"],
+        "summary": "Archive an art signature record",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } },
+          { "in": "path", "name": "signatureId", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Archived signature",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SignatureRecordMutationResponse" } } }
+          }
+        }
+      }
+    },
+    "/api/art/{id}/signatures/{signatureId}/primary": {
+      "post": {
+        "tags": ["Media"],
+        "summary": "Promote an art signature record to primary",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } },
+          { "in": "path", "name": "signatureId", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Promoted signature",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SignatureRecordMutationResponse" } } }
+          }
+        }
+      }
+    },
     "/api/art/{id}/upload-signature-proof": {
       "post": {
         "tags": ["Media"],
@@ -5039,6 +5207,130 @@
                 "schema": { "$ref": "#/components/schemas/Error" }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/media/{id}/signatures": {
+      "get": {
+        "tags": ["Media"],
+        "summary": "List active signature records for a media record",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Media signatures",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "media_id": { "type": "integer" },
+                    "signatures": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/SignatureRecord" }
+                    }
+                  },
+                  "required": ["media_id", "signatures"]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Media"],
+        "summary": "Add a signature record to a media record",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SignatureRecordMutationRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created signature",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SignatureRecordMutationResponse" } } }
+          }
+        }
+      }
+    },
+    "/api/media/{id}/signatures/{signatureId}": {
+      "patch": {
+        "tags": ["Media"],
+        "summary": "Update a media signature record",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } },
+          { "in": "path", "name": "signatureId", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SignatureRecordMutationRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated signature",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SignatureRecordMutationResponse" } } }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Media"],
+        "summary": "Archive a media signature record",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } },
+          { "in": "path", "name": "signatureId", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Archived signature",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SignatureRecordMutationResponse" } } }
+          }
+        }
+      }
+    },
+    "/api/media/{id}/signatures/{signatureId}/primary": {
+      "post": {
+        "tags": ["Media"],
+        "summary": "Promote a media signature record to primary",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } },
+          { "in": "path", "name": "signatureId", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Promoted signature",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SignatureRecordMutationResponse" } } }
           }
         }
       }

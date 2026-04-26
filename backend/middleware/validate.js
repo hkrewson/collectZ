@@ -676,6 +676,30 @@ const eventArtifactSignatureLinkSchema = z.object({
   notes: z.preprocess(emptyStringToNull, z.string().max(5000).optional().nullable())
 });
 
+const signatureRecordBaseSchema = z.object({
+  signer_name: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
+  signer_role: z.preprocess(emptyStringToNull, z.string().max(100).optional().nullable()),
+  signed_on: nullableDateSchema,
+  signed_at: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
+  signed_event_id: nullableNumberSchema(z.number().int().positive()),
+  proof_path: z.preprocess(emptyStringToNull, z.string().max(2000).optional().nullable()),
+  signed_proof_path: z.preprocess(emptyStringToNull, z.string().max(2000).optional().nullable()),
+  notes: z.preprocess(emptyStringToNull, z.string().max(5000).optional().nullable()),
+  signature_notes: z.preprocess(emptyStringToNull, z.string().max(5000).optional().nullable()),
+  is_primary: z.boolean().optional().nullable()
+});
+
+const signatureRecordCreateSchema = signatureRecordBaseSchema.refine(
+  (data) => ['signer_name', 'signer_role', 'signed_on', 'signed_at', 'signed_event_id', 'proof_path', 'signed_proof_path', 'notes', 'signature_notes']
+    .some((key) => data[key] !== undefined && data[key] !== null && String(data[key]).trim() !== ''),
+  { message: 'At least one signature detail is required' }
+);
+
+const signatureRecordUpdateSchema = signatureRecordBaseSchema.partial().refine(
+  (data) => Object.keys(data).length > 0,
+  { message: 'At least one signature field is required' }
+);
+
 const purchasedItemTypes = ['art', 'collectible'];
 const eventPurchasedItemBaseSchema = z.object({
   item_type: z.enum(purchasedItemTypes),
@@ -857,6 +881,8 @@ module.exports = {
   eventArtifactCreateSchema,
   eventArtifactUpdateSchema,
   eventArtifactSignatureLinkSchema,
+  signatureRecordCreateSchema,
+  signatureRecordUpdateSchema,
   eventPurchasedItemCreateSchema,
   eventPurchasedItemUpdateSchema,
   collectibleCreateSchema,

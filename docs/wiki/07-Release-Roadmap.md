@@ -4941,6 +4941,35 @@ Historical note:
 - Release evidence artifacts were inspected for unredacted secret-bearing patterns after observability evidence generation, with no unredacted hits found.
 - The release intentionally leaves multiple signatures per object and multi-proof management as follow-up work.
 
+## 3.4.13 — Multi-Signature Support for Art and Media
+
+**Goal:** Let Art and media objects carry multiple signature provenance records while preserving the existing single-primary compatibility fields used by older forms, imports, and title endpoints.
+
+**Current Slice:** `Implementation in progress`
+
+### Scope
+
+- Add shared signature record create/update/archive/set-primary operations for Art and media.
+- Keep one active primary signature per object for compatibility with existing Art signer fields and media `signed_by` projections.
+- Add Art and media API endpoints for reading, adding, editing, archiving, and promoting signature records.
+- Keep event autograph linking compatible by continuing to attach linked autographs to the canonical primary object signature unless a later workflow explicitly chooses a secondary target.
+- Surface multiple signatures in Art/media readback without introducing multi-proof-per-signature storage.
+
+### Acceptance Criteria
+
+- Art and media detail responses can include more than one active signature record.
+- Users can add secondary signatures without replacing the existing primary signature.
+- Users can promote a secondary signature to primary, and compatibility fields update to that signature.
+- Archiving signatures keeps Art `signed` state and media legacy signing fields aligned with the remaining primary signature or clears them when no active signatures remain.
+- Existing single-signature Art/media create and edit flows continue to work as primary-signature shortcuts.
+- API/OpenAPI/source-level/browser checks cover the multi-signature contract.
+
+### Active Slice Notes
+
+- Do not add multiple proof images per signature in this slice; each signature record keeps a single `proof_path`.
+- Do not introduce a signer/person directory or controlled authority file yet.
+- Keep Events as capture/history; object-level Art/media signatures remain canonical provenance.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

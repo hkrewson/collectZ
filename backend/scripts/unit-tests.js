@@ -3664,6 +3664,34 @@ results.push(run('event autograph linking UI exposes shared Art and media signat
   assert.ok(eventsViewSource.includes('Signature notes'));
 }));
 
+results.push(run('multi-signature Art and media support keeps primary compatibility wired', () => {
+  assert.ok(signaturesServiceSource.includes('createSignatureRecord'));
+  assert.ok(signaturesServiceSource.includes('updateSignatureRecord'));
+  assert.ok(signaturesServiceSource.includes('archiveSignatureRecord'));
+  assert.ok(signaturesServiceSource.includes('setPrimarySignatureRecord'));
+  assert.ok(signaturesServiceSource.includes('archiveSignatureRecordsForOwner'));
+  assert.ok(collectiblesRoutesSource.includes("router.post('/art/:id/signatures'"));
+  assert.ok(collectiblesRoutesSource.includes("router.patch('/art/:id/signatures/:signatureId'"));
+  assert.ok(collectiblesRoutesSource.includes("router.post('/art/:id/signatures/:signatureId/primary'"));
+  assert.ok(collectiblesRoutesSource.includes("router.delete('/art/:id/signatures/:signatureId'"));
+  assert.ok(collectiblesRoutesSource.includes('refreshArtSignatureState'));
+  assert.ok(mediaRoutesSource.includes("router.post('/:id/signatures'"));
+  assert.ok(mediaRoutesSource.includes("router.patch('/:id/signatures/:signatureId'"));
+  assert.ok(mediaRoutesSource.includes("router.post('/:id/signatures/:signatureId/primary'"));
+  assert.ok(mediaRoutesSource.includes("router.delete('/:id/signatures/:signatureId'"));
+  assert.ok(mediaRoutesSource.includes('syncMediaLegacyFieldsFromSignatures'));
+  assert.ok(validateMiddlewareSource.includes('signatureRecordCreateSchema'));
+  assert.ok(validateMiddlewareSource.includes('signatureRecordUpdateSchema'));
+  assert.ok(artViewSource.includes('All signatures'));
+  assert.ok(libraryViewSource.includes('All signatures'));
+  assert.ok(openApiSource.includes('"/api/art/{id}/signatures"'));
+  assert.ok(openApiSource.includes('"/api/art/{id}/signatures/{signatureId}/primary"'));
+  assert.ok(openApiSource.includes('"/api/media/{id}/signatures"'));
+  assert.ok(openApiSource.includes('"/api/media/{id}/signatures/{signatureId}/primary"'));
+  assert.ok(openApiSource.includes('"SignatureRecordMutationRequest"'));
+  assert.ok(openApiSource.includes('"SignatureRecordMutationResponse"'));
+}));
+
 results.push(run('library loans view exposes management-focused counts and due-soon emphasis', () => {
   assert.ok(libraryLoansViewSource.includes('Currently out'));
   assert.ok(libraryLoansViewSource.includes('Due soon'));

@@ -87,18 +87,41 @@ test.describe('events and collectibles browser regressions', () => {
       const uploaded = await uploadResponse.json();
       expect(uploaded.signature_proof_path).toBeTruthy();
 
+      const secondaryResponse = await postWithCsrf(userRequestContext, `/api/art/${created.id}/signatures`, {
+        signer_name: 'Second Playwright Signer',
+        signer_role: 'Colorist',
+        signed_on: '2026-04-28',
+        signed_at: 'Second Signing Table',
+        notes: 'Secondary signature evidence.'
+      }, 201);
+      const secondary = await secondaryResponse.json();
+      expect(secondary.signatures).toHaveLength(2);
+      expect(secondary.signature.is_primary).toBe(false);
+
+      const promoteResponse = await requestWithCsrf(userRequestContext, 'POST', `/api/art/${created.id}/signatures/${secondary.signature.id}/primary`);
+      expect(promoteResponse.ok()).toBeTruthy();
+      const promoted = await promoteResponse.json();
+      expect(promoted.signature.is_primary).toBe(true);
+      expect(promoted.art.signer_name).toBe('Second Playwright Signer');
+
       const detailResponse = await userRequestContext.get(`/api/art/${created.id}`);
       expect(detailResponse.ok()).toBeTruthy();
       const detail = await detailResponse.json();
-      expect(detail.signatures).toHaveLength(1);
-      expect(detail.signer_name).toBe('Updated Playwright Signer');
+      expect(detail.signatures).toHaveLength(2);
+      expect(detail.signer_name).toBe('Second Playwright Signer');
       expect(detail.signatures[0].owner_type).toBe('art');
-      expect(detail.signatures[0].proof_path).toBe(uploaded.signature_proof_path);
+      expect(detail.signatures[0].is_primary).toBe(true);
 
       const removeResponse = await requestWithCsrf(userRequestContext, 'DELETE', `/api/art/${created.id}/signature-proof`);
       const removed = await removeResponse.json();
-      expect(removed.removed).toBe(true);
+      expect(removed.removed).toBe(false);
       expect(removed.signature_proof_path).toBeNull();
+
+      const archiveResponse = await requestWithCsrf(userRequestContext, 'DELETE', `/api/art/${created.id}/signatures/${secondary.signature.id}`);
+      expect(archiveResponse.ok()).toBeTruthy();
+      const archived = await archiveResponse.json();
+      expect(archived.signatures).toHaveLength(1);
+      expect(archived.art.signer_name).toBe('Updated Playwright Signer');
     } finally {
       await deleteArtByExactTitle(userRequestContext, artTitle).catch(() => {});
       if (!originalCollectiblesEnabled) {

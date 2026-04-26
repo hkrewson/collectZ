@@ -27,7 +27,9 @@ const {
   simpleSearchSchema,
   titleAuthorSearchSchema,
   titleArtistSearchSchema,
-  upcLookupSchema
+  upcLookupSchema,
+  signatureRecordCreateSchema,
+  signatureRecordUpdateSchema
 } = require('../middleware/validate');
 const { loadScopedIntegrationConfig } = require('../services/integrations');
 const {
@@ -85,6 +87,10 @@ const { recordImportJobEvent, recordImportEnrichmentEvent } = require('../servic
 const { uploadBuffer } = require('../services/storage');
 const {
   loadSignatureRecordsForOwner,
+  createSignatureRecord,
+  updateSignatureRecord,
+  archiveSignatureRecord,
+  setPrimarySignatureRecord,
   syncPrimarySignatureRecord,
   buildLegacyMediaSignature
 } = require('../services/signatures');
@@ -597,6 +603,31 @@ async function syncMediaPrimarySignature(row = {}, userId = null) {
     signature,
     signed: signature.hasDetails
   });
+}
+
+async function syncMediaLegacyFieldsFromSignatures(mediaId) {
+  const signatures = await loadSignatureRecordsForOwner(pool, { ownerType: 'media', ownerId: mediaId });
+  const primarySignature = signatures.find((signature) => signature.is_primary) || signatures[0] || null;
+  const updated = await pool.query(
+    `UPDATE media
+     SET signed_by = $2,
+         signed_role = $3,
+         signed_on = $4,
+         signed_at = $5,
+         signed_proof_path = $6
+     WHERE id = $1
+     RETURNING *, cast_members AS cast`,
+    [
+      mediaId,
+      primarySignature?.signer_name || null,
+      primarySignature?.signer_role || null,
+      primarySignature?.signed_on || null,
+      primarySignature?.signed_at || null,
+      primarySignature?.proof_path || null
+    ]
+  );
+  const row = updated.rows[0] ? normalizeMediaRecord(updated.rows[0]) : null;
+  return row ? attachSignaturesToMediaRecord(row) : null;
 }
 
 function humanizeMergeSourceToken(value = '') {
@@ -9038,7 +9069,7 @@ async function resolveEditableMediaForUser({ req, mediaId, scopeContext }) {
   const unrestrictedParams = [mediaId];
   const unrestrictedScopeClause = appendScopeSql(unrestrictedParams, scopeContext);
   const unrestricted = await pool.query(
-    `SELECT id, signed_proof_path
+    `SELECT id, library_id, space_id, signed_by, signed_role, signed_on, signed_at, signed_proof_path
      FROM media
      WHERE id = $1${unrestrictedScopeClause}
      LIMIT 1`,
@@ -9056,7 +9087,7 @@ async function resolveEditableMediaForUser({ req, mediaId, scopeContext }) {
   }
   const editableScopeClause = appendScopeSql(editableParams, scopeContext);
   const editable = await pool.query(
-    `SELECT id, signed_proof_path
+    `SELECT id, library_id, space_id, signed_by, signed_role, signed_on, signed_at, signed_proof_path
      FROM media
      WHERE id = $1${ownerClause}${editableScopeClause}
      LIMIT 1`,
@@ -9067,6 +9098,106 @@ async function resolveEditableMediaForUser({ req, mediaId, scopeContext }) {
   }
   return { status: 200, row: editable.rows[0] };
 }
+
+router.get('/:id/signatures', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const mediaId = Number(req.params.id);
+  if (!Number.isFinite(mediaId) || mediaId <= 0) {
+    return res.status(400).json({ error: 'Invalid media id' });
+  }
+  const media = await loadScopedMediaItem(mediaId, scopeContext);
+  if (!media) return res.status(404).json({ error: 'Media item not found' });
+  res.json({ media_id: media.id, signatures: media.signatures || [] });
+}));
+
+router.post('/:id/signatures', validate(signatureRecordCreateSchema), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const mediaId = Number(req.params.id);
+  if (!Number.isFinite(mediaId) || mediaId <= 0) {
+    return res.status(400).json({ error: 'Invalid media id' });
+  }
+  const access = await resolveEditableMediaForUser({ req, mediaId, scopeContext });
+  if (access.status === 404) return res.status(404).json({ error: 'Media item not found' });
+  if (access.status === 403) return res.status(403).json({ error: 'Not authorized to edit this media item' });
+  const signature = await createSignatureRecord(pool, {
+    ownerType: 'media',
+    ownerId: mediaId,
+    libraryId: access.row.library_id || null,
+    spaceId: access.row.space_id || null,
+    createdBy: req.user.id,
+    signature: req.body,
+    isPrimary: req.body.is_primary === true
+  });
+  if (!signature) return res.status(400).json({ error: 'At least one signature detail is required' });
+  const media = await syncMediaLegacyFieldsFromSignatures(mediaId);
+  await logActivity(req, 'media.signature.create', 'media', mediaId, {
+    signatureRecordId: signature.id,
+    isPrimary: signature.is_primary === true
+  });
+  res.status(201).json({ media, signatures: media?.signatures || [], signature });
+}));
+
+router.patch('/:id/signatures/:signatureId', validate(signatureRecordUpdateSchema), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const mediaId = Number(req.params.id);
+  const signatureId = Number(req.params.signatureId);
+  if (!Number.isFinite(mediaId) || mediaId <= 0 || !Number.isFinite(signatureId) || signatureId <= 0) {
+    return res.status(400).json({ error: 'Invalid media/signature id' });
+  }
+  const access = await resolveEditableMediaForUser({ req, mediaId, scopeContext });
+  if (access.status === 404) return res.status(404).json({ error: 'Media item not found' });
+  if (access.status === 403) return res.status(403).json({ error: 'Not authorized to edit this media item' });
+  const signature = await updateSignatureRecord(pool, {
+    ownerType: 'media',
+    ownerId: mediaId,
+    signatureId,
+    libraryId: access.row.library_id || null,
+    spaceId: access.row.space_id || null,
+    signature: req.body,
+    isPrimary: req.body.is_primary === true
+  });
+  if (!signature) return res.status(404).json({ error: 'Signature record not found' });
+  const media = await syncMediaLegacyFieldsFromSignatures(mediaId);
+  await logActivity(req, 'media.signature.update', 'media', mediaId, {
+    signatureRecordId: signature.id,
+    isPrimary: signature.is_primary === true
+  });
+  res.json({ media, signatures: media?.signatures || [], signature });
+}));
+
+router.post('/:id/signatures/:signatureId/primary', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const mediaId = Number(req.params.id);
+  const signatureId = Number(req.params.signatureId);
+  if (!Number.isFinite(mediaId) || mediaId <= 0 || !Number.isFinite(signatureId) || signatureId <= 0) {
+    return res.status(400).json({ error: 'Invalid media/signature id' });
+  }
+  const access = await resolveEditableMediaForUser({ req, mediaId, scopeContext });
+  if (access.status === 404) return res.status(404).json({ error: 'Media item not found' });
+  if (access.status === 403) return res.status(403).json({ error: 'Not authorized to edit this media item' });
+  const signature = await setPrimarySignatureRecord(pool, { ownerType: 'media', ownerId: mediaId, signatureId });
+  if (!signature) return res.status(404).json({ error: 'Signature record not found' });
+  const media = await syncMediaLegacyFieldsFromSignatures(mediaId);
+  await logActivity(req, 'media.signature.primary', 'media', mediaId, { signatureRecordId: signature.id });
+  res.json({ media, signatures: media?.signatures || [], signature });
+}));
+
+router.delete('/:id/signatures/:signatureId', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const mediaId = Number(req.params.id);
+  const signatureId = Number(req.params.signatureId);
+  if (!Number.isFinite(mediaId) || mediaId <= 0 || !Number.isFinite(signatureId) || signatureId <= 0) {
+    return res.status(400).json({ error: 'Invalid media/signature id' });
+  }
+  const access = await resolveEditableMediaForUser({ req, mediaId, scopeContext });
+  if (access.status === 404) return res.status(404).json({ error: 'Media item not found' });
+  if (access.status === 403) return res.status(403).json({ error: 'Not authorized to edit this media item' });
+  const signature = await archiveSignatureRecord(pool, { ownerType: 'media', ownerId: mediaId, signatureId });
+  if (!signature) return res.status(404).json({ error: 'Signature record not found' });
+  const media = await syncMediaLegacyFieldsFromSignatures(mediaId);
+  await logActivity(req, 'media.signature.archive', 'media', mediaId, { signatureRecordId: signature.id });
+  res.json({ media, signatures: media?.signatures || [], signature, archived: true });
+}));
 
 router.post('/:id/upload-signing-proof', memoryImageUpload.single('proof'), asyncHandler(async (req, res) => {
   const scopeContext = resolveScopeContext(req);

@@ -1450,6 +1450,36 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
             </div>
           )}
 
+          {Array.isArray(item.signatures) && item.signatures.length > 1 && (
+            <div>
+              <p className="label mb-2">All signatures</p>
+              <div className="space-y-2">
+                {item.signatures.map((signature) => (
+                  <div key={signature.id} className="border-t border-edge/70 pt-2 first:border-t-0 first:pt-0">
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-sm text-dim">
+                        {[signature.signer_name, signature.signer_role, signature.signed_on, signature.signed_at].filter(Boolean).join(' · ') || 'Signed copy'}
+                      </p>
+                      {signature.is_primary ? <span className="badge badge-dim shrink-0">Primary</span> : null}
+                    </div>
+                    {signature.notes ? <p className="mt-1 text-xs text-ghost">{signature.notes}</p> : null}
+                    {signature.proof_path ? (
+                      <a
+                        href={posterUrl(signature.proof_path)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-1 inline-flex items-center gap-2 text-xs text-dim transition-colors hover:text-ink"
+                      >
+                        <Icons.Link />
+                        Open proof image
+                      </a>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {isBook && bookDetailRows.length > 0 && (
             <div>
               <p className="label mb-2">Book details</p>

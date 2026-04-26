@@ -4,13 +4,25 @@ const pool = require('../db/pool');
 const { asyncHandler } = require('../middleware/errors');
 const { authenticateToken } = require('../middleware/auth');
 const { enforceScopeAccess } = require('../middleware/scopeAccess');
-const { validate, collectibleCreateSchema, collectibleUpdateSchema, artCreateSchema, artUpdateSchema } = require('../middleware/validate');
+const {
+  validate,
+  collectibleCreateSchema,
+  collectibleUpdateSchema,
+  artCreateSchema,
+  artUpdateSchema,
+  signatureRecordCreateSchema,
+  signatureRecordUpdateSchema
+} = require('../middleware/validate');
 const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
 const { logActivity } = require('../services/audit');
 const { uploadBuffer } = require('../services/storage');
 const {
   loadSignatureRecords,
   loadSignatureRecordsForOwner,
+  createSignatureRecord,
+  updateSignatureRecord,
+  archiveSignatureRecord,
+  setPrimarySignatureRecord,
   syncPrimarySignatureRecord
 } = require('../services/signatures');
 const {
@@ -325,6 +337,28 @@ const syncArtPrimarySignature = async ({ artRow, payload = {}, userId = null }) 
     signature: buildArtSignaturePayload(payload),
     signed: payload.signed === true
   });
+};
+
+const refreshArtSignatureState = async (scopeContext, artRow) => {
+  if (!artRow?.id) return null;
+  const signatures = await loadSignatureRecordsForOwner(pool, { ownerType: 'art', ownerId: artRow.id });
+  await pool.query(
+    `UPDATE art_items
+     SET signed = $2,
+         updated_at = CURRENT_TIMESTAMP
+     WHERE id = $1`,
+    [artRow.id, signatures.length > 0]
+  );
+  const refreshed = await loadNativeArtById(scopeContext, artRow.id);
+  return attachSignaturesToArtRow(refreshed || artRow);
+};
+
+const serializeSignatureMutationResponse = async (scopeContext, artRow) => {
+  const hydrated = await refreshArtSignatureState(scopeContext, artRow);
+  return {
+    art: serializeNativeArtRow(hydrated || artRow),
+    signatures: hydrated?.signatures || []
+  };
 };
 
 const syncNativeArtEventLink = async ({ artRow, eventId, userId }) => {
@@ -1150,6 +1184,110 @@ const updateCollectible = asyncHandler(async (req, res) => {
 
 router.patch('/collectibles/:id', validate(collectibleUpdateSchema), updateCollectible);
 router.patch('/art/:id', validate(artUpdateSchema), updateArt);
+
+router.get('/art/:id/signatures', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const artRouteId = Number(req.params.id);
+  if (!Number.isFinite(artRouteId) || artRouteId <= 0) {
+    return res.status(400).json({ error: 'Invalid art id' });
+  }
+  const current = await attachSignaturesToArtRow(await loadNativeArtByRouteId(scopeContext, artRouteId));
+  if (!current) return res.status(404).json({ error: 'Art item not found' });
+  res.json({ art_id: buildPublicNativeArtId(current), native_art_id: current.id, signatures: current.signatures || [] });
+}));
+
+router.post('/art/:id/signatures', validate(signatureRecordCreateSchema), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const artRouteId = Number(req.params.id);
+  if (!Number.isFinite(artRouteId) || artRouteId <= 0) {
+    return res.status(400).json({ error: 'Invalid art id' });
+  }
+  const current = await loadNativeArtByRouteId(scopeContext, artRouteId);
+  if (!current) return res.status(404).json({ error: 'Art item not found' });
+  const signature = await createSignatureRecord(pool, {
+    ownerType: 'art',
+    ownerId: current.id,
+    libraryId: current.library_id || null,
+    spaceId: current.space_id || null,
+    createdBy: req.user.id,
+    signature: req.body,
+    isPrimary: req.body.is_primary === true
+  });
+  if (!signature) return res.status(400).json({ error: 'At least one signature detail is required' });
+  const response = await serializeSignatureMutationResponse(scopeContext, current);
+  await logActivity(req, 'art.signature.create', 'art', buildPublicNativeArtId(current), {
+    native_art_id: current.id,
+    signatureRecordId: signature.id,
+    isPrimary: signature.is_primary === true
+  });
+  res.status(201).json({ ...response, signature });
+}));
+
+router.patch('/art/:id/signatures/:signatureId', validate(signatureRecordUpdateSchema), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const artRouteId = Number(req.params.id);
+  const signatureId = Number(req.params.signatureId);
+  if (!Number.isFinite(artRouteId) || artRouteId <= 0 || !Number.isFinite(signatureId) || signatureId <= 0) {
+    return res.status(400).json({ error: 'Invalid art/signature id' });
+  }
+  const current = await loadNativeArtByRouteId(scopeContext, artRouteId);
+  if (!current) return res.status(404).json({ error: 'Art item not found' });
+  const signature = await updateSignatureRecord(pool, {
+    ownerType: 'art',
+    ownerId: current.id,
+    signatureId,
+    libraryId: current.library_id || null,
+    spaceId: current.space_id || null,
+    signature: req.body,
+    isPrimary: req.body.is_primary === true
+  });
+  if (!signature) return res.status(404).json({ error: 'Signature record not found' });
+  const response = await serializeSignatureMutationResponse(scopeContext, current);
+  await logActivity(req, 'art.signature.update', 'art', buildPublicNativeArtId(current), {
+    native_art_id: current.id,
+    signatureRecordId: signature.id,
+    isPrimary: signature.is_primary === true
+  });
+  res.json({ ...response, signature });
+}));
+
+router.post('/art/:id/signatures/:signatureId/primary', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const artRouteId = Number(req.params.id);
+  const signatureId = Number(req.params.signatureId);
+  if (!Number.isFinite(artRouteId) || artRouteId <= 0 || !Number.isFinite(signatureId) || signatureId <= 0) {
+    return res.status(400).json({ error: 'Invalid art/signature id' });
+  }
+  const current = await loadNativeArtByRouteId(scopeContext, artRouteId);
+  if (!current) return res.status(404).json({ error: 'Art item not found' });
+  const signature = await setPrimarySignatureRecord(pool, { ownerType: 'art', ownerId: current.id, signatureId });
+  if (!signature) return res.status(404).json({ error: 'Signature record not found' });
+  const response = await serializeSignatureMutationResponse(scopeContext, current);
+  await logActivity(req, 'art.signature.primary', 'art', buildPublicNativeArtId(current), {
+    native_art_id: current.id,
+    signatureRecordId: signature.id
+  });
+  res.json({ ...response, signature });
+}));
+
+router.delete('/art/:id/signatures/:signatureId', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const artRouteId = Number(req.params.id);
+  const signatureId = Number(req.params.signatureId);
+  if (!Number.isFinite(artRouteId) || artRouteId <= 0 || !Number.isFinite(signatureId) || signatureId <= 0) {
+    return res.status(400).json({ error: 'Invalid art/signature id' });
+  }
+  const current = await loadNativeArtByRouteId(scopeContext, artRouteId);
+  if (!current) return res.status(404).json({ error: 'Art item not found' });
+  const signature = await archiveSignatureRecord(pool, { ownerType: 'art', ownerId: current.id, signatureId });
+  if (!signature) return res.status(404).json({ error: 'Signature record not found' });
+  const response = await serializeSignatureMutationResponse(scopeContext, current);
+  await logActivity(req, 'art.signature.archive', 'art', buildPublicNativeArtId(current), {
+    native_art_id: current.id,
+    signatureRecordId: signature.id
+  });
+  res.json({ ...response, signature, archived: true });
+}));
 
 router.post('/art/:id/upload-signature-proof', memoryUpload.single('proof'), asyncHandler(async (req, res) => {
   const scopeContext = resolveScopeContext(req);
