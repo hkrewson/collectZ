@@ -3541,6 +3541,16 @@ const MIGRATIONS = [
               AND sp.proof_path = sr.proof_path
          );
     `
+  },
+  {
+    version: 83,
+    description: 'Add signature proof evidence metadata',
+    up: `
+      ALTER TABLE signature_proofs
+        ADD COLUMN IF NOT EXISTS proof_type VARCHAR(50),
+        ADD COLUMN IF NOT EXISTS label VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS notes TEXT;
+    `
   }
 ];
 

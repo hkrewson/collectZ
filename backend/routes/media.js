@@ -91,6 +91,7 @@ const {
   updateSignatureRecord,
   updateSignatureProofPath,
   addSignatureProof,
+  updateSignatureProofMetadata,
   archiveSignatureProof,
   archiveSignatureRecord,
   setPrimarySignatureRecord,
@@ -9188,6 +9189,9 @@ router.post('/:id/signatures/:signatureId/proof', memoryImageUpload.single('proo
     ownerId: mediaId,
     signatureId,
     proofPath: stored.url,
+    proofType: req.body.proof_type,
+    label: req.body.label,
+    notes: req.body.notes,
     provider: stored.provider,
     originalFilename: req.file.originalname,
     mimeType: req.file.mimetype,
@@ -9210,6 +9214,43 @@ router.post('/:id/signatures/:signatureId/proof', memoryImageUpload.single('proo
     proof_path: signature.proof_path || null,
     signed_proof_path: media?.signed_proof_path || null,
     provider: stored.provider
+  });
+}));
+
+router.patch('/:id/signatures/:signatureId/proofs/:proofId', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const mediaId = Number(req.params.id);
+  const signatureId = Number(req.params.signatureId);
+  const proofId = Number(req.params.proofId);
+  if (!Number.isFinite(mediaId) || mediaId <= 0 || !Number.isFinite(signatureId) || signatureId <= 0 || !Number.isFinite(proofId) || proofId <= 0) {
+    return res.status(400).json({ error: 'Invalid media/signature/proof id' });
+  }
+  const access = await resolveEditableMediaForUser({ req, mediaId, scopeContext });
+  if (access.status === 404) return res.status(404).json({ error: 'Media item not found' });
+  if (access.status === 403) return res.status(403).json({ error: 'Not authorized to edit this media item' });
+  const proofMutation = await updateSignatureProofMetadata(pool, {
+    ownerType: 'media',
+    ownerId: mediaId,
+    signatureId,
+    proofId,
+    proofType: req.body.proof_type,
+    label: req.body.label,
+    notes: req.body.notes
+  });
+  if (!proofMutation?.signature) return res.status(404).json({ error: 'Signature proof not found' });
+  const media = await syncMediaLegacyFieldsFromSignatures(mediaId);
+  await logActivity(req, 'media.signature.proof.metadata.update', 'media', mediaId, {
+    signatureRecordId: signatureId,
+    proofId,
+    proofType: proofMutation.proof?.proof_type || null
+  });
+  res.json({
+    media,
+    signatures: media?.signatures || [],
+    signature: proofMutation.signature,
+    proof: proofMutation.proof,
+    proof_path: proofMutation.signature.proof_path || null,
+    signed_proof_path: media?.signed_proof_path || null
   });
 }));
 

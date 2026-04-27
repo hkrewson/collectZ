@@ -1,7 +1,7 @@
 'use strict';
 const fs = require('fs');
 const { test, expect, request: playwrightRequest } = require('@playwright/test');
-const { AUTH_STATE_PATH, createFreshUserCredentials, createAuthenticatedRequestContext, createRequestContextFromStorageState, ensureAuthenticatedAdminStorageState, fetchCsrfToken, postWithCsrf, requestWithCsrf } = require('../helpers/auth');
+const { AUTH_STATE_PATH, createFreshUserCredentials, createAuthenticatedRequestContext, createRequestContextFromStorageState, ensureAuthenticatedAdminStorageState, fetchCsrfToken, patchWithCsrf, postWithCsrf, requestWithCsrf } = require('../helpers/auth');
 const { deleteMediaByExactTitle, findExactMediaByTitle } = require('../helpers/media');
 
 const PLAYWRIGHT_BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000';
@@ -74,6 +74,9 @@ test.describe('library multi-format browser regressions', () => {
       const csrfToken = await fetchCsrfToken(requestContext);
       const proofResponse = await requestContext.post(`/api/media/${mediaId}/signatures/${secondary.signature.id}/proof`, {
         multipart: {
+          proof_type: 'receipt',
+          label: 'Book signing receipt',
+          notes: 'Receipt proves the signing source.',
           proof: {
             name: 'media-signature-proof.png',
             mimeType: 'image/png',
@@ -86,6 +89,8 @@ test.describe('library multi-format browser regressions', () => {
       const proof = await proofResponse.json();
       expect(proof.signature.proof_path).toBeTruthy();
       expect(proof.signature.proofs).toHaveLength(1);
+      expect(proof.proof.proof_type).toBe('receipt');
+      expect(proof.proof.label).toBe('Book signing receipt');
       expect(proof.media.signed_proof_path).toBeFalsy();
 
       const secondProofCsrfToken = await fetchCsrfToken(requestContext);
@@ -103,6 +108,15 @@ test.describe('library multi-format browser regressions', () => {
       const secondProof = await secondProofResponse.json();
       expect(secondProof.signature.proofs).toHaveLength(2);
       const extraProof = secondProof.signature.proofs.find((entry) => !entry.is_primary);
+      const metadataResponse = await patchWithCsrf(requestContext, `/api/media/${mediaId}/signatures/${secondary.signature.id}/proofs/${extraProof.id}`, {
+        proof_type: 'artist_post',
+        label: 'Publisher post',
+        notes: 'Publisher post confirming the signature.'
+      });
+      expect(metadataResponse.ok()).toBeTruthy();
+      const metadata = await metadataResponse.json();
+      expect(metadata.proof.proof_type).toBe('artist_post');
+      expect(metadata.proof.label).toBe('Publisher post');
       const removeOneProofResponse = await requestWithCsrf(requestContext, 'DELETE', `/api/media/${mediaId}/signatures/${secondary.signature.id}/proofs/${extraProof.id}`);
       expect(removeOneProofResponse.ok()).toBeTruthy();
       const removedOneProof = await removeOneProofResponse.json();

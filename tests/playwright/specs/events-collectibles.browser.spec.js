@@ -92,6 +92,9 @@ test.describe('events and collectibles browser regressions', () => {
       const csrfToken = await fetchCsrfToken(userRequestContext);
       const uploadResponse = await userRequestContext.post(`/api/art/${created.id}/signatures/${primarySignatureId}/proof`, {
         multipart: {
+          proof_type: 'photo',
+          label: 'Signing table photo',
+          notes: 'Photo taken at the signing table.',
           proof: {
             name: 'signature-proof.png',
             mimeType: 'image/png',
@@ -105,6 +108,8 @@ test.describe('events and collectibles browser regressions', () => {
       expect(uploaded.signature_proof_path).toBeTruthy();
       expect(uploaded.signature.proof_path).toBeTruthy();
       expect(uploaded.signature.proofs).toHaveLength(2);
+      expect(uploaded.proof.proof_type).toBe('photo');
+      expect(uploaded.proof.label).toBe('Signing table photo');
 
       const extraProofCsrfToken = await fetchCsrfToken(userRequestContext);
       const extraProofResponse = await userRequestContext.post(`/api/art/${created.id}/signatures/${primarySignatureId}/proof`, {
@@ -122,6 +127,15 @@ test.describe('events and collectibles browser regressions', () => {
       expect(extraProof.signature.proofs).toHaveLength(3);
       const nonPrimaryProof = extraProof.signature.proofs.find((proof) => !proof.is_primary);
       expect(nonPrimaryProof?.id).toBeTruthy();
+      const metadataResponse = await patchWithCsrf(userRequestContext, `/api/art/${created.id}/signatures/${primarySignatureId}/proofs/${nonPrimaryProof.id}`, {
+        proof_type: 'coa',
+        label: 'Certificate of authenticity',
+        notes: 'COA entered after upload.'
+      });
+      expect(metadataResponse.ok()).toBeTruthy();
+      const metadata = await metadataResponse.json();
+      expect(metadata.proof.proof_type).toBe('coa');
+      expect(metadata.proof.label).toBe('Certificate of authenticity');
       const removeExtraProofResponse = await requestWithCsrf(userRequestContext, 'DELETE', `/api/art/${created.id}/signatures/${primarySignatureId}/proofs/${nonPrimaryProof.id}`);
       expect(removeExtraProofResponse.ok()).toBeTruthy();
       const removedExtraProof = await removeExtraProofResponse.json();

@@ -3665,6 +3665,22 @@ results.push(run('multi-proof signature evidence keeps shared proof arrays and c
   assert.ok(openApiSource.includes('"/api/media/{id}/signatures/{signatureId}/proofs/{proofId}"'));
 }));
 
+results.push(run('signature proof evidence metadata is stored and editable per proof', () => {
+  assert.ok(migrationsSource.includes('version: 83'));
+  assert.ok(migrationsSource.includes('ADD COLUMN IF NOT EXISTS proof_type VARCHAR(50)'));
+  assert.ok(initSqlSource.includes('proof_type VARCHAR(50)'));
+  assert.ok(initSqlSource.includes('label VARCHAR(255)'));
+  assert.ok(initSqlSource.includes('notes TEXT'));
+  assert.ok(signaturesServiceSource.includes('updateSignatureProofMetadata'));
+  assert.ok(signaturesServiceSource.includes('proof_type: row.proof_type || null'));
+  assert.ok(collectiblesRoutesSource.includes("router.patch('/art/:id/signatures/:signatureId/proofs/:proofId'"));
+  assert.ok(mediaRoutesSource.includes("router.patch('/:id/signatures/:signatureId/proofs/:proofId'"));
+  assert.ok(signatureManagerSource.includes('Evidence type'));
+  assert.ok(signatureManagerSource.includes('Save metadata'));
+  assert.ok(openApiSource.includes('"SignatureProofMetadataRequest"'));
+  assert.ok(openApiSource.includes('"proof_type"'));
+}));
+
 results.push(run('event autograph artifacts can link into shared object signature provenance', () => {
   assert.ok(migrationsSource.includes('version: 79'));
   assert.ok(migrationsSource.includes('Link event autograph artifacts to shared signature provenance'));

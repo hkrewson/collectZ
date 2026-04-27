@@ -841,6 +841,9 @@ CREATE TABLE IF NOT EXISTS signature_proofs (
     id SERIAL PRIMARY KEY,
     signature_record_id INTEGER NOT NULL REFERENCES signature_records(id) ON DELETE CASCADE,
     proof_path TEXT NOT NULL,
+    proof_type VARCHAR(50),
+    label VARCHAR(255),
+    notes TEXT,
     provider VARCHAR(50),
     original_filename VARCHAR(255),
     mime_type VARCHAR(100),
@@ -1250,5 +1253,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (79, 'Link event autograph artifacts to shared signature provenance'),
     (80, 'Add Art physical dimensions and framed metadata'),
     (81, 'Add Art dimension unit metadata'),
-    (82, 'Add multi-proof signature evidence table')
+    (82, 'Add multi-proof signature evidence table'),
+    (83, 'Add signature proof evidence metadata')
 ON CONFLICT (version) DO NOTHING;

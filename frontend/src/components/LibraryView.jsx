@@ -1475,7 +1475,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                             className="inline-flex items-center gap-2 text-xs text-dim transition-colors hover:text-ink"
                           >
                             <Icons.Link />
-                            {proof.is_primary ? 'Primary proof' : `Proof ${index + 1}`}
+                            {proof.label || proof.proof_type || (proof.is_primary ? 'Primary proof' : `Proof ${index + 1}`)}
                           </a>
                         ))}
                       </div>

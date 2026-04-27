@@ -23,6 +23,7 @@ const {
   updateSignatureRecord,
   updateSignatureProofPath,
   addSignatureProof,
+  updateSignatureProofMetadata,
   archiveSignatureProof,
   archiveSignatureRecord,
   setPrimarySignatureRecord,
@@ -1291,6 +1292,9 @@ router.post('/art/:id/signatures/:signatureId/proof', memoryUpload.single('proof
     ownerId: current.id,
     signatureId,
     proofPath: stored.url,
+    proofType: req.body.proof_type,
+    label: req.body.label,
+    notes: req.body.notes,
     provider: stored.provider,
     originalFilename: req.file.originalname,
     mimeType: req.file.mimetype,
@@ -1313,6 +1317,44 @@ router.post('/art/:id/signatures/:signatureId/proof', memoryUpload.single('proof
     signature_proof_path: response.art?.signature_proof_path || null,
     proof_path: signature.proof_path || null,
     provider: stored.provider
+  });
+}));
+
+router.patch('/art/:id/signatures/:signatureId/proofs/:proofId', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const artRouteId = Number(req.params.id);
+  const signatureId = Number(req.params.signatureId);
+  const proofId = Number(req.params.proofId);
+  if (!Number.isFinite(artRouteId) || artRouteId <= 0 || !Number.isFinite(signatureId) || signatureId <= 0 || !Number.isFinite(proofId) || proofId <= 0) {
+    return res.status(400).json({ error: 'Invalid art/signature/proof id' });
+  }
+  const current = await attachSignaturesToArtRow(await loadNativeArtByRouteId(scopeContext, artRouteId));
+  if (!current) return res.status(404).json({ error: 'Art item not found' });
+  const existingSignature = (current.signatures || []).find((signature) => Number(signature.id) === signatureId) || null;
+  if (!existingSignature) return res.status(404).json({ error: 'Signature record not found' });
+  const proofMutation = await updateSignatureProofMetadata(pool, {
+    ownerType: 'art',
+    ownerId: current.id,
+    signatureId,
+    proofId,
+    proofType: req.body.proof_type,
+    label: req.body.label,
+    notes: req.body.notes
+  });
+  if (!proofMutation?.signature) return res.status(404).json({ error: 'Signature proof not found' });
+  const response = await serializeSignatureMutationResponse(scopeContext, current);
+  await logActivity(req, 'art.signature.proof.metadata.update', 'art', buildPublicNativeArtId(current), {
+    native_art_id: current.id,
+    signatureRecordId: signatureId,
+    proofId,
+    proofType: proofMutation.proof?.proof_type || null
+  });
+  res.json({
+    ...response,
+    signature: proofMutation.signature,
+    proof: proofMutation.proof,
+    signature_proof_path: response.art?.signature_proof_path || null,
+    proof_path: proofMutation.signature.proof_path || null
   });
 }));
 

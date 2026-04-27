@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v3.4.19",
+      "version": "3.4.19",
+      "date": "2026-04-27",
+      "status": "Completed",
+      "summary": "This release makes signature proof evidence more descriptive. Art and media signature proofs can now store an evidence type, short label, and notes per proof image, while the shared multi-proof signature model and legacy primary proof projection remain compatible.",
+      "details": []
+    },
+    {
       "title": "v3.4.18",
       "version": "3.4.18",
       "date": "2026-04-27",
@@ -70,14 +78,6 @@
       "date": "2026-04-26",
       "status": "Completed",
       "summary": "This release completes the next shared signature provenance slice by giving Art the same proof-image upload and removal path already available to media signing proofs. Art proof files now update the shared primary signature record directly, while media proof removal keeps the legacy media field and shared signature record aligned.",
-      "details": []
-    },
-    {
-      "title": "v3.4.9",
-      "version": "3.4.9",
-      "date": "2026-04-26",
-      "status": "Completed",
-      "summary": "This release introduces one shared signature provenance contract for signed collection objects. Art now records richer signature details through the shared model, while existing media title signature fields continue to work as compatibility projections onto the same foundation.",
       "details": []
     }
   ]

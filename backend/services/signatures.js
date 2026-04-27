@@ -78,6 +78,9 @@ function serializeSignatureProofRow(row = {}) {
     id: Number(row.id || 0) || null,
     signature_record_id: Number(row.signature_record_id || 0) || null,
     proof_path: row.proof_path || null,
+    proof_type: row.proof_type || null,
+    label: row.label || null,
+    notes: row.notes || null,
     provider: row.provider || null,
     original_filename: row.original_filename || null,
     mime_type: row.mime_type || null,
@@ -525,6 +528,9 @@ async function addSignatureProof(pool, {
   ownerId,
   signatureId,
   proofPath,
+  proofType = null,
+  label = null,
+  notes = null,
   provider = null,
   originalFilename = null,
   mimeType = null,
@@ -568,16 +574,22 @@ async function addSignatureProof(pool, {
       `INSERT INTO signature_proofs (
          signature_record_id,
          proof_path,
+         proof_type,
+         label,
+         notes,
          provider,
          original_filename,
          mime_type,
          is_primary,
          created_by
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7)
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
        RETURNING *`,
       [
         normalizedSignatureId,
         cleanedProofPath,
+        cleanString(proofType, 50),
+        cleanString(label, 255),
+        cleanString(notes, 2000),
         cleanString(provider, 50),
         cleanString(originalFilename, 255),
         cleanString(mimeType, 100),
@@ -591,6 +603,77 @@ async function addSignatureProof(pool, {
     return {
       signature: updated ? serializeSignatureRow({ ...updated, proofs: proofs.get(normalizedSignatureId) || [] }) : null,
       proof: serializeSignatureProofRow(inserted.rows[0])
+    };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function updateSignatureProofMetadata(pool, {
+  ownerType,
+  ownerId,
+  signatureId,
+  proofId,
+  proofType = null,
+  label = null,
+  notes = null
+}) {
+  const normalizedOwnerType = normalizeOwnerType(ownerType);
+  const normalizedOwnerId = Number(ownerId || 0);
+  const normalizedSignatureId = Number(signatureId || 0);
+  const normalizedProofId = Number(proofId || 0);
+  if (!Number.isFinite(normalizedOwnerId) || normalizedOwnerId <= 0) return null;
+  if (!Number.isFinite(normalizedSignatureId) || normalizedSignatureId <= 0) return null;
+  if (!Number.isFinite(normalizedProofId) || normalizedProofId <= 0) return null;
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const existing = await client.query(
+      `SELECT sr.*
+         FROM signature_records sr
+        WHERE sr.id = $1
+          AND sr.owner_type = $2
+          AND sr.owner_id = $3
+          AND sr.archived_at IS NULL
+        LIMIT 1
+        FOR UPDATE`,
+      [normalizedSignatureId, normalizedOwnerType, normalizedOwnerId]
+    );
+    if (!existing.rows[0]) {
+      await client.query('ROLLBACK');
+      return null;
+    }
+    const updatedProof = await client.query(
+      `UPDATE signature_proofs
+          SET proof_type = $3,
+              label = $4,
+              notes = $5
+        WHERE id = $1
+          AND signature_record_id = $2
+          AND archived_at IS NULL
+        RETURNING *`,
+      [
+        normalizedProofId,
+        normalizedSignatureId,
+        cleanString(proofType, 50),
+        cleanString(label, 255),
+        cleanString(notes, 2000)
+      ]
+    );
+    if (!updatedProof.rows[0]) {
+      await client.query('ROLLBACK');
+      return null;
+    }
+    const updated = await syncSignatureProofProjection(client, { signatureId: normalizedSignatureId });
+    await client.query('COMMIT');
+    const proofs = await loadSignatureProofs(pool, [normalizedSignatureId]);
+    return {
+      signature: updated ? serializeSignatureRow({ ...updated, proofs: proofs.get(normalizedSignatureId) || [] }) : null,
+      proof: serializeSignatureProofRow(updatedProof.rows[0])
     };
   } catch (error) {
     await client.query('ROLLBACK');
@@ -869,6 +952,7 @@ module.exports = {
   updateSignatureRecord,
   updateSignatureProofPath,
   addSignatureProof,
+  updateSignatureProofMetadata,
   archiveSignatureProof,
   archiveSignatureRecord,
   archiveSignatureRecordsForOwner,

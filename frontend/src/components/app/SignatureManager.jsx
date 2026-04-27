@@ -11,6 +11,21 @@ const EMPTY_SIGNATURE = {
   notes: ''
 };
 
+const EMPTY_PROOF_METADATA = {
+  proof_type: '',
+  label: '',
+  notes: ''
+};
+
+const PROOF_TYPE_OPTIONS = [
+  ['photo', 'Photo'],
+  ['coa', 'Certificate'],
+  ['receipt', 'Receipt'],
+  ['event', 'Event record'],
+  ['artist_post', 'Artist post'],
+  ['other', 'Other']
+];
+
 function normalizeDate(value) {
   if (!value) return '';
   const raw = String(value).trim();
@@ -52,6 +67,54 @@ function signatureLine(signature, events = []) {
     signature?.signed_on ? normalizeDate(signature.signed_on) : null,
     signature?.signed_at || eventTitle
   ].filter(Boolean).join(' · ') || 'Signed copy';
+}
+
+function normalizeProofMetadata(proof = {}) {
+  return {
+    proof_type: proof.proof_type || '',
+    label: proof.label || '',
+    notes: proof.notes || ''
+  };
+}
+
+function proofMetadataPayload(form = {}) {
+  return {
+    proof_type: String(form.proof_type || '').trim() || null,
+    label: String(form.label || '').trim() || null,
+    notes: String(form.notes || '').trim() || null
+  };
+}
+
+function proofTitle(proof, index) {
+  if (proof?.label) return proof.label;
+  if (proof?.proof_type) {
+    const option = PROOF_TYPE_OPTIONS.find(([value]) => value === proof.proof_type);
+    return option?.[1] || proof.proof_type;
+  }
+  return proof?.is_primary ? 'Primary proof' : `Proof ${index + 1}`;
+}
+
+function ProofMetadataFields({ draft, idPrefix, onChange }) {
+  const set = (patch) => onChange({ ...draft, ...patch });
+  return (
+    <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+      <label className="field">
+        <span className="label">Evidence type</span>
+        <select id={`${idPrefix}-type`} className="select" value={draft.proof_type || ''} onChange={(e) => set({ proof_type: e.target.value })}>
+          <option value="">Unspecified</option>
+          {PROOF_TYPE_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        </select>
+      </label>
+      <label className="field">
+        <span className="label">Label</span>
+        <input id={`${idPrefix}-label`} className="input" placeholder="COA, booth photo…" value={draft.label || ''} onChange={(e) => set({ label: e.target.value })} />
+      </label>
+      <label className="field md:col-span-2">
+        <span className="label">Evidence notes</span>
+        <textarea id={`${idPrefix}-notes`} className="textarea min-h-[56px]" value={draft.notes || ''} onChange={(e) => set({ notes: e.target.value })} />
+      </label>
+    </div>
+  );
 }
 
 function SignatureFields({ draft, events, idPrefix, onChange }) {
@@ -111,6 +174,9 @@ export default function SignatureManager({
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [proofFiles, setProofFiles] = useState({});
+  const [proofMetadata, setProofMetadata] = useState({});
+  const [editingProofId, setEditingProofId] = useState(null);
+  const [proofEditDraft, setProofEditDraft] = useState(EMPTY_PROOF_METADATA);
 
   const rows = useMemo(() => (
     [...(Array.isArray(signatures) ? signatures : [])]
@@ -183,14 +249,38 @@ export default function SignatureManager({
     }));
   };
 
+  const setProofDraft = (signatureId, patch) => {
+    setProofMetadata((prev) => ({
+      ...prev,
+      [signatureId]: {
+        ...(prev[signatureId] || EMPTY_PROOF_METADATA),
+        ...patch
+      }
+    }));
+  };
+
   const uploadProof = async (signatureId) => {
     const file = proofFiles[signatureId];
     if (!ownerId || !endpointBase || !signatureId || !file) return;
     const body = new FormData();
     body.append('proof', file);
+    const metadata = proofMetadataPayload(proofMetadata[signatureId] || EMPTY_PROOF_METADATA);
+    Object.entries(metadata).forEach(([key, value]) => {
+      if (value) body.append(key, value);
+    });
     const result = await run(`proof:${signatureId}`, () => apiCall('post', `${endpointBase}/signatures/${signatureId}/proof`, body, { headers: { 'Content-Type': 'multipart/form-data' } }));
     if (result) {
       setProofFiles((prev) => ({ ...prev, [signatureId]: null }));
+      setProofMetadata((prev) => ({ ...prev, [signatureId]: EMPTY_PROOF_METADATA }));
+    }
+  };
+
+  const saveProofMetadata = async (signatureId, proofId) => {
+    if (!ownerId || !endpointBase || !signatureId || !proofId) return;
+    const result = await run(`proof-meta:${proofId}`, () => apiCall('patch', `${endpointBase}/signatures/${signatureId}/proofs/${proofId}`, proofMetadataPayload(proofEditDraft)));
+    if (result) {
+      setEditingProofId(null);
+      setProofEditDraft(EMPTY_PROOF_METADATA);
     }
   };
 
@@ -247,20 +337,58 @@ export default function SignatureManager({
                       {signature.notes ? <p className="mt-1 text-xs leading-5 text-ghost">{signature.notes}</p> : null}
                       {Array.isArray(signature.proofs) && signature.proofs.length ? (
                         <div className="mt-2 space-y-1 rounded-lg border border-edge/70 bg-void/30 p-2">
-                          <p className="text-[11px] font-medium uppercase tracking-wide text-ghost">Proof images</p>
+                          <p className="text-xs font-medium text-ghost">Proof images</p>
                           {signature.proofs.map((proof, index) => (
-                            <div key={proof.id || `${signature.id}:proof:${index}`} className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                              <a className="inline-flex min-w-0 items-center gap-1.5 text-dim hover:text-ink" href={posterUrl(proof.proof_path)} target="_blank" rel="noreferrer">
-                                <Icons.Link />{proof.is_primary ? 'Primary proof' : `Proof ${index + 1}`}
-                              </a>
-                              <button
-                                type="button"
-                                className="btn-ghost btn-sm text-err"
-                                disabled={Boolean(busy) || !proof.id}
-                                onClick={() => removeProof(signature.id, proof.id)}
-                              >
-                                <Icons.Trash />Remove
-                              </button>
+                            <div key={proof.id || `${signature.id}:proof:${index}`} className="space-y-2 border-t border-edge/50 pt-2 first:border-t-0 first:pt-0">
+                              <div className="flex flex-wrap items-start justify-between gap-2 text-xs">
+                                <div className="min-w-0">
+                                  <a className="inline-flex min-w-0 items-center gap-1.5 text-dim hover:text-ink" href={posterUrl(proof.proof_path)} target="_blank" rel="noreferrer">
+                                    <Icons.Link />{proofTitle(proof, index)}
+                                  </a>
+                                  <div className="mt-1 flex flex-wrap items-center gap-2 text-ghost">
+                                    {proof.is_primary ? <span>Primary</span> : null}
+                                    {proof.proof_type ? <span>{proofTitle({ proof_type: proof.proof_type }, index)}</span> : null}
+                                    {proof.original_filename ? <span>{proof.original_filename}</span> : null}
+                                  </div>
+                                  {proof.notes ? <p className="mt-1 leading-5 text-ghost">{proof.notes}</p> : null}
+                                </div>
+                                <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                                  <button
+                                    type="button"
+                                    className="btn-ghost btn-sm"
+                                    disabled={Boolean(busy) || !proof.id}
+                                    onClick={() => {
+                                      setEditingProofId(proof.id);
+                                      setProofEditDraft(normalizeProofMetadata(proof));
+                                    }}
+                                  >
+                                    Edit metadata
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn-ghost btn-sm text-err"
+                                    disabled={Boolean(busy) || !proof.id}
+                                    onClick={() => removeProof(signature.id, proof.id)}
+                                  >
+                                    <Icons.Trash />Remove
+                                  </button>
+                                </div>
+                              </div>
+                              {editingProofId === proof.id ? (
+                                <div className="space-y-2">
+                                  <ProofMetadataFields
+                                    draft={proofEditDraft}
+                                    idPrefix={`proof-${proof.id}`}
+                                    onChange={setProofEditDraft}
+                                  />
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <button type="button" className="btn-primary btn-sm" disabled={Boolean(busy)} onClick={() => saveProofMetadata(signature.id, proof.id)}>
+                                      {busy === `proof-meta:${proof.id}` ? <><Spinner size={14} />Saving…</> : <><Icons.Check />Save metadata</>}
+                                    </button>
+                                    <button type="button" className="btn-ghost btn-sm" disabled={Boolean(busy)} onClick={() => { setEditingProofId(null); setProofEditDraft(EMPTY_PROOF_METADATA); }}>Cancel</button>
+                                  </div>
+                                </div>
+                              ) : null}
                             </div>
                           ))}
                         </div>
@@ -280,7 +408,16 @@ export default function SignatureManager({
                         </button>
                         <button type="button" className="btn-ghost btn-sm text-err" disabled={Boolean(busy) || !signature.proof_path} onClick={() => removeProof(signature.id)}><Icons.Trash />Remove primary proof</button>
                       </div>
-                      {proofFiles[signature.id] ? <p className="mt-1 text-xs text-ghost">Selected proof: {proofFiles[signature.id].name}</p> : null}
+                      {proofFiles[signature.id] ? (
+                        <div className="mt-2 space-y-2 rounded-lg border border-edge/70 bg-void/30 p-2">
+                          <p className="text-xs text-ghost">Selected proof: {proofFiles[signature.id].name}</p>
+                          <ProofMetadataFields
+                            draft={proofMetadata[signature.id] || EMPTY_PROOF_METADATA}
+                            idPrefix={`proof-new-${signature.id}`}
+                            onChange={(next) => setProofDraft(signature.id, next)}
+                          />
+                        </div>
+                      ) : null}
                     </div>
                     <div className="flex shrink-0 flex-wrap justify-end gap-2">
                       {!signature.is_primary ? <button type="button" className="btn-ghost btn-sm" disabled={Boolean(busy)} onClick={() => promoteSignature(signature.id)}>Make primary</button> : null}

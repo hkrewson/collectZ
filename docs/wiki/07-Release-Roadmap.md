@@ -5184,6 +5184,51 @@ Historical note:
 - Generated release evidence artifacts were checked for unredacted secret-like patterns; only redacted observability command placeholders were present.
 - Follow-up remains: optional per-proof labels, certificate/evidence type, and proof notes if evidence management needs richer metadata.
 
+## 3.4.19 — Signature Proof Evidence Metadata
+
+**Goal:** Let each Art/media signature proof explain what kind of evidence it is without changing the shared signature ownership model or replacing the multi-proof storage added in `3.4.18`.
+
+**Current Slice:** `Closed as v3.4.19`
+
+### Scope
+
+- Add per-proof metadata fields to `signature_proofs`:
+  - evidence type,
+  - short label,
+  - notes.
+- Allow Art and media proof uploads to include evidence metadata.
+- Add Art and media per-proof metadata update endpoints.
+- Update the shared signature drawer to display and edit metadata for each proof.
+- Keep existing proof-path compatibility projection unchanged.
+
+### Acceptance Criteria
+
+- Art and media signature proof readback includes type, label, and notes.
+- Users can add proof metadata during upload.
+- Users can edit proof metadata after upload without replacing or removing the proof image.
+- Existing primary proof compatibility fields continue to behave as in `3.4.18`.
+- Migration/init parity, OpenAPI, and focused Art/media proof regressions stay aligned.
+
+### Active Slice Notes
+
+- This slice intentionally avoids richer attachment storage, OCR, certificate validation, or event-artifact promotion.
+- Use simple, user-correctable metadata instead of enforcing a rigid evidence taxonomy too early.
+
+### Closeout — 2026-04-27
+
+- Released as `v3.4.19`.
+- Version metadata synced across root app metadata, backend package/app metadata, frontend package/app metadata, and lockfile package metadata.
+- Release note added at `docs/releases/v3.4.19.md`; in-app Help > Releases feed regenerated with `v3.4.19` as the latest entry.
+- Signature proof evidence metadata shipped through migration `83`, shared signature services, Art/media routes, OpenAPI schema, shared drawer UI, and focused browser coverage.
+- Existing primary proof compatibility readback remains projected through `signature_records.proof_path`, Art `signature_proof_path`, and media `signed_proof_path`.
+- Runtime verification used Docker-first evidence from rebuilt `backend` and `frontend` services, `/api/health`, live schema migration `83`, and Help > Releases readback.
+- Local closeout used `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, and `docs/wiki/10-CI-CD-and-Registry-Deploy.md` as release/checklist policy sources.
+- Local release closeout accounted for backend unit, OpenAPI, focused Art/media browser regression, RBAC regression, homelab edition boundary, platform edition boundary, init parity, migration rehearsal, release preflight, dependency audit, observability evidence, Help > Releases, and running-stack health gates.
+- Local preflight marked CI-secure compose-smoke cookie checks blocked because this local development stack runs with `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`; tagged CI remains authoritative for that secure-cookie variant.
+- Local `gitleaks`, Trivy, and SBOM tooling were not run in this shell, so tagged CI remains authoritative for `secret-scan`, `image-security-and-sbom`, and final release publication.
+- Generated release evidence artifacts were checked for unredacted secret-like patterns; only redacted observability command placeholders were present.
+- Follow-up remains: event artifact promotion into signature proofs and explicit primary-proof selection if users need more provenance curation.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

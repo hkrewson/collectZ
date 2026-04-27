@@ -250,7 +250,7 @@ function ArtDetailDrawer({ artId, apiCall, events, onClose, onEdit, onDeleted })
                         {Array.isArray(signature.proofs) && signature.proofs.length ? (
                           <div className="mt-1 flex flex-wrap gap-2">
                             {signature.proofs.map((proof, index) => (
-                              <a key={proof.id || `${signature.id}:proof:${index}`} className="inline-flex items-center gap-2 text-xs text-dim transition-colors hover:text-ink" href={posterUrl(proof.proof_path)} target="_blank" rel="noreferrer"><Icons.Link />{proof.is_primary ? 'Primary proof' : `Proof ${index + 1}`}</a>
+                              <a key={proof.id || `${signature.id}:proof:${index}`} className="inline-flex items-center gap-2 text-xs text-dim transition-colors hover:text-ink" href={posterUrl(proof.proof_path)} target="_blank" rel="noreferrer"><Icons.Link />{proof.label || proof.proof_type || (proof.is_primary ? 'Primary proof' : `Proof ${index + 1}`)}</a>
                             ))}
                           </div>
                         ) : signature.proof_path ? (

@@ -1442,6 +1442,9 @@
           "id": { "type": ["integer", "null"] },
           "signature_record_id": { "type": ["integer", "null"] },
           "proof_path": { "type": ["string", "null"] },
+          "proof_type": { "type": ["string", "null"] },
+          "label": { "type": ["string", "null"] },
+          "notes": { "type": ["string", "null"] },
           "provider": { "type": ["string", "null"] },
           "original_filename": { "type": ["string", "null"] },
           "mime_type": { "type": ["string", "null"] },
@@ -1450,6 +1453,14 @@
           "archived_at": { "type": ["string", "null"], "format": "date-time" }
         },
         "required": ["is_primary"]
+      },
+      "SignatureProofMetadataRequest": {
+        "type": "object",
+        "properties": {
+          "proof_type": { "type": ["string", "null"] },
+          "label": { "type": ["string", "null"] },
+          "notes": { "type": ["string", "null"] }
+        }
       },
       "SignatureRecordMutationRequest": {
         "type": "object",
@@ -5160,7 +5171,10 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "proof": { "type": "string", "format": "binary" }
+                  "proof": { "type": "string", "format": "binary" },
+                  "proof_type": { "type": ["string", "null"] },
+                  "label": { "type": ["string", "null"] },
+                  "notes": { "type": ["string", "null"] }
                 },
                 "required": ["proof"]
               }
@@ -5194,6 +5208,32 @@
       }
     },
     "/api/art/{id}/signatures/{signatureId}/proofs/{proofId}": {
+      "patch": {
+        "tags": ["Media"],
+        "summary": "Update metadata for one art signature proof",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } },
+          { "in": "path", "name": "signatureId", "required": true, "schema": { "type": "integer", "minimum": 1 } },
+          { "in": "path", "name": "proofId", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SignatureProofMetadataRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated one signature proof",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SignatureProofResponse" } } }
+          }
+        }
+      },
       "delete": {
         "tags": ["Media"],
         "summary": "Remove one proof image from an art signature record",
@@ -5237,7 +5277,10 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "proof": { "type": "string", "format": "binary" }
+                  "proof": { "type": "string", "format": "binary" },
+                  "proof_type": { "type": ["string", "null"] },
+                  "label": { "type": ["string", "null"] },
+                  "notes": { "type": ["string", "null"] }
                 },
                 "required": ["proof"]
               }
@@ -6618,6 +6661,32 @@
       }
     },
     "/api/media/{id}/signatures/{signatureId}/proofs/{proofId}": {
+      "patch": {
+        "tags": ["Media"],
+        "summary": "Update metadata for one media signature proof",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } },
+          { "in": "path", "name": "signatureId", "required": true, "schema": { "type": "integer", "minimum": 1 } },
+          { "in": "path", "name": "proofId", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SignatureProofMetadataRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated one signature proof",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SignatureProofResponse" } } }
+          }
+        }
+      },
       "delete": {
         "tags": ["Media"],
         "summary": "Remove one proof image from a media signature record",
