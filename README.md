@@ -18,7 +18,7 @@ It is designed for homelab-friendly deployment with Docker, secure user auth, an
 
 ## Current Version
 
-- `2.0.0-alpha.9`
+- `3.4.20`
 
 ## App Metadata
 
@@ -41,8 +41,9 @@ It is designed for homelab-friendly deployment with Docker, secure user auth, an
    - `SESSION_COOKIE_SECURE=true` (required in production)
    - `TMDB_API_KEY` (recommended for enrichment)
    - production hardening: use strong non-placeholder secrets (minimum 32 chars)
-4. Build and start:
-   - `docker compose --env-file .env up -d --build`
+4. Pull and start:
+   - `docker compose --env-file .env pull`
+   - `docker compose --env-file .env up -d`
 5. Open:
    - `http://localhost:3000`
 
@@ -55,8 +56,8 @@ Optional preflight helper:
 ## First-Run Auth Behavior
 
 - If there are no users, the first successful registration becomes admin.
-- After that, invite-based registration is enforced.
-- Admin can manage members and invitations from the Admin section.
+- Additional local users can register after the first admin.
+- Admins can manage shared settings and integrations from the Admin section.
 
 ## Core Environment Variables
 
@@ -86,11 +87,11 @@ Debug levels:
 - `DEBUG=1`: basic diagnostics (expanded import/audit detail)
 - `DEBUG=2`: full dev/debug workflows (includes Import Review queue + endpoints/UI)
 
-For frontend debug-gated UI, set build arg/env:
+For frontend debug-gated UI, set the Vite env:
 
-- `REACT_APP_DEBUG=0|1|2`
+- `VITE_DEBUG=0|1|2`
 
-Tracked compose files default to `0`. Use an untracked local compose override for localhost debug mode.
+The public compose defaults to `0`. Legacy `REACT_APP_*` names remain build-time compatibility shims only; use `VITE_*` for new local and CI configuration.
 
 ## Import Workflows
 
@@ -103,27 +104,21 @@ Use the `Import` section in the left navigation:
 
 After CSV imports, use **Download Audit CSV** to get per-row results (`created`, `updated`, `skipped`, `error`).
 
-## Production / Registry Deploy
+## Production Deploy
 
-If using prebuilt images from GHCR:
+The public compose file uses prebuilt images from GHCR:
 
-1. Configure `.env` and `docker-compose.registry.yml`
+1. Configure `.env`
 2. Set your tag (example):
-  - `IMAGE_TAG=2.0.0-alpha.9`
+  - `IMAGE_TAG=3.4.20`
 3. Deploy:
-   - `docker compose -f docker-compose.registry.yml --env-file .env pull`
-   - `docker compose -f docker-compose.registry.yml --env-file .env up -d`
+   - `docker compose --env-file .env pull`
+   - `docker compose --env-file .env up -d`
 
 ## Updating
 
-Local source build:
-
-- `docker compose --env-file .env up -d --build`
-
-Registry deploy:
-
-- `docker compose -f docker-compose.registry.yml --env-file .env pull`
-- `docker compose -f docker-compose.registry.yml --env-file .env up -d`
+- `docker compose --env-file .env pull`
+- `docker compose --env-file .env up -d`
 
 ## Notes
 
@@ -136,6 +131,6 @@ Registry deploy:
 - If backend startup fails in production with:
   - `INTEGRATION_ENCRYPTION_KEY must be set in production`
 - Set `INTEGRATION_ENCRYPTION_KEY` in `.env`, then restart:
-  - `docker compose --env-file .env up -d --build backend`
+  - `docker compose --env-file .env up -d backend`
 - If Admin Integrations shows a decryption warning, that key was encrypted with older key material.
   Re-enter/save the affected key (or clear it) so it is re-encrypted with current `INTEGRATION_ENCRYPTION_KEY`.

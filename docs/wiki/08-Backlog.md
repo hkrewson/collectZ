@@ -12,6 +12,32 @@ This file is the staging area for work that has not yet been assigned a release 
 - Keep the roadmap focused on milestone work only.
 - Update the roadmap, release notes, release feed, and verification steps together when a backlog item is promoted.
 
+### Backlog Item: Mobile Photo Upload Source Selection
+**Type:** Bug
+**Tags:** `mobile`, `photos`, `camera`, `upload`, `ux`
+
+**Goal:** Rework the mobile photo upload flow so users can intentionally choose between taking a new photo and selecting an existing photo from their library.
+
+**Observed Behavior**
+- On mobile, tapping the photo upload button opens a semi-standard camera capture view with a shutter button at the bottom.
+- From that capture view, the user cannot reach the device photo library.
+- A separate camera button opens the curated in-app camera view, which also has no photo-library upload option.
+- Desktop behavior sort of works, but the source-selection model should be revisited across device classes.
+
+**Scope**
+- Audit the current upload and camera entry points on mobile and desktop.
+- Separate the user intents for `Choose from Library` and `Take Photo`.
+- Ensure the standard upload path can reach the device photo library on mobile.
+- Preserve or redesign the curated camera flow as an explicit camera-only action.
+- Review button labels, icons, input attributes, and capture behavior so browser and OS pickers match the intended action.
+
+**Acceptance Criteria**
+- Mobile users can choose an existing photo from their device library without being forced into camera capture.
+- Mobile users can still intentionally open a camera capture flow when they want to take a new photo.
+- The curated camera button is clearly differentiated from library upload.
+- Desktop upload behavior remains functional and has consistent intent/copy with mobile.
+- The behavior is verified on at least one mobile browser or responsive-device test path before promotion closes.
+
 ### Backlog Item: Apple Platform App Contract Publishing
 **Type:** Deferred milestone
 **Tags:** `apple`, `ios`, `ipados`, `macos`, `tvos`, `openapi`, `releases`, `contract`
@@ -219,3 +245,256 @@ This file is the staging area for work that has not yet been assigned a release 
 - Support metrics can capture satisfaction and promoter-style feedback.
 - Closed support requests can trigger an optional survey.
 - The survey flow stays aligned with the support request lifecycle.
+
+### Backlog Item: Event Social Planning Foundation
+**Type:** Deferred milestone
+**Tags:** `events`, `social`, `friends`, `groups`, `privacy`, `planning`
+
+**Goal:** Add a web-app source-of-truth layer for con/event social planning so users can track who is attending, share schedule intent, and coordinate lightweight meetups without depending on Sched's friends interface.
+
+**Why this work exists**
+- Users already track events, purchases, vendors, booths, signatures, and provenance in collectZ.
+- Cons and conventions also have a human planning layer: friends attending, shared schedules, group meetings, and informal meetups.
+- The web app should own the durable event-social data model before any native/platform app adds day-of-con companion behavior.
+
+**Scope**
+- Add event-attendee records for people connected to an event.
+- Support friend/contact association for attendees without requiring a broader social network on day one.
+- Add optional groups for event-specific planning, such as travel party, artist alley group, or meetup group.
+- Add shared schedule/planned-attendance records linked to event schedule items when available, with a manual fallback for user-created plans.
+- Add lightweight meetups with title, time, location, notes, group/attendee association, and status.
+- Add explicit privacy levels for social planning records, such as private, selected people, group, or visible within the event workspace.
+- Keep discovery conservative; do not add real-time location sharing or public social discovery in the foundation slice.
+
+**Acceptance Criteria**
+- An event can show who is attending or associated with that event.
+- A user can create event-specific groups and meetups.
+- A user can mark planned schedule items or manually add schedule plans.
+- Privacy and visibility are explicit on shared social planning records.
+- The data model can support a future Apple/platform companion app without requiring web frontend source sharing.
+- API and OpenAPI behavior is documented clearly enough for another client to consume.
+
+### Backlog Item: Event Social Planning Mobile Web Experience
+**Type:** Task
+**Tags:** `events`, `mobile`, `ui`, `social`, `meetups`, `schedule`
+
+**Goal:** Make the web app's event social planning views useful on a phone during a con before building native companion surfaces.
+
+**Scope**
+- Add a mobile-first event social view centered on:
+  - Today / upcoming plans
+  - People attending
+  - Groups
+  - Meetups
+  - Shared schedule items
+  - Vendor/booth/location notes
+- Optimize the view for quick day-of-con scanning rather than admin-heavy editing.
+- Add fast actions for updating meetup status or notes.
+- Keep the UI privacy-aware so private and shared items are visually distinct.
+- Preserve desktop planning views for richer pre-con editing.
+
+**Acceptance Criteria**
+- A user can open an event on mobile and quickly see who/when/where for social plans.
+- Meetups and schedule plans are readable without excessive drawer scrolling.
+- Private vs shared records are visually clear.
+- The mobile web surface is good enough to validate the workflow before native/platform implementation.
+
+### Backlog Item: Event Social Planning Platform Companion Contract
+**Type:** Deferred milestone
+**Tags:** `apple`, `platform-app`, `events`, `social`, `openapi`, `offline`, `notifications`
+
+**Goal:** Define the backend/API contract and product boundary for an Apple/platform companion app that consumes event social planning data for day-of-con use.
+
+**Scope**
+- Identify which event social planning endpoints the platform app needs for read, create, update, and archive flows.
+- Define a compact "today at this event" payload for schedules, meetups, attendees, groups, and locations.
+- Define sync behavior for poor convention-center connectivity, including cache freshness and conflict expectations.
+- Define which push/reminder events belong in the platform app, such as meetup reminders, schedule changes, or group updates.
+- Keep the platform app as a companion surface; the web app remains the canonical admin/planning surface unless a later milestone changes that boundary.
+- Document privacy and safety expectations before adding any location-like or presence-like features.
+
+**Acceptance Criteria**
+- The platform app can consume event social planning data through versioned API/OpenAPI behavior.
+- Day-of-con companion needs are documented separately from web-app admin/planning needs.
+- Offline/cache and notification boundaries are explicitly defined.
+- No real-time location or broad social discovery behavior is introduced without a separate milestone and privacy review.
+
+### Backlog Item: Event Schedule Catalog and Now/Next Discovery
+**Type:** Deferred milestone
+**Tags:** `events`, `schedule`, `discovery`, `sched`, `calendar`, `mobile`
+
+**Goal:** Add an event schedule catalog that can power "Now / Next" discovery views for sessions happening during a con.
+
+**Why this work exists**
+- Sched-style full event calendars are useful, but mobile discovery is often weak when a user needs to decide what to do right now.
+- collectZ can make event calendars more actionable by combining session discovery with planned attendance, friends, groups, meetups, and collection/event context.
+- The schedule catalog should be distinct from a user's personal plan so discovery can show available sessions beyond what the user already selected.
+
+**Scope**
+- Add event schedule/session records with title, start/end time, location/room, description, track/category, source, source identifier, and source URL when available.
+- Support importing or manually entering an event's full schedule catalog.
+- Add a mobile-friendly "Now / Next" view for sessions happening now, starting soon, and optionally later today.
+- Add filters for time window, track/category, location/room, planned status, friend/group attendance, and conflicts.
+- Add session states such as planned, maybe, skipped, backup, and unavailable where useful.
+- Keep Sched ingestion conservative: prefer supported export/import paths over brittle scraping.
+
+**Acceptance Criteria**
+- An event can store a catalog of sessions separate from a user's personal selected schedule.
+- The web app can show sessions happening now and starting soon.
+- A user can quickly mark a session as planned, maybe, skipped, or backup.
+- Overlapping sessions are detectable as conflicts.
+- The schedule catalog can later be cached by a platform companion app.
+
+### Backlog Item: Personal Sched ICS Schedule Sync
+**Type:** Deferred milestone
+**Tags:** `events`, `sched`, `ics`, `calendar`, `sync`, `privacy`
+
+**Goal:** Allow a user to connect a personal Sched ICS/iCal subscription link so collectZ can keep that user's planned event schedule synchronized.
+
+**Why this work exists**
+- A personal Sched ICS link is useful for syncing the user's selected sessions, but it usually does not represent the full public event calendar.
+- collectZ should treat ICS as a personal plan sync adapter, not as the only source of truth for event discovery.
+- Synced changes can improve reminders, conflict detection, friend sharing, and day-of-con planning.
+
+**Scope**
+- Add a secure per-user/event setting for a personal ICS subscription URL.
+- Poll or refresh the ICS feed on a configurable cadence and on manual request.
+- Parse ICS events into user planned schedule records linked to catalog sessions when a confident match exists.
+- Preserve unmatched ICS entries as personal schedule items with source metadata.
+- Detect additions, removals, time changes, title/location changes, and cancellations.
+- Add sync status, last sync time, error state, and source-change history where practical.
+- Avoid exposing personal ICS URLs in logs, release evidence, screenshots, or API responses.
+
+**Acceptance Criteria**
+- A user can connect and remove a personal Sched ICS link for an event.
+- The user's selected sessions sync into collectZ without replacing the full event schedule catalog.
+- Sync changes update planned schedule state and can surface meaningful conflicts.
+- Personal ICS secrets are redacted from logs and responses.
+- Manual refresh and sync health are visible enough to troubleshoot stale schedules.
+
+### Backlog Item: Friend-Aware Session Changes and Notifications
+**Type:** Deferred milestone
+**Tags:** `events`, `social`, `schedule`, `notifications`, `friends`, `groups`
+
+**Goal:** Let users quickly change session choices and notify selected friends or groups about the plan change.
+
+**Scope**
+- Add explicit actions for joining, leaving, replacing, or marking backup sessions.
+- When a change affects shared plans, offer selected-recipient notifications instead of broadcasting by default.
+- Support message templates such as:
+  - "I'm switching to this session"
+  - "Anyone want to join?"
+  - "Meet outside this room"
+  - "I'm dropping this session"
+- Show friend/group attendance on session cards when visibility allows.
+- Handle conflicts by offering replace, keep as backup, or keep both tentative.
+- Respect privacy levels from the event social planning model.
+
+**Acceptance Criteria**
+- A user can change session plans from a quick event/session view.
+- The app can notify selected friends or groups about the change.
+- Friend/group visibility is permission-aware.
+- Session conflicts are handled intentionally instead of silently overwriting plans.
+
+### Backlog Item: Platform Companion Now/Next Schedule Experience
+**Type:** Deferred milestone
+**Tags:** `apple`, `platform-app`, `xcode`, `events`, `schedule`, `offline`, `notifications`
+
+**Goal:** Make the Apple/Xcode app a useful day-of-con companion for fast schedule discovery and plan changes while the web app remains the canonical planning surface.
+
+**Why this work exists**
+- The platform app should be most useful when a user is already on the convention floor and needs to decide what is happening now, what is next, and whether a session switch is worth it.
+- Personal Sched ICS sync should inform the user's plan state, but it should not masquerade as the full event calendar.
+- The native app should consume versioned backend/OpenAPI behavior instead of depending on web frontend files, layouts, or source sharing.
+
+**Scope**
+- Consume the backend event schedule catalog, personal planned schedule state, and relevant location metadata through versioned API/OpenAPI behavior.
+- Show a fast "Now / Next" surface for current, upcoming, and nearby sessions for the active event.
+- Clearly distinguish full catalog sessions from the user's personal planned or ICS-synced sessions.
+- Support quick actions for `planned`, `maybe`, `skipped`, and `backup` when the backend contract allows them.
+- Surface conflict state and replacement choices when a user changes from one overlapping session to another.
+- Optimize the native view for convention-floor speed rather than admin-heavy editing.
+- Keep the platform app positioned as a companion surface; setup and broader planning still happen primarily on the web.
+
+**Acceptance Criteria**
+- The platform app is useful during the con even when setup and planning happened on the web.
+- Current, upcoming, and nearby sessions are readable with minimal navigation friction.
+- Catalog sessions and personal planned sessions are visually distinct.
+- Quick plan-change actions and conflict cues are available without requiring web-specific UI assumptions.
+- The app consumes versioned backend/OpenAPI behavior and does not depend on web frontend files.
+
+### Backlog Item: Platform Companion Personal Sched ICS Sync Visibility
+**Type:** Task
+**Tags:** `apple`, `platform-app`, `xcode`, `events`, `sched`, `ics`, `sync`, `privacy`
+
+**Goal:** Show personal Sched ICS sync health in the Apple/Xcode app as personal schedule state, not as the full event calendar.
+
+**Why this work exists**
+- Users need confidence that their selected Sched sessions are fresh on the device they carry during the event.
+- Personal ICS links are sensitive credentials and must never leak into native UI, screenshots, logs, or diagnostics.
+- The platform app should reflect backend sync state instead of inventing separate sync logic on-device.
+
+**Scope**
+- Consume backend sync status for a user's personal Sched ICS feed, including last sync time, freshness, stale/offline state, and sync errors.
+- Present ICS-derived state as personal planned schedule state rather than as the event's full catalog.
+- Never expose or log the personal ICS URL in the app UI, debug logs, screenshots, analytics payloads, or diagnostics.
+- Allow manual refresh only if the backend contract explicitly supports it.
+- Keep error and stale-state messaging actionable without revealing secret-bearing source details.
+
+**Acceptance Criteria**
+- The app can show last sync time, stale/offline state, and sync error state for the personal ICS-backed plan.
+- Personal ICS sync is presented as the user's schedule state, not as the authoritative full event calendar.
+- Personal ICS URLs are excluded from app UI, logs, screenshots, and diagnostics.
+- Manual refresh is present only when supported by the backend contract.
+
+### Backlog Item: Platform Companion Friend-Aware Session Changes
+**Type:** Deferred milestone
+**Tags:** `apple`, `platform-app`, `xcode`, `events`, `social`, `schedule`, `notifications`, `privacy`
+
+**Goal:** Let the Apple/Xcode app handle quick session plan changes with opt-in, privacy-aware friend and group notifications.
+
+**Why this work exists**
+- Session switching often happens in motion, and the day-of-con device is the right place to send a fast update to a selected set of people.
+- Notifications should help coordination without becoming noisy or broadcast-by-default.
+- Privacy and visibility rules must stay backend-owned so the native app does not invent weaker sharing behavior.
+
+**Scope**
+- Let users notify selected friends or groups when changing plans from the native app.
+- Support opt-in message templates such as:
+  - `I'm switching to this session`
+  - `Anyone want to join?`
+  - `Meet outside this room`
+  - `I'm dropping this session`
+- Default to selected-recipient notifications instead of broad broadcast behavior.
+- Respect backend privacy and visibility rules for friend/group/session-sharing state.
+- Show enough context around the session change to understand who will be notified and whether a conflict or replacement is occurring.
+
+**Acceptance Criteria**
+- Plan changes can trigger selected-recipient notifications from the platform app.
+- Message templates support common day-of-con coordination cases without requiring freeform social discovery features.
+- Notification behavior is opt-in per change and not broadcast by default.
+- Backend privacy and visibility rules are enforced consistently by the platform app.
+
+### Backlog Item: Platform Companion Offline Event Packet
+**Type:** Deferred milestone
+**Tags:** `apple`, `platform-app`, `xcode`, `events`, `offline`, `cache`, `schedule`, `privacy`
+
+**Goal:** Make the Apple/Xcode app reliable with poor convention-center connectivity by caching an active-event packet and defining clear offline behavior.
+
+**Why this work exists**
+- Convention-floor connectivity is often poor exactly when users need their schedule, meetup, group, and location context most.
+- The platform app should stay useful even when the network is weak, while making stale data obvious.
+- Quick actions taken offline need explicit retry and conflict expectations rather than silent eventual behavior.
+
+**Scope**
+- Cache the active event's schedule catalog, personal planned sessions, meetups, groups, people, and key locations for offline use.
+- Make stale or offline data obvious in the native app.
+- Define retry, queueing, and conflict expectations for quick actions made while connectivity is poor.
+- Preserve the backend as the canonical source of truth for reconciliation when the device reconnects.
+- Keep the offline packet focused on day-of-con needs; do not expand into broad background scraping or unsupported live-presence features.
+
+**Acceptance Criteria**
+- The platform app remains useful during the con with poor or intermittent connectivity.
+- Stale/offline state is visible enough that users can trust what they are seeing.
+- Quick action retry/conflict behavior is defined explicitly for offline or weak-signal cases.
+- The cached packet includes schedule catalog, planned sessions, meetups, groups, people, and key locations for the active event.

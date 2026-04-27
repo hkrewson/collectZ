@@ -1,6 +1,22 @@
 {
   "releases": [
     {
+      "title": "v3.4.21",
+      "version": "3.4.21",
+      "date": "2026-04-27",
+      "status": "Completed",
+      "summary": "This release finishes the post-Vite cleanup pass by making `VITE_*` the preferred frontend build/runtime configuration path while keeping legacy `REACT_APP_*` names as compatibility shims only.",
+      "details": []
+    },
+    {
+      "title": "v3.4.20",
+      "version": "3.4.20",
+      "date": "2026-04-27",
+      "status": "Completed",
+      "summary": "This release makes the public deployment path homelab-first. The repository now exposes one generated root `docker-compose.yml` for public homelab deployments, defaults the backend runtime to homelab when no private edition is explicitly configured, and moves private platform stack behavior behind untracked local/CI overrides.",
+      "details": []
+    },
+    {
       "title": "v3.4.19",
       "version": "3.4.19",
       "date": "2026-04-27",
@@ -62,22 +78,6 @@
       "date": "2026-04-26",
       "status": "Completed",
       "summary": "This release brings the event autograph linking contract into the Event drawer. Autograph artifacts can now capture signer details, show their event-side provenance, and link directly to canonical Art or media signature records from the UI.",
-      "details": []
-    },
-    {
-      "title": "v3.4.11",
-      "version": "3.4.11",
-      "date": "2026-04-26",
-      "status": "Completed",
-      "summary": "This release connects event-captured autographs to the shared signature provenance model introduced for Art and media. Events remain the capture/history surface, while Art and media records remain the canonical signed-object evidence surface.",
-      "details": []
-    },
-    {
-      "title": "v3.4.10",
-      "version": "3.4.10",
-      "date": "2026-04-26",
-      "status": "Completed",
-      "summary": "This release completes the next shared signature provenance slice by giving Art the same proof-image upload and removal path already available to media signing proofs. Art proof files now update the shared primary signature record directly, while media proof removal keeps the legacy media field and shared signature record aligned.",
       "details": []
     }
   ]

@@ -39,6 +39,7 @@ jobs:
           NODE_ENV: production
           SESSION_COOKIE_SECURE: true
           TRUST_PROXY: 1
+          APP_EDITION: platform
           DEBUG: 1
         run: |
           set -euo pipefail
@@ -49,6 +50,7 @@ jobs:
           PLAYWRIGHT_E2E_BYPASS_TOKEN="$(openssl rand -hex 16)"
           trap 'docker compose -p "${CI_PROJECT}" --env-file .env.ci down -v --remove-orphans' EXIT
           cp env.example .env.ci
+          node scripts/write-ci-compose-overrides.js
           {
             echo "DB_PASSWORD=${DB_PASSWORD}"
             echo "SESSION_SECRET=${SESSION_SECRET}"
@@ -59,10 +61,11 @@ jobs:
             echo "NODE_ENV=${NODE_ENV}"
             echo "SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE}"
             echo "TRUST_PROXY=${TRUST_PROXY}"
+            echo "APP_EDITION=${APP_EDITION}"
             echo "DEBUG=${DEBUG}"
             echo "PLAYWRIGHT_E2E_BYPASS_TOKEN=${PLAYWRIGHT_E2E_BYPASS_TOKEN}"
           } >> .env.ci
-          docker compose -p "${CI_PROJECT}" --env-file .env.ci up -d --build
+          docker compose -p "${CI_PROJECT}" --env-file .env.ci -f docker-compose.yml -f .ci/docker-compose.build.yml -f .ci/docker-compose.platform.yml up -d --build
           BACKEND_CID="$(docker compose -p "${CI_PROJECT}" --env-file .env.ci ps -q backend)"
           FRONTEND_CID="$(docker compose -p "${CI_PROJECT}" --env-file .env.ci ps -q frontend)"
           test -n "${BACKEND_CID}" || { echo "backend container id not found"; exit 1; }

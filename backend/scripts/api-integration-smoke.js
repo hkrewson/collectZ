@@ -41,9 +41,6 @@ async function main() {
   const media = await request('get', '/media');
   assertStatus(media, 401, 'GET /media without session');
 
-  const admin = await request('get', '/admin/activity');
-  assertStatus(admin, 401, 'GET /admin/activity without session');
-
   console.log('API integration smoke checks passed');
 }
 

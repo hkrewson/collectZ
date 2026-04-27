@@ -33,7 +33,10 @@ frontend/dist/
 *.tar.gz
 docker-compose.local.yml
 docker-compose.localhost.yml
+docker-compose.platform.yml
 docker-compose.override.local.yml
+docker-compose.private.yml
+public-export/
 
 # Uploads and data
 backend/uploads/*
@@ -96,6 +99,7 @@ nginx/ssl/*.crt
 docs/wiki/roadmap-tenancy-deferred.md
 docs/wiki/share-links-deferred.md
 .env.ci
+.ci/docker-compose.*.yml
 
 # Local-only scope verification artifacts
 scripts/test_library_scope.py

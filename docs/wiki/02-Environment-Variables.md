@@ -154,7 +154,12 @@ When `STORAGE_PROVIDER=s3`, configure:
 
 ## Frontend
 
-- `REACT_APP_API_URL` (default: `/api`)
+- `VITE_API_URL` (default: `/api`)
+- `VITE_APP_VERSION` (optional; defaults to release metadata)
+- `VITE_DEBUG` (default: `0`)
+- `VITE_CSRF_COOKIE_NAME` (default: `csrf_token`)
+
+Legacy `REACT_APP_*` names remain build-time compatibility shims only. Prefer `VITE_*` for new local, Docker, and CI configuration.
 
 ## Version Metadata
 

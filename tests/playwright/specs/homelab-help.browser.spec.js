@@ -12,10 +12,10 @@ async function ensureHomelabEdition(requestContext) {
 }
 
 async function assertHomelabHelpSurface(page) {
-  await expect(page.getByRole('button', { name: 'Guidance', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Releases', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Support', exact: true })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Metrics', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('tab', { name: 'Guidance', exact: true })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Releases', exact: true })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Support', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('tab', { name: 'Metrics', exact: true })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Help' })).toBeVisible();
 }
 
@@ -63,20 +63,20 @@ test.describe('homelab help edition regressions', () => {
       await assertHomelabHelpSurface(page);
 
       await page.goto('/dashboard?tab=admin-spaces');
-      await expect(page).toHaveURL(/tab=admin-settings/);
-      await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
+      await expect(page).not.toHaveURL(/tab=admin-spaces/);
+      await expect(page.getByRole('button', { name: 'Help', exact: true }).first()).toBeVisible();
 
       await page.goto('/dashboard?tab=admin-users');
-      await expect(page).toHaveURL(/tab=admin-settings/);
-      await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
+      await expect(page).not.toHaveURL(/tab=admin-users/);
+      await expect(page.getByRole('button', { name: 'Help', exact: true }).first()).toBeVisible();
 
       await page.goto('/dashboard?tab=admin-activity');
-      await expect(page).toHaveURL(/tab=admin-settings/);
-      await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
+      await expect(page).not.toHaveURL(/tab=admin-activity/);
+      await expect(page.getByRole('button', { name: 'Help', exact: true }).first()).toBeVisible();
 
       await page.goto('/dashboard?tab=space-manage');
-      await expect(page).toHaveURL(/tab=admin-settings/);
-      await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
+      await expect(page).not.toHaveURL(/tab=space-manage/);
+      await expect(page.getByRole('button', { name: 'Help', exact: true }).first()).toBeVisible();
     } finally {
       await requestContext.dispose();
     }

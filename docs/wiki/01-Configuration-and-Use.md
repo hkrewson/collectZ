@@ -27,14 +27,12 @@ Current runtime contract:
 - Local maintainer defaults use the same Vite toolchain as production.
 - The legacy CRA rollback rail has been removed along with `react-scripts`.
 - The Vite dev server proxies `/api` and `/uploads` to `http://localhost:3001` by default. Override with `VITE_PROXY_TARGET` when your backend is running elsewhere.
-- Existing frontend env names still work during the parallel phase:
-  - `REACT_APP_API_URL`
-  - `REACT_APP_VERSION`
-  - `REACT_APP_DEBUG`
-- The frontend Docker build also forwards matching Vite names so future code can move from `REACT_APP_*` to `VITE_*` without changing the container contract all at once:
+- Preferred frontend env names:
   - `VITE_API_URL`
   - `VITE_APP_VERSION`
   - `VITE_DEBUG`
+  - `VITE_CSRF_COOKIE_NAME`
+- Legacy `REACT_APP_*` names still work as build-time compatibility shims, but new local, Docker, and CI configuration should use `VITE_*`.
 
 ## First Startup
 
@@ -43,13 +41,13 @@ From repo root:
 ```bash
 cp env.example .env
 # edit .env and set required values
-npm run stack:up:platform
+npm run stack:up
 ```
 
 Check status/logs:
 
 ```bash
-npm run stack:ps:platform
+npm run stack:ps
 docker compose --env-file .env logs -f backend frontend db
 ```
 

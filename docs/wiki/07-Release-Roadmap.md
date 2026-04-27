@@ -5229,6 +5229,184 @@ Historical note:
 - Generated release evidence artifacts were checked for unredacted secret-like patterns; only redacted observability command placeholders were present.
 - Follow-up remains: event artifact promotion into signature proofs and explicit primary-proof selection if users need more provenance curation.
 
+## 3.4.20 — Public Homelab Compose and Private Platform Surface Scrub
+
+**Goal:** Make the GitHub-visible deployment surface homelab-first by shipping one generated public compose file, defaulting the backend runtime to homelab when no private edition is explicitly configured, and moving private platform deployment details out of tracked public docs.
+
+**Current Slice:** `Closed 2026-04-27`
+
+### Why this work exists
+
+- Public homelab deployers should see one clear compose path instead of choosing between multiple root compose variants.
+- The private platform/dev stack should not be the default committed deployment story.
+- Backend runtime behavior should be safe-by-default for public deployments: homelab unless a private stack explicitly opts into platform behavior.
+
+### Scope
+
+- Replace the tracked root compose variants with a generated public `docker-compose.yml` for homelab registry-image deployment.
+- Add an idempotent compose generator and a public-export validation script.
+- Remove tracked `docker-compose.registry.yml` and `docker-compose.homelab.yml`.
+- Update backend product edition normalization so missing/invalid runtime edition resolves to homelab.
+- Keep explicit private platform support available through untracked local/CI compose overrides.
+- Scrub public deployment docs, setup helper output, env examples, and root package scripts so public deploy instructions use only the generated compose path.
+- Update CI/source verification to layer temporary build/private overrides on top of the public compose without committing those private compose files.
+
+### Acceptance Criteria
+
+- Only one tracked root compose file remains: `docker-compose.yml`.
+- `docker-compose.yml` is generated, homelab-safe, image-based, and contains no `APP_EDITION` entry.
+- `env.example` contains no public app-edition setting.
+- Backend default edition is homelab unless `platform` is explicitly set by a private/local/CI override.
+- Public docs do not instruct users to run private platform compose or old registry/homelab compose variants.
+- Public-export validation passes.
+- Docker-first verification proves the generated compose can be config-rendered and the source-built stack still passes default homelab and explicit platform boundary checks.
+
+### Active Slice Notes
+
+- This slice intentionally does not rename all code/test/OpenAPI product-edition strings; those remain part of the private source boundary and CI verification contract.
+- The Vite cleanup follow-through originally selected as `3.4.20` moves to `3.4.21`.
+- Private platform deployment should use untracked local compose overrides such as `docker-compose.localhost.yml`.
+
+### Closeout Notes
+
+- Roadmap slice: `3.4.20 — Public Homelab Compose and Private Platform Surface Scrub`.
+- Project docs/checklists used:
+  - `AGENTS.md`
+  - `docs/wiki/03-Docker-Compose-Setup.md`
+  - `docs/wiki/04-Docker-CLI-and-Portainer-Deploy.md`
+  - `docs/wiki/07-Release-Roadmap.md`
+  - `docs/wiki/08-Backlog.md`
+  - `docs/wiki/10-CI-CD-and-Registry-Deploy.md`
+  - `docs/wiki/17-Release-Go-No-Go-Checklist.md`
+- Runtime verification used Docker-first evidence from the generated public compose plus temporary `.ci` source/private overrides:
+  - generated `docker-compose.yml` was idempotent,
+  - `docker compose --env-file .env config` rendered successfully,
+  - default rebuilt stack served `/api/health` as `3.4.20`,
+  - default backend container had no `APP_EDITION` and resolved to `homelab`,
+  - `/api/auth/config` reported homelab contract,
+  - explicit private platform override resolved to `platform`,
+  - Help > Releases served `3.4.20` as the latest entry.
+- CI/checks run locally:
+  - `node --check scripts/generate-public-compose.js`
+  - `node --check scripts/validate-public-export-surface.js`
+  - `node --check scripts/write-ci-compose-overrides.js`
+  - `node --check backend/config/productEdition.js`
+  - `node --check backend/scripts/api-integration-smoke.js`
+  - `node --check backend/scripts/observability-release-evidence.js`
+  - `node scripts/validate-public-export-surface.js`
+  - `npm --prefix frontend ci --no-fund`
+  - `npm --prefix backend ci --no-fund`
+  - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T backend npm run test:unit`
+  - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T backend npm run test:openapi`
+  - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T backend npm run test:init-parity`
+  - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T backend npm run test:migration-rehearsal`
+  - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T backend npm run test:integration-smoke`
+  - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T -e BASE_URL=http://frontend:3000 backend npm run test:homelab-edition-boundary`
+  - `docker compose -p collectz-platform-smoke --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml -f .ci/docker-compose.platform.yml exec -T -e BASE_URL=http://frontend:3000 backend npm run test:platform-edition-boundary`
+  - `docker compose -p collectz-platform-smoke --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml -f .ci/docker-compose.platform.yml exec -T -e BASE_URL=http://frontend:3000 backend npm run test:rbac-regression`
+  - `PLAYWRIGHT_E2E_BYPASS_TOKEN=collectz-playwright PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 npm run test:browser -- tests/playwright/specs/homelab-help.browser.spec.js tests/playwright/specs/homelab-shared.browser.spec.js`
+  - `PLAYWRIGHT_E2E_BYPASS_TOKEN=collectz-playwright PLAYWRIGHT_BASE_URL=http://127.0.0.1:3200 PLAYWRIGHT_COMPOSE_PROJECT=collectz-platform-smoke PLAYWRIGHT_COMPOSE_ENV_FILE=.env npm run test:browser`
+  - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T -e BASE_URL=http://frontend:3000 -e EXPECTED_VERSION=3.4.20 backend npm run test:help-releases-smoke`
+  - `npm --prefix backend run test:observability-evidence`
+  - `npm --prefix backend run test:release-preflight-local`
+- Release artifacts:
+  - `docs/releases/v3.4.20.md`
+  - regenerated `backend/release-feed.json`
+  - regenerated `preflight-go-no-go.md`
+  - regenerated dependency audit and observability evidence artifacts.
+- Files changed:
+  - public compose generation, validation, and CI override scripts;
+  - root compose, env example, setup helper, package scripts, and public deploy docs;
+  - backend product-edition defaulting and smoke/test expectations;
+  - GitHub workflow compose layering;
+  - homelab browser regression specs;
+  - version metadata and release feed.
+- Risks or follow-ups:
+  - Tagged CI remains authoritative for `secret-scan` and `image-security-and-sbom`.
+  - Local release preflight still marks secure-cookie compose basics as blocked in the local development stack because it intentionally runs with development cookie/runtime settings.
+  - Backend dependency audit still reports two moderate production findings; no high or critical findings were introduced locally.
+  - Vite cleanup follow-through remains queued as `3.4.21`.
+- What remains in the milestone: nothing; `3.4.20` is closed.
+- Recommended commit message: `Release 3.4.20 public homelab compose generation and private platform surface scrub`
+
+## 3.4.21 — Frontend Vite Cleanup and Env Naming Follow-through
+
+**Goal:** Finish the post-`3.0.0` frontend build modernization cleanup by removing stale CRA-shaped artifacts, making Vite env naming the preferred maintainer-facing path, and documenting any remaining compatibility shims intentionally.
+
+**Current Slice:** `Closed 2026-04-27`
+
+### Scope
+
+- Audit frontend build/runtime inputs for remaining CRA-era assumptions.
+- Make `VITE_*` the preferred frontend env naming path for maintainers and Docker builds.
+- Keep backward compatibility for existing deployments only where it is intentional and documented.
+- Update Docker/compose/CI docs so future frontend work clearly uses Vite terminology and output expectations.
+- Confirm Vite output still serves correctly through the nginx frontend image.
+
+### Acceptance Criteria
+
+- The active frontend build path is visibly Vite-first in package scripts, Docker build args, compose wiring, and maintainer docs.
+- Stale CRA-only files or local output directories are removed from tracked source or explicitly ignored.
+- Any remaining `REACT_APP_*` support is documented as compatibility, not the preferred interface.
+- `VITE_*` env names are available for the frontend API URL, app version, debug flag, and CSRF cookie name.
+- Docker-first frontend build verification passes.
+- Running-stack `/api/health` and browser smoke evidence confirm the rebuilt frontend is served correctly.
+
+### Closeout Notes
+
+- Roadmap slice: `3.4.21 — Frontend Vite Cleanup and Env Naming Follow-through`.
+- Project docs/checklists used:
+  - `AGENTS.md`
+  - `docs/wiki/01-Configuration-and-Use.md`
+  - `docs/wiki/02-Environment-Variables.md`
+  - `docs/wiki/07-Release-Roadmap.md`
+  - `docs/wiki/10-CI-CD-and-Registry-Deploy.md`
+  - `docs/wiki/17-Release-Go-No-Go-Checklist.md`
+- Runtime verification used Docker-first evidence from the generated public compose plus temporary `.ci` source/private overrides:
+  - frontend image rebuilt through `npm run build:vite` and copied `/app/dist` into nginx,
+  - `/api/health` reported `3.4.21` for app/frontend/backend metadata,
+  - `/api/auth/config` reported the default homelab contract,
+  - Help > Releases served `3.4.21` as the latest entry.
+- CI/checks run locally:
+  - `node --check frontend/vite.config.js`
+  - `node --check backend/scripts/unit-tests.js`
+  - `node --check scripts/write-ci-compose-overrides.js`
+  - `node scripts/validate-public-export-surface.js`
+  - `docker compose --env-file .env config`
+  - `npm --prefix frontend ci --no-fund`
+  - `APP_VERSION=3.4.21 docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml up -d --build backend frontend`
+  - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T backend npm run test:unit`
+  - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T backend npm run test:openapi`
+  - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T backend npm run test:init-parity`
+  - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T backend npm run test:migration-rehearsal`
+  - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T -e BASE_URL=http://frontend:3000 backend npm run test:homelab-edition-boundary`
+  - `docker compose -p collectz-platform-smoke --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml -f .ci/docker-compose.platform.yml exec -T -e BASE_URL=http://frontend:3000 backend npm run test:platform-edition-boundary`
+  - `docker compose -p collectz-platform-smoke --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml -f .ci/docker-compose.platform.yml exec -T -e BASE_URL=http://frontend:3000 backend npm run test:rbac-regression`
+  - `PLAYWRIGHT_E2E_BYPASS_TOKEN=collectz-playwright PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 npm run test:browser -- tests/playwright/specs/homelab-help.browser.spec.js tests/playwright/specs/homelab-shared.browser.spec.js`
+  - `PLAYWRIGHT_E2E_BYPASS_TOKEN=collectz-playwright PLAYWRIGHT_BASE_URL=http://127.0.0.1:3200 PLAYWRIGHT_COMPOSE_PROJECT=collectz-platform-smoke PLAYWRIGHT_COMPOSE_ENV_FILE=.env npm run test:browser`
+  - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T -e BASE_URL=http://frontend:3000 -e EXPECTED_VERSION=3.4.21 backend npm run test:help-releases-smoke`
+  - `npm --prefix backend run test:observability-evidence`
+  - `npm --prefix backend run test:release-preflight-local`
+- Release artifacts:
+  - `docs/releases/v3.4.21.md`
+  - regenerated `backend/release-feed.json`
+  - regenerated `preflight-go-no-go.md`
+  - regenerated dependency audit, init parity, migration rehearsal, and observability evidence artifacts.
+- Files changed:
+  - Vite-first frontend env helper and API/version/CSRF env reads,
+  - frontend Dockerfile build args,
+  - CI frontend build args and generated CI compose override args,
+  - public docs and env examples,
+  - stale CRA-era `frontend/public/index.html` removal,
+  - version metadata and release feed.
+- Risks or follow-ups:
+  - `REACT_APP_*` compatibility remains intentionally as a build-time fallback; a later cleanup can remove it once private/local workflows have fully moved to `VITE_*`.
+  - Tagged CI remains authoritative for `secret-scan` and `image-security-and-sbom`.
+  - Local release preflight still marks secure-cookie compose basics as blocked in the local development stack because it intentionally runs with development cookie/runtime settings.
+  - Backend dependency audit still reports two moderate production findings; no high or critical findings were introduced locally.
+- What remains in the milestone: nothing; `3.4.21` is closed.
+- Recommended commit message: `Release 3.4.21 frontend Vite env cleanup and build-contract follow-through`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

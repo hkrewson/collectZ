@@ -8,7 +8,7 @@ Homelab users should not need to build images locally.
 
 Expected operator flow:
 
-1. Start from compose example (`docker-compose.registry.yml`) and adjust env names/values if needed.
+1. Start from the generated public `docker-compose.yml` and adjust env names/values if needed.
 2. Copy and modify `.env` from `env.example`.
 3. Pull and run containers with `docker compose up -d`.
 
@@ -34,10 +34,10 @@ Pipeline behavior:
   - `sha-<commit>`
   - `latest` (default branch only)
 - Injects build metadata during build:
-  - `APP_VERSION` / `REACT_APP_VERSION`
-  - `GIT_SHA` / `REACT_APP_GIT_SHA`
-  - `BUILD_DATE` / `REACT_APP_BUILD_DATE`
-  - `GIT_SHA` is injected as short SHA for cleaner UI display.
+  - backend image: `APP_VERSION` and `GIT_SHA`
+  - frontend image: `VITE_APP_VERSION`, `VITE_GIT_SHA`, and `VITE_BUILD_DATE`
+  - legacy frontend `REACT_APP_*` names remain compatibility shims only, not the preferred CI contract.
+  - `GIT_SHA` is injected as short SHA for cleaner UI display where surfaced.
 
 Result: nav/version + `/api/health` build fields come from image build, not operator runtime commands.
 
@@ -57,8 +57,8 @@ Security and release gates in CI:
 - Dependency vulnerability scan (`npm audit`) on backend/frontend dependencies.
 - RBAC regression gate (API-level ownership/role/scope allow-deny checks).
 - Playwright browser-regression gate against the live compose stack for key auth/admin shell flows.
-- Homelab edition boundary smoke gate against a live `APP_EDITION=homelab` compose stack to verify shared surfaces still work while platform-only APIs stay unmounted.
-- Platform edition boundary smoke gate against a live `APP_EDITION=platform` compose stack to verify invite-based registration plus tenant/admin control-plane surfaces remain mounted while the homelab split tightens elsewhere.
+- Homelab edition boundary smoke gate against the default compose stack to verify shared surfaces still work while private-only APIs stay unmounted.
+- Private edition boundary smoke gate against an explicitly configured private CI stack to verify invite-based registration plus tenant/admin control-plane surfaces remain mounted while the homelab split tightens elsewhere.
 - OpenAPI contract validation gate for key auth/admin/media endpoints.
 - Container image vulnerability scan (Trivy) for backend/frontend images.
 - SBOM generation (CycloneDX JSON) for backend/frontend images, uploaded as CI artifacts.
@@ -126,8 +126,8 @@ cp env.example .env
 4. Deploy:
 
 ```bash
-docker compose --env-file .env -f docker-compose.registry.yml pull
-docker compose --env-file .env -f docker-compose.registry.yml up -d
+docker compose --env-file .env pull
+docker compose --env-file .env up -d
 ```
 
 ## Upgrade Process (Homelab)
@@ -136,8 +136,8 @@ docker compose --env-file .env -f docker-compose.registry.yml up -d
 # update repo files
 # set IMAGE_TAG in .env to target version
 
-docker compose --env-file .env -f docker-compose.registry.yml pull
-docker compose --env-file .env -f docker-compose.registry.yml up -d
+docker compose --env-file .env pull
+docker compose --env-file .env up -d
 ```
 
 ## Maintainer Release Process
@@ -154,7 +154,7 @@ Browser-regression expectation:
 
 - Maintain the root Playwright manifest and lockfile in git.
 - Keep `.github/workflows/docker-publish.yml` running the browser-regression gate before publish/release jobs.
-- Keep `.github/workflows/docker-publish.yml` running the homelab-edition-boundary gate before publish/release jobs so the edition split is enforced as a first-class runtime contract.
-- Keep `.github/workflows/docker-publish.yml` running the platform-edition-boundary gate before publish/release jobs so the platform control plane is proven to remain intact while homelab boundaries evolve.
+- Keep `.github/workflows/docker-publish.yml` running the homelab-edition-boundary gate before publish/release jobs so the public runtime boundary is enforced as a first-class contract.
+- Keep `.github/workflows/docker-publish.yml` running the private edition-boundary gate before publish/release jobs in private CI so the private control plane is proven to remain intact while homelab boundaries evolve.
 - Keep `.github/workflows/browser-captures.yml` as a separate manual screenshot-generation path for support/docs visuals instead of folding capture mode into the blocking regression gate.
 - Do not add Playwright browsers or the root test harness as dependencies of the shipped backend/frontend runtime images.

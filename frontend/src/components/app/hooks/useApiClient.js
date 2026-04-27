@@ -1,9 +1,10 @@
 import { useCallback, useRef } from 'react';
 import axios from 'axios';
 import { readCookie } from '../AppPrimitives';
+import { readFrontendEnv } from '../frontendEnv';
 
-const API_URL = process.env.REACT_APP_API_URL || '/api';
-const CSRF_COOKIE_NAME = process.env.REACT_APP_CSRF_COOKIE_NAME || 'csrf_token';
+const API_URL = readFrontendEnv('VITE_API_URL', 'REACT_APP_API_URL', '/api');
+const CSRF_COOKIE_NAME = readFrontendEnv('VITE_CSRF_COOKIE_NAME', 'REACT_APP_CSRF_COOKIE_NAME', 'csrf_token');
 
 export default function useApiClient() {
   const inFlightGetRequestsRef = useRef(new Map());

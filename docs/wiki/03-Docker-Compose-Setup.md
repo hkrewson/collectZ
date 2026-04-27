@@ -15,10 +15,11 @@ cp env.example .env
 - `INTEGRATION_ENCRYPTION_KEY`
 - `SESSION_COOKIE_SECURE=true` (required when `NODE_ENV=production`)
 
-3. Start the default platform/dev stack:
+3. Pull and start the default homelab stack:
 
 ```bash
-docker compose --env-file .env up -d --build
+docker compose --env-file .env pull
+docker compose --env-file .env up -d
 ```
 
 4. Verify:
@@ -26,32 +27,6 @@ docker compose --env-file .env up -d --build
 ```bash
 docker compose --env-file .env ps
 docker compose --env-file .env logs -f backend frontend db
-```
-
-## Local Edition Targets
-
-Use the default stack for your real platform/dev dataset, and use one parallel homelab stack for edition-split verification:
-
-- Platform/dev on port `3000`:
-
-```bash
-npm run stack:up:platform
-```
-
-- Homelab parallel stack on port `3100`:
-  - This stack intentionally uses isolated Docker volumes and distinct cookie names.
-  - Existing platform users and sessions from `localhost:3000` will not carry over automatically.
-
-```bash
-npm run stack:up:homelab
-```
-
-- The homelab stack uses isolated project-scoped Docker volumes, so it will not reuse the default-stack users or library data.
-- The homelab stack also uses edition-specific session and CSRF cookie names so both local editions can stay signed in at the same time without colliding on `localhost`.
-- Run both edition-boundary smokes after both stacks are up:
-
-```bash
-npm run test:edition-boundaries:local
 ```
 
 ## Full Setup (Integrations + Production Origins)
@@ -66,7 +41,8 @@ In addition to basic setup:
 Start/update:
 
 ```bash
-docker compose --env-file .env up -d --build
+docker compose --env-file .env pull
+docker compose --env-file .env up -d
 ```
 
 ## Local LAN HTTP Setup
@@ -76,10 +52,10 @@ If you want to open the app from another device on your wired or Wi-Fi LAN over 
 1. Set `NODE_ENV=development`.
 2. Set `SESSION_COOKIE_SECURE=false`.
 3. Add the exact LAN origin you will browse from to `ALLOWED_ORIGINS`, for example `http://10.22.20.91:3000`.
-4. Rebuild the stack:
+4. Restart the stack:
 
 ```bash
-docker compose --env-file .env up -d --build backend frontend
+docker compose --env-file .env up -d backend frontend
 ```
 
 This keeps the registry/production default secure while allowing local non-TLS browser sessions to work correctly on the LAN.
@@ -88,7 +64,8 @@ This keeps the registry/production default secure while allowing local non-TLS b
 
 ```bash
 git pull
-docker compose --env-file .env up -d --build
+docker compose --env-file .env pull
+docker compose --env-file .env up -d
 ```
 
 ## Postgres Password Mismatch Recovery
@@ -99,7 +76,7 @@ If backend fails with auth/SASL errors after password changes:
 
 ```bash
 docker compose --env-file .env down -v
-docker compose --env-file .env up -d --build
+docker compose --env-file .env up -d
 ```
 
 ### Keep existing data

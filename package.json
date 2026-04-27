@@ -6,13 +6,18 @@
     "test:browser:capture": "playwright test tests/playwright/specs/support-docs.capture.spec.js",
     "test:browser:headed": "playwright test --headed",
     "test:browser:ui": "playwright test --ui",
-    "stack:up:homelab": "FRONTEND_PORT=3100 docker compose -p collectz-homelab --env-file .env -f docker-compose.yml -f docker-compose.homelab.yml up -d --build",
-    "stack:up:platform": "docker compose --env-file .env up -d --build",
-    "stack:down:homelab": "docker compose -p collectz-homelab --env-file .env -f docker-compose.yml -f docker-compose.homelab.yml down",
-    "stack:down:platform": "docker compose --env-file .env down",
-    "stack:ps:homelab": "docker compose -p collectz-homelab --env-file .env -f docker-compose.yml -f docker-compose.homelab.yml ps",
-    "stack:ps:platform": "docker compose --env-file .env ps",
-    "test:edition-boundaries:local": "docker compose --env-file .env exec -T -e BASE_URL=http://frontend:3000 backend npm run test:platform-edition-boundary && docker compose -p collectz-homelab --env-file .env -f docker-compose.yml -f docker-compose.homelab.yml exec -T -e BASE_URL=http://frontend:3000 backend npm run test:homelab-edition-boundary"
+    "compose:generate": "node scripts/generate-public-compose.js",
+    "validate:public-export": "node scripts/validate-public-export-surface.js",
+    "stack:up": "docker compose --env-file .env up -d",
+    "stack:up:homelab": "docker compose --env-file .env up -d",
+    "stack:up:platform": "docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml up -d --build",
+    "stack:down": "docker compose --env-file .env down",
+    "stack:down:homelab": "docker compose --env-file .env down",
+    "stack:down:platform": "docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml down",
+    "stack:ps": "docker compose --env-file .env ps",
+    "stack:ps:homelab": "docker compose --env-file .env ps",
+    "stack:ps:platform": "docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml ps",
+    "test:edition-boundaries:local": "docker compose --env-file .env exec -T -e BASE_URL=http://frontend:3000 backend npm run test:homelab-edition-boundary && docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T -e BASE_URL=http://frontend:3000 backend npm run test:platform-edition-boundary"
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1"

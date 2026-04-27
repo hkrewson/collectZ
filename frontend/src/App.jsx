@@ -11,13 +11,14 @@ import useApiClient from './components/app/hooks/useApiClient';
 import useImportJobPolling from './components/app/hooks/useImportJobPolling';
 import useSessionBootstrap from './components/app/hooks/useSessionBootstrap';
 import useMediaApi from './components/app/hooks/useMediaApi';
+import { readFrontendEnv } from './components/app/frontendEnv';
 import {
   getSafeDashboardTab,
   isSupportHelpEnabled,
   normalizeProductEdition
 } from './components/app/productEdition';
 
-const APP_VERSION = process.env.REACT_APP_VERSION || appMeta.frontend || appMeta.version || 'unknown';
+const APP_VERSION = readFrontendEnv('VITE_APP_VERSION', 'REACT_APP_VERSION', appMeta.frontend || appMeta.version || 'unknown');
 const SUPPORT_SUMMARY_POLL_MS = 60000;
 
 export default function App() {

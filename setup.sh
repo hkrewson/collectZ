@@ -15,7 +15,6 @@ err() { printf 'ERROR: %s\n' "$*" >&2; }
 
 required_env=(
   DB_PASSWORD
-  REDIS_PASSWORD
   SESSION_SECRET
   INTEGRATION_ENCRYPTION_KEY
 )
@@ -72,12 +71,9 @@ main() {
   info "1) Edit .env and set required secrets if still empty"
   info "2) Validate config:"
   info "   docker compose --env-file .env config >/dev/null"
-  info "3) Start local source build:"
-  info "   docker compose --env-file .env up -d --build"
-  info
-  info "Registry deploy (optional):"
-  info "   docker compose -f docker-compose.registry.yml --env-file .env pull"
-  info "   docker compose -f docker-compose.registry.yml --env-file .env up -d"
+  info "3) Pull and start collectZ:"
+  info "   docker compose --env-file .env pull"
+  info "   docker compose --env-file .env up -d"
 }
 
 main "$@"

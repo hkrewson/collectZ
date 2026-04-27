@@ -9,14 +9,11 @@ git clone <your-repo-url> collectZ
 cd collectZ
 cp env.example .env
 # edit .env
-docker compose --env-file .env up -d --build
+docker compose --env-file .env pull
+docker compose --env-file .env up -d
 ```
 
-The default stack in this private repo is the platform/dev shell. To bring up a parallel homelab validation stack locally, use the explicit homelab overlay:
-
-```bash
-FRONTEND_PORT=3100 docker compose --env-file .env -f docker-compose.yml -f docker-compose.homelab.yml up -d --build
-```
+The public compose file is the homelab deployment stack and uses prebuilt images.
 
 Versioned deploy (recommended):
 
@@ -24,7 +21,7 @@ Versioned deploy (recommended):
 APP_VERSION=1.6.5-r1 \
 GIT_SHA=$(git rev-parse --short HEAD) \
 BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
-docker compose --env-file .env up -d --build
+docker compose --env-file .env up -d
 ```
 
 Check:

@@ -14,7 +14,17 @@ const outputPath = process.env.OBSERVABILITY_EVIDENCE_OUTPUT
   ? path.resolve(process.env.OBSERVABILITY_EVIDENCE_OUTPUT)
   : path.join(repoRoot, 'artifacts', 'observability-evidence', 'observability-release-evidence.json');
 
-const dockerBase = ['compose', '--env-file', '.env'];
+const ciBuildComposePath = path.join(repoRoot, '.ci', 'docker-compose.build.yml');
+const ciPlatformComposePath = path.join(repoRoot, '.ci', 'docker-compose.platform.yml');
+const dockerBase = [
+  'compose',
+  '--env-file',
+  '.env',
+  '-f',
+  'docker-compose.yml',
+  ...(fs.existsSync(ciBuildComposePath) ? ['-f', '.ci/docker-compose.build.yml'] : []),
+  ...(fs.existsSync(ciPlatformComposePath) ? ['-f', '.ci/docker-compose.platform.yml'] : [])
+];
 const restoreEnv = {
   APP_VERSION: appMeta.version,
   LOG_EXPORT_BACKEND: 'gelf_udp',
