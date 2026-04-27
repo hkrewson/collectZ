@@ -5141,6 +5141,49 @@ Historical note:
 - Generated release evidence artifacts were checked for unredacted secret-like patterns; only redacted observability command placeholders were present.
 - No remaining work in `3.4.17`.
 
+## 3.4.18 — Multi-Proof Signature Evidence Management
+
+**Goal:** Let Art and media signature records keep multiple proof images while preserving the existing single `proof_path` compatibility field for older clients and primary-proof readback.
+
+**Current Slice:** `Closed as v3.4.18`
+
+### Scope
+
+- Add a shared `signature_proofs` child table for per-signature evidence images.
+- Backfill existing `signature_records.proof_path` values into `signature_proofs`.
+- Keep `signature_records.proof_path` as the primary/first proof projection for compatibility.
+- Add Art and media routes to remove an individual proof from a signature.
+- Update shared Art/media drawer signature management to list, upload, open, and remove multiple proof images.
+
+### Acceptance Criteria
+
+- Art and media signature readback includes a `proofs` array on each signature record.
+- Uploading another proof appends evidence instead of replacing the existing proof.
+- Removing one proof does not remove the other proof images on that signature.
+- Primary compatibility fields (`signature_proof_path`, `signed_proof_path`, and `proof_path`) continue to project the primary/first active proof.
+- OpenAPI, init parity, migration rehearsal, and browser/API regression checks stay aligned.
+
+### Active Slice Notes
+
+- Keep one primary/compatibility projection per signature in this slice; do not add richer proof labels or certificate metadata yet.
+- Do not move event artifacts into the proof table in this slice, though event-linked signatures still retain their existing proof path projection.
+- Preserve existing `/proof` upload/remove routes as compatibility paths while adding proof-specific remove routes for the new UI.
+
+### Closeout — 2026-04-27
+
+- Released as `v3.4.18`.
+- Version metadata synced across root app metadata, backend package/app metadata, frontend package/app metadata, and lockfile package metadata.
+- Release note added at `docs/releases/v3.4.18.md`; in-app Help > Releases feed regenerated with `v3.4.18` as the latest entry.
+- Multi-proof signature evidence shipped through the shared `signature_proofs` table, Art/media API routes, OpenAPI schema, and shared drawer UI.
+- Existing single-proof compatibility readback remains projected through `signature_records.proof_path`, Art `signature_proof_path`, and media `signed_proof_path`.
+- Runtime verification used Docker-first evidence from rebuilt `backend` and `frontend` services, `/api/health`, live schema migration `82`, and Help > Releases readback.
+- Local closeout used `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, and `docs/wiki/10-CI-CD-and-Registry-Deploy.md` as release/checklist policy sources.
+- Local release closeout accounted for backend unit, OpenAPI, focused Art/media browser regression, RBAC regression, homelab edition boundary, platform edition boundary, init parity, migration rehearsal, release preflight, dependency audit, observability evidence, Help > Releases, and running-stack health gates.
+- Local preflight marked CI-secure compose-smoke cookie checks blocked because this local development stack runs with `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`; tagged CI remains authoritative for that secure-cookie variant.
+- Local `gitleaks`, Trivy, and SBOM tooling were not run in this shell, so tagged CI remains authoritative for `secret-scan`, `image-security-and-sbom`, and final release publication.
+- Generated release evidence artifacts were checked for unredacted secret-like patterns; only redacted observability command placeholders were present.
+- Follow-up remains: optional per-proof labels, certificate/evidence type, and proof notes if evidence management needs richer metadata.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

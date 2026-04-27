@@ -85,7 +85,28 @@ test.describe('library multi-format browser regressions', () => {
       expect(proofResponse.ok()).toBeTruthy();
       const proof = await proofResponse.json();
       expect(proof.signature.proof_path).toBeTruthy();
+      expect(proof.signature.proofs).toHaveLength(1);
       expect(proof.media.signed_proof_path).toBeFalsy();
+
+      const secondProofCsrfToken = await fetchCsrfToken(requestContext);
+      const secondProofResponse = await requestContext.post(`/api/media/${mediaId}/signatures/${secondary.signature.id}/proof`, {
+        multipart: {
+          proof: {
+            name: 'media-signature-proof-extra.png',
+            mimeType: 'image/png',
+            buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=', 'base64')
+          }
+        },
+        headers: { 'x-csrf-token': secondProofCsrfToken }
+      });
+      expect(secondProofResponse.ok()).toBeTruthy();
+      const secondProof = await secondProofResponse.json();
+      expect(secondProof.signature.proofs).toHaveLength(2);
+      const extraProof = secondProof.signature.proofs.find((entry) => !entry.is_primary);
+      const removeOneProofResponse = await requestWithCsrf(requestContext, 'DELETE', `/api/media/${mediaId}/signatures/${secondary.signature.id}/proofs/${extraProof.id}`);
+      expect(removeOneProofResponse.ok()).toBeTruthy();
+      const removedOneProof = await removeOneProofResponse.json();
+      expect(removedOneProof.signature.proofs).toHaveLength(1);
 
       const promoteResponse = await requestWithCsrf(requestContext, 'POST', `/api/media/${mediaId}/signatures/${secondary.signature.id}/primary`);
       expect(promoteResponse.ok()).toBeTruthy();

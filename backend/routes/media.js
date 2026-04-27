@@ -90,6 +90,8 @@ const {
   createSignatureRecord,
   updateSignatureRecord,
   updateSignatureProofPath,
+  addSignatureProof,
+  archiveSignatureProof,
   archiveSignatureRecord,
   setPrimarySignatureRecord,
   syncPrimarySignatureRecord,
@@ -9181,27 +9183,68 @@ router.post('/:id/signatures/:signatureId/proof', memoryImageUpload.single('proo
   const existingSignature = currentSignatures.find((signature) => Number(signature.id) === signatureId) || null;
   if (!existingSignature) return res.status(404).json({ error: 'Signature record not found' });
   const stored = await uploadBuffer(req.file.buffer, req.file.originalname, req.file.mimetype);
-  const signature = await updateSignatureProofPath(pool, {
+  const proofMutation = await addSignatureProof(pool, {
     ownerType: 'media',
     ownerId: mediaId,
     signatureId,
-    proofPath: stored.url
+    proofPath: stored.url,
+    provider: stored.provider,
+    originalFilename: req.file.originalname,
+    mimeType: req.file.mimetype,
+    createdBy: req.user.id
   });
+  const signature = proofMutation?.signature || null;
   if (!signature) return res.status(404).json({ error: 'Signature record not found' });
   const media = await syncMediaLegacyFieldsFromSignatures(mediaId);
-  await logActivity(req, existingSignature.proof_path ? 'media.signature.proof.replace' : 'media.signature.proof.upload', 'media', mediaId, {
+  await logActivity(req, existingSignature.proof_path ? 'media.signature.proof.add' : 'media.signature.proof.upload', 'media', mediaId, {
     signatureRecordId: signature.id,
-    previousPath: existingSignature.proof_path || null,
     nextPath: stored.url,
+    proofId: proofMutation?.proof?.id || null,
     provider: stored.provider
   });
   res.json({
     media,
     signatures: media?.signatures || [],
     signature,
+    proof: proofMutation?.proof || null,
     proof_path: signature.proof_path || null,
     signed_proof_path: media?.signed_proof_path || null,
     provider: stored.provider
+  });
+}));
+
+router.delete('/:id/signatures/:signatureId/proofs/:proofId', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const mediaId = Number(req.params.id);
+  const signatureId = Number(req.params.signatureId);
+  const proofId = Number(req.params.proofId);
+  if (!Number.isFinite(mediaId) || mediaId <= 0 || !Number.isFinite(signatureId) || signatureId <= 0 || !Number.isFinite(proofId) || proofId <= 0) {
+    return res.status(400).json({ error: 'Invalid media/signature/proof id' });
+  }
+  const access = await resolveEditableMediaForUser({ req, mediaId, scopeContext });
+  if (access.status === 404) return res.status(404).json({ error: 'Media item not found' });
+  if (access.status === 403) return res.status(403).json({ error: 'Not authorized to edit this media item' });
+  const proofMutation = await archiveSignatureProof(pool, {
+    ownerType: 'media',
+    ownerId: mediaId,
+    signatureId,
+    proofId
+  });
+  if (!proofMutation?.signature) return res.status(404).json({ error: 'Signature proof not found' });
+  const media = await syncMediaLegacyFieldsFromSignatures(mediaId);
+  await logActivity(req, 'media.signature.proof.remove', 'media', mediaId, {
+    signatureRecordId: signatureId,
+    proofId,
+    previousPath: proofMutation.proof?.proof_path || null
+  });
+  res.json({
+    media,
+    signatures: media?.signatures || [],
+    signature: proofMutation.signature,
+    proof: proofMutation.proof,
+    removed: true,
+    proof_path: proofMutation.signature.proof_path || null,
+    signed_proof_path: media?.signed_proof_path || null
   });
 }));
 
@@ -9229,12 +9272,14 @@ router.delete('/:id/signatures/:signatureId/proof', asyncHandler(async (req, res
       signed_proof_path: media?.signed_proof_path || null
     });
   }
-  const signature = await updateSignatureProofPath(pool, {
+  const primaryProof = (existingSignature.proofs || []).find((proof) => proof.proof_path === existingSignature.proof_path) || (existingSignature.proofs || [])[0] || null;
+  const proofMutation = primaryProof ? await archiveSignatureProof(pool, {
     ownerType: 'media',
     ownerId: mediaId,
     signatureId,
-    proofPath: null
-  });
+    proofId: primaryProof.id
+  }) : { signature: await updateSignatureProofPath(pool, { ownerType: 'media', ownerId: mediaId, signatureId, proofPath: null }), proof: null };
+  const signature = proofMutation?.signature || null;
   if (!signature) return res.status(404).json({ error: 'Signature record not found' });
   const media = await syncMediaLegacyFieldsFromSignatures(mediaId);
   await logActivity(req, 'media.signature.proof.remove', 'media', mediaId, {

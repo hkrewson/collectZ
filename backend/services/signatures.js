@@ -51,6 +51,8 @@ function serializeSignatureRow(row = {}) {
   const signedOn = row.signed_on instanceof Date
     ? row.signed_on.toISOString().slice(0, 10)
     : (row.signed_on ? String(row.signed_on).slice(0, 10) : null);
+  const proofs = Array.isArray(row.proofs) ? row.proofs : [];
+  const primaryProof = proofs.find((proof) => proof.is_primary) || proofs[0] || null;
   return {
     id: Number(row.id || 0) || null,
     owner_type: row.owner_type || null,
@@ -62,12 +64,73 @@ function serializeSignatureRow(row = {}) {
     signed_on: signedOn,
     signed_at: row.signed_at || null,
     signed_event_id: Number(row.signed_event_id || 0) || null,
-    proof_path: row.proof_path || null,
+    proof_path: row.proof_path || primaryProof?.proof_path || null,
+    proofs,
     notes: row.notes || null,
     is_primary: row.is_primary === true,
     created_at: row.created_at || null,
     updated_at: row.updated_at || null
   };
+}
+
+function serializeSignatureProofRow(row = {}) {
+  return {
+    id: Number(row.id || 0) || null,
+    signature_record_id: Number(row.signature_record_id || 0) || null,
+    proof_path: row.proof_path || null,
+    provider: row.provider || null,
+    original_filename: row.original_filename || null,
+    mime_type: row.mime_type || null,
+    is_primary: row.is_primary === true,
+    created_at: row.created_at || null,
+    archived_at: row.archived_at || null
+  };
+}
+
+async function loadSignatureProofs(pool, signatureIds = []) {
+  const ids = Array.isArray(signatureIds)
+    ? signatureIds.map((value) => Number(value || 0)).filter((value) => Number.isFinite(value) && value > 0)
+    : [];
+  if (ids.length === 0) return new Map();
+  const result = await pool.query(
+    `SELECT *
+       FROM signature_proofs
+      WHERE signature_record_id = ANY($1::int[])
+        AND archived_at IS NULL
+      ORDER BY is_primary DESC, created_at DESC, id DESC`,
+    [ids]
+  );
+  const grouped = new Map(ids.map((id) => [id, []]));
+  for (const row of result.rows || []) {
+    const signatureId = Number(row.signature_record_id || 0);
+    if (!grouped.has(signatureId)) grouped.set(signatureId, []);
+    grouped.get(signatureId).push(serializeSignatureProofRow(row));
+  }
+  return grouped;
+}
+
+async function syncSignatureProofProjection(client, { signatureId }) {
+  const normalizedSignatureId = Number(signatureId || 0);
+  if (!Number.isFinite(normalizedSignatureId) || normalizedSignatureId <= 0) return null;
+  const primary = await client.query(
+    `SELECT proof_path
+       FROM signature_proofs
+      WHERE signature_record_id = $1
+        AND archived_at IS NULL
+      ORDER BY is_primary DESC, created_at DESC, id DESC
+      LIMIT 1`,
+    [normalizedSignatureId]
+  );
+  const nextPath = cleanString(primary.rows?.[0]?.proof_path, 1000);
+  const updated = await client.query(
+    `UPDATE signature_records
+        SET proof_path = $2,
+            updated_at = CURRENT_TIMESTAMP
+      WHERE id = $1
+      RETURNING *`,
+    [normalizedSignatureId, nextPath]
+  );
+  return updated.rows[0] ? serializeSignatureRow(updated.rows[0]) : null;
 }
 
 async function loadSignatureRecords(pool, { ownerType, ownerIds = [] }) {
@@ -85,11 +148,15 @@ async function loadSignatureRecords(pool, { ownerType, ownerIds = [] }) {
       ORDER BY is_primary DESC, signed_on DESC NULLS LAST, id DESC`,
     [normalizedOwnerType, ids]
   );
+  const proofMap = await loadSignatureProofs(pool, (result.rows || []).map((row) => row.id));
   const grouped = new Map(ids.map((id) => [id, []]));
   for (const row of result.rows || []) {
     const ownerId = Number(row.owner_id || 0);
     if (!grouped.has(ownerId)) grouped.set(ownerId, []);
-    grouped.get(ownerId).push(serializeSignatureRow(row));
+    grouped.get(ownerId).push(serializeSignatureRow({
+      ...row,
+      proofs: proofMap.get(Number(row.id || 0)) || []
+    }));
   }
   return grouped;
 }
@@ -244,8 +311,20 @@ async function createSignatureRecord(pool, {
         createdBy || null
       ]
     );
+    if (normalized.proof_path) {
+      await client.query(
+        `INSERT INTO signature_proofs (
+           signature_record_id,
+           proof_path,
+           is_primary,
+           created_by
+         ) VALUES ($1,$2,TRUE,$3)`,
+        [inserted.rows[0].id, normalized.proof_path, createdBy || null]
+      );
+    }
     await client.query('COMMIT');
-    return serializeSignatureRow(inserted.rows[0]);
+    const proofs = await loadSignatureProofs(pool, [inserted.rows[0].id]);
+    return serializeSignatureRow({ ...inserted.rows[0], proofs: proofs.get(Number(inserted.rows[0].id)) || [] });
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;
@@ -313,6 +392,8 @@ async function updateSignatureRecord(pool, {
         [normalizedOwnerType, normalizedOwnerId, normalizedSignatureId]
       );
     }
+    const proofChanged = Object.prototype.hasOwnProperty.call(signature, 'proof_path')
+      || Object.prototype.hasOwnProperty.call(signature, 'signed_proof_path');
     const updated = await client.query(
       `UPDATE signature_records
           SET library_id = $4,
@@ -347,8 +428,29 @@ async function updateSignatureRecord(pool, {
         isPrimary === true
       ]
     );
+    if (proofChanged) {
+      await client.query(
+        `UPDATE signature_proofs
+            SET archived_at = COALESCE(archived_at, CURRENT_TIMESTAMP),
+                is_primary = FALSE
+          WHERE signature_record_id = $1
+            AND archived_at IS NULL`,
+        [normalizedSignatureId]
+      );
+      if (normalized.proof_path) {
+        await client.query(
+          `INSERT INTO signature_proofs (
+             signature_record_id,
+             proof_path,
+             is_primary
+           ) VALUES ($1,$2,TRUE)`,
+          [normalizedSignatureId, normalized.proof_path]
+        );
+      }
+    }
     await client.query('COMMIT');
-    return serializeSignatureRow(updated.rows[0]);
+    const proofs = await loadSignatureProofs(pool, [updated.rows[0].id]);
+    return serializeSignatureRow({ ...updated.rows[0], proofs: proofs.get(Number(updated.rows[0].id)) || [] });
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;
@@ -369,23 +471,218 @@ async function updateSignatureProofPath(pool, {
   if (!Number.isFinite(normalizedOwnerId) || normalizedOwnerId <= 0) return null;
   if (!Number.isFinite(normalizedSignatureId) || normalizedSignatureId <= 0) return null;
 
-  const result = await pool.query(
-    `UPDATE signature_records
-        SET proof_path = $4,
-            updated_at = CURRENT_TIMESTAMP
-      WHERE id = $1
-        AND owner_type = $2
-        AND owner_id = $3
-        AND archived_at IS NULL
-      RETURNING *`,
-    [
-      normalizedSignatureId,
-      normalizedOwnerType,
-      normalizedOwnerId,
-      cleanString(proofPath, 1000)
-    ]
-  );
-  return result.rows[0] ? serializeSignatureRow(result.rows[0]) : null;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const existing = await client.query(
+      `SELECT *
+         FROM signature_records
+        WHERE id = $1
+          AND owner_type = $2
+          AND owner_id = $3
+          AND archived_at IS NULL
+        LIMIT 1
+        FOR UPDATE`,
+      [normalizedSignatureId, normalizedOwnerType, normalizedOwnerId]
+    );
+    if (!existing.rows[0]) {
+      await client.query('ROLLBACK');
+      return null;
+    }
+    await client.query(
+      `UPDATE signature_proofs
+          SET archived_at = COALESCE(archived_at, CURRENT_TIMESTAMP),
+              is_primary = FALSE
+        WHERE signature_record_id = $1
+          AND archived_at IS NULL`,
+      [normalizedSignatureId]
+    );
+    const cleanedProofPath = cleanString(proofPath, 1000);
+    if (cleanedProofPath) {
+      await client.query(
+        `INSERT INTO signature_proofs (
+           signature_record_id,
+           proof_path,
+           is_primary
+         ) VALUES ($1,$2,TRUE)`,
+        [normalizedSignatureId, cleanedProofPath]
+      );
+    }
+    const updated = await syncSignatureProofProjection(client, { signatureId: normalizedSignatureId });
+    await client.query('COMMIT');
+    const proofs = await loadSignatureProofs(pool, [normalizedSignatureId]);
+    return updated ? serializeSignatureRow({ ...updated, proofs: proofs.get(normalizedSignatureId) || [] }) : null;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function addSignatureProof(pool, {
+  ownerType,
+  ownerId,
+  signatureId,
+  proofPath,
+  provider = null,
+  originalFilename = null,
+  mimeType = null,
+  createdBy = null
+}) {
+  const normalizedOwnerType = normalizeOwnerType(ownerType);
+  const normalizedOwnerId = Number(ownerId || 0);
+  const normalizedSignatureId = Number(signatureId || 0);
+  const cleanedProofPath = cleanString(proofPath, 1000);
+  if (!Number.isFinite(normalizedOwnerId) || normalizedOwnerId <= 0) return null;
+  if (!Number.isFinite(normalizedSignatureId) || normalizedSignatureId <= 0) return null;
+  if (!cleanedProofPath) return null;
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const existing = await client.query(
+      `SELECT *
+         FROM signature_records
+        WHERE id = $1
+          AND owner_type = $2
+          AND owner_id = $3
+          AND archived_at IS NULL
+        LIMIT 1
+        FOR UPDATE`,
+      [normalizedSignatureId, normalizedOwnerType, normalizedOwnerId]
+    );
+    if (!existing.rows[0]) {
+      await client.query('ROLLBACK');
+      return null;
+    }
+    const activeCount = await client.query(
+      `SELECT COUNT(*)::int AS count
+         FROM signature_proofs
+        WHERE signature_record_id = $1
+          AND archived_at IS NULL`,
+      [normalizedSignatureId]
+    );
+    const shouldBePrimary = Number(activeCount.rows?.[0]?.count || 0) === 0;
+    const inserted = await client.query(
+      `INSERT INTO signature_proofs (
+         signature_record_id,
+         proof_path,
+         provider,
+         original_filename,
+         mime_type,
+         is_primary,
+         created_by
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7)
+       RETURNING *`,
+      [
+        normalizedSignatureId,
+        cleanedProofPath,
+        cleanString(provider, 50),
+        cleanString(originalFilename, 255),
+        cleanString(mimeType, 100),
+        shouldBePrimary,
+        createdBy || null
+      ]
+    );
+    const updated = await syncSignatureProofProjection(client, { signatureId: normalizedSignatureId });
+    await client.query('COMMIT');
+    const proofs = await loadSignatureProofs(pool, [normalizedSignatureId]);
+    return {
+      signature: updated ? serializeSignatureRow({ ...updated, proofs: proofs.get(normalizedSignatureId) || [] }) : null,
+      proof: serializeSignatureProofRow(inserted.rows[0])
+    };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function archiveSignatureProof(pool, {
+  ownerType,
+  ownerId,
+  signatureId,
+  proofId
+}) {
+  const normalizedOwnerType = normalizeOwnerType(ownerType);
+  const normalizedOwnerId = Number(ownerId || 0);
+  const normalizedSignatureId = Number(signatureId || 0);
+  const normalizedProofId = Number(proofId || 0);
+  if (!Number.isFinite(normalizedOwnerId) || normalizedOwnerId <= 0) return null;
+  if (!Number.isFinite(normalizedSignatureId) || normalizedSignatureId <= 0) return null;
+  if (!Number.isFinite(normalizedProofId) || normalizedProofId <= 0) return null;
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const existing = await client.query(
+      `SELECT sr.*
+         FROM signature_records sr
+        WHERE sr.id = $1
+          AND sr.owner_type = $2
+          AND sr.owner_id = $3
+          AND sr.archived_at IS NULL
+        LIMIT 1
+        FOR UPDATE`,
+      [normalizedSignatureId, normalizedOwnerType, normalizedOwnerId]
+    );
+    if (!existing.rows[0]) {
+      await client.query('ROLLBACK');
+      return null;
+    }
+    const archived = await client.query(
+      `UPDATE signature_proofs
+          SET archived_at = COALESCE(archived_at, CURRENT_TIMESTAMP),
+              is_primary = FALSE
+        WHERE id = $1
+          AND signature_record_id = $2
+          AND archived_at IS NULL
+        RETURNING *`,
+      [normalizedProofId, normalizedSignatureId]
+    );
+    if (!archived.rows[0]) {
+      await client.query('ROLLBACK');
+      return null;
+    }
+    const hasPrimary = await client.query(
+      `SELECT id
+         FROM signature_proofs
+        WHERE signature_record_id = $1
+          AND is_primary = TRUE
+          AND archived_at IS NULL
+        LIMIT 1`,
+      [normalizedSignatureId]
+    );
+    if (!hasPrimary.rows[0]) {
+      await client.query(
+        `UPDATE signature_proofs
+            SET is_primary = TRUE
+          WHERE id = (
+            SELECT id
+              FROM signature_proofs
+             WHERE signature_record_id = $1
+               AND archived_at IS NULL
+             ORDER BY created_at DESC, id DESC
+             LIMIT 1
+          )`,
+        [normalizedSignatureId]
+      );
+    }
+    const updated = await syncSignatureProofProjection(client, { signatureId: normalizedSignatureId });
+    await client.query('COMMIT');
+    const proofs = await loadSignatureProofs(pool, [normalizedSignatureId]);
+    return {
+      signature: updated ? serializeSignatureRow({ ...updated, proofs: proofs.get(normalizedSignatureId) || [] }) : null,
+      proof: serializeSignatureProofRow(archived.rows[0])
+    };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 async function archiveSignatureRecord(pool, { ownerType, ownerId, signatureId }) {
@@ -527,7 +824,30 @@ async function syncPrimarySignatureRecord(pool, {
       createdBy || null
     ]
   );
-  return serializeSignatureRow(result.rows[0]);
+  const signatureId = Number(result.rows[0]?.id || 0);
+  if (signatureId) {
+    await pool.query(
+      `UPDATE signature_proofs
+          SET archived_at = COALESCE(archived_at, CURRENT_TIMESTAMP),
+              is_primary = FALSE
+        WHERE signature_record_id = $1
+          AND archived_at IS NULL`,
+      [signatureId]
+    );
+    if (normalized.proof_path) {
+      await pool.query(
+        `INSERT INTO signature_proofs (
+           signature_record_id,
+           proof_path,
+           is_primary,
+           created_by
+         ) VALUES ($1,$2,TRUE,$3)`,
+        [signatureId, normalized.proof_path, createdBy || null]
+      );
+    }
+  }
+  const proofs = await loadSignatureProofs(pool, [signatureId]);
+  return serializeSignatureRow({ ...result.rows[0], proofs: proofs.get(signatureId) || [] });
 }
 
 function buildLegacyMediaSignature(row = {}) {
@@ -548,6 +868,8 @@ module.exports = {
   createSignatureRecord,
   updateSignatureRecord,
   updateSignatureProofPath,
+  addSignatureProof,
+  archiveSignatureProof,
   archiveSignatureRecord,
   archiveSignatureRecordsForOwner,
   setPrimarySignatureRecord,

@@ -22,6 +22,8 @@ const {
   createSignatureRecord,
   updateSignatureRecord,
   updateSignatureProofPath,
+  addSignatureProof,
+  archiveSignatureProof,
   archiveSignatureRecord,
   setPrimarySignatureRecord,
   syncPrimarySignatureRecord
@@ -1284,27 +1286,69 @@ router.post('/art/:id/signatures/:signatureId/proof', memoryUpload.single('proof
   const existingSignature = (current.signatures || []).find((signature) => Number(signature.id) === signatureId) || null;
   if (!existingSignature) return res.status(404).json({ error: 'Signature record not found' });
   const stored = await uploadBuffer(req.file.buffer, req.file.originalname, req.file.mimetype);
-  const signature = await updateSignatureProofPath(pool, {
+  const proofMutation = await addSignatureProof(pool, {
     ownerType: 'art',
     ownerId: current.id,
     signatureId,
-    proofPath: stored.url
+    proofPath: stored.url,
+    provider: stored.provider,
+    originalFilename: req.file.originalname,
+    mimeType: req.file.mimetype,
+    createdBy: req.user.id
   });
+  const signature = proofMutation?.signature || null;
   if (!signature) return res.status(404).json({ error: 'Signature record not found' });
   const response = await serializeSignatureMutationResponse(scopeContext, current);
-  await logActivity(req, existingSignature.proof_path ? 'art.signature.proof.replace' : 'art.signature.proof.upload', 'art', buildPublicNativeArtId(current), {
+  await logActivity(req, existingSignature.proof_path ? 'art.signature.proof.add' : 'art.signature.proof.upload', 'art', buildPublicNativeArtId(current), {
     native_art_id: current.id,
     signatureRecordId: signature.id,
-    previousPath: existingSignature.proof_path || null,
     nextPath: stored.url,
+    proofId: proofMutation?.proof?.id || null,
     provider: stored.provider
   });
   res.json({
     ...response,
     signature,
+    proof: proofMutation?.proof || null,
     signature_proof_path: response.art?.signature_proof_path || null,
     proof_path: signature.proof_path || null,
     provider: stored.provider
+  });
+}));
+
+router.delete('/art/:id/signatures/:signatureId/proofs/:proofId', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const artRouteId = Number(req.params.id);
+  const signatureId = Number(req.params.signatureId);
+  const proofId = Number(req.params.proofId);
+  if (!Number.isFinite(artRouteId) || artRouteId <= 0 || !Number.isFinite(signatureId) || signatureId <= 0 || !Number.isFinite(proofId) || proofId <= 0) {
+    return res.status(400).json({ error: 'Invalid art/signature/proof id' });
+  }
+  const current = await attachSignaturesToArtRow(await loadNativeArtByRouteId(scopeContext, artRouteId));
+  if (!current) return res.status(404).json({ error: 'Art item not found' });
+  const existingSignature = (current.signatures || []).find((signature) => Number(signature.id) === signatureId) || null;
+  if (!existingSignature) return res.status(404).json({ error: 'Signature record not found' });
+  const proofMutation = await archiveSignatureProof(pool, {
+    ownerType: 'art',
+    ownerId: current.id,
+    signatureId,
+    proofId
+  });
+  if (!proofMutation?.signature) return res.status(404).json({ error: 'Signature proof not found' });
+  const response = await serializeSignatureMutationResponse(scopeContext, current);
+  await logActivity(req, 'art.signature.proof.remove', 'art', buildPublicNativeArtId(current), {
+    native_art_id: current.id,
+    signatureRecordId: signatureId,
+    proofId,
+    previousPath: proofMutation.proof?.proof_path || null
+  });
+  res.json({
+    ...response,
+    signature: proofMutation.signature,
+    proof: proofMutation.proof,
+    removed: true,
+    signature_proof_path: response.art?.signature_proof_path || null,
+    proof_path: proofMutation.signature.proof_path || null
   });
 }));
 
@@ -1329,12 +1373,14 @@ router.delete('/art/:id/signatures/:signatureId/proof', asyncHandler(async (req,
       proof_path: null
     });
   }
-  const signature = await updateSignatureProofPath(pool, {
+  const primaryProof = (existingSignature.proofs || []).find((proof) => proof.proof_path === existingSignature.proof_path) || (existingSignature.proofs || [])[0] || null;
+  const proofMutation = primaryProof ? await archiveSignatureProof(pool, {
     ownerType: 'art',
     ownerId: current.id,
     signatureId,
-    proofPath: null
-  });
+    proofId: primaryProof.id
+  }) : { signature: await updateSignatureProofPath(pool, { ownerType: 'art', ownerId: current.id, signatureId, proofPath: null }), proof: null };
+  const signature = proofMutation?.signature || null;
   if (!signature) return res.status(404).json({ error: 'Signature record not found' });
   const response = await serializeSignatureMutationResponse(scopeContext, current);
   await logActivity(req, 'art.signature.proof.remove', 'art', buildPublicNativeArtId(current), {

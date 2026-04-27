@@ -837,6 +837,26 @@ CREATE INDEX IF NOT EXISTS idx_signature_records_signed_event
     ON signature_records(signed_event_id)
     WHERE signed_event_id IS NOT NULL AND archived_at IS NULL;
 
+CREATE TABLE IF NOT EXISTS signature_proofs (
+    id SERIAL PRIMARY KEY,
+    signature_record_id INTEGER NOT NULL REFERENCES signature_records(id) ON DELETE CASCADE,
+    proof_path TEXT NOT NULL,
+    provider VARCHAR(50),
+    original_filename VARCHAR(255),
+    mime_type VARCHAR(100),
+    is_primary BOOLEAN NOT NULL DEFAULT false,
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    archived_at TIMESTAMP
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_signature_proofs_primary_active
+    ON signature_proofs(signature_record_id)
+    WHERE is_primary = TRUE AND archived_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_signature_proofs_signature_active
+    ON signature_proofs(signature_record_id, archived_at, created_at DESC);
+
 DO $$
 BEGIN
     IF NOT EXISTS (
@@ -1229,5 +1249,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (78, 'Add shared signature provenance records for Art and media'),
     (79, 'Link event autograph artifacts to shared signature provenance'),
     (80, 'Add Art physical dimensions and framed metadata'),
-    (81, 'Add Art dimension unit metadata')
+    (81, 'Add Art dimension unit metadata'),
+    (82, 'Add multi-proof signature evidence table')
 ON CONFLICT (version) DO NOTHING;

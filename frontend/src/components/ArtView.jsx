@@ -247,7 +247,13 @@ function ArtDetailDrawer({ artId, apiCall, events, onClose, onEdit, onDeleted })
                           {signature.is_primary ? <span className="badge badge-dim shrink-0">Primary</span> : null}
                         </div>
                         {signature.notes ? <p className="mt-1 text-xs text-ghost">{signature.notes}</p> : null}
-                        {signature.proof_path ? (
+                        {Array.isArray(signature.proofs) && signature.proofs.length ? (
+                          <div className="mt-1 flex flex-wrap gap-2">
+                            {signature.proofs.map((proof, index) => (
+                              <a key={proof.id || `${signature.id}:proof:${index}`} className="inline-flex items-center gap-2 text-xs text-dim transition-colors hover:text-ink" href={posterUrl(proof.proof_path)} target="_blank" rel="noreferrer"><Icons.Link />{proof.is_primary ? 'Primary proof' : `Proof ${index + 1}`}</a>
+                            ))}
+                          </div>
+                        ) : signature.proof_path ? (
                           <a className="mt-1 inline-flex items-center gap-2 text-xs text-dim transition-colors hover:text-ink" href={posterUrl(signature.proof_path)} target="_blank" rel="noreferrer"><Icons.Link />Open proof</a>
                         ) : null}
                       </div>

@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v3.4.18",
+      "version": "3.4.18",
+      "date": "2026-04-27",
+      "status": "Completed",
+      "summary": "This release lets shared Art and media signature records keep multiple proof images. Existing single-proof compatibility fields remain intact, so older clients can continue reading `proof_path`, `signature_proof_path`, and `signed_proof_path` while newer drawer UI can manage proof evidence as a list.",
+      "details": []
+    },
+    {
       "title": "v3.4.17",
       "version": "3.4.17",
       "date": "2026-04-27",
@@ -70,14 +78,6 @@
       "date": "2026-04-26",
       "status": "Completed",
       "summary": "This release introduces one shared signature provenance contract for signed collection objects. Art now records richer signature details through the shared model, while existing media title signature fields continue to work as compatibility projections onto the same foundation.",
-      "details": []
-    },
-    {
-      "title": "v3.4.8",
-      "version": "3.4.8",
-      "date": "2026-04-26",
-      "status": "Completed",
-      "summary": "This release gives Art and Collectibles a shared `Fandom / Franchise` metadata field so source, fandom, franchise, and universe context can live beside the item without becoming object taxonomy. Art medium/type and Collectibles category stay focused on what the object is, while fandom context becomes searchable metadata across both libraries.",
       "details": []
     }
   ]

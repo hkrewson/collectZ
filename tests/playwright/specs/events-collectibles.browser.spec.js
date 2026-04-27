@@ -104,6 +104,28 @@ test.describe('events and collectibles browser regressions', () => {
       const uploaded = await uploadResponse.json();
       expect(uploaded.signature_proof_path).toBeTruthy();
       expect(uploaded.signature.proof_path).toBeTruthy();
+      expect(uploaded.signature.proofs).toHaveLength(2);
+
+      const extraProofCsrfToken = await fetchCsrfToken(userRequestContext);
+      const extraProofResponse = await userRequestContext.post(`/api/art/${created.id}/signatures/${primarySignatureId}/proof`, {
+        multipart: {
+          proof: {
+            name: 'signature-extra-proof.png',
+            mimeType: 'image/png',
+            buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=', 'base64')
+          }
+        },
+        headers: { 'x-csrf-token': extraProofCsrfToken }
+      });
+      expect(extraProofResponse.ok()).toBeTruthy();
+      const extraProof = await extraProofResponse.json();
+      expect(extraProof.signature.proofs).toHaveLength(3);
+      const nonPrimaryProof = extraProof.signature.proofs.find((proof) => !proof.is_primary);
+      expect(nonPrimaryProof?.id).toBeTruthy();
+      const removeExtraProofResponse = await requestWithCsrf(userRequestContext, 'DELETE', `/api/art/${created.id}/signatures/${primarySignatureId}/proofs/${nonPrimaryProof.id}`);
+      expect(removeExtraProofResponse.ok()).toBeTruthy();
+      const removedExtraProof = await removeExtraProofResponse.json();
+      expect(removedExtraProof.signature.proofs).toHaveLength(2);
 
       const secondaryResponse = await postWithCsrf(userRequestContext, `/api/art/${created.id}/signatures`, {
         signer_name: 'Second Playwright Signer',
@@ -130,6 +152,7 @@ test.describe('events and collectibles browser regressions', () => {
       expect(secondaryProofResponse.ok()).toBeTruthy();
       const secondaryProof = await secondaryProofResponse.json();
       expect(secondaryProof.signature.proof_path).toBeTruthy();
+      expect(secondaryProof.signature.proofs).toHaveLength(1);
 
       const promoteResponse = await requestWithCsrf(userRequestContext, 'POST', `/api/art/${created.id}/signatures/${secondary.signature.id}/primary`);
       expect(promoteResponse.ok()).toBeTruthy();
@@ -462,7 +485,7 @@ test.describe('events and collectibles browser regressions', () => {
       const secondarySignatureRow = signatureManager.locator('[data-signature-row]').filter({ hasText: 'Secondary Playwright Artist' }).first();
       await secondarySignatureRow.getByRole('button', { name: 'Make primary' }).click();
       const promotedSignatureRow = signatureManager.locator('[data-signature-row]').filter({ hasText: 'Secondary Playwright Artist' }).first();
-      await expect(promotedSignatureRow.getByText('Primary')).toBeVisible();
+      await expect(promotedSignatureRow.locator('.badge').getByText('Primary', { exact: true })).toBeVisible();
       await promotedSignatureRow.getByRole('button', { name: 'Edit' }).click();
       const activeSignatureEditor = signatureManager.locator('[data-signature-editing="true"]');
       await activeSignatureEditor.locator('textarea[id$="-notes"]').fill('Edited secondary signature note.');

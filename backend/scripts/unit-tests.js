@@ -3637,13 +3637,32 @@ results.push(run('shared signature proof attachments support Art upload removal 
   assert.ok(artViewSource.includes('Proof file upload and removal live on each signature record below'));
   assert.ok(libraryViewSource.includes('Proof file upload and removal live on each signature record below'));
   assert.ok(signatureManagerSource.includes('/proof'));
-  assert.ok(signatureManagerSource.includes('Upload proof'));
-  assert.ok(signatureManagerSource.includes('Remove proof'));
+  assert.ok(signatureManagerSource.includes('Add proof'));
+  assert.ok(signatureManagerSource.includes('Remove primary proof'));
   assert.ok(openApiSource.includes('"/api/art/{id}/upload-signature-proof"'));
   assert.ok(openApiSource.includes('"/api/art/{id}/signature-proof"'));
   assert.ok(openApiSource.includes('"/api/art/{id}/signatures/{signatureId}/proof"'));
   assert.ok(openApiSource.includes('"/api/media/{id}/signatures/{signatureId}/proof"'));
   assert.ok(openApiSource.includes('"SignatureProofResponse"'));
+}));
+
+results.push(run('multi-proof signature evidence keeps shared proof arrays and compatibility projection wired', () => {
+  assert.ok(migrationsSource.includes('version: 82'));
+  assert.ok(migrationsSource.includes('CREATE TABLE IF NOT EXISTS signature_proofs'));
+  assert.ok(initSqlSource.includes('CREATE TABLE IF NOT EXISTS signature_proofs'));
+  assert.ok(initSqlSource.includes('idx_signature_proofs_primary_active'));
+  assert.ok(signaturesServiceSource.includes('serializeSignatureProofRow'));
+  assert.ok(signaturesServiceSource.includes('loadSignatureProofs'));
+  assert.ok(signaturesServiceSource.includes('addSignatureProof'));
+  assert.ok(signaturesServiceSource.includes('archiveSignatureProof'));
+  assert.ok(signaturesServiceSource.includes('proofs,'));
+  assert.ok(collectiblesRoutesSource.includes("router.delete('/art/:id/signatures/:signatureId/proofs/:proofId'"));
+  assert.ok(mediaRoutesSource.includes("router.delete('/:id/signatures/:signatureId/proofs/:proofId'"));
+  assert.ok(signatureManagerSource.includes('Proof images'));
+  assert.ok(signatureManagerSource.includes('/proofs/${proofId}'));
+  assert.ok(openApiSource.includes('"SignatureProofRecord"'));
+  assert.ok(openApiSource.includes('"/api/art/{id}/signatures/{signatureId}/proofs/{proofId}"'));
+  assert.ok(openApiSource.includes('"/api/media/{id}/signatures/{signatureId}/proofs/{proofId}"'));
 }));
 
 results.push(run('event autograph artifacts can link into shared object signature provenance', () => {

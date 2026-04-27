@@ -194,9 +194,10 @@ export default function SignatureManager({
     }
   };
 
-  const removeProof = async (signatureId) => {
+  const removeProof = async (signatureId, proofId = null) => {
     if (!ownerId || !endpointBase || !signatureId) return;
-    await run(`proof-remove:${signatureId}`, () => apiCall('delete', `${endpointBase}/signatures/${signatureId}/proof`));
+    const suffix = proofId ? `/proofs/${proofId}` : '/proof';
+    await run(`proof-remove:${signatureId}:${proofId || 'primary'}`, () => apiCall('delete', `${endpointBase}/signatures/${signatureId}${suffix}`));
   };
 
   if (!ownerId) {
@@ -244,7 +245,26 @@ export default function SignatureManager({
                         {signature.is_primary ? <span className="badge badge-dim">Primary</span> : <span className="badge badge-dim">Secondary</span>}
                       </div>
                       {signature.notes ? <p className="mt-1 text-xs leading-5 text-ghost">{signature.notes}</p> : null}
-                      {signature.proof_path ? (
+                      {Array.isArray(signature.proofs) && signature.proofs.length ? (
+                        <div className="mt-2 space-y-1 rounded-lg border border-edge/70 bg-void/30 p-2">
+                          <p className="text-[11px] font-medium uppercase tracking-wide text-ghost">Proof images</p>
+                          {signature.proofs.map((proof, index) => (
+                            <div key={proof.id || `${signature.id}:proof:${index}`} className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                              <a className="inline-flex min-w-0 items-center gap-1.5 text-dim hover:text-ink" href={posterUrl(proof.proof_path)} target="_blank" rel="noreferrer">
+                                <Icons.Link />{proof.is_primary ? 'Primary proof' : `Proof ${index + 1}`}
+                              </a>
+                              <button
+                                type="button"
+                                className="btn-ghost btn-sm text-err"
+                                disabled={Boolean(busy) || !proof.id}
+                                onClick={() => removeProof(signature.id, proof.id)}
+                              >
+                                <Icons.Trash />Remove
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : signature.proof_path ? (
                         <a className="mt-1 inline-flex items-center gap-1.5 text-xs text-dim hover:text-ink" href={posterUrl(signature.proof_path)} target="_blank" rel="noreferrer"><Icons.Link />Open proof</a>
                       ) : null}
                       <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -256,9 +276,9 @@ export default function SignatureManager({
                           className="block max-w-[18rem] text-xs text-ghost file:btn-secondary file:btn-sm file:border-0 file:mr-3"
                         />
                         <button type="button" className="btn-secondary btn-sm" disabled={Boolean(busy) || !proofFiles[signature.id]} onClick={() => uploadProof(signature.id)}>
-                          {busy === `proof:${signature.id}` ? <><Spinner size={14} />Uploading…</> : <><Icons.Upload />Upload proof</>}
+                          {busy === `proof:${signature.id}` ? <><Spinner size={14} />Uploading…</> : <><Icons.Upload />Add proof</>}
                         </button>
-                        <button type="button" className="btn-ghost btn-sm text-err" disabled={Boolean(busy) || !signature.proof_path} onClick={() => removeProof(signature.id)}><Icons.Trash />Remove proof</button>
+                        <button type="button" className="btn-ghost btn-sm text-err" disabled={Boolean(busy) || !signature.proof_path} onClick={() => removeProof(signature.id)}><Icons.Trash />Remove primary proof</button>
                       </div>
                       {proofFiles[signature.id] ? <p className="mt-1 text-xs text-ghost">Selected proof: {proofFiles[signature.id].name}</p> : null}
                     </div>

@@ -3495,6 +3495,52 @@ const MIGRATIONS = [
       END;
       $$;
     `
+  },
+  {
+    version: 82,
+    description: 'Add multi-proof signature evidence table',
+    up: `
+      CREATE TABLE IF NOT EXISTS signature_proofs (
+        id SERIAL PRIMARY KEY,
+        signature_record_id INTEGER NOT NULL REFERENCES signature_records(id) ON DELETE CASCADE,
+        proof_path TEXT NOT NULL,
+        provider VARCHAR(50),
+        original_filename VARCHAR(255),
+        mime_type VARCHAR(100),
+        is_primary BOOLEAN NOT NULL DEFAULT false,
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        archived_at TIMESTAMP
+      );
+
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_signature_proofs_primary_active
+        ON signature_proofs(signature_record_id)
+        WHERE is_primary = TRUE AND archived_at IS NULL;
+
+      CREATE INDEX IF NOT EXISTS idx_signature_proofs_signature_active
+        ON signature_proofs(signature_record_id, archived_at, created_at DESC);
+
+      INSERT INTO signature_proofs (
+        signature_record_id,
+        proof_path,
+        is_primary,
+        created_at
+      )
+      SELECT sr.id,
+             sr.proof_path,
+             TRUE,
+             COALESCE(sr.updated_at, sr.created_at, CURRENT_TIMESTAMP)
+        FROM signature_records sr
+       WHERE NULLIF(sr.proof_path, '') IS NOT NULL
+         AND sr.archived_at IS NULL
+         AND NOT EXISTS (
+           SELECT 1
+             FROM signature_proofs sp
+            WHERE sp.signature_record_id = sr.id
+              AND sp.archived_at IS NULL
+              AND sp.proof_path = sr.proof_path
+         );
+    `
   }
 ];
 
