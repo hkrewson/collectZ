@@ -5060,6 +5060,46 @@ Historical note:
 - Local `gitleaks`, Trivy, and SBOM tooling were not run in this shell, so tagged CI remains authoritative for `secret-scan`, `image-security-and-sbom`, and final release publication.
 - Follow-up remains: shared proof upload/remove endpoints and multi-proof-per-signature management.
 
+## 3.4.16 — Shared Signature Proof Upload/Remove
+
+**Goal:** Normalize signature proof upload and removal around `signature_records` so Art and media drawers use the same proof workflow while existing object-level proof fields remain compatible.
+
+**Current Slice:** `Closed as v3.4.16`
+
+### Scope
+
+- Add per-signature proof upload and remove endpoints for Art signature records.
+- Add per-signature proof upload and remove endpoints for media signature records.
+- Keep existing Art primary-proof and media signing-proof endpoints as compatibility paths.
+- Update Art and media drawers to use the shared signature manager proof workflow.
+- Preserve existing `proof_path`, `signature_proof_path`, and `signed_proof_path` readback compatibility.
+
+### Acceptance Criteria
+
+- Art signatures can upload, replace, open, and remove proof images from the drawer-side signature list.
+- Media signatures can upload, replace, open, and remove proof images from the same shared drawer-side signature list.
+- Updating proof on a primary media signature keeps `media.signed_proof_path` aligned.
+- Updating proof on a primary Art signature keeps `signature_proof_path` readback aligned.
+- Existing primary-proof endpoints continue to work for older clients.
+- OpenAPI and browser/source regression coverage describe the shared proof contract.
+
+### Active Slice Notes
+
+- Keep this as single-proof-per-signature storage on `signature_records.proof_path`.
+- Do not add a new proof attachment table or multi-proof UI in this slice.
+- Multi-proof-per-signature evidence remains the likely next follow-up milestone.
+
+### Closeout — 2026-04-27
+
+- Released as `v3.4.16`.
+- Version metadata synced across root app metadata, backend package/app metadata, frontend package/app metadata, and lockfile package metadata.
+- Release note added at `docs/releases/v3.4.16.md`; in-app Help > Releases feed regenerated with `v3.4.16` as the latest entry.
+- Art and media signatures now share per-signature proof upload/remove routes and drawer UI while legacy primary-proof endpoints remain compatible.
+- Runtime verification used Docker-first evidence from rebuilt `backend` and `frontend` services, `/api/health`, and Help > Releases readback.
+- Local release closeout accounted for backend unit, OpenAPI, Art/media browser regression, RBAC regression, homelab edition boundary, platform edition boundary, init parity, migration rehearsal, release preflight, dependency audit, observability evidence, Help > Releases, and running-stack health gates.
+- Local `gitleaks`, Trivy, and SBOM tooling were not run in this shell, so tagged CI remains authoritative for `secret-scan`, `image-security-and-sbom`, and final release publication.
+- Follow-up remains: multi-proof-per-signature evidence management if proof needs expand beyond one path per signature.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

@@ -456,17 +456,8 @@ function ArtDrawer({ initial, events, saving, error, notice, apiCall, onClose, o
                     {events.map((evt) => <option key={evt.id} value={String(evt.id)}>{evt.title}</option>)}
                   </select>
                 </label>
-                <label className="field"><span className="label">Proof image URL</span><input className="input" value={form.signature_proof_path || ''} onChange={(e) => setForm((p) => ({ ...p, signature_proof_path: e.target.value }))} /></label>
-                <label className="field md:col-span-2"><span className="label">Signature proof image</span><input className="input" type="file" accept="image/*" capture="environment" onChange={(e) => setProofFile(e.target.files?.[0] || null)} /></label>
-                <div className="md:col-span-2 flex flex-wrap items-center gap-2">
-                  {currentProofPath ? <a className="btn-ghost btn-sm" href={posterUrl(currentProofPath)} target="_blank" rel="noreferrer"><Icons.Link />Open proof</a> : null}
-                  <button type="button" className="btn-secondary btn-sm" onClick={uploadSignatureProof} disabled={!initial?.id || !proofFile || proofWorking}>
-                    {proofWorking ? <><Spinner size={14} />Uploading…</> : <><Icons.Check />Upload proof</>}
-                  </button>
-                  <button type="button" className="btn-ghost btn-sm" onClick={removeSignatureProof} disabled={!initial?.id || !currentProofPath || proofWorking}><Icons.X />Remove proof</button>
-                  {!initial?.id && proofFile ? <span className="text-xs text-ghost">Proof will upload after the art record is saved.</span> : null}
-                </div>
-                {proofFile ? <p className="text-xs text-ghost md:col-span-2">Selected proof: {proofFile.name}</p> : null}
+                <label className="field"><span className="label">Primary proof URL</span><input className="input" value={form.signature_proof_path || ''} onChange={(e) => setForm((p) => ({ ...p, signature_proof_path: e.target.value }))} /></label>
+                <p className="md:col-span-2 text-xs leading-5 text-ghost">Proof file upload and removal live on each signature record below, so Art and media use the same evidence workflow.</p>
                 <label className="field md:col-span-2"><span className="label">Signature notes</span><textarea className="textarea min-h-[80px]" value={form.signature_notes || ''} onChange={(e) => setForm((p) => ({ ...p, signature_notes: e.target.value }))} /></label>
                 <SignatureManager
                   apiCall={apiCall}

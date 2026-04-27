@@ -3491,25 +3491,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
                 </LabeledField>
                 <LabeledField label="Signed on"><input className="input" type="date" value={form.signed_on} onChange={(e) => set({ signed_on: e.target.value })} /></LabeledField>
                 <LabeledField label="Signed at"><input className="input" value={form.signed_at} onChange={(e) => set({ signed_at: e.target.value })} /></LabeledField>
-                <LabeledField label="Signing proof image" className="md:col-span-2">
-                  <div className="flex flex-col gap-2">
-                    {form.signed_proof_path && (
-                      <a href={posterUrl(form.signed_proof_path)} target="_blank" rel="noreferrer" className="btn-secondary btn-sm w-fit"><Icons.Link />View current proof</a>
-                    )}
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        onChange={(e) => setProofFile(e.target.files?.[0] || null)}
-                        className="block w-full text-sm text-ghost file:btn-secondary file:btn-sm file:border-0 file:mr-3"
-                      />
-                      <button type="button" onClick={uploadSigningProof} disabled={!proofFile || !form.id} className="btn-secondary btn-sm"><Icons.Upload />Upload</button>
-                      <button type="button" onClick={removeSigningProof} disabled={!form.id || !form.signed_proof_path} className="btn-secondary btn-sm text-err"><Icons.Trash />Remove</button>
-                    </div>
-                    {!form.id && <p className="text-xs text-ghost">Save first to attach a signing proof image.</p>}
-                  </div>
-                </LabeledField>
+                <p className="md:col-span-2 text-xs leading-5 text-ghost">Proof file upload and removal live on each signature record below, keeping media and Art evidence on the same workflow.</p>
                 <SignatureManager
                   apiCall={apiCall}
                   endpointBase={form.id ? `/media/${form.id}` : ''}

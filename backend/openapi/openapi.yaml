@@ -1466,8 +1466,12 @@
           "id": { "type": "integer" },
           "native_art_id": { "type": ["integer", "null"] },
           "signature_proof_path": { "type": ["string", "null"] },
+          "signed_proof_path": { "type": ["string", "null"] },
           "proof_path": { "type": ["string", "null"] },
           "provider": { "type": ["string", "null"] },
+          "signature": { "$ref": "#/components/schemas/SignatureRecord" },
+          "art": { "$ref": "#/components/schemas/ArtRecord" },
+          "media": { "$ref": "#/components/schemas/MediaDetailResponse" },
           "signatures": {
             "type": "array",
             "items": { "$ref": "#/components/schemas/SignatureRecord" }
@@ -5114,6 +5118,58 @@
         }
       }
     },
+    "/api/art/{id}/signatures/{signatureId}/proof": {
+      "post": {
+        "tags": ["Media"],
+        "summary": "Upload or replace proof image for an art signature record",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } },
+          { "in": "path", "name": "signatureId", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "proof": { "type": "string", "format": "binary" }
+                },
+                "required": ["proof"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Uploaded signature proof",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SignatureProofResponse" } } }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Media"],
+        "summary": "Remove proof image from an art signature record",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } },
+          { "in": "path", "name": "signatureId", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Removed signature proof",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SignatureProofResponse" } } }
+          }
+        }
+      }
+    },
     "/api/art/{id}/upload-signature-proof": {
       "post": {
         "tags": ["Media"],
@@ -6461,6 +6517,58 @@
                 "schema": { "$ref": "#/components/schemas/Error" }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/media/{id}/signatures/{signatureId}/proof": {
+      "post": {
+        "tags": ["Media"],
+        "summary": "Upload or replace proof image for a media signature record",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } },
+          { "in": "path", "name": "signatureId", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "proof": { "type": "string", "format": "binary" }
+                },
+                "required": ["proof"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Uploaded signature proof",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SignatureProofResponse" } } }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Media"],
+        "summary": "Remove proof image from a media signature record",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } },
+          { "in": "path", "name": "signatureId", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Removed signature proof",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SignatureProofResponse" } } }
           }
         }
       }

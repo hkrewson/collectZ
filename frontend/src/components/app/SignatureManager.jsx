@@ -110,6 +110,7 @@ export default function SignatureManager({
   const [editDraft, setEditDraft] = useState(EMPTY_SIGNATURE);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
+  const [proofFiles, setProofFiles] = useState({});
 
   const rows = useMemo(() => (
     [...(Array.isArray(signatures) ? signatures : [])]
@@ -175,6 +176,29 @@ export default function SignatureManager({
     await run(`archive:${signatureId}`, () => apiCall('delete', `${endpointBase}/signatures/${signatureId}`));
   };
 
+  const setProofFile = (signatureId, file) => {
+    setProofFiles((prev) => ({
+      ...prev,
+      [signatureId]: file || null
+    }));
+  };
+
+  const uploadProof = async (signatureId) => {
+    const file = proofFiles[signatureId];
+    if (!ownerId || !endpointBase || !signatureId || !file) return;
+    const body = new FormData();
+    body.append('proof', file);
+    const result = await run(`proof:${signatureId}`, () => apiCall('post', `${endpointBase}/signatures/${signatureId}/proof`, body, { headers: { 'Content-Type': 'multipart/form-data' } }));
+    if (result) {
+      setProofFiles((prev) => ({ ...prev, [signatureId]: null }));
+    }
+  };
+
+  const removeProof = async (signatureId) => {
+    if (!ownerId || !endpointBase || !signatureId) return;
+    await run(`proof-remove:${signatureId}`, () => apiCall('delete', `${endpointBase}/signatures/${signatureId}/proof`));
+  };
+
   if (!ownerId) {
     return (
       <div className="md:col-span-2 border-t border-edge/60 pt-3 text-sm text-ghost">
@@ -223,11 +247,25 @@ export default function SignatureManager({
                       {signature.proof_path ? (
                         <a className="mt-1 inline-flex items-center gap-1.5 text-xs text-dim hover:text-ink" href={posterUrl(signature.proof_path)} target="_blank" rel="noreferrer"><Icons.Link />Open proof</a>
                       ) : null}
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          onChange={(event) => setProofFile(signature.id, event.target.files?.[0] || null)}
+                          className="block max-w-[18rem] text-xs text-ghost file:btn-secondary file:btn-sm file:border-0 file:mr-3"
+                        />
+                        <button type="button" className="btn-secondary btn-sm" disabled={Boolean(busy) || !proofFiles[signature.id]} onClick={() => uploadProof(signature.id)}>
+                          {busy === `proof:${signature.id}` ? <><Spinner size={14} />Uploading…</> : <><Icons.Upload />Upload proof</>}
+                        </button>
+                        <button type="button" className="btn-ghost btn-sm text-err" disabled={Boolean(busy) || !signature.proof_path} onClick={() => removeProof(signature.id)}><Icons.Trash />Remove proof</button>
+                      </div>
+                      {proofFiles[signature.id] ? <p className="mt-1 text-xs text-ghost">Selected proof: {proofFiles[signature.id].name}</p> : null}
                     </div>
                     <div className="flex shrink-0 flex-wrap justify-end gap-2">
                       {!signature.is_primary ? <button type="button" className="btn-ghost btn-sm" disabled={Boolean(busy)} onClick={() => promoteSignature(signature.id)}>Make primary</button> : null}
                       <button type="button" className="btn-ghost btn-sm" disabled={Boolean(busy)} onClick={() => { setEditingId(signature.id); setEditDraft(normalizeSignature(signature)); }}>Edit</button>
-                      <button type="button" className="btn-ghost btn-sm text-err" disabled={Boolean(busy)} onClick={() => archiveSignature(signature.id)}>Remove</button>
+                        <button type="button" className="btn-ghost btn-sm text-err" disabled={Boolean(busy)} aria-label="Remove signature" onClick={() => archiveSignature(signature.id)}>Remove</button>
                     </div>
                   </div>
                 </div>

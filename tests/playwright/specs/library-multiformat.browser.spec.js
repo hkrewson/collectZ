@@ -1,7 +1,7 @@
 'use strict';
 const fs = require('fs');
 const { test, expect, request: playwrightRequest } = require('@playwright/test');
-const { AUTH_STATE_PATH, createFreshUserCredentials, createAuthenticatedRequestContext, createRequestContextFromStorageState, ensureAuthenticatedAdminStorageState, postWithCsrf, requestWithCsrf } = require('../helpers/auth');
+const { AUTH_STATE_PATH, createFreshUserCredentials, createAuthenticatedRequestContext, createRequestContextFromStorageState, ensureAuthenticatedAdminStorageState, fetchCsrfToken, postWithCsrf, requestWithCsrf } = require('../helpers/auth');
 const { deleteMediaByExactTitle, findExactMediaByTitle } = require('../helpers/media');
 
 const PLAYWRIGHT_BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000';
@@ -71,10 +71,27 @@ test.describe('library multi-format browser regressions', () => {
       expect(secondary.signatures).toHaveLength(2);
       expect(secondary.media.signed_by).toBe('Primary Playwright Author');
 
+      const csrfToken = await fetchCsrfToken(requestContext);
+      const proofResponse = await requestContext.post(`/api/media/${mediaId}/signatures/${secondary.signature.id}/proof`, {
+        multipart: {
+          proof: {
+            name: 'media-signature-proof.png',
+            mimeType: 'image/png',
+            buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=', 'base64')
+          }
+        },
+        headers: { 'x-csrf-token': csrfToken }
+      });
+      expect(proofResponse.ok()).toBeTruthy();
+      const proof = await proofResponse.json();
+      expect(proof.signature.proof_path).toBeTruthy();
+      expect(proof.media.signed_proof_path).toBeFalsy();
+
       const promoteResponse = await requestWithCsrf(requestContext, 'POST', `/api/media/${mediaId}/signatures/${secondary.signature.id}/primary`);
       expect(promoteResponse.ok()).toBeTruthy();
       const promoted = await promoteResponse.json();
       expect(promoted.media.signed_by).toBe('Secondary Playwright Cast');
+      expect(promoted.media.signed_proof_path).toBeTruthy();
       expect(promoted.signatures).toHaveLength(2);
 
       const detailResponse = await requestContext.get(`/api/media/${mediaId}`);
@@ -82,6 +99,12 @@ test.describe('library multi-format browser regressions', () => {
       const detail = await detailResponse.json();
       expect(detail.signatures).toHaveLength(2);
       expect(detail.signed_by).toBe('Secondary Playwright Cast');
+
+      const removeProofResponse = await requestWithCsrf(requestContext, 'DELETE', `/api/media/${mediaId}/signatures/${secondary.signature.id}/proof`);
+      expect(removeProofResponse.ok()).toBeTruthy();
+      const proofRemoved = await removeProofResponse.json();
+      expect(proofRemoved.removed).toBe(true);
+      expect(proofRemoved.media.signed_proof_path).toBeFalsy();
 
       const archiveResponse = await requestWithCsrf(requestContext, 'DELETE', `/api/media/${mediaId}/signatures/${secondary.signature.id}`);
       expect(archiveResponse.ok()).toBeTruthy();

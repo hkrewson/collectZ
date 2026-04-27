@@ -21,6 +21,7 @@ const {
   loadSignatureRecordsForOwner,
   createSignatureRecord,
   updateSignatureRecord,
+  updateSignatureProofPath,
   archiveSignatureRecord,
   setPrimarySignatureRecord,
   syncPrimarySignatureRecord
@@ -1261,6 +1262,89 @@ router.patch('/art/:id/signatures/:signatureId', validate(signatureRecordUpdateS
     isPrimary: signature.is_primary === true
   });
   res.json({ ...response, signature });
+}));
+
+router.post('/art/:id/signatures/:signatureId/proof', memoryUpload.single('proof'), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const artRouteId = Number(req.params.id);
+  const signatureId = Number(req.params.signatureId);
+  if (!Number.isFinite(artRouteId) || artRouteId <= 0 || !Number.isFinite(signatureId) || signatureId <= 0) {
+    return res.status(400).json({ error: 'Invalid art/signature id' });
+  }
+  if (!req.file) return res.status(400).json({ error: 'Proof image file is required' });
+  if (!ALLOWED_IMAGE_MIME_TYPES.has(String(req.file.mimetype || '').toLowerCase())) {
+    return res.status(400).json({ error: 'Unsupported image type' });
+  }
+  const current = await attachSignaturesToArtRow(await loadNativeArtByRouteId(scopeContext, artRouteId));
+  if (!current) return res.status(404).json({ error: 'Art item not found' });
+  const existingSignature = (current.signatures || []).find((signature) => Number(signature.id) === signatureId) || null;
+  if (!existingSignature) return res.status(404).json({ error: 'Signature record not found' });
+  const stored = await uploadBuffer(req.file.buffer, req.file.originalname, req.file.mimetype);
+  const signature = await updateSignatureProofPath(pool, {
+    ownerType: 'art',
+    ownerId: current.id,
+    signatureId,
+    proofPath: stored.url
+  });
+  if (!signature) return res.status(404).json({ error: 'Signature record not found' });
+  const response = await serializeSignatureMutationResponse(scopeContext, current);
+  await logActivity(req, existingSignature.proof_path ? 'art.signature.proof.replace' : 'art.signature.proof.upload', 'art', buildPublicNativeArtId(current), {
+    native_art_id: current.id,
+    signatureRecordId: signature.id,
+    previousPath: existingSignature.proof_path || null,
+    nextPath: stored.url,
+    provider: stored.provider
+  });
+  res.json({
+    ...response,
+    signature,
+    signature_proof_path: response.art?.signature_proof_path || null,
+    proof_path: signature.proof_path || null,
+    provider: stored.provider
+  });
+}));
+
+router.delete('/art/:id/signatures/:signatureId/proof', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const artRouteId = Number(req.params.id);
+  const signatureId = Number(req.params.signatureId);
+  if (!Number.isFinite(artRouteId) || artRouteId <= 0 || !Number.isFinite(signatureId) || signatureId <= 0) {
+    return res.status(400).json({ error: 'Invalid art/signature id' });
+  }
+  const current = await attachSignaturesToArtRow(await loadNativeArtByRouteId(scopeContext, artRouteId));
+  if (!current) return res.status(404).json({ error: 'Art item not found' });
+  const existingSignature = (current.signatures || []).find((signature) => Number(signature.id) === signatureId) || null;
+  if (!existingSignature) return res.status(404).json({ error: 'Signature record not found' });
+  if (!existingSignature.proof_path) {
+    const response = await serializeSignatureMutationResponse(scopeContext, current);
+    return res.json({
+      ...response,
+      signature: existingSignature,
+      removed: false,
+      signature_proof_path: response.art?.signature_proof_path || null,
+      proof_path: null
+    });
+  }
+  const signature = await updateSignatureProofPath(pool, {
+    ownerType: 'art',
+    ownerId: current.id,
+    signatureId,
+    proofPath: null
+  });
+  if (!signature) return res.status(404).json({ error: 'Signature record not found' });
+  const response = await serializeSignatureMutationResponse(scopeContext, current);
+  await logActivity(req, 'art.signature.proof.remove', 'art', buildPublicNativeArtId(current), {
+    native_art_id: current.id,
+    signatureRecordId: signature.id,
+    previousPath: existingSignature.proof_path || null
+  });
+  res.json({
+    ...response,
+    signature,
+    removed: true,
+    signature_proof_path: response.art?.signature_proof_path || null,
+    proof_path: null
+  });
 }));
 
 router.post('/art/:id/signatures/:signatureId/primary', asyncHandler(async (req, res) => {

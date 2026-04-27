@@ -357,6 +357,37 @@ async function updateSignatureRecord(pool, {
   }
 }
 
+async function updateSignatureProofPath(pool, {
+  ownerType,
+  ownerId,
+  signatureId,
+  proofPath = null
+}) {
+  const normalizedOwnerType = normalizeOwnerType(ownerType);
+  const normalizedOwnerId = Number(ownerId || 0);
+  const normalizedSignatureId = Number(signatureId || 0);
+  if (!Number.isFinite(normalizedOwnerId) || normalizedOwnerId <= 0) return null;
+  if (!Number.isFinite(normalizedSignatureId) || normalizedSignatureId <= 0) return null;
+
+  const result = await pool.query(
+    `UPDATE signature_records
+        SET proof_path = $4,
+            updated_at = CURRENT_TIMESTAMP
+      WHERE id = $1
+        AND owner_type = $2
+        AND owner_id = $3
+        AND archived_at IS NULL
+      RETURNING *`,
+    [
+      normalizedSignatureId,
+      normalizedOwnerType,
+      normalizedOwnerId,
+      cleanString(proofPath, 1000)
+    ]
+  );
+  return result.rows[0] ? serializeSignatureRow(result.rows[0]) : null;
+}
+
 async function archiveSignatureRecord(pool, { ownerType, ownerId, signatureId }) {
   const normalizedOwnerType = normalizeOwnerType(ownerType);
   const normalizedOwnerId = Number(ownerId || 0);
@@ -516,6 +547,7 @@ module.exports = {
   loadSignatureRecordsForOwner,
   createSignatureRecord,
   updateSignatureRecord,
+  updateSignatureProofPath,
   archiveSignatureRecord,
   archiveSignatureRecordsForOwner,
   setPrimarySignatureRecord,

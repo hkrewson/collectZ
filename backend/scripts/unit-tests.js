@@ -138,6 +138,7 @@ const adminMergeReviewViewSource = readFrontendSource(path.join('components', 'A
 const libraryViewSource = readFrontendSource(path.join('components', 'LibraryView'));
 const eventsViewSource = readFrontendSource(path.join('components', 'EventsView'));
 const artViewSource = readFrontendSource(path.join('components', 'ArtView'));
+const signatureManagerSource = readFrontendSource(path.join('components', 'app', 'SignatureManager'));
 const backendPackageJson = JSON.parse(fs.readFileSync(require.resolve('../package.json'), 'utf8'));
 const frontendPackageJson = JSON.parse(fs.readFileSync(require.resolve('../../frontend/package.json'), 'utf8'));
 const frontendViteConfigSource = fs.readFileSync(require.resolve('../../frontend/vite.config.js'), 'utf8');
@@ -3619,16 +3620,29 @@ results.push(run('shared signature provenance foundation supports Art and media 
 results.push(run('shared signature proof attachments support Art upload removal and media compatibility sync', () => {
   assert.ok(collectiblesRoutesSource.includes("router.post('/art/:id/upload-signature-proof', memoryUpload.single('proof')"));
   assert.ok(collectiblesRoutesSource.includes("router.delete('/art/:id/signature-proof'"));
+  assert.ok(collectiblesRoutesSource.includes("router.post('/art/:id/signatures/:signatureId/proof', memoryUpload.single('proof')"));
+  assert.ok(collectiblesRoutesSource.includes("router.delete('/art/:id/signatures/:signatureId/proof'"));
+  assert.ok(mediaRoutesSource.includes("router.post('/:id/signatures/:signatureId/proof', memoryImageUpload.single('proof')"));
+  assert.ok(mediaRoutesSource.includes("router.delete('/:id/signatures/:signatureId/proof'"));
+  assert.ok(signaturesServiceSource.includes('updateSignatureProofPath'));
   assert.ok(collectiblesRoutesSource.includes('art.signature_proof.upload'));
   assert.ok(collectiblesRoutesSource.includes('art.signature_proof.remove'));
+  assert.ok(collectiblesRoutesSource.includes('art.signature.proof.upload'));
+  assert.ok(mediaRoutesSource.includes('media.signature.proof.upload'));
   assert.ok(collectiblesRoutesSource.includes('buildArtSignaturePayloadFromRecord'));
   assert.ok(mediaRoutesSource.includes('const updated = await pool.query'));
   assert.ok(mediaRoutesSource.includes('signed_proof_path: null'));
   assert.ok(artViewSource.includes('/upload-signature-proof'));
   assert.ok(artViewSource.includes('/signature-proof'));
-  assert.ok(artViewSource.includes('Signature proof image'));
+  assert.ok(artViewSource.includes('Proof file upload and removal live on each signature record below'));
+  assert.ok(libraryViewSource.includes('Proof file upload and removal live on each signature record below'));
+  assert.ok(signatureManagerSource.includes('/proof'));
+  assert.ok(signatureManagerSource.includes('Upload proof'));
+  assert.ok(signatureManagerSource.includes('Remove proof'));
   assert.ok(openApiSource.includes('"/api/art/{id}/upload-signature-proof"'));
   assert.ok(openApiSource.includes('"/api/art/{id}/signature-proof"'));
+  assert.ok(openApiSource.includes('"/api/art/{id}/signatures/{signatureId}/proof"'));
+  assert.ok(openApiSource.includes('"/api/media/{id}/signatures/{signatureId}/proof"'));
   assert.ok(openApiSource.includes('"SignatureProofResponse"'));
 }));
 

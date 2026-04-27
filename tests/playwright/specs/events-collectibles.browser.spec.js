@@ -84,8 +84,9 @@ test.describe('events and collectibles browser regressions', () => {
       expect(patched.signatures[0].signed_on).toBe('2026-04-27');
       expect(patched.signature_notes).toBe('Updated provenance note.');
 
+      const primarySignatureId = patched.signatures[0].id;
       const csrfToken = await fetchCsrfToken(userRequestContext);
-      const uploadResponse = await userRequestContext.post(`/api/art/${created.id}/upload-signature-proof`, {
+      const uploadResponse = await userRequestContext.post(`/api/art/${created.id}/signatures/${primarySignatureId}/proof`, {
         multipart: {
           proof: {
             name: 'signature-proof.png',
@@ -98,6 +99,7 @@ test.describe('events and collectibles browser regressions', () => {
       expect(uploadResponse.ok()).toBeTruthy();
       const uploaded = await uploadResponse.json();
       expect(uploaded.signature_proof_path).toBeTruthy();
+      expect(uploaded.signature.proof_path).toBeTruthy();
 
       const secondaryResponse = await postWithCsrf(userRequestContext, `/api/art/${created.id}/signatures`, {
         signer_name: 'Second Playwright Signer',
@@ -110,11 +112,27 @@ test.describe('events and collectibles browser regressions', () => {
       expect(secondary.signatures).toHaveLength(2);
       expect(secondary.signature.is_primary).toBe(false);
 
+      const secondaryProofCsrfToken = await fetchCsrfToken(userRequestContext);
+      const secondaryProofResponse = await userRequestContext.post(`/api/art/${created.id}/signatures/${secondary.signature.id}/proof`, {
+        multipart: {
+          proof: {
+            name: 'secondary-signature-proof.png',
+            mimeType: 'image/png',
+            buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=', 'base64')
+          }
+        },
+        headers: { 'x-csrf-token': secondaryProofCsrfToken }
+      });
+      expect(secondaryProofResponse.ok()).toBeTruthy();
+      const secondaryProof = await secondaryProofResponse.json();
+      expect(secondaryProof.signature.proof_path).toBeTruthy();
+
       const promoteResponse = await requestWithCsrf(userRequestContext, 'POST', `/api/art/${created.id}/signatures/${secondary.signature.id}/primary`);
       expect(promoteResponse.ok()).toBeTruthy();
       const promoted = await promoteResponse.json();
       expect(promoted.signature.is_primary).toBe(true);
       expect(promoted.art.signer_name).toBe('Second Playwright Signer');
+      expect(promoted.art.signature_proof_path).toBeTruthy();
 
       const detailResponse = await userRequestContext.get(`/api/art/${created.id}`);
       expect(detailResponse.ok()).toBeTruthy();
@@ -127,9 +145,9 @@ test.describe('events and collectibles browser regressions', () => {
       expect(detail.signatures[0].owner_type).toBe('art');
       expect(detail.signatures[0].is_primary).toBe(true);
 
-      const removeResponse = await requestWithCsrf(userRequestContext, 'DELETE', `/api/art/${created.id}/signature-proof`);
+      const removeResponse = await requestWithCsrf(userRequestContext, 'DELETE', `/api/art/${created.id}/signatures/${secondary.signature.id}/proof`);
       const removed = await removeResponse.json();
-      expect(removed.removed).toBe(false);
+      expect(removed.removed).toBe(true);
       expect(removed.signature_proof_path).toBeNull();
 
       const archiveResponse = await requestWithCsrf(userRequestContext, 'DELETE', `/api/art/${created.id}/signatures/${secondary.signature.id}`);
@@ -448,7 +466,7 @@ test.describe('events and collectibles browser regressions', () => {
 
       const formerPrimarySignatureRow = signatureManager.locator('[data-signature-row]').filter({ hasText: 'Primary Playwright Artist' }).first();
       page.once('dialog', (dialog) => dialog.accept());
-      await formerPrimarySignatureRow.getByRole('button', { name: 'Remove' }).click();
+      await formerPrimarySignatureRow.getByRole('button', { name: 'Remove signature' }).click();
       await expect(signatureManager.getByText('Primary Playwright Artist')).toHaveCount(0);
       await page.getByRole('button', { name: 'Cancel' }).click();
 
