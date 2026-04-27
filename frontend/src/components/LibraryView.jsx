@@ -19,6 +19,7 @@ import {
   normalizeIsbnCandidate,
   normalizeBarcodeInput
 } from './app/AppPrimitives';
+import SignatureManager from './app/SignatureManager';
 import {
   getOwnedFormatLabels,
   getOwnedFormatOptions,
@@ -2949,6 +2950,19 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
     }
   };
 
+  const applySignatureChange = ({ owner, signatures }) => {
+    const media = owner || {};
+    set({
+      signatures: Array.isArray(signatures) ? signatures : (media.signatures || []),
+      signed_by: media.signed_by || '',
+      signed_role: media.signed_role || '',
+      signed_on: normalizeDateInput(media.signed_on),
+      signed_at: media.signed_at || '',
+      signed_proof_path: media.signed_proof_path || ''
+    });
+    notify('Signature records updated');
+  };
+
   const submit = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -3496,6 +3510,14 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
                     {!form.id && <p className="text-xs text-ghost">Save first to attach a signing proof image.</p>}
                   </div>
                 </LabeledField>
+                <SignatureManager
+                  apiCall={apiCall}
+                  endpointBase={form.id ? `/media/${form.id}` : ''}
+                  ownerId={form.id}
+                  ownerLabel="media item"
+                  signatures={form.signatures || []}
+                  onChange={applySignatureChange}
+                />
               </div>
             </SectionTabPanel>
 

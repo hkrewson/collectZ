@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CameraCaptureModal, CheckboxControl, CollectionPaginationFooter, Icons, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
+import SignatureManager from './app/SignatureManager';
 
 const ART_MEDIUM_OPTIONS = [
   { value: 'original', label: 'Original' },
@@ -280,7 +281,7 @@ function ArtDetailDrawer({ artId, apiCall, events, onClose, onEdit, onDeleted })
   );
 }
 
-function ArtDrawer({ initial, events, saving, error, notice, onClose, onSave, onDelete, onClearImage, onUploadSignatureProof, onRemoveSignatureProof }) {
+function ArtDrawer({ initial, events, saving, error, notice, apiCall, onClose, onSave, onDelete, onClearImage, onUploadSignatureProof, onRemoveSignatureProof, onSignatureChange }) {
   const primaryInitialSignature = initial?.signatures?.find((signature) => signature.is_primary) || initial?.signatures?.[0] || null;
   const [form, setForm] = useState(() => ({
     ...DEFAULT_FORM,
@@ -361,6 +362,26 @@ function ArtDrawer({ initial, events, saving, error, notice, onClose, onSave, on
     } finally {
       setProofWorking(false);
     }
+  };
+
+  const applySignatureChange = ({ owner, signatures }) => {
+    const nextSignatures = Array.isArray(signatures) ? signatures : (owner?.signatures || []);
+    const nextPrimary = nextSignatures.find((signature) => signature.is_primary) || nextSignatures[0] || null;
+    setForm((prev) => ({
+      ...prev,
+      ...(owner || {}),
+      event_id: owner?.event_id ? String(owner.event_id) : prev.event_id,
+      signed: Boolean(owner?.signed || nextSignatures.length),
+      signatures: nextSignatures,
+      signer_name: nextPrimary?.signer_name || owner?.signer_name || '',
+      signer_role: nextPrimary?.signer_role || owner?.signer_role || '',
+      signed_on: nextPrimary?.signed_on || owner?.signed_on || '',
+      signed_at: nextPrimary?.signed_at || owner?.signed_at || '',
+      signed_event_id: nextPrimary?.signed_event_id ? String(nextPrimary.signed_event_id) : (owner?.signed_event_id ? String(owner.signed_event_id) : ''),
+      signature_proof_path: nextPrimary?.proof_path || owner?.signature_proof_path || '',
+      signature_notes: nextPrimary?.notes || owner?.signature_notes || ''
+    }));
+    onSignatureChange?.();
   };
 
   return (
@@ -447,6 +468,15 @@ function ArtDrawer({ initial, events, saving, error, notice, onClose, onSave, on
                 </div>
                 {proofFile ? <p className="text-xs text-ghost md:col-span-2">Selected proof: {proofFile.name}</p> : null}
                 <label className="field md:col-span-2"><span className="label">Signature notes</span><textarea className="textarea min-h-[80px]" value={form.signature_notes || ''} onChange={(e) => setForm((p) => ({ ...p, signature_notes: e.target.value }))} /></label>
+                <SignatureManager
+                  apiCall={apiCall}
+                  endpointBase={initial?.id ? `/art/${initial.id}` : ''}
+                  events={events}
+                  ownerId={initial?.id}
+                  ownerLabel="art piece"
+                  signatures={form.signatures || []}
+                  onChange={applySignatureChange}
+                />
               </div>
             </SectionTabPanel>
             <SectionTabPanel activeId={activeTab} tabKey="notes" idBase="art-editor-steps">
@@ -799,12 +829,14 @@ export default function ArtView({ apiCall, onToast }) {
           saving={saving}
           error={error}
           notice={notice}
+          apiCall={api}
           onClose={closeDrawer}
           onSave={saveArt}
           onDelete={editing?.id ? () => deleteArt(editing.id) : null}
           onClearImage={clearImage}
           onUploadSignatureProof={uploadSignatureProofFromDrawer}
           onRemoveSignatureProof={removeSignatureProofFromDrawer}
+          onSignatureChange={load}
         />
       ) : null}
       {detailId ? (

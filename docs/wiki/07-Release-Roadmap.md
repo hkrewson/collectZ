@@ -5011,6 +5011,34 @@ Historical note:
 - Label the UI fields as `H` and `W` to match the collection shorthand.
 - A future task can add a unit field if mixed inches/centimeters becomes a real data need.
 
+## 3.4.15 — Drawer-Side Multi-Signature Management UI
+
+**Goal:** Let Art and media drawers manage the shared multi-signature records introduced in `3.4.13` without forcing users through API-only workflows or overwriting the primary signature shortcut fields.
+
+**Current Slice:** `Implementation in progress`
+
+### Scope
+
+- Add a signatures list to Art and media edit drawers.
+- Support adding and editing signer name, signer role, signed date, signed location/event context, proof path, and notes.
+- Support archiving/removing a signature record from the drawer.
+- Support promoting a secondary signature to primary from the drawer.
+- Show primary versus secondary signatures clearly while preserving the existing primary-signature compatibility fields.
+- Keep one proof path per signature; do not add multi-proof-per-signature storage in this slice.
+
+### Acceptance Criteria
+
+- Art drawers can add, edit, archive, and promote shared signature records.
+- Media drawers can add, edit, archive, and promote shared signature records.
+- Primary signature changes keep Art `signed` state and media legacy signing fields aligned through the existing backend contract.
+- The UI distinguishes primary and secondary signatures without adding a separate signature system.
+- Browser or API regression evidence covers the drawer-side multi-signature workflow.
+
+### Active Slice Notes
+
+- Build on the existing `signature_records` API and avoid schema changes unless the drawer work exposes a missing backend contract.
+- Keep Event autograph artifacts as capture/history; this slice only manages canonical object-side Art/media signatures.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

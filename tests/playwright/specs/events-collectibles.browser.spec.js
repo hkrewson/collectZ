@@ -410,6 +410,48 @@ test.describe('events and collectibles browser regressions', () => {
       await page.getByRole('button', { name: 'Save' }).click();
       await expect(page.getByText(artWithEventTitle, { exact: true }).first()).toBeVisible();
 
+      const artSearchForSignatures = page.getByPlaceholder('Search…');
+      await artSearchForSignatures.fill(artWithEventTitle);
+      await page.locator('article').filter({ hasText: artWithEventTitle }).first().click();
+      await expect(page.getByRole('heading', { name: artWithEventTitle })).toBeVisible();
+      await page.getByRole('button', { name: 'Edit' }).click();
+      await expect(page.getByRole('heading', { name: 'Edit Art' })).toBeVisible();
+      await page.getByRole('tab', { name: '2. Signatures' }).click();
+      const signaturePanel = page.locator('[data-tab-panel="signatures"]');
+      const signatureManager = signaturePanel.locator('[data-signature-manager]');
+      await signatureManager.getByRole('button', { name: 'Add signature' }).click();
+      await signatureManager.locator('#signature-new-signer').fill('Primary Playwright Artist');
+      await signatureManager.locator('#signature-new-role').fill('Artist');
+      await signatureManager.locator('#signature-new-date').fill('2026-04-29');
+      await signatureManager.locator('#signature-new-location').fill('Playwright Signing Table');
+      await signatureManager.locator('#signature-new-notes').fill('Primary drawer-managed signature.');
+      await signatureManager.getByRole('button', { name: 'Add signature' }).click();
+      await expect(signatureManager.getByText('Primary Playwright Artist')).toBeVisible();
+
+      await signatureManager.getByRole('button', { name: 'Add signature' }).click();
+      await signatureManager.locator('#signature-new-signer').fill('Secondary Playwright Artist');
+      await signatureManager.locator('#signature-new-role').fill('Writer');
+      await signatureManager.locator('#signature-new-date').fill('2026-04-30');
+      await signatureManager.locator('#signature-new-notes').fill('Secondary drawer-managed signature.');
+      await signatureManager.getByRole('button', { name: 'Add signature' }).click();
+      await expect(signatureManager.getByText('Secondary Playwright Artist')).toBeVisible();
+
+      const secondarySignatureRow = signatureManager.locator('[data-signature-row]').filter({ hasText: 'Secondary Playwright Artist' }).first();
+      await secondarySignatureRow.getByRole('button', { name: 'Make primary' }).click();
+      const promotedSignatureRow = signatureManager.locator('[data-signature-row]').filter({ hasText: 'Secondary Playwright Artist' }).first();
+      await expect(promotedSignatureRow.getByText('Primary')).toBeVisible();
+      await promotedSignatureRow.getByRole('button', { name: 'Edit' }).click();
+      const activeSignatureEditor = signatureManager.locator('[data-signature-editing="true"]');
+      await activeSignatureEditor.locator('textarea[id$="-notes"]').fill('Edited secondary signature note.');
+      await activeSignatureEditor.getByRole('button', { name: 'Save signature' }).click();
+      await expect(signatureManager.getByText('Edited secondary signature note.')).toBeVisible();
+
+      const formerPrimarySignatureRow = signatureManager.locator('[data-signature-row]').filter({ hasText: 'Primary Playwright Artist' }).first();
+      page.once('dialog', (dialog) => dialog.accept());
+      await formerPrimarySignatureRow.getByRole('button', { name: 'Remove' }).click();
+      await expect(signatureManager.getByText('Primary Playwright Artist')).toHaveCount(0);
+      await page.getByRole('button', { name: 'Cancel' }).click();
+
       const artSearch = page.getByPlaceholder('Search…');
       await artSearch.fill(artWithEventTitle);
       await expect(page.getByText(artWithEventTitle, { exact: true }).first()).toBeVisible();
