@@ -5104,7 +5104,7 @@ Historical note:
 
 **Goal:** Let native Art height and width values carry explicit measurement unit metadata without converting or reinterpreting existing dimension values.
 
-**Current Slice:** `Implementation in progress`
+**Current Slice:** `Closed as v3.4.17`
 
 ### Scope
 
@@ -5126,6 +5126,20 @@ Historical note:
 - Default new drawer entries to inches because the current local data examples are imperial, but store null when no dimension values are provided.
 - Do not introduce separate height-unit and width-unit fields unless mixed-unit dimensions become a real need later.
 - Do not convert existing height/width values during migration.
+
+### Closeout — 2026-04-27
+
+- Released as `v3.4.17`.
+- Version metadata synced across root app metadata, backend package/app metadata, frontend package/app metadata, and lockfile package metadata.
+- Release note added at `docs/releases/v3.4.17.md`; in-app Help > Releases feed regenerated with `v3.4.17` as the latest entry.
+- Art dimension unit metadata shipped as native Art `dimension_unit` storage with `in`/`cm` validation, API/OpenAPI readback, drawer editing, and detail display.
+- Runtime verification used Docker-first evidence from rebuilt `backend` and `frontend` services, `/api/health`, live schema migration `81`, and Help > Releases readback.
+- Local closeout used `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, and `docs/wiki/10-CI-CD-and-Registry-Deploy.md` as release/checklist policy sources.
+- Local release closeout accounted for backend unit, OpenAPI, focused Art/Event browser regression, full browser regression, RBAC regression, homelab edition boundary, platform edition boundary, init parity, migration rehearsal, release preflight, dependency audit, observability evidence, Help > Releases, and running-stack health gates.
+- Local preflight marked CI-secure compose-smoke cookie checks blocked because this local development stack runs with `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`; tagged CI remains authoritative for that secure-cookie variant.
+- Local `gitleaks`, Trivy, and SBOM tooling were not run in this shell, so tagged CI remains authoritative for `secret-scan`, `image-security-and-sbom`, and final release publication.
+- Generated release evidence artifacts were checked for unredacted secret-like patterns; only redacted observability command placeholders were present.
+- No remaining work in `3.4.17`.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 

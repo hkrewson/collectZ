@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v3.4.17",
+      "version": "3.4.17",
+      "date": "2026-04-27",
+      "status": "Completed",
+      "summary": "This release adds explicit unit metadata to native Art dimensions. Art height and width can now carry inches or centimeters without changing the existing numeric dimension fields or converting existing records.",
+      "details": []
+    },
+    {
       "title": "v3.4.16",
       "version": "3.4.16",
       "date": "2026-04-27",
@@ -70,14 +78,6 @@
       "date": "2026-04-26",
       "status": "Completed",
       "summary": "This release gives Art and Collectibles a shared `Fandom / Franchise` metadata field so source, fandom, franchise, and universe context can live beside the item without becoming object taxonomy. Art medium/type and Collectibles category stay focused on what the object is, while fandom context becomes searchable metadata across both libraries.",
-      "details": []
-    },
-    {
-      "title": "v3.4.7",
-      "version": "3.4.7",
-      "date": "2026-04-26",
-      "status": "Completed",
-      "summary": "This release makes Event-side tracked purchase management feel first-class now that Art and Collectibles share the same purchased-item relationship. Event details can search, link, read back, and edit tracked Art or Collectibles purchases without sending the user through each library first.",
       "details": []
     }
   ]
