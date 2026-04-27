@@ -83,7 +83,7 @@
     "repair:backfill-merge-evidence": "node scripts/backfill-merge-evidence.js"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1014.0",
+    "@aws-sdk/client-s3": "^3.1037.0",
     "axios": "^1.15.0",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.6",
