@@ -85,6 +85,16 @@ function DetailField({ label, children, className = '' }) {
   );
 }
 
+function CompactDetailRow({ label, children }) {
+  if (!children) return null;
+  return (
+    <div className="grid grid-cols-[6.5rem_minmax(0,1fr)] gap-3 border-t border-edge/60 py-2 first:border-t-0">
+      <p className="text-sm text-ghost">{label}</p>
+      <div className="min-w-0 text-sm text-ink">{children}</div>
+    </div>
+  );
+}
+
 function formatDimensionValue(value, unit) {
   if (value === null || value === undefined || value === '') return null;
   return [value, unit].filter(Boolean).join(' ');
@@ -176,6 +186,19 @@ function ArtDetailDrawer({ artId, apiCall, events, onClose, onEdit, onDeleted })
   const showPurchaseContext = hasPurchaseContext(item);
   const mediumLabel = ART_MEDIUM_OPTIONS.find((option) => option.value === item?.medium)?.label || null;
   const factSummary = [item?.franchise, item?.series, item?.artist, mediumLabel, resolvedEvent].filter(Boolean);
+  const dimensionsSummary = [item?.height, item?.width].filter((value) => value !== null && value !== undefined && value !== '').length
+    ? `${item?.height || '?'} × ${item?.width || '?'}${item?.dimension_unit ? ` ${item.dimension_unit}` : ''}`
+    : null;
+  const statusSummary = [
+    item?.signed ? 'Signed' : null,
+    item?.framed ? 'Framed' : null,
+    item?.exclusive ? 'Exclusive' : null
+  ].filter(Boolean).join(' · ');
+  const purchaseSummary = [
+    item?.vendor || item?.booth_or_vendor || null,
+    item?.booth ? `Booth ${item.booth}` : null,
+    item?.price !== null && item?.price !== undefined && item?.price !== '' ? `$${item.price}` : null
+  ].filter(Boolean).join(' · ');
   const primarySignature = item?.signatures?.find((signature) => signature.is_primary) || item?.signatures?.[0] || null;
   const signatureEventTitle = events.find((evt) => String(evt.id) === String(primarySignature?.signed_event_id || item?.signed_event_id))?.title || null;
   const signatureSummary = [
@@ -200,14 +223,14 @@ function ArtDetailDrawer({ artId, apiCall, events, onClose, onEdit, onDeleted })
       <div className="absolute inset-0 bg-void/72" onClick={onClose} />
       <div className="relative ml-auto w-full max-w-xl h-full bg-abyss border-l border-edge flex flex-col animate-slide-in">
         {item?.image_path ? (
-          <div className="relative h-48 shrink-0 overflow-hidden">
+          <div className="relative h-32 shrink-0 overflow-hidden sm:h-44 md:h-48">
             <img src={posterUrl(item.image_path)} alt="" className="h-full w-full object-cover" />
             <div className="absolute inset-0 bg-hero-fade" />
           </div>
         ) : null}
-        <div className="flex items-start gap-4 px-6 pt-6 pb-4 shrink-0">
+        <div className="flex items-start gap-3 px-4 pt-4 pb-3 shrink-0 sm:gap-4 sm:px-6 sm:pt-6 sm:pb-4">
           {item?.image_path ? (
-            <div className="relative z-10 -mt-16 w-20 shrink-0 shadow-card">
+            <div className="relative z-10 -mt-10 w-16 shrink-0 shadow-card sm:-mt-16 sm:w-20">
               <div className="poster rounded-md">
                 <img src={posterUrl(item.image_path)} alt={item?.title || 'Art'} className="absolute inset-0 h-full w-full object-cover" />
               </div>
@@ -215,18 +238,52 @@ function ArtDetailDrawer({ artId, apiCall, events, onClose, onEdit, onDeleted })
           ) : null}
           <div className={cx('min-w-0 flex-1', item?.image_path ? 'mt-1' : '')}>
             <div className="flex items-baseline gap-2">
-              <h2 className="text-2xl font-semibold tracking-tight text-ink leading-tight">{item?.title || `Art #${artId}`}</h2>
+              <h2 className="text-xl font-semibold tracking-tight text-ink leading-tight sm:text-2xl">{item?.title || `Art #${artId}`}</h2>
               <p className="text-sm text-ghost">#{artId}</p>
             </div>
-            <p className="mt-1 text-sm text-dim">{factSummary.join(' · ')}</p>
+            <p className="mt-1 text-sm leading-6 text-dim">{factSummary.join(' · ')}</p>
           </div>
           <button onClick={onClose} className="btn-icon btn-sm shrink-0"><Icons.X /></button>
         </div>
         <div className="divider" />
-        <div className="flex-1 overflow-y-auto scroll-area p-6 space-y-5">
+        <div className="flex-1 overflow-y-auto scroll-area p-4 space-y-4 sm:p-6 sm:space-y-5">
           {loading ? <div className="flex items-center gap-2 text-dim"><Spinner size={16} />Loading…</div> : null}
           {!loading && item ? (
-            <div className="grid grid-cols-1 gap-x-8 gap-y-5 text-sm md:grid-cols-2">
+            <>
+            <div className="md:hidden">
+              <CompactDetailRow label="Dimensions">{dimensionsSummary}</CompactDetailRow>
+              <CompactDetailRow label="Status">{statusSummary || 'Standard'}</CompactDetailRow>
+              {showPurchaseContext ? <CompactDetailRow label="Purchase">{purchaseSummary || resolvedEvent || 'Linked event'}</CompactDetailRow> : null}
+              {item.signed || primarySignature ? <CompactDetailRow label="Signature">{signatureSummary || 'Signed copy'}</CompactDetailRow> : null}
+              {(primarySignature?.proof_path || item.signature_proof_path) ? (
+                <CompactDetailRow label="Proof">
+                  <a className="inline-flex items-center gap-2 text-dim transition-colors hover:text-ink" href={posterUrl(primarySignature?.proof_path || item.signature_proof_path)} target="_blank" rel="noreferrer"><Icons.Link />Open proof</a>
+                </CompactDetailRow>
+              ) : null}
+              {signatureRows.length > 1 ? (
+                <CompactDetailRow label="Signatures">
+                  <div className="space-y-2">
+                    {signatureRows.map((signature) => (
+                      <div key={signature.id} className="border-t border-edge/60 pt-2 first:border-t-0 first:pt-0">
+                        <p className="text-ink">{formatSignatureLine(signature)}</p>
+                        {signature.notes ? <p className="mt-1 text-xs leading-5 text-ghost">{signature.notes}</p> : null}
+                      </div>
+                    ))}
+                  </div>
+                </CompactDetailRow>
+              ) : null}
+              {item.image_path ? (
+                <CompactDetailRow label="Image">
+                  <a className="inline-flex items-center gap-2 text-dim transition-colors hover:text-ink" href={item.image_path} target="_blank" rel="noreferrer"><Icons.Link />Open image</a>
+                </CompactDetailRow>
+              ) : null}
+              {item.notes ? (
+                <CompactDetailRow label="Notes">
+                  <p className="leading-6 text-dim">{item.notes}</p>
+                </CompactDetailRow>
+              ) : null}
+            </div>
+            <div className="hidden grid-cols-1 gap-x-8 gap-y-5 text-sm md:grid md:grid-cols-2">
               <DetailField label="Series">{item.series}</DetailField>
               <DetailField label="Fandom / Franchise">{item.franchise}</DetailField>
               <DetailField label="Medium / Type">{mediumLabel}</DetailField>
@@ -286,6 +343,7 @@ function ArtDetailDrawer({ artId, apiCall, events, onClose, onEdit, onDeleted })
                 </DetailField>
               ) : null}
             </div>
+            </>
           ) : null}
         </div>
         <div className="p-4 border-t border-edge flex gap-3 shrink-0">
