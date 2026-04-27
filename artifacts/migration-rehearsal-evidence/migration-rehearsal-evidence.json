@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-04-26T19:15:57.781Z",
-  "baselineVersion": 78,
-  "latestVersion": 79,
+  "generatedAt": "2026-04-21T02:15:14.085Z",
+  "baselineVersion": 68,
+  "latestVersion": 69,
   "databases": {
-    "legacyDb": "collectz_rehearsal_legacy_mog5fbgp",
-    "snapshotDb": "collectz_rehearsal_snapshot_mog5fbgp",
-    "rollbackDb": "collectz_rehearsal_rollback_mog5fbgp"
+    "legacyDb": "collectz_rehearsal_legacy_mo7zre6t",
+    "snapshotDb": "collectz_rehearsal_snapshot_mo7zre6t",
+    "rollbackDb": "collectz_rehearsal_rollback_mo7zre6t"
   },
   "preUpgradeCounts": {
     "users": 1,
@@ -29,9 +29,9 @@
     "feature_flags": 8
   },
   "checks": {
-    "preUpgradeVersion": 78,
-    "postUpgradeVersion": 79,
-    "rollbackVersion": 78,
+    "preUpgradeVersion": 68,
+    "postUpgradeVersion": 69,
+    "rollbackVersion": 68,
     "rollbackCountsMatchPreUpgrade": true,
     "rollbackVersionMatchesBaseline": true
   }

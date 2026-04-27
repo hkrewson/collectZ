@@ -4988,7 +4988,7 @@ Historical note:
 
 **Goal:** Let native Art records track physical image dimensions and framed status as first-class Art metadata.
 
-**Current Slice:** `Implementation in progress`
+**Current Slice:** `Closed as v3.4.14`
 
 ### Scope
 
@@ -5011,11 +5011,21 @@ Historical note:
 - Label the UI fields as `H` and `W` to match the collection shorthand.
 - A future task can add a unit field if mixed inches/centimeters becomes a real data need.
 
+### Closeout — 2026-04-27
+
+- Released as `v3.4.14`.
+- Version artifact added at `docs/releases/v3.4.14.md`; final running app version alignment was completed with `v3.4.15` because `3.4.15` was the next closeout in the active release train.
+- Art physical dimensions and framed metadata shipped as native Art fields, with drawer read/write coverage and no Collectibles backfill.
+- Runtime verification used Docker-first evidence from the rebuilt app stack during the `3.4.15` closeout.
+- Local release closeout accounted for backend unit, OpenAPI, focused Art/media browser regression, RBAC regression, homelab edition boundary, platform edition boundary, init parity, migration rehearsal, Help > Releases, and running-stack health gates.
+- Local `gitleaks`, Trivy, and SBOM tooling were not run in this shell, so tagged CI remains authoritative for `secret-scan`, `image-security-and-sbom`, and final release publication.
+- Follow-up remains: optional dimension unit metadata if mixed measurement systems become necessary.
+
 ## 3.4.15 — Drawer-Side Multi-Signature Management UI
 
 **Goal:** Let Art and media drawers manage the shared multi-signature records introduced in `3.4.13` without forcing users through API-only workflows or overwriting the primary signature shortcut fields.
 
-**Current Slice:** `Implementation in progress`
+**Current Slice:** `Closed as v3.4.15`
 
 ### Scope
 
@@ -5038,6 +5048,17 @@ Historical note:
 
 - Build on the existing `signature_records` API and avoid schema changes unless the drawer work exposes a missing backend contract.
 - Keep Event autograph artifacts as capture/history; this slice only manages canonical object-side Art/media signatures.
+
+### Closeout — 2026-04-27
+
+- Released as `v3.4.15`.
+- Version metadata synced across root app metadata, backend package/app metadata, frontend package/app metadata, and lockfile package metadata.
+- Release note added at `docs/releases/v3.4.15.md`; in-app Help > Releases feed regenerated with `v3.4.15` as the latest entry.
+- Art and media drawers can add, edit, archive, and promote shared signature records while keeping primary signature compatibility fields aligned.
+- Runtime verification used Docker-first evidence from rebuilt `backend` and `frontend` services, `/api/health`, and Help > Releases readback.
+- Local release closeout accounted for backend unit, OpenAPI, focused Art/media browser regression, RBAC regression, homelab edition boundary, platform edition boundary, init parity, migration rehearsal, release preflight, dependency audit, Help > Releases, and running-stack health gates.
+- Local `gitleaks`, Trivy, and SBOM tooling were not run in this shell, so tagged CI remains authoritative for `secret-scan`, `image-security-and-sbom`, and final release publication.
+- Follow-up remains: shared proof upload/remove endpoints and multi-proof-per-signature management.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
