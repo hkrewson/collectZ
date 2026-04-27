@@ -3717,13 +3717,31 @@ results.push(run('Art physical dimensions and framed metadata are wired through 
   assert.ok(validateMiddlewareSource.includes('framed: z.boolean().optional().nullable()'));
   assert.ok(collectiblesRoutesSource.includes('height: row.height === null'));
   assert.ok(collectiblesRoutesSource.includes('framed: row.framed === true'));
-  assert.ok(collectiblesRoutesSource.includes("'height', 'width', 'framed'"));
+  assert.ok(collectiblesRoutesSource.includes("'height', 'width'"));
+  assert.ok(collectiblesRoutesSource.includes("'framed'"));
   assert.ok(artViewSource.includes('<span className="label">H</span>'));
   assert.ok(artViewSource.includes('<span className="label">W</span>'));
   assert.ok(artViewSource.includes('Framed'));
   assert.ok(openApiSource.includes('"height"'));
   assert.ok(openApiSource.includes('"width"'));
   assert.ok(openApiSource.includes('"framed"'));
+}));
+
+results.push(run('Art dimension unit metadata is wired through native Art contracts', () => {
+  assert.ok(migrationsSource.includes('version: 81'));
+  assert.ok(migrationsSource.includes('Add Art dimension unit metadata'));
+  assert.ok(initSqlSource.includes('dimension_unit VARCHAR(10)'));
+  assert.ok(initSqlSource.includes("dimension_unit IN ('in', 'cm')"));
+  assert.ok(validateMiddlewareSource.includes("const artDimensionUnitValues = ['in', 'cm']"));
+  assert.ok(validateMiddlewareSource.includes('dimension_unit: z.preprocess'));
+  assert.ok(collectiblesRoutesSource.includes('dimension_unit: row.dimension_unit || null'));
+  assert.ok(collectiblesRoutesSource.includes('dimension_unit: payload.dimension_unit || null'));
+  assert.ok(collectiblesRoutesSource.includes("'height', 'width', 'dimension_unit', 'framed'"));
+  assert.ok(artViewSource.includes('ART_DIMENSION_UNIT_OPTIONS'));
+  assert.ok(artViewSource.includes('<span className="label">Unit</span>'));
+  assert.ok(artViewSource.includes('formatDimensionValue(item.height, item.dimension_unit)'));
+  assert.ok(openApiSource.includes('"dimension_unit"'));
+  assert.ok(openApiSource.includes('"enum": ["in", "cm", null]'));
 }));
 
 results.push(run('library loans view exposes management-focused counts and due-soon emphasis', () => {

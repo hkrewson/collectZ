@@ -5100,6 +5100,33 @@ Historical note:
 - Local `gitleaks`, Trivy, and SBOM tooling were not run in this shell, so tagged CI remains authoritative for `secret-scan`, `image-security-and-sbom`, and final release publication.
 - Follow-up remains: multi-proof-per-signature evidence management if proof needs expand beyond one path per signature.
 
+## 3.4.17 — Art Dimension Units
+
+**Goal:** Let native Art height and width values carry explicit measurement unit metadata without converting or reinterpreting existing dimension values.
+
+**Current Slice:** `Implementation in progress`
+
+### Scope
+
+- Add an Art `dimension_unit` field for the existing H/W dimension values.
+- Support inches and centimeters as the initial controlled unit values.
+- Surface the unit in Art create/edit and detail readback.
+- Keep the field native to Art; do not add it to Collectibles or event purchase links.
+- Preserve existing H/W numeric behavior and avoid automatic unit conversion in this slice.
+
+### Acceptance Criteria
+
+- Art create/update accepts `dimension_unit` with `in`, `cm`, or null.
+- Art detail/list responses include `dimension_unit`.
+- The Art drawer can edit the unit alongside H/W and detail readback shows the unit with dimension values.
+- OpenAPI, init parity, migration rehearsal, and regression checks stay aligned.
+
+### Active Slice Notes
+
+- Default new drawer entries to inches because the current local data examples are imperial, but store null when no dimension values are provided.
+- Do not introduce separate height-unit and width-unit fields unless mixed-unit dimensions become a real need later.
+- Do not convert existing height/width values during migration.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

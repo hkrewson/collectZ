@@ -46,6 +46,7 @@ test.describe('events and collectibles browser regressions', () => {
         medium: 'print',
         height: 18,
         width: 24,
+        dimension_unit: 'cm',
         framed: true,
         signed: true,
         signer_name: 'Playwright Signer',
@@ -59,6 +60,7 @@ test.describe('events and collectibles browser regressions', () => {
       expect(created.signed).toBe(true);
       expect(created.height).toBe(18);
       expect(created.width).toBe(24);
+      expect(created.dimension_unit).toBe('cm');
       expect(created.framed).toBe(true);
       expect(created.signer_name).toBe('Playwright Signer');
       expect(created.signatures?.[0]?.signer_name).toBe('Playwright Signer');
@@ -70,6 +72,7 @@ test.describe('events and collectibles browser regressions', () => {
         signer_role: 'Writer',
         height: 20.5,
         width: 30.25,
+        dimension_unit: 'in',
         framed: false,
         signed_on: '2026-04-27',
         signed_at: 'Updated Signing Table',
@@ -80,6 +83,7 @@ test.describe('events and collectibles browser regressions', () => {
       expect(patched.signatures[0].signer_name).toBe('Updated Playwright Signer');
       expect(patched.height).toBe(20.5);
       expect(patched.width).toBe(30.25);
+      expect(patched.dimension_unit).toBe('in');
       expect(patched.framed).toBe(false);
       expect(patched.signatures[0].signed_on).toBe('2026-04-27');
       expect(patched.signature_notes).toBe('Updated provenance note.');
@@ -141,6 +145,7 @@ test.describe('events and collectibles browser regressions', () => {
       expect(detail.signer_name).toBe('Second Playwright Signer');
       expect(detail.height).toBe(20.5);
       expect(detail.width).toBe(30.25);
+      expect(detail.dimension_unit).toBe('in');
       expect(detail.framed).toBe(false);
       expect(detail.signatures[0].owner_type).toBe('art');
       expect(detail.signatures[0].is_primary).toBe(true);

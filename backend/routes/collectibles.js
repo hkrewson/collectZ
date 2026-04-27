@@ -122,6 +122,7 @@ const serializeNativeArtRow = (row) => {
     medium: row.medium || null,
     height: row.height === null || row.height === undefined ? null : Number(row.height),
     width: row.width === null || row.width === undefined ? null : Number(row.width),
+    dimension_unit: row.dimension_unit || null,
     framed: row.framed === true,
     artist: row.artist || null,
     vendor,
@@ -419,6 +420,7 @@ const normalizeArtPayload = (payload = {}) => {
     medium: payload.medium || null,
     height: payload.height ?? null,
     width: payload.width ?? null,
+    dimension_unit: payload.dimension_unit || null,
     framed: payload.framed === true,
     event_id: payload.event_id || null,
     vendor,
@@ -723,6 +725,7 @@ const createArt = asyncHandler(async (req, res) => {
        medium,
        height,
        width,
+       dimension_unit,
        framed,
        vendor,
        booth,
@@ -731,7 +734,7 @@ const createArt = asyncHandler(async (req, res) => {
        signed,
        image_path,
        notes
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
      RETURNING *`,
     [
       libraryId,
@@ -744,6 +747,7 @@ const createArt = asyncHandler(async (req, res) => {
       payload.medium,
       payload.height,
       payload.width,
+      payload.dimension_unit,
       payload.framed,
       payload.vendor,
       payload.booth,
@@ -927,7 +931,7 @@ const updateArt = asyncHandler(async (req, res) => {
     if (!eventRow) return res.status(404).json({ error: 'Linked event not found in scope' });
   }
 
-  const allowed = ['title', 'series', 'franchise', 'medium', 'height', 'width', 'framed', 'vendor', 'booth', 'booth_or_vendor', 'artist', 'price', 'exclusive', 'signed', 'image_path', 'notes'];
+  const allowed = ['title', 'series', 'franchise', 'medium', 'height', 'width', 'dimension_unit', 'framed', 'vendor', 'booth', 'booth_or_vendor', 'artist', 'price', 'exclusive', 'signed', 'image_path', 'notes'];
   const payload = normalizeArtPayload({
     ...current,
     ...req.body

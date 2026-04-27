@@ -730,6 +730,7 @@ const collectibleCategoryKeys = [
 ];
 
 const artMediumValues = ['original', 'print', 'comic_panel', 'sketch', 'commission', 'other'];
+const artDimensionUnitValues = ['in', 'cm'];
 
 const collectibleBaseSchema = z.object({
   title: z.string().min(1, 'Title is required').max(255),
@@ -769,6 +770,7 @@ const artBaseSchema = z.object({
   medium: z.preprocess(emptyStringToNull, z.enum(artMediumValues).optional().nullable()),
   height: nullableNumberSchema(z.number().min(0).max(1000000)),
   width: nullableNumberSchema(z.number().min(0).max(1000000)),
+  dimension_unit: z.preprocess(emptyStringToNull, z.enum(artDimensionUnitValues).optional().nullable()),
   framed: z.boolean().optional().nullable(),
   event_id: nullableNumberSchema(z.number().int().positive()),
   vendor: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),

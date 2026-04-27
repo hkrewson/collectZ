@@ -776,6 +776,8 @@ CREATE TABLE IF NOT EXISTS art_items (
       CHECK (medium IS NULL OR medium IN ('original', 'print', 'comic_panel', 'sketch', 'commission', 'other')),
     height NUMERIC(10,2),
     width NUMERIC(10,2),
+    dimension_unit VARCHAR(10)
+      CHECK (dimension_unit IS NULL OR dimension_unit IN ('in', 'cm')),
     framed BOOLEAN NOT NULL DEFAULT false,
     vendor VARCHAR(255),
     booth VARCHAR(255),
@@ -1226,5 +1228,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (77, 'Add shared fandom franchise metadata to Art and Collectibles'),
     (78, 'Add shared signature provenance records for Art and media'),
     (79, 'Link event autograph artifacts to shared signature provenance'),
-    (80, 'Add Art physical dimensions and framed metadata')
+    (80, 'Add Art physical dimensions and framed metadata'),
+    (81, 'Add Art dimension unit metadata')
 ON CONFLICT (version) DO NOTHING;

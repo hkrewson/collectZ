@@ -3472,6 +3472,29 @@ const MIGRATIONS = [
         ADD COLUMN IF NOT EXISTS width NUMERIC(10,2),
         ADD COLUMN IF NOT EXISTS framed BOOLEAN NOT NULL DEFAULT false;
     `
+  },
+  {
+    version: 81,
+    description: 'Add Art dimension unit metadata',
+    up: `
+      ALTER TABLE art_items
+        ADD COLUMN IF NOT EXISTS dimension_unit VARCHAR(10);
+
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1
+          FROM pg_constraint
+          WHERE conname = 'art_items_dimension_unit_check'
+            AND conrelid = 'art_items'::regclass
+        ) THEN
+          ALTER TABLE art_items
+            ADD CONSTRAINT art_items_dimension_unit_check
+            CHECK (dimension_unit IS NULL OR dimension_unit IN ('in', 'cm'));
+        END IF;
+      END;
+      $$;
+    `
   }
 ];
 

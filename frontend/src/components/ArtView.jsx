@@ -11,6 +11,11 @@ const ART_MEDIUM_OPTIONS = [
   { value: 'other', label: 'Other' }
 ];
 
+const ART_DIMENSION_UNIT_OPTIONS = [
+  { value: 'in', label: 'in' },
+  { value: 'cm', label: 'cm' }
+];
+
 const DEFAULT_FORM = {
   title: '',
   series: '',
@@ -19,6 +24,7 @@ const DEFAULT_FORM = {
   medium: '',
   height: '',
   width: '',
+  dimension_unit: 'in',
   framed: false,
   event_id: '',
   vendor: '',
@@ -77,6 +83,11 @@ function DetailField({ label, children, className = '' }) {
       <div className="mt-1 text-sm text-ink">{children}</div>
     </div>
   );
+}
+
+function formatDimensionValue(value, unit) {
+  if (value === null || value === undefined || value === '') return null;
+  return [value, unit].filter(Boolean).join(' ');
 }
 
 function ArtCard({ item, supportsHover, onOpen, onEdit, onDelete }) {
@@ -220,8 +231,8 @@ function ArtDetailDrawer({ artId, apiCall, events, onClose, onEdit, onDeleted })
               <DetailField label="Fandom / Franchise">{item.franchise}</DetailField>
               <DetailField label="Medium / Type">{mediumLabel}</DetailField>
               <DetailField label="Artist">{item.artist}</DetailField>
-              <DetailField label="H">{item.height !== null && item.height !== undefined && item.height !== '' ? item.height : null}</DetailField>
-              <DetailField label="W">{item.width !== null && item.width !== undefined && item.width !== '' ? item.width : null}</DetailField>
+              <DetailField label="H">{formatDimensionValue(item.height, item.dimension_unit)}</DetailField>
+              <DetailField label="W">{formatDimensionValue(item.width, item.dimension_unit)}</DetailField>
               <DetailField label="Framed">{item.framed ? 'Yes' : 'No'}</DetailField>
               <DetailField label="Event">{resolvedEvent || 'None linked'}</DetailField>
               <DetailField label="Signed">{item.signed ? 'Yes' : 'No'}</DetailField>
@@ -296,6 +307,7 @@ function ArtDrawer({ initial, events, saving, error, notice, apiCall, onClose, o
     signature_notes: primaryInitialSignature?.notes || initial?.signature_notes || '',
     height: initial?.height ?? '',
     width: initial?.width ?? '',
+    dimension_unit: initial?.dimension_unit || 'in',
     framed: Boolean(initial?.framed),
     vendor: initial?.vendor || '',
     booth: initial?.booth || ''
@@ -325,6 +337,7 @@ function ArtDrawer({ initial, events, saving, error, notice, apiCall, onClose, o
       signature_notes: primaryInitialSignature?.notes || initial?.signature_notes || '',
       height: initial?.height ?? '',
       width: initial?.width ?? '',
+      dimension_unit: initial?.dimension_unit || 'in',
       framed: Boolean(initial?.framed),
       vendor: initial?.vendor || '',
       booth: initial?.booth || ''
@@ -422,6 +435,11 @@ function ArtDrawer({ initial, events, saving, error, notice, apiCall, onClose, o
                 <label className="field"><span className="label">Price</span><input className="input" value={form.price ?? ''} onChange={(e) => setForm((p) => ({ ...p, price: e.target.value }))} /></label>
                 <label className="field"><span className="label">H</span><input className="input" type="number" min="0" step="0.01" value={form.height ?? ''} onChange={(e) => setForm((p) => ({ ...p, height: e.target.value }))} /></label>
                 <label className="field"><span className="label">W</span><input className="input" type="number" min="0" step="0.01" value={form.width ?? ''} onChange={(e) => setForm((p) => ({ ...p, width: e.target.value }))} /></label>
+                <label className="field"><span className="label">Unit</span>
+                  <select className="select" value={form.dimension_unit || 'in'} onChange={(e) => setForm((p) => ({ ...p, dimension_unit: e.target.value }))}>
+                    {ART_DIMENSION_UNIT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  </select>
+                </label>
                 <label className="field md:col-span-2"><span className="label">Linked Event</span>
                   <select className="select" value={form.event_id || ''} onChange={(e) => setForm((p) => ({ ...p, event_id: e.target.value }))}>
                     <option value="">None</option>
@@ -620,6 +638,7 @@ export default function ArtView({ apiCall, onToast }) {
         medium: form.medium || null,
         height: form.height === '' ? null : Number(form.height),
         width: form.width === '' ? null : Number(form.width),
+        dimension_unit: form.height === '' && form.width === '' ? null : (form.dimension_unit || 'in'),
         framed: Boolean(form.framed),
         subtype: 'art',
         event_id: form.event_id ? Number(form.event_id) : null,
