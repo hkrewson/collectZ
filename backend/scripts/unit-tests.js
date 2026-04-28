@@ -169,6 +169,12 @@ const browserCapturesWorkflowSource = fs.readFileSync(require.resolve('../../.gi
 const dockerComposeSource = fs.readFileSync(require.resolve('../../docker-compose.yml'), 'utf8');
 const publicComposeGeneratorSource = fs.readFileSync(require.resolve('../../scripts/generate-public-compose'), 'utf8');
 const publicExportValidatorSource = fs.readFileSync(require.resolve('../../scripts/validate-public-export-surface'), 'utf8');
+const releaseRoadmapSource = fs.readFileSync(require.resolve('../../docs/wiki/07-Release-Roadmap.md'), 'utf8');
+const releaseNotesDir = path.resolve(__dirname, '..', '..', 'docs', 'releases');
+const releaseDocsSource = fs.readdirSync(releaseNotesDir)
+  .filter((name) => name.endsWith('.md'))
+  .map((name) => fs.readFileSync(path.join(releaseNotesDir, name), 'utf8'))
+  .join('\n');
 const backendDockerfileSource = fs.readFileSync(require.resolve('../../backend/Dockerfile'), 'utf8');
 const structuredLogSmokeSource = fs.readFileSync(require.resolve('../scripts/structured-log-smoke'), 'utf8');
 const structuredLogLokiSmokeSource = fs.readFileSync(require.resolve('../scripts/structured-log-loki-smoke'), 'utf8');
@@ -1556,6 +1562,13 @@ results.push(run('repo includes 2.9.4 Playwright browser regression foundation h
   assert.ok(frontendDockerfileSource.includes('COPY package*.json ./'));
   assert.ok(!backendDockerfileSource.includes('@playwright/test'));
   assert.ok(!frontendDockerfileSource.includes('@playwright/test'));
+}));
+
+results.push(run('release docs do not preserve fixed local Playwright bypass token values', () => {
+  const fixedBypassTokenPattern = /PLAYWRIGHT_E2E_BYPASS_TOKEN=collectz-playwright\b/;
+  assert.ok(!fixedBypassTokenPattern.test(releaseRoadmapSource));
+  assert.ok(!fixedBypassTokenPattern.test(releaseDocsSource));
+  assert.ok(releaseRoadmapSource.includes('PLAYWRIGHT_E2E_BYPASS_TOKEN=<redacted>'));
 }));
 
 results.push(run('integrations route source extends platform integrations with valuation providers plus observability controls', () => {

@@ -5304,8 +5304,8 @@ Historical note:
   - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T -e BASE_URL=http://frontend:3000 backend npm run test:homelab-edition-boundary`
   - `docker compose -p collectz-platform-smoke --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml -f .ci/docker-compose.platform.yml exec -T -e BASE_URL=http://frontend:3000 backend npm run test:platform-edition-boundary`
   - `docker compose -p collectz-platform-smoke --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml -f .ci/docker-compose.platform.yml exec -T -e BASE_URL=http://frontend:3000 backend npm run test:rbac-regression`
-  - `PLAYWRIGHT_E2E_BYPASS_TOKEN=collectz-playwright PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 npm run test:browser -- tests/playwright/specs/homelab-help.browser.spec.js tests/playwright/specs/homelab-shared.browser.spec.js`
-  - `PLAYWRIGHT_E2E_BYPASS_TOKEN=collectz-playwright PLAYWRIGHT_BASE_URL=http://127.0.0.1:3200 PLAYWRIGHT_COMPOSE_PROJECT=collectz-platform-smoke PLAYWRIGHT_COMPOSE_ENV_FILE=.env npm run test:browser`
+  - `PLAYWRIGHT_E2E_BYPASS_TOKEN=<redacted> PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 npm run test:browser -- tests/playwright/specs/homelab-help.browser.spec.js tests/playwright/specs/homelab-shared.browser.spec.js`
+  - `PLAYWRIGHT_E2E_BYPASS_TOKEN=<redacted> PLAYWRIGHT_BASE_URL=http://127.0.0.1:3200 PLAYWRIGHT_COMPOSE_PROJECT=collectz-platform-smoke PLAYWRIGHT_COMPOSE_ENV_FILE=.env npm run test:browser`
   - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T -e BASE_URL=http://frontend:3000 -e EXPECTED_VERSION=3.4.20 backend npm run test:help-releases-smoke`
   - `npm --prefix backend run test:observability-evidence`
   - `npm --prefix backend run test:release-preflight-local`
@@ -5382,8 +5382,8 @@ Historical note:
   - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T -e BASE_URL=http://frontend:3000 backend npm run test:homelab-edition-boundary`
   - `docker compose -p collectz-platform-smoke --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml -f .ci/docker-compose.platform.yml exec -T -e BASE_URL=http://frontend:3000 backend npm run test:platform-edition-boundary`
   - `docker compose -p collectz-platform-smoke --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml -f .ci/docker-compose.platform.yml exec -T -e BASE_URL=http://frontend:3000 backend npm run test:rbac-regression`
-  - `PLAYWRIGHT_E2E_BYPASS_TOKEN=collectz-playwright PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 npm run test:browser -- tests/playwright/specs/homelab-help.browser.spec.js tests/playwright/specs/homelab-shared.browser.spec.js`
-  - `PLAYWRIGHT_E2E_BYPASS_TOKEN=collectz-playwright PLAYWRIGHT_BASE_URL=http://127.0.0.1:3200 PLAYWRIGHT_COMPOSE_PROJECT=collectz-platform-smoke PLAYWRIGHT_COMPOSE_ENV_FILE=.env npm run test:browser`
+  - `PLAYWRIGHT_E2E_BYPASS_TOKEN=<redacted> PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 npm run test:browser -- tests/playwright/specs/homelab-help.browser.spec.js tests/playwright/specs/homelab-shared.browser.spec.js`
+  - `PLAYWRIGHT_E2E_BYPASS_TOKEN=<redacted> PLAYWRIGHT_BASE_URL=http://127.0.0.1:3200 PLAYWRIGHT_COMPOSE_PROJECT=collectz-platform-smoke PLAYWRIGHT_COMPOSE_ENV_FILE=.env npm run test:browser`
   - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T -e BASE_URL=http://frontend:3000 -e EXPECTED_VERSION=3.4.21 backend npm run test:help-releases-smoke`
   - `npm --prefix backend run test:observability-evidence`
   - `npm --prefix backend run test:release-preflight-local`
@@ -5465,8 +5465,8 @@ Historical note:
   - `FRONTEND_PORT=3200 APP_VERSION=3.4.22 docker compose -p collectz-platform-smoke --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml -f .ci/docker-compose.platform.yml up -d backend frontend`
   - `docker compose -p collectz-platform-smoke --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml -f .ci/docker-compose.platform.yml exec -T -e BASE_URL=http://frontend:3000 backend npm run test:platform-edition-boundary`
   - `docker compose -p collectz-platform-smoke --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml -f .ci/docker-compose.platform.yml exec -T -e BASE_URL=http://frontend:3000 backend npm run test:rbac-regression`
-  - `PLAYWRIGHT_E2E_BYPASS_TOKEN=collectz-playwright PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 npm run test:browser -- tests/playwright/specs/events-collectibles.browser.spec.js -g "mobile art image controls"`
-  - `PLAYWRIGHT_E2E_BYPASS_TOKEN=collectz-playwright PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 npm run test:browser -- tests/playwright/specs/homelab-help.browser.spec.js tests/playwright/specs/homelab-shared.browser.spec.js`
+  - `PLAYWRIGHT_E2E_BYPASS_TOKEN=<redacted> PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 npm run test:browser -- tests/playwright/specs/events-collectibles.browser.spec.js -g "mobile art image controls"`
+  - `PLAYWRIGHT_E2E_BYPASS_TOKEN=<redacted> PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 npm run test:browser -- tests/playwright/specs/homelab-help.browser.spec.js tests/playwright/specs/homelab-shared.browser.spec.js`
   - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T -e BASE_URL=http://frontend:3000 -e EXPECTED_VERSION=3.4.22 backend npm run test:help-releases-smoke`
   - `npm --prefix backend run test:observability-evidence`
   - `npm --prefix backend run test:release-preflight-local`
@@ -5594,6 +5594,60 @@ Historical note:
   - A broader drawer-shell primitive could further reduce duplicate slide-over markup, but that is intentionally out of scope for this narrow cleanup.
 - What remains in the milestone: nothing; `3.4.24` is closed.
 - Recommended commit message: `Release 3.4.24 shared drawer backdrop primitive and header image consolidation`
+
+## 3.4.25 — Release Evidence Token Hygiene Cleanup
+
+**Goal:** Remove fixed local Playwright bypass token values from committed release evidence examples and guard against reintroducing them.
+
+**Current Slice:** `Closed 2026-04-27`
+
+### Scope
+
+- Redact old fixed `PLAYWRIGHT_E2E_BYPASS_TOKEN` examples from roadmap closeouts and release notes.
+- Preserve command shape while replacing token material with `<redacted>`.
+- Add a lightweight source guard so roadmap/release notes cannot reintroduce fixed local bypass token examples unnoticed.
+- Keep this as docs/release-evidence hygiene only; do not change runtime token behavior.
+
+### Acceptance Criteria
+
+- Committed roadmap and release notes no longer contain the old fixed local Playwright bypass token example.
+- New command examples keep token values redacted.
+- Backend unit tests include a guard for this release evidence hygiene rule.
+- Version metadata and Help > Releases are aligned to `3.4.25`.
+
+### Closeout Notes
+
+- Roadmap slice: `3.4.25 — Release Evidence Token Hygiene Cleanup`.
+- Project docs/checklists used:
+  - `AGENTS.md`
+  - `docs/wiki/07-Release-Roadmap.md`
+  - `docs/wiki/08-Backlog.md`
+  - `docs/wiki/10-CI-CD-and-Registry-Deploy.md`
+  - `docs/wiki/17-Release-Go-No-Go-Checklist.md`
+- Runtime verification used Docker-first evidence from the generated public compose plus temporary `.ci` source override:
+  - default frontend/backend images rebuilt with `APP_VERSION=3.4.25`,
+  - `/api/health` reported `3.4.25` for app/frontend/backend metadata,
+  - Help > Releases served `3.4.25` as the latest entry.
+- CI/checks run locally:
+  - `docker compose --env-file .env config`
+  - `node scripts/validate-public-export-surface.js`
+  - `APP_VERSION=3.4.25 docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml up -d --build backend frontend`
+  - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T backend npm run test:unit`
+  - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T -e BASE_URL=http://frontend:3000 -e EXPECTED_VERSION=3.4.25 backend npm run test:help-releases-smoke`
+  - `rg -n 'PLAYWRIGHT_E2E_BYPASS_TOKEN=<fixed-local-example>' docs/wiki/07-Release-Roadmap.md docs/releases`
+- Release artifacts:
+  - `docs/releases/v3.4.25.md`
+  - regenerated `backend/release-feed.json`
+- Files changed:
+  - roadmap and release-note token redactions,
+  - release-doc source guard in backend unit tests,
+  - UI/UX cleanup working plan in backlog,
+  - version metadata, generated compose defaults, release note, release feed, and roadmap.
+- Risks or follow-ups:
+  - Tagged CI remains authoritative for `secret-scan`, `dependency-scan`, `image-security-and-sbom`, and full browser regression.
+  - This milestone covers committed roadmap/release notes; generated artifacts should continue to be inspected under the existing release evidence policy.
+- What remains in the milestone: nothing; `3.4.25` is closed.
+- Recommended commit message: `Release 3.4.25 release evidence token hygiene cleanup and Playwright command redaction`
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 

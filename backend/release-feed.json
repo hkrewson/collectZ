@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v3.4.25",
+      "version": "3.4.25",
+      "date": "2026-04-27",
+      "status": "Completed",
+      "summary": "This release cleans up old release evidence examples so fixed local Playwright bypass token values are no longer preserved in committed roadmap or release-note command examples.",
+      "details": []
+    },
+    {
       "title": "v3.4.24",
       "version": "3.4.24",
       "date": "2026-04-27",
@@ -70,14 +78,6 @@
       "date": "2026-04-27",
       "status": "Completed",
       "summary": "This release normalizes signature proof upload and removal around shared `signature_records`. Art and media drawers now use the same per-signature proof workflow while existing object-level proof fields and older compatibility endpoints remain intact.",
-      "details": []
-    },
-    {
-      "title": "v3.4.15",
-      "version": "3.4.15",
-      "date": "2026-04-27",
-      "status": "Completed",
-      "summary": "This release brings shared multi-signature provenance management into Art and media drawers. Users can add, edit, archive, and promote signature records without relying on API-only workflows or overwriting the primary-signature compatibility shortcuts.",
       "details": []
     }
   ]
