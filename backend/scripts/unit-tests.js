@@ -137,6 +137,7 @@ const adminUsersViewSource = readFrontendSource(path.join('components', 'AdminUs
 const libraryLoansViewSource = readFrontendSource(path.join('components', 'LibraryLoansView'));
 const adminMergeReviewViewSource = readFrontendSource(path.join('components', 'AdminMergeReviewView'));
 const libraryViewSource = readFrontendSource(path.join('components', 'LibraryView'));
+const appPrimitivesSource = readFrontendSource(path.join('components', 'app', 'AppPrimitives'));
 const eventsViewSource = readFrontendSource(path.join('components', 'EventsView'));
 const artViewSource = readFrontendSource(path.join('components', 'ArtView'));
 const signatureManagerSource = readFrontendSource(path.join('components', 'app', 'SignatureManager'));
@@ -3603,6 +3604,28 @@ results.push(run('fandom franchise metadata is shared by Art and Collectibles wi
   assert.ok(collectiblesViewSource.includes('Fandom / Franchise'));
   assert.ok(eventsViewSource.includes('candidate.franchise'));
   assert.ok(openApiSource.includes('"franchise"'));
+}));
+
+results.push(run('mobile image upload controls use the media-style cover picker on primary edit screens', () => {
+  const collectiblesViewSource = readFrontendSource(path.join('components', 'CollectiblesView'));
+  assert.ok(appPrimitivesSource.includes('function CoverImagePicker'));
+  assert.ok(appPrimitivesSource.includes('function ImageSourceControl'));
+  assert.ok(appPrimitivesSource.includes('Photo library, camera, or file'));
+  assert.ok(appPrimitivesSource.includes('capture="environment"'));
+  assert.ok(artViewSource.includes('CoverImagePicker'));
+  assert.ok(artViewSource.includes("label: 'Core Details'"));
+  assert.ok(!artViewSource.includes("label: 'Artwork'"));
+  assert.ok(artViewSource.includes('label="Artwork image"'));
+  assert.ok(collectiblesViewSource.includes('CoverImagePicker'));
+  assert.ok(collectiblesViewSource.includes('label="Item image"'));
+  assert.ok(eventsViewSource.includes('CoverImagePicker'));
+  assert.ok(eventsViewSource.includes('label="Artifact image"'));
+  assert.ok(eventsViewSource.includes('label="Event image"'));
+  assert.ok(signatureManagerSource.includes('label="Add proof image"'));
+  assert.ok(!artViewSource.includes('capture="environment"'));
+  assert.ok(!collectiblesViewSource.includes('capture="environment"'));
+  assert.ok(!eventsViewSource.includes('capture="environment"'));
+  assert.ok(!signatureManagerSource.includes('capture="environment"'));
 }));
 
 results.push(run('shared signature provenance foundation supports Art and media title endpoints', () => {

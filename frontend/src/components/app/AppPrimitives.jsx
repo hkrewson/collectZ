@@ -247,6 +247,138 @@ export function CollectionPaginationFooter({
   );
 }
 
+export function ImageSourceControl({
+  label = 'Image',
+  selectedFile,
+  selectedLabel = 'Selected file',
+  chooseLabel = 'Choose from Library',
+  cameraLabel = 'Take Photo',
+  accept = 'image/*',
+  className = '',
+  onChooseFile,
+  onCamera,
+  onCameraFile
+}) {
+  const libraryInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
+  const selectedName = typeof selectedFile === 'string' ? selectedFile : selectedFile?.name;
+
+  const pickFile = (event, handler) => {
+    const file = event.target.files?.[0] || null;
+    handler?.(file);
+    event.target.value = '';
+  };
+
+  const startCamera = () => {
+    if (onCamera) {
+      onCamera();
+      return;
+    }
+    cameraInputRef.current?.click();
+  };
+
+  return (
+    <div className={cx('field', className)}>
+      <span className="label">{label}</span>
+      <div className="rounded-lg border border-edge/70 bg-void/30 p-2.5">
+        <input
+          ref={libraryInputRef}
+          type="file"
+          accept={accept}
+          className="hidden"
+          onChange={(event) => pickFile(event, onChooseFile)}
+        />
+        {!onCamera ? (
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept={accept}
+            capture="environment"
+            className="hidden"
+            onChange={(event) => pickFile(event, onCameraFile || onChooseFile)}
+          />
+        ) : null}
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="button" className="btn-secondary btn-sm" onClick={() => libraryInputRef.current?.click()}>
+            <Icons.Upload />{chooseLabel}
+          </button>
+          <button type="button" className="btn-ghost btn-sm" onClick={startCamera}>
+            <Icons.Camera />{cameraLabel}
+          </button>
+        </div>
+        {selectedName ? <p className="mt-2 text-xs text-ghost">{selectedLabel}: {selectedName}</p> : null}
+      </div>
+    </div>
+  );
+}
+
+export function CoverImagePicker({
+  label = 'Image',
+  imagePath = '',
+  selectedFile = null,
+  emptyLabel = 'Add image',
+  replaceLabel = 'Replace image',
+  removeLabel = 'Remove image',
+  className = '',
+  disabled = false,
+  onSelectFile,
+  onRemove
+}) {
+  const inputRef = useRef(null);
+  const [previewUrl, setPreviewUrl] = useState('');
+  const selectedName = selectedFile?.name || '';
+  const displayUrl = previewUrl || posterUrl(imagePath);
+
+  useEffect(() => {
+    if (!selectedFile) {
+      setPreviewUrl('');
+      return undefined;
+    }
+    const objectUrl = URL.createObjectURL(selectedFile);
+    setPreviewUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [selectedFile]);
+
+  const handleSelection = (event) => {
+    const file = event.target.files?.[0] || null;
+    event.target.value = '';
+    if (file) onSelectFile?.(file);
+  };
+
+  return (
+    <div className={cx('space-y-2', className)}>
+      <span className="label">{label}</span>
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        disabled={disabled}
+        className="poster relative w-full overflow-hidden rounded-md border border-edge bg-panel text-left transition-colors hover:border-muted disabled:cursor-not-allowed"
+      >
+        {displayUrl
+          ? <img src={displayUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+          : <div className="absolute inset-0 flex items-center justify-center text-ghost"><Icons.Film /></div>}
+        <div className="absolute inset-x-0 bottom-0 border-t border-edge bg-panel/95 p-3">
+          <p className="text-sm font-medium text-ink">{displayUrl ? replaceLabel : emptyLabel}</p>
+          {!displayUrl ? <p className="text-[11px] leading-4 text-dim">Photo library, camera, or file</p> : null}
+        </div>
+      </button>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleSelection}
+      />
+      {selectedName ? <p className="text-xs text-ghost">Selected: {selectedName}</p> : null}
+      {imagePath && !selectedFile && onRemove ? (
+        <button type="button" onClick={onRemove} disabled={disabled} className="btn-secondary btn-sm w-full text-err">
+          <Icons.Trash />{removeLabel}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 function DisclosureChevron({ open }) {
   return (
     <svg

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CameraCaptureModal, CollectionPaginationFooter, Icons, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
+import { CollectionPaginationFooter, CoverImagePicker, Icons, ImageSourceControl, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
 
 const DEFAULT_EVENT_FORM = {
   title: '',
@@ -619,11 +619,13 @@ function EventArtifactsEditor({ eventId, apiCall, onSaved }) {
                 <input className="input" placeholder="Optional proof image for this signature" value={artifactForm.signature_proof_path} onChange={(e) => setArtifactForm((prev) => ({ ...prev, signature_proof_path: e.target.value }))} />
               </label>
             ) : null}
-            <label className="field md:col-span-2">
-              <span className="label">Image</span>
-              <input className="input" type="file" accept="image/*" capture="environment" onChange={(e) => setArtifactFile(e.target.files?.[0] || null)} />
-            </label>
-            {artifactFile ? <p className="text-xs text-ghost md:col-span-2">Selected file: {artifactFile.name}</p> : null}
+            <ImageSourceControl
+              className="md:col-span-2"
+              label="Artifact image"
+              selectedFile={artifactFile}
+              onChooseFile={setArtifactFile}
+              onCameraFile={setArtifactFile}
+            />
             <label className="field md:col-span-2">
               <span className="label">Notes</span>
               <textarea className="textarea min-h-[88px]" value={artifactForm.description} onChange={(e) => setArtifactForm((prev) => ({ ...prev, description: e.target.value }))} />
@@ -994,7 +996,6 @@ function EventFormDrawer({ initial, apiCall, onClose, onSave, onDelete, onClearI
     date_end: toInputDate(initial?.date_end)
   }));
   const [imageFile, setImageFile] = useState(null);
-  const [cameraOpen, setCameraOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const eventTabs = useMemo(() => ([
@@ -1061,6 +1062,16 @@ function EventFormDrawer({ initial, apiCall, onClose, onSave, onDelete, onClearI
 
             <SectionTabPanel activeId={activeTab} tabKey="core" idBase="event-editor-steps">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <CoverImagePicker
+                  className="md:col-span-2 max-w-[8.5rem]"
+                  label="Event image"
+                  imagePath={form.image_path || ''}
+                  selectedFile={imageFile}
+                  emptyLabel="Add image"
+                  replaceLabel="Replace image"
+                  onSelectFile={setImageFile}
+                  onRemove={initial?.id ? onClearImage : undefined}
+                />
                 <label className="field md:col-span-2"><span className="label">Title *</span><input className="input" value={form.title || ''} onChange={(e) => set({ title: e.target.value })} /></label>
                 <label className="field md:col-span-2"><span className="label">URL *</span><input className="input" value={form.url || ''} onChange={(e) => set({ url: e.target.value })} /></label>
                 <label className="field"><span className="label">Location *</span><input className="input" value={form.location || ''} onChange={(e) => set({ location: e.target.value })} /></label>
@@ -1087,17 +1098,6 @@ function EventFormDrawer({ initial, apiCall, onClose, onSave, onDelete, onClearI
             <SectionTabPanel activeId={activeTab} tabKey="storage" idBase="event-editor-steps">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <label className="field md:col-span-2"><span className="label">Image URL (optional)</span><input className="input" value={form.image_path || ''} onChange={(e) => set({ image_path: e.target.value })} /></label>
-                <label className="field md:col-span-2"><span className="label">Upload/Capture image</span><input className="input" type="file" accept="image/*" capture="environment" onChange={(e) => setImageFile(e.target.files?.[0] || null)} /></label>
-                <div className="md:col-span-2 flex items-center gap-2">
-                  <button type="button" onClick={() => setCameraOpen(true)} className="btn-secondary btn-sm"><Icons.Camera />Camera</button>
-                </div>
-                {imageFile ? <p className="text-xs text-ghost md:col-span-2">Selected file: {imageFile.name}</p> : null}
-                {form.image_path ? (
-                  <div className="md:col-span-2 flex items-center gap-2">
-                    <a className="btn-ghost btn-sm" href={form.image_path} target="_blank" rel="noreferrer"><Icons.Link />Open image</a>
-                    {initial?.id ? <button className="btn-ghost btn-sm" onClick={onClearImage}><Icons.X />Remove image</button> : null}
-                  </div>
-                ) : null}
                 <label className="field md:col-span-2"><span className="label">Notes</span><textarea className="textarea min-h-[96px]" value={form.notes || ''} onChange={(e) => set({ notes: e.target.value })} /></label>
               </div>
             </SectionTabPanel>
@@ -1109,16 +1109,6 @@ function EventFormDrawer({ initial, apiCall, onClose, onSave, onDelete, onClearI
           <div className="flex-1" />
           <button type="button" onClick={submit} disabled={saving} className="btn-primary min-w-[100px]">{saving ? <Spinner size={16} /> : 'Save'}</button>
         </div>
-        <CameraCaptureModal
-          open={cameraOpen}
-          title="Capture event image"
-          description="Capture an event image and attach it directly to this event."
-          confirmLabel="Use event image"
-          onClose={() => setCameraOpen(false)}
-          onCapture={async (file) => {
-            setImageFile(file);
-          }}
-        />
       </div>
     </div>
   );

@@ -12,32 +12,6 @@ This file is the staging area for work that has not yet been assigned a release 
 - Keep the roadmap focused on milestone work only.
 - Update the roadmap, release notes, release feed, and verification steps together when a backlog item is promoted.
 
-### Backlog Item: Mobile Photo Upload Source Selection
-**Type:** Bug
-**Tags:** `mobile`, `photos`, `camera`, `upload`, `ux`
-
-**Goal:** Rework the mobile photo upload flow so users can intentionally choose between taking a new photo and selecting an existing photo from their library.
-
-**Observed Behavior**
-- On mobile, tapping the photo upload button opens a semi-standard camera capture view with a shutter button at the bottom.
-- From that capture view, the user cannot reach the device photo library.
-- A separate camera button opens the curated in-app camera view, which also has no photo-library upload option.
-- Desktop behavior sort of works, but the source-selection model should be revisited across device classes.
-
-**Scope**
-- Audit the current upload and camera entry points on mobile and desktop.
-- Separate the user intents for `Choose from Library` and `Take Photo`.
-- Ensure the standard upload path can reach the device photo library on mobile.
-- Preserve or redesign the curated camera flow as an explicit camera-only action.
-- Review button labels, icons, input attributes, and capture behavior so browser and OS pickers match the intended action.
-
-**Acceptance Criteria**
-- Mobile users can choose an existing photo from their device library without being forced into camera capture.
-- Mobile users can still intentionally open a camera capture flow when they want to take a new photo.
-- The curated camera button is clearly differentiated from library upload.
-- Desktop upload behavior remains functional and has consistent intent/copy with mobile.
-- The behavior is verified on at least one mobile browser or responsive-device test path before promotion closes.
-
 ### Backlog Item: Apple Platform App Contract Publishing
 **Type:** Deferred milestone
 **Tags:** `apple`, `ios`, `ipados`, `macos`, `tvos`, `openapi`, `releases`, `contract`
@@ -63,6 +37,31 @@ This file is the staging area for work that has not yet been assigned a release 
 - The Apple repo can pin to a specific backend version and generate Swift client models from it.
 - Backend/frontend deployable images remain versioned and published as they are today.
 - The publication and consumption flow is documented clearly enough for a separate Apple app repo to implement it without guesswork.
+
+### Backlog Item: Deferred Vite Compatibility Shim Removal
+**Type:** Deferred milestone
+**Tags:** `frontend`, `vite`, `react`, `cleanup`, `compatibility`, `3.6-candidate`, `3.7-candidate`
+
+**Goal:** Remove the remaining CRA-era frontend compatibility shims after the Vite-first runtime has baked long enough to prove there are no React behavior regressions.
+
+**Follow-up timing**
+- Revisit this item when planning `3.6` or `3.7`.
+- Promote only if no React behavior issues, frontend env regressions, Docker build regressions, or browser-regression instability have appeared since the `3.4.21` Vite env cleanup.
+- If React/Vite behavior issues appear before `3.6`/`3.7`, keep this item deferred and treat the compatibility shims as safety rails until the issues are understood.
+
+**Scope**
+- Remove `REACT_APP_*` fallback reads from frontend source once `VITE_*` is proven safe everywhere.
+- Remove legacy `REACT_APP_*` Docker build args/env plumbing from `frontend/Dockerfile`.
+- Remove the `process.env.REACT_APP_*` define bridge from `frontend/vite.config.js`.
+- Decide whether the explicit `build:vite`, `dev:vite`, and `preview:vite` aliases still add clarity or should be removed once Vite is no longer a transition concern.
+- Update docs, CI checks, and unit source assertions so `VITE_*` is the only maintained frontend env contract.
+
+**Acceptance Criteria**
+- Frontend source reads Vite env through `import.meta.env` / the shared Vite env helper without `REACT_APP_*` fallback.
+- Docker and CI frontend build args expose only `VITE_*` frontend configuration.
+- Docs no longer describe `REACT_APP_*` as supported configuration, except in historical release notes.
+- Docker-first frontend build, default homelab boundary, explicit platform boundary, and browser regression pass after removal.
+- The release closeout explicitly confirms no observed React behavior regressions triggered the deferral guard.
 
 ### Backlog Item: Public Homelab Repo Promotion and Export Workflow
 **Type:** Deferred milestone

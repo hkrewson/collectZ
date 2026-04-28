@@ -24,6 +24,24 @@ const {
 test.use({ storageState: { cookies: [], origins: [] } });
 
 test.describe('events and collectibles browser regressions', () => {
+  test('mobile art image control uses the core-tab native source picker', async ({ page }) => {
+    const userCredentials = await createFreshUserCredentials();
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await signInThroughUi(page, userCredentials);
+    await page.goto('/dashboard?tab=library-art');
+    await expect(page.getByRole('heading', { name: 'Art' })).toBeVisible();
+    await page.getByRole('button', { name: 'Add' }).click();
+    await expect(page.getByRole('heading', { name: 'Add Art' })).toBeVisible();
+    await expect(page.getByText('Artwork image')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Add image/i })).toBeVisible();
+    await expect(page.getByText('Photo library, camera, or file')).toBeVisible();
+
+    const imageInputs = page.locator('input[type="file"][accept="image/*"]');
+    await expect(imageInputs).toHaveCount(1);
+    expect(await imageInputs.first().getAttribute('capture')).toBeNull();
+  });
+
   test('art signature provenance round-trips through the shared signature record contract', async () => {
     const adminCredentials = await ensureSavedAdminCredentials();
     const adminRequestContext = await createAuthenticatedRequestContext(adminCredentials);

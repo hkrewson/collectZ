@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v3.4.22",
+      "version": "3.4.22",
+      "date": "2026-04-27",
+      "status": "Completed",
+      "summary": "This release cleans up mobile image uploads so choosing an existing photo and taking a new photo are separate, intentional actions instead of one ambiguous upload control that could force mobile users into the camera.",
+      "details": []
+    },
+    {
       "title": "v3.4.21",
       "version": "3.4.21",
       "date": "2026-04-27",
@@ -70,14 +78,6 @@
       "date": "2026-04-26",
       "status": "Completed",
       "summary": "This release lets Art and media records carry multiple shared signature provenance records while preserving the existing single-primary compatibility fields used by older forms, imports, and title endpoints.",
-      "details": []
-    },
-    {
-      "title": "v3.4.12",
-      "version": "3.4.12",
-      "date": "2026-04-26",
-      "status": "Completed",
-      "summary": "This release brings the event autograph linking contract into the Event drawer. Autograph artifacts can now capture signer details, show their event-side provenance, and link directly to canonical Art or media signature records from the UI.",
       "details": []
     }
   ]

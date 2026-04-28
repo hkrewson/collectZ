@@ -5407,6 +5407,88 @@ Historical note:
 - What remains in the milestone: nothing; `3.4.21` is closed.
 - Recommended commit message: `Release 3.4.21 frontend Vite env cleanup and build-contract follow-through`
 
+## 3.4.22 — Mobile Photo Upload Source Selection
+
+**Goal:** Rework mobile photo upload surfaces so users can intentionally choose between selecting an existing image from their library and taking a new photo.
+
+**Current Slice:** `Closed 2026-04-27`
+
+### Scope
+
+- Audit image upload and camera entry points in Art, Collectibles, Events, and shared signature proof management.
+- Replace ambiguous `Upload/Capture image` controls with explicit source actions:
+  - `Choose from Library` for ordinary image file selection,
+  - `Take Photo` for camera-only capture.
+- Remove `capture="environment"` from generic file-library inputs so mobile browsers can open the photo library.
+- Preserve curated in-app camera modal flows for Art, Collectibles, and Events where already available.
+- Use a shared frontend primitive so future image/proof upload controls do not drift back into mixed-source behavior.
+
+### Acceptance Criteria
+
+- Mobile users can choose an existing photo from their device library without being forced into camera capture.
+- Mobile users can still intentionally open a camera capture flow when they want to take a new photo.
+- The camera-only button is clearly differentiated from library upload.
+- Desktop upload behavior remains functional and uses the same intent/copy.
+- The behavior is verified on a responsive mobile browser path before promotion closes.
+
+### Active Slice Notes
+
+- This is a UI/UX behavior patch; it does not change image upload API contracts or stored file paths.
+- Event artifact and signature proof uploads use browser camera capture as the explicit camera fallback when they do not have the curated in-app camera modal.
+
+### Closeout Notes
+
+- Roadmap slice: `3.4.22 — Mobile Photo Upload Source Selection`.
+- Project docs/checklists used:
+  - `AGENTS.md`
+  - `docs/wiki/07-Release-Roadmap.md`
+  - `docs/wiki/08-Backlog.md`
+  - `docs/wiki/10-CI-CD-and-Registry-Deploy.md`
+  - `docs/wiki/17-Release-Go-No-Go-Checklist.md`
+- Runtime verification used Docker-first evidence from the generated public compose plus temporary `.ci` source/private overrides:
+  - default frontend/backend images rebuilt with `APP_VERSION=3.4.22`,
+  - `/api/health` reported `3.4.22` for app/frontend/backend metadata,
+  - default homelab stack served the responsive Art drawer upload controls,
+  - explicit platform override stack served `/api/health` as `3.4.22` on the alternate local port,
+  - Help > Releases served `3.4.22` as the latest entry.
+- CI/checks run locally:
+  - `docker compose --env-file .env config`
+  - `node scripts/validate-public-export-surface.js`
+  - `npm --prefix frontend ci --no-fund`
+  - `npm --prefix backend ci --no-fund`
+  - `APP_VERSION=3.4.22 docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml up -d --build backend frontend`
+  - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T backend npm run test:unit`
+  - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T backend npm run test:openapi`
+  - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T backend npm run test:init-parity`
+  - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T backend npm run test:migration-rehearsal`
+  - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T -e BASE_URL=http://frontend:3000 backend npm run test:homelab-edition-boundary`
+  - `FRONTEND_PORT=3200 APP_VERSION=3.4.22 docker compose -p collectz-platform-smoke --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml -f .ci/docker-compose.platform.yml up -d backend frontend`
+  - `docker compose -p collectz-platform-smoke --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml -f .ci/docker-compose.platform.yml exec -T -e BASE_URL=http://frontend:3000 backend npm run test:platform-edition-boundary`
+  - `docker compose -p collectz-platform-smoke --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml -f .ci/docker-compose.platform.yml exec -T -e BASE_URL=http://frontend:3000 backend npm run test:rbac-regression`
+  - `PLAYWRIGHT_E2E_BYPASS_TOKEN=collectz-playwright PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 npm run test:browser -- tests/playwright/specs/events-collectibles.browser.spec.js -g "mobile art image controls"`
+  - `PLAYWRIGHT_E2E_BYPASS_TOKEN=collectz-playwright PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 npm run test:browser -- tests/playwright/specs/homelab-help.browser.spec.js tests/playwright/specs/homelab-shared.browser.spec.js`
+  - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T -e BASE_URL=http://frontend:3000 -e EXPECTED_VERSION=3.4.22 backend npm run test:help-releases-smoke`
+  - `npm --prefix backend run test:observability-evidence`
+  - `npm --prefix backend run test:release-preflight-local`
+- Release artifacts:
+  - `docs/releases/v3.4.22.md`
+  - regenerated `backend/release-feed.json`
+  - regenerated `preflight-go-no-go.md`
+  - regenerated dependency audit, init parity, migration rehearsal, and observability evidence artifacts.
+- Files changed:
+  - shared `ImageSourceControl` frontend primitive,
+  - Art, Collectibles, Events, event artifact, and signature proof upload controls,
+  - focused unit source assertions and responsive mobile browser regression,
+  - version metadata, generated compose defaults, release note, release feed, roadmap, and backlog.
+- Risks or follow-ups:
+  - Event artifact and signature proof camera actions still use the browser/OS camera fallback rather than the curated in-app camera modal.
+  - Tagged CI remains authoritative for `secret-scan` and `image-security-and-sbom`.
+  - Local release preflight still marks secure-cookie compose basics as blocked in the local development stack because it intentionally runs with development cookie/runtime settings.
+  - The local preflight helper also marks browser regression as blocked because it does not ingest separately run Playwright evidence; focused mobile and homelab browser regressions were run manually above.
+  - Backend dependency audit still reports two moderate production findings; no high or critical findings were introduced locally.
+- What remains in the milestone: nothing; `3.4.22` is closed.
+- Recommended commit message: `Release 3.4.22 mobile photo upload source selection and explicit camera controls`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

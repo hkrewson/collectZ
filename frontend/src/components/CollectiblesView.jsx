@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CameraCaptureModal, CheckboxControl, CollectionPaginationFooter, Icons, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
+import { CheckboxControl, CollectionPaginationFooter, CoverImagePicker, Icons, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
 
 const CATEGORY_OPTIONS = [
   { key: 'lego', label: 'Lego' },
@@ -297,7 +297,6 @@ function CollectibleDrawer({
     booth: initial?.booth || ''
   }));
   const [imageFile, setImageFile] = useState(null);
-  const [cameraOpen, setCameraOpen] = useState(false);
   const collectibleTabs = useMemo(() => ([
     { id: 'core', label: 'Core Details' },
     { id: 'storage', label: 'Storage & Notes' }
@@ -355,6 +354,16 @@ function CollectibleDrawer({
 
             <SectionTabPanel activeId={activeTab} tabKey="core" idBase="collectible-editor-steps">
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <CoverImagePicker
+                  className="md:col-span-2 max-w-[8.5rem]"
+                  label="Item image"
+                  imagePath={form.image_path || ''}
+                  selectedFile={imageFile}
+                  emptyLabel="Add image"
+                  replaceLabel="Replace image"
+                  onSelectFile={setImageFile}
+                  onRemove={initial?.id ? onClearImage : undefined}
+                />
                 <label className="field"><span className="label">Title *</span><input className="input" value={form.title || ''} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} /></label>
                 <label className="field"><span className="label">Series</span><input className="input" value={form.series || ''} onChange={(e) => setForm((p) => ({ ...p, series: e.target.value }))} /></label>
                 <label className="field"><span className="label">Fandom / Franchise</span><input className="input" value={form.franchise || ''} onChange={(e) => setForm((p) => ({ ...p, franchise: e.target.value }))} /></label>
@@ -394,17 +403,6 @@ function CollectibleDrawer({
             <SectionTabPanel activeId={activeTab} tabKey="storage" idBase="collectible-editor-steps">
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <label className="field md:col-span-2"><span className="label">Image URL (optional)</span><input className="input" value={form.image_path || ''} onChange={(e) => setForm((p) => ({ ...p, image_path: e.target.value }))} /></label>
-                <label className="field md:col-span-2"><span className="label">Upload/Capture image</span><input className="input" type="file" accept="image/*" capture="environment" onChange={(e) => setImageFile(e.target.files?.[0] || null)} /></label>
-                <div className="md:col-span-2 flex items-center gap-2">
-                  <button type="button" onClick={() => setCameraOpen(true)} className="btn-secondary btn-sm"><Icons.Camera />Camera</button>
-                </div>
-                {imageFile ? <p className="text-xs text-ghost md:col-span-2">Selected file: {imageFile.name}</p> : null}
-                {form.image_path ? (
-                  <div className="md:col-span-2 flex items-center gap-2">
-                    <a className="btn-ghost btn-sm" href={form.image_path} target="_blank" rel="noreferrer"><Icons.Link />Open image</a>
-                    <button className="btn-ghost btn-sm" onClick={onClearImage}><Icons.X />Remove image</button>
-                  </div>
-                ) : null}
                 <label className="field md:col-span-2"><span className="label">Notes</span><textarea className="textarea min-h-[90px]" value={form.notes || ''} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} /></label>
               </div>
             </SectionTabPanel>
@@ -418,16 +416,6 @@ function CollectibleDrawer({
             {saving ? <><Spinner size={14} />Saving…</> : <><Icons.Check />Save</>}
           </button>
         </div>
-        <CameraCaptureModal
-          open={cameraOpen}
-          title={viewConfig.cameraTitle}
-          description={viewConfig.cameraDescription}
-          confirmLabel={viewConfig.cameraConfirmLabel}
-          onClose={() => setCameraOpen(false)}
-          onCapture={async (file) => {
-            setImageFile(file);
-          }}
-        />
       </div>
     </div>
   );

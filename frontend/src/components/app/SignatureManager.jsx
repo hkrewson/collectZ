@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Icons, Spinner, cx, posterUrl } from './AppPrimitives';
+import { Icons, ImageSourceControl, Spinner, cx, posterUrl } from './AppPrimitives';
 
 const EMPTY_SIGNATURE = {
   signer_name: '',
@@ -395,13 +395,15 @@ export default function SignatureManager({
                       ) : signature.proof_path ? (
                         <a className="mt-1 inline-flex items-center gap-1.5 text-xs text-dim hover:text-ink" href={posterUrl(signature.proof_path)} target="_blank" rel="noreferrer"><Icons.Link />Open proof</a>
                       ) : null}
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          capture="environment"
-                          onChange={(event) => setProofFile(signature.id, event.target.files?.[0] || null)}
-                          className="block max-w-[18rem] text-xs text-ghost file:btn-secondary file:btn-sm file:border-0 file:mr-3"
+                      <div className="mt-2 flex flex-wrap items-end gap-2">
+                        <ImageSourceControl
+                          className="min-w-[16rem]"
+                          label="Add proof image"
+                          selectedFile={proofFiles[signature.id]}
+                          selectedLabel="Selected proof"
+                          chooseLabel="Choose from Library"
+                          onChooseFile={(file) => setProofFile(signature.id, file)}
+                          onCameraFile={(file) => setProofFile(signature.id, file)}
                         />
                         <button type="button" className="btn-secondary btn-sm" disabled={Boolean(busy) || !proofFiles[signature.id]} onClick={() => uploadProof(signature.id)}>
                           {busy === `proof:${signature.id}` ? <><Spinner size={14} />Uploading…</> : <><Icons.Upload />Add proof</>}

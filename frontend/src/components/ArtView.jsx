@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CameraCaptureModal, CheckboxControl, CollectionPaginationFooter, Icons, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
+import { CheckboxControl, CollectionPaginationFooter, CoverImagePicker, Icons, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
 import SignatureManager from './app/SignatureManager';
 
 const ART_MEDIUM_OPTIONS = [
@@ -379,9 +379,8 @@ function ArtDrawer({ initial, events, saving, error, notice, apiCall, onClose, o
   const [imageFile, setImageFile] = useState(null);
   const [proofFile, setProofFile] = useState(null);
   const [proofWorking, setProofWorking] = useState(false);
-  const [cameraOpen, setCameraOpen] = useState(false);
   const tabs = useMemo(() => ([
-    { id: 'core', label: 'Artwork' },
+    { id: 'core', label: 'Core Details' },
     { id: 'signatures', label: 'Signatures' },
     { id: 'notes', label: 'Image & Notes' }
   ]), []);
@@ -486,6 +485,16 @@ function ArtDrawer({ initial, events, saving, error, notice, apiCall, onClose, o
           <div className="space-y-4 border-t border-edge/60 pt-3">
             <SectionTabPanel activeId={activeTab} tabKey="core" idBase="art-editor-steps">
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <CoverImagePicker
+                  className="md:col-span-2 max-w-[8.5rem]"
+                  label="Artwork image"
+                  imagePath={form.image_path || ''}
+                  selectedFile={imageFile}
+                  emptyLabel="Add image"
+                  replaceLabel="Replace image"
+                  onSelectFile={setImageFile}
+                  onRemove={initial?.id ? onClearImage : undefined}
+                />
                 <label className="field"><span className="label">Title *</span><input className="input" value={form.title || ''} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} /></label>
                 <label className="field"><span className="label">Series</span><input className="input" value={form.series || ''} onChange={(e) => setForm((p) => ({ ...p, series: e.target.value }))} /></label>
                 <label className="field"><span className="label">Fandom / Franchise</span><input className="input" value={form.franchise || ''} onChange={(e) => setForm((p) => ({ ...p, franchise: e.target.value }))} /></label>
@@ -555,17 +564,6 @@ function ArtDrawer({ initial, events, saving, error, notice, apiCall, onClose, o
             <SectionTabPanel activeId={activeTab} tabKey="notes" idBase="art-editor-steps">
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <label className="field md:col-span-2"><span className="label">Image URL (optional)</span><input className="input" value={form.image_path || ''} onChange={(e) => setForm((p) => ({ ...p, image_path: e.target.value }))} /></label>
-                <label className="field md:col-span-2"><span className="label">Upload/Capture image</span><input className="input" type="file" accept="image/*" capture="environment" onChange={(e) => setImageFile(e.target.files?.[0] || null)} /></label>
-                <div className="md:col-span-2 flex items-center gap-2">
-                  <button type="button" onClick={() => setCameraOpen(true)} className="btn-secondary btn-sm"><Icons.Camera />Camera</button>
-                </div>
-                {imageFile ? <p className="text-xs text-ghost md:col-span-2">Selected file: {imageFile.name}</p> : null}
-                {form.image_path ? (
-                  <div className="md:col-span-2 flex items-center gap-2">
-                    <a className="btn-ghost btn-sm" href={form.image_path} target="_blank" rel="noreferrer"><Icons.Link />Open image</a>
-                    <button className="btn-ghost btn-sm" onClick={onClearImage}><Icons.X />Remove image</button>
-                  </div>
-                ) : null}
                 <label className="field md:col-span-2"><span className="label">Notes</span><textarea className="textarea min-h-[90px]" value={form.notes || ''} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} /></label>
               </div>
             </SectionTabPanel>
@@ -579,14 +577,6 @@ function ArtDrawer({ initial, events, saving, error, notice, apiCall, onClose, o
             {saving ? <><Spinner size={14} />Saving…</> : <><Icons.Check />Save</>}
           </button>
         </div>
-        <CameraCaptureModal
-          open={cameraOpen}
-          title="Capture art image"
-          description="Capture an art image and attach it directly to this piece."
-          confirmLabel="Use art image"
-          onClose={() => setCameraOpen(false)}
-          onCapture={async (file) => setImageFile(file)}
-        />
       </div>
     </div>
   );
