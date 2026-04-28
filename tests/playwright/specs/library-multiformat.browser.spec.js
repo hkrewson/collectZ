@@ -237,6 +237,49 @@ test.describe('library multi-format browser regressions', () => {
     }
   });
 
+  test('media detail uses cover art as the header backdrop when no backdrop exists', async ({ page }) => {
+    const credentials = await createFreshUserCredentials();
+    const requestContext = await createAuthenticatedRequestContext(credentials);
+    const title = `Playwright Cover Backdrop ${Date.now()}`;
+
+    await deleteMediaByExactTitle(requestContext, title).catch(() => {});
+
+    try {
+      await postWithCsrf(requestContext, '/api/media', {
+        title,
+        media_type: 'comic_book',
+        format: 'Comic Book',
+        owned_formats: ['paper'],
+        poster_path: '/uploads/playwright-cover-backdrop.png',
+        backdrop_path: ''
+      }, 201);
+
+      const storageState = await requestContext.storageState();
+      await page.context().addCookies(storageState.cookies || []);
+      await page.goto('/dashboard?tab=library-comics');
+
+      await page.getByPlaceholder('Search title, director…').fill(title);
+      const resultCard = page.locator('article').filter({
+        has: page.getByText(title, { exact: true })
+      }).first();
+      await expect(resultCard).toBeVisible();
+      await resultCard.locator('.poster').click();
+
+      await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
+      const headerBackdrop = page.getByTestId('media-detail-backdrop');
+      await expect(headerBackdrop).toBeVisible();
+      await expect(headerBackdrop.locator('img')).toHaveAttribute('src', /playwright-cover-backdrop\.png/);
+
+      const backdropBox = await headerBackdrop.boundingBox();
+      const posterBox = await page.locator('.poster').last().boundingBox();
+      expect(backdropBox?.height).toBeGreaterThan(150);
+      expect(posterBox?.y).toBeGreaterThan(backdropBox?.y || 0);
+    } finally {
+      await deleteMediaByExactTitle(requestContext, title).catch(() => {});
+      await requestContext.dispose();
+    }
+  });
+
   test('poster cards stay browse-first and open detail without inline action chrome', async ({ page }) => {
     const credentials = await createFreshUserCredentials();
     const requestContext = await createAuthenticatedRequestContext(credentials);

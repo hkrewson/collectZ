@@ -5489,6 +5489,59 @@ Historical note:
 - What remains in the milestone: nothing; `3.4.22` is closed.
 - Recommended commit message: `Release 3.4.22 mobile photo upload source selection and explicit camera controls`
 
+## 3.4.23 — Detail Drawer Cover Backdrop Spacing
+
+**Goal:** Make media detail drawers use a stable movie-style header band even when items only have cover art and no separate backdrop image.
+
+**Current Slice:** `Closed 2026-04-27`
+
+### Scope
+
+- Fix Audio, Books, Comics, Games, Movies, and TV detail drawers so foreground cover art is not pulled into the top edge when no backdrop exists.
+- Reuse the item cover/poster as the cropped header backdrop when `backdrop_path` is unavailable.
+- Preserve the existing movie drawer layout when a real backdrop exists.
+- Add a focused source regression guard for the fallback header behavior.
+
+### Acceptance Criteria
+
+- Media detail drawers always reserve header space before the foreground cover preview.
+- Items without TMDB-style backdrops still have a header image area using their cover/poster art.
+- Existing movie/TV backdrop behavior remains intact.
+- The patch is verified through the Docker-first frontend/backend stack and release metadata is aligned.
+
+### Closeout Notes
+
+- Roadmap slice: `3.4.23 — Detail Drawer Cover Backdrop Spacing`.
+- Project docs/checklists used:
+  - `AGENTS.md`
+  - `docs/wiki/07-Release-Roadmap.md`
+  - `docs/wiki/10-CI-CD-and-Registry-Deploy.md`
+  - `docs/wiki/17-Release-Go-No-Go-Checklist.md`
+- Runtime verification used Docker-first evidence from the generated public compose plus temporary `.ci` source override:
+  - default frontend/backend images rebuilt with `APP_VERSION=3.4.23`,
+  - `/api/health` reported `3.4.23` for app/frontend/backend metadata,
+  - Help > Releases served `3.4.23` as the latest entry.
+- CI/checks run locally:
+  - `docker compose --env-file .env config`
+  - `node scripts/validate-public-export-surface.js`
+  - `APP_VERSION=3.4.23 docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml up -d --build backend frontend`
+  - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T backend npm run test:unit`
+  - `PLAYWRIGHT_E2E_BYPASS_TOKEN=<redacted> PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 npm run test:browser -- tests/playwright/specs/library-multiformat.browser.spec.js -g "media detail uses cover art as the header backdrop"`
+  - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T -e BASE_URL=http://frontend:3000 -e EXPECTED_VERSION=3.4.23 backend npm run test:help-releases-smoke`
+- Release artifacts:
+  - `docs/releases/v3.4.23.md`
+  - regenerated `backend/release-feed.json`
+- Files changed:
+  - media detail drawer header fallback behavior,
+  - focused unit source assertion,
+  - focused browser regression for cover-as-backdrop detail drawers,
+  - version metadata, generated compose defaults, release note, release feed, and roadmap.
+- Risks or follow-ups:
+  - Tagged CI remains authoritative for `secret-scan`, `dependency-scan`, `image-security-and-sbom`, and full browser regression.
+  - Art, Collectibles, and Events already use uploaded images as header imagery when available; a later shared drawer-header primitive could reduce duplicate component markup.
+- What remains in the milestone: nothing; `3.4.23` is closed.
+- Recommended commit message: `Release 3.4.23 detail drawer cover backdrop spacing and media header fallback`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

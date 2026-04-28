@@ -1984,6 +1984,14 @@ results.push(run('LibraryView renders compact lookup thumbnails for provider sea
   assert.ok(libraryViewSource.includes("className=\"relative mt-0.5 h-16 w-11 shrink-0 overflow-hidden rounded-[4px] border border-edge/70 bg-panel\""));
 }));
 
+results.push(run('LibraryView keeps a detail header band when media items only have cover art', () => {
+  assert.ok(libraryViewSource.includes('const detailBackdropUrl = posterUrl(item.backdrop_path || item.poster_path);'));
+  assert.ok(libraryViewSource.includes('data-testid="media-detail-backdrop"'));
+  assert.ok(libraryViewSource.includes('className="relative h-48 shrink-0 overflow-hidden border-b border-edge/60 bg-panel"'));
+  assert.ok(libraryViewSource.includes('<img src={detailBackdropUrl} alt="" className="w-full h-full object-cover" />'));
+  assert.ok(!libraryViewSource.includes('{posterUrl(item.backdrop_path) && ('));
+}));
+
 results.push(run('repo includes local release preflight helper coverage for dependency audits and go-no-go reporting', () => {
   assert.ok(backendPackageJson.scripts['test:release-preflight-local']);
   assert.ok(releasePreflightLocalSource.includes("artifacts', 'dependency-audit'"));

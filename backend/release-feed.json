@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v3.4.23",
+      "version": "3.4.23",
+      "date": "2026-04-27",
+      "status": "Completed",
+      "summary": "This release fixes clipped cover art in media detail drawers by giving every media drawer the same header breathing room that movie drawers already had.",
+      "details": []
+    },
+    {
       "title": "v3.4.22",
       "version": "3.4.22",
       "date": "2026-04-27",
@@ -70,14 +78,6 @@
       "date": "2026-04-27",
       "status": "Completed",
       "summary": "This release lets native Art records track physical artwork dimensions and framed status as first-class Art metadata, keeping those fields out of Collectibles while preserving event purchase linking.",
-      "details": []
-    },
-    {
-      "title": "v3.4.13",
-      "version": "3.4.13",
-      "date": "2026-04-26",
-      "status": "Completed",
-      "summary": "This release lets Art and media records carry multiple shared signature provenance records while preserving the existing single-primary compatibility fields used by older forms, imports, and title endpoints.",
       "details": []
     }
   ]
