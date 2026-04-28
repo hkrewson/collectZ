@@ -5833,6 +5833,64 @@ Historical note:
 - What remains in the milestone: nothing; `3.4.28` is closed.
 - Recommended commit message: `Release 3.4.28 TMDB rate-limit investigation and lookup request reduction`
 
+## 3.4.29 — Collectibles Naming Review
+
+**Goal:** Decide whether the Collectibles library should keep its current name after Art promotion and fandom/franchise metadata, without changing product copy in this slice.
+
+**Current Slice:** `Closed 2026-04-27`
+
+### Scope
+
+- Compare `Collectibles` against alternatives such as `Fandom` without renaming the product surface.
+- Evaluate whether `Fandom / Franchise` metadata solves the naming pressure better than a library rename.
+- Document downstream effects of any future rename on navigation, API copy, docs, imports, and Event purchase linking.
+- Keep the current Collectibles object-category boundary stable.
+
+### Acceptance Criteria
+
+- The team has an explicit decision record for keeping or renaming Collectibles.
+- Any future rename has a migration/product-copy checklist before implementation.
+- The current Collectibles object-category boundary stays stable unless a later milestone intentionally changes it.
+- Version metadata and Help > Releases are aligned to `3.4.29`.
+
+### Closeout Notes
+
+- Roadmap slice: `3.4.29 — Collectibles Naming Review`.
+- Decision: keep `Collectibles` as the library name for now; keep `Fandom / Franchise` as shared metadata for Art and Collectibles rather than renaming the library to `Fandom`.
+- Project docs/checklists used:
+  - `AGENTS.md`
+  - `docs/wiki/07-Release-Roadmap.md`
+  - `docs/wiki/08-Backlog.md`
+  - `docs/wiki/10-CI-CD-and-Registry-Deploy.md`
+  - `docs/wiki/17-Release-Go-No-Go-Checklist.md`
+- Runtime verification used Docker-first evidence from the generated public compose plus temporary `.ci` source override:
+  - default frontend/backend images rebuilt with `APP_VERSION=3.4.29`,
+  - `/api/health` reported `3.4.29` for app/frontend/backend metadata,
+  - Help > Releases served `3.4.29` as the latest entry.
+- CI/checks run locally:
+  - `docker compose --env-file .env config`
+  - `node scripts/validate-public-export-surface.js`
+  - `APP_VERSION=3.4.29 docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml up -d --build backend frontend`
+  - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T backend npm run test:unit`
+  - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T backend npm run test:openapi`
+  - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T -e BASE_URL=http://frontend:3000 -e EXPECTED_VERSION=3.4.29 backend npm run test:help-releases-smoke`
+  - `git diff --check`
+  - fixed-token grep across the new release note, decision doc, roadmap, and release feed
+- Release artifacts:
+  - `docs/releases/v3.4.29.md`
+  - `docs/wiki/39-Collectibles-Naming-Decision.md`
+  - regenerated `backend/release-feed.json`
+- Files changed:
+  - Collectibles naming decision record,
+  - unit source assertion for the decision record,
+  - version metadata, generated compose defaults, release note, release feed, roadmap, and backlog plan.
+- Risks or follow-ups:
+  - Tagged CI remains authoritative for `secret-scan`, `dependency-scan`, `image-security-and-sbom`, `rbac-regression`, full `browser-regression`, `homelab-edition-boundary`, and `platform-edition-boundary`.
+  - A future rename remains possible only if real usage shows `Collectibles` is consistently misunderstood after the Art and fandom/franchise changes settle.
+  - This slice intentionally does not add route aliases, API renames, controlled fandom vocabularies, or product-copy changes.
+- What remains in the milestone: nothing; `3.4.29` is closed.
+- Recommended commit message: `Release 3.4.29 Collectibles naming decision and future rename checklist`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

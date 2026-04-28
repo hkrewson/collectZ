@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v3.4.29",
+      "version": "3.4.29",
+      "date": "2026-04-27",
+      "status": "Completed",
+      "summary": "This release records the naming decision for Collectibles after the Art promotion, taxonomy cleanup, and shared `Fandom / Franchise` metadata work.",
+      "details": []
+    },
+    {
       "title": "v3.4.28",
       "version": "3.4.28",
       "date": "2026-04-27",
@@ -70,14 +78,6 @@
       "date": "2026-04-27",
       "status": "Completed",
       "summary": "This release makes the public deployment path homelab-first. The repository now exposes one generated root `docker-compose.yml` for public homelab deployments, defaults the backend runtime to homelab when no private edition is explicitly configured, and moves private platform stack behavior behind untracked local/CI overrides.",
-      "details": []
-    },
-    {
-      "title": "v3.4.19",
-      "version": "3.4.19",
-      "date": "2026-04-27",
-      "status": "Completed",
-      "summary": "This release makes signature proof evidence more descriptive. Art and media signature proofs can now store an evidence type, short label, and notes per proof image, while the shared multi-proof signature model and legacy primary proof projection remain compatible.",
       "details": []
     }
   ]

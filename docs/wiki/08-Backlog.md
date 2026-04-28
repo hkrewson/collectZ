@@ -20,7 +20,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 2. `Shared Detail Drawer Shell Primitive` and `Mobile Drawer Density Audit and Follow-up` were promoted together as `3.4.26`; continue with image/proof parity next.
 3. `Image and Proof Control Language Parity` was promoted as `3.4.27`; finish that parity pass before moving to API/provider search work.
 4. `TMDB Rate-Limit Investigation and Search Optimization` was promoted as `3.4.28`; keep remaining naming/social items separate after this provider/search slice.
-5. Keep `Collectibles Naming Review` separate as a product-language decision, ideally after fandom/franchise metadata has more real usage.
+5. `Collectibles Naming Review` was promoted as `3.4.29`; keep the current Collectibles name unless a later milestone intentionally revisits it.
 6. Treat `Event Social Planning Mobile Web Experience` as a larger future product milestone that benefits from the drawer/mobile cleanup but should not be bundled with it.
 
 ### Backlog Item: Apple Platform App Contract Publishing
@@ -156,22 +156,6 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - Update cadence can be described and configured for Plex, Calibre, and Metron sources.
 - Plex import uses the actual API path.
 - New-title checks, watch-status checks, and webhooks are all represented in the import design.
-
-### Backlog Item: Collectibles Naming Review
-**Type:** Discussion
-**Tags:** `collectibles`, `naming`, `taxonomy`, `fandom`
-
-**Goal:** Revisit whether the Collectibles library name still communicates the right boundary after Art promotion and taxonomy cleanup.
-
-**Scope**
-- Compare `Collectibles` against alternatives such as `Fandom` without changing product copy in this task.
-- Evaluate whether a future fandom/franchise metadata field solves the naming pressure better than a library rename.
-- Identify downstream effects of any rename on navigation, API copy, docs, imports, and user expectations.
-
-**Acceptance Criteria**
-- The team has an explicit decision record for keeping or renaming Collectibles.
-- Any future rename has a migration/product-copy checklist before implementation.
-- The current Collectibles object-category boundary stays stable unless a later milestone intentionally changes it.
 
 ### Backlog Item: Now Playing Viewer
 **Type:** Task

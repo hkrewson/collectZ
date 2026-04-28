@@ -170,6 +170,7 @@ const dockerComposeSource = fs.readFileSync(require.resolve('../../docker-compos
 const publicComposeGeneratorSource = fs.readFileSync(require.resolve('../../scripts/generate-public-compose'), 'utf8');
 const publicExportValidatorSource = fs.readFileSync(require.resolve('../../scripts/validate-public-export-surface'), 'utf8');
 const releaseRoadmapSource = fs.readFileSync(require.resolve('../../docs/wiki/07-Release-Roadmap.md'), 'utf8');
+const collectiblesNamingDecisionSource = fs.readFileSync(require.resolve('../../docs/wiki/39-Collectibles-Naming-Decision.md'), 'utf8');
 const releaseNotesDir = path.resolve(__dirname, '..', '..', 'docs', 'releases');
 const releaseDocsSource = fs.readdirSync(releaseNotesDir)
   .filter((name) => name.endsWith('.md'))
@@ -3652,6 +3653,14 @@ results.push(run('fandom franchise metadata is shared by Art and Collectibles wi
   assert.ok(collectiblesViewSource.includes('Fandom / Franchise'));
   assert.ok(eventsViewSource.includes('candidate.franchise'));
   assert.ok(openApiSource.includes('"franchise"'));
+}));
+
+results.push(run('collectibles naming decision keeps fandom as metadata instead of a library rename', () => {
+  assert.ok(collectiblesNamingDecisionSource.includes('Keep the library name `Collectibles` for now.'));
+  assert.ok(collectiblesNamingDecisionSource.includes('Do not rename the library to `Fandom`'));
+  assert.ok(collectiblesNamingDecisionSource.includes('`Fandom / Franchise` is metadata, not taxonomy.'));
+  assert.ok(collectiblesNamingDecisionSource.includes('Future Rename Checklist'));
+  assert.ok(releaseRoadmapSource.includes('3.4.29 — Collectibles Naming Review'));
 }));
 
 results.push(run('mobile image upload controls use the media-style cover picker on primary edit screens', () => {
