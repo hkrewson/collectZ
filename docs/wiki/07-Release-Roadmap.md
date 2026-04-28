@@ -5706,6 +5706,68 @@ Historical note:
 - What remains in the milestone: nothing; `3.4.26` is closed.
 - Recommended commit message: `Release 3.4.26 shared detail drawer shell and mobile density cleanup`
 
+## 3.4.27 — Image and Proof Control Language Parity
+
+**Goal:** Align image and proof action language across covers, event artifact images, and signature proof images so users do not have to relearn upload/remove/open behavior by drawer type.
+
+**Current Slice:** `Closed 2026-04-27`
+
+### Scope
+
+- Audit image controls across Media, Art, Collectibles, Events, event artifacts, and signature proofs.
+- Standardize action labels such as `Choose from Library`, `Take Photo`, `Replace image`, `Remove image`, `Open image`, and proof-specific equivalents where they apply.
+- Preserve existing upload endpoints, stored paths, and proof/image persistence behavior.
+- Clarify when a selected replacement makes existing open/remove actions unnecessary in the current edit session.
+- Add focused source assertions for shared image/proof control language.
+
+### Acceptance Criteria
+
+- Similar image/proof tasks use similar labels and control order across the app.
+- Mobile source selection remains explicit and does not force camera capture when choosing from the photo library.
+- Existing proof/image upload and remove flows continue to work.
+- A focused source assertion covers shared image/proof control behavior.
+- Version metadata and Help > Releases are aligned to `3.4.27`.
+
+### Closeout Notes
+
+- Roadmap slice: `3.4.27 — Image and Proof Control Language Parity`.
+- Project docs/checklists used:
+  - `AGENTS.md`
+  - `docs/wiki/07-Release-Roadmap.md`
+  - `docs/wiki/08-Backlog.md`
+  - `docs/wiki/10-CI-CD-and-Registry-Deploy.md`
+  - `docs/wiki/17-Release-Go-No-Go-Checklist.md`
+- Runtime verification used Docker-first evidence from the generated public compose plus temporary `.ci` source override:
+  - default frontend/backend images rebuilt with `APP_VERSION=3.4.27`,
+  - `/api/health` reported `3.4.27` for app/frontend/backend metadata,
+  - Help > Releases served `3.4.27` as the latest entry.
+- CI/checks run locally:
+  - `docker compose --env-file .env config`
+  - `node scripts/validate-public-export-surface.js`
+  - `APP_VERSION=3.4.27 docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml up -d --build backend frontend`
+  - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T backend npm run test:unit`
+  - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T backend npm run test:openapi`
+  - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T -e BASE_URL=http://frontend:3000 -e EXPECTED_VERSION=3.4.27 backend npm run test:help-releases-smoke`
+  - `git diff --check`
+  - fixed-token grep across the new release note, roadmap, release feed, and Playwright artifacts
+- Browser regression note:
+  - A focused Playwright event-artifact test was attempted with a redacted bypass token, but it stopped before the UI assertion because `/api/admin/feature-flags` returned `403` on the default stack.
+  - Local source/unit assertions cover this slice's image/proof language behavior; tagged CI remains authoritative for the full `browser-regression` gate.
+- Release artifacts:
+  - `docs/releases/v3.4.27.md`
+  - regenerated `backend/release-feed.json`
+- Files changed:
+  - event artifact image action labels and pending-replacement hiding,
+  - media cover image helper/action copy,
+  - shared signature proof picker/list action copy,
+  - focused unit source assertions,
+  - version metadata, generated compose defaults, release note, release feed, roadmap, and backlog plan.
+- Risks or follow-ups:
+  - Tagged CI remains authoritative for `secret-scan`, `dependency-scan`, `image-security-and-sbom`, `rbac-regression`, `browser-regression`, `homelab-edition-boundary`, and `platform-edition-boundary`.
+  - This release does not change upload endpoints or proof storage; a later edit-drawer pass can decide whether media cover picking should move fully onto the shared `CoverImagePicker` primitive.
+- What remains in the milestone: nothing; `3.4.27` is closed.
+- Recommended commit message: `Release 3.4.27 image and proof control language parity`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

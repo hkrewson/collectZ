@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v3.4.27",
+      "version": "3.4.27",
+      "date": "2026-04-27",
+      "status": "Completed",
+      "summary": "This release tightens image and proof control language across drawer surfaces so cover images, event artifact images, and signature proof images use the same action vocabulary.",
+      "details": []
+    },
+    {
       "title": "v3.4.26",
       "version": "3.4.26",
       "date": "2026-04-27",
@@ -70,14 +78,6 @@
       "date": "2026-04-27",
       "status": "Completed",
       "summary": "This release lets shared Art and media signature records keep multiple proof images. Existing single-proof compatibility fields remain intact, so older clients can continue reading `proof_path`, `signature_proof_path`, and `signed_proof_path` while newer drawer UI can manage proof evidence as a list.",
-      "details": []
-    },
-    {
-      "title": "v3.4.17",
-      "version": "3.4.17",
-      "date": "2026-04-27",
-      "status": "Completed",
-      "summary": "This release adds explicit unit metadata to native Art dimensions. Art height and width can now carry inches or centimeters without changing the existing numeric dimension fields or converting existing records.",
       "details": []
     }
   ]

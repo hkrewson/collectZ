@@ -527,7 +527,7 @@ function EventArtifactsEditor({ eventId, apiCall, onSaved }) {
                 />
               ) : null}
             </div>
-            {artifact.image_path ? (
+            {artifact.image_path && !(editingArtifactId === artifact.id && artifactFile) ? (
               <a
                 className="btn-ghost btn-sm"
                 href={artifact.image_path}
@@ -536,22 +536,22 @@ function EventArtifactsEditor({ eventId, apiCall, onSaved }) {
                 onClick={(e) => e.stopPropagation()}
                 aria-label={`Open image for ${artifact.title}`}
               >
-                <Icons.Link />
+                <Icons.Link />Open image
               </a>
             ) : null}
-            {artifactEditorOpen && artifact.image_path ? (
+            {artifactEditorOpen && artifact.image_path && !(editingArtifactId === artifact.id && artifactFile) ? (
               <button className="btn-ghost btn-sm" onClick={() => removeArtifactImage(artifact)} aria-label={`Remove image from ${artifact.title}`}>
-                <Icons.X />
+                <Icons.X />Remove image
               </button>
             ) : null}
             {artifactEditorOpen ? (
               <button className="btn-ghost btn-sm" onClick={() => editArtifact(artifact)} aria-label={`Edit ${artifact.title}`}>
-                <Icons.Edit />
+                <Icons.Edit />Edit
               </button>
             ) : null}
             {artifactEditorOpen ? (
               <button className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={() => removeArtifact(artifact.id)} aria-label={`Delete ${artifact.title}`}>
-                <Icons.Trash />
+                <Icons.Trash />Delete
               </button>
             ) : null}
           </div>
@@ -623,6 +623,9 @@ function EventArtifactsEditor({ eventId, apiCall, onSaved }) {
               className="md:col-span-2"
               label="Artifact image"
               selectedFile={artifactFile}
+              selectedLabel="Selected image"
+              chooseLabel="Choose from Library"
+              cameraLabel="Take Photo"
               onChooseFile={setArtifactFile}
               onCameraFile={setArtifactFile}
             />

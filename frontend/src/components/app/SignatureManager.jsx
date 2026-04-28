@@ -343,9 +343,10 @@ export default function SignatureManager({
                               <div className="flex flex-wrap items-start justify-between gap-2 text-xs">
                                 <div className="min-w-0">
                                   <a className="inline-flex min-w-0 items-center gap-1.5 text-dim hover:text-ink" href={posterUrl(proof.proof_path)} target="_blank" rel="noreferrer">
-                                    <Icons.Link />{proofTitle(proof, index)}
+                                    <Icons.Link />Open proof
                                   </a>
                                   <div className="mt-1 flex flex-wrap items-center gap-2 text-ghost">
+                                    <span>{proofTitle(proof, index)}</span>
                                     {proof.is_primary ? <span>Primary</span> : null}
                                     {proof.proof_type ? <span>{proofTitle({ proof_type: proof.proof_type }, index)}</span> : null}
                                     {proof.original_filename ? <span>{proof.original_filename}</span> : null}
@@ -370,7 +371,7 @@ export default function SignatureManager({
                                     disabled={Boolean(busy) || !proof.id}
                                     onClick={() => removeProof(signature.id, proof.id)}
                                   >
-                                    <Icons.Trash />Remove
+                                    <Icons.Trash />Remove proof
                                   </button>
                                 </div>
                               </div>
@@ -398,21 +399,21 @@ export default function SignatureManager({
                       <div className="mt-2 flex flex-wrap items-end gap-2">
                         <ImageSourceControl
                           className="min-w-[16rem]"
-                          label="Add proof image"
+                          label="Proof image"
                           selectedFile={proofFiles[signature.id]}
-                          selectedLabel="Selected proof"
+                          selectedLabel="Selected proof image"
                           chooseLabel="Choose from Library"
                           onChooseFile={(file) => setProofFile(signature.id, file)}
                           onCameraFile={(file) => setProofFile(signature.id, file)}
                         />
                         <button type="button" className="btn-secondary btn-sm" disabled={Boolean(busy) || !proofFiles[signature.id]} onClick={() => uploadProof(signature.id)}>
-                          {busy === `proof:${signature.id}` ? <><Spinner size={14} />Uploading…</> : <><Icons.Upload />Add proof</>}
+                          {busy === `proof:${signature.id}` ? <><Spinner size={14} />Uploading…</> : <><Icons.Upload />Add proof image</>}
                         </button>
-                        <button type="button" className="btn-ghost btn-sm text-err" disabled={Boolean(busy) || !signature.proof_path} onClick={() => removeProof(signature.id)}><Icons.Trash />Remove primary proof</button>
+                        <button type="button" className="btn-ghost btn-sm text-err" disabled={Boolean(busy) || !signature.proof_path} onClick={() => removeProof(signature.id)}><Icons.Trash />Remove proof</button>
                       </div>
                       {proofFiles[signature.id] ? (
                         <div className="mt-2 space-y-2 rounded-lg border border-edge/70 bg-void/30 p-2">
-                          <p className="text-xs text-ghost">Selected proof: {proofFiles[signature.id].name}</p>
+                          <p className="text-xs text-ghost">Selected proof image: {proofFiles[signature.id].name}</p>
                           <ProofMetadataFields
                             draft={proofMetadata[signature.id] || EMPTY_PROOF_METADATA}
                             idPrefix={`proof-new-${signature.id}`}

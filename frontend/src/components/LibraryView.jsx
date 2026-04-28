@@ -3264,13 +3264,13 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
                           ? <img src={posterUrl(form.poster_path)} alt="poster" className="absolute inset-0 w-full h-full object-cover" />
                           : <div className="absolute inset-0 flex items-center justify-center text-ghost"><Icons.Film /></div>}
                         <div className="absolute inset-x-0 bottom-0 border-t border-edge bg-panel/95 p-3">
-                          <p className="text-sm font-medium text-ink">{form.poster_path ? 'Replace' : 'Add cover'}</p>
-                          {!form.poster_path ? <p className="text-[11px] leading-4 text-dim">Choose or take a photo</p> : null}
+                          <p className="text-sm font-medium text-ink">{form.poster_path ? 'Replace cover' : 'Add cover'}</p>
+                          {!form.poster_path ? <p className="text-[11px] leading-4 text-dim">Photo library, camera, or file</p> : null}
                         </div>
                       </button>
                       {form.poster_path ? (
                         <button type="button" onClick={() => set({ poster_path: '' })} disabled={coverUploadLoading} className="btn-secondary btn-sm w-full text-err">
-                          <Icons.Trash />Remove Cover
+                          <Icons.Trash />Remove cover
                         </button>
                       ) : null}
                     </div>

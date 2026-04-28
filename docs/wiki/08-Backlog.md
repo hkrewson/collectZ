@@ -18,7 +18,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 
 1. Promote and complete `Release Evidence Token Hygiene Cleanup` by redacting fixed Playwright token examples and adding a guard against reintroducing them.
 2. `Shared Detail Drawer Shell Primitive` and `Mobile Drawer Density Audit and Follow-up` were promoted together as `3.4.26`; continue with image/proof parity next.
-3. Follow with `Image and Proof Control Language Parity` after drawer structure is steadier, since upload/proof controls live inside those same dense drawer surfaces.
+3. `Image and Proof Control Language Parity` was promoted as `3.4.27`; finish that parity pass before moving to API/provider search work.
 4. Keep `TMDB Rate-Limit Investigation and Search Optimization` separate from drawer work because it is provider/API behavior plus search UX, not layout cleanup.
 5. Keep `Collectibles Naming Review` separate as a product-language decision, ideally after fandom/franchise metadata has more real usage.
 6. Treat `Event Social Planning Mobile Web Experience` as a larger future product milestone that benefits from the drawer/mobile cleanup but should not be bundled with it.
@@ -508,26 +508,3 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - Stale/offline state is visible enough that users can trust what they are seeing.
 - Quick action retry/conflict behavior is defined explicitly for offline or weak-signal cases.
 - The cached packet includes schedule catalog, planned sessions, meetups, groups, people, and key locations for the active event.
-
-### Backlog Item: Image and Proof Control Language Parity
-**Type:** Task
-**Tags:** `frontend`, `ui`, `uploads`, `images`, `proofs`, `consistency`
-
-**Goal:** Align the copy, action hierarchy, and source-selection behavior for object images, event artifact images, and signature proof images.
-
-**Why this work exists**
-- Media, Art, Collectibles, and Events now have a more consistent cover/image flow.
-- Event artifact images and signature proof images still use slightly different controls, copy, and camera/file fallback behavior.
-- Users should not need to relearn image actions depending on whether an image is a cover, artifact, or proof.
-
-**Scope**
-- Audit image controls across Media, Art, Collectibles, Events, event artifacts, and signature proofs.
-- Standardize action labels such as choose from library, take photo, replace image, remove image, and open image where they apply.
-- Preserve existing upload endpoints and stored paths unless a separate backend task is needed.
-- Clarify when a selected replacement makes open/remove actions unnecessary in the current edit session.
-
-**Acceptance Criteria**
-- Similar image/proof tasks use similar labels and control order across the app.
-- Mobile source selection remains explicit and does not force camera capture when choosing from the photo library.
-- Existing proof/image upload and remove flows continue to work.
-- A focused browser or source assertion covers at least one shared image/proof control behavior.

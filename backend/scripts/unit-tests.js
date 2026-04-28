@@ -3662,7 +3662,7 @@ results.push(run('mobile image upload controls use the media-style cover picker 
   assert.ok(eventsViewSource.includes('CoverImagePicker'));
   assert.ok(eventsViewSource.includes('label="Artifact image"'));
   assert.ok(eventsViewSource.includes('label="Event image"'));
-  assert.ok(signatureManagerSource.includes('label="Add proof image"'));
+  assert.ok(signatureManagerSource.includes('label="Proof image"'));
   assert.ok(!artViewSource.includes('capture="environment"'));
   assert.ok(!collectiblesViewSource.includes('capture="environment"'));
   assert.ok(!eventsViewSource.includes('capture="environment"'));
@@ -3714,13 +3714,34 @@ results.push(run('shared signature proof attachments support Art upload removal 
   assert.ok(artViewSource.includes('Proof file upload and removal live on each signature record below'));
   assert.ok(libraryViewSource.includes('Proof file upload and removal live on each signature record below'));
   assert.ok(signatureManagerSource.includes('/proof'));
-  assert.ok(signatureManagerSource.includes('Add proof'));
-  assert.ok(signatureManagerSource.includes('Remove primary proof'));
+  assert.ok(signatureManagerSource.includes('Add proof image'));
+  assert.ok(signatureManagerSource.includes('Remove proof'));
   assert.ok(openApiSource.includes('"/api/art/{id}/upload-signature-proof"'));
   assert.ok(openApiSource.includes('"/api/art/{id}/signature-proof"'));
   assert.ok(openApiSource.includes('"/api/art/{id}/signatures/{signatureId}/proof"'));
   assert.ok(openApiSource.includes('"/api/media/{id}/signatures/{signatureId}/proof"'));
   assert.ok(openApiSource.includes('"SignatureProofResponse"'));
+}));
+
+results.push(run('image and proof controls share source language across drawer surfaces', () => {
+  assert.ok(appPrimitivesSource.includes("chooseLabel = 'Choose from Library'"));
+  assert.ok(appPrimitivesSource.includes("cameraLabel = 'Take Photo'"));
+  assert.ok(appPrimitivesSource.includes("replaceLabel = 'Replace image'"));
+  assert.ok(appPrimitivesSource.includes("removeLabel = 'Remove image'"));
+  assert.ok(libraryViewSource.includes('Replace cover'));
+  assert.ok(libraryViewSource.includes('Photo library, camera, or file'));
+  assert.ok(libraryViewSource.includes('Remove cover'));
+  assert.ok(!libraryViewSource.includes('Choose or take a photo'));
+  assert.ok(eventsViewSource.includes('Open image'));
+  assert.ok(eventsViewSource.includes('Remove image'));
+  assert.ok(eventsViewSource.includes('selectedLabel="Selected image"'));
+  assert.ok(eventsViewSource.includes('cameraLabel="Take Photo"'));
+  assert.ok(signatureManagerSource.includes('label="Proof image"'));
+  assert.ok(signatureManagerSource.includes('selectedLabel="Selected proof image"'));
+  assert.ok(signatureManagerSource.includes('Open proof'));
+  assert.ok(signatureManagerSource.includes('Add proof image'));
+  assert.ok(signatureManagerSource.includes('Remove proof'));
+  assert.ok(!signatureManagerSource.includes('Remove primary proof'));
 }));
 
 results.push(run('multi-proof signature evidence keeps shared proof arrays and compatibility projection wired', () => {
