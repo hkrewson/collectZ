@@ -17,7 +17,7 @@ This file is the staging area for work that has not yet been assigned a release 
 These tasks are intentionally ordered so quick hygiene work does not get buried under larger UI refactors.
 
 1. Promote and complete `Release Evidence Token Hygiene Cleanup` by redacting fixed Playwright token examples and adding a guard against reintroducing them.
-2. Pair `Shared Detail Drawer Shell Primitive` with `Mobile Drawer Density Audit and Follow-up` so shell consistency and phone-sized scroll behavior are evaluated together.
+2. `Shared Detail Drawer Shell Primitive` and `Mobile Drawer Density Audit and Follow-up` were promoted together as `3.4.26`; continue with image/proof parity next.
 3. Follow with `Image and Proof Control Language Parity` after drawer structure is steadier, since upload/proof controls live inside those same dense drawer surfaces.
 4. Keep `TMDB Rate-Limit Investigation and Search Optimization` separate from drawer work because it is provider/API behavior plus search UX, not layout cleanup.
 5. Keep `Collectibles Naming Review` separate as a product-language decision, ideally after fandom/franchise metadata has more real usage.
@@ -508,52 +508,6 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - Stale/offline state is visible enough that users can trust what they are seeing.
 - Quick action retry/conflict behavior is defined explicitly for offline or weak-signal cases.
 - The cached packet includes schedule catalog, planned sessions, meetups, groups, people, and key locations for the active event.
-
-### Backlog Item: Shared Detail Drawer Shell Primitive
-**Type:** Task
-**Tags:** `frontend`, `ui`, `drawer`, `cleanup`, `mobile`
-
-**Goal:** Consolidate repeated slide-over detail drawer shell markup after the backdrop primitive so close buttons, scroll regions, borders, footer spacing, and mobile behavior stay consistent across library surfaces.
-
-**Why this work exists**
-- `3.4.24` centralized the drawer backdrop image band, but each drawer still repeats its own fixed overlay, side panel, close action, divider, scroll body, and footer structure.
-- Repetition increases the chance that Media, Art, Collectibles, Events, and future schedule/social drawers drift in small but visible ways.
-
-**Scope**
-- Extract a shared detail drawer shell primitive for common overlay/panel behavior.
-- Preserve existing drawer visual language and avoid redesigning established content layouts.
-- Support common slots for backdrop/header, body, footer/actions, loading state, and close button placement.
-- Migrate one or more drawer families in a small rollback-safe pass, then expand if the primitive proves clean.
-- Keep mobile scroll behavior explicit and testable.
-
-**Acceptance Criteria**
-- At least Media, Art, Collectibles, and Events can share the same drawer shell wrapper without visual regressions.
-- Close behavior, border treatment, scroll-body sizing, and footer placement are consistent.
-- Focused browser or source assertions prevent a drawer from drifting back to a custom shell accidentally.
-- The primitive stays boring and product-aligned rather than introducing new decorative UI.
-
-### Backlog Item: Mobile Drawer Density Audit and Follow-up
-**Type:** Task
-**Tags:** `frontend`, `mobile`, `ui`, `drawers`, `audit`
-
-**Goal:** Audit dense mobile drawer views and make focused spacing/content-priority fixes where drawers become overly scrolly or hard to scan on phone-sized layouts.
-
-**Why this work exists**
-- Art has accumulated signatures, proofs, dimensions, event purchase context, image fields, notes, and status flags.
-- Media and Events have similar density pressure from loans, signatures, variants, artifacts, purchases, and notes.
-- Recent fixes improved specific drawers, but there has not been a cross-drawer mobile density pass.
-
-**Scope**
-- Review Media, Art, Collectibles, Events, and signature/proof-heavy drawers at common mobile viewport sizes.
-- Identify fields/actions that should collapse, group, move tabs, or use compact readback on mobile.
-- Fix only confirmed density problems rather than redesigning every drawer.
-- Add targeted browser coverage or screenshot evidence for at least the highest-risk mobile drawer.
-
-**Acceptance Criteria**
-- The audit identifies which drawer views are acceptable and which need follow-up.
-- Confirmed problem drawers receive small, focused layout fixes.
-- Mobile users can scan primary details and actions without excessive empty or repeated structure.
-- Desktop drawer behavior remains unchanged unless a shared fix improves both.
 
 ### Backlog Item: Image and Proof Control Language Parity
 **Type:** Task

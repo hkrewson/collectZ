@@ -2011,6 +2011,20 @@ results.push(run('LibraryView keeps a detail header band when media items only h
   assert.ok(!libraryViewSource.includes('{posterUrl(item.backdrop_path) && ('));
 }));
 
+results.push(run('detail drawers share the standard shell and mobile density spacing', () => {
+  const collectiblesViewSource = readFrontendSource(path.join('components', 'CollectiblesView'));
+  assert.ok(appPrimitivesSource.includes('export function DetailDrawerShell'));
+  assert.ok(appPrimitivesSource.includes("className=\"absolute inset-0 bg-void/72\""));
+  assert.ok(appPrimitivesSource.includes("'relative ml-auto h-full w-full bg-abyss border-l border-edge flex flex-col animate-slide-in'"));
+  assert.ok(libraryViewSource.includes('<DetailDrawerShell onClose={onClose} panelClassName={isBook ? \'max-w-2xl\' : \'max-w-xl\'} testId="media-detail-drawer">'));
+  assert.ok(artViewSource.includes('<DetailDrawerShell onClose={onClose} testId="art-detail-drawer">'));
+  assert.ok(collectiblesViewSource.includes('<DetailDrawerShell onClose={onClose} testId="collectible-detail-drawer">'));
+  assert.ok(eventsViewSource.includes('<DetailDrawerShell onClose={onClose} testId="event-detail-drawer">'));
+  assert.ok(libraryViewSource.includes('px-4 pt-4 pb-3 shrink-0 sm:px-6 sm:pt-6 sm:pb-4'));
+  assert.ok(collectiblesViewSource.includes('p-4 space-y-4 sm:p-6 sm:space-y-5'));
+  assert.ok(eventsViewSource.includes('p-4 space-y-4 sm:p-6 sm:space-y-5'));
+}));
+
 results.push(run('repo includes local release preflight helper coverage for dependency audits and go-no-go reporting', () => {
   assert.ok(backendPackageJson.scripts['test:release-preflight-local']);
   assert.ok(releasePreflightLocalSource.includes("artifacts', 'dependency-audit'"));

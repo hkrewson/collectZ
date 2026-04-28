@@ -56,6 +56,26 @@ export function DrawerBackdrop({
   );
 }
 
+export function DetailDrawerShell({
+  children,
+  onClose,
+  panelClassName = 'max-w-xl',
+  className = '',
+  testId
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex">
+      <div className="absolute inset-0 bg-void/72" onClick={onClose} />
+      <div
+        className={cx('relative ml-auto h-full w-full bg-abyss border-l border-edge flex flex-col animate-slide-in', panelClassName, className)}
+        data-testid={testId}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export function CheckboxControl({ checked, children, id, labelClassName = '', onChange }) {
   const fallbackId = useId();
   const inputId = id || fallbackId;

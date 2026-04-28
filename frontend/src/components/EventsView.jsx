@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CollectionPaginationFooter, CoverImagePicker, DrawerBackdrop, Icons, ImageSourceControl, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
+import { CollectionPaginationFooter, CoverImagePicker, DetailDrawerShell, DrawerBackdrop, Icons, ImageSourceControl, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
 
 const DEFAULT_EVENT_FORM = {
   title: '',
@@ -1138,11 +1138,9 @@ function EventDetailDrawer({ eventId, apiCall, onClose, onEdit, onDeleted, onSav
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex">
-      <div className="absolute inset-0 bg-void/72" onClick={onClose} />
-      <div className="relative ml-auto w-full max-w-xl h-full bg-abyss border-l border-edge flex flex-col animate-slide-in">
+    <DetailDrawerShell onClose={onClose} testId="event-detail-drawer">
         <DrawerBackdrop imagePath={event?.image_path} className="h-48" />
-        <div className="px-6 pt-6 pb-4 border-b border-edge">
+        <div className="px-4 pt-4 pb-3 border-b border-edge sm:px-6 sm:pt-6 sm:pb-4">
           <div className="flex items-start gap-2">
             <div className="flex-1 min-w-0">
               <div className="flex items-baseline gap-2">
@@ -1154,7 +1152,7 @@ function EventDetailDrawer({ eventId, apiCall, onClose, onEdit, onDeleted, onSav
             <button onClick={onClose} className="btn-icon btn-sm shrink-0"><Icons.X /></button>
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto scroll-area p-6 space-y-5">
+        <div className="flex-1 overflow-y-auto scroll-area p-4 space-y-4 sm:p-6 sm:space-y-5">
           {loading && <div className="flex items-center gap-2 text-dim"><Spinner size={16} />Loading…</div>}
           {!loading && (
             <>
@@ -1207,8 +1205,7 @@ function EventDetailDrawer({ eventId, apiCall, onClose, onEdit, onDeleted, onSav
           <button onClick={() => onEdit(event)} className="btn-ghost flex-1"><Icons.Edit />Edit</button>
           <button onClick={deleteEvent} className="btn-ghost text-err hover:bg-err/10"><Icons.Trash />Delete</button>
         </div>
-      </div>
-    </div>
+    </DetailDrawerShell>
   );
 }
 

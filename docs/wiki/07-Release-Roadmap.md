@@ -5649,6 +5649,63 @@ Historical note:
 - What remains in the milestone: nothing; `3.4.25` is closed.
 - Recommended commit message: `Release 3.4.25 release evidence token hygiene cleanup and Playwright command redaction`
 
+## 3.4.26 — Shared Detail Drawer Shell and Mobile Density Audit
+
+**Goal:** Pair the shared detail drawer shell cleanup with a small mobile density pass so common drawer structure and phone-sized spacing improve together.
+
+**Current Slice:** `Closed 2026-04-27`
+
+### Scope
+
+- Extract a shared detail drawer shell primitive for the standard overlay, side panel, border, and slide-in wrapper.
+- Migrate Media, Art, Collectibles, and Events detail drawers onto the shared shell.
+- Keep edit drawers out of scope for this first pass.
+- Tighten obvious mobile-only spacing drift in detail drawer headers and bodies without changing desktop spacing.
+- Add source assertions for shared shell usage and mobile density guardrails.
+
+### Acceptance Criteria
+
+- Media, Art, Collectibles, and Events detail drawers use `DetailDrawerShell`.
+- Existing backdrop/header behavior from `3.4.24` remains intact.
+- Mobile detail drawer spacing is less padded on narrow viewports while preserving desktop spacing.
+- Version metadata and Help > Releases are aligned to `3.4.26`.
+
+### Closeout Notes
+
+- Roadmap slice: `3.4.26 — Shared Detail Drawer Shell and Mobile Density Audit`.
+- Project docs/checklists used:
+  - `AGENTS.md`
+  - `docs/wiki/07-Release-Roadmap.md`
+  - `docs/wiki/08-Backlog.md`
+  - `docs/wiki/10-CI-CD-and-Registry-Deploy.md`
+  - `docs/wiki/17-Release-Go-No-Go-Checklist.md`
+- Runtime verification used Docker-first evidence from the generated public compose plus temporary `.ci` source override:
+  - default frontend/backend images rebuilt with `APP_VERSION=3.4.26`,
+  - `/api/health` reported `3.4.26` for app/frontend/backend metadata,
+  - Help > Releases served `3.4.26` as the latest entry.
+- CI/checks run locally:
+  - `docker compose --env-file .env config`
+  - `node scripts/validate-public-export-surface.js`
+  - `APP_VERSION=3.4.26 docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml up -d --build backend frontend`
+  - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T backend npm run test:unit`
+  - `PLAYWRIGHT_E2E_BYPASS_TOKEN=<redacted> PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 npm run test:browser -- tests/playwright/specs/library-multiformat.browser.spec.js -g "media detail uses cover art as the header backdrop"`
+  - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T -e BASE_URL=http://frontend:3000 -e EXPECTED_VERSION=3.4.26 backend npm run test:help-releases-smoke`
+- Release artifacts:
+  - `docs/releases/v3.4.26.md`
+  - regenerated `backend/release-feed.json`
+- Files changed:
+  - shared `DetailDrawerShell` frontend primitive,
+  - Media, Art, Collectibles, and Events detail drawer shell wrappers,
+  - mobile-only detail drawer spacing in Media, Collectibles, and Events,
+  - focused unit source assertions,
+  - version metadata, generated compose defaults, release note, release feed, roadmap, and backlog plan.
+- Risks or follow-ups:
+  - Tagged CI remains authoritative for `secret-scan`, `dependency-scan`, `image-security-and-sbom`, and full browser regression.
+  - Edit drawer shell migration remains intentionally deferred until the detail shell proves stable.
+  - Image/proof control language parity remains the next UI cleanup task.
+- What remains in the milestone: nothing; `3.4.26` is closed.
+- Recommended commit message: `Release 3.4.26 shared detail drawer shell and mobile density cleanup`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

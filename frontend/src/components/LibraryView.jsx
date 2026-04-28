@@ -5,6 +5,7 @@ import {
   SectionTabs,
   SectionTabPanel,
   DisclosureList,
+  DetailDrawerShell,
   DrawerBackdrop,
   CollectionPaginationFooter,
   cx,
@@ -1070,9 +1071,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   if (!item) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex">
-      <div className="absolute inset-0 bg-void/72" onClick={onClose} />
-      <div className={cx('relative ml-auto h-full w-full bg-abyss border-l border-edge flex flex-col animate-slide-in', isBook ? 'max-w-2xl' : 'max-w-xl')}>
+    <DetailDrawerShell onClose={onClose} panelClassName={isBook ? 'max-w-2xl' : 'max-w-xl'} testId="media-detail-drawer">
         <DrawerBackdrop
           imagePath={item.backdrop_path || item.poster_path}
           className="h-48 border-b border-edge/60 bg-panel"
@@ -1081,7 +1080,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
           testId="media-detail-backdrop"
         />
 
-        <div className="flex items-start gap-4 px-6 pt-6 pb-4 shrink-0">
+        <div className="flex items-start gap-4 px-4 pt-4 pb-3 shrink-0 sm:px-6 sm:pt-6 sm:pb-4">
           <div className="w-20 shrink-0 -mt-16 relative z-10 shadow-card">
             <div className="poster rounded-md">
               {posterUrl(item.poster_path)
@@ -1800,8 +1799,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
             <Icons.Trash />
           </button>
         </div>
-      </div>
-    </div>
+    </DetailDrawerShell>
   );
 }
 
