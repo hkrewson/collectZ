@@ -5542,6 +5542,59 @@ Historical note:
 - What remains in the milestone: nothing; `3.4.23` is closed.
 - Recommended commit message: `Release 3.4.23 detail drawer cover backdrop spacing and media header fallback`
 
+## 3.4.24 — Shared Drawer Backdrop Primitive
+
+**Goal:** Consolidate repeated detail-drawer backdrop/header image markup so Media, Art, Collectibles, and Events keep one shared behavior for cropped header imagery.
+
+**Current Slice:** `Closed 2026-04-27`
+
+### Scope
+
+- Add a shared frontend primitive for drawer backdrop/header image bands.
+- Keep Media's `backdrop_path || poster_path` fallback from `3.4.23`.
+- Move Art, Collectibles, and Events detail drawers onto the same primitive while preserving their existing image heights and foreground preview behavior.
+- Add source assertions that protect the shared primitive wiring.
+
+### Acceptance Criteria
+
+- Media, Art, Collectibles, and Events detail drawers all use one shared backdrop primitive.
+- Media items without separate backdrops still use cover art as the backdrop.
+- Art, Collectibles, and Events retain their existing uploaded-image header treatment.
+- Docker-first build and focused regression checks pass after the consolidation.
+
+### Closeout Notes
+
+- Roadmap slice: `3.4.24 — Shared Drawer Backdrop Primitive`.
+- Project docs/checklists used:
+  - `AGENTS.md`
+  - `docs/wiki/07-Release-Roadmap.md`
+  - `docs/wiki/10-CI-CD-and-Registry-Deploy.md`
+  - `docs/wiki/17-Release-Go-No-Go-Checklist.md`
+- Runtime verification used Docker-first evidence from the generated public compose plus temporary `.ci` source override:
+  - default frontend/backend images rebuilt with `APP_VERSION=3.4.24`,
+  - `/api/health` reported `3.4.24` for app/frontend/backend metadata,
+  - Help > Releases served `3.4.24` as the latest entry.
+- CI/checks run locally:
+  - `docker compose --env-file .env config`
+  - `node scripts/validate-public-export-surface.js`
+  - `APP_VERSION=3.4.24 docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml up -d --build backend frontend`
+  - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T backend npm run test:unit`
+  - `PLAYWRIGHT_E2E_BYPASS_TOKEN=<redacted> PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 npm run test:browser -- tests/playwright/specs/library-multiformat.browser.spec.js -g "media detail uses cover art as the header backdrop"`
+  - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T -e BASE_URL=http://frontend:3000 -e EXPECTED_VERSION=3.4.24 backend npm run test:help-releases-smoke`
+- Release artifacts:
+  - `docs/releases/v3.4.24.md`
+  - regenerated `backend/release-feed.json`
+- Files changed:
+  - shared `DrawerBackdrop` frontend primitive,
+  - Media, Art, Collectibles, and Events detail drawer backdrop calls,
+  - focused unit source assertions,
+  - version metadata, generated compose defaults, release note, release feed, and roadmap.
+- Risks or follow-ups:
+  - Tagged CI remains authoritative for `secret-scan`, `dependency-scan`, `image-security-and-sbom`, and full browser regression.
+  - A broader drawer-shell primitive could further reduce duplicate slide-over markup, but that is intentionally out of scope for this narrow cleanup.
+- What remains in the milestone: nothing; `3.4.24` is closed.
+- Recommended commit message: `Release 3.4.24 shared drawer backdrop primitive and header image consolidation`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

@@ -5,6 +5,7 @@ import {
   SectionTabs,
   SectionTabPanel,
   DisclosureList,
+  DrawerBackdrop,
   CollectionPaginationFooter,
   cx,
   posterUrl,
@@ -1067,22 +1068,18 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
     : null;
 
   if (!item) return null;
-  const detailBackdropUrl = posterUrl(item.backdrop_path || item.poster_path);
 
   return (
     <div className="fixed inset-0 z-50 flex">
       <div className="absolute inset-0 bg-void/72" onClick={onClose} />
       <div className={cx('relative ml-auto h-full w-full bg-abyss border-l border-edge flex flex-col animate-slide-in', isBook ? 'max-w-2xl' : 'max-w-xl')}>
-        <div className="relative h-48 shrink-0 overflow-hidden border-b border-edge/60 bg-panel" data-testid="media-detail-backdrop">
-          {detailBackdropUrl ? (
-            <>
-              <img src={detailBackdropUrl} alt="" className="w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-hero-fade" />
-            </>
-          ) : (
-            <div className="absolute inset-0 bg-abyss" aria-hidden="true" />
-          )}
-        </div>
+        <DrawerBackdrop
+          imagePath={item.backdrop_path || item.poster_path}
+          className="h-48 border-b border-edge/60 bg-panel"
+          imageClassName="w-full h-full object-cover"
+          renderWhenEmpty
+          testId="media-detail-backdrop"
+        />
 
         <div className="flex items-start gap-4 px-6 pt-6 pb-4 shrink-0">
           <div className="w-20 shrink-0 -mt-16 relative z-10 shadow-card">

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CollectionPaginationFooter, CoverImagePicker, Icons, ImageSourceControl, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
+import { CollectionPaginationFooter, CoverImagePicker, DrawerBackdrop, Icons, ImageSourceControl, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
 
 const DEFAULT_EVENT_FORM = {
   title: '',
@@ -1141,12 +1141,7 @@ function EventDetailDrawer({ eventId, apiCall, onClose, onEdit, onDeleted, onSav
     <div className="fixed inset-0 z-50 flex">
       <div className="absolute inset-0 bg-void/72" onClick={onClose} />
       <div className="relative ml-auto w-full max-w-xl h-full bg-abyss border-l border-edge flex flex-col animate-slide-in">
-        {event?.image_path ? (
-          <div className="relative h-48 shrink-0 overflow-hidden">
-            <img src={posterUrl(event.image_path)} alt="" className="h-full w-full object-cover" />
-            <div className="absolute inset-0 bg-hero-fade" />
-          </div>
-        ) : null}
+        <DrawerBackdrop imagePath={event?.image_path} className="h-48" />
         <div className="px-6 pt-6 pb-4 border-b border-edge">
           <div className="flex items-start gap-2">
             <div className="flex-1 min-w-0">

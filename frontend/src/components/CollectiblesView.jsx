@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CheckboxControl, CollectionPaginationFooter, CoverImagePicker, Icons, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
+import { CheckboxControl, CollectionPaginationFooter, CoverImagePicker, DrawerBackdrop, Icons, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
 
 const CATEGORY_OPTIONS = [
   { key: 'lego', label: 'Lego' },
@@ -190,12 +190,7 @@ function CollectibleDetailDrawer({ collectibleId, apiCall, categories, events, o
     <div className="fixed inset-0 z-50 flex">
       <div className="absolute inset-0 bg-void/72" onClick={onClose} />
       <div className="relative ml-auto w-full max-w-xl h-full bg-abyss border-l border-edge flex flex-col animate-slide-in">
-        {item?.image_path ? (
-          <div className="relative h-48 shrink-0 overflow-hidden">
-            <img src={posterUrl(item.image_path)} alt="" className="h-full w-full object-cover" />
-            <div className="absolute inset-0 bg-hero-fade" />
-          </div>
-        ) : null}
+        <DrawerBackdrop imagePath={item?.image_path} className="h-48" />
         <div className="flex items-start gap-4 px-6 pt-6 pb-4 shrink-0">
           {item?.image_path ? (
             <div className="relative z-10 -mt-16 w-20 shrink-0 shadow-card">

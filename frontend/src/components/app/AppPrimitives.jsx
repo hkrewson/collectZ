@@ -29,6 +29,33 @@ export function cx(...classes) {
   return classes.filter(Boolean).join(' ');
 }
 
+export function DrawerBackdrop({
+  imagePath,
+  className = 'h-48',
+  imageClassName = 'h-full w-full object-cover',
+  renderWhenEmpty = false,
+  testId
+}) {
+  const imageSrc = posterUrl(imagePath);
+  if (!imageSrc && !renderWhenEmpty) return null;
+
+  return (
+    <div
+      className={cx('relative shrink-0 overflow-hidden', className)}
+      data-testid={testId}
+    >
+      {imageSrc ? (
+        <>
+          <img src={imageSrc} alt="" className={imageClassName} />
+          <div className="absolute inset-0 bg-hero-fade" />
+        </>
+      ) : (
+        <div className="absolute inset-0 bg-abyss" aria-hidden="true" />
+      )}
+    </div>
+  );
+}
+
 export function CheckboxControl({ checked, children, id, labelClassName = '', onChange }) {
   const fallbackId = useId();
   const inputId = id || fallbackId;

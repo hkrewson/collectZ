@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v3.4.24",
+      "version": "3.4.24",
+      "date": "2026-04-27",
+      "status": "Completed",
+      "summary": "This release consolidates the repeated drawer backdrop/header image treatment into one shared frontend primitive so Media, Art, Collectibles, and Events stay visually aligned.",
+      "details": []
+    },
+    {
       "title": "v3.4.23",
       "version": "3.4.23",
       "date": "2026-04-27",
@@ -70,14 +78,6 @@
       "date": "2026-04-27",
       "status": "Completed",
       "summary": "This release brings shared multi-signature provenance management into Art and media drawers. Users can add, edit, archive, and promote signature records without relying on API-only workflows or overwriting the primary-signature compatibility shortcuts.",
-      "details": []
-    },
-    {
-      "title": "v3.4.14",
-      "version": "3.4.14",
-      "date": "2026-04-27",
-      "status": "Completed",
-      "summary": "This release lets native Art records track physical artwork dimensions and framed status as first-class Art metadata, keeping those fields out of Collectibles while preserving event purchase linking.",
       "details": []
     }
   ]

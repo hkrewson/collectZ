@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CheckboxControl, CollectionPaginationFooter, CoverImagePicker, Icons, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
+import { CheckboxControl, CollectionPaginationFooter, CoverImagePicker, DrawerBackdrop, Icons, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
 import SignatureManager from './app/SignatureManager';
 
 const ART_MEDIUM_OPTIONS = [
@@ -222,12 +222,7 @@ function ArtDetailDrawer({ artId, apiCall, events, onClose, onEdit, onDeleted })
     <div className="fixed inset-0 z-50 flex">
       <div className="absolute inset-0 bg-void/72" onClick={onClose} />
       <div className="relative ml-auto w-full max-w-xl h-full bg-abyss border-l border-edge flex flex-col animate-slide-in">
-        {item?.image_path ? (
-          <div className="relative h-32 shrink-0 overflow-hidden sm:h-44 md:h-48">
-            <img src={posterUrl(item.image_path)} alt="" className="h-full w-full object-cover" />
-            <div className="absolute inset-0 bg-hero-fade" />
-          </div>
-        ) : null}
+        <DrawerBackdrop imagePath={item?.image_path} className="h-32 sm:h-44 md:h-48" />
         <div className="flex items-start gap-3 px-4 pt-4 pb-3 shrink-0 sm:gap-4 sm:px-6 sm:pt-6 sm:pb-4">
           {item?.image_path ? (
             <div className="relative z-10 -mt-10 w-16 shrink-0 shadow-card sm:-mt-16 sm:w-20">

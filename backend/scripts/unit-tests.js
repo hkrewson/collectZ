@@ -1985,10 +1985,16 @@ results.push(run('LibraryView renders compact lookup thumbnails for provider sea
 }));
 
 results.push(run('LibraryView keeps a detail header band when media items only have cover art', () => {
-  assert.ok(libraryViewSource.includes('const detailBackdropUrl = posterUrl(item.backdrop_path || item.poster_path);'));
-  assert.ok(libraryViewSource.includes('data-testid="media-detail-backdrop"'));
-  assert.ok(libraryViewSource.includes('className="relative h-48 shrink-0 overflow-hidden border-b border-edge/60 bg-panel"'));
-  assert.ok(libraryViewSource.includes('<img src={detailBackdropUrl} alt="" className="w-full h-full object-cover" />'));
+  assert.ok(appPrimitivesSource.includes('export function DrawerBackdrop'));
+  assert.ok(appPrimitivesSource.includes('const imageSrc = posterUrl(imagePath);'));
+  assert.ok(appPrimitivesSource.includes('renderWhenEmpty = false'));
+  assert.ok(libraryViewSource.includes('imagePath={item.backdrop_path || item.poster_path}'));
+  assert.ok(libraryViewSource.includes('testId="media-detail-backdrop"'));
+  assert.ok(libraryViewSource.includes('renderWhenEmpty'));
+  assert.ok(libraryViewSource.includes('className="h-48 border-b border-edge/60 bg-panel"'));
+  assert.ok(artViewSource.includes('<DrawerBackdrop imagePath={item?.image_path} className="h-32 sm:h-44 md:h-48" />'));
+  assert.ok(eventsViewSource.includes('<DrawerBackdrop imagePath={event?.image_path} className="h-48" />'));
+  assert.ok(readFrontendSource(path.join('components', 'CollectiblesView')).includes('<DrawerBackdrop imagePath={item?.image_path} className="h-48" />'));
   assert.ok(!libraryViewSource.includes('{posterUrl(item.backdrop_path) && ('));
 }));
 
