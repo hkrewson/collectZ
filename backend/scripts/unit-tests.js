@@ -2060,6 +2060,13 @@ results.push(run('media route source uses title candidate fallback for tmdb look
   assert.ok(mediaRoutesSource.includes('bracketStripped'));
 }));
 
+results.push(run('media drawer avoids redundant follow-up title lookups for enriched identifier results', () => {
+  assert.ok(libraryViewSource.includes('const enrichIdentifierSelection = async (match) => {'));
+  assert.ok(libraryViewSource.includes('if (match?.tmdb || match?.book || match?.typeEnrichment)'));
+  assert.ok(libraryMultiformatBrowserSpecSource.includes('titleLookupCount'));
+  assert.ok(libraryMultiformatBrowserSpecSource.includes('expect(titleLookupCount).toBe(1)'));
+}));
+
 results.push(run('tmdb.wrapTmdbRequestError preserves upstream status and response snippet', () => {
   const wrapped = wrapTmdbRequestError({
     response: {

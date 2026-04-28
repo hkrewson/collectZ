@@ -19,7 +19,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 1. Promote and complete `Release Evidence Token Hygiene Cleanup` by redacting fixed Playwright token examples and adding a guard against reintroducing them.
 2. `Shared Detail Drawer Shell Primitive` and `Mobile Drawer Density Audit and Follow-up` were promoted together as `3.4.26`; continue with image/proof parity next.
 3. `Image and Proof Control Language Parity` was promoted as `3.4.27`; finish that parity pass before moving to API/provider search work.
-4. Keep `TMDB Rate-Limit Investigation and Search Optimization` separate from drawer work because it is provider/API behavior plus search UX, not layout cleanup.
+4. `TMDB Rate-Limit Investigation and Search Optimization` was promoted as `3.4.28`; keep remaining naming/social items separate after this provider/search slice.
 5. Keep `Collectibles Naming Review` separate as a product-language decision, ideally after fandom/franchise metadata has more real usage.
 6. Treat `Event Social Planning Mobile Web Experience` as a larger future product milestone that benefits from the drawer/mobile cleanup but should not be bundled with it.
 
@@ -172,26 +172,6 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - The team has an explicit decision record for keeping or renaming Collectibles.
 - Any future rename has a migration/product-copy checklist before implementation.
 - The current Collectibles object-category boundary stays stable unless a later milestone intentionally changes it.
-
-### Backlog Item: TMDB Rate-Limit Investigation and Search Optimization
-**Type:** Discussion
-**Tags:** `tmdb`, `rate-limit`, `search`, `imports`, `performance`
-
-**Goal:** Determine whether movie-add resource-limit failures are coming from the app API or from TMDB, then identify any safe optimization that reduces TMDB pressure.
-
-**Scope**
-- Reproduce the failure path for movie adds and identify which layer returned the limit response.
-- Distinguish between the app-side external-provider limiter and upstream TMDB rate limiting.
-- Review the movie add flow for avoidable duplicate TMDB calls.
-- Evaluate whether title search, identifier search, and follow-up details fetch can be consolidated or cached more effectively.
-
-- Consider whether the current app-level external provider limit should be tuned if the limiter is the real source of the problem.
-
-**Acceptance Criteria**
-- The likely source of the limit response is documented as app-side, TMDB-side, or still unverified.
-- Any safe optimization opportunities are identified with their tradeoffs.
-- If the app-side limiter is the issue, the relevant route and setting are called out clearly for follow-up work.
-- If TMDB pressure is the issue, the likely request-reduction path is documented for a future milestone or task.
 
 ### Backlog Item: Now Playing Viewer
 **Type:** Task

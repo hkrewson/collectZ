@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v3.4.28",
+      "version": "3.4.28",
+      "date": "2026-04-27",
+      "status": "Completed",
+      "summary": "This release documents the movie lookup rate-limit boundary and removes one avoidable TMDB search in the add/edit drawer when an identifier result already includes provider metadata.",
+      "details": []
+    },
+    {
       "title": "v3.4.27",
       "version": "3.4.27",
       "date": "2026-04-27",
@@ -70,14 +78,6 @@
       "date": "2026-04-27",
       "status": "Completed",
       "summary": "This release makes signature proof evidence more descriptive. Art and media signature proofs can now store an evidence type, short label, and notes per proof image, while the shared multi-proof signature model and legacy primary proof projection remain compatible.",
-      "details": []
-    },
-    {
-      "title": "v3.4.18",
-      "version": "3.4.18",
-      "date": "2026-04-27",
-      "status": "Completed",
-      "summary": "This release lets shared Art and media signature records keep multiple proof images. Existing single-proof compatibility fields remain intact, so older clients can continue reading `proof_path`, `signature_proof_path`, and `signed_proof_path` while newer drawer UI can manage proof evidence as a list.",
       "details": []
     }
   ]

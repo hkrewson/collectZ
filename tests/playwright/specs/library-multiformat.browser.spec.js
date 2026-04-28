@@ -433,7 +433,12 @@ test.describe('library multi-format browser regressions', () => {
     try {
       await addSavedAdminCookies(page, requestContext);
       await page.goto('/dashboard?tab=library-movies');
-      await page.getByRole('button', { name: 'Add', exact: true }).click();
+      const emptyStateAdd = page.getByRole('button', { name: 'Add Media', exact: true });
+      if (await emptyStateAdd.isVisible()) {
+        await emptyStateAdd.click();
+      } else {
+        await page.getByRole('button', { name: 'Add', exact: true }).click();
+      }
 
       await expect(page.getByRole('heading', { name: /add to library/i })).toBeVisible();
       await expect(page.locator('[aria-label="Search panel"]')).toBeVisible();
@@ -495,16 +500,19 @@ test.describe('library multi-format browser regressions', () => {
   });
 
   test('add drawer combines title and identifier search results into one picker', async ({ page }) => {
-    const requestContext = await createSavedAdminRequestContext();
+    const credentials = await createFreshUserCredentials();
+    const requestContext = await createAuthenticatedRequestContext(credentials);
     const title = `Playwright Dual Search ${Date.now()}`;
     const alternateTitle = `${title} Alternate`;
     const upc = `012345${Date.now().toString().slice(-6)}`;
     let sawTitleLookup = false;
     let sawIdentifierLookup = false;
+    let titleLookupCount = 0;
 
     try {
       await page.route('**/api/media/search-tmdb', async (route) => {
         sawTitleLookup = true;
+        titleLookupCount += 1;
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
@@ -567,7 +575,8 @@ test.describe('library multi-format browser regressions', () => {
         });
       });
 
-      await addSavedAdminCookies(page, requestContext);
+      const storageState = await requestContext.storageState();
+      await page.context().addCookies(storageState.cookies || []);
       await page.goto('/dashboard?tab=library-movies');
       await page.getByRole('button', { name: 'Add', exact: true }).click();
 
@@ -599,6 +608,9 @@ test.describe('library multi-format browser regressions', () => {
       await expect(identifierOnlyResult).toBeVisible();
       await expect(identifierOnlyResult.getByText('Identifier', { exact: true })).toBeVisible();
       await expect(identifierOnlyResult.getByText('Title', { exact: true })).toHaveCount(0);
+
+      await identifierOnlyResult.click();
+      expect(titleLookupCount).toBe(1);
     } finally {
       await requestContext.dispose();
     }

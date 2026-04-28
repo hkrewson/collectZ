@@ -2523,6 +2523,9 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
     if (!lookupSources.includes('identifier') || lookupSources.includes('title')) {
       return match;
     }
+    if (match?.tmdb || match?.book || match?.typeEnrichment) {
+      return match;
+    }
 
     const selectedTitle = String(resolveLookupMatchTitle(match) || '').trim();
     if (!selectedTitle) return match;

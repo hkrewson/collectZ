@@ -5768,6 +5768,71 @@ Historical note:
 - What remains in the milestone: nothing; `3.4.27` is closed.
 - Recommended commit message: `Release 3.4.27 image and proof control language parity`
 
+## 3.4.28 — TMDB Rate-Limit Investigation and Search Optimization
+
+**Goal:** Identify whether movie-add limit failures are app-side or upstream TMDB-side, then reduce avoidable TMDB pressure in the add/edit lookup flow without changing provider contracts.
+
+**Current Slice:** `Closed 2026-04-27`
+
+### Scope
+
+- Reproduce the movie-add lookup path from source and runtime evidence enough to identify which layer owns the visible limit response.
+- Distinguish the app-side external-provider limiter from upstream TMDB 429/error responses.
+- Review the movie add flow for avoidable duplicate TMDB calls.
+- Implement the smallest safe optimization if a duplicate call path is clear.
+- Preserve existing TMDB endpoints, integration settings, and stored media fields.
+
+### Acceptance Criteria
+
+- The likely source of the limit response is documented as app-side, TMDB-side, or still unverified.
+- The relevant app-side limiter route and setting are called out clearly.
+- Identifier results that already include TMDB/provider enrichment do not trigger a redundant follow-up title search when selected.
+- Existing title-only and identifier-only fallback behavior continues for results that do not include enrichment data.
+- Version metadata and Help > Releases are aligned to `3.4.28`.
+
+### Closeout Notes
+
+- Roadmap slice: `3.4.28 — TMDB Rate-Limit Investigation and Search Optimization`.
+- Project docs/checklists used:
+  - `AGENTS.md`
+  - `docs/wiki/07-Release-Roadmap.md`
+  - `docs/wiki/08-Backlog.md`
+  - `docs/wiki/10-CI-CD-and-Registry-Deploy.md`
+  - `docs/wiki/17-Release-Go-No-Go-Checklist.md`
+- Runtime verification used Docker-first evidence from the generated public compose plus temporary `.ci` source override:
+  - default frontend/backend images rebuilt with `APP_VERSION=3.4.28`,
+  - `/api/health` reported `3.4.28` for app/frontend/backend metadata,
+  - Help > Releases served `3.4.28` as the latest entry,
+  - running backend logs confirmed `externalApiMax=30`.
+- Rate-limit finding:
+  - app-side external-provider limit responses are owned by the Express limiter mounted on `/api/media/search-tmdb` and `/api/media/lookup-upc`,
+  - the setting is `RATE_LIMIT_EXTERNAL_API_MAX`,
+  - upstream TMDB failures still come through TMDB service wrapping with upstream status/path details.
+- CI/checks run locally:
+  - `docker compose --env-file .env config`
+  - `node scripts/validate-public-export-surface.js`
+  - `APP_VERSION=3.4.28 docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml up -d --build backend frontend`
+  - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T backend npm run test:unit`
+  - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T backend npm run test:openapi`
+  - `PLAYWRIGHT_E2E_BYPASS_TOKEN=<redacted> PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 npm run test:browser -- tests/playwright/specs/library-multiformat.browser.spec.js -g "add drawer combines title and identifier"`
+  - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T -e BASE_URL=http://frontend:3000 -e EXPECTED_VERSION=3.4.28 backend npm run test:help-releases-smoke`
+  - `git diff --check`
+  - fixed-token grep across the new release note, roadmap, release feed, and Playwright artifacts
+- Release artifacts:
+  - `docs/releases/v3.4.28.md`
+  - regenerated `backend/release-feed.json`
+- Files changed:
+  - media drawer identifier-selection enrichment guard,
+  - focused Playwright lookup regression,
+  - focused unit source assertions,
+  - version metadata, generated compose defaults, release note, release feed, roadmap, and backlog plan.
+- Risks or follow-ups:
+  - Tagged CI remains authoritative for `secret-scan`, `dependency-scan`, `image-security-and-sbom`, `rbac-regression`, full `browser-regression`, `homelab-edition-boundary`, and `platform-edition-boundary`.
+  - If users still hit app-side external-provider limits during ordinary movie adds, tune `RATE_LIMIT_EXTERNAL_API_MAX` or add a server-side short-lived search cache in a later backend-focused milestone.
+  - This slice intentionally does not change upstream TMDB retry/backoff behavior.
+- What remains in the milestone: nothing; `3.4.28` is closed.
+- Recommended commit message: `Release 3.4.28 TMDB rate-limit investigation and lookup request reduction`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.
