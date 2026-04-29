@@ -92,6 +92,25 @@ const formatTimeOnly = (value) => {
   return parsed.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 };
 
+const stripMeridiem = (value) => String(value || '').replace(/\s?[AP]M$/i, '').trim();
+
+const getMeridiem = (value) => {
+  const match = String(value || '').match(/([AP]M)$/i);
+  return match ? match[1].toUpperCase() : '';
+};
+
+const formatAgendaTime = (startValue, endValue) => {
+  const start = formatTimeOnly(startValue);
+  const end = formatTimeOnly(endValue);
+  if (!start) return { start: 'No time', end: '' };
+  if (!end) return { start, end: '' };
+  const sameMeridiem = getMeridiem(start) && getMeridiem(start) === getMeridiem(end);
+  return {
+    start: sameMeridiem ? stripMeridiem(start) : start,
+    end
+  };
+};
+
 const formatPlanDayLabel = (value) => {
   if (!value) return 'Unscheduled';
   const parsed = new Date(value);
@@ -119,10 +138,33 @@ const sortPlansForAgenda = (plans) => [...plans].sort((a, b) => {
   return String(a?.title || '').localeCompare(String(b?.title || ''));
 });
 
+const findCurrentOrNextPlan = (plans, now = new Date()) => {
+  const nowTime = now.getTime();
+  const timedPlans = sortPlansForAgenda(Array.isArray(plans) ? plans : [])
+    .map((plan) => ({ plan, startTime: plan?.start_at ? new Date(plan.start_at).getTime() : NaN, endTime: plan?.end_at ? new Date(plan.end_at).getTime() : NaN }))
+    .filter((entry) => Number.isFinite(entry.startTime));
+  const current = timedPlans.find((entry) => {
+    const fallbackEnd = entry.startTime + (60 * 60 * 1000);
+    const endTime = Number.isFinite(entry.endTime) ? entry.endTime : fallbackEnd;
+    return entry.startTime <= nowTime && nowTime <= endTime;
+  });
+  if (current) return { plan: current.plan, label: 'Now' };
+  const next = timedPlans.find((entry) => entry.startTime > nowTime);
+  return next ? { plan: next.plan, label: 'Next' } : null;
+};
+
 const plainTextPreview = (value, maxLength = 220) => {
   const text = String(value || '').replace(/\s+/g, ' ').trim();
   if (!text) return '';
   return text.length > maxLength ? `${text.slice(0, maxLength - 1).trim()}...` : text;
+};
+
+const compactLocation = (value, maxLength = 52) => {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  if (!text) return '';
+  const roomFirst = text.split(',')[0]?.trim() || text;
+  const normalized = roomFirst.length >= 4 ? roomFirst : text;
+  return normalized.length > maxLength ? `${normalized.slice(0, maxLength - 1).trim()}...` : normalized;
 };
 
 function MetaPill({ children, tone = 'default' }) {
@@ -1359,12 +1401,12 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
             Schedule
             <span className="text-xs text-ghost">{plans.length}</span>
           </summary>
-          <div className="space-y-3 px-4 pb-4">
+          <div className="space-y-3 pb-4">
             <EventScheduleAgenda
               plans={plans}
               onRemove={(plan) => archive(`/events/${eventId}/schedule-plans/${plan.id}`, 'Schedule plan')}
             />
-            <details className="rounded-md border border-edge bg-raised">
+            <details className="mx-4 rounded-md border border-edge bg-raised">
               <summary className="cursor-pointer list-none px-3 py-2 text-sm font-medium text-ink">
                 Add manual plan
               </summary>
@@ -1506,6 +1548,8 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
 }
 
 function EventScheduleAgenda({ plans, onRemove }) {
+  const [filter, setFilter] = useState({ type: 'all', key: 'all' });
+
   const groups = useMemo(() => {
     const ordered = sortPlansForAgenda(Array.isArray(plans) ? plans : []);
     return ordered.reduce((acc, plan) => {
@@ -1520,20 +1564,68 @@ function EventScheduleAgenda({ plans, onRemove }) {
     }, []);
   }, [plans]);
 
+  const currentOrNext = useMemo(() => findCurrentOrNextPlan(plans), [plans]);
+  const todayKey = useMemo(() => getPlanDayKey(new Date()), []);
+  const hasToday = groups.some((group) => group.key === todayKey);
+
+  const visibleGroups = useMemo(() => {
+    if (filter.type === 'day') return groups.filter((group) => group.key === filter.key);
+    if (filter.type === 'focus' && currentOrNext?.plan?.id) {
+      const key = getPlanDayKey(currentOrNext.plan.start_at);
+      return [{ key, label: formatPlanDayLabel(currentOrNext.plan.start_at), items: [currentOrNext.plan] }];
+    }
+    return groups;
+  }, [currentOrNext, filter, groups]);
+
+  useEffect(() => {
+    if (filter.type === 'day' && !groups.some((group) => group.key === filter.key)) {
+      setFilter({ type: 'all', key: 'all' });
+    }
+    if (filter.type === 'focus' && !currentOrNext?.plan?.id) {
+      setFilter({ type: 'all', key: 'all' });
+    }
+  }, [currentOrNext, filter, groups]);
+
   if (!groups.length) {
     return <p className="text-sm text-ghost">No schedule plans yet.</p>;
   }
 
+  const filterButtonClass = (active) => cx(
+    'btn-ghost btn-sm shrink-0',
+    active && 'border-edge bg-raised text-ink'
+  );
+
   return (
-    <div className="overflow-hidden rounded-md border border-edge bg-raised">
-      {groups.map((group) => (
+    <div className="border-y border-edge bg-surface">
+      <div className="flex gap-2 overflow-x-auto border-b border-edge px-4 py-2 scroll-area">
+        <button className={filterButtonClass(filter.type === 'all')} onClick={() => setFilter({ type: 'all', key: 'all' })}>All</button>
+        {currentOrNext?.plan ? (
+          <button className={filterButtonClass(filter.type === 'focus')} onClick={() => setFilter({ type: 'focus', key: String(currentOrNext.plan.id) })}>
+            {currentOrNext.label}
+          </button>
+        ) : null}
+        {hasToday ? (
+          <button className={filterButtonClass(filter.type === 'day' && filter.key === todayKey)} onClick={() => setFilter({ type: 'day', key: todayKey })}>Today</button>
+        ) : null}
+        {groups.map((group) => (
+          <button key={group.key} className={filterButtonClass(filter.type === 'day' && filter.key === group.key)} onClick={() => setFilter({ type: 'day', key: group.key })}>
+            {group.label}
+          </button>
+        ))}
+      </div>
+      {visibleGroups.map((group) => (
         <div key={group.key} className="border-b border-edge last:border-b-0">
-          <div className="border-b border-edge bg-surface px-3 py-2 text-xs font-medium text-dim">
+          <div className="border-b border-edge px-4 py-2 text-xs font-medium text-dim">
             {group.label}
           </div>
           <div className="divide-y divide-edge">
             {group.items.map((plan) => (
-              <SchedulePlanRow key={plan.id} plan={plan} onRemove={() => onRemove(plan)} />
+              <SchedulePlanRow
+                key={plan.id}
+                plan={plan}
+                marker={currentOrNext?.plan?.id === plan.id ? currentOrNext.label : ''}
+                onRemove={() => onRemove(plan)}
+              />
             ))}
           </div>
         </div>
@@ -1542,33 +1634,37 @@ function EventScheduleAgenda({ plans, onRemove }) {
   );
 }
 
-function SchedulePlanRow({ plan, onRemove }) {
+function SchedulePlanRow({ plan, marker = '', onRemove }) {
   const categories = Array.isArray(plan?.source_categories) ? plan.source_categories.filter(Boolean) : [];
   const notesPreview = plainTextPreview(plan?.notes, 360);
-  const startTime = formatTimeOnly(plan?.start_at);
-  const endTime = formatTimeOnly(plan?.end_at);
-  const timeRange = startTime ? (endTime ? `${startTime} - ${endTime}` : startTime) : 'No time';
+  const agendaTime = formatAgendaTime(plan?.start_at, plan?.end_at);
   const fromSched = plan?.source_type === 'sched_ics';
   const categorySummary = categories.slice(0, 2).join(' · ');
   const extraCategoryCount = Math.max(categories.length - 2, 0);
+  const location = compactLocation(plan?.location);
 
   return (
     <details className="group">
-      <summary className="grid cursor-pointer list-none grid-cols-[4.75rem_1fr] gap-3 px-3 py-3 sm:grid-cols-[6rem_1fr]">
-        <div className="text-xs font-medium text-dim">{timeRange}</div>
+      <summary className="grid cursor-pointer list-none grid-cols-[4.75rem_1fr] gap-3 px-4 py-3 sm:grid-cols-[5.75rem_1fr]">
+        <div className="text-xs font-medium leading-5 text-dim">
+          <div className="whitespace-nowrap">{agendaTime.start}</div>
+          {agendaTime.end ? <div className="whitespace-nowrap text-ghost">{agendaTime.end}</div> : null}
+        </div>
         <div className="min-w-0">
           <div className="flex min-w-0 items-baseline gap-2">
             <p className="truncate text-sm font-medium text-ink">{plan.title}</p>
+            {marker ? <span className="shrink-0 text-xs text-dim">{marker}</span> : null}
             {plan.status && plan.status !== 'planned' ? <span className="shrink-0 text-xs text-ghost">{plan.status}</span> : null}
           </div>
           <p className="mt-1 truncate text-xs text-dim">
-            {[plan.location, categorySummary, extraCategoryCount ? `+${extraCategoryCount}` : '', fromSched ? 'Sched' : 'Manual'].filter(Boolean).join(' · ')}
+            {[location, categorySummary, extraCategoryCount ? `+${extraCategoryCount}` : '', fromSched ? 'Sched' : 'Manual'].filter(Boolean).join(' · ')}
           </p>
         </div>
       </summary>
-      <div className="grid grid-cols-[4.75rem_1fr] gap-3 px-3 pb-3 sm:grid-cols-[6rem_1fr]">
+      <div className="grid grid-cols-[4.75rem_1fr] gap-3 px-4 pb-3 sm:grid-cols-[5.75rem_1fr]">
         <div />
         <div className="space-y-3 border-t border-edge pt-3">
+          {plan.location && plan.location !== location ? <p className="text-xs text-ghost">{plan.location}</p> : null}
           {notesPreview ? <p className="text-sm leading-6 text-dim">{notesPreview}</p> : null}
           {categories.length > 2 ? <p className="text-xs text-ghost">{categories.join(' · ')}</p> : null}
           <div className="flex flex-wrap items-center gap-2">

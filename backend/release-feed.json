@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v3.4.34",
+      "version": "3.4.34",
+      "date": null,
+      "status": null,
+      "summary": "This patch improves long Event schedules by adding lightweight day navigation and a local-time now/next affordance to the selected schedule agenda.",
+      "details": []
+    },
+    {
       "title": "v3.4.33",
       "version": "3.4.33",
       "date": null,
@@ -70,14 +78,6 @@
       "date": "2026-04-27",
       "status": "Completed",
       "summary": "This release cleans up old release evidence examples so fixed local Playwright bypass token values are no longer preserved in committed roadmap or release-note command examples.",
-      "details": []
-    },
-    {
-      "title": "v3.4.24",
-      "version": "3.4.24",
-      "date": "2026-04-27",
-      "status": "Completed",
-      "summary": "This release consolidates the repeated drawer backdrop/header image treatment into one shared frontend primitive so Media, Art, Collectibles, and Events stay visually aligned.",
       "details": []
     }
   ]

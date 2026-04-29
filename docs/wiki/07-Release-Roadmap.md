@@ -6135,6 +6135,7 @@ Historical note:
 
 - Promote schedule plans above feed/social management inside the Event detail drawer.
 - Replace heavy schedule-plan cards with a day-grouped agenda list.
+- Keep agenda rows compact with stacked time ranges and room-first location previews.
 - Keep descriptions, session links, and remove actions available from expanded rows instead of showing every control in the default scan view.
 - Collapse Sched feed management behind a dedicated management section.
 - Keep People, Groups, and Meetups available as secondary social-planning sections.
@@ -6187,6 +6188,7 @@ Historical note:
   - regenerated `backend/release-feed.json`
 - Files changed:
   - Event detail drawer schedule agenda UI,
+  - mobile agenda density and room-first Sched location readback,
   - event social planning unit source contract,
   - version metadata, generated public compose defaults, package lock root versions, release feed, release note, roadmap, and backlog promotion note.
 - Risks or follow-ups:
@@ -6194,6 +6196,32 @@ Historical note:
   - Tagged CI remains authoritative for `compose-smoke`, `rbac-regression`, `browser-regression`, `homelab-edition-boundary`, `platform-edition-boundary`, `dependency-scan`, `secret-scan`, and `image-security-and-sbom`.
 - What remains in the milestone: nothing; `3.4.33` is closed.
 - Recommended commit message: `Release 3.4.33 event schedule agenda drawer polish`
+
+## 3.4.34 — Event Schedule Day Navigation and Now/Next Readability
+
+**Goal:** Add lightweight day and now/next navigation to the Event detail drawer agenda so long personal schedules are easier to scan without expanding into full event catalog discovery or continued sync behavior.
+
+**Current Slice:** `In progress`
+
+### Scope
+
+- Add compact day navigation for schedule plans in the Event detail drawer.
+- Add a local-time now/next affordance when a current or upcoming selected session exists.
+- Keep the agenda usable for past events where now/next is not available.
+- Preserve the compact agenda row treatment from `3.4.33`.
+- Avoid changes to Sched syncing, full schedule catalog import, friend notifications, or provider ingestion.
+
+### Acceptance Criteria
+
+- Users can filter/jump between days in a multi-day event schedule.
+- Users can quickly move to the current or next selected session when one exists.
+- The default view remains simple and readable on mobile.
+- Existing manual and ICS-backed schedule plans remain readable.
+- Full Event Schedule Catalog and Now/Next Discovery remains a separate milestone.
+
+### Notes
+
+- This is still selected personal schedule readability, not broad session discovery.
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
