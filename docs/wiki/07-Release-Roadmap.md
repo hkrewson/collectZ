@@ -6125,6 +6125,76 @@ Historical note:
 - What remains in the milestone: nothing; `3.4.32` is closed.
 - Recommended commit message: `Release 3.4.32 personal Sched ICS schedule detail enrichment`
 
+## 3.4.33 — Event Schedule Agenda Drawer Polish
+
+**Goal:** Make event schedule plans readable as a compact agenda in the Event detail drawer without expanding into continued Sched syncing, full schedule catalogs, or Now/Next discovery.
+
+**Current Slice:** `Closed 2026-04-29`
+
+### Scope
+
+- Promote schedule plans above feed/social management inside the Event detail drawer.
+- Replace heavy schedule-plan cards with a day-grouped agenda list.
+- Keep descriptions, session links, and remove actions available from expanded rows instead of showing every control in the default scan view.
+- Collapse Sched feed management behind a dedicated management section.
+- Keep People, Groups, and Meetups available as secondary social-planning sections.
+
+### Acceptance Criteria
+
+- Existing manual and ICS-backed schedule plans remain readable.
+- The default drawer view emphasizes the schedule before feed controls.
+- Mobile and narrow drawer views can scan many sessions without excessive card stacking.
+- No automatic or continued Sched syncing behavior is introduced.
+- Full Event Schedule Catalog and Now/Next Discovery remains a separate milestone.
+
+### Notes
+
+- This patch is the schedule-readability slice from the broader Event Social Planning Mobile Web Experience backlog item.
+- This patch does not change event schedule APIs, provider ingestion, Sched URL storage, or sync cadence.
+
+### Closeout Notes
+
+- Roadmap slice: `3.4.33 — Event Schedule Agenda Drawer Polish`.
+- Project docs/checklists used:
+  - `AGENTS.md`
+  - `docs/wiki/07-Release-Roadmap.md`
+  - `docs/wiki/08-Backlog.md`
+  - `docs/wiki/10-CI-CD-and-Registry-Deploy.md`
+  - `docs/wiki/17-Release-Go-No-Go-Checklist.md`
+- Runtime verification used Docker-first local platform stack evidence:
+  - backend image rebuilt with `APP_VERSION=3.4.33`,
+  - frontend image rebuilt with `APP_VERSION=3.4.33`,
+  - `/api/health` reported `3.4.33` for app/frontend/backend,
+  - Help > Releases served `3.4.33` as the latest entry,
+  - targeted Playwright UI smoke opened a temporary Event detail drawer, verified Schedule appears before Manage Sched feed, verified compact agenda rows and expanded session details, and cleaned up the fixture.
+- CI/checks run locally:
+  - `APP_VERSION=3.4.33 docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml up -d --build frontend`
+  - `APP_VERSION=3.4.33 docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml up -d --build backend`
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T backend npm run test:unit`
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T backend npm run test:openapi`
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T backend npm run test:init-parity`
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T backend npm run test:migration-rehearsal`
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T -e BASE_URL=http://frontend:3000 backend npm run test:event-social-planning-smoke`
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T -e BASE_URL=http://frontend:3000 -e EXPECTED_VERSION=3.4.33 backend npm run test:help-releases-smoke`
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T -e BASE_URL=http://frontend:3000 backend npm run test:platform-edition-boundary`
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T -e BASE_URL=http://frontend:3000 backend npm run test:rbac-regression`
+  - targeted local Playwright schedule-agenda UI smoke with a temporary fixture Event
+  - `node scripts/validate-public-export-surface.js`
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml config`
+  - `git diff --check`
+- Release artifacts:
+  - `docs/releases/v3.4.33.md`
+  - regenerated `backend/release-feed.json`
+- Files changed:
+  - Event detail drawer schedule agenda UI,
+  - event social planning unit source contract,
+  - version metadata, generated public compose defaults, package lock root versions, release feed, release note, roadmap, and backlog promotion note.
+- Risks or follow-ups:
+  - This patch intentionally does not add continued Sched syncing, full schedule catalog ingestion, Now/Next discovery, or friend notifications.
+  - Tagged CI remains authoritative for `compose-smoke`, `rbac-regression`, `browser-regression`, `homelab-edition-boundary`, `platform-edition-boundary`, `dependency-scan`, `secret-scan`, and `image-security-and-sbom`.
+- What remains in the milestone: nothing; `3.4.33` is closed.
+- Recommended commit message: `Release 3.4.33 event schedule agenda drawer polish`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

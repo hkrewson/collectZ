@@ -92,12 +92,32 @@ const formatTimeOnly = (value) => {
   return parsed.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 };
 
-const formatPlanTimeRange = (plan) => {
-  const start = formatDateTime(plan?.start_at);
-  if (!start) return '';
-  const end = formatTimeOnly(plan?.end_at);
-  return end ? `${start} - ${end}` : start;
+const formatPlanDayLabel = (value) => {
+  if (!value) return 'Unscheduled';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return 'Unscheduled';
+  return parsed.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
 };
+
+const getPlanDayKey = (value) => {
+  if (!value) return 'unscheduled';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return 'unscheduled';
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, '0');
+  const day = String(parsed.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const sortPlansForAgenda = (plans) => [...plans].sort((a, b) => {
+  const aTime = a?.start_at ? new Date(a.start_at).getTime() : Number.POSITIVE_INFINITY;
+  const bTime = b?.start_at ? new Date(b.start_at).getTime() : Number.POSITIVE_INFINITY;
+  if (Number.isNaN(aTime) && Number.isNaN(bTime)) return String(a?.title || '').localeCompare(String(b?.title || ''));
+  if (Number.isNaN(aTime)) return 1;
+  if (Number.isNaN(bTime)) return -1;
+  if (aTime !== bTime) return aTime - bTime;
+  return String(a?.title || '').localeCompare(String(b?.title || ''));
+});
 
 const plainTextPreview = (value, maxLength = 220) => {
   const text = String(value || '').replace(/\s+/g, ' ').trim();
@@ -1322,7 +1342,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
       <div className="border-b border-edge px-4 py-3">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h3 className="text-sm font-semibold text-ink">Social planning</h3>
+            <h3 className="text-sm font-semibold text-ink">Event plans</h3>
             <p className="mt-1 text-xs text-dim">
               {pluralizePeople(attendees.length)} · {groups.length} group{groups.length === 1 ? '' : 's'} · {meetups.length} meetup{meetups.length === 1 ? '' : 's'} · {plans.length} plan{plans.length === 1 ? '' : 's'}
             </p>
@@ -1336,7 +1356,31 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
       <div className="divide-y divide-edge">
         <details className="group" open>
           <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium text-ink">
-            Personal Sched ICS
+            Schedule
+            <span className="text-xs text-ghost">{plans.length}</span>
+          </summary>
+          <div className="space-y-3 px-4 pb-4">
+            <EventScheduleAgenda
+              plans={plans}
+              onRemove={(plan) => archive(`/events/${eventId}/schedule-plans/${plan.id}`, 'Schedule plan')}
+            />
+            <details className="rounded-md border border-edge bg-raised">
+              <summary className="cursor-pointer list-none px-3 py-2 text-sm font-medium text-ink">
+                Add manual plan
+              </summary>
+              <div className="grid grid-cols-1 gap-2 border-t border-edge px-3 py-3 sm:grid-cols-2">
+                <input className="input" placeholder="Plan title" value={form.planTitle} onChange={(e) => set({ planTitle: e.target.value })} />
+                <input className="input" placeholder="Location" value={form.planLocation} onChange={(e) => set({ planLocation: e.target.value })} />
+                <input type="datetime-local" className="input sm:col-span-2" value={form.planStart} onChange={(e) => set({ planStart: e.target.value })} />
+                <button className="btn-secondary sm:col-span-2" disabled={!form.planTitle.trim() || saving === 'plan'} onClick={() => save('plan')}>{saving === 'plan' ? <Spinner size={16} /> : 'Add plan'}</button>
+              </div>
+            </details>
+          </div>
+        </details>
+
+        <details className="group">
+          <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium text-ink">
+            Manage Sched feed
             <span className="text-xs text-ghost">{icsSource?.has_url ? icsSource.sync_status || 'connected' : 'not connected'}</span>
           </summary>
           <div className="space-y-3 px-4 pb-4">
@@ -1371,7 +1415,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
           </div>
         </details>
 
-        <details className="group" open>
+        <details className="group">
           <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium text-ink">
             People
             <span className="text-xs text-ghost">{attendees.length}</span>
@@ -1424,7 +1468,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
           </div>
         </details>
 
-        <details className="group" open>
+        <details className="group">
           <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium text-ink">
             Meetups
             <span className="text-xs text-ghost">{meetups.length}</span>
@@ -1456,76 +1500,89 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
           </div>
         </details>
 
-        <details className="group" open>
-          <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium text-ink">
-            Schedule plans
-            <span className="text-xs text-ghost">{plans.length}</span>
-          </summary>
-          <div className="space-y-3 px-4 pb-4">
-            {plans.length > 0 ? (
-              <div className="space-y-2">
-                {plans.map((plan) => (
-                  <SchedulePlanCard
-                    key={plan.id}
-                    plan={plan}
-                    onRemove={() => archive(`/events/${eventId}/schedule-plans/${plan.id}`, 'Schedule plan')}
-                  />
-                ))}
-              </div>
-            ) : <p className="text-sm text-ghost">No schedule plans yet.</p>}
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <input className="input" placeholder="Plan title" value={form.planTitle} onChange={(e) => set({ planTitle: e.target.value })} />
-              <input className="input" placeholder="Location" value={form.planLocation} onChange={(e) => set({ planLocation: e.target.value })} />
-              <input type="datetime-local" className="input sm:col-span-2" value={form.planStart} onChange={(e) => set({ planStart: e.target.value })} />
-              <button className="btn-secondary sm:col-span-2" disabled={!form.planTitle.trim() || saving === 'plan'} onClick={() => save('plan')}>{saving === 'plan' ? <Spinner size={16} /> : 'Add plan'}</button>
-            </div>
-          </div>
-        </details>
       </div>
     </section>
   );
 }
 
-function SchedulePlanCard({ plan, onRemove }) {
-  const categories = Array.isArray(plan?.source_categories) ? plan.source_categories.filter(Boolean) : [];
-  const notesPreview = plainTextPreview(plan?.notes);
-  const timeRange = formatPlanTimeRange(plan);
-  const fromSched = plan?.source_type === 'sched_ics';
+function EventScheduleAgenda({ plans, onRemove }) {
+  const groups = useMemo(() => {
+    const ordered = sortPlansForAgenda(Array.isArray(plans) ? plans : []);
+    return ordered.reduce((acc, plan) => {
+      const key = getPlanDayKey(plan?.start_at);
+      const existing = acc.find((group) => group.key === key);
+      if (existing) {
+        existing.items.push(plan);
+      } else {
+        acc.push({ key, label: formatPlanDayLabel(plan?.start_at), items: [plan] });
+      }
+      return acc;
+    }, []);
+  }, [plans]);
+
+  if (!groups.length) {
+    return <p className="text-sm text-ghost">No schedule plans yet.</p>;
+  }
 
   return (
-    <div className="rounded-md border border-edge bg-raised px-3 py-3">
-      <div className="flex items-start gap-3">
-        <div className="min-w-0 flex-1 space-y-2">
-          <div className="space-y-1">
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <p className="min-w-0 text-sm font-medium text-ink">{plan.title}</p>
-              {fromSched ? <span className="text-xs text-ghost">Sched</span> : null}
-              {plan.status && plan.status !== 'planned' ? <span className="text-xs text-dim">{plan.status}</span> : null}
-            </div>
-            <p className="text-xs text-dim">{[timeRange, plan.location].filter(Boolean).join(' · ')}</p>
+    <div className="overflow-hidden rounded-md border border-edge bg-raised">
+      {groups.map((group) => (
+        <div key={group.key} className="border-b border-edge last:border-b-0">
+          <div className="border-b border-edge bg-surface px-3 py-2 text-xs font-medium text-dim">
+            {group.label}
           </div>
-
-          {categories.length > 0 ? (
-            <div className="flex flex-wrap gap-1.5">
-              {categories.slice(0, 4).map((category) => (
-                <span key={category} className="rounded border border-edge bg-surface px-1.5 py-0.5 text-[11px] text-dim">{category}</span>
-              ))}
-              {categories.length > 4 ? <span className="text-[11px] text-ghost">+{categories.length - 4}</span> : null}
-            </div>
-          ) : null}
-
-          {notesPreview ? <p className="text-xs leading-5 text-dim">{notesPreview}</p> : null}
-
-          {plan.source_url ? (
-            <a className="inline-flex items-center gap-1.5 text-xs text-dim transition-colors hover:text-ink" href={plan.source_url} target="_blank" rel="noreferrer">
-              <Icons.Link />
-              Open session
-            </a>
-          ) : null}
+          <div className="divide-y divide-edge">
+            {group.items.map((plan) => (
+              <SchedulePlanRow key={plan.id} plan={plan} onRemove={() => onRemove(plan)} />
+            ))}
+          </div>
         </div>
-        <button className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={onRemove}>Remove</button>
-      </div>
+      ))}
     </div>
+  );
+}
+
+function SchedulePlanRow({ plan, onRemove }) {
+  const categories = Array.isArray(plan?.source_categories) ? plan.source_categories.filter(Boolean) : [];
+  const notesPreview = plainTextPreview(plan?.notes, 360);
+  const startTime = formatTimeOnly(plan?.start_at);
+  const endTime = formatTimeOnly(plan?.end_at);
+  const timeRange = startTime ? (endTime ? `${startTime} - ${endTime}` : startTime) : 'No time';
+  const fromSched = plan?.source_type === 'sched_ics';
+  const categorySummary = categories.slice(0, 2).join(' · ');
+  const extraCategoryCount = Math.max(categories.length - 2, 0);
+
+  return (
+    <details className="group">
+      <summary className="grid cursor-pointer list-none grid-cols-[4.75rem_1fr] gap-3 px-3 py-3 sm:grid-cols-[6rem_1fr]">
+        <div className="text-xs font-medium text-dim">{timeRange}</div>
+        <div className="min-w-0">
+          <div className="flex min-w-0 items-baseline gap-2">
+            <p className="truncate text-sm font-medium text-ink">{plan.title}</p>
+            {plan.status && plan.status !== 'planned' ? <span className="shrink-0 text-xs text-ghost">{plan.status}</span> : null}
+          </div>
+          <p className="mt-1 truncate text-xs text-dim">
+            {[plan.location, categorySummary, extraCategoryCount ? `+${extraCategoryCount}` : '', fromSched ? 'Sched' : 'Manual'].filter(Boolean).join(' · ')}
+          </p>
+        </div>
+      </summary>
+      <div className="grid grid-cols-[4.75rem_1fr] gap-3 px-3 pb-3 sm:grid-cols-[6rem_1fr]">
+        <div />
+        <div className="space-y-3 border-t border-edge pt-3">
+          {notesPreview ? <p className="text-sm leading-6 text-dim">{notesPreview}</p> : null}
+          {categories.length > 2 ? <p className="text-xs text-ghost">{categories.join(' · ')}</p> : null}
+          <div className="flex flex-wrap items-center gap-2">
+            {plan.source_url ? (
+              <a className="btn-ghost btn-sm" href={plan.source_url} target="_blank" rel="noreferrer">
+                <Icons.Link />
+                Open session
+              </a>
+            ) : null}
+            <button className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={onRemove}>Remove</button>
+          </div>
+        </div>
+      </div>
+    </details>
   );
 }
 
