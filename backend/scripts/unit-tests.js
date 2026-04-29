@@ -65,6 +65,7 @@ const {
 process.env.INTEGRATION_ENCRYPTION_KEY = process.env.INTEGRATION_ENCRYPTION_KEY || 'unit-test-integration-key';
 const { buildIntegrationResponse } = require('../services/integrationResponse');
 const { buildCompactJobSummary, formatSyncJob } = require('../services/syncJobs');
+const { ICS_FETCH_USER_AGENT, fetchIcsText, parseIcsEvents } = require('../services/schedIcsSync');
 const {
   buildLoanReminderPhase,
   wasLoanReminderSentToday,
@@ -3601,6 +3602,9 @@ results.push(run('personal Sched ICS sync contract is wired for 3.4.31', () => {
   assert.ok(schedIcsSyncSource.includes('function parseIcsEvents'));
   assert.ok(schedIcsSyncSource.includes('encryptSecret(feedUrl)'));
   assert.ok(schedIcsSyncSource.includes('source_type = $3'));
+  assert.ok(schedIcsSyncSource.includes('source_categories'));
+  assert.ok(migrationsSource.includes('Add richer personal ICS schedule detail fields'));
+  assert.ok(initSqlSource.includes('source_url TEXT'));
   assert.ok(openApiSource.includes('EventPersonalIcsSourceRecord'));
   assert.ok(openApiSource.includes('\"/api/events/{id}/personal-ics-source\"'));
   assert.ok(openApiSource.includes('\"/api/events/{id}/personal-ics-source/sync\"'));
@@ -3609,6 +3613,48 @@ results.push(run('personal Sched ICS sync contract is wired for 3.4.31', () => {
   assert.ok(eventPersonalIcsSyncSmokeSource.includes('urlLeaked: false'));
   assert.ok(eventsViewSource.includes('Personal Sched ICS'));
   assert.ok(eventsViewSource.includes('/events/${eventId}/personal-ics-source/sync'));
+}));
+
+results.push(run('personal Sched ICS parser preserves categories urls and readable descriptions', () => {
+  const [item] = parseIcsEvents(`BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:sched-1
+SUMMARY:Spotlight on Jim Lee
+DESCRIPTION:World-renowned artist &amp; publisher\\nSketches live.
+CATEGORIES:Comics, Art ,Comics
+URL:https://example.test/session/spotlight
+DTSTART:20250724T194500Z
+DTEND:20250724T204500Z
+DTSTAMP:20250701T120000Z
+SEQUENCE:3
+END:VEVENT
+END:VCALENDAR`);
+
+  assert.strictEqual(item.title, 'Spotlight on Jim Lee');
+  assert.deepStrictEqual(item.source_categories, ['Comics', 'Art']);
+  assert.strictEqual(item.source_url, 'https://example.test/session/spotlight');
+  assert.strictEqual(item.source_sequence, 3);
+  assert.strictEqual(item.source_updated_at, '2025-07-01T12:00:00.000Z');
+  assert.ok(item.notes.includes('artist & publisher'));
+}));
+
+results.push(run('personal Sched ICS fetch sends provider-friendly calendar headers', async () => {
+  const calls = [];
+  const text = await fetchIcsText('https://example.test/personal.ics', async (url, options = {}) => {
+    calls.push({ url, options });
+    return {
+      ok: true,
+      status: 200,
+      text: async () => 'BEGIN:VCALENDAR\nVERSION:2.0\nEND:VCALENDAR'
+    };
+  });
+
+  assert.strictEqual(text.includes('BEGIN:VCALENDAR'), true);
+  assert.strictEqual(calls.length, 1);
+  assert.strictEqual(calls[0].options.method, 'GET');
+  assert.strictEqual(calls[0].options.headers['User-Agent'], ICS_FETCH_USER_AGENT);
+  assert.ok(calls[0].options.headers.Accept.includes('text/calendar'));
 }));
 
 results.push(run('native art migration and shared event purchase backfill are wired for the 3.4.2 migration phase', () => {

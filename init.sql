@@ -876,6 +876,10 @@ CREATE TABLE IF NOT EXISTS event_schedule_plans (
     location VARCHAR(255),
     source_type VARCHAR(50),
     source_ref VARCHAR(255),
+    source_url TEXT,
+    source_categories TEXT[] NOT NULL DEFAULT '{}',
+    source_updated_at TIMESTAMP,
+    source_sequence INTEGER,
     status VARCHAR(30) NOT NULL DEFAULT 'planned'
       CHECK (status IN ('planned', 'maybe', 'backup', 'skipped', 'attended')),
     visibility VARCHAR(30) NOT NULL DEFAULT 'private'
@@ -1096,6 +1100,7 @@ CREATE INDEX IF NOT EXISTS idx_event_group_members_group ON event_group_members(
 CREATE INDEX IF NOT EXISTS idx_event_group_members_attendee ON event_group_members(attendee_id);
 CREATE INDEX IF NOT EXISTS idx_event_meetups_event_time ON event_meetups(event_id, archived_at, start_at);
 CREATE INDEX IF NOT EXISTS idx_event_schedule_plans_event_time ON event_schedule_plans(event_id, archived_at, start_at);
+CREATE INDEX IF NOT EXISTS idx_event_schedule_plans_source_categories ON event_schedule_plans USING GIN (source_categories);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_event_personal_ics_sources_active_unique ON event_personal_ics_sources(event_id, user_id) WHERE archived_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_event_personal_ics_sources_event_user ON event_personal_ics_sources(event_id, user_id, archived_at);
 CREATE INDEX IF NOT EXISTS idx_event_schedule_plans_sched_ics_source ON event_schedule_plans(event_id, created_by, source_type, source_ref) WHERE source_type = 'sched_ics';
@@ -1386,5 +1391,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (82, 'Add multi-proof signature evidence table'),
     (83, 'Add signature proof evidence metadata'),
     (84, 'Add event social planning foundation tables'),
-    (85, 'Add personal Sched ICS sources for event schedule plans')
+    (85, 'Add personal Sched ICS sources for event schedule plans'),
+    (86, 'Add richer personal ICS schedule detail fields')
 ON CONFLICT (version) DO NOTHING;

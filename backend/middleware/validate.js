@@ -775,6 +775,10 @@ const eventSchedulePlanBaseSchema = z.object({
   location: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
   source_type: z.preprocess(emptyStringToNull, z.string().max(50).optional().nullable()),
   source_ref: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
+  source_url: z.preprocess(emptyStringToNull, z.string().url().max(1000).optional().nullable()),
+  source_categories: z.array(z.string().trim().min(1).max(100)).max(20).optional(),
+  source_updated_at: eventSocialTimestampSchema,
+  source_sequence: nullableNumberSchema(z.number().int().min(0)),
   status: z.enum(eventSchedulePlanStatusValues).optional().default('planned'),
   visibility: z.enum(eventSocialVisibilityValues).optional().default('private'),
   notes: z.preprocess(emptyStringToNull, z.string().max(5000).optional().nullable())

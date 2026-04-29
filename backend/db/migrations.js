@@ -3714,6 +3714,20 @@ const MIGRATIONS = [
       END;
       $$;
     `
+  },
+  {
+    version: 86,
+    description: 'Add richer personal ICS schedule detail fields',
+    up: `
+      ALTER TABLE event_schedule_plans
+        ADD COLUMN IF NOT EXISTS source_url TEXT,
+        ADD COLUMN IF NOT EXISTS source_categories TEXT[] NOT NULL DEFAULT '{}',
+        ADD COLUMN IF NOT EXISTS source_updated_at TIMESTAMP,
+        ADD COLUMN IF NOT EXISTS source_sequence INTEGER;
+
+      CREATE INDEX IF NOT EXISTS idx_event_schedule_plans_source_categories
+        ON event_schedule_plans USING GIN (source_categories);
+    `
   }
 ];
 

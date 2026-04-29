@@ -6,6 +6,7 @@ const { encryptSecret, decryptSecretWithStatus } = require('./crypto');
 const ICS_SOURCE_TYPE = 'sched_ics';
 const MAX_ICS_BYTES = 2 * 1024 * 1024;
 const DEFAULT_FETCH_TIMEOUT_MS = 15000;
+const ICS_FETCH_USER_AGENT = 'collectZ calendar-sync (+https://github.com/hkrewson/collectZ)';
 
 function normalizeText(value) {
   return String(value || '').trim();
@@ -46,6 +47,34 @@ function decodeIcsText(value) {
     .replace(/\\;/g, ';')
     .replace(/\\\\/g, '\\')
     .trim();
+}
+
+function decodeHtmlEntities(value) {
+  return String(value || '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&#(\d+);/g, (_match, code) => {
+      const point = Number(code);
+      return Number.isFinite(point) ? String.fromCodePoint(point) : '';
+    })
+    .replace(/&#x([0-9a-f]+);/gi, (_match, code) => {
+      const point = parseInt(code, 16);
+      return Number.isFinite(point) ? String.fromCodePoint(point) : '';
+    })
+    .trim();
+}
+
+function normalizeCategories(value) {
+  return decodeIcsText(value)
+    .split(',')
+    .map((part) => normalizeText(decodeHtmlEntities(part)).slice(0, 100))
+    .filter(Boolean)
+    .filter((part, index, list) => list.indexOf(part) === index)
+    .slice(0, 20);
 }
 
 function parseIcsDate(value, params = {}) {
@@ -91,11 +120,14 @@ function parseIcsEvents(text) {
     if (property.name === 'UID') current.uid = decodeIcsText(property.value);
     if (property.name === 'SUMMARY') current.summary = decodeIcsText(property.value);
     if (property.name === 'DESCRIPTION') current.description = decodeIcsText(property.value);
+    if (property.name === 'CATEGORIES') current.categories = normalizeCategories(property.value);
     if (property.name === 'LOCATION') current.location = decodeIcsText(property.value);
     if (property.name === 'URL') current.url = decodeIcsText(property.value);
     if (property.name === 'STATUS') current.status = normalizeText(property.value).toUpperCase();
+    if (property.name === 'SEQUENCE') current.sequence = Number(property.value);
     if (property.name === 'DTSTART') current.startAt = parseIcsDate(property.value, property.params);
     if (property.name === 'DTEND') current.endAt = parseIcsDate(property.value, property.params);
+    if (property.name === 'DTSTAMP') current.sourceUpdatedAt = parseIcsDate(property.value, property.params);
   }
   return events
     .filter((event) => normalizeText(event.summary))
@@ -106,8 +138,12 @@ function parseIcsEvents(text) {
       start_at: event.startAt || null,
       end_at: event.endAt || null,
       location: normalizeText(event.location).slice(0, 255) || null,
+      source_url: normalizeText(event.url).slice(0, 1000) || null,
+      source_categories: Array.isArray(event.categories) ? event.categories : [],
+      source_updated_at: event.sourceUpdatedAt || null,
+      source_sequence: Number.isFinite(event.sequence) ? event.sequence : null,
       status: event.status === 'CANCELLED' ? 'skipped' : 'planned',
-      notes: [normalizeText(event.description), normalizeText(event.url)].filter(Boolean).join('\n\n').slice(0, 5000) || null
+      notes: normalizeText(decodeHtmlEntities(event.description)).slice(0, 5000) || null
     }));
 }
 
@@ -183,7 +219,10 @@ async function fetchIcsText(feedUrl, fetchImpl = fetch) {
   try {
     const response = await fetchImpl(feedUrl, {
       method: 'GET',
-      headers: { Accept: 'text/calendar, text/plain;q=0.9, */*;q=0.5' },
+      headers: {
+        Accept: 'text/calendar, application/calendar+json;q=0.8, text/plain;q=0.7, */*;q=0.5',
+        'User-Agent': ICS_FETCH_USER_AGENT
+      },
       signal: controller.signal
     });
     if (!response.ok) throw new Error(`ICS fetch failed with status ${response.status}`);
@@ -236,23 +275,61 @@ async function syncPersonalIcsSource(pool, { source, eventId, userId, fetchImpl 
                   start_at = $6,
                   end_at = $7,
                   location = $8,
-                  status = $9,
+                  source_url = $9,
+                  source_categories = $10,
+                  source_updated_at = $11,
+                  source_sequence = $12,
+                  status = $13,
                   visibility = 'private',
-                  notes = $10,
+                  notes = $14,
                   archived_at = NULL,
                   updated_at = CURRENT_TIMESTAMP
             WHERE id = $1
               AND event_id = $2
               AND created_by = $3
               AND source_type = $4`,
-          [existing.rows[0].id, eventId, userId, ICS_SOURCE_TYPE, item.title, item.start_at, item.end_at, item.location, item.status, item.notes]
+          [
+            existing.rows[0].id,
+            eventId,
+            userId,
+            ICS_SOURCE_TYPE,
+            item.title,
+            item.start_at,
+            item.end_at,
+            item.location,
+            item.source_url,
+            item.source_categories,
+            item.source_updated_at,
+            item.source_sequence,
+            item.status,
+            item.notes
+          ]
         );
         updated += 1;
       } else {
         await pool.query(
-          `INSERT INTO event_schedule_plans (event_id, title, start_at, end_at, location, source_type, source_ref, status, visibility, notes, created_by)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'private', $9, $10)`,
-          [eventId, item.title, item.start_at, item.end_at, item.location, ICS_SOURCE_TYPE, item.sourceRef, item.status, item.notes, userId]
+          `INSERT INTO event_schedule_plans (
+             event_id, title, start_at, end_at, location, source_type, source_ref,
+             source_url, source_categories, source_updated_at, source_sequence,
+             status, visibility, notes, created_by
+           )
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'private', $13, $14)`,
+          [
+            eventId,
+            item.title,
+            item.start_at,
+            item.end_at,
+            item.location,
+            ICS_SOURCE_TYPE,
+            item.sourceRef,
+            item.source_url,
+            item.source_categories,
+            item.source_updated_at,
+            item.source_sequence,
+            item.status,
+            item.notes,
+            userId
+          ]
         );
         created += 1;
       }
@@ -308,6 +385,8 @@ async function syncPersonalIcsSource(pool, { source, eventId, userId, fetchImpl 
 
 module.exports = {
   ICS_SOURCE_TYPE,
+  ICS_FETCH_USER_AGENT,
+  fetchIcsText,
   parseIcsEvents,
   serializeIcsSource,
   loadPersonalIcsSource,

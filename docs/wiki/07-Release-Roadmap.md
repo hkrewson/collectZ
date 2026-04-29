@@ -6050,6 +6050,81 @@ Historical note:
 - What remains in the milestone: nothing; `3.4.31` is closed.
 - Recommended commit message: `Release 3.4.31 personal Sched ICS sync contract and parser spike`
 
+## 3.4.32 — Personal Sched ICS Schedule Detail Enrichment
+
+**Goal:** Preserve and display richer per-session detail from personal Sched ICS feeds without expanding into the full event schedule catalog or Now/Next discovery milestone.
+
+**Current Slice:** `Closed 2026-04-28`
+
+### Scope
+
+- Add compatibility-safe schedule-plan fields for source session URL, categories, source update timestamp, and source sequence.
+- Parse Sched `CATEGORIES`, `URL`, `DTSTAMP`, and `SEQUENCE` fields into private `event_schedule_plans`.
+- Keep the personal feed URL encrypted and redacted; only individual session URLs are exposed as schedule-plan source links.
+- Update Event drawer schedule-plan cards to show time ranges, location, categories, description preview, and session links.
+- Extend focused parser/unit and personal ICS smoke coverage.
+
+### Acceptance Criteria
+
+- Existing manual and ICS-backed schedule plans remain readable.
+- New ICS syncs populate source URL/categories when provided by the feed.
+- The schedule-plan API documents the richer fields.
+- The Event drawer displays richer synced session detail without exposing the personal ICS feed URL.
+- Full Event Schedule Catalog and Now/Next Discovery remains a separate milestone.
+
+### Notes
+
+- This is still personal selected-session sync, not an authoritative public event catalog.
+- Sched edge behavior may temporarily throttle or block repeated direct fetches; local fixture smoke remains the deterministic regression gate.
+
+### Closeout Notes
+
+- Roadmap slice: `3.4.32 — Personal Sched ICS Schedule Detail Enrichment`.
+- Project docs/checklists used:
+  - `AGENTS.md`
+  - `docs/wiki/07-Release-Roadmap.md`
+  - `docs/wiki/08-Backlog.md`
+  - `docs/wiki/41-Personal-Sched-ICS-Sync.md`
+  - `docs/wiki/10-CI-CD-and-Registry-Deploy.md`
+  - `docs/wiki/17-Release-Go-No-Go-Checklist.md`
+- Runtime verification used Docker-first local platform stack evidence:
+  - backend/frontend images rebuilt with `APP_VERSION=3.4.32`,
+  - `/api/health` reported `3.4.32` for app/frontend/backend,
+  - migration `86` applied in the running backend container,
+  - Help > Releases served `3.4.32` as the latest entry.
+- CI/checks run locally:
+  - `node --check backend/services/schedIcsSync.js`
+  - `node --check backend/routes/events.js`
+  - `node --check backend/middleware/validate.js`
+  - `node --check backend/scripts/unit-tests.js`
+  - `node --check backend/scripts/event-personal-ics-sync-smoke.js`
+  - `APP_VERSION=3.4.32 docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml up -d --build backend frontend`
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T backend npm run test:unit`
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T backend npm run test:openapi`
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T backend npm run test:init-parity`
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T backend npm run test:migration-rehearsal`
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T -e BASE_URL=http://frontend:3000 backend npm run test:event-personal-ics-sync-smoke`
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T -e BASE_URL=http://frontend:3000 -e EXPECTED_VERSION=3.4.32 backend npm run test:help-releases-smoke`
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T -e BASE_URL=http://frontend:3000 backend npm run test:platform-edition-boundary`
+  - `node scripts/validate-public-export-surface.js`
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml config`
+  - `git diff --check`
+- Release artifacts:
+  - `docs/releases/v3.4.32.md`
+  - regenerated `backend/release-feed.json`
+- Files changed:
+  - schedule-plan schema migration/init parity and OpenAPI contract,
+  - personal Sched ICS parser/sync enrichment,
+  - Event drawer schedule-plan detail rendering,
+  - focused unit and personal ICS smoke coverage,
+  - version metadata, generated public compose defaults, release feed, release note, and roadmap closeout.
+- Risks or follow-ups:
+  - Repeated direct requests to the real Sched feed began returning Cloudflare `403` during validation, so the deterministic local fixture smoke is the passing regression gate; the saved real sources currently show the latest failed upstream attempt even though previously synced plans remain in the DB.
+  - Full Event Schedule Catalog and Now/Next Discovery remains separate from personal selected-session ICS sync.
+  - Tagged CI remains authoritative for `dependency-scan`, `secret-scan`, `image-security-and-sbom`, `browser-regression`, `rbac-regression`, and `homelab-edition-boundary`.
+- What remains in the milestone: nothing; `3.4.32` is closed.
+- Recommended commit message: `Release 3.4.32 personal Sched ICS schedule detail enrichment`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

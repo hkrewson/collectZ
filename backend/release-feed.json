@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v3.4.32",
+      "version": "3.4.32",
+      "date": "2026-04-28",
+      "status": null,
+      "summary": "This patch expands personal Sched ICS schedule plans so synced sessions carry more of the useful detail Sched provides, and updates the Event drawer to show those details more clearly.",
+      "details": []
+    },
+    {
       "title": "v3.4.31",
       "version": "3.4.31",
       "date": "2026-04-28",
@@ -70,14 +78,6 @@
       "date": "2026-04-27",
       "status": "Completed",
       "summary": "This release fixes clipped cover art in media detail drawers by giving every media drawer the same header breathing room that movie drawers already had.",
-      "details": []
-    },
-    {
-      "title": "v3.4.22",
-      "version": "3.4.22",
-      "date": "2026-04-27",
-      "status": "Completed",
-      "summary": "This release cleans up mobile image uploads so choosing an existing photo and taking a new photo are separate, intentional actions instead of one ambiguous upload control that could force mobile users into the camera.",
       "details": []
     }
   ]

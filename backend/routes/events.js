@@ -86,7 +86,21 @@ const ARTIFACT_SIGNATURE_FIELDS = ['signer_name', 'signer_role', 'signed_on', 's
 const EVENT_ATTENDEE_FIELDS = ['display_name', 'contact_label', 'relationship', 'status', 'visibility', 'notes'];
 const EVENT_GROUP_FIELDS = ['name', 'visibility', 'status', 'notes'];
 const EVENT_MEETUP_FIELDS = ['group_id', 'title', 'start_at', 'end_at', 'location', 'status', 'visibility', 'notes'];
-const EVENT_SCHEDULE_PLAN_FIELDS = ['title', 'start_at', 'end_at', 'location', 'source_type', 'source_ref', 'status', 'visibility', 'notes'];
+const EVENT_SCHEDULE_PLAN_FIELDS = [
+  'title',
+  'start_at',
+  'end_at',
+  'location',
+  'source_type',
+  'source_ref',
+  'source_url',
+  'source_categories',
+  'source_updated_at',
+  'source_sequence',
+  'status',
+  'visibility',
+  'notes'
+];
 
 const serializeEventArtifactRow = (row = {}) => ({
   ...row,

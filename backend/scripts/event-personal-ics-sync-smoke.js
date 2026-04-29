@@ -88,7 +88,7 @@ async function cleanupTemporaryState({ userId, libraryId, spaceId }) {
 }
 
 function startIcsServer() {
-  let body = `BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//collectZ smoke//sched ics//EN\r\nBEGIN:VEVENT\r\nUID:panel-1@example.test\r\nSUMMARY:Creature Design Panel\r\nDTSTART:20260724T160000Z\r\nDTEND:20260724T170000Z\r\nLOCATION:Room 6BCF\r\nDESCRIPTION:Bring sketchbook\\, questions\\, and coffee.\r\nURL:https://example.test/session/panel-1\r\nEND:VEVENT\r\nBEGIN:VEVENT\r\nUID:signing-2@example.test\r\nSUMMARY:Artist Signing\r\nDTSTART:20260724T183000Z\r\nDTEND:20260724T190000Z\r\nLOCATION:Booth 123\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n`;
+  let body = `BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//collectZ smoke//sched ics//EN\r\nBEGIN:VEVENT\r\nUID:panel-1@example.test\r\nSUMMARY:Creature Design Panel\r\nDTSTART:20260724T160000Z\r\nDTEND:20260724T170000Z\r\nDTSTAMP:20260601T120000Z\r\nSEQUENCE:2\r\nLOCATION:Room 6BCF\r\nCATEGORIES:Art, Workshop\r\nDESCRIPTION:Bring sketchbook\\, questions\\, and coffee.\r\nURL:https://example.test/session/panel-1\r\nEND:VEVENT\r\nBEGIN:VEVENT\r\nUID:signing-2@example.test\r\nSUMMARY:Artist Signing\r\nDTSTART:20260724T183000Z\r\nDTEND:20260724T190000Z\r\nLOCATION:Booth 123\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n`;
   const server = http.createServer((_req, res) => {
     res.writeHead(200, { 'content-type': 'text/calendar; charset=utf-8' });
     res.end(body);
@@ -171,6 +171,10 @@ async function main() {
     assert(plans.data.items.length === 2, `Expected two synced plans, got ${JSON.stringify(plans.data)}`);
     assert(plans.data.items.every((item) => item.source_type === 'sched_ics'), `Expected sched_ics source type, got ${JSON.stringify(plans.data)}`);
     assert(plans.data.items.some((item) => item.title === 'Creature Design Panel' && item.location === 'Room 6BCF'), `Expected parsed panel, got ${JSON.stringify(plans.data)}`);
+    const panel = plans.data.items.find((item) => item.title === 'Creature Design Panel');
+    assert(panel?.source_url === 'https://example.test/session/panel-1', `Expected parsed session URL, got ${JSON.stringify(panel)}`);
+    assert(Array.isArray(panel?.source_categories) && panel.source_categories.includes('Workshop'), `Expected parsed categories, got ${JSON.stringify(panel)}`);
+    assert(panel?.source_sequence === 2, `Expected parsed sequence, got ${JSON.stringify(panel)}`);
 
     await client.request(`/api/events/${eventId}/personal-ics-source`, {
       method: 'DELETE',

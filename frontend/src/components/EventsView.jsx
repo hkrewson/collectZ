@@ -85,6 +85,26 @@ const formatDateTime = (value) => {
   return parsed.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 };
 
+const formatTimeOnly = (value) => {
+  if (!value) return '';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '';
+  return parsed.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+};
+
+const formatPlanTimeRange = (plan) => {
+  const start = formatDateTime(plan?.start_at);
+  if (!start) return '';
+  const end = formatTimeOnly(plan?.end_at);
+  return end ? `${start} - ${end}` : start;
+};
+
+const plainTextPreview = (value, maxLength = 220) => {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  if (!text) return '';
+  return text.length > maxLength ? `${text.slice(0, maxLength - 1).trim()}...` : text;
+};
+
 function MetaPill({ children, tone = 'default' }) {
   return (
     <span
@@ -1445,13 +1465,11 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
             {plans.length > 0 ? (
               <div className="space-y-2">
                 {plans.map((plan) => (
-                  <div key={plan.id} className="flex items-center gap-3 rounded-md border border-edge bg-raised px-3 py-2">
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm text-ink">{plan.title}</p>
-                      <p className="truncate text-xs text-dim">{[formatDateTime(plan.start_at), plan.location, plan.status].filter(Boolean).join(' · ')}</p>
-                    </div>
-                    <button className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={() => archive(`/events/${eventId}/schedule-plans/${plan.id}`, 'Schedule plan')}>Remove</button>
-                  </div>
+                  <SchedulePlanCard
+                    key={plan.id}
+                    plan={plan}
+                    onRemove={() => archive(`/events/${eventId}/schedule-plans/${plan.id}`, 'Schedule plan')}
+                  />
                 ))}
               </div>
             ) : <p className="text-sm text-ghost">No schedule plans yet.</p>}
@@ -1465,6 +1483,49 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
         </details>
       </div>
     </section>
+  );
+}
+
+function SchedulePlanCard({ plan, onRemove }) {
+  const categories = Array.isArray(plan?.source_categories) ? plan.source_categories.filter(Boolean) : [];
+  const notesPreview = plainTextPreview(plan?.notes);
+  const timeRange = formatPlanTimeRange(plan);
+  const fromSched = plan?.source_type === 'sched_ics';
+
+  return (
+    <div className="rounded-md border border-edge bg-raised px-3 py-3">
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1 space-y-2">
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <p className="min-w-0 text-sm font-medium text-ink">{plan.title}</p>
+              {fromSched ? <span className="text-xs text-ghost">Sched</span> : null}
+              {plan.status && plan.status !== 'planned' ? <span className="text-xs text-dim">{plan.status}</span> : null}
+            </div>
+            <p className="text-xs text-dim">{[timeRange, plan.location].filter(Boolean).join(' · ')}</p>
+          </div>
+
+          {categories.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5">
+              {categories.slice(0, 4).map((category) => (
+                <span key={category} className="rounded border border-edge bg-surface px-1.5 py-0.5 text-[11px] text-dim">{category}</span>
+              ))}
+              {categories.length > 4 ? <span className="text-[11px] text-ghost">+{categories.length - 4}</span> : null}
+            </div>
+          ) : null}
+
+          {notesPreview ? <p className="text-xs leading-5 text-dim">{notesPreview}</p> : null}
+
+          {plan.source_url ? (
+            <a className="inline-flex items-center gap-1.5 text-xs text-dim transition-colors hover:text-ink" href={plan.source_url} target="_blank" rel="noreferrer">
+              <Icons.Link />
+              Open session
+            </a>
+          ) : null}
+        </div>
+        <button className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={onRemove}>Remove</button>
+      </div>
+    </div>
   );
 }
 
