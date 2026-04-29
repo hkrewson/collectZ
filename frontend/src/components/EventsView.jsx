@@ -153,6 +153,14 @@ const findCurrentOrNextPlan = (plans, now = new Date()) => {
   return next ? { plan: next.plan, label: 'Next' } : null;
 };
 
+const upcomingPlans = (plans, now = new Date()) => {
+  const nowTime = now.getTime();
+  return sortPlansForAgenda(Array.isArray(plans) ? plans : []).filter((plan) => {
+    const startTime = plan?.start_at ? new Date(plan.start_at).getTime() : NaN;
+    return Number.isFinite(startTime) && startTime >= nowTime;
+  });
+};
+
 const plainTextPreview = (value, maxLength = 220) => {
   const text = String(value || '').replace(/\s+/g, ' ').trim();
   if (!text) return '';
@@ -1565,17 +1573,30 @@ function EventScheduleAgenda({ plans, onRemove }) {
   }, [plans]);
 
   const currentOrNext = useMemo(() => findCurrentOrNextPlan(plans), [plans]);
+  const upcoming = useMemo(() => upcomingPlans(plans), [plans]);
   const todayKey = useMemo(() => getPlanDayKey(new Date()), []);
   const hasToday = groups.some((group) => group.key === todayKey);
 
   const visibleGroups = useMemo(() => {
     if (filter.type === 'day') return groups.filter((group) => group.key === filter.key);
+    if (filter.type === 'upcoming') {
+      return upcoming.reduce((acc, plan) => {
+        const key = getPlanDayKey(plan?.start_at);
+        const existing = acc.find((group) => group.key === key);
+        if (existing) {
+          existing.items.push(plan);
+        } else {
+          acc.push({ key, label: formatPlanDayLabel(plan?.start_at), items: [plan] });
+        }
+        return acc;
+      }, []);
+    }
     if (filter.type === 'focus' && currentOrNext?.plan?.id) {
       const key = getPlanDayKey(currentOrNext.plan.start_at);
       return [{ key, label: formatPlanDayLabel(currentOrNext.plan.start_at), items: [currentOrNext.plan] }];
     }
     return groups;
-  }, [currentOrNext, filter, groups]);
+  }, [currentOrNext, filter, groups, upcoming]);
 
   useEffect(() => {
     if (filter.type === 'day' && !groups.some((group) => group.key === filter.key)) {
@@ -1584,7 +1605,10 @@ function EventScheduleAgenda({ plans, onRemove }) {
     if (filter.type === 'focus' && !currentOrNext?.plan?.id) {
       setFilter({ type: 'all', key: 'all' });
     }
-  }, [currentOrNext, filter, groups]);
+    if (filter.type === 'upcoming' && upcoming.length === 0) {
+      setFilter({ type: 'all', key: 'all' });
+    }
+  }, [currentOrNext, filter, groups, upcoming]);
 
   if (!groups.length) {
     return <p className="text-sm text-ghost">No schedule plans yet.</p>;
@@ -1606,6 +1630,9 @@ function EventScheduleAgenda({ plans, onRemove }) {
         ) : null}
         {hasToday ? (
           <button className={filterButtonClass(filter.type === 'day' && filter.key === todayKey)} onClick={() => setFilter({ type: 'day', key: todayKey })}>Today</button>
+        ) : null}
+        {upcoming.length > 0 ? (
+          <button className={filterButtonClass(filter.type === 'upcoming')} onClick={() => setFilter({ type: 'upcoming', key: 'upcoming' })}>Upcoming</button>
         ) : null}
         {groups.map((group) => (
           <button key={group.key} className={filterButtonClass(filter.type === 'day' && filter.key === group.key)} onClick={() => setFilter({ type: 'day', key: group.key })}>

@@ -5,7 +5,7 @@
       "version": "3.4.34",
       "date": null,
       "status": null,
-      "summary": "This patch improves long Event schedules by adding lightweight day navigation and a local-time now/next affordance to the selected schedule agenda.",
+      "summary": "This patch improves long Event schedules by adding lightweight day navigation, an Upcoming filter, and a local-time now/next affordance to the selected schedule agenda.",
       "details": []
     },
     {

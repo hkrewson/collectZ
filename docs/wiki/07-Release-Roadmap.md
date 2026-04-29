@@ -6201,11 +6201,11 @@ Historical note:
 
 **Goal:** Add lightweight day and now/next navigation to the Event detail drawer agenda so long personal schedules are easier to scan without expanding into full event catalog discovery or continued sync behavior.
 
-**Current Slice:** `In progress`
+**Current Slice:** `Closed 2026-04-29`
 
 ### Scope
 
-- Add compact day navigation for schedule plans in the Event detail drawer.
+- Add compact day navigation and an Upcoming filter for schedule plans in the Event detail drawer.
 - Add a local-time now/next affordance when a current or upcoming selected session exists.
 - Keep the agenda usable for past events where now/next is not available.
 - Preserve the compact agenda row treatment from `3.4.33`.
@@ -6214,6 +6214,7 @@ Historical note:
 ### Acceptance Criteria
 
 - Users can filter/jump between days in a multi-day event schedule.
+- Users can filter to upcoming selected sessions without scrolling past completed/past plans.
 - Users can quickly move to the current or next selected session when one exists.
 - The default view remains simple and readable on mobile.
 - Existing manual and ICS-backed schedule plans remain readable.
@@ -6222,6 +6223,46 @@ Historical note:
 ### Notes
 
 - This is still selected personal schedule readability, not broad session discovery.
+
+### Closeout Notes
+
+- Roadmap slice: `3.4.34 — Event Schedule Day Navigation and Now/Next Readability`.
+- Project docs/checklists used:
+  - `AGENTS.md`
+  - `docs/wiki/07-Release-Roadmap.md`
+  - `docs/wiki/08-Backlog.md`
+  - `docs/wiki/10-CI-CD-and-Registry-Deploy.md`
+  - `docs/wiki/17-Release-Go-No-Go-Checklist.md`
+- Runtime verification used Docker-first local platform stack evidence:
+  - frontend/backend images rebuilt with `APP_VERSION=3.4.34`,
+  - `/api/health` reported `3.4.34` for app/frontend/backend,
+  - Help > Releases served `3.4.34` as the latest entry,
+  - targeted Playwright UI smoke opened a temporary Event detail drawer, verified `Upcoming`, `Next`, and `All` agenda filters, verified compact room-first readback, and cleaned up the fixture.
+- CI/checks run locally:
+  - `APP_VERSION=3.4.34 docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml up -d --build frontend`
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T backend npm run test:unit`
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T backend npm run test:openapi`
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T backend npm run test:init-parity`
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T backend npm run test:migration-rehearsal`
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T -e BASE_URL=http://frontend:3000 -e EXPECTED_VERSION=3.4.34 backend npm run test:help-releases-smoke`
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T -e BASE_URL=http://frontend:3000 backend npm run test:platform-edition-boundary`
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T -e BASE_URL=http://frontend:3000 backend npm run test:rbac-regression`
+  - targeted local Playwright schedule-navigation UI smoke with a temporary fixture Event
+  - `node scripts/validate-public-export-surface.js`
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml config`
+  - `git diff --check`
+- Release artifacts:
+  - `docs/releases/v3.4.34.md`
+  - regenerated `backend/release-feed.json`
+- Files changed:
+  - Event detail drawer agenda filters for `All`, `Upcoming`, `Now`/`Next`, `Today`, and per-day navigation,
+  - backlog follow-up entries for expanded row detail polish, quiet remove actions, and Sched feed failure-state polish,
+  - release note, release feed, and roadmap closeout.
+- Risks or follow-ups:
+  - This patch intentionally does not add continued Sched syncing, full schedule catalog ingestion, broad Now/Next discovery, provider scraping, or friend notifications.
+  - Tagged CI remains authoritative for `compose-smoke`, `browser-regression`, `homelab-edition-boundary`, `dependency-scan`, `secret-scan`, and `image-security-and-sbom`.
+- What remains in the milestone: nothing; `3.4.34` is closed.
+- Recommended commit message: `Release 3.4.34 event schedule day navigation and now-next readability`
 
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
