@@ -25,6 +25,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 7. `Personal Sched ICS Schedule Sync` was promoted as `3.4.31`; keep full schedule catalog/Now-Next discovery separate from personal selected-session sync.
 8. The schedule-readability slice of `Event Social Planning Mobile Web Experience` was promoted as `3.4.33`; keep the broader mobile/social companion experience queued behind this drawer polish.
 9. The day navigation and current/next readability slice of `Event Social Planning Mobile Web Experience` was promoted as `3.4.34`; keep the remaining schedule polish follow-ups queued as separate patch-sized tasks.
+10. `Event Schedule Expanded Row Detail Polish` was promoted as `3.4.35`; keep quiet remove actions and Sched feed failure state queued separately.
 
 ### Backlog Item: Apple Platform App Contract Publishing
 **Type:** Deferred milestone
@@ -248,23 +249,6 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - Meetups and schedule plans are readable without excessive drawer scrolling.
 - Private vs shared records are visually clear.
 - The mobile web surface is good enough to validate the workflow before native/platform implementation.
-
-### Backlog Item: Event Schedule Expanded Row Detail Polish
-**Type:** Patch
-**Tags:** `events`, `schedule`, `ui`, `mobile`, `drawer`
-
-**Goal:** Make expanded Event schedule rows more useful without making the collapsed agenda heavier.
-
-**Scope**
-- Improve the expanded schedule row detail block for selected schedule plans.
-- Show full location, categories, source, session URL, and notes in a cleaner hierarchy.
-- Keep the collapsed row compact and room-first.
-- Preserve compatibility for manual and ICS-backed schedule plans.
-
-**Acceptance Criteria**
-- Expanded rows clearly show full detail without repeating noisy metadata in the collapsed row.
-- Long Sched descriptions and locations remain readable on mobile.
-- Source/session links remain available without exposing the personal ICS feed URL.
 
 ### Backlog Item: Event Schedule Quiet Remove Actions
 **Type:** Patch

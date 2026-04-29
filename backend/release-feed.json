@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v3.4.35",
+      "version": "3.4.35",
+      "date": null,
+      "status": null,
+      "summary": "This patch improves expanded Event schedule rows so selected sessions show full details clearly without making the default agenda scan view heavier.",
+      "details": []
+    },
+    {
       "title": "v3.4.34",
       "version": "3.4.34",
       "date": null,
@@ -70,14 +78,6 @@
       "date": "2026-04-27",
       "status": "Completed",
       "summary": "This release starts the drawer-shell cleanup by moving Media, Art, Collectibles, and Events detail drawers onto one shared slide-over shell while tightening the most obvious mobile spacing drift.",
-      "details": []
-    },
-    {
-      "title": "v3.4.25",
-      "version": "3.4.25",
-      "date": "2026-04-27",
-      "status": "Completed",
-      "summary": "This release cleans up old release evidence examples so fixed local Playwright bypass token values are no longer preserved in committed roadmap or release-note command examples.",
       "details": []
     }
   ]

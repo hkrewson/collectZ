@@ -6264,6 +6264,95 @@ Historical note:
 - What remains in the milestone: nothing; `3.4.34` is closed.
 - Recommended commit message: `Release 3.4.34 event schedule day navigation and now-next readability`
 
+## 3.4.35 — Event Schedule Expanded Row Detail Polish
+
+**Goal:** Make expanded Event schedule rows more useful without making the collapsed agenda heavier.
+
+**Current Slice:** `Closed 2026-04-29`
+
+### Scope
+
+- Improve the expanded schedule row detail block for selected schedule plans.
+- Show full location, categories, source, session URL, notes, and relevant source metadata in a cleaner hierarchy.
+- Keep the collapsed row compact and room-first.
+- Preserve compatibility for manual and ICS-backed schedule plans.
+- Avoid changes to Sched syncing, full schedule catalog import, friend notifications, provider ingestion, or archive/delete behavior.
+
+### Acceptance Criteria
+
+- Expanded rows clearly show full detail without repeating noisy metadata in the collapsed row.
+- Long Sched descriptions and locations remain readable on mobile.
+- Source/session links remain available without exposing the personal ICS feed URL.
+- Existing manual and ICS-backed schedule plans remain readable.
+
+### Notes
+
+- This is still selected personal schedule readability, not broad session discovery.
+
+### Closeout
+
+- Roadmap slice: `3.4.35 — Event Schedule Expanded Row Detail Polish`.
+- Project docs/checklists used:
+  - `AGENTS.md`
+  - `docs/wiki/07-Release-Roadmap.md`
+  - `docs/wiki/08-Backlog.md`
+  - `docs/wiki/10-CI-CD-and-Registry-Deploy.md`
+  - `docs/wiki/17-Release-Go-No-Go-Checklist.md`
+- Runtime verification used:
+  - Docker-first local platform stack rebuilt with `APP_VERSION=3.4.35`.
+  - `/api/health` reported `3.4.35` for app, frontend, backend, and build metadata.
+  - Running stack restored after browser regression so the Playwright bypass env is unset.
+  - Help > Releases served `3.4.35` as the latest release entry.
+  - Targeted Playwright event schedule detail smoke created a temporary event/session, verified expanded full location/categories/source/notes/session link readback, and cleaned up the fixture.
+- CI/checks run:
+  - `APP_VERSION=3.4.35 docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml up -d --build frontend`
+  - `curl -sS http://localhost:3000/api/health`
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml ps`
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T backend npm run test:unit`
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T backend npm run test:openapi`
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T backend npm run test:init-parity`
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T backend npm run test:migration-rehearsal`
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T -e BASE_URL=http://frontend:3000 -e EXPECTED_VERSION=3.4.35 backend npm run test:help-releases-smoke`
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T -e BASE_URL=http://frontend:3000 backend npm run test:platform-edition-boundary`
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T -e BASE_URL=http://frontend:3000 backend npm run test:rbac-regression`
+  - `npm --prefix backend run test:observability-evidence`
+  - `npm --prefix backend run test:release-preflight-local`
+  - `PLAYWRIGHT_E2E_BYPASS_TOKEN=<redacted> npm run test:browser`
+  - `node scripts/validate-public-export-surface.js`
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml config --quiet`
+  - `git diff --check`
+- Verified facts:
+  - Browser regression passed after repairing stale local Playwright fixture state: `50 passed`, `4 skipped` for homelab-only specs under the platform stack.
+  - Local release preflight passed locally runnable gates: version sync, release note presence, dependency audits, migration evidence, and observability evidence.
+  - Backend production dependency audit has no critical or high findings; frontend production dependency audit has no findings.
+  - Observability release evidence passed `9/9` checks for `3.4.35`.
+- Blocked/unverified items:
+  - Local compose smoke secure-cookie assertions remain blocked by the intentional local development runtime posture (`SESSION_COOKIE_SECURE=false`, `NODE_ENV=development`); CI/tagged release remains authoritative for secure-cookie compose smoke.
+  - Homelab edition browser specs were skipped in the platform browser regression run, and the homelab boundary smoke is not valid against the local platform override stack; default homelab CI remains authoritative for that gate.
+  - `secret-scan`, `image-security-and-sbom`, and the tagged release artifact publication gates remain CI-only.
+- Files changed:
+  - `frontend/src/components/EventsView.jsx`
+  - `app-meta.json`
+  - `backend/app-meta.json`
+  - `backend/package.json`
+  - `backend/package-lock.json`
+  - `backend/release-feed.json`
+  - `frontend/package.json`
+  - `frontend/package-lock.json`
+  - `frontend/src/app-meta.json`
+  - `docker-compose.yml`
+  - `docs/releases/v3.4.35.md`
+  - `docs/wiki/07-Release-Roadmap.md`
+  - `docs/wiki/08-Backlog.md`
+  - `artifacts/observability-evidence/observability-release-evidence.json`
+  - `preflight-go-no-go.md`
+- Risks or follow-ups:
+  - Quieter schedule row remove action placement remains a separate backlog task.
+  - Feed-management failed-sync empty/error state remains a separate backlog task.
+  - No continued Sched syncing, full session catalog discovery, friend notification, or provider ingestion behavior shipped in this patch.
+- What remains in the milestone: nothing; `3.4.35` is closed.
+- Recommended commit message: `Release 3.4.35 event schedule expanded row detail polish`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

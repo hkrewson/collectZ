@@ -175,6 +175,12 @@ const compactLocation = (value, maxLength = 52) => {
   return normalized.length > maxLength ? `${normalized.slice(0, maxLength - 1).trim()}...` : normalized;
 };
 
+const scheduleSourceLabel = (plan) => {
+  if (plan?.source_type === 'sched_ics') return 'Sched';
+  if (plan?.source_type) return String(plan.source_type).replace(/_/g, ' ');
+  return 'Manual';
+};
+
 function MetaPill({ children, tone = 'default' }) {
   return (
     <span
@@ -1663,12 +1669,17 @@ function EventScheduleAgenda({ plans, onRemove }) {
 
 function SchedulePlanRow({ plan, marker = '', onRemove }) {
   const categories = Array.isArray(plan?.source_categories) ? plan.source_categories.filter(Boolean) : [];
-  const notesPreview = plainTextPreview(plan?.notes, 360);
+  const notesPreview = plainTextPreview(plan?.notes, 700);
   const agendaTime = formatAgendaTime(plan?.start_at, plan?.end_at);
   const fromSched = plan?.source_type === 'sched_ics';
   const categorySummary = categories.slice(0, 2).join(' · ');
   const extraCategoryCount = Math.max(categories.length - 2, 0);
   const location = compactLocation(plan?.location);
+  const sourceDetails = [
+    scheduleSourceLabel(plan),
+    plan?.source_updated_at ? `Updated ${formatDateTime(plan.source_updated_at)}` : '',
+    plan?.source_sequence !== null && plan?.source_sequence !== undefined ? `Sequence ${plan.source_sequence}` : ''
+  ].filter(Boolean).join(' · ');
 
   return (
     <details className="group">
@@ -1691,10 +1702,39 @@ function SchedulePlanRow({ plan, marker = '', onRemove }) {
       <div className="grid grid-cols-[4.75rem_1fr] gap-3 px-4 pb-3 sm:grid-cols-[5.75rem_1fr]">
         <div />
         <div className="space-y-3 border-t border-edge pt-3">
-          {plan.location && plan.location !== location ? <p className="text-xs text-ghost">{plan.location}</p> : null}
-          {notesPreview ? <p className="text-sm leading-6 text-dim">{notesPreview}</p> : null}
-          {categories.length > 2 ? <p className="text-xs text-ghost">{categories.join(' · ')}</p> : null}
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="grid grid-cols-1 gap-x-4 gap-y-3 text-sm sm:grid-cols-2">
+            {plan.location ? (
+              <div className="min-w-0">
+                <p className="text-xs text-ghost">Location</p>
+                <p className="mt-1 leading-6 text-dim">{plan.location}</p>
+              </div>
+            ) : null}
+            {categories.length > 0 ? (
+              <div className="min-w-0">
+                <p className="text-xs text-ghost">Categories</p>
+                <p className="mt-1 leading-6 text-dim">{categories.join(' · ')}</p>
+              </div>
+            ) : null}
+            {sourceDetails ? (
+              <div className="min-w-0">
+                <p className="text-xs text-ghost">Source</p>
+                <p className="mt-1 leading-6 text-dim">{sourceDetails}</p>
+              </div>
+            ) : null}
+            {plan.status ? (
+              <div className="min-w-0">
+                <p className="text-xs text-ghost">Status</p>
+                <p className="mt-1 capitalize leading-6 text-dim">{plan.status}</p>
+              </div>
+            ) : null}
+          </div>
+          {notesPreview ? (
+            <div>
+              <p className="text-xs text-ghost">Notes</p>
+              <p className="mt-1 text-sm leading-6 text-dim">{notesPreview}</p>
+            </div>
+          ) : null}
+          <div className="flex flex-wrap items-center gap-2 border-t border-edge pt-3">
             {plan.source_url ? (
               <a className="btn-ghost btn-sm" href={plan.source_url} target="_blank" rel="noreferrer">
                 <Icons.Link />
