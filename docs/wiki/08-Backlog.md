@@ -21,7 +21,8 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 3. `Image and Proof Control Language Parity` was promoted as `3.4.27`; finish that parity pass before moving to API/provider search work.
 4. `TMDB Rate-Limit Investigation and Search Optimization` was promoted as `3.4.28`; keep remaining naming/social items separate after this provider/search slice.
 5. `Collectibles Naming Review` was promoted as `3.4.29`; keep the current Collectibles name unless a later milestone intentionally revisits it.
-6. Treat `Event Social Planning Mobile Web Experience` as a larger future product milestone that benefits from the drawer/mobile cleanup but should not be bundled with it.
+6. `Event Social Planning Foundation` was promoted as `3.4.30`; keep `Event Social Planning Mobile Web Experience` queued behind the durable event-social data model.
+7. `Personal Sched ICS Schedule Sync` was promoted as `3.4.31`; keep full schedule catalog/Now-Next discovery separate from personal selected-session sync.
 
 ### Backlog Item: Apple Platform App Contract Publishing
 **Type:** Deferred milestone
@@ -220,33 +221,6 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - Closed support requests can trigger an optional survey.
 - The survey flow stays aligned with the support request lifecycle.
 
-### Backlog Item: Event Social Planning Foundation
-**Type:** Deferred milestone
-**Tags:** `events`, `social`, `friends`, `groups`, `privacy`, `planning`
-
-**Goal:** Add a web-app source-of-truth layer for con/event social planning so users can track who is attending, share schedule intent, and coordinate lightweight meetups without depending on Sched's friends interface.
-
-**Why this work exists**
-- Users already track events, purchases, vendors, booths, signatures, and provenance in collectZ.
-- Cons and conventions also have a human planning layer: friends attending, shared schedules, group meetings, and informal meetups.
-- The web app should own the durable event-social data model before any native/platform app adds day-of-con companion behavior.
-
-**Scope**
-- Add event-attendee records for people connected to an event.
-- Support friend/contact association for attendees without requiring a broader social network on day one.
-- Add optional groups for event-specific planning, such as travel party, artist alley group, or meetup group.
-- Add shared schedule/planned-attendance records linked to event schedule items when available, with a manual fallback for user-created plans.
-- Add lightweight meetups with title, time, location, notes, group/attendee association, and status.
-- Add explicit privacy levels for social planning records, such as private, selected people, group, or visible within the event workspace.
-- Keep discovery conservative; do not add real-time location sharing or public social discovery in the foundation slice.
-
-**Acceptance Criteria**
-- An event can show who is attending or associated with that event.
-- A user can create event-specific groups and meetups.
-- A user can mark planned schedule items or manually add schedule plans.
-- Privacy and visibility are explicit on shared social planning records.
-- The data model can support a future Apple/platform companion app without requiring web frontend source sharing.
-- API and OpenAPI behavior is documented clearly enough for another client to consume.
 
 ### Backlog Item: Event Social Planning Mobile Web Experience
 **Type:** Task
@@ -318,33 +292,6 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - A user can quickly mark a session as planned, maybe, skipped, or backup.
 - Overlapping sessions are detectable as conflicts.
 - The schedule catalog can later be cached by a platform companion app.
-
-### Backlog Item: Personal Sched ICS Schedule Sync
-**Type:** Deferred milestone
-**Tags:** `events`, `sched`, `ics`, `calendar`, `sync`, `privacy`
-
-**Goal:** Allow a user to connect a personal Sched ICS/iCal subscription link so collectZ can keep that user's planned event schedule synchronized.
-
-**Why this work exists**
-- A personal Sched ICS link is useful for syncing the user's selected sessions, but it usually does not represent the full public event calendar.
-- collectZ should treat ICS as a personal plan sync adapter, not as the only source of truth for event discovery.
-- Synced changes can improve reminders, conflict detection, friend sharing, and day-of-con planning.
-
-**Scope**
-- Add a secure per-user/event setting for a personal ICS subscription URL.
-- Poll or refresh the ICS feed on a configurable cadence and on manual request.
-- Parse ICS events into user planned schedule records linked to catalog sessions when a confident match exists.
-- Preserve unmatched ICS entries as personal schedule items with source metadata.
-- Detect additions, removals, time changes, title/location changes, and cancellations.
-- Add sync status, last sync time, error state, and source-change history where practical.
-- Avoid exposing personal ICS URLs in logs, release evidence, screenshots, or API responses.
-
-**Acceptance Criteria**
-- A user can connect and remove a personal Sched ICS link for an event.
-- The user's selected sessions sync into collectZ without replacing the full event schedule catalog.
-- Sync changes update planned schedule state and can surface meaningful conflicts.
-- Personal ICS secrets are redacted from logs and responses.
-- Manual refresh and sync health are visible enough to troubleshoot stale schedules.
 
 ### Backlog Item: Friend-Aware Session Changes and Notifications
 **Type:** Deferred milestone

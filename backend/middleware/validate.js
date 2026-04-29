@@ -716,6 +716,85 @@ const eventPurchasedItemUpdateSchema = eventPurchasedItemBaseSchema.partial().re
   { message: 'At least one purchased item field is required' }
 );
 
+const eventSocialVisibilityValues = ['private', 'selected_people', 'group', 'event_workspace'];
+const eventAttendeeStatusValues = ['attending', 'maybe', 'not_attending', 'unknown'];
+const eventMeetupStatusValues = ['planned', 'tentative', 'cancelled', 'done'];
+const eventSchedulePlanStatusValues = ['planned', 'maybe', 'backup', 'skipped', 'attended'];
+const eventSocialTimestampSchema = z.preprocess(
+  emptyStringToNull,
+  z.string().datetime({ offset: true }).optional().nullable()
+);
+
+const eventAttendeeBaseSchema = z.object({
+  display_name: z.string().trim().min(1, 'Name is required').max(255),
+  contact_label: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
+  relationship: z.preprocess(emptyStringToNull, z.string().max(100).optional().nullable()),
+  status: z.enum(eventAttendeeStatusValues).optional().default('attending'),
+  visibility: z.enum(eventSocialVisibilityValues).optional().default('private'),
+  notes: z.preprocess(emptyStringToNull, z.string().max(5000).optional().nullable())
+});
+const eventAttendeeCreateSchema = eventAttendeeBaseSchema;
+const eventAttendeeUpdateSchema = eventAttendeeBaseSchema.partial().refine(
+  (data) => Object.keys(data).length > 0,
+  { message: 'At least one attendee field is required' }
+);
+
+const eventGroupBaseSchema = z.object({
+  name: z.string().trim().min(1, 'Group name is required').max(255),
+  visibility: z.enum(eventSocialVisibilityValues).optional().default('private'),
+  status: z.enum(['active', 'archived']).optional().default('active'),
+  notes: z.preprocess(emptyStringToNull, z.string().max(5000).optional().nullable()),
+  attendee_ids: z.array(z.number().int().positive()).optional()
+});
+const eventGroupCreateSchema = eventGroupBaseSchema;
+const eventGroupUpdateSchema = eventGroupBaseSchema.partial().refine(
+  (data) => Object.keys(data).length > 0,
+  { message: 'At least one group field is required' }
+);
+
+const eventMeetupBaseSchema = z.object({
+  title: z.string().trim().min(1, 'Title is required').max(255),
+  group_id: nullableNumberSchema(z.number().int().positive()),
+  start_at: eventSocialTimestampSchema,
+  end_at: eventSocialTimestampSchema,
+  location: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
+  status: z.enum(eventMeetupStatusValues).optional().default('planned'),
+  visibility: z.enum(eventSocialVisibilityValues).optional().default('private'),
+  notes: z.preprocess(emptyStringToNull, z.string().max(5000).optional().nullable())
+});
+const eventMeetupCreateSchema = eventMeetupBaseSchema;
+const eventMeetupUpdateSchema = eventMeetupBaseSchema.partial().refine(
+  (data) => Object.keys(data).length > 0,
+  { message: 'At least one meetup field is required' }
+);
+
+const eventSchedulePlanBaseSchema = z.object({
+  title: z.string().trim().min(1, 'Title is required').max(255),
+  start_at: eventSocialTimestampSchema,
+  end_at: eventSocialTimestampSchema,
+  location: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
+  source_type: z.preprocess(emptyStringToNull, z.string().max(50).optional().nullable()),
+  source_ref: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
+  status: z.enum(eventSchedulePlanStatusValues).optional().default('planned'),
+  visibility: z.enum(eventSocialVisibilityValues).optional().default('private'),
+  notes: z.preprocess(emptyStringToNull, z.string().max(5000).optional().nullable())
+});
+const eventSchedulePlanCreateSchema = eventSchedulePlanBaseSchema;
+const eventSchedulePlanUpdateSchema = eventSchedulePlanBaseSchema.partial().refine(
+  (data) => Object.keys(data).length > 0,
+  { message: 'At least one schedule-plan field is required' }
+);
+const eventPersonalIcsSourceSchema = z.object({
+  feed_url: z.string()
+    .trim()
+    .url('A valid ICS URL is required')
+    .max(2000)
+    .refine((value) => ['http:', 'https:', 'webcal:'].includes(new URL(value.replace(/^webcal:/i, 'https:')).protocol), {
+      message: 'ICS URL must use http, https, or webcal'
+    })
+    .transform((value) => value.replace(/^webcal:/i, 'https:'))
+});
+
 // ── Collectibles ─────────────────────────────────────────────────────────────
 
 const collectibleCategoryKeys = [
@@ -890,6 +969,15 @@ module.exports = {
   signatureRecordUpdateSchema,
   eventPurchasedItemCreateSchema,
   eventPurchasedItemUpdateSchema,
+  eventAttendeeCreateSchema,
+  eventAttendeeUpdateSchema,
+  eventGroupCreateSchema,
+  eventGroupUpdateSchema,
+  eventMeetupCreateSchema,
+  eventMeetupUpdateSchema,
+  eventSchedulePlanCreateSchema,
+  eventSchedulePlanUpdateSchema,
+  eventPersonalIcsSourceSchema,
   collectibleCreateSchema,
   collectibleUpdateSchema,
   artCreateSchema,

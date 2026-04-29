@@ -28,6 +28,20 @@ const DEFAULT_ARTIFACT_FORM = {
   signature_notes: ''
 };
 
+const EMPTY_SOCIAL_FORM = {
+  attendeeName: '',
+  attendeeRelationship: '',
+  groupName: '',
+  meetupTitle: '',
+  meetupLocation: '',
+  meetupStart: '',
+  meetupGroupId: '',
+  planTitle: '',
+  planLocation: '',
+  planStart: '',
+  icsUrl: ''
+};
+
 const toInputDate = (value) => {
   if (!value) return '';
   const text = String(value).trim();
@@ -55,6 +69,21 @@ const formatUploadError = (message) => {
 };
 
 const pluralizeArtifacts = (count) => `${count || 0} artifact${Number(count || 0) === 1 ? '' : 's'}`;
+const pluralizePeople = (count) => `${count || 0} ${Number(count || 0) === 1 ? 'person' : 'people'}`;
+
+const fromDateTimeInput = (value) => {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.toISOString();
+};
+
+const formatDateTime = (value) => {
+  if (!value) return '';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '';
+  return parsed.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+};
 
 function MetaPill({ children, tone = 'default' }) {
   return (
@@ -1117,6 +1146,328 @@ function EventFormDrawer({ initial, apiCall, onClose, onSave, onDelete, onClearI
   );
 }
 
+function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState('');
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [form, setForm] = useState(EMPTY_SOCIAL_FORM);
+  const [attendees, setAttendees] = useState([]);
+  const [groups, setGroups] = useState([]);
+  const [meetups, setMeetups] = useState([]);
+  const [plans, setPlans] = useState([]);
+  const [icsSource, setIcsSource] = useState(null);
+
+  const set = (patch) => setForm((prev) => ({ ...prev, ...patch }));
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const [attendeePayload, groupPayload, meetupPayload, planPayload, icsPayload] = await Promise.all([
+        apiCall('get', `/events/${eventId}/attendees`),
+        apiCall('get', `/events/${eventId}/groups`),
+        apiCall('get', `/events/${eventId}/meetups`),
+        apiCall('get', `/events/${eventId}/schedule-plans`),
+        apiCall('get', `/events/${eventId}/personal-ics-source`)
+      ]);
+      setAttendees(Array.isArray(attendeePayload?.items) ? attendeePayload.items : []);
+      setGroups(Array.isArray(groupPayload?.items) ? groupPayload.items : []);
+      setMeetups(Array.isArray(meetupPayload?.items) ? meetupPayload.items : []);
+      setPlans(Array.isArray(planPayload?.items) ? planPayload.items : []);
+      setIcsSource(icsPayload?.source || null);
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Failed to load social planning');
+    } finally {
+      setLoading(false);
+    }
+  }, [apiCall, eventId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const save = async (kind) => {
+    setSaving(kind);
+    setError('');
+    setNotice('');
+    try {
+      if (kind === 'attendee') {
+        await apiCall('post', `/events/${eventId}/attendees`, {
+          display_name: form.attendeeName.trim(),
+          relationship: form.attendeeRelationship || null,
+          status: 'attending',
+          visibility: 'private'
+        });
+        set({ attendeeName: '', attendeeRelationship: '' });
+        setNotice('Attendee added');
+      }
+      if (kind === 'group') {
+        await apiCall('post', `/events/${eventId}/groups`, {
+          name: form.groupName.trim(),
+          visibility: 'private'
+        });
+        set({ groupName: '' });
+        setNotice('Group added');
+      }
+      if (kind === 'meetup') {
+        await apiCall('post', `/events/${eventId}/meetups`, {
+          title: form.meetupTitle.trim(),
+          location: form.meetupLocation || null,
+          start_at: fromDateTimeInput(form.meetupStart),
+          group_id: form.meetupGroupId ? Number(form.meetupGroupId) : null,
+          status: 'planned',
+          visibility: form.meetupGroupId ? 'group' : 'private'
+        });
+        set({ meetupTitle: '', meetupLocation: '', meetupStart: '', meetupGroupId: '' });
+        setNotice('Meetup added');
+      }
+      if (kind === 'plan') {
+        await apiCall('post', `/events/${eventId}/schedule-plans`, {
+          title: form.planTitle.trim(),
+          location: form.planLocation || null,
+          start_at: fromDateTimeInput(form.planStart),
+          source_type: 'manual',
+          status: 'planned',
+          visibility: 'private'
+        });
+        set({ planTitle: '', planLocation: '', planStart: '' });
+        setNotice('Schedule plan added');
+      }
+      if (kind === 'ics') {
+        await apiCall('put', `/events/${eventId}/personal-ics-source`, {
+          feed_url: form.icsUrl.trim()
+        });
+        set({ icsUrl: '' });
+        setNotice('Personal Sched ICS source saved');
+      }
+      await load();
+      await onChanged?.();
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Failed to save social planning');
+    } finally {
+      setSaving('');
+    }
+  };
+
+  const syncIcs = async () => {
+    setSaving('ics-sync');
+    setError('');
+    setNotice('');
+    try {
+      const payload = await apiCall('post', `/events/${eventId}/personal-ics-source/sync`, {});
+      const summary = payload?.summary || {};
+      setNotice(`ICS synced: ${summary.total || 0} item${Number(summary.total || 0) === 1 ? '' : 's'}`);
+      await load();
+      await onChanged?.();
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Failed to sync personal ICS source');
+      await load();
+    } finally {
+      setSaving('');
+    }
+  };
+
+  const removeIcs = async () => {
+    setSaving('ics-remove');
+    setError('');
+    setNotice('');
+    try {
+      await apiCall('delete', `/events/${eventId}/personal-ics-source`);
+      setNotice('Personal ICS source removed');
+      await load();
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Failed to remove personal ICS source');
+    } finally {
+      setSaving('');
+    }
+  };
+
+  const archive = async (path, label) => {
+    setSaving(path);
+    setError('');
+    setNotice('');
+    try {
+      await apiCall('delete', path);
+      setNotice(`${label} removed`);
+      await load();
+      await onChanged?.();
+    } catch (err) {
+      setError(err?.response?.data?.error || `Failed to remove ${label.toLowerCase()}`);
+    } finally {
+      setSaving('');
+    }
+  };
+
+  return (
+    <section className="rounded-lg border border-edge bg-surface">
+      <div className="border-b border-edge px-4 py-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold text-ink">Social planning</h3>
+            <p className="mt-1 text-xs text-dim">
+              {pluralizePeople(attendees.length)} · {groups.length} group{groups.length === 1 ? '' : 's'} · {meetups.length} meetup{meetups.length === 1 ? '' : 's'} · {plans.length} plan{plans.length === 1 ? '' : 's'}
+            </p>
+          </div>
+          {loading ? <Spinner size={16} /> : <button className="btn-ghost btn-sm" onClick={load}>Refresh</button>}
+        </div>
+        {error ? <p className="mt-2 text-xs text-err">{error}</p> : null}
+        {notice ? <p className="mt-2 text-xs text-ok">{notice}</p> : null}
+      </div>
+
+      <div className="divide-y divide-edge">
+        <details className="group" open>
+          <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium text-ink">
+            Personal Sched ICS
+            <span className="text-xs text-ghost">{icsSource?.has_url ? icsSource.sync_status || 'connected' : 'not connected'}</span>
+          </summary>
+          <div className="space-y-3 px-4 pb-4">
+            <p className="text-sm text-dim">
+              Connect your personal Sched iCal link to sync selected sessions into private schedule plans. The URL is encrypted and never shown back here.
+            </p>
+            {icsSource?.has_url ? (
+              <div className="rounded-md border border-edge bg-raised px-3 py-2">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm text-ink">Personal feed connected</p>
+                    <p className="text-xs text-dim">
+                      {[
+                        icsSource.last_success_at ? `Last synced ${formatDateTime(icsSource.last_success_at)}` : 'Not synced yet',
+                        `${icsSource.last_item_count || 0} item${Number(icsSource.last_item_count || 0) === 1 ? '' : 's'}`,
+                        icsSource.sync_status
+                      ].filter(Boolean).join(' · ')}
+                    </p>
+                    {icsSource.last_error ? <p className="mt-1 text-xs text-err">{icsSource.last_error}</p> : null}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button className="btn-secondary btn-sm" disabled={saving === 'ics-sync'} onClick={syncIcs}>{saving === 'ics-sync' ? <Spinner size={16} /> : 'Sync now'}</button>
+                    <button className="btn-ghost btn-sm text-err hover:bg-err/10" disabled={saving === 'ics-remove'} onClick={removeIcs}>Remove</button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto]">
+              <input className="input" placeholder="https://.../my-schedule.ics" value={form.icsUrl} onChange={(e) => set({ icsUrl: e.target.value })} />
+              <button className="btn-secondary" disabled={!form.icsUrl.trim() || saving === 'ics'} onClick={() => save('ics')}>{saving === 'ics' ? <Spinner size={16} /> : (icsSource?.has_url ? 'Replace feed' : 'Connect feed')}</button>
+            </div>
+          </div>
+        </details>
+
+        <details className="group" open>
+          <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium text-ink">
+            People
+            <span className="text-xs text-ghost">{attendees.length}</span>
+          </summary>
+          <div className="space-y-3 px-4 pb-4">
+            {attendees.length > 0 ? (
+              <div className="space-y-2">
+                {attendees.map((person) => (
+                  <div key={person.id} className="flex items-center gap-3 rounded-md border border-edge bg-raised px-3 py-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm text-ink">{person.display_name}</p>
+                      <p className="truncate text-xs text-dim">{[person.relationship, person.status, person.visibility].filter(Boolean).join(' · ')}</p>
+                    </div>
+                    <button className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={() => archive(`/events/${eventId}/attendees/${person.id}`, 'Attendee')}>Remove</button>
+                  </div>
+                ))}
+              </div>
+            ) : <p className="text-sm text-ghost">No attendees yet.</p>}
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_10rem_auto]">
+              <input className="input" placeholder="Name" value={form.attendeeName} onChange={(e) => set({ attendeeName: e.target.value })} />
+              <input className="input" placeholder="Relationship" value={form.attendeeRelationship} onChange={(e) => set({ attendeeRelationship: e.target.value })} />
+              <button className="btn-secondary" disabled={!form.attendeeName.trim() || saving === 'attendee'} onClick={() => save('attendee')}>{saving === 'attendee' ? <Spinner size={16} /> : 'Add'}</button>
+            </div>
+          </div>
+        </details>
+
+        <details className="group">
+          <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium text-ink">
+            Groups
+            <span className="text-xs text-ghost">{groups.length}</span>
+          </summary>
+          <div className="space-y-3 px-4 pb-4">
+            {groups.length > 0 ? (
+              <div className="space-y-2">
+                {groups.map((group) => (
+                  <div key={group.id} className="flex items-center gap-3 rounded-md border border-edge bg-raised px-3 py-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm text-ink">{group.name}</p>
+                      <p className="truncate text-xs text-dim">{pluralizePeople(group.members?.length || 0)} · {group.visibility}</p>
+                    </div>
+                    <button className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={() => archive(`/events/${eventId}/groups/${group.id}`, 'Group')}>Remove</button>
+                  </div>
+                ))}
+              </div>
+            ) : <p className="text-sm text-ghost">No groups yet.</p>}
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto]">
+              <input className="input" placeholder="Group name" value={form.groupName} onChange={(e) => set({ groupName: e.target.value })} />
+              <button className="btn-secondary" disabled={!form.groupName.trim() || saving === 'group'} onClick={() => save('group')}>{saving === 'group' ? <Spinner size={16} /> : 'Add'}</button>
+            </div>
+          </div>
+        </details>
+
+        <details className="group" open>
+          <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium text-ink">
+            Meetups
+            <span className="text-xs text-ghost">{meetups.length}</span>
+          </summary>
+          <div className="space-y-3 px-4 pb-4">
+            {meetups.length > 0 ? (
+              <div className="space-y-2">
+                {meetups.map((meetup) => (
+                  <div key={meetup.id} className="flex items-center gap-3 rounded-md border border-edge bg-raised px-3 py-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm text-ink">{meetup.title}</p>
+                      <p className="truncate text-xs text-dim">{[formatDateTime(meetup.start_at), meetup.location, meetup.group_name, meetup.status].filter(Boolean).join(' · ')}</p>
+                    </div>
+                    <button className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={() => archive(`/events/${eventId}/meetups/${meetup.id}`, 'Meetup')}>Remove</button>
+                  </div>
+                ))}
+              </div>
+            ) : <p className="text-sm text-ghost">No meetups yet.</p>}
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <input className="input" placeholder="Meetup title" value={form.meetupTitle} onChange={(e) => set({ meetupTitle: e.target.value })} />
+              <input className="input" placeholder="Location" value={form.meetupLocation} onChange={(e) => set({ meetupLocation: e.target.value })} />
+              <input type="datetime-local" className="input" value={form.meetupStart} onChange={(e) => set({ meetupStart: e.target.value })} />
+              <select className="input" value={form.meetupGroupId} onChange={(e) => set({ meetupGroupId: e.target.value })}>
+                <option value="">No group</option>
+                {groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
+              </select>
+              <button className="btn-secondary sm:col-span-2" disabled={!form.meetupTitle.trim() || saving === 'meetup'} onClick={() => save('meetup')}>{saving === 'meetup' ? <Spinner size={16} /> : 'Add meetup'}</button>
+            </div>
+          </div>
+        </details>
+
+        <details className="group" open>
+          <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium text-ink">
+            Schedule plans
+            <span className="text-xs text-ghost">{plans.length}</span>
+          </summary>
+          <div className="space-y-3 px-4 pb-4">
+            {plans.length > 0 ? (
+              <div className="space-y-2">
+                {plans.map((plan) => (
+                  <div key={plan.id} className="flex items-center gap-3 rounded-md border border-edge bg-raised px-3 py-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm text-ink">{plan.title}</p>
+                      <p className="truncate text-xs text-dim">{[formatDateTime(plan.start_at), plan.location, plan.status].filter(Boolean).join(' · ')}</p>
+                    </div>
+                    <button className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={() => archive(`/events/${eventId}/schedule-plans/${plan.id}`, 'Schedule plan')}>Remove</button>
+                  </div>
+                ))}
+              </div>
+            ) : <p className="text-sm text-ghost">No schedule plans yet.</p>}
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <input className="input" placeholder="Plan title" value={form.planTitle} onChange={(e) => set({ planTitle: e.target.value })} />
+              <input className="input" placeholder="Location" value={form.planLocation} onChange={(e) => set({ planLocation: e.target.value })} />
+              <input type="datetime-local" className="input sm:col-span-2" value={form.planStart} onChange={(e) => set({ planStart: e.target.value })} />
+              <button className="btn-secondary sm:col-span-2" disabled={!form.planTitle.trim() || saving === 'plan'} onClick={() => save('plan')}>{saving === 'plan' ? <Spinner size={16} /> : 'Add plan'}</button>
+            </div>
+          </div>
+        </details>
+      </div>
+    </section>
+  );
+}
+
 function EventDetailDrawer({ eventId, apiCall, onClose, onEdit, onDeleted, onSaved }) {
   const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -1198,6 +1549,7 @@ function EventDetailDrawer({ eventId, apiCall, onClose, onEdit, onDeleted, onSav
                   <p className="max-w-3xl text-dim leading-7">{event.notes}</p>
                 </DetailField>
               ) : null}
+              <EventSocialPlanningPanel eventId={eventId} apiCall={apiCall} onChanged={onSaved} />
               <EventPurchasedItemsReadback eventId={eventId} apiCall={apiCall} />
               <EventArtifactsEditor eventId={eventId} apiCall={apiCall} onSaved={onSaved} />
             </>

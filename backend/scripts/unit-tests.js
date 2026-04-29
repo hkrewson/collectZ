@@ -111,6 +111,9 @@ const collectiblesRoutesSource = fs.readFileSync(require.resolve('../routes/coll
 const integrationsRoutesSource = fs.readFileSync(require.resolve('../routes/integrations'), 'utf8');
 const supportRoutesSource = fs.readFileSync(require.resolve('../routes/support'), 'utf8');
 const signaturesServiceSource = fs.readFileSync(require.resolve('../services/signatures'), 'utf8');
+const eventSocialPlanningSmokeSource = fs.readFileSync(require.resolve('../scripts/event-social-planning-smoke'), 'utf8');
+const eventPersonalIcsSyncSmokeSource = fs.readFileSync(require.resolve('../scripts/event-personal-ics-sync-smoke'), 'utf8');
+const schedIcsSyncSource = fs.readFileSync(require.resolve('../services/schedIcsSync'), 'utf8');
 const spacesServiceSource = fs.readFileSync(require.resolve('../services/spaces'), 'utf8');
 function readFrontendSource(relativePath) {
   const base = path.resolve(__dirname, '..', '..', 'frontend', 'src', relativePath);
@@ -171,6 +174,8 @@ const publicComposeGeneratorSource = fs.readFileSync(require.resolve('../../scri
 const publicExportValidatorSource = fs.readFileSync(require.resolve('../../scripts/validate-public-export-surface'), 'utf8');
 const releaseRoadmapSource = fs.readFileSync(require.resolve('../../docs/wiki/07-Release-Roadmap.md'), 'utf8');
 const collectiblesNamingDecisionSource = fs.readFileSync(require.resolve('../../docs/wiki/39-Collectibles-Naming-Decision.md'), 'utf8');
+const eventSocialPlanningFoundationSource = fs.readFileSync(require.resolve('../../docs/wiki/40-Event-Social-Planning-Foundation.md'), 'utf8');
+const personalSchedIcsSyncSource = fs.readFileSync(require.resolve('../../docs/wiki/41-Personal-Sched-ICS-Sync.md'), 'utf8');
 const releaseNotesDir = path.resolve(__dirname, '..', '..', 'docs', 'releases');
 const releaseDocsSource = fs.readdirSync(releaseNotesDir)
   .filter((name) => name.endsWith('.md'))
@@ -3552,6 +3557,60 @@ results.push(run('native art schema and shared event purchased-item contract are
   assert.ok(backendPackageJson.scripts['test:event-purchased-items-smoke']);
 }));
 
+results.push(run('event social planning foundation contract is wired for 3.4.30', () => {
+  assert.ok(releaseRoadmapSource.includes('3.4.30 — Event Social Planning Foundation'));
+  assert.ok(eventSocialPlanningFoundationSource.includes('Event social planning belongs in collectZ as event-scoped planning data'));
+  assert.ok(eventSocialPlanningFoundationSource.includes('no real-time location sharing'));
+  assert.ok(migrationsSource.includes('version: 84'));
+  assert.ok(migrationsSource.includes('CREATE TABLE IF NOT EXISTS event_attendees'));
+  assert.ok(migrationsSource.includes('CREATE TABLE IF NOT EXISTS event_groups'));
+  assert.ok(migrationsSource.includes('CREATE TABLE IF NOT EXISTS event_meetups'));
+  assert.ok(migrationsSource.includes('CREATE TABLE IF NOT EXISTS event_schedule_plans'));
+  assert.ok(initSqlSource.includes('CREATE TABLE IF NOT EXISTS event_attendees'));
+  assert.ok(initSqlSource.includes("(84, 'Add event social planning foundation tables')"));
+  assert.ok(validateMiddlewareSource.includes('eventAttendeeCreateSchema'));
+  assert.ok(validateMiddlewareSource.includes('eventSchedulePlanCreateSchema'));
+  assert.ok(eventsRoutesSource.includes("router.get('/events/:id/attendees'"));
+  assert.ok(eventsRoutesSource.includes("router.post('/events/:id/groups'"));
+  assert.ok(eventsRoutesSource.includes("router.patch('/events/:id/meetups/:meetupId'"));
+  assert.ok(eventsRoutesSource.includes("router.delete('/events/:id/schedule-plans/:planId'"));
+  assert.ok(openApiSource.includes('"/api/events/{id}/attendees"'));
+  assert.ok(openApiSource.includes('"/api/events/{id}/groups/{groupId}"'));
+  assert.ok(openApiSource.includes('EventMeetupRecord'));
+  assert.ok(openApiSource.includes('EventSchedulePlanRecord'));
+  assert.ok(backendPackageJson.scripts['test:event-social-planning-smoke']);
+  assert.ok(eventSocialPlanningSmokeSource.includes('/api/events/${eventId}/attendees'));
+  assert.ok(eventSocialPlanningSmokeSource.includes('/api/events/${eventId}/schedule-plans'));
+  assert.ok(eventsViewSource.includes('function EventSocialPlanningPanel'));
+  assert.ok(eventsViewSource.includes('/events/${eventId}/meetups'));
+  assert.ok(eventsViewSource.includes('Social planning'));
+}));
+
+results.push(run('personal Sched ICS sync contract is wired for 3.4.31', () => {
+  assert.ok(releaseRoadmapSource.includes('3.4.31 — Personal Sched ICS Sync Contract and Parser Spike'));
+  assert.ok(personalSchedIcsSyncSource.includes('personal plan sync adapter'));
+  assert.ok(personalSchedIcsSyncSource.includes('never returns the raw ICS URL'));
+  assert.ok(migrationsSource.includes('version: 85'));
+  assert.ok(migrationsSource.includes('CREATE TABLE IF NOT EXISTS event_personal_ics_sources'));
+  assert.ok(initSqlSource.includes('CREATE TABLE IF NOT EXISTS event_personal_ics_sources'));
+  assert.ok(initSqlSource.includes("(85, 'Add personal Sched ICS sources for event schedule plans')"));
+  assert.ok(validateMiddlewareSource.includes('eventPersonalIcsSourceSchema'));
+  assert.ok(eventsRoutesSource.includes("router.get('/events/:id/personal-ics-source'"));
+  assert.ok(eventsRoutesSource.includes("router.post('/events/:id/personal-ics-source/sync'"));
+  assert.ok(eventsRoutesSource.includes('events.personal_ics_source.sync.success'));
+  assert.ok(schedIcsSyncSource.includes('function parseIcsEvents'));
+  assert.ok(schedIcsSyncSource.includes('encryptSecret(feedUrl)'));
+  assert.ok(schedIcsSyncSource.includes('source_type = $3'));
+  assert.ok(openApiSource.includes('EventPersonalIcsSourceRecord'));
+  assert.ok(openApiSource.includes('\"/api/events/{id}/personal-ics-source\"'));
+  assert.ok(openApiSource.includes('\"/api/events/{id}/personal-ics-source/sync\"'));
+  assert.ok(backendPackageJson.scripts['test:event-personal-ics-sync-smoke']);
+  assert.ok(eventPersonalIcsSyncSmokeSource.includes('startIcsServer'));
+  assert.ok(eventPersonalIcsSyncSmokeSource.includes('urlLeaked: false'));
+  assert.ok(eventsViewSource.includes('Personal Sched ICS'));
+  assert.ok(eventsViewSource.includes('/events/${eventId}/personal-ics-source/sync'));
+}));
+
 results.push(run('native art migration and shared event purchase backfill are wired for the 3.4.2 migration phase', () => {
   assert.ok(migrationsSource.includes('version: 75'));
   assert.ok(migrationsSource.includes('Backfill native art rows and shared event purchased item links'));
@@ -3890,7 +3949,7 @@ results.push(run('Art dimension unit metadata is wired through native Art contra
   assert.ok(artViewSource.includes('<span className="label">Unit</span>'));
   assert.ok(artViewSource.includes('formatDimensionValue(item.height, item.dimension_unit)'));
   assert.ok(openApiSource.includes('"dimension_unit"'));
-  assert.ok(openApiSource.includes('"enum": ["in", "cm", null]'));
+  assert.ok(/"enum":\s*\[\s*"in",\s*"cm",\s*null\s*\]/.test(openApiSource));
 }));
 
 results.push(run('library loans view exposes management-focused counts and due-soon emphasis', () => {

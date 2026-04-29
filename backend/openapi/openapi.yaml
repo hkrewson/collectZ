@@ -1649,6 +1649,222 @@
           "price_snapshot": { "type": ["number", "null"] }
         }
       },
+      "EventSocialVisibility": {
+        "type": "string",
+        "enum": ["private", "selected_people", "group", "event_workspace"]
+      },
+      "EventAttendeeRecord": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "event_id": { "type": "integer" },
+          "display_name": { "type": "string" },
+          "contact_label": { "type": ["string", "null"] },
+          "relationship": { "type": ["string", "null"] },
+          "status": { "type": "string", "enum": ["attending", "maybe", "not_attending", "unknown"] },
+          "visibility": { "$ref": "#/components/schemas/EventSocialVisibility" },
+          "notes": { "type": ["string", "null"] },
+          "created_by": { "type": ["integer", "null"] },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        },
+        "required": ["id", "event_id", "display_name", "status", "visibility", "created_at", "updated_at"]
+      },
+      "EventAttendeeListResponse": {
+        "type": "object",
+        "properties": {
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/EventAttendeeRecord" } }
+        },
+        "required": ["items"]
+      },
+      "EventAttendeeUpsertRequest": {
+        "type": "object",
+        "properties": {
+          "display_name": { "type": "string" },
+          "contact_label": { "type": ["string", "null"] },
+          "relationship": { "type": ["string", "null"] },
+          "status": { "type": "string", "enum": ["attending", "maybe", "not_attending", "unknown"] },
+          "visibility": { "$ref": "#/components/schemas/EventSocialVisibility" },
+          "notes": { "type": ["string", "null"] }
+        }
+      },
+      "EventGroupMemberRecord": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "display_name": { "type": "string" },
+          "contact_label": { "type": ["string", "null"] },
+          "relationship": { "type": ["string", "null"] },
+          "status": { "type": "string" },
+          "visibility": { "$ref": "#/components/schemas/EventSocialVisibility" }
+        },
+        "required": ["id", "display_name", "status", "visibility"]
+      },
+      "EventGroupRecord": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "event_id": { "type": "integer" },
+          "name": { "type": "string" },
+          "visibility": { "$ref": "#/components/schemas/EventSocialVisibility" },
+          "status": { "type": "string", "enum": ["active", "archived"] },
+          "notes": { "type": ["string", "null"] },
+          "created_by": { "type": ["integer", "null"] },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" },
+          "members": { "type": "array", "items": { "$ref": "#/components/schemas/EventGroupMemberRecord" } }
+        },
+        "required": ["id", "event_id", "name", "visibility", "status", "created_at", "updated_at"]
+      },
+      "EventGroupListResponse": {
+        "type": "object",
+        "properties": {
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/EventGroupRecord" } }
+        },
+        "required": ["items"]
+      },
+      "EventGroupUpsertRequest": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "visibility": { "$ref": "#/components/schemas/EventSocialVisibility" },
+          "status": { "type": "string", "enum": ["active", "archived"] },
+          "notes": { "type": ["string", "null"] },
+          "attendee_ids": { "type": "array", "items": { "type": "integer", "minimum": 1 } }
+        }
+      },
+      "EventMeetupRecord": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "event_id": { "type": "integer" },
+          "group_id": { "type": ["integer", "null"] },
+          "group_name": { "type": ["string", "null"] },
+          "title": { "type": "string" },
+          "start_at": { "type": ["string", "null"], "format": "date-time" },
+          "end_at": { "type": ["string", "null"], "format": "date-time" },
+          "location": { "type": ["string", "null"] },
+          "status": { "type": "string", "enum": ["planned", "tentative", "cancelled", "done"] },
+          "visibility": { "$ref": "#/components/schemas/EventSocialVisibility" },
+          "notes": { "type": ["string", "null"] },
+          "created_by": { "type": ["integer", "null"] },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        },
+        "required": ["id", "event_id", "title", "status", "visibility", "created_at", "updated_at"]
+      },
+      "EventMeetupListResponse": {
+        "type": "object",
+        "properties": {
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/EventMeetupRecord" } }
+        },
+        "required": ["items"]
+      },
+      "EventMeetupUpsertRequest": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string" },
+          "group_id": { "type": ["integer", "null"], "minimum": 1 },
+          "start_at": { "type": ["string", "null"], "format": "date-time" },
+          "end_at": { "type": ["string", "null"], "format": "date-time" },
+          "location": { "type": ["string", "null"] },
+          "status": { "type": "string", "enum": ["planned", "tentative", "cancelled", "done"] },
+          "visibility": { "$ref": "#/components/schemas/EventSocialVisibility" },
+          "notes": { "type": ["string", "null"] }
+        }
+      },
+      "EventSchedulePlanRecord": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "event_id": { "type": "integer" },
+          "title": { "type": "string" },
+          "start_at": { "type": ["string", "null"], "format": "date-time" },
+          "end_at": { "type": ["string", "null"], "format": "date-time" },
+          "location": { "type": ["string", "null"] },
+          "source_type": { "type": ["string", "null"] },
+          "source_ref": { "type": ["string", "null"] },
+          "status": { "type": "string", "enum": ["planned", "maybe", "backup", "skipped", "attended"] },
+          "visibility": { "$ref": "#/components/schemas/EventSocialVisibility" },
+          "notes": { "type": ["string", "null"] },
+          "created_by": { "type": ["integer", "null"] },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        },
+        "required": ["id", "event_id", "title", "status", "visibility", "created_at", "updated_at"]
+      },
+      "EventSchedulePlanListResponse": {
+        "type": "object",
+        "properties": {
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/EventSchedulePlanRecord" } }
+        },
+        "required": ["items"]
+      },
+      "EventSchedulePlanUpsertRequest": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string" },
+          "start_at": { "type": ["string", "null"], "format": "date-time" },
+          "end_at": { "type": ["string", "null"], "format": "date-time" },
+          "location": { "type": ["string", "null"] },
+          "source_type": { "type": ["string", "null"] },
+          "source_ref": { "type": ["string", "null"] },
+          "status": { "type": "string", "enum": ["planned", "maybe", "backup", "skipped", "attended"] },
+          "visibility": { "$ref": "#/components/schemas/EventSocialVisibility" },
+          "notes": { "type": ["string", "null"] }
+        }
+      },
+      "EventPersonalIcsSourceRecord": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "event_id": { "type": "integer" },
+          "provider": { "type": "string", "enum": ["sched_ics"] },
+          "has_url": { "type": "boolean" },
+          "status": { "type": "string", "enum": ["active", "paused", "error", "archived"] },
+          "sync_status": { "type": "string", "enum": ["idle", "running", "succeeded", "failed"] },
+          "last_synced_at": { "type": ["string", "null"], "format": "date-time" },
+          "last_success_at": { "type": ["string", "null"], "format": "date-time" },
+          "last_error": { "type": ["string", "null"] },
+          "last_item_count": { "type": "integer" },
+          "last_change_summary": { "type": ["object", "null"] },
+          "created_at": { "type": ["string", "null"], "format": "date-time" },
+          "updated_at": { "type": ["string", "null"], "format": "date-time" }
+        },
+        "required": ["id", "event_id", "provider", "has_url", "status", "sync_status", "last_item_count"]
+      },
+      "EventPersonalIcsSourceResponse": {
+        "type": "object",
+        "properties": {
+          "source": { "oneOf": [{ "$ref": "#/components/schemas/EventPersonalIcsSourceRecord" }, { "type": "null" }] }
+        },
+        "required": ["source"]
+      },
+      "EventPersonalIcsSourceUpsertRequest": {
+        "type": "object",
+        "properties": {
+          "feed_url": { "type": "string", "format": "uri", "maxLength": 2000 }
+        },
+        "required": ["feed_url"]
+      },
+      "EventPersonalIcsSyncResponse": {
+        "type": "object",
+        "properties": {
+          "source": { "$ref": "#/components/schemas/EventPersonalIcsSourceRecord" },
+          "summary": {
+            "type": "object",
+            "properties": {
+              "created": { "type": "integer" },
+              "updated": { "type": "integer" },
+              "removed": { "type": "integer" },
+              "total": { "type": "integer" }
+            },
+            "required": ["created", "updated", "removed", "total"]
+          },
+          "error": { "type": ["string", "null"] }
+        },
+        "required": ["source", "summary", "error"]
+      },
       "ValuationRefreshRequest": {
         "type": "object",
         "properties": {
@@ -4869,6 +5085,184 @@
               }
             }
           }
+        }
+      }
+    },
+    "/api/events/{id}/attendees": {
+      "get": {
+        "tags": ["Events"],
+        "summary": "List event attendees for a scoped event",
+        "security": [{ "cookieSession": [] }, { "bearerAuth": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "responses": {
+          "200": { "description": "Event attendees", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventAttendeeListResponse" } } } }
+        }
+      },
+      "post": {
+        "tags": ["Events"],
+        "summary": "Create an event attendee for a scoped event",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventAttendeeUpsertRequest" } } } },
+        "responses": {
+          "201": { "description": "Created event attendee", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventAttendeeRecord" } } } }
+        }
+      }
+    },
+    "/api/events/{id}/attendees/{attendeeId}": {
+      "patch": {
+        "tags": ["Events"],
+        "summary": "Update an event attendee for a scoped event",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }, { "in": "path", "name": "attendeeId", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventAttendeeUpsertRequest" } } } },
+        "responses": {
+          "200": { "description": "Updated event attendee", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventAttendeeRecord" } } } }
+        }
+      },
+      "delete": {
+        "tags": ["Events"],
+        "summary": "Archive an event attendee for a scoped event",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }, { "in": "path", "name": "attendeeId", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "responses": { "200": { "description": "Archived event attendee", "content": { "application/json": { "schema": { "type": "object", "properties": { "ok": { "type": "boolean" }, "id": { "type": "integer" } }, "required": ["ok", "id"] } } } } }
+      }
+    },
+    "/api/events/{id}/groups": {
+      "get": {
+        "tags": ["Events"],
+        "summary": "List event groups for a scoped event",
+        "security": [{ "cookieSession": [] }, { "bearerAuth": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "responses": { "200": { "description": "Event groups", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventGroupListResponse" } } } } }
+      },
+      "post": {
+        "tags": ["Events"],
+        "summary": "Create an event group for a scoped event",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventGroupUpsertRequest" } } } },
+        "responses": { "201": { "description": "Created event group", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventGroupRecord" } } } } }
+      }
+    },
+    "/api/events/{id}/groups/{groupId}": {
+      "patch": {
+        "tags": ["Events"],
+        "summary": "Update an event group for a scoped event",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }, { "in": "path", "name": "groupId", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventGroupUpsertRequest" } } } },
+        "responses": { "200": { "description": "Updated event group", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventGroupRecord" } } } } }
+      },
+      "delete": {
+        "tags": ["Events"],
+        "summary": "Archive an event group for a scoped event",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }, { "in": "path", "name": "groupId", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "responses": { "200": { "description": "Archived event group", "content": { "application/json": { "schema": { "type": "object", "properties": { "ok": { "type": "boolean" }, "id": { "type": "integer" } }, "required": ["ok", "id"] } } } } }
+      }
+    },
+    "/api/events/{id}/meetups": {
+      "get": {
+        "tags": ["Events"],
+        "summary": "List event meetups for a scoped event",
+        "security": [{ "cookieSession": [] }, { "bearerAuth": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "responses": { "200": { "description": "Event meetups", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventMeetupListResponse" } } } } }
+      },
+      "post": {
+        "tags": ["Events"],
+        "summary": "Create an event meetup for a scoped event",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventMeetupUpsertRequest" } } } },
+        "responses": { "201": { "description": "Created event meetup", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventMeetupRecord" } } } } }
+      }
+    },
+    "/api/events/{id}/meetups/{meetupId}": {
+      "patch": {
+        "tags": ["Events"],
+        "summary": "Update an event meetup for a scoped event",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }, { "in": "path", "name": "meetupId", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventMeetupUpsertRequest" } } } },
+        "responses": { "200": { "description": "Updated event meetup", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventMeetupRecord" } } } } }
+      },
+      "delete": {
+        "tags": ["Events"],
+        "summary": "Archive an event meetup for a scoped event",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }, { "in": "path", "name": "meetupId", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "responses": { "200": { "description": "Archived event meetup", "content": { "application/json": { "schema": { "type": "object", "properties": { "ok": { "type": "boolean" }, "id": { "type": "integer" } }, "required": ["ok", "id"] } } } } }
+      }
+    },
+    "/api/events/{id}/schedule-plans": {
+      "get": {
+        "tags": ["Events"],
+        "summary": "List event schedule plans for a scoped event",
+        "security": [{ "cookieSession": [] }, { "bearerAuth": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "responses": { "200": { "description": "Event schedule plans", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventSchedulePlanListResponse" } } } } }
+      },
+      "post": {
+        "tags": ["Events"],
+        "summary": "Create an event schedule plan for a scoped event",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventSchedulePlanUpsertRequest" } } } },
+        "responses": { "201": { "description": "Created event schedule plan", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventSchedulePlanRecord" } } } } }
+      }
+    },
+    "/api/events/{id}/schedule-plans/{planId}": {
+      "patch": {
+        "tags": ["Events"],
+        "summary": "Update an event schedule plan for a scoped event",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }, { "in": "path", "name": "planId", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventSchedulePlanUpsertRequest" } } } },
+        "responses": { "200": { "description": "Updated event schedule plan", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventSchedulePlanRecord" } } } } }
+      },
+      "delete": {
+        "tags": ["Events"],
+        "summary": "Archive an event schedule plan for a scoped event",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }, { "in": "path", "name": "planId", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "responses": { "200": { "description": "Archived event schedule plan", "content": { "application/json": { "schema": { "type": "object", "properties": { "ok": { "type": "boolean" }, "id": { "type": "integer" } }, "required": ["ok", "id"] } } } } }
+      }
+    },
+    "/api/events/{id}/personal-ics-source": {
+      "get": {
+        "tags": ["Events"],
+        "summary": "Read redacted personal Sched ICS source status for a scoped event",
+        "security": [{ "cookieSession": [] }, { "bearerAuth": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "responses": { "200": { "description": "Personal ICS source status", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventPersonalIcsSourceResponse" } } } } }
+      },
+      "put": {
+        "tags": ["Events"],
+        "summary": "Save or replace a personal Sched ICS source for a scoped event",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventPersonalIcsSourceUpsertRequest" } } } },
+        "responses": { "200": { "description": "Saved personal ICS source status", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventPersonalIcsSourceResponse" } } } } }
+      },
+      "delete": {
+        "tags": ["Events"],
+        "summary": "Archive the current user's personal Sched ICS source for a scoped event",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "responses": { "200": { "description": "Archived personal ICS source", "content": { "application/json": { "schema": { "type": "object", "properties": { "ok": { "type": "boolean" }, "id": { "type": ["integer", "null"] } }, "required": ["ok", "id"] } } } } }
+      }
+    },
+    "/api/events/{id}/personal-ics-source/sync": {
+      "post": {
+        "tags": ["Events"],
+        "summary": "Manually refresh the current user's personal Sched ICS source",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "responses": {
+          "200": { "description": "Personal ICS source synced", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventPersonalIcsSyncResponse" } } } },
+          "502": { "description": "Personal ICS source sync failed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventPersonalIcsSyncResponse" } } } }
         }
       }
     },

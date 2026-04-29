@@ -12,7 +12,16 @@ const {
   eventArtifactUpdateSchema,
   eventArtifactSignatureLinkSchema,
   eventPurchasedItemCreateSchema,
-  eventPurchasedItemUpdateSchema
+  eventPurchasedItemUpdateSchema,
+  eventAttendeeCreateSchema,
+  eventAttendeeUpdateSchema,
+  eventGroupCreateSchema,
+  eventGroupUpdateSchema,
+  eventMeetupCreateSchema,
+  eventMeetupUpdateSchema,
+  eventSchedulePlanCreateSchema,
+  eventSchedulePlanUpdateSchema,
+  eventPersonalIcsSourceSchema
 } = require('../middleware/validate');
 const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
 const { logActivity } = require('../services/audit');
@@ -23,6 +32,13 @@ const {
   serializeSignatureRow,
   syncPrimarySignatureRecord
 } = require('../services/signatures');
+const {
+  serializeIcsSource,
+  loadPersonalIcsSource,
+  upsertPersonalIcsSource,
+  removePersonalIcsSource,
+  syncPersonalIcsSource
+} = require('../services/schedIcsSync');
 
 const router = express.Router();
 const memoryUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
@@ -67,6 +83,10 @@ const serializePurchasedItemRecord = (row) => ({
 
 const ARTIFACT_DB_FIELDS = ['artifact_type', 'title', 'description', 'image_path', 'price', 'vendor'];
 const ARTIFACT_SIGNATURE_FIELDS = ['signer_name', 'signer_role', 'signed_on', 'signed_at', 'signature_notes', 'proof_path'];
+const EVENT_ATTENDEE_FIELDS = ['display_name', 'contact_label', 'relationship', 'status', 'visibility', 'notes'];
+const EVENT_GROUP_FIELDS = ['name', 'visibility', 'status', 'notes'];
+const EVENT_MEETUP_FIELDS = ['group_id', 'title', 'start_at', 'end_at', 'location', 'status', 'visibility', 'notes'];
+const EVENT_SCHEDULE_PLAN_FIELDS = ['title', 'start_at', 'end_at', 'location', 'source_type', 'source_ref', 'status', 'visibility', 'notes'];
 
 const serializeEventArtifactRow = (row = {}) => ({
   ...row,
@@ -145,6 +165,132 @@ async function ensureScopedEvent(scopeContext, eventId) {
     eventParams
   );
   return eventResult.rows[0] || null;
+}
+
+function parsePositiveId(value, label = 'id') {
+  const id = Number(value);
+  if (!Number.isFinite(id) || id <= 0) {
+    const error = new Error(`Invalid ${label}`);
+    error.status = 400;
+    throw error;
+  }
+  return id;
+}
+
+async function ensureEventSocialGroup(eventId, groupId) {
+  if (!groupId) return null;
+  const result = await pool.query(
+    `SELECT id, event_id
+       FROM event_groups
+      WHERE id = $1
+        AND event_id = $2
+        AND archived_at IS NULL
+      LIMIT 1`,
+    [groupId, eventId]
+  );
+  return result.rows[0] || null;
+}
+
+function buildInsertSql({ table, eventId, fields, body, userId }) {
+  const columns = ['event_id'];
+  const placeholders = ['$1'];
+  const values = [eventId];
+  for (const field of fields) {
+    if (!Object.prototype.hasOwnProperty.call(body || {}, field)) continue;
+    values.push(body[field] ?? null);
+    placeholders.push(`$${values.length}`);
+    columns.push(field);
+  }
+  columns.push('created_by');
+  values.push(userId || null);
+  placeholders.push(`$${values.length}`);
+  return {
+    sql: `INSERT INTO ${table} (${columns.join(', ')}) VALUES (${placeholders.join(', ')}) RETURNING *`,
+    values
+  };
+}
+
+function buildUpdateSql({ table, idColumn, id, eventId, fields, body }) {
+  const updates = [];
+  const values = [];
+  for (const field of fields) {
+    if (!Object.prototype.hasOwnProperty.call(body || {}, field)) continue;
+    values.push(body[field] ?? null);
+    updates.push(`${field} = $${values.length}`);
+  }
+  if (updates.length === 0) return null;
+  values.push(id);
+  values.push(eventId);
+  return {
+    sql: `UPDATE ${table}
+             SET ${updates.join(', ')}
+           WHERE ${idColumn} = $${values.length - 1}
+             AND event_id = $${values.length}
+             AND archived_at IS NULL
+       RETURNING *`,
+    values
+  };
+}
+
+async function replaceEventGroupMembers(eventId, groupId, attendeeIds = [], userId = null) {
+  if (!Array.isArray(attendeeIds)) return;
+  const uniqueAttendeeIds = Array.from(new Set(attendeeIds.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)));
+  await pool.query('DELETE FROM event_group_members WHERE group_id = $1', [groupId]);
+  if (uniqueAttendeeIds.length === 0) return;
+  const attendees = await pool.query(
+    `SELECT id
+       FROM event_attendees
+      WHERE event_id = $1
+        AND id = ANY($2::int[])
+        AND archived_at IS NULL`,
+    [eventId, uniqueAttendeeIds]
+  );
+  const scopedIds = (attendees.rows || []).map((row) => Number(row.id));
+  for (const attendeeId of scopedIds) {
+    await pool.query(
+      `INSERT INTO event_group_members (group_id, attendee_id, created_by)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (group_id, attendee_id) DO NOTHING`,
+      [groupId, attendeeId, userId]
+    );
+  }
+}
+
+async function attachMembersToGroups(groups = []) {
+  const groupIds = groups.map((group) => Number(group.id || 0)).filter(Boolean);
+  if (groupIds.length === 0) return groups;
+  const memberResult = await pool.query(
+    `SELECT egm.group_id,
+            ea.id,
+            ea.display_name,
+            ea.contact_label,
+            ea.relationship,
+            ea.status,
+            ea.visibility
+       FROM event_group_members egm
+       JOIN event_attendees ea ON ea.id = egm.attendee_id
+      WHERE egm.group_id = ANY($1::int[])
+        AND ea.archived_at IS NULL
+      ORDER BY ea.display_name ASC, ea.id ASC`,
+    [groupIds]
+  );
+  const membersByGroup = new Map();
+  for (const row of memberResult.rows || []) {
+    const key = Number(row.group_id);
+    if (!membersByGroup.has(key)) membersByGroup.set(key, []);
+    membersByGroup.get(key).push({
+      id: row.id,
+      display_name: row.display_name,
+      contact_label: row.contact_label || null,
+      relationship: row.relationship || null,
+      status: row.status,
+      visibility: row.visibility
+    });
+  }
+  return groups.map((group) => ({
+    ...group,
+    members: membersByGroup.get(Number(group.id)) || []
+  }));
 }
 
 async function loadPurchasedItemSource(scopeContext, itemType, itemId) {
@@ -1069,6 +1215,400 @@ router.delete('/events/:id/purchased-items/:purchasedItemId', asyncHandler(async
   });
 
   res.json({ ok: true, id: purchasedItemId });
+}));
+
+router.get('/events/:id/attendees', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const eventId = parsePositiveId(req.params.id, 'event id');
+  const eventRow = await ensureScopedEvent(scopeContext, eventId);
+  if (!eventRow) return res.status(404).json({ error: 'Event not found' });
+
+  const result = await pool.query(
+    `SELECT *
+       FROM event_attendees
+      WHERE event_id = $1
+        AND archived_at IS NULL
+      ORDER BY display_name ASC, id ASC`,
+    [eventId]
+  );
+  res.json({ items: result.rows });
+}));
+
+router.post('/events/:id/attendees', validate(eventAttendeeCreateSchema), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const eventId = parsePositiveId(req.params.id, 'event id');
+  const eventRow = await ensureScopedEvent(scopeContext, eventId);
+  if (!eventRow) return res.status(404).json({ error: 'Event not found' });
+
+  const insert = buildInsertSql({
+    table: 'event_attendees',
+    eventId,
+    fields: EVENT_ATTENDEE_FIELDS,
+    body: req.body,
+    userId: req.user.id
+  });
+  const result = await pool.query(insert.sql, insert.values);
+  await logActivity(req, 'events.attendee.create', 'event', eventId, { attendeeId: result.rows[0].id });
+  res.status(201).json(result.rows[0]);
+}));
+
+router.patch('/events/:id/attendees/:attendeeId', validate(eventAttendeeUpdateSchema), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const eventId = parsePositiveId(req.params.id, 'event id');
+  const attendeeId = parsePositiveId(req.params.attendeeId, 'attendee id');
+  const eventRow = await ensureScopedEvent(scopeContext, eventId);
+  if (!eventRow) return res.status(404).json({ error: 'Event not found' });
+
+  const update = buildUpdateSql({
+    table: 'event_attendees',
+    idColumn: 'id',
+    id: attendeeId,
+    eventId,
+    fields: EVENT_ATTENDEE_FIELDS,
+    body: req.body
+  });
+  const result = await pool.query(update.sql, update.values);
+  if (!result.rows[0]) return res.status(404).json({ error: 'Attendee not found' });
+  await logActivity(req, 'events.attendee.update', 'event', eventId, { attendeeId });
+  res.json(result.rows[0]);
+}));
+
+router.delete('/events/:id/attendees/:attendeeId', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const eventId = parsePositiveId(req.params.id, 'event id');
+  const attendeeId = parsePositiveId(req.params.attendeeId, 'attendee id');
+  const eventRow = await ensureScopedEvent(scopeContext, eventId);
+  if (!eventRow) return res.status(404).json({ error: 'Event not found' });
+
+  const result = await pool.query(
+    `UPDATE event_attendees
+        SET archived_at = CURRENT_TIMESTAMP
+      WHERE id = $1
+        AND event_id = $2
+        AND archived_at IS NULL
+      RETURNING id`,
+    [attendeeId, eventId]
+  );
+  if (!result.rows[0]) return res.status(404).json({ error: 'Attendee not found' });
+  await logActivity(req, 'events.attendee.delete', 'event', eventId, { attendeeId });
+  res.json({ ok: true, id: attendeeId });
+}));
+
+router.get('/events/:id/groups', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const eventId = parsePositiveId(req.params.id, 'event id');
+  const eventRow = await ensureScopedEvent(scopeContext, eventId);
+  if (!eventRow) return res.status(404).json({ error: 'Event not found' });
+
+  const result = await pool.query(
+    `SELECT *
+       FROM event_groups
+      WHERE event_id = $1
+        AND archived_at IS NULL
+      ORDER BY name ASC, id ASC`,
+    [eventId]
+  );
+  res.json({ items: await attachMembersToGroups(result.rows) });
+}));
+
+router.post('/events/:id/groups', validate(eventGroupCreateSchema), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const eventId = parsePositiveId(req.params.id, 'event id');
+  const eventRow = await ensureScopedEvent(scopeContext, eventId);
+  if (!eventRow) return res.status(404).json({ error: 'Event not found' });
+
+  const insert = buildInsertSql({
+    table: 'event_groups',
+    eventId,
+    fields: EVENT_GROUP_FIELDS,
+    body: req.body,
+    userId: req.user.id
+  });
+  const result = await pool.query(insert.sql, insert.values);
+  await replaceEventGroupMembers(eventId, result.rows[0].id, req.body.attendee_ids, req.user.id);
+  const [group] = await attachMembersToGroups(result.rows);
+  await logActivity(req, 'events.group.create', 'event', eventId, { groupId: group.id });
+  res.status(201).json(group);
+}));
+
+router.patch('/events/:id/groups/:groupId', validate(eventGroupUpdateSchema), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const eventId = parsePositiveId(req.params.id, 'event id');
+  const groupId = parsePositiveId(req.params.groupId, 'group id');
+  const eventRow = await ensureScopedEvent(scopeContext, eventId);
+  if (!eventRow) return res.status(404).json({ error: 'Event not found' });
+
+  let rows = [];
+  const update = buildUpdateSql({
+    table: 'event_groups',
+    idColumn: 'id',
+    id: groupId,
+    eventId,
+    fields: EVENT_GROUP_FIELDS,
+    body: req.body
+  });
+  if (update) {
+    const result = await pool.query(update.sql, update.values);
+    rows = result.rows;
+  } else {
+    const result = await pool.query(
+      `SELECT * FROM event_groups WHERE id = $1 AND event_id = $2 AND archived_at IS NULL LIMIT 1`,
+      [groupId, eventId]
+    );
+    rows = result.rows;
+  }
+  if (!rows[0]) return res.status(404).json({ error: 'Group not found' });
+  if (Object.prototype.hasOwnProperty.call(req.body || {}, 'attendee_ids')) {
+    await replaceEventGroupMembers(eventId, groupId, req.body.attendee_ids, req.user.id);
+  }
+  const [group] = await attachMembersToGroups(rows);
+  await logActivity(req, 'events.group.update', 'event', eventId, { groupId });
+  res.json(group);
+}));
+
+router.delete('/events/:id/groups/:groupId', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const eventId = parsePositiveId(req.params.id, 'event id');
+  const groupId = parsePositiveId(req.params.groupId, 'group id');
+  const eventRow = await ensureScopedEvent(scopeContext, eventId);
+  if (!eventRow) return res.status(404).json({ error: 'Event not found' });
+
+  const result = await pool.query(
+    `UPDATE event_groups
+        SET archived_at = CURRENT_TIMESTAMP
+      WHERE id = $1
+        AND event_id = $2
+        AND archived_at IS NULL
+      RETURNING id`,
+    [groupId, eventId]
+  );
+  if (!result.rows[0]) return res.status(404).json({ error: 'Group not found' });
+  await logActivity(req, 'events.group.delete', 'event', eventId, { groupId });
+  res.json({ ok: true, id: groupId });
+}));
+
+router.get('/events/:id/meetups', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const eventId = parsePositiveId(req.params.id, 'event id');
+  const eventRow = await ensureScopedEvent(scopeContext, eventId);
+  if (!eventRow) return res.status(404).json({ error: 'Event not found' });
+
+  const result = await pool.query(
+    `SELECT em.*, eg.name AS group_name
+       FROM event_meetups em
+       LEFT JOIN event_groups eg ON eg.id = em.group_id AND eg.archived_at IS NULL
+      WHERE em.event_id = $1
+        AND em.archived_at IS NULL
+      ORDER BY em.start_at NULLS LAST, em.title ASC, em.id ASC`,
+    [eventId]
+  );
+  res.json({ items: result.rows });
+}));
+
+router.post('/events/:id/meetups', validate(eventMeetupCreateSchema), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const eventId = parsePositiveId(req.params.id, 'event id');
+  const eventRow = await ensureScopedEvent(scopeContext, eventId);
+  if (!eventRow) return res.status(404).json({ error: 'Event not found' });
+  if (req.body.group_id && !(await ensureEventSocialGroup(eventId, req.body.group_id))) {
+    return res.status(404).json({ error: 'Group not found for this event' });
+  }
+
+  const insert = buildInsertSql({
+    table: 'event_meetups',
+    eventId,
+    fields: EVENT_MEETUP_FIELDS,
+    body: req.body,
+    userId: req.user.id
+  });
+  const result = await pool.query(insert.sql, insert.values);
+  await logActivity(req, 'events.meetup.create', 'event', eventId, { meetupId: result.rows[0].id });
+  res.status(201).json(result.rows[0]);
+}));
+
+router.patch('/events/:id/meetups/:meetupId', validate(eventMeetupUpdateSchema), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const eventId = parsePositiveId(req.params.id, 'event id');
+  const meetupId = parsePositiveId(req.params.meetupId, 'meetup id');
+  const eventRow = await ensureScopedEvent(scopeContext, eventId);
+  if (!eventRow) return res.status(404).json({ error: 'Event not found' });
+  if (req.body.group_id && !(await ensureEventSocialGroup(eventId, req.body.group_id))) {
+    return res.status(404).json({ error: 'Group not found for this event' });
+  }
+
+  const update = buildUpdateSql({
+    table: 'event_meetups',
+    idColumn: 'id',
+    id: meetupId,
+    eventId,
+    fields: EVENT_MEETUP_FIELDS,
+    body: req.body
+  });
+  const result = await pool.query(update.sql, update.values);
+  if (!result.rows[0]) return res.status(404).json({ error: 'Meetup not found' });
+  await logActivity(req, 'events.meetup.update', 'event', eventId, { meetupId });
+  res.json(result.rows[0]);
+}));
+
+router.delete('/events/:id/meetups/:meetupId', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const eventId = parsePositiveId(req.params.id, 'event id');
+  const meetupId = parsePositiveId(req.params.meetupId, 'meetup id');
+  const eventRow = await ensureScopedEvent(scopeContext, eventId);
+  if (!eventRow) return res.status(404).json({ error: 'Event not found' });
+
+  const result = await pool.query(
+    `UPDATE event_meetups
+        SET archived_at = CURRENT_TIMESTAMP
+      WHERE id = $1
+        AND event_id = $2
+        AND archived_at IS NULL
+      RETURNING id`,
+    [meetupId, eventId]
+  );
+  if (!result.rows[0]) return res.status(404).json({ error: 'Meetup not found' });
+  await logActivity(req, 'events.meetup.delete', 'event', eventId, { meetupId });
+  res.json({ ok: true, id: meetupId });
+}));
+
+router.get('/events/:id/schedule-plans', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const eventId = parsePositiveId(req.params.id, 'event id');
+  const eventRow = await ensureScopedEvent(scopeContext, eventId);
+  if (!eventRow) return res.status(404).json({ error: 'Event not found' });
+
+  const result = await pool.query(
+    `SELECT *
+       FROM event_schedule_plans
+      WHERE event_id = $1
+        AND archived_at IS NULL
+      ORDER BY start_at NULLS LAST, title ASC, id ASC`,
+    [eventId]
+  );
+  res.json({ items: result.rows });
+}));
+
+router.post('/events/:id/schedule-plans', validate(eventSchedulePlanCreateSchema), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const eventId = parsePositiveId(req.params.id, 'event id');
+  const eventRow = await ensureScopedEvent(scopeContext, eventId);
+  if (!eventRow) return res.status(404).json({ error: 'Event not found' });
+
+  const insert = buildInsertSql({
+    table: 'event_schedule_plans',
+    eventId,
+    fields: EVENT_SCHEDULE_PLAN_FIELDS,
+    body: req.body,
+    userId: req.user.id
+  });
+  const result = await pool.query(insert.sql, insert.values);
+  await logActivity(req, 'events.schedule_plan.create', 'event', eventId, { schedulePlanId: result.rows[0].id });
+  res.status(201).json(result.rows[0]);
+}));
+
+router.patch('/events/:id/schedule-plans/:planId', validate(eventSchedulePlanUpdateSchema), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const eventId = parsePositiveId(req.params.id, 'event id');
+  const planId = parsePositiveId(req.params.planId, 'schedule plan id');
+  const eventRow = await ensureScopedEvent(scopeContext, eventId);
+  if (!eventRow) return res.status(404).json({ error: 'Event not found' });
+
+  const update = buildUpdateSql({
+    table: 'event_schedule_plans',
+    idColumn: 'id',
+    id: planId,
+    eventId,
+    fields: EVENT_SCHEDULE_PLAN_FIELDS,
+    body: req.body
+  });
+  const result = await pool.query(update.sql, update.values);
+  if (!result.rows[0]) return res.status(404).json({ error: 'Schedule plan not found' });
+  await logActivity(req, 'events.schedule_plan.update', 'event', eventId, { schedulePlanId: planId });
+  res.json(result.rows[0]);
+}));
+
+router.delete('/events/:id/schedule-plans/:planId', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const eventId = parsePositiveId(req.params.id, 'event id');
+  const planId = parsePositiveId(req.params.planId, 'schedule plan id');
+  const eventRow = await ensureScopedEvent(scopeContext, eventId);
+  if (!eventRow) return res.status(404).json({ error: 'Event not found' });
+
+  const result = await pool.query(
+    `UPDATE event_schedule_plans
+        SET archived_at = CURRENT_TIMESTAMP
+      WHERE id = $1
+        AND event_id = $2
+        AND archived_at IS NULL
+      RETURNING id`,
+    [planId, eventId]
+  );
+  if (!result.rows[0]) return res.status(404).json({ error: 'Schedule plan not found' });
+  await logActivity(req, 'events.schedule_plan.delete', 'event', eventId, { schedulePlanId: planId });
+  res.json({ ok: true, id: planId });
+}));
+
+router.get('/events/:id/personal-ics-source', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const eventId = parsePositiveId(req.params.id, 'event id');
+  const eventRow = await ensureScopedEvent(scopeContext, eventId);
+  if (!eventRow) return res.status(404).json({ error: 'Event not found' });
+
+  const source = await loadPersonalIcsSource(pool, { eventId, userId: req.user.id });
+  res.json({ source: serializeIcsSource(source) });
+}));
+
+router.put('/events/:id/personal-ics-source', validate(eventPersonalIcsSourceSchema), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const eventId = parsePositiveId(req.params.id, 'event id');
+  const eventRow = await ensureScopedEvent(scopeContext, eventId);
+  if (!eventRow) return res.status(404).json({ error: 'Event not found' });
+
+  const source = await upsertPersonalIcsSource(pool, {
+    eventId,
+    userId: req.user.id,
+    feedUrl: req.body.feed_url
+  });
+  await logActivity(req, 'events.personal_ics_source.save', 'event', eventId, {
+    sourceId: source?.id || null,
+    hasUrl: true
+  });
+  res.json({ source: serializeIcsSource(source) });
+}));
+
+router.delete('/events/:id/personal-ics-source', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const eventId = parsePositiveId(req.params.id, 'event id');
+  const eventRow = await ensureScopedEvent(scopeContext, eventId);
+  if (!eventRow) return res.status(404).json({ error: 'Event not found' });
+
+  const source = await removePersonalIcsSource(pool, { eventId, userId: req.user.id });
+  await logActivity(req, 'events.personal_ics_source.delete', 'event', eventId, {
+    sourceId: source?.id || null
+  });
+  res.json({ ok: true, id: source?.id || null });
+}));
+
+router.post('/events/:id/personal-ics-source/sync', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const eventId = parsePositiveId(req.params.id, 'event id');
+  const eventRow = await ensureScopedEvent(scopeContext, eventId);
+  if (!eventRow) return res.status(404).json({ error: 'Event not found' });
+
+  const source = await loadPersonalIcsSource(pool, { eventId, userId: req.user.id });
+  if (!source) return res.status(404).json({ error: 'Personal ICS source not found' });
+
+  const result = await syncPersonalIcsSource(pool, { source, eventId, userId: req.user.id });
+  await logActivity(req, result.error ? 'events.personal_ics_source.sync.failure' : 'events.personal_ics_source.sync.success', 'event', eventId, {
+    sourceId: source.id,
+    summary: result.summary,
+    error: result.error ? 'redacted sync failure detail available on source status' : null
+  });
+  res.status(result.error ? 502 : 200).json({
+    source: serializeIcsSource(result.source),
+    summary: result.summary,
+    error: result.error || null
+  });
 }));
 
 router.post('/events/:id/artifacts/:artifactId/upload-image', memoryUpload.single('image'), asyncHandler(async (req, res) => {

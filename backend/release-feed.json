@@ -1,6 +1,22 @@
 {
   "releases": [
     {
+      "title": "v3.4.31",
+      "version": "3.4.31",
+      "date": "2026-04-28",
+      "status": null,
+      "summary": "This release adds the first personal Sched ICS sync path for Events. A user can connect an encrypted personal iCal subscription link, manually refresh it, and sync selected sessions into private event schedule plans.",
+      "details": []
+    },
+    {
+      "title": "v3.4.30",
+      "version": "3.4.30",
+      "date": "2026-04-28",
+      "status": "Completed",
+      "summary": "This release starts the event social planning foundation so con/event planning can track people, groups, meetups, and manual schedule plans inside collectZ before the mobile day-of-con experience is built.",
+      "details": []
+    },
+    {
       "title": "v3.4.29",
       "version": "3.4.29",
       "date": "2026-04-27",
@@ -62,22 +78,6 @@
       "date": "2026-04-27",
       "status": "Completed",
       "summary": "This release cleans up mobile image uploads so choosing an existing photo and taking a new photo are separate, intentional actions instead of one ambiguous upload control that could force mobile users into the camera.",
-      "details": []
-    },
-    {
-      "title": "v3.4.21",
-      "version": "3.4.21",
-      "date": "2026-04-27",
-      "status": "Completed",
-      "summary": "This release finishes the post-Vite cleanup pass by making `VITE_*` the preferred frontend build/runtime configuration path while keeping legacy `REACT_APP_*` names as compatibility shims only.",
-      "details": []
-    },
-    {
-      "title": "v3.4.20",
-      "version": "3.4.20",
-      "date": "2026-04-27",
-      "status": "Completed",
-      "summary": "This release makes the public deployment path homelab-first. The repository now exposes one generated root `docker-compose.yml` for public homelab deployments, defaults the backend runtime to homelab when no private edition is explicitly configured, and moves private platform stack behavior behind untracked local/CI overrides.",
       "details": []
     }
   ]

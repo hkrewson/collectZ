@@ -3551,6 +3551,169 @@ const MIGRATIONS = [
         ADD COLUMN IF NOT EXISTS label VARCHAR(255),
         ADD COLUMN IF NOT EXISTS notes TEXT;
     `
+  },
+  {
+    version: 84,
+    description: 'Add event social planning foundation tables',
+    up: `
+      CREATE TABLE IF NOT EXISTS event_attendees (
+        id SERIAL PRIMARY KEY,
+        event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+        display_name VARCHAR(255) NOT NULL,
+        contact_label VARCHAR(255),
+        relationship VARCHAR(100),
+        status VARCHAR(30) NOT NULL DEFAULT 'attending'
+          CHECK (status IN ('attending', 'maybe', 'not_attending', 'unknown')),
+        visibility VARCHAR(30) NOT NULL DEFAULT 'private'
+          CHECK (visibility IN ('private', 'selected_people', 'group', 'event_workspace')),
+        notes TEXT,
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        archived_at TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS event_groups (
+        id SERIAL PRIMARY KEY,
+        event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+        name VARCHAR(255) NOT NULL,
+        visibility VARCHAR(30) NOT NULL DEFAULT 'private'
+          CHECK (visibility IN ('private', 'selected_people', 'group', 'event_workspace')),
+        status VARCHAR(30) NOT NULL DEFAULT 'active'
+          CHECK (status IN ('active', 'archived')),
+        notes TEXT,
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        archived_at TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS event_group_members (
+        id SERIAL PRIMARY KEY,
+        group_id INTEGER NOT NULL REFERENCES event_groups(id) ON DELETE CASCADE,
+        attendee_id INTEGER NOT NULL REFERENCES event_attendees(id) ON DELETE CASCADE,
+        role VARCHAR(100),
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (group_id, attendee_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS event_meetups (
+        id SERIAL PRIMARY KEY,
+        event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+        group_id INTEGER REFERENCES event_groups(id) ON DELETE SET NULL,
+        title VARCHAR(255) NOT NULL,
+        start_at TIMESTAMP,
+        end_at TIMESTAMP,
+        location VARCHAR(255),
+        status VARCHAR(30) NOT NULL DEFAULT 'planned'
+          CHECK (status IN ('planned', 'tentative', 'cancelled', 'done')),
+        visibility VARCHAR(30) NOT NULL DEFAULT 'private'
+          CHECK (visibility IN ('private', 'selected_people', 'group', 'event_workspace')),
+        notes TEXT,
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        archived_at TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS event_schedule_plans (
+        id SERIAL PRIMARY KEY,
+        event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+        title VARCHAR(255) NOT NULL,
+        start_at TIMESTAMP,
+        end_at TIMESTAMP,
+        location VARCHAR(255),
+        source_type VARCHAR(50),
+        source_ref VARCHAR(255),
+        status VARCHAR(30) NOT NULL DEFAULT 'planned'
+          CHECK (status IN ('planned', 'maybe', 'backup', 'skipped', 'attended')),
+        visibility VARCHAR(30) NOT NULL DEFAULT 'private'
+          CHECK (visibility IN ('private', 'selected_people', 'group', 'event_workspace')),
+        notes TEXT,
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        archived_at TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_event_attendees_event_active
+        ON event_attendees(event_id, archived_at, display_name);
+      CREATE INDEX IF NOT EXISTS idx_event_groups_event_active
+        ON event_groups(event_id, archived_at, name);
+      CREATE INDEX IF NOT EXISTS idx_event_group_members_group
+        ON event_group_members(group_id);
+      CREATE INDEX IF NOT EXISTS idx_event_group_members_attendee
+        ON event_group_members(attendee_id);
+      CREATE INDEX IF NOT EXISTS idx_event_meetups_event_time
+        ON event_meetups(event_id, archived_at, start_at);
+      CREATE INDEX IF NOT EXISTS idx_event_schedule_plans_event_time
+        ON event_schedule_plans(event_id, archived_at, start_at);
+
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_event_attendees_updated_at') THEN
+          CREATE TRIGGER update_event_attendees_updated_at BEFORE UPDATE ON event_attendees
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_event_groups_updated_at') THEN
+          CREATE TRIGGER update_event_groups_updated_at BEFORE UPDATE ON event_groups
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_event_meetups_updated_at') THEN
+          CREATE TRIGGER update_event_meetups_updated_at BEFORE UPDATE ON event_meetups
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_event_schedule_plans_updated_at') THEN
+          CREATE TRIGGER update_event_schedule_plans_updated_at BEFORE UPDATE ON event_schedule_plans
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+        END IF;
+      END;
+      $$;
+    `
+  },
+  {
+    version: 85,
+    description: 'Add personal Sched ICS sources for event schedule plans',
+    up: `
+      CREATE TABLE IF NOT EXISTS event_personal_ics_sources (
+        id SERIAL PRIMARY KEY,
+        event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        provider VARCHAR(50) NOT NULL DEFAULT 'sched_ics',
+        feed_url_encrypted TEXT NOT NULL,
+        status VARCHAR(30) NOT NULL DEFAULT 'active'
+          CHECK (status IN ('active', 'paused', 'error', 'archived')),
+        sync_status VARCHAR(30) NOT NULL DEFAULT 'idle'
+          CHECK (sync_status IN ('idle', 'running', 'succeeded', 'failed')),
+        last_synced_at TIMESTAMP,
+        last_success_at TIMESTAMP,
+        last_error TEXT,
+        last_item_count INTEGER NOT NULL DEFAULT 0,
+        last_change_summary JSONB,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        archived_at TIMESTAMP
+      );
+
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_event_personal_ics_sources_active_unique
+        ON event_personal_ics_sources(event_id, user_id)
+        WHERE archived_at IS NULL;
+      CREATE INDEX IF NOT EXISTS idx_event_personal_ics_sources_event_user
+        ON event_personal_ics_sources(event_id, user_id, archived_at);
+      CREATE INDEX IF NOT EXISTS idx_event_schedule_plans_sched_ics_source
+        ON event_schedule_plans(event_id, created_by, source_type, source_ref)
+        WHERE source_type = 'sched_ics';
+
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_event_personal_ics_sources_updated_at') THEN
+          CREATE TRIGGER update_event_personal_ics_sources_updated_at BEFORE UPDATE ON event_personal_ics_sources
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+        END IF;
+      END;
+      $$;
+    `
   }
 ];
 

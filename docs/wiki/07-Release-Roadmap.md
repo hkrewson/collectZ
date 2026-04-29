@@ -5891,6 +5891,165 @@ Historical note:
 - What remains in the milestone: nothing; `3.4.29` is closed.
 - Recommended commit message: `Release 3.4.29 Collectibles naming decision and future rename checklist`
 
+## 3.4.30 — Event Social Planning Foundation
+
+**Goal:** Add the event-scoped social planning data model and API contract that lets collectZ track attendees, groups, meetups, and manual/shared schedule plans before the mobile day-of-con experience is built.
+
+**Current Slice:** `Closed 2026-04-28`
+
+### Scope
+
+- Add event attendee records for people associated with a collectZ Event.
+- Add event groups and group membership for travel parties, artist-alley groups, meetup crews, or similar planning clusters.
+- Add lightweight meetups with title, time, location, notes, group association, status, and visibility.
+- Add manual/source-backed schedule-plan records for planned, maybe, backup, skipped, or attended sessions.
+- Keep every social planning surface scoped through the existing Event/library/space access model and Events feature gate.
+- Document the privacy and product boundary before adding mobile, notifications, or native companion behavior.
+
+### Acceptance Criteria
+
+- Event social planning tables exist in migrations and init parity.
+- Event child APIs exist for attendees, groups, meetups, and schedule plans.
+- OpenAPI documents the new Event social planning records and routes.
+- The dedicated foundation decision doc explains the privacy boundary and follow-up order.
+- The mobile web experience remains a later milestone that reads this foundation rather than inventing a separate data shape.
+
+### Notes
+
+- This milestone does not add real-time location sharing, broad public discovery, push notification fanout, Sched ingestion, or the mobile-first UI itself.
+- Fine-grained selected-recipient enforcement is intentionally deferred; this slice stores explicit visibility intent and keeps access bounded by existing Event scope controls.
+
+### Closeout Notes
+
+- Roadmap slice: `3.4.30 — Event Social Planning Foundation`.
+- Project docs/checklists used:
+  - `AGENTS.md`
+  - `docs/wiki/07-Release-Roadmap.md`
+  - `docs/wiki/08-Backlog.md`
+  - `docs/wiki/10-CI-CD-and-Registry-Deploy.md`
+  - `docs/wiki/17-Release-Go-No-Go-Checklist.md`
+  - `docs/wiki/40-Event-Social-Planning-Foundation.md`
+- Runtime verification used Docker-first evidence from the generated public compose plus temporary `.ci` source override:
+  - backend/frontend images rebuilt with `APP_VERSION=3.4.30`,
+  - migration `84` applied successfully in the running backend container,
+  - `/api/health` reported `3.4.30` for app/frontend/backend metadata after the final rebuild,
+  - Help > Releases served `3.4.30` as the latest entry.
+- CI/checks run locally:
+  - `docker compose --env-file .env config`
+  - `node scripts/validate-public-export-surface.js`
+  - `APP_VERSION=3.4.30 docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml up -d --build backend frontend`
+  - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T backend npm run test:unit`
+  - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T backend npm run test:openapi`
+  - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T -e BASE_URL=http://localhost:3001 backend npm run test:event-social-planning-smoke`
+  - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T backend node scripts/check-init-parity.js`
+  - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T backend node scripts/migration-rehearsal.js`
+  - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T -e BASE_URL=http://frontend:3000 -e EXPECTED_VERSION=3.4.30 backend npm run test:help-releases-smoke`
+  - `docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml exec -T -e BASE_URL=http://frontend:3000 backend npm run test:homelab-edition-boundary`
+  - browser regression was attempted with the standard local Playwright bypass token redacted; the homelab-compatible tests passed, while platform/admin/support specs failed because the running stack was the default homelab runtime and returned expected platform-surface `403`/`404` responses.
+  - `git diff --check`
+  - fixed-token grep across the new release note, foundation doc, roadmap, release feed, and smoke source
+- Release artifacts:
+  - `docs/releases/v3.4.30.md`
+  - `docs/wiki/40-Event-Social-Planning-Foundation.md`
+  - regenerated `backend/release-feed.json`
+- Files changed:
+  - Event social planning migration/init parity,
+  - Event social planning validation and routes,
+  - OpenAPI social planning schemas/routes,
+  - Event detail drawer social planning section,
+  - focused Event social planning smoke,
+  - unit source assertions,
+  - version metadata, generated compose defaults, release note, release feed, roadmap, and backlog plan.
+- Risks or follow-ups:
+  - Tagged CI remains authoritative for `secret-scan`, `dependency-scan`, `image-security-and-sbom`, `rbac-regression`, full `browser-regression`, `homelab-edition-boundary`, and `platform-edition-boundary`.
+  - Local platform edition boundary could not be completed against the homelab-default runtime; the explicit platform smoke returned `404` for platform-only admin routes because the running backend was not started as platform.
+  - Fine-grained selected-recipient enforcement is not implemented yet; this slice stores visibility intent and relies on existing Event scope access.
+  - Mobile-first Event Social Planning Mobile Web Experience, Event Schedule Catalog and Now/Next Discovery, Personal Sched ICS sync, and friend-aware notifications remain follow-up milestones.
+- What remains in the milestone: nothing; `3.4.30` is closed.
+- Recommended commit message: `Release 3.4.30 event social planning foundation and drawer workflow`
+
+## 3.4.31 — Personal Sched ICS Sync Contract and Parser Spike
+
+**Goal:** Allow a user to connect a personal Sched ICS/iCal subscription link for a collectZ Event so selected sessions sync into private event schedule plans without treating the feed as the full event catalog.
+
+**Current Slice:** `Closed 2026-04-28`
+
+### Scope
+
+- Add encrypted per-user/per-event personal ICS source storage.
+- Add read/save/remove/manual-sync endpoints that never return the raw ICS URL.
+- Parse Sched-style VEVENT rows into private `event_schedule_plans` using stable `sched_ics` source references.
+- Track sync status, last success, item counts, and sanitized error state.
+- Add a small Event drawer control for connecting, replacing, syncing, and removing the personal feed.
+- Document that this is personal selected-session sync, not the full schedule catalog or Now/Next discovery model.
+
+### Acceptance Criteria
+
+- A user can connect and remove a personal ICS source for an Event.
+- Manual refresh syncs selected sessions into `event_schedule_plans` with `source_type = sched_ics`.
+- API responses and UI readback do not expose the raw ICS URL.
+- Sync status is visible enough to troubleshoot stale or failed feeds.
+- The full schedule catalog, friend-aware notifications, and native companion surfaces remain later milestones.
+
+### Notes
+
+- The ICS URL is treated as a secret-bearing schedule credential.
+- This milestone does not add a polling scheduler; manual refresh proves the contract and parser first.
+- This milestone does not implement the full convention scheduler provider framework from `docs/wiki/38-Convention-Scheduler-and-Provider-Spec.md`.
+
+### Closeout Notes
+
+- Roadmap slice: `3.4.31 — Personal Sched ICS Sync Contract and Parser Spike`.
+- Project docs/checklists used:
+  - `AGENTS.md`
+  - `docs/wiki/07-Release-Roadmap.md`
+  - `docs/wiki/08-Backlog.md`
+  - `docs/wiki/10-CI-CD-and-Registry-Deploy.md`
+  - `docs/wiki/17-Release-Go-No-Go-Checklist.md`
+  - `docs/wiki/38-Convention-Scheduler-and-Provider-Spec.md`
+  - `docs/wiki/40-Event-Social-Planning-Foundation.md`
+  - `docs/wiki/41-Personal-Sched-ICS-Sync.md`
+- Runtime verification used Docker-first evidence from the generated public compose plus temporary `.ci` source override:
+  - backend/frontend images rebuilt with `APP_VERSION=3.4.31`,
+  - migration `85` applied in the running backend container,
+  - `/api/health` reported `3.4.31` for app/frontend/backend metadata,
+  - Help > Releases served `3.4.31` as the latest entry.
+- CI/checks run locally:
+  - `docker compose --env-file .env config`
+  - `node scripts/validate-public-export-surface.js`
+  - `APP_VERSION=3.4.31 docker compose --env-file .env -f docker-compose.yml -f .ci/docker-compose.build.yml up -d --build backend frontend`
+  - `docker compose --env-file .env exec -T backend npm run test:unit`
+  - `docker compose --env-file .env exec -T backend npm run test:openapi`
+  - `docker compose --env-file .env exec -T -e BASE_URL=http://localhost:3001 backend npm run test:event-personal-ics-sync-smoke`
+  - `docker compose --env-file .env exec -T -e BASE_URL=http://localhost:3001 backend npm run test:event-social-planning-smoke`
+  - `docker compose --env-file .env exec -T backend node scripts/check-init-parity.js`
+  - `docker compose --env-file .env exec -T backend node scripts/migration-rehearsal.js`
+  - `docker compose --env-file .env exec -T -e BASE_URL=http://frontend:3000 -e EXPECTED_VERSION=3.4.31 backend npm run test:help-releases-smoke`
+  - `docker compose --env-file .env exec -T -e BASE_URL=http://frontend:3000 backend npm run test:homelab-edition-boundary`
+  - `git diff --check`
+  - targeted secret/URL grep across the new release note, decision doc, release feed, and generated init/migration evidence
+- Release artifacts:
+  - `docs/releases/v3.4.31.md`
+  - `docs/wiki/41-Personal-Sched-ICS-Sync.md`
+  - regenerated `backend/release-feed.json`
+- Files changed:
+  - encrypted personal ICS source migration/init parity,
+  - Sched-style ICS parser/sync service,
+  - Event personal ICS source routes and OpenAPI contract,
+  - Event drawer personal ICS controls,
+  - focused personal ICS sync smoke,
+  - unit source assertions,
+  - version metadata, generated compose defaults, release note, release feed, roadmap, and backlog plan.
+- Risks or follow-ups:
+  - This milestone intentionally supports manual refresh only; polling cadence remains a later operational decision.
+  - Full Event Schedule Catalog and Now/Next Discovery remains separate from personal selected-session ICS sync.
+  - Friend-aware schedule sharing and notifications remain later milestones after selected-recipient enforcement is designed.
+  - Tagged CI remains authoritative for `secret-scan`, `dependency-scan`, `image-security-and-sbom`, `browser-regression`, `rbac-regression`, and `platform-edition-boundary`.
+  - Local `rbac-regression` could not complete against the homelab-default runtime because platform-only admin space routes returned `403`.
+  - Full browser regression was not rerun in this local closeout; previous homelab-default runs fail platform/admin/support specs unless the runtime is explicitly platform.
+- What remains in the milestone: nothing; `3.4.31` is closed.
+- Recommended commit message: `Release 3.4.31 personal Sched ICS sync contract and parser spike`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.
