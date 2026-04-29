@@ -1734,14 +1734,22 @@ function SchedulePlanRow({ plan, marker = '', onRemove }) {
               <p className="mt-1 text-sm leading-6 text-dim">{notesPreview}</p>
             </div>
           ) : null}
-          <div className="flex flex-wrap items-center gap-2 border-t border-edge pt-3">
-            {plan.source_url ? (
-              <a className="btn-ghost btn-sm" href={plan.source_url} target="_blank" rel="noreferrer">
-                <Icons.Link />
-                Open session
-              </a>
-            ) : null}
-            <button className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={onRemove}>Remove</button>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-edge pt-3">
+            <div className="flex flex-wrap items-center gap-2">
+              {plan.source_url ? (
+                <a className="btn-ghost btn-sm" href={plan.source_url} target="_blank" rel="noreferrer">
+                  <Icons.Link />
+                  Open session
+                </a>
+              ) : null}
+            </div>
+            <button
+              className="btn-ghost btn-sm text-ghost hover:bg-err/10 hover:text-err"
+              onClick={onRemove}
+              aria-label={`Remove ${plan.title || 'schedule plan'} from schedule`}
+            >
+              Remove from schedule
+            </button>
           </div>
         </div>
       </div>

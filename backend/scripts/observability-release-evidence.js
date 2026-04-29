@@ -156,7 +156,7 @@ function waitForMainStackHealth(name, attempts = 20, delaySeconds = 1) {
   );
 }
 
-function waitForGraylogReady(name, password, attempts = 60, delaySeconds = 2) {
+function waitForGraylogReady(name, password, attempts = 120, delaySeconds = 2) {
   const startedAt = new Date().toISOString();
   const startMs = Date.now();
   let lastResult = null;
@@ -320,6 +320,9 @@ function runGraylogCollectorSmoke() {
   const stackEnv = graylogStackEnv(graylogPassword);
   return withTempAdmin('graylog_collector_smoke', (tempAdmin) => {
     const steps = [];
+    steps.push(dockerCommand('graylog_stack_reset', ['compose', '-f', 'ops/logging/docker-compose.graylog.yml', 'down', '-v', '--remove-orphans'], {
+      env: stackEnv
+    }));
     steps.push(dockerCommand('graylog_stack_up', ['compose', '-f', 'ops/logging/docker-compose.graylog.yml', 'up', '-d'], {
       env: stackEnv
     }));

@@ -6353,6 +6353,97 @@ Historical note:
 - What remains in the milestone: nothing; `3.4.35` is closed.
 - Recommended commit message: `Release 3.4.35 event schedule expanded row detail polish`
 
+## 3.4.36 — Event Schedule Quiet Remove Actions
+
+**Goal:** Make schedule-plan removal less prominent and less likely to be tapped accidentally while keeping intentional removal available from expanded schedule rows.
+
+**Current Slice:** `Closed 2026-04-29`
+
+### Scope
+
+- Move destructive schedule-plan actions into a quieter expanded-row action area.
+- Use low-emphasis button styling and clearer `Remove from schedule` language.
+- Keep removal available for manual and ICS-backed selected schedule plans.
+- Avoid changing archive/delete API behavior in this slice.
+- Avoid changes to Sched syncing, full schedule catalog import, friend notifications, provider ingestion, or feed failure-state behavior.
+
+### Acceptance Criteria
+
+- `Remove` is not visually prominent in the default agenda scan view.
+- Users can still remove a schedule plan intentionally from the expanded row.
+- Mobile tap targets remain clear and accessible.
+- Existing manual and ICS-backed schedule plans remain readable.
+
+### Notes
+
+- This is still selected personal schedule readability, not broad session discovery.
+
+### Closeout
+
+- Roadmap slice: `3.4.36 — Event Schedule Quiet Remove Actions`.
+- Project docs/checklists used:
+  - `AGENTS.md`
+  - `docs/wiki/07-Release-Roadmap.md`
+  - `docs/wiki/08-Backlog.md`
+  - `docs/wiki/10-CI-CD-and-Registry-Deploy.md`
+  - `docs/wiki/17-Release-Go-No-Go-Checklist.md`
+- Runtime verification used:
+  - Docker-first local platform stack rebuilt with `APP_VERSION=3.4.36`.
+  - `/api/health` reported `3.4.36` for app, frontend, backend, and build metadata.
+  - Running stack restored after browser regression and observability evidence so the Playwright bypass env is unset.
+  - Help > Releases served `3.4.36` as the latest release entry.
+- CI/checks run:
+  - `APP_VERSION=3.4.36 docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml up -d --build frontend`
+  - `curl -sS http://localhost:3000/api/health`
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml ps`
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T backend npm run test:unit`
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T backend npm run test:openapi`
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T backend npm run test:init-parity`
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T backend npm run test:migration-rehearsal`
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T -e BASE_URL=http://frontend:3000 -e EXPECTED_VERSION=3.4.36 backend npm run test:help-releases-smoke`
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T -e BASE_URL=http://frontend:3000 backend npm run test:platform-edition-boundary`
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T -e BASE_URL=http://frontend:3000 backend npm run test:rbac-regression`
+  - `PLAYWRIGHT_E2E_BYPASS_TOKEN=<redacted> npm run test:browser`
+  - `node --check backend/scripts/observability-release-evidence.js`
+  - `npm --prefix backend run test:observability-evidence`
+  - `npm --prefix backend run test:release-preflight-local`
+  - `node scripts/validate-public-export-surface.js`
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml config --quiet`
+  - `git diff --check`
+- Verified facts:
+  - Browser regression passed: `50 passed`, `4 skipped` for homelab-only specs under the platform stack.
+  - Local release preflight passed locally runnable gates: version sync, release note presence, dependency audits, migration evidence, and observability evidence.
+  - Backend production dependency audit has no critical or high findings; frontend production dependency audit has no findings.
+  - Observability release evidence passed `9/9` checks for `3.4.36`.
+  - Graylog evidence now resets only the example logging stack volumes before collector smoke and uses a smaller default message journal so local Docker free-space limits do not keep the collector from starting.
+- Blocked/unverified items:
+  - Local compose smoke secure-cookie assertions remain blocked by the intentional local development runtime posture (`SESSION_COOKIE_SECURE=false`, `NODE_ENV=development`); CI/tagged release remains authoritative for secure-cookie compose smoke.
+  - Homelab edition browser specs were skipped in the platform browser regression run, and the homelab boundary smoke is not valid against the local platform override stack; default homelab CI remains authoritative for that gate.
+  - `secret-scan`, `image-security-and-sbom`, and the tagged release artifact publication gates remain CI-only.
+- Files changed:
+  - `frontend/src/components/EventsView.jsx`
+  - `backend/scripts/observability-release-evidence.js`
+  - `ops/logging/docker-compose.graylog.yml`
+  - `app-meta.json`
+  - `backend/app-meta.json`
+  - `backend/package.json`
+  - `backend/package-lock.json`
+  - `backend/release-feed.json`
+  - `frontend/package.json`
+  - `frontend/package-lock.json`
+  - `frontend/src/app-meta.json`
+  - `docker-compose.yml`
+  - `docs/releases/v3.4.36.md`
+  - `docs/wiki/07-Release-Roadmap.md`
+  - `docs/wiki/08-Backlog.md`
+  - `artifacts/observability-evidence/observability-release-evidence.json`
+  - `preflight-go-no-go.md`
+- Risks or follow-ups:
+  - Sched feed failure-state polish remains a separate backlog task.
+  - No continued Sched syncing, full session catalog discovery, friend notification, or provider ingestion behavior shipped in this patch.
+- What remains in the milestone: nothing; `3.4.36` is closed.
+- Recommended commit message: `Release 3.4.36 event schedule quiet remove actions`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

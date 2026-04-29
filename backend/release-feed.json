@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v3.4.36",
+      "version": "3.4.36",
+      "date": null,
+      "status": null,
+      "summary": "This patch makes Event schedule removal safer by lowering the visual weight of the expanded-row remove action while keeping it available when a user intentionally opens a schedule item.",
+      "details": []
+    },
+    {
       "title": "v3.4.35",
       "version": "3.4.35",
       "date": null,
@@ -70,14 +78,6 @@
       "date": "2026-04-27",
       "status": "Completed",
       "summary": "This release tightens image and proof control language across drawer surfaces so cover images, event artifact images, and signature proof images use the same action vocabulary.",
-      "details": []
-    },
-    {
-      "title": "v3.4.26",
-      "version": "3.4.26",
-      "date": "2026-04-27",
-      "status": "Completed",
-      "summary": "This release starts the drawer-shell cleanup by moving Media, Art, Collectibles, and Events detail drawers onto one shared slide-over shell while tightening the most obvious mobile spacing drift.",
       "details": []
     }
   ]

@@ -26,6 +26,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 8. The schedule-readability slice of `Event Social Planning Mobile Web Experience` was promoted as `3.4.33`; keep the broader mobile/social companion experience queued behind this drawer polish.
 9. The day navigation and current/next readability slice of `Event Social Planning Mobile Web Experience` was promoted as `3.4.34`; keep the remaining schedule polish follow-ups queued as separate patch-sized tasks.
 10. `Event Schedule Expanded Row Detail Polish` was promoted as `3.4.35`; keep quiet remove actions and Sched feed failure state queued separately.
+11. `Event Schedule Quiet Remove Actions` was promoted as `3.4.36`; keep Sched feed failure state queued separately.
 
 ### Backlog Item: Apple Platform App Contract Publishing
 **Type:** Deferred milestone
@@ -249,23 +250,6 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - Meetups and schedule plans are readable without excessive drawer scrolling.
 - Private vs shared records are visually clear.
 - The mobile web surface is good enough to validate the workflow before native/platform implementation.
-
-### Backlog Item: Event Schedule Quiet Remove Actions
-**Type:** Patch
-**Tags:** `events`, `schedule`, `ui`, `safety`, `drawer`
-
-**Goal:** Make schedule-plan removal less prominent and less likely to be tapped accidentally.
-
-**Scope**
-- Move destructive schedule-plan actions into a quieter expanded-row action area.
-- Consider an `Edit / Remove` action row or equivalent low-emphasis treatment.
-- Keep removal available for manual and ICS-backed selected schedule plans.
-- Avoid changing archive/delete API behavior in this slice unless required by UI wiring.
-
-**Acceptance Criteria**
-- `Remove` is not visually prominent in the default agenda scan view.
-- Users can still remove a schedule plan intentionally from the expanded row.
-- Mobile tap targets remain clear and accessible.
 
 ### Backlog Item: Event Sched Feed Failure State Polish
 **Type:** Patch
