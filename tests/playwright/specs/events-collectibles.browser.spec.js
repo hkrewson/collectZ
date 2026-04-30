@@ -204,6 +204,82 @@ test.describe('events and collectibles browser regressions', () => {
     }
   });
 
+  test('mobile event drawer can update schedule plan status visibility and notes in place', async ({ page }) => {
+    const adminCredentials = await ensureSavedAdminCredentials();
+    const adminRequestContext = await createAuthenticatedRequestContext(adminCredentials);
+    const userCredentials = await createFreshUserCredentials();
+    const userRequestContext = await createAuthenticatedRequestContext(userCredentials);
+    const suffix = Date.now();
+    const eventTitle = `Playwright Mobile Schedule Edit ${suffix}`;
+    const planTitle = 'Spotlight panel backup';
+    const originalFlagsPayload = await getFeatureFlags(adminRequestContext);
+    const originalFlags = Array.isArray(originalFlagsPayload?.flags) ? originalFlagsPayload.flags : [];
+    const originalEventsEnabled = Boolean(originalFlags.find((flag) => flag?.key === 'events_enabled')?.enabled);
+
+    await deleteEventsByExactTitle(userRequestContext, eventTitle).catch(() => {});
+
+    try {
+      if (!originalEventsEnabled) {
+        await updateFeatureFlag(adminRequestContext, 'events_enabled', true);
+      }
+
+      const eventResponse = await postWithCsrf(userRequestContext, '/api/events', {
+        title: eventTitle,
+        url: `https://example.test/mobile-schedule-edit/${suffix}`,
+        location: 'San Diego Convention Center',
+        date_start: '2026-07-23'
+      }, 201);
+      const eventPayload = await eventResponse.json();
+      const eventId = Number(eventPayload?.id || 0);
+      expect(eventId).toBeGreaterThan(0);
+
+      await postWithCsrf(userRequestContext, `/api/events/${eventId}/schedule-plans`, {
+        title: planTitle,
+        start_at: '2026-07-23T22:00:00.000Z',
+        end_at: '2026-07-23T23:00:00.000Z',
+        location: 'Room 6DE',
+        source_type: 'manual',
+        status: 'planned',
+        visibility: 'private',
+        notes: 'Original plan note'
+      }, 201);
+
+      await page.setViewportSize({ width: 390, height: 844 });
+      await signInThroughUi(page, userCredentials);
+      await page.goto('/dashboard?tab=library-events');
+      await expect(page.getByRole('heading', { name: 'Events' })).toBeVisible();
+      await page.getByPlaceholder('Search title or location…').fill(eventTitle);
+      await expect(page.getByText(eventTitle, { exact: true }).first()).toBeVisible();
+      await page.locator('article').filter({ hasText: eventTitle }).first().click();
+      await expect(page.getByRole('heading', { name: eventTitle })).toBeVisible();
+
+      const planRow = page.locator('details details').filter({ hasText: planTitle }).first();
+      await expect(planRow).toBeVisible();
+      await planRow.locator('summary').click();
+      await planRow.locator('label:has-text("Status") select').selectOption('backup');
+      await planRow.locator('label:has-text("Visibility") select').selectOption('event_workspace');
+      await planRow.getByPlaceholder('Plan note').fill('Backup if the first panel is full.');
+      await planRow.getByRole('button', { name: 'Save' }).click();
+      await expect(page.getByText('Schedule plan updated')).toBeVisible();
+      await expect(planRow.locator('summary span').filter({ hasText: /^backup$/ })).toBeVisible();
+
+      const plansResponse = await userRequestContext.get(`/api/events/${eventId}/schedule-plans`);
+      expect(plansResponse.ok()).toBeTruthy();
+      const plansPayload = await plansResponse.json();
+      const updated = plansPayload.items.find((item) => item.title === planTitle);
+      expect(updated?.status).toBe('backup');
+      expect(updated?.visibility).toBe('event_workspace');
+      expect(updated?.notes).toBe('Backup if the first panel is full.');
+    } finally {
+      await deleteEventsByExactTitle(userRequestContext, eventTitle).catch(() => {});
+      if (!originalEventsEnabled) {
+        await updateFeatureFlag(adminRequestContext, 'events_enabled', false).catch(() => {});
+      }
+      await userRequestContext.dispose();
+      await adminRequestContext.dispose();
+    }
+  });
+
   test('art signature provenance round-trips through the shared signature record contract', async () => {
     const adminCredentials = await ensureSavedAdminCredentials();
     const adminRequestContext = await createAuthenticatedRequestContext(adminCredentials);

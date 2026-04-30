@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v3.4.40",
+      "version": "3.4.40",
+      "date": null,
+      "status": null,
+      "summary": "This patch makes Event schedule plans easier to adjust from the drawer by adding compact in-place controls for planning status, sharing visibility, and notes.",
+      "details": []
+    },
+    {
       "title": "v3.4.39",
       "version": "3.4.39",
       "date": null,
@@ -70,14 +78,6 @@
       "date": "2026-04-28",
       "status": null,
       "summary": "This release adds the first personal Sched ICS sync path for Events. A user can connect an encrypted personal iCal subscription link, manually refresh it, and sync selected sessions into private event schedule plans.",
-      "details": []
-    },
-    {
-      "title": "v3.4.30",
-      "version": "3.4.30",
-      "date": "2026-04-28",
-      "status": "Completed",
-      "summary": "This release starts the event social planning foundation so con/event planning can track people, groups, meetups, and manual schedule plans inside collectZ before the mobile day-of-con experience is built.",
       "details": []
     }
   ]

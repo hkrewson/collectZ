@@ -6668,6 +6668,49 @@ Historical note:
 - What remains in the milestone: nothing; `3.4.39` is closed.
 - Recommended commit message: `Release 3.4.39 event meetup fast status and notes`
 
+## 3.4.40 — Shared Schedule Item Editing
+
+**Goal:** Let users adjust schedule plan status, sharing visibility, and quick notes from the Event drawer without turning personal Sched plans into a full schedule catalog workflow.
+
+**Current Slice:** Closed 2026-04-30.
+
+### Scope
+
+- Add compact in-place controls for Event schedule-plan `status`, `visibility`, and `notes`.
+- Use the existing schedule-plan `PATCH` endpoint and current schedule-plan status/visibility contracts.
+- Keep source-owned session details such as title, time, location, categories, source URL, and source metadata read-only in this patch.
+- Preserve manual schedule plan add/remove behavior.
+- Preserve user-owned planning fields when a personal Sched ICS row is manually refreshed.
+- Avoid schema changes, continued Sched polling, full schedule catalog discovery, friend notifications, native companion behavior, location/presence tracking, or broad shared schedule conflict handling.
+
+### Acceptance Criteria
+
+- A user can expand a schedule row and update status from allowed backend values.
+- A user can switch a schedule plan between private and shared-with-event visibility.
+- A user can add or replace a quick note for a schedule plan.
+- Saved schedule-plan status, visibility, and notes round-trip through the backend.
+- Manual personal Sched ICS refresh keeps user-owned status, visibility, and notes on existing synced rows.
+- Existing Event social overview, schedule agenda, Sched feed management, and meetup controls continue to work.
+
+### Notes
+
+- This is still web/mobile drawer editing, not native companion behavior.
+- Full schedule catalog and friend-aware notifications remain separate later milestones.
+
+### Closeout Evidence
+
+- Roadmap slice: `3.4.40 — Shared Schedule Item Editing`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `/Users/hamlin/.codex/skills/uncodixfy/SKILL.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild to `3.4.40`; `/api/health` reported frontend/backend/build `3.4.40`; backend runtime verified `APP_EDITION=platform` and `PLAYWRIGHT_E2E_BYPASS_TOKEN=unset` after browser regression; generated public compose was booted without the localhost override and verified `APP_EDITION=unset` before the homelab boundary smoke.
+- CI/checks run locally: `APP_VERSION=3.4.40 docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml up -d --build backend frontend`; backend service/script syntax checks; event social planning smoke; personal Sched ICS smoke; targeted Playwright schedule-plan edit regression; backend unit tests; OpenAPI validation; compose config validation; public export surface validation; init parity; migration rehearsal; Help > Releases smoke for `3.4.40`; platform edition boundary; homelab edition boundary against generated public compose; RBAC regression; full browser regression (`53 passed`, `4 skipped`); observability release evidence; local release preflight.
+- Release/version artifacts: `app-meta.json`, backend/frontend app meta, backend/frontend package and lockfile versions, generated `docker-compose.yml`, `docs/releases/v3.4.40.md`, and `backend/release-feed.json` are aligned on `3.4.40`.
+- Verified facts: schedule rows can be expanded in the mobile Event drawer; status updates use the existing backend schedule-plan status contract; visibility updates can switch between private and shared-with-event; quick notes save through `/api/events/:id/schedule-plans/:planId`; saved status, visibility, and notes round-trip through `/api/events/:id/schedule-plans`; manual personal Sched ICS refresh preserves user-owned status, visibility, and notes on existing synced rows.
+- Blocked/unverified items: CI `secret-scan` and `image-security-and-sbom` remain CI-only; local preflight compose-smoke secure-cookie checks remain blocked by the development stack using `NODE_ENV=development` and `SESSION_COOKIE_SECURE=false`, while runtime health/version and compose config were verified locally.
+- Files changed: `frontend/src/components/EventsView.jsx`, `backend/services/schedIcsSync.js`, `backend/scripts/event-social-planning-smoke.js`, `backend/scripts/event-personal-ics-sync-smoke.js`, `tests/playwright/specs/events-collectibles.browser.spec.js`, version metadata/package files, `docker-compose.yml`, `docs/releases/v3.4.40.md`, `backend/release-feed.json`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `artifacts/observability-evidence/observability-release-evidence.json`, `preflight-go-no-go.md`.
+- Risks or follow-ups: vendor/booth/location notes, richer private/shared visual treatment, full schedule catalog discovery, conflict handling, selected-recipient notifications, and native companion behavior remain separate backlog work.
+- What remains in the milestone: nothing; `3.4.40` is closed.
+- Recommended commit message: `Release 3.4.40 shared schedule item editing`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

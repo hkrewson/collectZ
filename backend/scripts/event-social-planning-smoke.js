@@ -205,6 +205,14 @@ async function main() {
       headers: { 'Content-Type': 'application/json' }
     });
 
+    await client.request(`/api/events/${eventId}/schedule-plans/${planId}`, {
+      method: 'PATCH',
+      withCsrf: true,
+      expectStatus: 200,
+      body: JSON.stringify({ status: 'backup', visibility: 'event_workspace', notes: 'Backup if Hall H line is rough.' }),
+      headers: { 'Content-Type': 'application/json' }
+    });
+
     const [attendees, groups, meetups, plans] = await Promise.all([
       client.request(`/api/events/${eventId}/attendees`, { expectStatus: 200 }),
       client.request(`/api/events/${eventId}/groups`, { expectStatus: 200 }),
@@ -215,7 +223,9 @@ async function main() {
     assert(attendees.data.items.length === 1, `Expected one attendee, got ${JSON.stringify(attendees.data)}`);
     assert(groups.data.items[0]?.members?.length === 1, `Expected one group member, got ${JSON.stringify(groups.data)}`);
     assert(meetups.data.items[0]?.status === 'done', `Expected updated meetup status, got ${JSON.stringify(meetups.data)}`);
-    assert(plans.data.items[0]?.status === 'planned', `Expected planned schedule item, got ${JSON.stringify(plans.data)}`);
+    assert(plans.data.items[0]?.status === 'backup', `Expected updated schedule item status, got ${JSON.stringify(plans.data)}`);
+    assert(plans.data.items[0]?.visibility === 'event_workspace', `Expected updated schedule item visibility, got ${JSON.stringify(plans.data)}`);
+    assert(plans.data.items[0]?.notes === 'Backup if Hall H line is rough.', `Expected updated schedule item notes, got ${JSON.stringify(plans.data)}`);
 
     console.log(JSON.stringify({
       eventId,
@@ -223,7 +233,8 @@ async function main() {
       groupCount: groups.data.items.length,
       meetupCount: meetups.data.items.length,
       schedulePlanCount: plans.data.items.length,
-      updatedMeetupStatus: meetups.data.items[0]?.status || null
+      updatedMeetupStatus: meetups.data.items[0]?.status || null,
+      updatedSchedulePlanStatus: plans.data.items[0]?.status || null
     }, null, 2));
   } finally {
     await cleanupTemporaryState({ userId, libraryId, spaceId });

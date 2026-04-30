@@ -176,6 +176,30 @@ async function main() {
     assert(Array.isArray(panel?.source_categories) && panel.source_categories.includes('Workshop'), `Expected parsed categories, got ${JSON.stringify(panel)}`);
     assert(panel?.source_sequence === 2, `Expected parsed sequence, got ${JSON.stringify(panel)}`);
 
+    await client.request(`/api/events/${eventId}/schedule-plans/${panel.id}`, {
+      method: 'PATCH',
+      withCsrf: true,
+      expectStatus: 200,
+      body: JSON.stringify({
+        status: 'backup',
+        visibility: 'event_workspace',
+        notes: 'Keeping as backup if the first choice is full.'
+      }),
+      headers: { 'Content-Type': 'application/json' }
+    });
+    await client.request(`/api/events/${eventId}/personal-ics-source/sync`, {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 200,
+      body: JSON.stringify({}),
+      headers: { 'Content-Type': 'application/json' }
+    });
+    const resyncedPlans = await client.request(`/api/events/${eventId}/schedule-plans`, { expectStatus: 200 });
+    const resyncedPanel = resyncedPlans.data.items.find((item) => item.id === panel.id);
+    assert(resyncedPanel?.status === 'backup', `Expected resync to preserve user-owned status, got ${JSON.stringify(resyncedPanel)}`);
+    assert(resyncedPanel?.visibility === 'event_workspace', `Expected resync to preserve user-owned visibility, got ${JSON.stringify(resyncedPanel)}`);
+    assert(resyncedPanel?.notes === 'Keeping as backup if the first choice is full.', `Expected resync to preserve user-owned notes, got ${JSON.stringify(resyncedPanel)}`);
+
     await client.request(`/api/events/${eventId}/personal-ics-source`, {
       method: 'DELETE',
       withCsrf: true,

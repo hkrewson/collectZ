@@ -49,6 +49,19 @@ const MEETUP_STATUS_OPTIONS = [
   { value: 'done', label: 'Done' }
 ];
 
+const SCHEDULE_PLAN_STATUS_OPTIONS = [
+  { value: 'planned', label: 'Planned' },
+  { value: 'maybe', label: 'Maybe' },
+  { value: 'backup', label: 'Backup' },
+  { value: 'skipped', label: 'Skipped' },
+  { value: 'attended', label: 'Attended' }
+];
+
+const SCHEDULE_PLAN_VISIBILITY_OPTIONS = [
+  { value: 'private', label: 'Private' },
+  { value: 'event_workspace', label: 'Shared with event' }
+];
+
 const toInputDate = (value) => {
   if (!value) return '';
   const text = String(value).trim();
@@ -1412,6 +1425,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
   const [plans, setPlans] = useState([]);
   const [icsSource, setIcsSource] = useState(null);
   const [meetupDrafts, setMeetupDrafts] = useState({});
+  const [planDrafts, setPlanDrafts] = useState({});
   const icsHealth = getIcsFeedHealth(icsSource);
 
   const set = (patch) => setForm((prev) => ({ ...prev, ...patch }));
@@ -1421,6 +1435,15 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
       return {
         ...prev,
         [meetupId]: { ...existing, ...patch }
+      };
+    });
+  };
+  const setPlanDraft = (planId, patch) => {
+    setPlanDrafts((prev) => {
+      const existing = prev[planId] || {};
+      return {
+        ...prev,
+        [planId]: { ...existing, ...patch }
       };
     });
   };
@@ -1452,7 +1475,21 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
         });
         return next;
       });
-      setPlans(Array.isArray(planPayload?.items) ? planPayload.items : []);
+      const nextPlans = Array.isArray(planPayload?.items) ? planPayload.items : [];
+      setPlans(nextPlans);
+      setPlanDrafts((prev) => {
+        const next = {};
+        nextPlans.forEach((plan) => {
+          const id = String(plan?.id || '');
+          if (!id) return;
+          next[id] = {
+            status: prev[id]?.status || plan.status || 'planned',
+            visibility: prev[id]?.visibility || plan.visibility || 'private',
+            notes: prev[id]?.notes ?? plan.notes ?? ''
+          };
+        });
+        return next;
+      });
       setIcsSource(icsPayload?.source || null);
     } catch (err) {
       setError(err?.response?.data?.error || 'Failed to load social planning');
@@ -1581,6 +1618,29 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
     }
   };
 
+  const updatePlan = async (plan) => {
+    const planId = Number(plan?.id || 0);
+    if (!planId) return;
+    const draft = planDrafts[String(planId)] || {};
+    setSaving(`plan-${planId}`);
+    setError('');
+    setNotice('');
+    try {
+      await apiCall('patch', `/events/${eventId}/schedule-plans/${planId}`, {
+        status: draft.status || plan.status || 'planned',
+        visibility: draft.visibility || plan.visibility || 'private',
+        notes: draft.notes || null
+      });
+      setNotice('Schedule plan updated');
+      await load();
+      await onChanged?.();
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Failed to update schedule plan');
+    } finally {
+      setSaving('');
+    }
+  };
+
   const archive = async (path, label) => {
     setSaving(path);
     setError('');
@@ -1629,6 +1689,10 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
           <div className="space-y-3 pb-4">
             <EventScheduleAgenda
               plans={plans}
+              planDrafts={planDrafts}
+              saving={saving}
+              onDraftChange={setPlanDraft}
+              onUpdate={updatePlan}
               onRemove={(plan) => archive(`/events/${eventId}/schedule-plans/${plan.id}`, 'Schedule plan')}
             />
             <details className="mx-4 rounded-md border border-edge bg-raised">
@@ -1824,7 +1888,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
   );
 }
 
-function EventScheduleAgenda({ plans, onRemove }) {
+function EventScheduleAgenda({ plans, planDrafts = {}, saving = '', onDraftChange, onUpdate, onRemove }) {
   const [filter, setFilter] = useState({ type: 'all', key: 'all' });
 
   const groups = useMemo(() => {
@@ -1920,6 +1984,10 @@ function EventScheduleAgenda({ plans, onRemove }) {
                 key={plan.id}
                 plan={plan}
                 marker={currentOrNext?.plan?.id === plan.id ? currentOrNext.label : ''}
+                draft={planDrafts[String(plan.id)] || {}}
+                saving={saving === `plan-${plan.id}`}
+                onDraftChange={(patch) => onDraftChange?.(plan.id, patch)}
+                onUpdate={() => onUpdate?.(plan)}
                 onRemove={() => onRemove(plan)}
               />
             ))}
@@ -1930,7 +1998,7 @@ function EventScheduleAgenda({ plans, onRemove }) {
   );
 }
 
-function SchedulePlanRow({ plan, marker = '', onRemove }) {
+function SchedulePlanRow({ plan, marker = '', draft = {}, saving = false, onDraftChange, onUpdate, onRemove }) {
   const categories = Array.isArray(plan?.source_categories) ? plan.source_categories.filter(Boolean) : [];
   const notesPreview = plainTextPreview(plan?.notes, 700);
   const agendaTime = formatAgendaTime(plan?.start_at, plan?.end_at);
@@ -1938,6 +2006,9 @@ function SchedulePlanRow({ plan, marker = '', onRemove }) {
   const categorySummary = categories.slice(0, 2).join(' · ');
   const extraCategoryCount = Math.max(categories.length - 2, 0);
   const location = compactLocation(plan?.location);
+  const draftStatus = draft.status || plan?.status || 'planned';
+  const draftVisibility = draft.visibility || plan?.visibility || 'private';
+  const draftNotes = draft.notes ?? plan?.notes ?? '';
   const sourceDetails = [
     scheduleSourceLabel(plan),
     plan?.source_updated_at ? `Updated ${formatDateTime(plan.source_updated_at)}` : '',
@@ -1997,6 +2068,46 @@ function SchedulePlanRow({ plan, marker = '', onRemove }) {
               <p className="mt-1 text-sm leading-6 text-dim">{notesPreview}</p>
             </div>
           ) : null}
+          <div className="grid grid-cols-1 gap-2 border-t border-edge pt-3 sm:grid-cols-[9rem_11rem_1fr_auto]">
+            <label className="field">
+              <span className="label">Status</span>
+              <select
+                className="input"
+                value={draftStatus}
+                onChange={(event) => onDraftChange?.({ status: event.target.value })}
+              >
+                {SCHEDULE_PLAN_STATUS_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              <span className="label">Visibility</span>
+              <select
+                className="input"
+                value={draftVisibility}
+                onChange={(event) => onDraftChange?.({ visibility: event.target.value })}
+              >
+                {SCHEDULE_PLAN_VISIBILITY_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              <span className="label">Notes</span>
+              <input
+                className="input"
+                placeholder="Plan note"
+                value={draftNotes}
+                onChange={(event) => onDraftChange?.({ notes: event.target.value })}
+              />
+            </label>
+            <div className="flex items-end">
+              <button className="btn-secondary btn-sm w-full sm:w-auto" disabled={saving} onClick={onUpdate}>
+                {saving ? <Spinner size={16} /> : 'Save'}
+              </button>
+            </div>
+          </div>
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-edge pt-3">
             <div className="flex flex-wrap items-center gap-2">
               {plan.source_url ? (

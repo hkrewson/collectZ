@@ -21,7 +21,7 @@ services:
       retries: 5
 
   backend:
-    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-hkrewson}/collectz-backend:${IMAGE_TAG:-3.4.39}
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-hkrewson}/collectz-backend:${IMAGE_TAG:-3.4.40}
     restart: unless-stopped
     environment:
       NODE_ENV: ${NODE_ENV:-production}
@@ -41,7 +41,7 @@ services:
       LOG_EXPORT_DEBUG: ${LOG_EXPORT_DEBUG:-false}
       LOG_EXPORT_MAX_DETAIL_BYTES: ${LOG_EXPORT_MAX_DETAIL_BYTES:-16384}
       GIT_SHA: ${GIT_SHA:-}
-      APP_VERSION: ${APP_VERSION:-3.4.39}
+      APP_VERSION: ${APP_VERSION:-3.4.40}
       SESSION_SECRET: ${SESSION_SECRET}
       SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-session_token}
       CSRF_COOKIE_NAME: ${CSRF_COOKIE_NAME:-csrf_token}
@@ -80,7 +80,7 @@ services:
       retries: 3
 
   frontend:
-    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-hkrewson}/collectz-frontend:${IMAGE_TAG:-3.4.39}
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-hkrewson}/collectz-frontend:${IMAGE_TAG:-3.4.40}
     restart: unless-stopped
     depends_on:
       - backend

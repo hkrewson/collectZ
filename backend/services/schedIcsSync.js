@@ -279,9 +279,6 @@ async function syncPersonalIcsSource(pool, { source, eventId, userId, fetchImpl 
                   source_categories = $10,
                   source_updated_at = $11,
                   source_sequence = $12,
-                  status = $13,
-                  visibility = 'private',
-                  notes = $14,
                   archived_at = NULL,
                   updated_at = CURRENT_TIMESTAMP
             WHERE id = $1
@@ -300,9 +297,7 @@ async function syncPersonalIcsSource(pool, { source, eventId, userId, fetchImpl 
             item.source_url,
             item.source_categories,
             item.source_updated_at,
-            item.source_sequence,
-            item.status,
-            item.notes
+            item.source_sequence
           ]
         );
         updated += 1;
