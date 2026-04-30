@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v3.4.39",
+      "version": "3.4.39",
+      "date": null,
+      "status": null,
+      "summary": "This patch makes Event meetups easier to manage during planning or day-of-con use by adding compact in-place controls for meetup status and quick notes.",
+      "details": []
+    },
+    {
       "title": "v3.4.38",
       "version": "3.4.38",
       "date": null,
@@ -70,14 +78,6 @@
       "date": "2026-04-28",
       "status": "Completed",
       "summary": "This release starts the event social planning foundation so con/event planning can track people, groups, meetups, and manual schedule plans inside collectZ before the mobile day-of-con experience is built.",
-      "details": []
-    },
-    {
-      "title": "v3.4.29",
-      "version": "3.4.29",
-      "date": "2026-04-27",
-      "status": "Completed",
-      "summary": "This release records the naming decision for Collectibles after the Art promotion, taxonomy cleanup, and shared `Fandom / Franchise` metadata work.",
       "details": []
     }
   ]

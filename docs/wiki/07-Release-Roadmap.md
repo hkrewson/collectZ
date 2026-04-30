@@ -6628,6 +6628,46 @@ Historical note:
 - What remains in the milestone: nothing; `3.4.38` is closed.
 - Recommended commit message: `Release 3.4.38 event social mobile overview`
 
+## 3.4.39 — Event Meetup Fast Status and Notes
+
+**Goal:** Let users update meetup status and quick notes from the Event drawer without opening a separate admin-heavy edit surface.
+
+**Current Slice:** Closed 2026-04-30.
+
+### Scope
+
+- Add compact in-place controls for Event meetup `status` and `notes`.
+- Use the existing meetup `PATCH` endpoint and current meetup status contract.
+- Keep controls inside the existing Meetups section so desktop management remains familiar.
+- Preserve removal and add-meetup behavior.
+- Avoid schema changes, notifications, friend-aware session changes, full schedule catalog work, native companion behavior, location/presence tracking, or shared schedule editing.
+
+### Acceptance Criteria
+
+- A user can expand a meetup row and update status from allowed backend values.
+- A user can add or replace a quick note for a meetup.
+- Saved meetup status and notes round-trip through the backend.
+- Existing Event social overview and management sections continue to work.
+
+### Notes
+
+- This is still web/mobile drawer editing, not native companion behavior.
+- Shared schedule item editing remains a separate later slice.
+
+### Closeout Evidence
+
+- Roadmap slice: `3.4.39 — Event Meetup Fast Status and Notes`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `/Users/hamlin/.codex/skills/uncodixfy/SKILL.md`.
+- Runtime verification used: Docker-first local stack rebuilt to `3.4.39`; `/api/health` reported frontend/backend/build `3.4.39`; backend runtime verified `APP_EDITION=platform` and `PLAYWRIGHT_E2E_BYPASS_TOKEN=unset` after browser regression; generated public compose was booted without the localhost override and verified `APP_EDITION=unset` before the homelab boundary smoke.
+- CI/checks run locally: `APP_VERSION=3.4.39 docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml up -d --build frontend`; targeted Playwright meetup status/notes regression; backend unit tests; OpenAPI validation; compose config validation; public export surface validation; init parity; migration rehearsal; Help > Releases smoke for `3.4.39`; platform edition boundary; homelab edition boundary against generated public compose; RBAC regression; full browser regression (`52 passed`, `4 skipped`); observability release evidence; local release preflight.
+- Release/version artifacts: `app-meta.json`, backend/frontend app meta and package versions, generated `docker-compose.yml`, `docs/releases/v3.4.39.md`, and `backend/release-feed.json` are aligned on `3.4.39`.
+- Verified facts: meetup rows can be expanded in the mobile Event drawer; status updates use the existing backend status contract; quick notes save through the existing meetup `PATCH` endpoint; saved status and notes round-trip through `/api/events/:id/meetups`; existing mobile social overview remains covered by browser regression.
+- Blocked/unverified items: CI `secret-scan` and `image-security-and-sbom` remain CI-only; local preflight compose-smoke secure-cookie checks remain blocked by the development stack using `NODE_ENV=development` and `SESSION_COOKIE_SECURE=false`, while runtime health/version and compose config were verified locally.
+- Files changed: `frontend/src/components/EventsView.jsx`, `tests/playwright/specs/events-collectibles.browser.spec.js`, version metadata/package files, `docker-compose.yml`, `docs/releases/v3.4.39.md`, `backend/release-feed.json`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `artifacts/observability-evidence/observability-release-evidence.json`, `preflight-go-no-go.md`.
+- Risks or follow-ups: shared schedule item editing, notifications, native companion behavior, richer location/vendor notes, and fuller mobile social planning remain separate backlog work.
+- What remains in the milestone: nothing; `3.4.39` is closed.
+- Recommended commit message: `Release 3.4.39 event meetup fast status and notes`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

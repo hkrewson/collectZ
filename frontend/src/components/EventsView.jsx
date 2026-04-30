@@ -42,6 +42,13 @@ const EMPTY_SOCIAL_FORM = {
   icsUrl: ''
 };
 
+const MEETUP_STATUS_OPTIONS = [
+  { value: 'planned', label: 'Planned' },
+  { value: 'tentative', label: 'Tentative' },
+  { value: 'cancelled', label: 'Cancelled' },
+  { value: 'done', label: 'Done' }
+];
+
 const toInputDate = (value) => {
   if (!value) return '';
   const text = String(value).trim();
@@ -1404,9 +1411,19 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
   const [meetups, setMeetups] = useState([]);
   const [plans, setPlans] = useState([]);
   const [icsSource, setIcsSource] = useState(null);
+  const [meetupDrafts, setMeetupDrafts] = useState({});
   const icsHealth = getIcsFeedHealth(icsSource);
 
   const set = (patch) => setForm((prev) => ({ ...prev, ...patch }));
+  const setMeetupDraft = (meetupId, patch) => {
+    setMeetupDrafts((prev) => {
+      const existing = prev[meetupId] || {};
+      return {
+        ...prev,
+        [meetupId]: { ...existing, ...patch }
+      };
+    });
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1421,7 +1438,20 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
       ]);
       setAttendees(Array.isArray(attendeePayload?.items) ? attendeePayload.items : []);
       setGroups(Array.isArray(groupPayload?.items) ? groupPayload.items : []);
-      setMeetups(Array.isArray(meetupPayload?.items) ? meetupPayload.items : []);
+      const nextMeetups = Array.isArray(meetupPayload?.items) ? meetupPayload.items : [];
+      setMeetups(nextMeetups);
+      setMeetupDrafts((prev) => {
+        const next = {};
+        nextMeetups.forEach((meetup) => {
+          const id = String(meetup?.id || '');
+          if (!id) return;
+          next[id] = {
+            status: prev[id]?.status || meetup.status || 'planned',
+            notes: prev[id]?.notes ?? meetup.notes ?? ''
+          };
+        });
+        return next;
+      });
       setPlans(Array.isArray(planPayload?.items) ? planPayload.items : []);
       setIcsSource(icsPayload?.source || null);
     } catch (err) {
@@ -1524,6 +1554,28 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
       await load();
     } catch (err) {
       setError(err?.response?.data?.error || 'Failed to remove personal ICS source');
+    } finally {
+      setSaving('');
+    }
+  };
+
+  const updateMeetup = async (meetup) => {
+    const meetupId = Number(meetup?.id || 0);
+    if (!meetupId) return;
+    const draft = meetupDrafts[String(meetupId)] || {};
+    setSaving(`meetup-${meetupId}`);
+    setError('');
+    setNotice('');
+    try {
+      await apiCall('patch', `/events/${eventId}/meetups/${meetupId}`, {
+        status: draft.status || meetup.status || 'planned',
+        notes: draft.notes || null
+      });
+      setNotice('Meetup updated');
+      await load();
+      await onChanged?.();
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Failed to update meetup');
     } finally {
       setSaving('');
     }
@@ -1711,13 +1763,46 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
             {meetups.length > 0 ? (
               <div className="space-y-2">
                 {meetups.map((meetup) => (
-                  <div key={meetup.id} className="flex items-center gap-3 rounded-md border border-edge bg-raised px-3 py-2">
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm text-ink">{meetup.title}</p>
-                      <p className="truncate text-xs text-dim">{[formatDateTime(meetup.start_at), meetup.location, meetup.group_name, meetup.status].filter(Boolean).join(' · ')}</p>
+                  <details key={meetup.id} className="rounded-md border border-edge bg-raised">
+                    <summary className="flex cursor-pointer list-none items-center gap-3 px-3 py-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm text-ink">{meetup.title}</p>
+                        <p className="truncate text-xs text-dim">{[formatDateTime(meetup.start_at), meetup.location, meetup.group_name, humanizeEventValue(meetup.status)].filter(Boolean).join(' · ')}</p>
+                      </div>
+                      <span className="text-xs text-ghost">Edit</span>
+                    </summary>
+                    <div className="space-y-2 border-t border-edge px-3 py-3">
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-[10rem_1fr_auto]">
+                        <label className="field">
+                          <span className="label">Status</span>
+                          <select
+                            className="input"
+                            value={meetupDrafts[String(meetup.id)]?.status || meetup.status || 'planned'}
+                            onChange={(e) => setMeetupDraft(meetup.id, { status: e.target.value })}
+                          >
+                            {MEETUP_STATUS_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="field">
+                          <span className="label">Notes</span>
+                          <input
+                            className="input"
+                            placeholder="Quick note"
+                            value={meetupDrafts[String(meetup.id)]?.notes ?? meetup.notes ?? ''}
+                            onChange={(e) => setMeetupDraft(meetup.id, { notes: e.target.value })}
+                          />
+                        </label>
+                        <div className="flex items-end gap-2">
+                          <button className="btn-secondary btn-sm" disabled={saving === `meetup-${meetup.id}`} onClick={() => updateMeetup(meetup)}>
+                            {saving === `meetup-${meetup.id}` ? <Spinner size={16} /> : 'Save'}
+                          </button>
+                          <button className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={() => archive(`/events/${eventId}/meetups/${meetup.id}`, 'Meetup')}>Remove</button>
+                        </div>
+                      </div>
                     </div>
-                    <button className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={() => archive(`/events/${eventId}/meetups/${meetup.id}`, 'Meetup')}>Remove</button>
-                  </div>
+                  </details>
                 ))}
               </div>
             ) : <p className="text-sm text-ghost">No meetups yet.</p>}

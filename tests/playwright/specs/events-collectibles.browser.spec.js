@@ -131,6 +131,79 @@ test.describe('events and collectibles browser regressions', () => {
     }
   });
 
+  test('mobile event drawer can update meetup status and notes in place', async ({ page }) => {
+    const adminCredentials = await ensureSavedAdminCredentials();
+    const adminRequestContext = await createAuthenticatedRequestContext(adminCredentials);
+    const userCredentials = await createFreshUserCredentials();
+    const userRequestContext = await createAuthenticatedRequestContext(userCredentials);
+    const suffix = Date.now();
+    const eventTitle = `Playwright Mobile Meetup Edit ${suffix}`;
+    const meetupTitle = 'Quick lunch regroup';
+    const originalFlagsPayload = await getFeatureFlags(adminRequestContext);
+    const originalFlags = Array.isArray(originalFlagsPayload?.flags) ? originalFlagsPayload.flags : [];
+    const originalEventsEnabled = Boolean(originalFlags.find((flag) => flag?.key === 'events_enabled')?.enabled);
+
+    await deleteEventsByExactTitle(userRequestContext, eventTitle).catch(() => {});
+
+    try {
+      if (!originalEventsEnabled) {
+        await updateFeatureFlag(adminRequestContext, 'events_enabled', true);
+      }
+
+      const eventResponse = await postWithCsrf(userRequestContext, '/api/events', {
+        title: eventTitle,
+        url: `https://example.test/mobile-meetup-edit/${suffix}`,
+        location: 'San Diego Convention Center',
+        date_start: '2026-07-23'
+      }, 201);
+      const eventPayload = await eventResponse.json();
+      const eventId = Number(eventPayload?.id || 0);
+      expect(eventId).toBeGreaterThan(0);
+
+      await postWithCsrf(userRequestContext, `/api/events/${eventId}/meetups`, {
+        title: meetupTitle,
+        start_at: '2026-07-23T19:00:00.000Z',
+        location: 'Lobby stairs',
+        status: 'planned',
+        visibility: 'private',
+        notes: 'Initial plan'
+      }, 201);
+
+      await page.setViewportSize({ width: 390, height: 844 });
+      await signInThroughUi(page, userCredentials);
+      await page.goto('/dashboard?tab=library-events');
+      await expect(page.getByRole('heading', { name: 'Events' })).toBeVisible();
+      await page.getByPlaceholder('Search title or location…').fill(eventTitle);
+      await expect(page.getByText(eventTitle, { exact: true }).first()).toBeVisible();
+      await page.locator('article').filter({ hasText: eventTitle }).first().click();
+      await expect(page.getByRole('heading', { name: eventTitle })).toBeVisible();
+
+      await page.locator('summary').filter({ hasText: /^Meetups/ }).click();
+      const meetupRow = page.locator('details details').filter({ hasText: meetupTitle }).first();
+      await expect(meetupRow).toBeVisible();
+      await meetupRow.locator('summary').click();
+      await meetupRow.locator('label:has-text("Status") select').selectOption('done');
+      await meetupRow.getByPlaceholder('Quick note').fill('Met by the lobby stairs after the panel.');
+      await meetupRow.getByRole('button', { name: 'Save' }).click();
+      await expect(page.getByText('Meetup updated')).toBeVisible();
+      await expect(meetupRow.locator('summary').getByText(/Lobby stairs .* Done/)).toBeVisible();
+
+      const meetupResponse = await userRequestContext.get(`/api/events/${eventId}/meetups`);
+      expect(meetupResponse.ok()).toBeTruthy();
+      const meetupPayload = await meetupResponse.json();
+      const updated = meetupPayload.items.find((item) => item.title === meetupTitle);
+      expect(updated?.status).toBe('done');
+      expect(updated?.notes).toBe('Met by the lobby stairs after the panel.');
+    } finally {
+      await deleteEventsByExactTitle(userRequestContext, eventTitle).catch(() => {});
+      if (!originalEventsEnabled) {
+        await updateFeatureFlag(adminRequestContext, 'events_enabled', false).catch(() => {});
+      }
+      await userRequestContext.dispose();
+      await adminRequestContext.dispose();
+    }
+  });
+
   test('art signature provenance round-trips through the shared signature record contract', async () => {
     const adminCredentials = await ensureSavedAdminCredentials();
     const adminRequestContext = await createAuthenticatedRequestContext(adminCredentials);
