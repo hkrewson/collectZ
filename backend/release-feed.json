@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v3.4.41",
+      "version": "3.4.41",
+      "date": null,
+      "status": null,
+      "summary": "This patch makes Event social visibility easier to understand in the drawer, especially on mobile where private, group, selected, and shared plans need to be readable at a glance.",
+      "details": []
+    },
+    {
       "title": "v3.4.40",
       "version": "3.4.40",
       "date": null,
@@ -70,14 +78,6 @@
       "date": "2026-04-28",
       "status": null,
       "summary": "This patch expands personal Sched ICS schedule plans so synced sessions carry more of the useful detail Sched provides, and updates the Event drawer to show those details more clearly.",
-      "details": []
-    },
-    {
-      "title": "v3.4.31",
-      "version": "3.4.31",
-      "date": "2026-04-28",
-      "status": null,
-      "summary": "This release adds the first personal Sched ICS sync path for Events. A user can connect an encrypted personal iCal subscription link, manually refresh it, and sync selected sessions into private event schedule plans.",
       "details": []
     }
   ]

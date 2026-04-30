@@ -215,6 +215,39 @@ const humanizeEventValue = (value) => {
   return text.charAt(0).toUpperCase() + text.slice(1);
 };
 
+const eventVisibilityLabel = (value) => {
+  const key = String(value || '').trim();
+  if (key === 'event_workspace') return 'Shared';
+  if (key === 'selected_people') return 'Selected';
+  if (key === 'group') return 'Group';
+  if (key === 'private') return 'Private';
+  return humanizeEventValue(key);
+};
+
+const eventVisibilityTextClass = (value) => {
+  const key = String(value || '').trim();
+  if (key === 'event_workspace') return 'text-ok';
+  if (key === 'selected_people' || key === 'group') return 'text-ink';
+  return 'text-ghost';
+};
+
+const eventVisibilityRowClass = (value) => {
+  const key = String(value || '').trim();
+  if (key === 'event_workspace') return 'border-l-2 border-l-ok/60';
+  if (key === 'selected_people' || key === 'group') return 'border-l-2 border-l-muted';
+  return 'border-l-2 border-l-transparent';
+};
+
+function EventVisibilityText({ value, className = '' }) {
+  const label = eventVisibilityLabel(value);
+  if (!label) return null;
+  return (
+    <span className={cx('shrink-0 text-xs font-medium', eventVisibilityTextClass(value), className)}>
+      {label}
+    </span>
+  );
+}
+
 const previewNames = (items, key, limit = 3) => {
   const names = (Array.isArray(items) ? items : [])
     .map((item) => String(item?.[key] || '').trim())
@@ -1378,12 +1411,12 @@ function EventSocialMobileOverview({ attendees, groups, meetups, plans }) {
             {focusPlan?.label ? <span className="text-xs text-ghost">{focusPlan.label}</span> : null}
           </div>
           {focusPlan?.plan ? (
-            <>
-              <p className="mt-1 truncate text-sm font-medium text-ink">{focusPlan.plan.title}</p>
-              <p className="mt-1 truncate text-xs text-dim">
-                {[formatDateTime(focusPlan.plan.start_at), compactLocation(focusPlan.plan.location), humanizeEventValue(focusPlan.plan.visibility)].filter(Boolean).join(' · ')}
-              </p>
-            </>
+	            <>
+	              <p className="mt-1 truncate text-sm font-medium text-ink">{focusPlan.plan.title}</p>
+	              <p className="mt-1 truncate text-xs text-dim">
+	                {[formatDateTime(focusPlan.plan.start_at), compactLocation(focusPlan.plan.location), eventVisibilityLabel(focusPlan.plan.visibility)].filter(Boolean).join(' · ')}
+	              </p>
+	            </>
           ) : (
             <p className="mt-1 text-sm text-ghost">No current or upcoming schedule plan.</p>
           )}
@@ -1392,12 +1425,12 @@ function EventSocialMobileOverview({ attendees, groups, meetups, plans }) {
         <div className="rounded-md border border-edge bg-surface px-3 py-2">
           <p className="text-xs font-medium text-dim">Next meetup</p>
           {nextMeetup ? (
-            <>
-              <p className="mt-1 truncate text-sm font-medium text-ink">{nextMeetup.title}</p>
-              <p className="mt-1 truncate text-xs text-dim">
-                {[formatDateTime(nextMeetup.start_at), nextMeetup.location, nextMeetup.group_name, humanizeEventValue(nextMeetup.visibility)].filter(Boolean).join(' · ')}
-              </p>
-            </>
+	            <>
+	              <p className="mt-1 truncate text-sm font-medium text-ink">{nextMeetup.title}</p>
+	              <p className="mt-1 truncate text-xs text-dim">
+	                {[formatDateTime(nextMeetup.start_at), nextMeetup.location, nextMeetup.group_name, eventVisibilityLabel(nextMeetup.visibility)].filter(Boolean).join(' · ')}
+	              </p>
+	            </>
           ) : (
             <p className="mt-1 text-sm text-ghost">No upcoming meetup.</p>
           )}
@@ -1771,16 +1804,21 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
             <span className="text-xs text-ghost">{attendees.length}</span>
           </summary>
           <div className="space-y-3 px-4 pb-4">
-            {attendees.length > 0 ? (
-              <div className="space-y-2">
-                {attendees.map((person) => (
-                  <div key={person.id} className="flex items-center gap-3 rounded-md border border-edge bg-raised px-3 py-2">
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm text-ink">{person.display_name}</p>
-                      <p className="truncate text-xs text-dim">{[person.relationship, person.status, person.visibility].filter(Boolean).join(' · ')}</p>
-                    </div>
-                    <button className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={() => archive(`/events/${eventId}/attendees/${person.id}`, 'Attendee')}>Remove</button>
-                  </div>
+	            {attendees.length > 0 ? (
+	              <div className="space-y-2">
+	                {attendees.map((person) => (
+	                  <div key={person.id} className={cx('flex items-center gap-3 rounded-md border border-edge bg-raised px-3 py-2', eventVisibilityRowClass(person.visibility))}>
+	                    <div className="min-w-0 flex-1">
+	                      <p className="truncate text-sm text-ink">{person.display_name}</p>
+	                      <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+	                        {[person.relationship, humanizeEventValue(person.status)].filter(Boolean).map((value) => (
+	                          <span key={value} className="text-xs text-dim">{value}</span>
+	                        ))}
+	                        <EventVisibilityText value={person.visibility} />
+	                      </div>
+	                    </div>
+	                    <button className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={() => archive(`/events/${eventId}/attendees/${person.id}`, 'Attendee')}>Remove</button>
+	                  </div>
                 ))}
               </div>
             ) : <p className="text-sm text-ghost">No attendees yet.</p>}
@@ -1798,16 +1836,19 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
             <span className="text-xs text-ghost">{groups.length}</span>
           </summary>
           <div className="space-y-3 px-4 pb-4">
-            {groups.length > 0 ? (
-              <div className="space-y-2">
-                {groups.map((group) => (
-                  <div key={group.id} className="flex items-center gap-3 rounded-md border border-edge bg-raised px-3 py-2">
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm text-ink">{group.name}</p>
-                      <p className="truncate text-xs text-dim">{pluralizePeople(group.members?.length || 0)} · {group.visibility}</p>
-                    </div>
-                    <button className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={() => archive(`/events/${eventId}/groups/${group.id}`, 'Group')}>Remove</button>
-                  </div>
+	            {groups.length > 0 ? (
+	              <div className="space-y-2">
+	                {groups.map((group) => (
+	                  <div key={group.id} className={cx('flex items-center gap-3 rounded-md border border-edge bg-raised px-3 py-2', eventVisibilityRowClass(group.visibility))}>
+	                    <div className="min-w-0 flex-1">
+	                      <p className="truncate text-sm text-ink">{group.name}</p>
+	                      <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+	                        <span className="text-xs text-dim">{pluralizePeople(group.members?.length || 0)}</span>
+	                        <EventVisibilityText value={group.visibility} />
+	                      </div>
+	                    </div>
+	                    <button className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={() => archive(`/events/${eventId}/groups/${group.id}`, 'Group')}>Remove</button>
+	                  </div>
                 ))}
               </div>
             ) : <p className="text-sm text-ghost">No groups yet.</p>}
@@ -1824,17 +1865,20 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
             <span className="text-xs text-ghost">{meetups.length}</span>
           </summary>
           <div className="space-y-3 px-4 pb-4">
-            {meetups.length > 0 ? (
-              <div className="space-y-2">
-                {meetups.map((meetup) => (
-                  <details key={meetup.id} className="rounded-md border border-edge bg-raised">
-                    <summary className="flex cursor-pointer list-none items-center gap-3 px-3 py-2">
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm text-ink">{meetup.title}</p>
-                        <p className="truncate text-xs text-dim">{[formatDateTime(meetup.start_at), meetup.location, meetup.group_name, humanizeEventValue(meetup.status)].filter(Boolean).join(' · ')}</p>
-                      </div>
-                      <span className="text-xs text-ghost">Edit</span>
-                    </summary>
+	            {meetups.length > 0 ? (
+	              <div className="space-y-2">
+	                {meetups.map((meetup) => (
+	                  <details key={meetup.id} className={cx('rounded-md border border-edge bg-raised', eventVisibilityRowClass(meetup.visibility))}>
+	                    <summary className="flex cursor-pointer list-none items-center gap-3 px-3 py-2">
+	                      <div className="min-w-0 flex-1">
+	                        <p className="truncate text-sm text-ink">{meetup.title}</p>
+	                        <p className="truncate text-xs text-dim">{[formatDateTime(meetup.start_at), meetup.location, meetup.group_name, humanizeEventValue(meetup.status)].filter(Boolean).join(' · ')}</p>
+	                      </div>
+	                      <div className="flex shrink-0 items-center gap-2">
+	                        <EventVisibilityText value={meetup.visibility} />
+	                        <span className="text-xs text-ghost">Edit</span>
+	                      </div>
+	                    </summary>
                     <div className="space-y-2 border-t border-edge px-3 py-3">
                       <div className="grid grid-cols-1 gap-2 sm:grid-cols-[10rem_1fr_auto]">
                         <label className="field">
@@ -2016,18 +2060,19 @@ function SchedulePlanRow({ plan, marker = '', draft = {}, saving = false, onDraf
   ].filter(Boolean).join(' · ');
 
   return (
-    <details className="group">
+    <details className={cx('group', eventVisibilityRowClass(plan?.visibility))}>
       <summary className="grid cursor-pointer list-none grid-cols-[4.75rem_1fr] gap-3 px-4 py-3 sm:grid-cols-[5.75rem_1fr]">
         <div className="text-xs font-medium leading-5 text-dim">
           <div className="whitespace-nowrap">{agendaTime.start}</div>
           {agendaTime.end ? <div className="whitespace-nowrap text-ghost">{agendaTime.end}</div> : null}
         </div>
         <div className="min-w-0">
-          <div className="flex min-w-0 items-baseline gap-2">
-            <p className="truncate text-sm font-medium text-ink">{plan.title}</p>
-            {marker ? <span className="shrink-0 text-xs text-dim">{marker}</span> : null}
-            {plan.status && plan.status !== 'planned' ? <span className="shrink-0 text-xs text-ghost">{plan.status}</span> : null}
-          </div>
+	          <div className="flex min-w-0 items-baseline gap-2">
+	            <p className="truncate text-sm font-medium text-ink">{plan.title}</p>
+	            {marker ? <span className="shrink-0 text-xs text-dim">{marker}</span> : null}
+	            {plan.status && plan.status !== 'planned' ? <span className="shrink-0 text-xs text-ghost">{plan.status}</span> : null}
+	            <EventVisibilityText value={plan.visibility} />
+	          </div>
           <p className="mt-1 truncate text-xs text-dim">
             {[location, categorySummary, extraCategoryCount ? `+${extraCategoryCount}` : '', fromSched ? 'Sched' : 'Manual'].filter(Boolean).join(' · ')}
           </p>
@@ -2055,13 +2100,19 @@ function SchedulePlanRow({ plan, marker = '', draft = {}, saving = false, onDraf
                 <p className="mt-1 leading-6 text-dim">{sourceDetails}</p>
               </div>
             ) : null}
-            {plan.status ? (
-              <div className="min-w-0">
-                <p className="text-xs text-ghost">Status</p>
-                <p className="mt-1 capitalize leading-6 text-dim">{plan.status}</p>
-              </div>
-            ) : null}
-          </div>
+	            {plan.status ? (
+	              <div className="min-w-0">
+	                <p className="text-xs text-ghost">Status</p>
+	                <p className="mt-1 capitalize leading-6 text-dim">{plan.status}</p>
+	              </div>
+	            ) : null}
+	            {plan.visibility ? (
+	              <div className="min-w-0">
+	                <p className="text-xs text-ghost">Visibility</p>
+	                <p className={cx('mt-1 leading-6', eventVisibilityTextClass(plan.visibility))}>{eventVisibilityLabel(plan.visibility)}</p>
+	              </div>
+	            ) : null}
+	          </div>
           {notesPreview ? (
             <div>
               <p className="text-xs text-ghost">Notes</p>

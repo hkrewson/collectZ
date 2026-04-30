@@ -6711,6 +6711,47 @@ Historical note:
 - What remains in the milestone: nothing; `3.4.40` is closed.
 - Recommended commit message: `Release 3.4.40 shared schedule item editing`
 
+## 3.4.41 — Event Social Private/Shared Visual Treatment
+
+**Goal:** Make private, selected, group, and shared Event social records easier to understand in mobile Event drawers without adding noisy badge-heavy UI.
+
+**Current Slice:** `Closed 2026-04-30.`
+
+### Scope
+
+- Add consistent visibility readback for Event social records.
+- Use concise labels for `private`, `selected_people`, `group`, and `event_workspace` visibility.
+- Make shared-with-event rows stand apart subtly in schedule, people, group, and meetup sections.
+- Keep the mobile social overview aligned with the same visibility language.
+- Avoid schema changes, new APIs, notifications, full schedule catalog discovery, conflict handling, native companion behavior, location/presence tracking, or vendor/booth/location note fields.
+
+### Acceptance Criteria
+
+- Mobile overview uses human-readable visibility labels.
+- Schedule plan rows show visibility in collapsed and expanded states.
+- People, Groups, and Meetups show visibility labels instead of raw internal values.
+- Shared-with-event records are visually distinguishable without overwhelming the drawer.
+- Existing schedule, meetup, people, groups, and Sched feed management flows continue to work.
+
+### Notes
+
+- This is a visual/readback polish patch only.
+- Vendor/booth/location notes remain the next small Event Social backlog slice.
+
+### Closeout Evidence
+
+- Roadmap slice: `3.4.41 — Event Social Private/Shared Visual Treatment`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild to `3.4.41`; `/api/health` reported frontend/backend/build `3.4.41`; backend runtime verified `APP_EDITION=platform` and `PLAYWRIGHT_E2E_BYPASS_TOKEN=unset` after browser regression; generated public compose was booted without the localhost override and verified `APP_EDITION=unset` before the homelab boundary smoke.
+- CI/checks run locally: `APP_VERSION=3.4.41 docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml up -d --build backend frontend`; event social planning smoke; targeted Playwright mobile social overview regression; backend unit tests; OpenAPI validation; compose config validation; public export surface validation; init parity; migration rehearsal; Help > Releases smoke for `3.4.41`; platform edition boundary; homelab edition boundary against generated public compose; RBAC regression; full browser regression (`53 passed`, `4 skipped`); observability release evidence; local release preflight; compose generator idempotence; version sync check; `git diff --check`; release-evidence secret-hygiene grep.
+- Release/version artifacts: `app-meta.json`, backend/frontend app meta, backend/frontend package and lockfile versions, generated `docker-compose.yml`, `docs/releases/v3.4.41.md`, and `backend/release-feed.json` are aligned on `3.4.41`.
+- Verified facts: Event social overview, People, Groups, Meetups, and Schedule rows now use concise visibility labels instead of raw internal values; shared-with-event rows use subtle visual emphasis; selected/group/private/shared language remains consistent between collapsed and expanded schedule states; existing meetup and schedule edit flows still pass browser and smoke coverage.
+- Blocked/unverified items: CI `secret-scan` and `image-security-and-sbom` remain CI-only; local preflight compose-smoke secure-cookie checks remain blocked by the development stack using `NODE_ENV=development` and `SESSION_COOKIE_SECURE=false`, while runtime health/version and compose config were verified locally.
+- Files changed: `frontend/src/components/EventsView.jsx`, `tests/playwright/specs/events-collectibles.browser.spec.js`, version metadata/package files, `docker-compose.yml`, `docs/releases/v3.4.41.md`, `backend/release-feed.json`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `artifacts/observability-evidence/observability-release-evidence.json`, `preflight-go-no-go.md`.
+- Risks or follow-ups: vendor/booth/location notes remain the next small Event Social backlog slice; full schedule catalog discovery, conflict handling, selected-recipient notifications, and native companion behavior remain separate larger work.
+- What remains in the milestone: nothing; `3.4.41` is closed.
+- Recommended commit message: `Release 3.4.41 event social private shared visual treatment`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

@@ -98,7 +98,7 @@ test.describe('events and collectibles browser regressions', () => {
         start_at: '2026-07-23T17:00:00.000Z',
         source_type: 'manual',
         status: 'planned',
-        visibility: 'private'
+        visibility: 'event_workspace'
       }, 201);
 
       await page.setViewportSize({ width: 390, height: 844 });
@@ -119,8 +119,12 @@ test.describe('events and collectibles browser regressions', () => {
       await expect(overview.getByText('Meet outside Hall H')).toBeVisible();
       await expect(overview.getByText('Reid')).toBeVisible();
       await expect(overview.getByText('Groups: Artist Alley Crew')).toBeVisible();
-      await expect(overview.getByText(/Room 6DE .* Private/)).toBeVisible();
+      await expect(overview.getByText(/Room 6DE .* Shared/)).toBeVisible();
       await expect(overview.getByText(/Hall H doors .* Group/)).toBeVisible();
+      await page.locator('summary').filter({ hasText: /^People/ }).click();
+      await expect(page.locator('details').filter({ hasText: 'Reid' }).first().getByText('Private', { exact: true })).toBeVisible();
+      await page.locator('summary').filter({ hasText: /^Groups/ }).click();
+      await expect(page.locator('details').filter({ hasText: 'Artist Alley Crew' }).first().getByText('Group', { exact: true })).toBeVisible();
     } finally {
       await deleteEventsByExactTitle(userRequestContext, eventTitle).catch(() => {});
       if (!originalEventsEnabled) {
