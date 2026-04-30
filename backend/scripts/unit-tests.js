@@ -3587,6 +3587,8 @@ results.push(run('event social planning foundation contract is wired for 3.4.30'
   assert.ok(eventsViewSource.includes('Event plans'));
   assert.ok(eventsViewSource.includes('function EventScheduleAgenda'));
   assert.ok(eventsViewSource.includes('Manage Sched feed'));
+  assert.ok(eventsViewSource.includes('function EventSocialMobileOverview'));
+  assert.ok(eventsViewSource.includes('Mobile event social overview'));
 }));
 
 results.push(run('personal Sched ICS sync contract is wired for 3.4.31', () => {

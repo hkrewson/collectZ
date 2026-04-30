@@ -161,6 +161,14 @@ const upcomingPlans = (plans, now = new Date()) => {
   });
 };
 
+const nextTimedItem = (items, dateKey = 'start_at', now = new Date()) => {
+  const nowTime = now.getTime();
+  return [...(Array.isArray(items) ? items : [])]
+    .map((item) => ({ item, time: item?.[dateKey] ? new Date(item[dateKey]).getTime() : NaN }))
+    .filter((entry) => Number.isFinite(entry.time) && entry.time >= nowTime)
+    .sort((a, b) => a.time - b.time)[0]?.item || null;
+};
+
 const plainTextPreview = (value, maxLength = 220) => {
   const text = String(value || '').replace(/\s+/g, ' ').trim();
   if (!text) return '';
@@ -179,6 +187,22 @@ const scheduleSourceLabel = (plan) => {
   if (plan?.source_type === 'sched_ics') return 'Sched';
   if (plan?.source_type) return String(plan.source_type).replace(/_/g, ' ');
   return 'Manual';
+};
+
+const humanizeEventValue = (value) => {
+  const text = String(value || '').replace(/_/g, ' ').trim();
+  if (!text) return '';
+  return text.charAt(0).toUpperCase() + text.slice(1);
+};
+
+const previewNames = (items, key, limit = 3) => {
+  const names = (Array.isArray(items) ? items : [])
+    .map((item) => String(item?.[key] || '').trim())
+    .filter(Boolean);
+  if (!names.length) return '';
+  const visible = names.slice(0, limit).join(', ');
+  const remaining = names.length - limit;
+  return remaining > 0 ? `${visible}, +${remaining}` : visible;
 };
 
 const getIcsFeedHealth = (source) => {
@@ -1304,6 +1328,71 @@ function EventFormDrawer({ initial, apiCall, onClose, onSave, onDelete, onClearI
   );
 }
 
+function EventSocialMobileOverview({ attendees, groups, meetups, plans }) {
+  const focusPlan = findCurrentOrNextPlan(plans);
+  const nextMeetup = nextTimedItem(meetups);
+  const peoplePreview = previewNames(attendees, 'display_name');
+  const groupPreview = previewNames(groups, 'name', 2);
+
+  return (
+    <div className="border-b border-edge bg-raised/40 px-4 py-3 lg:hidden" aria-label="Mobile event social overview">
+      <div className="grid grid-cols-3 gap-2 text-center">
+        <div className="rounded-md border border-edge bg-surface px-2 py-2">
+          <p className="text-base font-semibold text-ink">{attendees.length}</p>
+          <p className="text-xs text-ghost">People</p>
+        </div>
+        <div className="rounded-md border border-edge bg-surface px-2 py-2">
+          <p className="text-base font-semibold text-ink">{groups.length}</p>
+          <p className="text-xs text-ghost">Groups</p>
+        </div>
+        <div className="rounded-md border border-edge bg-surface px-2 py-2">
+          <p className="text-base font-semibold text-ink">{meetups.length}</p>
+          <p className="text-xs text-ghost">Meetups</p>
+        </div>
+      </div>
+
+      <div className="mt-3 space-y-2">
+        <div className="rounded-md border border-edge bg-surface px-3 py-2">
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-xs font-medium text-dim">Schedule</p>
+            {focusPlan?.label ? <span className="text-xs text-ghost">{focusPlan.label}</span> : null}
+          </div>
+          {focusPlan?.plan ? (
+            <>
+              <p className="mt-1 truncate text-sm font-medium text-ink">{focusPlan.plan.title}</p>
+              <p className="mt-1 truncate text-xs text-dim">
+                {[formatDateTime(focusPlan.plan.start_at), compactLocation(focusPlan.plan.location), humanizeEventValue(focusPlan.plan.visibility)].filter(Boolean).join(' · ')}
+              </p>
+            </>
+          ) : (
+            <p className="mt-1 text-sm text-ghost">No current or upcoming schedule plan.</p>
+          )}
+        </div>
+
+        <div className="rounded-md border border-edge bg-surface px-3 py-2">
+          <p className="text-xs font-medium text-dim">Next meetup</p>
+          {nextMeetup ? (
+            <>
+              <p className="mt-1 truncate text-sm font-medium text-ink">{nextMeetup.title}</p>
+              <p className="mt-1 truncate text-xs text-dim">
+                {[formatDateTime(nextMeetup.start_at), nextMeetup.location, nextMeetup.group_name, humanizeEventValue(nextMeetup.visibility)].filter(Boolean).join(' · ')}
+              </p>
+            </>
+          ) : (
+            <p className="mt-1 text-sm text-ghost">No upcoming meetup.</p>
+          )}
+        </div>
+
+        <div className="rounded-md border border-edge bg-surface px-3 py-2">
+          <p className="text-xs font-medium text-dim">With</p>
+          <p className="mt-1 truncate text-sm text-ink">{peoplePreview || 'No people added yet.'}</p>
+          <p className="mt-1 truncate text-xs text-dim">{groupPreview ? `Groups: ${groupPreview}` : 'No groups added yet.'}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState('');
@@ -1471,6 +1560,13 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
         {error ? <p className="mt-2 text-xs text-err">{error}</p> : null}
         {notice ? <p className="mt-2 text-xs text-ok">{notice}</p> : null}
       </div>
+
+      <EventSocialMobileOverview
+        attendees={attendees}
+        groups={groups}
+        meetups={meetups}
+        plans={plans}
+      />
 
       <div className="divide-y divide-edge">
         <details className="group" open>

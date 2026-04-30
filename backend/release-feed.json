@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v3.4.38",
+      "version": "3.4.38",
+      "date": null,
+      "status": null,
+      "summary": "This patch adds a compact mobile overview to Event plans so phone users can quickly see the next schedule item, next meetup, people, and groups before opening the detailed planning sections.",
+      "details": []
+    },
+    {
       "title": "v3.4.37",
       "version": "3.4.37",
       "date": null,
@@ -70,14 +78,6 @@
       "date": "2026-04-27",
       "status": "Completed",
       "summary": "This release records the naming decision for Collectibles after the Art promotion, taxonomy cleanup, and shared `Fandom / Franchise` metadata work.",
-      "details": []
-    },
-    {
-      "title": "v3.4.28",
-      "version": "3.4.28",
-      "date": "2026-04-27",
-      "status": "Completed",
-      "summary": "This release documents the movie lookup rate-limit boundary and removes one avoidable TMDB search in the add/edit drawer when an identifier result already includes provider metadata.",
       "details": []
     }
   ]

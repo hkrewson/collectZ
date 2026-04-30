@@ -28,6 +28,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 10. `Event Schedule Expanded Row Detail Polish` was promoted as `3.4.35`; keep quiet remove actions and Sched feed failure state queued separately.
 11. `Event Schedule Quiet Remove Actions` was promoted as `3.4.36`; keep Sched feed failure state queued separately.
 12. `Event Sched Feed Failure State Polish` was promoted as `3.4.37`; keep full schedule catalog and native companion sync visibility separate.
+13. The mobile overview slice of `Event Social Planning Mobile Web Experience` was promoted as `3.4.38`; keep fast meetup updates, shared schedule item editing, and native companion behavior separate.
 
 ### Backlog Item: Apple Platform App Contract Publishing
 **Type:** Deferred milestone
@@ -234,13 +235,11 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 **Goal:** Make the web app's event social planning views useful on a phone during a con before building native companion surfaces.
 
 **Scope**
-- Add a mobile-first event social view centered on:
-  - Today / upcoming plans
-  - People attending
-  - Groups
-  - Meetups
-  - Shared schedule items
+- Continue the mobile-first event social view beyond the `3.4.38` overview slice with:
+  - Fast actions for meetup status and notes
+  - Shared schedule item editing
   - Vendor/booth/location notes
+  - Richer private/shared visual treatment
 - Optimize the view for quick day-of-con scanning rather than admin-heavy editing.
 - Add fast actions for updating meetup status or notes.
 - Keep the UI privacy-aware so private and shared items are visually distinct.

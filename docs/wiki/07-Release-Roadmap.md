@@ -6534,6 +6534,100 @@ Historical note:
 - What remains in the milestone: nothing; `3.4.37` is closed.
 - Recommended commit message: `Release 3.4.37 event Sched feed failure state polish`
 
+## 3.4.38 — Event Social Mobile Overview
+
+**Goal:** Add a compact mobile-first social overview to Event detail drawers so day-of-con context is readable before users dive into admin-heavy People, Groups, Meetups, Schedule, or Sched feed controls.
+
+**Current Slice:** `Closed 2026-04-30`
+
+### Scope
+
+- Add a read-first mobile overview inside `Event plans`.
+- Surface the current/next schedule plan, next meetup, attendee names, and group names when available.
+- Keep privacy/status labels visible enough to distinguish private/group/shared planning records.
+- Preserve the existing desktop planning accordions and management controls.
+- Avoid API/schema changes, full schedule catalog discovery, friend notifications, native companion behavior, location/presence tracking, and fast meetup editing.
+
+### Acceptance Criteria
+
+- On a phone-sized Event detail drawer, users can quickly see the next schedule item, next meetup, people, and groups without opening every accordion.
+- Empty states are short and useful when social data has not been added.
+- Private/group/shared labels are visible in the mobile overview.
+- Existing schedule, people, groups, meetup, and Sched feed management flows continue to work.
+
+### Notes
+
+- This is the overview slice of the broader `Event Social Planning Mobile Web Experience` backlog item.
+- Fast meetup status updates, richer shared schedule editing, and native companion surfaces remain later milestones.
+
+### Closeout Evidence
+
+- Roadmap slice: `3.4.38 — Event Social Mobile Overview`.
+- Project docs/checklists used:
+  - `AGENTS.md`
+  - `docs/wiki/07-Release-Roadmap.md`
+  - `docs/wiki/08-Backlog.md`
+  - `docs/wiki/10-CI-CD-and-Registry-Deploy.md`
+  - `docs/wiki/17-Release-Go-No-Go-Checklist.md`
+- Runtime verification used:
+  - Docker-first runtime rebuilt with `APP_VERSION=3.4.38`.
+  - Container Vite build completed successfully for the frontend image.
+  - Running stack `/api/health` reports `version=3.4.38`, `frontend=3.4.38`, `backend=3.4.38`, and `build=v3.4.38`.
+  - Running frontend/backend containers are healthy after restoration from the temporary browser-regression bypass run.
+  - Backend runtime check confirms `PLAYWRIGHT_E2E_BYPASS_TOKEN=unset` after browser regression.
+  - Running platform stack reports `APP_EDITION=platform`; the local platform override remains intact.
+  - Help > Releases smoke serves `3.4.38` as the latest release and includes recent release entries.
+- CI/checks run:
+  - `APP_VERSION=3.4.38 docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml up -d --build frontend` passed.
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml config --quiet` passed.
+  - `node scripts/validate-public-export-surface.js` passed.
+  - `git diff --check` passed.
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T backend npm run test:unit` passed: 230 tests.
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T backend npm run test:openapi` passed.
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T backend npm run test:init-parity` passed and refreshed init parity evidence.
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T backend npm run test:migration-rehearsal` passed and refreshed migration rehearsal evidence.
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T -e BASE_URL=http://frontend:3000 -e EXPECTED_VERSION=3.4.38 backend npm run test:help-releases-smoke` passed.
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T -e BASE_URL=http://frontend:3000 backend npm run test:platform-edition-boundary` passed.
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T -e BASE_URL=http://frontend:3000 backend npm run test:rbac-regression` passed.
+  - Targeted mobile Event browser regression passed.
+  - Browser regression passed against the Docker stack: 51 passed, 4 skipped for homelab browser specs under the local platform stack.
+  - `npm --prefix backend run test:observability-evidence` passed and refreshed observability evidence with 9/9 checks passing.
+  - `npm --prefix backend run test:release-preflight-local` passed for locally runnable gates and refreshed `preflight-go-no-go.md`.
+  - Secret hygiene check found no local Playwright bypass token strings in the retained release/docs/evidence paths inspected after transient Playwright artifacts were removed.
+- Verified facts:
+  - Event detail drawers now render a phone-sized `Mobile event social overview` above the detailed Event plans accordions.
+  - The overview shows counts for people, groups, and meetups.
+  - The overview surfaces current/next schedule, next meetup, attendee names, group names, and private/group visibility labels when data exists.
+  - Existing Schedule, Manage Sched feed, People, Groups, and Meetups management sections remain available below the overview.
+  - Version metadata, release note, generated release feed, and generated public compose output are aligned on `3.4.38`.
+- Blocked or CI-only gates:
+  - Local compose smoke secure-cookie assertions remain blocked by the intentional local development runtime posture (`SESSION_COOKIE_SECURE=false`, `NODE_ENV=development`); CI/tagged release remains authoritative for secure-cookie compose smoke.
+  - Homelab edition browser specs were skipped because the local stack is intentionally running with the private platform override; default homelab CI remains authoritative for `homelab-edition-boundary`.
+  - `secret-scan`, `image-security-and-sbom`, and tagged release artifact publication remain CI-only.
+- Files changed:
+  - `frontend/src/components/EventsView.jsx`
+  - `tests/playwright/specs/events-collectibles.browser.spec.js`
+  - `backend/scripts/unit-tests.js`
+  - `app-meta.json`
+  - `backend/app-meta.json`
+  - `backend/package.json`
+  - `backend/package-lock.json`
+  - `backend/release-feed.json`
+  - `frontend/package.json`
+  - `frontend/package-lock.json`
+  - `frontend/src/app-meta.json`
+  - `docker-compose.yml`
+  - `docs/releases/v3.4.38.md`
+  - `docs/wiki/07-Release-Roadmap.md`
+  - `docs/wiki/08-Backlog.md`
+  - `artifacts/observability-evidence/observability-release-evidence.json`
+  - `preflight-go-no-go.md`
+- Risks or follow-ups:
+  - This does not add fast meetup status updates, notes editing, full schedule catalog discovery, friend notifications, native companion behavior, or location/presence tracking.
+  - The broader Event Social Planning Mobile Web Experience backlog remains open for fast actions and richer shared/private editing.
+- What remains in the milestone: nothing; `3.4.38` is closed.
+- Recommended commit message: `Release 3.4.38 event social mobile overview`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

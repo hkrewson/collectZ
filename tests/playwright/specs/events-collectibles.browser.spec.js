@@ -42,6 +42,95 @@ test.describe('events and collectibles browser regressions', () => {
     expect(await imageInputs.first().getAttribute('capture')).toBeNull();
   });
 
+  test('mobile event drawer shows a compact social overview before admin sections', async ({ page }) => {
+    const adminCredentials = await ensureSavedAdminCredentials();
+    const adminRequestContext = await createAuthenticatedRequestContext(adminCredentials);
+    const userCredentials = await createFreshUserCredentials();
+    const userRequestContext = await createAuthenticatedRequestContext(userCredentials);
+    const suffix = Date.now();
+    const eventTitle = `Playwright Mobile Social Event ${suffix}`;
+    const originalFlagsPayload = await getFeatureFlags(adminRequestContext);
+    const originalFlags = Array.isArray(originalFlagsPayload?.flags) ? originalFlagsPayload.flags : [];
+    const originalEventsEnabled = Boolean(originalFlags.find((flag) => flag?.key === 'events_enabled')?.enabled);
+
+    await deleteEventsByExactTitle(userRequestContext, eventTitle).catch(() => {});
+
+    try {
+      if (!originalEventsEnabled) {
+        await updateFeatureFlag(adminRequestContext, 'events_enabled', true);
+      }
+
+      const eventResponse = await postWithCsrf(userRequestContext, '/api/events', {
+        title: eventTitle,
+        url: `https://example.test/mobile-social/${suffix}`,
+        location: 'San Diego Convention Center',
+        date_start: '2026-07-23',
+        date_end: '2026-07-26'
+      }, 201);
+      const eventPayload = await eventResponse.json();
+      const eventId = Number(eventPayload?.id || 0);
+      expect(eventId).toBeGreaterThan(0);
+
+      await postWithCsrf(userRequestContext, `/api/events/${eventId}/attendees`, {
+        display_name: 'Reid',
+        relationship: 'friend',
+        status: 'attending',
+        visibility: 'private'
+      }, 201);
+      const groupResponse = await postWithCsrf(userRequestContext, `/api/events/${eventId}/groups`, {
+        name: 'Artist Alley Crew',
+        visibility: 'group'
+      }, 201);
+      const groupPayload = await groupResponse.json();
+      const groupId = Number(groupPayload?.id || 0);
+      expect(groupId).toBeGreaterThan(0);
+      await postWithCsrf(userRequestContext, `/api/events/${eventId}/meetups`, {
+        title: 'Meet outside Hall H',
+        group_id: groupId,
+        start_at: '2026-07-23T18:00:00.000Z',
+        location: 'Hall H doors',
+        status: 'planned',
+        visibility: 'group'
+      }, 201);
+      await postWithCsrf(userRequestContext, `/api/events/${eventId}/schedule-plans`, {
+        title: 'Spotlight on Playwright',
+        location: 'Room 6DE',
+        start_at: '2026-07-23T17:00:00.000Z',
+        source_type: 'manual',
+        status: 'planned',
+        visibility: 'private'
+      }, 201);
+
+      await page.setViewportSize({ width: 390, height: 844 });
+      await signInThroughUi(page, userCredentials);
+      await page.goto('/dashboard?tab=library-events');
+      await expect(page.getByRole('heading', { name: 'Events' })).toBeVisible();
+      await page.getByPlaceholder('Search title or location…').fill(eventTitle);
+      await expect(page.getByText(eventTitle, { exact: true }).first()).toBeVisible();
+      await page.locator('article').filter({ hasText: eventTitle }).first().click();
+      await expect(page.getByRole('heading', { name: eventTitle })).toBeVisible();
+
+      const overview = page.getByLabel('Mobile event social overview');
+      await expect(overview).toBeVisible();
+      await expect(overview.getByText('People', { exact: true })).toBeVisible();
+      await expect(overview.getByText('Groups', { exact: true })).toBeVisible();
+      await expect(overview.getByText('Meetups', { exact: true })).toBeVisible();
+      await expect(overview.getByText('Spotlight on Playwright')).toBeVisible();
+      await expect(overview.getByText('Meet outside Hall H')).toBeVisible();
+      await expect(overview.getByText('Reid')).toBeVisible();
+      await expect(overview.getByText('Groups: Artist Alley Crew')).toBeVisible();
+      await expect(overview.getByText(/Room 6DE .* Private/)).toBeVisible();
+      await expect(overview.getByText(/Hall H doors .* Group/)).toBeVisible();
+    } finally {
+      await deleteEventsByExactTitle(userRequestContext, eventTitle).catch(() => {});
+      if (!originalEventsEnabled) {
+        await updateFeatureFlag(adminRequestContext, 'events_enabled', false).catch(() => {});
+      }
+      await userRequestContext.dispose();
+      await adminRequestContext.dispose();
+    }
+  });
+
   test('art signature provenance round-trips through the shared signature record contract', async () => {
     const adminCredentials = await ensureSavedAdminCredentials();
     const adminRequestContext = await createAuthenticatedRequestContext(adminCredentials);
