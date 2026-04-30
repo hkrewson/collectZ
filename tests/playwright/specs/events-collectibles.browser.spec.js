@@ -89,6 +89,9 @@ test.describe('events and collectibles browser regressions', () => {
         group_id: groupId,
         start_at: '2026-07-23T18:00:00.000Z',
         location: 'Hall H doors',
+        vendor: 'Hall H Cafe',
+        booth: 'HH-12',
+        location_notes: 'Meet by the left-side doors.',
         status: 'planned',
         visibility: 'group'
       }, 201);
@@ -120,7 +123,7 @@ test.describe('events and collectibles browser regressions', () => {
       await expect(overview.getByText('Reid')).toBeVisible();
       await expect(overview.getByText('Groups: Artist Alley Crew')).toBeVisible();
       await expect(overview.getByText(/Room 6DE .* Shared/)).toBeVisible();
-      await expect(overview.getByText(/Hall H doors .* Group/)).toBeVisible();
+      await expect(overview.getByText(/Hall H doors .* Hall H Cafe .* Booth HH-12 .* Group/)).toBeVisible();
       await page.locator('summary').filter({ hasText: /^People/ }).click();
       await expect(page.locator('details').filter({ hasText: 'Reid' }).first().getByText('Private', { exact: true })).toBeVisible();
       await page.locator('summary').filter({ hasText: /^Groups/ }).click();
@@ -168,6 +171,9 @@ test.describe('events and collectibles browser regressions', () => {
         title: meetupTitle,
         start_at: '2026-07-23T19:00:00.000Z',
         location: 'Lobby stairs',
+        vendor: 'Lobby Cafe',
+        booth: 'L-4',
+        location_notes: 'Use the stairs nearest the escalators.',
         status: 'planned',
         visibility: 'private',
         notes: 'Initial plan'
@@ -187,16 +193,22 @@ test.describe('events and collectibles browser regressions', () => {
       await expect(meetupRow).toBeVisible();
       await meetupRow.locator('summary').click();
       await meetupRow.locator('label:has-text("Status") select').selectOption('done');
+      await meetupRow.locator('label:has-text("Vendor") input').fill('Lobby Grill');
+      await meetupRow.locator('label:has-text("Booth") input').fill('L-5');
+      await meetupRow.locator('label:has-text("Location note") input').fill('Meet beside the lower escalators.');
       await meetupRow.getByPlaceholder('Quick note').fill('Met by the lobby stairs after the panel.');
       await meetupRow.getByRole('button', { name: 'Save' }).click();
       await expect(page.getByText('Meetup updated')).toBeVisible();
-      await expect(meetupRow.locator('summary').getByText(/Lobby stairs .* Done/)).toBeVisible();
+      await expect(meetupRow.locator('summary').getByText(/Lobby stairs .* Lobby Grill .* Booth L-5 .* Done/)).toBeVisible();
 
       const meetupResponse = await userRequestContext.get(`/api/events/${eventId}/meetups`);
       expect(meetupResponse.ok()).toBeTruthy();
       const meetupPayload = await meetupResponse.json();
       const updated = meetupPayload.items.find((item) => item.title === meetupTitle);
       expect(updated?.status).toBe('done');
+      expect(updated?.vendor).toBe('Lobby Grill');
+      expect(updated?.booth).toBe('L-5');
+      expect(updated?.location_notes).toBe('Meet beside the lower escalators.');
       expect(updated?.notes).toBe('Met by the lobby stairs after the panel.');
     } finally {
       await deleteEventsByExactTitle(userRequestContext, eventTitle).catch(() => {});
@@ -242,6 +254,9 @@ test.describe('events and collectibles browser regressions', () => {
         start_at: '2026-07-23T22:00:00.000Z',
         end_at: '2026-07-23T23:00:00.000Z',
         location: 'Room 6DE',
+        vendor: 'Panel merch table',
+        booth: '6DE-A',
+        location_notes: 'Back wall after the Q&A line.',
         source_type: 'manual',
         status: 'planned',
         visibility: 'private',
@@ -262,6 +277,9 @@ test.describe('events and collectibles browser regressions', () => {
       await planRow.locator('summary').click();
       await planRow.locator('label:has-text("Status") select').selectOption('backup');
       await planRow.locator('label:has-text("Visibility") select').selectOption('event_workspace');
+      await planRow.locator('label:has-text("Vendor") input').fill('Artist signing table');
+      await planRow.locator('label:has-text("Booth") input').fill('6DE-B');
+      await planRow.locator('label:has-text("Location note") input').fill('Queue at the rear exit.');
       await planRow.getByPlaceholder('Plan note').fill('Backup if the first panel is full.');
       await planRow.getByRole('button', { name: 'Save' }).click();
       await expect(page.getByText('Schedule plan updated')).toBeVisible();
@@ -273,6 +291,9 @@ test.describe('events and collectibles browser regressions', () => {
       const updated = plansPayload.items.find((item) => item.title === planTitle);
       expect(updated?.status).toBe('backup');
       expect(updated?.visibility).toBe('event_workspace');
+      expect(updated?.vendor).toBe('Artist signing table');
+      expect(updated?.booth).toBe('6DE-B');
+      expect(updated?.location_notes).toBe('Queue at the rear exit.');
       expect(updated?.notes).toBe('Backup if the first panel is full.');
     } finally {
       await deleteEventsByExactTitle(userRequestContext, eventTitle).catch(() => {});

@@ -32,6 +32,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 14. The fast meetup status and notes slice of `Event Social Planning Mobile Web Experience` was promoted as `3.4.39`; keep shared schedule editing, notifications, and native companion behavior separate.
 15. The shared schedule item editing slice of `Event Social Planning Mobile Web Experience` was promoted as `3.4.40`; keep notifications, full schedule catalog discovery, and native companion behavior separate.
 16. The private/shared visual treatment slice of `Event Social Planning Mobile Web Experience` was promoted as `3.4.41`; keep vendor/booth/location notes, notifications, full schedule catalog discovery, and native companion behavior separate.
+17. The vendor/booth/location notes slice of `Event Social Planning Mobile Web Experience` was promoted as `3.4.42`; keep notifications, full schedule catalog discovery, and native companion behavior separate.
 
 ### Backlog Item: Apple Platform App Contract Publishing
 **Type:** Deferred milestone
@@ -238,8 +239,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 **Goal:** Make the web app's event social planning views useful on a phone during a con before building native companion surfaces.
 
 **Scope**
-- Continue the mobile-first event social view beyond the `3.4.38` overview slice with:
-  - Vendor/booth/location notes
+- Continue the mobile-first event social view beyond the completed `3.4.38` through `3.4.42` slices when new small mobile-social polish needs appear.
 - Optimize the view for quick day-of-con scanning rather than admin-heavy editing.
 - Keep the UI privacy-aware so private and shared items are visually distinct.
 - Preserve desktop planning views for richer pre-con editing.

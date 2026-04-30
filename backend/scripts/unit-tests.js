@@ -3567,14 +3567,18 @@ results.push(run('event social planning foundation contract is wired for 3.4.30'
   assert.ok(migrationsSource.includes('CREATE TABLE IF NOT EXISTS event_groups'));
   assert.ok(migrationsSource.includes('CREATE TABLE IF NOT EXISTS event_meetups'));
   assert.ok(migrationsSource.includes('CREATE TABLE IF NOT EXISTS event_schedule_plans'));
+  assert.ok(migrationsSource.includes('Add event social vendor booth and location notes'));
   assert.ok(initSqlSource.includes('CREATE TABLE IF NOT EXISTS event_attendees'));
   assert.ok(initSqlSource.includes("(84, 'Add event social planning foundation tables')"));
+  assert.ok(initSqlSource.includes("(87, 'Add event social vendor booth and location notes')"));
   assert.ok(validateMiddlewareSource.includes('eventAttendeeCreateSchema'));
   assert.ok(validateMiddlewareSource.includes('eventSchedulePlanCreateSchema'));
+  assert.ok(validateMiddlewareSource.includes('location_notes'));
   assert.ok(eventsRoutesSource.includes("router.get('/events/:id/attendees'"));
   assert.ok(eventsRoutesSource.includes("router.post('/events/:id/groups'"));
   assert.ok(eventsRoutesSource.includes("router.patch('/events/:id/meetups/:meetupId'"));
   assert.ok(eventsRoutesSource.includes("router.delete('/events/:id/schedule-plans/:planId'"));
+  assert.ok(eventsRoutesSource.includes("'vendor', 'booth', 'location_notes'"));
   assert.ok(openApiSource.includes('"/api/events/{id}/attendees"'));
   assert.ok(openApiSource.includes('"/api/events/{id}/groups/{groupId}"'));
   assert.ok(openApiSource.includes('EventMeetupRecord'));

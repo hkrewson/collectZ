@@ -3728,6 +3728,21 @@ const MIGRATIONS = [
       CREATE INDEX IF NOT EXISTS idx_event_schedule_plans_source_categories
         ON event_schedule_plans USING GIN (source_categories);
     `
+  },
+  {
+    version: 87,
+    description: 'Add event social vendor booth and location notes',
+    up: `
+      ALTER TABLE event_meetups
+        ADD COLUMN IF NOT EXISTS vendor VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS booth VARCHAR(100),
+        ADD COLUMN IF NOT EXISTS location_notes TEXT;
+
+      ALTER TABLE event_schedule_plans
+        ADD COLUMN IF NOT EXISTS vendor VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS booth VARCHAR(100),
+        ADD COLUMN IF NOT EXISTS location_notes TEXT;
+    `
   }
 ];
 

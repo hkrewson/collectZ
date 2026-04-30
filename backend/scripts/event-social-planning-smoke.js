@@ -172,6 +172,9 @@ async function main() {
         group_id: groupId,
         start_at: '2026-07-23T18:00:00.000Z',
         location: 'Hall H doors',
+        vendor: 'Hall H Cafe',
+        booth: 'HH-12',
+        location_notes: 'Meet by the left-side doors.',
         status: 'planned',
         visibility: 'group'
       }),
@@ -188,6 +191,9 @@ async function main() {
         title: 'Creature Design Panel',
         start_at: '2026-07-24T16:00:00.000Z',
         location: 'Room 6BCF',
+        vendor: 'Panel merch table',
+        booth: '6BCF-A',
+        location_notes: 'Back wall after Q&A.',
         status: 'planned',
         visibility: 'selected_people',
         source_type: 'manual'
@@ -201,7 +207,7 @@ async function main() {
       method: 'PATCH',
       withCsrf: true,
       expectStatus: 200,
-      body: JSON.stringify({ status: 'done', notes: 'Met and moved to dinner.' }),
+      body: JSON.stringify({ status: 'done', vendor: 'Lobby Grill', booth: 'L-5', location_notes: 'Moved to the lower lobby.', notes: 'Met and moved to dinner.' }),
       headers: { 'Content-Type': 'application/json' }
     });
 
@@ -209,7 +215,7 @@ async function main() {
       method: 'PATCH',
       withCsrf: true,
       expectStatus: 200,
-      body: JSON.stringify({ status: 'backup', visibility: 'event_workspace', notes: 'Backup if Hall H line is rough.' }),
+      body: JSON.stringify({ status: 'backup', visibility: 'event_workspace', vendor: 'Artist signing table', booth: '6BCF-B', location_notes: 'Queue at the rear exit.', notes: 'Backup if Hall H line is rough.' }),
       headers: { 'Content-Type': 'application/json' }
     });
 
@@ -223,8 +229,14 @@ async function main() {
     assert(attendees.data.items.length === 1, `Expected one attendee, got ${JSON.stringify(attendees.data)}`);
     assert(groups.data.items[0]?.members?.length === 1, `Expected one group member, got ${JSON.stringify(groups.data)}`);
     assert(meetups.data.items[0]?.status === 'done', `Expected updated meetup status, got ${JSON.stringify(meetups.data)}`);
+    assert(meetups.data.items[0]?.vendor === 'Lobby Grill', `Expected updated meetup vendor, got ${JSON.stringify(meetups.data)}`);
+    assert(meetups.data.items[0]?.booth === 'L-5', `Expected updated meetup booth, got ${JSON.stringify(meetups.data)}`);
+    assert(meetups.data.items[0]?.location_notes === 'Moved to the lower lobby.', `Expected updated meetup location notes, got ${JSON.stringify(meetups.data)}`);
     assert(plans.data.items[0]?.status === 'backup', `Expected updated schedule item status, got ${JSON.stringify(plans.data)}`);
     assert(plans.data.items[0]?.visibility === 'event_workspace', `Expected updated schedule item visibility, got ${JSON.stringify(plans.data)}`);
+    assert(plans.data.items[0]?.vendor === 'Artist signing table', `Expected updated schedule item vendor, got ${JSON.stringify(plans.data)}`);
+    assert(plans.data.items[0]?.booth === '6BCF-B', `Expected updated schedule item booth, got ${JSON.stringify(plans.data)}`);
+    assert(plans.data.items[0]?.location_notes === 'Queue at the rear exit.', `Expected updated schedule item location notes, got ${JSON.stringify(plans.data)}`);
     assert(plans.data.items[0]?.notes === 'Backup if Hall H line is rough.', `Expected updated schedule item notes, got ${JSON.stringify(plans.data)}`);
 
     console.log(JSON.stringify({

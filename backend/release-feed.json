@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v3.4.42",
+      "version": "3.4.42",
+      "date": null,
+      "status": null,
+      "summary": "",
+      "details": []
+    },
+    {
       "title": "v3.4.41",
       "version": "3.4.41",
       "date": null,
@@ -70,14 +78,6 @@
       "date": null,
       "status": null,
       "summary": "This patch makes Event schedule plans easier to read in the detail drawer. The schedule now appears before feed and social management, and planned sessions are shown as a compact day-grouped agenda instead of a stack of large cards.",
-      "details": []
-    },
-    {
-      "title": "v3.4.32",
-      "version": "3.4.32",
-      "date": "2026-04-28",
-      "status": null,
-      "summary": "This patch expands personal Sched ICS schedule plans so synced sessions carry more of the useful detail Sched provides, and updates the Event drawer to show those details more clearly.",
       "details": []
     }
   ]

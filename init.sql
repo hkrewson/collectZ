@@ -856,6 +856,9 @@ CREATE TABLE IF NOT EXISTS event_meetups (
     start_at TIMESTAMP,
     end_at TIMESTAMP,
     location VARCHAR(255),
+    vendor VARCHAR(255),
+    booth VARCHAR(100),
+    location_notes TEXT,
     status VARCHAR(30) NOT NULL DEFAULT 'planned'
       CHECK (status IN ('planned', 'tentative', 'cancelled', 'done')),
     visibility VARCHAR(30) NOT NULL DEFAULT 'private'
@@ -874,6 +877,9 @@ CREATE TABLE IF NOT EXISTS event_schedule_plans (
     start_at TIMESTAMP,
     end_at TIMESTAMP,
     location VARCHAR(255),
+    vendor VARCHAR(255),
+    booth VARCHAR(100),
+    location_notes TEXT,
     source_type VARCHAR(50),
     source_ref VARCHAR(255),
     source_url TEXT,
@@ -1392,5 +1398,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (83, 'Add signature proof evidence metadata'),
     (84, 'Add event social planning foundation tables'),
     (85, 'Add personal Sched ICS sources for event schedule plans'),
-    (86, 'Add richer personal ICS schedule detail fields')
+    (86, 'Add richer personal ICS schedule detail fields'),
+    (87, 'Add event social vendor booth and location notes')
 ON CONFLICT (version) DO NOTHING;

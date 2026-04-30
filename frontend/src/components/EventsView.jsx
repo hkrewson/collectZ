@@ -34,10 +34,16 @@ const EMPTY_SOCIAL_FORM = {
   groupName: '',
   meetupTitle: '',
   meetupLocation: '',
+  meetupVendor: '',
+  meetupBooth: '',
+  meetupLocationNotes: '',
   meetupStart: '',
   meetupGroupId: '',
   planTitle: '',
   planLocation: '',
+  planVendor: '',
+  planBooth: '',
+  planLocationNotes: '',
   planStart: '',
   icsUrl: ''
 };
@@ -202,6 +208,19 @@ const compactLocation = (value, maxLength = 52) => {
   const normalized = roomFirst.length >= 4 ? roomFirst : text;
   return normalized.length > maxLength ? `${normalized.slice(0, maxLength - 1).trim()}...` : normalized;
 };
+
+const vendorBoothLabel = (item = {}) => {
+  const vendor = String(item.vendor || '').trim();
+  const booth = String(item.booth || '').trim();
+  if (vendor && booth) return `${vendor} · Booth ${booth}`;
+  return vendor || (booth ? `Booth ${booth}` : '');
+};
+
+const socialPlaceSummary = (item = {}) => [
+  compactLocation(item.location),
+  vendorBoothLabel(item),
+  plainTextPreview(item.location_notes, 64)
+].filter(Boolean).join(' · ');
 
 const scheduleSourceLabel = (plan) => {
   if (plan?.source_type === 'sched_ics') return 'Sched';
@@ -1414,7 +1433,7 @@ function EventSocialMobileOverview({ attendees, groups, meetups, plans }) {
 	            <>
 	              <p className="mt-1 truncate text-sm font-medium text-ink">{focusPlan.plan.title}</p>
 	              <p className="mt-1 truncate text-xs text-dim">
-	                {[formatDateTime(focusPlan.plan.start_at), compactLocation(focusPlan.plan.location), eventVisibilityLabel(focusPlan.plan.visibility)].filter(Boolean).join(' · ')}
+                {[formatDateTime(focusPlan.plan.start_at), socialPlaceSummary(focusPlan.plan), eventVisibilityLabel(focusPlan.plan.visibility)].filter(Boolean).join(' · ')}
 	              </p>
 	            </>
           ) : (
@@ -1428,7 +1447,7 @@ function EventSocialMobileOverview({ attendees, groups, meetups, plans }) {
 	            <>
 	              <p className="mt-1 truncate text-sm font-medium text-ink">{nextMeetup.title}</p>
 	              <p className="mt-1 truncate text-xs text-dim">
-	                {[formatDateTime(nextMeetup.start_at), nextMeetup.location, nextMeetup.group_name, eventVisibilityLabel(nextMeetup.visibility)].filter(Boolean).join(' · ')}
+                {[formatDateTime(nextMeetup.start_at), socialPlaceSummary(nextMeetup), nextMeetup.group_name, eventVisibilityLabel(nextMeetup.visibility)].filter(Boolean).join(' · ')}
 	              </p>
 	            </>
           ) : (
@@ -1503,6 +1522,9 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
           if (!id) return;
           next[id] = {
             status: prev[id]?.status || meetup.status || 'planned',
+            vendor: prev[id]?.vendor ?? meetup.vendor ?? '',
+            booth: prev[id]?.booth ?? meetup.booth ?? '',
+            location_notes: prev[id]?.location_notes ?? meetup.location_notes ?? '',
             notes: prev[id]?.notes ?? meetup.notes ?? ''
           };
         });
@@ -1518,6 +1540,9 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
           next[id] = {
             status: prev[id]?.status || plan.status || 'planned',
             visibility: prev[id]?.visibility || plan.visibility || 'private',
+            vendor: prev[id]?.vendor ?? plan.vendor ?? '',
+            booth: prev[id]?.booth ?? plan.booth ?? '',
+            location_notes: prev[id]?.location_notes ?? plan.location_notes ?? '',
             notes: prev[id]?.notes ?? plan.notes ?? ''
           };
         });
@@ -1560,24 +1585,30 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
         await apiCall('post', `/events/${eventId}/meetups`, {
           title: form.meetupTitle.trim(),
           location: form.meetupLocation || null,
+          vendor: form.meetupVendor || null,
+          booth: form.meetupBooth || null,
+          location_notes: form.meetupLocationNotes || null,
           start_at: fromDateTimeInput(form.meetupStart),
           group_id: form.meetupGroupId ? Number(form.meetupGroupId) : null,
           status: 'planned',
           visibility: form.meetupGroupId ? 'group' : 'private'
         });
-        set({ meetupTitle: '', meetupLocation: '', meetupStart: '', meetupGroupId: '' });
+        set({ meetupTitle: '', meetupLocation: '', meetupVendor: '', meetupBooth: '', meetupLocationNotes: '', meetupStart: '', meetupGroupId: '' });
         setNotice('Meetup added');
       }
       if (kind === 'plan') {
         await apiCall('post', `/events/${eventId}/schedule-plans`, {
           title: form.planTitle.trim(),
           location: form.planLocation || null,
+          vendor: form.planVendor || null,
+          booth: form.planBooth || null,
+          location_notes: form.planLocationNotes || null,
           start_at: fromDateTimeInput(form.planStart),
           source_type: 'manual',
           status: 'planned',
           visibility: 'private'
         });
-        set({ planTitle: '', planLocation: '', planStart: '' });
+        set({ planTitle: '', planLocation: '', planVendor: '', planBooth: '', planLocationNotes: '', planStart: '' });
         setNotice('Schedule plan added');
       }
       if (kind === 'ics') {
@@ -1639,6 +1670,9 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
     try {
       await apiCall('patch', `/events/${eventId}/meetups/${meetupId}`, {
         status: draft.status || meetup.status || 'planned',
+        vendor: draft.vendor || null,
+        booth: draft.booth || null,
+        location_notes: draft.location_notes || null,
         notes: draft.notes || null
       });
       setNotice('Meetup updated');
@@ -1662,6 +1696,9 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
       await apiCall('patch', `/events/${eventId}/schedule-plans/${planId}`, {
         status: draft.status || plan.status || 'planned',
         visibility: draft.visibility || plan.visibility || 'private',
+        vendor: draft.vendor || null,
+        booth: draft.booth || null,
+        location_notes: draft.location_notes || null,
         notes: draft.notes || null
       });
       setNotice('Schedule plan updated');
@@ -1735,7 +1772,10 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
               <div className="grid grid-cols-1 gap-2 border-t border-edge px-3 py-3 sm:grid-cols-2">
                 <input className="input" placeholder="Plan title" value={form.planTitle} onChange={(e) => set({ planTitle: e.target.value })} />
                 <input className="input" placeholder="Location" value={form.planLocation} onChange={(e) => set({ planLocation: e.target.value })} />
-                <input type="datetime-local" className="input sm:col-span-2" value={form.planStart} onChange={(e) => set({ planStart: e.target.value })} />
+                <input className="input" placeholder="Vendor" value={form.planVendor} onChange={(e) => set({ planVendor: e.target.value })} />
+                <input className="input" placeholder="Booth" value={form.planBooth} onChange={(e) => set({ planBooth: e.target.value })} />
+                <input type="datetime-local" className="input" value={form.planStart} onChange={(e) => set({ planStart: e.target.value })} />
+                <input className="input" placeholder="Location note" value={form.planLocationNotes} onChange={(e) => set({ planLocationNotes: e.target.value })} />
                 <button className="btn-secondary sm:col-span-2" disabled={!form.planTitle.trim() || saving === 'plan'} onClick={() => save('plan')}>{saving === 'plan' ? <Spinner size={16} /> : 'Add plan'}</button>
               </div>
             </details>
@@ -1872,15 +1912,35 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
 	                    <summary className="flex cursor-pointer list-none items-center gap-3 px-3 py-2">
 	                      <div className="min-w-0 flex-1">
 	                        <p className="truncate text-sm text-ink">{meetup.title}</p>
-	                        <p className="truncate text-xs text-dim">{[formatDateTime(meetup.start_at), meetup.location, meetup.group_name, humanizeEventValue(meetup.status)].filter(Boolean).join(' · ')}</p>
+                        <p className="truncate text-xs text-dim">{[formatDateTime(meetup.start_at), socialPlaceSummary(meetup), meetup.group_name, humanizeEventValue(meetup.status)].filter(Boolean).join(' · ')}</p>
 	                      </div>
 	                      <div className="flex shrink-0 items-center gap-2">
 	                        <EventVisibilityText value={meetup.visibility} />
 	                        <span className="text-xs text-ghost">Edit</span>
 	                      </div>
 	                    </summary>
-                    <div className="space-y-2 border-t border-edge px-3 py-3">
-                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-[10rem_1fr_auto]">
+                    <div className="space-y-3 border-t border-edge px-3 py-3">
+                      <div className="grid grid-cols-1 gap-x-4 gap-y-3 text-sm sm:grid-cols-2">
+                        {meetup.location ? (
+                          <div className="min-w-0">
+                            <p className="text-xs text-ghost">Location</p>
+                            <p className="mt-1 leading-6 text-dim">{meetup.location}</p>
+                          </div>
+                        ) : null}
+                        {vendorBoothLabel(meetup) ? (
+                          <div className="min-w-0">
+                            <p className="text-xs text-ghost">Vendor / booth</p>
+                            <p className="mt-1 leading-6 text-dim">{vendorBoothLabel(meetup)}</p>
+                          </div>
+                        ) : null}
+                        {meetup.location_notes ? (
+                          <div className="min-w-0 sm:col-span-2">
+                            <p className="text-xs text-ghost">Location note</p>
+                            <p className="mt-1 leading-6 text-dim">{meetup.location_notes}</p>
+                          </div>
+                        ) : null}
+                      </div>
+                      <div className="grid grid-cols-1 gap-2 border-t border-edge pt-3 sm:grid-cols-[9rem_1fr_7rem]">
                         <label className="field">
                           <span className="label">Status</span>
                           <select
@@ -1894,6 +1954,33 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
                           </select>
                         </label>
                         <label className="field">
+                          <span className="label">Vendor</span>
+                          <input
+                            className="input"
+                            placeholder="Vendor"
+                            value={meetupDrafts[String(meetup.id)]?.vendor ?? meetup.vendor ?? ''}
+                            onChange={(e) => setMeetupDraft(meetup.id, { vendor: e.target.value })}
+                          />
+                        </label>
+                        <label className="field">
+                          <span className="label">Booth</span>
+                          <input
+                            className="input"
+                            placeholder="Booth"
+                            value={meetupDrafts[String(meetup.id)]?.booth ?? meetup.booth ?? ''}
+                            onChange={(e) => setMeetupDraft(meetup.id, { booth: e.target.value })}
+                          />
+                        </label>
+                        <label className="field sm:col-span-2">
+                          <span className="label">Location note</span>
+                          <input
+                            className="input"
+                            placeholder="Location note"
+                            value={meetupDrafts[String(meetup.id)]?.location_notes ?? meetup.location_notes ?? ''}
+                            onChange={(e) => setMeetupDraft(meetup.id, { location_notes: e.target.value })}
+                          />
+                        </label>
+                        <label className="field">
                           <span className="label">Notes</span>
                           <input
                             className="input"
@@ -1902,7 +1989,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
                             onChange={(e) => setMeetupDraft(meetup.id, { notes: e.target.value })}
                           />
                         </label>
-                        <div className="flex items-end gap-2">
+                        <div className="flex items-end gap-2 sm:col-span-3">
                           <button className="btn-secondary btn-sm" disabled={saving === `meetup-${meetup.id}`} onClick={() => updateMeetup(meetup)}>
                             {saving === `meetup-${meetup.id}` ? <Spinner size={16} /> : 'Save'}
                           </button>
@@ -1917,11 +2004,14 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <input className="input" placeholder="Meetup title" value={form.meetupTitle} onChange={(e) => set({ meetupTitle: e.target.value })} />
               <input className="input" placeholder="Location" value={form.meetupLocation} onChange={(e) => set({ meetupLocation: e.target.value })} />
+              <input className="input" placeholder="Vendor" value={form.meetupVendor} onChange={(e) => set({ meetupVendor: e.target.value })} />
+              <input className="input" placeholder="Booth" value={form.meetupBooth} onChange={(e) => set({ meetupBooth: e.target.value })} />
               <input type="datetime-local" className="input" value={form.meetupStart} onChange={(e) => set({ meetupStart: e.target.value })} />
               <select className="input" value={form.meetupGroupId} onChange={(e) => set({ meetupGroupId: e.target.value })}>
                 <option value="">No group</option>
                 {groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
               </select>
+              <input className="input sm:col-span-2" placeholder="Location note" value={form.meetupLocationNotes} onChange={(e) => set({ meetupLocationNotes: e.target.value })} />
               <button className="btn-secondary sm:col-span-2" disabled={!form.meetupTitle.trim() || saving === 'meetup'} onClick={() => save('meetup')}>{saving === 'meetup' ? <Spinner size={16} /> : 'Add meetup'}</button>
             </div>
           </div>
@@ -2049,9 +2139,11 @@ function SchedulePlanRow({ plan, marker = '', draft = {}, saving = false, onDraf
   const fromSched = plan?.source_type === 'sched_ics';
   const categorySummary = categories.slice(0, 2).join(' · ');
   const extraCategoryCount = Math.max(categories.length - 2, 0);
-  const location = compactLocation(plan?.location);
   const draftStatus = draft.status || plan?.status || 'planned';
   const draftVisibility = draft.visibility || plan?.visibility || 'private';
+  const draftVendor = draft.vendor ?? plan?.vendor ?? '';
+  const draftBooth = draft.booth ?? plan?.booth ?? '';
+  const draftLocationNotes = draft.location_notes ?? plan?.location_notes ?? '';
   const draftNotes = draft.notes ?? plan?.notes ?? '';
   const sourceDetails = [
     scheduleSourceLabel(plan),
@@ -2074,7 +2166,7 @@ function SchedulePlanRow({ plan, marker = '', draft = {}, saving = false, onDraf
 	            <EventVisibilityText value={plan.visibility} />
 	          </div>
           <p className="mt-1 truncate text-xs text-dim">
-            {[location, categorySummary, extraCategoryCount ? `+${extraCategoryCount}` : '', fromSched ? 'Sched' : 'Manual'].filter(Boolean).join(' · ')}
+            {[socialPlaceSummary(plan), categorySummary, extraCategoryCount ? `+${extraCategoryCount}` : '', fromSched ? 'Sched' : 'Manual'].filter(Boolean).join(' · ')}
           </p>
         </div>
       </summary>
@@ -2086,6 +2178,18 @@ function SchedulePlanRow({ plan, marker = '', draft = {}, saving = false, onDraf
               <div className="min-w-0">
                 <p className="text-xs text-ghost">Location</p>
                 <p className="mt-1 leading-6 text-dim">{plan.location}</p>
+              </div>
+            ) : null}
+            {vendorBoothLabel(plan) ? (
+              <div className="min-w-0">
+                <p className="text-xs text-ghost">Vendor / booth</p>
+                <p className="mt-1 leading-6 text-dim">{vendorBoothLabel(plan)}</p>
+              </div>
+            ) : null}
+            {plan.location_notes ? (
+              <div className="min-w-0 sm:col-span-2">
+                <p className="text-xs text-ghost">Location note</p>
+                <p className="mt-1 leading-6 text-dim">{plan.location_notes}</p>
               </div>
             ) : null}
             {categories.length > 0 ? (
@@ -2119,7 +2223,7 @@ function SchedulePlanRow({ plan, marker = '', draft = {}, saving = false, onDraf
               <p className="mt-1 text-sm leading-6 text-dim">{notesPreview}</p>
             </div>
           ) : null}
-          <div className="grid grid-cols-1 gap-2 border-t border-edge pt-3 sm:grid-cols-[9rem_11rem_1fr_auto]">
+          <div className="grid grid-cols-1 gap-2 border-t border-edge pt-3 sm:grid-cols-[9rem_11rem_1fr_7rem]">
             <label className="field">
               <span className="label">Status</span>
               <select
@@ -2145,6 +2249,33 @@ function SchedulePlanRow({ plan, marker = '', draft = {}, saving = false, onDraf
               </select>
             </label>
             <label className="field">
+              <span className="label">Vendor</span>
+              <input
+                className="input"
+                placeholder="Vendor"
+                value={draftVendor}
+                onChange={(event) => onDraftChange?.({ vendor: event.target.value })}
+              />
+            </label>
+            <label className="field">
+              <span className="label">Booth</span>
+              <input
+                className="input"
+                placeholder="Booth"
+                value={draftBooth}
+                onChange={(event) => onDraftChange?.({ booth: event.target.value })}
+              />
+            </label>
+            <label className="field">
+              <span className="label">Location note</span>
+              <input
+                className="input"
+                placeholder="Location note"
+                value={draftLocationNotes}
+                onChange={(event) => onDraftChange?.({ location_notes: event.target.value })}
+              />
+            </label>
+            <label className="field">
               <span className="label">Notes</span>
               <input
                 className="input"
@@ -2153,7 +2284,7 @@ function SchedulePlanRow({ plan, marker = '', draft = {}, saving = false, onDraf
                 onChange={(event) => onDraftChange?.({ notes: event.target.value })}
               />
             </label>
-            <div className="flex items-end">
+            <div className="flex items-end sm:col-span-4">
               <button className="btn-secondary btn-sm w-full sm:w-auto" disabled={saving} onClick={onUpdate}>
                 {saving ? <Spinner size={16} /> : 'Save'}
               </button>

@@ -6752,6 +6752,48 @@ Historical note:
 - What remains in the milestone: nothing; `3.4.41` is closed.
 - Recommended commit message: `Release 3.4.41 event social private shared visual treatment`
 
+## 3.4.42 — Event Social Vendor Booth Location Notes
+
+**Goal:** Let day-of-con Event social plans carry booth/vendor context and location notes directly on meetups and schedule plans, so mobile drawers can answer "where exactly are we meeting?" without relying on overloaded freeform notes.
+
+**Current Slice:** `Closed 2026-04-30.`
+
+### Scope
+
+- Add explicit vendor, booth, and location-note fields to Event meetups and Event schedule plans.
+- Preserve existing location, notes, status, visibility, Sched source metadata, and personal ICS behavior.
+- Show vendor/booth/location-note context in mobile overview, meetup rows, and schedule rows.
+- Allow quick editing of vendor, booth, and location notes from expanded meetup and schedule rows.
+- Keep this limited to event social planning context; do not add full schedule catalogs, notifications, native companion behavior, real-time location/presence, or provider scraping.
+
+### Acceptance Criteria
+
+- Meetup create/update APIs accept and return `vendor`, `booth`, and `location_notes`.
+- Schedule-plan create/update APIs accept and return `vendor`, `booth`, and `location_notes`.
+- Mobile Event overview and row summaries include booth/vendor context when present.
+- Expanded meetup and schedule rows show readable location, vendor/booth, and location-note details.
+- Existing ICS sync keeps source-owned fields separate from user-owned vendor/booth/location-note fields.
+- Existing social planning, schedule editing, visibility, and Sched feed flows continue to work.
+
+### Notes
+
+- This is still a web/mobile social planning patch, not a native companion or notification milestone.
+- Full schedule catalog discovery and friend-aware notifications remain separate backlog items.
+
+### Closeout Evidence
+
+- Roadmap slice: `3.4.42 — Event Social Vendor Booth Location Notes`.
+- Project docs/checklists used: `AGENTS.md`, `/Users/hamlin/.codex/skills/uncodixfy/SKILL.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild to `3.4.42`; `/api/health` reported frontend/backend/build `3.4.42`; backend runtime verified `APP_EDITION=platform` and `PLAYWRIGHT_E2E_BYPASS_TOKEN=unset` after browser regression; generated public compose was booted without the localhost override and verified `APP_EDITION=unset` before the homelab boundary smoke.
+- CI/checks run locally: `APP_VERSION=3.4.42 docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml up -d --build backend frontend`; backend syntax checks; event social planning smoke; targeted Playwright mobile Event drawer regression; backend unit tests; OpenAPI validation; compose config validation; public export surface validation; init parity; migration rehearsal; Help > Releases smoke for `3.4.42`; platform edition boundary; homelab edition boundary against generated public compose; RBAC regression; full browser regression (`53 passed`, `4 skipped`); observability release evidence; local release preflight; compose generator idempotence; version sync check; `git diff --check`; release-evidence secret-hygiene grep.
+- Release/version artifacts: `app-meta.json`, backend/frontend app meta, backend/frontend package and lockfile versions, generated `docker-compose.yml`, `docs/releases/v3.4.42.md`, and `backend/release-feed.json` are aligned on `3.4.42`.
+- Verified facts: Event meetups and schedule plans now accept and return `vendor`, `booth`, and `location_notes`; mobile Event overview and row summaries include vendor/booth/location-note context when present; expanded meetup and schedule rows show readable location, vendor/booth, and location-note details; quick-edit controls save those fields through the existing scoped Event social endpoints; Sched-owned session fields remain separate from user-owned planning context.
+- Blocked/unverified items: CI `secret-scan` and `image-security-and-sbom` remain CI-only; local preflight compose-smoke secure-cookie checks remain blocked by the development stack using `NODE_ENV=development` and `SESSION_COOKIE_SECURE=false`, while runtime health/version and compose config were verified locally.
+- Files changed: `backend/db/migrations.js`, `init.sql`, `backend/routes/events.js`, `backend/middleware/validate.js`, `backend/openapi/openapi.yaml`, `backend/scripts/event-social-planning-smoke.js`, `backend/scripts/unit-tests.js`, `frontend/src/components/EventsView.jsx`, `tests/playwright/specs/events-collectibles.browser.spec.js`, version metadata/package files, `docker-compose.yml`, `docs/releases/v3.4.42.md`, `backend/release-feed.json`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `artifacts/observability-evidence/observability-release-evidence.json`, `preflight-go-no-go.md`.
+- Risks or follow-ups: full schedule catalog discovery, selected-recipient notifications, native companion contract work, offline companion packets, and conflict handling remain separate backlog items.
+- What remains in the milestone: nothing; `3.4.42` is closed.
+- Recommended commit message: `Release 3.4.42 event social vendor booth location notes`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

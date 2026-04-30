@@ -85,12 +85,15 @@ const ARTIFACT_DB_FIELDS = ['artifact_type', 'title', 'description', 'image_path
 const ARTIFACT_SIGNATURE_FIELDS = ['signer_name', 'signer_role', 'signed_on', 'signed_at', 'signature_notes', 'proof_path'];
 const EVENT_ATTENDEE_FIELDS = ['display_name', 'contact_label', 'relationship', 'status', 'visibility', 'notes'];
 const EVENT_GROUP_FIELDS = ['name', 'visibility', 'status', 'notes'];
-const EVENT_MEETUP_FIELDS = ['group_id', 'title', 'start_at', 'end_at', 'location', 'status', 'visibility', 'notes'];
+const EVENT_MEETUP_FIELDS = ['group_id', 'title', 'start_at', 'end_at', 'location', 'vendor', 'booth', 'location_notes', 'status', 'visibility', 'notes'];
 const EVENT_SCHEDULE_PLAN_FIELDS = [
   'title',
   'start_at',
   'end_at',
   'location',
+  'vendor',
+  'booth',
+  'location_notes',
   'source_type',
   'source_ref',
   'source_url',
