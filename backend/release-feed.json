@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v3.4.37",
+      "version": "3.4.37",
+      "date": null,
+      "status": null,
+      "summary": "This patch improves the Event drawer's personal Sched feed status so sync failures, stale feeds, and never-synced feeds are easier to understand without making the selected schedule feel broken.",
+      "details": []
+    },
+    {
       "title": "v3.4.36",
       "version": "3.4.36",
       "date": null,
@@ -70,14 +78,6 @@
       "date": "2026-04-27",
       "status": "Completed",
       "summary": "This release documents the movie lookup rate-limit boundary and removes one avoidable TMDB search in the add/edit drawer when an identifier result already includes provider metadata.",
-      "details": []
-    },
-    {
-      "title": "v3.4.27",
-      "version": "3.4.27",
-      "date": "2026-04-27",
-      "status": "Completed",
-      "summary": "This release tightens image and proof control language across drawer surfaces so cover images, event artifact images, and signature proof images use the same action vocabulary.",
       "details": []
     }
   ]

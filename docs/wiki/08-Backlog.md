@@ -27,6 +27,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 9. The day navigation and current/next readability slice of `Event Social Planning Mobile Web Experience` was promoted as `3.4.34`; keep the remaining schedule polish follow-ups queued as separate patch-sized tasks.
 10. `Event Schedule Expanded Row Detail Polish` was promoted as `3.4.35`; keep quiet remove actions and Sched feed failure state queued separately.
 11. `Event Schedule Quiet Remove Actions` was promoted as `3.4.36`; keep Sched feed failure state queued separately.
+12. `Event Sched Feed Failure State Polish` was promoted as `3.4.37`; keep full schedule catalog and native companion sync visibility separate.
 
 ### Backlog Item: Apple Platform App Contract Publishing
 **Type:** Deferred milestone
@@ -250,23 +251,6 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - Meetups and schedule plans are readable without excessive drawer scrolling.
 - Private vs shared records are visually clear.
 - The mobile web surface is good enough to validate the workflow before native/platform implementation.
-
-### Backlog Item: Event Sched Feed Failure State Polish
-**Type:** Patch
-**Tags:** `events`, `schedule`, `sched`, `ics`, `ui`, `error-state`
-
-**Goal:** Keep the selected schedule usable when a connected Sched feed has a failed or stale sync state.
-
-**Scope**
-- Improve the collapsed/expanded `Manage Sched feed` readback for failed, stale, or never-synced sources.
-- Keep previously synced schedule plans visible even when the latest feed refresh failed.
-- Make sync errors visible but quiet enough not to dominate the schedule.
-- Avoid automatic retry, continued sync, provider scraping, or broader catalog behavior.
-
-**Acceptance Criteria**
-- A failed feed state is clear from `Manage Sched feed`.
-- Existing schedule plans remain the primary surface and are not visually treated as failed.
-- The personal ICS URL remains encrypted/redacted and is never shown back to the user.
 
 ### Backlog Item: Event Social Planning Platform Companion Contract
 **Type:** Deferred milestone

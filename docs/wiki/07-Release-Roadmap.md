@@ -6444,6 +6444,96 @@ Historical note:
 - What remains in the milestone: nothing; `3.4.36` is closed.
 - Recommended commit message: `Release 3.4.36 event schedule quiet remove actions`
 
+## 3.4.37 — Event Sched Feed Failure State Polish
+
+**Goal:** Keep selected Event schedules usable and trustworthy when a connected personal Sched feed has failed, stale, or never-synced status.
+
+**Current Slice:** `Closed 2026-04-29`
+
+### Scope
+
+- Improve collapsed and expanded `Manage Sched feed` readback for failed, stale, running, and never-synced sources.
+- Keep previously synced schedule plans visually normal even when the latest feed refresh failed.
+- Make sync errors visible but quiet enough not to dominate the schedule.
+- Keep the personal ICS URL encrypted/redacted and never shown back to the user.
+- Avoid automatic retry, continued sync, provider scraping, full catalog import, friend notifications, or native companion behavior.
+
+### Acceptance Criteria
+
+- A failed feed state is clear from `Manage Sched feed`.
+- Existing schedule plans remain the primary surface and are not visually treated as failed.
+- Users can distinguish last successful sync from last refresh attempt.
+- The personal ICS URL remains encrypted/redacted and is never shown back to the user.
+
+### Notes
+
+- This is still selected personal schedule readability and trust, not broad session discovery.
+
+### Closeout Evidence
+
+- Roadmap slice: `3.4.37 — Event Sched Feed Failure State Polish`.
+- Project docs/checklists used:
+  - `AGENTS.md`
+  - `docs/wiki/07-Release-Roadmap.md`
+  - `docs/wiki/08-Backlog.md`
+  - `docs/wiki/10-CI-CD-and-Registry-Deploy.md`
+  - `docs/wiki/17-Release-Go-No-Go-Checklist.md`
+- Runtime verification used:
+  - Docker-first runtime rebuilt with `APP_VERSION=3.4.37`.
+  - Running stack `/api/health` reports `version=3.4.37`, `frontend=3.4.37`, `backend=3.4.37`, and `build=v3.4.37`.
+  - Running frontend/backend containers are healthy after restoration from the temporary browser-regression bypass run.
+  - Backend runtime check confirms `PLAYWRIGHT_E2E_BYPASS_TOKEN=unset` after browser regression.
+  - Running platform stack reports `APP_EDITION=platform`; the local platform override remains intact.
+  - Help > Releases smoke serves `3.4.37` as the latest release and includes recent release entries.
+- CI/checks run:
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml config --quiet` passed.
+  - `node scripts/validate-public-export-surface.js` passed.
+  - `git diff --check` passed.
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T backend npm run test:unit` passed: 230 tests.
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T backend npm run test:openapi` passed.
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T backend npm run test:init-parity` passed and refreshed init parity evidence.
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T backend npm run test:migration-rehearsal` passed and refreshed migration rehearsal evidence.
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T -e BASE_URL=http://frontend:3000 -e EXPECTED_VERSION=3.4.37 backend npm run test:help-releases-smoke` passed.
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T -e BASE_URL=http://frontend:3000 backend npm run test:platform-edition-boundary` passed.
+  - `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T -e BASE_URL=http://frontend:3000 backend npm run test:rbac-regression` passed.
+  - Browser regression passed against the Docker stack: 50 passed, 4 skipped for homelab browser specs under the local platform stack.
+  - `npm --prefix backend run test:observability-evidence` passed and refreshed observability evidence with 9/9 checks passing.
+  - `npm --prefix backend run test:release-preflight-local` passed for locally runnable gates and refreshed `preflight-go-no-go.md`.
+  - Secret hygiene check found no local Playwright bypass token strings in the retained release/docs/evidence paths inspected after transient Playwright artifacts were removed.
+- Verified facts:
+  - `Manage Sched feed` now has collapsed status language for connected, synced, stale, syncing, failed, and not-synced states.
+  - Expanded Sched feed details distinguish last successful sync from last refresh attempt.
+  - Failed feed status explains that saved schedule items remain usable when a prior successful sync exists.
+  - The personal ICS URL is not read back in the drawer and remains outside the UI surface changed by this patch.
+  - Version metadata, release note, generated release feed, and generated public compose output are aligned on `3.4.37`.
+- Blocked or CI-only gates:
+  - Local compose smoke secure-cookie assertions remain blocked by the intentional local development runtime posture (`SESSION_COOKIE_SECURE=false`, `NODE_ENV=development`); CI/tagged release remains authoritative for secure-cookie compose smoke.
+  - Homelab edition browser specs were skipped because the local stack is intentionally running with the private platform override; default homelab CI remains authoritative for `homelab-edition-boundary`.
+  - `secret-scan`, `image-security-and-sbom`, and tagged release artifact publication remain CI-only.
+- Files changed:
+  - `frontend/src/components/EventsView.jsx`
+  - `tests/playwright/specs/library-multiformat.browser.spec.js`
+  - `app-meta.json`
+  - `backend/app-meta.json`
+  - `backend/package.json`
+  - `backend/package-lock.json`
+  - `backend/release-feed.json`
+  - `frontend/package.json`
+  - `frontend/package-lock.json`
+  - `frontend/src/app-meta.json`
+  - `docker-compose.yml`
+  - `docs/releases/v3.4.37.md`
+  - `docs/wiki/07-Release-Roadmap.md`
+  - `docs/wiki/08-Backlog.md`
+  - `artifacts/observability-evidence/observability-release-evidence.json`
+  - `preflight-go-no-go.md`
+- Risks or follow-ups:
+  - This does not add continued Sched polling, automatic retry, broad catalog discovery, friend notifications, or native companion sync visibility.
+  - Full schedule catalog / now-next discovery and native companion sync status should stay as separate future milestones.
+  - The browser regression harness needed a small stabilization so the media add-drawer test waits for the hydrated movie grid before clicking toolbar `Add`.
+- What remains in the milestone: nothing; `3.4.37` is closed.
+- Recommended commit message: `Release 3.4.37 event Sched feed failure state polish`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

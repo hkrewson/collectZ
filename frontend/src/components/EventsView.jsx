@@ -181,6 +181,68 @@ const scheduleSourceLabel = (plan) => {
   return 'Manual';
 };
 
+const getIcsFeedHealth = (source) => {
+  if (!source?.has_url) {
+    return {
+      summary: 'not connected',
+      title: 'No feed connected',
+      tone: 'muted',
+      detail: 'Connect a personal Sched iCal link to sync selected sessions.'
+    };
+  }
+
+  const status = String(source.sync_status || 'idle').toLowerCase();
+  const lastSuccessAt = source.last_success_at ? new Date(source.last_success_at) : null;
+  const hasLastSuccess = lastSuccessAt && !Number.isNaN(lastSuccessAt.getTime());
+  const staleAfterMs = 7 * 24 * 60 * 60 * 1000;
+  const isStale = hasLastSuccess && (Date.now() - lastSuccessAt.getTime()) > staleAfterMs;
+
+  if (status === 'failed') {
+    return {
+      summary: 'needs attention',
+      title: 'Last refresh failed',
+      tone: 'error',
+      detail: hasLastSuccess
+        ? 'Your saved schedule is still shown from the last successful sync.'
+        : 'The feed is connected, but no successful sync has completed yet.'
+    };
+  }
+
+  if (status === 'running') {
+    return {
+      summary: 'syncing',
+      title: 'Sync in progress',
+      tone: 'muted',
+      detail: 'Selected sessions will update when this refresh completes.'
+    };
+  }
+
+  if (!hasLastSuccess) {
+    return {
+      summary: 'not synced',
+      title: 'Feed connected, not synced yet',
+      tone: 'muted',
+      detail: 'Run a sync when you are ready to pull selected sessions into this event.'
+    };
+  }
+
+  if (isStale) {
+    return {
+      summary: 'stale',
+      title: 'Last sync may be stale',
+      tone: 'warning',
+      detail: 'Your selected schedule is still usable, but it has not refreshed recently.'
+    };
+  }
+
+  return {
+    summary: 'synced',
+    title: 'Feed synced',
+    tone: 'ok',
+    detail: 'Your selected Sched sessions are reflected in this event.'
+  };
+};
+
 function MetaPill({ children, tone = 'default' }) {
   return (
     <span
@@ -1253,6 +1315,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
   const [meetups, setMeetups] = useState([]);
   const [plans, setPlans] = useState([]);
   const [icsSource, setIcsSource] = useState(null);
+  const icsHealth = getIcsFeedHealth(icsSource);
 
   const set = (patch) => setForm((prev) => ({ ...prev, ...patch }));
 
@@ -1437,7 +1500,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
         <details className="group">
           <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium text-ink">
             Manage Sched feed
-            <span className="text-xs text-ghost">{icsSource?.has_url ? icsSource.sync_status || 'connected' : 'not connected'}</span>
+            <span className={cx('text-xs', icsHealth.tone === 'error' ? 'text-err' : 'text-ghost')}>{icsHealth.summary}</span>
           </summary>
           <div className="space-y-3 px-4 pb-4">
             <p className="text-sm text-dim">
@@ -1446,16 +1509,35 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
             {icsSource?.has_url ? (
               <div className="rounded-md border border-edge bg-raised px-3 py-2">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-sm text-ink">Personal feed connected</p>
-                    <p className="text-xs text-dim">
-                      {[
-                        icsSource.last_success_at ? `Last synced ${formatDateTime(icsSource.last_success_at)}` : 'Not synced yet',
-                        `${icsSource.last_item_count || 0} item${Number(icsSource.last_item_count || 0) === 1 ? '' : 's'}`,
-                        icsSource.sync_status
-                      ].filter(Boolean).join(' · ')}
-                    </p>
-                    {icsSource.last_error ? <p className="mt-1 text-xs text-err">{icsSource.last_error}</p> : null}
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <p className="text-sm text-ink">Personal feed connected</p>
+                      <span className={cx('text-xs', icsHealth.tone === 'error' ? 'text-err' : 'text-ghost')}>
+                        {icsHealth.title}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs text-dim">{icsHealth.detail}</p>
+                    <dl className="mt-2 grid grid-cols-1 gap-x-4 gap-y-1 text-xs text-dim sm:grid-cols-2">
+                      <div>
+                        <dt className="text-ghost">Last successful sync</dt>
+                        <dd>{icsSource.last_success_at ? formatDateTime(icsSource.last_success_at) : 'None yet'}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-ghost">Last refresh attempt</dt>
+                        <dd>{icsSource.last_synced_at ? formatDateTime(icsSource.last_synced_at) : 'None yet'}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-ghost">Saved from feed</dt>
+                        <dd>{icsSource.last_item_count || 0} item{Number(icsSource.last_item_count || 0) === 1 ? '' : 's'}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-ghost">State</dt>
+                        <dd>{icsSource.sync_status || 'idle'}</dd>
+                      </div>
+                    </dl>
+                    {icsSource.last_error ? (
+                      <p className="mt-2 text-xs leading-5 text-err">{icsSource.last_error}</p>
+                    ) : null}
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <button className="btn-secondary btn-sm" disabled={saving === 'ics-sync'} onClick={syncIcs}>{saving === 'ics-sync' ? <Spinner size={16} /> : 'Sync now'}</button>

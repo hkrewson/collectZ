@@ -433,12 +433,11 @@ test.describe('library multi-format browser regressions', () => {
     try {
       await addSavedAdminCookies(page, requestContext);
       await page.goto('/dashboard?tab=library-movies');
-      const emptyStateAdd = page.getByRole('button', { name: 'Add Media', exact: true });
-      if (await emptyStateAdd.isVisible()) {
-        await emptyStateAdd.click();
-      } else {
-        await page.getByRole('button', { name: 'Add', exact: true }).click();
-      }
+      await expect(page.locator('article').first()).toBeVisible();
+      const toolbarAdd = page.getByRole('button', { name: 'Add', exact: true });
+      await expect(toolbarAdd).toBeVisible();
+      await expect(toolbarAdd).toBeEnabled();
+      await toolbarAdd.click();
 
       await expect(page.getByRole('heading', { name: /add to library/i })).toBeVisible();
       await expect(page.locator('[aria-label="Search panel"]')).toBeVisible();
