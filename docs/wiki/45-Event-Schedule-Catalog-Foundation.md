@@ -1,0 +1,75 @@
+# Event Schedule Catalog Foundation
+
+This document defines the current event schedule catalog boundary for collectZ web/backend and platform companion clients.
+
+## Product Boundary
+
+- `event_schedule_sessions` is the canonical event schedule catalog table.
+- Catalog sessions are separate from personal schedule plans in `event_schedule_plans`.
+- Personal Sched ICS sync continues to create or update selected personal schedule plans only.
+- The catalog can be manually created through API endpoints in this slice; provider import automation stays separate.
+- Now / Next discovery, conflict workflows, quick plan actions, notifications, and native/platform UI stay separate future milestones.
+
+## Catalog Session Shape
+
+A catalog session can store:
+
+- title,
+- start and end time,
+- location and room,
+- description,
+- track,
+- categories,
+- source type,
+- source reference,
+- source URL,
+- source updated timestamp,
+- status: `active`, `cancelled`, or `hidden`.
+
+Use `hidden` for sessions that should remain in backend history but not show in the companion catalog snapshot.
+
+## API Surface
+
+The foundation endpoints are event-scoped and use the same auth/scope checks as the existing Event social planning endpoints:
+
+- `GET /api/events/:id/schedule-sessions`
+- `POST /api/events/:id/schedule-sessions`
+- `PATCH /api/events/:id/schedule-sessions/:sessionId`
+- `DELETE /api/events/:id/schedule-sessions/:sessionId`
+
+Deleted sessions are archived with `archived_at`; they are not hard-deleted by the API.
+
+## Companion and Offline Packet Behavior
+
+`GET /api/events/:id/companion/today` now returns:
+
+- `counts.schedule_catalog_sessions`,
+- `contract.write_endpoints.schedule_catalog`,
+- top-level `schedule_catalog`,
+- `offline_packet.includes.schedule_catalog = true`,
+- `offline_packet.schedule_catalog`,
+- key-location entries derived from catalog session `location` or `room`.
+
+This means platform clients can cache catalog sessions when present without mistaking personal selected-session plans for the full catalog.
+
+## What Stays Separate
+
+Keep these out of this foundation unless explicitly promoted:
+
+- provider import or scraping automation,
+- recurring background sync,
+- Now / Next discovery UI,
+- selected-recipient notifications,
+- friend/group attendance on catalog sessions,
+- conflict resolution or replacement prompts,
+- offline mutation queues,
+- realtime location or presence behavior,
+- native/platform UI implementation.
+
+## Design Notes
+
+Catalog sessions answer: "What sessions exist at this event?"
+
+Schedule plans answer: "What does this user or event workspace intend to attend, skip, mark as backup, or share?"
+
+Those objects may become linked later, but they should remain separate records because enrichment/import ownership, user editing, privacy, and conflict behavior are different.

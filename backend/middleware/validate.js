@@ -720,6 +720,7 @@ const eventSocialVisibilityValues = ['private', 'selected_people', 'group', 'eve
 const eventAttendeeStatusValues = ['attending', 'maybe', 'not_attending', 'unknown'];
 const eventMeetupStatusValues = ['planned', 'tentative', 'cancelled', 'done'];
 const eventSchedulePlanStatusValues = ['planned', 'maybe', 'backup', 'skipped', 'attended'];
+const eventScheduleSessionStatusValues = ['active', 'cancelled', 'hidden'];
 const eventSocialTimestampSchema = z.preprocess(
   emptyStringToNull,
   z.string().datetime({ offset: true }).optional().nullable()
@@ -793,6 +794,26 @@ const eventSchedulePlanCreateSchema = eventSchedulePlanBaseSchema;
 const eventSchedulePlanUpdateSchema = eventSchedulePlanBaseSchema.partial().refine(
   (data) => Object.keys(data).length > 0,
   { message: 'At least one schedule-plan field is required' }
+);
+const eventScheduleSessionBaseSchema = z.object({
+  title: z.string().trim().min(1, 'Title is required').max(255),
+  start_at: eventSocialTimestampSchema,
+  end_at: eventSocialTimestampSchema,
+  location: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
+  room: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
+  description: z.preprocess(emptyStringToNull, z.string().max(10000).optional().nullable()),
+  track: z.preprocess(emptyStringToNull, z.string().max(100).optional().nullable()),
+  categories: z.array(z.string().trim().min(1).max(100)).max(20).optional(),
+  source_type: z.preprocess(emptyStringToNull, z.string().max(50).optional().nullable()),
+  source_ref: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
+  source_url: z.preprocess(emptyStringToNull, z.string().url().max(1000).optional().nullable()),
+  source_updated_at: eventSocialTimestampSchema,
+  status: z.enum(eventScheduleSessionStatusValues).optional().default('active')
+});
+const eventScheduleSessionCreateSchema = eventScheduleSessionBaseSchema;
+const eventScheduleSessionUpdateSchema = eventScheduleSessionBaseSchema.partial().refine(
+  (data) => Object.keys(data).length > 0,
+  { message: 'At least one schedule-catalog field is required' }
 );
 const eventPersonalIcsSourceSchema = z.object({
   feed_url: z.string()
@@ -987,6 +1008,8 @@ module.exports = {
   eventMeetupUpdateSchema,
   eventSchedulePlanCreateSchema,
   eventSchedulePlanUpdateSchema,
+  eventScheduleSessionCreateSchema,
+  eventScheduleSessionUpdateSchema,
   eventPersonalIcsSourceSchema,
   collectibleCreateSchema,
   collectibleUpdateSchema,

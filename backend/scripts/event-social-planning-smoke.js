@@ -79,6 +79,7 @@ async function createDirectUser({ email, password, name, role = 'admin' }) {
 
 async function cleanupTemporaryState({ userId, libraryId, spaceId }) {
   if (libraryId) {
+    await pool.query('DELETE FROM event_schedule_sessions WHERE event_id IN (SELECT id FROM events WHERE library_id = $1)', [libraryId]).catch(() => {});
     await pool.query('DELETE FROM event_schedule_plans WHERE event_id IN (SELECT id FROM events WHERE library_id = $1)', [libraryId]).catch(() => {});
     await pool.query('DELETE FROM event_meetups WHERE event_id IN (SELECT id FROM events WHERE library_id = $1)', [libraryId]).catch(() => {});
     await pool.query('DELETE FROM event_group_members WHERE group_id IN (SELECT eg.id FROM event_groups eg JOIN events e ON e.id = eg.event_id WHERE e.library_id = $1)', [libraryId]).catch(() => {});
@@ -203,6 +204,29 @@ async function main() {
     const planId = Number(plan?.data?.id || 0);
     assert(planId > 0, `Expected schedule plan id, got ${JSON.stringify(plan?.data)}`);
 
+    const catalogSession = await client.request(`/api/events/${eventId}/schedule-sessions`, {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 201,
+      body: JSON.stringify({
+        title: 'How to Draw Dragons',
+        start_at: '2026-07-24T18:00:00.000Z',
+        end_at: '2026-07-24T19:00:00.000Z',
+        location: 'Room 6A',
+        room: '6A',
+        description: 'Catalog-only drawing workshop.',
+        track: 'Art',
+        categories: ['Art', 'Workshop'],
+        source_type: 'manual',
+        source_ref: 'catalog-dragon-1',
+        source_url: 'https://example.test/catalog/dragon',
+        source_updated_at: '2026-06-01T12:00:00.000Z'
+      }),
+      headers: { 'Content-Type': 'application/json' }
+    });
+    const catalogSessionId = Number(catalogSession?.data?.id || 0);
+    assert(catalogSessionId > 0, `Expected schedule catalog session id, got ${JSON.stringify(catalogSession?.data)}`);
+
     await client.request(`/api/events/${eventId}/meetups/${meetupId}`, {
       method: 'PATCH',
       withCsrf: true,
@@ -219,11 +243,20 @@ async function main() {
       headers: { 'Content-Type': 'application/json' }
     });
 
-    const [attendees, groups, meetups, plans, companion] = await Promise.all([
+    await client.request(`/api/events/${eventId}/schedule-sessions/${catalogSessionId}`, {
+      method: 'PATCH',
+      withCsrf: true,
+      expectStatus: 200,
+      body: JSON.stringify({ status: 'cancelled', track: 'Comics Art', categories: ['Art', 'Comics'] }),
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    const [attendees, groups, meetups, plans, catalog, companion] = await Promise.all([
       client.request(`/api/events/${eventId}/attendees`, { expectStatus: 200 }),
       client.request(`/api/events/${eventId}/groups`, { expectStatus: 200 }),
       client.request(`/api/events/${eventId}/meetups`, { expectStatus: 200 }),
       client.request(`/api/events/${eventId}/schedule-plans`, { expectStatus: 200 }),
+      client.request(`/api/events/${eventId}/schedule-sessions`, { expectStatus: 200 }),
       client.request(`/api/events/${eventId}/companion/today`, { expectStatus: 200 })
     ]);
 
@@ -239,11 +272,15 @@ async function main() {
     assert(plans.data.items[0]?.booth === '6BCF-B', `Expected updated schedule item booth, got ${JSON.stringify(plans.data)}`);
     assert(plans.data.items[0]?.location_notes === 'Queue at the rear exit.', `Expected updated schedule item location notes, got ${JSON.stringify(plans.data)}`);
     assert(plans.data.items[0]?.notes === 'Backup if Hall H line is rough.', `Expected updated schedule item notes, got ${JSON.stringify(plans.data)}`);
+    assert(catalog.data.items.length === 1, `Expected one schedule catalog session, got ${JSON.stringify(catalog.data)}`);
+    assert(catalog.data.items[0]?.status === 'cancelled', `Expected updated schedule catalog status, got ${JSON.stringify(catalog.data)}`);
+    assert(catalog.data.items[0]?.track === 'Comics Art', `Expected updated schedule catalog track, got ${JSON.stringify(catalog.data)}`);
     assert(companion.data?.contract?.version === 'event-social-companion.v1', `Expected companion contract version, got ${JSON.stringify(companion.data?.contract)}`);
     assert(companion.data?.counts?.attendees === 1, `Expected companion attendee count, got ${JSON.stringify(companion.data?.counts)}`);
     assert(companion.data?.counts?.groups === 1, `Expected companion group count, got ${JSON.stringify(companion.data?.counts)}`);
     assert(companion.data?.counts?.meetups === 1, `Expected companion meetup count, got ${JSON.stringify(companion.data?.counts)}`);
     assert(companion.data?.counts?.schedule_plans === 1, `Expected companion schedule count, got ${JSON.stringify(companion.data?.counts)}`);
+    assert(companion.data?.counts?.schedule_catalog_sessions === 1, `Expected companion schedule catalog count, got ${JSON.stringify(companion.data?.counts)}`);
     assert(companion.data?.sync?.freshness === 'not_connected', `Expected not-connected companion sync state, got ${JSON.stringify(companion.data?.sync)}`);
     assert(companion.data?.sync?.personal_ics_visibility?.connected === false, `Expected disconnected UI-safe ICS visibility, got ${JSON.stringify(companion.data?.sync)}`);
     assert(companion.data?.sync?.personal_ics_visibility?.raw_url_returned === false, `Expected UI-safe ICS visibility to hide raw URL, got ${JSON.stringify(companion.data?.sync)}`);
@@ -253,10 +290,14 @@ async function main() {
     assert(companion.data?.offline_packet?.mode === 'read_only_snapshot', `Expected read-only offline packet, got ${JSON.stringify(companion.data?.offline_packet)}`);
     assert(companion.data?.offline_packet?.supports_offline_mutations === false, `Expected offline mutations disabled, got ${JSON.stringify(companion.data?.offline_packet)}`);
     assert(companion.data?.offline_packet?.retry_policy?.refetch_before_retry === true, `Expected refetch-before-retry policy, got ${JSON.stringify(companion.data?.offline_packet)}`);
-    assert(companion.data?.offline_packet?.includes?.schedule_catalog === false, `Expected full catalog to remain unavailable, got ${JSON.stringify(companion.data?.offline_packet)}`);
+    assert(companion.data?.offline_packet?.includes?.schedule_catalog === true, `Expected schedule catalog support in offline packet, got ${JSON.stringify(companion.data?.offline_packet)}`);
     assert(companion.data?.offline_packet?.counts?.planned_sessions === 1, `Expected one planned session in offline packet, got ${JSON.stringify(companion.data?.offline_packet)}`);
+    assert(companion.data?.offline_packet?.counts?.schedule_catalog_sessions === 1, `Expected one catalog session in offline packet, got ${JSON.stringify(companion.data?.offline_packet)}`);
+    assert(companion.data?.offline_packet?.schedule_catalog?.[0]?.title === 'How to Draw Dragons', `Expected catalog session in offline packet, got ${JSON.stringify(companion.data?.offline_packet)}`);
     assert(companion.data?.offline_packet?.privacy?.raw_personal_ics_url_returned === false, `Expected offline packet to hide personal ICS URL, got ${JSON.stringify(companion.data?.offline_packet)}`);
     assert(companion.data?.offline_packet?.key_locations?.some((item) => item.booth === '6BCF-B'), `Expected schedule booth in offline key locations, got ${JSON.stringify(companion.data?.offline_packet?.key_locations)}`);
+    assert(companion.data?.offline_packet?.key_locations?.some((item) => item.kind === 'schedule_catalog' && item.name === 'Room 6A'), `Expected catalog location in offline key locations, got ${JSON.stringify(companion.data?.offline_packet?.key_locations)}`);
+    assert(companion.data?.schedule_catalog?.[0]?.source_ref === 'catalog-dragon-1', `Expected companion schedule catalog readback, got ${JSON.stringify(companion.data?.schedule_catalog)}`);
     assert(companion.data?.schedule_plans?.[0]?.vendor === 'Artist signing table', `Expected companion schedule vendor readback, got ${JSON.stringify(companion.data?.schedule_plans)}`);
 
     console.log(JSON.stringify({
@@ -265,8 +306,10 @@ async function main() {
       groupCount: groups.data.items.length,
       meetupCount: meetups.data.items.length,
       schedulePlanCount: plans.data.items.length,
+      scheduleCatalogCount: catalog.data.items.length,
       updatedMeetupStatus: meetups.data.items[0]?.status || null,
       updatedSchedulePlanStatus: plans.data.items[0]?.status || null,
+      updatedScheduleCatalogStatus: catalog.data.items[0]?.status || null,
       companionContract: companion.data?.contract?.version || null
     }, null, 2));
   } finally {

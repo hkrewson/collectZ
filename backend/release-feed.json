@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v3.4.46",
+      "version": "3.4.46",
+      "date": null,
+      "status": null,
+      "summary": "",
+      "details": []
+    },
+    {
       "title": "v3.4.45",
       "version": "3.4.45",
       "date": null,
@@ -70,14 +78,6 @@
       "date": null,
       "status": null,
       "summary": "This patch improves the Event drawer's personal Sched feed status so sync failures, stale feeds, and never-synced feeds are easier to understand without making the selected schedule feel broken.",
-      "details": []
-    },
-    {
-      "title": "v3.4.36",
-      "version": "3.4.36",
-      "date": null,
-      "status": null,
-      "summary": "This patch makes Event schedule removal safer by lowering the visual weight of the expanded-row remove action while keeping it available when a user intentionally opens a schedule item.",
       "details": []
     }
   ]

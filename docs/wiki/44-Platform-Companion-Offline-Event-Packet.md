@@ -7,7 +7,7 @@ This document defines the current collectZ offline event packet contract for pla
 - The offline event packet is a read-only snapshot for poor convention-center connectivity.
 - The backend remains authoritative for all writes and reconciliation.
 - Platform clients should use the packet for display while offline, then refetch the companion snapshot before retrying any user action after reconnect.
-- The current product does not yet have a full event schedule catalog; the packet marks that catalog as unavailable instead of inventing catalog data from a personal Sched feed.
+- The current product can include canonical event schedule catalog sessions when they exist, but it does not invent catalog data from a personal Sched feed.
 - Realtime location, presence, broad social discovery, push notifications, and offline mutation queues are not part of this contract.
 
 ## Packet Location
@@ -30,7 +30,7 @@ The packet includes:
 - `freshness`: packet and personal ICS freshness state.
 - `privacy`: explicit privacy safety flags.
 - `limitations`: machine-readable out-of-scope markers.
-- `schedule_catalog`: currently an empty array until the full catalog milestone exists.
+- `schedule_catalog`: canonical event schedule catalog sessions when present; empty when no catalog sessions have been added.
 - `planned_sessions`: the user's event schedule plans, including personal Sched-derived plans.
 - `key_locations`: event, meetup, and planned-session locations with vendor/booth/location-note context where available.
 
@@ -42,8 +42,9 @@ The packet is built from current Event social planning data:
 - People are represented by Event attendees.
 - Groups include their current member summaries.
 - Meetups are included in the companion response and summarized into key locations.
+- Schedule catalog sessions are canonical event session records, separate from personal schedule plans.
 - Planned sessions are event schedule plans, including personal Sched ICS plans.
-- Key locations are derived from event location, meetup location, and schedule-plan location/vendor/booth/location notes.
+- Key locations are derived from event location, meetup location, schedule-plan location/vendor/booth/location notes, and schedule catalog session location or room data.
 
 ## Offline Rules
 
@@ -64,7 +65,7 @@ The packet is built from current Event social planning data:
 
 Keep these separate unless explicitly promoted:
 
-- full event schedule catalog and Now/Next discovery,
+- catalog import automation and Now/Next discovery,
 - offline mutation queues,
 - conflict resolution UI,
 - selected-recipient notifications,

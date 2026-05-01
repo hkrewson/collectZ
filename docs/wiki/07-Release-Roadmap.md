@@ -6925,6 +6925,50 @@ Historical note:
 - What remains in the milestone: nothing; `3.4.45` is closed.
 - Recommended commit message: `Release 3.4.45 platform companion offline event packet`
 
+## 3.4.46 — Event Schedule Catalog Foundation
+
+**Goal:** Add a canonical event schedule catalog object that is separate from personal schedule plans, so web/backend and platform companion clients can distinguish "sessions that exist at the event" from "sessions this user or workspace selected."
+
+**Current Slice:** `Closed 2026-05-01.`
+
+### Scope
+
+- Add `event_schedule_sessions` for canonical event catalog sessions.
+- Store title, start/end time, location/room, description, track, categories, source metadata, and status.
+- Add event-scoped CRUD endpoints for schedule catalog sessions.
+- Include catalog sessions and catalog counts in `GET /api/events/:id/companion/today`.
+- Include catalog sessions in the read-only offline event packet and key-location summary.
+- Keep personal Sched ICS sync mapped to personal schedule plans, not the full catalog.
+- Update OpenAPI, smoke coverage, unit source assertions, release notes, release feed, and version metadata.
+
+### Acceptance Criteria
+
+- An event can store catalog sessions separate from `event_schedule_plans`.
+- `GET /api/events/:id/schedule-sessions` returns the scoped catalog for an event.
+- Create/update/archive routes enforce the same event scope boundary as existing Event social planning routes.
+- The companion contract exposes `counts.schedule_catalog_sessions`, top-level `schedule_catalog`, and `contract.write_endpoints.schedule_catalog`.
+- The offline packet advertises schedule catalog support and includes catalog sessions when present.
+- Personal ICS sync smoke continues to prove personal selected sessions do not become catalog sessions.
+
+### Notes
+
+- This is a backend/API foundation milestone, not a Now / Next UI or provider-ingestion milestone.
+- Provider import automation, quick plan actions, conflict workflows, selected-recipient notifications, native UI, and background sync remain future work.
+
+### Closeout Evidence
+
+- Roadmap slice: `3.4.46 — Event Schedule Catalog Foundation`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/40-Event-Social-Planning-Foundation.md`, `docs/wiki/41-Personal-Sched-ICS-Sync.md`, `docs/wiki/42-Event-Social-Platform-Companion-Contract.md`, `docs/wiki/44-Platform-Companion-Offline-Event-Packet.md`, `docs/wiki/45-Event-Schedule-Catalog-Foundation.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild to `3.4.46`; `/api/health` reported frontend/backend/build `3.4.46`; backend runtime verified `APP_EDITION=platform`, `APP_VERSION=3.4.46`, and `PLAYWRIGHT_E2E_BYPASS_TOKEN=unset` after browser regression; generated public compose was booted without the localhost override and verified `APP_EDITION=unset` before the homelab boundary smoke; live DB verified `schema_migrations.version = 88`.
+- CI/checks run locally: backend syntax checks; `APP_VERSION=3.4.46 docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml up -d --build backend frontend`; backend unit tests; OpenAPI validation; event social planning smoke; personal Sched ICS sync smoke; compose config validation; public export surface validation; init parity; migration rehearsal; Help > Releases smoke for `3.4.46`; platform edition boundary; homelab edition boundary against generated public compose; RBAC regression; full browser regression (`53 passed`, `4 skipped`); production dependency audits; Dockerized `npm ci --no-fund --dry-run` lockfile sync checks for backend and frontend; observability release evidence (`9/9` checks passed); local release preflight; compose generator idempotence; version sync check; `git diff --check`; release-evidence secret-hygiene grep.
+- Release/version artifacts: `app-meta.json`, backend/frontend app meta, backend/frontend package and lockfile versions, generated `docker-compose.yml`, `docs/releases/v3.4.46.md`, and `backend/release-feed.json` are aligned on `3.4.46`.
+- Verified facts: `event_schedule_sessions` exists through migration `88` and `init.sql`; `GET/POST/PATCH/DELETE /api/events/:id/schedule-sessions` are scoped and smoke-tested; `GET /api/events/:id/companion/today` now returns `counts.schedule_catalog_sessions`, top-level `schedule_catalog`, `contract.write_endpoints.schedule_catalog`, and offline packet catalog support; personal ICS sync smoke verified selected personal Sched sessions remain schedule plans and do not become catalog sessions; OpenAPI documents `EventScheduleSessionRecord` and the new endpoints.
+- Blocked/unverified items: CI `secret-scan` and `image-security-and-sbom` remain CI-only; local preflight compose-smoke secure-cookie checks remain blocked by the development stack using `NODE_ENV=development` and `SESSION_COOKIE_SECURE=false`, while runtime health/version and compose config were verified locally; the local preflight helper still reports browser regression as blocked because it does not execute Playwright itself, but the full browser regression was run locally and passed.
+- Files changed: `backend/db/migrations.js`, `init.sql`, `backend/middleware/validate.js`, `backend/routes/events.js`, `backend/openapi/openapi.yaml`, `backend/scripts/event-social-planning-smoke.js`, `backend/scripts/event-personal-ics-sync-smoke.js`, `backend/scripts/unit-tests.js`, `docs/wiki/44-Platform-Companion-Offline-Event-Packet.md`, `docs/wiki/45-Event-Schedule-Catalog-Foundation.md`, version metadata/package files, `docker-compose.yml`, `docs/releases/v3.4.46.md`, `backend/release-feed.json`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `artifacts/observability-evidence/observability-release-evidence.json`, `preflight-go-no-go.md`.
+- Risks or follow-ups: catalog import automation, Now / Next discovery UI, quick plan-change actions, conflict workflows, friend/group attendance on catalog sessions, selected-recipient notifications, native/platform UI, background sync, offline mutation queues, realtime location, and presence remain separate backlog or future milestone work.
+- What remains in the milestone: nothing; `3.4.46` is closed.
+- Recommended commit message: `Release 3.4.46 event schedule catalog foundation`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

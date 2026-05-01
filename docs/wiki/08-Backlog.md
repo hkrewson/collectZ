@@ -253,19 +253,18 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - Private vs shared records are visually clear.
 - The mobile web surface is good enough to validate the workflow before native/platform implementation.
 
-### Backlog Item: Event Schedule Catalog and Now/Next Discovery
+### Backlog Item: Event Schedule Catalog Now/Next Follow-ups
 **Type:** Deferred milestone
 **Tags:** `events`, `schedule`, `discovery`, `sched`, `calendar`, `mobile`
 
-**Goal:** Add an event schedule catalog that can power "Now / Next" discovery views for sessions happening during a con.
+**Goal:** Build on the `3.4.46` schedule catalog foundation with import, discovery, and quick planning flows for sessions happening during a con.
 
 **Why this work exists**
 - Sched-style full event calendars are useful, but mobile discovery is often weak when a user needs to decide what to do right now.
 - collectZ can make event calendars more actionable by combining session discovery with planned attendance, friends, groups, meetups, and collection/event context.
-- The schedule catalog should be distinct from a user's personal plan so discovery can show available sessions beyond what the user already selected.
+- The `3.4.46` foundation added canonical catalog storage that is distinct from a user's personal plan; this follow-up turns that data into a useful discovery surface.
 
 **Scope**
-- Add event schedule/session records with title, start/end time, location/room, description, track/category, source, source identifier, and source URL when available.
 - Support importing or manually entering an event's full schedule catalog.
 - Add a mobile-friendly "Now / Next" view for sessions happening now, starting soon, and optionally later today.
 - Add filters for time window, track/category, location/room, planned status, friend/group attendance, and conflicts.
@@ -273,7 +272,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - Keep Sched ingestion conservative: prefer supported export/import paths over brittle scraping.
 
 **Acceptance Criteria**
-- An event can store a catalog of sessions separate from a user's personal selected schedule.
+- Catalog import or entry flows build on `event_schedule_sessions` instead of personal selected schedule plans.
 - The web app can show sessions happening now and starting soon.
 - A user can quickly mark a session as planned, maybe, skipped, or backup.
 - Overlapping sessions are detectable as conflicts.

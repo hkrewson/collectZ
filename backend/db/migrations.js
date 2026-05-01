@@ -3743,6 +3743,51 @@ const MIGRATIONS = [
         ADD COLUMN IF NOT EXISTS booth VARCHAR(100),
         ADD COLUMN IF NOT EXISTS location_notes TEXT;
     `
+  },
+  {
+    version: 88,
+    description: 'Add event schedule catalog sessions',
+    up: `
+      CREATE TABLE IF NOT EXISTS event_schedule_sessions (
+        id SERIAL PRIMARY KEY,
+        event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+        title VARCHAR(255) NOT NULL,
+        start_at TIMESTAMP,
+        end_at TIMESTAMP,
+        location VARCHAR(255),
+        room VARCHAR(255),
+        description TEXT,
+        track VARCHAR(100),
+        categories TEXT[] NOT NULL DEFAULT '{}',
+        source_type VARCHAR(50),
+        source_ref VARCHAR(255),
+        source_url TEXT,
+        source_updated_at TIMESTAMP,
+        status VARCHAR(30) NOT NULL DEFAULT 'active'
+          CHECK (status IN ('active', 'cancelled', 'hidden')),
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        archived_at TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_event_schedule_sessions_event_time
+        ON event_schedule_sessions(event_id, archived_at, start_at);
+      CREATE INDEX IF NOT EXISTS idx_event_schedule_sessions_categories
+        ON event_schedule_sessions USING GIN (categories);
+      CREATE INDEX IF NOT EXISTS idx_event_schedule_sessions_source
+        ON event_schedule_sessions(event_id, source_type, source_ref)
+        WHERE source_type IS NOT NULL AND source_ref IS NOT NULL;
+
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_event_schedule_sessions_updated_at') THEN
+          CREATE TRIGGER update_event_schedule_sessions_updated_at BEFORE UPDATE ON event_schedule_sessions
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+        END IF;
+      END;
+      $$;
+    `
   }
 ];
 

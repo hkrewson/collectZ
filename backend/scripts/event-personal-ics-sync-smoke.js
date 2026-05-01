@@ -74,6 +74,7 @@ async function createDirectUser({ email, password, name }) {
 async function cleanupTemporaryState({ userId, libraryId, spaceId }) {
   if (libraryId) {
     await pool.query('DELETE FROM event_personal_ics_sources WHERE event_id IN (SELECT id FROM events WHERE library_id = $1)', [libraryId]).catch(() => {});
+    await pool.query('DELETE FROM event_schedule_sessions WHERE event_id IN (SELECT id FROM events WHERE library_id = $1)', [libraryId]).catch(() => {});
     await pool.query('DELETE FROM event_schedule_plans WHERE event_id IN (SELECT id FROM events WHERE library_id = $1)', [libraryId]).catch(() => {});
     await pool.query('DELETE FROM events WHERE library_id = $1', [libraryId]).catch(() => {});
     await pool.query('DELETE FROM library_memberships WHERE library_id = $1', [libraryId]).catch(() => {});
@@ -210,7 +211,9 @@ async function main() {
     assert(icsVisibility.raw_url_returned === false, `Expected raw URL marker to be false, got ${JSON.stringify(companion.data?.sync)}`);
     assert(companion.data?.offline_packet?.freshness?.personal_ics === 'fresh', `Expected fresh offline packet ICS state, got ${JSON.stringify(companion.data?.offline_packet)}`);
     assert(companion.data?.offline_packet?.includes?.planned_sessions === true, `Expected planned sessions in offline packet, got ${JSON.stringify(companion.data?.offline_packet)}`);
-    assert(companion.data?.offline_packet?.includes?.schedule_catalog === false, `Expected full catalog to remain unavailable, got ${JSON.stringify(companion.data?.offline_packet)}`);
+    assert(companion.data?.offline_packet?.includes?.schedule_catalog === true, `Expected schedule catalog support in offline packet, got ${JSON.stringify(companion.data?.offline_packet)}`);
+    assert(companion.data?.offline_packet?.counts?.schedule_catalog_sessions === 0, `Expected no catalog sessions for personal ICS-only event, got ${JSON.stringify(companion.data?.offline_packet)}`);
+    assert(companion.data?.offline_packet?.schedule_catalog?.length === 0, `Expected empty catalog session list for personal ICS-only event, got ${JSON.stringify(companion.data?.offline_packet)}`);
     assert(companion.data?.offline_packet?.privacy?.raw_personal_ics_url_returned === false, `Expected offline packet URL privacy, got ${JSON.stringify(companion.data?.offline_packet)}`);
     assert(companion.data?.offline_packet?.planned_sessions?.length === 2, `Expected synced personal plans in offline packet, got ${JSON.stringify(companion.data?.offline_packet)}`);
     assert(!JSON.stringify(companion.data).includes(icsServer.url), 'ICS URL leaked in companion response');

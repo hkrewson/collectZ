@@ -1834,6 +1834,56 @@
           "notes": { "type": ["string", "null"] }
         }
       },
+
+      "EventScheduleSessionRecord": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "event_id": { "type": "integer" },
+          "title": { "type": "string" },
+          "start_at": { "type": ["string", "null"], "format": "date-time" },
+          "end_at": { "type": ["string", "null"], "format": "date-time" },
+          "location": { "type": ["string", "null"] },
+          "room": { "type": ["string", "null"] },
+          "description": { "type": ["string", "null"] },
+          "track": { "type": ["string", "null"] },
+          "categories": { "type": "array", "items": { "type": "string" } },
+          "source_type": { "type": ["string", "null"] },
+          "source_ref": { "type": ["string", "null"] },
+          "source_url": { "type": ["string", "null"], "format": "uri" },
+          "source_updated_at": { "type": ["string", "null"], "format": "date-time" },
+          "status": { "type": "string", "enum": ["active", "cancelled", "hidden"] },
+          "created_by": { "type": ["integer", "null"] },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        },
+        "required": ["id", "event_id", "title", "categories", "status", "created_at", "updated_at"]
+      },
+      "EventScheduleSessionListResponse": {
+        "type": "object",
+        "properties": {
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/EventScheduleSessionRecord" } }
+        },
+        "required": ["items"]
+      },
+      "EventScheduleSessionUpsertRequest": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string" },
+          "start_at": { "type": ["string", "null"], "format": "date-time" },
+          "end_at": { "type": ["string", "null"], "format": "date-time" },
+          "location": { "type": ["string", "null"] },
+          "room": { "type": ["string", "null"] },
+          "description": { "type": ["string", "null"] },
+          "track": { "type": ["string", "null"] },
+          "categories": { "type": "array", "items": { "type": "string" } },
+          "source_type": { "type": ["string", "null"] },
+          "source_ref": { "type": ["string", "null"] },
+          "source_url": { "type": ["string", "null"], "format": "uri" },
+          "source_updated_at": { "type": ["string", "null"], "format": "date-time" },
+          "status": { "type": "string", "enum": ["active", "cancelled", "hidden"] }
+        }
+      },
       "EventPersonalIcsSourceRecord": {
         "type": "object",
         "properties": {
@@ -1901,9 +1951,10 @@
                   "groups": { "type": "string" },
                   "meetups": { "type": "string" },
                   "schedule_plans": { "type": "string" },
+                  "schedule_catalog": { "type": "string" },
                   "personal_ics_source": { "type": "string" }
                 },
-                "required": ["attendees", "groups", "meetups", "schedule_plans", "personal_ics_source"]
+                "required": ["attendees", "groups", "meetups", "schedule_plans", "schedule_catalog", "personal_ics_source"]
               },
               "out_of_scope": { "type": "array", "items": { "type": "string" } }
             },
@@ -1928,9 +1979,10 @@
               "attendees": { "type": "integer" },
               "groups": { "type": "integer" },
               "meetups": { "type": "integer" },
-              "schedule_plans": { "type": "integer" }
+              "schedule_plans": { "type": "integer" },
+              "schedule_catalog_sessions": { "type": "integer" }
             },
-            "required": ["attendees", "groups", "meetups", "schedule_plans"]
+            "required": ["attendees", "groups", "meetups", "schedule_plans", "schedule_catalog_sessions"]
           },
           "sync": {
             "type": "object",
@@ -1991,7 +2043,7 @@
           },
           "offline_packet": {
             "type": "object",
-            "description": "Read-only platform companion packet for poor-connectivity day-of-event use. It uses current event social data and explicitly marks full schedule catalog support as unavailable until that later milestone exists.",
+            "description": "Read-only platform companion packet for poor-connectivity day-of-event use. It uses current event social data and includes canonical schedule catalog sessions when present.",
             "properties": {
               "version": { "type": "string", "enum": ["event-social-offline-packet.v1"] },
               "generated_at": { "type": "string", "format": "date-time" },
@@ -2059,7 +2111,7 @@
                 "required": ["raw_personal_ics_url_returned", "realtime_location_included", "presence_included", "broad_social_discovery_included"]
               },
               "limitations": { "type": "array", "items": { "type": "string" } },
-              "schedule_catalog": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+              "schedule_catalog": { "type": "array", "items": { "$ref": "#/components/schemas/EventScheduleSessionRecord" } },
               "planned_sessions": { "type": "array", "items": { "$ref": "#/components/schemas/EventSchedulePlanRecord" } },
               "key_locations": {
                 "type": "array",
@@ -2084,9 +2136,10 @@
           "attendees": { "type": "array", "items": { "$ref": "#/components/schemas/EventAttendeeRecord" } },
           "groups": { "type": "array", "items": { "$ref": "#/components/schemas/EventGroupRecord" } },
           "meetups": { "type": "array", "items": { "$ref": "#/components/schemas/EventMeetupRecord" } },
+          "schedule_catalog": { "type": "array", "items": { "$ref": "#/components/schemas/EventScheduleSessionRecord" } },
           "schedule_plans": { "type": "array", "items": { "$ref": "#/components/schemas/EventSchedulePlanRecord" } }
         },
-        "required": ["contract", "event", "counts", "sync", "cache", "privacy", "offline_packet", "attendees", "groups", "meetups", "schedule_plans"]
+        "required": ["contract", "event", "counts", "sync", "cache", "privacy", "offline_packet", "attendees", "groups", "meetups", "schedule_catalog", "schedule_plans"]
       },
       "ValuationRefreshRequest": {
         "type": "object",
@@ -5453,11 +5506,47 @@
         "responses": { "200": { "description": "Archived event schedule plan", "content": { "application/json": { "schema": { "type": "object", "properties": { "ok": { "type": "boolean" }, "id": { "type": "integer" } }, "required": ["ok", "id"] } } } } }
       }
     },
+
+    "/api/events/{id}/schedule-sessions": {
+      "get": {
+        "tags": ["Events"],
+        "summary": "List full event schedule catalog sessions for a scoped event",
+        "description": "Returns canonical catalog sessions for the event. These are separate from a user's selected schedule plans.",
+        "security": [{ "cookieSession": [] }, { "bearerAuth": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "responses": { "200": { "description": "Event schedule catalog sessions", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventScheduleSessionListResponse" } } } } }
+      },
+      "post": {
+        "tags": ["Events"],
+        "summary": "Create a full event schedule catalog session for a scoped event",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventScheduleSessionUpsertRequest" } } } },
+        "responses": { "201": { "description": "Created event schedule catalog session", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventScheduleSessionRecord" } } } } }
+      }
+    },
+    "/api/events/{id}/schedule-sessions/{sessionId}": {
+      "patch": {
+        "tags": ["Events"],
+        "summary": "Update a full event schedule catalog session for a scoped event",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }, { "in": "path", "name": "sessionId", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventScheduleSessionUpsertRequest" } } } },
+        "responses": { "200": { "description": "Updated event schedule catalog session", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventScheduleSessionRecord" } } } } }
+      },
+      "delete": {
+        "tags": ["Events"],
+        "summary": "Archive a full event schedule catalog session for a scoped event",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }, { "in": "path", "name": "sessionId", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "responses": { "200": { "description": "Archived event schedule catalog session", "content": { "application/json": { "schema": { "type": "object", "properties": { "ok": { "type": "boolean" }, "id": { "type": "integer" } }, "required": ["ok", "id"] } } } } }
+      }
+    },
     "/api/events/{id}/companion/today": {
       "get": {
         "tags": ["Events"],
         "summary": "Read compact Event social planning packet for platform companion clients",
-        "description": "Returns event-scoped attendees, groups, meetups, selected schedule plans, personal ICS sync status, cache guidance, privacy boundaries, and write endpoint references. This is not a full schedule catalog, notification fanout, or realtime location contract.",
+        "description": "Returns event-scoped attendees, groups, meetups, catalog sessions, selected schedule plans, personal ICS sync status, cache guidance, privacy boundaries, and write endpoint references. This is not a Now/Next discovery, notification fanout, or realtime location contract.",
         "security": [{ "cookieSession": [] }, { "bearerAuth": [] }],
         "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
         "responses": {

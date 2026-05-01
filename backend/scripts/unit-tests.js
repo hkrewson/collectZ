@@ -180,6 +180,7 @@ const personalSchedIcsSyncSource = fs.readFileSync(require.resolve('../../docs/w
 const eventSocialCompanionContractSource = fs.readFileSync(require.resolve('../../docs/wiki/42-Event-Social-Platform-Companion-Contract.md'), 'utf8');
 const platformCompanionIcsVisibilitySource = fs.readFileSync(require.resolve('../../docs/wiki/43-Platform-Companion-ICS-Sync-Visibility.md'), 'utf8');
 const platformCompanionOfflinePacketSource = fs.readFileSync(require.resolve('../../docs/wiki/44-Platform-Companion-Offline-Event-Packet.md'), 'utf8');
+const eventScheduleCatalogFoundationSource = fs.readFileSync(require.resolve('../../docs/wiki/45-Event-Schedule-Catalog-Foundation.md'), 'utf8');
 const releaseNotesDir = path.resolve(__dirname, '..', '..', 'docs', 'releases');
 const releaseDocsSource = fs.readdirSync(releaseNotesDir)
   .filter((name) => name.endsWith('.md'))
@@ -3589,7 +3590,11 @@ results.push(run('event social planning foundation contract is wired for 3.4.30'
   assert.ok(eventsRoutesSource.includes('raw_url_returned: false'));
   assert.ok(eventsRoutesSource.includes('event-social-offline-packet.v1'));
   assert.ok(eventsRoutesSource.includes('buildOfflinePacket'));
-  assert.ok(eventsRoutesSource.includes('full_schedule_catalog_not_available'));
+  assert.ok(eventsRoutesSource.includes('schedule_catalog: true'));
+  assert.ok(eventsRoutesSource.includes('now_next_discovery'));
+  assert.ok(eventsRoutesSource.includes("router.get('/events/:id/schedule-sessions'"));
+  assert.ok(eventsRoutesSource.includes("router.post('/events/:id/schedule-sessions'"));
+  assert.ok(eventsRoutesSource.includes('events.schedule_session.create'));
   assert.ok(eventSocialCompanionContractSource.includes('GET /api/events/:id/companion/today'));
   assert.ok(eventSocialCompanionContractSource.includes('The web app remains the canonical admin and planning surface'));
   assert.ok(eventSocialCompanionContractSource.includes('No realtime location, presence, broad social discovery, or push notification behavior is included'));
@@ -3598,8 +3603,17 @@ results.push(run('event social planning foundation contract is wired for 3.4.30'
   assert.ok(platformCompanionOfflinePacketSource.includes('offline_packet'));
   assert.ok(platformCompanionOfflinePacketSource.includes('read-only snapshot'));
   assert.ok(platformCompanionOfflinePacketSource.includes('schedule_catalog'));
+  assert.ok(eventScheduleCatalogFoundationSource.includes('event_schedule_sessions'));
+  assert.ok(eventScheduleCatalogFoundationSource.includes('separate from personal schedule plans'));
+  assert.ok(eventScheduleCatalogFoundationSource.includes('Now / Next'));
+  assert.ok(migrationsSource.includes('version: 88'));
+  assert.ok(migrationsSource.includes('CREATE TABLE IF NOT EXISTS event_schedule_sessions'));
+  assert.ok(initSqlSource.includes('CREATE TABLE IF NOT EXISTS event_schedule_sessions'));
+  assert.ok(initSqlSource.includes("(88, 'Add event schedule catalog sessions')"));
+  assert.ok(validateMiddlewareSource.includes('eventScheduleSessionCreateSchema'));
   assert.ok(openApiSource.includes('"/api/events/{id}/attendees"'));
   assert.ok(openApiSource.includes('"/api/events/{id}/groups/{groupId}"'));
+  assert.ok(openApiSource.includes('"/api/events/{id}/schedule-sessions"'));
   assert.ok(openApiSource.includes('"/api/events/{id}/companion/today"'));
   assert.ok(openApiSource.includes('EventCompanionTodayResponse'));
   assert.ok(openApiSource.includes('personal_ics_visibility'));
@@ -3607,9 +3621,11 @@ results.push(run('event social planning foundation contract is wired for 3.4.30'
   assert.ok(openApiSource.includes('event-social-offline-packet.v1'));
   assert.ok(openApiSource.includes('EventMeetupRecord'));
   assert.ok(openApiSource.includes('EventSchedulePlanRecord'));
+  assert.ok(openApiSource.includes('EventScheduleSessionRecord'));
   assert.ok(backendPackageJson.scripts['test:event-social-planning-smoke']);
   assert.ok(eventSocialPlanningSmokeSource.includes('/api/events/${eventId}/attendees'));
   assert.ok(eventSocialPlanningSmokeSource.includes('/api/events/${eventId}/schedule-plans'));
+  assert.ok(eventSocialPlanningSmokeSource.includes('/api/events/${eventId}/schedule-sessions'));
   assert.ok(eventSocialPlanningSmokeSource.includes('/api/events/${eventId}/companion/today'));
   assert.ok(eventSocialPlanningSmokeSource.includes('personal_ics_visibility'));
   assert.ok(eventSocialPlanningSmokeSource.includes('offline_packet'));

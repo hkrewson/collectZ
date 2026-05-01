@@ -21,6 +21,8 @@ const {
   eventMeetupUpdateSchema,
   eventSchedulePlanCreateSchema,
   eventSchedulePlanUpdateSchema,
+  eventScheduleSessionCreateSchema,
+  eventScheduleSessionUpdateSchema,
   eventPersonalIcsSourceSchema
 } = require('../middleware/validate');
 const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
@@ -103,6 +105,21 @@ const EVENT_SCHEDULE_PLAN_FIELDS = [
   'status',
   'visibility',
   'notes'
+];
+const EVENT_SCHEDULE_SESSION_FIELDS = [
+  'title',
+  'start_at',
+  'end_at',
+  'location',
+  'room',
+  'description',
+  'track',
+  'categories',
+  'source_type',
+  'source_ref',
+  'source_url',
+  'source_updated_at',
+  'status'
 ];
 
 const EVENT_COMPANION_CONTRACT_VERSION = 'event-social-companion.v1';
@@ -405,7 +422,7 @@ function addOfflineLocation(locations, seen, location) {
   });
 }
 
-function buildOfflineKeyLocations({ event = {}, meetups = [], plans = [] }) {
+function buildOfflineKeyLocations({ event = {}, meetups = [], plans = [], sessions = [] }) {
   const locations = [];
   const seen = new Set();
   addOfflineLocation(locations, seen, {
@@ -439,13 +456,23 @@ function buildOfflineKeyLocations({ event = {}, meetups = [], plans = [] }) {
       starts_at: plan.start_at || null
     });
   }
+  for (const session of sessions || []) {
+    addOfflineLocation(locations, seen, {
+      kind: 'schedule_catalog',
+      name: session.location || session.room,
+      notes: session.room && session.location && session.room !== session.location ? `Room: ${session.room}` : null,
+      source_type: 'schedule_catalog',
+      source_id: session.id || null,
+      starts_at: session.start_at || null
+    });
+  }
   return locations.slice(0, 100);
 }
 
-function buildOfflinePacket({ event = {}, attendees = [], groups = [], meetups = [], plans = [], generatedAt = new Date(), icsFreshness = 'not_connected' }) {
+function buildOfflinePacket({ event = {}, attendees = [], groups = [], meetups = [], plans = [], sessions = [], generatedAt = new Date(), icsFreshness = 'not_connected' }) {
   const generatedIso = generatedAt.toISOString();
   const staleAfterAt = new Date(generatedAt.getTime() + EVENT_COMPANION_CACHE_POLICY.stale_after_seconds * 1000).toISOString();
-  const keyLocations = buildOfflineKeyLocations({ event, meetups, plans });
+  const keyLocations = buildOfflineKeyLocations({ event, meetups, plans, sessions });
   return {
     version: EVENT_COMPANION_OFFLINE_PACKET_VERSION,
     generated_at: generatedIso,
@@ -469,7 +496,7 @@ function buildOfflinePacket({ event = {}, attendees = [], groups = [], meetups =
       groups: true,
       meetups: true,
       planned_sessions: true,
-      schedule_catalog: false,
+      schedule_catalog: true,
       key_locations: true,
       personal_ics_sync_visibility: true
     },
@@ -478,7 +505,7 @@ function buildOfflinePacket({ event = {}, attendees = [], groups = [], meetups =
       groups: groups.length,
       meetups: meetups.length,
       planned_sessions: plans.length,
-      schedule_catalog_sessions: 0,
+      schedule_catalog_sessions: sessions.length,
       key_locations: keyLocations.length
     },
     freshness: {
@@ -493,13 +520,12 @@ function buildOfflinePacket({ event = {}, attendees = [], groups = [], meetups =
       broad_social_discovery_included: false
     },
     limitations: [
-      'full_schedule_catalog_not_available',
       'offline_mutation_queue_not_supported',
       'push_notifications_not_supported',
       'realtime_location_not_supported',
       'presence_tracking_not_supported'
     ],
-    schedule_catalog: [],
+    schedule_catalog: sessions,
     planned_sessions: plans,
     key_locations: keyLocations
   };
@@ -523,7 +549,7 @@ async function loadCompanionTodayPayload({ eventId, scopeContext, userId }) {
   const event = eventResult.rows[0] || null;
   if (!event) return null;
 
-  const [attendeesResult, groupsResult, meetupsResult, plansResult] = await Promise.all([
+  const [attendeesResult, groupsResult, meetupsResult, plansResult, sessionsResult] = await Promise.all([
     pool.query(
       `SELECT *
          FROM event_attendees
@@ -556,6 +582,15 @@ async function loadCompanionTodayPayload({ eventId, scopeContext, userId }) {
           AND archived_at IS NULL
         ORDER BY start_at NULLS LAST, title ASC, id ASC`,
       [eventId]
+    ),
+    pool.query(
+      `SELECT *
+         FROM event_schedule_sessions
+        WHERE event_id = $1
+          AND archived_at IS NULL
+          AND status <> 'hidden'
+        ORDER BY start_at NULLS LAST, title ASC, id ASC`,
+      [eventId]
     )
   ]);
 
@@ -573,10 +608,12 @@ async function loadCompanionTodayPayload({ eventId, scopeContext, userId }) {
         groups: `/api/events/${eventId}/groups`,
         meetups: `/api/events/${eventId}/meetups`,
         schedule_plans: `/api/events/${eventId}/schedule-plans`,
+        schedule_catalog: `/api/events/${eventId}/schedule-sessions`,
         personal_ics_source: `/api/events/${eventId}/personal-ics-source`
       },
       out_of_scope: [
-        'full_schedule_catalog',
+        'now_next_discovery',
+        'catalog_import_automation',
         'push_notifications',
         'realtime_location',
         'presence_tracking',
@@ -588,7 +625,8 @@ async function loadCompanionTodayPayload({ eventId, scopeContext, userId }) {
       attendees: attendeesResult.rows.length,
       groups: groups.length,
       meetups: meetupsResult.rows.length,
-      schedule_plans: plansResult.rows.length
+      schedule_plans: plansResult.rows.length,
+      schedule_catalog_sessions: sessionsResult.rows.length
     },
     sync: {
       personal_ics: icsSource,
@@ -603,12 +641,14 @@ async function loadCompanionTodayPayload({ eventId, scopeContext, userId }) {
       groups,
       meetups: meetupsResult.rows,
       plans: plansResult.rows,
+      sessions: sessionsResult.rows,
       generatedAt,
       icsFreshness
     }),
     attendees: attendeesResult.rows,
     groups,
     meetups: meetupsResult.rows,
+    schedule_catalog: sessionsResult.rows,
     schedule_plans: plansResult.rows
   };
 }
@@ -1866,6 +1906,83 @@ router.delete('/events/:id/schedule-plans/:planId', asyncHandler(async (req, res
   if (!result.rows[0]) return res.status(404).json({ error: 'Schedule plan not found' });
   await logActivity(req, 'events.schedule_plan.delete', 'event', eventId, { schedulePlanId: planId });
   res.json({ ok: true, id: planId });
+}));
+
+router.get('/events/:id/schedule-sessions', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const eventId = parsePositiveId(req.params.id, 'event id');
+  const eventRow = await ensureScopedEvent(scopeContext, eventId);
+  if (!eventRow) return res.status(404).json({ error: 'Event not found' });
+
+  const result = await pool.query(
+    `SELECT *
+       FROM event_schedule_sessions
+      WHERE event_id = $1
+        AND archived_at IS NULL
+      ORDER BY start_at NULLS LAST, title ASC, id ASC`,
+    [eventId]
+  );
+  res.json({ items: result.rows });
+}));
+
+router.post('/events/:id/schedule-sessions', validate(eventScheduleSessionCreateSchema), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const eventId = parsePositiveId(req.params.id, 'event id');
+  const eventRow = await ensureScopedEvent(scopeContext, eventId);
+  if (!eventRow) return res.status(404).json({ error: 'Event not found' });
+
+  const insert = buildInsertSql({
+    table: 'event_schedule_sessions',
+    eventId,
+    fields: EVENT_SCHEDULE_SESSION_FIELDS,
+    body: req.body,
+    userId: req.user.id
+  });
+  const result = await pool.query(insert.sql, insert.values);
+  await logActivity(req, 'events.schedule_session.create', 'event', eventId, { scheduleSessionId: result.rows[0].id });
+  res.status(201).json(result.rows[0]);
+}));
+
+router.patch('/events/:id/schedule-sessions/:sessionId', validate(eventScheduleSessionUpdateSchema), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const eventId = parsePositiveId(req.params.id, 'event id');
+  const sessionId = parsePositiveId(req.params.sessionId, 'schedule session id');
+  const eventRow = await ensureScopedEvent(scopeContext, eventId);
+  if (!eventRow) return res.status(404).json({ error: 'Event not found' });
+
+  const update = buildUpdateSql({
+    table: 'event_schedule_sessions',
+    idColumn: 'id',
+    id: sessionId,
+    eventId,
+    fields: EVENT_SCHEDULE_SESSION_FIELDS,
+    body: req.body
+  });
+  const result = await pool.query(update.sql, update.values);
+  if (!result.rows[0]) return res.status(404).json({ error: 'Schedule session not found' });
+  await logActivity(req, 'events.schedule_session.update', 'event', eventId, { scheduleSessionId: sessionId });
+  res.json(result.rows[0]);
+}));
+
+router.delete('/events/:id/schedule-sessions/:sessionId', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const eventId = parsePositiveId(req.params.id, 'event id');
+  const sessionId = parsePositiveId(req.params.sessionId, 'schedule session id');
+  const eventRow = await ensureScopedEvent(scopeContext, eventId);
+  if (!eventRow) return res.status(404).json({ error: 'Event not found' });
+
+  const result = await pool.query(
+    `UPDATE event_schedule_sessions
+        SET archived_at = CURRENT_TIMESTAMP
+      WHERE id = $1
+        AND event_id = $2
+        AND archived_at IS NULL
+      RETURNING id`,
+    [sessionId, eventId]
+  );
+  if (!result.rows[0]) return res.status(404).json({ error: 'Schedule session not found' });
+  await logActivity(req, 'events.schedule_session.delete', 'event', eventId, { scheduleSessionId: sessionId });
+  res.json({ ok: true, id: sessionId });
 }));
 
 router.get('/events/:id/companion/today', asyncHandler(async (req, res) => {
