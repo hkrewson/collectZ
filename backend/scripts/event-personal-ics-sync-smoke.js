@@ -200,6 +200,16 @@ async function main() {
     assert(resyncedPanel?.visibility === 'event_workspace', `Expected resync to preserve user-owned visibility, got ${JSON.stringify(resyncedPanel)}`);
     assert(resyncedPanel?.notes === 'Keeping as backup if the first choice is full.', `Expected resync to preserve user-owned notes, got ${JSON.stringify(resyncedPanel)}`);
 
+    const companion = await client.request(`/api/events/${eventId}/companion/today`, { expectStatus: 200 });
+    const icsVisibility = companion.data?.sync?.personal_ics_visibility || {};
+    assert(icsVisibility.connected === true, `Expected connected companion ICS visibility, got ${JSON.stringify(companion.data?.sync)}`);
+    assert(icsVisibility.freshness === 'fresh', `Expected fresh companion ICS visibility, got ${JSON.stringify(companion.data?.sync)}`);
+    assert(icsVisibility.manual_refresh_supported === true, `Expected manual refresh support, got ${JSON.stringify(companion.data?.sync)}`);
+    assert(icsVisibility.manual_refresh_endpoint === `/api/events/${eventId}/personal-ics-source/sync`, `Expected manual refresh endpoint, got ${JSON.stringify(companion.data?.sync)}`);
+    assert(icsVisibility.personal_schedule_only === true, `Expected personal schedule only marker, got ${JSON.stringify(companion.data?.sync)}`);
+    assert(icsVisibility.raw_url_returned === false, `Expected raw URL marker to be false, got ${JSON.stringify(companion.data?.sync)}`);
+    assert(!JSON.stringify(companion.data).includes(icsServer.url), 'ICS URL leaked in companion response');
+
     await client.request(`/api/events/${eventId}/personal-ics-source`, {
       method: 'DELETE',
       withCsrf: true,
@@ -213,6 +223,7 @@ async function main() {
       sourceConnected: savedSource.data.source.has_url,
       syncedCount: sync.data.summary.total,
       schedulePlanCount: plans.data.items.length,
+      companionFreshness: icsVisibility.freshness,
       urlLeaked: false
     }, null, 2));
   } finally {

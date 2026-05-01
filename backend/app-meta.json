@@ -1,7 +1,7 @@
 {
   "app": "collectZ",
-  "version": "3.4.42",
-  "frontend": "3.4.42",
-  "backend": "3.4.42",
-  "userAgent": "collectZ/3.4.42 (+https://github.com/hkrewson/collectZ)"
+  "version": "3.4.44",
+  "frontend": "3.4.44",
+  "backend": "3.4.44",
+  "userAgent": "collectZ/3.4.44 (+https://github.com/hkrewson/collectZ)"
 }

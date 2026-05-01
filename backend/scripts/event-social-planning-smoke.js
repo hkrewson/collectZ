@@ -219,11 +219,12 @@ async function main() {
       headers: { 'Content-Type': 'application/json' }
     });
 
-    const [attendees, groups, meetups, plans] = await Promise.all([
+    const [attendees, groups, meetups, plans, companion] = await Promise.all([
       client.request(`/api/events/${eventId}/attendees`, { expectStatus: 200 }),
       client.request(`/api/events/${eventId}/groups`, { expectStatus: 200 }),
       client.request(`/api/events/${eventId}/meetups`, { expectStatus: 200 }),
-      client.request(`/api/events/${eventId}/schedule-plans`, { expectStatus: 200 })
+      client.request(`/api/events/${eventId}/schedule-plans`, { expectStatus: 200 }),
+      client.request(`/api/events/${eventId}/companion/today`, { expectStatus: 200 })
     ]);
 
     assert(attendees.data.items.length === 1, `Expected one attendee, got ${JSON.stringify(attendees.data)}`);
@@ -238,6 +239,17 @@ async function main() {
     assert(plans.data.items[0]?.booth === '6BCF-B', `Expected updated schedule item booth, got ${JSON.stringify(plans.data)}`);
     assert(plans.data.items[0]?.location_notes === 'Queue at the rear exit.', `Expected updated schedule item location notes, got ${JSON.stringify(plans.data)}`);
     assert(plans.data.items[0]?.notes === 'Backup if Hall H line is rough.', `Expected updated schedule item notes, got ${JSON.stringify(plans.data)}`);
+    assert(companion.data?.contract?.version === 'event-social-companion.v1', `Expected companion contract version, got ${JSON.stringify(companion.data?.contract)}`);
+    assert(companion.data?.counts?.attendees === 1, `Expected companion attendee count, got ${JSON.stringify(companion.data?.counts)}`);
+    assert(companion.data?.counts?.groups === 1, `Expected companion group count, got ${JSON.stringify(companion.data?.counts)}`);
+    assert(companion.data?.counts?.meetups === 1, `Expected companion meetup count, got ${JSON.stringify(companion.data?.counts)}`);
+    assert(companion.data?.counts?.schedule_plans === 1, `Expected companion schedule count, got ${JSON.stringify(companion.data?.counts)}`);
+    assert(companion.data?.sync?.freshness === 'not_connected', `Expected not-connected companion sync state, got ${JSON.stringify(companion.data?.sync)}`);
+    assert(companion.data?.sync?.personal_ics_visibility?.connected === false, `Expected disconnected UI-safe ICS visibility, got ${JSON.stringify(companion.data?.sync)}`);
+    assert(companion.data?.sync?.personal_ics_visibility?.raw_url_returned === false, `Expected UI-safe ICS visibility to hide raw URL, got ${JSON.stringify(companion.data?.sync)}`);
+    assert(companion.data?.sync?.personal_ics_visibility?.personal_schedule_only === true, `Expected ICS visibility to be personal schedule only, got ${JSON.stringify(companion.data?.sync)}`);
+    assert(companion.data?.privacy?.personal_ics_url_returned === false, `Expected companion privacy to hide ICS URL, got ${JSON.stringify(companion.data?.privacy)}`);
+    assert(companion.data?.schedule_plans?.[0]?.vendor === 'Artist signing table', `Expected companion schedule vendor readback, got ${JSON.stringify(companion.data?.schedule_plans)}`);
 
     console.log(JSON.stringify({
       eventId,
@@ -246,7 +258,8 @@ async function main() {
       meetupCount: meetups.data.items.length,
       schedulePlanCount: plans.data.items.length,
       updatedMeetupStatus: meetups.data.items[0]?.status || null,
-      updatedSchedulePlanStatus: plans.data.items[0]?.status || null
+      updatedSchedulePlanStatus: plans.data.items[0]?.status || null,
+      companionContract: companion.data?.contract?.version || null
     }, null, 2));
   } finally {
     await cleanupTemporaryState({ userId, libraryId, spaceId });

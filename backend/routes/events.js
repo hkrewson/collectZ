@@ -105,6 +105,29 @@ const EVENT_SCHEDULE_PLAN_FIELDS = [
   'notes'
 ];
 
+const EVENT_COMPANION_CONTRACT_VERSION = 'event-social-companion.v1';
+const EVENT_COMPANION_CACHE_POLICY = {
+  recommended_ttl_seconds: 300,
+  stale_after_seconds: 43200,
+  offline_mode: 'read_only_snapshot',
+  conflict_policy: 'Backend remains authoritative; queued native mutations must refetch before retrying after reconnect.'
+};
+const EVENT_COMPANION_PRIVACY_POLICY = {
+  personal_ics_url_returned: false,
+  realtime_location: false,
+  broad_social_discovery: false,
+  notifications: 'not_available_in_this_contract',
+  visibility_values: ['private', 'selected_people', 'group', 'event_workspace']
+};
+const EVENT_COMPANION_ICS_STATE_LABELS = {
+  not_connected: 'No personal Sched feed connected',
+  never_synced: 'Personal Sched feed connected but not synced yet',
+  fresh: 'Personal Sched schedule is fresh',
+  stale: 'Personal Sched schedule may be stale',
+  failed: 'Last personal Sched sync failed',
+  unknown: 'Personal Sched sync state is unknown'
+};
+
 const serializeEventArtifactRow = (row = {}) => ({
   ...row,
   signature: row.signature || null,
@@ -308,6 +331,154 @@ async function attachMembersToGroups(groups = []) {
     ...group,
     members: membersByGroup.get(Number(group.id)) || []
   }));
+}
+
+function classifyPersonalIcsFreshness(source = null, now = new Date()) {
+  if (!source?.has_url) return 'not_connected';
+  if (source.sync_status === 'failed' || source.status === 'error') return 'failed';
+  if (!source.last_success_at) return 'never_synced';
+  const lastSuccess = new Date(source.last_success_at).getTime();
+  if (!Number.isFinite(lastSuccess)) return 'unknown';
+  const staleAfterMs = EVENT_COMPANION_CACHE_POLICY.stale_after_seconds * 1000;
+  return now.getTime() - lastSuccess > staleAfterMs ? 'stale' : 'fresh';
+}
+
+function sanitizePersonalIcsError(value) {
+  const text = String(value || '').trim();
+  if (!text) return null;
+  return text
+    .replace(/https?:\/\/\S+/gi, '[redacted-url]')
+    .replace(/webcal:\/\/\S+/gi, '[redacted-url]')
+    .slice(0, 240);
+}
+
+function buildPersonalIcsSyncVisibility({ eventId, source = null, freshness = 'not_connected' }) {
+  const connected = Boolean(source?.has_url);
+  const lastSuccessAt = source?.last_success_at || null;
+  let staleAfterAt = null;
+  if (lastSuccessAt) {
+    const lastSuccessTime = new Date(lastSuccessAt).getTime();
+    if (Number.isFinite(lastSuccessTime)) {
+      staleAfterAt = new Date(lastSuccessTime + EVENT_COMPANION_CACHE_POLICY.stale_after_seconds * 1000).toISOString();
+    }
+  }
+  return {
+    connected,
+    provider: source?.provider || 'sched_ics',
+    status: source?.status || (connected ? 'active' : 'not_connected'),
+    sync_status: source?.sync_status || 'idle',
+    freshness,
+    state_label: EVENT_COMPANION_ICS_STATE_LABELS[freshness] || EVENT_COMPANION_ICS_STATE_LABELS.unknown,
+    last_synced_at: source?.last_synced_at || null,
+    last_success_at: lastSuccessAt,
+    stale_after_at: staleAfterAt,
+    last_item_count: Number(source?.last_item_count || 0),
+    has_error: Boolean(source?.last_error || freshness === 'failed'),
+    error_summary: sanitizePersonalIcsError(source?.last_error),
+    manual_refresh_supported: connected,
+    manual_refresh_endpoint: connected ? `/api/events/${eventId}/personal-ics-source/sync` : null,
+    personal_schedule_only: true,
+    raw_url_returned: false
+  };
+}
+
+async function loadCompanionTodayPayload({ eventId, scopeContext, userId }) {
+  const eventParams = [eventId];
+  const eventScopeClause = appendScopeSql(eventParams, scopeContext, {
+    libraryColumn: 'e.library_id',
+    spaceColumn: 'e.space_id'
+  });
+  const eventResult = await pool.query(
+    `SELECT e.*
+       FROM events e
+      WHERE e.id = $1
+        AND e.archived_at IS NULL
+        ${eventScopeClause}
+      LIMIT 1`,
+    eventParams
+  );
+  const event = eventResult.rows[0] || null;
+  if (!event) return null;
+
+  const [attendeesResult, groupsResult, meetupsResult, plansResult] = await Promise.all([
+    pool.query(
+      `SELECT *
+         FROM event_attendees
+        WHERE event_id = $1
+          AND archived_at IS NULL
+        ORDER BY display_name ASC, id ASC`,
+      [eventId]
+    ),
+    pool.query(
+      `SELECT *
+         FROM event_groups
+        WHERE event_id = $1
+          AND archived_at IS NULL
+        ORDER BY name ASC, id ASC`,
+      [eventId]
+    ),
+    pool.query(
+      `SELECT em.*, eg.name AS group_name
+         FROM event_meetups em
+         LEFT JOIN event_groups eg ON eg.id = em.group_id AND eg.archived_at IS NULL
+        WHERE em.event_id = $1
+          AND em.archived_at IS NULL
+        ORDER BY em.start_at NULLS LAST, em.title ASC, em.id ASC`,
+      [eventId]
+    ),
+    pool.query(
+      `SELECT *
+         FROM event_schedule_plans
+        WHERE event_id = $1
+          AND archived_at IS NULL
+        ORDER BY start_at NULLS LAST, title ASC, id ASC`,
+      [eventId]
+    )
+  ]);
+
+  const groups = await attachMembersToGroups(groupsResult.rows || []);
+  const icsSource = serializeIcsSource(await loadPersonalIcsSource(pool, { eventId, userId }));
+  const generatedAt = new Date();
+  const icsFreshness = classifyPersonalIcsFreshness(icsSource, generatedAt);
+  return {
+    contract: {
+      version: EVENT_COMPANION_CONTRACT_VERSION,
+      generated_at: generatedAt.toISOString(),
+      read_endpoint: `/api/events/${eventId}/companion/today`,
+      write_endpoints: {
+        attendees: `/api/events/${eventId}/attendees`,
+        groups: `/api/events/${eventId}/groups`,
+        meetups: `/api/events/${eventId}/meetups`,
+        schedule_plans: `/api/events/${eventId}/schedule-plans`,
+        personal_ics_source: `/api/events/${eventId}/personal-ics-source`
+      },
+      out_of_scope: [
+        'full_schedule_catalog',
+        'push_notifications',
+        'realtime_location',
+        'presence_tracking',
+        'offline_mutation_queue'
+      ]
+    },
+    event,
+    counts: {
+      attendees: attendeesResult.rows.length,
+      groups: groups.length,
+      meetups: meetupsResult.rows.length,
+      schedule_plans: plansResult.rows.length
+    },
+    sync: {
+      personal_ics: icsSource,
+      freshness: icsFreshness,
+      personal_ics_visibility: buildPersonalIcsSyncVisibility({ eventId, source: icsSource, freshness: icsFreshness })
+    },
+    cache: EVENT_COMPANION_CACHE_POLICY,
+    privacy: EVENT_COMPANION_PRIVACY_POLICY,
+    attendees: attendeesResult.rows,
+    groups,
+    meetups: meetupsResult.rows,
+    schedule_plans: plansResult.rows
+  };
 }
 
 async function loadPurchasedItemSource(scopeContext, itemType, itemId) {
@@ -1563,6 +1734,14 @@ router.delete('/events/:id/schedule-plans/:planId', asyncHandler(async (req, res
   if (!result.rows[0]) return res.status(404).json({ error: 'Schedule plan not found' });
   await logActivity(req, 'events.schedule_plan.delete', 'event', eventId, { schedulePlanId: planId });
   res.json({ ok: true, id: planId });
+}));
+
+router.get('/events/:id/companion/today', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const eventId = parsePositiveId(req.params.id, 'event id');
+  const payload = await loadCompanionTodayPayload({ eventId, scopeContext, userId: req.user.id });
+  if (!payload) return res.status(404).json({ error: 'Event not found' });
+  res.json(payload);
 }));
 
 router.get('/events/:id/personal-ics-source', asyncHandler(async (req, res) => {

@@ -1,6 +1,22 @@
 {
   "releases": [
     {
+      "title": "v3.4.44",
+      "version": "3.4.44",
+      "date": null,
+      "status": null,
+      "summary": "",
+      "details": []
+    },
+    {
+      "title": "v3.4.43",
+      "version": "3.4.43",
+      "date": null,
+      "status": null,
+      "summary": "",
+      "details": []
+    },
+    {
       "title": "v3.4.42",
       "version": "3.4.42",
       "date": null,
@@ -62,22 +78,6 @@
       "date": null,
       "status": null,
       "summary": "This patch improves expanded Event schedule rows so selected sessions show full details clearly without making the default agenda scan view heavier.",
-      "details": []
-    },
-    {
-      "title": "v3.4.34",
-      "version": "3.4.34",
-      "date": null,
-      "status": null,
-      "summary": "This patch improves long Event schedules by adding lightweight day navigation, an Upcoming filter, and a local-time now/next affordance to the selected schedule agenda.",
-      "details": []
-    },
-    {
-      "title": "v3.4.33",
-      "version": "3.4.33",
-      "date": null,
-      "status": null,
-      "summary": "This patch makes Event schedule plans easier to read in the detail drawer. The schedule now appears before feed and social management, and planned sessions are shown as a compact day-grouped agenda instead of a stack of large cards.",
       "details": []
     }
   ]

@@ -33,6 +33,8 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 15. The shared schedule item editing slice of `Event Social Planning Mobile Web Experience` was promoted as `3.4.40`; keep notifications, full schedule catalog discovery, and native companion behavior separate.
 16. The private/shared visual treatment slice of `Event Social Planning Mobile Web Experience` was promoted as `3.4.41`; keep vendor/booth/location notes, notifications, full schedule catalog discovery, and native companion behavior separate.
 17. The vendor/booth/location notes slice of `Event Social Planning Mobile Web Experience` was promoted as `3.4.42`; keep notifications, full schedule catalog discovery, and native companion behavior separate.
+18. The compact contract slice of `Event Social Planning Platform Companion Contract` was promoted as `3.4.43`; keep native UI, push notifications, full schedule catalog discovery, offline mutation queues, realtime location, and broad social discovery separate.
+19. `Platform Companion Personal Sched ICS Sync Visibility` was promoted as `3.4.44`; keep native UI, full schedule catalog discovery, background polling, push notifications, and offline mutation queues separate.
 
 ### Backlog Item: Apple Platform App Contract Publishing
 **Type:** Deferred milestone
@@ -250,26 +252,6 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - Private vs shared records are visually clear.
 - The mobile web surface is good enough to validate the workflow before native/platform implementation.
 
-### Backlog Item: Event Social Planning Platform Companion Contract
-**Type:** Deferred milestone
-**Tags:** `apple`, `platform-app`, `events`, `social`, `openapi`, `offline`, `notifications`
-
-**Goal:** Define the backend/API contract and product boundary for an Apple/platform companion app that consumes event social planning data for day-of-con use.
-
-**Scope**
-- Identify which event social planning endpoints the platform app needs for read, create, update, and archive flows.
-- Define a compact "today at this event" payload for schedules, meetups, attendees, groups, and locations.
-- Define sync behavior for poor convention-center connectivity, including cache freshness and conflict expectations.
-- Define which push/reminder events belong in the platform app, such as meetup reminders, schedule changes, or group updates.
-- Keep the platform app as a companion surface; the web app remains the canonical admin/planning surface unless a later milestone changes that boundary.
-- Document privacy and safety expectations before adding any location-like or presence-like features.
-
-**Acceptance Criteria**
-- The platform app can consume event social planning data through versioned API/OpenAPI behavior.
-- Day-of-con companion needs are documented separately from web-app admin/planning needs.
-- Offline/cache and notification boundaries are explicitly defined.
-- No real-time location or broad social discovery behavior is introduced without a separate milestone and privacy review.
-
 ### Backlog Item: Event Schedule Catalog and Now/Next Discovery
 **Type:** Deferred milestone
 **Tags:** `events`, `schedule`, `discovery`, `sched`, `calendar`, `mobile`
@@ -346,30 +328,6 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - Catalog sessions and personal planned sessions are visually distinct.
 - Quick plan-change actions and conflict cues are available without requiring web-specific UI assumptions.
 - The app consumes versioned backend/OpenAPI behavior and does not depend on web frontend files.
-
-### Backlog Item: Platform Companion Personal Sched ICS Sync Visibility
-**Type:** Task
-**Tags:** `apple`, `platform-app`, `xcode`, `events`, `sched`, `ics`, `sync`, `privacy`
-
-**Goal:** Show personal Sched ICS sync health in the Apple/Xcode app as personal schedule state, not as the full event calendar.
-
-**Why this work exists**
-- Users need confidence that their selected Sched sessions are fresh on the device they carry during the event.
-- Personal ICS links are sensitive credentials and must never leak into native UI, screenshots, logs, or diagnostics.
-- The platform app should reflect backend sync state instead of inventing separate sync logic on-device.
-
-**Scope**
-- Consume backend sync status for a user's personal Sched ICS feed, including last sync time, freshness, stale/offline state, and sync errors.
-- Present ICS-derived state as personal planned schedule state rather than as the event's full catalog.
-- Never expose or log the personal ICS URL in the app UI, debug logs, screenshots, analytics payloads, or diagnostics.
-- Allow manual refresh only if the backend contract explicitly supports it.
-- Keep error and stale-state messaging actionable without revealing secret-bearing source details.
-
-**Acceptance Criteria**
-- The app can show last sync time, stale/offline state, and sync error state for the personal ICS-backed plan.
-- Personal ICS sync is presented as the user's schedule state, not as the authoritative full event calendar.
-- Personal ICS URLs are excluded from app UI, logs, screenshots, and diagnostics.
-- Manual refresh is present only when supported by the backend contract.
 
 ### Backlog Item: Platform Companion Friend-Aware Session Changes
 **Type:** Deferred milestone

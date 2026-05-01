@@ -6794,6 +6794,94 @@ Historical note:
 - What remains in the milestone: nothing; `3.4.42` is closed.
 - Recommended commit message: `Release 3.4.42 event social vendor booth location notes`
 
+## 3.4.43 — Event Social Platform Companion Contract
+
+**Goal:** Define and ship the current backend/API contract for an Apple/platform companion client that can read day-of-con Event social planning data without turning this patch into native UI, notification, location, or full schedule catalog work.
+
+**Current Slice:** `Closed 2026-04-30.`
+
+### Scope
+
+- Add a compact companion read endpoint for "today at this event" planning data.
+- Return event metadata, attendee/group/meetup/schedule-plan records, counts, personal ICS sync metadata, cache guidance, privacy rules, and contract metadata in one response.
+- Keep writes on the existing Event social planning endpoints instead of adding parallel companion-specific write APIs.
+- Document the platform companion boundary for Apple/native clients.
+- Update OpenAPI, smoke coverage, unit source assertions, release notes, release feed, and version metadata.
+- Keep native companion UI, full schedule catalog discovery, push notifications, realtime location/presence, broad social discovery, and offline mutation queues out of this milestone.
+
+### Acceptance Criteria
+
+- `GET /api/events/:id/companion/today` returns a scoped companion snapshot for authenticated users.
+- The response includes `event-social-companion.v1` contract metadata and endpoint references for existing write flows.
+- The response never returns the raw personal Sched ICS URL.
+- Cache, offline, conflict, privacy, and out-of-scope expectations are represented in the API payload and documented.
+- OpenAPI exposes `EventCompanionTodayResponse`.
+- Event social planning smoke coverage validates the companion endpoint against real in-stack data.
+- Existing Event social planning APIs and mobile web behavior continue to work.
+
+### Notes
+
+- This is a contract and boundary milestone, not a platform app implementation milestone.
+- Full schedule catalog and Now/Next discovery stays in `Event Schedule Catalog and Now/Next Discovery`.
+- Selected-recipient notifications need a separate notification milestone.
+
+### Closeout Evidence
+
+- Roadmap slice: `3.4.43 — Event Social Platform Companion Contract`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/40-Event-Social-Planning-Foundation.md`, `docs/wiki/41-Personal-Sched-ICS-Sync.md`, `docs/wiki/42-Event-Social-Platform-Companion-Contract.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild to `3.4.43`; `/api/health` reported frontend/backend/build `3.4.43`; backend runtime verified `APP_EDITION=platform` and `PLAYWRIGHT_E2E_BYPASS_TOKEN=unset` after browser regression; generated public compose was booted without the localhost override and verified `APP_EDITION=unset` before the homelab boundary smoke.
+- CI/checks run locally: `APP_VERSION=3.4.43 docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml up -d --build backend frontend`; backend syntax checks; event social planning smoke; backend unit tests; OpenAPI validation; compose config validation; public export surface validation; init parity; migration rehearsal; Help > Releases smoke for `3.4.43`; platform edition boundary; homelab edition boundary against generated public compose; RBAC regression; full browser regression (`53 passed`, `4 skipped`); observability release evidence; local release preflight; compose generator idempotence; version sync check; `git diff --check`; release-evidence secret-hygiene grep.
+- Release/version artifacts: `app-meta.json`, backend/frontend app meta, backend/frontend package and lockfile versions, generated `docker-compose.yml`, `docs/releases/v3.4.43.md`, and `backend/release-feed.json` are aligned on `3.4.43`.
+- Verified facts: `GET /api/events/:id/companion/today` returns the `event-social-companion.v1` contract snapshot; the payload includes scoped event metadata, counts, attendees, groups, meetups, schedule plans, personal ICS freshness without raw URL exposure, cache guidance, privacy rules, out-of-scope capability markers, and existing write endpoint references; OpenAPI documents `EventCompanionTodayResponse`; the event social smoke validates the contract against live in-stack data.
+- Blocked/unverified items: CI `secret-scan` and `image-security-and-sbom` remain CI-only; local preflight compose-smoke secure-cookie checks remain blocked by the development stack using `NODE_ENV=development` and `SESSION_COOKIE_SECURE=false`, while runtime health/version and compose config were verified locally; the local preflight helper still reports browser regression as blocked because it does not execute Playwright itself, but the full browser regression was run locally and passed.
+- Files changed: `backend/routes/events.js`, `backend/openapi/openapi.yaml`, `backend/scripts/event-social-planning-smoke.js`, `backend/scripts/unit-tests.js`, `docs/wiki/42-Event-Social-Platform-Companion-Contract.md`, version metadata/package files, `docker-compose.yml`, `docs/releases/v3.4.43.md`, `backend/release-feed.json`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `artifacts/observability-evidence/observability-release-evidence.json`, `preflight-go-no-go.md`.
+- Risks or follow-ups: native companion UI, selected-recipient notifications, full schedule catalog discovery, offline mutation queues, realtime location/presence, broad social discovery, and richer conflict UX remain separate backlog or future milestone work.
+- What remains in the milestone: nothing; `3.4.43` is closed.
+- Recommended commit message: `Release 3.4.43 event social platform companion contract`
+
+## 3.4.44 — Platform Companion Personal Sched ICS Sync Visibility
+
+**Goal:** Make personal Sched ICS sync health explicit and UI-safe for platform companion clients, so the Apple app can show confidence, stale, failed, and manual-refresh states without exposing raw feed URLs or treating personal plans as a full event catalog.
+
+**Current Slice:** `Closed 2026-05-01.`
+
+### Scope
+
+- Extend the event companion snapshot with a UI-safe `sync.personal_ics_visibility` object.
+- Include connected state, provider, lifecycle status, sync status, freshness, stale threshold, item count, redacted error summary, and manual refresh support.
+- Keep the raw personal ICS URL hidden from API responses and diagnostics.
+- Document how platform clients should present personal ICS sync health as personal schedule state.
+- Update OpenAPI, smoke coverage, unit source assertions, release notes, release feed, and version metadata.
+- Avoid native UI implementation, full schedule catalog ingestion, background polling, push notifications, and offline mutation queues.
+
+### Acceptance Criteria
+
+- `GET /api/events/:id/companion/today` includes `sync.personal_ics_visibility`.
+- The visibility object always reports `raw_url_returned: false`.
+- Error summaries redact URL-like values before reaching companion payloads.
+- Manual refresh is advertised only when a personal ICS feed is connected.
+- Documentation distinguishes personal selected-session sync from the full event catalog.
+- Existing personal ICS source APIs, event social planning APIs, and companion snapshot behavior continue to work.
+
+### Notes
+
+- This is a backend/API contract patch for platform clients, not an Apple app UI patch.
+- Full catalog discovery and platform Now/Next remain separate future milestones.
+
+### Closeout Evidence
+
+- Roadmap slice: `3.4.44 — Platform Companion Personal Sched ICS Sync Visibility`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/40-Event-Social-Planning-Foundation.md`, `docs/wiki/41-Personal-Sched-ICS-Sync.md`, `docs/wiki/42-Event-Social-Platform-Companion-Contract.md`, `docs/wiki/43-Platform-Companion-ICS-Sync-Visibility.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild to `3.4.44`; `/api/health` reported frontend/backend/build `3.4.44`; backend runtime verified `APP_EDITION=platform` and `PLAYWRIGHT_E2E_BYPASS_TOKEN=unset` after browser regression; generated public compose was booted without the localhost override and verified `APP_EDITION=unset` before the homelab boundary smoke.
+- CI/checks run locally: `APP_VERSION=3.4.44 docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml up -d --build backend frontend`; backend syntax checks; event social planning smoke; personal Sched ICS sync smoke; backend unit tests; OpenAPI validation; compose config validation; public export surface validation; init parity; migration rehearsal; Help > Releases smoke for `3.4.44`; platform edition boundary; homelab edition boundary against generated public compose; RBAC regression; full browser regression (`53 passed`, `4 skipped`); observability release evidence; local release preflight; compose generator idempotence; version sync check; `git diff --check`; release-evidence secret-hygiene grep.
+- Release/version artifacts: `app-meta.json`, backend/frontend app meta, backend/frontend package and lockfile versions, generated `docker-compose.yml`, `docs/releases/v3.4.44.md`, and `backend/release-feed.json` are aligned on `3.4.44`.
+- Verified facts: `GET /api/events/:id/companion/today` now returns `sync.personal_ics_visibility`; connected-feed smoke verified `fresh` visibility, manual refresh endpoint readback, `personal_schedule_only: true`, `raw_url_returned: false`, and no raw ICS URL leakage; disconnected event social smoke verified safe not-connected readback; OpenAPI documents the UI-safe visibility object in `EventCompanionTodayResponse`.
+- Blocked/unverified items: CI `secret-scan` and `image-security-and-sbom` remain CI-only; local preflight compose-smoke secure-cookie checks remain blocked by the development stack using `NODE_ENV=development` and `SESSION_COOKIE_SECURE=false`, while runtime health/version and compose config were verified locally; the local preflight helper still reports browser regression as blocked because it does not execute Playwright itself, but the full browser regression was run locally and passed.
+- Files changed: `backend/routes/events.js`, `backend/openapi/openapi.yaml`, `backend/scripts/event-personal-ics-sync-smoke.js`, `backend/scripts/event-social-planning-smoke.js`, `backend/scripts/unit-tests.js`, `docs/wiki/42-Event-Social-Platform-Companion-Contract.md`, `docs/wiki/43-Platform-Companion-ICS-Sync-Visibility.md`, version metadata/package files, `docker-compose.yml`, `docs/releases/v3.4.44.md`, `backend/release-feed.json`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `artifacts/observability-evidence/observability-release-evidence.json`, `preflight-go-no-go.md`.
+- Risks or follow-ups: native companion UI, full schedule catalog discovery, background polling, selected-recipient notifications, offline mutation queues, realtime location/presence, and richer conflict UX remain separate backlog or future milestone work.
+- What remains in the milestone: nothing; `3.4.44` is closed.
+- Recommended commit message: `Release 3.4.44 platform companion personal sched ics sync visibility`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

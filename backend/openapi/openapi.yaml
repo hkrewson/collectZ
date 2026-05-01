@@ -1885,6 +1885,117 @@
         },
         "required": ["source", "summary", "error"]
       },
+      "EventCompanionTodayResponse": {
+        "type": "object",
+        "properties": {
+          "contract": {
+            "type": "object",
+            "properties": {
+              "version": { "type": "string", "enum": ["event-social-companion.v1"] },
+              "generated_at": { "type": "string", "format": "date-time" },
+              "read_endpoint": { "type": "string" },
+              "write_endpoints": {
+                "type": "object",
+                "properties": {
+                  "attendees": { "type": "string" },
+                  "groups": { "type": "string" },
+                  "meetups": { "type": "string" },
+                  "schedule_plans": { "type": "string" },
+                  "personal_ics_source": { "type": "string" }
+                },
+                "required": ["attendees", "groups", "meetups", "schedule_plans", "personal_ics_source"]
+              },
+              "out_of_scope": { "type": "array", "items": { "type": "string" } }
+            },
+            "required": ["version", "generated_at", "read_endpoint", "write_endpoints", "out_of_scope"]
+          },
+          "event": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "id": { "type": "integer" },
+              "title": { "type": "string" },
+              "url": { "type": ["string", "null"] },
+              "location": { "type": ["string", "null"] },
+              "date_start": { "type": ["string", "null"], "format": "date" },
+              "date_end": { "type": ["string", "null"], "format": "date" }
+            },
+            "required": ["id", "title"]
+          },
+          "counts": {
+            "type": "object",
+            "properties": {
+              "attendees": { "type": "integer" },
+              "groups": { "type": "integer" },
+              "meetups": { "type": "integer" },
+              "schedule_plans": { "type": "integer" }
+            },
+            "required": ["attendees", "groups", "meetups", "schedule_plans"]
+          },
+          "sync": {
+            "type": "object",
+            "properties": {
+              "personal_ics": {
+                "oneOf": [
+                  { "$ref": "#/components/schemas/EventPersonalIcsSourceRecord" },
+                  { "type": "null" }
+                ]
+              },
+              "freshness": { "type": "string", "enum": ["not_connected", "never_synced", "fresh", "stale", "failed", "unknown"] },
+              "personal_ics_visibility": {
+                "type": "object",
+                "description": "UI-safe personal Sched ICS sync state for platform companion clients. Never includes the raw feed URL.",
+                "properties": {
+                  "connected": { "type": "boolean" },
+                  "provider": { "type": "string" },
+                  "status": { "type": "string" },
+                  "sync_status": { "type": "string", "enum": ["idle", "running", "succeeded", "failed"] },
+                  "freshness": { "type": "string", "enum": ["not_connected", "never_synced", "fresh", "stale", "failed", "unknown"] },
+                  "state_label": { "type": "string" },
+                  "last_synced_at": { "type": ["string", "null"], "format": "date-time" },
+                  "last_success_at": { "type": ["string", "null"], "format": "date-time" },
+                  "stale_after_at": { "type": ["string", "null"], "format": "date-time" },
+                  "last_item_count": { "type": "integer" },
+                  "has_error": { "type": "boolean" },
+                  "error_summary": { "type": ["string", "null"] },
+                  "manual_refresh_supported": { "type": "boolean" },
+                  "manual_refresh_endpoint": { "type": ["string", "null"] },
+                  "personal_schedule_only": { "type": "boolean" },
+                  "raw_url_returned": { "type": "boolean" }
+                },
+                "required": ["connected", "provider", "status", "sync_status", "freshness", "state_label", "last_synced_at", "last_success_at", "stale_after_at", "last_item_count", "has_error", "error_summary", "manual_refresh_supported", "manual_refresh_endpoint", "personal_schedule_only", "raw_url_returned"]
+              }
+            },
+            "required": ["personal_ics", "freshness", "personal_ics_visibility"]
+          },
+          "cache": {
+            "type": "object",
+            "properties": {
+              "recommended_ttl_seconds": { "type": "integer" },
+              "stale_after_seconds": { "type": "integer" },
+              "offline_mode": { "type": "string" },
+              "conflict_policy": { "type": "string" }
+            },
+            "required": ["recommended_ttl_seconds", "stale_after_seconds", "offline_mode", "conflict_policy"]
+          },
+          "privacy": {
+            "type": "object",
+            "properties": {
+              "personal_ics_url_returned": { "type": "boolean" },
+              "realtime_location": { "type": "boolean" },
+              "broad_social_discovery": { "type": "boolean" },
+              "notifications": { "type": "string" },
+              "visibility_values": { "type": "array", "items": { "$ref": "#/components/schemas/EventSocialVisibility" } }
+            },
+            "required": ["personal_ics_url_returned", "realtime_location", "broad_social_discovery", "notifications", "visibility_values"]
+          },
+          "attendees": { "type": "array", "items": { "$ref": "#/components/schemas/EventAttendeeRecord" } },
+          "groups": { "type": "array", "items": { "$ref": "#/components/schemas/EventGroupRecord" } },
+          "meetups": { "type": "array", "items": { "$ref": "#/components/schemas/EventMeetupRecord" } },
+          "schedule_plans": { "type": "array", "items": { "$ref": "#/components/schemas/EventSchedulePlanRecord" } }
+        },
+        "required": ["contract", "event", "counts", "sync", "cache", "privacy", "attendees", "groups", "meetups", "schedule_plans"]
+      },
       "ValuationRefreshRequest": {
         "type": "object",
         "properties": {
@@ -5248,6 +5359,19 @@
         "security": [{ "cookieSession": [], "csrfHeader": [] }],
         "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }, { "in": "path", "name": "planId", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
         "responses": { "200": { "description": "Archived event schedule plan", "content": { "application/json": { "schema": { "type": "object", "properties": { "ok": { "type": "boolean" }, "id": { "type": "integer" } }, "required": ["ok", "id"] } } } } }
+      }
+    },
+    "/api/events/{id}/companion/today": {
+      "get": {
+        "tags": ["Events"],
+        "summary": "Read compact Event social planning packet for platform companion clients",
+        "description": "Returns event-scoped attendees, groups, meetups, selected schedule plans, personal ICS sync status, cache guidance, privacy boundaries, and write endpoint references. This is not a full schedule catalog, notification fanout, or realtime location contract.",
+        "security": [{ "cookieSession": [] }, { "bearerAuth": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "responses": {
+          "200": { "description": "Platform companion event packet", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventCompanionTodayResponse" } } } },
+          "404": { "description": "Event not found" }
+        }
       }
     },
     "/api/events/{id}/personal-ics-source": {
