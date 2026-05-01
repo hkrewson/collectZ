@@ -488,19 +488,32 @@ test.describe('events and collectibles browser regressions', () => {
       await expect(nowNext.getByText(/Room 7AB/)).toBeVisible();
       await expect(nowNext.getByText(`Conflicts with ${currentTitle}`).first()).toBeVisible();
       await nowNext.getByLabel(`Plan state for ${nextTitle}`).selectOption('backup');
-      await expect(page.getByText('Catalog session added as backup')).toBeVisible();
+      const nextResolution = nowNext.getByLabel('Schedule conflict resolution');
+      await expect(nextResolution).toBeVisible();
+      await expect(nextResolution.getByText(`Conflicts with ${currentTitle}`)).toBeVisible();
+      await nextResolution.getByRole('button', { name: 'Mark as backup' }).click();
+      await expect(page.getByText('Catalog session kept as backup')).toBeVisible();
       await expect(nowNext.getByLabel(`Plan state for ${nextTitle}`)).toHaveValue('backup');
       await nowNext.getByLabel(`Plan state for ${currentTitle}`).selectOption('maybe');
-      await expect(page.getByText('Catalog session marked maybe')).toBeVisible();
+      const currentResolution = nowNext.getByLabel('Schedule conflict resolution');
+      await expect(currentResolution).toBeVisible();
+      await expect(currentResolution.getByText(`Conflicts with ${nextTitle}`)).toBeVisible();
+      await currentResolution.getByRole('button', { name: 'Keep both' }).click();
+      await expect(page.getByText('Catalog session kept as maybe')).toBeVisible();
       await expect(nowNext.getByLabel(`Plan state for ${currentTitle}`)).toHaveValue('maybe');
+      await nowNext.getByLabel(`Plan state for ${nextTitle}`).selectOption('planned');
+      const primaryResolution = nowNext.getByLabel('Schedule conflict resolution');
+      await expect(primaryResolution).toBeVisible();
+      await primaryResolution.getByRole('button', { name: 'Make planned, move conflicts to backup' }).click();
+      await expect(page.getByText('Catalog session planned; conflicts moved to backup')).toBeVisible();
 
       const plansResponse = await userRequestContext.get(`/api/events/${eventId}/schedule-plans`);
       expect(plansResponse.ok()).toBeTruthy();
       const plansPayload = await plansResponse.json();
       const currentPlan = plansPayload.items.find((item) => item.source_type === 'schedule_catalog' && item.source_ref === String(currentId));
       const nextPlan = plansPayload.items.find((item) => item.source_type === 'schedule_catalog' && item.title === nextTitle);
-      expect(currentPlan?.status).toBe('maybe');
-      expect(nextPlan?.status).toBe('backup');
+      expect(currentPlan?.status).toBe('backup');
+      expect(nextPlan?.status).toBe('planned');
       expect(nextPlan?.visibility).toBe('private');
 
       const scheduleSection = page.locator('details').filter({ hasText: 'Schedule' }).first();

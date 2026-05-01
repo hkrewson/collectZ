@@ -308,6 +308,15 @@ const formatConflictSummary = (conflicts = []) => {
   return `Conflicts with ${titles[0]} +${titles.length - 1}`;
 };
 
+const isPendingCatalogResolution = (pendingResolution, session, source = '') => (
+  Boolean(
+    pendingResolution?.session?.id &&
+    session?.id &&
+    Number(pendingResolution.session.id) === Number(session.id) &&
+    (!source || pendingResolution.source === source)
+  )
+);
+
 const nextTimedItem = (items, dateKey = 'start_at', now = new Date()) => {
   const nowTime = now.getTime();
   return [...(Array.isArray(items) ? items : [])]
@@ -1610,6 +1619,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
   const [meetupDrafts, setMeetupDrafts] = useState({});
   const [planDrafts, setPlanDrafts] = useState({});
   const [catalogDrafts, setCatalogDrafts] = useState({});
+  const [pendingCatalogResolution, setPendingCatalogResolution] = useState(null);
   const icsHealth = getIcsFeedHealth(icsSource);
 
   const set = (patch) => setForm((prev) => ({ ...prev, ...patch }));
@@ -1932,20 +1942,28 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
     }
   };
 
-  const upsertCatalogSessionPlanStatus = async (session, status = 'planned') => {
+  const upsertCatalogSessionPlanStatus = async (session, status = 'planned', options = {}) => {
     const sessionId = Number(session?.id || 0);
     if (!sessionId) return;
     const normalizedStatus = QUICK_SCHEDULE_PLAN_STATUS_OPTIONS.some((option) => option.value === status) ? status : 'planned';
     const existingPlan = plans.find((plan) => plan?.source_type === 'schedule_catalog' && String(plan?.source_ref || '') === String(sessionId));
+    const conflictPlanUpdates = Array.isArray(options.conflictPlanUpdates) ? options.conflictPlanUpdates : [];
     setSaving(`catalog-plan-${sessionId}`);
     setError('');
     setNotice('');
     try {
+      for (const update of conflictPlanUpdates) {
+        const conflictPlanId = Number(update?.id || 0);
+        if (!conflictPlanId) continue;
+        await apiCall('patch', `/events/${eventId}/schedule-plans/${conflictPlanId}`, {
+          status: update.status
+        });
+      }
       if (existingPlan?.id) {
         await apiCall('patch', `/events/${eventId}/schedule-plans/${existingPlan.id}`, {
           status: normalizedStatus
         });
-        setNotice(`Catalog session marked ${humanizeEventValue(normalizedStatus).toLowerCase()}`);
+        setNotice(options.notice || `Catalog session marked ${humanizeEventValue(normalizedStatus).toLowerCase()}`);
       } else {
         await apiCall('post', `/events/${eventId}/schedule-plans`, {
           title: session.title,
@@ -1960,14 +1978,56 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
           status: normalizedStatus,
           visibility: 'private'
         });
-        setNotice(`Catalog session added as ${humanizeEventValue(normalizedStatus).toLowerCase()}`);
+        setNotice(options.notice || `Catalog session added as ${humanizeEventValue(normalizedStatus).toLowerCase()}`);
       }
+      setPendingCatalogResolution(null);
       await load();
       await onChanged?.();
     } catch (err) {
       setError(err?.response?.data?.error || 'Failed to update catalog session plan state');
     } finally {
       setSaving('');
+    }
+  };
+
+  const requestCatalogPlanStatusChange = async (session, status = 'planned', meta = {}) => {
+    const normalizedStatus = QUICK_SCHEDULE_PLAN_STATUS_OPTIONS.some((option) => option.value === status) ? status : 'planned';
+    const conflicts = Array.isArray(meta.conflicts) ? meta.conflicts.filter((plan) => plan?.id) : [];
+    if (CONFLICTING_SCHEDULE_PLAN_STATUSES.has(normalizedStatus) && conflicts.length > 0) {
+      setPendingCatalogResolution({ session, status: normalizedStatus, conflicts, source: meta.source || 'catalog' });
+      setNotice('');
+      setError('');
+      return;
+    }
+    await upsertCatalogSessionPlanStatus(session, normalizedStatus);
+  };
+
+  const resolveCatalogConflict = async (action) => {
+    const pending = pendingCatalogResolution;
+    if (!pending?.session?.id) return;
+    if (action === 'keep-both') {
+      await upsertCatalogSessionPlanStatus(pending.session, pending.status, {
+        notice: `Catalog session kept as ${humanizeEventValue(pending.status).toLowerCase()}`
+      });
+      return;
+    }
+    if (action === 'make-primary') {
+      await upsertCatalogSessionPlanStatus(pending.session, 'planned', {
+        conflictPlanUpdates: pending.conflicts.map((plan) => ({ id: plan.id, status: 'backup' })),
+        notice: 'Catalog session planned; conflicts moved to backup'
+      });
+      return;
+    }
+    if (action === 'mark-backup') {
+      await upsertCatalogSessionPlanStatus(pending.session, 'backup', {
+        notice: 'Catalog session kept as backup'
+      });
+      return;
+    }
+    if (action === 'skip') {
+      await upsertCatalogSessionPlanStatus(pending.session, 'skipped', {
+        notice: 'Catalog session skipped'
+      });
     }
   };
 
@@ -2021,16 +2081,22 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
               sessions={catalogSessions}
               plans={plans}
               saving={saving}
-              onPlanStatusChange={upsertCatalogSessionPlanStatus}
+              pendingResolution={pendingCatalogResolution}
+              onPlanStatusChange={requestCatalogPlanStatusChange}
+              onResolveConflict={resolveCatalogConflict}
+              onCancelConflict={() => setPendingCatalogResolution(null)}
             />
             <EventScheduleCatalog
               sessions={catalogSessions}
               plans={plans}
               drafts={catalogDrafts}
               saving={saving}
+              pendingResolution={pendingCatalogResolution}
               onDraftChange={setCatalogDraft}
               onUpdate={updateCatalogSession}
-              onPlanStatusChange={upsertCatalogSessionPlanStatus}
+              onPlanStatusChange={requestCatalogPlanStatusChange}
+              onResolveConflict={resolveCatalogConflict}
+              onCancelConflict={() => setPendingCatalogResolution(null)}
               onRemove={(session) => archive(`/events/${eventId}/schedule-sessions/${session.id}`, 'Catalog session')}
             />
             <details className="mx-4 rounded-md border border-edge bg-raised">
@@ -2324,7 +2390,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
   );
 }
 
-function EventScheduleNowNext({ sessions = [], plans = [], saving = '', onPlanStatusChange }) {
+function EventScheduleNowNext({ sessions = [], plans = [], saving = '', pendingResolution = null, onPlanStatusChange, onResolveConflict, onCancelConflict }) {
   const snapshot = useMemo(() => getCatalogNowNext(sessions, plans), [sessions, plans]);
   const getConflicts = useCallback((session) => {
     if (!session) return [];
@@ -2358,7 +2424,10 @@ function EventScheduleNowNext({ sessions = [], plans = [], saving = '', onPlanSt
           plan={snapshot.current ? snapshot.catalogPlanByRef.get(String(snapshot.current.id)) : null}
           conflicts={snapshot.current ? getConflicts(snapshot.current) : []}
           saving={snapshot.current ? saving === `catalog-plan-${snapshot.current.id}` : false}
+          pendingResolution={pendingResolution}
           onPlanStatusChange={onPlanStatusChange}
+          onResolveConflict={onResolveConflict}
+          onCancelConflict={onCancelConflict}
           empty="Nothing currently in progress."
         />
         <CatalogNowNextSlot
@@ -2367,7 +2436,10 @@ function EventScheduleNowNext({ sessions = [], plans = [], saving = '', onPlanSt
           plan={snapshot.next ? snapshot.catalogPlanByRef.get(String(snapshot.next.id)) : null}
           conflicts={snapshot.next ? getConflicts(snapshot.next) : []}
           saving={snapshot.next ? saving === `catalog-plan-${snapshot.next.id}` : false}
+          pendingResolution={pendingResolution}
           onPlanStatusChange={onPlanStatusChange}
+          onResolveConflict={onResolveConflict}
+          onCancelConflict={onCancelConflict}
           empty="No upcoming catalog session."
         />
         {snapshot.laterToday.length ? (
@@ -2381,7 +2453,10 @@ function EventScheduleNowNext({ sessions = [], plans = [], saving = '', onPlanSt
                   plan={snapshot.catalogPlanByRef.get(String(session.id))}
                   conflicts={getConflicts(session)}
                   saving={saving === `catalog-plan-${session.id}`}
+                  pendingResolution={pendingResolution}
                   onPlanStatusChange={onPlanStatusChange}
+                  onResolveConflict={onResolveConflict}
+                  onCancelConflict={onCancelConflict}
                 />
               ))}
             </div>
@@ -2392,12 +2467,21 @@ function EventScheduleNowNext({ sessions = [], plans = [], saving = '', onPlanSt
   );
 }
 
-function CatalogNowNextSlot({ label, session, plan = null, conflicts = [], saving = false, onPlanStatusChange, empty }) {
+function CatalogNowNextSlot({ label, session, plan = null, conflicts = [], saving = false, pendingResolution = null, onPlanStatusChange, onResolveConflict, onCancelConflict, empty }) {
   return (
     <div className="grid grid-cols-[4.75rem_1fr] gap-3 px-3 py-3 sm:grid-cols-[5.75rem_1fr]">
       <p className="text-xs font-medium text-dim">{label}</p>
       {session ? (
-        <CatalogNowNextMiniRow session={session} plan={plan} conflicts={conflicts} saving={saving} onPlanStatusChange={onPlanStatusChange} />
+        <CatalogNowNextMiniRow
+          session={session}
+          plan={plan}
+          conflicts={conflicts}
+          saving={saving}
+          pendingResolution={pendingResolution}
+          onPlanStatusChange={onPlanStatusChange}
+          onResolveConflict={onResolveConflict}
+          onCancelConflict={onCancelConflict}
+        />
       ) : (
         <p className="text-sm text-ghost">{empty}</p>
       )}
@@ -2405,11 +2489,12 @@ function CatalogNowNextSlot({ label, session, plan = null, conflicts = [], savin
   );
 }
 
-function CatalogNowNextMiniRow({ session, plan = null, conflicts = [], saving = false, onPlanStatusChange }) {
+function CatalogNowNextMiniRow({ session, plan = null, conflicts = [], saving = false, pendingResolution = null, onPlanStatusChange, onResolveConflict, onCancelConflict }) {
   const agendaTime = formatAgendaTime(session?.start_at, session?.end_at);
   const categories = Array.isArray(session?.categories) ? session.categories.filter(Boolean) : [];
   const planStatus = plan?.status || '';
   const conflictSummary = formatConflictSummary(conflicts);
+  const showResolution = isPendingCatalogResolution(pendingResolution, session, 'now-next');
   const detailLine = [
     agendaTime.start && agendaTime.end ? `${agendaTime.start} - ${agendaTime.end}` : agendaTime.start,
     compactLocation(session?.room || session?.location),
@@ -2430,14 +2515,26 @@ function CatalogNowNextMiniRow({ session, plan = null, conflicts = [], saving = 
       <CatalogPlanStateSelect
         session={session}
         plan={plan}
+        conflicts={conflicts}
+        source="now-next"
         saving={saving}
         onPlanStatusChange={onPlanStatusChange}
       />
+      {showResolution ? (
+        <div className="sm:col-span-2">
+          <CatalogConflictResolutionPanel
+            pendingResolution={pendingResolution}
+            saving={saving}
+            onResolve={onResolveConflict}
+            onCancel={onCancelConflict}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function CatalogPlanStateSelect({ session, plan = null, saving = false, onPlanStatusChange }) {
+function CatalogPlanStateSelect({ session, plan = null, conflicts = [], source = 'catalog', saving = false, onPlanStatusChange }) {
   const value = plan?.status || '';
   return (
     <label className="field">
@@ -2447,7 +2544,7 @@ function CatalogPlanStateSelect({ session, plan = null, saving = false, onPlanSt
         value={value}
         disabled={saving || session?.status === 'hidden' || !onPlanStatusChange}
         onChange={(event) => {
-          if (event.target.value) onPlanStatusChange?.(session, event.target.value);
+          if (event.target.value) onPlanStatusChange?.(session, event.target.value, { conflicts, source });
         }}
         aria-label={`Plan state for ${session?.title || 'catalog session'}`}
       >
@@ -2460,7 +2557,38 @@ function CatalogPlanStateSelect({ session, plan = null, saving = false, onPlanSt
   );
 }
 
-function EventScheduleCatalog({ sessions, plans = [], drafts = {}, saving = '', onDraftChange, onUpdate, onPlanStatusChange, onRemove }) {
+function CatalogConflictResolutionPanel({ pendingResolution = null, saving = false, onResolve, onCancel }) {
+  const conflicts = Array.isArray(pendingResolution?.conflicts) ? pendingResolution.conflicts : [];
+  const conflictSummary = formatConflictSummary(conflicts);
+  const selectedLabel = humanizeEventValue(pendingResolution?.status || 'planned').toLowerCase();
+  return (
+    <div className="rounded-md border border-warn/30 bg-warn/10 px-3 py-2" aria-label="Schedule conflict resolution">
+      <p className="text-sm font-medium text-ink">Resolve schedule conflict</p>
+      <p className="mt-1 text-xs leading-5 text-dim">
+        {conflictSummary || 'This session overlaps another active schedule plan.'} Choose how to save this as {selectedLabel}.
+      </p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        <button className="btn-secondary btn-sm" disabled={saving} onClick={() => onResolve?.('keep-both')}>
+          Keep both
+        </button>
+        <button className="btn-ghost btn-sm" disabled={saving} onClick={() => onResolve?.('make-primary')}>
+          Make planned, move conflicts to backup
+        </button>
+        <button className="btn-ghost btn-sm" disabled={saving} onClick={() => onResolve?.('mark-backup')}>
+          Mark as backup
+        </button>
+        <button className="btn-ghost btn-sm" disabled={saving} onClick={() => onResolve?.('skip')}>
+          Skip this
+        </button>
+        <button className="btn-ghost btn-sm text-ghost" disabled={saving} onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function EventScheduleCatalog({ sessions, plans = [], drafts = {}, saving = '', pendingResolution = null, onDraftChange, onUpdate, onPlanStatusChange, onResolveConflict, onCancelConflict, onRemove }) {
   const catalogPlanByRef = useMemo(() => buildCatalogPlanByRef(plans), [plans]);
   const getConflicts = useCallback((session) => {
     const plan = session?.id ? catalogPlanByRef.get(String(session.id)) : null;
@@ -2501,9 +2629,12 @@ function EventScheduleCatalog({ sessions, plans = [], drafts = {}, saving = '', 
                 adding={saving === `catalog-plan-${session.id}`}
                 plan={catalogPlanByRef.get(String(session.id))}
                 conflicts={getConflicts(session)}
+                pendingResolution={pendingResolution}
                 onDraftChange={(patch) => onDraftChange?.(session.id, patch)}
                 onUpdate={() => onUpdate?.(session)}
                 onPlanStatusChange={onPlanStatusChange}
+                onResolveConflict={onResolveConflict}
+                onCancelConflict={onCancelConflict}
                 onRemove={() => onRemove?.(session)}
               />
             ))}
@@ -2514,7 +2645,7 @@ function EventScheduleCatalog({ sessions, plans = [], drafts = {}, saving = '', 
   );
 }
 
-function ScheduleCatalogRow({ session, draft = {}, saving = false, adding = false, plan = null, conflicts = [], onDraftChange, onUpdate, onPlanStatusChange, onRemove }) {
+function ScheduleCatalogRow({ session, draft = {}, saving = false, adding = false, plan = null, conflicts = [], pendingResolution = null, onDraftChange, onUpdate, onPlanStatusChange, onResolveConflict, onCancelConflict, onRemove }) {
   const categories = Array.isArray(session?.categories) ? session.categories.filter(Boolean) : [];
   const descriptionPreview = plainTextPreview(session?.description, 700);
   const agendaTime = formatAgendaTime(session?.start_at, session?.end_at);
@@ -2526,6 +2657,7 @@ function ScheduleCatalogRow({ session, draft = {}, saving = false, adding = fals
   const draftStatus = draft.status || session?.status || 'active';
   const planStatus = plan?.status || '';
   const conflictSummary = formatConflictSummary(conflicts);
+  const showResolution = isPendingCatalogResolution(pendingResolution, session, 'catalog');
 
   return (
     <details className={cx('group border-l-2', session?.status === 'cancelled' ? 'border-l-err/50' : 'border-l-transparent')}>
@@ -2667,6 +2799,7 @@ function ScheduleCatalogRow({ session, draft = {}, saving = false, adding = fals
                   <CatalogPlanStateSelect
                     session={session}
                     plan={plan}
+                    conflicts={conflicts}
                     saving={adding}
                     onPlanStatusChange={onPlanStatusChange}
                   />
@@ -2681,6 +2814,14 @@ function ScheduleCatalogRow({ session, draft = {}, saving = false, adding = fals
               Archive catalog session
             </button>
           </div>
+          {showResolution ? (
+            <CatalogConflictResolutionPanel
+              pendingResolution={pendingResolution}
+              saving={adding}
+              onResolve={onResolveConflict}
+              onCancel={onCancelConflict}
+            />
+          ) : null}
         </div>
       </div>
     </details>

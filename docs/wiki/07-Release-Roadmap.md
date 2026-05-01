@@ -7145,6 +7145,50 @@ Historical note:
 - What remains in the milestone: nothing; `3.4.50` is closed.
 - Recommended commit message: `Release 3.4.50 event schedule conflict detection`
 
+## 3.4.51 — Event Schedule Conflict Resolution Actions
+
+**Goal:** Turn read-only schedule conflict awareness into local, intentional plan-state choices without adding social notifications, provider import automation, native UI, or realtime behavior.
+
+**Current Slice:** `Closed 2026-05-01.`
+
+### Scope
+
+- Intercept conflict-active catalog plan-state changes when the selected session overlaps active personal schedule plans.
+- Show a compact conflict resolver in the Event drawer near the control that triggered it.
+- Offer local choices to keep both, make the selected session planned while moving conflicting plans to backup, mark the selected session as backup, or skip the selected session.
+- Apply the choices using the existing event schedule-plan create/update endpoints.
+- Keep conflict handling user-local and read/write only for the current web Event drawer schedule state.
+- Do not add selected-recipient notifications, friend/group attendance, provider import automation, native/platform UI, background sync, offline mutation queues, realtime location, or presence.
+- Update targeted browser coverage, unit source assertions, release notes, release feed, and version metadata.
+
+### Acceptance Criteria
+
+- Choosing planned/maybe/backup for a conflicting catalog session opens a resolver instead of silently saving.
+- `Keep both` preserves the requested state while keeping existing conflicting plans unchanged.
+- `Make planned, move conflicts to backup` marks the selected catalog session planned and moves conflicting plans to backup.
+- `Mark as backup` and `Skip this` save those states without requiring users to open the full Schedule row.
+- Conflict prompts are shown only at the interaction source, not duplicated across Now / Next and Catalog rows.
+- Existing non-conflicting quick plan-state behavior continues to save directly.
+
+### Notes
+
+- This milestone records intent around a conflict; it does not remove all conflict cues, because backup sessions remain conflict-visible by design.
+- Friend/group notification and attendance behavior remains a later social-sharing milestone.
+
+### Closeout Evidence
+
+- Roadmap slice: `3.4.51 — Event Schedule Conflict Resolution Actions`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/40-Event-Social-Planning-Foundation.md`, `docs/wiki/45-Event-Schedule-Catalog-Foundation.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild to `3.4.51`; `/api/health` reported frontend/backend/build `3.4.51`; backend runtime verified `APP_EDITION=platform`, `APP_VERSION=3.4.51`, `NODE_ENV=development`, `SESSION_COOKIE_SECURE=false`, and no persisted `PLAYWRIGHT_E2E_BYPASS_TOKEN`; generated public compose was booted without the localhost override and verified with `APP_EDITION` unset before the homelab boundary smoke; normal local platform stack was restored and rechecked after release evidence generation.
+- CI/checks run locally: `APP_VERSION=3.4.51 docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml up -d --build backend frontend`; backend unit tests (`230` passed); OpenAPI validation; event social planning smoke; personal Sched ICS sync smoke; targeted Event drawer conflict-resolution browser regression; full browser regression (`55` passed, `4` skipped); compose config validation; public export surface validation; init parity; migration rehearsal; Help > Releases smoke for `3.4.51`; platform edition boundary; homelab edition boundary against generated public compose; RBAC regression; production dependency audits; Dockerized `npm ci --no-fund --dry-run` lockfile sync checks for backend and frontend; compose generator idempotence; app meta/package sync; observability release evidence (`9/9` checks passed); local release preflight; release-evidence secret-hygiene grep; `git diff --check`.
+- Release/version artifacts: `app-meta.json`, backend/frontend app meta, backend/frontend package and lockfile versions, generated `docker-compose.yml`, `docs/releases/v3.4.51.md`, and `backend/release-feed.json` are aligned on `3.4.51`; the running Help > Releases feed served `3.4.51` as the latest entry.
+- Verified facts: conflicting planned/maybe/backup catalog plan-state changes now open a compact resolver instead of silently saving; resolver prompts render only at the interaction source; `Keep both` preserves the requested state and existing conflicting plans; `Make planned, move conflicts to backup` marks the selected session planned and patches conflicting plans to backup; `Mark as backup` saves the selected session as backup; non-conflicting quick plan-state changes continue to save directly; conflict choices use the existing scoped schedule-plan endpoints and do not introduce notifications.
+- Blocked/unverified items: CI `secret-scan` and `image-security-and-sbom` remain CI-only; local preflight compose-smoke secure-cookie checks remain blocked by the development stack using `NODE_ENV=development` and `SESSION_COOKIE_SECURE=false`, while runtime health/version and compose config were verified locally; the local preflight helper reports browser regression as blocked because it does not execute Playwright itself, but the full browser regression was run locally and passed.
+- Files changed: `frontend/src/components/EventsView.jsx`, `tests/playwright/specs/events-collectibles.browser.spec.js`, `backend/scripts/unit-tests.js`, version metadata/package files, `docker-compose.yml`, `docs/releases/v3.4.51.md`, `backend/release-feed.json`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `artifacts/observability-evidence/observability-release-evidence.json`, `preflight-go-no-go.md`.
+- Risks or follow-ups: selected-recipient notifications, friend/group attendance on catalog sessions, schedule catalog filters, provider import automation, native/platform UI, background sync, offline mutation queues, realtime location, and presence remain separate backlog or future milestone work.
+- What remains in the milestone: nothing; `3.4.51` is closed.
+- Recommended commit message: `Release 3.4.51 event schedule conflict resolution actions`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

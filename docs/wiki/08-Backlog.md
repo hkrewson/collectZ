@@ -37,6 +37,36 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 19. `Platform Companion Personal Sched ICS Sync Visibility` was promoted as `3.4.44`; keep native UI, full schedule catalog discovery, background polling, push notifications, and offline mutation queues separate.
 20. `Platform Companion Offline Event Packet` was promoted as `3.4.45`; keep full schedule catalog discovery, native UI, background polling, push notifications, realtime location, and offline mutation queues separate.
 
+### Backlog Item: Reusable Artist Records for Artwork Entry
+**Type:** Task
+**Tags:** `artwork`, `artists`, `creators`, `metadata`, `ux`
+
+**Goal:** Let users create, reuse, and update artist details once, then link artwork to those artist records without re-entering the same details for every item.
+
+**Why this work exists**
+- Artwork entry currently depends too much on repeated per-item artist details.
+- Users should be able to add artwork by an artist they already know without retyping bio, aliases, links, notes, or other creator metadata.
+- Artist creation and artist selection should live inside the same artwork entry workflow so adding a new artist does not interrupt cataloging.
+
+**Scope**
+- Add reusable artist/creator records that can be linked from artwork items.
+- Support typeahead search from the artwork artist field against existing artist records.
+- Allow inline artist creation from the same artist field when no existing artist matches.
+- When an existing artist is selected, autofill or expose known artist details without overwriting artwork-specific fields.
+- Make keyboard flow efficient: tabbing or moving to the next field should accept a highlighted match where that behavior is clear and reversible.
+- Keep artwork-specific metadata on the artwork item, such as title, medium, purchase/source details, provenance, signatures, photos, framing, or certificate details.
+- Support enough role flexibility to avoid assuming every linked person is only the primary artist.
+- Leave event exhibitor lookup/import out of this first slice; event vendors can be considered later as a separate provenance helper.
+
+**Acceptance Criteria**
+- A user can create an artist record once and reuse it across multiple artwork entries.
+- A user can search existing artists with typeahead while adding or editing artwork.
+- A user can create a new artist inline from the artwork entry flow without navigating away.
+- Selecting an artist brings forward known artist metadata while preserving artwork-specific fields.
+- Keyboard navigation supports fast entry without surprising or irreversible autofill.
+- Artwork detail views can show linked artist information and navigate to other works by the same artist.
+- The implementation clearly distinguishes reusable artist metadata from per-artwork provenance and item details.
+
 ### Backlog Item: Apple Platform App Contract Publishing
 **Type:** Deferred milestone
 **Tags:** `apple`, `ios`, `ipados`, `macos`, `tvos`, `openapi`, `releases`, `contract`
@@ -267,6 +297,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - The `3.4.48` read-only slice is promoted to add the first compact Now / Next view from existing catalog sessions.
 - The `3.4.49` quick-state slice is promoted to let catalog and Now / Next sessions create or update linked personal plan states.
 - The `3.4.50` conflict-detection slice is promoted to show read-only overlap warnings before replacement or notification workflows.
+- The `3.4.51` conflict-resolution slice is promoted to make local keep/backup/skip choices explicit before notification workflows.
 - This follow-up turns that data into import-backed and time-aware discovery surfaces.
 
 **Scope**

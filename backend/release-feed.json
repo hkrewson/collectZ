@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v3.4.51",
+      "version": "3.4.51",
+      "date": null,
+      "status": null,
+      "summary": "",
+      "details": []
+    },
+    {
       "title": "v3.4.50",
       "version": "3.4.50",
       "date": null,
@@ -70,14 +78,6 @@
       "date": null,
       "status": null,
       "summary": "",
-      "details": []
-    },
-    {
-      "title": "v3.4.41",
-      "version": "3.4.41",
-      "date": null,
-      "status": null,
-      "summary": "This patch makes Event social visibility easier to understand in the drawer, especially on mobile where private, group, selected, and shared plans need to be readable at a glance.",
       "details": []
     }
   ]
