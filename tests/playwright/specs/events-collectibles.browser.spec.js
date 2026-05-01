@@ -305,6 +305,97 @@ test.describe('events and collectibles browser regressions', () => {
     }
   });
 
+  test('event drawer can add edit and schedule catalog sessions', async ({ page }) => {
+    const adminCredentials = await ensureSavedAdminCredentials();
+    const adminRequestContext = await createAuthenticatedRequestContext(adminCredentials);
+    const userCredentials = await createFreshUserCredentials();
+    const userRequestContext = await createAuthenticatedRequestContext(userCredentials);
+    const suffix = Date.now();
+    const eventTitle = `Playwright Catalog Session ${suffix}`;
+    const sessionTitle = 'Creature Design Catalog Workshop';
+    const originalFlagsPayload = await getFeatureFlags(adminRequestContext);
+    const originalFlags = Array.isArray(originalFlagsPayload?.flags) ? originalFlagsPayload.flags : [];
+    const originalEventsEnabled = Boolean(originalFlags.find((flag) => flag?.key === 'events_enabled')?.enabled);
+
+    await deleteEventsByExactTitle(userRequestContext, eventTitle).catch(() => {});
+
+    try {
+      if (!originalEventsEnabled) {
+        await updateFeatureFlag(adminRequestContext, 'events_enabled', true);
+      }
+
+      const eventResponse = await postWithCsrf(userRequestContext, '/api/events', {
+        title: eventTitle,
+        url: `https://example.test/catalog-session/${suffix}`,
+        location: 'San Diego Convention Center',
+        date_start: '2026-07-23',
+        date_end: '2026-07-26'
+      }, 201);
+      const eventPayload = await eventResponse.json();
+      const eventId = Number(eventPayload?.id || 0);
+      expect(eventId).toBeGreaterThan(0);
+
+      await page.setViewportSize({ width: 390, height: 844 });
+      await signInThroughUi(page, userCredentials);
+      await page.goto('/dashboard?tab=library-events');
+      await expect(page.getByRole('heading', { name: 'Events' })).toBeVisible();
+      await page.getByPlaceholder('Search title or location…').fill(eventTitle);
+      await expect(page.getByText(eventTitle, { exact: true }).first()).toBeVisible();
+      await page.locator('article').filter({ hasText: eventTitle }).first().click();
+      await expect(page.getByRole('heading', { name: eventTitle })).toBeVisible();
+
+      const catalogSection = page.locator('details').filter({ hasText: 'Catalog' }).first();
+      await catalogSection.locator('summary').first().click();
+      await catalogSection.locator('summary').filter({ hasText: 'Add catalog session' }).click();
+      await catalogSection.getByPlaceholder('Session title').fill(sessionTitle);
+      await catalogSection.getByPlaceholder('Track').fill('Art');
+      await catalogSection.getByPlaceholder('Location').fill('Room 6A');
+      await catalogSection.getByPlaceholder('Room').fill('6A');
+      await catalogSection.getByPlaceholder('Categories, comma separated').fill('Workshop, Art');
+      await catalogSection.getByPlaceholder('Session URL').fill('https://example.test/catalog/workshop');
+      await catalogSection.getByPlaceholder('Description').fill('Catalog session created from the Event drawer.');
+      await catalogSection.getByRole('button', { name: 'Add catalog session' }).click();
+      await expect(page.getByText('Catalog session added')).toBeVisible();
+
+      const sessionRow = page.locator('details details').filter({ hasText: sessionTitle }).first();
+      await expect(sessionRow).toBeVisible();
+      await sessionRow.locator('summary').click();
+      await sessionRow.locator('label:has-text("Track") input').fill('Comics Art');
+      await sessionRow.locator('label:has-text("Categories") input').fill('Workshop, Drawing');
+      await sessionRow.locator('label:has-text("Status") select').selectOption('cancelled');
+      await sessionRow.getByRole('button', { name: 'Save catalog session' }).click();
+      await expect(page.getByText('Catalog session updated')).toBeVisible();
+      await expect(sessionRow.locator('summary span').filter({ hasText: /^cancelled$/ })).toBeVisible();
+
+      await sessionRow.getByRole('button', { name: 'Add to schedule' }).click();
+      await expect(page.getByText('Catalog session added to schedule')).toBeVisible();
+      await expect(sessionRow.getByRole('button', { name: 'In schedule' })).toBeDisabled();
+
+      const sessionsResponse = await userRequestContext.get(`/api/events/${eventId}/schedule-sessions`);
+      expect(sessionsResponse.ok()).toBeTruthy();
+      const sessionsPayload = await sessionsResponse.json();
+      const session = sessionsPayload.items.find((item) => item.title === sessionTitle);
+      expect(session?.status).toBe('cancelled');
+      expect(session?.track).toBe('Comics Art');
+      expect(session?.categories).toEqual(['Workshop', 'Drawing']);
+
+      const plansResponse = await userRequestContext.get(`/api/events/${eventId}/schedule-plans`);
+      expect(plansResponse.ok()).toBeTruthy();
+      const plansPayload = await plansResponse.json();
+      const linkedPlan = plansPayload.items.find((item) => item.source_type === 'schedule_catalog' && item.source_ref === String(session.id));
+      expect(linkedPlan?.title).toBe(sessionTitle);
+      expect(linkedPlan?.status).toBe('planned');
+      expect(linkedPlan?.visibility).toBe('private');
+    } finally {
+      await deleteEventsByExactTitle(userRequestContext, eventTitle).catch(() => {});
+      if (!originalEventsEnabled) {
+        await updateFeatureFlag(adminRequestContext, 'events_enabled', false).catch(() => {});
+      }
+      await userRequestContext.dispose();
+      await adminRequestContext.dispose();
+    }
+  });
+
   test('art signature provenance round-trips through the shared signature record contract', async () => {
     const adminCredentials = await ensureSavedAdminCredentials();
     const adminRequestContext = await createAuthenticatedRequestContext(adminCredentials);

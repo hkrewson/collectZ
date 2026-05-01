@@ -45,6 +45,15 @@ const EMPTY_SOCIAL_FORM = {
   planBooth: '',
   planLocationNotes: '',
   planStart: '',
+  catalogTitle: '',
+  catalogLocation: '',
+  catalogRoom: '',
+  catalogTrack: '',
+  catalogCategories: '',
+  catalogStart: '',
+  catalogEnd: '',
+  catalogSourceUrl: '',
+  catalogDescription: '',
   icsUrl: ''
 };
 
@@ -66,6 +75,12 @@ const SCHEDULE_PLAN_STATUS_OPTIONS = [
 const SCHEDULE_PLAN_VISIBILITY_OPTIONS = [
   { value: 'private', label: 'Private' },
   { value: 'event_workspace', label: 'Shared with event' }
+];
+
+const SCHEDULE_CATALOG_STATUS_OPTIONS = [
+  { value: 'active', label: 'Active' },
+  { value: 'cancelled', label: 'Cancelled' },
+  { value: 'hidden', label: 'Hidden' }
 ];
 
 const toInputDate = (value) => {
@@ -102,6 +117,14 @@ const fromDateTimeInput = (value) => {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return null;
   return parsed.toISOString();
+};
+
+const toDateTimeInput = (value) => {
+  if (!value) return '';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '';
+  const offsetMs = parsed.getTimezoneOffset() * 60 * 1000;
+  return new Date(parsed.getTime() - offsetMs).toISOString().slice(0, 16);
 };
 
 const formatDateTime = (value) => {
@@ -223,10 +246,19 @@ const socialPlaceSummary = (item = {}) => [
 ].filter(Boolean).join(' · ');
 
 const scheduleSourceLabel = (plan) => {
+  if (plan?.source_type === 'schedule_catalog') return 'Catalog';
   if (plan?.source_type === 'sched_ics') return 'Sched';
   if (plan?.source_type) return String(plan.source_type).replace(/_/g, ' ');
   return 'Manual';
 };
+
+const parseCategoryList = (value) => String(value || '')
+  .split(',')
+  .map((entry) => entry.trim())
+  .filter(Boolean)
+  .slice(0, 20);
+
+const formatCategoryInput = (categories) => (Array.isArray(categories) ? categories.filter(Boolean).join(', ') : '');
 
 const humanizeEventValue = (value) => {
   const text = String(value || '').replace(/_/g, ' ').trim();
@@ -1475,9 +1507,11 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
   const [groups, setGroups] = useState([]);
   const [meetups, setMeetups] = useState([]);
   const [plans, setPlans] = useState([]);
+  const [catalogSessions, setCatalogSessions] = useState([]);
   const [icsSource, setIcsSource] = useState(null);
   const [meetupDrafts, setMeetupDrafts] = useState({});
   const [planDrafts, setPlanDrafts] = useState({});
+  const [catalogDrafts, setCatalogDrafts] = useState({});
   const icsHealth = getIcsFeedHealth(icsSource);
 
   const set = (patch) => setForm((prev) => ({ ...prev, ...patch }));
@@ -1499,16 +1533,26 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
       };
     });
   };
+  const setCatalogDraft = (sessionId, patch) => {
+    setCatalogDrafts((prev) => {
+      const existing = prev[sessionId] || {};
+      return {
+        ...prev,
+        [sessionId]: { ...existing, ...patch }
+      };
+    });
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const [attendeePayload, groupPayload, meetupPayload, planPayload, icsPayload] = await Promise.all([
+      const [attendeePayload, groupPayload, meetupPayload, planPayload, catalogPayload, icsPayload] = await Promise.all([
         apiCall('get', `/events/${eventId}/attendees`),
         apiCall('get', `/events/${eventId}/groups`),
         apiCall('get', `/events/${eventId}/meetups`),
         apiCall('get', `/events/${eventId}/schedule-plans`),
+        apiCall('get', `/events/${eventId}/schedule-sessions`),
         apiCall('get', `/events/${eventId}/personal-ics-source`)
       ]);
       setAttendees(Array.isArray(attendeePayload?.items) ? attendeePayload.items : []);
@@ -1544,6 +1588,28 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
             booth: prev[id]?.booth ?? plan.booth ?? '',
             location_notes: prev[id]?.location_notes ?? plan.location_notes ?? '',
             notes: prev[id]?.notes ?? plan.notes ?? ''
+          };
+        });
+        return next;
+      });
+      const nextCatalogSessions = Array.isArray(catalogPayload?.items) ? catalogPayload.items : [];
+      setCatalogSessions(nextCatalogSessions);
+      setCatalogDrafts((prev) => {
+        const next = {};
+        nextCatalogSessions.forEach((session) => {
+          const id = String(session?.id || '');
+          if (!id) return;
+          next[id] = {
+            title: prev[id]?.title ?? session.title ?? '',
+            start_at: prev[id]?.start_at ?? toDateTimeInput(session.start_at),
+            end_at: prev[id]?.end_at ?? toDateTimeInput(session.end_at),
+            location: prev[id]?.location ?? session.location ?? '',
+            room: prev[id]?.room ?? session.room ?? '',
+            track: prev[id]?.track ?? session.track ?? '',
+            categories: prev[id]?.categories ?? formatCategoryInput(session.categories),
+            source_url: prev[id]?.source_url ?? session.source_url ?? '',
+            description: prev[id]?.description ?? session.description ?? '',
+            status: prev[id]?.status || session.status || 'active'
           };
         });
         return next;
@@ -1610,6 +1676,33 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
         });
         set({ planTitle: '', planLocation: '', planVendor: '', planBooth: '', planLocationNotes: '', planStart: '' });
         setNotice('Schedule plan added');
+      }
+      if (kind === 'catalog') {
+        await apiCall('post', `/events/${eventId}/schedule-sessions`, {
+          title: form.catalogTitle.trim(),
+          location: form.catalogLocation || null,
+          room: form.catalogRoom || null,
+          track: form.catalogTrack || null,
+          categories: parseCategoryList(form.catalogCategories),
+          start_at: fromDateTimeInput(form.catalogStart),
+          end_at: fromDateTimeInput(form.catalogEnd),
+          source_type: 'manual',
+          source_url: form.catalogSourceUrl || null,
+          description: form.catalogDescription || null,
+          status: 'active'
+        });
+        set({
+          catalogTitle: '',
+          catalogLocation: '',
+          catalogRoom: '',
+          catalogTrack: '',
+          catalogCategories: '',
+          catalogStart: '',
+          catalogEnd: '',
+          catalogSourceUrl: '',
+          catalogDescription: ''
+        });
+        setNotice('Catalog session added');
       }
       if (kind === 'ics') {
         await apiCall('put', `/events/${eventId}/personal-ics-source`, {
@@ -1711,6 +1804,66 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
     }
   };
 
+  const updateCatalogSession = async (session) => {
+    const sessionId = Number(session?.id || 0);
+    if (!sessionId) return;
+    const draft = catalogDrafts[String(sessionId)] || {};
+    setSaving(`catalog-${sessionId}`);
+    setError('');
+    setNotice('');
+    try {
+      await apiCall('patch', `/events/${eventId}/schedule-sessions/${sessionId}`, {
+        title: String(draft.title || session.title || '').trim(),
+        start_at: fromDateTimeInput(draft.start_at),
+        end_at: fromDateTimeInput(draft.end_at),
+        location: draft.location || null,
+        room: draft.room || null,
+        track: draft.track || null,
+        categories: parseCategoryList(draft.categories),
+        source_url: draft.source_url || null,
+        description: draft.description || null,
+        status: draft.status || session.status || 'active'
+      });
+      setNotice('Catalog session updated');
+      await load();
+      await onChanged?.();
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Failed to update catalog session');
+    } finally {
+      setSaving('');
+    }
+  };
+
+  const addCatalogSessionToSchedule = async (session) => {
+    const sessionId = Number(session?.id || 0);
+    if (!sessionId) return;
+    setSaving(`catalog-plan-${sessionId}`);
+    setError('');
+    setNotice('');
+    try {
+      await apiCall('post', `/events/${eventId}/schedule-plans`, {
+        title: session.title,
+        start_at: session.start_at || null,
+        end_at: session.end_at || null,
+        location: session.location || session.room || null,
+        source_type: 'schedule_catalog',
+        source_ref: String(sessionId),
+        source_url: session.source_url || null,
+        source_categories: Array.isArray(session.categories) ? session.categories : [],
+        source_updated_at: session.source_updated_at || null,
+        status: 'planned',
+        visibility: 'private'
+      });
+      setNotice('Catalog session added to schedule');
+      await load();
+      await onChanged?.();
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Failed to add catalog session to schedule');
+    } finally {
+      setSaving('');
+    }
+  };
+
   const archive = async (path, label) => {
     setSaving(path);
     setError('');
@@ -1734,7 +1887,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
           <div>
             <h3 className="text-sm font-semibold text-ink">Event plans</h3>
             <p className="mt-1 text-xs text-dim">
-              {pluralizePeople(attendees.length)} · {groups.length} group{groups.length === 1 ? '' : 's'} · {meetups.length} meetup{meetups.length === 1 ? '' : 's'} · {plans.length} plan{plans.length === 1 ? '' : 's'}
+              {pluralizePeople(attendees.length)} · {groups.length} group{groups.length === 1 ? '' : 's'} · {meetups.length} meetup{meetups.length === 1 ? '' : 's'} · {plans.length} plan{plans.length === 1 ? '' : 's'} · {catalogSessions.length} catalog
             </p>
           </div>
           {loading ? <Spinner size={16} /> : <button className="btn-ghost btn-sm" onClick={load}>Refresh</button>}
@@ -1751,6 +1904,42 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
       />
 
       <div className="divide-y divide-edge">
+        <details className="group">
+          <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium text-ink">
+            Catalog
+            <span className="text-xs text-ghost">{catalogSessions.length}</span>
+          </summary>
+          <div className="space-y-3 pb-4">
+            <EventScheduleCatalog
+              sessions={catalogSessions}
+              plans={plans}
+              drafts={catalogDrafts}
+              saving={saving}
+              onDraftChange={setCatalogDraft}
+              onUpdate={updateCatalogSession}
+              onAddToSchedule={addCatalogSessionToSchedule}
+              onRemove={(session) => archive(`/events/${eventId}/schedule-sessions/${session.id}`, 'Catalog session')}
+            />
+            <details className="mx-4 rounded-md border border-edge bg-raised">
+              <summary className="cursor-pointer list-none px-3 py-2 text-sm font-medium text-ink">
+                Add catalog session
+              </summary>
+              <div className="grid grid-cols-1 gap-2 border-t border-edge px-3 py-3 sm:grid-cols-2">
+                <input className="input" placeholder="Session title" value={form.catalogTitle} onChange={(e) => set({ catalogTitle: e.target.value })} />
+                <input className="input" placeholder="Track" value={form.catalogTrack} onChange={(e) => set({ catalogTrack: e.target.value })} />
+                <input className="input" placeholder="Location" value={form.catalogLocation} onChange={(e) => set({ catalogLocation: e.target.value })} />
+                <input className="input" placeholder="Room" value={form.catalogRoom} onChange={(e) => set({ catalogRoom: e.target.value })} />
+                <input type="datetime-local" className="input" value={form.catalogStart} onChange={(e) => set({ catalogStart: e.target.value })} />
+                <input type="datetime-local" className="input" value={form.catalogEnd} onChange={(e) => set({ catalogEnd: e.target.value })} />
+                <input className="input" placeholder="Categories, comma separated" value={form.catalogCategories} onChange={(e) => set({ catalogCategories: e.target.value })} />
+                <input className="input" placeholder="Session URL" value={form.catalogSourceUrl} onChange={(e) => set({ catalogSourceUrl: e.target.value })} />
+                <textarea className="input min-h-[72px] sm:col-span-2" placeholder="Description" value={form.catalogDescription} onChange={(e) => set({ catalogDescription: e.target.value })} />
+                <button className="btn-secondary sm:col-span-2" disabled={!form.catalogTitle.trim() || saving === 'catalog'} onClick={() => save('catalog')}>{saving === 'catalog' ? <Spinner size={16} /> : 'Add catalog session'}</button>
+              </div>
+            </details>
+          </div>
+        </details>
+
         <details className="group" open>
           <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium text-ink">
             Schedule
@@ -2019,6 +2208,212 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
 
       </div>
     </section>
+  );
+}
+
+function EventScheduleCatalog({ sessions, plans = [], drafts = {}, saving = '', onDraftChange, onUpdate, onAddToSchedule, onRemove }) {
+  const plannedCatalogRefs = useMemo(() => new Set(
+    (Array.isArray(plans) ? plans : [])
+      .filter((plan) => plan?.source_type === 'schedule_catalog' && plan?.source_ref)
+      .map((plan) => String(plan.source_ref))
+  ), [plans]);
+  const groups = useMemo(() => {
+    const ordered = sortPlansForAgenda(Array.isArray(sessions) ? sessions : []);
+    return ordered.reduce((acc, session) => {
+      const key = getPlanDayKey(session?.start_at);
+      const existing = acc.find((group) => group.key === key);
+      if (existing) {
+        existing.items.push(session);
+      } else {
+        acc.push({ key, label: formatPlanDayLabel(session?.start_at), items: [session] });
+      }
+      return acc;
+    }, []);
+  }, [sessions]);
+
+  if (!groups.length) {
+    return <p className="px-4 text-sm text-ghost">No catalog sessions yet.</p>;
+  }
+
+  return (
+    <div className="border-y border-edge bg-surface">
+      {groups.map((group) => (
+        <div key={group.key} className="border-b border-edge last:border-b-0">
+          <div className="border-b border-edge px-4 py-2 text-xs font-medium text-dim">
+            {group.label}
+          </div>
+          <div className="divide-y divide-edge">
+            {group.items.map((session) => (
+              <ScheduleCatalogRow
+                key={session.id}
+                session={session}
+                draft={drafts[String(session.id)] || {}}
+                saving={saving === `catalog-${session.id}`}
+                adding={saving === `catalog-plan-${session.id}`}
+                planned={plannedCatalogRefs.has(String(session.id))}
+                onDraftChange={(patch) => onDraftChange?.(session.id, patch)}
+                onUpdate={() => onUpdate?.(session)}
+                onAddToSchedule={() => onAddToSchedule?.(session)}
+                onRemove={() => onRemove?.(session)}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ScheduleCatalogRow({ session, draft = {}, saving = false, adding = false, planned = false, onDraftChange, onUpdate, onAddToSchedule, onRemove }) {
+  const categories = Array.isArray(session?.categories) ? session.categories.filter(Boolean) : [];
+  const descriptionPreview = plainTextPreview(session?.description, 700);
+  const agendaTime = formatAgendaTime(session?.start_at, session?.end_at);
+  const locationLine = [compactLocation(session?.location || session?.room), session?.track, categories.slice(0, 2).join(' · ')].filter(Boolean).join(' · ');
+  const sourceDetails = [
+    scheduleSourceLabel(session),
+    session?.source_updated_at ? `Updated ${formatDateTime(session.source_updated_at)}` : ''
+  ].filter(Boolean).join(' · ');
+  const draftStatus = draft.status || session?.status || 'active';
+
+  return (
+    <details className={cx('group border-l-2', session?.status === 'cancelled' ? 'border-l-err/50' : 'border-l-transparent')}>
+      <summary className="grid cursor-pointer list-none grid-cols-[4.75rem_1fr] gap-3 px-4 py-3 sm:grid-cols-[5.75rem_1fr]">
+        <div className="text-xs font-medium leading-5 text-dim">
+          <div className="whitespace-nowrap">{agendaTime.start}</div>
+          {agendaTime.end ? <div className="whitespace-nowrap text-ghost">{agendaTime.end}</div> : null}
+        </div>
+        <div className="min-w-0">
+          <div className="flex min-w-0 items-baseline gap-2">
+            <p className="truncate text-sm font-medium text-ink">{session.title}</p>
+            {session.status && session.status !== 'active' ? <span className="shrink-0 text-xs text-ghost">{session.status}</span> : null}
+            {planned ? <span className="shrink-0 text-xs text-ok">In schedule</span> : null}
+          </div>
+          <p className="mt-1 truncate text-xs text-dim">
+            {locationLine || 'Location pending'}
+          </p>
+        </div>
+      </summary>
+      <div className="grid grid-cols-[4.75rem_1fr] gap-3 px-4 pb-3 sm:grid-cols-[5.75rem_1fr]">
+        <div />
+        <div className="space-y-3 border-t border-edge pt-3">
+          <div className="grid grid-cols-1 gap-x-4 gap-y-3 text-sm sm:grid-cols-2">
+            {session.location ? (
+              <div className="min-w-0">
+                <p className="text-xs text-ghost">Location</p>
+                <p className="mt-1 leading-6 text-dim">{session.location}</p>
+              </div>
+            ) : null}
+            {session.room ? (
+              <div className="min-w-0">
+                <p className="text-xs text-ghost">Room</p>
+                <p className="mt-1 leading-6 text-dim">{session.room}</p>
+              </div>
+            ) : null}
+            {session.track ? (
+              <div className="min-w-0">
+                <p className="text-xs text-ghost">Track</p>
+                <p className="mt-1 leading-6 text-dim">{session.track}</p>
+              </div>
+            ) : null}
+            {categories.length > 0 ? (
+              <div className="min-w-0">
+                <p className="text-xs text-ghost">Categories</p>
+                <p className="mt-1 leading-6 text-dim">{categories.join(' · ')}</p>
+              </div>
+            ) : null}
+            {sourceDetails ? (
+              <div className="min-w-0">
+                <p className="text-xs text-ghost">Source</p>
+                <p className="mt-1 leading-6 text-dim">{sourceDetails}</p>
+              </div>
+            ) : null}
+            {session.status ? (
+              <div className="min-w-0">
+                <p className="text-xs text-ghost">Status</p>
+                <p className="mt-1 capitalize leading-6 text-dim">{session.status}</p>
+              </div>
+            ) : null}
+          </div>
+          {descriptionPreview ? (
+            <div>
+              <p className="text-xs text-ghost">Description</p>
+              <p className="mt-1 text-sm leading-6 text-dim">{descriptionPreview}</p>
+            </div>
+          ) : null}
+          <div className="grid grid-cols-1 gap-2 border-t border-edge pt-3 sm:grid-cols-2">
+            <label className="field">
+              <span className="label">Title</span>
+              <input className="input" value={draft.title ?? session.title ?? ''} onChange={(event) => onDraftChange?.({ title: event.target.value })} />
+            </label>
+            <label className="field">
+              <span className="label">Status</span>
+              <select className="input" value={draftStatus} onChange={(event) => onDraftChange?.({ status: event.target.value })}>
+                {SCHEDULE_CATALOG_STATUS_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              <span className="label">Start</span>
+              <input type="datetime-local" className="input" value={draft.start_at ?? ''} onChange={(event) => onDraftChange?.({ start_at: event.target.value })} />
+            </label>
+            <label className="field">
+              <span className="label">End</span>
+              <input type="datetime-local" className="input" value={draft.end_at ?? ''} onChange={(event) => onDraftChange?.({ end_at: event.target.value })} />
+            </label>
+            <label className="field">
+              <span className="label">Location</span>
+              <input className="input" value={draft.location ?? session.location ?? ''} onChange={(event) => onDraftChange?.({ location: event.target.value })} />
+            </label>
+            <label className="field">
+              <span className="label">Room</span>
+              <input className="input" value={draft.room ?? session.room ?? ''} onChange={(event) => onDraftChange?.({ room: event.target.value })} />
+            </label>
+            <label className="field">
+              <span className="label">Track</span>
+              <input className="input" value={draft.track ?? session.track ?? ''} onChange={(event) => onDraftChange?.({ track: event.target.value })} />
+            </label>
+            <label className="field">
+              <span className="label">Categories</span>
+              <input className="input" value={draft.categories ?? formatCategoryInput(session.categories)} onChange={(event) => onDraftChange?.({ categories: event.target.value })} />
+            </label>
+            <label className="field sm:col-span-2">
+              <span className="label">Session URL</span>
+              <input className="input" value={draft.source_url ?? session.source_url ?? ''} onChange={(event) => onDraftChange?.({ source_url: event.target.value })} />
+            </label>
+            <label className="field sm:col-span-2">
+              <span className="label">Description</span>
+              <textarea className="input min-h-[72px]" value={draft.description ?? session.description ?? ''} onChange={(event) => onDraftChange?.({ description: event.target.value })} />
+            </label>
+            <div className="flex items-end sm:col-span-2">
+              <button className="btn-secondary btn-sm w-full sm:w-auto" disabled={saving || !String(draft.title ?? session.title ?? '').trim()} onClick={onUpdate}>
+                {saving ? <Spinner size={16} /> : 'Save catalog session'}
+              </button>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-edge pt-3">
+            <div className="flex flex-wrap items-center gap-2">
+              {session.source_url ? (
+                <a className="btn-ghost btn-sm" href={session.source_url} target="_blank" rel="noreferrer">
+                  <Icons.Link />
+                  Open session
+                </a>
+              ) : null}
+              <button className="btn-ghost btn-sm" disabled={planned || adding || session.status === 'hidden'} onClick={onAddToSchedule}>
+                {adding ? <Spinner size={16} /> : planned ? 'In schedule' : 'Add to schedule'}
+              </button>
+            </div>
+            <button
+              className="btn-ghost btn-sm text-ghost hover:bg-err/10 hover:text-err"
+              onClick={onRemove}
+              aria-label={`Archive ${session.title || 'catalog session'}`}
+            >
+              Archive catalog session
+            </button>
+          </div>
+        </div>
+      </div>
+    </details>
   );
 }
 

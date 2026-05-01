@@ -199,7 +199,7 @@ test.describe('library multi-format browser regressions', () => {
         has: page.getByText(title, { exact: true })
       }).first();
       await expect(resultCard).toBeVisible();
-      await resultCard.locator('.poster').click();
+      await resultCard.click();
 
       await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
       await expect(page.getByText(/Loaned out.*Ted.*Due/i)).toBeVisible();

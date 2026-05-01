@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v3.4.47",
+      "version": "3.4.47",
+      "date": null,
+      "status": null,
+      "summary": "",
+      "details": []
+    },
+    {
       "title": "v3.4.46",
       "version": "3.4.46",
       "date": null,
@@ -70,14 +78,6 @@
       "date": null,
       "status": null,
       "summary": "This patch adds a compact mobile overview to Event plans so phone users can quickly see the next schedule item, next meetup, people, and groups before opening the detailed planning sections.",
-      "details": []
-    },
-    {
-      "title": "v3.4.37",
-      "version": "3.4.37",
-      "date": null,
-      "status": null,
-      "summary": "This patch improves the Event drawer's personal Sched feed status so sync failures, stale feeds, and never-synced feeds are easier to understand without making the selected schedule feel broken.",
       "details": []
     }
   ]

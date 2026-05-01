@@ -6969,6 +6969,49 @@ Historical note:
 - What remains in the milestone: nothing; `3.4.46` is closed.
 - Recommended commit message: `Release 3.4.46 event schedule catalog foundation`
 
+## 3.4.47 — Event Schedule Catalog Import/Entry Polish
+
+**Goal:** Make the schedule catalog foundation usable from the Event drawer through manual catalog entry, inline catalog editing, and a guarded path from catalog session to personal schedule plan.
+
+**Current Slice:** `Closed 2026-05-01.`
+
+### Scope
+
+- Add an Event drawer Catalog section that is visually separate from the user's personal Schedule section.
+- List catalog sessions grouped by day using the compact agenda pattern already used for schedule plans.
+- Add manual catalog session creation from the drawer.
+- Add inline editing for catalog session title, start/end time, location, room, track, categories, source URL, description, and status.
+- Add quiet archive behavior for catalog sessions.
+- Add a guarded `Add to schedule` action that creates a private schedule plan from a catalog session and disables when that catalog session already has a linked plan.
+- Update targeted browser coverage, unit source assertions, release notes, release feed, and version metadata.
+
+### Acceptance Criteria
+
+- Users can add, edit, and archive catalog sessions without leaving the Event drawer.
+- Catalog sessions are shown separately from personal schedule plans.
+- `Add to schedule` creates a `schedule_catalog`-sourced schedule plan with the catalog session id as `source_ref`.
+- The UI does not allow an obvious duplicate plan from the same catalog session.
+- The existing personal Sched ICS schedule-plan flow remains unchanged.
+
+### Notes
+
+- This is manual-entry and browser polish, not provider import automation.
+- Now / Next discovery, conflict workflows, selected-recipient notifications, friend/group attendance, native UI, background sync, realtime location, and offline mutation queues remain future work.
+
+### Closeout Evidence
+
+- Roadmap slice: `3.4.47 — Event Schedule Catalog Import/Entry Polish`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/40-Event-Social-Planning-Foundation.md`, `docs/wiki/44-Platform-Companion-Offline-Event-Packet.md`, `docs/wiki/45-Event-Schedule-Catalog-Foundation.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild to `3.4.47`; `/api/health` reported frontend/backend/build `3.4.47`; backend runtime verified `APP_EDITION=platform`, `APP_VERSION=3.4.47`, and `PLAYWRIGHT_E2E_BYPASS_TOKEN=unset` after browser regression; generated public compose was booted without the localhost override and verified `APP_EDITION=unset` before the homelab boundary smoke; normal local platform stack was restored and rechecked after release evidence generation.
+- CI/checks run locally: `APP_VERSION=3.4.47 docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml up -d --build backend frontend`; backend unit tests (`230` passed); OpenAPI validation; event social planning smoke; personal Sched ICS sync smoke; targeted Event drawer catalog browser regression; full browser regression (`54 passed`, `4 skipped`); compose config validation; public export surface validation; init parity; migration rehearsal; Help > Releases smoke for `3.4.47`; platform edition boundary; homelab edition boundary against generated public compose; RBAC regression; production dependency audits; Dockerized `npm ci --no-fund --dry-run` lockfile sync checks for backend and frontend; compose generator idempotence; version sync check; observability release evidence (`9/9` checks passed); local release preflight; release-evidence secret-hygiene grep; `git diff --check`.
+- Release/version artifacts: `app-meta.json`, backend/frontend app meta, backend/frontend package and lockfile versions, generated `docker-compose.yml`, `docs/releases/v3.4.47.md`, and `backend/release-feed.json` are aligned on `3.4.47`; the running Help > Releases feed served `3.4.47` as the latest entry.
+- Verified facts: Event drawer Catalog section lists catalog sessions separately from personal schedule plans; users can manually add catalog sessions; inline catalog editing covers title, start/end time, location, room, track, categories, source URL, description, and status; catalog sessions can be quietly archived; `Add to schedule` creates a private `schedule_catalog` plan with the catalog session id as `source_ref`; the obvious duplicate action is disabled once a catalog session is already in the personal schedule; personal Sched ICS sync remains unchanged and still maps selected sessions to personal schedule plans.
+- Blocked/unverified items: CI `secret-scan` and `image-security-and-sbom` remain CI-only; local preflight compose-smoke secure-cookie checks remain blocked by the development stack using `NODE_ENV=development` and `SESSION_COOKIE_SECURE=false`, while runtime health/version and compose config were verified locally; the local preflight helper reports browser regression as blocked because it does not execute Playwright itself, but the full browser regression was run locally and passed.
+- Files changed: `frontend/src/components/EventsView.jsx`, `tests/playwright/specs/events-collectibles.browser.spec.js`, `tests/playwright/specs/library-multiformat.browser.spec.js`, `backend/scripts/unit-tests.js`, version metadata/package files, `docker-compose.yml`, `docs/releases/v3.4.47.md`, `backend/release-feed.json`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `artifacts/observability-evidence/observability-release-evidence.json`, `preflight-go-no-go.md`.
+- Risks or follow-ups: provider import automation, Now / Next discovery UI, quick plan-change actions, conflict workflows, friend/group attendance, selected-recipient notifications, native/platform UI, background sync, offline mutation queues, realtime location, and presence remain separate backlog or future milestone work.
+- What remains in the milestone: nothing; `3.4.47` is closed.
+- Recommended commit message: `Release 3.4.47 event schedule catalog entry polish`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.
