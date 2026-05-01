@@ -7012,6 +7012,94 @@ Historical note:
 - What remains in the milestone: nothing; `3.4.47` is closed.
 - Recommended commit message: `Release 3.4.47 event schedule catalog entry polish`
 
+## 3.4.48 — Event Schedule Now / Next Read-Only View
+
+**Goal:** Make the existing event schedule catalog useful during a con by showing a compact read-only Now / Next view in the Event drawer, without adding import automation, notifications, or conflict-management behavior yet.
+
+**Current Slice:** `Closed 2026-05-01.`
+
+### Scope
+
+- Add a compact Now / Next block inside the Event drawer Catalog section.
+- Use existing `event_schedule_sessions` records as the source of truth.
+- Show the active in-progress catalog session when one exists.
+- Show the next upcoming catalog session when one exists.
+- Show a short later-today list when additional same-day catalog sessions exist.
+- Mark catalog sessions that are already in the user's schedule.
+- Keep cancelled and hidden catalog sessions out of the Now / Next summary.
+- Update targeted browser coverage, unit source assertions, release notes, release feed, and version metadata.
+
+### Acceptance Criteria
+
+- Users can quickly see what catalog session is happening now and what starts next.
+- The summary is read-only and does not replace the full catalog list or personal schedule list.
+- Catalog sessions already added to the user's schedule are visibly marked.
+- Existing catalog add/edit/archive and `Add to schedule` behavior continues to work.
+- Provider import automation, conflict workflows, selected-recipient notifications, native UI, background sync, realtime location, and offline mutation queues remain future work.
+
+### Notes
+
+- This is the first small Now / Next web slice from the larger Event Schedule Catalog Now/Next follow-up backlog item.
+- This milestone intentionally avoids provider import and notification scope so the discovery surface can be validated before heavier social coordination work.
+
+### Closeout Evidence
+
+- Roadmap slice: `3.4.48 — Event Schedule Now / Next Read-Only View`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/40-Event-Social-Planning-Foundation.md`, `docs/wiki/44-Platform-Companion-Offline-Event-Packet.md`, `docs/wiki/45-Event-Schedule-Catalog-Foundation.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild to `3.4.48`; `/api/health` reported frontend/backend/build `3.4.48`; backend runtime verified `APP_EDITION=platform`, `APP_VERSION=3.4.48`, and `PLAYWRIGHT_E2E_BYPASS_TOKEN=unset` after browser regression; generated public compose was booted without the localhost override and verified `APP_EDITION=unset` before the homelab boundary smoke; normal local platform stack was restored and rechecked after release evidence generation.
+- CI/checks run locally: `APP_VERSION=3.4.48 docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml up -d --build backend frontend`; backend unit tests (`230` passed); OpenAPI validation; event social planning smoke; personal Sched ICS sync smoke; targeted Event drawer Now / Next browser regression; full browser regression (`55 passed`, `4 skipped`); compose config validation; public export surface validation; init parity; migration rehearsal; Help > Releases smoke for `3.4.48`; platform edition boundary; homelab edition boundary against generated public compose; RBAC regression; production dependency audits; Dockerized `npm ci --no-fund --dry-run` lockfile sync checks for backend and frontend; compose generator idempotence; version sync check; observability release evidence (`9/9` checks passed); local release preflight; release-evidence secret-hygiene grep; `git diff --check`.
+- Release/version artifacts: `app-meta.json`, backend/frontend app meta, backend/frontend package and lockfile versions, generated `docker-compose.yml`, `docs/releases/v3.4.48.md`, and `backend/release-feed.json` are aligned on `3.4.48`; the running Help > Releases feed served `3.4.48` as the latest entry.
+- Verified facts: Event drawer Catalog section now shows a read-only Now / Next summary above the full catalog list; active in-progress catalog sessions appear under `Now`; the next upcoming catalog session appears under `Next`; additional same-day upcoming sessions can appear under `Later`; sessions already linked into the user's schedule are marked `In schedule`; hidden and cancelled catalog sessions are excluded from the Now / Next summary; existing catalog add/edit/archive and `Add to schedule` behavior remains covered by browser regression.
+- Blocked/unverified items: CI `secret-scan` and `image-security-and-sbom` remain CI-only; local preflight compose-smoke secure-cookie checks remain blocked by the development stack using `NODE_ENV=development` and `SESSION_COOKIE_SECURE=false`, while runtime health/version and compose config were verified locally; the local preflight helper reports browser regression as blocked because it does not execute Playwright itself, but the full browser regression was run locally and passed.
+- Files changed: `frontend/src/components/EventsView.jsx`, `tests/playwright/specs/events-collectibles.browser.spec.js`, `backend/scripts/unit-tests.js`, version metadata/package files, `docker-compose.yml`, `docs/releases/v3.4.48.md`, `backend/release-feed.json`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `artifacts/observability-evidence/observability-release-evidence.json`, `preflight-go-no-go.md`.
+- Risks or follow-ups: provider import automation, richer Now / Next filters, quick plan-change states, conflict workflows, friend/group attendance, selected-recipient notifications, native/platform UI, background sync, offline mutation queues, realtime location, and presence remain separate backlog or future milestone work.
+- What remains in the milestone: nothing; `3.4.48` is closed.
+- Recommended commit message: `Release 3.4.48 event schedule now next read-only view`
+
+## 3.4.49 — Event Schedule Quick Plan States
+
+**Goal:** Make catalog sessions actionable from the Event drawer by letting users quickly mark a session as planned, maybe, backup, or skipped without introducing notifications, conflict handling, or provider import behavior.
+
+**Current Slice:** `Closed 2026-05-01.`
+
+### Scope
+
+- Add a compact plan-state control for catalog sessions in the Catalog list.
+- Add the same plan-state control to Now / Next catalog items.
+- If no linked personal plan exists for a catalog session, selecting a state creates a private `schedule_catalog` plan.
+- If a linked personal plan already exists, selecting a state updates that plan instead of creating a duplicate.
+- Preserve the existing `source_type = schedule_catalog` and `source_ref = catalog_session_id` linkage.
+- Keep the state set intentionally small: planned, maybe, backup, skipped.
+- Update targeted browser coverage, unit source assertions, release notes, release feed, and version metadata.
+
+### Acceptance Criteria
+
+- Users can mark catalog sessions as planned, maybe, backup, or skipped from the catalog list.
+- Users can mark Now / Next sessions with the same states.
+- A first state selection creates a private personal schedule plan linked to the catalog session.
+- Later state changes update the linked plan instead of duplicating it.
+- Existing catalog add/edit/archive behavior remains intact.
+- Notifications, conflict workflows, friend/group attendance, provider import automation, native UI, background sync, realtime location, and offline mutation queues remain future work.
+
+### Notes
+
+- This is the first actionable planning slice after the read-only Now / Next view.
+- This milestone intentionally keeps social coordination and conflict resolution out of scope.
+
+### Closeout Evidence
+
+- Roadmap slice: `3.4.49 — Event Schedule Quick Plan States`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/40-Event-Social-Planning-Foundation.md`, `docs/wiki/44-Platform-Companion-Offline-Event-Packet.md`, `docs/wiki/45-Event-Schedule-Catalog-Foundation.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild to `3.4.49`; `/api/health` reported frontend/backend/build `3.4.49`; backend runtime verified `APP_EDITION=platform`, `APP_VERSION=3.4.49`, and `PLAYWRIGHT_E2E_BYPASS_TOKEN=unset` after browser regression; generated public compose was booted without the localhost override and verified `APP_EDITION=unset` before the homelab boundary smoke; normal local platform stack was restored and rechecked after release evidence generation.
+- CI/checks run locally: `APP_VERSION=3.4.49 docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml up -d --build backend frontend`; backend unit tests (`230` passed); OpenAPI validation; event social planning smoke; personal Sched ICS sync smoke; targeted Event drawer quick-state browser regression; full browser regression (`55 passed`, `4 skipped`); compose config validation; public export surface validation; init parity; migration rehearsal; Help > Releases smoke for `3.4.49`; platform edition boundary; homelab edition boundary against generated public compose; RBAC regression; production dependency audits; Dockerized `npm ci --no-fund --dry-run` lockfile sync checks for backend and frontend; compose generator idempotence; version sync check; observability release evidence (`9/9` checks passed); local release preflight; release-evidence secret-hygiene grep; `git diff --check`.
+- Release/version artifacts: `app-meta.json`, backend/frontend app meta, backend/frontend package and lockfile versions, generated `docker-compose.yml`, `docs/releases/v3.4.49.md`, and `backend/release-feed.json` are aligned on `3.4.49`; the running Help > Releases feed served `3.4.49` as the latest entry.
+- Verified facts: Catalog rows and Now / Next catalog items now expose a compact plan-state control; choosing planned, maybe, backup, or skipped creates a private linked `schedule_catalog` plan when none exists; choosing a new state for an already linked catalog session updates the existing plan rather than creating a duplicate; the UI continues to show the linked state on catalog and Now / Next rows; existing catalog add/edit/archive behavior remains covered by browser regression.
+- Blocked/unverified items: CI `secret-scan` and `image-security-and-sbom` remain CI-only; local preflight compose-smoke secure-cookie checks remain blocked by the development stack using `NODE_ENV=development` and `SESSION_COOKIE_SECURE=false`, while runtime health/version and compose config were verified locally; the local preflight helper reports browser regression as blocked because it does not execute Playwright itself, but the full browser regression was run locally and passed.
+- Files changed: `frontend/src/components/EventsView.jsx`, `tests/playwright/specs/events-collectibles.browser.spec.js`, `backend/scripts/unit-tests.js`, version metadata/package files, `docker-compose.yml`, `docs/releases/v3.4.49.md`, `backend/release-feed.json`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `artifacts/observability-evidence/observability-release-evidence.json`, `preflight-go-no-go.md`.
+- Risks or follow-ups: provider import automation, richer Now / Next filters, overlap/conflict detection, replacement choices, friend/group attendance, selected-recipient notifications, native/platform UI, background sync, offline mutation queues, realtime location, and presence remain separate backlog or future milestone work.
+- What remains in the milestone: nothing; `3.4.49` is closed.
+- Recommended commit message: `Release 3.4.49 event schedule quick plan states`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

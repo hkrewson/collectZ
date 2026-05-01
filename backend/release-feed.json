@@ -1,6 +1,22 @@
 {
   "releases": [
     {
+      "title": "v3.4.49",
+      "version": "3.4.49",
+      "date": null,
+      "status": null,
+      "summary": "",
+      "details": []
+    },
+    {
+      "title": "v3.4.48",
+      "version": "3.4.48",
+      "date": null,
+      "status": null,
+      "summary": "",
+      "details": []
+    },
+    {
       "title": "v3.4.47",
       "version": "3.4.47",
       "date": null,
@@ -62,22 +78,6 @@
       "date": null,
       "status": null,
       "summary": "This patch makes Event schedule plans easier to adjust from the drawer by adding compact in-place controls for planning status, sharing visibility, and notes.",
-      "details": []
-    },
-    {
-      "title": "v3.4.39",
-      "version": "3.4.39",
-      "date": null,
-      "status": null,
-      "summary": "This patch makes Event meetups easier to manage during planning or day-of-con use by adding compact in-place controls for meetup status and quick notes.",
-      "details": []
-    },
-    {
-      "title": "v3.4.38",
-      "version": "3.4.38",
-      "date": null,
-      "status": null,
-      "summary": "This patch adds a compact mobile overview to Event plans so phone users can quickly see the next schedule item, next meetup, people, and groups before opening the detailed planning sections.",
       "details": []
     }
   ]

@@ -3634,9 +3634,15 @@ results.push(run('event social planning foundation contract is wired for 3.4.30'
   assert.ok(eventPersonalIcsSyncSmokeSource.includes('offlinePacketVersion'));
   assert.ok(eventsViewSource.includes('function EventSocialPlanningPanel'));
   assert.ok(eventsViewSource.includes('function EventScheduleCatalog'));
+  assert.ok(eventsViewSource.includes('function EventScheduleNowNext'));
+  assert.ok(eventsViewSource.includes('getCatalogNowNext'));
+  assert.ok(eventsViewSource.includes('QUICK_SCHEDULE_PLAN_STATUS_OPTIONS'));
+  assert.ok(eventsViewSource.includes('CatalogPlanStateSelect'));
+  assert.ok(eventsViewSource.includes('upsertCatalogSessionPlanStatus'));
+  assert.ok(eventsViewSource.includes('Catalog now and next'));
   assert.ok(eventsViewSource.includes('/events/${eventId}/schedule-sessions'));
   assert.ok(eventsViewSource.includes('Add catalog session'));
-  assert.ok(eventsViewSource.includes('Add to schedule'));
+  assert.ok(eventsViewSource.includes('Not in schedule'));
   assert.ok(eventsViewSource.includes('/events/${eventId}/meetups'));
   assert.ok(eventsViewSource.includes('Event plans'));
   assert.ok(eventsViewSource.includes('function EventScheduleAgenda'));

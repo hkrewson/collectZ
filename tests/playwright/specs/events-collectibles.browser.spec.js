@@ -367,9 +367,9 @@ test.describe('events and collectibles browser regressions', () => {
       await expect(page.getByText('Catalog session updated')).toBeVisible();
       await expect(sessionRow.locator('summary span').filter({ hasText: /^cancelled$/ })).toBeVisible();
 
-      await sessionRow.getByRole('button', { name: 'Add to schedule' }).click();
-      await expect(page.getByText('Catalog session added to schedule')).toBeVisible();
-      await expect(sessionRow.getByRole('button', { name: 'In schedule' })).toBeDisabled();
+      await sessionRow.getByLabel(`Plan state for ${sessionTitle}`).selectOption('planned');
+      await expect(page.getByText('Catalog session added as planned')).toBeVisible();
+      await expect(sessionRow.getByLabel(`Plan state for ${sessionTitle}`)).toHaveValue('planned');
 
       const sessionsResponse = await userRequestContext.get(`/api/events/${eventId}/schedule-sessions`);
       expect(sessionsResponse.ok()).toBeTruthy();
@@ -386,6 +386,121 @@ test.describe('events and collectibles browser regressions', () => {
       expect(linkedPlan?.title).toBe(sessionTitle);
       expect(linkedPlan?.status).toBe('planned');
       expect(linkedPlan?.visibility).toBe('private');
+    } finally {
+      await deleteEventsByExactTitle(userRequestContext, eventTitle).catch(() => {});
+      if (!originalEventsEnabled) {
+        await updateFeatureFlag(adminRequestContext, 'events_enabled', false).catch(() => {});
+      }
+      await userRequestContext.dispose();
+      await adminRequestContext.dispose();
+    }
+  });
+
+  test('event drawer shows catalog now and next sessions', async ({ page }) => {
+    const adminCredentials = await ensureSavedAdminCredentials();
+    const adminRequestContext = await createAuthenticatedRequestContext(adminCredentials);
+    const userCredentials = await createFreshUserCredentials();
+    const userRequestContext = await createAuthenticatedRequestContext(userCredentials);
+    const suffix = Date.now();
+    const eventTitle = `Playwright Catalog Now Next ${suffix}`;
+    const currentTitle = 'Now Running Catalog Panel';
+    const nextTitle = 'Next Catalog Drawing Demo';
+    const now = Date.now();
+    const originalFlagsPayload = await getFeatureFlags(adminRequestContext);
+    const originalFlags = Array.isArray(originalFlagsPayload?.flags) ? originalFlagsPayload.flags : [];
+    const originalEventsEnabled = Boolean(originalFlags.find((flag) => flag?.key === 'events_enabled')?.enabled);
+
+    await deleteEventsByExactTitle(userRequestContext, eventTitle).catch(() => {});
+
+    try {
+      if (!originalEventsEnabled) {
+        await updateFeatureFlag(adminRequestContext, 'events_enabled', true);
+      }
+
+      const eventResponse = await postWithCsrf(userRequestContext, '/api/events', {
+        title: eventTitle,
+        url: `https://example.test/catalog-now-next/${suffix}`,
+        location: 'San Diego Convention Center',
+        date_start: new Date(now).toISOString().slice(0, 10),
+        date_end: new Date(now + 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+      }, 201);
+      const eventPayload = await eventResponse.json();
+      const eventId = Number(eventPayload?.id || 0);
+      expect(eventId).toBeGreaterThan(0);
+
+      const currentResponse = await postWithCsrf(userRequestContext, `/api/events/${eventId}/schedule-sessions`, {
+        title: currentTitle,
+        start_at: new Date(now - 10 * 60 * 1000).toISOString(),
+        end_at: new Date(now + 50 * 60 * 1000).toISOString(),
+        location: 'Convention Center',
+        room: 'Room 6DE',
+        track: 'Comics',
+        categories: ['Panel'],
+        source_type: 'manual',
+        status: 'active'
+      }, 201);
+      const currentPayload = await currentResponse.json();
+      const currentId = Number(currentPayload?.id || 0);
+      expect(currentId).toBeGreaterThan(0);
+
+      await postWithCsrf(userRequestContext, `/api/events/${eventId}/schedule-sessions`, {
+        title: nextTitle,
+        start_at: new Date(now + 70 * 60 * 1000).toISOString(),
+        end_at: new Date(now + 130 * 60 * 1000).toISOString(),
+        location: 'Convention Center',
+        room: 'Room 7AB',
+        track: 'Art',
+        categories: ['Workshop'],
+        source_type: 'manual',
+        status: 'active'
+      }, 201);
+      await postWithCsrf(userRequestContext, `/api/events/${eventId}/schedule-plans`, {
+        title: currentTitle,
+        start_at: new Date(now - 10 * 60 * 1000).toISOString(),
+        end_at: new Date(now + 50 * 60 * 1000).toISOString(),
+        location: 'Room 6DE',
+        source_type: 'schedule_catalog',
+        source_ref: String(currentId),
+        status: 'planned',
+        visibility: 'private'
+      }, 201);
+
+      await page.setViewportSize({ width: 390, height: 844 });
+      await signInThroughUi(page, userCredentials);
+      await page.goto('/dashboard?tab=library-events');
+      await expect(page.getByRole('heading', { name: 'Events' })).toBeVisible();
+      await page.getByPlaceholder('Search title or location…').fill(eventTitle);
+      await expect(page.getByText(eventTitle, { exact: true }).first()).toBeVisible();
+      await page.locator('article').filter({ hasText: eventTitle }).first().click();
+      await expect(page.getByRole('heading', { name: eventTitle })).toBeVisible();
+
+      const catalogSection = page.locator('details').filter({ hasText: 'Catalog' }).first();
+      await catalogSection.locator('summary').first().click();
+      const nowNext = page.getByLabel('Catalog now and next');
+      await expect(nowNext).toBeVisible();
+      await expect(nowNext.getByText('Now / Next')).toBeVisible();
+      await expect(nowNext.getByText('Now', { exact: true })).toBeVisible();
+      await expect(nowNext.getByText(currentTitle, { exact: true })).toBeVisible();
+      await expect(nowNext.locator('span').filter({ hasText: /^Planned$/ })).toBeVisible();
+      await expect(nowNext.getByText('Next', { exact: true })).toBeVisible();
+      await expect(nowNext.getByText(nextTitle, { exact: true })).toBeVisible();
+      await expect(nowNext.getByText(/Room 6DE/)).toBeVisible();
+      await expect(nowNext.getByText(/Room 7AB/)).toBeVisible();
+      await nowNext.getByLabel(`Plan state for ${nextTitle}`).selectOption('backup');
+      await expect(page.getByText('Catalog session added as backup')).toBeVisible();
+      await expect(nowNext.getByLabel(`Plan state for ${nextTitle}`)).toHaveValue('backup');
+      await nowNext.getByLabel(`Plan state for ${currentTitle}`).selectOption('maybe');
+      await expect(page.getByText('Catalog session marked maybe')).toBeVisible();
+      await expect(nowNext.getByLabel(`Plan state for ${currentTitle}`)).toHaveValue('maybe');
+
+      const plansResponse = await userRequestContext.get(`/api/events/${eventId}/schedule-plans`);
+      expect(plansResponse.ok()).toBeTruthy();
+      const plansPayload = await plansResponse.json();
+      const currentPlan = plansPayload.items.find((item) => item.source_type === 'schedule_catalog' && item.source_ref === String(currentId));
+      const nextPlan = plansPayload.items.find((item) => item.source_type === 'schedule_catalog' && item.title === nextTitle);
+      expect(currentPlan?.status).toBe('maybe');
+      expect(nextPlan?.status).toBe('backup');
+      expect(nextPlan?.visibility).toBe('private');
     } finally {
       await deleteEventsByExactTitle(userRequestContext, eventTitle).catch(() => {});
       if (!originalEventsEnabled) {

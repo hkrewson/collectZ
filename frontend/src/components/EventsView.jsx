@@ -72,6 +72,9 @@ const SCHEDULE_PLAN_STATUS_OPTIONS = [
   { value: 'attended', label: 'Attended' }
 ];
 
+const QUICK_SCHEDULE_PLAN_STATUS_OPTIONS = SCHEDULE_PLAN_STATUS_OPTIONS
+  .filter((option) => ['planned', 'maybe', 'backup', 'skipped'].includes(option.value));
+
 const SCHEDULE_PLAN_VISIBILITY_OPTIONS = [
   { value: 'private', label: 'Private' },
   { value: 'event_workspace', label: 'Shared with event' }
@@ -209,6 +212,47 @@ const upcomingPlans = (plans, now = new Date()) => {
     return Number.isFinite(startTime) && startTime >= nowTime;
   });
 };
+
+const catalogSessionTimeWindow = (session, now = new Date()) => {
+  const startTime = session?.start_at ? new Date(session.start_at).getTime() : NaN;
+  if (!Number.isFinite(startTime)) return null;
+  const explicitEndTime = session?.end_at ? new Date(session.end_at).getTime() : NaN;
+  const endTime = Number.isFinite(explicitEndTime) ? explicitEndTime : startTime + (60 * 60 * 1000);
+  return {
+    startTime,
+    endTime,
+    isNow: startTime <= now.getTime() && now.getTime() <= endTime,
+    isUpcoming: startTime > now.getTime()
+  };
+};
+
+const getCatalogNowNext = (sessions, plans = [], now = new Date()) => {
+  const activeSessions = sortPlansForAgenda(Array.isArray(sessions) ? sessions : [])
+    .filter((session) => session?.status !== 'hidden' && session?.status !== 'cancelled')
+    .map((session) => ({ session, window: catalogSessionTimeWindow(session, now) }))
+    .filter((entry) => entry.window);
+  const catalogPlanByRef = buildCatalogPlanByRef(plans);
+  const current = activeSessions
+    .filter((entry) => entry.window.isNow)
+    .sort((a, b) => a.window.endTime - b.window.endTime)[0]?.session || null;
+  const upcoming = activeSessions
+    .filter((entry) => entry.window.isUpcoming)
+    .sort((a, b) => a.window.startTime - b.window.startTime)
+    .map((entry) => entry.session);
+  const next = upcoming[0] || null;
+  const todayKey = getPlanDayKey(now);
+  const excludedIds = new Set([current?.id, next?.id].filter(Boolean).map(String));
+  const laterToday = upcoming
+    .filter((session) => getPlanDayKey(session?.start_at) === todayKey && !excludedIds.has(String(session?.id || '')))
+    .slice(0, 3);
+  return { current, next, laterToday, catalogPlanByRef };
+};
+
+const buildCatalogPlanByRef = (plans = []) => new Map(
+  (Array.isArray(plans) ? plans : [])
+    .filter((plan) => plan?.source_type === 'schedule_catalog' && plan?.source_ref)
+    .map((plan) => [String(plan.source_ref), plan])
+);
 
 const nextTimedItem = (items, dateKey = 'start_at', now = new Date()) => {
   const nowTime = now.getTime();
@@ -1834,31 +1878,40 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
     }
   };
 
-  const addCatalogSessionToSchedule = async (session) => {
+  const upsertCatalogSessionPlanStatus = async (session, status = 'planned') => {
     const sessionId = Number(session?.id || 0);
     if (!sessionId) return;
+    const normalizedStatus = QUICK_SCHEDULE_PLAN_STATUS_OPTIONS.some((option) => option.value === status) ? status : 'planned';
+    const existingPlan = plans.find((plan) => plan?.source_type === 'schedule_catalog' && String(plan?.source_ref || '') === String(sessionId));
     setSaving(`catalog-plan-${sessionId}`);
     setError('');
     setNotice('');
     try {
-      await apiCall('post', `/events/${eventId}/schedule-plans`, {
-        title: session.title,
-        start_at: session.start_at || null,
-        end_at: session.end_at || null,
-        location: session.location || session.room || null,
-        source_type: 'schedule_catalog',
-        source_ref: String(sessionId),
-        source_url: session.source_url || null,
-        source_categories: Array.isArray(session.categories) ? session.categories : [],
-        source_updated_at: session.source_updated_at || null,
-        status: 'planned',
-        visibility: 'private'
-      });
-      setNotice('Catalog session added to schedule');
+      if (existingPlan?.id) {
+        await apiCall('patch', `/events/${eventId}/schedule-plans/${existingPlan.id}`, {
+          status: normalizedStatus
+        });
+        setNotice(`Catalog session marked ${humanizeEventValue(normalizedStatus).toLowerCase()}`);
+      } else {
+        await apiCall('post', `/events/${eventId}/schedule-plans`, {
+          title: session.title,
+          start_at: session.start_at || null,
+          end_at: session.end_at || null,
+          location: session.location || session.room || null,
+          source_type: 'schedule_catalog',
+          source_ref: String(sessionId),
+          source_url: session.source_url || null,
+          source_categories: Array.isArray(session.categories) ? session.categories : [],
+          source_updated_at: session.source_updated_at || null,
+          status: normalizedStatus,
+          visibility: 'private'
+        });
+        setNotice(`Catalog session added as ${humanizeEventValue(normalizedStatus).toLowerCase()}`);
+      }
       await load();
       await onChanged?.();
     } catch (err) {
-      setError(err?.response?.data?.error || 'Failed to add catalog session to schedule');
+      setError(err?.response?.data?.error || 'Failed to update catalog session plan state');
     } finally {
       setSaving('');
     }
@@ -1910,6 +1963,12 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
             <span className="text-xs text-ghost">{catalogSessions.length}</span>
           </summary>
           <div className="space-y-3 pb-4">
+            <EventScheduleNowNext
+              sessions={catalogSessions}
+              plans={plans}
+              saving={saving}
+              onPlanStatusChange={upsertCatalogSessionPlanStatus}
+            />
             <EventScheduleCatalog
               sessions={catalogSessions}
               plans={plans}
@@ -1917,7 +1976,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
               saving={saving}
               onDraftChange={setCatalogDraft}
               onUpdate={updateCatalogSession}
-              onAddToSchedule={addCatalogSessionToSchedule}
+              onPlanStatusChange={upsertCatalogSessionPlanStatus}
               onRemove={(session) => archive(`/events/${eventId}/schedule-sessions/${session.id}`, 'Catalog session')}
             />
             <details className="mx-4 rounded-md border border-edge bg-raised">
@@ -2211,12 +2270,134 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
   );
 }
 
-function EventScheduleCatalog({ sessions, plans = [], drafts = {}, saving = '', onDraftChange, onUpdate, onAddToSchedule, onRemove }) {
-  const plannedCatalogRefs = useMemo(() => new Set(
-    (Array.isArray(plans) ? plans : [])
-      .filter((plan) => plan?.source_type === 'schedule_catalog' && plan?.source_ref)
-      .map((plan) => String(plan.source_ref))
-  ), [plans]);
+function EventScheduleNowNext({ sessions = [], plans = [], saving = '', onPlanStatusChange }) {
+  const snapshot = useMemo(() => getCatalogNowNext(sessions, plans), [sessions, plans]);
+  const hasSessions = Boolean(snapshot.current || snapshot.next || snapshot.laterToday.length);
+
+  if (!hasSessions) {
+    return (
+      <div className="mx-4 rounded-md border border-edge bg-raised px-3 py-3" aria-label="Catalog now and next">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm font-medium text-ink">Now / Next</p>
+          <span className="text-xs text-ghost">Catalog</span>
+        </div>
+        <p className="mt-2 text-sm text-ghost">No active catalog sessions are happening now or later today.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-4 rounded-md border border-edge bg-raised" aria-label="Catalog now and next">
+      <div className="flex items-center justify-between gap-3 border-b border-edge px-3 py-2">
+        <p className="text-sm font-medium text-ink">Now / Next</p>
+        <span className="text-xs text-ghost">Catalog</span>
+      </div>
+      <div className="divide-y divide-edge">
+        <CatalogNowNextSlot
+          label="Now"
+          session={snapshot.current}
+          plan={snapshot.current ? snapshot.catalogPlanByRef.get(String(snapshot.current.id)) : null}
+          saving={snapshot.current ? saving === `catalog-plan-${snapshot.current.id}` : false}
+          onPlanStatusChange={onPlanStatusChange}
+          empty="Nothing currently in progress."
+        />
+        <CatalogNowNextSlot
+          label="Next"
+          session={snapshot.next}
+          plan={snapshot.next ? snapshot.catalogPlanByRef.get(String(snapshot.next.id)) : null}
+          saving={snapshot.next ? saving === `catalog-plan-${snapshot.next.id}` : false}
+          onPlanStatusChange={onPlanStatusChange}
+          empty="No upcoming catalog session."
+        />
+        {snapshot.laterToday.length ? (
+          <div className="grid grid-cols-[4.75rem_1fr] gap-3 px-3 py-3 sm:grid-cols-[5.75rem_1fr]">
+            <p className="text-xs font-medium text-dim">Later</p>
+            <div className="space-y-2">
+              {snapshot.laterToday.map((session) => (
+                <CatalogNowNextMiniRow
+                  key={session.id}
+                  session={session}
+                  plan={snapshot.catalogPlanByRef.get(String(session.id))}
+                  saving={saving === `catalog-plan-${session.id}`}
+                  onPlanStatusChange={onPlanStatusChange}
+                />
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function CatalogNowNextSlot({ label, session, plan = null, saving = false, onPlanStatusChange, empty }) {
+  return (
+    <div className="grid grid-cols-[4.75rem_1fr] gap-3 px-3 py-3 sm:grid-cols-[5.75rem_1fr]">
+      <p className="text-xs font-medium text-dim">{label}</p>
+      {session ? (
+        <CatalogNowNextMiniRow session={session} plan={plan} saving={saving} onPlanStatusChange={onPlanStatusChange} />
+      ) : (
+        <p className="text-sm text-ghost">{empty}</p>
+      )}
+    </div>
+  );
+}
+
+function CatalogNowNextMiniRow({ session, plan = null, saving = false, onPlanStatusChange }) {
+  const agendaTime = formatAgendaTime(session?.start_at, session?.end_at);
+  const categories = Array.isArray(session?.categories) ? session.categories.filter(Boolean) : [];
+  const planStatus = plan?.status || '';
+  const detailLine = [
+    agendaTime.start && agendaTime.end ? `${agendaTime.start} - ${agendaTime.end}` : agendaTime.start,
+    compactLocation(session?.room || session?.location),
+    session?.track,
+    categories[0]
+  ].filter(Boolean).join(' · ');
+
+  return (
+    <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_8.5rem] sm:items-start">
+      <div className="min-w-0">
+        <div className="flex min-w-0 items-baseline gap-2">
+          <p className="truncate text-sm font-medium text-ink">{session.title}</p>
+          {planStatus ? <span className="shrink-0 text-xs text-ok">{humanizeEventValue(planStatus)}</span> : null}
+        </div>
+        <p className="mt-1 truncate text-xs text-dim">{detailLine || 'Details pending'}</p>
+      </div>
+      <CatalogPlanStateSelect
+        session={session}
+        plan={plan}
+        saving={saving}
+        onPlanStatusChange={onPlanStatusChange}
+      />
+    </div>
+  );
+}
+
+function CatalogPlanStateSelect({ session, plan = null, saving = false, onPlanStatusChange }) {
+  const value = plan?.status || '';
+  return (
+    <label className="field">
+      <span className="sr-only">Plan state</span>
+      <select
+        className="input h-9 text-xs"
+        value={value}
+        disabled={saving || session?.status === 'hidden' || !onPlanStatusChange}
+        onChange={(event) => {
+          if (event.target.value) onPlanStatusChange?.(session, event.target.value);
+        }}
+        aria-label={`Plan state for ${session?.title || 'catalog session'}`}
+      >
+        <option value="">Not in schedule</option>
+        {QUICK_SCHEDULE_PLAN_STATUS_OPTIONS.map((option) => (
+          <option key={option.value} value={option.value}>{option.label}</option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function EventScheduleCatalog({ sessions, plans = [], drafts = {}, saving = '', onDraftChange, onUpdate, onPlanStatusChange, onRemove }) {
+  const catalogPlanByRef = useMemo(() => buildCatalogPlanByRef(plans), [plans]);
   const groups = useMemo(() => {
     const ordered = sortPlansForAgenda(Array.isArray(sessions) ? sessions : []);
     return ordered.reduce((acc, session) => {
@@ -2250,10 +2431,10 @@ function EventScheduleCatalog({ sessions, plans = [], drafts = {}, saving = '', 
                 draft={drafts[String(session.id)] || {}}
                 saving={saving === `catalog-${session.id}`}
                 adding={saving === `catalog-plan-${session.id}`}
-                planned={plannedCatalogRefs.has(String(session.id))}
+                plan={catalogPlanByRef.get(String(session.id))}
                 onDraftChange={(patch) => onDraftChange?.(session.id, patch)}
                 onUpdate={() => onUpdate?.(session)}
-                onAddToSchedule={() => onAddToSchedule?.(session)}
+                onPlanStatusChange={onPlanStatusChange}
                 onRemove={() => onRemove?.(session)}
               />
             ))}
@@ -2264,7 +2445,7 @@ function EventScheduleCatalog({ sessions, plans = [], drafts = {}, saving = '', 
   );
 }
 
-function ScheduleCatalogRow({ session, draft = {}, saving = false, adding = false, planned = false, onDraftChange, onUpdate, onAddToSchedule, onRemove }) {
+function ScheduleCatalogRow({ session, draft = {}, saving = false, adding = false, plan = null, onDraftChange, onUpdate, onPlanStatusChange, onRemove }) {
   const categories = Array.isArray(session?.categories) ? session.categories.filter(Boolean) : [];
   const descriptionPreview = plainTextPreview(session?.description, 700);
   const agendaTime = formatAgendaTime(session?.start_at, session?.end_at);
@@ -2274,6 +2455,7 @@ function ScheduleCatalogRow({ session, draft = {}, saving = false, adding = fals
     session?.source_updated_at ? `Updated ${formatDateTime(session.source_updated_at)}` : ''
   ].filter(Boolean).join(' · ');
   const draftStatus = draft.status || session?.status || 'active';
+  const planStatus = plan?.status || '';
 
   return (
     <details className={cx('group border-l-2', session?.status === 'cancelled' ? 'border-l-err/50' : 'border-l-transparent')}>
@@ -2286,7 +2468,7 @@ function ScheduleCatalogRow({ session, draft = {}, saving = false, adding = fals
           <div className="flex min-w-0 items-baseline gap-2">
             <p className="truncate text-sm font-medium text-ink">{session.title}</p>
             {session.status && session.status !== 'active' ? <span className="shrink-0 text-xs text-ghost">{session.status}</span> : null}
-            {planned ? <span className="shrink-0 text-xs text-ok">In schedule</span> : null}
+            {planStatus ? <span className="shrink-0 text-xs text-ok">{humanizeEventValue(planStatus)}</span> : null}
           </div>
           <p className="mt-1 truncate text-xs text-dim">
             {locationLine || 'Location pending'}
@@ -2399,9 +2581,20 @@ function ScheduleCatalogRow({ session, draft = {}, saving = false, adding = fals
                   Open session
                 </a>
               ) : null}
-              <button className="btn-ghost btn-sm" disabled={planned || adding || session.status === 'hidden'} onClick={onAddToSchedule}>
-                {adding ? <Spinner size={16} /> : planned ? 'In schedule' : 'Add to schedule'}
-              </button>
+              <div className="w-36">
+                {adding ? (
+                  <div className="flex h-9 items-center justify-center rounded-md border border-edge bg-surface">
+                    <Spinner size={16} />
+                  </div>
+                ) : (
+                  <CatalogPlanStateSelect
+                    session={session}
+                    plan={plan}
+                    saving={adding}
+                    onPlanStatusChange={onPlanStatusChange}
+                  />
+                )}
+              </div>
             </div>
             <button
               className="btn-ghost btn-sm text-ghost hover:bg-err/10 hover:text-err"
