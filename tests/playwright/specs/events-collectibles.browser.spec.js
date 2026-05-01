@@ -445,8 +445,8 @@ test.describe('events and collectibles browser regressions', () => {
 
       await postWithCsrf(userRequestContext, `/api/events/${eventId}/schedule-sessions`, {
         title: nextTitle,
-        start_at: new Date(now + 70 * 60 * 1000).toISOString(),
-        end_at: new Date(now + 130 * 60 * 1000).toISOString(),
+        start_at: new Date(now + 40 * 60 * 1000).toISOString(),
+        end_at: new Date(now + 100 * 60 * 1000).toISOString(),
         location: 'Convention Center',
         room: 'Room 7AB',
         track: 'Art',
@@ -486,6 +486,7 @@ test.describe('events and collectibles browser regressions', () => {
       await expect(nowNext.getByText(nextTitle, { exact: true })).toBeVisible();
       await expect(nowNext.getByText(/Room 6DE/)).toBeVisible();
       await expect(nowNext.getByText(/Room 7AB/)).toBeVisible();
+      await expect(nowNext.getByText(`Conflicts with ${currentTitle}`).first()).toBeVisible();
       await nowNext.getByLabel(`Plan state for ${nextTitle}`).selectOption('backup');
       await expect(page.getByText('Catalog session added as backup')).toBeVisible();
       await expect(nowNext.getByLabel(`Plan state for ${nextTitle}`)).toHaveValue('backup');
@@ -501,6 +502,10 @@ test.describe('events and collectibles browser regressions', () => {
       expect(currentPlan?.status).toBe('maybe');
       expect(nextPlan?.status).toBe('backup');
       expect(nextPlan?.visibility).toBe('private');
+
+      const scheduleSection = page.locator('details').filter({ hasText: 'Schedule' }).first();
+      await expect(scheduleSection.getByText(`Conflicts with ${nextTitle}`).first()).toBeVisible();
+      await expect(scheduleSection.getByText(`Conflicts with ${currentTitle}`).first()).toBeVisible();
     } finally {
       await deleteEventsByExactTitle(userRequestContext, eventTitle).catch(() => {});
       if (!originalEventsEnabled) {

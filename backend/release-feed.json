@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v3.4.50",
+      "version": "3.4.50",
+      "date": null,
+      "status": null,
+      "summary": "",
+      "details": []
+    },
+    {
       "title": "v3.4.49",
       "version": "3.4.49",
       "date": null,
@@ -70,14 +78,6 @@
       "date": null,
       "status": null,
       "summary": "This patch makes Event social visibility easier to understand in the drawer, especially on mobile where private, group, selected, and shared plans need to be readable at a glance.",
-      "details": []
-    },
-    {
-      "title": "v3.4.40",
-      "version": "3.4.40",
-      "date": null,
-      "status": null,
-      "summary": "This patch makes Event schedule plans easier to adjust from the drawer by adding compact in-place controls for planning status, sharing visibility, and notes.",
       "details": []
     }
   ]

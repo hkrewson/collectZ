@@ -266,6 +266,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - The `3.4.47` polish slice added manual catalog entry/editing plus guarded catalog-to-schedule creation.
 - The `3.4.48` read-only slice is promoted to add the first compact Now / Next view from existing catalog sessions.
 - The `3.4.49` quick-state slice is promoted to let catalog and Now / Next sessions create or update linked personal plan states.
+- The `3.4.50` conflict-detection slice is promoted to show read-only overlap warnings before replacement or notification workflows.
 - This follow-up turns that data into import-backed and time-aware discovery surfaces.
 
 **Scope**

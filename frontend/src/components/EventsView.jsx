@@ -75,6 +75,8 @@ const SCHEDULE_PLAN_STATUS_OPTIONS = [
 const QUICK_SCHEDULE_PLAN_STATUS_OPTIONS = SCHEDULE_PLAN_STATUS_OPTIONS
   .filter((option) => ['planned', 'maybe', 'backup', 'skipped'].includes(option.value));
 
+const CONFLICTING_SCHEDULE_PLAN_STATUSES = new Set(['planned', 'maybe', 'backup']);
+
 const SCHEDULE_PLAN_VISIBILITY_OPTIONS = [
   { value: 'private', label: 'Private' },
   { value: 'event_workspace', label: 'Shared with event' }
@@ -253,6 +255,58 @@ const buildCatalogPlanByRef = (plans = []) => new Map(
     .filter((plan) => plan?.source_type === 'schedule_catalog' && plan?.source_ref)
     .map((plan) => [String(plan.source_ref), plan])
 );
+
+const getScheduleWindow = (item) => {
+  const startTime = item?.start_at ? new Date(item.start_at).getTime() : NaN;
+  if (!Number.isFinite(startTime)) return null;
+  const explicitEndTime = item?.end_at ? new Date(item.end_at).getTime() : NaN;
+  const endTime = Number.isFinite(explicitEndTime) ? explicitEndTime : startTime + (60 * 60 * 1000);
+  if (endTime <= startTime) return null;
+  return { startTime, endTime };
+};
+
+const scheduleWindowsOverlap = (a, b) => Boolean(a && b && a.startTime < b.endTime && b.startTime < a.endTime);
+
+const isConflictEligiblePlan = (plan) => CONFLICTING_SCHEDULE_PLAN_STATUSES.has(plan?.status || 'planned');
+
+const buildScheduleConflictMap = (plans = []) => {
+  const activePlans = (Array.isArray(plans) ? plans : [])
+    .filter(isConflictEligiblePlan)
+    .map((plan) => ({ plan, window: getScheduleWindow(plan) }))
+    .filter((entry) => entry.window);
+  const conflictMap = new Map();
+  activePlans.forEach((entry, index) => {
+    const conflicts = activePlans
+      .filter((other, otherIndex) => otherIndex !== index && scheduleWindowsOverlap(entry.window, other.window))
+      .map((other) => other.plan);
+    if (conflicts.length) {
+      conflictMap.set(String(entry.plan.id), conflicts);
+    }
+  });
+  return conflictMap;
+};
+
+const findCatalogSessionConflicts = (session, plan, plans = []) => {
+  if (!session || session.status === 'hidden' || session.status === 'cancelled') return [];
+  if (plan && !isConflictEligiblePlan(plan)) return [];
+  const candidateWindow = getScheduleWindow(plan || session);
+  if (!candidateWindow) return [];
+  return (Array.isArray(plans) ? plans : [])
+    .filter(isConflictEligiblePlan)
+    .filter((otherPlan) => !plan?.id || Number(otherPlan.id) !== Number(plan.id))
+    .map((otherPlan) => ({ plan: otherPlan, window: getScheduleWindow(otherPlan) }))
+    .filter((entry) => scheduleWindowsOverlap(candidateWindow, entry.window))
+    .map((entry) => entry.plan);
+};
+
+const formatConflictSummary = (conflicts = []) => {
+  const titles = (Array.isArray(conflicts) ? conflicts : [])
+    .map((plan) => String(plan?.title || '').trim())
+    .filter(Boolean);
+  if (!titles.length) return '';
+  if (titles.length === 1) return `Conflicts with ${titles[0]}`;
+  return `Conflicts with ${titles[0]} +${titles.length - 1}`;
+};
 
 const nextTimedItem = (items, dateKey = 'start_at', now = new Date()) => {
   const nowTime = now.getTime();
@@ -2272,6 +2326,11 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
 
 function EventScheduleNowNext({ sessions = [], plans = [], saving = '', onPlanStatusChange }) {
   const snapshot = useMemo(() => getCatalogNowNext(sessions, plans), [sessions, plans]);
+  const getConflicts = useCallback((session) => {
+    if (!session) return [];
+    const plan = snapshot.catalogPlanByRef.get(String(session.id));
+    return findCatalogSessionConflicts(session, plan, plans);
+  }, [plans, snapshot.catalogPlanByRef]);
   const hasSessions = Boolean(snapshot.current || snapshot.next || snapshot.laterToday.length);
 
   if (!hasSessions) {
@@ -2297,6 +2356,7 @@ function EventScheduleNowNext({ sessions = [], plans = [], saving = '', onPlanSt
           label="Now"
           session={snapshot.current}
           plan={snapshot.current ? snapshot.catalogPlanByRef.get(String(snapshot.current.id)) : null}
+          conflicts={snapshot.current ? getConflicts(snapshot.current) : []}
           saving={snapshot.current ? saving === `catalog-plan-${snapshot.current.id}` : false}
           onPlanStatusChange={onPlanStatusChange}
           empty="Nothing currently in progress."
@@ -2305,6 +2365,7 @@ function EventScheduleNowNext({ sessions = [], plans = [], saving = '', onPlanSt
           label="Next"
           session={snapshot.next}
           plan={snapshot.next ? snapshot.catalogPlanByRef.get(String(snapshot.next.id)) : null}
+          conflicts={snapshot.next ? getConflicts(snapshot.next) : []}
           saving={snapshot.next ? saving === `catalog-plan-${snapshot.next.id}` : false}
           onPlanStatusChange={onPlanStatusChange}
           empty="No upcoming catalog session."
@@ -2318,6 +2379,7 @@ function EventScheduleNowNext({ sessions = [], plans = [], saving = '', onPlanSt
                   key={session.id}
                   session={session}
                   plan={snapshot.catalogPlanByRef.get(String(session.id))}
+                  conflicts={getConflicts(session)}
                   saving={saving === `catalog-plan-${session.id}`}
                   onPlanStatusChange={onPlanStatusChange}
                 />
@@ -2330,12 +2392,12 @@ function EventScheduleNowNext({ sessions = [], plans = [], saving = '', onPlanSt
   );
 }
 
-function CatalogNowNextSlot({ label, session, plan = null, saving = false, onPlanStatusChange, empty }) {
+function CatalogNowNextSlot({ label, session, plan = null, conflicts = [], saving = false, onPlanStatusChange, empty }) {
   return (
     <div className="grid grid-cols-[4.75rem_1fr] gap-3 px-3 py-3 sm:grid-cols-[5.75rem_1fr]">
       <p className="text-xs font-medium text-dim">{label}</p>
       {session ? (
-        <CatalogNowNextMiniRow session={session} plan={plan} saving={saving} onPlanStatusChange={onPlanStatusChange} />
+        <CatalogNowNextMiniRow session={session} plan={plan} conflicts={conflicts} saving={saving} onPlanStatusChange={onPlanStatusChange} />
       ) : (
         <p className="text-sm text-ghost">{empty}</p>
       )}
@@ -2343,10 +2405,11 @@ function CatalogNowNextSlot({ label, session, plan = null, saving = false, onPla
   );
 }
 
-function CatalogNowNextMiniRow({ session, plan = null, saving = false, onPlanStatusChange }) {
+function CatalogNowNextMiniRow({ session, plan = null, conflicts = [], saving = false, onPlanStatusChange }) {
   const agendaTime = formatAgendaTime(session?.start_at, session?.end_at);
   const categories = Array.isArray(session?.categories) ? session.categories.filter(Boolean) : [];
   const planStatus = plan?.status || '';
+  const conflictSummary = formatConflictSummary(conflicts);
   const detailLine = [
     agendaTime.start && agendaTime.end ? `${agendaTime.start} - ${agendaTime.end}` : agendaTime.start,
     compactLocation(session?.room || session?.location),
@@ -2362,6 +2425,7 @@ function CatalogNowNextMiniRow({ session, plan = null, saving = false, onPlanSta
           {planStatus ? <span className="shrink-0 text-xs text-ok">{humanizeEventValue(planStatus)}</span> : null}
         </div>
         <p className="mt-1 truncate text-xs text-dim">{detailLine || 'Details pending'}</p>
+        {conflictSummary ? <p className="mt-1 truncate text-xs text-warn">{conflictSummary}</p> : null}
       </div>
       <CatalogPlanStateSelect
         session={session}
@@ -2398,6 +2462,10 @@ function CatalogPlanStateSelect({ session, plan = null, saving = false, onPlanSt
 
 function EventScheduleCatalog({ sessions, plans = [], drafts = {}, saving = '', onDraftChange, onUpdate, onPlanStatusChange, onRemove }) {
   const catalogPlanByRef = useMemo(() => buildCatalogPlanByRef(plans), [plans]);
+  const getConflicts = useCallback((session) => {
+    const plan = session?.id ? catalogPlanByRef.get(String(session.id)) : null;
+    return findCatalogSessionConflicts(session, plan, plans);
+  }, [catalogPlanByRef, plans]);
   const groups = useMemo(() => {
     const ordered = sortPlansForAgenda(Array.isArray(sessions) ? sessions : []);
     return ordered.reduce((acc, session) => {
@@ -2432,6 +2500,7 @@ function EventScheduleCatalog({ sessions, plans = [], drafts = {}, saving = '', 
                 saving={saving === `catalog-${session.id}`}
                 adding={saving === `catalog-plan-${session.id}`}
                 plan={catalogPlanByRef.get(String(session.id))}
+                conflicts={getConflicts(session)}
                 onDraftChange={(patch) => onDraftChange?.(session.id, patch)}
                 onUpdate={() => onUpdate?.(session)}
                 onPlanStatusChange={onPlanStatusChange}
@@ -2445,7 +2514,7 @@ function EventScheduleCatalog({ sessions, plans = [], drafts = {}, saving = '', 
   );
 }
 
-function ScheduleCatalogRow({ session, draft = {}, saving = false, adding = false, plan = null, onDraftChange, onUpdate, onPlanStatusChange, onRemove }) {
+function ScheduleCatalogRow({ session, draft = {}, saving = false, adding = false, plan = null, conflicts = [], onDraftChange, onUpdate, onPlanStatusChange, onRemove }) {
   const categories = Array.isArray(session?.categories) ? session.categories.filter(Boolean) : [];
   const descriptionPreview = plainTextPreview(session?.description, 700);
   const agendaTime = formatAgendaTime(session?.start_at, session?.end_at);
@@ -2456,6 +2525,7 @@ function ScheduleCatalogRow({ session, draft = {}, saving = false, adding = fals
   ].filter(Boolean).join(' · ');
   const draftStatus = draft.status || session?.status || 'active';
   const planStatus = plan?.status || '';
+  const conflictSummary = formatConflictSummary(conflicts);
 
   return (
     <details className={cx('group border-l-2', session?.status === 'cancelled' ? 'border-l-err/50' : 'border-l-transparent')}>
@@ -2469,10 +2539,12 @@ function ScheduleCatalogRow({ session, draft = {}, saving = false, adding = fals
             <p className="truncate text-sm font-medium text-ink">{session.title}</p>
             {session.status && session.status !== 'active' ? <span className="shrink-0 text-xs text-ghost">{session.status}</span> : null}
             {planStatus ? <span className="shrink-0 text-xs text-ok">{humanizeEventValue(planStatus)}</span> : null}
+            {conflictSummary ? <span className="shrink-0 text-xs text-warn">Conflict</span> : null}
           </div>
           <p className="mt-1 truncate text-xs text-dim">
             {locationLine || 'Location pending'}
           </p>
+          {conflictSummary ? <p className="mt-1 truncate text-xs text-warn">{conflictSummary}</p> : null}
         </div>
       </summary>
       <div className="grid grid-cols-[4.75rem_1fr] gap-3 px-4 pb-3 sm:grid-cols-[5.75rem_1fr]">
@@ -2520,6 +2592,11 @@ function ScheduleCatalogRow({ session, draft = {}, saving = false, adding = fals
             <div>
               <p className="text-xs text-ghost">Description</p>
               <p className="mt-1 text-sm leading-6 text-dim">{descriptionPreview}</p>
+            </div>
+          ) : null}
+          {conflictSummary ? (
+            <div className="rounded-md border border-warn/30 bg-warn/10 px-3 py-2 text-sm text-warn">
+              {conflictSummary}
             </div>
           ) : null}
           <div className="grid grid-cols-1 gap-2 border-t border-edge pt-3 sm:grid-cols-2">
@@ -2612,6 +2689,7 @@ function ScheduleCatalogRow({ session, draft = {}, saving = false, adding = fals
 
 function EventScheduleAgenda({ plans, planDrafts = {}, saving = '', onDraftChange, onUpdate, onRemove }) {
   const [filter, setFilter] = useState({ type: 'all', key: 'all' });
+  const conflictMap = useMemo(() => buildScheduleConflictMap(plans), [plans]);
 
   const groups = useMemo(() => {
     const ordered = sortPlansForAgenda(Array.isArray(plans) ? plans : []);
@@ -2707,6 +2785,7 @@ function EventScheduleAgenda({ plans, planDrafts = {}, saving = '', onDraftChang
                 plan={plan}
                 marker={currentOrNext?.plan?.id === plan.id ? currentOrNext.label : ''}
                 draft={planDrafts[String(plan.id)] || {}}
+                conflicts={conflictMap.get(String(plan.id)) || []}
                 saving={saving === `plan-${plan.id}`}
                 onDraftChange={(patch) => onDraftChange?.(plan.id, patch)}
                 onUpdate={() => onUpdate?.(plan)}
@@ -2720,7 +2799,7 @@ function EventScheduleAgenda({ plans, planDrafts = {}, saving = '', onDraftChang
   );
 }
 
-function SchedulePlanRow({ plan, marker = '', draft = {}, saving = false, onDraftChange, onUpdate, onRemove }) {
+function SchedulePlanRow({ plan, marker = '', draft = {}, conflicts = [], saving = false, onDraftChange, onUpdate, onRemove }) {
   const categories = Array.isArray(plan?.source_categories) ? plan.source_categories.filter(Boolean) : [];
   const notesPreview = plainTextPreview(plan?.notes, 700);
   const agendaTime = formatAgendaTime(plan?.start_at, plan?.end_at);
@@ -2733,6 +2812,7 @@ function SchedulePlanRow({ plan, marker = '', draft = {}, saving = false, onDraf
   const draftBooth = draft.booth ?? plan?.booth ?? '';
   const draftLocationNotes = draft.location_notes ?? plan?.location_notes ?? '';
   const draftNotes = draft.notes ?? plan?.notes ?? '';
+  const conflictSummary = formatConflictSummary(conflicts);
   const sourceDetails = [
     scheduleSourceLabel(plan),
     plan?.source_updated_at ? `Updated ${formatDateTime(plan.source_updated_at)}` : '',
@@ -2751,11 +2831,13 @@ function SchedulePlanRow({ plan, marker = '', draft = {}, saving = false, onDraf
 	            <p className="truncate text-sm font-medium text-ink">{plan.title}</p>
 	            {marker ? <span className="shrink-0 text-xs text-dim">{marker}</span> : null}
 	            {plan.status && plan.status !== 'planned' ? <span className="shrink-0 text-xs text-ghost">{plan.status}</span> : null}
+	            {conflictSummary ? <span className="shrink-0 text-xs text-warn">Conflict</span> : null}
 	            <EventVisibilityText value={plan.visibility} />
 	          </div>
           <p className="mt-1 truncate text-xs text-dim">
             {[socialPlaceSummary(plan), categorySummary, extraCategoryCount ? `+${extraCategoryCount}` : '', fromSched ? 'Sched' : 'Manual'].filter(Boolean).join(' · ')}
           </p>
+          {conflictSummary ? <p className="mt-1 truncate text-xs text-warn">{conflictSummary}</p> : null}
         </div>
       </summary>
       <div className="grid grid-cols-[4.75rem_1fr] gap-3 px-4 pb-3 sm:grid-cols-[5.75rem_1fr]">
@@ -2809,6 +2891,11 @@ function SchedulePlanRow({ plan, marker = '', draft = {}, saving = false, onDraf
             <div>
               <p className="text-xs text-ghost">Notes</p>
               <p className="mt-1 text-sm leading-6 text-dim">{notesPreview}</p>
+            </div>
+          ) : null}
+          {conflictSummary ? (
+            <div className="rounded-md border border-warn/30 bg-warn/10 px-3 py-2 text-sm text-warn">
+              {conflictSummary}
             </div>
           ) : null}
           <div className="grid grid-cols-1 gap-2 border-t border-edge pt-3 sm:grid-cols-[9rem_11rem_1fr_7rem]">

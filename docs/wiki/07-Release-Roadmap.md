@@ -7100,6 +7100,51 @@ Historical note:
 - What remains in the milestone: nothing; `3.4.49` is closed.
 - Recommended commit message: `Release 3.4.49 event schedule quick plan states`
 
+## 3.4.50 — Event Schedule Conflict Detection
+
+**Goal:** Surface read-only overlap warnings for event schedule plans and catalog session choices, so users can see when planned, maybe, or backup sessions conflict before adding richer replacement or notification workflows.
+
+**Current Slice:** `Closed 2026-05-01.`
+
+### Scope
+
+- Detect overlapping event schedule plans using existing `start_at` and `end_at` values.
+- Treat `planned`, `maybe`, and `backup` as conflict-eligible states.
+- Exclude `skipped` schedule plans from conflict warnings.
+- Use a one-hour fallback window when an item has a start time but no end time.
+- Show quiet conflict cues on Now / Next catalog items when the catalog choice overlaps an active personal plan.
+- Show quiet conflict cues on Catalog rows when the linked or potential catalog plan overlaps an active personal plan.
+- Show `Conflicts with ...` context in the personal Schedule list for overlapping active plans.
+- Keep this read-only; do not add replace actions, selected-recipient notifications, provider import automation, native UI, background sync, realtime location, or offline mutation queues.
+- Update targeted browser coverage, unit source assertions, release notes, release feed, and version metadata.
+
+### Acceptance Criteria
+
+- Overlapping planned/maybe/backup schedule plans are visibly marked as conflicts.
+- Skipped plans do not create conflict warnings.
+- Now / Next and Catalog rows can warn that a catalog session would conflict with the user's active schedule.
+- The personal Schedule list identifies the conflicting session by title.
+- Existing quick plan-state creation/update behavior continues to work.
+- Conflict resolution actions remain future work.
+
+### Notes
+
+- This milestone intentionally stops at awareness. Replacement choices and backup/keep-both flows belong in a follow-up slice.
+
+### Closeout Evidence
+
+- Roadmap slice: `3.4.50 — Event Schedule Conflict Detection`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/40-Event-Social-Planning-Foundation.md`, `docs/wiki/44-Platform-Companion-Offline-Event-Packet.md`, `docs/wiki/45-Event-Schedule-Catalog-Foundation.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild to `3.4.50`; `/api/health` reported frontend/backend/build `3.4.50`; backend runtime verified `APP_EDITION=platform`, `APP_VERSION=3.4.50`, `NODE_ENV=development`, `SESSION_COOKIE_SECURE=false`, and no persisted `PLAYWRIGHT_E2E_BYPASS_TOKEN`; generated public compose was booted without the localhost override and verified with `APP_EDITION` unset before the homelab boundary smoke; normal local platform stack was restored and rechecked after release evidence generation.
+- CI/checks run locally: `APP_VERSION=3.4.50 docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml up -d --build backend frontend`; backend unit tests (`230` passed); OpenAPI validation; event social planning smoke; personal Sched ICS sync smoke; targeted Event drawer conflict browser regression; full browser regression (`55` passed, `4` skipped); compose config validation; public export surface validation; init parity; migration rehearsal; Help > Releases smoke for `3.4.50`; platform edition boundary; homelab edition boundary against generated public compose; RBAC regression; production dependency audits; Dockerized `npm ci --no-fund --dry-run` lockfile sync checks for backend and frontend; compose generator idempotence; app meta/package sync; observability release evidence (`9/9` checks passed); local release preflight; release-evidence secret-hygiene grep; `git diff --check`.
+- Release/version artifacts: `app-meta.json`, backend/frontend app meta, backend/frontend package and lockfile versions, generated `docker-compose.yml`, `docs/releases/v3.4.50.md`, and `backend/release-feed.json` are aligned on `3.4.50`; the running Help > Releases feed served `3.4.50` as the latest entry.
+- Verified facts: overlapping planned, maybe, and backup schedule plans now surface quiet `Conflict` and `Conflicts with ...` cues in the personal Schedule list; skipped plans are excluded from conflict warnings; Catalog and Now / Next rows show candidate conflict context when a catalog session overlaps an active personal plan; conflict detection uses existing event-scoped schedule start/end fields with a one-hour fallback for missing end times; existing quick plan-state creation/update behavior remains covered by browser regression.
+- Blocked/unverified items: CI `secret-scan` and `image-security-and-sbom` remain CI-only; local preflight compose-smoke secure-cookie checks remain blocked by the development stack using `NODE_ENV=development` and `SESSION_COOKIE_SECURE=false`, while runtime health/version and compose config were verified locally; the local preflight helper reports browser regression as blocked because it does not execute Playwright itself, but the full browser regression was run locally and passed.
+- Files changed: `frontend/src/components/EventsView.jsx`, `tests/playwright/specs/events-collectibles.browser.spec.js`, `backend/scripts/unit-tests.js`, version metadata/package files, `docker-compose.yml`, `docs/releases/v3.4.50.md`, `backend/release-feed.json`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `artifacts/observability-evidence/observability-release-evidence.json`, `preflight-go-no-go.md`.
+- Risks or follow-ups: conflict replacement choices, selected-recipient notifications, friend/group attendance on catalog sessions, provider import automation, native/platform UI, background sync, offline mutation queues, realtime location, and presence remain separate backlog or future milestone work.
+- What remains in the milestone: nothing; `3.4.50` is closed.
+- Recommended commit message: `Release 3.4.50 event schedule conflict detection`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.
