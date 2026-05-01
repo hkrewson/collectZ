@@ -249,6 +249,14 @@ async function main() {
     assert(companion.data?.sync?.personal_ics_visibility?.raw_url_returned === false, `Expected UI-safe ICS visibility to hide raw URL, got ${JSON.stringify(companion.data?.sync)}`);
     assert(companion.data?.sync?.personal_ics_visibility?.personal_schedule_only === true, `Expected ICS visibility to be personal schedule only, got ${JSON.stringify(companion.data?.sync)}`);
     assert(companion.data?.privacy?.personal_ics_url_returned === false, `Expected companion privacy to hide ICS URL, got ${JSON.stringify(companion.data?.privacy)}`);
+    assert(companion.data?.offline_packet?.version === 'event-social-offline-packet.v1', `Expected offline packet version, got ${JSON.stringify(companion.data?.offline_packet)}`);
+    assert(companion.data?.offline_packet?.mode === 'read_only_snapshot', `Expected read-only offline packet, got ${JSON.stringify(companion.data?.offline_packet)}`);
+    assert(companion.data?.offline_packet?.supports_offline_mutations === false, `Expected offline mutations disabled, got ${JSON.stringify(companion.data?.offline_packet)}`);
+    assert(companion.data?.offline_packet?.retry_policy?.refetch_before_retry === true, `Expected refetch-before-retry policy, got ${JSON.stringify(companion.data?.offline_packet)}`);
+    assert(companion.data?.offline_packet?.includes?.schedule_catalog === false, `Expected full catalog to remain unavailable, got ${JSON.stringify(companion.data?.offline_packet)}`);
+    assert(companion.data?.offline_packet?.counts?.planned_sessions === 1, `Expected one planned session in offline packet, got ${JSON.stringify(companion.data?.offline_packet)}`);
+    assert(companion.data?.offline_packet?.privacy?.raw_personal_ics_url_returned === false, `Expected offline packet to hide personal ICS URL, got ${JSON.stringify(companion.data?.offline_packet)}`);
+    assert(companion.data?.offline_packet?.key_locations?.some((item) => item.booth === '6BCF-B'), `Expected schedule booth in offline key locations, got ${JSON.stringify(companion.data?.offline_packet?.key_locations)}`);
     assert(companion.data?.schedule_plans?.[0]?.vendor === 'Artist signing table', `Expected companion schedule vendor readback, got ${JSON.stringify(companion.data?.schedule_plans)}`);
 
     console.log(JSON.stringify({

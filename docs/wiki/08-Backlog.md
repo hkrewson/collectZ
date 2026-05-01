@@ -35,6 +35,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 17. The vendor/booth/location notes slice of `Event Social Planning Mobile Web Experience` was promoted as `3.4.42`; keep notifications, full schedule catalog discovery, and native companion behavior separate.
 18. The compact contract slice of `Event Social Planning Platform Companion Contract` was promoted as `3.4.43`; keep native UI, push notifications, full schedule catalog discovery, offline mutation queues, realtime location, and broad social discovery separate.
 19. `Platform Companion Personal Sched ICS Sync Visibility` was promoted as `3.4.44`; keep native UI, full schedule catalog discovery, background polling, push notifications, and offline mutation queues separate.
+20. `Platform Companion Offline Event Packet` was promoted as `3.4.45`; keep full schedule catalog discovery, native UI, background polling, push notifications, realtime location, and offline mutation queues separate.
 
 ### Backlog Item: Apple Platform App Contract Publishing
 **Type:** Deferred milestone
@@ -356,27 +357,3 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - Message templates support common day-of-con coordination cases without requiring freeform social discovery features.
 - Notification behavior is opt-in per change and not broadcast by default.
 - Backend privacy and visibility rules are enforced consistently by the platform app.
-
-### Backlog Item: Platform Companion Offline Event Packet
-**Type:** Deferred milestone
-**Tags:** `apple`, `platform-app`, `xcode`, `events`, `offline`, `cache`, `schedule`, `privacy`
-
-**Goal:** Make the Apple/Xcode app reliable with poor convention-center connectivity by caching an active-event packet and defining clear offline behavior.
-
-**Why this work exists**
-- Convention-floor connectivity is often poor exactly when users need their schedule, meetup, group, and location context most.
-- The platform app should stay useful even when the network is weak, while making stale data obvious.
-- Quick actions taken offline need explicit retry and conflict expectations rather than silent eventual behavior.
-
-**Scope**
-- Cache the active event's schedule catalog, personal planned sessions, meetups, groups, people, and key locations for offline use.
-- Make stale or offline data obvious in the native app.
-- Define retry, queueing, and conflict expectations for quick actions made while connectivity is poor.
-- Preserve the backend as the canonical source of truth for reconciliation when the device reconnects.
-- Keep the offline packet focused on day-of-con needs; do not expand into broad background scraping or unsupported live-presence features.
-
-**Acceptance Criteria**
-- The platform app remains useful during the con with poor or intermittent connectivity.
-- Stale/offline state is visible enough that users can trust what they are seeing.
-- Quick action retry/conflict behavior is defined explicitly for offline or weak-signal cases.
-- The cached packet includes schedule catalog, planned sessions, meetups, groups, people, and key locations for the active event.

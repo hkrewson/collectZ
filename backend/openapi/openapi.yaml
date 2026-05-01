@@ -1989,12 +1989,104 @@
             },
             "required": ["personal_ics_url_returned", "realtime_location", "broad_social_discovery", "notifications", "visibility_values"]
           },
+          "offline_packet": {
+            "type": "object",
+            "description": "Read-only platform companion packet for poor-connectivity day-of-event use. It uses current event social data and explicitly marks full schedule catalog support as unavailable until that later milestone exists.",
+            "properties": {
+              "version": { "type": "string", "enum": ["event-social-offline-packet.v1"] },
+              "generated_at": { "type": "string", "format": "date-time" },
+              "event_id": { "type": ["integer", "null"] },
+              "cache_key": { "type": "string" },
+              "recommended_ttl_seconds": { "type": "integer" },
+              "stale_after_at": { "type": "string", "format": "date-time" },
+              "stale_after_seconds": { "type": "integer" },
+              "mode": { "type": "string", "enum": ["read_only_snapshot"] },
+              "backend_authoritative": { "type": "boolean" },
+              "supports_offline_mutations": { "type": "boolean" },
+              "retry_policy": {
+                "type": "object",
+                "properties": {
+                  "queued_mutations_supported": { "type": "boolean" },
+                  "refetch_before_retry": { "type": "boolean" },
+                  "conflict_resolution": { "type": "string" },
+                  "guidance": { "type": "string" }
+                },
+                "required": ["queued_mutations_supported", "refetch_before_retry", "conflict_resolution", "guidance"]
+              },
+              "includes": {
+                "type": "object",
+                "properties": {
+                  "event": { "type": "boolean" },
+                  "attendees": { "type": "boolean" },
+                  "groups": { "type": "boolean" },
+                  "meetups": { "type": "boolean" },
+                  "planned_sessions": { "type": "boolean" },
+                  "schedule_catalog": { "type": "boolean" },
+                  "key_locations": { "type": "boolean" },
+                  "personal_ics_sync_visibility": { "type": "boolean" }
+                },
+                "required": ["event", "attendees", "groups", "meetups", "planned_sessions", "schedule_catalog", "key_locations", "personal_ics_sync_visibility"]
+              },
+              "counts": {
+                "type": "object",
+                "properties": {
+                  "attendees": { "type": "integer" },
+                  "groups": { "type": "integer" },
+                  "meetups": { "type": "integer" },
+                  "planned_sessions": { "type": "integer" },
+                  "schedule_catalog_sessions": { "type": "integer" },
+                  "key_locations": { "type": "integer" }
+                },
+                "required": ["attendees", "groups", "meetups", "planned_sessions", "schedule_catalog_sessions", "key_locations"]
+              },
+              "freshness": {
+                "type": "object",
+                "properties": {
+                  "packet": { "type": "string" },
+                  "personal_ics": { "type": "string", "enum": ["not_connected", "never_synced", "fresh", "stale", "failed", "unknown"] },
+                  "stale_state_visible": { "type": "boolean" }
+                },
+                "required": ["packet", "personal_ics", "stale_state_visible"]
+              },
+              "privacy": {
+                "type": "object",
+                "properties": {
+                  "raw_personal_ics_url_returned": { "type": "boolean" },
+                  "realtime_location_included": { "type": "boolean" },
+                  "presence_included": { "type": "boolean" },
+                  "broad_social_discovery_included": { "type": "boolean" }
+                },
+                "required": ["raw_personal_ics_url_returned", "realtime_location_included", "presence_included", "broad_social_discovery_included"]
+              },
+              "limitations": { "type": "array", "items": { "type": "string" } },
+              "schedule_catalog": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+              "planned_sessions": { "type": "array", "items": { "$ref": "#/components/schemas/EventSchedulePlanRecord" } },
+              "key_locations": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "kind": { "type": "string" },
+                    "name": { "type": "string" },
+                    "vendor": { "type": ["string", "null"] },
+                    "booth": { "type": ["string", "null"] },
+                    "notes": { "type": ["string", "null"] },
+                    "source_type": { "type": ["string", "null"] },
+                    "source_id": { "type": ["integer", "null"] },
+                    "starts_at": { "type": ["string", "null"], "format": "date-time" }
+                  },
+                  "required": ["kind", "name", "vendor", "booth", "notes", "source_type", "source_id", "starts_at"]
+                }
+              }
+            },
+            "required": ["version", "generated_at", "event_id", "cache_key", "recommended_ttl_seconds", "stale_after_at", "stale_after_seconds", "mode", "backend_authoritative", "supports_offline_mutations", "retry_policy", "includes", "counts", "freshness", "privacy", "limitations", "schedule_catalog", "planned_sessions", "key_locations"]
+          },
           "attendees": { "type": "array", "items": { "$ref": "#/components/schemas/EventAttendeeRecord" } },
           "groups": { "type": "array", "items": { "$ref": "#/components/schemas/EventGroupRecord" } },
           "meetups": { "type": "array", "items": { "$ref": "#/components/schemas/EventMeetupRecord" } },
           "schedule_plans": { "type": "array", "items": { "$ref": "#/components/schemas/EventSchedulePlanRecord" } }
         },
-        "required": ["contract", "event", "counts", "sync", "cache", "privacy", "attendees", "groups", "meetups", "schedule_plans"]
+        "required": ["contract", "event", "counts", "sync", "cache", "privacy", "offline_packet", "attendees", "groups", "meetups", "schedule_plans"]
       },
       "ValuationRefreshRequest": {
         "type": "object",

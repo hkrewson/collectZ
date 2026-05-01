@@ -6882,6 +6882,49 @@ Historical note:
 - What remains in the milestone: nothing; `3.4.44` is closed.
 - Recommended commit message: `Release 3.4.44 platform companion personal sched ics sync visibility`
 
+## 3.4.45 — Platform Companion Offline Event Packet
+
+**Goal:** Define and ship a read-only offline event packet inside the platform companion contract so native clients can cache current Event social planning state for poor convention-center connectivity without inventing unsupported full catalog, notification, location, or offline mutation behavior.
+
+**Current Slice:** `Closed 2026-05-01.`
+
+### Scope
+
+- Extend `GET /api/events/:id/companion/today` with an `offline_packet` object.
+- Include packet version, generated timestamp, cache key, TTL/stale guidance, retry/conflict policy, included-data markers, counts, freshness, privacy flags, limitations, planned sessions, and key locations.
+- Build key locations from Event, meetup, and schedule-plan location/vendor/booth/location-note data.
+- Include personal planned sessions from current schedule plans, including Sched ICS-derived plans.
+- Explicitly mark full schedule catalog support as unavailable until the separate catalog milestone exists.
+- Keep the packet read-only; do not add offline mutation queues, background polling, push notifications, realtime location/presence, broad social discovery, or native UI.
+
+### Acceptance Criteria
+
+- `GET /api/events/:id/companion/today` includes `offline_packet.version = event-social-offline-packet.v1`.
+- The packet advertises `mode = read_only_snapshot`, `backend_authoritative = true`, and `supports_offline_mutations = false`.
+- The retry policy requires refetching before retrying writes after reconnect.
+- The packet includes planned sessions and key locations from existing Event social planning data.
+- The packet explicitly reports `includes.schedule_catalog = false` and returns an empty `schedule_catalog` until the full catalog milestone exists.
+- The packet never returns raw personal ICS URLs, realtime location, presence, or broad social discovery state.
+
+### Notes
+
+- This is a backend/API contract patch for platform clients, not an Apple app UI patch.
+- Full event schedule catalog and Now/Next discovery remain separate future milestones.
+
+### Closeout Evidence
+
+- Roadmap slice: `3.4.45 — Platform Companion Offline Event Packet`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/40-Event-Social-Planning-Foundation.md`, `docs/wiki/41-Personal-Sched-ICS-Sync.md`, `docs/wiki/42-Event-Social-Platform-Companion-Contract.md`, `docs/wiki/43-Platform-Companion-ICS-Sync-Visibility.md`, `docs/wiki/44-Platform-Companion-Offline-Event-Packet.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild to `3.4.45`; `/api/health` reported frontend/backend/build `3.4.45`; backend runtime verified `APP_EDITION=platform` and `PLAYWRIGHT_E2E_BYPASS_TOKEN=unset` after browser regression; generated public compose was booted without the localhost override and verified `APP_EDITION=unset` before the homelab boundary smoke.
+- CI/checks run locally: `APP_VERSION=3.4.45 docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml up -d --build backend frontend`; backend syntax checks; event social planning smoke; personal Sched ICS sync smoke; backend unit tests; OpenAPI validation; compose config validation; public export surface validation; init parity; migration rehearsal; Help > Releases smoke for `3.4.45`; platform edition boundary; homelab edition boundary against generated public compose; RBAC regression; full browser regression (`53 passed`, `4 skipped`); observability release evidence; local release preflight; compose generator idempotence; version sync check; `git diff --check`; release-evidence secret-hygiene grep.
+- Release/version artifacts: `app-meta.json`, backend/frontend app meta, backend/frontend package and lockfile versions, generated `docker-compose.yml`, `docs/releases/v3.4.45.md`, and `backend/release-feed.json` are aligned on `3.4.45`.
+- Verified facts: `GET /api/events/:id/companion/today` now returns `offline_packet.version = event-social-offline-packet.v1`; the packet advertises `mode = read_only_snapshot`, `backend_authoritative = true`, `supports_offline_mutations = false`, and refetch-before-retry behavior; event social smoke verified planned sessions, schedule catalog unavailability, key location booth/vendor context, and raw ICS URL privacy; connected personal ICS smoke verified the packet carries fresh personal ICS state and synced planned sessions without leaking the raw feed URL.
+- Blocked/unverified items: CI `secret-scan` and `image-security-and-sbom` remain CI-only; local preflight compose-smoke secure-cookie checks remain blocked by the development stack using `NODE_ENV=development` and `SESSION_COOKIE_SECURE=false`, while runtime health/version and compose config were verified locally; the local preflight helper still reports browser regression as blocked because it does not execute Playwright itself, but the full browser regression was run locally and passed.
+- Files changed: `backend/routes/events.js`, `backend/openapi/openapi.yaml`, `backend/scripts/event-personal-ics-sync-smoke.js`, `backend/scripts/event-social-planning-smoke.js`, `backend/scripts/unit-tests.js`, `docs/wiki/42-Event-Social-Platform-Companion-Contract.md`, `docs/wiki/44-Platform-Companion-Offline-Event-Packet.md`, version metadata/package files, `docker-compose.yml`, `docs/releases/v3.4.45.md`, `backend/release-feed.json`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `artifacts/observability-evidence/observability-release-evidence.json`, `preflight-go-no-go.md`.
+- Risks or follow-ups: full event schedule catalog discovery, native/platform UI, background polling, selected-recipient notifications, offline mutation queues, realtime location/presence, and richer conflict UX remain separate backlog or future milestone work.
+- What remains in the milestone: nothing; `3.4.45` is closed.
+- Recommended commit message: `Release 3.4.45 platform companion offline event packet`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

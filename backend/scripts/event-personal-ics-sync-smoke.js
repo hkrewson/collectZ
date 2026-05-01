@@ -208,6 +208,11 @@ async function main() {
     assert(icsVisibility.manual_refresh_endpoint === `/api/events/${eventId}/personal-ics-source/sync`, `Expected manual refresh endpoint, got ${JSON.stringify(companion.data?.sync)}`);
     assert(icsVisibility.personal_schedule_only === true, `Expected personal schedule only marker, got ${JSON.stringify(companion.data?.sync)}`);
     assert(icsVisibility.raw_url_returned === false, `Expected raw URL marker to be false, got ${JSON.stringify(companion.data?.sync)}`);
+    assert(companion.data?.offline_packet?.freshness?.personal_ics === 'fresh', `Expected fresh offline packet ICS state, got ${JSON.stringify(companion.data?.offline_packet)}`);
+    assert(companion.data?.offline_packet?.includes?.planned_sessions === true, `Expected planned sessions in offline packet, got ${JSON.stringify(companion.data?.offline_packet)}`);
+    assert(companion.data?.offline_packet?.includes?.schedule_catalog === false, `Expected full catalog to remain unavailable, got ${JSON.stringify(companion.data?.offline_packet)}`);
+    assert(companion.data?.offline_packet?.privacy?.raw_personal_ics_url_returned === false, `Expected offline packet URL privacy, got ${JSON.stringify(companion.data?.offline_packet)}`);
+    assert(companion.data?.offline_packet?.planned_sessions?.length === 2, `Expected synced personal plans in offline packet, got ${JSON.stringify(companion.data?.offline_packet)}`);
     assert(!JSON.stringify(companion.data).includes(icsServer.url), 'ICS URL leaked in companion response');
 
     await client.request(`/api/events/${eventId}/personal-ics-source`, {
@@ -224,6 +229,7 @@ async function main() {
       syncedCount: sync.data.summary.total,
       schedulePlanCount: plans.data.items.length,
       companionFreshness: icsVisibility.freshness,
+      offlinePacketVersion: companion.data.offline_packet.version,
       urlLeaked: false
     }, null, 2));
   } finally {

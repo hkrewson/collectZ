@@ -26,6 +26,7 @@ The response includes:
 - `sync.personal_ics_visibility`: UI-safe sync-health readback for platform clients, including freshness, stale threshold, manual refresh support, and raw URL protection.
 - `cache`: recommended cache TTL, stale threshold, offline mode, and conflict policy.
 - `privacy`: privacy and safety flags for companion clients.
+- `offline_packet`: read-only poor-connectivity packet metadata, planned sessions, and key locations for platform companion caching.
 - `attendees`: event attendee records.
 - `groups`: event group records with members.
 - `meetups`: event meetup records.

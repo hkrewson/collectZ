@@ -127,6 +127,7 @@ const EVENT_COMPANION_ICS_STATE_LABELS = {
   failed: 'Last personal Sched sync failed',
   unknown: 'Personal Sched sync state is unknown'
 };
+const EVENT_COMPANION_OFFLINE_PACKET_VERSION = 'event-social-offline-packet.v1';
 
 const serializeEventArtifactRow = (row = {}) => ({
   ...row,
@@ -382,6 +383,128 @@ function buildPersonalIcsSyncVisibility({ eventId, source = null, freshness = 'n
   };
 }
 
+function addOfflineLocation(locations, seen, location) {
+  const name = String(location?.name || '').trim();
+  if (!name) return;
+  const key = [
+    name.toLowerCase(),
+    String(location?.vendor || '').trim().toLowerCase(),
+    String(location?.booth || '').trim().toLowerCase()
+  ].join('|');
+  if (seen.has(key)) return;
+  seen.add(key);
+  locations.push({
+    kind: location.kind || 'location',
+    name,
+    vendor: location.vendor || null,
+    booth: location.booth || null,
+    notes: location.notes || null,
+    source_type: location.source_type || null,
+    source_id: location.source_id || null,
+    starts_at: location.starts_at || null
+  });
+}
+
+function buildOfflineKeyLocations({ event = {}, meetups = [], plans = [] }) {
+  const locations = [];
+  const seen = new Set();
+  addOfflineLocation(locations, seen, {
+    kind: 'event',
+    name: event.location,
+    source_type: 'event',
+    source_id: event.id || null,
+    starts_at: event.date_start || null
+  });
+  for (const meetup of meetups || []) {
+    addOfflineLocation(locations, seen, {
+      kind: 'meetup',
+      name: meetup.location,
+      vendor: meetup.vendor,
+      booth: meetup.booth,
+      notes: meetup.location_notes,
+      source_type: 'meetup',
+      source_id: meetup.id || null,
+      starts_at: meetup.start_at || null
+    });
+  }
+  for (const plan of plans || []) {
+    addOfflineLocation(locations, seen, {
+      kind: 'schedule_plan',
+      name: plan.location,
+      vendor: plan.vendor,
+      booth: plan.booth,
+      notes: plan.location_notes,
+      source_type: 'schedule_plan',
+      source_id: plan.id || null,
+      starts_at: plan.start_at || null
+    });
+  }
+  return locations.slice(0, 100);
+}
+
+function buildOfflinePacket({ event = {}, attendees = [], groups = [], meetups = [], plans = [], generatedAt = new Date(), icsFreshness = 'not_connected' }) {
+  const generatedIso = generatedAt.toISOString();
+  const staleAfterAt = new Date(generatedAt.getTime() + EVENT_COMPANION_CACHE_POLICY.stale_after_seconds * 1000).toISOString();
+  const keyLocations = buildOfflineKeyLocations({ event, meetups, plans });
+  return {
+    version: EVENT_COMPANION_OFFLINE_PACKET_VERSION,
+    generated_at: generatedIso,
+    event_id: event.id || null,
+    cache_key: `event:${event.id || 'unknown'}:offline:${generatedIso}`,
+    recommended_ttl_seconds: EVENT_COMPANION_CACHE_POLICY.recommended_ttl_seconds,
+    stale_after_at: staleAfterAt,
+    stale_after_seconds: EVENT_COMPANION_CACHE_POLICY.stale_after_seconds,
+    mode: 'read_only_snapshot',
+    backend_authoritative: true,
+    supports_offline_mutations: false,
+    retry_policy: {
+      queued_mutations_supported: false,
+      refetch_before_retry: true,
+      conflict_resolution: 'backend_authoritative_refetch_before_write',
+      guidance: 'Use this packet while offline, then refetch the companion snapshot before retrying any user action after reconnect.'
+    },
+    includes: {
+      event: true,
+      attendees: true,
+      groups: true,
+      meetups: true,
+      planned_sessions: true,
+      schedule_catalog: false,
+      key_locations: true,
+      personal_ics_sync_visibility: true
+    },
+    counts: {
+      attendees: attendees.length,
+      groups: groups.length,
+      meetups: meetups.length,
+      planned_sessions: plans.length,
+      schedule_catalog_sessions: 0,
+      key_locations: keyLocations.length
+    },
+    freshness: {
+      packet: 'fresh',
+      personal_ics: icsFreshness,
+      stale_state_visible: true
+    },
+    privacy: {
+      raw_personal_ics_url_returned: false,
+      realtime_location_included: false,
+      presence_included: false,
+      broad_social_discovery_included: false
+    },
+    limitations: [
+      'full_schedule_catalog_not_available',
+      'offline_mutation_queue_not_supported',
+      'push_notifications_not_supported',
+      'realtime_location_not_supported',
+      'presence_tracking_not_supported'
+    ],
+    schedule_catalog: [],
+    planned_sessions: plans,
+    key_locations: keyLocations
+  };
+}
+
 async function loadCompanionTodayPayload({ eventId, scopeContext, userId }) {
   const eventParams = [eventId];
   const eventScopeClause = appendScopeSql(eventParams, scopeContext, {
@@ -474,6 +597,15 @@ async function loadCompanionTodayPayload({ eventId, scopeContext, userId }) {
     },
     cache: EVENT_COMPANION_CACHE_POLICY,
     privacy: EVENT_COMPANION_PRIVACY_POLICY,
+    offline_packet: buildOfflinePacket({
+      event,
+      attendees: attendeesResult.rows,
+      groups,
+      meetups: meetupsResult.rows,
+      plans: plansResult.rows,
+      generatedAt,
+      icsFreshness
+    }),
     attendees: attendeesResult.rows,
     groups,
     meetups: meetupsResult.rows,

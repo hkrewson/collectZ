@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v3.4.45",
+      "version": "3.4.45",
+      "date": null,
+      "status": null,
+      "summary": "",
+      "details": []
+    },
+    {
       "title": "v3.4.44",
       "version": "3.4.44",
       "date": null,
@@ -70,14 +78,6 @@
       "date": null,
       "status": null,
       "summary": "This patch makes Event schedule removal safer by lowering the visual weight of the expanded-row remove action while keeping it available when a user intentionally opens a schedule item.",
-      "details": []
-    },
-    {
-      "title": "v3.4.35",
-      "version": "3.4.35",
-      "date": null,
-      "status": null,
-      "summary": "This patch improves expanded Event schedule rows so selected sessions show full details clearly without making the default agenda scan view heavier.",
       "details": []
     }
   ]
