@@ -299,6 +299,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - The `3.4.50` conflict-detection slice is promoted to show read-only overlap warnings before replacement or notification workflows.
 - The `3.4.51` conflict-resolution slice is promoted to make local keep/backup/skip choices explicit before notification workflows.
 - The `3.4.52` attendance-readback slice is promoted to show visibility-aware shared schedule context before selected-recipient notifications.
+- The `3.4.53` catalog-filter slice is promoted to make long event catalogs scannable before selected-recipient notifications or native companion work.
 - This follow-up turns that data into import-backed and time-aware discovery surfaces.
 
 **Scope**

@@ -90,6 +90,19 @@ const SCHEDULE_CATALOG_STATUS_OPTIONS = [
   { value: 'hidden', label: 'Hidden' }
 ];
 
+const CATALOG_TIME_FILTER_OPTIONS = [
+  { value: 'all', label: 'All' },
+  { value: 'now', label: 'Now' },
+  { value: 'next', label: 'Next' },
+  { value: 'later_today', label: 'Later today' }
+];
+
+const CATALOG_PLAN_FILTER_OPTIONS = [
+  { value: 'all', label: 'Any plan state' },
+  { value: 'none', label: 'Not in schedule' },
+  ...SCHEDULE_PLAN_STATUS_OPTIONS.map((option) => option)
+];
+
 const toInputDate = (value) => {
   if (!value) return '';
   const text = String(value).trim();
@@ -2656,15 +2669,52 @@ function CatalogConflictResolutionPanel({ pendingResolution = null, saving = fal
 }
 
 function EventScheduleCatalog({ sessions, plans = [], drafts = {}, saving = '', pendingResolution = null, onDraftChange, onUpdate, onPlanStatusChange, onResolveConflict, onCancelConflict, onRemove }) {
+  const [filters, setFilters] = useState({
+    time: 'all',
+    plan: 'all',
+    conflictsOnly: false,
+    sharedOnly: false
+  });
   const catalogPlanByRef = useMemo(() => buildCatalogPlanByRef(plans), [plans]);
   const getConflicts = useCallback((session) => {
     const plan = session?.id ? catalogPlanByRef.get(String(session.id)) : null;
     return findCatalogSessionConflicts(session, plan, plans);
   }, [catalogPlanByRef, plans]);
   const getAttendance = useCallback((session) => buildScheduleAttendanceSummary(session, plans), [plans]);
+  const filterNow = useMemo(() => new Date(), [sessions, plans]);
+  const todayKey = useMemo(() => getPlanDayKey(filterNow), [filterNow]);
+  const nextSessionId = useMemo(() => {
+    const nextEntry = sortPlansForAgenda(Array.isArray(sessions) ? sessions : [])
+      .filter((session) => session?.status !== 'hidden' && session?.status !== 'cancelled')
+      .map((session) => ({ session, window: catalogSessionTimeWindow(session, filterNow) }))
+      .filter((entry) => entry.window?.isUpcoming)
+      .sort((a, b) => a.window.startTime - b.window.startTime)[0];
+    return nextEntry?.session?.id ? String(nextEntry.session.id) : '';
+  }, [filterNow, sessions]);
+  const filteredSessions = useMemo(() => {
+    return sortPlansForAgenda(Array.isArray(sessions) ? sessions : [])
+      .filter((session) => {
+        const plan = session?.id ? catalogPlanByRef.get(String(session.id)) : null;
+        const planStatus = plan?.status || 'none';
+        if (filters.plan !== 'all' && planStatus !== filters.plan) return false;
+
+        if (filters.conflictsOnly && !getConflicts(session).length) return false;
+        if (filters.sharedOnly && !getAttendance(session).hasShared) return false;
+
+        if (filters.time === 'all') return true;
+        const window = catalogSessionTimeWindow(session, filterNow);
+        if (filters.time === 'now') return Boolean(window?.isNow);
+        if (filters.time === 'next') return String(session?.id || '') === nextSessionId;
+        if (filters.time === 'later_today') {
+          return Boolean(window?.isUpcoming) &&
+            getPlanDayKey(session?.start_at) === todayKey &&
+            String(session?.id || '') !== nextSessionId;
+        }
+        return true;
+      });
+  }, [catalogPlanByRef, filterNow, filters, getAttendance, getConflicts, nextSessionId, plans, sessions, todayKey]);
   const groups = useMemo(() => {
-    const ordered = sortPlansForAgenda(Array.isArray(sessions) ? sessions : []);
-    return ordered.reduce((acc, session) => {
+    return filteredSessions.reduce((acc, session) => {
       const key = getPlanDayKey(session?.start_at);
       const existing = acc.find((group) => group.key === key);
       if (existing) {
@@ -2674,14 +2724,84 @@ function EventScheduleCatalog({ sessions, plans = [], drafts = {}, saving = '', 
       }
       return acc;
     }, []);
-  }, [sessions]);
+  }, [filteredSessions]);
 
-  if (!groups.length) {
+  if (!Array.isArray(sessions) || !sessions.length) {
     return <p className="px-4 text-sm text-ghost">No catalog sessions yet.</p>;
   }
 
+  const activeFilterCount = [
+    filters.time !== 'all',
+    filters.plan !== 'all',
+    filters.conflictsOnly,
+    filters.sharedOnly
+  ].filter(Boolean).length;
+
+  const filterButtonClass = (active) => cx(
+    'btn-ghost btn-sm shrink-0',
+    active && 'border-edge bg-raised text-ink'
+  );
+
   return (
-    <div className="border-y border-edge bg-surface">
+    <div className="border-y border-edge bg-surface" aria-label="Schedule catalog sessions">
+      <div className="space-y-2 border-b border-edge px-4 py-2" aria-label="Catalog filters">
+        <div className="flex gap-2 overflow-x-auto scroll-area">
+          {CATALOG_TIME_FILTER_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              className={filterButtonClass(filters.time === option.value)}
+              onClick={() => setFilters((previous) => ({ ...previous, time: option.value }))}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(10rem,14rem)_1fr] sm:items-center">
+          <label className="field">
+            <span className="sr-only">Catalog plan state filter</span>
+            <select
+              className="input h-9 text-xs"
+              value={filters.plan}
+              onChange={(event) => setFilters((previous) => ({ ...previous, plan: event.target.value }))}
+              aria-label="Catalog plan state filter"
+            >
+              {CATALOG_PLAN_FILTER_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+          <div className="flex gap-2 overflow-x-auto scroll-area">
+            <button
+              className={filterButtonClass(filters.conflictsOnly)}
+              onClick={() => setFilters((previous) => ({ ...previous, conflictsOnly: !previous.conflictsOnly }))}
+              aria-pressed={filters.conflictsOnly}
+            >
+              Conflicts only
+            </button>
+            <button
+              className={filterButtonClass(filters.sharedOnly)}
+              onClick={() => setFilters((previous) => ({ ...previous, sharedOnly: !previous.sharedOnly }))}
+              aria-pressed={filters.sharedOnly}
+            >
+              Has shared attendance
+            </button>
+            {activeFilterCount ? (
+              <button
+                className="btn-ghost btn-sm shrink-0 text-ghost"
+                onClick={() => setFilters({ time: 'all', plan: 'all', conflictsOnly: false, sharedOnly: false })}
+              >
+                Clear
+              </button>
+            ) : null}
+            <span className="shrink-0 self-center text-xs text-ghost">
+              {filteredSessions.length} of {sessions.length}
+            </span>
+          </div>
+        </div>
+      </div>
+      {!groups.length ? (
+        <p className="px-4 py-3 text-sm text-ghost">No catalog sessions match these filters.</p>
+      ) : null}
       {groups.map((group) => (
         <div key={group.key} className="border-b border-edge last:border-b-0">
           <div className="border-b border-edge px-4 py-2 text-xs font-medium text-dim">

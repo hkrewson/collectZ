@@ -7232,6 +7232,47 @@ Historical note:
 - What remains in the milestone: nothing for the readback slice; rerun observability release evidence and CI-only `secret-scan` / `image-security-and-sbom` during the release handoff.
 - Recommended commit message: `Release 3.4.52 event schedule friend and group attendance readback`
 
+## 3.4.53 — Event Schedule Catalog Filters
+
+**Goal:** Make the event schedule catalog easier to scan on long convention schedules by adding compact, local filters for time window, plan state, conflicts, and shared attendance before notification or native companion work.
+
+**Current Slice:** `Closed 2026-05-01.`
+
+### Scope
+
+- Add a compact filter row to the Event drawer schedule catalog list.
+- Support time filters for All, Now, Next, and Later today.
+- Support plan-state filtering, including Not in schedule.
+- Add quick toggles for Conflicts only and Has shared attendance.
+- Preserve existing Now / Next, quick plan-state, conflict-resolution, and shared-attendance behavior.
+- Keep this as web-side filtering only; do not add selected-recipient notifications, friend discovery, event companion invites, platform relay identity, device registration, push delivery, realtime presence/location, or offline mutation queues.
+
+### Acceptance Criteria
+
+- Catalog lists can be narrowed to current, next, later-today, planned-state, conflict, or shared-attendance subsets.
+- Filtered empty states are explicit and do not make the catalog feel broken.
+- Existing schedule catalog quick actions and conflict flows continue to work.
+- Shared-attendance filters use existing visibility-aware readback and do not expose raw ICS URLs or notification/device details.
+
+### Notes
+
+- This is a scanability patch, not a social notification milestone.
+- Category, track, room, and provider-backed catalog import filters remain possible follow-ups after the compact filter behavior is proven.
+
+### Closeout
+
+- Roadmap slice: `3.4.53 — Event Schedule Catalog Filters`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/40-Event-Social-Planning-Foundation.md`, `docs/wiki/45-Event-Schedule-Catalog-Foundation.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild to `3.4.53`; `/api/health` reported frontend/backend/build `3.4.53`; backend runtime verified `APP_EDITION=platform`, `APP_VERSION=3.4.53`, `NODE_ENV=development`, and `SESSION_COOKIE_SECURE=false`; generated public compose was booted without the localhost override and verified with `APP_EDITION` unset before the homelab boundary smoke; normal local platform stack was restored and rechecked after homelab verification.
+- CI/checks run locally: `APP_VERSION=3.4.53 docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml up -d --build backend frontend`; backend unit tests (`230` passed); OpenAPI validation; event social planning smoke; personal Sched ICS sync smoke; Help > Releases smoke for `3.4.53`; targeted Event drawer catalog-filter browser regression; full browser regression (`55` passed, `4` skipped); compose config validation; public export surface validation; init parity; migration rehearsal; platform edition boundary; homelab edition boundary against generated public compose; RBAC regression; Dockerized `npm ci --no-fund --dry-run` lockfile sync checks for backend and frontend; compose generator idempotence by checksum; local release preflight; release-evidence secret-hygiene grep; `git diff --check`.
+- Release/version artifacts: `app-meta.json`, backend/frontend app meta, backend/frontend package and lockfile versions, generated `docker-compose.yml`, `docs/releases/v3.4.53.md`, and `backend/release-feed.json` are aligned on `3.4.53`; the running Help > Releases feed served `3.4.53` as the latest entry.
+- Verified facts: the Event drawer schedule catalog now has compact filters for All, Now, Next, Later today, plan state, Conflicts only, and Has shared attendance; filter counts show the visible/total session count; no-match results show an explicit empty state; plan-state filtering can isolate Not in schedule sessions; shared-attendance filtering uses the existing visibility-aware readback; conflict filtering uses the existing local conflict detection; existing quick plan-state and conflict-resolution flows remain green in browser regression.
+- Blocked/unverified items: CI `secret-scan` and `image-security-and-sbom` remain CI-only; local preflight compose-smoke secure-cookie checks remain blocked by the development stack using `NODE_ENV=development` and `SESSION_COOKIE_SECURE=false`, while runtime health/version and compose config were verified locally; local preflight still reports observability release evidence as stale or failed because fresh observability evidence was not regenerated for `3.4.53`; the first event social smoke and first RBAC run hit Docker/DB fallout from Docker storage exhaustion, then passed after reclaiming build cache with `docker builder prune -f`.
+- Files changed: `frontend/src/components/EventsView.jsx`, `tests/playwright/specs/events-collectibles.browser.spec.js`, `backend/scripts/unit-tests.js`, version metadata/package files, `docker-compose.yml`, `docs/releases/v3.4.53.md`, `backend/release-feed.json`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `preflight-go-no-go.md`.
+- Risks or follow-ups: category/track/room catalog filters, provider-backed catalog import filters, selected-recipient notifications, friend identity, platform companion relay identity, device registration, push delivery, realtime location, presence, and offline mutation queues remain separate future milestones.
+- What remains in the milestone: nothing for the catalog-filter slice; rerun observability release evidence and CI-only `secret-scan` / `image-security-and-sbom` during the release handoff.
+- Recommended commit message: `Release 3.4.53 event schedule catalog filters`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

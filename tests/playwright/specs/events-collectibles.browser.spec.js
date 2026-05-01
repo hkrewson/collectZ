@@ -498,6 +498,23 @@ test.describe('events and collectibles browser regressions', () => {
       await expect(nowNext.getByText(/Room 6DE/)).toBeVisible();
       await expect(nowNext.getByText(/Room 7AB/)).toBeVisible();
       await expect(nowNext.getByText(`Conflicts with ${currentTitle}`).first()).toBeVisible();
+
+      const catalogList = catalogSection.getByLabel('Schedule catalog sessions');
+      const catalogFilters = catalogList.getByLabel('Catalog filters');
+      await expect(catalogFilters.getByText('2 of 2')).toBeVisible();
+      await catalogFilters.getByLabel('Catalog plan state filter').selectOption('none');
+      await expect(catalogList.getByText(nextTitle, { exact: true })).toBeVisible();
+      await expect(catalogList.getByText(currentTitle, { exact: true })).not.toBeVisible();
+      await catalogFilters.getByRole('button', { name: 'Clear' }).click();
+      await catalogFilters.getByRole('button', { name: 'Has shared attendance' }).click();
+      await expect(catalogList.getByText(currentTitle, { exact: true })).toBeVisible();
+      await expect(catalogList.getByText(nextTitle, { exact: true })).not.toBeVisible();
+      await catalogFilters.getByRole('button', { name: 'Clear' }).click();
+      await catalogFilters.getByRole('button', { name: 'Conflicts only' }).click();
+      await expect(catalogList.getByText(nextTitle, { exact: true })).toBeVisible();
+      await expect(catalogList.getByText(currentTitle, { exact: true })).not.toBeVisible();
+      await catalogFilters.getByRole('button', { name: 'Clear' }).click();
+
       await nowNext.getByLabel(`Plan state for ${nextTitle}`).selectOption('backup');
       const nextResolution = nowNext.getByLabel('Schedule conflict resolution');
       await expect(nextResolution).toBeVisible();
