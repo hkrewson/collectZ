@@ -76,6 +76,8 @@ const QUICK_SCHEDULE_PLAN_STATUS_OPTIONS = SCHEDULE_PLAN_STATUS_OPTIONS
   .filter((option) => ['planned', 'maybe', 'backup', 'skipped'].includes(option.value));
 
 const CONFLICTING_SCHEDULE_PLAN_STATUSES = new Set(['planned', 'maybe', 'backup']);
+const ATTENDANCE_READBACK_STATUSES = ['planned', 'maybe', 'backup'];
+const SHARED_ATTENDANCE_VISIBILITIES = ['selected_people', 'group', 'event_workspace'];
 
 const SCHEDULE_PLAN_VISIBILITY_OPTIONS = [
   { value: 'private', label: 'Private' },
@@ -250,11 +252,58 @@ const getCatalogNowNext = (sessions, plans = [], now = new Date()) => {
   return { current, next, laterToday, catalogPlanByRef };
 };
 
-const buildCatalogPlanByRef = (plans = []) => new Map(
+const chooseCatalogPlanForControl = (existing, candidate) => {
+  if (!existing) return candidate;
+  if ((candidate?.visibility || 'private') === 'private' && (existing?.visibility || 'private') !== 'private') return candidate;
+  if ((existing?.visibility || 'private') === 'private' && (candidate?.visibility || 'private') !== 'private') return existing;
+  return existing;
+};
+
+const buildCatalogPlanByRef = (plans = []) => {
+  const map = new Map();
   (Array.isArray(plans) ? plans : [])
     .filter((plan) => plan?.source_type === 'schedule_catalog' && plan?.source_ref)
-    .map((plan) => [String(plan.source_ref), plan])
-);
+    .forEach((plan) => {
+      const key = String(plan.source_ref);
+      map.set(key, chooseCatalogPlanForControl(map.get(key), plan));
+    });
+  return map;
+};
+
+const catalogLinkedPlans = (session, plans = []) => {
+  const sessionId = String(session?.id || '');
+  if (!sessionId) return [];
+  return (Array.isArray(plans) ? plans : [])
+    .filter((plan) => plan?.source_type === 'schedule_catalog' && String(plan?.source_ref || '') === sessionId);
+};
+
+const formatPlanStatusCounts = (plans = []) => ATTENDANCE_READBACK_STATUSES
+  .map((status) => {
+    const count = plans.filter((plan) => (plan?.status || 'planned') === status).length;
+    return count ? `${count} ${humanizeEventValue(status).toLowerCase()}` : '';
+  })
+  .filter(Boolean)
+  .join(', ');
+
+const buildScheduleAttendanceSummary = (session, plans = []) => {
+  const linkedPlans = catalogLinkedPlans(session, plans);
+  const activePlans = linkedPlans.filter((plan) => ATTENDANCE_READBACK_STATUSES.includes(plan?.status || 'planned'));
+  const ownPlans = activePlans.filter((plan) => !SHARED_ATTENDANCE_VISIBILITIES.includes(plan?.visibility || 'private'));
+  const sharedPlans = activePlans.filter((plan) => SHARED_ATTENDANCE_VISIBILITIES.includes(plan?.visibility || 'private'));
+  const sharedLine = formatPlanStatusCounts(sharedPlans);
+  const visibilityLines = SHARED_ATTENDANCE_VISIBILITIES
+    .map((visibility) => {
+      const line = formatPlanStatusCounts(sharedPlans.filter((plan) => (plan?.visibility || 'private') === visibility));
+      return line ? `${eventVisibilityLabel(visibility)}: ${line}` : '';
+    })
+    .filter(Boolean);
+  return {
+    own: ownPlans.length ? `Your plan: ${formatPlanStatusCounts(ownPlans)}` : '',
+    shared: sharedLine ? `Shared: ${sharedLine}` : '',
+    visibilityLines,
+    hasShared: sharedPlans.length > 0
+  };
+};
 
 const getScheduleWindow = (item) => {
   const startTime = item?.start_at ? new Date(item.start_at).getTime() : NaN;
@@ -269,6 +318,13 @@ const scheduleWindowsOverlap = (a, b) => Boolean(a && b && a.startTime < b.endTi
 
 const isConflictEligiblePlan = (plan) => CONFLICTING_SCHEDULE_PLAN_STATUSES.has(plan?.status || 'planned');
 
+const sameCatalogSourceRef = (a, b) => (
+  a?.source_type === 'schedule_catalog' &&
+  b?.source_type === 'schedule_catalog' &&
+  String(a?.source_ref || '') &&
+  String(a.source_ref) === String(b?.source_ref || '')
+);
+
 const buildScheduleConflictMap = (plans = []) => {
   const activePlans = (Array.isArray(plans) ? plans : [])
     .filter(isConflictEligiblePlan)
@@ -277,7 +333,11 @@ const buildScheduleConflictMap = (plans = []) => {
   const conflictMap = new Map();
   activePlans.forEach((entry, index) => {
     const conflicts = activePlans
-      .filter((other, otherIndex) => otherIndex !== index && scheduleWindowsOverlap(entry.window, other.window))
+      .filter((other, otherIndex) => (
+        otherIndex !== index &&
+        !sameCatalogSourceRef(entry.plan, other.plan) &&
+        scheduleWindowsOverlap(entry.window, other.window)
+      ))
       .map((other) => other.plan);
     if (conflicts.length) {
       conflictMap.set(String(entry.plan.id), conflicts);
@@ -294,6 +354,7 @@ const findCatalogSessionConflicts = (session, plan, plans = []) => {
   return (Array.isArray(plans) ? plans : [])
     .filter(isConflictEligiblePlan)
     .filter((otherPlan) => !plan?.id || Number(otherPlan.id) !== Number(plan.id))
+    .filter((otherPlan) => !sameCatalogSourceRef(plan || session, otherPlan))
     .map((otherPlan) => ({ plan: otherPlan, window: getScheduleWindow(otherPlan) }))
     .filter((entry) => scheduleWindowsOverlap(candidateWindow, entry.window))
     .map((entry) => entry.plan);
@@ -2397,6 +2458,7 @@ function EventScheduleNowNext({ sessions = [], plans = [], saving = '', pendingR
     const plan = snapshot.catalogPlanByRef.get(String(session.id));
     return findCatalogSessionConflicts(session, plan, plans);
   }, [plans, snapshot.catalogPlanByRef]);
+  const getAttendance = useCallback((session) => buildScheduleAttendanceSummary(session, plans), [plans]);
   const hasSessions = Boolean(snapshot.current || snapshot.next || snapshot.laterToday.length);
 
   if (!hasSessions) {
@@ -2423,6 +2485,7 @@ function EventScheduleNowNext({ sessions = [], plans = [], saving = '', pendingR
           session={snapshot.current}
           plan={snapshot.current ? snapshot.catalogPlanByRef.get(String(snapshot.current.id)) : null}
           conflicts={snapshot.current ? getConflicts(snapshot.current) : []}
+          attendance={snapshot.current ? getAttendance(snapshot.current) : null}
           saving={snapshot.current ? saving === `catalog-plan-${snapshot.current.id}` : false}
           pendingResolution={pendingResolution}
           onPlanStatusChange={onPlanStatusChange}
@@ -2435,6 +2498,7 @@ function EventScheduleNowNext({ sessions = [], plans = [], saving = '', pendingR
           session={snapshot.next}
           plan={snapshot.next ? snapshot.catalogPlanByRef.get(String(snapshot.next.id)) : null}
           conflicts={snapshot.next ? getConflicts(snapshot.next) : []}
+          attendance={snapshot.next ? getAttendance(snapshot.next) : null}
           saving={snapshot.next ? saving === `catalog-plan-${snapshot.next.id}` : false}
           pendingResolution={pendingResolution}
           onPlanStatusChange={onPlanStatusChange}
@@ -2452,6 +2516,7 @@ function EventScheduleNowNext({ sessions = [], plans = [], saving = '', pendingR
                   session={session}
                   plan={snapshot.catalogPlanByRef.get(String(session.id))}
                   conflicts={getConflicts(session)}
+                  attendance={getAttendance(session)}
                   saving={saving === `catalog-plan-${session.id}`}
                   pendingResolution={pendingResolution}
                   onPlanStatusChange={onPlanStatusChange}
@@ -2467,7 +2532,7 @@ function EventScheduleNowNext({ sessions = [], plans = [], saving = '', pendingR
   );
 }
 
-function CatalogNowNextSlot({ label, session, plan = null, conflicts = [], saving = false, pendingResolution = null, onPlanStatusChange, onResolveConflict, onCancelConflict, empty }) {
+function CatalogNowNextSlot({ label, session, plan = null, conflicts = [], attendance = null, saving = false, pendingResolution = null, onPlanStatusChange, onResolveConflict, onCancelConflict, empty }) {
   return (
     <div className="grid grid-cols-[4.75rem_1fr] gap-3 px-3 py-3 sm:grid-cols-[5.75rem_1fr]">
       <p className="text-xs font-medium text-dim">{label}</p>
@@ -2476,6 +2541,7 @@ function CatalogNowNextSlot({ label, session, plan = null, conflicts = [], savin
           session={session}
           plan={plan}
           conflicts={conflicts}
+          attendance={attendance}
           saving={saving}
           pendingResolution={pendingResolution}
           onPlanStatusChange={onPlanStatusChange}
@@ -2489,7 +2555,7 @@ function CatalogNowNextSlot({ label, session, plan = null, conflicts = [], savin
   );
 }
 
-function CatalogNowNextMiniRow({ session, plan = null, conflicts = [], saving = false, pendingResolution = null, onPlanStatusChange, onResolveConflict, onCancelConflict }) {
+function CatalogNowNextMiniRow({ session, plan = null, conflicts = [], attendance = null, saving = false, pendingResolution = null, onPlanStatusChange, onResolveConflict, onCancelConflict }) {
   const agendaTime = formatAgendaTime(session?.start_at, session?.end_at);
   const categories = Array.isArray(session?.categories) ? session.categories.filter(Boolean) : [];
   const planStatus = plan?.status || '';
@@ -2510,6 +2576,7 @@ function CatalogNowNextMiniRow({ session, plan = null, conflicts = [], saving = 
           {planStatus ? <span className="shrink-0 text-xs text-ok">{humanizeEventValue(planStatus)}</span> : null}
         </div>
         <p className="mt-1 truncate text-xs text-dim">{detailLine || 'Details pending'}</p>
+        {attendance?.shared ? <p className="mt-1 truncate text-xs text-dim">{attendance.shared}</p> : null}
         {conflictSummary ? <p className="mt-1 truncate text-xs text-warn">{conflictSummary}</p> : null}
       </div>
       <CatalogPlanStateSelect
@@ -2594,6 +2661,7 @@ function EventScheduleCatalog({ sessions, plans = [], drafts = {}, saving = '', 
     const plan = session?.id ? catalogPlanByRef.get(String(session.id)) : null;
     return findCatalogSessionConflicts(session, plan, plans);
   }, [catalogPlanByRef, plans]);
+  const getAttendance = useCallback((session) => buildScheduleAttendanceSummary(session, plans), [plans]);
   const groups = useMemo(() => {
     const ordered = sortPlansForAgenda(Array.isArray(sessions) ? sessions : []);
     return ordered.reduce((acc, session) => {
@@ -2629,6 +2697,7 @@ function EventScheduleCatalog({ sessions, plans = [], drafts = {}, saving = '', 
                 adding={saving === `catalog-plan-${session.id}`}
                 plan={catalogPlanByRef.get(String(session.id))}
                 conflicts={getConflicts(session)}
+                attendance={getAttendance(session)}
                 pendingResolution={pendingResolution}
                 onDraftChange={(patch) => onDraftChange?.(session.id, patch)}
                 onUpdate={() => onUpdate?.(session)}
@@ -2645,7 +2714,7 @@ function EventScheduleCatalog({ sessions, plans = [], drafts = {}, saving = '', 
   );
 }
 
-function ScheduleCatalogRow({ session, draft = {}, saving = false, adding = false, plan = null, conflicts = [], pendingResolution = null, onDraftChange, onUpdate, onPlanStatusChange, onResolveConflict, onCancelConflict, onRemove }) {
+function ScheduleCatalogRow({ session, draft = {}, saving = false, adding = false, plan = null, conflicts = [], attendance = null, pendingResolution = null, onDraftChange, onUpdate, onPlanStatusChange, onResolveConflict, onCancelConflict, onRemove }) {
   const categories = Array.isArray(session?.categories) ? session.categories.filter(Boolean) : [];
   const descriptionPreview = plainTextPreview(session?.description, 700);
   const agendaTime = formatAgendaTime(session?.start_at, session?.end_at);
@@ -2676,6 +2745,7 @@ function ScheduleCatalogRow({ session, draft = {}, saving = false, adding = fals
           <p className="mt-1 truncate text-xs text-dim">
             {locationLine || 'Location pending'}
           </p>
+          {attendance?.shared ? <p className="mt-1 truncate text-xs text-dim">{attendance.shared}</p> : null}
           {conflictSummary ? <p className="mt-1 truncate text-xs text-warn">{conflictSummary}</p> : null}
         </div>
       </summary>
@@ -2729,6 +2799,15 @@ function ScheduleCatalogRow({ session, draft = {}, saving = false, adding = fals
           {conflictSummary ? (
             <div className="rounded-md border border-warn/30 bg-warn/10 px-3 py-2 text-sm text-warn">
               {conflictSummary}
+            </div>
+          ) : null}
+          {attendance?.hasShared ? (
+            <div className="rounded-md border border-edge bg-raised px-3 py-2 text-sm" aria-label="Shared attendance">
+              <p className="font-medium text-ink">Shared attendance</p>
+              <div className="mt-1 space-y-1 text-xs text-dim">
+                {attendance.own ? <p>{attendance.own}</p> : null}
+                {attendance.visibilityLines.map((line) => <p key={line}>{line}</p>)}
+              </div>
             </div>
           ) : null}
           <div className="grid grid-cols-1 gap-2 border-t border-edge pt-3 sm:grid-cols-2">

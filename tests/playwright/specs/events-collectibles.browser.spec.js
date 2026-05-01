@@ -464,6 +464,16 @@ test.describe('events and collectibles browser regressions', () => {
         status: 'planned',
         visibility: 'private'
       }, 201);
+      await postWithCsrf(userRequestContext, `/api/events/${eventId}/schedule-plans`, {
+        title: 'Shared Catalog Backup',
+        start_at: new Date(now - 10 * 60 * 1000).toISOString(),
+        end_at: new Date(now + 50 * 60 * 1000).toISOString(),
+        location: 'Room 6DE',
+        source_type: 'schedule_catalog',
+        source_ref: String(currentId),
+        status: 'backup',
+        visibility: 'group'
+      }, 201);
 
       await page.setViewportSize({ width: 390, height: 844 });
       await signInThroughUi(page, userCredentials);
@@ -482,6 +492,7 @@ test.describe('events and collectibles browser regressions', () => {
       await expect(nowNext.getByText('Now', { exact: true })).toBeVisible();
       await expect(nowNext.getByText(currentTitle, { exact: true })).toBeVisible();
       await expect(nowNext.locator('span').filter({ hasText: /^Planned$/ })).toBeVisible();
+      await expect(nowNext.getByText('Shared: 1 backup').first()).toBeVisible();
       await expect(nowNext.getByText('Next', { exact: true })).toBeVisible();
       await expect(nowNext.getByText(nextTitle, { exact: true })).toBeVisible();
       await expect(nowNext.getByText(/Room 6DE/)).toBeVisible();

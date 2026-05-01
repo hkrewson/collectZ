@@ -298,6 +298,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - The `3.4.49` quick-state slice is promoted to let catalog and Now / Next sessions create or update linked personal plan states.
 - The `3.4.50` conflict-detection slice is promoted to show read-only overlap warnings before replacement or notification workflows.
 - The `3.4.51` conflict-resolution slice is promoted to make local keep/backup/skip choices explicit before notification workflows.
+- The `3.4.52` attendance-readback slice is promoted to show visibility-aware shared schedule context before selected-recipient notifications.
 - This follow-up turns that data into import-backed and time-aware discovery surfaces.
 
 **Scope**

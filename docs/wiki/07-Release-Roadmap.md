@@ -7189,6 +7189,49 @@ Historical note:
 - What remains in the milestone: nothing; `3.4.51` is closed.
 - Recommended commit message: `Release 3.4.51 event schedule conflict resolution actions`
 
+## 3.4.52 — Event Schedule Friend / Group Attendance Readback
+
+**Goal:** Add web-side shared attendance context for event catalog sessions using existing schedule-plan visibility, without adding notifications, friend discovery, platform relay behavior, or native/mobile push infrastructure.
+
+**Current Slice:** `Closed 2026-05-01.`
+
+### Scope
+
+- Summarize catalog-linked schedule plans by active attendance states: planned, maybe, and backup.
+- Keep the user's private catalog-linked plan as the primary plan-state control when duplicate/shared linked plans exist.
+- Show compact shared attendance counts on Now / Next and Catalog rows.
+- Show an expanded shared attendance block on Catalog rows with visibility-aware breakdowns.
+- Use current visibility values (`selected_people`, `group`, `event_workspace`) as readback categories.
+- Keep this read-only; do not add selected-recipient notifications, friend discovery, event companion invites, platform relay identity, device registration, push delivery, realtime presence/location, or offline mutation queues.
+- Update targeted browser coverage, unit source assertions, release notes, release feed, and version metadata.
+
+### Acceptance Criteria
+
+- Catalog rows and Now / Next rows can show shared attendance counts such as `Shared: 1 backup`.
+- Private linked plans continue to drive the user's own catalog plan-state control.
+- Shared readback does not expose raw ICS URLs or notification/device details.
+- Existing quick plan-state, conflict detection, and conflict-resolution flows continue to work.
+- True friend identity, selected-recipient preview, and notifications remain future platform/social milestones.
+
+### Notes
+
+- Current web readback is visibility-aware schedule context, not a full friend graph.
+- Group/selected-person identity targeting belongs with the later platform companion and selected-recipient notification work.
+
+### Closeout
+
+- Roadmap slice: `3.4.52 — Event Schedule Friend / Group Attendance Readback`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/40-Event-Social-Planning-Foundation.md`, `docs/wiki/45-Event-Schedule-Catalog-Foundation.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild to `3.4.52`; `/api/health` reported frontend/backend/build `3.4.52`; backend runtime verified `APP_EDITION=platform`, `APP_VERSION=3.4.52`, `NODE_ENV=development`, and `SESSION_COOKIE_SECURE=false`; generated public compose was booted without the localhost override and verified with `APP_EDITION` unset before the homelab boundary smoke; normal local platform stack was restored and rechecked after homelab verification.
+- CI/checks run locally: `APP_VERSION=3.4.52 docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml up -d --build frontend`; backend unit tests (`230` passed); OpenAPI validation; event social planning smoke; personal Sched ICS sync smoke; Help > Releases smoke for `3.4.52`; targeted Event drawer Now / Next browser regression; full browser regression (`55` passed, `4` skipped); compose config validation; public export surface validation; init parity; migration rehearsal; platform edition boundary; homelab edition boundary against generated public compose; RBAC regression; Dockerized `npm ci --no-fund --dry-run` lockfile sync checks for backend and frontend; compose generator rerun; release-evidence secret-hygiene grep; `git diff --check`.
+- Release/version artifacts: `app-meta.json`, backend/frontend app meta, backend/frontend package and lockfile versions, generated `docker-compose.yml`, `docs/releases/v3.4.52.md`, and `backend/release-feed.json` are aligned on `3.4.52`; the running Help > Releases feed served `3.4.52` as the latest entry.
+- Verified facts: catalog-linked shared/group schedule plans now render compact attendance readback such as `Shared: 1 backup`; expanded catalog rows show a visibility-aware shared attendance block; private linked plans continue to own the user's quick plan-state selector when duplicate/shared linked plans exist for the same catalog session; duplicate linked plans for the same catalog session no longer count as conflicts against each other; existing quick plan-state and conflict-resolution flows remain green in browser regression; this slice added no selected-recipient notifications, friend discovery, device registration, platform relay behavior, realtime presence, or offline mutation queues.
+- Blocked/unverified items: CI `secret-scan` and `image-security-and-sbom` remain CI-only; local preflight compose-smoke secure-cookie checks remain blocked by the development stack using `NODE_ENV=development` and `SESSION_COOKIE_SECURE=false`, while runtime health/version and compose config were verified locally; `npm --prefix backend run test:observability-evidence` was attempted from repo root but hung without emitting fresh `3.4.52` evidence and was stopped after waiting, leaving observability evidence to rerun in a maintainer/CI release-evidence pass; host-side init parity and migration rehearsal artifact refresh was blocked by local Postgres admin authentication, while both checks passed in the running backend container.
+- Files changed: `frontend/src/components/EventsView.jsx`, `tests/playwright/specs/events-collectibles.browser.spec.js`, `backend/scripts/unit-tests.js`, version metadata/package files, `docker-compose.yml`, `docs/releases/v3.4.52.md`, `backend/release-feed.json`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `preflight-go-no-go.md`.
+- Risks or follow-ups: selected-recipient notifications, friend identity, group attendance membership detail, platform companion relay identity, device registration, push delivery, realtime location, presence, and offline mutation queues remain separate future milestones.
+- What remains in the milestone: nothing for the readback slice; rerun observability release evidence and CI-only `secret-scan` / `image-security-and-sbom` during the release handoff.
+- Recommended commit message: `Release 3.4.52 event schedule friend and group attendance readback`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v3.4.52",
+      "version": "3.4.52",
+      "date": null,
+      "status": null,
+      "summary": "",
+      "details": []
+    },
+    {
       "title": "v3.4.51",
       "version": "3.4.51",
       "date": null,
@@ -67,14 +75,6 @@
     {
       "title": "v3.4.43",
       "version": "3.4.43",
-      "date": null,
-      "status": null,
-      "summary": "",
-      "details": []
-    },
-    {
-      "title": "v3.4.42",
-      "version": "3.4.42",
       "date": null,
       "status": null,
       "summary": "",
