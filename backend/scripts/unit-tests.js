@@ -3628,6 +3628,7 @@ results.push(run('event social planning foundation contract is wired for 3.4.30'
   assert.ok(openApiSource.includes('"/api/events/{id}/groups/{groupId}"'));
   assert.ok(openApiSource.includes('"/api/events/{id}/schedule-sessions"'));
   assert.ok(openApiSource.includes('"/api/events/{id}/schedule-notifications"'));
+  assert.ok(openApiSource.includes('"/api/events/{id}/schedule-notification-delivery-boundary"'));
   assert.ok(openApiSource.includes('"/api/events/{id}/companion/today"'));
   assert.ok(openApiSource.includes('EventCompanionTodayResponse'));
   assert.ok(openApiSource.includes('personal_ics_visibility'));
@@ -3637,6 +3638,7 @@ results.push(run('event social planning foundation contract is wired for 3.4.30'
   assert.ok(openApiSource.includes('EventSchedulePlanRecord'));
   assert.ok(openApiSource.includes('EventScheduleChangePreviewResponse'));
   assert.ok(openApiSource.includes('EventScheduleNotificationRecord'));
+  assert.ok(openApiSource.includes('EventScheduleNotificationDeliveryBoundaryResponse'));
   assert.ok(openApiSource.includes('EventLinkedUserIdentity'));
   assert.ok(openApiSource.includes('link_current_user'));
   assert.ok(openApiSource.includes('current_user_filter_supported'));
@@ -3649,6 +3651,8 @@ results.push(run('event social planning foundation contract is wired for 3.4.30'
   assert.ok(eventSocialPlanningSmokeSource.includes('preview_only === true'));
   assert.ok(eventSocialPlanningSmokeSource.includes('/api/events/${eventId}/schedule-notifications'));
   assert.ok(eventSocialPlanningSmokeSource.includes('event-schedule-notification.v1'));
+  assert.ok(eventSocialPlanningSmokeSource.includes('/api/events/${eventId}/schedule-notification-delivery-boundary'));
+  assert.ok(eventSocialPlanningSmokeSource.includes('event-schedule-notification-delivery-boundary.v1'));
   assert.ok(eventSocialPlanningSmokeSource.includes('/api/events/${eventId}/schedule-sessions'));
   assert.ok(eventSocialPlanningSmokeSource.includes('/api/events/${eventId}/companion/today'));
   assert.ok(eventSocialPlanningSmokeSource.includes('personal_ics_visibility'));
@@ -3699,6 +3703,7 @@ results.push(run('event social planning foundation contract is wired for 3.4.30'
   assert.ok(eventsViewSource.includes('Notification history'));
   assert.ok(eventsViewSource.includes('EventScheduleNotificationInbox'));
   assert.ok(eventsViewSource.includes('Notification inbox'));
+  assert.ok(eventsViewSource.includes('Notification delivery boundary'));
   assert.ok(eventsViewSource.includes('Notification inbox filter'));
   assert.ok(eventsViewSource.includes('recipient=me'));
   assert.ok(eventsViewSource.includes('Link this attendee to my app user'));
@@ -3715,6 +3720,9 @@ results.push(run('event social planning foundation contract is wired for 3.4.30'
   assert.ok(eventsRoutesSource.includes("router.patch('/events/:id/schedule-notifications/:notificationId'"));
   assert.ok(eventsRoutesSource.includes("router.delete('/events/:id/schedule-notifications/:notificationId'"));
   assert.ok(eventsRoutesSource.includes('Only draft schedule notifications can be edited or sent'));
+  assert.ok(eventsRoutesSource.includes("router.get('/events/:id/schedule-notification-delivery-boundary'"));
+  assert.ok(eventsRoutesSource.includes('event-schedule-notification-delivery-boundary.v1'));
+  assert.ok(eventsRoutesSource.includes('push, email, device, or global inbox behavior requires a new contract version'));
   assert.ok(eventsRoutesSource.includes('event-schedule-notification-inbox.v1'));
   assert.ok(eventsRoutesSource.includes('buildScheduleMessageTemplate'));
   assert.ok(eventsRoutesSource.includes('Anyone want to join me for'));

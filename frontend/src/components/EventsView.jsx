@@ -1823,6 +1823,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
   const [scheduleNotifications, setScheduleNotifications] = useState({});
   const [scheduleNotificationHistory, setScheduleNotificationHistory] = useState({});
   const [scheduleNotificationInbox, setScheduleNotificationInbox] = useState({ counts: { total: 0, unread: 0, read: 0, acknowledged: 0 }, items: [] });
+  const [scheduleNotificationDeliveryBoundary, setScheduleNotificationDeliveryBoundary] = useState(null);
   const [scheduleNotificationInboxFilter, setScheduleNotificationInboxFilter] = useState('all');
   const icsHealth = getIcsFeedHealth(icsSource);
 
@@ -1862,13 +1863,14 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
       const inboxPath = scheduleNotificationInboxFilter === 'mine'
         ? `/events/${eventId}/schedule-notification-inbox?recipient=me`
         : `/events/${eventId}/schedule-notification-inbox`;
-      const [attendeePayload, groupPayload, meetupPayload, planPayload, catalogPayload, notificationPayload, inboxPayload, icsPayload] = await Promise.all([
+      const [attendeePayload, groupPayload, meetupPayload, planPayload, catalogPayload, notificationPayload, deliveryBoundaryPayload, inboxPayload, icsPayload] = await Promise.all([
         apiCall('get', `/events/${eventId}/attendees`),
         apiCall('get', `/events/${eventId}/groups`),
         apiCall('get', `/events/${eventId}/meetups`),
         apiCall('get', `/events/${eventId}/schedule-plans`),
         apiCall('get', `/events/${eventId}/schedule-sessions`),
         apiCall('get', `/events/${eventId}/schedule-notifications`),
+        apiCall('get', `/events/${eventId}/schedule-notification-delivery-boundary`),
         apiCall('get', inboxPath),
         apiCall('get', `/events/${eventId}/personal-ics-source`)
       ]);
@@ -1928,6 +1930,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
         counts: inboxPayload?.counts || { total: 0, unread: 0, read: 0, acknowledged: 0 },
         items: Array.isArray(inboxPayload?.items) ? inboxPayload.items : []
       });
+      setScheduleNotificationDeliveryBoundary(deliveryBoundaryPayload || null);
       setCatalogDrafts((prev) => {
         const next = {};
         nextCatalogSessions.forEach((session) => {
@@ -2605,6 +2608,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
           </summary>
           <EventScheduleNotificationInbox
             inbox={scheduleNotificationInbox}
+            deliveryBoundary={scheduleNotificationDeliveryBoundary}
             filter={scheduleNotificationInboxFilter}
             saving={saving}
             onFilterChange={setScheduleNotificationInboxFilter}
@@ -3904,22 +3908,37 @@ function SchedulePlanDraftIntentActions({ status = 'planned', conflicts = [], on
   );
 }
 
-function EventScheduleNotificationInbox({ inbox = {}, filter = 'all', saving = '', onFilterChange, onUpdate }) {
+function EventScheduleNotificationInbox({ inbox = {}, deliveryBoundary = null, filter = 'all', saving = '', onFilterChange, onUpdate }) {
   const items = Array.isArray(inbox.items) ? inbox.items : [];
   const counts = inbox.counts || { total: items.length, unread: 0, read: 0, acknowledged: 0 };
   const activeFilter = filter === 'mine' ? 'mine' : 'all';
   const emptyCopy = activeFilter === 'mine'
     ? 'No notifications are linked to you yet.'
     : 'No local schedule notifications have recipients yet.';
+  const boundaryContract = deliveryBoundary?.contract || {};
+  const localOnly = boundaryContract.external_delivery_supported === false;
+  const boundaryCopy = localOnly
+    ? 'Local event records only. Push, email, device delivery, and global inboxes are not enabled.'
+    : 'Delivery capability is not available yet.';
   const filterButtonClass = (value) => cx(
     'rounded-md border px-2.5 py-1 text-xs transition-colors',
     activeFilter === value
       ? 'border-muted bg-raised text-ink'
       : 'border-edge bg-surface text-dim hover:text-ink'
   );
+  const boundaryBlock = (
+    <div className="rounded-md border border-edge bg-surface px-3 py-2 text-xs text-ghost" aria-label="Notification delivery boundary">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="font-medium text-ink">Delivery boundary</span>
+        <span>{boundaryContract.scope === 'event_local' ? 'Event-local' : 'Unknown'}</span>
+      </div>
+      <p className="mt-1 leading-5">{boundaryCopy}</p>
+    </div>
+  );
   if (!items.length) {
     return (
       <div className="space-y-3 px-4 pb-4">
+        {boundaryBlock}
         <div className="flex flex-wrap items-center gap-2" aria-label="Notification inbox filter">
           <button type="button" className={filterButtonClass('all')} onClick={() => onFilterChange?.('all')}>All</button>
           <button type="button" className={filterButtonClass('mine')} onClick={() => onFilterChange?.('mine')}>Mine</button>
@@ -3932,6 +3951,7 @@ function EventScheduleNotificationInbox({ inbox = {}, filter = 'all', saving = '
   }
   return (
     <div className="space-y-3 px-4 pb-4" aria-label="Schedule notification inbox">
+      {boundaryBlock}
       <div className="flex flex-wrap items-center gap-2" aria-label="Notification inbox filter">
         <button type="button" className={filterButtonClass('all')} onClick={() => onFilterChange?.('all')}>All</button>
         <button type="button" className={filterButtonClass('mine')} onClick={() => onFilterChange?.('mine')}>Mine</button>

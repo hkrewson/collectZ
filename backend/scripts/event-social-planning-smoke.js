@@ -264,6 +264,19 @@ async function main() {
     assert(changePreview.data?.requested_change?.status === 'planned', `Expected requested preview status, got ${JSON.stringify(changePreview.data)}`);
     assert(changePreview.data?.recipients?.attendees?.[0]?.user_id === userId, `Expected preview attendee linked user id, got ${JSON.stringify(changePreview.data)}`);
 
+    const deliveryBoundary = await client.request(`/api/events/${eventId}/schedule-notification-delivery-boundary`, {
+      expectStatus: 200
+    });
+    assert(deliveryBoundary.data?.contract?.version === 'event-schedule-notification-delivery-boundary.v1', `Expected notification delivery boundary contract, got ${JSON.stringify(deliveryBoundary.data)}`);
+    assert(deliveryBoundary.data?.contract?.scope === 'event_local', `Expected event-local delivery boundary, got ${JSON.stringify(deliveryBoundary.data)}`);
+    assert(deliveryBoundary.data?.contract?.external_delivery_supported === false, `Expected external delivery disabled in boundary, got ${JSON.stringify(deliveryBoundary.data)}`);
+    assert(deliveryBoundary.data?.capabilities?.send_local_records === true, `Expected local send records supported, got ${JSON.stringify(deliveryBoundary.data)}`);
+    assert(deliveryBoundary.data?.capabilities?.external_delivery === false, `Expected external delivery capability disabled, got ${JSON.stringify(deliveryBoundary.data)}`);
+    assert(deliveryBoundary.data?.supported_channels?.some((channel) => channel.channel === 'event_local' && channel.delivers_outside_app === false), `Expected event_local supported channel only, got ${JSON.stringify(deliveryBoundary.data)}`);
+    assert(deliveryBoundary.data?.unsupported_channels?.some((channel) => channel.channel === 'push' && channel.supported === false), `Expected push to be explicitly unsupported, got ${JSON.stringify(deliveryBoundary.data)}`);
+    assert(deliveryBoundary.data?.unsupported_channels?.some((channel) => channel.channel === 'email' && channel.supported === false), `Expected email to be explicitly unsupported, got ${JSON.stringify(deliveryBoundary.data)}`);
+    assert(deliveryBoundary.data?.endpoints?.records === `/api/events/${eventId}/schedule-notifications`, `Expected notification records endpoint, got ${JSON.stringify(deliveryBoundary.data)}`);
+
     const notificationDraft = await client.request(`/api/events/${eventId}/schedule-notifications`, {
       method: 'POST',
       withCsrf: true,
@@ -397,6 +410,9 @@ async function main() {
       scheduleNotificationCount: notifications.data.items.length,
       scheduleNotificationInboxCount: notificationInbox.data?.counts?.total || 0,
       linkedScheduleNotificationInboxCount: myNotificationInbox.data?.counts?.total || 0,
+      notificationDeliveryBoundaryVersion: deliveryBoundary.data?.contract?.version || null,
+      notificationExternalDeliverySupported: deliveryBoundary.data?.contract?.external_delivery_supported ?? null,
+      unsupportedNotificationChannels: (deliveryBoundary.data?.unsupported_channels || []).map((channel) => channel.channel),
       sentScheduleNotificationStatus: notificationSent.data?.status || null,
       companionContract: companion.data?.contract?.version || null,
       previewRecipientCount: changePreview.data?.recipients?.summary?.attendee_count || 0

@@ -315,6 +315,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - The `3.4.66` template-picker slice is promoted to let users choose and edit Event-local notice text before save/send.
 - The `3.4.67` recipient-selection UI polish slice is promoted to let users trim eligible people/groups before saving or sending an Event-local notice.
 - The `3.4.68` draft-management slice is promoted to edit, send, or discard Event-local schedule notification drafts.
+- The `3.4.69` delivery-boundary slice is promoted to give platform/native clients a stable Event-local delivery contract before any push, email, or device-provider work exists.
 - This follow-up turns that data into import-backed and time-aware discovery surfaces.
 
 **Scope**
@@ -339,7 +340,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 
 **Scope**
 - Add explicit actions for joining, leaving, replacing, or marking backup sessions. The first web-card slice is promoted as `3.4.64`.
-- When a change affects shared plans, offer selected-recipient notifications instead of broadcasting by default. The first action-template slice is promoted as `3.4.65`; picker/edit UI is promoted as `3.4.66`; recipient-selection polish is promoted as `3.4.67`; draft-management UI is promoted as `3.4.68`.
+- When a change affects shared plans, offer selected-recipient notifications instead of broadcasting by default. The first action-template slice is promoted as `3.4.65`; picker/edit UI is promoted as `3.4.66`; recipient-selection polish is promoted as `3.4.67`; draft-management UI is promoted as `3.4.68`; the delivery-boundary/platform contract is promoted as `3.4.69`.
 - Support message templates such as:
   - "I'm switching to this session"
   - "Anyone want to join?"

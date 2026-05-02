@@ -2054,6 +2054,70 @@
         },
         "required": ["items"]
       },
+      "EventScheduleNotificationDeliveryBoundaryResponse": {
+        "type": "object",
+        "properties": {
+          "contract": {
+            "type": "object",
+            "properties": {
+              "version": { "type": "string", "enum": ["event-schedule-notification-delivery-boundary.v1"] },
+              "event_id": { "type": "integer" },
+              "scope": { "type": "string", "enum": ["event_local"] },
+              "external_delivery_supported": { "type": "boolean" },
+              "delivery_provider": { "type": ["string", "null"] },
+              "delivery_endpoint": { "type": ["string", "null"] },
+              "device_registration_supported": { "type": "boolean" },
+              "global_inbox_supported": { "type": "boolean" },
+              "realtime_supported": { "type": "boolean" }
+            },
+            "required": ["version", "event_id", "scope", "external_delivery_supported", "delivery_provider", "delivery_endpoint", "device_registration_supported", "global_inbox_supported", "realtime_supported"]
+          },
+          "supported_channels": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "channel": { "type": "string" },
+                "supported": { "type": "boolean" },
+                "records_notifications": { "type": "boolean" },
+                "creates_recipient_readback": { "type": "boolean" },
+                "delivers_outside_app": { "type": "boolean" },
+                "description": { "type": "string" }
+              },
+              "required": ["channel", "supported"]
+            }
+          },
+          "unsupported_channels": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "channel": { "type": "string" },
+                "supported": { "type": "boolean" },
+                "reason": { "type": "string" }
+              },
+              "required": ["channel", "supported", "reason"]
+            }
+          },
+          "capabilities": {
+            "type": "object",
+            "properties": {
+              "preview_recipients": { "type": "boolean" },
+              "draft_records": { "type": "boolean" },
+              "update_drafts": { "type": "boolean" },
+              "send_local_records": { "type": "boolean" },
+              "discard_drafts": { "type": "boolean" },
+              "recipient_readback": { "type": "boolean" },
+              "current_user_inbox_filter": { "type": "boolean" },
+              "read_acknowledgement": { "type": "boolean" },
+              "external_delivery": { "type": "boolean" }
+            }
+          },
+          "endpoints": { "type": "object" },
+          "platform_guidance": { "type": "array", "items": { "type": "string" } }
+        },
+        "required": ["contract", "supported_channels", "unsupported_channels", "capabilities", "endpoints", "platform_guidance"]
+      },
       "EventScheduleNotificationRecipientUpdateRequest": {
         "type": "object",
         "properties": {
@@ -5882,6 +5946,18 @@
         "responses": {
           "200": { "description": "Draft discarded", "content": { "application/json": { "schema": { "type": "object", "properties": { "ok": { "type": "boolean" }, "id": { "type": "integer" } } } } } },
           "404": { "description": "Draft not found" }
+        }
+      }
+    },
+    "/api/events/{id}/schedule-notification-delivery-boundary": {
+      "get": {
+        "tags": ["Events"],
+        "summary": "Read the Event schedule notification delivery boundary",
+        "description": "Returns the platform-readable delivery boundary for schedule notifications. The current contract supports Event-local records and recipient readback only; push, email, native device delivery, realtime fanout, global inboxes, and broadcast delivery are explicitly unsupported.",
+        "security": [{ "cookieSession": [] }, { "bearerAuth": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "responses": {
+          "200": { "description": "Event schedule notification delivery boundary", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventScheduleNotificationDeliveryBoundaryResponse" } } } }
         }
       }
     },

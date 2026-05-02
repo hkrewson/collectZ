@@ -7899,6 +7899,47 @@ Historical note:
 - What remains in the milestone: no remaining 3.4.68 implementation work; CI-only release gates must pass before public tag/release publication.
 - Recommended commit message: `Release 3.4.68 event schedule notification draft management UI`
 
+## 3.4.69 — Event Schedule Notification Delivery Boundary Platform Contract
+
+**Goal:** Give web and platform/native clients a stable Event-local delivery boundary for schedule notifications so future clients do not mistake local notification records for push, email, device, realtime, or global inbox delivery.
+
+**Current Slice:** `Closed.`
+
+### Scope
+
+- Add a versioned Event-scoped delivery-boundary endpoint for schedule notifications.
+- Document the supported `event_local` record/readback channel.
+- Explicitly list unsupported push, email, device registration, realtime fanout, global inbox, and broadcast behavior.
+- Keep existing draft/send/readback endpoints unchanged except for contract discoverability.
+- Surface the local-only boundary in the Event drawer notification inbox.
+- Keep provider-backed delivery, device registration, native push, email, and global notification inboxes out of scope.
+
+### Acceptance Criteria
+
+- Platform/native clients can fetch a stable contract before offering notification delivery affordances.
+- The contract reports local records and recipient readback as supported.
+- The contract reports external delivery and device/provider channels as unsupported.
+- OpenAPI and smoke coverage prove the endpoint and boundary values.
+- The web Event drawer communicates that schedule notices are local event records only.
+
+### Notes
+
+- This milestone does not implement external notification delivery. It defines the current product boundary and keeps future provider work from leaking into the current UI/API contract.
+
+### Closeout
+
+- Roadmap slice: `3.4.69 — Event Schedule Notification Delivery Boundary Platform Contract`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/42-Event-Social-Platform-Companion-Contract.md`, `docs/wiki/45-Event-Schedule-Catalog-Foundation.md`, and `/Users/hamlin/.codex/skills/uncodixfy/SKILL.md`.
+- Runtime verification used: rebuilt and recreated backend/frontend through Docker with `APP_VERSION=3.4.69`; verified `/api/health` reports frontend/backend/build `3.4.69`; verified local platform container env reports `APP_EDITION=platform`; switched to generated public compose and verified homelab boundary with no `APP_EDITION`; restored local platform compose afterward.
+- CI/checks run locally: backend route/smoke/unit syntax checks; local backend unit/source contract tests; local OpenAPI validation; container backend unit tests; container OpenAPI validation; event social planning smoke; Help > Releases smoke; init parity; migration rehearsal; RBAC regression; platform edition boundary; homelab edition boundary; full browser regression (`55 passed`, `4 skipped`); public-export validation; generated-compose config validation and idempotence check; backend and frontend `npm ci --dry-run` dependency checks; observability release evidence; release preflight; generated-artifact secret-pattern grep; and `git diff --check`.
+- Release artifacts: `docs/releases/v3.4.69.md` exists, `backend/release-feed.json` serves `v3.4.69` first, `preflight-go-no-go.md` regenerated, and observability evidence regenerated for `3.4.69`.
+- Verified facts: `GET /api/events/:id/schedule-notification-delivery-boundary` returns contract version `event-schedule-notification-delivery-boundary.v1`; it reports `event_local` records/readback as supported; it reports push, email, device, global inbox, realtime, and broadcast channels as unsupported; the Event drawer notification inbox now reads back the local-only boundary; OpenAPI and event social smoke prove the endpoint and values from the running stack.
+- Blocked/unverified items: CI-only `secret-scan` and `image-security-and-sbom` must still run in GitHub Actions; local release preflight marks CI secure-cookie `compose-smoke` conditions blocked because the local development stack intentionally runs with `SESSION_COOKIE_SECURE=false`.
+- Files changed: `app-meta.json`, `artifacts/observability-evidence/observability-release-evidence.json`, `backend/app-meta.json`, `backend/openapi/openapi.yaml`, `backend/package.json`, `backend/package-lock.json`, `backend/release-feed.json`, `backend/routes/events.js`, `backend/scripts/event-social-planning-smoke.js`, `backend/scripts/unit-tests.js`, `docker-compose.yml`, `docs/releases/v3.4.69.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/42-Event-Social-Platform-Companion-Contract.md`, `docs/wiki/45-Event-Schedule-Catalog-Foundation.md`, `frontend/package.json`, `frontend/package-lock.json`, `frontend/src/app-meta.json`, `frontend/src/components/EventsView.jsx`, and `preflight-go-no-go.md`.
+- Risks or follow-ups: this remains a delivery boundary only; provider-backed push, email, device registration, global notification inboxes, realtime fanout, and native offline mutation queues remain future work.
+- What remains in the milestone: no remaining 3.4.69 implementation work; CI-only release gates must pass before public tag/release publication.
+- Recommended commit message: `Release 3.4.69 event schedule notification delivery boundary platform contract`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

@@ -152,6 +152,7 @@ const EVENT_COMPANION_ICS_STATE_LABELS = {
 const EVENT_COMPANION_OFFLINE_PACKET_VERSION = 'event-social-offline-packet.v1';
 const SCHEDULE_CHANGE_NOTIFICATION_CONTRACT_VERSION = 'event-schedule-change-preview.v1';
 const SCHEDULE_NOTIFICATION_CONTRACT_VERSION = 'event-schedule-notification.v1';
+const SCHEDULE_NOTIFICATION_DELIVERY_BOUNDARY_VERSION = 'event-schedule-notification-delivery-boundary.v1';
 const CONFLICTING_SCHEDULE_PLAN_STATUSES = new Set(['planned', 'maybe', 'backup']);
 
 const serializeEventArtifactRow = (row = {}) => ({
@@ -691,6 +692,63 @@ function buildScheduleNotificationContract() {
       'no_email_delivery',
       'no_realtime_presence',
       'no_broadcast_without_user_selection'
+    ]
+  };
+}
+
+function buildScheduleNotificationDeliveryBoundary(eventId) {
+  return {
+    contract: {
+      version: SCHEDULE_NOTIFICATION_DELIVERY_BOUNDARY_VERSION,
+      event_id: Number(eventId),
+      scope: 'event_local',
+      external_delivery_supported: false,
+      delivery_provider: null,
+      delivery_endpoint: null,
+      device_registration_supported: false,
+      global_inbox_supported: false,
+      realtime_supported: false
+    },
+    supported_channels: [
+      {
+        channel: 'event_local',
+        supported: true,
+        records_notifications: true,
+        creates_recipient_readback: true,
+        delivers_outside_app: false,
+        description: 'Creates Event-local notification records and recipient readback rows only.'
+      }
+    ],
+    unsupported_channels: [
+      { channel: 'push', supported: false, reason: 'No native device registration or push provider is configured.' },
+      { channel: 'email', supported: false, reason: 'Schedule notifications do not use SMTP or email delivery.' },
+      { channel: 'device', supported: false, reason: 'No platform device identity or delivery token contract exists yet.' },
+      { channel: 'global_inbox', supported: false, reason: 'Notification readback is scoped to the Event drawer and Event APIs.' },
+      { channel: 'realtime', supported: false, reason: 'No websocket, presence, or realtime fanout is part of this contract.' },
+      { channel: 'broadcast', supported: false, reason: 'Recipients must be selected from Event-local eligible people or groups.' }
+    ],
+    capabilities: {
+      preview_recipients: true,
+      draft_records: true,
+      update_drafts: true,
+      send_local_records: true,
+      discard_drafts: true,
+      recipient_readback: true,
+      current_user_inbox_filter: true,
+      read_acknowledgement: true,
+      external_delivery: false
+    },
+    endpoints: {
+      preview: `/api/events/${eventId}/schedule-change-preview`,
+      records: `/api/events/${eventId}/schedule-notifications`,
+      inbox: `/api/events/${eventId}/schedule-notification-inbox`,
+      current_user_inbox: `/api/events/${eventId}/schedule-notification-inbox?recipient=me`
+    },
+    platform_guidance: [
+      'Treat sent schedule notifications as local coordination records, not proof of push/email/device delivery.',
+      'Use selected recipient ids from the preview/recipient picker; do not broadcast by default.',
+      'Native clients may cache this boundary and should refetch before offering any future delivery channel.',
+      'Future push, email, device, or global inbox behavior requires a new contract version.'
     ]
   };
 }
@@ -2656,6 +2714,14 @@ router.get('/events/:id/schedule-notifications', asyncHandler(async (req, res) =
     [eventId]
   );
   res.json({ items: result.rows.map(serializeScheduleNotification).filter(Boolean) });
+}));
+
+router.get('/events/:id/schedule-notification-delivery-boundary', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const eventId = parsePositiveId(req.params.id, 'event id');
+  const eventRow = await ensureScopedEvent(scopeContext, eventId);
+  if (!eventRow) return res.status(404).json({ error: 'Event not found' });
+  res.json(buildScheduleNotificationDeliveryBoundary(eventId));
 }));
 
 router.get('/events/:id/schedule-notification-inbox', asyncHandler(async (req, res) => {

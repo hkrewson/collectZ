@@ -48,6 +48,18 @@ The companion snapshot is not a new write surface. Platform clients should use t
 - `GET/PUT/DELETE /api/events/:id/personal-ics-source`
 - `POST /api/events/:id/personal-ics-source/sync`
 
+## Notification Delivery Boundary
+
+`GET /api/events/:id/schedule-notification-delivery-boundary` returns the current delivery capability contract for Event schedule notifications.
+
+The current contract is intentionally local-only:
+
+- supported channel: `event_local`,
+- supported behavior: preview recipients, save drafts, edit drafts, discard drafts, mark a draft locally sent, create Event-local recipient readback rows, and update read/acknowledged state,
+- unsupported behavior: push delivery, email delivery, native device registration, realtime fanout, global inboxes, and broadcast-without-selection behavior.
+
+Platform clients should treat `sent` schedule notifications as coordination records inside collectZ, not proof that another device received a push/email/message. A native client should not show push/email/device delivery affordances unless this boundary reports a future supported external channel and a new contract version.
+
 ## Offline and Cache Rules
 
 - Companion clients may cache the snapshot for quick day-of-con launch.
