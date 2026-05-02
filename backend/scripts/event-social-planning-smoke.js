@@ -79,6 +79,7 @@ async function createDirectUser({ email, password, name, role = 'admin' }) {
 
 async function cleanupTemporaryState({ userId, libraryId, spaceId }) {
   if (libraryId) {
+    await pool.query('DELETE FROM event_schedule_notifications WHERE event_id IN (SELECT id FROM events WHERE library_id = $1)', [libraryId]).catch(() => {});
     await pool.query('DELETE FROM event_schedule_sessions WHERE event_id IN (SELECT id FROM events WHERE library_id = $1)', [libraryId]).catch(() => {});
     await pool.query('DELETE FROM event_schedule_plans WHERE event_id IN (SELECT id FROM events WHERE library_id = $1)', [libraryId]).catch(() => {});
     await pool.query('DELETE FROM event_meetups WHERE event_id IN (SELECT id FROM events WHERE library_id = $1)', [libraryId]).catch(() => {});
@@ -262,6 +263,47 @@ async function main() {
     assert(changePreview.data?.subject?.schedule_plan_id === planId, `Expected preview subject plan id, got ${JSON.stringify(changePreview.data)}`);
     assert(changePreview.data?.requested_change?.status === 'planned', `Expected requested preview status, got ${JSON.stringify(changePreview.data)}`);
 
+    const notificationDraft = await client.request(`/api/events/${eventId}/schedule-notifications`, {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 201,
+      body: JSON.stringify({
+        schedule_plan_id: planId,
+        requested_status: 'planned',
+        requested_visibility: 'event_workspace',
+        status: 'draft',
+        recipient_attendee_ids: [attendeeId],
+        message_title: 'Panel plan update',
+        message_body: 'I am switching this panel back to planned.'
+      }),
+      headers: { 'Content-Type': 'application/json' }
+    });
+    assert(notificationDraft.data?.contract?.version === 'event-schedule-notification.v1', `Expected notification contract, got ${JSON.stringify(notificationDraft.data)}`);
+    assert(notificationDraft.data?.status === 'draft', `Expected draft notification, got ${JSON.stringify(notificationDraft.data)}`);
+    assert(notificationDraft.data?.delivery_supported === false, `Expected no external delivery support, got ${JSON.stringify(notificationDraft.data)}`);
+    assert(notificationDraft.data?.recipients?.summary?.attendee_count === 1, `Expected one draft attendee recipient, got ${JSON.stringify(notificationDraft.data)}`);
+    assert(notificationDraft.data?.recipients?.summary?.group_count === 0, `Expected no draft group recipients, got ${JSON.stringify(notificationDraft.data)}`);
+
+    const notificationSent = await client.request(`/api/events/${eventId}/schedule-notifications`, {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 201,
+      body: JSON.stringify({
+        schedule_plan_id: planId,
+        requested_status: 'planned',
+        requested_visibility: 'event_workspace',
+        status: 'sent',
+        recipient_attendee_ids: [attendeeId],
+        recipient_group_ids: [groupId]
+      }),
+      headers: { 'Content-Type': 'application/json' }
+    });
+    assert(notificationSent.data?.status === 'sent', `Expected sent notification, got ${JSON.stringify(notificationSent.data)}`);
+    assert(notificationSent.data?.sent_at, `Expected sent_at for sent notification, got ${JSON.stringify(notificationSent.data)}`);
+    assert(notificationSent.data?.recipients?.summary?.attendee_count === 1, `Expected one sent attendee recipient, got ${JSON.stringify(notificationSent.data)}`);
+    assert(notificationSent.data?.recipients?.summary?.group_count === 1, `Expected one sent group recipient, got ${JSON.stringify(notificationSent.data)}`);
+    assert(notificationSent.data?.contract?.external_delivery_supported === false, `Expected external delivery disabled, got ${JSON.stringify(notificationSent.data)}`);
+
     await client.request(`/api/events/${eventId}/schedule-sessions/${catalogSessionId}`, {
       method: 'PATCH',
       withCsrf: true,
@@ -270,12 +312,13 @@ async function main() {
       headers: { 'Content-Type': 'application/json' }
     });
 
-    const [attendees, groups, meetups, plans, catalog, companion] = await Promise.all([
+    const [attendees, groups, meetups, plans, catalog, notifications, companion] = await Promise.all([
       client.request(`/api/events/${eventId}/attendees`, { expectStatus: 200 }),
       client.request(`/api/events/${eventId}/groups`, { expectStatus: 200 }),
       client.request(`/api/events/${eventId}/meetups`, { expectStatus: 200 }),
       client.request(`/api/events/${eventId}/schedule-plans`, { expectStatus: 200 }),
       client.request(`/api/events/${eventId}/schedule-sessions`, { expectStatus: 200 }),
+      client.request(`/api/events/${eventId}/schedule-notifications`, { expectStatus: 200 }),
       client.request(`/api/events/${eventId}/companion/today`, { expectStatus: 200 })
     ]);
 
@@ -294,6 +337,8 @@ async function main() {
     assert(catalog.data.items.length === 1, `Expected one schedule catalog session, got ${JSON.stringify(catalog.data)}`);
     assert(catalog.data.items[0]?.status === 'cancelled', `Expected updated schedule catalog status, got ${JSON.stringify(catalog.data)}`);
     assert(catalog.data.items[0]?.track === 'Comics Art', `Expected updated schedule catalog track, got ${JSON.stringify(catalog.data)}`);
+    assert(notifications.data.items.length === 2, `Expected two schedule notification records, got ${JSON.stringify(notifications.data)}`);
+    assert(notifications.data.items[0]?.status === 'sent', `Expected latest schedule notification to be sent, got ${JSON.stringify(notifications.data)}`);
     assert(companion.data?.contract?.version === 'event-social-companion.v1', `Expected companion contract version, got ${JSON.stringify(companion.data?.contract)}`);
     assert(companion.data?.counts?.attendees === 1, `Expected companion attendee count, got ${JSON.stringify(companion.data?.counts)}`);
     assert(companion.data?.counts?.groups === 1, `Expected companion group count, got ${JSON.stringify(companion.data?.counts)}`);
@@ -329,6 +374,8 @@ async function main() {
       updatedMeetupStatus: meetups.data.items[0]?.status || null,
       updatedSchedulePlanStatus: plans.data.items[0]?.status || null,
       updatedScheduleCatalogStatus: catalog.data.items[0]?.status || null,
+      scheduleNotificationCount: notifications.data.items.length,
+      sentScheduleNotificationStatus: notificationSent.data?.status || null,
       companionContract: companion.data?.contract?.version || null,
       previewRecipientCount: changePreview.data?.recipients?.summary?.attendee_count || 0
     }, null, 2));

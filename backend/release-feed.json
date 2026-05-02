@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v3.4.58",
+      "version": "3.4.58",
+      "date": "2026-05-02",
+      "status": null,
+      "summary": "- Adds an Event-local selected-recipient notification record for schedule changes. - Lets schedule change previews become either a saved draft or a local sent notice. - Keeps notification delivery intentionally local: no push, email, device registration, realtime presence, or broad broadcast behavior.",
+      "details": []
+    },
+    {
       "title": "v3.4.57",
       "version": "3.4.57",
       "date": null,
@@ -67,14 +75,6 @@
     {
       "title": "v3.4.49",
       "version": "3.4.49",
-      "date": null,
-      "status": null,
-      "summary": "",
-      "details": []
-    },
-    {
-      "title": "v3.4.48",
-      "version": "3.4.48",
       "date": null,
       "status": null,
       "summary": "",

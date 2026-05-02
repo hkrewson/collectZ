@@ -804,6 +804,20 @@ const eventScheduleChangePreviewSchema = z.object({
   (data) => Boolean(data.schedule_plan_id || data.catalog_session_id),
   { message: 'schedule_plan_id or catalog_session_id is required' }
 );
+const eventScheduleNotificationCreateSchema = z.object({
+  schedule_plan_id: nullableNumberSchema(z.number().int().positive()),
+  catalog_session_id: nullableNumberSchema(z.number().int().positive()),
+  requested_status: z.enum(eventSchedulePlanStatusValues).optional(),
+  requested_visibility: z.enum(eventSocialVisibilityValues).optional(),
+  status: z.enum(['draft', 'sent']).optional().default('draft'),
+  message_title: z.preprocess(emptyStringToNull, z.string().trim().min(1).max(255).optional().nullable()),
+  message_body: z.preprocess(emptyStringToNull, z.string().trim().min(1).max(5000).optional().nullable()),
+  recipient_attendee_ids: z.array(z.number().int().positive()).max(100).optional(),
+  recipient_group_ids: z.array(z.number().int().positive()).max(50).optional()
+}).refine(
+  (data) => Boolean(data.schedule_plan_id || data.catalog_session_id),
+  { message: 'schedule_plan_id or catalog_session_id is required' }
+);
 const eventScheduleSessionBaseSchema = z.object({
   title: z.string().trim().min(1, 'Title is required').max(255),
   start_at: eventSocialTimestampSchema,
@@ -1019,6 +1033,7 @@ module.exports = {
   eventSchedulePlanCreateSchema,
   eventSchedulePlanUpdateSchema,
   eventScheduleChangePreviewSchema,
+  eventScheduleNotificationCreateSchema,
   eventScheduleSessionCreateSchema,
   eventScheduleSessionUpdateSchema,
   eventScheduleCatalogIcsImportSchema,

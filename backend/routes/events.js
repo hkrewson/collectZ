@@ -22,6 +22,7 @@ const {
   eventSchedulePlanCreateSchema,
   eventSchedulePlanUpdateSchema,
   eventScheduleChangePreviewSchema,
+  eventScheduleNotificationCreateSchema,
   eventScheduleSessionCreateSchema,
   eventScheduleSessionUpdateSchema,
   eventScheduleCatalogIcsImportSchema,
@@ -149,6 +150,7 @@ const EVENT_COMPANION_ICS_STATE_LABELS = {
 };
 const EVENT_COMPANION_OFFLINE_PACKET_VERSION = 'event-social-offline-packet.v1';
 const SCHEDULE_CHANGE_NOTIFICATION_CONTRACT_VERSION = 'event-schedule-change-preview.v1';
+const SCHEDULE_NOTIFICATION_CONTRACT_VERSION = 'event-schedule-notification.v1';
 const CONFLICTING_SCHEDULE_PLAN_STATUSES = new Set(['planned', 'maybe', 'backup']);
 
 const serializeEventArtifactRow = (row = {}) => ({
@@ -566,6 +568,151 @@ async function buildScheduleChangePreview({ eventId, schedulePlanId = null, cata
       body: `${subject.title} is marked ${normalizedStatus.replace(/_/g, ' ')}.`
     }
   };
+}
+
+function uniquePositiveIds(values = []) {
+  return Array.from(new Set((Array.isArray(values) ? values : [])
+    .map((value) => Number(value || 0))
+    .filter((value) => Number.isFinite(value) && value > 0)));
+}
+
+function buildScheduleNotificationContract() {
+  return {
+    version: SCHEDULE_NOTIFICATION_CONTRACT_VERSION,
+    local_record_supported: true,
+    external_delivery_supported: false,
+    delivery_channel: 'event_local',
+    delivery_endpoint: null,
+    limitations: [
+      'no_push_delivery',
+      'no_device_registration',
+      'no_email_delivery',
+      'no_realtime_presence',
+      'no_broadcast_without_user_selection'
+    ]
+  };
+}
+
+function selectScheduleNotificationRecipients(preview = {}, body = {}) {
+  const eligible = preview.recipients || {};
+  const eligibleAttendees = Array.isArray(eligible.attendees) ? eligible.attendees : [];
+  const eligibleGroups = Array.isArray(eligible.groups) ? eligible.groups : [];
+  const hasAttendeeSelection = Array.isArray(body.recipient_attendee_ids);
+  const hasGroupSelection = Array.isArray(body.recipient_group_ids);
+  const requestedAttendeeIds = uniquePositiveIds(body.recipient_attendee_ids);
+  const requestedGroupIds = uniquePositiveIds(body.recipient_group_ids);
+  const attendeeMap = new Map(eligibleAttendees.map((attendee) => [Number(attendee.id), attendee]));
+  const groupMap = new Map(eligibleGroups.map((group) => [Number(group.id), group]));
+  const invalidAttendeeIds = requestedAttendeeIds.filter((id) => !attendeeMap.has(id));
+  const invalidGroupIds = requestedGroupIds.filter((id) => !groupMap.has(id));
+  if (invalidAttendeeIds.length || invalidGroupIds.length) {
+    const error = new Error('Selected recipients are not available for this event schedule visibility');
+    error.status = 400;
+    error.details = { invalid_attendee_ids: invalidAttendeeIds, invalid_group_ids: invalidGroupIds };
+    throw error;
+  }
+  const attendees = hasAttendeeSelection
+    ? requestedAttendeeIds.map((id) => attendeeMap.get(id)).filter(Boolean)
+    : (hasGroupSelection ? [] : eligibleAttendees);
+  const groups = hasGroupSelection
+    ? requestedGroupIds.map((id) => groupMap.get(id)).filter(Boolean)
+    : (hasAttendeeSelection ? [] : eligibleGroups);
+  const summary = {
+    attendee_count: attendees.length,
+    group_count: groups.length,
+    visibility: eligible.summary?.visibility || preview.requested_change?.visibility || 'private',
+    selected_recipient_required: true,
+    label: attendees.length || groups.length
+      ? `${attendees.length} ${attendees.length === 1 ? 'person' : 'people'}${groups.length ? `, ${groups.length} ${groups.length === 1 ? 'group' : 'groups'}` : ''}`
+      : 'No recipients selected.'
+  };
+  return { attendees, groups, summary };
+}
+
+function serializeScheduleNotification(row = {}) {
+  if (!row?.id) return null;
+  return {
+    id: row.id,
+    event_id: row.event_id,
+    schedule_plan_id: row.schedule_plan_id || null,
+    catalog_session_id: row.catalog_session_id || null,
+    status: row.status,
+    requested_status: row.requested_status,
+    requested_visibility: row.requested_visibility,
+    message_title: row.message_title,
+    message_body: row.message_body,
+    subject: row.subject_snapshot || {},
+    recipients: row.recipients_snapshot || {},
+    conflicts: row.conflicts_snapshot || [],
+    contract: row.contract_snapshot || buildScheduleNotificationContract(),
+    delivery_channel: row.delivery_channel || 'event_local',
+    delivery_supported: Boolean(row.delivery_supported),
+    created_by: row.created_by || null,
+    sent_at: row.sent_at || null,
+    created_at: row.created_at,
+    updated_at: row.updated_at
+  };
+}
+
+async function createScheduleNotification({ eventId, preview, body = {}, userId = null }) {
+  const status = body.status || 'draft';
+  const requestedVisibility = preview.requested_change?.visibility || 'private';
+  const recipients = selectScheduleNotificationRecipients(preview, body);
+  if (status === 'sent' && requestedVisibility === 'private') {
+    const error = new Error('Private schedule changes cannot be sent to recipients');
+    error.status = 400;
+    throw error;
+  }
+  if (status === 'sent' && recipients.summary.attendee_count + recipients.summary.group_count === 0) {
+    const error = new Error('At least one selected recipient is required to send a schedule notification');
+    error.status = 400;
+    throw error;
+  }
+  const contract = buildScheduleNotificationContract();
+  const messageTitle = String(body.message_title || preview.message_template?.title || preview.subject?.title || 'Schedule update').trim().slice(0, 255);
+  const messageBody = String(body.message_body || preview.message_template?.body || 'Schedule update').trim().slice(0, 5000);
+  const result = await pool.query(
+    `INSERT INTO event_schedule_notifications (
+       event_id,
+       schedule_plan_id,
+       catalog_session_id,
+       status,
+       requested_status,
+       requested_visibility,
+       message_title,
+       message_body,
+       subject_snapshot,
+       recipients_snapshot,
+       conflicts_snapshot,
+       contract_snapshot,
+       delivery_channel,
+       delivery_supported,
+       created_by,
+       sent_at
+     ) VALUES (
+       $1, $2, $3, $4::varchar, $5, $6, $7, $8,
+       $9::jsonb, $10::jsonb, $11::jsonb, $12::jsonb,
+       'event_local', FALSE, $13,
+       CASE WHEN $4::text = 'sent' THEN CURRENT_TIMESTAMP ELSE NULL END
+     )
+     RETURNING *`,
+    [
+      eventId,
+      preview.subject?.schedule_plan_id || null,
+      preview.subject?.catalog_session_id || null,
+      status,
+      preview.requested_change.status,
+      requestedVisibility,
+      messageTitle,
+      messageBody,
+      JSON.stringify(preview.subject || {}),
+      JSON.stringify(recipients),
+      JSON.stringify(preview.conflicts || []),
+      JSON.stringify(contract),
+      userId
+    ]
+  );
+  return serializeScheduleNotification(result.rows[0]);
 }
 
 function classifyPersonalIcsFreshness(source = null, now = new Date()) {
@@ -2149,6 +2296,59 @@ router.post('/events/:id/schedule-change-preview', validate(eventScheduleChangeP
     previewOnly: true
   });
   res.json(preview);
+}));
+
+router.get('/events/:id/schedule-notifications', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const eventId = parsePositiveId(req.params.id, 'event id');
+  const eventRow = await ensureScopedEvent(scopeContext, eventId);
+  if (!eventRow) return res.status(404).json({ error: 'Event not found' });
+
+  const result = await pool.query(
+    `SELECT *
+       FROM event_schedule_notifications
+      WHERE event_id = $1
+        AND archived_at IS NULL
+      ORDER BY created_at DESC, id DESC
+      LIMIT 50`,
+    [eventId]
+  );
+  res.json({ items: result.rows.map(serializeScheduleNotification).filter(Boolean) });
+}));
+
+router.post('/events/:id/schedule-notifications', validate(eventScheduleNotificationCreateSchema), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const eventId = parsePositiveId(req.params.id, 'event id');
+  const eventRow = await ensureScopedEvent(scopeContext, eventId);
+  if (!eventRow) return res.status(404).json({ error: 'Event not found' });
+
+  const preview = await buildScheduleChangePreview({
+    eventId,
+    schedulePlanId: req.body.schedule_plan_id || null,
+    catalogSessionId: req.body.catalog_session_id || null,
+    requestedStatus: req.body.requested_status || null,
+    requestedVisibility: req.body.requested_visibility || null
+  });
+  if (!preview) return res.status(404).json({ error: 'Schedule change subject not found' });
+
+  const notification = await createScheduleNotification({
+    eventId,
+    preview,
+    body: req.body,
+    userId: req.user.id
+  });
+  await logActivity(req, notification.status === 'sent' ? 'events.schedule_notification.send' : 'events.schedule_notification.draft', 'event', eventId, {
+    notificationId: notification.id,
+    schedulePlanId: notification.schedule_plan_id,
+    catalogSessionId: notification.catalog_session_id,
+    requestedStatus: notification.requested_status,
+    requestedVisibility: notification.requested_visibility,
+    attendeeCount: notification.recipients?.summary?.attendee_count || 0,
+    groupCount: notification.recipients?.summary?.group_count || 0,
+    deliveryChannel: notification.delivery_channel,
+    externalDeliverySupported: false
+  });
+  res.status(201).json(notification);
 }));
 
 router.get('/events/:id/schedule-sessions', asyncHandler(async (req, res) => {

@@ -921,6 +921,33 @@ CREATE TABLE IF NOT EXISTS event_schedule_sessions (
     archived_at TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS event_schedule_notifications (
+    id SERIAL PRIMARY KEY,
+    event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    schedule_plan_id INTEGER REFERENCES event_schedule_plans(id) ON DELETE SET NULL,
+    catalog_session_id INTEGER REFERENCES event_schedule_sessions(id) ON DELETE SET NULL,
+    status VARCHAR(30) NOT NULL DEFAULT 'draft'
+      CHECK (status IN ('draft', 'sent', 'archived')),
+    requested_status VARCHAR(30) NOT NULL
+      CHECK (requested_status IN ('planned', 'maybe', 'backup', 'skipped', 'attended')),
+    requested_visibility VARCHAR(30) NOT NULL
+      CHECK (requested_visibility IN ('private', 'selected_people', 'group', 'event_workspace')),
+    message_title VARCHAR(255) NOT NULL,
+    message_body TEXT NOT NULL,
+    subject_snapshot JSONB NOT NULL DEFAULT '{}'::jsonb,
+    recipients_snapshot JSONB NOT NULL DEFAULT '{}'::jsonb,
+    conflicts_snapshot JSONB NOT NULL DEFAULT '[]'::jsonb,
+    contract_snapshot JSONB NOT NULL DEFAULT '{}'::jsonb,
+    delivery_channel VARCHAR(50) NOT NULL DEFAULT 'event_local'
+      CHECK (delivery_channel IN ('event_local')),
+    delivery_supported BOOLEAN NOT NULL DEFAULT FALSE,
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    sent_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    archived_at TIMESTAMP
+);
+
 DO $$
 BEGIN
     IF NOT EXISTS (
@@ -1147,6 +1174,9 @@ CREATE INDEX IF NOT EXISTS idx_event_schedule_plans_catalog_session ON event_sch
 CREATE INDEX IF NOT EXISTS idx_event_schedule_sessions_event_time ON event_schedule_sessions(event_id, archived_at, start_at);
 CREATE INDEX IF NOT EXISTS idx_event_schedule_sessions_categories ON event_schedule_sessions USING GIN (categories);
 CREATE INDEX IF NOT EXISTS idx_event_schedule_sessions_source ON event_schedule_sessions(event_id, source_type, source_ref) WHERE source_type IS NOT NULL AND source_ref IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_event_schedule_notifications_event_created ON event_schedule_notifications(event_id, archived_at, created_at DESC, id DESC);
+CREATE INDEX IF NOT EXISTS idx_event_schedule_notifications_plan ON event_schedule_notifications(event_id, schedule_plan_id) WHERE schedule_plan_id IS NOT NULL AND archived_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_event_schedule_notifications_catalog ON event_schedule_notifications(event_id, catalog_session_id) WHERE catalog_session_id IS NOT NULL AND archived_at IS NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_event_personal_ics_sources_active_unique ON event_personal_ics_sources(event_id, user_id) WHERE archived_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_event_personal_ics_sources_event_user ON event_personal_ics_sources(event_id, user_id, archived_at);
 CREATE INDEX IF NOT EXISTS idx_event_schedule_plans_sched_ics_source ON event_schedule_plans(event_id, created_by, source_type, source_ref) WHERE source_type = 'sched_ics';
@@ -1278,6 +1308,10 @@ BEGIN
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_event_schedule_sessions_updated_at') THEN
         CREATE TRIGGER update_event_schedule_sessions_updated_at BEFORE UPDATE ON event_schedule_sessions
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_event_schedule_notifications_updated_at') THEN
+        CREATE TRIGGER update_event_schedule_notifications_updated_at BEFORE UPDATE ON event_schedule_notifications
             FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_event_personal_ics_sources_updated_at') THEN
@@ -1445,5 +1479,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (86, 'Add richer personal ICS schedule detail fields'),
     (87, 'Add event social vendor booth and location notes'),
     (88, 'Add event schedule catalog sessions'),
-    (89, 'Link personal Sched plans to catalog sessions')
+    (89, 'Link personal Sched plans to catalog sessions'),
+    (90, 'Add event schedule notification draft and send records')
 ON CONFLICT (version) DO NOTHING;

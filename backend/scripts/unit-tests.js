@@ -3613,15 +3613,21 @@ results.push(run('event social planning foundation contract is wired for 3.4.30'
   assert.ok(eventScheduleCatalogFoundationSource.includes('Now / Next'));
   assert.ok(migrationsSource.includes('version: 88'));
   assert.ok(migrationsSource.includes('version: 89'));
+  assert.ok(migrationsSource.includes('version: 90'));
   assert.ok(migrationsSource.includes('CREATE TABLE IF NOT EXISTS event_schedule_sessions'));
   assert.ok(migrationsSource.includes('source_catalog_session_id'));
+  assert.ok(migrationsSource.includes('CREATE TABLE IF NOT EXISTS event_schedule_notifications'));
   assert.ok(initSqlSource.includes('CREATE TABLE IF NOT EXISTS event_schedule_sessions'));
+  assert.ok(initSqlSource.includes('CREATE TABLE IF NOT EXISTS event_schedule_notifications'));
   assert.ok(initSqlSource.includes("(88, 'Add event schedule catalog sessions')"));
   assert.ok(initSqlSource.includes("(89, 'Link personal Sched plans to catalog sessions')"));
+  assert.ok(initSqlSource.includes("(90, 'Add event schedule notification draft and send records')"));
   assert.ok(validateMiddlewareSource.includes('eventScheduleSessionCreateSchema'));
+  assert.ok(validateMiddlewareSource.includes('eventScheduleNotificationCreateSchema'));
   assert.ok(openApiSource.includes('"/api/events/{id}/attendees"'));
   assert.ok(openApiSource.includes('"/api/events/{id}/groups/{groupId}"'));
   assert.ok(openApiSource.includes('"/api/events/{id}/schedule-sessions"'));
+  assert.ok(openApiSource.includes('"/api/events/{id}/schedule-notifications"'));
   assert.ok(openApiSource.includes('"/api/events/{id}/companion/today"'));
   assert.ok(openApiSource.includes('EventCompanionTodayResponse'));
   assert.ok(openApiSource.includes('personal_ics_visibility'));
@@ -3630,6 +3636,7 @@ results.push(run('event social planning foundation contract is wired for 3.4.30'
   assert.ok(openApiSource.includes('EventMeetupRecord'));
   assert.ok(openApiSource.includes('EventSchedulePlanRecord'));
   assert.ok(openApiSource.includes('EventScheduleChangePreviewResponse'));
+  assert.ok(openApiSource.includes('EventScheduleNotificationRecord'));
   assert.ok(openApiSource.includes('source_catalog_session_id'));
   assert.ok(openApiSource.includes('EventScheduleSessionRecord'));
   assert.ok(backendPackageJson.scripts['test:event-social-planning-smoke']);
@@ -3637,6 +3644,8 @@ results.push(run('event social planning foundation contract is wired for 3.4.30'
   assert.ok(eventSocialPlanningSmokeSource.includes('/api/events/${eventId}/schedule-plans'));
   assert.ok(eventSocialPlanningSmokeSource.includes('/api/events/${eventId}/schedule-change-preview'));
   assert.ok(eventSocialPlanningSmokeSource.includes('preview_only === true'));
+  assert.ok(eventSocialPlanningSmokeSource.includes('/api/events/${eventId}/schedule-notifications'));
+  assert.ok(eventSocialPlanningSmokeSource.includes('event-schedule-notification.v1'));
   assert.ok(eventSocialPlanningSmokeSource.includes('/api/events/${eventId}/schedule-sessions'));
   assert.ok(eventSocialPlanningSmokeSource.includes('/api/events/${eventId}/companion/today'));
   assert.ok(eventSocialPlanningSmokeSource.includes('personal_ics_visibility'));
@@ -3668,6 +3677,8 @@ results.push(run('event social planning foundation contract is wired for 3.4.30'
   assert.ok(eventsViewSource.includes('CatalogPlanStateSelect'));
   assert.ok(eventsViewSource.includes('ScheduleChangePreviewPanel'));
   assert.ok(eventsViewSource.includes('Preview share'));
+  assert.ok(eventsViewSource.includes('ScheduleNotificationPanel'));
+  assert.ok(eventsViewSource.includes('Send local notice'));
   assert.ok(eventsViewSource.includes('upsertCatalogSessionPlanStatus'));
   assert.ok(eventsViewSource.includes('Catalog now and next'));
   assert.ok(eventsViewSource.includes('/events/${eventId}/schedule-sessions'));

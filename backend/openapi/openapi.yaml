@@ -1953,6 +1953,63 @@
         },
         "required": ["contract", "event_id", "subject", "requested_change", "recipients", "conflicts", "message_template"]
       },
+      "EventScheduleNotificationCreateRequest": {
+        "type": "object",
+        "properties": {
+          "schedule_plan_id": { "type": ["integer", "null"], "minimum": 1 },
+          "catalog_session_id": { "type": ["integer", "null"], "minimum": 1 },
+          "requested_status": { "type": "string", "enum": ["planned", "maybe", "backup", "skipped", "attended"] },
+          "requested_visibility": { "$ref": "#/components/schemas/EventSocialVisibility" },
+          "status": { "type": "string", "enum": ["draft", "sent"], "default": "draft" },
+          "message_title": { "type": ["string", "null"], "maxLength": 255 },
+          "message_body": { "type": ["string", "null"], "maxLength": 5000 },
+          "recipient_attendee_ids": { "type": "array", "items": { "type": "integer", "minimum": 1 } },
+          "recipient_group_ids": { "type": "array", "items": { "type": "integer", "minimum": 1 } }
+        }
+      },
+      "EventScheduleNotificationRecord": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "event_id": { "type": "integer" },
+          "schedule_plan_id": { "type": ["integer", "null"] },
+          "catalog_session_id": { "type": ["integer", "null"] },
+          "status": { "type": "string", "enum": ["draft", "sent", "archived"] },
+          "requested_status": { "type": "string", "enum": ["planned", "maybe", "backup", "skipped", "attended"] },
+          "requested_visibility": { "$ref": "#/components/schemas/EventSocialVisibility" },
+          "message_title": { "type": "string" },
+          "message_body": { "type": "string" },
+          "subject": { "type": "object" },
+          "recipients": { "type": "object" },
+          "conflicts": { "type": "array", "items": { "type": "object" } },
+          "contract": {
+            "type": "object",
+            "properties": {
+              "version": { "type": "string", "enum": ["event-schedule-notification.v1"] },
+              "local_record_supported": { "type": "boolean" },
+              "external_delivery_supported": { "type": "boolean" },
+              "delivery_channel": { "type": "string", "enum": ["event_local"] },
+              "delivery_endpoint": { "type": ["string", "null"] },
+              "limitations": { "type": "array", "items": { "type": "string" } }
+            },
+            "required": ["version", "local_record_supported", "external_delivery_supported", "delivery_channel", "delivery_endpoint", "limitations"]
+          },
+          "delivery_channel": { "type": "string", "enum": ["event_local"] },
+          "delivery_supported": { "type": "boolean" },
+          "created_by": { "type": ["integer", "null"] },
+          "sent_at": { "type": ["string", "null"], "format": "date-time" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        },
+        "required": ["id", "event_id", "status", "requested_status", "requested_visibility", "message_title", "message_body", "subject", "recipients", "conflicts", "contract", "delivery_channel", "delivery_supported", "created_at", "updated_at"]
+      },
+      "EventScheduleNotificationListResponse": {
+        "type": "object",
+        "properties": {
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/EventScheduleNotificationRecord" } }
+        },
+        "required": ["items"]
+      },
 
       "EventScheduleSessionRecord": {
         "type": "object",
@@ -5661,6 +5718,29 @@
         "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventScheduleChangePreviewRequest" } } } },
         "responses": {
           "200": { "description": "Schedule change recipient preview", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventScheduleChangePreviewResponse" } } } }
+        }
+      }
+    },
+    "/api/events/{id}/schedule-notifications": {
+      "get": {
+        "tags": ["Events"],
+        "summary": "List local event schedule notification records",
+        "description": "Returns draft/sent Event-local schedule notification records. These records do not imply push, email, or device delivery.",
+        "security": [{ "cookieSession": [] }, { "bearerAuth": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "responses": {
+          "200": { "description": "Event schedule notification records", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventScheduleNotificationListResponse" } } } }
+        }
+      },
+      "post": {
+        "tags": ["Events"],
+        "summary": "Create a draft or sent local schedule notification",
+        "description": "Creates an Event-local selected-recipient schedule notification from the preview contract. A `sent` status records the local send action only; it does not push, email, register devices, or broadcast outside the event.",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventScheduleNotificationCreateRequest" } } } },
+        "responses": {
+          "201": { "description": "Created local schedule notification record", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventScheduleNotificationRecord" } } } }
         }
       }
     },

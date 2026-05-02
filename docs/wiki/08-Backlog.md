@@ -304,6 +304,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - The `3.4.55` catalog-ICS-import slice is promoted to seed canonical catalog sessions from provider calendar feeds without recurring sync or personal-plan side effects.
 - The `3.4.56` catalog-to-personal matching slice is promoted to connect confident personal Sched plans back to matching catalog sessions without rewriting personal source identity.
 - The `3.4.57` selected-recipient change-preview slice is promoted to preview affected people/groups and conflicts before real notification delivery work.
+- The `3.4.58` selected-recipient notification contract slice is promoted to persist draft/sent Event-local schedule notifications without push/device delivery.
 - This follow-up turns that data into import-backed and time-aware discovery surfaces.
 
 **Scope**

@@ -7440,6 +7440,48 @@ Historical note:
 - What remains in the milestone: no remaining 3.4.57 implementation work; CI-only release gates must pass before public tag/release publication.
 - Recommended commit message: `Release 3.4.57 event schedule selected-recipient change preview`
 
+## 3.4.58 — Event Schedule Selected-Recipient Notification Draft/Send Contract
+
+**Goal:** Turn the schedule-change preview contract into an Event-local notification draft/send record so users can intentionally notify selected people or groups without introducing push delivery, device registration, or a broader friend graph.
+
+**Current Slice:** `Closed.`
+
+### Scope
+
+- Add a scoped schedule-change notification endpoint that can create `draft` or `sent` records from a schedule plan or catalog session.
+- Persist the schedule subject snapshot, requested status/visibility, selected recipient snapshots, conflicts, message title/body, and delivery limitations.
+- Validate selected attendee/group recipients against the scoped Event-local preview recipients.
+- Add a compact Event drawer action that can save a notification draft or mark the local notification as sent after previewing impact.
+- Keep push/email/device delivery, background delivery workers, realtime presence/location, broad broadcast actions, friend identity expansion, and offline mutation queues out of this patch.
+
+### Acceptance Criteria
+
+- A schedule change preview can be promoted into a draft notification record.
+- A selected-recipient notification can be marked `sent` as an Event-local record without external delivery.
+- Private changes cannot create recipient fan-out.
+- Recipient selections are validated against Event-local attendees/groups and visibility rules.
+- The web drawer can create a local sent notification from the preview state with explicit no-push/no-device language.
+- OpenAPI and smoke coverage document that this is a local notification contract, not push delivery.
+
+### Notes
+
+- This is the first durable notification record for event schedule changes.
+- The selected-recipient model remains Event-local; broader friend identity and native push delivery stay separate future milestones.
+
+### Closeout
+
+- Roadmap slice: `3.4.58 — Event Schedule Selected-Recipient Notification Draft/Send Contract`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/45-Event-Schedule-Catalog-Foundation.md`.
+- Runtime verification used: Docker platform stack rebuilt/restored with `APP_VERSION=3.4.58`; `/api/health` returned frontend/backend/build `3.4.58`; running backend container reported `APP_EDITION=platform`; generated public homelab compose was run with `IMAGE_TAG=3.4.58`, no in-container `APP_EDITION`, healthy `/api/health`, and homelab boundary smoke passed.
+- CI/checks run: `node --check backend/routes/events.js`, `node --check backend/middleware/validate.js`, `node --check backend/scripts/event-social-planning-smoke.js`, `node --check backend/scripts/unit-tests.js`, local and container OpenAPI validation, local and container backend unit tests (`231` passed), container `test:event-social-planning-smoke`, container `test:event-catalog-ics-import-smoke`, container `test:event-personal-ics-sync-smoke`, container `test:init-parity`, container `test:migration-rehearsal`, container `test:help-releases-smoke`, container `test:platform-edition-boundary`, container `test:homelab-edition-boundary`, container `test:rbac-regression` rerun isolated after a parallel fixture setup collision, targeted Event browser regression (`12` passed), full browser regression (`55` passed / `4` skipped), `docker compose --env-file .env config`, `npm run validate:public-export`, idempotent `npm run compose:generate`, Docker backend/frontend `npm ci --no-fund --dry-run`, `npm --prefix backend run test:observability-evidence`, `npm --prefix backend run test:release-preflight-local`, release artifact secret-hygiene grep, and `git diff --check`.
+- Release/version artifacts: app metadata/package versions synced to `3.4.58`; `docs/releases/v3.4.58.md` added with required security triage markers; `backend/release-feed.json` regenerated; running Help > Releases smoke verified `3.4.58` as latest; `artifacts/observability-evidence/observability-release-evidence.json` and `preflight-go-no-go.md` regenerated.
+- Verified facts: migration `90` adds `event_schedule_notifications`; `init.sql` parity covers the same table, indexes, trigger, and schema migration seed; `POST /api/events/:id/schedule-notifications` creates draft or sent Event-local notification records from the preview contract; selected attendee/group recipients are validated against scoped Event-local preview recipients; sent records store `sent_at` and explicitly keep external delivery disabled; Event drawer can preview, save draft, and record a local sent notice without push/email/device delivery.
+- Blocked/unverified items: local secure-cookie compose-smoke remains blocked by development runtime settings (`SESSION_COOKIE_SECURE=false`, `NODE_ENV=development`); `secret-scan` and `image-security-and-sbom` remain CI-only; stricter CI compose-smoke must still run in GitHub Actions.
+- Files changed: version metadata/manifests, generated public compose, migration/init schema, event route/validation/OpenAPI contracts, event social smoke/unit coverage, Events drawer UI, Playwright Event browser spec, release note/feed, roadmap/backlog/catalog docs, local preflight, and observability evidence artifacts.
+- Risks/follow-ups: this records local notification state only; push/device registration, email delivery, broader friend identity, realtime presence/location, notification inbox/read receipts, and offline mutation queues remain future milestones.
+- What remains in the milestone: no remaining 3.4.58 implementation work; CI-only release gates must pass before public tag/release publication.
+- Recommended commit message: `Release 3.4.58 event schedule selected-recipient notification draft and send contract`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

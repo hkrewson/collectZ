@@ -10,8 +10,9 @@ This document defines the current event schedule catalog boundary for collectZ w
 - When a catalog session and personal Sched plan share the same provider source reference, the plan can point to the catalog session through `source_catalog_session_id` without changing its personal `sched_ics` identity.
 - The catalog can be manually created through API endpoints and seeded through one-time provider ICS import.
 - Provider ICS import is intentionally not recurring background sync.
-- Now / Next discovery, conflict workflows, quick plan actions, notifications, and native/platform UI stay separate future milestones.
-- Schedule change preview can identify affected Event attendees/groups and conflicts, but notification delivery remains out of scope.
+- Now / Next discovery, conflict workflows, quick plan actions, push/device delivery, and native/platform UI stay separate future milestones.
+- Schedule change preview can identify affected Event attendees/groups and conflicts.
+- Schedule notification records can persist selected-recipient drafts and local sent notices, but external delivery remains out of scope.
 
 ## Catalog Session Shape
 
@@ -41,12 +42,16 @@ The foundation endpoints are event-scoped and use the same auth/scope checks as 
 - `PATCH /api/events/:id/schedule-sessions/:sessionId`
 - `DELETE /api/events/:id/schedule-sessions/:sessionId`
 - `POST /api/events/:id/schedule-change-preview`
+- `GET /api/events/:id/schedule-notifications`
+- `POST /api/events/:id/schedule-notifications`
 
 Deleted sessions are archived with `archived_at`; they are not hard-deleted by the API.
 
 `POST /api/events/:id/schedule-sessions/import-ics` accepts a transient Sched-style/calendar ICS URL, fetches it once, and upserts catalog rows by source reference. The raw URL is not stored or returned. Imported sessions use `source_type = sched_catalog_ics`.
 
 `POST /api/events/:id/schedule-change-preview` is preview-only. It returns the schedule subject, requested status and visibility, scoped people/groups, conflicts, and a simple message template. It does not send notifications, persist message drafts, register devices, or expose push delivery behavior.
+
+`POST /api/events/:id/schedule-notifications` creates a durable Event-local notification record with status `draft` or `sent`. A sent record is local readback only: it does not push, email, register devices, or broadcast outside the Event-local selected recipient snapshot.
 
 ## Companion and Offline Packet Behavior
 
@@ -68,7 +73,7 @@ Keep these out of this foundation unless explicitly promoted:
 - recurring provider sync or scraping automation,
 - recurring background sync,
 - Now / Next discovery UI,
-- selected-recipient notifications,
+- external selected-recipient delivery,
 - friend/group attendance on catalog sessions,
 - conflict resolution or replacement prompts,
 - offline mutation queues,
