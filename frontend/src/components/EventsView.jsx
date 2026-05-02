@@ -1692,6 +1692,23 @@ function EventSocialMobileOverview({ attendees, groups, meetups, plans }) {
   );
 }
 
+function scheduleNotificationKey(notification = {}) {
+  if (notification.schedule_plan_id) return `plan-${notification.schedule_plan_id}`;
+  if (notification.catalog_session_id) return `catalog-${notification.catalog_session_id}`;
+  return '';
+}
+
+function groupScheduleNotifications(items = []) {
+  return (Array.isArray(items) ? items : []).reduce((acc, notification) => {
+    const key = scheduleNotificationKey(notification);
+    if (!key) return acc;
+    acc[key] = [...(acc[key] || []), notification].sort((a, b) => (
+      new Date(b.created_at || b.sent_at || 0).getTime() - new Date(a.created_at || a.sent_at || 0).getTime()
+    ));
+    return acc;
+  }, {});
+}
+
 function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState('');
@@ -1710,6 +1727,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
   const [pendingCatalogResolution, setPendingCatalogResolution] = useState(null);
   const [changePreviews, setChangePreviews] = useState({});
   const [scheduleNotifications, setScheduleNotifications] = useState({});
+  const [scheduleNotificationHistory, setScheduleNotificationHistory] = useState({});
   const icsHealth = getIcsFeedHealth(icsSource);
 
   const set = (patch) => setForm((prev) => ({ ...prev, ...patch }));
@@ -1745,12 +1763,13 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
     setLoading(true);
     setError('');
     try {
-      const [attendeePayload, groupPayload, meetupPayload, planPayload, catalogPayload, icsPayload] = await Promise.all([
+      const [attendeePayload, groupPayload, meetupPayload, planPayload, catalogPayload, notificationPayload, icsPayload] = await Promise.all([
         apiCall('get', `/events/${eventId}/attendees`),
         apiCall('get', `/events/${eventId}/groups`),
         apiCall('get', `/events/${eventId}/meetups`),
         apiCall('get', `/events/${eventId}/schedule-plans`),
         apiCall('get', `/events/${eventId}/schedule-sessions`),
+        apiCall('get', `/events/${eventId}/schedule-notifications`),
         apiCall('get', `/events/${eventId}/personal-ics-source`)
       ]);
       setAttendees(Array.isArray(attendeePayload?.items) ? attendeePayload.items : []);
@@ -1792,6 +1811,14 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
       });
       const nextCatalogSessions = Array.isArray(catalogPayload?.items) ? catalogPayload.items : [];
       setCatalogSessions(nextCatalogSessions);
+      const notificationItems = Array.isArray(notificationPayload?.items) ? notificationPayload.items : [];
+      const groupedNotifications = groupScheduleNotifications(notificationItems);
+      setScheduleNotificationHistory(groupedNotifications);
+      const latestNotifications = {};
+      Object.entries(groupedNotifications).forEach(([key, items]) => {
+        latestNotifications[key] = items[0] || null;
+      });
+      setScheduleNotifications(latestNotifications);
       setCatalogDrafts((prev) => {
         const next = {};
         nextCatalogSessions.forEach((session) => {
@@ -2050,6 +2077,10 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
         recipient_group_ids: recipientGroupIds
       });
       setScheduleNotifications((prev) => ({ ...prev, [`plan-${planId}`]: notification }));
+      setScheduleNotificationHistory((prev) => ({
+        ...prev,
+        [`plan-${planId}`]: [notification, ...(prev[`plan-${planId}`] || []).filter((item) => item.id !== notification.id)]
+      }));
       setNotice(status === 'sent' ? 'Schedule notification recorded' : 'Schedule notification draft saved');
     } catch (err) {
       setError(err?.response?.data?.error || 'Failed to record schedule notification');
@@ -2292,6 +2323,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
               planDrafts={planDrafts}
               changePreviews={changePreviews}
               scheduleNotifications={scheduleNotifications}
+              scheduleNotificationHistory={scheduleNotificationHistory}
               saving={saving}
               onDraftChange={setPlanDraft}
               onUpdate={updatePlan}
@@ -3207,7 +3239,7 @@ function ScheduleCatalogRow({ session, draft = {}, saving = false, adding = fals
   );
 }
 
-function EventScheduleAgenda({ plans, planDrafts = {}, changePreviews = {}, scheduleNotifications = {}, saving = '', onDraftChange, onUpdate, onPreviewChange, onNotifyChange, onRemove }) {
+function EventScheduleAgenda({ plans, planDrafts = {}, changePreviews = {}, scheduleNotifications = {}, scheduleNotificationHistory = {}, saving = '', onDraftChange, onUpdate, onPreviewChange, onNotifyChange, onRemove }) {
   const [filter, setFilter] = useState({ type: 'all', key: 'all' });
   const conflictMap = useMemo(() => buildScheduleConflictMap(plans), [plans]);
 
@@ -3307,6 +3339,7 @@ function EventScheduleAgenda({ plans, planDrafts = {}, changePreviews = {}, sche
                 draft={planDrafts[String(plan.id)] || {}}
                 preview={changePreviews[`plan-${plan.id}`]}
                 notification={scheduleNotifications[`plan-${plan.id}`]}
+                notificationHistory={scheduleNotificationHistory[`plan-${plan.id}`] || []}
                 conflicts={conflictMap.get(String(plan.id)) || []}
                 saving={saving === `plan-${plan.id}`}
                 previewSaving={saving === `preview-plan-${plan.id}`}
@@ -3367,12 +3400,43 @@ function ScheduleNotificationPanel({ notification }) {
   );
 }
 
+function ScheduleNotificationHistory({ notifications = [] }) {
+  const items = Array.isArray(notifications) ? notifications.slice(0, 3) : [];
+  if (!items.length) return null;
+  return (
+    <div className="rounded-md border border-edge bg-surface px-3 py-2 text-sm" aria-label="Schedule notification history">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="font-medium text-ink">Notification history</p>
+        <span className="text-xs text-ghost">Event-local</span>
+      </div>
+      <div className="mt-2 divide-y divide-edge">
+        {items.map((item) => {
+          const summary = item?.recipients?.summary || {};
+          const when = item.status === 'sent' ? item.sent_at : item.created_at;
+          return (
+            <div key={item.id} className="py-2 first:pt-0 last:pb-0">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                <span className="capitalize text-dim">{item.status || 'draft'}</span>
+                <span className="text-ghost">{when ? formatDateTime(when) : 'No timestamp'}</span>
+              </div>
+              <p className="mt-1 text-xs text-dim">{summary.label || 'No recipients selected.'}</p>
+              {item.message_body ? <p className="mt-1 text-xs leading-5 text-ghost">{plainTextPreview(item.message_body, 180)}</p> : null}
+            </div>
+          );
+        })}
+      </div>
+      <p className="mt-2 border-t border-edge pt-2 text-xs text-ghost">Local record only. No push, device, or email delivery.</p>
+    </div>
+  );
+}
+
 function SchedulePlanRow({
   plan,
   marker = '',
   draft = {},
   preview = null,
   notification = null,
+  notificationHistory = [],
   conflicts = [],
   saving = false,
   previewSaving = false,
@@ -3565,6 +3629,7 @@ function SchedulePlanRow({
           </div>
           {preview ? <ScheduleChangePreviewPanel preview={preview} /> : null}
           <ScheduleNotificationPanel notification={notification} />
+          <ScheduleNotificationHistory notifications={notificationHistory} />
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-edge pt-3">
             <div className="flex flex-wrap items-center gap-2">
               {plan.source_url ? (

@@ -305,6 +305,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - The `3.4.56` catalog-to-personal matching slice is promoted to connect confident personal Sched plans back to matching catalog sessions without rewriting personal source identity.
 - The `3.4.57` selected-recipient change-preview slice is promoted to preview affected people/groups and conflicts before real notification delivery work.
 - The `3.4.58` selected-recipient notification contract slice is promoted to persist draft/sent Event-local schedule notifications without push/device delivery.
+- The `3.4.59` notification history slice is promoted to read back those Event-local draft/sent schedule notification records in the drawer.
 - This follow-up turns that data into import-backed and time-aware discovery surfaces.
 
 **Scope**

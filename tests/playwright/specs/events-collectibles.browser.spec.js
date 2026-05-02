@@ -306,6 +306,9 @@ test.describe('events and collectibles browser regressions', () => {
       await expect(planRow.getByLabel('Schedule notification record')).toBeVisible();
       await expect(planRow.getByText('Local notification sent')).toBeVisible();
       await expect(planRow.getByText('No push, device, or email delivery was used.')).toBeVisible();
+      await expect(planRow.getByLabel('Schedule notification history')).toBeVisible();
+      await expect(planRow.getByText('Notification history')).toBeVisible();
+      await expect(planRow.getByText('Local record only. No push, device, or email delivery.')).toBeVisible();
       await planRow.getByRole('button', { name: 'Save', exact: true }).click();
       await expect(page.getByText('Schedule plan updated')).toBeVisible();
       await expect(planRow.locator('summary span').filter({ hasText: /^backup$/ })).toBeVisible();

@@ -3678,6 +3678,8 @@ results.push(run('event social planning foundation contract is wired for 3.4.30'
   assert.ok(eventsViewSource.includes('ScheduleChangePreviewPanel'));
   assert.ok(eventsViewSource.includes('Preview share'));
   assert.ok(eventsViewSource.includes('ScheduleNotificationPanel'));
+  assert.ok(eventsViewSource.includes('ScheduleNotificationHistory'));
+  assert.ok(eventsViewSource.includes('Notification history'));
   assert.ok(eventsViewSource.includes('Send local notice'));
   assert.ok(eventsViewSource.includes('upsertCatalogSessionPlanStatus'));
   assert.ok(eventsViewSource.includes('Catalog now and next'));

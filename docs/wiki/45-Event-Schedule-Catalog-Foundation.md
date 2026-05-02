@@ -51,6 +51,8 @@ Deleted sessions are archived with `archived_at`; they are not hard-deleted by t
 
 `POST /api/events/:id/schedule-change-preview` is preview-only. It returns the schedule subject, requested status and visibility, scoped people/groups, conflicts, and a simple message template. It does not send notifications, persist message drafts, register devices, or expose push delivery behavior.
 
+`GET /api/events/:id/schedule-notifications` returns recent durable Event-local notification records for drawer readback/history.
+
 `POST /api/events/:id/schedule-notifications` creates a durable Event-local notification record with status `draft` or `sent`. A sent record is local readback only: it does not push, email, register devices, or broadcast outside the Event-local selected recipient snapshot.
 
 ## Companion and Offline Packet Behavior

@@ -7482,6 +7482,45 @@ Historical note:
 - What remains in the milestone: no remaining 3.4.58 implementation work; CI-only release gates must pass before public tag/release publication.
 - Recommended commit message: `Release 3.4.58 event schedule selected-recipient notification draft and send contract`
 
+## 3.4.59 — Event Schedule Notification History and Readback UI
+
+**Goal:** Make Event-local schedule notification records visible after they are created so draft/sent notices do not feel write-only.
+
+**Current Slice:** `Closed.`
+
+### Scope
+
+- Load existing `event_schedule_notifications` records in the Event social planning drawer.
+- Group notification records by schedule plan or catalog session.
+- Show a compact notification history block under expanded schedule plan rows with status, timestamp, recipients summary, and message body.
+- Keep this readback local/read-only; do not add recipient inboxes, read receipts, push/email/device delivery, or broad friend identity.
+
+### Acceptance Criteria
+
+- Existing draft/sent schedule notification records appear when reopening the Event drawer.
+- Newly created draft/sent records are inserted into the row history without requiring a full reload.
+- History clearly says records are Event-local and not externally delivered.
+- Browser coverage proves schedule notification history is visible after a local send.
+
+### Notes
+
+- This rounds off `3.4.58` by making local notification records visible.
+- Full notification inbox/read-state and native push delivery remain future milestones.
+
+### Closeout
+
+- Roadmap slice: `3.4.59 — Event Schedule Notification History and Readback UI`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, and `docs/wiki/45-Event-Schedule-Catalog-Foundation.md`.
+- Runtime verification used: rebuilt and recreated backend/frontend through Docker with `APP_VERSION=3.4.59`; verified `/api/health` reports frontend/backend/build `3.4.59`; verified local platform container env reports `APP_EDITION=platform`; switched to generated public compose and verified homelab boundary with no `APP_EDITION`; restored local platform compose afterward.
+- CI/checks run: `node --check` for backend touched scripts/routes, `node backend/scripts/validate-openapi.js`, `node backend/scripts/unit-tests.js`, container `npm run test:openapi`, container `npm run test:unit`, container `npm run test:event-social-planning-smoke` with `BASE_URL=http://backend:3001`, container `npm run test:help-releases-smoke` with `BASE_URL=http://backend:3001`, container `npm run test:init-parity`, container `npm run test:migration-rehearsal`, container `npm run test:rbac-regression`, container `npm run test:platform-edition-boundary`, public-compose `npm run test:homelab-edition-boundary`, `npm run validate:public-export`, `docker compose --env-file .env config`, idempotent `npm run compose:generate`, backend/frontend Linux-container `npm ci --no-fund --dry-run`, `npm --prefix backend run test:observability-evidence`, `npm --prefix backend run test:release-preflight-local`, targeted Playwright Events/Integrations specs, full `npm run test:browser`, `git diff --check`, release-feed version readback, and local grep hygiene over release artifacts.
+- Release artifacts: `docs/releases/v3.4.59.md` exists, `backend/release-feed.json` serves `3.4.59` first, `preflight-go-no-go.md` regenerated, and observability evidence regenerated for `3.4.59`.
+- Verified facts: persisted schedule notification records now load when the Event drawer opens; expanded schedule plan rows show a compact Event-local notification history with status, timestamp, recipients summary, and message preview; newly saved/sent records update the current row history immediately; the UI copy states these records are local only and not push/device/email delivery.
+- Blocked/unverified: local secure-cookie compose-smoke remains blocked by the development stack using `SESSION_COOKIE_SECURE=false`; local `gitleaks` is not installed, so `secret-scan` remains CI-only plus local grep hygiene; `image-security-and-sbom` remains CI-only Trivy/SBOM follow-through.
+- Files changed: version metadata/manifests, generated public compose, release note/feed/preflight/observability evidence, Events drawer UI, Event Playwright regression spec, unit source assertions, event schedule catalog docs, roadmap, and backlog.
+- Risks/follow-ups: this is still read-only Event-local history; recipient inbox/read receipts, native push, email delivery, friend identity resolution, and offline queued sends remain future milestones.
+- What remains in the milestone: no remaining 3.4.59 implementation work; CI-only release gates must pass before public tag/release publication.
+- Recommended commit message: `Release 3.4.59 event schedule notification history and readback UI`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

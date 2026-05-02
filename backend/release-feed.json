@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v3.4.59",
+      "version": "3.4.59",
+      "date": "2026-05-02",
+      "status": null,
+      "summary": "- Shows Event-local schedule notification history under expanded schedule rows. - Makes draft/sent notification records visible after they are created or when the Event drawer is reopened. - Keeps the readback local and informational: no push, email, device delivery, inbox, or read receipts.",
+      "details": []
+    },
+    {
       "title": "v3.4.58",
       "version": "3.4.58",
       "date": "2026-05-02",
@@ -67,14 +75,6 @@
     {
       "title": "v3.4.50",
       "version": "3.4.50",
-      "date": null,
-      "status": null,
-      "summary": "",
-      "details": []
-    },
-    {
-      "title": "v3.4.49",
-      "version": "3.4.49",
       "date": null,
       "status": null,
       "summary": "",
