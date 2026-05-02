@@ -773,7 +773,13 @@ async function insertScheduleNotificationRecipients(client, { notificationId, ev
       `INSERT INTO event_schedule_notification_recipients (
          notification_id, event_id, recipient_type, attendee_id, recipient_snapshot
        ) VALUES ($1, $2, 'attendee', $3, $4::jsonb)
-       ON CONFLICT DO NOTHING`,
+       ON CONFLICT (notification_id, attendee_id) WHERE recipient_type = 'attendee' AND attendee_id IS NOT NULL
+       DO UPDATE SET
+         recipient_snapshot = EXCLUDED.recipient_snapshot,
+         read_status = 'unread',
+         read_at = NULL,
+         acknowledged_at = NULL,
+         archived_at = NULL`,
       [notificationId, eventId, attendeeId, JSON.stringify(attendee)]
     );
   }
@@ -784,7 +790,13 @@ async function insertScheduleNotificationRecipients(client, { notificationId, ev
       `INSERT INTO event_schedule_notification_recipients (
          notification_id, event_id, recipient_type, group_id, recipient_snapshot
        ) VALUES ($1, $2, 'group', $3, $4::jsonb)
-       ON CONFLICT DO NOTHING`,
+       ON CONFLICT (notification_id, group_id) WHERE recipient_type = 'group' AND group_id IS NOT NULL
+       DO UPDATE SET
+         recipient_snapshot = EXCLUDED.recipient_snapshot,
+         read_status = 'unread',
+         read_at = NULL,
+         acknowledged_at = NULL,
+         archived_at = NULL`,
       [notificationId, eventId, groupId, JSON.stringify(group)]
     );
   }
@@ -900,6 +912,110 @@ async function createScheduleNotification({ eventId, preview, body = {}, userId 
       ...row,
       recipient_count: recipients.summary.attendee_count + recipients.summary.group_count,
       unread_count: recipients.summary.attendee_count + recipients.summary.group_count,
+      read_count: 0,
+      acknowledged_count: 0
+    });
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+async function updateScheduleNotificationDraft({ eventId, notificationId, preview, body = {}, userId = null }) {
+  const existingResult = await pool.query(
+    `SELECT *
+       FROM event_schedule_notifications
+      WHERE id = $1
+        AND event_id = $2
+        AND archived_at IS NULL`,
+    [notificationId, eventId]
+  );
+  const existing = existingResult.rows[0];
+  if (!existing) {
+    const error = new Error('Schedule notification not found');
+    error.status = 404;
+    throw error;
+  }
+  if (existing.status !== 'draft') {
+    const error = new Error('Only draft schedule notifications can be edited or sent');
+    error.status = 409;
+    throw error;
+  }
+  const status = body.status || 'draft';
+  const requestedVisibility = preview.requested_change?.visibility || 'private';
+  const recipients = selectScheduleNotificationRecipients(preview, body);
+  if (status === 'sent' && requestedVisibility === 'private') {
+    const error = new Error('Private schedule changes cannot be sent to recipients');
+    error.status = 400;
+    throw error;
+  }
+  if (status === 'sent' && recipients.summary.attendee_count + recipients.summary.group_count === 0) {
+    const error = new Error('At least one selected recipient is required to send a schedule notification');
+    error.status = 400;
+    throw error;
+  }
+  const contract = buildScheduleNotificationContract();
+  const messageTitle = String(body.message_title || preview.message_template?.title || preview.subject?.title || 'Schedule update').trim().slice(0, 255);
+  const messageBody = String(body.message_body || preview.message_template?.body || 'Schedule update').trim().slice(0, 5000);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `UPDATE event_schedule_notification_recipients
+          SET archived_at = CURRENT_TIMESTAMP
+        WHERE notification_id = $1
+          AND event_id = $2
+          AND archived_at IS NULL`,
+      [notificationId, eventId]
+    );
+    const result = await client.query(
+      `UPDATE event_schedule_notifications
+          SET status = $1::varchar,
+              requested_status = $2,
+              requested_visibility = $3,
+              message_title = $4,
+              message_body = $5,
+              subject_snapshot = $6::jsonb,
+              recipients_snapshot = $7::jsonb,
+              conflicts_snapshot = $8::jsonb,
+              contract_snapshot = $9::jsonb,
+              delivery_channel = 'event_local',
+              delivery_supported = FALSE,
+              created_by = COALESCE(created_by, $10),
+              sent_at = CASE WHEN $1::text = 'sent' THEN CURRENT_TIMESTAMP ELSE NULL END
+        WHERE id = $11
+          AND event_id = $12
+          AND status = 'draft'
+          AND archived_at IS NULL
+        RETURNING *`,
+      [
+        status,
+        preview.requested_change.status,
+        requestedVisibility,
+        messageTitle,
+        messageBody,
+        JSON.stringify(preview.subject || {}),
+        JSON.stringify(recipients),
+        JSON.stringify(preview.conflicts || []),
+        JSON.stringify(contract),
+        userId,
+        notificationId,
+        eventId
+      ]
+    );
+    const row = result.rows[0];
+    await insertScheduleNotificationRecipients(client, {
+      notificationId,
+      eventId,
+      recipients
+    });
+    await client.query('COMMIT');
+    return serializeScheduleNotification({
+      ...row,
+      recipient_count: recipients.summary.attendee_count + recipients.summary.group_count,
+      unread_count: status === 'sent' ? recipients.summary.attendee_count + recipients.summary.group_count : 0,
       read_count: 0,
       acknowledged_count: 0
     });
@@ -2682,6 +2798,81 @@ router.post('/events/:id/schedule-notifications', validate(eventScheduleNotifica
     externalDeliverySupported: false
   });
   res.status(201).json(notification);
+}));
+
+router.patch('/events/:id/schedule-notifications/:notificationId', validate(eventScheduleNotificationCreateSchema), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const eventId = parsePositiveId(req.params.id, 'event id');
+  const notificationId = parsePositiveId(req.params.notificationId, 'schedule notification id');
+  const eventRow = await ensureScopedEvent(scopeContext, eventId);
+  if (!eventRow) return res.status(404).json({ error: 'Event not found' });
+
+  const preview = await buildScheduleChangePreview({
+    eventId,
+    schedulePlanId: req.body.schedule_plan_id || null,
+    catalogSessionId: req.body.catalog_session_id || null,
+    requestedStatus: req.body.requested_status || null,
+    requestedVisibility: req.body.requested_visibility || null,
+    messageIntent: req.body.message_intent || null
+  });
+  if (!preview) return res.status(404).json({ error: 'Schedule change subject not found' });
+
+  const notification = await updateScheduleNotificationDraft({
+    eventId,
+    notificationId,
+    preview,
+    body: req.body,
+    userId: req.user.id
+  });
+  await logActivity(req, notification.status === 'sent' ? 'events.schedule_notification.send_draft' : 'events.schedule_notification.update_draft', 'event', eventId, {
+    notificationId: notification.id,
+    schedulePlanId: notification.schedule_plan_id,
+    catalogSessionId: notification.catalog_session_id,
+    requestedStatus: notification.requested_status,
+    requestedVisibility: notification.requested_visibility,
+    attendeeCount: notification.recipients?.summary?.attendee_count || 0,
+    groupCount: notification.recipients?.summary?.group_count || 0,
+    deliveryChannel: notification.delivery_channel,
+    externalDeliverySupported: false
+  });
+  res.json(notification);
+}));
+
+router.delete('/events/:id/schedule-notifications/:notificationId', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const eventId = parsePositiveId(req.params.id, 'event id');
+  const notificationId = parsePositiveId(req.params.notificationId, 'schedule notification id');
+  const eventRow = await ensureScopedEvent(scopeContext, eventId);
+  if (!eventRow) return res.status(404).json({ error: 'Event not found' });
+
+  const result = await pool.query(
+    `UPDATE event_schedule_notifications
+        SET status = 'archived',
+            archived_at = CURRENT_TIMESTAMP
+      WHERE id = $1
+        AND event_id = $2
+        AND status = 'draft'
+        AND archived_at IS NULL
+      RETURNING *`,
+    [notificationId, eventId]
+  );
+  const row = result.rows[0];
+  if (!row) return res.status(404).json({ error: 'Draft schedule notification not found' });
+  await pool.query(
+    `UPDATE event_schedule_notification_recipients
+        SET archived_at = CURRENT_TIMESTAMP
+      WHERE notification_id = $1
+        AND event_id = $2
+        AND archived_at IS NULL`,
+    [notificationId, eventId]
+  );
+  await logActivity(req, 'events.schedule_notification.discard_draft', 'event', eventId, {
+    notificationId,
+    schedulePlanId: row.schedule_plan_id || null,
+    catalogSessionId: row.catalog_session_id || null,
+    externalDeliverySupported: false
+  });
+  res.json({ ok: true, id: notificationId });
 }));
 
 router.get('/events/:id/schedule-sessions', asyncHandler(async (req, res) => {

@@ -7859,6 +7859,46 @@ Historical note:
 - What remains in the milestone: no remaining 3.4.67 implementation work; CI-only release gates must pass before public tag/release publication.
 - Recommended commit message: `Release 3.4.67 event schedule recipient selection UI polish`
 
+## 3.4.68 — Event Schedule Notification Draft Management UI
+
+**Goal:** Make Event-local schedule notification drafts usable after they are saved by letting users edit, send, or discard drafts from the Event drawer.
+
+**Current Slice:** `Closed.`
+
+### Scope
+
+- Add draft-only update and discard endpoints for Event-local schedule notifications.
+- Keep draft updates inside the existing selected-recipient notification contract.
+- Add `Edit draft`, `Send draft`, and `Discard draft` actions to the schedule notification history UI.
+- Rehydrate the composer from a saved draft, including message text and selected recipients.
+- Keep sent notifications immutable from this UI.
+- Keep push, email, native device delivery, global inboxes, friend graphs, and realtime social features out of scope.
+
+### Acceptance Criteria
+
+- A user can save a draft, reopen it for editing, update its message/recipients, and send the same draft record.
+- A user can discard a saved draft without affecting sent notification history.
+- Sent draft records create the same Event-local recipient readback rows as direct sends.
+- Browser coverage verifies draft edit/send readback.
+
+### Notes
+
+- This remains Event-local record management only, not delivery.
+
+### Closeout
+
+- Roadmap slice: `3.4.68 — Event Schedule Notification Draft Management UI`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, and `/Users/hamlin/.codex/skills/uncodixfy/SKILL.md`.
+- Runtime verification used: rebuilt and recreated backend/frontend through Docker with `APP_VERSION=3.4.68`; verified `/api/health` reports frontend/backend/build `3.4.68`; verified local platform container env reports `APP_EDITION=platform`; switched to generated public compose and verified homelab boundary with no `APP_EDITION`; restored local platform compose afterward.
+- CI/checks run locally: backend route/unit/browser-test syntax checks; local backend unit/source contract tests; local OpenAPI validation; container backend unit tests; container OpenAPI validation; event social planning smoke; Help > Releases smoke; init parity; migration rehearsal; RBAC regression; platform edition boundary; homelab edition boundary; targeted Event browser regression (`12 passed` after fixing recipient-row reactivation); full browser regression (`55 passed`, `4 skipped`); public-export validation; generated-compose config validation and idempotence check; backend and frontend `npm ci --dry-run` dependency checks; observability release evidence; release preflight; generated-artifact secret-pattern grep; and `git diff --check`.
+- Release artifacts: `docs/releases/v3.4.68.md` exists, `backend/release-feed.json` serves `3.4.68` first, `preflight-go-no-go.md` regenerated, and observability evidence regenerated for `3.4.68`.
+- Verified facts: saved schedule notification drafts now expose `Edit draft`, `Send draft`, and `Discard draft` actions; draft edit rehydrates the composer with saved message and selected recipients; updating a draft preserves the same notification record; sending a draft creates active Event-local recipient readback rows; sent records remain immutable from the draft-management UI; browser coverage verifies draft edit, update, send, notification history, and inbox readback.
+- Blocked/unverified items: CI-only `secret-scan` and `image-security-and-sbom` must still run in GitHub Actions; local release preflight marks CI secure-cookie `compose-smoke` conditions blocked because the local development stack intentionally runs with `SESSION_COOKIE_SECURE=false`.
+- Files changed: `app-meta.json`, `backend/app-meta.json`, `backend/openapi/openapi.yaml`, `backend/package.json`, `backend/package-lock.json`, `backend/release-feed.json`, `backend/routes/events.js`, `backend/scripts/unit-tests.js`, `docker-compose.yml`, `docs/releases/v3.4.68.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `frontend/package.json`, `frontend/package-lock.json`, `frontend/src/app-meta.json`, `frontend/src/components/EventsView.jsx`, `preflight-go-no-go.md`, `artifacts/observability-evidence/observability-release-evidence.json`, and `tests/playwright/specs/events-collectibles.browser.spec.js`.
+- Risks or follow-ups: this remains Event-local draft management only, not push/email/native delivery, global inboxes, realtime presence, or friend graph work; discard is intentionally draft-only.
+- What remains in the milestone: no remaining 3.4.68 implementation work; CI-only release gates must pass before public tag/release publication.
+- Recommended commit message: `Release 3.4.68 event schedule notification draft management UI`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

@@ -3709,6 +3709,12 @@ results.push(run('event social planning foundation contract is wired for 3.4.30'
   assert.ok(eventsViewSource.includes('recipient_attendee_ids'));
   assert.ok(eventsViewSource.includes('recipient_group_ids'));
   assert.ok(eventsViewSource.includes('Selected recipients are recorded here'));
+  assert.ok(eventsViewSource.includes('Edit draft'));
+  assert.ok(eventsViewSource.includes('Send draft'));
+  assert.ok(eventsViewSource.includes('Discard draft'));
+  assert.ok(eventsRoutesSource.includes("router.patch('/events/:id/schedule-notifications/:notificationId'"));
+  assert.ok(eventsRoutesSource.includes("router.delete('/events/:id/schedule-notifications/:notificationId'"));
+  assert.ok(eventsRoutesSource.includes('Only draft schedule notifications can be edited or sent'));
   assert.ok(eventsRoutesSource.includes('event-schedule-notification-inbox.v1'));
   assert.ok(eventsRoutesSource.includes('buildScheduleMessageTemplate'));
   assert.ok(eventsRoutesSource.includes('Anyone want to join me for'));

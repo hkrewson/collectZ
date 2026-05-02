@@ -1781,6 +1781,28 @@ function groupScheduleNotifications(items = []) {
   }, {});
 }
 
+function scheduleNotificationToPreview(notification = {}) {
+  const subject = notification?.subject || {};
+  const requestedStatus = notification?.requested_status || 'planned';
+  const requestedVisibility = notification?.requested_visibility || 'private';
+  return {
+    contract: notification?.contract || {},
+    event_id: notification?.event_id || null,
+    subject,
+    requested_change: {
+      status: requestedStatus,
+      visibility: requestedVisibility
+    },
+    recipients: notification?.recipients || { attendees: [], groups: [], summary: { label: 'No recipients selected.' } },
+    conflicts: Array.isArray(notification?.conflicts) ? notification.conflicts : [],
+    message_template: {
+      intent: SCHEDULE_MESSAGE_INTENTS[requestedStatus] || 'status_update',
+      title: notification?.message_title || subject?.title || 'Schedule update',
+      body: notification?.message_body || ''
+    }
+  };
+}
+
 function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState('');
@@ -2155,7 +2177,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
     }
   };
 
-  const sendScheduleNotification = async (plan, status = 'sent') => {
+  const sendScheduleNotification = async (plan, status = 'sent', notificationId = null) => {
     const planId = Number(plan?.id || 0);
     if (!planId) return;
     const draft = planDrafts[String(planId)] || {};
@@ -2172,7 +2194,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
     setError('');
     setNotice('');
     try {
-      const notification = await apiCall('post', `/events/${eventId}/schedule-notifications`, {
+      const body = {
         schedule_plan_id: planId,
         requested_status: draft.status || plan.status || 'planned',
         requested_visibility: draft.visibility || plan.visibility || 'private',
@@ -2182,7 +2204,10 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
         status,
         recipient_attendee_ids: recipientAttendeeIds,
         recipient_group_ids: recipientGroupIds
-      });
+      };
+      const notification = notificationId
+        ? await apiCall('patch', `/events/${eventId}/schedule-notifications/${notificationId}`, body)
+        : await apiCall('post', `/events/${eventId}/schedule-notifications`, body);
       setScheduleNotifications((prev) => ({ ...prev, [`plan-${planId}`]: notification }));
       setScheduleNotificationHistory((prev) => ({
         ...prev,
@@ -2192,6 +2217,88 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
       setNotice(status === 'sent' ? 'Schedule notification recorded' : 'Schedule notification draft saved');
     } catch (err) {
       setError(err?.response?.data?.error || 'Failed to record schedule notification');
+    } finally {
+      setSaving('');
+    }
+  };
+
+  const editScheduleNotificationDraft = (plan, notification) => {
+    const planId = Number(plan?.id || notification?.schedule_plan_id || 0);
+    if (!planId || !notification?.id) return;
+    const preview = scheduleNotificationToPreview(notification);
+    const attendeeIds = (preview.recipients?.attendees || []).map((attendee) => Number(attendee.id)).filter(Boolean);
+    const groupIds = (preview.recipients?.groups || []).map((group) => Number(group.id)).filter(Boolean);
+    setChangePreviews((prev) => ({ ...prev, [`plan-${planId}`]: preview }));
+    setPlanDraft(planId, {
+      status: notification.requested_status || plan?.status || 'planned',
+      visibility: notification.requested_visibility || plan?.visibility || 'private',
+      message_intent: preview.message_template?.intent || SCHEDULE_MESSAGE_INTENTS[notification.requested_status] || 'status_update',
+      message_title: notification.message_title || plan?.title || 'Schedule update',
+      message_body: notification.message_body || '',
+      recipient_attendee_ids: attendeeIds,
+      recipient_group_ids: groupIds,
+      editing_notification_id: Number(notification.id)
+    });
+    setNotice('Draft loaded for editing');
+  };
+
+  const discardScheduleNotificationDraft = async (plan, notification) => {
+    const planId = Number(plan?.id || notification?.schedule_plan_id || 0);
+    const notificationId = Number(notification?.id || 0);
+    if (!notificationId) return;
+    setSaving(`discard-notification-${notificationId}`);
+    setError('');
+    setNotice('');
+    try {
+      await apiCall('delete', `/events/${eventId}/schedule-notifications/${notificationId}`);
+      setScheduleNotificationHistory((prev) => ({
+        ...prev,
+        [`plan-${planId}`]: (prev[`plan-${planId}`] || []).filter((item) => Number(item.id) !== notificationId)
+      }));
+      setScheduleNotifications((prev) => {
+        const currentItems = (scheduleNotificationHistory[`plan-${planId}`] || []).filter((item) => Number(item.id) !== notificationId);
+        return { ...prev, [`plan-${planId}`]: currentItems[0] || null };
+      });
+      setNotice('Schedule notification draft discarded');
+      await load();
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Failed to discard schedule notification draft');
+    } finally {
+      setSaving('');
+    }
+  };
+
+  const sendExistingScheduleNotificationDraft = async (plan, notification) => {
+    const planId = Number(plan?.id || notification?.schedule_plan_id || 0);
+    const notificationId = Number(notification?.id || 0);
+    if (!planId || !notificationId) return;
+    const preview = scheduleNotificationToPreview(notification);
+    const attendeeIds = (preview.recipients?.attendees || []).map((attendee) => Number(attendee.id)).filter(Boolean);
+    const groupIds = (preview.recipients?.groups || []).map((group) => Number(group.id)).filter(Boolean);
+    setSaving(`send-notification-${notificationId}`);
+    setError('');
+    setNotice('');
+    try {
+      const updated = await apiCall('patch', `/events/${eventId}/schedule-notifications/${notificationId}`, {
+        schedule_plan_id: planId,
+        requested_status: notification.requested_status || plan?.status || 'planned',
+        requested_visibility: notification.requested_visibility || plan?.visibility || 'private',
+        message_intent: SCHEDULE_MESSAGE_INTENTS[notification.requested_status] || 'status_update',
+        message_title: notification.message_title || plan?.title || 'Schedule update',
+        message_body: notification.message_body || null,
+        status: 'sent',
+        recipient_attendee_ids: attendeeIds,
+        recipient_group_ids: groupIds
+      });
+      setScheduleNotifications((prev) => ({ ...prev, [`plan-${planId}`]: updated }));
+      setScheduleNotificationHistory((prev) => ({
+        ...prev,
+        [`plan-${planId}`]: [updated, ...(prev[`plan-${planId}`] || []).filter((item) => item.id !== updated.id)]
+      }));
+      setNotice('Schedule notification draft sent');
+      await load();
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Failed to send schedule notification draft');
     } finally {
       setSaving('');
     }
@@ -2469,6 +2576,9 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
               onUpdate={updatePlan}
               onPreviewChange={previewScheduleChange}
               onNotifyChange={sendScheduleNotification}
+              onEditNotificationDraft={editScheduleNotificationDraft}
+              onSendNotificationDraft={sendExistingScheduleNotificationDraft}
+              onDiscardNotificationDraft={discardScheduleNotificationDraft}
               onRemove={(plan) => archive(`/events/${eventId}/schedule-plans/${plan.id}`, 'Schedule plan')}
             />
             <details className="mx-4 rounded-md border border-edge bg-raised">
@@ -3455,7 +3565,7 @@ function ScheduleCatalogRow({ session, draft = {}, saving = false, adding = fals
   );
 }
 
-function EventScheduleAgenda({ plans, attendees = [], groups: socialGroups = [], planDrafts = {}, changePreviews = {}, scheduleNotifications = {}, scheduleNotificationHistory = {}, saving = '', onDraftChange, onUpdate, onPreviewChange, onNotifyChange, onRemove }) {
+function EventScheduleAgenda({ plans, attendees = [], groups: socialGroups = [], planDrafts = {}, changePreviews = {}, scheduleNotifications = {}, scheduleNotificationHistory = {}, saving = '', onDraftChange, onUpdate, onPreviewChange, onNotifyChange, onEditNotificationDraft, onSendNotificationDraft, onDiscardNotificationDraft, onRemove }) {
   const [filter, setFilter] = useState({ type: 'all', key: 'all' });
   const conflictMap = useMemo(() => buildScheduleConflictMap(plans), [plans]);
 
@@ -3563,11 +3673,15 @@ function EventScheduleAgenda({ plans, attendees = [], groups: socialGroups = [],
                 previewSaving={saving === `preview-plan-${plan.id}`}
                 draftSaving={saving === `draft-plan-${plan.id}`}
                 sendSaving={saving === `send-plan-${plan.id}`}
+                draftActionSaving={saving}
                 onDraftChange={(patch) => onDraftChange?.(plan.id, patch)}
                 onUpdate={() => onUpdate?.(plan)}
                 onPreviewChange={() => onPreviewChange?.(plan)}
-                onDraftNotification={() => onNotifyChange?.(plan, 'draft')}
-                onSendNotification={() => onNotifyChange?.(plan, 'sent')}
+                onDraftNotification={() => onNotifyChange?.(plan, 'draft', planDrafts[String(plan.id)]?.editing_notification_id || null)}
+                onSendNotification={() => onNotifyChange?.(plan, 'sent', planDrafts[String(plan.id)]?.editing_notification_id || null)}
+                onEditNotificationDraft={(notification) => onEditNotificationDraft?.(plan, notification)}
+                onSendNotificationDraft={(notification) => onSendNotificationDraft?.(plan, notification)}
+                onDiscardNotificationDraft={(notification) => onDiscardNotificationDraft?.(plan, notification)}
                 onRemove={() => onRemove(plan)}
               />
             ))}
@@ -3726,7 +3840,7 @@ function ScheduleNotificationPanel({ notification }) {
   );
 }
 
-function ScheduleNotificationHistory({ notifications = [] }) {
+function ScheduleNotificationHistory({ notifications = [], saving = '', onEditDraft, onSendDraft, onDiscardDraft }) {
   const items = Array.isArray(notifications) ? notifications.slice(0, 3) : [];
   if (!items.length) return null;
   return (
@@ -3739,6 +3853,8 @@ function ScheduleNotificationHistory({ notifications = [] }) {
         {items.map((item) => {
           const summary = item?.recipients?.summary || {};
           const when = item.status === 'sent' ? item.sent_at : item.created_at;
+          const draft = item.status === 'draft';
+          const actionSaving = saving === `send-notification-${item.id}` || saving === `discard-notification-${item.id}`;
           return (
             <div key={item.id} className="py-2 first:pt-0 last:pb-0">
               <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
@@ -3747,6 +3863,19 @@ function ScheduleNotificationHistory({ notifications = [] }) {
               </div>
               <p className="mt-1 text-xs text-dim">{summary.label || 'No recipients selected.'}</p>
               {item.message_body ? <p className="mt-1 text-xs leading-5 text-ghost">{plainTextPreview(item.message_body, 180)}</p> : null}
+              {draft ? (
+                <div className="mt-2 flex flex-wrap items-center gap-2" aria-label="Draft notification actions">
+                  <button type="button" className="btn-ghost btn-sm" disabled={actionSaving} onClick={() => onEditDraft?.(item)}>
+                    Edit draft
+                  </button>
+                  <button type="button" className="btn-secondary btn-sm" disabled={actionSaving} onClick={() => onSendDraft?.(item)}>
+                    {saving === `send-notification-${item.id}` ? <Spinner size={14} /> : 'Send draft'}
+                  </button>
+                  <button type="button" className="btn-ghost btn-sm text-ghost hover:bg-err/10 hover:text-err" disabled={actionSaving} onClick={() => onDiscardDraft?.(item)}>
+                    {saving === `discard-notification-${item.id}` ? <Spinner size={14} /> : 'Discard draft'}
+                  </button>
+                </div>
+              ) : null}
             </div>
           );
         })}
@@ -3876,11 +4005,15 @@ function SchedulePlanRow({
   previewSaving = false,
   draftSaving = false,
   sendSaving = false,
+  draftActionSaving = '',
   onDraftChange,
   onUpdate,
   onPreviewChange,
   onDraftNotification,
   onSendNotification,
+  onEditNotificationDraft,
+  onSendNotificationDraft,
+  onDiscardNotificationDraft,
   onRemove
 }) {
   const categories = Array.isArray(plan?.source_categories) ? plan.source_categories.filter(Boolean) : [];
@@ -4084,7 +4217,7 @@ function SchedulePlanRow({
                   {previewSaving ? <Spinner size={16} /> : 'Preview share'}
                 </button>
                 <button className="btn-ghost btn-sm" disabled={!preview || draftSaving} onClick={onDraftNotification}>
-                  {draftSaving ? <Spinner size={16} /> : 'Save draft'}
+                  {draftSaving ? <Spinner size={16} /> : draft.editing_notification_id ? 'Update draft' : 'Save draft'}
                 </button>
                 <button className="btn-secondary btn-sm" disabled={!canSendNotification || sendSaving} onClick={onSendNotification}>
                   {sendSaving ? <Spinner size={16} /> : 'Send local notice'}
@@ -4101,7 +4234,13 @@ function SchedulePlanRow({
             onDraftChange={onDraftChange}
           />
           <ScheduleNotificationPanel notification={notification} />
-          <ScheduleNotificationHistory notifications={notificationHistory} />
+          <ScheduleNotificationHistory
+            notifications={notificationHistory}
+            saving={draftActionSaving}
+            onEditDraft={onEditNotificationDraft}
+            onSendDraft={onSendNotificationDraft}
+            onDiscardDraft={onDiscardNotificationDraft}
+          />
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-edge pt-3">
             <div className="flex flex-wrap items-center gap-2">
               {plan.source_url ? (

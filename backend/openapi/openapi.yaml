@@ -5854,6 +5854,37 @@
         }
       }
     },
+    "/api/events/{id}/schedule-notifications/{notificationId}": {
+      "patch": {
+        "tags": ["Events"],
+        "summary": "Update or send a draft local schedule notification",
+        "description": "Updates an existing draft Event-local selected-recipient schedule notification, or marks that draft as locally sent. This remains local recordkeeping only and does not push, email, register devices, or broadcast outside the event.",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } },
+          { "in": "path", "name": "notificationId", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+        ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventScheduleNotificationCreateRequest" } } } },
+        "responses": {
+          "200": { "description": "Updated local schedule notification draft", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventScheduleNotificationRecord" } } } },
+          "409": { "description": "Notification is no longer a draft" }
+        }
+      },
+      "delete": {
+        "tags": ["Events"],
+        "summary": "Discard a draft local schedule notification",
+        "description": "Archives an Event-local draft schedule notification and its recipient rows. Sent notifications are not discarded by this endpoint.",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } },
+          { "in": "path", "name": "notificationId", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+        ],
+        "responses": {
+          "200": { "description": "Draft discarded", "content": { "application/json": { "schema": { "type": "object", "properties": { "ok": { "type": "boolean" }, "id": { "type": "integer" } } } } } },
+          "404": { "description": "Draft not found" }
+        }
+      }
+    },
     "/api/events/{id}/schedule-notification-inbox": {
       "get": {
         "tags": ["Events"],
