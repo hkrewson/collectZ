@@ -3687,6 +3687,9 @@ results.push(run('event social planning foundation contract is wired for 3.4.30'
   assert.ok(eventsViewSource.includes('Leave'));
   assert.ok(eventsViewSource.includes('Replace with this'));
   assert.ok(eventsViewSource.includes('SCHEDULE_MESSAGE_INTENTS'));
+  assert.ok(eventsViewSource.includes('SCHEDULE_MESSAGE_TEMPLATE_OPTIONS'));
+  assert.ok(eventsViewSource.includes('ScheduleNotificationComposer'));
+  assert.ok(eventsViewSource.includes('Schedule notification message'));
   assert.ok(eventsViewSource.includes('Preview uses a matching local-notice template.'));
   assert.ok(eventsViewSource.includes('Suggested:'));
   assert.ok(eventsViewSource.includes('ScheduleChangePreviewPanel'));
@@ -3706,8 +3709,11 @@ results.push(run('event social planning foundation contract is wired for 3.4.30'
   assert.ok(eventsRoutesSource.includes('buildScheduleMessageTemplate'));
   assert.ok(eventsRoutesSource.includes('Anyone want to join me for'));
   assert.ok(eventsRoutesSource.includes("I'm switching to"));
+  assert.ok(eventsRoutesSource.includes('Meet outside this room'));
   assert.ok(validateMiddlewareSource.includes('message_intent'));
+  assert.ok(validateMiddlewareSource.includes("'meet'"));
   assert.ok(openApiSource.includes('message_intent'));
+  assert.ok(openApiSource.includes('"meet"'));
   assert.ok(eventsRoutesSource.includes('idx_event_attendees_event_user_active'));
   assert.ok(eventsRoutesSource.includes('current_user_recipient'));
   assert.ok(eventsRoutesSource.includes('event_schedule_notification_recipients'));

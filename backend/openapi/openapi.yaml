@@ -1867,7 +1867,7 @@
           "catalog_session_id": { "type": ["integer", "null"], "minimum": 1 },
           "requested_status": { "type": "string", "enum": ["planned", "maybe", "backup", "skipped", "attended"] },
           "requested_visibility": { "$ref": "#/components/schemas/EventSocialVisibility" },
-          "message_intent": { "type": "string", "enum": ["join", "leave", "replace", "backup", "status_update"] }
+          "message_intent": { "type": "string", "enum": ["join", "leave", "replace", "backup", "meet", "status_update"] }
         }
       },
       "EventScheduleChangePreviewResponse": {
@@ -1978,7 +1978,7 @@
           "message_template": {
             "type": "object",
             "properties": {
-              "intent": { "type": "string", "enum": ["join", "leave", "replace", "backup", "status_update"] },
+              "intent": { "type": "string", "enum": ["join", "leave", "replace", "backup", "meet", "status_update"] },
               "title": { "type": "string" },
               "body": { "type": "string" }
             },
@@ -1994,7 +1994,7 @@
           "catalog_session_id": { "type": ["integer", "null"], "minimum": 1 },
           "requested_status": { "type": "string", "enum": ["planned", "maybe", "backup", "skipped", "attended"] },
           "requested_visibility": { "$ref": "#/components/schemas/EventSocialVisibility" },
-          "message_intent": { "type": "string", "enum": ["join", "leave", "replace", "backup", "status_update"] },
+          "message_intent": { "type": "string", "enum": ["join", "leave", "replace", "backup", "meet", "status_update"] },
           "status": { "type": "string", "enum": ["draft", "sent"], "default": "draft" },
           "message_title": { "type": ["string", "null"], "maxLength": 255 },
           "message_body": { "type": ["string", "null"], "maxLength": 5000 },

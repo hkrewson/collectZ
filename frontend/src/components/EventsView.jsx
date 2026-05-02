@@ -87,6 +87,14 @@ const SCHEDULE_MESSAGE_INTENTS = {
   maybe: 'status_update',
   attended: 'status_update'
 };
+const SCHEDULE_MESSAGE_TEMPLATE_OPTIONS = [
+  { value: 'join', label: 'Anyone want to join?', body: (title) => `Anyone want to join me for ${title}?` },
+  { value: 'replace', label: "I'm switching to this session", body: (title) => `I'm switching to ${title}.` },
+  { value: 'meet', label: 'Meet outside this room', body: (title) => `Meet outside this room for ${title}?` },
+  { value: 'leave', label: "I'm dropping this session", body: (title) => `I'm dropping ${title}.` },
+  { value: 'backup', label: 'Keeping this as backup', body: (title) => `I'm keeping ${title} as backup.` },
+  { value: 'status_update', label: 'Status update', body: (title, status) => `${title} is marked ${String(status || 'planned').replace(/_/g, ' ')}.` }
+];
 
 const SCHEDULE_PLAN_VISIBILITY_OPTIONS = [
   { value: 'private', label: 'Private' },
@@ -98,6 +106,13 @@ const SCHEDULE_CATALOG_STATUS_OPTIONS = [
   { value: 'cancelled', label: 'Cancelled' },
   { value: 'hidden', label: 'Hidden' }
 ];
+
+function buildScheduleMessageBody(title = 'this session', intent = 'status_update', status = 'planned') {
+  const safeTitle = String(title || 'this session').trim() || 'this session';
+  const option = SCHEDULE_MESSAGE_TEMPLATE_OPTIONS.find((item) => item.value === intent)
+    || SCHEDULE_MESSAGE_TEMPLATE_OPTIONS.find((item) => item.value === 'status_update');
+  return option?.body?.(safeTitle, status) || `${safeTitle} is marked ${String(status || 'planned').replace(/_/g, ' ')}.`;
+}
 
 const CATALOG_TIME_FILTER_OPTIONS = [
   { value: 'all', label: 'All' },
@@ -1868,7 +1883,9 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
             booth: prev[id]?.booth ?? plan.booth ?? '',
             location_notes: prev[id]?.location_notes ?? plan.location_notes ?? '',
             notes: prev[id]?.notes ?? plan.notes ?? '',
-            message_intent: prev[id]?.message_intent || SCHEDULE_MESSAGE_INTENTS[plan.status] || 'status_update'
+            message_intent: prev[id]?.message_intent || SCHEDULE_MESSAGE_INTENTS[plan.status] || 'status_update',
+            message_title: prev[id]?.message_title ?? '',
+            message_body: prev[id]?.message_body ?? ''
           };
         });
         return next;
@@ -2120,6 +2137,11 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
         message_intent: draft.message_intent || SCHEDULE_MESSAGE_INTENTS[draft.status || plan.status] || 'status_update'
       });
       setChangePreviews((prev) => ({ ...prev, [`plan-${planId}`]: preview }));
+      setPlanDraft(planId, {
+        message_intent: preview?.message_template?.intent || draft.message_intent || 'status_update',
+        message_title: draft.message_title || preview?.message_template?.title || plan.title || 'Schedule update',
+        message_body: draft.message_body || preview?.message_template?.body || ''
+      });
     } catch (err) {
       setError(err?.response?.data?.error || 'Failed to preview schedule change');
     } finally {
@@ -2143,8 +2165,8 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
         requested_status: draft.status || plan.status || 'planned',
         requested_visibility: draft.visibility || plan.visibility || 'private',
         message_intent: draft.message_intent || preview?.message_template?.intent || SCHEDULE_MESSAGE_INTENTS[draft.status || plan.status] || 'status_update',
-        message_title: preview?.message_template?.title || plan.title || 'Schedule update',
-        message_body: preview?.message_template?.body || null,
+        message_title: draft.message_title || preview?.message_template?.title || plan.title || 'Schedule update',
+        message_body: draft.message_body || preview?.message_template?.body || null,
         status,
         recipient_attendee_ids: recipientAttendeeIds,
         recipient_group_ids: recipientGroupIds
@@ -3570,6 +3592,47 @@ function ScheduleChangePreviewPanel({ preview }) {
   );
 }
 
+function ScheduleNotificationComposer({ plan, status = 'planned', preview = null, draft = {}, onDraftChange }) {
+  if (!preview || !onDraftChange) return null;
+  const title = draft.message_title || preview?.message_template?.title || plan?.title || 'Schedule update';
+  const intent = draft.message_intent || preview?.message_template?.intent || 'status_update';
+  const body = draft.message_body ?? preview?.message_template?.body ?? '';
+  const setIntent = (nextIntent) => {
+    onDraftChange({
+      message_intent: nextIntent,
+      message_title: title,
+      message_body: buildScheduleMessageBody(title, nextIntent, status)
+    });
+  };
+  return (
+    <div className="rounded-md border border-edge bg-surface px-3 py-3 text-sm" aria-label="Schedule notification message">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-[14rem_1fr]">
+        <label className="field">
+          <span className="label">Template</span>
+          <select className="input" value={intent} onChange={(event) => setIntent(event.target.value)}>
+            {SCHEDULE_MESSAGE_TEMPLATE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+        </label>
+        <label className="field">
+          <span className="label">Message</span>
+          <textarea
+            className="input min-h-[72px]"
+            value={body}
+            onChange={(event) => onDraftChange({
+              message_intent: intent,
+              message_title: title,
+              message_body: event.target.value
+            })}
+          />
+        </label>
+      </div>
+      <p className="mt-2 text-xs text-ghost">Saved here as an Event-local notice only. Recipients stay selected from the preview.</p>
+    </div>
+  );
+}
+
 function ScheduleNotificationPanel({ notification }) {
   if (!notification) return null;
   const summary = notification?.recipients?.summary || {};
@@ -3859,7 +3922,12 @@ function SchedulePlanRow({
           <SchedulePlanDraftIntentActions
             status={draftStatus}
             conflicts={conflicts}
-            onChange={(status, messageIntent) => onDraftChange?.({ status, message_intent: messageIntent })}
+            onChange={(status, messageIntent) => onDraftChange?.({
+              status,
+              message_intent: messageIntent,
+              message_title: plan.title || 'Schedule update',
+              message_body: buildScheduleMessageBody(plan.title, messageIntent, status)
+            })}
           />
           <div className="grid grid-cols-1 gap-2 border-t border-edge pt-3 sm:grid-cols-[9rem_11rem_1fr_7rem]">
             <label className="field">
@@ -3869,7 +3937,9 @@ function SchedulePlanRow({
                 value={draftStatus}
                 onChange={(event) => onDraftChange?.({
                   status: event.target.value,
-                  message_intent: SCHEDULE_MESSAGE_INTENTS[event.target.value] || 'status_update'
+                  message_intent: SCHEDULE_MESSAGE_INTENTS[event.target.value] || 'status_update',
+                  message_title: plan.title || 'Schedule update',
+                  message_body: buildScheduleMessageBody(plan.title, SCHEDULE_MESSAGE_INTENTS[event.target.value] || 'status_update', event.target.value)
                 })}
               >
                 {SCHEDULE_PLAN_STATUS_OPTIONS.map((option) => (
@@ -3943,6 +4013,13 @@ function SchedulePlanRow({
             </div>
           </div>
           {preview ? <ScheduleChangePreviewPanel preview={preview} /> : null}
+          <ScheduleNotificationComposer
+            plan={plan}
+            status={draftStatus}
+            preview={preview}
+            draft={draft}
+            onDraftChange={onDraftChange}
+          />
           <ScheduleNotificationPanel notification={notification} />
           <ScheduleNotificationHistory notifications={notificationHistory} />
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-edge pt-3">

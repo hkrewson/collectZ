@@ -7778,6 +7778,47 @@ Historical note:
 - What remains in the milestone: no remaining 3.4.65 implementation work; CI-only release gates must pass before public tag/release publication.
 - Recommended commit message: `Release 3.4.65 event schedule change notification templates`
 
+## 3.4.66 — Event Schedule Template Picker and Message Edit UI
+
+**Goal:** Let users choose and lightly edit the Event-local schedule notification message before saving a draft or sending a local notice.
+
+**Current Slice:** `Closed.`
+
+### Scope
+
+- Add a compact template picker to the schedule notification preview/send area.
+- Support quick template choices for joining, switching, meeting outside the room, dropping, backup, and general status updates.
+- Add an editable message textarea seeded from the selected template.
+- Persist edited message text through the existing `message_body` notification field.
+- Keep recipient selection tied to the existing preview; no broadcast defaults.
+- Keep push, email, native device delivery, global inboxes, and realtime social features out of scope.
+
+### Acceptance Criteria
+
+- A user can preview a schedule change and then choose a different message template.
+- A user can edit the message before saving or sending the Event-local notice.
+- The sent/draft notification record shows the edited message body.
+- The Event-local inbox readback shows the edited message body.
+- Browser coverage verifies template selection and message edit readback.
+
+### Notes
+
+- This remains a web UI/editor layer over the `event-schedule-notification.v1` local record contract.
+
+### Closeout
+
+- Roadmap slice: `3.4.66 — Event Schedule Template Picker and Message Edit UI`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, and `/Users/hamlin/.codex/skills/uncodixfy/SKILL.md`.
+- Runtime verification used: rebuilt and recreated backend/frontend through Docker with `APP_VERSION=3.4.66`; verified `/api/health` reports frontend/backend/build `3.4.66`; verified local platform container env reports `APP_EDITION=platform`; switched to generated public compose and verified homelab boundary with no `APP_EDITION`; restored local platform compose afterward.
+- CI/checks run: backend route/validation/unit syntax checks, local and container backend unit tests, local and container OpenAPI validation, init parity, migration rehearsal, event social planning smoke, Help > Releases smoke, targeted Event browser regression, full browser regression, RBAC regression, platform edition boundary, homelab edition boundary, public-export validation, generated-compose config/idempotence, Linux `npm ci --dry-run` dependency checks for backend/frontend, observability evidence, release preflight, secret-hygiene grep, and `git diff --check`.
+- Release artifacts: `docs/releases/v3.4.66.md` exists, `backend/release-feed.json` serves `3.4.66` first, `preflight-go-no-go.md` regenerated, and observability evidence regenerated for `3.4.66`.
+- Verified facts: schedule notification previews now show a compact template/message composer; users can choose join, switch, meet outside, drop, backup, or status-update templates; edited message text is sent through the existing `message_body` field; backend validation/OpenAPI now include the `meet` template intent; Event browser coverage verifies template selection, custom message send, notification record readback, and inbox readback.
+- Blocked/unverified items: CI-only `secret-scan` and `image-security-and-sbom` must still run in GitHub Actions; local release preflight marks CI secure-cookie `compose-smoke` conditions blocked because the local development stack intentionally runs with `SESSION_COOKIE_SECURE=false`.
+- Files changed: `app-meta.json`, `backend/app-meta.json`, `backend/middleware/validate.js`, `backend/openapi/openapi.yaml`, `backend/package.json`, `backend/package-lock.json`, `backend/release-feed.json`, `backend/routes/events.js`, `backend/scripts/unit-tests.js`, `docker-compose.yml`, `docs/releases/v3.4.66.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `frontend/package.json`, `frontend/package-lock.json`, `frontend/src/app-meta.json`, `frontend/src/components/EventsView.jsx`, and `tests/playwright/specs/events-collectibles.browser.spec.js`.
+- Risks or follow-ups: this is still Event-local message editing only, not push/email/native delivery; recipient selection remains the existing preview-derived selected-recipient behavior.
+- What remains in the milestone: no remaining 3.4.66 implementation work; CI-only release gates must pass before public tag/release publication.
+- Recommended commit message: `Release 3.4.66 event schedule template picker and message edit UI`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

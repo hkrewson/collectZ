@@ -308,12 +308,16 @@ test.describe('events and collectibles browser regressions', () => {
       await expect(planRow.getByLabel('Schedule change preview')).toBeVisible();
       await expect(planRow.getByText('1 person, 1 group')).toBeVisible();
       await expect(planRow.getByText(`Suggested: I'm keeping ${planTitle} as backup.`)).toBeVisible();
+      const messageComposer = planRow.getByLabel('Schedule notification message');
+      await expect(messageComposer).toBeVisible();
+      await messageComposer.locator('label:has-text("Template") select').selectOption('meet');
+      await messageComposer.locator('label:has-text("Message") textarea').fill(`Meet me by the back wall for ${planTitle}.`);
       await expect(planRow.getByText('No notification will be sent from this preview.')).toBeVisible();
       await planRow.getByRole('button', { name: 'Send local notice' }).click();
       await expect(page.getByText('Schedule notification recorded')).toBeVisible();
       await expect(planRow.getByLabel('Schedule notification record')).toBeVisible();
       await expect(planRow.getByText('Local notification sent')).toBeVisible();
-      await expect(planRow.getByLabel('Schedule notification record').getByText(`I'm keeping ${planTitle} as backup.`)).toBeVisible();
+      await expect(planRow.getByLabel('Schedule notification record').getByText(`Meet me by the back wall for ${planTitle}.`)).toBeVisible();
       await expect(planRow.getByText('No push, device, or email delivery was used.')).toBeVisible();
       await expect(planRow.getByLabel('Schedule notification history')).toBeVisible();
       await expect(planRow.getByText('Notification history')).toBeVisible();
@@ -324,7 +328,7 @@ test.describe('events and collectibles browser regressions', () => {
       await expect(inboxPanel.getByLabel('Schedule notification inbox')).toBeVisible();
       await expect(inboxPanel.getByLabel('Notification inbox filter')).toBeVisible();
       await expect(inboxPanel.getByText('2 local recipient records')).toBeVisible();
-      await expect(inboxPanel.getByLabel('Schedule notification inbox').getByText(`I'm keeping ${planTitle} as backup.`).first()).toBeVisible();
+      await expect(inboxPanel.getByLabel('Schedule notification inbox').getByText(`Meet me by the back wall for ${planTitle}.`).first()).toBeVisible();
       await expect(inboxPanel.getByText('1 linked to you')).toBeVisible();
       await inboxPanel.getByRole('button', { name: 'Mine' }).click();
       await expect(inboxPanel.getByText('1 local recipient record')).toBeVisible();

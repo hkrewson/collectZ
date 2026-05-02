@@ -312,6 +312,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - The `3.4.63` shared-attendance card slice is promoted to show visibility-safe people/group context directly on session cards.
 - The `3.4.64` join/leave/replace action slice is promoted to turn session-card readback into quick plan-change intent.
 - The `3.4.65` change-template slice is promoted to seed selected-recipient local notification drafts from schedule action intent.
+- The `3.4.66` template-picker slice is promoted to let users choose and edit Event-local notice text before save/send.
 - This follow-up turns that data into import-backed and time-aware discovery surfaces.
 
 **Scope**
@@ -336,7 +337,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 
 **Scope**
 - Add explicit actions for joining, leaving, replacing, or marking backup sessions. The first web-card slice is promoted as `3.4.64`.
-- When a change affects shared plans, offer selected-recipient notifications instead of broadcasting by default. The first action-template slice is promoted as `3.4.65`.
+- When a change affects shared plans, offer selected-recipient notifications instead of broadcasting by default. The first action-template slice is promoted as `3.4.65`; picker/edit UI is promoted as `3.4.66`.
 - Support message templates such as:
   - "I'm switching to this session"
   - "Anyone want to join?"

@@ -467,7 +467,7 @@ async function loadScheduleChangeRecipients(eventId, visibility = 'private') {
 
 function normalizeScheduleMessageIntent(intent, status = '') {
   const normalized = String(intent || '').trim().toLowerCase();
-  if (['join', 'leave', 'replace', 'backup', 'status_update'].includes(normalized)) return normalized;
+  if (['join', 'leave', 'replace', 'backup', 'meet', 'status_update'].includes(normalized)) return normalized;
   if (status === 'skipped') return 'leave';
   if (status === 'backup') return 'backup';
   if (status === 'planned') return 'join';
@@ -504,6 +504,13 @@ function buildScheduleMessageTemplate(subject = {}, status = 'planned', intent =
       intent: messageIntent,
       title,
       body: `I'm keeping ${title} as backup.`
+    };
+  }
+  if (messageIntent === 'meet') {
+    return {
+      intent: messageIntent,
+      title,
+      body: `Meet outside this room for ${title}?`
     };
   }
   return {

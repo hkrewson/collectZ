@@ -720,7 +720,7 @@ const eventSocialVisibilityValues = ['private', 'selected_people', 'group', 'eve
 const eventAttendeeStatusValues = ['attending', 'maybe', 'not_attending', 'unknown'];
 const eventMeetupStatusValues = ['planned', 'tentative', 'cancelled', 'done'];
 const eventSchedulePlanStatusValues = ['planned', 'maybe', 'backup', 'skipped', 'attended'];
-const eventScheduleMessageIntentValues = ['join', 'leave', 'replace', 'backup', 'status_update'];
+const eventScheduleMessageIntentValues = ['join', 'leave', 'replace', 'backup', 'meet', 'status_update'];
 const eventScheduleSessionStatusValues = ['active', 'cancelled', 'hidden'];
 const eventSocialTimestampSchema = z.preprocess(
   emptyStringToNull,
