@@ -309,6 +309,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - The `3.4.60` notification inbox/readback slice is promoted to add Event-local recipient rows with read/acknowledged state before push, email, or native device delivery.
 - The `3.4.61` user-linked attendee identity slice is promoted to connect Event attendees to the current app user for "mine" inbox filtering without broad friend identity or native delivery.
 - The `3.4.62` My Notifications filter UI slice is promoted to expose the current-user inbox filter in the Event drawer.
+- The `3.4.63` shared-attendance card slice is promoted to show visibility-safe people/group context directly on session cards.
 - This follow-up turns that data into import-backed and time-aware discovery surfaces.
 
 **Scope**

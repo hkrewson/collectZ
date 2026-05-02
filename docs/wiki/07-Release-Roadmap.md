@@ -7644,6 +7644,46 @@ Historical note:
 - What remains in the milestone: no remaining 3.4.62 implementation work; CI-only release gates must pass before public tag/release publication.
 - Recommended commit message: `Release 3.4.62 event schedule my notifications filter UI`
 
+## 3.4.63 — Event Schedule Shared Attendance on Session Cards
+
+**Goal:** Make shared session attendance visible directly on Event schedule cards instead of requiring users to expand rows or infer meaning from the shared-attendance filter.
+
+**Current Slice:** `Closed.`
+
+### Scope
+
+- Reuse the existing Event-local attendance readback model.
+- Show compact shared-attendance context on Now/Next, catalog session rows, and personal schedule rows.
+- Prefer visibility-safe attendee/group names when available.
+- Fall back to the existing shared status count when the Event does not have attendee/group names to display.
+- Keep this separate from push notifications, native device delivery, reciprocal friend graphs, realtime presence, and global inbox work.
+
+### Acceptance Criteria
+
+- Session cards show who a shared plan is visible to when attendee/group context exists.
+- Session cards retain the existing count-based shared readback when no attendee/group context exists.
+- Personal schedule rows update shared-attendance readback immediately when the draft visibility changes.
+- Browser coverage verifies shared-attendance names appear on a schedule card.
+- No backend notification delivery, push, email, native device registration, global inbox, or friend graph work is introduced.
+
+### Notes
+
+- This is a UI/readback completion slice for the `3.4.52` attendance readback and `3.4.61` linked-attendee identity work.
+
+### Closeout
+
+- Roadmap slice: `3.4.63 — Event Schedule Shared Attendance on Session Cards`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/06-Versioning-and-Build-Metadata.md`, and `docs/wiki/45-Event-Schedule-Catalog-Foundation.md`.
+- Runtime verification used: rebuilt and recreated backend/frontend through Docker with `APP_VERSION=3.4.63`; verified `/api/health` reports frontend/backend/build `3.4.63`; verified local platform container env reports `APP_EDITION=platform`; switched to generated public compose and verified homelab boundary with no `APP_EDITION`; restored local platform compose afterward.
+- CI/checks run: local and container OpenAPI validation; local and container backend unit tests (`231` passed); container `test:event-social-planning-smoke`; container `test:init-parity`; container `test:migration-rehearsal`; container `test:help-releases-smoke`; container `test:rbac-regression`; container `test:platform-edition-boundary`; generated-compose `test:homelab-edition-boundary`; targeted Event browser regression (`12` passed); full browser regression (`55` passed, `4` skipped); `docker compose --env-file .env config`; `npm run validate:public-export`; idempotent `npm run compose:generate`; backend/frontend Linux-container `npm ci --no-fund --dry-run`; `npm --prefix backend run test:observability-evidence`; `npm --prefix backend run test:release-preflight-local`; release artifact secret-hygiene grep; and `git diff --check`.
+- Release artifacts: `docs/releases/v3.4.63.md` exists, `backend/release-feed.json` serves `3.4.63` first, `preflight-go-no-go.md` regenerated, and observability evidence regenerated for `3.4.63`.
+- Verified facts: Now/Next, catalog session, and personal schedule rows show compact shared-attendance context when a shared plan has visible Event attendee/group data; personal schedule rows prefer Event attendee display names over linked account names; rows fall back to the existing `Shared: <status counts>` text when no attendee/group names exist; changing draft schedule visibility updates the shared-attendance readback before save; no backend delivery, push, email, device registration, global inbox, reciprocal friend graph, or realtime presence work was introduced.
+- Blocked/unverified: local secure-cookie compose-smoke remains blocked by the development stack using `SESSION_COOKIE_SECURE=false`; local `gitleaks` is not installed, so `secret-scan` remains CI-only plus local grep hygiene; `image-security-and-sbom` remains CI-only Trivy/SBOM follow-through.
+- Files changed: version metadata/manifests, generated public compose, release note/feed, Events drawer UI, Event browser regression spec, unit source assertions, roadmap/backlog/catalog docs, local preflight, and observability evidence artifacts.
+- Risks/follow-ups: shared-attendance card readback still derives from Event-local visibility and attendee/group records; true reciprocal friend attendance, selected-recipient device delivery, push/email sends, global notification inboxes, realtime presence/location, and offline queued sends remain future milestones.
+- What remains in the milestone: no remaining 3.4.63 implementation work; CI-only release gates must pass before public tag/release publication.
+- Recommended commit message: `Release 3.4.63 event schedule shared attendance on session cards`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

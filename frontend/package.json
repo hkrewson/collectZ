@@ -1,6 +1,6 @@
 {
   "name": "mediavault-frontend",
-  "version": "3.4.62",
+  "version": "3.4.63",
   "private": true,
   "dependencies": {
     "@zxing/browser": "^0.1.5",

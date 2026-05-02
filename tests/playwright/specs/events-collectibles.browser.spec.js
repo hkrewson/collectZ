@@ -125,10 +125,14 @@ test.describe('events and collectibles browser regressions', () => {
       await expect(overview.getByText('Groups: Artist Alley Crew')).toBeVisible();
       await expect(overview.getByText(/Room 6DE .* Shared/)).toBeVisible();
       await expect(overview.getByText(/Hall H doors .* Hall H Cafe .* Booth HH-12 .* Group/)).toBeVisible();
-      await page.locator('summary').filter({ hasText: /^People/ }).click();
-      await expect(page.locator('details').filter({ hasText: 'Reid' }).first().getByText('Private', { exact: true })).toBeVisible();
-      await page.locator('summary').filter({ hasText: /^Groups/ }).click();
-      await expect(page.locator('details').filter({ hasText: 'Artist Alley Crew' }).first().getByText('Group', { exact: true })).toBeVisible();
+      const peoplePanel = page.locator('summary').filter({ hasText: /^People/ }).locator('xpath=..').first();
+      await peoplePanel.locator('summary').click();
+      await expect(peoplePanel.getByText('Reid')).toBeVisible();
+      await expect(peoplePanel.getByText('Private', { exact: true })).toBeVisible();
+      const groupsPanel = page.locator('summary').filter({ hasText: /^Groups/ }).locator('xpath=..').first();
+      await groupsPanel.locator('summary').click();
+      await expect(groupsPanel.getByText('Artist Alley Crew')).toBeVisible();
+      await expect(groupsPanel.getByText('Group', { exact: true })).toBeVisible();
     } finally {
       await deleteEventsByExactTitle(userRequestContext, eventTitle).catch(() => {});
       if (!originalEventsEnabled) {
@@ -295,6 +299,7 @@ test.describe('events and collectibles browser regressions', () => {
       await planRow.locator('summary').click();
       await planRow.locator('label:has-text("Status") select').selectOption('backup');
       await planRow.locator('label:has-text("Visibility") select').selectOption('event_workspace');
+      await expect(planRow.getByText('Shared with Reid, Panel crew').first()).toBeVisible();
       await planRow.locator('label:has-text("Vendor") input').fill('Artist signing table');
       await planRow.locator('label:has-text("Booth") input').fill('6DE-B');
       await planRow.locator('label:has-text("Location note") input').fill('Queue at the rear exit.');

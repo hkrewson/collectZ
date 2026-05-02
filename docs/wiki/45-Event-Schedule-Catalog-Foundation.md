@@ -63,6 +63,8 @@ Event attendees can optionally link to an app user through `user_id` or the safe
 
 The web Event drawer exposes this through a compact Notification inbox `All` / `Mine` filter. `Mine` is a readback filter only; it does not send notifications, register devices, or create a global notification inbox.
 
+The web Event drawer also uses the Event-local attendee/group state to show visibility-safe shared-attendance context on Now/Next, catalog session, and personal schedule cards. This is readback only: shared rows can name already-visible Event people/groups, but they do not create reciprocal friend identity, realtime presence, push delivery, or global notifications.
+
 ## Companion and Offline Packet Behavior
 
 `GET /api/events/:id/companion/today` now returns:
@@ -84,7 +86,7 @@ Keep these out of this foundation unless explicitly promoted:
 - recurring background sync,
 - Now / Next discovery UI,
 - external selected-recipient delivery,
-- friend/group attendance on catalog sessions,
+- reciprocal friend identity or realtime attendance/presence,
 - conflict resolution or replacement prompts,
 - offline mutation queues,
 - realtime location or presence behavior,

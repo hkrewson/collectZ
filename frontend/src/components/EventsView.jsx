@@ -313,11 +313,49 @@ const formatPlanStatusCounts = (plans = []) => ATTENDANCE_READBACK_STATUSES
   .filter(Boolean)
   .join(', ');
 
-const buildScheduleAttendanceSummary = (session, plans = []) => {
-  const linkedPlans = catalogLinkedPlans(session, plans);
+const scheduleAttendeeName = (attendee = {}) => attendee?.display_name || attendee?.linked_user?.name || attendee?.contact_label || '';
+
+const addUniqueScheduleName = (target, value) => {
+  const name = String(value || '').trim();
+  if (name && !target.includes(name)) target.push(name);
+};
+
+const scheduleSharedAudience = (sharedPlans = [], attendees = [], groups = []) => {
+  const activeAttendees = (Array.isArray(attendees) ? attendees : []).filter((attendee) => attendee?.status !== 'not_attending');
+  const activeGroups = (Array.isArray(groups) ? groups : []).filter((group) => (group?.status || 'active') === 'active');
+  const people = [];
+  const groupNames = [];
+
+  sharedPlans.forEach((plan) => {
+    const visibility = plan?.visibility || 'private';
+    if (visibility === 'selected_people' || visibility === 'event_workspace') {
+      activeAttendees.forEach((attendee) => addUniqueScheduleName(people, scheduleAttendeeName(attendee)));
+    }
+    if (visibility === 'group' || visibility === 'event_workspace') {
+      activeGroups.forEach((group) => {
+        addUniqueScheduleName(groupNames, group?.name);
+        (Array.isArray(group?.members) ? group.members : []).forEach((member) => {
+          addUniqueScheduleName(people, scheduleAttendeeName(member));
+        });
+      });
+    }
+  });
+
+  const visibleNames = [...people, ...groupNames];
+  const compactNames = visibleNames.slice(0, 3).join(', ');
+  const remaining = Math.max(visibleNames.length - 3, 0);
+  return {
+    people,
+    groups: groupNames,
+    label: compactNames ? `Shared with ${compactNames}${remaining ? ` +${remaining}` : ''}` : ''
+  };
+};
+
+const buildScheduleAttendanceSummaryFromPlans = (linkedPlans = [], attendees = [], groups = []) => {
   const activePlans = linkedPlans.filter((plan) => ATTENDANCE_READBACK_STATUSES.includes(plan?.status || 'planned'));
   const ownPlans = activePlans.filter((plan) => !SHARED_ATTENDANCE_VISIBILITIES.includes(plan?.visibility || 'private'));
   const sharedPlans = activePlans.filter((plan) => SHARED_ATTENDANCE_VISIBILITIES.includes(plan?.visibility || 'private'));
+  const audience = scheduleSharedAudience(sharedPlans, attendees, groups);
   const sharedLine = formatPlanStatusCounts(sharedPlans);
   const visibilityLines = SHARED_ATTENDANCE_VISIBILITIES
     .map((visibility) => {
@@ -327,10 +365,21 @@ const buildScheduleAttendanceSummary = (session, plans = []) => {
     .filter(Boolean);
   return {
     own: ownPlans.length ? `Your plan: ${formatPlanStatusCounts(ownPlans)}` : '',
+    audience,
+    audienceLine: audience.label,
+    displayLine: audience.label || (sharedLine ? `Shared: ${sharedLine}` : ''),
     shared: sharedLine ? `Shared: ${sharedLine}` : '',
     visibilityLines,
     hasShared: sharedPlans.length > 0
   };
+};
+
+const buildScheduleAttendanceSummary = (session, plans = [], attendees = [], groups = []) => {
+  return buildScheduleAttendanceSummaryFromPlans(catalogLinkedPlans(session, plans), attendees, groups);
+};
+
+const buildPlanAttendanceSummary = (plan, attendees = [], groups = []) => {
+  return buildScheduleAttendanceSummaryFromPlans(plan ? [plan] : [], attendees, groups);
 };
 
 const getScheduleWindow = (item) => {
@@ -2287,6 +2336,8 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
             <EventScheduleNowNext
               sessions={catalogSessions}
               plans={plans}
+              attendees={attendees}
+              groups={groups}
               saving={saving}
               pendingResolution={pendingCatalogResolution}
               onPlanStatusChange={requestCatalogPlanStatusChange}
@@ -2296,6 +2347,8 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
             <EventScheduleCatalog
               sessions={catalogSessions}
               plans={plans}
+              attendees={attendees}
+              groups={groups}
               drafts={catalogDrafts}
               saving={saving}
               pendingResolution={pendingCatalogResolution}
@@ -2350,6 +2403,8 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
           <div className="space-y-3 pb-4">
             <EventScheduleAgenda
               plans={plans}
+              attendees={attendees}
+              groups={groups}
               planDrafts={planDrafts}
               changePreviews={changePreviews}
               scheduleNotifications={scheduleNotifications}
@@ -2641,14 +2696,14 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
   );
 }
 
-function EventScheduleNowNext({ sessions = [], plans = [], saving = '', pendingResolution = null, onPlanStatusChange, onResolveConflict, onCancelConflict }) {
+function EventScheduleNowNext({ sessions = [], plans = [], attendees = [], groups = [], saving = '', pendingResolution = null, onPlanStatusChange, onResolveConflict, onCancelConflict }) {
   const snapshot = useMemo(() => getCatalogNowNext(sessions, plans), [sessions, plans]);
   const getConflicts = useCallback((session) => {
     if (!session) return [];
     const plan = snapshot.catalogPlanByRef.get(String(session.id));
     return findCatalogSessionConflicts(session, plan, plans);
   }, [plans, snapshot.catalogPlanByRef]);
-  const getAttendance = useCallback((session) => buildScheduleAttendanceSummary(session, plans), [plans]);
+  const getAttendance = useCallback((session) => buildScheduleAttendanceSummary(session, plans, attendees, groups), [attendees, groups, plans]);
   const hasSessions = Boolean(snapshot.current || snapshot.next || snapshot.laterToday.length);
 
   if (!hasSessions) {
@@ -2766,7 +2821,7 @@ function CatalogNowNextMiniRow({ session, plan = null, conflicts = [], attendanc
           {planStatus ? <span className="shrink-0 text-xs text-ok">{humanizeEventValue(planStatus)}</span> : null}
         </div>
         <p className="mt-1 truncate text-xs text-dim">{detailLine || 'Details pending'}</p>
-        {attendance?.shared ? <p className="mt-1 truncate text-xs text-dim">{attendance.shared}</p> : null}
+        {attendance?.displayLine ? <p className="mt-1 truncate text-xs text-dim">{attendance.displayLine}</p> : null}
         {conflictSummary ? <p className="mt-1 truncate text-xs text-warn">{conflictSummary}</p> : null}
       </div>
       <CatalogPlanStateSelect
@@ -2845,7 +2900,7 @@ function CatalogConflictResolutionPanel({ pendingResolution = null, saving = fal
   );
 }
 
-function EventScheduleCatalog({ sessions, plans = [], drafts = {}, saving = '', pendingResolution = null, onDraftChange, onUpdate, onPlanStatusChange, onResolveConflict, onCancelConflict, onRemove }) {
+function EventScheduleCatalog({ sessions, plans = [], attendees = [], groups: socialGroups = [], drafts = {}, saving = '', pendingResolution = null, onDraftChange, onUpdate, onPlanStatusChange, onResolveConflict, onCancelConflict, onRemove }) {
   const [filters, setFilters] = useState({
     time: 'all',
     plan: 'all',
@@ -2889,7 +2944,7 @@ function EventScheduleCatalog({ sessions, plans = [], drafts = {}, saving = '', 
     const plan = session?.id ? catalogPlanByRef.get(String(session.id)) : null;
     return findCatalogSessionConflicts(session, plan, plans);
   }, [catalogPlanByRef, plans]);
-  const getAttendance = useCallback((session) => buildScheduleAttendanceSummary(session, plans), [plans]);
+  const getAttendance = useCallback((session) => buildScheduleAttendanceSummary(session, plans, attendees, socialGroups), [attendees, plans, socialGroups]);
   const filterNow = useMemo(() => new Date(), [sessions, plans]);
   const todayKey = useMemo(() => getPlanDayKey(filterNow), [filterNow]);
   const nextSessionId = useMemo(() => {
@@ -3130,7 +3185,7 @@ function ScheduleCatalogRow({ session, draft = {}, saving = false, adding = fals
           <p className="mt-1 truncate text-xs text-dim">
             {locationLine || 'Location pending'}
           </p>
-          {attendance?.shared ? <p className="mt-1 truncate text-xs text-dim">{attendance.shared}</p> : null}
+          {attendance?.displayLine ? <p className="mt-1 truncate text-xs text-dim">{attendance.displayLine}</p> : null}
           {conflictSummary ? <p className="mt-1 truncate text-xs text-warn">{conflictSummary}</p> : null}
         </div>
       </summary>
@@ -3190,6 +3245,7 @@ function ScheduleCatalogRow({ session, draft = {}, saving = false, adding = fals
             <div className="rounded-md border border-edge bg-raised px-3 py-2 text-sm" aria-label="Shared attendance">
               <p className="font-medium text-ink">Shared attendance</p>
               <div className="mt-1 space-y-1 text-xs text-dim">
+                {attendance.audienceLine ? <p>{attendance.audienceLine}</p> : null}
                 {attendance.own ? <p>{attendance.own}</p> : null}
                 {attendance.visibilityLines.map((line) => <p key={line}>{line}</p>)}
               </div>
@@ -3292,7 +3348,7 @@ function ScheduleCatalogRow({ session, draft = {}, saving = false, adding = fals
   );
 }
 
-function EventScheduleAgenda({ plans, planDrafts = {}, changePreviews = {}, scheduleNotifications = {}, scheduleNotificationHistory = {}, saving = '', onDraftChange, onUpdate, onPreviewChange, onNotifyChange, onRemove }) {
+function EventScheduleAgenda({ plans, attendees = [], groups: socialGroups = [], planDrafts = {}, changePreviews = {}, scheduleNotifications = {}, scheduleNotificationHistory = {}, saving = '', onDraftChange, onUpdate, onPreviewChange, onNotifyChange, onRemove }) {
   const [filter, setFilter] = useState({ type: 'all', key: 'all' });
   const conflictMap = useMemo(() => buildScheduleConflictMap(plans), [plans]);
 
@@ -3388,6 +3444,8 @@ function EventScheduleAgenda({ plans, planDrafts = {}, changePreviews = {}, sche
               <SchedulePlanRow
                 key={plan.id}
                 plan={plan}
+                attendees={attendees}
+                groups={socialGroups}
                 marker={currentOrNext?.plan?.id === plan.id ? currentOrNext.label : ''}
                 draft={planDrafts[String(plan.id)] || {}}
                 preview={changePreviews[`plan-${plan.id}`]}
@@ -3572,6 +3630,8 @@ function EventScheduleNotificationInbox({ inbox = {}, filter = 'all', saving = '
 
 function SchedulePlanRow({
   plan,
+  attendees = [],
+  groups = [],
   marker = '',
   draft = {},
   preview = null,
@@ -3602,6 +3662,7 @@ function SchedulePlanRow({
   const draftLocationNotes = draft.location_notes ?? plan?.location_notes ?? '';
   const draftNotes = draft.notes ?? plan?.notes ?? '';
   const conflictSummary = formatConflictSummary(conflicts);
+  const attendance = buildPlanAttendanceSummary({ ...plan, status: draftStatus, visibility: draftVisibility }, attendees, groups);
   const previewRecipientCount = (preview?.recipients?.summary?.attendee_count || 0) + (preview?.recipients?.summary?.group_count || 0);
   const canSendNotification = Boolean(preview && draftVisibility !== 'private' && previewRecipientCount > 0);
   const sourceDetails = [
@@ -3628,6 +3689,7 @@ function SchedulePlanRow({
           <p className="mt-1 truncate text-xs text-dim">
             {[socialPlaceSummary(plan), categorySummary, extraCategoryCount ? `+${extraCategoryCount}` : '', fromSched ? 'Sched' : 'Manual'].filter(Boolean).join(' · ')}
           </p>
+          {attendance?.displayLine ? <p className="mt-1 truncate text-xs text-dim">{attendance.displayLine}</p> : null}
           {conflictSummary ? <p className="mt-1 truncate text-xs text-warn">{conflictSummary}</p> : null}
         </div>
       </summary>
@@ -3687,6 +3749,16 @@ function SchedulePlanRow({
           {conflictSummary ? (
             <div className="rounded-md border border-warn/30 bg-warn/10 px-3 py-2 text-sm text-warn">
               {conflictSummary}
+            </div>
+          ) : null}
+          {attendance?.hasShared ? (
+            <div className="rounded-md border border-edge bg-raised px-3 py-2 text-sm" aria-label="Shared attendance">
+              <p className="font-medium text-ink">Shared attendance</p>
+              <div className="mt-1 space-y-1 text-xs text-dim">
+                {attendance.audienceLine ? <p>{attendance.audienceLine}</p> : null}
+                {attendance.own ? <p>{attendance.own}</p> : null}
+                {attendance.visibilityLines.map((line) => <p key={line}>{line}</p>)}
+              </div>
             </div>
           ) : null}
           <div className="grid grid-cols-1 gap-2 border-t border-edge pt-3 sm:grid-cols-[9rem_11rem_1fr_7rem]">
