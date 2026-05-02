@@ -7819,6 +7819,46 @@ Historical note:
 - What remains in the milestone: no remaining 3.4.66 implementation work; CI-only release gates must pass before public tag/release publication.
 - Recommended commit message: `Release 3.4.66 event schedule template picker and message edit UI`
 
+## 3.4.67 — Event Schedule Recipient Selection UI Polish
+
+**Goal:** Make selected-recipient Event-local schedule notices explicit by letting users review and trim eligible people/groups before saving a draft or recording a local notice.
+
+**Current Slice:** `Closed.`
+
+### Scope
+
+- Add a compact recipient selector to the schedule notification composer after a share preview exists.
+- Seed selected people/groups from the existing preview-derived recipient list.
+- Allow users to uncheck eligible people or groups before saving a draft or sending a local notice.
+- Send selected recipients through the existing `recipient_attendee_ids` and `recipient_group_ids` request fields.
+- Keep private changes unsendable and keep zero-recipient notices disabled.
+- Keep push, email, native device delivery, global inboxes, friend graphs, and realtime social features out of scope.
+
+### Acceptance Criteria
+
+- A user can preview a schedule change and see the eligible people/groups who would be recorded as recipients.
+- A user can remove one or more eligible recipients before saving/sending the Event-local notice.
+- The Event-local notification inbox reflects only the selected recipients.
+- Browser coverage verifies recipient selection and trimmed inbox readback.
+
+### Notes
+
+- This remains a web UI layer over the existing `event-schedule-notification.v1` local record contract.
+
+### Closeout
+
+- Roadmap slice: `3.4.67 — Event Schedule Recipient Selection UI Polish`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, and `/Users/hamlin/.codex/skills/uncodixfy/SKILL.md`.
+- Runtime verification used: rebuilt and recreated backend/frontend through Docker with `APP_VERSION=3.4.67`; verified `/api/health` reports frontend/backend/build `3.4.67`; verified local platform container env reports `APP_EDITION=platform`; switched to generated public compose and verified homelab boundary with no `APP_EDITION`; restored local platform compose afterward.
+- CI/checks run locally: local backend unit/source contract tests; local OpenAPI validation; container backend unit tests; container OpenAPI validation; event social planning smoke; Help > Releases smoke; init parity; migration rehearsal; RBAC regression; platform edition boundary; homelab edition boundary; targeted Event browser regression (`12 passed`); full browser regression (`55 passed`, `4 skipped`); public-export validation; generated-compose config validation; backend and frontend `npm ci --dry-run` dependency checks; observability release evidence; release preflight; generated-artifact secret-pattern grep; and `git diff --check`.
+- Release artifacts: `docs/releases/v3.4.67.md` exists, `backend/release-feed.json` serves `3.4.67` first, `preflight-go-no-go.md` regenerated, and observability evidence regenerated for `3.4.67`.
+- Verified facts: schedule notification previews now expose a compact recipient selector; eligible people/groups default selected from preview; users can uncheck a person or group before saving/sending; the UI disables send when private or when no recipients remain selected; sent Event-local notification records use the selected `recipient_attendee_ids` and `recipient_group_ids`; Event browser coverage verifies trimming a group recipient and reading back only the selected recipient in the inbox.
+- Blocked/unverified items: CI-only `secret-scan` and `image-security-and-sbom` must still run in GitHub Actions; local release preflight marks CI secure-cookie `compose-smoke` conditions blocked because the local development stack intentionally runs with `SESSION_COOKIE_SECURE=false`.
+- Files changed: `app-meta.json`, `backend/app-meta.json`, `backend/package.json`, `backend/package-lock.json`, `backend/release-feed.json`, `backend/scripts/unit-tests.js`, `docker-compose.yml`, `docs/releases/v3.4.67.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `frontend/package.json`, `frontend/package-lock.json`, `frontend/src/app-meta.json`, `frontend/src/components/EventsView.jsx`, `preflight-go-no-go.md`, `artifacts/observability-evidence/observability-release-evidence.json`, and `tests/playwright/specs/events-collectibles.browser.spec.js`.
+- Risks or follow-ups: this is still Event-local selected-recipient recordkeeping only, not push/email/native delivery, global inboxes, realtime presence, or friend graph work.
+- What remains in the milestone: no remaining 3.4.67 implementation work; CI-only release gates must pass before public tag/release publication.
+- Recommended commit message: `Release 3.4.67 event schedule recipient selection UI polish`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

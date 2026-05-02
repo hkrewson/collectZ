@@ -3705,6 +3705,10 @@ results.push(run('event social planning foundation contract is wired for 3.4.30'
   assert.ok(eventsViewSource.includes('Linked to you'));
   assert.ok(eventsViewSource.includes('/events/${eventId}/schedule-notification-inbox'));
   assert.ok(eventsViewSource.includes('Send local notice'));
+  assert.ok(eventsViewSource.includes('Schedule notification recipients'));
+  assert.ok(eventsViewSource.includes('recipient_attendee_ids'));
+  assert.ok(eventsViewSource.includes('recipient_group_ids'));
+  assert.ok(eventsViewSource.includes('Selected recipients are recorded here'));
   assert.ok(eventsRoutesSource.includes('event-schedule-notification-inbox.v1'));
   assert.ok(eventsRoutesSource.includes('buildScheduleMessageTemplate'));
   assert.ok(eventsRoutesSource.includes('Anyone want to join me for'));

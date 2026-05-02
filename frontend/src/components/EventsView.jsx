@@ -1885,7 +1885,9 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
             notes: prev[id]?.notes ?? plan.notes ?? '',
             message_intent: prev[id]?.message_intent || SCHEDULE_MESSAGE_INTENTS[plan.status] || 'status_update',
             message_title: prev[id]?.message_title ?? '',
-            message_body: prev[id]?.message_body ?? ''
+            message_body: prev[id]?.message_body ?? '',
+            recipient_attendee_ids: Array.isArray(prev[id]?.recipient_attendee_ids) ? prev[id].recipient_attendee_ids : null,
+            recipient_group_ids: Array.isArray(prev[id]?.recipient_group_ids) ? prev[id].recipient_group_ids : null
           };
         });
         return next;
@@ -2137,10 +2139,14 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
         message_intent: draft.message_intent || SCHEDULE_MESSAGE_INTENTS[draft.status || plan.status] || 'status_update'
       });
       setChangePreviews((prev) => ({ ...prev, [`plan-${planId}`]: preview }));
+      const previewAttendeeIds = (preview?.recipients?.attendees || []).map((attendee) => Number(attendee.id)).filter(Boolean);
+      const previewGroupIds = (preview?.recipients?.groups || []).map((group) => Number(group.id)).filter(Boolean);
       setPlanDraft(planId, {
         message_intent: preview?.message_template?.intent || draft.message_intent || 'status_update',
         message_title: draft.message_title || preview?.message_template?.title || plan.title || 'Schedule update',
-        message_body: draft.message_body || preview?.message_template?.body || ''
+        message_body: draft.message_body || preview?.message_template?.body || '',
+        recipient_attendee_ids: Array.isArray(draft.recipient_attendee_ids) ? draft.recipient_attendee_ids : previewAttendeeIds,
+        recipient_group_ids: Array.isArray(draft.recipient_group_ids) ? draft.recipient_group_ids : previewGroupIds
       });
     } catch (err) {
       setError(err?.response?.data?.error || 'Failed to preview schedule change');
@@ -2154,8 +2160,14 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
     if (!planId) return;
     const draft = planDrafts[String(planId)] || {};
     const preview = changePreviews[`plan-${planId}`];
-    const recipientAttendeeIds = (preview?.recipients?.attendees || []).map((attendee) => Number(attendee.id)).filter(Boolean);
-    const recipientGroupIds = (preview?.recipients?.groups || []).map((group) => Number(group.id)).filter(Boolean);
+    const previewAttendeeIds = (preview?.recipients?.attendees || []).map((attendee) => Number(attendee.id)).filter(Boolean);
+    const previewGroupIds = (preview?.recipients?.groups || []).map((group) => Number(group.id)).filter(Boolean);
+    const recipientAttendeeIds = (Array.isArray(draft.recipient_attendee_ids) ? draft.recipient_attendee_ids : previewAttendeeIds)
+      .map((id) => Number(id))
+      .filter(Boolean);
+    const recipientGroupIds = (Array.isArray(draft.recipient_group_ids) ? draft.recipient_group_ids : previewGroupIds)
+      .map((id) => Number(id))
+      .filter(Boolean);
     setSaving(`${status === 'draft' ? 'draft' : 'send'}-plan-${planId}`);
     setError('');
     setNotice('');
@@ -3597,12 +3609,28 @@ function ScheduleNotificationComposer({ plan, status = 'planned', preview = null
   const title = draft.message_title || preview?.message_template?.title || plan?.title || 'Schedule update';
   const intent = draft.message_intent || preview?.message_template?.intent || 'status_update';
   const body = draft.message_body ?? preview?.message_template?.body ?? '';
+  const attendees = Array.isArray(preview?.recipients?.attendees) ? preview.recipients.attendees : [];
+  const groups = Array.isArray(preview?.recipients?.groups) ? preview.recipients.groups : [];
+  const previewAttendeeIds = attendees.map((attendee) => Number(attendee.id)).filter(Boolean);
+  const previewGroupIds = groups.map((group) => Number(group.id)).filter(Boolean);
+  const selectedAttendeeIds = new Set((Array.isArray(draft.recipient_attendee_ids) ? draft.recipient_attendee_ids : previewAttendeeIds).map((id) => Number(id)).filter(Boolean));
+  const selectedGroupIds = new Set((Array.isArray(draft.recipient_group_ids) ? draft.recipient_group_ids : previewGroupIds).map((id) => Number(id)).filter(Boolean));
+  const selectedCount = selectedAttendeeIds.size + selectedGroupIds.size;
   const setIntent = (nextIntent) => {
     onDraftChange({
       message_intent: nextIntent,
       message_title: title,
       message_body: buildScheduleMessageBody(title, nextIntent, status)
     });
+  };
+  const toggleRecipient = (field, currentSet, id, checked) => {
+    const next = new Set(currentSet);
+    if (checked) {
+      next.add(Number(id));
+    } else {
+      next.delete(Number(id));
+    }
+    onDraftChange({ [field]: Array.from(next) });
   };
   return (
     <div className="rounded-md border border-edge bg-surface px-3 py-3 text-sm" aria-label="Schedule notification message">
@@ -3628,7 +3656,55 @@ function ScheduleNotificationComposer({ plan, status = 'planned', preview = null
           />
         </label>
       </div>
-      <p className="mt-2 text-xs text-ghost">Saved here as an Event-local notice only. Recipients stay selected from the preview.</p>
+      <div className="mt-3 border-t border-edge pt-3" aria-label="Schedule notification recipients">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs font-medium text-ink">Recipients</p>
+          <span className="text-xs text-ghost">{selectedCount} selected</span>
+        </div>
+        {attendees.length || groups.length ? (
+          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {attendees.map((attendee) => {
+              const id = Number(attendee.id);
+              const label = attendee.display_name || `Person #${id}`;
+              return (
+                <label key={`attendee-${id}`} className="flex items-start gap-2 rounded-md border border-edge bg-raised px-2.5 py-2 text-xs text-dim">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 h-4 w-4 accent-current"
+                    checked={selectedAttendeeIds.has(id)}
+                    onChange={(event) => toggleRecipient('recipient_attendee_ids', selectedAttendeeIds, id, event.target.checked)}
+                  />
+                  <span>
+                    <span className="block font-medium text-ink">{label}</span>
+                    <span className="text-ghost">Person</span>
+                  </span>
+                </label>
+              );
+            })}
+            {groups.map((group) => {
+              const id = Number(group.id);
+              const label = group.name || `Group #${id}`;
+              return (
+                <label key={`group-${id}`} className="flex items-start gap-2 rounded-md border border-edge bg-raised px-2.5 py-2 text-xs text-dim">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 h-4 w-4 accent-current"
+                    checked={selectedGroupIds.has(id)}
+                    onChange={(event) => toggleRecipient('recipient_group_ids', selectedGroupIds, id, event.target.checked)}
+                  />
+                  <span>
+                    <span className="block font-medium text-ink">{label}</span>
+                    <span className="text-ghost">Group</span>
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="mt-2 rounded-md border border-edge bg-raised px-2.5 py-2 text-xs text-ghost">No eligible recipients for this visibility.</p>
+        )}
+      </div>
+      <p className="mt-2 text-xs text-ghost">Saved here as an Event-local notice only. Selected recipients are recorded here, not sent by push, device, or email.</p>
     </div>
   );
 }
@@ -3821,8 +3897,12 @@ function SchedulePlanRow({
   const draftNotes = draft.notes ?? plan?.notes ?? '';
   const conflictSummary = formatConflictSummary(conflicts);
   const attendance = buildPlanAttendanceSummary({ ...plan, status: draftStatus, visibility: draftVisibility }, attendees, groups);
-  const previewRecipientCount = (preview?.recipients?.summary?.attendee_count || 0) + (preview?.recipients?.summary?.group_count || 0);
-  const canSendNotification = Boolean(preview && draftVisibility !== 'private' && previewRecipientCount > 0);
+  const previewAttendeeIds = (preview?.recipients?.attendees || []).map((attendee) => Number(attendee.id)).filter(Boolean);
+  const previewGroupIds = (preview?.recipients?.groups || []).map((group) => Number(group.id)).filter(Boolean);
+  const selectedAttendeeIds = Array.isArray(draft.recipient_attendee_ids) ? draft.recipient_attendee_ids : previewAttendeeIds;
+  const selectedGroupIds = Array.isArray(draft.recipient_group_ids) ? draft.recipient_group_ids : previewGroupIds;
+  const selectedRecipientCount = selectedAttendeeIds.length + selectedGroupIds.length;
+  const canSendNotification = Boolean(preview && draftVisibility !== 'private' && selectedRecipientCount > 0);
   const sourceDetails = [
     scheduleSourceLabel(plan),
     plan?.source_updated_at ? `Updated ${formatDateTime(plan.source_updated_at)}` : '',
