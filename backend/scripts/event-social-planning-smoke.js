@@ -243,6 +243,25 @@ async function main() {
       headers: { 'Content-Type': 'application/json' }
     });
 
+    const changePreview = await client.request(`/api/events/${eventId}/schedule-change-preview`, {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 200,
+      body: JSON.stringify({
+        schedule_plan_id: planId,
+        requested_status: 'planned',
+        requested_visibility: 'event_workspace'
+      }),
+      headers: { 'Content-Type': 'application/json' }
+    });
+    assert(changePreview.data?.contract?.version === 'event-schedule-change-preview.v1', `Expected schedule change preview contract, got ${JSON.stringify(changePreview.data)}`);
+    assert(changePreview.data?.contract?.preview_only === true, `Expected preview-only schedule change contract, got ${JSON.stringify(changePreview.data)}`);
+    assert(changePreview.data?.contract?.delivery_supported === false, `Expected no delivery support in preview contract, got ${JSON.stringify(changePreview.data)}`);
+    assert(changePreview.data?.recipients?.summary?.attendee_count === 1, `Expected one preview attendee recipient, got ${JSON.stringify(changePreview.data)}`);
+    assert(changePreview.data?.recipients?.summary?.group_count === 1, `Expected one preview group recipient, got ${JSON.stringify(changePreview.data)}`);
+    assert(changePreview.data?.subject?.schedule_plan_id === planId, `Expected preview subject plan id, got ${JSON.stringify(changePreview.data)}`);
+    assert(changePreview.data?.requested_change?.status === 'planned', `Expected requested preview status, got ${JSON.stringify(changePreview.data)}`);
+
     await client.request(`/api/events/${eventId}/schedule-sessions/${catalogSessionId}`, {
       method: 'PATCH',
       withCsrf: true,
@@ -310,7 +329,8 @@ async function main() {
       updatedMeetupStatus: meetups.data.items[0]?.status || null,
       updatedSchedulePlanStatus: plans.data.items[0]?.status || null,
       updatedScheduleCatalogStatus: catalog.data.items[0]?.status || null,
-      companionContract: companion.data?.contract?.version || null
+      companionContract: companion.data?.contract?.version || null,
+      previewRecipientCount: changePreview.data?.recipients?.summary?.attendee_count || 0
     }, null, 2));
   } finally {
     await cleanupTemporaryState({ userId, libraryId, spaceId });

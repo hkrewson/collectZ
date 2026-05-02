@@ -21,6 +21,7 @@ const {
   eventMeetupUpdateSchema,
   eventSchedulePlanCreateSchema,
   eventSchedulePlanUpdateSchema,
+  eventScheduleChangePreviewSchema,
   eventScheduleSessionCreateSchema,
   eventScheduleSessionUpdateSchema,
   eventScheduleCatalogIcsImportSchema,
@@ -147,6 +148,8 @@ const EVENT_COMPANION_ICS_STATE_LABELS = {
   unknown: 'Personal Sched sync state is unknown'
 };
 const EVENT_COMPANION_OFFLINE_PACKET_VERSION = 'event-social-offline-packet.v1';
+const SCHEDULE_CHANGE_NOTIFICATION_CONTRACT_VERSION = 'event-schedule-change-preview.v1';
+const CONFLICTING_SCHEDULE_PLAN_STATUSES = new Set(['planned', 'maybe', 'backup']);
 
 const serializeEventArtifactRow = (row = {}) => ({
   ...row,
@@ -351,6 +354,218 @@ async function attachMembersToGroups(groups = []) {
     ...group,
     members: membersByGroup.get(Number(group.id)) || []
   }));
+}
+
+function getSchedulePlanCatalogSessionId(plan = {}) {
+  if (plan?.source_catalog_session_id) return String(plan.source_catalog_session_id);
+  if (plan?.source_type === 'schedule_catalog' && plan?.source_ref) return String(plan.source_ref);
+  return '';
+}
+
+function getScheduleWindow(item = {}) {
+  const startTime = item?.start_at ? new Date(item.start_at).getTime() : NaN;
+  if (!Number.isFinite(startTime)) return null;
+  const explicitEndTime = item?.end_at ? new Date(item.end_at).getTime() : NaN;
+  const endTime = Number.isFinite(explicitEndTime) ? explicitEndTime : startTime + (60 * 60 * 1000);
+  if (endTime <= startTime) return null;
+  return { startTime, endTime };
+}
+
+function scheduleWindowsOverlap(a, b) {
+  return Boolean(a && b && a.startTime < b.endTime && b.startTime < a.endTime);
+}
+
+function isSchedulePlanConflictEligible(plan = {}) {
+  return CONFLICTING_SCHEDULE_PLAN_STATUSES.has(plan?.status || 'planned');
+}
+
+async function loadScheduleChangeRecipients(eventId, visibility = 'private') {
+  if (visibility === 'private') {
+    return { attendees: [], groups: [] };
+  }
+  const [attendeeResult, groupResult] = await Promise.all([
+    pool.query(
+      `SELECT id, display_name, contact_label, relationship, status, visibility
+         FROM event_attendees
+        WHERE event_id = $1
+          AND archived_at IS NULL
+          AND status <> 'not_attending'
+        ORDER BY display_name ASC, id ASC`,
+      [eventId]
+    ),
+    pool.query(
+      `SELECT *
+         FROM event_groups
+        WHERE event_id = $1
+          AND archived_at IS NULL
+          AND status = 'active'
+        ORDER BY name ASC, id ASC`,
+      [eventId]
+    )
+  ]);
+  const groups = await attachMembersToGroups(groupResult.rows || []);
+  const attendees = attendeeResult.rows || [];
+  if (visibility === 'selected_people') {
+    return { attendees, groups: [] };
+  }
+  if (visibility === 'group') {
+    const memberIds = new Set();
+    groups.forEach((group) => (group.members || []).forEach((member) => memberIds.add(Number(member.id))));
+    return {
+      attendees: attendees.filter((attendee) => memberIds.has(Number(attendee.id))),
+      groups
+    };
+  }
+  return { attendees, groups };
+}
+
+async function buildScheduleChangePreview({ eventId, schedulePlanId = null, catalogSessionId = null, requestedStatus = null, requestedVisibility = null }) {
+  let plan = null;
+  let session = null;
+  if (schedulePlanId) {
+    const planResult = await pool.query(
+      `SELECT *
+         FROM event_schedule_plans
+        WHERE id = $1
+          AND event_id = $2
+          AND archived_at IS NULL
+        LIMIT 1`,
+      [schedulePlanId, eventId]
+    );
+    plan = planResult.rows[0] || null;
+    if (!plan) return null;
+    const catalogId = Number(getSchedulePlanCatalogSessionId(plan) || 0);
+    if (catalogId) catalogSessionId = catalogSessionId || catalogId;
+  }
+  if (catalogSessionId) {
+    const sessionResult = await pool.query(
+      `SELECT *
+         FROM event_schedule_sessions
+        WHERE id = $1
+          AND event_id = $2
+          AND archived_at IS NULL
+        LIMIT 1`,
+      [catalogSessionId, eventId]
+    );
+    session = sessionResult.rows[0] || null;
+    if (!session) return null;
+    if (!plan) {
+      const linkedPlanResult = await pool.query(
+        `SELECT *
+           FROM event_schedule_plans
+          WHERE event_id = $1
+            AND archived_at IS NULL
+            AND (
+              source_catalog_session_id = $2
+              OR (source_type = 'schedule_catalog' AND source_ref = $3)
+            )
+          ORDER BY CASE WHEN visibility = 'private' THEN 0 ELSE 1 END, id ASC
+          LIMIT 1`,
+        [eventId, session.id, String(session.id)]
+      );
+      plan = linkedPlanResult.rows[0] || null;
+    }
+  }
+
+  const subject = plan || session;
+  if (!subject) return null;
+  const normalizedStatus = requestedStatus || plan?.status || (session?.status === 'cancelled' ? 'skipped' : 'planned');
+  const normalizedVisibility = requestedVisibility || plan?.visibility || 'private';
+  const recipients = await loadScheduleChangeRecipients(eventId, normalizedVisibility);
+  const candidateWindow = getScheduleWindow({
+    start_at: plan?.start_at || session?.start_at,
+    end_at: plan?.end_at || session?.end_at
+  });
+  let conflicts = [];
+  if (candidateWindow && isSchedulePlanConflictEligible({ status: normalizedStatus })) {
+    const plansResult = await pool.query(
+      `SELECT id, title, start_at, end_at, location, status, visibility, source_type, source_ref, source_catalog_session_id
+         FROM event_schedule_plans
+        WHERE event_id = $1
+          AND archived_at IS NULL
+        ORDER BY start_at NULLS LAST, title ASC, id ASC`,
+      [eventId]
+    );
+    const subjectCatalogId = getSchedulePlanCatalogSessionId(plan) || (session?.id ? String(session.id) : '');
+    conflicts = (plansResult.rows || [])
+      .filter((otherPlan) => !plan?.id || Number(otherPlan.id) !== Number(plan.id))
+      .filter(isSchedulePlanConflictEligible)
+      .filter((otherPlan) => {
+        const otherCatalogId = getSchedulePlanCatalogSessionId(otherPlan);
+        return !(subjectCatalogId && otherCatalogId && subjectCatalogId === otherCatalogId);
+      })
+      .filter((otherPlan) => scheduleWindowsOverlap(candidateWindow, getScheduleWindow(otherPlan)))
+      .slice(0, 10);
+  }
+  const attendeeCount = recipients.attendees.length;
+  const groupCount = recipients.groups.length;
+  return {
+    contract: {
+      version: SCHEDULE_CHANGE_NOTIFICATION_CONTRACT_VERSION,
+      preview_only: true,
+      delivery_supported: false,
+      delivery_endpoint: null,
+      limitations: [
+        'no_push_delivery',
+        'no_device_registration',
+        'no_message_persistence',
+        'no_broadcast_without_user_selection'
+      ]
+    },
+    event_id: eventId,
+    subject: {
+      kind: plan ? 'schedule_plan' : 'schedule_catalog',
+      schedule_plan_id: plan?.id || null,
+      catalog_session_id: session?.id || Number(getSchedulePlanCatalogSessionId(plan) || 0) || null,
+      title: subject.title,
+      start_at: plan?.start_at || session?.start_at || null,
+      end_at: plan?.end_at || session?.end_at || null,
+      location: plan?.location || session?.location || session?.room || null
+    },
+    requested_change: {
+      status: normalizedStatus,
+      visibility: normalizedVisibility
+    },
+    recipients: {
+      attendees: recipients.attendees.map((attendee) => ({
+        id: attendee.id,
+        display_name: attendee.display_name,
+        contact_label: attendee.contact_label || null,
+        relationship: attendee.relationship || null,
+        status: attendee.status,
+        visibility: attendee.visibility
+      })),
+      groups: recipients.groups.map((group) => ({
+        id: group.id,
+        name: group.name,
+        visibility: group.visibility,
+        status: group.status,
+        member_count: Array.isArray(group.members) ? group.members.length : 0
+      })),
+      summary: {
+        attendee_count: attendeeCount,
+        group_count: groupCount,
+        visibility: normalizedVisibility,
+        selected_recipient_required: normalizedVisibility !== 'private',
+        label: normalizedVisibility === 'private'
+          ? 'Private change; no recipients.'
+          : `${attendeeCount} ${attendeeCount === 1 ? 'person' : 'people'}${groupCount ? `, ${groupCount} ${groupCount === 1 ? 'group' : 'groups'}` : ''}`
+      }
+    },
+    conflicts: conflicts.map((conflict) => ({
+      id: conflict.id,
+      title: conflict.title,
+      start_at: conflict.start_at || null,
+      end_at: conflict.end_at || null,
+      location: conflict.location || null,
+      status: conflict.status,
+      visibility: conflict.visibility
+    })),
+    message_template: {
+      title: subject.title,
+      body: `${subject.title} is marked ${normalizedStatus.replace(/_/g, ' ')}.`
+    }
+  };
 }
 
 function classifyPersonalIcsFreshness(source = null, now = new Date()) {
@@ -1908,6 +2123,32 @@ router.delete('/events/:id/schedule-plans/:planId', asyncHandler(async (req, res
   if (!result.rows[0]) return res.status(404).json({ error: 'Schedule plan not found' });
   await logActivity(req, 'events.schedule_plan.delete', 'event', eventId, { schedulePlanId: planId });
   res.json({ ok: true, id: planId });
+}));
+
+router.post('/events/:id/schedule-change-preview', validate(eventScheduleChangePreviewSchema), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const eventId = parsePositiveId(req.params.id, 'event id');
+  const eventRow = await ensureScopedEvent(scopeContext, eventId);
+  if (!eventRow) return res.status(404).json({ error: 'Event not found' });
+
+  const preview = await buildScheduleChangePreview({
+    eventId,
+    schedulePlanId: req.body.schedule_plan_id || null,
+    catalogSessionId: req.body.catalog_session_id || null,
+    requestedStatus: req.body.requested_status || null,
+    requestedVisibility: req.body.requested_visibility || null
+  });
+  if (!preview) return res.status(404).json({ error: 'Schedule change subject not found' });
+  await logActivity(req, 'events.schedule_change.preview', 'event', eventId, {
+    schedulePlanId: preview.subject.schedule_plan_id,
+    catalogSessionId: preview.subject.catalog_session_id,
+    requestedStatus: preview.requested_change.status,
+    requestedVisibility: preview.requested_change.visibility,
+    attendeeCount: preview.recipients.summary.attendee_count,
+    groupCount: preview.recipients.summary.group_count,
+    previewOnly: true
+  });
+  res.json(preview);
 }));
 
 router.get('/events/:id/schedule-sessions', asyncHandler(async (req, res) => {

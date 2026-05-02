@@ -11,6 +11,7 @@ This document defines the current event schedule catalog boundary for collectZ w
 - The catalog can be manually created through API endpoints and seeded through one-time provider ICS import.
 - Provider ICS import is intentionally not recurring background sync.
 - Now / Next discovery, conflict workflows, quick plan actions, notifications, and native/platform UI stay separate future milestones.
+- Schedule change preview can identify affected Event attendees/groups and conflicts, but notification delivery remains out of scope.
 
 ## Catalog Session Shape
 
@@ -39,10 +40,13 @@ The foundation endpoints are event-scoped and use the same auth/scope checks as 
 - `POST /api/events/:id/schedule-sessions/import-ics`
 - `PATCH /api/events/:id/schedule-sessions/:sessionId`
 - `DELETE /api/events/:id/schedule-sessions/:sessionId`
+- `POST /api/events/:id/schedule-change-preview`
 
 Deleted sessions are archived with `archived_at`; they are not hard-deleted by the API.
 
 `POST /api/events/:id/schedule-sessions/import-ics` accepts a transient Sched-style/calendar ICS URL, fetches it once, and upserts catalog rows by source reference. The raw URL is not stored or returned. Imported sessions use `source_type = sched_catalog_ics`.
+
+`POST /api/events/:id/schedule-change-preview` is preview-only. It returns the schedule subject, requested status and visibility, scoped people/groups, conflicts, and a simple message template. It does not send notifications, persist message drafts, register devices, or expose push delivery behavior.
 
 ## Companion and Offline Packet Behavior
 

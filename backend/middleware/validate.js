@@ -795,6 +795,15 @@ const eventSchedulePlanUpdateSchema = eventSchedulePlanBaseSchema.partial().refi
   (data) => Object.keys(data).length > 0,
   { message: 'At least one schedule-plan field is required' }
 );
+const eventScheduleChangePreviewSchema = z.object({
+  schedule_plan_id: nullableNumberSchema(z.number().int().positive()),
+  catalog_session_id: nullableNumberSchema(z.number().int().positive()),
+  requested_status: z.enum(eventSchedulePlanStatusValues).optional(),
+  requested_visibility: z.enum(eventSocialVisibilityValues).optional()
+}).refine(
+  (data) => Boolean(data.schedule_plan_id || data.catalog_session_id),
+  { message: 'schedule_plan_id or catalog_session_id is required' }
+);
 const eventScheduleSessionBaseSchema = z.object({
   title: z.string().trim().min(1, 'Title is required').max(255),
   start_at: eventSocialTimestampSchema,
@@ -1009,6 +1018,7 @@ module.exports = {
   eventMeetupUpdateSchema,
   eventSchedulePlanCreateSchema,
   eventSchedulePlanUpdateSchema,
+  eventScheduleChangePreviewSchema,
   eventScheduleSessionCreateSchema,
   eventScheduleSessionUpdateSchema,
   eventScheduleCatalogIcsImportSchema,

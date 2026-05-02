@@ -1708,6 +1708,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
   const [planDrafts, setPlanDrafts] = useState({});
   const [catalogDrafts, setCatalogDrafts] = useState({});
   const [pendingCatalogResolution, setPendingCatalogResolution] = useState(null);
+  const [changePreviews, setChangePreviews] = useState({});
   const icsHealth = getIcsFeedHealth(icsSource);
 
   const set = (patch) => setForm((prev) => ({ ...prev, ...patch }));
@@ -2008,6 +2009,26 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
     }
   };
 
+  const previewScheduleChange = async (plan) => {
+    const planId = Number(plan?.id || 0);
+    if (!planId) return;
+    const draft = planDrafts[String(planId)] || {};
+    setSaving(`preview-plan-${planId}`);
+    setError('');
+    try {
+      const preview = await apiCall('post', `/events/${eventId}/schedule-change-preview`, {
+        schedule_plan_id: planId,
+        requested_status: draft.status || plan.status || 'planned',
+        requested_visibility: draft.visibility || plan.visibility || 'private'
+      });
+      setChangePreviews((prev) => ({ ...prev, [`plan-${planId}`]: preview }));
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Failed to preview schedule change');
+    } finally {
+      setSaving('');
+    }
+  };
+
   const updateCatalogSession = async (session) => {
     const sessionId = Number(session?.id || 0);
     if (!sessionId) return;
@@ -2240,9 +2261,11 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
             <EventScheduleAgenda
               plans={plans}
               planDrafts={planDrafts}
+              changePreviews={changePreviews}
               saving={saving}
               onDraftChange={setPlanDraft}
               onUpdate={updatePlan}
+              onPreviewChange={previewScheduleChange}
               onRemove={(plan) => archive(`/events/${eventId}/schedule-plans/${plan.id}`, 'Schedule plan')}
             />
             <details className="mx-4 rounded-md border border-edge bg-raised">
@@ -3153,7 +3176,7 @@ function ScheduleCatalogRow({ session, draft = {}, saving = false, adding = fals
   );
 }
 
-function EventScheduleAgenda({ plans, planDrafts = {}, saving = '', onDraftChange, onUpdate, onRemove }) {
+function EventScheduleAgenda({ plans, planDrafts = {}, changePreviews = {}, saving = '', onDraftChange, onUpdate, onPreviewChange, onRemove }) {
   const [filter, setFilter] = useState({ type: 'all', key: 'all' });
   const conflictMap = useMemo(() => buildScheduleConflictMap(plans), [plans]);
 
@@ -3251,10 +3274,13 @@ function EventScheduleAgenda({ plans, planDrafts = {}, saving = '', onDraftChang
                 plan={plan}
                 marker={currentOrNext?.plan?.id === plan.id ? currentOrNext.label : ''}
                 draft={planDrafts[String(plan.id)] || {}}
+                preview={changePreviews[`plan-${plan.id}`]}
                 conflicts={conflictMap.get(String(plan.id)) || []}
                 saving={saving === `plan-${plan.id}`}
+                previewSaving={saving === `preview-plan-${plan.id}`}
                 onDraftChange={(patch) => onDraftChange?.(plan.id, patch)}
                 onUpdate={() => onUpdate?.(plan)}
+                onPreviewChange={() => onPreviewChange?.(plan)}
                 onRemove={() => onRemove(plan)}
               />
             ))}
@@ -3265,7 +3291,31 @@ function EventScheduleAgenda({ plans, planDrafts = {}, saving = '', onDraftChang
   );
 }
 
-function SchedulePlanRow({ plan, marker = '', draft = {}, conflicts = [], saving = false, onDraftChange, onUpdate, onRemove }) {
+function ScheduleChangePreviewPanel({ preview }) {
+  const summary = preview?.recipients?.summary || {};
+  const attendees = Array.isArray(preview?.recipients?.attendees) ? preview.recipients.attendees : [];
+  const groups = Array.isArray(preview?.recipients?.groups) ? preview.recipients.groups : [];
+  const conflicts = Array.isArray(preview?.conflicts) ? preview.conflicts : [];
+  const attendeeNames = attendees.map((attendee) => attendee.display_name).filter(Boolean).slice(0, 4).join(', ');
+  const groupNames = groups.map((group) => group.name).filter(Boolean).slice(0, 3).join(', ');
+  return (
+    <div className="rounded-md border border-edge bg-raised px-3 py-2 text-sm" aria-label="Schedule change preview">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="font-medium text-ink">Share preview</p>
+        <span className="text-xs text-ghost">Preview only</span>
+      </div>
+      <div className="mt-2 space-y-1 text-xs text-dim">
+        <p>{summary.label || 'Private change; no recipients.'}</p>
+        {attendeeNames ? <p>People: {attendeeNames}{attendees.length > 4 ? ` +${attendees.length - 4}` : ''}</p> : null}
+        {groupNames ? <p>Groups: {groupNames}{groups.length > 3 ? ` +${groups.length - 3}` : ''}</p> : null}
+        {conflicts.length ? <p className="text-warn">Conflicts: {conflicts.map((conflict) => conflict.title).filter(Boolean).slice(0, 2).join(', ')}{conflicts.length > 2 ? ` +${conflicts.length - 2}` : ''}</p> : null}
+        <p className="text-ghost">No notification will be sent from this preview.</p>
+      </div>
+    </div>
+  );
+}
+
+function SchedulePlanRow({ plan, marker = '', draft = {}, preview = null, conflicts = [], saving = false, previewSaving = false, onDraftChange, onUpdate, onPreviewChange, onRemove }) {
   const categories = Array.isArray(plan?.source_categories) ? plan.source_categories.filter(Boolean) : [];
   const notesPreview = plainTextPreview(plan?.notes, 700);
   const agendaTime = formatAgendaTime(plan?.start_at, plan?.end_at);
@@ -3426,11 +3476,17 @@ function SchedulePlanRow({ plan, marker = '', draft = {}, conflicts = [], saving
               />
             </label>
             <div className="flex items-end sm:col-span-4">
-              <button className="btn-secondary btn-sm w-full sm:w-auto" disabled={saving} onClick={onUpdate}>
-                {saving ? <Spinner size={16} /> : 'Save'}
-              </button>
+              <div className="flex w-full flex-wrap gap-2">
+                <button className="btn-secondary btn-sm" disabled={saving} onClick={onUpdate}>
+                  {saving ? <Spinner size={16} /> : 'Save'}
+                </button>
+                <button className="btn-ghost btn-sm" disabled={previewSaving} onClick={onPreviewChange}>
+                  {previewSaving ? <Spinner size={16} /> : 'Preview share'}
+                </button>
+              </div>
             </div>
           </div>
+          {preview ? <ScheduleChangePreviewPanel preview={preview} /> : null}
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-edge pt-3">
             <div className="flex flex-wrap items-center gap-2">
               {plan.source_url ? (

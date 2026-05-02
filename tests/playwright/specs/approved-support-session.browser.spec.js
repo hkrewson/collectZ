@@ -66,7 +66,7 @@ test.describe('approved support session browser regressions', () => {
       if (!switchLibraryResponse.ok()) {
         throw new Error(`Support library switch failed (${switchLibraryResponse.status()}): ${await switchLibraryResponse.text()}`);
       }
-      await expect(page.getByText(new RegExp(`Library: ${switchedLibraryName}`))).toBeVisible();
+      await expect(page.getByText(`Library: ${switchedLibraryName}`, { exact: true })).toBeVisible();
 
       await updateSupportSessionStateForRequestContext(supportAdminContext, {
         support_library_id: Number(detachedLibrary?.id || 0) || null

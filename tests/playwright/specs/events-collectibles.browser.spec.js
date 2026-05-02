@@ -249,6 +249,22 @@ test.describe('events and collectibles browser regressions', () => {
       const eventId = Number(eventPayload?.id || 0);
       expect(eventId).toBeGreaterThan(0);
 
+      const attendeeResponse = await postWithCsrf(userRequestContext, `/api/events/${eventId}/attendees`, {
+        display_name: 'Reid',
+        relationship: 'friend',
+        status: 'attending',
+        visibility: 'selected_people'
+      }, 201);
+      const attendeePayload = await attendeeResponse.json();
+      const attendeeId = Number(attendeePayload?.id || 0);
+      expect(attendeeId).toBeGreaterThan(0);
+
+      await postWithCsrf(userRequestContext, `/api/events/${eventId}/groups`, {
+        name: 'Panel crew',
+        visibility: 'group',
+        attendee_ids: [attendeeId]
+      }, 201);
+
       await postWithCsrf(userRequestContext, `/api/events/${eventId}/schedule-plans`, {
         title: planTitle,
         start_at: '2026-07-23T22:00:00.000Z',
@@ -281,6 +297,10 @@ test.describe('events and collectibles browser regressions', () => {
       await planRow.locator('label:has-text("Booth") input').fill('6DE-B');
       await planRow.locator('label:has-text("Location note") input').fill('Queue at the rear exit.');
       await planRow.getByPlaceholder('Plan note').fill('Backup if the first panel is full.');
+      await planRow.getByRole('button', { name: 'Preview share' }).click();
+      await expect(planRow.getByLabel('Schedule change preview')).toBeVisible();
+      await expect(planRow.getByText('1 person, 1 group')).toBeVisible();
+      await expect(planRow.getByText('No notification will be sent from this preview.')).toBeVisible();
       await planRow.getByRole('button', { name: 'Save' }).click();
       await expect(page.getByText('Schedule plan updated')).toBeVisible();
       await expect(planRow.locator('summary span').filter({ hasText: /^backup$/ })).toBeVisible();

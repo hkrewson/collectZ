@@ -7398,6 +7398,48 @@ Historical note:
 - What remains in the milestone: nothing for the catalog-to-personal exact-match slice; rerun CI-only `secret-scan` and `image-security-and-sbom` during the release handoff.
 - Recommended commit message: `Release 3.4.56 event schedule catalog-to-personal plan matching`
 
+## 3.4.57 — Event Schedule Selected-Recipient Change Preview
+
+**Goal:** Add a preview-only contract for schedule plan changes so the app can show who would be affected before later notification delivery work exists.
+
+**Current Slice:** `Closed.`
+
+### Scope
+
+- Add a scoped preview endpoint for schedule-plan or catalog-session changes.
+- Return the schedule subject, requested status and visibility, eligible people/groups, and overlapping schedule conflicts.
+- Make the contract explicitly preview-only: no message persistence, no push delivery, no device registration, and no broadcast send action.
+- Add a compact Event drawer action for schedule rows to preview share impact without sending anything.
+- Keep real notifications, selected-recipient send workflows, native device registration, push delivery, realtime presence/location, and offline mutation queues out of this patch.
+
+### Acceptance Criteria
+
+- A schedule plan can be previewed with a requested status and visibility.
+- Private changes show no recipients.
+- Shared visibility previews return scoped Event attendees/groups from existing social planning data.
+- Preview responses include conflict readback so users can understand what else may be affected.
+- The web drawer can request and display a share preview without sending or saving a message.
+- OpenAPI and smoke coverage document that this is a preview-only contract.
+
+### Notes
+
+- This is a notification-adjacent contract slice, not a notification delivery milestone.
+- Recipient identity remains Event-local for now; broader friend identity remains separate future work.
+
+### Closeout
+
+- Roadmap slice: `3.4.57 — Event Schedule Selected-Recipient Change Preview`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/45-Event-Schedule-Catalog-Foundation.md`.
+- Runtime verification used: Docker platform stack rebuilt/restored with `APP_VERSION=3.4.57`; `/api/health` returned frontend/backend/build `3.4.57`; running backend container reported `APP_EDITION=platform`; generated public homelab compose was also run with `IMAGE_TAG=3.4.57`, no in-container `APP_EDITION`, and healthy `/api/health`.
+- CI/checks run: `node --check backend/routes/events.js`, `node --check backend/middleware/validate.js`, `node --check backend/scripts/event-social-planning-smoke.js`, `node --check backend/scripts/unit-tests.js`, container `npm run test:openapi`, container `npm run test:unit`, container `npm run test:init-parity`, container `npm run test:migration-rehearsal`, container `npm run test:help-releases-smoke`, container `npm run test:event-social-planning-smoke`, container `npm run test:event-catalog-ics-import-smoke`, container `npm run test:event-personal-ics-sync-smoke`, container `npm run test:rbac-regression`, container `npm run test:platform-edition-boundary`, generated-compose `npm run test:homelab-edition-boundary`, `docker compose --env-file .env config`, `npm run validate:public-export`, idempotent `npm run compose:generate`, Docker `npm ci --no-fund --dry-run` for backend/frontend, targeted Playwright support-session repair spec, full `npm run test:browser` with 55 passed / 4 skipped, `npm --prefix backend run test:observability-evidence`, `npm --prefix backend run test:release-preflight-local`, secret-hygiene grep of release artifacts, and `git diff --check`.
+- Release/version artifacts: app metadata/package versions synced to `3.4.57`; `docs/releases/v3.4.57.md` added; `backend/release-feed.json` regenerated and Help > Releases smoke verified `3.4.57` as latest.
+- Verified facts: preview endpoint returns a preview-only contract with delivery disabled; Event drawer can request/display selected-recipient impact without sending; event social smoke covers preview recipient counts; OpenAPI documents the preview request/response; browser regression covers the preview action and no-send language.
+- Blocked/unverified items: local secure-cookie compose-smoke remains blocked by development runtime settings (`SESSION_COOKIE_SECURE=false`, `NODE_ENV=development`); `secret-scan` and `image-security-and-sbom` remain CI-only; stricter CI compose-smoke must still run in GitHub Actions.
+- Files changed: version metadata/manifests, generated public compose, event route/validation/OpenAPI contracts, event social smoke/unit coverage, Events drawer UI, Playwright event/support specs, release note/feed, roadmap/backlog/catalog docs, local preflight and observability evidence artifacts.
+- Risks/follow-ups: this deliberately does not implement notification delivery, push/device registration, message persistence, realtime friend presence/location, or offline mutation queues; those remain separate future milestones.
+- What remains in the milestone: no remaining 3.4.57 implementation work; CI-only release gates must pass before public tag/release publication.
+- Recommended commit message: `Release 3.4.57 event schedule selected-recipient change preview`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

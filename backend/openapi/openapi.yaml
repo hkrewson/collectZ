@@ -1835,6 +1835,124 @@
           "notes": { "type": ["string", "null"] }
         }
       },
+      "EventScheduleChangePreviewRequest": {
+        "type": "object",
+        "properties": {
+          "schedule_plan_id": { "type": ["integer", "null"], "minimum": 1 },
+          "catalog_session_id": { "type": ["integer", "null"], "minimum": 1 },
+          "requested_status": { "type": "string", "enum": ["planned", "maybe", "backup", "skipped", "attended"] },
+          "requested_visibility": { "$ref": "#/components/schemas/EventSocialVisibility" }
+        }
+      },
+      "EventScheduleChangePreviewResponse": {
+        "type": "object",
+        "properties": {
+          "contract": {
+            "type": "object",
+            "properties": {
+              "version": { "type": "string", "enum": ["event-schedule-change-preview.v1"] },
+              "preview_only": { "type": "boolean" },
+              "delivery_supported": { "type": "boolean" },
+              "delivery_endpoint": { "type": ["string", "null"] },
+              "limitations": { "type": "array", "items": { "type": "string" } }
+            },
+            "required": ["version", "preview_only", "delivery_supported", "delivery_endpoint", "limitations"]
+          },
+          "event_id": { "type": "integer" },
+          "subject": {
+            "type": "object",
+            "properties": {
+              "kind": { "type": "string", "enum": ["schedule_plan", "schedule_catalog"] },
+              "schedule_plan_id": { "type": ["integer", "null"] },
+              "catalog_session_id": { "type": ["integer", "null"] },
+              "title": { "type": "string" },
+              "start_at": { "type": ["string", "null"], "format": "date-time" },
+              "end_at": { "type": ["string", "null"], "format": "date-time" },
+              "location": { "type": ["string", "null"] }
+            },
+            "required": ["kind", "schedule_plan_id", "catalog_session_id", "title", "start_at", "end_at", "location"]
+          },
+          "requested_change": {
+            "type": "object",
+            "properties": {
+              "status": { "type": "string", "enum": ["planned", "maybe", "backup", "skipped", "attended"] },
+              "visibility": { "$ref": "#/components/schemas/EventSocialVisibility" }
+            },
+            "required": ["status", "visibility"]
+          },
+          "recipients": {
+            "type": "object",
+            "properties": {
+              "attendees": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "integer" },
+                    "display_name": { "type": "string" },
+                    "contact_label": { "type": ["string", "null"] },
+                    "relationship": { "type": ["string", "null"] },
+                    "status": { "type": "string" },
+                    "visibility": { "$ref": "#/components/schemas/EventSocialVisibility" }
+                  },
+                  "required": ["id", "display_name", "contact_label", "relationship", "status", "visibility"]
+                }
+              },
+              "groups": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "integer" },
+                    "name": { "type": "string" },
+                    "visibility": { "$ref": "#/components/schemas/EventSocialVisibility" },
+                    "status": { "type": "string" },
+                    "member_count": { "type": "integer" }
+                  },
+                  "required": ["id", "name", "visibility", "status", "member_count"]
+                }
+              },
+              "summary": {
+                "type": "object",
+                "properties": {
+                  "attendee_count": { "type": "integer" },
+                  "group_count": { "type": "integer" },
+                  "visibility": { "$ref": "#/components/schemas/EventSocialVisibility" },
+                  "selected_recipient_required": { "type": "boolean" },
+                  "label": { "type": "string" }
+                },
+                "required": ["attendee_count", "group_count", "visibility", "selected_recipient_required", "label"]
+              }
+            },
+            "required": ["attendees", "groups", "summary"]
+          },
+          "conflicts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "integer" },
+                "title": { "type": "string" },
+                "start_at": { "type": ["string", "null"], "format": "date-time" },
+                "end_at": { "type": ["string", "null"], "format": "date-time" },
+                "location": { "type": ["string", "null"] },
+                "status": { "type": "string" },
+                "visibility": { "$ref": "#/components/schemas/EventSocialVisibility" }
+              },
+              "required": ["id", "title", "start_at", "end_at", "location", "status", "visibility"]
+            }
+          },
+          "message_template": {
+            "type": "object",
+            "properties": {
+              "title": { "type": "string" },
+              "body": { "type": "string" }
+            },
+            "required": ["title", "body"]
+          }
+        },
+        "required": ["contract", "event_id", "subject", "requested_change", "recipients", "conflicts", "message_template"]
+      },
 
       "EventScheduleSessionRecord": {
         "type": "object",
@@ -5531,6 +5649,19 @@
         "security": [{ "cookieSession": [], "csrfHeader": [] }],
         "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }, { "in": "path", "name": "planId", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
         "responses": { "200": { "description": "Archived event schedule plan", "content": { "application/json": { "schema": { "type": "object", "properties": { "ok": { "type": "boolean" }, "id": { "type": "integer" } }, "required": ["ok", "id"] } } } } }
+      }
+    },
+    "/api/events/{id}/schedule-change-preview": {
+      "post": {
+        "tags": ["Events"],
+        "summary": "Preview selected recipients and conflicts for an event schedule change",
+        "description": "Preview-only contract for future friend-aware session notifications. This endpoint does not send messages, persist drafts, register devices, or expose push delivery behavior.",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventScheduleChangePreviewRequest" } } } },
+        "responses": {
+          "200": { "description": "Schedule change recipient preview", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventScheduleChangePreviewResponse" } } } }
+        }
       }
     },
 
