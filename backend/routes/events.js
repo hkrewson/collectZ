@@ -23,6 +23,7 @@ const {
   eventSchedulePlanUpdateSchema,
   eventScheduleSessionCreateSchema,
   eventScheduleSessionUpdateSchema,
+  eventScheduleCatalogIcsImportSchema,
   eventPersonalIcsSourceSchema
 } = require('../middleware/validate');
 const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
@@ -39,7 +40,8 @@ const {
   loadPersonalIcsSource,
   upsertPersonalIcsSource,
   removePersonalIcsSource,
-  syncPersonalIcsSource
+  syncPersonalIcsSource,
+  importCatalogIcsSource
 } = require('../services/schedIcsSync');
 
 const router = express.Router();
@@ -1941,6 +1943,34 @@ router.post('/events/:id/schedule-sessions', validate(eventScheduleSessionCreate
   const result = await pool.query(insert.sql, insert.values);
   await logActivity(req, 'events.schedule_session.create', 'event', eventId, { scheduleSessionId: result.rows[0].id });
   res.status(201).json(result.rows[0]);
+}));
+
+router.post('/events/:id/schedule-sessions/import-ics', validate(eventScheduleCatalogIcsImportSchema), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const eventId = parsePositiveId(req.params.id, 'event id');
+  const eventRow = await ensureScopedEvent(scopeContext, eventId);
+  if (!eventRow) return res.status(404).json({ error: 'Event not found' });
+
+  try {
+    const result = await importCatalogIcsSource(pool, {
+      eventId,
+      userId: req.user.id,
+      feedUrl: req.body.feed_url
+    });
+    await logActivity(req, 'events.schedule_session.import_ics.success', 'event', eventId, {
+      summary: result.summary
+    });
+    res.json(result);
+  } catch (error) {
+    await logActivity(req, 'events.schedule_session.import_ics.failure', 'event', eventId, {
+      error: 'redacted catalog ICS import failure detail'
+    });
+    res.status(502).json({
+      error: 'Catalog ICS import failed',
+      detail: String(error?.message || 'Import failed').replace(/https?:\/\/\S+/gi, '[redacted-url]').slice(0, 240),
+      summary: { created: 0, updated: 0, total: 0 }
+    });
+  }
 }));
 
 router.patch('/events/:id/schedule-sessions/:sessionId', validate(eventScheduleSessionUpdateSchema), asyncHandler(async (req, res) => {

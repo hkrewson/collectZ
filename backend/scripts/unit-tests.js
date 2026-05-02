@@ -65,7 +65,7 @@ const {
 process.env.INTEGRATION_ENCRYPTION_KEY = process.env.INTEGRATION_ENCRYPTION_KEY || 'unit-test-integration-key';
 const { buildIntegrationResponse } = require('../services/integrationResponse');
 const { buildCompactJobSummary, formatSyncJob } = require('../services/syncJobs');
-const { ICS_FETCH_USER_AGENT, fetchIcsText, parseIcsEvents } = require('../services/schedIcsSync');
+const { ICS_FETCH_USER_AGENT, fetchIcsText, parseIcsEvents, parseIcsCatalogSessions } = require('../services/schedIcsSync');
 const {
   buildLoanReminderPhase,
   wasLoanReminderSentToday,
@@ -114,6 +114,7 @@ const supportRoutesSource = fs.readFileSync(require.resolve('../routes/support')
 const signaturesServiceSource = fs.readFileSync(require.resolve('../services/signatures'), 'utf8');
 const eventSocialPlanningSmokeSource = fs.readFileSync(require.resolve('../scripts/event-social-planning-smoke'), 'utf8');
 const eventPersonalIcsSyncSmokeSource = fs.readFileSync(require.resolve('../scripts/event-personal-ics-sync-smoke'), 'utf8');
+const eventCatalogIcsImportSmokeSource = fs.readFileSync(require.resolve('../scripts/event-catalog-ics-import-smoke'), 'utf8');
 const schedIcsSyncSource = fs.readFileSync(require.resolve('../services/schedIcsSync'), 'utf8');
 const spacesServiceSource = fs.readFileSync(require.resolve('../services/spaces'), 'utf8');
 function readFrontendSource(relativePath) {
@@ -3717,6 +3718,40 @@ END:VCALENDAR`);
   assert.strictEqual(item.source_sequence, 3);
   assert.strictEqual(item.source_updated_at, '2025-07-01T12:00:00.000Z');
   assert.ok(item.notes.includes('artist & publisher'));
+}));
+
+results.push(run('catalog ICS import parser normalizes provider taxonomy for schedule sessions', () => {
+  assert.ok(backendPackageJson.scripts['test:event-catalog-ics-import-smoke']);
+  assert.ok(validateMiddlewareSource.includes('eventScheduleCatalogIcsImportSchema'));
+  assert.ok(eventsRoutesSource.includes("router.post('/events/:id/schedule-sessions/import-ics'"));
+  assert.ok(eventsRoutesSource.includes('events.schedule_session.import_ics.success'));
+  assert.ok(schedIcsSyncSource.includes('CATALOG_ICS_SOURCE_TYPE'));
+  assert.ok(schedIcsSyncSource.includes('function parseIcsCatalogSessions'));
+  assert.ok(openApiSource.includes('EventScheduleCatalogIcsImportRequest'));
+  assert.ok(openApiSource.includes('\"/api/events/{id}/schedule-sessions/import-ics\"'));
+  assert.ok(eventCatalogIcsImportSmokeSource.includes("source_type === 'sched_catalog_ics'"));
+  assert.ok(eventCatalogIcsImportSmokeSource.includes('Catalog import must not create personal schedule plans'));
+  assert.ok(eventsViewSource.includes('Import catalog ICS'));
+
+  const [session] = parseIcsCatalogSessions(`BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:catalog-sched-1
+SUMMARY:Spotlight on Jim Lee
+DESCRIPTION:World-renowned artist &amp; publisher\\nSketches live.
+CATEGORIES:1: PROGRAMS, Comics, Art
+LOCATION:Room 6DE, San Diego Convention Center
+URL:https://example.test/session/spotlight
+DTSTART:20250724T194500Z
+DTEND:20250724T204500Z
+END:VEVENT
+END:VCALENDAR`);
+
+  assert.strictEqual(session.source_type, 'sched_catalog_ics');
+  assert.strictEqual(session.room, 'Room 6DE');
+  assert.strictEqual(session.track, 'Comics');
+  assert.deepStrictEqual(session.categories, ['Comics', 'Art']);
+  assert.ok(session.description.includes('artist & publisher'));
 }));
 
 results.push(run('personal Sched ICS fetch sends provider-friendly calendar headers', async () => {

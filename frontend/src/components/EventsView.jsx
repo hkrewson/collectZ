@@ -54,6 +54,7 @@ const EMPTY_SOCIAL_FORM = {
   catalogEnd: '',
   catalogSourceUrl: '',
   catalogDescription: '',
+  catalogImportUrl: '',
   icsUrl: ''
 };
 
@@ -1888,6 +1889,14 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
         });
         setNotice('Catalog session added');
       }
+      if (kind === 'catalog-import') {
+        const payload = await apiCall('post', `/events/${eventId}/schedule-sessions/import-ics`, {
+          feed_url: form.catalogImportUrl.trim()
+        });
+        const summary = payload?.summary || {};
+        set({ catalogImportUrl: '' });
+        setNotice(`Catalog imported: ${summary.total || 0} session${Number(summary.total || 0) === 1 ? '' : 's'}`);
+      }
       if (kind === 'ics') {
         await apiCall('put', `/events/${eventId}/personal-ics-source`, {
           feed_url: form.icsUrl.trim()
@@ -2175,6 +2184,22 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
               onCancelConflict={() => setPendingCatalogResolution(null)}
               onRemove={(session) => archive(`/events/${eventId}/schedule-sessions/${session.id}`, 'Catalog session')}
             />
+            <details className="mx-4 rounded-md border border-edge bg-raised">
+              <summary className="cursor-pointer list-none px-3 py-2 text-sm font-medium text-ink">
+                Import catalog ICS
+              </summary>
+              <div className="space-y-3 border-t border-edge px-3 py-3">
+                <p className="text-xs leading-5 text-dim">
+                  Import a full event calendar into the catalog. This is a one-time import and does not replace your personal Sched feed.
+                </p>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto]">
+                  <input className="input" placeholder="Sched or calendar ICS URL" value={form.catalogImportUrl} onChange={(e) => set({ catalogImportUrl: e.target.value })} />
+                  <button className="btn-secondary" disabled={!form.catalogImportUrl.trim() || saving === 'catalog-import'} onClick={() => save('catalog-import')}>
+                    {saving === 'catalog-import' ? <Spinner size={16} /> : 'Import catalog'}
+                  </button>
+                </div>
+              </div>
+            </details>
             <details className="mx-4 rounded-md border border-edge bg-raised">
               <summary className="cursor-pointer list-none px-3 py-2 text-sm font-medium text-ink">
                 Add catalog session

@@ -7313,6 +7313,48 @@ Historical note:
 - What remains in the milestone: nothing for the catalog-metadata-filter slice; rerun observability release evidence and CI-only `secret-scan` / `image-security-and-sbom` during the release handoff.
 - Recommended commit message: `Release 3.4.54 event schedule catalog metadata filters`
 
+## 3.4.55 — Event Schedule Catalog ICS Import and Taxonomy Normalization
+
+**Goal:** Seed the canonical event schedule catalog from provider-backed ICS calendar feeds while keeping personal Sched ICS sync separate from full catalog import behavior.
+
+**Current Slice:** `Closed 2026-05-02.`
+
+### Scope
+
+- Add a one-time catalog ICS import endpoint for scoped Events.
+- Write imported rows into `event_schedule_sessions`, not `event_schedule_plans`.
+- Keep the submitted catalog ICS URL transient: do not store it or return it.
+- Normalize provider taxonomy by filtering generic provider categories, preserving useful categories, inferring track, and inferring room from location where possible.
+- Add a compact Event drawer control for one-time catalog ICS import.
+- Keep recurring catalog sync, scraping automation, selected-recipient notifications, friend identity, native companion UI, push delivery, realtime presence/location, and offline mutation queues out of this patch.
+
+### Acceptance Criteria
+
+- A Sched-style ICS URL can import full catalog sessions into `event_schedule_sessions`.
+- Re-importing the same feed is idempotent by provider source reference and updates existing catalog sessions instead of duplicating them.
+- Personal schedule plans are not created by catalog import.
+- Imported catalog sessions feed existing Now / Next, conflict, attendance, and metadata filter behavior.
+- Raw catalog ICS URLs are not stored or returned in API responses.
+
+### Notes
+
+- This is a conservative provider-backed import path, not recurring provider sync.
+- Personal Sched ICS remains the selected-session sync path and continues to populate private schedule plans.
+
+### Closeout
+
+- Roadmap slice: `3.4.55 — Event Schedule Catalog ICS Import and Taxonomy Normalization`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/41-Personal-Sched-ICS-Sync.md`, `docs/wiki/45-Event-Schedule-Catalog-Foundation.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild to `3.4.55`; `/api/health` reported frontend/backend/build `3.4.55`; backend runtime verified `APP_EDITION=platform`, `APP_VERSION=3.4.55`, `NODE_ENV=development`, and `SESSION_COOKIE_SECURE=false`; generated public compose was booted with `IMAGE_TAG=3.4.55` and verified with `APP_EDITION` unset before the homelab boundary smoke; normal local platform stack was restored and rechecked after homelab verification.
+- CI/checks run locally: `APP_VERSION=3.4.55 docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml up -d --build backend frontend`; backend unit tests (`231` passed); OpenAPI validation; event catalog ICS import smoke; event social planning smoke; personal Sched ICS sync smoke; Help > Releases smoke for `3.4.55`; targeted Event drawer catalog browser regressions; full browser regression (`55` passed, `4` skipped); compose config validation; public export surface validation; init parity; migration rehearsal; platform edition boundary; homelab edition boundary against generated public compose; RBAC regression; Dockerized `npm ci --no-fund --dry-run` lockfile sync checks for backend and frontend; compose generator idempotence by checksum; local release preflight; release-evidence secret-hygiene grep; `git diff --check`.
+- Release/version artifacts: `app-meta.json`, backend/frontend app meta, backend/frontend package and lockfile versions, generated `docker-compose.yml`, `docs/releases/v3.4.55.md`, and `backend/release-feed.json` are aligned on `3.4.55`; the running Help > Releases feed served `3.4.55` as the latest entry.
+- Verified facts: `POST /api/events/:id/schedule-sessions/import-ics` fetches a submitted calendar URL once and upserts `event_schedule_sessions` with `source_type = sched_catalog_ics`; repeated imports update existing catalog sessions by source reference; imported sessions do not create personal schedule plans; raw catalog ICS URLs are not stored or returned; provider category noise such as `PROGRAMS` is filtered while useful categories, inferred track, and inferred room remain available to the catalog filters.
+- Blocked/unverified items: CI `secret-scan` and `image-security-and-sbom` remain CI-only; local preflight compose-smoke secure-cookie checks remain blocked by the development stack using `NODE_ENV=development` and `SESSION_COOKIE_SECURE=false`, while runtime health/version and compose config were verified locally; local preflight still reports observability release evidence as stale or failed because fresh observability evidence was not regenerated for `3.4.55`; local preflight cannot run the browser gate itself, but the full browser regression was run separately and passed.
+- Files changed: `backend/services/schedIcsSync.js`, `backend/routes/events.js`, `backend/middleware/validate.js`, `backend/openapi/openapi.yaml`, `backend/scripts/event-catalog-ics-import-smoke.js`, `backend/scripts/unit-tests.js`, `frontend/src/components/EventsView.jsx`, version metadata/package files, `docker-compose.yml`, `docs/releases/v3.4.55.md`, `backend/release-feed.json`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/45-Event-Schedule-Catalog-Foundation.md`, `preflight-go-no-go.md`.
+- Risks or follow-ups: recurring catalog sync, provider-specific delta behavior, richer taxonomy mapping, selected-recipient notifications, friend identity, platform companion native UI, device registration, push delivery, realtime location, presence, and offline mutation queues remain separate future milestones.
+- What remains in the milestone: nothing for the one-time catalog ICS import slice; rerun observability release evidence and CI-only `secret-scan` / `image-security-and-sbom` during the release handoff.
+- Recommended commit message: `Release 3.4.55 event schedule catalog ICS import and taxonomy normalization`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

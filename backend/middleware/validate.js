@@ -825,6 +825,7 @@ const eventPersonalIcsSourceSchema = z.object({
     })
     .transform((value) => value.replace(/^webcal:/i, 'https:'))
 });
+const eventScheduleCatalogIcsImportSchema = eventPersonalIcsSourceSchema;
 
 // ── Collectibles ─────────────────────────────────────────────────────────────
 
@@ -1010,6 +1011,7 @@ module.exports = {
   eventSchedulePlanUpdateSchema,
   eventScheduleSessionCreateSchema,
   eventScheduleSessionUpdateSchema,
+  eventScheduleCatalogIcsImportSchema,
   eventPersonalIcsSourceSchema,
   collectibleCreateSchema,
   collectibleUpdateSchema,

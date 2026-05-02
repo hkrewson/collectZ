@@ -7,7 +7,8 @@ This document defines the current event schedule catalog boundary for collectZ w
 - `event_schedule_sessions` is the canonical event schedule catalog table.
 - Catalog sessions are separate from personal schedule plans in `event_schedule_plans`.
 - Personal Sched ICS sync continues to create or update selected personal schedule plans only.
-- The catalog can be manually created through API endpoints in this slice; provider import automation stays separate.
+- The catalog can be manually created through API endpoints and seeded through one-time provider ICS import.
+- Provider ICS import is intentionally not recurring background sync.
 - Now / Next discovery, conflict workflows, quick plan actions, notifications, and native/platform UI stay separate future milestones.
 
 ## Catalog Session Shape
@@ -34,10 +35,13 @@ The foundation endpoints are event-scoped and use the same auth/scope checks as 
 
 - `GET /api/events/:id/schedule-sessions`
 - `POST /api/events/:id/schedule-sessions`
+- `POST /api/events/:id/schedule-sessions/import-ics`
 - `PATCH /api/events/:id/schedule-sessions/:sessionId`
 - `DELETE /api/events/:id/schedule-sessions/:sessionId`
 
 Deleted sessions are archived with `archived_at`; they are not hard-deleted by the API.
+
+`POST /api/events/:id/schedule-sessions/import-ics` accepts a transient Sched-style/calendar ICS URL, fetches it once, and upserts catalog rows by source reference. The raw URL is not stored or returned. Imported sessions use `source_type = sched_catalog_ics`.
 
 ## Companion and Offline Packet Behavior
 
@@ -56,7 +60,7 @@ This means platform clients can cache catalog sessions when present without mist
 
 Keep these out of this foundation unless explicitly promoted:
 
-- provider import or scraping automation,
+- recurring provider sync or scraping automation,
 - recurring background sync,
 - Now / Next discovery UI,
 - selected-recipient notifications,

@@ -4,9 +4,11 @@ const crypto = require('crypto');
 const { encryptSecret, decryptSecretWithStatus } = require('./crypto');
 
 const ICS_SOURCE_TYPE = 'sched_ics';
+const CATALOG_ICS_SOURCE_TYPE = 'sched_catalog_ics';
 const MAX_ICS_BYTES = 2 * 1024 * 1024;
 const DEFAULT_FETCH_TIMEOUT_MS = 15000;
 const ICS_FETCH_USER_AGENT = 'collectZ calendar-sync (+https://github.com/hkrewson/collectZ)';
+const GENERIC_CATALOG_CATEGORIES = new Set(['program', 'programs', 'programming', 'schedule', 'sched', 'session', 'sessions']);
 
 function normalizeText(value) {
   return String(value || '').trim();
@@ -77,6 +79,39 @@ function normalizeCategories(value) {
     .slice(0, 20);
 }
 
+function normalizeCatalogCategory(value) {
+  const decoded = normalizeText(decodeHtmlEntities(decodeIcsText(value))).replace(/\s+/g, ' ');
+  if (!decoded) return '';
+  return decoded.replace(/^\d+\s*:\s*/, '').slice(0, 100);
+}
+
+function normalizeCatalogCategories(values = []) {
+  const source = Array.isArray(values) ? values : [values];
+  const normalized = [];
+  for (const value of source) {
+    const category = normalizeCatalogCategory(value);
+    if (!category) continue;
+    if (normalized.some((existing) => existing.toLowerCase() === category.toLowerCase())) continue;
+    normalized.push(category);
+  }
+  const meaningful = normalized.filter((category) => !GENERIC_CATALOG_CATEGORIES.has(category.toLowerCase()));
+  return (meaningful.length ? meaningful : normalized).slice(0, 20);
+}
+
+function inferCatalogTrack(categories = []) {
+  const normalized = normalizeCatalogCategories(categories);
+  return normalized.find((category) => !GENERIC_CATALOG_CATEGORIES.has(category.toLowerCase())) || normalized[0] || null;
+}
+
+function inferCatalogRoom(location) {
+  const text = normalizeText(location);
+  if (!text) return null;
+  const firstPart = text.split(/[,·\n]/)[0].trim();
+  if (!firstPart || firstPart.length > 100) return null;
+  if (/^(room|hall|ballroom|theater|theatre|stage|booth|table|grand|indigo|sails|marriott|omni)\b/i.test(firstPart)) return firstPart.slice(0, 255);
+  return null;
+}
+
 function parseIcsDate(value, params = {}) {
   const raw = normalizeText(value);
   if (!raw) return null;
@@ -145,6 +180,27 @@ function parseIcsEvents(text) {
       status: event.status === 'CANCELLED' ? 'skipped' : 'planned',
       notes: normalizeText(decodeHtmlEntities(event.description)).slice(0, 5000) || null
     }));
+}
+
+function parseIcsCatalogSessions(text) {
+  return parseIcsEvents(text).map((item) => {
+    const categories = normalizeCatalogCategories(item.source_categories);
+    return {
+      title: item.title,
+      start_at: item.start_at,
+      end_at: item.end_at,
+      location: item.location,
+      room: inferCatalogRoom(item.location),
+      description: item.notes,
+      track: inferCatalogTrack(categories),
+      categories,
+      source_type: CATALOG_ICS_SOURCE_TYPE,
+      source_ref: item.sourceRef,
+      source_url: item.source_url,
+      source_updated_at: item.source_updated_at,
+      status: item.status === 'skipped' ? 'cancelled' : 'active'
+    };
+  });
 }
 
 function serializeIcsSource(row = {}) {
@@ -378,14 +434,113 @@ async function syncPersonalIcsSource(pool, { source, eventId, userId, fetchImpl 
   }
 }
 
+async function importCatalogIcsSource(pool, { eventId, userId, feedUrl, fetchImpl = fetch }) {
+  const text = await fetchIcsText(feedUrl, fetchImpl);
+  const items = parseIcsCatalogSessions(text);
+  const savedItems = [];
+  let created = 0;
+  let updated = 0;
+
+  for (const item of items) {
+    const existing = await pool.query(
+      `SELECT id
+         FROM event_schedule_sessions
+        WHERE event_id = $1
+          AND source_type = $2
+          AND source_ref = $3
+        LIMIT 1`,
+      [eventId, CATALOG_ICS_SOURCE_TYPE, item.source_ref]
+    );
+    if (existing.rows[0]) {
+      const updatedResult = await pool.query(
+        `UPDATE event_schedule_sessions
+            SET title = $4,
+                start_at = $5,
+                end_at = $6,
+                location = $7,
+                room = $8,
+                description = $9,
+                track = $10,
+                categories = $11,
+                source_url = $12,
+                source_updated_at = $13,
+                status = $14,
+                archived_at = NULL,
+                updated_at = CURRENT_TIMESTAMP
+          WHERE id = $1
+            AND event_id = $2
+            AND source_type = $3
+          RETURNING *`,
+        [
+          existing.rows[0].id,
+          eventId,
+          CATALOG_ICS_SOURCE_TYPE,
+          item.title,
+          item.start_at,
+          item.end_at,
+          item.location,
+          item.room,
+          item.description,
+          item.track,
+          item.categories,
+          item.source_url,
+          item.source_updated_at,
+          item.status
+        ]
+      );
+      if (updatedResult.rows[0]) savedItems.push(updatedResult.rows[0]);
+      updated += 1;
+    } else {
+      const insertedResult = await pool.query(
+        `INSERT INTO event_schedule_sessions (
+           event_id, title, start_at, end_at, location, room, description, track,
+           categories, source_type, source_ref, source_url, source_updated_at,
+           status, created_by
+         )
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+         RETURNING *`,
+        [
+          eventId,
+          item.title,
+          item.start_at,
+          item.end_at,
+          item.location,
+          item.room,
+          item.description,
+          item.track,
+          item.categories,
+          CATALOG_ICS_SOURCE_TYPE,
+          item.source_ref,
+          item.source_url,
+          item.source_updated_at,
+          item.status,
+          userId
+        ]
+      );
+      if (insertedResult.rows[0]) savedItems.push(insertedResult.rows[0]);
+      created += 1;
+    }
+  }
+
+  return {
+    summary: { created, updated, total: items.length },
+    items: savedItems
+  };
+}
+
 module.exports = {
   ICS_SOURCE_TYPE,
+  CATALOG_ICS_SOURCE_TYPE,
   ICS_FETCH_USER_AGENT,
   fetchIcsText,
   parseIcsEvents,
+  parseIcsCatalogSessions,
+  normalizeCatalogCategories,
+  inferCatalogRoom,
   serializeIcsSource,
   loadPersonalIcsSource,
   upsertPersonalIcsSource,
   removePersonalIcsSource,
-  syncPersonalIcsSource
+  syncPersonalIcsSource,
+  importCatalogIcsSource
 };

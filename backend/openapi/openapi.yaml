@@ -1884,6 +1884,30 @@
           "status": { "type": "string", "enum": ["active", "cancelled", "hidden"] }
         }
       },
+      "EventScheduleCatalogIcsImportRequest": {
+        "type": "object",
+        "properties": {
+          "feed_url": { "type": "string", "format": "uri", "maxLength": 2000 }
+        },
+        "required": ["feed_url"]
+      },
+      "EventScheduleCatalogIcsImportResponse": {
+        "type": "object",
+        "properties": {
+          "summary": {
+            "type": "object",
+            "properties": {
+              "created": { "type": "integer" },
+              "updated": { "type": "integer" },
+              "total": { "type": "integer" }
+            },
+            "required": ["created", "updated", "total"]
+          },
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/EventScheduleSessionRecord" } },
+          "error": { "type": ["string", "null"] }
+        },
+        "required": ["summary"]
+      },
       "EventPersonalIcsSourceRecord": {
         "type": "object",
         "properties": {
@@ -5523,6 +5547,20 @@
         "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
         "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventScheduleSessionUpsertRequest" } } } },
         "responses": { "201": { "description": "Created event schedule catalog session", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventScheduleSessionRecord" } } } } }
+      }
+    },
+    "/api/events/{id}/schedule-sessions/import-ics": {
+      "post": {
+        "tags": ["Events"],
+        "summary": "One-time import a provider ICS feed into full event schedule catalog sessions",
+        "description": "Fetches a Sched-style or calendar ICS URL and upserts entries into event_schedule_sessions. This does not store the feed URL and does not affect personal selected schedule plans.",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventScheduleCatalogIcsImportRequest" } } } },
+        "responses": {
+          "200": { "description": "Catalog ICS import summary", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventScheduleCatalogIcsImportResponse" } } } },
+          "502": { "description": "Catalog ICS import failed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventScheduleCatalogIcsImportResponse" } } } }
+        }
       }
     },
     "/api/events/{id}/schedule-sessions/{sessionId}": {

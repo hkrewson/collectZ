@@ -1,6 +1,6 @@
 {
   "name": "mediavault-backend",
-  "version": "3.4.54",
+  "version": "3.4.55",
   "description": "collectZ Backend API",
   "main": "server.js",
   "scripts": {
@@ -82,7 +82,8 @@
     "repair:book-comic-duplicates": "node scripts/repair-book-comic-duplicates.js",
     "repair:backfill-merge-evidence": "node scripts/backfill-merge-evidence.js",
     "test:event-social-planning-smoke": "node scripts/event-social-planning-smoke.js",
-    "test:event-personal-ics-sync-smoke": "node scripts/event-personal-ics-sync-smoke.js"
+    "test:event-personal-ics-sync-smoke": "node scripts/event-personal-ics-sync-smoke.js",
+    "test:event-catalog-ics-import-smoke": "node scripts/event-catalog-ics-import-smoke.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1014.0",
