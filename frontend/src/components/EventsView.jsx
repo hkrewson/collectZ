@@ -103,6 +103,8 @@ const CATALOG_PLAN_FILTER_OPTIONS = [
   ...SCHEDULE_PLAN_STATUS_OPTIONS.map((option) => option)
 ];
 
+const CATALOG_METADATA_ALL_VALUE = 'all';
+
 const toInputDate = (value) => {
   if (!value) return '';
   const text = String(value).trim();
@@ -2672,10 +2674,42 @@ function EventScheduleCatalog({ sessions, plans = [], drafts = {}, saving = '', 
   const [filters, setFilters] = useState({
     time: 'all',
     plan: 'all',
+    track: CATALOG_METADATA_ALL_VALUE,
+    category: CATALOG_METADATA_ALL_VALUE,
+    place: CATALOG_METADATA_ALL_VALUE,
     conflictsOnly: false,
     sharedOnly: false
   });
+  const resetFilters = useCallback(() => setFilters({
+    time: 'all',
+    plan: 'all',
+    track: CATALOG_METADATA_ALL_VALUE,
+    category: CATALOG_METADATA_ALL_VALUE,
+    place: CATALOG_METADATA_ALL_VALUE,
+    conflictsOnly: false,
+    sharedOnly: false
+  }), []);
   const catalogPlanByRef = useMemo(() => buildCatalogPlanByRef(plans), [plans]);
+  const metadataOptions = useMemo(() => {
+    const sourceSessions = Array.isArray(sessions) ? sessions : [];
+    const collect = (getValues) => {
+      const values = new Set();
+      sourceSessions.forEach((session) => {
+        const rawValues = getValues(session);
+        (Array.isArray(rawValues) ? rawValues : [rawValues])
+          .map((value) => String(value || '').trim())
+          .filter(Boolean)
+          .forEach((value) => values.add(value));
+      });
+      return Array.from(values).sort((a, b) => a.localeCompare(b));
+    };
+
+    return {
+      tracks: collect((session) => session?.track),
+      categories: collect((session) => session?.categories),
+      places: collect((session) => [session?.room, compactLocation(session?.location)])
+    };
+  }, [sessions]);
   const getConflicts = useCallback((session) => {
     const plan = session?.id ? catalogPlanByRef.get(String(session.id)) : null;
     return findCatalogSessionConflicts(session, plan, plans);
@@ -2697,6 +2731,17 @@ function EventScheduleCatalog({ sessions, plans = [], drafts = {}, saving = '', 
         const plan = session?.id ? catalogPlanByRef.get(String(session.id)) : null;
         const planStatus = plan?.status || 'none';
         if (filters.plan !== 'all' && planStatus !== filters.plan) return false;
+        if (filters.track !== CATALOG_METADATA_ALL_VALUE && String(session?.track || '').trim() !== filters.track) return false;
+        if (filters.category !== CATALOG_METADATA_ALL_VALUE) {
+          const categories = Array.isArray(session?.categories) ? session.categories.map((category) => String(category || '').trim()) : [];
+          if (!categories.includes(filters.category)) return false;
+        }
+        if (filters.place !== CATALOG_METADATA_ALL_VALUE) {
+          const places = [session?.room, compactLocation(session?.location)]
+            .map((value) => String(value || '').trim())
+            .filter(Boolean);
+          if (!places.includes(filters.place)) return false;
+        }
 
         if (filters.conflictsOnly && !getConflicts(session).length) return false;
         if (filters.sharedOnly && !getAttendance(session).hasShared) return false;
@@ -2733,6 +2778,9 @@ function EventScheduleCatalog({ sessions, plans = [], drafts = {}, saving = '', 
   const activeFilterCount = [
     filters.time !== 'all',
     filters.plan !== 'all',
+    filters.track !== CATALOG_METADATA_ALL_VALUE,
+    filters.category !== CATALOG_METADATA_ALL_VALUE,
+    filters.place !== CATALOG_METADATA_ALL_VALUE,
     filters.conflictsOnly,
     filters.sharedOnly
   ].filter(Boolean).length;
@@ -2756,7 +2804,7 @@ function EventScheduleCatalog({ sessions, plans = [], drafts = {}, saving = '', 
             </button>
           ))}
         </div>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(10rem,14rem)_1fr] sm:items-center">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
           <label className="field">
             <span className="sr-only">Catalog plan state filter</span>
             <select
@@ -2770,33 +2818,75 @@ function EventScheduleCatalog({ sessions, plans = [], drafts = {}, saving = '', 
               ))}
             </select>
           </label>
-          <div className="flex gap-2 overflow-x-auto scroll-area">
-            <button
-              className={filterButtonClass(filters.conflictsOnly)}
-              onClick={() => setFilters((previous) => ({ ...previous, conflictsOnly: !previous.conflictsOnly }))}
-              aria-pressed={filters.conflictsOnly}
+          <label className="field">
+            <span className="sr-only">Catalog track filter</span>
+            <select
+              className="input h-9 text-xs"
+              value={filters.track}
+              onChange={(event) => setFilters((previous) => ({ ...previous, track: event.target.value }))}
+              aria-label="Catalog track filter"
             >
-              Conflicts only
-            </button>
-            <button
-              className={filterButtonClass(filters.sharedOnly)}
-              onClick={() => setFilters((previous) => ({ ...previous, sharedOnly: !previous.sharedOnly }))}
-              aria-pressed={filters.sharedOnly}
+              <option value={CATALOG_METADATA_ALL_VALUE}>Any track</option>
+              {metadataOptions.tracks.map((track) => (
+                <option key={track} value={track}>{track}</option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span className="sr-only">Catalog category filter</span>
+            <select
+              className="input h-9 text-xs"
+              value={filters.category}
+              onChange={(event) => setFilters((previous) => ({ ...previous, category: event.target.value }))}
+              aria-label="Catalog category filter"
             >
-              Has shared attendance
+              <option value={CATALOG_METADATA_ALL_VALUE}>Any category</option>
+              {metadataOptions.categories.map((category) => (
+                <option key={category} value={category}>{category}</option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span className="sr-only">Catalog room or location filter</span>
+            <select
+              className="input h-9 text-xs"
+              value={filters.place}
+              onChange={(event) => setFilters((previous) => ({ ...previous, place: event.target.value }))}
+              aria-label="Catalog room or location filter"
+            >
+              <option value={CATALOG_METADATA_ALL_VALUE}>Any room/location</option>
+              {metadataOptions.places.map((place) => (
+                <option key={place} value={place}>{place}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div className="flex gap-2 overflow-x-auto scroll-area">
+          <button
+            className={filterButtonClass(filters.conflictsOnly)}
+            onClick={() => setFilters((previous) => ({ ...previous, conflictsOnly: !previous.conflictsOnly }))}
+            aria-pressed={filters.conflictsOnly}
+          >
+            Conflicts only
+          </button>
+          <button
+            className={filterButtonClass(filters.sharedOnly)}
+            onClick={() => setFilters((previous) => ({ ...previous, sharedOnly: !previous.sharedOnly }))}
+            aria-pressed={filters.sharedOnly}
+          >
+            Has shared attendance
+          </button>
+          {activeFilterCount ? (
+            <button
+              className="btn-ghost btn-sm shrink-0 text-ghost"
+              onClick={resetFilters}
+            >
+              Clear
             </button>
-            {activeFilterCount ? (
-              <button
-                className="btn-ghost btn-sm shrink-0 text-ghost"
-                onClick={() => setFilters({ time: 'all', plan: 'all', conflictsOnly: false, sharedOnly: false })}
-              >
-                Clear
-              </button>
-            ) : null}
-            <span className="shrink-0 self-center text-xs text-ghost">
-              {filteredSessions.length} of {sessions.length}
-            </span>
-          </div>
+          ) : null}
+          <span className="shrink-0 self-center text-xs text-ghost">
+            {filteredSessions.length} of {sessions.length}
+          </span>
         </div>
       </div>
       {!groups.length ? (

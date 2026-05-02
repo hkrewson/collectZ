@@ -7273,6 +7273,46 @@ Historical note:
 - What remains in the milestone: nothing for the catalog-filter slice; rerun observability release evidence and CI-only `secret-scan` / `image-security-and-sbom` during the release handoff.
 - Recommended commit message: `Release 3.4.53 event schedule catalog filters`
 
+## 3.4.54 — Event Schedule Catalog Metadata Filters
+
+**Goal:** Let long event schedule catalogs be narrowed by session metadata that already exists in imported or manually entered catalog rows: track, category, and room/location.
+
+**Current Slice:** `Closed 2026-05-02.`
+
+### Scope
+
+- Add derived catalog filter controls for track, category, and room/location.
+- Reuse existing schedule catalog session metadata without adding schema, API, or sync behavior.
+- Keep filtering local to the Event drawer catalog list.
+- Preserve existing time, plan-state, conflict, shared-attendance, Now / Next, and quick plan-state behavior.
+- Keep selected-recipient notifications, native companion identity, provider-backed catalog import filters, push delivery, realtime presence/location, and offline mutation queues out of this patch.
+
+### Acceptance Criteria
+
+- Catalog filter options are derived from the current event's catalog sessions.
+- Track, category, and room/location filters narrow the same catalog list as the existing time and plan-state filters.
+- Filter counts and no-match empty states continue to reflect the filtered catalog result.
+- Browser regression covers metadata filtering alongside the existing catalog Now / Next and conflict flows.
+
+### Notes
+
+- This is still a scanability patch, not a social notification milestone.
+- Provider-backed import taxonomy normalization remains a possible follow-up after more real event catalogs are tested.
+
+### Closeout
+
+- Roadmap slice: `3.4.54 — Event Schedule Catalog Metadata Filters`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/40-Event-Social-Planning-Foundation.md`, `docs/wiki/45-Event-Schedule-Catalog-Foundation.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild to `3.4.54`; `/api/health` reported frontend/backend/build `3.4.54`; backend runtime verified `APP_EDITION=platform`, `APP_VERSION=3.4.54`, `NODE_ENV=development`, and `SESSION_COOKIE_SECURE=false`; generated public compose was booted with `IMAGE_TAG=3.4.54` and verified with `APP_EDITION` unset before the homelab boundary smoke; normal local platform stack was restored and rechecked after homelab verification.
+- CI/checks run locally: `APP_VERSION=3.4.54 docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml up -d --build backend frontend`; backend unit tests (`230` passed); OpenAPI validation; event social planning smoke; personal Sched ICS sync smoke; Help > Releases smoke for `3.4.54`; targeted Event drawer catalog-filter browser regression; full browser regression (`55` passed, `4` skipped); compose config validation; public export surface validation; init parity; migration rehearsal; platform edition boundary; homelab edition boundary against generated public compose; RBAC regression; Dockerized `npm ci --no-fund --dry-run` lockfile sync checks for backend and frontend; compose generator idempotence by checksum; local release preflight; release-evidence secret-hygiene grep; `git diff --check`.
+- Release/version artifacts: `app-meta.json`, backend/frontend app meta, backend/frontend package and lockfile versions, generated `docker-compose.yml`, `docs/releases/v3.4.54.md`, and `backend/release-feed.json` are aligned on `3.4.54`; the running Help > Releases feed served `3.4.54` as the latest entry.
+- Verified facts: the Event drawer schedule catalog now derives Track, Category, and Room / Location filter options from the current catalog sessions; metadata filters combine with the existing time, plan-state, conflict, and shared-attendance filters; counts and the no-match empty state still reflect the filtered result; browser regression covers track, category, and room filtering alongside Now / Next, shared-attendance, and conflict flows.
+- Blocked/unverified items: CI `secret-scan` and `image-security-and-sbom` remain CI-only; local preflight compose-smoke secure-cookie checks remain blocked by the development stack using `NODE_ENV=development` and `SESSION_COOKIE_SECURE=false`, while runtime health/version and compose config were verified locally; local preflight still reports observability release evidence as stale or failed because fresh observability evidence was not regenerated for `3.4.54`; local preflight cannot run the browser gate itself, but the full browser regression was run separately and passed.
+- Files changed: `frontend/src/components/EventsView.jsx`, `tests/playwright/specs/events-collectibles.browser.spec.js`, `backend/scripts/unit-tests.js`, version metadata/package files, `docker-compose.yml`, `docs/releases/v3.4.54.md`, `backend/release-feed.json`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `preflight-go-no-go.md`.
+- Risks or follow-ups: provider-backed catalog import filters, import taxonomy normalization, selected-recipient notifications, friend identity, platform companion relay identity, device registration, push delivery, realtime location, presence, and offline mutation queues remain separate future milestones.
+- What remains in the milestone: nothing for the catalog-metadata-filter slice; rerun observability release evidence and CI-only `secret-scan` / `image-security-and-sbom` during the release handoff.
+- Recommended commit message: `Release 3.4.54 event schedule catalog metadata filters`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.
