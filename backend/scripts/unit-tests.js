@@ -3681,6 +3681,11 @@ results.push(run('event social planning foundation contract is wired for 3.4.30'
   assert.ok(eventsViewSource.includes('Has shared attendance'));
   assert.ok(eventsViewSource.includes('Conflicts only'));
   assert.ok(eventsViewSource.includes('CatalogPlanStateSelect'));
+  assert.ok(eventsViewSource.includes('CatalogPlanIntentActions'));
+  assert.ok(eventsViewSource.includes('SchedulePlanDraftIntentActions'));
+  assert.ok(eventsViewSource.includes('Join'));
+  assert.ok(eventsViewSource.includes('Leave'));
+  assert.ok(eventsViewSource.includes('Replace with this'));
   assert.ok(eventsViewSource.includes('ScheduleChangePreviewPanel'));
   assert.ok(eventsViewSource.includes('Preview share'));
   assert.ok(eventsViewSource.includes('ScheduleNotificationPanel'));

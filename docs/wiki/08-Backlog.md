@@ -310,6 +310,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - The `3.4.61` user-linked attendee identity slice is promoted to connect Event attendees to the current app user for "mine" inbox filtering without broad friend identity or native delivery.
 - The `3.4.62` My Notifications filter UI slice is promoted to expose the current-user inbox filter in the Event drawer.
 - The `3.4.63` shared-attendance card slice is promoted to show visibility-safe people/group context directly on session cards.
+- The `3.4.64` join/leave/replace action slice is promoted to turn session-card readback into quick plan-change intent.
 - This follow-up turns that data into import-backed and time-aware discovery surfaces.
 
 **Scope**
@@ -333,7 +334,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 **Goal:** Let users quickly change session choices and notify selected friends or groups about the plan change.
 
 **Scope**
-- Add explicit actions for joining, leaving, replacing, or marking backup sessions.
+- Add explicit actions for joining, leaving, replacing, or marking backup sessions. The first web-card slice is promoted as `3.4.64`.
 - When a change affects shared plans, offer selected-recipient notifications instead of broadcasting by default.
 - Support message templates such as:
   - "I'm switching to this session"

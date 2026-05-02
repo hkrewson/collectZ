@@ -577,7 +577,7 @@ test.describe('events and collectibles browser regressions', () => {
       await expect(catalogList.getByText(currentTitle, { exact: true })).not.toBeVisible();
       await catalogFilters.getByRole('button', { name: 'Clear' }).click();
 
-      await nowNext.getByLabel(`Plan state for ${nextTitle}`).selectOption('backup');
+      await nowNext.getByLabel(`Session actions for ${nextTitle}`).getByRole('button', { name: 'Backup' }).click();
       const nextResolution = nowNext.getByLabel('Schedule conflict resolution');
       await expect(nextResolution).toBeVisible();
       await expect(nextResolution.getByText(`Conflicts with ${currentTitle}`)).toBeVisible();
@@ -591,11 +591,15 @@ test.describe('events and collectibles browser regressions', () => {
       await currentResolution.getByRole('button', { name: 'Keep both' }).click();
       await expect(page.getByText('Catalog session kept as maybe')).toBeVisible();
       await expect(nowNext.getByLabel(`Plan state for ${currentTitle}`)).toHaveValue('maybe');
-      await nowNext.getByLabel(`Plan state for ${nextTitle}`).selectOption('planned');
-      const primaryResolution = nowNext.getByLabel('Schedule conflict resolution');
-      await expect(primaryResolution).toBeVisible();
-      await primaryResolution.getByRole('button', { name: 'Make planned, move conflicts to backup' }).click();
+      await nowNext.getByLabel(`Session actions for ${nextTitle}`).getByRole('button', { name: 'Replace with this' }).click();
       await expect(page.getByText('Catalog session planned; conflicts moved to backup')).toBeVisible();
+      await expect(nowNext.getByLabel(`Plan state for ${nextTitle}`)).toHaveValue('planned');
+      await nowNext.getByLabel(`Session actions for ${nextTitle}`).getByRole('button', { name: 'Leave' }).click();
+      await expect(page.getByText('Catalog session marked skipped')).toBeVisible();
+      await expect(nowNext.getByLabel(`Plan state for ${nextTitle}`)).toHaveValue('skipped');
+      await nowNext.getByLabel(`Session actions for ${nextTitle}`).getByRole('button', { name: 'Join' }).click();
+      await expect(page.getByText('Catalog session marked planned')).toBeVisible();
+      await expect(nowNext.getByLabel(`Plan state for ${nextTitle}`)).toHaveValue('planned');
 
       const plansResponse = await userRequestContext.get(`/api/events/${eventId}/schedule-plans`);
       expect(plansResponse.ok()).toBeTruthy();

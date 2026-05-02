@@ -7684,6 +7684,53 @@ Historical note:
 - What remains in the milestone: no remaining 3.4.63 implementation work; CI-only release gates must pass before public tag/release publication.
 - Recommended commit message: `Release 3.4.63 event schedule shared attendance on session cards`
 
+## 3.4.64 — Event Schedule Join Leave Replace Actions
+
+**Goal:** Make day-of schedule changes easier to express from session cards by adding explicit join, leave, backup, and replace intent actions on top of the existing plan-state, conflict, and selected-recipient notification contracts.
+
+**Current Slice:** `Closed.`
+
+### Scope
+
+- Add compact intent actions for catalog session cards:
+  - `Join`
+  - `Leave`
+  - `Backup`
+  - `Replace with this` when conflicts exist
+- Keep the existing plan-state select for precise/manual editing.
+- Reuse existing conflict resolution behavior instead of adding a new conflict data model.
+- Add matching quick intent controls to expanded personal schedule rows.
+- Keep selected-recipient preview/send behavior in the existing Event-local notification flow.
+- Keep push/email/native device delivery, reciprocal friend graphs, global inboxes, and realtime presence out of scope.
+
+### Acceptance Criteria
+
+- A user can join a catalog session from a session card without opening a full edit flow.
+- A user can leave/drop a planned catalog session from a session card.
+- A user can mark a catalog session as backup from a session card.
+- A user can choose a replace action for a conflicting catalog session and move conflicting plans to backup through the existing conflict update path.
+- Expanded personal schedule rows expose the same intent language for quick draft status changes before save/preview.
+- Browser coverage verifies join, leave, backup, and replace actions from the Event drawer.
+
+### Notes
+
+- This is the first patch-sized slice from `Friend-Aware Session Changes and Notifications`.
+- The notification behavior remains Event-local recordkeeping/readback only.
+
+### Closeout
+
+- Roadmap slice: `3.4.64 — Event Schedule Join Leave Replace Actions`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, and `/Users/hamlin/.codex/skills/uncodixfy/SKILL.md`.
+- Runtime verification used: rebuilt and recreated backend/frontend through Docker with `APP_VERSION=3.4.64`; verified `/api/health` reports frontend/backend/build `3.4.64`; verified local platform container env reports `APP_EDITION=platform`; switched to generated public compose and verified homelab boundary with no `APP_EDITION`; restored local platform compose afterward.
+- CI/checks run: local unit source assertions, backend unit tests, OpenAPI validation, init parity, migration rehearsal, event social planning smoke, targeted Event browser regression, full browser regression, RBAC regression, platform edition boundary, homelab edition boundary, public-export validation, generated-compose config/idempotence, Linux `npm ci --dry-run` dependency checks for backend/frontend, observability evidence, release preflight, secret-hygiene grep, and `git diff --check`.
+- Release artifacts: `docs/releases/v3.4.64.md` exists, `backend/release-feed.json` serves `3.4.64` first, `preflight-go-no-go.md` regenerated, and observability evidence regenerated for `3.4.64`.
+- Verified facts: catalog session cards now expose `Join`, `Leave`, `Backup`, and conflict-aware `Replace with this` intent actions; replace reuses the existing conflict update path to mark the chosen session planned and move conflicts to backup; expanded personal schedule rows expose matching draft intent language before save/preview; selected-recipient notification contracts remain unchanged.
+- Blocked/unverified items: CI-only `secret-scan` and `image-security-and-sbom` must still run in GitHub Actions; local release preflight marks CI secure-cookie `compose-smoke` conditions blocked because the local development stack intentionally runs with `SESSION_COOKIE_SECURE=false`.
+- Files changed: `app-meta.json`, `backend/app-meta.json`, `backend/package.json`, `backend/package-lock.json`, `backend/release-feed.json`, `backend/scripts/unit-tests.js`, `docker-compose.yml`, `docs/releases/v3.4.64.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `frontend/package.json`, `frontend/package-lock.json`, `frontend/src/app-meta.json`, `frontend/src/components/EventsView.jsx`, and `tests/playwright/specs/events-collectibles.browser.spec.js`.
+- Risks or follow-ups: native push/email delivery, reciprocal friend graphs, global inboxes, and realtime presence remain future platform/mobile work; the personal schedule-row shortcuts intentionally remain draft controls until save/preview.
+- What remains in the milestone: no remaining 3.4.64 implementation work; CI-only release gates must pass before public tag/release publication.
+- Recommended commit message: `Release 3.4.64 event schedule join leave replace actions`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.
