@@ -7604,6 +7604,46 @@ Historical note:
 - What remains in the milestone: no remaining 3.4.61 implementation work; CI-only release gates must pass before public tag/release publication.
 - Recommended commit message: `Release 3.4.61 event schedule user-linked attendee identity`
 
+## 3.4.62 — Event Schedule My Notifications Filter UI
+
+**Goal:** Let users focus the Event-local Notification inbox on recipient rows linked to their own attendee identity now that `recipient=me` exists.
+
+**Current Slice:** `Closed.`
+
+### Scope
+
+- Add a compact `All` / `Mine` filter to the Event drawer Notification inbox.
+- Use the existing `GET /api/events/:id/schedule-notification-inbox?recipient=me` contract when `Mine` is selected.
+- Keep the no-push/no-email/no-device language visible.
+- Add browser/unit coverage for switching between all recipient rows and current-user linked recipient rows.
+
+### Acceptance Criteria
+
+- Notification inbox defaults to `All` and continues to show all Event-local recipient rows.
+- Selecting `Mine` reloads the inbox from `recipient=me`.
+- Empty mine-state copy explains that no notifications are linked to the current user yet.
+- Browser coverage proves switching `All` / `Mine` changes the visible recipient count.
+- No backend delivery, push, email, device registration, global inbox, or friend graph work is introduced.
+
+### Notes
+
+- This is a UI completion slice for the `3.4.61` linked-attendee identity contract.
+- Broader friend-aware session cards and native notification delivery remain separate future work.
+
+### Closeout
+
+- Roadmap slice: `3.4.62 — Event Schedule My Notifications Filter UI`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, and `docs/wiki/45-Event-Schedule-Catalog-Foundation.md`.
+- Runtime verification used: rebuilt and recreated backend/frontend through Docker with `APP_VERSION=3.4.62`; verified `/api/health` reports frontend/backend/build `3.4.62`; verified local platform container env reports `APP_EDITION=platform`; switched to generated public compose and verified homelab boundary; restored local platform compose afterward.
+- CI/checks run: local and container OpenAPI validation; local and container backend unit tests (`231` passed); container `test:event-social-planning-smoke`; container `test:init-parity`; container `test:migration-rehearsal`; container `test:help-releases-smoke`; container `test:rbac-regression`; container `test:platform-edition-boundary`; generated-compose `test:homelab-edition-boundary`; targeted Event browser regression (`12` passed); full browser regression (`55` passed, `4` skipped); `docker compose --env-file .env config`; `npm run validate:public-export`; idempotent `npm run compose:generate`; backend/frontend Linux-container `npm ci --no-fund --dry-run`; `npm --prefix backend run test:observability-evidence`; `npm --prefix backend run test:release-preflight-local`; release artifact secret-hygiene grep; and `git diff --check`.
+- Release artifacts: `docs/releases/v3.4.62.md` exists, `backend/release-feed.json` serves `3.4.62` first, `preflight-go-no-go.md` regenerated, and observability evidence regenerated for `3.4.62`.
+- Verified facts: the Event drawer Notification inbox now defaults to `All`; selecting `Mine` reloads the inbox through `GET /api/events/:id/schedule-notification-inbox?recipient=me`; browser coverage verifies the visible recipient count changes from all recipient rows to current-user linked rows and back; no backend delivery, push, email, device registration, global inbox, or friend graph work was introduced.
+- Blocked/unverified: local secure-cookie compose-smoke remains blocked by the development stack using `SESSION_COOKIE_SECURE=false`; local `gitleaks` is not installed, so `secret-scan` remains CI-only plus local grep hygiene; `image-security-and-sbom` remains CI-only Trivy/SBOM follow-through.
+- Files changed: version metadata/manifests, generated public compose, release note/feed, Events drawer UI, Event browser regression spec, unit source assertions, roadmap/backlog/catalog docs, local preflight, and observability evidence artifacts.
+- Risks/follow-ups: this is still Event-local readback only; friend-aware session card attendance, reciprocal friend identity, native device identity, push/email delivery, global notification inboxes, realtime presence/location, and offline queued sends remain future milestones.
+- What remains in the milestone: no remaining 3.4.62 implementation work; CI-only release gates must pass before public tag/release publication.
+- Recommended commit message: `Release 3.4.62 event schedule my notifications filter UI`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

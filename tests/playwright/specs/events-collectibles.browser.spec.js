@@ -315,7 +315,13 @@ test.describe('events and collectibles browser regressions', () => {
       await expect(inboxPanel).toBeVisible();
       await inboxPanel.locator('summary').click();
       await expect(inboxPanel.getByLabel('Schedule notification inbox')).toBeVisible();
+      await expect(inboxPanel.getByLabel('Notification inbox filter')).toBeVisible();
+      await expect(inboxPanel.getByText('2 local recipient records')).toBeVisible();
       await expect(inboxPanel.getByText('1 linked to you')).toBeVisible();
+      await inboxPanel.getByRole('button', { name: 'Mine' }).click();
+      await expect(inboxPanel.getByText('1 local recipient record')).toBeVisible();
+      await inboxPanel.getByRole('button', { name: 'All' }).click();
+      await expect(inboxPanel.getByText('2 local recipient records')).toBeVisible();
       await expect(inboxPanel.getByText('Event-local readback only. This is not push, email, or device delivery.')).toBeVisible();
       await inboxPanel.getByRole('button', { name: 'Acknowledge' }).first().click();
       await expect(page.getByText('Notification acknowledged')).toBeVisible();

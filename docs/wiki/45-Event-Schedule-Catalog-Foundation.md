@@ -61,6 +61,8 @@ Deleted sessions are archived with `archived_at`; they are not hard-deleted by t
 
 Event attendees can optionally link to an app user through `user_id` or the safer `link_current_user` helper on attendee create/update. Linked attendee identity is event-scoped and returns app user id/name plus current-user flags; it does not expose email or create a global friend graph. `GET /api/events/:id/schedule-notification-inbox?recipient=me` narrows readback to recipient rows linked to the current app user.
 
+The web Event drawer exposes this through a compact Notification inbox `All` / `Mine` filter. `Mine` is a readback filter only; it does not send notifications, register devices, or create a global notification inbox.
+
 ## Companion and Offline Packet Behavior
 
 `GET /api/events/:id/companion/today` now returns:

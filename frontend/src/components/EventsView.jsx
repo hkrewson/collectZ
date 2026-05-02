@@ -1730,6 +1730,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
   const [scheduleNotifications, setScheduleNotifications] = useState({});
   const [scheduleNotificationHistory, setScheduleNotificationHistory] = useState({});
   const [scheduleNotificationInbox, setScheduleNotificationInbox] = useState({ counts: { total: 0, unread: 0, read: 0, acknowledged: 0 }, items: [] });
+  const [scheduleNotificationInboxFilter, setScheduleNotificationInboxFilter] = useState('all');
   const icsHealth = getIcsFeedHealth(icsSource);
 
   const set = (patch) => setForm((prev) => ({ ...prev, ...patch }));
@@ -1765,6 +1766,9 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
     setLoading(true);
     setError('');
     try {
+      const inboxPath = scheduleNotificationInboxFilter === 'mine'
+        ? `/events/${eventId}/schedule-notification-inbox?recipient=me`
+        : `/events/${eventId}/schedule-notification-inbox`;
       const [attendeePayload, groupPayload, meetupPayload, planPayload, catalogPayload, notificationPayload, inboxPayload, icsPayload] = await Promise.all([
         apiCall('get', `/events/${eventId}/attendees`),
         apiCall('get', `/events/${eventId}/groups`),
@@ -1772,7 +1776,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
         apiCall('get', `/events/${eventId}/schedule-plans`),
         apiCall('get', `/events/${eventId}/schedule-sessions`),
         apiCall('get', `/events/${eventId}/schedule-notifications`),
-        apiCall('get', `/events/${eventId}/schedule-notification-inbox`),
+        apiCall('get', inboxPath),
         apiCall('get', `/events/${eventId}/personal-ics-source`)
       ]);
       setAttendees(Array.isArray(attendeePayload?.items) ? attendeePayload.items : []);
@@ -1852,7 +1856,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
     } finally {
       setLoading(false);
     }
-  }, [apiCall, eventId]);
+  }, [apiCall, eventId, scheduleNotificationInboxFilter]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -2381,7 +2385,9 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
           </summary>
           <EventScheduleNotificationInbox
             inbox={scheduleNotificationInbox}
+            filter={scheduleNotificationInboxFilter}
             saving={saving}
+            onFilterChange={setScheduleNotificationInboxFilter}
             onUpdate={updateScheduleNotificationRecipient}
           />
         </details>
@@ -3477,20 +3483,38 @@ function ScheduleNotificationHistory({ notifications = [] }) {
   );
 }
 
-function EventScheduleNotificationInbox({ inbox = {}, saving = '', onUpdate }) {
+function EventScheduleNotificationInbox({ inbox = {}, filter = 'all', saving = '', onFilterChange, onUpdate }) {
   const items = Array.isArray(inbox.items) ? inbox.items : [];
   const counts = inbox.counts || { total: items.length, unread: 0, read: 0, acknowledged: 0 };
+  const activeFilter = filter === 'mine' ? 'mine' : 'all';
+  const emptyCopy = activeFilter === 'mine'
+    ? 'No notifications are linked to you yet.'
+    : 'No local schedule notifications have recipients yet.';
+  const filterButtonClass = (value) => cx(
+    'rounded-md border px-2.5 py-1 text-xs transition-colors',
+    activeFilter === value
+      ? 'border-muted bg-raised text-ink'
+      : 'border-edge bg-surface text-dim hover:text-ink'
+  );
   if (!items.length) {
     return (
-      <div className="px-4 pb-4">
+      <div className="space-y-3 px-4 pb-4">
+        <div className="flex flex-wrap items-center gap-2" aria-label="Notification inbox filter">
+          <button type="button" className={filterButtonClass('all')} onClick={() => onFilterChange?.('all')}>All</button>
+          <button type="button" className={filterButtonClass('mine')} onClick={() => onFilterChange?.('mine')}>Mine</button>
+        </div>
         <div className="rounded-md border border-edge bg-raised px-3 py-3 text-sm text-dim">
-          No local schedule notifications have recipients yet.
+          {emptyCopy}
         </div>
       </div>
     );
   }
   return (
     <div className="space-y-3 px-4 pb-4" aria-label="Schedule notification inbox">
+      <div className="flex flex-wrap items-center gap-2" aria-label="Notification inbox filter">
+        <button type="button" className={filterButtonClass('all')} onClick={() => onFilterChange?.('all')}>All</button>
+        <button type="button" className={filterButtonClass('mine')} onClick={() => onFilterChange?.('mine')}>Mine</button>
+      </div>
       <div className="flex flex-wrap items-center gap-3 text-xs text-ghost">
         <span>{counts.total || items.length} local recipient record{(counts.total || items.length) === 1 ? '' : 's'}</span>
         <span>{counts.unread || 0} unread</span>

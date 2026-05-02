@@ -308,6 +308,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - The `3.4.59` notification history slice is promoted to read back those Event-local draft/sent schedule notification records in the drawer.
 - The `3.4.60` notification inbox/readback slice is promoted to add Event-local recipient rows with read/acknowledged state before push, email, or native device delivery.
 - The `3.4.61` user-linked attendee identity slice is promoted to connect Event attendees to the current app user for "mine" inbox filtering without broad friend identity or native delivery.
+- The `3.4.62` My Notifications filter UI slice is promoted to expose the current-user inbox filter in the Event drawer.
 - This follow-up turns that data into import-backed and time-aware discovery surfaces.
 
 **Scope**
