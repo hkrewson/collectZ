@@ -3680,7 +3680,13 @@ results.push(run('event social planning foundation contract is wired for 3.4.30'
   assert.ok(eventsViewSource.includes('ScheduleNotificationPanel'));
   assert.ok(eventsViewSource.includes('ScheduleNotificationHistory'));
   assert.ok(eventsViewSource.includes('Notification history'));
+  assert.ok(eventsViewSource.includes('EventScheduleNotificationInbox'));
+  assert.ok(eventsViewSource.includes('Notification inbox'));
+  assert.ok(eventsViewSource.includes('/events/${eventId}/schedule-notification-inbox'));
   assert.ok(eventsViewSource.includes('Send local notice'));
+  assert.ok(eventsRoutesSource.includes('event-schedule-notification-inbox.v1'));
+  assert.ok(eventsRoutesSource.includes('event_schedule_notification_recipients'));
+  assert.ok(eventSocialPlanningSmokeSource.includes('scheduleNotificationInboxCount'));
   assert.ok(eventsViewSource.includes('upsertCatalogSessionPlanStatus'));
   assert.ok(eventsViewSource.includes('Catalog now and next'));
   assert.ok(eventsViewSource.includes('/events/${eventId}/schedule-sessions'));

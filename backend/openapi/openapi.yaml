@@ -1996,6 +1996,15 @@
           },
           "delivery_channel": { "type": "string", "enum": ["event_local"] },
           "delivery_supported": { "type": "boolean" },
+          "recipient_readback": {
+            "type": "object",
+            "properties": {
+              "total": { "type": "integer" },
+              "unread": { "type": "integer" },
+              "read": { "type": "integer" },
+              "acknowledged": { "type": "integer" }
+            }
+          },
           "created_by": { "type": ["integer", "null"] },
           "sent_at": { "type": ["string", "null"], "format": "date-time" },
           "created_at": { "type": "string", "format": "date-time" },
@@ -2009,6 +2018,59 @@
           "items": { "type": "array", "items": { "$ref": "#/components/schemas/EventScheduleNotificationRecord" } }
         },
         "required": ["items"]
+      },
+      "EventScheduleNotificationRecipientUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "read_status": { "type": "string", "enum": ["read", "acknowledged"] }
+        },
+        "required": ["read_status"]
+      },
+      "EventScheduleNotificationInboxItem": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "event_id": { "type": "integer" },
+          "notification_id": { "type": "integer" },
+          "recipient_type": { "type": "string", "enum": ["attendee", "group"] },
+          "attendee_id": { "type": ["integer", "null"] },
+          "group_id": { "type": ["integer", "null"] },
+          "recipient": { "type": "object" },
+          "read_status": { "type": "string", "enum": ["unread", "read", "acknowledged"] },
+          "read_at": { "type": ["string", "null"], "format": "date-time" },
+          "acknowledged_at": { "type": ["string", "null"], "format": "date-time" },
+          "notification": { "type": "object" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        },
+        "required": ["id", "event_id", "notification_id", "recipient_type", "recipient", "read_status", "notification", "created_at", "updated_at"]
+      },
+      "EventScheduleNotificationInboxResponse": {
+        "type": "object",
+        "properties": {
+          "contract": {
+            "type": "object",
+            "properties": {
+              "version": { "type": "string", "enum": ["event-schedule-notification-inbox.v1"] },
+              "scope": { "type": "string", "enum": ["event_local"] },
+              "external_delivery_supported": { "type": "boolean" },
+              "readback_supported": { "type": "boolean" },
+              "limitations": { "type": "array", "items": { "type": "string" } }
+            },
+            "required": ["version", "scope", "external_delivery_supported", "readback_supported", "limitations"]
+          },
+          "counts": {
+            "type": "object",
+            "properties": {
+              "total": { "type": "integer" },
+              "unread": { "type": "integer" },
+              "read": { "type": "integer" },
+              "acknowledged": { "type": "integer" }
+            }
+          },
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/EventScheduleNotificationInboxItem" } }
+        },
+        "required": ["contract", "counts", "items"]
       },
 
       "EventScheduleSessionRecord": {
@@ -5741,6 +5803,34 @@
         "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventScheduleNotificationCreateRequest" } } } },
         "responses": {
           "201": { "description": "Created local schedule notification record", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventScheduleNotificationRecord" } } } }
+        }
+      }
+    },
+    "/api/events/{id}/schedule-notification-inbox": {
+      "get": {
+        "tags": ["Events"],
+        "summary": "List Event-local notification recipient readback",
+        "description": "Returns recipient readback rows for sent Event-local schedule notifications. This is an in-app readback contract only and does not imply push, email, device delivery, or a global friend inbox.",
+        "security": [{ "cookieSession": [] }, { "bearerAuth": [] }],
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "responses": {
+          "200": { "description": "Event-local notification inbox rows", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventScheduleNotificationInboxResponse" } } } }
+        }
+      }
+    },
+    "/api/events/{id}/schedule-notification-inbox/{recipientId}": {
+      "patch": {
+        "tags": ["Events"],
+        "summary": "Update Event-local notification recipient read state",
+        "description": "Marks a local schedule notification recipient row read or acknowledged. This does not contact any external delivery provider.",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } },
+          { "in": "path", "name": "recipientId", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+        ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventScheduleNotificationRecipientUpdateRequest" } } } },
+        "responses": {
+          "200": { "description": "Updated Event-local notification recipient row", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventScheduleNotificationInboxItem" } } } }
         }
       }
     },

@@ -44,6 +44,8 @@ The foundation endpoints are event-scoped and use the same auth/scope checks as 
 - `POST /api/events/:id/schedule-change-preview`
 - `GET /api/events/:id/schedule-notifications`
 - `POST /api/events/:id/schedule-notifications`
+- `GET /api/events/:id/schedule-notification-inbox`
+- `PATCH /api/events/:id/schedule-notification-inbox/:recipientId`
 
 Deleted sessions are archived with `archived_at`; they are not hard-deleted by the API.
 
@@ -54,6 +56,8 @@ Deleted sessions are archived with `archived_at`; they are not hard-deleted by t
 `GET /api/events/:id/schedule-notifications` returns recent durable Event-local notification records for drawer readback/history.
 
 `POST /api/events/:id/schedule-notifications` creates a durable Event-local notification record with status `draft` or `sent`. A sent record is local readback only: it does not push, email, register devices, or broadcast outside the Event-local selected recipient snapshot.
+
+`GET /api/events/:id/schedule-notification-inbox` returns Event-local recipient rows for sent notification records, including unread/read/acknowledged counts. `PATCH /api/events/:id/schedule-notification-inbox/:recipientId` marks a local recipient row read or acknowledged. This readback contract is still scoped to the Event and does not imply external delivery, device registration, or global friend identity.
 
 ## Companion and Offline Packet Behavior
 

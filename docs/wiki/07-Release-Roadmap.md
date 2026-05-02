@@ -7521,6 +7521,47 @@ Historical note:
 - What remains in the milestone: no remaining 3.4.59 implementation work; CI-only release gates must pass before public tag/release publication.
 - Recommended commit message: `Release 3.4.59 event schedule notification history and readback UI`
 
+## 3.4.60 — Event Schedule Notification Inbox and Recipient Readback Contract
+
+**Goal:** Turn Event-local schedule notification records into recipient-readable in-app rows before adding push, email, device delivery, or a broader friend graph.
+
+**Current Slice:** `Closed.`
+
+### Scope
+
+- Add normalized recipient readback rows for sent Event-local schedule notifications.
+- Expose a scoped Event-local notification inbox endpoint with unread/read/acknowledged counts.
+- Add a scoped endpoint for marking a recipient row read or acknowledged.
+- Add a compact Notification inbox section to the Event social planning drawer.
+- Keep this local/in-app only; do not add push delivery, email delivery, native device registration, global inboxes, realtime presence, or broad friend identity.
+
+### Acceptance Criteria
+
+- Creating a sent schedule notification creates local recipient readback rows for selected attendees/groups.
+- The Event-local notification inbox returns recipient rows, message context, subject snapshots, and readback counts.
+- Recipient rows can be marked read or acknowledged.
+- The Event drawer shows unread/acknowledged state without implying external delivery.
+- OpenAPI, smoke, unit, and browser coverage document the inbox contract and no-delivery boundary.
+
+### Notes
+
+- This is still an Event-local contract. It makes local coordination state visible without claiming that anyone's phone, email, or device has received a notification.
+- Future milestones can layer user-linked attendees, native push, email delivery, or friend identity on top of this normalized recipient boundary.
+
+### Closeout
+
+- Roadmap slice: `3.4.60 — Event Schedule Notification Inbox and Recipient Readback Contract`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, and `docs/wiki/45-Event-Schedule-Catalog-Foundation.md`.
+- Runtime verification used: rebuilt and recreated backend/frontend through Docker with `APP_VERSION=3.4.60`; verified `/api/health` reports frontend/backend/build `3.4.60`; verified local platform container env reports `APP_EDITION=platform`; switched to generated public compose and verified homelab boundary with no `APP_EDITION`; restored local platform compose afterward and verified `LOG_EXPORT_SETTINGS_READ_ONLY=false`.
+- CI/checks run: backend route/validation/smoke/unit syntax checks; local and container OpenAPI validation; local and container backend unit tests (`231` passed); container `test:event-social-planning-smoke`; container `test:init-parity`; container `test:migration-rehearsal`; container `test:help-releases-smoke`; container `test:rbac-regression`; container `test:platform-edition-boundary`; generated-compose `test:homelab-edition-boundary`; targeted Event browser regression (`12` passed); full browser regression (`55` passed, `4` skipped); `docker compose --env-file .env config`; `npm run validate:public-export`; idempotent `npm run compose:generate`; backend/frontend Linux-container `npm ci --no-fund --dry-run`; `npm --prefix backend run test:observability-evidence`; `npm --prefix backend run test:release-preflight-local`; release artifact secret-hygiene grep; and `git diff --check`.
+- Release artifacts: `docs/releases/v3.4.60.md` exists, `backend/release-feed.json` serves `3.4.60` first, `preflight-go-no-go.md` regenerated, and observability evidence regenerated for `3.4.60`.
+- Verified facts: migration `91` adds normalized `event_schedule_notification_recipients`; `init.sql` parity covers the same table, indexes, trigger, and migration seed; sent Event-local schedule notifications create attendee/group recipient readback rows; `GET /api/events/:id/schedule-notification-inbox` returns Event-local inbox counts and recipient rows; `PATCH /api/events/:id/schedule-notification-inbox/:recipientId` marks recipient rows read or acknowledged; the Event drawer shows a compact Notification inbox with no-push/no-email/no-device language.
+- Blocked/unverified: local secure-cookie compose-smoke remains blocked by the development stack using `SESSION_COOKIE_SECURE=false`; local `gitleaks` is not installed, so `secret-scan` remains CI-only plus local grep hygiene; `image-security-and-sbom` remains CI-only Trivy/SBOM follow-through.
+- Files changed: version metadata/manifests, generated public compose, migration/init schema, event route/validation/OpenAPI contracts, event social smoke/unit coverage, Events drawer UI, Playwright Event browser spec, release note/feed, roadmap/backlog/catalog docs, local preflight, and observability evidence artifacts.
+- Risks/follow-ups: this is still Event-local readback only; user-linked attendee identity, recipient filtering to “me,” native push, email delivery, global notification inboxes, friend identity resolution, realtime presence/location, and offline queued sends remain future milestones.
+- What remains in the milestone: no remaining 3.4.60 implementation work; CI-only release gates must pass before public tag/release publication.
+- Recommended commit message: `Release 3.4.60 event schedule notification inbox and recipient readback contract`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

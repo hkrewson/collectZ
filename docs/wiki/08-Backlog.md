@@ -306,6 +306,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - The `3.4.57` selected-recipient change-preview slice is promoted to preview affected people/groups and conflicts before real notification delivery work.
 - The `3.4.58` selected-recipient notification contract slice is promoted to persist draft/sent Event-local schedule notifications without push/device delivery.
 - The `3.4.59` notification history slice is promoted to read back those Event-local draft/sent schedule notification records in the drawer.
+- The `3.4.60` notification inbox/readback slice is promoted to add Event-local recipient rows with read/acknowledged state before push, email, or native device delivery.
 - This follow-up turns that data into import-backed and time-aware discovery surfaces.
 
 **Scope**

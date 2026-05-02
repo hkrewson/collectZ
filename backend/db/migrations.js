@@ -3864,6 +3864,100 @@ const MIGRATIONS = [
       END;
       $$;
     `
+  },
+  {
+    version: 91,
+    description: 'Add event schedule notification recipient readback',
+    up: `
+      CREATE TABLE IF NOT EXISTS event_schedule_notification_recipients (
+        id SERIAL PRIMARY KEY,
+        notification_id INTEGER NOT NULL REFERENCES event_schedule_notifications(id) ON DELETE CASCADE,
+        event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+        recipient_type VARCHAR(30) NOT NULL CHECK (recipient_type IN ('attendee', 'group')),
+        attendee_id INTEGER REFERENCES event_attendees(id) ON DELETE SET NULL,
+        group_id INTEGER REFERENCES event_groups(id) ON DELETE SET NULL,
+        recipient_snapshot JSONB NOT NULL DEFAULT '{}'::jsonb,
+        read_status VARCHAR(30) NOT NULL DEFAULT 'unread'
+          CHECK (read_status IN ('unread', 'read', 'acknowledged')),
+        read_at TIMESTAMP,
+        acknowledged_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        archived_at TIMESTAMP,
+        CHECK (
+          (recipient_type = 'attendee' AND attendee_id IS NOT NULL AND group_id IS NULL)
+          OR (recipient_type = 'group' AND group_id IS NOT NULL AND attendee_id IS NULL)
+        )
+      );
+
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_event_schedule_notification_recipients_attendee_unique
+        ON event_schedule_notification_recipients(notification_id, attendee_id)
+        WHERE recipient_type = 'attendee' AND attendee_id IS NOT NULL;
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_event_schedule_notification_recipients_group_unique
+        ON event_schedule_notification_recipients(notification_id, group_id)
+        WHERE recipient_type = 'group' AND group_id IS NOT NULL;
+      CREATE INDEX IF NOT EXISTS idx_event_schedule_notification_recipients_event_status
+        ON event_schedule_notification_recipients(event_id, read_status, created_at DESC, id DESC)
+        WHERE archived_at IS NULL;
+      CREATE INDEX IF NOT EXISTS idx_event_schedule_notification_recipients_notification
+        ON event_schedule_notification_recipients(notification_id)
+        WHERE archived_at IS NULL;
+
+      INSERT INTO event_schedule_notification_recipients (
+        notification_id,
+        event_id,
+        recipient_type,
+        attendee_id,
+        recipient_snapshot,
+        created_at,
+        updated_at
+      )
+      SELECT
+        n.id,
+        n.event_id,
+        'attendee',
+        (attendee.value->>'id')::integer,
+        attendee.value,
+        COALESCE(n.sent_at, n.created_at, CURRENT_TIMESTAMP),
+        COALESCE(n.updated_at, n.created_at, CURRENT_TIMESTAMP)
+      FROM event_schedule_notifications n
+      CROSS JOIN LATERAL jsonb_array_elements(COALESCE(n.recipients_snapshot->'attendees', '[]'::jsonb)) attendee(value)
+      WHERE n.archived_at IS NULL
+        AND (attendee.value->>'id') ~ '^[0-9]+$'
+      ON CONFLICT DO NOTHING;
+
+      INSERT INTO event_schedule_notification_recipients (
+        notification_id,
+        event_id,
+        recipient_type,
+        group_id,
+        recipient_snapshot,
+        created_at,
+        updated_at
+      )
+      SELECT
+        n.id,
+        n.event_id,
+        'group',
+        (recipient_group.value->>'id')::integer,
+        recipient_group.value,
+        COALESCE(n.sent_at, n.created_at, CURRENT_TIMESTAMP),
+        COALESCE(n.updated_at, n.created_at, CURRENT_TIMESTAMP)
+      FROM event_schedule_notifications n
+      CROSS JOIN LATERAL jsonb_array_elements(COALESCE(n.recipients_snapshot->'groups', '[]'::jsonb)) recipient_group(value)
+      WHERE n.archived_at IS NULL
+        AND (recipient_group.value->>'id') ~ '^[0-9]+$'
+      ON CONFLICT DO NOTHING;
+
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_event_schedule_notification_recipients_updated_at') THEN
+          CREATE TRIGGER update_event_schedule_notification_recipients_updated_at BEFORE UPDATE ON event_schedule_notification_recipients
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+        END IF;
+      END;
+      $$;
+    `
   }
 ];
 

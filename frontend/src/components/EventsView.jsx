@@ -1728,6 +1728,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
   const [changePreviews, setChangePreviews] = useState({});
   const [scheduleNotifications, setScheduleNotifications] = useState({});
   const [scheduleNotificationHistory, setScheduleNotificationHistory] = useState({});
+  const [scheduleNotificationInbox, setScheduleNotificationInbox] = useState({ counts: { total: 0, unread: 0, read: 0, acknowledged: 0 }, items: [] });
   const icsHealth = getIcsFeedHealth(icsSource);
 
   const set = (patch) => setForm((prev) => ({ ...prev, ...patch }));
@@ -1763,13 +1764,14 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
     setLoading(true);
     setError('');
     try {
-      const [attendeePayload, groupPayload, meetupPayload, planPayload, catalogPayload, notificationPayload, icsPayload] = await Promise.all([
+      const [attendeePayload, groupPayload, meetupPayload, planPayload, catalogPayload, notificationPayload, inboxPayload, icsPayload] = await Promise.all([
         apiCall('get', `/events/${eventId}/attendees`),
         apiCall('get', `/events/${eventId}/groups`),
         apiCall('get', `/events/${eventId}/meetups`),
         apiCall('get', `/events/${eventId}/schedule-plans`),
         apiCall('get', `/events/${eventId}/schedule-sessions`),
         apiCall('get', `/events/${eventId}/schedule-notifications`),
+        apiCall('get', `/events/${eventId}/schedule-notification-inbox`),
         apiCall('get', `/events/${eventId}/personal-ics-source`)
       ]);
       setAttendees(Array.isArray(attendeePayload?.items) ? attendeePayload.items : []);
@@ -1819,6 +1821,10 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
         latestNotifications[key] = items[0] || null;
       });
       setScheduleNotifications(latestNotifications);
+      setScheduleNotificationInbox({
+        counts: inboxPayload?.counts || { total: 0, unread: 0, read: 0, acknowledged: 0 },
+        items: Array.isArray(inboxPayload?.items) ? inboxPayload.items : []
+      });
       setCatalogDrafts((prev) => {
         const next = {};
         nextCatalogSessions.forEach((session) => {
@@ -2081,9 +2087,27 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
         ...prev,
         [`plan-${planId}`]: [notification, ...(prev[`plan-${planId}`] || []).filter((item) => item.id !== notification.id)]
       }));
+      await load();
       setNotice(status === 'sent' ? 'Schedule notification recorded' : 'Schedule notification draft saved');
     } catch (err) {
       setError(err?.response?.data?.error || 'Failed to record schedule notification');
+    } finally {
+      setSaving('');
+    }
+  };
+
+  const updateScheduleNotificationRecipient = async (recipient, readStatus = 'read') => {
+    setSaving(`notification-recipient-${recipient.id}`);
+    setError('');
+    setNotice('');
+    try {
+      await apiCall('patch', `/events/${eventId}/schedule-notification-inbox/${recipient.id}`, {
+        read_status: readStatus
+      });
+      await load();
+      setNotice(readStatus === 'acknowledged' ? 'Notification acknowledged' : 'Notification marked read');
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Failed to update notification');
     } finally {
       setSaving('');
     }
@@ -2346,6 +2370,18 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
               </div>
             </details>
           </div>
+        </details>
+
+        <details className="group">
+          <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium text-ink">
+            Notification inbox
+            <span className="text-xs text-ghost">{scheduleNotificationInbox.counts?.unread || 0} unread</span>
+          </summary>
+          <EventScheduleNotificationInbox
+            inbox={scheduleNotificationInbox}
+            saving={saving}
+            onUpdate={updateScheduleNotificationRecipient}
+          />
         </details>
 
         <details className="group">
@@ -3426,6 +3462,73 @@ function ScheduleNotificationHistory({ notifications = [] }) {
         })}
       </div>
       <p className="mt-2 border-t border-edge pt-2 text-xs text-ghost">Local record only. No push, device, or email delivery.</p>
+    </div>
+  );
+}
+
+function EventScheduleNotificationInbox({ inbox = {}, saving = '', onUpdate }) {
+  const items = Array.isArray(inbox.items) ? inbox.items : [];
+  const counts = inbox.counts || { total: items.length, unread: 0, read: 0, acknowledged: 0 };
+  if (!items.length) {
+    return (
+      <div className="px-4 pb-4">
+        <div className="rounded-md border border-edge bg-raised px-3 py-3 text-sm text-dim">
+          No local schedule notifications have recipients yet.
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-3 px-4 pb-4" aria-label="Schedule notification inbox">
+      <div className="flex flex-wrap items-center gap-3 text-xs text-ghost">
+        <span>{counts.total || items.length} local recipient record{(counts.total || items.length) === 1 ? '' : 's'}</span>
+        <span>{counts.unread || 0} unread</span>
+        <span>{counts.acknowledged || 0} acknowledged</span>
+      </div>
+      <div className="divide-y divide-edge rounded-md border border-edge bg-raised">
+        {items.slice(0, 8).map((item) => {
+          const notification = item.notification || {};
+          const recipient = item.recipient || {};
+          const title = notification.message_title || notification.subject?.title || 'Schedule update';
+          const savingKey = `notification-recipient-${item.id}`;
+          const acknowledged = item.read_status === 'acknowledged';
+          const read = item.read_status === 'read' || acknowledged;
+          return (
+            <div key={item.id} className="space-y-2 px-3 py-3">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <p className="text-sm font-medium text-ink">{title}</p>
+                  <p className="mt-1 text-xs text-dim">
+                    {recipient.display_name || recipient.name || 'Recipient'} · {item.recipient_type}
+                  </p>
+                </div>
+                <span className={cx('text-xs', acknowledged ? 'text-ok' : read ? 'text-dim' : 'text-warn')}>
+                  {acknowledged ? 'Acknowledged' : read ? 'Read' : 'Unread'}
+                </span>
+              </div>
+              {notification.message_body ? <p className="text-xs leading-5 text-ghost">{plainTextPreview(notification.message_body, 180)}</p> : null}
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs text-ghost">
+                  {notification.sent_at ? formatDateTime(notification.sent_at) : 'Local record'}
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  {!read ? (
+                    <button className="btn-ghost btn-sm" disabled={saving === savingKey} onClick={() => onUpdate?.(item, 'read')}>
+                      {saving === savingKey ? <Spinner size={14} /> : 'Mark read'}
+                    </button>
+                  ) : null}
+                  {!acknowledged ? (
+                    <button className="btn-secondary btn-sm" disabled={saving === savingKey} onClick={() => onUpdate?.(item, 'acknowledged')}>
+                      {saving === savingKey ? <Spinner size={14} /> : 'Acknowledge'}
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <p className="text-xs text-ghost">Event-local readback only. This is not push, email, or device delivery.</p>
     </div>
   );
 }

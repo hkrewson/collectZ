@@ -23,6 +23,7 @@ const {
   eventSchedulePlanUpdateSchema,
   eventScheduleChangePreviewSchema,
   eventScheduleNotificationCreateSchema,
+  eventScheduleNotificationRecipientUpdateSchema,
   eventScheduleSessionCreateSchema,
   eventScheduleSessionUpdateSchema,
   eventScheduleCatalogIcsImportSchema,
@@ -631,6 +632,7 @@ function selectScheduleNotificationRecipients(preview = {}, body = {}) {
 
 function serializeScheduleNotification(row = {}) {
   if (!row?.id) return null;
+  const readback = row.recipient_summary || null;
   return {
     id: row.id,
     event_id: row.event_id,
@@ -647,8 +649,73 @@ function serializeScheduleNotification(row = {}) {
     contract: row.contract_snapshot || buildScheduleNotificationContract(),
     delivery_channel: row.delivery_channel || 'event_local',
     delivery_supported: Boolean(row.delivery_supported),
+    recipient_readback: readback || {
+      total: Number(row.recipient_count || 0),
+      unread: Number(row.unread_count || 0),
+      read: Number(row.read_count || 0),
+      acknowledged: Number(row.acknowledged_count || 0)
+    },
     created_by: row.created_by || null,
     sent_at: row.sent_at || null,
+    created_at: row.created_at,
+    updated_at: row.updated_at
+  };
+}
+
+async function insertScheduleNotificationRecipients(client, { notificationId, eventId, recipients }) {
+  const attendees = Array.isArray(recipients?.attendees) ? recipients.attendees : [];
+  const groups = Array.isArray(recipients?.groups) ? recipients.groups : [];
+  for (const attendee of attendees) {
+    const attendeeId = Number(attendee?.id || 0);
+    if (!Number.isFinite(attendeeId) || attendeeId <= 0) continue;
+    await client.query(
+      `INSERT INTO event_schedule_notification_recipients (
+         notification_id, event_id, recipient_type, attendee_id, recipient_snapshot
+       ) VALUES ($1, $2, 'attendee', $3, $4::jsonb)
+       ON CONFLICT DO NOTHING`,
+      [notificationId, eventId, attendeeId, JSON.stringify(attendee)]
+    );
+  }
+  for (const group of groups) {
+    const groupId = Number(group?.id || 0);
+    if (!Number.isFinite(groupId) || groupId <= 0) continue;
+    await client.query(
+      `INSERT INTO event_schedule_notification_recipients (
+         notification_id, event_id, recipient_type, group_id, recipient_snapshot
+       ) VALUES ($1, $2, 'group', $3, $4::jsonb)
+       ON CONFLICT DO NOTHING`,
+      [notificationId, eventId, groupId, JSON.stringify(group)]
+    );
+  }
+}
+
+function serializeScheduleNotificationRecipient(row = {}) {
+  if (!row?.id) return null;
+  return {
+    id: row.id,
+    event_id: row.event_id,
+    notification_id: row.notification_id,
+    recipient_type: row.recipient_type,
+    attendee_id: row.attendee_id || null,
+    group_id: row.group_id || null,
+    recipient: row.recipient_snapshot || {},
+    read_status: row.read_status || 'unread',
+    read_at: row.read_at || null,
+    acknowledged_at: row.acknowledged_at || null,
+    notification: {
+      id: row.notification_id,
+      status: row.notification_status,
+      requested_status: row.requested_status,
+      requested_visibility: row.requested_visibility,
+      message_title: row.message_title,
+      message_body: row.message_body,
+      subject: row.subject_snapshot || {},
+      conflicts: row.conflicts_snapshot || [],
+      delivery_channel: row.delivery_channel || 'event_local',
+      delivery_supported: Boolean(row.delivery_supported),
+      sent_at: row.sent_at || null,
+      created_at: row.notification_created_at || null
+    },
     created_at: row.created_at,
     updated_at: row.updated_at
   };
@@ -671,48 +738,70 @@ async function createScheduleNotification({ eventId, preview, body = {}, userId 
   const contract = buildScheduleNotificationContract();
   const messageTitle = String(body.message_title || preview.message_template?.title || preview.subject?.title || 'Schedule update').trim().slice(0, 255);
   const messageBody = String(body.message_body || preview.message_template?.body || 'Schedule update').trim().slice(0, 5000);
-  const result = await pool.query(
-    `INSERT INTO event_schedule_notifications (
-       event_id,
-       schedule_plan_id,
-       catalog_session_id,
-       status,
-       requested_status,
-       requested_visibility,
-       message_title,
-       message_body,
-       subject_snapshot,
-       recipients_snapshot,
-       conflicts_snapshot,
-       contract_snapshot,
-       delivery_channel,
-       delivery_supported,
-       created_by,
-       sent_at
-     ) VALUES (
-       $1, $2, $3, $4::varchar, $5, $6, $7, $8,
-       $9::jsonb, $10::jsonb, $11::jsonb, $12::jsonb,
-       'event_local', FALSE, $13,
-       CASE WHEN $4::text = 'sent' THEN CURRENT_TIMESTAMP ELSE NULL END
-     )
-     RETURNING *`,
-    [
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await client.query(
+      `INSERT INTO event_schedule_notifications (
+         event_id,
+         schedule_plan_id,
+         catalog_session_id,
+         status,
+         requested_status,
+         requested_visibility,
+         message_title,
+         message_body,
+         subject_snapshot,
+         recipients_snapshot,
+         conflicts_snapshot,
+         contract_snapshot,
+         delivery_channel,
+         delivery_supported,
+         created_by,
+         sent_at
+       ) VALUES (
+         $1, $2, $3, $4::varchar, $5, $6, $7, $8,
+         $9::jsonb, $10::jsonb, $11::jsonb, $12::jsonb,
+         'event_local', FALSE, $13,
+         CASE WHEN $4::text = 'sent' THEN CURRENT_TIMESTAMP ELSE NULL END
+       )
+       RETURNING *`,
+      [
+        eventId,
+        preview.subject?.schedule_plan_id || null,
+        preview.subject?.catalog_session_id || null,
+        status,
+        preview.requested_change.status,
+        requestedVisibility,
+        messageTitle,
+        messageBody,
+        JSON.stringify(preview.subject || {}),
+        JSON.stringify(recipients),
+        JSON.stringify(preview.conflicts || []),
+        JSON.stringify(contract),
+        userId
+      ]
+    );
+    const row = result.rows[0];
+    await insertScheduleNotificationRecipients(client, {
+      notificationId: row.id,
       eventId,
-      preview.subject?.schedule_plan_id || null,
-      preview.subject?.catalog_session_id || null,
-      status,
-      preview.requested_change.status,
-      requestedVisibility,
-      messageTitle,
-      messageBody,
-      JSON.stringify(preview.subject || {}),
-      JSON.stringify(recipients),
-      JSON.stringify(preview.conflicts || []),
-      JSON.stringify(contract),
-      userId
-    ]
-  );
-  return serializeScheduleNotification(result.rows[0]);
+      recipients
+    });
+    await client.query('COMMIT');
+    return serializeScheduleNotification({
+      ...row,
+      recipient_count: recipients.summary.attendee_count + recipients.summary.group_count,
+      unread_count: recipients.summary.attendee_count + recipients.summary.group_count,
+      read_count: 0,
+      acknowledged_count: 0
+    });
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 function classifyPersonalIcsFreshness(source = null, now = new Date()) {
@@ -2305,15 +2394,117 @@ router.get('/events/:id/schedule-notifications', asyncHandler(async (req, res) =
   if (!eventRow) return res.status(404).json({ error: 'Event not found' });
 
   const result = await pool.query(
-    `SELECT *
-       FROM event_schedule_notifications
-      WHERE event_id = $1
-        AND archived_at IS NULL
-      ORDER BY created_at DESC, id DESC
+    `SELECT n.*,
+            COALESCE(COUNT(r.id), 0)::int AS recipient_count,
+            COALESCE(COUNT(r.id) FILTER (WHERE r.read_status = 'unread'), 0)::int AS unread_count,
+            COALESCE(COUNT(r.id) FILTER (WHERE r.read_status = 'read'), 0)::int AS read_count,
+            COALESCE(COUNT(r.id) FILTER (WHERE r.read_status = 'acknowledged'), 0)::int AS acknowledged_count
+       FROM event_schedule_notifications n
+       LEFT JOIN event_schedule_notification_recipients r
+         ON r.notification_id = n.id
+        AND r.archived_at IS NULL
+      WHERE n.event_id = $1
+        AND n.archived_at IS NULL
+      GROUP BY n.id
+      ORDER BY n.created_at DESC, n.id DESC
       LIMIT 50`,
     [eventId]
   );
   res.json({ items: result.rows.map(serializeScheduleNotification).filter(Boolean) });
+}));
+
+router.get('/events/:id/schedule-notification-inbox', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const eventId = parsePositiveId(req.params.id, 'event id');
+  const eventRow = await ensureScopedEvent(scopeContext, eventId);
+  if (!eventRow) return res.status(404).json({ error: 'Event not found' });
+
+  const result = await pool.query(
+    `SELECT r.*,
+            n.status AS notification_status,
+            n.requested_status,
+            n.requested_visibility,
+            n.message_title,
+            n.message_body,
+            n.subject_snapshot,
+            n.conflicts_snapshot,
+            n.delivery_channel,
+            n.delivery_supported,
+            n.sent_at,
+            n.created_at AS notification_created_at
+       FROM event_schedule_notification_recipients r
+       JOIN event_schedule_notifications n
+         ON n.id = r.notification_id
+        AND n.archived_at IS NULL
+      WHERE r.event_id = $1
+        AND r.archived_at IS NULL
+        AND n.status = 'sent'
+      ORDER BY
+        CASE r.read_status WHEN 'unread' THEN 0 WHEN 'read' THEN 1 ELSE 2 END,
+        COALESCE(n.sent_at, n.created_at) DESC,
+        r.id DESC
+      LIMIT 100`,
+    [eventId]
+  );
+  const items = result.rows.map(serializeScheduleNotificationRecipient).filter(Boolean);
+  const counts = items.reduce((acc, item) => {
+    acc.total += 1;
+    acc[item.read_status] = (acc[item.read_status] || 0) + 1;
+    return acc;
+  }, { total: 0, unread: 0, read: 0, acknowledged: 0 });
+  res.json({
+    contract: {
+      version: 'event-schedule-notification-inbox.v1',
+      scope: 'event_local',
+      external_delivery_supported: false,
+      readback_supported: true,
+      limitations: [
+        'no_push_delivery',
+        'no_email_delivery',
+        'no_device_registration',
+        'no_cross_event_inbox',
+        'no_global_friend_identity'
+      ]
+    },
+    counts,
+    items
+  });
+}));
+
+router.patch('/events/:id/schedule-notification-inbox/:recipientId', validate(eventScheduleNotificationRecipientUpdateSchema), asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const eventId = parsePositiveId(req.params.id, 'event id');
+  const recipientId = parsePositiveId(req.params.recipientId, 'notification recipient id');
+  const eventRow = await ensureScopedEvent(scopeContext, eventId);
+  if (!eventRow) return res.status(404).json({ error: 'Event not found' });
+
+  const readStatus = req.body.read_status;
+  const result = await pool.query(
+    `UPDATE event_schedule_notification_recipients
+        SET read_status = $1::varchar,
+            read_at = CASE
+              WHEN $1::text IN ('read', 'acknowledged') AND read_at IS NULL THEN CURRENT_TIMESTAMP
+              ELSE read_at
+            END,
+            acknowledged_at = CASE
+              WHEN $1::text = 'acknowledged' AND acknowledged_at IS NULL THEN CURRENT_TIMESTAMP
+              ELSE acknowledged_at
+            END
+      WHERE id = $2
+        AND event_id = $3
+        AND archived_at IS NULL
+      RETURNING *`,
+    [readStatus, recipientId, eventId]
+  );
+  const row = result.rows[0];
+  if (!row) return res.status(404).json({ error: 'Notification recipient not found' });
+  await logActivity(req, 'events.schedule_notification_recipient.update', 'event', eventId, {
+    recipientId,
+    notificationId: row.notification_id,
+    recipientType: row.recipient_type,
+    readStatus
+  });
+  res.json(serializeScheduleNotificationRecipient(row));
 }));
 
 router.post('/events/:id/schedule-notifications', validate(eventScheduleNotificationCreateSchema), asyncHandler(async (req, res) => {

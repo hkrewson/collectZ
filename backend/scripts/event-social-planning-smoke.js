@@ -312,13 +312,14 @@ async function main() {
       headers: { 'Content-Type': 'application/json' }
     });
 
-    const [attendees, groups, meetups, plans, catalog, notifications, companion] = await Promise.all([
+    const [attendees, groups, meetups, plans, catalog, notifications, notificationInbox, companion] = await Promise.all([
       client.request(`/api/events/${eventId}/attendees`, { expectStatus: 200 }),
       client.request(`/api/events/${eventId}/groups`, { expectStatus: 200 }),
       client.request(`/api/events/${eventId}/meetups`, { expectStatus: 200 }),
       client.request(`/api/events/${eventId}/schedule-plans`, { expectStatus: 200 }),
       client.request(`/api/events/${eventId}/schedule-sessions`, { expectStatus: 200 }),
       client.request(`/api/events/${eventId}/schedule-notifications`, { expectStatus: 200 }),
+      client.request(`/api/events/${eventId}/schedule-notification-inbox`, { expectStatus: 200 }),
       client.request(`/api/events/${eventId}/companion/today`, { expectStatus: 200 })
     ]);
 
@@ -339,6 +340,17 @@ async function main() {
     assert(catalog.data.items[0]?.track === 'Comics Art', `Expected updated schedule catalog track, got ${JSON.stringify(catalog.data)}`);
     assert(notifications.data.items.length === 2, `Expected two schedule notification records, got ${JSON.stringify(notifications.data)}`);
     assert(notifications.data.items[0]?.status === 'sent', `Expected latest schedule notification to be sent, got ${JSON.stringify(notifications.data)}`);
+    assert(notificationInbox.data?.contract?.version === 'event-schedule-notification-inbox.v1', `Expected notification inbox contract, got ${JSON.stringify(notificationInbox.data)}`);
+    assert(notificationInbox.data?.counts?.total === 2, `Expected two local inbox recipient records, got ${JSON.stringify(notificationInbox.data)}`);
+    assert(notificationInbox.data?.counts?.unread === 2, `Expected unread local recipient records, got ${JSON.stringify(notificationInbox.data)}`);
+    const acknowledgedRecipient = await client.request(`/api/events/${eventId}/schedule-notification-inbox/${notificationInbox.data.items[0].id}`, {
+      method: 'PATCH',
+      withCsrf: true,
+      expectStatus: 200,
+      body: JSON.stringify({ read_status: 'acknowledged' }),
+      headers: { 'Content-Type': 'application/json' }
+    });
+    assert(acknowledgedRecipient.data?.read_status === 'acknowledged', `Expected acknowledged recipient readback, got ${JSON.stringify(acknowledgedRecipient.data)}`);
     assert(companion.data?.contract?.version === 'event-social-companion.v1', `Expected companion contract version, got ${JSON.stringify(companion.data?.contract)}`);
     assert(companion.data?.counts?.attendees === 1, `Expected companion attendee count, got ${JSON.stringify(companion.data?.counts)}`);
     assert(companion.data?.counts?.groups === 1, `Expected companion group count, got ${JSON.stringify(companion.data?.counts)}`);
@@ -375,6 +387,7 @@ async function main() {
       updatedSchedulePlanStatus: plans.data.items[0]?.status || null,
       updatedScheduleCatalogStatus: catalog.data.items[0]?.status || null,
       scheduleNotificationCount: notifications.data.items.length,
+      scheduleNotificationInboxCount: notificationInbox.data?.counts?.total || 0,
       sentScheduleNotificationStatus: notificationSent.data?.status || null,
       companionContract: companion.data?.contract?.version || null,
       previewRecipientCount: changePreview.data?.recipients?.summary?.attendee_count || 0

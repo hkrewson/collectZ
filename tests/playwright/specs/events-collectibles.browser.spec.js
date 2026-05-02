@@ -309,6 +309,14 @@ test.describe('events and collectibles browser regressions', () => {
       await expect(planRow.getByLabel('Schedule notification history')).toBeVisible();
       await expect(planRow.getByText('Notification history')).toBeVisible();
       await expect(planRow.getByText('Local record only. No push, device, or email delivery.')).toBeVisible();
+      const inboxPanel = page.locator('details').filter({ hasText: 'Notification inbox' }).first();
+      await expect(inboxPanel).toBeVisible();
+      await inboxPanel.locator('summary').click();
+      await expect(inboxPanel.getByLabel('Schedule notification inbox')).toBeVisible();
+      await expect(inboxPanel.getByText('Event-local readback only. This is not push, email, or device delivery.')).toBeVisible();
+      await inboxPanel.getByRole('button', { name: 'Acknowledge' }).first().click();
+      await expect(page.getByText('Notification acknowledged')).toBeVisible();
+      await expect(inboxPanel.getByText('Acknowledged', { exact: true })).toBeVisible();
       await planRow.getByRole('button', { name: 'Save', exact: true }).click();
       await expect(page.getByText('Schedule plan updated')).toBeVisible();
       await expect(planRow.locator('summary span').filter({ hasText: /^backup$/ })).toBeVisible();
