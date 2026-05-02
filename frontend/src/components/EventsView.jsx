@@ -275,12 +275,23 @@ const chooseCatalogPlanForControl = (existing, candidate) => {
   return existing;
 };
 
+const getPlanCatalogSessionId = (plan) => {
+  if (plan?.source_catalog_session_id) return String(plan.source_catalog_session_id);
+  if (plan?.source_type === 'schedule_catalog' && plan?.source_ref) return String(plan.source_ref);
+  return '';
+};
+
+const planLinksCatalogSession = (plan, session) => {
+  const sessionId = String(session?.id || '');
+  return Boolean(sessionId && getPlanCatalogSessionId(plan) === sessionId);
+};
+
 const buildCatalogPlanByRef = (plans = []) => {
   const map = new Map();
   (Array.isArray(plans) ? plans : [])
-    .filter((plan) => plan?.source_type === 'schedule_catalog' && plan?.source_ref)
+    .filter((plan) => getPlanCatalogSessionId(plan))
     .forEach((plan) => {
-      const key = String(plan.source_ref);
+      const key = getPlanCatalogSessionId(plan);
       map.set(key, chooseCatalogPlanForControl(map.get(key), plan));
     });
   return map;
@@ -290,7 +301,7 @@ const catalogLinkedPlans = (session, plans = []) => {
   const sessionId = String(session?.id || '');
   if (!sessionId) return [];
   return (Array.isArray(plans) ? plans : [])
-    .filter((plan) => plan?.source_type === 'schedule_catalog' && String(plan?.source_ref || '') === sessionId);
+    .filter((plan) => planLinksCatalogSession(plan, session));
 };
 
 const formatPlanStatusCounts = (plans = []) => ATTENDANCE_READBACK_STATUSES
@@ -334,12 +345,11 @@ const scheduleWindowsOverlap = (a, b) => Boolean(a && b && a.startTime < b.endTi
 
 const isConflictEligiblePlan = (plan) => CONFLICTING_SCHEDULE_PLAN_STATUSES.has(plan?.status || 'planned');
 
-const sameCatalogSourceRef = (a, b) => (
-  a?.source_type === 'schedule_catalog' &&
-  b?.source_type === 'schedule_catalog' &&
-  String(a?.source_ref || '') &&
-  String(a.source_ref) === String(b?.source_ref || '')
-);
+const sameCatalogSourceRef = (a, b) => {
+  const aCatalogId = getPlanCatalogSessionId(a);
+  const bCatalogId = getPlanCatalogSessionId(b);
+  return Boolean(aCatalogId && bCatalogId && aCatalogId === bCatalogId);
+};
 
 const buildScheduleConflictMap = (plans = []) => {
   const activePlans = (Array.isArray(plans) ? plans : [])
@@ -370,6 +380,7 @@ const findCatalogSessionConflicts = (session, plan, plans = []) => {
   return (Array.isArray(plans) ? plans : [])
     .filter(isConflictEligiblePlan)
     .filter((otherPlan) => !plan?.id || Number(otherPlan.id) !== Number(plan.id))
+    .filter((otherPlan) => !planLinksCatalogSession(otherPlan, session))
     .filter((otherPlan) => !sameCatalogSourceRef(plan || session, otherPlan))
     .map((otherPlan) => ({ plan: otherPlan, window: getScheduleWindow(otherPlan) }))
     .filter((entry) => scheduleWindowsOverlap(candidateWindow, entry.window))
@@ -2031,7 +2042,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
     const sessionId = Number(session?.id || 0);
     if (!sessionId) return;
     const normalizedStatus = QUICK_SCHEDULE_PLAN_STATUS_OPTIONS.some((option) => option.value === status) ? status : 'planned';
-    const existingPlan = plans.find((plan) => plan?.source_type === 'schedule_catalog' && String(plan?.source_ref || '') === String(sessionId));
+    const existingPlan = plans.find((plan) => planLinksCatalogSession(plan, session));
     const conflictPlanUpdates = Array.isArray(options.conflictPlanUpdates) ? options.conflictPlanUpdates : [];
     setSaving(`catalog-plan-${sessionId}`);
     setError('');

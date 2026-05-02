@@ -65,7 +65,7 @@ const {
 process.env.INTEGRATION_ENCRYPTION_KEY = process.env.INTEGRATION_ENCRYPTION_KEY || 'unit-test-integration-key';
 const { buildIntegrationResponse } = require('../services/integrationResponse');
 const { buildCompactJobSummary, formatSyncJob } = require('../services/syncJobs');
-const { ICS_FETCH_USER_AGENT, fetchIcsText, parseIcsEvents, parseIcsCatalogSessions } = require('../services/schedIcsSync');
+const { ICS_FETCH_USER_AGENT, fetchIcsText, parseIcsEvents, parseIcsCatalogSessions, linkPersonalPlansToCatalogSessions } = require('../services/schedIcsSync');
 const {
   buildLoanReminderPhase,
   wasLoanReminderSentToday,
@@ -3608,9 +3608,12 @@ results.push(run('event social planning foundation contract is wired for 3.4.30'
   assert.ok(eventScheduleCatalogFoundationSource.includes('separate from personal schedule plans'));
   assert.ok(eventScheduleCatalogFoundationSource.includes('Now / Next'));
   assert.ok(migrationsSource.includes('version: 88'));
+  assert.ok(migrationsSource.includes('version: 89'));
   assert.ok(migrationsSource.includes('CREATE TABLE IF NOT EXISTS event_schedule_sessions'));
+  assert.ok(migrationsSource.includes('source_catalog_session_id'));
   assert.ok(initSqlSource.includes('CREATE TABLE IF NOT EXISTS event_schedule_sessions'));
   assert.ok(initSqlSource.includes("(88, 'Add event schedule catalog sessions')"));
+  assert.ok(initSqlSource.includes("(89, 'Link personal Sched plans to catalog sessions')"));
   assert.ok(validateMiddlewareSource.includes('eventScheduleSessionCreateSchema'));
   assert.ok(openApiSource.includes('"/api/events/{id}/attendees"'));
   assert.ok(openApiSource.includes('"/api/events/{id}/groups/{groupId}"'));
@@ -3622,6 +3625,7 @@ results.push(run('event social planning foundation contract is wired for 3.4.30'
   assert.ok(openApiSource.includes('event-social-offline-packet.v1'));
   assert.ok(openApiSource.includes('EventMeetupRecord'));
   assert.ok(openApiSource.includes('EventSchedulePlanRecord'));
+  assert.ok(openApiSource.includes('source_catalog_session_id'));
   assert.ok(openApiSource.includes('EventScheduleSessionRecord'));
   assert.ok(backendPackageJson.scripts['test:event-social-planning-smoke']);
   assert.ok(eventSocialPlanningSmokeSource.includes('/api/events/${eventId}/attendees'));
@@ -3730,8 +3734,12 @@ results.push(run('catalog ICS import parser normalizes provider taxonomy for sch
   assert.ok(openApiSource.includes('EventScheduleCatalogIcsImportRequest'));
   assert.ok(openApiSource.includes('\"/api/events/{id}/schedule-sessions/import-ics\"'));
   assert.ok(eventCatalogIcsImportSmokeSource.includes("source_type === 'sched_catalog_ics'"));
-  assert.ok(eventCatalogIcsImportSmokeSource.includes('Catalog import must not create personal schedule plans'));
+  assert.ok(eventCatalogIcsImportSmokeSource.includes('Catalog import must not create duplicate personal schedule plans'));
+  assert.ok(eventCatalogIcsImportSmokeSource.includes('source_catalog_session_id'));
   assert.ok(eventsViewSource.includes('Import catalog ICS'));
+  assert.ok(eventsViewSource.includes('planLinksCatalogSession'));
+  assert.ok(eventsViewSource.includes('source_catalog_session_id'));
+  assert.strictEqual(typeof linkPersonalPlansToCatalogSessions, 'function');
 
   const [session] = parseIcsCatalogSessions(`BEGIN:VCALENDAR
 VERSION:2.0

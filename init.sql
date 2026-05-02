@@ -886,6 +886,7 @@ CREATE TABLE IF NOT EXISTS event_schedule_plans (
     source_categories TEXT[] NOT NULL DEFAULT '{}',
     source_updated_at TIMESTAMP,
     source_sequence INTEGER,
+    source_catalog_session_id INTEGER,
     status VARCHAR(30) NOT NULL DEFAULT 'planned'
       CHECK (status IN ('planned', 'maybe', 'backup', 'skipped', 'attended')),
     visibility VARCHAR(30) NOT NULL DEFAULT 'private'
@@ -919,6 +920,18 @@ CREATE TABLE IF NOT EXISTS event_schedule_sessions (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     archived_at TIMESTAMP
 );
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'event_schedule_plans_source_catalog_session_id_fkey'
+    ) THEN
+        ALTER TABLE event_schedule_plans
+            ADD CONSTRAINT event_schedule_plans_source_catalog_session_id_fkey
+            FOREIGN KEY (source_catalog_session_id) REFERENCES event_schedule_sessions(id) ON DELETE SET NULL;
+    END IF;
+END;
+$$;
 
 CREATE TABLE IF NOT EXISTS event_personal_ics_sources (
     id SERIAL PRIMARY KEY,
@@ -1130,6 +1143,7 @@ CREATE INDEX IF NOT EXISTS idx_event_group_members_attendee ON event_group_membe
 CREATE INDEX IF NOT EXISTS idx_event_meetups_event_time ON event_meetups(event_id, archived_at, start_at);
 CREATE INDEX IF NOT EXISTS idx_event_schedule_plans_event_time ON event_schedule_plans(event_id, archived_at, start_at);
 CREATE INDEX IF NOT EXISTS idx_event_schedule_plans_source_categories ON event_schedule_plans USING GIN (source_categories);
+CREATE INDEX IF NOT EXISTS idx_event_schedule_plans_catalog_session ON event_schedule_plans(event_id, source_catalog_session_id) WHERE source_catalog_session_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_event_schedule_sessions_event_time ON event_schedule_sessions(event_id, archived_at, start_at);
 CREATE INDEX IF NOT EXISTS idx_event_schedule_sessions_categories ON event_schedule_sessions USING GIN (categories);
 CREATE INDEX IF NOT EXISTS idx_event_schedule_sessions_source ON event_schedule_sessions(event_id, source_type, source_ref) WHERE source_type IS NOT NULL AND source_ref IS NOT NULL;
@@ -1430,5 +1444,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (85, 'Add personal Sched ICS sources for event schedule plans'),
     (86, 'Add richer personal ICS schedule detail fields'),
     (87, 'Add event social vendor booth and location notes'),
-    (88, 'Add event schedule catalog sessions')
+    (88, 'Add event schedule catalog sessions'),
+    (89, 'Link personal Sched plans to catalog sessions')
 ON CONFLICT (version) DO NOTHING;

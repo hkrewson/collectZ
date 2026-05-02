@@ -3788,6 +3788,32 @@ const MIGRATIONS = [
       END;
       $$;
     `
+  },
+  {
+    version: 89,
+    description: 'Link personal Sched plans to catalog sessions',
+    up: `
+      ALTER TABLE event_schedule_plans
+        ADD COLUMN IF NOT EXISTS source_catalog_session_id INTEGER REFERENCES event_schedule_sessions(id) ON DELETE SET NULL;
+
+      CREATE INDEX IF NOT EXISTS idx_event_schedule_plans_catalog_session
+        ON event_schedule_plans(event_id, source_catalog_session_id)
+        WHERE source_catalog_session_id IS NOT NULL;
+
+      UPDATE event_schedule_plans esp
+         SET source_catalog_session_id = ess.id,
+             updated_at = CURRENT_TIMESTAMP
+        FROM event_schedule_sessions ess
+       WHERE esp.event_id = ess.event_id
+         AND esp.source_type = 'sched_ics'
+         AND ess.source_type = 'sched_catalog_ics'
+         AND esp.source_ref IS NOT NULL
+         AND ess.source_ref IS NOT NULL
+         AND esp.source_ref = ess.source_ref
+         AND esp.archived_at IS NULL
+         AND ess.archived_at IS NULL
+         AND esp.source_catalog_session_id IS DISTINCT FROM ess.id;
+    `
   }
 ];
 

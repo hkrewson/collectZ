@@ -1797,6 +1797,7 @@
           "source_categories": { "type": "array", "items": { "type": "string" } },
           "source_updated_at": { "type": ["string", "null"], "format": "date-time" },
           "source_sequence": { "type": ["integer", "null"], "minimum": 0 },
+          "source_catalog_session_id": { "type": ["integer", "null"], "minimum": 1 },
           "status": { "type": "string", "enum": ["planned", "maybe", "backup", "skipped", "attended"] },
           "visibility": { "$ref": "#/components/schemas/EventSocialVisibility" },
           "notes": { "type": ["string", "null"] },
@@ -1899,9 +1900,10 @@
             "properties": {
               "created": { "type": "integer" },
               "updated": { "type": "integer" },
+              "linked": { "type": "integer" },
               "total": { "type": "integer" }
             },
-            "required": ["created", "updated", "total"]
+            "required": ["created", "updated", "linked", "total"]
           },
           "items": { "type": "array", "items": { "$ref": "#/components/schemas/EventScheduleSessionRecord" } },
           "error": { "type": ["string", "null"] }
@@ -1951,9 +1953,10 @@
               "created": { "type": "integer" },
               "updated": { "type": "integer" },
               "removed": { "type": "integer" },
+              "linked": { "type": "integer" },
               "total": { "type": "integer" }
             },
-            "required": ["created", "updated", "removed", "total"]
+            "required": ["created", "updated", "removed", "linked", "total"]
           },
           "error": { "type": ["string", "null"] }
         },

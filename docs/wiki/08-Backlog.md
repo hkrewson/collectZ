@@ -302,6 +302,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - The `3.4.53` catalog-filter slice is promoted to make long event catalogs scannable before selected-recipient notifications or native companion work.
 - The `3.4.54` catalog-metadata-filter slice is promoted to add track, category, and room/location filters to the web catalog before selected-recipient notifications or native companion work.
 - The `3.4.55` catalog-ICS-import slice is promoted to seed canonical catalog sessions from provider calendar feeds without recurring sync or personal-plan side effects.
+- The `3.4.56` catalog-to-personal matching slice is promoted to connect confident personal Sched plans back to matching catalog sessions without rewriting personal source identity.
 - This follow-up turns that data into import-backed and time-aware discovery surfaces.
 
 **Scope**

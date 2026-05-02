@@ -44,5 +44,5 @@ Existing synced records for the same user/event/source are updated in place. Rec
 
 1. Add conflict/readability polish in the mobile event planning view.
 2. Add a full Event Schedule Catalog and Now/Next discovery model.
-3. Link confident ICS matches to catalog sessions when catalog data exists.
+3. Link confident ICS matches to catalog sessions when catalog data exists. Implemented in `3.4.56` using `source_catalog_session_id` while preserving personal `sched_ics` source identity.
 4. Add friend/group schedule-sharing and notification decisions after selected-recipient enforcement is designed.

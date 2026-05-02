@@ -1968,7 +1968,7 @@ router.post('/events/:id/schedule-sessions/import-ics', validate(eventScheduleCa
     res.status(502).json({
       error: 'Catalog ICS import failed',
       detail: String(error?.message || 'Import failed').replace(/https?:\/\/\S+/gi, '[redacted-url]').slice(0, 240),
-      summary: { created: 0, updated: 0, total: 0 }
+      summary: { created: 0, updated: 0, linked: 0, total: 0 }
     });
   }
 }));

@@ -290,6 +290,37 @@ async function fetchIcsText(feedUrl, fetchImpl = fetch) {
   }
 }
 
+async function linkPersonalPlansToCatalogSessions(pool, { eventId, userId = null } = {}) {
+  const normalizedEventId = Number(eventId || 0);
+  if (!normalizedEventId) return { linked: 0 };
+  const params = [normalizedEventId, ICS_SOURCE_TYPE, CATALOG_ICS_SOURCE_TYPE];
+  let userClause = '';
+  if (userId) {
+    params.push(userId);
+    userClause = `AND esp.created_by = $${params.length}`;
+  }
+  const result = await pool.query(
+    `UPDATE event_schedule_plans esp
+        SET source_catalog_session_id = ess.id,
+            updated_at = CURRENT_TIMESTAMP
+       FROM event_schedule_sessions ess
+      WHERE esp.event_id = $1
+        AND esp.source_type = $2
+        AND ess.source_type = $3
+        ${userClause}
+        AND ess.event_id = esp.event_id
+        AND esp.source_ref IS NOT NULL
+        AND ess.source_ref IS NOT NULL
+        AND esp.source_ref = ess.source_ref
+        AND esp.archived_at IS NULL
+        AND ess.archived_at IS NULL
+        AND esp.source_catalog_session_id IS DISTINCT FROM ess.id
+      RETURNING esp.id`,
+    params
+  );
+  return { linked: result.rowCount || 0 };
+}
+
 async function syncPersonalIcsSource(pool, { source, eventId, userId, fetchImpl = fetch }) {
   const sourceId = Number(source?.id || 0);
   if (!sourceId) throw new Error('Missing personal ICS source');
@@ -403,7 +434,8 @@ async function syncPersonalIcsSource(pool, { source, eventId, userId, fetchImpl 
       removed = removedResult.rowCount || 0;
     }
 
-    const summary = { created, updated, removed, total: items.length };
+    const linkSummary = await linkPersonalPlansToCatalogSessions(pool, { eventId, userId });
+    const summary = { created, updated, removed, linked: linkSummary.linked, total: items.length };
     const updatedSource = await pool.query(
       `UPDATE event_personal_ics_sources
           SET sync_status = 'succeeded',
@@ -430,7 +462,7 @@ async function syncPersonalIcsSource(pool, { source, eventId, userId, fetchImpl 
         RETURNING *`,
       [sourceId, safeMessage]
     );
-    return { source: failedSource.rows[0] || source, summary: { created: 0, updated: 0, removed: 0, total: 0 }, error: safeMessage, items: [] };
+    return { source: failedSource.rows[0] || source, summary: { created: 0, updated: 0, removed: 0, linked: 0, total: 0 }, error: safeMessage, items: [] };
   }
 }
 
@@ -522,8 +554,10 @@ async function importCatalogIcsSource(pool, { eventId, userId, feedUrl, fetchImp
     }
   }
 
+  const linkSummary = await linkPersonalPlansToCatalogSessions(pool, { eventId });
+
   return {
-    summary: { created, updated, total: items.length },
+    summary: { created, updated, linked: linkSummary.linked, total: items.length },
     items: savedItems
   };
 }
@@ -541,6 +575,7 @@ module.exports = {
   loadPersonalIcsSource,
   upsertPersonalIcsSource,
   removePersonalIcsSource,
+  linkPersonalPlansToCatalogSessions,
   syncPersonalIcsSource,
   importCatalogIcsSource
 };

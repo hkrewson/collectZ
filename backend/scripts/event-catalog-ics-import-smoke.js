@@ -169,6 +169,27 @@ async function main() {
     const cancelled = catalog.data.items.find((item) => item.title === 'Cancelled Signing');
     assert(cancelled?.status === 'cancelled', `Expected cancelled status, got ${JSON.stringify(cancelled)}`);
 
+    await client.request(`/api/events/${eventId}/personal-ics-source`, {
+      method: 'PUT',
+      withCsrf: true,
+      expectStatus: 200,
+      body: JSON.stringify({ feed_url: icsServer.url }),
+      headers: { 'Content-Type': 'application/json' }
+    });
+    const personalSync = await client.request(`/api/events/${eventId}/personal-ics-source/sync`, {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 200
+    });
+    assert(personalSync.data.summary?.linked === 2, `Expected personal sync to link two catalog sessions, got ${JSON.stringify(personalSync.data)}`);
+    assert(!JSON.stringify(personalSync.data).includes(icsServer.url), 'Personal ICS URL leaked in sync response');
+
+    const linkedPlans = await client.request(`/api/events/${eventId}/schedule-plans`, { expectStatus: 200 });
+    assert(linkedPlans.data.items.length === 2, `Expected two personal schedule plans, got ${JSON.stringify(linkedPlans.data)}`);
+    const linkedPanelPlan = linkedPlans.data.items.find((item) => item.title === 'Creature Design Panel');
+    assert(linkedPanelPlan?.source_type === 'sched_ics', `Expected personal Sched source identity to be preserved, got ${JSON.stringify(linkedPanelPlan)}`);
+    assert(Number(linkedPanelPlan?.source_catalog_session_id || 0) === Number(panel.id), `Expected personal plan to link to catalog session ${panel.id}, got ${JSON.stringify(linkedPanelPlan)}`);
+
     const reimported = await client.request(`/api/events/${eventId}/schedule-sessions/import-ics`, {
       method: 'POST',
       withCsrf: true,
@@ -180,13 +201,15 @@ async function main() {
     assert(reimported.data.summary?.updated === 2, `Expected two updated catalog sessions, got ${JSON.stringify(reimported.data)}`);
 
     const plans = await client.request(`/api/events/${eventId}/schedule-plans`, { expectStatus: 200 });
-    assert(plans.data.items.length === 0, `Catalog import must not create personal schedule plans, got ${JSON.stringify(plans.data)}`);
+    assert(plans.data.items.length === 2, `Catalog import must not create duplicate personal schedule plans, got ${JSON.stringify(plans.data)}`);
 
     console.log(JSON.stringify({
       eventId,
       imported: imported.data.summary,
       reimported: reimported.data.summary,
+      personalSync: personalSync.data.summary,
       catalogCount: catalog.data.items.length,
+      linkedPlanCount: plans.data.items.length,
       urlLeaked: false
     }, null, 2));
   } finally {

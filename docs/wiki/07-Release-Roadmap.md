@@ -7355,6 +7355,49 @@ Historical note:
 - What remains in the milestone: nothing for the one-time catalog ICS import slice; rerun observability release evidence and CI-only `secret-scan` / `image-security-and-sbom` during the release handoff.
 - Recommended commit message: `Release 3.4.55 event schedule catalog ICS import and taxonomy normalization`
 
+## 3.4.56 — Event Schedule Catalog-to-Personal Plan Matching
+
+**Goal:** Let imported catalog sessions recognize matching personal Sched ICS plans without collapsing catalog data and personal plan data into one object.
+
+**Current Slice:** `Closed 2026-05-02.`
+
+### Scope
+
+- Add a catalog-session link field to event schedule plans.
+- Backfill confident matches where personal Sched plans and catalog ICS sessions share the same event and source reference.
+- Link existing personal plans after catalog ICS import, and link newly refreshed personal plans when catalog sessions already exist.
+- Keep personal plan source identity as `sched_ics`; do not rewrite personal plans into `schedule_catalog` plans.
+- Update catalog quick-state, attendance readback, and conflict handling so linked personal plans behave like selected catalog rows.
+- Keep recurring provider sync, ambiguous fuzzy matching, selected-recipient notifications, native companion UI, push delivery, realtime presence/location, and offline mutation queues out of this patch.
+
+### Acceptance Criteria
+
+- A personal Sched ICS plan can carry `source_catalog_session_id` pointing to the matching `event_schedule_sessions` row.
+- Catalog import does not create personal schedule plans, but it links existing personal plans when source references match.
+- Personal Sched sync preserves `source_type = sched_ics` and source references while linking to existing catalog sessions.
+- Event drawer catalog rows show linked personal Sched plans as already selected.
+- Conflict detection and attendance readback do not double-count a personal plan that is linked to the same catalog session.
+- Raw personal and catalog ICS URLs are not stored or returned outside their existing encrypted/secret handling boundary.
+
+### Notes
+
+- This is exact source-reference matching only. Fuzzy matching by title/time/location remains intentionally out of scope.
+- The catalog remains the imported/discovery object; schedule plans remain user/workspace intent objects.
+
+### Closeout
+
+- Roadmap slice: `3.4.56 — Event Schedule Catalog-to-Personal Plan Matching`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/41-Personal-Sched-ICS-Sync.md`, `docs/wiki/45-Event-Schedule-Catalog-Foundation.md`.
+- Runtime verification used: Docker-first backend/frontend rebuild to `3.4.56`; `/api/health` reported frontend/backend/build `3.4.56`; backend runtime verified `APP_EDITION=platform`, `APP_VERSION=3.4.56`, `NODE_ENV=development`, and `SESSION_COOKIE_SECURE=false`; generated public compose was booted with `IMAGE_TAG=3.4.56` and verified with `APP_EDITION` unset before the homelab boundary smoke; normal local platform stack was restored and rechecked after homelab verification.
+- CI/checks run locally: backend service/routes/smoke/unit syntax checks; `APP_VERSION=3.4.56 docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml up -d --build backend frontend`; backend unit tests (`231` passed); OpenAPI validation; event catalog ICS import smoke; personal Sched ICS sync smoke; event social planning smoke; Help > Releases smoke for `3.4.56`; targeted Event drawer browser regression (`12` passed); full browser regression (`55` passed, `4` skipped); compose config validation; public export surface validation; init parity; migration rehearsal; platform edition boundary; homelab edition boundary against generated public compose; RBAC regression; Dockerized `npm ci --no-fund --dry-run` lockfile sync checks for backend and frontend; compose generator idempotence by checksum; observability release evidence (`9/9` checks passed); local release preflight; release-evidence secret-hygiene grep; `git diff --check`.
+- Release/version artifacts: `app-meta.json`, backend/frontend app meta, backend/frontend package and lockfile versions, generated `docker-compose.yml`, `docs/releases/v3.4.56.md`, `backend/release-feed.json`, `artifacts/observability-evidence/observability-release-evidence.json`, and `preflight-go-no-go.md` are aligned on `3.4.56`; the running Help > Releases feed served `3.4.56` as the latest entry.
+- Verified facts: migration `89` adds and backfills `event_schedule_plans.source_catalog_session_id` from exact source-reference matches; `init.sql` parity covers the same column, FK, index, and migration seed; personal Sched ICS sync preserves `source_type = sched_ics` while linking two matching catalog sessions in smoke coverage; catalog import remains idempotent and does not create duplicate personal schedule plans; Event drawer catalog controls now recognize linked personal Sched plans as selected catalog rows; raw ICS URLs did not leak in smoke responses or the release-evidence grep.
+- Blocked/unverified items: CI `secret-scan` and `image-security-and-sbom` remain CI-only; local preflight compose-smoke secure-cookie checks remain blocked by the development stack using `NODE_ENV=development` and `SESSION_COOKIE_SECURE=false`, while runtime health/version, compose config, and boundary behavior were verified locally; local preflight marks browser regression blocked because that helper does not execute Playwright, but the full browser regression was run separately and passed.
+- Files changed: `backend/db/migrations.js`, `init.sql`, `backend/services/schedIcsSync.js`, `backend/routes/events.js`, `backend/openapi/openapi.yaml`, `backend/scripts/event-catalog-ics-import-smoke.js`, `backend/scripts/unit-tests.js`, `frontend/src/components/EventsView.jsx`, version metadata/package files, `docker-compose.yml`, `docs/releases/v3.4.56.md`, `backend/release-feed.json`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/41-Personal-Sched-ICS-Sync.md`, `docs/wiki/45-Event-Schedule-Catalog-Foundation.md`, `artifacts/observability-evidence/observability-release-evidence.json`, `preflight-go-no-go.md`.
+- Risks or follow-ups: fuzzy matching for catalog/personal rows, recurring catalog sync, provider-specific delta behavior, selected-recipient notifications, friend identity, platform companion native UI, device registration, push delivery, realtime location, presence, and offline mutation queues remain separate future milestones.
+- What remains in the milestone: nothing for the catalog-to-personal exact-match slice; rerun CI-only `secret-scan` and `image-security-and-sbom` during the release handoff.
+- Recommended commit message: `Release 3.4.56 event schedule catalog-to-personal plan matching`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

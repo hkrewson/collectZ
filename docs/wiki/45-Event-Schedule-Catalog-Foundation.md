@@ -7,6 +7,7 @@ This document defines the current event schedule catalog boundary for collectZ w
 - `event_schedule_sessions` is the canonical event schedule catalog table.
 - Catalog sessions are separate from personal schedule plans in `event_schedule_plans`.
 - Personal Sched ICS sync continues to create or update selected personal schedule plans only.
+- When a catalog session and personal Sched plan share the same provider source reference, the plan can point to the catalog session through `source_catalog_session_id` without changing its personal `sched_ics` identity.
 - The catalog can be manually created through API endpoints and seeded through one-time provider ICS import.
 - Provider ICS import is intentionally not recurring background sync.
 - Now / Next discovery, conflict workflows, quick plan actions, notifications, and native/platform UI stay separate future milestones.
@@ -76,4 +77,4 @@ Catalog sessions answer: "What sessions exist at this event?"
 
 Schedule plans answer: "What does this user or event workspace intend to attend, skip, mark as backup, or share?"
 
-Those objects may become linked later, but they should remain separate records because enrichment/import ownership, user editing, privacy, and conflict behavior are different.
+Those objects can be linked when provider source references confidently match, but they remain separate records because enrichment/import ownership, user editing, privacy, and conflict behavior are different.
