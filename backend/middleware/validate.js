@@ -720,6 +720,7 @@ const eventSocialVisibilityValues = ['private', 'selected_people', 'group', 'eve
 const eventAttendeeStatusValues = ['attending', 'maybe', 'not_attending', 'unknown'];
 const eventMeetupStatusValues = ['planned', 'tentative', 'cancelled', 'done'];
 const eventSchedulePlanStatusValues = ['planned', 'maybe', 'backup', 'skipped', 'attended'];
+const eventScheduleMessageIntentValues = ['join', 'leave', 'replace', 'backup', 'status_update'];
 const eventScheduleSessionStatusValues = ['active', 'cancelled', 'hidden'];
 const eventSocialTimestampSchema = z.preprocess(
   emptyStringToNull,
@@ -801,7 +802,8 @@ const eventScheduleChangePreviewSchema = z.object({
   schedule_plan_id: nullableNumberSchema(z.number().int().positive()),
   catalog_session_id: nullableNumberSchema(z.number().int().positive()),
   requested_status: z.enum(eventSchedulePlanStatusValues).optional(),
-  requested_visibility: z.enum(eventSocialVisibilityValues).optional()
+  requested_visibility: z.enum(eventSocialVisibilityValues).optional(),
+  message_intent: z.enum(eventScheduleMessageIntentValues).optional()
 }).refine(
   (data) => Boolean(data.schedule_plan_id || data.catalog_session_id),
   { message: 'schedule_plan_id or catalog_session_id is required' }
@@ -811,6 +813,7 @@ const eventScheduleNotificationCreateSchema = z.object({
   catalog_session_id: nullableNumberSchema(z.number().int().positive()),
   requested_status: z.enum(eventSchedulePlanStatusValues).optional(),
   requested_visibility: z.enum(eventSocialVisibilityValues).optional(),
+  message_intent: z.enum(eventScheduleMessageIntentValues).optional(),
   status: z.enum(['draft', 'sent']).optional().default('draft'),
   message_title: z.preprocess(emptyStringToNull, z.string().trim().min(1).max(255).optional().nullable()),
   message_body: z.preprocess(emptyStringToNull, z.string().trim().min(1).max(5000).optional().nullable()),

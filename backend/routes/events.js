@@ -465,7 +465,55 @@ async function loadScheduleChangeRecipients(eventId, visibility = 'private') {
   return { attendees, groups };
 }
 
-async function buildScheduleChangePreview({ eventId, schedulePlanId = null, catalogSessionId = null, requestedStatus = null, requestedVisibility = null }) {
+function normalizeScheduleMessageIntent(intent, status = '') {
+  const normalized = String(intent || '').trim().toLowerCase();
+  if (['join', 'leave', 'replace', 'backup', 'status_update'].includes(normalized)) return normalized;
+  if (status === 'skipped') return 'leave';
+  if (status === 'backup') return 'backup';
+  if (status === 'planned') return 'join';
+  return 'status_update';
+}
+
+function buildScheduleMessageTemplate(subject = {}, status = 'planned', intent = 'status_update') {
+  const title = String(subject?.title || 'Schedule update').trim() || 'Schedule update';
+  const messageIntent = normalizeScheduleMessageIntent(intent, status);
+  const statusLabel = String(status || 'planned').replace(/_/g, ' ');
+  if (messageIntent === 'join') {
+    return {
+      intent: messageIntent,
+      title,
+      body: `Anyone want to join me for ${title}?`
+    };
+  }
+  if (messageIntent === 'leave') {
+    return {
+      intent: messageIntent,
+      title,
+      body: `I'm dropping ${title}.`
+    };
+  }
+  if (messageIntent === 'replace') {
+    return {
+      intent: messageIntent,
+      title,
+      body: `I'm switching to ${title}.`
+    };
+  }
+  if (messageIntent === 'backup') {
+    return {
+      intent: messageIntent,
+      title,
+      body: `I'm keeping ${title} as backup.`
+    };
+  }
+  return {
+    intent: messageIntent,
+    title,
+    body: `${title} is marked ${statusLabel}.`
+  };
+}
+
+async function buildScheduleChangePreview({ eventId, schedulePlanId = null, catalogSessionId = null, requestedStatus = null, requestedVisibility = null, messageIntent = null }) {
   let plan = null;
   let session = null;
   if (schedulePlanId) {
@@ -517,6 +565,7 @@ async function buildScheduleChangePreview({ eventId, schedulePlanId = null, cata
   if (!subject) return null;
   const normalizedStatus = requestedStatus || plan?.status || (session?.status === 'cancelled' ? 'skipped' : 'planned');
   const normalizedVisibility = requestedVisibility || plan?.visibility || 'private';
+  const messageTemplate = buildScheduleMessageTemplate(subject, normalizedStatus, messageIntent);
   const recipients = await loadScheduleChangeRecipients(eventId, normalizedVisibility);
   const candidateWindow = getScheduleWindow({
     start_at: plan?.start_at || session?.start_at,
@@ -612,10 +661,7 @@ async function buildScheduleChangePreview({ eventId, schedulePlanId = null, cata
       status: conflict.status,
       visibility: conflict.visibility
     })),
-    message_template: {
-      title: subject.title,
-      body: `${subject.title} is marked ${normalizedStatus.replace(/_/g, ' ')}.`
-    }
+    message_template: messageTemplate
   };
 }
 
@@ -2447,7 +2493,8 @@ router.post('/events/:id/schedule-change-preview', validate(eventScheduleChangeP
     schedulePlanId: req.body.schedule_plan_id || null,
     catalogSessionId: req.body.catalog_session_id || null,
     requestedStatus: req.body.requested_status || null,
-    requestedVisibility: req.body.requested_visibility || null
+    requestedVisibility: req.body.requested_visibility || null,
+    messageIntent: req.body.message_intent || null
   });
   if (!preview) return res.status(404).json({ error: 'Schedule change subject not found' });
   await logActivity(req, 'events.schedule_change.preview', 'event', eventId, {
@@ -2605,7 +2652,8 @@ router.post('/events/:id/schedule-notifications', validate(eventScheduleNotifica
     schedulePlanId: req.body.schedule_plan_id || null,
     catalogSessionId: req.body.catalog_session_id || null,
     requestedStatus: req.body.requested_status || null,
-    requestedVisibility: req.body.requested_visibility || null
+    requestedVisibility: req.body.requested_visibility || null,
+    messageIntent: req.body.message_intent || null
   });
   if (!preview) return res.status(404).json({ error: 'Schedule change subject not found' });
 

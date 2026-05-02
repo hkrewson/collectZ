@@ -80,6 +80,13 @@ const QUICK_SCHEDULE_PLAN_STATUS_OPTIONS = SCHEDULE_PLAN_STATUS_OPTIONS
 const CONFLICTING_SCHEDULE_PLAN_STATUSES = new Set(['planned', 'maybe', 'backup']);
 const ATTENDANCE_READBACK_STATUSES = ['planned', 'maybe', 'backup'];
 const SHARED_ATTENDANCE_VISIBILITIES = ['selected_people', 'group', 'event_workspace'];
+const SCHEDULE_MESSAGE_INTENTS = {
+  planned: 'join',
+  skipped: 'leave',
+  backup: 'backup',
+  maybe: 'status_update',
+  attended: 'status_update'
+};
 
 const SCHEDULE_PLAN_VISIBILITY_OPTIONS = [
   { value: 'private', label: 'Private' },
@@ -1860,7 +1867,8 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
             vendor: prev[id]?.vendor ?? plan.vendor ?? '',
             booth: prev[id]?.booth ?? plan.booth ?? '',
             location_notes: prev[id]?.location_notes ?? plan.location_notes ?? '',
-            notes: prev[id]?.notes ?? plan.notes ?? ''
+            notes: prev[id]?.notes ?? plan.notes ?? '',
+            message_intent: prev[id]?.message_intent || SCHEDULE_MESSAGE_INTENTS[plan.status] || 'status_update'
           };
         });
         return next;
@@ -2108,7 +2116,8 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
       const preview = await apiCall('post', `/events/${eventId}/schedule-change-preview`, {
         schedule_plan_id: planId,
         requested_status: draft.status || plan.status || 'planned',
-        requested_visibility: draft.visibility || plan.visibility || 'private'
+        requested_visibility: draft.visibility || plan.visibility || 'private',
+        message_intent: draft.message_intent || SCHEDULE_MESSAGE_INTENTS[draft.status || plan.status] || 'status_update'
       });
       setChangePreviews((prev) => ({ ...prev, [`plan-${planId}`]: preview }));
     } catch (err) {
@@ -2133,6 +2142,9 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
         schedule_plan_id: planId,
         requested_status: draft.status || plan.status || 'planned',
         requested_visibility: draft.visibility || plan.visibility || 'private',
+        message_intent: draft.message_intent || preview?.message_template?.intent || SCHEDULE_MESSAGE_INTENTS[draft.status || plan.status] || 'status_update',
+        message_title: preview?.message_template?.title || plan.title || 'Schedule update',
+        message_body: preview?.message_template?.body || null,
         status,
         recipient_attendee_ids: recipientAttendeeIds,
         recipient_group_ids: recipientGroupIds
@@ -3537,6 +3549,7 @@ function ScheduleChangePreviewPanel({ preview }) {
   const attendees = Array.isArray(preview?.recipients?.attendees) ? preview.recipients.attendees : [];
   const groups = Array.isArray(preview?.recipients?.groups) ? preview.recipients.groups : [];
   const conflicts = Array.isArray(preview?.conflicts) ? preview.conflicts : [];
+  const template = preview?.message_template || {};
   const attendeeNames = attendees.map((attendee) => attendee.display_name).filter(Boolean).slice(0, 4).join(', ');
   const groupNames = groups.map((group) => group.name).filter(Boolean).slice(0, 3).join(', ');
   return (
@@ -3550,6 +3563,7 @@ function ScheduleChangePreviewPanel({ preview }) {
         {attendeeNames ? <p>People: {attendeeNames}{attendees.length > 4 ? ` +${attendees.length - 4}` : ''}</p> : null}
         {groupNames ? <p>Groups: {groupNames}{groups.length > 3 ? ` +${groups.length - 3}` : ''}</p> : null}
         {conflicts.length ? <p className="text-warn">Conflicts: {conflicts.map((conflict) => conflict.title).filter(Boolean).slice(0, 2).join(', ')}{conflicts.length > 2 ? ` +${conflicts.length - 2}` : ''}</p> : null}
+        {template.body ? <p className="rounded-md border border-edge bg-surface px-2 py-1.5 text-ghost">Suggested: {template.body}</p> : null}
         <p className="text-ghost">No notification will be sent from this preview.</p>
       </div>
     </div>
@@ -3567,6 +3581,7 @@ function ScheduleNotificationPanel({ notification }) {
         <span className="text-xs text-ghost">Event-local</span>
       </div>
       <p className="mt-2 text-xs text-dim">{summary.label || 'No recipients selected.'}</p>
+      {notification.message_body ? <p className="mt-1 text-xs leading-5 text-ghost">{plainTextPreview(notification.message_body, 180)}</p> : null}
       <p className="mt-1 text-xs text-ghost">Recorded in this event only. No push, device, or email delivery was used.</p>
     </div>
   );
@@ -3605,18 +3620,18 @@ function ScheduleNotificationHistory({ notifications = [] }) {
 function SchedulePlanDraftIntentActions({ status = 'planned', conflicts = [], onChange }) {
   if (!onChange) return null;
   const hasConflicts = Array.isArray(conflicts) && conflicts.length > 0;
-  const action = (label, nextStatus) => (
-    <button key={label} type="button" className="btn-ghost btn-sm" onClick={() => onChange(nextStatus)}>
+  const action = (label, nextStatus, messageIntent = SCHEDULE_MESSAGE_INTENTS[nextStatus] || 'status_update') => (
+    <button key={label} type="button" className="btn-ghost btn-sm" onClick={() => onChange(nextStatus, messageIntent)}>
       {label}
     </button>
   );
   return (
     <div className="flex flex-wrap items-center gap-2 border-t border-edge pt-3" aria-label="Schedule plan actions">
-      {status !== 'planned' ? action('Join', 'planned') : null}
-      {status !== 'skipped' ? action('Leave', 'skipped') : null}
-      {status !== 'backup' ? action('Backup', 'backup') : null}
-      {hasConflicts ? action('Replace with this', 'planned') : null}
-      <span className="text-xs text-ghost">Save or preview to apply shared-change readback.</span>
+      {status !== 'planned' ? action('Join', 'planned', 'join') : null}
+      {status !== 'skipped' ? action('Leave', 'skipped', 'leave') : null}
+      {status !== 'backup' ? action('Backup', 'backup', 'backup') : null}
+      {hasConflicts ? action('Replace with this', 'planned', 'replace') : null}
+      <span className="text-xs text-ghost">Preview uses a matching local-notice template.</span>
     </div>
   );
 }
@@ -3844,7 +3859,7 @@ function SchedulePlanRow({
           <SchedulePlanDraftIntentActions
             status={draftStatus}
             conflicts={conflicts}
-            onChange={(status) => onDraftChange?.({ status })}
+            onChange={(status, messageIntent) => onDraftChange?.({ status, message_intent: messageIntent })}
           />
           <div className="grid grid-cols-1 gap-2 border-t border-edge pt-3 sm:grid-cols-[9rem_11rem_1fr_7rem]">
             <label className="field">
@@ -3852,7 +3867,10 @@ function SchedulePlanRow({
               <select
                 className="input"
                 value={draftStatus}
-                onChange={(event) => onDraftChange?.({ status: event.target.value })}
+                onChange={(event) => onDraftChange?.({
+                  status: event.target.value,
+                  message_intent: SCHEDULE_MESSAGE_INTENTS[event.target.value] || 'status_update'
+                })}
               >
                 {SCHEDULE_PLAN_STATUS_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>{option.label}</option>

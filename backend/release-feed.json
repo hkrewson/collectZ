@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "v3.4.65",
+      "version": "3.4.65",
+      "date": "2026-05-02",
+      "status": null,
+      "summary": "",
+      "details": []
+    },
+    {
       "title": "v3.4.64",
       "version": "3.4.64",
       "date": "2026-05-02",
@@ -67,14 +75,6 @@
     {
       "title": "v3.4.56",
       "version": "3.4.56",
-      "date": null,
-      "status": null,
-      "summary": "",
-      "details": []
-    },
-    {
-      "title": "v3.4.55",
-      "version": "3.4.55",
       "date": null,
       "status": null,
       "summary": "",

@@ -7731,6 +7731,53 @@ Historical note:
 - What remains in the milestone: no remaining 3.4.64 implementation work; CI-only release gates must pass before public tag/release publication.
 - Recommended commit message: `Release 3.4.64 event schedule join leave replace actions`
 
+## 3.4.65 — Event Schedule Change Notification Templates
+
+**Goal:** Seed selected-recipient Event-local notification drafts with action-aware message templates so join, leave, backup, and replace changes have useful default language without becoming push/email/broadcast delivery.
+
+**Current Slice:** `Closed.`
+
+### Scope
+
+- Add a backend-owned `message_intent` template hint for schedule change previews and notification records.
+- Support template intents for:
+  - `join`
+  - `leave`
+  - `replace`
+  - `backup`
+  - `status_update`
+- Keep notification records Event-local and selected-recipient-only.
+- Show suggested template copy in the schedule change preview.
+- Persist the selected template body when saving drafts or sending local notices.
+- Keep native push, email, global inbox, friend graph, and realtime delivery out of scope.
+
+### Acceptance Criteria
+
+- Previewing a join action suggests "Anyone want to join me for..."
+- Previewing a leave action suggests "I'm dropping..."
+- Previewing a replace action suggests "I'm switching to..."
+- Previewing a backup action suggests "I'm keeping ... as backup."
+- Sending or saving a local notice persists the selected template body.
+- Browser coverage verifies at least one action-template preview and sent local-notice readback.
+
+### Notes
+
+- This is a follow-up to `3.4.64` and remains inside the existing `event-schedule-notification.v1` local record contract.
+
+### Closeout
+
+- Roadmap slice: `3.4.65 — Event Schedule Change Notification Templates`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, and `/Users/hamlin/.codex/skills/uncodixfy/SKILL.md`.
+- Runtime verification used: rebuilt and recreated backend/frontend through Docker with `APP_VERSION=3.4.65`; verified `/api/health` reports frontend/backend/build `3.4.65`; verified local platform container env reports `APP_EDITION=platform`; switched to generated public compose and verified homelab boundary with no `APP_EDITION`; restored local platform compose afterward.
+- CI/checks run: backend route/validation/unit syntax checks, local and container backend unit tests, local and container OpenAPI validation, init parity, migration rehearsal, event social planning smoke, Help > Releases smoke, targeted Event browser regression, full browser regression, RBAC regression, platform edition boundary, homelab edition boundary, public-export validation, generated-compose config/idempotence, Linux `npm ci --dry-run` dependency checks for backend/frontend, observability evidence, release preflight, secret-hygiene grep, and `git diff --check`.
+- Release artifacts: `docs/releases/v3.4.65.md` exists, `backend/release-feed.json` serves `3.4.65` first, `preflight-go-no-go.md` regenerated, and observability evidence regenerated for `3.4.65`.
+- Verified facts: schedule change previews and notification create requests now accept backend-validated `message_intent`; preview responses include intent-aware message templates; expanded schedule-row quick actions seed matching local-notice templates; sent/draft Event-local notifications persist the selected template body; browser coverage verifies backup-template preview, notification record readback, history readback, and inbox readback.
+- Blocked/unverified items: CI-only `secret-scan` and `image-security-and-sbom` must still run in GitHub Actions; local release preflight marks CI secure-cookie `compose-smoke` conditions blocked because the local development stack intentionally runs with `SESSION_COOKIE_SECURE=false`.
+- Files changed: `app-meta.json`, `backend/app-meta.json`, `backend/middleware/validate.js`, `backend/openapi/openapi.yaml`, `backend/package.json`, `backend/package-lock.json`, `backend/release-feed.json`, `backend/routes/events.js`, `backend/scripts/unit-tests.js`, `docker-compose.yml`, `docs/releases/v3.4.65.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `frontend/package.json`, `frontend/package-lock.json`, `frontend/src/app-meta.json`, `frontend/src/components/EventsView.jsx`, and `tests/playwright/specs/events-collectibles.browser.spec.js`.
+- Risks or follow-ups: templates remain default copy only and are not a push/email/native delivery path; catalog-card actions still update plan state directly while schedule-row preview/send remains the explicit selected-recipient notification step.
+- What remains in the milestone: no remaining 3.4.65 implementation work; CI-only release gates must pass before public tag/release publication.
+- Recommended commit message: `Release 3.4.65 event schedule change notification templates`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.
