@@ -3637,6 +3637,9 @@ results.push(run('event social planning foundation contract is wired for 3.4.30'
   assert.ok(openApiSource.includes('EventSchedulePlanRecord'));
   assert.ok(openApiSource.includes('EventScheduleChangePreviewResponse'));
   assert.ok(openApiSource.includes('EventScheduleNotificationRecord'));
+  assert.ok(openApiSource.includes('EventLinkedUserIdentity'));
+  assert.ok(openApiSource.includes('link_current_user'));
+  assert.ok(openApiSource.includes('current_user_filter_supported'));
   assert.ok(openApiSource.includes('source_catalog_session_id'));
   assert.ok(openApiSource.includes('EventScheduleSessionRecord'));
   assert.ok(backendPackageJson.scripts['test:event-social-planning-smoke']);
@@ -3682,11 +3685,17 @@ results.push(run('event social planning foundation contract is wired for 3.4.30'
   assert.ok(eventsViewSource.includes('Notification history'));
   assert.ok(eventsViewSource.includes('EventScheduleNotificationInbox'));
   assert.ok(eventsViewSource.includes('Notification inbox'));
+  assert.ok(eventsViewSource.includes('Link this attendee to my app user'));
+  assert.ok(eventsViewSource.includes('Linked to you'));
   assert.ok(eventsViewSource.includes('/events/${eventId}/schedule-notification-inbox'));
   assert.ok(eventsViewSource.includes('Send local notice'));
   assert.ok(eventsRoutesSource.includes('event-schedule-notification-inbox.v1'));
+  assert.ok(eventsRoutesSource.includes('idx_event_attendees_event_user_active'));
+  assert.ok(eventsRoutesSource.includes('current_user_recipient'));
   assert.ok(eventsRoutesSource.includes('event_schedule_notification_recipients'));
   assert.ok(eventSocialPlanningSmokeSource.includes('scheduleNotificationInboxCount'));
+  assert.ok(eventSocialPlanningSmokeSource.includes('linkedScheduleNotificationInboxCount'));
+  assert.ok(eventSocialPlanningSmokeSource.includes('recipient=me'));
   assert.ok(eventsViewSource.includes('upsertCatalogSessionPlanStatus'));
   assert.ok(eventsViewSource.includes('Catalog now and next'));
   assert.ok(eventsViewSource.includes('/events/${eventId}/schedule-sessions'));

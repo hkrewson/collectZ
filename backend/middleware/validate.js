@@ -727,6 +727,8 @@ const eventSocialTimestampSchema = z.preprocess(
 );
 
 const eventAttendeeBaseSchema = z.object({
+  user_id: nullableNumberSchema(z.number().int().positive()),
+  link_current_user: z.boolean().optional(),
   display_name: z.string().trim().min(1, 'Name is required').max(255),
   contact_label: z.preprocess(emptyStringToNull, z.string().max(255).optional().nullable()),
   relationship: z.preprocess(emptyStringToNull, z.string().max(100).optional().nullable()),

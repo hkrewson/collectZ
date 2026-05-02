@@ -1653,11 +1653,27 @@
         "type": "string",
         "enum": ["private", "selected_people", "group", "event_workspace"]
       },
+      "EventLinkedUserIdentity": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "name": { "type": ["string", "null"] }
+        },
+        "required": ["id", "name"]
+      },
       "EventAttendeeRecord": {
         "type": "object",
         "properties": {
           "id": { "type": "integer" },
           "event_id": { "type": "integer" },
+          "user_id": { "type": ["integer", "null"] },
+          "linked_user": {
+            "oneOf": [
+              { "$ref": "#/components/schemas/EventLinkedUserIdentity" },
+              { "type": "null" }
+            ]
+          },
+          "current_user_attendee": { "type": "boolean" },
           "display_name": { "type": "string" },
           "contact_label": { "type": ["string", "null"] },
           "relationship": { "type": ["string", "null"] },
@@ -1681,6 +1697,8 @@
         "type": "object",
         "properties": {
           "display_name": { "type": "string" },
+          "user_id": { "type": ["integer", "null"], "minimum": 1 },
+          "link_current_user": { "type": "boolean" },
           "contact_label": { "type": ["string", "null"] },
           "relationship": { "type": ["string", "null"] },
           "status": { "type": "string", "enum": ["attending", "maybe", "not_attending", "unknown"] },
@@ -1692,6 +1710,13 @@
         "type": "object",
         "properties": {
           "id": { "type": "integer" },
+          "user_id": { "type": ["integer", "null"] },
+          "linked_user": {
+            "oneOf": [
+              { "$ref": "#/components/schemas/EventLinkedUserIdentity" },
+              { "type": "null" }
+            ]
+          },
           "display_name": { "type": "string" },
           "contact_label": { "type": ["string", "null"] },
           "relationship": { "type": ["string", "null"] },
@@ -1889,6 +1914,13 @@
                   "type": "object",
                   "properties": {
                     "id": { "type": "integer" },
+                    "user_id": { "type": ["integer", "null"] },
+                    "linked_user": {
+                      "oneOf": [
+                        { "$ref": "#/components/schemas/EventLinkedUserIdentity" },
+                        { "type": "null" }
+                      ]
+                    },
                     "display_name": { "type": "string" },
                     "contact_label": { "type": ["string", "null"] },
                     "relationship": { "type": ["string", "null"] },
@@ -2036,6 +2068,14 @@
           "attendee_id": { "type": ["integer", "null"] },
           "group_id": { "type": ["integer", "null"] },
           "recipient": { "type": "object" },
+          "linked_user_id": { "type": ["integer", "null"] },
+          "linked_user": {
+            "oneOf": [
+              { "$ref": "#/components/schemas/EventLinkedUserIdentity" },
+              { "type": "null" }
+            ]
+          },
+          "current_user_recipient": { "type": "boolean" },
           "read_status": { "type": "string", "enum": ["unread", "read", "acknowledged"] },
           "read_at": { "type": ["string", "null"], "format": "date-time" },
           "acknowledged_at": { "type": ["string", "null"], "format": "date-time" },
@@ -2053,6 +2093,7 @@
             "properties": {
               "version": { "type": "string", "enum": ["event-schedule-notification-inbox.v1"] },
               "scope": { "type": "string", "enum": ["event_local"] },
+              "current_user_filter_supported": { "type": "boolean" },
               "external_delivery_supported": { "type": "boolean" },
               "readback_supported": { "type": "boolean" },
               "limitations": { "type": "array", "items": { "type": "string" } }
@@ -2065,7 +2106,8 @@
               "total": { "type": "integer" },
               "unread": { "type": "integer" },
               "read": { "type": "integer" },
-              "acknowledged": { "type": "integer" }
+              "acknowledged": { "type": "integer" },
+              "mine": { "type": "integer" }
             }
           },
           "items": { "type": "array", "items": { "$ref": "#/components/schemas/EventScheduleNotificationInboxItem" } }
@@ -5642,7 +5684,10 @@
         "tags": ["Events"],
         "summary": "Create an event attendee for a scoped event",
         "security": [{ "cookieSession": [], "csrfHeader": [] }],
-        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } },
+          { "in": "query", "name": "recipient", "required": false, "schema": { "type": "string", "enum": ["me"] }, "description": "When set to me, returns only recipient rows linked to the current app user." }
+        ],
         "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventAttendeeUpsertRequest" } } } },
         "responses": {
           "201": { "description": "Created event attendee", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventAttendeeRecord" } } } }

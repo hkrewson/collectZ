@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CollectionPaginationFooter, CoverImagePicker, DetailDrawerShell, DrawerBackdrop, Icons, ImageSourceControl, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
+import { CheckboxControl, CollectionPaginationFooter, CoverImagePicker, DetailDrawerShell, DrawerBackdrop, Icons, ImageSourceControl, Spinner, SectionTabPanel, SectionTabs, cx, posterUrl, ObjectPosterCard } from './app/AppPrimitives';
 
 const DEFAULT_EVENT_FORM = {
   title: '',
@@ -31,6 +31,7 @@ const DEFAULT_ARTIFACT_FORM = {
 const EMPTY_SOCIAL_FORM = {
   attendeeName: '',
   attendeeRelationship: '',
+  attendeeLinkCurrentUser: false,
   groupName: '',
   meetupTitle: '',
   meetupLocation: '',
@@ -1864,10 +1865,11 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
         await apiCall('post', `/events/${eventId}/attendees`, {
           display_name: form.attendeeName.trim(),
           relationship: form.attendeeRelationship || null,
+          link_current_user: Boolean(form.attendeeLinkCurrentUser),
           status: 'attending',
           visibility: 'private'
         });
-        set({ attendeeName: '', attendeeRelationship: '' });
+        set({ attendeeName: '', attendeeRelationship: '', attendeeLinkCurrentUser: false });
         setNotice('Attendee added');
       }
       if (kind === 'group') {
@@ -2457,6 +2459,8 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
 	                          <span key={value} className="text-xs text-dim">{value}</span>
 	                        ))}
 	                        <EventVisibilityText value={person.visibility} />
+	                        {person.current_user_attendee ? <span className="text-xs text-ok">Linked to you</span> : null}
+	                        {!person.current_user_attendee && person.linked_user?.name ? <span className="text-xs text-dim">Linked to {person.linked_user.name}</span> : null}
 	                      </div>
 	                    </div>
 	                    <button className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={() => archive(`/events/${eventId}/attendees/${person.id}`, 'Attendee')}>Remove</button>
@@ -2468,6 +2472,13 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
               <input className="input" placeholder="Name" value={form.attendeeName} onChange={(e) => set({ attendeeName: e.target.value })} />
               <input className="input" placeholder="Relationship" value={form.attendeeRelationship} onChange={(e) => set({ attendeeRelationship: e.target.value })} />
               <button className="btn-secondary" disabled={!form.attendeeName.trim() || saving === 'attendee'} onClick={() => save('attendee')}>{saving === 'attendee' ? <Spinner size={16} /> : 'Add'}</button>
+              <CheckboxControl
+                checked={Boolean(form.attendeeLinkCurrentUser)}
+                labelClassName="sm:col-span-2"
+                onChange={(event) => set({ attendeeLinkCurrentUser: event.target.checked })}
+              >
+                Link this attendee to my app user
+              </CheckboxControl>
             </div>
           </div>
         </details>
@@ -3484,6 +3495,7 @@ function EventScheduleNotificationInbox({ inbox = {}, saving = '', onUpdate }) {
         <span>{counts.total || items.length} local recipient record{(counts.total || items.length) === 1 ? '' : 's'}</span>
         <span>{counts.unread || 0} unread</span>
         <span>{counts.acknowledged || 0} acknowledged</span>
+        <span>{counts.mine || 0} linked to you</span>
       </div>
       <div className="divide-y divide-edge rounded-md border border-edge bg-raised">
         {items.slice(0, 8).map((item) => {
@@ -3500,6 +3512,7 @@ function EventScheduleNotificationInbox({ inbox = {}, saving = '', onUpdate }) {
                   <p className="text-sm font-medium text-ink">{title}</p>
                   <p className="mt-1 text-xs text-dim">
                     {recipient.display_name || recipient.name || 'Recipient'} · {item.recipient_type}
+                    {item.current_user_recipient ? ' · Linked to you' : ''}
                   </p>
                 </div>
                 <span className={cx('text-xs', acknowledged ? 'text-ok' : read ? 'text-dim' : 'text-warn')}>

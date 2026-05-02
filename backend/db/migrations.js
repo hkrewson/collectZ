@@ -3958,6 +3958,21 @@ const MIGRATIONS = [
       END;
       $$;
     `
+  },
+  {
+    version: 92,
+    description: 'Add user-linked event attendee identity',
+    up: `
+      ALTER TABLE event_attendees
+        ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
+
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_event_attendees_event_user_active
+        ON event_attendees(event_id, user_id)
+        WHERE user_id IS NOT NULL AND archived_at IS NULL;
+      CREATE INDEX IF NOT EXISTS idx_event_attendees_user_active
+        ON event_attendees(user_id, archived_at)
+        WHERE user_id IS NOT NULL;
+    `
   }
 ];
 

@@ -7562,6 +7562,48 @@ Historical note:
 - What remains in the milestone: no remaining 3.4.60 implementation work; CI-only release gates must pass before public tag/release publication.
 - Recommended commit message: `Release 3.4.60 event schedule notification inbox and recipient readback contract`
 
+## 3.4.61 — Event Schedule User-Linked Attendee Identity
+
+**Goal:** Let an Event attendee optionally point at the current app user so local notification readback can distinguish "mine" without adding push, email, device registration, or a global friend graph.
+
+**Current Slice:** `Closed.`
+
+### Scope
+
+- Add optional `event_attendees.user_id` linkage with active per-event duplicate prevention.
+- Allow safe self-linking through attendee create/update payloads with `link_current_user`.
+- Include linked-user identity and current-user flags in attendee, group member, preview, and notification inbox readbacks.
+- Add `recipient=me` filtering to the Event-local notification inbox.
+- Add small drawer UI affordances for linking an attendee to the current app user and reading back "Linked to you."
+
+### Acceptance Criteria
+
+- Existing manual attendees remain supported without linked app users.
+- A user can create an attendee linked to their app user from the Event drawer.
+- Non-admin users cannot link attendees to other app users.
+- Duplicate active attendee links for the same event/app user return a friendly conflict.
+- Event-local notification inbox readback includes `mine` counts and supports `?recipient=me`.
+- OpenAPI, smoke, unit, and browser coverage document the linked-identity contract and the no-delivery/no-global-friend boundary.
+
+### Notes
+
+- This is an event-scoped identity bridge only. It intentionally does not add broad friend identity, push/email/native delivery, device registration, realtime presence, or global notification inbox behavior.
+- Linked-user readback exposes app user id/name only; email is not part of the event attendee identity surface.
+
+### Closeout
+
+- Roadmap slice: `3.4.61 — Event Schedule User-Linked Attendee Identity`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, and `docs/wiki/45-Event-Schedule-Catalog-Foundation.md`.
+- Runtime verification used: rebuilt and recreated backend/frontend through Docker with `APP_VERSION=3.4.61`; verified `/api/health` reports frontend/backend/build `3.4.61`; verified local platform container env reports `APP_EDITION=platform`; switched to generated public compose and verified homelab runtime with no `APP_EDITION`; restored local platform compose afterward.
+- CI/checks run: backend route/validation/smoke/unit syntax checks; local and container OpenAPI validation; local and container backend unit tests (`231` passed); container `test:event-social-planning-smoke` with linked attendee and `recipient=me`; container `test:init-parity`; container `test:migration-rehearsal`; container `test:help-releases-smoke`; container `test:rbac-regression`; container `test:platform-edition-boundary`; generated-compose `test:homelab-edition-boundary`; targeted Event browser regression (`12` passed); full browser regression (`55` passed, `4` skipped); `docker compose --env-file .env config`; `npm run validate:public-export`; idempotent `npm run compose:generate`; backend/frontend Linux-container `npm ci --no-fund --dry-run`; `npm --prefix backend run test:observability-evidence`; `npm --prefix backend run test:release-preflight-local`; release artifact secret-hygiene grep; and `git diff --check`.
+- Release artifacts: `docs/releases/v3.4.61.md` exists, `backend/release-feed.json` serves `3.4.61` first, `preflight-go-no-go.md` regenerated, and observability evidence regenerated for `3.4.61`.
+- Verified facts: migration `92` adds optional `event_attendees.user_id` plus active per-event duplicate prevention; `init.sql` parity covers the same column, indexes, and migration seed; attendee create/update accepts safe `link_current_user`; non-admin users cannot link another app user; duplicate active app-user attendee links return `409`; attendee/group/preview/inbox readback includes linked user id/name without email; `GET /api/events/:id/schedule-notification-inbox?recipient=me` filters to current-user linked recipient rows; the Event drawer can link attendees to the current app user and shows `Linked to you` readback.
+- Blocked/unverified: local secure-cookie compose-smoke remains blocked by the development stack using `SESSION_COOKIE_SECURE=false`; local `gitleaks` is not installed, so `secret-scan` remains CI-only plus local grep hygiene; `image-security-and-sbom` remains CI-only Trivy/SBOM follow-through.
+- Files changed: version metadata/manifests, generated public compose, migration/init schema, event route/validation/OpenAPI contracts, event social smoke/unit coverage, Events drawer UI, Playwright Event browser spec, release note/feed, roadmap/backlog/catalog docs, local preflight, and observability evidence artifacts.
+- Risks/follow-ups: this remains Event-local identity only; native device identity, push/email delivery, friend discovery, reciprocal friend relationships, global notification inboxes, realtime presence/location, and offline queued sends remain future milestones.
+- What remains in the milestone: no remaining 3.4.61 implementation work; CI-only release gates must pass before public tag/release publication.
+- Recommended commit message: `Release 3.4.61 event schedule user-linked attendee identity`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

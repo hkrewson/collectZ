@@ -90,7 +90,7 @@ const serializePurchasedItemRecord = (row) => ({
 
 const ARTIFACT_DB_FIELDS = ['artifact_type', 'title', 'description', 'image_path', 'price', 'vendor'];
 const ARTIFACT_SIGNATURE_FIELDS = ['signer_name', 'signer_role', 'signed_on', 'signed_at', 'signature_notes', 'proof_path'];
-const EVENT_ATTENDEE_FIELDS = ['display_name', 'contact_label', 'relationship', 'status', 'visibility', 'notes'];
+const EVENT_ATTENDEE_FIELDS = ['user_id', 'display_name', 'contact_label', 'relationship', 'status', 'visibility', 'notes'];
 const EVENT_GROUP_FIELDS = ['name', 'visibility', 'status', 'notes'];
 const EVENT_MEETUP_FIELDS = ['group_id', 'title', 'start_at', 'end_at', 'location', 'vendor', 'booth', 'location_notes', 'status', 'visibility', 'notes'];
 const EVENT_SCHEDULE_PLAN_FIELDS = [
@@ -257,6 +257,33 @@ async function ensureEventSocialGroup(eventId, groupId) {
   return result.rows[0] || null;
 }
 
+function normalizeEventAttendeeBody(body = {}, req = {}) {
+  const next = { ...body };
+  if (next.link_current_user) {
+    next.user_id = req.user?.id || null;
+  }
+  delete next.link_current_user;
+  if (Object.prototype.hasOwnProperty.call(next, 'user_id')) {
+    const userId = next.user_id === null || next.user_id === undefined ? null : Number(next.user_id);
+    if (userId && userId !== Number(req.user?.id || 0) && req.user?.role !== 'admin') {
+      const error = new Error('Only admins can link an attendee to another user');
+      error.status = 403;
+      throw error;
+    }
+    next.user_id = userId || null;
+  }
+  return next;
+}
+
+function isDuplicateEventAttendeeUserLinkError(err) {
+  return err?.code === '23505' && String(err?.constraint || '').includes('idx_event_attendees_event_user_active');
+}
+
+function handleDuplicateEventAttendeeUserLink(res, err) {
+  if (!isDuplicateEventAttendeeUserLinkError(err)) throw err;
+  return res.status(409).json({ error: 'This app user is already linked to an attendee for this event' });
+}
+
 function buildInsertSql({ table, eventId, fields, body, userId }) {
   const columns = ['event_id'];
   const placeholders = ['$1'];
@@ -328,6 +355,8 @@ async function attachMembersToGroups(groups = []) {
   const memberResult = await pool.query(
     `SELECT egm.group_id,
             ea.id,
+            ea.user_id,
+            u.name AS linked_user_name,
             ea.display_name,
             ea.contact_label,
             ea.relationship,
@@ -335,6 +364,7 @@ async function attachMembersToGroups(groups = []) {
             ea.visibility
        FROM event_group_members egm
        JOIN event_attendees ea ON ea.id = egm.attendee_id
+       LEFT JOIN users u ON u.id = ea.user_id
       WHERE egm.group_id = ANY($1::int[])
         AND ea.archived_at IS NULL
       ORDER BY ea.display_name ASC, ea.id ASC`,
@@ -346,6 +376,11 @@ async function attachMembersToGroups(groups = []) {
     if (!membersByGroup.has(key)) membersByGroup.set(key, []);
     membersByGroup.get(key).push({
       id: row.id,
+      user_id: row.user_id || null,
+      linked_user: row.user_id ? {
+        id: row.user_id,
+        name: row.linked_user_name || null
+      } : null,
       display_name: row.display_name,
       contact_label: row.contact_label || null,
       relationship: row.relationship || null,
@@ -388,12 +423,20 @@ async function loadScheduleChangeRecipients(eventId, visibility = 'private') {
   }
   const [attendeeResult, groupResult] = await Promise.all([
     pool.query(
-      `SELECT id, display_name, contact_label, relationship, status, visibility
-         FROM event_attendees
-        WHERE event_id = $1
-          AND archived_at IS NULL
-          AND status <> 'not_attending'
-        ORDER BY display_name ASC, id ASC`,
+      `SELECT ea.id,
+              ea.user_id,
+              u.name AS linked_user_name,
+              ea.display_name,
+              ea.contact_label,
+              ea.relationship,
+              ea.status,
+              ea.visibility
+         FROM event_attendees ea
+         LEFT JOIN users u ON u.id = ea.user_id
+        WHERE ea.event_id = $1
+          AND ea.archived_at IS NULL
+          AND ea.status <> 'not_attending'
+        ORDER BY ea.display_name ASC, ea.id ASC`,
       [eventId]
     ),
     pool.query(
@@ -532,6 +575,11 @@ async function buildScheduleChangePreview({ eventId, schedulePlanId = null, cata
     recipients: {
       attendees: recipients.attendees.map((attendee) => ({
         id: attendee.id,
+        user_id: attendee.user_id || null,
+        linked_user: attendee.user_id ? {
+          id: attendee.user_id,
+          name: attendee.linked_user_name || null
+        } : null,
         display_name: attendee.display_name,
         contact_label: attendee.contact_label || null,
         relationship: attendee.relationship || null,
@@ -699,6 +747,12 @@ function serializeScheduleNotificationRecipient(row = {}) {
     attendee_id: row.attendee_id || null,
     group_id: row.group_id || null,
     recipient: row.recipient_snapshot || {},
+    linked_user_id: row.linked_user_id || null,
+    linked_user: row.linked_user_id ? {
+      id: row.linked_user_id,
+      name: row.linked_user_name || null
+    } : null,
+    current_user_recipient: Boolean(row.current_user_recipient),
     read_status: row.read_status || 'unread',
     read_at: row.read_at || null,
     acknowledged_at: row.acknowledged_at || null,
@@ -2037,14 +2091,23 @@ router.get('/events/:id/attendees', asyncHandler(async (req, res) => {
   if (!eventRow) return res.status(404).json({ error: 'Event not found' });
 
   const result = await pool.query(
-    `SELECT *
-       FROM event_attendees
-      WHERE event_id = $1
-        AND archived_at IS NULL
-      ORDER BY display_name ASC, id ASC`,
-    [eventId]
+      `SELECT ea.*,
+              u.name AS linked_user_name,
+              (ea.user_id = $2)::boolean AS current_user_attendee
+         FROM event_attendees ea
+         LEFT JOIN users u ON u.id = ea.user_id
+        WHERE ea.event_id = $1
+          AND ea.archived_at IS NULL
+        ORDER BY ea.display_name ASC, ea.id ASC`,
+    [eventId, req.user.id]
   );
-  res.json({ items: result.rows });
+  res.json({ items: result.rows.map((row) => ({
+    ...row,
+    linked_user: row.user_id ? {
+      id: row.user_id,
+      name: row.linked_user_name || null
+    } : null
+  })) });
 }));
 
 router.post('/events/:id/attendees', validate(eventAttendeeCreateSchema), asyncHandler(async (req, res) => {
@@ -2053,14 +2116,20 @@ router.post('/events/:id/attendees', validate(eventAttendeeCreateSchema), asyncH
   const eventRow = await ensureScopedEvent(scopeContext, eventId);
   if (!eventRow) return res.status(404).json({ error: 'Event not found' });
 
+  const body = normalizeEventAttendeeBody(req.body, req);
   const insert = buildInsertSql({
     table: 'event_attendees',
     eventId,
     fields: EVENT_ATTENDEE_FIELDS,
-    body: req.body,
+    body,
     userId: req.user.id
   });
-  const result = await pool.query(insert.sql, insert.values);
+  let result;
+  try {
+    result = await pool.query(insert.sql, insert.values);
+  } catch (err) {
+    return handleDuplicateEventAttendeeUserLink(res, err);
+  }
   await logActivity(req, 'events.attendee.create', 'event', eventId, { attendeeId: result.rows[0].id });
   res.status(201).json(result.rows[0]);
 }));
@@ -2072,15 +2141,21 @@ router.patch('/events/:id/attendees/:attendeeId', validate(eventAttendeeUpdateSc
   const eventRow = await ensureScopedEvent(scopeContext, eventId);
   if (!eventRow) return res.status(404).json({ error: 'Event not found' });
 
+  const body = normalizeEventAttendeeBody(req.body, req);
   const update = buildUpdateSql({
     table: 'event_attendees',
     idColumn: 'id',
     id: attendeeId,
     eventId,
     fields: EVENT_ATTENDEE_FIELDS,
-    body: req.body
+    body
   });
-  const result = await pool.query(update.sql, update.values);
+  let result;
+  try {
+    result = await pool.query(update.sql, update.values);
+  } catch (err) {
+    return handleDuplicateEventAttendeeUserLink(res, err);
+  }
   if (!result.rows[0]) return res.status(404).json({ error: 'Attendee not found' });
   await logActivity(req, 'events.attendee.update', 'event', eventId, { attendeeId });
   res.json(result.rows[0]);
@@ -2418,9 +2493,13 @@ router.get('/events/:id/schedule-notification-inbox', asyncHandler(async (req, r
   const eventId = parsePositiveId(req.params.id, 'event id');
   const eventRow = await ensureScopedEvent(scopeContext, eventId);
   if (!eventRow) return res.status(404).json({ error: 'Event not found' });
+  const mineOnly = String(req.query.recipient || '').trim().toLowerCase() === 'me';
 
   const result = await pool.query(
     `SELECT r.*,
+            ea.user_id AS linked_user_id,
+            u.name AS linked_user_name,
+            (ea.user_id = $2)::boolean AS current_user_recipient,
             n.status AS notification_status,
             n.requested_status,
             n.requested_visibility,
@@ -2436,26 +2515,34 @@ router.get('/events/:id/schedule-notification-inbox', asyncHandler(async (req, r
        JOIN event_schedule_notifications n
          ON n.id = r.notification_id
         AND n.archived_at IS NULL
+       LEFT JOIN event_attendees ea
+         ON ea.id = r.attendee_id
+        AND ea.archived_at IS NULL
+       LEFT JOIN users u
+         ON u.id = ea.user_id
       WHERE r.event_id = $1
         AND r.archived_at IS NULL
         AND n.status = 'sent'
+        AND ($3::boolean = FALSE OR ea.user_id = $2)
       ORDER BY
         CASE r.read_status WHEN 'unread' THEN 0 WHEN 'read' THEN 1 ELSE 2 END,
         COALESCE(n.sent_at, n.created_at) DESC,
         r.id DESC
       LIMIT 100`,
-    [eventId]
+    [eventId, req.user.id, mineOnly]
   );
   const items = result.rows.map(serializeScheduleNotificationRecipient).filter(Boolean);
   const counts = items.reduce((acc, item) => {
     acc.total += 1;
     acc[item.read_status] = (acc[item.read_status] || 0) + 1;
+    if (item.current_user_recipient) acc.mine += 1;
     return acc;
-  }, { total: 0, unread: 0, read: 0, acknowledged: 0 });
+  }, { total: 0, unread: 0, read: 0, acknowledged: 0, mine: 0 });
   res.json({
     contract: {
       version: 'event-schedule-notification-inbox.v1',
       scope: 'event_local',
+      current_user_filter_supported: true,
       external_delivery_supported: false,
       readback_supported: true,
       limitations: [

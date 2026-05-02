@@ -809,6 +809,7 @@ CREATE TABLE IF NOT EXISTS event_purchased_items (
 CREATE TABLE IF NOT EXISTS event_attendees (
     id SERIAL PRIMARY KEY,
     event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
     display_name VARCHAR(255) NOT NULL,
     contact_label VARCHAR(255),
     relationship VARCHAR(100),
@@ -1185,6 +1186,8 @@ CREATE INDEX IF NOT EXISTS idx_event_purchased_items_event_created ON event_purc
 CREATE INDEX IF NOT EXISTS idx_event_purchased_items_item_lookup ON event_purchased_items(item_type, item_id, created_at DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_event_purchased_items_active_unique ON event_purchased_items(event_id, item_type, item_id) WHERE archived_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_event_attendees_event_active ON event_attendees(event_id, archived_at, display_name);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_event_attendees_event_user_active ON event_attendees(event_id, user_id) WHERE user_id IS NOT NULL AND archived_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_event_attendees_user_active ON event_attendees(user_id, archived_at) WHERE user_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_event_groups_event_active ON event_groups(event_id, archived_at, name);
 CREATE INDEX IF NOT EXISTS idx_event_group_members_group ON event_group_members(group_id);
 CREATE INDEX IF NOT EXISTS idx_event_group_members_attendee ON event_group_members(attendee_id);
@@ -1510,5 +1513,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (88, 'Add event schedule catalog sessions'),
     (89, 'Link personal Sched plans to catalog sessions'),
     (90, 'Add event schedule notification draft and send records'),
-    (91, 'Add event schedule notification recipient readback')
+    (91, 'Add event schedule notification recipient readback'),
+    (92, 'Add user-linked event attendee identity')
 ON CONFLICT (version) DO NOTHING;

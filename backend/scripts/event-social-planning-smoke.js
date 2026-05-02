@@ -148,7 +148,7 @@ async function main() {
       method: 'POST',
       withCsrf: true,
       expectStatus: 201,
-      body: JSON.stringify({ display_name: 'Reid', relationship: 'friend', status: 'attending', visibility: 'selected_people' }),
+      body: JSON.stringify({ display_name: 'Reid', relationship: 'friend', link_current_user: true, status: 'attending', visibility: 'selected_people' }),
       headers: { 'Content-Type': 'application/json' }
     });
     const attendeeId = Number(attendee?.data?.id || 0);
@@ -262,6 +262,7 @@ async function main() {
     assert(changePreview.data?.recipients?.summary?.group_count === 1, `Expected one preview group recipient, got ${JSON.stringify(changePreview.data)}`);
     assert(changePreview.data?.subject?.schedule_plan_id === planId, `Expected preview subject plan id, got ${JSON.stringify(changePreview.data)}`);
     assert(changePreview.data?.requested_change?.status === 'planned', `Expected requested preview status, got ${JSON.stringify(changePreview.data)}`);
+    assert(changePreview.data?.recipients?.attendees?.[0]?.user_id === userId, `Expected preview attendee linked user id, got ${JSON.stringify(changePreview.data)}`);
 
     const notificationDraft = await client.request(`/api/events/${eventId}/schedule-notifications`, {
       method: 'POST',
@@ -312,7 +313,7 @@ async function main() {
       headers: { 'Content-Type': 'application/json' }
     });
 
-    const [attendees, groups, meetups, plans, catalog, notifications, notificationInbox, companion] = await Promise.all([
+    const [attendees, groups, meetups, plans, catalog, notifications, notificationInbox, myNotificationInbox, companion] = await Promise.all([
       client.request(`/api/events/${eventId}/attendees`, { expectStatus: 200 }),
       client.request(`/api/events/${eventId}/groups`, { expectStatus: 200 }),
       client.request(`/api/events/${eventId}/meetups`, { expectStatus: 200 }),
@@ -320,11 +321,15 @@ async function main() {
       client.request(`/api/events/${eventId}/schedule-sessions`, { expectStatus: 200 }),
       client.request(`/api/events/${eventId}/schedule-notifications`, { expectStatus: 200 }),
       client.request(`/api/events/${eventId}/schedule-notification-inbox`, { expectStatus: 200 }),
+      client.request(`/api/events/${eventId}/schedule-notification-inbox?recipient=me`, { expectStatus: 200 }),
       client.request(`/api/events/${eventId}/companion/today`, { expectStatus: 200 })
     ]);
 
     assert(attendees.data.items.length === 1, `Expected one attendee, got ${JSON.stringify(attendees.data)}`);
+    assert(attendees.data.items[0]?.user_id === userId, `Expected attendee linked to current user, got ${JSON.stringify(attendees.data)}`);
+    assert(attendees.data.items[0]?.current_user_attendee === true, `Expected attendee current user readback, got ${JSON.stringify(attendees.data)}`);
     assert(groups.data.items[0]?.members?.length === 1, `Expected one group member, got ${JSON.stringify(groups.data)}`);
+    assert(groups.data.items[0]?.members?.[0]?.user_id === userId, `Expected group member linked user readback, got ${JSON.stringify(groups.data)}`);
     assert(meetups.data.items[0]?.status === 'done', `Expected updated meetup status, got ${JSON.stringify(meetups.data)}`);
     assert(meetups.data.items[0]?.vendor === 'Lobby Grill', `Expected updated meetup vendor, got ${JSON.stringify(meetups.data)}`);
     assert(meetups.data.items[0]?.booth === 'L-5', `Expected updated meetup booth, got ${JSON.stringify(meetups.data)}`);
@@ -343,6 +348,9 @@ async function main() {
     assert(notificationInbox.data?.contract?.version === 'event-schedule-notification-inbox.v1', `Expected notification inbox contract, got ${JSON.stringify(notificationInbox.data)}`);
     assert(notificationInbox.data?.counts?.total === 2, `Expected two local inbox recipient records, got ${JSON.stringify(notificationInbox.data)}`);
     assert(notificationInbox.data?.counts?.unread === 2, `Expected unread local recipient records, got ${JSON.stringify(notificationInbox.data)}`);
+    assert(notificationInbox.data?.counts?.mine === 1, `Expected one linked current-user inbox recipient, got ${JSON.stringify(notificationInbox.data)}`);
+    assert(myNotificationInbox.data?.counts?.total === 1, `Expected one current-user filtered inbox recipient, got ${JSON.stringify(myNotificationInbox.data)}`);
+    assert(myNotificationInbox.data?.items?.[0]?.current_user_recipient === true, `Expected current-user filtered inbox item, got ${JSON.stringify(myNotificationInbox.data)}`);
     const acknowledgedRecipient = await client.request(`/api/events/${eventId}/schedule-notification-inbox/${notificationInbox.data.items[0].id}`, {
       method: 'PATCH',
       withCsrf: true,
@@ -388,6 +396,7 @@ async function main() {
       updatedScheduleCatalogStatus: catalog.data.items[0]?.status || null,
       scheduleNotificationCount: notifications.data.items.length,
       scheduleNotificationInboxCount: notificationInbox.data?.counts?.total || 0,
+      linkedScheduleNotificationInboxCount: myNotificationInbox.data?.counts?.total || 0,
       sentScheduleNotificationStatus: notificationSent.data?.status || null,
       companionContract: companion.data?.contract?.version || null,
       previewRecipientCount: changePreview.data?.recipients?.summary?.attendee_count || 0
