@@ -3739,8 +3739,10 @@ results.push(run('event social planning foundation contract is wired for 3.4.30'
   assert.ok(eventsViewSource.includes('Notification delivery boundary'));
   assert.ok(eventsViewSource.includes('Notification inbox filter'));
   assert.ok(eventsViewSource.includes('recipient=me'));
-  assert.ok(eventsViewSource.includes('Link this attendee to my app user'));
+  assert.ok(eventsViewSource.includes('Add yourself to this event'));
+  assert.ok(eventsViewSource.includes('Add me as ${selfAttendeeSuggestedName}'));
   assert.ok(eventsViewSource.includes('Linked to you'));
+  assert.ok(eventsViewSource.includes('Use this form for other people.'));
   assert.ok(eventsViewSource.includes('/events/${eventId}/schedule-notification-inbox'));
   assert.ok(eventsViewSource.includes('Send local notice'));
   assert.ok(eventsViewSource.includes('Schedule notification recipients'));

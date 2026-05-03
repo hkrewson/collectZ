@@ -5,6 +5,7 @@ const {
   ensureSavedAdminCredentials,
   createFreshUserCredentials,
   createAuthenticatedRequestContext,
+  addPlaywrightBypassCookie,
   fetchCsrfToken,
   requestWithCsrf,
   postWithCsrf,
@@ -20,6 +21,8 @@ const {
   deleteCollectiblesByExactTitle,
   deleteArtByExactTitle
 } = require('../helpers/eventsCollectibles');
+
+const escapeRegExp = (value) => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
@@ -47,6 +50,7 @@ test.describe('events and collectibles browser regressions', () => {
     const adminRequestContext = await createAuthenticatedRequestContext(adminCredentials);
     const userCredentials = await createFreshUserCredentials();
     const userRequestContext = await createAuthenticatedRequestContext(userCredentials);
+    const expectedSelfName = String(userCredentials?.name || 'You').trim() || 'You';
     const suffix = Date.now();
     const eventTitle = `Playwright Mobile Social Event ${suffix}`;
     const originalFlagsPayload = await getFeatureFlags(adminRequestContext);
@@ -109,13 +113,23 @@ test.describe('events and collectibles browser regressions', () => {
         visibility: 'event_workspace'
       }, 201);
 
+      const sessionToken = userRequestContext.__collectzCookieJar?.get('session_token');
+      expect(sessionToken).toBeTruthy();
+
       await page.setViewportSize({ width: 390, height: 844 });
-      await signInThroughUi(page, userCredentials);
+      await addPlaywrightBypassCookie(page.context());
+      await page.context().addCookies([{
+        name: 'session_token',
+        value: sessionToken,
+        url: 'http://localhost:3000',
+        sameSite: 'Lax'
+      }]);
       await page.goto('/dashboard?tab=library-events');
       await expect(page.getByRole('heading', { name: 'Events' })).toBeVisible();
       await page.getByPlaceholder('Search title or location…').fill(eventTitle);
-      await expect(page.getByText(eventTitle, { exact: true }).first()).toBeVisible();
-      await page.locator('article').filter({ hasText: eventTitle }).first().click();
+      const eventCard = page.locator('article').filter({ hasText: eventTitle }).first();
+      await expect(eventCard).toBeVisible();
+      await eventCard.locator('p').filter({ hasText: eventTitle }).first().click();
       await expect(page.getByRole('heading', { name: eventTitle })).toBeVisible();
 
       const overview = page.getByLabel('Mobile event social overview');
@@ -148,6 +162,96 @@ test.describe('events and collectibles browser regressions', () => {
       const meetupRow = page.locator('details details').filter({ hasText: 'Meet outside Hall H' }).first();
       await meetupRow.locator('summary').click();
       await expect(meetupRow.getByText('Related group')).toBeVisible();
+    } finally {
+      await deleteEventsByExactTitle(userRequestContext, eventTitle).catch(() => {});
+      if (!originalEventsEnabled) {
+        await updateFeatureFlag(adminRequestContext, 'events_enabled', false).catch(() => {});
+      }
+      await userRequestContext.dispose();
+      await adminRequestContext.dispose();
+    }
+  });
+
+  test('event drawer uses add me for the signed-in attendee and keeps the generic people form for others', async ({ page }) => {
+    const adminCredentials = await ensureSavedAdminCredentials();
+    const adminRequestContext = await createAuthenticatedRequestContext(adminCredentials);
+    const userCredentials = await createFreshUserCredentials();
+    const userRequestContext = await createAuthenticatedRequestContext(userCredentials);
+    const expectedSelfName = String(userCredentials?.name || 'You').trim() || 'You';
+    const suffix = Date.now();
+    const eventTitle = `Playwright Self Attendee Event ${suffix}`;
+    const originalFlagsPayload = await getFeatureFlags(adminRequestContext);
+    const originalFlags = Array.isArray(originalFlagsPayload?.flags) ? originalFlagsPayload.flags : [];
+    const originalEventsEnabled = Boolean(originalFlags.find((flag) => flag?.key === 'events_enabled')?.enabled);
+
+    await deleteEventsByExactTitle(userRequestContext, eventTitle).catch(() => {});
+
+    try {
+      if (!originalEventsEnabled) {
+        await updateFeatureFlag(adminRequestContext, 'events_enabled', true);
+      }
+
+      const eventResponse = await postWithCsrf(userRequestContext, '/api/events', {
+        title: eventTitle,
+        url: `https://example.test/self-attendee/${suffix}`,
+        location: 'San Diego Convention Center',
+        date_start: '2026-07-23',
+        date_end: '2026-07-26'
+      }, 201);
+      const eventPayload = await eventResponse.json();
+      const eventId = Number(eventPayload?.id || 0);
+      expect(eventId).toBeGreaterThan(0);
+
+      const sessionToken = userRequestContext.__collectzCookieJar?.get('session_token');
+      expect(sessionToken).toBeTruthy();
+
+      await page.setViewportSize({ width: 390, height: 844 });
+      await addPlaywrightBypassCookie(page.context());
+      await page.context().addCookies([{
+        name: 'session_token',
+        value: sessionToken,
+        url: 'http://localhost:3000',
+        sameSite: 'Lax'
+      }]);
+      await page.goto('/dashboard?tab=library-events');
+      await expect(page.getByRole('heading', { name: 'Events' })).toBeVisible();
+      await page.getByRole('button', { name: 'List' }).click();
+      await page.getByPlaceholder('Search title or location…').fill(eventTitle);
+      const matchingEventCards = page.locator('article').filter({ hasText: eventTitle });
+      await expect(matchingEventCards).toHaveCount(1);
+      const eventCard = matchingEventCards.first();
+      await expect(eventCard).toBeVisible();
+      await eventCard.click();
+      await expect(page.getByRole('heading', { name: eventTitle })).toBeVisible();
+
+      const peoplePanel = page.locator('summary').filter({ hasText: /^People/ }).locator('xpath=..').first();
+      await peoplePanel.locator('summary').first().click();
+      await expect(peoplePanel.getByText('No attendees yet.')).toBeVisible();
+      await expect(peoplePanel.getByText('Add yourself to this event')).toBeVisible();
+      const addMeButtonName = new RegExp(`^Add me as ${escapeRegExp(expectedSelfName)}$`);
+      await expect(peoplePanel.getByRole('button', { name: addMeButtonName })).toBeVisible();
+      await expect(peoplePanel.getByPlaceholder('Name')).toBeVisible();
+      await expect(peoplePanel.getByPlaceholder('Relationship')).toBeVisible();
+      await expect(peoplePanel.getByText('Use this form for other people.')).toBeVisible();
+      await expect(peoplePanel.getByText('Link this attendee to my app user')).toHaveCount(0);
+
+      await peoplePanel.getByRole('button', { name: addMeButtonName }).click();
+      await expect(page.getByText('You were added to this event')).toBeVisible();
+      await expect(peoplePanel.getByText('No attendees yet.')).toHaveCount(0);
+      await expect(peoplePanel.getByText('Add yourself to this event')).toHaveCount(0);
+
+      const attendeeRow = peoplePanel.locator('details').filter({ hasText: expectedSelfName }).first();
+      await expect(attendeeRow.locator('summary').getByText(expectedSelfName)).toBeVisible();
+      await expect(attendeeRow.locator('summary').getByText('You', { exact: true })).toBeVisible();
+      await expect(attendeeRow.locator('summary').getByText('Linked to you')).toBeVisible();
+
+      const attendeesResponse = await userRequestContext.get(`/api/events/${eventId}/attendees`);
+      expect(attendeesResponse.ok()).toBeTruthy();
+      const attendeesPayload = await attendeesResponse.json();
+      expect(Array.isArray(attendeesPayload.items)).toBeTruthy();
+      expect(attendeesPayload.items).toHaveLength(1);
+      expect(attendeesPayload.items[0]?.display_name).toBe(expectedSelfName);
+      expect(attendeesPayload.items[0]?.current_user_attendee).toBe(true);
     } finally {
       await deleteEventsByExactTitle(userRequestContext, eventTitle).catch(() => {});
       if (!originalEventsEnabled) {

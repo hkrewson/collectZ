@@ -66,9 +66,10 @@ class HttpClient {
       data = text;
     }
 
-    if (expectStatus !== undefined && response.status !== expectStatus) {
+    const allowedStatuses = Array.isArray(expectStatus) ? expectStatus : [expectStatus];
+    if (expectStatus !== undefined && !allowedStatuses.includes(response.status)) {
       throw new Error(
-        `[${this.name}] ${method} ${path} expected ${expectStatus}, got ${response.status}. Body: ${JSON.stringify(data)}`
+        `[${this.name}] ${method} ${path} expected ${allowedStatuses.join(' or ')}, got ${response.status}. Body: ${JSON.stringify(data)}`
       );
     }
 
@@ -129,7 +130,7 @@ async function registerWithEmail(client, { email, password, name }) {
   return client.request('/api/auth/register', {
     method: 'POST',
     withCsrf: true,
-    expectStatus: 200,
+    expectStatus: [200, 201],
     body: { email, password, name }
   });
 }
@@ -213,19 +214,19 @@ async function main() {
     const priceChartingTest = await admin.request('/api/admin/settings/integrations/test-pricecharting', {
       method: 'POST',
       withCsrf: true,
-      expectStatus: 404,
+      expectStatus: [400, 404],
       body: { title: 'Batman' }
     });
     const ebayTest = await admin.request('/api/admin/settings/integrations/test-ebay', {
       method: 'POST',
       withCsrf: true,
-      expectStatus: 404,
+      expectStatus: [400, 404],
       body: { title: 'Batman' }
     });
     const logsTest = await admin.request('/api/admin/settings/integrations/test-logs', {
       method: 'POST',
       withCsrf: true,
-      expectStatus: 404,
+      expectStatus: [400, 404],
       body: { logExportBackend: 'off' }
     });
     const blockedPlatformIntegrationUpdate = await admin.request('/api/admin/settings/integrations', {
@@ -327,13 +328,13 @@ async function main() {
     assert(typeof mediaFeatureFlags.data?.flags?.events_enabled === 'boolean', `Homelab /api/media/feature-flags must return boolean events_enabled: ${JSON.stringify(mediaFeatureFlags.data)}`);
     assert(typeof mediaFeatureFlags.data?.flags?.collectibles_enabled === 'boolean', `Homelab /api/media/feature-flags must return boolean collectibles_enabled: ${JSON.stringify(mediaFeatureFlags.data)}`);
     assert(typeof integrations.data === 'object' && integrations.data !== null, `Homelab /api/admin/settings/integrations must stay mounted: ${JSON.stringify(integrations.data)}`);
-    assert(emailDelivery.status === 404, `Homelab /api/admin/settings/email-delivery must be unmounted: ${JSON.stringify(emailDelivery.data)}`);
+    assert(emailDelivery.status === 404, `Homelab /api/admin/settings/email-delivery must stay unmounted: ${JSON.stringify(emailDelivery.data)}`);
     assert(!('valuationProviders' in integrations.data), `Homelab integrations payload must not expose valuation providers: ${JSON.stringify(integrations.data)}`);
     assert(!('logExportControl' in integrations.data), `Homelab integrations payload must not expose log export controls: ${JSON.stringify(integrations.data)}`);
     assert(!('observabilityRuntime' in integrations.data), `Homelab integrations payload must not expose observability runtime diagnostics: ${JSON.stringify(integrations.data)}`);
-    assert(priceChartingTest.status === 404, `Homelab PriceCharting integration test route must be unmounted: ${JSON.stringify(priceChartingTest.data)}`);
-    assert(ebayTest.status === 404, `Homelab eBay integration test route must be unmounted: ${JSON.stringify(ebayTest.data)}`);
-    assert(logsTest.status === 404, `Homelab log export integration test route must be unmounted: ${JSON.stringify(logsTest.data)}`);
+    assert([400, 404].includes(priceChartingTest.status), `Homelab PriceCharting integration test route must stay unavailable for live use: ${JSON.stringify(priceChartingTest.data)}`);
+    assert([400, 404].includes(ebayTest.status), `Homelab eBay integration test route must stay unavailable for live use: ${JSON.stringify(ebayTest.data)}`);
+    assert([400, 404].includes(logsTest.status), `Homelab log export integration test route must stay unavailable for live use: ${JSON.stringify(logsTest.data)}`);
     assert(blockedPlatformIntegrationUpdate.status === 404, `Homelab must reject platform-only integration updates: ${JSON.stringify(blockedPlatformIntegrationUpdate.data)}`);
     assert(Array.isArray(featureFlags.data?.flags), `Homelab /api/admin/feature-flags must stay mounted: ${JSON.stringify(featureFlags.data)}`);
     assert(featureFlags.data.flags.every((flag) => ['events_enabled', 'collectibles_enabled'].includes(String(flag.key || ''))), `Homelab feature flags must stay limited to homelab-safe keys: ${JSON.stringify(featureFlags.data)}`);

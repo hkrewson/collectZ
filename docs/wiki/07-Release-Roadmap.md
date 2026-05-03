@@ -8305,6 +8305,43 @@ Historical note:
 - What remains in the milestone: no remaining `3.4.78` implementation work; CI-only release gates must pass before public tag/release publication.
 - Recommended commit message: `Release 3.4.78 event-local social editability polish`
 
+## 3.4.79 — Event Self-Attendee Auto-Link and Add Me Flow
+
+**Goal:** Keep Event attendee ownership and Event-local social planning exactly where they are, but remove the awkward manual self-linking step by giving the signed-in user a first-class `Add me` path.
+
+**Current Slice:** `Version Closeout completed.`
+
+### Scope
+
+- Keep the existing Event-local attendee backend model, ownership fields, and `user_id` linkage behavior from `3.4.61`.
+- Replace the generic attendee-form self-link checkbox with an explicit `Add me` action for the current signed-in user.
+- Auto-fill the self-attendee display name from the current app user when available.
+- Keep the generic People form focused on adding other attendees only.
+- Add browser coverage that proves the Event drawer can add the signed-in user as `You` without surfacing the old manual checkbox.
+- Keep external contact identity models, cross-event identity, native companion social mutation UX, and broader friend-graph work out of scope.
+
+### Acceptance Criteria
+
+- The People panel offers an explicit `Add me` path when the current signed-in user does not yet have an attendee row for the Event.
+- Using `Add me` creates a linked attendee row for the current app user without asking the user to toggle a manual checkbox.
+- Once created, the attendee reads back as `You` / `Linked to you`.
+- The generic attendee form remains available for adding other people and no longer presents the old self-link checkbox.
+- Browser coverage proves the self-attendee path and API readback on a live Event drawer.
+
+### Closeout
+
+- Roadmap slice: `3.4.79 — Event Self-Attendee Auto-Link and Add Me Flow`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, and `docs/wiki/40-Event-Social-Planning-Foundation.md`.
+- Runtime verification used: rebuilt and recreated the local platform stack through Docker with `APP_VERSION=3.4.79`; verified `/api/health` reports frontend/backend/build `3.4.79`; verified the running platform container env reports `APP_EDITION=platform`, `APP_VERSION=3.4.79`, `NODE_ENV=development`, and `SESSION_COOKIE_SECURE=false`; verified `events_enabled=true` in the live DB; temporarily brought the platform override down, started the generated public compose plus `.ci/docker-compose.build.yml`, verified `/api/auth/config` reports `product_edition=homelab` with `workspace_surface=false`, ran the homelab boundary smoke against that clean stack, then restored the local platform stack and rechecked `/api/health`.
+- CI/checks run: local backend unit/source assertions (`231` passed); local OpenAPI validation; container backend unit tests; container OpenAPI validation; container `test:event-social-planning-smoke` with `BASE_URL=http://frontend:3000`; container `test:init-parity`; container `test:migration-rehearsal`; container `test:help-releases-smoke` with `BASE_URL=http://frontend:3000` and `EXPECTED_RELEASE_VERSION=v3.4.79`; container `test:rbac-regression` with `BASE_URL=http://frontend:3000`; container `test:platform-edition-boundary` with `BASE_URL=http://frontend:3000`; generated-compose `test:homelab-edition-boundary`; full browser regression via `PLAYWRIGHT_E2E_BYPASS_TOKEN=<redacted> npm run test:browser` (`57 passed`, `4 skipped`); targeted Event browser regression for the new `Add me` flow (`14 passed` in `events-collectibles.browser.spec.js`); `docker compose --env-file .env config`; idempotent `npm run compose:generate`; `npm run validate:public-export`; backend/frontend `npm ci --no-fund --dry-run`; `npm --prefix backend run test:observability-evidence`; `npm --prefix backend run test:release-preflight-local`; release-artifact secret-pattern grep over `docs/releases/v3.4.79.md`, `backend/release-feed.json`, `preflight-go-no-go.md`, and `artifacts`; and `git diff --check`.
+- Release artifacts: `app-meta.json`, backend/frontend app meta, backend/frontend package and lockfile versions, generated `docker-compose.yml`, `docs/releases/v3.4.79.md`, and `backend/release-feed.json` are aligned on `3.4.79`; the running Help > Releases feed serves `v3.4.79` first; `preflight-go-no-go.md` was regenerated; `artifacts/observability-evidence/observability-release-evidence.json` reports `3.4.79` with `9/9` checks passed.
+- Verified facts: the Event drawer People panel now shows a dedicated `Add me` callout when no current-user attendee exists; the generic attendee form now reads as an “other people” path and no longer exposes the old self-link checkbox; using `Add me` creates a linked attendee row that reads back as `You` and `Linked to you`; the full browser suite proves the new flow without regressing adjacent Event or collectible workflows.
+- Blocked/unverified: local release preflight still marks secure-cookie compose-smoke conditions blocked because the dev stack intentionally runs `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`; CI-only `secret-scan` and `image-security-and-sbom` still need GitHub Actions follow-through; the local preflight helper still marks browser regression blocked because that helper does not execute Playwright itself even though full browser regression passed separately.
+- Files changed: `app-meta.json`, `backend/app-meta.json`, `frontend/src/app-meta.json`, `backend/package.json`, `frontend/package.json`, `backend/package-lock.json`, `frontend/package-lock.json`, `backend/release-feed.json`, `frontend/src/components/EventsView.jsx`, `frontend/src/components/app/DashboardContent.jsx`, `tests/playwright/specs/events-collectibles.browser.spec.js`, `backend/scripts/unit-tests.js`, `backend/scripts/homelab-edition-boundary-smoke.js`, `docker-compose.yml`, `docs/releases/v3.4.79.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `artifacts/observability-evidence/observability-release-evidence.json`, and `preflight-go-no-go.md`.
+- Risks or follow-ups: this keeps the Event-local attendee ownership model intact and only improves self-identity UX; external contact identities, cross-event identity, native companion social mutation UX, realtime presence, and a broader friend graph remain separate work.
+- What remains in the milestone: no remaining `3.4.79` implementation work; CI-only release gates must pass before public tag/release publication.
+- Recommended commit message: `Release 3.4.79 event self-attendee auto-link and add me flow`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

@@ -134,7 +134,7 @@ export default function DashboardContent({
         return <CollectiblesView key={`collectibles:${scopeKey}`} apiCall={apiCall} onToast={showToast} />;
       }
       if (activeTab === 'library-events') {
-        return <EventsView key={`events:${scopeKey}`} apiCall={apiCall} onToast={showToast} />;
+        return <EventsView key={`events:${scopeKey}`} apiCall={apiCall} onToast={showToast} currentUser={user} />;
       }
       if (activeTab === 'library-loans') {
         return (

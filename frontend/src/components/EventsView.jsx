@@ -31,7 +31,6 @@ const DEFAULT_ARTIFACT_FORM = {
 const EMPTY_SOCIAL_FORM = {
   attendeeName: '',
   attendeeRelationship: '',
-  attendeeLinkCurrentUser: false,
   groupName: '',
   meetupTitle: '',
   meetupLocation: '',
@@ -350,6 +349,14 @@ const formatPlanStatusCounts = (plans = []) => ATTENDANCE_READBACK_STATUSES
   .join(', ');
 
 const scheduleAttendeeName = (attendee = {}) => attendee?.display_name || attendee?.linked_user?.name || attendee?.contact_label || '';
+const deriveSelfAttendeeName = (currentUser = null) => {
+  const preferredName = String(currentUser?.name || '').trim();
+  if (preferredName) return preferredName;
+  const email = String(currentUser?.email || '').trim();
+  if (!email) return 'You';
+  const localPart = email.split('@')[0]?.trim();
+  return localPart || email || 'You';
+};
 
 const addUniqueScheduleName = (target, value) => {
   const name = String(value || '').trim();
@@ -1987,7 +1994,7 @@ function scheduleNotificationToPreview(notification = {}) {
   };
 }
 
-function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
+function EventSocialPlanningPanel({ eventId, apiCall, onChanged, currentUser = null }) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState('');
   const [error, setError] = useState('');
@@ -2014,6 +2021,8 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
   const [scheduleNotificationInboxFilter, setScheduleNotificationInboxFilter] = useState('all');
   const icsHealth = getIcsFeedHealth(icsSource);
   const socialReadback = useMemo(() => buildEventSocialReadback({ attendees, groups, meetups, plans }), [attendees, groups, meetups, plans]);
+  const selfAttendee = useMemo(() => attendees.find((attendee) => attendee?.current_user_attendee) || null, [attendees]);
+  const selfAttendeeSuggestedName = useMemo(() => deriveSelfAttendeeName(currentUser), [currentUser]);
 
   const set = (patch) => setForm((prev) => ({ ...prev, ...patch }));
   const setMeetupDraft = (meetupId, patch) => {
@@ -2213,11 +2222,10 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
         await apiCall('post', `/events/${eventId}/attendees`, {
           display_name: form.attendeeName.trim(),
           relationship: form.attendeeRelationship || null,
-          link_current_user: Boolean(form.attendeeLinkCurrentUser),
           status: 'attending',
           visibility: 'private'
         });
-        set({ attendeeName: '', attendeeRelationship: '', attendeeLinkCurrentUser: false });
+        set({ attendeeName: '', attendeeRelationship: '' });
         setNotice('Attendee added');
       }
       if (kind === 'group') {
@@ -2391,6 +2399,29 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
       await onChanged?.();
     } catch (err) {
       setError(err?.response?.data?.error || 'Failed to update attendee');
+    } finally {
+      setSaving('');
+    }
+  };
+
+  const addCurrentUserAttendee = async () => {
+    if (selfAttendee) return;
+    setSaving('attendee-self');
+    setError('');
+    setNotice('');
+    try {
+      await apiCall('post', `/events/${eventId}/attendees`, {
+        display_name: selfAttendeeSuggestedName,
+        relationship: 'self',
+        link_current_user: true,
+        status: 'attending',
+        visibility: 'private'
+      });
+      setNotice('You were added to this event');
+      await load();
+      await onChanged?.();
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Failed to add you to this event');
     } finally {
       setSaving('');
     }
@@ -2975,6 +3006,25 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
             <span className="text-xs text-ghost">{attendees.length}</span>
           </summary>
           <div className="space-y-3 px-4 pb-4">
+            {!selfAttendee ? (
+              <div className="rounded-md border border-edge bg-raised/70 px-3 py-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-ink">Add yourself to this event</p>
+                    <p className="mt-1 text-xs leading-5 text-dim">
+                      This creates the attendee row that represents you, so meetup planning and recipient readback can treat the signed-in user as you.
+                    </p>
+                  </div>
+                  <button
+                    className="btn-secondary btn-sm"
+                    disabled={saving === 'attendee-self'}
+                    onClick={addCurrentUserAttendee}
+                  >
+                    {saving === 'attendee-self' ? <Spinner size={16} /> : `Add me as ${selfAttendeeSuggestedName}`}
+                  </button>
+                </div>
+              </div>
+            ) : null}
             {attendees.length > 0 ? (
               <div className="space-y-2">
                 {attendees.map((person) => {
@@ -3081,14 +3131,8 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
               <input className="input" placeholder="Name" value={form.attendeeName} onChange={(e) => set({ attendeeName: e.target.value })} />
               <input className="input" placeholder="Relationship" value={form.attendeeRelationship} onChange={(e) => set({ attendeeRelationship: e.target.value })} />
               <button className="btn-secondary" disabled={!form.attendeeName.trim() || saving === 'attendee'} onClick={() => save('attendee')}>{saving === 'attendee' ? <Spinner size={16} /> : 'Add'}</button>
-              <CheckboxControl
-                checked={Boolean(form.attendeeLinkCurrentUser)}
-                labelClassName="sm:col-span-2"
-                onChange={(event) => set({ attendeeLinkCurrentUser: event.target.checked })}
-              >
-                Link this attendee to my app user
-              </CheckboxControl>
             </div>
+            <p className="text-xs leading-5 text-ghost">Use this form for other people. Your own event identity is handled through the Add me action above.</p>
           </div>
         </details>
 
@@ -4859,7 +4903,7 @@ function SchedulePlanRow({
   );
 }
 
-function EventDetailDrawer({ eventId, apiCall, onClose, onEdit, onDeleted, onSaved }) {
+function EventDetailDrawer({ eventId, apiCall, onClose, onEdit, onDeleted, onSaved, currentUser = null }) {
   const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -4940,7 +4984,7 @@ function EventDetailDrawer({ eventId, apiCall, onClose, onEdit, onDeleted, onSav
                   <p className="max-w-3xl text-dim leading-7">{event.notes}</p>
                 </DetailField>
               ) : null}
-              <EventSocialPlanningPanel eventId={eventId} apiCall={apiCall} onChanged={onSaved} />
+              <EventSocialPlanningPanel eventId={eventId} apiCall={apiCall} onChanged={onSaved} currentUser={currentUser} />
               <EventPurchasedItemsReadback eventId={eventId} apiCall={apiCall} />
               <EventArtifactsEditor eventId={eventId} apiCall={apiCall} onSaved={onSaved} />
             </>
@@ -4955,7 +4999,7 @@ function EventDetailDrawer({ eventId, apiCall, onClose, onEdit, onDeleted, onSav
   );
 }
 
-export default function EventsView({ apiCall, onToast }) {
+export default function EventsView({ apiCall, onToast, currentUser = null }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -5182,6 +5226,7 @@ export default function EventsView({ apiCall, onToast }) {
         <EventDetailDrawer
           eventId={detailId}
           apiCall={apiCall}
+          currentUser={currentUser}
           onClose={() => setDetailId(null)}
           onEdit={(item) => { setDetailId(null); setEditing(item); }}
           onDeleted={load}

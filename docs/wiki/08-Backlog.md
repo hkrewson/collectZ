@@ -39,6 +39,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 21. The shared session presence slice of event-local social discovery polish was promoted as `3.4.76`; keep event-local editing, cross-event identity, and delivery/provider work separate.
 22. The social discovery readback slice of event-local social discovery polish was promoted as `3.4.77`; keep inline attendee/group/meetup editing, global friend graph work, and realtime presence separate.
 23. The event-local social editability slice was promoted as `3.4.78`; keep cross-event identity, realtime presence, native companion social mutation UX, and true friend-graph work separate.
+24. The self-attendee auto-link and `Add me` flow slice was promoted as `3.4.79`; keep external contact identities, cross-event identity, and broader friend graph work separate.
 
 ### Backlog Item: Reusable Artist Records for Artwork Entry
 **Type:** Task
