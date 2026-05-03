@@ -8064,6 +8064,47 @@ Historical note:
 - What remains in the milestone: no remaining 3.4.72 implementation work; CI-only release gates must pass before public tag/release publication.
 - Recommended commit message: `Release 3.4.72 event schedule delivery attempt persistence and readback`
 
+## 3.4.73 — Event Schedule Delivery Attempt Readback UI
+
+**Goal:** Surface Event-local delivery-attempt audit evidence in the Event drawer notification history without implying push, email, native device, realtime, or external provider delivery.
+
+**Current Slice:** `Closed.`
+
+### Scope
+
+- Load Event-local notification delivery-attempt rows with the Event social planning data.
+- Group attempt rows by notification id for drawer readback.
+- Show compact delivery-attempt summary on sent schedule notification records.
+- Show recipient/group, status, and completed time in notification history when attempt rows are available.
+- Preserve clear local-audit-only language.
+- Keep provider settings, delivery queues, push/email/device delivery, global inboxes, and native notification delivery out of scope.
+
+### Acceptance Criteria
+
+- Sent notification history rows show delivery-attempt readback when local attempt rows exist.
+- Draft notification history rows do not show delivery-attempt rows.
+- Attempt UI names the local recipient or group snapshot where available.
+- UI copy says local audit/readback only and does not imply external delivery.
+- Browser regression proves the readback appears after sending a local notice.
+
+### Notes
+
+- This is a drawer readback patch only. It does not change delivery persistence, provider settings, or external notification delivery behavior.
+
+### Closeout — 2026-05-03
+
+- Roadmap slice: `3.4.73 — Event Schedule Delivery Attempt Readback UI`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/42-Event-Social-Platform-Companion-Contract.md`, `docs/wiki/45-Event-Schedule-Catalog-Foundation.md`, and `/Users/hamlin/.codex/skills/uncodixfy/SKILL.md`.
+- Runtime verification used: Docker rebuilt/recreated `backend` and `frontend` with `APP_VERSION=3.4.73`; `/api/health` returned frontend/backend/build `3.4.73`; running backend env was verified as `APP_EDITION=platform` for local platform compose; generated public compose was temporarily started with no `APP_EDITION` and the homelab boundary passed; local platform compose was restored afterward.
+- CI/checks run: browser regression with redacted `PLAYWRIGHT_E2E_BYPASS_TOKEN` (`55 passed`, `4 skipped`); targeted event drawer browser regression; `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml exec -T backend npm run test:unit`; `test:openapi`; `test:init-parity`; `test:migration-rehearsal`; `test:event-social-planning-smoke`; `test:rbac-regression`; `test:platform-edition-boundary`; generated-compose homelab boundary smoke with no `APP_EDITION`; `npm run validate:public-export`; `docker compose --env-file .env config`; idempotent `npm run compose:generate`; backend/frontend `npm ci --no-fund --dry-run`; `test:help-releases-smoke` for `v3.4.73`; `test:observability-evidence`; `test:release-preflight-local`; targeted secret-pattern scan over generated release artifacts; `git diff --check`.
+- Release artifacts: `docs/releases/v3.4.73.md` exists; `backend/release-feed.json` serves `v3.4.73`; `preflight-go-no-go.md` was regenerated; `artifacts/observability-evidence/observability-release-evidence.json` reports `9/9` checks passed.
+- Verified facts: the Event drawer loads `/api/events/:id/schedule-notification-delivery-attempts` alongside schedule notification records; attempt rows are grouped by notification id; sent notification cards show a compact delivery-attempt summary and history readback; readback rows show recipient/group snapshot, local status, and completion time; copy explicitly says the record is local audit/readback only and not push/email/device delivery; browser coverage proves the readback appears after sending a local schedule notice.
+- Blocked/unverified items: CI-only `secret-scan` and `image-security-and-sbom` still need to run in GitHub Actions; local release preflight marks secure-cookie compose-smoke conditions blocked because the dev stack intentionally runs `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`; the preflight helper marks browser regression blocked even though full browser regression passed separately.
+- Files changed: `app-meta.json`, `artifacts/observability-evidence/observability-release-evidence.json`, `backend/app-meta.json`, `backend/package.json`, `backend/package-lock.json`, `backend/release-feed.json`, `backend/scripts/unit-tests.js`, `docker-compose.yml`, `docs/releases/v3.4.73.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/42-Event-Social-Platform-Companion-Contract.md`, `docs/wiki/45-Event-Schedule-Catalog-Foundation.md`, `frontend/package.json`, `frontend/src/app-meta.json`, `frontend/src/components/EventsView.jsx`, `preflight-go-no-go.md`, and `tests/playwright/specs/events-collectibles.browser.spec.js`.
+- Risks or follow-ups: delivery attempt readback is still Event-local audit UI only; provider queues, provider settings, push/email/device delivery, native device registration, and global notification inboxes remain future work.
+- What remains in the milestone: no remaining 3.4.73 implementation work; CI-only release gates must pass before public tag/release publication.
+- Recommended commit message: `Release 3.4.73 event schedule delivery attempt readback UI`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

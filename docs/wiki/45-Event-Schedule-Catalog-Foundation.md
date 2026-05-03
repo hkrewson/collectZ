@@ -63,6 +63,8 @@ Deleted sessions are archived with `archived_at`; they are not hard-deleted by t
 
 `GET /api/events/:id/schedule-notification-delivery-attempts` returns Event-local delivery-attempt audit rows. These rows mean collectZ recorded the selected-recipient local send path; they do not prove push, email, native device, realtime, or provider delivery.
 
+The web Event drawer surfaces this as compact delivery-attempt readback on sent notification history rows. The UI should keep the local-audit-only language visible near the attempt rows so users do not mistake the audit record for push, email, or device delivery.
+
 `GET /api/events/:id/schedule-notification-inbox` returns Event-local recipient rows for sent notification records, including unread/read/acknowledged counts. `PATCH /api/events/:id/schedule-notification-inbox/:recipientId` marks a local recipient row read or acknowledged. This readback contract is still scoped to the Event and does not imply external delivery, device registration, or global friend identity.
 
 Event attendees can optionally link to an app user through `user_id` or the safer `link_current_user` helper on attendee create/update. Linked attendee identity is event-scoped and returns app user id/name plus current-user flags; it does not expose email or create a global friend graph. `GET /api/events/:id/schedule-notification-inbox?recipient=me` narrows readback to recipient rows linked to the current app user.

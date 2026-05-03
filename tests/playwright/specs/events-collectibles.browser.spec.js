@@ -339,7 +339,12 @@ test.describe('events and collectibles browser regressions', () => {
       await expect(planRow.getByText('No push, device, or email delivery was used.')).toBeVisible();
       await expect(planRow.getByLabel('Schedule notification history')).toBeVisible();
       await expect(planRow.getByText('Notification history')).toBeVisible();
-      await expect(planRow.getByText('Local record only. No push, device, or email delivery.')).toBeVisible();
+      await expect(planRow.getByLabel('Delivery attempt summary')).toBeVisible();
+      await expect(planRow.getByLabel('Delivery attempt readback')).toBeVisible();
+      await expect(planRow.getByLabel('Delivery attempt summary').getByText('1 local attempt')).toBeVisible();
+      await expect(planRow.getByLabel('Delivery attempt readback').getByText('1 local attempt')).toBeVisible();
+      await expect(planRow.getByText('Local audit only. This is not push, email, or device delivery.')).toBeVisible();
+      await expect(planRow.getByText('Local record and audit only. No push, device, or email delivery.')).toBeVisible();
       const inboxPanel = page.locator('details').filter({ hasText: 'Notification inbox' }).first();
       await expect(inboxPanel).toBeVisible();
       await inboxPanel.locator('summary').click();

@@ -1781,6 +1781,17 @@ function groupScheduleNotifications(items = []) {
   }, {});
 }
 
+function groupScheduleDeliveryAttempts(items = []) {
+  return (Array.isArray(items) ? items : []).reduce((acc, attempt) => {
+    const key = Number(attempt?.notification_id || 0);
+    if (!key) return acc;
+    acc[key] = [...(acc[key] || []), attempt].sort((a, b) => (
+      new Date(b.completed_at || b.attempted_at || b.created_at || 0).getTime() - new Date(a.completed_at || a.attempted_at || a.created_at || 0).getTime()
+    ));
+    return acc;
+  }, {});
+}
+
 function scheduleNotificationToPreview(notification = {}) {
   const subject = notification?.subject || {};
   const requestedStatus = notification?.requested_status || 'planned';
@@ -1822,6 +1833,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
   const [changePreviews, setChangePreviews] = useState({});
   const [scheduleNotifications, setScheduleNotifications] = useState({});
   const [scheduleNotificationHistory, setScheduleNotificationHistory] = useState({});
+  const [scheduleNotificationDeliveryAttempts, setScheduleNotificationDeliveryAttempts] = useState({});
   const [scheduleNotificationInbox, setScheduleNotificationInbox] = useState({ counts: { total: 0, unread: 0, read: 0, acknowledged: 0 }, items: [] });
   const [scheduleNotificationDeliveryBoundary, setScheduleNotificationDeliveryBoundary] = useState(null);
   const [scheduleNotificationInboxFilter, setScheduleNotificationInboxFilter] = useState('all');
@@ -1863,7 +1875,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
       const inboxPath = scheduleNotificationInboxFilter === 'mine'
         ? `/events/${eventId}/schedule-notification-inbox?recipient=me`
         : `/events/${eventId}/schedule-notification-inbox`;
-      const [attendeePayload, groupPayload, meetupPayload, planPayload, catalogPayload, notificationPayload, deliveryBoundaryPayload, inboxPayload, icsPayload] = await Promise.all([
+      const [attendeePayload, groupPayload, meetupPayload, planPayload, catalogPayload, notificationPayload, deliveryBoundaryPayload, deliveryAttemptPayload, inboxPayload, icsPayload] = await Promise.all([
         apiCall('get', `/events/${eventId}/attendees`),
         apiCall('get', `/events/${eventId}/groups`),
         apiCall('get', `/events/${eventId}/meetups`),
@@ -1871,6 +1883,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
         apiCall('get', `/events/${eventId}/schedule-sessions`),
         apiCall('get', `/events/${eventId}/schedule-notifications`),
         apiCall('get', `/events/${eventId}/schedule-notification-delivery-boundary`),
+        apiCall('get', `/events/${eventId}/schedule-notification-delivery-attempts`),
         apiCall('get', inboxPath),
         apiCall('get', `/events/${eventId}/personal-ics-source`)
       ]);
@@ -1931,6 +1944,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
         items: Array.isArray(inboxPayload?.items) ? inboxPayload.items : []
       });
       setScheduleNotificationDeliveryBoundary(deliveryBoundaryPayload || null);
+      setScheduleNotificationDeliveryAttempts(groupScheduleDeliveryAttempts(deliveryAttemptPayload?.items || []));
       setCatalogDrafts((prev) => {
         const next = {};
         nextCatalogSessions.forEach((session) => {
@@ -2574,6 +2588,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
               changePreviews={changePreviews}
               scheduleNotifications={scheduleNotifications}
               scheduleNotificationHistory={scheduleNotificationHistory}
+              scheduleNotificationDeliveryAttempts={scheduleNotificationDeliveryAttempts}
               saving={saving}
               onDraftChange={setPlanDraft}
               onUpdate={updatePlan}
@@ -3569,7 +3584,7 @@ function ScheduleCatalogRow({ session, draft = {}, saving = false, adding = fals
   );
 }
 
-function EventScheduleAgenda({ plans, attendees = [], groups: socialGroups = [], planDrafts = {}, changePreviews = {}, scheduleNotifications = {}, scheduleNotificationHistory = {}, saving = '', onDraftChange, onUpdate, onPreviewChange, onNotifyChange, onEditNotificationDraft, onSendNotificationDraft, onDiscardNotificationDraft, onRemove }) {
+function EventScheduleAgenda({ plans, attendees = [], groups: socialGroups = [], planDrafts = {}, changePreviews = {}, scheduleNotifications = {}, scheduleNotificationHistory = {}, scheduleNotificationDeliveryAttempts = {}, saving = '', onDraftChange, onUpdate, onPreviewChange, onNotifyChange, onEditNotificationDraft, onSendNotificationDraft, onDiscardNotificationDraft, onRemove }) {
   const [filter, setFilter] = useState({ type: 'all', key: 'all' });
   const conflictMap = useMemo(() => buildScheduleConflictMap(plans), [plans]);
 
@@ -3672,6 +3687,7 @@ function EventScheduleAgenda({ plans, attendees = [], groups: socialGroups = [],
                 preview={changePreviews[`plan-${plan.id}`]}
                 notification={scheduleNotifications[`plan-${plan.id}`]}
                 notificationHistory={scheduleNotificationHistory[`plan-${plan.id}`] || []}
+                notificationDeliveryAttempts={scheduleNotificationDeliveryAttempts}
                 conflicts={conflictMap.get(String(plan.id)) || []}
                 saving={saving === `plan-${plan.id}`}
                 previewSaving={saving === `preview-plan-${plan.id}`}
@@ -3830,6 +3846,7 @@ function ScheduleNotificationComposer({ plan, status = 'planned', preview = null
 function ScheduleNotificationPanel({ notification }) {
   if (!notification) return null;
   const summary = notification?.recipients?.summary || {};
+  const attemptSummary = notification?.delivery_attempt_readback || {};
   const sent = notification.status === 'sent';
   return (
     <div className="rounded-md border border-edge bg-surface px-3 py-2 text-sm" aria-label="Schedule notification record">
@@ -3839,12 +3856,63 @@ function ScheduleNotificationPanel({ notification }) {
       </div>
       <p className="mt-2 text-xs text-dim">{summary.label || 'No recipients selected.'}</p>
       {notification.message_body ? <p className="mt-1 text-xs leading-5 text-ghost">{plainTextPreview(notification.message_body, 180)}</p> : null}
-      <p className="mt-1 text-xs text-ghost">Recorded in this event only. No push, device, or email delivery was used.</p>
+      {sent ? (
+        <div className="mt-2 rounded-md border border-edge bg-raised px-2.5 py-2 text-xs text-dim" aria-label="Delivery attempt summary">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="font-medium text-ink">{Number(attemptSummary.total || 0)} local attempt{Number(attemptSummary.total || 0) === 1 ? '' : 's'}</span>
+            <span>{Number(attemptSummary.succeeded || 0)} succeeded</span>
+          </div>
+          {attemptSummary.latest_completed_at ? <p className="mt-1 text-ghost">Completed {formatDateTime(attemptSummary.latest_completed_at)}</p> : null}
+        </div>
+      ) : null}
+      <p className="mt-2 text-xs text-ghost">Recorded in this event only. No push, device, or email delivery was used.</p>
     </div>
   );
 }
 
-function ScheduleNotificationHistory({ notifications = [], saving = '', onEditDraft, onSendDraft, onDiscardDraft }) {
+function recipientLabelForDeliveryAttempt(attempt = {}) {
+  const snapshot = attempt?.recipient?.recipient || {};
+  if (attempt?.recipient?.recipient_type === 'group') return snapshot.name || `Group #${attempt?.recipient?.group_id || attempt?.recipient_id || ''}`.trim();
+  return snapshot.display_name || snapshot.name || `Recipient #${attempt?.recipient_id || ''}`.trim();
+}
+
+function deliveryAttemptStatusLabel(status = '') {
+  const value = String(status || 'succeeded').replace(/_/g, ' ');
+  return value ? value.charAt(0).toUpperCase() + value.slice(1) : 'Succeeded';
+}
+
+function ScheduleDeliveryAttemptRows({ notification, attempts = [] }) {
+  const sent = notification?.status === 'sent';
+  const summary = notification?.delivery_attempt_readback || {};
+  const total = Number(summary.total || attempts.length || 0);
+  if (!sent) return null;
+  return (
+    <div className="mt-2 rounded-md border border-edge bg-raised px-2.5 py-2" aria-label="Delivery attempt readback">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+        <span className="font-medium text-ink">{total} local attempt{total === 1 ? '' : 's'}</span>
+        <span className="text-ghost">{Number(summary.succeeded || 0)} succeeded</span>
+      </div>
+      {attempts.length ? (
+        <div className="mt-2 divide-y divide-edge">
+          {attempts.slice(0, 4).map((attempt) => (
+            <div key={attempt.id} className="flex flex-wrap items-center justify-between gap-2 py-1.5 text-xs">
+              <span className="text-dim">{recipientLabelForDeliveryAttempt(attempt)}</span>
+              <span className="text-ghost">
+                {deliveryAttemptStatusLabel(attempt.status)}
+                {attempt.completed_at ? ` · ${formatDateTime(attempt.completed_at)}` : ''}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-1 text-xs text-ghost">Attempt rows are not loaded yet.</p>
+      )}
+      <p className="mt-2 text-xs text-ghost">Local audit only. This is not push, email, or device delivery.</p>
+    </div>
+  );
+}
+
+function ScheduleNotificationHistory({ notifications = [], deliveryAttemptsByNotification = {}, saving = '', onEditDraft, onSendDraft, onDiscardDraft }) {
   const items = Array.isArray(notifications) ? notifications.slice(0, 3) : [];
   if (!items.length) return null;
   return (
@@ -3867,6 +3935,10 @@ function ScheduleNotificationHistory({ notifications = [], saving = '', onEditDr
               </div>
               <p className="mt-1 text-xs text-dim">{summary.label || 'No recipients selected.'}</p>
               {item.message_body ? <p className="mt-1 text-xs leading-5 text-ghost">{plainTextPreview(item.message_body, 180)}</p> : null}
+              <ScheduleDeliveryAttemptRows
+                notification={item}
+                attempts={deliveryAttemptsByNotification[Number(item.id)] || []}
+              />
               {draft ? (
                 <div className="mt-2 flex flex-wrap items-center gap-2" aria-label="Draft notification actions">
                   <button type="button" className="btn-ghost btn-sm" disabled={actionSaving} onClick={() => onEditDraft?.(item)}>
@@ -3884,7 +3956,7 @@ function ScheduleNotificationHistory({ notifications = [], saving = '', onEditDr
           );
         })}
       </div>
-      <p className="mt-2 border-t border-edge pt-2 text-xs text-ghost">Local record only. No push, device, or email delivery.</p>
+      <p className="mt-2 border-t border-edge pt-2 text-xs text-ghost">Local record and audit only. No push, device, or email delivery.</p>
     </div>
   );
 }
@@ -4020,6 +4092,7 @@ function SchedulePlanRow({
   preview = null,
   notification = null,
   notificationHistory = [],
+  notificationDeliveryAttempts = {},
   conflicts = [],
   saving = false,
   previewSaving = false,
@@ -4256,6 +4329,7 @@ function SchedulePlanRow({
           <ScheduleNotificationPanel notification={notification} />
           <ScheduleNotificationHistory
             notifications={notificationHistory}
+            deliveryAttemptsByNotification={notificationDeliveryAttempts}
             saving={draftActionSaving}
             onEditDraft={onEditNotificationDraft}
             onSendDraft={onSendNotificationDraft}

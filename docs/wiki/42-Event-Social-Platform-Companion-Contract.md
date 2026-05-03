@@ -64,6 +64,8 @@ The boundary includes a delivery-attempt model contract. Sent Event-local notifi
 
 Platform clients should treat `sent` schedule notifications and `event_local` delivery attempts as coordination/audit records inside collectZ, not proof that another device received a push/email/message. A native client should not show push/email/device delivery affordances unless this boundary reports a future supported external channel and a new contract version.
 
+The web drawer uses the same boundary by showing local delivery-attempt readback in notification history. Native/platform clients can mirror that readback, but should preserve the local-audit-only copy until an external provider contract is explicitly added.
+
 ## Offline and Cache Rules
 
 - Companion clients may cache the snapshot for quick day-of-con launch.

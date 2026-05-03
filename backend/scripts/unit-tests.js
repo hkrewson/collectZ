@@ -3717,6 +3717,9 @@ results.push(run('event social planning foundation contract is wired for 3.4.30'
   assert.ok(eventsViewSource.includes('ScheduleNotificationPanel'));
   assert.ok(eventsViewSource.includes('ScheduleNotificationHistory'));
   assert.ok(eventsViewSource.includes('Notification history'));
+  assert.ok(eventsViewSource.includes('ScheduleDeliveryAttemptRows'));
+  assert.ok(eventsViewSource.includes('Delivery attempt readback'));
+  assert.ok(eventsViewSource.includes('Local audit only. This is not push, email, or device delivery.'));
   assert.ok(eventsViewSource.includes('EventScheduleNotificationInbox'));
   assert.ok(eventsViewSource.includes('Notification inbox'));
   assert.ok(eventsViewSource.includes('Notification delivery boundary'));
