@@ -8022,6 +8022,48 @@ Historical note:
 - What remains in the milestone: no remaining 3.4.71 implementation work; CI-only release gates must pass before public tag/release publication.
 - Recommended commit message: `Release 3.4.71 event schedule delivery attempt model design`
 
+## 3.4.72 — Event Schedule Delivery Attempt Persistence and Readback
+
+**Goal:** Persist and read back Event-local schedule notification delivery-attempt audit rows without enabling push, email, native device delivery, or external providers.
+
+**Current Slice:** `Closed.`
+
+### Scope
+
+- Add a normalized `event_schedule_notification_delivery_attempts` table.
+- Create one `event_local` delivery-attempt audit row per selected recipient when a schedule notification is locally sent.
+- Backfill local attempt rows for existing sent Event schedule notifications.
+- Add scoped delivery-attempt readback for Event notification history and platform/native planning.
+- Include delivery-attempt summaries on schedule notification records.
+- Keep push, email, platform-device, realtime, global inbox, and provider-backed delivery disabled.
+
+### Acceptance Criteria
+
+- Sent Event-local schedule notifications create delivery-attempt rows for each recipient.
+- Draft notifications do not create delivery-attempt rows until sent.
+- Notification list readback includes delivery-attempt counts by status.
+- A scoped readback endpoint returns attempt rows filtered by notification when requested.
+- OpenAPI, init parity, migration rehearsal, and event social smoke prove the persistence/readback path.
+- Provider-boundary responses still report no external delivery and no push/email/device delivery.
+
+### Notes
+
+- This is audit persistence, not external delivery. `event_local` attempts mean "recorded locally for selected recipients," not delivered to a device or provider.
+
+### Closeout
+
+- Roadmap slice: `3.4.72 — Event Schedule Delivery Attempt Persistence and Readback`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/42-Event-Social-Platform-Companion-Contract.md`, and `docs/wiki/45-Event-Schedule-Catalog-Foundation.md`.
+- Runtime verification used: rebuilt and recreated backend/frontend through Docker with `APP_VERSION=3.4.72`; verified `/api/health` reports frontend/backend/build `3.4.72`; verified migration `93` applied in the running backend logs; verified local platform container env reports `APP_EDITION=platform`; switched to generated public compose with local `3.4.72` image tags and verified homelab boundary with no `APP_EDITION`; restored local platform compose afterward.
+- CI/checks run locally: backend route/smoke/unit syntax checks; local backend unit/source contract tests; local OpenAPI validation; container backend unit tests; container OpenAPI validation; event social planning smoke with in-stack `BASE_URL`; Help > Releases smoke; init parity; migration rehearsal; RBAC regression; platform edition boundary; homelab edition boundary; full browser regression (`55 passed`, `4 skipped`); public-export validation; generated-compose config validation and idempotence check; backend and frontend `npm ci --dry-run` dependency checks; observability release evidence; release preflight; targeted generated-artifact secret-pattern grep; and `git diff --check`.
+- Release artifacts: `docs/releases/v3.4.72.md` exists, `backend/release-feed.json` serves `v3.4.72` first, `preflight-go-no-go.md` regenerated, and observability evidence regenerated for `3.4.72`.
+- Verified facts: migration `93` adds `event_schedule_notification_delivery_attempts` and init parity covers it; sent Event-local schedule notifications create one `event_local` attempt per selected recipient; notification list readback includes attempt counts by status; `GET /api/events/:id/schedule-notification-delivery-attempts` returns scoped local attempt rows and can filter by notification id; the delivery boundary now reports local attempt records/readback while external delivery remains unsupported.
+- Blocked/unverified items: CI-only `secret-scan` and `image-security-and-sbom` must still run in GitHub Actions; local release preflight marks CI secure-cookie `compose-smoke` conditions blocked because the local development stack intentionally runs with `SESSION_COOKIE_SECURE=false`; the preflight helper marks browser regression blocked even though full browser regression was run separately and passed locally.
+- Files changed: `app-meta.json`, `artifacts/observability-evidence/observability-release-evidence.json`, `backend/app-meta.json`, `backend/db/migrations.js`, `backend/openapi/openapi.yaml`, `backend/package.json`, `backend/package-lock.json`, `backend/release-feed.json`, `backend/routes/events.js`, `backend/scripts/event-social-planning-smoke.js`, `backend/scripts/unit-tests.js`, `docker-compose.yml`, `docs/releases/v3.4.72.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/42-Event-Social-Platform-Companion-Contract.md`, `docs/wiki/45-Event-Schedule-Catalog-Foundation.md`, `frontend/package.json`, `frontend/package-lock.json`, `frontend/src/app-meta.json`, `init.sql`, and `preflight-go-no-go.md`.
+- Risks or follow-ups: delivery attempts remain Event-local audit evidence only; push/email/platform-device delivery, provider queues, provider settings, native device registration, and global notification inboxes remain future milestones.
+- What remains in the milestone: no remaining 3.4.72 implementation work; CI-only release gates must pass before public tag/release publication.
+- Recommended commit message: `Release 3.4.72 event schedule delivery attempt persistence and readback`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

@@ -705,10 +705,10 @@ function buildScheduleNotificationDeliveryBoundary(eventId) {
       channel: 'event_local',
       enabled: true,
       configured: true,
-      creates_delivery_attempts: false,
+      creates_delivery_attempts: true,
       requires_device_registration: false,
       mode: 'local_record',
-      description: 'Stores schedule notification records and Event-local recipient readback rows.'
+      description: 'Stores schedule notification records, Event-local recipient readback rows, and local delivery-attempt audit rows.'
     },
     {
       provider: 'push',
@@ -759,18 +759,18 @@ function buildScheduleNotificationDeliveryBoundary(eventId) {
       provider_selection: 'fixed_event_local',
       external_provider_configured: false,
       external_delivery_attempts_created: false,
-      delivery_attempt_record_supported: false,
-      delivery_attempt_endpoint: null,
+      delivery_attempt_record_supported: true,
+      delivery_attempt_endpoint: `/api/events/${eventId}/schedule-notification-delivery-attempts`,
       device_registration_endpoint: null
     },
     delivery_providers: deliveryProviders,
     delivery_attempt_model: {
       version: SCHEDULE_NOTIFICATION_DELIVERY_ATTEMPT_MODEL_VERSION,
-      supported: false,
-      creates_records: false,
-      relationship: 'one_attempt_per_notification_recipient_provider_when_enabled',
+      supported: true,
+      creates_records: true,
+      relationship: 'one_attempt_per_notification_recipient_provider',
       owner: 'backend_provider_delivery_pipeline',
-      endpoint: null,
+      endpoint: `/api/events/${eventId}/schedule-notification-delivery-attempts`,
       status_values: ['queued', 'sending', 'succeeded', 'failed', 'skipped', 'cancelled'],
       field_contract: {
         id: 'integer',
@@ -788,8 +788,8 @@ function buildScheduleNotificationDeliveryBoundary(eventId) {
         error_message: 'string | null'
       },
       notes: [
-        'Recipient readback remains the user-visible Event-local state today.',
-        'Delivery attempts are future audit records and are not created while providers are disabled.',
+        'Event-local sends create one audit attempt for each selected recipient row.',
+        'Push, email, and platform-device delivery attempts are still not created while those providers are disabled.',
         'Provider message ids and error fields must be treated as provider metadata, not user-authored message content.'
       ]
     },
@@ -799,8 +799,9 @@ function buildScheduleNotificationDeliveryBoundary(eventId) {
         supported: true,
         records_notifications: true,
         creates_recipient_readback: true,
+        creates_delivery_attempts: true,
         delivers_outside_app: false,
-        description: 'Creates Event-local notification records and recipient readback rows only.'
+        description: 'Creates Event-local notification records, recipient readback rows, and local delivery-attempt audit rows only.'
       }
     ],
     unsupported_channels: [
@@ -820,13 +821,15 @@ function buildScheduleNotificationDeliveryBoundary(eventId) {
       recipient_readback: true,
       current_user_inbox_filter: true,
       read_acknowledgement: true,
+      local_delivery_attempt_records: true,
       external_delivery: false,
       external_provider_config: false,
-      delivery_attempt_readback: false
+      delivery_attempt_readback: true
     },
     endpoints: {
       preview: `/api/events/${eventId}/schedule-change-preview`,
       records: `/api/events/${eventId}/schedule-notifications`,
+      delivery_attempts: `/api/events/${eventId}/schedule-notification-delivery-attempts`,
       inbox: `/api/events/${eventId}/schedule-notification-inbox`,
       current_user_inbox: `/api/events/${eventId}/schedule-notification-inbox?recipient=me`
     },
@@ -834,7 +837,7 @@ function buildScheduleNotificationDeliveryBoundary(eventId) {
       'Treat sent schedule notifications as local coordination records, not proof of push/email/device delivery.',
       'Use selected recipient ids from the preview/recipient picker; do not broadcast by default.',
       'Use delivery_providers to hide unavailable push/email/device affordances in platform clients.',
-      'Use delivery_attempt_model only as a future schema hint; no delivery attempt records exist in this contract.',
+      'Use delivery-attempt readback as Event-local audit evidence only; it is not proof of external delivery.',
       'Native clients may cache this boundary and should refetch before offering any future delivery channel.',
       'Future push, email, device, or global inbox behavior requires a new contract version.'
     ]
@@ -880,6 +883,7 @@ function selectScheduleNotificationRecipients(preview = {}, body = {}) {
 function serializeScheduleNotification(row = {}) {
   if (!row?.id) return null;
   const readback = row.recipient_summary || null;
+  const deliveryAttemptReadback = row.delivery_attempt_summary || null;
   return {
     id: row.id,
     event_id: row.event_id,
@@ -902,11 +906,45 @@ function serializeScheduleNotification(row = {}) {
       read: Number(row.read_count || 0),
       acknowledged: Number(row.acknowledged_count || 0)
     },
+    delivery_attempt_readback: deliveryAttemptReadback || {
+      total: Number(row.delivery_attempt_count || 0),
+      queued: Number(row.delivery_attempt_queued_count || 0),
+      sending: Number(row.delivery_attempt_sending_count || 0),
+      succeeded: Number(row.delivery_attempt_succeeded_count || 0),
+      failed: Number(row.delivery_attempt_failed_count || 0),
+      skipped: Number(row.delivery_attempt_skipped_count || 0),
+      cancelled: Number(row.delivery_attempt_cancelled_count || 0),
+      latest_completed_at: row.delivery_attempt_latest_completed_at || null
+    },
     created_by: row.created_by || null,
     sent_at: row.sent_at || null,
     created_at: row.created_at,
     updated_at: row.updated_at
   };
+}
+
+function buildScheduleNotificationDeliveryAttemptSummary(rows = []) {
+  return rows.reduce((acc, row) => {
+    acc.total += 1;
+    const status = String(row?.status || '').trim();
+    if (Object.prototype.hasOwnProperty.call(acc, status)) {
+      acc[status] += 1;
+    }
+    const completedAt = row?.completed_at || null;
+    if (completedAt && (!acc.latest_completed_at || new Date(completedAt).getTime() > new Date(acc.latest_completed_at).getTime())) {
+      acc.latest_completed_at = completedAt;
+    }
+    return acc;
+  }, {
+    total: 0,
+    queued: 0,
+    sending: 0,
+    succeeded: 0,
+    failed: 0,
+    skipped: 0,
+    cancelled: 0,
+    latest_completed_at: null
+  });
 }
 
 async function insertScheduleNotificationRecipients(client, { notificationId, eventId, recipients }) {
@@ -946,6 +984,81 @@ async function insertScheduleNotificationRecipients(client, { notificationId, ev
       [notificationId, eventId, groupId, JSON.stringify(group)]
     );
   }
+}
+
+async function insertEventLocalDeliveryAttempts(client, { notificationId, eventId }) {
+  const result = await client.query(
+    `INSERT INTO event_schedule_notification_delivery_attempts (
+       notification_id,
+       event_id,
+       recipient_id,
+       provider,
+       channel,
+       status,
+       attempted_at,
+       completed_at,
+       metadata
+     )
+     SELECT
+       r.notification_id,
+       r.event_id,
+       r.id,
+       'event_local',
+       'event_local',
+       'succeeded',
+       CURRENT_TIMESTAMP,
+       CURRENT_TIMESTAMP,
+       jsonb_build_object('source', 'event_local_send')
+       FROM event_schedule_notification_recipients r
+      WHERE r.notification_id = $1
+        AND r.event_id = $2
+        AND r.archived_at IS NULL
+      ON CONFLICT (notification_id, recipient_id, provider) WHERE archived_at IS NULL
+      DO UPDATE SET
+        status = 'succeeded',
+        attempted_at = COALESCE(event_schedule_notification_delivery_attempts.attempted_at, EXCLUDED.attempted_at),
+        completed_at = EXCLUDED.completed_at,
+        metadata = event_schedule_notification_delivery_attempts.metadata || EXCLUDED.metadata,
+        updated_at = CURRENT_TIMESTAMP
+      RETURNING *`,
+    [notificationId, eventId]
+  );
+  return buildScheduleNotificationDeliveryAttemptSummary(result.rows);
+}
+
+function serializeScheduleNotificationDeliveryAttempt(row = {}) {
+  if (!row?.id) return null;
+  return {
+    id: row.id,
+    event_id: row.event_id,
+    notification_id: row.notification_id,
+    recipient_id: row.recipient_id,
+    provider: row.provider,
+    channel: row.channel,
+    status: row.status,
+    attempted_at: row.attempted_at || null,
+    completed_at: row.completed_at || null,
+    retry_after: row.retry_after || null,
+    provider_message_id: row.provider_message_id || null,
+    error_code: row.error_code || null,
+    error_message: row.error_message || null,
+    metadata: row.metadata || {},
+    recipient: row.recipient_id ? {
+      id: row.recipient_id,
+      recipient_type: row.recipient_type || null,
+      attendee_id: row.attendee_id || null,
+      group_id: row.group_id || null,
+      recipient: row.recipient_snapshot || {}
+    } : null,
+    notification: row.notification_id ? {
+      id: row.notification_id,
+      status: row.notification_status || null,
+      message_title: row.message_title || null,
+      sent_at: row.sent_at || null
+    } : null,
+    created_at: row.created_at,
+    updated_at: row.updated_at
+  };
 }
 
 function serializeScheduleNotificationRecipient(row = {}) {
@@ -1053,13 +1166,17 @@ async function createScheduleNotification({ eventId, preview, body = {}, userId 
       eventId,
       recipients
     });
+    const deliveryAttemptSummary = status === 'sent'
+      ? await insertEventLocalDeliveryAttempts(client, { notificationId: row.id, eventId })
+      : buildScheduleNotificationDeliveryAttemptSummary([]);
     await client.query('COMMIT');
     return serializeScheduleNotification({
       ...row,
       recipient_count: recipients.summary.attendee_count + recipients.summary.group_count,
       unread_count: recipients.summary.attendee_count + recipients.summary.group_count,
       read_count: 0,
-      acknowledged_count: 0
+      acknowledged_count: 0,
+      delivery_attempt_summary: deliveryAttemptSummary
     });
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {});
@@ -1109,6 +1226,14 @@ async function updateScheduleNotificationDraft({ eventId, notificationId, previe
   try {
     await client.query('BEGIN');
     await client.query(
+      `UPDATE event_schedule_notification_delivery_attempts
+          SET archived_at = CURRENT_TIMESTAMP
+        WHERE notification_id = $1
+          AND event_id = $2
+          AND archived_at IS NULL`,
+      [notificationId, eventId]
+    );
+    await client.query(
       `UPDATE event_schedule_notification_recipients
           SET archived_at = CURRENT_TIMESTAMP
         WHERE notification_id = $1
@@ -1157,13 +1282,17 @@ async function updateScheduleNotificationDraft({ eventId, notificationId, previe
       eventId,
       recipients
     });
+    const deliveryAttemptSummary = status === 'sent'
+      ? await insertEventLocalDeliveryAttempts(client, { notificationId, eventId })
+      : buildScheduleNotificationDeliveryAttemptSummary([]);
     await client.query('COMMIT');
     return serializeScheduleNotification({
       ...row,
       recipient_count: recipients.summary.attendee_count + recipients.summary.group_count,
       unread_count: status === 'sent' ? recipients.summary.attendee_count + recipients.summary.group_count : 0,
       read_count: 0,
-      acknowledged_count: 0
+      acknowledged_count: 0,
+      delivery_attempt_summary: deliveryAttemptSummary
     });
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {});
@@ -2786,17 +2915,47 @@ router.get('/events/:id/schedule-notifications', asyncHandler(async (req, res) =
 
   const result = await pool.query(
     `SELECT n.*,
-            COALESCE(COUNT(r.id), 0)::int AS recipient_count,
-            COALESCE(COUNT(r.id) FILTER (WHERE r.read_status = 'unread'), 0)::int AS unread_count,
-            COALESCE(COUNT(r.id) FILTER (WHERE r.read_status = 'read'), 0)::int AS read_count,
-            COALESCE(COUNT(r.id) FILTER (WHERE r.read_status = 'acknowledged'), 0)::int AS acknowledged_count
+            COALESCE(recipient_counts.recipient_count, 0)::int AS recipient_count,
+            COALESCE(recipient_counts.unread_count, 0)::int AS unread_count,
+            COALESCE(recipient_counts.read_count, 0)::int AS read_count,
+            COALESCE(recipient_counts.acknowledged_count, 0)::int AS acknowledged_count,
+            COALESCE(attempt_counts.delivery_attempt_count, 0)::int AS delivery_attempt_count,
+            COALESCE(attempt_counts.queued_count, 0)::int AS delivery_attempt_queued_count,
+            COALESCE(attempt_counts.sending_count, 0)::int AS delivery_attempt_sending_count,
+            COALESCE(attempt_counts.succeeded_count, 0)::int AS delivery_attempt_succeeded_count,
+            COALESCE(attempt_counts.failed_count, 0)::int AS delivery_attempt_failed_count,
+            COALESCE(attempt_counts.skipped_count, 0)::int AS delivery_attempt_skipped_count,
+            COALESCE(attempt_counts.cancelled_count, 0)::int AS delivery_attempt_cancelled_count,
+            attempt_counts.latest_completed_at AS delivery_attempt_latest_completed_at
        FROM event_schedule_notifications n
-       LEFT JOIN event_schedule_notification_recipients r
-         ON r.notification_id = n.id
-        AND r.archived_at IS NULL
+       LEFT JOIN (
+         SELECT notification_id,
+                COUNT(*)::int AS recipient_count,
+                COUNT(*) FILTER (WHERE read_status = 'unread')::int AS unread_count,
+                COUNT(*) FILTER (WHERE read_status = 'read')::int AS read_count,
+                COUNT(*) FILTER (WHERE read_status = 'acknowledged')::int AS acknowledged_count
+           FROM event_schedule_notification_recipients
+          WHERE archived_at IS NULL
+          GROUP BY notification_id
+       ) recipient_counts
+         ON recipient_counts.notification_id = n.id
+       LEFT JOIN (
+         SELECT notification_id,
+                COUNT(*)::int AS delivery_attempt_count,
+                COUNT(*) FILTER (WHERE status = 'queued')::int AS queued_count,
+                COUNT(*) FILTER (WHERE status = 'sending')::int AS sending_count,
+                COUNT(*) FILTER (WHERE status = 'succeeded')::int AS succeeded_count,
+                COUNT(*) FILTER (WHERE status = 'failed')::int AS failed_count,
+                COUNT(*) FILTER (WHERE status = 'skipped')::int AS skipped_count,
+                COUNT(*) FILTER (WHERE status = 'cancelled')::int AS cancelled_count,
+                MAX(completed_at) AS latest_completed_at
+           FROM event_schedule_notification_delivery_attempts
+          WHERE archived_at IS NULL
+          GROUP BY notification_id
+       ) attempt_counts
+         ON attempt_counts.notification_id = n.id
       WHERE n.event_id = $1
         AND n.archived_at IS NULL
-      GROUP BY n.id
       ORDER BY n.created_at DESC, n.id DESC
       LIMIT 50`,
     [eventId]
@@ -2810,6 +2969,57 @@ router.get('/events/:id/schedule-notification-delivery-boundary', asyncHandler(a
   const eventRow = await ensureScopedEvent(scopeContext, eventId);
   if (!eventRow) return res.status(404).json({ error: 'Event not found' });
   res.json(buildScheduleNotificationDeliveryBoundary(eventId));
+}));
+
+router.get('/events/:id/schedule-notification-delivery-attempts', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const eventId = parsePositiveId(req.params.id, 'event id');
+  const eventRow = await ensureScopedEvent(scopeContext, eventId);
+  if (!eventRow) return res.status(404).json({ error: 'Event not found' });
+  const notificationId = req.query.notification_id ? parsePositiveId(req.query.notification_id, 'schedule notification id') : null;
+
+  const result = await pool.query(
+    `SELECT a.*,
+            r.recipient_type,
+            r.attendee_id,
+            r.group_id,
+            r.recipient_snapshot,
+            n.status AS notification_status,
+            n.message_title,
+            n.sent_at
+       FROM event_schedule_notification_delivery_attempts a
+       JOIN event_schedule_notifications n
+         ON n.id = a.notification_id
+        AND n.archived_at IS NULL
+       JOIN event_schedule_notification_recipients r
+         ON r.id = a.recipient_id
+        AND r.archived_at IS NULL
+      WHERE a.event_id = $1
+        AND a.archived_at IS NULL
+        AND ($2::integer IS NULL OR a.notification_id = $2)
+      ORDER BY a.created_at DESC, a.id DESC
+      LIMIT 100`,
+    [eventId, notificationId]
+  );
+  const items = result.rows.map(serializeScheduleNotificationDeliveryAttempt).filter(Boolean);
+  res.json({
+    contract: {
+      version: 'event-schedule-notification-delivery-attempt-readback.v1',
+      scope: 'event_local',
+      provider_delivery_supported: false,
+      external_delivery_supported: false,
+      readback_supported: true,
+      limitations: [
+        'event_local_audit_only',
+        'no_push_delivery',
+        'no_email_delivery',
+        'no_device_registration',
+        'no_provider_message_ids_for_event_local'
+      ]
+    },
+    summary: buildScheduleNotificationDeliveryAttemptSummary(items),
+    items
+  });
 }));
 
 router.get('/events/:id/schedule-notification-inbox', asyncHandler(async (req, res) => {
@@ -3014,6 +3224,14 @@ router.delete('/events/:id/schedule-notifications/:notificationId', asyncHandler
   if (!row) return res.status(404).json({ error: 'Draft schedule notification not found' });
   await pool.query(
     `UPDATE event_schedule_notification_recipients
+        SET archived_at = CURRENT_TIMESTAMP
+      WHERE notification_id = $1
+        AND event_id = $2
+        AND archived_at IS NULL`,
+    [notificationId, eventId]
+  );
+  await pool.query(
+    `UPDATE event_schedule_notification_delivery_attempts
         SET archived_at = CURRENT_TIMESTAMP
       WHERE notification_id = $1
         AND event_id = $2

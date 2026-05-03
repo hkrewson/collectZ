@@ -343,6 +343,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - The `3.4.69` delivery-boundary slice is promoted to give platform/native clients a stable Event-local delivery contract before any push, email, or device-provider work exists.
 - The `3.4.70` provider-prep slice is promoted to describe disabled push/email/platform-device providers without creating delivery attempts or enabling external delivery.
 - The `3.4.71` delivery-attempt model slice is promoted to define the future attempt audit shape while keeping attempt creation disabled.
+- The `3.4.72` delivery-attempt persistence slice is promoted to create/read Event-local attempt audit rows without enabling external providers.
 - This follow-up turns that data into import-backed and time-aware discovery surfaces.
 
 **Scope**
@@ -367,7 +368,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 
 **Scope**
 - Add explicit actions for joining, leaving, replacing, or marking backup sessions. The first web-card slice is promoted as `3.4.64`.
-- When a change affects shared plans, offer selected-recipient notifications instead of broadcasting by default. The first action-template slice is promoted as `3.4.65`; picker/edit UI is promoted as `3.4.66`; recipient-selection polish is promoted as `3.4.67`; draft-management UI is promoted as `3.4.68`; the delivery-boundary/platform contract is promoted as `3.4.69`; provider-prep metadata is promoted as `3.4.70`; the delivery-attempt model contract is promoted as `3.4.71`.
+- When a change affects shared plans, offer selected-recipient notifications instead of broadcasting by default. The first action-template slice is promoted as `3.4.65`; picker/edit UI is promoted as `3.4.66`; recipient-selection polish is promoted as `3.4.67`; draft-management UI is promoted as `3.4.68`; the delivery-boundary/platform contract is promoted as `3.4.69`; provider-prep metadata is promoted as `3.4.70`; the delivery-attempt model contract is promoted as `3.4.71`; Event-local delivery-attempt persistence/readback is promoted as `3.4.72`.
 - Support message templates such as:
   - "I'm switching to this session"
   - "Anyone want to join?"

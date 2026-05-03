@@ -2040,12 +2040,25 @@
               "acknowledged": { "type": "integer" }
             }
           },
+          "delivery_attempt_readback": {
+            "type": "object",
+            "properties": {
+              "total": { "type": "integer" },
+              "queued": { "type": "integer" },
+              "sending": { "type": "integer" },
+              "succeeded": { "type": "integer" },
+              "failed": { "type": "integer" },
+              "skipped": { "type": "integer" },
+              "cancelled": { "type": "integer" },
+              "latest_completed_at": { "type": ["string", "null"], "format": "date-time" }
+            }
+          },
           "created_by": { "type": ["integer", "null"] },
           "sent_at": { "type": ["string", "null"], "format": "date-time" },
           "created_at": { "type": "string", "format": "date-time" },
           "updated_at": { "type": "string", "format": "date-time" }
         },
-        "required": ["id", "event_id", "status", "requested_status", "requested_visibility", "message_title", "message_body", "subject", "recipients", "conflicts", "contract", "delivery_channel", "delivery_supported", "created_at", "updated_at"]
+        "required": ["id", "event_id", "status", "requested_status", "requested_visibility", "message_title", "message_body", "subject", "recipients", "conflicts", "contract", "delivery_channel", "delivery_supported", "recipient_readback", "delivery_attempt_readback", "created_at", "updated_at"]
       },
       "EventScheduleNotificationListResponse": {
         "type": "object",
@@ -2110,7 +2123,7 @@
               "version": { "type": "string", "enum": ["event-schedule-notification-delivery-attempt-model.v1"] },
               "supported": { "type": "boolean" },
               "creates_records": { "type": "boolean" },
-              "relationship": { "type": "string", "enum": ["one_attempt_per_notification_recipient_provider_when_enabled"] },
+              "relationship": { "type": "string", "enum": ["one_attempt_per_notification_recipient_provider"] },
               "owner": { "type": "string", "enum": ["backend_provider_delivery_pipeline"] },
               "endpoint": { "type": ["string", "null"] },
               "status_values": {
@@ -2148,6 +2161,7 @@
                 "supported": { "type": "boolean" },
                 "records_notifications": { "type": "boolean" },
                 "creates_recipient_readback": { "type": "boolean" },
+                "creates_delivery_attempts": { "type": "boolean" },
                 "delivers_outside_app": { "type": "boolean" },
                 "description": { "type": "string" }
               },
@@ -2177,6 +2191,7 @@
               "recipient_readback": { "type": "boolean" },
               "current_user_inbox_filter": { "type": "boolean" },
               "read_acknowledgement": { "type": "boolean" },
+              "local_delivery_attempt_records": { "type": "boolean" },
               "external_delivery": { "type": "boolean" },
               "external_provider_config": { "type": "boolean" },
               "delivery_attempt_readback": { "type": "boolean" }
@@ -2186,6 +2201,62 @@
           "platform_guidance": { "type": "array", "items": { "type": "string" } }
         },
         "required": ["contract", "provider_contract", "delivery_providers", "delivery_attempt_model", "supported_channels", "unsupported_channels", "capabilities", "endpoints", "platform_guidance"]
+      },
+      "EventScheduleNotificationDeliveryAttemptRecord": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "event_id": { "type": "integer" },
+          "notification_id": { "type": "integer" },
+          "recipient_id": { "type": "integer" },
+          "provider": { "type": "string", "enum": ["event_local", "push", "email", "platform_device"] },
+          "channel": { "type": "string", "enum": ["event_local", "push", "email", "device"] },
+          "status": { "type": "string", "enum": ["queued", "sending", "succeeded", "failed", "skipped", "cancelled"] },
+          "attempted_at": { "type": ["string", "null"], "format": "date-time" },
+          "completed_at": { "type": ["string", "null"], "format": "date-time" },
+          "retry_after": { "type": ["string", "null"], "format": "date-time" },
+          "provider_message_id": { "type": ["string", "null"] },
+          "error_code": { "type": ["string", "null"] },
+          "error_message": { "type": ["string", "null"] },
+          "metadata": { "type": "object" },
+          "recipient": { "type": ["object", "null"] },
+          "notification": { "type": ["object", "null"] },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        },
+        "required": ["id", "event_id", "notification_id", "recipient_id", "provider", "channel", "status", "metadata", "created_at", "updated_at"]
+      },
+      "EventScheduleNotificationDeliveryAttemptListResponse": {
+        "type": "object",
+        "properties": {
+          "contract": {
+            "type": "object",
+            "properties": {
+              "version": { "type": "string", "enum": ["event-schedule-notification-delivery-attempt-readback.v1"] },
+              "scope": { "type": "string", "enum": ["event_local"] },
+              "provider_delivery_supported": { "type": "boolean" },
+              "external_delivery_supported": { "type": "boolean" },
+              "readback_supported": { "type": "boolean" },
+              "limitations": { "type": "array", "items": { "type": "string" } }
+            },
+            "required": ["version", "scope", "provider_delivery_supported", "external_delivery_supported", "readback_supported", "limitations"]
+          },
+          "summary": {
+            "type": "object",
+            "properties": {
+              "total": { "type": "integer" },
+              "queued": { "type": "integer" },
+              "sending": { "type": "integer" },
+              "succeeded": { "type": "integer" },
+              "failed": { "type": "integer" },
+              "skipped": { "type": "integer" },
+              "cancelled": { "type": "integer" },
+              "latest_completed_at": { "type": ["string", "null"], "format": "date-time" }
+            }
+          },
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/EventScheduleNotificationDeliveryAttemptRecord" } }
+        },
+        "required": ["contract", "summary", "items"]
       },
       "EventScheduleNotificationRecipientUpdateRequest": {
         "type": "object",
@@ -6022,11 +6093,26 @@
       "get": {
         "tags": ["Events"],
         "summary": "Read the Event schedule notification delivery boundary",
-        "description": "Returns the platform-readable delivery boundary, provider-prep contract, and future delivery-attempt model for schedule notifications. The current contract supports Event-local records and recipient readback only; push, email, native device delivery, realtime fanout, global inboxes, delivery attempts, and broadcast delivery are explicitly unsupported.",
+        "description": "Returns the platform-readable delivery boundary, provider-prep contract, and delivery-attempt model for schedule notifications. The current contract supports Event-local records, recipient readback, and local delivery-attempt audit records only; push, email, native device delivery, realtime fanout, global inboxes, external delivery attempts, and broadcast delivery are explicitly unsupported.",
         "security": [{ "cookieSession": [] }, { "bearerAuth": [] }],
         "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
         "responses": {
           "200": { "description": "Event schedule notification delivery boundary", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventScheduleNotificationDeliveryBoundaryResponse" } } } }
+        }
+      }
+    },
+    "/api/events/{id}/schedule-notification-delivery-attempts": {
+      "get": {
+        "tags": ["Events"],
+        "summary": "List Event-local schedule notification delivery attempts",
+        "description": "Returns local delivery-attempt audit rows for Event schedule notifications. These rows prove local record creation/readback only and do not imply push, email, native device, realtime, or external provider delivery.",
+        "security": [{ "cookieSession": [] }, { "bearerAuth": [] }],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } },
+          { "in": "query", "name": "notification_id", "required": false, "schema": { "type": "integer", "minimum": 1 } }
+        ],
+        "responses": {
+          "200": { "description": "Event-local notification delivery attempt rows", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventScheduleNotificationDeliveryAttemptListResponse" } } } }
         }
       }
     },

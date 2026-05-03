@@ -55,14 +55,14 @@ The companion snapshot is not a new write surface. Platform clients should use t
 The current contract is intentionally local-only:
 
 - supported channel: `event_local`,
-- supported behavior: preview recipients, save drafts, edit drafts, discard drafts, mark a draft locally sent, create Event-local recipient readback rows, and update read/acknowledged state,
+- supported behavior: preview recipients, save drafts, edit drafts, discard drafts, mark a draft locally sent, create Event-local recipient readback rows, create Event-local delivery-attempt audit rows, read those attempts back, and update read/acknowledged state,
 - unsupported behavior: push delivery, email delivery, native device registration, realtime fanout, global inboxes, and broadcast-without-selection behavior.
 
-The boundary also includes provider-prep metadata. `event_local` is the active provider and does not create delivery attempts. Future provider slots such as `push`, `email`, and `platform_device` are listed only as disabled descriptors so platform clients can hide unavailable delivery controls and avoid inventing provider behavior.
+The boundary also includes provider-prep metadata. `event_local` is the active provider and creates local audit attempts only. Future provider slots such as `push`, `email`, and `platform_device` are listed only as disabled descriptors so platform clients can hide unavailable delivery controls and avoid inventing provider behavior.
 
-The boundary includes a future delivery-attempt model contract. Attempt records are not supported or created today, but the model defines the intended relationship as one attempt per notification-recipient-provider when a provider is enabled later. The future attempt shape includes provider/channel, status, attempted/completed timestamps, retry metadata, provider message id, and provider error fields.
+The boundary includes a delivery-attempt model contract. Sent Event-local notifications create one attempt per notification-recipient-provider for local audit/readback. The attempt shape includes provider/channel, status, attempted/completed timestamps, retry metadata, provider message id, and provider error fields. For the current `event_local` provider, provider message ids and external error fields should remain empty because no external provider was contacted.
 
-Platform clients should treat `sent` schedule notifications as coordination records inside collectZ, not proof that another device received a push/email/message. A native client should not show push/email/device delivery affordances unless this boundary reports a future supported external channel and a new contract version.
+Platform clients should treat `sent` schedule notifications and `event_local` delivery attempts as coordination/audit records inside collectZ, not proof that another device received a push/email/message. A native client should not show push/email/device delivery affordances unless this boundary reports a future supported external channel and a new contract version.
 
 ## Offline and Cache Rules
 

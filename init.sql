@@ -970,6 +970,29 @@ CREATE TABLE IF NOT EXISTS event_schedule_notification_recipients (
     )
 );
 
+CREATE TABLE IF NOT EXISTS event_schedule_notification_delivery_attempts (
+    id SERIAL PRIMARY KEY,
+    notification_id INTEGER NOT NULL REFERENCES event_schedule_notifications(id) ON DELETE CASCADE,
+    event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    recipient_id INTEGER NOT NULL REFERENCES event_schedule_notification_recipients(id) ON DELETE CASCADE,
+    provider VARCHAR(50) NOT NULL DEFAULT 'event_local'
+      CHECK (provider IN ('event_local', 'push', 'email', 'platform_device')),
+    channel VARCHAR(50) NOT NULL DEFAULT 'event_local'
+      CHECK (channel IN ('event_local', 'push', 'email', 'device')),
+    status VARCHAR(30) NOT NULL DEFAULT 'succeeded'
+      CHECK (status IN ('queued', 'sending', 'succeeded', 'failed', 'skipped', 'cancelled')),
+    attempted_at TIMESTAMP,
+    completed_at TIMESTAMP,
+    retry_after TIMESTAMP,
+    provider_message_id TEXT,
+    error_code VARCHAR(120),
+    error_message TEXT,
+    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    archived_at TIMESTAMP
+);
+
 DO $$
 BEGIN
     IF NOT EXISTS (
@@ -1205,6 +1228,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_event_schedule_notification_recipients_att
 CREATE UNIQUE INDEX IF NOT EXISTS idx_event_schedule_notification_recipients_group_unique ON event_schedule_notification_recipients(notification_id, group_id) WHERE recipient_type = 'group' AND group_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_event_schedule_notification_recipients_event_status ON event_schedule_notification_recipients(event_id, read_status, created_at DESC, id DESC) WHERE archived_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_event_schedule_notification_recipients_notification ON event_schedule_notification_recipients(notification_id) WHERE archived_at IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_event_schedule_notification_delivery_attempts_unique ON event_schedule_notification_delivery_attempts(notification_id, recipient_id, provider) WHERE archived_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_event_schedule_notification_delivery_attempts_event ON event_schedule_notification_delivery_attempts(event_id, status, created_at DESC, id DESC) WHERE archived_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_event_schedule_notification_delivery_attempts_notification ON event_schedule_notification_delivery_attempts(notification_id, created_at DESC, id DESC) WHERE archived_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_event_schedule_notification_delivery_attempts_recipient ON event_schedule_notification_delivery_attempts(recipient_id) WHERE archived_at IS NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_event_personal_ics_sources_active_unique ON event_personal_ics_sources(event_id, user_id) WHERE archived_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_event_personal_ics_sources_event_user ON event_personal_ics_sources(event_id, user_id, archived_at);
 CREATE INDEX IF NOT EXISTS idx_event_schedule_plans_sched_ics_source ON event_schedule_plans(event_id, created_by, source_type, source_ref) WHERE source_type = 'sched_ics';
@@ -1344,6 +1371,10 @@ BEGIN
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_event_schedule_notification_recipients_updated_at') THEN
         CREATE TRIGGER update_event_schedule_notification_recipients_updated_at BEFORE UPDATE ON event_schedule_notification_recipients
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_event_schedule_notification_delivery_attempts_updated_at') THEN
+        CREATE TRIGGER update_event_schedule_notification_delivery_attempts_updated_at BEFORE UPDATE ON event_schedule_notification_delivery_attempts
             FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_event_personal_ics_sources_updated_at') THEN
@@ -1514,5 +1545,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (89, 'Link personal Sched plans to catalog sessions'),
     (90, 'Add event schedule notification draft and send records'),
     (91, 'Add event schedule notification recipient readback'),
-    (92, 'Add user-linked event attendee identity')
+    (92, 'Add user-linked event attendee identity'),
+    (93, 'Add event schedule notification delivery attempts')
 ON CONFLICT (version) DO NOTHING;

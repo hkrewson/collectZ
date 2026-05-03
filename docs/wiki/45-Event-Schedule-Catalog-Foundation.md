@@ -45,6 +45,7 @@ The foundation endpoints are event-scoped and use the same auth/scope checks as 
 - `GET /api/events/:id/schedule-notifications`
 - `POST /api/events/:id/schedule-notifications`
 - `GET /api/events/:id/schedule-notification-delivery-boundary`
+- `GET /api/events/:id/schedule-notification-delivery-attempts`
 - `GET /api/events/:id/schedule-notification-inbox`
 - `PATCH /api/events/:id/schedule-notification-inbox/:recipientId`
 
@@ -58,7 +59,9 @@ Deleted sessions are archived with `archived_at`; they are not hard-deleted by t
 
 `POST /api/events/:id/schedule-notifications` creates a durable Event-local notification record with status `draft` or `sent`. A sent record is local readback only: it does not push, email, register devices, or broadcast outside the Event-local selected recipient snapshot.
 
-`GET /api/events/:id/schedule-notification-delivery-boundary` returns the platform-readable delivery capability boundary for schedule notifications. The current contract supports Event-local records and recipient readback only; push, email, native device delivery, realtime fanout, global inboxes, delivery attempts, and broadcast delivery are explicitly unsupported. Provider-prep metadata lists `event_local` as the only active provider while keeping future `push`, `email`, and `platform_device` providers disabled. The response also includes a future delivery-attempt model shape for one attempt per notification-recipient-provider when delivery providers are enabled later; no attempt records are created today.
+`GET /api/events/:id/schedule-notification-delivery-boundary` returns the platform-readable delivery capability boundary for schedule notifications. The current contract supports Event-local records, recipient readback, and local delivery-attempt audit rows only; push, email, native device delivery, realtime fanout, global inboxes, external provider attempts, and broadcast delivery are explicitly unsupported. Provider-prep metadata lists `event_local` as the only active provider while keeping future `push`, `email`, and `platform_device` providers disabled. The response also includes the delivery-attempt model shape for one attempt per notification-recipient-provider.
+
+`GET /api/events/:id/schedule-notification-delivery-attempts` returns Event-local delivery-attempt audit rows. These rows mean collectZ recorded the selected-recipient local send path; they do not prove push, email, native device, realtime, or provider delivery.
 
 `GET /api/events/:id/schedule-notification-inbox` returns Event-local recipient rows for sent notification records, including unread/read/acknowledged counts. `PATCH /api/events/:id/schedule-notification-inbox/:recipientId` marks a local recipient row read or acknowledged. This readback contract is still scoped to the Event and does not imply external delivery, device registration, or global friend identity.
 

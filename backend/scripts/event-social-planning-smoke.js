@@ -273,17 +273,18 @@ async function main() {
     assert(deliveryBoundary.data?.provider_contract?.version === 'event-schedule-notification-provider-prep.v1', `Expected notification provider prep contract, got ${JSON.stringify(deliveryBoundary.data)}`);
     assert(deliveryBoundary.data?.provider_contract?.active_provider === 'event_local', `Expected event_local active provider, got ${JSON.stringify(deliveryBoundary.data)}`);
     assert(deliveryBoundary.data?.provider_contract?.external_delivery_attempts_created === false, `Expected no external delivery attempts, got ${JSON.stringify(deliveryBoundary.data)}`);
-    assert(deliveryBoundary.data?.provider_contract?.delivery_attempt_endpoint === null, `Expected no delivery attempt endpoint, got ${JSON.stringify(deliveryBoundary.data)}`);
+    assert(deliveryBoundary.data?.provider_contract?.delivery_attempt_record_supported === true, `Expected local delivery attempt records to be supported, got ${JSON.stringify(deliveryBoundary.data)}`);
+    assert(deliveryBoundary.data?.provider_contract?.delivery_attempt_endpoint === `/api/events/${eventId}/schedule-notification-delivery-attempts`, `Expected delivery attempt endpoint, got ${JSON.stringify(deliveryBoundary.data)}`);
     assert(deliveryBoundary.data?.delivery_attempt_model?.version === 'event-schedule-notification-delivery-attempt-model.v1', `Expected delivery attempt model contract, got ${JSON.stringify(deliveryBoundary.data)}`);
-    assert(deliveryBoundary.data?.delivery_attempt_model?.supported === false, `Expected delivery attempt model to be disabled, got ${JSON.stringify(deliveryBoundary.data)}`);
-    assert(deliveryBoundary.data?.delivery_attempt_model?.creates_records === false, `Expected no delivery attempt records, got ${JSON.stringify(deliveryBoundary.data)}`);
-    assert(deliveryBoundary.data?.delivery_attempt_model?.relationship === 'one_attempt_per_notification_recipient_provider_when_enabled', `Expected recipient-provider attempt relationship, got ${JSON.stringify(deliveryBoundary.data)}`);
+    assert(deliveryBoundary.data?.delivery_attempt_model?.supported === true, `Expected delivery attempt model to be enabled for local audit records, got ${JSON.stringify(deliveryBoundary.data)}`);
+    assert(deliveryBoundary.data?.delivery_attempt_model?.creates_records === true, `Expected local delivery attempt records, got ${JSON.stringify(deliveryBoundary.data)}`);
+    assert(deliveryBoundary.data?.delivery_attempt_model?.relationship === 'one_attempt_per_notification_recipient_provider', `Expected recipient-provider attempt relationship, got ${JSON.stringify(deliveryBoundary.data)}`);
     assert(deliveryBoundary.data?.delivery_attempt_model?.status_values?.includes('queued'), `Expected queued attempt status, got ${JSON.stringify(deliveryBoundary.data)}`);
     assert(deliveryBoundary.data?.delivery_attempt_model?.field_contract?.provider_message_id === 'string | null', `Expected provider message id field contract, got ${JSON.stringify(deliveryBoundary.data)}`);
     assert(deliveryBoundary.data?.capabilities?.send_local_records === true, `Expected local send records supported, got ${JSON.stringify(deliveryBoundary.data)}`);
     assert(deliveryBoundary.data?.capabilities?.external_delivery === false, `Expected external delivery capability disabled, got ${JSON.stringify(deliveryBoundary.data)}`);
-    assert(deliveryBoundary.data?.capabilities?.delivery_attempt_readback === false, `Expected delivery attempt readback disabled, got ${JSON.stringify(deliveryBoundary.data)}`);
-    assert(deliveryBoundary.data?.delivery_providers?.some((provider) => provider.provider === 'event_local' && provider.enabled === true && provider.creates_delivery_attempts === false), `Expected event_local provider enabled without delivery attempts, got ${JSON.stringify(deliveryBoundary.data)}`);
+    assert(deliveryBoundary.data?.capabilities?.delivery_attempt_readback === true, `Expected delivery attempt readback enabled, got ${JSON.stringify(deliveryBoundary.data)}`);
+    assert(deliveryBoundary.data?.delivery_providers?.some((provider) => provider.provider === 'event_local' && provider.enabled === true && provider.creates_delivery_attempts === true), `Expected event_local provider enabled with local delivery attempts, got ${JSON.stringify(deliveryBoundary.data)}`);
     assert(deliveryBoundary.data?.delivery_providers?.some((provider) => provider.provider === 'push' && provider.enabled === false && provider.requires_device_registration === true), `Expected disabled push provider prep, got ${JSON.stringify(deliveryBoundary.data)}`);
     assert(deliveryBoundary.data?.delivery_providers?.some((provider) => provider.provider === 'email' && provider.enabled === false), `Expected disabled email provider prep, got ${JSON.stringify(deliveryBoundary.data)}`);
     assert(deliveryBoundary.data?.delivery_providers?.some((provider) => provider.provider === 'platform_device' && provider.enabled === false), `Expected disabled platform device provider prep, got ${JSON.stringify(deliveryBoundary.data)}`);
@@ -332,6 +333,8 @@ async function main() {
     assert(notificationSent.data?.recipients?.summary?.attendee_count === 1, `Expected one sent attendee recipient, got ${JSON.stringify(notificationSent.data)}`);
     assert(notificationSent.data?.recipients?.summary?.group_count === 1, `Expected one sent group recipient, got ${JSON.stringify(notificationSent.data)}`);
     assert(notificationSent.data?.contract?.external_delivery_supported === false, `Expected external delivery disabled, got ${JSON.stringify(notificationSent.data)}`);
+    assert(notificationSent.data?.delivery_attempt_readback?.total === 2, `Expected two local delivery attempts on sent notification, got ${JSON.stringify(notificationSent.data)}`);
+    assert(notificationSent.data?.delivery_attempt_readback?.succeeded === 2, `Expected two successful local delivery attempts, got ${JSON.stringify(notificationSent.data)}`);
 
     await client.request(`/api/events/${eventId}/schedule-sessions/${catalogSessionId}`, {
       method: 'PATCH',
@@ -341,13 +344,14 @@ async function main() {
       headers: { 'Content-Type': 'application/json' }
     });
 
-    const [attendees, groups, meetups, plans, catalog, notifications, notificationInbox, myNotificationInbox, companion] = await Promise.all([
+    const [attendees, groups, meetups, plans, catalog, notifications, deliveryAttempts, notificationInbox, myNotificationInbox, companion] = await Promise.all([
       client.request(`/api/events/${eventId}/attendees`, { expectStatus: 200 }),
       client.request(`/api/events/${eventId}/groups`, { expectStatus: 200 }),
       client.request(`/api/events/${eventId}/meetups`, { expectStatus: 200 }),
       client.request(`/api/events/${eventId}/schedule-plans`, { expectStatus: 200 }),
       client.request(`/api/events/${eventId}/schedule-sessions`, { expectStatus: 200 }),
       client.request(`/api/events/${eventId}/schedule-notifications`, { expectStatus: 200 }),
+      client.request(`/api/events/${eventId}/schedule-notification-delivery-attempts?notification_id=${notificationSent.data.id}`, { expectStatus: 200 }),
       client.request(`/api/events/${eventId}/schedule-notification-inbox`, { expectStatus: 200 }),
       client.request(`/api/events/${eventId}/schedule-notification-inbox?recipient=me`, { expectStatus: 200 }),
       client.request(`/api/events/${eventId}/companion/today`, { expectStatus: 200 })
@@ -373,6 +377,12 @@ async function main() {
     assert(catalog.data.items[0]?.track === 'Comics Art', `Expected updated schedule catalog track, got ${JSON.stringify(catalog.data)}`);
     assert(notifications.data.items.length === 2, `Expected two schedule notification records, got ${JSON.stringify(notifications.data)}`);
     assert(notifications.data.items[0]?.status === 'sent', `Expected latest schedule notification to be sent, got ${JSON.stringify(notifications.data)}`);
+    assert(notifications.data.items[0]?.delivery_attempt_readback?.total === 2, `Expected notification list delivery attempt summary, got ${JSON.stringify(notifications.data)}`);
+    assert(deliveryAttempts.data?.contract?.version === 'event-schedule-notification-delivery-attempt-readback.v1', `Expected delivery attempt readback contract, got ${JSON.stringify(deliveryAttempts.data)}`);
+    assert(deliveryAttempts.data?.summary?.total === 2, `Expected two delivery attempt rows, got ${JSON.stringify(deliveryAttempts.data)}`);
+    assert(deliveryAttempts.data?.summary?.succeeded === 2, `Expected two successful delivery attempt rows, got ${JSON.stringify(deliveryAttempts.data)}`);
+    assert(deliveryAttempts.data?.items?.every((attempt) => attempt.provider === 'event_local' && attempt.channel === 'event_local'), `Expected event-local delivery attempts, got ${JSON.stringify(deliveryAttempts.data)}`);
+    assert(deliveryAttempts.data?.items?.every((attempt) => attempt.provider_message_id === null), `Expected no provider message ids for event-local attempts, got ${JSON.stringify(deliveryAttempts.data)}`);
     assert(notificationInbox.data?.contract?.version === 'event-schedule-notification-inbox.v1', `Expected notification inbox contract, got ${JSON.stringify(notificationInbox.data)}`);
     assert(notificationInbox.data?.counts?.total === 2, `Expected two local inbox recipient records, got ${JSON.stringify(notificationInbox.data)}`);
     assert(notificationInbox.data?.counts?.unread === 2, `Expected unread local recipient records, got ${JSON.stringify(notificationInbox.data)}`);
@@ -432,6 +442,7 @@ async function main() {
       notificationExternalDeliverySupported: deliveryBoundary.data?.contract?.external_delivery_supported ?? null,
       externalDeliveryAttemptsCreated: deliveryBoundary.data?.provider_contract?.external_delivery_attempts_created ?? null,
       deliveryAttemptRecordsCreated: deliveryBoundary.data?.delivery_attempt_model?.creates_records ?? null,
+      deliveryAttemptReadbackCount: deliveryAttempts.data?.summary?.total || 0,
       unsupportedNotificationChannels: (deliveryBoundary.data?.unsupported_channels || []).map((channel) => channel.channel),
       sentScheduleNotificationStatus: notificationSent.data?.status || null,
       companionContract: companion.data?.contract?.version || null,
