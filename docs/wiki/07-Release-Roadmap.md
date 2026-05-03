@@ -7981,6 +7981,47 @@ Historical note:
 - What remains in the milestone: no remaining 3.4.70 implementation work; CI-only release gates must pass before public tag/release publication.
 - Recommended commit message: `Release 3.4.70 event schedule notification delivery provider prep`
 
+## 3.4.71 — Event Schedule Delivery Attempt Model Design
+
+**Goal:** Define the future delivery-attempt audit model for Event schedule notifications without creating attempt records or enabling provider-backed delivery.
+
+**Current Slice:** `Closed.`
+
+### Scope
+
+- Extend the existing delivery boundary with a versioned delivery-attempt model contract.
+- Keep delivery attempts unsupported and uncreated while all external providers remain disabled.
+- Define the future relationship as one attempt per notification-recipient-provider when delivery providers are enabled.
+- Document future attempt fields such as provider, channel, status, attempted/completed timestamps, retry metadata, provider message id, and provider error details.
+- Update OpenAPI, smoke coverage, and platform companion docs so native clients can understand the future audit shape without reading attempts today.
+- Do not add database tables, delivery attempt endpoints, delivery queues, provider settings, push/email delivery, or device registration.
+
+### Acceptance Criteria
+
+- The delivery boundary reports attempt model version `event-schedule-notification-delivery-attempt-model.v1`.
+- The attempt model reports `supported = false` and `creates_records = false`.
+- The attempt model documents provider/channel/status/timestamp/retry/provider-message/error fields.
+- Event social smoke and OpenAPI validation prove the attempt-model fields.
+- Runtime send behavior remains Event-local record/readback only.
+
+### Notes
+
+- This is a model-design patch only. Delivery attempt persistence and readback remain future milestones.
+
+### Closeout
+
+- Roadmap slice: `3.4.71 — Event Schedule Delivery Attempt Model Design`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/42-Event-Social-Platform-Companion-Contract.md`, and `docs/wiki/45-Event-Schedule-Catalog-Foundation.md`.
+- Runtime verification used: rebuilt and recreated backend/frontend through Docker with `APP_VERSION=3.4.71`; verified `/api/health` reports frontend/backend/build `3.4.71`; verified local platform container env reports `APP_EDITION=platform`; switched to generated public compose and verified homelab boundary with no `APP_EDITION`; restored local platform compose afterward.
+- CI/checks run locally: backend route/smoke/unit syntax checks; local backend unit/source contract tests; local OpenAPI validation; container backend unit tests; container OpenAPI validation; event social planning smoke; Help > Releases smoke; init parity; migration rehearsal; RBAC regression; platform edition boundary; homelab edition boundary; full browser regression (`55 passed`, `4 skipped`); public-export validation; generated-compose config validation and idempotence check; backend and frontend `npm ci --dry-run` dependency checks; observability release evidence; release preflight; generated-artifact secret-pattern grep; and `git diff --check`.
+- Release artifacts: `docs/releases/v3.4.71.md` exists, `backend/release-feed.json` serves `v3.4.71` first, `preflight-go-no-go.md` regenerated, and observability evidence regenerated for `3.4.71`.
+- Verified facts: the schedule notification delivery boundary now includes attempt model version `event-schedule-notification-delivery-attempt-model.v1`; the model reports `supported = false` and `creates_records = false`; it documents the future one-attempt-per-notification-recipient-provider relationship plus provider/channel/status/timestamp/retry/provider-message/error fields; runtime sends remain Event-local records and recipient readback only.
+- Blocked/unverified items: CI-only `secret-scan` and `image-security-and-sbom` must still run in GitHub Actions; local release preflight marks CI secure-cookie `compose-smoke` conditions blocked because the local development stack intentionally runs with `SESSION_COOKIE_SECURE=false`; the preflight helper also marks browser regression blocked even though full browser regression was run separately and passed locally.
+- Files changed: `app-meta.json`, `artifacts/observability-evidence/observability-release-evidence.json`, `backend/app-meta.json`, `backend/openapi/openapi.yaml`, `backend/package.json`, `backend/package-lock.json`, `backend/release-feed.json`, `backend/routes/events.js`, `backend/scripts/event-social-planning-smoke.js`, `backend/scripts/unit-tests.js`, `docker-compose.yml`, `docs/releases/v3.4.71.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/42-Event-Social-Platform-Companion-Contract.md`, `docs/wiki/45-Event-Schedule-Catalog-Foundation.md`, `frontend/package.json`, `frontend/package-lock.json`, `frontend/src/app-meta.json`, and `preflight-go-no-go.md`.
+- Risks or follow-ups: this remains model design only; delivery-attempt persistence, readback endpoints, provider queues, provider settings, push/email delivery, native device registration, and global notification inboxes remain future milestones.
+- What remains in the milestone: no remaining 3.4.71 implementation work; CI-only release gates must pass before public tag/release publication.
+- Recommended commit message: `Release 3.4.71 event schedule delivery attempt model design`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

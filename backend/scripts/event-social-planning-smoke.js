@@ -274,6 +274,12 @@ async function main() {
     assert(deliveryBoundary.data?.provider_contract?.active_provider === 'event_local', `Expected event_local active provider, got ${JSON.stringify(deliveryBoundary.data)}`);
     assert(deliveryBoundary.data?.provider_contract?.external_delivery_attempts_created === false, `Expected no external delivery attempts, got ${JSON.stringify(deliveryBoundary.data)}`);
     assert(deliveryBoundary.data?.provider_contract?.delivery_attempt_endpoint === null, `Expected no delivery attempt endpoint, got ${JSON.stringify(deliveryBoundary.data)}`);
+    assert(deliveryBoundary.data?.delivery_attempt_model?.version === 'event-schedule-notification-delivery-attempt-model.v1', `Expected delivery attempt model contract, got ${JSON.stringify(deliveryBoundary.data)}`);
+    assert(deliveryBoundary.data?.delivery_attempt_model?.supported === false, `Expected delivery attempt model to be disabled, got ${JSON.stringify(deliveryBoundary.data)}`);
+    assert(deliveryBoundary.data?.delivery_attempt_model?.creates_records === false, `Expected no delivery attempt records, got ${JSON.stringify(deliveryBoundary.data)}`);
+    assert(deliveryBoundary.data?.delivery_attempt_model?.relationship === 'one_attempt_per_notification_recipient_provider_when_enabled', `Expected recipient-provider attempt relationship, got ${JSON.stringify(deliveryBoundary.data)}`);
+    assert(deliveryBoundary.data?.delivery_attempt_model?.status_values?.includes('queued'), `Expected queued attempt status, got ${JSON.stringify(deliveryBoundary.data)}`);
+    assert(deliveryBoundary.data?.delivery_attempt_model?.field_contract?.provider_message_id === 'string | null', `Expected provider message id field contract, got ${JSON.stringify(deliveryBoundary.data)}`);
     assert(deliveryBoundary.data?.capabilities?.send_local_records === true, `Expected local send records supported, got ${JSON.stringify(deliveryBoundary.data)}`);
     assert(deliveryBoundary.data?.capabilities?.external_delivery === false, `Expected external delivery capability disabled, got ${JSON.stringify(deliveryBoundary.data)}`);
     assert(deliveryBoundary.data?.capabilities?.delivery_attempt_readback === false, `Expected delivery attempt readback disabled, got ${JSON.stringify(deliveryBoundary.data)}`);
@@ -421,9 +427,11 @@ async function main() {
       linkedScheduleNotificationInboxCount: myNotificationInbox.data?.counts?.total || 0,
       notificationDeliveryBoundaryVersion: deliveryBoundary.data?.contract?.version || null,
       notificationProviderContractVersion: deliveryBoundary.data?.provider_contract?.version || null,
+      notificationDeliveryAttemptModelVersion: deliveryBoundary.data?.delivery_attempt_model?.version || null,
       activeNotificationProvider: deliveryBoundary.data?.provider_contract?.active_provider || null,
       notificationExternalDeliverySupported: deliveryBoundary.data?.contract?.external_delivery_supported ?? null,
       externalDeliveryAttemptsCreated: deliveryBoundary.data?.provider_contract?.external_delivery_attempts_created ?? null,
+      deliveryAttemptRecordsCreated: deliveryBoundary.data?.delivery_attempt_model?.creates_records ?? null,
       unsupportedNotificationChannels: (deliveryBoundary.data?.unsupported_channels || []).map((channel) => channel.channel),
       sentScheduleNotificationStatus: notificationSent.data?.status || null,
       companionContract: companion.data?.contract?.version || null,

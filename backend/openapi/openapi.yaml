@@ -2104,6 +2104,41 @@
               "required": ["provider", "channel", "enabled", "configured", "creates_delivery_attempts", "requires_device_registration", "mode"]
             }
           },
+          "delivery_attempt_model": {
+            "type": "object",
+            "properties": {
+              "version": { "type": "string", "enum": ["event-schedule-notification-delivery-attempt-model.v1"] },
+              "supported": { "type": "boolean" },
+              "creates_records": { "type": "boolean" },
+              "relationship": { "type": "string", "enum": ["one_attempt_per_notification_recipient_provider_when_enabled"] },
+              "owner": { "type": "string", "enum": ["backend_provider_delivery_pipeline"] },
+              "endpoint": { "type": ["string", "null"] },
+              "status_values": {
+                "type": "array",
+                "items": { "type": "string", "enum": ["queued", "sending", "succeeded", "failed", "skipped", "cancelled"] }
+              },
+              "field_contract": {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "string" },
+                  "event_id": { "type": "string" },
+                  "notification_id": { "type": "string" },
+                  "recipient_id": { "type": "string" },
+                  "provider": { "type": "string" },
+                  "channel": { "type": "string" },
+                  "status": { "type": "string" },
+                  "attempted_at": { "type": "string" },
+                  "completed_at": { "type": "string" },
+                  "retry_after": { "type": "string" },
+                  "provider_message_id": { "type": "string" },
+                  "error_code": { "type": "string" },
+                  "error_message": { "type": "string" }
+                }
+              },
+              "notes": { "type": "array", "items": { "type": "string" } }
+            },
+            "required": ["version", "supported", "creates_records", "relationship", "owner", "endpoint", "status_values", "field_contract", "notes"]
+          },
           "supported_channels": {
             "type": "array",
             "items": {
@@ -2150,7 +2185,7 @@
           "endpoints": { "type": "object" },
           "platform_guidance": { "type": "array", "items": { "type": "string" } }
         },
-        "required": ["contract", "provider_contract", "delivery_providers", "supported_channels", "unsupported_channels", "capabilities", "endpoints", "platform_guidance"]
+        "required": ["contract", "provider_contract", "delivery_providers", "delivery_attempt_model", "supported_channels", "unsupported_channels", "capabilities", "endpoints", "platform_guidance"]
       },
       "EventScheduleNotificationRecipientUpdateRequest": {
         "type": "object",
@@ -5987,7 +6022,7 @@
       "get": {
         "tags": ["Events"],
         "summary": "Read the Event schedule notification delivery boundary",
-        "description": "Returns the platform-readable delivery boundary and provider-prep contract for schedule notifications. The current contract supports Event-local records and recipient readback only; push, email, native device delivery, realtime fanout, global inboxes, delivery attempts, and broadcast delivery are explicitly unsupported.",
+        "description": "Returns the platform-readable delivery boundary, provider-prep contract, and future delivery-attempt model for schedule notifications. The current contract supports Event-local records and recipient readback only; push, email, native device delivery, realtime fanout, global inboxes, delivery attempts, and broadcast delivery are explicitly unsupported.",
         "security": [{ "cookieSession": [] }, { "bearerAuth": [] }],
         "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
         "responses": {

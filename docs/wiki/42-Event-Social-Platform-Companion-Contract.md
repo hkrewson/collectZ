@@ -60,6 +60,8 @@ The current contract is intentionally local-only:
 
 The boundary also includes provider-prep metadata. `event_local` is the active provider and does not create delivery attempts. Future provider slots such as `push`, `email`, and `platform_device` are listed only as disabled descriptors so platform clients can hide unavailable delivery controls and avoid inventing provider behavior.
 
+The boundary includes a future delivery-attempt model contract. Attempt records are not supported or created today, but the model defines the intended relationship as one attempt per notification-recipient-provider when a provider is enabled later. The future attempt shape includes provider/channel, status, attempted/completed timestamps, retry metadata, provider message id, and provider error fields.
+
 Platform clients should treat `sent` schedule notifications as coordination records inside collectZ, not proof that another device received a push/email/message. A native client should not show push/email/device delivery affordances unless this boundary reports a future supported external channel and a new contract version.
 
 ## Offline and Cache Rules

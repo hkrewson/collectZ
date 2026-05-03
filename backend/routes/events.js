@@ -154,6 +154,7 @@ const SCHEDULE_CHANGE_NOTIFICATION_CONTRACT_VERSION = 'event-schedule-change-pre
 const SCHEDULE_NOTIFICATION_CONTRACT_VERSION = 'event-schedule-notification.v1';
 const SCHEDULE_NOTIFICATION_DELIVERY_BOUNDARY_VERSION = 'event-schedule-notification-delivery-boundary.v1';
 const SCHEDULE_NOTIFICATION_PROVIDER_CONTRACT_VERSION = 'event-schedule-notification-provider-prep.v1';
+const SCHEDULE_NOTIFICATION_DELIVERY_ATTEMPT_MODEL_VERSION = 'event-schedule-notification-delivery-attempt-model.v1';
 const CONFLICTING_SCHEDULE_PLAN_STATUSES = new Set(['planned', 'maybe', 'backup']);
 
 const serializeEventArtifactRow = (row = {}) => ({
@@ -763,6 +764,35 @@ function buildScheduleNotificationDeliveryBoundary(eventId) {
       device_registration_endpoint: null
     },
     delivery_providers: deliveryProviders,
+    delivery_attempt_model: {
+      version: SCHEDULE_NOTIFICATION_DELIVERY_ATTEMPT_MODEL_VERSION,
+      supported: false,
+      creates_records: false,
+      relationship: 'one_attempt_per_notification_recipient_provider_when_enabled',
+      owner: 'backend_provider_delivery_pipeline',
+      endpoint: null,
+      status_values: ['queued', 'sending', 'succeeded', 'failed', 'skipped', 'cancelled'],
+      field_contract: {
+        id: 'integer',
+        event_id: 'integer',
+        notification_id: 'integer',
+        recipient_id: 'integer',
+        provider: 'event_local | push | email | platform_device',
+        channel: 'event_local | push | email | device',
+        status: 'queued | sending | succeeded | failed | skipped | cancelled',
+        attempted_at: 'date-time | null',
+        completed_at: 'date-time | null',
+        retry_after: 'date-time | null',
+        provider_message_id: 'string | null',
+        error_code: 'string | null',
+        error_message: 'string | null'
+      },
+      notes: [
+        'Recipient readback remains the user-visible Event-local state today.',
+        'Delivery attempts are future audit records and are not created while providers are disabled.',
+        'Provider message ids and error fields must be treated as provider metadata, not user-authored message content.'
+      ]
+    },
     supported_channels: [
       {
         channel: 'event_local',
@@ -804,6 +834,7 @@ function buildScheduleNotificationDeliveryBoundary(eventId) {
       'Treat sent schedule notifications as local coordination records, not proof of push/email/device delivery.',
       'Use selected recipient ids from the preview/recipient picker; do not broadcast by default.',
       'Use delivery_providers to hide unavailable push/email/device affordances in platform clients.',
+      'Use delivery_attempt_model only as a future schema hint; no delivery attempt records exist in this contract.',
       'Native clients may cache this boundary and should refetch before offering any future delivery channel.',
       'Future push, email, device, or global inbox behavior requires a new contract version.'
     ]
