@@ -44,6 +44,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 26. The self-attendee default-creation slice was promoted as `3.4.81`; keep external contact identities, cross-event identity, and broader friend graph work separate.
 27. The attendee duplicate guardrails slice was promoted as `3.4.82`; keep external contact identities, cross-event identity, Discord delivery, and broader friend graph work separate.
 28. The mobile day-of social summary slice of `Event Social Planning Mobile Web Experience` was promoted as `3.4.83`; keep native companion behavior, push/Discord/email delivery, cross-event identity, external contacts, realtime presence, and broader friend graph work separate.
+29. The mobile time-window filter slice of `Event Schedule Catalog Now/Next Follow-ups` was promoted as `3.4.84`; keep full catalog discovery redesign, native companion behavior, push/Discord/email delivery, cross-event identity, realtime presence, and broader friend graph work separate.
 
 ### Backlog Item: Reusable Artist Records for Artwork Entry
 **Type:** Task

@@ -3794,6 +3794,9 @@ results.push(run('event social planning foundation contract is wired for 3.4.30'
   assert.ok(eventSocialPlanningSmokeSource.includes('recipient=me'));
   assert.ok(eventsViewSource.includes('upsertCatalogSessionPlanStatus'));
   assert.ok(eventsViewSource.includes('Catalog now and next'));
+  assert.ok(eventsViewSource.includes('Catalog time window filters'));
+  assert.ok(eventsViewSource.includes('Later Today'));
+  assert.ok(eventsViewSource.includes('plannedToday'));
   assert.ok(eventsViewSource.includes('/events/${eventId}/schedule-sessions'));
   assert.ok(eventsViewSource.includes('Add catalog session'));
   assert.ok(eventsViewSource.includes('Not in schedule'));

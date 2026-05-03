@@ -340,7 +340,11 @@ const getCatalogNowNext = (sessions, plans = [], now = new Date()) => {
   const laterToday = upcoming
     .filter((session) => getPlanDayKey(session?.start_at) === todayKey && !excludedIds.has(String(session?.id || '')))
     .slice(0, 3);
-  return { current, next, laterToday, catalogPlanByRef };
+  const plannedToday = activeSessions
+    .map((entry) => entry.session)
+    .filter((session) => getPlanDayKey(session?.start_at) === todayKey)
+    .filter((session) => catalogPlanByRef.get(String(session.id))?.status === 'planned');
+  return { current, next, laterToday, plannedToday, catalogPlanByRef };
 };
 
 const chooseCatalogPlanForControl = (existing, candidate) => {
@@ -3676,6 +3680,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged, currentUser = n
 }
 
 function EventScheduleNowNext({ sessions = [], plans = [], attendees = [], groups = [], saving = '', pendingResolution = null, onPlanStatusChange, onPlanIntent, onResolveConflict, onCancelConflict }) {
+  const [mobileWindow, setMobileWindow] = useState('all');
   const snapshot = useMemo(() => getCatalogNowNext(sessions, plans), [sessions, plans]);
   const getConflicts = useCallback((session) => {
     if (!session) return [];
@@ -3684,6 +3689,39 @@ function EventScheduleNowNext({ sessions = [], plans = [], attendees = [], group
   }, [plans, snapshot.catalogPlanByRef]);
   const getAttendance = useCallback((session) => buildScheduleAttendanceSummary(session, plans, attendees, groups), [attendees, groups, plans]);
   const hasSessions = Boolean(snapshot.current || snapshot.next || snapshot.laterToday.length);
+  const mobileFilters = [
+    { key: 'all', label: 'All', count: Number(Boolean(snapshot.current)) + Number(Boolean(snapshot.next)) + snapshot.laterToday.length },
+    { key: 'now', label: 'Now', count: Number(Boolean(snapshot.current)) },
+    { key: 'next', label: 'Next', count: Number(Boolean(snapshot.next)) },
+    { key: 'later', label: 'Later Today', count: snapshot.laterToday.length },
+    { key: 'planned', label: 'Planned', count: snapshot.plannedToday.length }
+  ];
+  const renderSessionRows = (label, rows, empty) => (
+    <div className="grid grid-cols-[4.75rem_1fr] gap-3 px-3 py-3 sm:grid-cols-[5.75rem_1fr]">
+      <p className="text-xs font-medium text-dim">{label}</p>
+      {rows.length ? (
+        <div className="space-y-2">
+          {rows.map((session) => (
+            <CatalogNowNextMiniRow
+              key={session.id}
+              session={session}
+              plan={snapshot.catalogPlanByRef.get(String(session.id))}
+              conflicts={getConflicts(session)}
+              attendance={getAttendance(session)}
+              saving={saving === `catalog-plan-${session.id}`}
+              pendingResolution={pendingResolution}
+              onPlanStatusChange={onPlanStatusChange}
+              onPlanIntent={onPlanIntent}
+              onResolveConflict={onResolveConflict}
+              onCancelConflict={onCancelConflict}
+            />
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-ghost">{empty}</p>
+      )}
+    </div>
+  );
 
   if (!hasSessions) {
     return (
@@ -3703,57 +3741,63 @@ function EventScheduleNowNext({ sessions = [], plans = [], attendees = [], group
         <p className="text-sm font-medium text-ink">Now / Next</p>
         <span className="text-xs text-ghost">Catalog</span>
       </div>
+      <div className="border-b border-edge px-3 py-2 lg:hidden" aria-label="Catalog time window filters">
+        <div className="grid grid-cols-5 gap-1">
+          {mobileFilters.map((filter) => (
+            <button
+              key={filter.key}
+              type="button"
+              className={cx(
+                'min-w-0 rounded-md border px-2 py-2 text-xs',
+                mobileWindow === filter.key
+                  ? 'border-edge bg-surface text-ink'
+                  : 'border-transparent text-dim hover:border-edge hover:bg-surface/70'
+              )}
+              onClick={() => setMobileWindow(filter.key)}
+              aria-pressed={mobileWindow === filter.key}
+            >
+              <span className="block truncate">{filter.label}</span>
+              <span className="block text-ghost">{filter.count}</span>
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="divide-y divide-edge">
-        <CatalogNowNextSlot
-          label="Now"
-          session={snapshot.current}
-          plan={snapshot.current ? snapshot.catalogPlanByRef.get(String(snapshot.current.id)) : null}
-          conflicts={snapshot.current ? getConflicts(snapshot.current) : []}
-          attendance={snapshot.current ? getAttendance(snapshot.current) : null}
-          saving={snapshot.current ? saving === `catalog-plan-${snapshot.current.id}` : false}
-          pendingResolution={pendingResolution}
-          onPlanStatusChange={onPlanStatusChange}
-          onPlanIntent={onPlanIntent}
-          onResolveConflict={onResolveConflict}
-          onCancelConflict={onCancelConflict}
-          empty="Nothing currently in progress."
-        />
-        <CatalogNowNextSlot
-          label="Next"
-          session={snapshot.next}
-          plan={snapshot.next ? snapshot.catalogPlanByRef.get(String(snapshot.next.id)) : null}
-          conflicts={snapshot.next ? getConflicts(snapshot.next) : []}
-          attendance={snapshot.next ? getAttendance(snapshot.next) : null}
-          saving={snapshot.next ? saving === `catalog-plan-${snapshot.next.id}` : false}
-          pendingResolution={pendingResolution}
-          onPlanStatusChange={onPlanStatusChange}
-          onPlanIntent={onPlanIntent}
-          onResolveConflict={onResolveConflict}
-          onCancelConflict={onCancelConflict}
-          empty="No upcoming catalog session."
-        />
-        {snapshot.laterToday.length ? (
-          <div className="grid grid-cols-[4.75rem_1fr] gap-3 px-3 py-3 sm:grid-cols-[5.75rem_1fr]">
-            <p className="text-xs font-medium text-dim">Later</p>
-            <div className="space-y-2">
-              {snapshot.laterToday.map((session) => (
-                <CatalogNowNextMiniRow
-                  key={session.id}
-                  session={session}
-                  plan={snapshot.catalogPlanByRef.get(String(session.id))}
-                  conflicts={getConflicts(session)}
-                  attendance={getAttendance(session)}
-                  saving={saving === `catalog-plan-${session.id}`}
-                  pendingResolution={pendingResolution}
-                  onPlanStatusChange={onPlanStatusChange}
-                  onPlanIntent={onPlanIntent}
-                  onResolveConflict={onResolveConflict}
-                  onCancelConflict={onCancelConflict}
-                />
-              ))}
-            </div>
-          </div>
+        {mobileWindow === 'all' || mobileWindow === 'now' ? (
+          <CatalogNowNextSlot
+            label="Now"
+            session={snapshot.current}
+            plan={snapshot.current ? snapshot.catalogPlanByRef.get(String(snapshot.current.id)) : null}
+            conflicts={snapshot.current ? getConflicts(snapshot.current) : []}
+            attendance={snapshot.current ? getAttendance(snapshot.current) : null}
+            saving={snapshot.current ? saving === `catalog-plan-${snapshot.current.id}` : false}
+            pendingResolution={pendingResolution}
+            onPlanStatusChange={onPlanStatusChange}
+            onPlanIntent={onPlanIntent}
+            onResolveConflict={onResolveConflict}
+            onCancelConflict={onCancelConflict}
+            empty="Nothing currently in progress."
+          />
         ) : null}
+        {mobileWindow === 'all' || mobileWindow === 'next' ? (
+          <CatalogNowNextSlot
+            label="Next"
+            session={snapshot.next}
+            plan={snapshot.next ? snapshot.catalogPlanByRef.get(String(snapshot.next.id)) : null}
+            conflicts={snapshot.next ? getConflicts(snapshot.next) : []}
+            attendance={snapshot.next ? getAttendance(snapshot.next) : null}
+            saving={snapshot.next ? saving === `catalog-plan-${snapshot.next.id}` : false}
+            pendingResolution={pendingResolution}
+            onPlanStatusChange={onPlanStatusChange}
+            onPlanIntent={onPlanIntent}
+            onResolveConflict={onResolveConflict}
+            onCancelConflict={onCancelConflict}
+            empty="No upcoming catalog session."
+          />
+        ) : null}
+        {mobileWindow === 'all' && snapshot.laterToday.length ? renderSessionRows('Later', snapshot.laterToday, '') : null}
+        {mobileWindow === 'later' ? renderSessionRows('Later Today', snapshot.laterToday, 'No later catalog sessions today.') : null}
+        {mobileWindow === 'planned' ? renderSessionRows('Planned', snapshot.plannedToday, 'No planned catalog sessions today.') : null}
       </div>
     </div>
   );

@@ -885,6 +885,7 @@ test.describe('events and collectibles browser regressions', () => {
     const eventTitle = `Playwright Catalog Now Next ${suffix}`;
     const currentTitle = 'Now Running Catalog Panel';
     const nextTitle = 'Next Catalog Drawing Demo';
+    const laterTitle = 'Later Catalog Trivia Meetup';
     const now = Date.now();
     const originalFlagsPayload = await getFeatureFlags(adminRequestContext);
     const originalFlags = Array.isArray(originalFlagsPayload?.flags) ? originalFlagsPayload.flags : [];
@@ -934,6 +935,17 @@ test.describe('events and collectibles browser regressions', () => {
         source_type: 'manual',
         status: 'active'
       }, 201);
+      await postWithCsrf(userRequestContext, `/api/events/${eventId}/schedule-sessions`, {
+        title: laterTitle,
+        start_at: new Date(now + 4 * 60 * 60 * 1000).toISOString(),
+        end_at: new Date(now + 5 * 60 * 60 * 1000).toISOString(),
+        location: 'Convention Center',
+        room: 'Ballroom 20',
+        track: 'Games',
+        categories: ['Trivia'],
+        source_type: 'manual',
+        status: 'active'
+      }, 201);
       await postWithCsrf(userRequestContext, `/api/events/${eventId}/schedule-plans`, {
         title: currentTitle,
         start_at: new Date(now - 10 * 60 * 1000).toISOString(),
@@ -969,27 +981,50 @@ test.describe('events and collectibles browser regressions', () => {
       const nowNext = page.getByLabel('Catalog now and next');
       await expect(nowNext).toBeVisible();
       await expect(nowNext.getByText('Now / Next')).toBeVisible();
-      await expect(nowNext.getByText('Now', { exact: true })).toBeVisible();
+      await expect(nowNext.locator('p').filter({ hasText: /^Now$/ })).toBeVisible();
       await expect(nowNext.getByText(currentTitle, { exact: true })).toBeVisible();
-      await expect(nowNext.locator('span').filter({ hasText: /^Planned$/ })).toBeVisible();
+      await expect(nowNext.getByText('Planned').nth(1)).toBeVisible();
       await expect(nowNext.getByText('Shared: 1 backup').first()).toBeVisible();
       await expect(nowNext.getByLabel('Session presence').getByText('Shared: 1 backup')).toBeVisible();
-      await expect(nowNext.getByText('Next', { exact: true })).toBeVisible();
+      await expect(nowNext.locator('p').filter({ hasText: /^Next$/ })).toBeVisible();
       await expect(nowNext.getByText(nextTitle, { exact: true })).toBeVisible();
+      await expect(nowNext.getByText(laterTitle, { exact: true })).toBeVisible();
       await expect(nowNext.getByText(/Room 6DE/)).toBeVisible();
       await expect(nowNext.getByText(/Room 7AB/)).toBeVisible();
+      await expect(nowNext.getByText(/Ballroom 20/)).toBeVisible();
       await expect(nowNext.getByText(`Conflicts with ${currentTitle}`).first()).toBeVisible();
+
+      const timeWindowFilters = nowNext.getByLabel('Catalog time window filters');
+      await expect(timeWindowFilters.getByRole('button', { name: /All\s+3/ })).toBeVisible();
+      await expect(timeWindowFilters.getByRole('button', { name: /Now\s+1/ })).toBeVisible();
+      await expect(timeWindowFilters.getByRole('button', { name: /Next\s+1/ })).toBeVisible();
+      await expect(timeWindowFilters.getByRole('button', { name: /Later Today\s+1/ })).toBeVisible();
+      await expect(timeWindowFilters.getByRole('button', { name: /Planned\s+1/ })).toBeVisible();
+      await timeWindowFilters.getByRole('button', { name: /Later Today\s+1/ }).click();
+      await expect(nowNext.getByText(laterTitle, { exact: true })).toBeVisible();
+      await expect(nowNext.getByText(currentTitle, { exact: true })).not.toBeVisible();
+      await expect(nowNext.getByText(nextTitle, { exact: true })).not.toBeVisible();
+      await timeWindowFilters.getByRole('button', { name: /Planned\s+1/ }).click();
+      await expect(nowNext.getByText(currentTitle, { exact: true })).toBeVisible();
+      await expect(nowNext.getByText(nextTitle, { exact: true })).not.toBeVisible();
+      await expect(nowNext.getByText(laterTitle, { exact: true })).not.toBeVisible();
+      await timeWindowFilters.getByRole('button', { name: /All\s+3/ }).click();
+      await expect(nowNext.getByText(currentTitle, { exact: true })).toBeVisible();
+      await expect(nowNext.getByText(nextTitle, { exact: true })).toBeVisible();
+      await expect(nowNext.getByText(laterTitle, { exact: true })).toBeVisible();
 
       const catalogList = catalogSection.getByLabel('Schedule catalog sessions');
       const catalogFilters = catalogList.getByLabel('Catalog filters');
-      await expect(catalogFilters.getByText('2 of 2')).toBeVisible();
+      await expect(catalogFilters.getByText('3 of 3')).toBeVisible();
       await catalogFilters.getByLabel('Catalog plan state filter').selectOption('none');
       await expect(catalogList.getByText(nextTitle, { exact: true })).toBeVisible();
       await expect(catalogList.getByText(currentTitle, { exact: true })).not.toBeVisible();
+      await expect(catalogList.getByText(laterTitle, { exact: true })).toBeVisible();
       await catalogFilters.getByRole('button', { name: 'Clear' }).click();
       await catalogFilters.getByRole('button', { name: 'Has shared attendance' }).click();
       await expect(catalogList.getByText(currentTitle, { exact: true })).toBeVisible();
       await expect(catalogList.getByText(nextTitle, { exact: true })).not.toBeVisible();
+      await expect(catalogList.getByText(laterTitle, { exact: true })).not.toBeVisible();
       await catalogFilters.getByRole('button', { name: 'Clear' }).click();
       await catalogFilters.getByRole('button', { name: 'Conflicts only' }).click();
       await expect(catalogList.getByText(nextTitle, { exact: true })).toBeVisible();

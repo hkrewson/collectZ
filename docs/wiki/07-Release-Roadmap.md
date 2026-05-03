@@ -8487,6 +8487,41 @@ Historical note:
 - What remains in the milestone: no remaining `3.4.83` implementation work; CI-only release gates must pass before public tag/release publication. The broader `Event Social Planning Mobile Web Experience` backlog item remains open for later native/platform companion validation and additional small mobile-social polish.
 - Recommended commit message: `Release 3.4.83 event social mobile day-of summary`
 
+## 3.4.84 — Event Catalog Mobile Time Window Filters
+
+**Goal:** Continue the Event Schedule Catalog Now/Next follow-ups by helping mobile users narrow the catalog snapshot to sessions happening now, next, later today, or already planned without turning the drawer into a full catalog redesign.
+
+**Current Slice:** `Closed 2026-05-03`
+
+### Scope
+
+- Add compact mobile-only time-window filters to the existing Event catalog Now / Next card.
+- Support `All`, `Now`, `Next`, `Later Today`, and `Planned` windows with visible counts.
+- Preserve conflict readback, shared attendance context, and quick plan-state actions inside filtered rows.
+- Preserve the existing desktop catalog management and full catalog filter/edit surfaces.
+- Keep full schedule discovery redesign, native companion behavior, push/Discord/email delivery, cross-event identity, external contacts, realtime presence, and broader friend graph work out of scope.
+
+### Acceptance Criteria
+
+- A mobile user can quickly filter the catalog Now / Next card to what is happening now, next, later today, or already planned.
+- Filtered rows still show time/place context, shared attendance, conflicts, and quick plan actions.
+- The default Now / Next card remains unchanged until the mobile user chooses a filter.
+- Desktop catalog management remains unchanged.
+- Version metadata and Help > Releases are aligned to `3.4.84`.
+
+### Closeout Notes
+
+- Roadmap slice: `3.4.84 — Event Catalog Mobile Time Window Filters`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/14-Engineering-Delivery-Policy.md`, and `docs/wiki/17-Release-Go-No-Go-Checklist.md`.
+- Runtime verification used: rebuilt and recreated the local platform stack through Docker with `APP_VERSION=3.4.84`; verified `/api/health` reports frontend/backend/build `3.4.84`; verified the running platform container env reports `APP_EDITION=platform`, `APP_VERSION=3.4.84`, `NODE_ENV=development`, and `SESSION_COOKIE_SECURE=false`; verified the live DB reported `events_enabled=true` before implementation, after the rebuilt stack, after observability release evidence, and after restoring the platform stack; verified Help > Releases serves `v3.4.84` first; temporarily swapped to the generated public compose plus `.ci/docker-compose.build.yml`, verified `/api/auth/config` reports homelab behavior with `workspace_surface=false`, ran the homelab boundary smoke, then restored the local platform stack and rechecked `/api/health`, `events_enabled`, and healthy container state.
+- CI/checks run: source syntax check for `backend/scripts/unit-tests.js`; container backend unit/source assertions (`231` passed); container OpenAPI validation; container `test:event-social-planning-smoke` with `BASE_URL=http://frontend:3000`; container `test:help-releases-smoke` with `EXPECTED_RELEASE_VERSION=v3.4.84` before and after stack restore; container `test:init-parity`; container `test:migration-rehearsal`; container `test:rbac-regression`; container `test:platform-edition-boundary`; generated-compose `test:homelab-edition-boundary`; targeted catalog Now/Next browser regression after fixing strict locator ambiguity; full Event/Collectibles browser regression (`15 passed`); full browser regression (`58 passed`, `4 skipped`); `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml config`; idempotent `npm run compose:generate`; `npm run validate:public-export`; Docker Node 20 backend/frontend `npm ci --dry-run --no-fund --ignore-scripts`; Docker Node 20 backend/frontend `npm audit --omit=dev --json`; `backend/scripts/observability-release-evidence.js`; `backend/scripts/release-preflight-local.js`; release-artifact secret-pattern grep over `docs/releases/v3.4.84.md`, `backend/release-feed.json`, `preflight-go-no-go.md`, dependency audit artifacts, migration/init artifacts, and observability artifacts; and `git diff --check`.
+- Release artifacts: `app-meta.json`, backend/frontend app meta, backend/frontend package and lockfile versions, generated `docker-compose.yml`, `docs/releases/v3.4.84.md`, and `backend/release-feed.json` are aligned on `3.4.84`; the running Help > Releases feed serves `v3.4.84` first while retaining recent Event-social releases; `artifacts/observability-evidence/observability-release-evidence.json` reports `3.4.84` with `9/9` checks passed; Docker Node 20 audit artifacts report backend low `0`, moderate `2`, high `0`, critical `0`, and frontend low `0`, moderate `0`, high `0`, critical `0`.
+- Blocked/unverified items: the local release preflight helper marks secure-cookie compose smoke as blocked because the dev stack intentionally runs `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`; `secret-scan` and `image-security-and-sbom` remain CI-only gates for the tagged release handoff.
+- Files changed: `app-meta.json`, `backend/app-meta.json`, `frontend/src/app-meta.json`, `backend/package.json`, `frontend/package.json`, `backend/package-lock.json`, `frontend/package-lock.json`, `backend/release-feed.json`, `backend/scripts/unit-tests.js`, `frontend/src/components/EventsView.jsx`, `tests/playwright/specs/events-collectibles.browser.spec.js`, `docker-compose.yml`, `docs/releases/v3.4.84.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `artifacts/observability-evidence/observability-release-evidence.json`, and `preflight-go-no-go.md`.
+- Risks or follow-ups: this slice filters the existing Now / Next snapshot only and intentionally does not redesign full catalog discovery, change schedule matching, add native companion behavior, enable push/Discord/email delivery, introduce cross-event identity, or broaden the friend graph.
+- What remains in the milestone: no remaining `3.4.84` implementation work; CI-only release gates must pass before public tag/release publication. The broader `Event Schedule Catalog Now/Next Follow-ups` backlog item remains open for future full catalog discovery and richer mobile decision support.
+- Recommended commit message: `Release 3.4.84 event catalog mobile time window filters`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.
