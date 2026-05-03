@@ -7940,6 +7940,47 @@ Historical note:
 - What remains in the milestone: no remaining 3.4.69 implementation work; CI-only release gates must pass before public tag/release publication.
 - Recommended commit message: `Release 3.4.69 event schedule notification delivery boundary platform contract`
 
+## 3.4.70 — Event Schedule Notification Delivery Provider Prep
+
+**Goal:** Prepare the schedule-notification delivery contract for future provider-backed delivery without enabling push, email, native device delivery, delivery attempts, or global inbox behavior.
+
+**Current Slice:** `Closed.`
+
+### Scope
+
+- Extend the existing Event schedule notification delivery boundary with provider-prep metadata.
+- Keep `event_local` as the only active provider.
+- List future provider slots such as `push`, `email`, and `platform_device` as disabled descriptors with clear reasons.
+- Report that external delivery attempts, delivery attempt readback, device registration endpoints, and provider configuration are not available.
+- Update OpenAPI, smoke coverage, and platform companion docs so native clients can hide unavailable delivery controls.
+- Do not add provider settings, delivery queues, delivery attempt tables, push/email delivery, or device registration.
+
+### Acceptance Criteria
+
+- The delivery boundary reports provider contract version `event-schedule-notification-provider-prep.v1`.
+- The provider contract reports `active_provider = event_local`.
+- Push, email, and platform-device providers are discoverable but disabled.
+- The contract reports no external delivery attempts and no delivery attempt endpoint.
+- Event social smoke and OpenAPI validation prove the provider-prep fields.
+
+### Notes
+
+- This is a contract-prep patch only. Real provider configuration and delivery execution remain future milestones.
+
+### Closeout
+
+- Roadmap slice: `3.4.70 — Event Schedule Notification Delivery Provider Prep`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/42-Event-Social-Platform-Companion-Contract.md`, and `docs/wiki/45-Event-Schedule-Catalog-Foundation.md`.
+- Runtime verification used: rebuilt and recreated backend/frontend through Docker with `APP_VERSION=3.4.70`; verified `/api/health` reports frontend/backend/build `3.4.70`; verified local platform container env reports `APP_EDITION=platform`; switched to generated public compose and verified homelab boundary with no `APP_EDITION`; restored local platform compose afterward.
+- CI/checks run locally: backend route/smoke/unit syntax checks; local backend unit/source contract tests; local OpenAPI validation; container backend unit tests; container OpenAPI validation; event social planning smoke; Help > Releases smoke; init parity; migration rehearsal; RBAC regression; platform edition boundary; homelab edition boundary; full browser regression (`55 passed`, `4 skipped`); public-export validation; generated-compose config validation and idempotence check; backend and frontend `npm ci --dry-run` dependency checks; observability release evidence; release preflight; generated-artifact secret-pattern grep; and `git diff --check`.
+- Release artifacts: `docs/releases/v3.4.70.md` exists, `backend/release-feed.json` serves `v3.4.70` first, `preflight-go-no-go.md` regenerated, and observability evidence regenerated for `3.4.70`.
+- Verified facts: the schedule notification delivery boundary now includes provider contract version `event-schedule-notification-provider-prep.v1`; `event_local` is the active provider; `push`, `email`, and `platform_device` providers are discoverable but disabled; external delivery attempts, delivery attempt readback, provider configuration, and device registration endpoints remain unavailable; OpenAPI and event social smoke prove the provider-prep fields from the running stack.
+- Blocked/unverified items: CI-only `secret-scan` and `image-security-and-sbom` must still run in GitHub Actions; local release preflight marks CI secure-cookie `compose-smoke` conditions blocked because the local development stack intentionally runs with `SESSION_COOKIE_SECURE=false`; the preflight helper also marks browser regression blocked even though full browser regression was run separately and passed locally.
+- Files changed: `app-meta.json`, `artifacts/observability-evidence/observability-release-evidence.json`, `backend/app-meta.json`, `backend/openapi/openapi.yaml`, `backend/package.json`, `backend/package-lock.json`, `backend/release-feed.json`, `backend/routes/events.js`, `backend/scripts/event-social-planning-smoke.js`, `backend/scripts/unit-tests.js`, `docker-compose.yml`, `docs/releases/v3.4.70.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/42-Event-Social-Platform-Companion-Contract.md`, `docs/wiki/45-Event-Schedule-Catalog-Foundation.md`, `frontend/package.json`, `frontend/package-lock.json`, `frontend/src/app-meta.json`, and `preflight-go-no-go.md`.
+- Risks or follow-ups: this remains provider-prep metadata only; real provider settings, delivery queues, delivery attempt records, push/email delivery, native device registration, and global notification inboxes remain future milestones.
+- What remains in the milestone: no remaining 3.4.70 implementation work; CI-only release gates must pass before public tag/release publication.
+- Recommended commit message: `Release 3.4.70 event schedule notification delivery provider prep`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

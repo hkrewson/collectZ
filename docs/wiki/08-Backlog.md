@@ -174,7 +174,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 
 ### Backlog Item: Imports and Sync Cadence Expansion
 **Type:** Deferred milestone
-**Tags:** `imports`, `csv`, `plex`, `calibre`, `metron`, `sync`
+**Tags:** `imports`, `csv`, `plex`, `calibre`, `kavita`, `metron`, `sync`
 
 **Goal:** Expand import templates and synchronization cadence controls across the supported import sources.
 
@@ -189,6 +189,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - Define cadence for updates from:
   - Plex
   - Calibre
+  - Kavita
   - Metron
 - Move Plex import to the actual API instead of a placeholder or indirect path.
 - Set a cadence to check for new titles in Plex.
@@ -197,9 +198,33 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 
 **Acceptance Criteria**
 - The named CSV templates are available for the supported library types.
-- Update cadence can be described and configured for Plex, Calibre, and Metron sources.
+- Update cadence can be described and configured for Plex, Calibre, Kavita, and Metron sources.
 - Plex import uses the actual API path.
 - New-title checks, watch-status checks, and webhooks are all represented in the import design.
+
+### Backlog Item: Kavita Digital Library Integration
+**Type:** Deferred milestone
+**Tags:** `imports`, `sync`, `books`, `comics`, `opds`, `kavita`, `digital-library`
+
+**Goal:** Add an optional Kavita integration alongside the parked Calibre/CWA integration so collectZ can discover, sync, and link out to self-hosted digital book/comic libraries without relying on CSV exports.
+
+**Scope**
+- Add admin integration settings for Kavita endpoint, auth/API token model, timeout, and sync controls.
+- Evaluate Kavita OPDS and native API surfaces and choose the most stable canonical read path.
+- Map Kavita series, volumes, chapters/issues, books, metadata, cover art, and reading links into existing collectZ book/comic models.
+- Persist provider identity separately from Calibre/CWA identity so repeat syncs can reuse canonical rows without cross-provider collisions.
+- Preserve provider link-out behavior such as `Open in Kavita` or `Read in Kavita` when a stable web/deep link exists.
+- Support pagination/incremental sync where the provider surface allows it.
+- Keep optional in-app reader behavior separate and feature-flagged; first milestone should prefer link-out.
+- Keep failures auditable and non-blocking for core media CRUD/import workflows.
+- Document setup, auth, reverse proxy, OPDS/API behavior, and troubleshooting in a dedicated wiki guide.
+
+**Acceptance Criteria**
+- Admin can configure and test a Kavita connection without affecting Calibre/CWA settings.
+- Kavita book/comic imports reuse canonical media rows on repeat sync when stable provider identities match.
+- Imported rows preserve provider source attribution and exact Kavita link-out metadata.
+- Kavita outages or auth failures do not block non-Kavita imports or core library actions.
+- The integration boundary is clear enough to compare against Calibre/CWA before deciding whether to share a generic digital-library provider framework.
 
 ### Backlog Item: Now Playing Viewer
 **Type:** Task
@@ -316,6 +341,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - The `3.4.67` recipient-selection UI polish slice is promoted to let users trim eligible people/groups before saving or sending an Event-local notice.
 - The `3.4.68` draft-management slice is promoted to edit, send, or discard Event-local schedule notification drafts.
 - The `3.4.69` delivery-boundary slice is promoted to give platform/native clients a stable Event-local delivery contract before any push, email, or device-provider work exists.
+- The `3.4.70` provider-prep slice is promoted to describe disabled push/email/platform-device providers without creating delivery attempts or enabling external delivery.
 - This follow-up turns that data into import-backed and time-aware discovery surfaces.
 
 **Scope**
@@ -340,7 +366,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 
 **Scope**
 - Add explicit actions for joining, leaving, replacing, or marking backup sessions. The first web-card slice is promoted as `3.4.64`.
-- When a change affects shared plans, offer selected-recipient notifications instead of broadcasting by default. The first action-template slice is promoted as `3.4.65`; picker/edit UI is promoted as `3.4.66`; recipient-selection polish is promoted as `3.4.67`; draft-management UI is promoted as `3.4.68`; the delivery-boundary/platform contract is promoted as `3.4.69`.
+- When a change affects shared plans, offer selected-recipient notifications instead of broadcasting by default. The first action-template slice is promoted as `3.4.65`; picker/edit UI is promoted as `3.4.66`; recipient-selection polish is promoted as `3.4.67`; draft-management UI is promoted as `3.4.68`; the delivery-boundary/platform contract is promoted as `3.4.69`; provider-prep metadata is promoted as `3.4.70`.
 - Support message templates such as:
   - "I'm switching to this session"
   - "Anyone want to join?"

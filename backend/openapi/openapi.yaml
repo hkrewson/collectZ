@@ -2072,6 +2072,38 @@
             },
             "required": ["version", "event_id", "scope", "external_delivery_supported", "delivery_provider", "delivery_endpoint", "device_registration_supported", "global_inbox_supported", "realtime_supported"]
           },
+          "provider_contract": {
+            "type": "object",
+            "properties": {
+              "version": { "type": "string", "enum": ["event-schedule-notification-provider-prep.v1"] },
+              "active_provider": { "type": "string", "enum": ["event_local"] },
+              "provider_selection": { "type": "string", "enum": ["fixed_event_local"] },
+              "external_provider_configured": { "type": "boolean" },
+              "external_delivery_attempts_created": { "type": "boolean" },
+              "delivery_attempt_record_supported": { "type": "boolean" },
+              "delivery_attempt_endpoint": { "type": ["string", "null"] },
+              "device_registration_endpoint": { "type": ["string", "null"] }
+            },
+            "required": ["version", "active_provider", "provider_selection", "external_provider_configured", "external_delivery_attempts_created", "delivery_attempt_record_supported", "delivery_attempt_endpoint", "device_registration_endpoint"]
+          },
+          "delivery_providers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "provider": { "type": "string", "enum": ["event_local", "push", "email", "platform_device"] },
+                "channel": { "type": "string" },
+                "enabled": { "type": "boolean" },
+                "configured": { "type": "boolean" },
+                "creates_delivery_attempts": { "type": "boolean" },
+                "requires_device_registration": { "type": "boolean" },
+                "mode": { "type": "string", "enum": ["local_record", "disabled"] },
+                "description": { "type": "string" },
+                "reason": { "type": "string" }
+              },
+              "required": ["provider", "channel", "enabled", "configured", "creates_delivery_attempts", "requires_device_registration", "mode"]
+            }
+          },
           "supported_channels": {
             "type": "array",
             "items": {
@@ -2110,13 +2142,15 @@
               "recipient_readback": { "type": "boolean" },
               "current_user_inbox_filter": { "type": "boolean" },
               "read_acknowledgement": { "type": "boolean" },
-              "external_delivery": { "type": "boolean" }
+              "external_delivery": { "type": "boolean" },
+              "external_provider_config": { "type": "boolean" },
+              "delivery_attempt_readback": { "type": "boolean" }
             }
           },
           "endpoints": { "type": "object" },
           "platform_guidance": { "type": "array", "items": { "type": "string" } }
         },
-        "required": ["contract", "supported_channels", "unsupported_channels", "capabilities", "endpoints", "platform_guidance"]
+        "required": ["contract", "provider_contract", "delivery_providers", "supported_channels", "unsupported_channels", "capabilities", "endpoints", "platform_guidance"]
       },
       "EventScheduleNotificationRecipientUpdateRequest": {
         "type": "object",
@@ -5953,7 +5987,7 @@
       "get": {
         "tags": ["Events"],
         "summary": "Read the Event schedule notification delivery boundary",
-        "description": "Returns the platform-readable delivery boundary for schedule notifications. The current contract supports Event-local records and recipient readback only; push, email, native device delivery, realtime fanout, global inboxes, and broadcast delivery are explicitly unsupported.",
+        "description": "Returns the platform-readable delivery boundary and provider-prep contract for schedule notifications. The current contract supports Event-local records and recipient readback only; push, email, native device delivery, realtime fanout, global inboxes, delivery attempts, and broadcast delivery are explicitly unsupported.",
         "security": [{ "cookieSession": [] }, { "bearerAuth": [] }],
         "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
         "responses": {

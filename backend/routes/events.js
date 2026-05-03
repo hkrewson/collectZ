@@ -153,6 +153,7 @@ const EVENT_COMPANION_OFFLINE_PACKET_VERSION = 'event-social-offline-packet.v1';
 const SCHEDULE_CHANGE_NOTIFICATION_CONTRACT_VERSION = 'event-schedule-change-preview.v1';
 const SCHEDULE_NOTIFICATION_CONTRACT_VERSION = 'event-schedule-notification.v1';
 const SCHEDULE_NOTIFICATION_DELIVERY_BOUNDARY_VERSION = 'event-schedule-notification-delivery-boundary.v1';
+const SCHEDULE_NOTIFICATION_PROVIDER_CONTRACT_VERSION = 'event-schedule-notification-provider-prep.v1';
 const CONFLICTING_SCHEDULE_PLAN_STATUSES = new Set(['planned', 'maybe', 'backup']);
 
 const serializeEventArtifactRow = (row = {}) => ({
@@ -697,6 +698,48 @@ function buildScheduleNotificationContract() {
 }
 
 function buildScheduleNotificationDeliveryBoundary(eventId) {
+  const deliveryProviders = [
+    {
+      provider: 'event_local',
+      channel: 'event_local',
+      enabled: true,
+      configured: true,
+      creates_delivery_attempts: false,
+      requires_device_registration: false,
+      mode: 'local_record',
+      description: 'Stores schedule notification records and Event-local recipient readback rows.'
+    },
+    {
+      provider: 'push',
+      channel: 'push',
+      enabled: false,
+      configured: false,
+      creates_delivery_attempts: false,
+      requires_device_registration: true,
+      mode: 'disabled',
+      reason: 'No push provider, device registration, or delivery attempt queue is configured.'
+    },
+    {
+      provider: 'email',
+      channel: 'email',
+      enabled: false,
+      configured: false,
+      creates_delivery_attempts: false,
+      requires_device_registration: false,
+      mode: 'disabled',
+      reason: 'No schedule notification email provider or template delivery pipeline is configured.'
+    },
+    {
+      provider: 'platform_device',
+      channel: 'device',
+      enabled: false,
+      configured: false,
+      creates_delivery_attempts: false,
+      requires_device_registration: true,
+      mode: 'disabled',
+      reason: 'No native platform device identity or token registration contract exists yet.'
+    }
+  ];
   return {
     contract: {
       version: SCHEDULE_NOTIFICATION_DELIVERY_BOUNDARY_VERSION,
@@ -709,6 +752,17 @@ function buildScheduleNotificationDeliveryBoundary(eventId) {
       global_inbox_supported: false,
       realtime_supported: false
     },
+    provider_contract: {
+      version: SCHEDULE_NOTIFICATION_PROVIDER_CONTRACT_VERSION,
+      active_provider: 'event_local',
+      provider_selection: 'fixed_event_local',
+      external_provider_configured: false,
+      external_delivery_attempts_created: false,
+      delivery_attempt_record_supported: false,
+      delivery_attempt_endpoint: null,
+      device_registration_endpoint: null
+    },
+    delivery_providers: deliveryProviders,
     supported_channels: [
       {
         channel: 'event_local',
@@ -736,7 +790,9 @@ function buildScheduleNotificationDeliveryBoundary(eventId) {
       recipient_readback: true,
       current_user_inbox_filter: true,
       read_acknowledgement: true,
-      external_delivery: false
+      external_delivery: false,
+      external_provider_config: false,
+      delivery_attempt_readback: false
     },
     endpoints: {
       preview: `/api/events/${eventId}/schedule-change-preview`,
@@ -747,6 +803,7 @@ function buildScheduleNotificationDeliveryBoundary(eventId) {
     platform_guidance: [
       'Treat sent schedule notifications as local coordination records, not proof of push/email/device delivery.',
       'Use selected recipient ids from the preview/recipient picker; do not broadcast by default.',
+      'Use delivery_providers to hide unavailable push/email/device affordances in platform clients.',
       'Native clients may cache this boundary and should refetch before offering any future delivery channel.',
       'Future push, email, device, or global inbox behavior requires a new contract version.'
     ]

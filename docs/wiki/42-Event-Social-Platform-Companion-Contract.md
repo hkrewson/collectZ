@@ -58,6 +58,8 @@ The current contract is intentionally local-only:
 - supported behavior: preview recipients, save drafts, edit drafts, discard drafts, mark a draft locally sent, create Event-local recipient readback rows, and update read/acknowledged state,
 - unsupported behavior: push delivery, email delivery, native device registration, realtime fanout, global inboxes, and broadcast-without-selection behavior.
 
+The boundary also includes provider-prep metadata. `event_local` is the active provider and does not create delivery attempts. Future provider slots such as `push`, `email`, and `platform_device` are listed only as disabled descriptors so platform clients can hide unavailable delivery controls and avoid inventing provider behavior.
+
 Platform clients should treat `sent` schedule notifications as coordination records inside collectZ, not proof that another device received a push/email/message. A native client should not show push/email/device delivery affordances unless this boundary reports a future supported external channel and a new contract version.
 
 ## Offline and Cache Rules

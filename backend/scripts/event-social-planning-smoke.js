@@ -270,8 +270,17 @@ async function main() {
     assert(deliveryBoundary.data?.contract?.version === 'event-schedule-notification-delivery-boundary.v1', `Expected notification delivery boundary contract, got ${JSON.stringify(deliveryBoundary.data)}`);
     assert(deliveryBoundary.data?.contract?.scope === 'event_local', `Expected event-local delivery boundary, got ${JSON.stringify(deliveryBoundary.data)}`);
     assert(deliveryBoundary.data?.contract?.external_delivery_supported === false, `Expected external delivery disabled in boundary, got ${JSON.stringify(deliveryBoundary.data)}`);
+    assert(deliveryBoundary.data?.provider_contract?.version === 'event-schedule-notification-provider-prep.v1', `Expected notification provider prep contract, got ${JSON.stringify(deliveryBoundary.data)}`);
+    assert(deliveryBoundary.data?.provider_contract?.active_provider === 'event_local', `Expected event_local active provider, got ${JSON.stringify(deliveryBoundary.data)}`);
+    assert(deliveryBoundary.data?.provider_contract?.external_delivery_attempts_created === false, `Expected no external delivery attempts, got ${JSON.stringify(deliveryBoundary.data)}`);
+    assert(deliveryBoundary.data?.provider_contract?.delivery_attempt_endpoint === null, `Expected no delivery attempt endpoint, got ${JSON.stringify(deliveryBoundary.data)}`);
     assert(deliveryBoundary.data?.capabilities?.send_local_records === true, `Expected local send records supported, got ${JSON.stringify(deliveryBoundary.data)}`);
     assert(deliveryBoundary.data?.capabilities?.external_delivery === false, `Expected external delivery capability disabled, got ${JSON.stringify(deliveryBoundary.data)}`);
+    assert(deliveryBoundary.data?.capabilities?.delivery_attempt_readback === false, `Expected delivery attempt readback disabled, got ${JSON.stringify(deliveryBoundary.data)}`);
+    assert(deliveryBoundary.data?.delivery_providers?.some((provider) => provider.provider === 'event_local' && provider.enabled === true && provider.creates_delivery_attempts === false), `Expected event_local provider enabled without delivery attempts, got ${JSON.stringify(deliveryBoundary.data)}`);
+    assert(deliveryBoundary.data?.delivery_providers?.some((provider) => provider.provider === 'push' && provider.enabled === false && provider.requires_device_registration === true), `Expected disabled push provider prep, got ${JSON.stringify(deliveryBoundary.data)}`);
+    assert(deliveryBoundary.data?.delivery_providers?.some((provider) => provider.provider === 'email' && provider.enabled === false), `Expected disabled email provider prep, got ${JSON.stringify(deliveryBoundary.data)}`);
+    assert(deliveryBoundary.data?.delivery_providers?.some((provider) => provider.provider === 'platform_device' && provider.enabled === false), `Expected disabled platform device provider prep, got ${JSON.stringify(deliveryBoundary.data)}`);
     assert(deliveryBoundary.data?.supported_channels?.some((channel) => channel.channel === 'event_local' && channel.delivers_outside_app === false), `Expected event_local supported channel only, got ${JSON.stringify(deliveryBoundary.data)}`);
     assert(deliveryBoundary.data?.unsupported_channels?.some((channel) => channel.channel === 'push' && channel.supported === false), `Expected push to be explicitly unsupported, got ${JSON.stringify(deliveryBoundary.data)}`);
     assert(deliveryBoundary.data?.unsupported_channels?.some((channel) => channel.channel === 'email' && channel.supported === false), `Expected email to be explicitly unsupported, got ${JSON.stringify(deliveryBoundary.data)}`);
@@ -411,7 +420,10 @@ async function main() {
       scheduleNotificationInboxCount: notificationInbox.data?.counts?.total || 0,
       linkedScheduleNotificationInboxCount: myNotificationInbox.data?.counts?.total || 0,
       notificationDeliveryBoundaryVersion: deliveryBoundary.data?.contract?.version || null,
+      notificationProviderContractVersion: deliveryBoundary.data?.provider_contract?.version || null,
+      activeNotificationProvider: deliveryBoundary.data?.provider_contract?.active_provider || null,
       notificationExternalDeliverySupported: deliveryBoundary.data?.contract?.external_delivery_supported ?? null,
+      externalDeliveryAttemptsCreated: deliveryBoundary.data?.provider_contract?.external_delivery_attempts_created ?? null,
       unsupportedNotificationChannels: (deliveryBoundary.data?.unsupported_channels || []).map((channel) => channel.channel),
       sentScheduleNotificationStatus: notificationSent.data?.status || null,
       companionContract: companion.data?.contract?.version || null,

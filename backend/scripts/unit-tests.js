@@ -3639,6 +3639,8 @@ results.push(run('event social planning foundation contract is wired for 3.4.30'
   assert.ok(openApiSource.includes('EventScheduleChangePreviewResponse'));
   assert.ok(openApiSource.includes('EventScheduleNotificationRecord'));
   assert.ok(openApiSource.includes('EventScheduleNotificationDeliveryBoundaryResponse'));
+  assert.ok(openApiSource.includes('event-schedule-notification-provider-prep.v1'));
+  assert.ok(openApiSource.includes('delivery_providers'));
   assert.ok(openApiSource.includes('EventLinkedUserIdentity'));
   assert.ok(openApiSource.includes('link_current_user'));
   assert.ok(openApiSource.includes('current_user_filter_supported'));
@@ -3653,6 +3655,8 @@ results.push(run('event social planning foundation contract is wired for 3.4.30'
   assert.ok(eventSocialPlanningSmokeSource.includes('event-schedule-notification.v1'));
   assert.ok(eventSocialPlanningSmokeSource.includes('/api/events/${eventId}/schedule-notification-delivery-boundary'));
   assert.ok(eventSocialPlanningSmokeSource.includes('event-schedule-notification-delivery-boundary.v1'));
+  assert.ok(eventSocialPlanningSmokeSource.includes('event-schedule-notification-provider-prep.v1'));
+  assert.ok(eventSocialPlanningSmokeSource.includes('external_delivery_attempts_created === false'));
   assert.ok(eventSocialPlanningSmokeSource.includes('/api/events/${eventId}/schedule-sessions'));
   assert.ok(eventSocialPlanningSmokeSource.includes('/api/events/${eventId}/companion/today'));
   assert.ok(eventSocialPlanningSmokeSource.includes('personal_ics_visibility'));
@@ -3722,6 +3726,9 @@ results.push(run('event social planning foundation contract is wired for 3.4.30'
   assert.ok(eventsRoutesSource.includes('Only draft schedule notifications can be edited or sent'));
   assert.ok(eventsRoutesSource.includes("router.get('/events/:id/schedule-notification-delivery-boundary'"));
   assert.ok(eventsRoutesSource.includes('event-schedule-notification-delivery-boundary.v1'));
+  assert.ok(eventsRoutesSource.includes('event-schedule-notification-provider-prep.v1'));
+  assert.ok(eventsRoutesSource.includes("provider: 'platform_device'"));
+  assert.ok(eventsRoutesSource.includes("provider_selection: 'fixed_event_local'"));
   assert.ok(eventsRoutesSource.includes('push, email, device, or global inbox behavior requires a new contract version'));
   assert.ok(eventsRoutesSource.includes('event-schedule-notification-inbox.v1'));
   assert.ok(eventsRoutesSource.includes('buildScheduleMessageTemplate'));
