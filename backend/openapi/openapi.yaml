@@ -2448,6 +2448,75 @@
         },
         "required": ["source", "summary", "error"]
       },
+      "EventCompanionNowNextItem": {
+        "type": "object",
+        "properties": {
+          "kind": { "type": "string", "enum": ["catalog_session"] },
+          "context": { "type": "string", "enum": ["current", "next", "upcoming", "soon", "nearby"] },
+          "catalog_session_id": { "type": ["integer", "null"] },
+          "schedule_plan_id": { "type": ["integer", "null"] },
+          "title": { "type": ["string", "null"] },
+          "start_at": { "type": ["string", "null"], "format": "date-time" },
+          "end_at": { "type": ["string", "null"], "format": "date-time" },
+          "location": { "type": ["string", "null"] },
+          "room": { "type": ["string", "null"] },
+          "track": { "type": ["string", "null"] },
+          "categories": { "type": "array", "items": { "type": "string" } },
+          "status": { "type": ["string", "null"], "enum": ["active", "cancelled", "hidden", null] },
+          "relation": {
+            "type": "object",
+            "properties": {
+              "source": { "type": "string", "enum": ["catalog_only", "personal_plan", "personal_sched_ics"] },
+              "catalog_session_id": { "type": ["integer", "null"] },
+              "schedule_plan_id": { "type": ["integer", "null"] },
+              "personal_status": { "type": ["string", "null"] },
+              "personal_visibility": { "type": ["string", "null"] },
+              "is_personal": { "type": "boolean" },
+              "is_catalog_only": { "type": "boolean" }
+            },
+            "required": ["source", "catalog_session_id", "schedule_plan_id", "personal_status", "personal_visibility", "is_personal", "is_catalog_only"]
+          },
+          "quick_actions": {
+            "type": "object",
+            "properties": {
+              "supported_statuses": { "type": "array", "items": { "type": "string", "enum": ["planned", "maybe", "skipped", "backup"] } },
+              "write_mode": { "type": "string", "enum": ["create_schedule_plan", "patch_schedule_plan"] },
+              "endpoint": { "type": "string" },
+              "catalog_session_id": { "type": ["integer", "null"] },
+              "schedule_plan_id": { "type": ["integer", "null"] },
+              "requires_refetch_after_write": { "type": "boolean" }
+            },
+            "required": ["supported_statuses", "write_mode", "endpoint", "catalog_session_id", "schedule_plan_id", "requires_refetch_after_write"]
+          },
+          "conflicts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "schedule_plan_id": { "type": "integer" },
+                "title": { "type": "string" },
+                "start_at": { "type": ["string", "null"], "format": "date-time" },
+                "end_at": { "type": ["string", "null"], "format": "date-time" },
+                "location": { "type": ["string", "null"] },
+                "status": { "type": ["string", "null"] },
+                "visibility": { "type": ["string", "null"] }
+              },
+              "required": ["schedule_plan_id", "title", "start_at", "end_at", "location", "status", "visibility"]
+            }
+          },
+          "time_context": {
+            "type": "object",
+            "properties": {
+              "is_now": { "type": "boolean" },
+              "is_next": { "type": "boolean" },
+              "minutes_until_start": { "type": ["integer", "null"] },
+              "minutes_until_end": { "type": ["integer", "null"] }
+            },
+            "required": ["is_now", "is_next", "minutes_until_start", "minutes_until_end"]
+          }
+        },
+        "required": ["kind", "context", "catalog_session_id", "schedule_plan_id", "title", "start_at", "end_at", "location", "room", "track", "categories", "status", "relation", "quick_actions", "conflicts", "time_context"]
+      },
       "EventCompanionTodayResponse": {
         "type": "object",
         "properties": {
@@ -2554,6 +2623,63 @@
             },
             "required": ["personal_ics_url_returned", "realtime_location", "broad_social_discovery", "notifications", "visibility_values"]
           },
+          "now_next": {
+            "type": "object",
+            "description": "Platform companion Now/Next schedule snapshot built from canonical catalog sessions with a personal schedule-plan overlay.",
+            "properties": {
+              "contract": {
+                "type": "object",
+                "properties": {
+                  "version": { "type": "string", "enum": ["event-companion-now-next.v1"] },
+                  "generated_at": { "type": "string", "format": "date-time" },
+                  "source": { "type": "string", "enum": ["event_schedule_sessions_with_personal_plan_overlay"] },
+                  "catalog_sessions_authoritative": { "type": "boolean" },
+                  "personal_plan_overlay": { "type": "boolean" },
+                  "quick_actions_supported": { "type": "boolean" },
+                  "conflict_hints_supported": { "type": "boolean" },
+                  "nearby_strategy": { "type": "string" },
+                  "limitations": { "type": "array", "items": { "type": "string" } }
+                },
+                "required": ["version", "generated_at", "source", "catalog_sessions_authoritative", "personal_plan_overlay", "quick_actions_supported", "conflict_hints_supported", "nearby_strategy", "limitations"]
+              },
+              "window": {
+                "type": "object",
+                "properties": {
+                  "now": { "type": "string", "format": "date-time" },
+                  "soon_minutes": { "type": "integer" },
+                  "max_items_per_group": { "type": "integer" }
+                },
+                "required": ["now", "soon_minutes", "max_items_per_group"]
+              },
+              "counts": {
+                "type": "object",
+                "properties": {
+                  "current": { "type": "integer" },
+                  "next": { "type": "integer" },
+                  "soon": { "type": "integer" },
+                  "nearby": { "type": "integer" }
+                },
+                "required": ["current", "next", "soon", "nearby"]
+              },
+              "current": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/EventCompanionNowNextItem" }
+              },
+              "next": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/EventCompanionNowNextItem" }
+              },
+              "soon": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/EventCompanionNowNextItem" }
+              },
+              "nearby": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/EventCompanionNowNextItem" }
+              }
+            },
+            "required": ["contract", "window", "counts", "current", "next", "soon", "nearby"]
+          },
           "offline_packet": {
             "type": "object",
             "description": "Read-only platform companion packet for poor-connectivity day-of-event use. It uses current event social data and includes canonical schedule catalog sessions when present.",
@@ -2652,7 +2778,7 @@
           "schedule_catalog": { "type": "array", "items": { "$ref": "#/components/schemas/EventScheduleSessionRecord" } },
           "schedule_plans": { "type": "array", "items": { "$ref": "#/components/schemas/EventSchedulePlanRecord" } }
         },
-        "required": ["contract", "event", "counts", "sync", "cache", "privacy", "offline_packet", "attendees", "groups", "meetups", "schedule_catalog", "schedule_plans"]
+        "required": ["contract", "event", "counts", "sync", "cache", "privacy", "now_next", "offline_packet", "attendees", "groups", "meetups", "schedule_catalog", "schedule_plans"]
       },
       "ValuationRefreshRequest": {
         "type": "object",

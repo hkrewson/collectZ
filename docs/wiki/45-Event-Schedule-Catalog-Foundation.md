@@ -86,13 +86,27 @@ The web Event drawer also uses the Event-local attendee/group state to show visi
 
 This means platform clients can cache catalog sessions when present without mistaking personal selected-session plans for the full catalog.
 
+`GET /api/events/:id/companion/today` also returns `now_next` with contract version `event-companion-now-next.v1`.
+
+The companion `now_next` block is the backend-owned shape for native day-of-con schedule discovery:
+
+- current active catalog sessions,
+- next/upcoming active catalog sessions,
+- sessions starting soon,
+- nearby sessions using the same room/location anchor,
+- a personal-plan overlay that distinguishes `catalog_only`, `personal_plan`, and `personal_sched_ics`,
+- quick-action endpoint hints for `planned`, `maybe`, `skipped`, and `backup`,
+- read-only conflict hints against overlapping personal/shared plans.
+
+The `now_next` block is a read snapshot plus endpoint hints. It does not add offline mutations, realtime presence, push delivery, provider automation, or native UI implementation.
+
 ## What Stays Separate
 
 Keep these out of this foundation unless explicitly promoted:
 
 - recurring provider sync or scraping automation,
 - recurring background sync,
-- Now / Next discovery UI,
+- native Now / Next discovery UI implementation,
 - external selected-recipient delivery,
 - reciprocal friend identity or realtime attendance/presence,
 - conflict resolution or replacement prompts,

@@ -8,7 +8,7 @@ This document defines the current collectZ product boundary for an Apple/platfor
 - The platform companion client should start as a fast, read-heavy day-of-con surface backed by the existing collectZ API.
 - The companion contract is intentionally narrow: compact read payloads plus links to existing write endpoints.
 - No realtime location, presence, broad social discovery, or push notification behavior is included in this contract.
-- Full schedule catalog discovery remains separate from personal schedule plans and should use a later catalog milestone.
+- Full schedule catalog discovery is represented through the catalog and `now_next` companion readback; provider automation remains separate.
 
 ## Read Contract
 
@@ -26,11 +26,33 @@ The response includes:
 - `sync.personal_ics_visibility`: UI-safe sync-health readback for platform clients, including freshness, stale threshold, manual refresh support, and raw URL protection.
 - `cache`: recommended cache TTL, stale threshold, offline mode, and conflict policy.
 - `privacy`: privacy and safety flags for companion clients.
+- `now_next`: a versioned day-of-con schedule snapshot for current, next, soon, and nearby catalog sessions with personal-plan overlay and quick-action hints.
 - `offline_packet`: read-only poor-connectivity packet metadata, planned sessions, and key locations for platform companion caching.
 - `attendees`: event attendee records.
 - `groups`: event group records with members.
 - `meetups`: event meetup records.
 - `schedule_plans`: selected personal/shared schedule-plan records.
+
+## Now / Next Companion Schedule
+
+`GET /api/events/:id/companion/today` includes `now_next` with contract version `event-companion-now-next.v1`.
+
+The `now_next` block is optimized for a platform app's day-of-con home screen:
+
+- `current`: active catalog sessions currently in progress,
+- `next`: the next active catalog sessions by start time,
+- `soon`: active sessions starting inside the short companion window,
+- `nearby`: active sessions in the same room/location as the current or next anchor session.
+
+Each item is catalog-first and includes a `relation` object so native clients can distinguish:
+
+- `catalog_only`: the session exists in the event catalog but is not currently part of the user's personal plan,
+- `personal_plan`: the catalog session has a linked manual collectZ schedule plan,
+- `personal_sched_ics`: the catalog session has a linked personal Sched ICS plan.
+
+Each item also includes quick-action hints for the existing schedule-plan endpoints. The supported statuses are `planned`, `maybe`, `skipped`, and `backup`. These hints do not create an offline mutation queue; native clients should refetch the companion snapshot after writes.
+
+Conflict hints are read-only overlap summaries against existing personal/shared schedule plans. They are meant to help the platform app show "switch/backup/keep" choices without copying web UI behavior.
 
 ## Write Contract
 
@@ -92,7 +114,6 @@ Keep these separate unless a future milestone explicitly promotes them:
 
 - platform/native companion UI,
 - selected-recipient notifications,
-- full event schedule catalog and Now/Next discovery,
 - offline mutation queues and conflict resolution UI,
 - realtime location or presence-like behavior,
 - broad social discovery or Sched-style friend finding.

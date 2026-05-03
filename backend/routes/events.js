@@ -150,6 +150,9 @@ const EVENT_COMPANION_ICS_STATE_LABELS = {
   unknown: 'Personal Sched sync state is unknown'
 };
 const EVENT_COMPANION_OFFLINE_PACKET_VERSION = 'event-social-offline-packet.v1';
+const EVENT_COMPANION_NOW_NEXT_VERSION = 'event-companion-now-next.v1';
+const EVENT_COMPANION_NOW_NEXT_WINDOW_MINUTES = 120;
+const EVENT_COMPANION_NOW_NEXT_LIMIT = 8;
 const SCHEDULE_CHANGE_NOTIFICATION_CONTRACT_VERSION = 'event-schedule-change-preview.v1';
 const SCHEDULE_NOTIFICATION_CONTRACT_VERSION = 'event-schedule-notification.v1';
 const SCHEDULE_NOTIFICATION_DELIVERY_BOUNDARY_VERSION = 'event-schedule-notification-delivery-boundary.v1';
@@ -1482,6 +1485,194 @@ function buildOfflinePacket({ event = {}, attendees = [], groups = [], meetups =
   };
 }
 
+function normalizeCompanionLocation(value = '') {
+  return String(value || '').trim().toLowerCase();
+}
+
+function getScheduleCatalogPlanMap(plans = []) {
+  const byCatalogId = new Map();
+  for (const plan of plans || []) {
+    const catalogId = getSchedulePlanCatalogSessionId(plan);
+    if (!catalogId || byCatalogId.has(catalogId)) continue;
+    byCatalogId.set(catalogId, plan);
+  }
+  return byCatalogId;
+}
+
+function getCompanionMinutesUntil(startTime, nowTime) {
+  if (!Number.isFinite(startTime) || !Number.isFinite(nowTime)) return null;
+  return Math.max(0, Math.round((startTime - nowTime) / 60000));
+}
+
+function getCompanionScheduleRelation(session = {}, linkedPlan = null) {
+  if (linkedPlan?.id) {
+    const planSource = linkedPlan.source_type === 'sched_ics' ? 'personal_sched_ics' : 'personal_plan';
+    return {
+      source: planSource,
+      catalog_session_id: session.id || null,
+      schedule_plan_id: linkedPlan.id,
+      personal_status: linkedPlan.status || null,
+      personal_visibility: linkedPlan.visibility || null,
+      is_personal: true,
+      is_catalog_only: false
+    };
+  }
+  return {
+    source: 'catalog_only',
+    catalog_session_id: session.id || null,
+    schedule_plan_id: null,
+    personal_status: null,
+    personal_visibility: null,
+    is_personal: false,
+    is_catalog_only: true
+  };
+}
+
+function getCompanionQuickActions(eventId, session = {}, linkedPlan = null) {
+  const statuses = ['planned', 'maybe', 'skipped', 'backup'];
+  return {
+    supported_statuses: statuses,
+    write_mode: linkedPlan?.id ? 'patch_schedule_plan' : 'create_schedule_plan',
+    endpoint: linkedPlan?.id
+      ? `/api/events/${eventId}/schedule-plans/${linkedPlan.id}`
+      : `/api/events/${eventId}/schedule-plans`,
+    catalog_session_id: session.id || null,
+    schedule_plan_id: linkedPlan?.id || null,
+    requires_refetch_after_write: true
+  };
+}
+
+function buildCompanionScheduleItem({ eventId, session = {}, linkedPlan = null, context = 'upcoming', now = new Date(), conflicts = [] }) {
+  const window = getScheduleWindow(session);
+  const nowTime = now.getTime();
+  return {
+    kind: 'catalog_session',
+    context,
+    catalog_session_id: session.id || null,
+    schedule_plan_id: linkedPlan?.id || null,
+    title: session.title || linkedPlan?.title || null,
+    start_at: session.start_at || linkedPlan?.start_at || null,
+    end_at: session.end_at || linkedPlan?.end_at || null,
+    location: session.location || linkedPlan?.location || session.room || null,
+    room: session.room || null,
+    track: session.track || null,
+    categories: Array.isArray(session.categories) ? session.categories : [],
+    status: session.status || null,
+    relation: getCompanionScheduleRelation(session, linkedPlan),
+    quick_actions: getCompanionQuickActions(eventId, session, linkedPlan),
+    conflicts,
+    time_context: {
+      is_now: context === 'current',
+      is_next: context === 'next',
+      minutes_until_start: window ? getCompanionMinutesUntil(window.startTime, nowTime) : null,
+      minutes_until_end: window ? Math.max(0, Math.round((window.endTime - nowTime) / 60000)) : null
+    }
+  };
+}
+
+function getCompanionPlanConflictsForSession(session = {}, plans = [], linkedPlan = null) {
+  const sessionWindow = getScheduleWindow(session);
+  if (!sessionWindow) return [];
+  const sessionCatalogId = session?.id ? String(session.id) : '';
+  return (plans || [])
+    .filter(isSchedulePlanConflictEligible)
+    .filter((plan) => !linkedPlan?.id || Number(plan.id) !== Number(linkedPlan.id))
+    .filter((plan) => {
+      const planCatalogId = getSchedulePlanCatalogSessionId(plan);
+      return !(sessionCatalogId && planCatalogId && sessionCatalogId === planCatalogId);
+    })
+    .filter((plan) => scheduleWindowsOverlap(sessionWindow, getScheduleWindow(plan)))
+    .slice(0, 5)
+    .map((plan) => ({
+      schedule_plan_id: plan.id,
+      title: plan.title,
+      start_at: plan.start_at || null,
+      end_at: plan.end_at || null,
+      location: plan.location || null,
+      status: plan.status || null,
+      visibility: plan.visibility || null
+    }));
+}
+
+function buildCompanionNowNext({ eventId, sessions = [], plans = [], generatedAt = new Date() }) {
+  const now = generatedAt;
+  const nowTime = now.getTime();
+  const soonUntil = nowTime + EVENT_COMPANION_NOW_NEXT_WINDOW_MINUTES * 60000;
+  const planByCatalogId = getScheduleCatalogPlanMap(plans);
+  const activeSessions = (sessions || [])
+    .filter((session) => session.status === 'active')
+    .map((session) => ({ session, window: getScheduleWindow(session) }))
+    .filter((entry) => entry.window)
+    .sort((a, b) => a.window.startTime - b.window.startTime || Number(a.session.id || 0) - Number(b.session.id || 0));
+
+  const currentEntries = activeSessions.filter((entry) => entry.window.startTime <= nowTime && nowTime < entry.window.endTime);
+  const upcomingEntries = activeSessions.filter((entry) => entry.window.startTime > nowTime);
+  const nextEntries = upcomingEntries.slice(0, EVENT_COMPANION_NOW_NEXT_LIMIT);
+  const soonEntries = upcomingEntries
+    .filter((entry) => entry.window.startTime <= soonUntil)
+    .slice(0, EVENT_COMPANION_NOW_NEXT_LIMIT);
+
+  const anchorLocationKeys = new Set();
+  for (const entry of [...currentEntries, ...nextEntries.slice(0, 1)]) {
+    const key = normalizeCompanionLocation(entry.session.room || entry.session.location);
+    if (key) anchorLocationKeys.add(key);
+  }
+  const selectedIds = new Set([...currentEntries, ...nextEntries, ...soonEntries].map((entry) => Number(entry.session.id || 0)).filter(Boolean));
+  const nearbyEntries = activeSessions
+    .filter((entry) => !selectedIds.has(Number(entry.session.id || 0)))
+    .filter((entry) => {
+      const locationKey = normalizeCompanionLocation(entry.session.room || entry.session.location);
+      return locationKey && anchorLocationKeys.has(locationKey);
+    })
+    .slice(0, EVENT_COMPANION_NOW_NEXT_LIMIT);
+
+  const mapEntry = (entry, context) => {
+    const linkedPlan = planByCatalogId.get(String(entry.session.id)) || null;
+    return buildCompanionScheduleItem({
+      eventId,
+      session: entry.session,
+      linkedPlan,
+      context,
+      now,
+      conflicts: getCompanionPlanConflictsForSession(entry.session, plans, linkedPlan)
+    });
+  };
+
+  return {
+    contract: {
+      version: EVENT_COMPANION_NOW_NEXT_VERSION,
+      generated_at: now.toISOString(),
+      source: 'event_schedule_sessions_with_personal_plan_overlay',
+      catalog_sessions_authoritative: true,
+      personal_plan_overlay: true,
+      quick_actions_supported: true,
+      conflict_hints_supported: true,
+      nearby_strategy: 'same_room_or_location_as_current_or_next',
+      limitations: [
+        'read_snapshot_only',
+        'no_offline_mutation_queue',
+        'no_realtime_presence',
+        'no_push_delivery'
+      ]
+    },
+    window: {
+      now: now.toISOString(),
+      soon_minutes: EVENT_COMPANION_NOW_NEXT_WINDOW_MINUTES,
+      max_items_per_group: EVENT_COMPANION_NOW_NEXT_LIMIT
+    },
+    counts: {
+      current: currentEntries.length,
+      next: nextEntries.length,
+      soon: soonEntries.length,
+      nearby: nearbyEntries.length
+    },
+    current: currentEntries.slice(0, EVENT_COMPANION_NOW_NEXT_LIMIT).map((entry) => mapEntry(entry, 'current')),
+    next: nextEntries.map((entry, index) => mapEntry(entry, index === 0 ? 'next' : 'upcoming')),
+    soon: soonEntries.map((entry) => mapEntry(entry, 'soon')),
+    nearby: nearbyEntries.map((entry) => mapEntry(entry, 'nearby'))
+  };
+}
+
 async function loadCompanionTodayPayload({ eventId, scopeContext, userId }) {
   const eventParams = [eventId];
   const eventScopeClause = appendScopeSql(eventParams, scopeContext, {
@@ -1549,6 +1740,12 @@ async function loadCompanionTodayPayload({ eventId, scopeContext, userId }) {
   const icsSource = serializeIcsSource(await loadPersonalIcsSource(pool, { eventId, userId }));
   const generatedAt = new Date();
   const icsFreshness = classifyPersonalIcsFreshness(icsSource, generatedAt);
+  const nowNext = buildCompanionNowNext({
+    eventId,
+    sessions: sessionsResult.rows,
+    plans: plansResult.rows,
+    generatedAt
+  });
   return {
     contract: {
       version: EVENT_COMPANION_CONTRACT_VERSION,
@@ -1563,7 +1760,6 @@ async function loadCompanionTodayPayload({ eventId, scopeContext, userId }) {
         personal_ics_source: `/api/events/${eventId}/personal-ics-source`
       },
       out_of_scope: [
-        'now_next_discovery',
         'catalog_import_automation',
         'push_notifications',
         'realtime_location',
@@ -1586,6 +1782,7 @@ async function loadCompanionTodayPayload({ eventId, scopeContext, userId }) {
     },
     cache: EVENT_COMPANION_CACHE_POLICY,
     privacy: EVENT_COMPANION_PRIVACY_POLICY,
+    now_next: nowNext,
     offline_packet: buildOfflinePacket({
       event,
       attendees: attendeesResult.rows,

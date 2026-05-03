@@ -412,6 +412,9 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - Quick plan-change actions and conflict cues are available without requiring web-specific UI assumptions.
 - The app consumes versioned backend/OpenAPI behavior and does not depend on web frontend files.
 
+**Promotion**
+- The backend/API companion contract slice for this work is promoted as `3.4.74`. Native Swift UI implementation remains outside this webapp repo.
+
 ### Backlog Item: Platform Companion Friend-Aware Session Changes
 **Type:** Deferred milestone
 **Tags:** `apple`, `platform-app`, `xcode`, `events`, `social`, `schedule`, `notifications`, `privacy`

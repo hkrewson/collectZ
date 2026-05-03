@@ -8105,6 +8105,50 @@ Historical note:
 - What remains in the milestone: no remaining 3.4.73 implementation work; CI-only release gates must pass before public tag/release publication.
 - Recommended commit message: `Release 3.4.73 event schedule delivery attempt readback UI`
 
+## 3.4.74 — Platform Companion Now/Next Schedule Experience
+
+**Goal:** Give Apple/platform companion clients a stable, compact Now/Next schedule snapshot from the existing Event catalog and personal-plan data, without depending on web frontend files or adding native UI code in this repo.
+
+**Current Slice:** `Closed.`
+
+### Scope
+
+- Promote the backlog item into a backend/API companion contract slice.
+- Extend `GET /api/events/:id/companion/today` with a versioned `now_next` block.
+- Include current, next/upcoming, soon, and nearby active catalog sessions.
+- Overlay linked personal schedule-plan state so native clients can distinguish catalog-only sessions from manual or personal Sched ICS plans.
+- Include quick-action endpoint hints for `planned`, `maybe`, `skipped`, and `backup` using the existing schedule-plan endpoints.
+- Include read-only conflict hints for overlapping personal/shared plans.
+- Update OpenAPI, companion docs, smoke coverage, release notes, and release-feed data.
+- Keep native Swift UI, offline mutation queues, provider automation, push/email/device delivery, realtime presence, and broad friend discovery out of scope.
+
+### Acceptance Criteria
+
+- The companion snapshot reports `now_next.contract.version = event-companion-now-next.v1`.
+- Current/upcoming catalog sessions are readable without scraping web UI state.
+- Each item clearly distinguishes `catalog_only`, `personal_plan`, or `personal_sched_ics`.
+- Quick-action hints reference existing schedule-plan write endpoints without creating a new write surface.
+- Conflict hints are read-only and do not mutate plans.
+- Event social smoke and OpenAPI validation prove the contract.
+
+### Notes
+
+- This is the backend/platform contract for a native day-of-con schedule surface. It does not implement the Apple app UI.
+
+### Closeout — 2026-05-03
+
+- Roadmap slice: `3.4.74 — Platform Companion Now/Next Schedule Experience`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/42-Event-Social-Platform-Companion-Contract.md`, and `docs/wiki/45-Event-Schedule-Catalog-Foundation.md`.
+- Runtime verification used: Docker rebuilt/recreated `backend` and `frontend` with `APP_VERSION=3.4.74`; `/api/health` returned frontend/backend/build `3.4.74`; running backend env was verified as `APP_EDITION=platform` for local platform compose; generated public compose was temporarily started with no `APP_EDITION` and the homelab boundary passed; local platform compose was restored afterward.
+- CI/checks run: local backend syntax checks; local backend unit/source contract tests (`231` passed); local OpenAPI validation; backend/frontend dependency dry-runs; Docker production build with Vite; container backend unit tests; container OpenAPI validation; container `test:event-social-planning-smoke`; container `test:init-parity`; container `test:migration-rehearsal`; container `test:rbac-regression`; container `test:platform-edition-boundary`; generated-compose `test:homelab-edition-boundary`; full browser regression with redacted `PLAYWRIGHT_E2E_BYPASS_TOKEN` (`55 passed`, `4 skipped`); `test:help-releases-smoke` for `v3.4.74`; `npm run validate:public-export`; `docker compose --env-file .env config`; idempotent `npm run compose:generate`; `test:observability-evidence`; `test:release-preflight-local`; targeted secret-pattern scan over generated release artifacts; `git diff --check`.
+- Release artifacts: `docs/releases/v3.4.74.md` exists; `backend/release-feed.json` serves `v3.4.74`; `preflight-go-no-go.md` was regenerated; `artifacts/observability-evidence/observability-release-evidence.json` reports `9/9` checks passed.
+- Verified facts: `GET /api/events/:id/companion/today` now includes `now_next.contract.version = event-companion-now-next.v1`; the payload separates current, next/upcoming, soon, and nearby active catalog sessions; each item includes relation readback for `catalog_only`, `personal_plan`, or `personal_sched_ics`; quick-action hints point to existing schedule-plan endpoints and supported statuses; conflict hints are read-only overlap summaries; smoke coverage verifies the active catalog session appears in companion Now/Next without depending on web frontend state.
+- Blocked/unverified items: CI-only `secret-scan` and `image-security-and-sbom` still need to run in GitHub Actions; local release preflight marks secure-cookie compose-smoke conditions blocked because the dev stack intentionally runs `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`; the preflight helper marks browser regression blocked even though full browser regression passed separately.
+- Files changed: `app-meta.json`, `artifacts/observability-evidence/observability-release-evidence.json`, `backend/app-meta.json`, `backend/openapi/openapi.yaml`, `backend/package.json`, `backend/package-lock.json`, `backend/release-feed.json`, `backend/routes/events.js`, `backend/scripts/event-social-planning-smoke.js`, `backend/scripts/unit-tests.js`, `docker-compose.yml`, `docs/releases/v3.4.74.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/42-Event-Social-Platform-Companion-Contract.md`, `docs/wiki/45-Event-Schedule-Catalog-Foundation.md`, `frontend/package.json`, `frontend/package-lock.json`, `frontend/src/app-meta.json`, and `preflight-go-no-go.md`.
+- Risks or follow-ups: this is backend/API contract work only; native Swift UI, offline mutation queues, selected-recipient native sends, provider-backed push/email/device delivery, realtime presence, and broad friend discovery remain separate future milestones.
+- What remains in the milestone: no remaining 3.4.74 implementation work; CI-only release gates must pass before public tag/release publication.
+- Recommended commit message: `Release 3.4.74 platform companion now next schedule experience`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

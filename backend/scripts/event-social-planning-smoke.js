@@ -336,6 +336,14 @@ async function main() {
     assert(notificationSent.data?.delivery_attempt_readback?.total === 2, `Expected two local delivery attempts on sent notification, got ${JSON.stringify(notificationSent.data)}`);
     assert(notificationSent.data?.delivery_attempt_readback?.succeeded === 2, `Expected two successful local delivery attempts, got ${JSON.stringify(notificationSent.data)}`);
 
+    const companionBeforeCatalogCancel = await client.request(`/api/events/${eventId}/companion/today`, { expectStatus: 200 });
+    assert(companionBeforeCatalogCancel.data?.now_next?.contract?.version === 'event-companion-now-next.v1', `Expected companion now/next contract, got ${JSON.stringify(companionBeforeCatalogCancel.data?.now_next)}`);
+    assert(companionBeforeCatalogCancel.data?.now_next?.contract?.personal_plan_overlay === true, `Expected personal plan overlay support, got ${JSON.stringify(companionBeforeCatalogCancel.data?.now_next)}`);
+    assert(companionBeforeCatalogCancel.data?.now_next?.contract?.quick_actions_supported === true, `Expected quick action hints, got ${JSON.stringify(companionBeforeCatalogCancel.data?.now_next)}`);
+    assert(companionBeforeCatalogCancel.data?.now_next?.next?.[0]?.catalog_session_id === catalogSessionId, `Expected active catalog session in companion now/next, got ${JSON.stringify(companionBeforeCatalogCancel.data?.now_next)}`);
+    assert(companionBeforeCatalogCancel.data?.now_next?.next?.[0]?.relation?.source === 'catalog_only', `Expected catalog-only distinction, got ${JSON.stringify(companionBeforeCatalogCancel.data?.now_next)}`);
+    assert(companionBeforeCatalogCancel.data?.now_next?.next?.[0]?.quick_actions?.supported_statuses?.includes('backup'), `Expected companion quick status actions, got ${JSON.stringify(companionBeforeCatalogCancel.data?.now_next)}`);
+
     await client.request(`/api/events/${eventId}/schedule-sessions/${catalogSessionId}`, {
       method: 'PATCH',
       withCsrf: true,

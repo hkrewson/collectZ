@@ -3594,9 +3594,13 @@ results.push(run('event social planning foundation contract is wired for 3.4.30'
   assert.ok(eventsRoutesSource.includes('buildPersonalIcsSyncVisibility'));
   assert.ok(eventsRoutesSource.includes('raw_url_returned: false'));
   assert.ok(eventsRoutesSource.includes('event-social-offline-packet.v1'));
+  assert.ok(eventsRoutesSource.includes('event-companion-now-next.v1'));
+  assert.ok(eventsRoutesSource.includes('buildCompanionNowNext'));
+  assert.ok(eventsRoutesSource.includes('quick_actions_supported: true'));
+  assert.ok(eventsRoutesSource.includes('catalog_sessions_authoritative: true'));
   assert.ok(eventsRoutesSource.includes('buildOfflinePacket'));
   assert.ok(eventsRoutesSource.includes('schedule_catalog: true'));
-  assert.ok(eventsRoutesSource.includes('now_next_discovery'));
+  assert.ok(!eventsRoutesSource.includes("'now_next_discovery'"));
   assert.ok(eventsRoutesSource.includes("router.get('/events/:id/schedule-sessions'"));
   assert.ok(eventsRoutesSource.includes("router.post('/events/:id/schedule-sessions'"));
   assert.ok(eventsRoutesSource.includes('events.schedule_session.create'));
@@ -3671,6 +3675,7 @@ results.push(run('event social planning foundation contract is wired for 3.4.30'
   assert.ok(eventSocialPlanningSmokeSource.includes('deliveryAttemptReadbackCount'));
   assert.ok(eventSocialPlanningSmokeSource.includes('/api/events/${eventId}/schedule-sessions'));
   assert.ok(eventSocialPlanningSmokeSource.includes('/api/events/${eventId}/companion/today'));
+  assert.ok(eventSocialPlanningSmokeSource.includes('event-companion-now-next.v1'));
   assert.ok(eventSocialPlanningSmokeSource.includes('personal_ics_visibility'));
   assert.ok(eventSocialPlanningSmokeSource.includes('offline_packet'));
   assert.ok(eventPersonalIcsSyncSmokeSource.includes('/api/events/${eventId}/companion/today'));
