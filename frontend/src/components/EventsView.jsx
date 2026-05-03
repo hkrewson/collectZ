@@ -3001,28 +3001,42 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged, currentUser = n
         </details>
 
         <details className="group">
-          <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium text-ink">
-            People
-            <span className="text-xs text-ghost">{attendees.length}</span>
+          <summary className="flex cursor-pointer list-none items-start justify-between gap-3 px-4 py-3 text-sm font-medium text-ink">
+            <div className="min-w-0">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <span>People</span>
+                {!selfAttendee ? <span className="badge badge-warn text-[10px]">Add yourself</span> : null}
+              </div>
+              {!selfAttendee ? (
+                <p className="mt-1 text-xs font-normal leading-5 text-ghost">
+                  Add your own attendee before managing other people for meetups and notification readback.
+                </p>
+              ) : null}
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              {!selfAttendee ? (
+                <button
+                  className="btn-secondary btn-sm"
+                  disabled={saving === 'attendee-self'}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    addCurrentUserAttendee();
+                  }}
+                >
+                  {saving === 'attendee-self' ? <Spinner size={16} /> : 'Add me to this event'}
+                </button>
+              ) : null}
+              <span className="text-xs text-ghost">{attendees.length}</span>
+            </div>
           </summary>
           <div className="space-y-3 px-4 pb-4">
             {!selfAttendee ? (
               <div className="rounded-md border border-edge bg-raised/70 px-3 py-3">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-ink">Add yourself to this event</p>
-                    <p className="mt-1 text-xs leading-5 text-dim">
-                      This creates the attendee row that represents you, so meetup planning and recipient readback can treat the signed-in user as you.
-                    </p>
-                  </div>
-                  <button
-                    className="btn-secondary btn-sm"
-                    disabled={saving === 'attendee-self'}
-                    onClick={addCurrentUserAttendee}
-                  >
-                    {saving === 'attendee-self' ? <Spinner size={16} /> : `Add me as ${selfAttendeeSuggestedName}`}
-                  </button>
-                </div>
+                <p className="text-sm font-medium text-ink">You are not added to this event yet</p>
+                <p className="mt-1 text-xs leading-5 text-dim">
+                  Use <span className="font-medium text-ink">Add me to this event</span> above to create the attendee row that represents you. It will be saved as <span className="font-medium text-ink">{selfAttendeeSuggestedName}</span>.
+                </p>
               </div>
             ) : null}
             {attendees.length > 0 ? (
@@ -3132,7 +3146,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged, currentUser = n
               <input className="input" placeholder="Relationship" value={form.attendeeRelationship} onChange={(e) => set({ attendeeRelationship: e.target.value })} />
               <button className="btn-secondary" disabled={!form.attendeeName.trim() || saving === 'attendee'} onClick={() => save('attendee')}>{saving === 'attendee' ? <Spinner size={16} /> : 'Add'}</button>
             </div>
-            <p className="text-xs leading-5 text-ghost">Use this form for other people. Your own event identity is handled through the Add me action above.</p>
+            <p className="text-xs leading-5 text-ghost">Use this form for other people. Your own event identity is handled through the Add me to this event action above.</p>
           </div>
         </details>
 

@@ -22,8 +22,6 @@ const {
   deleteArtByExactTitle
 } = require('../helpers/eventsCollectibles');
 
-const escapeRegExp = (value) => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
 test.use({ storageState: { cookies: [], origins: [] } });
 
 test.describe('events and collectibles browser regressions', () => {
@@ -130,7 +128,7 @@ test.describe('events and collectibles browser regressions', () => {
       const eventCard = page.locator('article').filter({ hasText: eventTitle }).first();
       await expect(eventCard).toBeVisible();
       await eventCard.locator('p').filter({ hasText: eventTitle }).first().click();
-      await expect(page.getByRole('heading', { name: eventTitle })).toBeVisible();
+      await expect(page.getByRole('heading').filter({ hasText: eventTitle }).first()).toBeVisible();
 
       const overview = page.getByLabel('Mobile event social overview');
       await expect(overview).toBeVisible();
@@ -225,11 +223,13 @@ test.describe('events and collectibles browser regressions', () => {
       await expect(page.getByRole('heading', { name: eventTitle })).toBeVisible();
 
       const peoplePanel = page.locator('summary').filter({ hasText: /^People/ }).locator('xpath=..').first();
+      await expect(peoplePanel.locator('summary').getByText('Add your own attendee before managing other people')).toBeVisible();
+      await expect(peoplePanel.locator('summary').getByRole('button', { name: 'Add me to this event' })).toBeVisible();
       await peoplePanel.locator('summary').first().click();
       await expect(peoplePanel.getByText('No attendees yet.')).toBeVisible();
-      await expect(peoplePanel.getByText('Add yourself to this event')).toBeVisible();
-      const addMeButtonName = new RegExp(`^Add me as ${escapeRegExp(expectedSelfName)}$`);
-      await expect(peoplePanel.getByRole('button', { name: addMeButtonName })).toBeVisible();
+      await expect(peoplePanel.getByText('You are not added to this event yet')).toBeVisible();
+      await expect(peoplePanel.getByText(expectedSelfName)).toBeVisible();
+      const addMeButtonName = 'Add me to this event';
       await expect(peoplePanel.getByPlaceholder('Name')).toBeVisible();
       await expect(peoplePanel.getByPlaceholder('Relationship')).toBeVisible();
       await expect(peoplePanel.getByText('Use this form for other people.')).toBeVisible();
@@ -238,7 +238,7 @@ test.describe('events and collectibles browser regressions', () => {
       await peoplePanel.getByRole('button', { name: addMeButtonName }).click();
       await expect(page.getByText('You were added to this event')).toBeVisible();
       await expect(peoplePanel.getByText('No attendees yet.')).toHaveCount(0);
-      await expect(peoplePanel.getByText('Add yourself to this event')).toHaveCount(0);
+      await expect(peoplePanel.locator('summary').getByRole('button', { name: 'Add me to this event' })).toHaveCount(0);
 
       const attendeeRow = peoplePanel.locator('details').filter({ hasText: expectedSelfName }).first();
       await expect(attendeeRow.locator('summary').getByText(expectedSelfName)).toBeVisible();

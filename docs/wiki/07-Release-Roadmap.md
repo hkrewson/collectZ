@@ -8342,6 +8342,41 @@ Historical note:
 - What remains in the milestone: no remaining `3.4.79` implementation work; CI-only release gates must pass before public tag/release publication.
 - Recommended commit message: `Release 3.4.79 event self-attendee auto-link and add me flow`
 
+## 3.4.80 — Event Self-Attendee Header Affordance Polish
+
+**Goal:** Make the self-attendee path obvious before the People section is expanded by surfacing `Add me to this event` directly in the section header.
+
+**Current Slice:** `Version Closeout completed.`
+
+### Scope
+
+- Keep the linked self-attendee creation behavior from `3.4.79`.
+- Move the primary `Add me` affordance higher in the People section so it is visible from the collapsed Event social panel.
+- Keep the in-panel helper copy lightweight and focused on clarifying the difference between adding yourself and adding other attendees.
+- Update browser/source coverage so the header-level affordance is what the test suite proves.
+- Keep broader identity/contact/provider work out of scope.
+
+### Acceptance Criteria
+
+- The People section shows an explicit `Add me to this event` action before the section is expanded when the current signed-in user has not yet been added.
+- Expanding People still shows a lightweight reminder of what the self-attendee action does.
+- The generic attendee form remains clearly framed as an “other people” flow.
+- Browser coverage proves the header-level self-attendee affordance on a live Event drawer.
+
+### Closeout
+
+- Roadmap slice: `3.4.80 — Event Self-Attendee Header Affordance Polish`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, and `docs/wiki/40-Event-Social-Planning-Foundation.md`.
+- Runtime verification used: rebuilt and recreated the local platform stack through Docker with `APP_VERSION=3.4.80` using `docker-compose.yml` plus `docker-compose.localhost.yml`; verified `/api/health` reports frontend/backend/build `3.4.80`; verified the running platform container env reports `APP_EDITION=platform`, `APP_VERSION=3.4.80`, `NODE_ENV=development`, and `SESSION_COOKIE_SECURE=false`; temporarily swapped to the generated public compose plus `.ci/docker-compose.build.yml`, verified the homelab backend env leaves `APP_EDITION` unset, ran the homelab boundary smoke, then restored the local platform stack and rechecked `/api/health`.
+- CI/checks run: local backend unit/source assertions (`231` passed); local OpenAPI validation; container backend unit tests; container OpenAPI validation; container `test:event-social-planning-smoke` with `BASE_URL=http://frontend:3000`; container `test:init-parity`; container `test:migration-rehearsal`; container `test:help-releases-smoke` with `BASE_URL=http://frontend:3000` and `EXPECTED_RELEASE_VERSION=v3.4.80`; container `test:rbac-regression` with `BASE_URL=http://frontend:3000`; container `test:platform-edition-boundary` with `BASE_URL=http://frontend:3000`; generated-compose `test:homelab-edition-boundary`; targeted Event browser regression via `PLAYWRIGHT_E2E_BYPASS_TOKEN=<redacted> npm exec playwright test tests/playwright/specs/events-collectibles.browser.spec.js` (`14 passed`); full browser regression via `PLAYWRIGHT_E2E_BYPASS_TOKEN=<redacted> npm run test:browser` (`57 passed`, `4 skipped`); `docker compose --env-file .env config`; idempotent `npm run compose:generate`; `npm run validate:public-export`; backend/frontend `npm ci --no-fund --dry-run`; `npm --prefix backend run test:observability-evidence`; `npm --prefix backend run test:release-preflight-local`; release-artifact secret-pattern grep over `docs/releases/v3.4.80.md`, `backend/release-feed.json`, `preflight-go-no-go.md`, and `artifacts/observability-evidence/observability-release-evidence.json`; and `git diff --check`.
+- Release artifacts: `app-meta.json`, backend/frontend app meta, backend/frontend package and lockfile versions, generated `docker-compose.yml`, `docs/releases/v3.4.80.md`, and `backend/release-feed.json` are aligned on `3.4.80`; the running Help > Releases feed serves `v3.4.80` first while retaining `v3.4.79`; `preflight-go-no-go.md` was regenerated; `artifacts/observability-evidence/observability-release-evidence.json` reports `3.4.80` with `9/9` checks passed.
+- Verified facts: the Event drawer People section now surfaces `Add me to this event` in the section header before the drawer content is expanded; the inline reminder copy now explains the self-attendee path without duplicating the action button lower in the panel; the generic attendee form remains clearly framed as an “other people” flow; the full browser suite proves the updated Event flow without regressing adjacent admin, library, or social surfaces.
+- Blocked/unverified: local release preflight still marks secure-cookie compose-smoke conditions blocked because the dev stack intentionally runs `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`; CI-only `secret-scan` and `image-security-and-sbom` still need GitHub Actions follow-through; the local preflight helper still marks browser regression blocked because that helper does not execute Playwright itself even though full browser regression passed separately.
+- Files changed: `app-meta.json`, `backend/app-meta.json`, `frontend/src/app-meta.json`, `backend/package.json`, `frontend/package.json`, `backend/package-lock.json`, `frontend/package-lock.json`, `backend/release-feed.json`, `frontend/src/components/EventsView.jsx`, `tests/playwright/specs/events-collectibles.browser.spec.js`, `backend/scripts/unit-tests.js`, `docker-compose.yml`, `docs/releases/v3.4.80.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `artifacts/observability-evidence/observability-release-evidence.json`, and `preflight-go-no-go.md`.
+- Risks or follow-ups: this keeps the Event-local attendee ownership model and `3.4.79` linked self-attendee behavior intact; external contact identities, cross-event identity, native companion social mutation UX, realtime presence, and a broader friend graph remain separate work.
+- What remains in the milestone: no remaining `3.4.80` implementation work; CI-only release gates must pass before public tag/release publication.
+- Recommended commit message: `Release 3.4.80 event self-attendee header affordance polish`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.
