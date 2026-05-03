@@ -252,6 +252,33 @@ test.describe('events and collectibles browser regressions', () => {
       expect(attendeesPayload.items).toHaveLength(1);
       expect(attendeesPayload.items[0]?.display_name).toBe(expectedSelfName);
       expect(attendeesPayload.items[0]?.current_user_attendee).toBe(true);
+
+      await peoplePanel.getByPlaceholder('Name').fill(expectedSelfName);
+      await expect(peoplePanel.getByText(`${expectedSelfName} already exists for this event.`)).toBeVisible();
+      await expect(peoplePanel.getByText('That row is already linked to you.')).toBeVisible();
+      await expect(peoplePanel.getByRole('button', { name: 'Add', exact: true })).toBeDisabled();
+      await peoplePanel.getByRole('button', { name: 'Add anyway' }).click();
+      await peoplePanel.getByPlaceholder('Relationship').fill('cosplay twin');
+      await peoplePanel.getByRole('button', { name: 'Add', exact: true }).click();
+      await expect(page.getByText('Attendee added')).toBeVisible();
+
+      await peoplePanel.getByPlaceholder('Name').fill('Avery Stone');
+      await peoplePanel.getByPlaceholder('Relationship').fill('friend');
+      await peoplePanel.getByRole('button', { name: 'Add', exact: true }).click();
+      await expect(page.getByText('Attendee added')).toBeVisible();
+      await peoplePanel.getByPlaceholder('Name').fill('Avery  Stone');
+      await expect(peoplePanel.getByText('Avery Stone already exists for this event.')).toBeVisible();
+      await expect(peoplePanel.getByRole('button', { name: 'Add', exact: true })).toBeDisabled();
+      await peoplePanel.getByRole('button', { name: 'Add anyway' }).click();
+      await peoplePanel.getByPlaceholder('Relationship').fill('vendor helper');
+      await peoplePanel.getByRole('button', { name: 'Add', exact: true }).click();
+      await expect(page.getByText('Attendee added')).toBeVisible();
+
+      const duplicateAttendeesResponse = await userRequestContext.get(`/api/events/${eventId}/attendees`);
+      expect(duplicateAttendeesResponse.ok()).toBeTruthy();
+      const duplicateAttendeesPayload = await duplicateAttendeesResponse.json();
+      expect(duplicateAttendeesPayload.items).toHaveLength(4);
+      expect(duplicateAttendeesPayload.items.filter((item) => item?.current_user_attendee)).toHaveLength(1);
     } finally {
       await deleteEventsByExactTitle(userRequestContext, eventTitle).catch(() => {});
       if (!originalEventsEnabled) {

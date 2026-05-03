@@ -42,6 +42,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 24. The self-attendee auto-link and `Add me` flow slice was promoted as `3.4.79`; keep external contact identities, cross-event identity, and broader friend graph work separate.
 25. The self-attendee header-affordance polish slice was promoted as `3.4.80`; keep external contact identities, cross-event identity, and broader friend graph work separate.
 26. The self-attendee default-creation slice was promoted as `3.4.81`; keep external contact identities, cross-event identity, and broader friend graph work separate.
+27. The attendee duplicate guardrails slice was promoted as `3.4.82`; keep external contact identities, cross-event identity, Discord delivery, and broader friend graph work separate.
 
 ### Backlog Item: Reusable Artist Records for Artwork Entry
 **Type:** Task

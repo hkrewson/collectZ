@@ -286,9 +286,51 @@ function isDuplicateEventAttendeeUserLinkError(err) {
   return err?.code === '23505' && String(err?.constraint || '').includes('idx_event_attendees_event_user_active');
 }
 
-function handleDuplicateEventAttendeeUserLink(res, err) {
+async function findExistingLinkedEventAttendee(eventId, userId) {
+  if (!eventId || !userId) return null;
+  const result = await pool.query(
+    `SELECT ea.id,
+            ea.event_id,
+            ea.display_name,
+            ea.relationship,
+            ea.status,
+            ea.visibility,
+            ea.user_id,
+            u.name AS linked_user_name
+       FROM event_attendees ea
+       LEFT JOIN users u ON u.id = ea.user_id
+      WHERE ea.event_id = $1
+        AND ea.user_id = $2
+        AND ea.archived_at IS NULL
+      ORDER BY ea.id ASC
+      LIMIT 1`,
+    [eventId, userId]
+  );
+  const row = result.rows[0];
+  if (!row) return null;
+  return {
+    id: row.id,
+    event_id: row.event_id,
+    display_name: row.display_name,
+    relationship: row.relationship || null,
+    status: row.status,
+    visibility: row.visibility,
+    current_user_attendee: true,
+    linked_user: {
+      id: row.user_id,
+      name: row.linked_user_name || null
+    }
+  };
+}
+
+async function handleDuplicateEventAttendeeUserLink(res, err, eventId, userId) {
   if (!isDuplicateEventAttendeeUserLinkError(err)) throw err;
-  return res.status(409).json({ error: 'This app user is already linked to an attendee for this event' });
+  const existingAttendee = await findExistingLinkedEventAttendee(eventId, userId);
+  const existingName = existingAttendee?.display_name || 'an existing attendee';
+  return res.status(409).json({
+    error: `You are already listed for this event as ${existingName}. Use that attendee row instead of adding another linked self attendee.`,
+    existing_attendee: existingAttendee
+  });
 }
 
 function buildInsertSql({ table, eventId, fields, body, userId }) {
@@ -2851,7 +2893,7 @@ router.post('/events/:id/attendees', validate(eventAttendeeCreateSchema), asyncH
   try {
     result = await pool.query(insert.sql, insert.values);
   } catch (err) {
-    return handleDuplicateEventAttendeeUserLink(res, err);
+    return handleDuplicateEventAttendeeUserLink(res, err, eventId, body.user_id || req.user.id);
   }
   await logActivity(req, 'events.attendee.create', 'event', eventId, { attendeeId: result.rows[0].id });
   res.status(201).json(result.rows[0]);
@@ -2877,7 +2919,7 @@ router.patch('/events/:id/attendees/:attendeeId', validate(eventAttendeeUpdateSc
   try {
     result = await pool.query(update.sql, update.values);
   } catch (err) {
-    return handleDuplicateEventAttendeeUserLink(res, err);
+    return handleDuplicateEventAttendeeUserLink(res, err, eventId, body.user_id || req.user.id);
   }
   if (!result.rows[0]) return res.status(404).json({ error: 'Attendee not found' });
   await logActivity(req, 'events.attendee.update', 'event', eventId, { attendeeId });

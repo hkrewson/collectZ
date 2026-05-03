@@ -3746,6 +3746,12 @@ results.push(run('event social planning foundation contract is wired for 3.4.30'
   assert.ok(eventsViewSource.includes('You were added to this event and the meetup was created'));
   assert.ok(eventsViewSource.includes('You were added to this event and the schedule plan was saved'));
   assert.ok(eventsViewSource.includes('const ensureSelfAttendeeForSocialAction = async () => {'));
+  assert.ok(eventsViewSource.includes('findMatchingAttendeeByName'));
+  assert.ok(eventsViewSource.includes('Duplicate acknowledged. The next Add will create a separate Event-local attendee.'));
+  assert.ok(eventsViewSource.includes('Use the existing attendee row if this is the same person'));
+  assert.ok(eventsRoutesSource.includes('findExistingLinkedEventAttendee'));
+  assert.ok(eventsRoutesSource.includes('existing_attendee'));
+  assert.ok(eventsRoutesSource.includes('Use that attendee row instead of adding another linked self attendee.'));
   assert.ok(eventsViewSource.includes('Linked to you'));
   assert.ok(eventsViewSource.includes('Use this form for other people.'));
   assert.ok(eventsViewSource.includes('/events/${eventId}/schedule-notification-inbox'));

@@ -120,6 +120,45 @@ const SCHEDULE_CATALOG_STATUS_OPTIONS = [
   { value: 'hidden', label: 'Hidden' }
 ];
 
+const normalizeAttendeeName = (value = '') => String(value || '')
+  .normalize('NFKD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase()
+  .replace(/[^a-z0-9]+/g, ' ')
+  .trim()
+  .replace(/\s+/g, ' ');
+
+const compactAttendeeName = (value = '') => normalizeAttendeeName(value).replace(/\s+/g, '');
+
+const attendeeNamesAreVerySimilar = (left = '', right = '') => {
+  const leftName = normalizeAttendeeName(left);
+  const rightName = normalizeAttendeeName(right);
+  if (!leftName || !rightName) return false;
+  if (leftName === rightName) return true;
+  const leftCompact = compactAttendeeName(leftName);
+  const rightCompact = compactAttendeeName(rightName);
+  if (!leftCompact || !rightCompact) return false;
+  if (leftCompact === rightCompact) return true;
+  const shortest = Math.min(leftCompact.length, rightCompact.length);
+  if (shortest < 5) return false;
+  return leftCompact.startsWith(rightCompact) || rightCompact.startsWith(leftCompact);
+};
+
+const findMatchingAttendeeByName = (name = '', attendees = []) => {
+  const candidate = String(name || '').trim();
+  if (!candidate) return null;
+  const activeAttendees = Array.isArray(attendees) ? attendees.filter((attendee) => attendee?.status !== 'not_attending') : [];
+  return activeAttendees.find((attendee) => attendeeNamesAreVerySimilar(candidate, attendee?.display_name || attendee?.linked_user?.name || '')) || null;
+};
+
+const attendeeDuplicateErrorMessage = (error = null, fallback = 'Failed to save social planning') => {
+  const existing = error?.response?.data?.existing_attendee;
+  if (existing?.display_name) {
+    return `You are already listed for this event as ${existing.display_name}. Use that attendee row instead of adding another linked self attendee.`;
+  }
+  return error?.response?.data?.error || fallback;
+};
+
 function buildScheduleMessageBody(title = 'this session', intent = 'status_update', status = 'planned') {
   const safeTitle = String(title || 'this session').trim() || 'this session';
   const option = SCHEDULE_MESSAGE_TEMPLATE_OPTIONS.find((item) => item.value === intent)
@@ -2008,6 +2047,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged, currentUser = n
   const [icsSource, setIcsSource] = useState(null);
   const [meetupDrafts, setMeetupDrafts] = useState({});
   const [attendeeDrafts, setAttendeeDrafts] = useState({});
+  const [attendeeDuplicateOverride, setAttendeeDuplicateOverride] = useState('');
   const [groupDrafts, setGroupDrafts] = useState({});
   const [planDrafts, setPlanDrafts] = useState({});
   const [catalogDrafts, setCatalogDrafts] = useState({});
@@ -2023,6 +2063,28 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged, currentUser = n
   const socialReadback = useMemo(() => buildEventSocialReadback({ attendees, groups, meetups, plans }), [attendees, groups, meetups, plans]);
   const selfAttendee = useMemo(() => attendees.find((attendee) => attendee?.current_user_attendee) || null, [attendees]);
   const selfAttendeeSuggestedName = useMemo(() => deriveSelfAttendeeName(currentUser), [currentUser]);
+  const attendeeNameMatch = useMemo(() => {
+    const name = form.attendeeName.trim();
+    if (!name) return null;
+    const existingMatch = findMatchingAttendeeByName(name, attendees);
+    if (existingMatch) {
+      const exact = normalizeAttendeeName(name) === normalizeAttendeeName(existingMatch.display_name || existingMatch.linked_user?.name || '');
+      return {
+        kind: existingMatch.current_user_attendee ? 'existing-self' : 'existing',
+        attendee: existingMatch,
+        exact
+      };
+    }
+    if (!selfAttendee && attendeeNamesAreVerySimilar(name, selfAttendeeSuggestedName)) {
+      return {
+        kind: 'self-suggestion',
+        attendee: null,
+        exact: normalizeAttendeeName(name) === normalizeAttendeeName(selfAttendeeSuggestedName)
+      };
+    }
+    return null;
+  }, [attendees, form.attendeeName, selfAttendee, selfAttendeeSuggestedName]);
+  const attendeeDuplicateAcknowledged = attendeeDuplicateOverride && attendeeDuplicateOverride === normalizeAttendeeName(form.attendeeName);
 
   const set = (patch) => setForm((prev) => ({ ...prev, ...patch }));
   const setMeetupDraft = (meetupId, patch) => {
@@ -2232,14 +2294,22 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged, currentUser = n
 
   const ensureSelfAttendeeForSocialAction = async () => {
     if (selfAttendee?.id) return { attendee: selfAttendee, created: false };
-    const payload = await apiCall('post', `/events/${eventId}/attendees`, {
-      display_name: selfAttendeeSuggestedName,
-      relationship: 'self',
-      link_current_user: true,
-      status: 'attending',
-      visibility: 'private'
-    });
-    return { attendee: hydrateCreatedSelfAttendee(payload || null), created: true };
+    try {
+      const payload = await apiCall('post', `/events/${eventId}/attendees`, {
+        display_name: selfAttendeeSuggestedName,
+        relationship: 'self',
+        link_current_user: true,
+        status: 'attending',
+        visibility: 'private'
+      });
+      return { attendee: hydrateCreatedSelfAttendee(payload || null), created: true };
+    } catch (err) {
+      const existing = err?.response?.data?.existing_attendee;
+      if (existing?.id) {
+        return { attendee: hydrateCreatedSelfAttendee(existing), created: false };
+      }
+      throw err;
+    }
   };
 
   const save = async (kind) => {
@@ -2249,6 +2319,14 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged, currentUser = n
     try {
       let selfAttendeeResult = { attendee: selfAttendee, created: false };
       if (kind === 'attendee') {
+        if (attendeeNameMatch && !attendeeDuplicateAcknowledged) {
+          if (attendeeNameMatch.kind === 'self-suggestion') {
+            setError(`This looks like you. Use Add me to this event to create your linked attendee, or choose Add anyway if this is a different person named ${form.attendeeName.trim()}.`);
+          } else {
+            setError(`${attendeeNameMatch.attendee?.display_name || 'That attendee'} already exists for this event. Use the existing row, change the name, or choose Add anyway if this is a different person.`);
+          }
+          return;
+        }
         await apiCall('post', `/events/${eventId}/attendees`, {
           display_name: form.attendeeName.trim(),
           relationship: form.attendeeRelationship || null,
@@ -2256,6 +2334,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged, currentUser = n
           visibility: 'private'
         });
         set({ attendeeName: '', attendeeRelationship: '' });
+        setAttendeeDuplicateOverride('');
         setNotice('Attendee added');
       }
       if (kind === 'group') {
@@ -2346,7 +2425,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged, currentUser = n
       await load();
       await onChanged?.();
     } catch (err) {
-      setError(err?.response?.data?.error || 'Failed to save social planning');
+      setError(attendeeDuplicateErrorMessage(err, 'Failed to save social planning'));
     } finally {
       setSaving('');
     }
@@ -2450,7 +2529,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged, currentUser = n
       await load();
       await onChanged?.();
     } catch (err) {
-      setError(err?.response?.data?.error || 'Failed to add you to this event');
+      setError(attendeeDuplicateErrorMessage(err, 'Failed to add you to this event'));
     } finally {
       setSaving('');
     }
@@ -3170,10 +3249,56 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged, currentUser = n
                 })}
               </div>
             ) : <p className="text-sm text-ghost">No attendees yet.</p>}
+            {attendeeNameMatch ? (
+              <div className="rounded-md border border-warn/40 bg-warn/10 px-3 py-3 text-xs leading-5 text-dim">
+                {attendeeNameMatch.kind === 'self-suggestion' ? (
+                  <>
+                    <p className="font-medium text-ink">This looks like your attendee row.</p>
+                    <p className="mt-1">
+                      Use <span className="font-medium text-ink">Add me to this event</span> to save yourself as <span className="font-medium text-ink">{selfAttendeeSuggestedName}</span> with your app identity linked. If this is a different person, you can still add them manually.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-medium text-ink">{attendeeNameMatch.attendee?.display_name || 'A matching attendee'} already exists for this event.</p>
+                    <p className="mt-1">
+                      {attendeeNameMatch.kind === 'existing-self'
+                        ? 'That row is already linked to you. Use the existing attendee row for groups, meetups, and notification readback.'
+                        : 'Use the existing attendee row if this is the same person, or continue only if this is a different person with a similar name.'}
+                    </p>
+                  </>
+                )}
+                {!attendeeDuplicateAcknowledged ? (
+                  <button
+                    className="btn-ghost btn-sm mt-2"
+                    type="button"
+                    onClick={() => setAttendeeDuplicateOverride(normalizeAttendeeName(form.attendeeName))}
+                  >
+                    Add anyway
+                  </button>
+                ) : (
+                  <p className="mt-2 text-warn">Duplicate acknowledged. The next Add will create a separate Event-local attendee.</p>
+                )}
+              </div>
+            ) : null}
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_10rem_auto]">
-              <input className="input" placeholder="Name" value={form.attendeeName} onChange={(e) => set({ attendeeName: e.target.value })} />
+              <input
+                className="input"
+                placeholder="Name"
+                value={form.attendeeName}
+                onChange={(e) => {
+                  set({ attendeeName: e.target.value });
+                  setAttendeeDuplicateOverride('');
+                }}
+              />
               <input className="input" placeholder="Relationship" value={form.attendeeRelationship} onChange={(e) => set({ attendeeRelationship: e.target.value })} />
-              <button className="btn-secondary" disabled={!form.attendeeName.trim() || saving === 'attendee'} onClick={() => save('attendee')}>{saving === 'attendee' ? <Spinner size={16} /> : 'Add'}</button>
+              <button
+                className="btn-secondary"
+                disabled={!form.attendeeName.trim() || saving === 'attendee' || (Boolean(attendeeNameMatch) && !attendeeDuplicateAcknowledged)}
+                onClick={() => save('attendee')}
+              >
+                {saving === 'attendee' ? <Spinner size={16} /> : 'Add'}
+              </button>
             </div>
             <p className="text-xs leading-5 text-ghost">Use this form for other people. Your own event identity is handled through the Add me to this event action above.</p>
           </div>

@@ -8414,6 +8414,45 @@ Historical note:
 - What remains in the milestone: no remaining `3.4.81` implementation work; CI-only release gates must pass before public tag/release publication.
 - Recommended commit message: `Release 3.4.81 event self-attendee default creation on first social action`
 
+## 3.4.82 — Event Attendee Duplicate Guardrails
+
+**Goal:** Stabilize the Event-social attendee model after `3.4.79`, `3.4.80`, and `3.4.81` by preventing confusing duplicate attendee rows, especially duplicate self-like rows.
+
+**Current Slice:** `Version Closeout completed.`
+
+### Scope
+
+- Prevent duplicate linked self-attendee creation in the UI before the backend 409 when possible.
+- Add lightweight guardrails when adding other attendees with the same or very similar display name.
+- Keep manual entry of non-user attendees intact.
+- Improve duplicate error/readback copy so the user understands what already exists.
+- Suggest the existing matching attendee instead of silently blocking.
+- Preserve the current `Add me to this event` and first-social-action auto-create behavior.
+- Keep cross-event identity, external contacts, Discord delivery, realtime presence, and broader friend-graph work out of scope.
+
+### Acceptance Criteria
+
+- The People panel warns before saving an attendee whose name matches or closely resembles an existing active attendee.
+- The warning identifies the existing attendee row and requires an explicit `Add anyway` acknowledgement before creating a separate Event-local attendee.
+- Manual non-user attendee entry remains possible after acknowledgement.
+- A self-like manual attendee name points users back to the linked `Add me to this event` flow when no self attendee exists.
+- Duplicate linked self-attendee API responses include clearer copy plus the existing attendee row when the unique-link guard fires.
+- Browser coverage proves both duplicate self-like and duplicate other-attendee guardrails on a live Event drawer.
+
+### Closeout
+
+- Roadmap slice: `3.4.82 — Event Attendee Duplicate Guardrails`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, and `docs/wiki/40-Event-Social-Planning-Foundation.md`.
+- Runtime verification used: rebuilt and recreated the local platform stack through Docker with `APP_VERSION=3.4.82`; verified `/api/health` reports frontend/backend/build `3.4.82`; verified the running platform container env reports `APP_EDITION=platform`, `APP_VERSION=3.4.82`, `NODE_ENV=development`, and `SESSION_COOKIE_SECURE=false`; verified the live DB reported `events_enabled=true` before implementation, after the rebuilt stack, after observability release evidence, and after restoring the platform stack; temporarily swapped to the generated public compose plus `.ci/docker-compose.build.yml`, verified `/api/auth/config` reports homelab behavior with `workspace_surface=false`, ran the homelab boundary smoke, then restored the local platform stack and rechecked `/api/health`.
+- CI/checks run: source syntax checks for `backend/routes/events.js` and `backend/scripts/unit-tests.js`; container backend unit/source assertions (`231` passed); container OpenAPI validation; container `test:event-social-planning-smoke` with `BASE_URL=http://frontend:3000` after an initial missing-`BASE_URL` attempt failed with `fetch failed`; container `test:init-parity`; container `test:migration-rehearsal`; container `test:help-releases-smoke` with `BASE_URL=http://frontend:3000` and `EXPECTED_RELEASE_VERSION=v3.4.82`; container `test:rbac-regression`; container `test:platform-edition-boundary`; generated-compose `test:homelab-edition-boundary`; targeted Event/Collectibles browser regression (`15 passed`); full browser regression (`58 passed`, `4 skipped`); `docker compose --env-file .env config`; idempotent `npm run compose:generate`; `npm run validate:public-export`; Docker Node 20 backend/frontend `npm ci --dry-run --no-fund --ignore-scripts`; Docker Node 20 backend/frontend `npm audit --omit=dev --json`; `backend/scripts/observability-release-evidence.js`; `backend/scripts/release-preflight-local.js`; release-artifact secret-pattern grep over `docs/releases/v3.4.82.md`, `backend/release-feed.json`, `preflight-go-no-go.md`, dependency audit artifacts, migration/init artifacts, and observability artifacts; and `git diff --check`.
+- Release artifacts: `app-meta.json`, backend/frontend app meta, backend/frontend package and lockfile versions, generated `docker-compose.yml`, `docs/releases/v3.4.82.md`, and `backend/release-feed.json` are aligned on `3.4.82`; the running Help > Releases feed serves `v3.4.82` first while retaining recent Event-social releases; `artifacts/observability-evidence/observability-release-evidence.json` reports `3.4.82` with `9/9` checks passed; Docker Node 20 audit artifacts report backend low `0`, moderate `2`, high `0`, critical `0`, and frontend low `0`, moderate `0`, high `0`, critical `0`.
+- Verified facts: the Event drawer now warns on self-like and duplicate attendee display names before save; the duplicate warning suggests the existing attendee row and requires `Add anyway` before creating an intentional separate attendee; manual non-user attendees remain supported; duplicate linked self-attendee 409 responses now return clearer copy plus `existing_attendee`; the explicit `Add me to this event` path and first-social-action auto-create behavior remain in place; `events_enabled` stayed enabled.
+- Blocked/unverified: local release preflight still marks secure-cookie compose-smoke conditions blocked when the dev stack intentionally runs `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`; the preflight helper's host `npm audit` calls returned no vulnerability metadata under the local shell, so dependency audits were rerun with Docker Node 20 and produced the counts above; CI-only `secret-scan` and `image-security-and-sbom` still need GitHub Actions follow-through; local preflight helper marks browser regression blocked because it does not execute Playwright itself even though full browser regression passed separately.
+- Files changed: `app-meta.json`, `backend/app-meta.json`, `frontend/src/app-meta.json`, `backend/package.json`, `frontend/package.json`, `backend/package-lock.json`, `frontend/package-lock.json`, `backend/release-feed.json`, `backend/routes/events.js`, `backend/scripts/unit-tests.js`, `frontend/src/components/EventsView.jsx`, `tests/playwright/specs/events-collectibles.browser.spec.js`, `docker-compose.yml`, `docs/releases/v3.4.82.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `artifacts/observability-evidence/observability-release-evidence.json`, and `preflight-go-no-go.md`.
+- Risks or follow-ups: these are lightweight Event-local duplicate guardrails only; external contact identity, cross-event identity, Discord delivery, native companion social mutation UX, realtime presence, and broader friend-graph work remain separate milestones.
+- What remains in the milestone: no remaining `3.4.82` implementation work; CI-only release gates must pass before public tag/release publication.
+- Recommended commit message: `Release 3.4.82 event attendee duplicate guardrails`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.
