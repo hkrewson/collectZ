@@ -1,6 +1,22 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.78",
+      "version": "v3.4.78",
+      "date": null,
+      "status": null,
+      "summary": "",
+      "details": []
+    },
+    {
+      "title": "collectZ v3.4.77",
+      "version": "v3.4.77",
+      "date": null,
+      "status": null,
+      "summary": "",
+      "details": []
+    },
+    {
       "title": "collectZ v3.4.76",
       "version": "v3.4.76",
       "date": null,
@@ -60,22 +76,6 @@
       "title": "collectZ v3.4.69",
       "version": "v3.4.69",
       "date": null,
-      "status": null,
-      "summary": "",
-      "details": []
-    },
-    {
-      "title": "v3.4.68",
-      "version": "3.4.68",
-      "date": "2026-05-02",
-      "status": null,
-      "summary": "",
-      "details": []
-    },
-    {
-      "title": "v3.4.67",
-      "version": "3.4.67",
-      "date": "2026-05-02",
       "status": null,
       "summary": "",
       "details": []

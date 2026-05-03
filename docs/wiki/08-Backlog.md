@@ -36,6 +36,9 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 18. The compact contract slice of `Event Social Planning Platform Companion Contract` was promoted as `3.4.43`; keep native UI, push notifications, full schedule catalog discovery, offline mutation queues, realtime location, and broad social discovery separate.
 19. `Platform Companion Personal Sched ICS Sync Visibility` was promoted as `3.4.44`; keep native UI, full schedule catalog discovery, background polling, push notifications, and offline mutation queues separate.
 20. `Platform Companion Offline Event Packet` was promoted as `3.4.45`; keep full schedule catalog discovery, native UI, background polling, push notifications, realtime location, and offline mutation queues separate.
+21. The shared session presence slice of event-local social discovery polish was promoted as `3.4.76`; keep event-local editing, cross-event identity, and delivery/provider work separate.
+22. The social discovery readback slice of event-local social discovery polish was promoted as `3.4.77`; keep inline attendee/group/meetup editing, global friend graph work, and realtime presence separate.
+23. The event-local social editability slice was promoted as `3.4.78`; keep cross-event identity, realtime presence, native companion social mutation UX, and true friend-graph work separate.
 
 ### Backlog Item: Reusable Artist Records for Artwork Entry
 **Type:** Task
@@ -371,6 +374,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - Add explicit actions for joining, leaving, replacing, or marking backup sessions. The first web-card slice is promoted as `3.4.64`.
 - When a change affects shared plans, offer selected-recipient notifications instead of broadcasting by default. The first action-template slice is promoted as `3.4.65`; picker/edit UI is promoted as `3.4.66`; recipient-selection polish is promoted as `3.4.67`; draft-management UI is promoted as `3.4.68`; the delivery-boundary/platform contract is promoted as `3.4.69`; provider-prep metadata is promoted as `3.4.70`; the delivery-attempt model contract is promoted as `3.4.71`; Event-local delivery-attempt persistence/readback is promoted as `3.4.72`; delivery-attempt readback UI is promoted as `3.4.73`.
 - A session-presence polish slice is promoted as `3.4.76` to make shared attendance readback clearer on cards and in expanded detail without adding a friend graph or delivery behavior.
+- An Event-social discovery readback slice is promoted as `3.4.77` to make People, Groups, and Meetups feel more connected in the drawer without widening the backend social model.
 - Support message templates such as:
   - "I'm switching to this session"
   - "Anyone want to join?"

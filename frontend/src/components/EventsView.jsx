@@ -66,6 +66,20 @@ const MEETUP_STATUS_OPTIONS = [
   { value: 'done', label: 'Done' }
 ];
 
+const ATTENDEE_STATUS_OPTIONS = [
+  { value: 'attending', label: 'Attending' },
+  { value: 'maybe', label: 'Maybe' },
+  { value: 'not_attending', label: 'Not attending' },
+  { value: 'unknown', label: 'Unknown' }
+];
+
+const SOCIAL_VISIBILITY_OPTIONS = [
+  { value: 'private', label: 'Private' },
+  { value: 'selected_people', label: 'Selected people' },
+  { value: 'group', label: 'Group' },
+  { value: 'event_workspace', label: 'Shared with event' }
+];
+
 const SCHEDULE_PLAN_STATUS_OPTIONS = [
   { value: 'planned', label: 'Planned' },
   { value: 'maybe', label: 'Maybe' },
@@ -648,6 +662,91 @@ const previewNames = (items, key, limit = 3) => {
   const visible = names.slice(0, limit).join(', ');
   const remaining = names.length - limit;
   return remaining > 0 ? `${visible}, +${remaining}` : visible;
+};
+
+const previewLabel = (items, key, limit = 3) => previewNames(items, key, limit) || '';
+
+const sortedTimedItems = (items = []) => {
+  return [...items].sort((a, b) => {
+    const left = new Date(a?.start_at || 0).getTime();
+    const right = new Date(b?.start_at || 0).getTime();
+    return left - right;
+  });
+};
+
+const nextUpcomingItem = (items = [], now = new Date()) => {
+  const nowTs = now.getTime();
+  return sortedTimedItems(items).find((item) => {
+    const start = new Date(item?.start_at || 0).getTime();
+    return Number.isFinite(start) && start >= nowTs;
+  }) || null;
+};
+
+const buildEventSocialReadback = ({ attendees = [], groups = [], meetups = [], plans = [] }) => {
+  const now = new Date();
+  const attendeeContext = new Map();
+  const groupContext = new Map();
+  const groupById = new Map();
+
+  groups.forEach((group) => {
+    const key = Number(group?.id || 0);
+    if (key > 0) groupById.set(key, group);
+  });
+
+  attendees.forEach((person) => {
+    attendeeContext.set(Number(person?.id || 0), {
+      groups: [],
+      meetups: [],
+      nextPlan: null
+    });
+  });
+
+  groups.forEach((group) => {
+    const groupId = Number(group?.id || 0);
+    const members = Array.isArray(group?.members) ? group.members : [];
+    const context = {
+      members,
+      nextMeetup: null,
+      meetups: [],
+      nextPlan: nextUpcomingItem(plans.filter((plan) => String(plan?.visibility || '').trim() === 'group'), now)
+    };
+    groupContext.set(groupId, context);
+    members.forEach((member) => {
+      const attendeeId = Number(member?.id || 0);
+      const existing = attendeeContext.get(attendeeId);
+      if (existing) existing.groups.push(group);
+    });
+  });
+
+  meetups.forEach((meetup) => {
+    const groupId = Number(meetup?.group_id || 0);
+    const group = groupId > 0 ? (groupById.get(groupId) || null) : null;
+    if (groupId > 0 && groupContext.has(groupId)) {
+      const context = groupContext.get(groupId);
+      context.meetups.push(meetup);
+    }
+    if (group) {
+      (Array.isArray(group.members) ? group.members : []).forEach((member) => {
+        const attendeeId = Number(member?.id || 0);
+        const existing = attendeeContext.get(attendeeId);
+        if (existing) existing.meetups.push(meetup);
+      });
+    }
+  });
+
+  groupContext.forEach((context) => {
+    context.meetups = sortedTimedItems(context.meetups);
+    context.nextMeetup = nextUpcomingItem(context.meetups, now);
+  });
+
+  const sharedPlans = sortedTimedItems(plans.filter((plan) => String(plan?.visibility || '').trim() !== 'private'));
+  attendeeContext.forEach((context) => {
+    context.meetups = sortedTimedItems(context.meetups);
+    context.nextMeetup = nextUpcomingItem(context.meetups, now);
+    context.nextPlan = nextUpcomingItem(sharedPlans, now);
+  });
+
+  return { attendeeContext, groupContext };
 };
 
 const getIcsFeedHealth = (source) => {
@@ -1901,6 +2000,8 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
   const [catalogSessions, setCatalogSessions] = useState([]);
   const [icsSource, setIcsSource] = useState(null);
   const [meetupDrafts, setMeetupDrafts] = useState({});
+  const [attendeeDrafts, setAttendeeDrafts] = useState({});
+  const [groupDrafts, setGroupDrafts] = useState({});
   const [planDrafts, setPlanDrafts] = useState({});
   const [catalogDrafts, setCatalogDrafts] = useState({});
   const [pendingCatalogResolution, setPendingCatalogResolution] = useState(null);
@@ -1912,6 +2013,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
   const [scheduleNotificationDeliveryBoundary, setScheduleNotificationDeliveryBoundary] = useState(null);
   const [scheduleNotificationInboxFilter, setScheduleNotificationInboxFilter] = useState('all');
   const icsHealth = getIcsFeedHealth(icsSource);
+  const socialReadback = useMemo(() => buildEventSocialReadback({ attendees, groups, meetups, plans }), [attendees, groups, meetups, plans]);
 
   const set = (patch) => setForm((prev) => ({ ...prev, ...patch }));
   const setMeetupDraft = (meetupId, patch) => {
@@ -1920,6 +2022,24 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
       return {
         ...prev,
         [meetupId]: { ...existing, ...patch }
+      };
+    });
+  };
+  const setAttendeeDraft = (attendeeId, patch) => {
+    setAttendeeDrafts((prev) => {
+      const existing = prev[attendeeId] || {};
+      return {
+        ...prev,
+        [attendeeId]: { ...existing, ...patch }
+      };
+    });
+  };
+  const setGroupDraft = (groupId, patch) => {
+    setGroupDrafts((prev) => {
+      const existing = prev[groupId] || {};
+      return {
+        ...prev,
+        [groupId]: { ...existing, ...patch }
       };
     });
   };
@@ -1961,8 +2081,41 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
         apiCall('get', inboxPath),
         apiCall('get', `/events/${eventId}/personal-ics-source`)
       ]);
-      setAttendees(Array.isArray(attendeePayload?.items) ? attendeePayload.items : []);
-      setGroups(Array.isArray(groupPayload?.items) ? groupPayload.items : []);
+      const nextAttendees = Array.isArray(attendeePayload?.items) ? attendeePayload.items : [];
+      setAttendees(nextAttendees);
+      setAttendeeDrafts((prev) => {
+        const next = {};
+        nextAttendees.forEach((attendee) => {
+          const id = String(attendee?.id || '');
+          if (!id) return;
+          next[id] = {
+            display_name: prev[id]?.display_name ?? attendee.display_name ?? '',
+            relationship: prev[id]?.relationship ?? attendee.relationship ?? '',
+            status: prev[id]?.status || attendee.status || 'attending',
+            visibility: prev[id]?.visibility || attendee.visibility || 'private',
+            notes: prev[id]?.notes ?? attendee.notes ?? ''
+          };
+        });
+        return next;
+      });
+      const nextGroups = Array.isArray(groupPayload?.items) ? groupPayload.items : [];
+      setGroups(nextGroups);
+      setGroupDrafts((prev) => {
+        const next = {};
+        nextGroups.forEach((group) => {
+          const id = String(group?.id || '');
+          if (!id) return;
+          next[id] = {
+            name: prev[id]?.name ?? group.name ?? '',
+            visibility: prev[id]?.visibility || group.visibility || 'private',
+            notes: prev[id]?.notes ?? group.notes ?? '',
+            attendee_ids: Array.isArray(prev[id]?.attendee_ids)
+              ? prev[id].attendee_ids
+              : (Array.isArray(group.members) ? group.members.map((member) => Number(member.id)).filter(Boolean) : [])
+          };
+        });
+        return next;
+      });
       const nextMeetups = Array.isArray(meetupPayload?.items) ? meetupPayload.items : [];
       setMeetups(nextMeetups);
       setMeetupDrafts((prev) => {
@@ -1972,6 +2125,8 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
           if (!id) return;
           next[id] = {
             status: prev[id]?.status || meetup.status || 'planned',
+            visibility: prev[id]?.visibility || meetup.visibility || (meetup.group_id ? 'group' : 'private'),
+            group_id: prev[id]?.group_id ?? (meetup.group_id ? String(meetup.group_id) : ''),
             vendor: prev[id]?.vendor ?? meetup.vendor ?? '',
             booth: prev[id]?.booth ?? meetup.booth ?? '',
             location_notes: prev[id]?.location_notes ?? meetup.location_notes ?? '',
@@ -2191,12 +2346,16 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
     const meetupId = Number(meetup?.id || 0);
     if (!meetupId) return;
     const draft = meetupDrafts[String(meetupId)] || {};
+    const nextGroupId = draft.group_id ? Number(draft.group_id) : null;
+    const nextVisibility = draft.visibility || meetup.visibility || (nextGroupId ? 'group' : 'private');
     setSaving(`meetup-${meetupId}`);
     setError('');
     setNotice('');
     try {
       await apiCall('patch', `/events/${eventId}/meetups/${meetupId}`, {
+        group_id: nextGroupId,
         status: draft.status || meetup.status || 'planned',
+        visibility: !nextGroupId && nextVisibility === 'group' ? 'private' : nextVisibility,
         vendor: draft.vendor || null,
         booth: draft.booth || null,
         location_notes: draft.location_notes || null,
@@ -2207,6 +2366,55 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
       await onChanged?.();
     } catch (err) {
       setError(err?.response?.data?.error || 'Failed to update meetup');
+    } finally {
+      setSaving('');
+    }
+  };
+
+  const updateAttendee = async (attendee) => {
+    const attendeeId = Number(attendee?.id || 0);
+    if (!attendeeId) return;
+    const draft = attendeeDrafts[String(attendeeId)] || {};
+    setSaving(`attendee-${attendeeId}`);
+    setError('');
+    setNotice('');
+    try {
+      await apiCall('patch', `/events/${eventId}/attendees/${attendeeId}`, {
+        display_name: draft.display_name || attendee.display_name || '',
+        relationship: draft.relationship || null,
+        status: draft.status || attendee.status || 'attending',
+        visibility: draft.visibility || attendee.visibility || 'private',
+        notes: draft.notes || null
+      });
+      setNotice('Attendee updated');
+      await load();
+      await onChanged?.();
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Failed to update attendee');
+    } finally {
+      setSaving('');
+    }
+  };
+
+  const updateGroup = async (group) => {
+    const groupId = Number(group?.id || 0);
+    if (!groupId) return;
+    const draft = groupDrafts[String(groupId)] || {};
+    setSaving(`group-${groupId}`);
+    setError('');
+    setNotice('');
+    try {
+      await apiCall('patch', `/events/${eventId}/groups/${groupId}`, {
+        name: draft.name || group.name || '',
+        visibility: draft.visibility || group.visibility || 'private',
+        notes: draft.notes || null,
+        attendee_ids: Array.isArray(draft.attendee_ids) ? draft.attendee_ids.map((id) => Number(id)).filter(Boolean) : []
+      });
+      setNotice('Group updated');
+      await load();
+      await onChanged?.();
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Failed to update group');
     } finally {
       setSaving('');
     }
@@ -2767,24 +2975,106 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
             <span className="text-xs text-ghost">{attendees.length}</span>
           </summary>
           <div className="space-y-3 px-4 pb-4">
-	            {attendees.length > 0 ? (
-	              <div className="space-y-2">
-	                {attendees.map((person) => (
-	                  <div key={person.id} className={cx('flex items-center gap-3 rounded-md border border-edge bg-raised px-3 py-2', eventVisibilityRowClass(person.visibility))}>
-	                    <div className="min-w-0 flex-1">
-	                      <p className="truncate text-sm text-ink">{person.display_name}</p>
-	                      <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-	                        {[person.relationship, humanizeEventValue(person.status)].filter(Boolean).map((value) => (
-	                          <span key={value} className="text-xs text-dim">{value}</span>
-	                        ))}
-	                        <EventVisibilityText value={person.visibility} />
-	                        {person.current_user_attendee ? <span className="text-xs text-ok">Linked to you</span> : null}
-	                        {!person.current_user_attendee && person.linked_user?.name ? <span className="text-xs text-dim">Linked to {person.linked_user.name}</span> : null}
-	                      </div>
-	                    </div>
-	                    <button className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={() => archive(`/events/${eventId}/attendees/${person.id}`, 'Attendee')}>Remove</button>
-	                  </div>
-                ))}
+            {attendees.length > 0 ? (
+              <div className="space-y-2">
+                {attendees.map((person) => {
+                  const context = socialReadback.attendeeContext.get(Number(person?.id || 0)) || { groups: [], nextMeetup: null, nextPlan: null };
+                  const draft = attendeeDrafts[String(person.id)] || {};
+                  return (
+                    <details key={person.id} className={cx('rounded-md border border-edge bg-raised', eventVisibilityRowClass(person.visibility))}>
+                      <summary className="flex cursor-pointer list-none items-start gap-3 px-3 py-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex min-w-0 flex-wrap items-center gap-2">
+                            <p className="truncate text-sm font-medium text-ink">{person.display_name}</p>
+                            {person.current_user_attendee ? <span className="badge badge-ok text-[10px]">You</span> : null}
+                          </div>
+                          <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                            {[person.relationship, humanizeEventValue(person.status)].filter(Boolean).map((value) => (
+                              <span key={value} className="text-xs text-dim">{value}</span>
+                            ))}
+                            <EventVisibilityText value={person.visibility} />
+                            {person.current_user_attendee ? <span className="text-xs text-ok">Linked to you</span> : null}
+                            {!person.current_user_attendee && person.linked_user?.name ? <span className="text-xs text-dim">Linked to {person.linked_user.name}</span> : null}
+                          </div>
+                          <div className="mt-3 grid grid-cols-1 gap-2 text-xs text-dim sm:grid-cols-3">
+                            <div>
+                              <p className="text-ghost">Related groups</p>
+                              <p className="mt-1 text-dim">{previewLabel(context.groups, 'name') || 'None yet'}</p>
+                            </div>
+                            <div>
+                              <p className="text-ghost">Next meetup</p>
+                              <p className="mt-1 text-dim">{context.nextMeetup?.title || 'None yet'}</p>
+                            </div>
+                            <div>
+                              <p className="text-ghost">Next shared plan</p>
+                              <p className="mt-1 text-dim">{context.nextPlan?.title || 'None yet'}</p>
+                            </div>
+                          </div>
+                        </div>
+                        <span className="shrink-0 text-xs text-ghost">Edit</span>
+                      </summary>
+                      <div className="space-y-3 border-t border-edge px-3 py-3">
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                          <label className="field">
+                            <span className="label">Name</span>
+                            <input
+                              className="input"
+                              value={draft.display_name ?? person.display_name ?? ''}
+                              onChange={(e) => setAttendeeDraft(person.id, { display_name: e.target.value })}
+                            />
+                          </label>
+                          <label className="field">
+                            <span className="label">Relationship</span>
+                            <input
+                              className="input"
+                              value={draft.relationship ?? person.relationship ?? ''}
+                              onChange={(e) => setAttendeeDraft(person.id, { relationship: e.target.value })}
+                            />
+                          </label>
+                          <label className="field">
+                            <span className="label">Status</span>
+                            <select
+                              className="input"
+                              value={draft.status || person.status || 'attending'}
+                              onChange={(e) => setAttendeeDraft(person.id, { status: e.target.value })}
+                            >
+                              {ATTENDEE_STATUS_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>{option.label}</option>
+                              ))}
+                            </select>
+                          </label>
+                          <label className="field">
+                            <span className="label">Visibility</span>
+                            <select
+                              className="input"
+                              value={draft.visibility || person.visibility || 'private'}
+                              onChange={(e) => setAttendeeDraft(person.id, { visibility: e.target.value })}
+                            >
+                              {SOCIAL_VISIBILITY_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>{option.label}</option>
+                              ))}
+                            </select>
+                          </label>
+                          <label className="field sm:col-span-2">
+                            <span className="label">Notes</span>
+                            <input
+                              className="input"
+                              placeholder="Quick note"
+                              value={draft.notes ?? person.notes ?? ''}
+                              onChange={(e) => setAttendeeDraft(person.id, { notes: e.target.value })}
+                            />
+                          </label>
+                        </div>
+                        <div className="flex items-end gap-2">
+                          <button className="btn-secondary btn-sm" disabled={saving === `attendee-${person.id}`} onClick={() => updateAttendee(person)}>
+                            {saving === `attendee-${person.id}` ? <Spinner size={16} /> : 'Save'}
+                          </button>
+                          <button className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={() => archive(`/events/${eventId}/attendees/${person.id}`, 'Attendee')}>Remove</button>
+                        </div>
+                      </div>
+                    </details>
+                  );
+                })}
               </div>
             ) : <p className="text-sm text-ghost">No attendees yet.</p>}
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_10rem_auto]">
@@ -2808,20 +3098,106 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
             <span className="text-xs text-ghost">{groups.length}</span>
           </summary>
           <div className="space-y-3 px-4 pb-4">
-	            {groups.length > 0 ? (
-	              <div className="space-y-2">
-	                {groups.map((group) => (
-	                  <div key={group.id} className={cx('flex items-center gap-3 rounded-md border border-edge bg-raised px-3 py-2', eventVisibilityRowClass(group.visibility))}>
-	                    <div className="min-w-0 flex-1">
-	                      <p className="truncate text-sm text-ink">{group.name}</p>
-	                      <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-	                        <span className="text-xs text-dim">{pluralizePeople(group.members?.length || 0)}</span>
-	                        <EventVisibilityText value={group.visibility} />
-	                      </div>
-	                    </div>
-	                    <button className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={() => archive(`/events/${eventId}/groups/${group.id}`, 'Group')}>Remove</button>
-	                  </div>
-                ))}
+            {groups.length > 0 ? (
+              <div className="space-y-2">
+                {groups.map((group) => {
+                  const context = socialReadback.groupContext.get(Number(group?.id || 0)) || { members: group.members || [], nextMeetup: null, nextPlan: null };
+                  const draft = groupDrafts[String(group.id)] || {};
+                  const selectedMemberIds = Array.isArray(draft.attendee_ids)
+                    ? draft.attendee_ids.map((id) => Number(id)).filter(Boolean)
+                    : [];
+                  return (
+                    <details key={group.id} className={cx('rounded-md border border-edge bg-raised', eventVisibilityRowClass(group.visibility))}>
+                      <summary className="flex cursor-pointer list-none items-start gap-3 px-3 py-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-ink">{group.name}</p>
+                          <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                            <span className="text-xs text-dim">{pluralizePeople(group.members?.length || 0)}</span>
+                            <EventVisibilityText value={group.visibility} />
+                          </div>
+                          <div className="mt-3 grid grid-cols-1 gap-2 text-xs text-dim sm:grid-cols-3">
+                            <div>
+                              <p className="text-ghost">Members</p>
+                              <p className="mt-1 text-dim">{previewLabel(context.members, 'display_name') || 'No members yet'}</p>
+                            </div>
+                            <div>
+                              <p className="text-ghost">Next meetup</p>
+                              <p className="mt-1 text-dim">{context.nextMeetup?.title || 'None yet'}</p>
+                            </div>
+                            <div>
+                              <p className="text-ghost">Shared plans</p>
+                              <p className="mt-1 text-dim">{context.nextPlan?.title || 'No shared plan yet'}</p>
+                            </div>
+                          </div>
+                        </div>
+                        <span className="shrink-0 text-xs text-ghost">Edit</span>
+                      </summary>
+                      <div className="space-y-3 border-t border-edge px-3 py-3">
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                          <label className="field">
+                            <span className="label">Group name</span>
+                            <input
+                              className="input"
+                              value={draft.name ?? group.name ?? ''}
+                              onChange={(e) => setGroupDraft(group.id, { name: e.target.value })}
+                            />
+                          </label>
+                          <label className="field">
+                            <span className="label">Visibility</span>
+                            <select
+                              className="input"
+                              value={draft.visibility || group.visibility || 'private'}
+                              onChange={(e) => setGroupDraft(group.id, { visibility: e.target.value })}
+                            >
+                              {SOCIAL_VISIBILITY_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>{option.label}</option>
+                              ))}
+                            </select>
+                          </label>
+                          <label className="field sm:col-span-2">
+                            <span className="label">Notes</span>
+                            <input
+                              className="input"
+                              placeholder="Quick note"
+                              value={draft.notes ?? group.notes ?? ''}
+                              onChange={(e) => setGroupDraft(group.id, { notes: e.target.value })}
+                            />
+                          </label>
+                        </div>
+                        <div>
+                          <p className="label">Members</p>
+                          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            {attendees.length ? attendees.map((attendee) => {
+                              const checked = selectedMemberIds.includes(Number(attendee.id));
+                              return (
+                                <CheckboxControl
+                                  key={`${group.id}-${attendee.id}`}
+                                  checked={checked}
+                                  onChange={(event) => {
+                                    const nextIds = event.target.checked
+                                      ? [...selectedMemberIds, Number(attendee.id)]
+                                      : selectedMemberIds.filter((id) => id !== Number(attendee.id));
+                                    setGroupDraft(group.id, { attendee_ids: Array.from(new Set(nextIds)) });
+                                  }}
+                                >
+                                  <span className="text-sm text-ink">{attendee.display_name}</span>
+                                </CheckboxControl>
+                              );
+                            }) : (
+                              <p className="text-sm text-ghost">Add attendees first to assign group members.</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-end gap-2">
+                          <button className="btn-secondary btn-sm" disabled={saving === `group-${group.id}`} onClick={() => updateGroup(group)}>
+                            {saving === `group-${group.id}` ? <Spinner size={16} /> : 'Save'}
+                          </button>
+                          <button className="btn-ghost btn-sm text-err hover:bg-err/10" onClick={() => archive(`/events/${eventId}/groups/${group.id}`, 'Group')}>Remove</button>
+                        </div>
+                      </div>
+                    </details>
+                  );
+                })}
               </div>
             ) : <p className="text-sm text-ghost">No groups yet.</p>}
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto]">
@@ -2837,22 +3213,51 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
             <span className="text-xs text-ghost">{meetups.length}</span>
           </summary>
           <div className="space-y-3 px-4 pb-4">
-	            {meetups.length > 0 ? (
-	              <div className="space-y-2">
-	                {meetups.map((meetup) => (
-	                  <details key={meetup.id} className={cx('rounded-md border border-edge bg-raised', eventVisibilityRowClass(meetup.visibility))}>
-	                    <summary className="flex cursor-pointer list-none items-center gap-3 px-3 py-2">
-	                      <div className="min-w-0 flex-1">
-	                        <p className="truncate text-sm text-ink">{meetup.title}</p>
-                        <p className="truncate text-xs text-dim">{[formatDateTime(meetup.start_at), socialPlaceSummary(meetup), meetup.group_name, humanizeEventValue(meetup.status)].filter(Boolean).join(' · ')}</p>
-	                      </div>
-	                      <div className="flex shrink-0 items-center gap-2">
-	                        <EventVisibilityText value={meetup.visibility} />
-	                        <span className="text-xs text-ghost">Edit</span>
-	                      </div>
-	                    </summary>
+            {meetups.length > 0 ? (
+              <div className="space-y-2">
+                {meetups.map((meetup) => {
+                  const group = meetup.group_id ? groups.find((entry) => Number(entry?.id || 0) === Number(meetup.group_id)) : null;
+                  const memberPreview = previewLabel(group?.members || [], 'display_name');
+                  return (
+                    <details key={meetup.id} className={cx('rounded-md border border-edge bg-raised', eventVisibilityRowClass(meetup.visibility))}>
+                      <summary className="flex cursor-pointer list-none items-center gap-3 px-3 py-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex min-w-0 flex-wrap items-center gap-2">
+                            <p className="truncate text-sm font-medium text-ink">{meetup.title}</p>
+                            <EventVisibilityText value={meetup.visibility} />
+                          </div>
+                          <p className="mt-1 truncate text-xs text-dim">{[formatDateTime(meetup.start_at), socialPlaceSummary(meetup), meetup.group_name, humanizeEventValue(meetup.status)].filter(Boolean).join(' · ')}</p>
+                          <div className="mt-3 grid grid-cols-1 gap-2 text-xs text-dim sm:grid-cols-3">
+                            <div>
+                              <p className="text-ghost">Group</p>
+                              <p className="mt-1 text-dim">{meetup.group_name || 'Not tied to a group'}</p>
+                            </div>
+                            <div>
+                              <p className="text-ghost">People</p>
+                              <p className="mt-1 text-dim">{memberPreview || 'No group members linked'}</p>
+                            </div>
+                            <div>
+                              <p className="text-ghost">Notes</p>
+                              <p className="mt-1 text-dim">{meetup.notes || 'No meetup notes yet'}</p>
+                            </div>
+                          </div>
+                        </div>
+                        <span className="shrink-0 text-xs text-ghost">Edit</span>
+                      </summary>
                     <div className="space-y-3 border-t border-edge px-3 py-3">
                       <div className="grid grid-cols-1 gap-x-4 gap-y-3 text-sm sm:grid-cols-2">
+                        {meetup.group_name ? (
+                          <div className="min-w-0">
+                            <p className="text-xs text-ghost">Related group</p>
+                            <p className="mt-1 leading-6 text-dim">{meetup.group_name}</p>
+                          </div>
+                        ) : null}
+                        {memberPreview ? (
+                          <div className="min-w-0">
+                            <p className="text-xs text-ghost">Group members</p>
+                            <p className="mt-1 leading-6 text-dim">{memberPreview}</p>
+                          </div>
+                        ) : null}
                         {meetup.location ? (
                           <div className="min-w-0">
                             <p className="text-xs text-ghost">Location</p>
@@ -2871,6 +3276,12 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
                             <p className="mt-1 leading-6 text-dim">{meetup.location_notes}</p>
                           </div>
                         ) : null}
+                        {meetup.notes ? (
+                          <div className="min-w-0 sm:col-span-2">
+                            <p className="text-xs text-ghost">Meetup notes</p>
+                            <p className="mt-1 leading-6 text-dim">{meetup.notes}</p>
+                          </div>
+                        ) : null}
                       </div>
                       <div className="grid grid-cols-1 gap-2 border-t border-edge pt-3 sm:grid-cols-[9rem_1fr_7rem]">
                         <label className="field">
@@ -2881,6 +3292,39 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
                             onChange={(e) => setMeetupDraft(meetup.id, { status: e.target.value })}
                           >
                             {MEETUP_STATUS_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="field">
+                          <span className="label">Group</span>
+                          <select
+                            className="input"
+                            value={meetupDrafts[String(meetup.id)]?.group_id ?? (meetup.group_id ? String(meetup.group_id) : '')}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setMeetupDraft(meetup.id, {
+                                group_id: value,
+                                visibility: value
+                                  ? (meetupDrafts[String(meetup.id)]?.visibility === 'private' ? 'group' : (meetupDrafts[String(meetup.id)]?.visibility || meetup.visibility || 'group'))
+                                  : ((meetupDrafts[String(meetup.id)]?.visibility || meetup.visibility) === 'group' ? 'private' : (meetupDrafts[String(meetup.id)]?.visibility || meetup.visibility || 'private'))
+                              });
+                            }}
+                          >
+                            <option value="">No group</option>
+                            {groups.map((groupOption) => (
+                              <option key={groupOption.id} value={groupOption.id}>{groupOption.name}</option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="field">
+                          <span className="label">Visibility</span>
+                          <select
+                            className="input"
+                            value={meetupDrafts[String(meetup.id)]?.visibility || meetup.visibility || (meetup.group_id ? 'group' : 'private')}
+                            onChange={(e) => setMeetupDraft(meetup.id, { visibility: e.target.value })}
+                          >
+                            {SOCIAL_VISIBILITY_OPTIONS.map((option) => (
                               <option key={option.value} value={option.value}>{option.label}</option>
                             ))}
                           </select>
@@ -2930,7 +3374,8 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged }) {
                       </div>
                     </div>
                   </details>
-                ))}
+                  );
+                })}
               </div>
             ) : <p className="text-sm text-ghost">No meetups yet.</p>}
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">

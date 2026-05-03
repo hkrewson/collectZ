@@ -71,16 +71,20 @@ test.describe('events and collectibles browser regressions', () => {
       const eventId = Number(eventPayload?.id || 0);
       expect(eventId).toBeGreaterThan(0);
 
-      await postWithCsrf(userRequestContext, `/api/events/${eventId}/attendees`, {
+      const attendeeResponse = await postWithCsrf(userRequestContext, `/api/events/${eventId}/attendees`, {
         display_name: 'Reid',
         relationship: 'friend',
         link_current_user: true,
         status: 'attending',
         visibility: 'private'
       }, 201);
+      const attendeePayload = await attendeeResponse.json();
+      const attendeeId = Number(attendeePayload?.id || 0);
+      expect(attendeeId).toBeGreaterThan(0);
       const groupResponse = await postWithCsrf(userRequestContext, `/api/events/${eventId}/groups`, {
         name: 'Artist Alley Crew',
-        visibility: 'group'
+        visibility: 'group',
+        attendee_ids: [attendeeId]
       }, 201);
       const groupPayload = await groupResponse.json();
       const groupId = Number(groupPayload?.id || 0);
@@ -126,13 +130,24 @@ test.describe('events and collectibles browser regressions', () => {
       await expect(overview.getByText(/Room 6DE .* Shared/)).toBeVisible();
       await expect(overview.getByText(/Hall H doors .* Hall H Cafe .* Booth HH-12 .* Group/)).toBeVisible();
       const peoplePanel = page.locator('summary').filter({ hasText: /^People/ }).locator('xpath=..').first();
-      await peoplePanel.locator('summary').click();
+      await peoplePanel.locator('summary').first().click();
       await expect(peoplePanel.getByText('Reid')).toBeVisible();
-      await expect(peoplePanel.getByText('Private', { exact: true })).toBeVisible();
+      await expect(peoplePanel.locator('span').filter({ hasText: 'Private' }).first()).toBeVisible();
+      await expect(peoplePanel.getByText('Related groups')).toBeVisible();
+      await expect(peoplePanel.getByText('Artist Alley Crew')).toBeVisible();
+      await expect(peoplePanel.getByText('Next meetup')).toBeVisible();
+      await expect(peoplePanel.getByText('Meet outside Hall H')).toBeVisible();
       const groupsPanel = page.locator('summary').filter({ hasText: /^Groups/ }).locator('xpath=..').first();
-      await groupsPanel.locator('summary').click();
+      await groupsPanel.locator('summary').first().click();
       await expect(groupsPanel.getByText('Artist Alley Crew')).toBeVisible();
-      await expect(groupsPanel.getByText('Group', { exact: true })).toBeVisible();
+      await expect(groupsPanel.locator('span').filter({ hasText: 'Group' }).first()).toBeVisible();
+      await expect(groupsPanel.locator('p').filter({ hasText: 'Members' }).first()).toBeVisible();
+      await expect(groupsPanel.locator('p').filter({ hasText: 'Reid' }).first()).toBeVisible();
+      await expect(groupsPanel.locator('p').filter({ hasText: 'Shared plans' }).first()).toBeVisible();
+      await page.locator('summary').filter({ hasText: /^Meetups/ }).first().click();
+      const meetupRow = page.locator('details details').filter({ hasText: 'Meet outside Hall H' }).first();
+      await meetupRow.locator('summary').click();
+      await expect(meetupRow.getByText('Related group')).toBeVisible();
     } finally {
       await deleteEventsByExactTitle(userRequestContext, eventTitle).catch(() => {});
       if (!originalEventsEnabled) {
@@ -215,6 +230,166 @@ test.describe('events and collectibles browser regressions', () => {
       expect(updated?.booth).toBe('L-5');
       expect(updated?.location_notes).toBe('Meet beside the lower escalators.');
       expect(updated?.notes).toBe('Met by the lobby stairs after the panel.');
+    } finally {
+      await deleteEventsByExactTitle(userRequestContext, eventTitle).catch(() => {});
+      if (!originalEventsEnabled) {
+        await updateFeatureFlag(adminRequestContext, 'events_enabled', false).catch(() => {});
+      }
+      await userRequestContext.dispose();
+      await adminRequestContext.dispose();
+    }
+  });
+
+  test('mobile event drawer can edit attendees groups and meetup ownership in place', async ({ page }) => {
+    const adminCredentials = await ensureSavedAdminCredentials();
+    const adminRequestContext = await createAuthenticatedRequestContext(adminCredentials);
+    const userCredentials = await createFreshUserCredentials();
+    const userRequestContext = await createAuthenticatedRequestContext(userCredentials);
+    const suffix = Date.now();
+    const eventTitle = `Playwright Mobile Social Edit ${suffix}`;
+    const originalFlagsPayload = await getFeatureFlags(adminRequestContext);
+    const originalFlags = Array.isArray(originalFlagsPayload?.flags) ? originalFlagsPayload.flags : [];
+    const originalEventsEnabled = Boolean(originalFlags.find((flag) => flag?.key === 'events_enabled')?.enabled);
+
+    await deleteEventsByExactTitle(userRequestContext, eventTitle).catch(() => {});
+
+    try {
+      if (!originalEventsEnabled) {
+        await updateFeatureFlag(adminRequestContext, 'events_enabled', true);
+      }
+
+      const eventResponse = await postWithCsrf(userRequestContext, '/api/events', {
+        title: eventTitle,
+        url: `https://example.test/mobile-social-edit/${suffix}`,
+        location: 'Anaheim Convention Center',
+        date_start: '2026-08-14',
+        date_end: '2026-08-16'
+      }, 201);
+      const eventPayload = await eventResponse.json();
+      const eventId = Number(eventPayload?.id || 0);
+      expect(eventId).toBeGreaterThan(0);
+
+      const reidResponse = await postWithCsrf(userRequestContext, `/api/events/${eventId}/attendees`, {
+        display_name: 'Reid',
+        relationship: 'friend',
+        status: 'attending',
+        visibility: 'private'
+      }, 201);
+      const reidPayload = await reidResponse.json();
+      const reidId = Number(reidPayload?.id || 0);
+      expect(reidId).toBeGreaterThan(0);
+
+      const alexResponse = await postWithCsrf(userRequestContext, `/api/events/${eventId}/attendees`, {
+        display_name: 'Alex',
+        relationship: 'friend',
+        status: 'maybe',
+        visibility: 'selected_people'
+      }, 201);
+      const alexPayload = await alexResponse.json();
+      const alexId = Number(alexPayload?.id || 0);
+      expect(alexId).toBeGreaterThan(0);
+
+      const crewResponse = await postWithCsrf(userRequestContext, `/api/events/${eventId}/groups`, {
+        name: 'Artist Alley Crew',
+        visibility: 'group',
+        attendee_ids: [reidId]
+      }, 201);
+      const crewPayload = await crewResponse.json();
+      const crewId = Number(crewPayload?.id || 0);
+      expect(crewId).toBeGreaterThan(0);
+
+      const breakfastResponse = await postWithCsrf(userRequestContext, `/api/events/${eventId}/groups`, {
+        name: 'Breakfast Squad',
+        visibility: 'private',
+        attendee_ids: [alexId]
+      }, 201);
+      const breakfastPayload = await breakfastResponse.json();
+      const breakfastId = Number(breakfastPayload?.id || 0);
+      expect(breakfastId).toBeGreaterThan(0);
+
+      await postWithCsrf(userRequestContext, `/api/events/${eventId}/meetups`, {
+        title: 'Coffee regroup',
+        group_id: breakfastId,
+        start_at: '2026-08-14T18:00:00.000Z',
+        location: 'North lobby',
+        status: 'planned',
+        visibility: 'group',
+        notes: 'Original meetup note'
+      }, 201);
+
+      await page.setViewportSize({ width: 390, height: 844 });
+      await signInThroughUi(page, userCredentials);
+      await page.goto('/dashboard?tab=library-events');
+      await expect(page.getByRole('heading', { name: 'Events' })).toBeVisible();
+      await page.getByPlaceholder('Search title or location…').fill(eventTitle);
+      await expect(page.getByText(eventTitle, { exact: true }).first()).toBeVisible();
+      await page.locator('article').filter({ hasText: eventTitle }).first().click();
+      await expect(page.getByRole('heading', { name: eventTitle })).toBeVisible();
+
+      const peoplePanel = page.locator('summary').filter({ hasText: /^People/ }).locator('xpath=..').first();
+      await peoplePanel.locator('summary').first().click();
+      const reidRow = peoplePanel.locator('details').filter({ hasText: /^Reid/ }).first();
+      await reidRow.locator('summary').click();
+      await reidRow.locator('label:has-text("Name") input').fill('Reid Krewson');
+      await reidRow.locator('label:has-text("Relationship") input').fill('travel buddy');
+      await reidRow.locator('label:has-text("Status") select').selectOption('maybe');
+      await reidRow.locator('label:has-text("Visibility") select').selectOption('event_workspace');
+      await reidRow.getByPlaceholder('Quick note').fill('Met up after badge pickup.');
+      await reidRow.getByRole('button', { name: 'Save' }).click();
+      await expect(page.getByText('Attendee updated')).toBeVisible();
+      await expect(reidRow.locator('summary').getByText('Reid Krewson')).toBeVisible();
+
+      const groupsPanel = page.locator('summary').filter({ hasText: /^Groups/ }).locator('xpath=..').first();
+      await groupsPanel.locator('summary').first().click();
+      const crewRow = groupsPanel.locator('details').filter({ hasText: 'Artist Alley Crew' }).first();
+      await crewRow.locator('summary').click();
+      await crewRow.locator('label:has-text("Group name") input').fill('Artist Alley Friends');
+      await crewRow.locator('label:has-text("Visibility") select').selectOption('event_workspace');
+      await crewRow.getByPlaceholder('Quick note').fill('Primary artist alley coordination group.');
+      await crewRow.getByLabel('Alex').check();
+      await crewRow.getByRole('button', { name: 'Save' }).click();
+      await expect(page.getByText('Group updated')).toBeVisible();
+      await expect(groupsPanel.getByText('Artist Alley Friends')).toBeVisible();
+      await expect(groupsPanel.getByText('Alex, Reid Krewson')).toBeVisible();
+
+      const meetupsPanel = page.locator('summary').filter({ hasText: /^Meetups/ }).locator('xpath=..').first();
+      await meetupsPanel.locator('summary').first().click();
+      const meetupRow = meetupsPanel.locator('details').filter({ hasText: 'Coffee regroup' }).first();
+      await meetupRow.locator('summary').click();
+      await meetupRow.locator('select').nth(1).selectOption(String(crewId));
+      await meetupRow.locator('select').nth(2).selectOption('event_workspace');
+      await meetupRow.getByPlaceholder('Quick note').fill('Moved under the shared artist alley group.');
+      await meetupRow.getByRole('button', { name: 'Save' }).click();
+      await expect(page.getByText('Meetup updated')).toBeVisible();
+      await expect(meetupRow.getByText('Artist Alley Friends', { exact: true }).first()).toBeVisible();
+
+      const attendeesResponse = await userRequestContext.get(`/api/events/${eventId}/attendees`);
+      expect(attendeesResponse.ok()).toBeTruthy();
+      const attendeesPayload = await attendeesResponse.json();
+      const updatedAttendee = attendeesPayload.items.find((item) => item.id === reidId);
+      expect(updatedAttendee?.display_name).toBe('Reid Krewson');
+      expect(updatedAttendee?.relationship).toBe('travel buddy');
+      expect(updatedAttendee?.status).toBe('maybe');
+      expect(updatedAttendee?.visibility).toBe('event_workspace');
+      expect(updatedAttendee?.notes).toBe('Met up after badge pickup.');
+
+      const groupsResponse = await userRequestContext.get(`/api/events/${eventId}/groups`);
+      expect(groupsResponse.ok()).toBeTruthy();
+      const groupsPayload = await groupsResponse.json();
+      const updatedGroup = groupsPayload.items.find((item) => item.id === crewId);
+      expect(updatedGroup?.name).toBe('Artist Alley Friends');
+      expect(updatedGroup?.visibility).toBe('event_workspace');
+      expect(updatedGroup?.notes).toBe('Primary artist alley coordination group.');
+      expect((updatedGroup?.members || []).map((item) => item.display_name)).toEqual(expect.arrayContaining(['Reid Krewson', 'Alex']));
+
+      const meetupsResponse = await userRequestContext.get(`/api/events/${eventId}/meetups`);
+      expect(meetupsResponse.ok()).toBeTruthy();
+      const meetupsPayload = await meetupsResponse.json();
+      const updatedMeetup = meetupsPayload.items.find((item) => item.title === 'Coffee regroup');
+      expect(updatedMeetup?.group_id).toBe(crewId);
+      expect(updatedMeetup?.group_name).toBe('Artist Alley Friends');
+      expect(updatedMeetup?.visibility).toBe('event_workspace');
+      expect(updatedMeetup?.notes).toBe('Moved under the shared artist alley group.');
     } finally {
       await deleteEventsByExactTitle(userRequestContext, eventTitle).catch(() => {});
       if (!originalEventsEnabled) {

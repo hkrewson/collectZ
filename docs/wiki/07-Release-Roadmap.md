@@ -8231,6 +8231,80 @@ Historical note:
 - What remains in the milestone: no remaining 3.4.76 implementation work; CI-only release gates must pass before public tag/release publication.
 - Recommended commit message: `Release 3.4.76 event schedule shared session presence readback polish`
 
+## 3.4.77 — Event Social Discovery Readback Polish
+
+**Goal:** Make Event-local People, Groups, and Meetups easier to browse by surfacing their relationships directly in the drawer instead of making each section feel isolated.
+
+**Current Slice:** `Closed 2026-05-03.`
+
+### Scope
+
+- Keep the existing Event-local attendee/group/meetup data model and APIs.
+- Improve attendee cards with clearer related-group, next-meetup, and next shared-plan readback.
+- Improve group cards with member preview plus next meetup/shared-plan cues.
+- Improve meetup rows with clearer group/member/notes context in both collapsed and expanded states.
+- Add browser coverage for the richer readback.
+- Keep reciprocal friend graph, realtime presence, cross-event discovery, device delivery, and native companion UI out of scope.
+
+### Acceptance Criteria
+
+- People rows show more than name plus visibility; they also show related Event-local context.
+- Group rows show members and upcoming meetup/shared-plan cues without requiring backend changes.
+- Meetup rows show cleaner group/member/notes readback before edit actions.
+- Browser coverage proves the new discovery/readback blocks in the Event drawer.
+- No new social backend contract, push delivery, or cross-event identity model is introduced.
+
+### Closeout
+
+- Roadmap slice: `3.4.77 — Event Social Discovery Readback Polish`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, and `docs/wiki/40-Event-Social-Planning-Foundation.md`.
+- Runtime verification used: rebuilt and recreated the local platform stack through Docker with `APP_VERSION=3.4.77`; verified `/api/health` reports frontend/backend/build `3.4.77`; verified the running platform container env reports `APP_EDITION=platform`, `APP_VERSION=3.4.77`, `NODE_ENV=development`, and `SESSION_COOKIE_SECURE=false`; temporarily switched to generated public compose plus `.ci/docker-compose.build.yml`, verified homelab runtime with `APP_EDITION` unset, ran the homelab boundary smoke, then restored the local platform compose and rechecked `/api/health`.
+- CI/checks run: local backend unit/source assertions (`231` passed); local OpenAPI validation; container backend unit tests; container OpenAPI validation; container `test:event-social-planning-smoke` with `BASE_URL=http://frontend:3000`; container `test:init-parity`; container `test:migration-rehearsal`; container `test:help-releases-smoke` with `EXPECTED_RELEASE_VERSION=v3.4.77`; container `test:rbac-regression` with `BASE_URL=http://frontend:3000`; container `test:platform-edition-boundary` with `BASE_URL=http://frontend:3000`; generated-compose `test:homelab-edition-boundary`; full browser regression via `PLAYWRIGHT_E2E_BYPASS_TOKEN=<redacted> npm exec playwright test` (`55 passed`, `4 skipped`); `docker compose --env-file .env config`; `npm run validate:public-export`; idempotent `npm run compose:generate`; backend/frontend `npm ci --no-fund --dry-run`; `npm --prefix backend run test:observability-evidence`; `npm --prefix backend run test:release-preflight-local`; release-artifact secret-pattern grep confirming only redacted credential strings remain; and `git diff --check`.
+- Release artifacts: `docs/releases/v3.4.77.md` exists with security triage markers; `backend/release-feed.json` serves `v3.4.77`; `preflight-go-no-go.md` was regenerated; `artifacts/observability-evidence/observability-release-evidence.json` reports `3.4.77` with `9/9` checks passed.
+- Verified facts: attendee rows now show related-group, next-meetup, and next shared-plan readback; group rows now show member preview plus meetup/shared-plan cues; meetup rows now surface group/member/notes context before edit controls; browser regression proves the richer social discovery readback inside the Event drawer without adding new backend contracts.
+- Blocked/unverified: local release preflight still marks secure-cookie compose-smoke conditions blocked because the dev stack intentionally runs `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`; CI-only `secret-scan` and `image-security-and-sbom` still need GitHub Actions follow-through; the local preflight helper still marks browser regression blocked because that helper does not execute Playwright itself even though full browser regression passed separately.
+- Files changed: `app-meta.json`, `artifacts/dependency-audit/frontend-audit.json`, `artifacts/observability-evidence/observability-release-evidence.json`, `backend/app-meta.json`, `backend/package.json`, `backend/package-lock.json`, `backend/release-feed.json`, `backend/scripts/unit-tests.js`, `docker-compose.yml`, `docs/releases/v3.4.77.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `frontend/package.json`, `frontend/package-lock.json`, `frontend/src/app-meta.json`, `frontend/src/components/EventsView.jsx`, `preflight-go-no-go.md`, and `tests/playwright/specs/events-collectibles.browser.spec.js`.
+- Risks or follow-ups: this remains Event-local discovery/readback polish only; reciprocal friend identity, realtime presence, cross-event social discovery, device delivery, and native companion UI remain separate future work.
+- What remains in the milestone: no remaining `3.4.77` implementation work; CI-only release gates must pass before public tag/release publication.
+- Recommended commit message: `Release 3.4.77 event social discovery readback polish`
+
+## 3.4.78 — Event-local Social Editability Polish
+
+**Goal:** Make Event-local People, Groups, and Meetups easier to maintain in place so the richer social readback from `3.4.77` can be updated without bouncing out to separate creation-only flows.
+
+**Current Slice:** `Closed 2026-05-03.`
+
+### Scope
+
+- Keep the existing Event-local attendee/group/meetup backend model and patch endpoints.
+- Add inline attendee editing for name, relationship, status, visibility, and notes.
+- Add inline group editing for name, visibility, notes, and membership.
+- Expand meetup editing so group ownership and visibility can be updated alongside status and location notes.
+- Add browser coverage that proves attendee edit, group membership edit, and meetup reassignment/readback on a live Event drawer.
+- Keep reciprocal friend graph work, cross-event identity, realtime presence, delivery/provider execution, and native companion UI out of scope.
+
+### Acceptance Criteria
+
+- People rows can be edited inline for core Event-local relationship metadata.
+- Group rows can update membership and visibility without leaving the drawer.
+- Meetup rows can move between groups while preserving Event-local readback consistency.
+- Browser coverage proves the editability path through the Event drawer and verifies persisted API readback.
+- No new social backend contract, push delivery behavior, or cross-event friend model is introduced.
+
+### Closeout
+
+- Roadmap slice: `3.4.78 — Event-local Social Editability Polish`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, and `docs/wiki/40-Event-Social-Planning-Foundation.md`.
+- Runtime verification used: rebuilt and recreated the local platform stack through Docker with `APP_VERSION=3.4.78`; verified `/api/health` reports frontend/backend/build `3.4.78`; verified the running platform container env reports `APP_EDITION=platform`, `APP_VERSION=3.4.78`, `NODE_ENV=development`, and `SESSION_COOKIE_SECURE=false`; regenerated the public compose and verified it resolves `APP_VERSION: 3.4.78`; temporarily swapped to generated public compose plus `.ci/docker-compose.build.yml`, verified the homelab stack answers `/api/health` at `3.4.78`, confirmed `APP_EDITION` is unset in-container, ran the homelab boundary smoke, then restored the local platform stack and rechecked `/api/health`.
+- CI/checks run: local backend unit/source assertions (`231` passed); local OpenAPI validation; container backend unit tests; container OpenAPI validation; container `test:event-social-planning-smoke` with `BASE_URL=http://frontend:3000`; container `test:init-parity`; container `test:migration-rehearsal`; container `test:help-releases-smoke` with `BASE_URL=http://frontend:3000` and `EXPECTED_RELEASE_VERSION=v3.4.78`; container `test:rbac-regression` with `BASE_URL=http://frontend:3000`; container `test:platform-edition-boundary` with `BASE_URL=http://frontend:3000`; generated-compose `test:homelab-edition-boundary`; full browser regression via `PLAYWRIGHT_E2E_BYPASS_TOKEN=<redacted> npm exec playwright test` (`56 passed`, `4 skipped`); `docker compose --env-file .env config`; idempotent `npm run compose:generate`; `npm run validate:public-export`; backend/frontend `npm ci --no-fund --dry-run`; backend/frontend `npm ci --no-fund`; `npm --prefix backend run test:observability-evidence`; `npm --prefix backend run test:release-preflight-local`; and `git diff --check`.
+- Release artifacts: `docs/releases/v3.4.78.md` exists with security triage markers; `backend/release-feed.json` serves `v3.4.78`; `preflight-go-no-go.md` was regenerated; `artifacts/observability-evidence/observability-release-evidence.json` reports `3.4.78` with `9/9` checks passed.
+- Verified facts: attendee rows now support inline edits for name, relationship, status, visibility, and notes; group rows now support inline name/visibility/notes changes plus membership updates through the shared checkbox primitive; meetup rows now support group reassignment and visibility edits in the same in-place editor; the Event drawer browser regression suite was updated to cover attendee edit, group membership edit, meetup reassignment, and the refreshed mobile social overview assertions.
+- Blocked/unverified: local release preflight still marks secure-cookie compose-smoke conditions blocked because the dev stack intentionally runs `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`; CI-only `secret-scan` and `image-security-and-sbom` still need GitHub Actions follow-through; the local preflight helper still marks browser regression blocked because that helper does not execute Playwright itself even though full browser regression passed separately.
+- Files changed: `app-meta.json`, `backend/app-meta.json`, `frontend/src/app-meta.json`, `backend/package.json`, `frontend/package.json`, `backend/package-lock.json`, `frontend/package-lock.json`, `backend/release-feed.json`, `frontend/src/components/EventsView.jsx`, `tests/playwright/specs/events-collectibles.browser.spec.js`, `backend/scripts/unit-tests.js`, `docker-compose.yml`, `docs/releases/v3.4.78.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `artifacts/dependency-audit/frontend-audit.json`, `artifacts/observability-evidence/observability-release-evidence.json`, and `preflight-go-no-go.md`.
+- Risks or follow-ups: this remains Event-local editability polish only; cross-event identity, realtime presence, delivery/provider execution, native companion social mutation UX, and a broader friend graph remain separate work.
+- What remains in the milestone: no remaining `3.4.78` implementation work; CI-only release gates must pass before public tag/release publication.
+- Recommended commit message: `Release 3.4.78 event-local social editability polish`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.
