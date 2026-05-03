@@ -1918,66 +1918,118 @@ function EventFormDrawer({ initial, apiCall, onClose, onSave, onDelete, onClearI
   );
 }
 
-function EventSocialMobileOverview({ attendees, groups, meetups, plans }) {
+function EventSocialMobileOverview({ attendees, groups, meetups, plans, onJump }) {
   const focusPlan = findCurrentOrNextPlan(plans);
   const nextMeetup = nextTimedItem(meetups);
   const peoplePreview = previewNames(attendees, 'display_name');
   const groupPreview = previewNames(groups, 'name', 2);
+  const focusPlanMeta = focusPlan?.plan
+    ? {
+        time: formatDateTime(focusPlan.plan.start_at) || 'Time not set',
+        place: socialPlaceSummary(focusPlan.plan) || 'Place not set',
+        visibility: eventVisibilityLabel(focusPlan.plan.visibility)
+      }
+    : null;
+  const nextMeetupMeta = nextMeetup
+    ? {
+        time: formatDateTime(nextMeetup.start_at) || 'Time not set',
+        place: socialPlaceSummary(nextMeetup) || 'Place not set',
+        with: nextMeetup.group_name || 'No group linked',
+        visibility: eventVisibilityLabel(nextMeetup.visibility)
+      }
+    : null;
+  const quickActions = [
+    { key: 'schedule', label: 'Schedule', count: plans.length },
+    { key: 'meetups', label: 'Meetups', count: meetups.length },
+    { key: 'people', label: 'People', count: attendees.length }
+  ];
 
   return (
     <div className="border-b border-edge bg-raised/40 px-4 py-3 lg:hidden" aria-label="Mobile event social overview">
-      <div className="grid grid-cols-3 gap-2 text-center">
-        <div className="rounded-md border border-edge bg-surface px-2 py-2">
-          <p className="text-base font-semibold text-ink">{attendees.length}</p>
-          <p className="text-xs text-ghost">People</p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-ink">Day-of social plan</p>
+          <p className="mt-1 truncate text-xs text-dim">
+            {pluralizePeople(attendees.length)} · {groups.length} group{groups.length === 1 ? '' : 's'} · {meetups.length} meetup{meetups.length === 1 ? '' : 's'} · {plans.length} plan{plans.length === 1 ? '' : 's'}
+          </p>
         </div>
-        <div className="rounded-md border border-edge bg-surface px-2 py-2">
-          <p className="text-base font-semibold text-ink">{groups.length}</p>
-          <p className="text-xs text-ghost">Groups</p>
-        </div>
-        <div className="rounded-md border border-edge bg-surface px-2 py-2">
-          <p className="text-base font-semibold text-ink">{meetups.length}</p>
-          <p className="text-xs text-ghost">Meetups</p>
-        </div>
+        {focusPlan?.label ? <span className="shrink-0 text-xs text-ghost">{focusPlan.label}</span> : null}
       </div>
 
-      <div className="mt-3 space-y-2">
-        <div className="rounded-md border border-edge bg-surface px-3 py-2">
-          <div className="flex items-start justify-between gap-3">
-            <p className="text-xs font-medium text-dim">Schedule</p>
-            {focusPlan?.label ? <span className="text-xs text-ghost">{focusPlan.label}</span> : null}
-          </div>
+      <div className="mt-3 grid grid-cols-1 gap-2">
+        <div className="rounded-md border border-edge bg-surface px-3 py-3">
+          <p className="text-xs font-medium text-dim">Schedule focus</p>
           {focusPlan?.plan ? (
-	            <>
-	              <p className="mt-1 truncate text-sm font-medium text-ink">{focusPlan.plan.title}</p>
-	              <p className="mt-1 truncate text-xs text-dim">
-                {[formatDateTime(focusPlan.plan.start_at), socialPlaceSummary(focusPlan.plan), eventVisibilityLabel(focusPlan.plan.visibility)].filter(Boolean).join(' · ')}
-	              </p>
-	            </>
+            <>
+              <p className="mt-1 truncate text-sm font-medium text-ink">{focusPlan.plan.title}</p>
+              <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                <div className="min-w-0">
+                  <dt className="text-ghost">When</dt>
+                  <dd className="truncate text-dim">{focusPlanMeta.time}</dd>
+                </div>
+                <div className="min-w-0">
+                  <dt className="text-ghost">Where</dt>
+                  <dd className="truncate text-dim">{focusPlanMeta.place}</dd>
+                </div>
+                <div className="min-w-0">
+                  <dt className="text-ghost">Visibility</dt>
+                  <dd className="truncate text-dim">{focusPlanMeta.visibility}</dd>
+                </div>
+              </dl>
+            </>
           ) : (
             <p className="mt-1 text-sm text-ghost">No current or upcoming schedule plan.</p>
           )}
         </div>
 
-        <div className="rounded-md border border-edge bg-surface px-3 py-2">
+        <div className="rounded-md border border-edge bg-surface px-3 py-3">
           <p className="text-xs font-medium text-dim">Next meetup</p>
           {nextMeetup ? (
-	            <>
-	              <p className="mt-1 truncate text-sm font-medium text-ink">{nextMeetup.title}</p>
-	              <p className="mt-1 truncate text-xs text-dim">
-                {[formatDateTime(nextMeetup.start_at), socialPlaceSummary(nextMeetup), nextMeetup.group_name, eventVisibilityLabel(nextMeetup.visibility)].filter(Boolean).join(' · ')}
-	              </p>
-	            </>
+            <>
+              <p className="mt-1 truncate text-sm font-medium text-ink">{nextMeetup.title}</p>
+              <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                <div className="min-w-0">
+                  <dt className="text-ghost">When</dt>
+                  <dd className="truncate text-dim">{nextMeetupMeta.time}</dd>
+                </div>
+                <div className="min-w-0">
+                  <dt className="text-ghost">Where</dt>
+                  <dd className="truncate text-dim">{nextMeetupMeta.place}</dd>
+                </div>
+                <div className="min-w-0">
+                  <dt className="text-ghost">With</dt>
+                  <dd className="truncate text-dim">{nextMeetupMeta.with}</dd>
+                </div>
+                <div className="min-w-0">
+                  <dt className="text-ghost">Visibility</dt>
+                  <dd className="truncate text-dim">{nextMeetupMeta.visibility}</dd>
+                </div>
+              </dl>
+            </>
           ) : (
             <p className="mt-1 text-sm text-ghost">No upcoming meetup.</p>
           )}
         </div>
 
-        <div className="rounded-md border border-edge bg-surface px-3 py-2">
+        <div className="rounded-md border border-edge bg-surface px-3 py-3">
           <p className="text-xs font-medium text-dim">With</p>
           <p className="mt-1 truncate text-sm text-ink">{peoplePreview || 'No people added yet.'}</p>
           <p className="mt-1 truncate text-xs text-dim">{groupPreview ? `Groups: ${groupPreview}` : 'No groups added yet.'}</p>
         </div>
+      </div>
+
+      <div className="mt-3 grid grid-cols-3 gap-2">
+        {quickActions.map((action) => (
+          <button
+            key={action.key}
+            className="btn-secondary btn-sm min-w-0 justify-center"
+            type="button"
+            onClick={() => onJump?.(action.key)}
+          >
+            <span className="truncate">{action.label}</span>
+            <span className="text-ghost">{action.count}</span>
+          </button>
+        ))}
       </div>
     </div>
   );
@@ -2087,6 +2139,17 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged, currentUser = n
   const attendeeDuplicateAcknowledged = attendeeDuplicateOverride && attendeeDuplicateOverride === normalizeAttendeeName(form.attendeeName);
 
   const set = (patch) => setForm((prev) => ({ ...prev, ...patch }));
+  const jumpToSocialSection = (section) => {
+    if (typeof document === 'undefined') return;
+    const sectionNode = document.getElementById(`event-social-${section}`);
+    if (!sectionNode) return;
+    if (sectionNode.tagName.toLowerCase() === 'details') {
+      sectionNode.open = true;
+    }
+    window.requestAnimationFrame(() => {
+      sectionNode.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    });
+  };
   const setMeetupDraft = (meetupId, patch) => {
     setMeetupDrafts((prev) => {
       const existing = prev[meetupId] || {};
@@ -2922,6 +2985,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged, currentUser = n
         groups={groups}
         meetups={meetups}
         plans={plans}
+        onJump={jumpToSocialSection}
       />
 
       <div className="divide-y divide-edge">
@@ -2995,7 +3059,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged, currentUser = n
           </div>
         </details>
 
-        <details className="group" open>
+        <details id="event-social-schedule" className="group" open>
           <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium text-ink">
             Schedule
             <span className="text-xs text-ghost">{plans.length}</span>
@@ -3108,7 +3172,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged, currentUser = n
           </div>
         </details>
 
-        <details className="group">
+        <details id="event-social-people" className="group">
           <summary className="flex cursor-pointer list-none items-start justify-between gap-3 px-4 py-3 text-sm font-medium text-ink">
             <div className="min-w-0">
               <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -3419,7 +3483,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged, currentUser = n
           </div>
         </details>
 
-        <details className="group">
+        <details id="event-social-meetups" className="group">
           <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium text-ink">
             Meetups
             <span className="text-xs text-ghost">{meetups.length}</span>

@@ -3803,6 +3803,11 @@ results.push(run('event social planning foundation contract is wired for 3.4.30'
   assert.ok(eventsViewSource.includes('Manage Sched feed'));
   assert.ok(eventsViewSource.includes('function EventSocialMobileOverview'));
   assert.ok(eventsViewSource.includes('Mobile event social overview'));
+  assert.ok(eventsViewSource.includes('Day-of social plan'));
+  assert.ok(eventsViewSource.includes('event-social-schedule'));
+  assert.ok(eventsViewSource.includes('event-social-meetups'));
+  assert.ok(eventsViewSource.includes('event-social-people'));
+  assert.ok(eventsViewSource.includes('onJump?.(action.key)'));
   assert.ok(eventsViewSource.includes('Related groups'));
   assert.ok(eventsViewSource.includes('Next meetup'));
   assert.ok(eventsViewSource.includes('Next shared plan'));

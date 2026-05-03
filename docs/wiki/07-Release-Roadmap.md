@@ -8453,6 +8453,40 @@ Historical note:
 - What remains in the milestone: no remaining `3.4.82` implementation work; CI-only release gates must pass before public tag/release publication.
 - Recommended commit message: `Release 3.4.82 event attendee duplicate guardrails`
 
+## 3.4.83 — Event Social Mobile Day-Of Summary
+
+**Goal:** Continue the Event Social Planning Mobile Web Experience by making the Event social overview more useful on a phone during a con, with faster who/when/where readback before native companion surfaces.
+
+**Current Slice:** `Closed 2026-05-03`
+
+### Scope
+
+- Rework the mobile-only Event social overview into a day-of summary with the current schedule focus, next meetup, and people/group context.
+- Add direct mobile jumps into the existing Schedule, Meetups, and People sections instead of introducing a separate mobile social data path.
+- Preserve desktop planning views, Event-local attendee ownership, duplicate attendee guardrails, `Add me`, first-social-action self attendee creation, notification contracts, and manual non-user attendees.
+- Keep native companion behavior, push/Discord/email delivery, cross-event identity, external contacts, realtime presence, and broader friend graph work out of scope.
+
+### Acceptance Criteria
+
+- A mobile user can open an Event drawer and quickly see who, when, where, and visibility for the next relevant social plan.
+- Meetups and schedule plans are readable from the mobile overview without excessive drawer scrolling.
+- The mobile overview can jump to the existing Schedule, Meetups, and People sections.
+- Private/shared visibility remains visible in the summary.
+- Version metadata and Help > Releases are aligned to `3.4.83`.
+
+### Closeout Notes
+
+- Roadmap slice: `3.4.83 — Event Social Mobile Day-Of Summary`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/14-Engineering-Delivery-Policy.md`, and `docs/wiki/17-Release-Go-No-Go-Checklist.md`.
+- Runtime verification used: rebuilt and recreated the local platform stack through Docker with `APP_VERSION=3.4.83`; verified `/api/health` reports frontend/backend/build `3.4.83`; verified the running platform container env reports `APP_EDITION=platform`, `APP_VERSION=3.4.83`, `NODE_ENV=development`, and `SESSION_COOKIE_SECURE=false`; verified the live DB reported `events_enabled=true` before implementation, after the rebuilt stack, after observability release evidence, and after restoring the platform stack; verified Help > Releases serves `v3.4.83` first; temporarily swapped to the generated public compose plus `.ci/docker-compose.build.yml`, verified `/api/auth/config` reports homelab behavior with `workspace_surface=false`, ran the homelab boundary smoke, then restored the local platform stack and rechecked `/api/health` and healthy container state.
+- CI/checks run: source syntax check for `backend/scripts/unit-tests.js`; container backend unit/source assertions (`231` passed); container OpenAPI validation; container `test:event-social-planning-smoke` with `BASE_URL=http://frontend:3000`; container `test:help-releases-smoke` with `EXPECTED_RELEASE_VERSION=v3.4.83` before and after stack restore; container `test:init-parity`; container `test:migration-rehearsal`; container `test:rbac-regression`; container `test:platform-edition-boundary`; generated-compose `test:homelab-edition-boundary`; targeted Event/Collectibles browser regression (`15 passed`); full browser regression (`58 passed`, `4 skipped`); `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml config`; idempotent `npm run compose:generate`; `npm run validate:public-export`; Docker Node 20 backend/frontend `npm ci --dry-run --no-fund --ignore-scripts`; Docker Node 20 backend/frontend `npm audit --omit=dev --json`; `backend/scripts/observability-release-evidence.js`; `backend/scripts/release-preflight-local.js`; release-artifact secret-pattern grep over `docs/releases/v3.4.83.md`, `backend/release-feed.json`, `preflight-go-no-go.md`, dependency audit artifacts, migration/init artifacts, and observability artifacts; and `git diff --check`.
+- Release artifacts: `app-meta.json`, backend/frontend app meta, backend/frontend package and lockfile versions, generated `docker-compose.yml`, `docs/releases/v3.4.83.md`, and `backend/release-feed.json` are aligned on `3.4.83`; the running Help > Releases feed serves `v3.4.83` first while retaining recent Event-social releases; `artifacts/observability-evidence/observability-release-evidence.json` reports `3.4.83` with `9/9` checks passed; Docker Node 20 audit artifacts report backend low `0`, moderate `2`, high `0`, critical `0`, and frontend low `0`, moderate `0`, high `0`, critical `0`.
+- Blocked/unverified items: the local release preflight helper marks secure-cookie compose smoke as blocked because the dev stack intentionally runs `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`; `secret-scan` and `image-security-and-sbom` remain CI-only gates for the tagged release handoff.
+- Files changed: `app-meta.json`, `backend/app-meta.json`, `frontend/src/app-meta.json`, `backend/package.json`, `frontend/package.json`, `backend/package-lock.json`, `frontend/package-lock.json`, `backend/release-feed.json`, `backend/scripts/unit-tests.js`, `frontend/src/components/EventsView.jsx`, `tests/playwright/specs/events-collectibles.browser.spec.js`, `docker-compose.yml`, `docs/releases/v3.4.83.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `artifacts/dependency-audit/backend-audit.json`, `artifacts/dependency-audit/frontend-audit.json`, `artifacts/observability-evidence/observability-release-evidence.json`, and `preflight-go-no-go.md`.
+- Risks or follow-ups: the mobile summary uses existing Event-local schedule, meetup, people, and group data only; future native companion behavior, push/Discord/email delivery, cross-event identity, external contacts, realtime presence, and broader friend graph work remain intentionally out of scope.
+- What remains in the milestone: no remaining `3.4.83` implementation work; CI-only release gates must pass before public tag/release publication. The broader `Event Social Planning Mobile Web Experience` backlog item remains open for later native/platform companion validation and additional small mobile-social polish.
+- Recommended commit message: `Release 3.4.83 event social mobile day-of summary`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.
