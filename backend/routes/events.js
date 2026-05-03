@@ -153,6 +153,7 @@ const EVENT_COMPANION_OFFLINE_PACKET_VERSION = 'event-social-offline-packet.v1';
 const EVENT_COMPANION_NOW_NEXT_VERSION = 'event-companion-now-next.v1';
 const EVENT_COMPANION_NOW_NEXT_WINDOW_MINUTES = 120;
 const EVENT_COMPANION_NOW_NEXT_LIMIT = 8;
+const EVENT_COMPANION_FRIEND_AWARE_CHANGES_VERSION = 'event-companion-friend-aware-session-changes.v1';
 const SCHEDULE_CHANGE_NOTIFICATION_CONTRACT_VERSION = 'event-schedule-change-preview.v1';
 const SCHEDULE_NOTIFICATION_CONTRACT_VERSION = 'event-schedule-notification.v1';
 const SCHEDULE_NOTIFICATION_DELIVERY_BOUNDARY_VERSION = 'event-schedule-notification-delivery-boundary.v1';
@@ -1673,6 +1674,85 @@ function buildCompanionNowNext({ eventId, sessions = [], plans = [], generatedAt
   };
 }
 
+function buildCompanionFriendAwareChanges(eventId) {
+  return {
+    contract: {
+      version: EVENT_COMPANION_FRIEND_AWARE_CHANGES_VERSION,
+      scope: 'event_local',
+      selected_recipient_notifications_supported: true,
+      privacy_backend_owned: true,
+      templates_supported: true,
+      draft_records_supported: true,
+      local_send_supported: true,
+      external_delivery_supported: false,
+      limitations: [
+        'no_push_delivery',
+        'no_email_delivery',
+        'no_device_registration',
+        'no_broadcast_without_recipient_selection',
+        'no_global_friend_graph',
+        'no_cross_event_inbox'
+      ]
+    },
+    intents: [
+      {
+        intent: 'join',
+        label: 'Join',
+        default_message: 'Anyone want to join me for {{title}}?'
+      },
+      {
+        intent: 'replace',
+        label: 'Switch',
+        default_message: "I'm switching to {{title}}."
+      },
+      {
+        intent: 'meet',
+        label: 'Meet',
+        default_message: 'Meet outside this room for {{title}}?'
+      },
+      {
+        intent: 'leave',
+        label: 'Drop',
+        default_message: "I'm dropping {{title}}."
+      },
+      {
+        intent: 'backup',
+        label: 'Backup',
+        default_message: "I'm keeping {{title}} as backup."
+      },
+      {
+        intent: 'status_update',
+        label: 'Status update',
+        default_message: '{{title}} is marked {{status}}.'
+      }
+    ],
+    recipient_policy: {
+      preview_required_before_send: true,
+      default_mode: 'selected_recipients',
+      visibility_values: ['private', 'selected_people', 'group', 'event_workspace'],
+      group_notifications_supported: true,
+      current_user_inbox_filter_supported: true,
+      broadcast_supported: false,
+      recipient_selection_required_when_visibility_shared: true
+    },
+    endpoints: {
+      preview: `/api/events/${eventId}/schedule-change-preview`,
+      records: `/api/events/${eventId}/schedule-notifications`,
+      update_draft: `/api/events/${eventId}/schedule-notifications/{notificationId}`,
+      discard_draft: `/api/events/${eventId}/schedule-notifications/{notificationId}`,
+      delivery_boundary: `/api/events/${eventId}/schedule-notification-delivery-boundary`,
+      inbox: `/api/events/${eventId}/schedule-notification-inbox`,
+      current_user_inbox: `/api/events/${eventId}/schedule-notification-inbox?recipient=me`
+    },
+    write_guidance: [
+      'Use the schedule-change preview first to fetch eligible recipients, message template, and conflict hints.',
+      'Send or save drafts only with recipient ids returned by the preview for the current visibility.',
+      'Treat sent records as Event-local coordination history, not push/email/device delivery.',
+      'Refetch the companion snapshot or notification inbox after write actions to refresh plan and recipient readback.'
+    ]
+  };
+}
+
 async function loadCompanionTodayPayload({ eventId, scopeContext, userId }) {
   const eventParams = [eventId];
   const eventScopeClause = appendScopeSql(eventParams, scopeContext, {
@@ -1746,6 +1826,7 @@ async function loadCompanionTodayPayload({ eventId, scopeContext, userId }) {
     plans: plansResult.rows,
     generatedAt
   });
+  const friendAwareChanges = buildCompanionFriendAwareChanges(eventId);
   return {
     contract: {
       version: EVENT_COMPANION_CONTRACT_VERSION,
@@ -1783,6 +1864,7 @@ async function loadCompanionTodayPayload({ eventId, scopeContext, userId }) {
     cache: EVENT_COMPANION_CACHE_POLICY,
     privacy: EVENT_COMPANION_PRIVACY_POLICY,
     now_next: nowNext,
+    friend_aware_changes: friendAwareChanges,
     offline_packet: buildOfflinePacket({
       event,
       attendees: attendeesResult.rows,

@@ -27,6 +27,7 @@ The response includes:
 - `cache`: recommended cache TTL, stale threshold, offline mode, and conflict policy.
 - `privacy`: privacy and safety flags for companion clients.
 - `now_next`: a versioned day-of-con schedule snapshot for current, next, soon, and nearby catalog sessions with personal-plan overlay and quick-action hints.
+- `friend_aware_changes`: a versioned native-friendly contract for selected-recipient schedule change previews, templates, and local notification records.
 - `offline_packet`: read-only poor-connectivity packet metadata, planned sessions, and key locations for platform companion caching.
 - `attendees`: event attendee records.
 - `groups`: event group records with members.
@@ -53,6 +54,24 @@ Each item is catalog-first and includes a `relation` object so native clients ca
 Each item also includes quick-action hints for the existing schedule-plan endpoints. The supported statuses are `planned`, `maybe`, `skipped`, and `backup`. These hints do not create an offline mutation queue; native clients should refetch the companion snapshot after writes.
 
 Conflict hints are read-only overlap summaries against existing personal/shared schedule plans. They are meant to help the platform app show "switch/backup/keep" choices without copying web UI behavior.
+
+## Friend-Aware Session Changes
+
+`GET /api/events/:id/companion/today` also includes `friend_aware_changes` with contract version `event-companion-friend-aware-session-changes.v1`.
+
+This block does not add a new write API. Instead, it packages the existing Event-local schedule coordination flow for platform clients:
+
+- supported intents such as `join`, `replace`, `meet`, `leave`, `backup`, and `status_update`,
+- recipient policy stating that preview is required before send and that shared changes use selected recipients rather than broadcast,
+- endpoint hints for preview, draft/save/send, delivery-boundary readback, and inbox readback,
+- write guidance reminding native clients to use backend-owned preview recipients, privacy rules, and follow-up refetches.
+
+The important product boundary remains the same:
+
+- notifications are Event-local coordination records,
+- recipient selection and visibility stay backend-owned,
+- drafts and local sends are supported,
+- push, email, device registration, and global cross-event inboxes are not part of this contract.
 
 ## Write Contract
 

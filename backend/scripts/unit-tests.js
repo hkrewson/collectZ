@@ -3595,8 +3595,11 @@ results.push(run('event social planning foundation contract is wired for 3.4.30'
   assert.ok(eventsRoutesSource.includes('raw_url_returned: false'));
   assert.ok(eventsRoutesSource.includes('event-social-offline-packet.v1'));
   assert.ok(eventsRoutesSource.includes('event-companion-now-next.v1'));
+  assert.ok(eventsRoutesSource.includes('event-companion-friend-aware-session-changes.v1'));
   assert.ok(eventsRoutesSource.includes('buildCompanionNowNext'));
+  assert.ok(eventsRoutesSource.includes('buildCompanionFriendAwareChanges'));
   assert.ok(eventsRoutesSource.includes('quick_actions_supported: true'));
+  assert.ok(eventsRoutesSource.includes('selected_recipient_notifications_supported: true'));
   assert.ok(eventsRoutesSource.includes('catalog_sessions_authoritative: true'));
   assert.ok(eventsRoutesSource.includes('buildOfflinePacket'));
   assert.ok(eventsRoutesSource.includes('schedule_catalog: true'));
@@ -3676,6 +3679,7 @@ results.push(run('event social planning foundation contract is wired for 3.4.30'
   assert.ok(eventSocialPlanningSmokeSource.includes('/api/events/${eventId}/schedule-sessions'));
   assert.ok(eventSocialPlanningSmokeSource.includes('/api/events/${eventId}/companion/today'));
   assert.ok(eventSocialPlanningSmokeSource.includes('event-companion-now-next.v1'));
+  assert.ok(eventSocialPlanningSmokeSource.includes('event-companion-friend-aware-session-changes.v1'));
   assert.ok(eventSocialPlanningSmokeSource.includes('personal_ics_visibility'));
   assert.ok(eventSocialPlanningSmokeSource.includes('offline_packet'));
   assert.ok(eventPersonalIcsSyncSmokeSource.includes('/api/events/${eventId}/companion/today'));

@@ -343,6 +343,12 @@ async function main() {
     assert(companionBeforeCatalogCancel.data?.now_next?.next?.[0]?.catalog_session_id === catalogSessionId, `Expected active catalog session in companion now/next, got ${JSON.stringify(companionBeforeCatalogCancel.data?.now_next)}`);
     assert(companionBeforeCatalogCancel.data?.now_next?.next?.[0]?.relation?.source === 'catalog_only', `Expected catalog-only distinction, got ${JSON.stringify(companionBeforeCatalogCancel.data?.now_next)}`);
     assert(companionBeforeCatalogCancel.data?.now_next?.next?.[0]?.quick_actions?.supported_statuses?.includes('backup'), `Expected companion quick status actions, got ${JSON.stringify(companionBeforeCatalogCancel.data?.now_next)}`);
+    assert(companionBeforeCatalogCancel.data?.friend_aware_changes?.contract?.version === 'event-companion-friend-aware-session-changes.v1', `Expected companion friend-aware contract, got ${JSON.stringify(companionBeforeCatalogCancel.data?.friend_aware_changes)}`);
+    assert(companionBeforeCatalogCancel.data?.friend_aware_changes?.contract?.selected_recipient_notifications_supported === true, `Expected companion selected-recipient support, got ${JSON.stringify(companionBeforeCatalogCancel.data?.friend_aware_changes)}`);
+    assert(companionBeforeCatalogCancel.data?.friend_aware_changes?.contract?.external_delivery_supported === false, `Expected no external delivery in companion friend-aware contract, got ${JSON.stringify(companionBeforeCatalogCancel.data?.friend_aware_changes)}`);
+    assert(companionBeforeCatalogCancel.data?.friend_aware_changes?.recipient_policy?.default_mode === 'selected_recipients', `Expected selected-recipient policy, got ${JSON.stringify(companionBeforeCatalogCancel.data?.friend_aware_changes)}`);
+    assert(companionBeforeCatalogCancel.data?.friend_aware_changes?.intents?.some((item) => item.intent === 'replace'), `Expected replace intent in companion friend-aware contract, got ${JSON.stringify(companionBeforeCatalogCancel.data?.friend_aware_changes)}`);
+    assert(companionBeforeCatalogCancel.data?.friend_aware_changes?.endpoints?.preview === `/api/events/${eventId}/schedule-change-preview`, `Expected companion preview endpoint, got ${JSON.stringify(companionBeforeCatalogCancel.data?.friend_aware_changes)}`);
 
     await client.request(`/api/events/${eventId}/schedule-sessions/${catalogSessionId}`, {
       method: 'PATCH',

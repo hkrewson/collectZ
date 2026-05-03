@@ -442,3 +442,6 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - Message templates support common day-of-con coordination cases without requiring freeform social discovery features.
 - Notification behavior is opt-in per change and not broadcast by default.
 - Backend privacy and visibility rules are enforced consistently by the platform app.
+
+**Promotion**
+- The backend/API companion contract slice for this work is promoted as `3.4.75`. Native Swift UI implementation remains outside this webapp repo.

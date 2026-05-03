@@ -8149,6 +8149,48 @@ Historical note:
 - What remains in the milestone: no remaining 3.4.74 implementation work; CI-only release gates must pass before public tag/release publication.
 - Recommended commit message: `Release 3.4.74 platform companion now next schedule experience`
 
+## 3.4.75 — Platform Companion Friend-Aware Session Changes
+
+**Goal:** Give Apple/platform companion clients a stable, native-friendly contract for selected-recipient schedule change coordination using the existing Event-local preview, draft, send, and inbox APIs.
+
+**Current Slice:** `Closed.`
+
+### Scope
+
+- Promote the backlog item into a backend/API companion contract slice.
+- Extend `GET /api/events/:id/companion/today` with a versioned `friend_aware_changes` block.
+- Advertise supported session-change intents and default template language for native clients.
+- Expose recipient-selection policy and endpoint hints for preview, draft/save/send, delivery-boundary readback, and inbox readback.
+- Keep privacy, visibility, and recipient eligibility backend-owned.
+- Update OpenAPI, companion docs, smoke coverage, release notes, and release-feed data.
+- Keep native Swift UI, offline mutation queues, push/email/device delivery, realtime presence, and broad friend discovery out of scope.
+
+### Acceptance Criteria
+
+- The companion snapshot reports `friend_aware_changes.contract.version = event-companion-friend-aware-session-changes.v1`.
+- Platform clients can discover selected-recipient schedule change behavior from the companion payload without web-specific assumptions.
+- The contract explicitly advertises non-broadcast recipient policy and local-only delivery scope.
+- Supported message intents/templates are readable from the API contract.
+- Event social smoke and OpenAPI validation prove the contract.
+
+### Notes
+
+- This is the backend/platform contract for native session-change coordination. It does not implement the Apple app UI or external delivery.
+
+### Closeout — 2026-05-03
+
+- Roadmap slice: `3.4.75 — Platform Companion Friend-Aware Session Changes`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, and `docs/wiki/42-Event-Social-Platform-Companion-Contract.md`.
+- Runtime verification used: Docker rebuilt/recreated `backend` and `frontend` with `APP_VERSION=3.4.75`; `/api/health` returned frontend/backend/build `3.4.75`; running backend env was verified as `APP_EDITION=platform` for local platform compose; generated public compose was temporarily started with no `APP_EDITION` and the homelab boundary passed; local platform compose was restored afterward.
+- CI/checks run: local backend syntax checks; local backend unit/source contract tests (`231` passed); local OpenAPI validation; backend/frontend dependency dry-runs; Docker production build with Vite; container backend unit tests; container OpenAPI validation; container `test:event-social-planning-smoke`; container `test:init-parity`; container `test:migration-rehearsal`; container `test:rbac-regression`; container `test:platform-edition-boundary`; generated-compose `test:homelab-edition-boundary`; full browser regression with redacted `PLAYWRIGHT_E2E_BYPASS_TOKEN` (`55 passed`, `4 skipped`); `test:help-releases-smoke` for `v3.4.75`; `npm run validate:public-export`; `docker compose --env-file .env config`; idempotent `npm run compose:generate`; `test:observability-evidence`; `test:release-preflight-local`; targeted secret-pattern scan over generated release artifacts; `git diff --check`.
+- Release artifacts: `docs/releases/v3.4.75.md` exists; `backend/release-feed.json` serves `v3.4.75`; `preflight-go-no-go.md` was regenerated; `artifacts/observability-evidence/observability-release-evidence.json` reports `9/9` checks passed.
+- Verified facts: `GET /api/events/:id/companion/today` now includes `friend_aware_changes.contract.version = event-companion-friend-aware-session-changes.v1`; the payload exposes supported intents, selected-recipient recipient policy, endpoint hints for preview/records/inbox/delivery-boundary, and native write guidance; the contract keeps privacy and recipient eligibility backend-owned; the running event social smoke proves the companion payload advertises selected-recipient notifications while external delivery remains unsupported.
+- Blocked/unverified items: CI-only `secret-scan` and `image-security-and-sbom` still need to run in GitHub Actions; local release preflight marks secure-cookie compose-smoke conditions blocked because the dev stack intentionally runs `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`; the preflight helper marks browser regression blocked even though full browser regression passed separately.
+- Files changed: `app-meta.json`, `artifacts/observability-evidence/observability-release-evidence.json`, `backend/app-meta.json`, `backend/openapi/openapi.yaml`, `backend/package.json`, `backend/package-lock.json`, `backend/release-feed.json`, `backend/routes/events.js`, `backend/scripts/event-social-planning-smoke.js`, `backend/scripts/unit-tests.js`, `docker-compose.yml`, `docs/releases/v3.4.75.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/42-Event-Social-Platform-Companion-Contract.md`, `frontend/package.json`, `frontend/package-lock.json`, `frontend/src/app-meta.json`, and `preflight-go-no-go.md`.
+- Risks or follow-ups: this remains backend/API contract work only; native Swift UI, offline mutation queues, real push/email/device delivery, device registration, global inboxes, realtime presence, and broad friend discovery remain separate future milestones.
+- What remains in the milestone: no remaining 3.4.75 implementation work; CI-only release gates must pass before public tag/release publication.
+- Recommended commit message: `Release 3.4.75 platform companion friend-aware session changes`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

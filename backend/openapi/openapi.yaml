@@ -2517,6 +2517,66 @@
         },
         "required": ["kind", "context", "catalog_session_id", "schedule_plan_id", "title", "start_at", "end_at", "location", "room", "track", "categories", "status", "relation", "quick_actions", "conflicts", "time_context"]
       },
+      "EventCompanionFriendAwareChanges": {
+        "type": "object",
+        "properties": {
+          "contract": {
+            "type": "object",
+            "properties": {
+              "version": { "type": "string", "enum": ["event-companion-friend-aware-session-changes.v1"] },
+              "scope": { "type": "string", "enum": ["event_local"] },
+              "selected_recipient_notifications_supported": { "type": "boolean" },
+              "privacy_backend_owned": { "type": "boolean" },
+              "templates_supported": { "type": "boolean" },
+              "draft_records_supported": { "type": "boolean" },
+              "local_send_supported": { "type": "boolean" },
+              "external_delivery_supported": { "type": "boolean" },
+              "limitations": { "type": "array", "items": { "type": "string" } }
+            },
+            "required": ["version", "scope", "selected_recipient_notifications_supported", "privacy_backend_owned", "templates_supported", "draft_records_supported", "local_send_supported", "external_delivery_supported", "limitations"]
+          },
+          "intents": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "intent": { "type": "string", "enum": ["join", "leave", "replace", "backup", "meet", "status_update"] },
+                "label": { "type": "string" },
+                "default_message": { "type": "string" }
+              },
+              "required": ["intent", "label", "default_message"]
+            }
+          },
+          "recipient_policy": {
+            "type": "object",
+            "properties": {
+              "preview_required_before_send": { "type": "boolean" },
+              "default_mode": { "type": "string", "enum": ["selected_recipients"] },
+              "visibility_values": { "type": "array", "items": { "$ref": "#/components/schemas/EventSocialVisibility" } },
+              "group_notifications_supported": { "type": "boolean" },
+              "current_user_inbox_filter_supported": { "type": "boolean" },
+              "broadcast_supported": { "type": "boolean" },
+              "recipient_selection_required_when_visibility_shared": { "type": "boolean" }
+            },
+            "required": ["preview_required_before_send", "default_mode", "visibility_values", "group_notifications_supported", "current_user_inbox_filter_supported", "broadcast_supported", "recipient_selection_required_when_visibility_shared"]
+          },
+          "endpoints": {
+            "type": "object",
+            "properties": {
+              "preview": { "type": "string" },
+              "records": { "type": "string" },
+              "update_draft": { "type": "string" },
+              "discard_draft": { "type": "string" },
+              "delivery_boundary": { "type": "string" },
+              "inbox": { "type": "string" },
+              "current_user_inbox": { "type": "string" }
+            },
+            "required": ["preview", "records", "update_draft", "discard_draft", "delivery_boundary", "inbox", "current_user_inbox"]
+          },
+          "write_guidance": { "type": "array", "items": { "type": "string" } }
+        },
+        "required": ["contract", "intents", "recipient_policy", "endpoints", "write_guidance"]
+      },
       "EventCompanionTodayResponse": {
         "type": "object",
         "properties": {
@@ -2680,6 +2740,9 @@
             },
             "required": ["contract", "window", "counts", "current", "next", "soon", "nearby"]
           },
+          "friend_aware_changes": {
+            "$ref": "#/components/schemas/EventCompanionFriendAwareChanges"
+          },
           "offline_packet": {
             "type": "object",
             "description": "Read-only platform companion packet for poor-connectivity day-of-event use. It uses current event social data and includes canonical schedule catalog sessions when present.",
@@ -2778,7 +2841,7 @@
           "schedule_catalog": { "type": "array", "items": { "$ref": "#/components/schemas/EventScheduleSessionRecord" } },
           "schedule_plans": { "type": "array", "items": { "$ref": "#/components/schemas/EventSchedulePlanRecord" } }
         },
-        "required": ["contract", "event", "counts", "sync", "cache", "privacy", "now_next", "offline_packet", "attendees", "groups", "meetups", "schedule_catalog", "schedule_plans"]
+        "required": ["contract", "event", "counts", "sync", "cache", "privacy", "now_next", "friend_aware_changes", "offline_packet", "attendees", "groups", "meetups", "schedule_catalog", "schedule_plans"]
       },
       "ValuationRefreshRequest": {
         "type": "object",
