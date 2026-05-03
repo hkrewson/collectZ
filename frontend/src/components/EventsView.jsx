@@ -2213,11 +2213,41 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged, currentUser = n
 
   useEffect(() => { load(); }, [load]);
 
+  const hydrateCreatedSelfAttendee = (attendee = null) => {
+    if (!attendee?.id) return null;
+    const hydrated = {
+      ...attendee,
+      current_user_attendee: true,
+      linked_user: currentUser?.id ? {
+        id: currentUser.id,
+        name: currentUser.name || null
+      } : (attendee.linked_user || null)
+    };
+    setAttendees((prev) => {
+      const withoutDuplicate = (prev || []).filter((entry) => Number(entry?.id || 0) !== Number(hydrated.id));
+      return [hydrated, ...withoutDuplicate];
+    });
+    return hydrated;
+  };
+
+  const ensureSelfAttendeeForSocialAction = async () => {
+    if (selfAttendee?.id) return { attendee: selfAttendee, created: false };
+    const payload = await apiCall('post', `/events/${eventId}/attendees`, {
+      display_name: selfAttendeeSuggestedName,
+      relationship: 'self',
+      link_current_user: true,
+      status: 'attending',
+      visibility: 'private'
+    });
+    return { attendee: hydrateCreatedSelfAttendee(payload || null), created: true };
+  };
+
   const save = async (kind) => {
     setSaving(kind);
     setError('');
     setNotice('');
     try {
+      let selfAttendeeResult = { attendee: selfAttendee, created: false };
       if (kind === 'attendee') {
         await apiCall('post', `/events/${eventId}/attendees`, {
           display_name: form.attendeeName.trim(),
@@ -2229,14 +2259,18 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged, currentUser = n
         setNotice('Attendee added');
       }
       if (kind === 'group') {
+        selfAttendeeResult = await ensureSelfAttendeeForSocialAction();
+        const groupAttendeeId = Number(selfAttendeeResult.attendee?.id || selfAttendee?.id || 0) || null;
         await apiCall('post', `/events/${eventId}/groups`, {
           name: form.groupName.trim(),
-          visibility: 'private'
+          visibility: 'private',
+          attendee_ids: groupAttendeeId ? [groupAttendeeId] : []
         });
         set({ groupName: '' });
-        setNotice('Group added');
+        setNotice(selfAttendeeResult.created ? 'You were added to this event and the group was created' : 'Group added');
       }
       if (kind === 'meetup') {
+        selfAttendeeResult = await ensureSelfAttendeeForSocialAction();
         await apiCall('post', `/events/${eventId}/meetups`, {
           title: form.meetupTitle.trim(),
           location: form.meetupLocation || null,
@@ -2249,9 +2283,10 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged, currentUser = n
           visibility: form.meetupGroupId ? 'group' : 'private'
         });
         set({ meetupTitle: '', meetupLocation: '', meetupVendor: '', meetupBooth: '', meetupLocationNotes: '', meetupStart: '', meetupGroupId: '' });
-        setNotice('Meetup added');
+        setNotice(selfAttendeeResult.created ? 'You were added to this event and the meetup was created' : 'Meetup added');
       }
       if (kind === 'plan') {
+        selfAttendeeResult = await ensureSelfAttendeeForSocialAction();
         await apiCall('post', `/events/${eventId}/schedule-plans`, {
           title: form.planTitle.trim(),
           location: form.planLocation || null,
@@ -2264,7 +2299,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged, currentUser = n
           visibility: 'private'
         });
         set({ planTitle: '', planLocation: '', planVendor: '', planBooth: '', planLocationNotes: '', planStart: '' });
-        setNotice('Schedule plan added');
+        setNotice(selfAttendeeResult.created ? 'You were added to this event and the schedule plan was saved' : 'Schedule plan added');
       }
       if (kind === 'catalog') {
         await apiCall('post', `/events/${eventId}/schedule-sessions`, {
@@ -2410,13 +2445,7 @@ function EventSocialPlanningPanel({ eventId, apiCall, onChanged, currentUser = n
     setError('');
     setNotice('');
     try {
-      await apiCall('post', `/events/${eventId}/attendees`, {
-        display_name: selfAttendeeSuggestedName,
-        relationship: 'self',
-        link_current_user: true,
-        status: 'attending',
-        visibility: 'private'
-      });
+      await ensureSelfAttendeeForSocialAction();
       setNotice('You were added to this event');
       await load();
       await onChanged?.();

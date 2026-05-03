@@ -8377,6 +8377,43 @@ Historical note:
 - What remains in the milestone: no remaining `3.4.80` implementation work; CI-only release gates must pass before public tag/release publication.
 - Recommended commit message: `Release 3.4.80 event self-attendee header affordance polish`
 
+## 3.4.81 — Event Self-Attendee Default Creation on First Social Action
+
+**Goal:** Remove another layer of social-model friction by automatically creating the signed-in user’s self attendee when their first Event social action clearly implies “I’m participating here.”
+
+**Current Slice:** `Version Closeout completed.`
+
+### Scope
+
+- Keep the explicit `Add me to this event` affordance from `3.4.79` and `3.4.80`.
+- Automatically create the self attendee when the signed-in user creates their first group, meetup, or manual schedule plan without already having a linked attendee row.
+- When the first action is group creation, make the new self attendee the group’s initial member so the group is immediately useful.
+- Keep the generic People form unchanged for adding other attendees.
+- Stop observability structured-log evidence from mutating the user-facing `events_enabled` library flag by switching its deterministic toggle to a platform-safe flag.
+- Keep cross-event identity, external contact identities, realtime presence, and broader friend-graph work out of scope.
+
+### Acceptance Criteria
+
+- Creating a first group, meetup, or manual schedule plan without a self attendee automatically creates the signed-in user’s attendee row first.
+- Group creation links that new self attendee as the initial group member.
+- The explicit `Add me to this event` affordance still exists when the user wants to add themselves directly first.
+- Observability evidence no longer leaves the Events library hidden by toggling `events_enabled`.
+- Browser coverage proves at least one first-social-action path creates and links the self attendee automatically.
+
+### Closeout
+
+- Roadmap slice: `3.4.81 — Event Self-Attendee Default Creation on First Social Action`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, and `docs/wiki/40-Event-Social-Planning-Foundation.md`.
+- Runtime verification used: rebuilt and recreated the local platform stack through Docker with `APP_VERSION=3.4.81` using `docker-compose.yml` plus `docker-compose.localhost.yml`; verified `/api/health` reports frontend/backend/build `3.4.81`; verified the running platform container env reports `APP_EDITION=platform`, `APP_VERSION=3.4.81`, `NODE_ENV=development`, and `SESSION_COOKIE_SECURE=false`; verified the live DB still reports `events_enabled=true`; reran observability release evidence and confirmed `events_enabled` stayed enabled afterward; temporarily swapped to the generated public compose plus `.ci/docker-compose.build.yml`, verified `/api/auth/config` reports homelab behavior with `workspace_surface=false`, ran the homelab boundary smoke, then restored the local platform stack and rechecked `/api/health`.
+- CI/checks run: local backend unit/source assertions (`231` passed); local OpenAPI validation; container backend unit tests; container OpenAPI validation; container `test:event-social-planning-smoke` with `BASE_URL=http://frontend:3000`; container `test:init-parity`; container `test:migration-rehearsal`; container `test:help-releases-smoke` with `BASE_URL=http://frontend:3000` and `EXPECTED_RELEASE_VERSION=v3.4.81`; container `test:rbac-regression` with `BASE_URL=http://frontend:3000`; container `test:platform-edition-boundary` with `BASE_URL=http://frontend:3000`; generated-compose `test:homelab-edition-boundary`; targeted Event browser regression via `PLAYWRIGHT_E2E_BYPASS_TOKEN=<redacted> npm exec playwright test tests/playwright/specs/events-collectibles.browser.spec.js` (`15 passed`); full browser regression via `PLAYWRIGHT_E2E_BYPASS_TOKEN=<redacted> npm run test:browser` (`58 passed`, `4 skipped`); `docker compose --env-file .env config`; idempotent `npm run compose:generate`; `npm run validate:public-export`; backend/frontend `npm ci --no-fund --dry-run`; `npm --prefix backend run test:observability-evidence`; `npm --prefix backend run test:release-preflight-local`; release-artifact secret-pattern grep over `docs/releases/v3.4.81.md`, `backend/release-feed.json`, `preflight-go-no-go.md`, and `artifacts/observability-evidence/observability-release-evidence.json`; and `git diff --check`.
+- Release artifacts: `app-meta.json`, backend/frontend app meta, backend/frontend package and lockfile versions, generated `docker-compose.yml`, `docs/releases/v3.4.81.md`, and `backend/release-feed.json` are aligned on `3.4.81`; the running Help > Releases feed serves `v3.4.81` first while retaining `v3.4.80` and `v3.4.79`; `preflight-go-no-go.md` was regenerated; `artifacts/observability-evidence/observability-release-evidence.json` reports `3.4.81` with `9/9` checks passed.
+- Verified facts: creating a first group, meetup, or manual schedule plan now auto-creates the signed-in user’s Event attendee row before the action completes; first group creation uses that just-created self attendee as the initial group member; the explicit `Add me to this event` path remains available for direct self-linking; the observability structured-log smoke path now toggles `metrics_enabled` by default instead of the user-facing `events_enabled` library flag; the live DB kept `events_enabled=true` after observability evidence and browser/regression runs.
+- Blocked/unverified: local release preflight still marks secure-cookie compose-smoke conditions blocked because the dev stack intentionally runs `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`; CI-only `secret-scan` and `image-security-and-sbom` still need GitHub Actions follow-through; the local preflight helper still marks browser regression blocked because that helper does not execute Playwright itself even though full browser regression passed separately.
+- Files changed: `app-meta.json`, `backend/app-meta.json`, `frontend/src/app-meta.json`, `backend/package.json`, `frontend/package.json`, `backend/package-lock.json`, `frontend/package-lock.json`, `backend/release-feed.json`, `backend/scripts/structured-log-smoke-shared.js`, `backend/scripts/unit-tests.js`, `frontend/src/components/EventsView.jsx`, `tests/playwright/specs/events-collectibles.browser.spec.js`, `docker-compose.yml`, `docs/releases/v3.4.81.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `artifacts/observability-evidence/observability-release-evidence.json`, and `preflight-go-no-go.md`.
+- Risks or follow-ups: this keeps the Event-local attendee ownership model intact while smoothing the first-action UX; external contact identities, cross-event identity, native companion social mutation UX, realtime presence, and a broader friend graph remain separate work.
+- What remains in the milestone: no remaining `3.4.81` implementation work; CI-only release gates must pass before public tag/release publication.
+- Recommended commit message: `Release 3.4.81 event self-attendee default creation on first social action`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

@@ -3742,6 +3742,10 @@ results.push(run('event social planning foundation contract is wired for 3.4.30'
   assert.ok(eventsViewSource.includes('Add me to this event'));
   assert.ok(eventsViewSource.includes('Add your own attendee before managing other people'));
   assert.ok(eventsViewSource.includes('You are not added to this event yet'));
+  assert.ok(eventsViewSource.includes('You were added to this event and the group was created'));
+  assert.ok(eventsViewSource.includes('You were added to this event and the meetup was created'));
+  assert.ok(eventsViewSource.includes('You were added to this event and the schedule plan was saved'));
+  assert.ok(eventsViewSource.includes('const ensureSelfAttendeeForSocialAction = async () => {'));
   assert.ok(eventsViewSource.includes('Linked to you'));
   assert.ok(eventsViewSource.includes('Use this form for other people.'));
   assert.ok(eventsViewSource.includes('/events/${eventId}/schedule-notification-inbox'));
@@ -4524,6 +4528,7 @@ results.push(run('structured log smoke source falls back to OpenSearch-backed ve
 results.push(run('structured log smoke shared helper centralizes login and deterministic event toggling', () => {
   assert.ok(structuredLogSmokeSharedSource.includes('ADMIN_EMAIL and ADMIN_PASSWORD are required'));
   assert.ok(structuredLogSmokeSharedSource.includes('withStructuredLogSmokeEvent'));
+  assert.ok(structuredLogSmokeSharedSource.includes("STRUCTURED_LOG_SMOKE_FEATURE_KEY || 'metrics_enabled'"));
   assert.ok(structuredLogSmokeSharedSource.includes('Waiting ${FEATURE_FLAG_SETTLE_MS}ms for feature-flag cache to settle...'));
   assert.ok(structuredLogSmokeSharedSource.includes("external_log_export_enabled"));
 }));

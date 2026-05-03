@@ -262,6 +262,88 @@ test.describe('events and collectibles browser regressions', () => {
     }
   });
 
+  test('event drawer auto-creates the signed-in attendee on the first social group action', async ({ page }) => {
+    const adminCredentials = await ensureSavedAdminCredentials();
+    const adminRequestContext = await createAuthenticatedRequestContext(adminCredentials);
+    const userCredentials = await createFreshUserCredentials();
+    const userRequestContext = await createAuthenticatedRequestContext(userCredentials);
+    const expectedSelfName = String(userCredentials?.name || 'You').trim() || 'You';
+    const suffix = Date.now();
+    const eventTitle = `Playwright Group Auto Self Event ${suffix}`;
+    const originalFlagsPayload = await getFeatureFlags(adminRequestContext);
+    const originalFlags = Array.isArray(originalFlagsPayload?.flags) ? originalFlagsPayload.flags : [];
+    const originalEventsEnabled = Boolean(originalFlags.find((flag) => flag?.key === 'events_enabled')?.enabled);
+
+    await deleteEventsByExactTitle(userRequestContext, eventTitle).catch(() => {});
+
+    try {
+      if (!originalEventsEnabled) {
+        await updateFeatureFlag(adminRequestContext, 'events_enabled', true);
+      }
+
+      const eventResponse = await postWithCsrf(userRequestContext, '/api/events', {
+        title: eventTitle,
+        url: `https://example.test/auto-self-group/${suffix}`,
+        location: 'San Diego Convention Center',
+        date_start: '2026-07-23',
+        date_end: '2026-07-26'
+      }, 201);
+      const eventPayload = await eventResponse.json();
+      const eventId = Number(eventPayload?.id || 0);
+      expect(eventId).toBeGreaterThan(0);
+
+      const sessionToken = userRequestContext.__collectzCookieJar?.get('session_token');
+      expect(sessionToken).toBeTruthy();
+
+      await page.setViewportSize({ width: 390, height: 844 });
+      await addPlaywrightBypassCookie(page.context());
+      await page.context().addCookies([{
+        name: 'session_token',
+        value: sessionToken,
+        url: 'http://localhost:3000',
+        sameSite: 'Lax'
+      }]);
+      await page.goto('/dashboard?tab=library-events');
+      await expect(page.getByRole('heading', { name: 'Events' })).toBeVisible();
+      await page.getByRole('button', { name: 'List' }).click();
+      await page.getByPlaceholder('Search title or location…').fill(eventTitle);
+      const eventCard = page.locator('article').filter({ hasText: eventTitle }).first();
+      await expect(eventCard).toBeVisible();
+      await eventCard.click();
+      await expect(page.getByRole('heading').filter({ hasText: eventTitle }).first()).toBeVisible();
+
+      const groupsPanel = page.locator('summary').filter({ hasText: /^Groups/ }).locator('xpath=..').first();
+      await groupsPanel.locator('summary').first().click();
+      await groupsPanel.getByPlaceholder('Group name').fill('Artist Alley Crew');
+      await groupsPanel.getByRole('button', { name: 'Add' }).click();
+      await expect(groupsPanel.locator('details').filter({ hasText: 'Artist Alley Crew' }).first()).toBeVisible();
+
+      const groupRow = groupsPanel.locator('details').filter({ hasText: 'Artist Alley Crew' }).first();
+      await expect(groupRow.locator('summary').getByText('Artist Alley Crew')).toBeVisible();
+
+      const attendeesResponse = await userRequestContext.get(`/api/events/${eventId}/attendees`);
+      expect(attendeesResponse.ok()).toBeTruthy();
+      const attendeesPayload = await attendeesResponse.json();
+      expect(attendeesPayload.items).toHaveLength(1);
+      expect(attendeesPayload.items[0]?.current_user_attendee).toBe(true);
+      expect(attendeesPayload.items[0]?.display_name).toBe(expectedSelfName);
+
+      const groupsResponse = await userRequestContext.get(`/api/events/${eventId}/groups`);
+      expect(groupsResponse.ok()).toBeTruthy();
+      const groupsPayload = await groupsResponse.json();
+      expect(groupsPayload.items).toHaveLength(1);
+      expect(Array.isArray(groupsPayload.items[0]?.members)).toBeTruthy();
+      expect(groupsPayload.items[0]?.members?.some((member) => member?.display_name === expectedSelfName)).toBe(true);
+    } finally {
+      await deleteEventsByExactTitle(userRequestContext, eventTitle).catch(() => {});
+      if (!originalEventsEnabled) {
+        await updateFeatureFlag(adminRequestContext, 'events_enabled', false).catch(() => {});
+      }
+      await userRequestContext.dispose();
+      await adminRequestContext.dispose();
+    }
+  });
+
   test('mobile event drawer can update meetup status and notes in place', async ({ page }) => {
     const adminCredentials = await ensureSavedAdminCredentials();
     const adminRequestContext = await createAuthenticatedRequestContext(adminCredentials);
