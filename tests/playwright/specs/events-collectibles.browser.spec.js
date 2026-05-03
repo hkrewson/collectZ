@@ -300,6 +300,8 @@ test.describe('events and collectibles browser regressions', () => {
       await planRow.locator('label:has-text("Status") select').selectOption('backup');
       await planRow.locator('label:has-text("Visibility") select').selectOption('event_workspace');
       await expect(planRow.getByText('Shared with Reid, Panel crew').first()).toBeVisible();
+      await expect(planRow.getByLabel('Session presence').getByText('1 person')).toBeVisible();
+      await expect(planRow.getByLabel('Session presence').getByText('1 group')).toBeVisible();
       await planRow.locator('label:has-text("Vendor") input').fill('Artist signing table');
       await planRow.locator('label:has-text("Booth") input').fill('6DE-B');
       await planRow.locator('label:has-text("Location note") input').fill('Queue at the rear exit.');
@@ -345,6 +347,10 @@ test.describe('events and collectibles browser regressions', () => {
       await expect(planRow.getByLabel('Delivery attempt readback').getByText('1 local attempt')).toBeVisible();
       await expect(planRow.getByText('Local audit only. This is not push, email, or device delivery.')).toBeVisible();
       await expect(planRow.getByText('Local record and audit only. No push, device, or email delivery.')).toBeVisible();
+      await expect(planRow.getByLabel('Shared attendance').getByText('People')).toBeVisible();
+      await expect(planRow.getByLabel('Shared attendance').getByText('Groups')).toBeVisible();
+      await expect(planRow.getByLabel('Shared attendance').getByText('Reid', { exact: true })).toBeVisible();
+      await expect(planRow.getByLabel('Shared attendance').getByText('Panel crew', { exact: true })).toBeVisible();
       const inboxPanel = page.locator('details').filter({ hasText: 'Notification inbox' }).first();
       await expect(inboxPanel).toBeVisible();
       await inboxPanel.locator('summary').click();
@@ -573,6 +579,7 @@ test.describe('events and collectibles browser regressions', () => {
       await expect(nowNext.getByText(currentTitle, { exact: true })).toBeVisible();
       await expect(nowNext.locator('span').filter({ hasText: /^Planned$/ })).toBeVisible();
       await expect(nowNext.getByText('Shared: 1 backup').first()).toBeVisible();
+      await expect(nowNext.getByLabel('Session presence').getByText('Shared: 1 backup')).toBeVisible();
       await expect(nowNext.getByText('Next', { exact: true })).toBeVisible();
       await expect(nowNext.getByText(nextTitle, { exact: true })).toBeVisible();
       await expect(nowNext.getByText(/Room 6DE/)).toBeVisible();

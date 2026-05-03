@@ -370,6 +370,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 **Scope**
 - Add explicit actions for joining, leaving, replacing, or marking backup sessions. The first web-card slice is promoted as `3.4.64`.
 - When a change affects shared plans, offer selected-recipient notifications instead of broadcasting by default. The first action-template slice is promoted as `3.4.65`; picker/edit UI is promoted as `3.4.66`; recipient-selection polish is promoted as `3.4.67`; draft-management UI is promoted as `3.4.68`; the delivery-boundary/platform contract is promoted as `3.4.69`; provider-prep metadata is promoted as `3.4.70`; the delivery-attempt model contract is promoted as `3.4.71`; Event-local delivery-attempt persistence/readback is promoted as `3.4.72`; delivery-attempt readback UI is promoted as `3.4.73`.
+- A session-presence polish slice is promoted as `3.4.76` to make shared attendance readback clearer on cards and in expanded detail without adding a friend graph or delivery behavior.
 - Support message templates such as:
   - "I'm switching to this session"
   - "Anyone want to join?"

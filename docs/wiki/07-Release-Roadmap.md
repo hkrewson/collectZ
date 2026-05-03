@@ -8191,6 +8191,46 @@ Historical note:
 - What remains in the milestone: no remaining 3.4.75 implementation work; CI-only release gates must pass before public tag/release publication.
 - Recommended commit message: `Release 3.4.75 platform companion friend-aware session changes`
 
+## 3.4.76 — Event Schedule Shared Session Presence Readback Polish
+
+**Goal:** Make shared session presence easier to scan on Event schedule cards by turning the existing attendance readback into clearer people/group presence strips and more structured expanded detail.
+
+**Current Slice:** `Closed 2026-05-03.`
+
+### Scope
+
+- Reuse the existing Event-local attendance readback model from shared schedule plans.
+- Keep the collapsed Now / Next, catalog, and personal-plan rows compact, but add clearer shared presence chips/counts.
+- Improve expanded shared-attendance readback with named people/groups and a cleaner count summary.
+- Preserve current visibility-safe readback rules and draft-time preview behavior when plan visibility changes.
+- Keep this separate from push/email/device delivery, global inboxes, reciprocal friend graphs, realtime presence, and native platform UI.
+
+### Acceptance Criteria
+
+- Session cards still show compact shared presence when visibility allows, but the readback is easier to scan than a single text line.
+- Expanded shared-attendance blocks show clearer people/group breakdowns when those names exist.
+- The fallback count/status readback still works when named people/groups are limited.
+- Browser coverage verifies the richer shared-attendance readback on session rows.
+- No backend delivery, push, email, native device registration, global inbox, or friend graph work is introduced.
+
+### Notes
+
+- This is a UI/readback polish slice on top of `3.4.63`, not a new social model.
+
+### Closeout
+
+- Roadmap slice: `3.4.76 — Event Schedule Shared Session Presence Readback Polish`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, and `docs/wiki/45-Event-Schedule-Catalog-Foundation.md`.
+- Runtime verification used: rebuilt and recreated backend/frontend through Docker with `APP_VERSION=3.4.76`; verified `/api/health` reports frontend/backend/build `3.4.76`; verified local platform container env reports `APP_EDITION=platform`, `APP_VERSION=3.4.76`, `NODE_ENV=development`, and `SESSION_COOKIE_SECURE=false`; switched to generated public compose plus `.ci/docker-compose.build.yml` and verified homelab runtime with `APP_EDITION` unset; restored local platform compose afterward and rechecked `/api/health`.
+- CI/checks run: local backend unit/source assertions (`231` passed); local OpenAPI validation; container backend unit tests; container OpenAPI validation; container `test:event-social-planning-smoke`; container `test:init-parity`; container `test:migration-rehearsal`; container `test:help-releases-smoke` with `EXPECTED_RELEASE_VERSION=v3.4.76`; container `test:rbac-regression`; container `test:platform-edition-boundary`; generated-compose `test:homelab-edition-boundary`; full browser regression via direct Playwright CLI under Node 24 (`55 passed`, `4 skipped`); `docker compose --env-file .env config`; `npm run validate:public-export`; idempotent `npm run compose:generate`; backend/frontend `npm ci --no-fund --dry-run`; `npm --prefix backend run test:observability-evidence`; `npm --prefix backend run test:release-preflight-local`; targeted release-artifact secret-pattern grep; and `git diff --check`.
+- Release artifacts: `docs/releases/v3.4.76.md` exists; `backend/release-feed.json` serves `v3.4.76`; `preflight-go-no-go.md` was regenerated; `artifacts/observability-evidence/observability-release-evidence.json` now reports `3.4.76` with `9/9` checks passed.
+- Verified facts: Event schedule cards now render shared-presence strips as structured chips instead of a single fallback-only text line; expanded shared-attendance readback now shows clearer `People` and `Groups` sections when Event-local names exist; existing visibility-safe attendance derivation still drives the UI; personal schedule draft visibility changes continue to update shared-attendance readback before save; no backend delivery, push, email, native device registration, global inbox, or reciprocal friend-graph work was introduced.
+- Blocked/unverified: local release preflight still marks secure-cookie compose-smoke conditions blocked because the dev stack intentionally runs `SESSION_COOKIE_SECURE=false` and `NODE_ENV=development`; CI-only `secret-scan` and `image-security-and-sbom` still need GitHub Actions follow-through; the host `npm run test:browser` launcher hit a local Playwright/runtime issue (`performance is not defined`), so browser regression was run successfully through direct Node 24 CLI invocation instead.
+- Files changed: `app-meta.json`, `backend/app-meta.json`, `frontend/src/app-meta.json`, `backend/package.json`, `frontend/package.json`, `backend/package-lock.json`, `frontend/package-lock.json`, `backend/release-feed.json`, `frontend/src/components/EventsView.jsx`, `tests/playwright/specs/events-collectibles.browser.spec.js`, `backend/scripts/unit-tests.js`, `docker-compose.yml`, `docs/releases/v3.4.76.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `artifacts/observability-evidence/observability-release-evidence.json`, and `preflight-go-no-go.md`.
+- Risks/follow-ups: this remains Event-local readback polish only; broader social discovery, reciprocal friend identity, native device identity, push/email delivery, global notification inboxes, realtime presence/location, and offline queued sends remain future milestones.
+- What remains in the milestone: no remaining 3.4.76 implementation work; CI-only release gates must pass before public tag/release publication.
+- Recommended commit message: `Release 3.4.76 event schedule shared session presence readback polish`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

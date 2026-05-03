@@ -369,6 +369,9 @@ const scheduleSharedAudience = (sharedPlans = [], attendees = [], groups = []) =
   return {
     people,
     groups: groupNames,
+    peopleCount: people.length,
+    groupCount: groupNames.length,
+    countLabel: [people.length ? pluralizePeople(people.length) : '', groupNames.length ? `${groupNames.length} ${groupNames.length === 1 ? 'group' : 'groups'}` : ''].filter(Boolean).join(' · '),
     label: compactNames ? `Shared with ${compactNames}${remaining ? ` +${remaining}` : ''}` : ''
   };
 };
@@ -389,6 +392,7 @@ const buildScheduleAttendanceSummaryFromPlans = (linkedPlans = [], attendees = [
     own: ownPlans.length ? `Your plan: ${formatPlanStatusCounts(ownPlans)}` : '',
     audience,
     audienceLine: audience.label,
+    countLine: audience.countLabel,
     displayLine: audience.label || (sharedLine ? `Shared: ${sharedLine}` : ''),
     shared: sharedLine ? `Shared: ${sharedLine}` : '',
     visibilityLines,
@@ -403,6 +407,76 @@ const buildScheduleAttendanceSummary = (session, plans = [], attendees = [], gro
 const buildPlanAttendanceSummary = (plan, attendees = [], groups = []) => {
   return buildScheduleAttendanceSummaryFromPlans(plan ? [plan] : [], attendees, groups);
 };
+
+function ScheduleAttendanceInline({ attendance = null, className = '' }) {
+  if (!attendance?.hasShared) return null;
+  const pills = [];
+  if (attendance?.audience?.peopleCount) pills.push({ key: 'people', label: pluralizePeople(attendance.audience.peopleCount) });
+  if (attendance?.audience?.groupCount) pills.push({ key: 'groups', label: `${attendance.audience.groupCount} ${attendance.audience.groupCount === 1 ? 'group' : 'groups'}` });
+  if (attendance?.shared) pills.push({ key: 'shared', label: attendance.shared });
+  const names = [
+    ...(Array.isArray(attendance?.audience?.people) ? attendance.audience.people.slice(0, 2) : []),
+    ...(Array.isArray(attendance?.audience?.groups) ? attendance.audience.groups.slice(0, 1) : [])
+  ].filter(Boolean);
+  return (
+    <div className={cx('mt-1 flex flex-wrap items-center gap-1.5 text-[11px]', className)} aria-label="Session presence">
+      {attendance?.audienceLine ? <span className="text-dim">{attendance.audienceLine}</span> : null}
+      {pills.map((pill) => (
+        <span key={pill.key} className="rounded-full border border-edge bg-raised px-2 py-0.5 text-ghost">
+          {pill.label}
+        </span>
+      ))}
+      {names.map((name) => (
+        <span key={name} className="rounded-full border border-edge/80 bg-surface px-2 py-0.5 text-dim">
+          {name}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function ScheduleAttendanceDetails({ attendance = null }) {
+  if (!attendance?.hasShared) return null;
+  const people = Array.isArray(attendance?.audience?.people) ? attendance.audience.people : [];
+  const socialGroups = Array.isArray(attendance?.audience?.groups) ? attendance.audience.groups : [];
+  return (
+    <div className="rounded-md border border-edge bg-raised px-3 py-2 text-sm" aria-label="Shared attendance">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="font-medium text-ink">Shared attendance</p>
+        {attendance.countLine ? <span className="text-xs text-ghost">{attendance.countLine}</span> : null}
+      </div>
+      <div className="mt-2 space-y-2 text-xs text-dim">
+        {attendance.audienceLine ? <p>{attendance.audienceLine}</p> : null}
+        {people.length ? (
+          <div className="space-y-1">
+            <p className="text-ghost">People</p>
+            <div className="flex flex-wrap gap-1.5">
+              {people.map((person) => (
+                <span key={person} className="rounded-full border border-edge bg-surface px-2 py-1 text-dim">
+                  {person}
+                </span>
+              ))}
+            </div>
+          </div>
+        ) : null}
+        {socialGroups.length ? (
+          <div className="space-y-1">
+            <p className="text-ghost">Groups</p>
+            <div className="flex flex-wrap gap-1.5">
+              {socialGroups.map((group) => (
+                <span key={group} className="rounded-full border border-edge bg-surface px-2 py-1 text-dim">
+                  {group}
+                </span>
+              ))}
+            </div>
+          </div>
+        ) : null}
+        {attendance.own ? <p>{attendance.own}</p> : null}
+        {attendance.visibilityLines.map((line) => <p key={line}>{line}</p>)}
+      </div>
+    </div>
+  );
+}
 
 const getScheduleWindow = (item) => {
   const startTime = item?.start_at ? new Date(item.start_at).getTime() : NaN;
@@ -3009,7 +3083,7 @@ function CatalogNowNextMiniRow({ session, plan = null, conflicts = [], attendanc
           {planStatus ? <span className="shrink-0 text-xs text-ok">{humanizeEventValue(planStatus)}</span> : null}
         </div>
         <p className="mt-1 truncate text-xs text-dim">{detailLine || 'Details pending'}</p>
-        {attendance?.displayLine ? <p className="mt-1 truncate text-xs text-dim">{attendance.displayLine}</p> : null}
+        <ScheduleAttendanceInline attendance={attendance} />
         {conflictSummary ? <p className="mt-1 truncate text-xs text-warn">{conflictSummary}</p> : null}
       </div>
       <div className="space-y-2">
@@ -3413,7 +3487,7 @@ function ScheduleCatalogRow({ session, draft = {}, saving = false, adding = fals
           <p className="mt-1 truncate text-xs text-dim">
             {locationLine || 'Location pending'}
           </p>
-          {attendance?.displayLine ? <p className="mt-1 truncate text-xs text-dim">{attendance.displayLine}</p> : null}
+          <ScheduleAttendanceInline attendance={attendance} />
           {conflictSummary ? <p className="mt-1 truncate text-xs text-warn">{conflictSummary}</p> : null}
         </div>
       </summary>
@@ -3469,16 +3543,7 @@ function ScheduleCatalogRow({ session, draft = {}, saving = false, adding = fals
               {conflictSummary}
             </div>
           ) : null}
-          {attendance?.hasShared ? (
-            <div className="rounded-md border border-edge bg-raised px-3 py-2 text-sm" aria-label="Shared attendance">
-              <p className="font-medium text-ink">Shared attendance</p>
-              <div className="mt-1 space-y-1 text-xs text-dim">
-                {attendance.audienceLine ? <p>{attendance.audienceLine}</p> : null}
-                {attendance.own ? <p>{attendance.own}</p> : null}
-                {attendance.visibilityLines.map((line) => <p key={line}>{line}</p>)}
-              </div>
-            </div>
-          ) : null}
+          <ScheduleAttendanceDetails attendance={attendance} />
           <div className="grid grid-cols-1 gap-2 border-t border-edge pt-3 sm:grid-cols-2">
             <label className="field">
               <span className="label">Title</span>
@@ -4153,7 +4218,7 @@ function SchedulePlanRow({
           <p className="mt-1 truncate text-xs text-dim">
             {[socialPlaceSummary(plan), categorySummary, extraCategoryCount ? `+${extraCategoryCount}` : '', fromSched ? 'Sched' : 'Manual'].filter(Boolean).join(' · ')}
           </p>
-          {attendance?.displayLine ? <p className="mt-1 truncate text-xs text-dim">{attendance.displayLine}</p> : null}
+          <ScheduleAttendanceInline attendance={attendance} />
           {conflictSummary ? <p className="mt-1 truncate text-xs text-warn">{conflictSummary}</p> : null}
         </div>
       </summary>
@@ -4215,16 +4280,7 @@ function SchedulePlanRow({
               {conflictSummary}
             </div>
           ) : null}
-          {attendance?.hasShared ? (
-            <div className="rounded-md border border-edge bg-raised px-3 py-2 text-sm" aria-label="Shared attendance">
-              <p className="font-medium text-ink">Shared attendance</p>
-              <div className="mt-1 space-y-1 text-xs text-dim">
-                {attendance.audienceLine ? <p>{attendance.audienceLine}</p> : null}
-                {attendance.own ? <p>{attendance.own}</p> : null}
-                {attendance.visibilityLines.map((line) => <p key={line}>{line}</p>)}
-              </div>
-            </div>
-          ) : null}
+          <ScheduleAttendanceDetails attendance={attendance} />
           <SchedulePlanDraftIntentActions
             status={draftStatus}
             conflicts={conflicts}
