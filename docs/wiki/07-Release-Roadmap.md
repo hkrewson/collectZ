@@ -8708,6 +8708,41 @@ Historical note:
 - What remains in the milestone: no open `3.4.89` work remains.
 - Recommended commit message: `Release 3.4.89 Kavita external reader launch contract`.
 
+## 3.4.90 — Kavita Cover Art Source Hardening
+
+**Goal:** Make Kavita-owned cover art render reliably through collectZ without exposing Kavita credentials, while keeping fallback enrichment from Metron, Google Books, or Open Library-style sources separate.
+
+**Current Slice:** `Closed 2026-05-04`
+
+### Scope
+
+- Use Kavita `coverImage` as the first cover-art source for Kavita-imported rows.
+- Store raw Kavita cover source metadata for troubleshooting.
+- Serve imported Kavita covers through an authenticated collectZ proxy tied to visible Kavita rows in the active scope.
+- Ensure frontend image rendering treats collectZ `/api/...` image paths as same-origin instead of rewriting them as TMDB poster paths.
+- Prove cover proxy readback does not leak Kavita API keys, OPDS keys, bearer tokens, or other credentials.
+- Keep Metron/Google Books fallback enrichment, metadata writeback, embedded reading, reader page proxying, and progress sync out of this slice.
+
+### Acceptance Criteria
+
+- Kavita imports with `coverImage` store `kavita_cover_image`, `kavita_cover_url`, `kavita_cover_proxy_url`, `kavita_cover_source`, and `kavita_cover_status`.
+- Imported Kavita rows use the collectZ cover proxy as `poster_path`.
+- The Kavita cover proxy only serves covers for Kavita rows in the active scope and fetches the Kavita image server-side.
+- Kavita import smoke proves proxied cover readback works and remains secret-free.
+- Version metadata and Help > Releases are aligned to `3.4.90`.
+
+### Closeout Notes
+
+- Roadmap slice: `3.4.90 — Kavita Cover Art Source Hardening`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, and `docs/wiki/41-Kavita-Integration-Setup.md`.
+- Runtime verification used: rebuilt Docker platform stack at `3.4.90`, `/api/health`, `/api/auth/config`, in-stack Help > Releases smoke, Kavita connection smoke, Kavita import/sync smoke with cover proxy image readback, isolated generated-compose homelab boundary stack, and live DB `events_enabled=true` readback before and after the slice.
+- CI/checks run locally: syntax checks for touched Kavita/media/unit scripts; local backend unit/source assertions (`238` passed); local OpenAPI validation; container backend unit/source assertions (`238` passed); container OpenAPI validation; container `test:kavita-connection-smoke`; container `test:kavita-import-sync-smoke` rerun isolated after an intentional-smoke shared-config collision; container `test:help-releases-smoke` with `EXPECTED_RELEASE_VERSION=v3.4.90`; container `test:init-parity`; container `test:migration-rehearsal`; container `test:rbac-regression`; container `test:platform-edition-boundary`; isolated generated-compose `test:homelab-edition-boundary`; API integration smoke; targeted Event catalog Now/Next browser repair spec; full browser regression (`58` passed, `4` skipped); `npm run validate:public-export`; `npm run compose:generate`; local release preflight/dependency audit; observability release evidence; release-artifact secret-pattern scan; and `git diff --check`.
+- Version closeout: `app-meta.json`, backend/frontend app metadata, backend/frontend package metadata, `docker-compose.yml`, `docs/releases/v3.4.90.md`, and `backend/release-feed.json` are aligned to `3.4.90`.
+- Release gate accounting: `compose-smoke` was locally covered by rebuilt stack health, `/api/health`, `/api/auth/config`, and compose config generation; `rbac-regression`, `browser-regression`, `homelab-edition-boundary`, `platform-edition-boundary`, and local dependency audit passed locally; `secret-scan` and `image-security-and-sbom` remain CI-only locally because `gitleaks`, `trivy`, and SBOM tooling were not installed in the local shell.
+- Risks/follow-ups: Metron, Google Books, or Open Library-style fallback cover enrichment, embedded reading, page streaming, reading progress sync, metadata writeback, reader page proxying, per-space Kavita administration, chapter-as-issue fan-out, and shared provider abstraction cleanup remain out of scope and stay in backlog.
+- What remains in the milestone: no open `3.4.90` work remains.
+- Recommended commit message: `Release 3.4.90 Kavita cover art source hardening`.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

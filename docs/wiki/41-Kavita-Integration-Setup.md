@@ -31,18 +31,29 @@ A passing test means collectZ can authenticate, read the library list, sample se
 
 ## Import and Launch Links
 
-Kavita imports are read-only. Imported rows keep Kavita provider identity and, when volume/chapter detail is available, a launch URL back into Kavita:
+Kavita imports are read-only. Imported rows keep Kavita provider identity, Kavita cover source metadata, and, when volume/chapter detail is available, a launch URL back into Kavita.
+
+Cover art uses a collectZ-authenticated proxy URL:
+
+- collectZ cover proxy: `/api/media/kavita-cover/{seriesId}`
+- Kavita source path metadata: `kavita_cover_image`
+- Kavita source URL metadata: `kavita_cover_url`
+- readback status metadata: `kavita_cover_source` and `kavita_cover_status`
+
+The proxy only serves covers for Kavita rows visible in the active collectZ scope, then fetches the Kavita image server-side using the stored integration credentials.
+
+Launch links remain native Kavita web URLs:
 
 - Series detail fallback: `/library/{libraryId}/series/{seriesId}`
 - Comic/manga/image/archive reader: `/library/{libraryId}/series/{seriesId}/manga/{chapterId}`
 - EPUB reader: `/library/{libraryId}/series/{seriesId}/book/{chapterId}`
 - PDF reader: `/library/{libraryId}/series/{seriesId}/pdf/{chapterId}`
 
-These URLs are built from the configured Kavita base URL plus Kavita ids. They must not include API keys, OPDS keys, bearer tokens, or any other credential. Users still authenticate with Kavita in Kavita's own browser session.
+Cover proxy URLs and launch URLs must not include API keys, OPDS keys, bearer tokens, or any other credential. Users still authenticate with Kavita in Kavita's own browser session for native reader launches.
 
 ## Current Boundaries
 
-The Kavita integration remains read-only. It does not push metadata into Kavita, embed the Kavita reader, proxy reader pages, write reading progress, or create a shared Calibre/CWA/Kavita provider abstraction.
+The Kavita integration remains read-only. It does not push metadata into Kavita, embed the Kavita reader, proxy reader pages, write reading progress, or create a shared Calibre/CWA/Kavita provider abstraction. The cover proxy is only for imported cover images and does not expose reader content.
 
 Those are intentionally later milestones so the connection/auth contract can settle first.
 

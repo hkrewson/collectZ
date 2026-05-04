@@ -113,26 +113,8 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - A smoke plan proves repeat sync idempotency and avoids duplicate comic issues.
 
 ### Backlog Item: Kavita Cover Art Source Hardening
-**Type:** Task
-**Tags:** `kavita`, `cover-art`, `books`, `comics`, `metadata`
 
-**Goal:** Make Kavita-imported cover art reliable while keeping Metron and Google Books as optional fallback enrichment sources rather than hard requirements.
-
-**Why this work exists**
-- Kavita series imports expose `coverImage`, and collectZ already maps that to `poster_path` while preserving `kavita_cover_image`.
-- Some Kavita deployments may protect image routes behind auth or reverse-proxy rules, so cover display needs runtime validation.
-- Metron and Google Books can enrich missing or weak covers, but they should not be required for Kavita-owned artwork.
-
-**Scope**
-- Verify Kavita cover URLs render in the browser after import under common base URL and reverse-proxy shapes.
-- Decide whether collectZ should hotlink Kavita cover routes, proxy/cache them, or fall back when auth blocks browser display.
-- Add fallback ordering for missing covers: Kavita first, then media-type-appropriate enrichment such as Metron for comics and Google Books/Open Library-style sources for books.
-- Keep provider metadata writeback and reader/progress behavior separate.
-
-**Acceptance Criteria**
-- A Kavita import with `coverImage` can display cover art or records a clear fallback reason.
-- Fallback enrichment is optional and does not block Kavita import.
-- No cover-art path leaks Kavita API keys, OPDS keys, bearer tokens, or other credentials.
+Promoted as `3.4.90`; keep fallback enrichment from Metron, Google Books, or Open Library-style sources as separate future work after Kavita-owned cover display is proven.
 
 ### Backlog Item: Kavita Per-Space Administration
 **Type:** Task

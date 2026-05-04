@@ -12,7 +12,7 @@ const { normalizeDeliciousRow } = require('../services/deliciousNormalize');
 const { normalizeIsbn, normalizeIdentifierSet } = require('../services/importIdentifiers');
 const { normalizeTypeDetails } = require('../services/typeDetails');
 const { normalizeOpdsEntry } = require('../services/cwa');
-const { buildKavitaSeriesWebUrl, buildKavitaReaderWebUrl } = require('../services/kavita');
+const { buildKavitaSeriesWebUrl, buildKavitaReaderWebUrl, buildKavitaCoverImageUrl, buildKavitaCoverProxyPath } = require('../services/kavita');
 const {
   buildBookNormalizationIdentity,
   buildComicNormalizationIdentity,
@@ -1807,6 +1807,8 @@ results.push(run('repo includes Kavita import sync smoke coverage for repeat syn
   assert.ok(kavitaImportSyncSmokeSource.includes('Expected Kavita page metadata'));
   assert.ok(kavitaImportSyncSmokeSource.includes('Expected Kavita comic reader launch URL metadata without secrets'));
   assert.ok(kavitaImportSyncSmokeSource.includes('Kavita launch URL must not include API keys'));
+  assert.ok(kavitaImportSyncSmokeSource.includes('Expected Kavita proxied cover content type'));
+  assert.ok(kavitaImportSyncSmokeSource.includes('/api/media/kavita-cover/8602'));
   assert.ok(kavitaImportSyncSmokeSource.includes("type_details->>'provider_item_id' = $2"));
 }));
 
@@ -1833,6 +1835,17 @@ results.push(run('kavita launch URL helpers build secret-free native web routes'
     format: 4,
     libraryType: 'book'
   }), 'https://kavita.example/root/library/86/series/8603/pdf/9703');
+}));
+
+results.push(run('kavita cover helpers preserve proxy base paths and reject cross-origin images', () => {
+  assert.strictEqual(buildKavitaCoverProxyPath(8602), '/api/media/kavita-cover/8602');
+  assert.strictEqual(buildKavitaCoverImageUrl('https://kavita.example/root/', '/api/image/series-cover?seriesId=8602'), 'https://kavita.example/root/api/image/series-cover?seriesId=8602');
+  assert.strictEqual(buildKavitaCoverImageUrl('https://kavita.example/root/', 'https://kavita.example/root/api/image/series-cover?seriesId=8602'), 'https://kavita.example/root/api/image/series-cover?seriesId=8602');
+  assert.strictEqual(buildKavitaCoverImageUrl('https://kavita.example/root/', 'https://evil.example/root/api/image/series-cover?seriesId=8602'), '');
+}));
+
+results.push(run('AppPrimitives keeps authenticated collectZ API image paths same-origin', () => {
+  assert.ok(appPrimitivesSource.includes("if (path.startsWith('/api/')) return path;"));
 }));
 
 results.push(run('repo includes comic query contract smoke coverage for paginated server-backed issue ordering', () => {
@@ -2310,6 +2323,10 @@ results.push(run('typeDetails keeps Kavita provider detail fields for digital li
     kavita_format: 1,
     kavita_pages: 24,
     kavita_cover_image: '/api/image/series-cover?seriesId=8602',
+    kavita_cover_url: 'https://kavita.example/api/image/series-cover?seriesId=8602',
+    kavita_cover_proxy_url: '/api/media/kavita-cover/8602',
+    kavita_cover_source: 'collectz_proxy',
+    kavita_cover_status: 'proxied',
     kavita_series_url: 'https://kavita.example/library/87/series/8602',
     kavita_launch_url: 'https://kavita.example/library/87/series/8602/manga/9702',
     kavita_launch_label: 'Read in Kavita',
@@ -2335,6 +2352,10 @@ results.push(run('typeDetails keeps Kavita provider detail fields for digital li
   assert.strictEqual(out.value.kavita_series_id, '8602');
   assert.strictEqual(out.value.kavita_pages, '24');
   assert.strictEqual(out.value.kavita_cover_image, '/api/image/series-cover?seriesId=8602');
+  assert.strictEqual(out.value.kavita_cover_url, 'https://kavita.example/api/image/series-cover?seriesId=8602');
+  assert.strictEqual(out.value.kavita_cover_proxy_url, '/api/media/kavita-cover/8602');
+  assert.strictEqual(out.value.kavita_cover_source, 'collectz_proxy');
+  assert.strictEqual(out.value.kavita_cover_status, 'proxied');
   assert.strictEqual(out.value.kavita_series_url, 'https://kavita.example/library/87/series/8602');
   assert.strictEqual(out.value.kavita_launch_url, 'https://kavita.example/library/87/series/8602/manga/9702');
   assert.strictEqual(out.value.kavita_launch_label, 'Read in Kavita');

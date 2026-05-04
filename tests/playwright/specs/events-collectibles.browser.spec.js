@@ -886,7 +886,9 @@ test.describe('events and collectibles browser regressions', () => {
     const currentTitle = 'Now Running Catalog Panel';
     const nextTitle = 'Next Catalog Drawing Demo';
     const laterTitle = 'Later Catalog Trivia Meetup';
-    const now = Date.now();
+    const browserNow = new Date();
+    browserNow.setHours(12, 0, 0, 0);
+    const now = browserNow.getTime();
     const originalFlagsPayload = await getFeatureFlags(adminRequestContext);
     const originalFlags = Array.isArray(originalFlagsPayload?.flags) ? originalFlagsPayload.flags : [];
     const originalEventsEnabled = Boolean(originalFlags.find((flag) => flag?.key === 'events_enabled')?.enabled);
@@ -968,6 +970,7 @@ test.describe('events and collectibles browser regressions', () => {
       }, 201);
 
       await page.setViewportSize({ width: 390, height: 844 });
+      await page.clock.setFixedTime(browserNow);
       await signInThroughUi(page, userCredentials);
       await page.goto('/dashboard?tab=library-events');
       await expect(page.getByRole('heading', { name: 'Events' })).toBeVisible();

@@ -77,6 +77,54 @@ function buildKavitaReaderWebUrl(baseUrl = '', {
   return buildKavitaWebUrl(baseUrl, `/library/${libId}/series/${sId}/${route}/${chId}`);
 }
 
+function buildKavitaCoverProxyPath(seriesId = null) {
+  const id = Number(seriesId || 0) || null;
+  if (!id) return '';
+  return `/api/media/kavita-cover/${id}`;
+}
+
+function buildKavitaCoverImageUrl(baseUrl = '', coverImage = '') {
+  const normalizedBase = normalizeKavitaBaseUrl(baseUrl);
+  const raw = String(coverImage || '').trim();
+  if (!normalizedBase || !raw) return '';
+  if (/^https?:\/\//i.test(raw)) {
+    try {
+      const parsed = new URL(raw);
+      const base = new URL(normalizedBase);
+      if (parsed.origin !== base.origin) return '';
+      if (base.pathname !== '/' && !parsed.pathname.startsWith(base.pathname.replace(/\/+$/, ''))) return '';
+      return parsed.toString();
+    } catch (_) {
+      return '';
+    }
+  }
+  return buildKavitaWebUrl(normalizedBase, raw);
+}
+
+async function fetchKavitaCoverImage(config = {}, token, coverImage = '') {
+  const imageUrl = buildKavitaCoverImageUrl(config.kavitaBaseUrl, coverImage);
+  if (!imageUrl) {
+    const error = new Error('Kavita cover image path is not available');
+    error.status = 404;
+    throw error;
+  }
+  const response = await axios.get(imageUrl, {
+    headers: { Authorization: `Bearer ${token}` },
+    responseType: 'arraybuffer',
+    timeout: getKavitaTimeoutMs(config),
+    validateStatus: () => true
+  });
+  if (response.status < 200 || response.status >= 300) {
+    const error = new Error(`Kavita cover image returned status ${response.status}`);
+    error.status = response.status;
+    throw error;
+  }
+  return {
+    body: Buffer.from(response.data || []),
+    contentType: String(response.headers?.['content-type'] || 'image/jpeg').split(';')[0].trim() || 'image/jpeg'
+  };
+}
+
 function getKavitaTimeoutMs(config = {}) {
   const parsed = Number(config.kavitaTimeoutMs || DEFAULT_TIMEOUT_MS);
   return Number.isFinite(parsed) && parsed >= 1000 ? parsed : DEFAULT_TIMEOUT_MS;
@@ -378,7 +426,8 @@ function normalizeKavitaSeries(series = {}, library = {}, config = {}) {
   const openUrl = buildKavitaSeriesWebUrl(config.kavitaBaseUrl, libraryId, id);
   const summary = firstString(series.summary, series.localizedSummary, series.description);
   const coverImage = firstString(series.coverImage, series.coverImageLocked ? '' : series.cover);
-  const coverUrl = coverImage ? buildKavitaWebUrl(config.kavitaBaseUrl, coverImage) : null;
+  const coverUrl = buildKavitaCoverImageUrl(config.kavitaBaseUrl, coverImage);
+  const coverProxyUrl = buildKavitaCoverProxyPath(id);
   const seriesName = firstString(series.name, title);
   const localizedName = firstString(series.localizedName, title);
   const originalName = firstString(series.originalName);
@@ -394,7 +443,7 @@ function normalizeKavitaSeries(series = {}, library = {}, config = {}) {
     format: 'Digital',
     overview: summary || null,
     external_url: openUrl || null,
-    poster_path: coverUrl,
+    poster_path: coverProxyUrl || coverUrl || null,
     type_details: {
       author: firstString(series.writer, series.author, series.authors) || null,
       publisher: firstString(series.publisher) || null,
@@ -422,6 +471,10 @@ function normalizeKavitaSeries(series = {}, library = {}, config = {}) {
       kavita_format: kavitaFormat || null,
       kavita_pages: kavitaPages || null,
       kavita_cover_image: coverImage || null,
+      kavita_cover_url: coverUrl || null,
+      kavita_cover_proxy_url: coverProxyUrl || null,
+      kavita_cover_source: coverProxyUrl ? 'collectz_proxy' : (coverUrl ? 'kavita_direct' : 'missing'),
+      kavita_cover_status: coverProxyUrl ? 'proxied' : (coverUrl ? 'direct' : 'missing'),
       source_updated_at: sourceUpdatedAt || null
     }
   };
@@ -553,6 +606,9 @@ module.exports = {
   buildKavitaWebUrl,
   buildKavitaSeriesWebUrl,
   buildKavitaReaderWebUrl,
+  buildKavitaCoverProxyPath,
+  buildKavitaCoverImageUrl,
+  fetchKavitaCoverImage,
   authenticateKavita,
   fetchKavitaLibraries,
   fetchKavitaSeriesSample,

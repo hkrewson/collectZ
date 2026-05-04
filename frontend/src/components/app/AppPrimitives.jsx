@@ -18,6 +18,7 @@ export function posterUrl(path) {
   if (!path) return '';
   if (path.startsWith('http')) return path;
   if (path.startsWith('/uploads/') || path.startsWith('/')) {
+    if (path.startsWith('/api/')) return path;
     if (path.startsWith('/t/') || path.match(/\/p\//)) return `https://image.tmdb.org/t/p/w500${path}`;
     if (path.startsWith('/uploads/')) return path;
     return `https://image.tmdb.org/t/p/w500${path}`;

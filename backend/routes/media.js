@@ -47,7 +47,7 @@ const { searchGamesByTitle } = require('../services/games');
 const { searchComicsByTitle, fetchMetronCollectionIssues, fetchMetronIssueDetails, pushMetronCollectionIssue } = require('../services/comics');
 const { parseCsvText } = require('../services/csv');
 const { fetchCwaOpdsItems } = require('../services/cwa');
-const { fetchKavitaImportItems } = require('../services/kavita');
+const { authenticateKavita, fetchKavitaCoverImage, fetchKavitaImportItems } = require('../services/kavita');
 const { mapDeliciousItemTypeToMediaType } = require('../services/importMapping');
 const { normalizeDeliciousRow } = require('../services/deliciousNormalize');
 const { normalizeIdentifierSet, normalizeIsbn } = require('../services/importIdentifiers');
@@ -6062,6 +6062,10 @@ async function runGenericCsvImport({
         kavita_format: value('kavita_format') || rowTypeDetails.kavita_format || null,
         kavita_pages: value('kavita_pages') || rowTypeDetails.kavita_pages || null,
         kavita_cover_image: value('kavita_cover_image') || rowTypeDetails.kavita_cover_image || null,
+        kavita_cover_url: value('kavita_cover_url') || rowTypeDetails.kavita_cover_url || null,
+        kavita_cover_proxy_url: value('kavita_cover_proxy_url') || rowTypeDetails.kavita_cover_proxy_url || null,
+        kavita_cover_source: value('kavita_cover_source') || rowTypeDetails.kavita_cover_source || null,
+        kavita_cover_status: value('kavita_cover_status') || rowTypeDetails.kavita_cover_status || null,
         kavita_series_url: value('kavita_series_url') || rowTypeDetails.kavita_series_url || null,
         kavita_launch_url: value('kavita_launch_url') || rowTypeDetails.kavita_launch_url || null,
         kavita_launch_label: value('kavita_launch_label') || rowTypeDetails.kavita_launch_label || null,
@@ -6796,6 +6800,46 @@ router.get('/feature-flags', asyncHandler(async (req, res) => {
       collectibles_enabled: Boolean(collectiblesEnabled)
     }
   });
+}));
+
+router.get('/kavita-cover/:seriesId', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const seriesId = Number(req.params.seriesId || 0) || null;
+  if (!seriesId) {
+    return res.status(400).json({ error: 'Invalid Kavita series id' });
+  }
+
+  const params = [String(seriesId)];
+  const scopeClause = appendScopeSql(params, scopeContext, {
+    spaceColumn: 'space_id',
+    libraryColumn: 'library_id'
+  });
+  const result = await pool.query(
+    `SELECT id, space_id, type_details
+       FROM media
+      WHERE type_details->>'provider_name' = 'kavita'
+        AND type_details->>'kavita_series_id' = $1
+        AND COALESCE(type_details->>'kavita_cover_image', '') <> ''
+        ${scopeClause}
+      ORDER BY id ASC
+      LIMIT 1`,
+    params
+  );
+  const row = result.rows[0] || null;
+  if (!row) {
+    return res.status(404).json({ error: 'Kavita cover was not found in the active scope' });
+  }
+
+  const details = row.type_details || {};
+  const scopedConfig = await loadScopedIntegrationConfig(row.space_id || scopeContext?.spaceId || null);
+  const config = scopedConfig?.kavitaBaseUrl && scopedConfig?.kavitaApiKey
+    ? scopedConfig
+    : await loadAdminIntegrationConfig();
+  const auth = await authenticateKavita(config);
+  const cover = await fetchKavitaCoverImage(config, auth.token, details.kavita_cover_image);
+  res.setHeader('Content-Type', cover.contentType);
+  res.setHeader('Cache-Control', 'private, max-age=300');
+  return res.send(cover.body);
 }));
 
 // ── List / search ─────────────────────────────────────────────────────────────

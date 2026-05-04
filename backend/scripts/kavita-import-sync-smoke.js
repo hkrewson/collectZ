@@ -66,6 +66,24 @@ class HttpClient {
     return { status: response.status, data };
   }
 
+  async requestRaw(path, options = {}) {
+    const {
+      method = 'GET',
+      expectStatus,
+      headers: extraHeaders = {}
+    } = options;
+    const headers = { Accept: '*/*', ...extraHeaders };
+    const cookieHeader = this.cookieHeader();
+    if (cookieHeader) headers.Cookie = cookieHeader;
+    const response = await fetch(`${BASE_URL}${path}`, { method, headers });
+    this.applySetCookies(response.headers);
+    const body = Buffer.from(await response.arrayBuffer());
+    if (expectStatus !== undefined && response.status !== expectStatus) {
+      throw new Error(`[${this.name}] ${method} ${path} expected ${expectStatus}, got ${response.status}. Body length: ${body.length}`);
+    }
+    return { status: response.status, headers: response.headers, body };
+  }
+
   async fetchCsrfToken() {
     const response = await this.request('/api/auth/csrf-token', { expectStatus: 200 });
     const token = response?.data?.csrfToken;
@@ -114,6 +132,22 @@ async function startFakeKavitaServer() {
     if (req.headers.authorization !== `Bearer ${KAVITA_SMOKE_BEARER}`) {
       res.writeHead(403);
       res.end(JSON.stringify({ message: 'forbidden' }));
+      return;
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/image/series-cover') {
+      const seriesId = Number(url.searchParams.get('seriesId') || 0);
+      if (seriesId === 8601 || seriesId === 8602) {
+        const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=', 'base64');
+        res.writeHead(200, {
+          'Content-Type': 'image/png',
+          'Content-Length': String(png.length)
+        });
+        res.end(png);
+        return;
+      }
+      res.writeHead(404);
+      res.end(JSON.stringify({ message: 'cover not found' }));
       return;
     }
 
@@ -266,6 +300,7 @@ async function readImportedProviderRow(libraryId, providerItemId) {
             year,
             release_date,
             import_source,
+            poster_path,
             type_details
      FROM media
      WHERE library_id = $1
@@ -377,6 +412,11 @@ async function main() {
     assert(String(canonicalBookDetails.kavita_format || '') === '3', `Expected Kavita format metadata, got ${JSON.stringify(canonicalBookDetails)}`);
     assert(String(canonicalBookDetails.kavita_pages || '') === '321', `Expected Kavita page metadata, got ${JSON.stringify(canonicalBookDetails)}`);
     assert(String(canonicalBookDetails.kavita_cover_image || '') === '/api/image/series-cover?seriesId=8601', `Expected Kavita cover image metadata, got ${JSON.stringify(canonicalBookDetails)}`);
+    assert(String(canonicalBookDetails.kavita_cover_url || '') === `${fake.baseUrl}/api/image/series-cover?seriesId=8601`, `Expected Kavita book cover source URL metadata, got ${JSON.stringify(canonicalBookDetails)}`);
+    assert(String(canonicalBookDetails.kavita_cover_proxy_url || '') === '/api/media/kavita-cover/8601', `Expected Kavita book cover proxy metadata, got ${JSON.stringify(canonicalBookDetails)}`);
+    assert(String(canonicalBookDetails.kavita_cover_source || '') === 'collectz_proxy', `Expected Kavita book cover source metadata, got ${JSON.stringify(canonicalBookDetails)}`);
+    assert(String(canonicalBookDetails.kavita_cover_status || '') === 'proxied', `Expected Kavita book cover status metadata, got ${JSON.stringify(canonicalBookDetails)}`);
+    assert(String(canonicalBook.poster_path || '') === '/api/media/kavita-cover/8601', `Expected Kavita book poster path to use collectZ cover proxy, got ${JSON.stringify(canonicalBook)}`);
     assert(String(canonicalBookDetails.kavita_volume_detail_status || '') === 'loaded', `Expected Kavita book volume detail status, got ${JSON.stringify(canonicalBookDetails)}`);
     assert(String(canonicalBookDetails.kavita_volume_count || '') === '1', `Expected Kavita book volume count metadata, got ${JSON.stringify(canonicalBookDetails)}`);
     assert(String(canonicalBookDetails.kavita_chapter_count || '') === '1', `Expected Kavita book chapter count metadata, got ${JSON.stringify(canonicalBookDetails)}`);
@@ -403,12 +443,20 @@ async function main() {
     assert(String(canonicalComicDetails.kavita_volume_detail_status || '') === 'loaded', `Expected Kavita comic volume detail status, got ${JSON.stringify(canonicalComicDetails)}`);
     assert(String(canonicalComicDetails.kavita_first_chapter_title || '') === 'Kavita Metadata Smoke Issue #1', `Expected Kavita comic first chapter title metadata, got ${JSON.stringify(canonicalComicDetails)}`);
     assert(String(canonicalComicDetails.kavita_chapter_titles || '').includes('Kavita Metadata Smoke Issue #1'), `Expected Kavita comic chapter title list metadata, got ${JSON.stringify(canonicalComicDetails)}`);
+    assert(String(canonicalComicDetails.kavita_cover_url || '') === `${fake.baseUrl}/api/image/series-cover?seriesId=8602`, `Expected Kavita comic cover source URL metadata, got ${JSON.stringify(canonicalComicDetails)}`);
+    assert(String(canonicalComicDetails.kavita_cover_proxy_url || '') === '/api/media/kavita-cover/8602', `Expected Kavita comic cover proxy metadata, got ${JSON.stringify(canonicalComicDetails)}`);
+    assert(String(canonicalComicDetails.kavita_cover_source || '') === 'collectz_proxy', `Expected Kavita comic cover source metadata, got ${JSON.stringify(canonicalComicDetails)}`);
+    assert(String(canonicalComicDetails.kavita_cover_status || '') === 'proxied', `Expected Kavita comic cover status metadata, got ${JSON.stringify(canonicalComicDetails)}`);
+    assert(String(canonicalComic.poster_path || '') === '/api/media/kavita-cover/8602', `Expected Kavita comic poster path to use collectZ cover proxy, got ${JSON.stringify(canonicalComic)}`);
     assert(String(canonicalComicDetails.kavita_series_url || '') === `${fake.baseUrl}/library/87/series/8602`, `Expected Kavita comic series launch URL metadata without secrets, got ${JSON.stringify(canonicalComicDetails)}`);
     assert(String(canonicalComicDetails.kavita_launch_url || '') === `${fake.baseUrl}/library/87/series/8602/manga/9702`, `Expected Kavita comic reader launch URL metadata without secrets, got ${JSON.stringify(canonicalComicDetails)}`);
     assert(String(canonicalComicDetails.kavita_launch_label || '') === 'Read in Kavita', `Expected Kavita comic launch label, got ${JSON.stringify(canonicalComicDetails)}`);
     assert(String(canonicalComicDetails.kavita_launch_target || '') === 'first_chapter_reader', `Expected Kavita comic launch target, got ${JSON.stringify(canonicalComicDetails)}`);
     assert(!String(canonicalComicDetails.kavita_launch_url || '').includes(KAVITA_SMOKE_KEY), `Kavita launch URL must not include API keys, got ${JSON.stringify(canonicalComicDetails)}`);
     assert(!String(canonicalComicDetails.kavita_launch_url || '').includes(KAVITA_SMOKE_BEARER), `Kavita launch URL must not include bearer tokens, got ${JSON.stringify(canonicalComicDetails)}`);
+    const coverReadback = await client.requestRaw('/api/media/kavita-cover/8602', { expectStatus: 200 });
+    assert(String(coverReadback.headers.get('content-type') || '').startsWith('image/png'), `Expected Kavita proxied cover content type, got ${coverReadback.headers.get('content-type')}`);
+    assert(coverReadback.body.length > 0, 'Expected Kavita proxied cover body');
 
     console.log(JSON.stringify({
       provider: 'kavita',
@@ -425,6 +473,8 @@ async function main() {
       comicIssueNumber: canonicalComicDetails.issue_number,
       bookLaunchUrl: canonicalBookDetails.kavita_launch_url,
       comicLaunchUrl: canonicalComicDetails.kavita_launch_url,
+      comicCoverProxyUrl: canonicalComicDetails.kavita_cover_proxy_url,
+      coverProxyContentType: coverReadback.headers.get('content-type'),
       secretReturned: false
     }, null, 2));
   } finally {
