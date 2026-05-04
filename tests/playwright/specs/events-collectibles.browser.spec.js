@@ -937,8 +937,8 @@ test.describe('events and collectibles browser regressions', () => {
       }, 201);
       await postWithCsrf(userRequestContext, `/api/events/${eventId}/schedule-sessions`, {
         title: laterTitle,
-        start_at: new Date(now + 4 * 60 * 60 * 1000).toISOString(),
-        end_at: new Date(now + 5 * 60 * 60 * 1000).toISOString(),
+        start_at: new Date(now + 2 * 60 * 60 * 1000).toISOString(),
+        end_at: new Date(now + 3 * 60 * 60 * 1000).toISOString(),
         location: 'Convention Center',
         room: 'Ballroom 20',
         track: 'Games',

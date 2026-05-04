@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.4.87",
+      "version": "v3.4.87",
+      "date": null,
+      "status": null,
+      "summary": "",
+      "details": []
+    },
+    {
       "title": "collectZ v3.4.86",
       "version": "v3.4.86",
       "date": null,
@@ -67,14 +75,6 @@
     {
       "title": "collectZ v3.4.78",
       "version": "v3.4.78",
-      "date": null,
-      "status": null,
-      "summary": "",
-      "details": []
-    },
-    {
-      "title": "collectZ v3.4.77",
-      "version": "v3.4.77",
       "date": null,
       "status": null,
       "summary": "",

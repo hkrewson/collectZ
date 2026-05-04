@@ -1799,9 +1799,11 @@ results.push(run('repo includes Kavita connection smoke coverage for native API 
 results.push(run('repo includes Kavita import sync smoke coverage for repeat sync and non-Kavita title reuse', () => {
   assert.ok(backendPackageJson.scripts['test:kavita-import-sync-smoke']);
   assert.ok(kavitaImportSyncSmokeSource.includes('/api/media/import-kavita?sync=1'));
-  assert.ok(kavitaImportSyncSmokeSource.includes('Expected first Kavita import to reuse the existing non-Kavita title'));
+  assert.ok(kavitaImportSyncSmokeSource.includes('Expected first Kavita import to create one new comic row while reusing the existing non-Kavita book title'));
   assert.ok(kavitaImportSyncSmokeSource.includes('Expected second Kavita import to avoid duplicate creation'));
   assert.ok(kavitaImportSyncSmokeSource.includes('Expected Kavita title reuse to preserve existing non-Kavita author metadata'));
+  assert.ok(kavitaImportSyncSmokeSource.includes('Expected Kavita library type 1 to classify as comic_book'));
+  assert.ok(kavitaImportSyncSmokeSource.includes('Expected Kavita page metadata'));
   assert.ok(kavitaImportSyncSmokeSource.includes("type_details->>'provider_item_id' = $2"));
 }));
 
@@ -2256,6 +2258,33 @@ results.push(run('typeDetails keeps canonical provider linkage fields for CWA im
     calibre_external_url: 'https://cwa.example/books/abc-123',
     calibre_download_url: 'https://cwa.example/downloads/abc-123.epub'
   });
+}));
+
+results.push(run('typeDetails keeps Kavita provider detail fields for digital library imports', () => {
+  const out = normalizeTypeDetails('comic_book', {
+    provider_name: 'kavita',
+    provider_item_id: 'kavita:series:8602',
+    provider_external_url: 'https://kavita.example/library/87/series/8602',
+    kavita_library_id: 87,
+    kavita_library_name: 'Sequential Shelf',
+    kavita_library_type: 'comic',
+    kavita_series_id: 8602,
+    kavita_series_name: 'Metadata Smoke Issue',
+    kavita_localized_name: 'Metadata Smoke Issue',
+    kavita_original_name: 'Metadata Smoke Issue Original',
+    kavita_sort_name: 'Metadata Smoke Issue 001',
+    kavita_format: 1,
+    kavita_pages: 24,
+    kavita_cover_image: '/api/image/series-cover?seriesId=8602',
+    source_updated_at: '2026-05-03T00:00:00Z'
+  }, { strict: true });
+  assert.deepStrictEqual(out.invalidKeys, []);
+  assert.deepStrictEqual(out.errors, []);
+  assert.strictEqual(out.value.kavita_library_id, '87');
+  assert.strictEqual(out.value.kavita_library_type, 'comic');
+  assert.strictEqual(out.value.kavita_series_id, '8602');
+  assert.strictEqual(out.value.kavita_pages, '24');
+  assert.strictEqual(out.value.kavita_cover_image, '/api/image/series-cover?seriesId=8602');
 }));
 
 results.push(run('cwa.normalizeOpdsEntry separates browse and download links without misusing tmdb_url', () => {

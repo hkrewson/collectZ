@@ -8600,6 +8600,43 @@ Historical note:
 - What remains in the milestone: no remaining `3.4.86` implementation work; CI-only release gates must pass before public tag/release publication. Follow-on Kavita work should split into separate milestones for richer metadata mapping/writeback, reader/progress exploration, and provider framework cleanup.
 - Recommended commit message: `Release 3.4.86 Kavita digital library import sync foundation`
 
+## 3.4.87 — Kavita Metadata Mapping Detail Foundation
+
+**Goal:** Make Kavita-imported rows richer and more trustworthy by preserving native library and series detail metadata while keeping the integration read-only and avoiding reader/progress/writeback scope.
+
+**Current Slice:** `Closed 2026-05-04`
+
+### Scope
+
+- Map Kavita library and series identifiers, names, type, format, pages, sort/original/localized names, and cover source metadata into collectZ provider detail fields.
+- Improve book versus comic classification from Kavita library type before falling back to name hints.
+- Preserve the safe existing-title reuse and repeat-sync idempotency from `3.4.86`.
+- Add smoke coverage for book and comic Kavita libraries importing side by side.
+- Keep metadata writeback to Kavita, embedded/in-frame reading, reading progress, cross-server identity, and provider framework cleanup out of this slice.
+
+### Acceptance Criteria
+
+- Kavita book-library series import as `book`; Kavita comic/manga-library series import as `comic_book`.
+- Imported rows retain stable Kavita library/series metadata in `type_details`.
+- Existing non-Kavita title reuse still preserves local metadata while adding Kavita detail fields.
+- Repeat Kavita import remains idempotent and does not create duplicate rows.
+- Version metadata and Help > Releases are aligned to `3.4.87`.
+
+### Closeout Notes
+
+- Roadmap slice: `3.4.87 — Kavita Metadata Mapping Detail Foundation`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, and `docs/wiki/41-Kavita-Integration-Setup.md`.
+- Runtime verification used: rebuilt and recreated the local platform stack through Docker with `APP_VERSION=3.4.87`; verified `/api/health` reports frontend/backend/build `3.4.87`; verified `/api/auth/config` reports platform behavior after restore; verified the live DB reported `events_enabled=true` before implementation, after the rebuilt stack, after observability release evidence, and after restoring the platform stack; verified Help > Releases serves `v3.4.87` first; temporarily swapped to generated public compose plus `.ci/docker-compose.build.yml`, verified `/api/auth/config` reports homelab behavior with `workspace_surface=false`, ran the homelab boundary smoke, then restored the local platform stack and rechecked `/api/health`, `events_enabled`, and healthy container state.
+- CI/checks run: source syntax checks for touched backend service/scripts; container frontend Vite production build during Docker image build; container backend unit/source assertions (`234` passed); container OpenAPI validation; container `test:kavita-connection-smoke` with `BASE_URL=http://frontend:3000`; container `test:kavita-import-sync-smoke` with `BASE_URL=http://frontend:3000`; container `test:help-releases-smoke` with `EXPECTED_RELEASE_VERSION=v3.4.87`; container `test:init-parity`; container `test:migration-rehearsal`; container `test:rbac-regression` with `BASE_URL=http://frontend:3000`; container `test:platform-edition-boundary` with `BASE_URL=http://frontend:3000`; generated-compose `test:homelab-edition-boundary`; API integration smoke; targeted Event browser rerun for the now/next fixture; full browser regression (`58 passed`, `4 skipped`); `docker compose --env-file .env -f docker-compose.yml -f docker-compose.localhost.yml config`; `npm run validate:public-export`; backend/frontend dependency audits via npm 11/Corepack; `backend/scripts/observability-release-evidence.js`; `backend/scripts/release-preflight-local.js`; release-artifact secret-pattern grep over dependency audit, migration/init, observability, release note, release feed, and preflight artifacts; and `git diff --check`.
+- Release artifacts: `app-meta.json`, backend/frontend app meta, backend/frontend package and lockfile versions, generated `docker-compose.yml`, `docs/releases/v3.4.87.md`, and `backend/release-feed.json` are aligned on `3.4.87`; the running Help > Releases feed serves `v3.4.87` first while retaining recent Kavita/Event releases; `artifacts/observability-evidence/observability-release-evidence.json` reports `3.4.87` with `9/9` checks passed; npm audit artifacts report backend low `0`, moderate `2`, high `0`, critical `0`, and frontend low `0`, moderate `0`, high `0`, critical `0`.
+- Verified facts: Kavita imports now persist library id, library name, normalized library type, series id, series names, format, pages, and cover source in provider detail fields; Kavita library type `2` classifies as `book` and type `1` classifies as `comic_book`; the running-stack import smoke proves a non-Kavita book title with matching date metadata is reused, a comic row is created from a separate Kavita library, repeat import updates both canonical rows with `created=0`, and raw Kavita secrets are not returned.
+- Inference: numeric Kavita library type mapping follows the native API enum shape used by the existing fake-compatible API and common Kavita contracts (`manga`, `comic`, `book`); deployments with custom or future library type values will fall back to the existing name-hint classifier until a later provider-contract expansion.
+- Blocked/unverified items: local secure-cookie compose-smoke remains blocked by development runtime settings (`SESSION_COOKIE_SECURE=false`, `NODE_ENV=development`); `secret-scan` and `image-security-and-sbom` remain CI-only gates for the tagged release handoff; real Kavita deployments may expose richer volume/chapter/person metadata that this series-level mapper intentionally does not consume yet.
+- Files changed: `app-meta.json`, `backend/app-meta.json`, `frontend/src/app-meta.json`, `backend/package.json`, `frontend/package.json`, `backend/package-lock.json`, `frontend/package-lock.json`, `backend/services/kavita.js`, `backend/services/typeDetails.js`, `backend/routes/media.js`, `backend/scripts/kavita-import-sync-smoke.js`, `backend/scripts/unit-tests.js`, `tests/playwright/specs/events-collectibles.browser.spec.js`, `docker-compose.yml`, `docs/releases/v3.4.87.md`, `docs/wiki/07-Release-Roadmap.md`, `backend/release-feed.json`, `artifacts/observability-evidence/observability-release-evidence.json`, and `preflight-go-no-go.md`.
+- Risks or follow-ups: Kavita import remains series-level and read-only; metadata writeback, volume/chapter/person enrichment, embedded/in-frame reading, reading progress, per-space Kavita administration, fuzzy duplicate review UI, and shared Calibre/CWA/Kavita provider abstractions remain future work.
+- What remains in the milestone: no remaining `3.4.87` implementation work; CI-only release gates must pass before public tag/release publication. A good next Kavita slice is either volume/chapter detail enrichment or read-only external-reader launch/progress contract discovery, but not both at once.
+- Recommended commit message: `Release 3.4.87 Kavita metadata mapping detail foundation`
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.
