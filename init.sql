@@ -572,6 +572,9 @@ CREATE TABLE IF NOT EXISTS app_integrations (
     ebay_browse_client_secret_encrypted TEXT,
     ebay_browse_marketplace_id VARCHAR(50),
     cwa_timeout_ms INTEGER DEFAULT 20000,
+    kavita_base_url TEXT,
+    kavita_api_key_encrypted TEXT,
+    kavita_timeout_ms INTEGER DEFAULT 20000,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT app_integrations_space_id_key UNIQUE (space_id)
@@ -1546,5 +1549,6 @@ INSERT INTO schema_migrations (version, description) VALUES
     (90, 'Add event schedule notification draft and send records'),
     (91, 'Add event schedule notification recipient readback'),
     (92, 'Add user-linked event attendee identity'),
-    (93, 'Add event schedule notification delivery attempts')
+    (93, 'Add event schedule notification delivery attempts'),
+    (94, 'Add Kavita digital library integration settings')
 ON CONFLICT (version) DO NOTHING;

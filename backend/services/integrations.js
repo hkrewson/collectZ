@@ -7,6 +7,7 @@ const { resolveBooksPreset } = require('./books');
 const { resolveAudioPreset } = require('./audio');
 const { resolveGamesPreset } = require('./games');
 const { resolveComicsPreset } = require('./comics');
+const { normalizeKavitaBaseUrl } = require('./kavita');
 const {
   DEFAULT_PRICECHARTING_API_URL,
   DEFAULT_EBAY_BROWSE_API_URL,
@@ -51,6 +52,7 @@ const normalizeIntegrationRecord = (row) => {
   const gamesClientSecretDecrypt = decryptSecretWithStatus(row?.games_client_secret_encrypted, 'games_client_secret_encrypted');
   const comicsDecrypt = decryptSecretWithStatus(row?.comics_api_key_encrypted, 'comics_api_key_encrypted');
   const cwaPasswordDecrypt = decryptSecretWithStatus(row?.cwa_password_encrypted, 'cwa_password_encrypted');
+  const kavitaApiKeyDecrypt = decryptSecretWithStatus(row?.kavita_api_key_encrypted, 'kavita_api_key_encrypted');
   const priceChartingDecrypt = decryptSecretWithStatus(row?.pricecharting_api_key_encrypted, 'pricecharting_api_key_encrypted');
   const ebayClientSecretDecrypt = decryptSecretWithStatus(row?.ebay_browse_client_secret_encrypted, 'ebay_browse_client_secret_encrypted');
 
@@ -63,10 +65,12 @@ const normalizeIntegrationRecord = (row) => {
   const gamesClientSecret = gamesClientSecretDecrypt.value || process.env.GAMES_CLIENT_SECRET || '';
   const comicsApiKey = comicsDecrypt.value || process.env.COMICS_API_KEY || '';
   const cwaPassword = cwaPasswordDecrypt.value || process.env.CWA_PASSWORD || process.env.CWA_TOKEN || '';
+  const kavitaApiKey = kavitaApiKeyDecrypt.value || process.env.KAVITA_API_KEY || process.env.KAVITA_TOKEN || '';
   const priceChartingApiKey = priceChartingDecrypt.value || process.env.PRICECHARTING_API_KEY || '';
   const eBayBrowseClientSecret = ebayClientSecretDecrypt.value || process.env.EBAY_BROWSE_CLIENT_SECRET || '';
   const cwaOpdsUrl = row?.cwa_opds_url || process.env.CWA_OPDS_URL || '';
   const resolvedCwaBaseUrl = deriveCwaBaseUrl(cwaOpdsUrl);
+  const kavitaBaseUrl = normalizeKavitaBaseUrl(row?.kavita_base_url || process.env.KAVITA_BASE_URL || process.env.KAVITA_URL || '');
 
   const decryptWarnings = [];
   const maybeWarn = (provider, field, encryptedValue, decryptResult) => {
@@ -87,6 +91,7 @@ const normalizeIntegrationRecord = (row) => {
   maybeWarn('games', 'games_client_secret_encrypted', row?.games_client_secret_encrypted, gamesClientSecretDecrypt);
   maybeWarn('comics', 'comics_api_key_encrypted', row?.comics_api_key_encrypted, comicsDecrypt);
   maybeWarn('cwa', 'cwa_password_encrypted', row?.cwa_password_encrypted, cwaPasswordDecrypt);
+  maybeWarn('kavita', 'kavita_api_key_encrypted', row?.kavita_api_key_encrypted, kavitaApiKeyDecrypt);
   maybeWarn('pricecharting', 'pricecharting_api_key_encrypted', row?.pricecharting_api_key_encrypted, priceChartingDecrypt);
   maybeWarn('ebay_browse', 'ebay_browse_client_secret_encrypted', row?.ebay_browse_client_secret_encrypted, ebayClientSecretDecrypt);
 
@@ -174,6 +179,9 @@ const normalizeIntegrationRecord = (row) => {
     cwaUsername: row?.cwa_username || process.env.CWA_USERNAME || '',
     cwaPassword,
     cwaTimeoutMs: 20000,
+    kavitaBaseUrl,
+    kavitaApiKey,
+    kavitaTimeoutMs: Math.max(1000, normalizePositiveInteger(row?.kavita_timeout_ms || process.env.KAVITA_TIMEOUT_MS, 20000)),
     logExportLastValidation: row?.log_export_last_validation_status
       ? {
         status: String(row.log_export_last_validation_status).trim().toLowerCase(),

@@ -34,6 +34,7 @@ const SECTION_DESCRIPTIONS = {
   books: 'Connection details, credentials, and runtime checks for this integration.',
   comics: 'Connection details, credentials, and runtime checks for this integration.',
   cwa: 'Connection details, credentials, and runtime checks for this integration.',
+  kavita: 'Connection details, credentials, and runtime checks for this integration.',
   ebay: 'Configure eBay Browse as an optional market-signal fallback. Dry-run tests stay local in this milestone and do not hit the live provider.',
   games: 'Connection details, credentials, and runtime checks for this integration.',
   logs: 'Configure external log export and validate the running endpoint.',
@@ -187,6 +188,7 @@ export default function AdminIntegrationsView({
         { id: 'ebay', label: 'eBay Browse' }
       ] : []),
       { id: 'games', label: 'Games' },
+      { id: 'kavita', label: 'Kavita' },
       ...(includeRuntimeSections ? [
         { id: 'logs', label: 'External Logs' },
         { id: 'metrics', label: 'Metrics' }
@@ -216,6 +218,7 @@ export default function AdminIntegrationsView({
     gamesApiKey: '', gamesClientId: '', gamesClientSecret: '', clearGamesApiKey: false, clearGamesClientSecret: false,
     comicsPreset: 'metron', comicsProvider: 'metron', comicsApiUrl: 'https://metron.cloud/api/issue/',
     comicsApiKey: '', comicsUsername: '', clearComicsApiKey: false,
+    kavitaBaseUrl: '', kavitaApiKey: '', clearKavitaApiKey: false, kavitaTimeoutMs: '20000',
     priceChartingEnabled: false, priceChartingApiUrl: 'https://www.pricecharting.com/api', priceChartingApiKey: '', clearPriceChartingApiKey: false, priceChartingRateLimitMs: '1100',
     eBayBrowseEnabled: false, eBayBrowseApiUrl: 'https://api.ebay.com/buy/browse/v1/item_summary/search', eBayBrowseClientId: '', eBayBrowseClientSecret: '', clearEBayBrowseClientSecret: false, eBayBrowseMarketplaceId: 'EBAY_US',
     cwaOpdsUrl: '', cwaUsername: '', cwaPassword: '', clearCwaPassword: false,
@@ -233,13 +236,15 @@ export default function AdminIntegrationsView({
     priceChartingApiKeySet: false, priceChartingApiKeyMasked: '',
     eBayBrowseClientSecretSet: false, eBayBrowseClientSecretMasked: '',
     cwaPasswordSet: false, cwaPasswordMasked: '',
+    kavitaApiKeySet: false, kavitaApiKeyMasked: '',
     decryptHealth: { hasWarnings: false, warnings: [], remediation: '' }
   });
-  const [status, setStatus] = useState({ barcode: 'unknown', tmdb: 'unknown', plex: 'unknown', books: 'unknown', audio: 'unknown', games: 'unknown', comics: 'unknown', cwa: 'unknown', pricecharting: 'unknown', ebay: 'unknown' });
+  const [status, setStatus] = useState({ barcode: 'unknown', tmdb: 'unknown', plex: 'unknown', books: 'unknown', audio: 'unknown', games: 'unknown', comics: 'unknown', cwa: 'unknown', kavita: 'unknown', pricecharting: 'unknown', ebay: 'unknown' });
   const [testLoading, setTestLoading] = useState('');
   const [testMsg, setTestMsg] = useState('');
   const [saving, setSaving] = useState(false);
   const [importingPlex, setImportingPlex] = useState(false);
+  const [importingKavita, setImportingKavita] = useState(false);
   const [plexAvailableSections, setPlexAvailableSections] = useState([]);
   const [featureFlags, setFeatureFlags] = useState([]);
   const [featureFlagsLoading, setFeatureFlagsLoading] = useState(true);
@@ -285,6 +290,7 @@ export default function AdminIntegrationsView({
         eBayBrowseClientId: data.valuationProviders?.ebayBrowse?.clientId || '',
         eBayBrowseMarketplaceId: data.valuationProviders?.ebayBrowse?.marketplaceId || 'EBAY_US',
         cwaOpdsUrl: data.cwaOpdsUrl || '', cwaUsername: data.cwaUsername || '',
+        kavitaBaseUrl: data.kavitaBaseUrl || '', kavitaTimeoutMs: String(data.kavitaTimeoutMs || '20000'),
         logExportBackend: data.logExportControl?.stored?.backend || data.logExportControl?.effective?.backend || '',
         logExportHost: data.logExportControl?.stored?.host || data.logExportControl?.effective?.host || '',
         logExportPort: String(data.logExportControl?.stored?.port || data.logExportControl?.effective?.port || ''),
@@ -306,6 +312,7 @@ export default function AdminIntegrationsView({
         priceChartingApiKeySet: Boolean(data.valuationProviders?.pricecharting?.apiKeySet), priceChartingApiKeyMasked: data.valuationProviders?.pricecharting?.apiKeyMasked || '',
         eBayBrowseClientSecretSet: Boolean(data.valuationProviders?.ebayBrowse?.clientSecretSet), eBayBrowseClientSecretMasked: data.valuationProviders?.ebayBrowse?.clientSecretMasked || '',
         cwaPasswordSet: Boolean(data.cwaPasswordSet), cwaPasswordMasked: data.cwaPasswordMasked || '',
+        kavitaApiKeySet: Boolean(data.kavitaApiKeySet), kavitaApiKeyMasked: data.kavitaApiKeyMasked || '',
         decryptHealth: data.decryptHealth || { hasWarnings: false, warnings: [], remediation: '' }
       });
       setObservabilityRuntime(data.observabilityRuntime || { logs: null, metrics: null });
@@ -320,7 +327,8 @@ export default function AdminIntegrationsView({
         comics: data.comicsApiKeySet ? 'configured' : 'missing',
         pricecharting: (data.valuationProviders?.pricecharting?.enabled && data.valuationProviders?.pricecharting?.apiKeySet) ? 'configured' : 'missing',
         ebay: (data.valuationProviders?.ebayBrowse?.enabled && data.valuationProviders?.ebayBrowse?.clientSecretSet && data.valuationProviders?.ebayBrowse?.clientId) ? 'configured' : 'missing',
-        cwa: data.cwaOpdsUrl ? 'configured' : 'missing'
+        cwa: data.cwaOpdsUrl ? 'configured' : 'missing',
+        kavita: (data.kavitaBaseUrl && data.kavitaApiKeySet) ? 'configured' : 'missing'
       });
     }).catch(() => {});
   }, [apiCall, endpointBase]);
@@ -445,6 +453,12 @@ export default function AdminIntegrationsView({
       clearCwaPassword: form.clearCwaPassword,
       ...(form.cwaPassword && { cwaPassword: form.cwaPassword })
     });
+    else if (sec === 'kavita') Object.assign(payload, {
+      kavitaBaseUrl: form.kavitaBaseUrl,
+      kavitaTimeoutMs: form.kavitaTimeoutMs,
+      clearKavitaApiKey: form.clearKavitaApiKey,
+      ...(form.kavitaApiKey && { kavitaApiKey: form.kavitaApiKey })
+    });
     else if (sec === 'logs') Object.assign(payload, {
       logExportBackend: form.logExportBackend,
       logExportHost: form.logExportHost,
@@ -467,6 +481,7 @@ export default function AdminIntegrationsView({
         priceChartingApiKeySet: Boolean(updated.valuationProviders?.pricecharting?.apiKeySet), priceChartingApiKeyMasked: updated.valuationProviders?.pricecharting?.apiKeyMasked || '',
         eBayBrowseClientSecretSet: Boolean(updated.valuationProviders?.ebayBrowse?.clientSecretSet), eBayBrowseClientSecretMasked: updated.valuationProviders?.ebayBrowse?.clientSecretMasked || '',
         cwaPasswordSet: Boolean(updated.cwaPasswordSet), cwaPasswordMasked: updated.cwaPasswordMasked || '',
+        kavitaApiKeySet: Boolean(updated.kavitaApiKeySet), kavitaApiKeyMasked: updated.kavitaApiKeyMasked || '',
         decryptHealth: updated.decryptHealth || { hasWarnings: false, warnings: [], remediation: '' }
       });
       setObservabilityRuntime(updated.observabilityRuntime || { logs: null, metrics: null });
@@ -481,14 +496,23 @@ export default function AdminIntegrationsView({
             ? ((updated.valuationProviders?.ebayBrowse?.enabled && updated.valuationProviders?.ebayBrowse?.clientId && updated.valuationProviders?.ebayBrowse?.clientSecretSet) ? 'configured' : 'missing')
           : sec === 'cwa'
             ? (updated.cwaOpdsUrl ? 'configured' : 'missing')
+          : sec === 'kavita'
+            ? ((updated.kavitaBaseUrl && updated.kavitaApiKeySet) ? 'configured' : 'missing')
           : (updated[`${sec}ApiKeySet`] ? 'configured' : 'missing')
       }));
       setForm((f) => ({
         ...f,
-        barcodeApiKey: '', tmdbApiKey: '', plexApiKey: '', booksApiKey: '', audioApiKey: '', gamesApiKey: '', gamesClientSecret: '', comicsApiKey: '', cwaPassword: '', priceChartingApiKey: '', eBayBrowseClientSecret: '',
+        barcodeApiKey: '', tmdbApiKey: '', plexApiKey: '', booksApiKey: '', audioApiKey: '', gamesApiKey: '', gamesClientSecret: '', comicsApiKey: '', cwaPassword: '', kavitaApiKey: '', priceChartingApiKey: '', eBayBrowseClientSecret: '',
         clearBarcodeApiKey: false, clearTmdbApiKey: false, clearPlexApiKey: false,
-        clearBooksApiKey: false, clearAudioApiKey: false, clearGamesApiKey: false, clearGamesClientSecret: false, clearComicsApiKey: false, clearCwaPassword: false, clearPriceChartingApiKey: false, clearEBayBrowseClientSecret: false
+        clearBooksApiKey: false, clearAudioApiKey: false, clearGamesApiKey: false, clearGamesClientSecret: false, clearComicsApiKey: false, clearCwaPassword: false, clearKavitaApiKey: false, clearPriceChartingApiKey: false, clearEBayBrowseClientSecret: false
       }));
+      if (updated.kavitaBaseUrl !== undefined) {
+        setForm((f) => ({
+          ...f,
+          kavitaBaseUrl: updated.kavitaBaseUrl || '',
+          kavitaTimeoutMs: String(updated.kavitaTimeoutMs || f.kavitaTimeoutMs || '20000')
+        }));
+      }
       if (updated.valuationProviders) {
         setForm((f) => ({
           ...f,
@@ -575,6 +599,12 @@ export default function AdminIntegrationsView({
                   }
                 : sec === 'cwa'
                   ? {}
+                : sec === 'kavita'
+                  ? {
+                    kavitaBaseUrl: form.kavitaBaseUrl,
+                    kavitaTimeoutMs: form.kavitaTimeoutMs,
+                    ...(form.kavitaApiKey && { kavitaApiKey: form.kavitaApiKey })
+                  }
               : {};
       const result = await apiCall('post', `${endpointBase}/test-${sec}`, payload);
       if (sec === 'logs') {
@@ -612,6 +642,27 @@ export default function AdminIntegrationsView({
       onToast(err.response?.data?.error || 'Plex import failed', 'error');
     } finally {
       setImportingPlex(false);
+    }
+  };
+
+  const runKavitaImport = async () => {
+    setImportingKavita(true);
+    try {
+      const enqueue = await apiCall('post', '/media/import-kavita?async=true', {});
+      const jobId = enqueue?.job?.id;
+      if (!jobId) throw new Error('Missing import job id');
+      onQueueJob?.({
+        id: jobId,
+        provider: 'kavita',
+        status: enqueue?.job?.status || 'queued',
+        progress: enqueue?.job?.progress || null
+      });
+      setTestMsg(`KAVITA import queued (job #${jobId})`);
+      onToast('Kavita import started');
+    } catch (err) {
+      onToast(err.response?.data?.error || 'Kavita import failed', 'error');
+    } finally {
+      setImportingKavita(false);
     }
   };
 
@@ -1124,6 +1175,28 @@ export default function AdminIntegrationsView({
           </CheckboxControl>
         </>}
 
+        {section === 'kavita' && <>
+          <LabeledField label="Kavita URL" cx={cx}>
+            <input className="input" placeholder="https://kavita.example" value={form.kavitaBaseUrl} onChange={(e) => setForm((f) => ({ ...f, kavitaBaseUrl: e.target.value }))} />
+          </LabeledField>
+          <div className="grid gap-3 md:grid-cols-2">
+            <LabeledField label={`API Key ${meta.kavitaApiKeySet ? `(set: ${meta.kavitaApiKeyMasked})` : '(not set)'}`} cx={cx}>
+              <input className="input font-mono" type="password" placeholder="Enter API key to update" value={form.kavitaApiKey} onChange={(e) => setForm((f) => ({ ...f, kavitaApiKey: e.target.value }))} />
+            </LabeledField>
+            <LabeledField label="Timeout (ms)" cx={cx}>
+              <input className="input" inputMode="numeric" value={form.kavitaTimeoutMs} onChange={(e) => setForm((f) => ({ ...f, kavitaTimeoutMs: e.target.value }))} />
+            </LabeledField>
+          </div>
+          <CheckboxControl id="clear-kavita-api-key" checked={form.clearKavitaApiKey} onChange={(e) => setForm((f) => ({ ...f, clearKavitaApiKey: e.target.checked }))}>
+            Clear saved API key
+          </CheckboxControl>
+          {form.kavitaBaseUrl && (
+            <a className="btn-secondary btn-sm inline-flex w-fit" href={form.kavitaBaseUrl} target="_blank" rel="noreferrer">
+              Open Kavita
+            </a>
+          )}
+        </>}
+
         {!['metrics'].includes(section) && (
           <div className="flex gap-3 pt-2 border-t border-edge">
             {section !== 'logs' && (
@@ -1146,6 +1219,11 @@ export default function AdminIntegrationsView({
             {allowImports && section === 'plex' && (
               <button onClick={runPlexImport} disabled={importingPlex} className="btn-secondary btn-sm">
                 {importingPlex ? <Spinner size={14} /> : 'Import from Plex'}
+              </button>
+            )}
+            {allowImports && section === 'kavita' && (
+              <button onClick={runKavitaImport} disabled={importingKavita} className="btn-secondary btn-sm">
+                {importingKavita ? <Spinner size={14} /> : 'Import from Kavita'}
               </button>
             )}
           </div>

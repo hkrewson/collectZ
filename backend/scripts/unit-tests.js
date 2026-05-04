@@ -115,6 +115,8 @@ const signaturesServiceSource = fs.readFileSync(require.resolve('../services/sig
 const eventSocialPlanningSmokeSource = fs.readFileSync(require.resolve('../scripts/event-social-planning-smoke'), 'utf8');
 const eventPersonalIcsSyncSmokeSource = fs.readFileSync(require.resolve('../scripts/event-personal-ics-sync-smoke'), 'utf8');
 const eventCatalogIcsImportSmokeSource = fs.readFileSync(require.resolve('../scripts/event-catalog-ics-import-smoke'), 'utf8');
+const kavitaConnectionSmokeSource = fs.readFileSync(require.resolve('../scripts/kavita-connection-smoke'), 'utf8');
+const kavitaImportSyncSmokeSource = fs.readFileSync(require.resolve('../scripts/kavita-import-sync-smoke'), 'utf8');
 const schedIcsSyncSource = fs.readFileSync(require.resolve('../services/schedIcsSync'), 'utf8');
 const spacesServiceSource = fs.readFileSync(require.resolve('../services/spaces'), 'utf8');
 function readFrontendSource(relativePath) {
@@ -1595,6 +1597,8 @@ results.push(run('integrations route source extends platform integrations with v
   assert.ok(integrationsRoutesSource.includes('ebay_browse_enabled = EXCLUDED.ebay_browse_enabled'));
   assert.ok(integrationsRoutesSource.includes('log_export_backend = EXCLUDED.log_export_backend'));
   assert.ok(integrationsRoutesSource.includes('log_export_host = EXCLUDED.log_export_host'));
+  assert.ok(integrationsRoutesSource.includes('kavita_base_url = EXCLUDED.kavita_base_url'));
+  assert.ok(integrationsRoutesSource.includes("sharedRouter.post('/admin/settings/integrations/test-kavita'"));
   assert.ok(integrationsRoutesSource.includes('Platform-only integration settings are not available in homelab edition'));
   assert.ok(integrationsRoutesSource.includes("sharedRouter.get('/admin/settings/integrations'"));
   assert.ok(integrationsRoutesSource.includes("sharedRouter.put('/admin/settings/integrations'"));
@@ -1781,6 +1785,24 @@ results.push(run('repo includes CWA OPDS comic identity reuse smoke coverage for
   assert.ok(cwaOpdsComicIdentityReuseSmokeSource.includes('Expected second CWA comic import to avoid duplicate creation'));
   assert.ok(cwaOpdsComicIdentityReuseSmokeSource.includes('Expected comic issue metadata to persist'));
   assert.ok(cwaOpdsComicIdentityReuseSmokeSource.includes('scopedComicCount'));
+}));
+
+results.push(run('repo includes Kavita connection smoke coverage for native API readback', () => {
+  assert.ok(backendPackageJson.scripts['test:kavita-connection-smoke']);
+  assert.ok(kavitaConnectionSmokeSource.includes('/api/admin/settings/integrations/test-kavita'));
+  assert.ok(kavitaConnectionSmokeSource.includes('/api/Plugin/authenticate'));
+  assert.ok(kavitaConnectionSmokeSource.includes('/api/Library/libraries'));
+  assert.ok(kavitaConnectionSmokeSource.includes('/api/Series/all-v2'));
+  assert.ok(kavitaConnectionSmokeSource.includes('Kavita API key must not be returned in settings response'));
+}));
+
+results.push(run('repo includes Kavita import sync smoke coverage for repeat sync and non-Kavita title reuse', () => {
+  assert.ok(backendPackageJson.scripts['test:kavita-import-sync-smoke']);
+  assert.ok(kavitaImportSyncSmokeSource.includes('/api/media/import-kavita?sync=1'));
+  assert.ok(kavitaImportSyncSmokeSource.includes('Expected first Kavita import to reuse the existing non-Kavita title'));
+  assert.ok(kavitaImportSyncSmokeSource.includes('Expected second Kavita import to avoid duplicate creation'));
+  assert.ok(kavitaImportSyncSmokeSource.includes('Expected Kavita title reuse to preserve existing non-Kavita author metadata'));
+  assert.ok(kavitaImportSyncSmokeSource.includes("type_details->>'provider_item_id' = $2"));
 }));
 
 results.push(run('repo includes comic query contract smoke coverage for paginated server-backed issue ordering', () => {
@@ -2535,21 +2557,28 @@ results.push(run('integrations.buildIntegrationResponse masks secrets and expose
     cwaUsername: 'cwa-user',
     cwaTimeoutMs: 20000,
     cwaPassword: 'cwa-secret',
+    kavitaBaseUrl: 'https://kavita.example',
+    kavitaApiKey: 'kavita-secret',
+    kavitaTimeoutMs: 20000,
     decryptWarnings: []
   });
 
   assert.strictEqual(response.barcodeApiKeySet, true);
   assert.strictEqual(response.gamesClientSecretSet, true);
   assert.strictEqual(response.cwaPasswordSet, true);
+  assert.strictEqual(response.kavitaApiKeySet, true);
   assert.ok(response.barcodeApiKeyMasked);
   assert.ok(response.gamesClientSecretMasked);
   assert.ok(response.cwaPasswordMasked);
+  assert.ok(response.kavitaApiKeyMasked);
   assert.notStrictEqual(response.barcodeApiKeyMasked, 'barcode-secret');
   assert.notStrictEqual(response.gamesClientSecretMasked, 'games-client-secret');
   assert.notStrictEqual(response.cwaPasswordMasked, 'cwa-secret');
+  assert.notStrictEqual(response.kavitaApiKeyMasked, 'kavita-secret');
   assert.strictEqual('barcodeApiKey' in response, false);
   assert.strictEqual('gamesClientSecret' in response, false);
   assert.strictEqual('cwaPassword' in response, false);
+  assert.strictEqual('kavitaApiKey' in response, false);
   assert.deepStrictEqual(response.plexLibrarySections, [{ key: '1', title: 'Movies', type: 'movie' }]);
 }));
 

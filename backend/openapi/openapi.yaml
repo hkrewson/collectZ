@@ -4671,7 +4671,11 @@
                   "logExportPort": { "type": ["integer", "string"] },
                   "logExportHostLabel": { "type": "string" },
                   "logExportService": { "type": "string" },
-                  "logExportDebug": { "type": "boolean" }
+                  "logExportDebug": { "type": "boolean" },
+                  "kavitaBaseUrl": { "type": "string" },
+                  "kavitaApiKey": { "type": "string" },
+                  "clearKavitaApiKey": { "type": "boolean" },
+                  "kavitaTimeoutMs": { "type": ["integer", "string"] }
                 }
               }
             }
@@ -4683,6 +4687,41 @@
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/IntegrationSettingsResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/settings/integrations/test-kavita": {
+      "post": {
+        "tags": ["Admin"],
+        "summary": "Test Kavita digital library connectivity",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "kavitaBaseUrl": { "type": "string" },
+                  "kavitaApiKey": { "type": "string" },
+                  "kavitaTimeoutMs": { "type": ["integer", "string"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Kavita connection test result",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
               }
             }
           }
@@ -7974,6 +8013,76 @@
           { "bearerAuth": [] }
         ],
         "responses": {
+          "202": {
+            "description": "Import queued",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/QueuedJobResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Integration configuration error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/media/import-kavita": {
+      "post": {
+        "tags": ["Media"],
+        "summary": "Import Kavita digital library series",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          {
+            "name": "async",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "boolean" }
+          },
+          {
+            "name": "sync",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "boolean" }
+          },
+          {
+            "name": "maxPages",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 1, "maximum": 100 }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 1, "maximum": 500 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Import completed synchronously",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
           "202": {
             "description": "Import queued",
             "content": {

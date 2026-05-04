@@ -88,6 +88,7 @@ test.describe('admin shell browser regressions', () => {
       'PriceCharting',
       'eBay Browse',
       'Games',
+      'Kavita',
       'External Logs',
       'Metrics',
       'Plex',

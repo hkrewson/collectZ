@@ -61,6 +61,10 @@ const buildIntegrationResponse = (config) => ({
   cwaUsername: config.cwaUsername,
   cwaPasswordSet: Boolean(config.cwaPassword),
   cwaPasswordMasked: maskSecret(config.cwaPassword),
+  kavitaBaseUrl: config.kavitaBaseUrl,
+  kavitaApiKeySet: Boolean(config.kavitaApiKey),
+  kavitaApiKeyMasked: maskSecret(config.kavitaApiKey),
+  kavitaTimeoutMs: config.kavitaTimeoutMs,
   decryptHealth: {
     hasWarnings: Array.isArray(config.decryptWarnings) && config.decryptWarnings.length > 0,
     warnings: Array.isArray(config.decryptWarnings) ? config.decryptWarnings : [],

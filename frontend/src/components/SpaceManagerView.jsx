@@ -714,6 +714,7 @@ export default function SpaceManagerView({
             title="Integrations"
             includeRuntimeSections={false}
             allowImports={false}
+            visibleSections={['audio', 'barcode', 'books', 'cwa', 'comics', 'games', 'plex', 'tmdb']}
           />
         ) : null}
 

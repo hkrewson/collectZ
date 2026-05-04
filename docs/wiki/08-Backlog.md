@@ -45,6 +45,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 27. The attendee duplicate guardrails slice was promoted as `3.4.82`; keep external contact identities, cross-event identity, Discord delivery, and broader friend graph work separate.
 28. The mobile day-of social summary slice of `Event Social Planning Mobile Web Experience` was promoted as `3.4.83`; keep native companion behavior, push/Discord/email delivery, cross-event identity, external contacts, realtime presence, and broader friend graph work separate.
 29. The mobile time-window filter slice of `Event Schedule Catalog Now/Next Follow-ups` was promoted as `3.4.84`; keep full catalog discovery redesign, native companion behavior, push/Discord/email delivery, cross-event identity, realtime presence, and broader friend graph work separate.
+30. `Kavita Digital Library Integration` was promoted as `3.4.85`; keep metadata writeback, in-app/embedded reading, full import/sync, cross-provider digital-library abstractions, and reading-progress workflows separate.
 
 ### Backlog Item: Reusable Artist Records for Artwork Entry
 **Type:** Task
@@ -210,30 +211,6 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 - Update cadence can be described and configured for Plex, Calibre, Kavita, and Metron sources.
 - Plex import uses the actual API path.
 - New-title checks, watch-status checks, and webhooks are all represented in the import design.
-
-### Backlog Item: Kavita Digital Library Integration
-**Type:** Deferred milestone
-**Tags:** `imports`, `sync`, `books`, `comics`, `opds`, `kavita`, `digital-library`
-
-**Goal:** Add an optional Kavita integration alongside the parked Calibre/CWA integration so collectZ can discover, sync, and link out to self-hosted digital book/comic libraries without relying on CSV exports.
-
-**Scope**
-- Add admin integration settings for Kavita endpoint, auth/API token model, timeout, and sync controls.
-- Evaluate Kavita OPDS and native API surfaces and choose the most stable canonical read path.
-- Map Kavita series, volumes, chapters/issues, books, metadata, cover art, and reading links into existing collectZ book/comic models.
-- Persist provider identity separately from Calibre/CWA identity so repeat syncs can reuse canonical rows without cross-provider collisions.
-- Preserve provider link-out behavior such as `Open in Kavita` or `Read in Kavita` when a stable web/deep link exists.
-- Support pagination/incremental sync where the provider surface allows it.
-- Keep optional in-app reader behavior separate and feature-flagged; first milestone should prefer link-out.
-- Keep failures auditable and non-blocking for core media CRUD/import workflows.
-- Document setup, auth, reverse proxy, OPDS/API behavior, and troubleshooting in a dedicated wiki guide.
-
-**Acceptance Criteria**
-- Admin can configure and test a Kavita connection without affecting Calibre/CWA settings.
-- Kavita book/comic imports reuse canonical media rows on repeat sync when stable provider identities match.
-- Imported rows preserve provider source attribution and exact Kavita link-out metadata.
-- Kavita outages or auth failures do not block non-Kavita imports or core library actions.
-- The integration boundary is clear enough to compare against Calibre/CWA before deciding whether to share a generic digital-library provider framework.
 
 ### Backlog Item: Now Playing Viewer
 **Type:** Task

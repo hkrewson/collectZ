@@ -4056,6 +4056,16 @@ const MIGRATIONS = [
       END;
       $$;
     `
+  },
+  {
+    version: 94,
+    description: 'Add Kavita digital library integration settings',
+    up: `
+      ALTER TABLE app_integrations
+        ADD COLUMN IF NOT EXISTS kavita_base_url TEXT,
+        ADD COLUMN IF NOT EXISTS kavita_api_key_encrypted TEXT,
+        ADD COLUMN IF NOT EXISTS kavita_timeout_ms INTEGER DEFAULT 20000;
+    `
   }
 ];
 

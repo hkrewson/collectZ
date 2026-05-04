@@ -31,7 +31,7 @@ const {
   signatureRecordCreateSchema,
   signatureRecordUpdateSchema
 } = require('../middleware/validate');
-const { loadScopedIntegrationConfig } = require('../services/integrations');
+const { loadAdminIntegrationConfig, loadScopedIntegrationConfig } = require('../services/integrations');
 const {
   searchTmdbMovie,
   searchTmdbMulti,
@@ -47,6 +47,7 @@ const { searchGamesByTitle } = require('../services/games');
 const { searchComicsByTitle, fetchMetronCollectionIssues, fetchMetronIssueDetails, pushMetronCollectionIssue } = require('../services/comics');
 const { parseCsvText } = require('../services/csv');
 const { fetchCwaOpdsItems } = require('../services/cwa');
+const { fetchKavitaImportItems } = require('../services/kavita');
 const { mapDeliciousItemTypeToMediaType } = require('../services/importMapping');
 const { normalizeDeliciousRow } = require('../services/deliciousNormalize');
 const { normalizeIdentifierSet, normalizeIsbn } = require('../services/importIdentifiers');
@@ -4751,7 +4752,10 @@ async function queueImportedValuationRefresh({
     return { queued: false, count: 0, jobId: null, provider: null };
   }
 
-  const config = await loadScopedIntegrationConfig(scopeContext?.spaceId || null);
+  const scopedConfig = await loadScopedIntegrationConfig(scopeContext?.spaceId || null);
+  const config = scopedConfig?.kavitaBaseUrl && scopedConfig?.kavitaApiKey
+    ? scopedConfig
+    : await loadAdminIntegrationConfig();
   if (!canExecuteValuationForConfig(config, mode)) {
     return { queued: false, count: 0, jobId: null, provider: null };
   }
@@ -9948,6 +9952,177 @@ router.post('/import-cwa', asyncHandler(async (req, res) => {
       hasMore: Boolean(fetched.hasMore),
       subsectionDiscovered: fetched.subsectionDiscovered || 0,
       navigationEntriesSkipped: fetched.navigationEntriesSkipped || 0
+    },
+    auditRows: result.auditRows,
+    valuationRefresh
+  });
+}));
+
+router.post('/import-kavita', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const valuationMode = resolveValuationExecutionMode(req);
+  const scopedConfig = await loadScopedIntegrationConfig(scopeContext?.spaceId || null);
+  const config = scopedConfig?.kavitaBaseUrl && scopedConfig?.kavitaApiKey
+    ? scopedConfig
+    : await loadAdminIntegrationConfig();
+  const maxPagesRaw = Number(req.body?.maxPages ?? req.query?.maxPages);
+  const pageSizeRaw = Number(req.body?.pageSize ?? req.query?.pageSize);
+  const maxPages = Number.isFinite(maxPagesRaw) ? Math.max(1, Math.min(100, maxPagesRaw)) : undefined;
+  const pageSize = Number.isFinite(pageSizeRaw) ? Math.max(1, Math.min(500, pageSizeRaw)) : undefined;
+  const asyncMode = shouldQueueImportByDefault(req);
+  const auditReq = {
+    user: req.user,
+    headers: req.headers,
+    ip: req.ip,
+    socket: req.socket
+  };
+
+  const runImport = async ({ onProgress = null, reviewContext = null } = {}) => {
+    const fetched = await fetchKavitaImportItems(config, { maxPages, pageSize });
+    const result = await runGenericCsvImport({
+      rows: fetched.rows,
+      userId: req.user.id,
+      scopeContext,
+      onProgress,
+      importSource: 'kavita',
+      reviewContext
+    });
+    const valuationRefresh = await queueImportedValuationRefresh({
+      mediaIds: result.createdMediaIds,
+      userId: req.user.id,
+      scopeContext,
+      mode: valuationMode,
+      auditReq: reviewContext?.auditReq || req,
+      importSource: 'kavita'
+    });
+    return { fetched, result, valuationRefresh };
+  };
+
+  if (asyncMode) {
+    const job = await createSyncJob({
+      userId: req.user.id,
+      jobType: 'media_import',
+      provider: 'kavita',
+      scope: jobScopePayload(scopeContext),
+      progress: {
+        total: 0,
+        processed: 0,
+        created: 0,
+        updated: 0,
+        skipped: 0,
+        errorCount: 0
+      }
+    });
+    recordImportJobEvent('kavita', 'queued');
+
+    setImmediate(async () => {
+      try {
+        await updateSyncJob(job.id, { status: 'running', started_at: new Date() });
+        const { fetched, result, valuationRefresh } = await runImport({
+          onProgress: async (progress) => updateSyncJob(job.id, { progress }),
+          reviewContext: { jobId: job.id, provider: 'kavita', auditReq }
+        });
+        await updateSyncJob(job.id, {
+          status: 'succeeded',
+          progress: {
+            total: result.rows,
+            processed: result.rows,
+            created: result.summary.created,
+            updated: result.summary.updated,
+            skipped: result.summary.skipped_invalid + result.summary.skipped_collection,
+            errorCount: result.summary.errors.length
+          },
+          summary: {
+            rows: result.rows,
+            created: result.summary.created,
+            updated: result.summary.updated,
+            skipped_invalid: result.summary.skipped_invalid,
+            skipped_collection: result.summary.skipped_collection,
+            errorCount: result.summary.errors.length,
+            matchModes: result.summary.matchModes,
+            enrichment: result.summary.enrichment,
+            diagnosticsFlagged: result.summary.diagnosticsFlagged,
+            normalizationReviewCandidates: result.summary.normalizationReviewCandidates || 0,
+            normalizationReviewRows: result.summary.normalizationReviewRows || 0,
+            valuationRefresh,
+            pagesFetched: fetched.pagesFetched,
+            pageSize: fetched.pageSize,
+            libraryCount: fetched.libraryCount,
+            hasMore: Boolean(fetched.hasMore),
+            auditRows: result.auditRows
+          },
+          finished_at: new Date()
+        });
+        recordImportJobEvent('kavita', 'succeeded');
+        recordImportEnrichmentSummaryMetrics('kavita', result.summary.enrichment);
+        await logActivity(auditReq, 'media.import.kavita', 'media', null, {
+          rows: result.rows,
+          created: result.summary.created,
+          updated: result.summary.updated,
+          skipped_invalid: result.summary.skipped_invalid,
+          skipped_collection: result.summary.skipped_collection,
+          errorCount: result.summary.errors.length,
+          matchModes: result.summary.matchModes,
+          enrichment: result.summary.enrichment,
+          diagnosticsFlagged: result.summary.diagnosticsFlagged,
+          normalizationReviewCandidates: result.summary.normalizationReviewCandidates || 0,
+          normalizationReviewRows: result.summary.normalizationReviewRows || 0,
+          valuationRefresh,
+          pagesFetched: fetched.pagesFetched,
+          pageSize: fetched.pageSize,
+          libraryCount: fetched.libraryCount,
+          hasMore: Boolean(fetched.hasMore),
+          jobId: job.id
+        });
+      } catch (error) {
+        recordImportJobEvent('kavita', 'failed');
+        await updateSyncJob(job.id, {
+          status: 'failed',
+          error: error.message || 'Kavita import failed',
+          finished_at: new Date()
+        });
+        await logActivity(auditReq, 'media.import.kavita.failed', 'media', null, {
+          detail: error.message || 'Kavita import failed',
+          jobId: job.id
+        });
+      }
+    });
+
+    return res.status(202).json(buildQueuedJobResponse(job, 'kavita'));
+  }
+
+  const { fetched, result, valuationRefresh } = await runImport({
+    reviewContext: { provider: 'kavita', auditReq: req }
+  });
+  recordImportJobEvent('kavita', 'succeeded');
+  recordImportEnrichmentSummaryMetrics('kavita', result.summary.enrichment);
+  await logActivity(req, 'media.import.kavita', 'media', null, {
+    rows: result.rows,
+    created: result.summary.created,
+    updated: result.summary.updated,
+    skipped_invalid: result.summary.skipped_invalid,
+    skipped_collection: result.summary.skipped_collection,
+    errorCount: result.summary.errors.length,
+    matchModes: result.summary.matchModes,
+    enrichment: result.summary.enrichment,
+    diagnosticsFlagged: result.summary.diagnosticsFlagged,
+    normalizationReviewCandidates: result.summary.normalizationReviewCandidates || 0,
+    normalizationReviewRows: result.summary.normalizationReviewRows || 0,
+    valuationRefresh,
+    pagesFetched: fetched.pagesFetched,
+    pageSize: fetched.pageSize,
+    libraryCount: fetched.libraryCount,
+    hasMore: Boolean(fetched.hasMore)
+  });
+  res.json({
+    ok: true,
+    rows: result.rows,
+    summary: {
+      ...result.summary,
+      pagesFetched: fetched.pagesFetched,
+      pageSize: fetched.pageSize,
+      libraryCount: fetched.libraryCount,
+      hasMore: Boolean(fetched.hasMore)
     },
     auditRows: result.auditRows,
     valuationRefresh

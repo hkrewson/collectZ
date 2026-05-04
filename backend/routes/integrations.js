@@ -24,6 +24,7 @@ const { resolveBooksPreset, searchBooksByTitle } = require('../services/books');
 const { resolveAudioPreset, searchAudioByTitle } = require('../services/audio');
 const { resolveGamesPreset, searchGamesByTitle } = require('../services/games');
 const { resolveComicsPreset, searchComicsByTitle, fetchMetronCollectionIssues } = require('../services/comics');
+const { normalizeKavitaBaseUrl, testKavitaConnection } = require('../services/kavita');
 const { logActivity, logError } = require('../services/audit');
 const { DECRYPT_REMEDIATION } = require('../services/integrationResponse');
 const { resolveScopeContext } = require('../db/scopeContext');
@@ -78,6 +79,10 @@ async function buildSharedIntegrationPayload(config) {
     cwaUsername: config?.cwaUsername || '',
     cwaPasswordSet: Boolean(config?.cwaPassword),
     cwaPasswordMasked: maskSecret(config?.cwaPassword || ''),
+    kavitaBaseUrl: config?.kavitaBaseUrl || '',
+    kavitaApiKeySet: Boolean(config?.kavitaApiKey),
+    kavitaApiKeyMasked: maskSecret(config?.kavitaApiKey || ''),
+    kavitaTimeoutMs: config?.kavitaTimeoutMs || 20000,
     decryptHealth: {
       hasWarnings: Array.isArray(config?.decryptWarnings) && config.decryptWarnings.length > 0,
       warnings: Array.isArray(config?.decryptWarnings) ? config.decryptWarnings : [],
@@ -314,6 +319,26 @@ sharedRouter.put('/admin/settings/integrations', authenticateToken, requireRole(
       null
     );
   const valuationState = resolveNextAdminValuationState(req.body, existing);
+  const requestsKavitaUpdate =
+    req.body.kavitaBaseUrl !== undefined
+    || req.body.kavitaApiKey !== undefined
+    || req.body.clearKavitaApiKey !== undefined
+    || req.body.kavitaTimeoutMs !== undefined;
+  const nextKavitaBaseUrl = req.body.kavitaBaseUrl !== undefined
+    ? normalizeKavitaBaseUrl(req.body.kavitaBaseUrl)
+    : (existing?.kavita_base_url || '');
+  const nextKavitaApiKey = req.body.clearKavitaApiKey
+    ? null
+    : (req.body.kavitaApiKey
+      ? encryptSecret(req.body.kavitaApiKey)
+      : existing?.kavita_api_key_encrypted || null);
+  const nextKavitaTimeoutMs = Math.max(
+    1000,
+    normalizePositiveInteger(
+      req.body.kavitaTimeoutMs !== undefined ? req.body.kavitaTimeoutMs : existing?.kavita_timeout_ms,
+      20000
+    )
+  );
 
   const result = await pool.query(
     `INSERT INTO app_integrations (
@@ -332,9 +357,12 @@ sharedRouter.put('/admin/settings/integrations', authenticateToken, requireRole(
        log_export_port,
        log_export_host_label,
        log_export_service,
-       log_export_debug
+       log_export_debug,
+       kavita_base_url,
+       kavita_api_key_encrypted,
+       kavita_timeout_ms
      ) VALUES (
-       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16
+       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19
      )
      ON CONFLICT (id) DO UPDATE SET
        pricecharting_enabled = EXCLUDED.pricecharting_enabled,
@@ -351,7 +379,10 @@ sharedRouter.put('/admin/settings/integrations', authenticateToken, requireRole(
        log_export_port = EXCLUDED.log_export_port,
        log_export_host_label = EXCLUDED.log_export_host_label,
        log_export_service = EXCLUDED.log_export_service,
-       log_export_debug = EXCLUDED.log_export_debug
+       log_export_debug = EXCLUDED.log_export_debug,
+       kavita_base_url = EXCLUDED.kavita_base_url,
+       kavita_api_key_encrypted = EXCLUDED.kavita_api_key_encrypted,
+       kavita_timeout_ms = EXCLUDED.kavita_timeout_ms
      RETURNING *`,
     [
       1,
@@ -369,7 +400,10 @@ sharedRouter.put('/admin/settings/integrations', authenticateToken, requireRole(
       nextLogExportPort,
       nextLogExportHostLabel,
       nextLogExportService,
-      nextLogExportDebug
+      nextLogExportDebug,
+      nextKavitaBaseUrl,
+      nextKavitaApiKey,
+      nextKavitaTimeoutMs
     ]
   );
 
@@ -404,6 +438,14 @@ sharedRouter.put('/admin/settings/integrations', authenticateToken, requireRole(
         service: nextLogExportService,
         debugEnabled: nextLogExportDebug,
         source: clearLogExportControl ? 'env_fallback' : 'stored'
+      }
+      : null,
+    kavita: requestsKavitaUpdate
+      ? {
+        configured: Boolean(nextKavitaBaseUrl),
+        timeoutMs: nextKavitaTimeoutMs,
+        apiKeyUpdated: Boolean(req.body.kavitaApiKey),
+        apiKeyCleared: Boolean(req.body.clearKavitaApiKey)
       }
       : null
   });
@@ -648,6 +690,33 @@ sharedRouter.post('/admin/settings/integrations/test-cwa', authenticateToken, re
     provider: 'cwa_opds',
     detail: 'CWA OPDS integration testing is deferred and currently disabled.'
   });
+}));
+
+sharedRouter.post('/admin/settings/integrations/test-kavita', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {
+  const storedConfig = await loadAdminIntegrationConfig();
+  const config = {
+    ...storedConfig,
+    kavitaBaseUrl: req.body?.kavitaBaseUrl !== undefined
+      ? normalizeKavitaBaseUrl(req.body.kavitaBaseUrl)
+      : storedConfig.kavitaBaseUrl,
+    kavitaApiKey: req.body?.kavitaApiKey || storedConfig.kavitaApiKey,
+    kavitaTimeoutMs: req.body?.kavitaTimeoutMs || storedConfig.kavitaTimeoutMs || 20000
+  };
+
+  try {
+    const result = await testKavitaConnection(config);
+    res.json(result);
+  } catch (error) {
+    logError('Test Kavita integration', error);
+    const status = error.status || error.response?.status || 502;
+    res.status(status >= 400 && status < 500 ? status : 200).json({
+      ok: false,
+      authenticated: status !== 401 && status !== 403,
+      status,
+      provider: 'kavita',
+      detail: error.response?.data?.message || error.response?.data?.error || error.message
+    });
+  }
 }));
 
 platformRouter.post('/admin/settings/integrations/test-logs', authenticateToken, requireRole('admin'), asyncHandler(async (req, res) => {

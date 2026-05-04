@@ -58,10 +58,10 @@
       "total": 2
     },
     "dependencies": {
-      "prod": 226,
+      "prod": 228,
       "dev": 29,
       "optional": 2,
-      "peer": 2,
+      "peer": 0,
       "peerOptional": 0,
       "total": 257
     }
