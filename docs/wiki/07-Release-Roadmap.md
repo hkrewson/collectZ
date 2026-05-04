@@ -8854,6 +8854,43 @@ Historical note:
 - What remains in the milestone: no open `3.4.93` work remains.
 - Recommended commit message: `Release 3.4.93 Kavita chapter-as-issue row fan-out implementation`.
 
+## 3.4.94 — Kavita Workspace-Owned Integration Administration Contract
+
+**Goal:** Define Kavita administration as workspace-owned integration behavior before moving credentials, testing, import, cover proxying, and fan-out controls into the workspace settings surface.
+
+**Current Slice:** `Closed 2026-05-04`
+
+### Scope
+
+- Document that Kavita settings should be owned by the active workspace.
+- Define workspace-admin permissions for save, test, import, fan-out, readback, and clear actions.
+- Define how platform admins may manage Kavita only within workspace context or an explicit support/control-plane action.
+- Define homelab behavior as effectively single-workspace while still following the workspace-owned model.
+- Define scope rules so overlapping Kavita series/chapter ids in different workspaces cannot collide.
+- Define migration recommendations for legacy platform-level Kavita settings.
+- Keep implementation, embedded reading, reader page proxying, progress sync, metadata writeback, special-chapter fan-out, and shared provider abstractions out of this slice.
+
+### Acceptance Criteria
+
+- A dedicated workspace-owned Kavita administration contract doc exists.
+- The Kavita setup doc links to the workspace-owned administration contract.
+- The backlog records that the contract was promoted while implementation remains separate.
+- Unit/source assertions keep the workspace-owned, workspace-admin, cross-space isolation, and credential-redaction boundaries visible.
+- Version metadata and Help > Releases are aligned to `3.4.94`.
+
+### Closeout Notes
+
+- Roadmap slice: `3.4.94 — Kavita Workspace-Owned Integration Administration Contract`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/41-Kavita-Integration-Setup.md`, and `docs/wiki/44-Kavita-Workspace-Owned-Administration-Contract.md`.
+- Runtime verification used: rebuilt the Docker platform stack with `APP_VERSION=3.4.94`; verified container health, `/api/health`, `/api/auth/config`, in-stack Help > Releases smoke for `v3.4.94`, and live DB `events_enabled=true` readback after release evidence tooling completed.
+- CI/checks run locally: source syntax check for `backend/scripts/unit-tests.js`; container backend unit/source assertions; container OpenAPI validation; container `test:help-releases-smoke` with `EXPECTED_RELEASE_VERSION=v3.4.94`; `npm run compose:generate`; release feed regeneration; observability release evidence refresh; local release preflight; and `git diff --check`.
+- Version closeout: `app-meta.json`, backend/frontend app metadata, backend/frontend package metadata, `docker-compose.yml`, `docs/releases/v3.4.94.md`, and `backend/release-feed.json` are aligned to `3.4.94`.
+- Release gate accounting: this is a docs/contract-only slice with no runtime behavior change; local release preflight passed version sync, release note, dependency-audit artifact, migration-evidence artifact, and observability-evidence checks. The helper marked compose secure-cookie coverage blocked in the local development stack (`SESSION_COOKIE_SECURE=false`, `NODE_ENV=development`), and CI must still rerun `compose-smoke`, `browser-regression`, `secret-scan`, and `image-security-and-sbom`.
+- Verified facts: the contract now states Kavita should be workspace-owned; workspace admins own save/test/import/clear for their workspace; matching, cover proxy, and import behavior must remain workspace/library scoped; implementation, migration, embedded reading, progress sync, metadata writeback, and shared provider abstractions were not added.
+- Risks/follow-ups: implement workspace-owned Kavita storage/UI/smoke as a separate milestone; decide legacy platform-config migration behavior carefully so existing installs are not surprised.
+- What remains in the milestone: no open `3.4.94` contract work remains.
+- Recommended commit message: `Release 3.4.94 Kavita workspace-owned integration administration contract`.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

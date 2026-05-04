@@ -51,6 +51,7 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 33. `Kavita Reader and Progress Contract Discovery` was promoted as `3.4.91`; keep embedded iframe reading, page streaming, reading progress writeback, and per-space Kavita administration as separate backlog tasks until selected.
 34. `Kavita Chapter-as-Issue Row Fan-out` was promoted as `3.4.92`; keep embedded reading, progress sync, metadata writeback, per-space Kavita administration, and shared provider abstractions separate until selected.
 35. `Kavita Chapter-as-Issue Row Fan-out Implementation` was promoted as `3.4.93`; keep embedded reading, progress sync, metadata writeback, per-space Kavita administration, and shared provider abstractions separate.
+36. `Kavita Workspace-Owned Integration Administration Contract` was promoted as `3.4.94`; keep implementation, embedded reading, progress sync, metadata writeback, and shared provider abstractions separate.
 
 ### Backlog Item: Kavita Reader and Progress Contract Discovery
 
@@ -88,7 +89,9 @@ Promoted as `3.4.90`; keep fallback enrichment from Metron, Google Books, or Ope
 **Type:** Task
 **Tags:** `kavita`, `spaces`, `integrations`, `tenancy`
 
-**Goal:** Decide and implement how Kavita settings should work for workspace-owned libraries instead of only platform/admin-owned configuration.
+Promoted as `3.4.94` for the workspace-owned administration contract; keep implementation, embedded reading, progress sync, metadata writeback, and shared provider abstractions separate until selected.
+
+**Goal:** Implement how Kavita settings work for workspace-owned libraries instead of only platform/admin-owned configuration.
 
 **Why this work exists**
 - Current Kavita setup started from the platform integration surface.

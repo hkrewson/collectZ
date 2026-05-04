@@ -1,6 +1,6 @@
 # Kavita Integration Setup
 
-`3.4.85` added the first read-only Kavita connection foundation. Later Kavita slices add import/sync, metadata mapping, volume/chapter enrichment, secret-free launch links back to Kavita's native web UI, a documented reader/progress boundary, and a chapter-as-issue fan-out contract.
+`3.4.85` added the first read-only Kavita connection foundation. Later Kavita slices add import/sync, metadata mapping, volume/chapter enrichment, secret-free launch links back to Kavita's native web UI, a documented reader/progress boundary, a chapter-as-issue fan-out contract, and a workspace-owned administration contract.
 
 ## Requirements
 
@@ -65,6 +65,8 @@ The identity boundary is:
 Fan-out preserves the parent series row and keeps repeat sync idempotent. It does not call Kavita reader/progress endpoints.
 
 ## Current Boundaries
+
+`docs/wiki/44-Kavita-Workspace-Owned-Administration-Contract.md` defines the target administration model: Kavita should be owned by the active workspace, with workspace admins controlling save/test/import/clear for their workspace only. The current implementation may still include legacy platform-admin surfaces until the implementation slice lands.
 
 The Kavita integration remains read-only. It does not push metadata into Kavita, embed the Kavita reader, proxy reader pages, write reading progress, enable chapter-as-issue fan-out by default, or create a shared Calibre/CWA/Kavita provider abstraction. The cover proxy is only for imported cover images and does not expose reader content.
 

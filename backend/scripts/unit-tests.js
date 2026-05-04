@@ -129,6 +129,7 @@ const kavitaImportSyncSmokeSource = fs.readFileSync(require.resolve('../scripts/
 const kavitaSetupDocSource = fs.readFileSync(require.resolve('../../docs/wiki/41-Kavita-Integration-Setup.md'), 'utf8');
 const kavitaReaderProgressDocSource = fs.readFileSync(require.resolve('../../docs/wiki/42-Kavita-Reader-Progress-Contract.md'), 'utf8');
 const kavitaChapterFanoutDocSource = fs.readFileSync(require.resolve('../../docs/wiki/43-Kavita-Chapter-Issue-Fanout-Contract.md'), 'utf8');
+const kavitaWorkspaceAdminDocSource = fs.readFileSync(require.resolve('../../docs/wiki/44-Kavita-Workspace-Owned-Administration-Contract.md'), 'utf8');
 const schedIcsSyncSource = fs.readFileSync(require.resolve('../services/schedIcsSync'), 'utf8');
 const spacesServiceSource = fs.readFileSync(require.resolve('../services/spaces'), 'utf8');
 function readFrontendSource(relativePath) {
@@ -1943,6 +1944,17 @@ results.push(run('kavita chapter fan-out contract keeps series and issue identit
   assert.ok(kavitaChapterFanoutDocSource.includes('Repeat fan-out sync reports no duplicate creation'));
   assert.ok(kavitaChapterFanoutDocSource.includes('Book libraries do not fan out into comic issue rows'));
   assert.ok(kavitaChapterFanoutDocSource.includes('No reader/progress endpoints are called as part of fan-out'));
+}));
+
+results.push(run('kavita workspace-owned administration contract keeps tenancy boundary explicit', () => {
+  assert.ok(kavitaSetupDocSource.includes('44-Kavita-Workspace-Owned-Administration-Contract.md'));
+  assert.ok(kavitaWorkspaceAdminDocSource.includes('Kavita connection settings are workspace-owned'));
+  assert.ok(kavitaWorkspaceAdminDocSource.includes('Workspace admins can save, test, import from, and clear only the Kavita connection'));
+  assert.ok(kavitaWorkspaceAdminDocSource.includes('Platform admins can manage a workspace Kavita connection only while operating in that workspace context'));
+  assert.ok(kavitaWorkspaceAdminDocSource.includes('Homelab keeps the same effective single-workspace behavior'));
+  assert.ok(kavitaWorkspaceAdminDocSource.includes('Two workspaces may import from different Kavita servers that use the same Kavita series or chapter ids'));
+  assert.ok(kavitaWorkspaceAdminDocSource.includes('Settings readback never returns raw API keys'));
+  assert.ok(kavitaWorkspaceAdminDocSource.includes('This contract does not implement the workspace-owned storage migration or UI'));
 }));
 
 results.push(run('AppPrimitives keeps authenticated collectZ API image paths same-origin', () => {
