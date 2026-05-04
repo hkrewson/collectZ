@@ -1,6 +1,6 @@
 # Kavita Integration Setup
 
-`3.4.85` added the first read-only Kavita connection foundation. Later Kavita slices add import/sync, metadata mapping, volume/chapter enrichment, and secret-free launch links back to Kavita's native web UI.
+`3.4.85` added the first read-only Kavita connection foundation. Later Kavita slices add import/sync, metadata mapping, volume/chapter enrichment, secret-free launch links back to Kavita's native web UI, and a documented reader/progress boundary.
 
 ## Requirements
 
@@ -55,7 +55,7 @@ Cover proxy URLs and launch URLs must not include API keys, OPDS keys, bearer to
 
 The Kavita integration remains read-only. It does not push metadata into Kavita, embed the Kavita reader, proxy reader pages, write reading progress, or create a shared Calibre/CWA/Kavita provider abstraction. The cover proxy is only for imported cover images and does not expose reader content.
 
-Those are intentionally later milestones so the connection/auth contract can settle first.
+Those are intentionally later milestones so the connection/auth contract can settle first. See `docs/wiki/42-Kavita-Reader-Progress-Contract.md` for the current reader/progress recommendation: link out to Kavita's native reader, do not iframe or proxy reader pages, and do not write progress from collectZ until a later opt-in contract exists.
 
 ## Troubleshooting
 

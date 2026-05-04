@@ -118,6 +118,8 @@ const eventPersonalIcsSyncSmokeSource = fs.readFileSync(require.resolve('../scri
 const eventCatalogIcsImportSmokeSource = fs.readFileSync(require.resolve('../scripts/event-catalog-ics-import-smoke'), 'utf8');
 const kavitaConnectionSmokeSource = fs.readFileSync(require.resolve('../scripts/kavita-connection-smoke'), 'utf8');
 const kavitaImportSyncSmokeSource = fs.readFileSync(require.resolve('../scripts/kavita-import-sync-smoke'), 'utf8');
+const kavitaSetupDocSource = fs.readFileSync(require.resolve('../../docs/wiki/41-Kavita-Integration-Setup.md'), 'utf8');
+const kavitaReaderProgressDocSource = fs.readFileSync(require.resolve('../../docs/wiki/42-Kavita-Reader-Progress-Contract.md'), 'utf8');
 const schedIcsSyncSource = fs.readFileSync(require.resolve('../services/schedIcsSync'), 'utf8');
 const spacesServiceSource = fs.readFileSync(require.resolve('../services/spaces'), 'utf8');
 function readFrontendSource(relativePath) {
@@ -1842,6 +1844,18 @@ results.push(run('kavita cover helpers preserve proxy base paths and reject cros
   assert.strictEqual(buildKavitaCoverImageUrl('https://kavita.example/root/', '/api/image/series-cover?seriesId=8602'), 'https://kavita.example/root/api/image/series-cover?seriesId=8602');
   assert.strictEqual(buildKavitaCoverImageUrl('https://kavita.example/root/', 'https://kavita.example/root/api/image/series-cover?seriesId=8602'), 'https://kavita.example/root/api/image/series-cover?seriesId=8602');
   assert.strictEqual(buildKavitaCoverImageUrl('https://kavita.example/root/', 'https://evil.example/root/api/image/series-cover?seriesId=8602'), '');
+}));
+
+results.push(run('kavita reader and progress contract keeps collectZ link-out only until a later opt-in milestone', () => {
+  assert.ok(kavitaSetupDocSource.includes('42-Kavita-Reader-Progress-Contract.md'));
+  assert.ok(kavitaReaderProgressDocSource.includes('link-out only'));
+  assert.ok(kavitaReaderProgressDocSource.includes('Do not iframe Kavita'));
+  assert.ok(kavitaReaderProgressDocSource.includes('Do not proxy `/api/Reader/image`'));
+  assert.ok(kavitaReaderProgressDocSource.includes('Do not call progress write endpoints from collectZ'));
+  assert.ok(kavitaReaderProgressDocSource.includes('`GET /api/Reader/get-progress`'));
+  assert.ok(kavitaReaderProgressDocSource.includes('`POST /api/Reader/progress`'));
+  assert.ok(kavitaReaderProgressDocSource.includes('`GET /api/Koreader/{apiKey}/syncs/progress/{ebookHash}`'));
+  assert.ok(kavitaReaderProgressDocSource.includes('Kavita auth keys remain backend-only integration secrets'));
 }));
 
 results.push(run('AppPrimitives keeps authenticated collectZ API image paths same-origin', () => {

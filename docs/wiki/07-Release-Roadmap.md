@@ -8743,6 +8743,41 @@ Historical note:
 - What remains in the milestone: no open `3.4.90` work remains.
 - Recommended commit message: `Release 3.4.90 Kavita cover art source hardening`.
 
+## 3.4.91 — Kavita Reader and Progress Contract Discovery
+
+**Goal:** Document the reader/progress API boundary for Kavita before collectZ attempts embedded reading, page streaming, or progress sync.
+
+**Current Slice:** `Closed 2026-05-04`
+
+### Scope
+
+- Review Kavita's current upstream OpenAPI reader/progress endpoints.
+- Document which paths are read-like, write-like, or side-effectful.
+- Preserve the current native Kavita link-out behavior as the approved path.
+- Make the security boundary explicit for Kavita auth keys, OPDS keys, browser sessions, reader content, and progress state.
+- Add a lightweight repo guard so future work does not accidentally treat iframe reading, page proxying, or progress writeback as approved.
+- Keep embedded iframe reading, page streaming, reading progress writeback, per-space Kavita administration, metadata writeback, and provider abstraction cleanup out of this slice.
+
+### Acceptance Criteria
+
+- A dedicated reader/progress contract doc exists with a recommendation for link-out, embed, and progress-sync paths.
+- The setup doc points to the reader/progress contract.
+- Unit/source assertions keep the documented no-iframe, no-reader-proxy, and no-progress-writeback boundary visible.
+- Version metadata and Help > Releases are aligned to `3.4.91`.
+
+### Closeout Notes
+
+- Roadmap slice: `3.4.91 — Kavita Reader and Progress Contract Discovery`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/41-Kavita-Integration-Setup.md`, and `docs/wiki/42-Kavita-Reader-Progress-Contract.md`.
+- Runtime verification used: rebuilt Docker platform stack at `3.4.91`, `/api/health`, `/api/auth/config`, in-stack Help > Releases smoke, Kavita connection smoke, Kavita import/sync smoke, isolated generated-compose homelab boundary stack, and live DB `events_enabled=true` readback before and after the slice.
+- CI/checks run locally: source syntax check for `backend/scripts/unit-tests.js`; local backend unit/source assertions (`239` passed); local OpenAPI validation; container backend unit/source assertions (`239` passed); container OpenAPI validation; container `test:kavita-connection-smoke`; container `test:kavita-import-sync-smoke`; container `test:help-releases-smoke` with `EXPECTED_RELEASE_VERSION=v3.4.91`; container `test:init-parity`; container `test:migration-rehearsal`; container `test:rbac-regression`; container `test:platform-edition-boundary`; isolated generated-compose `test:homelab-edition-boundary`; API integration smoke; targeted Space Manager browser rerun after a transient concurrent-release-helper 502; full browser regression rerun cleanly (`58` passed, `4` skipped); `npm run validate:public-export`; `npm run compose:generate`; local release preflight; Docker Node 20 backend/frontend dependency audits; observability release evidence; release-artifact secret-pattern scan; and `git diff --check`.
+- Version closeout: `app-meta.json`, backend/frontend app metadata, backend/frontend package metadata, `docker-compose.yml`, `docs/releases/v3.4.91.md`, and `backend/release-feed.json` are aligned to `3.4.91`.
+- Release gate accounting: `compose-smoke` was locally covered by rebuilt stack health, `/api/health`, `/api/auth/config`, and compose config generation; `rbac-regression`, `browser-regression`, `homelab-edition-boundary`, `platform-edition-boundary`, and Docker Node 20 dependency audit passed locally; `secret-scan` and `image-security-and-sbom` remain CI-only locally because `gitleaks`, `trivy`, and SBOM tooling were not installed in the local shell.
+- Verified facts: Kavita upstream OpenAPI `0.9.0.0` still exposes reader content, reader navigation, progress read, progress write, bookmark/personal-reader-state, and KOReader sync endpoints; collectZ remains link-out only for Kavita reader use; no iframe reader, reader page proxy, or progress writeback implementation was added in this slice.
+- Risks/follow-ups: embedded iframe reading, page streaming, progress readback, progress writeback, metadata writeback, per-space Kavita administration, chapter-as-issue fan-out, and shared provider abstraction cleanup remain out of scope and stay in backlog.
+- What remains in the milestone: no open `3.4.91` work remains.
+- Recommended commit message: `Release 3.4.91 Kavita reader and progress contract discovery`.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

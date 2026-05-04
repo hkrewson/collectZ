@@ -48,29 +48,11 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 30. `Kavita Digital Library Integration` was promoted as `3.4.85`; keep metadata writeback, in-app/embedded reading, full import/sync, cross-provider digital-library abstractions, and reading-progress workflows separate.
 31. The Kavita import/sync foundation, metadata mapping, and volume/chapter enrichment slices were promoted as `3.4.86`, `3.4.87`, and `3.4.88`; keep reader launch/progress discovery, metadata writeback, chapter-as-issue row fan-out, per-space Kavita administration, and shared provider abstractions as versionless backlog tasks until selected.
 32. `Kavita External Reader Launch Contract` was promoted as `3.4.89`; keep embedded iframe reading, page streaming, reading progress sync, metadata writeback, and per-space Kavita administration separate.
+33. `Kavita Reader and Progress Contract Discovery` was promoted as `3.4.91`; keep embedded iframe reading, page streaming, reading progress writeback, and per-space Kavita administration as separate backlog tasks until selected.
 
 ### Backlog Item: Kavita Reader and Progress Contract Discovery
-**Type:** Discussion
-**Tags:** `kavita`, `reader`, `progress`, `api-discovery`, `security`
 
-**Goal:** Investigate Kavita's native reader/progress APIs and decide whether collectZ should only link out, embed, or later sync progress.
-
-**Why this work exists**
-- Reading APIs can have side effects such as caching chapter images or updating progress.
-- Embedded or proxied reading may introduce auth, CORS, token, storage, and content-serving risks.
-- A discovery slice keeps technical validation separate from user-facing reader work.
-
-**Scope**
-- Review current Kavita OpenAPI reader/progress endpoints and side effects.
-- Validate whether reader URLs can be opened safely without leaking API credentials.
-- Document what can be read, what mutates Kavita state, and what requires a user token/session.
-- Decide whether progress sync belongs in collectZ at all, and if so whether it is read-only, opt-in writeback, or a separate provider contract.
-- Keep implementation limited to notes/test probes unless promoted into a numbered milestone.
-
-**Acceptance Criteria**
-- A documented recommendation exists for link-out, embed, and progress-sync paths.
-- Security boundaries for Kavita tokens, OPDS keys, browser sessions, and content URLs are explicit.
-- Any future reader/progress milestone has a small, testable contract.
+Promoted as `3.4.91`; keep embedded iframe reading, page streaming, reading progress writeback, and per-space Kavita administration as separate backlog tasks until selected.
 
 ### Backlog Item: Kavita Metadata Writeback Contract
 **Type:** Deferred milestone
@@ -186,6 +168,31 @@ Promoted as `3.4.90`; keep fallback enrichment from Metron, Google Books, or Ope
 - Keyboard navigation supports fast entry without surprising or irreversible autofill.
 - Artwork detail views can show linked artist information and navigate to other works by the same artist.
 - The implementation clearly distinguishes reusable artist metadata from per-artwork provenance and item details.
+
+### Backlog Item: Numbered Print Metadata and Badge for Artwork
+**Type:** Task
+**Tags:** `artwork`, `prints`, `metadata`, `badges`, `ux`
+
+**Goal:** Let artwork entries capture numbered print details, including the specific print number and total print run, and surface a clear numbered-print badge in artwork cards and detail views.
+
+**Why this work exists**
+- Limited and numbered prints are common artwork inventory metadata.
+- Users need to distinguish a generic print from a specific numbered edition such as `12/100`.
+- The signal should be visible while browsing without forcing users to open every artwork detail drawer.
+
+**Scope**
+- Add artwork metadata fields for print number and print run / edition size.
+- Support partial entry where only one side of the edition information is known.
+- Validate that numeric values are sensible without blocking non-numbered artwork entry.
+- Show a concise badge or chip for numbered prints in artwork cards, lists, and detail views.
+- Preserve existing artwork type, provenance, signature, event purchase, image, and artist fields.
+- Keep valuation-provider enrichment, external print registries, certificate verification, and broad edition-series modeling out of this first slice.
+
+**Acceptance Criteria**
+- Users can add or edit an artwork item with print number and print run values.
+- Non-numbered artwork can still be created and edited without extra required fields.
+- Artwork browse and detail surfaces show a numbered-print badge when print metadata is present.
+- API and browser coverage prove the fields round-trip and the badge appears only when appropriate.
 
 ### Backlog Item: Apple Platform App Contract Publishing
 **Type:** Deferred milestone
