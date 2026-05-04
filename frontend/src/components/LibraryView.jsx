@@ -639,11 +639,14 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   const comicOverviewNeedsClamp = isComic && typeof item?.overview === 'string' && item.overview.trim().length > 420;
   const calibreExternalUrl = String(typeDetails.calibre_external_url || '').trim();
   const providerExternalUrl = String(typeDetails.provider_external_url || '').trim();
+  const kavitaLaunchUrl = String(typeDetails.kavita_launch_url || '').trim();
+  const kavitaLaunchLabel = String(typeDetails.kavita_launch_label || '').trim() || 'Open in Kavita';
   const calibreDownloadUrl = String(typeDetails.calibre_download_url || '').trim();
   const providerDownloadUrl = String(typeDetails.provider_download_url || '').trim();
-  const externalMediaUrl = calibreExternalUrl || providerExternalUrl || item.tmdb_url || '';
+  const externalMediaUrl = calibreExternalUrl || kavitaLaunchUrl || providerExternalUrl || item.tmdb_url || '';
   const externalMediaLabel = (() => {
     if (calibreExternalUrl) return 'Open in Calibre';
+    if (String(typeDetails.provider_name || '').trim().toLowerCase() === 'kavita' || kavitaLaunchUrl) return kavitaLaunchLabel;
     if (item.media_type === 'game') return 'View on IGDB';
     if (item.media_type === 'movie' || item.media_type === 'tv_series') return 'View on TMDB';
     return 'Open source';
@@ -659,9 +662,9 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
     : [];
   const hiddenTypeDetailKeys = new Set(
     isBook
-      ? ['author', 'publisher', 'edition', 'isbn', 'calibre_external_url', 'provider_external_url', 'calibre_download_url', 'provider_download_url']
+      ? ['author', 'publisher', 'edition', 'isbn', 'calibre_external_url', 'provider_external_url', 'calibre_download_url', 'provider_download_url', 'kavita_series_url', 'kavita_launch_url', 'kavita_launch_label', 'kavita_launch_target']
       : isComic
-        ? ['calibre_entry_id', 'provider_item_id', 'calibre_external_url', 'provider_external_url', 'calibre_download_url', 'provider_download_url', 'provider_name']
+        ? ['calibre_entry_id', 'provider_item_id', 'calibre_external_url', 'provider_external_url', 'calibre_download_url', 'provider_download_url', 'provider_name', 'kavita_series_url', 'kavita_launch_url', 'kavita_launch_label', 'kavita_launch_target']
         : []
   );
   const visibleTypeDetailEntries = Object.entries(typeDetails)
@@ -689,6 +692,9 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
     if (String(typeDetails.provider_name || '').trim().toLowerCase() === 'googlebooks') {
       return 'View on Google Books';
     }
+    if (String(typeDetails.provider_name || '').trim().toLowerCase() === 'kavita') {
+      return 'Open in Kavita';
+    }
     return 'Open source';
   };
   const inferDownloadLabel = (href, fallback = 'Download file') => {
@@ -711,6 +717,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
       if (providerName.includes('cwa_opds') || providerName.includes('calibre') || host.includes('calibre') || path.includes('/opds/')) {
         return path.includes('/download/') ? 'Download on Calibre' : 'View on Calibre';
       }
+      if (providerName.includes('kavita') || host.includes('kavita')) return 'Open in Kavita';
       if (host.includes('metron')) return 'View on Metron';
       if (host.includes('comicvine')) return 'View on Comic Vine';
       if (host.includes('leagueofcomicgeeks')) return 'View on League of Comic Geeks';
@@ -720,6 +727,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
       // fall back to provider-aware labels below
     }
     if (providerName.includes('cwa_opds') || providerName.includes('calibre')) return 'View on Calibre';
+    if (providerName.includes('kavita')) return 'Open in Kavita';
     if (providerName.includes('metron')) return 'View on Metron';
     if (providerName.includes('comicvine')) return 'View on Comic Vine';
     return 'Open source';
@@ -727,6 +735,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   const bookSourceLinks = (() => {
     const seen = new Set();
     const candidates = [
+      kavitaLaunchUrl ? [kavitaLaunchLabel, kavitaLaunchUrl] : null,
       calibreExternalUrl ? ['Read in Calibre', calibreExternalUrl] : null,
       providerExternalUrl ? [inferBookSourceLabel(providerExternalUrl), providerExternalUrl] : null,
       calibreDownloadUrl ? [inferDownloadLabel(calibreDownloadUrl, 'Download from Calibre'), calibreDownloadUrl] : null,
@@ -744,6 +753,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   const comicSourceLinks = (() => {
     const seen = new Set();
     const candidates = [
+      kavitaLaunchUrl ? [kavitaLaunchLabel, kavitaLaunchUrl] : null,
       providerExternalUrl ? [inferComicSourceLabel(providerExternalUrl), providerExternalUrl] : null,
       calibreDownloadUrl ? [inferDownloadLabel(calibreDownloadUrl, 'Download from Calibre'), calibreDownloadUrl] : null,
       providerDownloadUrl ? [inferDownloadLabel(providerDownloadUrl, 'Download from Calibre'), providerDownloadUrl] : null,

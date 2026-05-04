@@ -12,6 +12,7 @@ const { normalizeDeliciousRow } = require('../services/deliciousNormalize');
 const { normalizeIsbn, normalizeIdentifierSet } = require('../services/importIdentifiers');
 const { normalizeTypeDetails } = require('../services/typeDetails');
 const { normalizeOpdsEntry } = require('../services/cwa');
+const { buildKavitaSeriesWebUrl, buildKavitaReaderWebUrl } = require('../services/kavita');
 const {
   buildBookNormalizationIdentity,
   buildComicNormalizationIdentity,
@@ -1804,7 +1805,34 @@ results.push(run('repo includes Kavita import sync smoke coverage for repeat syn
   assert.ok(kavitaImportSyncSmokeSource.includes('Expected Kavita title reuse to preserve existing non-Kavita author metadata'));
   assert.ok(kavitaImportSyncSmokeSource.includes('Expected Kavita library type 1 to classify as comic_book'));
   assert.ok(kavitaImportSyncSmokeSource.includes('Expected Kavita page metadata'));
+  assert.ok(kavitaImportSyncSmokeSource.includes('Expected Kavita comic reader launch URL metadata without secrets'));
+  assert.ok(kavitaImportSyncSmokeSource.includes('Kavita launch URL must not include API keys'));
   assert.ok(kavitaImportSyncSmokeSource.includes("type_details->>'provider_item_id' = $2"));
+}));
+
+results.push(run('kavita launch URL helpers build secret-free native web routes', () => {
+  assert.strictEqual(buildKavitaSeriesWebUrl('https://kavita.example/root/', 87, 8602), 'https://kavita.example/root/library/87/series/8602');
+  assert.strictEqual(buildKavitaReaderWebUrl('https://kavita.example/root/', {
+    libraryId: 87,
+    seriesId: 8602,
+    chapterId: 9702,
+    format: 1,
+    libraryType: 'comic'
+  }), 'https://kavita.example/root/library/87/series/8602/manga/9702');
+  assert.strictEqual(buildKavitaReaderWebUrl('https://kavita.example/root/', {
+    libraryId: 86,
+    seriesId: 8601,
+    chapterId: 9701,
+    format: 3,
+    libraryType: 'book'
+  }), 'https://kavita.example/root/library/86/series/8601/book/9701');
+  assert.strictEqual(buildKavitaReaderWebUrl('https://kavita.example/root/', {
+    libraryId: 86,
+    seriesId: 8603,
+    chapterId: 9703,
+    format: 4,
+    libraryType: 'book'
+  }), 'https://kavita.example/root/library/86/series/8603/pdf/9703');
 }));
 
 results.push(run('repo includes comic query contract smoke coverage for paginated server-backed issue ordering', () => {
@@ -2024,6 +2052,12 @@ results.push(run('LibraryView renders distinct OPDS browse and download actions 
   assert.ok(libraryViewSource.includes('Download EPUB'));
   assert.ok(libraryViewSource.includes('Download from Calibre'));
   assert.ok(libraryViewSource.includes('Read in Calibre'));
+}));
+
+results.push(run('LibraryView renders Kavita launch actions without treating them as embedded readers', () => {
+  assert.ok(libraryViewSource.includes('kavita_launch_url'));
+  assert.ok(libraryViewSource.includes('kavitaLaunchLabel'));
+  assert.ok(libraryViewSource.includes('Open in Kavita'));
 }));
 
 results.push(run('LibraryView renders compact lookup thumbnails for provider search matches', () => {
@@ -2276,6 +2310,10 @@ results.push(run('typeDetails keeps Kavita provider detail fields for digital li
     kavita_format: 1,
     kavita_pages: 24,
     kavita_cover_image: '/api/image/series-cover?seriesId=8602',
+    kavita_series_url: 'https://kavita.example/library/87/series/8602',
+    kavita_launch_url: 'https://kavita.example/library/87/series/8602/manga/9702',
+    kavita_launch_label: 'Read in Kavita',
+    kavita_launch_target: 'first_chapter_reader',
     kavita_volume_detail_status: 'loaded',
     kavita_volume_count: 1,
     kavita_chapter_count: 1,
@@ -2297,6 +2335,10 @@ results.push(run('typeDetails keeps Kavita provider detail fields for digital li
   assert.strictEqual(out.value.kavita_series_id, '8602');
   assert.strictEqual(out.value.kavita_pages, '24');
   assert.strictEqual(out.value.kavita_cover_image, '/api/image/series-cover?seriesId=8602');
+  assert.strictEqual(out.value.kavita_series_url, 'https://kavita.example/library/87/series/8602');
+  assert.strictEqual(out.value.kavita_launch_url, 'https://kavita.example/library/87/series/8602/manga/9702');
+  assert.strictEqual(out.value.kavita_launch_label, 'Read in Kavita');
+  assert.strictEqual(out.value.kavita_launch_target, 'first_chapter_reader');
   assert.strictEqual(out.value.kavita_volume_detail_status, 'loaded');
   assert.strictEqual(out.value.kavita_volume_count, '1');
   assert.strictEqual(out.value.kavita_chapter_count, '1');

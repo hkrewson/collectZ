@@ -46,6 +46,134 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 28. The mobile day-of social summary slice of `Event Social Planning Mobile Web Experience` was promoted as `3.4.83`; keep native companion behavior, push/Discord/email delivery, cross-event identity, external contacts, realtime presence, and broader friend graph work separate.
 29. The mobile time-window filter slice of `Event Schedule Catalog Now/Next Follow-ups` was promoted as `3.4.84`; keep full catalog discovery redesign, native companion behavior, push/Discord/email delivery, cross-event identity, realtime presence, and broader friend graph work separate.
 30. `Kavita Digital Library Integration` was promoted as `3.4.85`; keep metadata writeback, in-app/embedded reading, full import/sync, cross-provider digital-library abstractions, and reading-progress workflows separate.
+31. The Kavita import/sync foundation, metadata mapping, and volume/chapter enrichment slices were promoted as `3.4.86`, `3.4.87`, and `3.4.88`; keep reader launch/progress discovery, metadata writeback, chapter-as-issue row fan-out, per-space Kavita administration, and shared provider abstractions as versionless backlog tasks until selected.
+32. `Kavita External Reader Launch Contract` was promoted as `3.4.89`; keep embedded iframe reading, page streaming, reading progress sync, metadata writeback, and per-space Kavita administration separate.
+
+### Backlog Item: Kavita Reader and Progress Contract Discovery
+**Type:** Discussion
+**Tags:** `kavita`, `reader`, `progress`, `api-discovery`, `security`
+
+**Goal:** Investigate Kavita's native reader/progress APIs and decide whether collectZ should only link out, embed, or later sync progress.
+
+**Why this work exists**
+- Reading APIs can have side effects such as caching chapter images or updating progress.
+- Embedded or proxied reading may introduce auth, CORS, token, storage, and content-serving risks.
+- A discovery slice keeps technical validation separate from user-facing reader work.
+
+**Scope**
+- Review current Kavita OpenAPI reader/progress endpoints and side effects.
+- Validate whether reader URLs can be opened safely without leaking API credentials.
+- Document what can be read, what mutates Kavita state, and what requires a user token/session.
+- Decide whether progress sync belongs in collectZ at all, and if so whether it is read-only, opt-in writeback, or a separate provider contract.
+- Keep implementation limited to notes/test probes unless promoted into a numbered milestone.
+
+**Acceptance Criteria**
+- A documented recommendation exists for link-out, embed, and progress-sync paths.
+- Security boundaries for Kavita tokens, OPDS keys, browser sessions, and content URLs are explicit.
+- Any future reader/progress milestone has a small, testable contract.
+
+### Backlog Item: Kavita Metadata Writeback Contract
+**Type:** Deferred milestone
+**Tags:** `kavita`, `metadata`, `writeback`, `sync`, `safety`
+
+**Goal:** Decide whether collectZ should ever push metadata back into Kavita, and define a conservative opt-in contract if it should.
+
+**Why this work exists**
+- Current Kavita work is intentionally read-only.
+- Writeback can overwrite a user's curated Kavita metadata and needs a stronger preview/audit model than import.
+
+**Scope**
+- Identify which Kavita metadata fields are writable and stable.
+- Define per-field ownership rules and conflict behavior.
+- Require preview, audit logging, and explicit opt-in before any writeback.
+- Keep reader/progress sync and cross-provider abstractions separate.
+
+**Acceptance Criteria**
+- The team has a documented go/no-go decision for Kavita metadata writeback.
+- If writeback is accepted, the first milestone has a narrow field list, rollback story, and smoke coverage plan.
+
+### Backlog Item: Kavita Chapter-as-Issue Row Fan-out
+**Type:** Deferred milestone
+**Tags:** `kavita`, `comics`, `chapters`, `issues`, `imports`
+
+**Goal:** Explore importing selected Kavita chapters/issues as individual collectZ comic rows instead of only enriching series-level rows.
+
+**Why this work exists**
+- Series-level import is useful for books and manga collections, but comic libraries may need individual issue rows.
+- Volume/chapter enrichment now preserves the source metadata needed to design a safer fan-out path.
+
+**Scope**
+- Define when a Kavita chapter should become a collectZ `comic_book` row.
+- Use stable provider identity such as Kavita chapter id without colliding with series-level rows.
+- Preserve non-Kavita/local metadata and existing duplicate guardrails.
+- Keep broad metadata writeback, embedded reading, and progress sync out of scope.
+
+**Acceptance Criteria**
+- The proposed identity model distinguishes `kavita:series:<id>` from chapter/issue-level Kavita rows.
+- A smoke plan proves repeat sync idempotency and avoids duplicate comic issues.
+
+### Backlog Item: Kavita Cover Art Source Hardening
+**Type:** Task
+**Tags:** `kavita`, `cover-art`, `books`, `comics`, `metadata`
+
+**Goal:** Make Kavita-imported cover art reliable while keeping Metron and Google Books as optional fallback enrichment sources rather than hard requirements.
+
+**Why this work exists**
+- Kavita series imports expose `coverImage`, and collectZ already maps that to `poster_path` while preserving `kavita_cover_image`.
+- Some Kavita deployments may protect image routes behind auth or reverse-proxy rules, so cover display needs runtime validation.
+- Metron and Google Books can enrich missing or weak covers, but they should not be required for Kavita-owned artwork.
+
+**Scope**
+- Verify Kavita cover URLs render in the browser after import under common base URL and reverse-proxy shapes.
+- Decide whether collectZ should hotlink Kavita cover routes, proxy/cache them, or fall back when auth blocks browser display.
+- Add fallback ordering for missing covers: Kavita first, then media-type-appropriate enrichment such as Metron for comics and Google Books/Open Library-style sources for books.
+- Keep provider metadata writeback and reader/progress behavior separate.
+
+**Acceptance Criteria**
+- A Kavita import with `coverImage` can display cover art or records a clear fallback reason.
+- Fallback enrichment is optional and does not block Kavita import.
+- No cover-art path leaks Kavita API keys, OPDS keys, bearer tokens, or other credentials.
+
+### Backlog Item: Kavita Per-Space Administration
+**Type:** Task
+**Tags:** `kavita`, `spaces`, `integrations`, `tenancy`
+
+**Goal:** Decide and implement how Kavita settings should work for workspace-owned libraries instead of only platform/admin-owned configuration.
+
+**Why this work exists**
+- Current Kavita setup started from the platform integration surface.
+- Space-owned Kavita behavior needs a deliberate tenancy model before exposing it broadly.
+
+**Scope**
+- Define whether Kavita credentials are platform-wide, space-owned, or both.
+- Add role/permission rules for saving, testing, importing, and clearing Kavita settings.
+- Keep provider identity scoped so one workspace's Kavita server cannot collide with another's rows.
+- Keep global friend/social reading and reader/progress sync out of scope.
+
+**Acceptance Criteria**
+- Space admins can manage only the Kavita connection they are allowed to own.
+- Platform and homelab edition boundaries remain explicit.
+- Runtime smoke proves cross-space isolation for Kavita import/settings.
+
+### Backlog Item: Shared Digital Library Provider Abstractions
+**Type:** Deferred milestone
+**Tags:** `kavita`, `calibre`, `cwa`, `opds`, `providers`, `imports`
+
+**Goal:** Consolidate common provider/import contracts across Kavita, Calibre/CWA OPDS, and future digital-library sources without hiding provider-specific behavior.
+
+**Why this work exists**
+- Kavita, CWA/Calibre, and OPDS sources now share concepts such as provider ids, external URLs, download/reader links, cover art, and repeat-sync identity.
+- A shared abstraction can reduce duplication, but only after provider-specific behavior has been proven.
+
+**Scope**
+- Inventory common provider fields and source-specific exceptions.
+- Define shared import identity, link, cover-art, and credential-redaction helpers.
+- Preserve provider-specific API behavior and smoke coverage.
+- Keep metadata writeback and reader/progress sync as separate contracts.
+
+**Acceptance Criteria**
+- Common digital-library import behavior has one documented contract.
+- Existing Kavita and CWA/Calibre smokes continue to prove provider-specific identity, link, and cover behavior.
 
 ### Backlog Item: Reusable Artist Records for Artwork Entry
 **Type:** Task

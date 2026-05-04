@@ -8674,6 +8674,40 @@ Historical note:
 - What remains in the milestone: no remaining `3.4.88` implementation work; CI-only release gates must pass before public tag/release publication. A good next Kavita slice is read-only external-reader launch/progress contract discovery, kept separate from writeback.
 - Recommended commit message: `Release 3.4.88 Kavita volume chapter detail enrichment`
 
+## 3.4.89 — Kavita External Reader Launch Contract
+
+**Goal:** Give Kavita-imported rows a clear, safe launch path back into Kavita's native web UI without embedding Kavita, proxying pages, syncing reading progress, or pushing metadata back to Kavita.
+
+**Current Slice:** `Closed 2026-05-04`
+
+### Scope
+
+- Define Kavita launch URLs from stored library, series, format, and first-chapter ids.
+- Prefer Kavita's native reader routes for imported rows with chapter detail, while keeping a series-detail URL as fallback.
+- Surface a clear `Open in Kavita` or `Read in Kavita` action in collectZ media details.
+- Prove launch URLs are built from configured base URL and Kavita ids without API keys, OPDS keys, bearer tokens, or other credentials.
+- Keep embedded iframe reading, page streaming, reading progress sync, metadata writeback, per-space Kavita administration, and provider abstraction cleanup out of this slice.
+
+### Acceptance Criteria
+
+- Imported Kavita rows retain `kavita_series_url`, `kavita_launch_url`, `kavita_launch_label`, and `kavita_launch_target` provider detail fields.
+- Book, PDF, and comic/manga launch helpers use Kavita's native web route shape and preserve reverse-proxy base paths.
+- Media detail source links show Kavita actions without treating collectZ as an embedded reader.
+- Kavita import smoke proves launch URLs are secret-free and repeat sync remains idempotent.
+- Version metadata and Help > Releases are aligned to `3.4.89`.
+
+### Closeout Notes
+
+- Roadmap slice: `3.4.89 — Kavita External Reader Launch Contract`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, and `docs/wiki/41-Kavita-Integration-Setup.md`.
+- Runtime verification used: rebuilt Docker platform stack at `3.4.89`, `/api/health`, `/api/auth/config`, in-stack Help > Releases smoke, Kavita connection smoke, Kavita import/sync smoke with `Read in Kavita` launch URL readback, homelab default-compose boundary smoke, and live DB `events_enabled=true` readback before and after the slice.
+- CI/checks run locally: syntax checks for Kavita/media/unit scripts, backend unit tests, OpenAPI validation, Kavita connection smoke, Kavita import/sync smoke, Help > Releases smoke, init parity, migration rehearsal, RBAC regression, API integration smoke, platform edition boundary, homelab edition boundary, full Playwright browser regression, public export validation, local release preflight/dependency audit, observability release evidence, compose config generation, and generated-artifact secret-pattern scan.
+- Version closeout: `app-meta.json`, backend/frontend app metadata, backend/frontend package metadata, `docker-compose.yml`, `docs/releases/v3.4.89.md`, and `backend/release-feed.json` are aligned to `3.4.89`.
+- Release gate accounting: `compose-smoke` was locally covered by rebuilt stack health, `/api/health`, `/api/auth/config`, and compose config generation; `rbac-regression`, `browser-regression`, `homelab-edition-boundary`, `platform-edition-boundary`, and `dependency-scan` passed locally; `secret-scan` and `image-security-and-sbom` remain CI-only locally because `gitleaks`, `trivy`, and SBOM tooling were not installed in the local shell.
+- Risks/follow-ups: embedded iframe reading, page streaming, reading progress sync, metadata writeback, per-space Kavita administration, chapter-as-issue fan-out, and shared provider abstraction cleanup remain out of scope and stay in backlog.
+- What remains in the milestone: no open `3.4.89` work remains.
+- Recommended commit message: `Release 3.4.89 Kavita external reader launch contract`.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

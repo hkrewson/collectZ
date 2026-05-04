@@ -1,6 +1,6 @@
 # Kavita Integration Setup
 
-`3.4.85` adds the first read-only Kavita connection foundation. It is intentionally limited to connection setup and native API readback.
+`3.4.85` added the first read-only Kavita connection foundation. Later Kavita slices add import/sync, metadata mapping, volume/chapter enrichment, and secret-free launch links back to Kavita's native web UI.
 
 ## Requirements
 
@@ -29,9 +29,20 @@ The connection test uses Kavita's native API path:
 
 A passing test means collectZ can authenticate, read the library list, sample series, and build Kavita link-out URLs.
 
+## Import and Launch Links
+
+Kavita imports are read-only. Imported rows keep Kavita provider identity and, when volume/chapter detail is available, a launch URL back into Kavita:
+
+- Series detail fallback: `/library/{libraryId}/series/{seriesId}`
+- Comic/manga/image/archive reader: `/library/{libraryId}/series/{seriesId}/manga/{chapterId}`
+- EPUB reader: `/library/{libraryId}/series/{seriesId}/book/{chapterId}`
+- PDF reader: `/library/{libraryId}/series/{seriesId}/pdf/{chapterId}`
+
+These URLs are built from the configured Kavita base URL plus Kavita ids. They must not include API keys, OPDS keys, bearer tokens, or any other credential. Users still authenticate with Kavita in Kavita's own browser session.
+
 ## Current Boundaries
 
-This foundation does not import or sync Kavita books/comics into collectZ yet. It also does not push metadata into Kavita, embed the Kavita reader, write reading progress, or create a shared Calibre/CWA/Kavita provider abstraction.
+The Kavita integration remains read-only. It does not push metadata into Kavita, embed the Kavita reader, proxy reader pages, write reading progress, or create a shared Calibre/CWA/Kavita provider abstraction.
 
 Those are intentionally later milestones so the connection/auth contract can settle first.
 

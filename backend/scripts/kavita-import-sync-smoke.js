@@ -383,6 +383,12 @@ async function main() {
     assert(String(canonicalBookDetails.kavita_first_chapter_title || '') === 'Kavita Import Sync Smoke Novel Chapter 1', `Expected Kavita book first chapter title metadata, got ${JSON.stringify(canonicalBookDetails)}`);
     assert(String(canonicalBookDetails.kavita_first_chapter_release_date || '') === '2024-04-05', `Expected Kavita book first chapter release date metadata, got ${JSON.stringify(canonicalBookDetails)}`);
     assert(String(canonicalBookDetails.kavita_first_chapter_pages || '') === '321', `Expected Kavita book first chapter page metadata, got ${JSON.stringify(canonicalBookDetails)}`);
+    assert(String(canonicalBookDetails.kavita_series_url || '') === `${fake.baseUrl}/library/86/series/8601`, `Expected Kavita book series launch URL metadata without secrets, got ${JSON.stringify(canonicalBookDetails)}`);
+    assert(String(canonicalBookDetails.kavita_launch_url || '') === `${fake.baseUrl}/library/86/series/8601/book/9701`, `Expected Kavita book reader launch URL metadata without secrets, got ${JSON.stringify(canonicalBookDetails)}`);
+    assert(String(canonicalBookDetails.kavita_launch_label || '') === 'Read in Kavita', `Expected Kavita book launch label, got ${JSON.stringify(canonicalBookDetails)}`);
+    assert(String(canonicalBookDetails.kavita_launch_target || '') === 'first_chapter_reader', `Expected Kavita book launch target, got ${JSON.stringify(canonicalBookDetails)}`);
+    assert(!String(canonicalBookDetails.kavita_launch_url || '').includes(KAVITA_SMOKE_KEY), `Kavita launch URL must not include API keys, got ${JSON.stringify(canonicalBookDetails)}`);
+    assert(!String(canonicalBookDetails.kavita_launch_url || '').includes(KAVITA_SMOKE_BEARER), `Kavita launch URL must not include bearer tokens, got ${JSON.stringify(canonicalBookDetails)}`);
 
     const canonicalComic = comicRows[0] || {};
     const canonicalComicDetails = canonicalComic.type_details || {};
@@ -397,6 +403,12 @@ async function main() {
     assert(String(canonicalComicDetails.kavita_volume_detail_status || '') === 'loaded', `Expected Kavita comic volume detail status, got ${JSON.stringify(canonicalComicDetails)}`);
     assert(String(canonicalComicDetails.kavita_first_chapter_title || '') === 'Kavita Metadata Smoke Issue #1', `Expected Kavita comic first chapter title metadata, got ${JSON.stringify(canonicalComicDetails)}`);
     assert(String(canonicalComicDetails.kavita_chapter_titles || '').includes('Kavita Metadata Smoke Issue #1'), `Expected Kavita comic chapter title list metadata, got ${JSON.stringify(canonicalComicDetails)}`);
+    assert(String(canonicalComicDetails.kavita_series_url || '') === `${fake.baseUrl}/library/87/series/8602`, `Expected Kavita comic series launch URL metadata without secrets, got ${JSON.stringify(canonicalComicDetails)}`);
+    assert(String(canonicalComicDetails.kavita_launch_url || '') === `${fake.baseUrl}/library/87/series/8602/manga/9702`, `Expected Kavita comic reader launch URL metadata without secrets, got ${JSON.stringify(canonicalComicDetails)}`);
+    assert(String(canonicalComicDetails.kavita_launch_label || '') === 'Read in Kavita', `Expected Kavita comic launch label, got ${JSON.stringify(canonicalComicDetails)}`);
+    assert(String(canonicalComicDetails.kavita_launch_target || '') === 'first_chapter_reader', `Expected Kavita comic launch target, got ${JSON.stringify(canonicalComicDetails)}`);
+    assert(!String(canonicalComicDetails.kavita_launch_url || '').includes(KAVITA_SMOKE_KEY), `Kavita launch URL must not include API keys, got ${JSON.stringify(canonicalComicDetails)}`);
+    assert(!String(canonicalComicDetails.kavita_launch_url || '').includes(KAVITA_SMOKE_BEARER), `Kavita launch URL must not include bearer tokens, got ${JSON.stringify(canonicalComicDetails)}`);
 
     console.log(JSON.stringify({
       provider: 'kavita',
@@ -411,6 +423,8 @@ async function main() {
       comicClassifiedFromLibraryType: canonicalComic.media_type === 'comic_book',
       volumeDetailsFetched: firstSummary.volumeDetailsFetched,
       comicIssueNumber: canonicalComicDetails.issue_number,
+      bookLaunchUrl: canonicalBookDetails.kavita_launch_url,
+      comicLaunchUrl: canonicalComicDetails.kavita_launch_url,
       secretReturned: false
     }, null, 2));
   } finally {
