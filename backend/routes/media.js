@@ -6062,6 +6062,18 @@ async function runGenericCsvImport({
         kavita_format: value('kavita_format') || rowTypeDetails.kavita_format || null,
         kavita_pages: value('kavita_pages') || rowTypeDetails.kavita_pages || null,
         kavita_cover_image: value('kavita_cover_image') || rowTypeDetails.kavita_cover_image || null,
+        kavita_volume_detail_status: value('kavita_volume_detail_status') || rowTypeDetails.kavita_volume_detail_status || null,
+        kavita_volume_count: value('kavita_volume_count') || rowTypeDetails.kavita_volume_count || null,
+        kavita_chapter_count: value('kavita_chapter_count') || rowTypeDetails.kavita_chapter_count || null,
+        kavita_volume_numbers: value('kavita_volume_numbers') || rowTypeDetails.kavita_volume_numbers || null,
+        kavita_first_volume_number: value('kavita_first_volume_number') || rowTypeDetails.kavita_first_volume_number || null,
+        kavita_first_chapter_id: value('kavita_first_chapter_id') || rowTypeDetails.kavita_first_chapter_id || null,
+        kavita_first_chapter_number: value('kavita_first_chapter_number') || rowTypeDetails.kavita_first_chapter_number || null,
+        kavita_first_chapter_title: value('kavita_first_chapter_title') || rowTypeDetails.kavita_first_chapter_title || null,
+        kavita_first_chapter_release_date: value('kavita_first_chapter_release_date') || rowTypeDetails.kavita_first_chapter_release_date || null,
+        kavita_first_chapter_pages: value('kavita_first_chapter_pages') || rowTypeDetails.kavita_first_chapter_pages || null,
+        kavita_chapter_titles: value('kavita_chapter_titles') || rowTypeDetails.kavita_chapter_titles || null,
+        kavita_chapter_pages_total: value('kavita_chapter_pages_total') || rowTypeDetails.kavita_chapter_pages_total || null,
         calibre_entry_id: value('calibre_entry_id') || rowTypeDetails.calibre_entry_id || null,
         calibre_external_url: value('calibre_external_url') || rowTypeDetails.calibre_external_url || null,
         calibre_download_url: value('calibre_download_url') || rowTypeDetails.calibre_download_url || null,
@@ -10059,6 +10071,10 @@ router.post('/import-kavita', asyncHandler(async (req, res) => {
             pagesFetched: fetched.pagesFetched,
             pageSize: fetched.pageSize,
             libraryCount: fetched.libraryCount,
+            volumeDetailsAttempted: fetched.volumeDetailsAttempted,
+            volumeDetailsFetched: fetched.volumeDetailsFetched,
+            volumeDetailsUnavailable: fetched.volumeDetailsUnavailable,
+            volumeDetailsSkipped: fetched.volumeDetailsSkipped,
             hasMore: Boolean(fetched.hasMore),
             auditRows: result.auditRows
           },
@@ -10082,6 +10098,10 @@ router.post('/import-kavita', asyncHandler(async (req, res) => {
           pagesFetched: fetched.pagesFetched,
           pageSize: fetched.pageSize,
           libraryCount: fetched.libraryCount,
+          volumeDetailsAttempted: fetched.volumeDetailsAttempted,
+          volumeDetailsFetched: fetched.volumeDetailsFetched,
+          volumeDetailsUnavailable: fetched.volumeDetailsUnavailable,
+          volumeDetailsSkipped: fetched.volumeDetailsSkipped,
           hasMore: Boolean(fetched.hasMore),
           jobId: job.id
         });
@@ -10123,6 +10143,10 @@ router.post('/import-kavita', asyncHandler(async (req, res) => {
     pagesFetched: fetched.pagesFetched,
     pageSize: fetched.pageSize,
     libraryCount: fetched.libraryCount,
+    volumeDetailsAttempted: fetched.volumeDetailsAttempted,
+    volumeDetailsFetched: fetched.volumeDetailsFetched,
+    volumeDetailsUnavailable: fetched.volumeDetailsUnavailable,
+    volumeDetailsSkipped: fetched.volumeDetailsSkipped,
     hasMore: Boolean(fetched.hasMore)
   });
   res.json({
@@ -10133,6 +10157,10 @@ router.post('/import-kavita', asyncHandler(async (req, res) => {
       pagesFetched: fetched.pagesFetched,
       pageSize: fetched.pageSize,
       libraryCount: fetched.libraryCount,
+      volumeDetailsAttempted: fetched.volumeDetailsAttempted,
+      volumeDetailsFetched: fetched.volumeDetailsFetched,
+      volumeDetailsUnavailable: fetched.volumeDetailsUnavailable,
+      volumeDetailsSkipped: fetched.volumeDetailsSkipped,
       hasMore: Boolean(fetched.hasMore)
     },
     auditRows: result.auditRows,

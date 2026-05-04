@@ -164,6 +164,67 @@ async function startFakeKavitaServer() {
       return;
     }
 
+    if (req.method === 'GET' && url.pathname === '/api/Series/volumes') {
+      const seriesId = Number(url.searchParams.get('seriesId') || 0);
+      if (seriesId === 8601) {
+        res.writeHead(200);
+        res.end(JSON.stringify([
+          {
+            id: 9601,
+            seriesId: 8601,
+            minNumber: 1,
+            maxNumber: 1,
+            name: 'Volume 1',
+            pages: 321,
+            chapters: [
+              {
+                id: 9701,
+                volumeId: 9601,
+                range: '1',
+                minNumber: 1,
+                maxNumber: 1,
+                sortOrder: 1,
+                title: 'Kavita Import Sync Smoke Novel Chapter 1',
+                releaseDate: '2024-04-05T00:00:00Z',
+                pages: 321
+              }
+            ]
+          }
+        ]));
+        return;
+      }
+      if (seriesId === 8602) {
+        res.writeHead(200);
+        res.end(JSON.stringify([
+          {
+            id: 9602,
+            seriesId: 8602,
+            minNumber: 1,
+            maxNumber: 1,
+            name: 'Volume 1',
+            pages: 24,
+            chapters: [
+              {
+                id: 9702,
+                volumeId: 9602,
+                range: '1',
+                minNumber: 1,
+                maxNumber: 1,
+                sortOrder: 1,
+                title: 'Kavita Metadata Smoke Issue #1',
+                releaseDate: '2023-03-04T00:00:00Z',
+                pages: 24
+              }
+            ]
+          }
+        ]));
+        return;
+      }
+      res.writeHead(200);
+      res.end(JSON.stringify([]));
+      return;
+    }
+
     res.writeHead(404);
     res.end(JSON.stringify({ message: 'not found' }));
   });
@@ -292,6 +353,8 @@ async function main() {
     assert(Number(secondSummary.created || 0) === 0, `Expected second Kavita import to avoid duplicate creation, got ${JSON.stringify(secondSummary)}`);
     assert(Number(secondSummary.updated || 0) === 2, `Expected second Kavita import to update/no-op both canonical rows, got ${JSON.stringify(secondSummary)}`);
     assert(Number(firstSummary.libraryCount || 0) === 2, `Expected Kavita import summary to include both libraries, got ${JSON.stringify(firstSummary)}`);
+    assert(Number(firstSummary.volumeDetailsAttempted || 0) === 2, `Expected Kavita import to query volume/chapter details for both rows, got ${JSON.stringify(firstSummary)}`);
+    assert(Number(firstSummary.volumeDetailsFetched || 0) === 2, `Expected Kavita import to load volume/chapter details for both rows, got ${JSON.stringify(firstSummary)}`);
 
     const bookRows = await readImportedProviderRow(libraryId, BOOK_PROVIDER_ITEM_ID);
     const comicRows = await readImportedProviderRow(libraryId, COMIC_PROVIDER_ITEM_ID);
@@ -314,6 +377,12 @@ async function main() {
     assert(String(canonicalBookDetails.kavita_format || '') === '3', `Expected Kavita format metadata, got ${JSON.stringify(canonicalBookDetails)}`);
     assert(String(canonicalBookDetails.kavita_pages || '') === '321', `Expected Kavita page metadata, got ${JSON.stringify(canonicalBookDetails)}`);
     assert(String(canonicalBookDetails.kavita_cover_image || '') === '/api/image/series-cover?seriesId=8601', `Expected Kavita cover image metadata, got ${JSON.stringify(canonicalBookDetails)}`);
+    assert(String(canonicalBookDetails.kavita_volume_detail_status || '') === 'loaded', `Expected Kavita book volume detail status, got ${JSON.stringify(canonicalBookDetails)}`);
+    assert(String(canonicalBookDetails.kavita_volume_count || '') === '1', `Expected Kavita book volume count metadata, got ${JSON.stringify(canonicalBookDetails)}`);
+    assert(String(canonicalBookDetails.kavita_chapter_count || '') === '1', `Expected Kavita book chapter count metadata, got ${JSON.stringify(canonicalBookDetails)}`);
+    assert(String(canonicalBookDetails.kavita_first_chapter_title || '') === 'Kavita Import Sync Smoke Novel Chapter 1', `Expected Kavita book first chapter title metadata, got ${JSON.stringify(canonicalBookDetails)}`);
+    assert(String(canonicalBookDetails.kavita_first_chapter_release_date || '') === '2024-04-05', `Expected Kavita book first chapter release date metadata, got ${JSON.stringify(canonicalBookDetails)}`);
+    assert(String(canonicalBookDetails.kavita_first_chapter_pages || '') === '321', `Expected Kavita book first chapter page metadata, got ${JSON.stringify(canonicalBookDetails)}`);
 
     const canonicalComic = comicRows[0] || {};
     const canonicalComicDetails = canonicalComic.type_details || {};
@@ -322,6 +391,12 @@ async function main() {
     assert(String(canonicalComicDetails.kavita_library_id || '') === '87', `Expected Kavita comic library id metadata, got ${JSON.stringify(canonicalComicDetails)}`);
     assert(String(canonicalComicDetails.kavita_library_type || '') === 'comic', `Expected Kavita numeric comic library type metadata, got ${JSON.stringify(canonicalComicDetails)}`);
     assert(String(canonicalComicDetails.kavita_pages || '') === '24', `Expected Kavita comic page metadata, got ${JSON.stringify(canonicalComicDetails)}`);
+    assert(String(canonicalComicDetails.volume || '') === '1', `Expected Kavita comic volume mapped from volume detail, got ${JSON.stringify(canonicalComicDetails)}`);
+    assert(String(canonicalComicDetails.issue_number || '') === '1', `Expected Kavita comic issue number mapped from chapter detail, got ${JSON.stringify(canonicalComicDetails)}`);
+    assert(String(canonicalComicDetails.cover_date || '') === '2023-03-04', `Expected Kavita comic cover date mapped from chapter publication date, got ${JSON.stringify(canonicalComicDetails)}`);
+    assert(String(canonicalComicDetails.kavita_volume_detail_status || '') === 'loaded', `Expected Kavita comic volume detail status, got ${JSON.stringify(canonicalComicDetails)}`);
+    assert(String(canonicalComicDetails.kavita_first_chapter_title || '') === 'Kavita Metadata Smoke Issue #1', `Expected Kavita comic first chapter title metadata, got ${JSON.stringify(canonicalComicDetails)}`);
+    assert(String(canonicalComicDetails.kavita_chapter_titles || '').includes('Kavita Metadata Smoke Issue #1'), `Expected Kavita comic chapter title list metadata, got ${JSON.stringify(canonicalComicDetails)}`);
 
     console.log(JSON.stringify({
       provider: 'kavita',
@@ -334,6 +409,8 @@ async function main() {
       canonicalComicRows: comicRows.length,
       reusedExistingNonKavitaTitle: true,
       comicClassifiedFromLibraryType: canonicalComic.media_type === 'comic_book',
+      volumeDetailsFetched: firstSummary.volumeDetailsFetched,
+      comicIssueNumber: canonicalComicDetails.issue_number,
       secretReturned: false
     }, null, 2));
   } finally {

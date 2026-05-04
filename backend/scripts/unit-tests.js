@@ -2276,6 +2276,18 @@ results.push(run('typeDetails keeps Kavita provider detail fields for digital li
     kavita_format: 1,
     kavita_pages: 24,
     kavita_cover_image: '/api/image/series-cover?seriesId=8602',
+    kavita_volume_detail_status: 'loaded',
+    kavita_volume_count: 1,
+    kavita_chapter_count: 1,
+    kavita_volume_numbers: '1',
+    kavita_first_volume_number: '1',
+    kavita_first_chapter_id: 9702,
+    kavita_first_chapter_number: '1',
+    kavita_first_chapter_title: 'Metadata Smoke Issue #1',
+    kavita_first_chapter_release_date: '2023-03-04',
+    kavita_first_chapter_pages: 24,
+    kavita_chapter_titles: 'Metadata Smoke Issue #1',
+    kavita_chapter_pages_total: 24,
     source_updated_at: '2026-05-03T00:00:00Z'
   }, { strict: true });
   assert.deepStrictEqual(out.invalidKeys, []);
@@ -2285,6 +2297,12 @@ results.push(run('typeDetails keeps Kavita provider detail fields for digital li
   assert.strictEqual(out.value.kavita_series_id, '8602');
   assert.strictEqual(out.value.kavita_pages, '24');
   assert.strictEqual(out.value.kavita_cover_image, '/api/image/series-cover?seriesId=8602');
+  assert.strictEqual(out.value.kavita_volume_detail_status, 'loaded');
+  assert.strictEqual(out.value.kavita_volume_count, '1');
+  assert.strictEqual(out.value.kavita_chapter_count, '1');
+  assert.strictEqual(out.value.kavita_first_chapter_id, '9702');
+  assert.strictEqual(out.value.kavita_first_chapter_title, 'Metadata Smoke Issue #1');
+  assert.strictEqual(out.value.kavita_chapter_pages_total, '24');
 }));
 
 results.push(run('cwa.normalizeOpdsEntry separates browse and download links without misusing tmdb_url', () => {

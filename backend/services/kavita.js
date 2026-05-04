@@ -4,6 +4,7 @@ const DEFAULT_TIMEOUT_MS = 20000;
 const DEFAULT_PLUGIN_NAME = 'collectZ';
 const DEFAULT_IMPORT_PAGE_SIZE = 100;
 const DEFAULT_IMPORT_MAX_PAGES = 20;
+const DEFAULT_IMPORT_MAX_VOLUME_DETAILS = 250;
 
 function normalizeKavitaBaseUrl(rawUrl = '') {
   const value = String(rawUrl || '').trim().replace(/\/+$/, '');
@@ -122,6 +123,24 @@ async function fetchKavitaSeriesSample(config = {}, token, libraryId = null, lim
   return Array.isArray(response.data) ? response.data : [];
 }
 
+async function fetchKavitaSeriesVolumes(config = {}, token, seriesId) {
+  const baseUrl = normalizeKavitaBaseUrl(config.kavitaBaseUrl);
+  const id = Number(seriesId || 0) || null;
+  if (!id) return [];
+  const response = await axios.get(buildKavitaApiUrl(baseUrl, '/api/Series/volumes'), {
+    params: { seriesId: id },
+    headers: { Authorization: `Bearer ${token}` },
+    timeout: getKavitaTimeoutMs(config),
+    validateStatus: () => true
+  });
+  if (response.status < 200 || response.status >= 300) {
+    const error = new Error(response.data?.message || response.data?.error || `Kavita volumes returned status ${response.status}`);
+    error.status = response.status;
+    throw error;
+  }
+  return Array.isArray(response.data) ? response.data : [];
+}
+
 function firstString(...values) {
   for (const value of values) {
     const text = String(value || '').trim();
@@ -138,6 +157,18 @@ function normalizeKavitaDate(raw) {
   const yearOnly = value.match(/\b(18|19|20)\d{2}\b/);
   if (!yearOnly) return { year: null, release_date: null };
   return { year: Number(yearOnly[0]), release_date: `${yearOnly[0]}-01-01` };
+}
+
+function normalizeKavitaNumberToken(raw) {
+  if (raw === undefined || raw === null || raw === '') return '';
+  const text = String(raw).trim();
+  if (!text) return '';
+  const numeric = Number(text);
+  if (Number.isFinite(numeric)) {
+    if (Number.isInteger(numeric)) return String(numeric);
+    return String(numeric).replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
+  }
+  return text;
 }
 
 function normalizeKavitaLibraryType(rawType) {
@@ -167,6 +198,109 @@ function detectKavitaMediaType(series = {}, library = {}) {
 
   if (/\b(comic|comics|manga|graphic novel|graphic novels)\b/.test(haystack)) return 'comic_book';
   return 'book';
+}
+
+function normalizeKavitaVolumeNumber(volume = {}) {
+  const min = normalizeKavitaNumberToken(volume.minNumber);
+  const max = normalizeKavitaNumberToken(volume.maxNumber);
+  if (min && max && min !== max) return `${min}-${max}`;
+  return min || max || normalizeKavitaNumberToken(volume.number) || firstString(volume.name);
+}
+
+function normalizeKavitaChapterNumber(chapter = {}) {
+  const range = firstString(chapter.range);
+  if (range) return range;
+  const min = normalizeKavitaNumberToken(chapter.minNumber);
+  const max = normalizeKavitaNumberToken(chapter.maxNumber);
+  if (min && max && min !== max) return `${min}-${max}`;
+  return min || max || normalizeKavitaNumberToken(chapter.number);
+}
+
+function sortKavitaVolumes(volumes = []) {
+  return [...volumes].sort((left, right) => {
+    const leftNumber = Number(left?.minNumber ?? left?.number ?? 0);
+    const rightNumber = Number(right?.minNumber ?? right?.number ?? 0);
+    return (Number.isFinite(leftNumber) ? leftNumber : 0) - (Number.isFinite(rightNumber) ? rightNumber : 0)
+      || String(left?.name || '').localeCompare(String(right?.name || ''))
+      || Number(left?.id || 0) - Number(right?.id || 0);
+  });
+}
+
+function sortKavitaChapters(chapters = []) {
+  return [...chapters].sort((left, right) => {
+    const leftOrder = Number(left?.sortOrder ?? left?.minNumber ?? left?.number ?? 0);
+    const rightOrder = Number(right?.sortOrder ?? right?.minNumber ?? right?.number ?? 0);
+    return (Number.isFinite(leftOrder) ? leftOrder : 0) - (Number.isFinite(rightOrder) ? rightOrder : 0)
+      || Number(left?.id || 0) - Number(right?.id || 0);
+  });
+}
+
+function summarizeKavitaVolumeDetails(volumes = []) {
+  const sortedVolumes = sortKavitaVolumes(Array.isArray(volumes) ? volumes : []);
+  const chapters = sortedVolumes.flatMap((volume) => sortKavitaChapters(Array.isArray(volume?.chapters) ? volume.chapters : [])
+    .map((chapter) => ({ ...chapter, __volume: volume })));
+  const firstChapter = chapters.find((chapter) => !chapter.isSpecial) || chapters[0] || null;
+  const firstVolume = firstChapter?.__volume || sortedVolumes[0] || null;
+  const volumeNumbers = Array.from(new Set(sortedVolumes
+    .map((volume) => normalizeKavitaVolumeNumber(volume))
+    .filter(Boolean)));
+  const chapterTitles = Array.from(new Set(chapters
+    .map((chapter) => firstString(chapter.titleName, chapter.title))
+    .filter(Boolean)));
+  const firstChapterDate = normalizeKavitaDate(firstString(firstChapter?.releaseDate, firstChapter?.createdUtc, firstChapter?.created));
+  const firstChapterNumber = firstChapter ? normalizeKavitaChapterNumber(firstChapter) : '';
+  const firstVolumeNumber = firstVolume ? normalizeKavitaVolumeNumber(firstVolume) : '';
+  const firstChapterPages = firstString(firstChapter?.pages) || '';
+  const totalChapterPages = chapters.reduce((sum, chapter) => {
+    const pages = Number(chapter?.pages || 0);
+    return sum + (Number.isFinite(pages) && pages > 0 ? pages : 0);
+  }, 0);
+
+  return {
+    volumeCount: sortedVolumes.length,
+    chapterCount: chapters.length,
+    volumeNumbers: volumeNumbers.slice(0, 20).join(', '),
+    firstVolumeNumber,
+    firstChapterId: firstChapter?.id ?? null,
+    firstChapterNumber,
+    firstChapterTitle: firstString(firstChapter?.titleName, firstChapter?.title),
+    firstChapterReleaseDate: firstChapterDate.release_date,
+    firstChapterPages,
+    chapterTitles: chapterTitles.slice(0, 20).join(' | '),
+    totalChapterPages: totalChapterPages || null
+  };
+}
+
+function applyKavitaVolumeDetails(normalized = null, volumes = [], { status = 'loaded' } = {}) {
+  if (!normalized?.type_details) return normalized;
+  const summary = summarizeKavitaVolumeDetails(volumes);
+  const details = normalized.type_details;
+  const nextDetails = {
+    ...details,
+    kavita_volume_detail_status: status,
+    kavita_volume_count: summary.volumeCount || null,
+    kavita_chapter_count: summary.chapterCount || null,
+    kavita_volume_numbers: summary.volumeNumbers || null,
+    kavita_first_volume_number: summary.firstVolumeNumber || null,
+    kavita_first_chapter_id: summary.firstChapterId ?? null,
+    kavita_first_chapter_number: summary.firstChapterNumber || null,
+    kavita_first_chapter_title: summary.firstChapterTitle || null,
+    kavita_first_chapter_release_date: summary.firstChapterReleaseDate || null,
+    kavita_first_chapter_pages: summary.firstChapterPages || null,
+    kavita_chapter_titles: summary.chapterTitles || null,
+    kavita_chapter_pages_total: summary.totalChapterPages || null
+  };
+
+  if (normalized.media_type === 'comic_book') {
+    nextDetails.volume = details.volume || summary.firstVolumeNumber || null;
+    nextDetails.issue_number = details.issue_number || summary.firstChapterNumber || null;
+    nextDetails.cover_date = details.cover_date || summary.firstChapterReleaseDate || null;
+  }
+
+  return {
+    ...normalized,
+    type_details: nextDetails
+  };
 }
 
 function normalizeKavitaSeries(series = {}, library = {}, config = {}) {
@@ -236,10 +370,16 @@ async function fetchKavitaImportItems(config = {}, options = {}) {
   const librariesById = new Map(libraries.map((library) => [Number(library.id), library]));
   const pageSize = Math.max(1, Math.min(Number(options.pageSize || DEFAULT_IMPORT_PAGE_SIZE), 500));
   const maxPages = Math.max(1, Math.min(Number(options.maxPages || DEFAULT_IMPORT_MAX_PAGES), 100));
+  const includeVolumeDetails = options.includeVolumeDetails !== false;
+  const maxVolumeDetails = Math.max(0, Math.min(Number(options.maxVolumeDetails ?? DEFAULT_IMPORT_MAX_VOLUME_DETAILS), 1000));
   const rows = [];
   const seen = new Set();
   let page = 0;
   let hasMore = false;
+  let volumeDetailsFetched = 0;
+  let volumeDetailsAttempted = 0;
+  let volumeDetailsUnavailable = 0;
+  let volumeDetailsSkipped = 0;
 
   while (page < maxPages) {
     page += 1;
@@ -262,7 +402,23 @@ async function fetchKavitaImportItems(config = {}, options = {}) {
     const seriesRows = Array.isArray(response.data) ? response.data : [];
     for (const series of seriesRows) {
       const library = librariesById.get(Number(series.libraryId)) || {};
-      const normalized = normalizeKavitaSeries(series, library, config);
+      let normalized = normalizeKavitaSeries(series, library, config);
+      if (normalized && includeVolumeDetails) {
+        if (volumeDetailsAttempted < maxVolumeDetails) {
+          volumeDetailsAttempted += 1;
+          try {
+            const volumes = await fetchKavitaSeriesVolumes(config, auth.token, series.id ?? series.seriesId);
+            normalized = applyKavitaVolumeDetails(normalized, volumes);
+            volumeDetailsFetched += 1;
+          } catch (_) {
+            normalized = applyKavitaVolumeDetails(normalized, [], { status: 'unavailable' });
+            volumeDetailsUnavailable += 1;
+          }
+        } else {
+          normalized = applyKavitaVolumeDetails(normalized, [], { status: 'skipped_max_detail_limit' });
+          volumeDetailsSkipped += 1;
+        }
+      }
       const rowId = String(normalized?.type_details?.provider_item_id || '').trim();
       if (normalized && (!rowId || !seen.has(rowId))) {
         rows.push(normalized);
@@ -283,6 +439,10 @@ async function fetchKavitaImportItems(config = {}, options = {}) {
     pageSize,
     libraryCount: libraries.length,
     endpoint: buildKavitaApiUrl(config.kavitaBaseUrl, '/api/Series/all-v2'),
+    volumeDetailsAttempted,
+    volumeDetailsFetched,
+    volumeDetailsUnavailable,
+    volumeDetailsSkipped,
     hasMore
   };
 }
@@ -331,8 +491,11 @@ module.exports = {
   authenticateKavita,
   fetchKavitaLibraries,
   fetchKavitaSeriesSample,
+  fetchKavitaSeriesVolumes,
   fetchKavitaImportItems,
   normalizeKavitaSeries,
   normalizeKavitaLibraryType,
+  summarizeKavitaVolumeDetails,
+  applyKavitaVolumeDetails,
   testKavitaConnection
 };
