@@ -53,14 +53,16 @@ Cover proxy URLs and launch URLs must not include API keys, OPDS keys, bearer to
 
 ## Chapter-as-Issue Fan-out
 
-Current Kavita imports remain series-level by default. `docs/wiki/43-Kavita-Chapter-Issue-Fanout-Contract.md` defines the future opt-in shape for importing selected Kavita comic/manga chapters as individual `comic_book` rows.
+Current Kavita imports remain series-level by default. `docs/wiki/43-Kavita-Chapter-Issue-Fanout-Contract.md` defines and `3.4.93` implements the opt-in shape for importing selected Kavita comic/manga chapters as individual `comic_book` rows.
+
+To fan out eligible comic/manga chapters, send `chapterFanout=true` to `POST /api/media/import-kavita` or enable the admin Kavita import checkbox before queueing the import. Book libraries, unknown library types, and special chapters stay out of fan-out unless a later milestone adds a separate option.
 
 The identity boundary is:
 
 - Series row: `provider_item_id = kavita:series:{seriesId}`
 - Chapter row: `provider_item_id = kavita:chapter:{chapterId}`
 
-Fan-out must preserve the parent series row and keep repeat sync idempotent. It must not call Kavita reader/progress endpoints.
+Fan-out preserves the parent series row and keeps repeat sync idempotent. It does not call Kavita reader/progress endpoints.
 
 ## Current Boundaries
 

@@ -3964,6 +3964,7 @@ async function findExistingByProviderIds({ item, normalizedMediaType, normalized
          WHERE COALESCE(m.media_type, 'movie') = $2
            AND (
              COALESCE(m.type_details->>'provider_issue_id', '') = $1
+             OR (mm."key" = 'provider_issue_id' AND mm."value" = $1)
              OR (mm."key" = 'metron_issue_id' AND mm."value" = $1)
              ${providerIssueAliasKey ? `OR mm."key" = '${providerIssueAliasKey.replace(/'/g, "''")}'` : ''}
            )
@@ -4041,11 +4042,21 @@ async function findExistingByProviderIds({ item, normalizedMediaType, normalized
 }
 
 function buildNormalizationIdentityForImportedItem({ normalizedMediaType, title, normalizedTypeDetails, resolvedIdentifiers }) {
+  const normalizationTypeDetails = normalizedMediaType === 'comic_book'
+    && String(normalizedTypeDetails?.provider_name || '').trim().toLowerCase() === 'kavita'
+    && String(normalizedTypeDetails?.kavita_chapter_fanout || '').trim().toLowerCase() === 'true'
+      ? {
+          ...normalizedTypeDetails,
+          provider_name: null,
+          provider_item_id: null,
+          provider_issue_id: null
+        }
+      : normalizedTypeDetails;
   const payload = {
     title,
     media_type: normalizedMediaType,
     isbn: resolvedIdentifiers?.isbn || '',
-    type_details: normalizedTypeDetails || {}
+    type_details: normalizationTypeDetails || {}
   };
   if (normalizedMediaType === 'book') return buildBookNormalizationIdentity(payload);
   if (normalizedMediaType === 'comic_book') return buildComicNormalizationIdentity(payload);
@@ -6082,6 +6093,16 @@ async function runGenericCsvImport({
         kavita_first_chapter_pages: value('kavita_first_chapter_pages') || rowTypeDetails.kavita_first_chapter_pages || null,
         kavita_chapter_titles: value('kavita_chapter_titles') || rowTypeDetails.kavita_chapter_titles || null,
         kavita_chapter_pages_total: value('kavita_chapter_pages_total') || rowTypeDetails.kavita_chapter_pages_total || null,
+        kavita_chapter_fanout: value('kavita_chapter_fanout') || rowTypeDetails.kavita_chapter_fanout || null,
+        kavita_chapter_id: value('kavita_chapter_id') || rowTypeDetails.kavita_chapter_id || null,
+        kavita_volume_id: value('kavita_volume_id') || rowTypeDetails.kavita_volume_id || null,
+        kavita_chapter_number: value('kavita_chapter_number') || rowTypeDetails.kavita_chapter_number || null,
+        kavita_chapter_title: value('kavita_chapter_title') || rowTypeDetails.kavita_chapter_title || null,
+        kavita_chapter_release_date: value('kavita_chapter_release_date') || rowTypeDetails.kavita_chapter_release_date || null,
+        kavita_chapter_pages: value('kavita_chapter_pages') || rowTypeDetails.kavita_chapter_pages || null,
+        kavita_parent_provider_item_id: value('kavita_parent_provider_item_id') || rowTypeDetails.kavita_parent_provider_item_id || null,
+        kavita_series_provider_item_id: value('kavita_series_provider_item_id') || rowTypeDetails.kavita_series_provider_item_id || null,
+        kavita_chapter_provider_item_id: value('kavita_chapter_provider_item_id') || rowTypeDetails.kavita_chapter_provider_item_id || null,
         calibre_entry_id: value('calibre_entry_id') || rowTypeDetails.calibre_entry_id || null,
         calibre_external_url: value('calibre_external_url') || rowTypeDetails.calibre_external_url || null,
         calibre_download_url: value('calibre_download_url') || rowTypeDetails.calibre_download_url || null,
@@ -6184,6 +6205,7 @@ async function runGenericCsvImport({
         await upsertMediaMetadataEntry(result.mediaId, 'ean_upc', rowIdentifiers.eanUpc);
         await upsertMediaMetadataEntry(result.mediaId, 'amazon_item_id', rowIdentifiers.asin);
         await upsertMediaMetadataEntry(result.mediaId, 'provider_item_id', mapped.type_details?.provider_item_id || '');
+        await upsertMediaMetadataEntry(result.mediaId, 'provider_issue_id', mapped.type_details?.provider_issue_id || '');
         await upsertMediaMetadataEntry(result.mediaId, 'calibre_entry_id', mapped.type_details?.calibre_entry_id || '');
         if (collectionId) {
           const itemId = await addCollectionItem({
@@ -10040,6 +10062,23 @@ router.post('/import-kavita', asyncHandler(async (req, res) => {
   const pageSizeRaw = Number(req.body?.pageSize ?? req.query?.pageSize);
   const maxPages = Number.isFinite(maxPagesRaw) ? Math.max(1, Math.min(100, maxPagesRaw)) : undefined;
   const pageSize = Number.isFinite(pageSizeRaw) ? Math.max(1, Math.min(500, pageSizeRaw)) : undefined;
+  const parseKavitaImportBoolean = (value) => {
+    if (value === true) return true;
+    if (value === false || value === null || value === undefined) return false;
+    return ['1', 'true', 'yes', 'on'].includes(String(value).trim().toLowerCase());
+  };
+  const includeChapterFanout = [
+    req.body?.chapterFanout,
+    req.body?.includeChapterFanout,
+    req.body?.fanoutChapters,
+    req.body?.fanOutChapters,
+    req.body?.includeChapterIssues,
+    req.query?.chapterFanout,
+    req.query?.includeChapterFanout,
+    req.query?.fanoutChapters,
+    req.query?.fanOutChapters,
+    req.query?.includeChapterIssues
+  ].some(parseKavitaImportBoolean);
   const asyncMode = shouldQueueImportByDefault(req);
   const auditReq = {
     user: req.user,
@@ -10049,7 +10088,7 @@ router.post('/import-kavita', asyncHandler(async (req, res) => {
   };
 
   const runImport = async ({ onProgress = null, reviewContext = null } = {}) => {
-    const fetched = await fetchKavitaImportItems(config, { maxPages, pageSize });
+    const fetched = await fetchKavitaImportItems(config, { maxPages, pageSize, includeChapterFanout });
     const result = await runGenericCsvImport({
       rows: fetched.rows,
       userId: req.user.id,
@@ -10123,6 +10162,12 @@ router.post('/import-kavita', asyncHandler(async (req, res) => {
             volumeDetailsFetched: fetched.volumeDetailsFetched,
             volumeDetailsUnavailable: fetched.volumeDetailsUnavailable,
             volumeDetailsSkipped: fetched.volumeDetailsSkipped,
+            chapterFanoutEnabled: Boolean(fetched.chapterFanoutEnabled),
+            chapterFanoutRows: fetched.chapterFanoutRows || 0,
+            chapterFanoutSkippedBooks: fetched.chapterFanoutSkippedBooks || 0,
+            chapterFanoutSkippedSpecials: fetched.chapterFanoutSkippedSpecials || 0,
+            chapterFanoutSkippedMissingIds: fetched.chapterFanoutSkippedMissingIds || 0,
+            chapterFanoutSkippedSparseMetadata: fetched.chapterFanoutSkippedSparseMetadata || 0,
             hasMore: Boolean(fetched.hasMore),
             auditRows: result.auditRows
           },
@@ -10150,6 +10195,12 @@ router.post('/import-kavita', asyncHandler(async (req, res) => {
           volumeDetailsFetched: fetched.volumeDetailsFetched,
           volumeDetailsUnavailable: fetched.volumeDetailsUnavailable,
           volumeDetailsSkipped: fetched.volumeDetailsSkipped,
+          chapterFanoutEnabled: Boolean(fetched.chapterFanoutEnabled),
+          chapterFanoutRows: fetched.chapterFanoutRows || 0,
+          chapterFanoutSkippedBooks: fetched.chapterFanoutSkippedBooks || 0,
+          chapterFanoutSkippedSpecials: fetched.chapterFanoutSkippedSpecials || 0,
+          chapterFanoutSkippedMissingIds: fetched.chapterFanoutSkippedMissingIds || 0,
+          chapterFanoutSkippedSparseMetadata: fetched.chapterFanoutSkippedSparseMetadata || 0,
           hasMore: Boolean(fetched.hasMore),
           jobId: job.id
         });
@@ -10195,6 +10246,12 @@ router.post('/import-kavita', asyncHandler(async (req, res) => {
     volumeDetailsFetched: fetched.volumeDetailsFetched,
     volumeDetailsUnavailable: fetched.volumeDetailsUnavailable,
     volumeDetailsSkipped: fetched.volumeDetailsSkipped,
+    chapterFanoutEnabled: Boolean(fetched.chapterFanoutEnabled),
+    chapterFanoutRows: fetched.chapterFanoutRows || 0,
+    chapterFanoutSkippedBooks: fetched.chapterFanoutSkippedBooks || 0,
+    chapterFanoutSkippedSpecials: fetched.chapterFanoutSkippedSpecials || 0,
+    chapterFanoutSkippedMissingIds: fetched.chapterFanoutSkippedMissingIds || 0,
+    chapterFanoutSkippedSparseMetadata: fetched.chapterFanoutSkippedSparseMetadata || 0,
     hasMore: Boolean(fetched.hasMore)
   });
   res.json({
@@ -10209,6 +10266,12 @@ router.post('/import-kavita', asyncHandler(async (req, res) => {
       volumeDetailsFetched: fetched.volumeDetailsFetched,
       volumeDetailsUnavailable: fetched.volumeDetailsUnavailable,
       volumeDetailsSkipped: fetched.volumeDetailsSkipped,
+      chapterFanoutEnabled: Boolean(fetched.chapterFanoutEnabled),
+      chapterFanoutRows: fetched.chapterFanoutRows || 0,
+      chapterFanoutSkippedBooks: fetched.chapterFanoutSkippedBooks || 0,
+      chapterFanoutSkippedSpecials: fetched.chapterFanoutSkippedSpecials || 0,
+      chapterFanoutSkippedMissingIds: fetched.chapterFanoutSkippedMissingIds || 0,
+      chapterFanoutSkippedSparseMetadata: fetched.chapterFanoutSkippedSparseMetadata || 0,
       hasMore: Boolean(fetched.hasMore)
     },
     auditRows: result.auditRows,

@@ -91,10 +91,20 @@ function runAudit(label, cwd, outputPath) {
     };
   }
 
-  ensureDir(path.dirname(outputPath));
-  fs.writeFileSync(outputPath, JSON.stringify(parsed, null, 2));
-
   if (!parsed?.metadata?.vulnerabilities) {
+    const existing = safeReadJson(outputPath);
+    if (existing?.metadata?.vulnerabilities) {
+      const counts = getAuditCounts(existing);
+      const detail = `using existing audit artifact; low=${counts.low} moderate=${counts.moderate} high=${counts.high} critical=${counts.critical}`;
+      return {
+        gate: buildGate(counts.critical > 0 ? label : label, counts.critical > 0 ? 'FAIL' : 'PASS', detail, {
+          counts,
+          exitCode: result.status,
+          auditWarning: parsed?.message || 'npm audit did not return vulnerability metadata'
+        }),
+        json: existing
+      };
+    }
     return {
       gate: buildGate(
         label,
@@ -105,6 +115,9 @@ function runAudit(label, cwd, outputPath) {
       json: parsed
     };
   }
+
+  ensureDir(path.dirname(outputPath));
+  fs.writeFileSync(outputPath, JSON.stringify(parsed, null, 2));
 
   const counts = getAuditCounts(parsed);
   const detail = `low=${counts.low} moderate=${counts.moderate} high=${counts.high} critical=${counts.critical}`;

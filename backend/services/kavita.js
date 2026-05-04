@@ -39,6 +39,18 @@ function buildKavitaSeriesWebUrl(baseUrl = '', libraryId = null, seriesId = null
   return buildKavitaWebUrl(baseUrl, `/library/${libId}/series/${id}`);
 }
 
+function buildKavitaSeriesProviderItemId(seriesId = null) {
+  const id = Number(seriesId || 0) || null;
+  if (!id) return '';
+  return `kavita:series:${id}`;
+}
+
+function buildKavitaChapterProviderItemId(chapterId = null) {
+  const id = Number(chapterId || 0) || null;
+  if (!id) return '';
+  return `kavita:chapter:${id}`;
+}
+
 function normalizeKavitaFormat(rawFormat) {
   const numeric = Number(rawFormat);
   if (Number.isFinite(numeric)) {
@@ -293,6 +305,11 @@ function detectKavitaMediaType(series = {}, library = {}) {
   return 'book';
 }
 
+function isKavitaComicLibraryType(rawType) {
+  const libraryType = normalizeKavitaLibraryType(rawType);
+  return libraryType === 'comic' || libraryType === 'manga';
+}
+
 function normalizeKavitaVolumeNumber(volume = {}) {
   const min = normalizeKavitaNumberToken(volume.minNumber);
   const max = normalizeKavitaNumberToken(volume.maxNumber);
@@ -410,6 +427,114 @@ function applyKavitaVolumeDetails(normalized = null, volumes = [], { status = 'l
   };
 }
 
+function buildKavitaChapterIssueTitle(seriesTitle = '', chapter = {}, chapterNumber = '') {
+  const chapterTitle = firstString(chapter.titleName, chapter.title);
+  if (chapterTitle) return chapterTitle;
+  const parentTitle = firstString(seriesTitle, 'Kavita issue');
+  if (chapterNumber) return `${parentTitle} #${chapterNumber}`;
+  return parentTitle;
+}
+
+function hasKavitaChapterDisplayMetadata(chapter = {}) {
+  return Boolean(
+    normalizeKavitaChapterNumber(chapter)
+    || firstString(chapter.titleName, chapter.title)
+    || firstString(chapter.releaseDate, chapter.createdUtc, chapter.created)
+    || firstString(chapter.pages)
+  );
+}
+
+function normalizeKavitaChapterIssueRows(normalized = null, volumes = [], config = {}) {
+  if (!normalized || normalized.media_type !== 'comic_book' || !normalized.type_details) {
+    return { rows: [], skippedBooks: 1, skippedSpecials: 0, skippedMissingIds: 0, skippedSparseMetadata: 0 };
+  }
+
+  const details = normalized.type_details;
+  if (!isKavitaComicLibraryType(details.kavita_library_type)) {
+    return { rows: [], skippedBooks: 1, skippedSpecials: 0, skippedMissingIds: 0, skippedSparseMetadata: 0 };
+  }
+
+  const parentSeriesId = Number(details.kavita_series_id || 0) || null;
+  const parentProviderItemId = buildKavitaSeriesProviderItemId(parentSeriesId);
+  const sortedVolumes = sortKavitaVolumes(Array.isArray(volumes) ? volumes : []);
+  const rows = [];
+  let skippedSpecials = 0;
+  let skippedMissingIds = 0;
+  let skippedSparseMetadata = 0;
+
+  for (const volume of sortedVolumes) {
+    const volumeId = Number(volume?.id || 0) || null;
+    const volumeNumber = normalizeKavitaVolumeNumber(volume);
+    const chapters = sortKavitaChapters(Array.isArray(volume?.chapters) ? volume.chapters : []);
+    for (const chapter of chapters) {
+      if (chapter?.isSpecial) {
+        skippedSpecials += 1;
+        continue;
+      }
+      const chapterId = Number(chapter?.id || 0) || null;
+      const chapterProviderItemId = buildKavitaChapterProviderItemId(chapterId);
+      if (!chapterProviderItemId) {
+        skippedMissingIds += 1;
+        continue;
+      }
+      if (!hasKavitaChapterDisplayMetadata(chapter)) {
+        skippedSparseMetadata += 1;
+        continue;
+      }
+
+      const chapterNumber = normalizeKavitaChapterNumber(chapter);
+      const chapterDate = normalizeKavitaDate(firstString(chapter.releaseDate, chapter.createdUtc, chapter.created));
+      const chapterTitle = buildKavitaChapterIssueTitle(normalized.title, chapter, chapterNumber);
+      const launchUrl = buildKavitaReaderWebUrl(config.kavitaBaseUrl, {
+        libraryId: details.kavita_library_id,
+        seriesId: parentSeriesId,
+        chapterId,
+        format: details.kavita_format,
+        libraryType: details.kavita_library_type
+      });
+      const chapterPages = firstString(chapter.pages);
+
+      rows.push({
+        title: chapterTitle,
+        media_type: 'comic_book',
+        year: chapterDate.year || normalized.year || null,
+        release_date: chapterDate.release_date || normalized.release_date || null,
+        format: 'Digital',
+        overview: normalized.overview || null,
+        external_url: launchUrl || details.kavita_series_url || details.provider_external_url || null,
+        poster_path: normalized.poster_path || null,
+        type_details: {
+          ...details,
+          series: firstString(details.series, details.kavita_series_name, normalized.title) || null,
+          issue_number: chapterNumber || null,
+          volume: volumeNumber || null,
+          cover_date: chapterDate.release_date || null,
+          provider_name: 'kavita',
+          provider_item_id: chapterProviderItemId,
+          provider_issue_id: chapterProviderItemId,
+          provider_external_url: launchUrl || null,
+          provider_download_url: null,
+          kavita_launch_url: launchUrl || null,
+          kavita_launch_label: launchUrl ? 'Read in Kavita' : null,
+          kavita_launch_target: launchUrl ? 'chapter_reader' : null,
+          kavita_chapter_fanout: 'true',
+          kavita_chapter_id: chapterId,
+          kavita_volume_id: volumeId,
+          kavita_chapter_number: chapterNumber || null,
+          kavita_chapter_title: firstString(chapter.titleName, chapter.title) || null,
+          kavita_chapter_release_date: chapterDate.release_date || null,
+          kavita_chapter_pages: chapterPages || null,
+          kavita_parent_provider_item_id: parentProviderItemId || null,
+          kavita_series_provider_item_id: parentProviderItemId || null,
+          kavita_chapter_provider_item_id: chapterProviderItemId
+        }
+      });
+    }
+  }
+
+  return { rows, skippedBooks: 0, skippedSpecials, skippedMissingIds, skippedSparseMetadata };
+}
+
 function normalizeKavitaSeries(series = {}, library = {}, config = {}) {
   const id = series.id ?? series.seriesId ?? null;
   const title = firstString(series.localizedName, series.name, series.originalName, series.sortName);
@@ -422,7 +547,7 @@ function normalizeKavitaSeries(series = {}, library = {}, config = {}) {
   const libraryId = series.libraryId ?? library.id ?? null;
   const libraryName = firstString(series.libraryName, library.name);
   const libraryType = normalizeKavitaLibraryType(library.type ?? series.libraryType);
-  const providerItemId = `kavita:series:${id}`;
+  const providerItemId = buildKavitaSeriesProviderItemId(id);
   const openUrl = buildKavitaSeriesWebUrl(config.kavitaBaseUrl, libraryId, id);
   const summary = firstString(series.summary, series.localizedSummary, series.description);
   const coverImage = firstString(series.coverImage, series.coverImageLocked ? '' : series.cover);
@@ -487,6 +612,7 @@ async function fetchKavitaImportItems(config = {}, options = {}) {
   const pageSize = Math.max(1, Math.min(Number(options.pageSize || DEFAULT_IMPORT_PAGE_SIZE), 500));
   const maxPages = Math.max(1, Math.min(Number(options.maxPages || DEFAULT_IMPORT_MAX_PAGES), 100));
   const includeVolumeDetails = options.includeVolumeDetails !== false;
+  const includeChapterFanout = Boolean(options.includeChapterFanout);
   const maxVolumeDetails = Math.max(0, Math.min(Number(options.maxVolumeDetails ?? DEFAULT_IMPORT_MAX_VOLUME_DETAILS), 1000));
   const rows = [];
   const seen = new Set();
@@ -496,6 +622,11 @@ async function fetchKavitaImportItems(config = {}, options = {}) {
   let volumeDetailsAttempted = 0;
   let volumeDetailsUnavailable = 0;
   let volumeDetailsSkipped = 0;
+  let chapterFanoutRows = 0;
+  let chapterFanoutSkippedBooks = 0;
+  let chapterFanoutSkippedSpecials = 0;
+  let chapterFanoutSkippedMissingIds = 0;
+  let chapterFanoutSkippedSparseMetadata = 0;
 
   while (page < maxPages) {
     page += 1;
@@ -519,13 +650,16 @@ async function fetchKavitaImportItems(config = {}, options = {}) {
     for (const series of seriesRows) {
       const library = librariesById.get(Number(series.libraryId)) || {};
       let normalized = normalizeKavitaSeries(series, library, config);
+      let volumes = [];
+      let volumeDetailsLoaded = false;
       if (normalized && includeVolumeDetails) {
         if (volumeDetailsAttempted < maxVolumeDetails) {
           volumeDetailsAttempted += 1;
           try {
-            const volumes = await fetchKavitaSeriesVolumes(config, auth.token, series.id ?? series.seriesId);
+            volumes = await fetchKavitaSeriesVolumes(config, auth.token, series.id ?? series.seriesId);
             normalized = applyKavitaVolumeDetails(normalized, volumes, { config });
             volumeDetailsFetched += 1;
+            volumeDetailsLoaded = true;
           } catch (_) {
             normalized = applyKavitaVolumeDetails(normalized, [], { status: 'unavailable', config });
             volumeDetailsUnavailable += 1;
@@ -539,6 +673,22 @@ async function fetchKavitaImportItems(config = {}, options = {}) {
       if (normalized && (!rowId || !seen.has(rowId))) {
         rows.push(normalized);
         if (rowId) seen.add(rowId);
+      }
+      if (normalized && includeChapterFanout) {
+        const fanout = volumeDetailsLoaded
+          ? normalizeKavitaChapterIssueRows(normalized, volumes, config)
+          : { rows: [], skippedBooks: normalized.media_type !== 'comic_book' ? 1 : 0, skippedSpecials: 0, skippedMissingIds: 0, skippedSparseMetadata: 0 };
+        chapterFanoutSkippedBooks += fanout.skippedBooks;
+        chapterFanoutSkippedSpecials += fanout.skippedSpecials;
+        chapterFanoutSkippedMissingIds += fanout.skippedMissingIds;
+        chapterFanoutSkippedSparseMetadata += fanout.skippedSparseMetadata;
+        for (const fanoutRow of fanout.rows) {
+          const fanoutRowId = String(fanoutRow?.type_details?.provider_item_id || '').trim();
+          if (fanoutRowId && seen.has(fanoutRowId)) continue;
+          rows.push(fanoutRow);
+          if (fanoutRowId) seen.add(fanoutRowId);
+          chapterFanoutRows += 1;
+        }
       }
     }
 
@@ -559,6 +709,12 @@ async function fetchKavitaImportItems(config = {}, options = {}) {
     volumeDetailsFetched,
     volumeDetailsUnavailable,
     volumeDetailsSkipped,
+    chapterFanoutEnabled: includeChapterFanout,
+    chapterFanoutRows,
+    chapterFanoutSkippedBooks,
+    chapterFanoutSkippedSpecials,
+    chapterFanoutSkippedMissingIds,
+    chapterFanoutSkippedSparseMetadata,
     hasMore
   };
 }
@@ -605,6 +761,8 @@ module.exports = {
   normalizeKavitaBaseUrl,
   buildKavitaWebUrl,
   buildKavitaSeriesWebUrl,
+  buildKavitaSeriesProviderItemId,
+  buildKavitaChapterProviderItemId,
   buildKavitaReaderWebUrl,
   buildKavitaCoverProxyPath,
   buildKavitaCoverImageUrl,
@@ -616,7 +774,9 @@ module.exports = {
   fetchKavitaImportItems,
   normalizeKavitaSeries,
   normalizeKavitaLibraryType,
+  isKavitaComicLibraryType,
   summarizeKavitaVolumeDetails,
   applyKavitaVolumeDetails,
+  normalizeKavitaChapterIssueRows,
   testKavitaConnection
 };

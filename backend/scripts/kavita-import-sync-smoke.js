@@ -10,6 +10,10 @@ const KAVITA_SMOKE_KEY = `kavita-import-smoke-${crypto.randomBytes(8).toString('
 const KAVITA_SMOKE_BEARER = `kavita-import-bearer-${crypto.randomBytes(8).toString('hex')}`;
 const BOOK_PROVIDER_ITEM_ID = 'kavita:series:8601';
 const COMIC_PROVIDER_ITEM_ID = 'kavita:series:8602';
+const COMIC_CHAPTER_ONE_PROVIDER_ITEM_ID = 'kavita:chapter:9702';
+const COMIC_CHAPTER_TWO_PROVIDER_ITEM_ID = 'kavita:chapter:9703';
+const BOOK_CHAPTER_PROVIDER_ITEM_ID = 'kavita:chapter:9701';
+const SPECIAL_CHAPTER_PROVIDER_ITEM_ID = 'kavita:chapter:9799';
 
 class HttpClient {
   constructor(name) {
@@ -234,9 +238,9 @@ async function startFakeKavitaServer() {
             id: 9602,
             seriesId: 8602,
             minNumber: 1,
-            maxNumber: 1,
+            maxNumber: 2,
             name: 'Volume 1',
-            pages: 24,
+            pages: 51,
             chapters: [
               {
                 id: 9702,
@@ -248,6 +252,27 @@ async function startFakeKavitaServer() {
                 title: 'Kavita Metadata Smoke Issue #1',
                 releaseDate: '2023-03-04T00:00:00Z',
                 pages: 24
+              },
+              {
+                id: 9703,
+                volumeId: 9602,
+                range: '2',
+                minNumber: 2,
+                maxNumber: 2,
+                sortOrder: 2,
+                title: 'Kavita Metadata Smoke Issue #2',
+                releaseDate: '2023-04-05T00:00:00Z',
+                pages: 26
+              },
+              {
+                id: 9799,
+                volumeId: 9602,
+                range: 'S',
+                sortOrder: 99,
+                title: 'Kavita Metadata Smoke Special',
+                releaseDate: '2023-05-06T00:00:00Z',
+                pages: 1,
+                isSpecial: true
               }
             ]
           }
@@ -310,6 +335,13 @@ async function readImportedProviderRow(libraryId, providerItemId) {
   return result.rows || [];
 }
 
+function dateReadbackStartsWith(value, expectedPrefix) {
+  if (!value) return false;
+  if (String(value || '').startsWith(expectedPrefix)) return true;
+  const parsed = new Date(value);
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().startsWith(expectedPrefix);
+}
+
 async function main() {
   const suffix = Date.now();
   const email = `kavita-import-smoke-${suffix}@example.com`;
@@ -353,6 +385,22 @@ async function main() {
         userId
       ]
     );
+    await pool.query(
+      `INSERT INTO media (title, media_type, year, release_date, format, owned_formats, type_details, library_id, space_id, added_by, import_source)
+       VALUES ($1, 'comic_book', 2023, '2023-04-05', 'Digital', ARRAY['digital']::text[], $2::jsonb, $3, $4, $5, 'csv_generic')`,
+      [
+        'Kavita Metadata Smoke Issue #2',
+        JSON.stringify({
+          series: 'Kavita Metadata Smoke Issue',
+          issue_number: '2',
+          volume: '1-2',
+          writer: 'Existing Comic Writer'
+        }),
+        libraryId,
+        spaceId,
+        userId
+      ]
+    );
 
     await client.request('/api/admin/settings/integrations', {
       method: 'PUT',
@@ -380,21 +428,55 @@ async function main() {
       body: JSON.stringify({}),
       headers: { 'Content-Type': 'application/json' }
     });
+    const fanoutImport = await client.request('/api/media/import-kavita?sync=1&pageSize=10&maxPages=2&chapterFanout=1', {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 200,
+      body: JSON.stringify({}),
+      headers: { 'Content-Type': 'application/json' }
+    });
+    const repeatFanoutImport = await client.request('/api/media/import-kavita?sync=1&pageSize=10&maxPages=2&chapterFanout=1', {
+      method: 'POST',
+      withCsrf: true,
+      expectStatus: 200,
+      body: JSON.stringify({}),
+      headers: { 'Content-Type': 'application/json' }
+    });
 
     const firstSummary = firstImport.data?.summary || {};
     const secondSummary = secondImport.data?.summary || {};
+    const fanoutSummary = fanoutImport.data?.summary || {};
+    const repeatFanoutSummary = repeatFanoutImport.data?.summary || {};
     assert(Number(firstSummary.created || 0) === 1, `Expected first Kavita import to create one new comic row while reusing the existing non-Kavita book title, got ${JSON.stringify(firstSummary)}`);
     assert(Number(firstSummary.updated || 0) === 1, `Expected first Kavita import to update the existing non-Kavita title, got ${JSON.stringify(firstSummary)}`);
     assert(Number(secondSummary.created || 0) === 0, `Expected second Kavita import to avoid duplicate creation, got ${JSON.stringify(secondSummary)}`);
     assert(Number(secondSummary.updated || 0) === 2, `Expected second Kavita import to update/no-op both canonical rows, got ${JSON.stringify(secondSummary)}`);
+    assert(firstSummary.chapterFanoutEnabled === false, `Expected default Kavita import to keep chapter fan-out disabled, got ${JSON.stringify(firstSummary)}`);
+    assert(Number(firstSummary.chapterFanoutRows || 0) === 0, `Expected default Kavita import to create no chapter fan-out rows, got ${JSON.stringify(firstSummary)}`);
     assert(Number(firstSummary.libraryCount || 0) === 2, `Expected Kavita import summary to include both libraries, got ${JSON.stringify(firstSummary)}`);
     assert(Number(firstSummary.volumeDetailsAttempted || 0) === 2, `Expected Kavita import to query volume/chapter details for both rows, got ${JSON.stringify(firstSummary)}`);
     assert(Number(firstSummary.volumeDetailsFetched || 0) === 2, `Expected Kavita import to load volume/chapter details for both rows, got ${JSON.stringify(firstSummary)}`);
+    assert(fanoutSummary.chapterFanoutEnabled === true, `Expected opt-in Kavita import to enable chapter fan-out, got ${JSON.stringify(fanoutSummary)}`);
+    assert(Number(fanoutSummary.chapterFanoutRows || 0) === 2, `Expected opt-in Kavita import to stage two comic chapter fan-out rows, got ${JSON.stringify(fanoutSummary)}`);
+    assert(Number(fanoutSummary.chapterFanoutSkippedBooks || 0) === 1, `Expected book library chapter fan-out to be skipped, got ${JSON.stringify(fanoutSummary)}`);
+    assert(Number(fanoutSummary.chapterFanoutSkippedSpecials || 0) === 1, `Expected Kavita special chapter to be skipped, got ${JSON.stringify(fanoutSummary)}`);
+    assert(Number(fanoutSummary.created || 0) === 1, `Expected first fan-out import to create one new issue row while reusing the existing local issue, got ${JSON.stringify(fanoutSummary)}`);
+    assert(Number(fanoutSummary.updated || 0) === 3, `Expected first fan-out import to update/no-op the two canonical series rows and existing local issue, got ${JSON.stringify(fanoutSummary)}`);
+    assert(Number(repeatFanoutSummary.created || 0) === 0, `Expected repeat fan-out import to avoid duplicate issue creation, got ${JSON.stringify(repeatFanoutSummary)}`);
+    assert(Number(repeatFanoutSummary.updated || 0) === 4, `Expected repeat fan-out import to update/no-op both canonical rows and both issue rows, got ${JSON.stringify(repeatFanoutSummary)}`);
 
     const bookRows = await readImportedProviderRow(libraryId, BOOK_PROVIDER_ITEM_ID);
     const comicRows = await readImportedProviderRow(libraryId, COMIC_PROVIDER_ITEM_ID);
+    const comicChapterOneRows = await readImportedProviderRow(libraryId, COMIC_CHAPTER_ONE_PROVIDER_ITEM_ID);
+    const comicChapterTwoRows = await readImportedProviderRow(libraryId, COMIC_CHAPTER_TWO_PROVIDER_ITEM_ID);
+    const bookChapterRows = await readImportedProviderRow(libraryId, BOOK_CHAPTER_PROVIDER_ITEM_ID);
+    const specialChapterRows = await readImportedProviderRow(libraryId, SPECIAL_CHAPTER_PROVIDER_ITEM_ID);
     assert(bookRows.length === 1, `Expected exactly one canonical Kavita book row, got ${JSON.stringify(bookRows)}`);
     assert(comicRows.length === 1, `Expected exactly one canonical Kavita comic row, got ${JSON.stringify(comicRows)}`);
+    assert(comicChapterOneRows.length === 1, `Expected exactly one Kavita chapter issue #1 row, got ${JSON.stringify(comicChapterOneRows)}`);
+    assert(comicChapterTwoRows.length === 1, `Expected exactly one Kavita chapter issue #2 row, got ${JSON.stringify(comicChapterTwoRows)}`);
+    assert(bookChapterRows.length === 0, `Expected Kavita book chapter to stay series-level only, got ${JSON.stringify(bookChapterRows)}`);
+    assert(specialChapterRows.length === 0, `Expected Kavita special chapter to be skipped, got ${JSON.stringify(specialChapterRows)}`);
 
     const canonicalBook = bookRows[0] || {};
     const canonicalBookDetails = canonicalBook.type_details || {};
@@ -437,7 +519,7 @@ async function main() {
     assert(String(canonicalComicDetails.kavita_library_id || '') === '87', `Expected Kavita comic library id metadata, got ${JSON.stringify(canonicalComicDetails)}`);
     assert(String(canonicalComicDetails.kavita_library_type || '') === 'comic', `Expected Kavita numeric comic library type metadata, got ${JSON.stringify(canonicalComicDetails)}`);
     assert(String(canonicalComicDetails.kavita_pages || '') === '24', `Expected Kavita comic page metadata, got ${JSON.stringify(canonicalComicDetails)}`);
-    assert(String(canonicalComicDetails.volume || '') === '1', `Expected Kavita comic volume mapped from volume detail, got ${JSON.stringify(canonicalComicDetails)}`);
+    assert(String(canonicalComicDetails.volume || '') === '1-2', `Expected Kavita comic volume mapped from volume detail, got ${JSON.stringify(canonicalComicDetails)}`);
     assert(String(canonicalComicDetails.issue_number || '') === '1', `Expected Kavita comic issue number mapped from chapter detail, got ${JSON.stringify(canonicalComicDetails)}`);
     assert(String(canonicalComicDetails.cover_date || '') === '2023-03-04', `Expected Kavita comic cover date mapped from chapter publication date, got ${JSON.stringify(canonicalComicDetails)}`);
     assert(String(canonicalComicDetails.kavita_volume_detail_status || '') === 'loaded', `Expected Kavita comic volume detail status, got ${JSON.stringify(canonicalComicDetails)}`);
@@ -454,6 +536,35 @@ async function main() {
     assert(String(canonicalComicDetails.kavita_launch_target || '') === 'first_chapter_reader', `Expected Kavita comic launch target, got ${JSON.stringify(canonicalComicDetails)}`);
     assert(!String(canonicalComicDetails.kavita_launch_url || '').includes(KAVITA_SMOKE_KEY), `Kavita launch URL must not include API keys, got ${JSON.stringify(canonicalComicDetails)}`);
     assert(!String(canonicalComicDetails.kavita_launch_url || '').includes(KAVITA_SMOKE_BEARER), `Kavita launch URL must not include bearer tokens, got ${JSON.stringify(canonicalComicDetails)}`);
+    const chapterOne = comicChapterOneRows[0] || {};
+    const chapterOneDetails = chapterOne.type_details || {};
+    const chapterTwo = comicChapterTwoRows[0] || {};
+    const chapterTwoDetails = chapterTwo.type_details || {};
+    assert(String(chapterOne.media_type || '') === 'comic_book', `Expected Kavita chapter #1 fan-out media type to be comic_book, got ${JSON.stringify(chapterOne)}`);
+    assert(String(chapterOne.title || '') === 'Kavita Metadata Smoke Issue #1', `Expected Kavita chapter #1 title, got ${JSON.stringify(chapterOne)}`);
+    assert(String(chapterOneDetails.provider_name || '') === 'kavita', `Expected Kavita chapter #1 provider, got ${JSON.stringify(chapterOneDetails)}`);
+    assert(String(chapterOneDetails.provider_item_id || '') === COMIC_CHAPTER_ONE_PROVIDER_ITEM_ID, `Expected Kavita chapter #1 provider item id, got ${JSON.stringify(chapterOneDetails)}`);
+    assert(String(chapterOneDetails.provider_issue_id || '') === COMIC_CHAPTER_ONE_PROVIDER_ITEM_ID, `Expected Kavita chapter #1 provider issue id, got ${JSON.stringify(chapterOneDetails)}`);
+    assert(String(chapterOneDetails.kavita_parent_provider_item_id || '') === COMIC_PROVIDER_ITEM_ID, `Expected Kavita chapter #1 parent provider linkage, got ${JSON.stringify(chapterOneDetails)}`);
+    assert(String(chapterOneDetails.kavita_series_provider_item_id || '') === COMIC_PROVIDER_ITEM_ID, `Expected Kavita chapter #1 series provider linkage, got ${JSON.stringify(chapterOneDetails)}`);
+    assert(String(chapterOneDetails.kavita_chapter_provider_item_id || '') === COMIC_CHAPTER_ONE_PROVIDER_ITEM_ID, `Expected Kavita chapter #1 provider linkage, got ${JSON.stringify(chapterOneDetails)}`);
+    assert(String(chapterOneDetails.kavita_chapter_fanout || '') === 'true', `Expected Kavita chapter fan-out marker, got ${JSON.stringify(chapterOneDetails)}`);
+    assert(String(chapterOneDetails.kavita_chapter_id || '') === '9702', `Expected Kavita chapter id, got ${JSON.stringify(chapterOneDetails)}`);
+    assert(String(chapterOneDetails.kavita_volume_id || '') === '9602', `Expected Kavita chapter volume id, got ${JSON.stringify(chapterOneDetails)}`);
+    assert(String(chapterOneDetails.issue_number || '') === '1', `Expected Kavita chapter #1 issue number, got ${JSON.stringify(chapterOneDetails)}`);
+    assert(String(chapterOneDetails.volume || '') === '1-2', `Expected Kavita chapter #1 volume number, got ${JSON.stringify(chapterOneDetails)}`);
+    assert(String(chapterOneDetails.cover_date || '') === '2023-03-04', `Expected Kavita chapter #1 cover date, got ${JSON.stringify(chapterOneDetails)}`);
+    assert(dateReadbackStartsWith(chapterOne.release_date, '2023-03-04'), `Expected Kavita chapter #1 release date, got ${JSON.stringify(chapterOne)}`);
+    assert(String(chapterOneDetails.kavita_chapter_pages || '') === '24', `Expected Kavita chapter #1 pages, got ${JSON.stringify(chapterOneDetails)}`);
+    assert(String(chapterOne.poster_path || '') === '/api/media/kavita-cover/8602', `Expected Kavita chapter #1 poster proxy, got ${JSON.stringify(chapterOne)}`);
+    assert(String(chapterOneDetails.kavita_launch_url || '') === `${fake.baseUrl}/library/87/series/8602/manga/9702`, `Expected Kavita chapter #1 launch URL, got ${JSON.stringify(chapterOneDetails)}`);
+    assert(String(chapterOneDetails.kavita_launch_target || '') === 'chapter_reader', `Expected Kavita chapter #1 launch target, got ${JSON.stringify(chapterOneDetails)}`);
+    assert(String(chapterTwoDetails.provider_item_id || '') === COMIC_CHAPTER_TWO_PROVIDER_ITEM_ID, `Expected Kavita chapter #2 provider item id, got ${JSON.stringify(chapterTwoDetails)}`);
+    assert(String(chapterTwoDetails.issue_number || '') === '2', `Expected Kavita chapter #2 issue number, got ${JSON.stringify(chapterTwoDetails)}`);
+    assert(dateReadbackStartsWith(chapterTwo.release_date, '2023-04-05'), `Expected Kavita chapter #2 release date, got ${JSON.stringify(chapterTwo)}`);
+    assert(String(chapterTwoDetails.writer || '') === 'Existing Comic Writer', `Expected fan-out to preserve existing non-Kavita comic issue metadata, got ${JSON.stringify(chapterTwoDetails)}`);
+    assert(!String(chapterOneDetails.kavita_launch_url || '').includes(KAVITA_SMOKE_KEY), `Kavita chapter launch URL must not include API keys, got ${JSON.stringify(chapterOneDetails)}`);
+    assert(!String(chapterOneDetails.kavita_launch_url || '').includes(KAVITA_SMOKE_BEARER), `Kavita chapter launch URL must not include bearer tokens, got ${JSON.stringify(chapterOneDetails)}`);
     const coverReadback = await client.requestRaw('/api/media/kavita-cover/8602', { expectStatus: 200 });
     assert(String(coverReadback.headers.get('content-type') || '').startsWith('image/png'), `Expected Kavita proxied cover content type, got ${coverReadback.headers.get('content-type')}`);
     assert(coverReadback.body.length > 0, 'Expected Kavita proxied cover body');
@@ -465,14 +576,25 @@ async function main() {
       firstUpdated: firstSummary.updated,
       secondCreated: secondSummary.created,
       secondUpdated: secondSummary.updated,
+      fanoutCreated: fanoutSummary.created,
+      fanoutUpdated: fanoutSummary.updated,
+      repeatFanoutCreated: repeatFanoutSummary.created,
+      repeatFanoutUpdated: repeatFanoutSummary.updated,
       canonicalBookRows: bookRows.length,
       canonicalComicRows: comicRows.length,
+      comicChapterRows: comicChapterOneRows.length + comicChapterTwoRows.length,
+      fanoutRows: fanoutSummary.chapterFanoutRows,
+      bookFanoutRows: bookChapterRows.length,
+      specialFanoutRows: specialChapterRows.length,
       reusedExistingNonKavitaTitle: true,
+      reusedExistingNonKavitaIssue: true,
       comicClassifiedFromLibraryType: canonicalComic.media_type === 'comic_book',
       volumeDetailsFetched: firstSummary.volumeDetailsFetched,
       comicIssueNumber: canonicalComicDetails.issue_number,
+      comicChapterIssueNumbers: [chapterOneDetails.issue_number, chapterTwoDetails.issue_number],
       bookLaunchUrl: canonicalBookDetails.kavita_launch_url,
       comicLaunchUrl: canonicalComicDetails.kavita_launch_url,
+      comicChapterLaunchUrl: chapterOneDetails.kavita_launch_url,
       comicCoverProxyUrl: canonicalComicDetails.kavita_cover_proxy_url,
       coverProxyContentType: coverReadback.headers.get('content-type'),
       secretReturned: false

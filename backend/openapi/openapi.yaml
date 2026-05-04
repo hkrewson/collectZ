@@ -8109,8 +8109,38 @@
             "in": "query",
             "required": false,
             "schema": { "type": "integer", "minimum": 1, "maximum": 500 }
+          },
+          {
+            "name": "chapterFanout",
+            "in": "query",
+            "required": false,
+            "description": "Opt in to importing eligible Kavita comic/manga chapters as individual comic issue rows. Defaults to false and keeps the series-level import intact.",
+            "schema": { "type": "boolean" }
           }
         ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "properties": {
+                  "maxPages": { "type": "integer", "minimum": 1, "maximum": 100 },
+                  "pageSize": { "type": "integer", "minimum": 1, "maximum": 500 },
+                  "chapterFanout": {
+                    "type": "boolean",
+                    "description": "Opt in to eligible comic/manga chapter-as-issue fan-out. Default imports remain series-level only."
+                  },
+                  "includeChapterIssues": {
+                    "type": "boolean",
+                    "description": "Alias for chapterFanout."
+                  }
+                }
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Import completed synchronously",

@@ -1,10 +1,10 @@
 # Kavita Chapter-as-Issue Fan-out Contract
 
-`3.4.92` defines how collectZ should eventually import selected Kavita comic/manga chapters as individual `comic_book` rows. This is a contract and smoke-plan slice, not the fan-out implementation. Series-level Kavita imports remain the default behavior.
+`3.4.92` defines how collectZ should eventually import selected Kavita comic/manga chapters as individual `comic_book` rows. `3.4.93` implements the first opt-in import behavior. Series-level Kavita imports remain the default behavior.
 
 ## Recommendation
 
-Chapter fan-out should be opt-in and comic-only. The first implementation should create chapter/issue rows only when the caller explicitly asks for fan-out, such as a future import option or narrowly scoped admin control.
+Chapter fan-out is opt-in and comic-only. The implementation creates chapter/issue rows only when the caller explicitly asks for fan-out through `chapterFanout=true` or the admin Kavita import checkbox.
 
 Do not auto-expand every Kavita series into issues by default. Kavita libraries often include manga volumes, omnibus files, specials, and book-like archives where a chapter row is not the right collectZ object.
 
@@ -30,7 +30,7 @@ The provider identity must be the strongest repeat-sync key. A chapter row must 
 
 ## Fan-out Eligibility
 
-The first fan-out implementation should include a Kavita chapter only when all of these are true:
+The fan-out implementation includes a Kavita chapter only when all of these are true:
 
 - The parent library resolves to collectZ `comic_book` through Kavita library type `comic` or `manga`.
 - The parent series has volume/chapter detail loaded from `/api/Series/volumes`.
@@ -61,7 +61,7 @@ The parent series row can remain useful as a series/collection-level record. Fan
 
 Repeat sync must first match by `provider_name = kavita` plus `provider_item_id = kavita:chapter:{chapterId}`. If a matching row exists, update only missing or Kavita-owned fields and preserve local user edits.
 
-When no provider match exists, the first implementation should be conservative about attaching to an existing non-Kavita comic row. It may reuse an existing local row only when existing duplicate guardrails consider the match high-confidence for the same comic issue. Otherwise it should create a new Kavita-backed row or queue the match for review, depending on the import surface available at that milestone.
+When no provider match exists, the implementation is conservative about attaching to an existing non-Kavita comic row. It may reuse an existing local row only when existing duplicate guardrails consider the match high-confidence for the same comic issue. Otherwise it creates a new Kavita-backed row or queues the match for review through the existing import diagnostics.
 
 Never overwrite these local fields from fan-out data without an explicit merge/write policy:
 
@@ -74,7 +74,7 @@ Never overwrite these local fields from fan-out data without an explicit merge/w
 
 ## Smoke Plan
 
-The implementation milestone should extend the fake Kavita import smoke with a comic/manga library containing one series and multiple chapters.
+The implementation milestone extends the fake Kavita import smoke with a comic/manga library containing one series and multiple chapters.
 
 The smoke should prove:
 
@@ -90,4 +90,4 @@ The smoke should prove:
 
 ## Non-goals
 
-This contract does not implement chapter fan-out yet. It also does not add embedded reading, reader page proxying, progress sync, metadata writeback, per-space Kavita administration, or a shared provider abstraction.
+This contract and implementation do not add embedded reading, reader page proxying, progress sync, metadata writeback, per-space Kavita administration, or a shared provider abstraction.

@@ -49,7 +49,8 @@ These tasks are intentionally ordered so quick hygiene work does not get buried 
 31. The Kavita import/sync foundation, metadata mapping, and volume/chapter enrichment slices were promoted as `3.4.86`, `3.4.87`, and `3.4.88`; keep reader launch/progress discovery, metadata writeback, chapter-as-issue row fan-out, per-space Kavita administration, and shared provider abstractions as versionless backlog tasks until selected.
 32. `Kavita External Reader Launch Contract` was promoted as `3.4.89`; keep embedded iframe reading, page streaming, reading progress sync, metadata writeback, and per-space Kavita administration separate.
 33. `Kavita Reader and Progress Contract Discovery` was promoted as `3.4.91`; keep embedded iframe reading, page streaming, reading progress writeback, and per-space Kavita administration as separate backlog tasks until selected.
-34. `Kavita Chapter-as-Issue Row Fan-out` was promoted as `3.4.92`; keep implementation, embedded reading, progress sync, metadata writeback, per-space Kavita administration, and shared provider abstractions separate until selected.
+34. `Kavita Chapter-as-Issue Row Fan-out` was promoted as `3.4.92`; keep embedded reading, progress sync, metadata writeback, per-space Kavita administration, and shared provider abstractions separate until selected.
+35. `Kavita Chapter-as-Issue Row Fan-out Implementation` was promoted as `3.4.93`; keep embedded reading, progress sync, metadata writeback, per-space Kavita administration, and shared provider abstractions separate.
 
 ### Backlog Item: Kavita Reader and Progress Contract Discovery
 
@@ -77,7 +78,7 @@ Promoted as `3.4.91`; keep embedded iframe reading, page streaming, reading prog
 
 ### Backlog Item: Kavita Chapter-as-Issue Row Fan-out
 
-Promoted as `3.4.92`; keep implementation, embedded reading, progress sync, metadata writeback, per-space Kavita administration, and shared provider abstractions separate until selected.
+Promoted as `3.4.92`; the first opt-in implementation was promoted as `3.4.93`. Keep embedded reading, progress sync, metadata writeback, per-space Kavita administration, and shared provider abstractions separate until selected.
 
 ### Backlog Item: Kavita Cover Art Source Hardening
 

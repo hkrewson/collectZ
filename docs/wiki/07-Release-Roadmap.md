@@ -8814,6 +8814,46 @@ Historical note:
 - What remains in the milestone: no open `3.4.92` work remains.
 - Recommended commit message: `Release 3.4.92 Kavita chapter-as-issue row fan-out contract`.
 
+## 3.4.93 — Kavita Chapter-as-Issue Row Fan-out Implementation
+
+**Goal:** Actually add the opt-in import behavior defined in `3.4.92`, while preserving default series-level Kavita imports and keeping the integration read-only.
+
+**Current Slice:** `Closed 2026-05-04`
+
+### Scope
+
+- Add a default-off `chapterFanout` option to Kavita import.
+- Fan out eligible comic/manga Kavita chapters into individual `comic_book` rows.
+- Keep series rows as `provider_item_id = kavita:series:{seriesId}` and chapter rows as `provider_item_id = kavita:chapter:{chapterId}`.
+- Preserve the parent series row and link chapter rows back to it through Kavita provider metadata.
+- Skip book libraries, unknown library types, and special chapters.
+- Keep native Kavita launch URLs secret-free and do not call reader/progress endpoints.
+- Extend the Kavita import smoke to prove default behavior, opt-in issue creation, repeat-sync idempotency, book exclusion, special-chapter skipping, cover proxy behavior, and credential-free URLs.
+- Keep embedded reading, page proxying, progress sync, metadata writeback, per-space Kavita administration, and shared provider abstractions out of this slice.
+
+### Acceptance Criteria
+
+- Default Kavita import still creates only the canonical series-level rows.
+- Opt-in fan-out creates comic chapter issue rows with `provider_item_id` and `provider_issue_id` set to `kavita:chapter:{chapterId}`.
+- Repeat opt-in fan-out sync creates no duplicate issue rows.
+- Book libraries do not fan out into comic issue rows.
+- Special chapters are skipped unless a later explicit option is added.
+- The admin Kavita import surface exposes the opt-in behavior without making it default.
+- Version metadata and Help > Releases are aligned to `3.4.93`.
+
+### Closeout Notes
+
+- Roadmap slice: `3.4.93 — Kavita Chapter-as-Issue Row Fan-out Implementation`.
+- Project docs/checklists used: `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/41-Kavita-Integration-Setup.md`, and `docs/wiki/43-Kavita-Chapter-Issue-Fanout-Contract.md`.
+- Runtime verification used: rebuilt Docker platform stack at `3.4.93`, `/api/health`, `/api/auth/config`, in-stack Help > Releases smoke, Kavita connection smoke, Kavita import/sync smoke proving default series-level import plus opt-in chapter fan-out, isolated generated-compose homelab boundary stack, restored platform stack health, and live DB `events_enabled=true` readback before and after evidence/tooling.
+- CI/checks run locally: source syntax checks for touched backend scripts/services/routes; container backend unit/source assertions (`241` passed); container OpenAPI validation; container `test:kavita-connection-smoke`; container `test:kavita-import-sync-smoke`; container `test:help-releases-smoke` with `EXPECTED_RELEASE_VERSION=v3.4.93`; container `test:init-parity`; container `test:migration-rehearsal`; container `test:rbac-regression`; container `test:platform-edition-boundary`; isolated generated-compose `test:homelab-edition-boundary`; API integration smoke; full browser regression (`58` passed, `4` skipped); `npm run validate:public-export`; `npm run compose:generate`; local release preflight; Docker Node 20 backend/frontend dependency audits; observability release evidence; release-artifact secret-pattern scan; and `git diff --check`.
+- Version closeout: `app-meta.json`, backend/frontend app metadata, backend/frontend package metadata, `docker-compose.yml`, `docs/releases/v3.4.93.md`, and `backend/release-feed.json` are aligned to `3.4.93`.
+- Release gate accounting: `compose-smoke` was locally covered by rebuilt stack health, `/api/health`, `/api/auth/config`, and compose generation; `rbac-regression`, `browser-regression`, `homelab-edition-boundary`, `platform-edition-boundary`, and Docker Node 20 dependency audit passed locally; `secret-scan` and `image-security-and-sbom` remain CI-only locally because `gitleaks`, `trivy`, and SBOM tooling were not installed in the local shell.
+- Verified facts: default Kavita import still creates only series-level rows; opt-in `chapterFanout` creates comic chapter rows keyed as `kavita:chapter:{chapterId}` without duplicating repeat sync; an existing local comic issue can be reused by high-confidence series/volume/issue normalization after provider-id lookup fails; book libraries and special chapters do not fan out; launch and cover proxy URLs remain credential-free; no reader/progress endpoints were added.
+- Risks/follow-ups: embedded reading, reader page proxying, progress sync, metadata writeback, per-space Kavita administration, shared Calibre/CWA/Kavita provider abstractions, and optional special-chapter import remain future work.
+- What remains in the milestone: no open `3.4.93` work remains.
+- Recommended commit message: `Release 3.4.93 Kavita chapter-as-issue row fan-out implementation`.
+
 ## 2.4.3 — Drawer-First Editing Compactness Experiment (Rollback-Safe)
 
 **Goal:** Run a contained UI experiment to unify detail/edit into slide-over drawers, reduce field sprawl, and validate usability before broader UI refactors.

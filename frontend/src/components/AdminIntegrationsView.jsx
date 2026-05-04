@@ -245,6 +245,7 @@ export default function AdminIntegrationsView({
   const [saving, setSaving] = useState(false);
   const [importingPlex, setImportingPlex] = useState(false);
   const [importingKavita, setImportingKavita] = useState(false);
+  const [kavitaChapterFanout, setKavitaChapterFanout] = useState(false);
   const [plexAvailableSections, setPlexAvailableSections] = useState([]);
   const [featureFlags, setFeatureFlags] = useState([]);
   const [featureFlagsLoading, setFeatureFlagsLoading] = useState(true);
@@ -648,7 +649,7 @@ export default function AdminIntegrationsView({
   const runKavitaImport = async () => {
     setImportingKavita(true);
     try {
-      const enqueue = await apiCall('post', '/media/import-kavita?async=true', {});
+      const enqueue = await apiCall('post', '/media/import-kavita?async=true', { chapterFanout: kavitaChapterFanout });
       const jobId = enqueue?.job?.id;
       if (!jobId) throw new Error('Missing import job id');
       onQueueJob?.({
@@ -1189,6 +1190,9 @@ export default function AdminIntegrationsView({
           </div>
           <CheckboxControl id="clear-kavita-api-key" checked={form.clearKavitaApiKey} onChange={(e) => setForm((f) => ({ ...f, clearKavitaApiKey: e.target.checked }))}>
             Clear saved API key
+          </CheckboxControl>
+          <CheckboxControl id="kavita-chapter-fanout" checked={kavitaChapterFanout} onChange={(e) => setKavitaChapterFanout(e.target.checked)}>
+            Import comic chapters as issue rows
           </CheckboxControl>
           {form.kavitaBaseUrl && (
             <a className="btn-secondary btn-sm inline-flex w-fit" href={form.kavitaBaseUrl} target="_blank" rel="noreferrer">
